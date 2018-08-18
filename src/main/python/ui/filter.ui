@@ -1,0 +1,278 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>editFilterDialog</class>
+ <widget class="QDialog" name="editFilterDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>400</width>
+    <height>300</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Create Filter</string>
+  </property>
+  <layout class="QFormLayout" name="formLayout">
+   <item row="1" column="1">
+    <widget class="QComboBox" name="filterType">
+     <item>
+      <property name="text">
+       <string>Low Shelf</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>High Shelf</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>Peak</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>Variable Q LPF</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>Variable Q HPF</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>Low Pass</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>High Pass</string>
+      </property>
+     </item>
+    </widget>
+   </item>
+   <item row="2" column="1">
+    <widget class="QComboBox" name="passFilterType">
+     <property name="enabled">
+      <bool>false</bool>
+     </property>
+     <item>
+      <property name="text">
+       <string>Butterworth</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>Linkwitz-Riley</string>
+      </property>
+     </item>
+    </widget>
+   </item>
+   <item row="3" column="1">
+    <widget class="QSpinBox" name="filterOrder">
+     <property name="enabled">
+      <bool>false</bool>
+     </property>
+     <property name="minimum">
+      <number>1</number>
+     </property>
+     <property name="maximum">
+      <number>24</number>
+     </property>
+     <property name="value">
+      <number>2</number>
+     </property>
+    </widget>
+   </item>
+   <item row="7" column="1">
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Close|QDialogButtonBox::Save</set>
+     </property>
+    </widget>
+   </item>
+   <item row="4" column="1">
+    <widget class="QDoubleSpinBox" name="freq">
+     <property name="decimals">
+      <number>1</number>
+     </property>
+     <property name="minimum">
+      <double>1.000000000000000</double>
+     </property>
+     <property name="maximum">
+      <double>500.000000000000000</double>
+     </property>
+     <property name="singleStep">
+      <double>0.100000000000000</double>
+     </property>
+     <property name="value">
+      <double>40.000000000000000</double>
+     </property>
+    </widget>
+   </item>
+   <item row="5" column="1">
+    <widget class="QDoubleSpinBox" name="filterQ">
+     <property name="decimals">
+      <number>3</number>
+     </property>
+     <property name="minimum">
+      <double>0.001000000000000</double>
+     </property>
+     <property name="maximum">
+      <double>20.000000000000000</double>
+     </property>
+     <property name="singleStep">
+      <double>0.001000000000000</double>
+     </property>
+     <property name="value">
+      <double>0.707000000000000</double>
+     </property>
+    </widget>
+   </item>
+   <item row="6" column="1">
+    <widget class="QDoubleSpinBox" name="filterGain">
+     <property name="decimals">
+      <number>1</number>
+     </property>
+     <property name="minimum">
+      <double>-30.000000000000000</double>
+     </property>
+     <property name="maximum">
+      <double>30.000000000000000</double>
+     </property>
+     <property name="singleStep">
+      <double>0.100000000000000</double>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="0">
+    <widget class="QLabel" name="label">
+     <property name="text">
+      <string>Type</string>
+     </property>
+    </widget>
+   </item>
+   <item row="3" column="0">
+    <widget class="QLabel" name="label_5">
+     <property name="text">
+      <string>Order</string>
+     </property>
+    </widget>
+   </item>
+   <item row="4" column="0">
+    <widget class="QLabel" name="label_2">
+     <property name="text">
+      <string>Freq</string>
+     </property>
+    </widget>
+   </item>
+   <item row="5" column="0">
+    <widget class="QLabel" name="label_3">
+     <property name="text">
+      <string>Q</string>
+     </property>
+    </widget>
+   </item>
+   <item row="6" column="0">
+    <widget class="QLabel" name="label_4">
+     <property name="text">
+      <string>Gain (dB)</string>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>accepted()</signal>
+   <receiver>editFilterDialog</receiver>
+   <slot>accept()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>248</x>
+     <y>254</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>157</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>rejected()</signal>
+   <receiver>editFilterDialog</receiver>
+   <slot>reject()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>375</x>
+     <y>246</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>286</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>filterType</sender>
+   <signal>currentTextChanged(QString)</signal>
+   <receiver>editFilterDialog</receiver>
+   <slot>enableFilterParams()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>130</x>
+     <y>35</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>53</x>
+     <y>55</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>passFilterType</sender>
+   <signal>currentTextChanged(QString)</signal>
+   <receiver>editFilterDialog</receiver>
+   <slot>changeOrderStep()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>102</x>
+     <y>67</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>70</x>
+     <y>73</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>filterGain</sender>
+   <signal>valueChanged(double)</signal>
+   <receiver>editFilterDialog</receiver>
+   <slot>enableOkIfGainIsValid()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>114</x>
+     <y>206</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>16</x>
+     <y>225</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+ <slots>
+  <slot>enableFilterParams()</slot>
+  <slot>changeOrderStep()</slot>
+  <slot>enableOkIfGainIsValid()</slot>
+ </slots>
+</ui>

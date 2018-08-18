@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1477</width>
+    <width>1446</width>
     <height>981</height>
    </rect>
   </property>
@@ -14,161 +14,99 @@
    <string>BEQ Designer</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <layout class="QGridLayout" name="gridLayout_2">
+   <layout class="QGridLayout" name="widgetGridLayout">
     <item row="0" column="0">
-     <layout class="QGridLayout" name="gridLayout">
-      <item row="2" column="0" colspan="4">
-       <widget class="MplWidget" name="filterChart"/>
-      </item>
-      <item row="2" column="4" colspan="5">
-       <widget class="QTableView" name="filterView"/>
-      </item>
-      <item row="0" column="0">
-       <widget class="QLineEdit" name="inputFile"/>
-      </item>
-      <item row="1" column="0">
-       <spacer name="horizontalSpacer">
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>40</width>
-          <height>20</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
-      <item row="1" column="1">
-       <widget class="QTimeEdit" name="startTime">
-        <property name="displayFormat">
-         <string>HH:mm:ss.zzz</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="2">
-       <widget class="QTimeEdit" name="endTime">
-        <property name="displayFormat">
-         <string>HH:mm:ss.zzz</string>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="1">
-       <widget class="QPushButton" name="loadFileButton">
-        <property name="text">
-         <string>Load</string>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="4">
-       <widget class="QComboBox" name="filterType">
-        <item>
-         <property name="text">
-          <string>Low Shelf</string>
-         </property>
+     <layout class="QHBoxLayout" name="panes" stretch="4,1">
+      <property name="spacing">
+       <number>9</number>
+      </property>
+      <item>
+       <layout class="QGridLayout" name="leftPane">
+        <item row="1" column="1">
+         <widget class="QPushButton" name="loadFileButton">
+          <property name="text">
+           <string>Load</string>
+          </property>
+         </widget>
         </item>
-        <item>
-         <property name="text">
-          <string>High Shelf</string>
-         </property>
+        <item row="1" column="0">
+         <widget class="QLineEdit" name="inputFile"/>
         </item>
-        <item>
-         <property name="text">
-          <string>Peak</string>
-         </property>
+        <item row="1" column="2">
+         <widget class="QPushButton" name="updateChart">
+          <property name="text">
+           <string>Update</string>
+          </property>
+         </widget>
         </item>
-        <item>
-         <property name="text">
-          <string>Low Pass</string>
-         </property>
+        <item row="3" column="1">
+         <widget class="QTimeEdit" name="startTime">
+          <property name="displayFormat">
+           <string>HH:mm:ss.zzz</string>
+          </property>
+         </widget>
         </item>
-        <item>
-         <property name="text">
-          <string>High Pass</string>
-         </property>
+        <item row="3" column="2">
+         <widget class="QTimeEdit" name="endTime">
+          <property name="displayFormat">
+           <string>HH:mm:ss.zzz</string>
+          </property>
+         </widget>
         </item>
-       </widget>
+        <item row="4" column="0" colspan="3">
+         <widget class="MplWidget" name="filterChart"/>
+        </item>
+        <item row="3" column="0">
+         <widget class="QCheckBox" name="showIndividualFilters">
+          <property name="text">
+           <string>Show Individual Filters</string>
+          </property>
+          <property name="checked">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+       </layout>
       </item>
-      <item row="0" column="5">
-       <widget class="QDoubleSpinBox" name="freq">
-        <property name="decimals">
-         <number>1</number>
-        </property>
-        <property name="minimum">
-         <double>1.000000000000000</double>
-        </property>
-        <property name="maximum">
-         <double>500.000000000000000</double>
-        </property>
-        <property name="singleStep">
-         <double>0.100000000000000</double>
-        </property>
-        <property name="value">
-         <double>40.000000000000000</double>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="6">
-       <widget class="QDoubleSpinBox" name="filterQ">
-        <property name="decimals">
-         <number>3</number>
-        </property>
-        <property name="minimum">
-         <double>0.001000000000000</double>
-        </property>
-        <property name="maximum">
-         <double>20.000000000000000</double>
-        </property>
-        <property name="singleStep">
-         <double>0.001000000000000</double>
-        </property>
-        <property name="value">
-         <double>0.707000000000000</double>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="7">
-       <widget class="QDoubleSpinBox" name="filterGain">
-        <property name="decimals">
-         <number>1</number>
-        </property>
-        <property name="minimum">
-         <double>-30.000000000000000</double>
-        </property>
-        <property name="maximum">
-         <double>30.000000000000000</double>
-        </property>
-        <property name="singleStep">
-         <double>0.100000000000000</double>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="7">
-       <widget class="QPushButton" name="deleteSelected">
-        <property name="enabled">
-         <bool>false</bool>
-        </property>
-        <property name="text">
-         <string>Delete</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="6">
-       <widget class="QPushButton" name="addFilterButton">
-        <property name="enabled">
-         <bool>false</bool>
-        </property>
-        <property name="text">
-         <string>Add</string>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="2">
-       <widget class="QPushButton" name="updateChart">
-        <property name="text">
-         <string>Update</string>
-        </property>
-       </widget>
+      <item>
+       <layout class="QGridLayout" name="rightPane">
+        <item row="1" column="0" colspan="3">
+         <widget class="QTableView" name="filterView"/>
+        </item>
+        <item row="0" column="2">
+         <widget class="QPushButton" name="deleteSelected">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="text">
+           <string>Delete</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="0">
+         <widget class="QPushButton" name="addFilterButton">
+          <property name="enabled">
+           <bool>true</bool>
+          </property>
+          <property name="text">
+           <string>Add</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="QPushButton" name="editFilterButton">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="text">
+           <string>Edit</string>
+          </property>
+          <property name="flat">
+           <bool>false</bool>
+          </property>
+         </widget>
+        </item>
+       </layout>
       </item>
      </layout>
     </item>
@@ -179,7 +117,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1477</width>
+     <width>1446</width>
      <height>31</height>
     </rect>
    </property>
@@ -217,28 +155,12 @@
    <slot>addFilter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1294</x>
-     <y>104</y>
+     <x>1188</x>
+     <y>79</y>
     </hint>
     <hint type="destinationlabel">
      <x>1381</x>
      <y>52</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>filterType</sender>
-   <signal>currentTextChanged(QString)</signal>
-   <receiver>MainWindow</receiver>
-   <slot>filterTypeChanged()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>1085</x>
-     <y>60</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>1082</x>
-     <y>42</y>
     </hint>
    </hints>
   </connection>
@@ -249,76 +171,12 @@
    <slot>deleteFilter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1410</x>
-     <y>105</y>
+     <x>1430</x>
+     <y>79</y>
     </hint>
     <hint type="destinationlabel">
      <x>1462</x>
      <y>101</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>freq</sender>
-   <signal>valueChanged(double)</signal>
-   <receiver>MainWindow</receiver>
-   <slot>enableAddIfValid()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>1187</x>
-     <y>62</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>1218</x>
-     <y>37</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>filterQ</sender>
-   <signal>valueChanged(double)</signal>
-   <receiver>MainWindow</receiver>
-   <slot>enableAddIfValid()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>1254</x>
-     <y>68</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>1150</x>
-     <y>103</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>filterGain</sender>
-   <signal>valueChanged(double)</signal>
-   <receiver>MainWindow</receiver>
-   <slot>enableAddIfValid()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>1361</x>
-     <y>61</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>1212</x>
-     <y>79</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>filterType</sender>
-   <signal>currentTextChanged(QString)</signal>
-   <receiver>MainWindow</receiver>
-   <slot>enableAddIfValid()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>1119</x>
-     <y>54</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>1122</x>
-     <y>34</y>
     </hint>
    </hints>
   </connection>
@@ -329,12 +187,44 @@
    <slot>display()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>916</x>
-     <y>64</y>
+     <x>1065</x>
+     <y>79</y>
     </hint>
     <hint type="destinationlabel">
      <x>697</x>
      <y>84</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>showIndividualFilters</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>changeVisibilityOfIndividualFilters()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>128</x>
+     <y>114</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>6</x>
+     <y>834</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>editFilterButton</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>editFilter()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1266</x>
+     <y>66</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1302</x>
+     <y>37</y>
     </hint>
    </hints>
   </connection>
@@ -345,5 +235,7 @@
   <slot>deleteFilter()</slot>
   <slot>enableAddIfValid()</slot>
   <slot>display()</slot>
+  <slot>changeVisibilityOfIndividualFilters()</slot>
+  <slot>editFilter()</slot>
  </slots>
 </ui>
