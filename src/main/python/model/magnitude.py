@@ -1,9 +1,12 @@
+import logging
 from math import log10
 
 import numpy as np
 from matplotlib.ticker import EngFormatter, Formatter, NullFormatter
 
 from model.filter import COMBINED
+
+logger = logging.getLogger('magnitude')
 
 
 def calculate_dBFS_Scales(data, maxRange=60):
@@ -15,9 +18,11 @@ def calculate_dBFS_Scales(data, maxRange=60):
     '''
     vmax = np.math.ceil(np.nanmax(data))
     # coerce max to a round value
-    multiple = 5 if maxRange <= 30 else 10
+    multiple = 5 if maxRange <= 40 else 10
     if vmax % multiple != 0:
         vmax = (vmax - vmax % multiple) + multiple
+    else:
+        vmax += multiple
     return vmax, vmax - maxRange
 
 
@@ -50,36 +55,53 @@ class MagnitudeModel:
         self.__filterModel = filterModel
         self.__curves = {}
         self.__dBRange = 40
-        self._update_y_lim(np.zeros(1))
-        self.__axes.set_xlim(left=2, right=500)
-        self.configureFreqAxisFormatting()
+        self.__update_y_lim(np.zeros(1))
+        self.__axes.set_xlim(left=2, right=250)
+        self.__axes.set_ylabel('dBFS')
+        self.__axes.set_xlabel('Hz')
+        self.__legend = None
+        self.__legend_cid = None
+        self.__configureFreqAxisFormatting()
         self.__axes.grid(linestyle='-', which='major', linewidth=1, alpha=0.5)
         self.__axes.grid(linestyle='--', which='minor', linewidth=1, alpha=0.5)
 
     def __repr__(self):
         return 'filter'
 
-    def display(self):
+    def display(self, showIndividualFilters):
         '''
         Updates the contents of the magnitude chart
         '''
-        data = self.__filterModel.getMagnitudeData()
+        data = self.__filterModel.getMagnitudeData(showIndividualFilters)
         for idx, x in enumerate(data):
             if x.name == COMBINED:
                 colour = 'k'
             else:
                 colour = self.__chart.getColour(idx, len(data))
-            self._create_or_update_curve(x, colour)
-        self._update_y_lim(np.concatenate([x.y for x in data]))
-        self.makeClickableLegend()
+            self.__create_or_update_curve(x, colour)
+        if len(data) > 0:
+            self.__update_y_lim(np.concatenate([x.y for x in data]))
+        self.__makeClickableLegend()
         self.__chart.canvas.draw()
 
-    def _update_y_lim(self, data):
-        self.configureFreqAxisFormatting()
+    def removeIndividualFilters(self):
+        '''
+        Deletes the individual filters from the chart.
+        :return:
+        '''
+        for k, v in self.__curves.items():
+            if k != COMBINED:
+                v.remove()
+        self.__curves = {k: v for k, v in self.__curves.items() if k == COMBINED}
+        self.__makeClickableLegend()
+        self.__chart.canvas.draw()
+
+    def __update_y_lim(self, data):
+        self.__configureFreqAxisFormatting()
         ymax, ymin = calculate_dBFS_Scales(data, maxRange=self.__dBRange)
         self.__axes.set_ylim(bottom=ymin, top=ymax)
 
-    def _create_or_update_curve(self, data, colour):
+    def __create_or_update_curve(self, data, colour):
         curve = self.__curves.get(data.name, None)
         if curve:
             curve.set_data(data.x, data.y)
@@ -91,35 +113,42 @@ class MagnitudeModel:
                                                             color=colour,
                                                             label=data.name)[0]
 
-    def configureFreqAxisFormatting(self):
+    def __configureFreqAxisFormatting(self):
         hzFormatter = EngFormatter(places=0)
         self.__axes.get_xaxis().set_major_formatter(hzFormatter)
         self.__axes.get_xaxis().set_minor_formatter(PrintFirstHalfFormatter(hzFormatter))
 
-    def makeClickableLegend(self):
+    def __makeClickableLegend(self):
         '''
         Add a legend that allows you to make a line visible or invisible by clicking on it.
         ripped from https://matplotlib.org/2.0.0/examples/event_handling/legend_picking.html
         and https://stackoverflow.com/questions/4700614/how-to-put-the-legend-out-of-the-plot
         '''
+        if self.__legend is not None:
+            self.__legend.remove()
+        if self.__legend_cid is not None:
+            self.__chart.canvas.mpl_disconnect(self.__legend_cid)
+
         lines = self.__curves.values()
-        legend = self.__axes.legend(lines, [l.get_label() for l in lines], loc=8, fancybox=True, shadow=True)
-        lined = dict()
-        for legline, origline in zip(legend.get_lines(), lines):
-            legline.set_picker(5)  # 5 pts tolerance
-            lined[legline] = origline
+        if len(lines) > 0:
+            ncol = int(len(lines)/3) if len(lines) % 3 == 0 else int(len(lines)/3)+1
+            self.__legend = self.__axes.legend(lines, [l.get_label() for l in lines], loc=3, ncol=ncol, fancybox=True, shadow=True)
+            lined = dict()
+            for legline, origline in zip(self.__legend.get_lines(), lines):
+                legline.set_picker(5)  # 5 pts tolerance
+                lined[legline] = origline
 
-        def onpick(event):
-            # on the pick event, find the orig line corresponding to the legend proxy line, and toggle the visibility
-            legline = event.artist
-            origline = lined[legline]
-            vis = not origline.get_visible()
-            origline.set_visible(vis)
-            # Change the alpha on the line in the legend so we can see what lines have been toggled
-            if vis:
-                legline.set_alpha(1.0)
-            else:
-                legline.set_alpha(0.2)
-            self.__chart.canvas.draw()
+            def onpick(event):
+                # on the pick event, find the orig line corresponding to the legend proxy line, and toggle the visibility
+                legline = event.artist
+                origline = lined[legline]
+                vis = not origline.get_visible()
+                origline.set_visible(vis)
+                # Change the alpha on the line in the legend so we can see what lines have been toggled
+                if vis:
+                    legline.set_alpha(1.0)
+                else:
+                    legline.set_alpha(0.2)
+                self.__chart.canvas.draw()
 
-        self.__chart.canvas.mpl_connect('pick_event', onpick)
+            self.__legend_cid = self.__chart.canvas.mpl_connect('pick_event', onpick)

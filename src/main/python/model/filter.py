@@ -1,41 +1,16 @@
+import logging
+import time
 import typing
 from collections import Sequence
+from functools import reduce
 
-import numpy as np
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt
-from scipy import signal
-from yodel.filter import Biquad
+
+from model.iir import ComplexData, ComplexFilter
 
 COMBINED = 'Combined'
 
-
-class Filter:
-    def __init__(self, idx, fs, type, freq, q, gain=0.0):
-        self.idx = idx
-        self.type = type
-        self.fs = fs
-        self.freq = freq
-        self.q = q
-        self.gain = gain
-        self.biquad = Biquad()
-        if type == 'Low Shelf':
-            self.biquad.low_shelf(fs, freq, q, gain)
-        elif type == 'High Shelf':
-            self.biquad.high_shelf(fs, freq, q, gain)
-        elif type == 'Peak':
-            self.biquad.peak(fs, freq, q, gain)
-        elif type == 'Low Pass':
-            self.biquad.low_pass(fs, freq, q)
-        elif type == 'High Pass':
-            self.biquad.high_pass(fs, freq, q)
-        else:
-            raise ValueError("Unknown filter type " + type)
-
-    def __repr__(self):
-        repr = f"Filter {self.idx}: {self.type} - {self.freq}/{self.q}"
-        if self.gain != 0.0:
-            repr += f"/{self.gain}dB"
-        return repr
+logger = logging.getLogger('filter')
 
 
 class FilterModel(Sequence):
@@ -44,31 +19,30 @@ class FilterModel(Sequence):
     '''
 
     def __init__(self, view):
-        self.__filters = []
+        self.__filter = ComplexFilter()
         self.__view = view
         self.table = None
 
     def __getitem__(self, i):
-        return self.__filters[i]
+        return self.__filter[i]
 
     def __len__(self):
-        return len(self.__filters)
+        return len(self.__filter)
 
-    def add(self, fs, type, freq, q, gain=0.0):
+    def add(self, filter):
         '''
         Stores a new filter.
-        :param fs: the sample rate.
-        :param type: the filter type.
-        :param freq: the filter centre frequency in Hz.
-        :param q: the q of the filter.
-        :param gain: the filter gain in dB (if any).
+        :param filter: the filter.
         '''
         if self.table is not None:
             self.table.beginResetModel()
-        self.__filters.append(Filter(len(self.__filters), fs, type, freq, q, gain))
+        self.__filter.add(filter)
         self.table.resizeColumns(self.__view)
         if self.table is not None:
             self.table.endResetModel()
+
+    def replace(self, filter):
+        pass
 
     def delete(self, indices):
         '''
@@ -77,52 +51,29 @@ class FilterModel(Sequence):
         '''
         if self.table is not None:
             self.table.beginResetModel()
-        self.__filters = [filter for idx, filter in enumerate(self.__filters) if idx not in indices]
+        self.__filter.remove(indices)
         self.table.resizeColumns(self.__view)
         if self.table is not None:
             self.table.endResetModel()
 
-    def getMagnitudeData(self):
+    def getMagnitudeData(self, includeIndividualFilters):
         '''
+        :param includeIndividualFilters: if true, include the individual filters in the response
         :return: the magnitude response of each filter.
         '''
-        responses = [self._getFreqResponse(x) for x in self.__filters]
-        if len(responses) > 1:
-            responses += [self._getFreqResponse()]
-        return responses
-
-    def _getFreqResponse(self, filt=None):
-        input = signal.unit_impulse(48000, idx='mid')
-        output = np.zeros(48000)
-        if filt is None:
-            for f in self.__filters:
-                f.biquad.process(input, output)
-                input = output
+        if len(self.__filter) > 0:
+            start = time.time()
+            responses = [x.getTransferFunction() for x in self.__filter]
+            combined = ComplexData(COMBINED, responses[0].x, reduce((lambda x, y: x * y), [r.y for r in responses]))
+            results = [combined]
+            if includeIndividualFilters and len(self) > 1:
+                results += responses
+            mags = [r.getMagnitude(1) for r in results]
+            end = time.time()
+            logger.debug(f"Calculated {len(mags)} transfer functions in {end-start}ms")
+            return mags
         else:
-            filt.biquad.process(input, output)
-
-        nperseg = min(1 << (48000 - 1).bit_length(), output.shape[-1])
-        f, Pxx_spec = signal.welch(output, 48000, nperseg=nperseg, scaling='spectrum', detrend=False)
-        Pxx_spec = 20.0 * np.log10(np.sqrt(Pxx_spec))
-        return XYData(filt.__repr__() if filt is not None else COMBINED, f, Pxx_spec)
-
-class XYData:
-    '''
-    Value object for showing data on a magnitude graph.
-    '''
-
-    def __init__(self, name, x, y):
-        self.name = name
-        self.x = x
-        self.y = y
-
-    def normalise(self, target):
-        '''
-        Normalises the y value against the target y.
-        :param target: the target.
-        :return: a normalised XYData.
-        '''
-        return XYData(self.name, self.x, self.y - target.y)
+            return []
 
 
 class FilterTableModel(QAbstractTableModel):
@@ -132,7 +83,7 @@ class FilterTableModel(QAbstractTableModel):
 
     def __init__(self, model, parent=None):
         super().__init__(parent=parent)
-        self._headers = ['Type', 'Freq', 'Q', 'Gain']
+        self._headers = ['Type', 'Freq', 'Q', 'Gain', 'Biquads']
         self._filterModel = model
         self._filterModel.table = self
 
@@ -148,14 +99,23 @@ class FilterTableModel(QAbstractTableModel):
         elif role != Qt.DisplayRole:
             return QVariant()
         else:
+            filter_at_row = self._filterModel[index.row()]
             if index.column() == 0:
-                return QVariant(self._filterModel[index.row()].type)
+                return QVariant(filter_at_row.filter_type)
             elif index.column() == 1:
-                return QVariant(self._filterModel[index.row()].freq)
+                return QVariant(filter_at_row.freq)
             elif index.column() == 2:
-                return QVariant(self._filterModel[index.row()].q)
+                if hasattr(filter_at_row, 'q'):
+                    return QVariant(filter_at_row.q)
+                else:
+                    return QVariant('N/A')
             elif index.column() == 3:
-                return QVariant(self._filterModel[index.row()].gain)
+                if hasattr(filter_at_row, 'gain'):
+                    return QVariant(filter_at_row.gain)
+                else:
+                    return QVariant('N/A')
+            elif index.column() == 4:
+                return QVariant(len(filter_at_row))
             else:
                 return QVariant()
 

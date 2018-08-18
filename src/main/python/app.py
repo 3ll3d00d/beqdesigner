@@ -1,4 +1,5 @@
 import logging
+import math
 import os
 import sys
 from contextlib import contextmanager
@@ -6,12 +7,15 @@ from contextlib import contextmanager
 import matplotlib
 from qtpy.QtCore import QSettings
 from qtpy.QtGui import QIcon, QFont, QCursor
-from qtpy.QtWidgets import QMainWindow, QApplication, QErrorMessage, QAbstractItemView
+from qtpy.QtWidgets import QMainWindow, QApplication, QErrorMessage, QAbstractItemView, QDialog, QDialogButtonBox
 
 from model.filter import FilterTableModel, FilterModel
+from model.iir import LowShelf, HighShelf, PeakingEQ, ComplexLowPass, \
+    FilterType, ComplexHighPass, SecondOrder_HighPass, SecondOrder_LowPass
 from model.log import RollingLogger
 from model.magnitude import MagnitudeModel
 from ui.beq import Ui_MainWindow
+from ui.filter import Ui_editFilterDialog
 
 matplotlib.use("Qt5Agg")
 
@@ -76,7 +80,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.__filterModel = FilterModel(self.filterView)
         self.__filterTableModel = FilterTableModel(self.__filterModel, parent=parent)
         self.filterView.setModel(self.__filterTableModel)
-        self.filterView.selectionModel().selectionChanged.connect(self.changeDeleteButtonState)
+        self.filterView.selectionModel().selectionChanged.connect(self.changeButtonState)
         self.__magnitudeModel = MagnitudeModel(self.filterChart, self.__filterModel)
 
     def setupUi(self, mainWindow):
@@ -103,25 +107,17 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         super().closeEvent(*args, **kwargs)
         self.app.closeAllWindows()
 
-    def filterTypeChanged(self, text):
-        '''
-        Displays the gain field if the filter type isn't a high or low pass
-        '''
-        self.filterGain.setEnabled(self.isGainRequired(text))
-
-    def isGainRequired(self, text):
-        '''
-        :param text: the filter type.
-        :return: true if the filter type requires gain.
-        '''
-        return text != 'Low Pass' and text != 'High Pass'
-
     def addFilter(self):
         '''
-        Adds a filter to the model.
+        Adds a filter via the filter dialog.
         '''
-        self.__filterModel.add(48000, self.filterType.currentText(), self.freq.value(), self.filterQ.value(),
-                               self.filterGain.value())
+        FilterDialog(self.__filterModel, parent=self).exec()
+
+    def editFilter(self):
+        '''
+        Edits the currently selected filter via the filter dialog.
+        '''
+        FilterDialog(self.__filterModel, filter=None, parent=self).exec()
 
     def deleteFilter(self):
         '''
@@ -131,27 +127,135 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         if selection.hasSelection():
             self.__filterModel.delete([x.row() for x in selection.selectedRows()])
 
-    def changeDeleteButtonState(self):
+    def changeButtonState(self):
         '''
         Enables the delete button if there are selected rows.
         '''
         selection = self.filterView.selectionModel()
         self.deleteSelected.setEnabled(selection.hasSelection())
-
-    def enableAddIfValid(self):
-        '''
-        Enables the add button if the values are valid for this filter type.
-        '''
-        enabled = True
-        if self.isGainRequired(self.filterType.currentText()):
-            enabled = self.filterGain.value() != 0.0
-        self.addFilterButton.setEnabled(enabled)
+        self.editFilterButton.setEnabled(len(selection.selectedRows()) == 1)
 
     def display(self):
         '''
         Updates the chart.
         '''
-        self.__magnitudeModel.display()
+        self.__magnitudeModel.display(self.showIndividualFilters.isChecked())
+
+    def changeVisibilityOfIndividualFilters(self):
+        '''
+        Adds
+        :return:
+        '''
+        if self.showIndividualFilters.isChecked():
+            self.__magnitudeModel.display(True)
+        else:
+            self.__magnitudeModel.removeIndividualFilters()
+
+
+class FilterDialog(QDialog, Ui_editFilterDialog):
+    '''
+    Add/Edit Filter dialog
+    '''
+    gain_required = ['Low Shelf', 'High Shelf', 'Peak']
+
+    def __init__(self, filterModel, fs=48000, filter=None, parent=None):
+        super(FilterDialog, self).__init__(parent)
+        self.setupUi(self)
+        self.filterModel = filterModel
+        self.filter = filter
+        self.fs = fs
+        if self.filter is not None:
+            self.setWindowTitle('Edit Filter')
+        else:
+            self.buttonBox.button(QDialogButtonBox.Save).setText('Add')
+        self.enableOkIfGainIsValid()
+
+    def accept(self):
+        if self.filter is None:
+            if self.__is_pass_filter():
+                filt = self.create_pass_filter()
+            else:
+                filt = self.create_shaping_filter()
+            self.filterModel.add(filt)
+        else:
+            pass
+
+    def create_shaping_filter(self):
+        '''
+        Creates a filter of the specified type.
+        :param idx: the index.
+        :param fs: the sampling frequency.
+        :param type: the filter type.
+        :param freq: the corner frequency.
+        :param q: the filter Q.
+        :param gain: the filter gain (if any).
+        :return: the filter.
+        '''
+        if self.filterType.currentText() == 'Low Shelf':
+            return LowShelf(self.fs, self.freq.value(), self.filterQ.value(), self.filterGain.value())
+        elif self.filterType.currentText() == 'High Shelf':
+            return HighShelf(self.fs, self.freq.value(), self.filterQ.value(), self.filterGain.value())
+        elif self.filterType.currentText() == 'Peak':
+            return PeakingEQ(self.fs, self.freq.value(), self.filterQ.value(), self.filterGain.value())
+        elif self.filterType.currentText() == 'Low Pass':
+            return SecondOrder_LowPass(self.fs, self.freq.value(), self.filterQ.value())
+        elif self.filterType.currentText() == 'High Pass':
+            return SecondOrder_HighPass(self.fs, self.freq.value(), self.filterQ.value())
+        else:
+            raise ValueError(f"Unknown filter type {self.filterType.currentText()}")
+
+    def create_pass_filter(self):
+        '''
+        Creates a predefined high or low pass filter.
+        :return: the filter.
+        '''
+        if self.filterType.currentText() == 'Low Pass':
+            return ComplexLowPass(FilterType[self.passFilterType.currentText().upper()], self.filterOrder.value(),
+                                  self.fs, self.freq.value())
+        else:
+            return ComplexHighPass(FilterType[self.passFilterType.currentText().upper()], self.filterOrder.value(),
+                                   self.fs, self.freq.value())
+
+    def __is_pass_filter(self):
+        '''
+        :return: true if the current options indicate a predefined high or low pass filter.
+        '''
+        selectedFilter = self.filterType.currentText()
+        return selectedFilter == 'Low Pass' or selectedFilter == 'High Pass'
+
+    def enableFilterParams(self):
+        if self.__is_pass_filter():
+            self.passFilterType.setEnabled(True)
+            self.filterOrder.setEnabled(True)
+            self.filterQ.setEnabled(False)
+            self.filterGain.setEnabled(False)
+        else:
+            self.passFilterType.setEnabled(False)
+            self.filterOrder.setEnabled(False)
+            self.filterQ.setEnabled(True)
+            self.filterGain.setEnabled(True)
+        self.enableOkIfGainIsValid()
+
+    def changeOrderStep(self):
+        '''
+        Sets the order step based on the type of high/low pass filter to ensure that LR only allows even orders.
+        '''
+        if self.passFilterType.currentText() == 'Butterworth':
+            self.filterOrder.setSingleStep(1)
+        elif self.passFilterType.currentText() == 'Linkwitz-Riley':
+            if self.filterOrder.value() % 2 != 0:
+                self.filterOrder.setValue(2)
+            self.filterOrder.setSingleStep(2)
+
+    def enableOkIfGainIsValid(self):
+        if self.__is_gain_required():
+            self.buttonBox.button(QDialogButtonBox.Save).setEnabled(not math.isclose(self.filterGain.value(), 0.0))
+        else:
+            self.buttonBox.button(QDialogButtonBox.Save).setEnabled(True)
+
+    def __is_gain_required(self):
+        return self.filterType.currentText() in self.gain_required
+
 
 e_dialog = None
 
