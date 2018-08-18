@@ -19,7 +19,7 @@ class FilterModel(Sequence):
     '''
 
     def __init__(self, view):
-        self.__filter = ComplexFilter()
+        self.__filter = ComplexFilter(description=COMBINED)
         self.__view = view
         self.table = None
 
@@ -72,12 +72,11 @@ class FilterModel(Sequence):
         '''
         if len(self.__filter) > 0:
             start = time.time()
-            responses = [x.getTransferFunction() for x in self.__filter]
-            combined = ComplexData(COMBINED, responses[0].x, reduce((lambda x, y: x * y), [r.y for r in responses]))
-            results = [combined]
+            children = [x.getTransferFunction() for x in self.__filter]
+            results = [self.__filter.getTransferFunction()]
             if includeIndividualFilters and len(self) > 1:
-                results += responses
-            mags = [r.getMagnitude(1) for r in results]
+                results += children
+            mags = [r.getMagnitude() for r in results]
             end = time.time()
             logger.debug(f"Calculated {len(mags)} transfer functions in {end-start}ms")
             return mags
