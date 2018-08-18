@@ -3,6 +3,7 @@ import math
 import os
 import sys
 from contextlib import contextmanager
+from uuid import uuid4
 
 import matplotlib
 from qtpy.QtCore import QSettings
@@ -111,13 +112,15 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Adds a filter via the filter dialog.
         '''
-        FilterDialog(self.__filterModel, parent=self).exec()
+        FilterDialog(self.__filterModel).exec()
 
     def editFilter(self):
         '''
         Edits the currently selected filter via the filter dialog.
         '''
-        FilterDialog(self.__filterModel, filter=None, parent=self).exec()
+        selection = self.filterView.selectionModel()
+        if selection.hasSelection() and len(selection.selectedRows()) == 1:
+            FilterDialog(self.__filterModel, filter=self.__filterModel[selection.selectedRows()[0].row()]).exec()
 
     def deleteFilter(self):
         '''
@@ -166,19 +169,32 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.fs = fs
         if self.filter is not None:
             self.setWindowTitle('Edit Filter')
+            if hasattr(self.filter, 'gain'):
+                self.filterGain.setValue(self.filter.gain)
+            if hasattr(self.filter, 'q'):
+                self.filterQ.setValue(self.filter.q)
+            self.freq.setValue(self.filter.freq)
+            if hasattr(self.filter, 'order'):
+                self.filterOrder.setValue(self.filter.order)
+            if hasattr(self.filter, 'type'):
+                displayName = 'Butterworth' if filter.type is FilterType.BUTTERWORTH else 'Linkwitz-Riley'
+                self.passFilterType.setCurrentIndex(self.passFilterType.findText(displayName))
+            self.filterType.setCurrentIndex(self.filterType.findText(filter.display_name))
         else:
             self.buttonBox.button(QDialogButtonBox.Save).setText('Add')
         self.enableOkIfGainIsValid()
 
     def accept(self):
+        if self.__is_pass_filter():
+            filt = self.create_pass_filter()
+        else:
+            filt = self.create_shaping_filter()
         if self.filter is None:
-            if self.__is_pass_filter():
-                filt = self.create_pass_filter()
-            else:
-                filt = self.create_shaping_filter()
+            filt.id = uuid4()
             self.filterModel.add(filt)
         else:
-            pass
+            filt.id = self.filter.id
+            self.filterModel.replace(filt)
 
     def create_shaping_filter(self):
         '''
@@ -197,9 +213,9 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
             return HighShelf(self.fs, self.freq.value(), self.filterQ.value(), self.filterGain.value())
         elif self.filterType.currentText() == 'Peak':
             return PeakingEQ(self.fs, self.freq.value(), self.filterQ.value(), self.filterGain.value())
-        elif self.filterType.currentText() == 'Low Pass':
+        elif self.filterType.currentText() == 'Variable Q LPF':
             return SecondOrder_LowPass(self.fs, self.freq.value(), self.filterQ.value())
-        elif self.filterType.currentText() == 'High Pass':
+        elif self.filterType.currentText() == 'Variable Q HPF':
             return SecondOrder_HighPass(self.fs, self.freq.value(), self.filterQ.value())
         else:
             raise ValueError(f"Unknown filter type {self.filterType.currentText()}")
@@ -210,11 +226,11 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         :return: the filter.
         '''
         if self.filterType.currentText() == 'Low Pass':
-            return ComplexLowPass(FilterType[self.passFilterType.currentText().upper()], self.filterOrder.value(),
-                                  self.fs, self.freq.value())
+            return ComplexLowPass(FilterType[self.passFilterType.currentText().upper().replace('-', '_')],
+                                  self.filterOrder.value(), self.fs, self.freq.value())
         else:
-            return ComplexHighPass(FilterType[self.passFilterType.currentText().upper()], self.filterOrder.value(),
-                                   self.fs, self.freq.value())
+            return ComplexHighPass(FilterType[self.passFilterType.currentText().upper().replace('-', '_')],
+                                   self.filterOrder.value(), self.fs, self.freq.value())
 
     def __is_pass_filter(self):
         '''
@@ -233,7 +249,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
             self.passFilterType.setEnabled(False)
             self.filterOrder.setEnabled(False)
             self.filterQ.setEnabled(True)
-            self.filterGain.setEnabled(True)
+            self.filterGain.setEnabled(self.__is_gain_required())
         self.enableOkIfGainIsValid()
 
     def changeOrderStep(self):

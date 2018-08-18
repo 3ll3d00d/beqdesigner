@@ -21,6 +21,7 @@ class Biquad(ABC):
         self.sin_w0 = math.sin(self.w0)
         self.alpha = self.sin_w0 / (2.0 * self.q)
         self.a, self.b = self._compute_coeffs()
+        self.id = -1
 
     def __repr__(self):
         return 'woot'
@@ -64,6 +65,10 @@ class PeakingEQ(Biquad):
         self.gain = gain
         super().__init__(fs, freq, q)
 
+    @property
+    def display_name(self):
+        return 'Peak'
+
     def _compute_coeffs(self):
         A = 10.0 ** (self.gain / 40.0)
         a = np.array([1.0 + self.alpha / A, -2.0 * self.cos_w0, 1.0 - self.alpha / A], dtype=np.float64)
@@ -103,6 +108,10 @@ class LowShelf(Shelf):
     def filter_type(self):
         return 'LS'
 
+    @property
+    def display_name(self):
+        return 'Low Shelf'
+
     def _compute_coeffs(self):
         A = 10.0 ** (self.gain / 40.0)
         a = np.array([
@@ -138,6 +147,10 @@ class HighShelf(Shelf):
     def filter_type(self):
         return 'HS'
 
+    @property
+    def display_name(self):
+        return 'High Shelf'
+
     def _compute_coeffs(self):
         A = self.A
         cos_w0 = self.cos_w0
@@ -162,10 +175,15 @@ class FirstOrder_LowPass(Biquad):
 
     def __init__(self, fs, freq, q=DEFAULT_Q):
         super().__init__(fs, freq, q)
+        self.order = 1
 
     @property
     def filter_type(self):
         return 'LPF1'
+
+    @property
+    def display_name(self):
+        return 'Variable Q LPF'
 
     def _compute_coeffs(self):
         b1 = math.exp(-2.0 * math.pi * (self.freq / self.fs))
@@ -182,10 +200,15 @@ class FirstOrder_HighPass(Biquad):
 
     def __init__(self, fs, freq, q=DEFAULT_Q):
         super().__init__(fs, freq, q)
+        self.order = 2
 
     @property
     def filter_type(self):
         return 'HPF1'
+
+    @property
+    def display_name(self):
+        return 'Variable Q HPF'
 
     def _compute_coeffs(self):
         b1 = math.exp(-2.0 * math.pi * (0.5 - self.freq / self.fs))
@@ -209,10 +232,15 @@ class SecondOrder_LowPass(Biquad):
 
     def __init__(self, fs, freq, q=DEFAULT_Q):
         super().__init__(fs, freq, q)
+        self.order = 2
 
     @property
     def filter_type(self):
         return 'LPF2'
+
+    @property
+    def display_name(self):
+        return 'Variable Q LPF'
 
     def _compute_coeffs(self):
         a = np.array([
@@ -243,10 +271,15 @@ class SecondOrder_HighPass(Biquad):
 
     def __init__(self, fs, freq, q=DEFAULT_Q):
         super().__init__(fs, freq, q)
+        self.order = 2
 
     @property
     def filter_type(self):
         return 'HPF2'
+
+    @property
+    def display_name(self):
+        return 'Variable Q HPF'
 
     def _compute_coeffs(self):
         a = np.array([
@@ -281,6 +314,10 @@ class AllPass(Biquad):
     def filter_type(self):
         return 'APF'
 
+    @property
+    def display_name(self):
+        return 'All Pass'
+
     def _compute_coeffs(self):
         a = np.array([
             1.0 + self.alpha,
@@ -302,6 +339,7 @@ class ComplexFilter:
 
     def __init__(self, filters=None):
         self.__filters = filters if filters is not None else []
+        self.id = -1
 
     def __getitem__(self, i):
         return self.__filters[i]
@@ -310,16 +348,34 @@ class ComplexFilter:
         return len(self.__filters)
 
     def __repr__(self):
-        return 'woot'
+        return 'Complex'
 
     @property
     def filter_type(self):
         return 'Complex'
 
     def add(self, filter):
+        '''
+        Adds a new filter.
+        :param filter: the filter.
+        '''
         self.__filters.append(filter)
 
-    def remove(self, indices):
+    def replace(self, filter):
+        '''
+        Replaces the filter with the given id.
+        :param filter: the filter.
+        '''
+        match = next((f for f in self.__filters if f.id == filter.id), None)
+        if match:
+            self.__filters.remove(match)
+        self.add(filter)
+
+    def removeByIndex(self, indices):
+        '''
+        Removes the filter with the given indexes.
+        :param indices: the indices to remove.
+        '''
         self.__filters = [filter for idx, filter in enumerate(self.__filters) if idx not in indices]
 
     def getTransferFunction(self):
@@ -332,7 +388,7 @@ class ComplexFilter:
 
 
 class FilterType(Enum):
-    BUTTERWORTH = 'BW',
+    BUTTERWORTH = 'BW'
     LINKWITZ_RILEY = 'LR'
 
 
@@ -354,7 +410,7 @@ class CompoundPassFilter(ComplexFilter):
         if self.order == 0:
             raise ValueError("Filter cannot have order = 0")
         super().__init__(self._calculate_biquads())
-        self.__filter_type = f"{filter_type.value[0]}{order}"
+        self.__filter_type = f"{filter_type.value}{order}"
 
     @property
     def filter_type(self):
@@ -394,6 +450,10 @@ class ComplexLowPass(CompoundPassFilter):
     def __init__(self, filter_type, order, fs, freq):
         super().__init__(FirstOrder_LowPass, SecondOrder_LowPass, filter_type, order, fs, freq)
 
+    @property
+    def display_name(self):
+        return 'Low Pass'
+
 
 class ComplexHighPass(CompoundPassFilter):
     '''
@@ -402,6 +462,10 @@ class ComplexHighPass(CompoundPassFilter):
 
     def __init__(self, filter_type, order, fs, freq):
         super().__init__(FirstOrder_HighPass, SecondOrder_HighPass, filter_type, order, fs, freq)
+
+    @property
+    def display_name(self):
+        return 'High Pass'
 
 
 class ComplexData:

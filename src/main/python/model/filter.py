@@ -42,7 +42,16 @@ class FilterModel(Sequence):
             self.table.endResetModel()
 
     def replace(self, filter):
-        pass
+        '''
+        Replaces the given filter.
+        :param filter: the filter.
+        '''
+        if self.table is not None:
+            self.table.beginResetModel()
+        self.__filter.replace(filter)
+        self.table.resizeColumns(self.__view)
+        if self.table is not None:
+            self.table.endResetModel()
 
     def delete(self, indices):
         '''
@@ -51,7 +60,7 @@ class FilterModel(Sequence):
         '''
         if self.table is not None:
             self.table.beginResetModel()
-        self.__filter.remove(indices)
+        self.__filter.removeByIndex(indices)
         self.table.resizeColumns(self.__view)
         if self.table is not None:
             self.table.endResetModel()

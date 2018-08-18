@@ -6,3 +6,6 @@
     pip install pyqt5 matplotlib yodel ffmpeg-python
     pip install https://github.com/pyinstaller/pyinstaller/tarball/develop
 
+# todo
+
+create biquad filter export
