@@ -24,7 +24,15 @@ class Biquad(ABC):
         self.id = -1
 
     def __repr__(self):
-        return 'woot'
+        return self.description
+
+    @property
+    def description(self):
+        description = ''
+        if hasattr(self, 'display_name'):
+            description += self.display_name
+        description += f" {self.freq}/{self.q}"
+        return description
 
     @property
     def filter_type(self):
@@ -49,7 +57,17 @@ class Biquad(ABC):
         return ComplexData(self.__repr__(), f, h)
 
 
-class PeakingEQ(Biquad):
+class BiquadWithGain(Biquad):
+    def __init__(self, fs, freq, q, gain):
+        self.gain = gain
+        super().__init__(fs, freq, q)
+
+    @property
+    def description(self):
+        return super().description + f"/{self.gain}dB"
+
+
+class PeakingEQ(BiquadWithGain):
     '''
     H(s) = (s^2 + s*(A/Q) + 1) / (s^2 + s/(A*Q) + 1)
 
@@ -62,8 +80,7 @@ class PeakingEQ(Biquad):
     '''
 
     def __init__(self, fs, freq, q, gain):
-        self.gain = gain
-        super().__init__(fs, freq, q)
+        super().__init__(fs, freq, q, gain)
 
     @property
     def display_name(self):
@@ -76,11 +93,10 @@ class PeakingEQ(Biquad):
         return a / a[0], b / a[0]
 
 
-class Shelf(Biquad):
+class Shelf(BiquadWithGain):
     def __init__(self, fs, freq, q, gain):
-        self.gain = gain
-        self.A = 10.0 ** (self.gain / 40.0)
-        super().__init__(fs, freq, q)
+        self.A = 10.0 ** (gain / 40.0)
+        super().__init__(fs, freq, q, gain)
 
     def q_to_s(self):
         '''
@@ -337,8 +353,9 @@ class ComplexFilter:
     A filter composed of many other filters.
     '''
 
-    def __init__(self, filters=None):
+    def __init__(self, filters=None, description='Complex'):
         self.__filters = filters if filters is not None else []
+        self.description = description
         self.id = -1
 
     def __getitem__(self, i):
@@ -348,7 +365,7 @@ class ComplexFilter:
         return len(self.__filters)
 
     def __repr__(self):
-        return 'Complex'
+        return self.description
 
     @property
     def filter_type(self):
@@ -409,8 +426,8 @@ class CompoundPassFilter(ComplexFilter):
                 raise ValueError("LR filters must be even order")
         if self.order == 0:
             raise ValueError("Filter cannot have order = 0")
-        super().__init__(self._calculate_biquads())
         self.__filter_type = f"{filter_type.value}{order}"
+        super().__init__(filters=self._calculate_biquads(), description=f"{self.__filter_type}/{self.freq}Hz")
 
     @property
     def filter_type(self):
@@ -479,7 +496,7 @@ class ComplexData:
         self.y = y
         self.scaleFactor = scaleFactor
 
-    def getMagnitude(self, ref):
+    def getMagnitude(self, ref=1):
         y = np.abs(self.y) * self.scaleFactor / ref
         return XYData(self.name, self.x, 20 * np.log10(y))
 
