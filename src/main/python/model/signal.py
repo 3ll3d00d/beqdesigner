@@ -1,11 +1,16 @@
 import datetime
 import logging
+import time
 import typing
 from collections import Sequence
 
+import ffmpeg
 import numpy as np
+from qtpy.QtWidgets import QDialog, QFileDialog, QStatusBar
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt
 from scipy import signal
+
+from ui.signal import Ui_addSignalDialog
 
 logger = logging.getLogger('signal')
 
@@ -297,3 +302,123 @@ class SignalTableModel(QAbstractTableModel):
     def resizeColumns(self, view):
         for x in range(0, len(self._headers)):
             view.resizeColumnToContents(x)
+
+
+class SignalDialog(QDialog, Ui_addSignalDialog):
+    MAIN = str(10 ** (-20.2 / 20.0))
+    LFE = str(10 ** (-10.2 / 20.0))
+    '''
+    Allows user to load a signal, processing it if necessary.
+    '''
+
+    def __init__(self, settings, parent=None):
+        super(SignalDialog, self).__init__(parent)
+        self.setupUi(self)
+        self.statusBar = QStatusBar()
+        self.gridLayout.addWidget(self.statusBar, 5, 1, 1, 1)
+        self.settings = settings
+        self.audio_stream_data = []
+
+    def selectFile(self):
+        self.audioStreams.clear()
+        self.filterSpec.clear()
+        self.conversionProgress.setValue(0)
+        self.statusBar.clearMessage()
+        self.audio_stream_data = []
+        dialog = QFileDialog(parent=self)
+        dialog.setFileMode(QFileDialog.ExistingFile)
+        # dialog.setNameFilter()
+        dialog.setWindowTitle('Select Audio or Video File')
+        if dialog.exec():
+            selected = dialog.selectedFiles()
+            if len(selected) > 0:
+                self.inputFile.setText(selected[0])
+                self.__probe_file()
+
+    def __probe_file(self):
+        '''
+        Probes the specified file using ffprobe
+        '''
+        logger.info(f"Probing {self.inputFile.text()}")
+        start = time.time()
+        from app import wait_cursor
+        with wait_cursor(f"Probing {self.inputFile.text()}"):
+            probe = ffmpeg.probe(self.inputFile.text())
+        end = time.time()
+        logger.info(f"Probed {self.inputFile.text()} in {end-start}ms")
+        self.audio_stream_data = [s for s in probe.get('streams', []) if s['codec_type'] == 'audio']
+        if len(self.audio_stream_data) == 0:
+            self.statusBar.showMessage(f"{self.inputFile.text()} contains no audio streams!")
+        else:
+            for a in self.audio_stream_data:
+                self.__add_stream(a)
+            self.audioStreams.setEnabled(True)
+
+    def __add_stream(self, audio_stream):
+        '''
+        Adds the specified audio stream to the combo box to allow the user to choose a value.
+        :param audio_stream: the stream.
+        '''
+        duration = self.__format_duration(audio_stream)
+        if duration is None:
+            duration = ''
+        text = f"{audio_stream['index']}: {audio_stream['codec_long_name']} - {audio_stream['sample_rate']}Hz - " \
+               f"{audio_stream['channel_layout']}{duration}"
+        self.audioStreams.addItem(text)
+
+    def __format_duration(self, audio_stream):
+        '''
+        Looks for a duration field and formats it into hh:mm:ss.zzz format.
+        :param audio_stream: the stream data.
+        :return: the duration, if any.
+        '''
+        duration = None
+        durationSecs = audio_stream.get('duration', None)
+        if durationSecs is not None:
+            duration = str(datetime.timedelta(seconds=int(durationSecs)))
+        else:
+            tags = audio_stream.get('tags', None)
+            if tags is not None:
+                duration = audio_stream.get('DURATION', None)
+        if duration is not None:
+            duration = ' - ' + duration
+        return duration
+
+    def setFilterSpec(self):
+        '''
+        Calculates the filter spec for the specified channel layout.
+        '''
+        selectedStream = self.audio_stream_data[self.audioStreams.currentIndex()]
+        channelLayout = selectedStream['channel_layout']
+        spec = ''
+        if channelLayout == 'mono':
+            pass
+        elif channelLayout == 'stereo':
+            spec = f"pan=mono|c0=0.5*c0+0.5*c1"
+        elif channelLayout == '2.1':
+            spec = self.__get_lfe_spec(3, 2)
+        elif channelLayout == '3.1':
+            spec = self.__get_lfe_spec(4, 3)
+        elif channelLayout == '4.1':
+            spec = self.__get_lfe_spec(5, 3)
+        elif channelLayout.startswith('5.1'):
+            spec = self.__get_lfe_spec(6, 3)
+        elif channelLayout == '6.1':
+            spec = self.__get_lfe_spec(7, 3)
+        elif channelLayout == '6.1(front)':
+            spec = self.__get_lfe_spec(7, 2)
+        elif channelLayout.startswith('7.1'):
+            spec = self.__get_lfe_spec(8, 3)
+        self.filterSpec.setText(spec)
+
+    def __get_lfe_spec(self, channels, lfe_idx):
+        chan_gain = {lfe_idx: self.LFE}
+        gains = '+'.join([f"{chan_gain.get(a, self.MAIN)}*c{a}" for a in range(0, channels)])
+        return f"pan=mono|c0=${gains}"
+
+    def __get_no_lfe_spec(self, channels):
+        gains = '+'.join([f"{self.MAIN}*c{a}" for a in range(0, channels)])
+        return f"pan=mono|c0=${gains}"
+
+    def accept(self):
+        pass

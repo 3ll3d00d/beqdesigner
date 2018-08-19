@@ -216,7 +216,7 @@ class FirstOrder_HighPass(Biquad):
 
     def __init__(self, fs, freq, q=DEFAULT_Q):
         super().__init__(fs, freq, q)
-        self.order = 2
+        self.order = 1
 
     @property
     def filter_type(self):

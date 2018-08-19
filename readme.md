@@ -8,7 +8,11 @@
 
 # todo
 
-create biquad filter export
+* create biquad filter export
+
+# bugs
+
+* 1st order filters do nothing
 
 # Freeze
 

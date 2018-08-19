@@ -16,7 +16,7 @@ from model.iir import LowShelf, HighShelf, PeakingEQ, ComplexLowPass, \
     FilterType, ComplexHighPass, SecondOrder_HighPass, SecondOrder_LowPass
 from model.log import RollingLogger
 from model.magnitude import MagnitudeModel
-from model.signal import SignalModel, SignalTableModel
+from model.signal import SignalModel, SignalTableModel, SignalDialog
 from ui.beq import Ui_MainWindow
 from ui.filter import Ui_editFilterDialog
 from ui.preferences import Ui_preferencesDialog
@@ -36,6 +36,8 @@ for k, v in cc.cm_n.items():
         inverse[v].insert(0, k)
 all_cms = sorted({',  '.join(reversed(v)): k for (k, v) in inverse.items()}.items())
 cms_by_name = dict(all_cms)
+
+logger = logging.getLogger('beq')
 
 
 # Matplotlib canvas class to create figure
@@ -93,10 +95,23 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.__magnitudeModel = MagnitudeModel(self.filterChart, self.__filterModel)
         # signal model
         self.signalView.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.signalView.setSelectionMode(QAbstractItemView.SingleSelection)
         self.__signalModel = SignalModel(self.signalView)
         self.__signalTableModel = SignalTableModel(self.__signalModel, parent=parent)
         self.signalView.setModel(self.__signalTableModel)
         self.signalView.selectionModel().selectionChanged.connect(self.changeSignalButtonState)
+        # processing
+        self.ensurePathContainsExternalTools()
+
+    def ensurePathContainsExternalTools(self):
+        '''
+        Ensures that all external tool paths are on the path.
+        '''
+        path = os.environ.get('PATH', [])
+        paths = path.split(os.pathsep)
+        locs = set([self.settings.value(f"binaries/{x}") for x in ['ffmpeg', 'ffprobe', 'sox']])
+        logging.info(f"Adding {locs} to PATH")
+        os.environ['PATH'] = os.pathsep.join([l for l in locs if l not in paths]) + os.pathsep + path
 
     def setupUi(self, mainWindow):
         super().setupUi(self)
@@ -154,7 +169,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Adds signals via the signal dialog.
         '''
-        pass
+        SignalDialog(self.settings, parent=self).exec()
 
     def editSignal(self):
         '''
