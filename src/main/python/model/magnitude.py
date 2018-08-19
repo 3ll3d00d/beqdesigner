@@ -73,12 +73,18 @@ class MagnitudeModel:
         Updates the contents of the magnitude chart
         '''
         data = self.__filterModel.getMagnitudeData(showIndividualFilters)
+
         for idx, x in enumerate(data):
             if x.name == COMBINED:
                 colour = 'k'
             else:
                 colour = self.__chart.getColour(idx, len(data))
             self.__create_or_update_curve(x, colour)
+        curve_names = [x.name for x in data]
+        to_delete = [curve for name, curve in self.__curves.items() if name not in curve_names]
+        for curve in to_delete:
+            curve.remove()
+            del self.__curves[curve.get_label()]
         if len(data) > 0:
             self.__update_y_lim(np.concatenate([x.y for x in data]))
         self.__makeClickableLegend()
