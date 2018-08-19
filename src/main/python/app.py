@@ -8,15 +8,18 @@ from uuid import uuid4
 import matplotlib
 from qtpy.QtCore import QSettings
 from qtpy.QtGui import QIcon, QFont, QCursor
-from qtpy.QtWidgets import QMainWindow, QApplication, QErrorMessage, QAbstractItemView, QDialog, QDialogButtonBox
+from qtpy.QtWidgets import QMainWindow, QApplication, QErrorMessage, QAbstractItemView, QDialog, QDialogButtonBox, \
+    QFileDialog
 
 from model.filter import FilterTableModel, FilterModel
 from model.iir import LowShelf, HighShelf, PeakingEQ, ComplexLowPass, \
     FilterType, ComplexHighPass, SecondOrder_HighPass, SecondOrder_LowPass
 from model.log import RollingLogger
 from model.magnitude import MagnitudeModel
+from model.signal import SignalModel, SignalTableModel
 from ui.beq import Ui_MainWindow
 from ui.filter import Ui_editFilterDialog
+from ui.preferences import Ui_preferencesDialog
 
 matplotlib.use("Qt5Agg")
 
@@ -76,13 +79,24 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.app = app
         self.settings = QSettings("3ll3d00d", "beqdesigner")
         self.setupUi(self)
-        self.filterView.setSelectionBehavior(QAbstractItemView.SelectRows)
+        # logs
         self.logViewer = RollingLogger(parent=self)
+        self.actionShow_Logs.triggered.connect(self.logViewer.show_logs)
+        self.actionPreferences.triggered.connect(self.showPreferences)
+        # init the filter view/model
+        self.filterView.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.__filterModel = FilterModel(self.filterView)
         self.__filterTableModel = FilterTableModel(self.__filterModel, parent=parent)
         self.filterView.setModel(self.__filterTableModel)
-        self.filterView.selectionModel().selectionChanged.connect(self.changeButtonState)
+        self.filterView.selectionModel().selectionChanged.connect(self.changeFilterButtonState)
+        # magnitude
         self.__magnitudeModel = MagnitudeModel(self.filterChart, self.__filterModel)
+        # signal model
+        self.signalView.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.__signalModel = SignalModel(self.signalView)
+        self.__signalTableModel = SignalTableModel(self.__signalModel, parent=parent)
+        self.signalView.setModel(self.__signalTableModel)
+        self.signalView.selectionModel().selectionChanged.connect(self.changeSignalButtonState)
 
     def setupUi(self, mainWindow):
         super().setupUi(self)
@@ -108,6 +122,12 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         super().closeEvent(*args, **kwargs)
         self.app.closeAllWindows()
 
+    def showPreferences(self):
+        '''
+        Shows the preferences dialog.
+        '''
+        PreferencesDialog(self.settings, parent=self).exec()
+
     def addFilter(self):
         '''
         Adds a filter via the filter dialog.
@@ -130,13 +150,41 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         if selection.hasSelection():
             self.__filterModel.delete([x.row() for x in selection.selectedRows()])
 
-    def changeButtonState(self):
+    def addSignal(self):
         '''
-        Enables the delete button if there are selected rows.
+        Adds signals via the signal dialog.
+        '''
+        pass
+
+    def editSignal(self):
+        '''
+        Edits the currently selected signal via the signal dialog.
+        '''
+        pass
+
+    def deleteSignal(self):
+        '''
+        Deletes the currently selected signals.
+        '''
+        selection = self.signalView.selectionModel()
+        if selection.hasSelection():
+            self.__signalModel.delete([x.row() for x in selection.selectedRows()])
+
+    def changeFilterButtonState(self):
+        '''
+        Enables the edit & delete button if there are selected rows.
         '''
         selection = self.filterView.selectionModel()
-        self.deleteSelected.setEnabled(selection.hasSelection())
+        self.deleteFilterButton.setEnabled(selection.hasSelection())
         self.editFilterButton.setEnabled(len(selection.selectedRows()) == 1)
+
+    def changeSignalButtonState(self):
+        '''
+        Enables the edit & delete button if there are selected rows.
+        '''
+        selection = self.signalView.selectionModel()
+        self.deleteSignalButton.setEnabled(selection.hasSelection())
+        self.editSignalButton.setEnabled(len(selection.selectedRows()) == 1)
 
     def display(self):
         '''
@@ -153,6 +201,82 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
             self.__magnitudeModel.display(True)
         else:
             self.__magnitudeModel.removeIndividualFilters()
+
+
+class PreferencesDialog(QDialog, Ui_preferencesDialog):
+    '''
+    Allows user to set some basic preferences.
+    '''
+
+    def __init__(self, settings, parent=None):
+        super(PreferencesDialog, self).__init__(parent)
+        self.setupUi(self)
+        self.settings = settings
+        soxLoc = self.settings.value('binaries/sox')
+        if soxLoc:
+            if os.path.isdir(soxLoc):
+                self.soxDirectory.setText(soxLoc)
+        ffmpegLoc = self.settings.value('binaries/ffmpeg')
+        if ffmpegLoc:
+            if os.path.isdir(ffmpegLoc):
+                self.ffmpegDirectory.setText(ffmpegLoc)
+        ffprobeLoc = self.settings.value('binaries/ffprobe')
+        if ffprobeLoc:
+            if os.path.isdir(ffprobeLoc):
+                self.ffprobeDirectory.setText(ffprobeLoc)
+        targetFs = self.settings.value('analysis/target_fs')
+        if targetFs:
+            self.targetFs.setValue(targetFs)
+        else:
+            self.settings.setValue('analysis/target_fs', self.targetFs.value())
+
+    def accept(self):
+        '''
+        Saves the locations if they exist.
+        '''
+        soxLoc = self.soxDirectory.text()
+        if os.path.isdir(soxLoc):
+            self.settings.setValue('binaries/sox', soxLoc)
+        ffmpegLoc = self.ffmpegDirectory.text()
+        if os.path.isdir(ffmpegLoc):
+            self.settings.setValue('binaries/ffmpeg', ffmpegLoc)
+        ffprobeLoc = self.ffprobeDirectory.text()
+        if os.path.isdir(ffprobeLoc):
+            self.settings.setValue('binaries/ffprobe', ffprobeLoc)
+        self.settings.setValue('analysis/target_fs', self.targetFs.value())
+        QDialog.accept(self)
+
+    def __get_directory(self, name):
+        dialog = QFileDialog(parent=self)
+        dialog.setFileMode(QFileDialog.ExistingFile)
+        dialog.setNameFilter(f"{name}.exe")
+        dialog.setWindowTitle(f"Select {name}.exe")
+        if dialog.exec():
+            selected = dialog.selectedFiles()
+            if len(selected) > 0:
+                return selected[0]
+        return None
+
+    def showFfmpegDirectoryPicker(self):
+        loc = self.__get_directory('ffmpeg')
+        if loc is not None:
+            dirname = os.path.dirname(loc)
+            self.ffmpegDirectory.setText(dirname)
+            if os.path.exists(os.path.join(dirname, 'ffprobe.exe')):
+                self.ffprobeDirectory.setText(dirname)
+
+    def showFfprobeDirectoryPicker(self):
+        loc = self.__get_directory('ffprobe')
+        if loc is not None:
+            dirname = os.path.dirname(loc)
+            self.ffprobeDirectory.setText(dirname)
+            if os.path.exists(os.path.join(dirname, 'ffmpeg.exe')):
+                self.ffmpegDirectory.setText(dirname)
+
+    def showSoxDirectoryPicker(self):
+        loc = self.__get_directory('sox')
+        if loc is not None:
+            self.soxDirectory.setText(os.path.dirname(loc))
 
 
 class FilterDialog(QDialog, Ui_editFilterDialog):

@@ -3,7 +3,7 @@
     conda create -n beq numpy colorcet scipy qtpy mkl==2018.0.2
     activate beq
     python -m pip install --upgrade pip
-    pip install pyqt5 matplotlib ffmpeg-python
+    pip install pyqt5 matplotlib ffmpeg-python soundfile resampy
     pip install https://github.com/pyinstaller/pyinstaller/tarball/develop
 
 # todo

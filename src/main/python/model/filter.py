@@ -2,11 +2,10 @@ import logging
 import time
 import typing
 from collections import Sequence
-from functools import reduce
 
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt
 
-from model.iir import ComplexData, ComplexFilter
+from model.iir import ComplexFilter
 
 COMBINED = 'Combined'
 
