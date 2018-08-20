@@ -54,7 +54,7 @@ class Ui_extractAudioDialog(object):
         self.showProbeButton.setObjectName("showProbeButton")
         self.gridLayout.addWidget(self.showProbeButton, 1, 2, 1, 1)
         self.monoMix = QtWidgets.QCheckBox(extractAudioDialog)
-        self.monoMix.setEnabled(False)
+        self.monoMix.setEnabled(True)
         self.monoMix.setChecked(True)
         self.monoMix.setObjectName("monoMix")
         self.gridLayout.addWidget(self.monoMix, 2, 1, 1, 1)
@@ -62,6 +62,7 @@ class Ui_extractAudioDialog(object):
         self.outputFilenameLabel.setObjectName("outputFilenameLabel")
         self.gridLayout.addWidget(self.outputFilenameLabel, 4, 0, 1, 1)
         self.targetDir = QtWidgets.QLineEdit(extractAudioDialog)
+        self.targetDir.setEnabled(False)
         self.targetDir.setObjectName("targetDir")
         self.gridLayout.addWidget(self.targetDir, 3, 1, 1, 1)
         self.targetDirectoryLabel = QtWidgets.QLabel(extractAudioDialog)
@@ -111,6 +112,7 @@ class Ui_extractAudioDialog(object):
         self.outputFilename.editingFinished.connect(extractAudioDialog.updateFfmpegCommand)
         self.audioStreams.currentIndexChanged['int'].connect(extractAudioDialog.updateFfmpegSpec)
         self.outputFilename.editingFinished.connect(extractAudioDialog.updateFfmpegCommand)
+        self.monoMix.clicked.connect(extractAudioDialog.toggleMonoMix)
         QtCore.QMetaObject.connectSlotsByName(extractAudioDialog)
 
     def retranslateUi(self, extractAudioDialog):

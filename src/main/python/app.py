@@ -16,7 +16,8 @@ from model.iir import LowShelf, HighShelf, PeakingEQ, ComplexLowPass, \
     FilterType, ComplexHighPass, SecondOrder_HighPass, SecondOrder_LowPass
 from model.log import RollingLogger
 from model.magnitude import MagnitudeModel
-from model.signal import SignalModel, SignalTableModel, ExtractAudioDialog
+from model.signal import SignalModel, SignalTableModel
+from model.extract import ExtractAudioDialog
 from ui.beq import Ui_MainWindow
 from ui.filter import Ui_editFilterDialog
 from ui.preferences import Ui_preferencesDialog

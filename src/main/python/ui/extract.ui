@@ -94,7 +94,7 @@
      <item row="2" column="1">
       <widget class="QCheckBox" name="monoMix">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="text">
         <string>Mix to Mono?</string>
@@ -112,7 +112,11 @@
       </widget>
      </item>
      <item row="3" column="1">
-      <widget class="QLineEdit" name="targetDir"/>
+      <widget class="QLineEdit" name="targetDir">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+      </widget>
      </item>
      <item row="3" column="0">
       <widget class="QLabel" name="targetDirectoryLabel">
@@ -183,8 +187,8 @@
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>417</x>
-     <y>625</y>
+     <x>431</x>
+     <y>779</y>
     </hint>
     <hint type="destinationlabel">
      <x>157</x>
@@ -199,8 +203,8 @@
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>485</x>
-     <y>625</y>
+     <x>499</x>
+     <y>779</y>
     </hint>
     <hint type="destinationlabel">
      <x>286</x>
@@ -304,6 +308,22 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>monoMix</sender>
+   <signal>clicked()</signal>
+   <receiver>extractAudioDialog</receiver>
+   <slot>toggleMonoMix()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>282</x>
+     <y>98</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>162</x>
+     <y>109</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>selectFile()</slot>
@@ -311,5 +331,6 @@
   <slot>showProbeInDetail()</slot>
   <slot>setTargetDirectory()</slot>
   <slot>updateFfmpegSpec()</slot>
+  <slot>toggleMonoMix()</slot>
  </slots>
 </ui>
