@@ -6,69 +6,28 @@ from contextlib import contextmanager
 from uuid import uuid4
 
 import matplotlib
+
+matplotlib.use("Qt5Agg")
+
 from qtpy.QtCore import QSettings
 from qtpy.QtGui import QIcon, QFont, QCursor
 from qtpy.QtWidgets import QMainWindow, QApplication, QErrorMessage, QAbstractItemView, QDialog, QDialogButtonBox, \
     QFileDialog
 
+from model.extract import ExtractAudioDialog
 from model.filter import FilterTableModel, FilterModel
 from model.iir import LowShelf, HighShelf, PeakingEQ, ComplexLowPass, \
     FilterType, ComplexHighPass, SecondOrder_HighPass, SecondOrder_LowPass
 from model.log import RollingLogger
 from model.magnitude import MagnitudeModel
-from model.signal import SignalModel, SignalTableModel
-from model.extract import ExtractAudioDialog
+from model.signal import SignalModel, SignalTableModel, SignalDialog
 from ui.beq import Ui_MainWindow
 from ui.filter import Ui_editFilterDialog
 from ui.preferences import Ui_preferencesDialog
 
-matplotlib.use("Qt5Agg")
-
-from qtpy import QtCore, QtWidgets
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as Canvas
-import colorcet as cc
-
-# from http://colorcet.pyviz.org/index.html
-inverse = {}
-for k, v in cc.cm_n.items():
-    if not k[-2:] == "_r":
-        inverse[v] = inverse.get(v, [])
-        inverse[v].insert(0, k)
-all_cms = sorted({',  '.join(reversed(v)): k for (k, v) in inverse.items()}.items())
-cms_by_name = dict(all_cms)
+from qtpy import QtCore
 
 logger = logging.getLogger('beq')
-
-
-# Matplotlib canvas class to create figure
-class MplCanvas(Canvas):
-    def __init__(self):
-        self.figure = Figure(tight_layout=True)
-        Canvas.__init__(self, self.figure)
-        Canvas.setSizePolicy(self, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
-        Canvas.updateGeometry(self)
-
-
-# Matplotlib widget
-class MplWidget(QtWidgets.QWidget):
-    def __init__(self, parent=None):
-        QtWidgets.QWidget.__init__(self, parent)
-        self.canvas = MplCanvas()
-        self.vbl = QtWidgets.QVBoxLayout()
-        self.vbl.addWidget(self.canvas)
-        self.setLayout(self.vbl)
-        self._cmap = self.getColourMap('rainbow')
-
-    def getColourMap(self, name):
-        return cms_by_name.get(name, cms_by_name.get('bgyw'))
-
-    def getColour(self, idx, count):
-        '''
-        :param idx: the colour index.
-        :return: the colour at that index.
-        '''
-        return self._cmap(idx / count)
 
 
 class BeqDesigner(QMainWindow, Ui_MainWindow):
@@ -172,8 +131,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Adds signals via the signal dialog.
         '''
-        pass
-        # ExtractAudioDialog(self.settings, parent=self).exec()
+        SignalDialog(parent=self).exec()
 
     def editSignal(self):
         '''

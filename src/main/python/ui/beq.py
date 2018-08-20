@@ -25,18 +25,12 @@ class Ui_MainWindow(object):
         self.showIndividualFilters.setChecked(True)
         self.showIndividualFilters.setObjectName("showIndividualFilters")
         self.leftPane.addWidget(self.showIndividualFilters, 3, 0, 1, 1)
-        self.endTime = QtWidgets.QTimeEdit(self.centralwidget)
-        self.endTime.setObjectName("endTime")
-        self.leftPane.addWidget(self.endTime, 3, 2, 1, 1)
-        self.startTime = QtWidgets.QTimeEdit(self.centralwidget)
-        self.startTime.setObjectName("startTime")
-        self.leftPane.addWidget(self.startTime, 3, 1, 1, 1)
         self.updateChart = QtWidgets.QPushButton(self.centralwidget)
         self.updateChart.setObjectName("updateChart")
-        self.leftPane.addWidget(self.updateChart, 3, 3, 1, 1)
+        self.leftPane.addWidget(self.updateChart, 3, 1, 1, 1)
         self.filterChart = MplWidget(self.centralwidget)
         self.filterChart.setObjectName("filterChart")
-        self.leftPane.addWidget(self.filterChart, 4, 0, 1, 4)
+        self.leftPane.addWidget(self.filterChart, 4, 0, 1, 2)
         self.panes.addLayout(self.leftPane)
         self.rightPane = QtWidgets.QGridLayout()
         self.rightPane.setObjectName("rightPane")
@@ -173,8 +167,6 @@ class Ui_MainWindow(object):
         _translate = QtCore.QCoreApplication.translate
         MainWindow.setWindowTitle(_translate("MainWindow", "BEQ Designer"))
         self.showIndividualFilters.setText(_translate("MainWindow", "Show Individual Filters"))
-        self.endTime.setDisplayFormat(_translate("MainWindow", "HH:mm:ss.zzz"))
-        self.startTime.setDisplayFormat(_translate("MainWindow", "HH:mm:ss.zzz"))
         self.updateChart.setText(_translate("MainWindow", "Redraw"))
         self.addFilterButton.setText(_translate("MainWindow", "Add"))
         self.addFilterButton.setShortcut(_translate("MainWindow", "Ctrl+="))
@@ -211,4 +203,4 @@ class Ui_MainWindow(object):
         self.actionSave_Preset_3.setShortcut(_translate("MainWindow", "Ctrl+Shift+3"))
         self.actionClear_Preset_3.setText(_translate("MainWindow", "Clear Preset 3"))
 
-from app import MplWidget
+from mpl import MplWidget

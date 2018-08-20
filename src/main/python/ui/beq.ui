@@ -32,28 +32,14 @@
           </property>
          </widget>
         </item>
-        <item row="3" column="2">
-         <widget class="QTimeEdit" name="endTime">
-          <property name="displayFormat">
-           <string>HH:mm:ss.zzz</string>
-          </property>
-         </widget>
-        </item>
         <item row="3" column="1">
-         <widget class="QTimeEdit" name="startTime">
-          <property name="displayFormat">
-           <string>HH:mm:ss.zzz</string>
-          </property>
-         </widget>
-        </item>
-        <item row="3" column="3">
          <widget class="QPushButton" name="updateChart">
           <property name="text">
            <string>Redraw</string>
           </property>
          </widget>
         </item>
-        <item row="4" column="0" colspan="4">
+        <item row="4" column="0" colspan="2">
          <widget class="MplWidget" name="filterChart"/>
         </item>
        </layout>
@@ -334,7 +320,7 @@
   <customwidget>
    <class>MplWidget</class>
    <extends>QGraphicsView</extends>
-   <header>app</header>
+   <header>mpl</header>
   </customwidget>
  </customwidgets>
  <resources/>
