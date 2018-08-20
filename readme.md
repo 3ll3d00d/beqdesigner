@@ -9,6 +9,10 @@
 # todo
 
 * create biquad filter export
+* add load/save feature 
+  * allow loading individual signals or filters only
+* add filter presets
+
 
 # bugs
 

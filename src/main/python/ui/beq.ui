@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1446</width>
-    <height>981</height>
+    <height>909</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -60,7 +60,7 @@
       </item>
       <item>
        <layout class="QGridLayout" name="rightPane">
-        <item row="4" column="0">
+        <item row="5" column="0">
          <widget class="QPushButton" name="addFilterButton">
           <property name="enabled">
            <bool>true</bool>
@@ -68,9 +68,12 @@
           <property name="text">
            <string>Add</string>
           </property>
+          <property name="shortcut">
+           <string>Ctrl+=</string>
+          </property>
          </widget>
         </item>
-        <item row="4" column="1">
+        <item row="5" column="1">
          <widget class="QPushButton" name="editFilterButton">
           <property name="enabled">
            <bool>false</bool>
@@ -83,7 +86,7 @@
           </property>
          </widget>
         </item>
-        <item row="4" column="2">
+        <item row="5" column="2">
          <widget class="QPushButton" name="deleteFilterButton">
           <property name="enabled">
            <bool>false</bool>
@@ -91,17 +94,13 @@
           <property name="text">
            <string>Delete</string>
           </property>
-         </widget>
-        </item>
-        <item row="5" column="0" colspan="3">
-         <widget class="QTableView" name="filterView"/>
-        </item>
-        <item row="1" column="0">
-         <widget class="QPushButton" name="addSignalButton">
-          <property name="text">
-           <string>Add</string>
+          <property name="shortcut">
+           <string>Ctrl+-</string>
           </property>
          </widget>
+        </item>
+        <item row="6" column="0" colspan="3">
+         <widget class="QTableView" name="filterView"/>
         </item>
         <item row="1" column="2">
          <widget class="QPushButton" name="deleteSignalButton">
@@ -113,8 +112,15 @@
           </property>
          </widget>
         </item>
-        <item row="2" column="0" colspan="3">
-         <widget class="QTableView" name="signalView"/>
+        <item row="1" column="0">
+         <widget class="QPushButton" name="addSignalButton">
+          <property name="text">
+           <string>Add</string>
+          </property>
+          <property name="shortcut">
+           <string>Ctrl+Shift+=</string>
+          </property>
+         </widget>
         </item>
         <item row="3" column="0" colspan="3">
          <widget class="QLabel" name="label">
@@ -135,6 +141,19 @@
           </property>
           <property name="alignment">
            <set>Qt::AlignCenter</set>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="0" colspan="3">
+         <widget class="QTableView" name="signalView"/>
+        </item>
+        <item row="1" column="1">
+         <widget class="QPushButton" name="editSignalButton">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="text">
+           <string>Edit</string>
           </property>
          </widget>
         </item>
@@ -160,13 +179,33 @@
           </property>
          </widget>
         </item>
-        <item row="1" column="1">
-         <widget class="QPushButton" name="editSignalButton">
+        <item row="4" column="0">
+         <widget class="QPushButton" name="loadPreset1">
           <property name="enabled">
            <bool>false</bool>
           </property>
           <property name="text">
-           <string>Edit</string>
+           <string>Preset 1</string>
+          </property>
+         </widget>
+        </item>
+        <item row="4" column="1">
+         <widget class="QPushButton" name="loadPreset2">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="text">
+           <string>Preset 2</string>
+          </property>
+         </widget>
+        </item>
+        <item row="4" column="2">
+         <widget class="QPushButton" name="loadPreset3">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="text">
+           <string>Preset 3</string>
           </property>
          </widget>
         </item>
@@ -195,8 +234,29 @@
     <property name="title">
      <string>Settings</string>
     </property>
+    <widget class="QMenu" name="menuPresets">
+     <property name="title">
+      <string>Presets</string>
+     </property>
+     <addaction name="actionSave_Preset_1"/>
+     <addaction name="actionSave_Preset_2"/>
+     <addaction name="actionSave_Preset_3"/>
+     <addaction name="separator"/>
+     <addaction name="actionClear_Preset_1"/>
+     <addaction name="actionClear_Preset_2"/>
+     <addaction name="actionClear_Preset_3"/>
+    </widget>
     <addaction name="actionPreferences"/>
+    <addaction name="separator"/>
+    <addaction name="menuPresets"/>
    </widget>
+   <widget class="QMenu" name="menuFile">
+    <property name="title">
+     <string>File</string>
+    </property>
+    <addaction name="actionExtract_Audio"/>
+   </widget>
+   <addaction name="menuFile"/>
    <addaction name="menuSettings"/>
    <addaction name="menuHelp"/>
   </widget>
@@ -215,6 +275,58 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+P</string>
+   </property>
+  </action>
+  <action name="actionExtract_Audio">
+   <property name="text">
+    <string>Extract Audio</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+E</string>
+   </property>
+  </action>
+  <action name="actionPresets">
+   <property name="text">
+    <string>Presets</string>
+   </property>
+  </action>
+  <action name="actionSave_Preset_1">
+   <property name="text">
+    <string>Save Preset 1</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+1</string>
+   </property>
+  </action>
+  <action name="actionClear_Preset_1">
+   <property name="text">
+    <string>Clear Preset 1</string>
+   </property>
+  </action>
+  <action name="actionSave_Preset_2">
+   <property name="text">
+    <string>Save Preset 2</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+2</string>
+   </property>
+  </action>
+  <action name="actionClear_Preset_2">
+   <property name="text">
+    <string>Clear Preset 2</string>
+   </property>
+  </action>
+  <action name="actionSave_Preset_3">
+   <property name="text">
+    <string>Save Preset 3</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+3</string>
+   </property>
+  </action>
+  <action name="actionClear_Preset_3">
+   <property name="text">
+    <string>Clear Preset 3</string>
    </property>
   </action>
  </widget>

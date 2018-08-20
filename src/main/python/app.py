@@ -16,7 +16,7 @@ from model.iir import LowShelf, HighShelf, PeakingEQ, ComplexLowPass, \
     FilterType, ComplexHighPass, SecondOrder_HighPass, SecondOrder_LowPass
 from model.log import RollingLogger
 from model.magnitude import MagnitudeModel
-from model.signal import SignalModel, SignalTableModel, SignalDialog
+from model.signal import SignalModel, SignalTableModel, ExtractAudioDialog
 from ui.beq import Ui_MainWindow
 from ui.filter import Ui_editFilterDialog
 from ui.preferences import Ui_preferencesDialog
@@ -102,6 +102,8 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.signalView.selectionModel().selectionChanged.connect(self.changeSignalButtonState)
         # processing
         self.ensurePathContainsExternalTools()
+        # extraction
+        self.actionExtract_Audio.triggered.connect(self.showExtractAudioDialog)
 
     def ensurePathContainsExternalTools(self):
         '''
@@ -169,7 +171,8 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Adds signals via the signal dialog.
         '''
-        SignalDialog(self.settings, parent=self).exec()
+        pass
+        # ExtractAudioDialog(self.settings, parent=self).exec()
 
     def editSignal(self):
         '''
@@ -209,13 +212,15 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
 
     def changeVisibilityOfIndividualFilters(self):
         '''
-        Adds
-        :return:
+        Adds or removes the individual filter transfer functions to/from the graph.
         '''
         if self.showIndividualFilters.isChecked():
             self.__magnitudeModel.display(True)
         else:
             self.__magnitudeModel.removeIndividualFilters()
+
+    def showExtractAudioDialog(self):
+        ExtractAudioDialog(self.settings, parent=self).exec()
 
 
 class PreferencesDialog(QDialog, Ui_preferencesDialog):
@@ -227,23 +232,32 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         super(PreferencesDialog, self).__init__(parent)
         self.setupUi(self)
         self.settings = settings
+
         soxLoc = self.settings.value('binaries/sox')
         if soxLoc:
             if os.path.isdir(soxLoc):
                 self.soxDirectory.setText(soxLoc)
+
         ffmpegLoc = self.settings.value('binaries/ffmpeg')
         if ffmpegLoc:
             if os.path.isdir(ffmpegLoc):
                 self.ffmpegDirectory.setText(ffmpegLoc)
+
         ffprobeLoc = self.settings.value('binaries/ffprobe')
         if ffprobeLoc:
             if os.path.isdir(ffprobeLoc):
                 self.ffprobeDirectory.setText(ffprobeLoc)
+
         targetFs = self.settings.value('analysis/target_fs')
         if targetFs:
             self.targetFs.setValue(targetFs)
         else:
             self.settings.setValue('analysis/target_fs', self.targetFs.value())
+
+        outputDir = self.settings.value('extraction/output_dir')
+        if outputDir:
+            if os.path.isdir(outputDir):
+                self.defaultOutputDirectory.setText(outputDir)
 
     def accept(self):
         '''
@@ -258,6 +272,9 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         ffprobeLoc = self.ffprobeDirectory.text()
         if os.path.isdir(ffprobeLoc):
             self.settings.setValue('binaries/ffprobe', ffprobeLoc)
+        outputDir = self.defaultOutputDirectory.text()
+        if os.path.isdir(outputDir):
+            self.settings.setValue('extraction/output_dir', outputDir)
         self.settings.setValue('analysis/target_fs', self.targetFs.value())
         QDialog.accept(self)
 
@@ -292,6 +309,15 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         loc = self.__get_directory('sox')
         if loc is not None:
             self.soxDirectory.setText(os.path.dirname(loc))
+
+    def showDefaultOutputDirectoryPicker(self):
+        dialog = QFileDialog(parent=self)
+        dialog.setFileMode(QFileDialog.DirectoryOnly)
+        dialog.setWindowTitle(f"Select Extract Audio Output Directory")
+        if dialog.exec():
+            selected = dialog.selectedFiles()
+            if len(selected) > 0:
+                self.defaultOutputDirectory.setText(selected[0])
 
 
 class FilterDialog(QDialog, Ui_editFilterDialog):

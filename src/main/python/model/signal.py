@@ -1,16 +1,21 @@
 import datetime
 import logging
+import os
 import time
+import traceback
 import typing
 from collections import Sequence
+from pathlib import Path
 
 import ffmpeg
 import numpy as np
-from qtpy.QtWidgets import QDialog, QFileDialog, QStatusBar
+from ffmpeg.nodes import filter_operator, FilterNode
+from qtpy import QtWidgets
+from qtpy.QtWidgets import QDialog, QFileDialog, QStatusBar, QTreeWidget, QTreeWidgetItem, QDialogButtonBox
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt
 from scipy import signal
 
-from ui.signal import Ui_addSignalDialog
+from ui.extract import Ui_extractAudioDialog
 
 logger = logging.getLogger('signal')
 
@@ -304,7 +309,7 @@ class SignalTableModel(QAbstractTableModel):
             view.resizeColumnToContents(x)
 
 
-class SignalDialog(QDialog, Ui_addSignalDialog):
+class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
     MAIN = str(10 ** (-20.2 / 20.0))
     LFE = str(10 ** (-10.2 / 20.0))
     '''
@@ -312,19 +317,23 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
     '''
 
     def __init__(self, settings, parent=None):
-        super(SignalDialog, self).__init__(parent)
+        super(ExtractAudioDialog, self).__init__(parent)
         self.setupUi(self)
         self.statusBar = QStatusBar()
         self.gridLayout.addWidget(self.statusBar, 5, 1, 1, 1)
-        self.settings = settings
-        self.audio_stream_data = []
+        self.__settings = settings
+        self.__mono_mix = ''
+        self.__probe = None
+        self.__audio_stream_data = []
+        self.__ffmpegCommand = None
+        defaultOutputDir = self.__settings.value('extraction/output_dir')
+        if os.path.isdir(defaultOutputDir):
+            self.targetDir.setText(defaultOutputDir)
+        self.buttonBox.button(QDialogButtonBox.Ok).setText('Extract')
+        self.__reinit_fields()
 
     def selectFile(self):
-        self.audioStreams.clear()
-        self.filterSpec.clear()
-        self.conversionProgress.setValue(0)
-        self.statusBar.clearMessage()
-        self.audio_stream_data = []
+        self.__reinit_fields()
         dialog = QFileDialog(parent=self)
         dialog.setFileMode(QFileDialog.ExistingFile)
         # dialog.setNameFilter()
@@ -335,22 +344,38 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
                 self.inputFile.setText(selected[0])
                 self.__probe_file()
 
+    def __reinit_fields(self):
+        '''
+        Resets various fields and temporary state.
+        '''
+        self.audioStreams.clear()
+        self.statusBar.clearMessage()
+        self.__probe = None
+        self.__audio_stream_data = []
+        self.showProbeButton.setEnabled(False)
+        self.ffmpegCommandLine.clear()
+        self.ffmpegOutput.clear()
+        self.__mono_mix = ''
+        self.__ffmpegCommand = None
+        self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
+
     def __probe_file(self):
         '''
-        Probes the specified file using ffprobe
+        Probes the specified file using ffprobe in order to discover the audio streams.
         '''
         logger.info(f"Probing {self.inputFile.text()}")
         start = time.time()
         from app import wait_cursor
         with wait_cursor(f"Probing {self.inputFile.text()}"):
-            probe = ffmpeg.probe(self.inputFile.text())
+            self.__probe = ffmpeg.probe(self.inputFile.text())
+            self.showProbeButton.setEnabled(True)
         end = time.time()
         logger.info(f"Probed {self.inputFile.text()} in {end-start}ms")
-        self.audio_stream_data = [s for s in probe.get('streams', []) if s['codec_type'] == 'audio']
-        if len(self.audio_stream_data) == 0:
+        self.__audio_stream_data = [s for s in self.__probe.get('streams', []) if s['codec_type'] == 'audio']
+        if len(self.__audio_stream_data) == 0:
             self.statusBar.showMessage(f"{self.inputFile.text()} contains no audio streams!")
         else:
-            for a in self.audio_stream_data:
+            for a in self.__audio_stream_data:
                 self.__add_stream(a)
             self.audioStreams.setEnabled(True)
 
@@ -384,41 +409,192 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
             duration = ' - ' + duration
         return duration
 
-    def setFilterSpec(self):
+    def updateFfmpegSpec(self):
         '''
-        Calculates the filter spec for the specified channel layout.
+        Creates a new ffmpeg command for the specified channel layout.
         '''
-        selectedStream = self.audio_stream_data[self.audioStreams.currentIndex()]
+        selectedStream = self.__audio_stream_data[self.audioStreams.currentIndex()]
         channelLayout = selectedStream['channel_layout']
-        spec = ''
+        mono_mix = ''
         if channelLayout == 'mono':
-            pass
+            # TODO is this necessary?
+            mono_mix = 'pan=mono|c0=c0'
         elif channelLayout == 'stereo':
-            spec = f"pan=mono|c0=0.5*c0+0.5*c1"
+            mono_mix = self.__get_no_lfe_mono_mix(2)
+        elif channelLayout.startswith('3.0'):
+            mono_mix = self.__get_no_lfe_mono_mix(3)
+        elif channelLayout == '4.0':
+            mono_mix = self.__get_no_lfe_mono_mix(4)
+        elif channelLayout.startswith('quad'):
+            mono_mix = self.__get_no_lfe_mono_mix(4)
+        elif channelLayout.startswith('5.0'):
+            mono_mix = self.__get_no_lfe_mono_mix(5)
+        elif channelLayout.startswith('6.0'):
+            mono_mix = self.__get_no_lfe_mono_mix(6)
+        elif channelLayout == 'hexagonal':
+            mono_mix = self.__get_no_lfe_mono_mix(6)
+        elif channelLayout.startswith('7.0'):
+            mono_mix = self.__get_no_lfe_mono_mix(7)
+        elif channelLayout == 'octagonal':
+            mono_mix = self.__get_no_lfe_mono_mix(8)
+        elif channelLayout == 'downmix':
+            mono_mix = self.__get_no_lfe_mono_mix(2)
         elif channelLayout == '2.1':
-            spec = self.__get_lfe_spec(3, 2)
+            mono_mix = self.__get_lfe_mono_mix(3, 2)
         elif channelLayout == '3.1':
-            spec = self.__get_lfe_spec(4, 3)
+            mono_mix = self.__get_lfe_mono_mix(4, 3)
         elif channelLayout == '4.1':
-            spec = self.__get_lfe_spec(5, 3)
+            mono_mix = self.__get_lfe_mono_mix(5, 3)
         elif channelLayout.startswith('5.1'):
-            spec = self.__get_lfe_spec(6, 3)
+            mono_mix = self.__get_lfe_mono_mix(6, 3)
         elif channelLayout == '6.1':
-            spec = self.__get_lfe_spec(7, 3)
+            mono_mix = self.__get_lfe_mono_mix(7, 3)
         elif channelLayout == '6.1(front)':
-            spec = self.__get_lfe_spec(7, 2)
+            mono_mix = self.__get_lfe_mono_mix(7, 2)
         elif channelLayout.startswith('7.1'):
-            spec = self.__get_lfe_spec(8, 3)
-        self.filterSpec.setText(spec)
+            mono_mix = self.__get_lfe_mono_mix(8, 3)
+        self.__mono_mix = mono_mix
+        # TODO handle non mono outputs
+        # create an output file name based on the selection
+        self.outputFilename.setText(f"{Path(self.inputFile.text()).resolve().stem}_{channelLayout}_to_mono.wav")
+        self.updateFfmpegCommand()
 
-    def __get_lfe_spec(self, channels, lfe_idx):
+    # merge to mono
+    # i1 = ffmpeg.input(file)
+    # s1 = i1['1:0'].join(i1['1:1'], inputs=2, channel_layout='stereo', map='0.0-FL|1.0-FR').output(
+    #     'd:/junk/test_join.wav', acodec='pcm_s24le')
+    # print(s1.compile())
+
+    def updateFfmpegCommand(self):
+        '''
+        Creates a new ffmpeg and puts the compiled output into the text field.
+        '''
+        self.__ffmpegCommand = \
+            ffmpeg.input(self.inputFile.text()) \
+                .filter('pan', **{'mono|c0': self.__mono_mix}) \
+                .filter('aresample', '1000', resampler='soxr') \
+                .output(os.path.join(self.targetDir.text(), self.outputFilename.text()), acodec='pcm_s24le')
+        self.ffmpegCommandLine.setPlainText(' '.join(self.__ffmpegCommand.compile(overwrite_output=True)))
+        self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
+
+    def __get_lfe_mono_mix(self, channels, lfe_idx):
+        '''
+        Gets a pan filter spec that will mix to mono while respecting bass management requirements.
+        :param channels: the no of channels.
+        :param lfe_idx: the channel index for the LFE channel.
+        :return: the spec.
+        '''
         chan_gain = {lfe_idx: self.LFE}
         gains = '+'.join([f"{chan_gain.get(a, self.MAIN)}*c{a}" for a in range(0, channels)])
-        return f"pan=mono|c0=${gains}"
+        return gains
 
-    def __get_no_lfe_spec(self, channels):
-        gains = '+'.join([f"{self.MAIN}*c{a}" for a in range(0, channels)])
-        return f"pan=mono|c0=${gains}"
+    def __get_no_lfe_mono_mix(self, channels):
+        '''
+        Gets a pan filter spec that will mix to mono giving equal weight to each channel.
+        :param channels: the no of channels.
+        :return: the spec.
+        '''
+        ratio = 1 / channels
+        gains = '+'.join([f"{ratio}*c{a}" for a in range(0, channels)])
+        return gains
 
     def accept(self):
-        pass
+        '''
+        Executes the ffmpeg command.
+        '''
+        if self.__ffmpegCommand is not None:
+            from app import wait_cursor
+            with wait_cursor(f"Extracting audio from {self.inputFile.text()}"):
+                start = time.time()
+                out, err = self.__ffmpegCommand.run(overwrite_output=True, quiet=True)
+                end = time.time()
+                logger.info(f"Executed ffmpeg command in {end-start}ms")
+                result = f"Command completed normally in {round((end-start)/1000,3)}s" + os.linesep + os.linesep
+                result += 'STDERR' + os.linesep + '------' + os.linesep + os.linesep
+                if out is not None:
+                    result += out.decode() + os.linesep
+                result += 'STDERR' + os.linesep + '------' + os.linesep + os.linesep
+                if err is not None:
+                    result += err.decode() + os.linesep
+                self.ffmpegOutput.setPlainText(result)
+
+    def showProbeInDetail(self):
+        '''
+        shows a tree widget containing the contents of the probe to allow the raw probe info to be visible.
+        '''
+        if self.probe:
+            ViewProbeDialog(self.inputFile.text(), self.probe, parent=self).exec()
+
+    def setTargetDirectory(self):
+        '''
+        Sets the target directory based on the user selection.
+        '''
+        dialog = QFileDialog(parent=self)
+        dialog.setFileMode(QFileDialog.DirectoryOnly)
+        dialog.setWindowTitle(f"Select Output Directory")
+        if dialog.exec():
+            selected = dialog.selectedFiles()
+            if len(selected) > 0:
+                self.targetDir.setText(selected[0])
+
+
+@filter_operator()
+def join(*streams, **kwargs):
+    '''
+    implementation of the ffmpeg join filter for merging multiple input streams, e.g.
+
+    i1 = ffmpeg.input(file)
+    s1 = i1['1:0'].join(i1['1:1'], inputs=2, channel_layout='stereo', map='0.0-FL|1.0-FR')
+    s1.output('d:/junk/test_join.wav', acodec='pcm_s24le').run()
+
+    :param streams: the streams to join.
+    :param kwargs: args to pass to join.
+    :return: the resulting stream.
+    '''
+    return FilterNode(streams, join.__name__, kwargs=kwargs, max_inputs=None).stream()
+
+
+class ViewProbeDialog(QDialog):
+    '''
+    Shows the tree widget in a separate dialog.
+    '''
+
+    def __init__(self, name, probe, parent=None):
+        super().__init__(parent=parent)
+        self.setWindowTitle(f"ffprobe data {name}")
+        self.resize(400, 600)
+        self.gridLayout = QtWidgets.QGridLayout(self)
+        self.gridLayout.setObjectName("gridLayout")
+        self.probeTree = ViewTree(probe)
+        self.gridLayout.addWidget(self.probeTree, 1, 1, 1, 1)
+
+
+class ViewTree(QTreeWidget):
+    '''
+    Renders a dict as a tree, taken from https://stackoverflow.com/a/46096319/123054
+    '''
+
+    def __init__(self, value):
+        super().__init__()
+
+        def fill_item(item, value):
+            def new_item(parent, text, val=None):
+                child = QTreeWidgetItem([text])
+                fill_item(child, val)
+                parent.addChild(child)
+                child.setExpanded(True)
+
+            if value is None:
+                return
+            elif isinstance(value, dict):
+                for key, val in sorted(value.items()):
+                    new_item(item, str(key), val)
+            elif isinstance(value, (list, tuple)):
+                for val in value:
+                    text = (str(val) if not isinstance(val, (dict, list, tuple))
+                            else '[%s]' % type(val).__name__)
+                    new_item(item, text, val)
+            else:
+                new_item(item, str(value))
+
+        fill_item(self.invisibleRootItem(), value)

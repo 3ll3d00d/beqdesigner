@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>917</width>
-    <height>279</height>
+    <width>809</width>
+    <height>358</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -15,149 +15,201 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
-    <layout class="QGridLayout" name="gridLayout_2">
-     <item row="2" column="0">
-      <widget class="QLabel" name="label_4">
-       <property name="text">
-        <string>ffprobe</string>
-       </property>
-      </widget>
+    <layout class="QVBoxLayout" name="panes">
+     <item>
+      <layout class="QGridLayout" name="binariesPane">
+       <item row="3" column="1" colspan="2">
+        <widget class="QLineEdit" name="soxDirectory">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="1" colspan="2">
+        <widget class="QLineEdit" name="ffprobeDirectory">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="0">
+        <widget class="QLabel" name="soxLabel">
+         <property name="text">
+          <string>sox</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="3">
+        <widget class="QToolButton" name="ffmpegDirectoryPicker">
+         <property name="text">
+          <string>...</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="0" colspan="4">
+        <widget class="QLabel" name="binaryLabel">
+         <property name="font">
+          <font>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="frameShape">
+          <enum>QFrame::Box</enum>
+         </property>
+         <property name="frameShadow">
+          <enum>QFrame::Sunken</enum>
+         </property>
+         <property name="text">
+          <string>Binaries</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignCenter</set>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="QLabel" name="ffmpegLabel">
+         <property name="text">
+          <string>ffmpeg</string>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="0">
+        <widget class="QLabel" name="ffprobeLabel">
+         <property name="text">
+          <string>ffprobe</string>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="3">
+        <widget class="QToolButton" name="soxDirectoryPicker">
+         <property name="text">
+          <string>...</string>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="3">
+        <widget class="QToolButton" name="ffprobeDirectoryPicker">
+         <property name="text">
+          <string>...</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1" colspan="2">
+        <widget class="QLineEdit" name="ffmpegDirectory">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
+        </widget>
+       </item>
+      </layout>
      </item>
-     <item row="1" column="0">
-      <widget class="QLabel" name="label">
-       <property name="text">
-        <string>ffmpeg</string>
-       </property>
-      </widget>
+     <item>
+      <layout class="QGridLayout" name="analysisPane">
+       <item row="1" column="2">
+        <widget class="QLabel" name="resolutionLabel">
+         <property name="text">
+          <string>Resolution</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="0" colspan="4">
+        <widget class="QLabel" name="analysisLabel">
+         <property name="font">
+          <font>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="frameShape">
+          <enum>QFrame::Box</enum>
+         </property>
+         <property name="frameShadow">
+          <enum>QFrame::Sunken</enum>
+         </property>
+         <property name="text">
+          <string>Analysis</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignCenter</set>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="QLabel" name="targetFsLabel">
+         <property name="text">
+          <string>Target Fs</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QSpinBox" name="targetFs">
+         <property name="minimum">
+          <number>500</number>
+         </property>
+         <property name="maximum">
+          <number>96000</number>
+         </property>
+         <property name="singleStep">
+          <number>100</number>
+         </property>
+         <property name="value">
+          <number>1000</number>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="3">
+        <widget class="QComboBox" name="resolutionSelect"/>
+       </item>
+      </layout>
      </item>
-     <item row="4" column="0" colspan="5">
-      <widget class="QLabel" name="label_5">
-       <property name="font">
-        <font>
-         <weight>75</weight>
-         <bold>true</bold>
-        </font>
-       </property>
-       <property name="frameShape">
-        <enum>QFrame::Box</enum>
-       </property>
-       <property name="frameShadow">
-        <enum>QFrame::Sunken</enum>
-       </property>
-       <property name="text">
-        <string>Analysis</string>
-       </property>
-       <property name="alignment">
-        <set>Qt::AlignCenter</set>
-       </property>
-      </widget>
-     </item>
-     <item row="5" column="0">
-      <widget class="QLabel" name="label_6">
-       <property name="text">
-        <string>Target Fs</string>
-       </property>
-      </widget>
-     </item>
-     <item row="1" column="4">
-      <widget class="QToolButton" name="ffmpegDirectoryPicker">
-       <property name="text">
-        <string>...</string>
-       </property>
-      </widget>
-     </item>
-     <item row="3" column="0">
-      <widget class="QLabel" name="label_2">
-       <property name="text">
-        <string>sox</string>
-       </property>
-      </widget>
-     </item>
-     <item row="0" column="0" colspan="5">
-      <widget class="QLabel" name="label_3">
-       <property name="font">
-        <font>
-         <weight>75</weight>
-         <bold>true</bold>
-        </font>
-       </property>
-       <property name="frameShape">
-        <enum>QFrame::Box</enum>
-       </property>
-       <property name="frameShadow">
-        <enum>QFrame::Sunken</enum>
-       </property>
-       <property name="text">
-        <string>Binaries</string>
-       </property>
-       <property name="alignment">
-        <set>Qt::AlignCenter</set>
-       </property>
-      </widget>
-     </item>
-     <item row="3" column="4">
-      <widget class="QToolButton" name="soxDirectoryPicker">
-       <property name="text">
-        <string>...</string>
-       </property>
-      </widget>
-     </item>
-     <item row="2" column="4">
-      <widget class="QToolButton" name="ffprobeDirectoryPicker">
-       <property name="text">
-        <string>...</string>
-       </property>
-      </widget>
-     </item>
-     <item row="5" column="1">
-      <widget class="QSpinBox" name="targetFs">
-       <property name="minimum">
-        <number>500</number>
-       </property>
-       <property name="maximum">
-        <number>96000</number>
-       </property>
-       <property name="singleStep">
-        <number>100</number>
-       </property>
-       <property name="value">
-        <number>1000</number>
-       </property>
-      </widget>
-     </item>
-     <item row="5" column="2" colspan="3">
-      <spacer name="horizontalSpacer">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>40</width>
-         <height>20</height>
-        </size>
-       </property>
-      </spacer>
-     </item>
-     <item row="1" column="1" colspan="3">
-      <widget class="QLineEdit" name="ffmpegDirectory">
-       <property name="enabled">
-        <bool>false</bool>
-       </property>
-      </widget>
-     </item>
-     <item row="2" column="1" colspan="3">
-      <widget class="QLineEdit" name="ffprobeDirectory">
-       <property name="enabled">
-        <bool>false</bool>
-       </property>
-      </widget>
-     </item>
-     <item row="3" column="1" colspan="3">
-      <widget class="QLineEdit" name="soxDirectory">
-       <property name="enabled">
-        <bool>false</bool>
-       </property>
-      </widget>
+     <item>
+      <layout class="QGridLayout" name="extractPane">
+       <item row="1" column="2">
+        <widget class="QToolButton" name="defaultOutputDirectoryPicker">
+         <property name="text">
+          <string>...</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="QLabel" name="defaultOutputDirectoryLabel">
+         <property name="text">
+          <string>Default Output Directory</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QLineEdit" name="defaultOutputDirectory">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="0" colspan="3">
+        <widget class="QLabel" name="extractionLabel">
+         <property name="font">
+          <font>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="frameShape">
+          <enum>QFrame::Box</enum>
+         </property>
+         <property name="frameShadow">
+          <enum>QFrame::Sunken</enum>
+         </property>
+         <property name="text">
+          <string>Extraction</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignCenter</set>
+         </property>
+        </widget>
+       </item>
+      </layout>
      </item>
     </layout>
    </item>
@@ -182,8 +234,8 @@
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>231</x>
-     <y>163</y>
+     <x>244</x>
+     <y>282</y>
     </hint>
     <hint type="destinationlabel">
      <x>157</x>
@@ -198,8 +250,8 @@
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>299</x>
-     <y>169</y>
+     <x>312</x>
+     <y>282</y>
     </hint>
     <hint type="destinationlabel">
      <x>286</x>
@@ -214,8 +266,8 @@
    <slot>showFfmpegDirectoryPicker()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>898</x>
-     <y>59</y>
+     <x>793</x>
+     <y>53</y>
     </hint>
     <hint type="destinationlabel">
      <x>393</x>
@@ -230,8 +282,8 @@
    <slot>showSoxDirectoryPicker()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>882</x>
-     <y>117</y>
+     <x>793</x>
+     <y>101</y>
     </hint>
     <hint type="destinationlabel">
      <x>353</x>
@@ -246,12 +298,28 @@
    <slot>showFfprobeDirectoryPicker()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>880</x>
-     <y>91</y>
+     <x>793</x>
+     <y>77</y>
     </hint>
     <hint type="destinationlabel">
-     <x>912</x>
+     <x>808</x>
      <y>60</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>defaultOutputDirectoryPicker</sender>
+   <signal>clicked()</signal>
+   <receiver>preferencesDialog</receiver>
+   <slot>showDefaultOutputDirectoryPicker()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>785</x>
+     <y>219</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>802</x>
+     <y>185</y>
     </hint>
    </hints>
   </connection>
@@ -260,5 +328,6 @@
   <slot>showFfmpegDirectoryPicker()</slot>
   <slot>showSoxDirectoryPicker()</slot>
   <slot>showFfprobeDirectoryPicker()</slot>
+  <slot>showDefaultOutputDirectoryPicker()</slot>
  </slots>
 </ui>
