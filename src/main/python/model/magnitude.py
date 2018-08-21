@@ -57,6 +57,7 @@ class MagnitudeModel:
         self.__curves = {}
         self.__dBRange = 40
         self.__update_y_lim(np.zeros(1))
+        # TODO set to half nyquist or make it a user selection
         self.__axes.set_xlim(left=2, right=250)
         self.__axes.set_ylabel('dBFS')
         self.__axes.set_xlabel('Hz')
@@ -75,12 +76,8 @@ class MagnitudeModel:
         '''
         start = time.time()
         data = self.__dataProvider.getMagnitudeData()
-        for idx, x in enumerate(data):
-            if x.name == COMBINED:
-                colour = 'k'
-            else:
-                colour = self.__chart.getColour(idx, len(data))
-            self.__create_or_update_curve(x, colour)
+        for x in data:
+            self.__create_or_update_curve(x)
         curve_names = [x.name for x in data]
         to_delete = [curve for name, curve in self.__curves.items() if name not in curve_names]
         for curve in to_delete:
@@ -99,7 +96,7 @@ class MagnitudeModel:
         ymax, ymin = calculate_dBFS_Scales(data, maxRange=self.__dBRange)
         self.__axes.set_ylim(bottom=ymin, top=ymax)
 
-    def __create_or_update_curve(self, data, colour):
+    def __create_or_update_curve(self, data):
         curve = self.__curves.get(data.name, None)
         if curve:
             curve.set_data(data.x, data.y)
@@ -108,7 +105,7 @@ class MagnitudeModel:
                                                             linewidth=2,
                                                             antialiased=True,
                                                             linestyle='solid',
-                                                            color=colour,
+                                                            color=data.colour,
                                                             label=data.name)[0]
 
     def __configureFreqAxisFormatting(self):

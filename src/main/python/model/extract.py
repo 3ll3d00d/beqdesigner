@@ -166,8 +166,9 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         '''
         Reacts to the change in mono vs multichannel target.
         '''
-        self.updateOutputFileName()
-        self.updateFfmpegCommand()
+        if self.audioStreams.count() > 0:
+            self.updateOutputFileName()
+            self.updateFfmpegCommand()
 
     def updateOutputFileName(self):
         '''

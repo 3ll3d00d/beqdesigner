@@ -20,6 +20,25 @@ logger = logging.getLogger('signal')
 WINDOWS = ['barthann', 'bartlett', 'blackman', 'blackmanharris', 'bohman', 'boxcar', 'cosine', 'flattop', 'hamming',
            'hann', 'nuttall', 'parzen', 'triang', 'tukey']
 
+# keep peak red and avg green
+PEAK_COLOURS = [
+    '#ff0000',
+    '#990000',
+    '#ff6666',
+    '#ff9999',
+    '#660000',
+    '#4c0000',
+]
+
+AVG_COLOURS = [
+    '#00ff00',
+    '#009900',
+    '#99ff99',
+    '#ccffcc',
+    '#006600',
+    '#004c00',
+]
+
 
 class SignalModel(Sequence):
     '''
@@ -395,8 +414,8 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
         '''
         if self.__signal is not None:
             name = self.__signal.name
-            return [XYData(f"{name}_avg", self.__avg[0], self.__avg[1]),
-                    XYData(f"{name}_peak", self.__peak[0], self.__peak[1])]
+            return [XYData(f"{name}_avg", self.__avg[0], self.__avg[1], colour=AVG_COLOURS[0]),
+                    XYData(f"{name}_peak", self.__peak[0], self.__peak[1], colour=PEAK_COLOURS[0])]
         else:
             return []
 

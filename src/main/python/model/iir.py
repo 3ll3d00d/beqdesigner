@@ -509,10 +509,11 @@ class XYData:
     Value object for showing data on a magnitude graph.
     '''
 
-    def __init__(self, name, x, y):
+    def __init__(self, name, x, y, colour=None):
         self.name = name
         self.x = x
         self.y = y
+        self.colour = colour
 
     def normalise(self, target):
         '''

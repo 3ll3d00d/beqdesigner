@@ -13,6 +13,15 @@ all_cms = sorted({',  '.join(reversed(v)): k for (k, v) in inverse.items()}.item
 cms_by_name = dict(all_cms)
 
 
+def get_line_colour(idx, count):
+    '''
+    :param idx: the colour index.
+    :return: the colour at that index.
+    '''
+    # TODO allow user to choose colour scheme?
+    return cms_by_name.get('rainbow', cms_by_name.get('bgyw'))(idx / count)
+
+
 # Matplotlib canvas class to create figure
 class MplCanvas(Canvas):
     def __init__(self):
@@ -30,14 +39,3 @@ class MplWidget(QtWidgets.QWidget):
         self.vbl = QtWidgets.QVBoxLayout()
         self.vbl.addWidget(self.canvas)
         self.setLayout(self.vbl)
-        self._cmap = self.getColourMap('rainbow')
-
-    def getColourMap(self, name):
-        return cms_by_name.get(name, cms_by_name.get('bgyw'))
-
-    def getColour(self, idx, count):
-        '''
-        :param idx: the colour index.
-        :return: the colour at that index.
-        '''
-        return self._cmap(idx / count)

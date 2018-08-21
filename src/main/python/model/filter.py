@@ -5,11 +5,12 @@ import typing
 from collections import Sequence
 from uuid import uuid4
 
-from qtpy.QtWidgets import QDialog, QDialogButtonBox
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt
+from qtpy.QtWidgets import QDialog, QDialogButtonBox
 
 from model.iir import ComplexFilter, FilterType, LowShelf, HighShelf, PeakingEQ, SecondOrder_LowPass, \
     SecondOrder_HighPass, ComplexLowPass, ComplexHighPass
+from mpl import get_line_colour
 from ui.filter import Ui_editFilterDialog
 
 COMBINED = 'Combined'
@@ -78,10 +79,15 @@ class FilterModel(Sequence):
         if len(self.__filter) > 0:
             start = time.time()
             children = [x.getTransferFunction() for x in self.__filter]
-            results = [self.__filter.getTransferFunction()]
+            combined = self.__filter.getTransferFunction()
+            combined.colour = 'k'
+
+            results = [combined]
             if includeIndividualFilters and len(self) > 1:
                 results += children
             mags = [r.getMagnitude() for r in results]
+            for idx, m in enumerate(mags):
+                m.colour = get_line_colour(idx, len(mags))
             end = time.time()
             logger.debug(f"Calculated {len(mags)} transfer functions in {end-start}ms")
             return mags
