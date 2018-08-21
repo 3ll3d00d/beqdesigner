@@ -1,6 +1,7 @@
 import logging
 import os
 import sys
+import qtawesome as qta
 from contextlib import contextmanager
 
 import matplotlib
@@ -14,7 +15,7 @@ from qtpy.QtWidgets import QMainWindow, QApplication, QErrorMessage, QAbstractIt
 from model.extract import ExtractAudioDialog
 from model.filter import FilterTableModel, FilterModel, FilterDialog
 from model.log import RollingLogger
-from model.magnitude import MagnitudeModel
+from model.magnitude import MagnitudeModel, LimitsDialog
 from model.preferences import PreferencesDialog, BINARIES
 from model.signal import SignalModel, SignalTableModel, SignalDialog
 from ui.beq import Ui_MainWindow
@@ -35,6 +36,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.app = app
         self.settings = QSettings("3ll3d00d", "beqdesigner")
         self.setupUi(self)
+        self.limitsButton.setIcon(qta.icon('ei.move'))
         # logs
         self.logViewer = RollingLogger(parent=self)
         self.actionShow_Logs.triggered.connect(self.logViewer.show_logs)
@@ -45,15 +47,15 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.__filterTableModel = FilterTableModel(self.__filterModel, parent=parent)
         self.filterView.setModel(self.__filterTableModel)
         self.filterView.selectionModel().selectionChanged.connect(self.changeFilterButtonState)
-        # magnitude
-        self.__magnitudeModel = MagnitudeModel(self.filterChart, self.__filterModel)
         # signal model
         self.signalView.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.signalView.setSelectionMode(QAbstractItemView.SingleSelection)
-        self.__signalModel = SignalModel(self.signalView)
+        self.__signalModel = SignalModel(self.signalView, self.__filterModel)
         self.__signalTableModel = SignalTableModel(self.__signalModel, parent=parent)
         self.signalView.setModel(self.__signalTableModel)
         self.signalView.selectionModel().selectionChanged.connect(self.changeSignalButtonState)
+        # magnitude
+        self.__magnitudeModel = MagnitudeModel(self.filterChart, self.__signalModel)
         # processing
         self.ensurePathContainsExternalTools()
         # extraction
@@ -125,7 +127,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Adds signals via the signal dialog.
         '''
-        SignalDialog(self.settings, parent=self).exec()
+        SignalDialog(self.settings, self.__signalModel, parent=self).exec()
 
     def editSignal(self):
         '''
@@ -170,7 +172,22 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.__magnitudeModel.display()
 
     def showExtractAudioDialog(self):
+        '''
+        Show the extract audio dialog.
+        '''
         ExtractAudioDialog(self.settings, parent=self).exec()
+
+    def normaliseMagnitude(self):
+        '''
+        Handles reference series change.
+        '''
+        pass
+
+    def showLimits(self):
+        '''
+        Shows the limits dialog for the main chart.
+        '''
+        LimitsDialog(self.__magnitudeModel).exec()
 
 
 e_dialog = None

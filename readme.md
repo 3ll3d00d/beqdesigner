@@ -1,6 +1,6 @@
 # setup
 
-    conda create -n beq numpy colorcet scipy qtpy mkl==2018.0.2
+    conda create -n beq numpy colorcet scipy qtpy mkl==2018.0.2 qtawesome
     activate beq
     python -m pip install --upgrade pip
     pip install pyqt5 matplotlib ffmpeg-python soundfile resampy
@@ -8,15 +8,25 @@
 
 # todo
 
+* add frd import
 * create biquad filter export
 * add load/save feature 
   * allow loading individual signals or filters only
 * add filter presets
-
+* save graph as png
+  * with optional additional image (as per the avs thread style)
+* add gain adjust filter
+* populate reference curves combo 
+  * implement normalisation
+* apply filter to curve
 
 # bugs
 
 * 1st order filters do nothing
+* multichannel export produces too many channels and the preview graph is borked
+* move filters to secondary y axis
+* limits dialog doesn't work
+* combined filter is in blue not black
 
 # Freeze
 

@@ -7,7 +7,7 @@ from collections import Sequence
 import numpy as np
 import resampy
 from qtpy import QtCore
-from qtpy.QtWidgets import QDialog, QFileDialog
+from qtpy.QtWidgets import QDialog, QFileDialog, QDialogButtonBox
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt
 from scipy import signal
 
@@ -45,9 +45,10 @@ class SignalModel(Sequence):
     A model to hold onto the signals.
     '''
 
-    def __init__(self, view):
+    def __init__(self, view, filterModel):
         self.__signals = []
         self.__view = view
+        self.__filterModel = filterModel
         self.table = None
 
     def __getitem__(self, i):
@@ -56,14 +57,14 @@ class SignalModel(Sequence):
     def __len__(self):
         return len(self.__signals)
 
-    def add(self, signals):
+    def add(self, signal):
         '''
         Add the supplied signals ot the model.
-        :param signals: the signals.
+        :param signals: the signal.
         '''
         if self.table is not None:
             self.table.beginResetModel()
-        self.__signals.extend(signals)
+        self.__signals.append(signal)
         if self.table is not None:
             self.table.endResetModel()
 
@@ -90,6 +91,14 @@ class SignalModel(Sequence):
         if self.table is not None:
             self.table.endResetModel()
 
+    def getMagnitudeData(self):
+        '''
+        :return: the peak and avg spectrum for the signals (if any) + the filter signals.
+        '''
+        filters = self.__filterModel.getMagnitudeData()
+        signals = [s.getXY() for s in self.__signals]
+        return filters + [item for sublist in signals for item in sublist]
+
 
 class Signal:
     """ a source models some input to the analysis system, it provides the following attributes:
@@ -108,6 +117,8 @@ class Signal:
         self.duration_hhmmss = str(datetime.timedelta(seconds=self.durationSeconds))
         self.start_hhmmss = str(datetime.timedelta(seconds=self.startSeconds))
         self.end_hhmmss = self.duration_hhmmss
+        self.__avg = None
+        self.__peak = None
 
     def getSegmentLength(self):
         """
@@ -246,6 +257,27 @@ class Signal:
         else:
             return self
 
+    def getXY(self, idx=0):
+        '''
+        :return: renders itself as peak/avg spectrum xydata.
+        '''
+        if self.__avg is not None:
+            return [XYData(f"{self.name}_avg", self.__avg[0], self.__avg[1], colour=AVG_COLOURS[idx]),
+                    XYData(f"{self.name}_peak", self.__peak[0], self.__peak[1], colour=PEAK_COLOURS[idx])]
+        else:
+            logger.error(f"getXY called on {self.name} before calculate, must be error!")
+            return []
+
+    def calculate(self, multiplier, avg_window, peak_window):
+        '''
+        caches the peak and avg spectrum.
+        :param multiplier: the resolution.
+        :param avg_window: the avg window.
+        :param peak_window: the peak window.
+        '''
+        self.__avg = self.spectrum(segmentLengthMultiplier=multiplier, window=avg_window)
+        self.__peak = self.peakSpectrum(segmentLengthMultiplier=multiplier, window=peak_window)
+
 
 def amplitude_to_db(s):
     '''
@@ -272,7 +304,7 @@ class SignalTableModel(QAbstractTableModel):
 
     def __init__(self, model, parent=None):
         super().__init__(parent=parent)
-        self._headers = ['Name', 'Duration', 'Fs', 'Start', 'End']
+        self._headers = ['Name', 'Fs', 'Duration', 'Start', 'End']
         self._signalModel = model
         self._signalModel.table = self
 
@@ -292,9 +324,9 @@ class SignalTableModel(QAbstractTableModel):
             if index.column() == 0:
                 return QVariant(signal_at_row.name)
             elif index.column() == 1:
-                return QVariant(signal_at_row.duration_hhmmss)
-            elif index.column() == 2:
                 return QVariant(signal_at_row.fs)
+            elif index.column() == 2:
+                return QVariant(signal_at_row.duration_hhmmss)
             elif index.column() == 3:
                 return QVariant(signal_at_row.start_hhmmss)
             elif index.column() == 4:
@@ -317,15 +349,17 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
     Alows user to extract a signal from a wav or frd.
     '''
 
-    def __init__(self, settings, parent=None):
+    def __init__(self, settings, signalModel, parent=None):
         super(SignalDialog, self).__init__(parent=parent)
         self.setupUi(self)
         self.__settings = settings
+        self.__signalModel = signalModel
         self.__magnitudeModel = MagnitudeModel(self.previewChart, self)
         self.__duration = 0
         self.__signal = None
         self.__peak = None
         self.__avg = None
+        self.clearSignal()
 
     def selectFile(self):
         '''
@@ -350,6 +384,7 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
         self.startTime.setEnabled(False)
         self.endTime.setEnabled(False)
         self.__magnitudeModel.display()
+        self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
 
     def loadSignal(self, file):
         self.clearSignal()
@@ -394,9 +429,9 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
         avg_window = self.__get_window(ANALYSIS_AVG_WINDOW)
         logger.debug(f"Analysing {self.signalName.text()} at {multiplier}x resolution "
                      f"using {peak_window} peak window and {avg_window} avg window")
-        self.__avg = self.__signal.spectrum(segmentLengthMultiplier=multiplier, window=avg_window)
-        self.__peak = self.__signal.peakSpectrum(segmentLengthMultiplier=multiplier, window=peak_window)
+        self.__signal.calculate(multiplier, avg_window, peak_window)
         self.__magnitudeModel.display()
+        self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
 
     def __get_window(self, key):
         from model.preferences import ANALYSIS_WINDOW_DEFAULT
@@ -413,14 +448,18 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
         :return: the peak and avg spectrum for the currently loaded signal (if any).
         '''
         if self.__signal is not None:
-            name = self.__signal.name
-            return [XYData(f"{name}_avg", self.__avg[0], self.__avg[1], colour=AVG_COLOURS[0]),
-                    XYData(f"{name}_peak", self.__peak[0], self.__peak[1], colour=PEAK_COLOURS[0])]
+            return self.__signal.getXY()
         else:
             return []
 
     def accept(self):
-        pass
+        '''
+        Adds the signal to the model and exits if we have a signal (which we should because the button is disabled
+        until we do).
+        '''
+        if self.__signal is not None:
+            self.__signalModel.add(self.__signal)
+            QDialog.accept(self)
 
 
 def readWav(name, input_file, channel=1, start=None, end=None, target_fs=1000) -> Signal:
@@ -429,6 +468,7 @@ def readWav(name, input_file, channel=1, start=None, end=None, target_fs=1000) -
     :param channel: the channel to read.
     :param start: the time to start reading from in ms
     :param end: the time to end reading from in ms.
+    :param target_fs: the fs of the Signal to return (resampling if necessary)
     :returns: Signal.
     """
     import soundfile as sf

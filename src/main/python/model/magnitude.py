@@ -3,9 +3,10 @@ import time
 from math import log10
 
 import numpy as np
+from PyQt5.QtWidgets import QDialog
 from matplotlib.ticker import EngFormatter, Formatter, NullFormatter
 
-from model.filter import COMBINED
+from ui.limits import Ui_graphLayoutDialog
 
 logger = logging.getLogger('magnitude')
 
@@ -148,3 +149,49 @@ class MagnitudeModel:
                 self.__chart.canvas.draw()
 
             self.__legend_cid = self.__chart.canvas.mpl_connect('pick_event', onpick)
+
+
+class Limits:
+    def __init__(self, x_min, x_max, y_min, y_max, axes):
+        self.x_min = x_min
+        self.x_max = x_max
+        self.y_min = y_min
+        self.y_max = y_max
+        self.__axes = axes
+
+    def update(self, x_min, x_max, y_min, y_max):
+        self.x_min = x_min
+        self.x_max = x_max
+        self.y_min = y_min
+        self.y_max = y_max
+        # update the axes
+
+
+class LimitsDialog(QDialog, Ui_graphLayoutDialog):
+    '''
+    Provides some basic chart controls.
+    '''
+
+    def __init__(self, mag, parent=None):
+        super(LimitsDialog, self).__init__(parent)
+        self.setupUi(self)
+        self.__mag = mag
+        bot, top = self.__mag.__axes.get_ylim()
+        l, r = self.__mag.__axes.get_xlim()
+        self.xMin.setValue(l)
+        self.xMax.setValue(r)
+        self.yMin.setValue(bot)
+        self.yMax.setValue(top)
+
+    def toggleLogScale(self):
+        pass
+
+    def changeLimits(self):
+        '''
+        Updates the chart limits.
+        '''
+        # TODO bridge this via the limits class
+        # self.__limits.update(self.xMin.value(), self.xMax.value(), self.yMin.value(), self.yMax.value())
+        self.__mag.__axes.set_ylim(bottom=self.yMin.value(), top=self.yMax.value())
+        self.__mag.__axes.set_xlim(left=self.xMin.value(), right=self.xMax.value())
+        self.__mag.__chart.canvas.draw()
