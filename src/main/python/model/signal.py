@@ -5,15 +5,20 @@ import typing
 from collections import Sequence
 
 import numpy as np
+import resampy
 from qtpy import QtCore
 from qtpy.QtWidgets import QDialog, QFileDialog
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt
 from scipy import signal
 
+from model.iir import XYData
 from model.magnitude import MagnitudeModel
 from ui.signal import Ui_addSignalDialog
 
 logger = logging.getLogger('signal')
+
+WINDOWS = ['barthann', 'bartlett', 'blackman', 'blackmanharris', 'bohman', 'boxcar', 'cosine', 'flattop', 'hamming',
+           'hann', 'nuttall', 'parzen', 'triang', 'tukey']
 
 
 class SignalModel(Sequence):
@@ -120,7 +125,7 @@ class Signal:
         p = np.concatenate([n[1] for n in slices])
         return f, p
 
-    def spectrum(self, segmentLengthMultiplier=1, mode=None, **kwargs):
+    def spectrum(self, segmentLengthMultiplier=1, mode=None, window=None, **kwargs):
         """
         analyses the source to generate the linear spectrum.
         :param ref: the reference value for dB purposes.
@@ -131,12 +136,11 @@ class Signal:
             Array of sample frequencies.
             Pxx : ndarray
             linear spectrum.
-
         """
 
         def analysisFunc(x, nperseg, **kwargs):
             f, Pxx_spec = signal.welch(self.samples, self.fs, nperseg=nperseg, scaling='spectrum', detrend=False,
-                                       **kwargs)
+                                       window=window if window else 'hann', **kwargs)
             Pxx_spec = np.sqrt(Pxx_spec)
             # it seems a 3dB adjustment is required to account for the change in nperseg
             if x > 0:
@@ -149,11 +153,12 @@ class Signal:
         else:
             return analysisFunc(0, self.getSegmentLength() * segmentLengthMultiplier, **kwargs)
 
-    def peakSpectrum(self, segmentLengthMultiplier=1, mode=None, window='hann'):
+    def peakSpectrum(self, segmentLengthMultiplier=1, mode=None, window=None):
         """
         analyses the source to generate the max values per bin per segment
         :param segmentLengthMultiplier: allow for increased resolution.
         :param mode: cq or none.
+        :param window: window type.
         :return:
             f : ndarray
             Array of sample frequencies.
@@ -164,7 +169,7 @@ class Signal:
         def analysisFunc(x, nperseg):
             freqs, _, Pxy = signal.spectrogram(self.samples,
                                                self.fs,
-                                               window=window,
+                                               window=window if window else ('tukey', 0.25),
                                                nperseg=int(nperseg),
                                                noverlap=int(nperseg // 2),
                                                detrend=False,
@@ -210,6 +215,17 @@ class Signal:
         :return: the filtered signal.
         """
         return Signal(signal.filtfilt(b, a, self.samples), fs=self.fs)
+
+    def resample(self, new_fs):
+        '''
+        Resamples to the new fs (if required).
+        :param new_fs: the new fs.
+        :return: the signal
+        '''
+        if new_fs != self.fs:
+            return Signal(self.name, resampy.resample(self.samples, self.fs, new_fs, filter='kaiser_fast'), new_fs)
+        else:
+            return self
 
 
 def amplitude_to_db(s):
@@ -282,12 +298,15 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
     Alows user to extract a signal from a wav or frd.
     '''
 
-    def __init__(self, parent=None):
+    def __init__(self, settings, parent=None):
         super(SignalDialog, self).__init__(parent=parent)
         self.setupUi(self)
-        # TODO replace filterModel
-        self.__magnitudeModel = MagnitudeModel(self.previewChart, None)
+        self.__settings = settings
+        self.__magnitudeModel = MagnitudeModel(self.previewChart, self)
+        self.__duration = 0
         self.__signal = None
+        self.__peak = None
+        self.__avg = None
 
     def selectFile(self):
         '''
@@ -306,7 +325,12 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
     def clearSignal(self):
         ''' clears the current signal '''
         self.__signal = None
-        # TODO clear chart
+        self.__peak = None
+        self.__avg = None
+        self.__duration = 0
+        self.startTime.setEnabled(False)
+        self.endTime.setEnabled(False)
+        self.__magnitudeModel.display()
 
     def loadSignal(self, file):
         self.clearSignal()
@@ -318,7 +342,10 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
             self.channelSelector.addItem(f"{i+1}")
         self.channelSelector.setEnabled(info.channels > 1)
         self.startTime.setTime(QtCore.QTime(0, 0, 0))
-        self.endTime.setTime(QtCore.QTime(0, 0, 0).addMSecs(math.floor(info.duration * 1000)))
+        self.startTime.setEnabled(True)
+        self.__duration = math.floor(info.duration * 1000)
+        self.endTime.setTime(QtCore.QTime(0, 0, 0).addMSecs(self.__duration))
+        self.endTime.setEnabled(True)
         self.signalName.setEnabled(True)
 
     def enablePreview(self):
@@ -331,40 +358,67 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
         '''
         Loads the signal and displays the chart.
         '''
-        # determine if start or end has hcanged
-        start = None
-        end = None
+        start = end = None
+        startMillis = self.startTime.time().msecsSinceStartOfDay()
+        if startMillis > 0:
+            start = startMillis
+        endMillis = self.endTime.time().msecsSinceStartOfDay()
+        if endMillis < self.__duration:
+            end = endMillis
+        # defer to avoid circular imports
+        from model.preferences import ANALYSIS_TARGET_FS, ANALYSIS_RESOLUTION, ANALYSIS_PEAK_WINDOW, ANALYSIS_AVG_WINDOW
         self.__signal = readWav(self.signalName.text(), self.file.text(),
-                                selectedChannel=int(self.channelSelector.currentText()), start=start, end=end)
-        # update the chart
+                                channel=int(self.channelSelector.currentText()), start=start, end=end,
+                                target_fs=self.__settings.value(ANALYSIS_TARGET_FS))
+        multiplier = int(1 / float(self.__settings.value(ANALYSIS_RESOLUTION)))
+        peak_window = self.__get_window(ANALYSIS_PEAK_WINDOW)
+        avg_window = self.__get_window(ANALYSIS_AVG_WINDOW)
+        logger.debug(f"Analysing {self.signalName.text()} at {multiplier}x resolution "
+                     f"using {peak_window} peak window and {avg_window} avg window")
+        self.__avg = self.__signal.spectrum(segmentLengthMultiplier=multiplier, window=avg_window)
+        self.__peak = self.__signal.peakSpectrum(segmentLengthMultiplier=multiplier, window=peak_window)
+        self.__magnitudeModel.display()
+
+    def __get_window(self, key):
+        from model.preferences import ANALYSIS_WINDOW_DEFAULT
+        window = self.__settings.value(key)
+        if window is None or window == ANALYSIS_WINDOW_DEFAULT:
+            window = None
+        else:
+            if window == 'tukey':
+                window = (window, 0.25)
+        return window
+
+    def getMagnitudeData(self):
+        '''
+        :return: the peak and avg spectrum for the currently loaded signal (if any).
+        '''
+        if self.__signal is not None:
+            name = self.__signal.name
+            return [XYData(f"{name}_avg", self.__avg[0], self.__avg[1]),
+                    XYData(f"{name}_peak", self.__peak[0], self.__peak[1])]
+        else:
+            return []
 
     def accept(self):
         pass
 
 
-def readWav(name, inputSignalFile, selectedChannel=1, start=None, end=None) -> Signal:
+def readWav(name, input_file, channel=1, start=None, end=None, target_fs=1000) -> Signal:
     """ reads a wav file into a Signal.
-    :param inputSignalFile: a path to the input signal file
-    :param selectedChannel: the channel to read.
-    :param start: the time to start reading from in HH:mm:ss.SSS format.
-    :param end: the time to end reading from in HH:mm:ss.SSS format.
+    :param input_file: a path to the input signal file
+    :param channel: the channel to read.
+    :param start: the time to start reading from in ms
+    :param end: the time to end reading from in ms.
     :returns: Signal.
     """
-
-    def asFrames(time, fs):
-        hours, minutes, seconds = (time.split(":"))[-3:]
-        hours = int(hours)
-        minutes = int(minutes)
-        seconds = float(seconds)
-        millis = int((3600000 * hours) + (60000 * minutes) + (1000 * seconds))
-        return int(millis * (fs / 1000))
-
     import soundfile as sf
     if start is not None or end is not None:
-        info = sf.info(inputSignalFile)
-        startFrame = 0 if start is None else asFrames(start, info.samplerate)
-        endFrame = None if end is None else asFrames(end, info.samplerate)
-        ys, frameRate = sf.read(inputSignalFile, start=startFrame, stop=endFrame)
+        info = sf.info(input_file)
+        startFrame = 0 if start is None else int(start * (info.samplerate / 1000))
+        endFrame = None if end is None else int(start * (info.samplerate / 1000))
+        ys, frameRate = sf.read(input_file, start=startFrame, stop=endFrame)
     else:
-        ys, frameRate = sf.read(inputSignalFile)
-    return Signal(name, ys[::selectedChannel], frameRate)
+        ys, frameRate = sf.read(input_file)
+    signal = Signal(name, ys[::channel], frameRate)
+    return signal.resample(target_fs)

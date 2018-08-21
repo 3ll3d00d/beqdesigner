@@ -1,9 +1,7 @@
 import logging
-import math
 import os
 import sys
 from contextlib import contextmanager
-from uuid import uuid4
 
 import matplotlib
 
@@ -11,19 +9,15 @@ matplotlib.use("Qt5Agg")
 
 from qtpy.QtCore import QSettings
 from qtpy.QtGui import QIcon, QFont, QCursor
-from qtpy.QtWidgets import QMainWindow, QApplication, QErrorMessage, QAbstractItemView, QDialog, QDialogButtonBox, \
-    QFileDialog
+from qtpy.QtWidgets import QMainWindow, QApplication, QErrorMessage, QAbstractItemView
 
 from model.extract import ExtractAudioDialog
-from model.filter import FilterTableModel, FilterModel
-from model.iir import LowShelf, HighShelf, PeakingEQ, ComplexLowPass, \
-    FilterType, ComplexHighPass, SecondOrder_HighPass, SecondOrder_LowPass
+from model.filter import FilterTableModel, FilterModel, FilterDialog
 from model.log import RollingLogger
 from model.magnitude import MagnitudeModel
+from model.preferences import PreferencesDialog, BINARIES
 from model.signal import SignalModel, SignalTableModel, SignalDialog
 from ui.beq import Ui_MainWindow
-from ui.filter import Ui_editFilterDialog
-from ui.preferences import Ui_preferencesDialog
 
 from qtpy import QtCore
 
@@ -47,7 +41,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.actionPreferences.triggered.connect(self.showPreferences)
         # init the filter view/model
         self.filterView.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.__filterModel = FilterModel(self.filterView)
+        self.__filterModel = FilterModel(self.filterView, self.showIndividualFilters)
         self.__filterTableModel = FilterTableModel(self.__filterModel, parent=parent)
         self.filterView.setModel(self.__filterTableModel)
         self.filterView.selectionModel().selectionChanged.connect(self.changeFilterButtonState)
@@ -71,7 +65,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         path = os.environ.get('PATH', [])
         paths = path.split(os.pathsep)
-        locs = set([self.settings.value(f"binaries/{x}") for x in ['ffmpeg', 'ffprobe', 'sox']])
+        locs = set([self.settings.value(f"binaries/{x}") for x in BINARIES])
         logging.info(f"Adding {locs} to PATH")
         os.environ['PATH'] = os.pathsep.join([l for l in locs if l not in paths]) + os.pathsep + path
 
@@ -131,7 +125,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Adds signals via the signal dialog.
         '''
-        SignalDialog(parent=self).exec()
+        SignalDialog(self.settings, parent=self).exec()
 
     def editSignal(self):
         '''
@@ -167,234 +161,16 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Updates the chart.
         '''
-        self.__magnitudeModel.display(self.showIndividualFilters.isChecked())
+        self.__magnitudeModel.display()
 
     def changeVisibilityOfIndividualFilters(self):
         '''
         Adds or removes the individual filter transfer functions to/from the graph.
         '''
-        if self.showIndividualFilters.isChecked():
-            self.__magnitudeModel.display(True)
-        else:
-            self.__magnitudeModel.removeIndividualFilters()
+        self.__magnitudeModel.display()
 
     def showExtractAudioDialog(self):
         ExtractAudioDialog(self.settings, parent=self).exec()
-
-
-class PreferencesDialog(QDialog, Ui_preferencesDialog):
-    '''
-    Allows user to set some basic preferences.
-    '''
-
-    def __init__(self, settings, parent=None):
-        super(PreferencesDialog, self).__init__(parent)
-        self.setupUi(self)
-        self.settings = settings
-
-        soxLoc = self.settings.value('binaries/sox')
-        if soxLoc:
-            if os.path.isdir(soxLoc):
-                self.soxDirectory.setText(soxLoc)
-
-        ffmpegLoc = self.settings.value('binaries/ffmpeg')
-        if ffmpegLoc:
-            if os.path.isdir(ffmpegLoc):
-                self.ffmpegDirectory.setText(ffmpegLoc)
-
-        ffprobeLoc = self.settings.value('binaries/ffprobe')
-        if ffprobeLoc:
-            if os.path.isdir(ffprobeLoc):
-                self.ffprobeDirectory.setText(ffprobeLoc)
-
-        targetFs = self.settings.value('analysis/target_fs')
-        if targetFs:
-            self.targetFs.setValue(targetFs)
-        else:
-            self.settings.setValue('analysis/target_fs', self.targetFs.value())
-
-        outputDir = self.settings.value('extraction/output_dir')
-        if outputDir:
-            if os.path.isdir(outputDir):
-                self.defaultOutputDirectory.setText(outputDir)
-
-    def accept(self):
-        '''
-        Saves the locations if they exist.
-        '''
-        soxLoc = self.soxDirectory.text()
-        if os.path.isdir(soxLoc):
-            self.settings.setValue('binaries/sox', soxLoc)
-        ffmpegLoc = self.ffmpegDirectory.text()
-        if os.path.isdir(ffmpegLoc):
-            self.settings.setValue('binaries/ffmpeg', ffmpegLoc)
-        ffprobeLoc = self.ffprobeDirectory.text()
-        if os.path.isdir(ffprobeLoc):
-            self.settings.setValue('binaries/ffprobe', ffprobeLoc)
-        outputDir = self.defaultOutputDirectory.text()
-        if os.path.isdir(outputDir):
-            self.settings.setValue('extraction/output_dir', outputDir)
-        self.settings.setValue('analysis/target_fs', self.targetFs.value())
-        QDialog.accept(self)
-
-    def __get_directory(self, name):
-        dialog = QFileDialog(parent=self)
-        dialog.setFileMode(QFileDialog.ExistingFile)
-        dialog.setNameFilter(f"{name}.exe")
-        dialog.setWindowTitle(f"Select {name}.exe")
-        if dialog.exec():
-            selected = dialog.selectedFiles()
-            if len(selected) > 0:
-                return selected[0]
-        return None
-
-    def showFfmpegDirectoryPicker(self):
-        loc = self.__get_directory('ffmpeg')
-        if loc is not None:
-            dirname = os.path.dirname(loc)
-            self.ffmpegDirectory.setText(dirname)
-            if os.path.exists(os.path.join(dirname, 'ffprobe.exe')):
-                self.ffprobeDirectory.setText(dirname)
-
-    def showFfprobeDirectoryPicker(self):
-        loc = self.__get_directory('ffprobe')
-        if loc is not None:
-            dirname = os.path.dirname(loc)
-            self.ffprobeDirectory.setText(dirname)
-            if os.path.exists(os.path.join(dirname, 'ffmpeg.exe')):
-                self.ffmpegDirectory.setText(dirname)
-
-    def showSoxDirectoryPicker(self):
-        loc = self.__get_directory('sox')
-        if loc is not None:
-            self.soxDirectory.setText(os.path.dirname(loc))
-
-    def showDefaultOutputDirectoryPicker(self):
-        dialog = QFileDialog(parent=self)
-        dialog.setFileMode(QFileDialog.DirectoryOnly)
-        dialog.setWindowTitle(f"Select Extract Audio Output Directory")
-        if dialog.exec():
-            selected = dialog.selectedFiles()
-            if len(selected) > 0:
-                self.defaultOutputDirectory.setText(selected[0])
-
-
-class FilterDialog(QDialog, Ui_editFilterDialog):
-    '''
-    Add/Edit Filter dialog
-    '''
-    gain_required = ['Low Shelf', 'High Shelf', 'Peak']
-
-    def __init__(self, filterModel, fs=48000, filter=None, parent=None):
-        super(FilterDialog, self).__init__(parent)
-        self.setupUi(self)
-        self.filterModel = filterModel
-        self.filter = filter
-        self.fs = fs
-        if self.filter is not None:
-            self.setWindowTitle('Edit Filter')
-            if hasattr(self.filter, 'gain'):
-                self.filterGain.setValue(self.filter.gain)
-            if hasattr(self.filter, 'q'):
-                self.filterQ.setValue(self.filter.q)
-            self.freq.setValue(self.filter.freq)
-            if hasattr(self.filter, 'order'):
-                self.filterOrder.setValue(self.filter.order)
-            if hasattr(self.filter, 'type'):
-                displayName = 'Butterworth' if filter.type is FilterType.BUTTERWORTH else 'Linkwitz-Riley'
-                self.passFilterType.setCurrentIndex(self.passFilterType.findText(displayName))
-            self.filterType.setCurrentIndex(self.filterType.findText(filter.display_name))
-        else:
-            self.buttonBox.button(QDialogButtonBox.Save).setText('Add')
-        self.enableOkIfGainIsValid()
-
-    def accept(self):
-        if self.__is_pass_filter():
-            filt = self.create_pass_filter()
-        else:
-            filt = self.create_shaping_filter()
-        if self.filter is None:
-            filt.id = uuid4()
-            self.filterModel.add(filt)
-        else:
-            filt.id = self.filter.id
-            self.filterModel.replace(filt)
-
-    def create_shaping_filter(self):
-        '''
-        Creates a filter of the specified type.
-        :param idx: the index.
-        :param fs: the sampling frequency.
-        :param type: the filter type.
-        :param freq: the corner frequency.
-        :param q: the filter Q.
-        :param gain: the filter gain (if any).
-        :return: the filter.
-        '''
-        if self.filterType.currentText() == 'Low Shelf':
-            return LowShelf(self.fs, self.freq.value(), self.filterQ.value(), self.filterGain.value())
-        elif self.filterType.currentText() == 'High Shelf':
-            return HighShelf(self.fs, self.freq.value(), self.filterQ.value(), self.filterGain.value())
-        elif self.filterType.currentText() == 'Peak':
-            return PeakingEQ(self.fs, self.freq.value(), self.filterQ.value(), self.filterGain.value())
-        elif self.filterType.currentText() == 'Variable Q LPF':
-            return SecondOrder_LowPass(self.fs, self.freq.value(), self.filterQ.value())
-        elif self.filterType.currentText() == 'Variable Q HPF':
-            return SecondOrder_HighPass(self.fs, self.freq.value(), self.filterQ.value())
-        else:
-            raise ValueError(f"Unknown filter type {self.filterType.currentText()}")
-
-    def create_pass_filter(self):
-        '''
-        Creates a predefined high or low pass filter.
-        :return: the filter.
-        '''
-        if self.filterType.currentText() == 'Low Pass':
-            return ComplexLowPass(FilterType[self.passFilterType.currentText().upper().replace('-', '_')],
-                                  self.filterOrder.value(), self.fs, self.freq.value())
-        else:
-            return ComplexHighPass(FilterType[self.passFilterType.currentText().upper().replace('-', '_')],
-                                   self.filterOrder.value(), self.fs, self.freq.value())
-
-    def __is_pass_filter(self):
-        '''
-        :return: true if the current options indicate a predefined high or low pass filter.
-        '''
-        selectedFilter = self.filterType.currentText()
-        return selectedFilter == 'Low Pass' or selectedFilter == 'High Pass'
-
-    def enableFilterParams(self):
-        if self.__is_pass_filter():
-            self.passFilterType.setEnabled(True)
-            self.filterOrder.setEnabled(True)
-            self.filterQ.setEnabled(False)
-            self.filterGain.setEnabled(False)
-        else:
-            self.passFilterType.setEnabled(False)
-            self.filterOrder.setEnabled(False)
-            self.filterQ.setEnabled(True)
-            self.filterGain.setEnabled(self.__is_gain_required())
-        self.enableOkIfGainIsValid()
-
-    def changeOrderStep(self):
-        '''
-        Sets the order step based on the type of high/low pass filter to ensure that LR only allows even orders.
-        '''
-        if self.passFilterType.currentText() == 'Butterworth':
-            self.filterOrder.setSingleStep(1)
-        elif self.passFilterType.currentText() == 'Linkwitz-Riley':
-            if self.filterOrder.value() % 2 != 0:
-                self.filterOrder.setValue(2)
-            self.filterOrder.setSingleStep(2)
-
-    def enableOkIfGainIsValid(self):
-        if self.__is_gain_required():
-            self.buttonBox.button(QDialogButtonBox.Save).setEnabled(not math.isclose(self.filterGain.value(), 0.0))
-        else:
-            self.buttonBox.button(QDialogButtonBox.Save).setEnabled(True)
-
-    def __is_gain_required(self):
-        return self.filterType.currentText() in self.gain_required
 
 
 e_dialog = None

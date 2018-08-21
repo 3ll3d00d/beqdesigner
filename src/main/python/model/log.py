@@ -90,7 +90,7 @@ class RollingLogger(logging.Handler):
         if self.__logWindow == None:
             self.__logWindow = LogViewer(self, len(self.__buffer))
             self.__logWindow.maxRows.setValue(len(self.__buffer))
-            levelIdx = self.__logWindow.logLevel.findData(self.__levelName)
+            levelIdx = self.__logWindow.logLevel.findText(self.__levelName)
             self.__logWindow.logLevel.setCurrentIndex(levelIdx)
             self.__logWindow.show()
             self.__logWindow.refresh(self.__buffer)

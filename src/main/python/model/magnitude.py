@@ -1,4 +1,5 @@
 import logging
+import time
 from math import log10
 
 import numpy as np
@@ -49,10 +50,10 @@ class MagnitudeModel:
     Allows a set of filters to be displayed on a chart as magnitude responses.
     '''
 
-    def __init__(self, chart, filterModel):
+    def __init__(self, chart, dataProvider):
         self.__chart = chart
         self.__axes = self.__chart.canvas.figure.add_subplot(111)
-        self.__filterModel = filterModel
+        self.__dataProvider = dataProvider
         self.__curves = {}
         self.__dBRange = 40
         self.__update_y_lim(np.zeros(1))
@@ -66,14 +67,14 @@ class MagnitudeModel:
         self.__axes.grid(linestyle='--', which='minor', linewidth=1, alpha=0.5)
 
     def __repr__(self):
-        return 'filter'
+        return 'magnitude'
 
-    def display(self, showIndividualFilters):
+    def display(self):
         '''
         Updates the contents of the magnitude chart
         '''
-        data = self.__filterModel.getMagnitudeData(showIndividualFilters)
-
+        start = time.time()
+        data = self.__dataProvider.getMagnitudeData()
         for idx, x in enumerate(data):
             if x.name == COMBINED:
                 colour = 'k'
@@ -88,19 +89,10 @@ class MagnitudeModel:
         if len(data) > 0:
             self.__update_y_lim(np.concatenate([x.y for x in data]))
         self.__makeClickableLegend()
+        mid = time.time()
         self.__chart.canvas.draw()
-
-    def removeIndividualFilters(self):
-        '''
-        Deletes the individual filters from the chart.
-        :return:
-        '''
-        for k, v in self.__curves.items():
-            if k != COMBINED:
-                v.remove()
-        self.__curves = {k: v for k, v in self.__curves.items() if k == COMBINED}
-        self.__makeClickableLegend()
-        self.__chart.canvas.draw()
+        end = time.time()
+        logger.debug(f"Calc : {round(mid-start,3)}s Redraw: {round(end-mid,3)}s")
 
     def __update_y_lim(self, data):
         self.__configureFreqAxisFormatting()
@@ -137,8 +129,9 @@ class MagnitudeModel:
 
         lines = self.__curves.values()
         if len(lines) > 0:
-            ncol = int(len(lines)/3) if len(lines) % 3 == 0 else int(len(lines)/3)+1
-            self.__legend = self.__axes.legend(lines, [l.get_label() for l in lines], loc=3, ncol=ncol, fancybox=True, shadow=True)
+            ncol = int(len(lines) / 3) if len(lines) % 3 == 0 else int(len(lines) / 3) + 1
+            self.__legend = self.__axes.legend(lines, [l.get_label() for l in lines], loc=3, ncol=ncol, fancybox=True,
+                                               shadow=True)
             lined = dict()
             for legline, origline in zip(self.__legend.get_lines(), lines):
                 legline.set_picker(5)  # 5 pts tolerance
