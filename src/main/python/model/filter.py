@@ -100,6 +100,14 @@ class FilterModel(Sequence):
         else:
             return []
 
+    def getTransferFunction(self):
+        '''
+        :return: the transfer function for this filter (in total) if we have any filters or None if we have none.
+        '''
+        if len(self.__filter) > 0:
+            return self.__filter.getTransferFunction()
+        return None
+
 
 class FilterTableModel(QAbstractTableModel):
     '''
@@ -136,7 +144,7 @@ class FilterTableModel(QAbstractTableModel):
                     return QVariant('N/A')
             elif index.column() == 3:
                 if hasattr(filter_at_row, 'q_to_s'):
-                    return QVariant(filter_at_row.q_to_s())
+                    return QVariant(round(filter_at_row.q_to_s(), 3))
                 else:
                     return QVariant('N/A')
             elif index.column() == 4:
@@ -171,7 +179,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.setupUi(self)
         self.filterModel = filterModel
         self.filter = filter
-        self.fs = fs
+        self.fs = fs if filter is None else filter.fs
         if self.filter is not None:
             self.setWindowTitle('Edit Filter')
             if hasattr(self.filter, 'gain'):
@@ -189,6 +197,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
             self.buttonBox.button(QDialogButtonBox.Save).setText('Add')
         self.enableFilterParams()
         self.enableOkIfGainIsValid()
+        self.freq.setMaximum(self.fs / 2.0)
 
     def accept(self):
         if self.__is_pass_filter():

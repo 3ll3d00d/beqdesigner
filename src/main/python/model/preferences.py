@@ -1,6 +1,7 @@
 import os
 
-from PyQt5.QtWidgets import QDialog, QFileDialog
+import matplotlib.style as style
+from qtpy.QtWidgets import QDialog, QFileDialog
 
 from model.signal import WINDOWS
 from ui.preferences import Ui_preferencesDialog
@@ -13,6 +14,8 @@ ANALYSIS_PEAK_WINDOW = 'analysis/peak_window'
 ANALYSIS_WINDOW_DEFAULT = 'Default'
 BINARIES_FFPROBE = 'binaries/ffprobe'
 BINARIES_FFMPEG = 'binaries/ffmpeg'
+STYLE_MATPLOTLIB_THEME_DEFAULT = 'default'
+STYLE_MATPLOTLIB_THEME = 'style/matplotlib_theme'
 
 BINARIES = ['ffprobe', 'ffmpeg']
 
@@ -27,6 +30,7 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         self.setupUi(self)
         self.__init_analysis_window(self.avgAnalysisWindow)
         self.__init_analysis_window(self.peakAnalysisWindow)
+        self.__init_themes()
         self.settings = settings
 
         ffmpegLoc = self.settings.value(BINARIES_FFMPEG)
@@ -44,11 +48,19 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         self.init_combo(ANALYSIS_RESOLUTION, 1, self.resolutionSelect, translater=lambda a: str(a) + ' Hz')
         self.init_combo(ANALYSIS_AVG_WINDOW, ANALYSIS_WINDOW_DEFAULT, self.avgAnalysisWindow)
         self.init_combo(ANALYSIS_PEAK_WINDOW, ANALYSIS_WINDOW_DEFAULT, self.peakAnalysisWindow)
+        self.init_combo(STYLE_MATPLOTLIB_THEME, STYLE_MATPLOTLIB_THEME_DEFAULT, self.themePicker)
 
         outputDir = self.settings.value(EXTRACTION_OUTPUT_DIR)
         if outputDir:
             if os.path.isdir(outputDir):
                 self.defaultOutputDirectory.setText(outputDir)
+
+    def __init_themes(self):
+        '''
+        Adds all the available matplotlib theme names to a combo.
+        '''
+        for style_name in sorted(style.library.keys()):
+            self.themePicker.addItem(style_name)
 
     def __init_analysis_window(self, combo):
         '''
@@ -99,6 +111,8 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         self.settings.setValue(ANALYSIS_RESOLUTION, float(self.resolutionSelect.currentText().split(' ')[0]))
         self.settings.setValue(ANALYSIS_AVG_WINDOW, self.avgAnalysisWindow.currentText())
         self.settings.setValue(ANALYSIS_PEAK_WINDOW, self.peakAnalysisWindow.currentText())
+        self.settings.setValue(STYLE_MATPLOTLIB_THEME, self.themePicker.currentText())
+        style.use(self.themePicker.currentText())
         QDialog.accept(self)
 
     def __get_directory(self, name):

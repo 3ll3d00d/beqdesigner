@@ -1,5 +1,5 @@
 # from http://www.musicdsp.org/files/Audio-EQ-Cookbook.txt
-
+import logging
 import math
 from abc import ABC, abstractmethod
 from enum import Enum
@@ -9,6 +9,8 @@ import numpy as np
 from scipy import signal
 
 DEFAULT_Q = 1 / np.math.sqrt(2.0)
+
+logger = logging.getLogger('iir')
 
 
 class Biquad(ABC):
@@ -51,8 +53,7 @@ class Biquad(ABC):
         :param filt: the filter.
         :return: the transfer function.
         '''
-        # TODO calculate worN based on fs
-        w, h = signal.freqz(b=self.b, a=self.a, worN=65536)
+        w, h = signal.freqz(b=self.b, a=self.a, worN=1 << (self.fs - 1).bit_length())
         f = w * self.fs / (2 * np.pi)
         return ComplexData(self.__repr__(), f, h)
 
@@ -544,3 +545,21 @@ class XYData:
         :return: a normalised XYData.
         '''
         return XYData(self.name, self.x, self.y - target.y, self.colour)
+
+    def filter(self, filt):
+        '''
+        Adds filt.y to the data.y as we're dealing in the frequency domain. Interpolates the smaller xy if required so
+        we can just add them together.
+        :param filt: the filter in XYData form.
+        :return: the filtered response.
+        '''
+        if self.x.size != filt.x.size:
+            logger.debug(f"Interpolating filt {filt.x.size} vs self {self.x.size}")
+            if self.x.size > filt.x.size:
+                interp_y = np.interp(self.x, filt.x, filt.y)
+                return XYData(f"{self.name}-filtered", self.x, self.y + interp_y, self.colour)
+            else:
+                interp_y = np.interp(filt.x, self.x, self.y)
+                return XYData(f"{self.name}-filtered", filt.x, filt.y + interp_y, self.colour)
+        else:
+            return XYData(f"{self.name}-filtered", self.x, self.y + filt.y, self.colour)

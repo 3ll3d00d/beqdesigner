@@ -16,9 +16,6 @@
 * save graph as png
   * with optional additional image (as per the avs thread style)
 * add gain adjust filter
-* populate reference curves combo 
-  * implement normalisation
-* apply filter to curve
 
 # bugs
 
@@ -26,7 +23,7 @@
 * multichannel export produces too many channels and the preview graph is borked
 * move filters to secondary y axis
 * limits dialog doesn't work
-* combined filter is in blue not black
+* multiple signals aren't coloured properly
 
 # Freeze
 

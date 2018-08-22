@@ -96,8 +96,11 @@ class SignalModel(Sequence):
         :param reference: the curve against which to normalise.
         :return: the peak and avg spectrum for the signals (if any) + the filter signals.
         '''
+        filter_response = self.__filterModel.getTransferFunction()
         signals = [s.getXY() for s in self.__signals]
         flattened = [item for sublist in signals for item in sublist]
+        if filter_response is not None:
+            flattened = [f.filter(filter_response.getMagnitude()) for f in flattened]
         if reference is not None:
             ref_data = next((x for x in flattened if x.name == reference), None)
             if ref_data:
@@ -359,12 +362,12 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
         self.setupUi(self)
         self.__settings = settings
         self.__signalModel = signalModel
-        self.__magnitudeModel = MagnitudeModel(self.previewChart, self, 'Signal')
+        self.__magnitudeModel = MagnitudeModel('preview', self.previewChart, self, 'Signal')
         self.__duration = 0
         self.__signal = None
         self.__peak = None
         self.__avg = None
-        self.clearSignal()
+        self.clearSignal(draw=False)
 
     def selectFile(self):
         '''
@@ -380,7 +383,7 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
                 self.file.setText(selected[0])
                 self.loadSignal(selected[0])
 
-    def clearSignal(self):
+    def clearSignal(self, draw=True):
         ''' clears the current signal '''
         self.__signal = None
         self.__peak = None
@@ -388,11 +391,17 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
         self.__duration = 0
         self.startTime.setEnabled(False)
         self.endTime.setEnabled(False)
-        self.__magnitudeModel.display()
+        if draw:
+            self.__magnitudeModel.display()
         self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
 
     def loadSignal(self, file):
-        self.clearSignal()
+        '''
+        Loads the signal from the file.
+        :param file: the file.
+        '''
+        if self.__signal is not None:
+            self.clearSignal()
         import soundfile as sf
         info = sf.info(file)
         self.fs.setText(f"{info.samplerate} Hz")
@@ -417,26 +426,28 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
         '''
         Loads the signal and displays the chart.
         '''
-        start = end = None
-        startMillis = self.startTime.time().msecsSinceStartOfDay()
-        if startMillis > 0:
-            start = startMillis
-        endMillis = self.endTime.time().msecsSinceStartOfDay()
-        if endMillis < self.__duration:
-            end = endMillis
-        # defer to avoid circular imports
-        from model.preferences import ANALYSIS_TARGET_FS, ANALYSIS_RESOLUTION, ANALYSIS_PEAK_WINDOW, ANALYSIS_AVG_WINDOW
-        self.__signal = readWav(self.signalName.text(), self.file.text(),
-                                channel=int(self.channelSelector.currentText()), start=start, end=end,
-                                target_fs=self.__settings.value(ANALYSIS_TARGET_FS))
-        multiplier = int(1 / float(self.__settings.value(ANALYSIS_RESOLUTION)))
-        peak_window = self.__get_window(ANALYSIS_PEAK_WINDOW)
-        avg_window = self.__get_window(ANALYSIS_AVG_WINDOW)
-        logger.debug(f"Analysing {self.signalName.text()} at {multiplier}x resolution "
-                     f"using {peak_window} peak window and {avg_window} avg window")
-        self.__signal.calculate(multiplier, avg_window, peak_window)
-        self.__magnitudeModel.display()
-        self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
+        from app import wait_cursor
+        with wait_cursor('Preparing Signal'):
+            start = end = None
+            startMillis = self.startTime.time().msecsSinceStartOfDay()
+            if startMillis > 0:
+                start = startMillis
+            endMillis = self.endTime.time().msecsSinceStartOfDay()
+            if endMillis < self.__duration:
+                end = endMillis
+            # defer to avoid circular imports
+            from model.preferences import ANALYSIS_TARGET_FS, ANALYSIS_RESOLUTION, ANALYSIS_PEAK_WINDOW, ANALYSIS_AVG_WINDOW
+            self.__signal = readWav(self.signalName.text(), self.file.text(),
+                                    channel=int(self.channelSelector.currentText()), start=start, end=end,
+                                    target_fs=self.__settings.value(ANALYSIS_TARGET_FS))
+            multiplier = int(1 / float(self.__settings.value(ANALYSIS_RESOLUTION)))
+            peak_window = self.__get_window(ANALYSIS_PEAK_WINDOW)
+            avg_window = self.__get_window(ANALYSIS_AVG_WINDOW)
+            logger.debug(f"Analysing {self.signalName.text()} at {multiplier}x resolution "
+                         f"using {peak_window} peak window and {avg_window} avg window")
+            self.__signal.calculate(multiplier, avg_window, peak_window)
+            self.__magnitudeModel.display()
+            self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
 
     def __get_window(self, key):
         from model.preferences import ANALYSIS_WINDOW_DEFAULT

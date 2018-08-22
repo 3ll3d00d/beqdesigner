@@ -16,13 +16,26 @@ from model.extract import ExtractAudioDialog
 from model.filter import FilterTableModel, FilterModel, FilterDialog
 from model.log import RollingLogger
 from model.magnitude import MagnitudeModel, LimitsDialog
-from model.preferences import PreferencesDialog, BINARIES
+from model.preferences import PreferencesDialog, BINARIES, ANALYSIS_TARGET_FS
 from model.signal import SignalModel, SignalTableModel, SignalDialog
 from ui.beq import Ui_MainWindow
 
 from qtpy import QtCore
 
 logger = logging.getLogger('beq')
+
+
+@contextmanager
+def wait_cursor(msg=None):
+    '''
+    Allows long running functions to show a busy cursor.
+    :param msg: a message to put in the status bar.
+    '''
+    try:
+        QApplication.setOverrideCursor(QCursor(QtCore.Qt.WaitCursor))
+        yield
+    finally:
+        QApplication.restoreOverrideCursor()
 
 
 class BeqDesigner(QMainWindow, Ui_MainWindow):
@@ -55,8 +68,8 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.signalView.setModel(self.__signalTableModel)
         self.signalView.selectionModel().selectionChanged.connect(self.changeSignalButtonState)
         # magnitude
-        self.__magnitudeModel = MagnitudeModel(self.filterChart, self.__signalModel, 'Signals', self.__filterModel,
-                                               'Filters')
+        self.__magnitudeModel = MagnitudeModel('main', self.filterChart, self.__signalModel, 'Signals',
+                                               self.__filterModel, 'Filters')
         # processing
         self.ensurePathContainsExternalTools()
         # extraction
@@ -106,7 +119,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Adds a filter via the filter dialog.
         '''
-        FilterDialog(self.__filterModel).exec()
+        FilterDialog(self.__filterModel, fs=int(self.settings.value(ANALYSIS_TARGET_FS))).exec()
 
     def editFilter(self):
         '''
@@ -164,9 +177,10 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Updates the chart.
         '''
-        self.__magnitudeModel.display()
-        self.update_reference_series(self.signalReference, True)
-        self.update_reference_series(self.filterReference, False)
+        with wait_cursor('Redrawing'):
+            self.__magnitudeModel.display()
+            self.update_reference_series(self.signalReference, True)
+            self.update_reference_series(self.filterReference, False)
 
     def update_reference_series(self, combo, primary=True):
         '''
@@ -174,13 +188,17 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         names = self.__magnitudeModel.get_curve_names(primary)
         current_reference = combo.currentText()
-        combo.clear()
-        combo.addItem('None')
-        for name in names:
-            combo.addItem(name)
-        idx = combo.findText(current_reference)
-        if idx != -1:
-            combo.setCurrentIndex(idx)
+        try:
+            combo.blockSignals(True)
+            combo.clear()
+            combo.addItem('None')
+            for name in names:
+                combo.addItem(name)
+            idx = combo.findText(current_reference)
+            if idx != -1:
+                combo.setCurrentIndex(idx)
+        finally:
+            combo.blockSignals(False)
 
     def changeVisibilityOfIndividualFilters(self):
         '''
@@ -263,16 +281,3 @@ sys.excepthook = dump_exception_to_log
 
 if __name__ == '__main__':
     main()
-
-
-@contextmanager
-def wait_cursor(msg=None):
-    '''
-    Allows long running functions to show a busy cursor.
-    :param msg: a message to put in the status bar.
-    '''
-    try:
-        QApplication.setOverrideCursor(QCursor(QtCore.Qt.WaitCursor))
-        yield
-    finally:
-        QApplication.restoreOverrideCursor()

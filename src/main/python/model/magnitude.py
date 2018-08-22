@@ -51,7 +51,8 @@ class MagnitudeModel:
     Allows a set of filters to be displayed on a chart as magnitude responses.
     '''
 
-    def __init__(self, chart, primaryDataProvider, primaryName, secondaryDataProvider=None, secondaryName=None):
+    def __init__(self, name, chart, primaryDataProvider, primaryName, secondaryDataProvider=None, secondaryName=None):
+        self.__name = name
         self.__chart = chart
         self.__dBRange = 40
         self.__primary = primaryDataProvider
@@ -75,7 +76,7 @@ class MagnitudeModel:
         self.__primary_axes.grid(linestyle='--', which='minor', linewidth=1, alpha=0.5)
 
     def __repr__(self):
-        return 'magnitude'
+        return self.__name
 
     def get_curve_names(self, primary=True):
         '''
@@ -99,7 +100,7 @@ class MagnitudeModel:
         mid = time.time()
         self.__chart.canvas.draw()
         end = time.time()
-        logger.debug(f"Calc : {round(mid-start,3)}s Redraw: {round(end-mid,3)}s")
+        logger.debug(f"{self} Calc : {round(mid-start,3)}s Redraw: {round(end-mid,3)}s")
 
     def __display_curves(self, dataProvider, curves, axes, reference_curve):
         data = dataProvider.getMagnitudeData(reference=reference_curve)
