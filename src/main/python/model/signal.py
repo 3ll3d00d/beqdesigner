@@ -91,13 +91,18 @@ class SignalModel(Sequence):
         if self.table is not None:
             self.table.endResetModel()
 
-    def getMagnitudeData(self):
+    def getMagnitudeData(self, reference=None):
         '''
+        :param reference: the curve against which to normalise.
         :return: the peak and avg spectrum for the signals (if any) + the filter signals.
         '''
-        filters = self.__filterModel.getMagnitudeData()
         signals = [s.getXY() for s in self.__signals]
-        return filters + [item for sublist in signals for item in sublist]
+        flattened = [item for sublist in signals for item in sublist]
+        if reference is not None:
+            ref_data = next((x for x in flattened if x.name == reference), None)
+            if ref_data:
+                flattened = [x.normalise(ref_data) for x in flattened]
+        return flattened
 
 
 class Signal:
@@ -354,7 +359,7 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
         self.setupUi(self)
         self.__settings = settings
         self.__signalModel = signalModel
-        self.__magnitudeModel = MagnitudeModel(self.previewChart, self)
+        self.__magnitudeModel = MagnitudeModel(self.previewChart, self, 'Signal')
         self.__duration = 0
         self.__signal = None
         self.__peak = None
@@ -443,8 +448,9 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
                 window = (window, 0.25)
         return window
 
-    def getMagnitudeData(self):
+    def getMagnitudeData(self, reference=None):
         '''
+        :param reference: ignored as we don't expose a normalisation control in this chart.
         :return: the peak and avg spectrum for the currently loaded signal (if any).
         '''
         if self.__signal is not None:

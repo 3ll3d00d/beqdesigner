@@ -93,6 +93,28 @@ class PeakingEQ(BiquadWithGain):
         return a / a[0], b / a[0]
 
 
+def q_to_s(q, gain):
+    '''
+    translates Q to S for a shelf filter.
+    :param q: the Q.
+    :param gain: the gain.
+    :return: the S.
+    '''
+    return 1.0 / ((((1.0 / q) ** 2.0 - 2.0) / (
+            (10.0 ** (gain / 40.0)) + 1.0 / (10.0 ** (gain / 40.0)))) + 1.0)
+
+
+def s_to_q(s, gain):
+    '''
+    translates S to Q for a shelf filter.
+    :param s: the S.
+    :param gain: the gain.
+    :return: the Q.
+    '''
+    A = 10.0 ** (gain / 40.0)
+    return 1.0 / math.sqrt(((A + 1.0 / A) * ((1.0 / s) - 1.0)) + 2.0)
+
+
 class Shelf(BiquadWithGain):
     def __init__(self, fs, freq, q, gain):
         self.A = 10.0 ** (gain / 40.0)
@@ -102,7 +124,7 @@ class Shelf(BiquadWithGain):
         '''
         :return: the filter Q as S
         '''
-        return 1 / ((((1 / self.q) ** 2 - 2) / ((10 ^ (self.gain / 40)) + 1 / (10 ^ (self.gain / 40)))) + 1)
+        return q_to_s(self.q, self.gain)
 
 
 class LowShelf(Shelf):
@@ -521,4 +543,4 @@ class XYData:
         :param target: the target.
         :return: a normalised XYData.
         '''
-        return XYData(self.name, self.x, self.y - target.y)
+        return XYData(self.name, self.x, self.y - target.y, self.colour)

@@ -1,24 +1,25 @@
-import os
+import numpy as np
 
-import ffmpeg
-from ffmpeg.nodes import FilterNode, filter_operator
+from model.iir import LowShelf
 
-os.environ['PATH'] = os.environ['PATH'] + ';C:\\Users\\mattk\\apps\\ffmpeg-20180816-fe06ed2-win64-static\\bin'
+for i in range(50, 2000):
+    q = i / 100.0
+    shelf = LowShelf(48000, 40, q, 10)
+    tf = shelf.getTransferFunction().getMagnitude()
+    lowerF = None
+    lowerG = None
+    upperF = None
+    upperG = None
+    for index, x in np.ndenumerate(tf.y):
+        if x < 6.0 and lowerF is None:
+            lowerF = index
+            lowerG = x
+        if x < 4.0:
+            upperF = index
+            upperG = x
+        if lowerF is not None and upperF is not None:
+            break
+    lowerFreq = tf.x[lowerF]
+    upperFreq = tf.x[upperF]
+    print(f"{q},{shelf.q_to_s()},{str((lowerG - upperG) / np.math.log2(upperFreq/lowerFreq))}")
 
-file = 'd:/Despicable Me 3.mkv'
-
-# merge to mono
-i1 = ffmpeg.input(file)['1']
-f1 = i1.filter('pan', **{'mono|c0': '0.5*c0+0.5*c1'})
-s1 = f1.filter('aresample', '1000', resampler='soxr')\
-    .output('d:/junk/test.wav', acodec='pcm_s24le')
-print(s1.compile())
-
-@filter_operator()
-def join(*streams, **kwargs):
-    return FilterNode(streams, join.__name__, kwargs=kwargs, max_inputs=None).stream()
-
-i1 = ffmpeg.input(file)
-
-s1 = i1['1:0'].join(i1['1:1'], inputs=2, channel_layout='stereo', map='0.0-FL|1.0-FR').output('d:/junk/test_join.wav', acodec='pcm_s24le')
-print(s1.compile())

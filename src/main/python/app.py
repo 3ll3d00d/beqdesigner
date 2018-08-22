@@ -55,7 +55,8 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.signalView.setModel(self.__signalTableModel)
         self.signalView.selectionModel().selectionChanged.connect(self.changeSignalButtonState)
         # magnitude
-        self.__magnitudeModel = MagnitudeModel(self.filterChart, self.__signalModel)
+        self.__magnitudeModel = MagnitudeModel(self.filterChart, self.__signalModel, 'Signals', self.__filterModel,
+                                               'Filters')
         # processing
         self.ensurePathContainsExternalTools()
         # extraction
@@ -164,6 +165,22 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         Updates the chart.
         '''
         self.__magnitudeModel.display()
+        self.update_reference_series(self.signalReference, True)
+        self.update_reference_series(self.filterReference, False)
+
+    def update_reference_series(self, combo, primary=True):
+        '''
+        Updates the reference series dropdown with the current curve names.
+        '''
+        names = self.__magnitudeModel.get_curve_names(primary)
+        current_reference = combo.currentText()
+        combo.clear()
+        combo.addItem('None')
+        for name in names:
+            combo.addItem(name)
+        idx = combo.findText(current_reference)
+        if idx != -1:
+            combo.setCurrentIndex(idx)
 
     def changeVisibilityOfIndividualFilters(self):
         '''
@@ -177,11 +194,23 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         ExtractAudioDialog(self.settings, parent=self).exec()
 
-    def normaliseMagnitude(self):
+    def normaliseSignalMagnitude(self):
         '''
         Handles reference series change.
         '''
-        pass
+        if self.signalReference.currentText() == 'None':
+            self.__magnitudeModel.normalise(primary=True)
+        else:
+            self.__magnitudeModel.normalise(primary=True, curve=self.signalReference.currentText())
+
+    def normaliseFilterMagnitude(self):
+        '''
+        Handles reference series change.
+        '''
+        if self.filterReference.currentText() == 'None':
+            self.__magnitudeModel.normalise(primary=False)
+        else:
+            self.__magnitudeModel.normalise(primary=False, curve=self.filterReference.currentText())
 
     def showLimits(self):
         '''

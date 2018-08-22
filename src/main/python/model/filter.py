@@ -9,7 +9,7 @@ from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt
 from qtpy.QtWidgets import QDialog, QDialogButtonBox
 
 from model.iir import ComplexFilter, FilterType, LowShelf, HighShelf, PeakingEQ, SecondOrder_LowPass, \
-    SecondOrder_HighPass, ComplexLowPass, ComplexHighPass
+    SecondOrder_HighPass, ComplexLowPass, ComplexHighPass, q_to_s, s_to_q
 from mpl import get_line_colour
 from ui.filter import Ui_editFilterDialog
 
@@ -71,23 +71,29 @@ class FilterModel(Sequence):
         if self.table is not None:
             self.table.endResetModel()
 
-    def getMagnitudeData(self):
+    def getMagnitudeData(self, reference=None):
         '''
+        :param reference: the name of the reference data.
         :return: the magnitude response of each filter.
         '''
-        includeIndividualFilters = self.__showIndividualFilters.isChecked()
+        include_individual = self.__showIndividualFilters.isChecked()
         if len(self.__filter) > 0:
             start = time.time()
             children = [x.getTransferFunction() for x in self.__filter]
             combined = self.__filter.getTransferFunction()
-            combined.colour = 'k'
-
             results = [combined]
-            if includeIndividualFilters and len(self) > 1:
+            if include_individual and len(self) > 1:
                 results += children
             mags = [r.getMagnitude() for r in results]
             for idx, m in enumerate(mags):
-                m.colour = get_line_colour(idx, len(mags))
+                if m.name == COMBINED:
+                    m.colour = 'k'
+                else:
+                    m.colour = get_line_colour(idx, len(mags) - 1)
+            if reference is not None:
+                ref_data = next((x for x in mags if x.name == reference), None)
+                if ref_data:
+                    mags = [x.normalise(ref_data) for x in mags]
             end = time.time()
             logger.debug(f"Calculated {len(mags)} transfer functions in {end-start}ms")
             return mags
@@ -102,7 +108,7 @@ class FilterTableModel(QAbstractTableModel):
 
     def __init__(self, model, parent=None):
         super().__init__(parent=parent)
-        self._headers = ['Type', 'Freq', 'Q', 'Gain', 'Biquads']
+        self._headers = ['Type', 'Freq', 'Q', 'S', 'Gain', 'Biquads']
         self._filterModel = model
         self._filterModel.table = self
 
@@ -129,11 +135,16 @@ class FilterTableModel(QAbstractTableModel):
                 else:
                     return QVariant('N/A')
             elif index.column() == 3:
+                if hasattr(filter_at_row, 'q_to_s'):
+                    return QVariant(filter_at_row.q_to_s())
+                else:
+                    return QVariant('N/A')
+            elif index.column() == 4:
                 if hasattr(filter_at_row, 'gain'):
                     return QVariant(filter_at_row.gain)
                 else:
                     return QVariant('N/A')
-            elif index.column() == 4:
+            elif index.column() == 5:
                 return QVariant(len(filter_at_row))
             else:
                 return QVariant()
@@ -152,7 +163,8 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
     '''
     Add/Edit Filter dialog
     '''
-    gain_required = ['Low Shelf', 'High Shelf', 'Peak']
+    is_shelf = ['Low Shelf', 'High Shelf']
+    gain_required = is_shelf + ['Peak']
 
     def __init__(self, filterModel, fs=48000, filter=None, parent=None):
         super(FilterDialog, self).__init__(parent)
@@ -175,6 +187,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
             self.filterType.setCurrentIndex(self.filterType.findText(filter.display_name))
         else:
             self.buttonBox.button(QDialogButtonBox.Save).setText('Add')
+        self.enableFilterParams()
         self.enableOkIfGainIsValid()
 
     def accept(self):
@@ -201,11 +214,11 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         :return: the filter.
         '''
         if self.filterType.currentText() == 'Low Shelf':
-            return LowShelf(self.fs, self.freq.value(), self.filterQ.value(), self.filterGain.value())
+            return LowShelf(self.fs, self.freq.value(), self.filterQ.value(), round(self.filterGain.value(), 3))
         elif self.filterType.currentText() == 'High Shelf':
-            return HighShelf(self.fs, self.freq.value(), self.filterQ.value(), self.filterGain.value())
+            return HighShelf(self.fs, self.freq.value(), self.filterQ.value(), round(self.filterGain.value(), 3))
         elif self.filterType.currentText() == 'Peak':
-            return PeakingEQ(self.fs, self.freq.value(), self.filterQ.value(), self.filterGain.value())
+            return PeakingEQ(self.fs, self.freq.value(), self.filterQ.value(), round(self.filterGain.value(), 3))
         elif self.filterType.currentText() == 'Variable Q LPF':
             return SecondOrder_LowPass(self.fs, self.freq.value(), self.filterQ.value())
         elif self.filterType.currentText() == 'Variable Q HPF':
@@ -234,15 +247,23 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
 
     def enableFilterParams(self):
         if self.__is_pass_filter():
-            self.passFilterType.setEnabled(True)
-            self.filterOrder.setEnabled(True)
-            self.filterQ.setEnabled(False)
-            self.filterGain.setEnabled(False)
+            self.passFilterType.setVisible(True)
+            self.filterOrder.setVisible(True)
+            self.orderLabel.setVisible(True)
+            self.filterQ.setVisible(False)
+            self.filterQLabel.setVisible(False)
+            self.filterGain.setVisible(False)
+            self.gainLabel.setVisible(False)
         else:
-            self.passFilterType.setEnabled(False)
-            self.filterOrder.setEnabled(False)
-            self.filterQ.setEnabled(True)
-            self.filterGain.setEnabled(self.__is_gain_required())
+            self.passFilterType.setVisible(False)
+            self.filterOrder.setVisible(False)
+            self.orderLabel.setVisible(False)
+            self.filterQ.setVisible(True)
+            self.filterQLabel.setVisible(True)
+            self.filterGain.setVisible(self.__is_gain_required())
+            self.gainLabel.setVisible(self.__is_gain_required())
+        self.sLabel.setVisible(self.__is_shelf_filter())
+        self.filterS.setVisible(self.__is_shelf_filter())
         self.enableOkIfGainIsValid()
 
     def changeOrderStep(self):
@@ -264,3 +285,24 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
 
     def __is_gain_required(self):
         return self.filterType.currentText() in self.gain_required
+
+    def __is_shelf_filter(self):
+        return self.filterType.currentText() in self.is_shelf
+
+    def recalcSFromQ(self, q):
+        '''
+        Updates S based on the selected value of Q.
+        :param q: the q.
+        '''
+        gain = self.filterGain.value()
+        if gain > 0.0:
+            self.filterS.setValue(q_to_s(q, gain))
+
+    def recalcSFromGain(self, gain):
+        '''
+        Updates S based on the selected gain.
+        :param gain: the gain.
+        '''
+        if gain > 0.0:
+            q = self.filterQ.value()
+            self.filterS.setValue(q_to_s(q, gain))

@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1511</width>
+    <width>1550</width>
     <height>956</height>
    </rect>
   </property>
@@ -21,32 +21,47 @@
        <number>9</number>
       </property>
       <item>
-       <layout class="QGridLayout" name="leftPane" columnstretch="0,1,0,0">
-        <item row="1" column="0" colspan="4">
-         <widget class="MplWidget" name="filterChart"/>
-        </item>
-        <item row="0" column="0">
-         <widget class="QLabel" name="referenceSeriesLabel">
-          <property name="text">
-           <string>Reference: </string>
-          </property>
-         </widget>
-        </item>
-        <item row="0" column="3">
+       <layout class="QGridLayout" name="leftPane" columnstretch="0,1,1,0,0">
+        <item row="0" column="4">
          <widget class="QPushButton" name="updateChart">
           <property name="text">
            <string>Redraw</string>
           </property>
          </widget>
         </item>
-        <item row="0" column="1">
-         <widget class="QComboBox" name="referenceSeries"/>
+        <item row="1" column="0" colspan="5">
+         <widget class="MplWidget" name="filterChart"/>
         </item>
-        <item row="0" column="2">
+        <item row="0" column="0">
+         <widget class="QLabel" name="referenceLabel">
+          <property name="text">
+           <string>Reference:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="QComboBox" name="signalReference">
+          <item>
+           <property name="text">
+            <string>None</string>
+           </property>
+          </item>
+         </widget>
+        </item>
+        <item row="0" column="3">
          <widget class="QToolButton" name="limitsButton">
           <property name="text">
            <string>...</string>
           </property>
+         </widget>
+        </item>
+        <item row="0" column="2">
+         <widget class="QComboBox" name="filterReference">
+          <item>
+           <property name="text">
+            <string>None</string>
+           </property>
+          </item>
          </widget>
         </item>
        </layout>
@@ -68,7 +83,7 @@
            <enum>QFrame::Sunken</enum>
           </property>
           <property name="text">
-           <string>Audio</string>
+           <string>Signals</string>
           </property>
           <property name="alignment">
            <set>Qt::AlignCenter</set>
@@ -223,7 +238,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1511</width>
+     <width>1550</width>
      <height>31</height>
     </rect>
    </property>
@@ -429,7 +444,7 @@
    <slot>addSignal()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1143</x>
+     <x>1172</x>
      <y>87</y>
     </hint>
     <hint type="destinationlabel">
@@ -445,7 +460,7 @@
    <slot>editSignal()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1266</x>
+     <x>1298</x>
      <y>97</y>
     </hint>
     <hint type="destinationlabel">
@@ -471,13 +486,13 @@
    </hints>
   </connection>
   <connection>
-   <sender>referenceSeries</sender>
+   <sender>signalReference</sender>
    <signal>currentIndexChanged(int)</signal>
    <receiver>MainWindow</receiver>
-   <slot>normaliseMagnitude()</slot>
+   <slot>normaliseSignalMagnitude()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>819</x>
+     <x>537</x>
      <y>58</y>
     </hint>
     <hint type="destinationlabel">
@@ -493,12 +508,28 @@
    <slot>showLimits()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>985</x>
+     <x>1014</x>
      <y>52</y>
     </hint>
     <hint type="destinationlabel">
      <x>977</x>
      <y>32</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>filterReference</sender>
+   <signal>currentIndexChanged(int)</signal>
+   <receiver>MainWindow</receiver>
+   <slot>normaliseFilterMagnitude()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>638</x>
+     <y>55</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>618</x>
+     <y>35</y>
     </hint>
    </hints>
   </connection>
@@ -514,7 +545,8 @@
   <slot>addSignal()</slot>
   <slot>editSignal()</slot>
   <slot>deleteSignal()</slot>
-  <slot>normaliseMagnitude()</slot>
+  <slot>normaliseSignalMagnitude()</slot>
   <slot>showLimits()</slot>
+  <slot>normaliseFilterMagnitude()</slot>
  </slots>
 </ui>
