@@ -115,11 +115,13 @@ class MagnitudeModel:
         curve = curves.get(data.name, None)
         if curve:
             curve.set_data(data.x, data.y)
+            curve.set_color(data.colour)
+            curve.set_linestyle(data.linestyle)
         else:
             curves[data.name] = axes.semilogx(data.x, data.y,
                                               linewidth=2,
                                               antialiased=True,
-                                              linestyle='solid',
+                                              linestyle=data.linestyle,
                                               color=data.colour,
                                               label=data.name)[0]
 

@@ -541,11 +541,12 @@ class XYData:
     Value object for showing data on a magnitude graph.
     '''
 
-    def __init__(self, name, x, y, colour=None):
+    def __init__(self, name, x, y, colour=None, linestyle='-'):
         self.name = name
         self.x = x
         self.y = y
         self.colour = colour
+        self.linestyle = linestyle
 
     def normalise(self, target):
         '''
@@ -553,7 +554,7 @@ class XYData:
         :param target: the target.
         :return: a normalised XYData.
         '''
-        return XYData(self.name, self.x, self.y - target.y, self.colour)
+        return XYData(self.name, self.x, self.y - target.y, colour=self.colour, linestyle=self.linestyle)
 
     def filter(self, filt):
         '''
@@ -566,9 +567,12 @@ class XYData:
             logger.debug(f"Interpolating filt {filt.x.size} vs self {self.x.size}")
             if self.x.size > filt.x.size:
                 interp_y = np.interp(self.x, filt.x, filt.y)
-                return XYData(f"{self.name}-filtered", self.x, self.y + interp_y, self.colour)
+                return XYData(f"{self.name}-filtered", self.x, self.y + interp_y, colour=self.colour,
+                              linestyle=self.linestyle)
             else:
                 interp_y = np.interp(filt.x, self.x, self.y)
-                return XYData(f"{self.name}-filtered", filt.x, filt.y + interp_y, self.colour)
+                return XYData(f"{self.name}-filtered", filt.x, filt.y + interp_y, colour=self.colour,
+                              linestyle=self.linestyle)
         else:
-            return XYData(f"{self.name}-filtered", self.x, self.y + filt.y, self.colour)
+            return XYData(f"{self.name}-filtered", self.x, self.y + filt.y, colour=self.colour,
+                          linestyle=self.linestyle)

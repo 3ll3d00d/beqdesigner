@@ -99,14 +99,20 @@ class SignalModel(Sequence):
         '''
         filter_response = self.__filterModel.getTransferFunction()
         signals = [s.getXY(idx=idx) for idx, s in enumerate(self.__signals)]
-        flattened = [item for sublist in signals for item in sublist]
+        signals = [item for sublist in signals for item in sublist]
         if filter_response is not None:
-            flattened = [f.filter(filter_response.getMagnitude()) for f in flattened]
+            filter_mag = filter_response.getMagnitude()
+            filtered = [f.filter(filter_mag) for f in signals]
+            for s in signals:
+                s.linestyle = '--'
+        else:
+            filtered = []
+        results = signals + filtered
         if reference is not None:
-            ref_data = next((x for x in flattened if x.name == reference), None)
+            ref_data = next((x for x in results if x.name == reference), None)
             if ref_data:
-                flattened = [x.normalise(ref_data) for x in flattened]
-        return flattened
+                results = [x.normalise(ref_data) for x in results]
+        return results
 
 
 class Signal:
