@@ -1,4 +1,5 @@
 import logging
+import math
 import os
 import sys
 import qtawesome as qta
@@ -6,11 +7,13 @@ from contextlib import contextmanager
 
 import matplotlib
 
+from ui.savechart import Ui_saveChartDialog
+
 matplotlib.use("Qt5Agg")
 
 from qtpy.QtCore import QSettings
 from qtpy.QtGui import QIcon, QFont, QCursor
-from qtpy.QtWidgets import QMainWindow, QApplication, QErrorMessage, QAbstractItemView
+from qtpy.QtWidgets import QMainWindow, QApplication, QErrorMessage, QAbstractItemView, QDialog, QFileDialog
 
 from model.extract import ExtractAudioDialog
 from model.filter import FilterTableModel, FilterModel, FilterDialog
@@ -75,6 +78,15 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.ensurePathContainsExternalTools()
         # extraction
         self.actionExtract_Audio.triggered.connect(self.showExtractAudioDialog)
+        # export
+        self.actionSave_Chart.triggered.connect(self.exportChart)
+
+    def exportChart(self):
+        '''
+        Saves the currently selected chart to a file.
+        '''
+        dialog = SaveChartDialog(self, 'beq', self.filterChart.canvas.figure, self.statusbar)
+        dialog.exec()
 
     def ensurePathContainsExternalTools(self):
         '''
@@ -242,6 +254,45 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         Shows the values dialog for the main chart.
         '''
         self.__magnitudeModel.show_values()
+
+
+class SaveChartDialog(QDialog, Ui_saveChartDialog):
+    '''
+    Save Chart dialog
+    '''
+
+    def __init__(self, parent, name, figure, statusbar):
+        super(SaveChartDialog, self).__init__(parent)
+        self.setupUi(self)
+        self.name = name
+        self.figure = figure
+        self.__dpi = self.figure.dpi
+        self.__x, self.__y = self.figure.get_size_inches() * self.figure.dpi
+        self.__aspectRatio = self.__x / self.__y
+        self.widthPixels.setValue(self.__x)
+        self.heightPixels.setValue(self.__y)
+        self.statusbar = statusbar
+        self.__dialog = QFileDialog(parent=self)
+
+    def accept(self):
+        formats = "Portable Network Graphic (*.png)"
+        fileName = self.__dialog.getSaveFileName(self, 'Export Chart', f"{self.name}.png", formats)
+        if fileName:
+            outputFile = str(fileName[0]).strip()
+            if len(outputFile) == 0:
+                return
+            else:
+                scaleFactor = self.widthPixels.value() / self.__x
+                self.figure.savefig(outputFile, format='png', dpi=self.__dpi * scaleFactor)
+                self.statusbar.showMessage(f"Saved {self.name} to {outputFile}", 5000)
+        QDialog.accept(self)
+
+    def updateHeight(self, newWidth):
+        '''
+        Updates the height as the width changes according to the aspect ratio.
+        :param newWidth: the new width.
+        '''
+        self.heightPixels.setValue(int(math.floor(newWidth / self.__aspectRatio)))
 
 
 def make_app():

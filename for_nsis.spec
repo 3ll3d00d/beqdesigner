@@ -18,6 +18,8 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 exe = EXE(pyz,
           a.scripts,
           [],
+          Tree('C:\\Users\\mattk\\Anaconda3\\envs\\beq\\Lib\\site-packages\\resampy\\data', prefix='_resampy_filters'),
+          Tree('C:\\Users\\mattk\\Anaconda3\\envs\\beq\\Lib\\site-packages\\_soundfile_data', prefix='_soundfile_data'),
           exclude_binaries=True,
           name='beqdesigner',
           debug=False,

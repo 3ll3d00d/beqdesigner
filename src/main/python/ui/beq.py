@@ -155,6 +155,8 @@ class Ui_MainWindow(object):
         self.actionSave_Preset_3.setObjectName("actionSave_Preset_3")
         self.actionClear_Preset_3 = QtWidgets.QAction(MainWindow)
         self.actionClear_Preset_3.setObjectName("actionClear_Preset_3")
+        self.actionSave_Chart = QtWidgets.QAction(MainWindow)
+        self.actionSave_Chart.setObjectName("actionSave_Chart")
         self.menuHelp.addAction(self.actionShow_Logs)
         self.menuPresets.addAction(self.actionSave_Preset_1)
         self.menuPresets.addAction(self.actionSave_Preset_2)
@@ -167,6 +169,7 @@ class Ui_MainWindow(object):
         self.menuSettings.addSeparator()
         self.menuSettings.addAction(self.menuPresets.menuAction())
         self.menuFile.addAction(self.actionExtract_Audio)
+        self.menuFile.addAction(self.actionSave_Chart)
         self.menubar.addAction(self.menuFile.menuAction())
         self.menubar.addAction(self.menuSettings.menuAction())
         self.menubar.addAction(self.menuHelp.menuAction())
@@ -230,5 +233,7 @@ class Ui_MainWindow(object):
         self.actionSave_Preset_3.setText(_translate("MainWindow", "Save Preset 3"))
         self.actionSave_Preset_3.setShortcut(_translate("MainWindow", "Ctrl+Shift+3"))
         self.actionClear_Preset_3.setText(_translate("MainWindow", "Clear Preset 3"))
+        self.actionSave_Chart.setText(_translate("MainWindow", "Save Chart"))
+        self.actionSave_Chart.setShortcut(_translate("MainWindow", "Ctrl+S"))
 
 from mpl import MplWidget
