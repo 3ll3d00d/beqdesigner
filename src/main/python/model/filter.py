@@ -178,6 +178,8 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
     def __init__(self, filterModel, fs=48000, filter=None, parent=None):
         super(FilterDialog, self).__init__(parent)
         self.setupUi(self)
+        # used to prevent signals from recalculating the filter before we've populated the fields
+        self.__starting = True
         self.__magnitudeModel = MagnitudeModel('preview', self.previewChart, self, 'Filter')
         self.filterModel = filterModel
         self.__filter = filter
@@ -186,10 +188,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         if self.__filter is not None:
             self.setWindowTitle('Edit Filter')
             if hasattr(self.__filter, 'gain'):
-                # prevent the preview from recreating the filter before we've set all the vars
-                self.filterGain.blockSignals(True)
                 self.filterGain.setValue(self.__filter.gain)
-                self.filterGain.blockSignals(False)
             if hasattr(self.__filter, 'q'):
                 self.filterQ.setValue(self.__filter.q)
             self.freq.setValue(self.__filter.freq)
@@ -204,6 +203,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.enableFilterParams()
         self.enableOkIfGainIsValid()
         self.freq.setMaximum(self.fs / 2.0)
+        self.__starting = False
         self.previewFilter()
 
     def accept(self):
@@ -218,14 +218,15 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
 
     def previewFilter(self):
         ''' creates a filter if the params are valid '''
-        if self.__is_valid_filter():
-            if self.__is_pass_filter():
-                self.__filter = self.create_pass_filter()
+        if not self.__starting:
+            if self.__is_valid_filter():
+                if self.__is_pass_filter():
+                    self.__filter = self.create_pass_filter()
+                else:
+                    self.__filter = self.create_shaping_filter()
             else:
-                self.__filter = self.create_shaping_filter()
-        else:
-            self.__filter = None
-        self.__magnitudeModel.display()
+                self.__filter = None
+            self.__magnitudeModel.display()
 
     def getMagnitudeData(self, reference=None):
         ''' preview of the filter to display on the chart '''
@@ -304,10 +305,12 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         '''
         if self.passFilterType.currentText() == 'Butterworth':
             self.filterOrder.setSingleStep(1)
+            self.filterOrder.setMinimum(1)
         elif self.passFilterType.currentText() == 'Linkwitz-Riley':
             if self.filterOrder.value() % 2 != 0:
-                self.filterOrder.setValue(2)
+                self.filterOrder.setValue(max(2, self.filterOrder.value() - 1))
             self.filterOrder.setSingleStep(2)
+            self.filterOrder.setMinimum(2)
 
     def enableOkIfGainIsValid(self):
         ''' enables the save button if we have a valid filter. '''

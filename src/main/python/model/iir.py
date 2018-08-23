@@ -225,11 +225,11 @@ class FirstOrder_LowPass(Biquad):
         return 'Variable Q LPF'
 
     def _compute_coeffs(self):
-        b1 = math.exp(-2.0 * math.pi * (self.freq / self.fs))
-        a0 = 1.0 - b1
-        a = np.array([a0, 0.0, 0.0], dtype=np.float64)
-        b = np.array([1.0, -b1, 0.0])
-        return a / a[0], b / a[0]
+        a1 = math.exp(-2.0 * math.pi * (self.freq / self.fs))
+        b0 = 1.0 - a1
+        a = np.array([1.0, -a1, 0.0], dtype=np.float64)
+        b = np.array([b0, 0.0, 0.0])
+        return a, b
 
 
 class FirstOrder_HighPass(Biquad):
@@ -250,11 +250,11 @@ class FirstOrder_HighPass(Biquad):
         return 'Variable Q HPF'
 
     def _compute_coeffs(self):
-        b1 = math.exp(-2.0 * math.pi * (0.5 - self.freq / self.fs))
-        a0 = 1.0 + b1
-        a = np.array([a0, 0.0, 0.0], dtype=np.float64)
-        b = np.array([1.0, -b1, 0.0])
-        return a / a[0], b / a[0]
+        a1 = -math.exp(-2.0 * math.pi * (0.5 - (self.freq / self.fs)))
+        b0 = 1.0 + a1
+        a = np.array([1.0, -a1, 0.0], dtype=np.float64)
+        b = np.array([b0, 0.0, 0.0])
+        return a, b
 
 
 class SecondOrder_LowPass(Biquad):

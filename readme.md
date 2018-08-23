@@ -24,8 +24,11 @@
 
 # bugs
 
-* 1st order filters do nothing
+* filter errors
+  * odd order high passes are wrong (because the 1st order is wrong)
+  * LR2/6/10/etc are wrong
 * multichannel export produces too many channels and the preview graph is borked
+
 
 # Freeze
 

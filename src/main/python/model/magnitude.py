@@ -174,7 +174,6 @@ class Limits:
         self.__default_y_range = default_y_range
         self.axes_1 = axes_1
         self.x_scale = 'log'
-        self.__x_scale_changed = False
         self.x_min = x[0]
         self.x_max = x[1]
         numticks = 13
@@ -196,16 +195,12 @@ class Limits:
         self.axes_1.set_ylim(bottom=self.y1_min, top=self.y1_max)
         if self.axes_2 is not None:
             self.axes_2.set_ylim(bottom=self.y2_min, top=self.y2_max)
-            # ensure the ticks are aligned with the primary axis ticks
-            # from https://stackoverflow.com/questions/45037386/trouble-aligning-ticks-for-matplotlib-twinx-axes
-            # f = lambda x: self.y2_min + (x - self.y1_min) / (self.y1_max - self.y1_min) * (self.y2_max - self.y2_min)
-            # ticks = f(self.axes_1.get_yticks())
-            # self.axes_2.yaxis.set_major_locator(FixedLocator(ticks))
         self.configure_freq_axis()
         if draw:
             self.__canvas.draw()
 
-    def update(self, x_min=None, x_max=None, y1_min=None, y1_max=None, y2_min=None, y2_max=None, x_scale=None, draw=False):
+    def update(self, x_min=None, x_max=None, y1_min=None, y1_max=None, y2_min=None, y2_max=None, x_scale=None,
+               draw=False):
         '''
         Accepts new values from the dialog and propagates that to the chart.
         :param x_min:
@@ -229,7 +224,6 @@ class Limits:
             self.y2_max = y2_max
         if x_scale is not None and x_scale != self.x_scale:
             self.x_scale = x_scale
-            self.__x_scale_changed = True
         self.propagate_to_axes(draw)
 
     def calculate_dBFS_scales(self, data):
@@ -274,17 +268,14 @@ class Limits:
 
     def configure_freq_axis(self):
         '''
-        sets up the freq axis formatters.
-        :return:
+        sets up the freq axis formatters (which you seem to have to call constantly otherwise matplotlib keeps
+        reinstating the default log format)
         '''
-        if self.__x_scale_changed:
-            logger.debug(f"Reconfiguring Freq Axis to {self.x_scale}")
-            self.axes_1.set_xscale(self.x_scale)
-            hzFormatter = EngFormatter(places=0)
-            self.axes_1.get_xaxis().set_major_formatter(hzFormatter)
-            self.axes_1.get_xaxis().set_minor_formatter(PrintFirstHalfFormatter(hzFormatter))
-            self.axes_1.set_xlabel('Hz')
-            self.__x_scale_changed = False
+        self.axes_1.set_xscale(self.x_scale)
+        hzFormatter = EngFormatter(places=0)
+        self.axes_1.get_xaxis().set_major_formatter(hzFormatter)
+        self.axes_1.get_xaxis().set_minor_formatter(PrintFirstHalfFormatter(hzFormatter))
+        self.axes_1.set_xlabel('Hz')
 
 
 class LimitsDialog(QDialog, Ui_graphLayoutDialog):
