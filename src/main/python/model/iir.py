@@ -1,5 +1,5 @@
 # from http://www.musicdsp.org/files/Audio-EQ-Cookbook.txt
-
+import logging
 import math
 from abc import ABC, abstractmethod
 from enum import Enum
@@ -10,11 +10,13 @@ from scipy import signal
 
 DEFAULT_Q = 1 / np.math.sqrt(2.0)
 
+logger = logging.getLogger('iir')
+
 
 class Biquad(ABC):
     def __init__(self, fs, freq, q):
         self.fs = fs
-        self.freq = freq
+        self.freq = round(freq, 2)
         self.q = q
         self.w0 = 2.0 * math.pi * self.freq / self.fs
         self.cos_w0 = math.cos(self.w0)
@@ -51,15 +53,14 @@ class Biquad(ABC):
         :param filt: the filter.
         :return: the transfer function.
         '''
-        # TODO calculate worN based on fs
-        w, h = signal.freqz(b=self.b, a=self.a, worN=65536)
+        w, h = signal.freqz(b=self.b, a=self.a, worN=1 << (self.fs - 1).bit_length())
         f = w * self.fs / (2 * np.pi)
         return ComplexData(self.__repr__(), f, h)
 
 
 class BiquadWithGain(Biquad):
     def __init__(self, fs, freq, q, gain):
-        self.gain = gain
+        self.gain = round(gain, 3)
         super().__init__(fs, freq, q)
 
     @property
@@ -93,6 +94,28 @@ class PeakingEQ(BiquadWithGain):
         return a / a[0], b / a[0]
 
 
+def q_to_s(q, gain):
+    '''
+    translates Q to S for a shelf filter.
+    :param q: the Q.
+    :param gain: the gain.
+    :return: the S.
+    '''
+    return 1.0 / ((((1.0 / q) ** 2.0 - 2.0) / (
+            (10.0 ** (gain / 40.0)) + 1.0 / (10.0 ** (gain / 40.0)))) + 1.0)
+
+
+def s_to_q(s, gain):
+    '''
+    translates S to Q for a shelf filter.
+    :param s: the S.
+    :param gain: the gain.
+    :return: the Q.
+    '''
+    A = 10.0 ** (gain / 40.0)
+    return 1.0 / math.sqrt(((A + 1.0 / A) * ((1.0 / s) - 1.0)) + 2.0)
+
+
 class Shelf(BiquadWithGain):
     def __init__(self, fs, freq, q, gain):
         self.A = 10.0 ** (gain / 40.0)
@@ -102,7 +125,7 @@ class Shelf(BiquadWithGain):
         '''
         :return: the filter Q as S
         '''
-        return 1 / ((((1 / self.q) ** 2 - 2) / ((10 ^ (self.gain / 40)) + 1 / (10 ^ (self.gain / 40)))) + 1)
+        return q_to_s(self.q, self.gain)
 
 
 class LowShelf(Shelf):
@@ -202,11 +225,11 @@ class FirstOrder_LowPass(Biquad):
         return 'Variable Q LPF'
 
     def _compute_coeffs(self):
-        b1 = math.exp(-2.0 * math.pi * (self.freq / self.fs))
-        a0 = 1.0 - b1
-        a = np.array([a0, 0.0, 0.0], dtype=np.float64)
-        b = np.array([1.0, -b1, 0.0])
-        return a / a[0], b / a[0]
+        a1 = math.exp(-2.0 * math.pi * (self.freq / self.fs))
+        b0 = 1.0 - a1
+        a = np.array([1.0, -a1, 0.0], dtype=np.float64)
+        b = np.array([b0, 0.0, 0.0])
+        return a, b
 
 
 class FirstOrder_HighPass(Biquad):
@@ -216,7 +239,7 @@ class FirstOrder_HighPass(Biquad):
 
     def __init__(self, fs, freq, q=DEFAULT_Q):
         super().__init__(fs, freq, q)
-        self.order = 2
+        self.order = 1
 
     @property
     def filter_type(self):
@@ -227,11 +250,13 @@ class FirstOrder_HighPass(Biquad):
         return 'Variable Q HPF'
 
     def _compute_coeffs(self):
-        b1 = math.exp(-2.0 * math.pi * (0.5 - self.freq / self.fs))
-        a0 = 1.0 + b1
-        a = np.array([a0, 0.0, 0.0], dtype=np.float64)
-        b = np.array([1.0, -b1, 0.0])
-        return a / a[0], b / a[0]
+        # TODO work out how to implement this directly
+        sos = signal.butter(1, self.freq / (0.5 * self.fs), btype='high', output='sos')
+        # a1 = -math.exp(-2.0 * math.pi * (0.5 - (self.freq / self.fs)))
+        # b0 = 1.0 + a1
+        # a = np.array([1.0, -a1, 0.0], dtype=np.float64)
+        # b = np.array([b0, 0.0, 0.0])
+        return sos[0][3:5], sos[0][0:2]
 
 
 class SecondOrder_LowPass(Biquad):
@@ -420,7 +445,7 @@ class CompoundPassFilter(ComplexFilter):
         self.type = filter_type
         self.order = order
         self.fs = fs
-        self.freq = freq
+        self.freq = round(freq, 2)
         if self.type is FilterType.LINKWITZ_RILEY:
             if self.order % 2 != 0:
                 raise ValueError("LR filters must be even order")
@@ -454,7 +479,14 @@ class CompoundPassFilter(ComplexFilter):
                             range(0, pairs)]
                 return biquads
         elif self.type is FilterType.LINKWITZ_RILEY:
-            return [self.__bw2(self.fs, self.freq) for _ in range(0, int(self.order / 2))]
+            twos = int(self.order / 2)
+            filts = []
+            if twos % 2 != 0:
+                filts += [self.__bw1(self.fs, self.freq) for _ in range(0, 2)]
+                twos -= 1
+            if twos > 0:
+                filts += [self.__bw2(self.fs, self.freq) for _ in range(0, twos)]
+            return filts
         else:
             raise ValueError("Unknown filter type " + str(self.type))
 
@@ -496,12 +528,12 @@ class ComplexData:
         self.y = y
         self.scaleFactor = scaleFactor
 
-    def getMagnitude(self, ref=1):
+    def getMagnitude(self, ref=1, colour=None):
         y = np.abs(self.y) * self.scaleFactor / ref
-        return XYData(self.name, self.x, 20 * np.log10(y))
+        return XYData(self.name, self.x, 20 * np.log10(y), colour=colour)
 
-    def getPhase(self):
-        return XYData(self.name, self.x, np.angle(self.y))
+    def getPhase(self, colour=None):
+        return XYData(self.name, self.x, np.angle(self.y), colour=colour)
 
 
 class XYData:
@@ -509,10 +541,12 @@ class XYData:
     Value object for showing data on a magnitude graph.
     '''
 
-    def __init__(self, name, x, y):
+    def __init__(self, name, x, y, colour=None, linestyle='-'):
         self.name = name
         self.x = x
         self.y = y
+        self.colour = colour
+        self.linestyle = linestyle
 
     def normalise(self, target):
         '''
@@ -520,4 +554,25 @@ class XYData:
         :param target: the target.
         :return: a normalised XYData.
         '''
-        return XYData(self.name, self.x, self.y - target.y)
+        return XYData(self.name, self.x, self.y - target.y, colour=self.colour, linestyle=self.linestyle)
+
+    def filter(self, filt):
+        '''
+        Adds filt.y to the data.y as we're dealing in the frequency domain. Interpolates the smaller xy if required so
+        we can just add them together.
+        :param filt: the filter in XYData form.
+        :return: the filtered response.
+        '''
+        if self.x.size != filt.x.size:
+            logger.debug(f"Interpolating filt {filt.x.size} vs self {self.x.size}")
+            if self.x.size > filt.x.size:
+                interp_y = np.interp(self.x, filt.x, filt.y)
+                return XYData(f"{self.name}-filtered", self.x, self.y + interp_y, colour=self.colour,
+                              linestyle=self.linestyle)
+            else:
+                interp_y = np.interp(filt.x, self.x, self.y)
+                return XYData(f"{self.name}-filtered", filt.x, filt.y + interp_y, colour=self.colour,
+                              linestyle=self.linestyle)
+        else:
+            return XYData(f"{self.name}-filtered", self.x, self.y + filt.y, colour=self.colour,
+                          linestyle=self.linestyle)

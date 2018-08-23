@@ -1,17 +1,30 @@
-import matplotlib.pyplot as plt
 import numpy as np
-from scipy import signal
 
-fs = 48000
+# from model.iir import LowShelf
+#
+# for i in range(50, 2000):
+#     q = i / 100.0
+#     shelf = LowShelf(48000, 40, q, 10)
+#     tf = shelf.getTransferFunction().getMagnitude()
+#     lowerF = None
+#     lowerG = None
+#     upperF = None
+#     upperG = None
+#     for index, x in np.ndenumerate(tf.y):
+#         if x < 6.0 and lowerF is None:
+#             lowerF = index
+#             lowerG = x
+#         if x < 4.0:
+#             upperF = index
+#             upperG = x
+#         if lowerF is not None and upperF is not None:
+#             break
+#     lowerFreq = tf.x[lowerF]
+#     upperFreq = tf.x[upperF]
+#     print(f"{q},{shelf.q_to_s()},{str((lowerG - upperG) / np.math.log2(upperFreq/lowerFreq))}")
 
 
+import matplotlib.style as style
 
-# Frequency response
-w, h = signal.freqz(b=bq.b, a=bq.a, worN=65536)
-# Generate frequency axis
-w = w * fs / (2 * np.pi)
-# Plot
-plt.semilogx(w, 20 * np.log10(np.abs(h)), 'b')
-plt.ylabel('Amplitude', color='b')
-plt.xlabel('Frequency')
-plt.show()
+
+print(style.library.keys())

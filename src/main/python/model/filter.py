@@ -1,12 +1,18 @@
 import logging
+import math
 import time
 import typing
 from collections import Sequence
-from functools import reduce
+from uuid import uuid4
 
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt
+from qtpy.QtWidgets import QDialog, QDialogButtonBox
 
-from model.iir import ComplexData, ComplexFilter
+from model.iir import ComplexFilter, FilterType, LowShelf, HighShelf, PeakingEQ, SecondOrder_LowPass, \
+    SecondOrder_HighPass, ComplexLowPass, ComplexHighPass, q_to_s, s_to_q
+from model.magnitude import MagnitudeModel
+from mpl import get_line_colour
+from ui.filter import Ui_editFilterDialog
 
 COMBINED = 'Combined'
 
@@ -18,9 +24,10 @@ class FilterModel(Sequence):
     A model to hold onto the filters.
     '''
 
-    def __init__(self, view):
+    def __init__(self, view, showIndividualFilters):
         self.__filter = ComplexFilter(description=COMBINED)
         self.__view = view
+        self.__showIndividualFilters = showIndividualFilters
         self.table = None
 
     def __getitem__(self, i):
@@ -65,23 +72,42 @@ class FilterModel(Sequence):
         if self.table is not None:
             self.table.endResetModel()
 
-    def getMagnitudeData(self, includeIndividualFilters):
+    def getMagnitudeData(self, reference=None):
         '''
-        :param includeIndividualFilters: if true, include the individual filters in the response
+        :param reference: the name of the reference data.
         :return: the magnitude response of each filter.
         '''
+        include_individual = self.__showIndividualFilters.isChecked()
         if len(self.__filter) > 0:
             start = time.time()
             children = [x.getTransferFunction() for x in self.__filter]
-            results = [self.__filter.getTransferFunction()]
-            if includeIndividualFilters and len(self) > 1:
+            combined = self.__filter.getTransferFunction()
+            results = [combined]
+            if include_individual and len(self) > 1:
                 results += children
             mags = [r.getMagnitude() for r in results]
+            for idx, m in enumerate(mags):
+                if m.name == COMBINED:
+                    m.colour = 'k'
+                else:
+                    m.colour = get_line_colour(idx, len(mags) - 1)
+            if reference is not None:
+                ref_data = next((x for x in mags if x.name == reference), None)
+                if ref_data:
+                    mags = [x.normalise(ref_data) for x in mags]
             end = time.time()
             logger.debug(f"Calculated {len(mags)} transfer functions in {end-start}ms")
             return mags
         else:
             return []
+
+    def getTransferFunction(self):
+        '''
+        :return: the transfer function for this filter (in total) if we have any filters or None if we have none.
+        '''
+        if len(self.__filter) > 0:
+            return self.__filter.getTransferFunction()
+        return None
 
 
 class FilterTableModel(QAbstractTableModel):
@@ -91,7 +117,7 @@ class FilterTableModel(QAbstractTableModel):
 
     def __init__(self, model, parent=None):
         super().__init__(parent=parent)
-        self._headers = ['Type', 'Freq', 'Q', 'Gain', 'Biquads']
+        self._headers = ['Type', 'Freq', 'Q', 'S', 'Gain', 'Biquads']
         self._filterModel = model
         self._filterModel.table = self
 
@@ -118,11 +144,16 @@ class FilterTableModel(QAbstractTableModel):
                 else:
                     return QVariant('N/A')
             elif index.column() == 3:
+                if hasattr(filter_at_row, 'q_to_s'):
+                    return QVariant(round(filter_at_row.q_to_s(), 3))
+                else:
+                    return QVariant('N/A')
+            elif index.column() == 4:
                 if hasattr(filter_at_row, 'gain'):
                     return QVariant(filter_at_row.gain)
                 else:
                     return QVariant('N/A')
-            elif index.column() == 4:
+            elif index.column() == 5:
                 return QVariant(len(filter_at_row))
             else:
                 return QVariant()
@@ -135,3 +166,185 @@ class FilterTableModel(QAbstractTableModel):
     def resizeColumns(self, view):
         for x in range(0, len(self._headers)):
             view.resizeColumnToContents(x)
+
+
+class FilterDialog(QDialog, Ui_editFilterDialog):
+    '''
+    Add/Edit Filter dialog
+    '''
+    is_shelf = ['Low Shelf', 'High Shelf']
+    gain_required = is_shelf + ['Peak']
+
+    def __init__(self, filterModel, fs=48000, filter=None, parent=None):
+        super(FilterDialog, self).__init__(parent)
+        self.setupUi(self)
+        # used to prevent signals from recalculating the filter before we've populated the fields
+        self.__starting = True
+        self.__magnitudeModel = MagnitudeModel('preview', self.previewChart, self, 'Filter')
+        self.filterModel = filterModel
+        self.__filter = filter
+        self.__original_id = self.__filter.id if filter is not None else None
+        self.fs = fs if filter is None else filter.fs
+        if self.__filter is not None:
+            self.setWindowTitle('Edit Filter')
+            if hasattr(self.__filter, 'gain'):
+                self.filterGain.setValue(self.__filter.gain)
+            if hasattr(self.__filter, 'q'):
+                self.filterQ.setValue(self.__filter.q)
+            self.freq.setValue(self.__filter.freq)
+            if hasattr(self.__filter, 'order'):
+                self.filterOrder.setValue(self.__filter.order)
+            if hasattr(self.__filter, 'type'):
+                displayName = 'Butterworth' if filter.type is FilterType.BUTTERWORTH else 'Linkwitz-Riley'
+                self.passFilterType.setCurrentIndex(self.passFilterType.findText(displayName))
+            self.filterType.setCurrentIndex(self.filterType.findText(filter.display_name))
+        else:
+            self.buttonBox.button(QDialogButtonBox.Save).setText('Add')
+        self.enableFilterParams()
+        self.enableOkIfGainIsValid()
+        self.freq.setMaximum(self.fs / 2.0)
+        self.__starting = False
+        self.previewFilter()
+
+    def accept(self):
+        ''' Stores the filter in the model (adding or replacing as necessary). '''
+        if self.__filter is not None:
+            if self.__original_id is None:
+                self.__filter.id = uuid4()
+                self.filterModel.add(self.__filter)
+            else:
+                self.__filter.id = self.__original_id
+                self.filterModel.replace(self.__filter)
+
+    def previewFilter(self):
+        ''' creates a filter if the params are valid '''
+        if not self.__starting:
+            if self.__is_valid_filter():
+                if self.__is_pass_filter():
+                    self.__filter = self.create_pass_filter()
+                else:
+                    self.__filter = self.create_shaping_filter()
+            else:
+                self.__filter = None
+            self.__magnitudeModel.display()
+
+    def getMagnitudeData(self, reference=None):
+        ''' preview of the filter to display on the chart '''
+        if self.__filter is not None:
+            return [self.__filter.getTransferFunction().getMagnitude(colour='k')]
+        else:
+            return []
+
+    def create_shaping_filter(self):
+        '''
+        Creates a filter of the specified type.
+        :param idx: the index.
+        :param fs: the sampling frequency.
+        :param type: the filter type.
+        :param freq: the corner frequency.
+        :param q: the filter Q.
+        :param gain: the filter gain (if any).
+        :return: the filter.
+        '''
+        if self.filterType.currentText() == 'Low Shelf':
+            return LowShelf(self.fs, self.freq.value(), self.filterQ.value(), self.filterGain.value())
+        elif self.filterType.currentText() == 'High Shelf':
+            return HighShelf(self.fs, self.freq.value(), self.filterQ.value(), self.filterGain.value())
+        elif self.filterType.currentText() == 'Peak':
+            return PeakingEQ(self.fs, self.freq.value(), self.filterQ.value(), self.filterGain.value())
+        elif self.filterType.currentText() == 'Variable Q LPF':
+            return SecondOrder_LowPass(self.fs, self.freq.value(), self.filterQ.value())
+        elif self.filterType.currentText() == 'Variable Q HPF':
+            return SecondOrder_HighPass(self.fs, self.freq.value(), self.filterQ.value())
+        else:
+            raise ValueError(f"Unknown filter type {self.filterType.currentText()}")
+
+    def create_pass_filter(self):
+        '''
+        Creates a predefined high or low pass filter.
+        :return: the filter.
+        '''
+        if self.filterType.currentText() == 'Low Pass':
+            return ComplexLowPass(FilterType[self.passFilterType.currentText().upper().replace('-', '_')],
+                                  self.filterOrder.value(), self.fs, self.freq.value())
+        else:
+            return ComplexHighPass(FilterType[self.passFilterType.currentText().upper().replace('-', '_')],
+                                   self.filterOrder.value(), self.fs, self.freq.value())
+
+    def __is_pass_filter(self):
+        '''
+        :return: true if the current options indicate a predefined high or low pass filter.
+        '''
+        selectedFilter = self.filterType.currentText()
+        return selectedFilter == 'Low Pass' or selectedFilter == 'High Pass'
+
+    def enableFilterParams(self):
+        if self.__is_pass_filter():
+            self.passFilterType.setVisible(True)
+            self.filterOrder.setVisible(True)
+            self.orderLabel.setVisible(True)
+            self.filterQ.setVisible(False)
+            self.filterQLabel.setVisible(False)
+            self.filterGain.setVisible(False)
+            self.gainLabel.setVisible(False)
+        else:
+            self.passFilterType.setVisible(False)
+            self.filterOrder.setVisible(False)
+            self.orderLabel.setVisible(False)
+            self.filterQ.setVisible(True)
+            self.filterQLabel.setVisible(True)
+            self.filterGain.setVisible(self.__is_gain_required())
+            self.gainLabel.setVisible(self.__is_gain_required())
+        self.sLabel.setVisible(self.__is_shelf_filter())
+        self.filterS.setVisible(self.__is_shelf_filter())
+        self.enableOkIfGainIsValid()
+
+    def changeOrderStep(self):
+        '''
+        Sets the order step based on the type of high/low pass filter to ensure that LR only allows even orders.
+        '''
+        if self.passFilterType.currentText() == 'Butterworth':
+            self.filterOrder.setSingleStep(1)
+            self.filterOrder.setMinimum(1)
+        elif self.passFilterType.currentText() == 'Linkwitz-Riley':
+            if self.filterOrder.value() % 2 != 0:
+                self.filterOrder.setValue(max(2, self.filterOrder.value() - 1))
+            self.filterOrder.setSingleStep(2)
+            self.filterOrder.setMinimum(2)
+
+    def enableOkIfGainIsValid(self):
+        ''' enables the save button if we have a valid filter. '''
+        self.buttonBox.button(QDialogButtonBox.Save).setEnabled(self.__is_valid_filter())
+
+    def __is_valid_filter(self):
+        '''
+        :return: true if the current params are valid.
+        '''
+        if self.__is_gain_required():
+            return not math.isclose(self.filterGain.value(), 0.0)
+        else:
+            return True
+
+    def __is_gain_required(self):
+        return self.filterType.currentText() in self.gain_required
+
+    def __is_shelf_filter(self):
+        return self.filterType.currentText() in self.is_shelf
+
+    def recalcSFromQ(self, q):
+        '''
+        Updates S based on the selected value of Q.
+        :param q: the q.
+        '''
+        gain = self.filterGain.value()
+        if gain > 0.0:
+            self.filterS.setValue(q_to_s(q, gain))
+
+    def recalcSFromGain(self, gain):
+        '''
+        Updates S based on the selected gain.
+        :param gain: the gain.
+        '''
+        if gain > 0.0:
+            q = self.filterQ.value()
+            self.filterS.setValue(q_to_s(q, gain))

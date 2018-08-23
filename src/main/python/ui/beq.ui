@@ -6,63 +6,68 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1446</width>
-    <height>981</height>
+    <width>1550</width>
+    <height>956</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>BEQ Designer</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <layout class="QGridLayout" name="widgetGridLayout">
+   <layout class="QGridLayout" name="widgetGridLayout" columnstretch="0">
     <item row="0" column="0">
-     <layout class="QHBoxLayout" name="panes" stretch="4,1">
+     <layout class="QHBoxLayout" name="panes" stretch="3,1">
       <property name="spacing">
        <number>9</number>
       </property>
       <item>
-       <layout class="QGridLayout" name="leftPane">
-        <item row="1" column="1">
-         <widget class="QPushButton" name="loadFileButton">
-          <property name="text">
-           <string>Load</string>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="0">
-         <widget class="QLineEdit" name="inputFile"/>
-        </item>
-        <item row="1" column="2">
+       <layout class="QGridLayout" name="leftPane" columnstretch="0,1,1,0,0,0">
+        <item row="0" column="5">
          <widget class="QPushButton" name="updateChart">
           <property name="text">
-           <string>Update</string>
+           <string>Redraw</string>
           </property>
          </widget>
         </item>
-        <item row="3" column="1">
-         <widget class="QTimeEdit" name="startTime">
-          <property name="displayFormat">
-           <string>HH:mm:ss.zzz</string>
+        <item row="0" column="0">
+         <widget class="QLabel" name="referenceLabel">
+          <property name="text">
+           <string>Reference:</string>
           </property>
          </widget>
         </item>
-        <item row="3" column="2">
-         <widget class="QTimeEdit" name="endTime">
-          <property name="displayFormat">
-           <string>HH:mm:ss.zzz</string>
-          </property>
-         </widget>
-        </item>
-        <item row="4" column="0" colspan="3">
+        <item row="1" column="0" colspan="6">
          <widget class="MplWidget" name="filterChart"/>
         </item>
-        <item row="3" column="0">
-         <widget class="QCheckBox" name="showIndividualFilters">
+        <item row="0" column="4">
+         <widget class="QToolButton" name="limitsButton">
           <property name="text">
-           <string>Show Individual Filters</string>
+           <string>...</string>
           </property>
-          <property name="checked">
-           <bool>true</bool>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="QComboBox" name="signalReference">
+          <item>
+           <property name="text">
+            <string>None</string>
+           </property>
+          </item>
+         </widget>
+        </item>
+        <item row="0" column="2">
+         <widget class="QComboBox" name="filterReference">
+          <item>
+           <property name="text">
+            <string>None</string>
+           </property>
+          </item>
+         </widget>
+        </item>
+        <item row="0" column="3">
+         <widget class="QToolButton" name="showValuesButton">
+          <property name="text">
+           <string>...</string>
           </property>
          </widget>
         </item>
@@ -70,17 +75,72 @@
       </item>
       <item>
        <layout class="QGridLayout" name="rightPane">
-        <item row="0" column="2">
-         <widget class="QPushButton" name="deleteSelected">
+        <item row="0" column="0" colspan="3">
+         <widget class="QLabel" name="label_2">
+          <property name="font">
+           <font>
+            <weight>75</weight>
+            <bold>true</bold>
+           </font>
+          </property>
+          <property name="frameShape">
+           <enum>QFrame::Box</enum>
+          </property>
+          <property name="frameShadow">
+           <enum>QFrame::Sunken</enum>
+          </property>
+          <property name="text">
+           <string>Signals</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="0" colspan="3">
+         <widget class="QTableView" name="signalView"/>
+        </item>
+        <item row="1" column="1">
+         <widget class="QPushButton" name="editSignalButton">
           <property name="enabled">
            <bool>false</bool>
           </property>
           <property name="text">
-           <string>Delete</string>
+           <string>Edit</string>
           </property>
          </widget>
         </item>
-        <item row="0" column="0">
+        <item row="4" column="1">
+         <widget class="QPushButton" name="loadPreset2">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="text">
+           <string>Preset 2</string>
+          </property>
+         </widget>
+        </item>
+        <item row="4" column="2">
+         <widget class="QPushButton" name="loadPreset3">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="text">
+           <string>Preset 3</string>
+          </property>
+         </widget>
+        </item>
+        <item row="4" column="0">
+         <widget class="QPushButton" name="loadPreset1">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="text">
+           <string>Preset 1</string>
+          </property>
+         </widget>
+        </item>
+        <item row="5" column="0">
          <widget class="QPushButton" name="addFilterButton">
           <property name="enabled">
            <bool>true</bool>
@@ -88,9 +148,12 @@
           <property name="text">
            <string>Add</string>
           </property>
+          <property name="shortcut">
+           <string>Ctrl+=</string>
+          </property>
          </widget>
         </item>
-        <item row="0" column="1">
+        <item row="5" column="1">
          <widget class="QPushButton" name="editFilterButton">
           <property name="enabled">
            <bool>false</bool>
@@ -103,8 +166,73 @@
           </property>
          </widget>
         </item>
-        <item row="1" column="0" colspan="3">
+        <item row="5" column="2">
+         <widget class="QPushButton" name="deleteFilterButton">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="text">
+           <string>Delete</string>
+          </property>
+          <property name="shortcut">
+           <string>Ctrl+-</string>
+          </property>
+         </widget>
+        </item>
+        <item row="6" column="0" colspan="3">
          <widget class="QTableView" name="filterView"/>
+        </item>
+        <item row="1" column="2">
+         <widget class="QPushButton" name="deleteSignalButton">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="text">
+           <string>Delete</string>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="0" colspan="3">
+         <widget class="QLabel" name="label">
+          <property name="font">
+           <font>
+            <weight>75</weight>
+            <bold>true</bold>
+           </font>
+          </property>
+          <property name="frameShape">
+           <enum>QFrame::Box</enum>
+          </property>
+          <property name="frameShadow">
+           <enum>QFrame::Sunken</enum>
+          </property>
+          <property name="text">
+           <string>Filters</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="0">
+         <widget class="QPushButton" name="addSignalButton">
+          <property name="text">
+           <string>Add</string>
+          </property>
+          <property name="shortcut">
+           <string>Ctrl+Shift+=</string>
+          </property>
+         </widget>
+        </item>
+        <item row="7" column="0" colspan="3">
+         <widget class="QCheckBox" name="showIndividualFilters">
+          <property name="text">
+           <string>Show Individual Filters</string>
+          </property>
+          <property name="checked">
+           <bool>true</bool>
+          </property>
+         </widget>
         </item>
        </layout>
       </item>
@@ -117,7 +245,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1446</width>
+     <width>1550</width>
      <height>31</height>
     </rect>
    </property>
@@ -127,6 +255,34 @@
     </property>
     <addaction name="actionShow_Logs"/>
    </widget>
+   <widget class="QMenu" name="menuSettings">
+    <property name="title">
+     <string>Settings</string>
+    </property>
+    <widget class="QMenu" name="menuPresets">
+     <property name="title">
+      <string>Presets</string>
+     </property>
+     <addaction name="actionSave_Preset_1"/>
+     <addaction name="actionSave_Preset_2"/>
+     <addaction name="actionSave_Preset_3"/>
+     <addaction name="separator"/>
+     <addaction name="actionClear_Preset_1"/>
+     <addaction name="actionClear_Preset_2"/>
+     <addaction name="actionClear_Preset_3"/>
+    </widget>
+    <addaction name="actionPreferences"/>
+    <addaction name="separator"/>
+    <addaction name="menuPresets"/>
+   </widget>
+   <widget class="QMenu" name="menuFile">
+    <property name="title">
+     <string>File</string>
+    </property>
+    <addaction name="actionExtract_Audio"/>
+   </widget>
+   <addaction name="menuFile"/>
+   <addaction name="menuSettings"/>
    <addaction name="menuHelp"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
@@ -138,12 +294,72 @@
     <string>Ctrl+L</string>
    </property>
   </action>
+  <action name="actionPreferences">
+   <property name="text">
+    <string>Preferences</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+P</string>
+   </property>
+  </action>
+  <action name="actionExtract_Audio">
+   <property name="text">
+    <string>Extract Audio</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+E</string>
+   </property>
+  </action>
+  <action name="actionPresets">
+   <property name="text">
+    <string>Presets</string>
+   </property>
+  </action>
+  <action name="actionSave_Preset_1">
+   <property name="text">
+    <string>Save Preset 1</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+1</string>
+   </property>
+  </action>
+  <action name="actionClear_Preset_1">
+   <property name="text">
+    <string>Clear Preset 1</string>
+   </property>
+  </action>
+  <action name="actionSave_Preset_2">
+   <property name="text">
+    <string>Save Preset 2</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+2</string>
+   </property>
+  </action>
+  <action name="actionClear_Preset_2">
+   <property name="text">
+    <string>Clear Preset 2</string>
+   </property>
+  </action>
+  <action name="actionSave_Preset_3">
+   <property name="text">
+    <string>Save Preset 3</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+3</string>
+   </property>
+  </action>
+  <action name="actionClear_Preset_3">
+   <property name="text">
+    <string>Clear Preset 3</string>
+   </property>
+  </action>
  </widget>
  <customwidgets>
   <customwidget>
    <class>MplWidget</class>
    <extends>QGraphicsView</extends>
-   <header>app</header>
+   <header>mpl</header>
   </customwidget>
  </customwidgets>
  <resources/>
@@ -155,8 +371,8 @@
    <slot>addFilter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1188</x>
-     <y>79</y>
+     <x>1245</x>
+     <y>552</y>
     </hint>
     <hint type="destinationlabel">
      <x>1381</x>
@@ -165,14 +381,14 @@
    </hints>
   </connection>
   <connection>
-   <sender>deleteSelected</sender>
+   <sender>deleteFilterButton</sender>
    <signal>clicked()</signal>
    <receiver>MainWindow</receiver>
    <slot>deleteFilter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1430</x>
-     <y>79</y>
+     <x>1495</x>
+     <y>552</y>
     </hint>
     <hint type="destinationlabel">
      <x>1462</x>
@@ -203,8 +419,8 @@
    <slot>changeVisibilityOfIndividualFilters()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>128</x>
-     <y>114</y>
+     <x>1273</x>
+     <y>910</y>
     </hint>
     <hint type="destinationlabel">
      <x>6</x>
@@ -219,11 +435,123 @@
    <slot>editFilter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1266</x>
-     <y>66</y>
+     <x>1370</x>
+     <y>552</y>
     </hint>
     <hint type="destinationlabel">
      <x>1302</x>
+     <y>37</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>addSignalButton</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>addSignal()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1172</x>
+     <y>87</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1137</x>
+     <y>34</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>editSignalButton</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>editSignal()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1298</x>
+     <y>97</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1193</x>
+     <y>73</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>deleteSignalButton</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>deleteSignal()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1495</x>
+     <y>111</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1351</x>
+     <y>34</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>signalReference</sender>
+   <signal>currentIndexChanged(int)</signal>
+   <receiver>MainWindow</receiver>
+   <slot>normaliseSignalMagnitude()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>517</x>
+     <y>74</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>10</x>
+     <y>67</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>limitsButton</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>showLimits()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1014</x>
+     <y>52</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>977</x>
+     <y>32</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>filterReference</sender>
+   <signal>currentIndexChanged(int)</signal>
+   <receiver>MainWindow</receiver>
+   <slot>normaliseFilterMagnitude()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>638</x>
+     <y>55</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>618</x>
+     <y>35</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>showValuesButton</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>showValues()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>967</x>
+     <y>59</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>782</x>
      <y>37</y>
     </hint>
    </hints>
@@ -237,5 +565,12 @@
   <slot>display()</slot>
   <slot>changeVisibilityOfIndividualFilters()</slot>
   <slot>editFilter()</slot>
+  <slot>addSignal()</slot>
+  <slot>editSignal()</slot>
+  <slot>deleteSignal()</slot>
+  <slot>normaliseSignalMagnitude()</slot>
+  <slot>showLimits()</slot>
+  <slot>normaliseFilterMagnitude()</slot>
+  <slot>showValues()</slot>
  </slots>
 </ui>

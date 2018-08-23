@@ -1,0 +1,336 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>extractAudioDialog</class>
+ <widget class="QDialog" name="extractAudioDialog">
+  <property name="windowModality">
+   <enum>Qt::ApplicationModal</enum>
+  </property>
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>880</width>
+    <height>794</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Extract Audio</string>
+  </property>
+  <property name="sizeGripEnabled">
+   <bool>true</bool>
+  </property>
+  <property name="modal">
+   <bool>false</bool>
+  </property>
+  <layout class="QVBoxLayout" name="boxLayout">
+   <item>
+    <layout class="QGridLayout" name="gridLayout" rowstretch="1,1,1,1,1,1,6" columnstretch="1,4,0">
+     <item row="1" column="1">
+      <widget class="QComboBox" name="audioStreams"/>
+     </item>
+     <item row="0" column="1">
+      <widget class="QLineEdit" name="inputFile">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="0">
+      <widget class="QLabel" name="inputFileLabel">
+       <property name="text">
+        <string>File</string>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="2">
+      <widget class="QToolButton" name="inputFilePicker">
+       <property name="text">
+        <string>...</string>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="0">
+      <widget class="QLabel" name="streamsLabel">
+       <property name="text">
+        <string>Streams</string>
+       </property>
+      </widget>
+     </item>
+     <item row="4" column="1">
+      <widget class="QLineEdit" name="outputFilename"/>
+     </item>
+     <item row="3" column="2">
+      <widget class="QToolButton" name="targetDirPicker">
+       <property name="text">
+        <string>...</string>
+       </property>
+      </widget>
+     </item>
+     <item row="6" column="1">
+      <widget class="QPlainTextEdit" name="ffmpegOutput">
+       <property name="enabled">
+        <bool>true</bool>
+       </property>
+       <property name="font">
+        <font>
+         <family>Consolas</family>
+        </font>
+       </property>
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+       <property name="textInteractionFlags">
+        <set>Qt::TextSelectableByMouse</set>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="2">
+      <widget class="QToolButton" name="showProbeButton">
+       <property name="text">
+        <string>...</string>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="1">
+      <widget class="QCheckBox" name="monoMix">
+       <property name="enabled">
+        <bool>true</bool>
+       </property>
+       <property name="text">
+        <string>Mix to Mono?</string>
+       </property>
+       <property name="checked">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item row="4" column="0">
+      <widget class="QLabel" name="outputFilenameLabel">
+       <property name="text">
+        <string>Output Filename</string>
+       </property>
+      </widget>
+     </item>
+     <item row="3" column="1">
+      <widget class="QLineEdit" name="targetDir">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+      </widget>
+     </item>
+     <item row="3" column="0">
+      <widget class="QLabel" name="targetDirectoryLabel">
+       <property name="text">
+        <string>Target Directory</string>
+       </property>
+      </widget>
+     </item>
+     <item row="5" column="1">
+      <widget class="QPlainTextEdit" name="ffmpegCommandLine">
+       <property name="enabled">
+        <bool>true</bool>
+       </property>
+       <property name="font">
+        <font>
+         <family>Consolas</family>
+        </font>
+       </property>
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item row="6" column="0">
+      <widget class="QLabel" name="ffmpegOutputLabel">
+       <property name="text">
+        <string>ffmpeg output</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+       </property>
+      </widget>
+     </item>
+     <item row="5" column="0">
+      <widget class="QLabel" name="ffmpegCommandLabel">
+       <property name="text">
+        <string>ffmpeg command </string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QGridLayout" name="buttonLayout">
+     <item row="0" column="0">
+      <widget class="QDialogButtonBox" name="buttonBox">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="standardButtons">
+        <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>accepted()</signal>
+   <receiver>extractAudioDialog</receiver>
+   <slot>accept()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>431</x>
+     <y>779</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>157</x>
+     <y>260</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>rejected()</signal>
+   <receiver>extractAudioDialog</receiver>
+   <slot>reject()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>499</x>
+     <y>779</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>286</x>
+     <y>260</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>inputFilePicker</sender>
+   <signal>clicked()</signal>
+   <receiver>extractAudioDialog</receiver>
+   <slot>selectFile()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>865</x>
+     <y>38</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>711</x>
+     <y>88</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>showProbeButton</sender>
+   <signal>clicked()</signal>
+   <receiver>extractAudioDialog</receiver>
+   <slot>showProbeInDetail()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>865</x>
+     <y>72</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>697</x>
+     <y>88</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>targetDirPicker</sender>
+   <signal>clicked()</signal>
+   <receiver>extractAudioDialog</receiver>
+   <slot>setTargetDirectory()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>865</x>
+     <y>141</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>715</x>
+     <y>186</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>outputFilename</sender>
+   <signal>editingFinished()</signal>
+   <receiver>extractAudioDialog</receiver>
+   <slot>updateFfmpegCommand()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>646</x>
+     <y>161</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>706</x>
+     <y>240</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>audioStreams</sender>
+   <signal>currentIndexChanged(int)</signal>
+   <receiver>extractAudioDialog</receiver>
+   <slot>updateFfmpegSpec()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>348</x>
+     <y>61</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>123</x>
+     <y>87</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>outputFilename</sender>
+   <signal>editingFinished()</signal>
+   <receiver>extractAudioDialog</receiver>
+   <slot>updateFfmpegCommand()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>230</x>
+     <y>168</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>117</x>
+     <y>177</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>monoMix</sender>
+   <signal>clicked()</signal>
+   <receiver>extractAudioDialog</receiver>
+   <slot>toggleMonoMix()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>282</x>
+     <y>98</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>162</x>
+     <y>109</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+ <slots>
+  <slot>selectFile()</slot>
+  <slot>updateFfmpegCommand()</slot>
+  <slot>showProbeInDetail()</slot>
+  <slot>setTargetDirectory()</slot>
+  <slot>updateFfmpegSpec()</slot>
+  <slot>toggleMonoMix()</slot>
+ </slots>
+</ui>
