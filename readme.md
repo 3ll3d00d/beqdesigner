@@ -16,14 +16,16 @@
 * save graph as png
   * with optional additional image (as per the avs thread style)
 * add gain adjust filter
+* add another table or list of fields or dialog that shows the value under the cursor or values at a user entered position
+  * or a draggable line that reads the values
+* get live update chart working efficiently
+* add a preferences model that stores the actual values and is passed around to avoid passing settings around
+* come up with a sensible y axis tick scheme
 
 # bugs
 
 * 1st order filters do nothing
 * multichannel export produces too many channels and the preview graph is borked
-* move filters to secondary y axis
-* limits dialog doesn't work
-* multiple signals aren't coloured properly
 
 # Freeze
 

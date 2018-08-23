@@ -97,7 +97,7 @@ class SignalModel(Sequence):
         :return: the peak and avg spectrum for the signals (if any) + the filter signals.
         '''
         filter_response = self.__filterModel.getTransferFunction()
-        signals = [s.getXY() for s in self.__signals]
+        signals = [s.getXY(idx=idx) for idx, s in enumerate(self.__signals)]
         flattened = [item for sublist in signals for item in sublist]
         if filter_response is not None:
             flattened = [f.filter(filter_response.getMagnitude()) for f in flattened]

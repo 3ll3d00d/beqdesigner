@@ -234,50 +234,49 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Shows the limits dialog for the main chart.
         '''
-        LimitsDialog(self.__magnitudeModel).exec()
+        self.__magnitudeModel.show_limits()
 
 
-e_dialog = None
-
-
-def main():
+def make_app():
     app = QApplication(sys.argv)
     if getattr(sys, 'frozen', False):
-        iconPath = os.path.join(sys._MEIPASS, 'Icon.ico')
+        icon_path = os.path.join(sys._MEIPASS, 'Icon.ico')
     else:
-        iconPath = os.path.abspath(os.path.join(os.path.dirname('__file__'), '../icons/Icon.ico'))
-    if os.path.exists(iconPath):
-        app.setWindowIcon(QIcon(iconPath))
+        icon_path = os.path.abspath(os.path.join(os.path.dirname('__file__'), '../icons/Icon.ico'))
+    if os.path.exists(icon_path):
+        app.setWindowIcon(QIcon(icon_path))
+    return app
+
+
+if __name__ == '__main__':
+    app = make_app()
     form = BeqDesigner(app)
     # setup the error handler
-    global e_dialog
     e_dialog = QErrorMessage(form)
     e_dialog.setWindowModality(QtCore.Qt.WindowModal)
     font = QFont()
     font.setFamily("Consolas")
     font.setPointSize(8)
     e_dialog.setFont(font)
+    # add the exception handler so we can see the errors in a QErrorMessage
+    sys._excepthook = sys.excepthook
+
+
+    def dump_exception_to_log(exctype, value, tb):
+        import traceback
+        global e_dialog
+        if e_dialog is not None:
+            formatted = traceback.format_exception(etype=exctype, value=value, tb=tb)
+            msg = '<br>'.join(formatted)
+            e_dialog.setWindowTitle('Unexpected Error')
+            e_dialog.showMessage(msg)
+            e_dialog.resize(1200, 400)
+        else:
+            print(exctype, value, tb)
+
+
+    sys.excepthook = dump_exception_to_log
+
+    # show the form and exec the app
     form.show()
     app.exec_()
-
-
-# display exceptions in a QErrorMessage so the user knows what just happened
-sys._excepthook = sys.excepthook
-
-
-def dump_exception_to_log(exctype, value, tb):
-    import traceback
-    if e_dialog is not None:
-        formatted = traceback.format_exception(etype=exctype, value=value, tb=tb)
-        msg = '<br>'.join(formatted)
-        e_dialog.setWindowTitle('Unexpected Error')
-        e_dialog.showMessage(msg)
-        e_dialog.resize(1200, 400)
-    else:
-        print(exctype, value, tb)
-
-
-sys.excepthook = dump_exception_to_log
-
-if __name__ == '__main__':
-    main()

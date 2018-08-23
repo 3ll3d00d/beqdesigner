@@ -75,7 +75,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             self.__probe = ffmpeg.probe(self.inputFile.text())
             self.showProbeButton.setEnabled(True)
         end = time.time()
-        logger.info(f"Probed {self.inputFile.text()} in {end-start}ms")
+        logger.info(f"Probed {self.inputFile.text()} in {round(end-start, 3)}s")
         self.__audio_stream_data = [s for s in self.__probe.get('streams', []) if s['codec_type'] == 'audio']
         if len(self.__audio_stream_data) == 0:
             self.statusBar.showMessage(f"{self.inputFile.text()} contains no audio streams!")

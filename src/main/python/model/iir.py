@@ -16,7 +16,7 @@ logger = logging.getLogger('iir')
 class Biquad(ABC):
     def __init__(self, fs, freq, q):
         self.fs = fs
-        self.freq = freq
+        self.freq = round(freq, 2)
         self.q = q
         self.w0 = 2.0 * math.pi * self.freq / self.fs
         self.cos_w0 = math.cos(self.w0)
@@ -60,7 +60,7 @@ class Biquad(ABC):
 
 class BiquadWithGain(Biquad):
     def __init__(self, fs, freq, q, gain):
-        self.gain = gain
+        self.gain = round(gain, 3)
         super().__init__(fs, freq, q)
 
     @property
@@ -443,7 +443,7 @@ class CompoundPassFilter(ComplexFilter):
         self.type = filter_type
         self.order = order
         self.fs = fs
-        self.freq = freq
+        self.freq = round(freq, 2)
         if self.type is FilterType.LINKWITZ_RILEY:
             if self.order % 2 != 0:
                 raise ValueError("LR filters must be even order")
@@ -519,12 +519,12 @@ class ComplexData:
         self.y = y
         self.scaleFactor = scaleFactor
 
-    def getMagnitude(self, ref=1):
+    def getMagnitude(self, ref=1, colour=None):
         y = np.abs(self.y) * self.scaleFactor / ref
-        return XYData(self.name, self.x, 20 * np.log10(y))
+        return XYData(self.name, self.x, 20 * np.log10(y), colour=colour)
 
-    def getPhase(self):
-        return XYData(self.name, self.x, np.angle(self.y))
+    def getPhase(self, colour=None):
+        return XYData(self.name, self.x, np.angle(self.y), colour=colour)
 
 
 class XYData:

@@ -4,28 +4,11 @@ from math import log10
 
 import numpy as np
 from PyQt5.QtWidgets import QDialog
-from matplotlib.ticker import EngFormatter, Formatter, NullFormatter
+from matplotlib.ticker import EngFormatter, Formatter, NullFormatter, FixedLocator, LinearLocator
 
 from ui.limits import Ui_graphLayoutDialog
 
 logger = logging.getLogger('magnitude')
-
-
-def calculate_dBFS_Scales(data, maxRange=60):
-    '''
-    Calculates the min/max in the data.
-    :param data: the data.
-    :param maxRange: the max range.
-    :return: max, min
-    '''
-    vmax = np.math.ceil(np.nanmax(data))
-    # coerce max to a round value
-    multiple = 5 if maxRange <= 40 else 10
-    if vmax % multiple != 0:
-        vmax = (vmax - vmax % multiple) + multiple
-    else:
-        vmax += multiple
-    return vmax, vmax - maxRange
 
 
 class PrintFirstHalfFormatter(Formatter):
@@ -54,22 +37,22 @@ class MagnitudeModel:
     def __init__(self, name, chart, primaryDataProvider, primaryName, secondaryDataProvider=None, secondaryName=None):
         self.__name = name
         self.__chart = chart
-        self.__dBRange = 40
         self.__primary = primaryDataProvider
         self.__primary_axes = self.__chart.canvas.figure.add_subplot(111)
         self.__primary_axes.set_ylabel(f"dBFS ({primaryName})")
         self.__primary_reference_curve = None
         self.__primary_curves = {}
-        self.__configure_freq_axis()
-        self.__update_y_lim(self.__primary_axes, np.zeros(1))
         self.__secondary = secondaryDataProvider
         self.__secondary_curves = {}
         self.__secondary_reference_curve = None
         if self.__secondary is not None:
             self.__secondary_axes = self.__primary_axes.twinx()
             self.__secondary_axes.set_ylabel(f"dBFS ({secondaryName})")
-            self.__update_y_lim(self.__secondary_axes, np.zeros(1))
-        # TODO set to half nyquist or make it a user selection
+        else:
+            self.__secondary_axes = None
+        # TODO default to half nyquist
+        self.limits = Limits(self.__chart.canvas, self.__primary_axes, 60.0, x=(2, 250), axes_2=self.__secondary_axes)
+        self.limits.propagate_to_axes(draw=True)
         self.__legend = None
         self.__legend_cid = None
         self.__primary_axes.grid(linestyle='-', which='major', linewidth=1, alpha=0.5)
@@ -77,6 +60,12 @@ class MagnitudeModel:
 
     def __repr__(self):
         return self.__name
+
+    def show_limits(self):
+        '''
+        Shows the limits dialog.
+        '''
+        LimitsDialog(self.limits).exec()
 
     def get_curve_names(self, primary=True):
         '''
@@ -95,7 +84,7 @@ class MagnitudeModel:
         if self.__secondary is not None:
             self.__display_curves(self.__secondary, self.__secondary_curves, self.__secondary_axes,
                                   self.__secondary_reference_curve)
-        self.__configure_freq_axis()
+        self.limits.configure_freq_axis()
         self.__make_legend()
         mid = time.time()
         self.__chart.canvas.draw()
@@ -112,11 +101,7 @@ class MagnitudeModel:
             curve.remove()
             del curves[curve.get_label()]
         if len(data) > 0:
-            self.__update_y_lim(axes, np.concatenate([x.y for x in data]))
-
-    def __update_y_lim(self, axes, data):
-        ymax, ymin = calculate_dBFS_Scales(data, maxRange=self.__dBRange)
-        axes.set_ylim(bottom=ymin, top=ymax)
+            self.limits.on_data_change(axes, np.concatenate([x.y for x in data]))
 
     def __create_or_update_curve(self, axes, curves, data):
         curve = curves.get(data.name, None)
@@ -129,13 +114,6 @@ class MagnitudeModel:
                                               linestyle='solid',
                                               color=data.colour,
                                               label=data.name)[0]
-
-    def __configure_freq_axis(self):
-        hzFormatter = EngFormatter(places=0)
-        self.__primary_axes.get_xaxis().set_major_formatter(hzFormatter)
-        self.__primary_axes.get_xaxis().set_minor_formatter(PrintFirstHalfFormatter(hzFormatter))
-        self.__primary_axes.set_xlim(left=2, right=250)
-        self.__primary_axes.set_xlabel('Hz')
 
     def __make_legend(self):
         '''
@@ -187,19 +165,126 @@ class MagnitudeModel:
 
 
 class Limits:
-    def __init__(self, x_min, x_max, y_min, y_max, axes):
-        self.x_min = x_min
-        self.x_max = x_max
-        self.y_min = y_min
-        self.y_max = y_max
-        self.__axes = axes
+    '''
+    Value object to hold graph limits to decouple the dialog from the chart.
+    '''
 
-    def update(self, x_min, x_max, y_min, y_max):
-        self.x_min = x_min
-        self.x_max = x_max
-        self.y_min = y_min
-        self.y_max = y_max
-        # update the axes
+    def __init__(self, canvas, axes_1, default_y_range, x, axes_2=None):
+        self.__canvas = canvas
+        self.__default_y_range = default_y_range
+        self.axes_1 = axes_1
+        self.x_scale = 'log'
+        self.__x_scale_changed = False
+        self.x_min = x[0]
+        self.x_max = x[1]
+        numticks = 13
+        self.axes_1.yaxis.set_major_locator(LinearLocator(numticks))
+        self.y1_min, self.y1_max = self.calculate_dBFS_scales(np.zeros(1))
+        if axes_2 is not None:
+            self.y2_min, self.y2_max = self.calculate_dBFS_scales(np.zeros(1))
+            self.axes_2 = axes_2
+            self.axes_2.yaxis.set_major_locator(LinearLocator(numticks))
+        else:
+            self.axes_2 = self.y2_min = self.y2_max = None
+        self.propagate_to_axes()
+
+    def propagate_to_axes(self, draw=False):
+        '''
+        Updates the chart with the current values.
+        '''
+        self.axes_1.set_xlim(left=self.x_min, right=self.x_max)
+        self.axes_1.set_ylim(bottom=self.y1_min, top=self.y1_max)
+        if self.axes_2 is not None:
+            self.axes_2.set_ylim(bottom=self.y2_min, top=self.y2_max)
+            # ensure the ticks are aligned with the primary axis ticks
+            # from https://stackoverflow.com/questions/45037386/trouble-aligning-ticks-for-matplotlib-twinx-axes
+            # f = lambda x: self.y2_min + (x - self.y1_min) / (self.y1_max - self.y1_min) * (self.y2_max - self.y2_min)
+            # ticks = f(self.axes_1.get_yticks())
+            # self.axes_2.yaxis.set_major_locator(FixedLocator(ticks))
+        self.configure_freq_axis()
+        if draw:
+            self.__canvas.draw()
+
+    def update(self, x_min=None, x_max=None, y1_min=None, y1_max=None, y2_min=None, y2_max=None, x_scale=None, draw=False):
+        '''
+        Accepts new values from the dialog and propagates that to the chart.
+        :param x_min:
+        :param x_max:
+        :param y1_min:
+        :param y1_max:
+        :param y2_min:
+        :param y2_max:
+        '''
+        if x_min is not None:
+            self.x_min = x_min
+        if x_max is not None:
+            self.x_max = x_max
+        if y1_min is not None:
+            self.y1_min = y1_min
+        if y1_max is not None:
+            self.y1_max = y1_max
+        if y2_min is not None:
+            self.y2_min = y2_min
+        if y2_min is not None:
+            self.y2_max = y2_max
+        if x_scale is not None and x_scale != self.x_scale:
+            self.x_scale = x_scale
+            self.__x_scale_changed = True
+        self.propagate_to_axes(draw)
+
+    def calculate_dBFS_scales(self, data):
+        '''
+        Calculates the min/max in the data.
+        :param data: the data.
+        :param max_range: the max range.
+        :return: min, max
+        '''
+        vmax = np.math.ceil(np.nanmax(data))
+        # coerce max to a round value
+        multiple = 5 if self.__default_y_range <= 40 else 10
+        if vmax % multiple != 0:
+            vmax = (vmax - vmax % multiple) + multiple
+        else:
+            vmax += multiple
+        return vmax - self.__default_y_range, vmax
+
+    def on_data_change(self, axes, data):
+        if axes is self.axes_1:
+            if self.is_auto_1():
+                self.y1_min, self.y1_max = self.calculate_dBFS_scales(data)
+                self.propagate_to_axes(draw=False)
+        elif axes is self.axes_2:
+            if self.is_auto_2():
+                self.y2_min, self.y2_max = self.calculate_dBFS_scales(data)
+                self.propagate_to_axes(draw=False)
+        else:
+            raise ValueError(f"Unknown axes provided to on_data_change {axes}")
+
+    def is_auto_1(self):
+        '''
+        :return: True if y_1 is on auto update.
+        '''
+        return True
+
+    def is_auto_2(self):
+        '''
+        :return: True if y_2 is on auto update.
+        '''
+        return True
+
+    def configure_freq_axis(self):
+        '''
+        sets up the freq axis formatters.
+        :return:
+        '''
+        if self.__x_scale_changed:
+            logger.debug(f"Reconfiguring Freq Axis to {self.x_scale}")
+            self.axes_1.set_xscale(self.x_scale)
+            hzFormatter = EngFormatter(places=0)
+            self.axes_1.get_xaxis().set_major_formatter(hzFormatter)
+            self.axes_1.get_xaxis().set_minor_formatter(PrintFirstHalfFormatter(hzFormatter))
+            self.axes_1.set_xlabel('Hz')
+            self.__x_scale_changed = False
 
 
 class LimitsDialog(QDialog, Ui_graphLayoutDialog):
@@ -207,26 +292,22 @@ class LimitsDialog(QDialog, Ui_graphLayoutDialog):
     Provides some basic chart controls.
     '''
 
-    def __init__(self, mag, parent=None):
+    def __init__(self, limits, parent=None):
         super(LimitsDialog, self).__init__(parent)
         self.setupUi(self)
-        self.__mag = mag
-        bot, top = self.__mag.__axes.get_ylim()
-        l, r = self.__mag.__axes.get_xlim()
-        self.xMin.setValue(l)
-        self.xMax.setValue(r)
-        self.yMin.setValue(bot)
-        self.yMax.setValue(top)
-
-    def toggleLogScale(self):
-        pass
+        self.__limits = limits
+        self.hzLog.setChecked(limits.x_scale == 'log')
+        self.xMin.setValue(self.__limits.x_min)
+        self.xMax.setValue(self.__limits.x_max)
+        self.y1Min.setValue(self.__limits.y1_min)
+        self.y1Max.setValue(self.__limits.y1_max)
+        self.y2Min.setValue(self.__limits.y2_min)
+        self.y2Max.setValue(self.__limits.y2_max)
 
     def changeLimits(self):
         '''
         Updates the chart limits.
         '''
-        # TODO bridge this via the limits class
-        # self.__limits.update(self.xMin.value(), self.xMax.value(), self.yMin.value(), self.yMax.value())
-        self.__mag.__axes.set_ylim(bottom=self.yMin.value(), top=self.yMax.value())
-        self.__mag.__axes.set_xlim(left=self.xMin.value(), right=self.xMax.value())
-        self.__mag.__chart.canvas.draw()
+        self.__limits.update(x_min=self.xMin.value(), x_max=self.xMax.value(), y1_min=self.y1Min.value(),
+                             y1_max=self.y1Max.value(), y2_min=self.y2Min.value(), y2_max=self.y2Max.value(),
+                             x_scale='log' if self.hzLog.isChecked() else 'linear', draw=True)

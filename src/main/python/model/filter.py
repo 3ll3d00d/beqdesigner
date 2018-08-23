@@ -10,6 +10,7 @@ from qtpy.QtWidgets import QDialog, QDialogButtonBox
 
 from model.iir import ComplexFilter, FilterType, LowShelf, HighShelf, PeakingEQ, SecondOrder_LowPass, \
     SecondOrder_HighPass, ComplexLowPass, ComplexHighPass, q_to_s, s_to_q
+from model.magnitude import MagnitudeModel
 from mpl import get_line_colour
 from ui.filter import Ui_editFilterDialog
 
@@ -177,19 +178,24 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
     def __init__(self, filterModel, fs=48000, filter=None, parent=None):
         super(FilterDialog, self).__init__(parent)
         self.setupUi(self)
+        self.__magnitudeModel = MagnitudeModel('preview', self.previewChart, self, 'Filter')
         self.filterModel = filterModel
-        self.filter = filter
+        self.__filter = filter
+        self.__original_id = self.__filter.id if filter is not None else None
         self.fs = fs if filter is None else filter.fs
-        if self.filter is not None:
+        if self.__filter is not None:
             self.setWindowTitle('Edit Filter')
-            if hasattr(self.filter, 'gain'):
-                self.filterGain.setValue(self.filter.gain)
-            if hasattr(self.filter, 'q'):
-                self.filterQ.setValue(self.filter.q)
-            self.freq.setValue(self.filter.freq)
-            if hasattr(self.filter, 'order'):
-                self.filterOrder.setValue(self.filter.order)
-            if hasattr(self.filter, 'type'):
+            if hasattr(self.__filter, 'gain'):
+                # prevent the preview from recreating the filter before we've set all the vars
+                self.filterGain.blockSignals(True)
+                self.filterGain.setValue(self.__filter.gain)
+                self.filterGain.blockSignals(False)
+            if hasattr(self.__filter, 'q'):
+                self.filterQ.setValue(self.__filter.q)
+            self.freq.setValue(self.__filter.freq)
+            if hasattr(self.__filter, 'order'):
+                self.filterOrder.setValue(self.__filter.order)
+            if hasattr(self.__filter, 'type'):
                 displayName = 'Butterworth' if filter.type is FilterType.BUTTERWORTH else 'Linkwitz-Riley'
                 self.passFilterType.setCurrentIndex(self.passFilterType.findText(displayName))
             self.filterType.setCurrentIndex(self.filterType.findText(filter.display_name))
@@ -198,18 +204,35 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.enableFilterParams()
         self.enableOkIfGainIsValid()
         self.freq.setMaximum(self.fs / 2.0)
+        self.previewFilter()
 
     def accept(self):
-        if self.__is_pass_filter():
-            filt = self.create_pass_filter()
+        ''' Stores the filter in the model (adding or replacing as necessary). '''
+        if self.__filter is not None:
+            if self.__original_id is None:
+                self.__filter.id = uuid4()
+                self.filterModel.add(self.__filter)
+            else:
+                self.__filter.id = self.__original_id
+                self.filterModel.replace(self.__filter)
+
+    def previewFilter(self):
+        ''' creates a filter if the params are valid '''
+        if self.__is_valid_filter():
+            if self.__is_pass_filter():
+                self.__filter = self.create_pass_filter()
+            else:
+                self.__filter = self.create_shaping_filter()
         else:
-            filt = self.create_shaping_filter()
-        if self.filter is None:
-            filt.id = uuid4()
-            self.filterModel.add(filt)
+            self.__filter = None
+        self.__magnitudeModel.display()
+
+    def getMagnitudeData(self, reference=None):
+        ''' preview of the filter to display on the chart '''
+        if self.__filter is not None:
+            return [self.__filter.getTransferFunction().getMagnitude(colour='k')]
         else:
-            filt.id = self.filter.id
-            self.filterModel.replace(filt)
+            return []
 
     def create_shaping_filter(self):
         '''
@@ -223,11 +246,11 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         :return: the filter.
         '''
         if self.filterType.currentText() == 'Low Shelf':
-            return LowShelf(self.fs, self.freq.value(), self.filterQ.value(), round(self.filterGain.value(), 3))
+            return LowShelf(self.fs, self.freq.value(), self.filterQ.value(), self.filterGain.value())
         elif self.filterType.currentText() == 'High Shelf':
-            return HighShelf(self.fs, self.freq.value(), self.filterQ.value(), round(self.filterGain.value(), 3))
+            return HighShelf(self.fs, self.freq.value(), self.filterQ.value(), self.filterGain.value())
         elif self.filterType.currentText() == 'Peak':
-            return PeakingEQ(self.fs, self.freq.value(), self.filterQ.value(), round(self.filterGain.value(), 3))
+            return PeakingEQ(self.fs, self.freq.value(), self.filterQ.value(), self.filterGain.value())
         elif self.filterType.currentText() == 'Variable Q LPF':
             return SecondOrder_LowPass(self.fs, self.freq.value(), self.filterQ.value())
         elif self.filterType.currentText() == 'Variable Q HPF':
@@ -287,10 +310,17 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
             self.filterOrder.setSingleStep(2)
 
     def enableOkIfGainIsValid(self):
+        ''' enables the save button if we have a valid filter. '''
+        self.buttonBox.button(QDialogButtonBox.Save).setEnabled(self.__is_valid_filter())
+
+    def __is_valid_filter(self):
+        '''
+        :return: true if the current params are valid.
+        '''
         if self.__is_gain_required():
-            self.buttonBox.button(QDialogButtonBox.Save).setEnabled(not math.isclose(self.filterGain.value(), 0.0))
+            return not math.isclose(self.filterGain.value(), 0.0)
         else:
-            self.buttonBox.button(QDialogButtonBox.Save).setEnabled(True)
+            return True
 
     def __is_gain_required(self):
         return self.filterType.currentText() in self.gain_required
