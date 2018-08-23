@@ -250,11 +250,13 @@ class FirstOrder_HighPass(Biquad):
         return 'Variable Q HPF'
 
     def _compute_coeffs(self):
-        a1 = -math.exp(-2.0 * math.pi * (0.5 - (self.freq / self.fs)))
-        b0 = 1.0 + a1
-        a = np.array([1.0, -a1, 0.0], dtype=np.float64)
-        b = np.array([b0, 0.0, 0.0])
-        return a, b
+        # TODO work out how to implement this directly
+        sos = signal.butter(1, self.freq / (0.5 * self.fs), btype='high', output='sos')
+        # a1 = -math.exp(-2.0 * math.pi * (0.5 - (self.freq / self.fs)))
+        # b0 = 1.0 + a1
+        # a = np.array([1.0, -a1, 0.0], dtype=np.float64)
+        # b = np.array([b0, 0.0, 0.0])
+        return sos[0][3:5], sos[0][0:2]
 
 
 class SecondOrder_LowPass(Biquad):
@@ -477,7 +479,14 @@ class CompoundPassFilter(ComplexFilter):
                             range(0, pairs)]
                 return biquads
         elif self.type is FilterType.LINKWITZ_RILEY:
-            return [self.__bw2(self.fs, self.freq) for _ in range(0, int(self.order / 2))]
+            twos = int(self.order / 2)
+            filts = []
+            if twos % 2 != 0:
+                filts += [self.__bw1(self.fs, self.freq) for _ in range(0, 2)]
+                twos -= 1
+            if twos > 0:
+                filts += [self.__bw2(self.fs, self.freq) for _ in range(0, twos)]
+            return filts
         else:
             raise ValueError("Unknown filter type " + str(self.type))
 

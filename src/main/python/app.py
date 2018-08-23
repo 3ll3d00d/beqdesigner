@@ -50,6 +50,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.settings = QSettings("3ll3d00d", "beqdesigner")
         self.setupUi(self)
         self.limitsButton.setIcon(qta.icon('ei.move'))
+        self.showValuesButton.setIcon(qta.icon('ei.eye-open'))
         # logs
         self.logViewer = RollingLogger(parent=self)
         self.actionShow_Logs.triggered.connect(self.logViewer.show_logs)
@@ -235,6 +236,12 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         Shows the limits dialog for the main chart.
         '''
         self.__magnitudeModel.show_limits()
+
+    def showValues(self):
+        '''
+        Shows the values dialog for the main chart.
+        '''
+        self.__magnitudeModel.show_values()
 
 
 def make_app():

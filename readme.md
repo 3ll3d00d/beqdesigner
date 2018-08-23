@@ -21,14 +21,13 @@
 * get live update chart working efficiently
 * add a preferences model that stores the actual values and is passed around to avoid passing settings around
 * come up with a sensible y axis tick scheme
+* need a settings model to give somewhere to handle defaults consistently and/or a redux style tree of settings perhaps?
 
 # bugs
 
 * filter errors
-  * odd order high passes are wrong (because the 1st order is wrong)
   * LR2/6/10/etc are wrong
-* multichannel export produces too many channels and the preview graph is borked
-
+* multichannel export produces too many channels
 
 # Freeze
 

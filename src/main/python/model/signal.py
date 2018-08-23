@@ -1,6 +1,7 @@
 import datetime
 import logging
 import math
+import time
 import typing
 from collections import Sequence
 
@@ -261,7 +262,11 @@ class Signal:
         :return: the signal
         '''
         if new_fs != self.fs:
-            return Signal(self.name, resampy.resample(self.samples, self.fs, new_fs, filter='kaiser_fast'), new_fs)
+            start = time.time()
+            resampled = Signal(self.name, resampy.resample(self.samples, self.fs, new_fs, filter='kaiser_fast'), new_fs)
+            end = time.time()
+            logger.info(f"Resampled {self.name} from {self.fs} to {new_fs} in {round(end-start, 3)}s")
+            return resampled
         else:
             return self
 
@@ -497,4 +502,6 @@ def readWav(name, input_file, channel=1, start=None, end=None, target_fs=1000) -
     else:
         ys, frameRate = sf.read(input_file)
     signal = Signal(name, ys[::channel], frameRate)
+    if target_fs is None or target_fs == 0:
+        target_fs = signal.fs
     return signal.resample(target_fs)

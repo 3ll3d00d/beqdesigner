@@ -5,8 +5,10 @@ from math import log10
 import numpy as np
 from PyQt5.QtWidgets import QDialog
 from matplotlib.ticker import EngFormatter, Formatter, NullFormatter, FixedLocator, LinearLocator
+from qtpy import QtWidgets
 
 from ui.limits import Ui_graphLayoutDialog
+from ui.values import Ui_valuesDialog
 
 logger = logging.getLogger('magnitude')
 
@@ -66,6 +68,12 @@ class MagnitudeModel:
         Shows the limits dialog.
         '''
         LimitsDialog(self.limits).exec()
+
+    def show_values(self):
+        '''
+        Shows the values dialog.
+        '''
+        ValuesDialog(list(self.__primary_curves.values()) + list(self.__secondary_curves.values())).exec()
 
     def get_curve_names(self, primary=True):
         '''
@@ -276,6 +284,56 @@ class Limits:
         self.axes_1.get_xaxis().set_major_formatter(hzFormatter)
         self.axes_1.get_xaxis().set_minor_formatter(PrintFirstHalfFormatter(hzFormatter))
         self.axes_1.set_xlabel('Hz')
+
+
+class ValuesDialog(QDialog, Ui_valuesDialog):
+    '''
+    Provides a mechanism for looking at the values listed in the chart without taking up screen estate.
+    '''
+
+    def __init__(self, data):
+        super(ValuesDialog, self).__init__()
+        self.setupUi(self)
+        self.data = data
+        self.__step = 0
+        self.valueFields = []
+        for idx, xy in enumerate(data):
+            label = QtWidgets.QLabel(self)
+            label.setObjectName(f"label{idx+1}")
+            label.setText(xy.get_label())
+            self.formLayout.setWidget(idx + 1, QtWidgets.QFormLayout.LabelRole, label)
+            lineEdit = QtWidgets.QLineEdit(self)
+            lineEdit.setEnabled(False)
+            lineEdit.setObjectName(f"value{idx+1}")
+            self.valueFields.append(lineEdit)
+            self.formLayout.setWidget(idx + 1, QtWidgets.QFormLayout.FieldRole, lineEdit)
+        if len(data) > 0:
+            xdata = data[0].get_xdata()
+            self.__step = xdata[1] - xdata[0]
+            self.freq.setMinimum(xdata[0])
+            self.freq.setSingleStep(self.__step)
+            self.freq.setMaximum(xdata[-1])
+            self.freq.setValue(xdata[0])
+            self.freq.setEnabled(True)
+        else:
+            self.freq.setEnabled(False)
+
+    def updateValues(self, freq):
+        '''
+        propagates the freq value change.
+        :return:
+        '''
+        freq_idx = int(freq / self.__step)
+        for idx, xy in enumerate(self.data):
+            val = xy.get_ydata()[freq_idx]
+            self.valueFields[idx].setText(str(round(val, 3)))
+
+    def redraw(self, curves):
+        '''
+        Loads a new set of curves into the screen.
+        :param curves: the curves.
+        '''
+        self.curves = curves
 
 
 class LimitsDialog(QDialog, Ui_graphLayoutDialog):
