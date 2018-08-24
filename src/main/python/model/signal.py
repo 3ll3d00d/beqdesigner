@@ -269,12 +269,30 @@ class Signal:
         '''
         if new_fs != self.fs:
             start = time.time()
-            resampled = Signal(self.name, resampy.resample(self.samples, self.fs, new_fs, filter='kaiser_fast'), new_fs)
+            resampled = Signal(self.name,
+                               resampy.resample(self.samples, self.fs, new_fs, filter=self.load_resampy_filter), new_fs)
             end = time.time()
             logger.info(f"Resampled {self.name} from {self.fs} to {new_fs} in {round(end-start, 3)}s")
             return resampled
         else:
             return self
+
+    def load_resampy_filter(self):
+        '''
+        A replacement for resampy.load_filter that is compatible with pyinstaller.
+        :return: same values as resampy.load_filter
+        '''
+        import sys
+        import os
+        filter_name = 'kaiser_fast'
+        if getattr(sys, 'frozen', False):
+            data = np.load(os.path.join(sys._MEIPASS, '_resampy_filters', os.path.extsep.join([filter_name, 'npz'])))
+        else:
+            import pkg_resources
+            fname = os.path.join('data', os.path.extsep.join([filter_name, 'npz']))
+            data = np.load(pkg_resources.resource_filename(__name__, fname))
+
+        return data['half_window'], data['precision'], data['rolloff']
 
     def getXY(self, idx=0):
         '''
@@ -447,7 +465,8 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
             if endMillis < self.__duration:
                 end = endMillis
             # defer to avoid circular imports
-            from model.preferences import ANALYSIS_TARGET_FS, ANALYSIS_RESOLUTION, ANALYSIS_PEAK_WINDOW, ANALYSIS_AVG_WINDOW
+            from model.preferences import ANALYSIS_TARGET_FS, ANALYSIS_RESOLUTION, ANALYSIS_PEAK_WINDOW, \
+                ANALYSIS_AVG_WINDOW
             self.__signal = readWav(self.signalName.text(), self.file.text(),
                                     channel=int(self.channelSelector.currentText()), start=start, end=end,
                                     target_fs=self.__settings.value(ANALYSIS_TARGET_FS))
