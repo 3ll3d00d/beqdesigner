@@ -1,5 +1,9 @@
 # setup
 
+## Windows
+
+Install https://repo.anaconda.com/archive/Anaconda3-5.2.0-Windows-x86_64.exe then
+
     conda create -n beq numpy colorcet scipy qtpy mkl==2018.0.2 qtawesome
     activate beq
     python -m pip install --upgrade pip
@@ -18,14 +22,12 @@
 
 * add filter presets
 
-* save graph as png
-  * with optional additional image (as per the avs thread style)
+* allow addition of user supplied image with png (as per the avs thread style)
 
 ## core functionality 
 
 * add gain adjust filter
 * **BUG** multichannel export produces too many channels
-* **BUG** LR2/6/10/etc are wrong
 
 ## look and feel 
 
@@ -38,6 +40,20 @@
 
 # Freeze
 
+## Hack
+
+* hack ffmpeg to workaround https://github.com/kkroening/ffmpeg-python/issues/116 
+  * in _run.py
+```  
+    stdin_stream = subprocess.PIPE
+```
+  * in _probe.py
+```  
+    p = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+```
+
+## Exe
+
 to create an exe
 
     pyinstaller --clean --log-level=WARN -F for_exe.spec
@@ -46,6 +62,8 @@ produces
 
     dist/beqdesigner.exe
     
+## Installer 
+
 to create an installer
 
     pyinstaller --clean --log-level=WARN -D for_nsis.spec
@@ -58,34 +76,3 @@ to create an installer
 
     makensis src\main\nsis\Installer.nsi
     
-## Notes
-
-* replace the implementation of ``load_filter`` in ``resampy\filters.py`` with the implementation below and remove the ``import pkg_resources``::
-
-```
-    # hack in pyinstaller support
-    if getattr(sys, 'frozen', False):
-        data = np.load(os.path.join(sys._MEIPASS, '_resampy_filters', os.path.extsep.join([filter_name, 'npz'])))
-    else:
-        fname = os.path.join('data',
-                             os.path.extsep.join([filter_name, 'npz']))
-        import pkg_resources
-        data = np.load(pkg_resources.resource_filename(__name__, fname))
-    
-    return data['half_window'], data['precision'], data['rolloff']
-```
-    
-* add the following to the spec in the EXE section
-```
-    Tree('C:\\Users\\mattk\\Anaconda3_64\\envs\\beq\\Lib\\site-packages\\resampy\\data', prefix='_resampy_filters'),
-    Tree('C:\\Users\\mattk\\Anaconda3_64\\envs\\beq\\Lib\\site-packages\\_soundfile_data', prefix='_soundfile_data'),
-```
-* hack ffmpeg _probe.py and _run.py so they always pass `stdin=subprocess.PIPE`
-  * in _run.py
-```  
-    stdin_stream = subprocess.PIPE
-```
-  * in _probe.py
-```  
-    p = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-```
