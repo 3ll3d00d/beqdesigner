@@ -465,30 +465,33 @@ class CompoundPassFilter(ComplexFilter):
             elif self.order == 2:
                 return [self.__bw2(self.fs, self.freq)]
             else:
-                # approach taken from http://www.earlevel.com/main/2016/09/29/cascading-filters/
-                biquads = []
-                pairs = self.order >> 1
-                odd_poles = self.order & 1
-                pole_inc = np.math.pi / self.order
-                first_angle = pole_inc
-                if not odd_poles:
-                    first_angle /= 2
-                else:
-                    biquads.append(self.__bw1(self.fs, self.freq, 0.5))
-                biquads += [self.__bw2(self.fs, self.freq, 1.0 / (2.0 * math.cos(first_angle + x * pole_inc))) for x in
-                            range(0, pairs)]
-                return biquads
+                return self.__calculate_high_order_bw(self.order)
         elif self.type is FilterType.LINKWITZ_RILEY:
-            twos = int(self.order / 2)
-            filts = []
-            if twos % 2 != 0:
-                filts += [self.__bw1(self.fs, self.freq) for _ in range(0, 2)]
-                twos -= 1
-            if twos > 0:
-                filts += [self.__bw2(self.fs, self.freq) for _ in range(0, twos)]
-            return filts
+            # LRx is 2 * BW(x/2)
+            if self.order == 2:
+                return [self.__bw1(self.fs, self.freq) for _ in range(0, 2)]
+            elif self.order == 4:
+                return [self.__bw2(self.fs, self.freq) for _ in range(0, 2)]
+            else:
+                bw_order = int(self.order / 2)
+                return self.__calculate_high_order_bw(bw_order) + self.__calculate_high_order_bw(bw_order)
         else:
             raise ValueError("Unknown filter type " + str(self.type))
+
+    def __calculate_high_order_bw(self, order):
+        # approach taken from http://www.earlevel.com/main/2016/09/29/cascading-filters/
+        biquads = []
+        pairs = order >> 1
+        odd_poles = order & 1
+        pole_inc = np.math.pi / order
+        first_angle = pole_inc
+        if not odd_poles:
+            first_angle /= 2
+        else:
+            biquads.append(self.__bw1(self.fs, self.freq, 0.5))
+        biquads += [self.__bw2(self.fs, self.freq, 1.0 / (2.0 * math.cos(first_angle + x * pole_inc))) for x in
+                    range(0, pairs)]
+        return biquads
 
 
 class ComplexLowPass(CompoundPassFilter):
