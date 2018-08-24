@@ -5,7 +5,11 @@ block_cipher = None
 a = Analysis(['src\\main\\python\\app.py'],
              pathex=['C:\\Users\\mattk\\github\\beq'],
              binaries=None,
-             datas=[('src\\main\\icons\\Icon.ico', '.')],
+             datas=[
+                ('src\\main\\icons\\Icon.ico', '.'),
+                ('C:\\Users\\mattk\\Anaconda3_64\\envs\\beq\\Lib\\site-packages\\resampy\\data\\kaiser_fast.npz', '_resampy_filter'),
+                ('C:\\Users\\mattk\\Anaconda3_64\\envs\\beq\\Lib\\site-packages\\_soundfile_data', '_soundfile_data')
+             ],
              hiddenimports=[],
              hookspath=[],
              runtime_hooks=[],
@@ -17,8 +21,6 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 exe = EXE(pyz,
           a.scripts,
           a.binaries,
-          Tree('C:\\Users\\mattk\\Anaconda3_64\\envs\\beq\\Lib\\site-packages\\resampy\\data', prefix='_resampy_filters'),
-          Tree('C:\\Users\\mattk\\Anaconda3_64\\envs\\beq\\Lib\\site-packages\\_soundfile_data', prefix='_soundfile_data'),
           a.zipfiles,
           a.datas,
           name='beqdesigner',
