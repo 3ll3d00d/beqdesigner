@@ -2,10 +2,10 @@ import logging
 import math
 import os
 import sys
-import qtawesome as qta
 from contextlib import contextmanager
 
 import matplotlib
+import qtawesome as qta
 
 from ui.savechart import Ui_saveChartDialog
 
@@ -18,7 +18,7 @@ from qtpy.QtWidgets import QMainWindow, QApplication, QErrorMessage, QAbstractIt
 from model.extract import ExtractAudioDialog
 from model.filter import FilterTableModel, FilterModel, FilterDialog
 from model.log import RollingLogger
-from model.magnitude import MagnitudeModel, LimitsDialog
+from model.magnitude import MagnitudeModel
 from model.preferences import PreferencesDialog, BINARIES, ANALYSIS_TARGET_FS
 from model.signal import SignalModel, SignalTableModel, SignalDialog
 from ui.beq import Ui_MainWindow
