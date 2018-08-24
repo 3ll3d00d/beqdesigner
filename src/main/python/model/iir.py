@@ -550,6 +550,8 @@ class XYData:
         self.y = y
         self.colour = colour
         self.linestyle = linestyle
+        self.miny = np.nanmin(y)
+        self.maxy = np.nanmax(y)
 
     def normalise(self, target):
         '''

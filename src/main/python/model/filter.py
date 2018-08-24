@@ -180,7 +180,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.setupUi(self)
         # used to prevent signals from recalculating the filter before we've populated the fields
         self.__starting = True
-        self.__magnitudeModel = MagnitudeModel('preview', self.previewChart, self, 'Filter')
+        self.__magnitudeModel = MagnitudeModel('preview', self.previewChart, self, 'Filter', animate=True)
         self.filterModel = filterModel
         self.__filter = filter
         self.__original_id = self.__filter.id if filter is not None else None
