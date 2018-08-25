@@ -23,7 +23,24 @@
    </item>
    <item row="0" column="0">
     <layout class="QGridLayout" name="paramsPane">
+     <item row="7" column="0">
+      <widget class="QLabel" name="filterCountLabel">
+       <property name="text">
+        <string>Count</string>
+       </property>
+      </widget>
+     </item>
      <item row="7" column="1">
+      <widget class="QSpinBox" name="filterCount">
+       <property name="minimum">
+        <number>1</number>
+       </property>
+       <property name="maximum">
+        <number>20</number>
+       </property>
+      </widget>
+     </item>
+     <item row="8" column="1">
       <spacer name="verticalSpacer">
        <property name="orientation">
         <enum>Qt::Vertical</enum>
@@ -36,10 +53,33 @@
        </property>
       </spacer>
      </item>
-     <item row="5" column="0">
-      <widget class="QLabel" name="sLabel">
+     <item row="0" column="0">
+      <widget class="QLabel" name="typeLabel">
        <property name="text">
-        <string>S</string>
+        <string>Type</string>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="1">
+      <widget class="QSpinBox" name="filterOrder">
+       <property name="enabled">
+        <bool>true</bool>
+       </property>
+       <property name="minimum">
+        <number>1</number>
+       </property>
+       <property name="maximum">
+        <number>24</number>
+       </property>
+       <property name="value">
+        <number>2</number>
+       </property>
+      </widget>
+     </item>
+     <item row="4" column="0">
+      <widget class="QLabel" name="filterQLabel">
+       <property name="text">
+        <string>Q</string>
        </property>
       </widget>
      </item>
@@ -62,33 +102,52 @@
        </property>
       </widget>
      </item>
-     <item row="4" column="0">
-      <widget class="QLabel" name="filterQLabel">
+     <item row="5" column="0">
+      <widget class="QLabel" name="sLabel">
        <property name="text">
-        <string>Q</string>
+        <string>S</string>
        </property>
       </widget>
      </item>
-     <item row="2" column="1">
-      <widget class="QSpinBox" name="filterOrder">
-       <property name="enabled">
-        <bool>true</bool>
-       </property>
-       <property name="minimum">
+     <item row="6" column="1">
+      <widget class="QDoubleSpinBox" name="filterGain">
+       <property name="decimals">
         <number>1</number>
        </property>
-       <property name="maximum">
-        <number>24</number>
+       <property name="minimum">
+        <double>-30.000000000000000</double>
        </property>
-       <property name="value">
-        <number>2</number>
+       <property name="maximum">
+        <double>30.000000000000000</double>
+       </property>
+       <property name="singleStep">
+        <double>0.100000000000000</double>
        </property>
       </widget>
      </item>
-     <item row="0" column="0">
-      <widget class="QLabel" name="typeLabel">
+     <item row="2" column="0">
+      <widget class="QLabel" name="orderLabel">
        <property name="text">
-        <string>Type</string>
+        <string>Order</string>
+       </property>
+      </widget>
+     </item>
+     <item row="3" column="1">
+      <widget class="QDoubleSpinBox" name="freq">
+       <property name="decimals">
+        <number>1</number>
+       </property>
+       <property name="minimum">
+        <double>1.000000000000000</double>
+       </property>
+       <property name="maximum">
+        <double>500.000000000000000</double>
+       </property>
+       <property name="singleStep">
+        <double>0.100000000000000</double>
+       </property>
+       <property name="value">
+        <double>40.000000000000000</double>
        </property>
       </widget>
      </item>
@@ -107,13 +166,6 @@
          <string>Linkwitz-Riley</string>
         </property>
        </item>
-      </widget>
-     </item>
-     <item row="2" column="0">
-      <widget class="QLabel" name="orderLabel">
-       <property name="text">
-        <string>Order</string>
-       </property>
       </widget>
      </item>
      <item row="0" column="1">
@@ -155,38 +207,20 @@
        </item>
       </widget>
      </item>
-     <item row="6" column="1">
-      <widget class="QDoubleSpinBox" name="filterGain">
-       <property name="decimals">
-        <number>1</number>
-       </property>
-       <property name="minimum">
-        <double>-30.000000000000000</double>
-       </property>
-       <property name="maximum">
-        <double>30.000000000000000</double>
-       </property>
-       <property name="singleStep">
-        <double>0.100000000000000</double>
+     <item row="6" column="0">
+      <widget class="QLabel" name="gainLabel">
+       <property name="text">
+        <string>Gain</string>
        </property>
       </widget>
      </item>
-     <item row="3" column="1">
-      <widget class="QDoubleSpinBox" name="freq">
-       <property name="decimals">
-        <number>1</number>
+     <item row="9" column="0" colspan="2">
+      <widget class="QDialogButtonBox" name="buttonBox">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
        </property>
-       <property name="minimum">
-        <double>1.000000000000000</double>
-       </property>
-       <property name="maximum">
-        <double>500.000000000000000</double>
-       </property>
-       <property name="singleStep">
-        <double>0.100000000000000</double>
-       </property>
-       <property name="value">
-        <double>40.000000000000000</double>
+       <property name="standardButtons">
+        <set>QDialogButtonBox::Close|QDialogButtonBox::Save</set>
        </property>
       </widget>
      </item>
@@ -202,7 +236,7 @@
         <double>0.100000000000000</double>
        </property>
        <property name="maximum">
-        <double>7.000000000000000</double>
+        <double>100.000000000000000</double>
        </property>
        <property name="singleStep">
         <double>0.001000000000000</double>
@@ -219,20 +253,24 @@
        </property>
       </widget>
      </item>
-     <item row="6" column="0">
-      <widget class="QLabel" name="gainLabel">
+     <item row="3" column="2">
+      <widget class="QToolButton" name="freqStepButton">
        <property name="text">
-        <string>Gain</string>
+        <string>...</string>
        </property>
       </widget>
      </item>
-     <item row="8" column="0" colspan="2">
-      <widget class="QDialogButtonBox" name="buttonBox">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
+     <item row="4" column="2">
+      <widget class="QToolButton" name="qStepButton">
+       <property name="text">
+        <string>...</string>
        </property>
-       <property name="standardButtons">
-        <set>QDialogButtonBox::Close|QDialogButtonBox::Save</set>
+      </widget>
+     </item>
+     <item row="6" column="2">
+      <widget class="QToolButton" name="gainStepButton">
+       <property name="text">
+        <string>...</string>
        </property>
       </widget>
      </item>
@@ -313,8 +351,8 @@
    <slot>changeOrderStep()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>102</x>
-     <y>67</y>
+     <x>207</x>
+     <y>72</y>
     </hint>
     <hint type="destinationlabel">
      <x>70</x>
@@ -463,6 +501,22 @@
     <hint type="destinationlabel">
      <x>132</x>
      <y>388</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>filterCount</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>editFilterDialog</receiver>
+   <slot>previewFilter()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>202</x>
+     <y>261</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>212</x>
+     <y>307</y>
     </hint>
    </hints>
   </connection>

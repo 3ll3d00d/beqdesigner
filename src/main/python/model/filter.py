@@ -197,6 +197,8 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
             if hasattr(self.__filter, 'type'):
                 displayName = 'Butterworth' if filter.type is FilterType.BUTTERWORTH else 'Linkwitz-Riley'
                 self.passFilterType.setCurrentIndex(self.passFilterType.findText(displayName))
+            if hasattr(self.__filter, 'count'):
+                self.filterCount.setValue(self.__filter.count)
             self.filterType.setCurrentIndex(self.filterType.findText(filter.display_name))
         else:
             self.buttonBox.button(QDialogButtonBox.Save).setText('Add')
@@ -247,9 +249,11 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         :return: the filter.
         '''
         if self.filterType.currentText() == 'Low Shelf':
-            return LowShelf(self.fs, self.freq.value(), self.filterQ.value(), self.filterGain.value())
+            return LowShelf(self.fs, self.freq.value(), self.filterQ.value(), self.filterGain.value(),
+                            self.filterCount.value())
         elif self.filterType.currentText() == 'High Shelf':
-            return HighShelf(self.fs, self.freq.value(), self.filterQ.value(), self.filterGain.value())
+            return HighShelf(self.fs, self.freq.value(), self.filterQ.value(), self.filterGain.value(),
+                             self.filterCount.value())
         elif self.filterType.currentText() == 'Peak':
             return PeakingEQ(self.fs, self.freq.value(), self.filterQ.value(), self.filterGain.value())
         elif self.filterType.currentText() == 'Variable Q LPF':
@@ -295,8 +299,11 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
             self.filterQLabel.setVisible(True)
             self.filterGain.setVisible(self.__is_gain_required())
             self.gainLabel.setVisible(self.__is_gain_required())
-        self.sLabel.setVisible(self.__is_shelf_filter())
-        self.filterS.setVisible(self.__is_shelf_filter())
+        is_shelf_filter = self.__is_shelf_filter()
+        self.filterCountLabel.setVisible(is_shelf_filter)
+        self.filterCount.setVisible(is_shelf_filter)
+        self.sLabel.setVisible(is_shelf_filter)
+        self.filterS.setVisible(is_shelf_filter)
         self.enableOkIfGainIsValid()
 
     def changeOrderStep(self):

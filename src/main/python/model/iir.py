@@ -117,15 +117,28 @@ def s_to_q(s, gain):
 
 
 class Shelf(BiquadWithGain):
-    def __init__(self, fs, freq, q, gain):
+    def __init__(self, fs, freq, q, gain, count):
         self.A = 10.0 ** (gain / 40.0)
         super().__init__(fs, freq, q, gain)
+        self.count = count
 
     def q_to_s(self):
         '''
         :return: the filter Q as S
         '''
         return q_to_s(self.q, self.gain)
+
+    def __len__(self):
+        return self.count
+
+    def getTransferFunction(self):
+        single = super().getTransferFunction()
+        if self.count == 1:
+            return single
+        elif self.count > 1:
+            return getCascadeTransferFunction(self.__repr__(), [single] * self.count)
+        else:
+            raise ValueError('Shelf must have non zero count')
 
 
 class LowShelf(Shelf):
@@ -140,8 +153,8 @@ class LowShelf(Shelf):
             a2 =        (A+1) + (A-1)*cos(w0) - 2*sqrt(A)*alpha
     '''
 
-    def __init__(self, fs, freq, q, gain):
-        super().__init__(fs, freq, q, gain)
+    def __init__(self, fs, freq, q, gain, count=1):
+        super().__init__(fs, freq, q, gain, count)
 
     @property
     def filter_type(self):
@@ -179,8 +192,8 @@ class HighShelf(Shelf):
 
     '''
 
-    def __init__(self, fs, freq, q, gain):
-        super().__init__(fs, freq, q, gain)
+    def __init__(self, fs, freq, q, gain, count=1):
+        super().__init__(fs, freq, q, gain, count)
 
     @property
     def filter_type(self):
@@ -373,6 +386,16 @@ class AllPass(Biquad):
         return a / a[0], b / a[0]
 
 
+def getCascadeTransferFunction(name, responses):
+    '''
+    The transfer function for a cascade of filters.
+    :param name: the name.
+    :param responses: the individual filter responses.
+    :return: the transfer function (ComplexData)
+    '''
+    return ComplexData(name, responses[0].x, reduce((lambda x, y: x * y), [r.y for r in responses]))
+
+
 class ComplexFilter:
     '''
     A filter composed of many other filters.
@@ -425,8 +448,7 @@ class ComplexFilter:
         Computes the transfer function of the filter.
         :return: the transfer function.
         '''
-        responses = [x.getTransferFunction() for x in self.__filters]
-        return ComplexData(self.__repr__(), responses[0].x, reduce((lambda x, y: x * y), [r.y for r in responses]))
+        return getCascadeTransferFunction(self.__repr__(), [x.getTransferFunction() for x in self.__filters])
 
 
 class FilterType(Enum):
