@@ -94,21 +94,25 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         path = os.environ.get('PATH', [])
         paths = path.split(os.pathsep)
-        locs = set([self.settings.value(f"binaries/{x}") for x in BINARIES])
+        locs = set(filter(None.__ne__, [self.settings.value(f"binaries/{x}") for x in BINARIES]))
         logging.info(f"Adding {locs} to PATH")
-        os.environ['PATH'] = os.pathsep.join([l for l in locs if l not in paths]) + os.pathsep + path
+        if len(locs) > 0:
+            os.environ['PATH'] = os.pathsep.join([l for l in locs if l not in paths]) + os.pathsep + path
+        else:
+            logger.warning(f"No paths set for {BINARIES}")
+            # TODO attempt to call each binary with a test command to test if they are really on the path
 
     def setupUi(self, mainWindow):
         super().setupUi(self)
         geometry = self.settings.value("geometry")
-        if not geometry == None:
+        if geometry is not None:
             self.restoreGeometry(geometry)
         else:
             screenGeometry = self.app.desktop().availableGeometry()
             if screenGeometry.height() < 800:
                 self.showMaximized()
         windowState = self.settings.value("windowState")
-        if not windowState == None:
+        if windowState is not None:
             self.restoreState(windowState)
 
     def closeEvent(self, *args, **kwargs):
