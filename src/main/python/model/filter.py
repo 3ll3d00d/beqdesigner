@@ -2,14 +2,16 @@ import logging
 import math
 import time
 import typing
+import qtawesome as qta
 from collections import Sequence
 from uuid import uuid4
 
+from qtpy.QtGui import QIcon
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt
 from qtpy.QtWidgets import QDialog, QDialogButtonBox
 
 from model.iir import ComplexFilter, FilterType, LowShelf, HighShelf, PeakingEQ, SecondOrder_LowPass, \
-    SecondOrder_HighPass, ComplexLowPass, ComplexHighPass, q_to_s, s_to_q
+    SecondOrder_HighPass, ComplexLowPass, ComplexHighPass, q_to_s, s_to_q, max_permitted_s
 from model.magnitude import MagnitudeModel
 from mpl import get_line_colour
 from ui.filter import Ui_editFilterDialog
@@ -174,9 +176,18 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
     '''
     is_shelf = ['Low Shelf', 'High Shelf']
     gain_required = is_shelf + ['Peak']
+    q_steps = [0.0001, 0.001, 0.01, 0.1]
+    gain_steps = [0.1, 1.0]
+    freq_steps = [0.1, 1.0, 2.0, 5.0]
 
     def __init__(self, filterModel, fs=48000, filter=None, parent=None):
         super(FilterDialog, self).__init__(parent)
+        # for shelf filter, allow input via Q or S not both
+        self.__q_is_active = True
+        self.__q_step_idx = 0
+        self.__s_step_idx = 0
+        self.__gain_step_idx = 0
+        self.__freq_step_idx = 0
         self.setupUi(self)
         # used to prevent signals from recalculating the filter before we've populated the fields
         self.__starting = True
@@ -283,27 +294,48 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         return selectedFilter == 'Low Pass' or selectedFilter == 'High Pass'
 
     def enableFilterParams(self):
+        '''
+        Configures the various input fields for the currently selected filter type.
+        '''
         if self.__is_pass_filter():
             self.passFilterType.setVisible(True)
             self.filterOrder.setVisible(True)
             self.orderLabel.setVisible(True)
             self.filterQ.setVisible(False)
             self.filterQLabel.setVisible(False)
+            self.qStepButton.setVisible(False)
             self.filterGain.setVisible(False)
+            self.gainStepButton.setVisible(False)
             self.gainLabel.setVisible(False)
         else:
             self.passFilterType.setVisible(False)
             self.filterOrder.setVisible(False)
             self.orderLabel.setVisible(False)
+            self.qStepButton.setVisible(True)
             self.filterQ.setVisible(True)
             self.filterQLabel.setVisible(True)
             self.filterGain.setVisible(self.__is_gain_required())
+            self.gainStepButton.setVisible(self.__is_gain_required())
             self.gainLabel.setVisible(self.__is_gain_required())
         is_shelf_filter = self.__is_shelf_filter()
+        if is_shelf_filter:
+            self.filterQ.setEnabled(self.__q_is_active)
+            self.filterS.setEnabled(not self.__q_is_active)
+            # set icons
+            inactive_icon = qta.icon('fa.chevron-circle-left')
+            if self.__q_is_active is True:
+                self.qStepButton.setText(str(self.q_steps[self.__q_step_idx % len(self.q_steps)]))
+                self.sStepButton.setIcon(inactive_icon)
+            else:
+                self.qStepButton.setIcon(inactive_icon)
+                self.sStepButton.setText(str(self.q_steps[self.__s_step_idx % len(self.q_steps)]))
+        self.gainStepButton.setText(str(self.gain_steps[self.__gain_step_idx % len(self.gain_steps)]))
+        self.freqStepButton.setText(str(self.freq_steps[self.__freq_step_idx % len(self.freq_steps)]))
         self.filterCountLabel.setVisible(is_shelf_filter)
         self.filterCount.setVisible(is_shelf_filter)
         self.sLabel.setVisible(is_shelf_filter)
         self.filterS.setVisible(is_shelf_filter)
+        self.sStepButton.setVisible(is_shelf_filter)
         self.enableOkIfGainIsValid()
 
     def changeOrderStep(self):
@@ -338,20 +370,88 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
     def __is_shelf_filter(self):
         return self.filterType.currentText() in self.is_shelf
 
-    def recalcSFromQ(self, q):
+    def recalcShelfFromQ(self, q):
         '''
         Updates S based on the selected value of Q.
         :param q: the q.
         '''
         gain = self.filterGain.value()
-        if gain > 0.0:
+        if self.__q_is_active is True and not math.isclose(gain, 0.0):
             self.filterS.setValue(q_to_s(q, gain))
 
-    def recalcSFromGain(self, gain):
+    def recalcShelfFromGain(self, gain):
         '''
         Updates S based on the selected gain.
         :param gain: the gain.
         '''
-        if gain > 0.0:
-            q = self.filterQ.value()
-            self.filterS.setValue(q_to_s(q, gain))
+        if not math.isclose(gain, 0.0):
+            max_s = round(max_permitted_s(gain), 4)
+            self.filterS.setMaximum(max_s)
+            if self.__q_is_active is True:
+                q = self.filterQ.value()
+                self.filterS.setValue(q_to_s(q, gain))
+            else:
+                if self.filterS.value() > max_s:
+                    self.filterS.blockSignals(True)
+                    self.filterS.setValue(max_s, 4)
+                    self.filterS.blockSignals(False)
+                self.filterQ.setValue(s_to_q(self.filterS.value(), gain))
+
+    def recalcShelfFromS(self, s):
+        '''
+        Updates the shelf based on a change in S
+        :param s: the new S
+        '''
+        gain = self.filterGain.value()
+        if self.__q_is_active is False and not math.isclose(gain, 0.0):
+            self.filterQ.setValue(s_to_q(s, gain))
+
+    def handleSToolButton(self):
+        '''
+        Reacts to the S tool button click.
+        '''
+        if self.__q_is_active is True:
+            self.__q_is_active = False
+            self.filterS.setEnabled(True)
+            self.sStepButton.setIcon(QIcon())
+            self.filterQ.setEnabled(False)
+            self.qStepButton.setIcon(qta.icon('fa.chevron-circle-left'))
+        else:
+            self.__s_step_idx += 1
+        idx = self.__s_step_idx % len(self.q_steps)
+        self.sStepButton.setText(str(self.q_steps[idx]))
+        self.filterS.setSingleStep(self.q_steps[idx])
+
+    def handleQToolButton(self):
+        '''
+        Reacts to the q tool button click.
+        '''
+        if self.__q_is_active is True:
+            self.__q_step_idx += 1
+        else:
+            self.__q_is_active = True
+            self.filterS.setEnabled(False)
+            self.qStepButton.setIcon(QIcon())
+            self.filterQ.setEnabled(True)
+            self.sStepButton.setIcon(qta.icon('fa.chevron-circle-left'))
+        idx = self.__q_step_idx % len(self.q_steps)
+        self.qStepButton.setText(str(self.q_steps[idx]))
+        self.filterQ.setSingleStep(self.q_steps[idx])
+
+    def handleGainToolButton(self):
+        '''
+        Reacts to the gain tool button click.
+        '''
+        self.__gain_step_idx += 1
+        idx = self.__gain_step_idx % len(self.gain_steps)
+        self.gainStepButton.setText(str(self.gain_steps[idx]))
+        self.filterGain.setSingleStep(self.gain_steps[idx])
+
+    def handleFreqToolButton(self):
+        '''
+        Reacts to the frequency tool button click.
+        '''
+        self.__freq_step_idx += 1
+        idx = self.__freq_step_idx % len(self.freq_steps)
+        self.freqStepButton.setText(str(self.freq_steps[idx]))
+        self.freq.setSingleStep(self.freq_steps[idx])

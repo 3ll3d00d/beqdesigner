@@ -113,7 +113,20 @@ def s_to_q(s, gain):
     :return: the Q.
     '''
     A = 10.0 ** (gain / 40.0)
-    return 1.0 / math.sqrt(((A + 1.0 / A) * ((1.0 / s) - 1.0)) + 2.0)
+    return 1.0 / math.sqrt(((A + 1.0 / A) * (1.0 / s - 1.0)) + 2.0)
+
+
+def max_permitted_s(gain):
+    '''
+    Calculates the max S for the specified gain where max S = the S that results in a Q of 20.
+    :param gain: the gain.
+    :return: the max S.
+    '''
+    A = 10.0 ** (gain / 40.0)
+    X = A + (1.0 / A)
+    # -1.9975 = (1/Q*1/Q) + 2 (i.e. comes from rearranging the s to q equation to solve for S
+    max_s = 1 / (-1.9975 / X + 1)
+    return max_s
 
 
 class Shelf(BiquadWithGain):
@@ -569,11 +582,11 @@ class XYData:
     def __init__(self, name, x, y, colour=None, linestyle='-'):
         self.name = name
         self.x = x
-        self.y = y
+        self.y = np.clip(y, -10000000.0, 10000000.0)
         self.colour = colour
         self.linestyle = linestyle
-        self.miny = np.nanmin(y)
-        self.maxy = np.nanmax(y)
+        self.miny = np.ma.masked_invalid(y).min()
+        self.maxy = np.ma.masked_invalid(y).max()
 
     def normalise(self, target):
         '''

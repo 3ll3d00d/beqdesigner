@@ -3,10 +3,9 @@ import math
 import time
 from math import log10
 
-import numpy as np
 from PyQt5.QtWidgets import QDialog
 from matplotlib.animation import FuncAnimation
-from matplotlib.ticker import EngFormatter, Formatter, NullFormatter, FixedLocator, LinearLocator
+from matplotlib.ticker import EngFormatter, Formatter, NullFormatter, LinearLocator
 from qtpy import QtWidgets
 
 from ui.limits import Ui_graphLayoutDialog
@@ -106,6 +105,15 @@ class AxesManager:
         '''
         return self.__miny, self.__maxy
 
+    def make_legend(self, lines, ncol):
+        '''
+        makes a legend for the given lines.
+        :param lines: the lines to display
+        :param ncol: the no of columns to put them in.
+        :return the legend.
+        '''
+        return self.__axes.legend(lines, [l.get_label() for l in lines], loc=3, ncol=ncol, fancybox=True, shadow=True)
+
 
 class MagnitudeModel:
     '''
@@ -127,7 +135,6 @@ class MagnitudeModel:
             secondary_axes = primary_axes.twinx()
             secondary_axes.set_ylabel(f"dBFS ({secondaryName})")
         self.__secondary = AxesManager(secondaryDataProvider, secondary_axes)
-        # TODO try to reinstate blitting
         if animate is True:
             self.__animator = FuncAnimation(self.__chart.canvas.figure, self.__redraw, interval=40,
                                             init_func=self.__init_animation, blit=True, save_count=50)
@@ -233,9 +240,7 @@ class MagnitudeModel:
         lines = self.__primary.artists() + self.__secondary.artists()
         if len(lines) > 0:
             ncol = int(len(lines) / 3) if len(lines) % 3 == 0 else int(len(lines) / 3) + 1
-            self.__legend = self.__primary.axes.legend(lines, [l.get_label() for l in lines], loc=3, ncol=ncol,
-                                                       fancybox=True,
-                                                       shadow=True)
+            self.__legend = self.__primary.make_legend(lines, ncol)
             lined = dict()
             for legline, origline in zip(self.__legend.get_lines(), lines):
                 legline.set_picker(5)  # 5 pts tolerance
