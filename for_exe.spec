@@ -8,7 +8,8 @@ a = Analysis(['src\\main\\python\\app.py'],
              datas=[
                 ('src\\main\\icons\\Icon.ico', '.'),
                 ('C:\\Users\\mattk\\Anaconda3_64\\envs\\beq\\Lib\\site-packages\\resampy\\data\\kaiser_fast.npz', '_resampy_filter'),
-                ('C:\\Users\\mattk\\Anaconda3_64\\envs\\beq\\Lib\\site-packages\\_soundfile_data', '_soundfile_data')
+                ('C:\\Users\\mattk\\Anaconda3_64\\envs\\beq\\Lib\\site-packages\\_soundfile_data', '_soundfile_data'),
+                ('src\\main\\python\\style', 'style')
              ],
              hiddenimports=[],
              hookspath=[],
