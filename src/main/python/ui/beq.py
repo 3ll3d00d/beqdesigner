@@ -157,6 +157,8 @@ class Ui_MainWindow(object):
         self.actionClear_Preset_3.setObjectName("actionClear_Preset_3")
         self.actionSave_Chart = QtWidgets.QAction(MainWindow)
         self.actionSave_Chart.setObjectName("actionSave_Chart")
+        self.actionExport_Biquad = QtWidgets.QAction(MainWindow)
+        self.actionExport_Biquad.setObjectName("actionExport_Biquad")
         self.menuHelp.addAction(self.actionShow_Logs)
         self.menuPresets.addAction(self.actionSave_Preset_1)
         self.menuPresets.addAction(self.actionSave_Preset_2)
@@ -170,6 +172,7 @@ class Ui_MainWindow(object):
         self.menuSettings.addAction(self.menuPresets.menuAction())
         self.menuFile.addAction(self.actionExtract_Audio)
         self.menuFile.addAction(self.actionSave_Chart)
+        self.menuFile.addAction(self.actionExport_Biquad)
         self.menubar.addAction(self.menuFile.menuAction())
         self.menubar.addAction(self.menuSettings.menuAction())
         self.menubar.addAction(self.menuHelp.menuAction())
@@ -235,5 +238,7 @@ class Ui_MainWindow(object):
         self.actionClear_Preset_3.setText(_translate("MainWindow", "Clear Preset 3"))
         self.actionSave_Chart.setText(_translate("MainWindow", "Save Chart"))
         self.actionSave_Chart.setShortcut(_translate("MainWindow", "Ctrl+S"))
+        self.actionExport_Biquad.setText(_translate("MainWindow", "Export Biquad"))
+        self.actionExport_Biquad.setShortcut(_translate("MainWindow", "Ctrl+B"))
 
 from mpl import MplWidget

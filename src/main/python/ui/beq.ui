@@ -281,6 +281,7 @@
     </property>
     <addaction name="actionExtract_Audio"/>
     <addaction name="actionSave_Chart"/>
+    <addaction name="actionExport_Biquad"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuSettings"/>
@@ -361,6 +362,14 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+S</string>
+   </property>
+  </action>
+  <action name="actionExport_Biquad">
+   <property name="text">
+    <string>Export Biquad</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+B</string>
    </property>
   </action>
  </widget>

@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>exportBiquadDialog</class>
+ <widget class="QDialog" name="exportBiquadDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>691</width>
+    <height>810</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Export Biquads</string>
+  </property>
+  <layout class="QGridLayout" name="gridLayout" columnstretch="1,4">
+   <item row="3" column="0">
+    <widget class="QLabel" name="maxBiquadsLabel">
+     <property name="text">
+      <string>Max Biquads</string>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="1">
+    <widget class="QCheckBox" name="minidspFormat">
+     <property name="text">
+      <string>Minidsp Style?</string>
+     </property>
+     <property name="checked">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="0">
+    <widget class="QLabel" name="fsLabel">
+     <property name="text">
+      <string>Sample Rate (Hz)</string>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="1">
+    <widget class="QComboBox" name="fs">
+     <item>
+      <property name="text">
+       <string>48000</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>96000</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>192000</string>
+      </property>
+     </item>
+    </widget>
+   </item>
+   <item row="4" column="0" colspan="2">
+    <widget class="QPlainTextEdit" name="biquads">
+     <property name="font">
+      <font>
+       <family>Consolas</family>
+      </font>
+     </property>
+     <property name="readOnly">
+      <bool>true</bool>
+     </property>
+     <property name="textInteractionFlags">
+      <set>Qt::TextSelectableByKeyboard|Qt::TextSelectableByMouse</set>
+     </property>
+    </widget>
+   </item>
+   <item row="3" column="1">
+    <widget class="QSpinBox" name="maxBiquads">
+     <property name="minimum">
+      <number>1</number>
+     </property>
+     <property name="maximum">
+      <number>100</number>
+     </property>
+     <property name="value">
+      <number>10</number>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>minidspFormat</sender>
+   <signal>clicked()</signal>
+   <receiver>exportBiquadDialog</receiver>
+   <slot>updateBiquads()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>233</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>181</x>
+     <y>115</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>fs</sender>
+   <signal>currentIndexChanged(int)</signal>
+   <receiver>exportBiquadDialog</receiver>
+   <slot>updateBiquads()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>359</x>
+     <y>59</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>110</x>
+     <y>17</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>maxBiquads</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>exportBiquadDialog</receiver>
+   <slot>updateBiquads()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>276</x>
+     <y>86</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>144</x>
+     <y>36</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+ <slots>
+  <slot>updateBiquads()</slot>
+ </slots>
+</ui>

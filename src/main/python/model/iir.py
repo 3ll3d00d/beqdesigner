@@ -1,7 +1,6 @@
 # from http://www.musicdsp.org/files/Audio-EQ-Cookbook.txt
 import logging
 import math
-import time
 from abc import ABC, abstractmethod
 from enum import Enum
 from functools import reduce
@@ -13,6 +12,19 @@ from scipy.interpolate import CubicSpline
 DEFAULT_Q = 1 / np.math.sqrt(2.0)
 
 logger = logging.getLogger('iir')
+
+import decimal
+
+ctx = decimal.Context()
+ctx.prec = 15
+
+
+def float_to_str(f):
+    """
+    Convert the given float to a string, without resorting to scientific notation
+    """
+    d1 = ctx.create_decimal(repr(f))
+    return format(d1, 'f')
 
 
 class Biquad(ABC):
@@ -59,6 +71,14 @@ class Biquad(ABC):
         f = w * self.fs / (2 * np.pi)
         return ComplexData(self.__repr__(), f, h)
 
+    def format_biquads(self, minidsp_style):
+        ''' Creates a biquad report '''
+        a = ",\n".join(
+            [f"a{idx}={float_to_str(-x if minidsp_style else x)}" for idx, x in enumerate(self.a) if
+             idx != 0 or minidsp_style is False])
+        b = ",\n".join([f"b{idx}={float_to_str(x)}" for idx, x in enumerate(self.b)])
+        return [f"{b},\n{a}"]
+
 
 class BiquadWithGain(Biquad):
     def __init__(self, fs, freq, q, gain):
@@ -94,6 +114,17 @@ class PeakingEQ(BiquadWithGain):
         a = np.array([1.0 + self.alpha / A, -2.0 * self.cos_w0, 1.0 - self.alpha / A], dtype=np.float64)
         b = np.array([1.0 + self.alpha * A, -2.0 * self.cos_w0, 1.0 - self.alpha * A], dtype=np.float64)
         return a / a[0], b / a[0]
+
+    def resample(self, new_fs):
+        '''
+        Creates a filter at the specified fs.
+        :param new_fs: the new fs.
+        :return: the new filter.
+        '''
+        if self.fs != new_fs:
+            return PeakingEQ(new_fs, self.freq, self.q, self.gain)
+        else:
+            return self
 
 
 def q_to_s(q, gain):
@@ -155,6 +186,15 @@ class Shelf(BiquadWithGain):
         else:
             raise ValueError('Shelf must have non zero count')
 
+    def format_biquads(self, minidsp_style):
+        single = super().format_biquads(minidsp_style)
+        if self.count == 1:
+            return single
+        elif self.count > 1:
+            return single * self.count
+        else:
+            raise ValueError('Shelf must have non zero count')
+
 
 class LowShelf(Shelf):
     '''
@@ -192,6 +232,17 @@ class LowShelf(Shelf):
             A * ((A + 1) - ((A - 1) * self.cos_w0) - (2 * math.sqrt(A) * self.alpha))
         ], dtype=np.float64)
         return a / a[0], b / a[0]
+
+    def resample(self, new_fs):
+        '''
+        Creates a filter at the specified fs.
+        :param new_fs: the new fs.
+        :return: the new filter.
+        '''
+        if self.fs != new_fs:
+            return LowShelf(new_fs, self.freq, self.q, self.gain, self.count)
+        else:
+            return self
 
 
 class HighShelf(Shelf):
@@ -234,6 +285,17 @@ class HighShelf(Shelf):
         ], dtype=np.float64)
         return a / a[0], b / a[0]
 
+    def resample(self, new_fs):
+        '''
+        Creates a filter at the specified fs.
+        :param new_fs: the new fs.
+        :return: the new filter.
+        '''
+        if self.fs != new_fs:
+            return HighShelf(new_fs, self.freq, self.q, self.gain, self.count)
+        else:
+            return self
+
 
 class FirstOrder_LowPass(Biquad):
     '''
@@ -258,6 +320,17 @@ class FirstOrder_LowPass(Biquad):
         a = np.array([1.0, -a1, 0.0], dtype=np.float64)
         b = np.array([b0, 0.0, 0.0])
         return a, b
+
+    def resample(self, new_fs):
+        '''
+        Creates a filter at the specified fs.
+        :param new_fs: the new fs.
+        :return: the new filter.
+        '''
+        if self.fs != new_fs:
+            return FirstOrder_LowPass(new_fs, self.freq, q=self.q)
+        else:
+            return self
 
 
 class FirstOrder_HighPass(Biquad):
@@ -285,6 +358,17 @@ class FirstOrder_HighPass(Biquad):
         # a = np.array([1.0, -a1, 0.0], dtype=np.float64)
         # b = np.array([b0, 0.0, 0.0])
         return sos[0][3:5], sos[0][0:2]
+
+    def resample(self, new_fs):
+        '''
+        Creates a filter at the specified fs.
+        :param new_fs: the new fs.
+        :return: the new filter.
+        '''
+        if self.fs != new_fs:
+            return FirstOrder_HighPass(new_fs, self.freq, q=self.q)
+        else:
+            return self
 
 
 class SecondOrder_LowPass(Biquad):
@@ -323,6 +407,17 @@ class SecondOrder_LowPass(Biquad):
             (1.0 - self.cos_w0) / 2.0
         ], dtype=np.float64)
         return a / a[0], b / a[0]
+
+    def resample(self, new_fs):
+        '''
+        Creates a filter at the specified fs.
+        :param new_fs: the new fs.
+        :return: the new filter.
+        '''
+        if self.fs != new_fs:
+            return SecondOrder_LowPass(new_fs, self.freq, q=self.q)
+        else:
+            return self
 
 
 class SecondOrder_HighPass(Biquad):
@@ -363,6 +458,17 @@ class SecondOrder_HighPass(Biquad):
         ], dtype=np.float64)
         return a / a[0], b / a[0]
 
+    def resample(self, new_fs):
+        '''
+        Creates a filter at the specified fs.
+        :param new_fs: the new fs.
+        :return: the new filter.
+        '''
+        if self.fs != new_fs:
+            return SecondOrder_HighPass(new_fs, self.freq, q=self.q)
+        else:
+            return self
+
 
 class AllPass(Biquad):
     '''
@@ -399,6 +505,17 @@ class AllPass(Biquad):
             1.0 + self.alpha
         ], dtype=np.float64)
         return a / a[0], b / a[0]
+
+    def resample(self, new_fs):
+        '''
+        Creates a filter at the specified fs.
+        :param new_fs: the new fs.
+        :return: the new filter.
+        '''
+        if self.fs != new_fs:
+            return AllPass(new_fs, self.freq, self.q)
+        else:
+            return self
 
 
 def getCascadeTransferFunction(name, responses):
@@ -464,6 +581,25 @@ class ComplexFilter:
         :return: the transfer function.
         '''
         return getCascadeTransferFunction(self.__repr__(), [x.getTransferFunction() for x in self.__filters])
+
+    def resample(self, new_fs):
+        '''
+        Creates a new filter at the desired fs.
+        :param new_fs: the fs.
+        :return: the new filter.
+        '''
+        if len(self) > 0:
+            return ComplexFilter(filters=[f.resample(new_fs) for f in self.__filters], description=self.description)
+        else:
+            return self
+
+    def format_biquads(self, invert_a):
+        '''
+        Formats the filter into a biquad report.
+        :param invert_a: whether to invert the a coeffs.
+        :return: the report.
+        '''
+        return [f.format_biquads(invert_a) for f in self.__filters]
 
 
 class FilterType(Enum):
@@ -543,6 +679,17 @@ class ComplexLowPass(CompoundPassFilter):
     def display_name(self):
         return 'Low Pass'
 
+    def resample(self, new_fs):
+        '''
+        Creates a new filter at the desired fs.
+        :param new_fs: the fs.
+        :return: the new filter.
+        '''
+        if new_fs != self.fs:
+            return ComplexLowPass(self.type, self.order, new_fs, self.freq)
+        else:
+            return self
+
 
 class ComplexHighPass(CompoundPassFilter):
     '''
@@ -555,6 +702,17 @@ class ComplexHighPass(CompoundPassFilter):
     @property
     def display_name(self):
         return 'High Pass'
+
+    def resample(self, new_fs):
+        '''
+        Creates a new filter at the desired fs.
+        :param new_fs: the fs.
+        :return: the new filter.
+        '''
+        if new_fs != self.fs:
+            return ComplexHighPass(self.type, self.order, new_fs, self.freq)
+        else:
+            return self
 
 
 class ComplexData:

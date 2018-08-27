@@ -1,3 +1,4 @@
+import collections
 import logging
 import math
 import os
@@ -8,6 +9,7 @@ import matplotlib
 import qtawesome as qta
 from matplotlib import style
 
+from ui.biquad import Ui_exportBiquadDialog
 from ui.savechart import Ui_saveChartDialog
 
 matplotlib.use("Qt5Agg")
@@ -91,12 +93,20 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.actionExtract_Audio.triggered.connect(self.showExtractAudioDialog)
         # export
         self.actionSave_Chart.triggered.connect(self.exportChart)
+        self.actionExport_Biquad.triggered.connect(self.exportBiquads)
 
     def exportChart(self):
         '''
         Saves the currently selected chart to a file.
         '''
         dialog = SaveChartDialog(self, 'beq', self.filterChart.canvas.figure, self.statusbar)
+        dialog.exec()
+
+    def exportBiquads(self):
+        '''
+        Shows the biquads for the current filter set.
+        '''
+        dialog = ExportBiquadDialog(self.__filterModel.filter)
         dialog.exec()
 
     def ensurePathContainsExternalTools(self):
@@ -308,6 +318,40 @@ class SaveChartDialog(QDialog, Ui_saveChartDialog):
         :param newWidth: the new width.
         '''
         self.heightPixels.setValue(int(math.floor(newWidth / self.__aspectRatio)))
+
+
+class ExportBiquadDialog(QDialog, Ui_exportBiquadDialog):
+    '''
+    Export Biquads Dialog
+    '''
+    PASSTHROUGH_BIQUAD = ["b0=1.0,\nb1=0.0,\nb2=0.0,\na1=0.0,\na2=0.0"]
+
+    def __init__(self, filter):
+        super(ExportBiquadDialog, self).__init__()
+        self.setupUi(self)
+        self.__filter = filter
+        self.updateBiquads()
+
+    def updateBiquads(self):
+        if self.__filter is not None and len(self.__filter) > 0:
+            self.__filter = self.__filter.resample(int(self.fs.currentText()))
+            biquads = list(self.flatten([self.__filter.format_biquads(self.minidspFormat.isChecked())]))
+            if len(biquads) < self.maxBiquads.value():
+                passthrough = self.PASSTHROUGH_BIQUAD * (self.maxBiquads.value() - len(biquads))
+                biquads.extend(passthrough)
+            text = "\n".join([f"biquad{idx},\n{bq}" for idx, bq in enumerate(biquads)])
+            self.biquads.setPlainText(text)
+
+    def flatten(self, l):
+        '''
+        flatten an irregularly shaped list of lists (of lists of lists...)
+        solution from https://stackoverflow.com/questions/2158395/flatten-an-irregular-list-of-lists
+        '''
+        for el in l:
+            if isinstance(el, collections.Iterable) and not isinstance(el, (str, bytes)):
+                yield from self.flatten(el)
+            else:
+                yield el
 
 
 def make_app():
