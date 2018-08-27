@@ -10,13 +10,11 @@ from qtpy.QtGui import QIcon
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt
 from qtpy.QtWidgets import QDialog, QDialogButtonBox
 
-from model.iir import ComplexFilter, FilterType, LowShelf, HighShelf, PeakingEQ, SecondOrder_LowPass, \
-    SecondOrder_HighPass, ComplexLowPass, ComplexHighPass, q_to_s, s_to_q, max_permitted_s
+from model.iir import FilterType, LowShelf, HighShelf, PeakingEQ, SecondOrder_LowPass, \
+    SecondOrder_HighPass, ComplexLowPass, ComplexHighPass, q_to_s, s_to_q, max_permitted_s, CompleteFilter, COMBINED
 from model.magnitude import MagnitudeModel
 from mpl import get_line_colour
 from ui.filter import Ui_editFilterDialog
-
-COMBINED = 'Combined'
 
 logger = logging.getLogger('filter')
 
@@ -26,10 +24,10 @@ class FilterModel(Sequence):
     A model to hold onto the filters.
     '''
 
-    def __init__(self, view, showIndividualFilters):
-        self.filter = ComplexFilter(description=COMBINED)
+    def __init__(self, view, show_individual):
+        self.filter = CompleteFilter()
         self.__view = view
-        self.__showIndividualFilters = showIndividualFilters
+        self.__show_individual = show_individual
         self.table = None
 
     def __getitem__(self, i):
@@ -38,29 +36,25 @@ class FilterModel(Sequence):
     def __len__(self):
         return len(self.filter)
 
-    def add(self, filter):
+    def save(self, filter):
         '''
-        Stores a new filter.
+        Stores the filter.
         :param filter: the filter.
         '''
         if self.table is not None:
             self.table.beginResetModel()
-        self.filter.add(filter)
+        self.filter.save(filter)
         self.table.resizeColumns(self.__view)
         if self.table is not None:
             self.table.endResetModel()
 
-    def replace(self, filter):
+    def preview(self, filter):
         '''
-        Replaces the given filter.
+        Previews the effect of saving the supplied filter.
         :param filter: the filter.
+        :return: a previewed filter.
         '''
-        if self.table is not None:
-            self.table.beginResetModel()
-        self.filter.replace(filter)
-        self.table.resizeColumns(self.__view)
-        if self.table is not None:
-            self.table.endResetModel()
+        return self.filter.preview(filter)
 
     def delete(self, indices):
         '''
@@ -79,7 +73,7 @@ class FilterModel(Sequence):
         :param reference: the name of the reference data.
         :return: the magnitude response of each filter.
         '''
-        include_individual = self.__showIndividualFilters.isChecked()
+        include_individual = self.__show_individual.isChecked()
         if len(self.filter) > 0:
             start = time.time()
             children = [x.getTransferFunction() for x in self.filter]
@@ -181,19 +175,24 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
     freq_steps = [0.1, 1.0, 2.0, 5.0]
 
     def __init__(self, filterModel, fs=48000, filter=None, parent=None):
+        # prevent signals from recalculating the filter before we've populated the fields
+        self.__starting = True
         super(FilterDialog, self).__init__(parent)
         # for shelf filter, allow input via Q or S not both
         self.__q_is_active = True
+        # allow user to control the steps for different fields
         self.__q_step_idx = 0
         self.__s_step_idx = 0
         self.__gain_step_idx = 0
         self.__freq_step_idx = 0
+        # init the UI itself
         self.setupUi(self)
-        # used to prevent signals from recalculating the filter before we've populated the fields
-        self.__starting = True
+        # init the chart
         self.__magnitudeModel = MagnitudeModel('preview', self.previewChart, self, 'Filter', animate=True)
+        # underlying filter model
         self.filterModel = filterModel
         self.__filter = filter
+        # populate the fields with values if we're editing an existing filter
         self.__original_id = self.__filter.id if filter is not None else None
         self.fs = fs if filter is None else filter.fs
         if self.__filter is not None:
@@ -213,21 +212,20 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
             self.filterType.setCurrentIndex(self.filterType.findText(filter.display_name))
         else:
             self.buttonBox.button(QDialogButtonBox.Save).setText('Add')
+        # configure visible/enabled fields for the current filter type
         self.enableFilterParams()
         self.enableOkIfGainIsValid()
         self.freq.setMaximum(self.fs / 2.0)
         self.__starting = False
+        # ensure the preview graph is shown if we have something to show
         self.previewFilter()
 
     def accept(self):
-        ''' Stores the filter in the model (adding or replacing as necessary). '''
+        ''' Stores the filter in the model. '''
         if self.__filter is not None:
             if self.__original_id is None:
                 self.__filter.id = uuid4()
-                self.filterModel.add(self.__filter)
-            else:
-                self.__filter.id = self.__original_id
-                self.filterModel.replace(self.__filter)
+            self.filterModel.save(self.__filter)
 
     def previewFilter(self):
         ''' creates a filter if the params are valid '''
@@ -237,6 +235,8 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
                     self.__filter = self.create_pass_filter()
                 else:
                     self.__filter = self.create_shaping_filter()
+                if self.__original_id is not None:
+                    self.__filter.id = self.__original_id
             else:
                 self.__filter = None
             self.__magnitudeModel.display()
@@ -244,9 +244,15 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
     def getMagnitudeData(self, reference=None):
         ''' preview of the filter to display on the chart '''
         if self.__filter is not None:
-            return [self.__filter.getTransferFunction().getMagnitude(colour='c')]
+            result = [self.__filter.getTransferFunction().getMagnitude(colour='m')]
+            if len(self.filterModel) > 0 and self.showCombined.isChecked():
+                result.append(self.filterModel.preview(self.__filter).getTransferFunction().getMagnitude(colour='c'))
+            return result
         else:
-            return []
+            if len(self.filterModel) > 0 and self.showCombined.isChecked():
+                return [self.filterModel.getTransferFunction().getMagnitude(colour='c')]
+            else:
+                return []
 
     def create_shaping_filter(self):
         '''

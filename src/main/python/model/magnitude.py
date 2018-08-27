@@ -1,5 +1,6 @@
 import logging
 import math
+import threading
 import time
 from math import log10
 
@@ -73,18 +74,21 @@ class AxesManager:
         :param curves: the stored curves.
         :param axes: the axes on which to display.
         '''
-        for x in self.__data:
-            self.__create_or_update_curve(x)
-        curve_names = [x.name for x in self.__data]
-        to_delete = [curve for name, curve in self.__curves.items() if name not in curve_names]
-        for curve in to_delete:
-            curve.remove()
-            del self.__curves[curve.get_label()]
+        if self.__provider is not None:
+            data = self.__provider.getMagnitudeData(reference=self.reference_curve)
+            artists = [self.__create_or_update_curve(x) for x in data if data is not None]
+            curve_names = [x.get_label() for x in artists]
+            # TODO change the way we delete things
+            to_delete = [curve for name, curve in self.__curves.items() if name not in curve_names]
+            for curve in to_delete:
+                curve.remove()
+                del self.__curves[curve.get_label()]
 
     def __create_or_update_curve(self, data):
         '''
         sets the data on the curve, creating a new artist if necessary.
         :param data: the data to set on the curve.
+        :param the updated (or created) curve.
         '''
         curve = self.__curves.get(data.name, None)
         if curve:
@@ -98,6 +102,7 @@ class AxesManager:
                                                             linestyle=data.linestyle,
                                                             color=data.colour,
                                                             label=data.name)[0]
+        return self.__curves[data.name]
 
     def get_ylimits(self):
         '''
@@ -222,9 +227,9 @@ class MagnitudeModel:
         '''
         self.__primary.display_curves()
         self.__secondary.display_curves()
+        self.limits.configure_freq_axis()
         self.limits.on_data_change(self.__primary.get_ylimits(), self.__secondary.get_ylimits(),
                                    draw_if_changed=self.__animator is not None)
-        self.limits.configure_freq_axis()
 
     def __make_legend(self):
         '''
@@ -470,3 +475,67 @@ class LimitsDialog(QDialog, Ui_graphLayoutDialog):
         self.__limits.update(x_min=self.xMin.value(), x_max=self.xMax.value(), y1_min=self.y1Min.value(),
                              y1_max=self.y1Max.value(), y2_min=self.y2Min.value(), y2_max=self.y2Max.value(),
                              x_scale='log' if self.hzLog.isChecked() else 'linear', draw=True)
+
+
+class AtomicSwitch:
+    '''
+    Flips between 0 and 1 atomically
+    '''
+
+    def __init__(self):
+        self.__value = 0
+        self.__lock = threading.Lock()
+
+    def get_and_bump(self):
+        '''
+        Bumps the switch
+        :return: the pre bump value.
+        '''
+        with self.__lock:
+            val = self.__value
+            self.__value = 1 if val == 0 else 1
+            return val
+
+    def bump_and_get(self):
+        '''
+        Bumps the switch
+        :return: the post bump value.
+        '''
+        with self.__lock:
+            val = self.__value
+            self.__value = 1 if val == 0 else 1
+            return self.__value
+
+    @property
+    def value(self):
+        with self.__lock:
+            return self.__value
+
+
+class PendingDataCache:
+    '''
+    A cache of named items to safely bridge between producers and consumers. Intended for use by an animating matplotlib
+    chart so that the producer can produce fresh data independently of the chart taking fresh data for the next frame.
+    '''
+
+    def __init__(self):
+        self.caches = [{}] * 2
+        self.__cache_pointer = AtomicSwitch()
+
+    def take(self):
+        '''
+        Takes the pending data from the cache.
+        :return: the pending data (if any).
+        '''
+        idx = self.__cache_pointer.get_and_bump()
+        cache = self.caches[idx]
+        self.caches[idx] = {}
+        return list(cache.values())
+
+    def put(self, key, value):
+        '''
+        Stores the value in the current data cache.
+        :param key: the key.
+        :param value: the value, can be None.
+        '''
+        self.caches[self.__cache_pointer.value][key] = value

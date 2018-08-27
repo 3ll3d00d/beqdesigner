@@ -18,6 +18,8 @@ import decimal
 ctx = decimal.Context()
 ctx.prec = 15
 
+COMBINED = 'Combined'
+
 
 def float_to_str(f):
     """
@@ -67,7 +69,7 @@ class Biquad(ABC):
         :param filt: the filter.
         :return: the transfer function.
         '''
-        w, h = signal.freqz(b=self.b, a=self.a, worN=min(1 << (self.fs - 1).bit_length(), 8192))
+        w, h = signal.freqz(b=self.b, a=self.a, worN=max(1 << (self.fs - 1).bit_length(), 8192))
         f = w * self.fs / (2 * np.pi)
         return ComplexData(self.__repr__(), f, h)
 
@@ -534,15 +536,15 @@ class ComplexFilter:
     '''
 
     def __init__(self, filters=None, description='Complex'):
-        self.__filters = filters if filters is not None else []
+        self.filters = filters if filters is not None else []
         self.description = description
         self.id = -1
 
     def __getitem__(self, i):
-        return self.__filters[i]
+        return self.filters[i]
 
     def __len__(self):
-        return len(self.__filters)
+        return len(self.filters)
 
     def __repr__(self):
         return self.description
@@ -551,36 +553,55 @@ class ComplexFilter:
     def filter_type(self):
         return 'Complex'
 
-    def add(self, filter):
+    def save(self, filter):
         '''
-        Adds a new filter.
+        Saves the filter with the given id, removing an existing one if necessary.
         :param filter: the filter.
         '''
-        self.__filters.append(filter)
+        self.save0(filter, self.filters)
 
-    def replace(self, filter):
-        '''
-        Replaces the filter with the given id.
-        :param filter: the filter.
-        '''
-        match = next((f for f in self.__filters if f.id == filter.id), None)
+    def save0(self, filter, filters):
+        match = next((f for f in filters if f.id == filter.id), None)
         if match:
-            self.__filters.remove(match)
-        self.add(filter)
+            filters.remove(match)
+        filters.append(filter)
+        return filters
 
     def removeByIndex(self, indices):
         '''
         Removes the filter with the given indexes.
         :param indices: the indices to remove.
         '''
-        self.__filters = [filter for idx, filter in enumerate(self.__filters) if idx not in indices]
+        self.filters = [filter for idx, filter in enumerate(self.filters) if idx not in indices]
 
     def getTransferFunction(self):
         '''
         Computes the transfer function of the filter.
         :return: the transfer function.
         '''
-        return getCascadeTransferFunction(self.__repr__(), [x.getTransferFunction() for x in self.__filters])
+        return getCascadeTransferFunction(self.__repr__(), [x.getTransferFunction() for x in self.filters])
+
+    def format_biquads(self, invert_a):
+        '''
+        Formats the filter into a biquad report.
+        :param invert_a: whether to invert the a coeffs.
+        :return: the report.
+        '''
+        return [f.format_biquads(invert_a) for f in self.filters]
+
+
+class CompleteFilter(ComplexFilter):
+
+    def __init__(self, filters=None, description=COMBINED):
+        super().__init__(filters=filters, description=description)
+
+    def preview(self, filter):
+        '''
+        Creates a new filter with the supplied filter saved into it.
+        :param filter: the filter.
+        :return: a copied filter.
+        '''
+        return ComplexFilter(self.save0(filter, self.filters.copy()), self.description)
 
     def resample(self, new_fs):
         '''
@@ -589,17 +610,9 @@ class ComplexFilter:
         :return: the new filter.
         '''
         if len(self) > 0:
-            return ComplexFilter(filters=[f.resample(new_fs) for f in self.__filters], description=self.description)
+            return CompleteFilter(filters=[f.resample(new_fs) for f in self.filters], description=self.description)
         else:
             return self
-
-    def format_biquads(self, invert_a):
-        '''
-        Formats the filter into a biquad report.
-        :param invert_a: whether to invert the a coeffs.
-        :return: the report.
-        '''
-        return [f.format_biquads(invert_a) for f in self.__filters]
 
 
 class FilterType(Enum):
@@ -612,7 +625,7 @@ class CompoundPassFilter(ComplexFilter):
     A high or low pass filter of different types and orders that are implemented using one or more biquads.
     '''
 
-    def __init__(self, one_pole_ctor, two_pole_ctor, filter_type, order, fs, freq):
+    def __init__(self, high_or_low, one_pole_ctor, two_pole_ctor, filter_type, order, fs, freq):
         self.__bw1 = one_pole_ctor
         self.__bw2 = two_pole_ctor
         self.type = filter_type
@@ -624,7 +637,7 @@ class CompoundPassFilter(ComplexFilter):
                 raise ValueError("LR filters must be even order")
         if self.order == 0:
             raise ValueError("Filter cannot have order = 0")
-        self.__filter_type = f"{filter_type.value}{order}"
+        self.__filter_type = f"{high_or_low} {filter_type.value}{order}"
         super().__init__(filters=self._calculate_biquads(), description=f"{self.__filter_type}/{self.freq}Hz")
 
     @property
@@ -673,7 +686,7 @@ class ComplexLowPass(CompoundPassFilter):
     '''
 
     def __init__(self, filter_type, order, fs, freq):
-        super().__init__(FirstOrder_LowPass, SecondOrder_LowPass, filter_type, order, fs, freq)
+        super().__init__('Low', FirstOrder_LowPass, SecondOrder_LowPass, filter_type, order, fs, freq)
 
     @property
     def display_name(self):
@@ -697,7 +710,7 @@ class ComplexHighPass(CompoundPassFilter):
     '''
 
     def __init__(self, filter_type, order, fs, freq):
-        super().__init__(FirstOrder_HighPass, SecondOrder_HighPass, filter_type, order, fs, freq)
+        super().__init__('High', FirstOrder_HighPass, SecondOrder_HighPass, filter_type, order, fs, freq)
 
     @property
     def display_name(self):
@@ -742,11 +755,12 @@ class XYData:
     def __init__(self, name, x, y, colour=None, linestyle='-'):
         self.name = name
         self.x = x
-        self.y = np.clip(y, -10000000.0, 10000000.0)
+        self.y = np.nan_to_num(y)
         if self.y.size < 8192:
             new_x = np.linspace(self.x[0], self.x[-1], num=8192, endpoint=True)
             cs = CubicSpline(self.x, self.y)
             new_y = cs(new_x)
+            logger.debug(f"Interpolating {name} from {self.y.size} to 8192")
             self.x = new_x
             self.y = new_y
         self.colour = colour
