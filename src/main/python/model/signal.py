@@ -18,11 +18,14 @@ from ui.signal import Ui_addSignalDialog
 
 logger = logging.getLogger('signal')
 
+""" speclab reports a peak of 0dB but, by default, we report a peak of -3dB """
+SPECLAB_REFERENCE = 1 / (2 ** 0.5)
+
 WINDOWS = ['barthann', 'bartlett', 'blackman', 'blackmanharris', 'bohman', 'boxcar', 'cosine', 'flattop', 'hamming',
            'hann', 'nuttall', 'parzen', 'triang', 'tukey']
 
-# keep peak red and avg green
-PEAK_COLOURS = [
+# keep peak green and avg red
+AVG_COLOURS = [
     '#ff0000',
     '#990000',
     '#ff6666',
@@ -31,7 +34,7 @@ PEAK_COLOURS = [
     '#4c0000',
 ]
 
-AVG_COLOURS = [
+PEAK_COLOURS = [
     '#00ff00',
     '#009900',
     '#99ff99',
@@ -170,7 +173,7 @@ class Signal:
         p = np.concatenate([n[1] for n in slices])
         return f, p
 
-    def spectrum(self, segmentLengthMultiplier=1, mode=None, window=None, **kwargs):
+    def spectrum(self, ref=SPECLAB_REFERENCE, segmentLengthMultiplier=1, mode=None, window=None, **kwargs):
         """
         analyses the source to generate the linear spectrum.
         :param ref: the reference value for dB purposes.
@@ -189,16 +192,17 @@ class Signal:
             Pxx_spec = np.sqrt(Pxx_spec)
             # it seems a 3dB adjustment is required to account for the change in nperseg
             if x > 0:
-                Pxx_spec = Pxx_spec / (10 ** ((3 * x) / 20))
-            Pxx_spec = amplitude_to_db(Pxx_spec)
+                Pxx_spec = amplitude_to_db(Pxx_spec, ref * SPECLAB_REFERENCE)
+            else:
+                Pxx_spec = amplitude_to_db(Pxx_spec, ref)
             return f, Pxx_spec
 
         if mode == 'cq':
             return self._cq(analysisFunc, segmentLengthMultiplier)
         else:
-            return analysisFunc(0, self.getSegmentLength() * segmentLengthMultiplier, **kwargs)
+            return analysisFunc(segmentLengthMultiplier, self.getSegmentLength() * segmentLengthMultiplier, **kwargs)
 
-    def peakSpectrum(self, segmentLengthMultiplier=1, mode=None, window=None):
+    def peakSpectrum(self, ref=SPECLAB_REFERENCE, segmentLengthMultiplier=1, mode=None, window=None):
         """
         analyses the source to generate the max values per bin per segment
         :param segmentLengthMultiplier: allow for increased resolution.
@@ -221,14 +225,15 @@ class Signal:
                                                scaling='spectrum')
             Pxy_max = np.sqrt(Pxy.max(axis=-1).real)
             if x > 0:
-                Pxy_max = Pxy_max / (10 ** ((3 * x) / 20))
-            Pxy_max = amplitude_to_db(Pxy_max)
+                Pxy_max = amplitude_to_db(Pxy_max, ref=ref * SPECLAB_REFERENCE)
+            else:
+                Pxy_max = amplitude_to_db(Pxy_max, ref=ref)
             return freqs, Pxy_max
 
         if mode == 'cq':
             return self._cq(analysisFunc, segmentLengthMultiplier)
         else:
-            return analysisFunc(0, self.getSegmentLength() * segmentLengthMultiplier)
+            return analysisFunc(segmentLengthMultiplier, self.getSegmentLength() * segmentLengthMultiplier)
 
     def spectrogram(self, segmentLengthMultiplier=1, window='hann'):
         """
@@ -316,7 +321,7 @@ class Signal:
         self.__peak = self.peakSpectrum(segmentLengthMultiplier=multiplier, window=peak_window)
 
 
-def amplitude_to_db(s):
+def amplitude_to_db(s, ref=1.0):
     '''
     Convert an amplitude spectrogram to dB-scaled spectrogram. Implementation taken from librosa to avoid adding a
     dependency on librosa for a single function.
@@ -325,11 +330,11 @@ def amplitude_to_db(s):
     '''
     magnitude = np.abs(np.asarray(s))
     power = np.square(magnitude, out=magnitude)
-    ref_value = 1.0
+    ref_power = np.abs(ref ** 2)
     amin = 1e-10
     top_db = 80.0
     log_spec = 10.0 * np.log10(np.maximum(amin, power))
-    log_spec -= 10.0 * np.log10(np.maximum(amin, ref_value))
+    log_spec -= 10.0 * np.log10(np.maximum(amin, ref_power))
     log_spec = np.maximum(log_spec, log_spec.max() - top_db)
     return log_spec
 

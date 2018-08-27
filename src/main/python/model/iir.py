@@ -1,12 +1,14 @@
 # from http://www.musicdsp.org/files/Audio-EQ-Cookbook.txt
 import logging
 import math
+import time
 from abc import ABC, abstractmethod
 from enum import Enum
 from functools import reduce
 
 import numpy as np
 from scipy import signal
+from scipy.interpolate import CubicSpline
 
 DEFAULT_Q = 1 / np.math.sqrt(2.0)
 
@@ -53,7 +55,7 @@ class Biquad(ABC):
         :param filt: the filter.
         :return: the transfer function.
         '''
-        w, h = signal.freqz(b=self.b, a=self.a, worN=1 << (self.fs - 1).bit_length())
+        w, h = signal.freqz(b=self.b, a=self.a, worN=min(1 << (self.fs - 1).bit_length(), 8192))
         f = w * self.fs / (2 * np.pi)
         return ComplexData(self.__repr__(), f, h)
 
@@ -583,6 +585,12 @@ class XYData:
         self.name = name
         self.x = x
         self.y = np.clip(y, -10000000.0, 10000000.0)
+        if self.y.size < 8192:
+            new_x = np.linspace(self.x[0], self.x[-1], num=8192, endpoint=True)
+            cs = CubicSpline(self.x, self.y)
+            new_y = cs(new_x)
+            self.x = new_x
+            self.y = new_y
         self.colour = colour
         self.linestyle = linestyle
         self.miny = np.ma.masked_invalid(y).min()

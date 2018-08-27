@@ -90,7 +90,7 @@ class FilterModel(Sequence):
             mags = [r.getMagnitude() for r in results]
             for idx, m in enumerate(mags):
                 if m.name == COMBINED:
-                    m.colour = 'k'
+                    m.colour = 'c'
                 else:
                     m.colour = get_line_colour(idx, len(mags) - 1)
             if reference is not None:
@@ -244,7 +244,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
     def getMagnitudeData(self, reference=None):
         ''' preview of the filter to display on the chart '''
         if self.__filter is not None:
-            return [self.__filter.getTransferFunction().getMagnitude(colour='k')]
+            return [self.__filter.getTransferFunction().getMagnitude(colour='c')]
         else:
             return []
 
