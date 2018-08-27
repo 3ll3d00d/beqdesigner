@@ -54,7 +54,7 @@ class Ui_editFilterDialog(object):
         self.filterQ.setMinimum(0.001)
         self.filterQ.setMaximum(20.0)
         self.filterQ.setSingleStep(0.0001)
-        self.filterQ.setProperty("value", 0.707)
+        self.filterQ.setProperty("value", 0.7071)
         self.filterQ.setObjectName("filterQ")
         self.paramsPane.addWidget(self.filterQ, 4, 1, 1, 1)
         self.sLabel = QtWidgets.QLabel(editFilterDialog)
@@ -151,6 +151,12 @@ class Ui_editFilterDialog(object):
         editFilterDialog.setTabOrder(self.freq, self.filterQ)
         editFilterDialog.setTabOrder(self.filterQ, self.filterS)
         editFilterDialog.setTabOrder(self.filterS, self.filterGain)
+        editFilterDialog.setTabOrder(self.filterGain, self.filterCount)
+        editFilterDialog.setTabOrder(self.filterCount, self.freqStepButton)
+        editFilterDialog.setTabOrder(self.freqStepButton, self.qStepButton)
+        editFilterDialog.setTabOrder(self.qStepButton, self.gainStepButton)
+        editFilterDialog.setTabOrder(self.gainStepButton, self.sStepButton)
+        editFilterDialog.setTabOrder(self.sStepButton, self.previewChart)
 
     def retranslateUi(self, editFilterDialog):
         _translate = QtCore.QCoreApplication.translate

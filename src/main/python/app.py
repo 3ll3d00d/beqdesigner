@@ -6,6 +6,7 @@ from contextlib import contextmanager
 
 import matplotlib
 import qtawesome as qta
+from matplotlib import style
 
 from ui.savechart import Ui_saveChartDialog
 
@@ -19,7 +20,7 @@ from model.extract import ExtractAudioDialog
 from model.filter import FilterTableModel, FilterModel, FilterDialog
 from model.log import RollingLogger
 from model.magnitude import MagnitudeModel
-from model.preferences import PreferencesDialog, BINARIES, ANALYSIS_TARGET_FS
+from model.preferences import PreferencesDialog, BINARIES, ANALYSIS_TARGET_FS, STYLE_MATPLOTLIB_THEME
 from model.signal import SignalModel, SignalTableModel, SignalDialog
 from ui.beq import Ui_MainWindow
 
@@ -51,6 +52,16 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.logger = logging.getLogger('beqdesigner')
         self.app = app
         self.settings = QSettings("3ll3d00d", "beqdesigner")
+        if getattr(sys, 'frozen', False):
+            self.__style_path_root = sys._MEIPASS
+        else:
+            self.__style_path_root = os.path.dirname(__file__)
+        matplotlib_theme = self.settings.value(STYLE_MATPLOTLIB_THEME)
+        if matplotlib_theme is not None:
+            if matplotlib_theme.startswith('beq'):
+                style.use(os.path.join(self.__style_path_root, 'style', 'mpl', f"{matplotlib_theme}.mplstyle"))
+            else:
+                style.use(matplotlib_theme)
         self.setupUi(self)
         self.limitsButton.setIcon(qta.icon('ei.move'))
         self.showValuesButton.setIcon(qta.icon('ei.eye-open'))
@@ -130,7 +141,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Shows the preferences dialog.
         '''
-        PreferencesDialog(self.settings, parent=self).exec()
+        PreferencesDialog(self.settings, self.__style_path_root, parent=self).exec()
 
     def addFilter(self):
         '''

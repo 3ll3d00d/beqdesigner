@@ -1,7 +1,9 @@
+import glob
 import os
+from pathlib import Path
 
 import matplotlib.style as style
-from qtpy.QtWidgets import QDialog, QFileDialog
+from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox
 
 from model.signal import WINDOWS
 from ui.preferences import Ui_preferencesDialog
@@ -25,8 +27,9 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
     Allows user to set some basic preferences.
     '''
 
-    def __init__(self, settings, parent=None):
+    def __init__(self, settings, style_root, parent=None):
         super(PreferencesDialog, self).__init__(parent)
+        self.__style_root = style_root
         self.setupUi(self)
         self.__init_analysis_window(self.avgAnalysisWindow)
         self.__init_analysis_window(self.peakAnalysisWindow)
@@ -57,8 +60,10 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
 
     def __init_themes(self):
         '''
-        Adds all the available matplotlib theme names to a combo.
+        Adds all the available matplotlib theme names to a combo along with our internal theme names.
         '''
+        for p in glob.iglob(f"{self.__style_root}/style/mpl/*.mplstyle"):
+            self.themePicker.addItem(Path(p).resolve().stem)
         for style_name in sorted(style.library.keys()):
             self.themePicker.addItem(style_name)
 
@@ -111,8 +116,15 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         self.settings.setValue(ANALYSIS_RESOLUTION, float(self.resolutionSelect.currentText().split(' ')[0]))
         self.settings.setValue(ANALYSIS_AVG_WINDOW, self.avgAnalysisWindow.currentText())
         self.settings.setValue(ANALYSIS_PEAK_WINDOW, self.peakAnalysisWindow.currentText())
+        current_theme = self.settings.value(STYLE_MATPLOTLIB_THEME)
+        if current_theme is not None and current_theme != self.themePicker.currentText():
+            msg_box = QMessageBox()
+            msg_box.setText('Theme change will not take effect until the application is restarted')
+            msg_box.setIcon(QMessageBox.Warning)
+            msg_box.setWindowTitle('Theme Change Detected')
+            msg_box.exec()
         self.settings.setValue(STYLE_MATPLOTLIB_THEME, self.themePicker.currentText())
-        style.use(self.themePicker.currentText())
+
         QDialog.accept(self)
 
     def __get_directory(self, name):

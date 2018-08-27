@@ -110,3 +110,5 @@ venv.bak/
 .idea
 fortran/
 src/scratch
+
+*.wav
