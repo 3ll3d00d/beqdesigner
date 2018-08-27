@@ -40,6 +40,7 @@ class Biquad(ABC):
         self.alpha = self.sin_w0 / (2.0 * self.q)
         self.a, self.b = self._compute_coeffs()
         self.id = -1
+        self.__transferFunction = None
 
     def __repr__(self):
         return self.description
@@ -69,9 +70,11 @@ class Biquad(ABC):
         :param filt: the filter.
         :return: the transfer function.
         '''
-        w, h = signal.freqz(b=self.b, a=self.a, worN=max(1 << (self.fs - 1).bit_length(), 8192))
-        f = w * self.fs / (2 * np.pi)
-        return ComplexData(self.__repr__(), f, h)
+        if self.__transferFunction is None:
+            w, h = signal.freqz(b=self.b, a=self.a, worN=max(1 << (self.fs - 1).bit_length(), 8192))
+            f = w * self.fs / (2 * np.pi)
+            self.__transferFunction = ComplexData(self.__repr__(), f, h)
+        return self.__transferFunction
 
     def format_biquads(self, minidsp_style):
         ''' Creates a biquad report '''
@@ -80,6 +83,18 @@ class Biquad(ABC):
              idx != 0 or minidsp_style is False])
         b = ",\n".join([f"b{idx}={float_to_str(x)}" for idx, x in enumerate(self.b)])
         return [f"{b},\n{a}"]
+
+
+class Passthrough(Biquad):
+    def __init__(self):
+        super().__init__(1000, 100, 1)
+
+    def _compute_coeffs(self):
+        return np.array([1.0, 0.0, 0.0]), [1.0, 0.0, 0.0]
+
+    @property
+    def description(self):
+        return 'Passthrough'
 
 
 class BiquadWithGain(Biquad):
@@ -169,6 +184,7 @@ class Shelf(BiquadWithGain):
         self.A = 10.0 ** (gain / 40.0)
         super().__init__(fs, freq, q, gain)
         self.count = count
+        self.__cached_cascade = None
 
     def q_to_s(self):
         '''
@@ -184,7 +200,9 @@ class Shelf(BiquadWithGain):
         if self.count == 1:
             return single
         elif self.count > 1:
-            return getCascadeTransferFunction(self.__repr__(), [single] * self.count)
+            if self.__cached_cascade is None:
+                self.__cached_cascade = getCascadeTransferFunction(self.__repr__(), [single] * self.count)
+            return self.__cached_cascade
         else:
             raise ValueError('Shelf must have non zero count')
 
@@ -539,6 +557,7 @@ class ComplexFilter:
         self.filters = filters if filters is not None else []
         self.description = description
         self.id = -1
+        self.__cached_transfer = None
 
     def __getitem__(self, i):
         return self.filters[i]
@@ -559,6 +578,7 @@ class ComplexFilter:
         :param filter: the filter.
         '''
         self.save0(filter, self.filters)
+        self.__cached_transfer = None
 
     def save0(self, filter, filters):
         match = next((f for f in filters if f.id == filter.id), None)
@@ -573,13 +593,17 @@ class ComplexFilter:
         :param indices: the indices to remove.
         '''
         self.filters = [filter for idx, filter in enumerate(self.filters) if idx not in indices]
+        self.__cached_transfer = None
 
     def getTransferFunction(self):
         '''
         Computes the transfer function of the filter.
         :return: the transfer function.
         '''
-        return getCascadeTransferFunction(self.__repr__(), [x.getTransferFunction() for x in self.filters])
+        if self.__cached_transfer is None:
+            self.__cached_transfer = getCascadeTransferFunction(self.__repr__(),
+                                                                [x.getTransferFunction() for x in self.filters])
+        return self.__cached_transfer
 
     def format_biquads(self, invert_a):
         '''
@@ -738,13 +762,23 @@ class ComplexData:
         self.x = x
         self.y = y
         self.scaleFactor = scaleFactor
+        self.__cached_mag_ref = None
+        self.__cached_mag = None
+        self.__cached_phase = None
 
     def getMagnitude(self, ref=1, colour=None):
-        y = np.abs(self.y) * self.scaleFactor / ref
-        return XYData(self.name, self.x, 20 * np.log10(y), colour=colour)
+        if self.__cached_mag_ref is not None and math.isclose(ref, self.__cached_mag_ref):
+            self.__cached_mag.colour = colour
+        else:
+            self.__cached_mag_ref = ref
+            y = np.abs(self.y) * self.scaleFactor / ref
+            self.__cached_mag = XYData(self.name, self.x, 20 * np.log10(y), colour=colour)
+        return self.__cached_mag
 
     def getPhase(self, colour=None):
-        return XYData(self.name, self.x, np.angle(self.y), colour=colour)
+        if self.__cached_phase is None:
+            self.__cached_phase = XYData(self.name, self.x, np.angle(self.y), colour=colour)
+        return self.__cached_phase
 
 
 class XYData:
@@ -767,6 +801,17 @@ class XYData:
         self.linestyle = linestyle
         self.miny = np.ma.masked_invalid(y).min()
         self.maxy = np.ma.masked_invalid(y).max()
+        self.__rendered = False
+
+    @property
+    def rendered(self):
+        return self.__rendered
+
+    @rendered.setter
+    def rendered(self, value):
+        self.__rendered = value
+        if value is True:
+            logger.debug(f"Rendered {self.name}")
 
     def normalise(self, target):
         '''

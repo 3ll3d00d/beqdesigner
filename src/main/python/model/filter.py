@@ -11,7 +11,8 @@ from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt
 from qtpy.QtWidgets import QDialog, QDialogButtonBox
 
 from model.iir import FilterType, LowShelf, HighShelf, PeakingEQ, SecondOrder_LowPass, \
-    SecondOrder_HighPass, ComplexLowPass, ComplexHighPass, q_to_s, s_to_q, max_permitted_s, CompleteFilter, COMBINED
+    SecondOrder_HighPass, ComplexLowPass, ComplexHighPass, q_to_s, s_to_q, max_permitted_s, CompleteFilter, COMBINED, \
+    Passthrough
 from model.magnitude import MagnitudeModel
 from mpl import get_line_colour
 from ui.filter import Ui_editFilterDialog
@@ -173,6 +174,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
     q_steps = [0.0001, 0.001, 0.01, 0.1]
     gain_steps = [0.1, 1.0]
     freq_steps = [0.1, 1.0, 2.0, 5.0]
+    passthrough = Passthrough()
 
     def __init__(self, filterModel, fs=48000, filter=None, parent=None):
         # prevent signals from recalculating the filter before we've populated the fields
@@ -192,6 +194,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         # underlying filter model
         self.filterModel = filterModel
         self.__filter = filter
+        self.__combined_preview = filterModel.filter
         # populate the fields with values if we're editing an existing filter
         self.__original_id = self.__filter.id if filter is not None else None
         self.fs = fs if filter is None else filter.fs
@@ -226,6 +229,12 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
             if self.__original_id is None:
                 self.__filter.id = uuid4()
             self.filterModel.save(self.__filter)
+        self.__magnitudeModel.stop()
+        QDialog.accept(self)
+
+    def reject(self):
+        self.__magnitudeModel.stop()
+        super().reject()
 
     def previewFilter(self):
         ''' creates a filter if the params are valid '''
@@ -237,7 +246,10 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
                     self.__filter = self.create_shaping_filter()
                 if self.__original_id is not None:
                     self.__filter.id = self.__original_id
+                self.__combined_preview = self.filterModel.preview(self.__filter)
+                self.passthrough.rendered = False
             else:
+                self.__combined_preview = self.filterModel.filter
                 self.__filter = None
             self.__magnitudeModel.display()
 
@@ -246,13 +258,13 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         if self.__filter is not None:
             result = [self.__filter.getTransferFunction().getMagnitude(colour='m')]
             if len(self.filterModel) > 0 and self.showCombined.isChecked():
-                result.append(self.filterModel.preview(self.__filter).getTransferFunction().getMagnitude(colour='c'))
+                result.append(self.__combined_preview.getTransferFunction().getMagnitude(colour='c'))
             return result
         else:
             if len(self.filterModel) > 0 and self.showCombined.isChecked():
-                return [self.filterModel.getTransferFunction().getMagnitude(colour='c')]
+                return [self.__combined_preview.getTransferFunction().getMagnitude(colour='c')]
             else:
-                return []
+                return [self.passthrough.getTransferFunction().getMagnitude(colour='m')]
 
     def create_shaping_filter(self):
         '''
