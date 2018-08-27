@@ -27,16 +27,16 @@ class FilterModel(Sequence):
     '''
 
     def __init__(self, view, showIndividualFilters):
-        self.__filter = ComplexFilter(description=COMBINED)
+        self.filter = ComplexFilter(description=COMBINED)
         self.__view = view
         self.__showIndividualFilters = showIndividualFilters
         self.table = None
 
     def __getitem__(self, i):
-        return self.__filter[i]
+        return self.filter[i]
 
     def __len__(self):
-        return len(self.__filter)
+        return len(self.filter)
 
     def add(self, filter):
         '''
@@ -45,7 +45,7 @@ class FilterModel(Sequence):
         '''
         if self.table is not None:
             self.table.beginResetModel()
-        self.__filter.add(filter)
+        self.filter.add(filter)
         self.table.resizeColumns(self.__view)
         if self.table is not None:
             self.table.endResetModel()
@@ -57,7 +57,7 @@ class FilterModel(Sequence):
         '''
         if self.table is not None:
             self.table.beginResetModel()
-        self.__filter.replace(filter)
+        self.filter.replace(filter)
         self.table.resizeColumns(self.__view)
         if self.table is not None:
             self.table.endResetModel()
@@ -69,7 +69,7 @@ class FilterModel(Sequence):
         '''
         if self.table is not None:
             self.table.beginResetModel()
-        self.__filter.removeByIndex(indices)
+        self.filter.removeByIndex(indices)
         self.table.resizeColumns(self.__view)
         if self.table is not None:
             self.table.endResetModel()
@@ -80,10 +80,10 @@ class FilterModel(Sequence):
         :return: the magnitude response of each filter.
         '''
         include_individual = self.__showIndividualFilters.isChecked()
-        if len(self.__filter) > 0:
+        if len(self.filter) > 0:
             start = time.time()
-            children = [x.getTransferFunction() for x in self.__filter]
-            combined = self.__filter.getTransferFunction()
+            children = [x.getTransferFunction() for x in self.filter]
+            combined = self.filter.getTransferFunction()
             results = [combined]
             if include_individual and len(self) > 1:
                 results += children
@@ -107,8 +107,8 @@ class FilterModel(Sequence):
         '''
         :return: the transfer function for this filter (in total) if we have any filters or None if we have none.
         '''
-        if len(self.__filter) > 0:
-            return self.__filter.getTransferFunction()
+        if len(self.filter) > 0:
+            return self.filter.getTransferFunction()
         return None
 
 
