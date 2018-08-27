@@ -87,7 +87,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.signalView.selectionModel().selectionChanged.connect(self.changeSignalButtonState)
         # magnitude
         self.__magnitudeModel = MagnitudeModel('main', self.filterChart, self.__signalModel, 'Signals',
-                                               self.__filterModel, 'Filters')
+                                               self.__filterModel, 'Filters', animate=True, animate_interval=200)
         # processing
         self.ensurePathContainsExternalTools()
         # extraction
@@ -216,6 +216,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Updates the chart.
         '''
+        # TODO update the ref series when the data changesb
         with wait_cursor('Redrawing'):
             self.__magnitudeModel.display()
             self.update_reference_series(self.signalReference, True)
@@ -335,23 +336,24 @@ class ExportBiquadDialog(QDialog, Ui_exportBiquadDialog):
     def updateBiquads(self):
         if self.__filter is not None and len(self.__filter) > 0:
             self.__filter = self.__filter.resample(int(self.fs.currentText()))
-            biquads = list(self.flatten([self.__filter.format_biquads(self.minidspFormat.isChecked())]))
+            biquads = list(flatten([self.__filter.format_biquads(self.minidspFormat.isChecked())]))
             if len(biquads) < self.maxBiquads.value():
                 passthrough = [Passthrough()] * (self.maxBiquads.value() - len(biquads))
                 biquads.extend(passthrough)
             text = "\n".join([f"biquad{idx},\n{bq}" for idx, bq in enumerate(biquads)])
             self.biquads.setPlainText(text)
 
-    def flatten(self, l):
-        '''
-        flatten an irregularly shaped list of lists (of lists of lists...)
-        solution from https://stackoverflow.com/questions/2158395/flatten-an-irregular-list-of-lists
-        '''
-        for el in l:
-            if isinstance(el, collections.Iterable) and not isinstance(el, (str, bytes)):
-                yield from self.flatten(el)
-            else:
-                yield el
+
+def flatten(l):
+    '''
+    flatten an irregularly shaped list of lists (of lists of lists...)
+    solution from https://stackoverflow.com/questions/2158395/flatten-an-irregular-list-of-lists
+    '''
+    for el in l:
+        if isinstance(el, collections.Iterable) and not isinstance(el, (str, bytes)):
+            yield from flatten(el)
+        else:
+            yield el
 
 
 def make_app():

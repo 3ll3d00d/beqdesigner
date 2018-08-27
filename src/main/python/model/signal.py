@@ -44,6 +44,49 @@ PEAK_COLOURS = [
 ]
 
 
+class SignalData:
+    '''
+    Provides a mechanism for caching the assorted xy data surrounding a signal.
+    '''
+
+    def __init__(self, idx, signal, filter):
+        self.signal = signal
+        self.__filter = filter
+        self.raw = signal.getXY(idx=idx)
+        self.filtered = []
+        self.on_filter_change(filter)
+        self.reference_name = None
+        self.reference = []
+
+    def reindex(self, idx):
+        self.raw = self.signal.getXY(idx=idx)
+        self.on_filter_change(self.__filter)
+
+    def on_filter_change(self, filter):
+        '''
+        Updates the filtered response with the new filter.
+        :param filter: the filter.
+        '''
+        if filter is None:
+            self.filtered = []
+            for r in self.raw:
+                r.linestyle = '-'
+        else:
+            filter_mag = filter.getMagnitude()
+            self.filtered = [f.filter(filter_mag) for f in self.raw]
+            for r in self.raw:
+                r.linestyle = '--'
+
+    def on_reference_change(self):
+        pass
+
+    def get_all_xy(self):
+        '''
+        :return all the xy data
+        '''
+        return self.raw + self.filtered
+
+
 class SignalModel(Sequence):
     '''
     A model to hold onto the signals.
@@ -53,10 +96,11 @@ class SignalModel(Sequence):
         self.__signals = []
         self.__view = view
         self.__filterModel = filterModel
+        self.__filterModel.register(self)
         self.table = None
 
     def __getitem__(self, i):
-        return self.__signals[i]
+        return self.__signals[i].signal
 
     def __len__(self):
         return len(self.__signals)
@@ -68,7 +112,7 @@ class SignalModel(Sequence):
         '''
         if self.table is not None:
             self.table.beginResetModel()
-        self.__signals.append(signal)
+        self.__signals.append(SignalData(len(self.__signals), signal, self.__filterModel.getTransferFunction()))
         if self.table is not None:
             self.table.endResetModel()
 
@@ -80,6 +124,8 @@ class SignalModel(Sequence):
         if self.table is not None:
             self.table.beginResetModel()
         self.__signals.remove(signal)
+        for idx, s in self.__signals:
+            s.reindex(idx)
         if self.table is not None:
             self.table.endResetModel()
 
@@ -90,27 +136,26 @@ class SignalModel(Sequence):
         '''
         if self.table is not None:
             self.table.beginResetModel()
-        self.__signals = [signal for idx, signal in enumerate(self.__signals) if idx not in indices]
+        self.__signals = [s for idx, s in enumerate(self.__signals) if idx not in indices]
         self.table.resizeColumns(self.__view)
         if self.table is not None:
             self.table.endResetModel()
+
+    def onFilterChange(self):
+        '''
+        Updates the cached data when the filter changes.
+        '''
+        for s in self.__signals:
+            s.on_filter_change(self.__filterModel.getTransferFunction())
 
     def getMagnitudeData(self, reference=None):
         '''
         :param reference: the curve against which to normalise.
         :return: the peak and avg spectrum for the signals (if any) + the filter signals.
         '''
-        filter_response = self.__filterModel.getTransferFunction()
-        signals = [s.getXY(idx=idx) for idx, s in enumerate(self.__signals)]
-        signals = [item for sublist in signals for item in sublist]
-        if filter_response is not None:
-            filter_mag = filter_response.getMagnitude()
-            filtered = [f.filter(filter_mag) for f in signals]
-            for s in signals:
-                s.linestyle = '--'
-        else:
-            filtered = []
-        results = signals + filtered
+        from app import flatten
+        results = list(flatten([s.get_all_xy() for s in self.__signals]))
+        # TODO cache this
         if reference is not None:
             ref_data = next((x for x in results if x.name == reference), None)
             if ref_data:
@@ -137,6 +182,7 @@ class Signal:
         self.end_hhmmss = self.duration_hhmmss
         self.__avg = None
         self.__peak = None
+        self.__cached = []
 
     def getSegmentLength(self):
         """
@@ -304,8 +350,9 @@ class Signal:
         :return: renders itself as peak/avg spectrum xydata.
         '''
         if self.__avg is not None:
-            return [XYData(f"{self.name}_avg", self.__avg[0], self.__avg[1], colour=AVG_COLOURS[idx]),
-                    XYData(f"{self.name}_peak", self.__peak[0], self.__peak[1], colour=PEAK_COLOURS[idx])]
+            self.__cached[0].colour = AVG_COLOURS[idx]
+            self.__cached[1].colour = PEAK_COLOURS[idx]
+            return self.__cached
         else:
             logger.error(f"getXY called on {self.name} before calculate, must be error!")
             return []
@@ -319,6 +366,8 @@ class Signal:
         '''
         self.__avg = self.spectrum(segmentLengthMultiplier=multiplier, window=avg_window)
         self.__peak = self.peakSpectrum(segmentLengthMultiplier=multiplier, window=peak_window)
+        self.__cached = [XYData(f"{self.name}_avg", self.__avg[0], self.__avg[1]),
+                         XYData(f"{self.name}_peak", self.__peak[0], self.__peak[1])]
 
 
 def amplitude_to_db(s, ref=1.0):
@@ -346,15 +395,15 @@ class SignalTableModel(QAbstractTableModel):
 
     def __init__(self, model, parent=None):
         super().__init__(parent=parent)
-        self._headers = ['Name', 'Fs', 'Duration', 'Start', 'End']
-        self._signalModel = model
-        self._signalModel.table = self
+        self.__headers = ['Name', 'Fs', 'Duration', 'Start', 'End']
+        self.__signalModel = model
+        self.__signalModel.table = self
 
     def rowCount(self, parent: QModelIndex = ...):
-        return len(self._signalModel)
+        return len(self.__signalModel)
 
     def columnCount(self, parent: QModelIndex = ...):
-        return len(self._headers)
+        return len(self.__headers)
 
     def data(self, index: QModelIndex, role: int = ...) -> typing.Any:
         if not index.isValid():
@@ -362,7 +411,7 @@ class SignalTableModel(QAbstractTableModel):
         elif role != Qt.DisplayRole:
             return QVariant()
         else:
-            signal_at_row = self._signalModel[index.row()]
+            signal_at_row = self.__signalModel[index.row()]
             if index.column() == 0:
                 return QVariant(signal_at_row.name)
             elif index.column() == 1:
@@ -378,11 +427,11 @@ class SignalTableModel(QAbstractTableModel):
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int = ...) -> typing.Any:
         if orientation == Qt.Horizontal and role == Qt.DisplayRole:
-            return QVariant(self._headers[section])
+            return QVariant(self.__headers[section])
         return QVariant()
 
     def resizeColumns(self, view):
-        for x in range(0, len(self._headers)):
+        for x in range(0, len(self.__headers)):
             view.resizeColumnToContents(x)
 
 

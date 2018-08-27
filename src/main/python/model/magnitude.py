@@ -132,7 +132,7 @@ class MagnitudeModel:
     '''
 
     def __init__(self, name, chart, primaryDataProvider, primaryName, secondaryDataProvider=None, secondaryName=None,
-                 animate=False):
+                 animate=False, animate_interval=40):
         self.__name = name
         self.__chart = chart
         primary_axes = self.__chart.canvas.figure.add_subplot(111)
@@ -147,11 +147,11 @@ class MagnitudeModel:
             secondary_axes.set_ylabel(f"dBFS ({secondaryName})")
         self.__secondary = AxesManager(secondaryDataProvider, secondary_axes)
         if animate is True:
-            self.__animator = FuncAnimation(self.__chart.canvas.figure, self.__redraw, interval=40,
+            self.__animator = FuncAnimation(self.__chart.canvas.figure, self.__redraw, interval=animate_interval,
                                             init_func=self.__init_animation, blit=True, save_count=50)
         else:
             self.__animator = None
-        self.limits = Limits(self.__redraw_func, primary_axes, 60.0, x=(2, 250), axes_2=secondary_axes)
+        self.limits = Limits(self.__repr__(), self.__redraw_func, primary_axes, 60.0, x=(2, 250), axes_2=secondary_axes)
         self.limits.propagate_to_axes(draw=True)
         self.__legend = None
         self.__legend_cid = None
@@ -220,7 +220,7 @@ class MagnitudeModel:
         self.__primary.refresh_data()
         self.__secondary.refresh_data()
         end = time.time()
-        logger.debug(f"{self} Calc : {round(end-start,3)}s")
+        logger.debug(f"{self.__repr__()} Calc : {round(end-start,3)}s")
 
     def __display_now(self):
         '''
@@ -232,7 +232,7 @@ class MagnitudeModel:
         mid = time.time()
         self.__chart.canvas.draw()
         end = time.time()
-        logger.debug(f"{self} Propagate: {round(mid-start,3)}s Draw: {round(end-mid,3)}s")
+        logger.debug(f"{self.__repr__()} Propagate: {round(mid-start,3)}s Draw: {round(end-mid,3)}s")
 
     def __display_all_curves(self):
         '''
@@ -240,7 +240,6 @@ class MagnitudeModel:
         '''
         self.__primary.display_curves()
         self.__secondary.display_curves()
-        # TODO only do this when we have to
         self.limits.configure_freq_axis()
         self.limits.on_data_change(self.__primary.get_ylimits(), self.__secondary.get_ylimits(),
                                    draw_if_changed=self.__animator is not None)
@@ -297,7 +296,8 @@ class Limits:
     Value object to hold graph limits to decouple the dialog from the chart.
     '''
 
-    def __init__(self, redraw_func, axes_1, default_y_range, x, axes_2=None):
+    def __init__(self, name, redraw_func, axes_1, default_y_range, x, axes_2=None):
+        self.name = name
         self.__redraw_func = redraw_func
         self.__default_y_range = default_y_range
         self.axes_1 = axes_1
@@ -325,7 +325,7 @@ class Limits:
             self.axes_2.set_ylim(bottom=self.y2_min, top=self.y2_max)
         self.configure_freq_axis()
         if draw:
-            logger.debug(f"Redrawing axes on limits change")
+            logger.debug(f"{self.name} Redrawing axes on limits change")
             self.__redraw_func()
 
     def update(self, x_min=None, x_max=None, y1_min=None, y1_max=None, y2_min=None, y2_max=None, x_scale=None,
@@ -372,24 +372,35 @@ class Limits:
         return vmax - self.__default_y_range, vmax
 
     def on_data_change(self, primary_range, secondary_range, draw_if_changed=False):
-        changed = False
+        '''
+        Updates the y axes when the data changes.
+        :param primary_range: the primary y range.
+        :param secondary_range: the secondary y range.
+        :param draw_if_changed: if true, redraw.
+        '''
+        y1_changed = False
+        y2_changed = False
         if self.is_auto_1():
             new_min, new_max = self.calculate_dBFS_scales(primary_range)
-            changed = new_min != self.y1_min or new_max != self.y1_max
-            if changed:
-                logger.debug(f"y1 axis changed from {self.y1_min}/{self.y1_max} to {new_min}/{new_max}")
+            y1_changed = new_min != self.y1_min or new_max != self.y1_max
+            if y1_changed:
+                logger.debug(f"{self.name} y1 axis changed from {self.y1_min}/{self.y1_max} to {new_min}/{new_max}")
             self.y1_min = new_min
             self.y1_max = new_max
-        if self.is_auto_2():
+            if y1_changed:
+                self.axes_1.set_ylim(bottom=self.y1_min, top=self.y1_max)
+        if self.is_auto_2() and self.axes_2 is not None:
             new_min, new_max = self.calculate_dBFS_scales(secondary_range)
-            if not changed:
-                changed = new_min != self.y2_min or new_max != self.y2_max
-                if changed:
-                    logger.debug(f"y2 axis changed from {self.y2_min}/{self.y2_max} to {new_min}/{new_max}")
-                changed = new_min != self.y2_min or new_max != self.y2_max
+            y2_changed = new_min != self.y2_min or new_max != self.y2_max
+            if y2_changed:
+                logger.debug(f"{self.name} y2 axis changed from {self.y2_min}/{self.y2_max} to {new_min}/{new_max}")
             self.y2_min = new_min
             self.y2_max = new_max
-        self.propagate_to_axes(draw=draw_if_changed and changed)
+            if y2_changed:
+                self.axes_2.set_ylim(bottom=self.y2_min, top=self.y2_max)
+        if draw_if_changed and (y1_changed or y2_changed):
+            logger.debug(f"{self.name} Redrawing axes on limits change")
+            self.__redraw_func()
 
     def is_auto_1(self):
         '''

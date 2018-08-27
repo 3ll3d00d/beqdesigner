@@ -832,12 +832,9 @@ class XYData:
             logger.debug(f"Interpolating filt {filt.x.size} vs self {self.x.size}")
             if self.x.size > filt.x.size:
                 interp_y = np.interp(self.x, filt.x, filt.y)
-                return XYData(f"{self.name}-filtered", self.x, self.y + interp_y, colour=self.colour,
-                              linestyle=self.linestyle)
+                return XYData(f"{self.name}-filtered", self.x, self.y + interp_y, colour=self.colour, linestyle='-')
             else:
                 interp_y = np.interp(filt.x, self.x, self.y)
-                return XYData(f"{self.name}-filtered", filt.x, filt.y + interp_y, colour=self.colour,
-                              linestyle=self.linestyle)
+                return XYData(f"{self.name}-filtered", filt.x, filt.y + interp_y, colour=self.colour, linestyle='-')
         else:
-            return XYData(f"{self.name}-filtered", self.x, self.y + filt.y, colour=self.colour,
-                          linestyle=self.linestyle)
+            return XYData(f"{self.name}-filtered", self.x, self.y + filt.y, colour=self.colour, linestyle='-')

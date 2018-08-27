@@ -30,12 +30,27 @@ class FilterModel(Sequence):
         self.__view = view
         self.__show_individual = show_individual
         self.table = None
+        self.__listeners = []
 
     def __getitem__(self, i):
         return self.filter[i]
 
     def __len__(self):
         return len(self.filter)
+
+    def register(self, listener):
+        '''
+        Registers a listener for filter change events.
+        :param listener: the listener.
+        '''
+        self.__listeners.append(listener)
+
+    def deregister(self, listener):
+        '''
+        Deregisters a listener on filter change events.
+        :param listener: the listener
+        '''
+        self.__listeners.remove(listener)
 
     def save(self, filter):
         '''
@@ -45,6 +60,7 @@ class FilterModel(Sequence):
         if self.table is not None:
             self.table.beginResetModel()
         self.filter.save(filter)
+        self.__notify()
         self.table.resizeColumns(self.__view)
         if self.table is not None:
             self.table.endResetModel()
@@ -65,9 +81,17 @@ class FilterModel(Sequence):
         if self.table is not None:
             self.table.beginResetModel()
         self.filter.removeByIndex(indices)
+        self.__notify()
         self.table.resizeColumns(self.__view)
         if self.table is not None:
             self.table.endResetModel()
+
+    def __notify(self):
+        '''
+        Propagates the filter change event to the listeners.
+        '''
+        for l in self.__listeners:
+            l.onFilterChange()
 
     def getMagnitudeData(self, reference=None):
         '''
@@ -76,7 +100,6 @@ class FilterModel(Sequence):
         '''
         include_individual = self.__show_individual.isChecked()
         if len(self.filter) > 0:
-            start = time.time()
             children = [x.getTransferFunction() for x in self.filter]
             combined = self.filter.getTransferFunction()
             results = [combined]
@@ -92,8 +115,6 @@ class FilterModel(Sequence):
                 ref_data = next((x for x in mags if x.name == reference), None)
                 if ref_data:
                     mags = [x.normalise(ref_data) for x in mags]
-            end = time.time()
-            logger.debug(f"Calculated {len(mags)} transfer functions in {end-start}ms")
             return mags
         else:
             return []
