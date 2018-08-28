@@ -38,7 +38,6 @@ class AxesManager:
         self.__axes = axes
         self.reference_curve = None
         self.__curves = {}
-        self.__data = []
         self.__maxy = 0
         self.__miny = 0
 
@@ -56,16 +55,6 @@ class AxesManager:
         '''
         return list(self.__curves.keys())
 
-    def refresh_data(self):
-        '''
-        Refreshes the data from the provider.
-        '''
-        if self.__provider is not None:
-            self.__data = self.__provider.getMagnitudeData(reference=self.reference_curve)
-        if len(self.__data) > 0:
-            self.__miny = math.floor(min([x.miny for x in self.__data]))
-            self.__maxy = math.ceil(max([x.maxy for x in self.__data]))
-
     def display_curves(self):
         '''
         Displays the cached data on the specified axes, removing existing curves as required.
@@ -77,6 +66,8 @@ class AxesManager:
             data = self.__provider.getMagnitudeData(reference=self.reference_curve)
             if len(data) > 0:
                 curve_names = [self.__create_or_update_curve(x) for x in data if data is not None]
+                self.__miny = math.floor(min([x.miny for x in data]))
+                self.__maxy = math.ceil(max([x.maxy for x in data]))
             else:
                 curve_names = []
             to_delete = [curve for name, curve in self.__curves.items() if name not in curve_names]
@@ -132,7 +123,7 @@ class MagnitudeModel:
     '''
 
     def __init__(self, name, chart, primaryDataProvider, primaryName, secondaryDataProvider=None, secondaryName=None,
-                 animate=False, animate_interval=40):
+                 animate_interval=40):
         self.__name = name
         self.__chart = chart
         primary_axes = self.__chart.canvas.figure.add_subplot(111)
@@ -146,21 +137,15 @@ class MagnitudeModel:
             secondary_axes = primary_axes.twinx()
             secondary_axes.set_ylabel(f"dBFS ({secondaryName})")
         self.__secondary = AxesManager(secondaryDataProvider, secondary_axes)
-        if animate is True:
-            self.__animator = FuncAnimation(self.__chart.canvas.figure, self.__redraw, interval=animate_interval,
-                                            init_func=self.__init_animation, blit=True, save_count=50)
-        else:
-            self.__animator = None
+        self.__animator = FuncAnimation(self.__chart.canvas.figure, self.__redraw, interval=animate_interval,
+                                        blit=True, save_count=50)
         self.limits = Limits(self.__repr__(), self.__redraw_func, primary_axes, 60.0, x=(2, 250), axes_2=secondary_axes)
         self.limits.propagate_to_axes(draw=True)
         self.__legend = None
         self.__legend_cid = None
 
     def __redraw_func(self):
-        if self.__animator is not None:
-            self.__chart.canvas.draw_idle()
-        else:
-            self.__chart.canvas.draw()
+        self.__chart.canvas.draw_idle()
 
     def __repr__(self):
         return self.__name
@@ -178,12 +163,6 @@ class MagnitudeModel:
         '''
         if self.__animator is not None:
             self.__animator._stop()
-
-    def __init_animation(self):
-        '''
-        Inits the animation with no lnes.
-        '''
-        return []
 
     def show_limits(self):
         '''
@@ -203,36 +182,6 @@ class MagnitudeModel:
         :return: the names of all the curves in the chart.
         '''
         return self.__primary.curve_names() if primary else self.__secondary.curve_names()
-
-    def display(self):
-        '''
-        Updates the contents of the magnitude chart
-        '''
-        self.__cache_data()
-        if self.__animator is None:
-            self.__display_now()
-
-    def __cache_data(self):
-        '''
-        Just gets the data so the animator can display it when it next updates.
-        '''
-        start = time.time()
-        self.__primary.refresh_data()
-        self.__secondary.refresh_data()
-        end = time.time()
-        logger.debug(f"{self.__repr__()} Calc : {round(end-start,3)}s")
-
-    def __display_now(self):
-        '''
-        Displays the cached data.
-        '''
-        start = time.time()
-        self.__display_all_curves()
-        self.__make_legend()
-        mid = time.time()
-        self.__chart.canvas.draw()
-        end = time.time()
-        logger.debug(f"{self.__repr__()} Propagate: {round(mid-start,3)}s Draw: {round(end-mid,3)}s")
 
     def __display_all_curves(self):
         '''
@@ -281,14 +230,13 @@ class MagnitudeModel:
 
     def normalise(self, primary=True, curve=None):
         '''
-        Redraws with the normalised data.
+        Sets the data series that will act as the reference.
         :param curve: the reference curve (if any).
         '''
-        if primary == True:
+        if primary is True:
             self.__primary.reference_curve = curve
         else:
             self.__secondary.reference_curve = curve
-        self.display()
 
 
 class Limits:

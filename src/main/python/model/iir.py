@@ -802,6 +802,7 @@ class XYData:
         self.miny = np.ma.masked_invalid(y).min()
         self.maxy = np.ma.masked_invalid(y).max()
         self.__rendered = False
+        self.__normalised_cache = {}
 
     @property
     def rendered(self):
@@ -819,7 +820,10 @@ class XYData:
         :param target: the target.
         :return: a normalised XYData.
         '''
-        return XYData(self.name, self.x, self.y - target.y, colour=self.colour, linestyle=self.linestyle)
+        if target.name not in self.__normalised_cache:
+            self.__normalised_cache[target.name] = XYData(self.name, self.x, self.y - target.y, colour=self.colour,
+                                                          linestyle=self.linestyle)
+        return self.__normalised_cache[target.name]
 
     def filter(self, filt):
         '''

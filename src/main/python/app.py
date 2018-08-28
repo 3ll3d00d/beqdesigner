@@ -87,7 +87,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.signalView.selectionModel().selectionChanged.connect(self.changeSignalButtonState)
         # magnitude
         self.__magnitudeModel = MagnitudeModel('main', self.filterChart, self.__signalModel, 'Signals',
-                                               self.__filterModel, 'Filters', animate=True, animate_interval=200)
+                                               self.__filterModel, 'Filters', animate_interval=100)
         # processing
         self.ensurePathContainsExternalTools()
         # extraction
@@ -130,12 +130,12 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         if geometry is not None:
             self.restoreGeometry(geometry)
         else:
-            screenGeometry = self.app.desktop().availableGeometry()
-            if screenGeometry.height() < 800:
+            screen_geometry = self.app.desktop().availableGeometry()
+            if screen_geometry.height() < 800:
                 self.showMaximized()
-        windowState = self.settings.value("windowState")
-        if windowState is not None:
-            self.restoreState(windowState)
+        window_state = self.settings.value("windowState")
+        if window_state is not None:
+            self.restoreState(window_state)
 
     def closeEvent(self, *args, **kwargs):
         '''
@@ -182,12 +182,6 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         SignalDialog(self.settings, self.__signalModel, parent=self).exec()
 
-    def editSignal(self):
-        '''
-        Edits the currently selected signal via the signal dialog.
-        '''
-        pass
-
     def deleteSignal(self):
         '''
         Deletes the currently selected signals.
@@ -216,11 +210,9 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Updates the chart.
         '''
-        # TODO update the ref series when the data changesb
-        with wait_cursor('Redrawing'):
-            self.__magnitudeModel.display()
-            self.update_reference_series(self.signalReference, True)
-            self.update_reference_series(self.filterReference, False)
+        # TODO move this to the signalmodel and filtermodel
+        self.update_reference_series(self.signalReference, True)
+        self.update_reference_series(self.filterReference, False)
 
     def update_reference_series(self, combo, primary=True):
         '''
@@ -239,12 +231,6 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
                 combo.setCurrentIndex(idx)
         finally:
             combo.blockSignals(False)
-
-    def changeVisibilityOfIndividualFilters(self):
-        '''
-        Adds or removes the individual filter transfer functions to/from the graph.
-        '''
-        self.__magnitudeModel.display()
 
     def showExtractAudioDialog(self):
         '''

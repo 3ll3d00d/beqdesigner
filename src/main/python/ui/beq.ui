@@ -68,6 +68,38 @@
       </item>
       <item>
        <layout class="QGridLayout" name="rightPane">
+        <item row="3" column="0" colspan="3">
+         <widget class="QLabel" name="label">
+          <property name="font">
+           <font>
+            <weight>75</weight>
+            <bold>true</bold>
+           </font>
+          </property>
+          <property name="frameShape">
+           <enum>QFrame::Box</enum>
+          </property>
+          <property name="frameShadow">
+           <enum>QFrame::Sunken</enum>
+          </property>
+          <property name="text">
+           <string>Filters</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="0">
+         <widget class="QPushButton" name="addSignalButton">
+          <property name="text">
+           <string>Add</string>
+          </property>
+          <property name="shortcut">
+           <string>Ctrl+Shift+=</string>
+          </property>
+         </widget>
+        </item>
         <item row="0" column="0" colspan="3">
          <widget class="QLabel" name="label_2">
           <property name="font">
@@ -93,26 +125,6 @@
         <item row="2" column="0" colspan="3">
          <widget class="QTableView" name="signalView"/>
         </item>
-        <item row="1" column="1">
-         <widget class="QPushButton" name="editSignalButton">
-          <property name="enabled">
-           <bool>false</bool>
-          </property>
-          <property name="text">
-           <string>Edit</string>
-          </property>
-         </widget>
-        </item>
-        <item row="4" column="1">
-         <widget class="QPushButton" name="loadPreset2">
-          <property name="enabled">
-           <bool>false</bool>
-          </property>
-          <property name="text">
-           <string>Preset 2</string>
-          </property>
-         </widget>
-        </item>
         <item row="4" column="2">
          <widget class="QPushButton" name="loadPreset3">
           <property name="enabled">
@@ -130,6 +142,16 @@
           </property>
           <property name="text">
            <string>Preset 1</string>
+          </property>
+         </widget>
+        </item>
+        <item row="4" column="1">
+         <widget class="QPushButton" name="loadPreset2">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="text">
+           <string>Preset 2</string>
           </property>
          </widget>
         </item>
@@ -182,38 +204,6 @@
           </property>
           <property name="text">
            <string>Delete</string>
-          </property>
-         </widget>
-        </item>
-        <item row="3" column="0" colspan="3">
-         <widget class="QLabel" name="label">
-          <property name="font">
-           <font>
-            <weight>75</weight>
-            <bold>true</bold>
-           </font>
-          </property>
-          <property name="frameShape">
-           <enum>QFrame::Box</enum>
-          </property>
-          <property name="frameShadow">
-           <enum>QFrame::Sunken</enum>
-          </property>
-          <property name="text">
-           <string>Filters</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="0">
-         <widget class="QPushButton" name="addSignalButton">
-          <property name="text">
-           <string>Add</string>
-          </property>
-          <property name="shortcut">
-           <string>Ctrl+Shift+=</string>
           </property>
          </widget>
         </item>
@@ -408,22 +398,6 @@
    </hints>
   </connection>
   <connection>
-   <sender>showIndividualFilters</sender>
-   <signal>clicked()</signal>
-   <receiver>MainWindow</receiver>
-   <slot>changeVisibilityOfIndividualFilters()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>1273</x>
-     <y>910</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>6</x>
-     <y>834</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
    <sender>editFilterButton</sender>
    <signal>clicked()</signal>
    <receiver>MainWindow</receiver>
@@ -456,22 +430,6 @@
    </hints>
   </connection>
   <connection>
-   <sender>editSignalButton</sender>
-   <signal>clicked()</signal>
-   <receiver>MainWindow</receiver>
-   <slot>editSignal()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>1298</x>
-     <y>97</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>1193</x>
-     <y>73</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
    <sender>deleteSignalButton</sender>
    <signal>clicked()</signal>
    <receiver>MainWindow</receiver>
@@ -494,8 +452,8 @@
    <slot>normaliseSignalMagnitude()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>517</x>
-     <y>74</y>
+     <x>573</x>
+     <y>70</y>
     </hint>
     <hint type="destinationlabel">
      <x>10</x>
@@ -510,8 +468,8 @@
    <slot>showLimits()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1014</x>
-     <y>52</y>
+     <x>1138</x>
+     <y>70</y>
     </hint>
     <hint type="destinationlabel">
      <x>977</x>
@@ -542,8 +500,8 @@
    <slot>showValues()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>967</x>
-     <y>59</y>
+     <x>1097</x>
+     <y>70</y>
     </hint>
     <hint type="destinationlabel">
      <x>782</x>

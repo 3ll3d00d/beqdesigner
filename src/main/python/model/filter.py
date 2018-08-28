@@ -211,7 +211,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         # init the UI itself
         self.setupUi(self)
         # init the chart
-        self.__magnitudeModel = MagnitudeModel('preview', self.previewChart, self, 'Filter', animate=True)
+        self.__magnitudeModel = MagnitudeModel('preview', self.previewChart, self, 'Filter')
         # underlying filter model
         self.filterModel = filterModel
         self.__filter = filter
@@ -272,7 +272,6 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
             else:
                 self.__combined_preview = self.filterModel.filter
                 self.__filter = None
-            self.__magnitudeModel.display()
 
     def getMagnitudeData(self, reference=None):
         ''' preview of the filter to display on the chart '''
