@@ -74,14 +74,16 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.actionPreferences.triggered.connect(self.showPreferences)
         # init the filter view/model
         self.filterView.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.__filterModel = FilterModel(self.filterView, self.showIndividualFilters)
+        update_filter_ref = lambda names: self.update_reference_series(names, self.filterReference, False)
+        self.__filterModel = FilterModel(self.filterView, self.showIndividualFilters, on_update=update_filter_ref)
         self.__filterTableModel = FilterTableModel(self.__filterModel, parent=parent)
         self.filterView.setModel(self.__filterTableModel)
         self.filterView.selectionModel().selectionChanged.connect(self.changeFilterButtonState)
         # signal model
         self.signalView.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.signalView.setSelectionMode(QAbstractItemView.SingleSelection)
-        self.__signalModel = SignalModel(self.signalView, self.__filterModel)
+        update_signal_ref = lambda names: self.update_reference_series(names, self.signalReference, True)
+        self.__signalModel = SignalModel(self.signalView, self.__filterModel, on_update=update_signal_ref)
         self.__signalTableModel = SignalTableModel(self.__signalModel, parent=parent)
         self.signalView.setModel(self.__signalTableModel)
         self.signalView.selectionModel().selectionChanged.connect(self.changeSignalButtonState)
@@ -206,19 +208,10 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.deleteSignalButton.setEnabled(selection.hasSelection())
         self.editSignalButton.setEnabled(len(selection.selectedRows()) == 1)
 
-    def display(self):
-        '''
-        Updates the chart.
-        '''
-        # TODO move this to the signalmodel and filtermodel
-        self.update_reference_series(self.signalReference, True)
-        self.update_reference_series(self.filterReference, False)
-
-    def update_reference_series(self, combo, primary=True):
+    def update_reference_series(self, names, combo, primary=True):
         '''
         Updates the reference series dropdown with the current curve names.
         '''
-        names = self.__magnitudeModel.get_curve_names(primary)
         current_reference = combo.currentText()
         try:
             combo.blockSignals(True)
@@ -267,6 +260,12 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         Shows the values dialog for the main chart.
         '''
         self.__magnitudeModel.show_values()
+
+    def changeVisibilityOfIndividualFilters(self):
+        '''
+        Updates the filter reference series selector.
+        '''
+        self.__filterModel.post_update(filter_change=False)
 
 
 class SaveChartDialog(QDialog, Ui_saveChartDialog):

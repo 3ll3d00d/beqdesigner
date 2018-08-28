@@ -130,6 +130,7 @@ class MagnitudeModel:
         primary_axes.set_ylabel(f"dBFS ({primaryName})")
         primary_axes.grid(linestyle='-', which='major', linewidth=1, alpha=0.5)
         primary_axes.grid(linestyle='--', which='minor', linewidth=1, alpha=0.5)
+        self.__dummy_artist = [primary_axes.semilogx([5], [0], visible=False)[0]]
         self.__primary = AxesManager(primaryDataProvider, primary_axes)
         if secondaryDataProvider is None:
             secondary_axes = None
@@ -138,7 +139,7 @@ class MagnitudeModel:
             secondary_axes.set_ylabel(f"dBFS ({secondaryName})")
         self.__secondary = AxesManager(secondaryDataProvider, secondary_axes)
         self.__animator = FuncAnimation(self.__chart.canvas.figure, self.__redraw, interval=animate_interval,
-                                        blit=True, save_count=50)
+                                        init_func=self.__init_anim, blit=True, save_count=50)
         self.limits = Limits(self.__repr__(), self.__redraw_func, primary_axes, 60.0, x=(2, 250), axes_2=secondary_axes)
         self.limits.propagate_to_axes(draw=True)
         self.__legend = None
@@ -150,12 +151,15 @@ class MagnitudeModel:
     def __repr__(self):
         return self.__name
 
+    def __init_anim(self):
+        return self.__dummy_artist
+
     def __redraw(self, frame, *fargs):
         '''
         Gets the current state of the graph
         '''
         self.__display_all_curves()
-        return self.__primary.artists() + self.__secondary.artists()
+        return self.__primary.artists() + self.__secondary.artists() + self.__dummy_artist
 
     def stop(self):
         '''

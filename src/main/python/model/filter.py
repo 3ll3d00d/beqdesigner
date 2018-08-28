@@ -1,13 +1,12 @@
 import logging
 import math
-import time
 import typing
-import qtawesome as qta
 from collections import Sequence
 from uuid import uuid4
 
-from qtpy.QtGui import QIcon
+import qtawesome as qta
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt
+from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import QDialog, QDialogButtonBox
 
 from model.iir import FilterType, LowShelf, HighShelf, PeakingEQ, SecondOrder_LowPass, \
@@ -25,12 +24,22 @@ class FilterModel(Sequence):
     A model to hold onto the filters.
     '''
 
-    def __init__(self, view, show_individual):
+    def __init__(self, view, show_individual, on_update=lambda _: True):
         self.filter = CompleteFilter()
         self.__view = view
         self.__show_individual = show_individual
-        self.table = None
+        self.__table = None
         self.__listeners = []
+        self.__on_update = on_update
+
+    @property
+    def table(self):
+        return self.__table
+
+    @table.setter
+    def table(self, table):
+        self.__table = table
+        self.__table.resizeColumns(self.__view)
 
     def __getitem__(self, i):
         return self.filter[i]
@@ -57,13 +66,12 @@ class FilterModel(Sequence):
         Stores the filter.
         :param filter: the filter.
         '''
-        if self.table is not None:
-            self.table.beginResetModel()
+        if self.__table is not None:
+            self.__table.beginResetModel()
         self.filter.save(filter)
-        self.__notify()
-        self.table.resizeColumns(self.__view)
-        if self.table is not None:
-            self.table.endResetModel()
+        self.post_update()
+        if self.__table is not None:
+            self.__table.endResetModel()
 
     def preview(self, filter):
         '''
@@ -78,20 +86,28 @@ class FilterModel(Sequence):
         Deletes the filter at the specified index.
         :param indices the indexes to delete.
         '''
-        if self.table is not None:
-            self.table.beginResetModel()
+        if self.__table is not None:
+            self.__table.beginResetModel()
         self.filter.removeByIndex(indices)
-        self.__notify()
-        self.table.resizeColumns(self.__view)
-        if self.table is not None:
-            self.table.endResetModel()
+        self.post_update()
+        if self.__table is not None:
+            self.__table.endResetModel()
 
-    def __notify(self):
+    def post_update(self, filter_change=True):
         '''
-        Propagates the filter change event to the listeners.
+        Reacts to a change in the model.
+        :param filter_change: true if the change came from an actual filter change.
         '''
-        for l in self.__listeners:
-            l.onFilterChange()
+        if self.__table is not None:
+            self.__table.resizeColumns(self.__view)
+        if self.__show_individual:
+            children = []
+        else:
+            children = self.filter.child_names()
+        self.__on_update([self.filter.__repr__()] + children)
+        if filter_change:
+            for l in self.__listeners:
+                l.onFilterChange()
 
     def getMagnitudeData(self, reference=None):
         '''

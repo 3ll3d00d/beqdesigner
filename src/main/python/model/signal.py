@@ -92,12 +92,22 @@ class SignalModel(Sequence):
     A model to hold onto the signals.
     '''
 
-    def __init__(self, view, filterModel):
+    def __init__(self, view, filterModel, on_update=lambda _: True):
         self.__signals = []
         self.__view = view
+        self.__on_update = on_update
         self.__filterModel = filterModel
         self.__filterModel.register(self)
-        self.table = None
+        self.__table = None
+
+    @property
+    def table(self):
+        return self.__table
+
+    @table.setter
+    def table(self, table):
+        self.__table = table
+        self.__table.resizeColumns(self.__view)
 
     def __getitem__(self, i):
         return self.__signals[i].signal
@@ -110,36 +120,43 @@ class SignalModel(Sequence):
         Add the supplied signals ot the model.
         :param signals: the signal.
         '''
-        if self.table is not None:
-            self.table.beginResetModel()
+        if self.__table is not None:
+            self.__table.beginResetModel()
         self.__signals.append(SignalData(len(self.__signals), signal, self.__filterModel.getTransferFunction()))
-        if self.table is not None:
-            self.table.endResetModel()
+        self.post_update()
+        if self.__table is not None:
+            self.__table.endResetModel()
+
+    def post_update(self):
+        from app import flatten
+        self.__on_update([x.name for x in flatten([y for x in self.__signals for y in x.get_all_xy()])])
+        self.__table.resizeColumns(self.__view)
 
     def remove(self, signal):
         '''
         Remove the specified signal from the model.
         :param signal: the signal to remove.
         '''
-        if self.table is not None:
-            self.table.beginResetModel()
+        if self.__table is not None:
+            self.__table.beginResetModel()
         self.__signals.remove(signal)
         for idx, s in self.__signals:
             s.reindex(idx)
-        if self.table is not None:
-            self.table.endResetModel()
+        self.post_update()
+        if self.__table is not None:
+            self.__table.endResetModel()
 
     def delete(self, indices):
         '''
         Delete the signals at the given indices.
         :param indices: the indices to remove.
         '''
-        if self.table is not None:
-            self.table.beginResetModel()
+        if self.__table is not None:
+            self.__table.beginResetModel()
         self.__signals = [s for idx, s in enumerate(self.__signals) if idx not in indices]
-        self.table.resizeColumns(self.__view)
-        if self.table is not None:
-            self.table.endResetModel()
+        self.post_update()
+        if self.__table is not None:
+            self.__table.endResetModel()
 
     def onFilterChange(self):
         '''
@@ -155,7 +172,6 @@ class SignalModel(Sequence):
         '''
         from app import flatten
         results = list(flatten([s.get_all_xy() for s in self.__signals]))
-        # TODO cache this
         if reference is not None:
             ref_data = next((x for x in results if x.name == reference), None)
             if ref_data:

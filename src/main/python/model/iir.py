@@ -568,6 +568,9 @@ class ComplexFilter:
     def __repr__(self):
         return self.description
 
+    def child_names(self):
+        return [x.__repr__() for x in self.filters]
+
     @property
     def filter_type(self):
         return 'Complex'
@@ -821,6 +824,7 @@ class XYData:
         :return: a normalised XYData.
         '''
         if target.name not in self.__normalised_cache:
+            logger.debug(f"Normalising {self.name} against {target.name}")
             self.__normalised_cache[target.name] = XYData(self.name, self.x, self.y - target.y, colour=self.colour,
                                                           linestyle=self.linestyle)
         return self.__normalised_cache[target.name]

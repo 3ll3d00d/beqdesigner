@@ -509,6 +509,22 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>showIndividualFilters</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>changeVisibilityOfIndividualFilters()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1263</x>
+     <y>903</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1155</x>
+     <y>835</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>addFilter()</slot>
