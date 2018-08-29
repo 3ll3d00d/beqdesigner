@@ -15,7 +15,6 @@ Install https://repo.anaconda.com/archive/Anaconda3-5.2.0-Windows-x86_64.exe the
 ## load/save/import/export
 
 * add frd import/export
-* create biquad filter export
 
 * add load/save feature 
   * allow loading individual signals or filters only
@@ -31,7 +30,6 @@ Install https://repo.anaconda.com/archive/Anaconda3-5.2.0-Windows-x86_64.exe the
 
 ## look and feel 
 
-* use animation on the charts so they can update live
 * come up with a sensible y axis tick scheme
 
 ## misc
