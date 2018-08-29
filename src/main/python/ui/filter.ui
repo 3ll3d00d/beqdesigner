@@ -13,7 +13,7 @@
   <property name="windowTitle">
    <string>Create Filter</string>
   </property>
-  <layout class="QGridLayout" name="panes">
+  <layout class="QGridLayout" name="panes" columnstretch="0,1">
    <item row="0" column="1">
     <layout class="QGridLayout" name="viewPane">
      <item row="0" column="0">
@@ -22,116 +22,7 @@
     </layout>
    </item>
    <item row="0" column="0">
-    <layout class="QGridLayout" name="paramsPane">
-     <item row="7" column="0">
-      <widget class="QLabel" name="filterCountLabel">
-       <property name="text">
-        <string>Count</string>
-       </property>
-      </widget>
-     </item>
-     <item row="2" column="1">
-      <widget class="QSpinBox" name="filterOrder">
-       <property name="enabled">
-        <bool>true</bool>
-       </property>
-       <property name="minimum">
-        <number>1</number>
-       </property>
-       <property name="maximum">
-        <number>24</number>
-       </property>
-       <property name="value">
-        <number>2</number>
-       </property>
-      </widget>
-     </item>
-     <item row="0" column="0">
-      <widget class="QLabel" name="typeLabel">
-       <property name="text">
-        <string>Type</string>
-       </property>
-      </widget>
-     </item>
-     <item row="8" column="1">
-      <spacer name="verticalSpacer">
-       <property name="orientation">
-        <enum>Qt::Vertical</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>20</width>
-         <height>40</height>
-        </size>
-       </property>
-      </spacer>
-     </item>
-     <item row="7" column="1">
-      <widget class="QSpinBox" name="filterCount">
-       <property name="minimum">
-        <number>1</number>
-       </property>
-       <property name="maximum">
-        <number>20</number>
-       </property>
-      </widget>
-     </item>
-     <item row="6" column="1">
-      <widget class="QDoubleSpinBox" name="filterGain">
-       <property name="decimals">
-        <number>1</number>
-       </property>
-       <property name="minimum">
-        <double>-30.000000000000000</double>
-       </property>
-       <property name="maximum">
-        <double>30.000000000000000</double>
-       </property>
-       <property name="singleStep">
-        <double>0.100000000000000</double>
-       </property>
-      </widget>
-     </item>
-     <item row="4" column="1">
-      <widget class="QDoubleSpinBox" name="filterQ">
-       <property name="decimals">
-        <number>4</number>
-       </property>
-       <property name="minimum">
-        <double>0.001000000000000</double>
-       </property>
-       <property name="maximum">
-        <double>20.000000000000000</double>
-       </property>
-       <property name="singleStep">
-        <double>0.000100000000000</double>
-       </property>
-       <property name="value">
-        <double>0.707100000000000</double>
-       </property>
-      </widget>
-     </item>
-     <item row="5" column="0">
-      <widget class="QLabel" name="sLabel">
-       <property name="text">
-        <string>S</string>
-       </property>
-      </widget>
-     </item>
-     <item row="4" column="0">
-      <widget class="QLabel" name="filterQLabel">
-       <property name="text">
-        <string>Q</string>
-       </property>
-      </widget>
-     </item>
-     <item row="2" column="0">
-      <widget class="QLabel" name="orderLabel">
-       <property name="text">
-        <string>Order</string>
-       </property>
-      </widget>
-     </item>
+    <layout class="QGridLayout" name="paramsPane" columnstretch="1,0,0">
      <item row="1" column="1">
       <widget class="QComboBox" name="passFilterType">
        <property name="enabled">
@@ -147,6 +38,13 @@
          <string>Linkwitz-Riley</string>
         </property>
        </item>
+      </widget>
+     </item>
+     <item row="0" column="0">
+      <widget class="QLabel" name="typeLabel">
+       <property name="text">
+        <string>Type</string>
+       </property>
       </widget>
      </item>
      <item row="0" column="1">
@@ -188,10 +86,120 @@
        </item>
       </widget>
      </item>
+     <item row="2" column="1">
+      <widget class="QSpinBox" name="filterOrder">
+       <property name="enabled">
+        <bool>true</bool>
+       </property>
+       <property name="minimum">
+        <number>1</number>
+       </property>
+       <property name="maximum">
+        <number>24</number>
+       </property>
+       <property name="value">
+        <number>2</number>
+       </property>
+      </widget>
+     </item>
+     <item row="4" column="0">
+      <widget class="QLabel" name="filterQLabel">
+       <property name="text">
+        <string>Q</string>
+       </property>
+      </widget>
+     </item>
+     <item row="5" column="0">
+      <widget class="QLabel" name="sLabel">
+       <property name="text">
+        <string>S</string>
+       </property>
+      </widget>
+     </item>
+     <item row="7" column="1">
+      <widget class="QSpinBox" name="filterCount">
+       <property name="minimum">
+        <number>1</number>
+       </property>
+       <property name="maximum">
+        <number>20</number>
+       </property>
+      </widget>
+     </item>
+     <item row="7" column="0">
+      <widget class="QLabel" name="filterCountLabel">
+       <property name="text">
+        <string>Count</string>
+       </property>
+      </widget>
+     </item>
      <item row="6" column="0">
       <widget class="QLabel" name="gainLabel">
        <property name="text">
         <string>Gain</string>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="0">
+      <widget class="QLabel" name="orderLabel">
+       <property name="text">
+        <string>Order</string>
+       </property>
+      </widget>
+     </item>
+     <item row="4" column="1">
+      <widget class="QDoubleSpinBox" name="filterQ">
+       <property name="decimals">
+        <number>4</number>
+       </property>
+       <property name="minimum">
+        <double>0.001000000000000</double>
+       </property>
+       <property name="maximum">
+        <double>20.000000000000000</double>
+       </property>
+       <property name="singleStep">
+        <double>0.000100000000000</double>
+       </property>
+       <property name="value">
+        <double>0.707100000000000</double>
+       </property>
+      </widget>
+     </item>
+     <item row="3" column="2">
+      <widget class="QToolButton" name="freqStepButton">
+       <property name="text">
+        <string>...</string>
+       </property>
+      </widget>
+     </item>
+     <item row="6" column="1">
+      <widget class="QDoubleSpinBox" name="filterGain">
+       <property name="decimals">
+        <number>1</number>
+       </property>
+       <property name="minimum">
+        <double>-30.000000000000000</double>
+       </property>
+       <property name="maximum">
+        <double>30.000000000000000</double>
+       </property>
+       <property name="singleStep">
+        <double>0.100000000000000</double>
+       </property>
+      </widget>
+     </item>
+     <item row="3" column="0">
+      <widget class="QLabel" name="freqLabel">
+       <property name="text">
+        <string>Freq</string>
+       </property>
+      </widget>
+     </item>
+     <item row="6" column="2">
+      <widget class="QToolButton" name="gainStepButton">
+       <property name="text">
+        <string>...</string>
        </property>
       </widget>
      </item>
@@ -214,8 +222,8 @@
        </property>
       </widget>
      </item>
-     <item row="3" column="2">
-      <widget class="QToolButton" name="freqStepButton">
+     <item row="5" column="2">
+      <widget class="QToolButton" name="sStepButton">
        <property name="text">
         <string>...</string>
        </property>
@@ -250,36 +258,62 @@
        </property>
       </widget>
      </item>
-     <item row="3" column="0">
-      <widget class="QLabel" name="freqLabel">
+     <item row="8" column="0" colspan="3">
+      <widget class="QCheckBox" name="showCombined">
        <property name="text">
-        <string>Freq</string>
+        <string>Show Complete Filter?</string>
+       </property>
+       <property name="checked">
+        <bool>true</bool>
        </property>
       </widget>
      </item>
-     <item row="9" column="0" colspan="2">
-      <widget class="QDialogButtonBox" name="buttonBox">
+     <item row="12" column="1">
+      <spacer name="verticalSpacer">
        <property name="orientation">
-        <enum>Qt::Horizontal</enum>
+        <enum>Qt::Vertical</enum>
        </property>
-       <property name="standardButtons">
-        <set>QDialogButtonBox::Close|QDialogButtonBox::Save</set>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>20</width>
+         <height>40</height>
+        </size>
        </property>
-      </widget>
+      </spacer>
      </item>
-     <item row="6" column="2">
-      <widget class="QToolButton" name="gainStepButton">
-       <property name="text">
-        <string>...</string>
-       </property>
-      </widget>
-     </item>
-     <item row="5" column="2">
-      <widget class="QToolButton" name="sStepButton">
-       <property name="text">
-        <string>...</string>
-       </property>
-      </widget>
+     <item row="9" column="0" colspan="3">
+      <layout class="QHBoxLayout" name="horizontalLayout">
+       <item>
+        <widget class="QToolButton" name="addButton">
+         <property name="toolTip">
+          <string>Add</string>
+         </property>
+         <property name="text">
+          <string>...</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="addMoreButton">
+         <property name="toolTip">
+          <string>Save and Exit</string>
+         </property>
+         <property name="text">
+          <string/>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="exitButton">
+         <property name="toolTip">
+          <string>Exit</string>
+         </property>
+         <property name="text">
+          <string>...</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
      </item>
     </layout>
    </item>
@@ -310,38 +344,6 @@
  <resources/>
  <connections>
   <connection>
-   <sender>buttonBox</sender>
-   <signal>accepted()</signal>
-   <receiver>editFilterDialog</receiver>
-   <slot>accept()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>246</x>
-     <y>650</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>157</x>
-     <y>274</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>buttonBox</sender>
-   <signal>rejected()</signal>
-   <receiver>editFilterDialog</receiver>
-   <slot>reject()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>246</x>
-     <y>650</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>286</x>
-     <y>274</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
    <sender>filterType</sender>
    <signal>currentTextChanged(QString)</signal>
    <receiver>editFilterDialog</receiver>
@@ -364,7 +366,7 @@
    <slot>changeOrderStep()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>207</x>
+     <x>206</x>
      <y>72</y>
     </hint>
     <hint type="destinationlabel">
@@ -380,7 +382,7 @@
    <slot>enableOkIfGainIsValid()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>246</x>
+     <x>206</x>
      <y>242</y>
     </hint>
     <hint type="destinationlabel">
@@ -396,7 +398,7 @@
    <slot>recalcShelfFromQ()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>246</x>
+     <x>206</x>
      <y>174</y>
     </hint>
     <hint type="destinationlabel">
@@ -428,8 +430,8 @@
    <slot>previewFilter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>230</x>
-     <y>20</y>
+     <x>206</x>
+     <y>34</y>
     </hint>
     <hint type="destinationlabel">
      <x>252</x>
@@ -444,8 +446,8 @@
    <slot>previewFilter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>211</x>
-     <y>59</y>
+     <x>206</x>
+     <y>72</y>
     </hint>
     <hint type="destinationlabel">
      <x>251</x>
@@ -460,8 +462,8 @@
    <slot>previewFilter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>209</x>
-     <y>92</y>
+     <x>206</x>
+     <y>106</y>
     </hint>
     <hint type="destinationlabel">
      <x>250</x>
@@ -556,8 +558,8 @@
    <slot>handleSToolButton()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>269</x>
-     <y>187</y>
+     <x>247</x>
+     <y>208</y>
     </hint>
     <hint type="destinationlabel">
      <x>292</x>
@@ -572,8 +574,8 @@
    <slot>handleQToolButton()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>285</x>
-     <y>167</y>
+     <x>247</x>
+     <y>174</y>
     </hint>
     <hint type="destinationlabel">
      <x>272</x>
@@ -588,8 +590,8 @@
    <slot>handleGainToolButton()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>270</x>
-     <y>233</y>
+     <x>247</x>
+     <y>242</y>
     </hint>
     <hint type="destinationlabel">
      <x>281</x>
@@ -604,12 +606,76 @@
    <slot>handleFreqToolButton()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>264</x>
-     <y>126</y>
+     <x>247</x>
+     <y>140</y>
     </hint>
     <hint type="destinationlabel">
      <x>278</x>
      <y>31</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>showCombined</sender>
+   <signal>clicked()</signal>
+   <receiver>editFilterDialog</receiver>
+   <slot>previewFilter()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>86</x>
+     <y>297</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>68</x>
+     <y>447</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>addButton</sender>
+   <signal>clicked()</signal>
+   <receiver>editFilterDialog</receiver>
+   <slot>save()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>61</x>
+     <y>323</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>100</x>
+     <y>487</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>addMoreButton</sender>
+   <signal>clicked()</signal>
+   <receiver>editFilterDialog</receiver>
+   <slot>accept()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>133</x>
+     <y>331</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>187</x>
+     <y>474</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>exitButton</sender>
+   <signal>clicked()</signal>
+   <receiver>editFilterDialog</receiver>
+   <slot>reject()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>189</x>
+     <y>332</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>203</x>
+     <y>412</y>
     </hint>
    </hints>
   </connection>
@@ -626,5 +692,6 @@
   <slot>handleQToolButton()</slot>
   <slot>handleGainToolButton()</slot>
   <slot>handleFreqToolButton()</slot>
+  <slot>save()</slot>
  </slots>
 </ui>

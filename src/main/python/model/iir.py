@@ -18,6 +18,8 @@ import decimal
 ctx = decimal.Context()
 ctx.prec = 15
 
+COMBINED = 'Combined'
+
 
 def float_to_str(f):
     """
@@ -38,6 +40,7 @@ class Biquad(ABC):
         self.alpha = self.sin_w0 / (2.0 * self.q)
         self.a, self.b = self._compute_coeffs()
         self.id = -1
+        self.__transferFunction = None
 
     def __repr__(self):
         return self.description
@@ -67,9 +70,11 @@ class Biquad(ABC):
         :param filt: the filter.
         :return: the transfer function.
         '''
-        w, h = signal.freqz(b=self.b, a=self.a, worN=min(1 << (self.fs - 1).bit_length(), 8192))
-        f = w * self.fs / (2 * np.pi)
-        return ComplexData(self.__repr__(), f, h)
+        if self.__transferFunction is None:
+            w, h = signal.freqz(b=self.b, a=self.a, worN=max(1 << (self.fs - 1).bit_length(), 8192))
+            f = w * self.fs / (2 * np.pi)
+            self.__transferFunction = ComplexData(self.__repr__(), f, h)
+        return self.__transferFunction
 
     def format_biquads(self, minidsp_style):
         ''' Creates a biquad report '''
@@ -78,6 +83,18 @@ class Biquad(ABC):
              idx != 0 or minidsp_style is False])
         b = ",\n".join([f"b{idx}={float_to_str(x)}" for idx, x in enumerate(self.b)])
         return [f"{b},\n{a}"]
+
+
+class Passthrough(Biquad):
+    def __init__(self):
+        super().__init__(1000, 100, 1)
+
+    def _compute_coeffs(self):
+        return np.array([1.0, 0.0, 0.0]), [1.0, 0.0, 0.0]
+
+    @property
+    def description(self):
+        return 'Passthrough'
 
 
 class BiquadWithGain(Biquad):
@@ -167,6 +184,7 @@ class Shelf(BiquadWithGain):
         self.A = 10.0 ** (gain / 40.0)
         super().__init__(fs, freq, q, gain)
         self.count = count
+        self.__cached_cascade = None
 
     def q_to_s(self):
         '''
@@ -182,7 +200,9 @@ class Shelf(BiquadWithGain):
         if self.count == 1:
             return single
         elif self.count > 1:
-            return getCascadeTransferFunction(self.__repr__(), [single] * self.count)
+            if self.__cached_cascade is None:
+                self.__cached_cascade = getCascadeTransferFunction(self.__repr__(), [single] * self.count)
+            return self.__cached_cascade
         else:
             raise ValueError('Shelf must have non zero count')
 
@@ -534,53 +554,81 @@ class ComplexFilter:
     '''
 
     def __init__(self, filters=None, description='Complex'):
-        self.__filters = filters if filters is not None else []
+        self.filters = filters if filters is not None else []
         self.description = description
         self.id = -1
+        self.__cached_transfer = None
 
     def __getitem__(self, i):
-        return self.__filters[i]
+        return self.filters[i]
 
     def __len__(self):
-        return len(self.__filters)
+        return len(self.filters)
 
     def __repr__(self):
         return self.description
+
+    def child_names(self):
+        return [x.__repr__() for x in self.filters]
 
     @property
     def filter_type(self):
         return 'Complex'
 
-    def add(self, filter):
+    def save(self, filter):
         '''
-        Adds a new filter.
+        Saves the filter with the given id, removing an existing one if necessary.
         :param filter: the filter.
         '''
-        self.__filters.append(filter)
+        self.save0(filter, self.filters)
+        self.__cached_transfer = None
 
-    def replace(self, filter):
-        '''
-        Replaces the filter with the given id.
-        :param filter: the filter.
-        '''
-        match = next((f for f in self.__filters if f.id == filter.id), None)
+    def save0(self, filter, filters):
+        match = next((f for f in filters if f.id == filter.id), None)
         if match:
-            self.__filters.remove(match)
-        self.add(filter)
+            filters.remove(match)
+        filters.append(filter)
+        return filters
 
     def removeByIndex(self, indices):
         '''
         Removes the filter with the given indexes.
         :param indices: the indices to remove.
         '''
-        self.__filters = [filter for idx, filter in enumerate(self.__filters) if idx not in indices]
+        self.filters = [filter for idx, filter in enumerate(self.filters) if idx not in indices]
+        self.__cached_transfer = None
 
     def getTransferFunction(self):
         '''
         Computes the transfer function of the filter.
         :return: the transfer function.
         '''
-        return getCascadeTransferFunction(self.__repr__(), [x.getTransferFunction() for x in self.__filters])
+        if self.__cached_transfer is None:
+            self.__cached_transfer = getCascadeTransferFunction(self.__repr__(),
+                                                                [x.getTransferFunction() for x in self.filters])
+        return self.__cached_transfer
+
+    def format_biquads(self, invert_a):
+        '''
+        Formats the filter into a biquad report.
+        :param invert_a: whether to invert the a coeffs.
+        :return: the report.
+        '''
+        return [f.format_biquads(invert_a) for f in self.filters]
+
+
+class CompleteFilter(ComplexFilter):
+
+    def __init__(self, filters=None, description=COMBINED):
+        super().__init__(filters=filters, description=description)
+
+    def preview(self, filter):
+        '''
+        Creates a new filter with the supplied filter saved into it.
+        :param filter: the filter.
+        :return: a copied filter.
+        '''
+        return ComplexFilter(self.save0(filter, self.filters.copy()), self.description)
 
     def resample(self, new_fs):
         '''
@@ -589,17 +637,9 @@ class ComplexFilter:
         :return: the new filter.
         '''
         if len(self) > 0:
-            return ComplexFilter(filters=[f.resample(new_fs) for f in self.__filters], description=self.description)
+            return CompleteFilter(filters=[f.resample(new_fs) for f in self.filters], description=self.description)
         else:
             return self
-
-    def format_biquads(self, invert_a):
-        '''
-        Formats the filter into a biquad report.
-        :param invert_a: whether to invert the a coeffs.
-        :return: the report.
-        '''
-        return [f.format_biquads(invert_a) for f in self.__filters]
 
 
 class FilterType(Enum):
@@ -612,7 +652,7 @@ class CompoundPassFilter(ComplexFilter):
     A high or low pass filter of different types and orders that are implemented using one or more biquads.
     '''
 
-    def __init__(self, one_pole_ctor, two_pole_ctor, filter_type, order, fs, freq):
+    def __init__(self, high_or_low, one_pole_ctor, two_pole_ctor, filter_type, order, fs, freq):
         self.__bw1 = one_pole_ctor
         self.__bw2 = two_pole_ctor
         self.type = filter_type
@@ -624,7 +664,7 @@ class CompoundPassFilter(ComplexFilter):
                 raise ValueError("LR filters must be even order")
         if self.order == 0:
             raise ValueError("Filter cannot have order = 0")
-        self.__filter_type = f"{filter_type.value}{order}"
+        self.__filter_type = f"{high_or_low} {filter_type.value}{order}"
         super().__init__(filters=self._calculate_biquads(), description=f"{self.__filter_type}/{self.freq}Hz")
 
     @property
@@ -673,7 +713,7 @@ class ComplexLowPass(CompoundPassFilter):
     '''
 
     def __init__(self, filter_type, order, fs, freq):
-        super().__init__(FirstOrder_LowPass, SecondOrder_LowPass, filter_type, order, fs, freq)
+        super().__init__('Low', FirstOrder_LowPass, SecondOrder_LowPass, filter_type, order, fs, freq)
 
     @property
     def display_name(self):
@@ -697,7 +737,7 @@ class ComplexHighPass(CompoundPassFilter):
     '''
 
     def __init__(self, filter_type, order, fs, freq):
-        super().__init__(FirstOrder_HighPass, SecondOrder_HighPass, filter_type, order, fs, freq)
+        super().__init__('High', FirstOrder_HighPass, SecondOrder_HighPass, filter_type, order, fs, freq)
 
     @property
     def display_name(self):
@@ -725,13 +765,23 @@ class ComplexData:
         self.x = x
         self.y = y
         self.scaleFactor = scaleFactor
+        self.__cached_mag_ref = None
+        self.__cached_mag = None
+        self.__cached_phase = None
 
     def getMagnitude(self, ref=1, colour=None):
-        y = np.abs(self.y) * self.scaleFactor / ref
-        return XYData(self.name, self.x, 20 * np.log10(y), colour=colour)
+        if self.__cached_mag_ref is not None and math.isclose(ref, self.__cached_mag_ref):
+            self.__cached_mag.colour = colour
+        else:
+            self.__cached_mag_ref = ref
+            y = np.abs(self.y) * self.scaleFactor / ref
+            self.__cached_mag = XYData(self.name, self.x, 20 * np.log10(y), colour=colour)
+        return self.__cached_mag
 
     def getPhase(self, colour=None):
-        return XYData(self.name, self.x, np.angle(self.y), colour=colour)
+        if self.__cached_phase is None:
+            self.__cached_phase = XYData(self.name, self.x, np.angle(self.y), colour=colour)
+        return self.__cached_phase
 
 
 class XYData:
@@ -742,17 +792,30 @@ class XYData:
     def __init__(self, name, x, y, colour=None, linestyle='-'):
         self.name = name
         self.x = x
-        self.y = np.clip(y, -10000000.0, 10000000.0)
+        self.y = np.nan_to_num(y)
         if self.y.size < 8192:
             new_x = np.linspace(self.x[0], self.x[-1], num=8192, endpoint=True)
             cs = CubicSpline(self.x, self.y)
             new_y = cs(new_x)
+            logger.debug(f"Interpolating {name} from {self.y.size} to 8192")
             self.x = new_x
             self.y = new_y
         self.colour = colour
         self.linestyle = linestyle
         self.miny = np.ma.masked_invalid(y).min()
         self.maxy = np.ma.masked_invalid(y).max()
+        self.__rendered = False
+        self.__normalised_cache = {}
+
+    @property
+    def rendered(self):
+        return self.__rendered
+
+    @rendered.setter
+    def rendered(self, value):
+        self.__rendered = value
+        if value is True:
+            logger.debug(f"Rendered {self.name}")
 
     def normalise(self, target):
         '''
@@ -760,7 +823,11 @@ class XYData:
         :param target: the target.
         :return: a normalised XYData.
         '''
-        return XYData(self.name, self.x, self.y - target.y, colour=self.colour, linestyle=self.linestyle)
+        if target.name not in self.__normalised_cache:
+            logger.debug(f"Normalising {self.name} against {target.name}")
+            self.__normalised_cache[target.name] = XYData(self.name, self.x, self.y - target.y, colour=self.colour,
+                                                          linestyle=self.linestyle)
+        return self.__normalised_cache[target.name]
 
     def filter(self, filt):
         '''
@@ -773,12 +840,9 @@ class XYData:
             logger.debug(f"Interpolating filt {filt.x.size} vs self {self.x.size}")
             if self.x.size > filt.x.size:
                 interp_y = np.interp(self.x, filt.x, filt.y)
-                return XYData(f"{self.name}-filtered", self.x, self.y + interp_y, colour=self.colour,
-                              linestyle=self.linestyle)
+                return XYData(f"{self.name}-filtered", self.x, self.y + interp_y, colour=self.colour, linestyle='-')
             else:
                 interp_y = np.interp(filt.x, self.x, self.y)
-                return XYData(f"{self.name}-filtered", filt.x, filt.y + interp_y, colour=self.colour,
-                              linestyle=self.linestyle)
+                return XYData(f"{self.name}-filtered", filt.x, filt.y + interp_y, colour=self.colour, linestyle='-')
         else:
-            return XYData(f"{self.name}-filtered", self.x, self.y + filt.y, colour=self.colour,
-                          linestyle=self.linestyle)
+            return XYData(f"{self.name}-filtered", self.x, self.y + filt.y, colour=self.colour, linestyle='-')

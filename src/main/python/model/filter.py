@@ -1,24 +1,28 @@
 import logging
 import math
-import time
 import typing
-import qtawesome as qta
 from collections import Sequence
 from uuid import uuid4
 
-from qtpy.QtGui import QIcon
+import qtawesome as qta
+from qtpy import QtCore
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt
+from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import QDialog, QDialogButtonBox
 
-from model.iir import ComplexFilter, FilterType, LowShelf, HighShelf, PeakingEQ, SecondOrder_LowPass, \
-    SecondOrder_HighPass, ComplexLowPass, ComplexHighPass, q_to_s, s_to_q, max_permitted_s
+from model.iir import FilterType, LowShelf, HighShelf, PeakingEQ, SecondOrder_LowPass, \
+    SecondOrder_HighPass, ComplexLowPass, ComplexHighPass, q_to_s, s_to_q, max_permitted_s, CompleteFilter, COMBINED, \
+    Passthrough
 from model.magnitude import MagnitudeModel
 from mpl import get_line_colour
 from ui.filter import Ui_editFilterDialog
 
-COMBINED = 'Combined'
-
 logger = logging.getLogger('filter')
+
+SHOW_ALL_FILTERS = 'All'
+SHOW_COMBINED_FILTER = 'Total'
+SHOW_NO_FILTERS = 'None'
+SHOW_FILTER_OPTIONS = [SHOW_ALL_FILTERS, SHOW_COMBINED_FILTER, SHOW_NO_FILTERS]
 
 
 class FilterModel(Sequence):
@@ -26,11 +30,22 @@ class FilterModel(Sequence):
     A model to hold onto the filters.
     '''
 
-    def __init__(self, view, showIndividualFilters):
-        self.filter = ComplexFilter(description=COMBINED)
+    def __init__(self, view, show_filters=lambda: SHOW_ALL_FILTERS, on_update=lambda _: True):
+        self.filter = CompleteFilter()
         self.__view = view
-        self.__showIndividualFilters = showIndividualFilters
-        self.table = None
+        self.__show_filters = show_filters
+        self.__table = None
+        self.__listeners = []
+        self.__on_update = on_update
+
+    @property
+    def table(self):
+        return self.__table
+
+    @table.setter
+    def table(self, table):
+        self.__table = table
+        self.__table.resizeColumns(self.__view)
 
     def __getitem__(self, i):
         return self.filter[i]
@@ -38,54 +53,85 @@ class FilterModel(Sequence):
     def __len__(self):
         return len(self.filter)
 
-    def add(self, filter):
+    def register(self, listener):
         '''
-        Stores a new filter.
-        :param filter: the filter.
+        Registers a listener for filter change events.
+        :param listener: the listener.
         '''
-        if self.table is not None:
-            self.table.beginResetModel()
-        self.filter.add(filter)
-        self.table.resizeColumns(self.__view)
-        if self.table is not None:
-            self.table.endResetModel()
+        self.__listeners.append(listener)
 
-    def replace(self, filter):
+    def deregister(self, listener):
         '''
-        Replaces the given filter.
+        Deregisters a listener on filter change events.
+        :param listener: the listener
+        '''
+        self.__listeners.remove(listener)
+
+    def save(self, filter):
+        '''
+        Stores the filter.
         :param filter: the filter.
         '''
-        if self.table is not None:
-            self.table.beginResetModel()
-        self.filter.replace(filter)
-        self.table.resizeColumns(self.__view)
-        if self.table is not None:
-            self.table.endResetModel()
+        if self.__table is not None:
+            self.__table.beginResetModel()
+        self.filter.save(filter)
+        self.post_update()
+        if self.__table is not None:
+            self.__table.endResetModel()
+
+    def preview(self, filter):
+        '''
+        Previews the effect of saving the supplied filter.
+        :param filter: the filter.
+        :return: a previewed filter.
+        '''
+        return self.filter.preview(filter)
 
     def delete(self, indices):
         '''
         Deletes the filter at the specified index.
         :param indices the indexes to delete.
         '''
-        if self.table is not None:
-            self.table.beginResetModel()
+        if self.__table is not None:
+            self.__table.beginResetModel()
         self.filter.removeByIndex(indices)
-        self.table.resizeColumns(self.__view)
-        if self.table is not None:
-            self.table.endResetModel()
+        self.post_update()
+        if self.__table is not None:
+            self.__table.endResetModel()
+
+    def post_update(self, filter_change=True):
+        '''
+        Reacts to a change in the model.
+        :param filter_change: true if the change came from an actual filter change.
+        '''
+        if self.__table is not None:
+            self.__table.resizeColumns(self.__view)
+        visible_filter_names = []
+        show_filters = self.__show_filters()
+        if show_filters != SHOW_NO_FILTERS:
+            visible_filter_names.append(self.filter.__repr__())
+        if show_filters == SHOW_ALL_FILTERS:
+            visible_filter_names += self.filter.child_names()
+        if filter_change:
+            for l in self.__listeners:
+                l.onFilterChange()
+        self.__on_update(visible_filter_names)
 
     def getMagnitudeData(self, reference=None):
         '''
         :param reference: the name of the reference data.
         :return: the magnitude response of each filter.
         '''
-        include_individual = self.__showIndividualFilters.isChecked()
-        if len(self.filter) > 0:
-            start = time.time()
+        show_filters = self.__show_filters()
+        if show_filters == SHOW_NO_FILTERS:
+            return []
+        elif len(self.filter) == 0:
+            return []
+        else:
             children = [x.getTransferFunction() for x in self.filter]
             combined = self.filter.getTransferFunction()
             results = [combined]
-            if include_individual and len(self) > 1:
+            if show_filters == SHOW_ALL_FILTERS and len(self) > 1:
                 results += children
             mags = [r.getMagnitude() for r in results]
             for idx, m in enumerate(mags):
@@ -97,11 +143,7 @@ class FilterModel(Sequence):
                 ref_data = next((x for x in mags if x.name == reference), None)
                 if ref_data:
                     mags = [x.normalise(ref_data) for x in mags]
-            end = time.time()
-            logger.debug(f"Calculated {len(mags)} transfer functions in {end-start}ms")
             return mags
-        else:
-            return []
 
     def getTransferFunction(self):
         '''
@@ -179,21 +221,26 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
     q_steps = [0.0001, 0.001, 0.01, 0.1]
     gain_steps = [0.1, 1.0]
     freq_steps = [0.1, 1.0, 2.0, 5.0]
+    passthrough = Passthrough()
 
     def __init__(self, filterModel, fs=48000, filter=None, parent=None):
+        # prevent signals from recalculating the filter before we've populated the fields
+        self.__starting = True
         super(FilterDialog, self).__init__(parent)
         # for shelf filter, allow input via Q or S not both
         self.__q_is_active = True
+        # allow user to control the steps for different fields
         self.__q_step_idx = 0
         self.__s_step_idx = 0
         self.__gain_step_idx = 0
         self.__freq_step_idx = 0
+        # init the UI itself
         self.setupUi(self)
-        # used to prevent signals from recalculating the filter before we've populated the fields
-        self.__starting = True
-        self.__magnitudeModel = MagnitudeModel('preview', self.previewChart, self, 'Filter', animate=True)
+        # underlying filter model
         self.filterModel = filterModel
         self.__filter = filter
+        self.__combined_preview = filterModel.filter
+        # populate the fields with values if we're editing an existing filter
         self.__original_id = self.__filter.id if filter is not None else None
         self.fs = fs if filter is None else filter.fs
         if self.__filter is not None:
@@ -211,23 +258,28 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
             if hasattr(self.__filter, 'count'):
                 self.filterCount.setValue(self.__filter.count)
             self.filterType.setCurrentIndex(self.filterType.findText(filter.display_name))
-        else:
-            self.buttonBox.button(QDialogButtonBox.Save).setText('Add')
+        # configure visible/enabled fields for the current filter type
         self.enableFilterParams()
         self.enableOkIfGainIsValid()
         self.freq.setMaximum(self.fs / 2.0)
         self.__starting = False
+        # init the chart
+        self.__magnitudeModel = MagnitudeModel('preview', self.previewChart, self, 'Filter')
+        # ensure the preview graph is shown if we have something to show
         self.previewFilter()
 
-    def accept(self):
-        ''' Stores the filter in the model (adding or replacing as necessary). '''
+    def save(self):
+        ''' Stores the filter in the model. '''
         if self.__filter is not None:
             if self.__original_id is None:
                 self.__filter.id = uuid4()
-                self.filterModel.add(self.__filter)
-            else:
-                self.__filter.id = self.__original_id
-                self.filterModel.replace(self.__filter)
+            self.filterModel.save(self.__filter)
+            self.previewFilter()
+
+    def accept(self):
+        ''' Saves and exits. '''
+        self.save()
+        QDialog.accept(self)
 
     def previewFilter(self):
         ''' creates a filter if the params are valid '''
@@ -237,16 +289,27 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
                     self.__filter = self.create_pass_filter()
                 else:
                     self.__filter = self.create_shaping_filter()
+                if self.__original_id is not None:
+                    self.__filter.id = self.__original_id
+                self.__combined_preview = self.filterModel.preview(self.__filter)
+                self.passthrough.rendered = False
             else:
+                self.__combined_preview = self.filterModel.filter
                 self.__filter = None
-            self.__magnitudeModel.display()
+            self.__magnitudeModel.redraw()
 
     def getMagnitudeData(self, reference=None):
         ''' preview of the filter to display on the chart '''
         if self.__filter is not None:
-            return [self.__filter.getTransferFunction().getMagnitude(colour='c')]
+            result = [self.__filter.getTransferFunction().getMagnitude(colour='m')]
+            if len(self.filterModel) > 0 and self.showCombined.isChecked():
+                result.append(self.__combined_preview.getTransferFunction().getMagnitude(colour='c'))
+            return result
         else:
-            return []
+            if len(self.filterModel) > 0 and self.showCombined.isChecked():
+                return [self.__combined_preview.getTransferFunction().getMagnitude(colour='c')]
+            else:
+                return [self.passthrough.getTransferFunction().getMagnitude(colour='m')]
 
     def create_shaping_filter(self):
         '''
@@ -336,6 +399,12 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.sLabel.setVisible(is_shelf_filter)
         self.filterS.setVisible(is_shelf_filter)
         self.sStepButton.setVisible(is_shelf_filter)
+        self.addButton.setIcon(qta.icon('fa.plus'))
+        self.addButton.setIconSize(QtCore.QSize(32, 32))
+        self.addMoreButton.setIcon(qta.icon('fa.save'))
+        self.addMoreButton.setIconSize(QtCore.QSize(32, 32))
+        self.exitButton.setIcon(qta.icon('fa.sign-out'))
+        self.exitButton.setIconSize(QtCore.QSize(32, 32))
         self.enableOkIfGainIsValid()
 
     def changeOrderStep(self):
@@ -353,7 +422,8 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
 
     def enableOkIfGainIsValid(self):
         ''' enables the save button if we have a valid filter. '''
-        self.buttonBox.button(QDialogButtonBox.Save).setEnabled(self.__is_valid_filter())
+        self.addMoreButton.setEnabled(self.__is_valid_filter())
+        self.addButton.setEnabled(self.__is_valid_filter())
 
     def __is_valid_filter(self):
         '''

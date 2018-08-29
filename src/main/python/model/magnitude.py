@@ -1,10 +1,8 @@
 import logging
 import math
-import time
 from math import log10
 
 from PyQt5.QtWidgets import QDialog
-from matplotlib.animation import FuncAnimation
 from matplotlib.ticker import EngFormatter, Formatter, NullFormatter, LinearLocator
 from qtpy import QtWidgets
 
@@ -38,7 +36,6 @@ class AxesManager:
         self.__axes = axes
         self.reference_curve = None
         self.__curves = {}
-        self.__data = []
         self.__maxy = 0
         self.__miny = 0
 
@@ -56,16 +53,6 @@ class AxesManager:
         '''
         return list(self.__curves.keys())
 
-    def refresh_data(self):
-        '''
-        Refreshes the data from the provider.
-        '''
-        if self.__provider is not None:
-            self.__data = self.__provider.getMagnitudeData(reference=self.reference_curve)
-        if len(self.__data) > 0:
-            self.__miny = math.floor(min([x.miny for x in self.__data]))
-            self.__maxy = math.ceil(max([x.maxy for x in self.__data]))
-
     def display_curves(self):
         '''
         Displays the cached data on the specified axes, removing existing curves as required.
@@ -73,24 +60,31 @@ class AxesManager:
         :param curves: the stored curves.
         :param axes: the axes on which to display.
         '''
-        for x in self.__data:
-            self.__create_or_update_curve(x)
-        curve_names = [x.name for x in self.__data]
-        to_delete = [curve for name, curve in self.__curves.items() if name not in curve_names]
-        for curve in to_delete:
-            curve.remove()
-            del self.__curves[curve.get_label()]
+        if self.__provider is not None:
+            data = self.__provider.getMagnitudeData(reference=self.reference_curve)
+            if len(data) > 0:
+                curve_names = [self.__create_or_update_curve(x) for x in data if data is not None]
+                self.__miny = math.floor(min([x.miny for x in data]))
+                self.__maxy = math.ceil(max([x.maxy for x in data]))
+            else:
+                curve_names = []
+            to_delete = [curve for name, curve in self.__curves.items() if name not in curve_names]
+            for curve in to_delete:
+                curve.remove()
+                del self.__curves[curve.get_label()]
 
     def __create_or_update_curve(self, data):
         '''
         sets the data on the curve, creating a new artist if necessary.
         :param data: the data to set on the curve.
+        :param the updated (or created) curve.
+        :return the curve name.
         '''
         curve = self.__curves.get(data.name, None)
         if curve:
             curve.set_data(data.x, data.y)
-            curve.set_color(data.colour)
             curve.set_linestyle(data.linestyle)
+            curve.set_color(data.colour)
         else:
             self.__curves[data.name] = self.__axes.semilogx(data.x, data.y,
                                                             linewidth=2,
@@ -98,6 +92,8 @@ class AxesManager:
                                                             linestyle=data.linestyle,
                                                             color=data.colour,
                                                             label=data.name)[0]
+        data.rendered = True
+        return data.name
 
     def get_ylimits(self):
         '''
@@ -121,13 +117,15 @@ class MagnitudeModel:
     '''
 
     def __init__(self, name, chart, primaryDataProvider, primaryName, secondaryDataProvider=None, secondaryName=None,
-                 animate=False):
+                 show_legend=lambda: True):
         self.__name = name
         self.__chart = chart
+        self.__show_legend = show_legend
         primary_axes = self.__chart.canvas.figure.add_subplot(111)
         primary_axes.set_ylabel(f"dBFS ({primaryName})")
         primary_axes.grid(linestyle='-', which='major', linewidth=1, alpha=0.5)
         primary_axes.grid(linestyle='--', which='minor', linewidth=1, alpha=0.5)
+        self.__dummy_artist = [primary_axes.semilogx([5], [0], visible=False)[0]]
         self.__primary = AxesManager(primaryDataProvider, primary_axes)
         if secondaryDataProvider is None:
             secondary_axes = None
@@ -135,37 +133,25 @@ class MagnitudeModel:
             secondary_axes = primary_axes.twinx()
             secondary_axes.set_ylabel(f"dBFS ({secondaryName})")
         self.__secondary = AxesManager(secondaryDataProvider, secondary_axes)
-        if animate is True:
-            self.__animator = FuncAnimation(self.__chart.canvas.figure, self.__redraw, interval=40,
-                                            init_func=self.__init_animation, blit=True, save_count=50)
-        else:
-            self.__animator = None
-        self.limits = Limits(self.__redraw_func, primary_axes, 60.0, x=(2, 250), axes_2=secondary_axes)
+        self.limits = Limits(self.__repr__(), self.__redraw_func, primary_axes, 60.0, x=(2, 250), axes_2=secondary_axes)
         self.limits.propagate_to_axes(draw=True)
         self.__legend = None
         self.__legend_cid = None
+        self.redraw()
 
     def __redraw_func(self):
-        if self.__animator is not None:
-            self.__chart.canvas.draw_idle()
-        else:
-            self.__chart.canvas.draw()
+        self.__chart.canvas.draw_idle()
 
     def __repr__(self):
         return self.__name
 
-    def __redraw(self, frame, *fargs):
+    def redraw(self):
         '''
         Gets the current state of the graph
         '''
         self.__display_all_curves()
-        return self.__primary.artists() + self.__secondary.artists()
-
-    def __init_animation(self):
-        '''
-        Inits the animation with no lnes.
-        '''
-        return []
+        self.__make_legend()
+        self.__chart.canvas.draw_idle()
 
     def show_limits(self):
         '''
@@ -186,45 +172,14 @@ class MagnitudeModel:
         '''
         return self.__primary.curve_names() if primary else self.__secondary.curve_names()
 
-    def display(self):
-        '''
-        Updates the contents of the magnitude chart
-        '''
-        self.__cache_data()
-        if self.__animator is None:
-            self.__display_now()
-
-    def __cache_data(self):
-        '''
-        Just gets the data so the animator can display it when it next updates.
-        '''
-        start = time.time()
-        self.__primary.refresh_data()
-        self.__secondary.refresh_data()
-        end = time.time()
-        logger.debug(f"{self} Calc : {round(end-start,3)}s")
-
-    def __display_now(self):
-        '''
-        Displays the cached data.
-        '''
-        start = time.time()
-        self.__display_all_curves()
-        self.__make_legend()
-        mid = time.time()
-        self.__chart.canvas.draw()
-        end = time.time()
-        logger.debug(f"{self} Propagate: {round(mid-start,3)}s Draw: {round(end-mid,3)}s")
-
     def __display_all_curves(self):
         '''
         Updates all the curves with the currently cached data.
         '''
         self.__primary.display_curves()
         self.__secondary.display_curves()
-        self.limits.on_data_change(self.__primary.get_ylimits(), self.__secondary.get_ylimits(),
-                                   draw_if_changed=self.__animator is not None)
         self.limits.configure_freq_axis()
+        self.limits.on_data_change(self.__primary.get_ylimits(), self.__secondary.get_ylimits())
 
     def __make_legend(self):
         '''
@@ -237,40 +192,41 @@ class MagnitudeModel:
         if self.__legend_cid is not None:
             self.__chart.canvas.mpl_disconnect(self.__legend_cid)
 
-        lines = self.__primary.artists() + self.__secondary.artists()
-        if len(lines) > 0:
-            ncol = int(len(lines) / 3) if len(lines) % 3 == 0 else int(len(lines) / 3) + 1
-            self.__legend = self.__primary.make_legend(lines, ncol)
-            lined = dict()
-            for legline, origline in zip(self.__legend.get_lines(), lines):
-                legline.set_picker(5)  # 5 pts tolerance
-                lined[legline] = origline
+        if self.__show_legend():
+            lines = self.__primary.artists() + self.__secondary.artists()
+            if len(lines) > 0:
+                ncol = int(len(lines) / 3) if len(lines) % 3 == 0 else int(len(lines) / 3) + 1
+                self.__legend = self.__primary.make_legend(lines, ncol)
+                lined = dict()
+                for legline, origline in zip(self.__legend.get_lines(), lines):
+                    legline.set_picker(5)  # 5 pts tolerance
+                    lined[legline] = origline
 
-            def onpick(event):
-                # on the pick event, find the orig line corresponding to the legend proxy line, and toggle the visibility
-                legline = event.artist
-                origline = lined[legline]
-                vis = not origline.get_visible()
-                origline.set_visible(vis)
-                # Change the alpha on the line in the legend so we can see what lines have been toggled
-                if vis:
-                    legline.set_alpha(1.0)
-                else:
-                    legline.set_alpha(0.2)
-                self.__chart.canvas.draw()
+                def onpick(event):
+                    # on the pick event, find the orig line corresponding to the legend proxy line, and toggle the visibility
+                    legline = event.artist
+                    origline = lined[legline]
+                    vis = not origline.get_visible()
+                    origline.set_visible(vis)
+                    # Change the alpha on the line in the legend so we can see what lines have been toggled
+                    if vis:
+                        legline.set_alpha(1.0)
+                    else:
+                        legline.set_alpha(0.2)
+                    self.__chart.canvas.draw()
 
-            self.__legend_cid = self.__chart.canvas.mpl_connect('pick_event', onpick)
+                self.__legend_cid = self.__chart.canvas.mpl_connect('pick_event', onpick)
 
     def normalise(self, primary=True, curve=None):
         '''
-        Redraws with the normalised data.
+        Sets the data series that will act as the reference.
         :param curve: the reference curve (if any).
         '''
-        if primary == True:
+        if primary is True:
             self.__primary.reference_curve = curve
         else:
             self.__secondary.reference_curve = curve
-        self.display()
+        self.redraw()
 
 
 class Limits:
@@ -278,7 +234,8 @@ class Limits:
     Value object to hold graph limits to decouple the dialog from the chart.
     '''
 
-    def __init__(self, redraw_func, axes_1, default_y_range, x, axes_2=None):
+    def __init__(self, name, redraw_func, axes_1, default_y_range, x, axes_2=None):
+        self.name = name
         self.__redraw_func = redraw_func
         self.__default_y_range = default_y_range
         self.axes_1 = axes_1
@@ -306,7 +263,7 @@ class Limits:
             self.axes_2.set_ylim(bottom=self.y2_min, top=self.y2_max)
         self.configure_freq_axis()
         if draw:
-            logger.debug(f"Redrawing axes on limits change")
+            logger.debug(f"{self.name} Redrawing axes on limits change")
             self.__redraw_func()
 
     def update(self, x_min=None, x_max=None, y1_min=None, y1_max=None, y2_min=None, y2_max=None, x_scale=None,
@@ -352,25 +309,30 @@ class Limits:
             vmax += multiple
         return vmax - self.__default_y_range, vmax
 
-    def on_data_change(self, primary_range, secondary_range, draw_if_changed=False):
-        changed = False
+    def on_data_change(self, primary_range, secondary_range):
+        '''
+        Updates the y axes when the data changes.
+        :param primary_range: the primary y range.
+        :param secondary_range: the secondary y range.
+        '''
         if self.is_auto_1():
             new_min, new_max = self.calculate_dBFS_scales(primary_range)
-            changed = new_min != self.y1_min or new_max != self.y1_max
-            if changed:
-                logger.debug(f"y1 axis changed from {self.y1_min}/{self.y1_max} to {new_min}/{new_max}")
+            y1_changed = new_min != self.y1_min or new_max != self.y1_max
+            if y1_changed:
+                logger.debug(f"{self.name} y1 axis changed from {self.y1_min}/{self.y1_max} to {new_min}/{new_max}")
             self.y1_min = new_min
             self.y1_max = new_max
-        if self.is_auto_2():
+            if y1_changed:
+                self.axes_1.set_ylim(bottom=self.y1_min, top=self.y1_max)
+        if self.is_auto_2() and self.axes_2 is not None:
             new_min, new_max = self.calculate_dBFS_scales(secondary_range)
-            if not changed:
-                changed = new_min != self.y2_min or new_max != self.y2_max
-                if changed:
-                    logger.debug(f"y2 axis changed from {self.y2_min}/{self.y2_max} to {new_min}/{new_max}")
-                changed = new_min != self.y2_min or new_max != self.y2_max
+            y2_changed = new_min != self.y2_min or new_max != self.y2_max
+            if y2_changed:
+                logger.debug(f"{self.name} y2 axis changed from {self.y2_min}/{self.y2_max} to {new_min}/{new_max}")
             self.y2_min = new_min
             self.y2_max = new_max
-        self.propagate_to_axes(draw=draw_if_changed and changed)
+            if y2_changed:
+                self.axes_2.set_ylim(bottom=self.y2_min, top=self.y2_max)
 
     def is_auto_1(self):
         '''

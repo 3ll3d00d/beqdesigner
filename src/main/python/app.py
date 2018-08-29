@@ -9,6 +9,7 @@ import matplotlib
 import qtawesome as qta
 from matplotlib import style
 
+from model.iir import Passthrough
 from ui.biquad import Ui_exportBiquadDialog
 from ui.savechart import Ui_saveChartDialog
 
@@ -19,7 +20,7 @@ from qtpy.QtGui import QIcon, QFont, QCursor
 from qtpy.QtWidgets import QMainWindow, QApplication, QErrorMessage, QAbstractItemView, QDialog, QFileDialog
 
 from model.extract import ExtractAudioDialog
-from model.filter import FilterTableModel, FilterModel, FilterDialog
+from model.filter import FilterTableModel, FilterModel, FilterDialog, SHOW_FILTER_OPTIONS
 from model.log import RollingLogger
 from model.magnitude import MagnitudeModel
 from model.preferences import PreferencesDialog, BINARIES, ANALYSIS_TARGET_FS, STYLE_MATPLOTLIB_THEME
@@ -72,21 +73,27 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.actionShow_Logs.triggered.connect(self.logViewer.show_logs)
         self.actionPreferences.triggered.connect(self.showPreferences)
         # init the filter view/model
+        self.showFilters.blockSignals(True)
+        for x in SHOW_FILTER_OPTIONS:
+            self.showFilters.addItem(x)
+        self.showFilters.blockSignals(False)
         self.filterView.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.__filterModel = FilterModel(self.filterView, self.showIndividualFilters)
+        self.__filterModel = FilterModel(self.filterView, show_filters=lambda: self.showFilters.currentText(),
+                                         on_update=self.on_filter_change)
         self.__filterTableModel = FilterTableModel(self.__filterModel, parent=parent)
         self.filterView.setModel(self.__filterTableModel)
         self.filterView.selectionModel().selectionChanged.connect(self.changeFilterButtonState)
         # signal model
         self.signalView.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.signalView.setSelectionMode(QAbstractItemView.SingleSelection)
-        self.__signalModel = SignalModel(self.signalView, self.__filterModel)
+        self.__signalModel = SignalModel(self.signalView, self.__filterModel, on_update=self.on_signal_change)
         self.__signalTableModel = SignalTableModel(self.__signalModel, parent=parent)
         self.signalView.setModel(self.__signalTableModel)
         self.signalView.selectionModel().selectionChanged.connect(self.changeSignalButtonState)
         # magnitude
-        self.__magnitudeModel = MagnitudeModel('main', self.filterChart, self.__signalModel, 'Signals',
-                                               self.__filterModel, 'Filters')
+        self.__magnitudeModel = MagnitudeModel('main', self.mainChart, self.__signalModel, 'Signals',
+                                               self.__filterModel, 'Filters',
+                                               show_legend=lambda: self.showLegend.isChecked())
         # processing
         self.ensurePathContainsExternalTools()
         # extraction
@@ -95,11 +102,27 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.actionSave_Chart.triggered.connect(self.exportChart)
         self.actionExport_Biquad.triggered.connect(self.exportBiquads)
 
+    def on_signal_change(self, names):
+        '''
+        Reacts to a change in the signal model by updating the reference and redrawing the chart.
+        :param names: the signal names.
+        '''
+        self.update_reference_series(names, self.signalReference, True)
+        self.__magnitudeModel.redraw()
+
+    def on_filter_change(self, names):
+        '''
+        Reacts to a change in the filter model by updating the reference and redrawing the chart.
+        :param names: the signal names.
+        '''
+        self.update_reference_series(names, self.filterReference, False)
+        self.__magnitudeModel.redraw()
+
     def exportChart(self):
         '''
         Saves the currently selected chart to a file.
         '''
-        dialog = SaveChartDialog(self, 'beq', self.filterChart.canvas.figure, self.statusbar)
+        dialog = SaveChartDialog(self, 'beq', self.mainChart.canvas.figure, self.statusbar)
         dialog.exec()
 
     def exportBiquads(self):
@@ -129,12 +152,12 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         if geometry is not None:
             self.restoreGeometry(geometry)
         else:
-            screenGeometry = self.app.desktop().availableGeometry()
-            if screenGeometry.height() < 800:
+            screen_geometry = self.app.desktop().availableGeometry()
+            if screen_geometry.height() < 800:
                 self.showMaximized()
-        windowState = self.settings.value("windowState")
-        if windowState is not None:
-            self.restoreState(windowState)
+        window_state = self.settings.value("windowState")
+        if window_state is not None:
+            self.restoreState(window_state)
 
     def closeEvent(self, *args, **kwargs):
         '''
@@ -181,12 +204,6 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         SignalDialog(self.settings, self.__signalModel, parent=self).exec()
 
-    def editSignal(self):
-        '''
-        Edits the currently selected signal via the signal dialog.
-        '''
-        pass
-
     def deleteSignal(self):
         '''
         Deletes the currently selected signals.
@@ -211,20 +228,10 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.deleteSignalButton.setEnabled(selection.hasSelection())
         self.editSignalButton.setEnabled(len(selection.selectedRows()) == 1)
 
-    def display(self):
-        '''
-        Updates the chart.
-        '''
-        with wait_cursor('Redrawing'):
-            self.__magnitudeModel.display()
-            self.update_reference_series(self.signalReference, True)
-            self.update_reference_series(self.filterReference, False)
-
-    def update_reference_series(self, combo, primary=True):
+    def update_reference_series(self, names, combo, primary=True):
         '''
         Updates the reference series dropdown with the current curve names.
         '''
-        names = self.__magnitudeModel.get_curve_names(primary)
         current_reference = combo.currentText()
         try:
             combo.blockSignals(True)
@@ -235,14 +242,10 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
             idx = combo.findText(current_reference)
             if idx != -1:
                 combo.setCurrentIndex(idx)
+            else:
+                self.__magnitudeModel.normalise(primary=primary)
         finally:
             combo.blockSignals(False)
-
-    def changeVisibilityOfIndividualFilters(self):
-        '''
-        Adds or removes the individual filter transfer functions to/from the graph.
-        '''
-        self.__magnitudeModel.display()
 
     def showExtractAudioDialog(self):
         '''
@@ -279,6 +282,19 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         Shows the values dialog for the main chart.
         '''
         self.__magnitudeModel.show_values()
+
+    def changeFilterVisibility(self, selected_filters):
+        '''
+        Changes which filters are visible on screen.
+        '''
+        self.__filterModel.post_update(filter_change=False)
+        self.__magnitudeModel.redraw()
+
+    def changeLegendVisibility(self):
+        '''
+        Changes whether the legend is visible.
+        '''
+        self.__magnitudeModel.redraw()
 
 
 class SaveChartDialog(QDialog, Ui_saveChartDialog):
@@ -324,7 +340,6 @@ class ExportBiquadDialog(QDialog, Ui_exportBiquadDialog):
     '''
     Export Biquads Dialog
     '''
-    PASSTHROUGH_BIQUAD = ["b0=1.0,\nb1=0.0,\nb2=0.0,\na1=0.0,\na2=0.0"]
 
     def __init__(self, filter):
         super(ExportBiquadDialog, self).__init__()
@@ -335,23 +350,24 @@ class ExportBiquadDialog(QDialog, Ui_exportBiquadDialog):
     def updateBiquads(self):
         if self.__filter is not None and len(self.__filter) > 0:
             self.__filter = self.__filter.resample(int(self.fs.currentText()))
-            biquads = list(self.flatten([self.__filter.format_biquads(self.minidspFormat.isChecked())]))
+            biquads = list(flatten([self.__filter.format_biquads(self.minidspFormat.isChecked())]))
             if len(biquads) < self.maxBiquads.value():
-                passthrough = self.PASSTHROUGH_BIQUAD * (self.maxBiquads.value() - len(biquads))
+                passthrough = [Passthrough()] * (self.maxBiquads.value() - len(biquads))
                 biquads.extend(passthrough)
             text = "\n".join([f"biquad{idx},\n{bq}" for idx, bq in enumerate(biquads)])
             self.biquads.setPlainText(text)
 
-    def flatten(self, l):
-        '''
-        flatten an irregularly shaped list of lists (of lists of lists...)
-        solution from https://stackoverflow.com/questions/2158395/flatten-an-irregular-list-of-lists
-        '''
-        for el in l:
-            if isinstance(el, collections.Iterable) and not isinstance(el, (str, bytes)):
-                yield from self.flatten(el)
-            else:
-                yield el
+
+def flatten(l):
+    '''
+    flatten an irregularly shaped list of lists (of lists of lists...)
+    solution from https://stackoverflow.com/questions/2158395/flatten-an-irregular-list-of-lists
+    '''
+    for el in l:
+        if isinstance(el, collections.Iterable) and not isinstance(el, (str, bytes)):
+            yield from flatten(el)
+        else:
+            yield el
 
 
 def make_app():
