@@ -461,11 +461,11 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
         self.setupUi(self)
         self.__settings = settings
         self.__signalModel = signalModel
-        self.__magnitudeModel = MagnitudeModel('preview', self.previewChart, self, 'Signal', animate_interval=200)
         self.__duration = 0
         self.__signal = None
         self.__peak = None
         self.__avg = None
+        self.__magnitudeModel = MagnitudeModel('preview', self.previewChart, self, 'Signal')
         self.clearSignal(draw=False)
 
     def selectFile(self):
@@ -491,6 +491,8 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
         self.startTime.setEnabled(False)
         self.endTime.setEnabled(False)
         self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
+        if draw:
+            self.__magnitudeModel.redraw()
 
     def loadSignal(self, file):
         '''
@@ -545,6 +547,7 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
                          f"using {peak_window} peak window and {avg_window} avg window")
             self.__signal.calculate(multiplier, avg_window, peak_window)
             self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
+            self.__magnitudeModel.redraw()
 
     def __get_window(self, key):
         from model.preferences import ANALYSIS_WINDOW_DEFAULT

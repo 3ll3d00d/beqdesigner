@@ -104,10 +104,10 @@ class FilterModel(Sequence):
             children = []
         else:
             children = self.filter.child_names()
-        self.__on_update([self.filter.__repr__()] + children)
         if filter_change:
             for l in self.__listeners:
                 l.onFilterChange()
+        self.__on_update([self.filter.__repr__()] + children)
 
     def getMagnitudeData(self, reference=None):
         '''
@@ -226,8 +226,6 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.__freq_step_idx = 0
         # init the UI itself
         self.setupUi(self)
-        # init the chart
-        self.__magnitudeModel = MagnitudeModel('preview', self.previewChart, self, 'Filter')
         # underlying filter model
         self.filterModel = filterModel
         self.__filter = filter
@@ -257,6 +255,8 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.enableOkIfGainIsValid()
         self.freq.setMaximum(self.fs / 2.0)
         self.__starting = False
+        # init the chart
+        self.__magnitudeModel = MagnitudeModel('preview', self.previewChart, self, 'Filter')
         # ensure the preview graph is shown if we have something to show
         self.previewFilter()
 
@@ -266,12 +266,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
             if self.__original_id is None:
                 self.__filter.id = uuid4()
             self.filterModel.save(self.__filter)
-        self.__magnitudeModel.stop()
         QDialog.accept(self)
-
-    def reject(self):
-        self.__magnitudeModel.stop()
-        super().reject()
 
     def previewFilter(self):
         ''' creates a filter if the params are valid '''
@@ -288,6 +283,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
             else:
                 self.__combined_preview = self.filterModel.filter
                 self.__filter = None
+            self.__magnitudeModel.redraw()
 
     def getMagnitudeData(self, reference=None):
         ''' preview of the filter to display on the chart '''

@@ -1,10 +1,8 @@
 import logging
 import math
-import time
 from math import log10
 
 from PyQt5.QtWidgets import QDialog
-from matplotlib.animation import FuncAnimation
 from matplotlib.ticker import EngFormatter, Formatter, NullFormatter, LinearLocator
 from qtpy import QtWidgets
 
@@ -122,8 +120,7 @@ class MagnitudeModel:
     Allows a set of filters to be displayed on a chart as magnitude responses.
     '''
 
-    def __init__(self, name, chart, primaryDataProvider, primaryName, secondaryDataProvider=None, secondaryName=None,
-                 animate_interval=40):
+    def __init__(self, name, chart, primaryDataProvider, primaryName, secondaryDataProvider=None, secondaryName=None):
         self.__name = name
         self.__chart = chart
         primary_axes = self.__chart.canvas.figure.add_subplot(111)
@@ -138,12 +135,11 @@ class MagnitudeModel:
             secondary_axes = primary_axes.twinx()
             secondary_axes.set_ylabel(f"dBFS ({secondaryName})")
         self.__secondary = AxesManager(secondaryDataProvider, secondary_axes)
-        self.__animator = FuncAnimation(self.__chart.canvas.figure, self.__redraw, interval=animate_interval,
-                                        init_func=self.__init_anim, blit=True, save_count=50)
         self.limits = Limits(self.__repr__(), self.__redraw_func, primary_axes, 60.0, x=(2, 250), axes_2=secondary_axes)
         self.limits.propagate_to_axes(draw=True)
         self.__legend = None
         self.__legend_cid = None
+        self.redraw()
 
     def __redraw_func(self):
         self.__chart.canvas.draw_idle()
@@ -151,22 +147,13 @@ class MagnitudeModel:
     def __repr__(self):
         return self.__name
 
-    def __init_anim(self):
-        return self.__dummy_artist
-
-    def __redraw(self, frame, *fargs):
+    def redraw(self):
         '''
         Gets the current state of the graph
         '''
         self.__display_all_curves()
-        return self.__primary.artists() + self.__secondary.artists() + self.__dummy_artist
-
-    def stop(self):
-        '''
-        Forces the animation to stop if we are an animated chart.
-        '''
-        if self.__animator is not None:
-            self.__animator._stop()
+        self.__make_legend()
+        self.__chart.canvas.draw_idle()
 
     def show_limits(self):
         '''
@@ -194,8 +181,7 @@ class MagnitudeModel:
         self.__primary.display_curves()
         self.__secondary.display_curves()
         self.limits.configure_freq_axis()
-        self.limits.on_data_change(self.__primary.get_ylimits(), self.__secondary.get_ylimits(),
-                                   draw_if_changed=self.__animator is not None)
+        self.limits.on_data_change(self.__primary.get_ylimits(), self.__secondary.get_ylimits())
 
     def __make_legend(self):
         '''
@@ -323,15 +309,12 @@ class Limits:
             vmax += multiple
         return vmax - self.__default_y_range, vmax
 
-    def on_data_change(self, primary_range, secondary_range, draw_if_changed=False):
+    def on_data_change(self, primary_range, secondary_range):
         '''
         Updates the y axes when the data changes.
         :param primary_range: the primary y range.
         :param secondary_range: the secondary y range.
-        :param draw_if_changed: if true, redraw.
         '''
-        y1_changed = False
-        y2_changed = False
         if self.is_auto_1():
             new_min, new_max = self.calculate_dBFS_scales(primary_range)
             y1_changed = new_min != self.y1_min or new_max != self.y1_max
@@ -350,9 +333,6 @@ class Limits:
             self.y2_max = new_max
             if y2_changed:
                 self.axes_2.set_ylim(bottom=self.y2_min, top=self.y2_max)
-        if draw_if_changed and (y1_changed or y2_changed):
-            logger.debug(f"{self.name} Redrawing axes on limits change")
-            self.__redraw_func()
 
     def is_auto_1(self):
         '''

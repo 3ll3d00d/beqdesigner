@@ -74,22 +74,20 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.actionPreferences.triggered.connect(self.showPreferences)
         # init the filter view/model
         self.filterView.setSelectionBehavior(QAbstractItemView.SelectRows)
-        update_filter_ref = lambda names: self.update_reference_series(names, self.filterReference, False)
-        self.__filterModel = FilterModel(self.filterView, self.showIndividualFilters, on_update=update_filter_ref)
+        self.__filterModel = FilterModel(self.filterView, self.showIndividualFilters, on_update=self.on_filter_change)
         self.__filterTableModel = FilterTableModel(self.__filterModel, parent=parent)
         self.filterView.setModel(self.__filterTableModel)
         self.filterView.selectionModel().selectionChanged.connect(self.changeFilterButtonState)
         # signal model
         self.signalView.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.signalView.setSelectionMode(QAbstractItemView.SingleSelection)
-        update_signal_ref = lambda names: self.update_reference_series(names, self.signalReference, True)
-        self.__signalModel = SignalModel(self.signalView, self.__filterModel, on_update=update_signal_ref)
+        self.__signalModel = SignalModel(self.signalView, self.__filterModel, on_update=self.on_signal_change)
         self.__signalTableModel = SignalTableModel(self.__signalModel, parent=parent)
         self.signalView.setModel(self.__signalTableModel)
         self.signalView.selectionModel().selectionChanged.connect(self.changeSignalButtonState)
         # magnitude
         self.__magnitudeModel = MagnitudeModel('main', self.filterChart, self.__signalModel, 'Signals',
-                                               self.__filterModel, 'Filters', animate_interval=100)
+                                               self.__filterModel, 'Filters')
         # processing
         self.ensurePathContainsExternalTools()
         # extraction
@@ -97,6 +95,22 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         # export
         self.actionSave_Chart.triggered.connect(self.exportChart)
         self.actionExport_Biquad.triggered.connect(self.exportBiquads)
+
+    def on_signal_change(self, names):
+        '''
+        Reacts to a change in the signal model by updating the reference and redrawing the chart.
+        :param names: the signal names.
+        '''
+        self.update_reference_series(names, self.signalReference, True)
+        self.__magnitudeModel.redraw()
+
+    def on_filter_change(self, names):
+        '''
+        Reacts to a change in the filter model by updating the reference and redrawing the chart.
+        :param names: the signal names.
+        '''
+        self.update_reference_series(names, self.filterReference, False)
+        self.__magnitudeModel.redraw()
 
     def exportChart(self):
         '''
