@@ -31,6 +31,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         self.__probe = None
         self.__audio_stream_data = []
         self.__ffmpegCommand = None
+        self.__channel_layout_name = None
         defaultOutputDir = self.__settings.value('extraction/output_dir')
         if os.path.isdir(defaultOutputDir):
             self.targetDir.setText(defaultOutputDir)
@@ -92,8 +93,12 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         duration = self.__format_duration(audio_stream)
         if duration is None:
             duration = ''
-        text = f"{audio_stream['index']}: {audio_stream['codec_long_name']} - {audio_stream['sample_rate']}Hz - " \
-               f"{audio_stream['channel_layout']}{duration}"
+        text = f"{audio_stream['index']}: {audio_stream['codec_long_name']} - {audio_stream['sample_rate']}Hz"
+        if 'channel_layout' in audio_stream:
+            text += f" {audio_stream['channel_layout']} "
+        elif 'channels' in audio_stream:
+            text += f" {audio_stream['channels']} channels "
+        text += f"{duration}"
         self.audioStreams.addItem(text)
 
     def __format_duration(self, audio_stream):
@@ -105,7 +110,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         duration = None
         durationSecs = audio_stream.get('duration', None)
         if durationSecs is not None:
-            duration = str(datetime.timedelta(seconds=int(durationSecs)))
+            duration = str(datetime.timedelta(seconds=float(durationSecs)))
         else:
             tags = audio_stream.get('tags', None)
             if tags is not None:
@@ -118,47 +123,112 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         '''
         Creates a new ffmpeg command for the specified channel layout.
         '''
-        selectedStream = self.__audio_stream_data[self.audioStreams.currentIndex()]
-        channelLayout = selectedStream['channel_layout']
-        mono_mix = ''
-        if channelLayout == 'mono':
-            # TODO is this necessary?
-            mono_mix = 'pan=mono|c0=c0'
-        elif channelLayout == 'stereo':
-            mono_mix = self.__get_no_lfe_mono_mix(2)
-        elif channelLayout.startswith('3.0'):
-            mono_mix = self.__get_no_lfe_mono_mix(3)
-        elif channelLayout == '4.0':
-            mono_mix = self.__get_no_lfe_mono_mix(4)
-        elif channelLayout.startswith('quad'):
-            mono_mix = self.__get_no_lfe_mono_mix(4)
-        elif channelLayout.startswith('5.0'):
-            mono_mix = self.__get_no_lfe_mono_mix(5)
-        elif channelLayout.startswith('6.0'):
-            mono_mix = self.__get_no_lfe_mono_mix(6)
-        elif channelLayout == 'hexagonal':
-            mono_mix = self.__get_no_lfe_mono_mix(6)
-        elif channelLayout.startswith('7.0'):
-            mono_mix = self.__get_no_lfe_mono_mix(7)
-        elif channelLayout == 'octagonal':
-            mono_mix = self.__get_no_lfe_mono_mix(8)
-        elif channelLayout == 'downmix':
-            mono_mix = self.__get_no_lfe_mono_mix(2)
-        elif channelLayout == '2.1':
-            mono_mix = self.__get_lfe_mono_mix(3, 2)
-        elif channelLayout == '3.1':
-            mono_mix = self.__get_lfe_mono_mix(4, 3)
-        elif channelLayout == '4.1':
-            mono_mix = self.__get_lfe_mono_mix(5, 3)
-        elif channelLayout.startswith('5.1'):
-            mono_mix = self.__get_lfe_mono_mix(6, 3)
-        elif channelLayout == '6.1':
-            mono_mix = self.__get_lfe_mono_mix(7, 3)
-        elif channelLayout == '6.1(front)':
-            mono_mix = self.__get_lfe_mono_mix(7, 2)
-        elif channelLayout.startswith('7.1'):
-            mono_mix = self.__get_lfe_mono_mix(8, 3)
+        selected_stream = self.__audio_stream_data[self.audioStreams.currentIndex()]
+        channel_layout = None
+        channel_layout_name = None
+        mono_mix = None
+        channel_count = 0
+        lfe_idx = 0
+        if 'channel_layout' in selected_stream:
+            channel_layout = selected_stream['channel_layout']
+        else:
+            channel_count = selected_stream['channels']
+            if channel_count == 1:
+                channel_layout = 'mono'
+            elif channel_count == 2:
+                channel_layout = 'stereo'
+            elif channel_count == 3:
+                channel_layout = '2.1'
+            elif channel_count == 4:
+                channel_layout = '3.1'
+            elif channel_count == 5:
+                channel_layout = '4.1'
+            elif channel_count == 6:
+                channel_layout = '5.1'
+            elif channel_count == 8:
+                channel_layout = '7.1'
+            else:
+                channel_layout_name = f"{channel_count} channels"
+                mono_mix = self.__get_no_lfe_mono_mix(channel_count)
+        if channel_layout is not None:
+            if channel_layout == 'mono':
+                # TODO is this necessary?
+                mono_mix = 'pan=mono|c0=c0'
+                channel_count = 1
+            elif channel_layout == 'stereo':
+                mono_mix = self.__get_no_lfe_mono_mix(2)
+                channel_count = 2
+            elif channel_layout.startswith('3.0'):
+                mono_mix = self.__get_no_lfe_mono_mix(3)
+                channel_count = 3
+            elif channel_layout == '4.0':
+                mono_mix = self.__get_no_lfe_mono_mix(4)
+                channel_count = 4
+            elif channel_layout.startswith('quad'):
+                mono_mix = self.__get_no_lfe_mono_mix(4)
+                channel_count = 4
+            elif channel_layout.startswith('5.0'):
+                mono_mix = self.__get_no_lfe_mono_mix(5)
+                channel_count = 5
+            elif channel_layout.startswith('6.0'):
+                mono_mix = self.__get_no_lfe_mono_mix(6)
+                channel_count = 6
+            elif channel_layout == 'hexagonal':
+                mono_mix = self.__get_no_lfe_mono_mix(6)
+                channel_count = 6
+            elif channel_layout.startswith('7.0'):
+                mono_mix = self.__get_no_lfe_mono_mix(7)
+                channel_count = 7
+            elif channel_layout == 'octagonal':
+                mono_mix = self.__get_no_lfe_mono_mix(8)
+                channel_count = 8
+            elif channel_layout == 'downmix':
+                mono_mix = self.__get_no_lfe_mono_mix(2)
+                channel_count = 2
+            elif channel_layout == '2.1':
+                mono_mix = self.__get_lfe_mono_mix(3, 2)
+                channel_count = 3
+                lfe_idx = 3
+            elif channel_layout == '3.1':
+                mono_mix = self.__get_lfe_mono_mix(4, 3)
+                channel_count = 4
+                lfe_idx = 4
+            elif channel_layout == '4.1':
+                mono_mix = self.__get_lfe_mono_mix(5, 3)
+                channel_count = 5
+                lfe_idx = 4
+            elif channel_layout.startswith('5.1'):
+                mono_mix = self.__get_lfe_mono_mix(6, 3)
+                channel_count = 6
+                lfe_idx = 4
+            elif channel_layout == '6.1':
+                mono_mix = self.__get_lfe_mono_mix(7, 3)
+                channel_count = 7
+                lfe_idx = 4
+            elif channel_layout == '6.1(front)':
+                mono_mix = self.__get_lfe_mono_mix(7, 2)
+                channel_count = 7
+                lfe_idx = 4
+            elif channel_layout.startswith('7.1'):
+                mono_mix = self.__get_lfe_mono_mix(8, 3)
+                channel_count = 8
+                lfe_idx = 4
+            channel_layout_name = channel_layout
+        else:
+            if channel_layout_name is None:
+                channel_layout_name = 'unknown'
+        self.__init_channel_count_fields(channel_count, lfe_index=lfe_idx)
+        self.__channel_layout_name = channel_layout_name
         self.__mono_mix_spec = mono_mix
+        self.updateOutputFileName()
+        self.updateFfmpegCommand()
+
+    def overrideFfmpegSpec(self, _):
+        self.__channel_layout_name = 'custom'
+        if self.lfeChannelIndex.value() > 0:
+            self.__mono_mix_spec = self.__get_lfe_mono_mix(self.channelCount.value(), self.lfeChannelIndex.value() - 1)
+        else:
+            self.__mono_mix_spec = self.__get_no_lfe_mono_mix(self.channelCount.value())
         self.updateOutputFileName()
         self.updateFfmpegCommand()
 
@@ -176,7 +246,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         :return:
         '''
         stream_idx = str(self.audioStreams.currentIndex() + 1)
-        channel_layout = self.__audio_stream_data[self.audioStreams.currentIndex()]['channel_layout']
+        channel_layout = self.__channel_layout_name
         output_file_name = f"{Path(self.inputFile.text()).resolve().stem}_s{stream_idx}_{channel_layout}"
         if self.monoMix.isChecked():
             output_file_name += '_to_mono'
@@ -231,6 +301,12 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         ratio = 1 / channels
         gains = '+'.join([f"{ratio}*c{a}" for a in range(0, channels)])
         return gains
+
+    def __init_channel_count_fields(self, channels, lfe_index=0):
+        self.lfeChannelIndex.setMaximum(channels)
+        self.lfeChannelIndex.setValue(lfe_index)
+        self.channelCount.setMaximum(channels)
+        self.channelCount.setValue(channels)
 
     def accept(self):
         '''
