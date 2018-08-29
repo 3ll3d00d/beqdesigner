@@ -5,6 +5,7 @@ from collections import Sequence
 from uuid import uuid4
 
 import qtawesome as qta
+from qtpy import QtCore
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt
 from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import QDialog, QDialogButtonBox
@@ -18,16 +19,21 @@ from ui.filter import Ui_editFilterDialog
 
 logger = logging.getLogger('filter')
 
+SHOW_ALL_FILTERS = 'All'
+SHOW_COMBINED_FILTER = 'Total'
+SHOW_NO_FILTERS = 'None'
+SHOW_FILTER_OPTIONS = [SHOW_ALL_FILTERS, SHOW_COMBINED_FILTER, SHOW_NO_FILTERS]
+
 
 class FilterModel(Sequence):
     '''
     A model to hold onto the filters.
     '''
 
-    def __init__(self, view, show_individual, on_update=lambda _: True):
+    def __init__(self, view, show_filters=lambda: SHOW_ALL_FILTERS, on_update=lambda _: True):
         self.filter = CompleteFilter()
         self.__view = view
-        self.__show_individual = show_individual
+        self.__show_filters = show_filters
         self.__table = None
         self.__listeners = []
         self.__on_update = on_update
@@ -100,26 +106,32 @@ class FilterModel(Sequence):
         '''
         if self.__table is not None:
             self.__table.resizeColumns(self.__view)
-        if self.__show_individual:
-            children = []
-        else:
-            children = self.filter.child_names()
+        visible_filter_names = []
+        show_filters = self.__show_filters()
+        if show_filters != SHOW_NO_FILTERS:
+            visible_filter_names.append(self.filter.__repr__())
+        if show_filters == SHOW_ALL_FILTERS:
+            visible_filter_names += self.filter.child_names()
         if filter_change:
             for l in self.__listeners:
                 l.onFilterChange()
-        self.__on_update([self.filter.__repr__()] + children)
+        self.__on_update(visible_filter_names)
 
     def getMagnitudeData(self, reference=None):
         '''
         :param reference: the name of the reference data.
         :return: the magnitude response of each filter.
         '''
-        include_individual = self.__show_individual.isChecked()
-        if len(self.filter) > 0:
+        show_filters = self.__show_filters()
+        if show_filters == SHOW_NO_FILTERS:
+            return []
+        elif len(self.filter) == 0:
+            return []
+        else:
             children = [x.getTransferFunction() for x in self.filter]
             combined = self.filter.getTransferFunction()
             results = [combined]
-            if include_individual and len(self) > 1:
+            if show_filters == SHOW_ALL_FILTERS and len(self) > 1:
                 results += children
             mags = [r.getMagnitude() for r in results]
             for idx, m in enumerate(mags):
@@ -132,8 +144,6 @@ class FilterModel(Sequence):
                 if ref_data:
                     mags = [x.normalise(ref_data) for x in mags]
             return mags
-        else:
-            return []
 
     def getTransferFunction(self):
         '''
@@ -248,8 +258,6 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
             if hasattr(self.__filter, 'count'):
                 self.filterCount.setValue(self.__filter.count)
             self.filterType.setCurrentIndex(self.filterType.findText(filter.display_name))
-        else:
-            self.buttonBox.button(QDialogButtonBox.Save).setText('Add')
         # configure visible/enabled fields for the current filter type
         self.enableFilterParams()
         self.enableOkIfGainIsValid()
@@ -260,12 +268,17 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         # ensure the preview graph is shown if we have something to show
         self.previewFilter()
 
-    def accept(self):
+    def save(self):
         ''' Stores the filter in the model. '''
         if self.__filter is not None:
             if self.__original_id is None:
                 self.__filter.id = uuid4()
             self.filterModel.save(self.__filter)
+            self.previewFilter()
+
+    def accept(self):
+        ''' Saves and exits. '''
+        self.save()
         QDialog.accept(self)
 
     def previewFilter(self):
@@ -386,6 +399,12 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.sLabel.setVisible(is_shelf_filter)
         self.filterS.setVisible(is_shelf_filter)
         self.sStepButton.setVisible(is_shelf_filter)
+        self.addButton.setIcon(qta.icon('fa.plus'))
+        self.addButton.setIconSize(QtCore.QSize(32, 32))
+        self.addMoreButton.setIcon(qta.icon('fa.save'))
+        self.addMoreButton.setIconSize(QtCore.QSize(32, 32))
+        self.exitButton.setIcon(qta.icon('fa.sign-out'))
+        self.exitButton.setIconSize(QtCore.QSize(32, 32))
         self.enableOkIfGainIsValid()
 
     def changeOrderStep(self):
@@ -403,7 +422,8 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
 
     def enableOkIfGainIsValid(self):
         ''' enables the save button if we have a valid filter. '''
-        self.buttonBox.button(QDialogButtonBox.Save).setEnabled(self.__is_valid_filter())
+        self.addMoreButton.setEnabled(self.__is_valid_filter())
+        self.addButton.setEnabled(self.__is_valid_filter())
 
     def __is_valid_filter(self):
         '''

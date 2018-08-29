@@ -20,7 +20,7 @@ from qtpy.QtGui import QIcon, QFont, QCursor
 from qtpy.QtWidgets import QMainWindow, QApplication, QErrorMessage, QAbstractItemView, QDialog, QFileDialog
 
 from model.extract import ExtractAudioDialog
-from model.filter import FilterTableModel, FilterModel, FilterDialog
+from model.filter import FilterTableModel, FilterModel, FilterDialog, SHOW_FILTER_OPTIONS
 from model.log import RollingLogger
 from model.magnitude import MagnitudeModel
 from model.preferences import PreferencesDialog, BINARIES, ANALYSIS_TARGET_FS, STYLE_MATPLOTLIB_THEME
@@ -73,8 +73,13 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.actionShow_Logs.triggered.connect(self.logViewer.show_logs)
         self.actionPreferences.triggered.connect(self.showPreferences)
         # init the filter view/model
+        self.showFilters.blockSignals(True)
+        for x in SHOW_FILTER_OPTIONS:
+            self.showFilters.addItem(x)
+        self.showFilters.blockSignals(False)
         self.filterView.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.__filterModel = FilterModel(self.filterView, self.showIndividualFilters, on_update=self.on_filter_change)
+        self.__filterModel = FilterModel(self.filterView, show_filters=lambda: self.showFilters.currentText(),
+                                         on_update=self.on_filter_change)
         self.__filterTableModel = FilterTableModel(self.__filterModel, parent=parent)
         self.filterView.setModel(self.__filterTableModel)
         self.filterView.selectionModel().selectionChanged.connect(self.changeFilterButtonState)
@@ -86,8 +91,9 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.signalView.setModel(self.__signalTableModel)
         self.signalView.selectionModel().selectionChanged.connect(self.changeSignalButtonState)
         # magnitude
-        self.__magnitudeModel = MagnitudeModel('main', self.filterChart, self.__signalModel, 'Signals',
-                                               self.__filterModel, 'Filters')
+        self.__magnitudeModel = MagnitudeModel('main', self.mainChart, self.__signalModel, 'Signals',
+                                               self.__filterModel, 'Filters',
+                                               show_legend=lambda: self.showLegend.isChecked())
         # processing
         self.ensurePathContainsExternalTools()
         # extraction
@@ -116,7 +122,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Saves the currently selected chart to a file.
         '''
-        dialog = SaveChartDialog(self, 'beq', self.filterChart.canvas.figure, self.statusbar)
+        dialog = SaveChartDialog(self, 'beq', self.mainChart.canvas.figure, self.statusbar)
         dialog.exec()
 
     def exportBiquads(self):
@@ -236,6 +242,8 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
             idx = combo.findText(current_reference)
             if idx != -1:
                 combo.setCurrentIndex(idx)
+            else:
+                self.__magnitudeModel.normalise(primary=primary)
         finally:
             combo.blockSignals(False)
 
@@ -275,11 +283,18 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         self.__magnitudeModel.show_values()
 
-    def changeVisibilityOfIndividualFilters(self):
+    def changeFilterVisibility(self, selected_filters):
         '''
-        Updates the filter reference series selector.
+        Changes which filters are visible on screen.
         '''
         self.__filterModel.post_update(filter_change=False)
+        self.__magnitudeModel.redraw()
+
+    def changeLegendVisibility(self):
+        '''
+        Changes whether the legend is visible.
+        '''
+        self.__magnitudeModel.redraw()
 
 
 class SaveChartDialog(QDialog, Ui_saveChartDialog):

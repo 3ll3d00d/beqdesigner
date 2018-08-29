@@ -82,13 +82,9 @@ class AxesManager:
         '''
         curve = self.__curves.get(data.name, None)
         if curve:
-            if data.rendered is False:
-                curve.set_data(data.x, data.y)
-                data.rendered = True
-            if data.linestyle != curve.get_linestyle():
-                curve.set_linestyle(data.linestyle)
-            if data.colour != curve.get_color():
-                curve.set_color(data.colour)
+            curve.set_data(data.x, data.y)
+            curve.set_linestyle(data.linestyle)
+            curve.set_color(data.colour)
         else:
             self.__curves[data.name] = self.__axes.semilogx(data.x, data.y,
                                                             linewidth=2,
@@ -96,7 +92,7 @@ class AxesManager:
                                                             linestyle=data.linestyle,
                                                             color=data.colour,
                                                             label=data.name)[0]
-            data.rendered = True
+        data.rendered = True
         return data.name
 
     def get_ylimits(self):
@@ -120,9 +116,11 @@ class MagnitudeModel:
     Allows a set of filters to be displayed on a chart as magnitude responses.
     '''
 
-    def __init__(self, name, chart, primaryDataProvider, primaryName, secondaryDataProvider=None, secondaryName=None):
+    def __init__(self, name, chart, primaryDataProvider, primaryName, secondaryDataProvider=None, secondaryName=None,
+                 show_legend=lambda: True):
         self.__name = name
         self.__chart = chart
+        self.__show_legend = show_legend
         primary_axes = self.__chart.canvas.figure.add_subplot(111)
         primary_axes.set_ylabel(f"dBFS ({primaryName})")
         primary_axes.grid(linestyle='-', which='major', linewidth=1, alpha=0.5)
@@ -194,29 +192,30 @@ class MagnitudeModel:
         if self.__legend_cid is not None:
             self.__chart.canvas.mpl_disconnect(self.__legend_cid)
 
-        lines = self.__primary.artists() + self.__secondary.artists()
-        if len(lines) > 0:
-            ncol = int(len(lines) / 3) if len(lines) % 3 == 0 else int(len(lines) / 3) + 1
-            self.__legend = self.__primary.make_legend(lines, ncol)
-            lined = dict()
-            for legline, origline in zip(self.__legend.get_lines(), lines):
-                legline.set_picker(5)  # 5 pts tolerance
-                lined[legline] = origline
+        if self.__show_legend():
+            lines = self.__primary.artists() + self.__secondary.artists()
+            if len(lines) > 0:
+                ncol = int(len(lines) / 3) if len(lines) % 3 == 0 else int(len(lines) / 3) + 1
+                self.__legend = self.__primary.make_legend(lines, ncol)
+                lined = dict()
+                for legline, origline in zip(self.__legend.get_lines(), lines):
+                    legline.set_picker(5)  # 5 pts tolerance
+                    lined[legline] = origline
 
-            def onpick(event):
-                # on the pick event, find the orig line corresponding to the legend proxy line, and toggle the visibility
-                legline = event.artist
-                origline = lined[legline]
-                vis = not origline.get_visible()
-                origline.set_visible(vis)
-                # Change the alpha on the line in the legend so we can see what lines have been toggled
-                if vis:
-                    legline.set_alpha(1.0)
-                else:
-                    legline.set_alpha(0.2)
-                self.__chart.canvas.draw()
+                def onpick(event):
+                    # on the pick event, find the orig line corresponding to the legend proxy line, and toggle the visibility
+                    legline = event.artist
+                    origline = lined[legline]
+                    vis = not origline.get_visible()
+                    origline.set_visible(vis)
+                    # Change the alpha on the line in the legend so we can see what lines have been toggled
+                    if vis:
+                        legline.set_alpha(1.0)
+                    else:
+                        legline.set_alpha(0.2)
+                    self.__chart.canvas.draw()
 
-            self.__legend_cid = self.__chart.canvas.mpl_connect('pick_event', onpick)
+                self.__legend_cid = self.__chart.canvas.mpl_connect('pick_event', onpick)
 
     def normalise(self, primary=True, curve=None):
         '''
