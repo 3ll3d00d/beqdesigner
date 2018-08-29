@@ -180,6 +180,7 @@ class Ui_MainWindow(object):
         self.limitsButton.clicked.connect(MainWindow.showLimits)
         self.filterReference.currentIndexChanged['int'].connect(MainWindow.normaliseFilterMagnitude)
         self.showValuesButton.clicked.connect(MainWindow.showValues)
+        self.showIndividualFilters.clicked.connect(MainWindow.changeVisibilityOfIndividualFilters)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
     def retranslateUi(self, MainWindow):

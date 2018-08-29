@@ -227,6 +227,7 @@ class MagnitudeModel:
             self.__primary.reference_curve = curve
         else:
             self.__secondary.reference_curve = curve
+        self.redraw()
 
 
 class Limits:
