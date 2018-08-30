@@ -1,4 +1,6 @@
-# setup
+[![Build Status](https://travis-ci.com/3ll3d00d/beqdesigner.svg?branch=master)](https://travis-ci.com/3ll3d00d/beqdesigner)
+
+# Developer Setup
 
 ## Windows
 
