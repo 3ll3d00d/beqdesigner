@@ -36,6 +36,12 @@ Install https://repo.anaconda.com/archive/Anaconda3-5.2.0-Windows-x86_64.exe the
 
 * add a preferences model that stores the actual values and is passed around to avoid passing settings around
 
+## testing
+
+* filter coefficients
+* load/save round trip
+* ffmpeg command specs
+
 # Freeze
 
 ## Hack
@@ -73,4 +79,3 @@ produces
 to create an installer
 
     makensis src\main\nsis\Installer.nsi
-    
