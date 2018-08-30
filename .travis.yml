@@ -24,4 +24,4 @@ install:
   - source activate test
   - pip install -q -U pyqt5 matplotlib ffmpeg-python soundfile resampy
 script:
-  - PYTHONPATH=./src/main/python unittest
+  - PYTHONPATH=./src/main/python python -m unittest
