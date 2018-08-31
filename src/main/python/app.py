@@ -10,7 +10,7 @@ import matplotlib
 import qtawesome as qta
 from matplotlib import style
 
-from model.iir import Passthrough
+from model.iir import Passthrough, from_json, CompleteFilter
 from ui.biquad import Ui_exportBiquadDialog
 from ui.savechart import Ui_saveChartDialog
 
@@ -99,6 +99,8 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.ensurePathContainsExternalTools()
         # extraction
         self.actionExtract_Audio.triggered.connect(self.showExtractAudioDialog)
+        # import
+        self.actionLoad_Filter.triggered.connect(self.importFilter)
         # export
         self.actionSave_Chart.triggered.connect(self.exportChart)
         self.actionExport_Biquad.triggered.connect(self.exportBiquads)
@@ -134,6 +136,24 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         dialog = ExportBiquadDialog(self.__filterModel.filter)
         dialog.exec()
 
+    def importFilter(self):
+        '''
+        Allows the user to replace the current filter with one loaded from a file.
+        '''
+        dialog = QFileDialog(parent=self)
+        dialog.setFileMode(QFileDialog.ExistingFile)
+        dialog.setNameFilter(f"*.json")
+        dialog.setWindowTitle(f"Load Filter")
+        if dialog.exec():
+            selected = dialog.selectedFiles()
+            if len(selected) > 0:
+                with open(selected[0], 'r') as infile:
+                    input = json.load(infile)
+                    if input is not None:
+                        self.__filterModel.filter = from_json(input)
+                        self.__magnitudeModel.redraw()
+                        self.statusbar.showMessage(f"Loaded filter from {infile.name}")
+
     def exportFilter(self):
         '''
         Allows the user to save the current filter to a file.
@@ -146,7 +166,9 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         if dialog.exec():
             selected = dialog.selectedFiles()
             if len(selected) > 0:
-                with open('data.json', 'w+') as outfile:
+                if not selected[0].endswith('.json'):
+                    selected[0] += '.json'
+                with open(selected[0], 'w+') as outfile:
                     json.dump(self.__filterModel.filter.to_json(), outfile)
                     self.statusbar.showMessage(f"Saved filter to {outfile.name}")
 

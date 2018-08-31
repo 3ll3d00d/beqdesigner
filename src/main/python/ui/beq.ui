@@ -244,13 +244,13 @@
    </property>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
-     <string>Help</string>
+     <string>&amp;Help</string>
     </property>
     <addaction name="actionShow_Logs"/>
    </widget>
    <widget class="QMenu" name="menuSettings">
     <property name="title">
-     <string>Settings</string>
+     <string>&amp;Settings</string>
     </property>
     <widget class="QMenu" name="menuPresets">
      <property name="title">
@@ -270,11 +270,13 @@
    </widget>
    <widget class="QMenu" name="menuFile">
     <property name="title">
-     <string>File</string>
+     <string>&amp;File</string>
     </property>
     <addaction name="actionExtract_Audio"/>
     <addaction name="actionSave_Chart"/>
     <addaction name="actionExport_Biquad"/>
+    <addaction name="separator"/>
+    <addaction name="actionLoad_Filter"/>
     <addaction name="actionSave_Filter"/>
    </widget>
    <addaction name="menuFile"/>
@@ -284,7 +286,7 @@
   <widget class="QStatusBar" name="statusbar"/>
   <action name="actionShow_Logs">
    <property name="text">
-    <string>Show Logs</string>
+    <string>Show &amp;Logs</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+L</string>
@@ -292,7 +294,7 @@
   </action>
   <action name="actionPreferences">
    <property name="text">
-    <string>Preferences</string>
+    <string>&amp;Preferences</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+P</string>
@@ -300,7 +302,7 @@
   </action>
   <action name="actionExtract_Audio">
    <property name="text">
-    <string>Extract Audio</string>
+    <string>&amp;Extract Audio</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+E</string>
@@ -352,7 +354,7 @@
   </action>
   <action name="actionSave_Chart">
    <property name="text">
-    <string>Save Chart</string>
+    <string>&amp;Save Chart</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+S</string>
@@ -360,15 +362,10 @@
   </action>
   <action name="actionExport_Biquad">
    <property name="text">
-    <string>Export Biquad</string>
+    <string>Export &amp;Biquad</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+B</string>
-   </property>
-  </action>
-  <action name="actionLoad_Filter">
-   <property name="text">
-    <string>Load Filter</string>
    </property>
   </action>
   <action name="actionSave_Filter">
@@ -376,7 +373,12 @@
     <bool>false</bool>
    </property>
    <property name="text">
-    <string>Save Filter</string>
+    <string>Save &amp;Filter</string>
+   </property>
+  </action>
+  <action name="actionLoad_Filter">
+   <property name="text">
+    <string>&amp;Load Filter</string>
    </property>
   </action>
  </widget>

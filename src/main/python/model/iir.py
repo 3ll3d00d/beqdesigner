@@ -33,7 +33,7 @@ class Biquad(ABC):
     def __init__(self, fs, freq, q):
         self.fs = fs
         self.freq = round(freq, 2)
-        self.q = q
+        self.q = round(q, 4)
         self.w0 = 2.0 * math.pi * self.freq / self.fs
         self.cos_w0 = math.cos(self.w0)
         self.sin_w0 = math.sin(self.w0)

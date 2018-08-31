@@ -31,12 +31,28 @@ class FilterModel(Sequence):
     '''
 
     def __init__(self, view, show_filters=lambda: SHOW_ALL_FILTERS, on_update=lambda _: True):
-        self.filter = CompleteFilter()
+        self.__filter = CompleteFilter()
         self.__view = view
         self.__show_filters = show_filters
         self.__table = None
         self.__listeners = []
         self.__on_update = on_update
+
+    @property
+    def filter(self):
+        return self.__filter
+
+    @filter.setter
+    def filter(self, filter):
+        if isinstance(filter, CompleteFilter):
+            if self.__table is not None:
+                self.__table.beginResetModel()
+            self.__filter = filter
+            self.post_update()
+            if self.__table is not None:
+                self.__table.endResetModel()
+        else:
+            raise ValueError(f"FilterModel only accepts CompleteFilter, ignoring {filter}")
 
     @property
     def table(self):
