@@ -6,7 +6,7 @@
 
 Install https://repo.anaconda.com/archive/Anaconda3-5.2.0-Windows-x86_64.exe then
 
-    conda create -n beq numpy colorcet scipy qtpy mkl==2018.0.2 qtawesome
+    conda create -n beq numpy colorcet scipy qtpy mkl==2018.0.2 qtawesome pytest pytest-cov
     activate beq
     python -m pip install --upgrade pip
     pip install pyqt5 matplotlib ffmpeg-python soundfile resampy
