@@ -924,11 +924,7 @@ class XYData:
 def from_json(o):
     if '_type' not in o:
         raise ValueError(f"{o} is not a filter")
-    if o['_type'] == ComplexHighPass.__name__:
-        return ComplexHighPass(FilterType(o['filter_type']), o['order'], o['fs'], o['fc'])
-    elif o['_type'] == ComplexLowPass.__name__:
-        return ComplexLowPass(FilterType(o['filter_type']), o['order'], o['fs'], o['fc'])
-    elif o['_type'] == Passthrough.__name__:
+    if o['_type'] == Passthrough.__name__:
         return Passthrough()
     elif o['_type'] == PeakingEQ.__name__:
         return PeakingEQ(o['fs'], o['fc'], o['q'], o['gain'])
@@ -939,11 +935,11 @@ def from_json(o):
     elif o['_type'] == FirstOrder_LowPass.__name__:
         return FirstOrder_LowPass(o['fs'], o['fc'], o['q'])
     elif o['_type'] == FirstOrder_HighPass.__name__:
-        return FirstOrder_LowPass(o['fs'], o['fc'], o['q'])
+        return FirstOrder_HighPass(o['fs'], o['fc'], o['q'])
     elif o['_type'] == SecondOrder_LowPass.__name__:
         return SecondOrder_LowPass(o['fs'], o['fc'], o['q'])
     elif o['_type'] == SecondOrder_HighPass.__name__:
-        return SecondOrder_LowPass(o['fs'], o['fc'], o['q'])
+        return SecondOrder_HighPass(o['fs'], o['fc'], o['q'])
     elif o['_type'] == AllPass.__name__:
         return AllPass(o['fs'], o['fc'], o['q'])
     elif o['_type'] == CompleteFilter.__name__:
