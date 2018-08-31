@@ -24,6 +24,6 @@ install:
   - source activate test
   - pip install -q -U pyqt5 matplotlib ffmpeg-python soundfile resampy coverage
 script:
-  - PYTHONPATH=./src/main/python python -m unittest -s src/test/python -t src/test/python
+  - PYTHONPATH=./src/main/python pytest --cov=./src/main/python
 after_success:
   - bash <(curl -s https://codecov.io/bash)
