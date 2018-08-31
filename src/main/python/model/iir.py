@@ -96,6 +96,11 @@ class Passthrough(Biquad):
     def description(self):
         return 'Passthrough'
 
+    def to_json(self):
+        return {
+            '_type': self.__class__.__name__
+        }
+
 
 class BiquadWithGain(Biquad):
     def __init__(self, fs, freq, q, gain):
@@ -142,6 +147,15 @@ class PeakingEQ(BiquadWithGain):
             return PeakingEQ(new_fs, self.freq, self.q, self.gain)
         else:
             return self
+
+    def to_json(self):
+        return {
+            '_type': self.__class__.__name__,
+            'fs': self.fs,
+            'fc': self.freq,
+            'q': self.q,
+            'gain': self.gain
+        }
 
 
 def q_to_s(q, gain):
@@ -214,6 +228,16 @@ class Shelf(BiquadWithGain):
             return single * self.count
         else:
             raise ValueError('Shelf must have non zero count')
+
+    def to_json(self):
+        return {
+            '_type': self.__class__.__name__,
+            'fs': self.fs,
+            'fc': self.freq,
+            'q': self.q,
+            'gain': self.gain,
+            'count': self.count
+        }
 
 
 class LowShelf(Shelf):
@@ -352,6 +376,9 @@ class FirstOrder_LowPass(Biquad):
         else:
             return self
 
+    def to_json(self):
+        return fs_freq_q_json(self)
+
 
 class FirstOrder_HighPass(Biquad):
     '''
@@ -389,6 +416,18 @@ class FirstOrder_HighPass(Biquad):
             return FirstOrder_HighPass(new_fs, self.freq, q=self.q)
         else:
             return self
+
+    def to_json(self):
+        return fs_freq_q_json(self)
+
+
+def fs_freq_q_json(o):
+    return {
+        '_type': o.__class__.__name__,
+        'fs': o.fs,
+        'fc': o.freq,
+        'q': o.q
+    }
 
 
 class SecondOrder_LowPass(Biquad):
@@ -438,6 +477,9 @@ class SecondOrder_LowPass(Biquad):
             return SecondOrder_LowPass(new_fs, self.freq, q=self.q)
         else:
             return self
+
+    def to_json(self):
+        return fs_freq_q_json(self)
 
 
 class SecondOrder_HighPass(Biquad):
@@ -489,6 +531,9 @@ class SecondOrder_HighPass(Biquad):
         else:
             return self
 
+    def to_json(self):
+        return fs_freq_q_json(self)
+
 
 class AllPass(Biquad):
     '''
@@ -536,6 +581,9 @@ class AllPass(Biquad):
             return AllPass(new_fs, self.freq, self.q)
         else:
             return self
+
+    def to_json(self):
+        return fs_freq_q_json(self)
 
 
 def getCascadeTransferFunction(name, responses):
@@ -615,6 +663,13 @@ class ComplexFilter:
         :return: the report.
         '''
         return [f.format_biquads(invert_a) for f in self.filters]
+
+    def to_json(self):
+        return {
+            '_type': self.__class__.__name__,
+            'description': self.description,
+            'filters': [x.to_json() for x in self.filters]
+        }
 
 
 class CompleteFilter(ComplexFilter):
@@ -730,6 +785,15 @@ class ComplexLowPass(CompoundPassFilter):
         else:
             return self
 
+    def to_json(self):
+        return {
+            '_type': self.__class__.__name__,
+            'filter_type': self.type.value,
+            'order': self.order,
+            'fs': self.fs,
+            'fc': self.freq
+        }
+
 
 class ComplexHighPass(CompoundPassFilter):
     '''
@@ -753,6 +817,15 @@ class ComplexHighPass(CompoundPassFilter):
             return ComplexHighPass(self.type, self.order, new_fs, self.freq)
         else:
             return self
+
+    def to_json(self):
+        return {
+            '_type': self.__class__.__name__,
+            'filter_type': self.type.value,
+            'order': self.order,
+            'fs': self.fs,
+            'fc': self.freq
+        }
 
 
 class ComplexData:
@@ -846,3 +919,33 @@ class XYData:
                 return XYData(f"{self.name}-filtered", filt.x, filt.y + interp_y, colour=self.colour, linestyle='-')
         else:
             return XYData(f"{self.name}-filtered", self.x, self.y + filt.y, colour=self.colour, linestyle='-')
+
+
+def from_json(o):
+    if '_type' not in o:
+        raise ValueError(f"{o} is not a filter")
+    if o['_type'] == Passthrough.__name__:
+        return Passthrough()
+    elif o['_type'] == PeakingEQ.__name__:
+        return PeakingEQ(o['fs'], o['fc'], o['q'], o['gain'])
+    elif o['_type'] == LowShelf.__name__:
+        return LowShelf(o['fs'], o['fc'], o['q'], o['gain'], o['count'])
+    elif o['_type'] == HighShelf.__name__:
+        return HighShelf(o['fs'], o['fc'], o['q'], o['gain'], o['count'])
+    elif o['_type'] == FirstOrder_LowPass.__name__:
+        return FirstOrder_LowPass(o['fs'], o['fc'], o['q'])
+    elif o['_type'] == FirstOrder_HighPass.__name__:
+        return FirstOrder_HighPass(o['fs'], o['fc'], o['q'])
+    elif o['_type'] == SecondOrder_LowPass.__name__:
+        return SecondOrder_LowPass(o['fs'], o['fc'], o['q'])
+    elif o['_type'] == SecondOrder_HighPass.__name__:
+        return SecondOrder_HighPass(o['fs'], o['fc'], o['q'])
+    elif o['_type'] == AllPass.__name__:
+        return AllPass(o['fs'], o['fc'], o['q'])
+    elif o['_type'] == CompleteFilter.__name__:
+        return CompleteFilter(filters=[from_json(x) for x in o['filters']], description=o['description'])
+    elif o['_type'] == ComplexLowPass.__name__:
+        return ComplexLowPass(FilterType(o['filter_type']), o['order'], o['fs'], o['fc'])
+    elif o['_type'] == ComplexHighPass.__name__:
+        return ComplexHighPass(FilterType(o['filter_type']), o['order'], o['fs'], o['fc'])
+    raise ValueError(f"{o._type} is an unknown filter type")

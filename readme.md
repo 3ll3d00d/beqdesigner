@@ -1,10 +1,12 @@
-# setup
+[![Build Status](https://travis-ci.com/3ll3d00d/beqdesigner.svg?branch=master)](https://travis-ci.com/3ll3d00d/beqdesigner)
+
+# Developer Setup
 
 ## Windows
 
 Install https://repo.anaconda.com/archive/Anaconda3-5.2.0-Windows-x86_64.exe then
 
-    conda create -n beq numpy colorcet scipy qtpy mkl==2018.0.2 qtawesome
+    conda create -n beq numpy colorcet scipy qtpy mkl==2018.0.2 qtawesome pytest pytest-cov
     activate beq
     python -m pip install --upgrade pip
     pip install pyqt5 matplotlib ffmpeg-python soundfile resampy
@@ -35,6 +37,12 @@ Install https://repo.anaconda.com/archive/Anaconda3-5.2.0-Windows-x86_64.exe the
 ## misc
 
 * add a preferences model that stores the actual values and is passed around to avoid passing settings around
+
+## testing
+
+* filter coefficients
+* load/save round trip
+* ffmpeg command specs
 
 # Freeze
 
@@ -73,4 +81,3 @@ produces
 to create an installer
 
     makensis src\main\nsis\Installer.nsi
-    
