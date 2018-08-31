@@ -3,6 +3,7 @@ import json
 import logging
 import math
 import os
+import re
 import sys
 from contextlib import contextmanager
 
@@ -10,7 +11,7 @@ import matplotlib
 import qtawesome as qta
 from matplotlib import style
 
-from model.iir import Passthrough, from_json, CompleteFilter
+from model.iir import Passthrough, from_json
 from ui.biquad import Ui_exportBiquadDialog
 from ui.savechart import Ui_saveChartDialog
 
@@ -24,7 +25,9 @@ from model.extract import ExtractAudioDialog
 from model.filter import FilterTableModel, FilterModel, FilterDialog, SHOW_FILTER_OPTIONS
 from model.log import RollingLogger
 from model.magnitude import MagnitudeModel
-from model.preferences import PreferencesDialog, BINARIES, ANALYSIS_TARGET_FS, STYLE_MATPLOTLIB_THEME
+from model.preferences import PreferencesDialog, BINARIES_GROUP, ANALYSIS_TARGET_FS, STYLE_MATPLOTLIB_THEME, \
+    Preferences, \
+    SCREEN_GEOMETRY, SCREEN_WINDOW_STATE, FILTERS_PRESET_x
 from model.signal import SignalModel, SignalTableModel, SignalDialog
 from ui.beq import Ui_MainWindow
 
@@ -55,12 +58,12 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         super(BeqDesigner, self).__init__(parent)
         self.logger = logging.getLogger('beqdesigner')
         self.app = app
-        self.settings = QSettings("3ll3d00d", "beqdesigner")
+        self.preferences = Preferences(QSettings("3ll3d00d", "beqdesigner"))
         if getattr(sys, 'frozen', False):
             self.__style_path_root = sys._MEIPASS
         else:
             self.__style_path_root = os.path.dirname(__file__)
-        matplotlib_theme = self.settings.value(STYLE_MATPLOTLIB_THEME)
+        matplotlib_theme = self.preferences.get(STYLE_MATPLOTLIB_THEME)
         if matplotlib_theme is not None:
             if matplotlib_theme.startswith('beq'):
                 style.use(os.path.join(self.__style_path_root, 'style', 'mpl', f"{matplotlib_theme}.mplstyle"))
@@ -84,6 +87,11 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.__filterTableModel = FilterTableModel(self.__filterModel, parent=parent)
         self.filterView.setModel(self.__filterTableModel)
         self.filterView.selectionModel().selectionChanged.connect(self.changeFilterButtonState)
+        for i in range(1, 4):
+            getattr(self, f"action_load_preset_{i}").triggered.connect(self.load_preset(i))
+            getattr(self, f"action_clear_preset_{i}").triggered.connect(self.clear_preset(i))
+            getattr(self, f"action_set_preset_{i}").triggered.connect(self.set_preset(i))
+            self.enable_preset(i)
         # signal model
         self.signalView.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.signalView.setSelectionMode(QAbstractItemView.SingleSelection)
@@ -121,6 +129,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         self.update_reference_series(names, self.filterReference, False)
         self.__magnitudeModel.redraw()
+        self.__enable_save_filter()
 
     def exportChart(self):
         '''
@@ -140,6 +149,16 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Allows the user to replace the current filter with one loaded from a file.
         '''
+        input = self.__load_filter()
+        if input is not None:
+            self.__filterModel.filter = from_json(input)
+            self.__magnitudeModel.redraw()
+
+    def __load_filter(self):
+        '''
+        Presents a file dialog to the user so they can choose a filter to load.
+        :return: the loaded filter, if any.
+        '''
         dialog = QFileDialog(parent=self)
         dialog.setFileMode(QFileDialog.ExistingFile)
         dialog.setNameFilter(f"*.json")
@@ -149,10 +168,9 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
             if len(selected) > 0:
                 with open(selected[0], 'r') as infile:
                     input = json.load(infile)
-                    if input is not None:
-                        self.__filterModel.filter = from_json(input)
-                        self.__magnitudeModel.redraw()
-                        self.statusbar.showMessage(f"Loaded filter from {infile.name}")
+                    self.statusbar.showMessage(f"Loaded filter from {infile.name}")
+                    return input
+        return None
 
     def exportFilter(self):
         '''
@@ -178,24 +196,24 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         path = os.environ.get('PATH', [])
         paths = path.split(os.pathsep)
-        locs = set(filter(None.__ne__, [self.settings.value(f"binaries/{x}") for x in BINARIES]))
-        logging.info(f"Adding {locs} to PATH")
+        locs = self.preferences.get_all(BINARIES_GROUP)
         if len(locs) > 0:
+            logging.info(f"Adding {locs} to PATH")
             os.environ['PATH'] = os.pathsep.join([l for l in locs if l not in paths]) + os.pathsep + path
         else:
-            logger.warning(f"No paths set for {BINARIES}")
+            logger.warning(f"No {BINARIES_GROUP} paths set")
             # TODO attempt to call each binary with a test command to test if they are really on the path
 
-    def setupUi(self, mainWindow):
+    def setupUi(self, main_window):
         super().setupUi(self)
-        geometry = self.settings.value("geometry")
+        geometry = self.preferences.get(SCREEN_GEOMETRY)
         if geometry is not None:
             self.restoreGeometry(geometry)
         else:
             screen_geometry = self.app.desktop().availableGeometry()
             if screen_geometry.height() < 800:
                 self.showMaximized()
-        window_state = self.settings.value("windowState")
+        window_state = self.preferences.get(SCREEN_WINDOW_STATE)
         if window_state is not None:
             self.restoreState(window_state)
 
@@ -205,8 +223,8 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         :param args:
         :param kwargs:
         '''
-        self.settings.setValue("geometry", self.saveGeometry())
-        self.settings.setValue("windowState", self.saveState())
+        self.preferences.set(SCREEN_GEOMETRY, self.saveGeometry())
+        self.preferences.set(SCREEN_WINDOW_STATE, self.saveState())
         super().closeEvent(*args, **kwargs)
         self.app.closeAllWindows()
 
@@ -214,14 +232,13 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Shows the preferences dialog.
         '''
-        PreferencesDialog(self.settings, self.__style_path_root, parent=self).exec()
+        PreferencesDialog(self.preferences, self.__style_path_root, parent=self).exec()
 
     def addFilter(self):
         '''
         Adds a filter via the filter dialog.
         '''
-        FilterDialog(self.__filterModel, fs=int(self.settings.value(ANALYSIS_TARGET_FS))).exec()
-        self.__enable_save_filter()
+        FilterDialog(self.__filterModel, fs=int(self.preferences.get(ANALYSIS_TARGET_FS))).exec()
 
     def editFilter(self):
         '''
@@ -230,7 +247,6 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         selection = self.filterView.selectionModel()
         if selection.hasSelection() and len(selection.selectedRows()) == 1:
             FilterDialog(self.__filterModel, filter=self.__filterModel[selection.selectedRows()[0].row()]).exec()
-            self.__enable_save_filter()
 
     def deleteFilter(self):
         '''
@@ -239,7 +255,6 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         selection = self.filterView.selectionModel()
         if selection.hasSelection():
             self.__filterModel.delete([x.row() for x in selection.selectedRows()])
-            self.__enable_save_filter()
 
     def __enable_save_filter(self):
         '''
@@ -251,7 +266,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Adds signals via the signal dialog.
         '''
-        SignalDialog(self.settings, self.__signalModel, parent=self).exec()
+        SignalDialog(self.preferences, self.__signalModel, parent=self).exec()
 
     def deleteSignal(self):
         '''
@@ -300,7 +315,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Show the extract audio dialog.
         '''
-        ExtractAudioDialog(self.settings, parent=self).exec()
+        ExtractAudioDialog(self.preferences, parent=self).exec()
 
     def normaliseSignalMagnitude(self):
         '''
@@ -345,29 +360,82 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         self.__magnitudeModel.redraw()
 
-    def handlePreset1(self):
+    def applyPreset1(self):
         '''
-        Handles the preset button.
+        Applies the preset to the model.
         '''
-        self.__handle_preset(1)
+        self.__apply_preset(1)
 
-    def handlePreset2(self):
+    def applyPreset2(self):
         '''
-        Handles the preset button.
+        Applies the preset to the model.
         '''
-        self.__handle_preset(2)
+        self.__apply_preset(2)
 
-    def handlePreset3(self):
+    def applyPreset3(self):
         '''
-        Handles the preset button.
+        Applies the preset to the model.
         '''
-        self.__handle_preset(3)
+        self.__apply_preset(3)
 
-    def __handle_preset(self, idx):
+    def __apply_preset(self, idx):
+        preset_key = FILTERS_PRESET_x % idx
+        preset = self.preferences.get(preset_key)
+        if preset is not None:
+            self.__filterModel.filter = from_json(preset)
+            pattern = re.compile("^preset[0-9]Button$")
+            for attr in [at for at in dir(self) if pattern.match(at)]:
+                getattr(self, attr).setIcon(QIcon())
+            getattr(self, f"preset{idx}Button").setIcon(qta.icon('fa.check'))
+
+    def enable_preset(self, idx):
+        preset_key = FILTERS_PRESET_x % idx
+        getattr(self, f"preset{idx}Button").setEnabled(self.preferences.has(preset_key))
+
+    def load_preset(self, idx):
         '''
-        Allows the user to load or apply a preset to the current signal.
+        Allows the user to load a preset from a saved filter.
+        :param idx: the index.
         '''
-        pass
+
+        def __load_preset():
+            preset_key = FILTERS_PRESET_x % idx
+            input = self.__load_filter()
+            if input is not None:
+                logger.info(f"Loaded filter for preset {idx}")
+                self.preferences.set(preset_key, input)
+            self.enable_preset(idx)
+
+        return __load_preset
+
+    def set_preset(self, idx):
+        '''
+        Saves the current filter to the numbered preset.
+        :param idx: the index.
+        '''
+
+        def __set_preset():
+            preset_key = FILTERS_PRESET_x % idx
+            if len(self.__filterModel) > 0:
+                input = self.__filterModel.filter.to_json()
+                self.preferences.set(preset_key, input)
+                self.enable_preset(idx)
+
+        return __set_preset
+
+    def clear_preset(self, idx):
+        '''
+        Yields a function which will clears the specified preset.
+        :param idx: the preset index.
+        '''
+        prefs = self.preferences
+        button = getattr(self, f"preset{idx}Button")
+
+        def __clear_preset():
+            prefs.set(FILTERS_PRESET_x % idx, None)
+            button.setEnabled(False)
+
+        return __clear_preset
 
 
 class SaveChartDialog(QDialog, Ui_saveChartDialog):

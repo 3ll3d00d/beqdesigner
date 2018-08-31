@@ -123,9 +123,9 @@
          </widget>
         </item>
         <item row="4" column="0">
-         <widget class="QPushButton" name="loadPreset1">
+         <widget class="QPushButton" name="preset1Button">
           <property name="enabled">
-           <bool>true</bool>
+           <bool>false</bool>
           </property>
           <property name="text">
            <string>Preset 1</string>
@@ -133,9 +133,9 @@
          </widget>
         </item>
         <item row="4" column="1">
-         <widget class="QPushButton" name="loadPreset2">
+         <widget class="QPushButton" name="preset2Button">
           <property name="enabled">
-           <bool>true</bool>
+           <bool>false</bool>
           </property>
           <property name="text">
            <string>Preset 2</string>
@@ -159,9 +159,9 @@
          </widget>
         </item>
         <item row="4" column="2">
-         <widget class="QPushButton" name="loadPreset3">
+         <widget class="QPushButton" name="preset3Button">
           <property name="enabled">
-           <bool>true</bool>
+           <bool>false</bool>
           </property>
           <property name="text">
            <string>Preset 3</string>
@@ -252,32 +252,52 @@
     <property name="title">
      <string>&amp;Settings</string>
     </property>
-    <widget class="QMenu" name="menuPresets">
-     <property name="title">
-      <string>Presets</string>
-     </property>
-     <addaction name="actionSave_Preset_1"/>
-     <addaction name="actionSave_Preset_2"/>
-     <addaction name="actionSave_Preset_3"/>
-     <addaction name="separator"/>
-     <addaction name="actionClear_Preset_1"/>
-     <addaction name="actionClear_Preset_2"/>
-     <addaction name="actionClear_Preset_3"/>
-    </widget>
     <addaction name="actionPreferences"/>
     <addaction name="separator"/>
-    <addaction name="menuPresets"/>
    </widget>
    <widget class="QMenu" name="menuFile">
     <property name="title">
      <string>&amp;File</string>
     </property>
+    <widget class="QMenu" name="menuPresets">
+     <property name="title">
+      <string>&amp;Presets</string>
+     </property>
+     <widget class="QMenu" name="menuLoad">
+      <property name="title">
+       <string>&amp;Load</string>
+      </property>
+      <addaction name="action_load_preset_1"/>
+      <addaction name="action_load_preset_2"/>
+      <addaction name="action_load_preset_3"/>
+     </widget>
+     <widget class="QMenu" name="menu_Clear">
+      <property name="title">
+       <string>&amp;Clear</string>
+      </property>
+      <addaction name="action_clear_preset_1"/>
+      <addaction name="action_clear_preset_2"/>
+      <addaction name="action_clear_preset_3"/>
+     </widget>
+     <widget class="QMenu" name="menu_Set">
+      <property name="title">
+       <string>&amp;Set</string>
+      </property>
+      <addaction name="action_set_preset_1"/>
+      <addaction name="action_set_preset_2"/>
+      <addaction name="action_set_preset_3"/>
+     </widget>
+     <addaction name="menuLoad"/>
+     <addaction name="menu_Set"/>
+     <addaction name="menu_Clear"/>
+    </widget>
     <addaction name="actionExtract_Audio"/>
     <addaction name="actionSave_Chart"/>
     <addaction name="actionExport_Biquad"/>
     <addaction name="separator"/>
     <addaction name="actionLoad_Filter"/>
     <addaction name="actionSave_Filter"/>
+    <addaction name="menuPresets"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuSettings"/>
@@ -313,40 +333,6 @@
     <string>Presets</string>
    </property>
   </action>
-  <action name="actionSave_Preset_1">
-   <property name="text">
-    <string>Save Preset 1</string>
-   </property>
-   <property name="shortcut">
-    <string>Ctrl+Shift+1</string>
-   </property>
-  </action>
-  <action name="actionClear_Preset_1">
-   <property name="text">
-    <string>Clear Preset 1</string>
-   </property>
-  </action>
-  <action name="actionSave_Preset_2">
-   <property name="text">
-    <string>Save Preset 2</string>
-   </property>
-   <property name="shortcut">
-    <string>Ctrl+Shift+2</string>
-   </property>
-  </action>
-  <action name="actionClear_Preset_2">
-   <property name="text">
-    <string>Clear Preset 2</string>
-   </property>
-  </action>
-  <action name="actionSave_Preset_3">
-   <property name="text">
-    <string>Save Preset 3</string>
-   </property>
-   <property name="shortcut">
-    <string>Ctrl+Shift+3</string>
-   </property>
-  </action>
   <action name="actionClear_Preset_3">
    <property name="text">
     <string>Clear Preset 3</string>
@@ -379,6 +365,51 @@
   <action name="actionLoad_Filter">
    <property name="text">
     <string>&amp;Load Filter</string>
+   </property>
+  </action>
+  <action name="action_load_preset_1">
+   <property name="text">
+    <string>&amp;1</string>
+   </property>
+  </action>
+  <action name="action_load_preset_2">
+   <property name="text">
+    <string>&amp;2</string>
+   </property>
+  </action>
+  <action name="action_load_preset_3">
+   <property name="text">
+    <string>&amp;3</string>
+   </property>
+  </action>
+  <action name="action_clear_preset_1">
+   <property name="text">
+    <string>&amp;1</string>
+   </property>
+  </action>
+  <action name="action_clear_preset_2">
+   <property name="text">
+    <string>&amp;2</string>
+   </property>
+  </action>
+  <action name="action_clear_preset_3">
+   <property name="text">
+    <string>&amp;3</string>
+   </property>
+  </action>
+  <action name="action_set_preset_1">
+   <property name="text">
+    <string>&amp;1</string>
+   </property>
+  </action>
+  <action name="action_set_preset_2">
+   <property name="text">
+    <string>&amp;2</string>
+   </property>
+  </action>
+  <action name="action_set_preset_3">
+   <property name="text">
+    <string>&amp;3</string>
    </property>
   </action>
  </widget>
@@ -568,10 +599,10 @@
    </hints>
   </connection>
   <connection>
-   <sender>loadPreset1</sender>
+   <sender>preset1Button</sender>
    <signal>clicked()</signal>
    <receiver>MainWindow</receiver>
-   <slot>handlePreset1()</slot>
+   <slot>applyPreset1()</slot>
    <hints>
     <hint type="sourcelabel">
      <x>1183</x>
@@ -584,10 +615,10 @@
    </hints>
   </connection>
   <connection>
-   <sender>loadPreset2</sender>
+   <sender>preset2Button</sender>
    <signal>clicked()</signal>
    <receiver>MainWindow</receiver>
-   <slot>handlePreset2()</slot>
+   <slot>applyPreset2()</slot>
    <hints>
     <hint type="sourcelabel">
      <x>1339</x>
@@ -600,10 +631,10 @@
    </hints>
   </connection>
   <connection>
-   <sender>loadPreset3</sender>
+   <sender>preset3Button</sender>
    <signal>clicked()</signal>
    <receiver>MainWindow</receiver>
-   <slot>handlePreset3()</slot>
+   <slot>applyPreset3()</slot>
    <hints>
     <hint type="sourcelabel">
      <x>1458</x>
@@ -632,8 +663,8 @@
   <slot>normaliseFilterMagnitude()</slot>
   <slot>showValues()</slot>
   <slot>changeLegendVisibility()</slot>
-  <slot>handlePreset1()</slot>
-  <slot>handlePreset2()</slot>
-  <slot>handlePreset3()</slot>
+  <slot>applyPreset1()</slot>
+  <slot>applyPreset2()</slot>
+  <slot>applyPreset3()</slot>
  </slots>
 </ui>
