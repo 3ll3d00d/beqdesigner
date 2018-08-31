@@ -125,7 +125,7 @@
         <item row="4" column="0">
          <widget class="QPushButton" name="loadPreset1">
           <property name="enabled">
-           <bool>false</bool>
+           <bool>true</bool>
           </property>
           <property name="text">
            <string>Preset 1</string>
@@ -135,7 +135,7 @@
         <item row="4" column="1">
          <widget class="QPushButton" name="loadPreset2">
           <property name="enabled">
-           <bool>false</bool>
+           <bool>true</bool>
           </property>
           <property name="text">
            <string>Preset 2</string>
@@ -161,7 +161,7 @@
         <item row="4" column="2">
          <widget class="QPushButton" name="loadPreset3">
           <property name="enabled">
-           <bool>false</bool>
+           <bool>true</bool>
           </property>
           <property name="text">
            <string>Preset 3</string>
@@ -275,6 +275,7 @@
     <addaction name="actionExtract_Audio"/>
     <addaction name="actionSave_Chart"/>
     <addaction name="actionExport_Biquad"/>
+    <addaction name="actionSave_Filter"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuSettings"/>
@@ -363,6 +364,19 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+B</string>
+   </property>
+  </action>
+  <action name="actionLoad_Filter">
+   <property name="text">
+    <string>Load Filter</string>
+   </property>
+  </action>
+  <action name="actionSave_Filter">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Save Filter</string>
    </property>
   </action>
  </widget>
@@ -551,6 +565,54 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>loadPreset1</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>handlePreset1()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1183</x>
+     <y>490</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1155</x>
+     <y>471</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>loadPreset2</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>handlePreset2()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1339</x>
+     <y>492</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1152</x>
+     <y>423</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>loadPreset3</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>handlePreset3()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1458</x>
+     <y>492</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1545</x>
+     <y>447</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>addFilter()</slot>
@@ -568,5 +630,8 @@
   <slot>normaliseFilterMagnitude()</slot>
   <slot>showValues()</slot>
   <slot>changeLegendVisibility()</slot>
+  <slot>handlePreset1()</slot>
+  <slot>handlePreset2()</slot>
+  <slot>handlePreset3()</slot>
  </slots>
 </ui>

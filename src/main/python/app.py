@@ -1,4 +1,5 @@
 import collections
+import json
 import logging
 import math
 import os
@@ -101,6 +102,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         # export
         self.actionSave_Chart.triggered.connect(self.exportChart)
         self.actionExport_Biquad.triggered.connect(self.exportBiquads)
+        self.actionSave_Filter.triggered.connect(self.exportFilter)
 
     def on_signal_change(self, names):
         '''
@@ -131,6 +133,22 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         dialog = ExportBiquadDialog(self.__filterModel.filter)
         dialog.exec()
+
+    def exportFilter(self):
+        '''
+        Allows the user to save the current filter to a file.
+        '''
+        dialog = QFileDialog(parent=self)
+        dialog.setFileMode(QFileDialog.AnyFile)
+        dialog.setNameFilter(f"*.json")
+        dialog.setWindowTitle(f"Save Filter")
+        dialog.setLabelText(QFileDialog.Accept, 'Save')
+        if dialog.exec():
+            selected = dialog.selectedFiles()
+            if len(selected) > 0:
+                with open('data.json', 'w+') as outfile:
+                    json.dump(self.__filterModel.filter.to_json(), outfile)
+                    self.statusbar.showMessage(f"Saved filter to {outfile.name}")
 
     def ensurePathContainsExternalTools(self):
         '''
@@ -181,6 +199,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         Adds a filter via the filter dialog.
         '''
         FilterDialog(self.__filterModel, fs=int(self.settings.value(ANALYSIS_TARGET_FS))).exec()
+        self.__enable_save_filter()
 
     def editFilter(self):
         '''
@@ -189,6 +208,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         selection = self.filterView.selectionModel()
         if selection.hasSelection() and len(selection.selectedRows()) == 1:
             FilterDialog(self.__filterModel, filter=self.__filterModel[selection.selectedRows()[0].row()]).exec()
+            self.__enable_save_filter()
 
     def deleteFilter(self):
         '''
@@ -197,6 +217,13 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         selection = self.filterView.selectionModel()
         if selection.hasSelection():
             self.__filterModel.delete([x.row() for x in selection.selectedRows()])
+            self.__enable_save_filter()
+
+    def __enable_save_filter(self):
+        '''
+        Enables the save filter if we have filters to save.
+        '''
+        self.actionSave_Filter.setEnabled(len(self.__filterModel) > 0)
 
     def addSignal(self):
         '''
@@ -295,6 +322,30 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         Changes whether the legend is visible.
         '''
         self.__magnitudeModel.redraw()
+
+    def handlePreset1(self):
+        '''
+        Handles the preset button.
+        '''
+        self.__handle_preset(1)
+
+    def handlePreset2(self):
+        '''
+        Handles the preset button.
+        '''
+        self.__handle_preset(2)
+
+    def handlePreset3(self):
+        '''
+        Handles the preset button.
+        '''
+        self.__handle_preset(3)
+
+    def __handle_preset(self, idx):
+        '''
+        Allows the user to load or apply a preset to the current signal.
+        '''
+        pass
 
 
 class SaveChartDialog(QDialog, Ui_saveChartDialog):
