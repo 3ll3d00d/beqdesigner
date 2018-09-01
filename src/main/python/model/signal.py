@@ -46,6 +46,21 @@ PEAK_COLOURS = [
 ]
 
 
+def from_json(o):
+    '''
+    Converts the given dict to a SignalData if it is compatible.
+    :param o: the dict (from json).
+    :return: the SignalData (or an error)
+    '''
+    if '_type' not in o:
+        raise ValueError(f"{o} is not SignalData")
+    elif o['_type'] == SignalData.__name__:
+        return SignalData(o['name'], o['fs'], o['data'], filter=o.get('filter', None),
+                          duration_hhmmss=o.get('duration_hhmmss', None), start_hhmmss=o.get('start_hhmmss', None),
+                          end_hhmmss=o.get('end_hhmmss', None))
+    raise ValueError(f"{o._type} is an unknown signal type")
+
+
 class SignalData:
     '''
     Provides a mechanism for caching the assorted xy data surrounding a signal.
@@ -65,15 +80,26 @@ class SignalData:
         self.reference = []
 
     def to_json(self):
-        return {
+        '''
+        Converts the signal to a json compatible format.
+        :return: a dict to write to json.
+        '''
+        out = {
+            '_type': self.__class__.__name__,
             'name': self.name,
             'fs': self.fs,
-            'duration_hhmmss': self.duration_hhmmss,
-            'start_hhmmss': self.start_hhmmss,
-            'end_hhmmss': self.end_hhmmss,
-            'data': self.raw,
-            'filter': self.filter.to_json()
+            'data': {
+                'avg': self.raw[0].to_json(),
+                'peak': self.raw[1].to_json(),
+            },
         }
+        if self.filter is not None:
+            out['filter'] = self.filter.to_json()
+        if self.duration_hhmmss is not None:
+            out['duration_hhmmss'] = self.duration_hhmmss
+            out['start_hhmmss'] = self.start_hhmmss
+            out['end_hhmmss'] = self.end_hhmmss
+        return out
 
     def reindex(self, idx):
         self.raw[0].colour = AVG_COLOURS[idx]
@@ -90,7 +116,12 @@ class SignalData:
             for r in self.raw:
                 r.linestyle = '-'
         else:
-            filter_mag = filter.getMagnitude()
+            if hasattr(filter, 'getTransferFunction'):
+                filter_mag = filter.getTransferFunction().getMagnitude()
+            elif hasattr(filter, 'getMagnitude'):
+                filter_mag = filter.getMagnitude()
+            else:
+                raise ValueError(f"Unknown filter type {filter}")
             self.filtered = [f.filter(filter_mag) for f in self.raw]
             for r in self.raw:
                 r.linestyle = '--'
@@ -502,8 +533,9 @@ class WavLoader:
 
     def select_wav_file(self):
         file = _select_file(self.__dialog, 'wav')
-        self.__dialog.wavFile.setText(file)
-        self.load_signal()
+        if file is not None:
+            self.__dialog.wavFile.setText(file)
+            self.load_signal()
 
     def clear_signal(self):
         self.__signal = None

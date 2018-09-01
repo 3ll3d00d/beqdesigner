@@ -1,4 +1,5 @@
 import collections
+import gzip
 import json
 import logging
 import math
@@ -13,8 +14,8 @@ matplotlib.use("Qt5Agg")
 import qtawesome as qta
 from matplotlib import style
 
-from model.export import ExportFRDDialog
-from model.iir import Passthrough, from_json
+from model.export import ExportSignalDialog, Mode
+from model.iir import Passthrough
 from ui.biquad import Ui_exportBiquadDialog
 from ui.savechart import Ui_saveChartDialog
 
@@ -119,11 +120,13 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.actionExtract_Audio.triggered.connect(self.showExtractAudioDialog)
         # import
         self.actionLoad_Filter.triggered.connect(self.importFilter)
+        self.actionLoad_Signal.triggered.connect(self.importSignal)
         # export
         self.actionSave_Chart.triggered.connect(self.exportChart)
         self.actionExport_Biquad.triggered.connect(self.exportBiquads)
         self.actionSave_Filter.triggered.connect(self.exportFilter)
         self.actionExport_FRD.triggered.connect(self.showExportFRDDialog)
+        self.actionSave_Signal.triggered.connect(self.showExportSignalDialog)
 
     def on_signal_change(self, names):
         '''
@@ -164,6 +167,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         input = self.__load_filter()
         if input is not None:
+            from model.iir import from_json
             self.__filterModel.filter = from_json(input)
             self.__magnitudeModel.redraw()
 
@@ -181,6 +185,34 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
             if len(selected) > 0:
                 with open(selected[0], 'r') as infile:
                     input = json.load(infile)
+                    self.statusbar.showMessage(f"Loaded filter from {infile.name}")
+                    return input
+        return None
+
+    def importSignal(self):
+        '''
+        Allows the user to load a signal from a saved file.
+        '''
+        input = self.__load_signal()
+        if input is not None:
+            from model.signal import from_json
+            self.__signalModel.add(from_json(input))
+            self.__magnitudeModel.redraw()
+
+    def __load_signal(self):
+        '''
+        Presents a file dialog to the user so they can choose a signal to load.
+        :return: the loaded signal, if any.
+        '''
+        dialog = QFileDialog(parent=self)
+        dialog.setFileMode(QFileDialog.ExistingFile)
+        dialog.setNameFilter(f"*.signal")
+        dialog.setWindowTitle(f"Load Signal")
+        if dialog.exec():
+            selected = dialog.selectedFiles()
+            if len(selected) > 0:
+                with gzip.open(selected[0], 'r') as infile:
+                    input = json.loads(infile.read().decode('utf-8'))
                     self.statusbar.showMessage(f"Loaded filter from {infile.name}")
                     return input
         return None
@@ -332,9 +364,15 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
 
     def showExportFRDDialog(self):
         '''
-        Shows the extract frd dialog.
+        Shows the export frd dialog.
         '''
-        ExportFRDDialog(self.preferences, self.__signalModel, self).exec()
+        ExportSignalDialog(self.preferences, self.__signalModel, self, self.statusbar).exec()
+
+    def showExportSignalDialog(self):
+        '''
+        Shows the export signal dialog.
+        '''
+        ExportSignalDialog(self.preferences, self.__signalModel, self, self.statusbar, mode=Mode.SIGNAL).exec()
 
     def normaliseSignalMagnitude(self):
         '''
@@ -403,6 +441,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         preset_key = FILTERS_PRESET_x % idx
         preset = self.preferences.get(preset_key)
         if preset is not None:
+            from model.iir import from_json
             filter = from_json(preset)
             filter.preset_idx = idx
             self.__filterModel.filter = filter

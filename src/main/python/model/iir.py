@@ -865,6 +865,20 @@ class ComplexData:
         return self.__cached_phase
 
 
+def from_json(o):
+    '''
+    Converts a json dict to an XYData.
+    :param o: the dict.
+    :return: the XYData (or an error).
+    '''
+    if '_type' not in o:
+        raise ValueError(f"{o} is not XYData")
+    elif o['_type'] == XYData.__name__:
+        return XYData(o['name'], np.array(o['x']), np.array(o['y']), colour=o.get('colour', None),
+                      linestyle=o.get('linestyle', '-'))
+    raise ValueError(f"{o._type} is an unknown data type")
+
+
 class XYData:
     '''
     Value object for showing data on a magnitude graph.
@@ -887,6 +901,20 @@ class XYData:
         self.maxy = np.ma.masked_invalid(y).max()
         self.__rendered = False
         self.__normalised_cache = {}
+
+    def to_json(self):
+        '''
+        A json compatible rendering of the data.
+        :return: the rendering.
+        '''
+        return {
+            '_type': self.__class__.__name__,
+            'name': self.name,
+            'x': self.x.tolist(),
+            'y': self.y.tolist(),
+            'colour': self.colour,
+            'linestyle': self.linestyle
+        }
 
     @property
     def rendered(self):

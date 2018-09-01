@@ -8,34 +8,34 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-class Ui_exportFRDDialog(object):
-    def setupUi(self, exportFRDDialog):
-        exportFRDDialog.setObjectName("exportFRDDialog")
-        exportFRDDialog.resize(408, 96)
-        self.gridLayout = QtWidgets.QGridLayout(exportFRDDialog)
+class Ui_exportSignalDialog(object):
+    def setupUi(self, exportSignalDialog):
+        exportSignalDialog.setObjectName("exportSignalDialog")
+        exportSignalDialog.resize(408, 96)
+        self.gridLayout = QtWidgets.QGridLayout(exportSignalDialog)
         self.gridLayout.setObjectName("gridLayout")
-        self.buttonBox = QtWidgets.QDialogButtonBox(exportFRDDialog)
+        self.buttonBox = QtWidgets.QDialogButtonBox(exportSignalDialog)
         self.buttonBox.setOrientation(QtCore.Qt.Horizontal)
         self.buttonBox.setStandardButtons(QtWidgets.QDialogButtonBox.Cancel|QtWidgets.QDialogButtonBox.Save)
         self.buttonBox.setObjectName("buttonBox")
         self.gridLayout.addWidget(self.buttonBox, 1, 0, 1, 1)
         self.formLayout = QtWidgets.QFormLayout()
         self.formLayout.setObjectName("formLayout")
-        self.series = QtWidgets.QComboBox(exportFRDDialog)
-        self.series.setObjectName("series")
-        self.formLayout.setWidget(0, QtWidgets.QFormLayout.FieldRole, self.series)
-        self.seriesLabel = QtWidgets.QLabel(exportFRDDialog)
-        self.seriesLabel.setObjectName("seriesLabel")
-        self.formLayout.setWidget(0, QtWidgets.QFormLayout.LabelRole, self.seriesLabel)
+        self.signal = QtWidgets.QComboBox(exportSignalDialog)
+        self.signal.setObjectName("signal")
+        self.formLayout.setWidget(0, QtWidgets.QFormLayout.FieldRole, self.signal)
+        self.signalLabel = QtWidgets.QLabel(exportSignalDialog)
+        self.signalLabel.setObjectName("signalLabel")
+        self.formLayout.setWidget(0, QtWidgets.QFormLayout.LabelRole, self.signalLabel)
         self.gridLayout.addLayout(self.formLayout, 0, 0, 1, 1)
 
-        self.retranslateUi(exportFRDDialog)
-        self.buttonBox.accepted.connect(exportFRDDialog.accept)
-        self.buttonBox.rejected.connect(exportFRDDialog.reject)
-        QtCore.QMetaObject.connectSlotsByName(exportFRDDialog)
+        self.retranslateUi(exportSignalDialog)
+        self.buttonBox.accepted.connect(exportSignalDialog.accept)
+        self.buttonBox.rejected.connect(exportSignalDialog.reject)
+        QtCore.QMetaObject.connectSlotsByName(exportSignalDialog)
 
-    def retranslateUi(self, exportFRDDialog):
+    def retranslateUi(self, exportSignalDialog):
         _translate = QtCore.QCoreApplication.translate
-        exportFRDDialog.setWindowTitle(_translate("exportFRDDialog", "Export FRD"))
-        self.seriesLabel.setText(_translate("exportFRDDialog", "Series"))
+        exportSignalDialog.setWindowTitle(_translate("exportSignalDialog", "Export Signal"))
+        self.signalLabel.setText(_translate("exportSignalDialog", "Signal"))
 

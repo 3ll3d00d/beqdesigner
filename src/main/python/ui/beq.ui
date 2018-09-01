@@ -301,7 +301,11 @@
      <addaction name="menu_Set"/>
      <addaction name="menu_Clear"/>
     </widget>
-    <addaction name="actionSave_Chart"/>
+    <addaction name="action_Load_Project"/>
+    <addaction name="action_Save_Project"/>
+    <addaction name="separator"/>
+    <addaction name="actionLoad_Signal"/>
+    <addaction name="actionSave_Signal"/>
     <addaction name="separator"/>
     <addaction name="actionLoad_Filter"/>
     <addaction name="actionSave_Filter"/>
@@ -309,6 +313,8 @@
     <addaction name="separator"/>
     <addaction name="actionExport_Biquad"/>
     <addaction name="actionExport_FRD"/>
+    <addaction name="separator"/>
+    <addaction name="actionSave_Chart"/>
    </widget>
    <widget class="QMenu" name="menu_Tools">
     <property name="title">
@@ -358,7 +364,7 @@
   </action>
   <action name="actionSave_Chart">
    <property name="text">
-    <string>&amp;Save Chart</string>
+    <string>Save &amp;Chart</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+S</string>
@@ -382,7 +388,7 @@
   </action>
   <action name="actionLoad_Filter">
    <property name="text">
-    <string>&amp;Load Filter</string>
+    <string>Load Filte&amp;r</string>
    </property>
   </action>
   <action name="action_load_preset_1">
@@ -433,6 +439,26 @@
   <action name="actionExport_FRD">
    <property name="text">
     <string>Export &amp;FRD</string>
+   </property>
+  </action>
+  <action name="action_Save_Project">
+   <property name="text">
+    <string>&amp;Save Project</string>
+   </property>
+  </action>
+  <action name="action_Load_Project">
+   <property name="text">
+    <string>&amp;Load Project</string>
+   </property>
+  </action>
+  <action name="actionSave_Signal">
+   <property name="text">
+    <string>Save Si&amp;gnal</string>
+   </property>
+  </action>
+  <action name="actionLoad_Signal">
+   <property name="text">
+    <string>Loa&amp;d Signal</string>
    </property>
   </action>
  </widget>

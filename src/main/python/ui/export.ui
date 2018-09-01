@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>exportFRDDialog</class>
- <widget class="QDialog" name="exportFRDDialog">
+ <class>exportSignalDialog</class>
+ <widget class="QDialog" name="exportSignalDialog">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Export FRD</string>
+   <string>Export Signal</string>
   </property>
   <layout class="QGridLayout" name="gridLayout">
    <item row="1" column="0">
@@ -27,12 +27,12 @@
    <item row="0" column="0">
     <layout class="QFormLayout" name="formLayout">
      <item row="0" column="1">
-      <widget class="QComboBox" name="series"/>
+      <widget class="QComboBox" name="signal"/>
      </item>
      <item row="0" column="0">
-      <widget class="QLabel" name="seriesLabel">
+      <widget class="QLabel" name="signalLabel">
        <property name="text">
-        <string>Series</string>
+        <string>Signal</string>
        </property>
       </widget>
      </item>
@@ -45,7 +45,7 @@
   <connection>
    <sender>buttonBox</sender>
    <signal>accepted()</signal>
-   <receiver>exportFRDDialog</receiver>
+   <receiver>exportSignalDialog</receiver>
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
@@ -61,7 +61,7 @@
   <connection>
    <sender>buttonBox</sender>
    <signal>rejected()</signal>
-   <receiver>exportFRDDialog</receiver>
+   <receiver>exportSignalDialog</receiver>
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">

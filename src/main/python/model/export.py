@@ -1,49 +1,80 @@
+import gzip
+import json
 import logging
 import os
+from enum import Enum
 
 import numpy as np
 from qtpy.QtWidgets import QDialog, QFileDialog, QDialogButtonBox
 
 from model.preferences import EXTRACTION_OUTPUT_DIR
-from ui.export import Ui_exportFRDDialog
+from ui.export import Ui_exportSignalDialog
 
 logger = logging.getLogger('export')
 
 
-class ExportFRDDialog(QDialog, Ui_exportFRDDialog):
-    def __init__(self, preferences, signalModel, parent):
-        super(ExportFRDDialog, self).__init__(parent)
+class Mode(Enum):
+    FRD = 1
+    SIGNAL = 2
+
+
+class ExportSignalDialog(QDialog, Ui_exportSignalDialog):
+    def __init__(self, preferences, signalModel, parent, statusbar, mode=Mode.FRD):
+        super(ExportSignalDialog, self).__init__(parent)
         self.setupUi(self)
         self.__preferences = preferences
         self.__signal_model = signalModel
+        self.__mode = mode
+        self.__statusbar = statusbar
         for s in self.__signal_model:
-            self.series.addItem(s.name)
+            self.signal.addItem(s.name)
         if len(self.__signal_model) == 0:
             self.__dialog.buttonBox.button(QDialogButtonBox.Save).setEnabled(False)
 
     def accept(self):
-        '''
-        Creates the FRD file.
-        '''
-        idx = self.series.currentIndex()
+        idx = self.signal.currentIndex()
         to_export = self.__signal_model[idx]
+        if self.__mode == Mode.FRD:
+            self.export_frd(to_export)
+        elif self.__mode == Mode.SIGNAL:
+            self.export_signal(to_export)
+
+    def export_signal(self, signal):
+        '''
+        Exports the signal to json.
+        '''
+        file_name = QFileDialog(self).getSaveFileName(self, 'Export Signal', f"{signal.name}.signal",
+                                                      "BEQ Signal (*.signal)")
+        file_name = str(file_name[0]).strip()
+        if len(file_name) > 0:
+            out = signal.to_json()
+            if not file_name.endswith('.signal'):
+                file_name += '.signal'
+            with gzip.open(file_name, 'wb+') as outfile:
+                outfile.write(json.dumps(out).encode('utf-8'))
+            self.__statusbar.showMessage(f"Saved signal {signal.name} to {file_name}")
+
+    def export_frd(self, signal):
+        '''
+        Exports the signal as a set o FRDs.
+        '''
         dir_name = QFileDialog(self).getExistingDirectory(self, 'Export FRD',
                                                           self.__preferences.get(EXTRACTION_OUTPUT_DIR),
                                                           QFileDialog.ShowDirsOnly)
         if len(dir_name) > 0:
             def __file_name(suffix):
-                return os.path.join(dir_name, f"{to_export.name}_{suffix}.frd")
+                return os.path.join(dir_name, f"{signal.name}_{suffix}.frd")
 
-            header = self.__make_header(to_export)
+            header = self.__make_header(signal)
             # TODO add phase if we have it
-            xy = to_export.raw[0]
+            xy = signal.raw[0]
             np.savetxt(__file_name('avg'), np.transpose([xy.x, xy.y]), fmt='%8.3f', header=header)
-            xy = to_export.raw[1]
+            xy = signal.raw[1]
             np.savetxt(__file_name('peak'), np.transpose([xy.x, xy.y]), fmt='%8.3f', header=header)
-            if len(to_export.filtered) > 0:
-                xy = to_export.filtered[0]
+            if len(signal.filtered) > 0:
+                xy = signal.filtered[0]
                 np.savetxt(__file_name('filter_avg'), np.transpose([xy.x, xy.y]), fmt='%8.3f', header=header)
-                xy = to_export.filtered[1]
+                xy = signal.filtered[1]
                 np.savetxt(__file_name('filter_peak'), np.transpose([xy.x, xy.y]), fmt='%8.3f', header=header)
             QDialog.accept(self)
 
