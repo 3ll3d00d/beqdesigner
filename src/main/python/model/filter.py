@@ -8,21 +8,17 @@ import qtawesome as qta
 from qtpy import QtCore
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt
 from qtpy.QtGui import QIcon
-from qtpy.QtWidgets import QDialog, QDialogButtonBox
+from qtpy.QtWidgets import QDialog
 
 from model.iir import FilterType, LowShelf, HighShelf, PeakingEQ, SecondOrder_LowPass, \
     SecondOrder_HighPass, ComplexLowPass, ComplexHighPass, q_to_s, s_to_q, max_permitted_s, CompleteFilter, COMBINED, \
     Passthrough
 from model.magnitude import MagnitudeModel
+from model.preferences import SHOW_ALL_FILTERS, SHOW_NO_FILTERS
 from mpl import get_line_colour
 from ui.filter import Ui_editFilterDialog
 
 logger = logging.getLogger('filter')
-
-SHOW_ALL_FILTERS = 'All'
-SHOW_COMBINED_FILTER = 'Total'
-SHOW_NO_FILTERS = 'None'
-SHOW_FILTER_OPTIONS = [SHOW_ALL_FILTERS, SHOW_COMBINED_FILTER, SHOW_NO_FILTERS]
 
 
 class FilterModel(Sequence):

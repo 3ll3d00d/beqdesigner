@@ -601,10 +601,11 @@ class ComplexFilter:
     A filter composed of many other filters.
     '''
 
-    def __init__(self, filters=None, description='Complex'):
+    def __init__(self, filters=None, description='Complex', preset_idx=-1):
         self.filters = filters if filters is not None else []
         self.description = description
         self.id = -1
+        self.__on_change()
         self.__cached_transfer = None
 
     def __getitem__(self, i):
@@ -629,7 +630,14 @@ class ComplexFilter:
         :param filter: the filter.
         '''
         self.save0(filter, self.filters)
+        self.__on_change()
+
+    def __on_change(self):
+        '''
+        Resets some cached values when the filter changes.
+        '''
         self.__cached_transfer = None
+        self.preset_idx = -1
 
     def save0(self, filter, filters):
         match = next((f for f in filters if f.id == filter.id), None)
@@ -644,7 +652,7 @@ class ComplexFilter:
         :param indices: the indices to remove.
         '''
         self.filters = [filter for idx, filter in enumerate(self.filters) if idx not in indices]
-        self.__cached_transfer = None
+        self.__on_change()
 
     def getTransferFunction(self):
         '''
@@ -674,8 +682,8 @@ class ComplexFilter:
 
 class CompleteFilter(ComplexFilter):
 
-    def __init__(self, filters=None, description=COMBINED):
-        super().__init__(filters=filters, description=description)
+    def __init__(self, filters=None, description=COMBINED, preset_idx=-1):
+        super().__init__(filters=filters, description=COMBINED, preset_idx=preset_idx)
 
     def preview(self, filter):
         '''

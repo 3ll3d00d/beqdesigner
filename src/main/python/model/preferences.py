@@ -8,6 +8,11 @@ from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox
 from model.signal import WINDOWS
 from ui.preferences import Ui_preferencesDialog
 
+SHOW_ALL_FILTERS = 'All'
+SHOW_COMBINED_FILTER = 'Total'
+SHOW_NO_FILTERS = 'None'
+SHOW_FILTER_OPTIONS = [SHOW_ALL_FILTERS, SHOW_COMBINED_FILTER, SHOW_NO_FILTERS]
+
 EXTRACTION_OUTPUT_DIR = 'extraction/output_dir'
 ANALYSIS_RESOLUTION = 'analysis/resolution'
 ANALYSIS_TARGET_FS = 'analysis/target_fs'
@@ -22,13 +27,21 @@ SCREEN_GEOMETRY = 'screen/geometry'
 SCREEN_WINDOW_STATE = 'screen/window_state'
 STYLE_MATPLOTLIB_THEME_DEFAULT = 'default'
 STYLE_MATPLOTLIB_THEME = 'style/matplotlib_theme'
+DISPLAY_SHOW_LEGEND = 'display/show_legend'
+DISPLAY_SHOW_FILTERS = 'display/show_filters'
 
 DEFAULT_PREFS = {
     ANALYSIS_RESOLUTION: 1,
     ANALYSIS_TARGET_FS: 1000,
     ANALYSIS_AVG_WINDOW: ANALYSIS_WINDOW_DEFAULT,
     ANALYSIS_PEAK_WINDOW: ANALYSIS_WINDOW_DEFAULT,
-    STYLE_MATPLOTLIB_THEME: STYLE_MATPLOTLIB_THEME_DEFAULT
+    STYLE_MATPLOTLIB_THEME: STYLE_MATPLOTLIB_THEME_DEFAULT,
+    DISPLAY_SHOW_LEGEND: True,
+    DISPLAY_SHOW_FILTERS: SHOW_ALL_FILTERS,
+}
+
+TYPES = {
+    DISPLAY_SHOW_LEGEND: bool
 }
 
 
@@ -51,10 +64,12 @@ class Preferences:
         :param default_if_unset: if true, return a default value.
         :return: the value.
         '''
-        value = self.__settings.value(key)
-        if value is None and default_if_unset is True:
-            return DEFAULT_PREFS.get(key, None)
-        return value
+        default_value = DEFAULT_PREFS.get(key, None) if default_if_unset is True else None
+        value_type = TYPES.get(key, None)
+        if value_type is not None:
+            return self.__settings.value(key, defaultValue=default_value, type=value_type)
+        else:
+            return self.__settings.value(key, defaultValue=default_value)
 
     def get_all(self, prefix):
         '''

@@ -22,12 +22,13 @@ from qtpy.QtGui import QIcon, QFont, QCursor
 from qtpy.QtWidgets import QMainWindow, QApplication, QErrorMessage, QAbstractItemView, QDialog, QFileDialog
 
 from model.extract import ExtractAudioDialog
-from model.filter import FilterTableModel, FilterModel, FilterDialog, SHOW_FILTER_OPTIONS
+from model.filter import FilterTableModel, FilterModel, FilterDialog
 from model.log import RollingLogger
 from model.magnitude import MagnitudeModel
 from model.preferences import PreferencesDialog, BINARIES_GROUP, ANALYSIS_TARGET_FS, STYLE_MATPLOTLIB_THEME, \
     Preferences, \
-    SCREEN_GEOMETRY, SCREEN_WINDOW_STATE, FILTERS_PRESET_x
+    SCREEN_GEOMETRY, SCREEN_WINDOW_STATE, FILTERS_PRESET_x, DISPLAY_SHOW_LEGEND, DISPLAY_SHOW_FILTERS, \
+    SHOW_FILTER_OPTIONS
 from model.signal import SignalModel, SignalTableModel, SignalDialog
 from ui.beq import Ui_MainWindow
 
@@ -76,11 +77,18 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.logViewer = RollingLogger(parent=self)
         self.actionShow_Logs.triggered.connect(self.logViewer.show_logs)
         self.actionPreferences.triggered.connect(self.showPreferences)
-        # init the filter view/model
+        # init the filter view selector
         self.showFilters.blockSignals(True)
         for x in SHOW_FILTER_OPTIONS:
             self.showFilters.addItem(x)
+        selected = self.preferences.get(DISPLAY_SHOW_FILTERS)
+        selected_idx = self.showFilters.findText(selected)
+        if selected_idx != -1:
+            self.showFilters.setCurrentIndex(selected_idx)
+        else:
+            logger.info(f"Ignoring unknown cached preference for {DISPLAY_SHOW_FILTERS} - {selected}")
         self.showFilters.blockSignals(False)
+        # filter view/model
         self.filterView.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.__filterModel = FilterModel(self.filterView, show_filters=lambda: self.showFilters.currentText(),
                                          on_update=self.on_filter_change)
@@ -100,6 +108,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.signalView.setModel(self.__signalTableModel)
         self.signalView.selectionModel().selectionChanged.connect(self.changeSignalButtonState)
         # magnitude
+        self.showLegend.setChecked(bool(self.preferences.get(DISPLAY_SHOW_LEGEND)))
         self.__magnitudeModel = MagnitudeModel('main', self.mainChart, self.__signalModel, 'Signals',
                                                self.__filterModel, 'Filters',
                                                show_legend=lambda: self.showLegend.isChecked())
@@ -124,12 +133,14 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
 
     def on_filter_change(self, names):
         '''
-        Reacts to a change in the filter model by updating the reference and redrawing the chart.
+        Reacts to a change in the filter model by updating the reference, redrawing the chart and other filter related
+        things.
         :param names: the signal names.
         '''
         self.update_reference_series(names, self.filterReference, False)
         self.__magnitudeModel.redraw()
         self.__enable_save_filter()
+        self.__check_active_preset(self.__filterModel.filter.preset_idx)
 
     def exportChart(self):
         '''
@@ -351,6 +362,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Changes which filters are visible on screen.
         '''
+        self.preferences.set(DISPLAY_SHOW_FILTERS, selected_filters)
         self.__filterModel.post_update(filter_change=False)
         self.__magnitudeModel.redraw()
 
@@ -358,6 +370,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Changes whether the legend is visible.
         '''
+        self.preferences.set(DISPLAY_SHOW_LEGEND, self.showLegend.isChecked())
         self.__magnitudeModel.redraw()
 
     def applyPreset1(self):
@@ -382,11 +395,19 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         preset_key = FILTERS_PRESET_x % idx
         preset = self.preferences.get(preset_key)
         if preset is not None:
-            self.__filterModel.filter = from_json(preset)
-            pattern = re.compile("^preset[0-9]Button$")
-            for attr in [at for at in dir(self) if pattern.match(at)]:
-                getattr(self, attr).setIcon(QIcon())
-            getattr(self, f"preset{idx}Button").setIcon(qta.icon('fa.check'))
+            filter = from_json(preset)
+            filter.preset_idx = idx
+            self.__filterModel.filter = filter
+
+    def __check_active_preset(self, preset_idx):
+        pattern = re.compile("^preset[0-9]Button$")
+        for attr in [at for at in dir(self) if pattern.match(at)]:
+            getattr(self, attr).setIcon(QIcon())
+        if preset_idx > 0:
+            if hasattr(self, f"preset{preset_idx}Button"):
+                getattr(self, f"preset{preset_idx}Button").setIcon(qta.icon('fa.check'))
+            else:
+                logger.warning(f"Ignoring attempt to activate an unknown preset {preset_idx}")
 
     def enable_preset(self, idx):
         preset_key = FILTERS_PRESET_x % idx
