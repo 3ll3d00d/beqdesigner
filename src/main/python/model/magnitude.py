@@ -110,6 +110,13 @@ class AxesManager:
         '''
         return self.__axes.legend(lines, [l.get_label() for l in lines], loc=3, ncol=ncol, fancybox=True, shadow=True)
 
+    def hide_axes_if_empty(self):
+        '''
+        Hides the axes if there is nothing here.
+        '''
+        if self.__axes is not None:
+            self.__axes.get_yaxis().set_visible(len(self.curve_names()) > 0)
+
 
 class MagnitudeModel:
     '''
@@ -179,6 +186,7 @@ class MagnitudeModel:
         self.__primary.display_curves()
         self.__secondary.display_curves()
         self.limits.configure_freq_axis()
+        self.__secondary.hide_axes_if_empty()
         self.limits.on_data_change(self.__primary.get_ylimits(), self.__secondary.get_ylimits())
 
     def __make_legend(self):

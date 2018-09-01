@@ -8,14 +8,15 @@ import sys
 from contextlib import contextmanager
 
 import matplotlib
+
+matplotlib.use("Qt5Agg")
 import qtawesome as qta
 from matplotlib import style
 
+from model.export import ExportFRDDialog
 from model.iir import Passthrough, from_json
 from ui.biquad import Ui_exportBiquadDialog
 from ui.savechart import Ui_saveChartDialog
-
-matplotlib.use("Qt5Agg")
 
 from qtpy.QtCore import QSettings
 from qtpy.QtGui import QIcon, QFont, QCursor
@@ -122,6 +123,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.actionSave_Chart.triggered.connect(self.exportChart)
         self.actionExport_Biquad.triggered.connect(self.exportBiquads)
         self.actionSave_Filter.triggered.connect(self.exportFilter)
+        self.actionExport_FRD.triggered.connect(self.showExportFRDDialog)
 
     def on_signal_change(self, names):
         '''
@@ -326,7 +328,13 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Show the extract audio dialog.
         '''
-        ExtractAudioDialog(self.preferences, parent=self).exec()
+        ExtractAudioDialog(self.preferences).exec()
+
+    def showExportFRDDialog(self):
+        '''
+        Shows the extract frd dialog.
+        '''
+        ExportFRDDialog(self.preferences, self.__signalModel, self).exec()
 
     def normaliseSignalMagnitude(self):
         '''

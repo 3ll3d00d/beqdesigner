@@ -227,6 +227,16 @@
           </property>
          </widget>
         </item>
+        <item row="1" column="1">
+         <widget class="QPushButton" name="editSignalButton">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+          <property name="text">
+           <string>Edit</string>
+          </property>
+         </widget>
+        </item>
        </layout>
       </item>
      </layout>
@@ -291,16 +301,24 @@
      <addaction name="menu_Set"/>
      <addaction name="menu_Clear"/>
     </widget>
-    <addaction name="actionExtract_Audio"/>
     <addaction name="actionSave_Chart"/>
-    <addaction name="actionExport_Biquad"/>
     <addaction name="separator"/>
     <addaction name="actionLoad_Filter"/>
     <addaction name="actionSave_Filter"/>
     <addaction name="menuPresets"/>
+    <addaction name="separator"/>
+    <addaction name="actionExport_Biquad"/>
+    <addaction name="actionExport_FRD"/>
+   </widget>
+   <widget class="QMenu" name="menu_Tools">
+    <property name="title">
+     <string>&amp;Tools</string>
+    </property>
+    <addaction name="actionExtract_Audio"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuSettings"/>
+   <addaction name="menu_Tools"/>
    <addaction name="menuHelp"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
@@ -410,6 +428,11 @@
   <action name="action_set_preset_3">
    <property name="text">
     <string>&amp;3</string>
+   </property>
+  </action>
+  <action name="actionExport_FRD">
+   <property name="text">
+    <string>Export &amp;FRD</string>
    </property>
   </action>
  </widget>

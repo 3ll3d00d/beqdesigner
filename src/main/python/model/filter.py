@@ -157,12 +157,15 @@ class FilterModel(Sequence):
                     mags = [x.normalise(ref_data) for x in mags]
             return mags
 
-    def getTransferFunction(self):
+    def getTransferFunction(self, fs=None):
         '''
         :return: the transfer function for this filter (in total) if we have any filters or None if we have none.
         '''
         if len(self.filter) > 0:
-            return self.filter.getTransferFunction()
+            if fs is not None:
+                return self.filter.resample(fs).getTransferFunction()
+            else:
+                return self.filter.getTransferFunction()
         return None
 
 

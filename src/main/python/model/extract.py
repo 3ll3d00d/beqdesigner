@@ -23,7 +23,10 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
     '''
 
     def __init__(self, preferences, parent=None):
-        super(ExtractAudioDialog, self).__init__(parent)
+        if parent is not None:
+            super(ExtractAudioDialog, self).__init__(parent)
+        else:
+            super(ExtractAudioDialog, self).__init__()
         self.setupUi(self)
         self.statusBar = QStatusBar()
         self.gridLayout.addWidget(self.statusBar, 5, 1, 1, 1)
