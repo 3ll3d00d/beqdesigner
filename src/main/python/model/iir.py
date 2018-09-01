@@ -683,7 +683,7 @@ class ComplexFilter:
 class CompleteFilter(ComplexFilter):
 
     def __init__(self, filters=None, description=COMBINED, preset_idx=-1):
-        super().__init__(filters=filters, description=COMBINED, preset_idx=preset_idx)
+        super().__init__(filters=filters, description=description, preset_idx=preset_idx)
 
     def preview(self, filter):
         '''

@@ -49,17 +49,33 @@ class SignalData:
     Provides a mechanism for caching the assorted xy data surrounding a signal.
     '''
 
-    def __init__(self, idx, signal, filter):
-        self.signal = signal
+    def __init__(self, name, fs, xy_data, filter, duration_hhmmss=None, start_hhmmss=None, end_hhmmss=None):
         self.__filter = filter
-        self.raw = signal.getXY(idx=idx)
+        self.name = name
+        self.fs = fs
+        self.duration_hhmmss = duration_hhmmss
+        self.start_hhmmss = start_hhmmss
+        self.end_hhmmss = end_hhmmss
+        self.raw = xy_data
         self.filtered = []
         self.on_filter_change(filter)
         self.reference_name = None
         self.reference = []
 
+    def to_json(self):
+        return {
+            'name': self.name,
+            'fs': self.fs,
+            'duration_hhmmss': self.duration_hhmmss,
+            'start_hhmmss': self.start_hhmmss,
+            'end_hhmmss': self.end_hhmmss,
+            'data': self.raw,
+            'filter': self.__filter.to_json()
+        }
+
     def reindex(self, idx):
-        self.raw = self.signal.getXY(idx=idx)
+        self.raw[0].colour = AVG_COLOURS[idx]
+        self.raw[1].colour = PEAK_COLOURS[idx]
         self.on_filter_change(self.__filter)
 
     def on_filter_change(self, filter):
@@ -110,7 +126,7 @@ class SignalModel(Sequence):
         self.__table.resizeColumns(self.__view)
 
     def __getitem__(self, i):
-        return self.__signals[i].signal
+        return self.__signals[i]
 
     def __len__(self):
         return len(self.__signals)
@@ -122,7 +138,11 @@ class SignalModel(Sequence):
         '''
         if self.__table is not None:
             self.__table.beginResetModel()
-        self.__signals.append(SignalData(len(self.__signals), signal, self.__filterModel.getTransferFunction()))
+        self.__signals.append(SignalData(signal.getXY(signal.name, signal.fs, signal.getXY(len(self.__signals)),
+                                                      self.__filterModel.getTransferFunction(),
+                                                      duration_hhmmss=signal.duration_hhmmss,
+                                                      start_hhmmss=signal.start_hhmmss,
+                                                      end_hhmmss=signal.end_hhmmss)))
         self.post_update()
         if self.__table is not None:
             self.__table.endResetModel()
@@ -456,10 +476,10 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
     Alows user to extract a signal from a wav or frd.
     '''
 
-    def __init__(self, settings, signalModel, parent=None):
+    def __init__(self, preferences, signalModel, parent=None):
         super(SignalDialog, self).__init__(parent=parent)
         self.setupUi(self)
-        self.__settings = settings
+        self.__preferences = preferences
         self.__signalModel = signalModel
         self.__duration = 0
         self.__signal = None
@@ -539,8 +559,8 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
                 ANALYSIS_AVG_WINDOW
             self.__signal = readWav(self.signalName.text(), self.file.text(),
                                     channel=int(self.channelSelector.currentText()), start=start, end=end,
-                                    target_fs=self.__settings.value(ANALYSIS_TARGET_FS))
-            multiplier = int(1 / float(self.__settings.value(ANALYSIS_RESOLUTION)))
+                                    target_fs=self.__preferences.get(ANALYSIS_TARGET_FS))
+            multiplier = int(1 / float(self.__preferences.get(ANALYSIS_RESOLUTION)))
             peak_window = self.__get_window(ANALYSIS_PEAK_WINDOW)
             avg_window = self.__get_window(ANALYSIS_AVG_WINDOW)
             logger.debug(f"Analysing {self.signalName.text()} at {multiplier}x resolution "
@@ -551,7 +571,7 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
 
     def __get_window(self, key):
         from model.preferences import ANALYSIS_WINDOW_DEFAULT
-        window = self.__settings.value(key)
+        window = self.__preferences.get(key)
         if window is None or window == ANALYSIS_WINDOW_DEFAULT:
             window = None
         else:

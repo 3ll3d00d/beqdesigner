@@ -186,11 +186,12 @@ def test_codec_CompleteFilter():
                ComplexHighPass(FilterType.BUTTERWORTH, 6, 1000, 12)]
     filter = CompleteFilter(filters=filters, description='Hello from me')
     output = json.dumps(filter.to_json())
-    assert output == '{"_type": "CompleteFilter", "description": "Hello from me", "filters": [' \
-                     '{"_type": "PeakingEQ", "fs": 1000, "fc": 50, "q": 3.2, "gain": -5}, ' \
-                     '{"_type": "LowShelf", "fs": 1000, "fc": 25, "q": 1, "gain": 3.2, "count": 3}, ' \
-                     '{"_type": "ComplexHighPass", "filter_type": "BW", "order": 6, "fs": 1000, "fc": 12}' \
-                     ']}'
+    expected = '{"_type": "CompleteFilter", "description": "Hello from me", "filters": [' \
+               '{"_type": "PeakingEQ", "fs": 1000, "fc": 50, "q": 3.2, "gain": -5}, ' \
+               '{"_type": "LowShelf", "fs": 1000, "fc": 25, "q": 1, "gain": 3.2, "count": 3}, ' \
+               '{"_type": "ComplexHighPass", "filter_type": "BW", "order": 6, "fs": 1000, "fc": 12}' \
+               ']}'
+    assert output == expected
     decoded = from_json(json.loads(output))
     assert decoded is not None
     assert isinstance(decoded, CompleteFilter)
