@@ -1,10 +1,5 @@
 import numpy as np
 
-from model.iir import Passthrough, PeakingEQ, LowShelf, HighShelf, FirstOrder_LowPass, \
-    FirstOrder_HighPass, SecondOrder_LowPass, SecondOrder_HighPass, AllPass, CompleteFilter, ComplexLowPass, FilterType, \
-    ComplexHighPass, XYData
-from model.signal import SignalData
-
 
 def signaldata_to_json(signal):
     '''
@@ -37,6 +32,7 @@ def signaldata_from_json(o):
     :param o: the dict (from json).
     :return: the SignalData (or an error)
     '''
+    from model.signal import SignalData
     if '_type' not in o:
         raise ValueError(f"{o} is not SignalData")
     elif o['_type'] == SignalData.__name__:
@@ -57,6 +53,10 @@ def filter_from_json(o):
     :param o: the dict.
     :return: the filter.
     '''
+    from model.iir import Passthrough, PeakingEQ, LowShelf, HighShelf, FirstOrder_LowPass, \
+        FirstOrder_HighPass, SecondOrder_LowPass, SecondOrder_HighPass, AllPass, CompleteFilter, ComplexLowPass, \
+        FilterType, ComplexHighPass
+
     if '_type' not in o:
         raise ValueError(f"{o} is not a filter")
     if o['_type'] == Passthrough.__name__:
@@ -92,6 +92,7 @@ def xydata_from_json(o):
     :param o: the dict.
     :return: the XYData (or an error).
     '''
+    from model.iir import XYData
     if '_type' not in o:
         raise ValueError(f"{o} is not XYData")
     elif o['_type'] == XYData.__name__:

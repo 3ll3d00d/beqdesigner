@@ -121,12 +121,14 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         # import
         self.actionLoad_Filter.triggered.connect(self.importFilter)
         self.actionLoad_Signal.triggered.connect(self.importSignal)
+        self.action_Load_Project.triggered.connect(self.importProject)
         # export
         self.actionSave_Chart.triggered.connect(self.exportChart)
         self.actionExport_Biquad.triggered.connect(self.exportBiquads)
         self.actionSave_Filter.triggered.connect(self.exportFilter)
         self.actionExport_FRD.triggered.connect(self.showExportFRDDialog)
         self.actionSave_Signal.triggered.connect(self.showExportSignalDialog)
+        self.action_Save_Project.triggered.connect(self.exportProject)
 
     def on_signal_change(self, names):
         '''
@@ -193,29 +195,34 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Allows the user to load a signal from a saved file.
         '''
-        input = self.__load_signal()
+
+        def parser(file_name):
+            with gzip.open(file_name, 'r') as infile:
+                return json.loads(infile.read().decode('utf-8'))
+
+        input = self.__load('*.signal', 'Load Signal', parser)
         if input is not None:
             from model.codec import signaldata_from_json
             self.__signalModel.add(signaldata_from_json(input))
             self.__magnitudeModel.redraw()
 
-    def __load_signal(self):
+    def __load(self, filter, title, parser):
         '''
-        Presents a file dialog to the user so they can choose a signal to load.
-        :return: the loaded signal, if any.
+        Presents a file dialog to the user so they can choose something to load.
+        :return: the loaded thing, if any.
         '''
+        input = None
         dialog = QFileDialog(parent=self)
         dialog.setFileMode(QFileDialog.ExistingFile)
-        dialog.setNameFilter(f"*.signal")
-        dialog.setWindowTitle(f"Load Signal")
+        dialog.setNameFilter(filter)
+        dialog.setWindowTitle(title)
         if dialog.exec():
             selected = dialog.selectedFiles()
             if len(selected) > 0:
-                with gzip.open(selected[0], 'r') as infile:
-                    input = json.loads(infile.read().decode('utf-8'))
-                    self.statusbar.showMessage(f"Loaded filter from {infile.name}")
-                    return input
-        return None
+                input = parser(selected[0])
+                if input is not None:
+                    self.statusbar.showMessage(f"Loaded {selected[0]}")
+        return input
 
     def exportFilter(self):
         '''
@@ -374,6 +381,36 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         Shows the export signal dialog.
         '''
         ExportSignalDialog(self.preferences, self.__signalModel, self, self.statusbar, mode=Mode.SIGNAL).exec()
+
+    def exportProject(self):
+        '''
+        Exports the project to a file.
+        '''
+        file_name = QFileDialog(self).getSaveFileName(self, 'Export Project', f"project.beq",
+                                                      "BEQ Project (*.beq)")
+        file_name = str(file_name[0]).strip()
+        if len(file_name) > 0:
+            output = self.__signalModel.to_json()
+            if not file_name.endswith('.beq'):
+                file_name += '.beq'
+            with gzip.open(file_name, 'wb+') as outfile:
+                outfile.write(json.dumps(output).encode('utf-8'))
+            self.statusbar.showMessage(f"Saved project to {file_name}")
+
+    def importProject(self):
+        '''
+        Allows the user to load a fresh project.
+        '''
+
+        def parser(file_name):
+            with gzip.open(file_name, 'r') as infile:
+                return json.loads(infile.read().decode('utf-8'))
+
+        input = self.__load('*.beq', 'Load Project', parser)
+        if input is not None:
+            from model.codec import signaldata_from_json
+            self.__signalModel.replace([signaldata_from_json(x) for x in input])
+            self.__magnitudeModel.redraw()
 
     def normaliseSignalMagnitude(self):
         '''

@@ -13,6 +13,7 @@ from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt
 from qtpy.QtWidgets import QDialog, QFileDialog, QDialogButtonBox
 from scipy import signal
 
+from model.codec import signaldata_to_json
 from model.iir import XYData
 from model.magnitude import MagnitudeModel
 from ui.signal import Ui_addSignalDialog
@@ -126,20 +127,36 @@ class SignalModel(Sequence):
     def __len__(self):
         return len(self.__signals)
 
+    def to_json(self):
+        '''
+        :return: a json compatible format of the data in the model.
+        '''
+        return [signaldata_to_json(x) for x in self.__signals]
+
+    def __decorate_edit(self, func):
+        def wrapper(*args, **kwargs):
+            if self.__table is not None:
+                self.__table.beginResetModel()
+            func(*args, **kwargs)
+            self.post_update()
+            if self.__table is not None:
+                self.__table.endResetModel()
+
+        wrapper()
+
     def add(self, signal):
         '''
         Add the supplied signals ot the model.
         :param signals: the signal.
         '''
-        if self.__table is not None:
-            self.__table.beginResetModel()
-        if signal.filter is None:
-            signal.filter = self.__filterModel.getTransferFunction(fs=signal.fs)
-        signal.reindex(len(self.__signals))
-        self.__signals.append(signal)
-        self.post_update()
-        if self.__table is not None:
-            self.__table.endResetModel()
+
+        def do_add():
+            if signal.filter is None:
+                signal.filter = self.__filterModel.getTransferFunction(fs=signal.fs)
+            signal.reindex(len(self.__signals))
+            self.__signals.append(signal)
+
+        self.__decorate_edit(do_add)
 
     def post_update(self):
         from app import flatten
@@ -151,26 +168,24 @@ class SignalModel(Sequence):
         Remove the specified signal from the model.
         :param signal: the signal to remove.
         '''
-        if self.__table is not None:
-            self.__table.beginResetModel()
-        self.__signals.remove(signal)
-        for idx, s in self.__signals:
-            s.reindex(idx)
-        self.post_update()
-        if self.__table is not None:
-            self.__table.endResetModel()
+
+        def do_remove():
+            self.__signals.remove(signal)
+            for idx, s in enumerate(self.__signals):
+                s.reindex(idx)
+
+        self.__decorate_edit(do_remove)
 
     def delete(self, indices):
         '''
         Delete the signals at the given indices.
         :param indices: the indices to remove.
         '''
-        if self.__table is not None:
-            self.__table.beginResetModel()
-        self.__signals = [s for idx, s in enumerate(self.__signals) if idx not in indices]
-        self.post_update()
-        if self.__table is not None:
-            self.__table.endResetModel()
+
+        def do_delete():
+            self.__signals = [s for idx, s in enumerate(self.__signals) if idx not in indices]
+
+        self.__decorate_edit(do_delete)
 
     def onFilterChange(self):
         '''
@@ -191,6 +206,19 @@ class SignalModel(Sequence):
             if ref_data:
                 results = [x.normalise(ref_data) for x in results]
         return results
+
+    def replace(self, signals):
+        '''
+        Replaces the contents of the model with the supplied signals
+        :param signals: the signals
+        '''
+
+        def do_replace():
+            self.__signals = signals
+            for idx, s in enumerate(self.__signals):
+                s.reindex(idx)
+
+        self.__decorate_edit(do_replace)
 
 
 class Signal:
