@@ -14,7 +14,7 @@ from qtpy.QtWidgets import QDialog, QFileDialog, QDialogButtonBox
 from scipy import signal
 
 from model.codec import signaldata_to_json
-from model.iir import XYData
+from model.iir import XYData, CompleteFilter
 from model.magnitude import MagnitudeModel
 from ui.signal import Ui_addSignalDialog
 
@@ -52,7 +52,7 @@ class SignalData:
     '''
 
     def __init__(self, name, fs, xy_data, filter=None, duration_hhmmss=None, start_hhmmss=None, end_hhmmss=None):
-        self.filter = filter
+        self.__filter = None
         self.name = name
         self.fs = fs
         self.duration_hhmmss = duration_hhmmss
@@ -60,38 +60,40 @@ class SignalData:
         self.end_hhmmss = end_hhmmss
         self.raw = xy_data
         self.filtered = []
-        self.on_filter_change(filter)
         self.reference_name = None
         self.reference = []
+        self.filter = filter
+
+    @property
+    def filter(self):
+        return self.__filter
+
+    @filter.setter
+    def filter(self, filt):
+        if filt is None:
+            self.__filter = None
+            self.filtered = []
+            for r in self.raw:
+                r.linestyle = '-'
+        elif isinstance(filt, CompleteFilter):
+            self.__filter = filt.resample(self.fs)
+            # TODO detect if the filter has changed and only recalc if it has
+            filter_mag = self.__filter.getTransferFunction().getMagnitude()
+            self.filtered = [f.filter(filter_mag) for f in self.raw]
+            for r in self.raw:
+                r.linestyle = '--'
+        else:
+            raise ValueError(f"Unsupported filter type {filt}")
+
+    def __repr__(self) -> str:
+        return f"SignalData {self.name}-{self.fs}"
 
     def reindex(self, idx):
         self.raw[0].colour = AVG_COLOURS[idx]
         self.raw[1].colour = PEAK_COLOURS[idx]
-        self.on_filter_change(self.filter)
-
-    def on_filter_change(self, filt):
-        '''
-        Updates the filtered response with the new filter.
-        :param filt: the filter.
-        '''
-        if filt is None:
-            self.filtered = []
-            self.filter = None
-            for r in self.raw:
-                r.linestyle = '-'
-        else:
-            if hasattr(filt, 'getTransferFunction'):
-                # i.e filter is a ComplexData
-                self.filter = filt.getTransferFunction()
-            elif hasattr(filt, 'getMagnitude'):
-                # i.e. filter is an XYData
-                self.filter = filt
-            else:
-                raise ValueError(f"Unknown filter type {filt}")
-            filter_mag = filt.getMagnitude()
-            self.filtered = [f.filter(filter_mag) for f in self.raw]
-            for r in self.raw:
-                r.linestyle = '--'
+        if len(self.filtered) == 2:
+            self.filtered[0].colour = AVG_COLOURS[idx]
+            self.filtered[1].colour = PEAK_COLOURS[idx]
 
     def on_reference_change(self):
         pass
@@ -156,7 +158,7 @@ class SignalModel(Sequence):
 
         def do_add():
             if signal.filter is None:
-                signal.filter = self.__filterModel.getTransferFunction(fs=signal.fs)
+                signal.filter = self.__filterModel.resample(fs=signal.fs)
             signal.reindex(len(self.__signals))
             self.__signals.append(signal)
 
@@ -196,7 +198,7 @@ class SignalModel(Sequence):
         Updates the cached data when the filter changes.
         '''
         for s in self.__signals:
-            s.on_filter_change(self.__filterModel.getTransferFunction())
+            s.filter = self.__filterModel.filter
 
     def getMagnitudeData(self, reference=None):
         '''

@@ -692,8 +692,11 @@ class ComplexFilter:
         :return: the transfer function.
         '''
         if self.__cached_transfer is None:
-            self.__cached_transfer = getCascadeTransferFunction(self.__repr__(),
-                                                                [x.getTransferFunction() for x in self.filters])
+            if len(self.filters) == 0:
+                return Passthrough().getTransferFunction()
+            else:
+                self.__cached_transfer = getCascadeTransferFunction(self.__repr__(),
+                                                                    [x.getTransferFunction() for x in self.filters])
         return self.__cached_transfer
 
     def format_biquads(self, invert_a):

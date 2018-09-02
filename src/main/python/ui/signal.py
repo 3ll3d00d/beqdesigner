@@ -179,6 +179,6 @@ class Ui_addSignalDialog(object):
         self.frdSignalNameLabel.setText(_translate("addSignalDialog", "Name"))
         self.frdPeakFileLabel.setText(_translate("addSignalDialog", "Peak"))
         self.frdPeakFilePicker.setText(_translate("addSignalDialog", "..."))
-        self.signalTypeTabs.setTabText(self.signalTypeTabs.indexOf(self.frdTab), _translate("addSignalDialog", "FRD"))
+        self.signalTypeTabs.setTabText(self.signalTypeTabs.indexOf(self.frdTab), _translate("addSignalDialog", "TXT"))
 
 from mpl import MplWidget

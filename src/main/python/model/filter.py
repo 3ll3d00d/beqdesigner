@@ -157,6 +157,13 @@ class FilterModel(Sequence):
                     mags = [x.normalise(ref_data) for x in mags]
             return mags
 
+    def resample(self, fs):
+        '''
+        :param fs: the requested fs.
+        :return: the filter at that fs.
+        '''
+        return self.filter.resample(fs)
+
     def getTransferFunction(self, fs=None):
         '''
         :return: the transfer function for this filter (in total) if we have any filters or None if we have none.
