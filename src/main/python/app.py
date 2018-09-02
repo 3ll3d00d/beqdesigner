@@ -600,7 +600,7 @@ class ExportBiquadDialog(QDialog, Ui_exportBiquadDialog):
             biquads = list(flatten([self.__filter.format_biquads(self.minidspFormat.isChecked())]))
             if len(biquads) < self.maxBiquads.value():
                 passthrough = [Passthrough()] * (self.maxBiquads.value() - len(biquads))
-                biquads.extend(passthrough)
+                biquads += list(flatten([x.format_biquads(self.minidspFormat.isChecked()) for x in passthrough]))
             text = "\n".join([f"biquad{idx},\n{bq}" for idx, bq in enumerate(biquads)])
             self.biquads.setPlainText(text)
 

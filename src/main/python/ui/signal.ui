@@ -166,7 +166,7 @@
          </widget>
          <widget class="QWidget" name="frdTab">
           <attribute name="title">
-           <string>FRD</string>
+           <string>TXT</string>
           </attribute>
           <layout class="QGridLayout" name="gridLayout_5">
            <item row="0" column="0">

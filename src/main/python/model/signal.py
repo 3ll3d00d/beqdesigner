@@ -69,22 +69,26 @@ class SignalData:
         self.raw[1].colour = PEAK_COLOURS[idx]
         self.on_filter_change(self.filter)
 
-    def on_filter_change(self, filter):
+    def on_filter_change(self, filt):
         '''
         Updates the filtered response with the new filter.
-        :param filter: the filter.
+        :param filt: the filter.
         '''
-        if filter is None:
+        if filt is None:
             self.filtered = []
+            self.filter = None
             for r in self.raw:
                 r.linestyle = '-'
         else:
-            if hasattr(filter, 'getTransferFunction'):
-                filter_mag = filter.getTransferFunction().getMagnitude()
-            elif hasattr(filter, 'getMagnitude'):
-                filter_mag = filter.getMagnitude()
+            if hasattr(filt, 'getTransferFunction'):
+                # i.e filter is a ComplexData
+                self.filter = filt.getTransferFunction()
+            elif hasattr(filt, 'getMagnitude'):
+                # i.e. filter is an XYData
+                self.filter = filt
             else:
-                raise ValueError(f"Unknown filter type {filter}")
+                raise ValueError(f"Unknown filter type {filt}")
+            filter_mag = filt.getMagnitude()
             self.filtered = [f.filter(filter_mag) for f in self.raw]
             for r in self.raw:
                 r.linestyle = '--'

@@ -39,16 +39,16 @@ class FilterModel(Sequence):
         return self.__filter
 
     @filter.setter
-    def filter(self, filter):
-        if isinstance(filter, CompleteFilter):
+    def filter(self, filt):
+        if isinstance(filt, CompleteFilter):
             if self.__table is not None:
                 self.__table.beginResetModel()
-            self.__filter = filter
+            self.__filter = filt
             self.post_update()
             if self.__table is not None:
                 self.__table.endResetModel()
         else:
-            raise ValueError(f"FilterModel only accepts CompleteFilter, ignoring {filter}")
+            raise ValueError(f"FilterModel only accepts CompleteFilter, ignoring {filt}")
 
     @property
     def table(self):
