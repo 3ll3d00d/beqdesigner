@@ -7,6 +7,7 @@ from enum import Enum
 import numpy as np
 from qtpy.QtWidgets import QDialog, QFileDialog, QDialogButtonBox
 
+from model.codec import signaldata_to_json
 from model.preferences import EXTRACTION_OUTPUT_DIR
 from ui.export import Ui_exportSignalDialog
 
@@ -38,6 +39,7 @@ class ExportSignalDialog(QDialog, Ui_exportSignalDialog):
             self.export_frd(to_export)
         elif self.__mode == Mode.SIGNAL:
             self.export_signal(to_export)
+        QDialog.accept(self)
 
     def export_signal(self, signal):
         '''
@@ -47,7 +49,7 @@ class ExportSignalDialog(QDialog, Ui_exportSignalDialog):
                                                       "BEQ Signal (*.signal)")
         file_name = str(file_name[0]).strip()
         if len(file_name) > 0:
-            out = signal.to_json()
+            out = signaldata_to_json(signal)
             if not file_name.endswith('.signal'):
                 file_name += '.signal'
             with gzip.open(file_name, 'wb+') as outfile:

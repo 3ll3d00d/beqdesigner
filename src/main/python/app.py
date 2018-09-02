@@ -167,8 +167,8 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         input = self.__load_filter()
         if input is not None:
-            from model.iir import from_json
-            self.__filterModel.filter = from_json(input)
+            from model.codec import filter_from_json
+            self.__filterModel.filter = filter_from_json(input)
             self.__magnitudeModel.redraw()
 
     def __load_filter(self):
@@ -178,7 +178,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         dialog = QFileDialog(parent=self)
         dialog.setFileMode(QFileDialog.ExistingFile)
-        dialog.setNameFilter(f"*.json")
+        dialog.setNameFilter(f"*.filter")
         dialog.setWindowTitle(f"Load Filter")
         if dialog.exec():
             selected = dialog.selectedFiles()
@@ -195,8 +195,8 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         input = self.__load_signal()
         if input is not None:
-            from model.signal import from_json
-            self.__signalModel.add(from_json(input))
+            from model.codec import signaldata_from_json
+            self.__signalModel.add(signaldata_from_json(input))
             self.__magnitudeModel.redraw()
 
     def __load_signal(self):
@@ -223,14 +223,14 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         dialog = QFileDialog(parent=self)
         dialog.setFileMode(QFileDialog.AnyFile)
-        dialog.setNameFilter(f"*.json")
+        dialog.setNameFilter(f"*.filter")
         dialog.setWindowTitle(f"Save Filter")
         dialog.setLabelText(QFileDialog.Accept, 'Save')
         if dialog.exec():
             selected = dialog.selectedFiles()
             if len(selected) > 0:
-                if not selected[0].endswith('.json'):
-                    selected[0] += '.json'
+                if not selected[0].endswith('.filter'):
+                    selected[0] += '.filter'
                 with open(selected[0], 'w+') as outfile:
                     json.dump(self.__filterModel.filter.to_json(), outfile)
                     self.statusbar.showMessage(f"Saved filter to {outfile.name}")
@@ -320,6 +320,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         selection = self.signalView.selectionModel()
         if selection.hasSelection():
             self.__signalModel.delete([x.row() for x in selection.selectedRows()])
+        self.changeSignalButtonState()
 
     def changeFilterButtonState(self):
         '''
@@ -441,8 +442,8 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         preset_key = FILTERS_PRESET_x % idx
         preset = self.preferences.get(preset_key)
         if preset is not None:
-            from model.iir import from_json
-            filter = from_json(preset)
+            from model.codec import filter_from_json
+            filter = filter_from_json(preset)
             filter.preset_idx = idx
             self.__filterModel.filter = filter
 

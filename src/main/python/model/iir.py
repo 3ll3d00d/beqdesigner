@@ -42,6 +42,13 @@ class Biquad(ABC):
         self.id = -1
         self.__transferFunction = None
 
+    def __eq__(self, o: object) -> bool:
+        equal = self.__class__.__name__ == o.__class__.__name__
+        equal &= self.fs == o.fs
+        equal &= self.q == o.q
+        equal &= self.freq == o.freq
+        return equal
+
     def __repr__(self):
         return self.description
 
@@ -106,6 +113,9 @@ class BiquadWithGain(Biquad):
     def __init__(self, fs, freq, q, gain):
         self.gain = round(gain, 3)
         super().__init__(fs, freq, q)
+
+    def __eq__(self, o: object) -> bool:
+        return super().__eq__(o) and self.gain == o.gain
 
     @property
     def description(self):
@@ -305,6 +315,9 @@ class HighShelf(Shelf):
     def __init__(self, fs, freq, q, gain, count=1):
         super().__init__(fs, freq, q, gain, count)
 
+    def __eq__(self, o: object) -> bool:
+        return super().__eq__(o) and self.count == o.count
+
     @property
     def filter_type(self):
         return 'HS'
@@ -350,6 +363,9 @@ class FirstOrder_LowPass(Biquad):
         super().__init__(fs, freq, q)
         self.order = 1
 
+    def __eq__(self, o: object) -> bool:
+        return super().__eq__(o) and self.order == o.order
+
     @property
     def filter_type(self):
         return 'LPF1'
@@ -388,6 +404,9 @@ class FirstOrder_HighPass(Biquad):
     def __init__(self, fs, freq, q=DEFAULT_Q):
         super().__init__(fs, freq, q)
         self.order = 1
+
+    def __eq__(self, o: object) -> bool:
+        return super().__eq__(o) and self.order == o.order
 
     @property
     def filter_type(self):
@@ -446,6 +465,9 @@ class SecondOrder_LowPass(Biquad):
         super().__init__(fs, freq, q)
         self.order = 2
 
+    def __eq__(self, o: object) -> bool:
+        return super().__eq__(o) and self.order == o.order
+
     @property
     def filter_type(self):
         return 'LPF2'
@@ -498,6 +520,9 @@ class SecondOrder_HighPass(Biquad):
     def __init__(self, fs, freq, q=DEFAULT_Q):
         super().__init__(fs, freq, q)
         self.order = 2
+
+    def __eq__(self, o: object) -> bool:
+        return super().__eq__(o) and self.order == o.order
 
     @property
     def filter_type(self):
@@ -616,6 +641,13 @@ class ComplexFilter:
 
     def __repr__(self):
         return self.description
+
+    def __eq__(self, o: object) -> bool:
+        equal = self.__class__.__name__ == o.__class__.__name__
+        equal &= self.description == o.description
+        equal &= self.id == o.id
+        equal &= self.filters == o.filters
+        return equal
 
     def child_names(self):
         return [x.__repr__() for x in self.filters]
@@ -865,20 +897,6 @@ class ComplexData:
         return self.__cached_phase
 
 
-def from_json(o):
-    '''
-    Converts a json dict to an XYData.
-    :param o: the dict.
-    :return: the XYData (or an error).
-    '''
-    if '_type' not in o:
-        raise ValueError(f"{o} is not XYData")
-    elif o['_type'] == XYData.__name__:
-        return XYData(o['name'], np.array(o['x']), np.array(o['y']), colour=o.get('colour', None),
-                      linestyle=o.get('linestyle', '-'))
-    raise ValueError(f"{o._type} is an unknown data type")
-
-
 class XYData:
     '''
     Value object for showing data on a magnitude graph.
@@ -902,19 +920,18 @@ class XYData:
         self.__rendered = False
         self.__normalised_cache = {}
 
-    def to_json(self):
-        '''
-        A json compatible rendering of the data.
-        :return: the rendering.
-        '''
-        return {
-            '_type': self.__class__.__name__,
-            'name': self.name,
-            'x': self.x.tolist(),
-            'y': self.y.tolist(),
-            'colour': self.colour,
-            'linestyle': self.linestyle
-        }
+    def __repr__(self):
+        return f"XYData: {self.name} - {self.x.size} - {self.colour}"
+
+    def __eq__(self, o: object) -> bool:
+        equal = self.__class__.__name__ == o.__class__.__name__
+        equal &= self.name == o.name
+        # allow tolerance because of the way we serialise to save space
+        equal &= np.allclose(self.x, o.x)
+        equal &= np.allclose(self.y, o.y, rtol=1e-5, atol=1e-5)
+        equal &= self.colour == o.colour
+        equal &= self.linestyle == o.linestyle
+        return equal
 
     @property
     def rendered(self):
@@ -955,33 +972,3 @@ class XYData:
                 return XYData(f"{self.name}-filtered", filt.x, filt.y + interp_y, colour=self.colour, linestyle='-')
         else:
             return XYData(f"{self.name}-filtered", self.x, self.y + filt.y, colour=self.colour, linestyle='-')
-
-
-def from_json(o):
-    if '_type' not in o:
-        raise ValueError(f"{o} is not a filter")
-    if o['_type'] == Passthrough.__name__:
-        return Passthrough()
-    elif o['_type'] == PeakingEQ.__name__:
-        return PeakingEQ(o['fs'], o['fc'], o['q'], o['gain'])
-    elif o['_type'] == LowShelf.__name__:
-        return LowShelf(o['fs'], o['fc'], o['q'], o['gain'], o['count'])
-    elif o['_type'] == HighShelf.__name__:
-        return HighShelf(o['fs'], o['fc'], o['q'], o['gain'], o['count'])
-    elif o['_type'] == FirstOrder_LowPass.__name__:
-        return FirstOrder_LowPass(o['fs'], o['fc'], o['q'])
-    elif o['_type'] == FirstOrder_HighPass.__name__:
-        return FirstOrder_HighPass(o['fs'], o['fc'], o['q'])
-    elif o['_type'] == SecondOrder_LowPass.__name__:
-        return SecondOrder_LowPass(o['fs'], o['fc'], o['q'])
-    elif o['_type'] == SecondOrder_HighPass.__name__:
-        return SecondOrder_HighPass(o['fs'], o['fc'], o['q'])
-    elif o['_type'] == AllPass.__name__:
-        return AllPass(o['fs'], o['fc'], o['q'])
-    elif o['_type'] == CompleteFilter.__name__:
-        return CompleteFilter(filters=[from_json(x) for x in o['filters']], description=o['description'])
-    elif o['_type'] == ComplexLowPass.__name__:
-        return ComplexLowPass(FilterType(o['filter_type']), o['order'], o['fs'], o['fc'])
-    elif o['_type'] == ComplexHighPass.__name__:
-        return ComplexHighPass(FilterType(o['filter_type']), o['order'], o['fs'], o['fc'])
-    raise ValueError(f"{o._type} is an unknown filter type")

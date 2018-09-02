@@ -1,4 +1,3 @@
-import abc
 import datetime
 import logging
 import math
@@ -10,8 +9,8 @@ from pathlib import Path
 import numpy as np
 import resampy
 from qtpy import QtCore
-from qtpy.QtWidgets import QDialog, QFileDialog, QDialogButtonBox
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt
+from qtpy.QtWidgets import QDialog, QFileDialog, QDialogButtonBox
 from scipy import signal
 
 from model.iir import XYData
@@ -46,21 +45,6 @@ PEAK_COLOURS = [
 ]
 
 
-def from_json(o):
-    '''
-    Converts the given dict to a SignalData if it is compatible.
-    :param o: the dict (from json).
-    :return: the SignalData (or an error)
-    '''
-    if '_type' not in o:
-        raise ValueError(f"{o} is not SignalData")
-    elif o['_type'] == SignalData.__name__:
-        return SignalData(o['name'], o['fs'], o['data'], filter=o.get('filter', None),
-                          duration_hhmmss=o.get('duration_hhmmss', None), start_hhmmss=o.get('start_hhmmss', None),
-                          end_hhmmss=o.get('end_hhmmss', None))
-    raise ValueError(f"{o._type} is an unknown signal type")
-
-
 class SignalData:
     '''
     Provides a mechanism for caching the assorted xy data surrounding a signal.
@@ -78,28 +62,6 @@ class SignalData:
         self.on_filter_change(filter)
         self.reference_name = None
         self.reference = []
-
-    def to_json(self):
-        '''
-        Converts the signal to a json compatible format.
-        :return: a dict to write to json.
-        '''
-        out = {
-            '_type': self.__class__.__name__,
-            'name': self.name,
-            'fs': self.fs,
-            'data': {
-                'avg': self.raw[0].to_json(),
-                'peak': self.raw[1].to_json(),
-            },
-        }
-        if self.filter is not None:
-            out['filter'] = self.filter.to_json()
-        if self.duration_hhmmss is not None:
-            out['duration_hhmmss'] = self.duration_hhmmss
-            out['start_hhmmss'] = self.start_hhmmss
-            out['end_hhmmss'] = self.end_hhmmss
-        return out
 
     def reindex(self, idx):
         self.raw[0].colour = AVG_COLOURS[idx]
