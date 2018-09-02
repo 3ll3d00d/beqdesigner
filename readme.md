@@ -12,38 +12,6 @@ Install https://repo.anaconda.com/archive/Anaconda3-5.2.0-Windows-x86_64.exe the
     pip install pyqt5 matplotlib ffmpeg-python soundfile resampy
     pip install https://github.com/pyinstaller/pyinstaller/tarball/develop
 
-# todo
-
-## load/save/import/export
-
-* add frd import/export
-
-* add load/save feature 
-  * allow loading individual signals or filters only
-
-* add filter presets
-
-* allow addition of user supplied image with png (as per the avs thread style)
-
-## core functionality 
-
-* add gain adjust filter
-* **BUG** multichannel export produces too many channels
-
-## look and feel 
-
-* come up with a sensible y axis tick scheme
-
-## misc
-
-* add a preferences model that stores the actual values and is passed around to avoid passing settings around
-
-## testing
-
-* filter coefficients
-* load/save round trip
-* ffmpeg command specs
-
 # Freeze
 
 ## Hack

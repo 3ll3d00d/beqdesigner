@@ -54,3 +54,4 @@
 * can extract mono audio
 * user selected channel layouts
 * can extract multichannel audio
+* ffmpeg command specs
