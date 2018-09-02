@@ -112,3 +112,6 @@ fortran/
 src/scratch
 
 *.wav
+*.signal
+*.beq
+*.filter

@@ -4,15 +4,17 @@ import math
 import time
 import typing
 from collections import Sequence
+from pathlib import Path
 
 import numpy as np
 import resampy
 from qtpy import QtCore
-from qtpy.QtWidgets import QDialog, QFileDialog, QDialogButtonBox
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt
+from qtpy.QtWidgets import QDialog, QFileDialog, QDialogButtonBox
 from scipy import signal
 
-from model.iir import XYData
+from model.codec import signaldata_to_json
+from model.iir import XYData, CompleteFilter
 from model.magnitude import MagnitudeModel
 from ui.signal import Ui_addSignalDialog
 
@@ -49,33 +51,49 @@ class SignalData:
     Provides a mechanism for caching the assorted xy data surrounding a signal.
     '''
 
-    def __init__(self, idx, signal, filter):
-        self.signal = signal
-        self.__filter = filter
-        self.raw = signal.getXY(idx=idx)
+    def __init__(self, name, fs, xy_data, filter=None, duration_hhmmss=None, start_hhmmss=None, end_hhmmss=None):
+        self.__filter = None
+        self.name = name
+        self.fs = fs
+        self.duration_hhmmss = duration_hhmmss
+        self.start_hhmmss = start_hhmmss
+        self.end_hhmmss = end_hhmmss
+        self.raw = xy_data
         self.filtered = []
-        self.on_filter_change(filter)
         self.reference_name = None
         self.reference = []
+        self.filter = filter
 
-    def reindex(self, idx):
-        self.raw = self.signal.getXY(idx=idx)
-        self.on_filter_change(self.__filter)
+    @property
+    def filter(self):
+        return self.__filter
 
-    def on_filter_change(self, filter):
-        '''
-        Updates the filtered response with the new filter.
-        :param filter: the filter.
-        '''
-        if filter is None:
+    @filter.setter
+    def filter(self, filt):
+        if filt is None:
+            self.__filter = None
             self.filtered = []
             for r in self.raw:
                 r.linestyle = '-'
-        else:
-            filter_mag = filter.getMagnitude()
+        elif isinstance(filt, CompleteFilter):
+            self.__filter = filt.resample(self.fs)
+            # TODO detect if the filter has changed and only recalc if it has
+            filter_mag = self.__filter.getTransferFunction().getMagnitude()
             self.filtered = [f.filter(filter_mag) for f in self.raw]
             for r in self.raw:
                 r.linestyle = '--'
+        else:
+            raise ValueError(f"Unsupported filter type {filt}")
+
+    def __repr__(self) -> str:
+        return f"SignalData {self.name}-{self.fs}"
+
+    def reindex(self, idx):
+        self.raw[0].colour = AVG_COLOURS[idx]
+        self.raw[1].colour = PEAK_COLOURS[idx]
+        if len(self.filtered) == 2:
+            self.filtered[0].colour = AVG_COLOURS[idx]
+            self.filtered[1].colour = PEAK_COLOURS[idx]
 
     def on_reference_change(self):
         pass
@@ -110,22 +128,41 @@ class SignalModel(Sequence):
         self.__table.resizeColumns(self.__view)
 
     def __getitem__(self, i):
-        return self.__signals[i].signal
+        return self.__signals[i]
 
     def __len__(self):
         return len(self.__signals)
+
+    def to_json(self):
+        '''
+        :return: a json compatible format of the data in the model.
+        '''
+        return [signaldata_to_json(x) for x in self.__signals]
+
+    def __decorate_edit(self, func):
+        def wrapper(*args, **kwargs):
+            if self.__table is not None:
+                self.__table.beginResetModel()
+            func(*args, **kwargs)
+            self.post_update()
+            if self.__table is not None:
+                self.__table.endResetModel()
+
+        wrapper()
 
     def add(self, signal):
         '''
         Add the supplied signals ot the model.
         :param signals: the signal.
         '''
-        if self.__table is not None:
-            self.__table.beginResetModel()
-        self.__signals.append(SignalData(len(self.__signals), signal, self.__filterModel.getTransferFunction()))
-        self.post_update()
-        if self.__table is not None:
-            self.__table.endResetModel()
+
+        def do_add():
+            if signal.filter is None:
+                signal.filter = self.__filterModel.resample(fs=signal.fs)
+            signal.reindex(len(self.__signals))
+            self.__signals.append(signal)
+
+        self.__decorate_edit(do_add)
 
     def post_update(self):
         from app import flatten
@@ -137,33 +174,31 @@ class SignalModel(Sequence):
         Remove the specified signal from the model.
         :param signal: the signal to remove.
         '''
-        if self.__table is not None:
-            self.__table.beginResetModel()
-        self.__signals.remove(signal)
-        for idx, s in self.__signals:
-            s.reindex(idx)
-        self.post_update()
-        if self.__table is not None:
-            self.__table.endResetModel()
+
+        def do_remove():
+            self.__signals.remove(signal)
+            for idx, s in enumerate(self.__signals):
+                s.reindex(idx)
+
+        self.__decorate_edit(do_remove)
 
     def delete(self, indices):
         '''
         Delete the signals at the given indices.
         :param indices: the indices to remove.
         '''
-        if self.__table is not None:
-            self.__table.beginResetModel()
-        self.__signals = [s for idx, s in enumerate(self.__signals) if idx not in indices]
-        self.post_update()
-        if self.__table is not None:
-            self.__table.endResetModel()
+
+        def do_delete():
+            self.__signals = [s for idx, s in enumerate(self.__signals) if idx not in indices]
+
+        self.__decorate_edit(do_delete)
 
     def onFilterChange(self):
         '''
         Updates the cached data when the filter changes.
         '''
         for s in self.__signals:
-            s.on_filter_change(self.__filterModel.getTransferFunction())
+            s.filter = self.__filterModel.filter
 
     def getMagnitudeData(self, reference=None):
         '''
@@ -177,6 +212,19 @@ class SignalModel(Sequence):
             if ref_data:
                 results = [x.normalise(ref_data) for x in results]
         return results
+
+    def replace(self, signals):
+        '''
+        Replaces the contents of the model with the supplied signals
+        :param signals: the signals
+        '''
+
+        def do_replace():
+            self.__signals = signals
+            for idx, s in enumerate(self.__signals):
+                s.reindex(idx)
+
+        self.__decorate_edit(do_replace)
 
 
 class Signal:
@@ -451,107 +499,98 @@ class SignalTableModel(QAbstractTableModel):
             view.resizeColumnToContents(x)
 
 
-class SignalDialog(QDialog, Ui_addSignalDialog):
+def _select_file(owner, file_type):
     '''
-    Alows user to extract a signal from a wav or frd.
+    Presents a file picker for selecting a file that contains a signal.
+    '''
+    dialog = QFileDialog(parent=owner)
+    dialog.setFileMode(QFileDialog.ExistingFile)
+    dialog.setNameFilter(f"*.{file_type}")
+    dialog.setWindowTitle(f"Select Signal File")
+    if dialog.exec():
+        selected = dialog.selectedFiles()
+        if len(selected) > 0:
+            return selected[0]
+    return None
+
+
+class WavLoader:
+    '''
+    Loads signals from wav files.
     '''
 
-    def __init__(self, settings, signalModel, parent=None):
-        super(SignalDialog, self).__init__(parent=parent)
-        self.setupUi(self)
-        self.__settings = settings
-        self.__signalModel = signalModel
-        self.__duration = 0
-        self.__signal = None
-        self.__peak = None
-        self.__avg = None
-        self.__magnitudeModel = MagnitudeModel('preview', self.previewChart, self, 'Signal')
-        self.clearSignal(draw=False)
-
-    def selectFile(self):
-        '''
-        Presents a file picker for selecting a file that contains a signal.
-        '''
-        dialog = QFileDialog(parent=self)
-        dialog.setFileMode(QFileDialog.ExistingFile)
-        dialog.setNameFilter(f"*.{self.fileTypePicker.currentText()}")
-        dialog.setWindowTitle(f"Select Signal File")
-        if dialog.exec():
-            selected = dialog.selectedFiles()
-            if len(selected) > 0:
-                self.file.setText(selected[0])
-                self.loadSignal(selected[0])
-
-    def clearSignal(self, draw=True):
-        ''' clears the current signal '''
+    def __init__(self, dialog, preferences):
+        self.__preferences = preferences
+        self.__dialog = dialog
         self.__signal = None
         self.__peak = None
         self.__avg = None
         self.__duration = 0
-        self.startTime.setEnabled(False)
-        self.endTime.setEnabled(False)
-        self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
-        if draw:
-            self.__magnitudeModel.redraw()
 
-    def loadSignal(self, file):
+    def select_wav_file(self):
+        file = _select_file(self.__dialog, 'wav')
+        if file is not None:
+            self.__dialog.wavFile.setText(file)
+            self.load_signal()
+
+    def clear_signal(self):
+        self.__signal = None
+        self.__peak = None
+        self.__avg = None
+        self.__duration = 0
+        self.__dialog.wavStartTime.setEnabled(False)
+        self.__dialog.wavEndTime.setEnabled(False)
+        self.__dialog.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
+
+    def load_signal(self):
         '''
-        Loads the signal from the file.
+        Loads metadata about the signal from the file and propagates it to the form fields.
         :param file: the file.
         '''
         if self.__signal is not None:
-            self.clearSignal()
+            self.clear_signal()
         import soundfile as sf
-        info = sf.info(file)
-        self.fs.setText(f"{info.samplerate} Hz")
-        self.channelSelector.clear()
+        info = sf.info(self.__dialog.wavFile.text())
+        self.__dialog.wavFs.setText(f"{info.samplerate} Hz")
+        self.__dialog.wavChannelSelector.clear()
         for i in range(0, info.channels):
-            self.channelSelector.addItem(f"{i+1}")
-        self.channelSelector.setEnabled(info.channels > 1)
-        self.startTime.setTime(QtCore.QTime(0, 0, 0))
-        self.startTime.setEnabled(True)
+            self.__dialog.wavChannelSelector.addItem(f"{i+1}")
+        self.__dialog.wavChannelSelector.setEnabled(info.channels > 1)
+        self.__dialog.wavStartTime.setTime(QtCore.QTime(0, 0, 0))
+        self.__dialog.wavStartTime.setEnabled(True)
         self.__duration = math.floor(info.duration * 1000)
-        self.endTime.setTime(QtCore.QTime(0, 0, 0).addMSecs(self.__duration))
-        self.endTime.setEnabled(True)
-        self.signalName.setEnabled(True)
+        self.__dialog.wavEndTime.setTime(QtCore.QTime(0, 0, 0).addMSecs(self.__duration))
+        self.__dialog.wavEndTime.setEnabled(True)
+        self.__dialog.wavSignalName.setEnabled(True)
 
-    def enablePreview(self):
+    def prepare_signal(self):
         '''
-        Ensures we can only preview once we have a name.
+        Reads the actual file and calculates the relevant peak/avg spectrum.
         '''
-        self.previewButton.setEnabled(len(self.signalName.text()) > 0)
-
-    def prepareSignal(self):
-        '''
-        Loads the signal and displays the chart.
-        '''
-        from app import wait_cursor
-        with wait_cursor('Preparing Signal'):
-            start = end = None
-            startMillis = self.startTime.time().msecsSinceStartOfDay()
-            if startMillis > 0:
-                start = startMillis
-            endMillis = self.endTime.time().msecsSinceStartOfDay()
-            if endMillis < self.__duration:
-                end = endMillis
-            # defer to avoid circular imports
-            from model.preferences import ANALYSIS_TARGET_FS, ANALYSIS_RESOLUTION, ANALYSIS_PEAK_WINDOW, \
-                ANALYSIS_AVG_WINDOW
-            self.__signal = readWav(self.signalName.text(), self.file.text(),
-                                    channel=int(self.channelSelector.currentText()), start=start, end=end,
-                                    target_fs=self.__settings.value(ANALYSIS_TARGET_FS))
-            multiplier = int(1 / float(self.__settings.value(ANALYSIS_RESOLUTION)))
-            peak_window = self.__get_window(ANALYSIS_PEAK_WINDOW)
-            avg_window = self.__get_window(ANALYSIS_AVG_WINDOW)
-            logger.debug(f"Analysing {self.signalName.text()} at {multiplier}x resolution "
-                         f"using {peak_window} peak window and {avg_window} avg window")
-            self.__signal.calculate(multiplier, avg_window, peak_window)
-            self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
-            self.__magnitudeModel.redraw()
+        start = end = None
+        start_millis = self.__dialog.wavStartTime.time().msecsSinceStartOfDay()
+        if start_millis > 0:
+            start = start_millis
+        end_millis = self.__dialog.wavEndTime.time().msecsSinceStartOfDay()
+        if end_millis < self.__duration:
+            end = end_millis
+        # defer to avoid circular imports
+        from model.preferences import ANALYSIS_TARGET_FS, ANALYSIS_RESOLUTION, ANALYSIS_PEAK_WINDOW, \
+            ANALYSIS_AVG_WINDOW
+        self.__signal = readWav(self.__dialog.wavSignalName.text(), self.__dialog.wavFile.text(),
+                                channel=int(self.__dialog.wavChannelSelector.currentText()), start=start, end=end,
+                                target_fs=self.__preferences.get(ANALYSIS_TARGET_FS))
+        multiplier = int(1 / float(self.__preferences.get(ANALYSIS_RESOLUTION)))
+        peak_window = self.__get_window(ANALYSIS_PEAK_WINDOW)
+        avg_window = self.__get_window(ANALYSIS_AVG_WINDOW)
+        logger.debug(f"Analysing {self.__dialog.wavSignalName.text()} at {multiplier}x resolution "
+                     f"using {peak_window} peak window and {avg_window} avg window")
+        self.__signal.calculate(multiplier, avg_window, peak_window)
+        self.__dialog.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
 
     def __get_window(self, key):
         from model.preferences import ANALYSIS_WINDOW_DEFAULT
-        window = self.__settings.value(key)
+        window = self.__preferences.get(key)
         if window is None or window == ANALYSIS_WINDOW_DEFAULT:
             window = None
         else:
@@ -559,23 +598,206 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
                 window = (window, 0.25)
         return window
 
+    def get_magnitude_data(self):
+        if self.__signal is not None:
+            return self.__signal.getXY()
+        else:
+            return []
+
+    def can_save(self):
+        '''
+        :return: true if we can save a new signal.
+        '''
+        return self.__signal is not None
+
+    def enable_ok(self):
+        enabled = len(self.__dialog.wavSignalName.text()) > 0 and self.can_save()
+        self.__dialog.buttonBox.button(QDialogButtonBox.Ok).setEnabled(enabled)
+
+    def get_signal(self):
+        '''
+        Converts the loaded signal into a SignalData.
+        :return: the signal data.
+        '''
+        return SignalData(self.__signal.name, self.__signal.fs, self.__signal.getXY(),
+                          duration_hhmmss=self.__signal.duration_hhmmss,
+                          start_hhmmss=self.__signal.start_hhmmss,
+                          end_hhmmss=self.__signal.end_hhmmss)
+
+
+class FrdLoader:
+    '''
+    Loads signals from frd files.
+    '''
+
+    def __init__(self, dialog):
+        self.__dialog = dialog
+        self.__peak = None
+        self.__avg = None
+
+    def _read_from_file(self):
+        file = _select_file(self.__dialog, 'frd')
+        if file is not None:
+            comment_char = None
+            with open(file) as f:
+                c = f.read(1)
+                if not c.isalnum():
+                    comment_char = c
+            f, m = np.genfromtxt(file, comments=comment_char, unpack=True)
+            return file, f, m
+        return None, None, None
+
+    def select_peak_file(self):
+        '''
+        Asks the user to pick a file containing the peak series magnitude response.
+        '''
+        name, f, m = self._read_from_file()
+        if name is not None:
+            signal_name = Path(name).resolve().stem
+            if signal_name.endswith('_filter_peak'):
+                signal_name = signal_name[:-12]
+            elif signal_name.endswith('_peak'):
+                signal_name = signal_name[:-5]
+            self.__peak = XYData(f"{signal_name}_peak", f, m, colour=PEAK_COLOURS[0])
+            self.__dialog.frdSignalName.setText(signal_name)
+            self.__dialog.frdPeakFile.setText(name)
+            self.__enable_fields()
+
+    def select_avg_file(self):
+        '''
+        Asks the user to pick a file containing the avg series magnitude response.
+        '''
+        name, f, m = self._read_from_file()
+        if name is not None:
+            signal_name = Path(name).resolve().stem
+            if signal_name.endswith('_filter_avg'):
+                signal_name = signal_name[:-11]
+            elif signal_name.endswith('_avg'):
+                signal_name = signal_name[:-4]
+            self.__avg = XYData(f"{signal_name}_avg", f, m, colour=AVG_COLOURS[0])
+            self.__dialog.frdSignalName.setText(signal_name)
+            self.__dialog.frdAvgFile.setText(name)
+            self.__enable_fields()
+
+    def __enable_fields(self):
+        '''
+        Enables the fs field if we have both measurements.
+        '''
+        self.__dialog.frdSignalName.setEnabled(self.__peak is not None or self.__avg is not None)
+        if self.__peak is not None and self.__avg is not None:
+            # TODO read the header?
+            self.__dialog.frdFs.setValue(int(np.max(self.__peak.x) * 2))
+            self.__dialog.frdFs.setEnabled(True)
+        self.enable_ok()
+
+    def enable_ok(self):
+        enabled = len(self.__dialog.frdSignalName.text()) > 0 and self.can_save()
+        self.__dialog.buttonBox.button(QDialogButtonBox.Ok).setEnabled(enabled)
+
+    def clear_signal(self):
+        self.__peak = None
+        self.__avg = None
+        self.__enable_fields()
+
+    def get_magnitude_data(self):
+        data = []
+        if self.__avg is not None:
+            data.append(self.__avg)
+        if self.__peak is not None:
+            data.append(self.__peak)
+        return data
+
+    def can_save(self):
+        return self.__avg is not None and self.__peak is not None
+
+    def get_signal(self):
+        name = self.__dialog.frdSignalName.text()
+        self.__avg.name = f"{self.__dialog.frdSignalName.text()}_avg"
+        self.__peak.name = f"{self.__dialog.frdSignalName.text()}_peak"
+        return SignalData(name, self.__dialog.frdFs.value(), self.get_magnitude_data())
+
+
+class SignalDialog(QDialog, Ui_addSignalDialog):
+    '''
+    Alows user to extract a signal from a wav or frd.
+    '''
+
+    def __init__(self, preferences, signalModel, parent=None):
+        super(SignalDialog, self).__init__(parent=parent)
+        self.setupUi(self)
+        self.__loaders = [WavLoader(self, preferences), FrdLoader(self)]
+        self.__loader_idx = self.signalTypeTabs.currentIndex()
+        self.__signalModel = signalModel
+        self.__magnitudeModel = MagnitudeModel('preview', self.previewChart, self, 'Signal')
+        self.clearSignal(draw=False)
+
+    def changeLoader(self, idx):
+        self.__loader_idx = idx
+        self.__loaders[self.__loader_idx].enable_ok()
+        self.__magnitudeModel.redraw()
+
+    def selectFile(self):
+        '''
+        Presents a file picker for selecting a wav file that contains a signal.
+        '''
+        self.__loaders[self.__loader_idx].select_wav_file()
+
+    def selectPeakFile(self):
+        '''
+        Presents a file picker for selecting a frd file that contains the peak signal.
+        '''
+        self.__loaders[self.__loader_idx].select_peak_file()
+        self.__magnitudeModel.redraw()
+
+    def selectAvgFile(self):
+        '''
+        Presents a file picker for selecting a frd file that contains the avg signal.
+        '''
+        self.__loaders[self.__loader_idx].select_avg_file()
+        self.__magnitudeModel.redraw()
+
+    def clearSignal(self, draw=True):
+        ''' clears the current signal '''
+        self.__loaders[self.__loader_idx].clear_signal()
+        if draw:
+            self.__magnitudeModel.redraw()
+
+    def enablePreview(self, text):
+        '''
+        Ensures we can only preview once we have a name.
+        '''
+        self.previewButton.setEnabled(len(text) > 0)
+
+    def prepareSignal(self):
+        '''
+        Loads the signal and displays the chart.
+        '''
+        from app import wait_cursor
+        with wait_cursor('Preparing Signal'):
+            self.__loaders[self.__loader_idx].prepare_signal()
+            self.__magnitudeModel.redraw()
+
+    def enableOk(self):
+        '''
+        Enables the ok button if we can save.
+        '''
+        self.__loaders[self.__loader_idx].enable_ok()
+
     def getMagnitudeData(self, reference=None):
         '''
         :param reference: ignored as we don't expose a normalisation control in this chart.
         :return: the peak and avg spectrum for the currently loaded signal (if any).
         '''
-        if self.__signal is not None:
-            return self.__signal.getXY()
-        else:
-            return []
+        return self.__loaders[self.__loader_idx].get_magnitude_data()
 
     def accept(self):
         '''
         Adds the signal to the model and exits if we have a signal (which we should because the button is disabled
         until we do).
         '''
-        if self.__signal is not None:
-            self.__signalModel.add(self.__signal)
+        loader = self.__loaders[self.__loader_idx]
+        if loader.can_save():
+            self.__signalModel.add(loader.get_signal())
             QDialog.accept(self)
 
 

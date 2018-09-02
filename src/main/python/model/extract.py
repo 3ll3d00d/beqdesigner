@@ -9,6 +9,7 @@ from ffmpeg.nodes import filter_operator, FilterNode
 from qtpy import QtWidgets
 from qtpy.QtWidgets import QDialog, QFileDialog, QStatusBar, QTreeWidget, QTreeWidgetItem, QDialogButtonBox
 
+from model.preferences import EXTRACTION_OUTPUT_DIR
 from ui.extract import Ui_extractAudioDialog
 
 logger = logging.getLogger('extract')
@@ -21,18 +22,21 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
     Allows user to load a signal, processing it if necessary.
     '''
 
-    def __init__(self, settings, parent=None):
-        super(ExtractAudioDialog, self).__init__(parent)
+    def __init__(self, preferences, parent=None):
+        if parent is not None:
+            super(ExtractAudioDialog, self).__init__(parent)
+        else:
+            super(ExtractAudioDialog, self).__init__()
         self.setupUi(self)
         self.statusBar = QStatusBar()
         self.gridLayout.addWidget(self.statusBar, 5, 1, 1, 1)
-        self.__settings = settings
+        self.__preferences = preferences
         self.__mono_mix_spec = ''
         self.__probe = None
         self.__audio_stream_data = []
         self.__ffmpegCommand = None
         self.__channel_layout_name = None
-        defaultOutputDir = self.__settings.value('extraction/output_dir')
+        defaultOutputDir = self.__preferences.get(EXTRACTION_OUTPUT_DIR)
         if os.path.isdir(defaultOutputDir):
             self.targetDir.setText(defaultOutputDir)
         self.buttonBox.button(QDialogButtonBox.Ok).setText('Extract')

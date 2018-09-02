@@ -8,21 +8,17 @@ import qtawesome as qta
 from qtpy import QtCore
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt
 from qtpy.QtGui import QIcon
-from qtpy.QtWidgets import QDialog, QDialogButtonBox
+from qtpy.QtWidgets import QDialog
 
 from model.iir import FilterType, LowShelf, HighShelf, PeakingEQ, SecondOrder_LowPass, \
     SecondOrder_HighPass, ComplexLowPass, ComplexHighPass, q_to_s, s_to_q, max_permitted_s, CompleteFilter, COMBINED, \
     Passthrough
 from model.magnitude import MagnitudeModel
+from model.preferences import SHOW_ALL_FILTERS, SHOW_NO_FILTERS
 from mpl import get_line_colour
 from ui.filter import Ui_editFilterDialog
 
 logger = logging.getLogger('filter')
-
-SHOW_ALL_FILTERS = 'All'
-SHOW_COMBINED_FILTER = 'Total'
-SHOW_NO_FILTERS = 'None'
-SHOW_FILTER_OPTIONS = [SHOW_ALL_FILTERS, SHOW_COMBINED_FILTER, SHOW_NO_FILTERS]
 
 
 class FilterModel(Sequence):
@@ -31,12 +27,28 @@ class FilterModel(Sequence):
     '''
 
     def __init__(self, view, show_filters=lambda: SHOW_ALL_FILTERS, on_update=lambda _: True):
-        self.filter = CompleteFilter()
+        self.__filter = CompleteFilter()
         self.__view = view
         self.__show_filters = show_filters
         self.__table = None
         self.__listeners = []
         self.__on_update = on_update
+
+    @property
+    def filter(self):
+        return self.__filter
+
+    @filter.setter
+    def filter(self, filt):
+        if isinstance(filt, CompleteFilter):
+            if self.__table is not None:
+                self.__table.beginResetModel()
+            self.__filter = filt
+            self.post_update()
+            if self.__table is not None:
+                self.__table.endResetModel()
+        else:
+            raise ValueError(f"FilterModel only accepts CompleteFilter, ignoring {filt}")
 
     @property
     def table(self):
@@ -145,12 +157,22 @@ class FilterModel(Sequence):
                     mags = [x.normalise(ref_data) for x in mags]
             return mags
 
-    def getTransferFunction(self):
+    def resample(self, fs):
+        '''
+        :param fs: the requested fs.
+        :return: the filter at that fs.
+        '''
+        return self.filter.resample(fs)
+
+    def getTransferFunction(self, fs=None):
         '''
         :return: the transfer function for this filter (in total) if we have any filters or None if we have none.
         '''
         if len(self.filter) > 0:
-            return self.filter.getTransferFunction()
+            if fs is not None:
+                return self.filter.resample(fs).getTransferFunction()
+            else:
+                return self.filter.getTransferFunction()
         return None
 
 

@@ -33,7 +33,7 @@ class Biquad(ABC):
     def __init__(self, fs, freq, q):
         self.fs = fs
         self.freq = round(freq, 2)
-        self.q = q
+        self.q = round(q, 4)
         self.w0 = 2.0 * math.pi * self.freq / self.fs
         self.cos_w0 = math.cos(self.w0)
         self.sin_w0 = math.sin(self.w0)
@@ -41,6 +41,13 @@ class Biquad(ABC):
         self.a, self.b = self._compute_coeffs()
         self.id = -1
         self.__transferFunction = None
+
+    def __eq__(self, o: object) -> bool:
+        equal = self.__class__.__name__ == o.__class__.__name__
+        equal &= self.fs == o.fs
+        equal &= self.q == o.q
+        equal &= self.freq == o.freq
+        return equal
 
     def __repr__(self):
         return self.description
@@ -106,6 +113,9 @@ class BiquadWithGain(Biquad):
     def __init__(self, fs, freq, q, gain):
         self.gain = round(gain, 3)
         super().__init__(fs, freq, q)
+
+    def __eq__(self, o: object) -> bool:
+        return super().__eq__(o) and self.gain == o.gain
 
     @property
     def description(self):
@@ -305,6 +315,9 @@ class HighShelf(Shelf):
     def __init__(self, fs, freq, q, gain, count=1):
         super().__init__(fs, freq, q, gain, count)
 
+    def __eq__(self, o: object) -> bool:
+        return super().__eq__(o) and self.count == o.count
+
     @property
     def filter_type(self):
         return 'HS'
@@ -350,6 +363,9 @@ class FirstOrder_LowPass(Biquad):
         super().__init__(fs, freq, q)
         self.order = 1
 
+    def __eq__(self, o: object) -> bool:
+        return super().__eq__(o) and self.order == o.order
+
     @property
     def filter_type(self):
         return 'LPF1'
@@ -388,6 +404,9 @@ class FirstOrder_HighPass(Biquad):
     def __init__(self, fs, freq, q=DEFAULT_Q):
         super().__init__(fs, freq, q)
         self.order = 1
+
+    def __eq__(self, o: object) -> bool:
+        return super().__eq__(o) and self.order == o.order
 
     @property
     def filter_type(self):
@@ -446,6 +465,9 @@ class SecondOrder_LowPass(Biquad):
         super().__init__(fs, freq, q)
         self.order = 2
 
+    def __eq__(self, o: object) -> bool:
+        return super().__eq__(o) and self.order == o.order
+
     @property
     def filter_type(self):
         return 'LPF2'
@@ -498,6 +520,9 @@ class SecondOrder_HighPass(Biquad):
     def __init__(self, fs, freq, q=DEFAULT_Q):
         super().__init__(fs, freq, q)
         self.order = 2
+
+    def __eq__(self, o: object) -> bool:
+        return super().__eq__(o) and self.order == o.order
 
     @property
     def filter_type(self):
@@ -601,10 +626,11 @@ class ComplexFilter:
     A filter composed of many other filters.
     '''
 
-    def __init__(self, filters=None, description='Complex'):
+    def __init__(self, filters=None, description='Complex', preset_idx=-1):
         self.filters = filters if filters is not None else []
         self.description = description
         self.id = -1
+        self.__on_change()
         self.__cached_transfer = None
 
     def __getitem__(self, i):
@@ -615,6 +641,13 @@ class ComplexFilter:
 
     def __repr__(self):
         return self.description
+
+    def __eq__(self, o: object) -> bool:
+        equal = self.__class__.__name__ == o.__class__.__name__
+        equal &= self.description == o.description
+        equal &= self.id == o.id
+        equal &= self.filters == o.filters
+        return equal
 
     def child_names(self):
         return [x.__repr__() for x in self.filters]
@@ -629,7 +662,14 @@ class ComplexFilter:
         :param filter: the filter.
         '''
         self.save0(filter, self.filters)
+        self.__on_change()
+
+    def __on_change(self):
+        '''
+        Resets some cached values when the filter changes.
+        '''
         self.__cached_transfer = None
+        self.preset_idx = -1
 
     def save0(self, filter, filters):
         match = next((f for f in filters if f.id == filter.id), None)
@@ -644,7 +684,7 @@ class ComplexFilter:
         :param indices: the indices to remove.
         '''
         self.filters = [filter for idx, filter in enumerate(self.filters) if idx not in indices]
-        self.__cached_transfer = None
+        self.__on_change()
 
     def getTransferFunction(self):
         '''
@@ -652,8 +692,11 @@ class ComplexFilter:
         :return: the transfer function.
         '''
         if self.__cached_transfer is None:
-            self.__cached_transfer = getCascadeTransferFunction(self.__repr__(),
-                                                                [x.getTransferFunction() for x in self.filters])
+            if len(self.filters) == 0:
+                return Passthrough().getTransferFunction()
+            else:
+                self.__cached_transfer = getCascadeTransferFunction(self.__repr__(),
+                                                                    [x.getTransferFunction() for x in self.filters])
         return self.__cached_transfer
 
     def format_biquads(self, invert_a):
@@ -674,8 +717,8 @@ class ComplexFilter:
 
 class CompleteFilter(ComplexFilter):
 
-    def __init__(self, filters=None, description=COMBINED):
-        super().__init__(filters=filters, description=description)
+    def __init__(self, filters=None, description=COMBINED, preset_idx=-1):
+        super().__init__(filters=filters, description=description, preset_idx=preset_idx)
 
     def preview(self, filter):
         '''
@@ -880,6 +923,19 @@ class XYData:
         self.__rendered = False
         self.__normalised_cache = {}
 
+    def __repr__(self):
+        return f"XYData: {self.name} - {self.x.size} - {self.colour}"
+
+    def __eq__(self, o: object) -> bool:
+        equal = self.__class__.__name__ == o.__class__.__name__
+        equal &= self.name == o.name
+        # allow tolerance because of the way we serialise to save space
+        equal &= np.allclose(self.x, o.x)
+        equal &= np.allclose(self.y, o.y, rtol=1e-5, atol=1e-5)
+        equal &= self.colour == o.colour
+        equal &= self.linestyle == o.linestyle
+        return equal
+
     @property
     def rendered(self):
         return self.__rendered
@@ -919,33 +975,3 @@ class XYData:
                 return XYData(f"{self.name}-filtered", filt.x, filt.y + interp_y, colour=self.colour, linestyle='-')
         else:
             return XYData(f"{self.name}-filtered", self.x, self.y + filt.y, colour=self.colour, linestyle='-')
-
-
-def from_json(o):
-    if '_type' not in o:
-        raise ValueError(f"{o} is not a filter")
-    if o['_type'] == Passthrough.__name__:
-        return Passthrough()
-    elif o['_type'] == PeakingEQ.__name__:
-        return PeakingEQ(o['fs'], o['fc'], o['q'], o['gain'])
-    elif o['_type'] == LowShelf.__name__:
-        return LowShelf(o['fs'], o['fc'], o['q'], o['gain'], o['count'])
-    elif o['_type'] == HighShelf.__name__:
-        return HighShelf(o['fs'], o['fc'], o['q'], o['gain'], o['count'])
-    elif o['_type'] == FirstOrder_LowPass.__name__:
-        return FirstOrder_LowPass(o['fs'], o['fc'], o['q'])
-    elif o['_type'] == FirstOrder_HighPass.__name__:
-        return FirstOrder_HighPass(o['fs'], o['fc'], o['q'])
-    elif o['_type'] == SecondOrder_LowPass.__name__:
-        return SecondOrder_LowPass(o['fs'], o['fc'], o['q'])
-    elif o['_type'] == SecondOrder_HighPass.__name__:
-        return SecondOrder_HighPass(o['fs'], o['fc'], o['q'])
-    elif o['_type'] == AllPass.__name__:
-        return AllPass(o['fs'], o['fc'], o['q'])
-    elif o['_type'] == CompleteFilter.__name__:
-        return CompleteFilter(filters=[from_json(x) for x in o['filters']], description=o['description'])
-    elif o['_type'] == ComplexLowPass.__name__:
-        return ComplexLowPass(FilterType(o['filter_type']), o['order'], o['fs'], o['fc'])
-    elif o['_type'] == ComplexHighPass.__name__:
-        return ComplexHighPass(FilterType(o['filter_type']), o['order'], o['fs'], o['fc'])
-    raise ValueError(f"{o._type} is an unknown filter type")
