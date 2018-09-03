@@ -7,9 +7,10 @@ from pathlib import Path
 import ffmpeg
 from ffmpeg.nodes import filter_operator, FilterNode
 from qtpy import QtWidgets
+from qtpy.QtMultimedia import QSound
 from qtpy.QtWidgets import QDialog, QFileDialog, QStatusBar, QTreeWidget, QTreeWidgetItem, QDialogButtonBox
 
-from model.preferences import EXTRACTION_OUTPUT_DIR
+from model.preferences import EXTRACTION_OUTPUT_DIR, EXTRACTION_NOTIFICATION_SOUND
 from ui.extract import Ui_extractAudioDialog
 
 logger = logging.getLogger('extract')
@@ -36,6 +37,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         self.__audio_stream_data = []
         self.__ffmpegCommand = None
         self.__channel_layout_name = None
+        self.__sound = None
         defaultOutputDir = self.__preferences.get(EXTRACTION_OUTPUT_DIR)
         if os.path.isdir(defaultOutputDir):
             self.targetDir.setText(defaultOutputDir)
@@ -58,6 +60,10 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         '''
         Resets various fields and temporary state.
         '''
+        if self.__sound is not None:
+            if not self.__sound.isFinished():
+                self.__sound.stop()
+                self.__sound = None
         self.audioStreams.clear()
         self.statusBar.clearMessage()
         self.__probe = None
@@ -312,6 +318,15 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         self.channelCount.setMaximum(channels)
         self.channelCount.setValue(channels)
 
+    def reject(self):
+        '''
+        Stops any sound that is playing and exits.
+        '''
+        if self.__sound is not None and not self.__sound.isFinished():
+            self.__sound.stop()
+            self.__sound = None
+        QDialog.reject(self)
+
     def accept(self):
         '''
         Executes the ffmpeg command.
@@ -335,6 +350,11 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
                     result = f"Command FAILED in {elapsed}s" + os.linesep + os.linesep
                     result = self.append_out_err(e.stderr, e.stdout, result)
                     self.ffmpegOutput.setPlainText(result)
+            audio = self.__preferences.get(EXTRACTION_NOTIFICATION_SOUND)
+            if audio is not None:
+                logger.debug(f"Playing {audio}")
+                self.__sound = QSound(audio)
+                self.__sound.play()
 
     def append_out_err(self, err, out, result):
         result += 'STDOUT' + os.linesep + '------' + os.linesep + os.linesep

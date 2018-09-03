@@ -11,7 +11,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_preferencesDialog(object):
     def setupUi(self, preferencesDialog):
         preferencesDialog.setObjectName("preferencesDialog")
-        preferencesDialog.resize(809, 402)
+        preferencesDialog.resize(809, 436)
         self.verticalLayout = QtWidgets.QVBoxLayout(preferencesDialog)
         self.verticalLayout.setObjectName("verticalLayout")
         self.panes = QtWidgets.QVBoxLayout()
@@ -115,6 +115,16 @@ class Ui_preferencesDialog(object):
         self.defaultOutputDirectory.setEnabled(False)
         self.defaultOutputDirectory.setObjectName("defaultOutputDirectory")
         self.extractPane.addWidget(self.defaultOutputDirectory, 1, 1, 1, 1)
+        self.extractCompleteAudioFileLabel = QtWidgets.QLabel(preferencesDialog)
+        self.extractCompleteAudioFileLabel.setObjectName("extractCompleteAudioFileLabel")
+        self.extractPane.addWidget(self.extractCompleteAudioFileLabel, 2, 0, 1, 1)
+        self.extractCompleteAudioFile = QtWidgets.QLineEdit(preferencesDialog)
+        self.extractCompleteAudioFile.setEnabled(False)
+        self.extractCompleteAudioFile.setObjectName("extractCompleteAudioFile")
+        self.extractPane.addWidget(self.extractCompleteAudioFile, 2, 1, 1, 1)
+        self.extractCompleteAudioFilePicker = QtWidgets.QToolButton(preferencesDialog)
+        self.extractCompleteAudioFilePicker.setObjectName("extractCompleteAudioFilePicker")
+        self.extractPane.addWidget(self.extractCompleteAudioFilePicker, 2, 2, 1, 1)
         self.panes.addLayout(self.extractPane)
         self.stylePane = QtWidgets.QGridLayout()
         self.stylePane.setObjectName("stylePane")
@@ -150,6 +160,7 @@ class Ui_preferencesDialog(object):
         self.ffmpegDirectoryPicker.clicked.connect(preferencesDialog.showFfmpegDirectoryPicker)
         self.ffprobeDirectoryPicker.clicked.connect(preferencesDialog.showFfprobeDirectoryPicker)
         self.defaultOutputDirectoryPicker.clicked.connect(preferencesDialog.showDefaultOutputDirectoryPicker)
+        self.extractCompleteAudioFilePicker.clicked.connect(preferencesDialog.showExtractCompleteSoundPicker)
         QtCore.QMetaObject.connectSlotsByName(preferencesDialog)
 
     def retranslateUi(self, preferencesDialog):
@@ -175,6 +186,8 @@ class Ui_preferencesDialog(object):
         self.defaultOutputDirectoryLabel.setText(_translate("preferencesDialog", "Default Output Directory"))
         self.defaultOutputDirectoryPicker.setText(_translate("preferencesDialog", "..."))
         self.extractionLabel.setText(_translate("preferencesDialog", "Extraction"))
+        self.extractCompleteAudioFileLabel.setText(_translate("preferencesDialog", "Extract Complete Sound"))
+        self.extractCompleteAudioFilePicker.setText(_translate("preferencesDialog", "..."))
         self.label.setText(_translate("preferencesDialog", "Theme"))
         self.themePicker.setItemText(0, _translate("preferencesDialog", "default"))
         self.styleLabel.setText(_translate("preferencesDialog", "Style"))

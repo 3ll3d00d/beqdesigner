@@ -14,6 +14,7 @@ SHOW_NO_FILTERS = 'None'
 SHOW_FILTER_OPTIONS = [SHOW_ALL_FILTERS, SHOW_COMBINED_FILTER, SHOW_NO_FILTERS]
 
 EXTRACTION_OUTPUT_DIR = 'extraction/output_dir'
+EXTRACTION_NOTIFICATION_SOUND = 'extraction/notification_sound'
 ANALYSIS_RESOLUTION = 'analysis/resolution'
 ANALYSIS_TARGET_FS = 'analysis/target_fs'
 ANALYSIS_WINDOW_DEFAULT = 'Default'
@@ -120,6 +121,11 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
             if os.path.isdir(ffprobeLoc):
                 self.ffprobeDirectory.setText(ffprobeLoc)
 
+        notifySoundLoc = self.__preferences.get(EXTRACTION_NOTIFICATION_SOUND)
+        if notifySoundLoc:
+            if os.path.isfile(notifySoundLoc):
+                self.extractCompleteAudioFile.setText(notifySoundLoc)
+
         self.init_combo(ANALYSIS_TARGET_FS, self.targetFs,
                         translater=lambda a: 'Full Range' if a == 0 else str(a) + ' Hz')
         self.init_combo(ANALYSIS_RESOLUTION, self.resolutionSelect, translater=lambda a: str(a) + ' Hz')
@@ -177,6 +183,9 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         outputDir = self.defaultOutputDirectory.text()
         if os.path.isdir(outputDir):
             self.__preferences.set(EXTRACTION_OUTPUT_DIR, outputDir)
+        notifySound = self.extractCompleteAudioFile.text()
+        if os.path.isfile(notifySound):
+            self.__preferences.set(EXTRACTION_NOTIFICATION_SOUND, notifySound)
         text = self.targetFs.currentText()
         if text == 'Full Range':
             self.__preferences.set(ANALYSIS_TARGET_FS, 0)
@@ -231,3 +240,13 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
             selected = dialog.selectedFiles()
             if len(selected) > 0:
                 self.defaultOutputDirectory.setText(selected[0])
+
+    def showExtractCompleteSoundPicker(self):
+        dialog = QFileDialog(parent=self)
+        dialog.setFileMode(QFileDialog.ExistingFile)
+        dialog.setNameFilter("Audio (*.wav)")
+        dialog.setWindowTitle(f"Select Notification Sound")
+        if dialog.exec():
+            selected = dialog.selectedFiles()
+            if len(selected) > 0:
+                self.extractCompleteAudioFile.setText(selected[0])
