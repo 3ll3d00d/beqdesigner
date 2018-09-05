@@ -16,6 +16,7 @@ from scipy import signal
 from model.codec import signaldata_to_json
 from model.iir import XYData, CompleteFilter
 from model.magnitude import MagnitudeModel
+from model.preferences import AVG_COLOURS, PEAK_COLOURS
 from ui.signal import Ui_addSignalDialog
 
 logger = logging.getLogger('signal')
@@ -23,35 +24,13 @@ logger = logging.getLogger('signal')
 """ speclab reports a peak of 0dB but, by default, we report a peak of -3dB """
 SPECLAB_REFERENCE = 1 / (2 ** 0.5)
 
-WINDOWS = ['barthann', 'bartlett', 'blackman', 'blackmanharris', 'bohman', 'boxcar', 'cosine', 'flattop', 'hamming',
-           'hann', 'nuttall', 'parzen', 'triang', 'tukey']
-
-# keep peak green and avg red
-AVG_COLOURS = [
-    '#ff0000',
-    '#990000',
-    '#ff6666',
-    '#ff9999',
-    '#660000',
-    '#4c0000',
-]
-
-PEAK_COLOURS = [
-    '#00ff00',
-    '#009900',
-    '#99ff99',
-    '#ccffcc',
-    '#006600',
-    '#004c00',
-]
-
 
 class SignalData:
     '''
     Provides a mechanism for caching the assorted xy data surrounding a signal.
     '''
 
-    def __init__(self, name, fs, xy_data, filter=None, duration_hhmmss=None, start_hhmmss=None, end_hhmmss=None):
+    def __init__(self, name, fs, xy_data, filter, duration_hhmmss=None, start_hhmmss=None, end_hhmmss=None):
         self.__filter = None
         self.name = name
         self.fs = fs
@@ -70,20 +49,9 @@ class SignalData:
 
     @filter.setter
     def filter(self, filt):
-        if filt is None:
-            self.__filter = None
-            self.filtered = []
-            for r in self.raw:
-                r.linestyle = '-'
-        elif isinstance(filt, CompleteFilter):
-            self.__filter = filt.resample(self.fs)
-            # TODO detect if the filter has changed and only recalc if it has
-            filter_mag = self.__filter.getTransferFunction().getMagnitude()
-            self.filtered = [f.filter(filter_mag) for f in self.raw]
-            for r in self.raw:
-                r.linestyle = '--'
-        else:
-            raise ValueError(f"Unsupported filter type {filt}")
+        self.__filter = filt
+        self.__filter.listener = self
+        self.on_filter_change(filt)
 
     def __repr__(self) -> str:
         return f"SignalData {self.name}-{self.fs}"
@@ -104,18 +72,35 @@ class SignalData:
         '''
         return self.raw + self.filtered
 
+    def on_filter_change(self, filt):
+        '''
+        Updates the cached filtered response when the filter changes.
+        :param filt: the filter.
+        '''
+        if filt is None:
+            self.filtered = []
+            for r in self.raw:
+                r.linestyle = '-'
+        elif isinstance(filt, CompleteFilter):
+            # TODO detect if the filter has changed and only recalc if it has
+            filter_mag = self.__filter.getTransferFunction().getMagnitude()
+            self.filtered = [f.filter(filter_mag) for f in self.raw]
+            for r in self.raw:
+                r.linestyle = '--'
+        else:
+            raise ValueError(f"Unsupported filter type {filt}")
+
 
 class SignalModel(Sequence):
     '''
     A model to hold onto the signals.
     '''
 
-    def __init__(self, view, filterModel, on_update=lambda _: True):
+    def __init__(self, view, default_signal, on_update=lambda _: True):
         self.__signals = []
+        self.default_signal = default_signal
         self.__view = view
         self.__on_update = on_update
-        self.__filterModel = filterModel
-        self.__filterModel.register(self)
         self.__table = None
 
     @property
@@ -157,8 +142,6 @@ class SignalModel(Sequence):
         '''
 
         def do_add():
-            if signal.filter is None:
-                signal.filter = self.__filterModel.resample(fs=signal.fs)
             signal.reindex(len(self.__signals))
             self.__signals.append(signal)
 
@@ -192,13 +175,6 @@ class SignalModel(Sequence):
             self.__signals = [s for idx, s in enumerate(self.__signals) if idx not in indices]
 
         self.__decorate_edit(do_delete)
-
-    def onFilterChange(self):
-        '''
-        Updates the cached data when the filter changes.
-        '''
-        for s in self.__signals:
-            s.filter = self.__filterModel.filter
 
     def getMagnitudeData(self, reference=None):
         '''
@@ -619,9 +595,9 @@ class WavLoader:
         Converts the loaded signal into a SignalData.
         :return: the signal data.
         '''
-        return SignalData(self.__signal.name, self.__signal.fs, self.__signal.getXY(),
-                          duration_hhmmss=self.__signal.duration_hhmmss,
-                          start_hhmmss=self.__signal.start_hhmmss,
+        # TODO set fs on filter
+        return SignalData(self.__signal.name, self.__signal.fs, self.__signal.getXY(), CompleteFilter(),
+                          duration_hhmmss=self.__signal.duration_hhmmss, start_hhmmss=self.__signal.start_hhmmss,
                           end_hhmmss=self.__signal.end_hhmmss)
 
 
@@ -714,7 +690,8 @@ class FrdLoader:
         name = self.__dialog.frdSignalName.text()
         self.__avg.name = f"{self.__dialog.frdSignalName.text()}_avg"
         self.__peak.name = f"{self.__dialog.frdSignalName.text()}_peak"
-        return SignalData(name, self.__dialog.frdFs.value(), self.get_magnitude_data())
+        # TODO set fs on filter
+        return SignalData(name, self.__dialog.frdFs.value(), self.get_magnitude_data(), CompleteFilter())
 
 
 class SignalDialog(QDialog, Ui_addSignalDialog):

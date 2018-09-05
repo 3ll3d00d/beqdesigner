@@ -15,7 +15,7 @@ import qtawesome as qta
 from matplotlib import style
 
 from model.export import ExportSignalDialog, Mode
-from model.iir import Passthrough
+from model.iir import Passthrough, CompleteFilter
 from ui.biquad import Ui_exportBiquadDialog
 from ui.savechart import Ui_saveChartDialog
 
@@ -30,8 +30,8 @@ from model.magnitude import MagnitudeModel
 from model.preferences import PreferencesDialog, BINARIES_GROUP, ANALYSIS_TARGET_FS, STYLE_MATPLOTLIB_THEME, \
     Preferences, \
     SCREEN_GEOMETRY, SCREEN_WINDOW_STATE, FILTERS_PRESET_x, DISPLAY_SHOW_LEGEND, DISPLAY_SHOW_FILTERS, \
-    SHOW_FILTER_OPTIONS
-from model.signal import SignalModel, SignalTableModel, SignalDialog
+    SHOW_FILTER_OPTIONS, AVG_COLOURS
+from model.signal import SignalModel, SignalTableModel, SignalDialog, SignalData
 from ui.beq import Ui_MainWindow
 
 from qtpy import QtCore
@@ -79,6 +79,10 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.logViewer = RollingLogger(parent=self)
         self.actionShow_Logs.triggered.connect(self.logViewer.show_logs)
         self.actionPreferences.triggered.connect(self.showPreferences)
+        # init a default signal for when we want to edit a filter without a signal
+        default_mag = Passthrough().getTransferFunction().getMagnitude()
+        self.__default_signal = SignalData('default', self.preferences.get(ANALYSIS_TARGET_FS),
+                                           [default_mag, default_mag], filter=CompleteFilter())
         # init the filter view selector
         self.showFilters.blockSignals(True)
         for x in SHOW_FILTER_OPTIONS:
@@ -92,10 +96,10 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.showFilters.blockSignals(False)
         # filter view/model
         self.filterView.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.__filterModel = FilterModel(self.filterView, show_filters=lambda: self.showFilters.currentText(),
-                                         on_update=self.on_filter_change)
-        self.__filterTableModel = FilterTableModel(self.__filterModel, parent=parent)
-        self.filterView.setModel(self.__filterTableModel)
+        self.__filter_model = FilterModel(self.filterView, show_filters=lambda: self.showFilters.currentText(),
+                                          on_update=self.on_filter_change)
+        self.__filter_table_model = FilterTableModel(self.__filter_model, parent=parent)
+        self.filterView.setModel(self.__filter_table_model)
         self.filterView.selectionModel().selectionChanged.connect(self.changeFilterButtonState)
         for i in range(1, 4):
             getattr(self, f"action_load_preset_{i}").triggered.connect(self.load_preset(i))
@@ -105,15 +109,16 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         # signal model
         self.signalView.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.signalView.setSelectionMode(QAbstractItemView.SingleSelection)
-        self.__signalModel = SignalModel(self.signalView, self.__filterModel, on_update=self.on_signal_change)
-        self.__signalTableModel = SignalTableModel(self.__signalModel, parent=parent)
-        self.signalView.setModel(self.__signalTableModel)
-        self.signalView.selectionModel().selectionChanged.connect(self.changeSignalButtonState)
+        self.__signal_model = SignalModel(self.signalView, self.__default_signal, on_update=self.on_signal_change)
+        self.__signal_table_model = SignalTableModel(self.__signal_model, parent=parent)
+        self.signalView.setModel(self.__signal_table_model)
+        self.signalView.selectionModel().selectionChanged.connect(self.on_signal_selected)
         # magnitude
         self.showLegend.setChecked(bool(self.preferences.get(DISPLAY_SHOW_LEGEND)))
-        self.__magnitudeModel = MagnitudeModel('main', self.mainChart, self.__signalModel, 'Signals',
-                                               self.__filterModel, 'Filters',
-                                               show_legend=lambda: self.showLegend.isChecked())
+        self.__magnitude_model = MagnitudeModel('main', self.mainChart, self.__signal_model, 'Signals',
+                                                self.__filter_model, 'Filters',
+                                                show_legend=lambda: self.showLegend.isChecked())
+        self.__filter_model.filter = self.__default_signal.filter
         # processing
         self.ensurePathContainsExternalTools()
         # extraction
@@ -136,7 +141,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         :param names: the signal names.
         '''
         self.update_reference_series(names, self.signalReference, True)
-        self.__magnitudeModel.redraw()
+        self.__magnitude_model.redraw()
 
     def on_filter_change(self, names):
         '''
@@ -145,9 +150,9 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         :param names: the signal names.
         '''
         self.update_reference_series(names, self.filterReference, False)
-        self.__magnitudeModel.redraw()
+        self.__magnitude_model.redraw()
         self.__enable_save_filter()
-        self.__check_active_preset(self.__filterModel.filter.preset_idx)
+        self.__check_active_preset(self.__filter_model.filter.preset_idx)
 
     def exportChart(self):
         '''
@@ -160,7 +165,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Shows the biquads for the current filter set.
         '''
-        dialog = ExportBiquadDialog(self.__filterModel.filter)
+        dialog = ExportBiquadDialog(self.__filter_model.filter)
         dialog.exec()
 
     def importFilter(self):
@@ -170,8 +175,8 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         input = self.__load_filter()
         if input is not None:
             from model.codec import filter_from_json
-            self.__filterModel.filter = filter_from_json(input)
-            self.__magnitudeModel.redraw()
+            self.__filter_model.filter = filter_from_json(input)
+            self.__magnitude_model.redraw()
 
     def __load_filter(self):
         '''
@@ -203,8 +208,8 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         input = self.__load('*.signal', 'Load Signal', parser)
         if input is not None:
             from model.codec import signaldata_from_json
-            self.__signalModel.add(signaldata_from_json(input))
-            self.__magnitudeModel.redraw()
+            self.__signal_model.add(signaldata_from_json(input))
+            self.__magnitude_model.redraw()
 
     def __load(self, filter, title, parser):
         '''
@@ -239,7 +244,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
                 if not selected[0].endswith('.filter'):
                     selected[0] += '.filter'
                 with open(selected[0], 'w+') as outfile:
-                    json.dump(self.__filterModel.filter.to_json(), outfile)
+                    json.dump(self.__filter_model.filter.to_json(), outfile)
                     self.statusbar.showMessage(f"Saved filter to {outfile.name}")
 
     def ensurePathContainsExternalTools(self):
@@ -290,7 +295,18 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Adds a filter via the filter dialog.
         '''
-        FilterDialog(self.__filterModel, fs=int(self.preferences.get(ANALYSIS_TARGET_FS))).exec()
+        FilterDialog(self.__get_selected_signal(), self.__filter_model).exec()
+
+    def __get_selected_signal(self):
+        '''
+        :return: the selected signal (as selected in the table) or the default signal if nothing is selected.
+        '''
+        signalSelect = self.signalView.selectionModel()
+        if signalSelect.hasSelection() and len(signalSelect.selectedRows()) == 1:
+            signal = self.__signal_model[signalSelect.selectedRows()[0].row()]
+        else:
+            signal = self.__signal_model.default_signal
+        return signal
 
     def editFilter(self):
         '''
@@ -298,7 +314,8 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         selection = self.filterView.selectionModel()
         if selection.hasSelection() and len(selection.selectedRows()) == 1:
-            FilterDialog(self.__filterModel, filter=self.__filterModel[selection.selectedRows()[0].row()]).exec()
+            signal = self.__get_selected_signal()
+            FilterDialog(signal, self.__filter_model, filter=signal.filter[selection.selectedRows()[0].row()]).exec()
 
     def deleteFilter(self):
         '''
@@ -306,19 +323,24 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         selection = self.filterView.selectionModel()
         if selection.hasSelection():
-            self.__filterModel.delete([x.row() for x in selection.selectedRows()])
+            self.__filter_model.delete([x.row() for x in selection.selectedRows()])
 
     def __enable_save_filter(self):
         '''
         Enables the save filter if we have filters to save.
         '''
-        self.actionSave_Filter.setEnabled(len(self.__filterModel) > 0)
+        self.actionSave_Filter.setEnabled(len(self.__filter_model) > 0)
 
     def addSignal(self):
         '''
         Adds signals via the signal dialog.
         '''
-        SignalDialog(self.preferences, self.__signalModel, parent=self).exec()
+        before = len(self.__signal_model)
+        SignalDialog(self.preferences, self.__signal_model, parent=self).exec()
+        after = len(self.__signal_model)
+        if after != before:
+            self.signalView.selectRow(after - 1)
+            self.addSignalButton.setEnabled(len(self.__signal_model) < len(AVG_COLOURS))
 
     def deleteSignal(self):
         '''
@@ -326,8 +348,10 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         selection = self.signalView.selectionModel()
         if selection.hasSelection():
-            self.__signalModel.delete([x.row() for x in selection.selectedRows()])
-        self.changeSignalButtonState()
+            self.__signal_model.delete([x.row() for x in selection.selectedRows()])
+        self.signalView.clearSelection()
+        self.on_signal_selected()
+        self.addSignalButton.setEnabled(len(self.__signal_model) < len(AVG_COLOURS))
 
     def changeFilterButtonState(self):
         '''
@@ -337,13 +361,18 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.deleteFilterButton.setEnabled(selection.hasSelection())
         self.editFilterButton.setEnabled(len(selection.selectedRows()) == 1)
 
-    def changeSignalButtonState(self):
+    def on_signal_selected(self):
         '''
         Enables the edit & delete button if there are selected rows.
         '''
         selection = self.signalView.selectionModel()
         self.deleteSignalButton.setEnabled(selection.hasSelection())
-        self.editSignalButton.setEnabled(len(selection.selectedRows()) == 1)
+        if len(selection.selectedRows()) == 1:
+            self.editSignalButton.setEnabled(True)
+            self.__filter_model.filter = self.__signal_model[selection.selectedRows()[0].row()].filter
+        else:
+            self.editSignalButton.setEnabled(False)
+            self.__filter_model.filter = self.__default_signal.filter
 
     def update_reference_series(self, names, combo, primary=True):
         '''
@@ -360,7 +389,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
             if idx != -1:
                 combo.setCurrentIndex(idx)
             else:
-                self.__magnitudeModel.normalise(primary=primary)
+                self.__magnitude_model.normalise(primary=primary)
         finally:
             combo.blockSignals(False)
 
@@ -374,13 +403,13 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Shows the export frd dialog.
         '''
-        ExportSignalDialog(self.preferences, self.__signalModel, self, self.statusbar).exec()
+        ExportSignalDialog(self.preferences, self.__signal_model, self, self.statusbar).exec()
 
     def showExportSignalDialog(self):
         '''
         Shows the export signal dialog.
         '''
-        ExportSignalDialog(self.preferences, self.__signalModel, self, self.statusbar, mode=Mode.SIGNAL).exec()
+        ExportSignalDialog(self.preferences, self.__signal_model, self, self.statusbar, mode=Mode.SIGNAL).exec()
 
     def exportProject(self):
         '''
@@ -390,7 +419,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
                                                       "BEQ Project (*.beq)")
         file_name = str(file_name[0]).strip()
         if len(file_name) > 0:
-            output = self.__signalModel.to_json()
+            output = self.__signal_model.to_json()
             if not file_name.endswith('.beq'):
                 file_name += '.beq'
             with gzip.open(file_name, 'wb+') as outfile:
@@ -409,53 +438,53 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         input = self.__load('*.beq', 'Load Project', parser)
         if input is not None:
             from model.codec import signaldata_from_json
-            self.__signalModel.replace([signaldata_from_json(x) for x in input])
-            self.__magnitudeModel.redraw()
+            self.__signal_model.replace([signaldata_from_json(x) for x in input])
+            self.__magnitude_model.redraw()
 
     def normaliseSignalMagnitude(self):
         '''
         Handles reference series change.
         '''
         if self.signalReference.currentText() == 'None':
-            self.__magnitudeModel.normalise(primary=True)
+            self.__magnitude_model.normalise(primary=True)
         else:
-            self.__magnitudeModel.normalise(primary=True, curve=self.signalReference.currentText())
+            self.__magnitude_model.normalise(primary=True, curve=self.signalReference.currentText())
 
     def normaliseFilterMagnitude(self):
         '''
         Handles reference series change.
         '''
         if self.filterReference.currentText() == 'None':
-            self.__magnitudeModel.normalise(primary=False)
+            self.__magnitude_model.normalise(primary=False)
         else:
-            self.__magnitudeModel.normalise(primary=False, curve=self.filterReference.currentText())
+            self.__magnitude_model.normalise(primary=False, curve=self.filterReference.currentText())
 
     def showLimits(self):
         '''
         Shows the limits dialog for the main chart.
         '''
-        self.__magnitudeModel.show_limits()
+        self.__magnitude_model.show_limits()
 
     def showValues(self):
         '''
         Shows the values dialog for the main chart.
         '''
-        self.__magnitudeModel.show_values()
+        self.__magnitude_model.show_values()
 
     def changeFilterVisibility(self, selected_filters):
         '''
         Changes which filters are visible on screen.
         '''
         self.preferences.set(DISPLAY_SHOW_FILTERS, selected_filters)
-        self.__filterModel.post_update(filter_change=False)
-        self.__magnitudeModel.redraw()
+        self.__filter_model.post_update()
+        self.__magnitude_model.redraw()
 
     def changeLegendVisibility(self):
         '''
         Changes whether the legend is visible.
         '''
         self.preferences.set(DISPLAY_SHOW_LEGEND, self.showLegend.isChecked())
-        self.__magnitudeModel.redraw()
+        self.__magnitude_model.redraw()
 
     def applyPreset1(self):
         '''
@@ -482,7 +511,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
             from model.codec import filter_from_json
             filter = filter_from_json(preset)
             filter.preset_idx = idx
-            self.__filterModel.filter = filter
+            self.__filter_model.filter = filter
 
     def __check_active_preset(self, preset_idx):
         pattern = re.compile("^preset[0-9]Button$")
@@ -522,8 +551,8 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
 
         def __set_preset():
             preset_key = FILTERS_PRESET_x % idx
-            if len(self.__filterModel) > 0:
-                input = self.__filterModel.filter.to_json()
+            if len(self.__filter_model) > 0:
+                input = self.__filter_model.filter.to_json()
                 self.preferences.set(preset_key, input)
                 self.enable_preset(idx)
 

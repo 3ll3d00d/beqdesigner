@@ -224,8 +224,8 @@ def test_codec_signal():
     avg = LowShelf(fs, 30, 1, 10).getTransferFunction().getMagnitude()
     filt = CompleteFilter()
     filt.save(HighShelf(fs, 60, 1, 5, count=2))
-    data = SignalData('test', fs, [avg, peak], filter=filt, duration_hhmmss='01:23:45',
-                      start_hhmmss='00:01:10', end_hhmmss='00:10:20')
+    data = SignalData('test', fs, [avg, peak], filter=filt, duration_hhmmss='01:23:45', start_hhmmss='00:01:10',
+                      end_hhmmss='00:10:20')
     output = json.dumps(signaldata_to_json(data))
     assert output is not None
     decoded = signaldata_from_json(json.loads(output))

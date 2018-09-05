@@ -5,8 +5,10 @@ from pathlib import Path
 import matplotlib.style as style
 from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox
 
-from model.signal import WINDOWS
 from ui.preferences import Ui_preferencesDialog
+
+WINDOWS = ['barthann', 'bartlett', 'blackman', 'blackmanharris', 'bohman', 'boxcar', 'cosine', 'flattop', 'hamming',
+           'hann', 'nuttall', 'parzen', 'triang', 'tukey']
 
 SHOW_ALL_FILTERS = 'All'
 SHOW_COMBINED_FILTER = 'Total'
@@ -45,6 +47,12 @@ DEFAULT_PREFS = {
 TYPES = {
     DISPLAY_SHOW_LEGEND: bool,
 }
+
+COLOUR_INTERVALS = [x/255 for x in range(32, 256, 24)] + [1.0]
+# keep peak green, avg red and filters cyan
+AVG_COLOURS = [(x, 0.0, 0.0) for x in COLOUR_INTERVALS[::-1]]
+PEAK_COLOURS = [(0.0, x, 0.0) for x in COLOUR_INTERVALS[::-1]]
+FILTER_COLOURS = [(0.0, x, x) for x in COLOUR_INTERVALS[::-1]]
 
 
 class Preferences:

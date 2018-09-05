@@ -2,6 +2,7 @@
 import logging
 import math
 from abc import ABC, abstractmethod
+from collections import Sequence
 from enum import Enum
 from functools import reduce
 
@@ -153,10 +154,7 @@ class PeakingEQ(BiquadWithGain):
         :param new_fs: the new fs.
         :return: the new filter.
         '''
-        if self.fs != new_fs:
-            return PeakingEQ(new_fs, self.freq, self.q, self.gain)
-        else:
-            return self
+        return PeakingEQ(new_fs, self.freq, self.q, self.gain)
 
     def to_json(self):
         return {
@@ -293,10 +291,7 @@ class LowShelf(Shelf):
         :param new_fs: the new fs.
         :return: the new filter.
         '''
-        if self.fs != new_fs:
-            return LowShelf(new_fs, self.freq, self.q, self.gain, self.count)
-        else:
-            return self
+        return LowShelf(new_fs, self.freq, self.q, self.gain, self.count)
 
 
 class HighShelf(Shelf):
@@ -348,10 +343,7 @@ class HighShelf(Shelf):
         :param new_fs: the new fs.
         :return: the new filter.
         '''
-        if self.fs != new_fs:
-            return HighShelf(new_fs, self.freq, self.q, self.gain, self.count)
-        else:
-            return self
+        return HighShelf(new_fs, self.freq, self.q, self.gain, self.count)
 
 
 class FirstOrder_LowPass(Biquad):
@@ -387,10 +379,7 @@ class FirstOrder_LowPass(Biquad):
         :param new_fs: the new fs.
         :return: the new filter.
         '''
-        if self.fs != new_fs:
-            return FirstOrder_LowPass(new_fs, self.freq, q=self.q)
-        else:
-            return self
+        return FirstOrder_LowPass(new_fs, self.freq, q=self.q)
 
     def to_json(self):
         return fs_freq_q_json(self)
@@ -431,10 +420,7 @@ class FirstOrder_HighPass(Biquad):
         :param new_fs: the new fs.
         :return: the new filter.
         '''
-        if self.fs != new_fs:
-            return FirstOrder_HighPass(new_fs, self.freq, q=self.q)
-        else:
-            return self
+        return FirstOrder_HighPass(new_fs, self.freq, q=self.q)
 
     def to_json(self):
         return fs_freq_q_json(self)
@@ -495,10 +481,7 @@ class SecondOrder_LowPass(Biquad):
         :param new_fs: the new fs.
         :return: the new filter.
         '''
-        if self.fs != new_fs:
-            return SecondOrder_LowPass(new_fs, self.freq, q=self.q)
-        else:
-            return self
+        return SecondOrder_LowPass(new_fs, self.freq, q=self.q)
 
     def to_json(self):
         return fs_freq_q_json(self)
@@ -551,10 +534,7 @@ class SecondOrder_HighPass(Biquad):
         :param new_fs: the new fs.
         :return: the new filter.
         '''
-        if self.fs != new_fs:
-            return SecondOrder_HighPass(new_fs, self.freq, q=self.q)
-        else:
-            return self
+        return SecondOrder_HighPass(new_fs, self.freq, q=self.q)
 
     def to_json(self):
         return fs_freq_q_json(self)
@@ -602,10 +582,7 @@ class AllPass(Biquad):
         :param new_fs: the new fs.
         :return: the new filter.
         '''
-        if self.fs != new_fs:
-            return AllPass(new_fs, self.freq, self.q)
-        else:
-            return self
+        return AllPass(new_fs, self.freq, self.q)
 
     def to_json(self):
         return fs_freq_q_json(self)
@@ -621,17 +598,19 @@ def getCascadeTransferFunction(name, responses):
     return ComplexData(name, responses[0].x, reduce((lambda x, y: x * y), [r.y for r in responses]))
 
 
-class ComplexFilter:
+class ComplexFilter(Sequence):
     '''
     A filter composed of many other filters.
     '''
 
-    def __init__(self, filters=None, description='Complex', preset_idx=-1):
+    def __init__(self, filters=None, description='Complex', preset_idx=-1, listener=None):
         self.filters = filters if filters is not None else []
         self.description = description
         self.id = -1
+        self.listener = listener
         self.__on_change()
         self.__cached_transfer = None
+        self.preset_idx = preset_idx
 
     def __getitem__(self, i):
         return self.filters[i]
@@ -670,6 +649,8 @@ class ComplexFilter:
         '''
         self.__cached_transfer = None
         self.preset_idx = -1
+        if self.listener is not None:
+            self.listener.on_filter_change(self)
 
     def save0(self, filter, filters):
         match = next((f for f in filters if f.id == filter.id), None)
@@ -717,8 +698,8 @@ class ComplexFilter:
 
 class CompleteFilter(ComplexFilter):
 
-    def __init__(self, filters=None, description=COMBINED, preset_idx=-1):
-        super().__init__(filters=filters, description=description, preset_idx=preset_idx)
+    def __init__(self, filters=None, description=COMBINED, preset_idx=-1, listener=None):
+        super().__init__(filters=filters, description=description, preset_idx=preset_idx, listener=None)
 
     def preview(self, filter):
         '''
@@ -726,7 +707,7 @@ class CompleteFilter(ComplexFilter):
         :param filter: the filter.
         :return: a copied filter.
         '''
-        return ComplexFilter(self.save0(filter, self.filters.copy()), self.description)
+        return CompleteFilter(self.save0(filter, self.filters.copy()), self.description, listener=self.listener)
 
     def resample(self, new_fs):
         '''
@@ -735,9 +716,10 @@ class CompleteFilter(ComplexFilter):
         :return: the new filter.
         '''
         if len(self) > 0:
-            return CompleteFilter(filters=[f.resample(new_fs) for f in self.filters], description=self.description)
+            return CompleteFilter(filters=[f.resample(new_fs) for f in self.filters], description=self.description,
+                                  preset_idx=self.preset_idx, listener=self.listener)
         else:
-            return self
+            return CompleteFilter(description=self.description, preset_idx=self.preset_idx, listener=self.listener)
 
 
 class FilterType(Enum):
@@ -823,10 +805,7 @@ class ComplexLowPass(CompoundPassFilter):
         :param new_fs: the fs.
         :return: the new filter.
         '''
-        if new_fs != self.fs:
-            return ComplexLowPass(self.type, self.order, new_fs, self.freq)
-        else:
-            return self
+        return ComplexLowPass(self.type, self.order, new_fs, self.freq)
 
     def to_json(self):
         return {
@@ -856,10 +835,7 @@ class ComplexHighPass(CompoundPassFilter):
         :param new_fs: the fs.
         :return: the new filter.
         '''
-        if new_fs != self.fs:
-            return ComplexHighPass(self.type, self.order, new_fs, self.freq)
-        else:
-            return self
+        return ComplexHighPass(self.type, self.order, new_fs, self.freq)
 
     def to_json(self):
         return {

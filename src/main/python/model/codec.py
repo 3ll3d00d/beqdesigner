@@ -42,6 +42,7 @@ def signaldata_from_json(o):
         data = o['data']
         avg = xydata_from_json(data['avg'])
         peak = xydata_from_json(data['peak'])
+        # TODO set fs on filter
         return SignalData(o['name'], o['fs'], [avg, peak], filter=filt, duration_hhmmss=o.get('duration_hhmmss', None),
                           start_hhmmss=o.get('start_hhmmss', None), end_hhmmss=o.get('end_hhmmss', None))
     raise ValueError(f"{o._type} is an unknown signal type")
