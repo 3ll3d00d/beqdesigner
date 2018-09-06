@@ -15,6 +15,16 @@ SHOW_COMBINED_FILTER = 'Total'
 SHOW_NO_FILTERS = 'None'
 SHOW_FILTER_OPTIONS = [SHOW_ALL_FILTERS, SHOW_COMBINED_FILTER, SHOW_NO_FILTERS]
 
+SHOW_ALL_SIGNALS = 'All'
+SHOW_PEAK = 'Peak'
+SHOW_AVERAGE = 'Average'
+SHOW_SIGNAL_OPTIONS = [SHOW_ALL_SIGNALS, SHOW_PEAK, SHOW_AVERAGE]
+
+SHOW_ALL_FILTERED_SIGNALS = 'All'
+SHOW_FILTERED_ONLY = 'Filtered'
+SHOW_UNFILTERED_ONLY = 'Unfiltered'
+SHOW_FILTERED_SIGNAL_OPTIONS = [SHOW_ALL_FILTERED_SIGNALS, SHOW_FILTERED_ONLY, SHOW_UNFILTERED_ONLY]
+
 EXTRACTION_OUTPUT_DIR = 'extraction/output_dir'
 EXTRACTION_NOTIFICATION_SOUND = 'extraction/notification_sound'
 ANALYSIS_RESOLUTION = 'analysis/resolution'
@@ -32,6 +42,8 @@ STYLE_MATPLOTLIB_THEME_DEFAULT = 'default'
 STYLE_MATPLOTLIB_THEME = 'style/matplotlib_theme'
 DISPLAY_SHOW_LEGEND = 'display/show_legend'
 DISPLAY_SHOW_FILTERS = 'display/show_filters'
+DISPLAY_SHOW_SIGNALS = 'display/show_signals'
+DISPLAY_SHOW_FILTERED_SIGNALS = 'display/show_filtered_signals'
 
 DEFAULT_PREFS = {
     ANALYSIS_RESOLUTION: 1,
@@ -48,11 +60,23 @@ TYPES = {
     DISPLAY_SHOW_LEGEND: bool,
 }
 
-COLOUR_INTERVALS = [x/255 for x in range(32, 256, 24)] + [1.0]
+COLOUR_INTERVALS = [x / 255 for x in range(36, 250, 24)] + [1.0]
 # keep peak green, avg red and filters cyan
 AVG_COLOURS = [(x, 0.0, 0.0) for x in COLOUR_INTERVALS[::-1]]
 PEAK_COLOURS = [(0.0, x, 0.0) for x in COLOUR_INTERVALS[::-1]]
 FILTER_COLOURS = [(0.0, x, x) for x in COLOUR_INTERVALS[::-1]]
+
+
+def get_avg_colour(idx):
+    return AVG_COLOURS[idx % len(AVG_COLOURS)]
+
+
+def get_peak_colour(idx):
+    return PEAK_COLOURS[idx % len(PEAK_COLOURS)]
+
+
+def get_filter_colour(idx):
+    return FILTER_COLOURS[idx % len(FILTER_COLOURS)]
 
 
 class Preferences:

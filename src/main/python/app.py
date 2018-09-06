@@ -10,6 +10,8 @@ from contextlib import contextmanager
 
 import matplotlib
 
+from model.preferences import DISPLAY_SHOW_FILTERED_SIGNALS
+
 matplotlib.use("Qt5Agg")
 import qtawesome as qta
 from matplotlib import style
@@ -30,7 +32,7 @@ from model.magnitude import MagnitudeModel
 from model.preferences import PreferencesDialog, BINARIES_GROUP, ANALYSIS_TARGET_FS, STYLE_MATPLOTLIB_THEME, \
     Preferences, \
     SCREEN_GEOMETRY, SCREEN_WINDOW_STATE, FILTERS_PRESET_x, DISPLAY_SHOW_LEGEND, DISPLAY_SHOW_FILTERS, \
-    SHOW_FILTER_OPTIONS, AVG_COLOURS
+    SHOW_FILTER_OPTIONS, AVG_COLOURS, SHOW_SIGNAL_OPTIONS, DISPLAY_SHOW_SIGNALS, SHOW_FILTERED_SIGNAL_OPTIONS
 from model.signal import SignalModel, SignalTableModel, SignalDialog, SignalData
 from ui.beq import Ui_MainWindow
 
@@ -100,16 +102,41 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
                                           on_update=self.on_filter_change)
         self.__filter_table_model = FilterTableModel(self.__filter_model, parent=parent)
         self.filterView.setModel(self.__filter_table_model)
-        self.filterView.selectionModel().selectionChanged.connect(self.changeFilterButtonState)
+        self.filterView.selectionModel().selectionChanged.connect(self.on_filter_selected)
         for i in range(1, 4):
             getattr(self, f"action_load_preset_{i}").triggered.connect(self.load_preset(i))
             getattr(self, f"action_clear_preset_{i}").triggered.connect(self.clear_preset(i))
             getattr(self, f"action_set_preset_{i}").triggered.connect(self.set_preset(i))
             self.enable_preset(i)
+        # init the signal view selector
+        self.showSignals.blockSignals(True)
+        for x in SHOW_SIGNAL_OPTIONS:
+            self.showSignals.addItem(x)
+        selected = self.preferences.get(DISPLAY_SHOW_SIGNALS)
+        selected_idx = self.showSignals.findText(selected)
+        if selected_idx != -1:
+            self.showSignals.setCurrentIndex(selected_idx)
+        else:
+            logger.info(f"Ignoring unknown cached preference for {DISPLAY_SHOW_SIGNALS} - {selected}")
+        self.showSignals.blockSignals(False)
+        # init the filtered signal view selecter
+        self.showFilteredSignals.blockSignals(True)
+        for x in SHOW_FILTERED_SIGNAL_OPTIONS:
+            self.showFilteredSignals.addItem(x)
+        selected = self.preferences.get(DISPLAY_SHOW_FILTERED_SIGNALS)
+        selected_idx = self.showFilteredSignals.findText(selected)
+        if selected_idx != -1:
+            self.showFilteredSignals.setCurrentIndex(selected_idx)
+        else:
+            logger.info(f"Ignoring unknown cached preference for {DISPLAY_SHOW_FILTERED_SIGNALS} - {selected}")
+        self.showFilteredSignals.blockSignals(False)
         # signal model
         self.signalView.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.signalView.setSelectionMode(QAbstractItemView.SingleSelection)
-        self.__signal_model = SignalModel(self.signalView, self.__default_signal, on_update=self.on_signal_change)
+        self.__signal_model = SignalModel(self.signalView, self.__default_signal,
+                                          show_signals=lambda: self.showSignals.currentText(),
+                                          show_filtered_signals=lambda: self.showFilteredSignals.currentText(),
+                                          on_update=self.on_signal_change)
         self.__signal_table_model = SignalTableModel(self.__signal_model, parent=parent)
         self.signalView.setModel(self.__signal_table_model)
         self.signalView.selectionModel().selectionChanged.connect(self.on_signal_selected)
@@ -172,11 +199,17 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Allows the user to replace the current filter with one loaded from a file.
         '''
-        input = self.__load_filter()
-        if input is not None:
-            from model.codec import filter_from_json
-            self.__filter_model.filter = filter_from_json(input)
+        filter_json = self.__load_filter()
+        if filter_json is not None:
+            self.__apply_filter(filter_json)
             self.__magnitude_model.redraw()
+
+    def __apply_filter(self, filter_json):
+        from model.codec import filter_from_json
+        signal = self.__get_selected_signal()
+        filt = filter_from_json(filter_json)
+        signal.filter = filt
+        self.__filter_model.filter = filt
 
     def __load_filter(self):
         '''
@@ -208,8 +241,12 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         input = self.__load('*.signal', 'Load Signal', parser)
         if input is not None:
             from model.codec import signaldata_from_json
+            before = len(self.__signal_model)
             self.__signal_model.add(signaldata_from_json(input))
-            self.__magnitude_model.redraw()
+            after = len(self.__signal_model)
+            if after != before:
+                self.signalView.selectRow(after - 1)
+                self.__magnitude_model.redraw()
 
     def __load(self, filter, title, parser):
         '''
@@ -340,7 +377,6 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         after = len(self.__signal_model)
         if after != before:
             self.signalView.selectRow(after - 1)
-            self.addSignalButton.setEnabled(len(self.__signal_model) < len(AVG_COLOURS))
 
     def deleteSignal(self):
         '''
@@ -349,11 +385,10 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         selection = self.signalView.selectionModel()
         if selection.hasSelection():
             self.__signal_model.delete([x.row() for x in selection.selectedRows()])
-        self.signalView.clearSelection()
-        self.on_signal_selected()
-        self.addSignalButton.setEnabled(len(self.__signal_model) < len(AVG_COLOURS))
+        if len(self.__signal_model) > 0:
+            self.signalView.selectRow(0)
 
-    def changeFilterButtonState(self):
+    def on_filter_selected(self):
         '''
         Enables the edit & delete button if there are selected rows.
         '''
@@ -369,7 +404,9 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.deleteSignalButton.setEnabled(selection.hasSelection())
         if len(selection.selectedRows()) == 1:
             self.editSignalButton.setEnabled(True)
-            self.__filter_model.filter = self.__signal_model[selection.selectedRows()[0].row()].filter
+            row = selection.selectedRows()[0].row()
+            filt = self.__signal_model[row].filter
+            self.__filter_model.filter = filt
         else:
             self.editSignalButton.setEnabled(False)
             self.__filter_model.filter = self.__default_signal.filter
@@ -479,6 +516,22 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.__filter_model.post_update()
         self.__magnitude_model.redraw()
 
+    def changeSignalVisibility(self, selected_signals):
+        '''
+        Changes which signals are visible on screen.
+        '''
+        self.preferences.set(DISPLAY_SHOW_SIGNALS, selected_signals)
+        self.__signal_model.post_update()
+        self.__magnitude_model.redraw()
+
+    def changeSignalFilterVisibility(self, selected):
+        '''
+        Changes which filtered signals are visible on screen.
+        '''
+        self.preferences.set(DISPLAY_SHOW_FILTERED_SIGNALS, selected)
+        self.__signal_model.post_update()
+        self.__magnitude_model.redraw()
+
     def changeLegendVisibility(self):
         '''
         Changes whether the legend is visible.
@@ -508,10 +561,9 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         preset_key = FILTERS_PRESET_x % idx
         preset = self.preferences.get(preset_key)
         if preset is not None:
-            from model.codec import filter_from_json
-            filter = filter_from_json(preset)
-            filter.preset_idx = idx
-            self.__filter_model.filter = filter
+            self.__apply_filter(preset)
+            self.__filter_model.filter.preset_idx = idx
+            self.__check_active_preset(idx)
 
     def __check_active_preset(self, preset_idx):
         pattern = re.compile("^preset[0-9]Button$")

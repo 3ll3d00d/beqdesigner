@@ -1,6 +1,7 @@
 import datetime
 import logging
 import math
+import re
 import time
 import typing
 from collections import Sequence
@@ -16,7 +17,8 @@ from scipy import signal
 from model.codec import signaldata_to_json
 from model.iir import XYData, CompleteFilter
 from model.magnitude import MagnitudeModel
-from model.preferences import AVG_COLOURS, PEAK_COLOURS
+from model.preferences import AVG_COLOURS, PEAK_COLOURS, get_avg_colour, get_peak_colour, SHOW_ALL_SIGNALS, SHOW_PEAK, \
+    SHOW_AVERAGE, SHOW_ALL_FILTERED_SIGNALS, SHOW_FILTERED_ONLY, SHOW_UNFILTERED_ONLY
 from ui.signal import Ui_addSignalDialog
 
 logger = logging.getLogger('signal')
@@ -57,11 +59,11 @@ class SignalData:
         return f"SignalData {self.name}-{self.fs}"
 
     def reindex(self, idx):
-        self.raw[0].colour = AVG_COLOURS[idx]
-        self.raw[1].colour = PEAK_COLOURS[idx]
+        self.raw[0].colour = get_avg_colour(idx)
+        self.raw[1].colour = get_peak_colour(idx)
         if len(self.filtered) == 2:
-            self.filtered[0].colour = AVG_COLOURS[idx]
-            self.filtered[1].colour = PEAK_COLOURS[idx]
+            self.filtered[0].colour = get_avg_colour(idx)
+            self.filtered[1].colour = get_peak_colour(idx)
 
     def on_reference_change(self):
         pass
@@ -96,11 +98,14 @@ class SignalModel(Sequence):
     A model to hold onto the signals.
     '''
 
-    def __init__(self, view, default_signal, on_update=lambda _: True):
+    def __init__(self, view, default_signal, show_signals=lambda: SHOW_ALL_SIGNALS,
+                 show_filtered_signals=lambda: SHOW_ALL_FILTERED_SIGNALS, on_update=lambda _: True):
         self.__signals = []
         self.default_signal = default_signal
         self.__view = view
         self.__on_update = on_update
+        self.__show_signals = show_signals
+        self.__show_filtered_signals = show_filtered_signals
         self.__table = None
 
     @property
@@ -149,8 +154,43 @@ class SignalModel(Sequence):
 
     def post_update(self):
         from app import flatten
-        self.__on_update([x.name for x in flatten([y for x in self.__signals for y in x.get_all_xy()])])
+        show_signals = self.__show_signals()
+        show_filtered_signals = self.__show_filtered_signals()
+        pattern = self.__get_visible_signal_name_filter(show_filtered_signals, show_signals)
+        visible_signal_names = [x.name for x in flatten([y for x in self.__signals for y in x.get_all_xy()])]
+        if pattern is not None:
+            visible_signal_names = [x for x in visible_signal_names if pattern.match(x) is not None]
+        self.__on_update(visible_signal_names)
         self.__table.resizeColumns(self.__view)
+
+    def __get_visible_signal_name_filter(self, show_filtered_signals, show_signals):
+        '''
+        Creates a regex that will filter the signal names according to the avg/peak patterns.
+        :param show_filtered_signals: which filtered signals to show.
+        :param show_signals: which signals to show.
+        :return: the pattern (if any)
+        '''
+        pattern = None
+        if show_signals == SHOW_AVERAGE:
+            if show_filtered_signals == SHOW_FILTERED_ONLY:
+                pattern = re.compile(".*_avg-filtered$")
+            elif show_filtered_signals == SHOW_UNFILTERED_ONLY:
+                pattern = re.compile(".*_avg$")
+            else:
+                pattern = re.compile(".*_avg(-filtered)?$")
+        elif show_signals == SHOW_PEAK:
+            if show_filtered_signals == SHOW_FILTERED_ONLY:
+                pattern = re.compile(".*_peak-filtered$")
+            elif show_filtered_signals == SHOW_UNFILTERED_ONLY:
+                pattern = re.compile(".*_peak$")
+            else:
+                pattern = re.compile(".*_peak(-filtered)?$")
+        else:
+            if show_filtered_signals == SHOW_FILTERED_ONLY:
+                pattern = re.compile(".*_(avg|peak)-filtered$")
+            elif show_filtered_signals == SHOW_UNFILTERED_ONLY:
+                pattern = re.compile(".*_(avg|peak)")
+        return pattern
 
     def remove(self, signal):
         '''
@@ -183,6 +223,11 @@ class SignalModel(Sequence):
         '''
         from app import flatten
         results = list(flatten([s.get_all_xy() for s in self.__signals]))
+        show_signals = self.__show_signals()
+        show_filtered_signals = self.__show_filtered_signals()
+        pattern = self.__get_visible_signal_name_filter(show_filtered_signals, show_signals)
+        if pattern is not None:
+            results = [x for x in results if pattern.match(x.name) is not None]
         if reference is not None:
             ref_data = next((x for x in results if x.name == reference), None)
             if ref_data:
@@ -595,7 +640,6 @@ class WavLoader:
         Converts the loaded signal into a SignalData.
         :return: the signal data.
         '''
-        # TODO set fs on filter
         return SignalData(self.__signal.name, self.__signal.fs, self.__signal.getXY(), CompleteFilter(),
                           duration_hhmmss=self.__signal.duration_hhmmss, start_hhmmss=self.__signal.start_hhmmss,
                           end_hhmmss=self.__signal.end_hhmmss)

@@ -861,13 +861,14 @@ class ComplexData:
         self.__cached_mag = None
         self.__cached_phase = None
 
-    def getMagnitude(self, ref=1, colour=None):
+    def getMagnitude(self, ref=1, colour=None, linestyle='-'):
         if self.__cached_mag_ref is not None and math.isclose(ref, self.__cached_mag_ref):
             self.__cached_mag.colour = colour
+            self.__cached_mag.linestyle = linestyle
         else:
             self.__cached_mag_ref = ref
             y = np.abs(self.y) * self.scaleFactor / ref
-            self.__cached_mag = XYData(self.name, self.x, 20 * np.log10(y), colour=colour)
+            self.__cached_mag = XYData(self.name, self.x, 20 * np.log10(y), colour=colour, linestyle=linestyle)
         return self.__cached_mag
 
     def getPhase(self, colour=None):

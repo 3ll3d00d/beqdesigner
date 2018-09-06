@@ -237,6 +237,19 @@
           </property>
          </widget>
         </item>
+        <item row="7" column="0">
+         <widget class="QLabel" name="showSignalsLabel">
+          <property name="text">
+           <string>Show Signals?</string>
+          </property>
+         </widget>
+        </item>
+        <item row="7" column="1">
+         <widget class="QComboBox" name="showSignals"/>
+        </item>
+        <item row="7" column="2">
+         <widget class="QComboBox" name="showFilteredSignals"/>
+        </item>
        </layout>
       </item>
      </layout>
@@ -387,6 +400,12 @@
    </property>
   </action>
   <action name="actionLoad_Filter">
+   <property name="checkable">
+    <bool>false</bool>
+   </property>
+   <property name="enabled">
+    <bool>true</bool>
+   </property>
    <property name="text">
     <string>Load Filte&amp;r</string>
    </property>
@@ -479,7 +498,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>1245</x>
-     <y>552</y>
+     <y>535</y>
     </hint>
     <hint type="destinationlabel">
      <x>1381</x>
@@ -495,7 +514,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>1495</x>
-     <y>552</y>
+     <y>535</y>
     </hint>
     <hint type="destinationlabel">
      <x>1462</x>
@@ -511,7 +530,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>1370</x>
-     <y>552</y>
+     <y>535</y>
     </hint>
     <hint type="destinationlabel">
      <x>1302</x>
@@ -695,6 +714,38 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>showSignals</sender>
+   <signal>currentTextChanged(QString)</signal>
+   <receiver>MainWindow</receiver>
+   <slot>changeSignalVisibility()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1365</x>
+     <y>860</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1491</x>
+     <y>863</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>showFilteredSignals</sender>
+   <signal>currentTextChanged(QString)</signal>
+   <receiver>MainWindow</receiver>
+   <slot>changeSignalFilterVisibility()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1470</x>
+     <y>871</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1474</x>
+     <y>919</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>addFilter()</slot>
@@ -715,5 +766,7 @@
   <slot>applyPreset1()</slot>
   <slot>applyPreset2()</slot>
   <slot>applyPreset3()</slot>
+  <slot>changeSignalVisibility()</slot>
+  <slot>changeSignalFilterVisibility()</slot>
  </slots>
 </ui>

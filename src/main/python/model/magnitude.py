@@ -124,7 +124,7 @@ class MagnitudeModel:
     '''
 
     def __init__(self, name, chart, primaryDataProvider, primaryName, secondaryDataProvider=None, secondaryName=None,
-                 show_legend=lambda: True):
+                 show_legend=lambda: True, db_range=60):
         self.__name = name
         self.__chart = chart
         self.__show_legend = show_legend
@@ -140,7 +140,7 @@ class MagnitudeModel:
             secondary_axes = primary_axes.twinx()
             secondary_axes.set_ylabel(f"dBFS ({secondaryName})")
         self.__secondary = AxesManager(secondaryDataProvider, secondary_axes)
-        self.limits = Limits(self.__repr__(), self.__redraw_func, primary_axes, 60.0, x=(2, 250), axes_2=secondary_axes)
+        self.limits = Limits(self.__repr__(), self.__redraw_func, primary_axes, db_range, x=(2, 250), axes_2=secondary_axes)
         self.limits.propagate_to_axes(draw=True)
         self.__legend = None
         self.__legend_cid = None

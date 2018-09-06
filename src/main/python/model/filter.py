@@ -15,7 +15,6 @@ from model.iir import FilterType, LowShelf, HighShelf, PeakingEQ, SecondOrder_Lo
     Passthrough
 from model.magnitude import MagnitudeModel
 from model.preferences import SHOW_ALL_FILTERS, SHOW_NO_FILTERS, FILTER_COLOURS
-from mpl import get_line_colour
 from ui.filter import Ui_editFilterDialog
 
 logger = logging.getLogger('filter')
@@ -272,7 +271,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.freq.setMaximum(self.__signal.fs / 2.0)
         self.__starting = False
         # init the chart
-        self.__magnitudeModel = MagnitudeModel('preview', self.previewChart, self, 'Filter')
+        self.__magnitudeModel = MagnitudeModel('preview', self.previewChart, self, 'Filter', db_range=30)
         # ensure the preview graph is shown if we have something to show
         self.previewFilter()
 
@@ -309,7 +308,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
     def getMagnitudeData(self, reference=None):
         ''' preview of the filter to display on the chart '''
         if self.__filter is not None:
-            result = [self.__filter.getTransferFunction().getMagnitude(colour=FILTER_COLOURS[8])]
+            result = [self.__filter.getTransferFunction().getMagnitude(colour=FILTER_COLOURS[3], linestyle=':')]
             if len(self.__filter_model) > 0 and self.showCombined.isChecked():
                 result.append(self.__combined_preview.getTransferFunction().getMagnitude(colour=FILTER_COLOURS[0]))
             return result
@@ -317,7 +316,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
             if len(self.__filter_model) > 0 and self.showCombined.isChecked():
                 return [self.__combined_preview.getTransferFunction().getMagnitude(colour=FILTER_COLOURS[0])]
             else:
-                return [self.passthrough.getTransferFunction().getMagnitude(colour=FILTER_COLOURS[8])]
+                return [self.passthrough.getTransferFunction().getMagnitude(colour=FILTER_COLOURS[3], linestyle=':')]
 
     def create_shaping_filter(self):
         '''
