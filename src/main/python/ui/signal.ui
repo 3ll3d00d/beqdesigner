@@ -15,7 +15,23 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout" stretch="0,0">
    <item>
-    <layout class="QGridLayout" name="panesLayout" rowstretch="0,0" columnstretch="1,3">
+    <layout class="QGridLayout" name="panesLayout" rowstretch="0,0,0,0,0" columnstretch="0,1">
+     <item row="4" column="0">
+      <spacer name="verticalSpacer">
+       <property name="orientation">
+        <enum>Qt::Vertical</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>20</width>
+         <height>40</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item row="0" column="1" rowspan="5">
+      <widget class="MplWidget" name="previewChart"/>
+     </item>
      <item row="0" column="0">
       <layout class="QGridLayout" name="gridLayout">
        <item row="7" column="1">
@@ -274,21 +290,26 @@
        </item>
       </layout>
      </item>
-     <item row="1" column="0">
-      <spacer name="verticalSpacer">
-       <property name="orientation">
-        <enum>Qt::Vertical</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>20</width>
-         <height>40</height>
-        </size>
-       </property>
-      </spacer>
+     <item row="2" column="0">
+      <layout class="QGridLayout" name="filterSelectLayout" columnstretch="0,1">
+       <item row="0" column="0">
+        <widget class="QLabel" name="filterSelectLabel">
+         <property name="text">
+          <string>Copy Filter</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QComboBox" name="filterSelect"/>
+       </item>
+      </layout>
      </item>
-     <item row="0" column="1" rowspan="2">
-      <widget class="MplWidget" name="previewChart"/>
+     <item row="3" column="0">
+      <widget class="QCheckBox" name="linkedSignal">
+       <property name="text">
+        <string>Linked Filter?</string>
+       </property>
+      </widget>
      </item>
     </layout>
    </item>

@@ -868,12 +868,13 @@ class ComplexData:
         else:
             self.__cached_mag_ref = ref
             y = np.abs(self.y) * self.scaleFactor / ref
-            self.__cached_mag = XYData(self.name, self.x, 20 * np.log10(y), colour=colour, linestyle=linestyle)
+            self.__cached_mag = XYData(self.name, None, self.x, 20 * np.log10(y), colour=colour,
+                                       linestyle=linestyle)
         return self.__cached_mag
 
     def getPhase(self, colour=None):
         if self.__cached_phase is None:
-            self.__cached_phase = XYData(self.name, self.x, np.angle(self.y), colour=colour)
+            self.__cached_phase = XYData(self.name, None, self.x, np.angle(self.y), colour=colour)
         return self.__cached_phase
 
 
@@ -882,8 +883,9 @@ class XYData:
     Value object for showing data on a magnitude graph.
     '''
 
-    def __init__(self, name, x, y, colour=None, linestyle='-'):
-        self.name = name
+    def __init__(self, name, description, x, y, colour=None, linestyle='-'):
+        self.__name = name
+        self.__description = description
         self.x = x
         self.y = np.nan_to_num(y)
         if self.y.size < 8192:
@@ -899,6 +901,25 @@ class XYData:
         self.maxy = np.ma.masked_invalid(y).max()
         self.__rendered = False
         self.__normalised_cache = {}
+
+    @property
+    def name(self):
+        if self.__description is None:
+            return self.__name
+        else:
+            return f"{self.__name}_{self.__description}"
+
+    @property
+    def internal_name(self):
+        return self.__name
+
+    @internal_name.setter
+    def internal_name(self, name):
+        self.__name = name
+
+    @property
+    def internal_description(self):
+        return self.__description
 
     def __repr__(self):
         return f"XYData: {self.name} - {self.x.size} - {self.colour}"
@@ -920,8 +941,6 @@ class XYData:
     @rendered.setter
     def rendered(self, value):
         self.__rendered = value
-        if value is True:
-            logger.debug(f"Rendered {self.name}")
 
     def normalise(self, target):
         '''
@@ -931,7 +950,8 @@ class XYData:
         '''
         if target.name not in self.__normalised_cache:
             logger.debug(f"Normalising {self.name} against {target.name}")
-            self.__normalised_cache[target.name] = XYData(self.name, self.x, self.y - target.y, colour=self.colour,
+            self.__normalised_cache[target.name] = XYData(self.__name, self.__description, self.x, self.y - target.y,
+                                                          colour=self.colour,
                                                           linestyle=self.linestyle)
         return self.__normalised_cache[target.name]
 
@@ -946,9 +966,12 @@ class XYData:
             logger.debug(f"Interpolating filt {filt.x.size} vs self {self.x.size}")
             if self.x.size > filt.x.size:
                 interp_y = np.interp(self.x, filt.x, filt.y)
-                return XYData(f"{self.name}-filtered", self.x, self.y + interp_y, colour=self.colour, linestyle='-')
+                return XYData(self.__name, f"{self.__description}-filtered", self.x, self.y + interp_y,
+                              colour=self.colour, linestyle='-')
             else:
                 interp_y = np.interp(filt.x, self.x, self.y)
-                return XYData(f"{self.name}-filtered", filt.x, filt.y + interp_y, colour=self.colour, linestyle='-')
+                return XYData(self.__name, f"{self.__description}-filtered", filt.x, filt.y + interp_y,
+                              colour=self.colour, linestyle='-')
         else:
-            return XYData(f"{self.name}-filtered", self.x, self.y + filt.y, colour=self.colour, linestyle='-')
+            return XYData(self.__name, f"{self.__description}-filtered", self.x, self.y + filt.y, colour=self.colour,
+                          linestyle='-')

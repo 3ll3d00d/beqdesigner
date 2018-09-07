@@ -10,7 +10,7 @@ from pathlib import Path
 import numpy as np
 import resampy
 from qtpy import QtCore
-from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt
+from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt, Signal as QtpySignal
 from qtpy.QtWidgets import QDialog, QFileDialog, QDialogButtonBox
 from scipy import signal
 
@@ -34,7 +34,7 @@ class SignalData:
 
     def __init__(self, name, fs, xy_data, filter, duration_hhmmss=None, start_hhmmss=None, end_hhmmss=None):
         self.__filter = None
-        self.name = name
+        self.__name = name
         self.fs = fs
         self.duration_hhmmss = duration_hhmmss
         self.start_hhmmss = start_hhmmss
@@ -44,6 +44,19 @@ class SignalData:
         self.reference_name = None
         self.reference = []
         self.filter = filter
+
+    @property
+    def name(self):
+        return self.__name
+
+    @name.setter
+    def name(self, name):
+        self.__name = name
+        self.raw[0].internal_name = name
+        self.raw[1].internal_name = name
+        if len(self.filtered) == 2:
+            self.filtered[0].internal_name = name
+            self.filtered[1].internal_name = name
 
     @property
     def filter(self):
@@ -451,8 +464,8 @@ class Signal:
         '''
         self.__avg = self.spectrum(segmentLengthMultiplier=multiplier, window=avg_window)
         self.__peak = self.peakSpectrum(segmentLengthMultiplier=multiplier, window=peak_window)
-        self.__cached = [XYData(f"{self.name}_avg", self.__avg[0], self.__avg[1]),
-                         XYData(f"{self.name}_peak", self.__peak[0], self.__peak[1])]
+        self.__cached = [XYData(self.name, 'avg', self.__avg[0], self.__avg[1]),
+                         XYData(self.name, 'peak', self.__peak[0], self.__peak[1])]
 
 
 def amplitude_to_db(s, ref=1.0):
@@ -489,6 +502,19 @@ class SignalTableModel(QAbstractTableModel):
 
     def columnCount(self, parent: QModelIndex = ...):
         return len(self.__headers)
+
+    def flags(self, idx):
+        flags = super().flags(idx)
+        if idx.column() == 0:
+            flags |= Qt.ItemIsEditable
+        return flags
+
+    def setData(self, idx, value, role=None):
+        if idx.column() == 0:
+            self.__signalModel[idx.row()].name = value
+            self.dataChanged.emit(idx, idx, [])
+            return True
+        return super().setData(idx, value, role=role)
 
     def data(self, index: QModelIndex, role: int = ...) -> typing.Any:
         if not index.isValid():
@@ -678,7 +704,7 @@ class FrdLoader:
                 signal_name = signal_name[:-12]
             elif signal_name.endswith('_peak'):
                 signal_name = signal_name[:-5]
-            self.__peak = XYData(f"{signal_name}_peak", f, m, colour=PEAK_COLOURS[0])
+            self.__peak = XYData(signal_name, 'peak', f, m, colour=PEAK_COLOURS[0])
             self.__dialog.frdSignalName.setText(signal_name)
             self.__dialog.frdPeakFile.setText(name)
             self.__enable_fields()
@@ -694,7 +720,7 @@ class FrdLoader:
                 signal_name = signal_name[:-11]
             elif signal_name.endswith('_avg'):
                 signal_name = signal_name[:-4]
-            self.__avg = XYData(f"{signal_name}_avg", f, m, colour=AVG_COLOURS[0])
+            self.__avg = XYData(signal_name, 'avg', f, m, colour=AVG_COLOURS[0])
             self.__dialog.frdSignalName.setText(signal_name)
             self.__dialog.frdAvgFile.setText(name)
             self.__enable_fields()

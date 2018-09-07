@@ -99,7 +99,7 @@ def xydata_from_json(o):
     elif o['_type'] == XYData.__name__:
         x_json = o['x']
         x_vals = np.linspace(x_json['min'], x_json['max'], num=x_json['count'], dtype=np.float64)
-        return XYData(o['name'], x_vals, np.array(o['y']), colour=o.get('colour', None),
+        return XYData(o['name'], o['description'], x_vals, np.array(o['y']), colour=o.get('colour', None),
                       linestyle=o.get('linestyle', '-'))
     raise ValueError(f"{o._type} is an unknown data type")
 
@@ -111,7 +111,8 @@ def xydata_to_json(data):
     '''
     return {
         '_type': data.__class__.__name__,
-        'name': data.name,
+        'name': data.internal_name,
+        'description': data.internal_description,
         'x': {
             'count': data.x.size,
             'min': data.x[0],

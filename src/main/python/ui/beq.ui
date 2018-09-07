@@ -228,12 +228,12 @@
          </widget>
         </item>
         <item row="1" column="1">
-         <widget class="QPushButton" name="editSignalButton">
+         <widget class="QPushButton" name="linkSignalButton">
           <property name="enabled">
            <bool>false</bool>
           </property>
           <property name="text">
-           <string>Edit</string>
+           <string>Link</string>
           </property>
          </widget>
         </item>
@@ -746,6 +746,22 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>linkSignalButton</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>linkSignals()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1316</x>
+     <y>92</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1153</x>
+     <y>749</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>addFilter()</slot>
@@ -768,5 +784,6 @@
   <slot>applyPreset3()</slot>
   <slot>changeSignalVisibility()</slot>
   <slot>changeSignalFilterVisibility()</slot>
+  <slot>linkSignals()</slot>
  </slots>
 </ui>

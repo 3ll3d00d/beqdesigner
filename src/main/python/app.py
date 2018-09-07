@@ -140,6 +140,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.__signal_table_model = SignalTableModel(self.__signal_model, parent=parent)
         self.signalView.setModel(self.__signal_table_model)
         self.signalView.selectionModel().selectionChanged.connect(self.on_signal_selected)
+        self.signalView.model().dataChanged.connect(self.on_signal_data_changed)
         # magnitude
         self.showLegend.setChecked(bool(self.preferences.get(DISPLAY_SHOW_LEGEND)))
         self.__magnitude_model = MagnitudeModel('main', self.mainChart, self.__signal_model, 'Signals',
@@ -378,6 +379,10 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         if after != before:
             self.signalView.selectRow(after - 1)
 
+    def linkSignals(self):
+        # TODO show the link signals dialog
+        pass
+
     def deleteSignal(self):
         '''
         Deletes the currently selected signals.
@@ -410,6 +415,13 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         else:
             self.editSignalButton.setEnabled(False)
             self.__filter_model.filter = self.__default_signal.filter
+
+    def on_signal_data_changed(self):
+        '''
+        Redraws whenever signal data changes (should only happen when the user edits a field in the table)
+        '''
+        logger.debug(f"Redrawing on signal data change")
+        self.__magnitude_model.redraw()
 
     def update_reference_series(self, names, combo, primary=True):
         '''
