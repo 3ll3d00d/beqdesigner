@@ -300,12 +300,21 @@
         </widget>
        </item>
        <item row="0" column="1">
-        <widget class="QComboBox" name="filterSelect"/>
+        <widget class="QComboBox" name="filterSelect">
+         <item>
+          <property name="text">
+           <string>None</string>
+          </property>
+         </item>
+        </widget>
        </item>
       </layout>
      </item>
      <item row="3" column="0">
       <widget class="QCheckBox" name="linkedSignal">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
        <property name="text">
         <string>Linked Filter?</string>
        </property>
@@ -373,7 +382,7 @@
    <slot>selectFile()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>333</x>
+     <x>313</x>
      <y>81</y>
     </hint>
     <hint type="destinationlabel">
@@ -437,8 +446,8 @@
    <slot>selectAvgFile()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>328</x>
-     <y>64</y>
+     <x>313</x>
+     <y>81</y>
     </hint>
     <hint type="destinationlabel">
      <x>303</x>
@@ -494,6 +503,22 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>filterSelect</sender>
+   <signal>currentIndexChanged(int)</signal>
+   <receiver>addSignalDialog</receiver>
+   <slot>masterFilterChanged()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>170</x>
+     <y>389</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>167</x>
+     <y>456</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>selectFile()</slot>
@@ -504,5 +529,6 @@
   <slot>selectAvgFile()</slot>
   <slot>selectPeakFile()</slot>
   <slot>enableOk()</slot>
+  <slot>masterFilterChanged()</slot>
  </slots>
 </ui>

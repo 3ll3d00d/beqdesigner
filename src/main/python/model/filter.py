@@ -14,7 +14,7 @@ from model.iir import FilterType, LowShelf, HighShelf, PeakingEQ, SecondOrder_Lo
     SecondOrder_HighPass, ComplexLowPass, ComplexHighPass, q_to_s, s_to_q, max_permitted_s, CompleteFilter, COMBINED, \
     Passthrough
 from model.magnitude import MagnitudeModel
-from model.preferences import SHOW_ALL_FILTERS, SHOW_NO_FILTERS, FILTER_COLOURS
+from model.preferences import SHOW_ALL_FILTERS, SHOW_NO_FILTERS, FILTER_COLOURS, DISPLAY_SHOW_FILTERS
 from ui.filter import Ui_editFilterDialog
 
 logger = logging.getLogger('filter')
@@ -25,10 +25,10 @@ class FilterModel(Sequence):
     A model to hold onto the filters and provide magnitude data to a chart about those filters.
     '''
 
-    def __init__(self, view, show_filters=lambda: SHOW_ALL_FILTERS, on_update=lambda _: True):
+    def __init__(self, view, preferences, on_update=lambda _: True):
         self.__filter = CompleteFilter()
         self.__view = view
-        self.__show_filters = show_filters
+        self.__preferences = preferences
         self.__table = None
         self.__on_update = on_update
 
@@ -104,7 +104,7 @@ class FilterModel(Sequence):
         if self.__table is not None:
             self.__table.resizeColumns(self.__view)
         visible_filter_names = []
-        show_filters = self.__show_filters()
+        show_filters = self.__preferences.get(DISPLAY_SHOW_FILTERS)
         if show_filters != SHOW_NO_FILTERS:
             visible_filter_names.append(self.filter.__repr__())
         if show_filters == SHOW_ALL_FILTERS:
@@ -116,7 +116,7 @@ class FilterModel(Sequence):
         :param reference: the name of the reference data.
         :return: the magnitude response of each filter.
         '''
-        show_filters = self.__show_filters()
+        show_filters = self.__preferences.get(DISPLAY_SHOW_FILTERS)
         if show_filters == SHOW_NO_FILTERS:
             return []
         elif len(self.filter) == 0:
@@ -132,7 +132,7 @@ class FilterModel(Sequence):
                 if m.name == COMBINED:
                     m.colour = FILTER_COLOURS[0]
                 else:
-                    m.colour = FILTER_COLOURS[(idx+1) % len(FILTER_COLOURS)]
+                    m.colour = FILTER_COLOURS[(idx + 1) % len(FILTER_COLOURS)]
             if reference is not None:
                 ref_data = next((x for x in mags if x.name == reference), None)
                 if ref_data:

@@ -32,7 +32,7 @@ from model.magnitude import MagnitudeModel
 from model.preferences import PreferencesDialog, BINARIES_GROUP, ANALYSIS_TARGET_FS, STYLE_MATPLOTLIB_THEME, \
     Preferences, \
     SCREEN_GEOMETRY, SCREEN_WINDOW_STATE, FILTERS_PRESET_x, DISPLAY_SHOW_LEGEND, DISPLAY_SHOW_FILTERS, \
-    SHOW_FILTER_OPTIONS, AVG_COLOURS, SHOW_SIGNAL_OPTIONS, DISPLAY_SHOW_SIGNALS, SHOW_FILTERED_SIGNAL_OPTIONS
+    SHOW_FILTER_OPTIONS, SHOW_SIGNAL_OPTIONS, DISPLAY_SHOW_SIGNALS, SHOW_FILTERED_SIGNAL_OPTIONS
 from model.signal import SignalModel, SignalTableModel, SignalDialog, SignalData
 from ui.beq import Ui_MainWindow
 
@@ -98,8 +98,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.showFilters.blockSignals(False)
         # filter view/model
         self.filterView.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.__filter_model = FilterModel(self.filterView, show_filters=lambda: self.showFilters.currentText(),
-                                          on_update=self.on_filter_change)
+        self.__filter_model = FilterModel(self.filterView, self.preferences, on_update=self.on_filter_change)
         self.__filter_table_model = FilterTableModel(self.__filter_model, parent=parent)
         self.filterView.setModel(self.__filter_table_model)
         self.filterView.selectionModel().selectionChanged.connect(self.on_filter_selected)
@@ -133,9 +132,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         # signal model
         self.signalView.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.signalView.setSelectionMode(QAbstractItemView.SingleSelection)
-        self.__signal_model = SignalModel(self.signalView, self.__default_signal,
-                                          show_signals=lambda: self.showSignals.currentText(),
-                                          show_filtered_signals=lambda: self.showFilteredSignals.currentText(),
+        self.__signal_model = SignalModel(self.signalView, self.__default_signal, self.preferences,
                                           on_update=self.on_signal_change)
         self.__signal_table_model = SignalTableModel(self.__signal_model, parent=parent)
         self.signalView.setModel(self.__signal_table_model)
@@ -408,12 +405,12 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         selection = self.signalView.selectionModel()
         self.deleteSignalButton.setEnabled(selection.hasSelection())
         if len(selection.selectedRows()) == 1:
-            self.editSignalButton.setEnabled(True)
+            self.linkSignalButton.setEnabled(True)
             row = selection.selectedRows()[0].row()
             filt = self.__signal_model[row].filter
             self.__filter_model.filter = filt
         else:
-            self.editSignalButton.setEnabled(False)
+            self.linkSignalButton.setEnabled(False)
             self.__filter_model.filter = self.__default_signal.filter
 
     def on_signal_data_changed(self):

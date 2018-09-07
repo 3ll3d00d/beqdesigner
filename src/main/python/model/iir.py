@@ -699,7 +699,7 @@ class ComplexFilter(Sequence):
 class CompleteFilter(ComplexFilter):
 
     def __init__(self, filters=None, description=COMBINED, preset_idx=-1, listener=None):
-        super().__init__(filters=filters, description=description, preset_idx=preset_idx, listener=None)
+        super().__init__(filters=filters, description=description, preset_idx=preset_idx, listener=listener)
 
     def preview(self, filter):
         '''

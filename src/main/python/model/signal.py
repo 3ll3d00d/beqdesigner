@@ -10,15 +10,16 @@ from pathlib import Path
 import numpy as np
 import resampy
 from qtpy import QtCore
-from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt, Signal as QtpySignal
+from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt
 from qtpy.QtWidgets import QDialog, QFileDialog, QDialogButtonBox
 from scipy import signal
 
 from model.codec import signaldata_to_json
 from model.iir import XYData, CompleteFilter
 from model.magnitude import MagnitudeModel
-from model.preferences import AVG_COLOURS, PEAK_COLOURS, get_avg_colour, get_peak_colour, SHOW_ALL_SIGNALS, SHOW_PEAK, \
-    SHOW_AVERAGE, SHOW_ALL_FILTERED_SIGNALS, SHOW_FILTERED_ONLY, SHOW_UNFILTERED_ONLY
+from model.preferences import AVG_COLOURS, PEAK_COLOURS, get_avg_colour, get_peak_colour, SHOW_PEAK, \
+    SHOW_AVERAGE, SHOW_FILTERED_ONLY, SHOW_UNFILTERED_ONLY, DISPLAY_SHOW_SIGNALS, \
+    DISPLAY_SHOW_FILTERED_SIGNALS
 from ui.signal import Ui_addSignalDialog
 
 logger = logging.getLogger('signal')
@@ -111,14 +112,12 @@ class SignalModel(Sequence):
     A model to hold onto the signals.
     '''
 
-    def __init__(self, view, default_signal, show_signals=lambda: SHOW_ALL_SIGNALS,
-                 show_filtered_signals=lambda: SHOW_ALL_FILTERED_SIGNALS, on_update=lambda _: True):
+    def __init__(self, view, default_signal, preferences, on_update=lambda _: True):
         self.__signals = []
         self.default_signal = default_signal
         self.__view = view
         self.__on_update = on_update
-        self.__show_signals = show_signals
-        self.__show_filtered_signals = show_filtered_signals
+        self.__preferences = preferences
         self.__table = None
 
     @property
@@ -167,8 +166,8 @@ class SignalModel(Sequence):
 
     def post_update(self):
         from app import flatten
-        show_signals = self.__show_signals()
-        show_filtered_signals = self.__show_filtered_signals()
+        show_signals = self.__preferences.get(DISPLAY_SHOW_SIGNALS)
+        show_filtered_signals = self.__preferences.get(DISPLAY_SHOW_FILTERED_SIGNALS)
         pattern = self.__get_visible_signal_name_filter(show_filtered_signals, show_signals)
         visible_signal_names = [x.name for x in flatten([y for x in self.__signals for y in x.get_all_xy()])]
         if pattern is not None:
@@ -236,8 +235,8 @@ class SignalModel(Sequence):
         '''
         from app import flatten
         results = list(flatten([s.get_all_xy() for s in self.__signals]))
-        show_signals = self.__show_signals()
-        show_filtered_signals = self.__show_filtered_signals()
+        show_signals = self.__preferences.get(DISPLAY_SHOW_SIGNALS)
+        show_filtered_signals = self.__preferences.get(DISPLAY_SHOW_FILTERED_SIGNALS)
         pattern = self.__get_visible_signal_name_filter(show_filtered_signals, show_signals)
         if pattern is not None:
             results = [x for x in results if pattern.match(x.name) is not None]
@@ -776,6 +775,11 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
         self.__loader_idx = self.signalTypeTabs.currentIndex()
         self.__signalModel = signalModel
         self.__magnitudeModel = MagnitudeModel('preview', self.previewChart, self, 'Signal')
+        for s in self.__signalModel:
+            self.filterSelect.addItem(s.name)
+        if len(self.__signalModel) == 0:
+            self.filterSelect.setEnabled(False)
+            self.linkedSignal.setEnabled(False)
         self.clearSignal(draw=False)
 
     def changeLoader(self, idx):
@@ -837,6 +841,13 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
         '''
         return self.__loaders[self.__loader_idx].get_magnitude_data()
 
+    def masterFilterChanged(self, idx):
+        '''
+        enables the linked signal checkbox if we have selected a filter.
+        :param idx: the selected index.
+        '''
+        self.linkedSignal.setEnabled(idx > 0)
+
     def accept(self):
         '''
         Adds the signal to the model and exits if we have a signal (which we should because the button is disabled
@@ -844,7 +855,14 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
         '''
         loader = self.__loaders[self.__loader_idx]
         if loader.can_save():
-            self.__signalModel.add(loader.get_signal())
+            signal = loader.get_signal()
+            selected_filter_idx = self.filterSelect.currentIndex()
+            if selected_filter_idx > 0:
+                if self.linkedSignal.isChecked():
+                    pass
+                else:
+                    signal.filter = self.__signalModel[selected_filter_idx - 1].filter.resample(signal.fs)
+            self.__signalModel.add(signal)
             QDialog.accept(self)
 
 
