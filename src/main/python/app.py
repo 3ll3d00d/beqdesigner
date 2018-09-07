@@ -334,11 +334,14 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
 
     def __get_selected_signal(self):
         '''
-        :return: the selected signal (as selected in the table) or the default signal if nothing is selected.
+        :return: the selected signal (as selected in the table going back to its master if the selected signal is a
+        slave) or the default signal if nothing is selected.
         '''
         signalSelect = self.signalView.selectionModel()
         if signalSelect.hasSelection() and len(signalSelect.selectedRows()) == 1:
             signal = self.__signal_model[signalSelect.selectedRows()[0].row()]
+            if signal.master is not None:
+                signal = signal.master
         else:
             signal = self.__signal_model.default_signal
         return signal
@@ -406,8 +409,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.deleteSignalButton.setEnabled(selection.hasSelection())
         if len(selection.selectedRows()) == 1:
             self.linkSignalButton.setEnabled(True)
-            sig = self.__signal_model[selection.selectedRows()[0].row()]
-            self.__filter_model.filter = sig.filter if sig.master is None else sig.master.filter
+            self.__filter_model.filter = self.__get_selected_signal().filter
         else:
             self.linkSignalButton.setEnabled(False)
             self.__filter_model.filter = self.__default_signal.filter
