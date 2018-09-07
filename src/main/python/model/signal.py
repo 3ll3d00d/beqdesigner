@@ -41,6 +41,8 @@ class SignalData:
         self.start_hhmmss = start_hhmmss
         self.end_hhmmss = end_hhmmss
         self.raw = xy_data
+        self.__slaves = []
+        self.master = None
         self.filtered = []
         self.reference_name = None
         self.reference = []
@@ -68,6 +70,8 @@ class SignalData:
         self.__filter = filt
         self.__filter.listener = self
         self.on_filter_change(filt)
+        for s in self.__slaves:
+            s.on_filter_change(filt)
 
     def __repr__(self) -> str:
         return f"SignalData {self.name}-{self.fs}"
@@ -78,6 +82,26 @@ class SignalData:
         if len(self.filtered) == 2:
             self.filtered[0].colour = get_avg_colour(idx)
             self.filtered[1].colour = get_peak_colour(idx)
+
+    def enslave(self, signal):
+        '''
+        Allows a signal to be linked to this one so they share the same filter.
+        :param signal the signal.
+        '''
+        logger.debug(f"Enslaving {signal} to {self}")
+        self.__slaves.append(signal)
+        signal.master = self
+        signal.on_filter_change(self.__filter)
+
+    def free(self, signal):
+        '''
+        unlinks a signal from this one.
+        :param signal: the signal to unlink
+        '''
+        logger.debug(f"Freeing {signal} from {self}")
+        self.__slaves.remove(signal)
+        signal.master = None
+        signal.on_filter_change(None)
 
     def on_reference_change(self):
         pass
@@ -99,7 +123,7 @@ class SignalData:
                 r.linestyle = '-'
         elif isinstance(filt, CompleteFilter):
             # TODO detect if the filter has changed and only recalc if it has
-            filter_mag = self.__filter.getTransferFunction().getMagnitude()
+            filter_mag = filt.getTransferFunction().getMagnitude()
             self.filtered = [f.filter(filter_mag) for f in self.raw]
             for r in self.raw:
                 r.linestyle = '--'
@@ -858,10 +882,11 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
             signal = loader.get_signal()
             selected_filter_idx = self.filterSelect.currentIndex()
             if selected_filter_idx > 0:
+                master = self.__signalModel[selected_filter_idx - 1]
                 if self.linkedSignal.isChecked():
-                    pass
+                    master.enslave(signal)
                 else:
-                    signal.filter = self.__signalModel[selected_filter_idx - 1].filter.resample(signal.fs)
+                    signal.filter = master.filter.resample(signal.fs)
             self.__signalModel.add(signal)
             QDialog.accept(self)
 

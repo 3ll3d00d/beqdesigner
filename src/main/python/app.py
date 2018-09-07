@@ -406,9 +406,8 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.deleteSignalButton.setEnabled(selection.hasSelection())
         if len(selection.selectedRows()) == 1:
             self.linkSignalButton.setEnabled(True)
-            row = selection.selectedRows()[0].row()
-            filt = self.__signal_model[row].filter
-            self.__filter_model.filter = filt
+            sig = self.__signal_model[selection.selectedRows()[0].row()]
+            self.__filter_model.filter = sig.filter if sig.master is None else sig.master.filter
         else:
             self.linkSignalButton.setEnabled(False)
             self.__filter_model.filter = self.__default_signal.filter
