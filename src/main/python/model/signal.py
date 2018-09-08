@@ -88,7 +88,7 @@ class SignalData:
         Allows a signal to be linked to this one so they share the same filter.
         :param signal the signal.
         '''
-        logger.debug(f"Enslaving {signal} to {self}")
+        logger.info(f"Enslaving {signal} to {self}")
         self.slaves.append(signal)
         signal.master = self
         signal.on_filter_change(self.__filter)
@@ -270,6 +270,13 @@ class SignalModel(Sequence):
         self.post_update()
         if self.__table is not None:
             self.__table.endResetModel()
+
+    def find_by_name(self, name):
+        '''
+        :param name: the signal name.
+        :return: the signal with that name (or None).
+        '''
+        return next((s for s in self if s.name == name), None)
 
 
 class Signal:

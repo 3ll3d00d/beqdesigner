@@ -117,13 +117,6 @@ class LinkedSignalsTableModel(QAbstractTableModel):
             flags |= Qt.ItemIsEditable
         return flags
 
-    # def setData(self, idx, value, role=None):
-    #     if idx.column() == 0:
-    # self.__model[idx.row()].name = value
-    # self.dataChanged.emit(idx, idx, [])
-    # return True
-    # return super().setData(idx, value, role=role)
-
     def data(self, index: QModelIndex, role: int = ...) -> typing.Any:
         if not index.isValid() or role != Qt.DisplayRole:
             return QVariant()
@@ -171,6 +164,7 @@ class LinkSignalsDialog(QDialog, Ui_linkSignalDialog):
         super(LinkSignalsDialog, self).__init__(parent=parent)
         self.setupUi(self)
         self.__model = LinkedSignalsModel(signal_model)
+        self.__signal_model = signal_model
         self.__table_model = LinkedSignalsTableModel(self.__model, parent=parent)
         self.linkSignals.setModel(self.__table_model)
         self.linkSignals.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
@@ -228,4 +222,18 @@ class LinkSignalsDialog(QDialog, Ui_linkSignalDialog):
         return do_remove_master
 
     def accept(self):
-        pass
+        '''
+        Applies the changes to the master/slaves.
+        '''
+        # reset the slaves directly (without triggering pointless updates)
+        for signal in self.__signal_model:
+            signal.slaves = []
+            signal.master = None
+        for master_name, slaves in self.__model.rows.items():
+            master = self.__signal_model.find_by_name(master_name)
+            if master is not None:
+                for slave_name in slaves:
+                    slave = self.__signal_model.find_by_name(slave_name)
+                    if slave is not None:
+                        master.enslave(slave)
+        QDialog.accept(self)
