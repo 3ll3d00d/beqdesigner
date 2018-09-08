@@ -10,6 +10,7 @@ from contextlib import contextmanager
 
 import matplotlib
 
+from model.link import LinkSignalsDialog
 from model.preferences import DISPLAY_SHOW_FILTERED_SIGNALS
 
 matplotlib.use("Qt5Agg")
@@ -23,7 +24,8 @@ from ui.savechart import Ui_saveChartDialog
 
 from qtpy.QtCore import QSettings
 from qtpy.QtGui import QIcon, QFont, QCursor
-from qtpy.QtWidgets import QMainWindow, QApplication, QErrorMessage, QAbstractItemView, QDialog, QFileDialog
+from qtpy.QtWidgets import QMainWindow, QApplication, QErrorMessage, QAbstractItemView, QDialog, QFileDialog, \
+    QHeaderView
 
 from model.extract import ExtractAudioDialog
 from model.filter import FilterTableModel, FilterModel, FilterDialog
@@ -102,6 +104,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.__filter_table_model = FilterTableModel(self.__filter_model, parent=parent)
         self.filterView.setModel(self.__filter_table_model)
         self.filterView.selectionModel().selectionChanged.connect(self.on_filter_selected)
+        self.filterView.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         for i in range(1, 4):
             getattr(self, f"action_load_preset_{i}").triggered.connect(self.load_preset(i))
             getattr(self, f"action_clear_preset_{i}").triggered.connect(self.clear_preset(i))
@@ -130,6 +133,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
             logger.info(f"Ignoring unknown cached preference for {DISPLAY_SHOW_FILTERED_SIGNALS} - {selected}")
         self.showFilteredSignals.blockSignals(False)
         # signal model
+        self.signalView.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.signalView.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.signalView.setSelectionMode(QAbstractItemView.SingleSelection)
         self.__signal_model = SignalModel(self.signalView, self.__default_signal, self.preferences,
@@ -137,7 +141,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.__signal_table_model = SignalTableModel(self.__signal_model, parent=parent)
         self.signalView.setModel(self.__signal_table_model)
         self.signalView.selectionModel().selectionChanged.connect(self.on_signal_selected)
-        self.signalView.model().dataChanged.connect(self.on_signal_data_changed)
+        self.signalView.model().dataChanged.connect(self.on_signal_change)
         # magnitude
         self.showLegend.setChecked(bool(self.preferences.get(DISPLAY_SHOW_LEGEND)))
         self.__magnitude_model = MagnitudeModel('main', self.mainChart, self.__signal_model, 'Signals',
@@ -160,12 +164,14 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.actionSave_Signal.triggered.connect(self.showExportSignalDialog)
         self.action_Save_Project.triggered.connect(self.exportProject)
 
-    def on_signal_change(self, names):
+    def on_signal_change(self, names=None):
         '''
         Reacts to a change in the signal model by updating the reference and redrawing the chart.
         :param names: the signal names.
         '''
-        self.update_reference_series(names, self.signalReference, True)
+        if names is not None:
+            self.update_reference_series(names, self.signalReference, True)
+        self.linkSignalButton.setEnabled(len(self.__signal_model) > 1)
         self.__magnitude_model.redraw()
 
     def on_filter_change(self, names):
@@ -380,8 +386,10 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
             self.signalView.selectRow(after - 1)
 
     def linkSignals(self):
-        # TODO show the link signals dialog
-        pass
+        '''
+        Lets the user link signals via a matrix mapping.
+        '''
+        LinkSignalsDialog(self.__signal_model, parent=self).exec()
 
     def deleteSignal(self):
         '''
@@ -408,18 +416,9 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         selection = self.signalView.selectionModel()
         self.deleteSignalButton.setEnabled(selection.hasSelection())
         if len(selection.selectedRows()) == 1:
-            self.linkSignalButton.setEnabled(True)
             self.__filter_model.filter = self.__get_selected_signal().filter
         else:
-            self.linkSignalButton.setEnabled(False)
             self.__filter_model.filter = self.__default_signal.filter
-
-    def on_signal_data_changed(self):
-        '''
-        Redraws whenever signal data changes (should only happen when the user edits a field in the table)
-        '''
-        logger.debug(f"Redrawing on signal data change")
-        self.__magnitude_model.redraw()
 
     def update_reference_series(self, names, combo, primary=True):
         '''

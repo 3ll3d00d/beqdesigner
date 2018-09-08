@@ -57,7 +57,6 @@ class FilterModel(Sequence):
     @table.setter
     def table(self, table):
         self.__table = table
-        self.__table.resizeColumns(self.__view)
 
     def __getitem__(self, i):
         return self.filter[i]
@@ -101,8 +100,6 @@ class FilterModel(Sequence):
         '''
         Reacts to a change in the model.
         '''
-        if self.__table is not None:
-            self.__table.resizeColumns(self.__view)
         visible_filter_names = []
         show_filters = self.__preferences.get(DISPLAY_SHOW_FILTERS)
         if show_filters != SHOW_NO_FILTERS:
@@ -210,10 +207,6 @@ class FilterTableModel(QAbstractTableModel):
         if orientation == Qt.Horizontal and role == Qt.DisplayRole:
             return QVariant(self.__headers[section])
         return QVariant()
-
-    def resizeColumns(self, view):
-        for x in range(0, len(self.__headers)):
-            view.resizeColumnToContents(x)
 
 
 class FilterDialog(QDialog, Ui_editFilterDialog):

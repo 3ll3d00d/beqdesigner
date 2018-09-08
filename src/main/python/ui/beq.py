@@ -283,6 +283,7 @@ class Ui_MainWindow(object):
         self.showLegend.setText(_translate("MainWindow", "Show Legend"))
         self.showFiltersLabel.setText(_translate("MainWindow", "Show Filters?"))
         self.linkSignalButton.setText(_translate("MainWindow", "Link"))
+        self.linkSignalButton.setShortcut(_translate("MainWindow", "Ctrl+Shift+L"))
         self.showSignalsLabel.setText(_translate("MainWindow", "Show Signals?"))
         self.menuHelp.setTitle(_translate("MainWindow", "&Help"))
         self.menuSettings.setTitle(_translate("MainWindow", "&Settings"))

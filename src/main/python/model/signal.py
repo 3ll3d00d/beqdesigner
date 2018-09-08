@@ -41,7 +41,7 @@ class SignalData:
         self.start_hhmmss = start_hhmmss
         self.end_hhmmss = end_hhmmss
         self.raw = xy_data
-        self.__slaves = []
+        self.slaves = []
         self.master = None
         self.filtered = []
         self.reference_name = None
@@ -70,7 +70,7 @@ class SignalData:
         self.__filter = filt
         self.__filter.listener = self
         self.on_filter_change(filt)
-        for s in self.__slaves:
+        for s in self.slaves:
             s.on_filter_change(filt)
 
     def __repr__(self) -> str:
@@ -89,7 +89,7 @@ class SignalData:
         :param signal the signal.
         '''
         logger.debug(f"Enslaving {signal} to {self}")
-        self.__slaves.append(signal)
+        self.slaves.append(signal)
         signal.master = self
         signal.on_filter_change(self.__filter)
 
@@ -99,7 +99,7 @@ class SignalData:
         :param signal: the signal to unlink
         '''
         logger.debug(f"Freeing {signal} from {self}")
-        self.__slaves.remove(signal)
+        self.slaves.remove(signal)
         signal.master = None
         signal.on_filter_change(None)
 
@@ -151,7 +151,6 @@ class SignalModel(Sequence):
     @table.setter
     def table(self, table):
         self.__table = table
-        self.__table.resizeColumns(self.__view)
 
     def __getitem__(self, i):
         return self.__signals[i]
@@ -165,28 +164,19 @@ class SignalModel(Sequence):
         '''
         return [signaldata_to_json(x) for x in self.__signals]
 
-    def __decorate_edit(self, func):
-        def wrapper(*args, **kwargs):
-            if self.__table is not None:
-                self.__table.beginResetModel()
-            func(*args, **kwargs)
-            self.post_update()
-            if self.__table is not None:
-                self.__table.endResetModel()
-
-        wrapper()
-
     def add(self, signal):
         '''
         Add the supplied signals ot the model.
         :param signals: the signal.
         '''
-
-        def do_add():
-            signal.reindex(len(self.__signals))
-            self.__signals.append(signal)
-
-        self.__decorate_edit(do_add)
+        before_size = len(self.__signals)
+        if self.__table is not None:
+            self.__table.beginInsertRows(QModelIndex(), before_size, before_size)
+        signal.reindex(before_size)
+        self.__signals.append(signal)
+        self.post_update()
+        if self.__table is not None:
+            self.__table.endInsertRows()
 
     def post_update(self):
         from app import flatten
@@ -197,7 +187,6 @@ class SignalModel(Sequence):
         if pattern is not None:
             visible_signal_names = [x for x in visible_signal_names if pattern.match(x) is not None]
         self.__on_update(visible_signal_names)
-        self.__table.resizeColumns(self.__view)
 
     def __get_visible_signal_name_filter(self, show_filtered_signals, show_signals):
         '''
@@ -233,24 +222,22 @@ class SignalModel(Sequence):
         Remove the specified signal from the model.
         :param signal: the signal to remove.
         '''
-
-        def do_remove():
-            self.__signals.remove(signal)
-            for idx, s in enumerate(self.__signals):
-                s.reindex(idx)
-
-        self.__decorate_edit(do_remove)
+        idx = self.__signals.index(signal)
+        if self.__table is not None:
+            self.__table.beginRemoveRows(QModelIndex(), idx, idx)
+        del self.__signals[idx]
+        for idx, s in enumerate(self.__signals):
+            s.reindex(idx)
+        self.post_update()
+        if self.__table is not None:
+            self.__table.endRemoveRows()
 
     def delete(self, indices):
         '''
         Delete the signals at the given indices.
         :param indices: the indices to remove.
         '''
-
-        def do_delete():
-            self.__signals = [s for idx, s in enumerate(self.__signals) if idx not in indices]
-
-        self.__decorate_edit(do_delete)
+        self.replace([s for idx, s in enumerate(self.__signals) if idx not in indices])
 
     def getMagnitudeData(self, reference=None):
         '''
@@ -275,13 +262,14 @@ class SignalModel(Sequence):
         Replaces the contents of the model with the supplied signals
         :param signals: the signals
         '''
-
-        def do_replace():
-            self.__signals = signals
-            for idx, s in enumerate(self.__signals):
-                s.reindex(idx)
-
-        self.__decorate_edit(do_replace)
+        if self.__table is not None:
+            self.__table.beginResetModel()
+        self.__signals = signals
+        for idx, s in enumerate(self.__signals):
+            s.reindex(idx)
+        self.post_update()
+        if self.__table is not None:
+            self.__table.endResetModel()
 
 
 class Signal:
@@ -517,11 +505,11 @@ class SignalTableModel(QAbstractTableModel):
     def __init__(self, model, parent=None):
         super().__init__(parent=parent)
         self.__headers = ['Name', 'Fs', 'Duration', 'Start', 'End']
-        self.__signalModel = model
-        self.__signalModel.table = self
+        self.__signal_model = model
+        self.__signal_model.table = self
 
     def rowCount(self, parent: QModelIndex = ...):
-        return len(self.__signalModel)
+        return len(self.__signal_model)
 
     def columnCount(self, parent: QModelIndex = ...):
         return len(self.__headers)
@@ -534,7 +522,7 @@ class SignalTableModel(QAbstractTableModel):
 
     def setData(self, idx, value, role=None):
         if idx.column() == 0:
-            self.__signalModel[idx.row()].name = value
+            self.__signal_model[idx.row()].name = value
             self.dataChanged.emit(idx, idx, [])
             return True
         return super().setData(idx, value, role=role)
@@ -545,7 +533,7 @@ class SignalTableModel(QAbstractTableModel):
         elif role != Qt.DisplayRole:
             return QVariant()
         else:
-            signal_at_row = self.__signalModel[index.row()]
+            signal_at_row = self.__signal_model[index.row()]
             if index.column() == 0:
                 return QVariant(signal_at_row.name)
             elif index.column() == 1:
@@ -563,10 +551,6 @@ class SignalTableModel(QAbstractTableModel):
         if orientation == Qt.Horizontal and role == Qt.DisplayRole:
             return QVariant(self.__headers[section])
         return QVariant()
-
-    def resizeColumns(self, view):
-        for x in range(0, len(self.__headers)):
-            view.resizeColumnToContents(x)
 
 
 def _select_file(owner, file_type):
@@ -792,16 +776,16 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
     Alows user to extract a signal from a wav or frd.
     '''
 
-    def __init__(self, preferences, signalModel, parent=None):
+    def __init__(self, preferences, signal_model, parent=None):
         super(SignalDialog, self).__init__(parent=parent)
         self.setupUi(self)
         self.__loaders = [WavLoader(self, preferences), FrdLoader(self)]
         self.__loader_idx = self.signalTypeTabs.currentIndex()
-        self.__signalModel = signalModel
+        self.__signal_model = signal_model
         self.__magnitudeModel = MagnitudeModel('preview', self.previewChart, self, 'Signal')
-        for s in self.__signalModel:
+        for s in self.__signal_model:
             self.filterSelect.addItem(s.name)
-        if len(self.__signalModel) == 0:
+        if len(self.__signal_model) == 0:
             self.filterSelect.setEnabled(False)
             self.linkedSignal.setEnabled(False)
         self.clearSignal(draw=False)
@@ -882,12 +866,12 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
             signal = loader.get_signal()
             selected_filter_idx = self.filterSelect.currentIndex()
             if selected_filter_idx > 0:
-                master = self.__signalModel[selected_filter_idx - 1]
+                master = self.__signal_model[selected_filter_idx - 1]
                 if self.linkedSignal.isChecked():
                     master.enslave(signal)
                 else:
                     signal.filter = master.filter.resample(signal.fs)
-            self.__signalModel.add(signal)
+            self.__signal_model.add(signal)
             QDialog.accept(self)
 
 
