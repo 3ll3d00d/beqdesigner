@@ -60,6 +60,26 @@ UNKNOWN_CHANNEL_LAYOUTS = {
 }
 
 
+def get_channel_name(text, channel, channel_count, channel_layout_name='unknown'):
+    '''
+    Appends a named channel to the given name.
+    :param text: the prefix.
+    :param channel: the channel idx (0 based)
+    :param channel_count: the channel count.
+    :param channel_layout_name: the channel layout.
+    :return: the named channel.
+    '''
+    if channel_count == 1:
+        return text
+    else:
+        if channel_layout_name == 'unknown' and channel_count in UNKNOWN_CHANNEL_LAYOUTS:
+            return f"{text}_{UNKNOWN_CHANNEL_LAYOUTS[channel_count][channel]}"
+        elif channel_layout_name in CHANNEL_LAYOUTS:
+            return f"{text}_{CHANNEL_LAYOUTS[self.__channel_layout_name][channel]}"
+        else:
+            return f"{text}_c{channel+1}"
+
+
 class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
     MAIN = str(10 ** (-20.2 / 20.0))
     LFE = str(10 ** (-10.2 / 20.0))
@@ -395,8 +415,10 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         output_file = os.path.join(self.targetDir.text(), self.outputFilename.text())
         if os.path.exists(output_file):
             logger.info(f"Creating signals for {output_file}")
-            text = self.signalName.text()
-            signals = loader.auto_load(output_file, self.__get_channel_name)
+            name_provider = lambda channel, channel_count: get_channel_name(self.signalName.text(), channel,
+                                                                            channel_count,
+                                                                            channel_layout_name=self.__channel_layout_name)
+            signals = loader.auto_load(output_file, name_provider)
             if len(signals) > 0:
                 for s in signals:
                     logger.info(f"Adding signal {s.name}")
@@ -409,18 +431,6 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             msg_box.setWindowTitle('Unexpected Error')
             msg_box.exec()
         return False
-
-    def __get_channel_name(self, channel, channel_count):
-        text = self.signalName.text()
-        if channel_count == 1:
-            return text
-        else:
-            if self.__channel_layout_name == 'unknown' and channel_count in UNKNOWN_CHANNEL_LAYOUTS:
-                return f"{text}_{UNKNOWN_CHANNEL_LAYOUTS[channel_count][channel]}"
-            elif self.__channel_layout_name in CHANNEL_LAYOUTS:
-                return f"{text}_{CHANNEL_LAYOUTS[self.__channel_layout_name][channel]}"
-            else:
-                return f"{text}_c{channel+1}"
 
     def __extract(self):
         '''

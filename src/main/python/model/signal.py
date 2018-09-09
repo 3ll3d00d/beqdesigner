@@ -765,8 +765,8 @@ class DialogWavLoaderBridge:
         end_millis = self.__dialog.wavEndTime.time().msecsSinceStartOfDay()
         if end_millis < self.__duration:
             end = end_millis
-        self.__auto_loader.prepare(name=self.__dialog.wavSignalName.text(),
-                                   channel=int(self.__dialog.wavChannelSelector.currentText()), start=start, end=end)
+        channel = int(self.__dialog.wavChannelSelector.currentText())
+        self.__auto_loader.prepare(name=self.__dialog.wavSignalName.text(), channel=channel, start=start, end=end)
         self.__dialog.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
 
     def __get_window(self, key):
@@ -792,12 +792,18 @@ class DialogWavLoaderBridge:
         enabled = len(self.__dialog.wavSignalName.text()) > 0 and self.can_save()
         self.__dialog.buttonBox.button(QDialogButtonBox.Ok).setEnabled(enabled)
 
-    def get_signal(self):
+    def get_signals(self):
         '''
         Converts the loaded signal into a SignalData.
         :return: the signal data.
         '''
-        return self.__auto_loader.get_signal()
+        if self.__dialog.loadAllChannels.isChecked():
+            from model.extract import get_channel_name
+            name_provider = lambda channel, channel_count: get_channel_name(self.__dialog.wavSignalName.text(), channel,
+                                                                            channel_count)
+            return self.__auto_loader.auto_load(self.__dialog.wavFile.text(), name_provider)
+        else:
+            return [self.__auto_loader.get_signal()]
 
 
 class FrdLoader:
@@ -885,11 +891,11 @@ class FrdLoader:
     def can_save(self):
         return self.__avg is not None and self.__peak is not None
 
-    def get_signal(self):
+    def get_signals(self):
         name = self.__dialog.frdSignalName.text()
         self.__avg.name = f"{self.__dialog.frdSignalName.text()}_avg"
         self.__peak.name = f"{self.__dialog.frdSignalName.text()}_peak"
-        return SignalData(name, self.__dialog.frdFs.value(), self.get_magnitude_data(), CompleteFilter())
+        return [SignalData(name, self.__dialog.frdFs.value(), self.get_magnitude_data(), CompleteFilter())]
 
 
 class SignalDialog(QDialog, Ui_addSignalDialog):
@@ -987,15 +993,17 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
         '''
         loader = self.__loaders[self.__loader_idx]
         if loader.can_save():
-            signal = loader.get_signal()
+            signals = loader.get_signals()
             selected_filter_idx = self.filterSelect.currentIndex()
             if selected_filter_idx > 0:
                 master = self.__signal_model[selected_filter_idx - 1]
-                if self.linkedSignal.isChecked():
-                    master.enslave(signal)
-                else:
-                    signal.filter = master.filter.resample(signal.fs)
-            self.__signal_model.add(signal)
+                for s in signals:
+                    if self.linkedSignal.isChecked():
+                        master.enslave(s)
+                    else:
+                        s.filter = master.filter.resample(s.fs)
+            for s in signals:
+                self.__signal_model.add(s)
             QDialog.accept(self)
 
 
