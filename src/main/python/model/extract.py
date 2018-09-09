@@ -78,7 +78,6 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         self.__extracted = False
         self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
         self.buttonBox.button(QDialogButtonBox.Ok).setText('Extract')
-        self.loadSignals.setEnabled(False)
         self.signalName.setEnabled(False)
         self.signalNameLabel.setEnabled(False)
         self.signalName.setText('')
@@ -284,14 +283,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
                     .filter('aresample', '1000', resampler='soxr') \
                     .output(output_file, acodec='pcm_s24le')
         else:
-            stream_idx = f"{self.audioStreams.currentIndex()+1}"
-            selected_stream = self.__audio_stream_data[self.audioStreams.currentIndex()]
-            channel_count = int(selected_stream['channels'])
-            if channel_count > 1:
-                merge_streams = [input_stream[f"{stream_idx}:{x}"] for x in range(1, int(selected_stream['channels']))]
-                filtered_stream = input_stream[f"{stream_idx}:0"].amerge(*merge_streams, inputs=channel_count)
-            else:
-                filtered_stream = input_stream
+            filtered_stream = input_stream[f"{self.audioStreams.currentIndex()+1}"]
             self.__ffmpegCommand = \
                 filtered_stream.filter('aresample', '1000', resampler='soxr').output(output_file, acodec='pcm_s24le')
         command_args = self.__ffmpegCommand.compile(overwrite_output=True)
@@ -386,7 +378,6 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
                     result = self.append_out_err(err, out, result)
                     self.ffmpegOutput.setPlainText(result)
                     self.__extracted = True
-                    self.loadSignals.setEnabled(True)
                     self.signalName.setEnabled(True)
                     self.signalNameLabel.setEnabled(True)
                     self.signalName.setText(Path(self.outputFilename.text()).resolve().stem)
