@@ -11,7 +11,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_linkSignalDialog(object):
     def setupUi(self, linkSignalDialog):
         linkSignalDialog.setObjectName("linkSignalDialog")
-        linkSignalDialog.resize(929, 325)
+        linkSignalDialog.resize(833, 325)
         self.gridLayout = QtWidgets.QGridLayout(linkSignalDialog)
         self.gridLayout.setObjectName("gridLayout")
         self.addToMaster = QtWidgets.QToolButton(linkSignalDialog)
@@ -43,5 +43,5 @@ class Ui_linkSignalDialog(object):
         _translate = QtCore.QCoreApplication.translate
         linkSignalDialog.setWindowTitle(_translate("linkSignalDialog", "Link Signals"))
         self.addToMaster.setText(_translate("linkSignalDialog", "..."))
-        self.masterCandidatesLabel.setText(_translate("linkSignalDialog", "Move to Master"))
+        self.masterCandidatesLabel.setText(_translate("linkSignalDialog", "Make Master"))
 

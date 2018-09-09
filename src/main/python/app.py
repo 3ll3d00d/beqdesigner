@@ -12,6 +12,7 @@ import matplotlib
 
 from model.link import LinkSignalsDialog
 from model.preferences import DISPLAY_SHOW_FILTERED_SIGNALS
+from ui.delegates import RegexValidator
 
 matplotlib.use("Qt5Agg")
 import qtawesome as qta
@@ -141,7 +142,8 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.__signal_table_model = SignalTableModel(self.__signal_model, parent=parent)
         self.signalView.setModel(self.__signal_table_model)
         self.signalView.selectionModel().selectionChanged.connect(self.on_signal_selected)
-        self.signalView.model().dataChanged.connect(self.on_signal_change)
+        self.signalView.model().dataChanged.connect(self.on_signal_data_change)
+        self.signalView.setItemDelegateForColumn(0, RegexValidator('^.+$'))
         # magnitude
         self.showLegend.setChecked(bool(self.preferences.get(DISPLAY_SHOW_LEGEND)))
         self.__magnitude_model = MagnitudeModel('main', self.mainChart, self.__signal_model, 'Signals',
@@ -163,6 +165,13 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.actionExport_FRD.triggered.connect(self.showExportFRDDialog)
         self.actionSave_Signal.triggered.connect(self.showExportSignalDialog)
         self.action_Save_Project.triggered.connect(self.exportProject)
+
+    def on_signal_data_change(self):
+        '''
+        Delegates to on_signal_change which we can't call directly because of the argument mismatch (dataChanged emits
+        the QModelIndexes specifying which data has changed which we don't care about).
+        '''
+        self.on_signal_change()
 
     def on_signal_change(self, names=None):
         '''
@@ -484,8 +493,8 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
 
         input = self.__load('*.beq', 'Load Project', parser)
         if input is not None:
-            from model.codec import signaldata_from_json
-            self.__signal_model.replace([signaldata_from_json(x) for x in input])
+            from model.codec import signalmodel_from_json
+            self.__signal_model.replace(signalmodel_from_json(input))
             self.__magnitude_model.redraw()
 
     def normaliseSignalMagnitude(self):

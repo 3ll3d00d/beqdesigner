@@ -1,7 +1,8 @@
 import logging
 
-from qtpy.QtCore import QEvent, Qt
-from qtpy.QtWidgets import QItemDelegate
+from PyQt5.QtGui import QRegExpValidator
+from qtpy.QtCore import QEvent, Qt, QRegExp
+from qtpy.QtWidgets import QItemDelegate, QStyledItemDelegate, QLineEdit
 
 logger = logging.getLogger('delegates')
 
@@ -47,3 +48,21 @@ class CheckBoxDelegate(QItemDelegate):
             return True
 
         return False
+
+
+class RegexValidator(QStyledItemDelegate):
+    ''' Validates the input against the regex '''
+
+    def __init__(self, regex):
+        QStyledItemDelegate.__init__(self)
+        self.__regex = regex
+
+    def createEditor(self, widget, option, index):
+        if not index.isValid():
+            return 0
+        if index.column() == 0:  # only on the cells in the first column
+            editor = QLineEdit(widget)
+            validator = QRegExpValidator(QRegExp(self.__regex), editor)
+            editor.setValidator(validator)
+            return editor
+        return super(RegexValidator, self).createEditor(widget, option, index)

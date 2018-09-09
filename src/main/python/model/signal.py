@@ -93,15 +93,25 @@ class SignalData:
         signal.master = self
         signal.on_filter_change(self.__filter)
 
-    def free(self, signal):
+    def free_all(self):
         '''
-        unlinks a signal from this one.
-        :param signal: the signal to unlink
+        Frees all slaves.
         '''
-        logger.debug(f"Freeing {signal} from {self}")
-        self.slaves.remove(signal)
-        signal.master = None
-        signal.on_filter_change(None)
+        for s in self.slaves:
+            logger.debug(f"Freeing {s} from {self}")
+            s.master = None
+            s.filter = CompleteFilter()
+        self.slaves = []
+
+    def free(self):
+        '''
+        if this is a slave, frees itself from the master.
+        '''
+        if self.master is not None:
+            logger.debug(f"Freeing {self.name} from {self.master.name}")
+            self.master.slaves.remove(self)
+            self.master = None
+            self.filter = CompleteFilter()
 
     def on_reference_change(self):
         pass
@@ -228,6 +238,7 @@ class SignalModel(Sequence):
         del self.__signals[idx]
         for idx, s in enumerate(self.__signals):
             s.reindex(idx)
+        self.__ensure_master_slave_integrity()
         self.post_update()
         if self.__table is not None:
             self.__table.endRemoveRows()
@@ -267,9 +278,27 @@ class SignalModel(Sequence):
         self.__signals = signals
         for idx, s in enumerate(self.__signals):
             s.reindex(idx)
+        self.__ensure_master_slave_integrity()
         self.post_update()
         if self.__table is not None:
             self.__table.endResetModel()
+
+    def __ensure_master_slave_integrity(self):
+        '''
+        Verifies that all master/slaves mentioned by signals actually exist in the model. Used when signals are deleted.
+        '''
+        for s in self.__signals:
+            slave_count_before = len(s.slaves)
+            if slave_count_before > 0:
+                s.slaves = [slave for slave in s.slaves if slave in self.__signals]
+                delta = slave_count_before - len(s.slaves)
+                if delta > 0:
+                    logger.info(f"Removed {delta} missing slaves from {s.name}")
+            if s.master is not None:
+                master = next((m for m in self.__signals if m.name == s.master.name), None)
+                if master is None:
+                    logger.info(f"Removing missing master {s.master.name} from {s.name}")
+                    s.free()
 
     def find_by_name(self, name):
         '''
@@ -511,7 +540,7 @@ class SignalTableModel(QAbstractTableModel):
 
     def __init__(self, model, parent=None):
         super().__init__(parent=parent)
-        self.__headers = ['Name', 'Fs', 'Duration', 'Start', 'End']
+        self.__headers = ['Name', 'Linked', 'Fs', 'Duration', 'Start', 'End']
         self.__signal_model = model
         self.__signal_model.table = self
 
@@ -543,13 +572,20 @@ class SignalTableModel(QAbstractTableModel):
             signal_at_row = self.__signal_model[index.row()]
             if index.column() == 0:
                 return QVariant(signal_at_row.name)
-            elif index.column() == 1:
-                return QVariant(signal_at_row.fs)
+            if index.column() == 1:
+                if signal_at_row.master is not None:
+                    return QVariant(f"S - {signal_at_row.master.name}")
+                elif len(signal_at_row.slaves) > 0:
+                    return QVariant('M')
+                else:
+                    return QVariant('')
             elif index.column() == 2:
-                return QVariant(signal_at_row.duration_hhmmss)
+                return QVariant(signal_at_row.fs)
             elif index.column() == 3:
-                return QVariant(signal_at_row.start_hhmmss)
+                return QVariant(signal_at_row.duration_hhmmss)
             elif index.column() == 4:
+                return QVariant(signal_at_row.start_hhmmss)
+            elif index.column() == 5:
                 return QVariant(signal_at_row.end_hhmmss)
             else:
                 return QVariant()

@@ -173,6 +173,8 @@ class LinkSignalsDialog(QDialog, Ui_linkSignalDialog):
             self.masterCandidates.addItem(x)
         self.__table_model.delegate_to_checkbox(self.linkSignals)
         self.addToMaster.setIcon(qta.icon('fa.plus'))
+        self.__manage_add_master_state()
+        self.__make_delete_buttons()
 
     def addMaster(self):
         idx = self.masterCandidates.currentIndex()
@@ -225,10 +227,8 @@ class LinkSignalsDialog(QDialog, Ui_linkSignalDialog):
         '''
         Applies the changes to the master/slaves.
         '''
-        # reset the slaves directly (without triggering pointless updates)
         for signal in self.__signal_model:
-            signal.slaves = []
-            signal.master = None
+            signal.free_all()
         for master_name, slaves in self.__model.rows.items():
             master = self.__signal_model.find_by_name(master_name)
             if master is not None:

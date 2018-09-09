@@ -486,6 +486,11 @@
     <string>Loa&amp;d Signal</string>
    </property>
   </action>
+  <action name="actionClear_Project">
+   <property name="text">
+    <string>Clear Project</string>
+   </property>
+  </action>
  </widget>
  <customwidgets>
   <customwidget>
