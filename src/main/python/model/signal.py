@@ -611,7 +611,106 @@ def _select_file(owner, file_type):
     return None
 
 
-class WavLoader:
+class AutoWavLoader:
+    '''
+    Loads signals from wav files without user interaction
+    '''
+
+    def __init__(self, preferences):
+        self.__signal = None
+        self.__preferences = preferences
+        self.info = None
+
+    def reset(self):
+        '''
+        Clears internal state.
+        '''
+        self.__signal = None
+        self.info = None
+
+    def auto_load(self, file, name):
+        '''
+        Loads the file and automatically creates a signal for each channel found.
+        :param file: the file to load.
+        :param name: the name to give each signal (will have channel number appended).
+        :return: the signals.
+        '''
+        self.load(file)
+        return [self.__auto_load(x + 1, self.info.channels, name) for x in range(0, self.info.channels)]
+
+    def load(self, file):
+        '''
+        Gets info about the file.
+        :param file: the file.
+        :param auto: if true, just load the signal using default values.
+        :return: if auto is True, a signal for each channel.
+        '''
+        self.reset()
+        import soundfile as sf
+        self.info = sf.info(file)
+
+    def __auto_load(self, channel, channel_count, name):
+        self.prepare(name=name, channel_count=channel_count, channel=channel)
+        return self.get_signal()
+
+    def prepare(self, name=None, channel_count=1, channel=1, start=None, end=None):
+        '''
+        Loads and analyses the wav with the specified parameters.
+        :param name: the signal name, if none use the file name + channel.
+        :param channel: the channel
+        :param channel_count: the channel count, only used for creating a default name.
+        :param start: start position, if any.
+        :param end: end position, if any.
+        '''
+        # defer to avoid circular imports
+        from model.preferences import ANALYSIS_TARGET_FS, ANALYSIS_RESOLUTION, ANALYSIS_PEAK_WINDOW, \
+            ANALYSIS_AVG_WINDOW
+        if name is None:
+            name = Path(self.info.name).resolve().stem
+            if channel_count > 1:
+                name += f"_c{channel}"
+        self.__signal = readWav(name, self.info.name, channel=channel, start=start, end=end,
+                                target_fs=self.__preferences.get(ANALYSIS_TARGET_FS))
+        multiplier = int(1 / float(self.__preferences.get(ANALYSIS_RESOLUTION)))
+        peak_wnd = self.__get_window(ANALYSIS_PEAK_WINDOW)
+        avg_wnd = self.__get_window(ANALYSIS_AVG_WINDOW)
+        logger.debug(
+            f"Analysing {self.info.name} at {multiplier}x resolution using {peak_wnd}/{avg_wnd} peak/avg windows")
+        self.__signal.calculate(multiplier, avg_wnd, peak_wnd)
+
+    def __get_window(self, key):
+        from model.preferences import ANALYSIS_WINDOW_DEFAULT
+        window = self.__preferences.get(key)
+        if window is None or window == ANALYSIS_WINDOW_DEFAULT:
+            window = None
+        else:
+            if window == 'tukey':
+                window = (window, 0.25)
+        return window
+
+    def get_signal(self):
+        '''
+        Converts the loaded signal into a SignalData.
+        :return: the signal data.
+        '''
+        return SignalData(self.__signal.name, self.__signal.fs, self.__signal.getXY(), CompleteFilter(),
+                          duration_hhmmss=self.__signal.duration_hhmmss, start_hhmmss=self.__signal.start_hhmmss,
+                          end_hhmmss=self.__signal.end_hhmmss)
+
+    def get_magnitude_data(self):
+        '''
+        :return: magnitude data for this signal, if we have one.
+        '''
+        return self.__signal.getXY() if self.has_signal() else []
+
+    def has_signal(self):
+        '''
+        :return: True if we have a signal.
+        '''
+        return self.__signal is not None
+
+
+class DialogWavLoaderBridge:
     '''
     Loads signals from wav files.
     '''
@@ -619,35 +718,29 @@ class WavLoader:
     def __init__(self, dialog, preferences):
         self.__preferences = preferences
         self.__dialog = dialog
-        self.__signal = None
-        self.__peak = None
-        self.__avg = None
+        self.__auto_loader = AutoWavLoader(preferences)
         self.__duration = 0
 
     def select_wav_file(self):
         file = _select_file(self.__dialog, 'wav')
         if file is not None:
+            self.clear_signal()
             self.__dialog.wavFile.setText(file)
-            self.load_signal()
+            self.__auto_loader.load(file)
+            self.__load_info()
 
     def clear_signal(self):
-        self.__signal = None
-        self.__peak = None
-        self.__avg = None
+        self.__auto_loader.reset()
         self.__duration = 0
         self.__dialog.wavStartTime.setEnabled(False)
         self.__dialog.wavEndTime.setEnabled(False)
         self.__dialog.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
 
-    def load_signal(self):
+    def __load_info(self):
         '''
         Loads metadata about the signal from the file and propagates it to the form fields.
-        :param file: the file.
         '''
-        if self.__signal is not None:
-            self.clear_signal()
-        import soundfile as sf
-        info = sf.info(self.__dialog.wavFile.text())
+        info = self.__auto_loader.info
         self.__dialog.wavFs.setText(f"{info.samplerate} Hz")
         self.__dialog.wavChannelSelector.clear()
         for i in range(0, info.channels):
@@ -671,18 +764,8 @@ class WavLoader:
         end_millis = self.__dialog.wavEndTime.time().msecsSinceStartOfDay()
         if end_millis < self.__duration:
             end = end_millis
-        # defer to avoid circular imports
-        from model.preferences import ANALYSIS_TARGET_FS, ANALYSIS_RESOLUTION, ANALYSIS_PEAK_WINDOW, \
-            ANALYSIS_AVG_WINDOW
-        self.__signal = readWav(self.__dialog.wavSignalName.text(), self.__dialog.wavFile.text(),
-                                channel=int(self.__dialog.wavChannelSelector.currentText()), start=start, end=end,
-                                target_fs=self.__preferences.get(ANALYSIS_TARGET_FS))
-        multiplier = int(1 / float(self.__preferences.get(ANALYSIS_RESOLUTION)))
-        peak_window = self.__get_window(ANALYSIS_PEAK_WINDOW)
-        avg_window = self.__get_window(ANALYSIS_AVG_WINDOW)
-        logger.debug(f"Analysing {self.__dialog.wavSignalName.text()} at {multiplier}x resolution "
-                     f"using {peak_window} peak window and {avg_window} avg window")
-        self.__signal.calculate(multiplier, avg_window, peak_window)
+        self.__auto_loader.prepare(name=self.__dialog.wavSignalName.text(),
+                                   channel=int(self.__dialog.wavChannelSelector.currentText()), start=start, end=end)
         self.__dialog.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
 
     def __get_window(self, key):
@@ -696,16 +779,13 @@ class WavLoader:
         return window
 
     def get_magnitude_data(self):
-        if self.__signal is not None:
-            return self.__signal.getXY()
-        else:
-            return []
+        return self.__auto_loader.get_magnitude_data()
 
     def can_save(self):
         '''
         :return: true if we can save a new signal.
         '''
-        return self.__signal is not None
+        return self.__auto_loader.has_signal()
 
     def enable_ok(self):
         enabled = len(self.__dialog.wavSignalName.text()) > 0 and self.can_save()
@@ -716,9 +796,7 @@ class WavLoader:
         Converts the loaded signal into a SignalData.
         :return: the signal data.
         '''
-        return SignalData(self.__signal.name, self.__signal.fs, self.__signal.getXY(), CompleteFilter(),
-                          duration_hhmmss=self.__signal.duration_hhmmss, start_hhmmss=self.__signal.start_hhmmss,
-                          end_hhmmss=self.__signal.end_hhmmss)
+        return self.__auto_loader.get_signal()
 
 
 class FrdLoader:
@@ -822,7 +900,7 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
     def __init__(self, preferences, signal_model, parent=None):
         super(SignalDialog, self).__init__(parent=parent)
         self.setupUi(self)
-        self.__loaders = [WavLoader(self, preferences), FrdLoader(self)]
+        self.__loaders = [DialogWavLoaderBridge(self, preferences), FrdLoader(self)]
         self.__loader_idx = self.signalTypeTabs.currentIndex()
         self.__signal_model = signal_model
         self.__magnitudeModel = MagnitudeModel('preview', self.previewChart, self, 'Signal')

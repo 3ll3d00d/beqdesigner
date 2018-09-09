@@ -10,7 +10,7 @@
     <x>0</x>
     <y>0</y>
     <width>880</width>
-    <height>794</height>
+    <height>850</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -24,7 +24,63 @@
   </property>
   <layout class="QVBoxLayout" name="boxLayout">
    <item>
-    <layout class="QGridLayout" name="gridLayout" rowstretch="1,0,0,0,0,0,0,0,0,0" columnstretch="0,0,0">
+    <layout class="QGridLayout" name="gridLayout" rowstretch="1,0,0,0,0,0,0,0,0,0,0" columnstretch="0,0,0">
+     <item row="6" column="0">
+      <widget class="QLabel" name="outputFilenameLabel">
+       <property name="text">
+        <string>Output Filename</string>
+       </property>
+      </widget>
+     </item>
+     <item row="5" column="1">
+      <widget class="QLineEdit" name="targetDir">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="2">
+      <widget class="QToolButton" name="showProbeButton">
+       <property name="text">
+        <string>...</string>
+       </property>
+      </widget>
+     </item>
+     <item row="7" column="0">
+      <widget class="QLabel" name="ffmpegCommandLabel">
+       <property name="text">
+        <string>ffmpeg command </string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+       </property>
+      </widget>
+     </item>
+     <item row="8" column="0">
+      <widget class="QLabel" name="ffmpegOutputLabel">
+       <property name="text">
+        <string>ffmpeg output</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+       </property>
+      </widget>
+     </item>
+     <item row="7" column="1">
+      <widget class="QPlainTextEdit" name="ffmpegCommandLine">
+       <property name="enabled">
+        <bool>true</bool>
+       </property>
+       <property name="font">
+        <font>
+         <family>Consolas</family>
+        </font>
+       </property>
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
      <item row="0" column="2">
       <widget class="QToolButton" name="inputFilePicker">
        <property name="text">
@@ -32,24 +88,10 @@
        </property>
       </widget>
      </item>
-     <item row="7" column="1">
+     <item row="6" column="1">
       <widget class="QLineEdit" name="outputFilename"/>
      </item>
-     <item row="1" column="0">
-      <widget class="QLabel" name="streamsLabel">
-       <property name="text">
-        <string>Streams</string>
-       </property>
-      </widget>
-     </item>
-     <item row="0" column="0">
-      <widget class="QLabel" name="inputFileLabel">
-       <property name="text">
-        <string>File</string>
-       </property>
-      </widget>
-     </item>
-     <item row="9" column="1">
+     <item row="8" column="1">
       <widget class="QPlainTextEdit" name="ffmpegOutput">
        <property name="enabled">
         <bool>true</bool>
@@ -67,70 +109,38 @@
        </property>
       </widget>
      </item>
-     <item row="6" column="2">
+     <item row="5" column="2">
       <widget class="QToolButton" name="targetDirPicker">
        <property name="text">
         <string>...</string>
        </property>
       </widget>
      </item>
-     <item row="1" column="2">
-      <widget class="QToolButton" name="showProbeButton">
+     <item row="1" column="0">
+      <widget class="QLabel" name="streamsLabel">
        <property name="text">
-        <string>...</string>
+        <string>Streams</string>
        </property>
       </widget>
      </item>
-     <item row="6" column="1">
-      <widget class="QLineEdit" name="targetDir">
-       <property name="enabled">
-        <bool>false</bool>
-       </property>
-      </widget>
-     </item>
-     <item row="7" column="0">
-      <widget class="QLabel" name="outputFilenameLabel">
+     <item row="0" column="0">
+      <widget class="QLabel" name="inputFileLabel">
        <property name="text">
-        <string>Output Filename</string>
+        <string>File</string>
        </property>
       </widget>
      </item>
-     <item row="8" column="1">
-      <widget class="QPlainTextEdit" name="ffmpegCommandLine">
-       <property name="enabled">
-        <bool>true</bool>
-       </property>
-       <property name="font">
-        <font>
-         <family>Consolas</family>
-        </font>
-       </property>
-       <property name="readOnly">
-        <bool>true</bool>
-       </property>
-      </widget>
-     </item>
-     <item row="9" column="0">
-      <widget class="QLabel" name="ffmpegOutputLabel">
+     <item row="3" column="0">
+      <widget class="QLabel" name="lfeChannelIndexLabel">
        <property name="text">
-        <string>ffmpeg output</string>
-       </property>
-       <property name="alignment">
-        <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+        <string>LFE Channel</string>
        </property>
       </widget>
      </item>
-     <item row="8" column="0">
-      <widget class="QLabel" name="ffmpegCommandLabel">
-       <property name="text">
-        <string>ffmpeg command </string>
-       </property>
-       <property name="alignment">
-        <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
-       </property>
-      </widget>
+     <item row="1" column="1">
+      <widget class="QComboBox" name="audioStreams"/>
      </item>
-     <item row="6" column="0">
+     <item row="5" column="0">
       <widget class="QLabel" name="targetDirectoryLabel">
        <property name="text">
         <string>Target Directory</string>
@@ -144,31 +154,7 @@
        </property>
       </widget>
      </item>
-     <item row="1" column="1">
-      <widget class="QComboBox" name="audioStreams"/>
-     </item>
-     <item row="4" column="0">
-      <widget class="QLabel" name="lfeChannelIndexLabel">
-       <property name="text">
-        <string>LFE Channel</string>
-       </property>
-      </widget>
-     </item>
      <item row="3" column="1">
-      <widget class="QSpinBox" name="channelCount">
-       <property name="minimum">
-        <number>1</number>
-       </property>
-      </widget>
-     </item>
-     <item row="3" column="0">
-      <widget class="QLabel" name="channelCountLabel">
-       <property name="text">
-        <string>Channel Count</string>
-       </property>
-      </widget>
-     </item>
-     <item row="4" column="1">
       <widget class="QSpinBox" name="lfeChannelIndex">
        <property name="toolTip">
         <string>0 = No LFE</string>
@@ -178,7 +164,21 @@
        </property>
       </widget>
      </item>
-     <item row="5" column="0" colspan="3">
+     <item row="2" column="1">
+      <widget class="QSpinBox" name="channelCount">
+       <property name="minimum">
+        <number>1</number>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="0">
+      <widget class="QLabel" name="channelCountLabel">
+       <property name="text">
+        <string>Channel Count</string>
+       </property>
+      </widget>
+     </item>
+     <item row="4" column="0" colspan="3">
       <widget class="QCheckBox" name="monoMix">
        <property name="enabled">
         <bool>true</bool>
@@ -187,6 +187,33 @@
         <string>Mix to Mono?</string>
        </property>
        <property name="checked">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item row="10" column="0">
+      <widget class="QLabel" name="signalNameLabel">
+       <property name="text">
+        <string>Signal Name</string>
+       </property>
+      </widget>
+     </item>
+     <item row="9" column="0" colspan="3">
+      <widget class="QCheckBox" name="loadSignals">
+       <property name="enabled">
+        <bool>true</bool>
+       </property>
+       <property name="text">
+        <string>Create Signal(s)?</string>
+       </property>
+       <property name="checked">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item row="10" column="1">
+      <widget class="QLineEdit" name="signalName">
+       <property name="enabled">
         <bool>true</bool>
        </property>
       </widget>

@@ -453,7 +453,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Show the extract audio dialog.
         '''
-        ExtractAudioDialog(self.preferences).exec()
+        ExtractAudioDialog(self.preferences, self.__signal_model).exec()
 
     def showExportFRDDialog(self):
         '''

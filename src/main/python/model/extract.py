@@ -8,9 +8,10 @@ import ffmpeg
 from ffmpeg.nodes import filter_operator, FilterNode
 from qtpy import QtWidgets
 from qtpy.QtMultimedia import QSound
-from qtpy.QtWidgets import QDialog, QFileDialog, QStatusBar, QTreeWidget, QTreeWidgetItem, QDialogButtonBox
+from qtpy.QtWidgets import QDialog, QFileDialog, QStatusBar, QTreeWidget, QTreeWidgetItem, QDialogButtonBox, QMessageBox
 
 from model.preferences import EXTRACTION_OUTPUT_DIR, EXTRACTION_NOTIFICATION_SOUND
+from model.signal import AutoWavLoader
 from ui.extract import Ui_extractAudioDialog
 
 logger = logging.getLogger('extract')
@@ -23,7 +24,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
     Allows user to load a signal, processing it if necessary.
     '''
 
-    def __init__(self, preferences, parent=None):
+    def __init__(self, preferences, signal_model, parent=None):
         if parent is not None:
             super(ExtractAudioDialog, self).__init__(parent)
         else:
@@ -32,16 +33,17 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         self.statusBar = QStatusBar()
         self.gridLayout.addWidget(self.statusBar, 5, 1, 1, 1)
         self.__preferences = preferences
+        self.__signal_model = signal_model
         self.__mono_mix_spec = ''
         self.__probe = None
         self.__audio_stream_data = []
         self.__ffmpegCommand = None
         self.__channel_layout_name = None
         self.__sound = None
+        self.__extracted = False
         defaultOutputDir = self.__preferences.get(EXTRACTION_OUTPUT_DIR)
         if os.path.isdir(defaultOutputDir):
             self.targetDir.setText(defaultOutputDir)
-        self.buttonBox.button(QDialogButtonBox.Ok).setText('Extract')
         self.__reinit_fields()
 
     def selectFile(self):
@@ -73,7 +75,13 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         self.ffmpegOutput.clear()
         self.__mono_mix_spec = ''
         self.__ffmpegCommand = None
+        self.__extracted = False
         self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
+        self.buttonBox.button(QDialogButtonBox.Ok).setText('Extract')
+        self.loadSignals.setEnabled(False)
+        self.signalName.setEnabled(False)
+        self.signalNameLabel.setEnabled(False)
+        self.signalName.setText('')
 
     def __probe_file(self):
         '''
@@ -331,6 +339,40 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         '''
         Executes the ffmpeg command.
         '''
+        if self.__extracted is False:
+            self.__extract()
+        else:
+            if self.__create_signals():
+                QDialog.accept(self)
+
+    def __create_signals(self):
+        '''
+        Creates signals from the output file just created.
+        :return: True if we created the signals.
+        '''
+        loader = AutoWavLoader(self.__preferences)
+        output_file = os.path.join(self.targetDir.text(), self.outputFilename.text())
+        if os.path.exists(output_file):
+            logger.info(f"Creating signals for {output_file}")
+            text = self.signalName.text()
+            signals = loader.auto_load(output_file, text if len(text) > 0 else None)
+            if len(signals) > 0:
+                for s in signals:
+                    logger.info(f"Adding signal {s.name}")
+                    self.__signal_model.add(s)
+                return True
+        else:
+            msg_box = QMessageBox()
+            msg_box.setText(f"Extracted audio file does not exist at: \n\n {output_file}")
+            msg_box.setIcon(QMessageBox.Critical)
+            msg_box.setWindowTitle('Unexpected Error')
+            msg_box.exec()
+        return False
+
+    def __extract(self):
+        '''
+        Executes the ffmpeg command.
+        '''
         if self.__ffmpegCommand is not None:
             from app import wait_cursor
             with wait_cursor(f"Extracting audio from {self.inputFile.text()}"):
@@ -343,6 +385,12 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
                     result = f"Command completed normally in {elapsed}s" + os.linesep + os.linesep
                     result = self.append_out_err(err, out, result)
                     self.ffmpegOutput.setPlainText(result)
+                    self.__extracted = True
+                    self.loadSignals.setEnabled(True)
+                    self.signalName.setEnabled(True)
+                    self.signalNameLabel.setEnabled(True)
+                    self.signalName.setText(Path(self.outputFilename.text()).resolve().stem)
+                    self.buttonBox.button(QDialogButtonBox.Ok).setText('Create Signals')
                 except ffmpeg.Error as e:
                     end = time.time()
                     elapsed = round(end - start, 3)
