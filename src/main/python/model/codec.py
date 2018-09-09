@@ -1,4 +1,7 @@
 import numpy as np
+import logging
+
+logger = logging.getLogger('codec')
 
 
 def signaldata_to_json(signal):
@@ -19,11 +22,39 @@ def signaldata_to_json(signal):
     }
     if signal.filter is not None:
         out['filter'] = signal.filter.to_json()
+    if signal.master is not None:
+        out['master_name'] = signal.master.name
+    if len(signal.slaves) > 0:
+        out['slave_names'] = [s.name for s in signal.slaves]
     if signal.duration_hhmmss is not None:
         out['duration_hhmmss'] = signal.duration_hhmmss
         out['start_hhmmss'] = signal.start_hhmmss
         out['end_hhmmss'] = signal.end_hhmmss
     return out
+
+
+def signalmodel_from_json(input):
+    '''
+    Reassembles all signals from the json including master/slave relationships.
+    :param input: the input, a list of json dicts.
+    :return: the signals
+    '''
+    signals = [signaldata_from_json(x) for x in input]
+    for x in input:
+        if 'slave_names' in x:
+            master_name = x['name']
+            logger.debug(f"Reassembling slaves for {master_name}")
+            master = next((s for s in signals if s.name == master_name), None)
+            if master is not None:
+                for slave_name in x['slave_names']:
+                    slave = next((s for s in signals if s.name == slave_name), None)
+                    if slave is not None:
+                        master.enslave(slave)
+                    else:
+                        logger.error(f"Bad json encountered, slave not decoded ({master_name} -> {slave_name})")
+            else:
+                logger.error(f"Bad json encountered, master {master_name} not decoded")
+    return signals
 
 
 def signaldata_from_json(o):
@@ -98,7 +129,7 @@ def xydata_from_json(o):
     elif o['_type'] == XYData.__name__:
         x_json = o['x']
         x_vals = np.linspace(x_json['min'], x_json['max'], num=x_json['count'], dtype=np.float64)
-        return XYData(o['name'], x_vals, np.array(o['y']), colour=o.get('colour', None),
+        return XYData(o['name'], o['description'], x_vals, np.array(o['y']), colour=o.get('colour', None),
                       linestyle=o.get('linestyle', '-'))
     raise ValueError(f"{o._type} is an unknown data type")
 
@@ -110,7 +141,8 @@ def xydata_to_json(data):
     '''
     return {
         '_type': data.__class__.__name__,
-        'name': data.name,
+        'name': data.internal_name,
+        'description': data.internal_description,
         'x': {
             'count': data.x.size,
             'min': data.x[0],

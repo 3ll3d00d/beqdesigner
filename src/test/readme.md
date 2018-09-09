@@ -23,6 +23,17 @@
   * can select a subset of a wav
   * can show preview
 * Add from TXT
+
+## Linking
+
+* Can link signals on create
+* Can link signals after creation
+* Filter table shows the filter when any linked signal is selected
+* Linked signals all update when the filter changes
+* Linking survives import/export 
+* Signal table shows link status
+* Can remove slave signals from model
+* Can remove master from model
  
 ## Reference
 
@@ -34,6 +45,7 @@
 
 * can choose to show filters
 * can choose to show legend
+* can show peak or avg only or show both
 * can change graph limits
 * can show values by frequency for each line
 

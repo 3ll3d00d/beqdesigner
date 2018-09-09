@@ -30,7 +30,7 @@ class ExportSignalDialog(QDialog, Ui_exportSignalDialog):
         for s in self.__signal_model:
             self.signal.addItem(s.name)
         if len(self.__signal_model) == 0:
-            self.__dialog.buttonBox.button(QDialogButtonBox.Save).setEnabled(False)
+            self.buttonBox.button(QDialogButtonBox.Save).setEnabled(False)
 
     def accept(self):
         idx = self.signal.currentIndex()

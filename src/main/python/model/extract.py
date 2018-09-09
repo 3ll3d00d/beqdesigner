@@ -5,15 +5,79 @@ import time
 from pathlib import Path
 
 import ffmpeg
+import qtawesome as qta
 from ffmpeg.nodes import filter_operator, FilterNode
 from qtpy import QtWidgets
 from qtpy.QtMultimedia import QSound
-from qtpy.QtWidgets import QDialog, QFileDialog, QStatusBar, QTreeWidget, QTreeWidgetItem, QDialogButtonBox
+from qtpy.QtWidgets import QDialog, QFileDialog, QStatusBar, QTreeWidget, QTreeWidgetItem, QDialogButtonBox, QMessageBox
 
 from model.preferences import EXTRACTION_OUTPUT_DIR, EXTRACTION_NOTIFICATION_SOUND
+from model.signal import AutoWavLoader
 from ui.extract import Ui_extractAudioDialog
 
 logger = logging.getLogger('extract')
+
+# copied from https://trac.ffmpeg.org/wiki/AudioChannelManipulation
+
+CHANNEL_LAYOUTS = {
+    'stereo': ['FL', 'FR'],
+    '2.1': ['FL', 'FR', 'LFE'],
+    '3.0': ['FL', 'FR', 'FC'],
+    '3.0(back)': ['FL', 'FR', 'BC'],
+    '4.0': ['FL', 'FR', 'FC', 'BC'],
+    'quad': ['FL', 'FR', 'BL', 'BR'],
+    'quad(side)': ['FL', 'FR', 'SL', 'SR'],
+    '3.1': ['FL', 'FR', 'FC', 'LFE'],
+    '5.0': ['FL', 'FR', 'FC', 'BL', 'BR'],
+    '5.0(side)': ['FL', 'FR', 'FC', 'SL', 'SR'],
+    '4.1': ['FL', 'FR', 'FC', 'LFE', 'BC'],
+    '5.1': ['FL', 'FR', 'FC', 'LFE', 'BL', 'BR'],
+    '5.1(side)': ['FL', 'FR', 'FC', 'LFE', 'SL', 'SR'],
+    '6.0': ['FL', 'FR', 'FC', 'BC', 'SL', 'SR'],
+    '6.0(front)': ['FL', 'FR', 'FLC', 'FRC', 'SL', 'SR'],
+    'hexagonal': ['FL', 'FR', 'FC', 'BL', 'BR', 'BC'],
+    '6.1': ['FL', 'FR', 'FC', 'LFE', 'BC', 'SL', 'SR'],
+    '6.1(back)': ['FL', 'FR', 'FC', 'LFE', 'BL', 'BR', 'BC'],
+    '6.1(front)': ['FL', 'FR', 'LFE', 'FLC', 'FRC', 'SL', 'SR'],
+    '7.0': ['FL', 'FR', 'FC', 'BL', 'BR', 'SL', 'SR'],
+    '7.0(front)': ['FL', 'FR', 'FC', 'FLC', 'FRC', 'SL', 'SR'],
+    '7.1': ['FL', 'FR', 'FC', 'LFE', 'BL', 'BR', 'SL', 'SR'],
+    '7.1(wide)': ['FL', 'FR', 'FC', 'LFE', 'BL', 'BR', 'FLC', 'FRC'],
+    '7.1(wide-side)': ['FL', 'FR', 'FC', 'LFE', 'FLC', 'FRC', 'SL', 'SR'],
+    'octagonal': ['FL', 'FR', 'FC', 'BL', 'BR', 'BC', 'SL', 'SR'],
+    'hexadecagonal': ['FL', 'FR', 'FC', 'BL', 'BR', 'BC', 'SL', 'SR', 'TFL', 'TFC', 'TFR', 'TBL', 'TBC', 'TBR', 'WL',
+                      'WR'],
+    'downmix': ['DL', 'DR']
+}
+
+UNKNOWN_CHANNEL_LAYOUTS = {
+    2: CHANNEL_LAYOUTS['stereo'],
+    3: CHANNEL_LAYOUTS['2.1'],
+    4: CHANNEL_LAYOUTS['3.1'],
+    5: CHANNEL_LAYOUTS['4.1'],
+    6: CHANNEL_LAYOUTS['5.1'],
+    8: CHANNEL_LAYOUTS['7.1']
+}
+
+
+def get_channel_name(text, channel, channel_count, channel_layout_name='unknown'):
+    '''
+    Appends a named channel to the given name.
+    :param text: the prefix.
+    :param channel: the channel idx (0 based)
+    :param channel_count: the channel count.
+    :param channel_layout_name: the channel layout.
+    :return: the named channel.
+    '''
+    if channel_count == 1:
+        return text
+    else:
+        if channel_layout_name == 'unknown' and channel_count in UNKNOWN_CHANNEL_LAYOUTS:
+            return f"{text}_{UNKNOWN_CHANNEL_LAYOUTS[channel_count][channel]}"
+        elif channel_layout_name in CHANNEL_LAYOUTS:
+            return f"{text}_{CHANNEL_LAYOUTS[self.__channel_layout_name][channel]}"
+        else:
+            return f"{text}_c{channel+1}"
 
 
 class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
@@ -23,25 +87,29 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
     Allows user to load a signal, processing it if necessary.
     '''
 
-    def __init__(self, preferences, parent=None):
+    def __init__(self, preferences, signal_model, parent=None):
         if parent is not None:
             super(ExtractAudioDialog, self).__init__(parent)
         else:
             super(ExtractAudioDialog, self).__init__()
         self.setupUi(self)
+        self.showProbeButton.setIcon(qta.icon('fa.info'))
+        self.inputFilePicker.setIcon(qta.icon('fa.folder-open-o'))
+        self.targetDirPicker.setIcon(qta.icon('fa.folder-open-o'))
         self.statusBar = QStatusBar()
         self.gridLayout.addWidget(self.statusBar, 5, 1, 1, 1)
         self.__preferences = preferences
+        self.__signal_model = signal_model
         self.__mono_mix_spec = ''
         self.__probe = None
         self.__audio_stream_data = []
         self.__ffmpegCommand = None
         self.__channel_layout_name = None
         self.__sound = None
+        self.__extracted = False
         defaultOutputDir = self.__preferences.get(EXTRACTION_OUTPUT_DIR)
         if os.path.isdir(defaultOutputDir):
             self.targetDir.setText(defaultOutputDir)
-        self.buttonBox.button(QDialogButtonBox.Ok).setText('Extract')
         self.__reinit_fields()
 
     def selectFile(self):
@@ -73,7 +141,12 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         self.ffmpegOutput.clear()
         self.__mono_mix_spec = ''
         self.__ffmpegCommand = None
+        self.__extracted = False
         self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
+        self.buttonBox.button(QDialogButtonBox.Ok).setText('Extract')
+        self.signalName.setEnabled(False)
+        self.signalNameLabel.setEnabled(False)
+        self.signalName.setText('')
 
     def __probe_file(self):
         '''
@@ -223,6 +296,9 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
                 mono_mix = self.__get_lfe_mono_mix(8, 3)
                 channel_count = 8
                 lfe_idx = 4
+            elif channel_layout == 'hexadecagonal':
+                mono_mix = self.__get_no_lfe_mono_mix(16)
+                channel_count = 16
             channel_layout_name = channel_layout
         else:
             if channel_layout_name is None:
@@ -276,14 +352,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
                     .filter('aresample', '1000', resampler='soxr') \
                     .output(output_file, acodec='pcm_s24le')
         else:
-            stream_idx = f"{self.audioStreams.currentIndex()+1}"
-            selected_stream = self.__audio_stream_data[self.audioStreams.currentIndex()]
-            channel_count = int(selected_stream['channels'])
-            if channel_count > 1:
-                merge_streams = [input_stream[f"{stream_idx}:{x}"] for x in range(1, int(selected_stream['channels']))]
-                filtered_stream = input_stream[f"{stream_idx}:0"].amerge(*merge_streams, inputs=channel_count)
-            else:
-                filtered_stream = input_stream
+            filtered_stream = input_stream[f"{self.audioStreams.currentIndex()+1}"]
             self.__ffmpegCommand = \
                 filtered_stream.filter('aresample', '1000', resampler='soxr').output(output_file, acodec='pcm_s24le')
         command_args = self.__ffmpegCommand.compile(overwrite_output=True)
@@ -331,6 +400,42 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         '''
         Executes the ffmpeg command.
         '''
+        if self.__extracted is False:
+            self.__extract()
+        else:
+            if self.__create_signals():
+                QDialog.accept(self)
+
+    def __create_signals(self):
+        '''
+        Creates signals from the output file just created.
+        :return: True if we created the signals.
+        '''
+        loader = AutoWavLoader(self.__preferences)
+        output_file = os.path.join(self.targetDir.text(), self.outputFilename.text())
+        if os.path.exists(output_file):
+            logger.info(f"Creating signals for {output_file}")
+            name_provider = lambda channel, channel_count: get_channel_name(self.signalName.text(), channel,
+                                                                            channel_count,
+                                                                            channel_layout_name=self.__channel_layout_name)
+            signals = loader.auto_load(output_file, name_provider)
+            if len(signals) > 0:
+                for s in signals:
+                    logger.info(f"Adding signal {s.name}")
+                    self.__signal_model.add(s)
+                return True
+        else:
+            msg_box = QMessageBox()
+            msg_box.setText(f"Extracted audio file does not exist at: \n\n {output_file}")
+            msg_box.setIcon(QMessageBox.Critical)
+            msg_box.setWindowTitle('Unexpected Error')
+            msg_box.exec()
+        return False
+
+    def __extract(self):
+        '''
+        Executes the ffmpeg command.
+        '''
         if self.__ffmpegCommand is not None:
             from app import wait_cursor
             with wait_cursor(f"Extracting audio from {self.inputFile.text()}"):
@@ -343,6 +448,11 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
                     result = f"Command completed normally in {elapsed}s" + os.linesep + os.linesep
                     result = self.append_out_err(err, out, result)
                     self.ffmpegOutput.setPlainText(result)
+                    self.__extracted = True
+                    self.signalName.setEnabled(True)
+                    self.signalNameLabel.setEnabled(True)
+                    self.signalName.setText(Path(self.outputFilename.text()).resolve().stem)
+                    self.buttonBox.button(QDialogButtonBox.Ok).setText('Create Signals')
                 except ffmpeg.Error as e:
                     end = time.time()
                     elapsed = round(end - start, 3)

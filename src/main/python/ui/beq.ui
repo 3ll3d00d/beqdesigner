@@ -76,6 +76,9 @@
           <property name="shortcut">
            <string>Ctrl+Shift+=</string>
           </property>
+          <property name="flat">
+           <bool>false</bool>
+          </property>
          </widget>
         </item>
         <item row="3" column="0" colspan="3">
@@ -228,14 +231,30 @@
          </widget>
         </item>
         <item row="1" column="1">
-         <widget class="QPushButton" name="editSignalButton">
+         <widget class="QPushButton" name="linkSignalButton">
           <property name="enabled">
            <bool>false</bool>
           </property>
           <property name="text">
-           <string>Edit</string>
+           <string>Link</string>
+          </property>
+          <property name="shortcut">
+           <string>Ctrl+Shift+L</string>
           </property>
          </widget>
+        </item>
+        <item row="7" column="0">
+         <widget class="QLabel" name="showSignalsLabel">
+          <property name="text">
+           <string>Show Signals?</string>
+          </property>
+         </widget>
+        </item>
+        <item row="7" column="1">
+         <widget class="QComboBox" name="showSignals"/>
+        </item>
+        <item row="7" column="2">
+         <widget class="QComboBox" name="showFilteredSignals"/>
         </item>
        </layout>
       </item>
@@ -387,6 +406,12 @@
    </property>
   </action>
   <action name="actionLoad_Filter">
+   <property name="checkable">
+    <bool>false</bool>
+   </property>
+   <property name="enabled">
+    <bool>true</bool>
+   </property>
    <property name="text">
     <string>Load Filte&amp;r</string>
    </property>
@@ -461,6 +486,11 @@
     <string>Loa&amp;d Signal</string>
    </property>
   </action>
+  <action name="actionClear_Project">
+   <property name="text">
+    <string>Clear Project</string>
+   </property>
+  </action>
  </widget>
  <customwidgets>
   <customwidget>
@@ -479,7 +509,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>1245</x>
-     <y>552</y>
+     <y>535</y>
     </hint>
     <hint type="destinationlabel">
      <x>1381</x>
@@ -495,7 +525,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>1495</x>
-     <y>552</y>
+     <y>535</y>
     </hint>
     <hint type="destinationlabel">
      <x>1462</x>
@@ -511,7 +541,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>1370</x>
-     <y>552</y>
+     <y>535</y>
     </hint>
     <hint type="destinationlabel">
      <x>1302</x>
@@ -695,6 +725,54 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>showSignals</sender>
+   <signal>currentTextChanged(QString)</signal>
+   <receiver>MainWindow</receiver>
+   <slot>changeSignalVisibility()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1365</x>
+     <y>860</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1491</x>
+     <y>863</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>showFilteredSignals</sender>
+   <signal>currentTextChanged(QString)</signal>
+   <receiver>MainWindow</receiver>
+   <slot>changeSignalFilterVisibility()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1470</x>
+     <y>871</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1474</x>
+     <y>919</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>linkSignalButton</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>linkSignals()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1316</x>
+     <y>92</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1153</x>
+     <y>749</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>addFilter()</slot>
@@ -715,5 +793,8 @@
   <slot>applyPreset1()</slot>
   <slot>applyPreset2()</slot>
   <slot>applyPreset3()</slot>
+  <slot>changeSignalVisibility()</slot>
+  <slot>changeSignalFilterVisibility()</slot>
+  <slot>linkSignals()</slot>
  </slots>
 </ui>

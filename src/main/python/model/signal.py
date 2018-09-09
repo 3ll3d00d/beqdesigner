@@ -1,12 +1,14 @@
 import datetime
 import logging
 import math
+import re
 import time
 import typing
 from collections import Sequence
 from pathlib import Path
 
 import numpy as np
+import qtawesome as qta
 import resampy
 from qtpy import QtCore
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt
@@ -16,6 +18,9 @@ from scipy import signal
 from model.codec import signaldata_to_json
 from model.iir import XYData, CompleteFilter
 from model.magnitude import MagnitudeModel
+from model.preferences import AVG_COLOURS, PEAK_COLOURS, get_avg_colour, get_peak_colour, SHOW_PEAK, \
+    SHOW_AVERAGE, SHOW_FILTERED_ONLY, SHOW_UNFILTERED_ONLY, DISPLAY_SHOW_SIGNALS, \
+    DISPLAY_SHOW_FILTERED_SIGNALS
 from ui.signal import Ui_addSignalDialog
 
 logger = logging.getLogger('signal')
@@ -23,46 +28,39 @@ logger = logging.getLogger('signal')
 """ speclab reports a peak of 0dB but, by default, we report a peak of -3dB """
 SPECLAB_REFERENCE = 1 / (2 ** 0.5)
 
-WINDOWS = ['barthann', 'bartlett', 'blackman', 'blackmanharris', 'bohman', 'boxcar', 'cosine', 'flattop', 'hamming',
-           'hann', 'nuttall', 'parzen', 'triang', 'tukey']
-
-# keep peak green and avg red
-AVG_COLOURS = [
-    '#ff0000',
-    '#990000',
-    '#ff6666',
-    '#ff9999',
-    '#660000',
-    '#4c0000',
-]
-
-PEAK_COLOURS = [
-    '#00ff00',
-    '#009900',
-    '#99ff99',
-    '#ccffcc',
-    '#006600',
-    '#004c00',
-]
-
 
 class SignalData:
     '''
     Provides a mechanism for caching the assorted xy data surrounding a signal.
     '''
 
-    def __init__(self, name, fs, xy_data, filter=None, duration_hhmmss=None, start_hhmmss=None, end_hhmmss=None):
+    def __init__(self, name, fs, xy_data, filter, duration_hhmmss=None, start_hhmmss=None, end_hhmmss=None):
         self.__filter = None
-        self.name = name
+        self.__name = name
         self.fs = fs
         self.duration_hhmmss = duration_hhmmss
         self.start_hhmmss = start_hhmmss
         self.end_hhmmss = end_hhmmss
         self.raw = xy_data
+        self.slaves = []
+        self.master = None
         self.filtered = []
         self.reference_name = None
         self.reference = []
         self.filter = filter
+
+    @property
+    def name(self):
+        return self.__name
+
+    @name.setter
+    def name(self, name):
+        self.__name = name
+        self.raw[0].internal_name = name
+        self.raw[1].internal_name = name
+        if len(self.filtered) == 2:
+            self.filtered[0].internal_name = name
+            self.filtered[1].internal_name = name
 
     @property
     def filter(self):
@@ -70,30 +68,51 @@ class SignalData:
 
     @filter.setter
     def filter(self, filt):
-        if filt is None:
-            self.__filter = None
-            self.filtered = []
-            for r in self.raw:
-                r.linestyle = '-'
-        elif isinstance(filt, CompleteFilter):
-            self.__filter = filt.resample(self.fs)
-            # TODO detect if the filter has changed and only recalc if it has
-            filter_mag = self.__filter.getTransferFunction().getMagnitude()
-            self.filtered = [f.filter(filter_mag) for f in self.raw]
-            for r in self.raw:
-                r.linestyle = '--'
-        else:
-            raise ValueError(f"Unsupported filter type {filt}")
+        self.__filter = filt
+        self.__filter.listener = self
+        self.on_filter_change(filt)
+        for s in self.slaves:
+            s.on_filter_change(filt)
 
     def __repr__(self) -> str:
         return f"SignalData {self.name}-{self.fs}"
 
     def reindex(self, idx):
-        self.raw[0].colour = AVG_COLOURS[idx]
-        self.raw[1].colour = PEAK_COLOURS[idx]
+        self.raw[0].colour = get_avg_colour(idx)
+        self.raw[1].colour = get_peak_colour(idx)
         if len(self.filtered) == 2:
-            self.filtered[0].colour = AVG_COLOURS[idx]
-            self.filtered[1].colour = PEAK_COLOURS[idx]
+            self.filtered[0].colour = get_avg_colour(idx)
+            self.filtered[1].colour = get_peak_colour(idx)
+
+    def enslave(self, signal):
+        '''
+        Allows a signal to be linked to this one so they share the same filter.
+        :param signal the signal.
+        '''
+        logger.info(f"Enslaving {signal} to {self}")
+        self.slaves.append(signal)
+        signal.master = self
+        signal.on_filter_change(self.__filter)
+
+    def free_all(self):
+        '''
+        Frees all slaves.
+        '''
+        for s in self.slaves:
+            logger.debug(f"Freeing {s} from {self}")
+            s.master = None
+            s.filter = CompleteFilter()
+        self.slaves = []
+
+    def free(self):
+        '''
+        if this is a slave, frees itself from the master.
+        '''
+        if self.master is not None:
+            logger.debug(f"Freeing {self.name} from {self.master.name}")
+            self.master.slaves.remove(self)
+            self.master = None
+            self.filter = CompleteFilter()
 
     def on_reference_change(self):
         pass
@@ -104,18 +123,36 @@ class SignalData:
         '''
         return self.raw + self.filtered
 
+    def on_filter_change(self, filt):
+        '''
+        Updates the cached filtered response when the filter changes.
+        :param filt: the filter.
+        '''
+        if filt is None:
+            self.filtered = []
+            for r in self.raw:
+                r.linestyle = '-'
+        elif isinstance(filt, CompleteFilter):
+            # TODO detect if the filter has changed and only recalc if it has
+            filter_mag = filt.getTransferFunction().getMagnitude()
+            self.filtered = [f.filter(filter_mag) for f in self.raw]
+            for r in self.raw:
+                r.linestyle = '--'
+        else:
+            raise ValueError(f"Unsupported filter type {filt}")
+
 
 class SignalModel(Sequence):
     '''
     A model to hold onto the signals.
     '''
 
-    def __init__(self, view, filterModel, on_update=lambda _: True):
+    def __init__(self, view, default_signal, preferences, on_update=lambda _: True):
         self.__signals = []
+        self.default_signal = default_signal
         self.__view = view
         self.__on_update = on_update
-        self.__filterModel = filterModel
-        self.__filterModel.register(self)
+        self.__preferences = preferences
         self.__table = None
 
     @property
@@ -125,7 +162,6 @@ class SignalModel(Sequence):
     @table.setter
     def table(self, table):
         self.__table = table
-        self.__table.resizeColumns(self.__view)
 
     def __getitem__(self, i):
         return self.__signals[i]
@@ -139,66 +175,81 @@ class SignalModel(Sequence):
         '''
         return [signaldata_to_json(x) for x in self.__signals]
 
-    def __decorate_edit(self, func):
-        def wrapper(*args, **kwargs):
-            if self.__table is not None:
-                self.__table.beginResetModel()
-            func(*args, **kwargs)
-            self.post_update()
-            if self.__table is not None:
-                self.__table.endResetModel()
-
-        wrapper()
-
     def add(self, signal):
         '''
         Add the supplied signals ot the model.
         :param signals: the signal.
         '''
-
-        def do_add():
-            if signal.filter is None:
-                signal.filter = self.__filterModel.resample(fs=signal.fs)
-            signal.reindex(len(self.__signals))
-            self.__signals.append(signal)
-
-        self.__decorate_edit(do_add)
+        before_size = len(self.__signals)
+        if self.__table is not None:
+            self.__table.beginInsertRows(QModelIndex(), before_size, before_size)
+        signal.reindex(before_size)
+        self.__signals.append(signal)
+        self.post_update()
+        if self.__table is not None:
+            self.__table.endInsertRows()
 
     def post_update(self):
         from app import flatten
-        self.__on_update([x.name for x in flatten([y for x in self.__signals for y in x.get_all_xy()])])
-        self.__table.resizeColumns(self.__view)
+        show_signals = self.__preferences.get(DISPLAY_SHOW_SIGNALS)
+        show_filtered_signals = self.__preferences.get(DISPLAY_SHOW_FILTERED_SIGNALS)
+        pattern = self.__get_visible_signal_name_filter(show_filtered_signals, show_signals)
+        visible_signal_names = [x.name for x in flatten([y for x in self.__signals for y in x.get_all_xy()])]
+        if pattern is not None:
+            visible_signal_names = [x for x in visible_signal_names if pattern.match(x) is not None]
+        self.__on_update(visible_signal_names)
+
+    def __get_visible_signal_name_filter(self, show_filtered_signals, show_signals):
+        '''
+        Creates a regex that will filter the signal names according to the avg/peak patterns.
+        :param show_filtered_signals: which filtered signals to show.
+        :param show_signals: which signals to show.
+        :return: the pattern (if any)
+        '''
+        pattern = None
+        if show_signals == SHOW_AVERAGE:
+            if show_filtered_signals == SHOW_FILTERED_ONLY:
+                pattern = re.compile(".*_avg-filtered$")
+            elif show_filtered_signals == SHOW_UNFILTERED_ONLY:
+                pattern = re.compile(".*_avg$")
+            else:
+                pattern = re.compile(".*_avg(-filtered)?$")
+        elif show_signals == SHOW_PEAK:
+            if show_filtered_signals == SHOW_FILTERED_ONLY:
+                pattern = re.compile(".*_peak-filtered$")
+            elif show_filtered_signals == SHOW_UNFILTERED_ONLY:
+                pattern = re.compile(".*_peak$")
+            else:
+                pattern = re.compile(".*_peak(-filtered)?$")
+        else:
+            if show_filtered_signals == SHOW_FILTERED_ONLY:
+                pattern = re.compile(".*_(avg|peak)-filtered$")
+            elif show_filtered_signals == SHOW_UNFILTERED_ONLY:
+                pattern = re.compile(".*_(avg|peak)")
+        return pattern
 
     def remove(self, signal):
         '''
         Remove the specified signal from the model.
         :param signal: the signal to remove.
         '''
-
-        def do_remove():
-            self.__signals.remove(signal)
-            for idx, s in enumerate(self.__signals):
-                s.reindex(idx)
-
-        self.__decorate_edit(do_remove)
+        idx = self.__signals.index(signal)
+        if self.__table is not None:
+            self.__table.beginRemoveRows(QModelIndex(), idx, idx)
+        del self.__signals[idx]
+        for idx, s in enumerate(self.__signals):
+            s.reindex(idx)
+        self.__ensure_master_slave_integrity()
+        self.post_update()
+        if self.__table is not None:
+            self.__table.endRemoveRows()
 
     def delete(self, indices):
         '''
         Delete the signals at the given indices.
         :param indices: the indices to remove.
         '''
-
-        def do_delete():
-            self.__signals = [s for idx, s in enumerate(self.__signals) if idx not in indices]
-
-        self.__decorate_edit(do_delete)
-
-    def onFilterChange(self):
-        '''
-        Updates the cached data when the filter changes.
-        '''
-        for s in self.__signals:
-            s.filter = self.__filterModel.filter
+        self.replace([s for idx, s in enumerate(self.__signals) if idx not in indices])
 
     def getMagnitudeData(self, reference=None):
         '''
@@ -207,6 +258,11 @@ class SignalModel(Sequence):
         '''
         from app import flatten
         results = list(flatten([s.get_all_xy() for s in self.__signals]))
+        show_signals = self.__preferences.get(DISPLAY_SHOW_SIGNALS)
+        show_filtered_signals = self.__preferences.get(DISPLAY_SHOW_FILTERED_SIGNALS)
+        pattern = self.__get_visible_signal_name_filter(show_filtered_signals, show_signals)
+        if pattern is not None:
+            results = [x for x in results if pattern.match(x.name) is not None]
         if reference is not None:
             ref_data = next((x for x in results if x.name == reference), None)
             if ref_data:
@@ -218,13 +274,39 @@ class SignalModel(Sequence):
         Replaces the contents of the model with the supplied signals
         :param signals: the signals
         '''
+        if self.__table is not None:
+            self.__table.beginResetModel()
+        self.__signals = signals
+        for idx, s in enumerate(self.__signals):
+            s.reindex(idx)
+        self.__ensure_master_slave_integrity()
+        self.post_update()
+        if self.__table is not None:
+            self.__table.endResetModel()
 
-        def do_replace():
-            self.__signals = signals
-            for idx, s in enumerate(self.__signals):
-                s.reindex(idx)
+    def __ensure_master_slave_integrity(self):
+        '''
+        Verifies that all master/slaves mentioned by signals actually exist in the model. Used when signals are deleted.
+        '''
+        for s in self.__signals:
+            slave_count_before = len(s.slaves)
+            if slave_count_before > 0:
+                s.slaves = [slave for slave in s.slaves if slave in self.__signals]
+                delta = slave_count_before - len(s.slaves)
+                if delta > 0:
+                    logger.info(f"Removed {delta} missing slaves from {s.name}")
+            if s.master is not None:
+                master = next((m for m in self.__signals if m.name == s.master.name), None)
+                if master is None:
+                    logger.info(f"Removing missing master {s.master.name} from {s.name}")
+                    s.free()
 
-        self.__decorate_edit(do_replace)
+    def find_by_name(self, name):
+        '''
+        :param name: the signal name.
+        :return: the signal with that name (or None).
+        '''
+        return next((s for s in self if s.name == name), None)
 
 
 class Signal:
@@ -430,8 +512,8 @@ class Signal:
         '''
         self.__avg = self.spectrum(segmentLengthMultiplier=multiplier, window=avg_window)
         self.__peak = self.peakSpectrum(segmentLengthMultiplier=multiplier, window=peak_window)
-        self.__cached = [XYData(f"{self.name}_avg", self.__avg[0], self.__avg[1]),
-                         XYData(f"{self.name}_peak", self.__peak[0], self.__peak[1])]
+        self.__cached = [XYData(self.name, 'avg', self.__avg[0], self.__avg[1]),
+                         XYData(self.name, 'peak', self.__peak[0], self.__peak[1])]
 
 
 def amplitude_to_db(s, ref=1.0):
@@ -459,15 +541,28 @@ class SignalTableModel(QAbstractTableModel):
 
     def __init__(self, model, parent=None):
         super().__init__(parent=parent)
-        self.__headers = ['Name', 'Fs', 'Duration', 'Start', 'End']
-        self.__signalModel = model
-        self.__signalModel.table = self
+        self.__headers = ['Name', 'Linked', 'Fs', 'Duration', 'Start', 'End']
+        self.__signal_model = model
+        self.__signal_model.table = self
 
     def rowCount(self, parent: QModelIndex = ...):
-        return len(self.__signalModel)
+        return len(self.__signal_model)
 
     def columnCount(self, parent: QModelIndex = ...):
         return len(self.__headers)
+
+    def flags(self, idx):
+        flags = super().flags(idx)
+        if idx.column() == 0:
+            flags |= Qt.ItemIsEditable
+        return flags
+
+    def setData(self, idx, value, role=None):
+        if idx.column() == 0:
+            self.__signal_model[idx.row()].name = value
+            self.dataChanged.emit(idx, idx, [])
+            return True
+        return super().setData(idx, value, role=role)
 
     def data(self, index: QModelIndex, role: int = ...) -> typing.Any:
         if not index.isValid():
@@ -475,16 +570,23 @@ class SignalTableModel(QAbstractTableModel):
         elif role != Qt.DisplayRole:
             return QVariant()
         else:
-            signal_at_row = self.__signalModel[index.row()]
+            signal_at_row = self.__signal_model[index.row()]
             if index.column() == 0:
                 return QVariant(signal_at_row.name)
-            elif index.column() == 1:
-                return QVariant(signal_at_row.fs)
+            if index.column() == 1:
+                if signal_at_row.master is not None:
+                    return QVariant(f"S - {signal_at_row.master.name}")
+                elif len(signal_at_row.slaves) > 0:
+                    return QVariant('M')
+                else:
+                    return QVariant('')
             elif index.column() == 2:
-                return QVariant(signal_at_row.duration_hhmmss)
+                return QVariant(signal_at_row.fs)
             elif index.column() == 3:
-                return QVariant(signal_at_row.start_hhmmss)
+                return QVariant(signal_at_row.duration_hhmmss)
             elif index.column() == 4:
+                return QVariant(signal_at_row.start_hhmmss)
+            elif index.column() == 5:
                 return QVariant(signal_at_row.end_hhmmss)
             else:
                 return QVariant()
@@ -493,10 +595,6 @@ class SignalTableModel(QAbstractTableModel):
         if orientation == Qt.Horizontal and role == Qt.DisplayRole:
             return QVariant(self.__headers[section])
         return QVariant()
-
-    def resizeColumns(self, view):
-        for x in range(0, len(self.__headers)):
-            view.resizeColumnToContents(x)
 
 
 def _select_file(owner, file_type):
@@ -514,7 +612,106 @@ def _select_file(owner, file_type):
     return None
 
 
-class WavLoader:
+class AutoWavLoader:
+    '''
+    Loads signals from wav files without user interaction
+    '''
+
+    def __init__(self, preferences):
+        self.__signal = None
+        self.__preferences = preferences
+        self.info = None
+
+    def reset(self):
+        '''
+        Clears internal state.
+        '''
+        self.__signal = None
+        self.info = None
+
+    def auto_load(self, file, name_provider):
+        '''
+        Loads the file and automatically creates a signal for each channel found.
+        :param file: the file to load.
+        :param name_provider: a callable that yields a signal name for the given channel.
+        :return: the signals.
+        '''
+        self.load(file)
+        return [self.__auto_load(x + 1, name_provider(x, self.info.channels)) for x in range(0, self.info.channels)]
+
+    def load(self, file):
+        '''
+        Gets info about the file.
+        :param file: the file.
+        :param auto: if true, just load the signal using default values.
+        :return: if auto is True, a signal for each channel.
+        '''
+        self.reset()
+        import soundfile as sf
+        self.info = sf.info(file)
+
+    def __auto_load(self, channel, name):
+        self.prepare(name=name, channel=channel)
+        return self.get_signal()
+
+    def prepare(self, name=None, channel_count=1, channel=1, start=None, end=None):
+        '''
+        Loads and analyses the wav with the specified parameters.
+        :param name: the signal name, if none use the file name + channel.
+        :param channel: the channel
+        :param channel_count: the channel count, only used for creating a default name.
+        :param start: start position, if any.
+        :param end: end position, if any.
+        '''
+        # defer to avoid circular imports
+        from model.preferences import ANALYSIS_TARGET_FS, ANALYSIS_RESOLUTION, ANALYSIS_PEAK_WINDOW, \
+            ANALYSIS_AVG_WINDOW
+        if name is None:
+            name = Path(self.info.name).resolve().stem
+            if channel_count > 1:
+                name += f"_c{channel}"
+        self.__signal = readWav(name, self.info.name, channel=channel, start=start, end=end,
+                                target_fs=self.__preferences.get(ANALYSIS_TARGET_FS))
+        multiplier = int(1 / float(self.__preferences.get(ANALYSIS_RESOLUTION)))
+        peak_wnd = self.__get_window(ANALYSIS_PEAK_WINDOW)
+        avg_wnd = self.__get_window(ANALYSIS_AVG_WINDOW)
+        logger.debug(
+            f"Analysing {self.info.name} at {multiplier}x resolution using {peak_wnd}/{avg_wnd} peak/avg windows")
+        self.__signal.calculate(multiplier, avg_wnd, peak_wnd)
+
+    def __get_window(self, key):
+        from model.preferences import ANALYSIS_WINDOW_DEFAULT
+        window = self.__preferences.get(key)
+        if window is None or window == ANALYSIS_WINDOW_DEFAULT:
+            window = None
+        else:
+            if window == 'tukey':
+                window = (window, 0.25)
+        return window
+
+    def get_signal(self):
+        '''
+        Converts the loaded signal into a SignalData.
+        :return: the signal data.
+        '''
+        return SignalData(self.__signal.name, self.__signal.fs, self.__signal.getXY(), CompleteFilter(),
+                          duration_hhmmss=self.__signal.duration_hhmmss, start_hhmmss=self.__signal.start_hhmmss,
+                          end_hhmmss=self.__signal.end_hhmmss)
+
+    def get_magnitude_data(self):
+        '''
+        :return: magnitude data for this signal, if we have one.
+        '''
+        return self.__signal.getXY() if self.has_signal() else []
+
+    def has_signal(self):
+        '''
+        :return: True if we have a signal.
+        '''
+        return self.__signal is not None
+
+
+class DialogWavLoaderBridge:
     '''
     Loads signals from wav files.
     '''
@@ -522,35 +719,29 @@ class WavLoader:
     def __init__(self, dialog, preferences):
         self.__preferences = preferences
         self.__dialog = dialog
-        self.__signal = None
-        self.__peak = None
-        self.__avg = None
+        self.__auto_loader = AutoWavLoader(preferences)
         self.__duration = 0
 
     def select_wav_file(self):
         file = _select_file(self.__dialog, 'wav')
         if file is not None:
+            self.clear_signal()
             self.__dialog.wavFile.setText(file)
-            self.load_signal()
+            self.__auto_loader.load(file)
+            self.__load_info()
 
     def clear_signal(self):
-        self.__signal = None
-        self.__peak = None
-        self.__avg = None
+        self.__auto_loader.reset()
         self.__duration = 0
         self.__dialog.wavStartTime.setEnabled(False)
         self.__dialog.wavEndTime.setEnabled(False)
         self.__dialog.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
 
-    def load_signal(self):
+    def __load_info(self):
         '''
         Loads metadata about the signal from the file and propagates it to the form fields.
-        :param file: the file.
         '''
-        if self.__signal is not None:
-            self.clear_signal()
-        import soundfile as sf
-        info = sf.info(self.__dialog.wavFile.text())
+        info = self.__auto_loader.info
         self.__dialog.wavFs.setText(f"{info.samplerate} Hz")
         self.__dialog.wavChannelSelector.clear()
         for i in range(0, info.channels):
@@ -574,18 +765,8 @@ class WavLoader:
         end_millis = self.__dialog.wavEndTime.time().msecsSinceStartOfDay()
         if end_millis < self.__duration:
             end = end_millis
-        # defer to avoid circular imports
-        from model.preferences import ANALYSIS_TARGET_FS, ANALYSIS_RESOLUTION, ANALYSIS_PEAK_WINDOW, \
-            ANALYSIS_AVG_WINDOW
-        self.__signal = readWav(self.__dialog.wavSignalName.text(), self.__dialog.wavFile.text(),
-                                channel=int(self.__dialog.wavChannelSelector.currentText()), start=start, end=end,
-                                target_fs=self.__preferences.get(ANALYSIS_TARGET_FS))
-        multiplier = int(1 / float(self.__preferences.get(ANALYSIS_RESOLUTION)))
-        peak_window = self.__get_window(ANALYSIS_PEAK_WINDOW)
-        avg_window = self.__get_window(ANALYSIS_AVG_WINDOW)
-        logger.debug(f"Analysing {self.__dialog.wavSignalName.text()} at {multiplier}x resolution "
-                     f"using {peak_window} peak window and {avg_window} avg window")
-        self.__signal.calculate(multiplier, avg_window, peak_window)
+        channel = int(self.__dialog.wavChannelSelector.currentText())
+        self.__auto_loader.prepare(name=self.__dialog.wavSignalName.text(), channel=channel, start=start, end=end)
         self.__dialog.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
 
     def __get_window(self, key):
@@ -599,30 +780,30 @@ class WavLoader:
         return window
 
     def get_magnitude_data(self):
-        if self.__signal is not None:
-            return self.__signal.getXY()
-        else:
-            return []
+        return self.__auto_loader.get_magnitude_data()
 
     def can_save(self):
         '''
         :return: true if we can save a new signal.
         '''
-        return self.__signal is not None
+        return self.__auto_loader.has_signal()
 
     def enable_ok(self):
         enabled = len(self.__dialog.wavSignalName.text()) > 0 and self.can_save()
         self.__dialog.buttonBox.button(QDialogButtonBox.Ok).setEnabled(enabled)
 
-    def get_signal(self):
+    def get_signals(self):
         '''
         Converts the loaded signal into a SignalData.
         :return: the signal data.
         '''
-        return SignalData(self.__signal.name, self.__signal.fs, self.__signal.getXY(),
-                          duration_hhmmss=self.__signal.duration_hhmmss,
-                          start_hhmmss=self.__signal.start_hhmmss,
-                          end_hhmmss=self.__signal.end_hhmmss)
+        if self.__dialog.loadAllChannels.isChecked():
+            from model.extract import get_channel_name
+            name_provider = lambda channel, channel_count: get_channel_name(self.__dialog.wavSignalName.text(), channel,
+                                                                            channel_count)
+            return self.__auto_loader.auto_load(self.__dialog.wavFile.text(), name_provider)
+        else:
+            return [self.__auto_loader.get_signal()]
 
 
 class FrdLoader:
@@ -658,7 +839,7 @@ class FrdLoader:
                 signal_name = signal_name[:-12]
             elif signal_name.endswith('_peak'):
                 signal_name = signal_name[:-5]
-            self.__peak = XYData(f"{signal_name}_peak", f, m, colour=PEAK_COLOURS[0])
+            self.__peak = XYData(signal_name, 'peak', f, m, colour=PEAK_COLOURS[0])
             self.__dialog.frdSignalName.setText(signal_name)
             self.__dialog.frdPeakFile.setText(name)
             self.__enable_fields()
@@ -674,7 +855,7 @@ class FrdLoader:
                 signal_name = signal_name[:-11]
             elif signal_name.endswith('_avg'):
                 signal_name = signal_name[:-4]
-            self.__avg = XYData(f"{signal_name}_avg", f, m, colour=AVG_COLOURS[0])
+            self.__avg = XYData(signal_name, 'avg', f, m, colour=AVG_COLOURS[0])
             self.__dialog.frdSignalName.setText(signal_name)
             self.__dialog.frdAvgFile.setText(name)
             self.__enable_fields()
@@ -710,11 +891,11 @@ class FrdLoader:
     def can_save(self):
         return self.__avg is not None and self.__peak is not None
 
-    def get_signal(self):
+    def get_signals(self):
         name = self.__dialog.frdSignalName.text()
         self.__avg.name = f"{self.__dialog.frdSignalName.text()}_avg"
         self.__peak.name = f"{self.__dialog.frdSignalName.text()}_peak"
-        return SignalData(name, self.__dialog.frdFs.value(), self.get_magnitude_data())
+        return [SignalData(name, self.__dialog.frdFs.value(), self.get_magnitude_data(), CompleteFilter())]
 
 
 class SignalDialog(QDialog, Ui_addSignalDialog):
@@ -722,13 +903,21 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
     Alows user to extract a signal from a wav or frd.
     '''
 
-    def __init__(self, preferences, signalModel, parent=None):
+    def __init__(self, preferences, signal_model, parent=None):
         super(SignalDialog, self).__init__(parent=parent)
         self.setupUi(self)
-        self.__loaders = [WavLoader(self, preferences), FrdLoader(self)]
+        self.wavFilePicker.setIcon(qta.icon('fa.folder-open-o'))
+        self.frdAvgFilePicker.setIcon(qta.icon('fa.folder-open-o'))
+        self.frdPeakFilePicker.setIcon(qta.icon('fa.folder-open-o'))
+        self.__loaders = [DialogWavLoaderBridge(self, preferences), FrdLoader(self)]
         self.__loader_idx = self.signalTypeTabs.currentIndex()
-        self.__signalModel = signalModel
+        self.__signal_model = signal_model
         self.__magnitudeModel = MagnitudeModel('preview', self.previewChart, self, 'Signal')
+        for s in self.__signal_model:
+            self.filterSelect.addItem(s.name)
+        if len(self.__signal_model) == 0:
+            self.filterSelect.setEnabled(False)
+            self.linkedSignal.setEnabled(False)
         self.clearSignal(draw=False)
 
     def changeLoader(self, idx):
@@ -790,6 +979,13 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
         '''
         return self.__loaders[self.__loader_idx].get_magnitude_data()
 
+    def masterFilterChanged(self, idx):
+        '''
+        enables the linked signal checkbox if we have selected a filter.
+        :param idx: the selected index.
+        '''
+        self.linkedSignal.setEnabled(idx > 0)
+
     def accept(self):
         '''
         Adds the signal to the model and exits if we have a signal (which we should because the button is disabled
@@ -797,7 +993,17 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
         '''
         loader = self.__loaders[self.__loader_idx]
         if loader.can_save():
-            self.__signalModel.add(loader.get_signal())
+            signals = loader.get_signals()
+            selected_filter_idx = self.filterSelect.currentIndex()
+            if selected_filter_idx > 0:
+                master = self.__signal_model[selected_filter_idx - 1]
+                for s in signals:
+                    if self.linkedSignal.isChecked():
+                        master.enslave(s)
+                    else:
+                        s.filter = master.filter.resample(s.fs)
+            for s in signals:
+                self.__signal_model.add(s)
             QDialog.accept(self)
 
 
@@ -815,10 +1021,10 @@ def readWav(name, input_file, channel=1, start=None, end=None, target_fs=1000) -
         info = sf.info(input_file)
         startFrame = 0 if start is None else int(start * (info.samplerate / 1000))
         endFrame = None if end is None else int(start * (info.samplerate / 1000))
-        ys, frameRate = sf.read(input_file, start=startFrame, stop=endFrame)
+        ys, frameRate = sf.read(input_file, start=startFrame, stop=endFrame, always_2d=True)
     else:
-        ys, frameRate = sf.read(input_file)
-    signal = Signal(name, ys[::channel], frameRate)
+        ys, frameRate = sf.read(input_file, always_2d=True)
+    signal = Signal(name, ys[:, channel - 1], frameRate)
     if target_fs is None or target_fs == 0:
         target_fs = signal.fs
     return signal.resample(target_fs)

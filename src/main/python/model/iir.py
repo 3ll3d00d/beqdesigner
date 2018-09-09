@@ -2,6 +2,7 @@
 import logging
 import math
 from abc import ABC, abstractmethod
+from collections import Sequence
 from enum import Enum
 from functools import reduce
 
@@ -153,10 +154,7 @@ class PeakingEQ(BiquadWithGain):
         :param new_fs: the new fs.
         :return: the new filter.
         '''
-        if self.fs != new_fs:
-            return PeakingEQ(new_fs, self.freq, self.q, self.gain)
-        else:
-            return self
+        return PeakingEQ(new_fs, self.freq, self.q, self.gain)
 
     def to_json(self):
         return {
@@ -293,10 +291,7 @@ class LowShelf(Shelf):
         :param new_fs: the new fs.
         :return: the new filter.
         '''
-        if self.fs != new_fs:
-            return LowShelf(new_fs, self.freq, self.q, self.gain, self.count)
-        else:
-            return self
+        return LowShelf(new_fs, self.freq, self.q, self.gain, self.count)
 
 
 class HighShelf(Shelf):
@@ -348,10 +343,7 @@ class HighShelf(Shelf):
         :param new_fs: the new fs.
         :return: the new filter.
         '''
-        if self.fs != new_fs:
-            return HighShelf(new_fs, self.freq, self.q, self.gain, self.count)
-        else:
-            return self
+        return HighShelf(new_fs, self.freq, self.q, self.gain, self.count)
 
 
 class FirstOrder_LowPass(Biquad):
@@ -387,10 +379,7 @@ class FirstOrder_LowPass(Biquad):
         :param new_fs: the new fs.
         :return: the new filter.
         '''
-        if self.fs != new_fs:
-            return FirstOrder_LowPass(new_fs, self.freq, q=self.q)
-        else:
-            return self
+        return FirstOrder_LowPass(new_fs, self.freq, q=self.q)
 
     def to_json(self):
         return fs_freq_q_json(self)
@@ -431,10 +420,7 @@ class FirstOrder_HighPass(Biquad):
         :param new_fs: the new fs.
         :return: the new filter.
         '''
-        if self.fs != new_fs:
-            return FirstOrder_HighPass(new_fs, self.freq, q=self.q)
-        else:
-            return self
+        return FirstOrder_HighPass(new_fs, self.freq, q=self.q)
 
     def to_json(self):
         return fs_freq_q_json(self)
@@ -495,10 +481,7 @@ class SecondOrder_LowPass(Biquad):
         :param new_fs: the new fs.
         :return: the new filter.
         '''
-        if self.fs != new_fs:
-            return SecondOrder_LowPass(new_fs, self.freq, q=self.q)
-        else:
-            return self
+        return SecondOrder_LowPass(new_fs, self.freq, q=self.q)
 
     def to_json(self):
         return fs_freq_q_json(self)
@@ -551,10 +534,7 @@ class SecondOrder_HighPass(Biquad):
         :param new_fs: the new fs.
         :return: the new filter.
         '''
-        if self.fs != new_fs:
-            return SecondOrder_HighPass(new_fs, self.freq, q=self.q)
-        else:
-            return self
+        return SecondOrder_HighPass(new_fs, self.freq, q=self.q)
 
     def to_json(self):
         return fs_freq_q_json(self)
@@ -602,10 +582,7 @@ class AllPass(Biquad):
         :param new_fs: the new fs.
         :return: the new filter.
         '''
-        if self.fs != new_fs:
-            return AllPass(new_fs, self.freq, self.q)
-        else:
-            return self
+        return AllPass(new_fs, self.freq, self.q)
 
     def to_json(self):
         return fs_freq_q_json(self)
@@ -621,17 +598,19 @@ def getCascadeTransferFunction(name, responses):
     return ComplexData(name, responses[0].x, reduce((lambda x, y: x * y), [r.y for r in responses]))
 
 
-class ComplexFilter:
+class ComplexFilter(Sequence):
     '''
     A filter composed of many other filters.
     '''
 
-    def __init__(self, filters=None, description='Complex', preset_idx=-1):
+    def __init__(self, filters=None, description='Complex', preset_idx=-1, listener=None):
         self.filters = filters if filters is not None else []
         self.description = description
         self.id = -1
+        self.listener = listener
         self.__on_change()
         self.__cached_transfer = None
+        self.preset_idx = preset_idx
 
     def __getitem__(self, i):
         return self.filters[i]
@@ -670,6 +649,8 @@ class ComplexFilter:
         '''
         self.__cached_transfer = None
         self.preset_idx = -1
+        if self.listener is not None:
+            self.listener.on_filter_change(self)
 
     def save0(self, filter, filters):
         match = next((f for f in filters if f.id == filter.id), None)
@@ -717,8 +698,8 @@ class ComplexFilter:
 
 class CompleteFilter(ComplexFilter):
 
-    def __init__(self, filters=None, description=COMBINED, preset_idx=-1):
-        super().__init__(filters=filters, description=description, preset_idx=preset_idx)
+    def __init__(self, filters=None, description=COMBINED, preset_idx=-1, listener=None):
+        super().__init__(filters=filters, description=description, preset_idx=preset_idx, listener=listener)
 
     def preview(self, filter):
         '''
@@ -726,7 +707,7 @@ class CompleteFilter(ComplexFilter):
         :param filter: the filter.
         :return: a copied filter.
         '''
-        return ComplexFilter(self.save0(filter, self.filters.copy()), self.description)
+        return CompleteFilter(self.save0(filter, self.filters.copy()), self.description, listener=self.listener)
 
     def resample(self, new_fs):
         '''
@@ -735,9 +716,10 @@ class CompleteFilter(ComplexFilter):
         :return: the new filter.
         '''
         if len(self) > 0:
-            return CompleteFilter(filters=[f.resample(new_fs) for f in self.filters], description=self.description)
+            return CompleteFilter(filters=[f.resample(new_fs) for f in self.filters], description=self.description,
+                                  preset_idx=self.preset_idx, listener=self.listener)
         else:
-            return self
+            return CompleteFilter(description=self.description, preset_idx=self.preset_idx, listener=self.listener)
 
 
 class FilterType(Enum):
@@ -823,10 +805,7 @@ class ComplexLowPass(CompoundPassFilter):
         :param new_fs: the fs.
         :return: the new filter.
         '''
-        if new_fs != self.fs:
-            return ComplexLowPass(self.type, self.order, new_fs, self.freq)
-        else:
-            return self
+        return ComplexLowPass(self.type, self.order, new_fs, self.freq)
 
     def to_json(self):
         return {
@@ -856,10 +835,7 @@ class ComplexHighPass(CompoundPassFilter):
         :param new_fs: the fs.
         :return: the new filter.
         '''
-        if new_fs != self.fs:
-            return ComplexHighPass(self.type, self.order, new_fs, self.freq)
-        else:
-            return self
+        return ComplexHighPass(self.type, self.order, new_fs, self.freq)
 
     def to_json(self):
         return {
@@ -885,18 +861,20 @@ class ComplexData:
         self.__cached_mag = None
         self.__cached_phase = None
 
-    def getMagnitude(self, ref=1, colour=None):
+    def getMagnitude(self, ref=1, colour=None, linestyle='-'):
         if self.__cached_mag_ref is not None and math.isclose(ref, self.__cached_mag_ref):
             self.__cached_mag.colour = colour
+            self.__cached_mag.linestyle = linestyle
         else:
             self.__cached_mag_ref = ref
             y = np.abs(self.y) * self.scaleFactor / ref
-            self.__cached_mag = XYData(self.name, self.x, 20 * np.log10(y), colour=colour)
+            self.__cached_mag = XYData(self.name, None, self.x, 20 * np.log10(y), colour=colour,
+                                       linestyle=linestyle)
         return self.__cached_mag
 
     def getPhase(self, colour=None):
         if self.__cached_phase is None:
-            self.__cached_phase = XYData(self.name, self.x, np.angle(self.y), colour=colour)
+            self.__cached_phase = XYData(self.name, None, self.x, np.angle(self.y), colour=colour)
         return self.__cached_phase
 
 
@@ -905,8 +883,9 @@ class XYData:
     Value object for showing data on a magnitude graph.
     '''
 
-    def __init__(self, name, x, y, colour=None, linestyle='-'):
-        self.name = name
+    def __init__(self, name, description, x, y, colour=None, linestyle='-'):
+        self.__name = name
+        self.__description = description
         self.x = x
         self.y = np.nan_to_num(y)
         if self.y.size < 8192:
@@ -922,6 +901,25 @@ class XYData:
         self.maxy = np.ma.masked_invalid(y).max()
         self.__rendered = False
         self.__normalised_cache = {}
+
+    @property
+    def name(self):
+        if self.__description is None:
+            return self.__name
+        else:
+            return f"{self.__name}_{self.__description}"
+
+    @property
+    def internal_name(self):
+        return self.__name
+
+    @internal_name.setter
+    def internal_name(self, name):
+        self.__name = name
+
+    @property
+    def internal_description(self):
+        return self.__description
 
     def __repr__(self):
         return f"XYData: {self.name} - {self.x.size} - {self.colour}"
@@ -943,8 +941,6 @@ class XYData:
     @rendered.setter
     def rendered(self, value):
         self.__rendered = value
-        if value is True:
-            logger.debug(f"Rendered {self.name}")
 
     def normalise(self, target):
         '''
@@ -954,7 +950,8 @@ class XYData:
         '''
         if target.name not in self.__normalised_cache:
             logger.debug(f"Normalising {self.name} against {target.name}")
-            self.__normalised_cache[target.name] = XYData(self.name, self.x, self.y - target.y, colour=self.colour,
+            self.__normalised_cache[target.name] = XYData(self.__name, self.__description, self.x, self.y - target.y,
+                                                          colour=self.colour,
                                                           linestyle=self.linestyle)
         return self.__normalised_cache[target.name]
 
@@ -969,9 +966,12 @@ class XYData:
             logger.debug(f"Interpolating filt {filt.x.size} vs self {self.x.size}")
             if self.x.size > filt.x.size:
                 interp_y = np.interp(self.x, filt.x, filt.y)
-                return XYData(f"{self.name}-filtered", self.x, self.y + interp_y, colour=self.colour, linestyle='-')
+                return XYData(self.__name, f"{self.__description}-filtered", self.x, self.y + interp_y,
+                              colour=self.colour, linestyle='-')
             else:
                 interp_y = np.interp(filt.x, self.x, self.y)
-                return XYData(f"{self.name}-filtered", filt.x, filt.y + interp_y, colour=self.colour, linestyle='-')
+                return XYData(self.__name, f"{self.__description}-filtered", filt.x, filt.y + interp_y,
+                              colour=self.colour, linestyle='-')
         else:
-            return XYData(f"{self.name}-filtered", self.x, self.y + filt.y, colour=self.colour, linestyle='-')
+            return XYData(self.__name, f"{self.__description}-filtered", self.x, self.y + filt.y, colour=self.colour,
+                          linestyle='-')

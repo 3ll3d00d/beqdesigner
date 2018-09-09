@@ -14,8 +14,7 @@ from model.iir import FilterType, LowShelf, HighShelf, PeakingEQ, SecondOrder_Lo
     SecondOrder_HighPass, ComplexLowPass, ComplexHighPass, q_to_s, s_to_q, max_permitted_s, CompleteFilter, COMBINED, \
     Passthrough
 from model.magnitude import MagnitudeModel
-from model.preferences import SHOW_ALL_FILTERS, SHOW_NO_FILTERS
-from mpl import get_line_colour
+from model.preferences import SHOW_ALL_FILTERS, SHOW_NO_FILTERS, FILTER_COLOURS, DISPLAY_SHOW_FILTERS
 from ui.filter import Ui_editFilterDialog
 
 logger = logging.getLogger('filter')
@@ -23,15 +22,14 @@ logger = logging.getLogger('filter')
 
 class FilterModel(Sequence):
     '''
-    A model to hold onto the filters.
+    A model to hold onto the filters and provide magnitude data to a chart about those filters.
     '''
 
-    def __init__(self, view, show_filters=lambda: SHOW_ALL_FILTERS, on_update=lambda _: True):
+    def __init__(self, view, preferences, on_update=lambda _: True):
         self.__filter = CompleteFilter()
         self.__view = view
-        self.__show_filters = show_filters
+        self.__preferences = preferences
         self.__table = None
-        self.__listeners = []
         self.__on_update = on_update
 
     @property
@@ -40,6 +38,8 @@ class FilterModel(Sequence):
 
     @filter.setter
     def filter(self, filt):
+        if filt is None:
+            filt = CompleteFilter()
         if isinstance(filt, CompleteFilter):
             if self.__table is not None:
                 self.__table.beginResetModel()
@@ -57,27 +57,12 @@ class FilterModel(Sequence):
     @table.setter
     def table(self, table):
         self.__table = table
-        self.__table.resizeColumns(self.__view)
 
     def __getitem__(self, i):
         return self.filter[i]
 
     def __len__(self):
         return len(self.filter)
-
-    def register(self, listener):
-        '''
-        Registers a listener for filter change events.
-        :param listener: the listener.
-        '''
-        self.__listeners.append(listener)
-
-    def deregister(self, listener):
-        '''
-        Deregisters a listener on filter change events.
-        :param listener: the listener
-        '''
-        self.__listeners.remove(listener)
 
     def save(self, filter):
         '''
@@ -111,22 +96,16 @@ class FilterModel(Sequence):
         if self.__table is not None:
             self.__table.endResetModel()
 
-    def post_update(self, filter_change=True):
+    def post_update(self):
         '''
         Reacts to a change in the model.
-        :param filter_change: true if the change came from an actual filter change.
         '''
-        if self.__table is not None:
-            self.__table.resizeColumns(self.__view)
         visible_filter_names = []
-        show_filters = self.__show_filters()
+        show_filters = self.__preferences.get(DISPLAY_SHOW_FILTERS)
         if show_filters != SHOW_NO_FILTERS:
             visible_filter_names.append(self.filter.__repr__())
         if show_filters == SHOW_ALL_FILTERS:
             visible_filter_names += self.filter.child_names()
-        if filter_change:
-            for l in self.__listeners:
-                l.onFilterChange()
         self.__on_update(visible_filter_names)
 
     def getMagnitudeData(self, reference=None):
@@ -134,7 +113,7 @@ class FilterModel(Sequence):
         :param reference: the name of the reference data.
         :return: the magnitude response of each filter.
         '''
-        show_filters = self.__show_filters()
+        show_filters = self.__preferences.get(DISPLAY_SHOW_FILTERS)
         if show_filters == SHOW_NO_FILTERS:
             return []
         elif len(self.filter) == 0:
@@ -148,9 +127,9 @@ class FilterModel(Sequence):
             mags = [r.getMagnitude() for r in results]
             for idx, m in enumerate(mags):
                 if m.name == COMBINED:
-                    m.colour = 'c'
+                    m.colour = FILTER_COLOURS[0]
                 else:
-                    m.colour = get_line_colour(idx, len(mags) - 1)
+                    m.colour = FILTER_COLOURS[(idx + 1) % len(FILTER_COLOURS)]
             if reference is not None:
                 ref_data = next((x for x in mags if x.name == reference), None)
                 if ref_data:
@@ -183,15 +162,15 @@ class FilterTableModel(QAbstractTableModel):
 
     def __init__(self, model, parent=None):
         super().__init__(parent=parent)
-        self._headers = ['Type', 'Freq', 'Q', 'S', 'Gain', 'Biquads']
-        self._filterModel = model
-        self._filterModel.table = self
+        self.__headers = ['Type', 'Freq', 'Q', 'S', 'Gain', 'Biquads']
+        self.__filter_model = model
+        self.__filter_model.table = self
 
     def rowCount(self, parent: QModelIndex = ...):
-        return len(self._filterModel)
+        return len(self.__filter_model)
 
     def columnCount(self, parent: QModelIndex = ...):
-        return len(self._headers)
+        return len(self.__headers)
 
     def data(self, index: QModelIndex, role: int = ...) -> typing.Any:
         if not index.isValid():
@@ -199,7 +178,7 @@ class FilterTableModel(QAbstractTableModel):
         elif role != Qt.DisplayRole:
             return QVariant()
         else:
-            filter_at_row = self._filterModel[index.row()]
+            filter_at_row = self.__filter_model[index.row()]
             if index.column() == 0:
                 return QVariant(filter_at_row.filter_type)
             elif index.column() == 1:
@@ -226,12 +205,8 @@ class FilterTableModel(QAbstractTableModel):
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int = ...) -> typing.Any:
         if orientation == Qt.Horizontal and role == Qt.DisplayRole:
-            return QVariant(self._headers[section])
+            return QVariant(self.__headers[section])
         return QVariant()
-
-    def resizeColumns(self, view):
-        for x in range(0, len(self._headers)):
-            view.resizeColumnToContents(x)
 
 
 class FilterDialog(QDialog, Ui_editFilterDialog):
@@ -245,10 +220,13 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
     freq_steps = [0.1, 1.0, 2.0, 5.0]
     passthrough = Passthrough()
 
-    def __init__(self, filterModel, fs=48000, filter=None, parent=None):
+    def __init__(self, signal, filter_model, filter=None, parent=None):
         # prevent signals from recalculating the filter before we've populated the fields
         self.__starting = True
-        super(FilterDialog, self).__init__(parent)
+        if parent is not None:
+            super(FilterDialog, self).__init__(parent)
+        else:
+            super(FilterDialog, self).__init__()
         # for shelf filter, allow input via Q or S not both
         self.__q_is_active = True
         # allow user to control the steps for different fields
@@ -259,12 +237,12 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         # init the UI itself
         self.setupUi(self)
         # underlying filter model
-        self.filterModel = filterModel
+        self.__signal = signal
+        self.__filter_model = filter_model
         self.__filter = filter
-        self.__combined_preview = filterModel.filter
+        self.__combined_preview = signal.filter
         # populate the fields with values if we're editing an existing filter
         self.__original_id = self.__filter.id if filter is not None else None
-        self.fs = fs if filter is None else filter.fs
         if self.__filter is not None:
             self.setWindowTitle('Edit Filter')
             if hasattr(self.__filter, 'gain'):
@@ -283,10 +261,10 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         # configure visible/enabled fields for the current filter type
         self.enableFilterParams()
         self.enableOkIfGainIsValid()
-        self.freq.setMaximum(self.fs / 2.0)
+        self.freq.setMaximum(self.__signal.fs / 2.0)
         self.__starting = False
         # init the chart
-        self.__magnitudeModel = MagnitudeModel('preview', self.previewChart, self, 'Filter')
+        self.__magnitudeModel = MagnitudeModel('preview', self.previewChart, self, 'Filter', db_range=30)
         # ensure the preview graph is shown if we have something to show
         self.previewFilter()
 
@@ -295,7 +273,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         if self.__filter is not None:
             if self.__original_id is None:
                 self.__filter.id = uuid4()
-            self.filterModel.save(self.__filter)
+            self.__filter_model.save(self.__filter)
             self.previewFilter()
 
     def accept(self):
@@ -313,25 +291,25 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
                     self.__filter = self.create_shaping_filter()
                 if self.__original_id is not None:
                     self.__filter.id = self.__original_id
-                self.__combined_preview = self.filterModel.preview(self.__filter)
+                self.__combined_preview = self.__filter_model.preview(self.__filter)
                 self.passthrough.rendered = False
             else:
-                self.__combined_preview = self.filterModel.filter
+                self.__combined_preview = self.__filter_model.filter
                 self.__filter = None
             self.__magnitudeModel.redraw()
 
     def getMagnitudeData(self, reference=None):
         ''' preview of the filter to display on the chart '''
         if self.__filter is not None:
-            result = [self.__filter.getTransferFunction().getMagnitude(colour='m')]
-            if len(self.filterModel) > 0 and self.showCombined.isChecked():
-                result.append(self.__combined_preview.getTransferFunction().getMagnitude(colour='c'))
+            result = [self.__filter.getTransferFunction().getMagnitude(colour=FILTER_COLOURS[3], linestyle=':')]
+            if len(self.__filter_model) > 0 and self.showCombined.isChecked():
+                result.append(self.__combined_preview.getTransferFunction().getMagnitude(colour=FILTER_COLOURS[0]))
             return result
         else:
-            if len(self.filterModel) > 0 and self.showCombined.isChecked():
-                return [self.__combined_preview.getTransferFunction().getMagnitude(colour='c')]
+            if len(self.__filter_model) > 0 and self.showCombined.isChecked():
+                return [self.__combined_preview.getTransferFunction().getMagnitude(colour=FILTER_COLOURS[0])]
             else:
-                return [self.passthrough.getTransferFunction().getMagnitude(colour='m')]
+                return [self.passthrough.getTransferFunction().getMagnitude(colour=FILTER_COLOURS[3], linestyle=':')]
 
     def create_shaping_filter(self):
         '''
@@ -345,17 +323,17 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         :return: the filter.
         '''
         if self.filterType.currentText() == 'Low Shelf':
-            return LowShelf(self.fs, self.freq.value(), self.filterQ.value(), self.filterGain.value(),
+            return LowShelf(self.__signal.fs, self.freq.value(), self.filterQ.value(), self.filterGain.value(),
                             self.filterCount.value())
         elif self.filterType.currentText() == 'High Shelf':
-            return HighShelf(self.fs, self.freq.value(), self.filterQ.value(), self.filterGain.value(),
+            return HighShelf(self.__signal.fs, self.freq.value(), self.filterQ.value(), self.filterGain.value(),
                              self.filterCount.value())
         elif self.filterType.currentText() == 'Peak':
-            return PeakingEQ(self.fs, self.freq.value(), self.filterQ.value(), self.filterGain.value())
+            return PeakingEQ(self.__signal.fs, self.freq.value(), self.filterQ.value(), self.filterGain.value())
         elif self.filterType.currentText() == 'Variable Q LPF':
-            return SecondOrder_LowPass(self.fs, self.freq.value(), self.filterQ.value())
+            return SecondOrder_LowPass(self.__signal.fs, self.freq.value(), self.filterQ.value())
         elif self.filterType.currentText() == 'Variable Q HPF':
-            return SecondOrder_HighPass(self.fs, self.freq.value(), self.filterQ.value())
+            return SecondOrder_HighPass(self.__signal.fs, self.freq.value(), self.filterQ.value())
         else:
             raise ValueError(f"Unknown filter type {self.filterType.currentText()}")
 
@@ -366,10 +344,10 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         '''
         if self.filterType.currentText() == 'Low Pass':
             return ComplexLowPass(FilterType[self.passFilterType.currentText().upper().replace('-', '_')],
-                                  self.filterOrder.value(), self.fs, self.freq.value())
+                                  self.filterOrder.value(), self.__signal.fs, self.freq.value())
         else:
             return ComplexHighPass(FilterType[self.passFilterType.currentText().upper().replace('-', '_')],
-                                   self.filterOrder.value(), self.fs, self.freq.value())
+                                   self.filterOrder.value(), self.__signal.fs, self.freq.value())
 
     def __is_pass_filter(self):
         '''
