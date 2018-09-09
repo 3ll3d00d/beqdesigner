@@ -15,7 +15,7 @@ def test_no_masters():
     lsm = LinkedSignalsModel(signal_model)
     assert len(lsm.rows) == 0
     assert len(lsm.columns) == size
-    assert lsm.columns == expected_names
+    assert list(lsm.columns) == expected_names
 
 
 def test_one_master():
@@ -28,7 +28,7 @@ def test_one_master():
     lsm = LinkedSignalsModel(signal_model)
     assert len(lsm.rows) == 1
     assert len(lsm.columns) == size - 1
-    assert lsm.columns == [s.name for s in signal_model[0].slaves]
+    assert list(lsm.columns) == [s.name for s in signal_model[0].slaves]
     for y in range(0, size - 1):
         assert lsm.is_slave(0, y) is True
 
@@ -47,7 +47,7 @@ def test_two_master():
     assert len(lsm.rows) == 2
     assert len(lsm.columns) == size - 2
     expected_columns = [s.name for s in signal_model[0].slaves] + [s.name for s in signal_model[5].slaves]
-    assert lsm.columns == expected_columns
+    assert list(lsm.columns) == expected_columns
     for y in range(0, size - 2):
         if y < 4:
             assert lsm.is_slave(0, y) is True

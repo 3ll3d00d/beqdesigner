@@ -390,6 +390,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         Lets the user link signals via a matrix mapping.
         '''
         LinkSignalsDialog(self.__signal_model, parent=self).exec()
+        self.__magnitude_model.redraw()
 
     def deleteSignal(self):
         '''
