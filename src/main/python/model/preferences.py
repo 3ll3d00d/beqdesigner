@@ -216,8 +216,10 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         if os.path.isdir(outputDir):
             self.__preferences.set(EXTRACTION_OUTPUT_DIR, outputDir)
         notifySound = self.extractCompleteAudioFile.text()
-        if os.path.isfile(notifySound):
+        if len(notifySound) > 0 and os.path.isfile(notifySound):
             self.__preferences.set(EXTRACTION_NOTIFICATION_SOUND, notifySound)
+        else:
+            self.__preferences.set(EXTRACTION_NOTIFICATION_SOUND, None)
         text = self.targetFs.currentText()
         if text == 'Full Range':
             self.__preferences.set(ANALYSIS_TARGET_FS, 0)
@@ -282,3 +284,7 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
             selected = dialog.selectedFiles()
             if len(selected) > 0:
                 self.extractCompleteAudioFile.setText(selected[0])
+            else:
+                self.extractCompleteAudioFile.setText('')
+        else:
+            self.extractCompleteAudioFile.setText('')
