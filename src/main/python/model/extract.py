@@ -75,7 +75,7 @@ def get_channel_name(text, channel, channel_count, channel_layout_name='unknown'
         if channel_layout_name == 'unknown' and channel_count in UNKNOWN_CHANNEL_LAYOUTS:
             return f"{text}_{UNKNOWN_CHANNEL_LAYOUTS[channel_count][channel]}"
         elif channel_layout_name in CHANNEL_LAYOUTS:
-            return f"{text}_{CHANNEL_LAYOUTS[self.__channel_layout_name][channel]}"
+            return f"{text}_{CHANNEL_LAYOUTS[channel_layout_name][channel]}"
         else:
             return f"{text}_c{channel+1}"
 

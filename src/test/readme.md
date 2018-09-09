@@ -22,7 +22,10 @@
   * can handle mono or multichannel
   * can select a subset of a wav
   * can show preview
+  * can add all channels in one go
 * Add from TXT
+* can copy filter on add
+* can link filter on add
 
 ## Linking
 
@@ -67,3 +70,9 @@
 * user selected channel layouts
 * can extract multichannel audio
 * ffmpeg command specs
+* if sound is stored in preferences, it is played on complete
+
+## Preferences
+
+* can change theme (and see it apply after restart)
+* 

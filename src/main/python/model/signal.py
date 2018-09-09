@@ -747,6 +747,7 @@ class DialogWavLoaderBridge:
         for i in range(0, info.channels):
             self.__dialog.wavChannelSelector.addItem(f"{i+1}")
         self.__dialog.wavChannelSelector.setEnabled(info.channels > 1)
+        self.__dialog.loadAllChannels.setEnabled(info.channels > 1)
         self.__dialog.wavStartTime.setTime(QtCore.QTime(0, 0, 0))
         self.__dialog.wavStartTime.setEnabled(True)
         self.__duration = math.floor(info.duration * 1000)
@@ -892,10 +893,10 @@ class FrdLoader:
         return self.__avg is not None and self.__peak is not None
 
     def get_signals(self):
-        name = self.__dialog.frdSignalName.text()
-        self.__avg.name = f"{self.__dialog.frdSignalName.text()}_avg"
-        self.__peak.name = f"{self.__dialog.frdSignalName.text()}_peak"
-        return [SignalData(name, self.__dialog.frdFs.value(), self.get_magnitude_data(), CompleteFilter())]
+        frd_name = self.__dialog.frdSignalName.text()
+        self.__avg.internal_name = frd_name
+        self.__peak.internal_name = frd_name
+        return [SignalData(frd_name, self.__dialog.frdFs.value(), self.get_magnitude_data(), CompleteFilter())]
 
 
 class SignalDialog(QDialog, Ui_addSignalDialog):
