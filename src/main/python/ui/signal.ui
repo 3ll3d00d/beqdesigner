@@ -360,8 +360,8 @@
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>342</x>
-     <y>734</y>
+     <x>332</x>
+     <y>506</y>
     </hint>
     <hint type="destinationlabel">
      <x>286</x>
@@ -376,8 +376,8 @@
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>274</x>
-     <y>734</y>
+     <x>288</x>
+     <y>506</y>
     </hint>
     <hint type="destinationlabel">
      <x>157</x>
@@ -520,8 +520,8 @@
    <slot>masterFilterChanged()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>170</x>
-     <y>389</y>
+     <x>270</x>
+     <y>430</y>
     </hint>
     <hint type="destinationlabel">
      <x>167</x>
