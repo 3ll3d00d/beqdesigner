@@ -8,6 +8,7 @@ from collections import Sequence
 from pathlib import Path
 
 import numpy as np
+import qtawesome as qta
 import resampy
 from qtpy import QtCore
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt
@@ -628,15 +629,15 @@ class AutoWavLoader:
         self.__signal = None
         self.info = None
 
-    def auto_load(self, file, name):
+    def auto_load(self, file, name_provider):
         '''
         Loads the file and automatically creates a signal for each channel found.
         :param file: the file to load.
-        :param name: the name to give each signal (will have channel number appended).
+        :param name_provider: a callable that yields a signal name for the given channel.
         :return: the signals.
         '''
         self.load(file)
-        return [self.__auto_load(x + 1, self.info.channels, name) for x in range(0, self.info.channels)]
+        return [self.__auto_load(x + 1, name_provider(x, self.info.channels)) for x in range(0, self.info.channels)]
 
     def load(self, file):
         '''
@@ -649,8 +650,8 @@ class AutoWavLoader:
         import soundfile as sf
         self.info = sf.info(file)
 
-    def __auto_load(self, channel, channel_count, name):
-        self.prepare(name=name, channel_count=channel_count, channel=channel)
+    def __auto_load(self, channel, name):
+        self.prepare(name=name, channel=channel)
         return self.get_signal()
 
     def prepare(self, name=None, channel_count=1, channel=1, start=None, end=None):
@@ -888,7 +889,6 @@ class FrdLoader:
         name = self.__dialog.frdSignalName.text()
         self.__avg.name = f"{self.__dialog.frdSignalName.text()}_avg"
         self.__peak.name = f"{self.__dialog.frdSignalName.text()}_peak"
-        # TODO set fs on filter
         return SignalData(name, self.__dialog.frdFs.value(), self.get_magnitude_data(), CompleteFilter())
 
 
@@ -900,6 +900,9 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
     def __init__(self, preferences, signal_model, parent=None):
         super(SignalDialog, self).__init__(parent=parent)
         self.setupUi(self)
+        self.wavFilePicker.setIcon(qta.icon('fa.folder-open-o'))
+        self.frdAvgFilePicker.setIcon(qta.icon('fa.folder-open-o'))
+        self.frdPeakFilePicker.setIcon(qta.icon('fa.folder-open-o'))
         self.__loaders = [DialogWavLoaderBridge(self, preferences), FrdLoader(self)]
         self.__loader_idx = self.signalTypeTabs.currentIndex()
         self.__signal_model = signal_model
@@ -1010,10 +1013,10 @@ def readWav(name, input_file, channel=1, start=None, end=None, target_fs=1000) -
         info = sf.info(input_file)
         startFrame = 0 if start is None else int(start * (info.samplerate / 1000))
         endFrame = None if end is None else int(start * (info.samplerate / 1000))
-        ys, frameRate = sf.read(input_file, start=startFrame, stop=endFrame)
+        ys, frameRate = sf.read(input_file, start=startFrame, stop=endFrame, always_2d=True)
     else:
-        ys, frameRate = sf.read(input_file)
-    signal = Signal(name, ys[::channel], frameRate)
+        ys, frameRate = sf.read(input_file, always_2d=True)
+    signal = Signal(name, ys[:, channel - 1], frameRate)
     if target_fs is None or target_fs == 0:
         target_fs = signal.fs
     return signal.resample(target_fs)

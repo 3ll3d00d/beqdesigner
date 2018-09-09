@@ -5,6 +5,7 @@ import time
 from pathlib import Path
 
 import ffmpeg
+import qtawesome as qta
 from ffmpeg.nodes import filter_operator, FilterNode
 from qtpy import QtWidgets
 from qtpy.QtMultimedia import QSound
@@ -15,6 +16,48 @@ from model.signal import AutoWavLoader
 from ui.extract import Ui_extractAudioDialog
 
 logger = logging.getLogger('extract')
+
+# copied from https://trac.ffmpeg.org/wiki/AudioChannelManipulation
+
+CHANNEL_LAYOUTS = {
+    'stereo': ['FL', 'FR'],
+    '2.1': ['FL', 'FR', 'LFE'],
+    '3.0': ['FL', 'FR', 'FC'],
+    '3.0(back)': ['FL', 'FR', 'BC'],
+    '4.0': ['FL', 'FR', 'FC', 'BC'],
+    'quad': ['FL', 'FR', 'BL', 'BR'],
+    'quad(side)': ['FL', 'FR', 'SL', 'SR'],
+    '3.1': ['FL', 'FR', 'FC', 'LFE'],
+    '5.0': ['FL', 'FR', 'FC', 'BL', 'BR'],
+    '5.0(side)': ['FL', 'FR', 'FC', 'SL', 'SR'],
+    '4.1': ['FL', 'FR', 'FC', 'LFE', 'BC'],
+    '5.1': ['FL', 'FR', 'FC', 'LFE', 'BL', 'BR'],
+    '5.1(side)': ['FL', 'FR', 'FC', 'LFE', 'SL', 'SR'],
+    '6.0': ['FL', 'FR', 'FC', 'BC', 'SL', 'SR'],
+    '6.0(front)': ['FL', 'FR', 'FLC', 'FRC', 'SL', 'SR'],
+    'hexagonal': ['FL', 'FR', 'FC', 'BL', 'BR', 'BC'],
+    '6.1': ['FL', 'FR', 'FC', 'LFE', 'BC', 'SL', 'SR'],
+    '6.1(back)': ['FL', 'FR', 'FC', 'LFE', 'BL', 'BR', 'BC'],
+    '6.1(front)': ['FL', 'FR', 'LFE', 'FLC', 'FRC', 'SL', 'SR'],
+    '7.0': ['FL', 'FR', 'FC', 'BL', 'BR', 'SL', 'SR'],
+    '7.0(front)': ['FL', 'FR', 'FC', 'FLC', 'FRC', 'SL', 'SR'],
+    '7.1': ['FL', 'FR', 'FC', 'LFE', 'BL', 'BR', 'SL', 'SR'],
+    '7.1(wide)': ['FL', 'FR', 'FC', 'LFE', 'BL', 'BR', 'FLC', 'FRC'],
+    '7.1(wide-side)': ['FL', 'FR', 'FC', 'LFE', 'FLC', 'FRC', 'SL', 'SR'],
+    'octagonal': ['FL', 'FR', 'FC', 'BL', 'BR', 'BC', 'SL', 'SR'],
+    'hexadecagonal': ['FL', 'FR', 'FC', 'BL', 'BR', 'BC', 'SL', 'SR', 'TFL', 'TFC', 'TFR', 'TBL', 'TBC', 'TBR', 'WL',
+                      'WR'],
+    'downmix': ['DL', 'DR']
+}
+
+UNKNOWN_CHANNEL_LAYOUTS = {
+    2: CHANNEL_LAYOUTS['stereo'],
+    3: CHANNEL_LAYOUTS['2.1'],
+    4: CHANNEL_LAYOUTS['3.1'],
+    5: CHANNEL_LAYOUTS['4.1'],
+    6: CHANNEL_LAYOUTS['5.1'],
+    8: CHANNEL_LAYOUTS['7.1']
+}
 
 
 class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
@@ -30,6 +73,9 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         else:
             super(ExtractAudioDialog, self).__init__()
         self.setupUi(self)
+        self.showProbeButton.setIcon(qta.icon('fa.info'))
+        self.inputFilePicker.setIcon(qta.icon('fa.folder-open-o'))
+        self.targetDirPicker.setIcon(qta.icon('fa.folder-open-o'))
         self.statusBar = QStatusBar()
         self.gridLayout.addWidget(self.statusBar, 5, 1, 1, 1)
         self.__preferences = preferences
@@ -230,6 +276,9 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
                 mono_mix = self.__get_lfe_mono_mix(8, 3)
                 channel_count = 8
                 lfe_idx = 4
+            elif channel_layout == 'hexadecagonal':
+                mono_mix = self.__get_no_lfe_mono_mix(16)
+                channel_count = 16
             channel_layout_name = channel_layout
         else:
             if channel_layout_name is None:
@@ -347,7 +396,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         if os.path.exists(output_file):
             logger.info(f"Creating signals for {output_file}")
             text = self.signalName.text()
-            signals = loader.auto_load(output_file, text if len(text) > 0 else None)
+            signals = loader.auto_load(output_file, self.__get_channel_name)
             if len(signals) > 0:
                 for s in signals:
                     logger.info(f"Adding signal {s.name}")
@@ -360,6 +409,18 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             msg_box.setWindowTitle('Unexpected Error')
             msg_box.exec()
         return False
+
+    def __get_channel_name(self, channel, channel_count):
+        text = self.signalName.text()
+        if channel_count == 1:
+            return text
+        else:
+            if self.__channel_layout_name == 'unknown' and channel_count in UNKNOWN_CHANNEL_LAYOUTS:
+                return f"{text}_{UNKNOWN_CHANNEL_LAYOUTS[channel_count][channel]}"
+            elif self.__channel_layout_name in CHANNEL_LAYOUTS:
+                return f"{text}_{CHANNEL_LAYOUTS[self.__channel_layout_name][channel]}"
+            else:
+                return f"{text}_c{channel+1}"
 
     def __extract(self):
         '''
