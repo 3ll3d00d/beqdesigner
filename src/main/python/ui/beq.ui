@@ -133,6 +133,9 @@
           <property name="text">
            <string>Preset 1</string>
           </property>
+          <property name="shortcut">
+           <string>Ctrl+Shift+1</string>
+          </property>
          </widget>
         </item>
         <item row="4" column="1">
@@ -142,6 +145,9 @@
           </property>
           <property name="text">
            <string>Preset 2</string>
+          </property>
+          <property name="shortcut">
+           <string>Ctrl+Shift+2</string>
           </property>
          </widget>
         </item>
@@ -168,6 +174,9 @@
           </property>
           <property name="text">
            <string>Preset 3</string>
+          </property>
+          <property name="shortcut">
+           <string>Ctrl+Shift+3</string>
           </property>
          </widget>
         </item>
@@ -308,16 +317,16 @@
       <addaction name="action_clear_preset_2"/>
       <addaction name="action_clear_preset_3"/>
      </widget>
-     <widget class="QMenu" name="menu_Set">
+     <widget class="QMenu" name="menu_Store">
       <property name="title">
-       <string>&amp;Set</string>
+       <string>&amp;Store</string>
       </property>
-      <addaction name="action_set_preset_1"/>
-      <addaction name="action_set_preset_2"/>
-      <addaction name="action_set_preset_3"/>
+      <addaction name="action_store_preset_1"/>
+      <addaction name="action_store_preset_2"/>
+      <addaction name="action_store_preset_3"/>
      </widget>
      <addaction name="menuLoad"/>
-     <addaction name="menu_Set"/>
+     <addaction name="menu_Store"/>
      <addaction name="menu_Clear"/>
     </widget>
     <addaction name="action_Load_Project"/>
@@ -421,24 +430,15 @@
    <property name="text">
     <string>&amp;1</string>
    </property>
-   <property name="shortcut">
-    <string>Ctrl+1</string>
-   </property>
   </action>
   <action name="action_load_preset_2">
    <property name="text">
     <string>&amp;2</string>
    </property>
-   <property name="shortcut">
-    <string>Ctrl+2</string>
-   </property>
   </action>
   <action name="action_load_preset_3">
    <property name="text">
     <string>&amp;3</string>
-   </property>
-   <property name="shortcut">
-    <string>Ctrl+3</string>
    </property>
   </action>
   <action name="action_clear_preset_1">
@@ -456,28 +456,28 @@
     <string>&amp;3</string>
    </property>
   </action>
-  <action name="action_set_preset_1">
+  <action name="action_store_preset_1">
    <property name="text">
     <string>&amp;1</string>
    </property>
    <property name="shortcut">
-    <string>Ctrl+Shift+1</string>
+    <string>Ctrl+Alt+1</string>
    </property>
   </action>
-  <action name="action_set_preset_2">
+  <action name="action_store_preset_2">
    <property name="text">
     <string>&amp;2</string>
    </property>
    <property name="shortcut">
-    <string>Ctrl+Shift+2</string>
+    <string>Ctrl+Alt+2</string>
    </property>
   </action>
-  <action name="action_set_preset_3">
+  <action name="action_store_preset_3">
    <property name="text">
     <string>&amp;3</string>
    </property>
    <property name="shortcut">
-    <string>Ctrl+Shift+3</string>
+    <string>Ctrl+Alt+3</string>
    </property>
   </action>
   <action name="actionExport_FRD">

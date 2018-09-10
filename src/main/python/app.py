@@ -10,11 +10,12 @@ from contextlib import contextmanager
 
 import matplotlib
 
+matplotlib.use("Qt5Agg")
+
 from model.link import LinkSignalsDialog
 from model.preferences import DISPLAY_SHOW_FILTERED_SIGNALS
 from ui.delegates import RegexValidator
 
-matplotlib.use("Qt5Agg")
 import qtawesome as qta
 from matplotlib import style
 
@@ -23,7 +24,7 @@ from model.iir import Passthrough, CompleteFilter
 from ui.biquad import Ui_exportBiquadDialog
 from ui.savechart import Ui_saveChartDialog
 
-from qtpy.QtCore import QSettings
+from qtpy.QtCore import QSettings, QItemSelectionModel, QModelIndex
 from qtpy.QtGui import QIcon, QFont, QCursor
 from qtpy.QtWidgets import QMainWindow, QApplication, QErrorMessage, QAbstractItemView, QDialog, QFileDialog, \
     QHeaderView
@@ -109,7 +110,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         for i in range(1, 4):
             getattr(self, f"action_load_preset_{i}").triggered.connect(self.load_preset(i))
             getattr(self, f"action_clear_preset_{i}").triggered.connect(self.clear_preset(i))
-            getattr(self, f"action_set_preset_{i}").triggered.connect(self.set_preset(i))
+            getattr(self, f"action_store_preset_{i}").triggered.connect(self.set_preset(i))
             self.enable_preset(i)
         # init the signal view selector
         self.showSignals.blockSignals(True)
@@ -352,9 +353,9 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         :return: the selected signal (as selected in the table going back to its master if the selected signal is a
         slave) or the default signal if nothing is selected.
         '''
-        signalSelect = self.signalView.selectionModel()
-        if signalSelect.hasSelection() and len(signalSelect.selectedRows()) == 1:
-            signal = self.__signal_model[signalSelect.selectedRows()[0].row()]
+        signal_select = self.signalView.selectionModel()
+        if signal_select.hasSelection() and len(signal_select.selectedRows()) == 1:
+            signal = self.__signal_model[signal_select.selectedRows()[0].row()]
             if signal.master is not None:
                 signal = signal.master
         else:
@@ -368,7 +369,8 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         selection = self.filterView.selectionModel()
         if selection.hasSelection() and len(selection.selectedRows()) == 1:
             signal = self.__get_selected_signal()
-            FilterDialog(self.preferences, signal, self.__filter_model, filter=signal.filter[selection.selectedRows()[0].row()]).exec()
+            FilterDialog(self.preferences, signal, self.__filter_model,
+                         filter=signal.filter[selection.selectedRows()[0].row()]).exec()
 
     def deleteFilter(self):
         '''
@@ -410,6 +412,10 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
             self.__signal_model.delete([x.row() for x in selection.selectedRows()])
         if len(self.__signal_model) > 0:
             self.signalView.selectRow(0)
+        else:
+            self.signalView.clearSelection()
+            # nothing in qt appears to emit selectionChanged when you clear the selection so have to call it ourselves
+            self.on_signal_selected()
 
     def on_filter_selected(self):
         '''
@@ -428,7 +434,10 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         if len(selection.selectedRows()) == 1:
             self.__filter_model.filter = self.__get_selected_signal().filter
         else:
-            self.__filter_model.filter = self.__default_signal.filter
+            if len(self.__filter_model.filter) > 0:
+                self.__default_signal.filter = self.__filter_model.filter
+            else:
+                self.__filter_model.filter = self.__default_signal.filter
 
     def update_reference_series(self, names, combo, primary=True):
         '''
