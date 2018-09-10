@@ -345,7 +345,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Adds a filter via the filter dialog.
         '''
-        FilterDialog(self.__get_selected_signal(), self.__filter_model).exec()
+        FilterDialog(self.preferences, self.__get_selected_signal(), self.__filter_model).exec()
 
     def __get_selected_signal(self):
         '''
@@ -368,7 +368,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         selection = self.filterView.selectionModel()
         if selection.hasSelection() and len(selection.selectedRows()) == 1:
             signal = self.__get_selected_signal()
-            FilterDialog(signal, self.__filter_model, filter=signal.filter[selection.selectedRows()[0].row()]).exec()
+            FilterDialog(self.preferences, signal, self.__filter_model, filter=signal.filter[selection.selectedRows()[0].row()]).exec()
 
     def deleteFilter(self):
         '''

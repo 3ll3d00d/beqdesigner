@@ -340,6 +340,7 @@
      <string>&amp;Tools</string>
     </property>
     <addaction name="actionExtract_Audio"/>
+    <addaction name="actionAnalyse_Audio"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuSettings"/>
@@ -420,15 +421,24 @@
    <property name="text">
     <string>&amp;1</string>
    </property>
+   <property name="shortcut">
+    <string>Ctrl+1</string>
+   </property>
   </action>
   <action name="action_load_preset_2">
    <property name="text">
     <string>&amp;2</string>
    </property>
+   <property name="shortcut">
+    <string>Ctrl+2</string>
+   </property>
   </action>
   <action name="action_load_preset_3">
    <property name="text">
     <string>&amp;3</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+3</string>
    </property>
   </action>
   <action name="action_clear_preset_1">
@@ -450,15 +460,24 @@
    <property name="text">
     <string>&amp;1</string>
    </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+1</string>
+   </property>
   </action>
   <action name="action_set_preset_2">
    <property name="text">
     <string>&amp;2</string>
    </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+2</string>
+   </property>
   </action>
   <action name="action_set_preset_3">
    <property name="text">
     <string>&amp;3</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+3</string>
    </property>
   </action>
   <action name="actionExport_FRD">
@@ -489,6 +508,14 @@
   <action name="actionClear_Project">
    <property name="text">
     <string>Clear Project</string>
+   </property>
+  </action>
+  <action name="actionAnalyse_Audio">
+   <property name="text">
+    <string>Analyse Audio</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+A</string>
    </property>
   </action>
  </widget>
