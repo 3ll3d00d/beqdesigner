@@ -19,7 +19,7 @@
      <item row="3" column="0">
       <widget class="QCheckBox" name="linkedSignal">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
        <property name="text">
         <string>Linked Filter?</string>

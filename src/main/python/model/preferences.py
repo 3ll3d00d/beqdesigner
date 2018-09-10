@@ -27,23 +27,33 @@ SHOW_FILTERED_SIGNAL_OPTIONS = [SHOW_ALL_FILTERED_SIGNALS, SHOW_FILTERED_ONLY, S
 
 EXTRACTION_OUTPUT_DIR = 'extraction/output_dir'
 EXTRACTION_NOTIFICATION_SOUND = 'extraction/notification_sound'
+
 ANALYSIS_RESOLUTION = 'analysis/resolution'
 ANALYSIS_TARGET_FS = 'analysis/target_fs'
 ANALYSIS_WINDOW_DEFAULT = 'Default'
 ANALYSIS_AVG_WINDOW = 'analysis/avg_window'
 ANALYSIS_PEAK_WINDOW = 'analysis/peak_window'
+
 BINARIES_GROUP = 'binaries'
 BINARIES_FFPROBE = f"{BINARIES_GROUP}/ffprobe"
 BINARIES_FFMPEG = f"{BINARIES_GROUP}/ffmpeg"
+
 FILTERS_PRESET_x = 'filters/preset_%d'
+
 SCREEN_GEOMETRY = 'screen/geometry'
 SCREEN_WINDOW_STATE = 'screen/window_state'
+
 STYLE_MATPLOTLIB_THEME_DEFAULT = 'default'
 STYLE_MATPLOTLIB_THEME = 'style/matplotlib_theme'
+
 DISPLAY_SHOW_LEGEND = 'display/show_legend'
 DISPLAY_SHOW_FILTERS = 'display/show_filters'
 DISPLAY_SHOW_SIGNALS = 'display/show_signals'
 DISPLAY_SHOW_FILTERED_SIGNALS = 'display/show_filtered_signals'
+DISPLAY_FREQ_STEP = 'display/freq_step'
+DISPLAY_Q_STEP = 'display/q_step'
+DISPLAY_S_STEP = 'display/s_step'
+DISPLAY_GAIN_STEP = 'display/gain_step'
 
 DEFAULT_PREFS = {
     ANALYSIS_RESOLUTION: 1,
@@ -54,6 +64,10 @@ DEFAULT_PREFS = {
     DISPLAY_SHOW_LEGEND: True,
     DISPLAY_SHOW_FILTERS: SHOW_ALL_FILTERS,
     EXTRACTION_OUTPUT_DIR: os.path.expanduser('~user'),
+    DISPLAY_FREQ_STEP: '1',
+    DISPLAY_Q_STEP: '0.1',
+    DISPLAY_S_STEP: '0.1',
+    DISPLAY_GAIN_STEP: '0.1',
 }
 
 TYPES = {

@@ -17,7 +17,7 @@ class Ui_addSignalDialog(object):
         self.panesLayout = QtWidgets.QGridLayout()
         self.panesLayout.setObjectName("panesLayout")
         self.linkedSignal = QtWidgets.QCheckBox(addSignalDialog)
-        self.linkedSignal.setEnabled(False)
+        self.linkedSignal.setEnabled(True)
         self.linkedSignal.setObjectName("linkedSignal")
         self.panesLayout.addWidget(self.linkedSignal, 3, 0, 1, 1)
         spacerItem = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)

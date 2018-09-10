@@ -14,7 +14,8 @@ from model.iir import FilterType, LowShelf, HighShelf, PeakingEQ, SecondOrder_Lo
     SecondOrder_HighPass, ComplexLowPass, ComplexHighPass, q_to_s, s_to_q, max_permitted_s, CompleteFilter, COMBINED, \
     Passthrough
 from model.magnitude import MagnitudeModel
-from model.preferences import SHOW_ALL_FILTERS, SHOW_NO_FILTERS, FILTER_COLOURS, DISPLAY_SHOW_FILTERS
+from model.preferences import SHOW_ALL_FILTERS, SHOW_NO_FILTERS, FILTER_COLOURS, DISPLAY_SHOW_FILTERS, DISPLAY_Q_STEP, \
+    DISPLAY_GAIN_STEP, DISPLAY_S_STEP, DISPLAY_FREQ_STEP
 from ui.filter import Ui_editFilterDialog
 
 logger = logging.getLogger('filter')
@@ -220,7 +221,8 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
     freq_steps = [0.1, 1.0, 2.0, 5.0]
     passthrough = Passthrough()
 
-    def __init__(self, signal, filter_model, filter=None, parent=None):
+    def __init__(self, preferences, signal, filter_model, filter=None, parent=None):
+        self.__preferences = preferences
         # prevent signals from recalculating the filter before we've populated the fields
         self.__starting = True
         if parent is not None:
@@ -229,13 +231,17 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
             super(FilterDialog, self).__init__()
         # for shelf filter, allow input via Q or S not both
         self.__q_is_active = True
-        # allow user to control the steps for different fields
-        self.__q_step_idx = 0
-        self.__s_step_idx = 0
-        self.__gain_step_idx = 0
-        self.__freq_step_idx = 0
+        # allow user to control the steps for different fields, default to reasonably quick moving values
+        self.__q_step_idx = self.__get_step(self.q_steps, self.__preferences.get(DISPLAY_Q_STEP), 3)
+        self.__s_step_idx = self.__get_step(self.q_steps, self.__preferences.get(DISPLAY_S_STEP), 3)
+        self.__gain_step_idx = self.__get_step(self.gain_steps, self.__preferences.get(DISPLAY_GAIN_STEP), 0)
+        self.__freq_step_idx = self.__get_step(self.freq_steps, self.__preferences.get(DISPLAY_FREQ_STEP), 1)
         # init the UI itself
         self.setupUi(self)
+        self.__set_q_step(self.q_steps[self.__q_step_idx])
+        self.__set_s_step(self.q_steps[self.__s_step_idx])
+        self.__set_gain_step(self.gain_steps[self.__gain_step_idx])
+        self.__set_freq_step(self.freq_steps[self.__freq_step_idx])
         # underlying filter model
         self.__signal = signal
         self.__filter_model = filter_model
@@ -267,6 +273,12 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.__magnitudeModel = MagnitudeModel('preview', self.previewChart, self, 'Filter', db_range=30)
         # ensure the preview graph is shown if we have something to show
         self.previewFilter()
+
+    def __get_step(self, steps, value, default_idx):
+        for idx, val in enumerate(steps):
+            if str(val) == value:
+                return idx
+        return default_idx
 
     def save(self):
         ''' Stores the filter in the model. '''
@@ -488,9 +500,12 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
             self.qStepButton.setIcon(qta.icon('fa.chevron-circle-left'))
         else:
             self.__s_step_idx += 1
-        idx = self.__s_step_idx % len(self.q_steps)
-        self.sStepButton.setText(str(self.q_steps[idx]))
-        self.filterS.setSingleStep(self.q_steps[idx])
+        self.__set_s_step(self.q_steps[self.__s_step_idx % len(self.q_steps)])
+
+    def __set_s_step(self, step_val):
+        self.__preferences.set(DISPLAY_S_STEP, str(step_val))
+        self.sStepButton.setText(str(step_val))
+        self.filterS.setSingleStep(step_val)
 
     def handleQToolButton(self):
         '''
@@ -504,24 +519,33 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
             self.qStepButton.setIcon(QIcon())
             self.filterQ.setEnabled(True)
             self.sStepButton.setIcon(qta.icon('fa.chevron-circle-left'))
-        idx = self.__q_step_idx % len(self.q_steps)
-        self.qStepButton.setText(str(self.q_steps[idx]))
-        self.filterQ.setSingleStep(self.q_steps[idx])
+        self.__set_q_step(self.q_steps[self.__q_step_idx % len(self.q_steps)])
+
+    def __set_q_step(self, step_val):
+        self.__preferences.set(DISPLAY_Q_STEP, str(step_val))
+        self.qStepButton.setText(str(step_val))
+        self.filterQ.setSingleStep(step_val)
 
     def handleGainToolButton(self):
         '''
         Reacts to the gain tool button click.
         '''
         self.__gain_step_idx += 1
-        idx = self.__gain_step_idx % len(self.gain_steps)
-        self.gainStepButton.setText(str(self.gain_steps[idx]))
-        self.filterGain.setSingleStep(self.gain_steps[idx])
+        self.__set_gain_step(self.gain_steps[self.__gain_step_idx % len(self.gain_steps)])
+
+    def __set_gain_step(self, step_val):
+        self.__preferences.set(DISPLAY_GAIN_STEP, str(step_val))
+        self.gainStepButton.setText(str(step_val))
+        self.filterGain.setSingleStep(step_val)
 
     def handleFreqToolButton(self):
         '''
         Reacts to the frequency tool button click.
         '''
         self.__freq_step_idx += 1
-        idx = self.__freq_step_idx % len(self.freq_steps)
-        self.freqStepButton.setText(str(self.freq_steps[idx]))
-        self.freq.setSingleStep(self.freq_steps[idx])
+        self.__set_freq_step(self.freq_steps[self.__freq_step_idx % len(self.freq_steps)])
+
+    def __set_freq_step(self, step_val):
+        self.__preferences.set(DISPLAY_FREQ_STEP, str(step_val))
+        self.freqStepButton.setText(str(step_val))
+        self.freq.setSingleStep(step_val)

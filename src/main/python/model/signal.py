@@ -914,11 +914,16 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
         self.__loader_idx = self.signalTypeTabs.currentIndex()
         self.__signal_model = signal_model
         self.__magnitudeModel = MagnitudeModel('preview', self.previewChart, self, 'Signal')
-        for s in self.__signal_model:
-            self.filterSelect.addItem(s.name)
         if len(self.__signal_model) == 0:
-            self.filterSelect.setEnabled(False)
-            self.linkedSignal.setEnabled(False)
+            if len(self.__signal_model.default_signal.filter) > 0:
+                self.filterSelect.addItem('Default')
+            else:
+                self.filterSelectLabel.setEnabled(False)
+                self.filterSelect.setEnabled(False)
+                self.linkedSignal.setEnabled(False)
+        else:
+            for s in self.__signal_model:
+                self.filterSelect.addItem(s.name)
         self.clearSignal(draw=False)
 
     def changeLoader(self, idx):
@@ -995,17 +1000,41 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
         loader = self.__loaders[self.__loader_idx]
         if loader.can_save():
             signals = loader.get_signals()
-            selected_filter_idx = self.filterSelect.currentIndex()
-            if selected_filter_idx > 0:
-                master = self.__signal_model[selected_filter_idx - 1]
-                for s in signals:
-                    if self.linkedSignal.isChecked():
-                        master.enslave(s)
+            if len(signals) > 0:
+                selected_filter_idx = self.filterSelect.currentIndex()
+                if selected_filter_idx > 0: # 0 because the dropdown has a None value first
+                    if self.filterSelect.currentText() == 'Default':
+                        self.__apply_default_filter(signals)
                     else:
-                        s.filter = master.filter.resample(s.fs)
+                        master = self.__signal_model[selected_filter_idx - 1]
+                        for s in signals:
+                            if self.linkedSignal.isChecked():
+                                master.enslave(s)
+                            else:
+                                s.filter = master.filter.resample(s.fs)
+                for s in signals:
+                    self.__signal_model.add(s)
+                QDialog.accept(self)
+            else:
+                logger.warning(f"No signals produced by loader")
+
+    def __apply_default_filter(self, signals):
+        '''
+        Copies forward the default filter, using the 1st generated signal as the master if the user has chosen to link
+        them.
+        :param signals: the signals.
+        '''
+        if self.linkedSignal.isChecked():
+            master = None
+            for idx, s in enumerate(signals):
+                if idx == 0:
+                    s.filter = self.__signal_model.default_signal.filter.resample(s.fs)
+                    master = s
+                else:
+                    master.enslave(s)
+        else:
             for s in signals:
-                self.__signal_model.add(s)
-            QDialog.accept(self)
+                s.filter = self.__signal_model.default_signal.filter.resample(s.fs)
 
 
 def readWav(name, input_file, channel=1, start=None, end=None, target_fs=1000) -> Signal:
