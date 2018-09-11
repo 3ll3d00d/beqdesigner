@@ -343,7 +343,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         '''
         Creates a new ffmpeg and puts the compiled output into the text field.
         '''
-        output_file = os.path.join(self.targetDir.text(), self.outputFilename.text())
+        output_file = self.__get_output_path()
         input_stream = ffmpeg.input(self.inputFile.text())
         if self.monoMix.isChecked():
             self.__ffmpegCommand = \
@@ -359,6 +359,13 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         self.ffmpegCommandLine.setPlainText(
             ' '.join([s if s == 'ffmpeg' or s.startswith('-') else f"\"{s}\"" for s in command_args]))
         self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
+
+    def __get_output_path(self):
+        if len(self.targetDir.text()) > 0:
+            output_file = os.path.join(self.targetDir.text(), self.outputFilename.text())
+        else:
+            output_file = self.outputFilename.text()
+        return output_file
 
     def __get_lfe_mono_mix(self, channels, lfe_idx):
         '''
@@ -412,18 +419,20 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         :return: True if we created the signals.
         '''
         loader = AutoWavLoader(self.__preferences)
-        output_file = os.path.join(self.targetDir.text(), self.outputFilename.text())
+        output_file = self.__get_output_path()
         if os.path.exists(output_file):
-            logger.info(f"Creating signals for {output_file}")
-            name_provider = lambda channel, channel_count: get_channel_name(self.signalName.text(), channel,
-                                                                            channel_count,
-                                                                            channel_layout_name=self.__channel_layout_name)
-            signals = loader.auto_load(output_file, name_provider)
-            if len(signals) > 0:
-                for s in signals:
-                    logger.info(f"Adding signal {s.name}")
-                    self.__signal_model.add(s)
-                return True
+            from app import wait_cursor
+            with wait_cursor(f"Creating signals for {output_file}"):
+                logger.info(f"Creating signals for {output_file}")
+                name_provider = lambda channel, channel_count: get_channel_name(self.signalName.text(), channel,
+                                                                                channel_count,
+                                                                                channel_layout_name=self.__channel_layout_name)
+                signals = loader.auto_load(output_file, name_provider)
+                if len(signals) > 0:
+                    for s in signals:
+                        logger.info(f"Adding signal {s.name}")
+                        self.__signal_model.add(s)
+                    return True
         else:
             msg_box = QMessageBox()
             msg_box.setText(f"Extracted audio file does not exist at: \n\n {output_file}")
