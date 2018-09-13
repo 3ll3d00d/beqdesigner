@@ -115,3 +115,5 @@ src/scratch
 *.signal
 *.beq
 *.filter
+
+scratch.py

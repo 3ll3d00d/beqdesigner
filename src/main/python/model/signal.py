@@ -450,7 +450,7 @@ class Signal:
         Sxx = np.sqrt(Sxx)
         if segmentLengthMultiplier > 0:
             ref = ref * SPECLAB_REFERENCE
-        Sxx = amplitude_to_db(Sxx, ref)
+        Sxx = amplitude_to_db(Sxx, ref=ref)
         return f, t, Sxx
 
     def filter(self, a, b):

@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1402</width>
-    <height>669</height>
+    <width>1368</width>
+    <height>720</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -46,21 +46,78 @@
        </property>
        <widget class="QWidget" name="spectrumTab">
         <attribute name="title">
-         <string>Peak Spectrum by Time</string>
+         <string>Peak Spectrum</string>
         </attribute>
         <layout class="QGridLayout" name="gridLayout_3">
-         <item row="0" column="0">
+         <item row="3" column="0">
           <widget class="MplWidget" name="spectrumChart"/>
          </item>
-        </layout>
-       </widget>
-       <widget class="QWidget" name="spectrogramTab">
-        <attribute name="title">
-         <string>Spectrogram</string>
-        </attribute>
-        <layout class="QGridLayout" name="gridLayout_4">
          <item row="0" column="0">
-          <widget class="QGraphicsView" name="spectrogramChart"/>
+          <layout class="QGridLayout" name="spectrumControlsLayout" columnstretch="0,0,0,0,0,0">
+           <item row="0" column="3">
+            <widget class="QLabel" name="colourRangeLabel">
+             <property name="text">
+              <string>Colour Range (dB)</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="0">
+            <widget class="QCheckBox" name="clipAtAverage">
+             <property name="text">
+              <string>Clip at Average Level?</string>
+             </property>
+             <property name="checked">
+              <bool>false</bool>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="5">
+            <spacer name="horizontalSpacer">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item row="0" column="1">
+            <widget class="QLabel" name="dbRangeLabel">
+             <property name="text">
+              <string>Clip At (dB)</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="2">
+            <widget class="QSpinBox" name="dbRange">
+             <property name="minimum">
+              <number>-100</number>
+             </property>
+             <property name="maximum">
+              <number>-1</number>
+             </property>
+             <property name="value">
+              <number>-12</number>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="4">
+            <widget class="QSpinBox" name="colourRange">
+             <property name="minimum">
+              <number>6</number>
+             </property>
+             <property name="maximum">
+              <number>120</number>
+             </property>
+             <property name="value">
+              <number>30</number>
+             </property>
+            </widget>
+           </item>
+          </layout>
          </item>
         </layout>
        </widget>
@@ -244,11 +301,76 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>clipAtAverage</sender>
+   <signal>clicked()</signal>
+   <receiver>analysisDialog</receiver>
+   <slot>show_chart()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>437</x>
+     <y>63</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>354</x>
+     <y>136</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>dbRange</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>analysisDialog</receiver>
+   <slot>show_chart()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>696</x>
+     <y>68</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>354</x>
+     <y>183</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>clipAtAverage</sender>
+   <signal>clicked()</signal>
+   <receiver>analysisDialog</receiver>
+   <slot>allow_clip_choice()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>476</x>
+     <y>70</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>356</x>
+     <y>233</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>colourRange</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>analysisDialog</receiver>
+   <slot>show_chart()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>917</x>
+     <y>67</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>357</x>
+     <y>389</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>select_wav_file()</slot>
   <slot>load_file()</slot>
   <slot>show_chart()</slot>
   <slot>show_limits()</slot>
+  <slot>allow_clip_choice()</slot>
  </slots>
 </ui>

@@ -1,4 +1,5 @@
 import logging
+import math
 from math import log10
 
 from PyQt5.QtWidgets import QDialog
@@ -47,7 +48,7 @@ class dBRangeCalculator:
         vmax = y_range[1]
         # coerce max to a round value
         multiple = 5 if self.__default_range <= 40 else 10
-        if vmax % multiple != 0:
+        if not math.isclose(vmax % multiple, 0):
             vmax = (vmax - vmax % multiple) + multiple
         else:
             vmax += multiple
@@ -237,25 +238,25 @@ class LimitsDialog(QDialog, Ui_graphLayoutDialog):
         self.setupUi(self)
         self.__limits = limits
         self.hzLog.setChecked(limits.x_scale == 'log')
-        self.xMin.setValue(self.__limits.x_min)
         self.xMin.setMinimum(x_min)
         self.xMin.setMaximum(x_max-1)
-        self.xMax.setValue(self.__limits.x_max)
+        self.xMin.setValue(self.__limits.x_min)
         self.xMax.setMinimum(x_min+1)
         self.xMax.setMaximum(x_max)
-        self.y1Min.setValue(self.__limits.y1_min)
+        self.xMax.setValue(self.__limits.x_max)
         self.y1Min.setMinimum(y1_min)
         self.y1Min.setMaximum(y1_max-1)
-        self.y1Max.setValue(self.__limits.y1_max)
+        self.y1Min.setValue(self.__limits.y1_min)
         self.y1Max.setMinimum(y1_min+1)
         self.y1Max.setMaximum(y1_max)
+        self.y1Max.setValue(self.__limits.y1_max)
         if limits.axes_2 is not None:
-            self.y2Min.setValue(self.__limits.y2_min)
             self.y2Min.setMinimum(y2_min)
             self.y2Min.setMaximum(y2_max - 1)
-            self.y2Max.setValue(self.__limits.y2_max)
+            self.y2Min.setValue(self.__limits.y2_min)
             self.y2Max.setMinimum(y2_min + 1)
             self.y2Max.setMaximum(y2_max)
+            self.y2Max.setValue(self.__limits.y2_max)
         else:
             self.y2Min.setEnabled(False)
             self.y2Max.setEnabled(False)
