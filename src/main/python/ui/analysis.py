@@ -123,7 +123,7 @@ class Ui_analysisDialog(object):
         self.gridLayout_2.addLayout(self.analysisGridLayout, 0, 0, 1, 1)
 
         self.retranslateUi(analysisDialog)
-        self.analysisTabs.setCurrentIndex(1)
+        self.analysisTabs.setCurrentIndex(0)
         self.filePicker.clicked.connect(analysisDialog.select_wav_file)
         self.loadButton.clicked.connect(analysisDialog.load_file)
         self.analysisTabs.currentChanged['int'].connect(analysisDialog.show_chart)
@@ -145,7 +145,7 @@ class Ui_analysisDialog(object):
         self.dbRangeLabel.setText(_translate("analysisDialog", "Clip At (dB)"))
         self.clipToAbsolute.setText(_translate("analysisDialog", "Clip to Absolute Peak?"))
         self.analysisTabs.setTabText(self.analysisTabs.indexOf(self.spectrumTab), _translate("analysisDialog", "Peak Spectrum"))
-        self.magnitudeDecibels.setText(_translate("analysisDialog", "Waveform in dB?"))
+        self.magnitudeDecibels.setText(_translate("analysisDialog", "Waveform in dBFS?"))
         self.analysisTabs.setTabText(self.analysisTabs.indexOf(self.waveformTab), _translate("analysisDialog", "Waveform"))
         self.startLabel.setText(_translate("analysisDialog", "Start"))
         self.endLabel.setText(_translate("analysisDialog", "End"))
