@@ -115,7 +115,20 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
             pass
 
     def allow_clip_choice(self):
-        self.dbRange.setEnabled(not self.clipAtAverage.isChecked())
+        if self.clipAtAverage.isChecked():
+            self.clipToAbsolute.setEnabled(False)
+            self.dbRange.setEnabled(False)
+        else:
+            self.dbRange.setEnabled(True)
+            self.clipToAbsolute.setEnabled(True)
+        self.show_chart()
+
+    def clip_to_abs(self):
+        if self.clipToAbsolute.isChecked():
+            self.clipAtAverage.setEnabled(False)
+            self.dbRange.setEnabled(True)
+        else:
+            self.clipAtAverage.setEnabled(True)
         self.show_chart()
 
 
@@ -194,8 +207,11 @@ class MaxSpectrumByTime:
             if self.__ui.clipAtAverage.isChecked():
                 _, Pthreshold = self.signal.spectrum(segmentLengthMultiplier=multiplier)
             else:
-                # add the dbRange because it's shown as a negative value
-                Pthreshold = Sxx.max(axis=-1) + self.__ui.dbRange.value()
+                if self.__ui.clipToAbsolute.isChecked():
+                    Pthreshold = np.array([np.max(Sxx) + self.__ui.dbRange.value()]).repeat(f.size)
+                else:
+                    # add the dbRange because it's shown as a negative value
+                    Pthreshold = Sxx.max(axis=-1) + self.__ui.dbRange.value()
             Pthreshold = np.tile(Pthreshold, t.size)
             vmax = math.ceil(np.max(Sxx.max(axis=-1)))
             vmin = vmax - self.__ui.colourRange.value()
