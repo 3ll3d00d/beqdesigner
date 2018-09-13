@@ -26,20 +26,10 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
         self.__info = None
         self.__signal = None
         self.__spectrum_analyser = MaxSpectrumByTime(self.spectrumChart, self.__preferences, self)
+        self.__waveform_analyser = Waveform(self.waveformChart, self)
         self.__duration = 0
-        self.__waveform_axes = None
         self.loadButton.setEnabled(False)
         self.__clear()
-        self.__init_charts()
-
-    def __init_charts(self):
-        self.__waveform_axes = self.waveformChart.canvas.figure.add_subplot(111)
-        self.__init_chart(self.__waveform_axes)
-
-    def __init_chart(self, axes):
-        axes.set_ylabel('Time')
-        axes.grid(linestyle='-', which='major', linewidth=1, alpha=0.5)
-        axes.grid(linestyle='--', which='minor', linewidth=1, alpha=0.5)
 
     def select_wav_file(self):
         '''
@@ -72,8 +62,6 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
         self.__signal = None
         self.__info = None
         self.__duration = 0
-        if self.__waveform_axes is not None:
-            self.__waveform_axes.clear()
 
     def load_file(self):
         '''
@@ -93,6 +81,7 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
             self.__signal = readWav('analysis', self.__info.name, channel=channel, start=start, end=end,
                                     target_fs=self.__preferences.get(ANALYSIS_TARGET_FS))
             self.__spectrum_analyser.signal = self.__signal
+            self.__waveform_analyser.signal = self.__signal
             self.show_chart()
 
     def show_chart(self):
@@ -104,15 +93,14 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
             if idx == 0:
                 self.__spectrum_analyser.analyse()
             elif idx == 1:
-                pass
+                self.__waveform_analyser.analyse()
 
     def show_limits(self):
         idx = self.analysisTabs.currentIndex()
         if idx == 0:
             self.__spectrum_analyser.show_limits()
         elif idx == 1:
-            # LimitsDialog(self.__spectrum_limits).exec()
-            pass
+            self.__waveform_analyser.show_limits()
 
     def allow_clip_choice(self):
         if self.clipAtAverage.isChecked():
@@ -132,6 +120,105 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
         self.show_chart()
 
 
+class WaveformRange:
+    '''
+    A range calculator that just returns -1/1 or the signal range
+    '''
+
+    def __init__(self, is_db=False):
+        self.is_db = is_db
+
+    def calculate(self, y_range):
+        if self.is_db is True:
+            return y_range[0], 0.0
+        else:
+            return -1.0, 1.0
+
+
+class Waveform:
+    '''
+    An analyser that simply shows the waveform.
+    '''
+
+    def __init__(self, chart, ui):
+        self.__chart = chart
+        self.__ui = ui
+        self.__axes = self.__chart.canvas.figure.add_subplot(111)
+        self.__waveform_range = WaveformRange(is_db=self.__ui.magnitudeDecibels.isChecked())
+        self.__limits = Limits('waveform', self.__redraw, self.__axes, x_axis_configurer=self.configure_time_axis,
+                               y_range_calculator=self.__waveform_range, x_lim=(0, 1), x_scale='linear')
+        self.__signal = None
+        self.__curve = None
+
+    def configure_time_axis(self, axes, x_scale):
+        axes.set_xscale(x_scale)
+        axes.set_xlabel('Time')
+
+    @property
+    def signal(self):
+        return self.__signal
+
+    @signal.setter
+    def signal(self, signal):
+        self.__signal = signal
+        self.__limits.x_min = 0
+        self.__limits.x_max = 1
+        if signal is not None:
+            self.__limits.x_max = signal.durationSeconds
+        if self.__curve is not None:
+            self.__curve.set_data([])
+        self.__init_chart(draw=True)
+
+    def __init_chart(self, draw=False):
+        self.__limits.propagate_to_axes(draw=False)
+        self.__axes.grid(linestyle='-', which='major', linewidth=1, alpha=0.5)
+        self.__axes.grid(linestyle='--', which='minor', linewidth=1, alpha=0.5)
+        if draw is True:
+            self.__redraw()
+
+    def __redraw(self):
+        self.__chart.canvas.draw_idle()
+
+    def clear(self):
+        '''
+        Resets the analyser.
+        '''
+        self.signal = None
+
+    def show_limits(self):
+        '''
+        Shows the graph limits dialog.
+        '''
+        if self.signal is not None:
+            LimitsDialog(self.__limits, x_min=0, x_max=self.signal.durationSeconds, y1_min=-1, y1_max=1).exec()
+
+    def analyse(self):
+        '''
+        Calculates the spectrum view.
+        '''
+        from app import wait_cursor
+        with wait_cursor(f"Analysing"):
+            step = 1.0 / self.signal.fs
+            x = np.arange(0, self.signal.durationSeconds, step)
+            y = self.signal.samples
+            if self.__ui.magnitudeDecibels.isChecked():
+                y = np.copy(y)
+                y[y == 0.0] = 0.000000001
+                y = 20 * np.log10(np.abs(y))
+                self.__limits.y1_max = 0.0
+                self.__limits.y1_min = math.floor(np.min(y))
+            else:
+                self.__limits.y1_min = -1.0
+                self.__limits.y1_max = 1.0
+            self.__waveform_range.is_db = self.__ui.magnitudeDecibels.isChecked()
+            if self.__curve is None:
+                self.__curve = self.__axes.plot(x, y, linewidth=1, color='cyan')[0]
+            else:
+                self.__curve.set_data(x, y)
+                self.__limits.on_data_change((self.__limits.y1_min, self.__limits.y1_max), [])
+            self.__limits.propagate_to_axes(draw=True)
+
+
 class OnePlusRange:
     def __init__(self):
         pass
@@ -141,6 +228,10 @@ class OnePlusRange:
 
 
 class MaxSpectrumByTime:
+    '''
+    An analyser that highlights where the heavy hits are in time by frequency
+    '''
+
     def __init__(self, chart, preferences, ui):
         self.__chart = chart
         self.__ui = ui

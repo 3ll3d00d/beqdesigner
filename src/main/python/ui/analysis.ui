@@ -139,8 +139,19 @@
          <string>Waveform</string>
         </attribute>
         <layout class="QGridLayout" name="gridLayout">
-         <item row="0" column="0">
+         <item row="1" column="0">
           <widget class="MplWidget" name="waveformChart"/>
+         </item>
+         <item row="0" column="0">
+          <layout class="QGridLayout" name="waveformControls">
+           <item row="0" column="0">
+            <widget class="QCheckBox" name="magnitudeDecibels">
+             <property name="text">
+              <string>Waveform in dBFS?</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
          </item>
         </layout>
        </widget>
@@ -391,6 +402,22 @@
     <hint type="destinationlabel">
      <x>351</x>
      <y>335</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>magnitudeDecibels</sender>
+   <signal>clicked()</signal>
+   <receiver>analysisDialog</receiver>
+   <slot>show_chart()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>407</x>
+     <y>65</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>355</x>
+     <y>126</y>
     </hint>
    </hints>
   </connection>

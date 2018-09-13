@@ -161,7 +161,7 @@ class MagnitudeModel:
         '''
         self.__primary.display_curves()
         self.__secondary.display_curves()
-        self.limits.configure_freq_axis()
+        self.limits.configure_x_axis()
         self.__secondary.hide_axes_if_empty()
         self.limits.on_data_change(self.__primary.get_ylimits(), self.__secondary.get_ylimits())
 

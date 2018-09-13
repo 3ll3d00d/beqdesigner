@@ -55,13 +55,25 @@ class dBRangeCalculator:
         return vmax - self.__default_range, vmax
 
 
+def configure_freq_axis(axes, x_scale):
+    '''
+    sets up the freq axis formatters (which you seem to have to call constantly otherwise matplotlib keeps
+    reinstating the default log format)
+    '''
+    axes.set_xscale(x_scale)
+    hzFormatter = EngFormatter(places=0)
+    axes.get_xaxis().set_major_formatter(hzFormatter)
+    axes.get_xaxis().set_minor_formatter(PrintFirstHalfFormatter(hzFormatter))
+    axes.set_xlabel('Hz')
+
+
 class Limits:
     '''
     Value object to hold graph limits to decouple the dialog from the chart.
     '''
 
-    def __init__(self, name, redraw_func, axes_1, x_lim, y_range_calculator=dBRangeCalculator(), x_scale='log',
-                 axes_2=None):
+    def __init__(self, name, redraw_func, axes_1, x_lim, x_axis_configurer=configure_freq_axis,
+                 y_range_calculator=dBRangeCalculator(), x_scale='log', axes_2=None):
         '''
         :param name: the name of the chart.
         :param redraw_func: redraws the owning canvas.
@@ -73,6 +85,7 @@ class Limits:
         '''
         self.name = name
         self.__redraw_func = redraw_func
+        self.__configure_x_axis = x_axis_configurer
         self.__y_range_calculator = y_range_calculator
         self.axes_1 = axes_1
         self.x_scale = x_scale
@@ -89,6 +102,12 @@ class Limits:
             self.axes_2 = self.y2_min = self.y2_max = None
         self.propagate_to_axes()
 
+    def configure_x_axis(self):
+        '''
+        Allows external code to update the x axis.
+        '''
+        self.__configure_x_axis(self.axes_1, self.x_scale)
+
     def propagate_to_axes(self, draw=False):
         '''
         Updates the chart with the current values.
@@ -97,7 +116,7 @@ class Limits:
         self.axes_1.set_ylim(bottom=self.y1_min, top=self.y1_max)
         if self.axes_2 is not None:
             self.axes_2.set_ylim(bottom=self.y2_min, top=self.y2_max)
-        self.configure_freq_axis()
+        self.__configure_x_axis(self.axes_1, self.x_scale)
         if draw:
             logger.debug(f"{self.name} Redrawing axes on limits change")
             self.__redraw_func()
@@ -166,17 +185,6 @@ class Limits:
         '''
         return True
 
-    def configure_freq_axis(self):
-        '''
-        sets up the freq axis formatters (which you seem to have to call constantly otherwise matplotlib keeps
-        reinstating the default log format)
-        '''
-        self.axes_1.set_xscale(self.x_scale)
-        hzFormatter = EngFormatter(places=0)
-        self.axes_1.get_xaxis().set_major_formatter(hzFormatter)
-        self.axes_1.get_xaxis().set_minor_formatter(PrintFirstHalfFormatter(hzFormatter))
-        self.axes_1.set_xlabel('Hz')
-
 
 class ValuesDialog(QDialog, Ui_valuesDialog):
     '''
@@ -239,15 +247,15 @@ class LimitsDialog(QDialog, Ui_graphLayoutDialog):
         self.__limits = limits
         self.hzLog.setChecked(limits.x_scale == 'log')
         self.xMin.setMinimum(x_min)
-        self.xMin.setMaximum(x_max-1)
+        self.xMin.setMaximum(x_max - 1)
         self.xMin.setValue(self.__limits.x_min)
-        self.xMax.setMinimum(x_min+1)
+        self.xMax.setMinimum(x_min + 1)
         self.xMax.setMaximum(x_max)
         self.xMax.setValue(self.__limits.x_max)
         self.y1Min.setMinimum(y1_min)
-        self.y1Min.setMaximum(y1_max-1)
+        self.y1Min.setMaximum(y1_max - 1)
         self.y1Min.setValue(self.__limits.y1_min)
-        self.y1Max.setMinimum(y1_min+1)
+        self.y1Max.setMinimum(y1_min + 1)
         self.y1Max.setMaximum(y1_max)
         self.y1Max.setValue(self.__limits.y1_max)
         if limits.axes_2 is not None:
