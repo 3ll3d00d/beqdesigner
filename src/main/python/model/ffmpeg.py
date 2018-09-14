@@ -1,6 +1,7 @@
 import logging
 import os
 import socketserver
+import threading
 import time
 from pathlib import Path
 
@@ -14,6 +15,15 @@ logger = logging.getLogger('progress')
 
 MAIN = str(10 ** (-20.2 / 20.0))
 LFE = str(10 ** (-10.2 / 20.0))
+
+NEXT_PORT = 12000
+
+
+def get_next_port():
+    # v dodgy hack! wot no AtomicInt
+    global NEXT_PORT
+    NEXT_PORT += 1
+    return NEXT_PORT
 
 
 class Executor:
@@ -35,6 +45,9 @@ class Executor:
         self.__output_file_name = None
         self.__ffmpeg_cmd = None
         self.__ffmpeg_cli = None
+        self.__progress_handler = None
+        self.__progress_port = get_next_port()
+        self.__extract_thread = None
 
     @property
     def target_dir(self):
@@ -44,6 +57,18 @@ class Executor:
     def target_dir(self, target_dir):
         self.__target_dir = target_dir
         self.__calculate_ffmpeg_cmd()
+
+    @property
+    def progress_handler(self):
+        return self.__progress_handler
+
+    @progress_handler.setter
+    def progress_handler(self, progress_handler):
+        '''
+        Sets the progress handler, should be a callable which accepts 2 parameters (key, value)
+        :param progress_handler: the handler.
+        '''
+        self.__progress_handler = progress_handler
 
     @property
     def probe(self):
@@ -270,6 +295,8 @@ class Executor:
             filtered_stream = input_stream[f"{self.__selected_stream_idx+1}"]
             self.__ffmpeg_cmd = \
                 filtered_stream.filter('aresample', '1000', resampler='soxr').output(output_file, acodec='pcm_s24le')
+        if self.progress_handler is not None:
+            self.__ffmpeg_cmd = self.__ffmpeg_cmd.global_args('-progress', f"udp://127.0.0.1:{self.__progress_port}")
         command_args = self.__ffmpeg_cmd.compile(overwrite_output=True)
         self.__ffmpeg_cli = ' '.join([s if s == 'ffmpeg' or s.startswith('-') else f"\"{s}\"" for s in command_args])
 
@@ -304,15 +331,14 @@ class Executor:
         gains = '+'.join([f"{ratio}*c{a}" for a in range(0, channels)])
         return gains
 
-    def execute(self, on_progress_callback=None, on_complete_callback=None):
+    def execute(self, on_complete_callback=None):
         '''
         Executes the command.
-        :param on_progress_callback: called when the command makes progress.
         :param on_complete_callback: called when the command completes.
         '''
         if self.__ffmpeg_cmd is not None:
-            # TODO update the cmd with the progress arg
-            self.__extract_thread = AudioExtractor(self.__ffmpeg_cmd)
+            self.__extract_thread = AudioExtractor(self.__ffmpeg_cmd, port=self.__progress_port,
+                                                   progress_handler=self.progress_handler)
 
             def pass_result_on_complete():
                 on_complete_callback(self.__extract_thread.result)
@@ -327,15 +353,22 @@ class AudioExtractor(QThread):
     Allows audio extraction to be performed outside the main UI thread.
     '''
 
-    def __init__(self, ffmpeg_cmd):
+    def __init__(self, ffmpeg_cmd, port=None, progress_handler=None):
         QThread.__init__(self)
         self.__ffmpeg_cmd = ffmpeg_cmd
+        self.__progress_handler = progress_handler
+        self.__socket_server = None
+        self.__port = port
         self.result = None
 
     def __del__(self):
         self.wait()
 
     def run(self):
+        '''
+        Executes the ffmpeg command.
+        '''
+        self.__start_socket_server()
         start = time.time()
         try:
             logger.info("Starting ffmpeg command")
@@ -344,15 +377,17 @@ class AudioExtractor(QThread):
             elapsed = round(end - start, 3)
             logger.info(f"Executed ffmpeg command in {elapsed}s")
             result = f"Command completed normally in {elapsed}s" + os.linesep + os.linesep
-            self.result = self.append_out_err(err, out, result)
+            self.result = self.__append_out_err(err, out, result)
         except ffmpeg.Error as e:
             end = time.time()
             elapsed = round(end - start, 3)
             logger.info(f"FAILED to execute ffmpeg command in {elapsed}s")
             result = f"Command FAILED in {elapsed}s" + os.linesep + os.linesep
-            self.result = self.append_out_err(e.stderr, e.stdout, result)
+            self.result = self.__append_out_err(e.stderr, e.stdout, result)
+        finally:
+            self.__stop_socket_server()
 
-    def append_out_err(self, err, out, result):
+    def __append_out_err(self, err, out, result):
         result += 'STDOUT' + os.linesep + '------' + os.linesep + os.linesep
         if out is not None:
             result += out.decode() + os.linesep
@@ -361,23 +396,47 @@ class AudioExtractor(QThread):
             result += err.decode() + os.linesep
         return result
 
+    def __start_socket_server(self):
+        if self.__progress_handler is not None:
+            self.__socket_server = FfmpegProgressBridge(self.on_progress, port=self.__port, auto=True)
+
+    def __stop_socket_server(self):
+        if self.__socket_server is not None:
+            self.__socket_server.stop()
+
+    def on_progress(self, key, value):
+        '''
+        Callback from ffmpeg -progress, passes the value straight to the __progress_handler
+        :param key: the key.
+        :param value: the value.
+        '''
+        logger.debug(f"Received -- 127.0.0.1:{self.__port} -- {key}={value}")
+        self.__progress_handler(key, value)
+
+
+class ThreadedUDPServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
+    pass
+
 
 class FfmpegProgressBridge:
     '''
     A socket server which bridges progress reports from ffmpeg to the given handler.
     '''
 
-    def __init__(self, handler, host='localhost', port=8000):
+    def __init__(self, handler, host='127.0.0.1', port=8000, auto=False):
         self.__host = host
         self.__port = port
         self.__handler = handler
         self.__server = None
+        if auto is True:
+            self.start()
 
     def start(self):
         '''
         Starts the server and connects the handler to it.
         '''
         if self.__server is None:
+            logger.info(f"Starting progress bridge on {self.__host}:{self.__port}")
             request_handler = self.__handler
 
             class SocketHandler(socketserver.BaseRequestHandler):
@@ -387,21 +446,33 @@ class FfmpegProgressBridge:
 
                 def handle(self):
                     data = self.request[0].strip()
-                    for line in data.decode("utf-8").splitlines()[:-1]:
+                    decode = data.decode("utf-8")
+                    for line in decode.splitlines():
                         parts = line.split('=')
                         key = parts[0] if len(parts) > 0 else None
                         value = parts[1] if len(parts) > 1 else None
                         request_handler(key, value)
 
             self.__server = socketserver.UDPServer((self.__host, self.__port), SocketHandler)
-            try:
+
+            def serve_forever():
+                logger.info('Server loop running')
                 self.__server.serve_forever(poll_interval=0.25)
-            except:
-                self.__server = None
+
+            server_thread = threading.Thread(target=serve_forever)
+            server_thread.daemon = True
+            server_thread.start()
+            # give the thread a second to start before we kick off
+            time.sleep(1)
 
     def stop(self):
+        '''
+        Stops the server if it is running.
+        '''
         if self.__server is not None:
+            logger.info(f"Stopping progress bridge on {self.__host}:{self.__port}")
             self.__server.shutdown()
+            logger.info(f"Stopped progress bridge on {self.__host}:{self.__port}")
 
 
 @filter_operator()

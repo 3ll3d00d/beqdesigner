@@ -1,5 +1,6 @@
 import datetime
 import logging
+import math
 import os
 from pathlib import Path
 
@@ -127,8 +128,10 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         self.ffmpegOutput.clear()
         self.__executor = None
         self.__extracted = False
+        self.__stream_duration_micros = []
         self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
         self.buttonBox.button(QDialogButtonBox.Ok).setText('Extract')
+        self.ffmpegProgress.setValue(0)
         self.signalName.setEnabled(False)
         self.signalNameLabel.setEnabled(False)
         self.signalName.setText('')
@@ -139,6 +142,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         '''
         file_name = self.inputFile.text()
         self.__executor = Executor(file_name, self.targetDir.text())
+        self.__executor.progress_handler = self.__handle_ffmpeg_process
         logger.info(f"Probing {file_name}")
         from app import wait_cursor
         with wait_cursor(f"Probing {file_name}"):
@@ -156,7 +160,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         Adds the specified audio stream to the combo box to allow the user to choose a value.
         :param audio_stream: the stream.
         '''
-        duration = self.__format_duration(audio_stream)
+        duration, duration_ms = self.__get_duration(audio_stream)
         if duration is None:
             duration = ''
         text = f"{audio_stream['index']}: {audio_stream['codec_long_name']} - {audio_stream['sample_rate']}Hz"
@@ -166,24 +170,56 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             text += f" {audio_stream['channels']} channels "
         text += f"{duration}"
         self.audioStreams.addItem(text)
+        self.__stream_duration_micros.append(duration_ms)
 
-    def __format_duration(self, audio_stream):
+    def __get_duration(self, audio_stream):
         '''
         Looks for a duration field and formats it into hh:mm:ss.zzz format.
         :param audio_stream: the stream data.
         :return: the duration, if any.
         '''
         duration = None
-        durationSecs = audio_stream.get('duration', None)
-        if durationSecs is not None:
-            duration = str(datetime.timedelta(seconds=float(durationSecs)))
+        # default to an hour is a complete hack but I have no idea what turn up in that DURATION tag
+        duration_micros = 60 * 60 * 1000
+        duration_secs = audio_stream.get('duration', None)
+        if duration_secs is not None:
+            duration = str(datetime.timedelta(seconds=float(duration_secs)))
+            duration_micros = float(duration_secs) * 1000000
         else:
             tags = audio_stream.get('tags', None)
             if tags is not None:
-                duration = audio_stream.get('DURATION', None)
+                duration = tags.get('DURATION', None)
         if duration is not None:
+            tmp = self.__extract_duration_micros(duration)
+            if tmp is not None:
+                duration_micros = tmp
             duration = ' - ' + duration
-        return duration
+        return duration, duration_micros
+
+    def __extract_duration_micros(self, duration):
+        '''
+        Attempts to convert a duration string of unknown format into a millisecond value.
+        :param duration: the duration str.
+        :return: duration in millis if we could convert.
+        '''
+        duration_millis = None
+        try:
+            subsecond_pos = duration.rfind('.')
+            duration_str = duration
+            if subsecond_pos > 0:
+                subsecond_len = len(duration) - subsecond_pos
+                if subsecond_len > 6:
+                    duration_str = duration[:6 - subsecond_len]
+                elif subsecond_len == -1:
+                    duration_str += '.000000'
+                elif subsecond_len < 6:
+                    duration_str += ('0' * subsecond_len)
+                x = datetime.datetime.strptime(duration_str, '%H:%M:%S.%f')
+                duration_millis = datetime.timedelta(hours=x.hour, minutes=x.minute, seconds=x.second,
+                                                     microseconds=x.microsecond).total_seconds() * 1000000
+        except Exception as e:
+            logger.error(f"Unable to extract duration_millis from {duration}", e)
+        return duration_millis
 
     def updateFfmpegSpec(self):
         '''
@@ -280,6 +316,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         if self.__executor is not None:
             logger.info(f"Extraction complete for {self.outputFilename.text()}")
             self.ffmpegOutput.setPlainText(result)
+            self.ffmpegProgress.setValue(100)
             self.__extracted = True
             self.signalName.setEnabled(True)
             self.signalNameLabel.setEnabled(True)
@@ -298,6 +335,20 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         if self.__executor is not None:
             logger.info(f"Extracting {self.outputFilename.text()} from {self.inputFile.text()}")
             self.__executor.execute(on_complete_callback=self.__extract_complete)
+
+    def __handle_ffmpeg_process(self, key, value):
+        '''
+        Handles progress reports from ffmpeg in order to communicate status via the progress bar.
+        :param key: the key.
+        :param value: the value.
+        '''
+        if key == 'out_time_ms':
+            out_time_ms = int(value)
+            total_micros = self.__stream_duration_micros[self.audioStreams.currentIndex()]
+            logger.debug(f"{self.inputFile.text()} -- {key}={value} vs {total_micros}")
+            if total_micros > 0:
+                progress = math.ceil((out_time_ms / total_micros) * 100.0)
+                self.ffmpegProgress.setValue(progress)
 
     def showProbeInDetail(self):
         '''
