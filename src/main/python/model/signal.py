@@ -225,7 +225,7 @@ class SignalModel(Sequence):
             if show_filtered_signals == SHOW_FILTERED_ONLY:
                 pattern = re.compile(".*_(avg|peak)-filtered$")
             elif show_filtered_signals == SHOW_UNFILTERED_ONLY:
-                pattern = re.compile(".*_(avg|peak)")
+                pattern = re.compile(".*_(avg|peak)$")
         return pattern
 
     def remove(self, signal):
