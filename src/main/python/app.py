@@ -12,6 +12,7 @@ import matplotlib
 
 matplotlib.use("Qt5Agg")
 
+from model.analysis import AnalyseSignalDialog
 from model.link import LinkSignalsDialog
 from model.preferences import DISPLAY_SHOW_FILTERED_SIGNALS
 from ui.delegates import RegexValidator
@@ -24,7 +25,7 @@ from model.iir import Passthrough, CompleteFilter
 from ui.biquad import Ui_exportBiquadDialog
 from ui.savechart import Ui_saveChartDialog
 
-from qtpy.QtCore import QSettings, QItemSelectionModel, QModelIndex
+from qtpy.QtCore import QSettings
 from qtpy.QtGui import QIcon, QFont, QCursor
 from qtpy.QtWidgets import QMainWindow, QApplication, QErrorMessage, QAbstractItemView, QDialog, QFileDialog, \
     QHeaderView
@@ -155,6 +156,8 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.ensurePathContainsExternalTools()
         # extraction
         self.actionExtract_Audio.triggered.connect(self.showExtractAudioDialog)
+        # analysis
+        self.actionAnalyse_Audio.triggered.connect(self.showAnalyseAudioDialog)
         # import
         self.actionLoad_Filter.triggered.connect(self.importFilter)
         self.actionLoad_Signal.triggered.connect(self.importSignal)
@@ -463,6 +466,12 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         Show the extract audio dialog.
         '''
         ExtractAudioDialog(self.preferences, self.__signal_model).exec()
+
+    def showAnalyseAudioDialog(self):
+        '''
+        Show the analyse audio dialog.
+        '''
+        AnalyseSignalDialog(self.preferences).exec()
 
     def showExportFRDDialog(self):
         '''

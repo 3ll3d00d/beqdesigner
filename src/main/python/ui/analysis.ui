@@ -1,0 +1,433 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>analysisDialog</class>
+ <widget class="QDialog" name="analysisDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1368</width>
+    <height>720</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Dialog</string>
+  </property>
+  <property name="sizeGripEnabled">
+   <bool>true</bool>
+  </property>
+  <layout class="QGridLayout" name="gridLayout_2">
+   <item row="0" column="0">
+    <layout class="QGridLayout" name="analysisGridLayout" columnstretch="0,0,1">
+     <item row="0" column="1">
+      <widget class="QToolButton" name="showLimitsButton">
+       <property name="text">
+        <string>...</string>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="1">
+      <spacer name="verticalSpacer">
+       <property name="orientation">
+        <enum>Qt::Vertical</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>20</width>
+         <height>40</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item row="0" column="2" rowspan="2">
+      <widget class="QTabWidget" name="analysisTabs">
+       <property name="currentIndex">
+        <number>0</number>
+       </property>
+       <widget class="QWidget" name="spectrumTab">
+        <attribute name="title">
+         <string>Peak Spectrum</string>
+        </attribute>
+        <layout class="QGridLayout" name="gridLayout_3">
+         <item row="3" column="0">
+          <widget class="MplWidget" name="spectrumChart"/>
+         </item>
+         <item row="0" column="0">
+          <layout class="QGridLayout" name="spectrumControlsLayout" columnstretch="0,0,0,0,0,0,0">
+           <item row="0" column="4">
+            <widget class="QLabel" name="colourRangeLabel">
+             <property name="text">
+              <string>Colour Range (dB)</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="0">
+            <widget class="QCheckBox" name="clipAtAverage">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="text">
+              <string>Clip to Average Level?</string>
+             </property>
+             <property name="checked">
+              <bool>false</bool>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="6">
+            <spacer name="horizontalSpacer">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item row="0" column="5">
+            <widget class="QSpinBox" name="colourRange">
+             <property name="minimum">
+              <number>6</number>
+             </property>
+             <property name="maximum">
+              <number>120</number>
+             </property>
+             <property name="value">
+              <number>30</number>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="2">
+            <widget class="QLabel" name="dbRangeLabel">
+             <property name="text">
+              <string>Clip At (dB)</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="3">
+            <widget class="QSpinBox" name="dbRange">
+             <property name="minimum">
+              <number>-100</number>
+             </property>
+             <property name="maximum">
+              <number>-1</number>
+             </property>
+             <property name="value">
+              <number>-12</number>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QCheckBox" name="clipToAbsolute">
+             <property name="text">
+              <string>Clip to Absolute Peak?</string>
+             </property>
+             <property name="checked">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+        </layout>
+       </widget>
+       <widget class="QWidget" name="waveformTab">
+        <attribute name="title">
+         <string>Waveform</string>
+        </attribute>
+        <layout class="QGridLayout" name="gridLayout">
+         <item row="1" column="0">
+          <widget class="MplWidget" name="waveformChart"/>
+         </item>
+         <item row="0" column="0">
+          <layout class="QGridLayout" name="waveformControls">
+           <item row="0" column="0">
+            <widget class="QCheckBox" name="magnitudeDecibels">
+             <property name="text">
+              <string>Waveform in dBFS?</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+        </layout>
+       </widget>
+      </widget>
+     </item>
+     <item row="0" column="0" rowspan="2">
+      <widget class="QFrame" name="frame">
+       <property name="frameShape">
+        <enum>QFrame::Box</enum>
+       </property>
+       <property name="frameShadow">
+        <enum>QFrame::Sunken</enum>
+       </property>
+       <layout class="QGridLayout" name="formLayout">
+        <item row="2" column="1">
+         <widget class="QLabel" name="startLabel">
+          <property name="text">
+           <string>Start</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="2">
+         <widget class="QComboBox" name="channelSelector"/>
+        </item>
+        <item row="3" column="1">
+         <widget class="QLabel" name="endLabel">
+          <property name="text">
+           <string>End</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="2">
+         <widget class="QTimeEdit" name="startTime">
+          <property name="displayFormat">
+           <string>HH:mm:ss.zzz</string>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="2">
+         <widget class="QTimeEdit" name="endTime">
+          <property name="displayFormat">
+           <string>HH:mm:ss.zzz</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="QLabel" name="channelSelectorLabel">
+          <property name="text">
+           <string>Channel</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="QLabel" name="fileLabel">
+          <property name="text">
+           <string>File</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="3">
+         <widget class="QToolButton" name="filePicker">
+          <property name="text">
+           <string>...</string>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="2">
+         <widget class="QLineEdit" name="file">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+         </widget>
+        </item>
+        <item row="5" column="1" colspan="3">
+         <spacer name="verticalSpacer">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>40</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item row="4" column="1" colspan="3">
+         <widget class="QPushButton" name="loadButton">
+          <property name="text">
+           <string>Load</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>MplWidget</class>
+   <extends>QGraphicsView</extends>
+   <header>mpl</header>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>filePicker</sender>
+   <signal>clicked()</signal>
+   <receiver>analysisDialog</receiver>
+   <slot>select_wav_file()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>284</x>
+     <y>30</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>241</x>
+     <y>101</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>loadButton</sender>
+   <signal>clicked()</signal>
+   <receiver>analysisDialog</receiver>
+   <slot>load_file()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>198</x>
+     <y>168</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>147</x>
+     <y>237</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>analysisTabs</sender>
+   <signal>currentChanged(int)</signal>
+   <receiver>analysisDialog</receiver>
+   <slot>show_chart()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>742</x>
+     <y>43</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>231</x>
+     <y>265</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>showLimitsButton</sender>
+   <signal>clicked()</signal>
+   <receiver>analysisDialog</receiver>
+   <slot>show_limits()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>367</x>
+     <y>36</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>329</x>
+     <y>81</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>clipAtAverage</sender>
+   <signal>clicked()</signal>
+   <receiver>analysisDialog</receiver>
+   <slot>show_chart()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>437</x>
+     <y>63</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>354</x>
+     <y>136</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>dbRange</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>analysisDialog</receiver>
+   <slot>show_chart()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>898</x>
+     <y>68</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>354</x>
+     <y>183</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>clipAtAverage</sender>
+   <signal>clicked()</signal>
+   <receiver>analysisDialog</receiver>
+   <slot>allow_clip_choice()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>476</x>
+     <y>70</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>356</x>
+     <y>233</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>colourRange</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>analysisDialog</receiver>
+   <slot>show_chart()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1119</x>
+     <y>67</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>357</x>
+     <y>389</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>clipToAbsolute</sender>
+   <signal>clicked()</signal>
+   <receiver>analysisDialog</receiver>
+   <slot>clip_to_abs()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>684</x>
+     <y>74</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>351</x>
+     <y>335</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>magnitudeDecibels</sender>
+   <signal>clicked()</signal>
+   <receiver>analysisDialog</receiver>
+   <slot>show_chart()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>407</x>
+     <y>65</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>355</x>
+     <y>126</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+ <slots>
+  <slot>select_wav_file()</slot>
+  <slot>load_file()</slot>
+  <slot>show_chart()</slot>
+  <slot>show_limits()</slot>
+  <slot>allow_clip_choice()</slot>
+  <slot>clip_to_abs()</slot>
+ </slots>
+</ui>

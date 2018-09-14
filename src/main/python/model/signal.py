@@ -427,27 +427,31 @@ class Signal:
         else:
             return analysisFunc(segmentLengthMultiplier, self.getSegmentLength() * segmentLengthMultiplier)
 
-    def spectrogram(self, segmentLengthMultiplier=1, window='hann'):
+    def spectrogram(self, ref=SPECLAB_REFERENCE, segmentLengthMultiplier=1, window=None):
         """
         analyses the source to generate a spectrogram
         :param segmentLengthMultiplier: allow for increased resolution.
         :return:
-            t : ndarray
-            Array of time slices.
             f : ndarray
+            Array of time slices.
+            t : ndarray
             Array of sample frequencies.
             Pxx : ndarray
             linear spectrum values.
         """
-        t, f, Sxx = signal.spectrogram(self.samples,
+        nperseg = int(self.getSegmentLength() * segmentLengthMultiplier)
+        f, t, Sxx = signal.spectrogram(self.samples,
                                        self.fs,
-                                       window=window,
-                                       nperseg=self.getSegmentLength() * segmentLengthMultiplier,
+                                       window=window if window else ('tukey', 0.25),
+                                       nperseg=nperseg,
+                                       noverlap=int(nperseg // 2),
                                        detrend=False,
                                        scaling='spectrum')
         Sxx = np.sqrt(Sxx)
-        Sxx = amplitude_to_db(Sxx)
-        return t, f, Sxx
+        if segmentLengthMultiplier > 0:
+            ref = ref * SPECLAB_REFERENCE
+        Sxx = amplitude_to_db(Sxx, ref=ref)
+        return f, t, Sxx
 
     def filter(self, a, b):
         """
@@ -597,7 +601,7 @@ class SignalTableModel(QAbstractTableModel):
         return QVariant()
 
 
-def _select_file(owner, file_type):
+def select_file(owner, file_type):
     '''
     Presents a file picker for selecting a file that contains a signal.
     '''
@@ -723,7 +727,7 @@ class DialogWavLoaderBridge:
         self.__duration = 0
 
     def select_wav_file(self):
-        file = _select_file(self.__dialog, 'wav')
+        file = select_file(self.__dialog, 'wav')
         if file is not None:
             self.clear_signal()
             self.__dialog.wavFile.setText(file)
@@ -818,7 +822,7 @@ class FrdLoader:
         self.__avg = None
 
     def _read_from_file(self):
-        file = _select_file(self.__dialog, 'frd')
+        file = select_file(self.__dialog, 'frd')
         if file is not None:
             comment_char = None
             with open(file) as f:
