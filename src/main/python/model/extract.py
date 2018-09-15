@@ -5,10 +5,12 @@ import os
 from pathlib import Path
 
 import qtawesome as qta
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QPalette, QColor
 from qtpy.QtMultimedia import QSound
 from qtpy.QtWidgets import QDialog, QFileDialog, QStatusBar, QDialogButtonBox, QMessageBox
 
-from model.ffmpeg import Executor, ViewProbeDialog
+from model.ffmpeg import Executor, ViewProbeDialog, SIGNAL_CONNECTED, SIGNAL_ERROR, SIGNAL_COMPLETE
 from model.preferences import EXTRACTION_OUTPUT_DIR, EXTRACTION_NOTIFICATION_SOUND
 from model.signal import AutoWavLoader
 from ui.extract import Ui_extractAudioDialog
@@ -123,18 +125,29 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
                 self.__sound = None
         self.audioStreams.clear()
         self.statusBar.clearMessage()
-        self.showProbeButton.setEnabled(False)
-        self.ffmpegCommandLine.clear()
-        self.ffmpegOutput.clear()
         self.__executor = None
         self.__extracted = False
         self.__stream_duration_micros = []
         self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
         self.buttonBox.button(QDialogButtonBox.Ok).setText('Extract')
-        self.ffmpegProgress.setValue(0)
         self.signalName.setEnabled(False)
         self.signalNameLabel.setEnabled(False)
         self.signalName.setText('')
+        self.inputFilePicker.setEnabled(True)
+        self.audioStreams.setEnabled(False)
+        self.channelCount.setEnabled(False)
+        self.lfeChannelIndex.setEnabled(False)
+        self.monoMix.setEnabled(False)
+        self.targetDirPicker.setEnabled(True)
+        self.outputFilename.setEnabled(False)
+        self.showProbeButton.setEnabled(False)
+        self.ffmpegCommandLine.clear()
+        self.ffmpegCommandLine.setEnabled(False)
+        self.ffmpegOutput.clear()
+        self.ffmpegOutput.setEnabled(False)
+        self.ffmpegProgress.setEnabled(False)
+        self.ffmpegProgressLabel.setEnabled(False)
+        self.ffmpegProgress.setValue(0)
 
     def __probe_file(self):
         '''
@@ -152,6 +165,11 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             for a in self.__executor.audio_stream_data:
                 self.__add_stream(a)
             self.audioStreams.setEnabled(True)
+            self.channelCount.setEnabled(True)
+            self.lfeChannelIndex.setEnabled(True)
+            self.monoMix.setEnabled(True)
+            self.outputFilename.setEnabled(True)
+            self.ffmpegCommandLine.setEnabled(True)
         else:
             self.statusBar.showMessage(f"{file_name} contains no audio streams!")
 
@@ -309,46 +327,81 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             msg_box.exec()
         return False
 
-    def __extract_complete(self, result):
-        '''
-        triggered when the extraction thread completes.
-        '''
-        if self.__executor is not None:
-            logger.info(f"Extraction complete for {self.outputFilename.text()}")
-            self.ffmpegOutput.setPlainText(result)
-            self.ffmpegProgress.setValue(100)
-            self.__extracted = True
-            self.signalName.setEnabled(True)
-            self.signalNameLabel.setEnabled(True)
-            self.signalName.setText(Path(self.outputFilename.text()).resolve().stem)
-            self.buttonBox.button(QDialogButtonBox.Ok).setText('Create Signals')
-            audio = self.__preferences.get(EXTRACTION_NOTIFICATION_SOUND)
-            if audio is not None:
-                logger.debug(f"Playing {audio}")
-                self.__sound = QSound(audio)
-                self.__sound.play()
-
     def __extract(self):
         '''
         Triggers the ffmpeg command.
         '''
         if self.__executor is not None:
             logger.info(f"Extracting {self.outputFilename.text()} from {self.inputFile.text()}")
-            self.__executor.execute(on_complete_callback=self.__extract_complete)
+            self.__executor.execute()
 
     def __handle_ffmpeg_process(self, key, value):
         '''
-        Handles progress reports from ffmpeg in order to communicate status via the progress bar.
+        Handles progress reports from ffmpeg in order to communicate status via the progress bar. Used as a slot
+        connected to a signal emitted by the AudioExtractor.
         :param key: the key.
         :param value: the value.
         '''
-        if key == 'out_time_ms':
+        if key == SIGNAL_CONNECTED:
+            self.__extract_started()
+        elif key == 'out_time_ms':
             out_time_ms = int(value)
             total_micros = self.__stream_duration_micros[self.audioStreams.currentIndex()]
             logger.debug(f"{self.inputFile.text()} -- {key}={value} vs {total_micros}")
             if total_micros > 0:
                 progress = math.ceil((out_time_ms / total_micros) * 100.0)
                 self.ffmpegProgress.setValue(progress)
+        elif key == SIGNAL_ERROR:
+            self.__extract_complete(value, False)
+        elif key == SIGNAL_COMPLETE:
+            self.__extract_complete(value, True)
+
+    def __extract_started(self):
+        '''
+        Changes the UI to signal that extraction has started
+        '''
+        self.inputFilePicker.setEnabled(False)
+        self.audioStreams.setEnabled(False)
+        self.channelCount.setEnabled(False)
+        self.lfeChannelIndex.setEnabled(False)
+        self.monoMix.setEnabled(False)
+        self.targetDirPicker.setEnabled(False)
+        self.outputFilename.setEnabled(False)
+        self.ffmpegOutput.setEnabled(True)
+        self.ffmpegProgress.setEnabled(True)
+        self.ffmpegProgressLabel.setEnabled(True)
+        self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
+        palette = QPalette(self.ffmpegProgress.palette())
+        palette.setColor(QPalette.Highlight, QColor(Qt.green))
+        self.ffmpegProgress.setPalette(palette)
+
+    def __extract_complete(self, result, success):
+        '''
+        triggered when the extraction thread completes.
+        '''
+        if self.__executor is not None:
+            if success:
+                logger.info(f"Extraction complete for {self.outputFilename.text()}")
+                self.ffmpegProgress.setValue(100)
+                self.__extracted = True
+                self.signalName.setEnabled(True)
+                self.signalNameLabel.setEnabled(True)
+                self.signalName.setText(Path(self.outputFilename.text()).resolve().stem)
+                self.buttonBox.button(QDialogButtonBox.Ok).setText('Create Signals')
+            else:
+                logger.error(f"Extraction failed for {self.outputFilename.text()}")
+                palette = QPalette(self.ffmpegProgress.palette())
+                palette.setColor(QPalette.Highlight, QColor(Qt.red))
+                self.ffmpegProgress.setPalette(palette)
+                self.statusBar.showMessage('Extraction failed', 5000)
+
+            self.ffmpegOutput.setPlainText(result)
+            self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
+            audio = self.__preferences.get(EXTRACTION_NOTIFICATION_SOUND)
+            if audio is not None:
+                logger.debug(f"Playing {audio}")
+                self.__sound = QSound(audio)
+                self.__sound.play()
 
     def showProbeInDetail(self):
         '''

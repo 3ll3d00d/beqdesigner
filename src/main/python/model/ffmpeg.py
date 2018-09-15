@@ -8,7 +8,7 @@ from pathlib import Path
 import ffmpeg
 from ffmpeg.nodes import filter_operator, FilterNode
 from qtpy import QtWidgets
-from qtpy.QtCore import QThread
+from qtpy.QtCore import QThread, Signal
 from qtpy.QtWidgets import QDialog, QTreeWidget, QTreeWidgetItem
 
 logger = logging.getLogger('progress')
@@ -16,6 +16,9 @@ logger = logging.getLogger('progress')
 MAIN = str(10 ** (-20.2 / 20.0))
 LFE = str(10 ** (-10.2 / 20.0))
 
+SIGNAL_CONNECTED = 'signal_connected'
+SIGNAL_ERROR = 'signal_error'
+SIGNAL_COMPLETE = 'signal_complete'
 NEXT_PORT = 12000
 
 
@@ -331,20 +334,13 @@ class Executor:
         gains = '+'.join([f"{ratio}*c{a}" for a in range(0, channels)])
         return gains
 
-    def execute(self, on_complete_callback=None):
+    def execute(self):
         '''
         Executes the command.
-        :param on_complete_callback: called when the command completes.
         '''
         if self.__ffmpeg_cmd is not None:
             self.__extract_thread = AudioExtractor(self.__ffmpeg_cmd, port=self.__progress_port,
                                                    progress_handler=self.progress_handler)
-
-            def pass_result_on_complete():
-                on_complete_callback(self.__extract_thread.result)
-
-            if on_complete_callback:
-                self.__extract_thread.finished.connect(pass_result_on_complete)
             self.__extract_thread.start()
 
 
@@ -353,13 +349,17 @@ class AudioExtractor(QThread):
     Allows audio extraction to be performed outside the main UI thread.
     '''
 
+    __on_progress = Signal(str, str, name='on_progress')
+
     def __init__(self, ffmpeg_cmd, port=None, progress_handler=None):
         QThread.__init__(self)
         self.__ffmpeg_cmd = ffmpeg_cmd
         self.__progress_handler = progress_handler
+        if self.__progress_handler is not None:
+            self.__on_progress.connect(self.__progress_handler)
+            self.__on_progress.emit(SIGNAL_CONNECTED, '')
         self.__socket_server = None
         self.__port = port
-        self.result = None
 
     def __del__(self):
         self.wait()
@@ -377,13 +377,15 @@ class AudioExtractor(QThread):
             elapsed = round(end - start, 3)
             logger.info(f"Executed ffmpeg command in {elapsed}s")
             result = f"Command completed normally in {elapsed}s" + os.linesep + os.linesep
-            self.result = self.__append_out_err(err, out, result)
+            result = self.__append_out_err(err, out, result)
+            self.__on_progress.emit(SIGNAL_COMPLETE, result)
         except ffmpeg.Error as e:
             end = time.time()
             elapsed = round(end - start, 3)
             logger.info(f"FAILED to execute ffmpeg command in {elapsed}s")
             result = f"Command FAILED in {elapsed}s" + os.linesep + os.linesep
-            self.result = self.__append_out_err(e.stderr, e.stdout, result)
+            result = self.__append_out_err(e.stderr, e.stdout, result)
+            self.__on_progress.emit(SIGNAL_ERROR, result)
         finally:
             self.__stop_socket_server()
 
@@ -398,20 +400,20 @@ class AudioExtractor(QThread):
 
     def __start_socket_server(self):
         if self.__progress_handler is not None:
-            self.__socket_server = FfmpegProgressBridge(self.on_progress, port=self.__port, auto=True)
+            self.__socket_server = FfmpegProgressBridge(self.handle_progress_event, port=self.__port, auto=True)
 
     def __stop_socket_server(self):
         if self.__socket_server is not None:
             self.__socket_server.stop()
 
-    def on_progress(self, key, value):
+    def handle_progress_event(self, key, value):
         '''
         Callback from ffmpeg -progress, passes the value straight to the __progress_handler
         :param key: the key.
         :param value: the value.
         '''
         logger.debug(f"Received -- 127.0.0.1:{self.__port} -- {key}={value}")
-        self.__progress_handler(key, value)
+        self.__on_progress.emit(key, value)
 
 
 class ThreadedUDPServer(socketserver.ThreadingMixIn, socketserver.UDPServer):

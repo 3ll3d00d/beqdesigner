@@ -213,7 +213,7 @@
       </widget>
      </item>
      <item row="8" column="0">
-      <widget class="QLabel" name="label">
+      <widget class="QLabel" name="ffmpegProgressLabel">
        <property name="text">
         <string>Progress</string>
        </property>
@@ -246,8 +246,8 @@
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>431</x>
-     <y>779</y>
+     <x>445</x>
+     <y>876</y>
     </hint>
     <hint type="destinationlabel">
      <x>157</x>
@@ -262,8 +262,8 @@
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>499</x>
-     <y>779</y>
+     <x>513</x>
+     <y>876</y>
     </hint>
     <hint type="destinationlabel">
      <x>286</x>
@@ -311,7 +311,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>865</x>
-     <y>238</y>
+     <y>206</y>
     </hint>
     <hint type="destinationlabel">
      <x>715</x>
@@ -326,8 +326,8 @@
    <slot>updateOutputFilename()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>799</x>
-     <y>272</y>
+     <x>824</x>
+     <y>240</y>
     </hint>
     <hint type="destinationlabel">
      <x>706</x>
@@ -358,8 +358,8 @@
    <slot>updateOutputFilename()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>383</x>
-     <y>272</y>
+     <x>536</x>
+     <y>240</y>
     </hint>
     <hint type="destinationlabel">
      <x>117</x>
@@ -374,8 +374,8 @@
    <slot>toggleMonoMix()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>435</x>
-     <y>204</y>
+     <x>449</x>
+     <y>172</y>
     </hint>
     <hint type="destinationlabel">
      <x>162</x>
@@ -390,8 +390,8 @@
    <slot>overrideFfmpegSpec()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>338</x>
-     <y>161</y>
+     <x>491</x>
+     <y>140</y>
     </hint>
     <hint type="destinationlabel">
      <x>133</x>
@@ -406,8 +406,8 @@
    <slot>overrideFfmpegSpec()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>221</x>
-     <y>122</y>
+     <x>374</x>
+     <y>106</y>
     </hint>
     <hint type="destinationlabel">
      <x>131</x>
