@@ -27,6 +27,7 @@ SHOW_FILTERED_SIGNAL_OPTIONS = [SHOW_ALL_FILTERED_SIGNALS, SHOW_FILTERED_ONLY, S
 
 EXTRACTION_OUTPUT_DIR = 'extraction/output_dir'
 EXTRACTION_NOTIFICATION_SOUND = 'extraction/notification_sound'
+EXTRACTION_BATCH_FILTER = 'extraction/batch_filter'
 
 ANALYSIS_RESOLUTION = 'analysis/resolution'
 ANALYSIS_TARGET_FS = 'analysis/target_fs'

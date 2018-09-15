@@ -350,6 +350,7 @@
     </property>
     <addaction name="actionExtract_Audio"/>
     <addaction name="actionAnalyse_Audio"/>
+    <addaction name="action_Batch_Extract"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuSettings"/>
@@ -516,6 +517,14 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+A</string>
+   </property>
+  </action>
+  <action name="action_Batch_Extract">
+   <property name="text">
+    <string>&amp;Batch Extract</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+B</string>
    </property>
   </action>
  </widget>

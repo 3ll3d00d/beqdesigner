@@ -10,6 +10,8 @@ from contextlib import contextmanager
 
 import matplotlib
 
+from model.batch import BatchExtractDialog
+
 matplotlib.use("Qt5Agg")
 
 from model.analysis import AnalyseSignalDialog
@@ -149,6 +151,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.ensurePathContainsExternalTools()
         # extraction
         self.actionExtract_Audio.triggered.connect(self.showExtractAudioDialog)
+        self.action_Batch_Extract.triggered.connect(self.showBatchExtractDialog)
         # analysis
         self.actionAnalyse_Audio.triggered.connect(self.showAnalyseAudioDialog)
         # import
@@ -530,6 +533,12 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         Show the extract audio dialog.
         '''
         ExtractAudioDialog(self, self.preferences, self.__signal_model).show()
+
+    def showBatchExtractDialog(self):
+        '''
+        Show the batch extract dialog.
+        '''
+        BatchExtractDialog(self, self.preferences).show()
 
     def showAnalyseAudioDialog(self):
         '''
