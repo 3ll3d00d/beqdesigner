@@ -403,8 +403,8 @@
    <slot>select_output()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1264</x>
-     <y>82</y>
+     <x>1698</x>
+     <y>86</y>
     </hint>
     <hint type="destinationlabel">
      <x>971</x>
@@ -435,11 +435,27 @@
    <slot>reset_batch()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1123</x>
-     <y>140</y>
+     <x>1657</x>
+     <y>163</y>
     </hint>
     <hint type="destinationlabel">
      <x>1289</x>
+     <y>180</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>threads</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>batchExtractDialog</receiver>
+   <slot>change_pool_size()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>301</x>
+     <y>111</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>111</x>
      <y>180</y>
     </hint>
    </hints>
@@ -451,5 +467,6 @@
   <slot>select_output()</slot>
   <slot>enable_search()</slot>
   <slot>reset_batch()</slot>
+  <slot>change_pool_size()</slot>
  </slots>
 </ui>

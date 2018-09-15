@@ -20,6 +20,7 @@ LFE = str(10 ** (-10.2 / 20.0))
 SIGNAL_CONNECTED = 'signal_connected'
 SIGNAL_ERROR = 'signal_error'
 SIGNAL_COMPLETE = 'signal_complete'
+SIGNAL_CANCELLED = 'signal_cancel'
 NEXT_PORT = 12000
 
 
@@ -344,6 +345,20 @@ class Executor:
                                               progress_handler=self.progress_handler)
             QThreadPool.globalInstance().start(self.__extractor)
 
+    def cancel(self):
+        '''
+        Attempts to cancel the extractor.
+        '''
+        if self.__extractor is not None:
+            self.__extractor.cancel()
+
+    def enable(self):
+        '''
+        Revokes a previously issued cancel.
+        '''
+        if self.__extractor is not None:
+            self.__extractor.enable()
+
 
 class JobSignals(QObject):
     on_progress = Signal(str, str, name='on_progress')
@@ -364,34 +379,50 @@ class AudioExtractor(QRunnable):
             self.__signals.on_progress.emit(SIGNAL_CONNECTED, '')
         self.__socket_server = None
         self.__port = port
+        self.__cancel = False
 
     def __del__(self):
         self.__stop_socket_server()
+
+    def cancel(self):
+        '''
+        Attempts to cancel the job. Currently only has any effect if it hasn't already started.
+        '''
+        self.__cancel = True
+
+    def enable(self):
+        '''
+        Enables the job. Currently only has any effect if it hasn't already started.
+        '''
+        self.__cancel = False
 
     def run(self):
         '''
         Executes the ffmpeg command.
         '''
-        self.__start_socket_server()
-        start = time.time()
-        try:
-            logger.info("Starting ffmpeg command")
-            out, err = self.__ffmpeg_cmd.run(overwrite_output=True, quiet=True)
-            end = time.time()
-            elapsed = round(end - start, 3)
-            logger.info(f"Executed ffmpeg command in {elapsed}s")
-            result = f"Command completed normally in {elapsed}s" + os.linesep + os.linesep
-            result = self.__append_out_err(err, out, result)
-            self.__signals.on_progress.emit(SIGNAL_COMPLETE, result)
-        except ffmpeg.Error as e:
-            end = time.time()
-            elapsed = round(end - start, 3)
-            logger.info(f"FAILED to execute ffmpeg command in {elapsed}s")
-            result = f"Command FAILED in {elapsed}s" + os.linesep + os.linesep
-            result = self.__append_out_err(e.stderr, e.stdout, result)
-            self.__signals.on_progress.emit(SIGNAL_ERROR, result)
-        finally:
-            self.__stop_socket_server()
+        if self.__cancel:
+            self.__signals.on_progress.emit(SIGNAL_CANCELLED, 'Cancelled')
+        else:
+            self.__start_socket_server()
+            start = time.time()
+            try:
+                logger.info("Starting ffmpeg command")
+                out, err = self.__ffmpeg_cmd.run(overwrite_output=True, quiet=True)
+                end = time.time()
+                elapsed = round(end - start, 3)
+                logger.info(f"Executed ffmpeg command in {elapsed}s")
+                result = f"Command completed normally in {elapsed}s" + os.linesep + os.linesep
+                result = self.__append_out_err(err, out, result)
+                self.__signals.on_progress.emit(SIGNAL_COMPLETE, result)
+            except ffmpeg.Error as e:
+                end = time.time()
+                elapsed = round(end - start, 3)
+                logger.info(f"FAILED to execute ffmpeg command in {elapsed}s")
+                result = f"Command FAILED in {elapsed}s" + os.linesep + os.linesep
+                result = self.__append_out_err(e.stderr, e.stdout, result)
+                self.__signals.on_progress.emit(SIGNAL_ERROR, result)
+            finally:
+                self.__stop_socket_server()
 
     def __append_out_err(self, err, out, result):
         result += 'STDOUT' + os.linesep + '------' + os.linesep + os.linesep

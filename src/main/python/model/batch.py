@@ -10,7 +10,7 @@ from qtpy.QtGui import QFont
 from qtpy.QtWidgets import QDialog, QStatusBar, QFileDialog, QMessageBox
 
 from model.ffmpeg import Executor, parse_audio_stream, ViewProbeDialog, SIGNAL_CONNECTED, SIGNAL_ERROR, \
-    SIGNAL_COMPLETE
+    SIGNAL_COMPLETE, SIGNAL_CANCELLED
 from model.preferences import EXTRACTION_OUTPUT_DIR, EXTRACTION_BATCH_FILTER
 from ui.batch import Ui_batchExtractDialog
 
@@ -78,6 +78,20 @@ class BatchExtractDialog(QDialog, Ui_batchExtractDialog):
             self.resetButton.setEnabled(False)
             self.extractButton.setEnabled(False)
 
+    def accept(self):
+        '''
+        Resets the thread pool size back to the default.
+        '''
+        QThreadPool.globalInstance().setMaxThreadCount(QThread.idealThreadCount())
+        QDialog.accept(self)
+
+    def reject(self):
+        '''
+        Resets the thread pool size back to the default.
+        '''
+        QThreadPool.globalInstance().setMaxThreadCount(QThread.idealThreadCount())
+        QDialog.reject(self)
+
     def enable_extract(self):
         '''
         Enables the extract button if we're ready to go!
@@ -118,6 +132,13 @@ class BatchExtractDialog(QDialog, Ui_batchExtractDialog):
         :return:
         '''
         self.resultsTitle.setText('Extraction Complete')
+
+    def change_pool_size(self, size):
+        '''
+        Changes the pool size.
+        :param size: size.
+        '''
+        QThreadPool.globalInstance().setMaxThreadCount(size)
 
 
 class ExtractCandidates:
@@ -294,8 +315,10 @@ class ExtractCandidate:
         self.__include = not self.__include
         if self.__include is True:
             self.actionButton.setIcon(qta.icon('fa.check', color='green'))
+            self.executor.enable()
         else:
             self.actionButton.setIcon(qta.icon('fa.times', color='red'))
+            self.executor.cancel()
 
     def probe(self):
         '''
@@ -313,6 +336,9 @@ class ExtractCandidate:
         '''
         if key == SIGNAL_CONNECTED:
             pass
+        elif key == SIGNAL_CANCELLED:
+            self.__extract_complete(value, True)
+            self.actionButton.setIcon(qta.icon('fa.ban', color='red'))
         elif key == 'out_time_ms':
             if self.__in_progress_icon is None:
                 self.__extract_started()
