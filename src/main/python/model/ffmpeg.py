@@ -464,8 +464,8 @@ class FfmpegProgressBridge:
             server_thread = threading.Thread(target=serve_forever)
             server_thread.daemon = True
             server_thread.start()
-            # give the thread a second to start before we kick off
-            time.sleep(1)
+            # give the thread a bit of time to start before we kick off
+            time.sleep(0.25)
 
     def stop(self):
         '''

@@ -49,6 +49,7 @@
 * can choose to show filters
 * can choose to show legend
 * can show peak or avg only or show both
+* can show filtered or unfiltered or both
 * can change graph limits
 * can show values by frequency for each line
 
@@ -71,8 +72,13 @@
 * can extract multichannel audio
 * ffmpeg command specs
 * if sound is stored in preferences, it is played on complete
+* dialog updates in realtime as the audio is extracted
 
 ## Preferences
 
 * can change theme (and see it apply after restart)
-* 
+
+## Analysis
+
+* can show peak signals
+* can show waveform
