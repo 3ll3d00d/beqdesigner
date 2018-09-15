@@ -227,13 +227,7 @@ class LinkSignalsDialog(QDialog, Ui_linkSignalDialog):
         '''
         Applies the changes to the master/slaves.
         '''
-        for signal in self.__signal_model:
-            signal.free_all()
+        self.__signal_model.free_all()
         for master_name, slaves in self.__model.rows.items():
-            master = self.__signal_model.find_by_name(master_name)
-            if master is not None:
-                for slave_name in slaves:
-                    slave = self.__signal_model.find_by_name(slave_name)
-                    if slave is not None:
-                        master.enslave(slave)
+            self.__signal_model.enslave(master_name, slaves)
         QDialog.accept(self)

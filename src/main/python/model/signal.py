@@ -71,8 +71,6 @@ class SignalData:
         self.__filter = filt
         self.__filter.listener = self
         self.on_filter_change(filt)
-        for s in self.slaves:
-            s.on_filter_change(filt)
 
     def __repr__(self) -> str:
         return f"SignalData {self.name}-{self.fs}"
@@ -89,7 +87,7 @@ class SignalData:
         Allows a signal to be linked to this one so they share the same filter.
         :param signal the signal.
         '''
-        logger.info(f"Enslaving {signal} to {self}")
+        logger.debug(f"Enslaving {signal.name} to {self.name}")
         self.slaves.append(signal)
         signal.master = self
         signal.on_filter_change(self.__filter)
@@ -128,6 +126,7 @@ class SignalData:
         Updates the cached filtered response when the filter changes.
         :param filt: the filter.
         '''
+        logger.debug(f"Applying filter change to {self.name}")
         if filt is None:
             self.filtered = []
             for r in self.raw:
@@ -140,6 +139,9 @@ class SignalData:
                 r.linestyle = '--'
         else:
             raise ValueError(f"Unsupported filter type {filt}")
+        for s in self.slaves:
+            logger.debug(f"Propagating filter change to {s.name}")
+            s.on_filter_change(filt)
 
 
 class SignalModel(Sequence):
@@ -175,6 +177,35 @@ class SignalModel(Sequence):
         '''
         return [signaldata_to_json(x) for x in self.__signals]
 
+    def free_all(self):
+        '''
+        Frees all signals from their masters.
+        '''
+        if self.__table is not None:
+            self.__table.beginResetModel()
+        for signal in self:
+            signal.free_all()
+        if self.__table is not None:
+            self.__table.endResetModel()
+
+    def enslave(self, master_name, slave_names):
+        '''
+        Enslaves the named slaves to the named master.
+        :param master_name: the master.
+        :param slave_names: the slaves.
+        '''
+        logger.info(f"Enslaving {slave_names} to {master_name}")
+        if self.__table is not None:
+            self.__table.beginResetModel()
+        master = self.find_by_name(master_name)
+        if master is not None:
+            for slave_name in slave_names:
+                slave = self.find_by_name(slave_name)
+                if slave is not None:
+                    master.enslave(slave)
+        if self.__table is not None:
+            self.__table.endResetModel()
+
     def add(self, signal):
         '''
         Add the supplied signals ot the model.
@@ -185,6 +216,21 @@ class SignalModel(Sequence):
             self.__table.beginInsertRows(QModelIndex(), before_size, before_size)
         signal.reindex(before_size)
         self.__signals.append(signal)
+        self.post_update()
+        if self.__table is not None:
+            self.__table.endInsertRows()
+
+    def add_all(self, signals):
+        '''
+        Add the supplied signals ot the model.
+        :param signals: the signal.
+        '''
+        before_size = len(self.__signals)
+        if self.__table is not None:
+            self.__table.beginInsertRows(QModelIndex(), before_size, before_size + (len(signals) - 1))
+        for s in signals:
+            s.reindex(len(self.__signals))
+            self.__signals.append(s)
         self.post_update()
         if self.__table is not None:
             self.__table.endInsertRows()
@@ -545,7 +591,7 @@ class SignalTableModel(QAbstractTableModel):
 
     def __init__(self, model, parent=None):
         super().__init__(parent=parent)
-        self.__headers = ['Name', 'Linked', 'Fs', 'Duration', 'Start', 'End']
+        self.__headers = ['Name', 'Linked', 'Fs', 'Duration']
         self.__signal_model = model
         self.__signal_model.table = self
 
@@ -581,17 +627,13 @@ class SignalTableModel(QAbstractTableModel):
                 if signal_at_row.master is not None:
                     return QVariant(f"S - {signal_at_row.master.name}")
                 elif len(signal_at_row.slaves) > 0:
-                    return QVariant('M')
+                    return QVariant(f"M {len(signal_at_row.slaves)}")
                 else:
                     return QVariant('')
             elif index.column() == 2:
                 return QVariant(signal_at_row.fs)
             elif index.column() == 3:
                 return QVariant(signal_at_row.duration_hhmmss)
-            elif index.column() == 4:
-                return QVariant(signal_at_row.start_hhmmss)
-            elif index.column() == 5:
-                return QVariant(signal_at_row.end_hhmmss)
             else:
                 return QVariant()
 
@@ -927,7 +969,8 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
                 self.linkedSignal.setEnabled(False)
         else:
             for s in self.__signal_model:
-                self.filterSelect.addItem(s.name)
+                if s.master is None:
+                    self.filterSelect.addItem(s.name)
         self.clearSignal(draw=False)
 
     def changeLoader(self, idx):
@@ -1003,24 +1046,25 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
         '''
         loader = self.__loaders[self.__loader_idx]
         if loader.can_save():
-            signals = loader.get_signals()
-            if len(signals) > 0:
-                selected_filter_idx = self.filterSelect.currentIndex()
-                if selected_filter_idx > 0: # 0 because the dropdown has a None value first
-                    if self.filterSelect.currentText() == 'Default':
-                        self.__apply_default_filter(signals)
-                    else:
-                        master = self.__signal_model[selected_filter_idx - 1]
-                        for s in signals:
-                            if self.linkedSignal.isChecked():
-                                master.enslave(s)
-                            else:
-                                s.filter = master.filter.resample(s.fs)
-                for s in signals:
-                    self.__signal_model.add(s)
-                QDialog.accept(self)
-            else:
-                logger.warning(f"No signals produced by loader")
+            from app import wait_cursor
+            with wait_cursor(f"Saving signals"):
+                signals = loader.get_signals()
+                if len(signals) > 0:
+                    selected_filter_idx = self.filterSelect.currentIndex()
+                    if selected_filter_idx > 0:  # 0 because the dropdown has a None value first
+                        if self.filterSelect.currentText() == 'Default':
+                            self.__apply_default_filter(signals)
+                        else:
+                            master = self.__signal_model[selected_filter_idx - 1]
+                            for s in signals:
+                                if self.linkedSignal.isChecked():
+                                    master.enslave(s)
+                                else:
+                                    s.filter = master.filter.resample(s.fs)
+                    self.__signal_model.add_all(signals)
+                    QDialog.accept(self)
+                else:
+                    logger.warning(f"No signals produced by loader")
 
     def __apply_default_filter(self, signals):
         '''

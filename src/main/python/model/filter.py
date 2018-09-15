@@ -26,11 +26,12 @@ class FilterModel(Sequence):
     A model to hold onto the filters and provide magnitude data to a chart about those filters.
     '''
 
-    def __init__(self, view, preferences, on_update=lambda _: True):
+    def __init__(self, view, label, preferences, on_update=lambda _: True):
         self.__filter = CompleteFilter()
         self.__view = view
         self.__preferences = preferences
         self.__table = None
+        self.__label = label
         self.__on_update = on_update
 
     @property
@@ -45,6 +46,10 @@ class FilterModel(Sequence):
             if self.__table is not None:
                 self.__table.beginResetModel()
             self.__filter = filt
+            if self.__filter.listener is not None:
+                self.__label.setText(f"Filter - {filt.listener.name}")
+            else:
+                self.__label.setText(f"Filter - Default")
             self.post_update()
             if self.__table is not None:
                 self.__table.endResetModel()
@@ -245,6 +250,8 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         # underlying filter model
         self.__signal = signal
         self.__filter_model = filter_model
+        if self.__filter_model.filter.listener is not None:
+            logger.debug(f"Selected filter has listener {self.__filter_model.filter.listener.name}")
         self.__filter = filter
         self.__combined_preview = signal.filter
         # populate the fields with values if we're editing an existing filter
@@ -286,7 +293,6 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
             if self.__original_id is None:
                 self.__filter.id = uuid4()
             self.__filter_model.save(self.__filter)
-            self.previewFilter()
 
     def accept(self):
         ''' Saves and exits. '''
@@ -306,7 +312,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
                 self.__combined_preview = self.__filter_model.preview(self.__filter)
                 self.passthrough.rendered = False
             else:
-                self.__combined_preview = self.__filter_model.filter
+                self.__combined_preview = self.__filter_model.preview(Passthrough())
                 self.__filter = None
             self.__magnitudeModel.redraw()
 
