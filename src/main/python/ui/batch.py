@@ -11,7 +11,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_batchExtractDialog(object):
     def setupUi(self, batchExtractDialog):
         batchExtractDialog.setObjectName("batchExtractDialog")
-        batchExtractDialog.resize(1301, 925)
+        batchExtractDialog.resize(1727, 925)
         self.verticalLayout = QtWidgets.QVBoxLayout(batchExtractDialog)
         self.verticalLayout.setObjectName("verticalLayout")
         self.controlFrame = QtWidgets.QFrame(batchExtractDialog)
@@ -103,7 +103,7 @@ class Ui_batchExtractDialog(object):
         self.resultsScrollArea.setWidgetResizable(True)
         self.resultsScrollArea.setObjectName("resultsScrollArea")
         self.resultsScrollAreaContents = QtWidgets.QWidget()
-        self.resultsScrollAreaContents.setGeometry(QtCore.QRect(0, 0, 1243, 660))
+        self.resultsScrollAreaContents.setGeometry(QtCore.QRect(0, 0, 1669, 660))
         self.resultsScrollAreaContents.setObjectName("resultsScrollAreaContents")
         self.resultsScrollLayout = QtWidgets.QGridLayout(self.resultsScrollAreaContents)
         self.resultsScrollLayout.setObjectName("resultsScrollLayout")

@@ -343,28 +343,30 @@ class Executor:
             self.__extractor = AudioExtractor(self.__ffmpeg_cmd, port=self.__progress_port,
                                               progress_handler=self.progress_handler)
             QThreadPool.globalInstance().start(self.__extractor)
-            self.__extractor.start()
 
 
-class AudioExtractor(QObject, QRunnable):
+class JobSignals(QObject):
+    on_progress = Signal(str, str, name='on_progress')
+
+
+class AudioExtractor(QRunnable):
     '''
     Allows audio extraction to be performed outside the main UI thread.
     '''
 
-    __on_progress = Signal(str, str, name='on_progress')
-
     def __init__(self, ffmpeg_cmd, port=None, progress_handler=None):
-        QObject.__init__(self)
+        super().__init__()
         self.__ffmpeg_cmd = ffmpeg_cmd
         self.__progress_handler = progress_handler
+        self.__signals = JobSignals()
         if self.__progress_handler is not None:
-            self.__on_progress.connect(self.__progress_handler)
-            self.__on_progress.emit(SIGNAL_CONNECTED, '')
+            self.__signals.on_progress.connect(self.__progress_handler)
+            self.__signals.on_progress.emit(SIGNAL_CONNECTED, '')
         self.__socket_server = None
         self.__port = port
 
     def __del__(self):
-        self.wait()
+        self.__stop_socket_server()
 
     def run(self):
         '''
@@ -380,14 +382,14 @@ class AudioExtractor(QObject, QRunnable):
             logger.info(f"Executed ffmpeg command in {elapsed}s")
             result = f"Command completed normally in {elapsed}s" + os.linesep + os.linesep
             result = self.__append_out_err(err, out, result)
-            self.__on_progress.emit(SIGNAL_COMPLETE, result)
+            self.__signals.on_progress.emit(SIGNAL_COMPLETE, result)
         except ffmpeg.Error as e:
             end = time.time()
             elapsed = round(end - start, 3)
             logger.info(f"FAILED to execute ffmpeg command in {elapsed}s")
             result = f"Command FAILED in {elapsed}s" + os.linesep + os.linesep
             result = self.__append_out_err(e.stderr, e.stdout, result)
-            self.__on_progress.emit(SIGNAL_ERROR, result)
+            self.__signals.on_progress.emit(SIGNAL_ERROR, result)
         finally:
             self.__stop_socket_server()
 
@@ -415,7 +417,7 @@ class AudioExtractor(QObject, QRunnable):
         :param value: the value.
         '''
         logger.debug(f"Received -- 127.0.0.1:{self.__port} -- {key}={value}")
-        self.__on_progress.emit(key, value)
+        self.__signals.on_progress.emit(key, value)
 
 
 class ThreadedUDPServer(socketserver.ThreadingMixIn, socketserver.UDPServer):
