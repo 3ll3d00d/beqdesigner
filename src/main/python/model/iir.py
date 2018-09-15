@@ -650,6 +650,8 @@ class ComplexFilter(Sequence):
         self.__cached_transfer = None
         self.preset_idx = -1
         if self.listener is not None:
+            if hasattr(self.listener, 'name'):
+                logger.debug(f"Propagating filter change to listener {self.listener.name}")
             self.listener.on_filter_change(self)
 
     def save0(self, filter, filters):
@@ -707,7 +709,7 @@ class CompleteFilter(ComplexFilter):
         :param filter: the filter.
         :return: a copied filter.
         '''
-        return CompleteFilter(self.save0(filter, self.filters.copy()), self.description, listener=self.listener)
+        return CompleteFilter(self.save0(filter, self.filters.copy()), self.description, listener=None)
 
     def resample(self, new_fs):
         '''

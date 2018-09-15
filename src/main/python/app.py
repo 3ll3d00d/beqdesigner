@@ -83,7 +83,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.limitsButton.setIcon(qta.icon('ei.move'))
         self.showValuesButton.setIcon(qta.icon('ei.eye-open'))
         # logs
-        self.logViewer = RollingLogger(parent=self)
+        self.logViewer = RollingLogger(self.preferences, parent=self)
         self.actionShow_Logs.triggered.connect(self.logViewer.show_logs)
         self.actionPreferences.triggered.connect(self.showPreferences)
         # init a default signal for when we want to edit a filter without a signal
@@ -103,7 +103,8 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.showFilters.blockSignals(False)
         # filter view/model
         self.filterView.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.__filter_model = FilterModel(self.filterView, self.preferences, on_update=self.on_filter_change)
+        self.__filter_model = FilterModel(self.filterView, self.filtersLabel, self.preferences,
+                                          on_update=self.on_filter_change)
         self.__filter_table_model = FilterTableModel(self.__filter_model, parent=parent)
         self.filterView.setModel(self.__filter_table_model)
         self.filterView.selectionModel().selectionChanged.connect(self.on_filter_selected)
@@ -136,16 +137,8 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
             logger.info(f"Ignoring unknown cached preference for {DISPLAY_SHOW_FILTERED_SIGNALS} - {selected}")
         self.showFilteredSignals.blockSignals(False)
         # signal model
-        self.signalView.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.signalView.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.signalView.setSelectionMode(QAbstractItemView.SingleSelection)
-        self.__signal_model = SignalModel(self.signalView, self.__default_signal, self.preferences,
-                                          on_update=self.on_signal_change)
-        self.__signal_table_model = SignalTableModel(self.__signal_model, parent=parent)
-        self.signalView.setModel(self.__signal_table_model)
-        self.signalView.selectionModel().selectionChanged.connect(self.on_signal_selected)
-        self.signalView.model().dataChanged.connect(self.on_signal_data_change)
-        self.signalView.setItemDelegateForColumn(0, RegexValidator('^.+$'))
+        self.__cached_selected_signal = None
+        self.__configure_signal_model(parent)
         # magnitude
         self.showLegend.setChecked(bool(self.preferences.get(DISPLAY_SHOW_LEGEND)))
         self.__magnitude_model = MagnitudeModel('main', self.mainChart, self.__signal_model, 'Signals',
@@ -170,11 +163,64 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.actionSave_Signal.triggered.connect(self.showExportSignalDialog)
         self.action_Save_Project.triggered.connect(self.exportProject)
 
+    def __configure_signal_model(self, parent):
+        '''
+        Wires up the signal model so that
+        * only one row can be selected at a time
+        * there is always a row selected
+        * the filter model is always honouring the selected row correctly (where correctly means the filter model is
+        operating on the filter of the selected signal if it is an unlinked signal or a master OR the filter of the
+        master of the selected signal if the signal is a slave).
+        This last point is crucial as otherwise the linked signals won't update at the same time.
+        '''
+        self.signalView.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.signalView.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.signalView.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.__signal_model = SignalModel(self.signalView, self.__default_signal, self.preferences,
+                                          on_update=self.on_signal_change)
+        self.__signal_table_model = SignalTableModel(self.__signal_model, parent=parent)
+        self.signalView.setModel(self.__signal_table_model)
+        self.signalView.selectionModel().selectionChanged.connect(self.on_signal_selected)
+        self.signalView.model().dataChanged.connect(self.on_signal_data_change)
+        self.signalView.model().modelAboutToBeReset.connect(self.on_signal_data_about_to_reset)
+        self.signalView.model().modelReset.connect(self.on_signal_data_reset)
+        self.signalView.model().rowsInserted.connect(self.__select_on_inserted_signals)
+        self.signalView.model().rowsRemoved.connect(self.__select_on_removed_signals)
+        self.signalView.setItemDelegateForColumn(0, RegexValidator('^.+$'))
+
+    def on_signal_data_about_to_reset(self):
+        '''
+        Caches the selected signal so we can restore it post reset.
+        '''
+        signal_select = self.signalView.selectionModel()
+        if signal_select.hasSelection() and len(signal_select.selectedRows()) == 1:
+            self.__cached_selected_signal = self.__signal_model[signal_select.selectedRows()[0].row()]
+
+    def on_signal_data_reset(self):
+        '''
+        Restores the cached selected signal if we have one.
+        '''
+        selected_row = -1
+        if self.__cached_selected_signal is not None:
+            for idx, s in enumerate(self.__signal_model):
+                if s.name == self.__cached_selected_signal.name:
+                    selected_row = idx
+            self.__cached_selected_signal = None
+        else:
+            signal_count = len(self.__signal_model)
+            if signal_count > 0:
+                selected_row = signal_count - 1
+        if selected_row > -1:
+            logger.debug(f"Selected row {selected_row} after signal data reset")
+            self.signalView.selectRow(selected_row)
+
     def on_signal_data_change(self):
         '''
         Delegates to on_signal_change which we can't call directly because of the argument mismatch (dataChanged emits
         the QModelIndexes specifying which data has changed which we don't care about).
         '''
+        logger.debug(f"Handling signal data change")
+        self.on_signal_selected()
         self.on_signal_change()
 
     def on_signal_change(self, names=None):
@@ -187,6 +233,102 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.linkSignalButton.setEnabled(len(self.__signal_model) > 1)
         self.__magnitude_model.redraw()
 
+    def __get_selected_signal(self):
+        '''
+        :return: the selected signal (as selected in the table going back to its master if the selected signal is a
+        slave) or the default signal if nothing is selected.
+        '''
+        signal_select = self.signalView.selectionModel()
+        if signal_select.hasSelection() and len(signal_select.selectedRows()) == 1:
+            signal = self.__signal_model[signal_select.selectedRows()[0].row()]
+            if signal.master is not None:
+                signal = signal.master
+        else:
+            signal = self.__signal_model.default_signal
+        logger.debug(f"Selected signal is {signal.name}")
+        return signal
+
+    def __select_on_inserted_signals(self, idx, first, last):
+        '''
+        Selects the last signal added by default.
+        :param idx: the idx.
+        :param first: the first row inserted.
+        :param last: the last row inserted.
+        '''
+        logger.debug(f"Selecting signal {last} on insert")
+        self.signalView.selectRow(last)
+
+    def __select_on_removed_signals(self, idx, first, last):
+        '''
+        Ensures the correct signal is selected when signals are removed. This defaults to the last signal in the table
+        if there are any signals otherwise it reverts to the default signal.
+        :param idx: the idx.
+        :param first: first row removed.
+        :param last: last row removed.
+        '''
+        signal_count = len(self.__signal_model)
+        if signal_count > 0:
+            logger.debug(f"Selecting signal {signal_count-1} on remove")
+            self.signalView.selectRow(signal_count - 1)
+        else:
+            logger.debug(f"No signals in model, selecting default filter on remove")
+            self.on_signal_selected()
+
+    def addSignal(self):
+        '''
+        Adds signals via the signal dialog.
+        '''
+        SignalDialog(self.preferences, self.__signal_model, parent=self).show()
+
+    def linkSignals(self):
+        '''
+        Lets the user link signals via a matrix mapping.
+        '''
+        LinkSignalsDialog(self.__signal_model, parent=self).exec()
+
+    def deleteSignal(self):
+        '''
+        Deletes the currently selected signals.
+        '''
+        selection = self.signalView.selectionModel()
+        if selection.hasSelection():
+            self.__signal_model.delete([x.row() for x in selection.selectedRows()])
+        if len(self.__signal_model) > 0:
+            self.signalView.selectRow(0)
+        else:
+            self.signalView.clearSelection()
+            # nothing in qt appears to emit selectionChanged when you clear the selection so have to call it ourselves
+            self.on_signal_selected()
+
+    def importSignal(self):
+        '''
+        Allows the user to load a signal from a saved file.
+        '''
+
+        def parser(file_name):
+            with gzip.open(file_name, 'r') as infile:
+                return json.loads(infile.read().decode('utf-8'))
+
+        input = self.__load('*.signal', 'Load Signal', parser)
+        if input is not None:
+            from model.codec import signaldata_from_json
+            self.__signal_model.add(signaldata_from_json(input))
+
+    def on_signal_selected(self):
+        '''
+        Enables the edit & delete button if there are selected rows.
+        '''
+        selection = self.signalView.selectionModel()
+        self.deleteSignalButton.setEnabled(selection.hasSelection())
+        if len(selection.selectedRows()) == 1:
+            self.__filter_model.filter = self.__get_selected_signal().filter
+        else:
+            if len(self.__filter_model.filter) > 0:
+                self.__default_signal.filter = self.__filter_model.filter
+            # we have to set the filter on the default signal and then set that back onto the filter model to ensure
+            # the right links are established re listeners and label names
+            self.__filter_model.filter = self.__default_signal.filter
+
     def on_filter_change(self, names):
         '''
         Reacts to a change in the filter model by updating the reference, redrawing the chart and other filter related
@@ -197,20 +339,6 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.__magnitude_model.redraw()
         self.__enable_save_filter()
         self.__check_active_preset(self.__filter_model.filter.preset_idx)
-
-    def exportChart(self):
-        '''
-        Saves the currently selected chart to a file.
-        '''
-        dialog = SaveChartDialog(self, 'beq', self.mainChart.canvas.figure, self.statusbar)
-        dialog.exec()
-
-    def exportBiquads(self):
-        '''
-        Shows the biquads for the current filter set.
-        '''
-        dialog = ExportBiquadDialog(self.__filter_model.filter)
-        dialog.exec()
 
     def importFilter(self):
         '''
@@ -246,42 +374,43 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
                     return input
         return None
 
-    def importSignal(self):
+    def addFilter(self):
         '''
-        Allows the user to load a signal from a saved file.
+        Adds a filter via the filter dialog.
         '''
+        FilterDialog(self.preferences, self.__get_selected_signal(), self.__filter_model, parent=self).show()
 
-        def parser(file_name):
-            with gzip.open(file_name, 'r') as infile:
-                return json.loads(infile.read().decode('utf-8'))
-
-        input = self.__load('*.signal', 'Load Signal', parser)
-        if input is not None:
-            from model.codec import signaldata_from_json
-            before = len(self.__signal_model)
-            self.__signal_model.add(signaldata_from_json(input))
-            after = len(self.__signal_model)
-            if after != before:
-                self.signalView.selectRow(after - 1)
-                self.__magnitude_model.redraw()
-
-    def __load(self, filter, title, parser):
+    def editFilter(self):
         '''
-        Presents a file dialog to the user so they can choose something to load.
-        :return: the loaded thing, if any.
+        Edits the currently selected filter via the filter dialog.
         '''
-        input = None
-        dialog = QFileDialog(parent=self)
-        dialog.setFileMode(QFileDialog.ExistingFile)
-        dialog.setNameFilter(filter)
-        dialog.setWindowTitle(title)
-        if dialog.exec():
-            selected = dialog.selectedFiles()
-            if len(selected) > 0:
-                input = parser(selected[0])
-                if input is not None:
-                    self.statusbar.showMessage(f"Loaded {selected[0]}")
-        return input
+        selection = self.filterView.selectionModel()
+        if selection.hasSelection() and len(selection.selectedRows()) == 1:
+            signal = self.__get_selected_signal()
+            FilterDialog(self.preferences, signal, self.__filter_model,
+                         filter=signal.filter[selection.selectedRows()[0].row()], parent=self).show()
+
+    def deleteFilter(self):
+        '''
+        Deletes the selected filters.
+        '''
+        selection = self.filterView.selectionModel()
+        if selection.hasSelection():
+            self.__filter_model.delete([x.row() for x in selection.selectedRows()])
+
+    def __enable_save_filter(self):
+        '''
+        Enables the save filter if we have filters to save.
+        '''
+        self.actionSave_Filter.setEnabled(len(self.__filter_model) > 0)
+
+    def on_filter_selected(self):
+        '''
+        Enables the edit & delete button if there are selected rows.
+        '''
+        selection = self.filterView.selectionModel()
+        self.deleteFilterButton.setEnabled(selection.hasSelection())
+        self.editFilterButton.setEnabled(len(selection.selectedRows()) == 1)
 
     def exportFilter(self):
         '''
@@ -300,6 +429,38 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
                 with open(selected[0], 'w+') as outfile:
                     json.dump(self.__filter_model.filter.to_json(), outfile)
                     self.statusbar.showMessage(f"Saved filter to {outfile.name}")
+
+    def exportChart(self):
+        '''
+        Saves the currently selected chart to a file.
+        '''
+        dialog = SaveChartDialog(self, 'beq', self.mainChart.canvas.figure, self.statusbar)
+        dialog.exec()
+
+    def exportBiquads(self):
+        '''
+        Shows the biquads for the current filter set.
+        '''
+        dialog = ExportBiquadDialog(self.__filter_model.filter)
+        dialog.exec()
+
+    def __load(self, filter, title, parser):
+        '''
+        Presents a file dialog to the user so they can choose something to load.
+        :return: the loaded thing, if any.
+        '''
+        input = None
+        dialog = QFileDialog(parent=self)
+        dialog.setFileMode(QFileDialog.ExistingFile)
+        dialog.setNameFilter(filter)
+        dialog.setWindowTitle(title)
+        if dialog.exec():
+            selected = dialog.selectedFiles()
+            if len(selected) > 0:
+                input = parser(selected[0])
+                if input is not None:
+                    self.statusbar.showMessage(f"Loaded {selected[0]}")
+        return input
 
     def ensurePathContainsExternalTools(self):
         '''
@@ -344,103 +505,6 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         Shows the preferences dialog.
         '''
         PreferencesDialog(self.preferences, self.__style_path_root, parent=self).exec()
-
-    def addFilter(self):
-        '''
-        Adds a filter via the filter dialog.
-        '''
-        FilterDialog(self.preferences, self.__get_selected_signal(), self.__filter_model).exec()
-
-    def __get_selected_signal(self):
-        '''
-        :return: the selected signal (as selected in the table going back to its master if the selected signal is a
-        slave) or the default signal if nothing is selected.
-        '''
-        signal_select = self.signalView.selectionModel()
-        if signal_select.hasSelection() and len(signal_select.selectedRows()) == 1:
-            signal = self.__signal_model[signal_select.selectedRows()[0].row()]
-            if signal.master is not None:
-                signal = signal.master
-        else:
-            signal = self.__signal_model.default_signal
-        return signal
-
-    def editFilter(self):
-        '''
-        Edits the currently selected filter via the filter dialog.
-        '''
-        selection = self.filterView.selectionModel()
-        if selection.hasSelection() and len(selection.selectedRows()) == 1:
-            signal = self.__get_selected_signal()
-            FilterDialog(self.preferences, signal, self.__filter_model,
-                         filter=signal.filter[selection.selectedRows()[0].row()]).exec()
-
-    def deleteFilter(self):
-        '''
-        Deletes the selected filters.
-        '''
-        selection = self.filterView.selectionModel()
-        if selection.hasSelection():
-            self.__filter_model.delete([x.row() for x in selection.selectedRows()])
-
-    def __enable_save_filter(self):
-        '''
-        Enables the save filter if we have filters to save.
-        '''
-        self.actionSave_Filter.setEnabled(len(self.__filter_model) > 0)
-
-    def addSignal(self):
-        '''
-        Adds signals via the signal dialog.
-        '''
-        before = len(self.__signal_model)
-        SignalDialog(self.preferences, self.__signal_model, parent=self).exec()
-        after = len(self.__signal_model)
-        if after != before:
-            self.signalView.selectRow(after - 1)
-
-    def linkSignals(self):
-        '''
-        Lets the user link signals via a matrix mapping.
-        '''
-        LinkSignalsDialog(self.__signal_model, parent=self).exec()
-        self.__magnitude_model.redraw()
-
-    def deleteSignal(self):
-        '''
-        Deletes the currently selected signals.
-        '''
-        selection = self.signalView.selectionModel()
-        if selection.hasSelection():
-            self.__signal_model.delete([x.row() for x in selection.selectedRows()])
-        if len(self.__signal_model) > 0:
-            self.signalView.selectRow(0)
-        else:
-            self.signalView.clearSelection()
-            # nothing in qt appears to emit selectionChanged when you clear the selection so have to call it ourselves
-            self.on_signal_selected()
-
-    def on_filter_selected(self):
-        '''
-        Enables the edit & delete button if there are selected rows.
-        '''
-        selection = self.filterView.selectionModel()
-        self.deleteFilterButton.setEnabled(selection.hasSelection())
-        self.editFilterButton.setEnabled(len(selection.selectedRows()) == 1)
-
-    def on_signal_selected(self):
-        '''
-        Enables the edit & delete button if there are selected rows.
-        '''
-        selection = self.signalView.selectionModel()
-        self.deleteSignalButton.setEnabled(selection.hasSelection())
-        if len(selection.selectedRows()) == 1:
-            self.__filter_model.filter = self.__get_selected_signal().filter
-        else:
-            if len(self.__filter_model.filter) > 0:
-                self.__default_signal.filter = self.__filter_model.filter
-            else:
-                self.__filter_model.filter = self.__default_signal.filter
 
     def update_reference_series(self, names, combo, primary=True):
         '''

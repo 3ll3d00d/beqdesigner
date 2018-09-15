@@ -55,6 +55,8 @@ DISPLAY_Q_STEP = 'display/q_step'
 DISPLAY_S_STEP = 'display/s_step'
 DISPLAY_GAIN_STEP = 'display/gain_step'
 
+LOGGING_LEVEL = 'logging/level'
+
 DEFAULT_PREFS = {
     ANALYSIS_RESOLUTION: 1,
     ANALYSIS_TARGET_FS: 1000,
