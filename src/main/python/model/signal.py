@@ -959,7 +959,7 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
         self.__loaders = [DialogWavLoaderBridge(self, preferences), FrdLoader(self)]
         self.__loader_idx = self.signalTypeTabs.currentIndex()
         self.__signal_model = signal_model
-        self.__magnitudeModel = MagnitudeModel('preview', self.previewChart, self, 'Signal')
+        self.__magnitudeModel = MagnitudeModel('preview', self.previewChart, preferences, self, 'Signal')
         if len(self.__signal_model) == 0:
             if len(self.__signal_model.default_signal.filter) > 0:
                 self.filterSelect.addItem('Default')

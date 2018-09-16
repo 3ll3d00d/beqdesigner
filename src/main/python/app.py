@@ -142,8 +142,8 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.__configure_signal_model(parent)
         # magnitude
         self.showLegend.setChecked(bool(self.preferences.get(DISPLAY_SHOW_LEGEND)))
-        self.__magnitude_model = MagnitudeModel('main', self.mainChart, self.__signal_model, 'Signals',
-                                                self.__filter_model, 'Filters',
+        self.__magnitude_model = MagnitudeModel('main', self.mainChart, self.preferences, self.__signal_model,
+                                                'Signals', self.__filter_model, 'Filters',
                                                 show_legend=lambda: self.showLegend.isChecked())
         self.__filter_model.filter = self.__default_signal.filter
         # processing

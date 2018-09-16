@@ -2,6 +2,7 @@ import logging
 import math
 
 from model.limits import Limits, LimitsDialog, ValuesDialog, dBRangeCalculator
+from model.preferences import GRAPH_X_AXIS_SCALE, GRAPH_X_MIN, GRAPH_X_MAX
 
 logger = logging.getLogger('magnitude')
 
@@ -99,8 +100,8 @@ class MagnitudeModel:
     Allows a set of filters to be displayed on a chart as magnitude responses.
     '''
 
-    def __init__(self, name, chart, primaryDataProvider, primaryName, secondaryDataProvider=None, secondaryName=None,
-                 show_legend=lambda: True, db_range=60):
+    def __init__(self, name, chart, preferences, primaryDataProvider, primaryName, secondaryDataProvider=None,
+                 secondaryName=None, show_legend=lambda: True, db_range=60):
         self.__name = name
         self.__chart = chart
         self.__show_legend = show_legend
@@ -115,8 +116,10 @@ class MagnitudeModel:
             secondary_axes = primary_axes.twinx()
             secondary_axes.set_ylabel(f"dBFS ({secondaryName})")
         self.__secondary = AxesManager(secondaryDataProvider, secondary_axes)
-        self.limits = Limits(self.__repr__(), self.__redraw_func, primary_axes, x_lim=(2, 250),
-                             y_range_calculator=dBRangeCalculator(db_range), axes_2=secondary_axes)
+        self.limits = Limits(self.__repr__(), self.__redraw_func, primary_axes,
+                             x_lim=(preferences.get(GRAPH_X_MIN), preferences.get(GRAPH_X_MAX)),
+                             y_range_calculator=dBRangeCalculator(db_range), axes_2=secondary_axes,
+                             x_scale=preferences.get(GRAPH_X_AXIS_SCALE))
         self.limits.propagate_to_axes(draw=True)
         self.__legend = None
         self.__legend_cid = None

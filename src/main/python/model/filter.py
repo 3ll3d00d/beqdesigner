@@ -277,7 +277,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.freq.setMaximum(self.__signal.fs / 2.0)
         self.__starting = False
         # init the chart
-        self.__magnitudeModel = MagnitudeModel('preview', self.previewChart, self, 'Filter', db_range=30)
+        self.__magnitudeModel = MagnitudeModel('preview', self.previewChart, preferences, self, 'Filter', db_range=30)
         # ensure the preview graph is shown if we have something to show
         self.previewFilter()
 

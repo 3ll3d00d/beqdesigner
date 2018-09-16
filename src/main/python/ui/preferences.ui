@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>809</width>
-    <height>436</height>
+    <height>536</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -256,9 +256,9 @@
       </layout>
      </item>
      <item>
-      <layout class="QGridLayout" name="stylePane" columnstretch="0,1">
+      <layout class="QGridLayout" name="stylePane" columnstretch="0,1,0">
        <item row="1" column="0">
-        <widget class="QLabel" name="label">
+        <widget class="QLabel" name="themeLabel">
          <property name="text">
           <string>Theme</string>
          </property>
@@ -273,7 +273,7 @@
          </item>
         </widget>
        </item>
-       <item row="0" column="0" colspan="2">
+       <item row="0" column="0" colspan="3">
         <widget class="QLabel" name="styleLabel">
          <property name="font">
           <font>
@@ -297,6 +297,75 @@
        </item>
       </layout>
      </item>
+     <item>
+      <layout class="QGridLayout" name="graphLayout" columnstretch="0,0,0">
+       <item row="1" column="0">
+        <widget class="QCheckBox" name="freqIsLogScale">
+         <property name="text">
+          <string>Frequency Axis Log Scale?</string>
+         </property>
+         <property name="checked">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="0" colspan="3">
+        <widget class="QLabel" name="graphLabel">
+         <property name="font">
+          <font>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="frameShape">
+          <enum>QFrame::Box</enum>
+         </property>
+         <property name="frameShadow">
+          <enum>QFrame::Sunken</enum>
+         </property>
+         <property name="text">
+          <string>Graph</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignCenter</set>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="0">
+        <widget class="QLabel" name="xminmaxLabel">
+         <property name="text">
+          <string>x min/max</string>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="1">
+        <widget class="QSpinBox" name="xmin">
+         <property name="minimum">
+          <number>1</number>
+         </property>
+         <property name="maximum">
+          <number>23999</number>
+         </property>
+         <property name="value">
+          <number>2</number>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="2">
+        <widget class="QSpinBox" name="xmax">
+         <property name="minimum">
+          <number>2</number>
+         </property>
+         <property name="maximum">
+          <number>24000</number>
+         </property>
+         <property name="value">
+          <number>160</number>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
     </layout>
    </item>
    <item>
@@ -311,6 +380,24 @@
    </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>ffmpegDirectoryPicker</tabstop>
+  <tabstop>ffprobeDirectoryPicker</tabstop>
+  <tabstop>targetFs</tabstop>
+  <tabstop>resolutionSelect</tabstop>
+  <tabstop>avgAnalysisWindow</tabstop>
+  <tabstop>peakAnalysisWindow</tabstop>
+  <tabstop>defaultOutputDirectoryPicker</tabstop>
+  <tabstop>extractCompleteAudioFilePicker</tabstop>
+  <tabstop>themePicker</tabstop>
+  <tabstop>freqIsLogScale</tabstop>
+  <tabstop>xmin</tabstop>
+  <tabstop>xmax</tabstop>
+  <tabstop>ffmpegDirectory</tabstop>
+  <tabstop>defaultOutputDirectory</tabstop>
+  <tabstop>extractCompleteAudioFile</tabstop>
+  <tabstop>ffprobeDirectory</tabstop>
+ </tabstops>
  <resources/>
  <connections>
   <connection>
