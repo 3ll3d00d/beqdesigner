@@ -132,6 +132,7 @@ class BatchExtractDialog(QDialog, Ui_batchExtractDialog):
         Kicks off the extract.
         '''
         self.extractButton.setEnabled(False)
+        self.threads.setEnabled(False)
         self.resetButton.setText('Cancel')
         self.resultsTitle.setText('Extracting...')
         self.__candidates.extract()
@@ -463,7 +464,7 @@ class ExtractCandidate:
                 self.status = ExtractStatus.IN_PROGRESS
             out_time_ms = int(value)
             total_micros = self.__stream_duration_micros[self.audioStreams.currentIndex()]
-            logger.debug(f"{self.input.text()} -- {key}={value} vs {total_micros}")
+            # logger.debug(f"{self.input.text()} -- {key}={value} vs {total_micros}")
             if total_micros > 0:
                 progress = (out_time_ms / total_micros) * 100.0
                 self.ffmpegProgress.setValue(math.ceil(progress))
