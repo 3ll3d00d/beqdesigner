@@ -11,7 +11,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_graphLayoutDialog(object):
     def setupUi(self, graphLayoutDialog):
         graphLayoutDialog.setObjectName("graphLayoutDialog")
-        graphLayoutDialog.resize(390, 165)
+        graphLayoutDialog.resize(328, 165)
         self.gridLayout_2 = QtWidgets.QGridLayout(graphLayoutDialog)
         self.gridLayout_2.setObjectName("gridLayout_2")
         self.gridLayout = QtWidgets.QGridLayout()
@@ -58,6 +58,9 @@ class Ui_graphLayoutDialog(object):
         spacerItem1 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         self.gridLayout.addItem(spacerItem1, 0, 2, 1, 1)
         self.gridLayout.setColumnStretch(0, 1)
+        self.gridLayout.setColumnStretch(1, 1)
+        self.gridLayout.setColumnStretch(3, 1)
+        self.gridLayout.setColumnStretch(4, 1)
         self.gridLayout_2.addLayout(self.gridLayout, 0, 0, 1, 1)
 
         self.retranslateUi(graphLayoutDialog)
