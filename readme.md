@@ -4,13 +4,15 @@
 
 ## Windows
 
-Install https://repo.anaconda.com/archive/Anaconda3-5.2.0-Windows-x86_64.exe then
+Install [Anaconda](https://repo.anaconda.com/archive/Anaconda3-5.2.0-Windows-x86_64.exe) then
 
     conda create -n beq numpy scipy qtpy mkl==2018.0.2 qtawesome pytest pytest-cov sortedcontainers
     activate beq
     python -m pip install --upgrade pip
     pip install pyqt5 matplotlib ffmpeg-python soundfile resampy
-    pip install https://github.com/pyinstaller/pyinstaller/tarball/develop
+    pip install pyinstaller
+    
+Note that pyinstaller must be >=3.4 and pyqt5 must be from pypi because of the issue noted in [the pyinstaller release notes](https://pyinstaller.readthedocs.io/en/stable/CHANGES.html#id1)
 
 # Freeze
 
@@ -31,8 +33,6 @@ Install https://repo.anaconda.com/archive/Anaconda3-5.2.0-Windows-x86_64.exe the
 ### qtawesome
 
 * hack qtawesome by applying https://github.com/spyder-ide/qtawesome/pull/77/files to animation.py
-
-
 
 ## Exe
 
