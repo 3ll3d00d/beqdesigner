@@ -16,6 +16,8 @@ Install https://repo.anaconda.com/archive/Anaconda3-5.2.0-Windows-x86_64.exe the
 
 ## Hack
 
+### ffmpeg-python
+
 * hack ffmpeg to workaround https://github.com/kkroening/ffmpeg-python/issues/116 
   * in _run.py
 ```  
@@ -25,6 +27,12 @@ Install https://repo.anaconda.com/archive/Anaconda3-5.2.0-Windows-x86_64.exe the
 ```  
     p = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 ```
+
+### qtawesome
+
+* hack qtawesome by applying https://github.com/spyder-ide/qtawesome/pull/77/files to animation.py
+
+
 
 ## Exe
 

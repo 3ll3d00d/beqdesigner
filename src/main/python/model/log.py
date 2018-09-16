@@ -70,7 +70,7 @@ class RollingLogger(logging.Handler):
         self.__logWindow = None
         self.__preferences = preferences
         self.parent = parent
-        self.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(funcName)s - %(message)s'))
+        self.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(threadName)s	- %(name)s - %(funcName)s - %(message)s'))
         level = self.__preferences.get(LOGGING_LEVEL)
         if level is not None and level in logging._nameToLevel:
             level = logging._nameToLevel[level]

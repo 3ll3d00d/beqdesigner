@@ -10,6 +10,8 @@ from contextlib import contextmanager
 
 import matplotlib
 
+from model.batch import BatchExtractDialog
+
 matplotlib.use("Qt5Agg")
 
 from model.analysis import AnalyseSignalDialog
@@ -149,6 +151,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.ensurePathContainsExternalTools()
         # extraction
         self.actionExtract_Audio.triggered.connect(self.showExtractAudioDialog)
+        self.action_Batch_Extract.triggered.connect(self.showBatchExtractDialog)
         # analysis
         self.actionAnalyse_Audio.triggered.connect(self.showAnalyseAudioDialog)
         # import
@@ -531,6 +534,12 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         ExtractAudioDialog(self, self.preferences, self.__signal_model).show()
 
+    def showBatchExtractDialog(self):
+        '''
+        Show the batch extract dialog.
+        '''
+        BatchExtractDialog(self, self.preferences).show()
+
     def showAnalyseAudioDialog(self):
         '''
         Show the analyse audio dialog.
@@ -826,6 +835,7 @@ if __name__ == '__main__':
 
     def dump_exception_to_log(exctype, value, tb):
         import traceback
+        print(exctype, value, tb)
         global e_dialog
         if e_dialog is not None:
             formatted = traceback.format_exception(etype=exctype, value=value, tb=tb)
@@ -833,8 +843,6 @@ if __name__ == '__main__':
             e_dialog.setWindowTitle('Unexpected Error')
             e_dialog.showMessage(msg)
             e_dialog.resize(1200, 400)
-        else:
-            print(exctype, value, tb)
 
 
     sys.excepthook = dump_exception_to_log
