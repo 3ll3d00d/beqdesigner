@@ -75,6 +75,7 @@ DEFAULT_PREFS = {
 
 TYPES = {
     DISPLAY_SHOW_LEGEND: bool,
+    ANALYSIS_TARGET_FS: int
 }
 
 COLOUR_INTERVALS = [x / 255 for x in range(36, 250, 24)] + [1.0]
