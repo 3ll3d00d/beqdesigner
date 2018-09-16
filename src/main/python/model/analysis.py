@@ -9,6 +9,7 @@ from qtpy.QtCore import Qt
 from qtpy.QtWidgets import QDialog
 
 from model.limits import Limits, LimitsDialog
+from model.preferences import GRAPH_X_AXIS_SCALE, GRAPH_X_MIN, GRAPH_X_MAX
 from model.signal import select_file, readWav
 from ui.analysis import Ui_analysisDialog
 
@@ -238,7 +239,8 @@ class MaxSpectrumByTime:
         self.__preferences = preferences
         self.__axes = self.__chart.canvas.figure.add_subplot(111)
         self.__limits = Limits('spectrum', self.__redraw, self.__axes, y_range_calculator=OnePlusRange(),
-                               x_lim=(2, 120))
+                               x_lim=(preferences.get(GRAPH_X_MIN), preferences.get(GRAPH_X_MAX)),
+                               x_scale=preferences.get(GRAPH_X_AXIS_SCALE))
         self.__signal = None
         self.__scatter = None
         self.__scatter_cb = None

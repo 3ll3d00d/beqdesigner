@@ -56,6 +56,10 @@ DISPLAY_Q_STEP = 'display/q_step'
 DISPLAY_S_STEP = 'display/s_step'
 DISPLAY_GAIN_STEP = 'display/gain_step'
 
+GRAPH_X_AXIS_SCALE = 'graph/x_axis'
+GRAPH_X_MIN = 'graph/x_min'
+GRAPH_X_MAX = 'graph/x_max'
+
 LOGGING_LEVEL = 'logging/level'
 
 DEFAULT_PREFS = {
@@ -71,11 +75,16 @@ DEFAULT_PREFS = {
     DISPLAY_Q_STEP: '0.1',
     DISPLAY_S_STEP: '0.1',
     DISPLAY_GAIN_STEP: '0.1',
+    GRAPH_X_AXIS_SCALE: 'log',
+    GRAPH_X_MIN: 1,
+    GRAPH_X_MAX: 160
 }
 
 TYPES = {
     DISPLAY_SHOW_LEGEND: bool,
-    ANALYSIS_TARGET_FS: int
+    ANALYSIS_TARGET_FS: int,
+    GRAPH_X_MIN: int,
+    GRAPH_X_MAX: int
 }
 
 COLOUR_INTERVALS = [x / 255 for x in range(36, 250, 24)] + [1.0]
@@ -188,6 +197,11 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
             if os.path.isdir(outputDir):
                 self.defaultOutputDirectory.setText(outputDir)
 
+        freq_is_log = self.__preferences.get(GRAPH_X_AXIS_SCALE)
+        self.freqIsLogScale.setChecked(freq_is_log == 'log')
+        self.xmin.setValue(self.__preferences.get(GRAPH_X_MIN))
+        self.xmax.setValue(self.__preferences.get(GRAPH_X_MAX))
+
     def __init_themes(self):
         '''
         Adds all the available matplotlib theme names to a combo along with our internal theme names.
@@ -248,14 +262,32 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         self.__preferences.set(ANALYSIS_PEAK_WINDOW, self.peakAnalysisWindow.currentText())
         current_theme = self.__preferences.get(STYLE_MATPLOTLIB_THEME)
         if current_theme is not None and current_theme != self.themePicker.currentText():
-            msg_box = QMessageBox()
-            msg_box.setText('Theme change will not take effect until the application is restarted')
-            msg_box.setIcon(QMessageBox.Warning)
-            msg_box.setWindowTitle('Theme Change Detected')
-            msg_box.exec()
+            self.alert_on_change('Theme Change')
         self.__preferences.set(STYLE_MATPLOTLIB_THEME, self.themePicker.currentText())
+        new_x_scale = 'log' if self.freqIsLogScale.isChecked() else 'linear'
+        if self.__preferences.get(GRAPH_X_AXIS_SCALE) != new_x_scale:
+            self.alert_on_change('X Axis Scale Change')
+        self.__preferences.set(GRAPH_X_AXIS_SCALE, new_x_scale)
+        if self.xmin.value() < self.xmax.value():
+            if self.__preferences.get(GRAPH_X_MIN) != self.xmin.value():
+                self.alert_on_change('X Axis Minimum Change')
+                self.__preferences.set(GRAPH_X_MIN, self.xmin.value())
+            if self.__preferences.get(GRAPH_X_MAX) != self.xmax.value():
+                self.alert_on_change('X Axis Maximum Change')
+                self.__preferences.set(GRAPH_X_MAX, self.xmax.value())
+        else:
+            self.alert_on_change('X Axis Invalid', text='Invalid values: x_min must be less than x_max',
+                                 icon=QMessageBox.Critical)
 
         QDialog.accept(self)
+
+    def alert_on_change(self, title, text='Change will not take effect until the application is restarted',
+                        icon=QMessageBox.Warning):
+        msg_box = QMessageBox()
+        msg_box.setText(text)
+        msg_box.setIcon(icon)
+        msg_box.setWindowTitle(title)
+        msg_box.exec()
 
     def __get_directory(self, name):
         dialog = QFileDialog(parent=self)
