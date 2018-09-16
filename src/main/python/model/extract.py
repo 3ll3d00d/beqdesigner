@@ -161,7 +161,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             self.showProbeButton.setEnabled(True)
         if self.__executor.has_audio():
             for a in self.__executor.audio_stream_data:
-                text, duration_micros = parse_audio_stream(a)
+                text, duration_micros = parse_audio_stream(self.__executor.probe, a)
                 self.audioStreams.addItem(text)
                 self.__stream_duration_micros.append(duration_micros)
             self.audioStreams.setEnabled(True)

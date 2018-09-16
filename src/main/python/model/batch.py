@@ -571,7 +571,7 @@ class ExtractCandidate:
         if self.executor.has_audio():
             self.status = ExtractStatus.PROBED
             for a in self.executor.audio_stream_data:
-                text, duration_micros = parse_audio_stream(a)
+                text, duration_micros = parse_audio_stream(self.executor.probe, a)
                 self.audioStreams.addItem(text)
                 self.__stream_duration_micros.append(duration_micros)
             self.audioStreams.setCurrentIndex(0)
