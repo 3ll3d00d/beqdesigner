@@ -595,13 +595,14 @@ class ViewTree(QTreeWidget):
         fill_item(self.invisibleRootItem(), value)
 
 
-def parse_audio_stream(audio_stream):
+def parse_audio_stream(probe, audio_stream):
     '''
     Parses key details from the specified audio stream.
-    :param audio_stream: the stream.
+    :param probe: the probe data.
+    :param audio_stream: the stream data.
     :return: friendly description of the stream, duration_micros
     '''
-    duration, duration_ms = get_duration(audio_stream)
+    duration, duration_ms = get_duration(probe, audio_stream)
     if duration is None:
         duration = ''
     text = f"{audio_stream['index']}: {audio_stream['codec_long_name']} - {audio_stream['sample_rate']}Hz"
@@ -613,16 +614,22 @@ def parse_audio_stream(audio_stream):
     return text, duration_ms
 
 
-def get_duration(audio_stream):
+def get_duration(probe, audio_stream):
     '''
     Looks for a duration field and formats it into hh:mm:ss.zzz format.
+    :param probe: the probe data.
     :param audio_stream: the stream data.
     :return: the duration, if any.
     '''
-    duration = None
     # default to an hour is a complete hack but I have no idea what turn up in that DURATION tag
     duration_micros = 60 * 60 * 1000
-    duration_secs = audio_stream.get('duration', None)
+    duration = None
+    duration_secs = None
+    if 'format' in probe:
+        if 'duration' in probe['format']:
+            duration_secs = probe['format']['duration']
+    if duration_secs is None:
+        duration_secs = audio_stream.get('duration', None)
     if duration_secs is not None:
         duration = str(datetime.timedelta(seconds=float(duration_secs)))
         duration_micros = float(duration_secs) * 1000000
@@ -660,7 +667,7 @@ def extract_duration_micros(duration):
             duration_millis = datetime.timedelta(hours=x.hour, minutes=x.minute, seconds=x.second,
                                                  microseconds=x.microsecond).total_seconds() * 1000000
     except Exception as e:
-        logger.error(f"Unable to extract duration_millis from {duration}", e)
+        logger.exception(f"Unable to extract duration_millis from {duration}", e)
     return duration_millis
 
 

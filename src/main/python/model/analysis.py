@@ -72,7 +72,7 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
         if start_millis > 0:
             start = start_millis
         end_millis = self.endTime.time().msecsSinceStartOfDay()
-        if end_millis < self.__duration:
+        if end_millis < self.__duration or start is not None:
             end = end_millis
         channel = int(self.channelSelector.currentText())
         from model.preferences import ANALYSIS_TARGET_FS

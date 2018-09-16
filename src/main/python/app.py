@@ -10,10 +10,9 @@ from contextlib import contextmanager
 
 import matplotlib
 
-from model.batch import BatchExtractDialog
-
 matplotlib.use("Qt5Agg")
 
+from model.batch import BatchExtractDialog
 from model.analysis import AnalyseSignalDialog
 from model.link import LinkSignalsDialog
 from model.preferences import DISPLAY_SHOW_FILTERED_SIGNALS
@@ -27,6 +26,7 @@ from model.iir import Passthrough, CompleteFilter
 from ui.biquad import Ui_exportBiquadDialog
 from ui.savechart import Ui_saveChartDialog
 
+from qtpy import QtCore
 from qtpy.QtCore import QSettings
 from qtpy.QtGui import QIcon, QFont, QCursor
 from qtpy.QtWidgets import QMainWindow, QApplication, QErrorMessage, QAbstractItemView, QDialog, QFileDialog, \
@@ -43,7 +43,6 @@ from model.preferences import PreferencesDialog, BINARIES_GROUP, ANALYSIS_TARGET
 from model.signal import SignalModel, SignalTableModel, SignalDialog, SignalData
 from ui.beq import Ui_MainWindow
 
-from qtpy import QtCore
 
 logger = logging.getLogger('beq')
 
