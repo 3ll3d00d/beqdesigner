@@ -810,7 +810,7 @@ class DialogWavLoaderBridge:
         if start_millis > 0:
             start = start_millis
         end_millis = self.__dialog.wavEndTime.time().msecsSinceStartOfDay()
-        if end_millis < self.__duration:
+        if end_millis < self.__duration or start is not None:
             end = end_millis
         channel = int(self.__dialog.wavChannelSelector.currentText())
         self.__auto_loader.prepare(name=self.__dialog.wavSignalName.text(), channel=channel, start=start, end=end)
@@ -1098,7 +1098,7 @@ def readWav(name, input_file, channel=1, start=None, end=None, target_fs=1000) -
     if start is not None or end is not None:
         info = sf.info(input_file)
         startFrame = 0 if start is None else int(start * (info.samplerate / 1000))
-        endFrame = None if end is None else int(start * (info.samplerate / 1000))
+        endFrame = None if end is None else int(end * (info.samplerate / 1000))
         ys, frameRate = sf.read(input_file, start=startFrame, stop=endFrame, always_2d=True)
     else:
         ys, frameRate = sf.read(input_file, always_2d=True)
