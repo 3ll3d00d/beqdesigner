@@ -36,6 +36,7 @@ class BatchExtractDialog(QDialog, Ui_batchExtractDialog):
         self.setWindowFlags(self.windowFlags() | Qt.WindowSystemMenuHint | Qt.WindowMinMaxButtonsHint)
         self.__candidates = None
         self.__preferences = preferences
+        self.__search_spinner = None
         default_output_dir = self.__preferences.get(EXTRACTION_OUTPUT_DIR)
         if os.path.isdir(default_output_dir):
             self.outputDir.setText(default_output_dir)
@@ -112,17 +113,48 @@ class BatchExtractDialog(QDialog, Ui_batchExtractDialog):
         '''
         Searches for files matching the filter in the input directory.
         '''
+        self.filter.setEnabled(False)
         self.__candidates = ExtractCandidates(self)
-        globs = self.filter.text().split(';')
         self.__preferences.set(EXTRACTION_BATCH_FILTER, self.filter.text())
-        for g in globs:
-            from app import wait_cursor
-            with wait_cursor(f"Searching {g}"):
-                for matching_file in glob.iglob(g, recursive=True):
-                    self.__candidates.append(matching_file)
+        globs = self.filter.text().split(';')
+        job = FileSearch(globs)
+        job.signals.started.connect(self.__on_search_start)
+        job.signals.on_error.connect(self.__on_search_error)
+        job.signals.on_match.connect(self.__on_search_match)
+        job.signals.finished.connect(self.__on_search_complete)
+        QThreadPool.globalInstance().start(job)
+
+    def __on_search_start(self):
+        '''
+        Reacts to the search job starting by providing a visual indication that it has started.
+        '''
+        self.searchButton.setText('Searching...')
+        self.__search_spinner = qta.Spin(self.searchButton)
+        spin_icon = qta.icon('fa.spinner', color='green', animation=self.__search_spinner)
+        self.searchButton.setIcon(spin_icon)
+        self.searchButton.blockSignals(True)
+
+    def __on_search_match(self, matching_file):
+        '''
+        Adds the match to the candidates.
+        '''
+        self.__candidates.append(matching_file)
+        self.resultsTitle.setText(f"Results - {len(self.__candidates)} matches")
+
+    def __on_search_error(self, bad_glob):
+        '''
+        Reports on glob failures.
+        '''
+        self.searchButton.setText(f"Search error in {bad_glob}")
+
+    def __on_search_complete(self):
+        stop_spinner(self.__search_spinner, self.searchButton)
+        self.__search_spinner = None
         if len(self.__candidates) > 0:
             self.resetButton.setEnabled(True)
             self.searchButton.setEnabled(False)
+            self.searchButton.setText('Search')
+            self.searchButton.setIcon(qta.icon('fa.check'))
             self.__candidates.probe()
         else:
             self.resetButton.setEnabled(False)
@@ -152,6 +184,34 @@ class BatchExtractDialog(QDialog, Ui_batchExtractDialog):
         '''
         logger.info(f"Changing thread pool size to {size}")
         QThreadPool.globalInstance().setMaxThreadCount(size)
+
+
+class FileSearchSignals(QObject):
+    started = Signal()
+    on_match = Signal(str, name='on_match')
+    on_error = Signal(str, name='on_error')
+    finished = Signal()
+
+
+class FileSearch(QRunnable):
+    '''
+    Runs the glob in a separate thread as it can be v v slow so UI performance is poor.
+    '''
+    def __init__(self, globs):
+        super().__init__()
+        self.signals = FileSearchSignals()
+        self.globs = globs
+
+    def run(self):
+        self.signals.started.emit()
+        for g in self.globs:
+            try:
+                for matching_file in glob.iglob(g, recursive=True):
+                    self.signals.on_match.emit(matching_file)
+            except Exception as e:
+                logger.exception(f"Unexpected exception during search of {g}", e)
+                self.signals.on_error.emit(g)
+        self.signals.finished.emit()
 
 
 class ExtractCandidates:
@@ -298,51 +358,58 @@ class ExtractCandidate:
         self.input.setText(self.__filename)
         self.input.setCursorPosition(0)
         self.input.setReadOnly(True)
-        dialog.resultsLayout.addWidget(self.input, self.__idx + 1, 1, 1, 1, alignment=QtCore.Qt.AlignTop)
+        dialog.resultsLayout.addWidget(self.input, self.__idx + 1, 1, 1, 1)
         self.probeButton = QtWidgets.QToolButton(dialog.resultsScrollAreaContents)
         self.probeButton.setAttribute(Qt.WA_DeleteOnClose)
+        # self.probeButton.setAlignment(QtCore.Qt.AlignLeading | QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
         self.probeButton.setObjectName(f"probeButton{self.__idx}")
         self.probeButton.setIcon(qta.icon('fa.info'))
         self.probeButton.setEnabled(False)
         self.probeButton.clicked.connect(self.show_probe_detail)
-        dialog.resultsLayout.addWidget(self.probeButton, self.__idx + 1, 2, 1, 1, alignment=QtCore.Qt.AlignTop)
+        dialog.resultsLayout.addWidget(self.probeButton, self.__idx + 1, 2, 1, 1)
         self.audioStreams = QtWidgets.QComboBox(dialog.resultsScrollAreaContents)
         self.audioStreams.setAttribute(Qt.WA_DeleteOnClose)
+        # self.audioStreams.setAlignment(QtCore.Qt.AlignLeading | QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
         self.audioStreams.setObjectName(f"streams{self.__idx}")
         self.audioStreams.setEnabled(False)
         self.audioStreams.currentIndexChanged['int'].connect(self.recalc_ffmpeg_cmd)
-        dialog.resultsLayout.addWidget(self.audioStreams, self.__idx + 1, 3, 1, 1, alignment=QtCore.Qt.AlignTop)
+        dialog.resultsLayout.addWidget(self.audioStreams, self.__idx + 1, 3, 1, 1)
         self.channelCount = QtWidgets.QSpinBox(dialog.resultsScrollAreaContents)
         self.channelCount.setAttribute(Qt.WA_DeleteOnClose)
+        self.channelCount.setAlignment(QtCore.Qt.AlignLeading | QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
         self.channelCount.setObjectName(f"channels{self.__idx}")
         self.channelCount.setEnabled(False)
         self.channelCount.valueChanged['int'].connect(self.override_ffmpeg_cmd)
-        dialog.resultsLayout.addWidget(self.channelCount, self.__idx + 1, 4, 1, 1, alignment=QtCore.Qt.AlignTop)
+        dialog.resultsLayout.addWidget(self.channelCount, self.__idx + 1, 4, 1, 1)
         self.lfeChannelIndex = QtWidgets.QSpinBox(dialog.resultsScrollAreaContents)
         self.lfeChannelIndex.setAttribute(Qt.WA_DeleteOnClose)
+        self.lfeChannelIndex.setAlignment(QtCore.Qt.AlignLeading | QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
         self.lfeChannelIndex.setObjectName(f"lfeChannel{self.__idx}")
         self.lfeChannelIndex.setEnabled(False)
         self.lfeChannelIndex.valueChanged['int'].connect(self.override_ffmpeg_cmd)
-        dialog.resultsLayout.addWidget(self.lfeChannelIndex, self.__idx + 1, 5, 1, 1, alignment=QtCore.Qt.AlignTop)
+        dialog.resultsLayout.addWidget(self.lfeChannelIndex, self.__idx + 1, 5, 1, 1)
         self.outputFilename = QtWidgets.QLineEdit(dialog.resultsScrollAreaContents)
         self.outputFilename.setAttribute(Qt.WA_DeleteOnClose)
+        self.outputFilename.setAlignment(QtCore.Qt.AlignLeading | QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
         self.outputFilename.setObjectName(f"output{self.__idx}")
         self.outputFilename.setEnabled(False)
         self.outputFilename.textChanged.connect(self.override_output_filename)
-        dialog.resultsLayout.addWidget(self.outputFilename, self.__idx + 1, 6, 1, 1, alignment=QtCore.Qt.AlignTop)
+        dialog.resultsLayout.addWidget(self.outputFilename, self.__idx + 1, 6, 1, 1)
         self.ffmpegButton = QtWidgets.QToolButton(dialog.resultsScrollAreaContents)
         self.ffmpegButton.setAttribute(Qt.WA_DeleteOnClose)
+        # self.ffmpegButton.setAlignment(QtCore.Qt.AlignLeading | QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
         self.ffmpegButton.setObjectName(f"ffmpegButton{self.__idx}")
         self.ffmpegButton.setIcon(qta.icon('fa.info'))
         self.ffmpegButton.setEnabled(False)
         self.ffmpegButton.clicked.connect(self.show_ffmpeg_cmd)
-        dialog.resultsLayout.addWidget(self.ffmpegButton, self.__idx + 1, 7, 1, 1, alignment=QtCore.Qt.AlignTop)
+        dialog.resultsLayout.addWidget(self.ffmpegButton, self.__idx + 1, 7, 1, 1)
         self.ffmpegProgress = QtWidgets.QProgressBar(dialog.resultsScrollAreaContents)
         self.ffmpegProgress.setAttribute(Qt.WA_DeleteOnClose)
+        self.ffmpegProgress.setAlignment(QtCore.Qt.AlignLeading | QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
         self.ffmpegProgress.setProperty(f"value", 0)
         self.ffmpegProgress.setObjectName(f"progress{self.__idx}")
         self.ffmpegProgress.setEnabled(False)
-        dialog.resultsLayout.addWidget(self.ffmpegProgress, self.__idx + 1, 8, 1, 1, alignment=QtCore.Qt.AlignTop)
+        dialog.resultsLayout.addWidget(self.ffmpegProgress, self.__idx + 1, 8, 1, 1)
 
     def remove(self):
         logger.debug(f"Closing widgets for {self.executor.file}")
@@ -419,10 +486,8 @@ class ExtractCandidate:
             self.outputFilename.setEnabled(False)
             self.ffmpegProgress.setEnabled(False)
 
-        if self.__in_progress_icon is not None:
-            if self.actionButton in self.__in_progress_icon.info:
-                self.__in_progress_icon.info[self.actionButton][0].stop()
-            self.__in_progress_icon = None
+        stop_spinner(self.__in_progress_icon, self.actionButton)
+        self.__in_progress_icon = None
 
     def toggle(self):
         '''
@@ -513,7 +578,7 @@ class ExtractCandidate:
             self.__on_probe_complete(self.__idx)
         else:
             self.probe_failed()
-            self.actionButton.setTooltip('No audio streams')
+            self.actionButton.setToolTip('No audio streams')
 
     def recalc_ffmpeg_cmd(self):
         '''
@@ -563,7 +628,7 @@ class ExtractCandidate:
         return self.__filename
 
 
-class JobSignals(QObject):
+class ProbeJobSignals(QObject):
     started = Signal()
     errored = Signal()
     finished = Signal()
@@ -577,7 +642,7 @@ class ProbeJob(QRunnable):
     def __init__(self, candidate):
         super().__init__()
         self.__candidate = candidate
-        self.__signals = JobSignals()
+        self.__signals = ProbeJobSignals()
         self.__signals.started.connect(candidate.probe_start)
         self.__signals.errored.connect(candidate.probe_failed)
         self.__signals.finished.connect(candidate.probe_complete)
@@ -589,6 +654,16 @@ class ProbeJob(QRunnable):
             self.__candidate.executor.probe_file()
             self.__signals.finished.emit()
         except Exception as e:
-            logger.error(f"Probe {self.__candidate.executor.file} failed", e)
+            logger.exception(f"Probe {self.__candidate.executor.file} failed", e)
             self.__signals.errored.emit()
         logger.info(f"<< ProbeJob.run {self.__candidate.executor.file}")
+
+def stop_spinner(spinner, button):
+    '''
+    Stops the qtawesome spinner safely.
+    :param spinner: the spinner.
+    :param button: the button that owns the spinner.
+    '''
+    if spinner is not None:
+        if button in spinner.info:
+            spinner.info[button][0].stop()

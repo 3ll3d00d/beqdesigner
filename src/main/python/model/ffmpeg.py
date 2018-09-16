@@ -660,7 +660,7 @@ def extract_duration_micros(duration):
             duration_millis = datetime.timedelta(hours=x.hour, minutes=x.minute, seconds=x.second,
                                                  microseconds=x.microsecond).total_seconds() * 1000000
     except Exception as e:
-        logger.error(f"Unable to extract duration_millis from {duration}", e)
+        logger.exception(f"Unable to extract duration_millis from {duration}", e)
     return duration_millis
 
 

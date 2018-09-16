@@ -1,4 +1,3 @@
-import datetime
 import logging
 import math
 import os
@@ -10,8 +9,7 @@ from PyQt5.QtGui import QPalette, QColor
 from qtpy.QtMultimedia import QSound
 from qtpy.QtWidgets import QDialog, QFileDialog, QStatusBar, QDialogButtonBox, QMessageBox
 
-from model.ffmpeg import Executor, ViewProbeDialog, SIGNAL_CONNECTED, SIGNAL_ERROR, SIGNAL_COMPLETE, get_duration, \
-    parse_audio_stream
+from model.ffmpeg import Executor, ViewProbeDialog, SIGNAL_CONNECTED, SIGNAL_ERROR, SIGNAL_COMPLETE, parse_audio_stream
 from model.preferences import EXTRACTION_OUTPUT_DIR, EXTRACTION_NOTIFICATION_SOUND
 from model.signal import AutoWavLoader
 from ui.extract import Ui_extractAudioDialog
