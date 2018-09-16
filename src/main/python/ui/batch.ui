@@ -451,12 +451,12 @@
    <slot>change_pool_size()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>301</x>
-     <y>111</y>
+     <x>413</x>
+     <y>109</y>
     </hint>
     <hint type="destinationlabel">
-     <x>111</x>
-     <y>180</y>
+     <x>376</x>
+     <y>182</y>
     </hint>
    </hints>
   </connection>

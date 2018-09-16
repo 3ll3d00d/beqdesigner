@@ -12,6 +12,8 @@ from qtpy import QtWidgets
 from qtpy.QtCore import Signal, QRunnable, QObject, QThreadPool
 from qtpy.QtWidgets import QDialog, QTreeWidget, QTreeWidgetItem
 
+from ui.ffmpeg import Ui_ffmpegReportDialog
+
 logger = logging.getLogger('progress')
 
 MAIN = str(10 ** (-20.2 / 20.0))
@@ -53,6 +55,7 @@ class Executor:
         self.__progress_handler = None
         self.__progress_port = get_next_port()
         self.__extractor = None
+        self.__cancel = False
 
     @property
     def target_dir(self):
@@ -341,7 +344,7 @@ class Executor:
         Executes the command.
         '''
         if self.__ffmpeg_cmd is not None:
-            self.__extractor = AudioExtractor(self.__ffmpeg_cmd, port=self.__progress_port,
+            self.__extractor = AudioExtractor(self.__ffmpeg_cmd, port=self.__progress_port, cancel=self.__cancel,
                                               progress_handler=self.progress_handler)
             QThreadPool.globalInstance().start(self.__extractor)
 
@@ -349,6 +352,7 @@ class Executor:
         '''
         Attempts to cancel the extractor.
         '''
+        self.__cancel = True
         if self.__extractor is not None:
             self.__extractor.cancel()
 
@@ -356,6 +360,7 @@ class Executor:
         '''
         Revokes a previously issued cancel.
         '''
+        self.__cancel = False
         if self.__extractor is not None:
             self.__extractor.enable()
 
@@ -369,7 +374,7 @@ class AudioExtractor(QRunnable):
     Allows audio extraction to be performed outside the main UI thread.
     '''
 
-    def __init__(self, ffmpeg_cmd, port=None, progress_handler=None):
+    def __init__(self, ffmpeg_cmd, port=None, progress_handler=None, cancel=False):
         super().__init__()
         self.__ffmpeg_cmd = ffmpeg_cmd
         self.__progress_handler = progress_handler
@@ -379,7 +384,7 @@ class AudioExtractor(QRunnable):
             self.__signals.on_progress.emit(SIGNAL_CONNECTED, '')
         self.__socket_server = None
         self.__port = port
-        self.__cancel = False
+        self.__cancel = cancel
 
     def __del__(self):
         self.__stop_socket_server()
@@ -400,7 +405,7 @@ class AudioExtractor(QRunnable):
         '''
         Executes the ffmpeg command.
         '''
-        if self.__cancel:
+        if self.__cancel is True:
             self.__signals.on_progress.emit(SIGNAL_CANCELLED, 'Cancelled')
         else:
             self.__start_socket_server()
@@ -657,3 +662,10 @@ def extract_duration_micros(duration):
     except Exception as e:
         logger.error(f"Unable to extract duration_millis from {duration}", e)
     return duration_millis
+
+
+class FFMpegDetailsDialog(QDialog, Ui_ffmpegReportDialog):
+    def __init__(self, name, parent):
+        super().__init__(parent=parent)
+        self.setupUi(self)
+        self.setWindowTitle(f"ffmpeg: {name}")

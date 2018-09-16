@@ -241,8 +241,8 @@ class Ui_MainWindow(object):
         self.menuFile.addSeparator()
         self.menuFile.addAction(self.actionSave_Chart)
         self.menu_Tools.addAction(self.actionExtract_Audio)
-        self.menu_Tools.addAction(self.actionAnalyse_Audio)
         self.menu_Tools.addAction(self.action_Batch_Extract)
+        self.menu_Tools.addAction(self.actionAnalyse_Audio)
         self.menubar.addAction(self.menuFile.menuAction())
         self.menubar.addAction(self.menuSettings.menuAction())
         self.menubar.addAction(self.menu_Tools.menuAction())
@@ -340,6 +340,6 @@ class Ui_MainWindow(object):
         self.actionAnalyse_Audio.setText(_translate("MainWindow", "Analyse Audio"))
         self.actionAnalyse_Audio.setShortcut(_translate("MainWindow", "Ctrl+A"))
         self.action_Batch_Extract.setText(_translate("MainWindow", "&Batch Extract"))
-        self.action_Batch_Extract.setShortcut(_translate("MainWindow", "Ctrl+Shift+B"))
+        self.action_Batch_Extract.setShortcut(_translate("MainWindow", "Ctrl+Shift+E"))
 
 from mpl import MplWidget

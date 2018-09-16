@@ -285,10 +285,10 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             total_micros = self.__stream_duration_micros[self.audioStreams.currentIndex()]
             logger.debug(f"{self.inputFile.text()} -- {key}={value} vs {total_micros}")
             if total_micros > 0:
-                progress = math.ceil((out_time_ms / total_micros) * 100.0)
-                self.ffmpegProgress.setValue(progress)
+                progress = (out_time_ms / total_micros) * 100.0
+                self.ffmpegProgress.setValue(math.ceil(progress))
                 self.ffmpegProgress.setTextVisible(True)
-                self.ffmpegProgress.setFormat(f"{round(out_time_ms/1000000)} of {round(total_micros/1000000)}s")
+                self.ffmpegProgress.setFormat(f"{round(progress, 2):.2f}%")
         elif key == SIGNAL_ERROR:
             self.__extract_complete(value, False)
         elif key == SIGNAL_COMPLETE:

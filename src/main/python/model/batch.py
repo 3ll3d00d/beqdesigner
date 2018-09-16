@@ -2,15 +2,15 @@ import glob
 import logging
 import math
 import os
+from enum import Enum
 
 import qtawesome as qta
 from qtpy import QtWidgets, QtCore
 from qtpy.QtCore import Qt, QObject, QRunnable, QThread, Signal, QThreadPool
-from qtpy.QtGui import QFont
-from qtpy.QtWidgets import QDialog, QStatusBar, QFileDialog, QMessageBox
+from qtpy.QtWidgets import QDialog, QStatusBar, QFileDialog
 
 from model.ffmpeg import Executor, parse_audio_stream, ViewProbeDialog, SIGNAL_CONNECTED, SIGNAL_ERROR, \
-    SIGNAL_COMPLETE, SIGNAL_CANCELLED
+    SIGNAL_COMPLETE, SIGNAL_CANCELLED, FFMpegDetailsDialog
 from model.preferences import EXTRACTION_OUTPUT_DIR, EXTRACTION_BATCH_FILTER
 from ui.batch import Ui_batchExtractDialog
 
@@ -19,7 +19,15 @@ logger = logging.getLogger('batch')
 
 class BatchExtractDialog(QDialog, Ui_batchExtractDialog):
     '''
-    Allows user to load a signal, processing it if necessary.
+    Allows user to search for files to convert according to some glob patterns and then extract audio from them en masse.
+    The workflow is
+    * set search filter and search for files that match the filter
+    * each matching file will be rendered in the scroll area showing the various configurable parameters for the extraction
+    * an ffprobe job is created for each file and executed asynchronously in the global thread pool
+    * user can toggle whether the file should be included in the extraction or not & can choose how many threads to put into the job
+    * if the user presses reset now, all files are removed and the search can restart
+    * if the user presses extract, an ffmpeg job is created for each file and scheduled with the global thread pool
+    * if the user presses reset after extract, all not started jobs are cancelled
     '''
 
     def __init__(self, parent, preferences):
@@ -38,7 +46,7 @@ class BatchExtractDialog(QDialog, Ui_batchExtractDialog):
         self.statusBar = QStatusBar()
         self.verticalLayout.addWidget(self.statusBar)
         try:
-            core_count = QThread.idealThreadCount()
+            core_count = QThreadPool.globalInstance().maxThreadCount()
             self.threads.setMaximum(core_count)
             self.threads.setValue(core_count)
         except Exception as e:
@@ -69,31 +77,32 @@ class BatchExtractDialog(QDialog, Ui_batchExtractDialog):
 
     def reset_batch(self):
         '''
-        Removes all candidates.
+        Removes all candidates if we're not already in progress.
         '''
         if self.__candidates is not None:
             self.__candidates.reset()
-            self.__candidates = None
-            self.enable_search(self.filter.text())
-            self.resetButton.setEnabled(False)
-            self.extractButton.setEnabled(False)
+            if self.__candidates.is_extracting is False:
+                self.__candidates = None
+                self.enable_search(self.filter.text())
+                self.resetButton.setEnabled(False)
+                self.extractButton.setEnabled(False)
 
     def accept(self):
         '''
         Resets the thread pool size back to the default.
         '''
-        QThreadPool.globalInstance().setMaxThreadCount(QThread.idealThreadCount())
+        self.change_pool_size(QThread.idealThreadCount())
         QDialog.accept(self)
 
     def reject(self):
         '''
         Resets the thread pool size back to the default.
         '''
-        QThreadPool.globalInstance().setMaxThreadCount(QThread.idealThreadCount())
+        self.change_pool_size(QThread.idealThreadCount())
         QDialog.reject(self)
 
     def enable_extract(self):
-        '''
+        ''';
         Enables the extract button if we're ready to go!
         '''
         self.extractButton.setEnabled(True)
@@ -123,6 +132,7 @@ class BatchExtractDialog(QDialog, Ui_batchExtractDialog):
         Kicks off the extract.
         '''
         self.extractButton.setEnabled(False)
+        self.resetButton.setText('Cancel')
         self.resultsTitle.setText('Extracting...')
         self.__candidates.extract()
 
@@ -132,12 +142,14 @@ class BatchExtractDialog(QDialog, Ui_batchExtractDialog):
         :return:
         '''
         self.resultsTitle.setText('Extraction Complete')
+        self.resetButton.setEnabled(False)
 
     def change_pool_size(self, size):
         '''
         Changes the pool size.
         :param size: size.
         '''
+        logger.info(f"Changing thread pool size to {size}")
         QThreadPool.globalInstance().setMaxThreadCount(size)
 
 
@@ -147,7 +159,12 @@ class ExtractCandidates:
         self.__dialog = dialog
         self.__candidates = []
         self.__probed = []
+        self.__extracting = False
         self.__extracted = []
+
+    @property
+    def is_extracting(self):
+        return self.__extracting
 
     def __len__(self):
         return len(self.__candidates)
@@ -169,18 +186,21 @@ class ExtractCandidates:
         '''
         Removes all the candidates.
         '''
-        for candidate in self.__candidates:
-            candidate.remove()
-        self.__candidates = []
+        if self.__extracting is True:
+            for candidate in self.__candidates:
+                candidate.toggle()
+        else:
+            for candidate in self.__candidates:
+                candidate.remove()
+            self.__candidates = []
 
     def probe(self):
         '''
         Probes all the candidates.
         '''
-        logger.info(f"Probing {len(self.__candidates)} candidates")
+        logger.info(f"Probing {len(self)} candidates")
         for c in self.__candidates:
             c.probe()
-        logger.info(f"Probed {len(self.__candidates)} candidates")
 
     def on_probe_complete(self, idx):
         '''
@@ -188,15 +208,15 @@ class ExtractCandidates:
         :param idx: the idx of the probed candidate.
         '''
         self.__probed.append(idx)
-        if len(self.__probed) == len(self.__candidates):
+        if len(self.__probed) == len(self):
             logger.info('All probes complete')
             self.__dialog.enable_extract()
 
     def extract(self):
-        logger.info(f"Extracting {len(self.__candidates)} candidates")
+        self.__extracting = True
+        logger.info(f"Extracting {len(self)} candidates")
         for c in self.__candidates:
             c.extract()
-        logger.info(f"Extracted {len(self.__candidates)} candidates")
 
     def on_extract_complete(self, idx):
         '''
@@ -204,9 +224,39 @@ class ExtractCandidates:
         :param idx: the idx of the extracted candidate.
         '''
         self.__extracted.append(idx)
-        if len(self.__extracted) == len(self.__candidates):
+        if len(self.__extracted) == len(self):
             logger.info('All probes complete')
             self.__dialog.extract_complete()
+
+
+class ExtractStatus(Enum):
+    NEW = 0
+    IN_PROGRESS = 1
+    PROBED = 2
+    EXCLUDED = 3
+    CANCELLED = 4
+    COMPLETE = 5
+    FAILED = 6
+
+    def __ge__(self, other):
+        if self.__class__ is other.__class__:
+            return self.value >= other.value
+        return NotImplemented
+
+    def __gt__(self, other):
+        if self.__class__ is other.__class__:
+            return self.value > other.value
+        return NotImplemented
+
+    def __le__(self, other):
+        if self.__class__ is other.__class__:
+            return self.value <= other.value
+        return NotImplemented
+
+    def __lt__(self, other):
+        if self.__class__ is other.__class__:
+            return self.value < other.value
+        return NotImplemented
 
 
 class ExtractCandidate:
@@ -214,13 +264,12 @@ class ExtractCandidate:
         self.__idx = idx
         self.__filename = filename
         self.__dialog = dialog
-        self.__include = False
-        self.__before_icon = None
         self.__in_progress_icon = None
         self.__stream_duration_micros = []
         self.__on_probe_complete = on_probe_complete
         self.__on_extract_complete = on_extract_complete
         self.__result = None
+        self.__status = ExtractStatus.NEW
         self.executor = Executor(self.__filename, self.__dialog.outputDir.text())
         self.executor.progress_handler = self.__handle_ffmpeg_process
         self.actionButton = None
@@ -238,7 +287,7 @@ class ExtractCandidate:
         self.actionButton = QtWidgets.QToolButton(dialog.resultsScrollAreaContents)
         self.actionButton.setAttribute(Qt.WA_DeleteOnClose)
         self.actionButton.setObjectName(f"actionButton{self.__idx}")
-        self.toggle()
+        self.status = ExtractStatus.NEW
         self.actionButton.clicked.connect(self.toggle)
         dialog.resultsLayout.addWidget(self.actionButton, self.__idx + 1, 0, 1, 1, alignment=QtCore.Qt.AlignTop)
         self.input = QtWidgets.QLineEdit(dialog.resultsScrollAreaContents)
@@ -307,25 +356,93 @@ class ExtractCandidate:
         self.ffmpegProgress.close()
         logger.debug(f"Closed widgets for {self.executor.file}")
 
+    @property
+    def status(self):
+        return self.__status
+
+    @status.setter
+    def status(self, status):
+        self.__status = status
+        if status == ExtractStatus.NEW:
+            self.actionButton.setIcon(qta.icon('fa.check', color='green'))
+        elif status == ExtractStatus.IN_PROGRESS:
+            self.actionButton.blockSignals(True)
+            self.__in_progress_icon = qta.Spin(self.actionButton)
+            self.actionButton.setIcon(qta.icon('fa.spinner', color='blue', animation=self.__in_progress_icon))
+            self.probeButton.setEnabled(False)
+            self.input.setEnabled(False)
+            self.audioStreams.setEnabled(False)
+            self.channelCount.setEnabled(False)
+            self.lfeChannelIndex.setEnabled(False)
+            self.outputFilename.setEnabled(False)
+        elif status == ExtractStatus.EXCLUDED:
+            self.actionButton.setIcon(qta.icon('fa.times', color='green'))
+        elif status == ExtractStatus.PROBED:
+            self.actionButton.blockSignals(False)
+            self.actionButton.setIcon(qta.icon('fa.check', color='green'))
+            self.probeButton.setEnabled(True)
+            self.input.setEnabled(False)
+            self.audioStreams.setEnabled(True)
+            self.channelCount.setEnabled(True)
+            self.lfeChannelIndex.setEnabled(True)
+            self.outputFilename.setEnabled(True)
+            self.ffmpegButton.setEnabled(True)
+        elif status == ExtractStatus.FAILED:
+            self.actionButton.setIcon(qta.icon('fa.exclamation-triangle', color='red'))
+            self.actionButton.blockSignals(True)
+            self.probeButton.setEnabled(False)
+            self.input.setEnabled(False)
+            self.audioStreams.setEnabled(False)
+            self.channelCount.setEnabled(False)
+            self.lfeChannelIndex.setEnabled(False)
+            self.outputFilename.setEnabled(False)
+            self.ffmpegProgress.setEnabled(False)
+        elif status == ExtractStatus.CANCELLED:
+            self.actionButton.blockSignals(True)
+            self.actionButton.setIcon(qta.icon('fa.ban', color='green'))
+            self.probeButton.setEnabled(False)
+            self.input.setEnabled(False)
+            self.audioStreams.setEnabled(False)
+            self.channelCount.setEnabled(False)
+            self.lfeChannelIndex.setEnabled(False)
+            self.outputFilename.setEnabled(False)
+            self.ffmpegProgress.setEnabled(False)
+        elif status == ExtractStatus.COMPLETE:
+            self.actionButton.blockSignals(True)
+            self.actionButton.setIcon(qta.icon('fa.check', color='green'))
+            self.probeButton.setEnabled(False)
+            self.input.setEnabled(False)
+            self.audioStreams.setEnabled(False)
+            self.channelCount.setEnabled(False)
+            self.lfeChannelIndex.setEnabled(False)
+            self.outputFilename.setEnabled(False)
+            self.ffmpegProgress.setEnabled(False)
+
+        if self.__in_progress_icon is not None:
+            if self.actionButton in self.__in_progress_icon.info:
+                self.__in_progress_icon.info[self.actionButton][0].stop()
+            self.__in_progress_icon = None
+
     def toggle(self):
         '''
-        toggles whether this candidate should be included.
-        :return:
+        toggles whether this candidate should be excluded from the batch.
         '''
-        self.__include = not self.__include
-        if self.__include is True:
-            self.actionButton.setIcon(qta.icon('fa.check', color='green'))
-            self.executor.enable()
-        else:
-            self.actionButton.setIcon(qta.icon('fa.times', color='red'))
-            self.executor.cancel()
+        if self.status < ExtractStatus.CANCELLED:
+            if self.status == ExtractStatus.EXCLUDED:
+                self.executor.enable()
+                if self.executor.probe is not None:
+                    self.status = ExtractStatus.PROBED
+                else:
+                    self.status = ExtractStatus.NEW
+            else:
+                self.status = ExtractStatus.EXCLUDED
+                self.executor.cancel()
 
     def probe(self):
         '''
         Schedules a ProbeJob with the global thread pool.
         '''
-        job = ProbeJob(self)
-        QThreadPool.globalInstance().start(job)
+        QThreadPool.globalInstance().start(ProbeJob(self))
 
     def __handle_ffmpeg_process(self, key, value):
         '''
@@ -337,46 +454,30 @@ class ExtractCandidate:
         if key == SIGNAL_CONNECTED:
             pass
         elif key == SIGNAL_CANCELLED:
-            self.__extract_complete(value, True)
-            self.actionButton.setIcon(qta.icon('fa.ban', color='red'))
+            self.status = ExtractStatus.CANCELLED
+            self.__result = value
+            self.__on_extract_complete(self.__idx)
         elif key == 'out_time_ms':
-            if self.__in_progress_icon is None:
-                self.__extract_started()
+            if self.status != ExtractStatus.IN_PROGRESS:
+                logger.debug(f"Extraction started for {self}")
+                self.status = ExtractStatus.IN_PROGRESS
             out_time_ms = int(value)
             total_micros = self.__stream_duration_micros[self.audioStreams.currentIndex()]
             logger.debug(f"{self.input.text()} -- {key}={value} vs {total_micros}")
             if total_micros > 0:
-                progress = math.ceil((out_time_ms / total_micros) * 100.0)
-                self.ffmpegProgress.setValue(progress)
+                progress = (out_time_ms / total_micros) * 100.0
+                self.ffmpegProgress.setValue(math.ceil(progress))
                 self.ffmpegProgress.setTextVisible(True)
-                self.ffmpegProgress.setFormat(f"{round(out_time_ms/1000000)} of {round(total_micros/1000000)}s")
+                self.ffmpegProgress.setFormat(f"{round(progress, 2):.2f}%")
         elif key == SIGNAL_ERROR:
-            self.__extract_complete(value, False)
+            self.status = ExtractStatus.FAILED
+            self.__result = value
+            self.__on_extract_complete(self.__idx)
         elif key == SIGNAL_COMPLETE:
-            self.__extract_complete(value, True)
-
-    def __extract_started(self):
-        logger.debug(f"Extraction started for {self}")
-        self.actionButton.setEnabled(False)
-        self.probeButton.setEnabled(False)
-        self.input.setEnabled(False)
-        self.audioStreams.setEnabled(False)
-        self.channelCount.setEnabled(False)
-        self.lfeChannelIndex.setEnabled(False)
-        self.ffmpegButton.setEnabled(False)
-        self.outputFilename.setEnabled(False)
-        self.ffmpegProgress.setEnabled(False)
-        self.__before_icon = self.actionButton.icon()
-        self.__in_progress_icon = qta.Spin(self.actionButton)
-        self.actionButton.setIcon(qta.icon('fa.spinner', color='blue', animation=self.__in_progress_icon))
-
-    def __extract_complete(self, result, success):
-        self.__reset_action_icon()
-        self.__result = result
-        self.ffmpegButton.setEnabled(True)
-        if success is False:
-            self.actionButton.setIcon(qta.icon('fa.exclamation-triangle', color='red'))
-        self.__on_extract_complete(self.__idx)
+            self.ffmpegProgress.setValue(100)
+            self.status = ExtractStatus.COMPLETE
+            self.__result = value
+            self.__on_extract_complete(self.__idx)
 
     def extract(self):
         '''
@@ -388,49 +489,30 @@ class ExtractCandidate:
         '''
         Updates the UI when the probe starts.
         '''
-        self.__before_icon = self.actionButton.icon()
-        self.__in_progress_icon = qta.Spin(self.actionButton)
-        self.actionButton.setIcon(qta.icon('fa.spinner', color='blue', animation=self.__in_progress_icon))
+        self.status = ExtractStatus.IN_PROGRESS
 
-    def ff_failed(self):
+    def probe_failed(self):
         '''
         Updates the UI when an ff cmd fails.
         '''
-        self.__reset_action_icon()
-        self.actionButton.setIcon(qta.icon('fa.exclamation-triangle', color='red'))
-        # TODO disable all items
-        self.actionButton.setEnabled(False)
+        self.status = ExtractStatus.FAILED
         self.__on_probe_complete(self.__idx)
 
     def probe_complete(self):
         '''
         Updates the UI when the probe completes.
         '''
-        self.__reset_action_icon()
         if self.executor.has_audio():
+            self.status = ExtractStatus.PROBED
             for a in self.executor.audio_stream_data:
                 text, duration_micros = parse_audio_stream(a)
                 self.audioStreams.addItem(text)
                 self.__stream_duration_micros.append(duration_micros)
-            self.probeButton.setEnabled(True)
-            self.audioStreams.setEnabled(True)
-            self.channelCount.setEnabled(True)
-            self.lfeChannelIndex.setEnabled(True)
-            self.ffmpegButton.setEnabled(True)
-            self.outputFilename.setEnabled(True)
             self.audioStreams.setCurrentIndex(0)
+            self.__on_probe_complete(self.__idx)
         else:
-            self.ff_failed()
+            self.probe_failed()
             self.actionButton.setTooltip('No audio streams')
-        self.__on_probe_complete(self.__idx)
-
-    def __reset_action_icon(self):
-        self.actionButton.setIcon(self.__before_icon)
-        self.__before_icon = None
-        if self.__in_progress_icon is not None:
-            if self.actionButton in self.__in_progress_icon.info:
-                self.__in_progress_icon.info[self.actionButton][0].stop()
-            self.__in_progress_icon = None
 
     def recalc_ffmpeg_cmd(self):
         '''
@@ -467,21 +549,14 @@ class ExtractCandidate:
         '''
         Pops up a message box containing the command or the result.
         '''
-        msg_box = QMessageBox()
-        msg_box.setIcon(QMessageBox.Information)
+        msg_box = FFMpegDetailsDialog(self.executor.file, self.__dialog)
         if self.__result is None:
-            msg_box.setText(f"CLI for {self.executor.file}")
-            msg_box.setWindowTitle('ffmpeg command')
-            msg_box.setDetailedText(self.executor.ffmpeg_cli)
+            msg_box.message.setText(f"Command")
+            msg_box.details.setPlainText(self.executor.ffmpeg_cli)
         else:
-            msg_box.setText(f"Result for {self.executor.file}")
-            msg_box.setWindowTitle('ffmpeg result')
-            msg_box.setDetailedText(self.__result)
-        font = QFont()
-        font.setFamily("Consolas")
-        font.setPointSize(8)
-        msg_box.setFont(font)
-        msg_box.exec()
+            msg_box.message.setText(f"Result")
+            msg_box.details.setPlainText(self.__result)
+        msg_box.show()
 
     def __repr__(self):
         return self.__filename
@@ -503,7 +578,7 @@ class ProbeJob(QRunnable):
         self.__candidate = candidate
         self.__signals = JobSignals()
         self.__signals.started.connect(candidate.probe_start)
-        self.__signals.errored.connect(candidate.ff_failed)
+        self.__signals.errored.connect(candidate.probe_failed)
         self.__signals.finished.connect(candidate.probe_complete)
 
     def run(self):
