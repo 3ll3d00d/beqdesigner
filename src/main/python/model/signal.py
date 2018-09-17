@@ -666,6 +666,8 @@ class AutoWavLoader:
     def __init__(self, preferences):
         self.__signal = None
         self.__preferences = preferences
+        self.__start = None
+        self.__end = None
         self.info = None
 
     def reset(self):
@@ -700,14 +702,21 @@ class AutoWavLoader:
         self.prepare(name=name, channel=channel)
         return self.get_signal()
 
-    def prepare(self, name=None, channel_count=1, channel=1, start=None, end=None):
+    def set_range(self, start=None, end=None):
+        '''
+        Sets the range to load from the file.
+        :param start: the start position, if any.
+        :param end: the end position, if any.
+        '''
+        self.__start = start
+        self.__end = end
+
+    def prepare(self, name=None, channel_count=1, channel=1):
         '''
         Loads and analyses the wav with the specified parameters.
         :param name: the signal name, if none use the file name + channel.
         :param channel: the channel
         :param channel_count: the channel count, only used for creating a default name.
-        :param start: start position, if any.
-        :param end: end position, if any.
         '''
         # defer to avoid circular imports
         from model.preferences import ANALYSIS_TARGET_FS, ANALYSIS_RESOLUTION, ANALYSIS_PEAK_WINDOW, \
@@ -716,7 +725,7 @@ class AutoWavLoader:
             name = Path(self.info.name).resolve().stem
             if channel_count > 1:
                 name += f"_c{channel}"
-        self.__signal = readWav(name, self.info.name, channel=channel, start=start, end=end,
+        self.__signal = readWav(name, self.info.name, channel=channel, start=self.__start, end=self.__end,
                                 target_fs=self.__preferences.get(ANALYSIS_TARGET_FS))
         multiplier = int(1 / float(self.__preferences.get(ANALYSIS_RESOLUTION)))
         peak_wnd = self.__get_window(ANALYSIS_PEAK_WINDOW)
@@ -813,7 +822,8 @@ class DialogWavLoaderBridge:
         if end_millis < self.__duration or start is not None:
             end = end_millis
         channel = int(self.__dialog.wavChannelSelector.currentText())
-        self.__auto_loader.prepare(name=self.__dialog.wavSignalName.text(), channel=channel, start=start, end=end)
+        self.__auto_loader.set_range(start=start, end=end)
+        self.__auto_loader.prepare(name=self.__dialog.wavSignalName.text(), channel=channel)
         self.__dialog.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
 
     def __get_window(self, key):
