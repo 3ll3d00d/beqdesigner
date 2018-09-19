@@ -211,6 +211,8 @@ class Ui_MainWindow(object):
         self.actionAnalyse_Audio.setObjectName("actionAnalyse_Audio")
         self.action_Batch_Extract = QtWidgets.QAction(MainWindow)
         self.action_Batch_Extract.setObjectName("action_Batch_Extract")
+        self.actionSave_Report = QtWidgets.QAction(MainWindow)
+        self.actionSave_Report.setObjectName("actionSave_Report")
         self.menuHelp.addAction(self.actionShow_Logs)
         self.menuSettings.addAction(self.actionPreferences)
         self.menuSettings.addSeparator()
@@ -240,6 +242,7 @@ class Ui_MainWindow(object):
         self.menuFile.addAction(self.actionExport_FRD)
         self.menuFile.addSeparator()
         self.menuFile.addAction(self.actionSave_Chart)
+        self.menuFile.addAction(self.actionSave_Report)
         self.menu_Tools.addAction(self.actionExtract_Audio)
         self.menu_Tools.addAction(self.action_Batch_Extract)
         self.menu_Tools.addAction(self.actionAnalyse_Audio)
@@ -341,5 +344,6 @@ class Ui_MainWindow(object):
         self.actionAnalyse_Audio.setShortcut(_translate("MainWindow", "Ctrl+A"))
         self.action_Batch_Extract.setText(_translate("MainWindow", "&Batch Extract"))
         self.action_Batch_Extract.setShortcut(_translate("MainWindow", "Ctrl+Shift+E"))
+        self.actionSave_Report.setText(_translate("MainWindow", "Save Repor&t"))
 
 from mpl import MplWidget

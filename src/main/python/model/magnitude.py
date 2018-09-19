@@ -1,10 +1,14 @@
 import logging
 import math
 
+from matplotlib.gridspec import GridSpec
+
 from model.limits import Limits, LimitsDialog, ValuesDialog, dBRangeCalculator
 from model.preferences import GRAPH_X_AXIS_SCALE, GRAPH_X_MIN, GRAPH_X_MAX
 
 logger = logging.getLogger('magnitude')
+
+SINGLE_SUBPLOT_SPEC = GridSpec(1, 1).new_subplotspec((0, 0), 1, 1)
 
 
 class AxesManager:
@@ -101,11 +105,11 @@ class MagnitudeModel:
     '''
 
     def __init__(self, name, chart, preferences, primaryDataProvider, primaryName, secondaryDataProvider=None,
-                 secondaryName=None, show_legend=lambda: True, db_range=60):
+                 secondaryName=None, show_legend=lambda: True, db_range=60, subplot_spec=SINGLE_SUBPLOT_SPEC):
         self.__name = name
         self.__chart = chart
         self.__show_legend = show_legend
-        primary_axes = self.__chart.canvas.figure.add_subplot(111)
+        primary_axes = self.__chart.canvas.figure.add_subplot(subplot_spec)
         primary_axes.set_ylabel(f"dBFS ({primaryName})")
         primary_axes.grid(linestyle='-', which='major', linewidth=1, alpha=0.5)
         primary_axes.grid(linestyle='--', which='minor', linewidth=1, alpha=0.5)

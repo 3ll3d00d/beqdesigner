@@ -1,0 +1,332 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>saveReportDialog</class>
+ <widget class="QDialog" name="saveReportDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1371</width>
+    <height>801</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Save Report</string>
+  </property>
+  <layout class="QGridLayout" name="gridLayout_2">
+   <item row="0" column="1">
+    <layout class="QHBoxLayout" name="horizontalLayout" stretch="0,1">
+     <item>
+      <layout class="QGridLayout" name="gridLayout" columnstretch="0,0,0">
+       <item row="0" column="1">
+        <widget class="QLineEdit" name="image">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="2">
+        <widget class="QToolButton" name="imagePicker">
+         <property name="text">
+          <string>...</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="0">
+        <widget class="QLabel" name="imageLabel">
+         <property name="text">
+          <string>Image</string>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="0">
+        <widget class="QLabel" name="titleLabel">
+         <property name="text">
+          <string>Title</string>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="1">
+        <widget class="QLineEdit" name="title"/>
+       </item>
+       <item row="6" column="0">
+        <widget class="QLabel" name="heightLabel">
+         <property name="text">
+          <string>Height</string>
+         </property>
+        </widget>
+       </item>
+       <item row="6" column="1">
+        <widget class="QSpinBox" name="heightPixels">
+         <property name="minimum">
+          <number>512</number>
+         </property>
+         <property name="maximum">
+          <number>8192</number>
+         </property>
+        </widget>
+       </item>
+       <item row="7" column="0">
+        <widget class="QLabel" name="filterFontSizeLabel">
+         <property name="text">
+          <string>Filter Font Size</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QCheckBox" name="imageIsBackground">
+         <property name="text">
+          <string>Use Image as Background</string>
+         </property>
+        </widget>
+       </item>
+       <item row="7" column="1">
+        <widget class="QSpinBox" name="filterFontSize"/>
+       </item>
+       <item row="5" column="0">
+        <widget class="QLabel" name="widthLabel">
+         <property name="text">
+          <string>Width</string>
+         </property>
+        </widget>
+       </item>
+       <item row="4" column="1">
+        <widget class="QListWidget" name="curves">
+         <property name="selectionMode">
+          <enum>QAbstractItemView::MultiSelection</enum>
+         </property>
+        </widget>
+       </item>
+       <item row="4" column="0">
+        <widget class="QLabel" name="curvesLabel">
+         <property name="text">
+          <string>Curves</string>
+         </property>
+        </widget>
+       </item>
+       <item row="9" column="0" colspan="3">
+        <widget class="QCheckBox" name="showLegend">
+         <property name="text">
+          <string>Show Legend?</string>
+         </property>
+        </widget>
+       </item>
+       <item row="10" column="0" colspan="3">
+        <widget class="QDialogButtonBox" name="buttonBox">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+         <property name="standardButtons">
+          <set>QDialogButtonBox::Close|QDialogButtonBox::Save</set>
+         </property>
+        </widget>
+       </item>
+       <item row="5" column="1">
+        <widget class="QSpinBox" name="widthPixels">
+         <property name="minimum">
+          <number>512</number>
+         </property>
+         <property name="maximum">
+          <number>8192</number>
+         </property>
+        </widget>
+       </item>
+       <item row="8" column="0">
+        <widget class="QLabel" name="label">
+         <property name="text">
+          <string>Title Font Size</string>
+         </property>
+        </widget>
+       </item>
+       <item row="8" column="1">
+        <widget class="QSpinBox" name="titleFontSize"/>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <widget class="MplWidget" name="preview"/>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>MplWidget</class>
+   <extends>QGraphicsView</extends>
+   <header>mpl</header>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>accepted()</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>accept()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>263</x>
+     <y>785</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>157</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>rejected()</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>reject()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>331</x>
+     <y>785</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>286</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>curves</sender>
+   <signal>itemSelectionChanged()</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>set_selected()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>256</x>
+     <y>154</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>356</x>
+     <y>165</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>widthPixels</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>update_height()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>313</x>
+     <y>596</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>363</x>
+     <y>666</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>showLegend</sender>
+   <signal>clicked()</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>redraw()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>95</x>
+     <y>731</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>361</x>
+     <y>618</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>imagePicker</sender>
+   <signal>clicked()</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>choose_image()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>393</x>
+     <y>35</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>358</x>
+     <y>91</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>title</sender>
+   <signal>textChanged(QString)</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>set_title()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>303</x>
+     <y>97</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>356</x>
+     <y>213</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>imageIsBackground</sender>
+   <signal>clicked()</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>redraw_all_axes()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>140</x>
+     <y>51</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>22</x>
+     <y>58</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>filterFontSize</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>set_table_font_size()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>327</x>
+     <y>655</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>376</x>
+     <y>563</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>titleFontSize</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>set_title()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>213</x>
+     <y>696</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>408</x>
+     <y>686</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+ <slots>
+  <slot>set_selected()</slot>
+  <slot>update_height()</slot>
+  <slot>redraw()</slot>
+  <slot>choose_image()</slot>
+  <slot>set_title()</slot>
+  <slot>redraw_all_axes()</slot>
+  <slot>set_table_font_size()</slot>
+ </slots>
+</ui>
