@@ -31,7 +31,7 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         self.setWindowFlags(self.windowFlags() | Qt.WindowSystemMenuHint | Qt.WindowMinMaxButtonsHint)
         self.setupUi(self)
         self.imagePicker.setIcon(qta.icon('fa.folder-open-o'))
-        self.preview.canvas.figure.tight_layout()
+        self.limitsButton.setIcon(qta.icon('ei.move'))
         self.filterFontSize.setValue(int(matplotlib.rcParams['font.size']))
         self.titleFontSize.setValue(12)
         for xy in self.__xy_data:
@@ -46,17 +46,46 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
     def redraw_all_axes(self):
         ''' Draws all charts. '''
         self.preview.canvas.figure.clear()
+        self.preview.canvas.figure.tight_layout()
         if self.imageIsBackground.isChecked():
+            self.imageRatio.setEnabled(False)
+            self.filterLocationY.setEnabled(False)
             self.__imshow_axes = None
-            gs = GridSpec(1, 2, width_ratios=[3, 1])
-            table_spec = gs.new_subplotspec((0, 1), 1, 1)
-            chart_spec = gs.new_subplotspec((0, 0), 1, 1)
+            if self.filterLocationX.currentText() == 'Left':
+                gs = GridSpec(1, 2, width_ratios=[1, 3])
+                table_spec = gs.new_subplotspec((0, 0), 1, 1)
+                chart_spec = gs.new_subplotspec((0, 1), 1, 1)
+            else:
+                gs = GridSpec(1, 2, width_ratios=[3, 1])
+                table_spec = gs.new_subplotspec((0, 1), 1, 1)
+                chart_spec = gs.new_subplotspec((0, 0), 1, 1)
         else:
-            gs = GridSpec(2, 2, width_ratios=[3, 1], height_ratios=[1, 2])
-            self.__imshow_axes = self.preview.canvas.figure.add_subplot(gs.new_subplotspec((0, 0), 1, 2))
+            self.imageRatio.setEnabled(True)
+            self.filterLocationY.setEnabled(True)
+            if self.filterLocationY.currentText() == 'Top':
+                if self.filterLocationX.currentText() == 'Left':
+                    gs = GridSpec(2, 2, width_ratios=[1, 3], height_ratios=[self.imageRatio.value(), 1])
+                    table_spec = gs.new_subplotspec((0, 0), 1, 1)
+                    image_spec = gs.new_subplotspec((0, 1), 1, 1)
+                    chart_spec = gs.new_subplotspec((1, 0), 1, 2)
+                else:
+                    gs = GridSpec(2, 2, width_ratios=[3, 1], height_ratios=[self.imageRatio.value(), 1])
+                    table_spec = gs.new_subplotspec((0, 1), 1, 1)
+                    image_spec = gs.new_subplotspec((0, 0), 1, 1)
+                    chart_spec = gs.new_subplotspec((1, 0), 1, 2)
+            else:
+                if self.filterLocationX.currentText() == 'Left':
+                    gs = GridSpec(2, 2, width_ratios=[1, 3], height_ratios=[self.imageRatio.value(), 1])
+                    image_spec = gs.new_subplotspec((0, 0), 1, 2)
+                    table_spec = gs.new_subplotspec((1, 0), 1, 1)
+                    chart_spec = gs.new_subplotspec((1, 1), 1, 1)
+                else:
+                    gs = GridSpec(2, 2, width_ratios=[3, 1], height_ratios=[self.imageRatio.value(), 1])
+                    image_spec = gs.new_subplotspec((0, 0), 1, 2)
+                    table_spec = gs.new_subplotspec((1, 1), 1, 1)
+                    chart_spec = gs.new_subplotspec((1, 0), 1, 1)
+            self.__imshow_axes = self.preview.canvas.figure.add_subplot(image_spec)
             self.__init_imshow_axes()
-            table_spec = gs.new_subplotspec((1, 1), 1, 1)
-            chart_spec = gs.new_subplotspec((1, 0), 1, 1)
 
         self.__magnitude_model = MagnitudeModel('main', self.preview, self.__preferences, self, 'Signals',
                                                 show_legend=lambda: self.showLegend.isChecked(),
@@ -105,7 +134,8 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         ''' sets the title text '''
         if self.imageIsBackground.isChecked():
             if self.__magnitude_model is not None:
-                self.__magnitude_model.limits.axes_1.set_title(str(self.title.text()), fontsize=self.titleFontSize.value())
+                self.__magnitude_model.limits.axes_1.set_title(str(self.title.text()),
+                                                               fontsize=self.titleFontSize.value())
         else:
             if self.__imshow_axes is not None:
                 self.__imshow_axes.set_title(str(self.title.text()), fontsize=self.titleFontSize.value())
@@ -172,5 +202,11 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
     def set_table_font_size(self, size):
         ''' changes the size of the font in the table '''
         if self.__table is not None:
+            self.__table.auto_set_font_size(False)
             self.__table.set_fontsize(size)
             self.preview.canvas.draw_idle()
+
+    def show_limits(self):
+        ''' Show the limits dialog '''
+        if self.__magnitude_model is not None:
+            self.__magnitude_model.show_limits()
