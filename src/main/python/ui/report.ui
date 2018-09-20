@@ -32,13 +32,6 @@
          </property>
         </widget>
        </item>
-       <item row="9" column="0">
-        <widget class="QLabel" name="imageSizeLabel">
-         <property name="text">
-          <string>Image Ratio</string>
-         </property>
-        </widget>
-       </item>
        <item row="0" column="0">
         <widget class="QLabel" name="imageLabel">
          <property name="text">
@@ -46,24 +39,41 @@
          </property>
         </widget>
        </item>
-       <item row="2" column="0">
+       <item row="1" column="0">
         <widget class="QLabel" name="titleLabel">
          <property name="text">
           <string>Title</string>
          </property>
         </widget>
        </item>
-       <item row="2" column="1">
+       <item row="1" column="1">
         <widget class="QLineEdit" name="title"/>
        </item>
-       <item row="6" column="0">
+       <item row="2" column="0">
+        <widget class="QLabel" name="widthLabel">
+         <property name="text">
+          <string>Width</string>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="1">
+        <widget class="QSpinBox" name="widthPixels">
+         <property name="minimum">
+          <number>512</number>
+         </property>
+         <property name="maximum">
+          <number>8192</number>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="0">
         <widget class="QLabel" name="heightLabel">
          <property name="text">
           <string>Height</string>
          </property>
         </widget>
        </item>
-       <item row="6" column="1">
+       <item row="3" column="1">
         <widget class="QSpinBox" name="heightPixels">
          <property name="minimum">
           <number>512</number>
@@ -73,49 +83,35 @@
          </property>
         </widget>
        </item>
-       <item row="10" column="1">
-        <widget class="QComboBox" name="filterLocationX">
-         <item>
-          <property name="text">
-           <string>Right</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>Left</string>
-          </property>
-         </item>
-        </widget>
-       </item>
-       <item row="7" column="0">
+       <item row="4" column="0">
         <widget class="QLabel" name="filterFontSizeLabel">
          <property name="text">
           <string>Filter Font Size</string>
          </property>
         </widget>
        </item>
-       <item row="8" column="0">
+       <item row="4" column="1">
+        <widget class="QSpinBox" name="filterFontSize"/>
+       </item>
+       <item row="5" column="0">
         <widget class="QLabel" name="titleFontSizeLabel">
          <property name="text">
           <string>Title Font Size</string>
          </property>
         </widget>
        </item>
-       <item row="8" column="1">
+       <item row="5" column="1">
         <widget class="QSpinBox" name="titleFontSize"/>
        </item>
-       <item row="1" column="1">
-        <widget class="QCheckBox" name="imageIsBackground">
+       <item row="6" column="0">
+        <widget class="QLabel" name="majorSplitRatioLabel">
          <property name="text">
-          <string>Use Image as Background</string>
+          <string>Major Split Ratio</string>
          </property>
         </widget>
        </item>
-       <item row="7" column="1">
-        <widget class="QSpinBox" name="filterFontSize"/>
-       </item>
-       <item row="9" column="1">
-        <widget class="QDoubleSpinBox" name="imageRatio">
+       <item row="6" column="1">
+        <widget class="QDoubleSpinBox" name="majorSplitRatio">
          <property name="decimals">
           <number>2</number>
          </property>
@@ -133,28 +129,153 @@
          </property>
         </widget>
        </item>
-       <item row="5" column="0">
-        <widget class="QLabel" name="widthLabel">
+       <item row="7" column="0">
+        <widget class="QLabel" name="minorSplitRatioLabel">
          <property name="text">
-          <string>Width</string>
+          <string>Minor Split Ratio</string>
          </property>
         </widget>
        </item>
-       <item row="4" column="1">
-        <widget class="QListWidget" name="curves">
-         <property name="selectionMode">
-          <enum>QAbstractItemView::MultiSelection</enum>
+       <item row="7" column="1">
+        <widget class="QDoubleSpinBox" name="minorSplitRatio">
+         <property name="minimum">
+          <double>0.020000000000000</double>
+         </property>
+         <property name="maximum">
+          <double>10.000000000000000</double>
+         </property>
+         <property name="singleStep">
+          <double>0.020000000000000</double>
+         </property>
+         <property name="value">
+          <double>1.000000000000000</double>
          </property>
         </widget>
        </item>
-       <item row="4" column="0">
+       <item row="8" column="0">
+        <widget class="QLabel" name="chartSplitLabel">
+         <property name="text">
+          <string>Split</string>
+         </property>
+        </widget>
+       </item>
+       <item row="8" column="1">
+        <widget class="QComboBox" name="chartSplit">
+         <item>
+          <property name="text">
+           <string>Horizontal</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Vertical</string>
+          </property>
+         </item>
+        </widget>
+       </item>
+       <item row="9" column="0">
+        <widget class="QLabel" name="chartLayoutLabel">
+         <property name="text">
+          <string>Layout</string>
+         </property>
+        </widget>
+       </item>
+       <item row="9" column="1">
+        <widget class="QComboBox" name="chartLayout">
+         <item>
+          <property name="text">
+           <string>Image | Chart, Filters</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Image | Filters, Chart</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Chart | Image, Filter</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Chart | Filters, Image</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Filters | Image, Chart</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Filters | Chart, Image</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Image, Filters | Chart</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Filters, Image | Chart</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Chart, Image | Filters</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Image, Chart | Filters</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Filters, Chart | Image</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Chart, Filters | Image</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Chart | Filters</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Filters | Chart</string>
+          </property>
+         </item>
+        </widget>
+       </item>
+       <item row="10" column="0">
         <widget class="QLabel" name="curvesLabel">
          <property name="text">
           <string>Curves</string>
          </property>
         </widget>
        </item>
-       <item row="13" column="0" colspan="3">
+       <item row="10" column="1">
+        <widget class="QListWidget" name="curves">
+         <property name="selectionMode">
+          <enum>QAbstractItemView::MultiSelection</enum>
+         </property>
+        </widget>
+       </item>
+       <item row="11" column="1" colspan="2">
+        <widget class="QCheckBox" name="showLegend">
+         <property name="text">
+          <string>Show Legend?</string>
+         </property>
+        </widget>
+       </item>
+       <item row="12" column="0" colspan="3">
         <widget class="QDialogButtonBox" name="buttonBox">
          <property name="orientation">
           <enum>Qt::Horizontal</enum>
@@ -164,45 +285,7 @@
          </property>
         </widget>
        </item>
-       <item row="10" column="0">
-        <widget class="QLabel" name="filterLocationLabel">
-         <property name="text">
-          <string>Filter Location</string>
-         </property>
-        </widget>
-       </item>
-       <item row="5" column="1">
-        <widget class="QSpinBox" name="widthPixels">
-         <property name="minimum">
-          <number>512</number>
-         </property>
-         <property name="maximum">
-          <number>8192</number>
-         </property>
-        </widget>
-       </item>
-       <item row="11" column="1">
-        <widget class="QComboBox" name="filterLocationY">
-         <item>
-          <property name="text">
-           <string>Top</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>Bottom</string>
-          </property>
-         </item>
-        </widget>
-       </item>
-       <item row="12" column="1" colspan="2">
-        <widget class="QCheckBox" name="showLegend">
-         <property name="text">
-          <string>Show Legend?</string>
-         </property>
-        </widget>
-       </item>
-       <item row="5" column="2">
+       <item row="9" column="2">
         <widget class="QToolButton" name="limitsButton">
          <property name="text">
           <string>...</string>
@@ -282,8 +365,8 @@
    <slot>update_height()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>313</x>
-     <y>494</y>
+     <x>396</x>
+     <y>472</y>
     </hint>
     <hint type="destinationlabel">
      <x>363</x>
@@ -314,8 +397,8 @@
    <slot>choose_image()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>393</x>
-     <y>35</y>
+     <x>437</x>
+     <y>39</y>
     </hint>
     <hint type="destinationlabel">
      <x>358</x>
@@ -330,28 +413,12 @@
    <slot>set_title()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>303</x>
-     <y>97</y>
+     <x>396</x>
+     <y>73</y>
     </hint>
     <hint type="destinationlabel">
      <x>356</x>
      <y>213</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>imageIsBackground</sender>
-   <signal>clicked()</signal>
-   <receiver>saveReportDialog</receiver>
-   <slot>redraw_all_axes()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>140</x>
-     <y>51</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>22</x>
-     <y>58</y>
     </hint>
    </hints>
   </connection>
@@ -362,8 +429,8 @@
    <slot>set_table_font_size()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>327</x>
-     <y>553</y>
+     <x>396</x>
+     <y>540</y>
     </hint>
     <hint type="destinationlabel">
      <x>376</x>
@@ -378,8 +445,8 @@
    <slot>set_title()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>213</x>
-     <y>594</y>
+     <x>354</x>
+     <y>574</y>
     </hint>
     <hint type="destinationlabel">
      <x>408</x>
@@ -388,14 +455,14 @@
    </hints>
   </connection>
   <connection>
-   <sender>imageRatio</sender>
+   <sender>majorSplitRatio</sender>
    <signal>valueChanged(double)</signal>
    <receiver>saveReportDialog</receiver>
    <slot>redraw_all_axes()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>351</x>
-     <y>622</y>
+     <x>396</x>
+     <y>608</y>
     </hint>
     <hint type="destinationlabel">
      <x>424</x>
@@ -404,7 +471,7 @@
    </hints>
   </connection>
   <connection>
-   <sender>filterLocationX</sender>
+   <sender>chartSplit</sender>
    <signal>currentIndexChanged(int)</signal>
    <receiver>saveReportDialog</receiver>
    <slot>redraw_all_axes()</slot>
@@ -420,34 +487,66 @@
    </hints>
   </connection>
   <connection>
-   <sender>filterLocationY</sender>
-   <signal>currentIndexChanged(int)</signal>
-   <receiver>saveReportDialog</receiver>
-   <slot>redraw_all_axes()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>180</x>
-     <y>693</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>113</x>
-     <y>697</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
    <sender>limitsButton</sender>
    <signal>clicked()</signal>
    <receiver>saveReportDialog</receiver>
    <slot>show_limits()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>406</x>
-     <y>494</y>
+     <x>437</x>
+     <y>472</y>
     </hint>
     <hint type="destinationlabel">
      <x>410</x>
      <y>450</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>chartSplit</sender>
+   <signal>currentIndexChanged(int)</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>redraw_all_axes()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>273</x>
+     <y>676</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>93</x>
+     <y>717</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>chartLayout</sender>
+   <signal>currentIndexChanged(int)</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>redraw_all_axes()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>187</x>
+     <y>701</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>117</x>
+     <y>731</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>minorSplitRatio</sender>
+   <signal>valueChanged(double)</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>redraw_all_axes()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>231</x>
+     <y>635</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>92</x>
+     <y>647</y>
     </hint>
    </hints>
   </connection>

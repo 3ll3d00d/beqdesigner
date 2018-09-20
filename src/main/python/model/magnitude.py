@@ -105,9 +105,11 @@ class MagnitudeModel:
     '''
 
     def __init__(self, name, chart, preferences, primaryDataProvider, primaryName, secondaryDataProvider=None,
-                 secondaryName=None, show_legend=lambda: True, db_range=60, subplot_spec=SINGLE_SUBPLOT_SPEC):
+                 secondaryName=None, show_legend=lambda: True, db_range=60, subplot_spec=SINGLE_SUBPLOT_SPEC,
+                 redraw_listener=None):
         self.__name = name
         self.__chart = chart
+        self.__redraw_listener = redraw_listener
         self.__show_legend = show_legend
         primary_axes = self.__chart.canvas.figure.add_subplot(subplot_spec)
         primary_axes.set_ylabel(f"dBFS ({primaryName})")
@@ -131,6 +133,8 @@ class MagnitudeModel:
 
     def __redraw_func(self):
         self.__chart.canvas.draw_idle()
+        if callable(self.__redraw_listener):
+            self.__redraw_listener()
 
     def __repr__(self):
         return self.__name
