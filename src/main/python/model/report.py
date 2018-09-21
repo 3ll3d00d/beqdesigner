@@ -2,7 +2,6 @@ import math
 
 import matplotlib
 import qtawesome as qta
-from matplotlib.font_manager import FontProperties
 from matplotlib.gridspec import GridSpec
 from matplotlib.image import imread
 from matplotlib.table import Table
@@ -41,7 +40,6 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         self.filterRowHeightMultiplier.setValue(1.2 * 1.85)
         self.imagePicker.setIcon(qta.icon('fa.folder-open-o'))
         self.limitsButton.setIcon(qta.icon('ei.move'))
-        self.filterFontSize.setValue(18)
         self.titleFontSize.setValue(36)
         for xy in self.__xy_data:
             self.curves.addItem(QListWidgetItem(xy.name, self.curves))
@@ -75,8 +73,18 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
                                                 grid_alpha=self.gridOpacity.value())
         if filter_spec is not None:
             self.__filter_axes = self.preview.canvas.figure.add_subplot(filter_spec)
+            self.filterRowHeightMultiplier.setEnabled(True)
+            self.x0.setEnabled(False)
+            self.x1.setEnabled(False)
+            self.y0.setEnabled(False)
+            self.y1.setEnabled(False)
         else:
             self.__filter_axes = None
+            self.filterRowHeightMultiplier.setEnabled(False)
+            self.x0.setEnabled(True)
+            self.x1.setEnabled(True)
+            self.y0.setEnabled(True)
+            self.y1.setEnabled(True)
         self.replace_table(draw=False)
         self.set_title(draw=False)
         self.apply_image(draw=False)
@@ -116,30 +124,23 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         '''
         if len(self.__filter_model) > 0 and self.__magnitude_model is not None:
             fc = self.__magnitude_model.limits.axes_1.get_facecolor()
-            font_size = self.filterFontSize.value()
-            font = None
+            cell_kwargs = {}
 
             if self.__filter_axes is not None:
                 table_axes = self.__filter_axes
                 table_loc = {'loc': 'center'}
-                font = FontProperties()
-                font.set_size(font_size)
-                cell_kwargs = {'fontproperties': font}
             else:
                 table_axes = self.__magnitude_model.limits.axes_1
                 table_loc = {'bbox': (self.x0.value(), self.y0.value(),
                                       self.x1.value() - self.x0.value(), self.y1.value() - self.y0.value())}
-                cell_kwargs = {}
             # this is some hackery around the way the matplotlib table works
             # multiplier = 1.2 * 1.85 if not self.__first_create else 1.2
             multiplier = self.filterRowHeightMultiplier.value()
             self.__first_create = False
-            row_height = (font_size / 72.0 * self.preview.canvas.figure.dpi / table_axes.bbox.height * multiplier)
+            row_height = (matplotlib.rcParams['font.size'] / 72.0 * self.preview.canvas.figure.dpi / table_axes.bbox.height * multiplier)
             cell_kwargs['facecolor'] = fc
 
             table = Table(table_axes, **table_loc)
-            if font is not None:
-                table.auto_set_font_size(value=False)
             self.__add_filters_to_table(table, row_height, cell_kwargs)
             return table
         return None
@@ -165,6 +166,7 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
                 for col_idx, cell in enumerate(row):
                     cell = table.add_cell(idx + 1, col_idx, width=col_width, height=row_height, text=cell,
                                           loc='center', edgecolor=matplotlib.rcParams['axes.edgecolor'], **cell_kwargs)
+                    cell.PAD = 0.02
                     edges = 'B'
                     if col_idx == 0:
                         edges += 'L'
