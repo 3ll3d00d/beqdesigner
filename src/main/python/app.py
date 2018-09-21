@@ -771,7 +771,7 @@ class SaveChartDialog(QDialog, Ui_saveChartDialog):
                 self.statusbar.showMessage(f"Saved {self.name} to {outputFile}", 5000)
         QDialog.accept(self)
 
-    def updateHeight(self, newWidth):
+    def set_height(self, newWidth):
         '''
         Updates the height as the width changes according to the aspect ratio.
         :param newWidth: the new width.
