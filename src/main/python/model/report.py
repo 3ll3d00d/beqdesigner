@@ -70,7 +70,10 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         self.__magnitude_model = MagnitudeModel('main', self.preview, self.__preferences, self, 'Signals',
                                                 show_legend=lambda: self.showLegend.isChecked(),
                                                 subplot_spec=chart_spec, redraw_listener=self.on_redraw)
-        self.__filter_axes = self.preview.canvas.figure.add_subplot(filter_spec)
+        if filter_spec is not None:
+            self.__filter_axes = self.preview.canvas.figure.add_subplot(filter_spec)
+        else:
+            self.__filter_axes = None
         self.__replace_table()
         self.set_title()
         self.apply_image(draw=False)
@@ -86,34 +89,49 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
 
     def __replace_table(self):
         ''' Adds the table to the axis '''
-        self.__filter_axes.clear()
-        self.__filter_axes.axis('off')
-        self.__filter_axes.add_table(self.__make_table())
+        table = self.__make_table()
+        if self.__filter_axes is not None:
+            self.__filter_axes.clear()
+            self.__filter_axes.axis('off')
+            self.__filter_axes.add_table(table)
+        else:
+            self.__magnitude_model.limits.axes_1.add_table(table)
 
     def __make_table(self):
         '''
         Transforms the filter model into a table. This code is based on the code in matplotlib.table
         :return: the table.
         '''
+        cols = ('Freq', 'Gain (dB)', 'Q', 'Type', '', 'Total (dB)')
+        col_width = 1 / len(cols)
         fc = self.__magnitude_model.limits.axes_1.get_facecolor()
-        table = Table(self.__filter_axes, loc='center')
-        table.edges = 'closed'
         font_size = self.filterFontSize.value()
         # this is some hackery around the way the matplotlib table works
         multiplier = 1.2 * 1.85 if not self.__first_create else 1.2
         self.__first_create = False
-        height = (font_size / 72.0 * self.preview.canvas.figure.dpi / self.__filter_axes.bbox.height * multiplier)
         font = FontProperties()
         font.set_size(font_size)
-        cols = ('Type', 'Freq', 'Q', 'Gain')
+
+        if self.__filter_axes is not None:
+            table_axes = self.__filter_axes
+            table_loc = 'center'
+        else:
+            table_axes = self.__magnitude_model.limits.axes_1
+            table_loc = 'upper right'
+            col_width /= self.minorSplitRatio.value() if self.minorSplitRatio.value() >= 1.0 else 1
+
+        row_height = (font_size / 72.0 * self.preview.canvas.figure.dpi / table_axes.bbox.height * multiplier)
+
+        table = Table(table_axes, loc=table_loc)
+        table.edges = 'closed'
         for idx, label in enumerate(cols):
-            table.add_cell(0, idx, width=1 / len(cols), height=height, text=label, facecolor=fc, loc='center',
+            table.add_cell(0, idx, width=col_width, height=row_height, text=label, facecolor=fc, loc='center',
                            edgecolor=matplotlib.rcParams['axes.edgecolor'], fontproperties=font)
         cells = [self.__format_filter(f) for f in self.__filter_model]
         if len(cells) > 0:
             for idx, row in enumerate(cells):
                 for col_idx, cell in enumerate(row):
-                    table.add_cell(idx + 1, col_idx, width=1 / len(cols), height=height, text=cell, facecolor=fc,
+                    table.add_cell(idx + 1, col_idx, width=col_width, height=row_height, text=cell, facecolor=fc,
                                    loc='center', edgecolor=matplotlib.rcParams['axes.edgecolor'], fontproperties=font)
         return table
 
@@ -169,6 +187,14 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         |        |        |
         -------------------
 
+        1 pane
+
+        -------------------
+        |                 |
+        |                 |
+        |                 |
+        -------------------
+
         :return: image_spec, chart_spec, filter_spec
         '''
         layout = self.chartLayout.currentText()
@@ -203,6 +229,10 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
             chart_spec, filter_spec = self.__get_two_pane_spec()
         elif layout == "Filters | Chart":
             filter_spec, chart_spec = self.__get_two_pane_spec()
+        elif layout == "Chart | Image":
+            chart_spec, image_spec = self.__get_two_pane_spec()
+        elif layout == "Image | Chart":
+            image_spec, chart_spec = self.__get_two_pane_spec()
         return image_spec, chart_spec, filter_spec
 
     def __get_one_pane_two_pane_spec(self):
@@ -259,9 +289,17 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         self.__imshow_axes.axis('off')
 
     def __format_filter(self, filt):
-        vals = [str(filt.filter_type), str(filt.freq)]
+        vals = [str(filt.freq)]
+        gain = filt.gain if hasattr(filt, 'gain') else 0
+        vals.append(str(gain)) if gain != 0 else vals.append(str('N/A'))
         vals.append(str(filt.q)) if hasattr(filt, 'q') else vals.append(str('N/A'))
-        vals.append(str(filt.gain)) if hasattr(filt, 'gain') else vals.append(str('N/A'))
+        vals.append(str(filt.filter_type))
+        if len(filt) > 1:
+            vals.append(f"x{len(filt)}")
+            vals.append(f"{gain * len(filt)}")
+        else:
+            vals.append('')
+            vals.append('')
         return vals
 
     def getMagnitudeData(self, reference=None):
@@ -352,7 +390,7 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
             self.preview.canvas.draw_idle()
 
     def __make_extent(self, limits):
-        return (limits.x_min, limits.x_max, limits.y1_min, limits.y1_max)
+        return limits.x_min, limits.x_max, limits.y1_min, limits.y1_max
 
     def set_table_font_size(self, size):
         ''' changes the size of the font in the table '''
