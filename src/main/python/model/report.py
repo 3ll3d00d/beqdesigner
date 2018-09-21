@@ -38,14 +38,16 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         self.__selected_xy = []
         self.setWindowFlags(self.windowFlags() | Qt.WindowSystemMenuHint | Qt.WindowMinMaxButtonsHint)
         self.setupUi(self)
+        self.filterRowHeightMultiplier.setValue(1.2 * 1.85)
         self.imagePicker.setIcon(qta.icon('fa.folder-open-o'))
         self.limitsButton.setIcon(qta.icon('ei.move'))
         self.filterFontSize.setValue(18)
         self.titleFontSize.setValue(36)
         for xy in self.__xy_data:
             self.curves.addItem(QListWidgetItem(xy.name, self.curves))
-        self.__canvas_size_to_xy()
         self.redraw_all_axes()
+        self.__canvas_size_to_xy()
+        self.filterRowHeightMultiplier.setValue(1.2)
 
     def __canvas_size_to_xy(self):
         '''
@@ -69,13 +71,14 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
             self.__imshow_axes = None
         self.__magnitude_model = MagnitudeModel('main', self.preview, self.__preferences, self, 'Signals',
                                                 show_legend=lambda: self.showLegend.isChecked(),
-                                                subplot_spec=chart_spec, redraw_listener=self.on_redraw)
+                                                subplot_spec=chart_spec, redraw_listener=self.on_redraw,
+                                                grid_alpha=self.gridOpacity.value())
         if filter_spec is not None:
             self.__filter_axes = self.preview.canvas.figure.add_subplot(filter_spec)
         else:
             self.__filter_axes = None
-        self.__replace_table()
-        self.set_title()
+        self.replace_table(draw=False)
+        self.set_title(draw=False)
         self.apply_image(draw=False)
         self.preview.canvas.draw_idle()
 
@@ -87,52 +90,87 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         if self.__imshow_axes is None and self.__image is not None:
             self.__image.set_extent(self.__make_extent(self.__magnitude_model.limits))
 
-    def __replace_table(self):
+    def replace_table(self, draw=True):
         ''' Adds the table to the axis '''
         table = self.__make_table()
-        if self.__filter_axes is not None:
-            self.__filter_axes.clear()
-            self.__filter_axes.axis('off')
-            self.__filter_axes.add_table(table)
-        else:
-            self.__magnitude_model.limits.axes_1.add_table(table)
+        if table is not None:
+            if self.__filter_axes is not None:
+                self.__filter_axes.clear()
+                self.__filter_axes.axis('off')
+                self.__filter_axes.add_table(table)
+                self.__magnitude_model.limits.axes_1.spines['top'].set_visible(True)
+                self.__magnitude_model.limits.axes_1.spines['right'].set_visible(True)
+            elif self.__magnitude_model is not None:
+                for t in self.__magnitude_model.limits.axes_1.tables:
+                    t.remove()
+                self.__magnitude_model.limits.axes_1.add_table(table)
+                self.__magnitude_model.limits.axes_1.spines['top'].set_visible(False)
+                self.__magnitude_model.limits.axes_1.spines['right'].set_visible(False)
+            if draw:
+                self.preview.canvas.draw_idle()
 
     def __make_table(self):
         '''
         Transforms the filter model into a table. This code is based on the code in matplotlib.table
         :return: the table.
         '''
-        cols = ('Freq', 'Gain (dB)', 'Q', 'Type', '', 'Total (dB)')
+        if len(self.__filter_model) > 0 and self.__magnitude_model is not None:
+            fc = self.__magnitude_model.limits.axes_1.get_facecolor()
+            font_size = self.filterFontSize.value()
+            font = None
+
+            if self.__filter_axes is not None:
+                table_axes = self.__filter_axes
+                table_loc = {'loc': 'center'}
+                font = FontProperties()
+                font.set_size(font_size)
+                cell_kwargs = {'fontproperties': font}
+            else:
+                table_axes = self.__magnitude_model.limits.axes_1
+                table_loc = {'bbox': (self.x0.value(), self.y0.value(),
+                                      self.x1.value() - self.x0.value(), self.y1.value() - self.y0.value())}
+                cell_kwargs = {}
+            # this is some hackery around the way the matplotlib table works
+            # multiplier = 1.2 * 1.85 if not self.__first_create else 1.2
+            multiplier = self.filterRowHeightMultiplier.value()
+            self.__first_create = False
+            row_height = (font_size / 72.0 * self.preview.canvas.figure.dpi / table_axes.bbox.height * multiplier)
+            cell_kwargs['facecolor'] = fc
+
+            table = Table(table_axes, **table_loc)
+            if font is not None:
+                table.auto_set_font_size(value=False)
+            self.__add_filters_to_table(table, row_height, cell_kwargs)
+            return table
+        return None
+
+    def __add_filters_to_table(self, table, row_height, cell_kwargs):
+        ''' renders the filters as a nicely formatted table '''
+        cols = ('Freq', 'Gain (dB)', 'Q', 'Type', '')
         col_width = 1 / len(cols)
-        fc = self.__magnitude_model.limits.axes_1.get_facecolor()
-        font_size = self.filterFontSize.value()
-        # this is some hackery around the way the matplotlib table works
-        multiplier = 1.2 * 1.85 if not self.__first_create else 1.2
-        self.__first_create = False
-        font = FontProperties()
-        font.set_size(font_size)
-
-        if self.__filter_axes is not None:
-            table_axes = self.__filter_axes
-            table_loc = 'center'
-        else:
-            table_axes = self.__magnitude_model.limits.axes_1
-            table_loc = 'upper right'
-            col_width /= self.minorSplitRatio.value() if self.minorSplitRatio.value() >= 1.0 else 1
-
-        row_height = (font_size / 72.0 * self.preview.canvas.figure.dpi / table_axes.bbox.height * multiplier)
-
-        table = Table(table_axes, loc=table_loc)
-        table.edges = 'closed'
+        if 'bbox' in cell_kwargs:
+            col_width *= cell_kwargs['bbox'][2]
+        cells = [self.__table_print(f) for f in self.__filter_model]
         for idx, label in enumerate(cols):
-            table.add_cell(0, idx, width=col_width, height=row_height, text=label, facecolor=fc, loc='center',
-                           edgecolor=matplotlib.rcParams['axes.edgecolor'], fontproperties=font)
-        cells = [self.__format_filter(f) for f in self.__filter_model]
+            cell = table.add_cell(0, idx, width=col_width, height=row_height, text=label, loc='center',
+                                  edgecolor=matplotlib.rcParams['axes.edgecolor'], **cell_kwargs)
+            if idx == 0:
+                cell.visible_edges = 'LTB'
+            elif idx == len(cols) - 1:
+                cell.visible_edges = 'RTB'
+            else:
+                cell.visible_edges = 'TB'
         if len(cells) > 0:
             for idx, row in enumerate(cells):
                 for col_idx, cell in enumerate(row):
-                    table.add_cell(idx + 1, col_idx, width=col_width, height=row_height, text=cell, facecolor=fc,
-                                   loc='center', edgecolor=matplotlib.rcParams['axes.edgecolor'], fontproperties=font)
+                    cell = table.add_cell(idx + 1, col_idx, width=col_width, height=row_height, text=cell,
+                                          loc='center', edgecolor=matplotlib.rcParams['axes.edgecolor'], **cell_kwargs)
+                    edges = 'B'
+                    if col_idx == 0:
+                        edges += 'L'
+                    elif col_idx == len(cols) - 1:
+                        edges += 'R'
+                    cell.visible_edges = edges
         return table
 
     def __calculate_layout(self):
@@ -288,7 +326,22 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
     def __init_imshow_axes(self):
         self.__imshow_axes.axis('off')
 
-    def __format_filter(self, filt):
+    def __pretty_print(self, filt):
+        ''' formats the filter into a format suitable for rendering as a string '''
+        txt = f"{filt.freq} Hz "
+        if hasattr(filt, 'gain'):
+            if filt.gain > 0:
+                txt += '+'
+            txt += f"{filt.gain}dB "
+        if hasattr(filt, 'q'):
+            txt += f"Q {filt.q} "
+        txt += f"{filt.filter_type} "
+        if len(filt) > 1:
+            txt += f" x{len(filt)} (Total: {filt.gain * len(filt)} db)"
+        return txt
+
+    def __table_print(self, filt):
+        ''' formats the filter into a format suitable for rendering in the table '''
         vals = [str(filt.freq)]
         gain = filt.gain if hasattr(filt, 'gain') else 0
         vals.append(str(gain)) if gain != 0 else vals.append(str('N/A'))
@@ -296,9 +349,7 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         vals.append(str(filt.filter_type))
         if len(filt) > 1:
             vals.append(f"x{len(filt)}")
-            vals.append(f"{gain * len(filt)}")
         else:
-            vals.append('')
             vals.append('')
         return vals
 
@@ -313,7 +364,7 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         self.__selected_xy = [x for x in self.__xy_data if x.name in selected]
         self.redraw()
 
-    def set_title(self):
+    def set_title(self, draw=True):
         ''' sets the title text '''
         if self.__imshow_axes is None:
             if self.__magnitude_model is not None:
@@ -321,7 +372,8 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
                                                                fontsize=self.titleFontSize.value())
         else:
             self.__imshow_axes.set_title(str(self.title.text()), fontsize=self.titleFontSize.value())
-        self.preview.canvas.draw_idle()
+        if draw:
+            self.preview.canvas.draw_idle()
 
     def redraw(self):
         '''
@@ -332,7 +384,7 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
     def resizeEvent(self, resizeEvent):
         super().resizeEvent(resizeEvent)
         self.__canvas_size_to_xy()
-        self.__replace_table()
+        self.replace_table()
 
     def accept(self):
         formats = "Portable Network Graphic (*.png)"
@@ -375,9 +427,10 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
             if self.__imshow_axes is None:
                 if self.__magnitude_model is not None:
                     extent = self.__make_extent(self.__magnitude_model.limits)
-                    self.__image = self.__magnitude_model.limits.axes_1.imshow(im, extent=extent)
+                    self.__image = self.__magnitude_model.limits.axes_1.imshow(im, extent=extent,
+                                                                               alpha=self.imageOpacity.value())
             else:
-                self.__image = self.__imshow_axes.imshow(im)
+                self.__image = self.__imshow_axes.imshow(im, alpha=self.imageOpacity.value())
         else:
             if self.__imshow_axes is None:
                 if self.__image is not None:
@@ -395,10 +448,21 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
     def set_table_font_size(self, size):
         ''' changes the size of the font in the table '''
         if self.__filter_axes is not None:
-            self.__replace_table()
-            self.preview.canvas.draw_idle()
+            self.replace_table()
 
     def show_limits(self):
         ''' Show the limits dialog '''
         if self.__magnitude_model is not None:
             self.__magnitude_model.show_limits()
+
+    def set_image_opacity(self, value):
+        ''' updates the image alpha '''
+        if self.__image is not None:
+            self.__image.set_alpha(value)
+            self.preview.canvas.draw_idle()
+
+    def set_grid_opacity(self, value):
+        ''' updates the grid alpha '''
+        if self.__magnitude_model is not None:
+            self.__magnitude_model.limits.axes_1.grid(alpha=value)
+            self.preview.canvas.draw_idle()

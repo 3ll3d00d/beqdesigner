@@ -106,15 +106,15 @@ class MagnitudeModel:
 
     def __init__(self, name, chart, preferences, primaryDataProvider, primaryName, secondaryDataProvider=None,
                  secondaryName=None, show_legend=lambda: True, db_range=60, subplot_spec=SINGLE_SUBPLOT_SPEC,
-                 redraw_listener=None):
+                 redraw_listener=None, grid_alpha=0.5):
         self.__name = name
         self.__chart = chart
         self.__redraw_listener = redraw_listener
         self.__show_legend = show_legend
         primary_axes = self.__chart.canvas.figure.add_subplot(subplot_spec)
         primary_axes.set_ylabel(f"dBFS ({primaryName})")
-        primary_axes.grid(linestyle='-', which='major', linewidth=1, alpha=0.5)
-        primary_axes.grid(linestyle='--', which='minor', linewidth=1, alpha=0.5)
+        primary_axes.grid(linestyle='-', which='major', linewidth=1, alpha=grid_alpha)
+        primary_axes.grid(linestyle='--', which='minor', linewidth=1, alpha=grid_alpha)
         self.__primary = AxesManager(primaryDataProvider, primary_axes)
         if secondaryDataProvider is None:
             secondary_axes = None
