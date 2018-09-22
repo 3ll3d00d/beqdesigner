@@ -65,10 +65,8 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         Calculates the current size of the image.
         '''
         self.__dpi = self.preview.canvas.figure.dpi
-        before = f"x: {self.__x} y: {self.__y}"
         self.__x = event.width
         self.__y = event.height
-        print(f"before: {before} after: x: {self.__x} y: {self.__y}")
         self.__aspect_ratio = self.__x / self.__y
         self.widthPixels.setValue(self.__x)
         self.heightPixels.setValue(self.__y)
