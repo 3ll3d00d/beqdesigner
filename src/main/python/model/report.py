@@ -509,7 +509,7 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         Pick an image and display it.
         '''
         image = QFileDialog.getOpenFileName(parent=self, caption='Choose Image',
-                                            filter='Portable Network Graphic (*.png)')
+                                            filter='Images (*.png, *.jpeg, *.jpg)')
         img_file = image[0] if image is not None and len(image) > 0 else None
         self.image.setText(img_file)
         self.apply_image()
