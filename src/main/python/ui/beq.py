@@ -213,7 +213,10 @@ class Ui_MainWindow(object):
         self.action_Batch_Extract.setObjectName("action_Batch_Extract")
         self.actionSave_Report = QtWidgets.QAction(MainWindow)
         self.actionSave_Report.setObjectName("actionSave_Report")
+        self.actionAbout = QtWidgets.QAction(MainWindow)
+        self.actionAbout.setObjectName("actionAbout")
         self.menuHelp.addAction(self.actionShow_Logs)
+        self.menuHelp.addAction(self.actionAbout)
         self.menuSettings.addAction(self.actionPreferences)
         self.menuSettings.addSeparator()
         self.menuLoad.addAction(self.action_load_preset_1)
@@ -346,5 +349,6 @@ class Ui_MainWindow(object):
         self.action_Batch_Extract.setShortcut(_translate("MainWindow", "Ctrl+Shift+E"))
         self.actionSave_Report.setText(_translate("MainWindow", "Save Repor&t"))
         self.actionSave_Report.setShortcut(_translate("MainWindow", "Ctrl+R"))
+        self.actionAbout.setText(_translate("MainWindow", "About"))
 
 from mpl import MplWidget
