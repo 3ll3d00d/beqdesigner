@@ -343,6 +343,7 @@
     <addaction name="actionExport_FRD"/>
     <addaction name="separator"/>
     <addaction name="actionSave_Chart"/>
+    <addaction name="actionSave_Report"/>
    </widget>
    <widget class="QMenu" name="menu_Tools">
     <property name="title">
@@ -525,6 +526,14 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+Shift+E</string>
+   </property>
+  </action>
+  <action name="actionSave_Report">
+   <property name="text">
+    <string>Save Repor&amp;t</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+R</string>
    </property>
   </action>
  </widget>

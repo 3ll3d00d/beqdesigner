@@ -297,13 +297,20 @@ class SignalModel(Sequence):
         '''
         self.replace([s for idx, s in enumerate(self.__signals) if idx not in indices])
 
+    def get_all_magnitude_data(self):
+        '''
+        :return: the raw xy data.
+        '''
+        from app import flatten
+        results = list(flatten([s.get_all_xy() for s in self.__signals]))
+        return results
+
     def getMagnitudeData(self, reference=None):
         '''
         :param reference: the curve against which to normalise.
         :return: the peak and avg spectrum for the signals (if any) + the filter signals.
         '''
-        from app import flatten
-        results = list(flatten([s.get_all_xy() for s in self.__signals]))
+        results = self.get_all_magnitude_data()
         show_signals = self.__preferences.get(DISPLAY_SHOW_SIGNALS)
         show_filtered_signals = self.__preferences.get(DISPLAY_SHOW_FILTERED_SIGNALS)
         pattern = self.__get_visible_signal_name_filter(show_filtered_signals, show_signals)

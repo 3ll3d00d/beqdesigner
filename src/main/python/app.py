@@ -9,9 +9,8 @@ import sys
 from contextlib import contextmanager
 
 import matplotlib
-
 matplotlib.use("Qt5Agg")
-
+from model.report import SaveReportDialog
 from model.batch import BatchExtractDialog
 from model.analysis import AnalyseSignalDialog
 from model.link import LinkSignalsDialog
@@ -42,7 +41,6 @@ from model.preferences import PreferencesDialog, BINARIES_GROUP, ANALYSIS_TARGET
     SHOW_FILTER_OPTIONS, SHOW_SIGNAL_OPTIONS, DISPLAY_SHOW_SIGNALS, SHOW_FILTERED_SIGNAL_OPTIONS
 from model.signal import SignalModel, SignalTableModel, SignalDialog, SignalData
 from ui.beq import Ui_MainWindow
-
 
 logger = logging.getLogger('beq')
 
@@ -158,6 +156,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.actionLoad_Signal.triggered.connect(self.importSignal)
         self.action_Load_Project.triggered.connect(self.importProject)
         # export
+        self.actionSave_Report.triggered.connect(self.exportReport)
         self.actionSave_Chart.triggered.connect(self.exportChart)
         self.actionExport_Biquad.triggered.connect(self.exportBiquads)
         self.actionSave_Filter.triggered.connect(self.exportFilter)
@@ -437,6 +436,13 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         Saves the currently selected chart to a file.
         '''
         dialog = SaveChartDialog(self, 'beq', self.mainChart.canvas.figure, self.statusbar)
+        dialog.exec()
+
+    def exportReport(self):
+        '''
+        Saves the currently selected chart to a file.
+        '''
+        dialog = SaveReportDialog(self, self.preferences, self.__signal_model, self.__filter_model, self.statusbar)
         dialog.exec()
 
     def exportBiquads(self):
@@ -765,7 +771,7 @@ class SaveChartDialog(QDialog, Ui_saveChartDialog):
                 self.statusbar.showMessage(f"Saved {self.name} to {outputFile}", 5000)
         QDialog.accept(self)
 
-    def updateHeight(self, newWidth):
+    def set_height(self, newWidth):
         '''
         Updates the height as the width changes according to the aspect ratio.
         :param newWidth: the new width.
