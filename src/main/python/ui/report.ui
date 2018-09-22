@@ -18,90 +18,28 @@
     <layout class="QHBoxLayout" name="horizontalLayout" stretch="0,1">
      <item>
       <layout class="QGridLayout" name="gridLayout" columnstretch="0,0,0">
-       <item row="21" column="1">
-        <widget class="QListWidget" name="curves">
-         <property name="selectionMode">
-          <enum>QAbstractItemView::MultiSelection</enum>
-         </property>
-        </widget>
-       </item>
-       <item row="22" column="1" colspan="2">
-        <widget class="QCheckBox" name="showLegend">
+       <item row="19" column="0">
+        <widget class="QLabel" name="chartLayoutLabel">
          <property name="text">
-          <string>Show Legend?</string>
+          <string>Layout</string>
          </property>
         </widget>
        </item>
-       <item row="4" column="0">
-        <widget class="QLabel" name="titleFontSizeLabel">
-         <property name="text">
-          <string>Font Size</string>
-         </property>
-        </widget>
-       </item>
-       <item row="8" column="1">
-        <widget class="QDoubleSpinBox" name="filterRowHeightMultiplier">
-         <property name="maximum">
-          <double>3.000000000000000</double>
-         </property>
-         <property name="singleStep">
-          <double>0.010000000000000</double>
-         </property>
-         <property name="value">
-          <double>1.200000000000000</double>
-         </property>
-        </widget>
-       </item>
-       <item row="15" column="1">
-        <widget class="QDoubleSpinBox" name="majorSplitRatio">
-         <property name="decimals">
-          <number>2</number>
-         </property>
-         <property name="minimum">
-          <double>0.100000000000000</double>
-         </property>
-         <property name="maximum">
-          <double>10.000000000000000</double>
-         </property>
-         <property name="singleStep">
-          <double>0.020000000000000</double>
-         </property>
-         <property name="value">
-          <double>1.000000000000000</double>
-         </property>
-        </widget>
-       </item>
-       <item row="15" column="0">
-        <widget class="QLabel" name="majorSplitRatioLabel">
-         <property name="text">
-          <string>Major Split Ratio</string>
-         </property>
-        </widget>
-       </item>
-       <item row="16" column="1">
-        <widget class="QDoubleSpinBox" name="minorSplitRatio">
-         <property name="minimum">
-          <double>0.020000000000000</double>
-         </property>
-         <property name="maximum">
-          <double>10.000000000000000</double>
-         </property>
-         <property name="singleStep">
-          <double>0.020000000000000</double>
-         </property>
-         <property name="value">
-          <double>3.000000000000000</double>
-         </property>
-        </widget>
-       </item>
-       <item row="16" column="0">
+       <item row="17" column="0">
         <widget class="QLabel" name="minorSplitRatioLabel">
          <property name="text">
           <string>Minor Split Ratio</string>
          </property>
         </widget>
        </item>
-       <item row="17" column="1">
+       <item row="3" column="0">
+        <widget class="QLabel" name="label">
+         <property name="text">
+          <string>Alpha</string>
+         </property>
+        </widget>
+       </item>
+       <item row="18" column="1">
         <widget class="QComboBox" name="chartSplit">
          <property name="currentIndex">
           <number>1</number>
@@ -116,27 +54,6 @@
            <string>Vertical</string>
           </property>
          </item>
-        </widget>
-       </item>
-       <item row="18" column="0">
-        <widget class="QLabel" name="chartLayoutLabel">
-         <property name="text">
-          <string>Layout</string>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="0">
-        <widget class="QLabel" name="label">
-         <property name="text">
-          <string>Alpha</string>
-         </property>
-        </widget>
-       </item>
-       <item row="17" column="0">
-        <widget class="QLabel" name="chartSplitLabel">
-         <property name="text">
-          <string>Split</string>
-         </property>
         </widget>
        </item>
        <item row="0" column="0" colspan="3">
@@ -161,10 +78,24 @@
          </property>
         </widget>
        </item>
-       <item row="4" column="1">
+       <item row="5" column="1">
         <widget class="QSpinBox" name="titleFontSize"/>
        </item>
-       <item row="9" column="1">
+       <item row="18" column="0">
+        <widget class="QLabel" name="chartSplitLabel">
+         <property name="text">
+          <string>Split</string>
+         </property>
+        </widget>
+       </item>
+       <item row="21" column="0">
+        <widget class="QLabel" name="label_2">
+         <property name="text">
+          <string>Grid Alpha</string>
+         </property>
+        </widget>
+       </item>
+       <item row="10" column="1">
         <layout class="QHBoxLayout" name="horizontalLayout_2">
          <item>
           <spacer name="horizontalSpacer_2">
@@ -210,14 +141,7 @@
          </item>
         </layout>
        </item>
-       <item row="20" column="0">
-        <widget class="QLabel" name="label_2">
-         <property name="text">
-          <string>Grid Alpha</string>
-         </property>
-        </widget>
-       </item>
-       <item row="5" column="1">
+       <item row="6" column="1">
         <widget class="QSpinBox" name="widthPixels">
          <property name="minimum">
           <number>512</number>
@@ -227,10 +151,17 @@
          </property>
         </widget>
        </item>
-       <item row="3" column="1">
+       <item row="4" column="1">
         <widget class="QLineEdit" name="title"/>
        </item>
-       <item row="10" column="1">
+       <item row="6" column="0">
+        <widget class="QLabel" name="widthLabel">
+         <property name="text">
+          <string>Width</string>
+         </property>
+        </widget>
+       </item>
+       <item row="11" column="1">
         <layout class="QHBoxLayout" name="horizontalLayout_3">
          <item>
           <widget class="QDoubleSpinBox" name="x0">
@@ -279,14 +210,7 @@
          </item>
         </layout>
        </item>
-       <item row="5" column="0">
-        <widget class="QLabel" name="widthLabel">
-         <property name="text">
-          <string>Width</string>
-         </property>
-        </widget>
-       </item>
-       <item row="6" column="1">
+       <item row="7" column="1">
         <widget class="QSpinBox" name="heightPixels">
          <property name="minimum">
           <number>512</number>
@@ -296,7 +220,7 @@
          </property>
         </widget>
        </item>
-       <item row="20" column="1">
+       <item row="21" column="1">
         <widget class="QDoubleSpinBox" name="gridOpacity">
          <property name="maximum">
           <double>1.000000000000000</double>
@@ -309,7 +233,14 @@
          </property>
         </widget>
        </item>
-       <item row="6" column="0">
+       <item row="1" column="0">
+        <widget class="QLabel" name="imageLabel">
+         <property name="text">
+          <string>File</string>
+         </property>
+        </widget>
+       </item>
+       <item row="7" column="0">
         <widget class="QLabel" name="heightLabel">
          <property name="text">
           <string>Height</string>
@@ -319,7 +250,10 @@
        <item row="1" column="1">
         <widget class="QLineEdit" name="image">
          <property name="enabled">
-          <bool>false</bool>
+          <bool>true</bool>
+         </property>
+         <property name="readOnly">
+          <bool>true</bool>
          </property>
         </widget>
        </item>
@@ -330,69 +264,7 @@
          </property>
         </widget>
        </item>
-       <item row="1" column="0">
-        <widget class="QLabel" name="imageLabel">
-         <property name="text">
-          <string>Image</string>
-         </property>
-        </widget>
-       </item>
-       <item row="8" column="0">
-        <widget class="QLabel" name="label_3">
-         <property name="text">
-          <string>Row Height</string>
-         </property>
-        </widget>
-       </item>
-       <item row="3" column="0">
-        <widget class="QLabel" name="titleLabel">
-         <property name="text">
-          <string>Title</string>
-         </property>
-        </widget>
-       </item>
-       <item row="14" column="0" colspan="3">
-        <widget class="QLabel" name="label_7">
-         <property name="font">
-          <font>
-           <weight>75</weight>
-           <bold>true</bold>
-          </font>
-         </property>
-         <property name="frameShape">
-          <enum>QFrame::Box</enum>
-         </property>
-         <property name="frameShadow">
-          <enum>QFrame::Sunken</enum>
-         </property>
-         <property name="text">
-          <string>Layout</string>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignCenter</set>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="1">
-        <widget class="QDoubleSpinBox" name="imageOpacity">
-         <property name="decimals">
-          <number>2</number>
-         </property>
-         <property name="minimum">
-          <double>0.010000000000000</double>
-         </property>
-         <property name="maximum">
-          <double>1.000000000000000</double>
-         </property>
-         <property name="singleStep">
-          <double>0.010000000000000</double>
-         </property>
-         <property name="value">
-          <double>1.000000000000000</double>
-         </property>
-        </widget>
-       </item>
-       <item row="19" column="0" colspan="3">
+       <item row="20" column="0" colspan="3">
         <widget class="QLabel" name="label_6">
          <property name="font">
           <font>
@@ -414,8 +286,34 @@
          </property>
         </widget>
        </item>
-       <item row="7" column="0" colspan="3">
-        <widget class="QLabel" name="label_4">
+       <item row="9" column="0">
+        <widget class="QLabel" name="label_3">
+         <property name="text">
+          <string>Row Height</string>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="1">
+        <widget class="QDoubleSpinBox" name="imageOpacity">
+         <property name="decimals">
+          <number>2</number>
+         </property>
+         <property name="minimum">
+          <double>0.010000000000000</double>
+         </property>
+         <property name="maximum">
+          <double>1.000000000000000</double>
+         </property>
+         <property name="singleStep">
+          <double>0.010000000000000</double>
+         </property>
+         <property name="value">
+          <double>1.000000000000000</double>
+         </property>
+        </widget>
+       </item>
+       <item row="15" column="0" colspan="3">
+        <widget class="QLabel" name="label_7">
          <property name="font">
           <font>
            <weight>75</weight>
@@ -429,21 +327,21 @@
           <enum>QFrame::Sunken</enum>
          </property>
          <property name="text">
-          <string>Filters</string>
+          <string>Layout</string>
          </property>
          <property name="alignment">
           <set>Qt::AlignCenter</set>
          </property>
         </widget>
        </item>
-       <item row="21" column="0">
-        <widget class="QLabel" name="curvesLabel">
+       <item row="4" column="0">
+        <widget class="QLabel" name="titleLabel">
          <property name="text">
-          <string>Curves</string>
+          <string>Title</string>
          </property>
         </widget>
        </item>
-       <item row="11" column="1">
+       <item row="12" column="1">
         <layout class="QHBoxLayout" name="horizontalLayout_4">
          <item>
           <spacer name="horizontalSpacer_4">
@@ -489,14 +387,57 @@
          </item>
         </layout>
        </item>
-       <item row="9" column="0" rowspan="5">
-        <widget class="QLabel" name="label_8">
+       <item row="22" column="0">
+        <widget class="QLabel" name="curvesLabel">
          <property name="text">
-          <string>Position</string>
+          <string>Curves</string>
          </property>
         </widget>
        </item>
-       <item row="18" column="1">
+       <item row="8" column="0" colspan="3">
+        <widget class="QLabel" name="label_4">
+         <property name="font">
+          <font>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="frameShape">
+          <enum>QFrame::Box</enum>
+         </property>
+         <property name="frameShadow">
+          <enum>QFrame::Sunken</enum>
+         </property>
+         <property name="text">
+          <string>Filters</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignCenter</set>
+         </property>
+        </widget>
+       </item>
+       <item row="24" column="1">
+        <layout class="QHBoxLayout" name="horizontalLayout_5">
+         <item>
+          <widget class="QPushButton" name="saveLayout">
+           <property name="text">
+            <string>Save Layout</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item row="25" column="0" colspan="3">
+        <widget class="QDialogButtonBox" name="buttonBox">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+         <property name="standardButtons">
+          <set>QDialogButtonBox::Close|QDialogButtonBox::RestoreDefaults|QDialogButtonBox::Save</set>
+         </property>
+        </widget>
+       </item>
+       <item row="19" column="1">
         <widget class="QComboBox" name="chartLayout">
          <property name="currentIndex">
           <number>15</number>
@@ -583,29 +524,108 @@
          </item>
         </widget>
        </item>
-       <item row="24" column="0" colspan="3">
-        <widget class="QDialogButtonBox" name="buttonBox">
-         <property name="orientation">
-          <enum>Qt::Horizontal</enum>
-         </property>
-         <property name="standardButtons">
-          <set>QDialogButtonBox::Close|QDialogButtonBox::RestoreDefaults|QDialogButtonBox::Save</set>
+       <item row="10" column="0" rowspan="5">
+        <widget class="QLabel" name="label_8">
+         <property name="text">
+          <string>Position</string>
          </property>
         </widget>
        </item>
-       <item row="23" column="1">
-        <layout class="QHBoxLayout" name="horizontalLayout_5">
-         <item>
-          <widget class="QPushButton" name="saveLayout">
-           <property name="text">
-            <string>Save Layout</string>
-           </property>
-          </widget>
-         </item>
-        </layout>
-       </item>
-       <item row="20" column="2">
+       <item row="21" column="2">
         <widget class="QToolButton" name="limitsButton">
+         <property name="text">
+          <string>...</string>
+         </property>
+        </widget>
+       </item>
+       <item row="5" column="0">
+        <widget class="QLabel" name="titleFontSizeLabel">
+         <property name="text">
+          <string>Font Size</string>
+         </property>
+        </widget>
+       </item>
+       <item row="23" column="1" colspan="2">
+        <widget class="QCheckBox" name="showLegend">
+         <property name="text">
+          <string>Show Legend?</string>
+         </property>
+        </widget>
+       </item>
+       <item row="22" column="1">
+        <widget class="QListWidget" name="curves">
+         <property name="selectionMode">
+          <enum>QAbstractItemView::MultiSelection</enum>
+         </property>
+        </widget>
+       </item>
+       <item row="17" column="1">
+        <widget class="QDoubleSpinBox" name="minorSplitRatio">
+         <property name="minimum">
+          <double>0.020000000000000</double>
+         </property>
+         <property name="maximum">
+          <double>10.000000000000000</double>
+         </property>
+         <property name="singleStep">
+          <double>0.020000000000000</double>
+         </property>
+         <property name="value">
+          <double>3.000000000000000</double>
+         </property>
+        </widget>
+       </item>
+       <item row="16" column="0">
+        <widget class="QLabel" name="majorSplitRatioLabel">
+         <property name="text">
+          <string>Major Split Ratio</string>
+         </property>
+        </widget>
+       </item>
+       <item row="9" column="1">
+        <widget class="QDoubleSpinBox" name="filterRowHeightMultiplier">
+         <property name="maximum">
+          <double>3.000000000000000</double>
+         </property>
+         <property name="singleStep">
+          <double>0.010000000000000</double>
+         </property>
+         <property name="value">
+          <double>1.200000000000000</double>
+         </property>
+        </widget>
+       </item>
+       <item row="16" column="1">
+        <widget class="QDoubleSpinBox" name="majorSplitRatio">
+         <property name="decimals">
+          <number>2</number>
+         </property>
+         <property name="minimum">
+          <double>0.100000000000000</double>
+         </property>
+         <property name="maximum">
+          <double>10.000000000000000</double>
+         </property>
+         <property name="singleStep">
+          <double>0.020000000000000</double>
+         </property>
+         <property name="value">
+          <double>1.000000000000000</double>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="0">
+        <widget class="QLabel" name="label_9">
+         <property name="text">
+          <string>URL</string>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="1">
+        <widget class="QLineEdit" name="imageURL"/>
+       </item>
+       <item row="2" column="2">
+        <widget class="QToolButton" name="loadURL">
          <property name="text">
           <string>...</string>
          </property>
@@ -684,8 +704,8 @@
    <slot>update_height()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>391</x>
-     <y>207</y>
+     <x>396</x>
+     <y>241</y>
     </hint>
     <hint type="destinationlabel">
      <x>363</x>
@@ -732,8 +752,8 @@
    <slot>set_title()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>391</x>
-     <y>139</y>
+     <x>396</x>
+     <y>173</y>
     </hint>
     <hint type="destinationlabel">
      <x>356</x>
@@ -749,7 +769,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>396</x>
-     <y>173</y>
+     <y>207</y>
     </hint>
     <hint type="destinationlabel">
      <x>408</x>
@@ -765,7 +785,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>396</x>
-     <y>481</y>
+     <y>515</y>
     </hint>
     <hint type="destinationlabel">
      <x>424</x>
@@ -781,7 +801,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>396</x>
-     <y>549</y>
+     <y>583</y>
     </hint>
     <hint type="destinationlabel">
      <x>71</x>
@@ -797,7 +817,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>437</x>
-     <y>583</y>
+     <y>683</y>
     </hint>
     <hint type="destinationlabel">
      <x>410</x>
@@ -813,7 +833,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>396</x>
-     <y>549</y>
+     <y>583</y>
     </hint>
     <hint type="destinationlabel">
      <x>93</x>
@@ -829,7 +849,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>396</x>
-     <y>583</y>
+     <y>617</y>
     </hint>
     <hint type="destinationlabel">
      <x>117</x>
@@ -845,7 +865,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>396</x>
-     <y>515</y>
+     <y>549</y>
     </hint>
     <hint type="destinationlabel">
      <x>92</x>
@@ -860,8 +880,8 @@
    <slot>set_grid_opacity()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>299</x>
-     <y>649</y>
+     <x>396</x>
+     <y>683</y>
     </hint>
     <hint type="destinationlabel">
      <x>419</x>
@@ -876,8 +896,8 @@
    <slot>set_image_opacity()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>245</x>
-     <y>82</y>
+     <x>386</x>
+     <y>139</y>
     </hint>
     <hint type="destinationlabel">
      <x>423</x>
@@ -892,8 +912,8 @@
    <slot>replace_table()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>210</x>
-     <y>297</y>
+     <x>351</x>
+     <y>341</y>
     </hint>
     <hint type="destinationlabel">
      <x>436</x>
@@ -909,7 +929,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>302</x>
-     <y>414</y>
+     <y>448</y>
     </hint>
     <hint type="destinationlabel">
      <x>121</x>
@@ -925,7 +945,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>209</x>
-     <y>378</y>
+     <y>412</y>
     </hint>
     <hint type="destinationlabel">
      <x>136</x>
@@ -941,7 +961,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>302</x>
-     <y>342</y>
+     <y>376</y>
     </hint>
     <hint type="destinationlabel">
      <x>426</x>
@@ -957,7 +977,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>395</x>
-     <y>378</y>
+     <y>412</y>
     </hint>
     <hint type="destinationlabel">
      <x>447</x>
@@ -981,6 +1001,38 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>imageURL</sender>
+   <signal>textChanged(QString)</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>update_image_url()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>149</x>
+     <y>95</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>121</x>
+     <y>41</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>loadURL</sender>
+   <signal>clicked()</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>load_image_from_url()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>423</x>
+     <y>96</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>429</x>
+     <y>114</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>set_selected()</slot>
@@ -996,5 +1048,7 @@
   <slot>set_filter_row_height()</slot>
   <slot>replace_table()</slot>
   <slot>save_layout()</slot>
+  <slot>update_image_url()</slot>
+  <slot>load_image_from_url()</slot>
  </slots>
 </ui>

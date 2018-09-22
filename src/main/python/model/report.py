@@ -1,7 +1,11 @@
+import logging
 import math
+import tempfile
+from urllib.parse import urlparse
 
 import matplotlib
 import qtawesome as qta
+import requests
 from matplotlib.gridspec import GridSpec
 from matplotlib.image import imread
 from matplotlib.table import Table
@@ -15,6 +19,8 @@ from model.preferences import REPORT_TITLE_FONT_SIZE, REPORT_IMAGE_ALPHA, REPORT
     REPORT_GEOMETRY, REPORT_LAYOUT_SPLIT_DIRECTION, REPORT_LAYOUT_TYPE, REPORT_CHART_LIMITS_X0, \
     REPORT_CHART_LIMITS_X_SCALE, REPORT_CHART_LIMITS_X1
 from ui.report import Ui_saveReportDialog
+
+logger = logging.getLogger('report')
 
 
 class SaveReportDialog(QDialog, Ui_saveReportDialog):
@@ -45,6 +51,8 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         self.imagePicker.setIcon(qta.icon('fa.folder-open-o'))
         self.limitsButton.setIcon(qta.icon('ei.move'))
         self.saveLayout.setIcon(qta.icon('fa.floppy-o'))
+        self.loadURL.setIcon(qta.icon('fa.download'))
+        self.loadURL.setEnabled(False)
         self.buttonBox.button(QDialogButtonBox.RestoreDefaults).clicked.connect(self.discard_layout)
         for xy in self.__xy_data:
             self.curves.addItem(QListWidgetItem(xy.name, self.curves))
@@ -564,3 +572,40 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         if self.__magnitude_model is not None:
             self.__magnitude_model.limits.axes_1.grid(alpha=value)
             self.preview.canvas.draw_idle()
+
+    def update_image_url(self, text):
+        ''' changes the icon to open if the url is valid '''
+        if len(text) > 0:
+            o = urlparse(text)
+            if len(o.scheme) > 0 and len(o.netloc) > 0:
+                self.loadURL.setEnabled(True)
+                if self.loadURL.signalsBlocked():
+                    self.loadURL.setIcon(qta.icon('fa.download'))
+                    self.loadURL.blockSignals(False)
+
+    def load_image_from_url(self):
+        ''' attempts to download the image and sets it as the file name '''
+        tmp_image = self.__download_image()
+        if tmp_image is not None:
+            self.loadURL.setIcon(qta.icon('fa.check', color='green'))
+            self.loadURL.blockSignals(True)
+            self.image.setText(tmp_image)
+            self.apply_image()
+        else:
+            self.loadURL.setIcon(qta.icon('fa.times', color='red'))
+
+    def __download_image(self):
+        '''
+        Attempts to download the image.
+        :return: the filename containing the downloaded data.
+        '''
+        tmp_file = tempfile.NamedTemporaryFile(delete=False)
+        with open(tmp_file.name, 'wb') as f:
+            try:
+                f.write(requests.get(self.imageURL.text()).content)
+                name = tmp_file.name
+            except:
+                logger.exception(f"Unable to download {self.imageURL.text()}")
+                tmp_file.delete = True
+                name = None
+        return name
