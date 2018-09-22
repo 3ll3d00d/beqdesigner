@@ -13,6 +13,7 @@ from qtpy.QtWidgets import QDialog
 from model.iir import FilterType, LowShelf, HighShelf, PeakingEQ, SecondOrder_LowPass, \
     SecondOrder_HighPass, ComplexLowPass, ComplexHighPass, q_to_s, s_to_q, max_permitted_s, CompleteFilter, COMBINED, \
     Passthrough
+from model.limits import dBRangeCalculator
 from model.magnitude import MagnitudeModel
 from model.preferences import SHOW_ALL_FILTERS, SHOW_NO_FILTERS, FILTER_COLOURS, DISPLAY_SHOW_FILTERS, DISPLAY_Q_STEP, \
     DISPLAY_GAIN_STEP, DISPLAY_S_STEP, DISPLAY_FREQ_STEP
@@ -277,7 +278,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.freq.setMaximum(self.__signal.fs / 2.0)
         self.__starting = False
         # init the chart
-        self.__magnitudeModel = MagnitudeModel('preview', self.previewChart, preferences, self, 'Filter', db_range=30)
+        self.__magnitudeModel = MagnitudeModel('preview', self.previewChart, preferences, self, 'Filter', db_range_calc=dBRangeCalculator(30))
         # ensure the preview graph is shown if we have something to show
         self.previewFilter()
 

@@ -532,6 +532,9 @@
    <property name="text">
     <string>Save Repor&amp;t</string>
    </property>
+   <property name="shortcut">
+    <string>Ctrl+R</string>
+   </property>
   </action>
  </widget>
  <customwidgets>

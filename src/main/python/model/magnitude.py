@@ -104,28 +104,29 @@ class MagnitudeModel:
     Allows a set of filters to be displayed on a chart as magnitude responses.
     '''
 
-    def __init__(self, name, chart, preferences, primaryDataProvider, primaryName, secondaryDataProvider=None,
-                 secondaryName=None, show_legend=lambda: True, db_range=60, subplot_spec=SINGLE_SUBPLOT_SPEC,
-                 redraw_listener=None, grid_alpha=0.5):
+    def __init__(self, name, chart, preferences, primary_data_provider, primary_name, secondary_data_provider=None,
+                 secondary_name=None, show_legend=lambda: True, db_range_calc=dBRangeCalculator(60),
+                 subplot_spec=SINGLE_SUBPLOT_SPEC, redraw_listener=None, grid_alpha=0.5, x_min_pref_key=GRAPH_X_MIN,
+                 x_max_pref_key=GRAPH_X_MAX, x_scale_pref_key=GRAPH_X_AXIS_SCALE):
         self.__name = name
         self.__chart = chart
         self.__redraw_listener = redraw_listener
         self.__show_legend = show_legend
         primary_axes = self.__chart.canvas.figure.add_subplot(subplot_spec)
-        primary_axes.set_ylabel(f"dBFS ({primaryName})")
+        primary_axes.set_ylabel(f"dBFS ({primary_name})")
         primary_axes.grid(linestyle='-', which='major', linewidth=1, alpha=grid_alpha)
         primary_axes.grid(linestyle='--', which='minor', linewidth=1, alpha=grid_alpha)
-        self.__primary = AxesManager(primaryDataProvider, primary_axes)
-        if secondaryDataProvider is None:
+        self.__primary = AxesManager(primary_data_provider, primary_axes)
+        if secondary_data_provider is None:
             secondary_axes = None
         else:
             secondary_axes = primary_axes.twinx()
-            secondary_axes.set_ylabel(f"dBFS ({secondaryName})")
-        self.__secondary = AxesManager(secondaryDataProvider, secondary_axes)
+            secondary_axes.set_ylabel(f"dBFS ({secondary_name})")
+        self.__secondary = AxesManager(secondary_data_provider, secondary_axes)
         self.limits = Limits(self.__repr__(), self.__redraw_func, primary_axes,
-                             x_lim=(preferences.get(GRAPH_X_MIN), preferences.get(GRAPH_X_MAX)),
-                             y_range_calculator=dBRangeCalculator(db_range), axes_2=secondary_axes,
-                             x_scale=preferences.get(GRAPH_X_AXIS_SCALE))
+                             x_lim=(preferences.get(x_min_pref_key), preferences.get(x_max_pref_key)),
+                             y_range_calculator=db_range_calc, axes_2=secondary_axes,
+                             x_scale=preferences.get(x_scale_pref_key))
         self.limits.propagate_to_axes(draw=True)
         self.__legend = None
         self.__legend_cid = None

@@ -345,5 +345,6 @@ class Ui_MainWindow(object):
         self.action_Batch_Extract.setText(_translate("MainWindow", "&Batch Extract"))
         self.action_Batch_Extract.setShortcut(_translate("MainWindow", "Ctrl+Shift+E"))
         self.actionSave_Report.setText(_translate("MainWindow", "Save Repor&t"))
+        self.actionSave_Report.setShortcut(_translate("MainWindow", "Ctrl+R"))
 
 from mpl import MplWidget

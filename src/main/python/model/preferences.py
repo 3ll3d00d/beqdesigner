@@ -60,6 +60,28 @@ GRAPH_X_AXIS_SCALE = 'graph/x_axis'
 GRAPH_X_MIN = 'graph/x_min'
 GRAPH_X_MAX = 'graph/x_max'
 
+REPORT_TITLE_FONT_SIZE = 'report/title_font_size'
+REPORT_IMAGE_ALPHA = 'report/image/alpha'
+REPORT_IMAGE_WIDTH = 'report/image/width'
+REPORT_IMAGE_HEIGHT = 'report/image/height'
+REPORT_FILTER_ROW_HEIGHT_MULTIPLIER = 'report/filter/row_height'
+REPORT_FILTER_X0 = 'report/filter/x0'
+REPORT_FILTER_X1 = 'report/filter/x1'
+REPORT_FILTER_Y0 = 'report/filter/y0'
+REPORT_FILTER_Y1 = 'report/filter/y1'
+REPORT_LAYOUT_MAJOR_RATIO = 'report/layout/major_ratio'
+REPORT_LAYOUT_MINOR_RATIO = 'report/layout/minor_ratio'
+REPORT_LAYOUT_SPLIT_DIRECTION = 'report/layout/split_direction'
+REPORT_LAYOUT_TYPE = 'report/layout/type'
+REPORT_CHART_GRID_ALPHA = 'report/chart/grid_alpha'
+REPORT_CHART_SHOW_LEGEND = 'report/chart/show_legend'
+REPORT_CHART_LIMITS_X0 = 'report/chart/limits_x0'
+REPORT_CHART_LIMITS_X1 = 'report/chart/limits_x1'
+REPORT_CHART_LIMITS_Y0 = 'report/chart/limits_y0'
+REPORT_CHART_LIMITS_Y1 = 'report/chart/limits_y1'
+REPORT_CHART_LIMITS_X_SCALE = 'report/chart/limits_x_scale'
+REPORT_GEOMETRY = 'report/geometry'
+
 LOGGING_LEVEL = 'logging/level'
 
 DEFAULT_PREFS = {
@@ -77,14 +99,43 @@ DEFAULT_PREFS = {
     DISPLAY_GAIN_STEP: '0.1',
     GRAPH_X_AXIS_SCALE: 'log',
     GRAPH_X_MIN: 1,
-    GRAPH_X_MAX: 160
+    GRAPH_X_MAX: 160,
+    REPORT_FILTER_ROW_HEIGHT_MULTIPLIER: 1.2,
+    REPORT_TITLE_FONT_SIZE: 36,
+    REPORT_IMAGE_ALPHA: 1.0,
+    REPORT_FILTER_X0: 0.748,
+    REPORT_FILTER_X1: 1.0,
+    REPORT_FILTER_Y0: 0.75,
+    REPORT_FILTER_Y1: 1.0,
+    REPORT_LAYOUT_MAJOR_RATIO: 1.0,
+    REPORT_LAYOUT_MINOR_RATIO: 2.0,
+    REPORT_LAYOUT_SPLIT_DIRECTION: 'Vertical',
+    REPORT_LAYOUT_TYPE: 'Image | Chart',
+    REPORT_CHART_GRID_ALPHA: 0.5,
+    REPORT_CHART_SHOW_LEGEND: False,
+    REPORT_CHART_LIMITS_X0: 1,
+    REPORT_CHART_LIMITS_X1: 160,
+    REPORT_CHART_LIMITS_X_SCALE: 'linear'
 }
 
 TYPES = {
     DISPLAY_SHOW_LEGEND: bool,
     ANALYSIS_TARGET_FS: int,
     GRAPH_X_MIN: int,
-    GRAPH_X_MAX: int
+    GRAPH_X_MAX: int,
+    REPORT_FILTER_ROW_HEIGHT_MULTIPLIER: float,
+    REPORT_TITLE_FONT_SIZE: int,
+    REPORT_IMAGE_ALPHA: float,
+    REPORT_FILTER_X0: float,
+    REPORT_FILTER_X1: float,
+    REPORT_FILTER_Y0: float,
+    REPORT_FILTER_Y1: float,
+    REPORT_LAYOUT_MAJOR_RATIO: float,
+    REPORT_LAYOUT_MINOR_RATIO: float,
+    REPORT_CHART_GRID_ALPHA: float,
+    REPORT_CHART_SHOW_LEGEND: bool,
+    REPORT_CHART_LIMITS_X0: int,
+    REPORT_CHART_LIMITS_X1: int
 }
 
 COLOUR_INTERVALS = [x / 255 for x in range(36, 250, 24)] + [1.0]
@@ -154,6 +205,13 @@ class Preferences:
             self.__settings.remove(key)
         else:
             self.__settings.setValue(key, value)
+
+    def clear(self, key):
+        '''
+        Removes the stored value.
+        :param key: the key.
+        '''
+        self.set(key, None)
 
 
 class PreferencesDialog(QDialog, Ui_preferencesDialog):

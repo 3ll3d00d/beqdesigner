@@ -6,9 +6,14 @@ from matplotlib.gridspec import GridSpec
 from matplotlib.image import imread
 from matplotlib.table import Table
 from qtpy.QtCore import Qt
-from qtpy.QtWidgets import QDialog, QFileDialog, QListWidgetItem
+from qtpy.QtWidgets import QListWidgetItem, QDialog, QFileDialog, QDialogButtonBox
 
 from model.magnitude import MagnitudeModel
+from model.preferences import REPORT_TITLE_FONT_SIZE, REPORT_IMAGE_ALPHA, REPORT_FILTER_ROW_HEIGHT_MULTIPLIER, \
+    REPORT_FILTER_X0, REPORT_FILTER_X1, REPORT_FILTER_Y0, REPORT_FILTER_Y1, \
+    REPORT_LAYOUT_MAJOR_RATIO, REPORT_LAYOUT_MINOR_RATIO, REPORT_CHART_GRID_ALPHA, REPORT_CHART_SHOW_LEGEND, \
+    REPORT_GEOMETRY, REPORT_LAYOUT_SPLIT_DIRECTION, REPORT_LAYOUT_TYPE, REPORT_CHART_LIMITS_X0, \
+    REPORT_CHART_LIMITS_X_SCALE, REPORT_CHART_LIMITS_X1
 from ui.report import Ui_saveReportDialog
 
 
@@ -37,22 +42,33 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         self.__selected_xy = []
         self.setWindowFlags(self.windowFlags() | Qt.WindowSystemMenuHint | Qt.WindowMinMaxButtonsHint)
         self.setupUi(self)
-        self.filterRowHeightMultiplier.setValue(1.2 * 1.85)
         self.imagePicker.setIcon(qta.icon('fa.folder-open-o'))
         self.limitsButton.setIcon(qta.icon('ei.move'))
-        self.titleFontSize.setValue(36)
+        self.saveLayout.setIcon(qta.icon('fa.floppy-o'))
+        self.buttonBox.button(QDialogButtonBox.RestoreDefaults).clicked.connect(self.discard_layout)
         for xy in self.__xy_data:
             self.curves.addItem(QListWidgetItem(xy.name, self.curves))
-        self.redraw_all_axes()
-        self.__canvas_size_to_xy()
-        self.filterRowHeightMultiplier.setValue(1.2)
+        self.preview.canvas.mpl_connect('resize_event', self.__canvas_size_to_xy)
+        # init fields
+        self.__restore_geometry()
+        self.restore_layout(redraw=True)
+        self.filterRowHeightMultiplier.setValue(self.__preferences.get(REPORT_FILTER_ROW_HEIGHT_MULTIPLIER))
 
-    def __canvas_size_to_xy(self):
+    def __restore_geometry(self):
+        ''' loads the saved window size '''
+        geometry = self.__preferences.get(REPORT_GEOMETRY)
+        if geometry is not None:
+            self.restoreGeometry(geometry)
+
+    def __canvas_size_to_xy(self, event):
         '''
         Calculates the current size of the image.
         '''
         self.__dpi = self.preview.canvas.figure.dpi
-        self.__x, self.__y = self.preview.canvas.figure.get_size_inches() * self.preview.canvas.figure.dpi
+        before = f"x: {self.__x} y: {self.__y}"
+        self.__x = event.width
+        self.__y = event.height
+        print(f"before: {before} after: x: {self.__x} y: {self.__y}")
         self.__aspect_ratio = self.__x / self.__y
         self.widthPixels.setValue(self.__x)
         self.heightPixels.setValue(self.__y)
@@ -70,7 +86,10 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         self.__magnitude_model = MagnitudeModel('main', self.preview, self.__preferences, self, 'Signals',
                                                 show_legend=lambda: self.showLegend.isChecked(),
                                                 subplot_spec=chart_spec, redraw_listener=self.on_redraw,
-                                                grid_alpha=self.gridOpacity.value())
+                                                grid_alpha=self.gridOpacity.value(),
+                                                x_min_pref_key=REPORT_CHART_LIMITS_X0,
+                                                x_max_pref_key=REPORT_CHART_LIMITS_X1,
+                                                x_scale_pref_key=REPORT_CHART_LIMITS_X_SCALE)
         if filter_spec is not None:
             self.__filter_axes = self.preview.canvas.figure.add_subplot(filter_spec)
             self.filterRowHeightMultiplier.setEnabled(True)
@@ -137,7 +156,8 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
             # multiplier = 1.2 * 1.85 if not self.__first_create else 1.2
             multiplier = self.filterRowHeightMultiplier.value()
             self.__first_create = False
-            row_height = (matplotlib.rcParams['font.size'] / 72.0 * self.preview.canvas.figure.dpi / table_axes.bbox.height * multiplier)
+            row_height = (matplotlib.rcParams[
+                              'font.size'] / 72.0 * self.preview.canvas.figure.dpi / table_axes.bbox.height * multiplier)
             cell_kwargs['facecolor'] = fc
 
             table = Table(table_axes, **table_loc)
@@ -385,7 +405,6 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
 
     def resizeEvent(self, resizeEvent):
         super().resizeEvent(resizeEvent)
-        self.__canvas_size_to_xy()
         self.replace_table()
 
     def accept(self):
@@ -400,6 +419,85 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
                 self.preview.canvas.figure.savefig(output_file, format='png', dpi=self.__dpi * scale_factor)
                 self.__status_bar.showMessage(f"Saved report to {output_file}", 5000)
         QDialog.accept(self)
+
+    def closeEvent(self, QCloseEvent):
+        ''' Stores the window size on close '''
+        self.__preferences.set(REPORT_GEOMETRY, self.saveGeometry())
+        super().closeEvent(QCloseEvent)
+
+    def save_layout(self):
+        '''
+        Saves the layout in the preferences.
+        '''
+        self.__preferences.set(REPORT_FILTER_ROW_HEIGHT_MULTIPLIER, self.filterRowHeightMultiplier.value())
+        self.__preferences.set(REPORT_TITLE_FONT_SIZE, self.titleFontSize.value())
+        self.__preferences.set(REPORT_IMAGE_ALPHA, self.imageOpacity.value())
+        self.__preferences.set(REPORT_FILTER_X0, self.x0.value())
+        self.__preferences.set(REPORT_FILTER_X1, self.x1.value())
+        self.__preferences.set(REPORT_FILTER_Y0, self.y0.value())
+        self.__preferences.set(REPORT_FILTER_Y1, self.y1.value())
+        self.__preferences.set(REPORT_LAYOUT_MAJOR_RATIO, self.majorSplitRatio.value())
+        self.__preferences.set(REPORT_LAYOUT_MINOR_RATIO, self.minorSplitRatio.value())
+        self.__preferences.set(REPORT_LAYOUT_SPLIT_DIRECTION, self.chartSplit.currentText())
+        self.__preferences.set(REPORT_LAYOUT_TYPE, self.chartLayout.currentText())
+        self.__preferences.set(REPORT_CHART_GRID_ALPHA, self.gridOpacity.value())
+        self.__preferences.set(REPORT_CHART_SHOW_LEGEND, self.showLegend.isChecked())
+        if self.__magnitude_model is not None:
+            self.__preferences.set(REPORT_CHART_LIMITS_X0, self.__magnitude_model.limits.x_min)
+            self.__preferences.set(REPORT_CHART_LIMITS_X1, self.__magnitude_model.limits.x_max)
+            self.__preferences.set(REPORT_CHART_LIMITS_X_SCALE, self.__magnitude_model.limits.x_scale)
+
+    def discard_layout(self):
+        '''
+        Discards the stored layout in the preferences.
+        '''
+        self.__preferences.clear(REPORT_FILTER_ROW_HEIGHT_MULTIPLIER)
+        self.__preferences.clear(REPORT_TITLE_FONT_SIZE)
+        self.__preferences.clear(REPORT_IMAGE_ALPHA)
+        self.__preferences.clear(REPORT_FILTER_X0)
+        self.__preferences.clear(REPORT_FILTER_X1)
+        self.__preferences.clear(REPORT_FILTER_Y0)
+        self.__preferences.clear(REPORT_FILTER_Y1)
+        self.__preferences.clear(REPORT_LAYOUT_MAJOR_RATIO)
+        self.__preferences.clear(REPORT_LAYOUT_MINOR_RATIO)
+        self.__preferences.clear(REPORT_LAYOUT_TYPE)
+        self.__preferences.clear(REPORT_LAYOUT_SPLIT_DIRECTION)
+        self.__preferences.clear(REPORT_CHART_GRID_ALPHA)
+        self.__preferences.clear(REPORT_CHART_SHOW_LEGEND)
+        self.__preferences.clear(REPORT_CHART_LIMITS_X0)
+        self.__preferences.clear(REPORT_CHART_LIMITS_X1)
+        self.__preferences.clear(REPORT_CHART_LIMITS_X_SCALE)
+        self.restore_layout(redraw=True)
+
+    def restore_layout(self, redraw=False):
+        '''
+        Restores the saved layout.
+        :param redraw: if true, also redraw the report.
+        '''
+        self.filterRowHeightMultiplier.setValue(self.__preferences.get(REPORT_FILTER_ROW_HEIGHT_MULTIPLIER))
+        if self.__first_create:
+            self.filterRowHeightMultiplier.setValue(self.filterRowHeightMultiplier.value() * 1.85)
+        self.titleFontSize.setValue(self.__preferences.get(REPORT_TITLE_FONT_SIZE))
+        self.imageOpacity.setValue(self.__preferences.get(REPORT_IMAGE_ALPHA))
+        self.x0.setValue(self.__preferences.get(REPORT_FILTER_X0))
+        self.x1.setValue(self.__preferences.get(REPORT_FILTER_X1))
+        self.y0.setValue(self.__preferences.get(REPORT_FILTER_Y0))
+        self.y1.setValue(self.__preferences.get(REPORT_FILTER_Y1))
+        self.majorSplitRatio.setValue(self.__preferences.get(REPORT_LAYOUT_MAJOR_RATIO))
+        self.minorSplitRatio.setValue(self.__preferences.get(REPORT_LAYOUT_MINOR_RATIO))
+        self.__restore_combo(REPORT_LAYOUT_SPLIT_DIRECTION, self.chartSplit)
+        self.__restore_combo(REPORT_LAYOUT_TYPE, self.chartLayout)
+        self.gridOpacity.setValue(self.__preferences.get(REPORT_CHART_GRID_ALPHA))
+        self.showLegend.setChecked(self.__preferences.get(REPORT_CHART_SHOW_LEGEND))
+        if redraw:
+            self.redraw_all_axes()
+
+    def __restore_combo(self, key, combo):
+        value = self.__preferences.get(key)
+        if value is not None:
+            idx = combo.findText(value)
+            if idx > -1:
+                combo.setCurrentIndex(idx)
 
     def update_height(self, new_width):
         '''
