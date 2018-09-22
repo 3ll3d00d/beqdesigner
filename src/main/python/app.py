@@ -9,6 +9,7 @@ import sys
 from contextlib import contextmanager
 
 import matplotlib
+
 matplotlib.use("Qt5Agg")
 from model.report import SaveReportDialog
 from model.batch import BatchExtractDialog
@@ -29,7 +30,7 @@ from qtpy import QtCore
 from qtpy.QtCore import QSettings
 from qtpy.QtGui import QIcon, QFont, QCursor
 from qtpy.QtWidgets import QMainWindow, QApplication, QErrorMessage, QAbstractItemView, QDialog, QFileDialog, \
-    QHeaderView
+    QHeaderView, QMessageBox
 
 from model.extract import ExtractAudioDialog
 from model.filter import FilterTableModel, FilterModel, FilterDialog
@@ -72,6 +73,9 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
             self.__style_path_root = sys._MEIPASS
         else:
             self.__style_path_root = os.path.dirname(__file__)
+        self.__version = 'UNKNOWN'
+        with open(os.path.join(self.__style_path_root, 'VERSION')) as version_file:
+            self.__version = version_file.read().strip()
         matplotlib_theme = self.preferences.get(STYLE_MATPLOTLIB_THEME)
         if matplotlib_theme is not None:
             if matplotlib_theme.startswith('beq'):
@@ -163,6 +167,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.actionExport_FRD.triggered.connect(self.showExportFRDDialog)
         self.actionSave_Signal.triggered.connect(self.showExportSignalDialog)
         self.action_Save_Project.triggered.connect(self.exportProject)
+        self.actionAbout.triggered.connect(self.showAbout)
 
     def __configure_signal_model(self, parent):
         '''
@@ -533,6 +538,14 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         finally:
             combo.blockSignals(False)
 
+    def showAbout(self):
+        msg_box = QMessageBox()
+        msg_box.setText(
+            f"<a href='https://github.com/3ll3d00d/beqdesigner'>BEQ Designer</a> v{self.__version} by 3ll3d00d")
+        msg_box.setIcon(QMessageBox.Information)
+        msg_box.setWindowTitle('About')
+        msg_box.exec()
+
     def showExtractAudioDialog(self):
         '''
         Show the extract audio dialog.
@@ -844,8 +857,9 @@ if __name__ == '__main__':
         global e_dialog
         if e_dialog is not None:
             formatted = traceback.format_exception(etype=exctype, value=value, tb=tb)
-            msg = '<br>'.join(formatted)
             e_dialog.setWindowTitle('Unexpected Error')
+            url = 'https://github.com/3ll3d00d/beqdesigner/issues/new'
+            msg = f"Unexpected Error detected, go to {url} to log the issue<p>{'<br>'.join(formatted)}"
             e_dialog.showMessage(msg)
             e_dialog.resize(1200, 400)
 

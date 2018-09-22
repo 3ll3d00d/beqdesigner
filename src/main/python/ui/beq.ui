@@ -285,6 +285,7 @@
      <string>&amp;Help</string>
     </property>
     <addaction name="actionShow_Logs"/>
+    <addaction name="actionAbout"/>
    </widget>
    <widget class="QMenu" name="menuSettings">
     <property name="title">
@@ -534,6 +535,11 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+R</string>
+   </property>
+  </action>
+  <action name="actionAbout">
+   <property name="text">
+    <string>About</string>
    </property>
   </action>
  </widget>
