@@ -859,7 +859,7 @@ if __name__ == '__main__':
             formatted = traceback.format_exception(etype=exctype, value=value, tb=tb)
             e_dialog.setWindowTitle('Unexpected Error')
             url = 'https://github.com/3ll3d00d/beqdesigner/issues/new'
-            msg = f"Unexpected Error detected, click <a href='{url}'>here</a> to log the issue on github<p>{'<br>'.join(formatted)}"
+            msg = f"Unexpected Error detected, go to {url} to log the issue<p>{'<br>'.join(formatted)}"
             e_dialog.showMessage(msg)
             e_dialog.resize(1200, 400)
 
