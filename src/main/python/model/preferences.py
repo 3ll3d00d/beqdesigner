@@ -2,6 +2,7 @@ import glob
 import os
 from pathlib import Path
 
+import matplotlib
 import matplotlib.style as style
 from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox
 
@@ -60,6 +61,7 @@ GRAPH_X_AXIS_SCALE = 'graph/x_axis'
 GRAPH_X_MIN = 'graph/x_min'
 GRAPH_X_MAX = 'graph/x_max'
 
+REPORT_GROUP = 'report'
 REPORT_TITLE_FONT_SIZE = 'report/title_font_size'
 REPORT_IMAGE_ALPHA = 'report/image/alpha'
 REPORT_IMAGE_WIDTH = 'report/image/width'
@@ -69,6 +71,8 @@ REPORT_FILTER_X0 = 'report/filter/x0'
 REPORT_FILTER_X1 = 'report/filter/x1'
 REPORT_FILTER_Y0 = 'report/filter/y0'
 REPORT_FILTER_Y1 = 'report/filter/y1'
+REPORT_FILTER_FONT_SIZE = 'report/filter/font_size'
+REPORT_FILTER_SHOW_HEADER = 'report/filter/show_header'
 REPORT_LAYOUT_MAJOR_RATIO = 'report/layout/major_ratio'
 REPORT_LAYOUT_MINOR_RATIO = 'report/layout/minor_ratio'
 REPORT_LAYOUT_SPLIT_DIRECTION = 'report/layout/split_direction'
@@ -115,7 +119,9 @@ DEFAULT_PREFS = {
     REPORT_CHART_SHOW_LEGEND: False,
     REPORT_CHART_LIMITS_X0: 1,
     REPORT_CHART_LIMITS_X1: 160,
-    REPORT_CHART_LIMITS_X_SCALE: 'linear'
+    REPORT_CHART_LIMITS_X_SCALE: 'linear',
+    REPORT_FILTER_SHOW_HEADER: True,
+    REPORT_FILTER_FONT_SIZE: matplotlib.rcParams['font.size']
 }
 
 TYPES = {
@@ -135,7 +141,9 @@ TYPES = {
     REPORT_CHART_GRID_ALPHA: float,
     REPORT_CHART_SHOW_LEGEND: bool,
     REPORT_CHART_LIMITS_X0: int,
-    REPORT_CHART_LIMITS_X1: int
+    REPORT_CHART_LIMITS_X1: int,
+    REPORT_FILTER_SHOW_HEADER: bool,
+    REPORT_FILTER_FONT_SIZE: int,
 }
 
 COLOUR_INTERVALS = [x / 255 for x in range(36, 250, 24)] + [1.0]
@@ -205,6 +213,15 @@ class Preferences:
             self.__settings.remove(key)
         else:
             self.__settings.setValue(key, value)
+
+    def clear_all(self, prefix):
+        ''' clears all under the given group '''
+        self.__settings.beginGroup(prefix)
+        try:
+            for x in self.__settings.childKeys():
+                self.__settings.remove(x)
+        finally:
+            self.__settings.endGroup()
 
     def clear(self, key):
         '''
