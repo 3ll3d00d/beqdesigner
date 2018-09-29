@@ -1,5 +1,6 @@
 import logging
 import math
+import os
 import tempfile
 from contextlib import contextmanager
 from urllib.parse import urlparse
@@ -18,7 +19,8 @@ from model.preferences import REPORT_TITLE_FONT_SIZE, REPORT_IMAGE_ALPHA, REPORT
     REPORT_FILTER_X0, REPORT_FILTER_X1, REPORT_FILTER_Y0, REPORT_FILTER_Y1, \
     REPORT_LAYOUT_MAJOR_RATIO, REPORT_LAYOUT_MINOR_RATIO, REPORT_CHART_GRID_ALPHA, REPORT_CHART_SHOW_LEGEND, \
     REPORT_GEOMETRY, REPORT_LAYOUT_SPLIT_DIRECTION, REPORT_LAYOUT_TYPE, REPORT_CHART_LIMITS_X0, \
-    REPORT_CHART_LIMITS_X_SCALE, REPORT_CHART_LIMITS_X1
+    REPORT_CHART_LIMITS_X_SCALE, REPORT_CHART_LIMITS_X1, REPORT_FILTER_FONT_SIZE, REPORT_FILTER_SHOW_HEADER, \
+    REPORT_GROUP
 from ui.report import Ui_saveReportDialog
 
 logger = logging.getLogger('report')
@@ -189,14 +191,6 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
                 cell = table.add_cell(0, idx, width=col_width, height=row_height, text=label, loc='center',
                                       edgecolor=ec, **cell_kwargs)
                 cell.set_alpha(self.tableAlpha.value())
-            # https://stackoverflow.com/questions/52566037/is-it-possible-to-customise-the-visible-edges-of-a-matplotlib-table-cell-while-a
-            # breaks the overlaid fill
-            # if idx == 0:
-            #     cell.visible_edges = 'LTB'
-            # elif idx == len(cols) - 1:
-            #     cell.visible_edges = 'RTB'
-            # else:
-            #     cell.visible_edges = 'TB'
         if len(cells) > 0:
             for idx, row in enumerate(cells):
                 for col_idx, cell in enumerate(row):
@@ -204,12 +198,6 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
                                           text=cell, loc='center', edgecolor=ec, **cell_kwargs)
                     cell.PAD = 0.02
                     cell.set_alpha(self.tableAlpha.value())
-                    # edges = 'B'
-                    # if col_idx == 0:
-                    #     edges += 'L'
-                    # elif col_idx == len(cols) - 1:
-                    #     edges += 'R'
-                    # cell.visible_edges = edges
         return table
 
     def __calculate_layout(self):
@@ -413,15 +401,16 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         self.replace_table()
 
     def accept(self):
-        formats = "Portable Network Graphic (*.png)"
-        file_name = QFileDialog(parent=self).getSaveFileName(self, 'Export Report', 'report.png', formats)
+        formats = "Report Files (*.png *.jpg *.pdf)"
+        file_name = QFileDialog.getSaveFileName(parent=self, caption='Export Report', filter=formats)
         if file_name:
             output_file = str(file_name[0]).strip()
             if len(output_file) == 0:
                 return
             else:
                 scale_factor = self.widthPixels.value() / self.__x
-                self.preview.canvas.figure.savefig(output_file, format='png', dpi=self.__dpi * scale_factor)
+                format = os.path.splitext(output_file)[1][1:].strip()
+                self.preview.canvas.figure.savefig(output_file, format=format, dpi=self.__dpi * scale_factor)
                 self.__status_bar.showMessage(f"Saved report to {output_file}", 5000)
         QDialog.accept(self)
 
@@ -447,6 +436,8 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         self.__preferences.set(REPORT_LAYOUT_TYPE, self.chartLayout.currentText())
         self.__preferences.set(REPORT_CHART_GRID_ALPHA, self.gridOpacity.value())
         self.__preferences.set(REPORT_CHART_SHOW_LEGEND, self.showLegend.isChecked())
+        self.__preferences.set(REPORT_FILTER_SHOW_HEADER, self.showTableHeader.isChecked())
+        self.__preferences.set(REPORT_FILTER_FONT_SIZE, self.tableFontSize.value())
         if self.__magnitude_model is not None:
             self.__preferences.set(REPORT_CHART_LIMITS_X0, self.__magnitude_model.limits.x_min)
             self.__preferences.set(REPORT_CHART_LIMITS_X1, self.__magnitude_model.limits.x_max)
@@ -456,22 +447,7 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         '''
         Discards the stored layout in the preferences.
         '''
-        self.__preferences.clear(REPORT_FILTER_ROW_HEIGHT_MULTIPLIER)
-        self.__preferences.clear(REPORT_TITLE_FONT_SIZE)
-        self.__preferences.clear(REPORT_IMAGE_ALPHA)
-        self.__preferences.clear(REPORT_FILTER_X0)
-        self.__preferences.clear(REPORT_FILTER_X1)
-        self.__preferences.clear(REPORT_FILTER_Y0)
-        self.__preferences.clear(REPORT_FILTER_Y1)
-        self.__preferences.clear(REPORT_LAYOUT_MAJOR_RATIO)
-        self.__preferences.clear(REPORT_LAYOUT_MINOR_RATIO)
-        self.__preferences.clear(REPORT_LAYOUT_TYPE)
-        self.__preferences.clear(REPORT_LAYOUT_SPLIT_DIRECTION)
-        self.__preferences.clear(REPORT_CHART_GRID_ALPHA)
-        self.__preferences.clear(REPORT_CHART_SHOW_LEGEND)
-        self.__preferences.clear(REPORT_CHART_LIMITS_X0)
-        self.__preferences.clear(REPORT_CHART_LIMITS_X1)
-        self.__preferences.clear(REPORT_CHART_LIMITS_X_SCALE)
+        self.__preferences.clear_all(REPORT_GROUP)
         self.restore_layout(redraw=True)
 
     def restore_layout(self, redraw=False):
@@ -485,9 +461,10 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
             self.filterRowHeightMultiplier.setValue(self.filterRowHeightMultiplier.value() * 1.85)
         self.filterRowHeightMultiplier.blockSignals(False)
         self.titleFontSize.setValue(self.__preferences.get(REPORT_TITLE_FONT_SIZE))
-        self.tableFontSize.blockSignals(True)
-        self.tableFontSize.setValue(matplotlib.rcParams['font.size'])
-        self.tableFontSize.blockSignals(False)
+        with block_signals(self.tableFontSize):
+            self.tableFontSize.setValue(self.__preferences.get(REPORT_FILTER_FONT_SIZE))
+        with block_signals(self.showTableHeader):
+            self.showTableHeader.setChecked(self.__preferences.get(REPORT_FILTER_SHOW_HEADER))
         self.imageOpacity.setValue(self.__preferences.get(REPORT_IMAGE_ALPHA))
         self.x0.setValue(self.__preferences.get(REPORT_FILTER_X0))
         self.x1.setValue(self.__preferences.get(REPORT_FILTER_X1))
