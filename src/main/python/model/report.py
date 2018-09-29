@@ -1,6 +1,7 @@
 import logging
 import math
 import tempfile
+from contextlib import contextmanager
 from urllib.parse import urlparse
 
 import matplotlib
@@ -60,7 +61,6 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         # init fields
         self.__restore_geometry()
         self.restore_layout(redraw=True)
-        self.filterRowHeightMultiplier.setValue(self.__preferences.get(REPORT_FILTER_ROW_HEIGHT_MULTIPLIER))
 
     def __restore_geometry(self):
         ''' loads the saved window size '''
@@ -123,7 +123,7 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         if self.__imshow_axes is None and self.__image is not None:
             self.__image.set_extent(self.__make_extent(self.__magnitude_model.limits))
 
-    def replace_table(self, draw=True):
+    def replace_table(self, *args, draw=True):
         ''' Adds the table to the axis '''
         table = self.__make_table()
         if table is not None:
@@ -136,9 +136,10 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
             elif self.__magnitude_model is not None:
                 for t in self.__magnitude_model.limits.axes_1.tables:
                     t.remove()
-                self.__magnitude_model.limits.axes_1.add_table(table)
+                tab = self.__magnitude_model.limits.axes_1.add_table(table)
                 self.__magnitude_model.limits.axes_1.spines['top'].set_visible(False)
                 self.__magnitude_model.limits.axes_1.spines['right'].set_visible(False)
+                tab.set_zorder(1000)
             if draw:
                 self.preview.canvas.draw_idle()
 
@@ -162,43 +163,53 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
             # multiplier = 1.2 * 1.85 if not self.__first_create else 1.2
             multiplier = self.filterRowHeightMultiplier.value()
             self.__first_create = False
-            row_height = (matplotlib.rcParams[
-                              'font.size'] / 72.0 * self.preview.canvas.figure.dpi / table_axes.bbox.height * multiplier)
+            row_height = (
+                        self.tableFontSize.value() / 72.0 * self.preview.canvas.figure.dpi / table_axes.bbox.height * multiplier)
             cell_kwargs['facecolor'] = fc
 
             table = Table(table_axes, **table_loc)
+            table.set_zorder(1000)
             self.__add_filters_to_table(table, row_height, cell_kwargs)
+            table.auto_set_font_size(False)
+            table.set_fontsize(self.tableFontSize.value())
             return table
         return None
 
     def __add_filters_to_table(self, table, row_height, cell_kwargs):
         ''' renders the filters as a nicely formatted table '''
-        cols = ('Freq', 'Gain (dB)', 'Q', 'Type', '')
+        cols = ('Freq', 'Gain', 'Q', 'Type', '')
         col_width = 1 / len(cols)
         if 'bbox' in cell_kwargs:
             col_width *= cell_kwargs['bbox'][2]
         cells = [self.__table_print(f) for f in self.__filter_model]
-        for idx, label in enumerate(cols):
-            cell = table.add_cell(0, idx, width=col_width, height=row_height, text=label, loc='center',
-                                  edgecolor=matplotlib.rcParams['axes.edgecolor'], **cell_kwargs)
-            if idx == 0:
-                cell.visible_edges = 'LTB'
-            elif idx == len(cols) - 1:
-                cell.visible_edges = 'RTB'
-            else:
-                cell.visible_edges = 'TB'
+        show_header = self.showTableHeader.isChecked()
+        ec = matplotlib.rcParams['axes.edgecolor']
+        if show_header:
+            for idx, label in enumerate(cols):
+                cell = table.add_cell(0, idx, width=col_width, height=row_height, text=label, loc='center',
+                                      edgecolor=ec, **cell_kwargs)
+                cell.set_alpha(self.tableAlpha.value())
+            # https://stackoverflow.com/questions/52566037/is-it-possible-to-customise-the-visible-edges-of-a-matplotlib-table-cell-while-a
+            # breaks the overlaid fill
+            # if idx == 0:
+            #     cell.visible_edges = 'LTB'
+            # elif idx == len(cols) - 1:
+            #     cell.visible_edges = 'RTB'
+            # else:
+            #     cell.visible_edges = 'TB'
         if len(cells) > 0:
             for idx, row in enumerate(cells):
                 for col_idx, cell in enumerate(row):
-                    cell = table.add_cell(idx + 1, col_idx, width=col_width, height=row_height, text=cell,
-                                          loc='center', edgecolor=matplotlib.rcParams['axes.edgecolor'], **cell_kwargs)
+                    cell = table.add_cell(idx + (1 if show_header else 0), col_idx, width=col_width, height=row_height,
+                                          text=cell, loc='center', edgecolor=ec, **cell_kwargs)
                     cell.PAD = 0.02
-                    edges = 'B'
-                    if col_idx == 0:
-                        edges += 'L'
-                    elif col_idx == len(cols) - 1:
-                        edges += 'R'
-                    cell.visible_edges = edges
+                    cell.set_alpha(self.tableAlpha.value())
+                    # edges = 'B'
+                    # if col_idx == 0:
+                    #     edges += 'L'
+                    # elif col_idx == len(cols) - 1:
+                    #     edges += 'R'
+                    # cell.visible_edges = edges
         return table
 
     def __calculate_layout(self):
@@ -354,25 +365,13 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
     def __init_imshow_axes(self):
         self.__imshow_axes.axis('off')
 
-    def __pretty_print(self, filt):
-        ''' formats the filter into a format suitable for rendering as a string '''
-        txt = f"{filt.freq} Hz "
-        if hasattr(filt, 'gain'):
-            if filt.gain > 0:
-                txt += '+'
-            txt += f"{filt.gain}dB "
-        if hasattr(filt, 'q'):
-            txt += f"Q {filt.q} "
-        txt += f"{filt.filter_type} "
-        if len(filt) > 1:
-            txt += f" x{len(filt)} (Total: {filt.gain * len(filt)} db)"
-        return txt
-
     def __table_print(self, filt):
         ''' formats the filter into a format suitable for rendering in the table '''
-        vals = [str(filt.freq)]
+        header = self.showTableHeader.isChecked()
+        vals = [str(filt.freq) if header else f"{filt.freq} Hz"]
         gain = filt.gain if hasattr(filt, 'gain') else 0
-        vals.append(str(gain)) if gain != 0 else vals.append(str('N/A'))
+        g_suffix = ' dB' if gain != 0 and not header else ''
+        vals.append(f"{gain:+}{g_suffix}" if gain != 0 else vals.append(str('N/A')))
         vals.append(str(filt.q)) if hasattr(filt, 'q') else vals.append(str('N/A'))
         vals.append(str(filt.filter_type))
         if len(filt) > 1:
@@ -480,21 +479,29 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         Restores the saved layout.
         :param redraw: if true, also redraw the report.
         '''
+        self.filterRowHeightMultiplier.blockSignals(True)
         self.filterRowHeightMultiplier.setValue(self.__preferences.get(REPORT_FILTER_ROW_HEIGHT_MULTIPLIER))
         if self.__first_create:
             self.filterRowHeightMultiplier.setValue(self.filterRowHeightMultiplier.value() * 1.85)
+        self.filterRowHeightMultiplier.blockSignals(False)
         self.titleFontSize.setValue(self.__preferences.get(REPORT_TITLE_FONT_SIZE))
+        self.tableFontSize.blockSignals(True)
+        self.tableFontSize.setValue(matplotlib.rcParams['font.size'])
+        self.tableFontSize.blockSignals(False)
         self.imageOpacity.setValue(self.__preferences.get(REPORT_IMAGE_ALPHA))
         self.x0.setValue(self.__preferences.get(REPORT_FILTER_X0))
         self.x1.setValue(self.__preferences.get(REPORT_FILTER_X1))
         self.y0.setValue(self.__preferences.get(REPORT_FILTER_Y0))
         self.y1.setValue(self.__preferences.get(REPORT_FILTER_Y1))
         self.majorSplitRatio.setValue(self.__preferences.get(REPORT_LAYOUT_MAJOR_RATIO))
-        self.minorSplitRatio.setValue(self.__preferences.get(REPORT_LAYOUT_MINOR_RATIO))
+        with block_signals(self.minorSplitRatio):
+            self.minorSplitRatio.setValue(self.__preferences.get(REPORT_LAYOUT_MINOR_RATIO))
         self.__restore_combo(REPORT_LAYOUT_SPLIT_DIRECTION, self.chartSplit)
         self.__restore_combo(REPORT_LAYOUT_TYPE, self.chartLayout)
-        self.gridOpacity.setValue(self.__preferences.get(REPORT_CHART_GRID_ALPHA))
-        self.showLegend.setChecked(self.__preferences.get(REPORT_CHART_SHOW_LEGEND))
+        with block_signals(self.gridOpacity):
+            self.gridOpacity.setValue(self.__preferences.get(REPORT_CHART_GRID_ALPHA))
+        with block_signals(self.showLegend):
+            self.showLegend.setChecked(self.__preferences.get(REPORT_CHART_SHOW_LEGEND))
         if redraw:
             self.redraw_all_axes()
 
@@ -609,3 +616,16 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
                 tmp_file.delete = True
                 name = None
         return name
+
+
+@contextmanager
+def block_signals(widget):
+    '''
+    blocks signals on a given widget
+    :param widget: the widget.
+    '''
+    try:
+        widget.blockSignals(True)
+        yield
+    finally:
+        widget.blockSignals(False)
