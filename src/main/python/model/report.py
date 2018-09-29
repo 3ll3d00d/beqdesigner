@@ -191,14 +191,6 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
                 cell = table.add_cell(0, idx, width=col_width, height=row_height, text=label, loc='center',
                                       edgecolor=ec, **cell_kwargs)
                 cell.set_alpha(self.tableAlpha.value())
-            # https://stackoverflow.com/questions/52566037/is-it-possible-to-customise-the-visible-edges-of-a-matplotlib-table-cell-while-a
-            # breaks the overlaid fill
-            # if idx == 0:
-            #     cell.visible_edges = 'LTB'
-            # elif idx == len(cols) - 1:
-            #     cell.visible_edges = 'RTB'
-            # else:
-            #     cell.visible_edges = 'TB'
         if len(cells) > 0:
             for idx, row in enumerate(cells):
                 for col_idx, cell in enumerate(row):
@@ -206,12 +198,6 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
                                           text=cell, loc='center', edgecolor=ec, **cell_kwargs)
                     cell.PAD = 0.02
                     cell.set_alpha(self.tableAlpha.value())
-                    # edges = 'B'
-                    # if col_idx == 0:
-                    #     edges += 'L'
-                    # elif col_idx == len(cols) - 1:
-                    #     edges += 'R'
-                    # cell.visible_edges = edges
         return table
 
     def __calculate_layout(self):

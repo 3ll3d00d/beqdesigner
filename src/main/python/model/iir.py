@@ -139,8 +139,12 @@ class PeakingEQ(BiquadWithGain):
         super().__init__(fs, freq, q, gain)
 
     @property
+    def filter_type(self):
+        return 'PEQ'
+
+    @property
     def display_name(self):
-        return 'Peak'
+        return 'PEQ'
 
     def _compute_coeffs(self):
         A = 10.0 ** (self.gain / 40.0)
