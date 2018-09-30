@@ -221,7 +221,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
     Add/Edit Filter dialog
     '''
     is_shelf = ['Low Shelf', 'High Shelf']
-    gain_required = is_shelf + ['Peak']
+    gain_required = is_shelf + ['PEQ']
     q_steps = [0.0001, 0.001, 0.01, 0.1]
     gain_steps = [0.1, 1.0]
     freq_steps = [0.1, 1.0, 2.0, 5.0]
@@ -347,7 +347,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         elif self.filterType.currentText() == 'High Shelf':
             return HighShelf(self.__signal.fs, self.freq.value(), self.filterQ.value(), self.filterGain.value(),
                              self.filterCount.value())
-        elif self.filterType.currentText() == 'Peak':
+        elif self.filterType.currentText() == 'PEQ':
             return PeakingEQ(self.__signal.fs, self.freq.value(), self.filterQ.value(), self.filterGain.value())
         elif self.filterType.currentText() == 'Variable Q LPF':
             return SecondOrder_LowPass(self.__signal.fs, self.freq.value(), self.filterQ.value())

@@ -182,7 +182,7 @@ class Ui_editFilterDialog(object):
         self.typeLabel.setText(_translate("editFilterDialog", "Type"))
         self.filterType.setItemText(0, _translate("editFilterDialog", "Low Shelf"))
         self.filterType.setItemText(1, _translate("editFilterDialog", "High Shelf"))
-        self.filterType.setItemText(2, _translate("editFilterDialog", "Peak"))
+        self.filterType.setItemText(2, _translate("editFilterDialog", "PEQ"))
         self.filterType.setItemText(3, _translate("editFilterDialog", "Variable Q LPF"))
         self.filterType.setItemText(4, _translate("editFilterDialog", "Variable Q HPF"))
         self.filterType.setItemText(5, _translate("editFilterDialog", "Low Pass"))

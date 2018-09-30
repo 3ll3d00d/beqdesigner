@@ -76,6 +76,8 @@ REPORT_FILTER_SHOW_HEADER = 'report/filter/show_header'
 REPORT_LAYOUT_MAJOR_RATIO = 'report/layout/major_ratio'
 REPORT_LAYOUT_MINOR_RATIO = 'report/layout/minor_ratio'
 REPORT_LAYOUT_SPLIT_DIRECTION = 'report/layout/split_direction'
+REPORT_LAYOUT_WSPACE = 'report/layout/wspace'
+REPORT_LAYOUT_HSPACE = 'report/layout/hspace'
 REPORT_LAYOUT_TYPE = 'report/layout/type'
 REPORT_CHART_GRID_ALPHA = 'report/chart/grid_alpha'
 REPORT_CHART_SHOW_LEGEND = 'report/chart/show_legend'
@@ -121,7 +123,9 @@ DEFAULT_PREFS = {
     REPORT_CHART_LIMITS_X1: 160,
     REPORT_CHART_LIMITS_X_SCALE: 'linear',
     REPORT_FILTER_SHOW_HEADER: True,
-    REPORT_FILTER_FONT_SIZE: matplotlib.rcParams['font.size']
+    REPORT_FILTER_FONT_SIZE: matplotlib.rcParams['font.size'],
+    REPORT_LAYOUT_HSPACE: matplotlib.rcParams['figure.subplot.hspace'],
+    REPORT_LAYOUT_WSPACE: matplotlib.rcParams['figure.subplot.wspace']
 }
 
 TYPES = {
@@ -138,6 +142,8 @@ TYPES = {
     REPORT_FILTER_Y1: float,
     REPORT_LAYOUT_MAJOR_RATIO: float,
     REPORT_LAYOUT_MINOR_RATIO: float,
+    REPORT_LAYOUT_HSPACE: float,
+    REPORT_LAYOUT_WSPACE: float,
     REPORT_CHART_GRID_ALPHA: float,
     REPORT_CHART_SHOW_LEGEND: bool,
     REPORT_CHART_LIMITS_X0: int,
@@ -217,11 +223,8 @@ class Preferences:
     def clear_all(self, prefix):
         ''' clears all under the given group '''
         self.__settings.beginGroup(prefix)
-        try:
-            for x in self.__settings.childKeys():
-                self.__settings.remove(x)
-        finally:
-            self.__settings.endGroup()
+        self.__settings.remove('')
+        self.__settings.endGroup()
 
     def clear(self, key):
         '''
