@@ -8,11 +8,13 @@ from urllib.parse import urlparse
 import matplotlib
 import qtawesome as qta
 import requests
+from PIL import Image
 from matplotlib.gridspec import GridSpec
 from matplotlib.image import imread
 from matplotlib.table import Table
-from qtpy.QtCore import Qt
-from qtpy.QtWidgets import QListWidgetItem, QDialog, QFileDialog, QDialogButtonBox
+from matplotlib.ticker import NullLocator
+from qtpy.QtCore import Qt, QSize
+from qtpy.QtWidgets import QDesktopWidget, QListWidgetItem, QDialog, QFileDialog, QDialogButtonBox
 
 from model.magnitude import MagnitudeModel
 from model.preferences import REPORT_TITLE_FONT_SIZE, REPORT_IMAGE_ALPHA, REPORT_FILTER_ROW_HEIGHT_MULTIPLIER, \
@@ -20,7 +22,7 @@ from model.preferences import REPORT_TITLE_FONT_SIZE, REPORT_IMAGE_ALPHA, REPORT
     REPORT_LAYOUT_MAJOR_RATIO, REPORT_LAYOUT_MINOR_RATIO, REPORT_CHART_GRID_ALPHA, REPORT_CHART_SHOW_LEGEND, \
     REPORT_GEOMETRY, REPORT_LAYOUT_SPLIT_DIRECTION, REPORT_LAYOUT_TYPE, REPORT_CHART_LIMITS_X0, \
     REPORT_CHART_LIMITS_X_SCALE, REPORT_CHART_LIMITS_X1, REPORT_FILTER_FONT_SIZE, REPORT_FILTER_SHOW_HEADER, \
-    REPORT_GROUP
+    REPORT_GROUP, REPORT_LAYOUT_WSPACE, REPORT_LAYOUT_HSPACE
 from ui.report import Ui_saveReportDialog
 
 logger = logging.getLogger('report')
@@ -37,6 +39,7 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         self.__first_create = True
         self.__magnitude_model = None
         self.__imshow_axes = None
+        self.__pixel_perfect_mode = False
         self.__filter_axes = None
         self.__image = None
         self.__dpi = None
@@ -59,10 +62,12 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         self.buttonBox.button(QDialogButtonBox.RestoreDefaults).clicked.connect(self.discard_layout)
         for xy in self.__xy_data:
             self.curves.addItem(QListWidgetItem(xy.name, self.curves))
+        self.curves.selectAll()
         self.preview.canvas.mpl_connect('resize_event', self.__canvas_size_to_xy)
         # init fields
         self.__restore_geometry()
         self.restore_layout(redraw=True)
+        self.__record_image_size()
 
     def __restore_geometry(self):
         ''' loads the saved window size '''
@@ -84,7 +89,6 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
     def redraw_all_axes(self):
         ''' Draws all charts. '''
         self.preview.canvas.figure.clear()
-        self.preview.canvas.figure.tight_layout()
         image_spec, chart_spec, filter_spec = self.__calculate_layout()
         if image_spec is not None:
             self.__imshow_axes = self.preview.canvas.figure.add_subplot(image_spec)
@@ -116,6 +120,7 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         self.set_title(draw=False)
         self.apply_image(draw=False)
         self.preview.canvas.draw_idle()
+        self.__record_image_size()
 
     def on_redraw(self):
         '''
@@ -166,7 +171,7 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
             multiplier = self.filterRowHeightMultiplier.value()
             self.__first_create = False
             row_height = (
-                        self.tableFontSize.value() / 72.0 * self.preview.canvas.figure.dpi / table_axes.bbox.height * multiplier)
+                    self.tableFontSize.value() / 72.0 * self.preview.canvas.figure.dpi / table_axes.bbox.height * multiplier)
             cell_kwargs['facecolor'] = fc
 
             table = Table(table_axes, **table_loc)
@@ -179,7 +184,7 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
 
     def __add_filters_to_table(self, table, row_height, cell_kwargs):
         ''' renders the filters as a nicely formatted table '''
-        cols = ('Freq', 'Gain', 'Q', 'Type', '')
+        cols = ('Freq', 'Gain', 'Q', 'Type', 'Total')
         col_width = 1 / len(cols)
         if 'bbox' in cell_kwargs:
             col_width *= cell_kwargs['bbox'][2]
@@ -298,7 +303,32 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
             chart_spec, image_spec = self.__get_two_pane_spec()
         elif layout == "Image | Chart":
             image_spec, chart_spec = self.__get_two_pane_spec()
+        elif layout == "Pixel Perfect Image | Chart":
+            gs = GridSpec(1, 1, wspace=self.widthSpacing.value(), hspace=self.heightSpacing.value())
+            chart_spec = gs.new_subplotspec((0, 0), 1, 1)
+            self.__prepare_for_pixel_perfect()
         return image_spec, chart_spec, filter_spec
+
+    def __prepare_for_pixel_perfect(self):
+        ''' puts the report into pixel perfect mode which means honour the image size. '''
+        self.__pixel_perfect_mode = True
+        self.widthSpacing.setValue(0.0)
+        self.heightSpacing.setValue(0.0)
+        self.__record_image_size()
+
+    def __honour_image_aspect_ratio(self):
+        ''' resizes the window to fit the image aspect ratio based on the chart size '''
+        if len(self.image.text()) > 0:
+            width, height = Image.open(self.image.text()).size
+            width_delta = width - self.__x
+            height_delta = height - self.__y
+            if width_delta != 0 or height_delta != 0:
+                win_size = self.size()
+                target_size = QSize(win_size.width() + width_delta, win_size.height() + height_delta)
+                available_size = QDesktopWidget().availableGeometry()
+                if available_size.width() < target_size.width() or available_size.height() < target_size.height():
+                    target_size.scale(available_size.width() - 48, available_size.height() - 48, Qt.KeepAspectRatio)
+                self.resize(target_size)
 
     def __get_one_pane_two_pane_spec(self):
         '''
@@ -307,12 +337,14 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         major_ratio = [self.majorSplitRatio.value(), 1]
         minor_ratio = [self.minorSplitRatio.value(), 1]
         if self.chartSplit.currentText() == 'Horizontal':
-            gs = GridSpec(2, 2, width_ratios=major_ratio, height_ratios=minor_ratio)
+            gs = GridSpec(2, 2, width_ratios=major_ratio, height_ratios=minor_ratio,
+                          wspace=self.widthSpacing.value(), hspace=self.heightSpacing.value())
             spec_1 = gs.new_subplotspec((0, 0), 2, 1)
             spec_2 = gs.new_subplotspec((0, 1), 1, 1)
             spec_3 = gs.new_subplotspec((1, 1), 1, 1)
         else:
-            gs = GridSpec(2, 2, width_ratios=minor_ratio, height_ratios=major_ratio)
+            gs = GridSpec(2, 2, width_ratios=minor_ratio, height_ratios=major_ratio,
+                          wspace=self.widthSpacing.value(), hspace=self.heightSpacing.value())
             spec_1 = gs.new_subplotspec((0, 0), 1, 2)
             spec_2 = gs.new_subplotspec((1, 0), 1, 1)
             spec_3 = gs.new_subplotspec((1, 1), 1, 1)
@@ -325,12 +357,14 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         major_ratio = [self.majorSplitRatio.value(), 1]
         minor_ratio = [self.minorSplitRatio.value(), 1]
         if self.chartSplit.currentText() == 'Horizontal':
-            gs = GridSpec(2, 2, width_ratios=major_ratio, height_ratios=minor_ratio)
+            gs = GridSpec(2, 2, width_ratios=major_ratio, height_ratios=minor_ratio,
+                          wspace=self.widthSpacing.value(), hspace=self.heightSpacing.value())
             spec_1 = gs.new_subplotspec((0, 0), 1, 1)
             spec_2 = gs.new_subplotspec((1, 0), 1, 1)
             spec_3 = gs.new_subplotspec((0, 1), 2, 1)
         else:
-            gs = GridSpec(2, 2, width_ratios=minor_ratio, height_ratios=major_ratio)
+            gs = GridSpec(2, 2, width_ratios=minor_ratio, height_ratios=major_ratio,
+                          wspace=self.widthSpacing.value(), hspace=self.heightSpacing.value())
             spec_1 = gs.new_subplotspec((0, 0), 1, 1)
             spec_2 = gs.new_subplotspec((0, 1), 1, 1)
             spec_3 = gs.new_subplotspec((1, 0), 2, 1)
@@ -341,17 +375,25 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         :return: layout spec with two panes containing an axes in each.
         '''
         if self.chartSplit.currentText() == 'Horizontal':
-            gs = GridSpec(1, 2, width_ratios=[self.majorSplitRatio.value(), 1])
+            gs = GridSpec(1, 2, width_ratios=[self.majorSplitRatio.value(), 1],
+                          wspace=self.widthSpacing.value(), hspace=self.heightSpacing.value())
             spec_1 = gs.new_subplotspec((0, 0), 1, 1)
             spec_2 = gs.new_subplotspec((0, 1), 1, 1)
         else:
-            gs = GridSpec(2, 1, height_ratios=[self.majorSplitRatio.value(), 1])
+            gs = GridSpec(2, 1, height_ratios=[self.majorSplitRatio.value(), 1],
+                          wspace=self.widthSpacing.value(), hspace=self.heightSpacing.value())
             spec_1 = gs.new_subplotspec((0, 0), 1, 1)
             spec_2 = gs.new_subplotspec((1, 0), 1, 1)
         return spec_1, spec_2
 
     def __init_imshow_axes(self):
-        self.__imshow_axes.axis('off')
+        if self.__imshow_axes is not None:
+            if self.imageBorder.isChecked():
+                self.__imshow_axes.axis('on')
+                self.__imshow_axes.get_xaxis().set_major_locator(NullLocator())
+                self.__imshow_axes.get_yaxis().set_major_locator(NullLocator())
+            else:
+                self.__imshow_axes.axis('off')
 
     def __table_print(self, filt):
         ''' formats the filter into a format suitable for rendering in the table '''
@@ -361,23 +403,26 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         g_suffix = ' dB' if gain != 0 and not header else ''
         vals.append(f"{gain:+}{g_suffix}" if gain != 0 else vals.append(str('N/A')))
         vals.append(str(filt.q)) if hasattr(filt, 'q') else vals.append(str('N/A'))
-        vals.append(str(filt.filter_type))
+        filter_type = filt.filter_type
         if len(filt) > 1:
-            vals.append(f"x{len(filt)}")
+            filter_type += f" x{len(filt)}"
+        vals.append(filter_type)
+        if gain != 0 and len(filt) > 1:
+            vals.append(f"{len(filt)*gain:+}{g_suffix}")
         else:
             vals.append('')
         return vals
 
     def getMagnitudeData(self, reference=None):
+        ''' feeds the magnitude model with data '''
         return self.__selected_xy
 
     def set_selected(self):
-        '''
-        Updates the selected curves and redraws.
-        '''
+        ''' Updates the selected curves and redraws. '''
         selected = [x.text() for x in self.curves.selectedItems()]
         self.__selected_xy = [x for x in self.__xy_data if x.name in selected]
-        self.redraw()
+        if self.__magnitude_model is not None:
+            self.redraw()
 
     def set_title(self, draw=True):
         ''' sets the title text '''
@@ -391,16 +436,37 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
             self.preview.canvas.draw_idle()
 
     def redraw(self):
-        '''
-        triggers a redraw.
-        '''
+        ''' triggers a redraw. '''
         self.__magnitude_model.redraw()
 
     def resizeEvent(self, resizeEvent):
+        '''
+        replaces the replace and updates axis sizes when the window resizes.
+        :param resizeEvent: the event.
+        '''
         super().resizeEvent(resizeEvent)
         self.replace_table()
+        self.__record_image_size()
+
+    def __record_image_size(self):
+        ''' displays the image size on the form. '''
+        if self.__image is None or self.__pixel_perfect_mode:
+            self.imageWidthPixels.setValue(0)
+            self.imageHeightPixels.setValue(0)
+        else:
+            width, height = get_ax_size(self.__image)
+            self.imageWidthPixels.setValue(width)
+            self.imageHeightPixels.setValue(height)
 
     def accept(self):
+        ''' saves the report '''
+        if self.__pixel_perfect_mode:
+            self.__save_pixel_perfect()
+        else:
+            self.__save_report()
+
+    def __save_report(self):
+        ''' writes the figure to the specified format '''
         formats = "Report Files (*.png *.jpg *.pdf)"
         file_name = QFileDialog.getSaveFileName(parent=self, caption='Export Report', filter=formats)
         if file_name:
@@ -408,11 +474,47 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
             if len(output_file) == 0:
                 return
             else:
-                scale_factor = self.widthPixels.value() / self.__x
                 format = os.path.splitext(output_file)[1][1:].strip()
-                self.preview.canvas.figure.savefig(output_file, format=format, dpi=self.__dpi * scale_factor)
-                self.__status_bar.showMessage(f"Saved report to {output_file}", 5000)
-        QDialog.accept(self)
+                if format:
+                    scale_factor = self.widthPixels.value() / self.__x
+                    from app import wait_cursor
+                    with wait_cursor():
+                        self.__status_bar.showMessage(f"Saving report to {output_file}", 5000)
+                        self.preview.canvas.figure.savefig(output_file, format=format, dpi=self.__dpi * scale_factor,
+                                                           pad_inches=0, bbox_inches='tight')
+                        self.__status_bar.showMessage(f"Saved report to {output_file}", 5000)
+
+    def __save_pixel_perfect(self):
+        ''' saves an image based on passing the image through directly '''
+        image_format = os.path.splitext(self.image.text())[1][1:].strip()
+        formats = f"Report File (*.{image_format})"
+        file_name = QFileDialog.getSaveFileName(parent=self, caption='Export Report', filter=formats)
+        if file_name:
+            output_file = str(file_name[0]).strip()
+            if len(output_file) == 0:
+                return
+            else:
+                format = os.path.splitext(output_file)[1][1:].strip()
+                from app import wait_cursor
+                with wait_cursor():
+                    scale_factor = self.nativeImageWidth.value() / self.widthPixels.value()
+                    self.__status_bar.showMessage(f"Saving report to {output_file}", 5000)
+                    self.preview.canvas.figure.savefig(output_file, format=format, dpi=self.__dpi * scale_factor)
+                    self.__concat_images(format, output_file)
+                    self.__status_bar.showMessage(f"Saved report to {output_file}", 5000)
+
+    def __concat_images(self, format, output_file):
+        ''' cats 2 images vertically '''
+        im_image = Image.open(self.image.text())
+        mp_image = Image.open(output_file)
+        final_image = Image.new(im_image.mode, (im_image.size[0], im_image.size[1] + mp_image.size[1]))
+        final_image.paste(im_image, (0, 0))
+        final_image.paste(mp_image, (0, im_image.size[1]))
+        more_args = {}
+        if format == 'jpg' or format == 'jpeg':
+            more_args['subsampling'] = 0
+            more_args['quality'] = 95
+        final_image.save(output_file, **more_args)
 
     def closeEvent(self, QCloseEvent):
         ''' Stores the window size on close '''
@@ -438,6 +540,8 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         self.__preferences.set(REPORT_CHART_SHOW_LEGEND, self.showLegend.isChecked())
         self.__preferences.set(REPORT_FILTER_SHOW_HEADER, self.showTableHeader.isChecked())
         self.__preferences.set(REPORT_FILTER_FONT_SIZE, self.tableFontSize.value())
+        self.__preferences.set(REPORT_LAYOUT_HSPACE, self.heightSpacing.value())
+        self.__preferences.set(REPORT_LAYOUT_WSPACE, self.widthSpacing.value())
         if self.__magnitude_model is not None:
             self.__preferences.set(REPORT_CHART_LIMITS_X0, self.__magnitude_model.limits.x_min)
             self.__preferences.set(REPORT_CHART_LIMITS_X1, self.__magnitude_model.limits.x_max)
@@ -479,6 +583,10 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
             self.gridOpacity.setValue(self.__preferences.get(REPORT_CHART_GRID_ALPHA))
         with block_signals(self.showLegend):
             self.showLegend.setChecked(self.__preferences.get(REPORT_CHART_SHOW_LEGEND))
+        with block_signals(self.widthSpacing):
+            self.widthSpacing.setValue(self.__preferences.get(REPORT_LAYOUT_WSPACE))
+        with block_signals(self.heightSpacing):
+            self.heightSpacing.setValue(self.__preferences.get(REPORT_LAYOUT_HSPACE))
         if redraw:
             self.redraw_all_axes()
 
@@ -501,7 +609,7 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         Pick an image and display it.
         '''
         image = QFileDialog.getOpenFileName(parent=self, caption='Choose Image',
-                                            filter='Images (*.png, *.jpeg, *.jpg)')
+                                            filter='Images (*.png *.jpeg *.jpg)')
         img_file = image[0] if image is not None and len(image) > 0 else None
         self.image.setText(img_file)
         self.apply_image()
@@ -514,11 +622,15 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         img_file = self.image.text()
         if len(img_file) > 0:
             im = imread(img_file)
+            self.nativeImageWidth.setValue(im.shape[1])
+            self.nativeImageHeight.setValue(im.shape[0])
             if self.__imshow_axes is None:
-                if self.__magnitude_model is not None:
+                if self.__magnitude_model is not None and not self.__pixel_perfect_mode:
                     extent = self.__make_extent(self.__magnitude_model.limits)
                     self.__image = self.__magnitude_model.limits.axes_1.imshow(im, extent=extent,
                                                                                alpha=self.imageOpacity.value())
+                if self.__pixel_perfect_mode:
+                    self.__honour_image_aspect_ratio()
             else:
                 self.__image = self.__imshow_axes.imshow(im, alpha=self.imageOpacity.value())
         else:
@@ -526,11 +638,14 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
                 if self.__image is not None:
                     pass
             else:
+                self.nativeImageWidth.setValue(0)
+                self.nativeImageHeight.setValue(0)
                 self.__imshow_axes.clear()
                 self.__init_imshow_axes()
         self.set_title()
         if draw:
             self.preview.canvas.draw_idle()
+            self.__record_image_size()
 
     def __make_extent(self, limits):
         return limits.x_min, limits.x_max, limits.y1_min, limits.y1_max
@@ -550,6 +665,13 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         if self.__image is not None:
             self.__image.set_alpha(value)
             self.preview.canvas.draw_idle()
+
+    def set_image_border(self):
+        ''' adds or removes the image border '''
+        if self.__imshow_axes is not None:
+            self.__init_imshow_axes()
+            self.preview.canvas.draw_idle()
+            self.__record_image_size()
 
     def set_grid_opacity(self, value):
         ''' updates the grid alpha '''
@@ -583,7 +705,12 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         Attempts to download the image.
         :return: the filename containing the downloaded data.
         '''
-        tmp_file = tempfile.NamedTemporaryFile(delete=False)
+        url_file_type = None
+        try:
+            url_file_type = os.path.splitext(self.imageURL.text())[1].strip()
+        except:
+            pass
+        tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=url_file_type)
         with open(tmp_file.name, 'wb') as f:
             try:
                 f.write(requests.get(self.imageURL.text()).content)
@@ -606,3 +733,15 @@ def block_signals(widget):
         yield
     finally:
         widget.blockSignals(False)
+
+
+def get_ax_size(ax):
+    '''
+    :param ax: the axis.
+    :return: width, height in pixels.
+    '''
+    bbox = ax.get_window_extent().transformed(ax.figure.dpi_scale_trans.inverted())
+    width, height = bbox.width, bbox.height
+    width *= ax.figure.dpi
+    height *= ax.figure.dpi
+    return width, height
