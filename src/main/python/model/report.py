@@ -59,6 +59,7 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         self.buttonBox.button(QDialogButtonBox.RestoreDefaults).clicked.connect(self.discard_layout)
         for xy in self.__xy_data:
             self.curves.addItem(QListWidgetItem(xy.name, self.curves))
+        self.curves.selectAll()
         self.preview.canvas.mpl_connect('resize_event', self.__canvas_size_to_xy)
         # init fields
         self.__restore_geometry()
@@ -377,7 +378,8 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         '''
         selected = [x.text() for x in self.curves.selectedItems()]
         self.__selected_xy = [x for x in self.__xy_data if x.name in selected]
-        self.redraw()
+        if self.__magnitude_model is not None:
+            self.redraw()
 
     def set_title(self, draw=True):
         ''' sets the title text '''
