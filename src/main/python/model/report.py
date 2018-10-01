@@ -14,7 +14,7 @@ from matplotlib.image import imread
 from matplotlib.table import Table
 from matplotlib.ticker import NullLocator
 from qtpy.QtCore import Qt, QSize
-from qtpy.QtWidgets import QDesktopWidget, QListWidgetItem, QDialog, QFileDialog, QDialogButtonBox
+from qtpy.QtWidgets import QDesktopWidget, QListWidgetItem, QDialog, QFileDialog, QDialogButtonBox, QMessageBox
 
 from model.magnitude import MagnitudeModel
 from model.preferences import REPORT_TITLE_FONT_SIZE, REPORT_IMAGE_ALPHA, REPORT_FILTER_ROW_HEIGHT_MULTIPLIER, \
@@ -24,6 +24,8 @@ from model.preferences import REPORT_TITLE_FONT_SIZE, REPORT_IMAGE_ALPHA, REPORT
     REPORT_CHART_LIMITS_X_SCALE, REPORT_CHART_LIMITS_X1, REPORT_FILTER_FONT_SIZE, REPORT_FILTER_SHOW_HEADER, \
     REPORT_GROUP, REPORT_LAYOUT_WSPACE, REPORT_LAYOUT_HSPACE
 from ui.report import Ui_saveReportDialog
+
+VALID_IMG_FORMATS = ['jpg', 'jpeg', 'png']
 
 logger = logging.getLogger('report')
 
@@ -59,6 +61,8 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         self.saveLayout.setIcon(qta.icon('fa.floppy-o'))
         self.loadURL.setIcon(qta.icon('fa.download'))
         self.loadURL.setEnabled(False)
+        self.snapToImageSize.setIcon(qta.icon('fa.expand'))
+        self.snapToImageSize.setEnabled(False)
         self.buttonBox.button(QDialogButtonBox.RestoreDefaults).clicked.connect(self.discard_layout)
         for xy in self.__xy_data:
             self.curves.addItem(QListWidgetItem(xy.name, self.curves))
@@ -467,7 +471,7 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
 
     def __save_report(self):
         ''' writes the figure to the specified format '''
-        formats = "Report Files (*.png *.jpg *.pdf)"
+        formats = "Report Files (*.png *.jpg *.jpeg)"
         file_name = QFileDialog.getSaveFileName(parent=self, caption='Export Report', filter=formats)
         if file_name:
             output_file = str(file_name[0]).strip()
@@ -475,7 +479,7 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
                 return
             else:
                 format = os.path.splitext(output_file)[1][1:].strip()
-                if format:
+                if format in VALID_IMG_FORMATS:
                     scale_factor = self.widthPixels.value() / self.__x
                     from app import wait_cursor
                     with wait_cursor():
@@ -483,30 +487,45 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
                         self.preview.canvas.figure.savefig(output_file, format=format, dpi=self.__dpi * scale_factor,
                                                            pad_inches=0, bbox_inches='tight')
                         self.__status_bar.showMessage(f"Saved report to {output_file}", 5000)
+                else:
+                    msg_box = QMessageBox()
+                    msg_box.setText(f"Invalid output file format - {output_file} is not one of {VALID_IMG_FORMATS}")
+                    msg_box.setIcon(QMessageBox.Critical)
+                    msg_box.setWindowTitle('Unexpected Error')
+                    msg_box.exec()
 
     def __save_pixel_perfect(self):
         ''' saves an image based on passing the image through directly '''
-        image_format = os.path.splitext(self.image.text())[1][1:].strip()
-        formats = f"Report File (*.{image_format})"
-        file_name = QFileDialog.getSaveFileName(parent=self, caption='Export Report', filter=formats)
+        file_name = QFileDialog.getSaveFileName(parent=self, caption='Export Report',
+                                                filter='Report File (*.jpg *.png *.jpeg)')
         if file_name:
             output_file = str(file_name[0]).strip()
             if len(output_file) == 0:
                 return
             else:
                 format = os.path.splitext(output_file)[1][1:].strip()
-                from app import wait_cursor
-                with wait_cursor():
-                    scale_factor = self.nativeImageWidth.value() / self.widthPixels.value()
-                    self.__status_bar.showMessage(f"Saving report to {output_file}", 5000)
-                    self.preview.canvas.figure.savefig(output_file, format=format, dpi=self.__dpi * scale_factor)
-                    self.__concat_images(format, output_file)
-                    self.__status_bar.showMessage(f"Saved report to {output_file}", 5000)
+                if format in VALID_IMG_FORMATS:
+                    from app import wait_cursor
+                    with wait_cursor():
+                        self.__status_bar.showMessage(f"Saving report to {output_file}", 5000)
+                        self.preview.canvas.figure.savefig(output_file, format=format, dpi=self.__dpi)
+                        self.__concat_images(format, output_file)
+                        self.__status_bar.showMessage(f"Saved report to {output_file}", 5000)
+                else:
+                    msg_box = QMessageBox()
+                    msg_box.setText(f"Invalid output file format - {output_file} is not one of {VALID_IMG_FORMATS}")
+                    msg_box.setIcon(QMessageBox.Critical)
+                    msg_box.setWindowTitle('Unexpected Error')
+                    msg_box.exec()
 
     def __concat_images(self, format, output_file):
         ''' cats 2 images vertically '''
         im_image = Image.open(self.image.text())
         mp_image = Image.open(output_file)
+        if im_image.size[0] != mp_image.size[0]:
+            new_height = round(im_image.size[1] * (mp_image.size[0]/im_image.size[0]))
+            logger.debug(f"Resizing from {im_image.size} to match {mp_image.size}, new height {new_height}")
+            im_image = im_image.resize((mp_image.size[0], new_height), Image.LANCZOS)
         final_image = Image.new(im_image.mode, (im_image.size[0], im_image.size[1] + mp_image.size[1]))
         final_image.paste(im_image, (0, 0))
         final_image.paste(mp_image, (0, im_image.size[1]))
@@ -624,16 +643,16 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
             im = imread(img_file)
             self.nativeImageWidth.setValue(im.shape[1])
             self.nativeImageHeight.setValue(im.shape[0])
+            self.snapToImageSize.setEnabled(True)
             if self.__imshow_axes is None:
                 if self.__magnitude_model is not None and not self.__pixel_perfect_mode:
                     extent = self.__make_extent(self.__magnitude_model.limits)
                     self.__image = self.__magnitude_model.limits.axes_1.imshow(im, extent=extent,
                                                                                alpha=self.imageOpacity.value())
-                if self.__pixel_perfect_mode:
-                    self.__honour_image_aspect_ratio()
             else:
                 self.__image = self.__imshow_axes.imshow(im, alpha=self.imageOpacity.value())
         else:
+            self.snapToImageSize.setEnabled(False)
             if self.__imshow_axes is None:
                 if self.__image is not None:
                     pass
@@ -720,6 +739,10 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
                 tmp_file.delete = True
                 name = None
         return name
+
+    def snap_to_image_size(self):
+        ''' Snaps the dialog size to the image size. '''
+        self.__honour_image_aspect_ratio()
 
 
 @contextmanager
