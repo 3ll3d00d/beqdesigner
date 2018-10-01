@@ -401,14 +401,14 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         vals = [str(filt.freq) if header else f"{filt.freq} Hz"]
         gain = filt.gain if hasattr(filt, 'gain') else 0
         g_suffix = ' dB' if gain != 0 and not header else ''
-        vals.append(f"{gain:+}{g_suffix}" if gain != 0 else vals.append(str('N/A')))
+        vals.append(f"{gain:+g}{g_suffix}" if gain != 0 else vals.append(str('N/A')))
         vals.append(str(filt.q)) if hasattr(filt, 'q') else vals.append(str('N/A'))
         filter_type = filt.filter_type
         if len(filt) > 1:
             filter_type += f" x{len(filt)}"
         vals.append(filter_type)
         if gain != 0 and len(filt) > 1:
-            vals.append(f"{len(filt)*gain:+}{g_suffix}")
+            vals.append(f"{len(filt)*gain:+g}{g_suffix}")
         else:
             vals.append('')
         return vals
