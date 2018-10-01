@@ -9,7 +9,7 @@ a = Analysis(['src/main/python/app.py'],
                 ('src/main/icons/Icon.ico', '.'),
                 ('/home/matt/python/beq/lib/python3.6/site-packages/resampy/data/kaiser_fast.npz', '_resampy_filters'),
                 ('src/main/python/style', 'style'),
-                ('src\\main\\python\\VERSION', '.')
+                ('src/main/python/VERSION', '.')
              ],
              hiddenimports=[],
              hookspath=[],

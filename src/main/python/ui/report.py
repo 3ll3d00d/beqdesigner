@@ -11,12 +11,14 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_saveReportDialog(object):
     def setupUi(self, saveReportDialog):
         saveReportDialog.setObjectName("saveReportDialog")
-        saveReportDialog.resize(1532, 1145)
+        saveReportDialog.resize(1530, 1145)
         self.gridLayout_2 = QtWidgets.QGridLayout(saveReportDialog)
         self.gridLayout_2.setObjectName("gridLayout_2")
         self.horizontalLayout = QtWidgets.QHBoxLayout()
+        self.horizontalLayout.setSpacing(0)
         self.horizontalLayout.setObjectName("horizontalLayout")
         self.gridLayout = QtWidgets.QGridLayout()
+        self.gridLayout.setSizeConstraint(QtWidgets.QLayout.SetDefaultConstraint)
         self.gridLayout.setObjectName("gridLayout")
         self.widthSpacing = QtWidgets.QDoubleSpinBox(saveReportDialog)
         self.widthSpacing.setMaximum(1.0)
@@ -351,6 +353,9 @@ class Ui_saveReportDialog(object):
         self.heightSpacing.setSingleStep(0.01)
         self.heightSpacing.setObjectName("heightSpacing")
         self.gridLayout.addWidget(self.heightSpacing, 25, 1, 1, 1)
+        self.snapToImageSize = QtWidgets.QToolButton(saveReportDialog)
+        self.snapToImageSize.setObjectName("snapToImageSize")
+        self.gridLayout.addWidget(self.snapToImageSize, 23, 2, 1, 1)
         self.horizontalLayout.addLayout(self.gridLayout)
         self.preview = MplWidget(saveReportDialog)
         self.preview.setObjectName("preview")
@@ -391,6 +396,7 @@ class Ui_saveReportDialog(object):
         self.imageBorder.clicked.connect(saveReportDialog.set_image_border)
         self.widthSpacing.valueChanged['double'].connect(saveReportDialog.redraw_all_axes)
         self.heightSpacing.valueChanged['double'].connect(saveReportDialog.redraw_all_axes)
+        self.snapToImageSize.clicked.connect(saveReportDialog.snap_to_image_size)
         QtCore.QMetaObject.connectSlotsByName(saveReportDialog)
         saveReportDialog.setTabOrder(self.imagePicker, self.imageURL)
         saveReportDialog.setTabOrder(self.imageURL, self.loadURL)
@@ -467,5 +473,6 @@ class Ui_saveReportDialog(object):
         self.chartLayout.setItemText(16, _translate("saveReportDialog", "Pixel Perfect Image | Chart"))
         self.label_5.setText(_translate("saveReportDialog", "x"))
         self.label_8.setText(_translate("saveReportDialog", "Height Spacing"))
+        self.snapToImageSize.setText(_translate("saveReportDialog", "..."))
 
 from mpl import MplWidget
