@@ -497,27 +497,34 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
 
     def __save_pixel_perfect(self):
         ''' saves an image based on passing the image through directly '''
-        file_name = QFileDialog.getSaveFileName(parent=self, caption='Export Report',
-                                                filter='Report File (*.jpg *.png *.jpeg)')
-        if file_name:
-            output_file = str(file_name[0]).strip()
-            if len(output_file) == 0:
-                return
-            else:
-                format = os.path.splitext(output_file)[1][1:].strip()
-                if format in VALID_IMG_FORMATS:
-                    from app import wait_cursor
-                    with wait_cursor():
-                        self.__status_bar.showMessage(f"Saving report to {output_file}", 5000)
-                        self.preview.canvas.figure.savefig(output_file, format=format, dpi=self.__dpi)
-                        if self.__concat_images(format, output_file):
-                            self.__status_bar.showMessage(f"Saved report to {output_file}", 5000)
+        if len(self.image.text()) > 0:
+            file_name = QFileDialog.getSaveFileName(parent=self, caption='Export Report',
+                                                    filter='Report File (*.jpg *.png *.jpeg)')
+            if file_name:
+                output_file = str(file_name[0]).strip()
+                if len(output_file) == 0:
+                    return
                 else:
-                    msg_box = QMessageBox()
-                    msg_box.setText(f"Invalid output file format - {output_file} is not one of {VALID_IMG_FORMATS}")
-                    msg_box.setIcon(QMessageBox.Critical)
-                    msg_box.setWindowTitle('Unexpected Error')
-                    msg_box.exec()
+                    format = os.path.splitext(output_file)[1][1:].strip()
+                    if format in VALID_IMG_FORMATS:
+                        from app import wait_cursor
+                        with wait_cursor():
+                            self.__status_bar.showMessage(f"Saving report to {output_file}", 5000)
+                            self.preview.canvas.figure.savefig(output_file, format=format, dpi=self.__dpi)
+                            if self.__concat_images(format, output_file):
+                                self.__status_bar.showMessage(f"Saved report to {output_file}", 5000)
+                    else:
+                        msg_box = QMessageBox()
+                        msg_box.setText(f"Invalid output file format - {output_file} is not one of {VALID_IMG_FORMATS}")
+                        msg_box.setIcon(QMessageBox.Critical)
+                        msg_box.setWindowTitle('Unexpected Error')
+                        msg_box.exec()
+        else:
+            msg_box = QMessageBox()
+            msg_box.setText('Unable to create report, no image selected')
+            msg_box.setIcon(QMessageBox.Information)
+            msg_box.setWindowTitle('No Image')
+            msg_box.exec()
 
     def __concat_images(self, format, output_file):
         ''' cats 2 images vertically '''
