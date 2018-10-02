@@ -92,6 +92,8 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
 
     def redraw_all_axes(self):
         ''' Draws all charts. '''
+        # have to clear the title first because the title can move from one axis to another (and clearing doesn't seem to remove that)
+        self.set_title('')
         self.preview.canvas.figure.clear()
         image_spec, chart_spec, filter_spec = self.__calculate_layout()
         if image_spec is not None:
@@ -121,7 +123,7 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
             self.y0.setEnabled(True)
             self.y1.setEnabled(True)
         self.replace_table(draw=False)
-        self.set_title(draw=False)
+        self.set_title(self.title.text(), draw=False)
         self.apply_image(draw=False)
         self.preview.canvas.draw_idle()
         self.__record_image_size()
@@ -428,14 +430,13 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         if self.__magnitude_model is not None:
             self.redraw()
 
-    def set_title(self, draw=True):
+    def set_title(self, text, draw=True):
         ''' sets the title text '''
         if self.__imshow_axes is None:
             if self.__magnitude_model is not None:
-                self.__magnitude_model.limits.axes_1.set_title(str(self.title.text()),
-                                                               fontsize=self.titleFontSize.value())
+                self.__magnitude_model.limits.axes_1.set_title(str(text), fontsize=self.titleFontSize.value())
         else:
-            self.__imshow_axes.set_title(str(self.title.text()), fontsize=self.titleFontSize.value())
+            self.__imshow_axes.set_title(str(text), fontsize=self.titleFontSize.value())
         if draw:
             self.preview.canvas.draw_idle()
 
@@ -509,8 +510,8 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
                     with wait_cursor():
                         self.__status_bar.showMessage(f"Saving report to {output_file}", 5000)
                         self.preview.canvas.figure.savefig(output_file, format=format, dpi=self.__dpi)
-                        self.__concat_images(format, output_file)
-                        self.__status_bar.showMessage(f"Saved report to {output_file}", 5000)
+                        if self.__concat_images(format, output_file):
+                            self.__status_bar.showMessage(f"Saved report to {output_file}", 5000)
                 else:
                     msg_box = QMessageBox()
                     msg_box.setText(f"Invalid output file format - {output_file} is not one of {VALID_IMG_FORMATS}")
@@ -522,18 +523,34 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         ''' cats 2 images vertically '''
         im_image = Image.open(self.image.text())
         mp_image = Image.open(output_file)
-        if im_image.size[0] != mp_image.size[0]:
-            new_height = round(im_image.size[1] * (mp_image.size[0]/im_image.size[0]))
-            logger.debug(f"Resizing from {im_image.size} to match {mp_image.size}, new height {new_height}")
-            im_image = im_image.resize((mp_image.size[0], new_height), Image.LANCZOS)
-        final_image = Image.new(im_image.mode, (im_image.size[0], im_image.size[1] + mp_image.size[1]))
-        final_image.paste(im_image, (0, 0))
-        final_image.paste(mp_image, (0, im_image.size[1]))
         more_args = {}
+        convert_to_rgb = False
         if format == 'jpg' or format == 'jpeg':
             more_args['subsampling'] = 0
             more_args['quality'] = 95
+            if im_image.format != format:
+                msg_box = QMessageBox()
+                msg_box.setText(
+                    f"Image format is {im_image.format}/{im_image.mode} but output format JPG<p/>The image must be converted to RGB in order to proceed.")
+                msg_box.setIcon(QMessageBox.Warning)
+                msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+                msg_box.setWindowTitle('Do you want to convert?')
+                decision = msg_box.exec()
+                if decision == QMessageBox.Yes:
+                    convert_to_rgb = True
+                else:
+                    return False
+        if im_image.size[0] != mp_image.size[0]:
+            new_height = round(im_image.size[1] * (mp_image.size[0] / im_image.size[0]))
+            logger.debug(f"Resizing from {im_image.size} to match {mp_image.size}, new height {new_height}")
+            im_image = im_image.resize((mp_image.size[0], new_height), Image.LANCZOS)
+        if convert_to_rgb:
+            im_image = im_image.convert('RGB')
+        final_image = Image.new(im_image.mode, (im_image.size[0], im_image.size[1] + mp_image.size[1]))
+        final_image.paste(im_image, (0, 0))
+        final_image.paste(mp_image, (0, im_image.size[1]))
         final_image.save(output_file, **more_args)
+        return True
 
     def closeEvent(self, QCloseEvent):
         ''' Stores the window size on close '''
@@ -661,7 +678,7 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
                 self.nativeImageHeight.setValue(0)
                 self.__imshow_axes.clear()
                 self.__init_imshow_axes()
-        self.set_title()
+        self.set_title(self.title.text())
         if draw:
             self.preview.canvas.draw_idle()
             self.__record_image_size()
