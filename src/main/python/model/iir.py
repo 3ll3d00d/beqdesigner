@@ -31,14 +31,8 @@ def float_to_str(f):
 
 
 class Biquad(ABC):
-    def __init__(self, fs, freq, q):
+    def __init__(self, fs):
         self.fs = fs
-        self.freq = round(freq, 2)
-        self.q = round(q, 4)
-        self.w0 = 2.0 * math.pi * self.freq / self.fs
-        self.cos_w0 = math.cos(self.w0)
-        self.sin_w0 = math.sin(self.w0)
-        self.alpha = self.sin_w0 / (2.0 * self.q)
         self.a, self.b = self._compute_coeffs()
         self.id = -1
         self.__transferFunction = None
@@ -46,8 +40,6 @@ class Biquad(ABC):
     def __eq__(self, o: object) -> bool:
         equal = self.__class__.__name__ == o.__class__.__name__
         equal &= self.fs == o.fs
-        equal &= self.q == o.q
-        equal &= self.freq == o.freq
         return equal
 
     def __repr__(self):
@@ -58,7 +50,6 @@ class Biquad(ABC):
         description = ''
         if hasattr(self, 'display_name'):
             description += self.display_name
-        description += f" {self.freq}/{self.q}"
         return description
 
     @property
@@ -93,12 +84,59 @@ class Biquad(ABC):
         return [f"{b},\n{a}"]
 
 
-class Passthrough(Biquad):
-    def __init__(self):
-        super().__init__(1000, 100, 1)
+class Gain(Biquad):
+    def __init__(self, fs, gain):
+        self.gain = gain
+        super().__init__(fs)
+
+    @property
+    def filter_type(self):
+        return 'Gain'
+
+    @property
+    def display_name(self):
+        return 'Gain'
 
     def _compute_coeffs(self):
-        return np.array([1.0, 0.0, 0.0]), [1.0, 0.0, 0.0]
+        return np.array([1.0, 0.0, 0.0]), np.array([10.0 ** (self.gain / 20.0), 0.0, 0.0])
+
+    def resample(self, new_fs):
+        '''
+        Creates a filter at the specified fs.
+        :param new_fs: the new fs.
+        :return: the new filter.
+        '''
+        return Gain(new_fs, self.gain)
+
+    def to_json(self):
+        return {
+            '_type': self.__class__.__name__,
+            'fs': self.fs,
+            'gain': self.gain
+        }
+
+
+class BiquadWithQ(Biquad):
+    def __init__(self, fs, freq, q):
+        self.freq = round(freq, 2)
+        self.q = round(q, 4)
+        self.w0 = 2.0 * math.pi * freq / fs
+        self.cos_w0 = math.cos(self.w0)
+        self.sin_w0 = math.sin(self.w0)
+        self.alpha = self.sin_w0 / (2.0 * self.q)
+        super().__init__(fs)
+
+    def __eq__(self, o: object) -> bool:
+        return super().__eq__(o) and self.freq == o.freq
+
+    @property
+    def description(self):
+        return super().description + f"{self.freq}/{self.q}"
+
+
+class Passthrough(Gain):
+    def __init__(self):
+        super().__init__(1000, 0)
 
     @property
     def description(self):
@@ -110,7 +148,7 @@ class Passthrough(Biquad):
         }
 
 
-class BiquadWithGain(Biquad):
+class BiquadWithQGain(BiquadWithQ):
     def __init__(self, fs, freq, q, gain):
         self.gain = round(gain, 3)
         super().__init__(fs, freq, q)
@@ -123,7 +161,7 @@ class BiquadWithGain(Biquad):
         return super().description + f"/{self.gain}dB"
 
 
-class PeakingEQ(BiquadWithGain):
+class PeakingEQ(BiquadWithQGain):
     '''
     H(s) = (s^2 + s*(A/Q) + 1) / (s^2 + s/(A*Q) + 1)
 
@@ -205,7 +243,7 @@ def max_permitted_s(gain):
     return max_s
 
 
-class Shelf(BiquadWithGain):
+class Shelf(BiquadWithQGain):
     def __init__(self, fs, freq, q, gain, count):
         self.A = 10.0 ** (gain / 40.0)
         super().__init__(fs, freq, q, gain)
@@ -350,7 +388,7 @@ class HighShelf(Shelf):
         return HighShelf(new_fs, self.freq, self.q, self.gain, self.count)
 
 
-class FirstOrder_LowPass(Biquad):
+class FirstOrder_LowPass(BiquadWithQ):
     '''
     A one pole low pass filter.
     '''
@@ -389,7 +427,7 @@ class FirstOrder_LowPass(Biquad):
         return fs_freq_q_json(self)
 
 
-class FirstOrder_HighPass(Biquad):
+class FirstOrder_HighPass(BiquadWithQ):
     '''
     A one pole high pass filter.
     '''
@@ -439,7 +477,7 @@ def fs_freq_q_json(o):
     }
 
 
-class SecondOrder_LowPass(Biquad):
+class SecondOrder_LowPass(BiquadWithQ):
     '''
     LPF:        H(s) = 1 / (s^2 + s/Q + 1)
 
@@ -491,7 +529,7 @@ class SecondOrder_LowPass(Biquad):
         return fs_freq_q_json(self)
 
 
-class SecondOrder_HighPass(Biquad):
+class SecondOrder_HighPass(BiquadWithQ):
     '''
     HPF:        H(s) = s^2 / (s^2 + s/Q + 1)
 
@@ -544,7 +582,7 @@ class SecondOrder_HighPass(Biquad):
         return fs_freq_q_json(self)
 
 
-class AllPass(Biquad):
+class AllPass(BiquadWithQ):
     '''
     APF:        H(s) = (s^2 - s/Q + 1) / (s^2 + s/Q + 1)
 

@@ -12,7 +12,7 @@ from qtpy.QtWidgets import QDialog
 
 from model.iir import FilterType, LowShelf, HighShelf, PeakingEQ, SecondOrder_LowPass, \
     SecondOrder_HighPass, ComplexLowPass, ComplexHighPass, q_to_s, s_to_q, max_permitted_s, CompleteFilter, COMBINED, \
-    Passthrough
+    Passthrough, Gain
 from model.limits import dBRangeCalculator
 from model.magnitude import MagnitudeModel
 from model.preferences import SHOW_ALL_FILTERS, SHOW_NO_FILTERS, FILTER_COLOURS, DISPLAY_SHOW_FILTERS, DISPLAY_Q_STEP, \
@@ -189,7 +189,10 @@ class FilterTableModel(QAbstractTableModel):
             if index.column() == 0:
                 return QVariant(filter_at_row.filter_type)
             elif index.column() == 1:
-                return QVariant(filter_at_row.freq)
+                if hasattr(filter_at_row, 'freq'):
+                    return QVariant(filter_at_row.freq)
+                else:
+                    return QVariant('N/A')
             elif index.column() == 2:
                 if hasattr(filter_at_row, 'q'):
                     return QVariant(filter_at_row.q)
@@ -221,7 +224,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
     Add/Edit Filter dialog
     '''
     is_shelf = ['Low Shelf', 'High Shelf']
-    gain_required = is_shelf + ['PEQ']
+    gain_required = is_shelf + ['PEQ', 'Gain']
     q_steps = [0.0001, 0.001, 0.01, 0.1]
     gain_steps = [0.1, 1.0]
     freq_steps = [0.1, 1.0, 2.0, 5.0]
@@ -263,7 +266,8 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
                 self.filterGain.setValue(self.__filter.gain)
             if hasattr(self.__filter, 'q'):
                 self.filterQ.setValue(self.__filter.q)
-            self.freq.setValue(self.__filter.freq)
+            if hasattr(self.__filter, 'freq'):
+                self.freq.setValue(self.__filter.freq)
             if hasattr(self.__filter, 'order'):
                 self.filterOrder.setValue(self.__filter.order)
             if hasattr(self.__filter, 'type'):
@@ -349,6 +353,8 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
                              self.filterCount.value())
         elif self.filterType.currentText() == 'PEQ':
             return PeakingEQ(self.__signal.fs, self.freq.value(), self.filterQ.value(), self.filterGain.value())
+        elif self.filterType.currentText() == 'Gain':
+            return Gain(self.__signal.fs, self.filterGain.value())
         elif self.filterType.currentText() == 'Variable Q LPF':
             return SecondOrder_LowPass(self.__signal.fs, self.freq.value(), self.filterQ.value())
         elif self.filterType.currentText() == 'Variable Q HPF':
@@ -375,6 +381,13 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         selectedFilter = self.filterType.currentText()
         return selectedFilter == 'Low Pass' or selectedFilter == 'High Pass'
 
+    def __is_gain_filter(self):
+        '''
+        :return: true if the current options indicate a predefined high or low pass filter.
+        '''
+        selectedFilter = self.filterType.currentText()
+        return selectedFilter == 'Gain'
+
     def enableFilterParams(self):
         '''
         Configures the various input fields for the currently selected filter type.
@@ -393,9 +406,20 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
             self.passFilterType.setVisible(False)
             self.filterOrder.setVisible(False)
             self.orderLabel.setVisible(False)
-            self.qStepButton.setVisible(True)
-            self.filterQ.setVisible(True)
-            self.filterQLabel.setVisible(True)
+            if self.__is_gain_filter():
+                self.qStepButton.setVisible(False)
+                self.filterQ.setVisible(False)
+                self.filterQLabel.setVisible(False)
+                self.freq.setVisible(False)
+                self.freqStepButton.setVisible(False)
+                self.freqLabel.setVisible(False)
+            else:
+                self.qStepButton.setVisible(True)
+                self.filterQ.setVisible(True)
+                self.filterQLabel.setVisible(True)
+                self.freq.setVisible(True)
+                self.freqStepButton.setVisible(True)
+                self.freqLabel.setVisible(True)
             self.filterGain.setVisible(self.__is_gain_required())
             self.gainStepButton.setVisible(self.__is_gain_required())
             self.gainLabel.setVisible(self.__is_gain_required())

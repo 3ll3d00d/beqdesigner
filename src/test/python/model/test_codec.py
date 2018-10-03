@@ -2,7 +2,7 @@ import json
 
 from model.codec import filter_from_json, signaldata_from_json, signaldata_to_json
 from model.iir import ComplexLowPass, FilterType, ComplexHighPass, Passthrough, PeakingEQ, FirstOrder_LowPass, \
-    FirstOrder_HighPass, SecondOrder_LowPass, SecondOrder_HighPass, AllPass, LowShelf, CompleteFilter, HighShelf
+    FirstOrder_HighPass, SecondOrder_LowPass, SecondOrder_HighPass, AllPass, LowShelf, CompleteFilter, HighShelf, Gain
 from model.signal import SignalData
 
 
@@ -13,6 +13,18 @@ def test_codec_Passthrough():
     decoded = filter_from_json(json.loads(output))
     assert decoded is not None
     assert isinstance(decoded, Passthrough)
+
+
+def test_codec_Gain():
+    filter = Gain(1000, 10.0)
+    output = json.dumps(filter.to_json())
+    assert output == '{"_type": "Gain", "fs": 1000, "gain": 10.0}'
+    decoded = filter_from_json(json.loads(output))
+    assert decoded is not None
+    assert isinstance(decoded, Gain)
+    assert filter.fs == decoded.fs
+    assert filter.gain == decoded.gain
+    assert decoded.getTransferFunction() is not None
 
 
 def test_codec_PeakingEQ():
