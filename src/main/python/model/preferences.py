@@ -90,6 +90,8 @@ REPORT_GEOMETRY = 'report/geometry'
 
 LOGGING_LEVEL = 'logging/level'
 
+SYSTEM_CHECK_FOR_UPDATES = 'system/check_for_updates'
+
 DEFAULT_PREFS = {
     ANALYSIS_RESOLUTION: 1,
     ANALYSIS_TARGET_FS: 1000,
@@ -125,7 +127,8 @@ DEFAULT_PREFS = {
     REPORT_FILTER_SHOW_HEADER: True,
     REPORT_FILTER_FONT_SIZE: matplotlib.rcParams['font.size'],
     REPORT_LAYOUT_HSPACE: matplotlib.rcParams['figure.subplot.hspace'],
-    REPORT_LAYOUT_WSPACE: matplotlib.rcParams['figure.subplot.wspace']
+    REPORT_LAYOUT_WSPACE: matplotlib.rcParams['figure.subplot.wspace'],
+    SYSTEM_CHECK_FOR_UPDATES: True
 }
 
 TYPES = {
@@ -150,6 +153,7 @@ TYPES = {
     REPORT_CHART_LIMITS_X1: int,
     REPORT_FILTER_SHOW_HEADER: bool,
     REPORT_FILTER_FONT_SIZE: int,
+    SYSTEM_CHECK_FOR_UPDATES: bool
 }
 
 COLOUR_INTERVALS = [x / 255 for x in range(36, 250, 24)] + [1.0]
@@ -280,6 +284,8 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         self.xmin.setValue(self.__preferences.get(GRAPH_X_MIN))
         self.xmax.setValue(self.__preferences.get(GRAPH_X_MAX))
 
+        self.checkForUpdates.setChecked(self.__preferences.get(SYSTEM_CHECK_FOR_UPDATES))
+
     def __init_themes(self):
         '''
         Adds all the available matplotlib theme names to a combo along with our internal theme names.
@@ -356,7 +362,7 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         else:
             self.alert_on_change('X Axis Invalid', text='Invalid values: x_min must be less than x_max',
                                  icon=QMessageBox.Critical)
-
+        self.__preferences.set(SYSTEM_CHECK_FOR_UPDATES, self.checkForUpdates.isChecked())
         QDialog.accept(self)
 
     def alert_on_change(self, title, text='Change will not take effect until the application is restarted',
