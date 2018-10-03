@@ -532,13 +532,13 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         mp_image = Image.open(output_file)
         more_args = {}
         convert_to_rgb = False
-        if format == 'jpg' or format == 'jpeg':
+        if format.lower() == 'jpg' or format.lower() == 'jpeg':
             more_args['subsampling'] = 0
             more_args['quality'] = 95
-            if im_image.format != format:
+            if im_image.format.lower() != 'jpg' and im_image.format.lower() != 'jpeg':
                 msg_box = QMessageBox()
                 msg_box.setText(
-                    f"Image format is {im_image.format}/{im_image.mode} but output format JPG<p/>The image must be converted to RGB in order to proceed.")
+                    f"Image format is {im_image.format}/{im_image.mode} but the desired output format is JPG<p/><p/>The image must be converted to RGB in order to proceed.")
                 msg_box.setIcon(QMessageBox.Warning)
                 msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
                 msg_box.setWindowTitle('Do you want to convert?')
