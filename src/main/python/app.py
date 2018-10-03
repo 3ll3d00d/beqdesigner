@@ -11,11 +11,13 @@ from contextlib import contextmanager
 import matplotlib
 
 matplotlib.use("Qt5Agg")
+
+from model.checker import VersionChecker
 from model.report import SaveReportDialog
 from model.batch import BatchExtractDialog
 from model.analysis import AnalyseSignalDialog
 from model.link import LinkSignalsDialog
-from model.preferences import DISPLAY_SHOW_FILTERED_SIGNALS
+from model.preferences import DISPLAY_SHOW_FILTERED_SIGNALS, SYSTEM_CHECK_FOR_UPDATES
 from ui.delegates import RegexValidator
 
 import qtawesome as qta
@@ -27,7 +29,7 @@ from ui.biquad import Ui_exportBiquadDialog
 from ui.savechart import Ui_saveChartDialog
 
 from qtpy import QtCore
-from qtpy.QtCore import QSettings
+from qtpy.QtCore import QSettings, QThreadPool
 from qtpy.QtGui import QIcon, QFont, QCursor
 from qtpy.QtWidgets import QMainWindow, QApplication, QErrorMessage, QAbstractItemView, QDialog, QFileDialog, \
     QHeaderView, QMessageBox
@@ -76,6 +78,10 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.__version = 'UNKNOWN'
         with open(os.path.join(self.__style_path_root, 'VERSION')) as version_file:
             self.__version = version_file.read().strip()
+        if self.preferences.get(SYSTEM_CHECK_FOR_UPDATES):
+            QThreadPool.globalInstance().start(VersionChecker(self.__alert_on_old_version,
+                                                              self.__alert_on_version_check_fail, self.__version))
+
         matplotlib_theme = self.preferences.get(STYLE_MATPLOTLIB_THEME)
         if matplotlib_theme is not None:
             if matplotlib_theme.startswith('beq'):
@@ -168,6 +174,25 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.actionSave_Signal.triggered.connect(self.showExportSignalDialog)
         self.action_Save_Project.triggered.connect(self.exportProject)
         self.actionAbout.triggered.connect(self.showAbout)
+
+    def __alert_on_version_check_fail(self, message):
+        '''
+        Displays an alert if the version check fails.
+        :param message: the message.
+        '''
+        msg_box = QMessageBox()
+        msg_box.setText(message)
+        msg_box.setIcon(QMessageBox.Warning)
+        msg_box.setWindowTitle('Unable to Complete Version Check')
+        msg_box.exec()
+
+    def __alert_on_old_version(self, new_version, download_url):
+        ''' Presents a dialog if there is a new version available. '''
+        msg_box = QMessageBox()
+        msg_box.setText(f"{new_version} is out now! <p><p> Download from <a href='{download_url}'>github</a> now!")
+        msg_box.setIcon(QMessageBox.Information)
+        msg_box.setWindowTitle('New Version Available')
+        msg_box.exec()
 
     def __configure_signal_model(self, parent):
         '''

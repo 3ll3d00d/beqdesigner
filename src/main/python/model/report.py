@@ -404,7 +404,7 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
     def __table_print(self, filt):
         ''' formats the filter into a format suitable for rendering in the table '''
         header = self.showTableHeader.isChecked()
-        vals = [str(filt.freq) if header else f"{filt.freq} Hz"]
+        vals = [str(filt.freq) if header else f"{filt.freq} Hz"] if hasattr(filt, 'freq') else ['']
         gain = filt.gain if hasattr(filt, 'gain') else 0
         g_suffix = ' dB' if gain != 0 and not header else ''
         vals.append(f"{gain:+g}{g_suffix}" if gain != 0 else vals.append(str('N/A')))

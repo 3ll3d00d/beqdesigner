@@ -66,6 +66,11 @@
        </item>
        <item>
         <property name="text">
+         <string>Gain</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
          <string>Variable Q LPF</string>
         </property>
        </item>

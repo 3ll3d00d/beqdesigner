@@ -1,6 +1,8 @@
 import numpy as np
 import logging
 
+from model.iir import Gain
+
 logger = logging.getLogger('codec')
 
 
@@ -92,6 +94,8 @@ def filter_from_json(o):
         raise ValueError(f"{o} is not a filter")
     if o['_type'] == Passthrough.__name__:
         return Passthrough()
+    elif o['_type'] == Gain.__name__:
+        return Gain(o['fs'], o['gain'])
     elif o['_type'] == PeakingEQ.__name__:
         return PeakingEQ(o['fs'], o['fc'], o['q'], o['gain'])
     elif o['_type'] == LowShelf.__name__:

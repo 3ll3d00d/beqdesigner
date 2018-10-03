@@ -321,7 +321,7 @@ class Ui_MainWindow(object):
         self.actionClear_Preset_3.setText(_translate("MainWindow", "Clear Preset 3"))
         self.actionSave_Chart.setText(_translate("MainWindow", "Save &Chart"))
         self.actionSave_Chart.setShortcut(_translate("MainWindow", "Ctrl+S"))
-        self.actionExport_Biquad.setText(_translate("MainWindow", "Export &Biquad"))
+        self.actionExport_Biquad.setText(_translate("MainWindow", "Export &BiquadWithQ"))
         self.actionExport_Biquad.setShortcut(_translate("MainWindow", "Ctrl+B"))
         self.actionSave_Filter.setText(_translate("MainWindow", "Save &Filter"))
         self.actionLoad_Filter.setText(_translate("MainWindow", "Load Filte&r"))
