@@ -404,7 +404,7 @@
   </action>
   <action name="actionExport_Biquad">
    <property name="text">
-    <string>Export &amp;BiquadWithQ</string>
+    <string>Export &amp;Biquad</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+B</string>

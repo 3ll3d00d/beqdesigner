@@ -524,7 +524,7 @@ class Signal:
         if new_fs != self.fs:
             start = time.time()
             resampled = Signal(self.name,
-                               resampy.resample(self.samples, self.fs, new_fs, filter=self.load_resampy_filter), new_fs)
+                               resampy.resample(self.samples, self.fs, new_fs, filter=self.load_resampy_filter()), new_fs)
             end = time.time()
             logger.info(f"Resampled {self.name} from {self.fs} to {new_fs} in {round(end-start, 3)}s")
             return resampled
@@ -537,16 +537,14 @@ class Signal:
         :return: same values as resampy.load_filter
         '''
         import sys
-        import os
-        filter_name = 'kaiser_fast'
         if getattr(sys, 'frozen', False):
-            data = np.load(os.path.join(sys._MEIPASS, '_resampy_filters', os.path.extsep.join([filter_name, 'npz'])))
+            def __load_frozen():
+                import os
+                data = np.load(os.path.join(sys._MEIPASS, '_resampy_filters', os.path.extsep.join(['kaiser_fast', 'npz'])))
+                return data['half_window'], data['precision'], data['rolloff']
+            return __load_frozen
         else:
-            import pkg_resources
-            fname = os.path.join('data', os.path.extsep.join([filter_name, 'npz']))
-            data = np.load(pkg_resources.resource_filename(__name__, fname))
-
-        return data['half_window'], data['precision'], data['rolloff']
+            return 'kaiser_fast'
 
     def getXY(self, idx=0):
         '''

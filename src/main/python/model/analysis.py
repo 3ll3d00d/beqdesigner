@@ -294,9 +294,12 @@ class MaxSpectrumByTime:
             from model.preferences import ANALYSIS_RESOLUTION
             multiplier = int(1 / float(self.__preferences.get(ANALYSIS_RESOLUTION)))
             f, t, Sxx = self.signal.spectrogram(segmentLengthMultiplier=multiplier)
-            x = np.tile(f, t.size)
-            y = t.repeat(f.size)
+            x = f.repeat(t.size)
+            y = np.tile(t, f.size)
             z = Sxx.flatten()
+            # dump the output for debug purposes
+            # np.savetxt('spectro.csv', Sxx, delimiter=',', fmt='%.6f')
+            # np.savetxt('test2.csv', np.c_[x,y,z], delimiter=',', fmt='%.6f')
             if self.__ui.clipAtAverage.isChecked():
                 _, Pthreshold = self.signal.spectrum(segmentLengthMultiplier=multiplier)
             else:
@@ -311,6 +314,7 @@ class MaxSpectrumByTime:
             stack = np.column_stack((x, y, z))
             # filter by signal level
             above_threshold = stack[stack[:, 2] > Pthreshold]
+            above_threshold = above_threshold[above_threshold[:, 2] >= vmin]
             # filter by graph limis
             above_threshold = above_threshold[above_threshold[:, 0] >= self.__limits.x_min]
             above_threshold = above_threshold[above_threshold[:, 0] <= self.__limits.x_max]
