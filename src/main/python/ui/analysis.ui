@@ -53,17 +53,14 @@
           <widget class="MplWidget" name="spectrumChart"/>
          </item>
          <item row="0" column="0">
-          <layout class="QGridLayout" name="spectrumControlsLayout" columnstretch="0,0,0,0,0,0,0">
-           <item row="0" column="3">
-            <widget class="QSpinBox" name="dbRange">
-             <property name="minimum">
-              <number>-100</number>
+          <layout class="QGridLayout" name="spectrumControlsLayout" columnstretch="0,0,0,0,0,0,0,0">
+           <item row="0" column="1">
+            <widget class="QCheckBox" name="clipToAbsolute">
+             <property name="text">
+              <string>Clip to Absolute Peak?</string>
              </property>
-             <property name="maximum">
-              <number>-1</number>
-             </property>
-             <property name="value">
-              <number>-12</number>
+             <property name="checked">
+              <bool>true</bool>
              </property>
             </widget>
            </item>
@@ -74,13 +71,16 @@
              </property>
             </widget>
            </item>
-           <item row="0" column="1">
-            <widget class="QCheckBox" name="clipToAbsolute">
-             <property name="text">
-              <string>Clip to Absolute Peak?</string>
+           <item row="0" column="3">
+            <widget class="QSpinBox" name="dbRange">
+             <property name="minimum">
+              <number>-100</number>
              </property>
-             <property name="checked">
-              <bool>true</bool>
+             <property name="maximum">
+              <number>-1</number>
+             </property>
+             <property name="value">
+              <number>-12</number>
              </property>
             </widget>
            </item>
@@ -110,6 +110,13 @@
              </property>
             </spacer>
            </item>
+           <item row="0" column="4">
+            <widget class="QLabel" name="colourRangeLabel">
+             <property name="text">
+              <string>Colour Range (dB)</string>
+             </property>
+            </widget>
+           </item>
            <item row="0" column="5">
             <widget class="QSpinBox" name="colourRange">
              <property name="minimum">
@@ -123,10 +130,10 @@
              </property>
             </widget>
            </item>
-           <item row="0" column="4">
-            <widget class="QLabel" name="colourRangeLabel">
+           <item row="0" column="7">
+            <widget class="QToolButton" name="showSpectroButton">
              <property name="text">
-              <string>Colour Range (dB)</string>
+              <string>...</string>
              </property>
             </widget>
            </item>
@@ -421,6 +428,22 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>showSpectroButton</sender>
+   <signal>clicked()</signal>
+   <receiver>analysisDialog</receiver>
+   <slot>show_spectro()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1332</x>
+     <y>68</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1363</x>
+     <y>75</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>select_wav_file()</slot>
@@ -429,5 +452,6 @@
   <slot>show_limits()</slot>
   <slot>allow_clip_choice()</slot>
   <slot>clip_to_abs()</slot>
+  <slot>show_spectro()</slot>
  </slots>
 </ui>

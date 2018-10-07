@@ -383,6 +383,13 @@ class Signal:
         self.__peak = None
         self.__cached = []
 
+    def cut(self, start, end):
+        ''' slices a section out of the signal '''
+        if start < self.durationSeconds and end <= self.durationSeconds:
+            return Signal(self.name, self.samples[(start * self.fs): (end * self.fs)+1], fs=self.fs)
+        else:
+            return self
+
     def getSegmentLength(self):
         """
         Calculates a segment length such that the frequency resolution of the resulting analysis is in the region of 
@@ -524,7 +531,8 @@ class Signal:
         if new_fs != self.fs:
             start = time.time()
             resampled = Signal(self.name,
-                               resampy.resample(self.samples, self.fs, new_fs, filter=self.load_resampy_filter()), new_fs)
+                               resampy.resample(self.samples, self.fs, new_fs, filter=self.load_resampy_filter()),
+                               new_fs)
             end = time.time()
             logger.info(f"Resampled {self.name} from {self.fs} to {new_fs} in {round(end-start, 3)}s")
             return resampled
@@ -540,8 +548,10 @@ class Signal:
         if getattr(sys, 'frozen', False):
             def __load_frozen():
                 import os
-                data = np.load(os.path.join(sys._MEIPASS, '_resampy_filters', os.path.extsep.join(['kaiser_fast', 'npz'])))
+                data = np.load(
+                    os.path.join(sys._MEIPASS, '_resampy_filters', os.path.extsep.join(['kaiser_fast', 'npz'])))
                 return data['half_window'], data['precision'], data['rolloff']
+
             return __load_frozen
         else:
             return 'kaiser_fast'

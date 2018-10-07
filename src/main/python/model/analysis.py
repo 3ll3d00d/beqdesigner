@@ -12,6 +12,7 @@ from model.limits import Limits, LimitsDialog
 from model.preferences import GRAPH_X_AXIS_SCALE, GRAPH_X_MIN, GRAPH_X_MAX
 from model.signal import select_file, readWav
 from ui.analysis import Ui_analysisDialog
+from ui.spectro import Ui_spectroDialog
 
 logger = logging.getLogger('analysis')
 
@@ -24,6 +25,8 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
         self.__preferences = preferences
         self.filePicker.setIcon(qta.icon('fa.folder-open-o'))
         self.showLimitsButton.setIcon(qta.icon('ei.move'))
+        self.showSpectroButton.setIcon(qta.icon('fa.area-chart'))
+        self.showSpectroButton.setEnabled(False)
         self.__info = None
         self.__signal = None
         self.__spectrum_analyser = MaxSpectrumByTime(self.spectrumChart, self.__preferences, self)
@@ -119,6 +122,10 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
         else:
             self.clipAtAverage.setEnabled(True)
         self.show_chart()
+
+    def show_spectro(self):
+        ''' shows the spectrogram. '''
+        self.__spectrum_analyser.show_spectro()
 
 
 class WaveformRange:
@@ -225,7 +232,7 @@ class OnePlusRange:
         pass
 
     def calculate(self, y_range):
-        return y_range[0] - 1, y_range[1] + 1
+        return y_range[0], y_range[1] + 1
 
 
 class MaxSpectrumByTime:
@@ -243,7 +250,7 @@ class MaxSpectrumByTime:
                                x_scale=preferences.get(GRAPH_X_AXIS_SCALE))
         self.__signal = None
         self.__scatter = None
-        self.__scatter_cb = None
+        self.__cb = None
 
     @property
     def signal(self):
@@ -263,11 +270,19 @@ class MaxSpectrumByTime:
 
     def __init_chart(self, draw=False):
         self.__limits.propagate_to_axes(draw=False)
+        self.__update_change_chart_button()
         self.__axes.set_ylabel('Time')
         self.__axes.grid(linestyle='-', which='major', linewidth=1, alpha=0.5)
         self.__axes.grid(linestyle='--', which='minor', linewidth=1, alpha=0.5)
         if draw is True:
             self.__redraw()
+
+    def __update_change_chart_button(self):
+        ''' if the limit are < 15mins then allow a spectrogram '''
+        if (self.__limits.y1_max - self.__limits.y1_min) <= 900 and self.signal is not None:
+            self.__ui.showSpectroButton.setEnabled(True)
+        else:
+            self.__ui.showSpectroButton.setEnabled(False)
 
     def __redraw(self):
         self.__chart.canvas.draw_idle()
@@ -277,6 +292,7 @@ class MaxSpectrumByTime:
         Resets the analyser.
         '''
         self.signal = None
+        self.__update_change_chart_button()
 
     def show_limits(self):
         '''
@@ -284,6 +300,7 @@ class MaxSpectrumByTime:
         '''
         if self.signal is not None:
             LimitsDialog(self.__limits, y1_min=0, y1_max=self.signal.durationSeconds).exec()
+            self.__update_change_chart_button()
 
     def analyse(self):
         '''
@@ -291,47 +308,128 @@ class MaxSpectrumByTime:
         '''
         from app import wait_cursor
         with wait_cursor(f"Analysing"):
-            from model.preferences import ANALYSIS_RESOLUTION
-            multiplier = int(1 / float(self.__preferences.get(ANALYSIS_RESOLUTION)))
-            f, t, Sxx = self.signal.spectrogram(segmentLengthMultiplier=multiplier)
-            x = f.repeat(t.size)
-            y = np.tile(t, f.size)
-            z = Sxx.flatten()
-            # dump the output for debug purposes
-            # np.savetxt('spectro.csv', Sxx, delimiter=',', fmt='%.6f')
-            # np.savetxt('test2.csv', np.c_[x,y,z], delimiter=',', fmt='%.6f')
-            if self.__ui.clipAtAverage.isChecked():
-                _, Pthreshold = self.signal.spectrum(segmentLengthMultiplier=multiplier)
-            else:
-                if self.__ui.clipToAbsolute.isChecked():
-                    Pthreshold = np.array([np.max(Sxx) + self.__ui.dbRange.value()]).repeat(f.size)
-                else:
-                    # add the dbRange because it's shown as a negative value
-                    Pthreshold = Sxx.max(axis=-1) + self.__ui.dbRange.value()
-            Pthreshold = np.tile(Pthreshold, t.size)
-            vmax = math.ceil(np.max(Sxx.max(axis=-1)))
-            vmin = vmax - self.__ui.colourRange.value()
-            stack = np.column_stack((x, y, z))
-            # filter by signal level
-            above_threshold = stack[stack[:, 2] > Pthreshold]
-            above_threshold = above_threshold[above_threshold[:, 2] >= vmin]
-            # filter by graph limis
-            above_threshold = above_threshold[above_threshold[:, 0] >= self.__limits.x_min]
-            above_threshold = above_threshold[above_threshold[:, 0] <= self.__limits.x_max]
-            above_threshold = above_threshold[above_threshold[:, 1] >= self.__limits.y1_min]
-            above_threshold = above_threshold[above_threshold[:, 1] <= self.__limits.y1_max]
-            x = above_threshold[:, 0]
-            y = above_threshold[:, 1]
-            z = above_threshold[:, 2]
-            # now plot or update
-            if self.__scatter is None:
-                self.__scatter = self.__axes.scatter(x, y, c=z, vmin=vmin, vmax=vmax)
-                divider = make_axes_locatable(self.__axes)
-                cax = divider.append_axes("right", size="5%", pad=0.05)
-                self.__scatter_cb = self.__axes.figure.colorbar(self.__scatter, cax=cax)
-            else:
-                new_data = np.c_[x, y]
-                self.__scatter.set_offsets(new_data)
-                self.__scatter.set_clim(vmin=vmin, vmax=vmax)
-                self.__scatter.set_array(z)
+            self.__render_scatter()
             self.__limits.propagate_to_axes(draw=True)
+
+    def __render_scatter(self):
+        ''' renders a scatter plot showing the biggest hits '''
+        Sxx, f, multiplier, t, x, y, z = self.__get_xyz(self.__signal)
+        # dump the output for debug purposes
+        # np.savetxt('spectro.csv', Sxx, delimiter=',', fmt='%.6f')
+        # np.savetxt('test2.csv', np.c_[x,y,z], delimiter=',', fmt='%.6f')
+        if self.__ui.clipAtAverage.isChecked():
+            _, Pthreshold = self.signal.spectrum(segmentLengthMultiplier=multiplier)
+        else:
+            if self.__ui.clipToAbsolute.isChecked():
+                Pthreshold = np.array([np.max(Sxx) + self.__ui.dbRange.value()]).repeat(f.size)
+            else:
+                # add the dbRange because it's shown as a negative value
+                Pthreshold = Sxx.max(axis=-1) + self.__ui.dbRange.value()
+        Pthreshold = np.tile(Pthreshold, t.size)
+        vmax = math.ceil(np.max(Sxx.max(axis=-1)))
+        vmin = vmax - self.__ui.colourRange.value()
+        stack = np.column_stack((x, y, z))
+        # filter by signal level
+        above_threshold = stack[stack[:, 2] > Pthreshold]
+        above_threshold = above_threshold[above_threshold[:, 2] >= vmin]
+        # filter by graph limis
+        above_threshold = above_threshold[above_threshold[:, 0] >= self.__limits.x_min]
+        above_threshold = above_threshold[above_threshold[:, 0] <= self.__limits.x_max]
+        above_threshold = above_threshold[above_threshold[:, 1] >= self.__limits.y1_min]
+        above_threshold = above_threshold[above_threshold[:, 1] <= self.__limits.y1_max]
+        x = above_threshold[:, 0]
+        y = above_threshold[:, 1]
+        z = above_threshold[:, 2]
+        # now plot or update
+        if self.__scatter is None:
+            self.__scatter = self.__axes.scatter(x, y, c=z, vmin=vmin, vmax=vmax)
+            divider = make_axes_locatable(self.__axes)
+            cax = divider.append_axes("right", size="5%", pad=0.05)
+            self.__cb = self.__axes.figure.colorbar(self.__scatter, cax=cax)
+        else:
+            new_data = np.c_[x, y]
+            self.__scatter.set_offsets(new_data)
+            self.__scatter.set_clim(vmin=vmin, vmax=vmax)
+            self.__scatter.set_array(z)
+
+    def __get_xyz(self, signal):
+        from model.preferences import ANALYSIS_RESOLUTION
+        multiplier = int(1 / float(self.__preferences.get(ANALYSIS_RESOLUTION)))
+        f, t, Sxx = signal.spectrogram(segmentLengthMultiplier=multiplier)
+        x = f.repeat(t.size)
+        y = np.tile(t, f.size)
+        z = Sxx.flatten()
+        return Sxx, f, multiplier, t, x, y, z
+
+    def show_spectro(self):
+        ''' shows the spectrogram. '''
+        if self.__signal is not None:
+            visible_signal = self.__signal.cut(round(max(0, self.__limits.y1_min)),
+                                               round(min(self.__limits.y1_max, self.signal.durationSeconds)))
+            SpectrogramDialog(self.__ui, visible_signal, self.__preferences,
+                              (self.__limits.x_min, self.__limits.x_max)).show()
+
+
+class SlaveRange:
+    def __init__(self, vals):
+        self.__vals = vals
+
+    def calculate(self, y_range):
+        return self.__vals
+
+
+class SpectrogramDialog(QDialog, Ui_spectroDialog):
+    multipliers = [0.25, 0.5, 1.0, 2.0, 4.0, 8.0]
+
+    def __init__(self, parent, signal, preferences, freq_lim):
+        super(SpectrogramDialog, self).__init__(parent=parent)
+        self.__ui = parent
+        self.setupUi(self)
+        self.limitsButton.setIcon(qta.icon('ei.move'))
+        self.setWindowFlags(self.windowFlags() | Qt.WindowSystemMenuHint | Qt.WindowMinMaxButtonsHint)
+        self.__preferences = preferences
+        self.__signal = signal
+        self.__axes = self.spectroChart.canvas.figure.add_subplot(111)
+        self.__limits = Limits('spectro', self.__redraw, self.__axes, freq_lim,
+                               x_scale=preferences.get(GRAPH_X_AXIS_SCALE),
+                               y_range_calculator=SlaveRange((0, round(self.__signal.durationSeconds))))
+        self.__limits.propagate_to_axes(draw=True)
+        self.resolution.blockSignals(True)
+        self.__nfft = []
+        default_length = self.__signal.getSegmentLength()
+        for m in self.multipliers:
+            freq_res = float(signal.fs) / (default_length * m)
+            time_res = (m * default_length) / signal.fs
+            self.__nfft.append(int(default_length * m))
+            self.resolution.addItem(f"{freq_res:.3f} Hz / {time_res:.3f} s")
+        self.resolution.setCurrentIndex(2)
+        self.resolution.blockSignals(False)
+        self.__specgram = None
+        self.__cb = None
+        self.update_chart()
+
+    def __redraw(self):
+        self.spectroChart.canvas.draw_idle()
+
+    def show_limits(self):
+        LimitsDialog(self.__limits, x_min=self.__axes.get_xlim()[0], x_max=self.__axes.get_xlim()[1],
+                     y1_min=self.__axes.get_ylim()[0], y1_max=self.__axes.get_ylim()[1]).exec()
+
+    def update_chart(self):
+        ''' renders the entire signal as a spectrogram '''
+        self.__axes.clear()
+        self.__axes.grid(linestyle='-', which='major', linewidth=1, alpha=0.5)
+        self.__axes.grid(linestyle='--', which='minor', linewidth=1, alpha=0.5)
+        multiplier_idx = self.resolution.currentIndex()
+        multiplier = self.multipliers[multiplier_idx]
+        f, t, Sxx = self.__signal.spectrogram(segmentLengthMultiplier=multiplier)
+        vmax = math.ceil(np.max(Sxx.max(axis=-1)))
+        vmin = vmax - self.vRange.value()
+        self.__specgram = self.__axes.pcolormesh(f, t, Sxx.transpose(), vmin=vmin, vmax=vmax, shading='gouraud')
+        if self.__cb is None:
+            divider = make_axes_locatable(self.__axes)
+            cax = divider.append_axes("right", size="5%", pad=0.05)
+            self.__cb = self.__axes.figure.colorbar(self.__specgram, cax=cax)
+        else:
+            self.__cb.on_mappable_changed(self.__specgram)
+        self.__limits.propagate_to_axes(draw=True)
