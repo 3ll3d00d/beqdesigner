@@ -158,6 +158,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.ensurePathContainsExternalTools()
         # extraction
         self.actionExtract_Audio.triggered.connect(self.showExtractAudioDialog)
+        self.action_Remux_Audio.triggered.connect(self.showRemuxAudioDialog)
         self.action_Batch_Extract.triggered.connect(self.showBatchExtractDialog)
         # analysis
         self.actionAnalyse_Audio.triggered.connect(self.showAnalyseAudioDialog)
@@ -576,6 +577,12 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         Show the extract audio dialog.
         '''
         ExtractAudioDialog(self, self.preferences, self.__signal_model).show()
+
+    def showRemuxAudioDialog(self):
+        '''
+        Show the remux audio dialog.
+        '''
+        ExtractAudioDialog(self, self.preferences, self.__signal_model, is_remux=True).show()
 
     def showBatchExtractDialog(self):
         '''
