@@ -114,6 +114,7 @@ class Executor:
         self.__probe = None
         self.__audio_stream_data = []
         self.__video_stream_data = []
+        self.__channel_to_filter = {}
         self.__channel_count = 0
         self.__lfe_idx = 0
         self.__channel_layout_name = None
@@ -122,7 +123,7 @@ class Executor:
         self.__compress_audio = compress_audio
         self.__include_original_audio = include_original
         self.__mono_mix_spec = None
-        self.__selected_audio_stream_idx = 0
+        self.__selected_audio_stream_idx = -1
         self.__selected_video_stream_idx = -1
         self.__output_file_name = None
         self.__ffmpeg_cmd = None
@@ -136,6 +137,10 @@ class Executor:
         self.__filter_complex_filter = None
         self.__is_remux = signal_model is not None
         self.__signal_model = signal_model
+
+    @property
+    def channel_to_filter(self):
+        return self.__channel_to_filter
 
     @property
     def target_dir(self):
@@ -239,6 +244,11 @@ class Executor:
     def ffmpeg_cli(self):
         return self.__ffmpeg_cli
 
+    def map_filter_to_channel(self, channel_idx, signal_name):
+        ''' updates the mapping of the given signal to the specified channel idx '''
+        self.__channel_to_filter[channel_idx] = next((s for s in self.__signal_model if s.name == signal_name), None)
+        self.__calculate_ffmpeg_cmd()
+
     def probe_file(self):
         '''
         Calls ffprobe.
@@ -284,6 +294,7 @@ class Executor:
         :param video_stream_idx: the video idx we want to extract, if 0 no video is extracted.
         :param mono_mix: whether to mix to mono
         '''
+        recalc_signal_mapping = self.__selected_audio_stream_idx != audio_stream_idx and self.__is_remux is True
         self.__selected_audio_stream_idx = audio_stream_idx
         self.__selected_video_stream_idx = video_stream_idx
         selected_audio_stream = self.__audio_stream_data[audio_stream_idx]
@@ -389,6 +400,12 @@ class Executor:
         self.__lfe_idx = lfe_idx
         self.__channel_layout_name = channel_layout_name
         self.__mono_mix_spec = mono_mix
+        if recalc_signal_mapping:
+            self.__channel_to_filter = {}
+            for channel_idx in range(0, self.channel_count):
+                c_name = get_channel_name(None, channel_idx, self.channel_count, self.channel_layout_name)
+                sig = next((x for x in self.__signal_model if x.name.endswith(f"_{c_name}")), None)
+                self.__channel_to_filter[channel_idx] = sig
         self.__calculate_output()
 
     def __calculate_output(self):
@@ -415,7 +432,7 @@ class Executor:
         ch_outs = []
         for channel_idx in range(0, self.channel_count):
             c_name = get_channel_name(None, channel_idx, self.channel_count, self.channel_layout_name)
-            sig = next((x for x in self.__signal_model if x.name.endswith(f"_{c_name}")), None)
+            sig = self.__channel_to_filter[channel_idx]
             f_idx = 0
             # extract a single channel, convert it to dbl sample format
             # pipe it through each biquad in the matching signal
@@ -508,6 +525,9 @@ class Executor:
         if self.__selected_video_stream_idx != -1:
             self.__ffmpeg_cmd += f" -c:v copy -map 0:v:{self.__selected_video_stream_idx}"
         acodec = 'flac' if self.compress_audio else 'pcm_s24le'
+        if self.include_original_audio:
+            self.__ffmpeg_cmd += f" -map 0:a:{self.__selected_audio_stream_idx}"
+            self.__ffmpeg_cmd += f" -c:a:{self.__selected_audio_stream_idx} copy"
         self.__ffmpeg_cmd += f" -map [s0] -acodec \"{acodec}\" \"{output_file}\""
         if self.progress_handler is not None:
             self.__ffmpeg_cmd += f" -progress \"udp://127.0.0.1:{self.__progress_port}\""

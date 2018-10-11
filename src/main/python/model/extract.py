@@ -13,6 +13,7 @@ from model.ffmpeg import Executor, ViewProbeDialog, SIGNAL_CONNECTED, SIGNAL_ERR
     get_channel_name, parse_video_stream
 from model.preferences import EXTRACTION_OUTPUT_DIR, EXTRACTION_NOTIFICATION_SOUND
 from model.signal import AutoWavLoader
+from ui.edit_mapping import Ui_editMappingDialog
 from ui.extract import Ui_extractAudioDialog
 
 logger = logging.getLogger('extract')
@@ -45,6 +46,21 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         if os.path.isdir(defaultOutputDir):
             self.targetDir.setText(defaultOutputDir)
         self.__reinit_fields()
+        self.filterMapping.itemDoubleClicked.connect(self.show_mapping_dialog)
+
+    def show_mapping_dialog(self, item):
+        ''' Shows the edit mapping dialog '''
+        if len(self.__signal_model) > 0:
+            channel_idx = self.filterMapping.indexFromItem(item).row()
+            mapped_filter = self.__executor.channel_to_filter.get(channel_idx, None)
+            EditMappingDialog(self, channel_idx, self.__signal_model, mapped_filter,
+                              self.map_filter_to_channel).exec()
+
+    def map_filter_to_channel(self, channel_idx, signal_name):
+        ''' updates the mapping of the given signal to the specified channel idx '''
+        if self.audioStreams.count() > 0 and self.__executor is not None:
+            self.__executor.map_filter_to_channel(channel_idx, signal_name)
+            self.__display_command_info()
 
     def selectFile(self):
         self.__reinit_fields()
@@ -87,6 +103,10 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             self.filterMapping.setVisible(False)
             self.filterMappingLabel.setVisible(False)
             self.includeOriginalAudio.setVisible(False)
+        self.monoMix.setChecked(False)
+        self.decimateAudio.setChecked(False)
+        self.includeOriginalAudio.setChecked(False)
+        self.compressAudio.setChecked(False)
         self.monoMix.setEnabled(False)
         self.decimateAudio.setEnabled(False)
         self.compressAudio.setEnabled(False)
@@ -141,6 +161,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             self.includeOriginalAudio.setEnabled(True)
             self.outputFilename.setEnabled(True)
             self.ffmpegCommandLine.setEnabled(True)
+            self.filterMapping.setEnabled(True)
         else:
             self.statusBar.showMessage(f"{file_name} contains no audio streams!")
 
@@ -149,16 +170,18 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         Creates a new ffmpeg command for the specified channel layout.
         '''
         if self.__executor is not None:
-            self.__executor.update_spec(self.audioStreams.currentIndex(), self.videoStreams.currentIndex()-1,
+            self.__executor.update_spec(self.audioStreams.currentIndex(), self.videoStreams.currentIndex() - 1,
                                         self.monoMix.isChecked())
             self.__init_channel_count_fields(self.__executor.channel_count, lfe_index=self.__executor.lfe_idx)
-            # TODO show channel mapping
             self.__display_command_info()
             self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
 
     def __display_command_info(self):
         self.outputFilename.setText(self.__executor.output_file_name)
         self.ffmpegCommandLine.setPlainText(self.__executor.ffmpeg_cli)
+        self.filterMapping.clear()
+        for channel_idx, signal in self.__executor.channel_to_filter.items():
+            self.filterMapping.addItem(f"Channel {channel_idx+1} -> {signal.name if signal else 'Passthrough'}")
 
     def updateOutputFilename(self):
         '''
@@ -304,6 +327,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         self.includeOriginalAudio.setEnabled(False)
         self.targetDirPicker.setEnabled(False)
         self.outputFilename.setEnabled(False)
+        self.filterMapping.setEnabled(False)
         self.ffmpegOutput.setEnabled(True)
         self.ffmpegProgress.setEnabled(True)
         self.ffmpegProgressLabel.setEnabled(True)
@@ -362,3 +386,21 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
                 if self.__executor is not None:
                     self.__executor.target_dir = selected[0]
                     self.__display_command_info()
+
+
+class EditMappingDialog(QDialog, Ui_editMappingDialog):
+    ''' Allows the user to override the signal to channel mapping '''
+
+    def __init__(self, parent, channel_idx, signal_model, selected_signal, on_change_handler):
+        super(EditMappingDialog, self).__init__(parent)
+        self.setupUi(self)
+        self.channelIdx.setText(str(channel_idx+1))
+        for idx, s in enumerate(signal_model):
+            self.signal.addItem(s.name)
+            if s.name == selected_signal.name:
+                self.signal.setCurrentIndex(idx)
+
+        def pass_idx_with_text(text):
+            on_change_handler(channel_idx, text)
+
+        self.signal.currentTextChanged.connect(pass_idx_with_text)
