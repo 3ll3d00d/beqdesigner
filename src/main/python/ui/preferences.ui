@@ -148,9 +148,12 @@
        </item>
        <item row="1" column="3">
         <widget class="QComboBox" name="resolutionSelect">
+         <property name="currentText">
+          <string>0.25 Hz</string>
+         </property>
          <item>
           <property name="text">
-           <string>1 Hz</string>
+           <string>0.25 Hz</string>
           </property>
          </item>
          <item>
@@ -160,7 +163,17 @@
          </item>
          <item>
           <property name="text">
-           <string>0.25 Hz</string>
+           <string>1.0 Hz</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>2.0 Hz</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>4.0 Hz</string>
           </property>
          </item>
         </widget>

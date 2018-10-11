@@ -20,7 +20,7 @@ from model.iir import XYData, CompleteFilter
 from model.magnitude import MagnitudeModel
 from model.preferences import AVG_COLOURS, PEAK_COLOURS, get_avg_colour, get_peak_colour, SHOW_PEAK, \
     SHOW_AVERAGE, SHOW_FILTERED_ONLY, SHOW_UNFILTERED_ONLY, DISPLAY_SHOW_SIGNALS, \
-    DISPLAY_SHOW_FILTERED_SIGNALS
+    DISPLAY_SHOW_FILTERED_SIGNALS, ANALYSIS_TARGET_FS
 from ui.signal import Ui_addSignalDialog
 
 logger = logging.getLogger('signal')
@@ -390,16 +390,17 @@ class Signal:
         else:
             return self
 
-    def getSegmentLength(self):
+    def getSegmentLength(self, resolution_shift=0):
         """
         Calculates a segment length such that the frequency resolution of the resulting analysis is in the region of 
         ~1Hz subject to a lower limit of the number of samples in the signal.
         For example, if we have a 10s signal with an fs is 500 then we convert fs-1 to the number of bits required to 
         hold this number in binary (i.e. 111110011 so 9 bits) and then do 1 << 9 which gives us 100000000 aka 512. Thus
         we have ~1Hz resolution.
+        :param resolution_shift: shifts the resolution up or down by the specified number of bits.
         :return: the segment length.
         """
-        return min(1 << (self.fs - 1).bit_length(), self.samples.shape[-1])
+        return min(1 << ((self.fs - 1).bit_length() - int(resolution_shift)), self.samples.shape[-1])
 
     def raw(self):
         """
@@ -407,9 +408,9 @@ class Signal:
         """
         return self.samples
 
-    def _cq(self, analysisFunc, segmentLengthMultipler=1):
+    def _cq(self, analysisFunc, resolution_shift=0):
         slices = []
-        initialNperSeg = self.getSegmentLength() * segmentLengthMultipler
+        initialNperSeg = self.getSegmentLength(resolution_shift=resolution_shift)
         nperseg = initialNperSeg
         # the no of slices is based on a requirement for approximately 1Hz resolution to 128Hz and then halving the
         # resolution per octave. We calculate this as the
@@ -425,11 +426,11 @@ class Signal:
         p = np.concatenate([n[1] for n in slices])
         return f, p
 
-    def spectrum(self, ref=SPECLAB_REFERENCE, segmentLengthMultiplier=1, mode=None, window=None, **kwargs):
+    def spectrum(self, ref=SPECLAB_REFERENCE, resolution_shift=0, mode=None, window=None, **kwargs):
         """
         analyses the source to generate the linear spectrum.
         :param ref: the reference value for dB purposes.
-        :param segmentLengthMultiplier: allow for increased resolution.
+        :param resolution_shift: allows resolution to go down (if positive) or up (if negative).
         :param mode: cq or none.
         :return:
             f : ndarray
@@ -450,14 +451,14 @@ class Signal:
             return f, Pxx_spec
 
         if mode == 'cq':
-            return self._cq(analysisFunc, segmentLengthMultiplier)
+            return self._cq(analysisFunc, resolution_shift)
         else:
-            return analysisFunc(segmentLengthMultiplier, self.getSegmentLength() * segmentLengthMultiplier, **kwargs)
+            return analysisFunc(resolution_shift, self.getSegmentLength(resolution_shift=resolution_shift), **kwargs)
 
-    def peakSpectrum(self, ref=SPECLAB_REFERENCE, segmentLengthMultiplier=1, mode=None, window=None):
+    def peakSpectrum(self, ref=SPECLAB_REFERENCE, resolution_shift=0, mode=None, window=None):
         """
         analyses the source to generate the max values per bin per segment
-        :param segmentLengthMultiplier: allow for increased resolution.
+        :param resolution_shift: allows resolution to go down (if positive) or up (if negative).
         :param mode: cq or none.
         :param window: window type.
         :return:
@@ -483,14 +484,14 @@ class Signal:
             return freqs, Pxy_max
 
         if mode == 'cq':
-            return self._cq(analysisFunc, segmentLengthMultiplier)
+            return self._cq(analysisFunc, resolution_shift)
         else:
-            return analysisFunc(segmentLengthMultiplier, self.getSegmentLength() * segmentLengthMultiplier)
+            return analysisFunc(resolution_shift, self.getSegmentLength(resolution_shift=resolution_shift))
 
-    def spectrogram(self, ref=SPECLAB_REFERENCE, segmentLengthMultiplier=1, window=None):
+    def spectrogram(self, ref=SPECLAB_REFERENCE, resolution_shift=0, window=None):
         """
         analyses the source to generate a spectrogram
-        :param segmentLengthMultiplier: allow for increased resolution.
+        :param resolution_shift: allows resolution to go down (if positive) or up (if negative).
         :return:
             f : ndarray
             Array of time slices.
@@ -499,7 +500,7 @@ class Signal:
             Pxx : ndarray
             linear spectrum values.
         """
-        nperseg = int(self.getSegmentLength() * segmentLengthMultiplier)
+        nperseg = self.getSegmentLength(resolution_shift=resolution_shift)
         f, t, Sxx = signal.spectrogram(self.samples,
                                        self.fs,
                                        window=window if window else ('tukey', 0.25),
@@ -508,7 +509,7 @@ class Signal:
                                        detrend=False,
                                        scaling='spectrum')
         Sxx = np.sqrt(Sxx)
-        if segmentLengthMultiplier > 0:
+        if resolution_shift > 0:
             ref = ref * SPECLAB_REFERENCE
         Sxx = amplitude_to_db(Sxx, ref=ref)
         return f, t, Sxx
@@ -568,15 +569,15 @@ class Signal:
             logger.error(f"getXY called on {self.name} before calculate, must be error!")
             return []
 
-    def calculate(self, multiplier, avg_window, peak_window):
+    def calculate(self, resolution_shift, avg_window, peak_window):
         '''
         caches the peak and avg spectrum.
-        :param multiplier: the resolution.
+        :param resolution_shift: the resolution shift.
         :param avg_window: the avg window.
         :param peak_window: the peak window.
         '''
-        self.__avg = self.spectrum(segmentLengthMultiplier=multiplier, window=avg_window)
-        self.__peak = self.peakSpectrum(segmentLengthMultiplier=multiplier, window=peak_window)
+        self.__avg = self.spectrum(resolution_shift=resolution_shift, window=avg_window)
+        self.__peak = self.peakSpectrum(resolution_shift=resolution_shift, window=peak_window)
         self.__cached = [XYData(self.name, 'avg', self.__avg[0], self.__avg[1]),
                          XYData(self.name, 'peak', self.__peak[0], self.__peak[1])]
 
@@ -658,13 +659,14 @@ class SignalTableModel(QAbstractTableModel):
         return QVariant()
 
 
-def select_file(owner, file_type):
+def select_file(owner, file_types):
     '''
     Presents a file picker for selecting a file that contains a signal.
     '''
     dialog = QFileDialog(parent=owner)
     dialog.setFileMode(QFileDialog.ExistingFile)
-    dialog.setNameFilter(f"*.{file_type}")
+    filt = ' '.join([f"*.{f}" for f in file_types])
+    dialog.setNameFilter(f"Audio ({filt})")
     dialog.setWindowTitle(f"Select Signal File")
     if dialog.exec():
         selected = dialog.selectedFiles()
@@ -726,7 +728,7 @@ class AutoWavLoader:
         self.__start = start
         self.__end = end
 
-    def prepare(self, name=None, channel_count=1, channel=1):
+    def prepare(self, name=None, channel_count=1, channel=1, decimate=True):
         '''
         Loads and analyses the wav with the specified parameters.
         :param name: the signal name, if none use the file name + channel.
@@ -740,14 +742,15 @@ class AutoWavLoader:
             name = Path(self.info.name).resolve().stem
             if channel_count > 1:
                 name += f"_c{channel}"
+        target_fs = self.__preferences.get(ANALYSIS_TARGET_FS) if decimate is True else self.info.samplerate
         self.__signal = readWav(name, self.info.name, channel=channel, start=self.__start, end=self.__end,
-                                target_fs=self.__preferences.get(ANALYSIS_TARGET_FS))
-        multiplier = int(1 / float(self.__preferences.get(ANALYSIS_RESOLUTION)))
+                                target_fs=target_fs)
+        resolution_shift = math.log(self.__preferences.get(ANALYSIS_RESOLUTION), 2)
         peak_wnd = self.__get_window(ANALYSIS_PEAK_WINDOW)
         avg_wnd = self.__get_window(ANALYSIS_AVG_WINDOW)
         logger.debug(
-            f"Analysing {self.info.name} at {multiplier}x resolution using {peak_wnd}/{avg_wnd} peak/avg windows")
-        self.__signal.calculate(multiplier, avg_wnd, peak_wnd)
+            f"Analysing {self.info.name} at {resolution_shift}x resolution using {peak_wnd}/{avg_wnd} peak/avg windows")
+        self.__signal.calculate(resolution_shift, avg_wnd, peak_wnd)
 
     def __get_window(self, key):
         from model.preferences import ANALYSIS_WINDOW_DEFAULT
@@ -793,7 +796,7 @@ class DialogWavLoaderBridge:
         self.__duration = 0
 
     def select_wav_file(self):
-        file = select_file(self.__dialog, 'wav')
+        file = select_file(self.__dialog, ['wav', 'flac'])
         if file is not None:
             self.clear_signal()
             self.__dialog.wavFile.setText(file)
@@ -813,6 +816,7 @@ class DialogWavLoaderBridge:
         '''
         info = self.__auto_loader.info
         self.__dialog.wavFs.setText(f"{info.samplerate} Hz")
+        self.__dialog.decimate.setEnabled(info.samplerate != self.__preferences.get(ANALYSIS_TARGET_FS))
         self.__dialog.wavChannelSelector.clear()
         for i in range(0, info.channels):
             self.__dialog.wavChannelSelector.addItem(f"{i+1}")
@@ -838,7 +842,8 @@ class DialogWavLoaderBridge:
             end = end_millis
         channel = int(self.__dialog.wavChannelSelector.currentText())
         self.__auto_loader.set_range(start=start, end=end)
-        self.__auto_loader.prepare(name=self.__dialog.wavSignalName.text(), channel=channel)
+        self.__auto_loader.prepare(name=self.__dialog.wavSignalName.text(), channel=channel,
+                                   decimate=self.__dialog.decimate.isChecked())
         self.__dialog.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
 
     def __get_window(self, key):
@@ -889,7 +894,7 @@ class FrdLoader:
         self.__avg = None
 
     def _read_from_file(self):
-        file = select_file(self.__dialog, 'frd')
+        file = select_file(self.__dialog, ['frd'])
         if file is not None:
             comment_char = None
             with open(file) as f:

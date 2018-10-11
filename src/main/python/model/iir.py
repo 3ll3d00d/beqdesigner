@@ -75,13 +75,13 @@ class Biquad(ABC):
             self.__transferFunction = ComplexData(self.__repr__(), f, h)
         return self.__transferFunction
 
-    def format_biquads(self, minidsp_style):
+    def format_biquads(self, minidsp_style, separator=',\n'):
         ''' Creates a biquad report '''
-        a = ",\n".join(
+        a = separator.join(
             [f"a{idx}={float_to_str(-x if minidsp_style else x)}" for idx, x in enumerate(self.a) if
              idx != 0 or minidsp_style is False])
-        b = ",\n".join([f"b{idx}={float_to_str(x)}" for idx, x in enumerate(self.b)])
-        return [f"{b},\n{a}"]
+        b = separator.join([f"b{idx}={float_to_str(x)}" for idx, x in enumerate(self.b)])
+        return [f"{b}{separator}{a}"]
 
 
 class Gain(Biquad):
@@ -270,8 +270,8 @@ class Shelf(BiquadWithQGain):
         else:
             raise ValueError('Shelf must have non zero count')
 
-    def format_biquads(self, minidsp_style):
-        single = super().format_biquads(minidsp_style)
+    def format_biquads(self, minidsp_style, separator=',\n'):
+        single = super().format_biquads(minidsp_style, separator=separator)
         if self.count == 1:
             return single
         elif self.count > 1:
@@ -724,13 +724,13 @@ class ComplexFilter(Sequence):
                                                                     [x.getTransferFunction() for x in self.filters])
         return self.__cached_transfer
 
-    def format_biquads(self, invert_a):
+    def format_biquads(self, invert_a, separator=',\n'):
         '''
         Formats the filter into a biquad report.
         :param invert_a: whether to invert the a coeffs.
         :return: the report.
         '''
-        return [f.format_biquads(invert_a) for f in self.filters]
+        return [f.format_biquads(invert_a, separator=separator) for f in self.filters]
 
     def to_json(self):
         return {

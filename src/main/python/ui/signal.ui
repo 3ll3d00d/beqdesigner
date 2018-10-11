@@ -51,15 +51,18 @@
          </property>
          <widget class="QWidget" name="wavTab">
           <attribute name="title">
-           <string>WAV</string>
+           <string>AUDIO</string>
           </attribute>
           <layout class="QGridLayout" name="gridLayout_3">
            <item row="0" column="0">
             <layout class="QGridLayout" name="wavGridLayout">
-             <item row="3" column="0">
-              <widget class="QLabel" name="wavChannelLabel">
+             <item row="7" column="1">
+              <widget class="QCheckBox" name="loadAllChannels">
                <property name="text">
-                <string>Channel</string>
+                <string>Load All Channels?</string>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
                </property>
               </widget>
              </item>
@@ -67,13 +70,6 @@
               <widget class="QLineEdit" name="wavFs">
                <property name="enabled">
                 <bool>false</bool>
-               </property>
-              </widget>
-             </item>
-             <item row="5" column="0">
-              <widget class="QLabel" name="wavEndTimeLabel">
-               <property name="text">
-                <string>End</string>
                </property>
               </widget>
              </item>
@@ -91,6 +87,20 @@
                  <minute>0</minute>
                  <second>0</second>
                 </time>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="0">
+              <widget class="QLabel" name="wavChannelLabel">
+               <property name="text">
+                <string>Channel</string>
+               </property>
+              </widget>
+             </item>
+             <item row="5" column="0">
+              <widget class="QLabel" name="wavEndTimeLabel">
+               <property name="text">
+                <string>End</string>
                </property>
               </widget>
              </item>
@@ -115,6 +125,13 @@
                </property>
               </widget>
              </item>
+             <item row="6" column="1">
+              <widget class="QLineEdit" name="wavSignalName">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+              </widget>
+             </item>
              <item row="5" column="1">
               <widget class="QTimeEdit" name="wavEndTime">
                <property name="enabled">
@@ -125,13 +142,6 @@
                </property>
               </widget>
              </item>
-             <item row="6" column="1">
-              <widget class="QLineEdit" name="wavSignalName">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
-              </widget>
-             </item>
              <item row="1" column="2">
               <widget class="QToolButton" name="wavFilePicker">
                <property name="text">
@@ -139,7 +149,14 @@
                </property>
               </widget>
              </item>
-             <item row="9" column="0" colspan="3">
+             <item row="4" column="0">
+              <widget class="QLabel" name="wavStartTimeLabel">
+               <property name="text">
+                <string>Start</string>
+               </property>
+              </widget>
+             </item>
+             <item row="10" column="0" colspan="3">
               <widget class="QPushButton" name="previewButton">
                <property name="enabled">
                 <bool>false</bool>
@@ -149,7 +166,7 @@
                </property>
               </widget>
              </item>
-             <item row="8" column="1">
+             <item row="9" column="1">
               <spacer name="verticalSpacer_2">
                <property name="orientation">
                 <enum>Qt::Vertical</enum>
@@ -161,13 +178,6 @@
                 </size>
                </property>
               </spacer>
-             </item>
-             <item row="4" column="0">
-              <widget class="QLabel" name="wavStartTimeLabel">
-               <property name="text">
-                <string>Start</string>
-               </property>
-              </widget>
              </item>
              <item row="1" column="1">
               <widget class="QLineEdit" name="wavFile">
@@ -186,10 +196,10 @@
                </property>
               </widget>
              </item>
-             <item row="7" column="0" colspan="3">
-              <widget class="QCheckBox" name="loadAllChannels">
+             <item row="8" column="1">
+              <widget class="QCheckBox" name="decimate">
                <property name="text">
-                <string>Load All Channels?</string>
+                <string>Decimate?</string>
                </property>
                <property name="checked">
                 <bool>true</bool>
