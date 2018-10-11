@@ -20,7 +20,7 @@ from model.iir import XYData, CompleteFilter
 from model.magnitude import MagnitudeModel
 from model.preferences import AVG_COLOURS, PEAK_COLOURS, get_avg_colour, get_peak_colour, SHOW_PEAK, \
     SHOW_AVERAGE, SHOW_FILTERED_ONLY, SHOW_UNFILTERED_ONLY, DISPLAY_SHOW_SIGNALS, \
-    DISPLAY_SHOW_FILTERED_SIGNALS
+    DISPLAY_SHOW_FILTERED_SIGNALS, ANALYSIS_TARGET_FS
 from ui.signal import Ui_addSignalDialog
 
 logger = logging.getLogger('signal')
@@ -727,7 +727,7 @@ class AutoWavLoader:
         self.__start = start
         self.__end = end
 
-    def prepare(self, name=None, channel_count=1, channel=1):
+    def prepare(self, name=None, channel_count=1, channel=1, decimate=True):
         '''
         Loads and analyses the wav with the specified parameters.
         :param name: the signal name, if none use the file name + channel.
@@ -741,8 +741,9 @@ class AutoWavLoader:
             name = Path(self.info.name).resolve().stem
             if channel_count > 1:
                 name += f"_c{channel}"
+        target_fs = self.__preferences.get(ANALYSIS_TARGET_FS) if decimate is True else self.info.samplerate
         self.__signal = readWav(name, self.info.name, channel=channel, start=self.__start, end=self.__end,
-                                target_fs=self.__preferences.get(ANALYSIS_TARGET_FS))
+                                target_fs=target_fs)
         multiplier = int(1 / float(self.__preferences.get(ANALYSIS_RESOLUTION)))
         peak_wnd = self.__get_window(ANALYSIS_PEAK_WINDOW)
         avg_wnd = self.__get_window(ANALYSIS_AVG_WINDOW)
@@ -814,6 +815,7 @@ class DialogWavLoaderBridge:
         '''
         info = self.__auto_loader.info
         self.__dialog.wavFs.setText(f"{info.samplerate} Hz")
+        self.__dialog.decimate.setEnabled(info.samplerate != self.__preferences.get(ANALYSIS_TARGET_FS))
         self.__dialog.wavChannelSelector.clear()
         for i in range(0, info.channels):
             self.__dialog.wavChannelSelector.addItem(f"{i+1}")
@@ -839,7 +841,8 @@ class DialogWavLoaderBridge:
             end = end_millis
         channel = int(self.__dialog.wavChannelSelector.currentText())
         self.__auto_loader.set_range(start=start, end=end)
-        self.__auto_loader.prepare(name=self.__dialog.wavSignalName.text(), channel=channel)
+        self.__auto_loader.prepare(name=self.__dialog.wavSignalName.text(), channel=channel,
+                                   decimate=self.__dialog.decimate.isChecked())
         self.__dialog.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
 
     def __get_window(self, key):
