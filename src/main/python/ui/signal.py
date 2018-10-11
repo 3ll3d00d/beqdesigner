@@ -193,7 +193,7 @@ class Ui_addSignalDialog(object):
         self.wavStartTimeLabel.setText(_translate("addSignalDialog", "Start"))
         self.wavSignalNameLabel.setText(_translate("addSignalDialog", "Name"))
         self.loadAllChannels.setText(_translate("addSignalDialog", "Load All Channels?"))
-        self.signalTypeTabs.setTabText(self.signalTypeTabs.indexOf(self.wavTab), _translate("addSignalDialog", "WAV"))
+        self.signalTypeTabs.setTabText(self.signalTypeTabs.indexOf(self.wavTab), _translate("addSignalDialog", "AUDIO"))
         self.frdFsLabel.setText(_translate("addSignalDialog", "Fs"))
         self.frdAvgFileLabel.setText(_translate("addSignalDialog", "Avg"))
         self.frdAvgFilePicker.setText(_translate("addSignalDialog", "..."))

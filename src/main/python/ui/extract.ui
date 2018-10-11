@@ -248,6 +248,13 @@
          </property>
         </widget>
        </item>
+       <item>
+        <widget class="QCheckBox" name="compressAudio">
+         <property name="text">
+          <string>Compress Audio?</string>
+         </property>
+        </widget>
+       </item>
       </layout>
      </item>
      <item row="1" column="0">
@@ -422,7 +429,7 @@
    <slot>toggleMonoMix()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>370</x>
+     <x>284</x>
      <y>207</y>
     </hint>
     <hint type="destinationlabel">
@@ -486,7 +493,7 @@
    <slot>toggle_decimate_audio()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>513</x>
+     <x>427</x>
      <y>192</y>
     </hint>
     <hint type="destinationlabel">
@@ -502,12 +509,28 @@
    <slot>toggle_include_original_audio()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>800</x>
+     <x>649</x>
      <y>191</y>
     </hint>
     <hint type="destinationlabel">
      <x>846</x>
      <y>228</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>compressAudio</sender>
+   <signal>clicked()</signal>
+   <receiver>extractAudioDialog</receiver>
+   <slot>toggle_compress_audio()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>786</x>
+     <y>198</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>844</x>
+     <y>177</y>
     </hint>
    </hints>
   </connection>
@@ -523,5 +546,6 @@
   <slot>overrideFfmpegSpec()</slot>
   <slot>toggle_decimate_audio()</slot>
   <slot>toggle_include_original_audio()</slot>
+  <slot>toggle_compress_audio()</slot>
  </slots>
 </ui>

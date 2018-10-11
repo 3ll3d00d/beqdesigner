@@ -126,6 +126,9 @@ class Ui_extractAudioDialog(object):
         self.includeOriginalAudio = QtWidgets.QCheckBox(extractAudioDialog)
         self.includeOriginalAudio.setObjectName("includeOriginalAudio")
         self.horizontalLayout.addWidget(self.includeOriginalAudio)
+        self.compressAudio = QtWidgets.QCheckBox(extractAudioDialog)
+        self.compressAudio.setObjectName("compressAudio")
+        self.horizontalLayout.addWidget(self.compressAudio)
         self.gridLayout.addLayout(self.horizontalLayout, 5, 1, 1, 1)
         self.videoStreamsLabel = QtWidgets.QLabel(extractAudioDialog)
         self.videoStreamsLabel.setObjectName("videoStreamsLabel")
@@ -162,6 +165,7 @@ class Ui_extractAudioDialog(object):
         self.videoStreams.currentIndexChanged['int'].connect(extractAudioDialog.updateFfmpegSpec)
         self.decimateAudio.clicked.connect(extractAudioDialog.toggle_decimate_audio)
         self.includeOriginalAudio.clicked.connect(extractAudioDialog.toggle_include_original_audio)
+        self.compressAudio.clicked.connect(extractAudioDialog.toggle_compress_audio)
         QtCore.QMetaObject.connectSlotsByName(extractAudioDialog)
 
     def retranslateUi(self, extractAudioDialog):
@@ -184,6 +188,7 @@ class Ui_extractAudioDialog(object):
         self.monoMix.setText(_translate("extractAudioDialog", "Mix to Mono?"))
         self.decimateAudio.setText(_translate("extractAudioDialog", "Decimate Audio?"))
         self.includeOriginalAudio.setText(_translate("extractAudioDialog", "Include Original Audio?"))
+        self.compressAudio.setText(_translate("extractAudioDialog", "Compress Audio?"))
         self.videoStreamsLabel.setText(_translate("extractAudioDialog", "Video Stream"))
         self.showProbeButton.setText(_translate("extractAudioDialog", "..."))
 

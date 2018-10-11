@@ -108,7 +108,7 @@ class Executor:
     Deals with calculating an ffmpeg command for extracting audio from some input file.
     '''
 
-    def __init__(self, file, target_dir, mono_mix, decimate_audio, include_original, signal_model=None):
+    def __init__(self, file, target_dir, mono_mix, decimate_audio, compress_audio, include_original, signal_model=None):
         self.file = file
         self.__target_dir = target_dir
         self.__probe = None
@@ -119,6 +119,7 @@ class Executor:
         self.__channel_layout_name = None
         self.__mono_mix = mono_mix
         self.__decimate_audio = decimate_audio
+        self.__compress_audio = compress_audio
         self.__include_original_audio = include_original
         self.__mono_mix_spec = None
         self.__selected_audio_stream_idx = 0
@@ -188,6 +189,15 @@ class Executor:
     @decimate_audio.setter
     def decimate_audio(self, decimate_audio):
         self.__decimate_audio = decimate_audio
+        self.__calculate_output()
+
+    @property
+    def compress_audio(self):
+        return self.__compress_audio
+
+    @compress_audio.setter
+    def compress_audio(self, compress_audio):
+        self.__compress_audio = compress_audio
         self.__calculate_output()
 
     @property
@@ -414,7 +424,8 @@ class Executor:
             filt = f"[a:{self.selected_stream_idx}]pan=1c|c0=c{channel_idx}[{c_name}];"
             filt += f"[{c_name}]aformat=sample_fmts=dbl[{c_name}_{f_idx}];"
             if sig is not None:
-                for f in sig.filter.filters:
+                sig_filter = sig.filter.resample(int(self.__sample_rate))
+                for f in sig_filter.filters:
                     filt += f"[{c_name}_{f_idx}]biquad={format_biquad(f)}[{c_name}_{f_idx+1}];"
                     f_idx += 1
             else:
@@ -459,27 +470,28 @@ class Executor:
     def __calculate_extract_command(self, output_file):
         ''' calculates the command required to extract the audio to the specified output file '''
         input_stream = ffmpeg.input(self.file)
+        acodec = 'flac' if self.compress_audio else 'pcm_s24le'
         if self.__mono_mix:
             if self.__selected_video_stream_idx != -1:
                 audio_filter = input_stream['a'].filter('pan', **{'mono|c0': self.__mono_mix_spec})
                 if self.decimate_audio is True:
                     audio_filter = audio_filter.filter('aresample', '1000', resampler='soxr')
                 self.__ffmpeg_cmd = ffmpeg.output(input_stream['v'], audio_filter, output_file,
-                                                  acodec='pcm_s24le', vcodec='copy')
+                                                  acodec=acodec, vcodec='copy')
             else:
                 mix = input_stream.filter('pan', **{'mono|c0': self.__mono_mix_spec})
                 if self.decimate_audio is True:
                     mix = mix.filter('aresample', '1000', resampler='soxr')
-                self.__ffmpeg_cmd = mix.output(output_file, acodec='pcm_s24le')
+                self.__ffmpeg_cmd = mix.output(output_file, acodec=acodec)
         else:
             audio_filter = input_stream[f"a:{self.__selected_audio_stream_idx}"]
             if self.decimate_audio is True:
                 audio_filter = audio_filter.filter('aresample', '1000', resampler='soxr')
             if self.__selected_video_stream_idx != -1:
-                self.__ffmpeg_cmd = ffmpeg.output(input_stream['v'], audio_filter, output_file, acodec='pcm_s24le',
+                self.__ffmpeg_cmd = ffmpeg.output(input_stream['v'], audio_filter, output_file, acodec=acodec,
                                                   vcodec='copy')
             else:
-                self.__ffmpeg_cmd = audio_filter.output(output_file, acodec='pcm_s24le')
+                self.__ffmpeg_cmd = audio_filter.output(output_file, acodec=acodec)
         if self.progress_handler is not None:
             self.__ffmpeg_cmd = self.__ffmpeg_cmd.global_args('-progress',
                                                               f"udp://127.0.0.1:{self.__progress_port}")
@@ -495,7 +507,8 @@ class Executor:
             f" -filter_complex_script {self.__write_filter_complex()}"
         if self.__selected_video_stream_idx != -1:
             self.__ffmpeg_cmd += f" -c:v copy -map 0:v:{self.__selected_video_stream_idx}"
-        self.__ffmpeg_cmd += f" -map [s0] -acodec \"pcm_s24le\" \"{output_file}\""
+        acodec = 'flac' if self.compress_audio else 'pcm_s24le'
+        self.__ffmpeg_cmd += f" -map [s0] -acodec \"{acodec}\" \"{output_file}\""
         if self.progress_handler is not None:
             self.__ffmpeg_cmd += f" -progress \"udp://127.0.0.1:{self.__progress_port}\""
         self.__ffmpeg_cmd += ' -y'
@@ -512,7 +525,8 @@ class Executor:
         if self.__selected_video_stream_idx != -1:
             return f"{output_file}{os.path.splitext(self.file)[1]}"
         else:
-            return f"{output_file}.wav"
+            audio_ext = 'flac' if self.compress_audio else 'wav'
+            return f"{output_file}.{audio_ext}"
 
     def __get_lfe_mono_mix(self, channels, lfe_idx):
         '''

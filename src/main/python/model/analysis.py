@@ -39,7 +39,7 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
         '''
         Allows the user to select a file and laods info about it
         '''
-        file = select_file(self, 'wav')
+        file = select_file(self, ['wav', 'flac'])
         if file is not None:
             self.__clear()
             self.file.setText(file)

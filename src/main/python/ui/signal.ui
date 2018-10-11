@@ -51,7 +51,7 @@
          </property>
          <widget class="QWidget" name="wavTab">
           <attribute name="title">
-           <string>WAV</string>
+           <string>AUDIO</string>
           </attribute>
           <layout class="QGridLayout" name="gridLayout_3">
            <item row="0" column="0">

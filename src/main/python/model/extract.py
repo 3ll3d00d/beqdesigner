@@ -39,6 +39,8 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         self.__extracted = False
         self.__stream_duration_micros = []
         self.__is_remux = is_remux
+        if self.__is_remux:
+            self.setWindowTitle('Remux Audio')
         defaultOutputDir = self.__preferences.get(EXTRACTION_OUTPUT_DIR)
         if os.path.isdir(defaultOutputDir):
             self.targetDir.setText(defaultOutputDir)
@@ -87,6 +89,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             self.includeOriginalAudio.setVisible(False)
         self.monoMix.setEnabled(False)
         self.decimateAudio.setEnabled(False)
+        self.compressAudio.setEnabled(False)
         self.includeOriginalAudio.setEnabled(False)
         self.inputFilePicker.setEnabled(True)
         self.audioStreams.setEnabled(False)
@@ -112,7 +115,8 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         '''
         file_name = self.inputFile.text()
         self.__executor = Executor(file_name, self.targetDir.text(), self.monoMix.isChecked(),
-                                   self.decimateAudio.isChecked(), self.includeOriginalAudio.isChecked(),
+                                   self.decimateAudio.isChecked(), self.compressAudio.isChecked(),
+                                   self.includeOriginalAudio.isChecked(),
                                    signal_model=self.__signal_model if self.__is_remux else None)
         self.__executor.progress_handler = self.__handle_ffmpeg_process
         from app import wait_cursor
@@ -133,6 +137,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             self.lfeChannelIndex.setEnabled(True)
             self.monoMix.setEnabled(True)
             self.decimateAudio.setEnabled(True)
+            self.compressAudio.setEnabled(True)
             self.includeOriginalAudio.setEnabled(True)
             self.outputFilename.setEnabled(True)
             self.ffmpegCommandLine.setEnabled(True)
@@ -174,6 +179,14 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         '''
         if self.audioStreams.count() > 0 and self.__executor is not None:
             self.__executor.decimate_audio = self.decimateAudio.isChecked()
+            self.__display_command_info()
+
+    def toggle_compress_audio(self):
+        '''
+        Reacts to the change in decimation.
+        '''
+        if self.audioStreams.count() > 0 and self.__executor is not None:
+            self.__executor.compress_audio = self.compressAudio.isChecked()
             self.__display_command_info()
 
     def toggle_include_original_audio(self):
@@ -287,6 +300,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         self.lfeChannelIndex.setEnabled(False)
         self.monoMix.setEnabled(False)
         self.decimateAudio.setEnabled(False)
+        self.compressAudio.setEnabled(False)
         self.includeOriginalAudio.setEnabled(False)
         self.targetDirPicker.setEnabled(False)
         self.outputFilename.setEnabled(False)
@@ -307,10 +321,11 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
                 logger.info(f"Extraction complete for {self.outputFilename.text()}")
                 self.ffmpegProgress.setValue(100)
                 self.__extracted = True
-                self.signalName.setEnabled(True)
-                self.signalNameLabel.setEnabled(True)
-                self.signalName.setText(Path(self.outputFilename.text()).resolve().stem)
-                self.buttonBox.button(QDialogButtonBox.Ok).setText('Create Signals')
+                if not self.__is_remux:
+                    self.signalName.setEnabled(True)
+                    self.signalNameLabel.setEnabled(True)
+                    self.signalName.setText(Path(self.outputFilename.text()).resolve().stem)
+                    self.buttonBox.button(QDialogButtonBox.Ok).setText('Create Signals')
             else:
                 logger.error(f"Extraction failed for {self.outputFilename.text()}")
                 palette = QPalette(self.ffmpegProgress.palette())

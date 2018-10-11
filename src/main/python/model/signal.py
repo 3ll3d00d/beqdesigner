@@ -658,13 +658,14 @@ class SignalTableModel(QAbstractTableModel):
         return QVariant()
 
 
-def select_file(owner, file_type):
+def select_file(owner, file_types):
     '''
     Presents a file picker for selecting a file that contains a signal.
     '''
     dialog = QFileDialog(parent=owner)
     dialog.setFileMode(QFileDialog.ExistingFile)
-    dialog.setNameFilter(f"*.{file_type}")
+    filt = ' '.join([f"*.{f}" for f in file_types])
+    dialog.setNameFilter(f"Audio ({filt})")
     dialog.setWindowTitle(f"Select Signal File")
     if dialog.exec():
         selected = dialog.selectedFiles()
@@ -793,7 +794,7 @@ class DialogWavLoaderBridge:
         self.__duration = 0
 
     def select_wav_file(self):
-        file = select_file(self.__dialog, 'wav')
+        file = select_file(self.__dialog, ['wav', 'flac'])
         if file is not None:
             self.clear_signal()
             self.__dialog.wavFile.setText(file)
@@ -889,7 +890,7 @@ class FrdLoader:
         self.__avg = None
 
     def _read_from_file(self):
-        file = select_file(self.__dialog, 'frd')
+        file = select_file(self.__dialog, ['frd'])
         if file is not None:
             comment_char = None
             with open(file) as f:
