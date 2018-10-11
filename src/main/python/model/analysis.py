@@ -313,12 +313,12 @@ class MaxSpectrumByTime:
 
     def __render_scatter(self):
         ''' renders a scatter plot showing the biggest hits '''
-        Sxx, f, multiplier, t, x, y, z = self.__get_xyz(self.__signal)
+        Sxx, f, resolution_shift, t, x, y, z = self.__get_xyz(self.__signal)
         # dump the output for debug purposes
         # np.savetxt('spectro.csv', Sxx, delimiter=',', fmt='%.6f')
         # np.savetxt('test2.csv', np.c_[x,y,z], delimiter=',', fmt='%.6f')
         if self.__ui.clipAtAverage.isChecked():
-            _, Pthreshold = self.signal.spectrum(segmentLengthMultiplier=multiplier)
+            _, Pthreshold = self.signal.spectrum(resolution_shift=resolution_shift)
         else:
             if self.__ui.clipToAbsolute.isChecked():
                 Pthreshold = np.array([np.max(Sxx) + self.__ui.dbRange.value()]).repeat(f.size)
@@ -354,12 +354,12 @@ class MaxSpectrumByTime:
 
     def __get_xyz(self, signal):
         from model.preferences import ANALYSIS_RESOLUTION
-        multiplier = int(1 / float(self.__preferences.get(ANALYSIS_RESOLUTION)))
-        f, t, Sxx = signal.spectrogram(segmentLengthMultiplier=multiplier)
+        resolution_shift = math.log(self.__preferences.get(ANALYSIS_RESOLUTION), 2)
+        f, t, Sxx = signal.spectrogram(resolution_shift=resolution_shift)
         x = f.repeat(t.size)
         y = np.tile(t, f.size)
         z = Sxx.flatten()
-        return Sxx, f, multiplier, t, x, y, z
+        return Sxx, f, resolution_shift, t, x, y, z
 
     def show_spectro(self):
         ''' shows the spectrogram. '''
@@ -379,7 +379,7 @@ class SlaveRange:
 
 
 class SpectrogramDialog(QDialog, Ui_spectroDialog):
-    multipliers = [0.25, 0.5, 1.0, 2.0, 4.0, 8.0]
+    multipliers = [0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0]
 
     def __init__(self, parent, signal, preferences, freq_lim):
         super(SpectrogramDialog, self).__init__(parent=parent)
@@ -422,7 +422,7 @@ class SpectrogramDialog(QDialog, Ui_spectroDialog):
         self.__axes.grid(linestyle='--', which='minor', linewidth=1, alpha=0.5)
         multiplier_idx = self.resolution.currentIndex()
         multiplier = self.multipliers[multiplier_idx]
-        f, t, Sxx = self.__signal.spectrogram(segmentLengthMultiplier=multiplier)
+        f, t, Sxx = self.__signal.spectrogram(resolution_shift=math.log(multiplier, 2))
         vmax = math.ceil(np.max(Sxx.max(axis=-1)))
         vmin = vmax - self.vRange.value()
         self.__specgram = self.__axes.pcolormesh(f, t, Sxx.transpose(), vmin=vmin, vmax=vmax, shading='gouraud')
