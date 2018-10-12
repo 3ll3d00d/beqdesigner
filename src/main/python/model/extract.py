@@ -395,12 +395,13 @@ class EditMappingDialog(QDialog, Ui_editMappingDialog):
         super(EditMappingDialog, self).__init__(parent)
         self.setupUi(self)
         self.channelIdx.setText(str(channel_idx+1))
+        self.signal.addItem('Passthrough')
         for idx, s in enumerate(signal_model):
             self.signal.addItem(s.name)
-            if s.name == selected_signal.name:
+            if selected_signal is not None and s.name == selected_signal.name:
                 self.signal.setCurrentIndex(idx)
 
         def pass_idx_with_text(text):
-            on_change_handler(channel_idx, text)
+            on_change_handler(channel_idx, None if text == 'Passthrough' else text)
 
         self.signal.currentTextChanged.connect(pass_idx_with_text)
