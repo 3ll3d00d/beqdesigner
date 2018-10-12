@@ -11,7 +11,7 @@ from qtpy.QtWidgets import QDialog, QStatusBar, QFileDialog
 
 from model.ffmpeg import Executor, parse_audio_stream, ViewProbeDialog, SIGNAL_CONNECTED, SIGNAL_ERROR, \
     SIGNAL_COMPLETE, SIGNAL_CANCELLED, FFMpegDetailsDialog
-from model.preferences import EXTRACTION_OUTPUT_DIR, EXTRACTION_BATCH_FILTER
+from model.preferences import EXTRACTION_OUTPUT_DIR, EXTRACTION_BATCH_FILTER, ANALYSIS_TARGET_FS
 from ui.batch import Ui_batchExtractDialog
 
 logger = logging.getLogger('batch')
@@ -114,7 +114,7 @@ class BatchExtractDialog(QDialog, Ui_batchExtractDialog):
         Searches for files matching the filter in the input directory.
         '''
         self.filter.setEnabled(False)
-        self.__candidates = ExtractCandidates(self)
+        self.__candidates = ExtractCandidates(self, self.__preferences.get(ANALYSIS_TARGET_FS))
         self.__preferences.set(EXTRACTION_BATCH_FILTER, self.filter.text())
         globs = self.filter.text().split(';')
         job = FileSearch(globs)
@@ -216,12 +216,13 @@ class FileSearch(QRunnable):
 
 class ExtractCandidates:
 
-    def __init__(self, dialog):
+    def __init__(self, dialog, decimate_fs=1000):
         self.__dialog = dialog
         self.__candidates = []
         self.__probed = []
         self.__extracting = False
         self.__extracted = []
+        self.__decimate_fs = decimate_fs
 
     @property
     def is_extracting(self):
@@ -239,7 +240,7 @@ class ExtractCandidates:
         :param candidate: the candidate.
         '''
         extract_candidate = ExtractCandidate(len(self.__candidates), candidate, self.__dialog, self.on_probe_complete,
-                                             self.on_extract_complete)
+                                             self.on_extract_complete, self.__decimate_fs)
         self.__candidates.append(extract_candidate)
         extract_candidate.render()
 
@@ -321,7 +322,7 @@ class ExtractStatus(Enum):
 
 
 class ExtractCandidate:
-    def __init__(self, idx, filename, dialog, on_probe_complete, on_extract_complete):
+    def __init__(self, idx, filename, dialog, on_probe_complete, on_extract_complete, decimate_fs):
         self.__idx = idx
         self.__filename = filename
         self.__dialog = dialog
@@ -331,7 +332,7 @@ class ExtractCandidate:
         self.__on_extract_complete = on_extract_complete
         self.__result = None
         self.__status = ExtractStatus.NEW
-        self.executor = Executor(self.__filename, self.__dialog.outputDir.text())
+        self.executor = Executor(self.__filename, self.__dialog.outputDir.text(), decimate_fs=decimate_fs)
         self.executor.progress_handler = self.__handle_ffmpeg_process
         self.actionButton = None
         self.probeButton = None

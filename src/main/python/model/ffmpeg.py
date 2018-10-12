@@ -108,7 +108,8 @@ class Executor:
     Deals with calculating an ffmpeg command for extracting audio from some input file.
     '''
 
-    def __init__(self, file, target_dir, mono_mix, decimate_audio, compress_audio, include_original, signal_model=None):
+    def __init__(self, file, target_dir, mono_mix=True, decimate_audio=True, compress_audio=False,
+                 include_original=False, signal_model=None, decimate_fs=1000):
         self.file = file
         self.__target_dir = target_dir
         self.__probe = None
@@ -137,6 +138,7 @@ class Executor:
         self.__filter_complex_filter = None
         self.__is_remux = signal_model is not None
         self.__signal_model = signal_model
+        self.__decimate_fs = int(decimate_fs)
 
     @property
     def channel_to_filter(self):
@@ -464,7 +466,7 @@ class Executor:
             merge_filt += ''.join([f"|c{idx}=c{idx}" for idx, x in enumerate(ch_outs)])
 
         if self.decimate_audio is True:
-            merge_filt += '[m0];[m0]aresample=1000:resampler=soxr[s0]'
+            merge_filt += f"[m0];[m0]aresample={self.__decimate_fs}:resampler=soxr[s0]"
         else:
             merge_filt += '[s0]'
 
@@ -492,18 +494,18 @@ class Executor:
             if self.__selected_video_stream_idx != -1:
                 audio_filter = input_stream['a'].filter('pan', **{'mono|c0': self.__mono_mix_spec})
                 if self.decimate_audio is True:
-                    audio_filter = audio_filter.filter('aresample', '1000', resampler='soxr')
+                    audio_filter = audio_filter.filter('aresample', str(self.__decimate_fs), resampler='soxr')
                 self.__ffmpeg_cmd = ffmpeg.output(input_stream['v'], audio_filter, output_file,
                                                   acodec=acodec, vcodec='copy')
             else:
                 mix = input_stream.filter('pan', **{'mono|c0': self.__mono_mix_spec})
                 if self.decimate_audio is True:
-                    mix = mix.filter('aresample', '1000', resampler='soxr')
+                    mix = mix.filter('aresample', str(self.__decimate_fs), resampler='soxr')
                 self.__ffmpeg_cmd = mix.output(output_file, acodec=acodec)
         else:
             audio_filter = input_stream[f"a:{self.__selected_audio_stream_idx}"]
             if self.decimate_audio is True:
-                audio_filter = audio_filter.filter('aresample', '1000', resampler='soxr')
+                audio_filter = audio_filter.filter('aresample', str(self.__decimate_fs), resampler='soxr')
             if self.__selected_video_stream_idx != -1:
                 self.__ffmpeg_cmd = ffmpeg.output(input_stream['v'], audio_filter, output_file, acodec=acodec,
                                                   vcodec='copy')

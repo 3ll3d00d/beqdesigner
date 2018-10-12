@@ -11,7 +11,7 @@ from qtpy.QtWidgets import QDialog, QFileDialog, QStatusBar, QDialogButtonBox, Q
 
 from model.ffmpeg import Executor, ViewProbeDialog, SIGNAL_CONNECTED, SIGNAL_ERROR, SIGNAL_COMPLETE, parse_audio_stream, \
     get_channel_name, parse_video_stream
-from model.preferences import EXTRACTION_OUTPUT_DIR, EXTRACTION_NOTIFICATION_SOUND
+from model.preferences import EXTRACTION_OUTPUT_DIR, EXTRACTION_NOTIFICATION_SOUND, ANALYSIS_TARGET_FS
 from model.signal import AutoWavLoader
 from ui.edit_mapping import Ui_editMappingDialog
 from ui.extract import Ui_extractAudioDialog
@@ -134,10 +134,13 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         Probes the specified file using ffprobe in order to discover the audio streams.
         '''
         file_name = self.inputFile.text()
-        self.__executor = Executor(file_name, self.targetDir.text(), self.monoMix.isChecked(),
-                                   self.decimateAudio.isChecked(), self.compressAudio.isChecked(),
-                                   self.includeOriginalAudio.isChecked(),
-                                   signal_model=self.__signal_model if self.__is_remux else None)
+        self.__executor = Executor(file_name, self.targetDir.text(),
+                                   mono_mix=self.monoMix.isChecked(),
+                                   decimate_audio=self.decimateAudio.isChecked(),
+                                   compress_audio=self.compressAudio.isChecked(),
+                                   include_original=self.includeOriginalAudio.isChecked(),
+                                   signal_model=self.__signal_model if self.__is_remux else None,
+                                   decimate_fs=self.__preferences.get(ANALYSIS_TARGET_FS))
         self.__executor.progress_handler = self.__handle_ffmpeg_process
         from app import wait_cursor
         with wait_cursor(f"Probing {file_name}"):
