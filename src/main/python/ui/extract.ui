@@ -24,35 +24,11 @@
   </property>
   <layout class="QVBoxLayout" name="boxLayout">
    <item>
-    <layout class="QGridLayout" name="gridLayout" rowstretch="1,0,0,0,0,0,0,0,0,0,0,0,0" columnstretch="0,0,0">
-     <item row="0" column="2">
-      <widget class="QToolButton" name="inputFilePicker">
-       <property name="text">
-        <string>...</string>
-       </property>
-      </widget>
-     </item>
-     <item row="0" column="0">
-      <widget class="QLabel" name="inputFileLabel">
-       <property name="text">
-        <string>File</string>
-       </property>
-      </widget>
-     </item>
-     <item row="8" column="1">
-      <widget class="QLineEdit" name="outputFilename"/>
-     </item>
-     <item row="4" column="0">
-      <widget class="QLabel" name="lfeChannelIndexLabel">
-       <property name="text">
-        <string>LFE Channel</string>
-       </property>
-      </widget>
-     </item>
-     <item row="3" column="1">
-      <widget class="QSpinBox" name="channelCount">
-       <property name="minimum">
-        <number>1</number>
+    <layout class="QGridLayout" name="gridLayout" rowstretch="1,0,0,0,0,0,0,0,0,0,0,0,0,0" columnstretch="0,0,0">
+     <item row="0" column="1">
+      <widget class="QLineEdit" name="inputFile">
+       <property name="enabled">
+        <bool>false</bool>
        </property>
       </widget>
      </item>
@@ -63,13 +39,6 @@
        </property>
        <property name="minimum">
         <number>0</number>
-       </property>
-      </widget>
-     </item>
-     <item row="12" column="1">
-      <widget class="QLineEdit" name="signalName">
-       <property name="enabled">
-        <bool>true</bool>
        </property>
       </widget>
      </item>
@@ -87,21 +56,14 @@
        </property>
       </widget>
      </item>
-     <item row="0" column="1">
-      <widget class="QLineEdit" name="inputFile">
+     <item row="13" column="1">
+      <widget class="QLineEdit" name="signalName">
        <property name="enabled">
-        <bool>false</bool>
+        <bool>true</bool>
        </property>
       </widget>
      </item>
-     <item row="7" column="0">
-      <widget class="QLabel" name="targetDirectoryLabel">
-       <property name="text">
-        <string>Target Directory</string>
-       </property>
-      </widget>
-     </item>
-     <item row="11" column="1">
+     <item row="12" column="1">
       <widget class="QPlainTextEdit" name="ffmpegOutput">
        <property name="enabled">
         <bool>true</bool>
@@ -119,14 +81,14 @@
        </property>
       </widget>
      </item>
-     <item row="7" column="1">
-      <widget class="QLineEdit" name="targetDir">
-       <property name="enabled">
-        <bool>false</bool>
+     <item row="8" column="0">
+      <widget class="QLabel" name="targetDirectoryLabel">
+       <property name="text">
+        <string>Target Directory</string>
        </property>
       </widget>
      </item>
-     <item row="7" column="2">
+     <item row="8" column="2">
       <widget class="QToolButton" name="targetDirPicker">
        <property name="text">
         <string>...</string>
@@ -136,21 +98,21 @@
      <item row="2" column="1">
       <widget class="QComboBox" name="audioStreams"/>
      </item>
-     <item row="8" column="0">
+     <item row="8" column="1">
+      <widget class="QLineEdit" name="targetDir">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+      </widget>
+     </item>
+     <item row="9" column="0">
       <widget class="QLabel" name="outputFilenameLabel">
        <property name="text">
         <string>Output Filename</string>
        </property>
       </widget>
      </item>
-     <item row="12" column="0">
-      <widget class="QLabel" name="signalNameLabel">
-       <property name="text">
-        <string>Signal Name</string>
-       </property>
-      </widget>
-     </item>
-     <item row="9" column="1">
+     <item row="10" column="1">
       <widget class="QPlainTextEdit" name="ffmpegCommandLine">
        <property name="enabled">
         <bool>true</bool>
@@ -165,7 +127,14 @@
        </property>
       </widget>
      </item>
-     <item row="9" column="0">
+     <item row="13" column="0">
+      <widget class="QLabel" name="signalNameLabel">
+       <property name="text">
+        <string>Signal Name</string>
+       </property>
+      </widget>
+     </item>
+     <item row="10" column="0">
       <widget class="QLabel" name="ffmpegCommandLabel">
        <property name="text">
         <string>ffmpeg command </string>
@@ -175,14 +144,28 @@
        </property>
       </widget>
      </item>
-     <item row="10" column="0">
+     <item row="11" column="0">
       <widget class="QLabel" name="ffmpegProgressLabel">
        <property name="text">
         <string>Progress</string>
        </property>
       </widget>
      </item>
-     <item row="11" column="0">
+     <item row="11" column="1">
+      <widget class="QProgressBar" name="ffmpegProgress">
+       <property name="value">
+        <number>0</number>
+       </property>
+      </widget>
+     </item>
+     <item row="7" column="0">
+      <widget class="QLabel" name="filterMappingLabel">
+       <property name="text">
+        <string>Signal Mapping</string>
+       </property>
+      </widget>
+     </item>
+     <item row="12" column="0">
       <widget class="QLabel" name="ffmpegOutputLabel">
        <property name="text">
         <string>ffmpeg output</string>
@@ -192,21 +175,7 @@
        </property>
       </widget>
      </item>
-     <item row="10" column="1">
-      <widget class="QProgressBar" name="ffmpegProgress">
-       <property name="value">
-        <number>0</number>
-       </property>
-      </widget>
-     </item>
-     <item row="6" column="0">
-      <widget class="QLabel" name="filterMappingLabel">
-       <property name="text">
-        <string>Signal Mapping</string>
-       </property>
-      </widget>
-     </item>
-     <item row="6" column="1">
+     <item row="7" column="1">
       <widget class="QListWidget" name="filterMapping">
        <property name="editTriggers">
         <set>QAbstractItemView::NoEditTriggers</set>
@@ -216,7 +185,14 @@
        </property>
       </widget>
      </item>
-     <item row="5" column="1">
+     <item row="1" column="2" rowspan="2">
+      <widget class="QToolButton" name="showProbeButton">
+       <property name="text">
+        <string>...</string>
+       </property>
+      </widget>
+     </item>
+     <item row="6" column="1">
       <layout class="QHBoxLayout" name="horizontalLayout">
        <item>
         <widget class="QCheckBox" name="monoMix">
@@ -267,12 +243,78 @@
      <item row="1" column="1">
       <widget class="QComboBox" name="videoStreams"/>
      </item>
-     <item row="1" column="2" rowspan="2">
-      <widget class="QToolButton" name="showProbeButton">
+     <item row="0" column="2">
+      <widget class="QToolButton" name="inputFilePicker">
        <property name="text">
         <string>...</string>
        </property>
       </widget>
+     </item>
+     <item row="0" column="0">
+      <widget class="QLabel" name="inputFileLabel">
+       <property name="text">
+        <string>File</string>
+       </property>
+      </widget>
+     </item>
+     <item row="3" column="1">
+      <widget class="QSpinBox" name="channelCount">
+       <property name="minimum">
+        <number>1</number>
+       </property>
+      </widget>
+     </item>
+     <item row="4" column="0">
+      <widget class="QLabel" name="lfeChannelIndexLabel">
+       <property name="text">
+        <string>LFE Channel</string>
+       </property>
+      </widget>
+     </item>
+     <item row="9" column="1">
+      <widget class="QLineEdit" name="outputFilename"/>
+     </item>
+     <item row="5" column="0">
+      <widget class="QLabel" name="label">
+       <property name="text">
+        <string>Range</string>
+       </property>
+      </widget>
+     </item>
+     <item row="5" column="1">
+      <layout class="QHBoxLayout" name="rangeLayout" stretch="0,1,0,1">
+       <item>
+        <widget class="QToolButton" name="limitRange">
+         <property name="text">
+          <string>...</string>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QTimeEdit" name="rangeFrom">
+         <property name="displayFormat">
+          <string>HH:mm:ss.zzz</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLabel" name="rangeSeparatorLabel">
+         <property name="text">
+          <string>to</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QTimeEdit" name="rangeTo">
+         <property name="displayFormat">
+          <string>HH:mm:ss.zzz</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
      </item>
     </layout>
    </item>
@@ -366,7 +408,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>865</x>
-     <y>449</y>
+     <y>455</y>
     </hint>
     <hint type="destinationlabel">
      <x>715</x>
@@ -382,7 +424,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>824</x>
-     <y>483</y>
+     <y>489</y>
     </hint>
     <hint type="destinationlabel">
      <x>706</x>
@@ -414,7 +456,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>689</x>
-     <y>483</y>
+     <y>489</y>
     </hint>
     <hint type="destinationlabel">
      <x>117</x>
@@ -430,7 +472,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>284</x>
-     <y>207</y>
+     <y>243</y>
     </hint>
     <hint type="destinationlabel">
      <x>162</x>
@@ -493,8 +535,8 @@
    <slot>toggle_decimate_audio()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>427</x>
-     <y>192</y>
+     <x>446</x>
+     <y>243</y>
     </hint>
     <hint type="destinationlabel">
      <x>841</x>
@@ -509,8 +551,8 @@
    <slot>toggle_include_original_audio()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>649</x>
-     <y>191</y>
+     <x>656</x>
+     <y>243</y>
     </hint>
     <hint type="destinationlabel">
      <x>846</x>
@@ -525,12 +567,60 @@
    <slot>toggle_compress_audio()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>786</x>
-     <y>198</y>
+     <x>823</x>
+     <y>243</y>
     </hint>
     <hint type="destinationlabel">
      <x>844</x>
      <y>177</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>rangeTo</sender>
+   <signal>timeChanged(QTime)</signal>
+   <receiver>extractAudioDialog</receiver>
+   <slot>update_end_time()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>607</x>
+     <y>193</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>847</x>
+     <y>355</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>rangeFrom</sender>
+   <signal>timeChanged(QTime)</signal>
+   <receiver>extractAudioDialog</receiver>
+   <slot>update_start_time()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>364</x>
+     <y>201</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>88</x>
+     <y>235</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>limitRange</sender>
+   <signal>clicked()</signal>
+   <receiver>extractAudioDialog</receiver>
+   <slot>toggle_range()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>164</x>
+     <y>190</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>99</x>
+     <y>231</y>
     </hint>
    </hints>
   </connection>
@@ -547,5 +637,8 @@
   <slot>toggle_decimate_audio()</slot>
   <slot>toggle_include_original_audio()</slot>
   <slot>toggle_compress_audio()</slot>
+  <slot>update_start_time()</slot>
+  <slot>update_end_time()</slot>
+  <slot>toggle_range()</slot>
  </slots>
 </ui>

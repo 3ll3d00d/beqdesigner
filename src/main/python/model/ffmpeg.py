@@ -93,7 +93,7 @@ def get_channel_name(text, channel, channel_count, channel_layout_name='unknown'
         elif channel_layout_name in CHANNEL_LAYOUTS:
             return f"{prefix}{CHANNEL_LAYOUTS[channel_layout_name][channel]}"
         else:
-            return f"{prefix}c{channel+1}"
+            return f"{prefix}c{channel + 1}"
 
 
 def get_next_port():
@@ -139,6 +139,26 @@ class Executor:
         self.__is_remux = signal_model is not None
         self.__signal_model = signal_model
         self.__decimate_fs = int(decimate_fs)
+        self.__start_time_ms = 0
+        self.__end_time_ms = 0
+
+    @property
+    def start_time_ms(self):
+        return self.__start_time_ms
+
+    @start_time_ms.setter
+    def start_time_ms(self, start_time_ms):
+        self.__start_time_ms = start_time_ms
+        self.__calculate_output()
+
+    @property
+    def end_time_ms(self):
+        return self.__end_time_ms
+
+    @end_time_ms.setter
+    def end_time_ms(self, end_time_ms):
+        self.__end_time_ms = end_time_ms
+        self.__calculate_output()
 
     @property
     def channel_to_filter(self):
@@ -261,7 +281,7 @@ class Executor:
         self.__audio_stream_data = [s for s in self.__probe.get('streams', []) if s['codec_type'] == 'audio']
         self.__video_stream_data = [s for s in self.__probe.get('streams', []) if s['codec_type'] == 'video']
         end = time.time()
-        logger.info(f"Probed {self.file} in {round(end-start, 3)}s")
+        logger.info(f"Probed {self.file} in {round(end - start, 3)}s")
 
     def has_audio(self):
         '''
@@ -445,10 +465,10 @@ class Executor:
             if sig is not None:
                 sig_filter = sig.filter.resample(int(self.__sample_rate))
                 for f in sig_filter.filters:
-                    filt += f"[{c_name}_{f_idx}]biquad={format_biquad(f)}[{c_name}_{f_idx+1}];"
+                    filt += f"[{c_name}_{f_idx}]biquad={format_biquad(f)}[{c_name}_{f_idx + 1}];"
                     f_idx += 1
             else:
-                filt += f"[{c_name}_{f_idx}]biquad={format_biquad(Passthrough())}[{c_name}_{f_idx+1}];"
+                filt += f"[{c_name}_{f_idx}]biquad={format_biquad(Passthrough())}[{c_name}_{f_idx + 1}];"
                 f_idx += 1
             filt += f"[{c_name}_{f_idx}]aformat=sample_fmts=s32:sample_rates={self.__sample_rate}"
             filt += f":channel_layouts=mono[{c_name}out]"
@@ -486,31 +506,23 @@ class Executor:
         else:
             self.__calculate_extract_command(output_file)
 
+    def __calculate_trim_kwargs(self):
+        if self.start_time_ms > 0 or self.end_time_ms > 0:
+            return {
+                'ss': round(self.start_time_ms / 1000, 3),
+                't': round((self.end_time_ms - self.start_time_ms) / 1000, 3)
+            }
+        else:
+            return {}
+
     def __calculate_extract_command(self, output_file):
         ''' calculates the command required to extract the audio to the specified output file '''
-        input_stream = ffmpeg.input(self.file)
+        input_stream = ffmpeg.input(self.file, **self.__calculate_trim_kwargs())
         acodec = 'flac' if self.compress_audio else 'pcm_s24le'
         if self.__mono_mix:
-            if self.__selected_video_stream_idx != -1:
-                audio_filter = input_stream['a'].filter('pan', **{'mono|c0': self.__mono_mix_spec})
-                if self.decimate_audio is True:
-                    audio_filter = audio_filter.filter('aresample', str(self.__decimate_fs), resampler='soxr')
-                self.__ffmpeg_cmd = ffmpeg.output(input_stream['v'], audio_filter, output_file,
-                                                  acodec=acodec, vcodec='copy')
-            else:
-                mix = input_stream.filter('pan', **{'mono|c0': self.__mono_mix_spec})
-                if self.decimate_audio is True:
-                    mix = mix.filter('aresample', str(self.__decimate_fs), resampler='soxr')
-                self.__ffmpeg_cmd = mix.output(output_file, acodec=acodec)
+            self.__ffmpeg_cmd = self.__calculate_extract_mono_cmd(acodec, input_stream, output_file)
         else:
-            audio_filter = input_stream[f"a:{self.__selected_audio_stream_idx}"]
-            if self.decimate_audio is True:
-                audio_filter = audio_filter.filter('aresample', str(self.__decimate_fs), resampler='soxr')
-            if self.__selected_video_stream_idx != -1:
-                self.__ffmpeg_cmd = ffmpeg.output(input_stream['v'], audio_filter, output_file, acodec=acodec,
-                                                  vcodec='copy')
-            else:
-                self.__ffmpeg_cmd = audio_filter.output(output_file, acodec=acodec)
+            self.__ffmpeg_cmd = self.__calculate_extract_multi_cmd(acodec, input_stream, output_file)
         if self.progress_handler is not None:
             self.__ffmpeg_cmd = self.__ffmpeg_cmd.global_args('-progress',
                                                               f"udp://127.0.0.1:{self.__progress_port}")
@@ -518,12 +530,37 @@ class Executor:
         self.__ffmpeg_cli = ' '.join(
             [s if s == 'ffmpeg' or s.startswith('-') else f"\"{s}\"" for s in command_args])
 
+    def __calculate_extract_multi_cmd(self, acodec, input_stream, output_file):
+        ''' Calculates an ffmpeg-python cmd for extracting multichannel audio from an input stream. '''
+        audio_filter = input_stream[f"a:{self.__selected_audio_stream_idx}"]
+        if self.decimate_audio is True:
+            audio_filter = audio_filter.filter('aresample', str(self.__decimate_fs), resampler='soxr')
+        if self.__selected_video_stream_idx != -1:
+            return ffmpeg.output(input_stream['v'], audio_filter, output_file, acodec=acodec, vcodec='copy')
+        else:
+            return audio_filter.output(output_file, acodec=acodec)
+
+    def __calculate_extract_mono_cmd(self, acodec, input_stream, output_file):
+        ''' Calculates an ffmpeg-python cmd for extracting mono (bass managed) audio from an input stream. '''
+        if self.__selected_video_stream_idx != -1:
+            audio_filter = input_stream['a'].filter('pan', **{'mono|c0': self.__mono_mix_spec})
+            if self.decimate_audio is True:
+                audio_filter = audio_filter.filter('aresample', str(self.__decimate_fs), resampler='soxr')
+            return ffmpeg.output(input_stream['v'], audio_filter, output_file, acodec=acodec, vcodec='copy')
+        else:
+            mix = input_stream.filter('pan', **{'mono|c0': self.__mono_mix_spec})
+            if self.decimate_audio is True:
+                mix = mix.filter('aresample', str(self.__decimate_fs), resampler='soxr')
+            return mix.output(output_file, acodec=acodec)
+
     def __calculate_remux_cmd(self, output_file):
         ''' calculates the command filter the audio and remux it back into the output file '''
         filename = self.file.replace('\\', '/')
+        trim_args = ' '.join([f"-{key} {value}" for key, value in self.__calculate_trim_kwargs().items()])
+        # TODO only write the filter file when it actually changes
         self.__ffmpeg_cmd = \
-            f"ffmpeg.exe -i \"{filename}\"" \
-            f" -filter_complex_script {self.__write_filter_complex()}"
+            f"ffmpeg.exe {trim_args} -i \"{filename}\"" \
+                f" -filter_complex_script {self.__write_filter_complex()}"
         if self.__selected_video_stream_idx != -1:
             self.__ffmpeg_cmd += f" -c:v copy -map 0:v:{self.__selected_video_stream_idx}"
         acodec = 'flac' if self.compress_audio else 'pcm_s24le'

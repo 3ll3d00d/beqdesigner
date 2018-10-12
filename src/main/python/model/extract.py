@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 import qtawesome as qta
-from qtpy.QtCore import Qt
+from qtpy.QtCore import Qt, QTime
 from qtpy.QtGui import QPalette, QColor
 from qtpy.QtMultimedia import QSound
 from qtpy.QtWidgets import QDialog, QFileDialog, QStatusBar, QDialogButtonBox, QMessageBox
@@ -30,6 +30,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         self.showProbeButton.setIcon(qta.icon('fa.info'))
         self.inputFilePicker.setIcon(qta.icon('fa.folder-open-o'))
         self.targetDirPicker.setIcon(qta.icon('fa.folder-open-o'))
+        self.limitRange.setIcon(qta.icon('fa.scissors'))
         self.statusBar = QStatusBar()
         self.statusBar.setSizeGripEnabled(False)
         self.boxLayout.addWidget(self.statusBar)
@@ -128,6 +129,10 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         self.ffmpegProgress.setEnabled(False)
         self.ffmpegProgressLabel.setEnabled(False)
         self.ffmpegProgress.setValue(0)
+        self.rangeFrom.setEnabled(False)
+        self.rangeSeparatorLabel.setEnabled(False)
+        self.rangeTo.setEnabled(False)
+        self.limitRange.setEnabled(False)
 
     def __probe_file(self):
         '''
@@ -165,6 +170,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             self.outputFilename.setEnabled(True)
             self.ffmpegCommandLine.setEnabled(True)
             self.filterMapping.setEnabled(True)
+            self.limitRange.setEnabled(True)
         else:
             self.statusBar.showMessage(f"{file_name} contains no audio streams!")
 
@@ -175,6 +181,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         if self.__executor is not None:
             self.__executor.update_spec(self.audioStreams.currentIndex(), self.videoStreams.currentIndex() - 1,
                                         self.monoMix.isChecked())
+
             self.__init_channel_count_fields(self.__executor.channel_count, lfe_index=self.__executor.lfe_idx)
             self.__display_command_info()
             self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
@@ -184,7 +191,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         self.ffmpegCommandLine.setPlainText(self.__executor.ffmpeg_cli)
         self.filterMapping.clear()
         for channel_idx, signal in self.__executor.channel_to_filter.items():
-            self.filterMapping.addItem(f"Channel {channel_idx+1} -> {signal.name if signal else 'Passthrough'}")
+            self.filterMapping.addItem(f"Channel {channel_idx + 1} -> {signal.name if signal else 'Passthrough'}")
 
     def updateOutputFilename(self):
         '''
@@ -230,6 +237,41 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         if self.audioStreams.count() > 0 and self.__executor is not None:
             self.__executor.mono_mix = self.monoMix.isChecked()
             self.__display_command_info()
+
+    def toggle_range(self):
+        ''' toggles whether the range is enabled or not '''
+        if self.limitRange.isChecked():
+            self.limitRange.setText('Cut')
+            if self.audioStreams.count() > 0:
+                duration_ms = int(self.__stream_duration_micros[self.audioStreams.currentIndex()] / 1000)
+                if duration_ms > 1:
+                    self.rangeFrom.setTimeRange(QTime.fromMSecsSinceStartOfDay(0),
+                                                QTime.fromMSecsSinceStartOfDay(duration_ms - 1))
+                    self.rangeFrom.setTime(QTime.fromMSecsSinceStartOfDay(0))
+                    self.rangeFrom.setEnabled(True)
+                    self.rangeSeparatorLabel.setEnabled(True)
+                    self.rangeTo.setEnabled(True)
+                    self.rangeTo.setTimeRange(QTime.fromMSecsSinceStartOfDay(1),
+                                              QTime.fromMSecsSinceStartOfDay(duration_ms))
+                    self.rangeTo.setTime(QTime.fromMSecsSinceStartOfDay(duration_ms))
+        else:
+            self.limitRange.setText('Enable')
+            self.rangeFrom.setEnabled(False)
+            self.rangeSeparatorLabel.setEnabled(False)
+            self.rangeTo.setEnabled(False)
+            if self.__executor is not None:
+                self.__executor.start_time_ms = 0
+                self.__executor.end_time_ms = 0
+
+    def update_start_time(self, time):
+        ''' Reacts to start time changes '''
+        self.__executor.start_time_ms = time.msecsSinceStartOfDay()
+        self.__display_command_info()
+
+    def update_end_time(self, time):
+        ''' Reacts to end time changes '''
+        self.__executor.end_time_ms = time.msecsSinceStartOfDay()
+        self.__display_command_info()
 
     def __init_channel_count_fields(self, channels, lfe_index=0):
         self.lfeChannelIndex.setMaximum(channels)
@@ -303,7 +345,10 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             self.__extract_started()
         elif key == 'out_time_ms':
             out_time_ms = int(value)
-            total_micros = self.__stream_duration_micros[self.audioStreams.currentIndex()]
+            if self.__executor.start_time_ms > 0 or self.__executor.end_time_ms > 0:
+                total_micros = (self.__executor.end_time_ms - self.__executor.start_time_ms) * 1000
+            else:
+                total_micros = self.__stream_duration_micros[self.audioStreams.currentIndex()]
             logger.debug(f"{self.inputFile.text()} -- {key}={value} vs {total_micros}")
             if total_micros > 0:
                 progress = (out_time_ms / total_micros) * 100.0
@@ -397,7 +442,7 @@ class EditMappingDialog(QDialog, Ui_editMappingDialog):
     def __init__(self, parent, channel_idx, signal_model, selected_signal, on_change_handler):
         super(EditMappingDialog, self).__init__(parent)
         self.setupUi(self)
-        self.channelIdx.setText(str(channel_idx+1))
+        self.channelIdx.setText(str(channel_idx + 1))
         self.signal.addItem('Passthrough')
         for idx, s in enumerate(signal_model):
             self.signal.addItem(s.name)
