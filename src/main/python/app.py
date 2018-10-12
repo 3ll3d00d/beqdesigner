@@ -543,7 +543,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Shows the preferences dialog.
         '''
-        PreferencesDialog(self.preferences, self.__style_path_root, parent=self).exec()
+        PreferencesDialog(self.preferences, self.__style_path_root, self.__magnitude_model.limits, parent=self).exec()
 
     def update_reference_series(self, names, combo, primary=True):
         '''

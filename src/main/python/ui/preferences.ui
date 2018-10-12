@@ -90,6 +90,11 @@
         <widget class="QComboBox" name="targetFs">
          <item>
           <property name="text">
+           <string>250 Hz</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
            <string>500 Hz</string>
           </property>
          </item>
@@ -105,7 +110,12 @@
          </item>
          <item>
           <property name="text">
-           <string>Full Range</string>
+           <string>4000 Hz</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>8000 Hz</string>
           </property>
          </item>
         </widget>
