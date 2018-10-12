@@ -244,7 +244,7 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
     Allows user to set some basic preferences.
     '''
 
-    def __init__(self, preferences, style_root, parent=None):
+    def __init__(self, preferences, style_root, main_chart_limits, parent=None):
         super(PreferencesDialog, self).__init__(parent)
         self.__style_root = style_root
         self.setupUi(self)
@@ -252,6 +252,7 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         self.__init_analysis_window(self.peakAnalysisWindow)
         self.__init_themes()
         self.__preferences = preferences
+        self.__main_chart_limits = main_chart_limits
 
         ffmpegLoc = self.__preferences.get(BINARIES_FFMPEG)
         if ffmpegLoc:
@@ -350,19 +351,23 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
             self.alert_on_change('Theme Change')
         self.__preferences.set(STYLE_MATPLOTLIB_THEME, self.themePicker.currentText())
         new_x_scale = 'log' if self.freqIsLogScale.isChecked() else 'linear'
+        update_limits = False
         if self.__preferences.get(GRAPH_X_AXIS_SCALE) != new_x_scale:
-            self.alert_on_change('X Axis Scale Change')
+            update_limits = True
         self.__preferences.set(GRAPH_X_AXIS_SCALE, new_x_scale)
         if self.xmin.value() < self.xmax.value():
             if self.__preferences.get(GRAPH_X_MIN) != self.xmin.value():
-                self.alert_on_change('X Axis Minimum Change')
+                update_limits = True
                 self.__preferences.set(GRAPH_X_MIN, self.xmin.value())
             if self.__preferences.get(GRAPH_X_MAX) != self.xmax.value():
-                self.alert_on_change('X Axis Maximum Change')
+                update_limits = True
                 self.__preferences.set(GRAPH_X_MAX, self.xmax.value())
         else:
             self.alert_on_change('X Axis Invalid', text='Invalid values: x_min must be less than x_max',
                                  icon=QMessageBox.Critical)
+        if update_limits:
+            self.__main_chart_limits.update(x_min=self.xmin.value(), x_max=self.xmax.value(),
+                                            x_scale=new_x_scale, draw=True)
         self.__preferences.set(SYSTEM_CHECK_FOR_UPDATES, self.checkForUpdates.isChecked())
         QDialog.accept(self)
 

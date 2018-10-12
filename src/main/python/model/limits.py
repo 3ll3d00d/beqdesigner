@@ -241,7 +241,7 @@ class LimitsDialog(QDialog, Ui_graphLayoutDialog):
     Provides some basic chart controls.
     '''
 
-    def __init__(self, limits, x_min=1, x_max=500, y1_min=-200, y1_max=200, y2_min=-200, y2_max=200, parent=None):
+    def __init__(self, limits, x_min=1, x_max=24000, y1_min=-200, y1_max=200, y2_min=-200, y2_max=200, parent=None):
         super(LimitsDialog, self).__init__(parent)
         self.setupUi(self)
         self.__limits = limits
