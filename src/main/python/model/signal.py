@@ -694,29 +694,30 @@ class AutoWavLoader:
         self.__signal = None
         self.info = None
 
-    def auto_load(self, file, name_provider):
+    def auto_load(self, file, name_provider, decimate):
         '''
         Loads the file and automatically creates a signal for each channel found.
         :param file: the file to load.
         :param name_provider: a callable that yields a signal name for the given channel.
+        :param decimate: if true, decimate
         :return: the signals.
         '''
         self.load(file)
-        return [self.__auto_load(x + 1, name_provider(x, self.info.channels)) for x in range(0, self.info.channels)]
+        return [self.__auto_load(x + 1, name_provider(x, self.info.channels), decimate)
+                for x in range(0, self.info.channels)]
 
     def load(self, file):
         '''
         Gets info about the file.
         :param file: the file.
-        :param auto: if true, just load the signal using default values.
         :return: if auto is True, a signal for each channel.
         '''
         self.reset()
         import soundfile as sf
         self.info = sf.info(file)
 
-    def __auto_load(self, channel, name):
-        self.prepare(name=name, channel=channel)
+    def __auto_load(self, channel, name, decimate):
+        self.prepare(name=name, channel=channel, decimate=decimate)
         return self.get_signal()
 
     def set_range(self, start=None, end=None):
@@ -734,6 +735,7 @@ class AutoWavLoader:
         :param name: the signal name, if none use the file name + channel.
         :param channel: the channel
         :param channel_count: the channel count, only used for creating a default name.
+        :param decimate: if true, decimate the wav.
         '''
         # defer to avoid circular imports
         from model.preferences import ANALYSIS_TARGET_FS, ANALYSIS_RESOLUTION, ANALYSIS_PEAK_WINDOW, \
@@ -878,7 +880,8 @@ class DialogWavLoaderBridge:
             from model.extract import get_channel_name
             name_provider = lambda channel, channel_count: get_channel_name(self.__dialog.wavSignalName.text(), channel,
                                                                             channel_count)
-            return self.__auto_loader.auto_load(self.__dialog.wavFile.text(), name_provider)
+            return self.__auto_loader.auto_load(self.__dialog.wavFile.text(), name_provider,
+                                                self.__dialog.decimate.isChecked())
         else:
             return [self.__auto_loader.get_signal()]
 
