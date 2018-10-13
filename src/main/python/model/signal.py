@@ -18,7 +18,7 @@ from scipy import signal
 from model.codec import signaldata_to_json
 from model.iir import XYData, CompleteFilter
 from model.magnitude import MagnitudeModel
-from model.preferences import AVG_COLOURS, PEAK_COLOURS, get_avg_colour, get_peak_colour, SHOW_PEAK, \
+from model.preferences import get_avg_colour, get_peak_colour, SHOW_PEAK, \
     SHOW_AVERAGE, SHOW_FILTERED_ONLY, SHOW_UNFILTERED_ONLY, DISPLAY_SHOW_SIGNALS, \
     DISPLAY_SHOW_FILTERED_SIGNALS, ANALYSIS_TARGET_FS
 from ui.signal import Ui_addSignalDialog
@@ -408,25 +408,7 @@ class Signal:
         """
         return self.samples
 
-    def _cq(self, analysisFunc, resolution_shift=0):
-        slices = []
-        initialNperSeg = self.getSegmentLength(resolution_shift=resolution_shift)
-        nperseg = initialNperSeg
-        # the no of slices is based on a requirement for approximately 1Hz resolution to 128Hz and then halving the
-        # resolution per octave. We calculate this as the
-        # bitlength(fs) - bitlength(128) + 2 (1 for the 1-128Hz range and 1 for 2**n-fs Hz range)
-        bitLength128 = int(128).bit_length()
-        for x in range(0, (self.fs - 1).bit_length() - bitLength128 + 2):
-            f, p = analysisFunc(x, nperseg)
-            n = round(2 ** (x + bitLength128 - 1) / (self.fs / nperseg))
-            m = 0 if x == 0 else round(2 ** (x + bitLength128 - 2) / (self.fs / nperseg))
-            slices.append((f[m:n], p[m:n]))
-            nperseg /= 2
-        f = np.concatenate([n[0] for n in slices])
-        p = np.concatenate([n[1] for n in slices])
-        return f, p
-
-    def spectrum(self, ref=SPECLAB_REFERENCE, resolution_shift=0, mode=None, window=None, **kwargs):
+    def spectrum(self, ref=SPECLAB_REFERENCE, resolution_shift=0, window=None, **kwargs):
         """
         analyses the source to generate the linear spectrum.
         :param ref: the reference value for dB purposes.
@@ -438,24 +420,14 @@ class Signal:
             Pxx : ndarray
             linear spectrum.
         """
+        nperseg = self.getSegmentLength(resolution_shift=resolution_shift)
+        f, Pxx_spec = signal.welch(self.samples, self.fs, nperseg=nperseg, scaling='spectrum', detrend=False,
+                                   window=window if window else 'hann', **kwargs)
+        # a 3dB adjustment is required to account for the change in nperseg
+        Pxx_spec = amplitude_to_db(np.sqrt(Pxx_spec), ref * SPECLAB_REFERENCE)
+        return f, Pxx_spec
 
-        def analysisFunc(x, nperseg, **kwargs):
-            f, Pxx_spec = signal.welch(self.samples, self.fs, nperseg=nperseg, scaling='spectrum', detrend=False,
-                                       window=window if window else 'hann', **kwargs)
-            Pxx_spec = np.sqrt(Pxx_spec)
-            # it seems a 3dB adjustment is required to account for the change in nperseg
-            if x > 0:
-                Pxx_spec = amplitude_to_db(Pxx_spec, ref * SPECLAB_REFERENCE)
-            else:
-                Pxx_spec = amplitude_to_db(Pxx_spec, ref)
-            return f, Pxx_spec
-
-        if mode == 'cq':
-            return self._cq(analysisFunc, resolution_shift)
-        else:
-            return analysisFunc(resolution_shift, self.getSegmentLength(resolution_shift=resolution_shift), **kwargs)
-
-    def peakSpectrum(self, ref=SPECLAB_REFERENCE, resolution_shift=0, mode=None, window=None):
+    def peakSpectrum(self, ref=SPECLAB_REFERENCE, resolution_shift=0, window=None):
         """
         analyses the source to generate the max values per bin per segment
         :param resolution_shift: allows resolution to go down (if positive) or up (if negative).
@@ -467,26 +439,17 @@ class Signal:
             Pxx : ndarray
             linear spectrum max values.
         """
-
-        def analysisFunc(x, nperseg):
-            freqs, _, Pxy = signal.spectrogram(self.samples,
-                                               self.fs,
-                                               window=window if window else ('tukey', 0.25),
-                                               nperseg=int(nperseg),
-                                               noverlap=int(nperseg // 2),
-                                               detrend=False,
-                                               scaling='spectrum')
-            Pxy_max = np.sqrt(Pxy.max(axis=-1).real)
-            if x > 0:
-                Pxy_max = amplitude_to_db(Pxy_max, ref=ref * SPECLAB_REFERENCE)
-            else:
-                Pxy_max = amplitude_to_db(Pxy_max, ref=ref)
-            return freqs, Pxy_max
-
-        if mode == 'cq':
-            return self._cq(analysisFunc, resolution_shift)
-        else:
-            return analysisFunc(resolution_shift, self.getSegmentLength(resolution_shift=resolution_shift))
+        nperseg = self.getSegmentLength(resolution_shift=resolution_shift)
+        freqs, _, Pxy = signal.spectrogram(self.samples,
+                                           self.fs,
+                                           window=window if window else ('tukey', 0.25),
+                                           nperseg=int(nperseg),
+                                           noverlap=int(nperseg // 2),
+                                           detrend=False,
+                                           scaling='spectrum')
+        Pxy_max = np.sqrt(Pxy.max(axis=-1).real)
+        Pxy_max = amplitude_to_db(Pxy_max, ref=ref * SPECLAB_REFERENCE)
+        return freqs, Pxy_max
 
     def spectrogram(self, ref=SPECLAB_REFERENCE, resolution_shift=0, window=None):
         """
@@ -508,10 +471,7 @@ class Signal:
                                        noverlap=int(nperseg // 2),
                                        detrend=False,
                                        scaling='spectrum')
-        Sxx = np.sqrt(Sxx)
-        if resolution_shift > 0:
-            ref = ref * SPECLAB_REFERENCE
-        Sxx = amplitude_to_db(Sxx, ref=ref)
+        Sxx = amplitude_to_db(np.sqrt(Sxx), ref=ref * SPECLAB_REFERENCE)
         return f, t, Sxx
 
     def filter(self, a, b):
@@ -521,7 +481,7 @@ class Signal:
         :param b: the b coeffs.
         :return: the filtered signal.
         """
-        return Signal(signal.filtfilt(b, a, self.samples), fs=self.fs)
+        return Signal(self.name, signal.filtfilt(b, a, self.samples), fs=self.fs)
 
     def resample(self, new_fs):
         '''
@@ -562,8 +522,8 @@ class Signal:
         :return: renders itself as peak/avg spectrum xydata.
         '''
         if self.__avg is not None:
-            self.__cached[0].colour = AVG_COLOURS[idx]
-            self.__cached[1].colour = PEAK_COLOURS[idx]
+            self.__cached[0].colour = get_avg_colour(idx)
+            self.__cached[1].colour = get_peak_colour(idx)
             return self.__cached
         else:
             logger.error(f"getXY called on {self.name} before calculate, must be error!")
@@ -919,7 +879,7 @@ class FrdLoader:
                 signal_name = signal_name[:-12]
             elif signal_name.endswith('_peak'):
                 signal_name = signal_name[:-5]
-            self.__peak = XYData(signal_name, 'peak', f, m, colour=PEAK_COLOURS[0])
+            self.__peak = XYData(signal_name, 'peak', f, m, colour=get_peak_colour(0))
             self.__dialog.frdSignalName.setText(signal_name)
             self.__dialog.frdPeakFile.setText(name)
             self.__enable_fields()
@@ -935,7 +895,7 @@ class FrdLoader:
                 signal_name = signal_name[:-11]
             elif signal_name.endswith('_avg'):
                 signal_name = signal_name[:-4]
-            self.__avg = XYData(signal_name, 'avg', f, m, colour=AVG_COLOURS[0])
+            self.__avg = XYData(signal_name, 'avg', f, m, colour=get_avg_colour(0))
             self.__dialog.frdSignalName.setText(signal_name)
             self.__dialog.frdAvgFile.setText(name)
             self.__enable_fields()
