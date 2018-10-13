@@ -316,6 +316,13 @@
        </item>
       </layout>
      </item>
+     <item row="10" column="2" alignment="Qt::AlignTop">
+      <widget class="QToolButton" name="showRemuxCommand">
+       <property name="text">
+        <string>...</string>
+       </property>
+      </widget>
+     </item>
     </layout>
    </item>
    <item>
@@ -624,6 +631,22 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>showRemuxCommand</sender>
+   <signal>clicked()</signal>
+   <receiver>extractAudioDialog</receiver>
+   <slot>show_remux_cmd()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>851</x>
+     <y>535</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>865</x>
+     <y>549</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>selectFile()</slot>
@@ -640,5 +663,6 @@
   <slot>update_start_time()</slot>
   <slot>update_end_time()</slot>
   <slot>toggle_range()</slot>
+  <slot>show_remux_cmd()</slot>
  </slots>
 </ui>

@@ -130,7 +130,7 @@ class Executor:
         self.__output_file_name_overridden = False
         self.__ffmpeg_cmd = None
         self.__ffmpeg_cli = None
-        self.__ffmpeg_filter_complex_script = None
+        self.__filter_complex_script_content = None
         self.__progress_handler = None
         self.__progress_port = get_next_port()
         self.__extractor = None
@@ -142,6 +142,10 @@ class Executor:
         self.__decimate_fs = int(decimate_fs)
         self.__start_time_ms = 0
         self.__end_time_ms = 0
+
+    @property
+    def filter_complex_script_content(self):
+        return self.__filter_complex_script_content
 
     @property
     def start_time_ms(self):
@@ -493,12 +497,13 @@ class Executor:
         else:
             merge_filt += '[s0]'
 
-        final_filt = f"{';'.join(filts)};{merge_filt}"
+        self.__filter_complex_script_content = f"{';'.join(filts)};{merge_filt}"
 
         if self.__filter_complex_filter is not None:
             os.remove(self.__filter_complex_filter.name)
         self.__filter_complex_filter = tempfile.NamedTemporaryFile(delete=False, suffix='.filt', mode='w')
-        print(final_filt, file=self.__filter_complex_filter)
+
+        print(self.__filter_complex_script_content, file=self.__filter_complex_filter)
         self.__filter_complex_filter.close()
         return self.__filter_complex_filter.name.replace('\\', '/')
 
@@ -538,19 +543,21 @@ class Executor:
         if self.decimate_audio is True:
             audio_filter = audio_filter.filter('aresample', str(self.__decimate_fs), resampler='soxr')
         if self.__selected_video_stream_idx != -1:
-            return ffmpeg.output(input_stream['v'], audio_filter, output_file, acodec=acodec, vcodec='copy')
+            return ffmpeg.output(input_stream[f"v:{self.__selected_video_stream_idx}"], audio_filter, output_file,
+                                 acodec=acodec, vcodec='copy')
         else:
             return audio_filter.output(output_file, acodec=acodec)
 
     def __calculate_extract_mono_cmd(self, acodec, input_stream, output_file):
         ''' Calculates an ffmpeg-python cmd for extracting mono (bass managed) audio from an input stream. '''
         if self.__selected_video_stream_idx != -1:
-            audio_filter = input_stream['a'].filter('pan', **{'mono|c0': self.__mono_mix_spec})
+            audio_filter = input_stream[f"a:{self.__selected_audio_stream_idx}"].filter('pan', **{'mono|c0': self.__mono_mix_spec})
             if self.decimate_audio is True:
                 audio_filter = audio_filter.filter('aresample', str(self.__decimate_fs), resampler='soxr')
-            return ffmpeg.output(input_stream['v'], audio_filter, output_file, acodec=acodec, vcodec='copy')
+            return ffmpeg.output(input_stream[f"v:{self.__selected_video_stream_idx}"], audio_filter, output_file,
+                                 acodec=acodec, vcodec='copy')
         else:
-            mix = input_stream.filter('pan', **{'mono|c0': self.__mono_mix_spec})
+            mix = input_stream[f"a:{self.__selected_audio_stream_idx}"].filter('pan', **{'mono|c0': self.__mono_mix_spec})
             if self.decimate_audio is True:
                 mix = mix.filter('aresample', str(self.__decimate_fs), resampler='soxr')
             return mix.output(output_file, acodec=acodec)

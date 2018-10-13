@@ -160,6 +160,9 @@ class Ui_extractAudioDialog(object):
         self.rangeLayout.setStretch(1, 1)
         self.rangeLayout.setStretch(3, 1)
         self.gridLayout.addLayout(self.rangeLayout, 5, 1, 1, 1)
+        self.showRemuxCommand = QtWidgets.QToolButton(extractAudioDialog)
+        self.showRemuxCommand.setObjectName("showRemuxCommand")
+        self.gridLayout.addWidget(self.showRemuxCommand, 10, 2, 1, 1, QtCore.Qt.AlignTop)
         self.gridLayout.setRowStretch(0, 1)
         self.boxLayout.addLayout(self.gridLayout)
         self.buttonLayout = QtWidgets.QGridLayout()
@@ -190,6 +193,7 @@ class Ui_extractAudioDialog(object):
         self.rangeTo.timeChanged['QTime'].connect(extractAudioDialog.update_end_time)
         self.rangeFrom.timeChanged['QTime'].connect(extractAudioDialog.update_start_time)
         self.limitRange.clicked.connect(extractAudioDialog.toggle_range)
+        self.showRemuxCommand.clicked.connect(extractAudioDialog.show_remux_cmd)
         QtCore.QMetaObject.connectSlotsByName(extractAudioDialog)
 
     def retranslateUi(self, extractAudioDialog):
@@ -220,4 +224,5 @@ class Ui_extractAudioDialog(object):
         self.rangeFrom.setDisplayFormat(_translate("extractAudioDialog", "HH:mm:ss.zzz"))
         self.rangeSeparatorLabel.setText(_translate("extractAudioDialog", "to"))
         self.rangeTo.setDisplayFormat(_translate("extractAudioDialog", "HH:mm:ss.zzz"))
+        self.showRemuxCommand.setText(_translate("extractAudioDialog", "..."))
 

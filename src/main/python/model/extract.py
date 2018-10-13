@@ -5,7 +5,7 @@ from pathlib import Path
 
 import qtawesome as qta
 from qtpy.QtCore import Qt, QTime
-from qtpy.QtGui import QPalette, QColor
+from qtpy.QtGui import QPalette, QColor, QFont
 from qtpy.QtMultimedia import QSound
 from qtpy.QtWidgets import QDialog, QFileDialog, QStatusBar, QDialogButtonBox, QMessageBox
 
@@ -29,6 +29,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         super(ExtractAudioDialog, self).__init__(parent)
         self.setupUi(self)
         self.showProbeButton.setIcon(qta.icon('fa.info'))
+        self.showRemuxCommand.setIcon(qta.icon('fa.info'))
         self.inputFilePicker.setIcon(qta.icon('fa.folder-open-o'))
         self.targetDirPicker.setIcon(qta.icon('fa.folder-open-o'))
         self.limitRange.setIcon(qta.icon('fa.scissors'))
@@ -44,11 +45,25 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         self.__is_remux = is_remux
         if self.__is_remux:
             self.setWindowTitle('Remux Audio')
+        self.showRemuxCommand.setVisible(self.__is_remux)
         defaultOutputDir = self.__preferences.get(EXTRACTION_OUTPUT_DIR)
         if os.path.isdir(defaultOutputDir):
             self.targetDir.setText(defaultOutputDir)
         self.__reinit_fields()
         self.filterMapping.itemDoubleClicked.connect(self.show_mapping_dialog)
+
+    def show_remux_cmd(self):
+        ''' Pops the ffmpeg command into a message box '''
+        if self.__executor is not None and self.__executor.filter_complex_script_content is not None:
+            msg_box = QMessageBox()
+            font = QFont()
+            font.setFamily("Consolas")
+            font.setPointSize(8)
+            msg_box.setFont(font)
+            msg_box.setText(self.__executor.filter_complex_script_content.replace(';', ';\n'))
+            msg_box.setIcon(QMessageBox.Information)
+            msg_box.setWindowTitle('Remux Script')
+            msg_box.exec()
 
     def show_mapping_dialog(self, item):
         ''' Shows the edit mapping dialog '''
@@ -134,6 +149,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         self.limitRange.setEnabled(False)
         self.signalName.setEnabled(False)
         self.signalNameLabel.setEnabled(False)
+        self.showRemuxCommand.setEnabled(False)
 
     def __probe_file(self):
         '''
@@ -174,6 +190,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             self.ffmpegCommandLine.setEnabled(True)
             self.filterMapping.setEnabled(True)
             self.limitRange.setEnabled(True)
+            self.showRemuxCommand.setEnabled(True)
         else:
             self.statusBar.showMessage(f"{file_name} contains no audio streams!")
 
