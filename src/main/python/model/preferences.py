@@ -29,6 +29,10 @@ SHOW_FILTERED_SIGNAL_OPTIONS = [SHOW_ALL_FILTERED_SIGNALS, SHOW_FILTERED_ONLY, S
 EXTRACTION_OUTPUT_DIR = 'extraction/output_dir'
 EXTRACTION_NOTIFICATION_SOUND = 'extraction/notification_sound'
 EXTRACTION_BATCH_FILTER = 'extraction/batch_filter'
+EXTRACTION_MIX_MONO = 'extraction/mix_to_mono'
+EXTRACTION_DECIMATE = 'extraction/decimate'
+EXTRACTION_INCLUDE_ORIGINAL = 'extraction/include_original'
+EXTRACTION_COMPRESS = 'extraction/compress'
 
 ANALYSIS_RESOLUTION = 'analysis/resolution'
 ANALYSIS_TARGET_FS = 'analysis/target_fs'
@@ -102,6 +106,10 @@ DEFAULT_PREFS = {
     DISPLAY_SHOW_LEGEND: True,
     DISPLAY_SHOW_FILTERS: SHOW_ALL_FILTERS,
     EXTRACTION_OUTPUT_DIR: os.path.expanduser('~'),
+    EXTRACTION_MIX_MONO: False,
+    EXTRACTION_COMPRESS: False,
+    EXTRACTION_DECIMATE: False,
+    EXTRACTION_INCLUDE_ORIGINAL: False,
     DISPLAY_FREQ_STEP: '1',
     DISPLAY_Q_STEP: '0.1',
     DISPLAY_S_STEP: '0.1',
@@ -138,6 +146,10 @@ TYPES = {
     DISPLAY_LINE_STYLE: bool,
     ANALYSIS_RESOLUTION: float,
     ANALYSIS_TARGET_FS: int,
+    EXTRACTION_MIX_MONO: bool,
+    EXTRACTION_COMPRESS: bool,
+    EXTRACTION_DECIMATE: bool,
+    EXTRACTION_INCLUDE_ORIGINAL: bool,
     GRAPH_X_MIN: int,
     GRAPH_X_MAX: int,
     REPORT_FILTER_ROW_HEIGHT_MULTIPLIER: float,
@@ -304,6 +316,11 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         self.speclabLineStyle.setChecked(self.__preferences.get(DISPLAY_LINE_STYLE))
         self.checkForUpdates.setChecked(self.__preferences.get(SYSTEM_CHECK_FOR_UPDATES))
 
+        self.monoMix.setChecked(self.__preferences.get(EXTRACTION_MIX_MONO))
+        self.decimate.setChecked(self.__preferences.get(EXTRACTION_DECIMATE))
+        self.includeOriginal.setChecked(self.__preferences.get(EXTRACTION_INCLUDE_ORIGINAL))
+        self.compress.setChecked(self.__preferences.get(EXTRACTION_COMPRESS))
+
     def __init_themes(self):
         '''
         Adds all the available matplotlib theme names to a combo along with our internal theme names.
@@ -386,6 +403,10 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
                                             x_scale=new_x_scale, draw=True)
         self.__preferences.set(SYSTEM_CHECK_FOR_UPDATES, self.checkForUpdates.isChecked())
         self.__preferences.set(DISPLAY_LINE_STYLE, self.speclabLineStyle.isChecked())
+        self.__preferences.set(EXTRACTION_MIX_MONO, self.monoMix.isChecked())
+        self.__preferences.set(EXTRACTION_DECIMATE, self.decimate.isChecked())
+        self.__preferences.set(EXTRACTION_INCLUDE_ORIGINAL, self.includeOriginal.isChecked())
+        self.__preferences.set(EXTRACTION_COMPRESS, self.compress.isChecked())
         QDialog.accept(self)
 
     def alert_on_change(self, title, text='Change will not take effect until the application is restarted',

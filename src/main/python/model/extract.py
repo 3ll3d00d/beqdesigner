@@ -11,7 +11,8 @@ from qtpy.QtWidgets import QDialog, QFileDialog, QStatusBar, QDialogButtonBox, Q
 
 from model.ffmpeg import Executor, ViewProbeDialog, SIGNAL_CONNECTED, SIGNAL_ERROR, SIGNAL_COMPLETE, parse_audio_stream, \
     get_channel_name, parse_video_stream
-from model.preferences import EXTRACTION_OUTPUT_DIR, EXTRACTION_NOTIFICATION_SOUND, ANALYSIS_TARGET_FS
+from model.preferences import EXTRACTION_OUTPUT_DIR, EXTRACTION_NOTIFICATION_SOUND, ANALYSIS_TARGET_FS, \
+    EXTRACTION_MIX_MONO, EXTRACTION_DECIMATE, EXTRACTION_INCLUDE_ORIGINAL, EXTRACTION_COMPRESS
 from model.signal import AutoWavLoader
 from ui.edit_mapping import Ui_editMappingDialog
 from ui.extract import Ui_extractAudioDialog
@@ -102,10 +103,10 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             self.filterMapping.setVisible(False)
             self.filterMappingLabel.setVisible(False)
             self.includeOriginalAudio.setVisible(False)
-        self.monoMix.setChecked(False)
-        self.decimateAudio.setChecked(False)
-        self.includeOriginalAudio.setChecked(False)
-        self.compressAudio.setChecked(False)
+        self.monoMix.setChecked(self.__preferences.get(EXTRACTION_MIX_MONO))
+        self.decimateAudio.setChecked(self.__preferences.get(EXTRACTION_DECIMATE))
+        self.includeOriginalAudio.setChecked(self.__preferences.get(EXTRACTION_INCLUDE_ORIGINAL))
+        self.compressAudio.setChecked(self.__preferences.get(EXTRACTION_COMPRESS))
         self.monoMix.setEnabled(False)
         self.decimateAudio.setEnabled(False)
         self.compressAudio.setEnabled(False)
