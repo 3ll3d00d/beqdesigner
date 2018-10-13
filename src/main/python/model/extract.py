@@ -362,8 +362,12 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             self.__extract_started()
         elif key == 'out_time_ms':
             out_time_ms = int(value)
-            if self.__executor.start_time_ms > 0 or self.__executor.end_time_ms > 0:
+            if self.__executor.start_time_ms > 0 and self.__executor.end_time_ms > 0:
                 total_micros = (self.__executor.end_time_ms - self.__executor.start_time_ms) * 1000
+            elif self.__executor.end_time_ms > 0:
+                total_micros = self.__executor.end_time_ms * 1000
+            elif self.__executor.start_time_ms > 0:
+                total_micros = self.__stream_duration_micros[self.audioStreams.currentIndex()] - (self.__executor.start_time_ms * 1000)
             else:
                 total_micros = self.__stream_duration_micros[self.audioStreams.currentIndex()]
             logger.debug(f"{self.inputFile.text()} -- {key}={value} vs {total_micros}")

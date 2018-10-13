@@ -66,6 +66,10 @@ class SignalData:
     def filter(self):
         return self.__filter
 
+    @property
+    def active_filter(self):
+        return self.master.filter if self.master is not None else self.filter
+
     @filter.setter
     def filter(self, filt):
         self.__filter = filt

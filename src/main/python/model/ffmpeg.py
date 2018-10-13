@@ -127,6 +127,7 @@ class Executor:
         self.__selected_audio_stream_idx = -1
         self.__selected_video_stream_idx = -1
         self.__output_file_name = None
+        self.__output_file_name_overridden = False
         self.__ffmpeg_cmd = None
         self.__ffmpeg_cli = None
         self.__ffmpeg_filter_complex_script = None
@@ -260,6 +261,7 @@ class Executor:
     @output_file_name.setter
     def output_file_name(self, output_file_name):
         self.__output_file_name = output_file_name
+        self.__output_file_name_overridden = True
         self.__calculate_ffmpeg_cmd()
 
     @property
@@ -440,14 +442,14 @@ class Executor:
     def __calculate_output_file_name(self):
         '''
         Creates a new output file name based on the currently selected stream
-        :return:
         '''
-        stream_idx = str(self.__selected_audio_stream_idx + 1)
-        channel_layout = self.__channel_layout_name
-        output_file_name = f"{Path(self.file).resolve().stem}_s{stream_idx}_{channel_layout}"
-        if self.__mono_mix is True:
-            output_file_name += '_to_mono'
-        self.__output_file_name = output_file_name
+        if self.__output_file_name_overridden is False:
+            stream_idx = str(self.__selected_audio_stream_idx + 1)
+            channel_layout = self.__channel_layout_name
+            output_file_name = f"{Path(self.file).resolve().stem}_s{stream_idx}_{channel_layout}"
+            if self.__mono_mix is True:
+                output_file_name += '_to_mono'
+            self.__output_file_name = output_file_name
 
     def __write_filter_complex(self):
         filts = []
@@ -463,7 +465,7 @@ class Executor:
             filt = f"[a:{self.selected_stream_idx}]pan=1c|c0=c{channel_idx}[{c_name}];"
             filt += f"[{c_name}]aformat=sample_fmts=dbl[{c_name}_{f_idx}];"
             if sig is not None:
-                sig_filter = sig.filter.resample(int(self.__sample_rate))
+                sig_filter = sig.active_filter.resample(int(self.__sample_rate))
                 for f in sig_filter.filters:
                     for bq in format_biquad(f):
                         filt += f"[{c_name}_{f_idx}]biquad={bq}[{c_name}_{f_idx + 1}];"
