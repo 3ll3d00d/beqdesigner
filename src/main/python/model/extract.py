@@ -54,7 +54,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         if len(self.__signal_model) > 0:
             channel_idx = self.filterMapping.indexFromItem(item).row()
             mapped_filter = self.__executor.channel_to_filter.get(channel_idx, None)
-            EditMappingDialog(self, channel_idx, self.__signal_model, mapped_filter,
+            EditMappingDialog(self, channel_idx, self.__signal_model, mapped_filter, self.filterMapping.count(),
                               self.map_filter_to_channel).exec()
 
     def map_filter_to_channel(self, channel_idx, signal_name):
@@ -178,6 +178,12 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         '''
         Creates a new ffmpeg command for the specified channel layout.
         '''
+        # if we have no video then the output cannot contain multiple streams
+        if self.videoStreams.currentIndex() == 0:
+            self.includeOriginalAudio.setChecked(False)
+            self.includeOriginalAudio.setEnabled(False)
+        else:
+            self.includeOriginalAudio.setEnabled(True)
         if self.__executor is not None:
             self.__executor.update_spec(self.audioStreams.currentIndex(), self.videoStreams.currentIndex() - 1,
                                         self.monoMix.isChecked())
@@ -447,17 +453,26 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
 class EditMappingDialog(QDialog, Ui_editMappingDialog):
     ''' Allows the user to override the signal to channel mapping '''
 
-    def __init__(self, parent, channel_idx, signal_model, selected_signal, on_change_handler):
+    def __init__(self, parent, channel_idx, signal_model, selected_signal, channel_count, on_change_handler):
         super(EditMappingDialog, self).__init__(parent)
         self.setupUi(self)
+        self.channel_idx = channel_idx
         self.channelIdx.setText(str(channel_idx + 1))
         self.signal.addItem('Passthrough')
+        self.channel_count = channel_count
         for idx, s in enumerate(signal_model):
             self.signal.addItem(s.name)
-            if selected_signal is not None and s.name == selected_signal.name:
-                self.signal.setCurrentIndex(idx)
+        if selected_signal is not None:
+            self.signal.setCurrentText(selected_signal.name)
+        self.on_change_handler = on_change_handler
 
-        def pass_idx_with_text(text):
-            on_change_handler(channel_idx, None if text == 'Passthrough' else text)
+    def accept(self):
+        filt = None if self.signal.currentText() == 'Passthrough' else self.signal.currentText()
+        if self.applyToAll.isChecked():
+            for idx in range(0, self.channel_count):
+                self.on_change_handler(idx, filt)
+        else:
+            self.on_change_handler(self.channel_idx, filt)
+        super().accept()
 
-        self.signal.currentTextChanged.connect(pass_idx_with_text)
+
