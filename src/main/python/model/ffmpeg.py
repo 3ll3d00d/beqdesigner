@@ -72,7 +72,7 @@ UNKNOWN_CHANNEL_LAYOUTS = {
 
 
 def format_biquad(f):
-    return f.format_biquads(False, separator=':')[0]
+    return f.format_biquads(False, separator=':')
 
 
 def get_channel_name(text, channel, channel_count, channel_layout_name='unknown'):
@@ -465,10 +465,11 @@ class Executor:
             if sig is not None:
                 sig_filter = sig.filter.resample(int(self.__sample_rate))
                 for f in sig_filter.filters:
-                    filt += f"[{c_name}_{f_idx}]biquad={format_biquad(f)}[{c_name}_{f_idx + 1}];"
-                    f_idx += 1
+                    for bq in format_biquad(f):
+                        filt += f"[{c_name}_{f_idx}]biquad={bq}[{c_name}_{f_idx + 1}];"
+                        f_idx += 1
             else:
-                filt += f"[{c_name}_{f_idx}]biquad={format_biquad(Passthrough())}[{c_name}_{f_idx + 1}];"
+                filt += f"[{c_name}_{f_idx}]biquad={format_biquad(Passthrough())[0]}[{c_name}_{f_idx + 1}];"
                 f_idx += 1
             filt += f"[{c_name}_{f_idx}]aformat=sample_fmts=s32:sample_rates={self.__sample_rate}"
             filt += f":channel_layouts=mono[{c_name}out]"
