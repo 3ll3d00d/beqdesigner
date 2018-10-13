@@ -507,13 +507,12 @@ class Executor:
             self.__calculate_extract_command(output_file)
 
     def __calculate_trim_kwargs(self):
-        if self.start_time_ms > 0 or self.end_time_ms > 0:
-            return {
-                'ss': round(self.start_time_ms / 1000, 3),
-                't': round((self.end_time_ms - self.start_time_ms) / 1000, 3)
-            }
-        else:
-            return {}
+        args = {}
+        if self.start_time_ms > 0:
+            args['ss'] = round(self.start_time_ms / 1000, 3)
+        if self.end_time_ms > 0:
+            args['t'] = round((self.end_time_ms - self.start_time_ms) / 1000, 3)
+        return args
 
     def __calculate_extract_command(self, output_file):
         ''' calculates the command required to extract the audio to the specified output file '''

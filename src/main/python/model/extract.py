@@ -98,8 +98,6 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             self.filterMappingLabel.setVisible(True)
             self.includeOriginalAudio.setVisible(True)
         else:
-            self.signalName.setEnabled(True)
-            self.signalNameLabel.setEnabled(True)
             self.signalName.setText('')
             self.filterMapping.setVisible(False)
             self.filterMappingLabel.setVisible(False)
@@ -133,6 +131,8 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         self.rangeSeparatorLabel.setEnabled(False)
         self.rangeTo.setEnabled(False)
         self.limitRange.setEnabled(False)
+        self.signalName.setEnabled(False)
+        self.signalNameLabel.setEnabled(False)
 
     def __probe_file(self):
         '''
@@ -245,15 +245,18 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             if self.audioStreams.count() > 0:
                 duration_ms = int(self.__stream_duration_micros[self.audioStreams.currentIndex()] / 1000)
                 if duration_ms > 1:
-                    self.rangeFrom.setTimeRange(QTime.fromMSecsSinceStartOfDay(0),
-                                                QTime.fromMSecsSinceStartOfDay(duration_ms - 1))
-                    self.rangeFrom.setTime(QTime.fromMSecsSinceStartOfDay(0))
-                    self.rangeFrom.setEnabled(True)
+                    from model.report import block_signals
+                    with block_signals(self.rangeFrom):
+                        self.rangeFrom.setTimeRange(QTime.fromMSecsSinceStartOfDay(0),
+                                                    QTime.fromMSecsSinceStartOfDay(duration_ms - 1))
+                        self.rangeFrom.setTime(QTime.fromMSecsSinceStartOfDay(0))
+                        self.rangeFrom.setEnabled(True)
                     self.rangeSeparatorLabel.setEnabled(True)
-                    self.rangeTo.setEnabled(True)
-                    self.rangeTo.setTimeRange(QTime.fromMSecsSinceStartOfDay(1),
-                                              QTime.fromMSecsSinceStartOfDay(duration_ms))
-                    self.rangeTo.setTime(QTime.fromMSecsSinceStartOfDay(duration_ms))
+                    with block_signals(self.rangeTo):
+                        self.rangeTo.setEnabled(True)
+                        self.rangeTo.setTimeRange(QTime.fromMSecsSinceStartOfDay(1),
+                                                  QTime.fromMSecsSinceStartOfDay(duration_ms))
+                        self.rangeTo.setTime(QTime.fromMSecsSinceStartOfDay(duration_ms))
         else:
             self.limitRange.setText('Enable')
             self.rangeFrom.setEnabled(False)
@@ -270,7 +273,9 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
 
     def update_end_time(self, time):
         ''' Reacts to end time changes '''
-        self.__executor.end_time_ms = time.msecsSinceStartOfDay()
+        msecs = time.msecsSinceStartOfDay()
+        duration_ms = int(self.__stream_duration_micros[self.audioStreams.currentIndex()] / 1000)
+        self.__executor.end_time_ms = msecs if msecs != duration_ms else 0
         self.__display_command_info()
 
     def __init_channel_count_fields(self, channels, lfe_index=0):
@@ -294,6 +299,9 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         '''
         if self.__extracted is False:
             self.__extract()
+            if not self.__is_remux:
+                self.signalName.setEnabled(True)
+                self.signalNameLabel.setEnabled(True)
         else:
             if self.__create_signals():
                 QDialog.accept(self)
@@ -312,7 +320,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
                 name_provider = lambda channel, channel_count: get_channel_name(self.signalName.text(), channel,
                                                                                 channel_count,
                                                                                 channel_layout_name=self.__executor.channel_layout_name)
-                signals = loader.auto_load(output_file, name_provider)
+                signals = loader.auto_load(output_file, name_provider, self.decimateAudio.isChecked())
                 if len(signals) > 0:
                     for s in signals:
                         logger.info(f"Adding signal {s.name}")
