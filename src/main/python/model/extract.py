@@ -160,6 +160,8 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             self.videoStreams.addItem('No Video')
             for a in self.__executor.video_stream_data:
                 self.videoStreams.addItem(parse_video_stream(self.__executor.probe, a))
+            if self.__is_remux and self.videoStreams.count() > 1:
+                self.videoStreams.setCurrentIndex(1)
             self.audioStreams.setEnabled(True)
             self.videoStreams.setEnabled(True)
             self.channelCount.setEnabled(True)
