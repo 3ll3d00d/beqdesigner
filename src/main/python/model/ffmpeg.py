@@ -497,14 +497,16 @@ class Executor:
         else:
             merge_filt += '[s0]'
 
-        self.__filter_complex_script_content = f"{';'.join(filts)};{merge_filt}"
+        new_filt = f"{';'.join(filts)};{merge_filt}"
+        if self.__filter_complex_script_content is None or self.__filter_complex_script_content != new_filt:
+            self.__filter_complex_script_content = new_filt
 
-        if self.__filter_complex_filter is not None:
-            os.remove(self.__filter_complex_filter.name)
-        self.__filter_complex_filter = tempfile.NamedTemporaryFile(delete=False, suffix='.filt', mode='w')
+            if self.__filter_complex_filter is not None:
+                os.remove(self.__filter_complex_filter.name)
+            self.__filter_complex_filter = tempfile.NamedTemporaryFile(delete=False, suffix='.filt', mode='w')
 
-        print(self.__filter_complex_script_content, file=self.__filter_complex_filter)
-        self.__filter_complex_filter.close()
+            print(self.__filter_complex_script_content, file=self.__filter_complex_filter)
+            self.__filter_complex_filter.close()
         return self.__filter_complex_filter.name.replace('\\', '/')
 
     def __calculate_ffmpeg_cmd(self):
@@ -571,7 +573,7 @@ class Executor:
             f"ffmpeg.exe {trim_args} -i \"{filename}\"" \
                 f" -filter_complex_script {self.__write_filter_complex()}"
         if self.__selected_video_stream_idx != -1:
-            self.__ffmpeg_cmd += f" -c:v copy -map 0:v:{self.__selected_video_stream_idx}"
+            self.__ffmpeg_cmd += f" -map 0:v:{self.__selected_video_stream_idx} -c:v copy"
         acodec = 'flac' if self.compress_audio else 'pcm_s24le'
         if self.include_original_audio:
             self.__ffmpeg_cmd += f" -map 0:a:{self.__selected_audio_stream_idx}"

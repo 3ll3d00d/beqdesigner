@@ -191,6 +191,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             self.filterMapping.setEnabled(True)
             self.limitRange.setEnabled(True)
             self.showRemuxCommand.setEnabled(True)
+            self.__fit_options_to_selected()
         else:
             self.statusBar.showMessage(f"{file_name} contains no audio streams!")
 
@@ -198,12 +199,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         '''
         Creates a new ffmpeg command for the specified channel layout.
         '''
-        # if we have no video then the output cannot contain multiple streams
-        if self.videoStreams.currentIndex() == 0:
-            self.includeOriginalAudio.setChecked(False)
-            self.includeOriginalAudio.setEnabled(False)
-        else:
-            self.includeOriginalAudio.setEnabled(True)
+        self.__fit_options_to_selected()
         if self.__executor is not None:
             self.__executor.update_spec(self.audioStreams.currentIndex(), self.videoStreams.currentIndex() - 1,
                                         self.monoMix.isChecked())
@@ -211,6 +207,20 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             self.__init_channel_count_fields(self.__executor.channel_count, lfe_index=self.__executor.lfe_idx)
             self.__display_command_info()
             self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
+
+    def __fit_options_to_selected(self):
+        # if we have no video then the output cannot contain multiple streams
+        if self.videoStreams.currentIndex() == 0:
+            self.includeOriginalAudio.setChecked(False)
+            self.includeOriginalAudio.setEnabled(False)
+        else:
+            self.includeOriginalAudio.setEnabled(True)
+        # don't allow mono mix option if the stream is mono
+        if self.channelCount.value() == 1:
+            self.monoMix.setChecked(False)
+            self.monoMix.setEnabled(False)
+        else:
+            self.monoMix.setEnabled(True)
 
     def __display_command_info(self):
         self.outputFilename.setText(self.__executor.output_file_name)
