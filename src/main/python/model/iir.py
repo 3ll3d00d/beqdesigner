@@ -933,7 +933,7 @@ class XYData:
         self.x = x
         self.y = np.nan_to_num(y)
         # TODO consider a variable spacing so we don't go overboard for full range view
-        required_points = self.x[-1]*4
+        required_points = self.x[-1] * 4
         if self.y.size != required_points:
             new_x = np.linspace(self.x[0], self.x[-1], num=required_points, endpoint=True)
             cs = CubicSpline(self.x, self.y)
@@ -941,6 +941,7 @@ class XYData:
             logger.debug(f"Interpolating {name} from {self.y.size} to {required_points}")
             self.x = new_x
             self.y = new_y
+        self.__equal_energy_adjusted = None
         self.colour = colour
         self.linestyle = linestyle
         self.miny = np.ma.masked_invalid(y).min()
@@ -1022,3 +1023,12 @@ class XYData:
         else:
             return XYData(self.__name, f"{self.__description}-filtered", self.x, self.y + filt.y, colour=self.colour,
                           linestyle='-')
+
+    def with_equal_energy_adjustment(self):
+        ''' returns the equal energy adjusted version of this data. '''
+        if self.__equal_energy_adjusted is None:
+            x = np.linspace(self.x[1], self.x[-1], num=self.x.size)
+            adjustment = np.log10(x) * 10
+            self.__equal_energy_adjusted = XYData(self.__name, self.__description, self.x, self.y + adjustment,
+                                                  colour=self.colour, linestyle=self.linestyle)
+        return self.__equal_energy_adjusted

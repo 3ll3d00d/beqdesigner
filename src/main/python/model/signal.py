@@ -48,6 +48,7 @@ class SignalData:
         self.reference_name = None
         self.reference = []
         self.filter = filter
+        self.tilt_on = False
 
     @property
     def name(self):
@@ -123,7 +124,10 @@ class SignalData:
         '''
         :return all the xy data
         '''
-        return self.raw + self.filtered
+        if self.tilt_on:
+            return [r.with_equal_energy_adjustment() for r in self.raw] + [f.with_equal_energy_adjustment() for f in self.filtered]
+        else:
+            return self.raw + self.filtered
 
     def on_filter_change(self, filt):
         '''
@@ -146,6 +150,10 @@ class SignalData:
         for s in self.slaves:
             logger.debug(f"Propagating filter change to {s.name}")
             s.on_filter_change(filt)
+
+    def tilt(self, tilt):
+        ''' applies or removes the equal energy tilt '''
+        self.tilt_on = tilt
 
 
 class SignalModel(Sequence):
@@ -365,6 +373,14 @@ class SignalModel(Sequence):
         '''
         return next((s for s in self if s.name == name), None)
 
+    def tilt(self, tilt):
+        '''
+        Applies or removes the 3dB equal energy tilt.
+        :param tilt: true or false.
+        '''
+        for s in self.__signals:
+            s.tilt(tilt)
+
 
 class Signal:
     """ a source models some input to the analysis system, it provides the following attributes:
@@ -390,7 +406,7 @@ class Signal:
     def cut(self, start, end):
         ''' slices a section out of the signal '''
         if start < self.durationSeconds and end <= self.durationSeconds:
-            return Signal(self.name, self.samples[(start * self.fs): (end * self.fs)+1], fs=self.fs)
+            return Signal(self.name, self.samples[(start * self.fs): (end * self.fs) + 1], fs=self.fs)
         else:
             return self
 
@@ -499,7 +515,7 @@ class Signal:
                                resampy.resample(self.samples, self.fs, new_fs, filter=self.load_resampy_filter()),
                                new_fs)
             end = time.time()
-            logger.info(f"Resampled {self.name} from {self.fs} to {new_fs} in {round(end-start, 3)}s")
+            logger.info(f"Resampled {self.name} from {self.fs} to {new_fs} in {round(end - start, 3)}s")
             return resampled
         else:
             return self
@@ -785,7 +801,7 @@ class DialogWavLoaderBridge:
         self.__dialog.decimate.setEnabled(info.samplerate != self.__preferences.get(ANALYSIS_TARGET_FS))
         self.__dialog.wavChannelSelector.clear()
         for i in range(0, info.channels):
-            self.__dialog.wavChannelSelector.addItem(f"{i+1}")
+            self.__dialog.wavChannelSelector.addItem(f"{i + 1}")
         self.__dialog.wavChannelSelector.setEnabled(info.channels > 1)
         self.__dialog.loadAllChannels.setEnabled(info.channels > 1)
         self.__dialog.wavStartTime.setTime(QtCore.QTime(0, 0, 0))

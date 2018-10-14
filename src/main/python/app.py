@@ -699,6 +699,11 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.preferences.set(DISPLAY_SHOW_LEGEND, self.showLegend.isChecked())
         self.__magnitude_model.redraw()
 
+    def toggleTilt(self):
+        ''' applies a 3dB/octave tilt to the signals '''
+        self.__signal_model.tilt(self.equalEnergyTilt.isChecked())
+        self.__magnitude_model.redraw()
+
     def applyPreset1(self):
         '''
         Applies the preset to the model.
