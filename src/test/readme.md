@@ -26,6 +26,7 @@
 * Add from TXT
 * can copy filter on add
 * can link filter on add
+* can choose not to decimate on load
 
 ## Linking
 
@@ -67,12 +68,51 @@
 
 ## Extract
 
-* can extract mono audio
-* user selected channel layouts
-* can extract multichannel audio
-* ffmpeg command specs
+* can open
+  * audio only
+    * wav
+    * flac
+    * mono
+    * stereo
+    * multichannel
+  * video
+    * mkv
+    * m2ts
+* extract
+  * multichannel
+    * to mono 
+    * to mono + compress 
+    * to mono + decimate
+    * to mono + decimate + compress
+    * passthrough (check result has same channel layout)
+    * passthrough + compress 
+    * passthrough + decimate
+    * passthrough + decimate + compress
+  * mono 
+    * mono checkbox is disabled
+    * compress
+    * decimate
+    * decimate + compress
+  * can pick a stream 
+  * can cut slice of track (start/end)
+* with video
+  * decimate not allowed
+  * output file type is input file type
+  * can cut slice of track (start/end)
+* decimate honours analysis fs from preferences
+  
 * if sound is stored in preferences, it is played on complete
 * dialog updates in realtime as the audio is extracted
+
+## Remux
+
+* video stream is selected by default
+* filters are mapped to channels using naming convention
+* can override filters
+* can include original audio
+* resulting audio stream is filtered
+* can decimate and compress
+
 
 ## Preferences
 
@@ -82,3 +122,4 @@
 
 * can show peak signals
 * can show waveform
+

@@ -29,6 +29,10 @@ SHOW_FILTERED_SIGNAL_OPTIONS = [SHOW_ALL_FILTERED_SIGNALS, SHOW_FILTERED_ONLY, S
 EXTRACTION_OUTPUT_DIR = 'extraction/output_dir'
 EXTRACTION_NOTIFICATION_SOUND = 'extraction/notification_sound'
 EXTRACTION_BATCH_FILTER = 'extraction/batch_filter'
+EXTRACTION_MIX_MONO = 'extraction/mix_to_mono'
+EXTRACTION_DECIMATE = 'extraction/decimate'
+EXTRACTION_INCLUDE_ORIGINAL = 'extraction/include_original'
+EXTRACTION_COMPRESS = 'extraction/compress'
 
 ANALYSIS_RESOLUTION = 'analysis/resolution'
 ANALYSIS_TARGET_FS = 'analysis/target_fs'
@@ -56,6 +60,7 @@ DISPLAY_FREQ_STEP = 'display/freq_step'
 DISPLAY_Q_STEP = 'display/q_step'
 DISPLAY_S_STEP = 'display/s_step'
 DISPLAY_GAIN_STEP = 'display/gain_step'
+DISPLAY_LINE_STYLE = 'display/line_style'
 
 GRAPH_X_AXIS_SCALE = 'graph/x_axis'
 GRAPH_X_MIN = 'graph/x_min'
@@ -101,10 +106,15 @@ DEFAULT_PREFS = {
     DISPLAY_SHOW_LEGEND: True,
     DISPLAY_SHOW_FILTERS: SHOW_ALL_FILTERS,
     EXTRACTION_OUTPUT_DIR: os.path.expanduser('~'),
+    EXTRACTION_MIX_MONO: False,
+    EXTRACTION_COMPRESS: False,
+    EXTRACTION_DECIMATE: False,
+    EXTRACTION_INCLUDE_ORIGINAL: False,
     DISPLAY_FREQ_STEP: '1',
     DISPLAY_Q_STEP: '0.1',
     DISPLAY_S_STEP: '0.1',
     DISPLAY_GAIN_STEP: '0.1',
+    DISPLAY_LINE_STYLE: True,
     GRAPH_X_AXIS_SCALE: 'log',
     GRAPH_X_MIN: 1,
     GRAPH_X_MAX: 160,
@@ -133,8 +143,13 @@ DEFAULT_PREFS = {
 
 TYPES = {
     DISPLAY_SHOW_LEGEND: bool,
+    DISPLAY_LINE_STYLE: bool,
     ANALYSIS_RESOLUTION: float,
     ANALYSIS_TARGET_FS: int,
+    EXTRACTION_MIX_MONO: bool,
+    EXTRACTION_COMPRESS: bool,
+    EXTRACTION_DECIMATE: bool,
+    EXTRACTION_INCLUDE_ORIGINAL: bool,
     GRAPH_X_MIN: int,
     GRAPH_X_MAX: int,
     REPORT_FILTER_ROW_HEIGHT_MULTIPLIER: float,
@@ -159,17 +174,27 @@ TYPES = {
 
 COLOUR_INTERVALS = [x / 255 for x in range(36, 250, 24)] + [1.0]
 # keep peak green, avg red and filters cyan
-AVG_COLOURS = [(x, 0.0, 0.0) for x in COLOUR_INTERVALS[::-1]]
-PEAK_COLOURS = [(0.0, x, 0.0) for x in COLOUR_INTERVALS[::-1]]
+AVG_SPECLAB_COLOURS = [(x, 0.0, 0.0) for x in COLOUR_INTERVALS[::-1]]
+PEAK_SPECLAB_COLOURS = [(0.0, x, 0.0) for x in COLOUR_INTERVALS[::-1]]
 FILTER_COLOURS = [(0.0, x, x) for x in COLOUR_INTERVALS[::-1]]
+
+singleton = None
 
 
 def get_avg_colour(idx):
-    return AVG_COLOURS[idx % len(AVG_COLOURS)]
+    if singleton is None or singleton.get(DISPLAY_LINE_STYLE) is True:
+        return AVG_SPECLAB_COLOURS[idx % len(AVG_SPECLAB_COLOURS)]
+    else:
+        colours = matplotlib.rcParams['axes.prop_cycle'].by_key()['color']
+        return colours[idx % len(colours)]
 
 
 def get_peak_colour(idx):
-    return PEAK_COLOURS[idx % len(PEAK_COLOURS)]
+    if singleton is None or singleton.get(DISPLAY_LINE_STYLE) is True:
+        return PEAK_SPECLAB_COLOURS[idx % len(PEAK_SPECLAB_COLOURS)]
+    else:
+        colours = matplotlib.rcParams['axes.prop_cycle'].by_key()['color']
+        return colours[idx % len(colours)]
 
 
 def get_filter_colour(idx):
@@ -179,6 +204,8 @@ def get_filter_colour(idx):
 class Preferences:
     def __init__(self, settings):
         self.__settings = settings
+        global singleton
+        singleton = self
 
     def has(self, key):
         '''
@@ -286,7 +313,13 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         self.xmin.setValue(self.__preferences.get(GRAPH_X_MIN))
         self.xmax.setValue(self.__preferences.get(GRAPH_X_MAX))
 
+        self.speclabLineStyle.setChecked(self.__preferences.get(DISPLAY_LINE_STYLE))
         self.checkForUpdates.setChecked(self.__preferences.get(SYSTEM_CHECK_FOR_UPDATES))
+
+        self.monoMix.setChecked(self.__preferences.get(EXTRACTION_MIX_MONO))
+        self.decimate.setChecked(self.__preferences.get(EXTRACTION_DECIMATE))
+        self.includeOriginal.setChecked(self.__preferences.get(EXTRACTION_INCLUDE_ORIGINAL))
+        self.compress.setChecked(self.__preferences.get(EXTRACTION_COMPRESS))
 
     def __init_themes(self):
         '''
@@ -369,6 +402,11 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
             self.__main_chart_limits.update(x_min=self.xmin.value(), x_max=self.xmax.value(),
                                             x_scale=new_x_scale, draw=True)
         self.__preferences.set(SYSTEM_CHECK_FOR_UPDATES, self.checkForUpdates.isChecked())
+        self.__preferences.set(DISPLAY_LINE_STYLE, self.speclabLineStyle.isChecked())
+        self.__preferences.set(EXTRACTION_MIX_MONO, self.monoMix.isChecked())
+        self.__preferences.set(EXTRACTION_DECIMATE, self.decimate.isChecked())
+        self.__preferences.set(EXTRACTION_INCLUDE_ORIGINAL, self.includeOriginal.isChecked())
+        self.__preferences.set(EXTRACTION_COMPRESS, self.compress.isChecked())
         QDialog.accept(self)
 
     def alert_on_change(self, title, text='Change will not take effect until the application is restarted',
