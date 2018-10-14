@@ -199,12 +199,12 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         '''
         Creates a new ffmpeg command for the specified channel layout.
         '''
-        self.__fit_options_to_selected()
         if self.__executor is not None:
             self.__executor.update_spec(self.audioStreams.currentIndex(), self.videoStreams.currentIndex() - 1,
                                         self.monoMix.isChecked())
 
             self.__init_channel_count_fields(self.__executor.channel_count, lfe_index=self.__executor.lfe_idx)
+            self.__fit_options_to_selected()
             self.__display_command_info()
             self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
 
@@ -240,6 +240,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
     def overrideFfmpegSpec(self, _):
         if self.__executor is not None:
             self.__executor.override('custom', self.channelCount.value(), self.lfeChannelIndex.value())
+            self.__fit_options_to_selected()
             self.__display_command_info()
 
     def toggle_decimate_audio(self):
@@ -315,10 +316,13 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         self.__display_command_info()
 
     def __init_channel_count_fields(self, channels, lfe_index=0):
-        self.lfeChannelIndex.setMaximum(channels)
-        self.lfeChannelIndex.setValue(lfe_index)
-        self.channelCount.setMaximum(channels)
-        self.channelCount.setValue(channels)
+        from model.report import block_signals
+        with block_signals(self.lfeChannelIndex):
+            self.lfeChannelIndex.setMaximum(channels)
+            self.lfeChannelIndex.setValue(lfe_index)
+        with block_signals(self.channelCount):
+            self.channelCount.setMaximum(channels)
+            self.channelCount.setValue(channels)
 
     def reject(self):
         '''
