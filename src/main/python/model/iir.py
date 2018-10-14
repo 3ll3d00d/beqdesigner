@@ -932,11 +932,13 @@ class XYData:
         self.__description = description
         self.x = x
         self.y = np.nan_to_num(y)
-        if self.y.size < 8192:
-            new_x = np.linspace(self.x[0], self.x[-1], num=8192, endpoint=True)
+        # TODO consider a variable spacing so we don't go overboard for full range view
+        required_points = self.x[-1]*4
+        if self.y.size != required_points:
+            new_x = np.linspace(self.x[0], self.x[-1], num=required_points, endpoint=True)
             cs = CubicSpline(self.x, self.y)
             new_y = cs(new_x)
-            logger.debug(f"Interpolating {name} from {self.y.size} to 8192")
+            logger.debug(f"Interpolating {name} from {self.y.size} to {required_points}")
             self.x = new_x
             self.y = new_y
         self.colour = colour
@@ -994,8 +996,9 @@ class XYData:
         '''
         if target.name not in self.__normalised_cache:
             logger.debug(f"Normalising {self.name} against {target.name}")
-            self.__normalised_cache[target.name] = XYData(self.__name, self.__description, self.x, self.y - target.y,
-                                                          colour=self.colour,
+            count = min(self.x.size, target.x.size) - 1
+            self.__normalised_cache[target.name] = XYData(self.__name, self.__description, self.x[0:count],
+                                                          self.y[0:count] - target.y[0:count], colour=self.colour,
                                                           linestyle=self.linestyle)
         return self.__normalised_cache[target.name]
 

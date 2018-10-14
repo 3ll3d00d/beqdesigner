@@ -197,7 +197,7 @@ class Ui_addSignalDialog(object):
         self.wavStartTimeLabel.setText(_translate("addSignalDialog", "Start"))
         self.previewButton.setText(_translate("addSignalDialog", "Preview"))
         self.wavSignalNameLabel.setText(_translate("addSignalDialog", "Name"))
-        self.decimate.setText(_translate("addSignalDialog", "Decimate?"))
+        self.decimate.setText(_translate("addSignalDialog", "Resample?"))
         self.signalTypeTabs.setTabText(self.signalTypeTabs.indexOf(self.wavTab), _translate("addSignalDialog", "AUDIO"))
         self.frdFsLabel.setText(_translate("addSignalDialog", "Fs"))
         self.frdAvgFileLabel.setText(_translate("addSignalDialog", "Avg"))
