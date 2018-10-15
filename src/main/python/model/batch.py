@@ -586,7 +586,7 @@ class ExtractCandidate:
         Calculates an ffmpeg cmd for the selected options.
         :return:
         '''
-        self.executor.update_spec(self.audioStreams.currentIndex(), self.__dialog.monoMix.isChecked())
+        self.executor.update_spec(self.audioStreams.currentIndex(), -1, self.__dialog.monoMix.isChecked())
         self.lfeChannelIndex.setMaximum(self.executor.channel_count)
         self.lfeChannelIndex.setValue(self.executor.lfe_idx)
         self.channelCount.setMaximum(self.executor.channel_count)
