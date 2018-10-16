@@ -594,7 +594,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Show the analyse audio dialog.
         '''
-        AnalyseSignalDialog(self.preferences).exec()
+        AnalyseSignalDialog(self.preferences, self.__signal_model).exec()
 
     def showExportFRDDialog(self):
         '''
