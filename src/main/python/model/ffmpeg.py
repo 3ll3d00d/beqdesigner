@@ -319,7 +319,7 @@ class Executor:
         '''
         Creates a new ffmpeg command for the specified channel layout.
         :param audio_stream_idx: the stream idx we want to extract.
-        :param video_stream_idx: the video idx we want to extract, if 0 no video is extracted.
+        :param video_stream_idx: the video idx we want to extract, if -1 no video is extracted.
         :param mono_mix: whether to mix to mono
         '''
         recalc_signal_mapping = self.__selected_audio_stream_idx != audio_stream_idx and self.__is_remux is True

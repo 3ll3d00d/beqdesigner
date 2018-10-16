@@ -503,6 +503,14 @@ class Signal:
         """
         return Signal(self.name, signal.filtfilt(b, a, self.samples), fs=self.fs)
 
+    def sosfilter(self, sos):
+        '''
+        Applies a cascaded 2nd order series of filters via sosfiltfilt.
+        :param sos: the sections.
+        :return: the filtered signal
+        '''
+        return Signal(self.name, signal.sosfiltfilt(sos, self.samples), fs=self.fs)
+
     def resample(self, new_fs):
         '''
         Resamples to the new fs (if required).

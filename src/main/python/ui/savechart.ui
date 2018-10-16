@@ -111,7 +111,7 @@
    <sender>widthPixels</sender>
    <signal>valueChanged(int)</signal>
    <receiver>saveChartDialog</receiver>
-   <slot>updateHeight()</slot>
+   <slot>set_height()</slot>
    <hints>
     <hint type="sourcelabel">
      <x>161</x>
@@ -125,6 +125,6 @@
   </connection>
  </connections>
  <slots>
-  <slot>updateHeight()</slot>
+  <slot>set_height()</slot>
  </slots>
 </ui>

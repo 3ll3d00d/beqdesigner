@@ -83,6 +83,9 @@ class Biquad(ABC):
         b = separator.join([f"b{idx}={float_to_str(x)}" for idx, x in enumerate(self.b)])
         return [f"{b}{separator}{a}"]
 
+    def get_sos(self):
+        return [np.concatenate((self.b, self.a)).tolist()]
+
 
 class Gain(Biquad):
     def __init__(self, fs, gain):
@@ -278,6 +281,9 @@ class Shelf(BiquadWithQGain):
             return single * self.count
         else:
             raise ValueError('Shelf must have non zero count')
+
+    def get_sos(self):
+        return super().get_sos() * self.count
 
     def to_json(self):
         return {
@@ -731,6 +737,10 @@ class ComplexFilter(Sequence):
         :return: the report.
         '''
         return [f.format_biquads(invert_a, separator=separator) for f in self.filters]
+
+    def get_sos(self):
+        ''' outputs the filter in cascaded second order sections ready for consumption by sosfiltfilt '''
+        return [x for f in self.filters for x in f.get_sos()]
 
     def to_json(self):
         return {

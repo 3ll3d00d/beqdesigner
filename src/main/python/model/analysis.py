@@ -1,5 +1,6 @@
 import logging
 import math
+import time
 
 import numpy as np
 import qtawesome as qta
@@ -18,7 +19,7 @@ logger = logging.getLogger('analysis')
 
 
 class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
-    def __init__(self, preferences):
+    def __init__(self, preferences, signal_model):
         super(AnalyseSignalDialog, self).__init__()
         self.setupUi(self)
         self.setWindowFlags(self.windowFlags() | Qt.WindowSystemMenuHint | Qt.WindowMinMaxButtonsHint)
@@ -29,8 +30,14 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
         self.showSpectroButton.setEnabled(False)
         self.__info = None
         self.__signal = None
+        self.__filtered_signals = {}
         self.__spectrum_analyser = MaxSpectrumByTime(self.spectrumChart, self.__preferences, self)
         self.__waveform_analyser = Waveform(self.waveformChart, self)
+        self.__signal_model = signal_model
+        self.copyFilter.addItem('No Filter')
+        for s in signal_model:
+            if s.master is None:
+                self.copyFilter.addItem(s.name)
         self.__duration = 0
         self.loadButton.setEnabled(False)
         self.__clear()
@@ -84,8 +91,6 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
         with wait_cursor(f"Loading {self.__info.name}"):
             self.__signal = readWav('analysis', self.__info.name, channel=channel, start=start, end=end,
                                     target_fs=self.__preferences.get(ANALYSIS_TARGET_FS))
-            self.__spectrum_analyser.signal = self.__signal
-            self.__waveform_analyser.signal = self.__signal
             self.show_chart()
 
     def show_chart(self):
@@ -93,11 +98,27 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
         Shows the currently selected chart.
         '''
         if self.__signal is not None:
+            active_signal = self.__get_filtered_signal()
             idx = self.analysisTabs.currentIndex()
             if idx == 0:
+                self.__spectrum_analyser.signal = active_signal
                 self.__spectrum_analyser.analyse()
             elif idx == 1:
+                self.__waveform_analyser.signal = active_signal
                 self.__waveform_analyser.analyse()
+
+    def __get_filtered_signal(self):
+        sig = next((s for s in self.__signal_model if s.name == self.copyFilter.currentText()), None)
+        if sig is None:
+            return self.__signal
+        else:
+            if sig.name not in self.__filtered_signals:
+                start = time.time()
+                filt = sig.filter
+                self.__filtered_signals[sig.name] = self.__signal.sosfilter(filt.resample(self.__signal.fs).get_sos())
+                end = time.time()
+                logger.debug(f"Filtered in {round(end - start, 3)}s")
+            return self.__filtered_signals[sig.name]
 
     def show_limits(self):
         idx = self.analysisTabs.currentIndex()
@@ -173,9 +194,13 @@ class Waveform:
         self.__limits.x_max = 1
         if signal is not None:
             self.__limits.x_max = signal.durationSeconds
+            headroom = 20 * math.log(1 / np.nanmax(np.abs(signal.samples)))
+        else:
+            headroom = 0.0
+        self.__ui.headroom.setValue(headroom)
         if self.__curve is not None:
-            self.__curve.set_data([])
-        self.__init_chart(draw=True)
+            self.__curve.set_data([], [])
+        self.__init_chart()
 
     def __init_chart(self, draw=False):
         self.__limits.propagate_to_axes(draw=False)
@@ -266,7 +291,7 @@ class MaxSpectrumByTime:
         if self.__scatter is not None:
             self.__scatter.set_offsets(np.c_[np.array([]), np.array([])])
             self.__scatter.set_array(np.array([]))
-        self.__init_chart(draw=True)
+        self.__init_chart()
 
     def __init_chart(self, draw=False):
         self.__limits.propagate_to_axes(draw=False)
