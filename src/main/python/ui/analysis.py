@@ -150,7 +150,7 @@ class Ui_analysisDialog(object):
         self.gridLayout_2.addLayout(self.analysisGridLayout, 0, 0, 1, 1)
 
         self.retranslateUi(analysisDialog)
-        self.analysisTabs.setCurrentIndex(1)
+        self.analysisTabs.setCurrentIndex(0)
         self.filePicker.clicked.connect(analysisDialog.select_wav_file)
         self.loadButton.clicked.connect(analysisDialog.load_file)
         self.analysisTabs.currentChanged['int'].connect(analysisDialog.show_chart)

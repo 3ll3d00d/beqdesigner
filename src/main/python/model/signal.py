@@ -509,7 +509,7 @@ class Signal:
         :param sos: the sections.
         :return: the filtered signal
         '''
-        return Signal(self.name, signal.sosfiltfilt(sos, self.samples), fs=self.fs)
+        return Signal(self.name, signal.sosfilt(sos, self.samples), fs=self.fs)
 
     def resample(self, new_fs):
         '''

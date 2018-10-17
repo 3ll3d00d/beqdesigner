@@ -194,7 +194,7 @@ class Waveform:
         self.__limits.x_max = 1
         if signal is not None:
             self.__limits.x_max = signal.durationSeconds
-            headroom = 20 * math.log(1 / np.nanmax(np.abs(signal.samples)))
+            headroom = 20 * math.log(1.0 / np.nanmax(np.abs(signal.samples)), 10)
         else:
             headroom = 0.0
         self.__ui.headroom.setValue(headroom)
