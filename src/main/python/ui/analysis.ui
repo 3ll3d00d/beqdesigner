@@ -53,8 +53,41 @@
           <widget class="MplWidget" name="spectrumChart"/>
          </item>
          <item row="0" column="0">
-          <layout class="QGridLayout" name="spectrumControlsLayout" columnstretch="0,0,0,0,0,0,0,0,0">
-           <item row="0" column="7">
+          <layout class="QGridLayout" name="spectrumControlsLayout" columnstretch="0,0,0,0,0,0,0,0,0,0,0,0">
+           <item row="0" column="4">
+            <widget class="QLabel" name="colourRangeLabel">
+             <property name="text">
+              <string>Colour Range</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="5">
+            <widget class="QSpinBox" name="colourUpperLimit">
+             <property name="minimum">
+              <number>-99</number>
+             </property>
+             <property name="maximum">
+              <number>0</number>
+             </property>
+             <property name="value">
+              <number>-10</number>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="6">
+            <widget class="QSpinBox" name="colourLowerLimit">
+             <property name="minimum">
+              <number>-120</number>
+             </property>
+             <property name="maximum">
+              <number>0</number>
+             </property>
+             <property name="value">
+              <number>-40</number>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="10">
             <spacer name="horizontalSpacer">
              <property name="orientation">
               <enum>Qt::Horizontal</enum>
@@ -67,53 +100,40 @@
              </property>
             </spacer>
            </item>
-           <item row="0" column="3">
-            <widget class="QSpinBox" name="dbRange">
+           <item row="0" column="2">
+            <widget class="QDoubleSpinBox" name="magUpperLimit">
+             <property name="decimals">
+              <number>2</number>
+             </property>
              <property name="minimum">
-              <number>-100</number>
+              <double>-99.000000000000000</double>
              </property>
              <property name="maximum">
-              <number>-1</number>
+              <double>0.000000000000000</double>
+             </property>
+             <property name="singleStep">
+              <double>0.001000000000000</double>
              </property>
              <property name="value">
-              <number>-12</number>
+              <double>-10.000000000000000</double>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="9">
+            <widget class="QToolButton" name="updateChart">
+             <property name="text">
+              <string>...</string>
              </property>
             </widget>
            </item>
            <item row="0" column="0">
-            <widget class="QCheckBox" name="clipAtAverage">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
+            <widget class="QLabel" name="upperLimitLabel">
              <property name="text">
-              <string>Clip to Average Level?</string>
-             </property>
-             <property name="checked">
-              <bool>false</bool>
+              <string>Magnitude Range</string>
              </property>
             </widget>
            </item>
-           <item row="0" column="4">
-            <widget class="QLabel" name="colourRangeLabel">
-             <property name="text">
-              <string>Colour Range (dB)</string>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="5">
-            <widget class="QSpinBox" name="colourRange">
-             <property name="minimum">
-              <number>6</number>
-             </property>
-             <property name="maximum">
-              <number>120</number>
-             </property>
-             <property name="value">
-              <number>30</number>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="8">
+           <item row="0" column="11">
             <widget class="QToolButton" name="showSpectroButton">
              <property name="text">
               <string>...</string>
@@ -121,19 +141,63 @@
             </widget>
            </item>
            <item row="0" column="1">
-            <widget class="QCheckBox" name="clipToAbsolute">
-             <property name="text">
-              <string>Clip to Absolute Peak?</string>
+            <widget class="QComboBox" name="magLimitType">
+             <item>
+              <property name="text">
+               <string>Constant</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>Peak</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>Average</string>
+              </property>
+             </item>
+            </widget>
+           </item>
+           <item row="0" column="8">
+            <widget class="QComboBox" name="markerSize">
+             <item>
+              <property name="text">
+               <string>Small</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>Medium</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>Large</string>
+              </property>
+             </item>
+            </widget>
+           </item>
+           <item row="0" column="3">
+            <widget class="QDoubleSpinBox" name="magLowerLimit">
+             <property name="minimum">
+              <double>-120.000000000000000</double>
              </property>
-             <property name="checked">
-              <bool>true</bool>
+             <property name="maximum">
+              <double>-1.000000000000000</double>
+             </property>
+             <property name="singleStep">
+              <double>0.010000000000000</double>
+             </property>
+             <property name="value">
+              <double>-22.000000000000000</double>
              </property>
             </widget>
            </item>
-           <item row="0" column="2">
-            <widget class="QLabel" name="dbRangeLabel">
+           <item row="0" column="7">
+            <widget class="QLabel" name="label_2">
              <property name="text">
-              <string>Clip At (dB)</string>
+              <string>Marker Size</string>
              </property>
             </widget>
            </item>
@@ -331,8 +395,8 @@
    <slot>select_wav_file()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>284</x>
-     <y>30</y>
+     <x>311</x>
+     <y>53</y>
     </hint>
     <hint type="destinationlabel">
      <x>241</x>
@@ -347,8 +411,8 @@
    <slot>load_file()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>198</x>
-     <y>168</y>
+     <x>242</x>
+     <y>198</y>
     </hint>
     <hint type="destinationlabel">
      <x>147</x>
@@ -380,91 +444,11 @@
    <hints>
     <hint type="sourcelabel">
      <x>367</x>
-     <y>36</y>
+     <y>38</y>
     </hint>
     <hint type="destinationlabel">
      <x>329</x>
      <y>81</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>clipAtAverage</sender>
-   <signal>clicked()</signal>
-   <receiver>analysisDialog</receiver>
-   <slot>show_chart()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>437</x>
-     <y>63</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>354</x>
-     <y>136</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>dbRange</sender>
-   <signal>valueChanged(int)</signal>
-   <receiver>analysisDialog</receiver>
-   <slot>show_chart()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>898</x>
-     <y>68</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>354</x>
-     <y>183</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>clipAtAverage</sender>
-   <signal>clicked()</signal>
-   <receiver>analysisDialog</receiver>
-   <slot>allow_clip_choice()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>476</x>
-     <y>70</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>356</x>
-     <y>233</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>colourRange</sender>
-   <signal>valueChanged(int)</signal>
-   <receiver>analysisDialog</receiver>
-   <slot>show_chart()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>1119</x>
-     <y>67</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>357</x>
-     <y>389</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>clipToAbsolute</sender>
-   <signal>clicked()</signal>
-   <receiver>analysisDialog</receiver>
-   <slot>clip_to_abs()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>684</x>
-     <y>74</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>351</x>
-     <y>335</y>
     </hint>
    </hints>
   </connection>
@@ -516,6 +500,54 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>magLimitType</sender>
+   <signal>currentIndexChanged(QString)</signal>
+   <receiver>analysisDialog</receiver>
+   <slot>set_mag_range_type()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>572</x>
+     <y>65</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>357</x>
+     <y>225</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>updateChart</sender>
+   <signal>clicked()</signal>
+   <receiver>analysisDialog</receiver>
+   <slot>update_chart()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1243</x>
+     <y>69</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>361</x>
+     <y>387</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>markerSize</sender>
+   <signal>currentIndexChanged(int)</signal>
+   <receiver>analysisDialog</receiver>
+   <slot>update_chart()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1181</x>
+     <y>67</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>360</x>
+     <y>318</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>select_wav_file()</slot>
@@ -525,5 +557,7 @@
   <slot>allow_clip_choice()</slot>
   <slot>clip_to_abs()</slot>
   <slot>show_spectro()</slot>
+  <slot>set_mag_range_type()</slot>
+  <slot>update_chart()</slot>
  </slots>
 </ui>

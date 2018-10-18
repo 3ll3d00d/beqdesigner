@@ -736,7 +736,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
             getattr(self, attr).setIcon(QIcon())
         if preset_idx > 0:
             if hasattr(self, f"preset{preset_idx}Button"):
-                getattr(self, f"preset{preset_idx}Button").setIcon(qta.icon('fa.check'))
+                getattr(self, f"preset{preset_idx}Button").setIcon(qta.icon('fa5s.check'))
             else:
                 logger.warning(f"Ignoring attempt to activate an unknown preset {preset_idx}")
 

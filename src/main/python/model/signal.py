@@ -974,9 +974,9 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
     def __init__(self, preferences, signal_model, parent=None):
         super(SignalDialog, self).__init__(parent=parent)
         self.setupUi(self)
-        self.wavFilePicker.setIcon(qta.icon('fa.folder-open-o'))
-        self.frdAvgFilePicker.setIcon(qta.icon('fa.folder-open-o'))
-        self.frdPeakFilePicker.setIcon(qta.icon('fa.folder-open-o'))
+        self.wavFilePicker.setIcon(qta.icon('fa5s.folder-open'))
+        self.frdAvgFilePicker.setIcon(qta.icon('fa5s.folder-open'))
+        self.frdPeakFilePicker.setIcon(qta.icon('fa5s.folder-open'))
         self.__loaders = [DialogWavLoaderBridge(self, preferences), FrdLoader(self)]
         self.__loader_idx = self.signalTypeTabs.currentIndex()
         self.__signal_model = signal_model

@@ -56,12 +56,12 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         self.__selected_xy = []
         self.setWindowFlags(self.windowFlags() | Qt.WindowSystemMenuHint | Qt.WindowMinMaxButtonsHint)
         self.setupUi(self)
-        self.imagePicker.setIcon(qta.icon('fa.folder-open-o'))
+        self.imagePicker.setIcon(qta.icon('fa5s.folder-open'))
         self.limitsButton.setIcon(qta.icon('ei.move'))
-        self.saveLayout.setIcon(qta.icon('fa.floppy-o'))
-        self.loadURL.setIcon(qta.icon('fa.download'))
+        self.saveLayout.setIcon(qta.icon('fa5s.save'))
+        self.loadURL.setIcon(qta.icon('fa5s.download'))
         self.loadURL.setEnabled(False)
-        self.snapToImageSize.setIcon(qta.icon('fa.expand'))
+        self.snapToImageSize.setIcon(qta.icon('fa5s.expand'))
         self.snapToImageSize.setEnabled(False)
         self.buttonBox.button(QDialogButtonBox.RestoreDefaults).clicked.connect(self.discard_layout)
         for xy in self.__xy_data:
@@ -729,19 +729,19 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
             if len(o.scheme) > 0 and len(o.netloc) > 0:
                 self.loadURL.setEnabled(True)
                 if self.loadURL.signalsBlocked():
-                    self.loadURL.setIcon(qta.icon('fa.download'))
+                    self.loadURL.setIcon(qta.icon('fa5s.download'))
                     self.loadURL.blockSignals(False)
 
     def load_image_from_url(self):
         ''' attempts to download the image and sets it as the file name '''
         tmp_image = self.__download_image()
         if tmp_image is not None:
-            self.loadURL.setIcon(qta.icon('fa.check', color='green'))
+            self.loadURL.setIcon(qta.icon('fa5s.check', color='green'))
             self.loadURL.blockSignals(True)
             self.image.setText(tmp_image)
             self.apply_image()
         else:
-            self.loadURL.setIcon(qta.icon('fa.times', color='red'))
+            self.loadURL.setIcon(qta.icon('fa5s.times', color='red'))
 
     def __download_image(self):
         '''
