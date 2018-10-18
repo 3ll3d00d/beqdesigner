@@ -362,12 +362,15 @@ class MaxSpectrumByTime:
         above_threshold = above_threshold[above_threshold[:, 0] <= self.__limits.x_max]
         above_threshold = above_threshold[above_threshold[:, 1] >= self.__limits.y1_min]
         above_threshold = above_threshold[above_threshold[:, 1] <= self.__limits.y1_max]
+        # sort so the lowest magnitudes are plotted first (as later plots overlay earlier ones)
+        above_threshold = above_threshold[above_threshold[:, 2].argsort()]
+        # then split into the constituent columns for plotting
         x = above_threshold[:, 0]
         y = above_threshold[:, 1]
         z = above_threshold[:, 2]
         # now plot or update
         if self.__scatter is None:
-            self.__scatter = self.__axes.scatter(x, y, c=z, vmin=vmin, vmax=vmax)
+            self.__scatter = self.__axes.scatter(x, y, c=z, vmin=vmin, vmax=vmax, marker='.')
             divider = make_axes_locatable(self.__axes)
             cax = divider.append_axes("right", size="5%", pad=0.05)
             self.__cb = self.__axes.figure.colorbar(self.__scatter, cax=cax)
