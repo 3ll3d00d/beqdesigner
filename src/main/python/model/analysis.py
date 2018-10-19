@@ -321,11 +321,11 @@ class MaxSpectrumByTime:
             self.__ui.magLowerLimit.setVisible(True)
             if mag_max:
                 self.__ui.magUpperLimit.setValue(mag_max)
-                self.__ui.magLowerLimit.setValue(mag_max - 12.0)
+                self.__ui.magLowerLimit.setValue(mag_max - 60.0)
         elif type == 'Peak':
             self.__ui.magUpperLimit.setVisible(False)
             self.__ui.magLowerLimit.setVisible(True)
-            self.__ui.magLowerLimit.setValue(-12.0)
+            self.__ui.magLowerLimit.setValue(-60.0)
         else:
             self.__ui.magUpperLimit.setVisible(False)
             self.__ui.magLowerLimit.setVisible(False)
@@ -350,8 +350,10 @@ class MaxSpectrumByTime:
 
     def update_chart(self):
         ''' Updates the chart for the cached data'''
-        self.__render_scatter()
-        self.__limits.propagate_to_axes(draw=True)
+        from app import wait_cursor
+        with wait_cursor(f"Analysing"):
+            self.__render_scatter()
+            self.__limits.propagate_to_axes(draw=True)
 
     def analyse(self):
         '''
