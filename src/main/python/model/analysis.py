@@ -216,6 +216,7 @@ class Waveform:
     def configure_time_axis(self, axes, x_scale):
         axes.set_xscale(x_scale)
         axes.set_xlabel('Time')
+        axes.xaxis.set_major_formatter(FuncFormatter(seconds_to_hhmmss))
 
     @property
     def signal(self):
@@ -629,6 +630,7 @@ class SpectrogramDialog(QDialog, Ui_spectroDialog):
         vmax = math.ceil(np.max(Sxx.max(axis=-1)))
         vmin = vmax - self.vRange.value()
         self.__specgram = self.__axes.pcolormesh(f, t, Sxx.transpose(), vmin=vmin, vmax=vmax, shading='gouraud')
+        self.__axes.yaxis.set_major_formatter(FuncFormatter(seconds_to_hhmmss))
         if self.__cb is None:
             divider = make_axes_locatable(self.__axes)
             cax = divider.append_axes("right", size="5%", pad=0.05)
