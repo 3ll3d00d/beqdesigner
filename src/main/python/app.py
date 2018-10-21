@@ -10,6 +10,8 @@ from contextlib import contextmanager
 
 import matplotlib
 
+from model.waveform import WaveformModel
+
 matplotlib.use("Qt5Agg")
 
 from model.checker import VersionChecker
@@ -32,7 +34,7 @@ from qtpy import QtCore
 from qtpy.QtCore import QSettings, QThreadPool
 from qtpy.QtGui import QIcon, QFont, QCursor
 from qtpy.QtWidgets import QMainWindow, QApplication, QErrorMessage, QAbstractItemView, QDialog, QFileDialog, \
-    QHeaderView, QMessageBox
+    QHeaderView, QMessageBox, QHBoxLayout, QToolButton
 
 from model.extract import ExtractAudioDialog
 from model.filter import FilterTableModel, FilterModel, FilterDialog
@@ -89,6 +91,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
             else:
                 style.use(matplotlib_theme)
         self.setupUi(self)
+        self.__decorate_splitter()
         self.limitsButton.setIcon(qta.icon('ei.move'))
         self.showValuesButton.setIcon(qta.icon('ei.eye-open'))
         # logs
@@ -154,6 +157,12 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
                                                 'Signals', self.__filter_model, 'Filters',
                                                 show_legend=lambda: self.showLegend.isChecked())
         self.__filter_model.filter = self.__default_signal.filter
+        # waveform
+        self.__waveform_model = WaveformModel(self.waveformChart, self.headroom)
+        self.applyWaveformLimitsButton.setIcon(qta.icon('fa5s.check'))
+        self.resetWaveformLimitsButton.setIcon(qta.icon('fa5s.times'))
+        self.zoomInButton.setIcon(qta.icon('fa5s.search-plus'))
+        self.zoomOutButton.setIcon(qta.icon('fa5s.search-minus'))
         # processing
         self.ensurePathContainsExternalTools()
         # extraction
@@ -175,6 +184,30 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.actionSave_Signal.triggered.connect(self.showExportSignalDialog)
         self.action_Save_Project.triggered.connect(self.exportProject)
         self.actionAbout.triggered.connect(self.showAbout)
+
+    def __decorate_splitter(self):
+        '''
+        Adds some visible handles to the splitter so we can quickly show/hide it.
+        '''
+        handle = self.chartSplitter.handle(1)
+        self.chartSplitter.setHandleWidth(15)
+        layout = QHBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        button = QToolButton(handle)
+        button.setIcon(qta.icon('fa5s.chevron-up'))
+        button.clicked.connect(self.__show_waveform_chart)
+        layout.addWidget(button)
+        button = QToolButton(handle)
+        button.setIcon(qta.icon('fa5s.chevron-down'))
+        button.clicked.connect(self.__hide_waveform_chart)
+        layout.addWidget(button)
+        handle.setLayout(layout)
+
+    def __hide_waveform_chart(self):
+        self.chartSplitter.setSizes([1, 0])
+
+    def __show_waveform_chart(self):
+        self.chartSplitter.setSizes([100000, 100000])
 
     def __alert_on_version_check_fail(self, message):
         '''
@@ -262,6 +295,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         if names is not None:
             self.update_reference_series(names, self.signalReference, True)
+        self.update_waveform_series()
         self.linkSignalButton.setEnabled(len(self.__signal_model) > 1)
         self.__magnitude_model.redraw()
 
@@ -300,7 +334,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         signal_count = len(self.__signal_model)
         if signal_count > 0:
-            logger.debug(f"Selecting signal {signal_count-1} on remove")
+            logger.debug(f"Selecting signal {signal_count - 1} on remove")
             self.signalView.selectRow(signal_count - 1)
         else:
             logger.debug(f"No signals in model, selecting default filter on remove")
@@ -788,6 +822,40 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
             button.setEnabled(False)
 
         return __clear_preset
+
+    def showWaveform(self, signal_name):
+        ''' displays the waveform for the selected signal '''
+        pass
+
+    def applyWaveformFilter(self, state):
+        ''' Applies or removes the filter from the visible waveform '''
+        pass
+
+    def applyWaveformLimits(self):
+        ''' Updates the visible spectrum for the selected waveform limits '''
+        pass
+
+    def resetWaveformLimits(self):
+        ''' Resets the visible spectrum for the selected waveform limits '''
+        pass
+
+    def setWaveformStartTime(self, time):
+        ''' updates the start time if the event came from user input '''
+        if self.startTime.hasFocus():
+            pass
+
+    def setWaveformEndTime(self, time):
+        ''' updates the end time if the event came from user input '''
+        if self.endTime.hasFocus():
+            pass
+
+    def zoomInWaveform(self):
+        ''' zooms in on the selected waveform. '''
+        self.__waveform_model.zoom_in()
+
+    def zoomOutWaveform(self):
+        ''' zooms out on the selected waveform. '''
+        self.__waveform_model.zoom_out()
 
 
 class SaveChartDialog(QDialog, Ui_saveChartDialog):
