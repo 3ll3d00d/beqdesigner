@@ -1,9 +1,14 @@
+import datetime
 import logging
 import math
 import time
 
+import matplotlib
+from matplotlib.gridspec import GridSpec
 import numpy as np
 import qtawesome as qta
+from matplotlib.markers import MarkerStyle
+from matplotlib.ticker import FuncFormatter
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from qtpy import QtCore
 from qtpy.QtCore import Qt
@@ -17,6 +22,10 @@ from ui.spectro import Ui_spectroDialog
 
 logger = logging.getLogger('analysis')
 
+ms = MarkerStyle()
+marker_styles = {ms.markers[m]: m for m in ms.filled_markers}
+marker_styles['point'] = '.'
+
 
 class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
     def __init__(self, preferences, signal_model):
@@ -24,10 +33,14 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
         self.setupUi(self)
         self.setWindowFlags(self.windowFlags() | Qt.WindowSystemMenuHint | Qt.WindowMinMaxButtonsHint)
         self.__preferences = preferences
-        self.filePicker.setIcon(qta.icon('fa.folder-open-o'))
+        self.filePicker.setIcon(qta.icon('fa5s.folder-open'))
         self.showLimitsButton.setIcon(qta.icon('ei.move'))
-        self.showSpectroButton.setIcon(qta.icon('fa.area-chart'))
+        self.showSpectroButton.setIcon(qta.icon('fa5s.chart-area'))
+        self.updateChart.setIcon(qta.icon('fa5s.sync'))
+        self.saveChartButton.setIcon(qta.icon('fa5s.save'))
         self.showSpectroButton.setEnabled(False)
+        self.minFreq.setValue(preferences.get(GRAPH_X_MIN))
+        self.maxUnfilteredFreq.setValue(preferences.get(GRAPH_X_MAX))
         self.__info = None
         self.__signal = None
         self.__filtered_signals = {}
@@ -38,9 +51,23 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
         for s in signal_model:
             if s.master is None:
                 self.copyFilter.addItem(s.name)
+        if len(signal_model) == 0:
+            self.copyFilter.setEnabled(False)
+        for k in marker_styles.keys():
+            self.markerType.addItem(k)
+        self.markerType.setCurrentText('point')
+        self.updateChart.setEnabled(False)
         self.__duration = 0
         self.loadButton.setEnabled(False)
         self.__clear()
+
+    def save_chart(self):
+        ''' opens the save chart dialog '''
+        from app import SaveChartDialog
+        if self.analysisTabs.currentIndex() == 0:
+            SaveChartDialog(self, 'peak spectrum', self.spectrumChart.canvas.figure).exec()
+        elif self.analysisTabs.currentIndex() == 1:
+            SaveChartDialog(self, 'waveform', self.waveformChart.canvas.figure).exec()
 
     def select_wav_file(self):
         '''
@@ -54,14 +81,19 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
             self.__info = sf.info(file)
             self.channelSelector.clear()
             for i in range(0, self.__info.channels):
-                self.channelSelector.addItem(f"{i+1}")
+                self.channelSelector.addItem(f"{i + 1}")
             self.channelSelector.setEnabled(self.__info.channels > 1)
             self.startTime.setTime(QtCore.QTime(0, 0, 0))
             self.startTime.setEnabled(True)
             self.__duration = math.floor(self.__info.duration * 1000)
-            self.endTime.setTime(QtCore.QTime(0, 0, 0).addMSecs(self.__duration))
+            max_time = QtCore.QTime(0, 0, 0).addMSecs(self.__duration)
+            self.endTime.setTime(max_time)
+            self.endTime.setMaximumTime(max_time)
             self.endTime.setEnabled(True)
+            self.maxTime.setMaximumTime(max_time)
+            self.maxTime.setTime(max_time)
             self.loadButton.setEnabled(True)
+            self.updateChart.setEnabled(True)
         else:
             self.__signal = None
 
@@ -70,6 +102,7 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
         self.startTime.setEnabled(False)
         self.endTime.setEnabled(False)
         self.loadButton.setEnabled(False)
+        self.updateChart.setEnabled(False)
         self.__signal = None
         self.__info = None
         self.__duration = 0
@@ -95,22 +128,39 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
 
     def show_chart(self):
         '''
-        Shows the currently selected chart.
+        Analyses the data for the currently selected chart.
         '''
         if self.__signal is not None:
-            active_signal = self.__get_filtered_signal()
+            filtered_signal = self.__get_filtered_signal()
             idx = self.analysisTabs.currentIndex()
             if idx == 0:
-                self.__spectrum_analyser.signal = active_signal
+                self.__spectrum_analyser.signal = self.__signal
+                self.__spectrum_analyser.filtered_signal = filtered_signal
                 self.__spectrum_analyser.analyse()
             elif idx == 1:
-                self.__waveform_analyser.signal = active_signal
+                self.__waveform_analyser.signal = filtered_signal if filtered_signal is not None else self.__signal
                 self.__waveform_analyser.analyse()
+
+    def update_chart(self):
+        ''' updates the currently selected chart. '''
+        if self.__signal is not None:
+            idx = self.analysisTabs.currentIndex()
+            if idx == 0:
+                self.__spectrum_analyser.update_chart()
+
+    def update_filter(self, idx):
+        ''' reacts to filter changes '''
+        if self.__signal is not None:
+            if self.analysisTabs.currentIndex() == 0:
+                self.__spectrum_analyser.filtered_signal = self.__get_filtered_signal()
+                self.__spectrum_analyser.update_chart()
+            elif self.analysisTabs.currentIndex() == 1:
+                self.show_chart()
 
     def __get_filtered_signal(self):
         sig = next((s for s in self.__signal_model if s.name == self.copyFilter.currentText()), None)
         if sig is None:
-            return self.__signal
+            return None
         else:
             if sig.name not in self.__filtered_signals:
                 start = time.time()
@@ -122,31 +172,15 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
 
     def show_limits(self):
         idx = self.analysisTabs.currentIndex()
-        if idx == 0:
-            self.__spectrum_analyser.show_limits()
-        elif idx == 1:
+        if idx == 1:
             self.__waveform_analyser.show_limits()
-
-    def allow_clip_choice(self):
-        if self.clipAtAverage.isChecked():
-            self.clipToAbsolute.setEnabled(False)
-            self.dbRange.setEnabled(False)
-        else:
-            self.dbRange.setEnabled(True)
-            self.clipToAbsolute.setEnabled(True)
-        self.show_chart()
-
-    def clip_to_abs(self):
-        if self.clipToAbsolute.isChecked():
-            self.clipAtAverage.setEnabled(False)
-            self.dbRange.setEnabled(True)
-        else:
-            self.clipAtAverage.setEnabled(True)
-        self.show_chart()
 
     def show_spectro(self):
         ''' shows the spectrogram. '''
         self.__spectrum_analyser.show_spectro()
+
+    def set_mag_range_type(self, type):
+        self.__spectrum_analyser.set_mag_range_type(type)
 
 
 class WaveformRange:
@@ -182,6 +216,7 @@ class Waveform:
     def configure_time_axis(self, axes, x_scale):
         axes.set_xscale(x_scale)
         axes.set_xlabel('Time')
+        axes.xaxis.set_major_formatter(FuncFormatter(seconds_to_hhmmss))
 
     @property
     def signal(self):
@@ -269,13 +304,23 @@ class MaxSpectrumByTime:
         self.__chart = chart
         self.__ui = ui
         self.__preferences = preferences
-        self.__axes = self.__chart.canvas.figure.add_subplot(111)
-        self.__limits = Limits('spectrum', self.__redraw, self.__axes, y_range_calculator=OnePlusRange(),
-                               x_lim=(preferences.get(GRAPH_X_MIN), preferences.get(GRAPH_X_MAX)),
-                               x_scale=preferences.get(GRAPH_X_AXIS_SCALE))
+        self.__layout_change = False
+
+        self.__axes = None
         self.__signal = None
         self.__scatter = None
+        self.__cache = {}
+
+        self.__filtered_axes = None
+        self.__filtered_signal = None
+        self.__filtered_scatter = None
+        self.__filtered_cache = {}
+
         self.__cb = None
+        self.__current_marker = None
+
+        self.__width_ratio = None
+        self.__init_mag_range()
 
     @property
     def signal(self):
@@ -284,30 +329,56 @@ class MaxSpectrumByTime:
     @signal.setter
     def signal(self, signal):
         self.__signal = signal
-        self.__limits.y1_min = -1
-        self.__limits.y1_max = 1
-        if signal is not None:
-            self.__limits.y1_max = signal.durationSeconds
-        if self.__scatter is not None:
-            self.__scatter.set_offsets(np.c_[np.array([]), np.array([])])
-            self.__scatter.set_array(np.array([]))
-        self.__init_chart()
+        self.__clear_scatter(self.__scatter)
 
-    def __init_chart(self, draw=False):
-        self.__limits.propagate_to_axes(draw=False)
-        self.__update_change_chart_button()
-        self.__axes.set_ylabel('Time')
-        self.__axes.grid(linestyle='-', which='major', linewidth=1, alpha=0.5)
-        self.__axes.grid(linestyle='--', which='minor', linewidth=1, alpha=0.5)
-        if draw is True:
-            self.__redraw()
+    def __clear_scatter(self, scatter):
+        if scatter is not None:
+            scatter.set_offsets(np.c_[np.array([]), np.array([])])
+            scatter.set_array(np.array([]))
+
+    @property
+    def filtered_signal(self):
+        return self.__filtered_signal
+
+    @filtered_signal.setter
+    def filtered_signal(self, filtered_signal):
+        self.__layout_change = (
+                (filtered_signal is None and self.__filtered_signal is not None)
+                or
+                (filtered_signal is not None and self.__filtered_signal is None)
+        )
+        self.__filtered_signal = filtered_signal
+        self.__clear_scatter(self.__filtered_scatter)
 
     def __update_change_chart_button(self):
         ''' if the limit are < 15mins then allow a spectrogram '''
-        if (self.__limits.y1_max - self.__limits.y1_min) <= 900 and self.signal is not None:
-            self.__ui.showSpectroButton.setEnabled(True)
+        delta = self.__ui.maxTime.time().msecsSinceStartOfDay() - self.__ui.minTime.time().msecsSinceStartOfDay()
+        enable_spectro = delta <= 900000 and self.signal is not None
+        self.__ui.showSpectroButton.setEnabled(enable_spectro)
+
+    def set_mag_range_type(self, type):
+        ''' updates the chart controls '''
+        mag_max = None
+        if 'sxx' in self.__cache:
+            mag_max = np.max(self.__cache['sxx'])
+        if 'sxx' in self.__filtered_cache:
+            mag_max = max(mag_max, np.max(self.__filtered_cache['sxx']))
+        if type == 'Constant':
+            self.__ui.magUpperLimit.setVisible(True)
+            self.__ui.magLowerLimit.setVisible(True)
+            self.__ui.signalRangeLabel.setVisible(True)
+            if mag_max:
+                self.__ui.magUpperLimit.setValue(mag_max)
+                self.__ui.magLowerLimit.setValue(mag_max - 60.0)
+        elif type == 'Peak':
+            self.__ui.magUpperLimit.setVisible(False)
+            self.__ui.magLowerLimit.setVisible(True)
+            self.__ui.magLowerLimit.setValue(-60.0)
+            self.__ui.signalRangeLabel.setVisible(True)
         else:
-            self.__ui.showSpectroButton.setEnabled(False)
+            self.__ui.magUpperLimit.setVisible(False)
+            self.__ui.magLowerLimit.setVisible(False)
+            self.__ui.signalRangeLabel.setVisible(False)
 
     def __redraw(self):
         self.__chart.canvas.draw_idle()
@@ -317,15 +388,100 @@ class MaxSpectrumByTime:
         Resets the analyser.
         '''
         self.signal = None
+        self.filtered_signal = None
         self.__update_change_chart_button()
 
-    def show_limits(self):
-        '''
-        Shows the graph limits dialog.
-        '''
-        if self.signal is not None:
-            LimitsDialog(self.__limits, y1_min=0, y1_max=self.signal.durationSeconds).exec()
-            self.__update_change_chart_button()
+    def update_chart(self):
+        ''' Updates the chart for the cached data'''
+        from app import wait_cursor
+        with wait_cursor(f"Updating"):
+            self.__clear_on_layout_change()
+            if self.__filtered_signal is None:
+                self.__render_unfiltered_only()
+            else:
+                self.__render_both()
+            if self.__cb is None:
+                divider = make_axes_locatable(self.__axes)
+                cax = divider.append_axes("right", size="5%", pad=0.05)
+                self.__cb = self.__axes.figure.colorbar(self.__scatter, cax=cax)
+            self.__redraw()
+        self.__update_change_chart_button()
+
+    def __render_both(self):
+        ''' renders two plots, one with the filtered and one without. '''
+        if self.__filtered_axes is None:
+            self.__width_ratio = self.__make_width_ratio()
+            gs = GridSpec(1, 2, width_ratios=self.__make_width_ratio(adjusted=True), wspace=0.00)
+            gs.tight_layout(self.__chart.canvas.figure)
+            self.__filtered_axes = self.__chart.canvas.figure.add_subplot(gs.new_subplotspec((0, 0)))
+            self.__add_grid(self.__filtered_axes)
+            self.__axes = self.__chart.canvas.figure.add_subplot(gs.new_subplotspec((0, 1)))
+            self.__add_grid(self.__axes)
+
+        self.__filtered_scatter = self.__render_scatter(self.__filtered_cache, self.__filtered_axes,
+                                                        self.__filtered_scatter,
+                                                        self.__ui.maxFilteredFreq.value(), self.filtered_signal)
+        self.__set_limits(self.__filtered_axes, self.__ui.minFreq, self.__ui.maxFilteredFreq,
+                          self.__ui.minTime, self.__ui.maxTime)
+        self.__scatter = self.__render_scatter(self.__cache, self.__axes, self.__scatter,
+                                               self.__ui.maxUnfilteredFreq.value(), self.signal)
+        self.__axes.set_yticklabels([])
+        self.__axes.get_yaxis().set_tick_params(length=0)
+        self.__set_limits(self.__axes, self.__ui.minFreq, self.__ui.maxUnfilteredFreq,
+                          self.__ui.minTime, self.__ui.maxTime)
+
+    def __make_width_ratio(self, adjusted=False):
+        a = self.__ui.maxFilteredFreq.value()
+        b = self.__ui.maxUnfilteredFreq.value()
+        if adjusted:
+            a1 = a * 0.95
+            b1 = b * 1.05
+            return [a1 / (a+b1), b / (a+b1)]
+        else:
+            return [a, b]
+
+    def __render_unfiltered_only(self):
+        ''' renders a single plot with the unfiltered only '''
+        if self.__axes is None:
+            self.__axes = self.__chart.canvas.figure.add_subplot(111)
+            self.__add_grid(self.__axes)
+        self.__scatter = self.__render_scatter(self.__cache, self.__axes, self.__scatter,
+                                               self.__ui.maxUnfilteredFreq.value(), self.signal)
+        self.__set_limits(self.__axes, self.__ui.minFreq, self.__ui.maxUnfilteredFreq,
+                          self.__ui.minTime, self.__ui.maxTime)
+
+    def __add_grid(self, axes):
+        ''' adds a grid to the given axes '''
+        axes.grid(linestyle='-', which='major', linewidth=1, alpha=0.3)
+
+    def __clear_on_layout_change(self):
+        ''' Clears the chart if the layout has fundamentally changed. '''
+        if not self.__layout_change:
+            if self.__width_ratio is not None:
+                current_width_ratio = self.__make_width_ratio()
+                if self.__width_ratio[0] != current_width_ratio[0] or self.__width_ratio[1] != current_width_ratio[1]:
+                    self.__layout_change = True
+        if not self.__layout_change:
+            self.__layout_change = (
+                    self.__current_marker is not None
+                    and
+                    self.__current_marker != marker_styles[self.__ui.markerType.currentText()]
+            )
+        if self.__layout_change is True:
+            self.__chart.canvas.figure.clear()
+            self.__axes = None
+            self.__scatter = None
+            self.__filtered_axes = None
+            self.__filtered_scatter = None
+            self.__cb = None
+            self.__current_marker = None
+            self.__width_ratio = None
+            self.__layout_change = False
+
+    def __set_limits(self, axes, x_min, x_max, y_min, y_max):
+        axes.set_xlim(left=x_min.value(), right=x_max.value())
+        axes.set_ylim(bottom=y_min.time().msecsSinceStartOfDay() / 1000.0,
+                      top=y_max.time().msecsSinceStartOfDay() / 1000.0)
 
     def analyse(self):
         '''
@@ -333,66 +489,89 @@ class MaxSpectrumByTime:
         '''
         from app import wait_cursor
         with wait_cursor(f"Analysing"):
-            self.__render_scatter()
-            self.__limits.propagate_to_axes(draw=True)
+            self.__cache_xyz(self.__signal, self.__cache)
+            self.__cache_xyz(self.__filtered_signal, self.__filtered_cache)
+            self.__init_mag_range()
+            self.update_chart()
 
-    def __render_scatter(self):
+    def __init_mag_range(self):
+        self.set_mag_range_type(self.__ui.magLimitType.currentText())
+
+    def __render_scatter(self, cache, axes, scatter, max_freq, signal):
         ''' renders a scatter plot showing the biggest hits '''
-        Sxx, f, resolution_shift, t, x, y, z = self.__get_xyz(self.__signal)
-        # dump the output for debug purposes
-        # np.savetxt('spectro.csv', Sxx, delimiter=',', fmt='%.6f')
-        # np.savetxt('test2.csv', np.c_[x,y,z], delimiter=',', fmt='%.6f')
-        if self.__ui.clipAtAverage.isChecked():
-            _, Pthreshold = self.signal.spectrum(resolution_shift=resolution_shift)
+        Sxx, f, resolution_shift, t, x, y, z = self.__load_from_cache(cache)
+        # determine the threshold based on the mode we're in
+        if self.__ui.magLimitType.currentText() == 'Constant':
+            Pthreshold = np.array([self.__ui.magLowerLimit.value()]).repeat(f.size)
+        elif self.__ui.magLimitType.currentText() == 'Peak':
+            Pthreshold = Sxx.max(axis=-1) + self.__ui.magLowerLimit.value()
         else:
-            if self.__ui.clipToAbsolute.isChecked():
-                Pthreshold = np.array([np.max(Sxx) + self.__ui.dbRange.value()]).repeat(f.size)
-            else:
-                # add the dbRange because it's shown as a negative value
-                Pthreshold = Sxx.max(axis=-1) + self.__ui.dbRange.value()
+            _, Pthreshold = signal.spectrum(resolution_shift=resolution_shift)
+
         Pthreshold = np.tile(Pthreshold, t.size)
-        vmax = math.ceil(np.max(Sxx.max(axis=-1)))
-        vmin = vmax - self.__ui.colourRange.value()
+        vmax = self.__ui.colourUpperLimit.value()
+        vmin = self.__ui.colourLowerLimit.value()
         stack = np.column_stack((x, y, z))
         # filter by signal level
-        above_threshold = stack[stack[:, 2] > Pthreshold]
-        above_threshold = above_threshold[above_threshold[:, 2] >= vmin]
+        above_threshold = stack[stack[:, 2] >= Pthreshold]
         # filter by graph limis
-        above_threshold = above_threshold[above_threshold[:, 0] >= self.__limits.x_min]
-        above_threshold = above_threshold[above_threshold[:, 0] <= self.__limits.x_max]
-        above_threshold = above_threshold[above_threshold[:, 1] >= self.__limits.y1_min]
-        above_threshold = above_threshold[above_threshold[:, 1] <= self.__limits.y1_max]
+        above_threshold = above_threshold[above_threshold[:, 0] >= self.__ui.minFreq.value()]
+        above_threshold = above_threshold[above_threshold[:, 0] <= max_freq]
+        min_time = self.__ui.minTime.time().msecsSinceStartOfDay()
+        max_time = self.__ui.maxTime.time().msecsSinceStartOfDay()
+        if min_time > 0:
+            above_threshold = above_threshold[above_threshold[:, 1] >= (min_time / 1000.0)]
+        above_threshold = above_threshold[above_threshold[:, 1] <= (max_time / 1000.0)]
+        # sort so the lowest magnitudes are plotted first (as later plots overlay earlier ones)
+        above_threshold = above_threshold[above_threshold[:, 2].argsort()]
+        # then split into the constituent columns for plotting
         x = above_threshold[:, 0]
         y = above_threshold[:, 1]
         z = above_threshold[:, 2]
+        # marker size
+        s = matplotlib.rcParams['lines.markersize'] ** 2.0 * (self.__ui.markerSize.value() ** 2)
         # now plot or update
-        if self.__scatter is None:
-            self.__scatter = self.__axes.scatter(x, y, c=z, vmin=vmin, vmax=vmax)
-            divider = make_axes_locatable(self.__axes)
-            cax = divider.append_axes("right", size="5%", pad=0.05)
-            self.__cb = self.__axes.figure.colorbar(self.__scatter, cax=cax)
+        if scatter is None:
+            self.__current_marker = marker_styles[self.__ui.markerType.currentText()]
+            scatter = axes.scatter(x, y, c=z, s=s, vmin=vmin, vmax=vmax,
+                                   marker=self.__current_marker)
+            axes.yaxis.set_major_formatter(FuncFormatter(seconds_to_hhmmss))
         else:
             new_data = np.c_[x, y]
-            self.__scatter.set_offsets(new_data)
-            self.__scatter.set_clim(vmin=vmin, vmax=vmax)
-            self.__scatter.set_array(z)
+            scatter.set_offsets(new_data)
+            scatter.set_clim(vmin=vmin, vmax=vmax)
+            scatter.set_array(z)
+            scatter.set_sizes(np.full(new_data.size, s))
+        return scatter
 
-    def __get_xyz(self, signal):
-        from model.preferences import ANALYSIS_RESOLUTION
-        resolution_shift = math.log(self.__preferences.get(ANALYSIS_RESOLUTION), 2)
-        f, t, Sxx = signal.spectrogram(resolution_shift=resolution_shift)
-        x = f.repeat(t.size)
-        y = np.tile(t, f.size)
-        z = Sxx.flatten()
-        return Sxx, f, resolution_shift, t, x, y, z
+    def __cache_xyz(self, signal, cache):
+        ''' analyses the signal and caches the data '''
+        if signal is not None:
+            from model.preferences import ANALYSIS_RESOLUTION
+            resolution_shift = math.log(self.__preferences.get(ANALYSIS_RESOLUTION), 2)
+            f, t, Sxx = signal.spectrogram(resolution_shift=resolution_shift)
+            x = f.repeat(t.size)
+            y = np.tile(t, f.size)
+            z = Sxx.flatten()
+            cache['sxx'] = Sxx
+            cache['f'] = f
+            cache['res_shift'] = resolution_shift
+            cache['t'] = t
+            cache['x'] = x
+            cache['y'] = y
+            cache['z'] = z
+
+    def __load_from_cache(self, cache):
+        return cache['sxx'], cache['f'], cache['res_shift'], cache['t'], cache['x'], cache['y'], cache['z']
 
     def show_spectro(self):
         ''' shows the spectrogram. '''
         if self.__signal is not None:
-            visible_signal = self.__signal.cut(round(max(0, self.__limits.y1_min)),
-                                               round(min(self.__limits.y1_max, self.signal.durationSeconds)))
+            visible_signal = self.__signal.cut(round(max(0, self.__ui.minTime.time().msecsSinceStartOfDay() / 1000.0)),
+                                               round(min(self.__ui.maxTime.time().msecsSinceStartOfDay() / 1000.0,
+                                                         self.signal.durationSeconds)))
             SpectrogramDialog(self.__ui, visible_signal, self.__preferences,
-                              (self.__limits.x_min, self.__limits.x_max)).show()
+                              (self.__ui.minFreq.value(), self.__ui.maxUnfilteredFreq.value())).show()
 
 
 class SlaveRange:
@@ -451,6 +630,7 @@ class SpectrogramDialog(QDialog, Ui_spectroDialog):
         vmax = math.ceil(np.max(Sxx.max(axis=-1)))
         vmin = vmax - self.vRange.value()
         self.__specgram = self.__axes.pcolormesh(f, t, Sxx.transpose(), vmin=vmin, vmax=vmax, shading='gouraud')
+        self.__axes.yaxis.set_major_formatter(FuncFormatter(seconds_to_hhmmss))
         if self.__cb is None:
             divider = make_axes_locatable(self.__axes)
             cax = divider.append_axes("right", size="5%", pad=0.05)
@@ -458,3 +638,8 @@ class SpectrogramDialog(QDialog, Ui_spectroDialog):
         else:
             self.__cb.on_mappable_changed(self.__specgram)
         self.__limits.propagate_to_axes(draw=True)
+
+
+def seconds_to_hhmmss(x, pos):
+    ''' formats a seconds value to hhmmss '''
+    return str(datetime.timedelta(seconds=x))

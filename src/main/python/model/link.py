@@ -172,7 +172,7 @@ class LinkSignalsDialog(QDialog, Ui_linkSignalDialog):
         for x in self.__model.columns:
             self.masterCandidates.addItem(x)
         self.__table_model.delegate_to_checkbox(self.linkSignals)
-        self.addToMaster.setIcon(qta.icon('fa.plus'))
+        self.addToMaster.setIcon(qta.icon('fa5s.plus'))
         self.__manage_add_master_state()
         self.__make_delete_buttons()
 
@@ -202,7 +202,7 @@ class LinkSignalsDialog(QDialog, Ui_linkSignalDialog):
     def __make_delete_buttons(self):
         for idx, master_name in enumerate(self.__model.row_keys):
             remove_master_button = QPushButton()
-            remove_master_button.setIcon(qta.icon('fa.trash'))
+            remove_master_button.setIcon(qta.icon('fa5s.trash'))
             remove_master_button.clicked.connect(self.remove_master(master_name))
             remove_master_button.setAutoFillBackground(True)
             self.linkSignals.setIndexWidget(self.__table_model.index(idx, 0), remove_master_button)

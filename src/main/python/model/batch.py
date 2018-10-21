@@ -43,7 +43,7 @@ class BatchExtractDialog(QDialog, Ui_batchExtractDialog):
         filt = self.__preferences.get(EXTRACTION_BATCH_FILTER)
         if filt is not None:
             self.filter.setText(filt)
-        self.outputDirPicker.setIcon(qta.icon('fa.folder-open-o'))
+        self.outputDirPicker.setIcon(qta.icon('fa5s.folder-open'))
         self.statusBar = QStatusBar()
         self.verticalLayout.addWidget(self.statusBar)
         try:
@@ -130,7 +130,7 @@ class BatchExtractDialog(QDialog, Ui_batchExtractDialog):
         '''
         self.searchButton.setText('Searching...')
         self.__search_spinner = qta.Spin(self.searchButton)
-        spin_icon = qta.icon('fa.spinner', color='green', animation=self.__search_spinner)
+        spin_icon = qta.icon('fa5s.spinner', color='green', animation=self.__search_spinner)
         self.searchButton.setIcon(spin_icon)
         self.searchButton.blockSignals(True)
 
@@ -154,7 +154,7 @@ class BatchExtractDialog(QDialog, Ui_batchExtractDialog):
             self.resetButton.setEnabled(True)
             self.searchButton.setEnabled(False)
             self.searchButton.setText('Search')
-            self.searchButton.setIcon(qta.icon('fa.check'))
+            self.searchButton.setIcon(qta.icon('fa5s.check'))
             self.__candidates.probe()
         else:
             self.resetButton.setEnabled(False)
@@ -364,7 +364,7 @@ class ExtractCandidate:
         self.probeButton.setAttribute(Qt.WA_DeleteOnClose)
         # self.probeButton.setAlignment(QtCore.Qt.AlignLeading | QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
         self.probeButton.setObjectName(f"probeButton{self.__idx}")
-        self.probeButton.setIcon(qta.icon('fa.info'))
+        self.probeButton.setIcon(qta.icon('fa5s.info'))
         self.probeButton.setEnabled(False)
         self.probeButton.clicked.connect(self.show_probe_detail)
         dialog.resultsLayout.addWidget(self.probeButton, self.__idx + 1, 2, 1, 1)
@@ -400,7 +400,7 @@ class ExtractCandidate:
         self.ffmpegButton.setAttribute(Qt.WA_DeleteOnClose)
         # self.ffmpegButton.setAlignment(QtCore.Qt.AlignLeading | QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
         self.ffmpegButton.setObjectName(f"ffmpegButton{self.__idx}")
-        self.ffmpegButton.setIcon(qta.icon('fa.info'))
+        self.ffmpegButton.setIcon(qta.icon('fa5s.info'))
         self.ffmpegButton.setEnabled(False)
         self.ffmpegButton.clicked.connect(self.show_ffmpeg_cmd)
         dialog.resultsLayout.addWidget(self.ffmpegButton, self.__idx + 1, 7, 1, 1)
@@ -433,11 +433,11 @@ class ExtractCandidate:
     def status(self, status):
         self.__status = status
         if status == ExtractStatus.NEW:
-            self.actionButton.setIcon(qta.icon('fa.check', color='green'))
+            self.actionButton.setIcon(qta.icon('fa5s.check', color='green'))
         elif status == ExtractStatus.IN_PROGRESS:
             self.actionButton.blockSignals(True)
             self.__in_progress_icon = qta.Spin(self.actionButton)
-            self.actionButton.setIcon(qta.icon('fa.spinner', color='blue', animation=self.__in_progress_icon))
+            self.actionButton.setIcon(qta.icon('fa5s.spinner', color='blue', animation=self.__in_progress_icon))
             self.probeButton.setEnabled(False)
             self.input.setEnabled(False)
             self.audioStreams.setEnabled(False)
@@ -445,10 +445,10 @@ class ExtractCandidate:
             self.lfeChannelIndex.setEnabled(False)
             self.outputFilename.setEnabled(False)
         elif status == ExtractStatus.EXCLUDED:
-            self.actionButton.setIcon(qta.icon('fa.times', color='green'))
+            self.actionButton.setIcon(qta.icon('fa5s.times', color='green'))
         elif status == ExtractStatus.PROBED:
             self.actionButton.blockSignals(False)
-            self.actionButton.setIcon(qta.icon('fa.check', color='green'))
+            self.actionButton.setIcon(qta.icon('fa5s.check', color='green'))
             self.probeButton.setEnabled(True)
             self.input.setEnabled(False)
             self.audioStreams.setEnabled(True)
@@ -457,7 +457,7 @@ class ExtractCandidate:
             self.outputFilename.setEnabled(True)
             self.ffmpegButton.setEnabled(True)
         elif status == ExtractStatus.FAILED:
-            self.actionButton.setIcon(qta.icon('fa.exclamation-triangle', color='red'))
+            self.actionButton.setIcon(qta.icon('fa5s.exclamation-triangle', color='red'))
             self.actionButton.blockSignals(True)
             self.probeButton.setEnabled(False)
             self.input.setEnabled(False)
@@ -468,7 +468,7 @@ class ExtractCandidate:
             self.ffmpegProgress.setEnabled(False)
         elif status == ExtractStatus.CANCELLED:
             self.actionButton.blockSignals(True)
-            self.actionButton.setIcon(qta.icon('fa.ban', color='green'))
+            self.actionButton.setIcon(qta.icon('fa5s.ban', color='green'))
             self.probeButton.setEnabled(False)
             self.input.setEnabled(False)
             self.audioStreams.setEnabled(False)
@@ -478,7 +478,7 @@ class ExtractCandidate:
             self.ffmpegProgress.setEnabled(False)
         elif status == ExtractStatus.COMPLETE:
             self.actionButton.blockSignals(True)
-            self.actionButton.setIcon(qta.icon('fa.check', color='green'))
+            self.actionButton.setIcon(qta.icon('fa5s.check', color='green'))
             self.probeButton.setEnabled(False)
             self.input.setEnabled(False)
             self.audioStreams.setEnabled(False)

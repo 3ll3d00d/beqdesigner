@@ -910,8 +910,8 @@
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>308</x>
-     <y>778</y>
+     <x>323</x>
+     <y>684</y>
     </hint>
     <hint type="destinationlabel">
      <x>157</x>
@@ -926,8 +926,8 @@
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>376</x>
-     <y>778</y>
+     <x>382</x>
+     <y>684</y>
     </hint>
     <hint type="destinationlabel">
      <x>286</x>
@@ -1012,22 +1012,6 @@
     <hint type="destinationlabel">
      <x>356</x>
      <y>213</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>titleFontSize</sender>
-   <signal>valueChanged(int)</signal>
-   <receiver>saveReportDialog</receiver>
-   <slot>set_title()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>327</x>
-     <y>261</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>408</x>
-     <y>686</y>
     </hint>
    </hints>
   </connection>
@@ -1399,6 +1383,22 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>titleFontSize</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>set_title_size()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>252</x>
+     <y>250</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>229</x>
+     <y>557</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>set_selected()</slot>
@@ -1418,5 +1418,6 @@
   <slot>load_image_from_url()</slot>
   <slot>set_image_border()</slot>
   <slot>snap_to_image_size()</slot>
+  <slot>set_title_size()</slot>
  </slots>
 </ui>

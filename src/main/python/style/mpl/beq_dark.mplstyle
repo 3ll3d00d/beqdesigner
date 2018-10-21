@@ -21,3 +21,4 @@ figure.edgecolor: black
 savefig.facecolor: black
 savefig.edgecolor: black
 
+image.cmap: inferno

@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1369</width>
-    <height>720</height>
+    <width>1494</width>
+    <height>895</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -18,191 +18,7 @@
   </property>
   <layout class="QGridLayout" name="gridLayout_2">
    <item row="0" column="0">
-    <layout class="QGridLayout" name="analysisGridLayout" columnstretch="0,0,1">
-     <item row="0" column="1">
-      <widget class="QToolButton" name="showLimitsButton">
-       <property name="text">
-        <string>...</string>
-       </property>
-      </widget>
-     </item>
-     <item row="1" column="1">
-      <spacer name="verticalSpacer">
-       <property name="orientation">
-        <enum>Qt::Vertical</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>20</width>
-         <height>40</height>
-        </size>
-       </property>
-      </spacer>
-     </item>
-     <item row="0" column="2" rowspan="2">
-      <widget class="QTabWidget" name="analysisTabs">
-       <property name="currentIndex">
-        <number>0</number>
-       </property>
-       <widget class="QWidget" name="spectrumTab">
-        <attribute name="title">
-         <string>Peak Spectrum</string>
-        </attribute>
-        <layout class="QGridLayout" name="gridLayout_3">
-         <item row="3" column="0">
-          <widget class="MplWidget" name="spectrumChart"/>
-         </item>
-         <item row="0" column="0">
-          <layout class="QGridLayout" name="spectrumControlsLayout" columnstretch="0,0,0,0,0,0,0,0,0">
-           <item row="0" column="7">
-            <spacer name="horizontalSpacer">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-           <item row="0" column="3">
-            <widget class="QSpinBox" name="dbRange">
-             <property name="minimum">
-              <number>-100</number>
-             </property>
-             <property name="maximum">
-              <number>-1</number>
-             </property>
-             <property name="value">
-              <number>-12</number>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="0">
-            <widget class="QCheckBox" name="clipAtAverage">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
-             <property name="text">
-              <string>Clip to Average Level?</string>
-             </property>
-             <property name="checked">
-              <bool>false</bool>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="4">
-            <widget class="QLabel" name="colourRangeLabel">
-             <property name="text">
-              <string>Colour Range (dB)</string>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="5">
-            <widget class="QSpinBox" name="colourRange">
-             <property name="minimum">
-              <number>6</number>
-             </property>
-             <property name="maximum">
-              <number>120</number>
-             </property>
-             <property name="value">
-              <number>30</number>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="8">
-            <widget class="QToolButton" name="showSpectroButton">
-             <property name="text">
-              <string>...</string>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="1">
-            <widget class="QCheckBox" name="clipToAbsolute">
-             <property name="text">
-              <string>Clip to Absolute Peak?</string>
-             </property>
-             <property name="checked">
-              <bool>true</bool>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="2">
-            <widget class="QLabel" name="dbRangeLabel">
-             <property name="text">
-              <string>Clip At (dB)</string>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </item>
-        </layout>
-       </widget>
-       <widget class="QWidget" name="waveformTab">
-        <attribute name="title">
-         <string>Waveform</string>
-        </attribute>
-        <layout class="QGridLayout" name="gridLayout">
-         <item row="1" column="0">
-          <widget class="MplWidget" name="waveformChart"/>
-         </item>
-         <item row="0" column="0">
-          <layout class="QGridLayout" name="waveformControls">
-           <item row="0" column="0">
-            <widget class="QCheckBox" name="magnitudeDecibels">
-             <property name="text">
-              <string>Waveform in dBFS?</string>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="3">
-            <spacer name="horizontalSpacer_2">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-           <item row="0" column="1">
-            <widget class="QLabel" name="headroomLabel">
-             <property name="text">
-              <string>Headroom (dB)</string>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="2">
-            <widget class="QDoubleSpinBox" name="headroom">
-             <property name="enabled">
-              <bool>true</bool>
-             </property>
-             <property name="decimals">
-              <number>3</number>
-             </property>
-             <property name="minimum">
-              <double>-100.000000000000000</double>
-             </property>
-             <property name="maximum">
-              <double>100.000000000000000</double>
-             </property>
-             <property name="singleStep">
-              <double>0.001000000000000</double>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </item>
-        </layout>
-       </widget>
-      </widget>
-     </item>
+    <layout class="QGridLayout" name="analysisGridLayout" columnstretch="0,1">
      <item row="0" column="0" rowspan="2">
       <widget class="QFrame" name="frame">
        <property name="frameShape">
@@ -311,6 +127,388 @@
        </layout>
       </widget>
      </item>
+     <item row="0" column="1" rowspan="2">
+      <widget class="QTabWidget" name="analysisTabs">
+       <property name="currentIndex">
+        <number>0</number>
+       </property>
+       <widget class="QWidget" name="spectrumTab">
+        <attribute name="title">
+         <string>Peak Spectrum</string>
+        </attribute>
+        <layout class="QGridLayout" name="gridLayout_3">
+         <item row="0" column="0">
+          <layout class="QGridLayout" name="spectrumControlsLayout" columnstretch="0,0,0,0,0,0,0,0,0,0">
+           <item row="0" column="7" rowspan="4">
+            <widget class="QToolButton" name="updateChart">
+             <property name="text">
+              <string>...</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="4">
+            <widget class="QLabel" name="freqRangeLabel">
+             <property name="font">
+              <font>
+               <weight>50</weight>
+               <bold>false</bold>
+              </font>
+             </property>
+             <property name="text">
+              <string>Freq</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="3">
+            <widget class="QLabel" name="timeRangeLabe">
+             <property name="font">
+              <font>
+               <weight>50</weight>
+               <bold>false</bold>
+              </font>
+             </property>
+             <property name="text">
+              <string>Time</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="2">
+            <widget class="QLabel" name="minLabel">
+             <property name="font">
+              <font>
+               <weight>50</weight>
+               <bold>false</bold>
+              </font>
+             </property>
+             <property name="text">
+              <string>Min</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="3">
+            <widget class="QTimeEdit" name="maxTime">
+             <property name="displayFormat">
+              <string>HH:mm:ss</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="2">
+            <widget class="QLabel" name="maxLabel">
+             <property name="font">
+              <font>
+               <weight>50</weight>
+               <bold>false</bold>
+              </font>
+             </property>
+             <property name="text">
+              <string>Max</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="4">
+            <widget class="QSpinBox" name="minFreq"/>
+           </item>
+           <item row="0" column="5">
+            <widget class="QLabel" name="colourRangeLabel">
+             <property name="font">
+              <font>
+               <weight>50</weight>
+               <bold>false</bold>
+              </font>
+             </property>
+             <property name="text">
+              <string>Colour</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="5">
+            <widget class="QSpinBox" name="colourUpperLimit">
+             <property name="minimum">
+              <number>-99</number>
+             </property>
+             <property name="maximum">
+              <number>0</number>
+             </property>
+             <property name="value">
+              <number>-10</number>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="5">
+            <widget class="QSpinBox" name="colourLowerLimit">
+             <property name="minimum">
+              <number>-120</number>
+             </property>
+             <property name="maximum">
+              <number>0</number>
+             </property>
+             <property name="value">
+              <number>-70</number>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="4">
+            <layout class="QHBoxLayout" name="horizontalLayout">
+             <item>
+              <widget class="QSpinBox" name="maxFilteredFreq">
+               <property name="minimum">
+                <number>1</number>
+               </property>
+               <property name="maximum">
+                <number>24000</number>
+               </property>
+               <property name="value">
+                <number>40</number>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QSpinBox" name="maxUnfilteredFreq">
+               <property name="minimum">
+                <number>10</number>
+               </property>
+               <property name="maximum">
+                <number>24000</number>
+               </property>
+               <property name="value">
+                <number>80</number>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item row="1" column="3">
+            <widget class="QTimeEdit" name="minTime">
+             <property name="displayFormat">
+              <string>HH:mm:ss</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="9">
+            <widget class="QToolButton" name="showSpectroButton">
+             <property name="text">
+              <string>...</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="8">
+            <spacer name="horizontalSpacer">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item row="2" column="6">
+            <widget class="QDoubleSpinBox" name="magLowerLimit">
+             <property name="minimum">
+              <double>-120.000000000000000</double>
+             </property>
+             <property name="maximum">
+              <double>0.000000000000000</double>
+             </property>
+             <property name="singleStep">
+              <double>0.010000000000000</double>
+             </property>
+             <property name="value">
+              <double>-70.000000000000000</double>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="6">
+            <widget class="QDoubleSpinBox" name="magUpperLimit">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+             <property name="decimals">
+              <number>2</number>
+             </property>
+             <property name="minimum">
+              <double>-99.000000000000000</double>
+             </property>
+             <property name="maximum">
+              <double>0.000000000000000</double>
+             </property>
+             <property name="singleStep">
+              <double>0.001000000000000</double>
+             </property>
+             <property name="value">
+              <double>-10.000000000000000</double>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="0">
+            <widget class="QLabel" name="filterTypeLabel">
+             <property name="text">
+              <string>Filter Type</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QComboBox" name="magLimitType">
+             <item>
+              <property name="text">
+               <string>Constant</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>Peak</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>Average</string>
+              </property>
+             </item>
+            </widget>
+           </item>
+           <item row="0" column="6">
+            <widget class="QLabel" name="signalRangeLabel">
+             <property name="font">
+              <font>
+               <weight>50</weight>
+               <bold>false</bold>
+              </font>
+             </property>
+             <property name="text">
+              <string>Signal</string>
+             </property>
+             <property name="alignment">
+              <set>Qt::AlignCenter</set>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="1">
+            <widget class="QSpinBox" name="markerSize">
+             <property name="minimum">
+              <number>1</number>
+             </property>
+             <property name="maximum">
+              <number>9</number>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="0">
+            <widget class="QLabel" name="markerSizeLabel">
+             <property name="text">
+              <string>Marker Size</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="0">
+            <widget class="QLabel" name="markerTypeLabel">
+             <property name="text">
+              <string>Marker Type</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1">
+            <widget class="QComboBox" name="markerType"/>
+           </item>
+           <item row="1" column="9">
+            <widget class="QToolButton" name="saveChartButton">
+             <property name="text">
+              <string>...</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         <item row="3" column="0">
+          <widget class="MplWidget" name="spectrumChart"/>
+         </item>
+        </layout>
+       </widget>
+       <widget class="QWidget" name="waveformTab">
+        <attribute name="title">
+         <string>Waveform</string>
+        </attribute>
+        <layout class="QGridLayout" name="gridLayout">
+         <item row="1" column="0">
+          <widget class="MplWidget" name="waveformChart"/>
+         </item>
+         <item row="0" column="0">
+          <layout class="QGridLayout" name="waveformControls">
+           <item row="0" column="0">
+            <widget class="QCheckBox" name="magnitudeDecibels">
+             <property name="text">
+              <string>Waveform in dBFS?</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="4">
+            <spacer name="horizontalSpacer_2">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item row="0" column="1">
+            <widget class="QLabel" name="headroomLabel">
+             <property name="text">
+              <string>Headroom (dB)</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="2">
+            <widget class="QDoubleSpinBox" name="headroom">
+             <property name="enabled">
+              <bool>true</bool>
+             </property>
+             <property name="decimals">
+              <number>3</number>
+             </property>
+             <property name="minimum">
+              <double>-100.000000000000000</double>
+             </property>
+             <property name="maximum">
+              <double>100.000000000000000</double>
+             </property>
+             <property name="singleStep">
+              <double>0.001000000000000</double>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="3">
+            <widget class="QToolButton" name="showLimitsButton">
+             <property name="text">
+              <string>...</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+        </layout>
+       </widget>
+      </widget>
+     </item>
     </layout>
    </item>
   </layout>
@@ -331,8 +529,8 @@
    <slot>select_wav_file()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>284</x>
-     <y>30</y>
+     <x>311</x>
+     <y>53</y>
     </hint>
     <hint type="destinationlabel">
      <x>241</x>
@@ -347,8 +545,8 @@
    <slot>load_file()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>198</x>
-     <y>168</y>
+     <x>242</x>
+     <y>198</y>
     </hint>
     <hint type="destinationlabel">
      <x>147</x>
@@ -379,92 +577,12 @@
    <slot>show_limits()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>367</x>
-     <y>36</y>
+     <x>782</x>
+     <y>80</y>
     </hint>
     <hint type="destinationlabel">
      <x>329</x>
      <y>81</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>clipAtAverage</sender>
-   <signal>clicked()</signal>
-   <receiver>analysisDialog</receiver>
-   <slot>show_chart()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>437</x>
-     <y>63</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>354</x>
-     <y>136</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>dbRange</sender>
-   <signal>valueChanged(int)</signal>
-   <receiver>analysisDialog</receiver>
-   <slot>show_chart()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>898</x>
-     <y>68</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>354</x>
-     <y>183</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>clipAtAverage</sender>
-   <signal>clicked()</signal>
-   <receiver>analysisDialog</receiver>
-   <slot>allow_clip_choice()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>476</x>
-     <y>70</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>356</x>
-     <y>233</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>colourRange</sender>
-   <signal>valueChanged(int)</signal>
-   <receiver>analysisDialog</receiver>
-   <slot>show_chart()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>1119</x>
-     <y>67</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>357</x>
-     <y>389</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>clipToAbsolute</sender>
-   <signal>clicked()</signal>
-   <receiver>analysisDialog</receiver>
-   <slot>clip_to_abs()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>684</x>
-     <y>74</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>351</x>
-     <y>335</y>
     </hint>
    </hints>
   </connection>
@@ -491,8 +609,8 @@
    <slot>show_spectro()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1332</x>
-     <y>68</y>
+     <x>1461</x>
+     <y>80</y>
     </hint>
     <hint type="destinationlabel">
      <x>1363</x>
@@ -501,18 +619,66 @@
    </hints>
   </connection>
   <connection>
+   <sender>magLimitType</sender>
+   <signal>currentIndexChanged(QString)</signal>
+   <receiver>analysisDialog</receiver>
+   <slot>set_mag_range_type()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>449</x>
+     <y>80</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>357</x>
+     <y>225</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>updateChart</sender>
+   <signal>clicked()</signal>
+   <receiver>analysisDialog</receiver>
+   <slot>update_chart()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1044</x>
+     <y>115</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>361</x>
+     <y>387</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
    <sender>copyFilter</sender>
    <signal>currentIndexChanged(int)</signal>
    <receiver>analysisDialog</receiver>
-   <slot>show_chart()</slot>
+   <slot>update_filter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>270</x>
-     <y>244</y>
+     <x>166</x>
+     <y>231</y>
     </hint>
     <hint type="destinationlabel">
-     <x>1364</x>
-     <y>26</y>
+     <x>331</x>
+     <y>499</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>saveChartButton</sender>
+   <signal>clicked()</signal>
+   <receiver>analysisDialog</receiver>
+   <slot>save_chart()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1448</x>
+     <y>107</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1490</x>
+     <y>126</y>
     </hint>
    </hints>
   </connection>
@@ -525,5 +691,9 @@
   <slot>allow_clip_choice()</slot>
   <slot>clip_to_abs()</slot>
   <slot>show_spectro()</slot>
+  <slot>set_mag_range_type()</slot>
+  <slot>update_chart()</slot>
+  <slot>update_filter()</slot>
+  <slot>save_chart()</slot>
  </slots>
 </ui>

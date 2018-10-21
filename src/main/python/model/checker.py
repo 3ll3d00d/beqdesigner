@@ -26,16 +26,19 @@ class VersionChecker(QRunnable):
         Hit the Github release API and compare the latest to the current version
         if the new version is later then emit a signal
         '''
-        r = requests.get(RELEASE_API)
-        if r.status_code == 200:
-            latest = r.json()
-            if latest:
-                latest_tag = latest['tag_name']
-                if self.__is_new(latest_tag):
-                    download_url = f"https://github.com/3ll3d00d/beqdesigner/releases/{latest_tag}"
-                    self.__signals.on_old_version.emit(latest_tag, download_url)
-        else:
-            self.__signals.on_error.emit(f"Unable to hit Github Release API at: \n\n {RELEASE_API}")
+        try:
+            r = requests.get(RELEASE_API)
+            if r.status_code == 200:
+                latest = r.json()
+                if latest:
+                    latest_tag = latest['tag_name']
+                    if self.__is_new(latest_tag):
+                        download_url = f"https://github.com/3ll3d00d/beqdesigner/releases/{latest_tag}"
+                        self.__signals.on_old_version.emit(latest_tag, download_url)
+            else:
+                self.__signals.on_error.emit(f"Unable to hit Github Release API at: \n\n {RELEASE_API}")
+        except:
+            self.__signals.on_error.emit(f"Unable to contact Github Release API at: \n\n {RELEASE_API}")
 
     def __is_new(self, new_version):
         try:

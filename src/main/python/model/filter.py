@@ -428,7 +428,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
             self.filterQ.setEnabled(self.__q_is_active)
             self.filterS.setEnabled(not self.__q_is_active)
             # set icons
-            inactive_icon = qta.icon('fa.chevron-circle-left')
+            inactive_icon = qta.icon('fa5s.chevron-circle-left')
             if self.__q_is_active is True:
                 self.qStepButton.setText(str(self.q_steps[self.__q_step_idx % len(self.q_steps)]))
                 self.sStepButton.setIcon(inactive_icon)
@@ -442,11 +442,11 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.sLabel.setVisible(is_shelf_filter)
         self.filterS.setVisible(is_shelf_filter)
         self.sStepButton.setVisible(is_shelf_filter)
-        self.addButton.setIcon(qta.icon('fa.plus'))
+        self.addButton.setIcon(qta.icon('fa5s.plus'))
         self.addButton.setIconSize(QtCore.QSize(32, 32))
-        self.addMoreButton.setIcon(qta.icon('fa.save'))
+        self.addMoreButton.setIcon(qta.icon('fa5s.save'))
         self.addMoreButton.setIconSize(QtCore.QSize(32, 32))
-        self.exitButton.setIcon(qta.icon('fa.sign-out'))
+        self.exitButton.setIcon(qta.icon('fa5s.sign-out-alt'))
         self.exitButton.setIconSize(QtCore.QSize(32, 32))
         self.enableOkIfGainIsValid()
 
@@ -528,7 +528,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
             self.filterS.setEnabled(True)
             self.sStepButton.setIcon(QIcon())
             self.filterQ.setEnabled(False)
-            self.qStepButton.setIcon(qta.icon('fa.chevron-circle-left'))
+            self.qStepButton.setIcon(qta.icon('fa5s.chevron-circle-left'))
         else:
             self.__s_step_idx += 1
         self.__set_s_step(self.q_steps[self.__s_step_idx % len(self.q_steps)])
@@ -549,7 +549,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
             self.filterS.setEnabled(False)
             self.qStepButton.setIcon(QIcon())
             self.filterQ.setEnabled(True)
-            self.sStepButton.setIcon(qta.icon('fa.chevron-circle-left'))
+            self.sStepButton.setIcon(qta.icon('fa5s.chevron-circle-left'))
         self.__set_q_step(self.q_steps[self.__q_step_idx % len(self.q_steps)])
 
     def __set_q_step(self, step_val):
