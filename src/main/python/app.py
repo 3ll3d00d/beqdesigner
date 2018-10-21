@@ -795,7 +795,7 @@ class SaveChartDialog(QDialog, Ui_saveChartDialog):
     Save Chart dialog
     '''
 
-    def __init__(self, parent, name, figure, statusbar):
+    def __init__(self, parent, name, figure, statusbar=None):
         super(SaveChartDialog, self).__init__(parent)
         self.setupUi(self)
         self.name = name
@@ -818,7 +818,8 @@ class SaveChartDialog(QDialog, Ui_saveChartDialog):
             else:
                 scaleFactor = self.widthPixels.value() / self.__x
                 self.figure.savefig(outputFile, format='png', dpi=self.__dpi * scaleFactor)
-                self.statusbar.showMessage(f"Saved {self.name} to {outputFile}", 5000)
+                if self.statusbar is not None:
+                    self.statusbar.showMessage(f"Saved {self.name} to {outputFile}", 5000)
         QDialog.accept(self)
 
     def set_height(self, newWidth):

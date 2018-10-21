@@ -430,6 +430,10 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         if self.__magnitude_model is not None:
             self.redraw()
 
+    def set_title_size(self, _):
+        ''' updates the title size '''
+        self.set_title(self.title.text())
+
     def set_title(self, text, draw=True):
         ''' sets the title text '''
         if self.__imshow_axes is None:
