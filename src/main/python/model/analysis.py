@@ -197,8 +197,9 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
         ''' reacts to filter changes '''
         if self.__signal is not None:
             if self.analysisTabs.currentIndex() == 0:
+                self.__spectrum_analyser.signal = self.__signal
                 self.__spectrum_analyser.filtered_signal = self.__get_filtered_signal()
-                self.__spectrum_analyser.update_chart()
+                self.__spectrum_analyser.analyse()
             elif self.analysisTabs.currentIndex() == 1:
                 self.show_chart()
 
