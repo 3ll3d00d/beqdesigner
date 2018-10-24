@@ -122,8 +122,8 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
             self.startTime.setEnabled(True)
             self.__duration = math.floor(self.__info.duration * 1000)
             max_time = QtCore.QTime(0, 0, 0).addMSecs(self.__duration)
-            self.endTime.setTime(max_time)
             self.endTime.setMaximumTime(max_time)
+            self.endTime.setTime(max_time)
             self.endTime.setEnabled(True)
             self.maxTime.setMaximumTime(max_time)
             self.maxTime.setTime(max_time)
@@ -160,6 +160,7 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
         with wait_cursor(f"Loading {self.__info.name}"):
             self.__signal = readWav('analysis', self.__info.name, channel=channel, start=start, end=end,
                                     target_fs=self.__preferences.get(ANALYSIS_TARGET_FS))
+            self.__filtered_signals = {}
             from model.report import block_signals
             with block_signals(self.analysisResolution):
                 self.analysisResolution.clear()
