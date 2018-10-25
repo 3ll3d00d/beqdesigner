@@ -14,16 +14,15 @@ from qtpy.QtCore import Qt
 from qtpy.QtWidgets import QDialog
 
 from model.limits import Limits, LimitsDialog
-from model.preferences import GRAPH_X_MIN, GRAPH_X_MAX
+from model.preferences import GRAPH_X_MIN, GRAPH_X_MAX, POINT, ELLIPSE, SPECTROGRAM_CONTOURED, SPECTROGRAM_FLAT, \
+    AUDIO_ANALYSIS_MARKER_SIZE, AUDIO_ANALYSIS_MARKER_TYPE, AUDIO_ANALYSIS_ELLIPSE_WIDTH, AUDIO_ANALYSIS_ELLIPSE_HEIGHT, \
+    AUDIO_ANALYIS_MIN_FREQ, AUDIO_ANALYIS_MAX_UNFILTERED_FREQ, AUDIO_ANALYIS_MAX_FILTERED_FREQ, \
+    AUDIO_ANALYSIS_COLOUR_MAX, AUDIO_ANALYSIS_COLOUR_MIN, AUDIO_ANALYSIS_SIGNAL_MIN, AUDIO_ANALYSIS_GEOMETRY
 from model.signal import select_file, readWav
 from ui.analysis import Ui_analysisDialog
 
 logger = logging.getLogger('analysis')
 
-SPECTROGRAM_FLAT = 'spectrogram (flat)'
-SPECTROGRAM_CONTOURED = 'spectrogram (contoured)'
-ELLIPSE = 'ellipse'
-POINT = 'point'
 MULTIPLIERS = [0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0]
 
 
@@ -36,7 +35,8 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
         self.filePicker.setIcon(qta.icon('fa5s.folder-open'))
         self.showLimitsButton.setIcon(qta.icon('ei.move'))
         self.updateChart.setIcon(qta.icon('fa5s.sync'))
-        self.saveChartButton.setIcon(qta.icon('fa5s.save'))
+        self.saveChart.setIcon(qta.icon('fa5s.save'))
+        self.saveLayout.setIcon(qta.icon('fa5s.save'))
         self.minFreq.setValue(preferences.get(GRAPH_X_MIN))
         self.maxUnfilteredFreq.setValue(preferences.get(GRAPH_X_MAX))
         self.__info = None
@@ -61,7 +61,38 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
         self.updateChart.setEnabled(False)
         self.__duration = 0
         self.loadButton.setEnabled(False)
+        self.__init_from_prefs()
         self.__clear()
+
+    def __init_from_prefs(self):
+        ''' initialises the various form fields from preferences '''
+        self.markerSize.setValue(self.__preferences.get(AUDIO_ANALYSIS_MARKER_SIZE))
+        self.markerType.setCurrentText(self.__preferences.get(AUDIO_ANALYSIS_MARKER_TYPE))
+        self.ellipseWidth.setValue(self.__preferences.get(AUDIO_ANALYSIS_ELLIPSE_WIDTH))
+        self.ellipseHeight.setValue(self.__preferences.get(AUDIO_ANALYSIS_ELLIPSE_HEIGHT))
+        self.minFreq.setValue(self.__preferences.get(AUDIO_ANALYIS_MIN_FREQ))
+        self.maxUnfilteredFreq.setValue(self.__preferences.get(AUDIO_ANALYIS_MAX_UNFILTERED_FREQ))
+        self.maxFilteredFreq.setValue(self.__preferences.get(AUDIO_ANALYIS_MAX_FILTERED_FREQ))
+        self.colourUpperLimit.setValue(self.__preferences.get(AUDIO_ANALYSIS_COLOUR_MAX))
+        self.colourLowerLimit.setValue(self.__preferences.get(AUDIO_ANALYSIS_COLOUR_MIN))
+        self.magLowerLimit.setValue(self.__preferences.get(AUDIO_ANALYSIS_SIGNAL_MIN))
+        geometry = self.__preferences.get(AUDIO_ANALYSIS_GEOMETRY)
+        if geometry is not None:
+            self.restoreGeometry(geometry)
+
+    def save_layout(self):
+        ''' saves the layout and prefs '''
+        self.__preferences.set(AUDIO_ANALYSIS_MARKER_SIZE, self.markerSize.value())
+        self.__preferences.set(AUDIO_ANALYSIS_MARKER_TYPE, self.markerType.currentText())
+        self.__preferences.set(AUDIO_ANALYSIS_ELLIPSE_WIDTH, self.ellipseWidth.value())
+        self.__preferences.set(AUDIO_ANALYSIS_ELLIPSE_HEIGHT, self.ellipseHeight.value())
+        self.__preferences.set(AUDIO_ANALYIS_MIN_FREQ, self.minFreq.value())
+        self.__preferences.set(AUDIO_ANALYIS_MAX_UNFILTERED_FREQ, self.maxUnfilteredFreq.value())
+        self.__preferences.set(AUDIO_ANALYIS_MAX_FILTERED_FREQ, self.maxFilteredFreq.value())
+        self.__preferences.set(AUDIO_ANALYSIS_COLOUR_MAX, self.colourUpperLimit.value())
+        self.__preferences.set(AUDIO_ANALYSIS_COLOUR_MIN, self.colourLowerLimit.value())
+        self.__preferences.set(AUDIO_ANALYSIS_SIGNAL_MIN, self.magLowerLimit.value())
+        self.__preferences.set(AUDIO_ANALYSIS_GEOMETRY, self.saveGeometry())
 
     def update_marker_type(self, marker):
         ''' hides form controls that are not relevant to the selected marker '''
@@ -473,7 +504,7 @@ class MaxSpectrumByTime:
         if adjusted:
             a1 = a * 0.95
             b1 = b * 1.05
-            return [a1 / (a+b1), b / (a+b1)]
+            return [a1 / (a + b1), b / (a + b1)]
         else:
             return [a, b]
 
@@ -506,11 +537,11 @@ class MaxSpectrumByTime:
             )
         if not self.__layout_change:
             self.__layout_change = (
-                (self.__current_ellipse_width is not None and not math.isclose(self.__current_ellipse_width,
-                                                                               self.__ui.ellipseWidth.value()))
-                or
-                (self.__current_ellipse_height is not None and not math.isclose(self.__current_ellipse_height,
-                                                                               self.__ui.ellipseHeight.value()))
+                    (self.__current_ellipse_width is not None and not math.isclose(self.__current_ellipse_width,
+                                                                                   self.__ui.ellipseWidth.value()))
+                    or
+                    (self.__current_ellipse_height is not None and not math.isclose(self.__current_ellipse_height,
+                                                                                    self.__ui.ellipseHeight.value()))
             )
         if self.__layout_change is True:
             self.__chart.canvas.figure.clear()
@@ -650,6 +681,7 @@ class SlaveRange:
 
     def calculate(self, y_range):
         return self.__vals
+
 
 def seconds_to_hhmmss(x, pos):
     ''' formats a seconds value to hhmmss '''
