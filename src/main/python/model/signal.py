@@ -26,7 +26,7 @@ from ui.signal import Ui_addSignalDialog
 logger = logging.getLogger('signal')
 
 """ speclab reports a peak of 0dB but, by default, we report a peak of -3dB """
-SPECLAB_REFERENCE = 1 / (2 ** 0.5)
+SPECLAB_REFERENCE = 1.0 / (2 ** 0.5)
 
 
 class SignalData:
@@ -34,7 +34,8 @@ class SignalData:
     Provides a mechanism for caching the assorted xy data surrounding a signal.
     '''
 
-    def __init__(self, name, fs, xy_data, filter, duration_hhmmss=None, start_hhmmss=None, end_hhmmss=None):
+    def __init__(self, name, fs, xy_data, filter, duration_hhmmss=None, start_hhmmss=None, end_hhmmss=None,
+                 signal=None):
         self.__filter = None
         self.__name = name
         self.fs = fs
@@ -49,6 +50,14 @@ class SignalData:
         self.reference = []
         self.filter = filter
         self.tilt_on = False
+        self.__signal = signal
+
+    @property
+    def signal(self):
+        '''
+        :return: the underlying sample data (may not exist for signals loaded from txt).
+        '''
+        return self.__signal
 
     @property
     def name(self):
@@ -125,7 +134,8 @@ class SignalData:
         :return all the xy data
         '''
         if self.tilt_on:
-            return [r.with_equal_energy_adjustment() for r in self.raw] + [f.with_equal_energy_adjustment() for f in self.filtered]
+            return [r.with_equal_energy_adjustment() for r in self.raw] + [f.with_equal_energy_adjustment() for f in
+                                                                           self.filtered]
         else:
             return self.raw + self.filtered
 
@@ -557,17 +567,30 @@ class Signal:
             logger.error(f"getXY called on {self.name} before calculate, must be error!")
             return []
 
-    def calculate(self, resolution_shift, avg_window, peak_window):
+    def calculate_peak_average(self, preferences):
         '''
         caches the peak and avg spectrum.
-        :param resolution_shift: the resolution shift.
-        :param avg_window: the avg window.
-        :param peak_window: the peak window.
         '''
-        self.__avg = self.spectrum(resolution_shift=resolution_shift, window=avg_window)
-        self.__peak = self.peakSpectrum(resolution_shift=resolution_shift, window=peak_window)
+        from model.preferences import ANALYSIS_RESOLUTION, ANALYSIS_PEAK_WINDOW, ANALYSIS_AVG_WINDOW
+        resolution_shift = math.log(preferences.get(ANALYSIS_RESOLUTION), 2)
+        peak_wnd = self.__get_window(preferences, ANALYSIS_PEAK_WINDOW)
+        avg_wnd = self.__get_window(preferences, ANALYSIS_AVG_WINDOW)
+        logger.debug(
+            f"Analysing {self.name} at {resolution_shift}x resolution using {peak_wnd}/{avg_wnd} peak/avg windows")
+        self.__avg = self.spectrum(resolution_shift=resolution_shift, window=avg_wnd)
+        self.__peak = self.peakSpectrum(resolution_shift=resolution_shift, window=peak_wnd)
         self.__cached = [XYData(self.name, 'avg', self.__avg[0], self.__avg[1]),
                          XYData(self.name, 'peak', self.__peak[0], self.__peak[1])]
+
+    def __get_window(self, preferences, key):
+        from model.preferences import ANALYSIS_WINDOW_DEFAULT
+        window = preferences.get(key)
+        if window is None or window == ANALYSIS_WINDOW_DEFAULT:
+            window = None
+        else:
+            if window == 'tukey':
+                window = (window, 0.25)
+        return window
 
 
 def amplitude_to_db(s, ref=1.0):
@@ -725,32 +748,15 @@ class AutoWavLoader:
         :param channel_count: the channel count, only used for creating a default name.
         :param decimate: if true, decimate the wav.
         '''
-        # defer to avoid circular imports
-        from model.preferences import ANALYSIS_TARGET_FS, ANALYSIS_RESOLUTION, ANALYSIS_PEAK_WINDOW, \
-            ANALYSIS_AVG_WINDOW
         if name is None:
             name = Path(self.info.name).resolve().stem
             if channel_count > 1:
                 name += f"_c{channel}"
+        from model.preferences import ANALYSIS_TARGET_FS
         target_fs = self.__preferences.get(ANALYSIS_TARGET_FS) if decimate is True else self.info.samplerate
         self.__signal = readWav(name, self.info.name, channel=channel, start=self.__start, end=self.__end,
                                 target_fs=target_fs)
-        resolution_shift = math.log(self.__preferences.get(ANALYSIS_RESOLUTION), 2)
-        peak_wnd = self.__get_window(ANALYSIS_PEAK_WINDOW)
-        avg_wnd = self.__get_window(ANALYSIS_AVG_WINDOW)
-        logger.debug(
-            f"Analysing {self.info.name} at {resolution_shift}x resolution using {peak_wnd}/{avg_wnd} peak/avg windows")
-        self.__signal.calculate(resolution_shift, avg_wnd, peak_wnd)
-
-    def __get_window(self, key):
-        from model.preferences import ANALYSIS_WINDOW_DEFAULT
-        window = self.__preferences.get(key)
-        if window is None or window == ANALYSIS_WINDOW_DEFAULT:
-            window = None
-        else:
-            if window == 'tukey':
-                window = (window, 0.25)
-        return window
+        self.__signal.calculate_peak_average(self.__preferences)
 
     def get_signal(self):
         '''
@@ -759,7 +765,7 @@ class AutoWavLoader:
         '''
         return SignalData(self.__signal.name, self.__signal.fs, self.__signal.getXY(), CompleteFilter(),
                           duration_hhmmss=self.__signal.duration_hhmmss, start_hhmmss=self.__signal.start_hhmmss,
-                          end_hhmmss=self.__signal.end_hhmmss)
+                          end_hhmmss=self.__signal.end_hhmmss, signal=self.__signal)
 
     def get_magnitude_data(self):
         '''

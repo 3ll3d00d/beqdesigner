@@ -10,10 +10,9 @@ from contextlib import contextmanager
 
 import matplotlib
 
-from model.waveform import WaveformModel
-
 matplotlib.use("Qt5Agg")
 
+from model.waveform import WaveformController
 from model.checker import VersionChecker
 from model.report import SaveReportDialog
 from model.batch import BatchExtractDialog
@@ -158,11 +157,19 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
                                                 show_legend=lambda: self.showLegend.isChecked())
         self.__filter_model.filter = self.__default_signal.filter
         # waveform
-        self.__waveform_model = WaveformModel(self.waveformChart, self.headroom)
-        self.applyWaveformLimitsButton.setIcon(qta.icon('fa5s.check'))
-        self.resetWaveformLimitsButton.setIcon(qta.icon('fa5s.times'))
-        self.zoomInButton.setIcon(qta.icon('fa5s.search-plus'))
-        self.zoomOutButton.setIcon(qta.icon('fa5s.search-minus'))
+        self.__waveform_controller = WaveformController(self.__signal_model,
+                                                        self.waveformChart,
+                                                        self.signalSelector,
+                                                        self.headroom,
+                                                        self.waveformIsFiltered,
+                                                        self.startTime,
+                                                        self.endTime,
+                                                        self.applyWaveformLimitsButton,
+                                                        self.resetWaveformLimitsButton,
+                                                        self.zoomInButton,
+                                                        self.zoomOutButton,
+                                                        self.yMin,
+                                                        self.yMax)
         # processing
         self.ensurePathContainsExternalTools()
         # extraction
@@ -249,8 +256,8 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.signalView.model().dataChanged.connect(self.on_signal_data_change)
         self.signalView.model().modelAboutToBeReset.connect(self.on_signal_data_about_to_reset)
         self.signalView.model().modelReset.connect(self.on_signal_data_reset)
-        self.signalView.model().rowsInserted.connect(self.__select_on_inserted_signals)
-        self.signalView.model().rowsRemoved.connect(self.__select_on_removed_signals)
+        self.signalView.model().rowsInserted.connect(self.__handle_signals_inserted)
+        self.signalView.model().rowsRemoved.connect(self.__handle_signals_removed)
         self.signalView.setItemDelegateForColumn(0, RegexValidator('^.+$'))
 
     def on_signal_data_about_to_reset(self):
@@ -295,7 +302,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         if names is not None:
             self.update_reference_series(names, self.signalReference, True)
-        self.update_waveform_series()
+        self.__waveform_controller.refresh_selector()
         self.linkSignalButton.setEnabled(len(self.__signal_model) > 1)
         self.__magnitude_model.redraw()
 
@@ -314,7 +321,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         logger.debug(f"Selected signal is {signal.name}")
         return signal
 
-    def __select_on_inserted_signals(self, idx, first, last):
+    def __handle_signals_inserted(self, idx, first, last):
         '''
         Selects the last signal added by default.
         :param idx: the idx.
@@ -324,7 +331,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         logger.debug(f"Selecting signal {last} on insert")
         self.signalView.selectRow(last)
 
-    def __select_on_removed_signals(self, idx, first, last):
+    def __handle_signals_removed(self, idx, first, last):
         '''
         Ensures the correct signal is selected when signals are removed. This defaults to the last signal in the table
         if there are any signals otherwise it reverts to the default signal.
@@ -646,8 +653,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Exports the project to a file.
         '''
-        file_name = QFileDialog(self).getSaveFileName(self, 'Export Project', f"project.beq",
-                                                      "BEQ Project (*.beq)")
+        file_name = QFileDialog(self).getSaveFileName(self, 'Export Project', f"project.beq", "BEQ Project (*.beq)")
         file_name = str(file_name[0]).strip()
         if len(file_name) > 0:
             output = self.__signal_model.to_json()
@@ -822,40 +828,6 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
             button.setEnabled(False)
 
         return __clear_preset
-
-    def showWaveform(self, signal_name):
-        ''' displays the waveform for the selected signal '''
-        pass
-
-    def applyWaveformFilter(self, state):
-        ''' Applies or removes the filter from the visible waveform '''
-        pass
-
-    def applyWaveformLimits(self):
-        ''' Updates the visible spectrum for the selected waveform limits '''
-        pass
-
-    def resetWaveformLimits(self):
-        ''' Resets the visible spectrum for the selected waveform limits '''
-        pass
-
-    def setWaveformStartTime(self, time):
-        ''' updates the start time if the event came from user input '''
-        if self.startTime.hasFocus():
-            pass
-
-    def setWaveformEndTime(self, time):
-        ''' updates the end time if the event came from user input '''
-        if self.endTime.hasFocus():
-            pass
-
-    def zoomInWaveform(self):
-        ''' zooms in on the selected waveform. '''
-        self.__waveform_model.zoom_in()
-
-    def zoomOutWaveform(self):
-        ''' zooms out on the selected waveform. '''
-        self.__waveform_model.zoom_out()
 
 
 class SaveChartDialog(QDialog, Ui_saveChartDialog):

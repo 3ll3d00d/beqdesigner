@@ -74,37 +74,7 @@
            <layout class="QHBoxLayout" name="waveformLayout" stretch="0,1">
             <item>
              <layout class="QGridLayout" name="waveformControls">
-              <item row="2" column="0">
-               <widget class="QLabel" name="headroomLabel">
-                <property name="text">
-                 <string>Headroom</string>
-                </property>
-               </widget>
-              </item>
-              <item row="3" column="0">
-               <widget class="QLabel" name="startTimeLabel">
-                <property name="text">
-                 <string>Start</string>
-                </property>
-               </widget>
-              </item>
-              <item row="2" column="1">
-               <widget class="QDoubleSpinBox" name="headroom">
-                <property name="enabled">
-                 <bool>false</bool>
-                </property>
-                <property name="minimum">
-                 <double>0.000000000000000</double>
-                </property>
-                <property name="maximum">
-                 <double>120.000000000000000</double>
-                </property>
-                <property name="singleStep">
-                 <double>0.010000000000000</double>
-                </property>
-               </widget>
-              </item>
-              <item row="6" column="0" colspan="2">
+              <item row="7" column="0" colspan="2">
                <spacer name="verticalSpacer">
                 <property name="orientation">
                  <enum>Qt::Vertical</enum>
@@ -124,6 +94,39 @@
                 </property>
                </widget>
               </item>
+              <item row="2" column="1">
+               <widget class="QDoubleSpinBox" name="headroom">
+                <property name="enabled">
+                 <bool>false</bool>
+                </property>
+                <property name="minimum">
+                 <double>0.000000000000000</double>
+                </property>
+                <property name="maximum">
+                 <double>120.000000000000000</double>
+                </property>
+                <property name="singleStep">
+                 <double>0.010000000000000</double>
+                </property>
+               </widget>
+              </item>
+              <item row="3" column="0">
+               <widget class="QLabel" name="startTimeLabel">
+                <property name="text">
+                 <string>Start</string>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="0">
+               <widget class="QLabel" name="headroomLabel">
+                <property name="text">
+                 <string>Headroom</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="1">
+               <widget class="QComboBox" name="signalSelector"/>
+              </item>
               <item row="1" column="0" colspan="2">
                <widget class="QCheckBox" name="waveformIsFiltered">
                 <property name="text">
@@ -131,10 +134,21 @@
                 </property>
                </widget>
               </item>
-              <item row="0" column="1">
-               <widget class="QComboBox" name="signalSelector"/>
+              <item row="3" column="1">
+               <widget class="QTimeEdit" name="startTime">
+                <property name="displayFormat">
+                 <string>HH:mm:ss.zzz</string>
+                </property>
+               </widget>
               </item>
-              <item row="5" column="0" colspan="2">
+              <item row="4" column="1">
+               <widget class="QTimeEdit" name="endTime">
+                <property name="displayFormat">
+                 <string>HH:mm:ss.zzz</string>
+                </property>
+               </widget>
+              </item>
+              <item row="6" column="0" colspan="2">
                <layout class="QHBoxLayout" name="horizontalLayout">
                 <item>
                  <widget class="QToolButton" name="applyWaveformLimitsButton">
@@ -173,19 +187,48 @@
                 </property>
                </widget>
               </item>
-              <item row="3" column="1">
-               <widget class="QTimeEdit" name="startTime">
-                <property name="displayFormat">
-                 <string>HH:mm:ss.zzz</string>
+              <item row="5" column="0">
+               <widget class="QLabel" name="label">
+                <property name="text">
+                 <string>Y Range</string>
                 </property>
                </widget>
               </item>
-              <item row="4" column="1">
-               <widget class="QTimeEdit" name="endTime">
-                <property name="displayFormat">
-                 <string>HH:mm:ss.zzz</string>
-                </property>
-               </widget>
+              <item row="5" column="1">
+               <layout class="QHBoxLayout" name="yRangeLayout">
+                <item>
+                 <widget class="QDoubleSpinBox" name="yMin">
+                  <property name="minimum">
+                   <double>-1.000000000000000</double>
+                  </property>
+                  <property name="maximum">
+                   <double>1.000000000000000</double>
+                  </property>
+                  <property name="singleStep">
+                   <double>0.010000000000000</double>
+                  </property>
+                  <property name="value">
+                   <double>-1.000000000000000</double>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QDoubleSpinBox" name="yMax">
+                  <property name="minimum">
+                   <double>-1.000000000000000</double>
+                  </property>
+                  <property name="maximum">
+                   <double>1.000000000000000</double>
+                  </property>
+                  <property name="singleStep">
+                   <double>0.010000000000000</double>
+                  </property>
+                  <property name="value">
+                   <double>1.000000000000000</double>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
               </item>
              </layout>
             </item>
@@ -986,134 +1029,6 @@
     <hint type="destinationlabel">
      <x>1241</x>
      <y>915</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>resetWaveformLimitsButton</sender>
-   <signal>clicked()</signal>
-   <receiver>MainWindow</receiver>
-   <slot>resetWaveformLimits()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>111</x>
-     <y>674</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>172</x>
-     <y>919</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>applyWaveformLimitsButton</sender>
-   <signal>clicked()</signal>
-   <receiver>MainWindow</receiver>
-   <slot>applyWaveformLimits()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>51</x>
-     <y>669</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>68</x>
-     <y>913</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>waveformIsFiltered</sender>
-   <signal>stateChanged(int)</signal>
-   <receiver>MainWindow</receiver>
-   <slot>applyWaveformFilter()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>48</x>
-     <y>532</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>118</x>
-     <y>915</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>signalSelector</sender>
-   <signal>currentIndexChanged(QString)</signal>
-   <receiver>MainWindow</receiver>
-   <slot>showWaveform()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>153</x>
-     <y>496</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>362</x>
-     <y>917</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>startTime</sender>
-   <signal>timeChanged(QTime)</signal>
-   <receiver>MainWindow</receiver>
-   <slot>setWaveformStartTime()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>204</x>
-     <y>598</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>534</x>
-     <y>915</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>endTime</sender>
-   <signal>timeChanged(QTime)</signal>
-   <receiver>MainWindow</receiver>
-   <slot>setWaveformEndTime()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>211</x>
-     <y>631</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>755</x>
-     <y>918</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>zoomInButton</sender>
-   <signal>clicked()</signal>
-   <receiver>MainWindow</receiver>
-   <slot>zoomInWaveform()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>167</x>
-     <y>674</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>33</x>
-     <y>919</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>zoomOutButton</sender>
-   <signal>clicked()</signal>
-   <receiver>MainWindow</receiver>
-   <slot>zoomOutWaveform()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>207</x>
-     <y>667</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>948</x>
-     <y>916</y>
     </hint>
    </hints>
   </connection>
