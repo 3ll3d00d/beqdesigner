@@ -9,11 +9,20 @@ from model.signal import SignalData
 def test_codec_Passthrough():
     filter = Passthrough()
     output = json.dumps(filter.to_json())
-    assert output == '{"_type": "Passthrough"}'
+    assert output == '{"_type": "Passthrough", "fs": 1000}'
     decoded = filter_from_json(json.loads(output))
     assert decoded is not None
     assert isinstance(decoded, Passthrough)
+    assert filter.fs == decoded.fs
 
+def test_codec_Passthrough_with_fs():
+    filter = Passthrough(fs=2000)
+    output = json.dumps(filter.to_json())
+    assert output == '{"_type": "Passthrough", "fs": 2000}'
+    decoded = filter_from_json(json.loads(output))
+    assert decoded is not None
+    assert isinstance(decoded, Passthrough)
+    assert filter.fs == decoded.fs
 
 def test_codec_Gain():
     filter = Gain(1000, 10.0)
@@ -246,7 +255,10 @@ def test_codec_signal():
     assert decoded.name == data.name
     assert decoded.fs == data.fs
     assert decoded.filter is not None
-    assert decoded.filter == data.filter
+    assert type(decoded.filter) is type(data.filter)
+    assert decoded.filter.id != -1
+    assert decoded.filter.description == data.filter.description
+    assert decoded.filter.filters == data.filter.filters
     assert decoded.raw is not None
     assert len(decoded.raw) == 2
     assert decoded.raw == data.raw
