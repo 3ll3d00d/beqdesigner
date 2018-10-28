@@ -21,6 +21,7 @@ from model.link import LinkSignalsDialog
 from model.preferences import DISPLAY_SHOW_FILTERED_SIGNALS, SYSTEM_CHECK_FOR_UPDATES
 from ui.delegates import RegexValidator
 
+import pyqtgraph as pg
 import qtawesome as qta
 from matplotlib import style
 
@@ -89,6 +90,10 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
                 style.use(os.path.join(self.__style_path_root, 'style', 'mpl', f"{matplotlib_theme}.mplstyle"))
             else:
                 style.use(matplotlib_theme)
+
+        pg.setConfigOption('background', matplotlib.colors.to_hex(matplotlib.rcParams['axes.facecolor']))
+        pg.setConfigOption('foreground', matplotlib.colors.to_hex(matplotlib.rcParams['axes.edgecolor']))
+        pg.setConfigOption('leftButtonPan', False)
         self.setupUi(self)
         self.__decorate_splitter()
         self.limitsButton.setIcon(qta.icon('ei.move'))
@@ -947,3 +952,17 @@ if __name__ == '__main__':
     # show the form and exec the app
     form.show()
     app.exec_()
+
+
+class PlotWidgetWithDateAxis(pg.PlotWidget):
+    def __init__(self, parent=None, background='default', **kargs):
+        super().__init__(parent=parent,
+                         background=background,
+                         axisItems={'bottom': TimeAxisItem(orientation='bottom')},
+                         **kargs)
+
+
+class TimeAxisItem(pg.AxisItem):
+    def tickStrings(self, values, scale, spacing):
+        import datetime
+        return [str(datetime.timedelta(seconds=value)).split('.')[0] for value in values]

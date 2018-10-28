@@ -119,7 +119,7 @@ class Ui_MainWindow(object):
         self.yRangeLayout.addWidget(self.yMax)
         self.waveformControls.addLayout(self.yRangeLayout, 5, 1, 1, 1)
         self.waveformLayout.addLayout(self.waveformControls)
-        self.waveformChart = MplWidget(self.waveformContainer)
+        self.waveformChart = PlotWidgetWithDateAxis(self.waveformContainer)
         self.waveformChart.setObjectName("waveformChart")
         self.waveformLayout.addWidget(self.waveformChart)
         self.waveformLayout.setStretch(1, 1)
@@ -455,4 +455,5 @@ class Ui_MainWindow(object):
         self.action_Remux_Audio.setText(_translate("MainWindow", "&Remux Audio"))
         self.action_Remux_Audio.setShortcut(_translate("MainWindow", "Ctrl+U"))
 
+from app import PlotWidgetWithDateAxis
 from mpl import MplWidget

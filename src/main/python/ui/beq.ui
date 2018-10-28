@@ -233,7 +233,7 @@
              </layout>
             </item>
             <item>
-             <widget class="MplWidget" name="waveformChart"/>
+             <widget class="PlotWidgetWithDateAxis" name="waveformChart"/>
             </item>
            </layout>
           </widget>
@@ -740,6 +740,11 @@
    <class>MplWidget</class>
    <extends>QGraphicsView</extends>
    <header>mpl</header>
+  </customwidget>
+  <customwidget>
+   <class>PlotWidgetWithDateAxis</class>
+   <extends>QGraphicsView</extends>
+   <header>app</header>
   </customwidget>
  </customwidgets>
  <resources/>
