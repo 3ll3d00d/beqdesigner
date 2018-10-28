@@ -138,8 +138,8 @@ class BiquadWithQ(Biquad):
 
 
 class Passthrough(Gain):
-    def __init__(self):
-        super().__init__(1000, 0)
+    def __init__(self, fs=1000):
+        super().__init__(fs, 0)
 
     @property
     def description(self):

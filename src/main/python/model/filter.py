@@ -317,7 +317,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
                 self.__combined_preview = self.__filter_model.preview(self.__filter)
                 self.passthrough.rendered = False
             else:
-                self.__combined_preview = self.__filter_model.preview(Passthrough())
+                self.__combined_preview = self.__filter_model.preview(Passthrough(fs=self.__signal.fs))
                 self.__filter = None
             self.__magnitudeModel.redraw()
 
