@@ -764,17 +764,19 @@ class CompleteFilter(ComplexFilter):
         '''
         return CompleteFilter(self.save0(filter, self.filters.copy()), self.description, listener=None)
 
-    def resample(self, new_fs):
+    def resample(self, new_fs, copy_listener=True):
         '''
         Creates a new filter at the desired fs.
         :param new_fs: the fs.
+        :param copy_listener: if true, carry the listener forward to the resampled filter.
         :return: the new filter.
         '''
+        listener = self.listener if copy_listener else None
         if len(self) > 0:
             return CompleteFilter(filters=[f.resample(new_fs) for f in self.filters], description=self.description,
-                                  preset_idx=self.preset_idx, listener=self.listener)
+                                  preset_idx=self.preset_idx, listener=listener)
         else:
-            return CompleteFilter(description=self.description, preset_idx=self.preset_idx, listener=self.listener)
+            return CompleteFilter(description=self.description, preset_idx=self.preset_idx, listener=listener)
 
 
 class FilterType(Enum):

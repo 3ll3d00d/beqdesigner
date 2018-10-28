@@ -12,6 +12,7 @@ class WaveformController:
     def __init__(self, signal_model, chart, signal_selector, headroom, is_filtered, start_time, end_time,
                  apply_limits_btn, reset_limits_btn, zoom_in_btn, zoom_out_btn, y_min, y_max):
         self.__signal_model = signal_model
+        self.__current_signal = None
         self.__is_filtered = is_filtered
         self.__start_time = start_time
         self.__end_time = end_time
@@ -51,14 +52,17 @@ class WaveformController:
 
     def update_waveform(self, signal_name):
         ''' displays the waveform for the selected signal '''
-        signal_data = self.__get_signal_data(signal_name)
-        if signal_data is None:
+        if self.__current_signal is not None:
+            self.__current_signal.unregister_listener(self.on_filter_update)
+        self.__current_signal = self.__get_signal_data(signal_name)
+        if self.__current_signal is None:
             self.__reset_time(self.__start_time)
             self.__reset_time(self.__end_time)
             self.__chart_model.clear()
         else:
+            self.__current_signal.register_listener(self.on_filter_update)
             self.__start_time.setEnabled(True)
-            duration = QTime(0, 0, 0).addMSecs(signal_data.signal.durationSeconds * 1000.0)
+            duration = QTime(0, 0, 0).addMSecs(self.__current_signal.signal.durationSeconds * 1000.0)
             self.__start_time.setMaximumTime(duration)
             self.__end_time.setEnabled(True)
             self.__end_time.setMaximumTime(duration)
@@ -83,7 +87,7 @@ class WaveformController:
         signal_data = self.__get_signal_data(signal_name)
         if signal_data is not None:
             if state:
-                sos = signal_data.active_filter.resample(signal_data.fs).get_sos()
+                sos = signal_data.active_filter.resample(signal_data.fs, copy_listener=False).get_sos()
                 if len(sos) > 0:
                     signal = signal_data.signal.sosfilter(sos)
                 else:
@@ -92,6 +96,11 @@ class WaveformController:
                 signal = signal_data.signal
             self.__chart_model.signal = signal
             self.__chart_model.analyse()
+
+    def on_filter_update(self):
+        ''' if the signal is filtered then updated the chart when the filter changes. '''
+        if self.__is_filtered.isChecked():
+            self.toggle_filter(True)
 
     def apply_limits(self):
         ''' Updates the visible spectrum for the selected waveform limits '''

@@ -36,6 +36,7 @@ class SignalData:
 
     def __init__(self, name, fs, xy_data, filter, duration_hhmmss=None, start_hhmmss=None, end_hhmmss=None,
                  signal=None):
+        self.__on_change_listeners = []
         self.__filter = None
         self.__name = name
         self.fs = fs
@@ -51,6 +52,16 @@ class SignalData:
         self.filter = filter
         self.tilt_on = False
         self.__signal = signal
+
+    def register_listener(self, listener):
+        ''' registers a listener to be notified when the filter updates (used by the WaveformController) '''
+        logger.info(f"Registering listener {listener}")
+        self.__on_change_listeners.append(listener)
+
+    def unregister_listener(self, listener):
+        ''' unregisters a listener to be notified when the filter updates '''
+        logger.info(f"Unregistering listener {listener}")
+        self.__on_change_listeners.remove(listener)
 
     @property
     def signal(self):
@@ -157,6 +168,8 @@ class SignalData:
                 r.linestyle = '--'
         else:
             raise ValueError(f"Unsupported filter type {filt}")
+        for l in self.__on_change_listeners:
+            l()
         for s in self.slaves:
             logger.debug(f"Propagating filter change to {s.name}")
             s.on_filter_change(filt)
