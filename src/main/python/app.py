@@ -175,6 +175,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
                                                         self.zoomOutButton,
                                                         self.yMin,
                                                         self.yMax)
+        self.__hide_waveform_chart()
         # processing
         self.ensurePathContainsExternalTools()
         # extraction
@@ -308,6 +309,8 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         if names is not None:
             self.update_reference_series(names, self.signalReference, True)
         self.__waveform_controller.refresh_selector()
+        if self.signalSelector.count() == 1:
+            self.__hide_waveform_chart()
         self.linkSignalButton.setEnabled(len(self.__signal_model) > 1)
         self.__magnitude_model.redraw()
 
