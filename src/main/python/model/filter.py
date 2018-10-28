@@ -279,6 +279,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         # configure visible/enabled fields for the current filter type
         self.enableFilterParams()
         self.enableOkIfGainIsValid()
+        self.addButton.setEnabled(self.__original_id is None)
         self.freq.setMaximum(self.__signal.fs / 2.0)
         self.__starting = False
         # init the chart

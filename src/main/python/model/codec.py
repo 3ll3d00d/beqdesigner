@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 import numpy as np
 import logging
 
@@ -90,35 +92,44 @@ def filter_from_json(o):
         FirstOrder_HighPass, SecondOrder_LowPass, SecondOrder_HighPass, AllPass, CompleteFilter, ComplexLowPass, \
         FilterType, ComplexHighPass
 
+    filt = None
     if '_type' not in o:
         raise ValueError(f"{o} is not a filter")
     if o['_type'] == Passthrough.__name__:
-        return Passthrough()
+        if 'fs' in o:
+            filt = Passthrough(fs=int(o['fs']))
+        else:
+            filt = Passthrough()
     elif o['_type'] == Gain.__name__:
-        return Gain(o['fs'], o['gain'])
+        filt = Gain(o['fs'], o['gain'])
     elif o['_type'] == PeakingEQ.__name__:
-        return PeakingEQ(o['fs'], o['fc'], o['q'], o['gain'])
+        filt = PeakingEQ(o['fs'], o['fc'], o['q'], o['gain'])
     elif o['_type'] == LowShelf.__name__:
-        return LowShelf(o['fs'], o['fc'], o['q'], o['gain'], o['count'])
+        filt = LowShelf(o['fs'], o['fc'], o['q'], o['gain'], o['count'])
     elif o['_type'] == HighShelf.__name__:
-        return HighShelf(o['fs'], o['fc'], o['q'], o['gain'], o['count'])
+        filt = HighShelf(o['fs'], o['fc'], o['q'], o['gain'], o['count'])
     elif o['_type'] == FirstOrder_LowPass.__name__:
-        return FirstOrder_LowPass(o['fs'], o['fc'], o['q'])
+        filt = FirstOrder_LowPass(o['fs'], o['fc'], o['q'])
     elif o['_type'] == FirstOrder_HighPass.__name__:
-        return FirstOrder_HighPass(o['fs'], o['fc'], o['q'])
+        filt = FirstOrder_HighPass(o['fs'], o['fc'], o['q'])
     elif o['_type'] == SecondOrder_LowPass.__name__:
-        return SecondOrder_LowPass(o['fs'], o['fc'], o['q'])
+        filt = SecondOrder_LowPass(o['fs'], o['fc'], o['q'])
     elif o['_type'] == SecondOrder_HighPass.__name__:
-        return SecondOrder_HighPass(o['fs'], o['fc'], o['q'])
+        filt = SecondOrder_HighPass(o['fs'], o['fc'], o['q'])
     elif o['_type'] == AllPass.__name__:
-        return AllPass(o['fs'], o['fc'], o['q'])
+        filt = AllPass(o['fs'], o['fc'], o['q'])
     elif o['_type'] == CompleteFilter.__name__:
-        return CompleteFilter(filters=[filter_from_json(x) for x in o['filters']], description=o['description'])
+        filt = CompleteFilter(filters=[filter_from_json(x) for x in o['filters']], description=o['description'])
     elif o['_type'] == ComplexLowPass.__name__:
-        return ComplexLowPass(FilterType(o['filter_type']), o['order'], o['fs'], o['fc'])
+        filt = ComplexLowPass(FilterType(o['filter_type']), o['order'], o['fs'], o['fc'])
     elif o['_type'] == ComplexHighPass.__name__:
-        return ComplexHighPass(FilterType(o['filter_type']), o['order'], o['fs'], o['fc'])
-    raise ValueError(f"{o._type} is an unknown filter type")
+        filt = ComplexHighPass(FilterType(o['filter_type']), o['order'], o['fs'], o['fc'])
+    if filt is None:
+        raise ValueError(f"{o._type} is an unknown filter type")
+    else:
+        if filt.id == -1:
+            filt.id = uuid4()
+        return filt
 
 
 def xydata_from_json(o):

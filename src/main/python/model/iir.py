@@ -147,7 +147,8 @@ class Passthrough(Gain):
 
     def to_json(self):
         return {
-            '_type': self.__class__.__name__
+            '_type': self.__class__.__name__,
+            'fs': self.fs
         }
 
 
