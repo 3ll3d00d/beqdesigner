@@ -124,6 +124,8 @@ class Ui_MainWindow(object):
         self.waveformLayout.addWidget(self.waveformChart)
         self.waveformLayout.setStretch(1, 1)
         self.leftPane.addWidget(self.chartSplitter, 1, 0, 1, 6)
+        self.leftPane.setColumnStretch(1, 1)
+        self.leftPane.setColumnStretch(2, 1)
         self.panes.addLayout(self.leftPane)
         self.rightPane = QtWidgets.QGridLayout()
         self.rightPane.setObjectName("rightPane")

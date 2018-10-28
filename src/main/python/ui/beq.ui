@@ -21,7 +21,7 @@
        <number>9</number>
       </property>
       <item>
-       <layout class="QGridLayout" name="leftPane" columnstretch="0,0,0,0,0,0">
+       <layout class="QGridLayout" name="leftPane" columnstretch="0,1,1,0,0,0">
         <item row="0" column="0">
          <widget class="QLabel" name="referenceLabel">
           <property name="text">
