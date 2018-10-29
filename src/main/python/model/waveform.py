@@ -8,6 +8,7 @@ from qtpy.QtCore import QTime
 from qtpy.QtGui import QFont
 
 from model.magnitude import MagnitudeModel
+from model.preferences import get_filter_colour
 from model.signal import SignalDialog
 
 
@@ -74,7 +75,7 @@ class WaveformController:
         if self.__active_signal is not None and self.__magnitude_model.is_visible():
             sig = self.__active_signal.cut(to_seconds(self.__start_time), to_seconds(self.__end_time))
             sig.calculate_peak_average(self.__preferences)
-            return sig.getXY()
+            return sig.getXY(idx=self.__selector.currentIndex() - 1)
         return []
 
     def refresh_selector(self):
@@ -164,6 +165,7 @@ class WaveformController:
                 signal = signal_data.signal
             self.__active_signal = signal
             self.__waveform_chart_model.signal = signal
+            self.__waveform_chart_model.idx = self.__selector.currentIndex() - 1
             self.__waveform_chart_model.analyse()
             self.__magnitude_model.redraw()
 
@@ -188,6 +190,7 @@ class WaveformModel:
     '''
 
     def __init__(self, chart, headroom, x_min, x_max, y_min, y_max, on_x_range_change):
+        self.idx = 0
         self.__chart = chart
         self.__on_x_range_change = on_x_range_change
         self.__x_min = x_min
