@@ -1,3 +1,4 @@
+import os
 from uuid import uuid4
 
 import numpy as np
@@ -34,6 +35,8 @@ def signaldata_to_json(signal):
         out['duration_hhmmss'] = signal.duration_hhmmss
         out['start_hhmmss'] = signal.start_hhmmss
         out['end_hhmmss'] = signal.end_hhmmss
+    if signal.signal is not None and signal.signal.metadata is not None:
+        out['metadata'] = signal.signal.metadata
     return out
 
 
@@ -77,8 +80,23 @@ def signaldata_from_json(o):
         data = o['data']
         avg = xydata_from_json(data['avg'])
         peak = xydata_from_json(data['peak'])
-        return SignalData(o['name'], o['fs'], [avg, peak], filter=filt, duration_hhmmss=o.get('duration_hhmmss', None),
-                          start_hhmmss=o.get('start_hhmmss', None), end_hhmmss=o.get('end_hhmmss', None))
+        metadata = o.get('metadata', None)
+        signal = None
+        if metadata is not None:
+            try:
+                if os.path.isfile(metadata['src']):
+                    from model.signal import readWav
+                    signal = readWav(o['name'], metadata['src'], channel=metadata['channel'],
+                                     start=metadata['start'], end=metadata['end'],
+                                     target_fs=o['fs'])
+            except:
+                logger.exception(f"Unable to load signal from {metadata['src']}")
+        signal_data = SignalData(o['name'], o['fs'], [avg, peak], filter=filt,
+                                 duration_hhmmss=o.get('duration_hhmmss', None),
+                                 start_hhmmss=o.get('start_hhmmss', None),
+                                 end_hhmmss=o.get('end_hhmmss', None),
+                                 signal=signal)
+        return signal_data
     raise ValueError(f"{o._type} is an unknown signal type")
 
 

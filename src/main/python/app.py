@@ -96,7 +96,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         pg.setConfigOption('leftButtonPan', False)
         self.setupUi(self)
         self.__decorate_splitter()
-        self.limitsButton.setIcon(qta.icon('ei.move'))
+        self.limitsButton.setIcon(qta.icon('fa5s.arrows-alt'))
         self.showValuesButton.setIcon(qta.icon('ei.eye-open'))
         # logs
         self.logViewer = RollingLogger(self.preferences, parent=self)
@@ -162,17 +162,22 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
                                                 show_legend=lambda: self.showLegend.isChecked())
         self.__filter_model.filter = self.__default_signal.filter
         # waveform
-        self.__waveform_controller = WaveformController(self.__signal_model,
+        self.__waveform_controller = WaveformController(self.preferences,
+                                                        self.__signal_model,
                                                         self.waveformChart,
+                                                        self.filteredSpectrumChart,
                                                         self.signalSelector,
                                                         self.headroom,
                                                         self.waveformIsFiltered,
                                                         self.startTime,
                                                         self.endTime,
-                                                        self.applyWaveformLimitsButton,
-                                                        self.resetWaveformLimitsButton,
+                                                        self.showSpectrumButton,
+                                                        self.hideSpectrumButton,
                                                         self.zoomInButton,
                                                         self.zoomOutButton,
+                                                        self.sourceFile,
+                                                        self.loadSignalButton,
+                                                        self.filteredSpectrumLimitsButton,
                                                         self.yMin,
                                                         self.yMax)
         self.__hide_waveform_chart()

@@ -33,7 +33,7 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
         self.setWindowFlags(self.windowFlags() | Qt.WindowSystemMenuHint | Qt.WindowMinMaxButtonsHint)
         self.__preferences = preferences
         self.filePicker.setIcon(qta.icon('fa5s.folder-open'))
-        self.showLimitsButton.setIcon(qta.icon('ei.move'))
+        self.showLimitsButton.setIcon(qta.icon('fa5s.arrows-alt'))
         self.updateChart.setIcon(qta.icon('fa5s.sync'))
         self.saveChart.setIcon(qta.icon('fa5s.save'))
         self.saveLayout.setIcon(qta.icon('fa5s.save'))

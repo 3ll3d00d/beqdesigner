@@ -57,7 +57,7 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         self.setWindowFlags(self.windowFlags() | Qt.WindowSystemMenuHint | Qt.WindowMinMaxButtonsHint)
         self.setupUi(self)
         self.imagePicker.setIcon(qta.icon('fa5s.folder-open'))
-        self.limitsButton.setIcon(qta.icon('ei.move'))
+        self.limitsButton.setIcon(qta.icon('fa5s.arrows-alt'))
         self.saveLayout.setIcon(qta.icon('fa5s.save'))
         self.loadURL.setIcon(qta.icon('fa5s.download'))
         self.loadURL.setEnabled(False)

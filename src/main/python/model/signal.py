@@ -70,6 +70,10 @@ class SignalData:
         '''
         return self.__signal
 
+    @signal.setter
+    def signal(self, signal):
+        self.__signal = signal
+
     @property
     def name(self):
         return self.__name
@@ -411,13 +415,14 @@ class Signal:
         :var fs: the sample rate
     """
 
-    def __init__(self, name, samples, fs=48000):
+    def __init__(self, name, samples, fs=48000, metadata=None):
         self.name = name
         self.samples = samples
         self.fs = fs
         self.durationSeconds = len(self.samples) / self.fs
         self.startSeconds = 0
         self.end = self.durationSeconds
+        self.__metadata = metadata
         # formatted for display purposes
         self.duration_hhmmss = str(datetime.timedelta(seconds=self.durationSeconds))
         self.start_hhmmss = str(datetime.timedelta(seconds=self.startSeconds))
@@ -426,10 +431,18 @@ class Signal:
         self.__peak = None
         self.__cached = []
 
+    @property
+    def metadata(self):
+        return self.__metadata
+
     def cut(self, start, end):
         ''' slices a section out of the signal '''
         if start < self.durationSeconds and end <= self.durationSeconds:
-            return Signal(self.name, self.samples[(start * self.fs): (end * self.fs) + 1], fs=self.fs)
+            metadata = None
+            if self.metadata is not None:
+                metadata = {**self.metadata, 'start': start, 'end': end}
+            return Signal(self.name, self.samples[int(start * self.fs): int(end * self.fs) + 1], fs=self.fs,
+                          metadata=metadata)
         else:
             return self
 
@@ -524,7 +537,7 @@ class Signal:
         :param b: the b coeffs.
         :return: the filtered signal.
         """
-        return Signal(self.name, signal.filtfilt(b, a, self.samples), fs=self.fs)
+        return Signal(self.name, signal.filtfilt(b, a, self.samples), fs=self.fs, metadata=self.metadata)
 
     def sosfilter(self, sos):
         '''
@@ -532,7 +545,7 @@ class Signal:
         :param sos: the sections.
         :return: the filtered signal
         '''
-        return Signal(self.name, signal.sosfilt(sos, self.samples), fs=self.fs)
+        return Signal(self.name, signal.sosfilt(sos, self.samples), fs=self.fs, metadata=self.metadata)
 
     def resample(self, new_fs):
         '''
@@ -544,7 +557,8 @@ class Signal:
             start = time.time()
             resampled = Signal(self.name,
                                resampy.resample(self.samples, self.fs, new_fs, filter=self.load_resampy_filter()),
-                               new_fs)
+                               fs=new_fs,
+                               metadata=self.metadata)
             end = time.time()
             logger.info(f"Resampled {self.name} from {self.fs} to {new_fs} in {round(end - start, 3)}s")
             return resampled
@@ -798,11 +812,12 @@ class DialogWavLoaderBridge:
     Loads signals from wav files.
     '''
 
-    def __init__(self, dialog, preferences):
+    def __init__(self, dialog, preferences, allow_multichannel=True):
         self.__preferences = preferences
         self.__dialog = dialog
         self.__auto_loader = AutoWavLoader(preferences)
         self.__duration = 0
+        self.__allow_multichannel = allow_multichannel
 
     def select_wav_file(self):
         file = select_file(self.__dialog, ['wav', 'flac'])
@@ -830,7 +845,7 @@ class DialogWavLoaderBridge:
         for i in range(0, info.channels):
             self.__dialog.wavChannelSelector.addItem(f"{i + 1}")
         self.__dialog.wavChannelSelector.setEnabled(info.channels > 1)
-        self.__dialog.loadAllChannels.setEnabled(info.channels > 1)
+        self.__dialog.loadAllChannels.setEnabled(info.channels > 1 and self.__allow_multichannel)
         self.__dialog.wavStartTime.setTime(QtCore.QTime(0, 0, 0))
         self.__dialog.wavStartTime.setEnabled(True)
         self.__duration = math.floor(info.duration * 1000)
@@ -990,17 +1005,22 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
     Alows user to extract a signal from a wav or frd.
     '''
 
-    def __init__(self, preferences, signal_model, parent=None):
+    def __init__(self, preferences, signal_model, allow_multichannel=True, parent=None):
         super(SignalDialog, self).__init__(parent=parent)
         self.setupUi(self)
         self.wavFilePicker.setIcon(qta.icon('fa5s.folder-open'))
         self.frdAvgFilePicker.setIcon(qta.icon('fa5s.folder-open'))
         self.frdPeakFilePicker.setIcon(qta.icon('fa5s.folder-open'))
-        self.__loaders = [DialogWavLoaderBridge(self, preferences), FrdLoader(self)]
+        self.__loaders = [DialogWavLoaderBridge(self, preferences, allow_multichannel=allow_multichannel),
+                          FrdLoader(self)]
         self.__loader_idx = self.signalTypeTabs.currentIndex()
-        self.__signal_model = signal_model
         self.__magnitudeModel = MagnitudeModel('preview', self.previewChart, preferences, self, 'Signal')
-        if len(self.__signal_model) == 0:
+        self.__signal_model = signal_model
+        if self.__signal_model is None:
+            self.filterSelectLabel.setEnabled(False)
+            self.filterSelect.setEnabled(False)
+            self.linkedSignal.setEnabled(False)
+        elif len(self.__signal_model) == 0:
             if len(self.__signal_model.default_signal.filter) > 0:
                 self.filterSelect.addItem('Default')
             else:
@@ -1090,21 +1110,25 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
             with wait_cursor(f"Saving signals"):
                 signals = loader.get_signals()
                 if len(signals) > 0:
-                    selected_filter_idx = self.filterSelect.currentIndex()
-                    if selected_filter_idx > 0:  # 0 because the dropdown has a None value first
-                        if self.filterSelect.currentText() == 'Default':
-                            self.__apply_default_filter(signals)
-                        else:
-                            master = self.__signal_model[selected_filter_idx - 1]
-                            for s in signals:
-                                if self.linkedSignal.isChecked():
-                                    master.enslave(s)
-                                else:
-                                    s.filter = master.filter.resample(s.fs)
-                    self.__signal_model.add_all(signals)
+                    self.save(signals)
                     QDialog.accept(self)
                 else:
                     logger.warning(f"No signals produced by loader")
+
+    def save(self, signals):
+        ''' saves the specified signals in the signal model'''
+        selected_filter_idx = self.filterSelect.currentIndex()
+        if selected_filter_idx > 0:  # 0 because the dropdown has a None value first
+            if self.filterSelect.currentText() == 'Default':
+                self.__apply_default_filter(signals)
+            else:
+                master = self.__signal_model[selected_filter_idx - 1]
+                for s in signals:
+                    if self.linkedSignal.isChecked():
+                        master.enslave(s)
+                    else:
+                        s.filter = master.filter.resample(s.fs)
+        self.__signal_model.add_all(signals)
 
     def __apply_default_filter(self, signals):
         '''
@@ -1142,7 +1166,8 @@ def readWav(name, input_file, channel=1, start=None, end=None, target_fs=1000) -
         ys, frameRate = sf.read(input_file, start=startFrame, stop=endFrame, always_2d=True)
     else:
         ys, frameRate = sf.read(input_file, always_2d=True)
-    signal = Signal(name, ys[:, channel - 1], frameRate)
+    signal = Signal(name, ys[:, channel - 1], frameRate,
+                    metadata={'src': input_file, 'channel': channel, 'start': start, 'end': end})
     if target_fs is None or target_fs == 0:
         target_fs = signal.fs
     return signal.resample(target_fs)

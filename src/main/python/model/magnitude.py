@@ -223,3 +223,13 @@ class MagnitudeModel:
         else:
             self.__secondary.reference_curve = curve
         self.redraw()
+
+    def set_visible(self, visible):
+        ''' changes chart visibility '''
+        self.__chart.setVisible(visible)
+
+    def is_visible(self):
+        '''
+        :return: true if the chart is visible.
+        '''
+        return self.__chart.isVisible()
