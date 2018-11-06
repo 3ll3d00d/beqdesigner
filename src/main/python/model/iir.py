@@ -925,6 +925,7 @@ class ComplexData:
         else:
             self.__cached_mag_ref = ref
             y = np.abs(self.y) * self.scaleFactor / ref
+            y[np.abs(y) < 0.0000001] = 0.0000001
             self.__cached_mag = XYData(self.name, None, self.x, 20 * np.log10(y), colour=colour,
                                        linestyle=linestyle)
         return self.__cached_mag
