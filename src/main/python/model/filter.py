@@ -279,13 +279,16 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         # configure visible/enabled fields for the current filter type
         self.enableFilterParams()
         self.enableOkIfGainIsValid()
-        self.addButton.setEnabled(self.__original_id is None)
+        self.addButton.setEnabled(not self.__is_edit())
         self.freq.setMaximum(self.__signal.fs / 2.0)
         self.__starting = False
         # init the chart
         self.__magnitudeModel = MagnitudeModel('preview', self.previewChart, preferences, self, 'Filter', db_range_calc=dBRangeCalculator(30))
         # ensure the preview graph is shown if we have something to show
         self.previewFilter()
+
+    def __is_edit(self):
+        return self.__original_id is not None
 
     def __get_step(self, steps, value, default_idx):
         for idx, val in enumerate(steps):
@@ -294,15 +297,19 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         return default_idx
 
     def save(self):
+        self.save0()
+        self.previewFilter()
+
+    def save0(self):
         ''' Stores the filter in the model. '''
         if self.__filter is not None:
-            if self.__original_id is None:
+            if not self.__is_edit():
                 self.__filter.id = uuid4()
             self.__filter_model.save(self.__filter)
 
     def accept(self):
         ''' Saves and exits. '''
-        self.save()
+        self.save0()
         QDialog.accept(self)
 
     def previewFilter(self):
@@ -445,8 +452,8 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.sStepButton.setVisible(is_shelf_filter)
         self.addButton.setIcon(qta.icon('fa5s.plus'))
         self.addButton.setIconSize(QtCore.QSize(32, 32))
-        self.addMoreButton.setIcon(qta.icon('fa5s.save'))
-        self.addMoreButton.setIconSize(QtCore.QSize(32, 32))
+        self.saveButton.setIcon(qta.icon('fa5s.save'))
+        self.saveButton.setIconSize(QtCore.QSize(32, 32))
         self.exitButton.setIcon(qta.icon('fa5s.sign-out-alt'))
         self.exitButton.setIconSize(QtCore.QSize(32, 32))
         self.enableOkIfGainIsValid()
@@ -465,9 +472,10 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
             self.filterOrder.setMinimum(2)
 
     def enableOkIfGainIsValid(self):
-        ''' enables the save button if we have a valid filter. '''
-        self.addMoreButton.setEnabled(self.__is_valid_filter())
-        self.addButton.setEnabled(self.__is_valid_filter())
+        ''' enables the save buttons if we have a valid filter. '''
+        self.saveButton.setEnabled(self.__is_valid_filter())
+        if not self.__is_edit():
+            self.addButton.setEnabled(self.__is_valid_filter())
 
     def __is_valid_filter(self):
         '''

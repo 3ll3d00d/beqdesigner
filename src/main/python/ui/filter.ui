@@ -299,7 +299,7 @@
         </widget>
        </item>
        <item>
-        <widget class="QToolButton" name="addMoreButton">
+        <widget class="QToolButton" name="saveButton">
          <property name="toolTip">
           <string>Save and Exit</string>
          </property>
@@ -653,7 +653,7 @@
    </hints>
   </connection>
   <connection>
-   <sender>addMoreButton</sender>
+   <sender>saveButton</sender>
    <signal>clicked()</signal>
    <receiver>editFilterDialog</receiver>
    <slot>accept()</slot>
