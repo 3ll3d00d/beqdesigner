@@ -560,7 +560,7 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         final_image = Image.new(im_image.mode, (im_image.size[0], im_image.size[1] + mp_image.size[1]))
         final_image.paste(im_image, (0, 0))
         final_image.paste(mp_image, (0, im_image.size[1]))
-        final_image.save(output_file, **more_args)
+        final_image.add(output_file, **more_args)
         return True
 
     def closeEvent(self, QCloseEvent):
