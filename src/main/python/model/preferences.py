@@ -234,7 +234,9 @@ def get_peak_colour(idx):
 
 
 def get_filter_colour(idx):
-    return FILTER_COLOURS[idx % len(FILTER_COLOURS)]
+    colours = matplotlib.rcParams['axes.prop_cycle'].by_key()['color']
+    return colours[idx % len(colours)]
+    # return FILTER_COLOURS[idx % len(FILTER_COLOURS)]
 
 
 class Preferences:

@@ -84,6 +84,13 @@
        </item>
       </widget>
      </item>
+     <item row="1" column="0">
+      <widget class="QLabel" name="typeLabel">
+       <property name="text">
+        <string>Type</string>
+       </property>
+      </widget>
+     </item>
      <item row="3" column="1">
       <widget class="QSpinBox" name="filterOrder">
        <property name="enabled">
@@ -100,10 +107,10 @@
        </property>
       </widget>
      </item>
-     <item row="1" column="0">
-      <widget class="QLabel" name="typeLabel">
+     <item row="7" column="0">
+      <widget class="QLabel" name="gainLabel">
        <property name="text">
-        <string>Type</string>
+        <string>Gain</string>
        </property>
       </widget>
      </item>
@@ -114,13 +121,6 @@
        </property>
       </widget>
      </item>
-     <item row="7" column="0">
-      <widget class="QLabel" name="gainLabel">
-       <property name="text">
-        <string>Gain</string>
-       </property>
-      </widget>
-     </item>
      <item row="6" column="0">
       <widget class="QLabel" name="sLabel">
        <property name="text">
@@ -128,27 +128,10 @@
        </property>
       </widget>
      </item>
-     <item row="8" column="1">
-      <widget class="QSpinBox" name="filterCount">
-       <property name="minimum">
-        <number>1</number>
-       </property>
-       <property name="maximum">
-        <number>20</number>
-       </property>
-      </widget>
-     </item>
-     <item row="3" column="0">
-      <widget class="QLabel" name="orderLabel">
+     <item row="4" column="2">
+      <widget class="QToolButton" name="freqStepButton">
        <property name="text">
-        <string>Order</string>
-       </property>
-      </widget>
-     </item>
-     <item row="8" column="0">
-      <widget class="QLabel" name="filterCountLabel">
-       <property name="text">
-        <string>Count</string>
+        <string>...</string>
        </property>
       </widget>
      </item>
@@ -171,24 +154,20 @@
        </property>
       </widget>
      </item>
-     <item row="4" column="2">
-      <widget class="QToolButton" name="freqStepButton">
+     <item row="3" column="0">
+      <widget class="QLabel" name="orderLabel">
        <property name="text">
-        <string>...</string>
+        <string>Order</string>
        </property>
       </widget>
      </item>
-     <item row="4" column="0">
-      <widget class="QLabel" name="freqLabel">
-       <property name="text">
-        <string>Freq</string>
+     <item row="8" column="1">
+      <widget class="QSpinBox" name="filterCount">
+       <property name="minimum">
+        <number>1</number>
        </property>
-      </widget>
-     </item>
-     <item row="7" column="2">
-      <widget class="QToolButton" name="gainStepButton">
-       <property name="text">
-        <string>...</string>
+       <property name="maximum">
+        <number>20</number>
        </property>
       </widget>
      </item>
@@ -208,10 +187,24 @@
        </property>
       </widget>
      </item>
+     <item row="7" column="2">
+      <widget class="QToolButton" name="gainStepButton">
+       <property name="text">
+        <string>...</string>
+       </property>
+      </widget>
+     </item>
+     <item row="4" column="0">
+      <widget class="QLabel" name="freqLabel">
+       <property name="text">
+        <string>Freq</string>
+       </property>
+      </widget>
+     </item>
      <item row="9" column="0" colspan="3">
       <widget class="QCheckBox" name="showCombined">
        <property name="text">
-        <string>Show Complete Filter?</string>
+        <string>Show Complete Filter</string>
        </property>
        <property name="checked">
         <bool>true</bool>
@@ -237,6 +230,33 @@
        </property>
       </widget>
      </item>
+     <item row="14" column="1">
+      <spacer name="verticalSpacer">
+       <property name="orientation">
+        <enum>Qt::Vertical</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>20</width>
+         <height>40</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item row="5" column="2">
+      <widget class="QToolButton" name="qStepButton">
+       <property name="text">
+        <string>...</string>
+       </property>
+      </widget>
+     </item>
+     <item row="6" column="2">
+      <widget class="QToolButton" name="sStepButton">
+       <property name="text">
+        <string>...</string>
+       </property>
+      </widget>
+     </item>
      <item row="6" column="1">
       <widget class="QDoubleSpinBox" name="filterS">
        <property name="enabled">
@@ -259,34 +279,7 @@
        </property>
       </widget>
      </item>
-     <item row="5" column="2">
-      <widget class="QToolButton" name="qStepButton">
-       <property name="text">
-        <string>...</string>
-       </property>
-      </widget>
-     </item>
-     <item row="6" column="2">
-      <widget class="QToolButton" name="sStepButton">
-       <property name="text">
-        <string>...</string>
-       </property>
-      </widget>
-     </item>
-     <item row="13" column="1">
-      <spacer name="verticalSpacer">
-       <property name="orientation">
-        <enum>Qt::Vertical</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>20</width>
-         <height>40</height>
-        </size>
-       </property>
-      </spacer>
-     </item>
-     <item row="10" column="0" colspan="3">
+     <item row="11" column="0" colspan="3">
       <layout class="QHBoxLayout" name="horizontalLayout">
        <item>
         <widget class="QToolButton" name="saveButton">
@@ -312,6 +305,20 @@
      </item>
      <item row="0" column="0" colspan="3">
       <widget class="QComboBox" name="filterSelector"/>
+     </item>
+     <item row="8" column="0">
+      <widget class="QLabel" name="filterCountLabel">
+       <property name="text">
+        <string>Count</string>
+       </property>
+      </widget>
+     </item>
+     <item row="10" column="0" colspan="3">
+      <widget class="QCheckBox" name="showIndividual">
+       <property name="text">
+        <string>Show Individual Filters</string>
+       </property>
+      </widget>
      </item>
     </layout>
    </item>
@@ -636,8 +643,8 @@
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>144</x>
-     <y>382</y>
+     <x>98</x>
+     <y>414</y>
     </hint>
     <hint type="destinationlabel">
      <x>187</x>
@@ -652,8 +659,8 @@
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>214</x>
-     <y>379</y>
+     <x>192</x>
+     <y>411</y>
     </hint>
     <hint type="destinationlabel">
      <x>203</x>
@@ -674,6 +681,22 @@
     <hint type="destinationlabel">
      <x>78</x>
      <y>1</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>showIndividual</sender>
+   <signal>clicked()</signal>
+   <receiver>editFilterDialog</receiver>
+   <slot>previewFilter()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>50</x>
+     <y>359</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>132</x>
+     <y>438</y>
     </hint>
    </hints>
   </connection>

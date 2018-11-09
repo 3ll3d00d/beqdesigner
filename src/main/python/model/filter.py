@@ -16,7 +16,7 @@ from model.iir import FilterType, LowShelf, HighShelf, PeakingEQ, SecondOrder_Lo
 from model.limits import dBRangeCalculator
 from model.magnitude import MagnitudeModel
 from model.preferences import SHOW_ALL_FILTERS, SHOW_NO_FILTERS, FILTER_COLOURS, DISPLAY_SHOW_FILTERS, DISPLAY_Q_STEP, \
-    DISPLAY_GAIN_STEP, DISPLAY_S_STEP, DISPLAY_FREQ_STEP
+    DISPLAY_GAIN_STEP, DISPLAY_S_STEP, DISPLAY_FREQ_STEP, get_filter_colour
 from ui.filter import Ui_editFilterDialog
 
 logger = logging.getLogger('filter')
@@ -359,15 +359,30 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
     def getMagnitudeData(self, reference=None):
         ''' preview of the filter to display on the chart '''
         if self.filter is not None:
-            result = [self.filter.getTransferFunction().getMagnitude(colour=FILTER_COLOURS[3], linestyle=':')]
-            if len(self.__filter_model) > 0 and self.showCombined.isChecked():
-                result.append(self.__combined_preview.getTransferFunction().getMagnitude(colour=FILTER_COLOURS[0]))
+            result = [self.filter.getTransferFunction().getMagnitude(colour=get_filter_colour(0), linestyle=':')]
+            if len(self.__filter_model) > 0:
+                self.__add_combined_filter(result)
+                self.__add_individual_filters(result)
             return result
         else:
-            if len(self.__filter_model) > 0 and self.showCombined.isChecked():
-                return [self.__combined_preview.getTransferFunction().getMagnitude(colour=FILTER_COLOURS[0])]
+            if len(self.__filter_model) > 0:
+                result = []
+                self.__add_combined_filter(result)
+                self.__add_individual_filters(result)
+                return result
             else:
-                return [self.passthrough.getTransferFunction().getMagnitude(colour=FILTER_COLOURS[3], linestyle=':')]
+                return [self.passthrough.getTransferFunction().getMagnitude(colour=get_filter_colour(1), linestyle=':')]
+
+    def __add_combined_filter(self, result):
+        if self.showCombined.isChecked():
+            result.append(self.__combined_preview.getTransferFunction()
+                                                 .getMagnitude(colour=get_filter_colour(len(result))))
+
+    def __add_individual_filters(self, result):
+        if self.showIndividual.isChecked():
+            for f in self.__filter_model:
+                if f.id != self.filter.id:
+                    result.append(f.getTransferFunction().getMagnitude(colour=get_filter_colour(len(result))))
 
     def create_shaping_filter(self, original_id):
         '''
