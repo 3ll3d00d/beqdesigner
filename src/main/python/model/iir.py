@@ -705,7 +705,7 @@ class ComplexFilter(Sequence):
 
     def save0(self, filter, filters):
         match = next((idx for idx, f in enumerate(filters) if f.id == filter.id), None)
-        if match:
+        if match is not None:
             filters[match] = filter
         else:
             filters.append(filter)
