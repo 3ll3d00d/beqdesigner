@@ -7,7 +7,7 @@ import matplotlib
 import numpy as np
 import qtawesome as qta
 from matplotlib.gridspec import GridSpec
-from matplotlib.ticker import FuncFormatter
+from matplotlib.ticker import FuncFormatter, MaxNLocator
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from qtpy import QtCore
 from qtpy.QtCore import Qt
@@ -637,6 +637,7 @@ class MaxSpectrumByTime:
                     self.__current_ellipse_height = ry
                 scatter = axes.scatter(x, y, c=z, s=s, vmin=vmin, vmax=vmax, marker=marker)
             axes.yaxis.set_major_formatter(FuncFormatter(seconds_to_hhmmss))
+            axes.yaxis.set_major_locator(MaxNLocator(nbins=24, min_n_ticks=8, steps=[1, 3, 6]))
         else:
             if self.__current_marker == POINT or self.__current_marker == ELLIPSE:
                 new_data = np.c_[x, y]
