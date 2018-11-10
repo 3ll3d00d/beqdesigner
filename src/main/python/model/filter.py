@@ -260,7 +260,8 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.__original_id = filter.id if filter is not None else None
         self.__combined_preview = signal.filter
         # init the chart
-        self.__magnitudeModel = MagnitudeModel('preview', self.previewChart, preferences, self, 'Filter', db_range_calc=dBRangeCalculator(30))
+        self.__magnitudeModel = MagnitudeModel('preview', self.previewChart, preferences, self, 'Filter',
+                                               db_range_calc=dBRangeCalculator(30), fill_curves=True)
         # load the selector and populate the fields
         self.__refresh_selector()
 
@@ -358,31 +359,29 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
 
     def getMagnitudeData(self, reference=None):
         ''' preview of the filter to display on the chart '''
-        if self.filter is not None:
-            result = [self.filter.getTransferFunction().getMagnitude(colour=get_filter_colour(0), linestyle=':')]
-            if len(self.__filter_model) > 0:
-                self.__add_combined_filter(result)
-                self.__add_individual_filters(result)
-            return result
-        else:
-            if len(self.__filter_model) > 0:
-                result = []
-                self.__add_combined_filter(result)
-                self.__add_individual_filters(result)
-                return result
-            else:
-                return [self.passthrough.getTransferFunction().getMagnitude(colour=get_filter_colour(1), linestyle=':')]
+        result = self.__add_individual_filters()
+        result.append(self.__combined_preview.getTransferFunction().getMagnitude(colour=FILTER_COLOURS[0]))
+        return result
 
-    def __add_combined_filter(self, result):
-        if self.showCombined.isChecked():
-            result.append(self.__combined_preview.getTransferFunction()
-                                                 .getMagnitude(colour=get_filter_colour(len(result))))
-
-    def __add_individual_filters(self, result):
+    def __add_individual_filters(self):
+        result = []
         if self.showIndividual.isChecked():
             for f in self.__filter_model:
-                if f.id != self.filter.id:
+                if self.filter is not None and f.id == self.filter.id:
+                    result.append(self.filter.getTransferFunction().getMagnitude(colour=get_filter_colour(len(result)),
+                                                                                 linestyle=':'))
+                else:
                     result.append(f.getTransferFunction().getMagnitude(colour=get_filter_colour(len(result))))
+            if self.filter is not None and self.__original_id is None:
+                result.append(self.filter.getTransferFunction().getMagnitude(colour=get_filter_colour(len(result)),
+                                                                             linestyle=':'))
+        if len(result) == 0:
+            if self.filter is not None:
+                tf = self.filter.getTransferFunction()
+            else:
+                tf = self.passthrough.getTransferFunction()
+            result.append(tf.getMagnitude(colour=get_filter_colour(len(self.__filter_model)), linestyle=':'))
+        return result
 
     def create_shaping_filter(self, original_id):
         '''

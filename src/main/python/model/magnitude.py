@@ -12,11 +12,14 @@ SINGLE_SUBPLOT_SPEC = GridSpec(1, 1).new_subplotspec((0, 0), 1, 1)
 
 
 class AxesManager:
-    def __init__(self, dataProvider, axes):
-        self.__provider = dataProvider
+    def __init__(self, data_provider, axes, fill_curves, fill_alpha):
+        self.__provider = data_provider
         self.__axes = axes
+        self.__fill_curves = fill_curves
+        self.__fill_alpha = fill_alpha
         self.reference_curve = None
         self.__curves = {}
+        self.__polygons = {}
         self.__maxy = 0
         self.__miny = 0
 
@@ -49,10 +52,14 @@ class AxesManager:
                 self.__maxy = math.ceil(max([x.maxy for x in data]))
             else:
                 curve_names = []
-            to_delete = [curve for name, curve in self.__curves.items() if name not in curve_names]
-            for curve in to_delete:
-                curve.remove()
-                del self.__curves[curve.get_label()]
+            self.__delete_old(curve_names, self.__curves)
+            self.__delete_old(curve_names, self.__polygons)
+
+    def __delete_old(self, names, artists):
+        to_delete = {name: artist for name, artist in artists.items() if name not in names}
+        for name, artist in to_delete.items():
+            artist.remove()
+            del artists[name]
 
     def __create_or_update_curve(self, data):
         '''
@@ -73,6 +80,13 @@ class AxesManager:
                                                             linestyle=data.linestyle,
                                                             color=data.colour,
                                                             label=data.name)[0]
+        if self.__fill_curves:
+            polygon = self.__polygons.get(data.name, None)
+            if polygon:
+                polygon.remove()
+            self.__polygons[data.name] = self.__axes.fill_between(data.x, data.y,
+                                                                  color=data.colour,
+                                                                  alpha=self.__fill_alpha)
         data.rendered = True
         return data.name
 
@@ -107,7 +121,7 @@ class MagnitudeModel:
     def __init__(self, name, chart, preferences, primary_data_provider, primary_name, secondary_data_provider=None,
                  secondary_name=None, show_legend=lambda: True, db_range_calc=dBRangeCalculator(60),
                  subplot_spec=SINGLE_SUBPLOT_SPEC, redraw_listener=None, grid_alpha=0.5, x_min_pref_key=GRAPH_X_MIN,
-                 x_max_pref_key=GRAPH_X_MAX, x_scale_pref_key=GRAPH_X_AXIS_SCALE):
+                 x_max_pref_key=GRAPH_X_MAX, x_scale_pref_key=GRAPH_X_AXIS_SCALE, fill_curves=False, fill_alpha=0.5):
         self.__name = name
         self.__chart = chart
         self.__redraw_listener = redraw_listener
@@ -116,13 +130,13 @@ class MagnitudeModel:
         primary_axes.set_ylabel(f"dBFS ({primary_name})")
         primary_axes.grid(linestyle='-', which='major', linewidth=1, alpha=grid_alpha)
         primary_axes.grid(linestyle='--', which='minor', linewidth=1, alpha=grid_alpha)
-        self.__primary = AxesManager(primary_data_provider, primary_axes)
+        self.__primary = AxesManager(primary_data_provider, primary_axes, fill_curves, fill_alpha)
         if secondary_data_provider is None:
             secondary_axes = None
         else:
             secondary_axes = primary_axes.twinx()
             secondary_axes.set_ylabel(f"dBFS ({secondary_name})")
-        self.__secondary = AxesManager(secondary_data_provider, secondary_axes)
+        self.__secondary = AxesManager(secondary_data_provider, secondary_axes, fill_curves, fill_alpha)
         self.limits = Limits(self.__repr__(), self.__redraw_func, primary_axes,
                              x_lim=(preferences.get(x_min_pref_key), preferences.get(x_max_pref_key)),
                              y_range_calculator=db_range_calc, axes_2=secondary_axes,

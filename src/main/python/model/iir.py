@@ -704,10 +704,11 @@ class ComplexFilter(Sequence):
             self.listener.on_filter_change(self)
 
     def save0(self, filter, filters):
-        match = next((f for f in filters if f.id == filter.id), None)
+        match = next((idx for idx, f in enumerate(filters) if f.id == filter.id), None)
         if match:
-            filters.remove(match)
-        filters.append(filter)
+            filters[match] = filter
+        else:
+            filters.append(filter)
         return filters
 
     def removeByIndex(self, indices):
