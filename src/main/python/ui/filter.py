@@ -132,6 +132,7 @@ class Ui_editFilterDialog(object):
         self.filterCountLabel.setObjectName("filterCountLabel")
         self.paramsPane.addWidget(self.filterCountLabel, 8, 0, 1, 1)
         self.showIndividual = QtWidgets.QCheckBox(editFilterDialog)
+        self.showIndividual.setChecked(True)
         self.showIndividual.setObjectName("showIndividual")
         self.paramsPane.addWidget(self.showIndividual, 9, 0, 1, 3)
         self.paramsPane.setColumnStretch(0, 1)
