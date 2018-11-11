@@ -3,7 +3,7 @@ import json
 from model.codec import filter_from_json, signaldata_from_json, signaldata_to_json
 from model.iir import ComplexLowPass, FilterType, ComplexHighPass, Passthrough, PeakingEQ, FirstOrder_LowPass, \
     FirstOrder_HighPass, SecondOrder_LowPass, SecondOrder_HighPass, AllPass, LowShelf, CompleteFilter, HighShelf, Gain
-from model.signal import SignalData
+from model.signal import SingleChannelSignalData
 
 
 def test_codec_Passthrough():
@@ -245,13 +245,12 @@ def test_codec_signal():
     avg = LowShelf(fs, 30, 1, 10).getTransferFunction().getMagnitude()
     filt = CompleteFilter()
     filt.save(HighShelf(fs, 60, 1, 5, count=2))
-    data = SignalData('test', fs, [avg, peak], filter=filt, duration_hhmmss='01:23:45', start_hhmmss='00:01:10',
-                      end_hhmmss='00:10:20')
+    data = SingleChannelSignalData('test', fs, [avg, peak], filter=filt, duration_seconds=123456, start_seconds=123)
     output = json.dumps(signaldata_to_json(data))
     assert output is not None
     decoded = signaldata_from_json(json.loads(output))
     assert decoded is not None
-    assert isinstance(decoded, SignalData)
+    assert isinstance(decoded, SingleChannelSignalData)
     assert decoded.name == data.name
     assert decoded.fs == data.fs
     assert decoded.filter is not None

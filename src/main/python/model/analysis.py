@@ -302,7 +302,7 @@ class Waveform:
         self.__limits.x_min = 0
         self.__limits.x_max = 1
         if signal is not None:
-            self.__limits.x_max = signal.durationSeconds
+            self.__limits.x_max = signal.duration_seconds
             headroom = 20 * math.log(1.0 / np.nanmax(np.abs(signal.samples)), 10)
         else:
             headroom = 0.0
@@ -332,7 +332,7 @@ class Waveform:
         Shows the graph limits dialog.
         '''
         if self.signal is not None:
-            LimitsDialog(self.__limits, x_min=0, x_max=self.signal.durationSeconds, y1_min=-1, y1_max=1).exec()
+            LimitsDialog(self.__limits, x_min=0, x_max=self.signal.duration_seconds, y1_min=-1, y1_max=1).exec()
 
     def analyse(self):
         '''
@@ -341,7 +341,7 @@ class Waveform:
         from app import wait_cursor
         with wait_cursor(f"Analysing"):
             step = 1.0 / self.signal.fs
-            x = np.arange(0, self.signal.durationSeconds, step)
+            x = np.arange(0, self.signal.duration_seconds, step)
             y = self.signal.samples
             if self.__ui.magnitudeDecibels.isChecked():
                 y = np.copy(y)

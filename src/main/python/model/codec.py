@@ -1,8 +1,8 @@
+import logging
 import os
 from uuid import uuid4
 
 import numpy as np
-import logging
 
 from model.iir import Gain
 
@@ -31,10 +31,9 @@ def signaldata_to_json(signal):
         out['master_name'] = signal.master.name
     if len(signal.slaves) > 0:
         out['slave_names'] = [s.name for s in signal.slaves]
-    if signal.duration_hhmmss is not None:
-        out['duration_hhmmss'] = signal.duration_hhmmss
-        out['start_hhmmss'] = signal.start_hhmmss
-        out['end_hhmmss'] = signal.end_hhmmss
+    if signal.duration_seconds is not None:
+        out['duration_seconds'] = signal.duration_seconds
+        out['start_seconds'] = signal.start_seconds
     if signal.signal is not None and signal.signal.metadata is not None:
         out['metadata'] = signal.signal.metadata
     return out
@@ -70,10 +69,10 @@ def signaldata_from_json(o):
     :param o: the dict (from json).
     :return: the SignalData (or an error)
     '''
-    from model.signal import SignalData
+    from model.signal import SingleChannelSignalData
     if '_type' not in o:
         raise ValueError(f"{o} is not SignalData")
-    elif o['_type'] == SignalData.__name__:
+    elif o['_type'] == SingleChannelSignalData.__name__ or o['_type'] == 'SignalData':
         filt = o.get('filter', None)
         if filt is not None:
             filt = filter_from_json(filt)
@@ -91,11 +90,23 @@ def signaldata_from_json(o):
                                      target_fs=o['fs'])
             except:
                 logger.exception(f"Unable to load signal from {metadata['src']}")
-        signal_data = SignalData(o['name'], o['fs'], [avg, peak], filter=filt,
-                                 duration_hhmmss=o.get('duration_hhmmss', None),
-                                 start_hhmmss=o.get('start_hhmmss', None),
-                                 end_hhmmss=o.get('end_hhmmss', None),
-                                 signal=signal)
+        if 'duration_seconds' in o:
+            signal_data = SingleChannelSignalData(o['name'], o['fs'], [avg, peak], filter=filt,
+                                                  duration_seconds=o.get('duration_seconds', None),
+                                                  start_seconds=o.get('start_seconds', None),
+                                                  signal=signal)
+        elif 'duration_hhmmss' in o:
+            h, m, s = o['duration_hhmmss'].split(':')
+            duration_seconds = (int(h) * 3600) + int(m) * (60 + float(s))
+            h, m, s = o['start_hhmmss'].split(':')
+            start_seconds = (int(h) * 3600) + int(m) * (60 + float(s))
+            signal_data = SingleChannelSignalData(o['name'], o['fs'], [avg, peak], filter=filt,
+                                                  duration_seconds=duration_seconds,
+                                                  start_seconds=start_seconds,
+                                                  signal=signal)
+        else:
+            signal_data = SingleChannelSignalData(o['name'], o['fs'], [avg, peak], filter=filt,
+                                                  signal=signal)
         return signal_data
     raise ValueError(f"{o._type} is an unknown signal type")
 

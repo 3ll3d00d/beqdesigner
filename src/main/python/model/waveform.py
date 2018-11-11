@@ -1,3 +1,4 @@
+import logging
 import math
 
 import numpy as np
@@ -8,8 +9,9 @@ from qtpy.QtCore import QTime
 from qtpy.QtGui import QFont
 
 from model.magnitude import MagnitudeModel
-from model.preferences import get_filter_colour
-from model.signal import SignalDialog
+from model.signal import SignalDialog, SIGNAL_SOURCE_FILE, SIGNAL_CHANNEL
+
+logger = logging.getLogger('waveform')
 
 
 class WaveformController:
@@ -59,12 +61,9 @@ class WaveformController:
         self.hide_spectrum()
         self.__waveform_chart_model.zoom_out()
 
-    def __on_x_range_change(self, enable):
+    def __on_x_range_change(self):
         ''' updates the view if the x range changes. '''
-        self.__show_spectrum_btn.setEnabled(enable)
-        self.__hide_spectrum_btn.setEnabled(enable)
-        self.__show_limits_btn.setEnabled(enable)
-        if enable:
+        if self.__magnitude_model.is_visible():
             self.__magnitude_model.redraw()
 
     def getMagnitudeData(self, reference=None):
@@ -90,6 +89,8 @@ class WaveformController:
                     self.__selector.addItem(s.name)
                 else:
                     self.__selector.addItem(f"-- {s.name}")
+            for bm in self.__signal_model.bass_managed_signals:
+                self.__selector.addItem(f"(BM) {bm.name}")
             idx = self.__selector.findText(currently_selected)
             if idx > -1:
                 self.__selector.setCurrentIndex(idx)
@@ -99,7 +100,7 @@ class WaveformController:
     def __reset_controls(self):
         self.__waveform_chart_model.clear()
         self.__source_file.clear()
-        self.__on_x_range_change(False)
+        self.__on_x_range_change()
         self.hide_spectrum()
 
     def update_waveform(self, signal_name):
@@ -115,12 +116,15 @@ class WaveformController:
             self.__active_signal = None
         else:
             self.__load_signal_btn.setEnabled(False)
-            metadata = self.__current_signal.signal.metadata
+            metadata = self.__current_signal.metadata
             if metadata is not None:
-                self.__source_file.setText(f"{ metadata['src']} - C{ metadata['channel']}")
+                if SIGNAL_CHANNEL in metadata:
+                    self.__source_file.setText(f"{metadata[SIGNAL_SOURCE_FILE]} - C{metadata[SIGNAL_CHANNEL]}")
+                else:
+                    self.__source_file.setText(metadata[SIGNAL_SOURCE_FILE])
             self.__current_signal.register_listener(self.on_filter_update)
             self.__start_time.setEnabled(True)
-            duration = QTime(0, 0, 0).addMSecs(self.__current_signal.signal.durationSeconds * 1000.0)
+            duration = QTime(0, 0, 0).addMSecs(self.__current_signal.duration_seconds * 1000.0)
             self.__start_time.setMaximumTime(duration)
             self.__end_time.setEnabled(True)
             self.__end_time.setMaximumTime(duration)
@@ -139,8 +143,10 @@ class WaveformController:
                 self.update_waveform(signal_name)
 
     def __get_signal_data(self, signal_name):
-        signal_data = next((s for s in self.__signal_model if s.name == signal_name), None)
-        return signal_data
+        if signal_name is not None and signal_name.startswith('(BM) '):
+            return next((s for s in self.__signal_model.bass_managed_signals if s.name == signal_name[5:]), None)
+        else:
+            return next((s for s in self.__signal_model if s.name == signal_name), None)
 
     def __reset_time(self, time_widget):
         ''' resets and disables the supplied time field. '''
@@ -156,18 +162,15 @@ class WaveformController:
         signal_data = self.__get_signal_data(signal_name)
         if signal_data is not None:
             if state:
-                sos = signal_data.active_filter.resample(signal_data.fs, copy_listener=False).get_sos()
-                if len(sos) > 0:
-                    signal = signal_data.signal.sosfilter(sos)
-                else:
-                    signal = signal_data.signal
+                signal = signal_data.filter_signal()
             else:
                 signal = signal_data.signal
             self.__active_signal = signal
             self.__waveform_chart_model.signal = signal
             self.__waveform_chart_model.idx = self.__selector.currentIndex() - 1
             self.__waveform_chart_model.analyse()
-            self.__magnitude_model.redraw()
+            if self.__magnitude_model.is_visible():
+                self.__magnitude_model.redraw()
 
     def on_filter_update(self):
         ''' if the signal is filtered then updated the chart when the filter changes. '''
@@ -246,8 +249,7 @@ class WaveformModel:
 
     def __propagate_btn_state_on_xrange_change(self):
         min_secs, max_secs = self.get_time_range()
-        enable_btns = (not math.isclose(min_secs, 0.0)) or (max_secs < self.__get_max_time())
-        self.__on_x_range_change(enable_btns)
+        self.__on_x_range_change()
         return max_secs, min_secs
 
     def get_time_range(self):
@@ -270,7 +272,7 @@ class WaveformModel:
         if self.signal is None:
             x_max = 1.0
         else:
-            x_max = self.signal.durationSeconds
+            x_max = self.signal.duration_seconds
         self.__chart.getPlotItem().setLimits(xMin=0.0, xMax=x_max)
         if x_range[1] > x_max:
             self.__chart.getPlotItem().setXRange(x_range[0], x_max, padding=0.0)
@@ -291,7 +293,7 @@ class WaveformModel:
         from app import wait_cursor
         with wait_cursor(f"Analysing"):
             step = 1.0 / self.signal.fs
-            x = np.arange(0, self.signal.durationSeconds, step)
+            x = np.arange(0, self.signal.duration_seconds, step)
             y = self.signal.samples
             if self.__curve is None:
                 self.__curve = self.__chart.plot(x, y, pen=mkPen('c', width=1))
@@ -313,7 +315,7 @@ class WaveformModel:
         self.__chart.getPlotItem().setYRange(-1, 1, padding=0.0)
 
     def __get_max_time(self):
-        return self.signal.durationSeconds if self.signal else 1
+        return self.signal.duration_seconds if self.signal else 1
 
 
 def to_seconds(time_widget):
@@ -329,9 +331,9 @@ class AssociateSignalDialog(SignalDialog):
         self.__signal_data = signal_data
         self.signalTypeTabs.setTabEnabled(1, False)
 
-    def save(self, signals):
+    def save(self, signal):
         ''' writes the underlying signal into the existing signaldata '''
-        self.__signal_data.signal = signals[0].signal
+        self.__signal_data.signal = signal[0].signal
 
     def selectFile(self):
         ''' autopopulates and disables the signal name field (as it is irrelevant here) '''

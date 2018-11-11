@@ -949,7 +949,7 @@ class XYData:
         self.x = x
         self.y = np.nan_to_num(y)
         # TODO consider a variable spacing so we don't go overboard for full range view
-        required_points = self.x[-1] * 4
+        required_points = math.ceil(self.x[-1]) * 4
         if self.y.size != required_points:
             new_x = np.linspace(self.x[0], self.x[-1], num=required_points, endpoint=True)
             cs = CubicSpline(self.x, self.y)

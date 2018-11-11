@@ -361,6 +361,28 @@
    <header>mpl</header>
   </customwidget>
  </customwidgets>
+ <tabstops>
+  <tabstop>signalTypeTabs</tabstop>
+  <tabstop>wavFilePicker</tabstop>
+  <tabstop>wavChannelSelector</tabstop>
+  <tabstop>wavStartTime</tabstop>
+  <tabstop>wavEndTime</tabstop>
+  <tabstop>wavSignalName</tabstop>
+  <tabstop>loadAllChannels</tabstop>
+  <tabstop>decimate</tabstop>
+  <tabstop>previewButton</tabstop>
+  <tabstop>filterSelect</tabstop>
+  <tabstop>linkedSignal</tabstop>
+  <tabstop>wavFile</tabstop>
+  <tabstop>wavFs</tabstop>
+  <tabstop>frdFs</tabstop>
+  <tabstop>frdAvgFile</tabstop>
+  <tabstop>frdAvgFilePicker</tabstop>
+  <tabstop>frdSignalName</tabstop>
+  <tabstop>frdPeakFilePicker</tabstop>
+  <tabstop>frdPeakFile</tabstop>
+  <tabstop>previewChart</tabstop>
+ </tabstops>
  <resources/>
  <connections>
   <connection>

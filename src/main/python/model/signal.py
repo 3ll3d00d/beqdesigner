@@ -1,3 +1,4 @@
+import abc
 import datetime
 import logging
 import math
@@ -23,26 +24,84 @@ from model.preferences import get_avg_colour, get_peak_colour, SHOW_PEAK, \
     DISPLAY_SHOW_FILTERED_SIGNALS, ANALYSIS_TARGET_FS
 from ui.signal import Ui_addSignalDialog
 
+SIGNAL_END = 'end'
+
+SIGNAL_START = 'start'
+
+SIGNAL_CHANNEL = 'channel'
+
+SIGNAL_SOURCE_FILE = 'src'
+
 logger = logging.getLogger('signal')
 
 """ speclab reports a peak of 0dB but, by default, we report a peak of -3dB """
 SPECLAB_REFERENCE = 1.0 / (2 ** 0.5)
 
 
-class SignalData:
+class SignalData(abc.ABC):
+
+    @abc.abstractmethod
+    def register_listener(self, listener):
+        pass
+
+    @abc.abstractmethod
+    def unregister_listener(self, listener):
+        pass
+
+    @property
+    @abc.abstractmethod
+    def duration_seconds(self):
+        pass
+
+    @property
+    @abc.abstractmethod
+    def start_seconds(self):
+        pass
+
+    @property
+    @abc.abstractmethod
+    def duration_hhmmss(self):
+        pass
+
+    @property
+    @abc.abstractmethod
+    def start_hhmmss(self):
+        pass
+
+    @property
+    @abc.abstractmethod
+    def end_hhmmss(self):
+        pass
+
+    @property
+    @abc.abstractmethod
+    def metadata(self):
+        pass
+
+    @property
+    @abc.abstractmethod
+    def signal(self):
+        pass
+
+    @property
+    @abc.abstractmethod
+    def name(self):
+        pass
+
+
+class SingleChannelSignalData(SignalData):
     '''
     Provides a mechanism for caching the assorted xy data surrounding a signal.
     '''
 
-    def __init__(self, name, fs, xy_data, filter, duration_hhmmss=None, start_hhmmss=None, end_hhmmss=None,
-                 signal=None):
+    def __init__(self, name, fs, xy_data, filter, duration_seconds=None, start_seconds=None, signal=None):
+        super().__init__()
         self.__on_change_listeners = []
         self.__filter = None
         self.__name = name
         self.fs = fs
-        self.duration_hhmmss = duration_hhmmss
-        self.start_hhmmss = start_hhmmss
-        self.end_hhmmss = end_hhmmss
+        self.__duration_seconds = duration_seconds
+        self.__start_seconds = start_seconds
         self.raw = xy_data
         self.slaves = []
         self.master = None
@@ -55,13 +114,36 @@ class SignalData:
 
     def register_listener(self, listener):
         ''' registers a listener to be notified when the filter updates (used by the WaveformController) '''
-        logger.info(f"Registering listener {listener}")
         self.__on_change_listeners.append(listener)
 
     def unregister_listener(self, listener):
         ''' unregisters a listener to be notified when the filter updates '''
-        logger.info(f"Unregistering listener {listener}")
         self.__on_change_listeners.remove(listener)
+
+    @property
+    def duration_seconds(self):
+        return self.__duration_seconds
+
+    @property
+    def start_seconds(self):
+        return self.__start_seconds
+
+    @property
+    def duration_hhmmss(self):
+        return str(datetime.timedelta(seconds=self.duration_seconds))
+
+    @property
+    def start_hhmmss(self):
+        return str(datetime.timedelta(seconds=self.start_seconds))
+
+    @property
+    def end_hhmmss(self):
+        return self.duration_hhmmss
+
+    @property
+    def metadata(self):
+        ''' :return: the metadata from the underlying signal, if any. '''
+        return self.signal.metadata if self.signal is not None else None
 
     @property
     def signal(self):
@@ -182,6 +264,123 @@ class SignalData:
         ''' applies or removes the equal energy tilt '''
         self.tilt_on = tilt
 
+    def adjust_gain(self, gain):
+        '''
+        returns the signal with gain adjusted.
+        :param gain: the gain.
+        :return: the gain adjusted signal.
+        '''
+        if self.signal is not None:
+            return self.signal.adjust_gain(gain)
+        return None
+
+    def filter_signal(self, gain=1.0):
+        '''
+        returns the filtered signal if we have the raw sample data applying an optional gain factor.
+        :param gain: the gain.
+        :return: the filtered signal.
+        '''
+        if self.signal is not None:
+            sos = self.active_filter.resample(self.fs, copy_listener=False).get_sos()
+            if len(sos) > 0:
+                signal = self.signal.sosfilter(sos)
+            else:
+                signal = self.signal
+            if not math.isclose(gain, 1.0):
+                signal = signal.adjust_gain(gain)
+            return signal
+        else:
+            return None
+
+
+class BassManagedSignalData(SignalData):
+    ''' A composite signal that will be bass managed. '''
+
+    def __init__(self, signals):
+        super().__init__()
+        self.__channels = []
+        self.__lfe_channel_idx = None
+        for s in signals:
+            self.__add(s)
+        self.__name = signals[0].name[:signals[0].name.rfind('_')]
+        self.__fs = signals[0].fs
+        self.__duration_seconds = signals[0].duration_seconds
+        self.__start_seconds = signals[0].start_seconds
+        self.__metadata = {**signals[0].metadata}
+        if SIGNAL_CHANNEL in self.__metadata:
+            del self.__metadata[SIGNAL_CHANNEL]
+
+    @property
+    def channels(self):
+        return self.__channels
+
+    def __add(self, signal):
+        ''' Adds a new input channel to the signal '''
+        if signal.name.endswith('_LFE'):
+            self.__lfe_channel_idx = len(self.__channels)
+        self.__channels.append(signal)
+
+    def sum(self, apply_filter=True):
+        ''' Sums the signals to create a bass managed output '''
+        main_sum = 20.0 * math.log10(len(self.__channels) - 1)
+        overall_sum = 20.0 * math.log10((10.0 ** (main_sum / 20.0)) + (10.0 ** 0.5))
+        main_attenuate = 10 ** (-overall_sum / 20.0)
+        lfe_attenuate = 10 ** ((-overall_sum + 10.0) / 20.0)
+        logger.debug(f"Attenuating {len(self.__channels) - 1} mains by {round(overall_sum,2)} dB (x{main_attenuate:.4})")
+        logger.debug(f"Attenuating LFE by {round(overall_sum - 10, 2)}dB (x{lfe_attenuate:.4})")
+        if apply_filter:
+            samples = [x.filter_signal(lfe_attenuate if idx == self.__lfe_channel_idx else main_attenuate).samples
+                       for idx, x in enumerate(self.__channels)]
+        else:
+            samples = [x.adjust_gain(lfe_attenuate if idx == self.__lfe_channel_idx else main_attenuate).samples
+                       for idx, x in enumerate(self.__channels)]
+        return Signal(self.__name, np.sum(np.array(samples), axis=0), self.__fs)
+
+    def register_listener(self, listener):
+        ''' registers a listener to be notified when the filter updates on each underlying signal '''
+        for s in self.__channels:
+            s.register_listener(listener)
+
+    def unregister_listener(self, listener):
+        ''' unregisters a listener to be notified when the filter updates from each underlying signal '''
+        for s in self.__channels:
+            s.unregister_listener(listener)
+
+    @property
+    def signal(self):
+        return self.sum(apply_filter=False)
+
+    def filter_signal(self):
+        return self.sum(apply_filter=True)
+
+    @property
+    def duration_seconds(self):
+        return self.__duration_seconds
+
+    @property
+    def start_seconds(self):
+        return self.__start_seconds
+
+    @property
+    def duration_hhmmss(self):
+        return str(datetime.timedelta(seconds=self.__duration_seconds))
+
+    @property
+    def start_hhmmss(self):
+        return str(datetime.timedelta(seconds=self.__start_seconds))
+
+    @property
+    def end_hhmmss(self):
+        return self.duration_hhmmss
+
+    @property
+    def metadata(self):
+        return self.__metadata
+
+    @property
+    def name(self):
+        return self.__name
+
 
 class SignalModel(Sequence):
     '''
@@ -190,6 +389,7 @@ class SignalModel(Sequence):
 
     def __init__(self, view, default_signal, preferences, on_update=lambda _: True):
         self.__signals = []
+        self.__bass_managed_signals = []
         self.default_signal = default_signal
         self.__view = view
         self.__on_update = on_update
@@ -199,6 +399,10 @@ class SignalModel(Sequence):
     @property
     def table(self):
         return self.__table
+
+    @property
+    def bass_managed_signals(self):
+        return self.__bass_managed_signals
 
     @table.setter
     def table(self, table):
@@ -250,14 +454,19 @@ class SignalModel(Sequence):
         Add the supplied signals ot the model.
         :param signals: the signal.
         '''
-        before_size = len(self.__signals)
-        if self.__table is not None:
-            self.__table.beginInsertRows(QModelIndex(), before_size, before_size)
-        signal.reindex(before_size)
-        self.__signals.append(signal)
-        self.post_update()
-        if self.__table is not None:
-            self.__table.endInsertRows()
+        if isinstance(signal, BassManagedSignalData):
+            # add the bass managed signal first because the selector refresh is driven by the signal model change
+            self.__bass_managed_signals.append(signal)
+            self.add_all(signal.channels)
+        else:
+            before_size = len(self.__signals)
+            if self.__table is not None:
+                self.__table.beginInsertRows(QModelIndex(), before_size, before_size)
+            signal.reindex(before_size)
+            self.__signals.append(signal)
+            self.post_update()
+            if self.__table is not None:
+                self.__table.endInsertRows()
 
     def add_all(self, signals):
         '''
@@ -419,17 +628,25 @@ class Signal:
         self.name = name
         self.samples = samples
         self.fs = fs
-        self.durationSeconds = len(self.samples) / self.fs
-        self.startSeconds = 0
-        self.end = self.durationSeconds
+        self.duration_seconds = self.samples.size / self.fs
+        self.start_seconds = 0
+        self.end = self.duration_seconds
         self.__metadata = metadata
-        # formatted for display purposes
-        self.duration_hhmmss = str(datetime.timedelta(seconds=self.durationSeconds))
-        self.start_hhmmss = str(datetime.timedelta(seconds=self.startSeconds))
-        self.end_hhmmss = self.duration_hhmmss
         self.__avg = None
         self.__peak = None
         self.__cached = []
+
+    @property
+    def duration_hhmmss(self):
+        return str(datetime.timedelta(seconds=self.duration_seconds))
+
+    @property
+    def start_hhmmss(self):
+        return str(datetime.timedelta(seconds=self.start_seconds))
+
+    @property
+    def end_hhmmss(self):
+        return self.duration_hhmmss
 
     @property
     def metadata(self):
@@ -437,7 +654,7 @@ class Signal:
 
     def cut(self, start, end):
         ''' slices a section out of the signal '''
-        if start < self.durationSeconds and end <= self.durationSeconds:
+        if start < self.duration_seconds and end <= self.duration_seconds:
             metadata = None
             if self.metadata is not None:
                 metadata = {**self.metadata, 'start': start, 'end': end}
@@ -546,6 +763,14 @@ class Signal:
         :return: the filtered signal
         '''
         return Signal(self.name, signal.sosfilt(sos, self.samples), fs=self.fs, metadata=self.metadata)
+
+    def adjust_gain(self, gain):
+        '''
+        Adjusts the gain via the specified gain factor (ratio)
+        :param gain: the gain ratio to apply.
+        :return: the adjusted signal.
+        '''
+        return Signal(self.name, self.samples * gain, fs=self.fs, metadata=self.metadata)
 
     def resample(self, new_fs):
         '''
@@ -724,25 +949,29 @@ class AutoWavLoader:
         self.__start = None
         self.__end = None
         self.info = None
+        self.__wav_data = None
 
     def reset(self):
         '''
         Clears internal state.
         '''
         self.__signal = None
+        self.__wav_data = None
         self.info = None
 
-    def auto_load(self, file, name_provider, decimate):
+    def auto_load(self, name_provider, decimate):
         '''
         Loads the file and automatically creates a signal for each channel found.
-        :param file: the file to load.
         :param name_provider: a callable that yields a signal name for the given channel.
         :param decimate: if true, decimate
         :return: the signals.
         '''
-        self.load(file)
-        return [self.__auto_load(x + 1, name_provider(x, self.info.channels), decimate)
-                for x in range(0, self.info.channels)]
+        start = time.time()
+        try:
+            return BassManagedSignalData([self.__auto_load(x + 1, name_provider(x, self.info.channels), decimate)
+                                          for x in range(0, self.info.channels)])
+        finally:
+            logger.info(f"Loaded {self.info.channels} from {self.info.name} in {round(time.time() - start, 3)}s")
 
     def load(self, file):
         '''
@@ -753,6 +982,7 @@ class AutoWavLoader:
         self.reset()
         import soundfile as sf
         self.info = sf.info(file)
+        self.__wav_data = read_wav_data(file, start=self.__start, end=self.__end)
 
     def __auto_load(self, channel, name, decimate):
         self.prepare(name=name, channel=channel, decimate=decimate)
@@ -781,8 +1011,14 @@ class AutoWavLoader:
                 name += f"_c{channel}"
         from model.preferences import ANALYSIS_TARGET_FS
         target_fs = self.__preferences.get(ANALYSIS_TARGET_FS) if decimate is True else self.info.samplerate
-        self.__signal = readWav(name, self.info.name, channel=channel, start=self.__start, end=self.__end,
-                                target_fs=target_fs)
+        kwargs = {'channel': channel, 'start': self.__start, 'end': self.__end, 'target_fs': target_fs}
+        before = time.time()
+        if self.__wav_data is not None:
+            self.__signal = readWav(name, input_data=self.__wav_data, **kwargs)
+        else:
+            self.__signal = readWav(name, input_file=self.info.name, **kwargs)
+        after = time.time()
+        logger.debug(f"Read {name} channel: {channel} in {round(after - before, 3)}s")
         self.__signal.calculate_peak_average(self.__preferences)
 
     def get_signal(self):
@@ -790,9 +1026,10 @@ class AutoWavLoader:
         Converts the loaded signal into a SignalData.
         :return: the signal data.
         '''
-        return SignalData(self.__signal.name, self.__signal.fs, self.__signal.getXY(), CompleteFilter(),
-                          duration_hhmmss=self.__signal.duration_hhmmss, start_hhmmss=self.__signal.start_hhmmss,
-                          end_hhmmss=self.__signal.end_hhmmss, signal=self.__signal)
+        return SingleChannelSignalData(self.__signal.name, self.__signal.fs, self.__signal.getXY(), CompleteFilter(),
+                                       duration_seconds=self.__signal.duration_seconds,
+                                       start_seconds=self.__signal.start_seconds,
+                                       signal=self.__signal)
 
     def get_magnitude_data(self):
         '''
@@ -866,6 +1103,7 @@ class DialogWavLoaderBridge:
             end = end_millis
         channel = int(self.__dialog.wavChannelSelector.currentText())
         self.__auto_loader.set_range(start=start, end=end)
+        self.__auto_loader.load(self.__dialog.wavFile.text())
         self.__auto_loader.prepare(name=self.__dialog.wavSignalName.text(), channel=channel,
                                    decimate=self.__dialog.decimate.isChecked())
         self.__dialog.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
@@ -893,7 +1131,7 @@ class DialogWavLoaderBridge:
         enabled = len(self.__dialog.wavSignalName.text()) > 0 and self.can_save()
         self.__dialog.buttonBox.button(QDialogButtonBox.Ok).setEnabled(enabled)
 
-    def get_signals(self):
+    def get_signal(self):
         '''
         Converts the loaded signal into a SignalData.
         :return: the signal data.
@@ -902,10 +1140,9 @@ class DialogWavLoaderBridge:
             from model.extract import get_channel_name
             name_provider = lambda channel, channel_count: get_channel_name(self.__dialog.wavSignalName.text(), channel,
                                                                             channel_count)
-            return self.__auto_loader.auto_load(self.__dialog.wavFile.text(), name_provider,
-                                                self.__dialog.decimate.isChecked())
+            return self.__auto_loader.auto_load(name_provider, self.__dialog.decimate.isChecked())
         else:
-            return [self.__auto_loader.get_signal()]
+            return self.__auto_loader.get_signal()
 
 
 class FrdLoader:
@@ -993,11 +1230,12 @@ class FrdLoader:
     def can_save(self):
         return self.__avg is not None and self.__peak is not None
 
-    def get_signals(self):
+    def get_signal(self):
         frd_name = self.__dialog.frdSignalName.text()
         self.__avg.internal_name = frd_name
         self.__peak.internal_name = frd_name
-        return [SignalData(frd_name, self.__dialog.frdFs.value(), self.get_magnitude_data(), CompleteFilter())]
+        return SingleChannelSignalData(frd_name, self.__dialog.frdFs.value(), self.get_magnitude_data(),
+                                       CompleteFilter())
 
 
 class SignalDialog(QDialog, Ui_addSignalDialog):
@@ -1108,56 +1346,56 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
         if loader.can_save():
             from app import wait_cursor
             with wait_cursor(f"Saving signals"):
-                signals = loader.get_signals()
-                if len(signals) > 0:
+                signals = loader.get_signal()
+                if signals is not None:
                     self.save(signals)
                     QDialog.accept(self)
                 else:
                     logger.warning(f"No signals produced by loader")
 
-    def save(self, signals):
+    def save(self, signal):
         ''' saves the specified signals in the signal model'''
         selected_filter_idx = self.filterSelect.currentIndex()
         if selected_filter_idx > 0:  # 0 because the dropdown has a None value first
+            # TODO deal with removal of list
             if self.filterSelect.currentText() == 'Default':
-                self.__apply_default_filter(signals)
+                self.__apply_default_filter(signal)
             else:
                 master = self.__signal_model[selected_filter_idx - 1]
-                for s in signals:
+                for s in signal:
                     if self.linkedSignal.isChecked():
                         master.enslave(s)
                     else:
                         s.filter = master.filter.resample(s.fs)
-        self.__signal_model.add_all(signals)
+        self.__signal_model.add(signal)
 
-    def __apply_default_filter(self, signals):
+    def __apply_default_filter(self, signal):
         '''
         Copies forward the default filter, using the 1st generated signal as the master if the user has chosen to link
         them.
-        :param signals: the signals.
+        :param signal: the signal.
         '''
         if self.linkedSignal.isChecked():
             master = None
-            for idx, s in enumerate(signals):
+            for idx, s in enumerate(signal):
                 if idx == 0:
                     s.filter = self.__signal_model.default_signal.filter.resample(s.fs)
                     master = s
                 else:
                     master.enslave(s)
         else:
-            for s in signals:
+            for s in signal:
                 s.filter = self.__signal_model.default_signal.filter.resample(s.fs)
 
 
-def readWav(name, input_file, channel=1, start=None, end=None, target_fs=1000) -> Signal:
-    """ reads a wav file into a Signal.
-    :param input_file: a path to the input signal file
-    :param channel: the channel to read.
-    :param start: the time to start reading from in ms
-    :param end: the time to end reading from in ms.
-    :param target_fs: the fs of the Signal to return (resampling if necessary)
-    :returns: Signal.
-    """
+def read_wav_data(input_file, start=None, end=None):
+    '''
+    Reads a wav file and returns the raw samples
+    :param input_file: the file to read.
+    :param start: the start point, if none then read from the start.
+    :param end: the end point, if none then read to the end.
+    :return: the samples, fs and metadata
+    '''
     import soundfile as sf
     if start is not None or end is not None:
         info = sf.info(input_file)
@@ -1166,8 +1404,27 @@ def readWav(name, input_file, channel=1, start=None, end=None, target_fs=1000) -
         ys, frameRate = sf.read(input_file, start=startFrame, stop=endFrame, always_2d=True)
     else:
         ys, frameRate = sf.read(input_file, always_2d=True)
-    signal = Signal(name, ys[:, channel - 1], frameRate,
-                    metadata={'src': input_file, 'channel': channel, 'start': start, 'end': end})
+    return ys, frameRate, {SIGNAL_SOURCE_FILE: input_file, SIGNAL_START: start, SIGNAL_END: end}
+
+
+def readWav(name, input_file=None, input_data=None, channel=1, start=None, end=None, target_fs=1000) -> Signal:
+    """ reads a wav file or data from a wav file into Signal, one of input_file or input_data must be provided.
+    :param name: the name of the signal.
+    :param input_file: a path to the input signal file
+    :param input_data: data read using readWav.
+    :param channel: the channel to read.
+    :param start: the time to start reading from in ms
+    :param end: the time to end reading from in ms.
+    :param target_fs: the fs of the Signal to return (resampling if necessary)
+    :returns: Signal.
+    """
+    if input_data is None and input_file is not None:
+        ys, fs, metadata = read_wav_data(input_file, start=start, end=end)
+    elif input_data is not None and input_file is None:
+        ys, fs, metadata = input_data
+    else:
+        raise ValueError('must supply one of input_file or input_data')
+    signal = Signal(name, ys[:, channel - 1], fs, metadata={**metadata,  SIGNAL_CHANNEL: channel})
     if target_fs is None or target_fs == 0:
         target_fs = signal.fs
     return signal.resample(target_fs)

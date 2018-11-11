@@ -44,7 +44,7 @@ from model.preferences import PreferencesDialog, BINARIES_GROUP, ANALYSIS_TARGET
     Preferences, \
     SCREEN_GEOMETRY, SCREEN_WINDOW_STATE, FILTERS_PRESET_x, DISPLAY_SHOW_LEGEND, DISPLAY_SHOW_FILTERS, \
     SHOW_FILTER_OPTIONS, SHOW_SIGNAL_OPTIONS, DISPLAY_SHOW_SIGNALS, SHOW_FILTERED_SIGNAL_OPTIONS
-from model.signal import SignalModel, SignalTableModel, SignalDialog, SignalData
+from model.signal import SignalModel, SignalTableModel, SignalDialog, SingleChannelSignalData
 from ui.beq import Ui_MainWindow
 
 logger = logging.getLogger('beq')
@@ -104,8 +104,8 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.actionPreferences.triggered.connect(self.showPreferences)
         # init a default signal for when we want to edit a filter without a signal
         default_mag = Passthrough().getTransferFunction().getMagnitude()
-        self.__default_signal = SignalData('default', self.preferences.get(ANALYSIS_TARGET_FS),
-                                           [default_mag, default_mag], filter=CompleteFilter())
+        self.__default_signal = SingleChannelSignalData('default', self.preferences.get(ANALYSIS_TARGET_FS),
+                                                        [default_mag, default_mag], filter=CompleteFilter())
         # init the filter view selector
         self.showFilters.blockSignals(True)
         for x in SHOW_FILTER_OPTIONS:
