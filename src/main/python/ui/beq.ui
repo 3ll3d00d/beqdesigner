@@ -158,6 +158,13 @@
               <item row="7" column="0" colspan="2">
                <layout class="QHBoxLayout" name="horizontalLayout">
                 <item>
+                 <widget class="QToolButton" name="compareSpectrumButton">
+                  <property name="text">
+                   <string>...</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
                  <widget class="QToolButton" name="showSpectrumButton">
                   <property name="text">
                    <string>...</string>

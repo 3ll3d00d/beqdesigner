@@ -175,6 +175,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
                                                         self.hideSpectrumButton,
                                                         self.zoomInButton,
                                                         self.zoomOutButton,
+                                                        self.compareSpectrumButton,
                                                         self.sourceFile,
                                                         self.loadSignalButton,
                                                         self.filteredSpectrumLimitsButton,

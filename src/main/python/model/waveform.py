@@ -17,7 +17,7 @@ logger = logging.getLogger('waveform')
 class WaveformController:
     def __init__(self, preferences, signal_model, waveform_chart, spectrum_chart, signal_selector, headroom,
                  is_filtered, start_time, end_time, show_spectrum_btn, hide_spectrum_btn, zoom_in_btn, zoom_out_btn,
-                 source_file, load_signal_btn, show_limits_btn, y_min, y_max):
+                 compare_spectrum_btn, source_file, load_signal_btn, show_limits_btn, y_min, y_max):
         self.__preferences = preferences
         self.__signal_model = signal_model
         self.__current_signal = None
@@ -27,6 +27,7 @@ class WaveformController:
         self.__end_time = end_time
         self.__show_spectrum_btn = show_spectrum_btn
         self.__hide_spectrum_btn = hide_spectrum_btn
+        self.__compare_spectrum_btn = compare_spectrum_btn
         self.__zoom_in_btn = zoom_in_btn
         self.__zoom_out_btn = zoom_out_btn
         self.__load_signal_btn = load_signal_btn
@@ -47,8 +48,10 @@ class WaveformController:
         self.__zoom_out_btn.setIcon(qta.icon('fa5s.search-minus'))
         self.__load_signal_btn.setIcon(qta.icon('fa5s.folder-open'))
         self.__show_limits_btn.setIcon(qta.icon('fa5s.arrows-alt'))
+        self.__compare_spectrum_btn.setIcon(qta.icon('fa5s.chart-area'))
         self.__show_spectrum_btn.clicked.connect(self.show_spectrum)
         self.__hide_spectrum_btn.clicked.connect(self.hide_spectrum)
+        self.__compare_spectrum_btn.clicked.connect(self.compare_spectrum)
         self.__show_limits_btn.clicked.connect(self.__magnitude_model.show_limits)
         self.__is_filtered.stateChanged['int'].connect(self.toggle_filter)
         self.__selector.currentIndexChanged['QString'].connect(self.update_waveform)
@@ -185,6 +188,10 @@ class WaveformController:
     def hide_spectrum(self):
         ''' Resets the visible spectrum for the selected waveform limits '''
         self.__magnitude_model.set_visible(False)
+
+    def compare_spectrum(self):
+        from model.analysis import AnalyseSignalDialog
+        AnalyseSignalDialog(self.__preferences, self.__signal_model, allow_load=False).exec()
 
 
 class WaveformModel:
