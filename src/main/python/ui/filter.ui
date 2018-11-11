@@ -272,6 +272,13 @@
      <item row="10" column="0" colspan="3">
       <layout class="QHBoxLayout" name="horizontalLayout">
        <item>
+        <widget class="QToolButton" name="addButton">
+         <property name="text">
+          <string>...</string>
+         </property>
+        </widget>
+       </item>
+       <item>
         <widget class="QToolButton" name="saveButton">
          <property name="toolTip">
           <string>Save and Exit</string>
@@ -620,8 +627,8 @@
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>98</x>
-     <y>414</y>
+     <x>144</x>
+     <y>382</y>
     </hint>
     <hint type="destinationlabel">
      <x>187</x>
@@ -636,8 +643,8 @@
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>192</x>
-     <y>411</y>
+     <x>214</x>
+     <y>379</y>
     </hint>
     <hint type="destinationlabel">
      <x>203</x>
@@ -668,12 +675,28 @@
    <slot>previewFilter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>50</x>
-     <y>359</y>
+     <x>64</x>
+     <y>342</y>
     </hint>
     <hint type="destinationlabel">
      <x>132</x>
      <y>438</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>addButton</sender>
+   <signal>clicked()</signal>
+   <receiver>editFilterDialog</receiver>
+   <slot>add()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>55</x>
+     <y>370</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>16</x>
+     <y>423</y>
     </hint>
    </hints>
   </connection>

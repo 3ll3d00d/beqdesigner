@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>809</width>
-    <height>636</height>
+    <height>704</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -360,7 +360,7 @@
       </layout>
      </item>
      <item>
-      <layout class="QGridLayout" name="graphLayout" columnstretch="0,0,0">
+      <layout class="QGridLayout" name="graphPane" columnstretch="0,0,0">
        <item row="2" column="1">
         <widget class="QSpinBox" name="xmin">
          <property name="minimum">
@@ -429,7 +429,70 @@
       </layout>
      </item>
      <item>
-      <layout class="QGridLayout" name="systemLayout">
+      <layout class="QGridLayout" name="filterPane">
+       <item row="1" column="2">
+        <widget class="QLabel" name="filterFreqLabel">
+         <property name="text">
+          <string>Default Freq</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QDoubleSpinBox" name="filterQ">
+         <property name="decimals">
+          <number>3</number>
+         </property>
+         <property name="minimum">
+          <double>0.001000000000000</double>
+         </property>
+         <property name="singleStep">
+          <double>0.001000000000000</double>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="QLabel" name="filterQLabel">
+         <property name="text">
+          <string>Default Q</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="3">
+        <widget class="QSpinBox" name="filterFreq">
+         <property name="minimum">
+          <number>1</number>
+         </property>
+         <property name="maximum">
+          <number>24000</number>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="0" colspan="4">
+        <widget class="QLabel" name="filterLayoutLabel">
+         <property name="font">
+          <font>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="frameShape">
+          <enum>QFrame::Box</enum>
+         </property>
+         <property name="frameShadow">
+          <enum>QFrame::Sunken</enum>
+         </property>
+         <property name="text">
+          <string>Filter</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignCenter</set>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <layout class="QGridLayout" name="systemPane">
        <item row="0" column="0">
         <widget class="QLabel" name="systemLayoutLabel">
          <property name="font">

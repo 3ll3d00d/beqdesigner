@@ -62,6 +62,8 @@ BINARIES_FFPROBE = f"{BINARIES_GROUP}/ffprobe"
 BINARIES_FFMPEG = f"{BINARIES_GROUP}/ffmpeg"
 
 FILTERS_PRESET_x = 'filters/preset_%d'
+FILTERS_DEFAULT_Q = 'filters/defaults/q'
+FILTERS_DEFAULT_FREQ = 'filters/defaults/freq'
 
 SCREEN_GEOMETRY = 'screen/geometry'
 SCREEN_WINDOW_STATE = 'screen/window_state'
@@ -132,16 +134,18 @@ DEFAULT_PREFS = {
     STYLE_MATPLOTLIB_THEME: STYLE_MATPLOTLIB_THEME_DEFAULT,
     DISPLAY_SHOW_LEGEND: True,
     DISPLAY_SHOW_FILTERS: SHOW_ALL_FILTERS,
-    EXTRACTION_OUTPUT_DIR: os.path.expanduser('~'),
-    EXTRACTION_MIX_MONO: False,
-    EXTRACTION_COMPRESS: False,
-    EXTRACTION_DECIMATE: False,
-    EXTRACTION_INCLUDE_ORIGINAL: False,
     DISPLAY_FREQ_STEP: '1',
     DISPLAY_Q_STEP: '0.1',
     DISPLAY_S_STEP: '0.1',
     DISPLAY_GAIN_STEP: '0.1',
     DISPLAY_LINE_STYLE: True,
+    EXTRACTION_OUTPUT_DIR: os.path.expanduser('~'),
+    EXTRACTION_MIX_MONO: False,
+    EXTRACTION_COMPRESS: False,
+    EXTRACTION_DECIMATE: False,
+    EXTRACTION_INCLUDE_ORIGINAL: False,
+    FILTERS_DEFAULT_FREQ: 20.0,
+    FILTERS_DEFAULT_Q: 0.707,
     GRAPH_X_AXIS_SCALE: 'log',
     GRAPH_X_MIN: 1,
     GRAPH_X_MAX: 160,
@@ -186,6 +190,8 @@ TYPES = {
     EXTRACTION_COMPRESS: bool,
     EXTRACTION_DECIMATE: bool,
     EXTRACTION_INCLUDE_ORIGINAL: bool,
+    FILTERS_DEFAULT_FREQ: int,
+    FILTERS_DEFAULT_Q: float,
     GRAPH_X_MIN: int,
     GRAPH_X_MAX: int,
     REPORT_FILTER_ROW_HEIGHT_MULTIPLIER: float,
@@ -359,6 +365,9 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         self.includeOriginal.setChecked(self.__preferences.get(EXTRACTION_INCLUDE_ORIGINAL))
         self.compress.setChecked(self.__preferences.get(EXTRACTION_COMPRESS))
 
+        self.filterQ.setValue(self.__preferences.get(FILTERS_DEFAULT_Q))
+        self.filterFreq.setValue(self.__preferences.get(FILTERS_DEFAULT_FREQ))
+
     def __init_themes(self):
         '''
         Adds all the available matplotlib theme names to a combo along with our internal theme names.
@@ -445,6 +454,8 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         self.__preferences.set(EXTRACTION_DECIMATE, self.decimate.isChecked())
         self.__preferences.set(EXTRACTION_INCLUDE_ORIGINAL, self.includeOriginal.isChecked())
         self.__preferences.set(EXTRACTION_COMPRESS, self.compress.isChecked())
+        self.__preferences.set(FILTERS_DEFAULT_FREQ, self.filterFreq.value())
+        self.__preferences.set(FILTERS_DEFAULT_Q, self.filterQ.value())
         QDialog.accept(self)
 
     def alert_on_change(self, title, text='Change will not take effect until the application is restarted',

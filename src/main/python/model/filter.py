@@ -16,7 +16,7 @@ from model.iir import FilterType, LowShelf, HighShelf, PeakingEQ, SecondOrder_Lo
 from model.limits import dBRangeCalculator
 from model.magnitude import MagnitudeModel
 from model.preferences import SHOW_ALL_FILTERS, SHOW_NO_FILTERS, FILTER_COLOURS, DISPLAY_SHOW_FILTERS, DISPLAY_Q_STEP, \
-    DISPLAY_GAIN_STEP, DISPLAY_S_STEP, DISPLAY_FREQ_STEP, get_filter_colour
+    DISPLAY_GAIN_STEP, DISPLAY_S_STEP, DISPLAY_FREQ_STEP, get_filter_colour, FILTERS_DEFAULT_Q, FILTERS_DEFAULT_FREQ
 from ui.filter import Ui_editFilterDialog
 
 logger = logging.getLogger('filter')
@@ -293,6 +293,9 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
             self.filter = None
             self.__original_id = None
             self.setWindowTitle('Add Filter')
+            if self.__starting:
+                self.filterQ.setValue(self.__preferences.get(FILTERS_DEFAULT_Q))
+                self.freq.setValue(self.__preferences.get(FILTERS_DEFAULT_FREQ))
         else:
             selected_filter = self.__filter_model[idx - 1]
             self.__original_id = selected_filter.id
@@ -329,12 +332,20 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
                 return idx
         return default_idx
 
-    def save_filter(self):
+    def save_filter(self, switch_to_edit=True):
         ''' Stores the filter in the model. '''
         if self.filter is not None:
             if not self.__is_edit():
                 self.filter.id = uuid4()
+                if switch_to_edit:
+                    self.__original_id = self.filter.id
             self.__filter_model.save(self.filter)
+
+    def add(self):
+        ''' Saves a new filter '''
+        self.previewFilter()
+        self.save_filter(switch_to_edit=False)
+        self.__refresh_selector()
 
     def accept(self):
         ''' Saves an existing filter. '''
@@ -494,6 +505,8 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.sLabel.setVisible(is_shelf_filter)
         self.filterS.setVisible(is_shelf_filter)
         self.sStepButton.setVisible(is_shelf_filter)
+        self.addButton.setIcon(qta.icon('fa5s.plus'))
+        self.addButton.setIconSize(QtCore.QSize(32, 32))
         self.saveButton.setIcon(qta.icon('fa5s.save'))
         self.saveButton.setIconSize(QtCore.QSize(32, 32))
         self.exitButton.setIcon(qta.icon('fa5s.sign-out-alt'))
@@ -516,6 +529,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
     def enableOkIfGainIsValid(self):
         ''' enables the save buttons if we have a valid filter. '''
         self.saveButton.setEnabled(self.__is_valid_filter())
+        self.addButton.setEnabled(self.__original_id is None and self.__is_valid_filter())
 
     def __is_valid_filter(self):
         '''
