@@ -855,7 +855,7 @@ def amplitude_to_db(s, ref=1.0):
     magnitude = np.abs(np.asarray(s))
     power = np.square(magnitude, out=magnitude)
     ref_power = np.abs(ref ** 2)
-    amin = 1e-10
+    amin = 1e-20
     top_db = 80.0
     log_spec = 10.0 * np.log10(np.maximum(amin, power))
     log_spec -= 10.0 * np.log10(np.maximum(amin, ref_power))
