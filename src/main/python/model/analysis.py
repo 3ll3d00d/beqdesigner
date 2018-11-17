@@ -275,8 +275,8 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
             filtered_signal = self.__get_filtered_signal()
             idx = self.analysisTabs.currentIndex()
             if idx == 0:
-                self.__spectrum_analyser.left = self.__signal
-                self.__spectrum_analyser.right = filtered_signal
+                self.__spectrum_analyser.right = self.__signal
+                self.__spectrum_analyser.left = filtered_signal
                 self.__spectrum_analyser.analyse()
             elif idx == 1:
                 self.__waveform_analyser.signal = filtered_signal if filtered_signal is not None else self.__signal
@@ -288,13 +288,16 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
             idx = self.analysisTabs.currentIndex()
             if idx == 0:
                 self.__spectrum_analyser.update_chart()
+        elif self.analysisTabs.count() == 1:
+            if self.__spectrum_analyser.left is not None or self.__spectrum_analyser.right is not None:
+                self.__spectrum_analyser.update_chart()
 
     def update_filter(self, idx):
         ''' reacts to filter changes '''
         if self.__signal is not None:
             if self.analysisTabs.currentIndex() == 0:
-                self.__spectrum_analyser.signal = self.__signal
-                self.__spectrum_analyser.filtered_signal = self.__get_filtered_signal()
+                self.__spectrum_analyser.right = self.__signal
+                self.__spectrum_analyser.left = self.__get_filtered_signal()
                 self.__spectrum_analyser.analyse()
             elif self.analysisTabs.currentIndex() == 1:
                 self.show_chart()
@@ -463,13 +466,13 @@ class MaxSpectrumByTime:
         self.__init_mag_range()
 
     @property
-    def left(self):
-        return self.__left_signal
+    def right(self):
+        return self.__right_signal
 
-    @left.setter
-    def left(self, left):
-        self.__left_signal = left
-        self.__clear_scatter(self.__left_scatter)
+    @right.setter
+    def right(self, right):
+        self.__right_signal = right
+        self.__clear_scatter(self.__right_scatter)
 
     def __clear_scatter(self, scatter):
         if scatter is not None:
@@ -477,26 +480,26 @@ class MaxSpectrumByTime:
             scatter.set_array(np.array([]))
 
     @property
-    def right(self):
-        return self.__right_signal
+    def left(self):
+        return self.__left_signal
 
-    @right.setter
-    def right(self, right):
+    @left.setter
+    def left(self, left):
         self.__layout_change = (
-                (right is None and self.__right_signal is not None)
+                (left is None and self.__left_signal is not None)
                 or
-                (right is not None and self.__right_signal is None)
+                (left is not None and self.__left_signal is None)
         )
-        self.__right_signal = right
-        self.__clear_scatter(self.__right_scatter)
+        self.__left_signal = left
+        self.__clear_scatter(self.__left_scatter)
 
     def set_mag_range_type(self, type):
         ''' updates the chart controls '''
         mag_max = None
-        if 'sxx' in self.__left_cache:
-            mag_max = np.max(self.__left_cache['sxx'])
         if 'sxx' in self.__right_cache:
-            mag_max = max(mag_max, np.max(self.__right_cache['sxx']))
+            mag_max = np.max(self.__right_cache['sxx'])
+        if 'sxx' in self.__left_cache:
+            mag_max = max(mag_max, np.max(self.__left_cache['sxx']))
         if type == 'Constant':
             self.__ui.magUpperLimit.setVisible(True)
             self.__ui.magLowerLimit.setVisible(True)
@@ -529,37 +532,37 @@ class MaxSpectrumByTime:
         from app import wait_cursor
         with wait_cursor(f"Updating"):
             self.__clear_on_layout_change()
-            if self.__right_signal is None:
-                self.__render_left_only()
+            if self.__left_signal is None:
+                self.__render_one_only()
             else:
                 self.__render_both()
             if self.__cb is None:
-                divider = make_axes_locatable(self.__left_axes)
+                divider = make_axes_locatable(self.__right_axes)
                 cax = divider.append_axes("right", size="5%", pad=0.05)
-                self.__cb = self.__left_axes.figure.colorbar(self.__left_scatter, cax=cax)
+                self.__cb = self.__right_axes.figure.colorbar(self.__right_scatter, cax=cax)
             self.__redraw()
 
     def __render_both(self):
         ''' renders two plots, one with the filtered and one without. '''
-        if self.__right_axes is None:
+        if self.__left_axes is None:
             self.__width_ratio = self.__make_width_ratio()
             gs = GridSpec(1, 2, width_ratios=self.__make_width_ratio(adjusted=True), wspace=0.00)
             gs.tight_layout(self.__chart.canvas.figure)
-            self.__right_axes = self.__chart.canvas.figure.add_subplot(gs.new_subplotspec((0, 0)))
-            self.__add_grid(self.__right_axes)
-            self.__left_axes = self.__chart.canvas.figure.add_subplot(gs.new_subplotspec((0, 1)))
+            self.__left_axes = self.__chart.canvas.figure.add_subplot(gs.new_subplotspec((0, 0)))
             self.__add_grid(self.__left_axes)
+            self.__right_axes = self.__chart.canvas.figure.add_subplot(gs.new_subplotspec((0, 1)))
+            self.__add_grid(self.__right_axes)
 
-        self.__right_scatter = self.__render_scatter(self.__right_cache, self.__right_axes,
-                                                     self.__right_scatter,
-                                                     self.__ui.maxFilteredFreq.value(), self.right)
-        self.__set_limits(self.__right_axes, self.__ui.minFreq, self.__ui.maxFilteredFreq,
+        self.__left_scatter = self.__render_scatter(self.__left_cache, self.__left_axes,
+                                                     self.__left_scatter,
+                                                     self.__ui.maxFilteredFreq.value(), self.left)
+        self.__set_limits(self.__left_axes, self.__ui.minFreq, self.__ui.maxFilteredFreq,
                           self.__ui.minTime, self.__ui.maxTime)
-        self.__left_scatter = self.__render_scatter(self.__left_cache, self.__left_axes, self.__left_scatter,
-                                                    self.__ui.maxUnfilteredFreq.value(), self.left)
-        self.__left_axes.set_yticklabels([])
-        self.__left_axes.get_yaxis().set_tick_params(length=0)
-        self.__set_limits(self.__left_axes, self.__ui.minFreq, self.__ui.maxUnfilteredFreq,
+        self.__right_scatter = self.__render_scatter(self.__right_cache, self.__right_axes, self.__right_scatter,
+                                                    self.__ui.maxUnfilteredFreq.value(), self.right)
+        self.__right_axes.set_yticklabels([])
+        self.__right_axes.get_yaxis().set_tick_params(length=0)
+        self.__set_limits(self.__right_axes, self.__ui.minFreq, self.__ui.maxUnfilteredFreq,
                           self.__ui.minTime, self.__ui.maxTime)
 
     def __make_width_ratio(self, adjusted=False):
@@ -572,14 +575,14 @@ class MaxSpectrumByTime:
         else:
             return [a, b]
 
-    def __render_left_only(self):
+    def __render_one_only(self):
         ''' renders a single plot with the unfiltered only '''
-        if self.__left_axes is None:
-            self.__left_axes = self.__chart.canvas.figure.add_subplot(111)
-            self.__add_grid(self.__left_axes)
-        self.__left_scatter = self.__render_scatter(self.__left_cache, self.__left_axes, self.__left_scatter,
-                                                    self.__ui.maxUnfilteredFreq.value(), self.left)
-        self.__set_limits(self.__left_axes, self.__ui.minFreq, self.__ui.maxUnfilteredFreq,
+        if self.__right_axes is None:
+            self.__right_axes = self.__chart.canvas.figure.add_subplot(111)
+            self.__add_grid(self.__right_axes)
+        self.__right_scatter = self.__render_scatter(self.__right_cache, self.__right_axes, self.__right_scatter,
+                                                    self.__ui.maxUnfilteredFreq.value(), self.right)
+        self.__set_limits(self.__right_axes, self.__ui.minFreq, self.__ui.maxUnfilteredFreq,
                           self.__ui.minTime, self.__ui.maxTime)
 
     def __add_grid(self, axes):
