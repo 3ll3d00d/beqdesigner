@@ -99,7 +99,7 @@ class SingleChannelSignalData(SignalData):
         super().__init__()
         self.__on_change_listeners = []
         self.__filter = None
-        self.__name = name
+        self.__name = None
         self.fs = fs
         self.__duration_seconds = duration_seconds
         self.__start_seconds = start_seconds
@@ -112,6 +112,7 @@ class SingleChannelSignalData(SignalData):
         self.filter = filter
         self.tilt_on = False
         self.__signal = signal
+        self.name = name
 
     def register_listener(self, listener):
         ''' registers a listener to be notified when the filter updates (used by the WaveformController) '''
@@ -987,8 +988,11 @@ class AutoWavLoader:
         '''
         self.reset()
         import soundfile as sf
+        before = time.time()
         self.info = sf.info(file)
         self.__wav_data = read_wav_data(file, start=self.__start, end=self.__end)
+        after = time.time()
+        logger.debug(f"Read {file} in {round(after - before, 3)}s")
 
     def set_range(self, start=None, end=None):
         '''
@@ -997,35 +1001,30 @@ class AutoWavLoader:
         :param end: the end position, if any.
         '''
         if self.__start != start or self.__end != end:
-            print('clearing cache')
-            self.clear_cache()
+            logger.debug("Resetting loader on time range change, new range is {start}-{end}")
+            old_info = self.info
+            self.reset()
             self.__start = start
             self.__end = end
+            if old_info is not None:
+                self.load(old_info.name)
 
     def prepare(self, name=None, channel_count=1, channel=1, decimate=True):
         '''
-        Loads and analyses the wav with the specified parameters.
+        analyses a single channel from the wav with the specified parameters, caching the result for future reuse.
         :param name: the signal name, if none use the file name + channel.
         :param channel: the channel
         :param channel_count: the channel count, only used for creating a default name.
         :param decimate: if true, decimate the wav.
         '''
         if channel not in self.__cache:
-            print(f"Preparing channel {channel}")
             if name is None:
                 name = Path(self.info.name).resolve().stem
                 if channel_count > 1:
                     name += f"_c{channel}"
             from model.preferences import ANALYSIS_TARGET_FS
             target_fs = self.__preferences.get(ANALYSIS_TARGET_FS) if decimate is True else self.info.samplerate
-            kwargs = {'channel': channel, 'start': self.__start, 'end': self.__end, 'target_fs': target_fs}
-            before = time.time()
-            if self.__wav_data is not None:
-                signal = readWav(name, input_data=self.__wav_data, **kwargs)
-            else:
-                signal = readWav(name, input_file=self.info.name, **kwargs)
-            after = time.time()
-            logger.debug(f"Read {name} channel: {channel} in {round(after - before, 3)}s")
+            signal = readWav(name, input_data=self.__wav_data, channel=channel, target_fs=target_fs)
             signal.calculate_peak_average(self.__preferences)
             self.__cache[channel] = signal
 
@@ -1071,6 +1070,7 @@ class DialogWavLoaderBridge:
         if file is not None:
             self.clear_signal()
             self.__dialog.wavFile.setText(file)
+            self.init_time_range()
             self.__auto_loader.load(file)
             self.__load_info()
 
@@ -1102,10 +1102,8 @@ class DialogWavLoaderBridge:
         self.prepare_signal(int(self.__dialog.wavChannelSelector.currentText()))
         self.__dialog.applyTimeRangeButton.setEnabled(False)
 
-    def prepare_signal(self, channel_idx):
-        '''
-        Reads the actual file and calculates the relevant peak/avg spectrum.
-        '''
+    def init_time_range(self):
+        ''' Initialises the time range on the auto loader. '''
         start = end = None
         start_millis = self.__dialog.wavStartTime.time().msecsSinceStartOfDay()
         if start_millis > 0:
@@ -1114,6 +1112,11 @@ class DialogWavLoaderBridge:
         if end_millis < self.__duration or start is not None:
             end = end_millis
         self.__auto_loader.set_range(start=start, end=end)
+
+    def prepare_signal(self, channel_idx):
+        '''
+        Reads the actual file and calculates the relevant peak/avg spectrum.
+        '''
         self.__auto_loader.prepare(name=self.__dialog.wavSignalName.text(), channel=channel_idx,
                                    decimate=self.__dialog.decimate.isChecked())
         self.__dialog.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
@@ -1336,6 +1339,7 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
         '''
         from app import wait_cursor
         with wait_cursor('Preparing Signal'):
+            self.__loaders[self.__loader_idx].init_time_range()
             self.__loaders[self.__loader_idx].prepare_signal(int(channel_idx))
             self.__magnitudeModel.redraw()
 
