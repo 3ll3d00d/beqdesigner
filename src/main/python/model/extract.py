@@ -360,7 +360,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
                 name_provider = lambda channel, channel_count: get_channel_name(self.signalName.text(), channel,
                                                                                 channel_count,
                                                                                 channel_layout_name=self.__executor.channel_layout_name)
-                signals = loader.auto_load(output_file, name_provider, self.decimateAudio.isChecked())
+                signals = loader.auto_load(name_provider, self.decimateAudio.isChecked())
                 if len(signals) > 0:
                     for s in signals:
                         logger.info(f"Adding signal {s.name}")
