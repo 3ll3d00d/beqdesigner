@@ -12,7 +12,7 @@ from qtpy.QtWidgets import QDialog
 
 from model.iir import FilterType, LowShelf, HighShelf, PeakingEQ, SecondOrder_LowPass, \
     SecondOrder_HighPass, ComplexLowPass, ComplexHighPass, q_to_s, s_to_q, max_permitted_s, CompleteFilter, COMBINED, \
-    Passthrough, Gain
+    Passthrough, Gain, Shelf
 from model.limits import dBRangeCalculator
 from model.magnitude import MagnitudeModel
 from model.preferences import SHOW_ALL_FILTERS, SHOW_NO_FILTERS, FILTER_COLOURS, DISPLAY_SHOW_FILTERS, DISPLAY_Q_STEP, \
@@ -312,7 +312,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
             if hasattr(selected_filter, 'type'):
                 displayName = 'Butterworth' if selected_filter.type is FilterType.BUTTERWORTH else 'Linkwitz-Riley'
                 self.passFilterType.setCurrentIndex(self.passFilterType.findText(displayName))
-            if hasattr(selected_filter, 'count'):
+            if hasattr(selected_filter, 'count') and issubclass(type(selected_filter), Shelf):
                 self.filterCount.setValue(selected_filter.count)
             self.filterType.setCurrentText(selected_filter.display_name)
         # configure visible/enabled fields for the current filter type
