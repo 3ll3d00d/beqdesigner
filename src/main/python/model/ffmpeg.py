@@ -573,7 +573,7 @@ class Executor:
             f"ffmpeg.exe {trim_args} -i \"{filename}\"" \
                 f" -filter_complex_script {self.__write_filter_complex()}"
         if self.__selected_video_stream_idx != -1:
-            self.__ffmpeg_cmd += f" -map 0:v:{self.__selected_video_stream_idx} -c:v copy"
+            self.__ffmpeg_cmd += f" -map 0:v:{self.__selected_video_stream_idx} -c:v copy -map 0:s -c:s copy"
         acodec = 'flac' if self.compress_audio else 'pcm_s24le'
         if self.include_original_audio:
             self.__ffmpeg_cmd += f" -map 0:a:{self.__selected_audio_stream_idx}"
