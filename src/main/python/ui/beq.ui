@@ -110,7 +110,7 @@
                  <bool>false</bool>
                 </property>
                 <property name="minimum">
-                 <double>0.000000000000000</double>
+                 <double>-120.000000000000000</double>
                 </property>
                 <property name="maximum">
                  <double>120.000000000000000</double>
@@ -501,7 +501,7 @@
      <x>0</x>
      <y>0</y>
      <width>1574</width>
-     <height>31</height>
+     <height>34</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuHelp">
@@ -711,7 +711,7 @@
   </action>
   <action name="actionExport_FRD">
    <property name="text">
-    <string>Export &amp;FRD</string>
+    <string>&amp;Export FRD</string>
    </property>
   </action>
   <action name="action_Save_Project">
@@ -765,7 +765,7 @@
   </action>
   <action name="actionAbout">
    <property name="text">
-    <string>About</string>
+    <string>&amp;About</string>
    </property>
   </action>
   <action name="action_Remux_Audio">

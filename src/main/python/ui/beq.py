@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'beq.ui'
 #
-# Created by: PyQt5 UI code generator 5.9.2
+# Created by: PyQt5 UI code generator 5.11.3
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -63,7 +63,7 @@ class Ui_MainWindow(object):
         self.waveformControls.addWidget(self.startTimeLabel, 4, 0, 1, 1)
         self.headroom = QtWidgets.QDoubleSpinBox(self.waveformContainer)
         self.headroom.setEnabled(False)
-        self.headroom.setMinimum(0.0)
+        self.headroom.setMinimum(-120.0)
         self.headroom.setMaximum(120.0)
         self.headroom.setSingleStep(0.01)
         self.headroom.setObjectName("headroom")
@@ -243,7 +243,7 @@ class Ui_MainWindow(object):
         self.widgetGridLayout.addLayout(self.panes, 0, 0, 1, 1)
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 1574, 31))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 1574, 34))
         self.menubar.setObjectName("menubar")
         self.menuHelp = QtWidgets.QMenu(self.menubar)
         self.menuHelp.setObjectName("menuHelp")
@@ -468,7 +468,7 @@ class Ui_MainWindow(object):
         self.action_store_preset_2.setShortcut(_translate("MainWindow", "Ctrl+Alt+2"))
         self.action_store_preset_3.setText(_translate("MainWindow", "&3"))
         self.action_store_preset_3.setShortcut(_translate("MainWindow", "Ctrl+Alt+3"))
-        self.actionExport_FRD.setText(_translate("MainWindow", "Export &FRD"))
+        self.actionExport_FRD.setText(_translate("MainWindow", "&Export FRD"))
         self.action_Save_Project.setText(_translate("MainWindow", "&Save Project"))
         self.action_Load_Project.setText(_translate("MainWindow", "&Load Project"))
         self.actionSave_Signal.setText(_translate("MainWindow", "Save Si&gnal"))
@@ -480,7 +480,7 @@ class Ui_MainWindow(object):
         self.action_Batch_Extract.setShortcut(_translate("MainWindow", "Ctrl+Shift+E"))
         self.actionSave_Report.setText(_translate("MainWindow", "Save Repor&t"))
         self.actionSave_Report.setShortcut(_translate("MainWindow", "Ctrl+R"))
-        self.actionAbout.setText(_translate("MainWindow", "About"))
+        self.actionAbout.setText(_translate("MainWindow", "&About"))
         self.action_Remux_Audio.setText(_translate("MainWindow", "&Remux Audio"))
         self.action_Remux_Audio.setShortcut(_translate("MainWindow", "Ctrl+U"))
 
