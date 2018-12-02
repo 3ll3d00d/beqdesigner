@@ -16,13 +16,14 @@ logger = logging.getLogger('waveform')
 
 class WaveformController:
     def __init__(self, preferences, signal_model, waveform_chart, spectrum_chart, signal_selector, headroom,
-                 is_filtered, start_time, end_time, show_spectrum_btn, hide_spectrum_btn, zoom_in_btn, zoom_out_btn,
-                 compare_spectrum_btn, source_file, load_signal_btn, show_limits_btn, y_min, y_max):
+                 is_filtered, apply_hard_clip, start_time, end_time, show_spectrum_btn, hide_spectrum_btn, zoom_in_btn,
+                 zoom_out_btn, compare_spectrum_btn, source_file, load_signal_btn, show_limits_btn, y_min, y_max):
         self.__preferences = preferences
         self.__signal_model = signal_model
         self.__current_signal = None
         self.__active_signal = None
         self.__is_filtered = is_filtered
+        self.__apply_hard_clip = apply_hard_clip
         self.__start_time = start_time
         self.__end_time = end_time
         self.__show_spectrum_btn = show_spectrum_btn
@@ -54,6 +55,7 @@ class WaveformController:
         self.__compare_spectrum_btn.clicked.connect(self.compare_spectrum)
         self.__show_limits_btn.clicked.connect(self.__magnitude_model.show_limits)
         self.__is_filtered.stateChanged['int'].connect(self.toggle_filter)
+        self.__apply_hard_clip.stateChanged['int'].connect(self.toggle_hard_clip)
         self.__selector.currentIndexChanged['QString'].connect(self.update_waveform)
         self.__zoom_in_btn.clicked.connect(self.__waveform_chart_model.zoom_in)
         self.__zoom_out_btn.clicked.connect(self.__zoom_out)
@@ -164,10 +166,20 @@ class WaveformController:
         signal_name = self.__selector.currentText()
         signal_data = self.__get_signal_data(signal_name)
         if signal_data is not None:
-            if state:
-                signal = signal_data.filter_signal()
-            else:
-                signal = signal_data.signal
+            signal = signal_data.filter_signal(filt=state, clip=self.__apply_hard_clip.isChecked())
+            self.__active_signal = signal
+            self.__waveform_chart_model.signal = signal
+            self.__waveform_chart_model.idx = self.__selector.currentIndex() - 1
+            self.__waveform_chart_model.analyse()
+            if self.__magnitude_model.is_visible():
+                self.__magnitude_model.redraw()
+
+    def toggle_hard_clip(self, state):
+        ''' Applies or removes the hard clip option from the visible waveform '''
+        signal_name = self.__selector.currentText()
+        signal_data = self.__get_signal_data(signal_name)
+        if signal_data is not None:
+            signal = signal_data.filter_signal(filt=self.__is_filtered.isChecked, clip=state)
             self.__active_signal = signal
             self.__waveform_chart_model.signal = signal
             self.__waveform_chart_model.idx = self.__selector.currentIndex() - 1

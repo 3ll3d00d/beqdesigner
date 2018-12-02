@@ -276,20 +276,24 @@ class SingleChannelSignalData(SignalData):
             return self.signal.adjust_gain(gain)
         return None
 
-    def filter_signal(self, gain=1.0):
+    def filter_signal(self, filt=True, clip=False, gain=1.0):
         '''
         returns the filtered signal if we have the raw sample data applying an optional gain factor.
+        :param filt: whether to apply the filter.
+        :param clip: whether to clip values to a -1.0/1.0 range.
         :param gain: the gain.
         :return: the filtered signal.
         '''
         if self.signal is not None:
-            sos = self.active_filter.resample(self.fs, copy_listener=False).get_sos()
-            if len(sos) > 0:
-                signal = self.signal.sosfilter(sos)
-            else:
-                signal = self.signal
+            signal = self.signal
+            if filt:
+                sos = self.active_filter.resample(self.fs, copy_listener=False).get_sos()
+                if len(sos) > 0:
+                    signal = signal.sosfilter(sos)
             if not math.isclose(gain, 1.0):
                 signal = signal.adjust_gain(gain)
+            if clip:
+                signal = signal.clip()
             return signal
         else:
             return None
@@ -322,7 +326,7 @@ class BassManagedSignalData(SignalData):
             self.__lfe_channel_idx = len(self.__channels)
         self.__channels.append(signal)
 
-    def sum(self, apply_filter=True):
+    def sum(self, apply_filter=True, clip=False):
         ''' Sums the signals to create a bass managed output '''
         main_sum = 20.0 * math.log10(len(self.__channels) - 1)
         overall_sum = 20.0 * math.log10((10.0 ** (main_sum / 20.0)) + (10.0 ** 0.5))
@@ -336,7 +340,10 @@ class BassManagedSignalData(SignalData):
         else:
             samples = [x.adjust_gain(lfe_attenuate if idx == self.__lfe_channel_idx else main_attenuate).samples
                        for idx, x in enumerate(self.__channels)]
-        return Signal(self.__name, np.sum(np.array(samples), axis=0), self.__fs)
+        samples = np.sum(np.array(samples), axis=0)
+        if clip:
+            samples = np.clip(samples, -1.0, 1.0)
+        return Signal(self.__name, samples, self.__fs)
 
     def register_listener(self, listener):
         ''' registers a listener to be notified when the filter updates on each underlying signal '''
@@ -350,10 +357,16 @@ class BassManagedSignalData(SignalData):
 
     @property
     def signal(self):
-        return self.sum(apply_filter=False)
+        return self.filter_signal(filt=False)
 
-    def filter_signal(self):
-        return self.sum(apply_filter=True)
+    def filter_signal(self, filt=True, clip=False):
+        '''
+        A filtered and/or clipped signal.
+        :param filt: whether to apply the filter.
+        :param clip: whether to clip to -1.0/1.0 range.
+        :return: the samples.
+        '''
+        return self.sum(apply_filter=filt, clip=clip)
 
     @property
     def duration_seconds(self):
@@ -773,6 +786,15 @@ class Signal:
         :return: the adjusted signal.
         '''
         return Signal(self.name, self.samples * gain, fs=self.fs, metadata=self.metadata)
+
+    def clip(self, amin=-1.0, amax=1.0):
+        '''
+        Clamps the samples to the given range.
+        :param amin: the min value.
+        :param amax: the max value.
+        :return: the clipped signal.
+        '''
+        return Signal(self.name, np.clip(self.samples, amin, amax), fs=self.fs, metadata=self.metadata)
 
     def resample(self, new_fs):
         '''

@@ -74,73 +74,6 @@
            <layout class="QHBoxLayout" name="waveformLayout" stretch="0,1,1">
             <item>
              <layout class="QGridLayout" name="waveformControls">
-              <item row="8" column="0" colspan="2">
-               <spacer name="verticalSpacer">
-                <property name="orientation">
-                 <enum>Qt::Vertical</enum>
-                </property>
-                <property name="sizeHint" stdset="0">
-                 <size>
-                  <width>20</width>
-                  <height>40</height>
-                 </size>
-                </property>
-               </spacer>
-              </item>
-              <item row="0" column="0">
-               <widget class="QLabel" name="signalSelectorLabel">
-                <property name="text">
-                 <string>Signal</string>
-                </property>
-               </widget>
-              </item>
-              <item row="0" column="1">
-               <widget class="QComboBox" name="signalSelector"/>
-              </item>
-              <item row="4" column="0">
-               <widget class="QLabel" name="startTimeLabel">
-                <property name="text">
-                 <string>Start</string>
-                </property>
-               </widget>
-              </item>
-              <item row="3" column="1">
-               <widget class="QDoubleSpinBox" name="headroom">
-                <property name="enabled">
-                 <bool>false</bool>
-                </property>
-                <property name="minimum">
-                 <double>-120.000000000000000</double>
-                </property>
-                <property name="maximum">
-                 <double>120.000000000000000</double>
-                </property>
-                <property name="singleStep">
-                 <double>0.010000000000000</double>
-                </property>
-               </widget>
-              </item>
-              <item row="3" column="0">
-               <widget class="QLabel" name="headroomLabel">
-                <property name="text">
-                 <string>Headroom</string>
-                </property>
-               </widget>
-              </item>
-              <item row="2" column="0" colspan="2">
-               <widget class="QCheckBox" name="waveformIsFiltered">
-                <property name="text">
-                 <string>Filtered?</string>
-                </property>
-               </widget>
-              </item>
-              <item row="4" column="1">
-               <widget class="QTimeEdit" name="startTime">
-                <property name="displayFormat">
-                 <string>HH:mm:ss.zzz</string>
-                </property>
-               </widget>
-              </item>
               <item row="5" column="1">
                <widget class="QTimeEdit" name="endTime">
                 <property name="displayFormat">
@@ -152,6 +85,20 @@
                <widget class="QLabel" name="endTimeLabel">
                 <property name="text">
                  <string>End</string>
+                </property>
+               </widget>
+              </item>
+              <item row="0" column="0">
+               <widget class="QLabel" name="signalSelectorLabel">
+                <property name="text">
+                 <string>Signal</string>
+                </property>
+               </widget>
+              </item>
+              <item row="4" column="0">
+               <widget class="QLabel" name="startTimeLabel">
+                <property name="text">
+                 <string>Start</string>
                 </property>
                </widget>
               </item>
@@ -200,6 +147,60 @@
                  </widget>
                 </item>
                </layout>
+              </item>
+              <item row="1" column="1">
+               <layout class="QHBoxLayout" name="sourceFileLayout">
+                <item>
+                 <widget class="QLineEdit" name="sourceFile">
+                  <property name="readOnly">
+                   <bool>true</bool>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QToolButton" name="loadSignalButton">
+                  <property name="text">
+                   <string>...</string>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
+              </item>
+              <item row="3" column="0">
+               <widget class="QLabel" name="headroomLabel">
+                <property name="text">
+                 <string>Headroom</string>
+                </property>
+               </widget>
+              </item>
+              <item row="8" column="0" colspan="2">
+               <spacer name="verticalSpacer">
+                <property name="orientation">
+                 <enum>Qt::Vertical</enum>
+                </property>
+                <property name="sizeHint" stdset="0">
+                 <size>
+                  <width>20</width>
+                  <height>40</height>
+                 </size>
+                </property>
+               </spacer>
+              </item>
+              <item row="3" column="1">
+               <widget class="QDoubleSpinBox" name="headroom">
+                <property name="enabled">
+                 <bool>false</bool>
+                </property>
+                <property name="minimum">
+                 <double>-120.000000000000000</double>
+                </property>
+                <property name="maximum">
+                 <double>120.000000000000000</double>
+                </property>
+                <property name="singleStep">
+                 <double>0.010000000000000</double>
+                </property>
+               </widget>
               </item>
               <item row="6" column="0">
                <widget class="QLabel" name="label">
@@ -251,19 +252,29 @@
                 </property>
                </widget>
               </item>
-              <item row="1" column="1">
-               <layout class="QHBoxLayout" name="sourceFileLayout">
+              <item row="0" column="1">
+               <widget class="QComboBox" name="signalSelector"/>
+              </item>
+              <item row="4" column="1">
+               <widget class="QTimeEdit" name="startTime">
+                <property name="displayFormat">
+                 <string>HH:mm:ss.zzz</string>
+                </property>
+               </widget>
+              </item>
+              <item row="2" column="0" colspan="2">
+               <layout class="QHBoxLayout" name="checkboxContainer">
                 <item>
-                 <widget class="QLineEdit" name="sourceFile">
-                  <property name="readOnly">
-                   <bool>true</bool>
+                 <widget class="QCheckBox" name="waveformIsFiltered">
+                  <property name="text">
+                   <string>Filtered?</string>
                   </property>
                  </widget>
                 </item>
                 <item>
-                 <widget class="QToolButton" name="loadSignalButton">
+                 <widget class="QCheckBox" name="hardClipWaveform">
                   <property name="text">
-                   <string>...</string>
+                   <string>Hard Clip?</string>
                   </property>
                  </widget>
                 </item>
@@ -501,7 +512,7 @@
      <x>0</x>
      <y>0</y>
      <width>1574</width>
-     <height>34</height>
+     <height>30</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuHelp">
@@ -798,8 +809,8 @@
    <slot>addFilter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1273</x>
-     <y>520</y>
+     <x>1304</x>
+     <y>514</y>
     </hint>
     <hint type="destinationlabel">
      <x>1381</x>
@@ -814,8 +825,8 @@
    <slot>deleteFilter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1534</x>
-     <y>520</y>
+     <x>1565</x>
+     <y>514</y>
     </hint>
     <hint type="destinationlabel">
      <x>1462</x>
@@ -830,8 +841,8 @@
    <slot>editFilter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1397</x>
-     <y>520</y>
+     <x>1434</x>
+     <y>514</y>
     </hint>
     <hint type="destinationlabel">
      <x>1302</x>
@@ -846,8 +857,8 @@
    <slot>addSignal()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1172</x>
-     <y>87</y>
+     <x>1304</x>
+     <y>99</y>
     </hint>
     <hint type="destinationlabel">
      <x>1137</x>
@@ -862,8 +873,8 @@
    <slot>deleteSignal()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1495</x>
-     <y>111</y>
+     <x>1565</x>
+     <y>99</y>
     </hint>
     <hint type="destinationlabel">
      <x>1351</x>
@@ -894,8 +905,8 @@
    <slot>showLimits()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>882</x>
-     <y>70</y>
+     <x>1162</x>
+     <y>71</y>
     </hint>
     <hint type="destinationlabel">
      <x>977</x>
@@ -926,8 +937,8 @@
    <slot>showValues()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>841</x>
-     <y>70</y>
+     <x>1123</x>
+     <y>71</y>
     </hint>
     <hint type="destinationlabel">
      <x>782</x>
@@ -974,8 +985,8 @@
    <slot>applyPreset1()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1273</x>
-     <y>477</y>
+     <x>1304</x>
+     <y>474</y>
     </hint>
     <hint type="destinationlabel">
      <x>1155</x>
@@ -990,8 +1001,8 @@
    <slot>applyPreset2()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1397</x>
-     <y>477</y>
+     <x>1434</x>
+     <y>474</y>
     </hint>
     <hint type="destinationlabel">
      <x>1152</x>
@@ -1006,8 +1017,8 @@
    <slot>applyPreset3()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1534</x>
-     <y>477</y>
+     <x>1565</x>
+     <y>474</y>
     </hint>
     <hint type="destinationlabel">
      <x>1545</x>

@@ -173,13 +173,10 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
         self.maxTime.setMaximumTime(max_time)
         self.maxTime.setTime(max_time)
         self.__init_resolution_selector(left_signal.signal)
-        self.__spectrum_analyser.left = self.__filter_if_necessary(left_signal, self.filterLeft.isChecked())
-        self.__spectrum_analyser.right = self.__filter_if_necessary(right_signal, self.filterRight.isChecked())
+        self.__spectrum_analyser.left = left_signal.filter_signal(filt=self.filterLeft.isChecked())
+        self.__spectrum_analyser.right = right_signal.filter_signal(filt=self.filterRight.isChecked())
         self.__spectrum_analyser.analyse()
         self.updateChart.setEnabled(True)
-
-    def __filter_if_necessary(self, signal_data, apply_filter):
-        return signal_data.filter_signal() if apply_filter else signal_data.signal
 
     def __get_signal_data(self, signal_name):
         if signal_name is not None and signal_name.startswith('(BM) '):

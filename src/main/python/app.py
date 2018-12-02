@@ -169,6 +169,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
                                                         self.signalSelector,
                                                         self.headroom,
                                                         self.waveformIsFiltered,
+                                                        self.hardClipWaveform,
                                                         self.startTime,
                                                         self.endTime,
                                                         self.showSpectrumButton,
