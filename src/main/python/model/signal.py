@@ -1405,17 +1405,22 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
         ''' saves the specified signals in the signal model'''
         selected_filter_idx = self.filterSelect.currentIndex()
         if selected_filter_idx > 0:  # 0 because the dropdown has a None value first
-            # TODO deal with removal of list
             if self.filterSelect.currentText() == 'Default':
                 self.__apply_default_filter(signal)
             else:
                 master = self.__signal_model[selected_filter_idx - 1]
-                for s in signal:
-                    if self.linkedSignal.isChecked():
-                        master.enslave(s)
-                    else:
-                        s.filter = master.filter.resample(s.fs)
+                if isinstance(signal, BassManagedSignalData):
+                    for s in signal.channels:
+                        self.__copy_filter(master, s)
+                else:
+                    self.__copy_filter(master, signal)
         self.__signal_model.add(signal)
+
+    def __copy_filter(self, master, signal):
+        if self.linkedSignal.isChecked():
+            master.enslave(signal)
+        else:
+            signal.filter = master.filter.resample(signal.fs)
 
     def __apply_default_filter(self, signal):
         '''
