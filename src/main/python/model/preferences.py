@@ -37,6 +37,7 @@ EXTRACTION_BATCH_FILTER = 'extraction/batch_filter'
 EXTRACTION_MIX_MONO = 'extraction/mix_to_mono'
 EXTRACTION_DECIMATE = 'extraction/decimate'
 EXTRACTION_INCLUDE_ORIGINAL = 'extraction/include_original'
+EXTRACTION_INCLUDE_SUBTITLES = 'extraction/include_subtitles'
 EXTRACTION_COMPRESS = 'extraction/compress'
 
 ANALYSIS_RESOLUTION = 'analysis/resolution'
@@ -144,6 +145,7 @@ DEFAULT_PREFS = {
     EXTRACTION_COMPRESS: False,
     EXTRACTION_DECIMATE: False,
     EXTRACTION_INCLUDE_ORIGINAL: False,
+    EXTRACTION_INCLUDE_SUBTITLES: False,
     FILTERS_DEFAULT_FREQ: 20.0,
     FILTERS_DEFAULT_Q: 0.707,
     GRAPH_X_AXIS_SCALE: 'log',
@@ -190,6 +192,7 @@ TYPES = {
     EXTRACTION_COMPRESS: bool,
     EXTRACTION_DECIMATE: bool,
     EXTRACTION_INCLUDE_ORIGINAL: bool,
+    EXTRACTION_INCLUDE_SUBTITLES: bool,
     FILTERS_DEFAULT_FREQ: int,
     FILTERS_DEFAULT_Q: float,
     GRAPH_X_MIN: int,
@@ -363,6 +366,7 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         self.monoMix.setChecked(self.__preferences.get(EXTRACTION_MIX_MONO))
         self.decimate.setChecked(self.__preferences.get(EXTRACTION_DECIMATE))
         self.includeOriginal.setChecked(self.__preferences.get(EXTRACTION_INCLUDE_ORIGINAL))
+        self.includeSubtitles.setChecked(self.__preferences.get(EXTRACTION_INCLUDE_SUBTITLES))
         self.compress.setChecked(self.__preferences.get(EXTRACTION_COMPRESS))
 
         self.filterQ.setValue(self.__preferences.get(FILTERS_DEFAULT_Q))
@@ -453,6 +457,7 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         self.__preferences.set(EXTRACTION_MIX_MONO, self.monoMix.isChecked())
         self.__preferences.set(EXTRACTION_DECIMATE, self.decimate.isChecked())
         self.__preferences.set(EXTRACTION_INCLUDE_ORIGINAL, self.includeOriginal.isChecked())
+        self.__preferences.set(EXTRACTION_INCLUDE_SUBTITLES, self.includeSubtitles.isChecked())
         self.__preferences.set(EXTRACTION_COMPRESS, self.compress.isChecked())
         self.__preferences.set(FILTERS_DEFAULT_FREQ, self.filterFreq.value())
         self.__preferences.set(FILTERS_DEFAULT_Q, self.filterQ.value())
