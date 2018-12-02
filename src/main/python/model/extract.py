@@ -377,19 +377,17 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
                 name_provider = lambda channel, channel_count: get_channel_name(self.signalName.text(), channel,
                                                                                 channel_count,
                                                                                 channel_layout_name=self.__executor.channel_layout_name)
-                signals = loader.auto_load(name_provider, self.decimateAudio.isChecked())
-                if len(signals) > 0:
-                    for s in signals:
-                        logger.info(f"Adding signal {s.name}")
-                        self.__signal_model.add(s)
-                    return True
+                loader.load(output_file)
+                signal = loader.auto_load(name_provider, self.decimateAudio.isChecked())
+                self.__signal_model.add(signal)
+            return True
         else:
             msg_box = QMessageBox()
             msg_box.setText(f"Extracted audio file does not exist at: \n\n {output_file}")
             msg_box.setIcon(QMessageBox.Critical)
             msg_box.setWindowTitle('Unexpected Error')
             msg_box.exec()
-        return False
+            return False
 
     def __extract(self):
         '''
