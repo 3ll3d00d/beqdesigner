@@ -1040,7 +1040,7 @@ class AutoWavLoader:
         :param decimate: if true, decimate the wav.
         '''
         if channel not in self.__cache:
-            if name is None:
+            if name is None or len(name.strip()) == 0:
                 name = Path(self.info.name).resolve().stem
                 if channel_count > 1:
                     name += f"_c{channel}"

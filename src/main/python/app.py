@@ -159,7 +159,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.showLegend.setChecked(bool(self.preferences.get(DISPLAY_SHOW_LEGEND)))
         self.__magnitude_model = MagnitudeModel('main', self.mainChart, self.preferences, self.__signal_model,
                                                 'Signals', self.__filter_model, 'Filters',
-                                                show_legend=lambda: self.showLegend.isChecked())
+                                                show_legend=lambda: self.showLegend.isChecked(), allow_line_resize=True)
         self.__filter_model.filter = self.__default_signal.filter
         # waveform
         self.__waveform_controller = WaveformController(self.preferences,

@@ -101,7 +101,7 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
             self.__init_imshow_axes()
         else:
             self.__imshow_axes = None
-        self.__magnitude_model = MagnitudeModel('main', self.preview, self.__preferences, self, 'Signals',
+        self.__magnitude_model = MagnitudeModel('report', self.preview, self.__preferences, self, 'Signals',
                                                 show_legend=lambda: self.showLegend.isChecked(),
                                                 subplot_spec=chart_spec, redraw_listener=self.on_redraw,
                                                 grid_alpha=self.gridOpacity.value(),

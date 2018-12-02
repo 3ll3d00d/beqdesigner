@@ -79,7 +79,8 @@ class AxesManager:
                                                             antialiased=True,
                                                             linestyle=data.linestyle,
                                                             color=data.colour,
-                                                            label=data.name)[0]
+                                                            label=data.name,
+                                                            picker=2)[0]
         if self.__fill_curves:
             polygon = self.__polygons.get(data.name, None)
             if polygon:
@@ -121,11 +122,14 @@ class MagnitudeModel:
     def __init__(self, name, chart, preferences, primary_data_provider, primary_name, secondary_data_provider=None,
                  secondary_name=None, show_legend=lambda: True, db_range_calc=dBRangeCalculator(60),
                  subplot_spec=SINGLE_SUBPLOT_SPEC, redraw_listener=None, grid_alpha=0.5, x_min_pref_key=GRAPH_X_MIN,
-                 x_max_pref_key=GRAPH_X_MAX, x_scale_pref_key=GRAPH_X_AXIS_SCALE, fill_curves=False, fill_alpha=0.5):
+                 x_max_pref_key=GRAPH_X_MAX, x_scale_pref_key=GRAPH_X_AXIS_SCALE, fill_curves=False, fill_alpha=0.5,
+                 allow_line_resize=False):
         self.__name = name
         self.__chart = chart
         self.__redraw_listener = redraw_listener
         self.__show_legend = show_legend
+        if allow_line_resize:
+            self.__chart.canvas.mpl_connect('pick_event', self.__adjust_line_size)
         primary_axes = self.__chart.canvas.figure.add_subplot(subplot_spec)
         primary_axes.set_ylabel(f"dBFS ({primary_name})")
         primary_axes.grid(linestyle='-', which='major', linewidth=1, alpha=grid_alpha)
@@ -136,6 +140,8 @@ class MagnitudeModel:
         else:
             secondary_axes = primary_axes.twinx()
             secondary_axes.set_ylabel(f"dBFS ({secondary_name})")
+            # bump the z axis so pick events are directed to the primary
+            primary_axes.set_zorder(secondary_axes.get_zorder() + 1)
         self.__secondary = AxesManager(secondary_data_provider, secondary_axes, fill_curves, fill_alpha)
         self.limits = Limits(self.__repr__(), self.__redraw_func, primary_axes,
                              x_lim=(preferences.get(x_min_pref_key), preferences.get(x_max_pref_key)),
@@ -145,6 +151,23 @@ class MagnitudeModel:
         self.__legend = None
         self.__legend_cid = None
         self.redraw()
+
+    def __adjust_line_size(self, event):
+        ''' Increases or decreases the line size with each click as long as shift is not held down. '''
+        from matplotlib.lines import Line2D
+        if isinstance(event.artist, Line2D):
+            line = event.artist
+            from qtpy.QtGui import QGuiApplication
+            from qtpy.QtCore import Qt
+            modifiers = QGuiApplication.queryKeyboardModifiers()
+            if modifiers == Qt.NoModifier:
+                if event.mouseevent.button:
+                    if event.mouseevent.button == 1:
+                        line.set_linewidth(line.get_linewidth() + 1)
+                        self.__chart.canvas.draw_idle()
+                    elif event.mouseevent.button == 2 or event.mouseevent.button == 3:
+                        line.set_linewidth(max(1, line.get_linewidth() - 1))
+                        self.__chart.canvas.draw_idle()
 
     def __redraw_func(self):
         self.__chart.canvas.draw_idle()
@@ -212,18 +235,17 @@ class MagnitudeModel:
                     legline.set_picker(5)  # 5 pts tolerance
                     lined[legline] = origline
 
+                # find the line corresponding to the legend proxy line and toggle the alpha
                 def onpick(event):
-                    # on the pick event, find the orig line corresponding to the legend proxy line, and toggle the visibility
-                    legline = event.artist
-                    origline = lined[legline]
-                    vis = not origline.get_visible()
-                    origline.set_visible(vis)
-                    # Change the alpha on the line in the legend so we can see what lines have been toggled
-                    if vis:
-                        legline.set_alpha(1.0)
-                    else:
-                        legline.set_alpha(0.2)
-                    self.__chart.canvas.draw()
+                    from qtpy.QtGui import QGuiApplication
+                    from qtpy.QtCore import Qt
+                    if QGuiApplication.queryKeyboardModifiers() == Qt.ShiftModifier:
+                        legline = event.artist
+                        origline = lined[legline]
+                        vis = not origline.get_visible()
+                        origline.set_visible(vis)
+                        legline.set_alpha(1.0 if vis else 0.2)
+                        self.__chart.canvas.draw_idle()
 
                 self.__legend_cid = self.__chart.canvas.mpl_connect('pick_event', onpick)
 
