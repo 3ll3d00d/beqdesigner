@@ -334,11 +334,9 @@ class BassManagedSignalData(SignalData):
         lfe_attenuate = 10 ** ((-overall_sum + 10.0) / 20.0)
         logger.debug(f"Attenuating {len(self.__channels) - 1} mains by {round(overall_sum,2)} dB (x{main_attenuate:.4})")
         logger.debug(f"Attenuating LFE by {round(overall_sum - 10, 2)}dB (x{lfe_attenuate:.4})")
-        if apply_filter:
-            samples = [x.filter_signal(lfe_attenuate if idx == self.__lfe_channel_idx else main_attenuate).samples
-                       for idx, x in enumerate(self.__channels)]
-        else:
-            samples = [x.adjust_gain(lfe_attenuate if idx == self.__lfe_channel_idx else main_attenuate).samples
+        samples = [x.filter_signal(filt=apply_filter,
+                                   clip=False,
+                                   gain=lfe_attenuate if idx == self.__lfe_channel_idx else main_attenuate).samples
                        for idx, x in enumerate(self.__channels)]
         samples = np.sum(np.array(samples), axis=0)
         if clip:
