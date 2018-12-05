@@ -738,7 +738,8 @@ class ComplexFilter(Sequence):
         :param invert_a: whether to invert the a coeffs.
         :return: the report.
         '''
-        return [f.format_biquads(invert_a, separator=separator) for f in self.filters]
+        import itertools
+        return list(itertools.chain(*[f.format_biquads(invert_a, separator=separator) for f in self.filters]))
 
     def get_sos(self):
         ''' outputs the filter in cascaded second order sections ready for consumption by sosfiltfilt '''

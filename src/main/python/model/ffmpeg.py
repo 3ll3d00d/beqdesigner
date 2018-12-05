@@ -1,6 +1,7 @@
 import datetime
 import logging
 import os
+import platform
 import socketserver
 import tempfile
 import subprocess
@@ -579,8 +580,9 @@ class Executor:
         filename = self.file.replace('\\', '/')
         trim_args = ' '.join([f"-{key} {value}" for key, value in self.__calculate_trim_kwargs().items()])
         # TODO only write the filter file when it actually changes
+        exe = ".exe" if platform.system() == 'Windows' else ""
         self.__ffmpeg_cmd = \
-            f"ffmpeg.exe {trim_args} -i \"{filename}\"" \
+            f"ffmpeg{exe} {trim_args} -i \"{filename}\"" \
                 f" -filter_complex_script {self.__write_filter_complex()}"
         if self.__selected_video_stream_idx != -1:
             self.__ffmpeg_cmd += f" -map 0:v:{self.__selected_video_stream_idx} -c:v copy"
