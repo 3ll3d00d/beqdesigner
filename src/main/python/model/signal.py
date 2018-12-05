@@ -328,20 +328,23 @@ class BassManagedSignalData(SignalData):
 
     def sum(self, apply_filter=True, clip=False):
         ''' Sums the signals to create a bass managed output '''
-        main_sum = 20.0 * math.log10(len(self.__channels) - 1)
-        overall_sum = 20.0 * math.log10((10.0 ** (main_sum / 20.0)) + (10.0 ** 0.5))
-        main_attenuate = 10 ** (-overall_sum / 20.0)
-        lfe_attenuate = 10 ** ((-overall_sum + 10.0) / 20.0)
-        logger.debug(f"Attenuating {len(self.__channels) - 1} mains by {round(overall_sum,2)} dB (x{main_attenuate:.4})")
-        logger.debug(f"Attenuating LFE by {round(overall_sum - 10, 2)}dB (x{lfe_attenuate:.4})")
-        samples = [x.filter_signal(filt=apply_filter,
-                                   clip=False,
-                                   gain=lfe_attenuate if idx == self.__lfe_channel_idx else main_attenuate).samples
-                       for idx, x in enumerate(self.__channels)]
-        samples = np.sum(np.array(samples), axis=0)
-        if clip:
-            samples = np.clip(samples, -1.0, 1.0)
-        return Signal(self.__name, samples, self.__fs)
+        if self.__channels > 1:
+            main_sum = 20.0 * math.log10(len(self.__channels) - 1)
+            overall_sum = 20.0 * math.log10((10.0 ** (main_sum / 20.0)) + (10.0 ** 0.5))
+            main_attenuate = 10 ** (-overall_sum / 20.0)
+            lfe_attenuate = 10 ** ((-overall_sum + 10.0) / 20.0)
+            logger.debug(f"Attenuating {len(self.__channels) - 1} mains by {round(overall_sum,2)} dB (x{main_attenuate:.4})")
+            logger.debug(f"Attenuating LFE by {round(overall_sum - 10, 2)}dB (x{lfe_attenuate:.4})")
+            samples = [x.filter_signal(filt=apply_filter,
+                                       clip=False,
+                                       gain=lfe_attenuate if idx == self.__lfe_channel_idx else main_attenuate).samples
+                           for idx, x in enumerate(self.__channels)]
+            samples = np.sum(np.array(samples), axis=0)
+            if clip:
+                samples = np.clip(samples, -1.0, 1.0)
+            return Signal(self.__name, samples, self.__fs)
+        else:
+            return self.__channels[0]
 
     def register_listener(self, listener):
         ''' registers a listener to be notified when the filter updates on each underlying signal '''
@@ -996,7 +999,10 @@ class AutoWavLoader:
         try:
             for x in range(0, self.info.channels):
                 self.prepare(channel=x + 1, name=name_provider(x, self.info.channels), channel_count=self.info.channels, decimate=decimate)
-            return BassManagedSignalData([self.get_signal(x, name_provider(x-1, self.info.channels)) for x in self.__cache.keys()])
+            if self.info.channels > 1:
+                return BassManagedSignalData([self.get_signal(x, name_provider(x-1, self.info.channels)) for x in self.__cache.keys()])
+            else:
+                return self.get_signal(1, name_provider(0, 1))
         finally:
             logger.info(f"Loaded {self.info.channels} from {self.info.name} in {round(time.time() - start, 3)}s")
 
@@ -1172,7 +1178,7 @@ class DialogWavLoaderBridge:
         Converts the loaded signal into a SignalData.
         :return: the signal data.
         '''
-        if self.__dialog.loadAllChannels.isChecked():
+        if self.__dialog.loadAllChannels.isChecked() and self.__dialog.loadAllChannels.isEnabled():
             from model.extract import get_channel_name
             name_provider = lambda channel, channel_count: get_channel_name(self.__dialog.wavSignalName.text(), channel,
                                                                             channel_count)
