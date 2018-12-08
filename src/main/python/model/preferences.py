@@ -120,6 +120,9 @@ SYSTEM_CHECK_FOR_UPDATES = 'system/check_for_updates'
 
 BEQ_DOWNLOAD_DIR = 'beq/directory'
 
+BIQUAD_EXPORT_FS = 'biquad/fs'
+BIQUAD_EXPORT_MAX = 'biquad/max'
+
 DEFAULT_PREFS = {
     ANALYSIS_RESOLUTION: 1.0,
     ANALYSIS_TARGET_FS: 1000,
@@ -135,6 +138,9 @@ DEFAULT_PREFS = {
     AUDIO_ANALYSIS_COLOUR_MAX: -10,
     AUDIO_ANALYSIS_COLOUR_MIN: -70,
     AUDIO_ANALYSIS_SIGNAL_MIN: -70.0,
+    BEQ_DOWNLOAD_DIR: os.path.join(os.path.expanduser('~'), '.beq'),
+    BIQUAD_EXPORT_FS: '48000',
+    BIQUAD_EXPORT_MAX: 10,
     STYLE_MATPLOTLIB_THEME: STYLE_MATPLOTLIB_THEME_DEFAULT,
     DISPLAY_SHOW_LEGEND: True,
     DISPLAY_SHOW_FILTERS: SHOW_ALL_FILTERS,
@@ -175,7 +181,6 @@ DEFAULT_PREFS = {
     REPORT_LAYOUT_HSPACE: matplotlib.rcParams['figure.subplot.hspace'],
     REPORT_LAYOUT_WSPACE: matplotlib.rcParams['figure.subplot.wspace'],
     SYSTEM_CHECK_FOR_UPDATES: True,
-    BEQ_DOWNLOAD_DIR: os.path.join(os.path.expanduser('~'), '.beq')
 }
 
 TYPES = {
@@ -192,6 +197,7 @@ TYPES = {
     AUDIO_ANALYSIS_COLOUR_MAX: int,
     AUDIO_ANALYSIS_COLOUR_MIN: int,
     AUDIO_ANALYSIS_SIGNAL_MIN: float,
+    BIQUAD_EXPORT_MAX: int,
     EXTRACTION_MIX_MONO: bool,
     EXTRACTION_COMPRESS: bool,
     EXTRACTION_DECIMATE: bool,

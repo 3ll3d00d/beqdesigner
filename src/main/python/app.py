@@ -18,7 +18,8 @@ from model.report import SaveReportDialog
 from model.batch import BatchExtractDialog
 from model.analysis import AnalyseSignalDialog
 from model.link import LinkSignalsDialog
-from model.preferences import DISPLAY_SHOW_FILTERED_SIGNALS, SYSTEM_CHECK_FOR_UPDATES, BEQ_DOWNLOAD_DIR
+from model.preferences import DISPLAY_SHOW_FILTERED_SIGNALS, SYSTEM_CHECK_FOR_UPDATES, BEQ_DOWNLOAD_DIR, \
+    BIQUAD_EXPORT_MAX, BIQUAD_EXPORT_FS
 from ui.delegates import RegexValidator
 
 import pyqtgraph as pg
@@ -32,7 +33,7 @@ from ui.savechart import Ui_saveChartDialog
 
 from qtpy import QtCore
 from qtpy.QtCore import QSettings, QThreadPool
-from qtpy.QtGui import QIcon, QFont, QCursor
+from qtpy.QtGui import QIcon, QFont, QCursor, QTextCursor
 from qtpy.QtWidgets import QMainWindow, QApplication, QErrorMessage, QAbstractItemView, QDialog, QFileDialog, \
     QHeaderView, QMessageBox, QHBoxLayout, QToolButton
 
@@ -537,7 +538,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Shows the biquads for the current filter set.
         '''
-        dialog = ExportBiquadDialog(self.__filter_model.filter)
+        dialog = ExportBiquadDialog(self.__filter_model.filter, self.preferences)
         dialog.exec()
 
     def __load(self, filter, title, parser):
@@ -909,13 +910,20 @@ class ExportBiquadDialog(QDialog, Ui_exportBiquadDialog):
     Export Biquads Dialog
     '''
 
-    def __init__(self, filter):
+    def __init__(self, filter, prefs):
         super(ExportBiquadDialog, self).__init__()
         self.setupUi(self)
         self.__filter = filter
+        self.__prefs = prefs
+        self.setDefaults.setIcon(qta.icon('fa5s.save'))
+        self.copyToClipboardBtn.setIcon(qta.icon('fa5s.clipboard'))
+        self.saveToFile.setIcon(qta.icon('fa5s.file-export'))
+        self.maxBiquads.setValue(prefs.get(BIQUAD_EXPORT_MAX))
+        self.fs.setCurrentText(prefs.get(BIQUAD_EXPORT_FS))
         self.updateBiquads()
 
     def updateBiquads(self):
+        has_txt = False
         if self.__filter is not None and len(self.__filter) > 0:
             self.__filter = self.__filter.resample(int(self.fs.currentText()))
             biquads = list(flatten([self.__filter.format_biquads(self.minidspFormat.isChecked())]))
@@ -923,7 +931,33 @@ class ExportBiquadDialog(QDialog, Ui_exportBiquadDialog):
                 passthrough = [Passthrough()] * (self.maxBiquads.value() - len(biquads))
                 biquads += list(flatten([x.format_biquads(self.minidspFormat.isChecked()) for x in passthrough]))
             text = "\n".join([f"biquad{idx},\n{bq}" for idx, bq in enumerate(biquads)])
+            has_txt = len(text.strip()) > 0
             self.biquads.setPlainText(text)
+        if not has_txt:
+            self.copyToClipboardBtn.setEnabled(False)
+            self.saveToFile.setEnabled(False)
+
+    def save(self):
+        ''' saves the current preferences '''
+        self.__prefs.set(BIQUAD_EXPORT_FS, self.fs.currentText())
+        self.__prefs.set(BIQUAD_EXPORT_MAX, self.maxBiquads.value())
+
+    def copyToClipboard(self):
+        ''' copies all the text to the clipboard '''
+        self.biquads.selectAll()
+        self.biquads.copy()
+        cursor = self.biquads.textCursor()
+        cursor.movePosition(QTextCursor.End)
+        self.biquads.setTextCursor(cursor)
+
+    def export(self):
+        txt = str(self.biquads.toPlainText()).strip()
+        if len(txt) > 0:
+            file_name = QFileDialog(self).getSaveFileName(self, 'Export Biquads', f"biquads.txt", "Txt (*.txt)")
+            file_name = str(file_name[0]).strip()
+            if len(file_name) > 0:
+                with open(file_name, 'w') as f:
+                    f.write(txt)
 
 
 def flatten(l):
