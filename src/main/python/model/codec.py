@@ -199,7 +199,7 @@ def xydata_to_json(data):
     }
 
 
-def minidspxml_to_filt(file):
+def minidspxml_to_filt(file, fs=1000):
     ''' Extracts a set of filters from the provided minidsp file '''
     from model.iir import PeakingEQ, LowShelf, HighShelf
 
@@ -208,16 +208,16 @@ def minidspxml_to_filt(file):
     for filt_tup, count in filts.items():
         filt_dict = dict(filt_tup)
         if filt_dict['type'] == 'SL':
-            filt = LowShelf(48000, float(filt_dict['freq']), float(filt_dict['q']), float(filt_dict['boost']),
+            filt = LowShelf(fs, float(filt_dict['freq']), float(filt_dict['q']), float(filt_dict['boost']),
                             count=count)
             output.append(filt)
         elif filt_dict['type'] == 'SH':
-            filt = HighShelf(48000, float(filt_dict['freq']), float(filt_dict['q']), float(filt_dict['boost']),
+            filt = HighShelf(fs, float(filt_dict['freq']), float(filt_dict['q']), float(filt_dict['boost']),
                              count=count)
             output.append(filt)
         elif filt_dict['type'] == 'PK':
             for i in range(0, count):
-                filt = PeakingEQ(48000, float(filt_dict['freq']), float(filt_dict['q']), float(filt_dict['boost']))
+                filt = PeakingEQ(fs, float(filt_dict['freq']), float(filt_dict['q']), float(filt_dict['boost']))
                 output.append(filt)
         else:
             logger.info(f"Ignoring unknown filter type {filt_dict}")

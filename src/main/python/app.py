@@ -857,7 +857,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
                                                caption='Load Minidsp XML Filter', filter='Filter (*.xml)')
         filt_file = selected[0] if selected is not None else None
         if filt_file is not None:
-            filters = minidspxml_to_filt(filt_file)
+            filters = minidspxml_to_filt(filt_file, self.__get_selected_signal().fs)
             if len(filters) > 0:
                 for f in filters:
                     f.id = uuid4()
