@@ -142,6 +142,7 @@ class MagnitudeModel:
             secondary_axes.set_ylabel(f"dBFS ({secondary_name})")
             # bump the z axis so pick events are directed to the primary
             primary_axes.set_zorder(secondary_axes.get_zorder() + 1)
+            primary_axes.patch.set_visible(False)
         self.__secondary = AxesManager(secondary_data_provider, secondary_axes, fill_curves, fill_alpha)
         self.limits = Limits(self.__repr__(), self.__redraw_func, primary_axes,
                              x_lim=(preferences.get(x_min_pref_key), preferences.get(x_max_pref_key)),
