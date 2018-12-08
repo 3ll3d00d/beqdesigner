@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>809</width>
-    <height>704</height>
+    <height>762</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -534,6 +534,77 @@
        </item>
       </layout>
      </item>
+     <item>
+      <layout class="QGridLayout" name="beqPane">
+       <item row="0" column="0" colspan="6">
+        <widget class="QLabel" name="beqLayoutLabel">
+         <property name="font">
+          <font>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="frameShape">
+          <enum>QFrame::Box</enum>
+         </property>
+         <property name="frameShadow">
+          <enum>QFrame::Sunken</enum>
+         </property>
+         <property name="text">
+          <string>BEQ Files</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignCenter</set>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QLineEdit" name="beqFiltersDir">
+         <property name="readOnly">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="5">
+        <widget class="QToolButton" name="refreshBeq">
+         <property name="text">
+          <string>...</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="3">
+        <widget class="QLabel" name="filteredLoadedLabel">
+         <property name="text">
+          <string>Filters Loaded</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="4">
+        <widget class="QSpinBox" name="beqFiltersCount">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
+         <property name="maximum">
+          <number>100000</number>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="QLabel" name="beqDirectoryLabel">
+         <property name="text">
+          <string>Directory</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="2">
+        <widget class="QToolButton" name="beqDirectoryPicker">
+         <property name="text">
+          <string>...</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
     </layout>
    </item>
    <item>
@@ -575,8 +646,8 @@
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>270</x>
-     <y>422</y>
+     <x>276</x>
+     <y>755</y>
     </hint>
     <hint type="destinationlabel">
      <x>157</x>
@@ -591,8 +662,8 @@
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>338</x>
-     <y>422</y>
+     <x>344</x>
+     <y>755</y>
     </hint>
     <hint type="destinationlabel">
      <x>286</x>
@@ -664,6 +735,38 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>beqDirectoryPicker</sender>
+   <signal>clicked()</signal>
+   <receiver>preferencesDialog</receiver>
+   <slot>showBeqDirectoryPicker()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>566</x>
+     <y>705</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>810</x>
+     <y>624</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>refreshBeq</sender>
+   <signal>clicked()</signal>
+   <receiver>preferencesDialog</receiver>
+   <slot>updateBeq()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>782</x>
+     <y>693</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>809</x>
+     <y>672</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>showFfmpegDirectoryPicker()</slot>
@@ -671,5 +774,7 @@
   <slot>showFfprobeDirectoryPicker()</slot>
   <slot>showDefaultOutputDirectoryPicker()</slot>
   <slot>showExtractCompleteSoundPicker()</slot>
+  <slot>showBeqDirectoryPicker()</slot>
+  <slot>updateBeq()</slot>
  </slots>
 </ui>

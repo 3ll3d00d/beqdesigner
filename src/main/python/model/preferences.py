@@ -2,6 +2,7 @@ import glob
 import os
 from pathlib import Path
 
+import qtawesome as qta
 import matplotlib
 import matplotlib.style as style
 from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox
@@ -117,6 +118,8 @@ LOGGING_LEVEL = 'logging/level'
 
 SYSTEM_CHECK_FOR_UPDATES = 'system/check_for_updates'
 
+BEQ_DOWNLOAD_DIR = 'beq/directory'
+
 DEFAULT_PREFS = {
     ANALYSIS_RESOLUTION: 1.0,
     ANALYSIS_TARGET_FS: 1000,
@@ -171,7 +174,8 @@ DEFAULT_PREFS = {
     REPORT_FILTER_FONT_SIZE: matplotlib.rcParams['font.size'],
     REPORT_LAYOUT_HSPACE: matplotlib.rcParams['figure.subplot.hspace'],
     REPORT_LAYOUT_WSPACE: matplotlib.rcParams['figure.subplot.wspace'],
-    SYSTEM_CHECK_FOR_UPDATES: True
+    SYSTEM_CHECK_FOR_UPDATES: True,
+    BEQ_DOWNLOAD_DIR: os.path.join(os.path.expanduser('~'), '.beq')
 }
 
 TYPES = {
@@ -328,6 +332,13 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         self.__preferences = preferences
         self.__main_chart_limits = main_chart_limits
 
+        self.beqDirectoryPicker.setIcon(qta.icon('fa5s.folder-open'))
+        self.defaultOutputDirectoryPicker.setIcon(qta.icon('fa5s.folder-open'))
+        self.ffmpegDirectoryPicker.setIcon(qta.icon('fa5s.folder-open'))
+        self.ffprobeDirectoryPicker.setIcon(qta.icon('fa5s.folder-open'))
+        self.extractCompleteAudioFilePicker.setIcon(qta.icon('fa5s.folder-open'))
+        self.refreshBeq.setIcon(qta.icon('fa5s.sync'))
+
         ffmpegLoc = self.__preferences.get(BINARIES_FFMPEG)
         if ffmpegLoc:
             if os.path.isdir(ffmpegLoc):
@@ -371,6 +382,9 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
 
         self.filterQ.setValue(self.__preferences.get(FILTERS_DEFAULT_Q))
         self.filterFreq.setValue(self.__preferences.get(FILTERS_DEFAULT_FREQ))
+
+        self.beqFiltersDir.setText(self.__preferences.get(BEQ_DOWNLOAD_DIR))
+        self.__count_beq_files()
 
     def __init_themes(self):
         '''
@@ -461,6 +475,7 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         self.__preferences.set(EXTRACTION_COMPRESS, self.compress.isChecked())
         self.__preferences.set(FILTERS_DEFAULT_FREQ, self.filterFreq.value())
         self.__preferences.set(FILTERS_DEFAULT_Q, self.filterQ.value())
+        self.__preferences.set(BEQ_DOWNLOAD_DIR, self.beqFiltersDir.text())
         QDialog.accept(self)
 
     def alert_on_change(self, title, text='Change will not take effect until the application is restarted',
@@ -520,3 +535,42 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
                 self.extractCompleteAudioFile.setText('')
         else:
             self.extractCompleteAudioFile.setText('')
+
+    def showBeqDirectoryPicker(self):
+        ''' selects an output directory for the beq files '''
+        dialog = QFileDialog(parent=self)
+        dialog.setFileMode(QFileDialog.DirectoryOnly)
+        dialog.setWindowTitle(f"Select BEQ Files Download Directory")
+        if dialog.exec():
+            selected = dialog.selectedFiles()
+            if len(selected) > 0:
+                self.beqFiltersDir.setText(selected[0])
+                self.__count_beq_files()
+
+    def __count_beq_files(self):
+        if os.path.exists(self.beqFiltersDir.text()):
+            match = len(glob.glob(f"{self.beqFiltersDir.text()}{os.sep}**{os.sep}*.xml", recursive=True))
+            self.beqFiltersCount.setValue(match)
+
+    def updateBeq(self):
+        ''' Pulls or clones the named repository '''
+        from app import wait_cursor
+        with wait_cursor():
+            os.makedirs(self.beqFiltersDir.text(), exist_ok=True)
+            if os.path.exists(os.path.join(self.beqFiltersDir.text(), '.git')):
+                self.__pull_beq()
+            else:
+                self.__clone_beq()
+            self.__count_beq_files()
+
+    def __pull_beq(self):
+        ''' pulls the git repo'''
+        import git
+        repo = git.Repo(self.beqFiltersDir.text())
+        repo.remote('origin').pull()
+
+    def __clone_beq(self):
+        ''' clones the git repo '''
+        import git
+        git.Repo.clone_from('https://github.com/bmiller/miniDSPBEQ.git', self.beqFiltersDir.text())
+
