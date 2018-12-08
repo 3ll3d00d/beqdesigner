@@ -197,3 +197,70 @@ def xydata_to_json(data):
         'colour': data.colour,
         'linestyle': data.linestyle
     }
+
+
+def minidspxml_to_filt(file):
+    ''' Extracts a set of filters from the provided minidsp file '''
+    from model.iir import PeakingEQ, LowShelf, HighShelf
+
+    filts = __extract_filters(file)
+    output = []
+    for filt_tup, count in filts.items():
+        filt_dict = dict(filt_tup)
+        if filt_dict['type'] == 'SL':
+            filt = LowShelf(48000, float(filt_dict['freq']), float(filt_dict['q']), float(filt_dict['boost']),
+                            count=count)
+            output.append(filt)
+        elif filt_dict['type'] == 'SH':
+            filt = HighShelf(48000, float(filt_dict['freq']), float(filt_dict['q']), float(filt_dict['boost']),
+                             count=count)
+            output.append(filt)
+        elif filt_dict['type'] == 'PK':
+            for i in range(0, count):
+                filt = PeakingEQ(48000, float(filt_dict['freq']), float(filt_dict['q']), float(filt_dict['boost']))
+                output.append(filt)
+        else:
+            logger.info(f"Ignoring unknown filter type {filt_dict}")
+    return output
+
+
+def __extract_filters(file):
+    import xml.etree.ElementTree as ET
+    from collections import Counter
+
+    ignore_vals = ['hex', 'dec']
+    tree = ET.parse(file)
+    root = tree.getroot()
+    filts = {}
+    for child in root:
+        if child.tag == 'filter':
+            if 'name' in child.attrib:
+                inner_filt = None
+                filter_tokens = child.attrib['name'].split('_')
+                if len(filter_tokens) == 3:
+                    if filter_tokens[0] == 'PEQ':
+                        if filter_tokens[1] not in filts:
+                            filts[filter_tokens[1]] = {}
+                        filt = filts[filter_tokens[1]]
+                        if filter_tokens[2] not in filt:
+                            filt[filter_tokens[2]] = {}
+                        inner_filt = filt[filter_tokens[2]]
+                        for val in child:
+                            if val.tag not in ignore_vals:
+                                inner_filt[val.tag] = val.text
+                if inner_filt is not None and 'bypass' in inner_filt and inner_filt['bypass'] == '1':
+                    del filts[filter_tokens[1]]
+    final_filt = None
+    # if 1 and 2 are identical then throw one away
+    if '1' in filts and '2' in filts:
+        filt_1 = filts['1']
+        filt_2 = filts['2']
+        if filt_1 == filt_2:
+            final_filt = list(filt_1.values())
+    elif '1' in filts:
+        final_filt = list(filts['1'])
+    elif '2' in filts:
+        final_filt = list(filts['2'])
+    else:
+        raise ValueError(f"Multiple active filters found in {file}")
+    return Counter([tuple(f.items()) for f in final_filt])

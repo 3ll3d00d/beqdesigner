@@ -332,6 +332,8 @@ class Ui_MainWindow(object):
         self.actionAbout.setObjectName("actionAbout")
         self.action_Remux_Audio = QtWidgets.QAction(MainWindow)
         self.action_Remux_Audio.setObjectName("action_Remux_Audio")
+        self.actionAdd_BEQ_Filter = QtWidgets.QAction(MainWindow)
+        self.actionAdd_BEQ_Filter.setObjectName("actionAdd_BEQ_Filter")
         self.menuHelp.addAction(self.actionShow_Logs)
         self.menuHelp.addAction(self.actionAbout)
         self.menuSettings.addAction(self.actionPreferences)
@@ -356,6 +358,7 @@ class Ui_MainWindow(object):
         self.menuFile.addSeparator()
         self.menuFile.addAction(self.actionLoad_Filter)
         self.menuFile.addAction(self.actionSave_Filter)
+        self.menuFile.addAction(self.actionAdd_BEQ_Filter)
         self.menuFile.addAction(self.menuPresets.menuAction())
         self.menuFile.addSeparator()
         self.menuFile.addAction(self.actionExport_Biquad)
@@ -490,6 +493,7 @@ class Ui_MainWindow(object):
         self.actionAbout.setText(_translate("MainWindow", "&About"))
         self.action_Remux_Audio.setText(_translate("MainWindow", "&Remux Audio"))
         self.action_Remux_Audio.setShortcut(_translate("MainWindow", "Ctrl+U"))
+        self.actionAdd_BEQ_Filter.setText(_translate("MainWindow", "Add BEQ Filter"))
 
 from app import PlotWidgetWithDateAxis
 from mpl import MplWidget

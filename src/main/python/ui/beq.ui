@@ -573,6 +573,7 @@
     <addaction name="separator"/>
     <addaction name="actionLoad_Filter"/>
     <addaction name="actionSave_Filter"/>
+    <addaction name="actionAdd_BEQ_Filter"/>
     <addaction name="menuPresets"/>
     <addaction name="separator"/>
     <addaction name="actionExport_Biquad"/>
@@ -785,6 +786,11 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+U</string>
+   </property>
+  </action>
+  <action name="actionAdd_BEQ_Filter">
+   <property name="text">
+    <string>Add BEQ Filter</string>
    </property>
   </action>
  </widget>

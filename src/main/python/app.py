@@ -18,7 +18,7 @@ from model.report import SaveReportDialog
 from model.batch import BatchExtractDialog
 from model.analysis import AnalyseSignalDialog
 from model.link import LinkSignalsDialog
-from model.preferences import DISPLAY_SHOW_FILTERED_SIGNALS, SYSTEM_CHECK_FOR_UPDATES
+from model.preferences import DISPLAY_SHOW_FILTERED_SIGNALS, SYSTEM_CHECK_FOR_UPDATES, BEQ_DOWNLOAD_DIR
 from ui.delegates import RegexValidator
 
 import pyqtgraph as pg
@@ -130,6 +130,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
             getattr(self, f"action_clear_preset_{i}").triggered.connect(self.clear_preset(i))
             getattr(self, f"action_store_preset_{i}").triggered.connect(self.set_preset(i))
             self.enable_preset(i)
+        self.actionAdd_BEQ_Filter.triggered.connect(self.add_beq_filter)
         # init the signal view selector
         self.showSignals.blockSignals(True)
         for x in SHOW_SIGNAL_OPTIONS:
@@ -843,6 +844,24 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
             button.setEnabled(False)
 
         return __clear_preset
+
+    def add_beq_filter(self):
+        '''
+        Presents a file dialog to the user so they can choose a minidsp beq filter to load.
+        :return: the loaded filter, if any.
+        '''
+        from model.codec import minidspxml_to_filt
+        from uuid import uuid4
+
+        selected = QFileDialog.getOpenFileName(parent=self, directory=self.preferences.get(BEQ_DOWNLOAD_DIR),
+                                               caption='Load Minidsp XML Filter', filter='Filter (*.xml)')
+        filt_file = selected[0] if selected is not None else None
+        if filt_file is not None:
+            filters = minidspxml_to_filt(filt_file)
+            if len(filters) > 0:
+                for f in filters:
+                    f.id = uuid4()
+                    self.__filter_model.save(f)
 
 
 class SaveChartDialog(QDialog, Ui_saveChartDialog):
