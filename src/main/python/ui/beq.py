@@ -493,7 +493,7 @@ class Ui_MainWindow(object):
         self.actionAbout.setText(_translate("MainWindow", "&About"))
         self.action_Remux_Audio.setText(_translate("MainWindow", "&Remux Audio"))
         self.action_Remux_Audio.setShortcut(_translate("MainWindow", "Ctrl+U"))
-        self.actionAdd_BEQ_Filter.setText(_translate("MainWindow", "Add BEQ Filter"))
+        self.actionAdd_BEQ_Filter.setText(_translate("MainWindow", "Add BE&Q Filter"))
 
 from app import PlotWidgetWithDateAxis
 from mpl import MplWidget

@@ -790,7 +790,7 @@
   </action>
   <action name="actionAdd_BEQ_Filter">
    <property name="text">
-    <string>Add BEQ Filter</string>
+    <string>Add BE&amp;Q Filter</string>
    </property>
   </action>
  </widget>
