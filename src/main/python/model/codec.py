@@ -248,8 +248,11 @@ def __extract_filters(file):
                         for val in child:
                             if val.tag not in ignore_vals:
                                 inner_filt[val.tag] = val.text
-                if inner_filt is not None and 'bypass' in inner_filt and inner_filt['bypass'] == '1':
-                    del filts[filter_tokens[1]]
+                if inner_filt is not None:
+                    if 'bypass' in inner_filt and inner_filt['bypass'] == '1':
+                        del filts[filter_tokens[1]]
+                    elif 'boost' in inner_filt and inner_filt['boost'] == '0':
+                        del filts[filter_tokens[1]]
     final_filt = None
     # if 1 and 2 are identical then throw one away
     if '1' in filts and '2' in filts:
@@ -257,10 +260,18 @@ def __extract_filters(file):
         filt_2 = filts['2']
         if filt_1 == filt_2:
             final_filt = list(filt_1.values())
+        else:
+            raise ValueError(f"Different input filters found in {file} - Input 1: {filt_1} - Input 2: {filt_2}")
     elif '1' in filts:
-        final_filt = list(filts['1'])
+        final_filt = list(filts['1'].values())
     elif '2' in filts:
-        final_filt = list(filts['2'])
+        final_filt = list(filts['2'].values())
     else:
-        raise ValueError(f"Multiple active filters found in {file}")
+        if len(filts.keys()) == 1:
+            for k in filts.keys():
+                final_filt = filts[k]
+        else:
+            raise ValueError(f"Multiple active filters found in {file} - {filts}")
+    if final_filt is None:
+        raise ValueError(f"No filters found in {file}")
     return Counter([tuple(f.items()) for f in final_filt])

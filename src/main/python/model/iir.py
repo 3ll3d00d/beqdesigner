@@ -134,7 +134,7 @@ class BiquadWithQ(Biquad):
 
     @property
     def description(self):
-        return super().description + f"{self.freq}/{self.q}"
+        return super().description + f" {self.freq}/{self.q}"
 
 
 class Passthrough(Gain):
@@ -295,6 +295,13 @@ class Shelf(BiquadWithQGain):
             'gain': self.gain,
             'count': self.count
         }
+
+    @property
+    def description(self):
+        if self.count > 1:
+            return super().description + f" x{self.count}"
+        else:
+            return super().description
 
 
 class LowShelf(Shelf):
