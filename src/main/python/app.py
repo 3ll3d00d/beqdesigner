@@ -185,6 +185,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
                                                         self.yMin,
                                                         self.yMax)
         self.__hide_waveform_chart()
+        self.actionClear_Signals.triggered.connect(self.clearSignals)
         # processing
         self.ensurePathContainsExternalTools()
         # extraction
@@ -389,6 +390,12 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
             self.signalView.clearSelection()
             # nothing in qt appears to emit selectionChanged when you clear the selection so have to call it ourselves
             self.on_signal_selected()
+
+    def clearSignals(self):
+        ''' Deletes all signals '''
+        while len(self.__signal_model) > 0:
+            self.signalView.selectRow(0)
+            self.deleteSignal()
 
     def importSignal(self):
         '''

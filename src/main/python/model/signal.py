@@ -328,7 +328,7 @@ class BassManagedSignalData(SignalData):
 
     def sum(self, apply_filter=True, clip=False):
         ''' Sums the signals to create a bass managed output '''
-        if self.__channels > 1:
+        if len(self.__channels) > 1:
             main_sum = 20.0 * math.log10(len(self.__channels) - 1)
             overall_sum = 20.0 * math.log10((10.0 ** (main_sum / 20.0)) + (10.0 ** 0.5))
             main_attenuate = 10 ** (-overall_sum / 20.0)
@@ -597,9 +597,20 @@ class SignalModel(Sequence):
         for idx, s in enumerate(self.__signals):
             s.reindex(idx)
         self.__ensure_master_slave_integrity()
+        self.__discard_incomplete_bass_managed_signals()
         self.post_update()
         if self.__table is not None:
             self.__table.endResetModel()
+
+    def __discard_incomplete_bass_managed_signals(self):
+        ''' discards any bass managed signals that are missing child signals '''
+        still_here = []
+        for bm in self.__bass_managed_signals:
+            if all(c in self.__signals for c in bm.channels):
+                still_here.append(bm)
+            else:
+                print(f"removing {bm}")
+        self.__bass_managed_signals = still_here
 
     def __ensure_master_slave_integrity(self):
         '''

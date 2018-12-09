@@ -570,6 +570,7 @@
     <addaction name="separator"/>
     <addaction name="actionLoad_Signal"/>
     <addaction name="actionSave_Signal"/>
+    <addaction name="actionClear_Signals"/>
     <addaction name="separator"/>
     <addaction name="actionLoad_Filter"/>
     <addaction name="actionSave_Filter"/>
@@ -791,6 +792,11 @@
   <action name="actionAdd_BEQ_Filter">
    <property name="text">
     <string>Add BE&amp;Q Filter</string>
+   </property>
+  </action>
+  <action name="actionClear_Signals">
+   <property name="text">
+    <string>C&amp;lear Signals</string>
    </property>
   </action>
  </widget>
