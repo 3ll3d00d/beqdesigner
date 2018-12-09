@@ -608,8 +608,6 @@ class SignalModel(Sequence):
         for bm in self.__bass_managed_signals:
             if all(c in self.__signals for c in bm.channels):
                 still_here.append(bm)
-            else:
-                print(f"removing {bm}")
         self.__bass_managed_signals = still_here
 
     def __ensure_master_slave_integrity(self):
