@@ -1123,10 +1123,12 @@ class DialogWavLoaderBridge:
         info = self.__auto_loader.info
         self.__dialog.wavFs.setText(f"{info.samplerate} Hz")
         self.__dialog.decimate.setEnabled(info.samplerate != self.__preferences.get(ANALYSIS_TARGET_FS))
-        self.__dialog.wavChannelSelector.clear()
-        for i in range(0, info.channels):
-            self.__dialog.wavChannelSelector.addItem(f"{i + 1}")
-        self.__dialog.wavChannelSelector.setEnabled(info.channels > 1)
+        from model.report import block_signals
+        with block_signals(self.__dialog.wavChannelSelector):
+            self.__dialog.wavChannelSelector.clear()
+            for i in range(0, info.channels):
+                self.__dialog.wavChannelSelector.addItem(f"{i + 1}")
+            self.__dialog.wavChannelSelector.setEnabled(info.channels > 1)
         self.__dialog.loadAllChannels.setEnabled(info.channels > 1 and self.__allow_multichannel)
         self.__dialog.wavStartTime.setTime(QtCore.QTime(0, 0, 0))
         self.__dialog.wavStartTime.setEnabled(True)
