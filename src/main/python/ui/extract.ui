@@ -220,7 +220,7 @@
        <item>
         <widget class="QCheckBox" name="includeOriginalAudio">
          <property name="text">
-          <string>Include Original Audio?</string>
+          <string>Add Original Audio?</string>
          </property>
         </widget>
        </item>
@@ -228,6 +228,16 @@
         <widget class="QCheckBox" name="compressAudio">
          <property name="text">
           <string>Compress Audio?</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QCheckBox" name="includeSubtitles">
+         <property name="toolTip">
+          <string extracomment="EXPERIMENTAL!"/>
+         </property>
+         <property name="text">
+          <string>Add Subtitles?</string>
          </property>
         </widget>
        </item>
@@ -350,8 +360,8 @@
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>445</x>
-     <y>981</y>
+     <x>452</x>
+     <y>1019</y>
     </hint>
     <hint type="destinationlabel">
      <x>157</x>
@@ -366,8 +376,8 @@
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>513</x>
-     <y>981</y>
+     <x>520</x>
+     <y>1019</y>
     </hint>
     <hint type="destinationlabel">
      <x>286</x>
@@ -414,8 +424,8 @@
    <slot>setTargetDirectory()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>865</x>
-     <y>455</y>
+     <x>872</x>
+     <y>492</y>
     </hint>
     <hint type="destinationlabel">
      <x>715</x>
@@ -430,8 +440,8 @@
    <slot>updateOutputFilename()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>824</x>
-     <y>489</y>
+     <x>833</x>
+     <y>530</y>
     </hint>
     <hint type="destinationlabel">
      <x>706</x>
@@ -462,8 +472,8 @@
    <slot>updateOutputFilename()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>689</x>
-     <y>489</y>
+     <x>815</x>
+     <y>530</y>
     </hint>
     <hint type="destinationlabel">
      <x>117</x>
@@ -478,8 +488,8 @@
    <slot>toggleMonoMix()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>284</x>
-     <y>243</y>
+     <x>259</x>
+     <y>263</y>
     </hint>
     <hint type="destinationlabel">
      <x>162</x>
@@ -542,8 +552,8 @@
    <slot>toggle_decimate_audio()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>446</x>
-     <y>243</y>
+     <x>398</x>
+     <y>263</y>
     </hint>
     <hint type="destinationlabel">
      <x>841</x>
@@ -558,8 +568,8 @@
    <slot>toggle_include_original_audio()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>656</x>
-     <y>243</y>
+     <x>553</x>
+     <y>263</y>
     </hint>
     <hint type="destinationlabel">
      <x>846</x>
@@ -574,8 +584,8 @@
    <slot>toggle_compress_audio()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>823</x>
-     <y>243</y>
+     <x>693</x>
+     <y>263</y>
     </hint>
     <hint type="destinationlabel">
      <x>844</x>
@@ -590,8 +600,8 @@
    <slot>update_end_time()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>607</x>
-     <y>193</y>
+     <x>832</x>
+     <y>232</y>
     </hint>
     <hint type="destinationlabel">
      <x>847</x>
@@ -622,8 +632,8 @@
    <slot>toggle_range()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>164</x>
-     <y>190</y>
+     <x>159</x>
+     <y>233</y>
     </hint>
     <hint type="destinationlabel">
      <x>99</x>
@@ -638,12 +648,28 @@
    <slot>show_remux_cmd()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>851</x>
-     <y>535</y>
+     <x>872</x>
+     <y>570</y>
     </hint>
     <hint type="destinationlabel">
      <x>865</x>
      <y>549</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>includeSubtitles</sender>
+   <signal>clicked()</signal>
+   <receiver>extractAudioDialog</receiver>
+   <slot>toggle_include_subtitles()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>767</x>
+     <y>253</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>854</x>
+     <y>312</y>
     </hint>
    </hints>
   </connection>
@@ -664,5 +690,6 @@
   <slot>update_end_time()</slot>
   <slot>toggle_range()</slot>
   <slot>show_remux_cmd()</slot>
+  <slot>toggle_include_subtitles()</slot>
  </slots>
 </ui>

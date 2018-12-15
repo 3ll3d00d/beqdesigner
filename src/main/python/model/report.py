@@ -57,7 +57,7 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         self.setWindowFlags(self.windowFlags() | Qt.WindowSystemMenuHint | Qt.WindowMinMaxButtonsHint)
         self.setupUi(self)
         self.imagePicker.setIcon(qta.icon('fa5s.folder-open'))
-        self.limitsButton.setIcon(qta.icon('ei.move'))
+        self.limitsButton.setIcon(qta.icon('fa5s.arrows-alt'))
         self.saveLayout.setIcon(qta.icon('fa5s.save'))
         self.loadURL.setIcon(qta.icon('fa5s.download'))
         self.loadURL.setEnabled(False)
@@ -101,7 +101,7 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
             self.__init_imshow_axes()
         else:
             self.__imshow_axes = None
-        self.__magnitude_model = MagnitudeModel('main', self.preview, self.__preferences, self, 'Signals',
+        self.__magnitude_model = MagnitudeModel('report', self.preview, self.__preferences, self, 'Signals',
                                                 show_legend=lambda: self.showLegend.isChecked(),
                                                 subplot_spec=chart_spec, redraw_listener=self.on_redraw,
                                                 grid_alpha=self.gridOpacity.value(),

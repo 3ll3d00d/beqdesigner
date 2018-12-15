@@ -7,7 +7,7 @@ import matplotlib
 import numpy as np
 import qtawesome as qta
 from matplotlib.gridspec import GridSpec
-from matplotlib.ticker import FuncFormatter
+from matplotlib.ticker import FuncFormatter, MaxNLocator
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from qtpy import QtCore
 from qtpy.QtCore import Qt
@@ -27,13 +27,13 @@ MULTIPLIERS = [0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0]
 
 
 class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
-    def __init__(self, preferences, signal_model):
+    def __init__(self, preferences, signal_model, allow_load=True):
         super(AnalyseSignalDialog, self).__init__()
         self.setupUi(self)
         self.setWindowFlags(self.windowFlags() | Qt.WindowSystemMenuHint | Qt.WindowMinMaxButtonsHint)
         self.__preferences = preferences
         self.filePicker.setIcon(qta.icon('fa5s.folder-open'))
-        self.showLimitsButton.setIcon(qta.icon('ei.move'))
+        self.showLimitsButton.setIcon(qta.icon('fa5s.arrows-alt'))
         self.updateChart.setIcon(qta.icon('fa5s.sync'))
         self.saveChart.setIcon(qta.icon('fa5s.save'))
         self.saveLayout.setIcon(qta.icon('fa5s.save'))
@@ -45,12 +45,6 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
         self.__spectrum_analyser = MaxSpectrumByTime(self.spectrumChart, self.__preferences, self)
         self.__waveform_analyser = Waveform(self.waveformChart, self)
         self.__signal_model = signal_model
-        self.copyFilter.addItem('No Filter')
-        for s in signal_model:
-            if s.master is None:
-                self.copyFilter.addItem(s.name)
-        if len(signal_model) == 0:
-            self.copyFilter.setEnabled(False)
         from model.report import block_signals
         with block_signals(self.markerType):
             self.markerType.addItem(POINT)
@@ -61,8 +55,38 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
         self.updateChart.setEnabled(False)
         self.__duration = 0
         self.loadButton.setEnabled(False)
+        self.compareSignalsButton.setEnabled(False)
         self.__init_from_prefs()
         self.__clear()
+        if allow_load:
+            self.__init_for_load()
+        else:
+            self.__init_for_compare()
+
+    def __init_for_compare(self):
+        ''' initialises the fields relevant to a compare signal based analysis. '''
+        self.analysisFrame.setVisible(False)
+        self.analysisTabs.removeTab(1)
+        self.__load_signal_selector(self.leftSignal)
+        self.__load_signal_selector(self.rightSignal)
+
+    def __load_signal_selector(self, selector):
+        ''' loads the signals into a selector. '''
+        for s in self.__signal_model:
+            if s.signal is not None:
+                selector.addItem(s.name)
+        for bm in self.__signal_model.bass_managed_signals:
+            selector.addItem(f"(BM) {bm.name}")
+
+    def __init_for_load(self):
+        ''' initialises the fields relevant to a load from file based analysis. '''
+        self.signalFrame.setVisible(False)
+        self.copyFilter.addItem('No Filter')
+        for s in self.__signal_model:
+            if s.master is None:
+                self.copyFilter.addItem(s.name)
+        if len(self.__signal_model) == 0:
+            self.copyFilter.setEnabled(False)
 
     def __init_from_prefs(self):
         ''' initialises the various form fields from preferences '''
@@ -126,6 +150,39 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
             self.magLimitTypeLabel.setVisible(False)
             self.magLimitType.setVisible(False)
             self.set_mag_range_type('')
+
+    def select_left_signal(self, signal_name):
+        ''' enables the compare button if left and right have different signals selected '''
+        self.compareSignalsButton.setEnabled(self.rightSignal.currentText() != signal_name)
+
+    def select_right_signal(self, signal_name):
+        ''' enables the compare button if left and right have different signals selected '''
+        self.compareSignalsButton.setEnabled(self.leftSignal.currentText() != signal_name)
+
+    def compare_signals(self):
+        ''' Loads the selected signals into the spectrum chart. '''
+        left_signal = self.__get_signal_data(self.leftSignal.currentText())
+        right_signal = self.__get_signal_data(self.rightSignal.currentText())
+        max_duration = math.floor(max(left_signal.duration_seconds, right_signal.duration_seconds) * 1000)
+        self.startTime.setTime(QtCore.QTime(0, 0, 0))
+        self.startTime.setEnabled(True)
+        max_time = QtCore.QTime(0, 0, 0).addMSecs(max_duration)
+        self.endTime.setMaximumTime(max_time)
+        self.endTime.setTime(max_time)
+        self.endTime.setEnabled(True)
+        self.maxTime.setMaximumTime(max_time)
+        self.maxTime.setTime(max_time)
+        self.__init_resolution_selector(left_signal.signal)
+        self.__spectrum_analyser.left = left_signal.filter_signal(filt=self.filterLeft.isChecked())
+        self.__spectrum_analyser.right = right_signal.filter_signal(filt=self.filterRight.isChecked())
+        self.__spectrum_analyser.analyse()
+        self.updateChart.setEnabled(True)
+
+    def __get_signal_data(self, signal_name):
+        if signal_name is not None and signal_name.startswith('(BM) '):
+            return next((s for s in self.__signal_model.bass_managed_signals if s.name == signal_name[5:]), None)
+        else:
+            return next((s for s in self.__signal_model if s.name == signal_name), None)
 
     def save_chart(self):
         ''' opens the save chart dialog '''
@@ -192,16 +249,20 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
             self.__signal = readWav('analysis', self.__info.name, channel=channel, start=start, end=end,
                                     target_fs=self.__preferences.get(ANALYSIS_TARGET_FS))
             self.__filtered_signals = {}
-            from model.report import block_signals
-            with block_signals(self.analysisResolution):
-                self.analysisResolution.clear()
-                default_length = self.__signal.getSegmentLength()
-                for m in MULTIPLIERS:
-                    freq_res = float(self.__signal.fs) / (default_length * m)
-                    time_res = (m * default_length) / self.__signal.fs
-                    self.analysisResolution.addItem(f"{freq_res:.3f} Hz / {time_res:.3f} s")
-                self.analysisResolution.setCurrentIndex(2)
+            self.__init_resolution_selector(self.__signal)
             self.show_chart()
+
+    def __init_resolution_selector(self, signal):
+        ''' sets up the resolution selector based on the size of the underlying file. '''
+        from model.report import block_signals
+        with block_signals(self.analysisResolution):
+            self.analysisResolution.clear()
+            default_length = signal.getSegmentLength()
+            for m in MULTIPLIERS:
+                freq_res = float(signal.fs) / (default_length * m)
+                time_res = (m * default_length) / signal.fs
+                self.analysisResolution.addItem(f"{freq_res:.3f} Hz / {time_res:.3f} s")
+            self.analysisResolution.setCurrentIndex(2)
 
     def show_chart(self):
         '''
@@ -211,8 +272,8 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
             filtered_signal = self.__get_filtered_signal()
             idx = self.analysisTabs.currentIndex()
             if idx == 0:
-                self.__spectrum_analyser.signal = self.__signal
-                self.__spectrum_analyser.filtered_signal = filtered_signal
+                self.__spectrum_analyser.right = self.__signal
+                self.__spectrum_analyser.left = filtered_signal
                 self.__spectrum_analyser.analyse()
             elif idx == 1:
                 self.__waveform_analyser.signal = filtered_signal if filtered_signal is not None else self.__signal
@@ -224,13 +285,16 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
             idx = self.analysisTabs.currentIndex()
             if idx == 0:
                 self.__spectrum_analyser.update_chart()
+        elif self.analysisTabs.count() == 1:
+            if self.__spectrum_analyser.left is not None or self.__spectrum_analyser.right is not None:
+                self.__spectrum_analyser.update_chart()
 
     def update_filter(self, idx):
         ''' reacts to filter changes '''
         if self.__signal is not None:
             if self.analysisTabs.currentIndex() == 0:
-                self.__spectrum_analyser.signal = self.__signal
-                self.__spectrum_analyser.filtered_signal = self.__get_filtered_signal()
+                self.__spectrum_analyser.right = self.__signal
+                self.__spectrum_analyser.left = self.__get_filtered_signal()
                 self.__spectrum_analyser.analyse()
             elif self.analysisTabs.currentIndex() == 1:
                 self.show_chart()
@@ -302,7 +366,7 @@ class Waveform:
         self.__limits.x_min = 0
         self.__limits.x_max = 1
         if signal is not None:
-            self.__limits.x_max = signal.durationSeconds
+            self.__limits.x_max = signal.duration_seconds
             headroom = 20 * math.log(1.0 / np.nanmax(np.abs(signal.samples)), 10)
         else:
             headroom = 0.0
@@ -332,7 +396,7 @@ class Waveform:
         Shows the graph limits dialog.
         '''
         if self.signal is not None:
-            LimitsDialog(self.__limits, x_min=0, x_max=self.signal.durationSeconds, y1_min=-1, y1_max=1).exec()
+            LimitsDialog(self.__limits, x_min=0, x_max=self.signal.duration_seconds, y1_min=-1, y1_max=1).exec()
 
     def analyse(self):
         '''
@@ -341,7 +405,7 @@ class Waveform:
         from app import wait_cursor
         with wait_cursor(f"Analysing"):
             step = 1.0 / self.signal.fs
-            x = np.arange(0, self.signal.durationSeconds, step)
+            x = np.arange(0, self.signal.duration_seconds, step)
             y = self.signal.samples
             if self.__ui.magnitudeDecibels.isChecked():
                 y = np.copy(y)
@@ -380,15 +444,15 @@ class MaxSpectrumByTime:
         self.__preferences = preferences
         self.__layout_change = False
 
-        self.__axes = None
-        self.__signal = None
-        self.__scatter = None
-        self.__cache = {}
+        self.__left_axes = None
+        self.__left_signal = None
+        self.__left_scatter = None
+        self.__left_cache = {}
 
-        self.__filtered_axes = None
-        self.__filtered_signal = None
-        self.__filtered_scatter = None
-        self.__filtered_cache = {}
+        self.__right_axes = None
+        self.__right_signal = None
+        self.__right_scatter = None
+        self.__right_cache = {}
 
         self.__cb = None
         self.__current_marker = None
@@ -399,13 +463,13 @@ class MaxSpectrumByTime:
         self.__init_mag_range()
 
     @property
-    def signal(self):
-        return self.__signal
+    def right(self):
+        return self.__right_signal
 
-    @signal.setter
-    def signal(self, signal):
-        self.__signal = signal
-        self.__clear_scatter(self.__scatter)
+    @right.setter
+    def right(self, right):
+        self.__right_signal = right
+        self.__clear_scatter(self.__right_scatter)
 
     def __clear_scatter(self, scatter):
         if scatter is not None:
@@ -413,26 +477,26 @@ class MaxSpectrumByTime:
             scatter.set_array(np.array([]))
 
     @property
-    def filtered_signal(self):
-        return self.__filtered_signal
+    def left(self):
+        return self.__left_signal
 
-    @filtered_signal.setter
-    def filtered_signal(self, filtered_signal):
+    @left.setter
+    def left(self, left):
         self.__layout_change = (
-                (filtered_signal is None and self.__filtered_signal is not None)
+                (left is None and self.__left_signal is not None)
                 or
-                (filtered_signal is not None and self.__filtered_signal is None)
+                (left is not None and self.__left_signal is None)
         )
-        self.__filtered_signal = filtered_signal
-        self.__clear_scatter(self.__filtered_scatter)
+        self.__left_signal = left
+        self.__clear_scatter(self.__left_scatter)
 
     def set_mag_range_type(self, type):
         ''' updates the chart controls '''
         mag_max = None
-        if 'sxx' in self.__cache:
-            mag_max = np.max(self.__cache['sxx'])
-        if 'sxx' in self.__filtered_cache:
-            mag_max = max(mag_max, np.max(self.__filtered_cache['sxx']))
+        if 'sxx' in self.__right_cache:
+            mag_max = np.max(self.__right_cache['sxx'])
+        if 'sxx' in self.__left_cache:
+            mag_max = max(mag_max, np.max(self.__left_cache['sxx']))
         if type == 'Constant':
             self.__ui.magUpperLimit.setVisible(True)
             self.__ui.magLowerLimit.setVisible(True)
@@ -457,45 +521,45 @@ class MaxSpectrumByTime:
         '''
         Resets the analyser.
         '''
-        self.signal = None
-        self.filtered_signal = None
+        self.left = None
+        self.right = None
 
     def update_chart(self):
         ''' Updates the chart for the cached data'''
         from app import wait_cursor
         with wait_cursor(f"Updating"):
             self.__clear_on_layout_change()
-            if self.__filtered_signal is None:
-                self.__render_unfiltered_only()
+            if self.__left_signal is None:
+                self.__render_one_only()
             else:
                 self.__render_both()
             if self.__cb is None:
-                divider = make_axes_locatable(self.__axes)
+                divider = make_axes_locatable(self.__right_axes)
                 cax = divider.append_axes("right", size="5%", pad=0.05)
-                self.__cb = self.__axes.figure.colorbar(self.__scatter, cax=cax)
+                self.__cb = self.__right_axes.figure.colorbar(self.__right_scatter, cax=cax)
             self.__redraw()
 
     def __render_both(self):
         ''' renders two plots, one with the filtered and one without. '''
-        if self.__filtered_axes is None:
+        if self.__left_axes is None:
             self.__width_ratio = self.__make_width_ratio()
             gs = GridSpec(1, 2, width_ratios=self.__make_width_ratio(adjusted=True), wspace=0.00)
             gs.tight_layout(self.__chart.canvas.figure)
-            self.__filtered_axes = self.__chart.canvas.figure.add_subplot(gs.new_subplotspec((0, 0)))
-            self.__add_grid(self.__filtered_axes)
-            self.__axes = self.__chart.canvas.figure.add_subplot(gs.new_subplotspec((0, 1)))
-            self.__add_grid(self.__axes)
+            self.__left_axes = self.__chart.canvas.figure.add_subplot(gs.new_subplotspec((0, 0)))
+            self.__add_grid(self.__left_axes)
+            self.__right_axes = self.__chart.canvas.figure.add_subplot(gs.new_subplotspec((0, 1)))
+            self.__add_grid(self.__right_axes)
 
-        self.__filtered_scatter = self.__render_scatter(self.__filtered_cache, self.__filtered_axes,
-                                                        self.__filtered_scatter,
-                                                        self.__ui.maxFilteredFreq.value(), self.filtered_signal)
-        self.__set_limits(self.__filtered_axes, self.__ui.minFreq, self.__ui.maxFilteredFreq,
+        self.__left_scatter = self.__render_scatter(self.__left_cache, self.__left_axes,
+                                                     self.__left_scatter,
+                                                     self.__ui.maxFilteredFreq.value(), self.left)
+        self.__set_limits(self.__left_axes, self.__ui.minFreq, self.__ui.maxFilteredFreq,
                           self.__ui.minTime, self.__ui.maxTime)
-        self.__scatter = self.__render_scatter(self.__cache, self.__axes, self.__scatter,
-                                               self.__ui.maxUnfilteredFreq.value(), self.signal)
-        self.__axes.set_yticklabels([])
-        self.__axes.get_yaxis().set_tick_params(length=0)
-        self.__set_limits(self.__axes, self.__ui.minFreq, self.__ui.maxUnfilteredFreq,
+        self.__right_scatter = self.__render_scatter(self.__right_cache, self.__right_axes, self.__right_scatter,
+                                                    self.__ui.maxUnfilteredFreq.value(), self.right)
+        self.__right_axes.set_yticklabels([])
+        self.__right_axes.get_yaxis().set_tick_params(length=0)
+        self.__set_limits(self.__right_axes, self.__ui.minFreq, self.__ui.maxUnfilteredFreq,
                           self.__ui.minTime, self.__ui.maxTime)
 
     def __make_width_ratio(self, adjusted=False):
@@ -508,14 +572,14 @@ class MaxSpectrumByTime:
         else:
             return [a, b]
 
-    def __render_unfiltered_only(self):
+    def __render_one_only(self):
         ''' renders a single plot with the unfiltered only '''
-        if self.__axes is None:
-            self.__axes = self.__chart.canvas.figure.add_subplot(111)
-            self.__add_grid(self.__axes)
-        self.__scatter = self.__render_scatter(self.__cache, self.__axes, self.__scatter,
-                                               self.__ui.maxUnfilteredFreq.value(), self.signal)
-        self.__set_limits(self.__axes, self.__ui.minFreq, self.__ui.maxUnfilteredFreq,
+        if self.__right_axes is None:
+            self.__right_axes = self.__chart.canvas.figure.add_subplot(111)
+            self.__add_grid(self.__right_axes)
+        self.__right_scatter = self.__render_scatter(self.__right_cache, self.__right_axes, self.__right_scatter,
+                                                    self.__ui.maxUnfilteredFreq.value(), self.right)
+        self.__set_limits(self.__right_axes, self.__ui.minFreq, self.__ui.maxUnfilteredFreq,
                           self.__ui.minTime, self.__ui.maxTime)
 
     def __add_grid(self, axes):
@@ -545,10 +609,10 @@ class MaxSpectrumByTime:
             )
         if self.__layout_change is True:
             self.__chart.canvas.figure.clear()
-            self.__axes = None
-            self.__scatter = None
-            self.__filtered_axes = None
-            self.__filtered_scatter = None
+            self.__left_axes = None
+            self.__left_scatter = None
+            self.__right_axes = None
+            self.__right_scatter = None
             self.__cb = None
             self.__current_marker = None
             self.__current_ellipse_width = None
@@ -567,8 +631,8 @@ class MaxSpectrumByTime:
         '''
         from app import wait_cursor
         with wait_cursor(f"Analysing"):
-            self.__cache_xyz(self.__signal, self.__cache)
-            self.__cache_xyz(self.__filtered_signal, self.__filtered_cache)
+            self.__cache_xyz(self.__left_signal, self.__left_cache)
+            self.__cache_xyz(self.__right_signal, self.__right_cache)
             self.__init_mag_range()
             self.update_chart()
 
@@ -637,6 +701,7 @@ class MaxSpectrumByTime:
                     self.__current_ellipse_height = ry
                 scatter = axes.scatter(x, y, c=z, s=s, vmin=vmin, vmax=vmax, marker=marker)
             axes.yaxis.set_major_formatter(FuncFormatter(seconds_to_hhmmss))
+            axes.yaxis.set_major_locator(MaxNLocator(nbins=24, min_n_ticks=8, steps=[1, 3, 6]))
         else:
             if self.__current_marker == POINT or self.__current_marker == ELLIPSE:
                 new_data = np.c_[x, y]

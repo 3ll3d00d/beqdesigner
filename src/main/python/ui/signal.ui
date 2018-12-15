@@ -56,20 +56,13 @@
           <layout class="QGridLayout" name="gridLayout_3">
            <item row="0" column="0">
             <layout class="QGridLayout" name="wavGridLayout">
-             <item row="7" column="1">
-              <widget class="QCheckBox" name="loadAllChannels">
-               <property name="text">
-                <string>Load All Channels?</string>
-               </property>
-               <property name="checked">
-                <bool>true</bool>
-               </property>
-              </widget>
-             </item>
-             <item row="2" column="1">
-              <widget class="QLineEdit" name="wavFs">
+             <item row="5" column="1">
+              <widget class="QTimeEdit" name="wavEndTime">
                <property name="enabled">
                 <bool>false</bool>
+               </property>
+               <property name="displayFormat">
+                <string>HH:mm:ss.zzz</string>
                </property>
               </widget>
              </item>
@@ -97,55 +90,10 @@
                </property>
               </widget>
              </item>
-             <item row="5" column="0">
-              <widget class="QLabel" name="wavEndTimeLabel">
-               <property name="text">
-                <string>End</string>
-               </property>
-              </widget>
-             </item>
              <item row="3" column="1">
               <widget class="QComboBox" name="wavChannelSelector">
                <property name="enabled">
                 <bool>false</bool>
-               </property>
-              </widget>
-             </item>
-             <item row="1" column="0">
-              <widget class="QLabel" name="wavFileLabel">
-               <property name="text">
-                <string>File</string>
-               </property>
-              </widget>
-             </item>
-             <item row="2" column="0">
-              <widget class="QLabel" name="wavFsLabel">
-               <property name="text">
-                <string>Fs</string>
-               </property>
-              </widget>
-             </item>
-             <item row="6" column="1">
-              <widget class="QLineEdit" name="wavSignalName">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
-              </widget>
-             </item>
-             <item row="5" column="1">
-              <widget class="QTimeEdit" name="wavEndTime">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
-               <property name="displayFormat">
-                <string>HH:mm:ss.zzz</string>
-               </property>
-              </widget>
-             </item>
-             <item row="1" column="2">
-              <widget class="QToolButton" name="wavFilePicker">
-               <property name="text">
-                <string>...</string>
                </property>
               </widget>
              </item>
@@ -156,13 +104,47 @@
                </property>
               </widget>
              </item>
-             <item row="10" column="0" colspan="3">
-              <widget class="QPushButton" name="previewButton">
+             <item row="1" column="2">
+              <widget class="QToolButton" name="wavFilePicker">
+               <property name="text">
+                <string>...</string>
+               </property>
+              </widget>
+             </item>
+             <item row="7" column="1">
+              <widget class="QCheckBox" name="loadAllChannels">
+               <property name="text">
+                <string>Load All Channels?</string>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
+               </property>
+              </widget>
+             </item>
+             <item row="8" column="1">
+              <widget class="QCheckBox" name="decimate">
+               <property name="text">
+                <string>Resample?</string>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="1">
+              <widget class="QLineEdit" name="wavFs">
                <property name="enabled">
                 <bool>false</bool>
                </property>
-               <property name="text">
-                <string>Preview</string>
+              </widget>
+             </item>
+             <item row="1" column="1">
+              <widget class="QLineEdit" name="wavFile">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="readOnly">
+                <bool>true</bool>
                </property>
               </widget>
              </item>
@@ -179,16 +161,6 @@
                </property>
               </spacer>
              </item>
-             <item row="1" column="1">
-              <widget class="QLineEdit" name="wavFile">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
-               <property name="readOnly">
-                <bool>true</bool>
-               </property>
-              </widget>
-             </item>
              <item row="6" column="0">
               <widget class="QLabel" name="wavSignalNameLabel">
                <property name="text">
@@ -196,13 +168,38 @@
                </property>
               </widget>
              </item>
-             <item row="8" column="1">
-              <widget class="QCheckBox" name="decimate">
-               <property name="text">
-                <string>Resample?</string>
+             <item row="6" column="1">
+              <widget class="QLineEdit" name="wavSignalName">
+               <property name="enabled">
+                <bool>false</bool>
                </property>
-               <property name="checked">
-                <bool>true</bool>
+              </widget>
+             </item>
+             <item row="1" column="0">
+              <widget class="QLabel" name="wavFileLabel">
+               <property name="text">
+                <string>File</string>
+               </property>
+              </widget>
+             </item>
+             <item row="5" column="0">
+              <widget class="QLabel" name="wavEndTimeLabel">
+               <property name="text">
+                <string>End</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="0">
+              <widget class="QLabel" name="wavFsLabel">
+               <property name="text">
+                <string>Fs</string>
+               </property>
+              </widget>
+             </item>
+             <item row="5" column="2">
+              <widget class="QToolButton" name="applyTimeRangeButton">
+               <property name="text">
+                <string>...</string>
                </property>
               </widget>
              </item>
@@ -361,6 +358,27 @@
    <header>mpl</header>
   </customwidget>
  </customwidgets>
+ <tabstops>
+  <tabstop>signalTypeTabs</tabstop>
+  <tabstop>wavFilePicker</tabstop>
+  <tabstop>wavChannelSelector</tabstop>
+  <tabstop>wavStartTime</tabstop>
+  <tabstop>wavEndTime</tabstop>
+  <tabstop>wavSignalName</tabstop>
+  <tabstop>loadAllChannels</tabstop>
+  <tabstop>decimate</tabstop>
+  <tabstop>filterSelect</tabstop>
+  <tabstop>linkedSignal</tabstop>
+  <tabstop>wavFile</tabstop>
+  <tabstop>wavFs</tabstop>
+  <tabstop>frdFs</tabstop>
+  <tabstop>frdAvgFile</tabstop>
+  <tabstop>frdAvgFilePicker</tabstop>
+  <tabstop>frdSignalName</tabstop>
+  <tabstop>frdPeakFilePicker</tabstop>
+  <tabstop>frdPeakFile</tabstop>
+  <tabstop>previewChart</tabstop>
+ </tabstops>
  <resources/>
  <connections>
   <connection>
@@ -370,8 +388,8 @@
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>332</x>
-     <y>506</y>
+     <x>268</x>
+     <y>500</y>
     </hint>
     <hint type="destinationlabel">
      <x>286</x>
@@ -386,8 +404,8 @@
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>288</x>
-     <y>506</y>
+     <x>268</x>
+     <y>500</y>
     </hint>
     <hint type="destinationlabel">
      <x>157</x>
@@ -402,44 +420,12 @@
    <slot>selectFile()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>313</x>
-     <y>81</y>
+     <x>256</x>
+     <y>79</y>
     </hint>
     <hint type="destinationlabel">
      <x>388</x>
      <y>32</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>previewButton</sender>
-   <signal>clicked()</signal>
-   <receiver>addSignalDialog</receiver>
-   <slot>prepareSignal()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>236</x>
-     <y>344</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>190</x>
-     <y>323</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>wavSignalName</sender>
-   <signal>textChanged(QString)</signal>
-   <receiver>addSignalDialog</receiver>
-   <slot>enablePreview()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>171</x>
-     <y>238</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>237</x>
-     <y>357</y>
     </hint>
    </hints>
   </connection>
@@ -466,8 +452,8 @@
    <slot>selectAvgFile()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>313</x>
-     <y>81</y>
+     <x>256</x>
+     <y>75</y>
     </hint>
     <hint type="destinationlabel">
      <x>303</x>
@@ -482,8 +468,8 @@
    <slot>selectPeakFile()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>308</x>
-     <y>109</y>
+     <x>256</x>
+     <y>115</y>
     </hint>
     <hint type="destinationlabel">
      <x>318</x>
@@ -498,8 +484,8 @@
    <slot>enableOk()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>124</x>
-     <y>246</y>
+     <x>194</x>
+     <y>273</y>
     </hint>
     <hint type="destinationlabel">
      <x>102</x>
@@ -514,8 +500,8 @@
    <slot>enableOk()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>103</x>
-     <y>177</y>
+     <x>159</x>
+     <y>193</y>
     </hint>
     <hint type="destinationlabel">
      <x>92</x>
@@ -530,12 +516,76 @@
    <slot>masterFilterChanged()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>270</x>
-     <y>430</y>
+     <x>267</x>
+     <y>431</y>
     </hint>
     <hint type="destinationlabel">
      <x>167</x>
      <y>456</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>wavChannelSelector</sender>
+   <signal>currentTextChanged(QString)</signal>
+   <receiver>addSignalDialog</receiver>
+   <slot>previewChannel()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>101</x>
+     <y>143</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>68</x>
+     <y>547</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>applyTimeRangeButton</sender>
+   <signal>clicked()</signal>
+   <receiver>addSignalDialog</receiver>
+   <slot>limitTimeRange()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>239</x>
+     <y>218</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>184</x>
+     <y>535</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>wavStartTime</sender>
+   <signal>timeChanged(QTime)</signal>
+   <receiver>addSignalDialog</receiver>
+   <slot>enableLimitTimeRangeButton()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>158</x>
+     <y>181</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>194</x>
+     <y>577</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>wavEndTime</sender>
+   <signal>timeChanged(QTime)</signal>
+   <receiver>addSignalDialog</receiver>
+   <slot>enableLimitTimeRangeButton()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>132</x>
+     <y>219</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>144</x>
+     <y>577</y>
     </hint>
    </hints>
   </connection>
@@ -550,5 +600,8 @@
   <slot>selectPeakFile()</slot>
   <slot>enableOk()</slot>
   <slot>masterFilterChanged()</slot>
+  <slot>previewChannel()</slot>
+  <slot>limitTimeRange()</slot>
+  <slot>enableLimitTimeRangeButton()</slot>
  </slots>
 </ui>

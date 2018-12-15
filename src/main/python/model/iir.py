@@ -134,12 +134,12 @@ class BiquadWithQ(Biquad):
 
     @property
     def description(self):
-        return super().description + f"{self.freq}/{self.q}"
+        return super().description + f" {self.freq}/{self.q}"
 
 
 class Passthrough(Gain):
-    def __init__(self):
-        super().__init__(1000, 0)
+    def __init__(self, fs=1000):
+        super().__init__(fs, 0)
 
     @property
     def description(self):
@@ -147,7 +147,8 @@ class Passthrough(Gain):
 
     def to_json(self):
         return {
-            '_type': self.__class__.__name__
+            '_type': self.__class__.__name__,
+            'fs': self.fs
         }
 
 
@@ -294,6 +295,13 @@ class Shelf(BiquadWithQGain):
             'gain': self.gain,
             'count': self.count
         }
+
+    @property
+    def description(self):
+        if self.count > 1:
+            return super().description + f" x{self.count}"
+        else:
+            return super().description
 
 
 class LowShelf(Shelf):
@@ -703,10 +711,11 @@ class ComplexFilter(Sequence):
             self.listener.on_filter_change(self)
 
     def save0(self, filter, filters):
-        match = next((f for f in filters if f.id == filter.id), None)
-        if match:
-            filters.remove(match)
-        filters.append(filter)
+        match = next((idx for idx, f in enumerate(filters) if f.id == filter.id), None)
+        if match is not None:
+            filters[match] = filter
+        else:
+            filters.append(filter)
         return filters
 
     def removeByIndex(self, indices):
@@ -736,7 +745,8 @@ class ComplexFilter(Sequence):
         :param invert_a: whether to invert the a coeffs.
         :return: the report.
         '''
-        return [f.format_biquads(invert_a, separator=separator) for f in self.filters]
+        import itertools
+        return list(itertools.chain(*[f.format_biquads(invert_a, separator=separator) for f in self.filters]))
 
     def get_sos(self):
         ''' outputs the filter in cascaded second order sections ready for consumption by sosfiltfilt '''
@@ -763,17 +773,19 @@ class CompleteFilter(ComplexFilter):
         '''
         return CompleteFilter(self.save0(filter, self.filters.copy()), self.description, listener=None)
 
-    def resample(self, new_fs):
+    def resample(self, new_fs, copy_listener=True):
         '''
         Creates a new filter at the desired fs.
         :param new_fs: the fs.
+        :param copy_listener: if true, carry the listener forward to the resampled filter.
         :return: the new filter.
         '''
+        listener = self.listener if copy_listener else None
         if len(self) > 0:
             return CompleteFilter(filters=[f.resample(new_fs) for f in self.filters], description=self.description,
-                                  preset_idx=self.preset_idx, listener=self.listener)
+                                  preset_idx=self.preset_idx, listener=listener)
         else:
-            return CompleteFilter(description=self.description, preset_idx=self.preset_idx, listener=self.listener)
+            return CompleteFilter(description=self.description, preset_idx=self.preset_idx, listener=listener)
 
 
 class FilterType(Enum):
@@ -922,6 +934,8 @@ class ComplexData:
         else:
             self.__cached_mag_ref = ref
             y = np.abs(self.y) * self.scaleFactor / ref
+            # avoid divide by zero issues when converting to decibels
+            y[np.abs(y) < 0.0000001] = 0.0000001
             self.__cached_mag = XYData(self.name, None, self.x, 20 * np.log10(y), colour=colour,
                                        linestyle=linestyle)
         return self.__cached_mag
@@ -943,7 +957,7 @@ class XYData:
         self.x = x
         self.y = np.nan_to_num(y)
         # TODO consider a variable spacing so we don't go overboard for full range view
-        required_points = self.x[-1] * 4
+        required_points = math.ceil(self.x[-1]) * 4
         if self.y.size != required_points:
             new_x = np.linspace(self.x[0], self.x[-1], num=required_points, endpoint=True)
             cs = CubicSpline(self.x, self.y)

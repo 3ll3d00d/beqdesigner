@@ -12,14 +12,17 @@ import matplotlib
 
 matplotlib.use("Qt5Agg")
 
+from model.waveform import WaveformController
 from model.checker import VersionChecker
 from model.report import SaveReportDialog
 from model.batch import BatchExtractDialog
 from model.analysis import AnalyseSignalDialog
 from model.link import LinkSignalsDialog
-from model.preferences import DISPLAY_SHOW_FILTERED_SIGNALS, SYSTEM_CHECK_FOR_UPDATES
+from model.preferences import DISPLAY_SHOW_FILTERED_SIGNALS, SYSTEM_CHECK_FOR_UPDATES, BEQ_DOWNLOAD_DIR, \
+    BIQUAD_EXPORT_MAX, BIQUAD_EXPORT_FS
 from ui.delegates import RegexValidator
 
+import pyqtgraph as pg
 import qtawesome as qta
 from matplotlib import style
 
@@ -30,9 +33,9 @@ from ui.savechart import Ui_saveChartDialog
 
 from qtpy import QtCore
 from qtpy.QtCore import QSettings, QThreadPool
-from qtpy.QtGui import QIcon, QFont, QCursor
+from qtpy.QtGui import QIcon, QFont, QCursor, QTextCursor
 from qtpy.QtWidgets import QMainWindow, QApplication, QErrorMessage, QAbstractItemView, QDialog, QFileDialog, \
-    QHeaderView, QMessageBox
+    QHeaderView, QMessageBox, QHBoxLayout, QToolButton
 
 from model.extract import ExtractAudioDialog
 from model.filter import FilterTableModel, FilterModel, FilterDialog
@@ -42,7 +45,7 @@ from model.preferences import PreferencesDialog, BINARIES_GROUP, ANALYSIS_TARGET
     Preferences, \
     SCREEN_GEOMETRY, SCREEN_WINDOW_STATE, FILTERS_PRESET_x, DISPLAY_SHOW_LEGEND, DISPLAY_SHOW_FILTERS, \
     SHOW_FILTER_OPTIONS, SHOW_SIGNAL_OPTIONS, DISPLAY_SHOW_SIGNALS, SHOW_FILTERED_SIGNAL_OPTIONS
-from model.signal import SignalModel, SignalTableModel, SignalDialog, SignalData
+from model.signal import SignalModel, SignalTableModel, SignalDialog, SingleChannelSignalData
 from ui.beq import Ui_MainWindow
 
 logger = logging.getLogger('beq')
@@ -88,8 +91,13 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
                 style.use(os.path.join(self.__style_path_root, 'style', 'mpl', f"{matplotlib_theme}.mplstyle"))
             else:
                 style.use(matplotlib_theme)
+
+        pg.setConfigOption('background', matplotlib.colors.to_hex(matplotlib.rcParams['axes.facecolor']))
+        pg.setConfigOption('foreground', matplotlib.colors.to_hex(matplotlib.rcParams['axes.edgecolor']))
+        pg.setConfigOption('leftButtonPan', False)
         self.setupUi(self)
-        self.limitsButton.setIcon(qta.icon('ei.move'))
+        self.__decorate_splitter()
+        self.limitsButton.setIcon(qta.icon('fa5s.arrows-alt'))
         self.showValuesButton.setIcon(qta.icon('ei.eye-open'))
         # logs
         self.logViewer = RollingLogger(self.preferences, parent=self)
@@ -97,8 +105,8 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.actionPreferences.triggered.connect(self.showPreferences)
         # init a default signal for when we want to edit a filter without a signal
         default_mag = Passthrough().getTransferFunction().getMagnitude()
-        self.__default_signal = SignalData('default', self.preferences.get(ANALYSIS_TARGET_FS),
-                                           [default_mag, default_mag], filter=CompleteFilter())
+        self.__default_signal = SingleChannelSignalData('default', self.preferences.get(ANALYSIS_TARGET_FS),
+                                                        [default_mag, default_mag], filter=CompleteFilter())
         # init the filter view selector
         self.showFilters.blockSignals(True)
         for x in SHOW_FILTER_OPTIONS:
@@ -123,6 +131,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
             getattr(self, f"action_clear_preset_{i}").triggered.connect(self.clear_preset(i))
             getattr(self, f"action_store_preset_{i}").triggered.connect(self.set_preset(i))
             self.enable_preset(i)
+        self.actionAdd_BEQ_Filter.triggered.connect(self.add_beq_filter)
         # init the signal view selector
         self.showSignals.blockSignals(True)
         for x in SHOW_SIGNAL_OPTIONS:
@@ -152,8 +161,31 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.showLegend.setChecked(bool(self.preferences.get(DISPLAY_SHOW_LEGEND)))
         self.__magnitude_model = MagnitudeModel('main', self.mainChart, self.preferences, self.__signal_model,
                                                 'Signals', self.__filter_model, 'Filters',
-                                                show_legend=lambda: self.showLegend.isChecked())
+                                                show_legend=lambda: self.showLegend.isChecked(), allow_line_resize=True)
         self.__filter_model.filter = self.__default_signal.filter
+        # waveform
+        self.__waveform_controller = WaveformController(self.preferences,
+                                                        self.__signal_model,
+                                                        self.waveformChart,
+                                                        self.filteredSpectrumChart,
+                                                        self.signalSelector,
+                                                        self.headroom,
+                                                        self.waveformIsFiltered,
+                                                        self.hardClipWaveform,
+                                                        self.startTime,
+                                                        self.endTime,
+                                                        self.showSpectrumButton,
+                                                        self.hideSpectrumButton,
+                                                        self.zoomInButton,
+                                                        self.zoomOutButton,
+                                                        self.compareSpectrumButton,
+                                                        self.sourceFile,
+                                                        self.loadSignalButton,
+                                                        self.filteredSpectrumLimitsButton,
+                                                        self.yMin,
+                                                        self.yMax)
+        self.__hide_waveform_chart()
+        self.actionClear_Signals.triggered.connect(self.clearSignals)
         # processing
         self.ensurePathContainsExternalTools()
         # extraction
@@ -175,6 +207,30 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.actionSave_Signal.triggered.connect(self.showExportSignalDialog)
         self.action_Save_Project.triggered.connect(self.exportProject)
         self.actionAbout.triggered.connect(self.showAbout)
+
+    def __decorate_splitter(self):
+        '''
+        Adds some visible handles to the splitter so we can quickly show/hide it.
+        '''
+        handle = self.chartSplitter.handle(1)
+        self.chartSplitter.setHandleWidth(15)
+        layout = QHBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        button = QToolButton(handle)
+        button.setIcon(qta.icon('fa5s.chevron-up'))
+        button.clicked.connect(self.__show_waveform_chart)
+        layout.addWidget(button)
+        button = QToolButton(handle)
+        button.setIcon(qta.icon('fa5s.chevron-down'))
+        button.clicked.connect(self.__hide_waveform_chart)
+        layout.addWidget(button)
+        handle.setLayout(layout)
+
+    def __hide_waveform_chart(self):
+        self.chartSplitter.setSizes([1, 0])
+
+    def __show_waveform_chart(self):
+        self.chartSplitter.setSizes([100000, 100000])
 
     def __alert_on_version_check_fail(self, message):
         '''
@@ -216,8 +272,8 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.signalView.model().dataChanged.connect(self.on_signal_data_change)
         self.signalView.model().modelAboutToBeReset.connect(self.on_signal_data_about_to_reset)
         self.signalView.model().modelReset.connect(self.on_signal_data_reset)
-        self.signalView.model().rowsInserted.connect(self.__select_on_inserted_signals)
-        self.signalView.model().rowsRemoved.connect(self.__select_on_removed_signals)
+        self.signalView.model().rowsInserted.connect(self.__handle_signals_inserted)
+        self.signalView.model().rowsRemoved.connect(self.__handle_signals_removed)
         self.signalView.setItemDelegateForColumn(0, RegexValidator('^.+$'))
 
     def on_signal_data_about_to_reset(self):
@@ -262,6 +318,9 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         if names is not None:
             self.update_reference_series(names, self.signalReference, True)
+        self.__waveform_controller.refresh_selector()
+        if self.signalSelector.count() == 1:
+            self.__hide_waveform_chart()
         self.linkSignalButton.setEnabled(len(self.__signal_model) > 1)
         self.__magnitude_model.redraw()
 
@@ -280,7 +339,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         logger.debug(f"Selected signal is {signal.name}")
         return signal
 
-    def __select_on_inserted_signals(self, idx, first, last):
+    def __handle_signals_inserted(self, idx, first, last):
         '''
         Selects the last signal added by default.
         :param idx: the idx.
@@ -290,7 +349,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         logger.debug(f"Selecting signal {last} on insert")
         self.signalView.selectRow(last)
 
-    def __select_on_removed_signals(self, idx, first, last):
+    def __handle_signals_removed(self, idx, first, last):
         '''
         Ensures the correct signal is selected when signals are removed. This defaults to the last signal in the table
         if there are any signals otherwise it reverts to the default signal.
@@ -300,7 +359,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         signal_count = len(self.__signal_model)
         if signal_count > 0:
-            logger.debug(f"Selecting signal {signal_count-1} on remove")
+            logger.debug(f"Selecting signal {signal_count - 1} on remove")
             self.signalView.selectRow(signal_count - 1)
         else:
             logger.debug(f"No signals in model, selecting default filter on remove")
@@ -331,6 +390,12 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
             self.signalView.clearSelection()
             # nothing in qt appears to emit selectionChanged when you clear the selection so have to call it ourselves
             self.on_signal_selected()
+
+    def clearSignals(self):
+        ''' Deletes all signals '''
+        while len(self.__signal_model) > 0:
+            self.signalView.selectRow(0)
+            self.deleteSignal()
 
     def importSignal(self):
         '''
@@ -480,7 +545,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Shows the biquads for the current filter set.
         '''
-        dialog = ExportBiquadDialog(self.__filter_model.filter)
+        dialog = ExportBiquadDialog(self.__filter_model.filter, self.preferences)
         dialog.exec()
 
     def __load(self, filter, title, parser):
@@ -612,8 +677,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Exports the project to a file.
         '''
-        file_name = QFileDialog(self).getSaveFileName(self, 'Export Project', f"project.beq",
-                                                      "BEQ Project (*.beq)")
+        file_name = QFileDialog(self).getSaveFileName(self, 'Export Project', f"project.beq", "BEQ Project (*.beq)")
         file_name = str(file_name[0]).strip()
         if len(file_name) > 0:
             output = self.__signal_model.to_json()
@@ -789,6 +853,24 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
 
         return __clear_preset
 
+    def add_beq_filter(self):
+        '''
+        Presents a file dialog to the user so they can choose a minidsp beq filter to load.
+        :return: the loaded filter, if any.
+        '''
+        from model.codec import minidspxml_to_filt
+        from uuid import uuid4
+
+        selected = QFileDialog.getOpenFileName(parent=self, directory=self.preferences.get(BEQ_DOWNLOAD_DIR),
+                                               caption='Load Minidsp XML Filter', filter='Filter (*.xml)')
+        filt_file = selected[0] if selected is not None else None
+        if filt_file is not None:
+            filters = minidspxml_to_filt(filt_file, self.__get_selected_signal().fs)
+            if len(filters) > 0:
+                for f in filters:
+                    f.id = uuid4()
+                    self.__filter_model.save(f)
+
 
 class SaveChartDialog(QDialog, Ui_saveChartDialog):
     '''
@@ -835,13 +917,20 @@ class ExportBiquadDialog(QDialog, Ui_exportBiquadDialog):
     Export Biquads Dialog
     '''
 
-    def __init__(self, filter):
+    def __init__(self, filter, prefs):
         super(ExportBiquadDialog, self).__init__()
         self.setupUi(self)
         self.__filter = filter
+        self.__prefs = prefs
+        self.setDefaults.setIcon(qta.icon('fa5s.save'))
+        self.copyToClipboardBtn.setIcon(qta.icon('fa5s.clipboard'))
+        self.saveToFile.setIcon(qta.icon('fa5s.file-export'))
+        self.maxBiquads.setValue(prefs.get(BIQUAD_EXPORT_MAX))
+        self.fs.setCurrentText(prefs.get(BIQUAD_EXPORT_FS))
         self.updateBiquads()
 
     def updateBiquads(self):
+        has_txt = False
         if self.__filter is not None and len(self.__filter) > 0:
             self.__filter = self.__filter.resample(int(self.fs.currentText()))
             biquads = list(flatten([self.__filter.format_biquads(self.minidspFormat.isChecked())]))
@@ -849,7 +938,33 @@ class ExportBiquadDialog(QDialog, Ui_exportBiquadDialog):
                 passthrough = [Passthrough()] * (self.maxBiquads.value() - len(biquads))
                 biquads += list(flatten([x.format_biquads(self.minidspFormat.isChecked()) for x in passthrough]))
             text = "\n".join([f"biquad{idx},\n{bq}" for idx, bq in enumerate(biquads)])
+            has_txt = len(text.strip()) > 0
             self.biquads.setPlainText(text)
+        if not has_txt:
+            self.copyToClipboardBtn.setEnabled(False)
+            self.saveToFile.setEnabled(False)
+
+    def save(self):
+        ''' saves the current preferences '''
+        self.__prefs.set(BIQUAD_EXPORT_FS, self.fs.currentText())
+        self.__prefs.set(BIQUAD_EXPORT_MAX, self.maxBiquads.value())
+
+    def copyToClipboard(self):
+        ''' copies all the text to the clipboard '''
+        self.biquads.selectAll()
+        self.biquads.copy()
+        cursor = self.biquads.textCursor()
+        cursor.movePosition(QTextCursor.End)
+        self.biquads.setTextCursor(cursor)
+
+    def export(self):
+        txt = str(self.biquads.toPlainText()).strip()
+        if len(txt) > 0:
+            file_name = QFileDialog(self).getSaveFileName(self, 'Export Biquads', f"biquads.txt", "Txt (*.txt)")
+            file_name = str(file_name[0]).strip()
+            if len(file_name) > 0:
+                with open(file_name, 'w') as f:
+                    f.write(txt)
 
 
 def flatten(l):
@@ -907,3 +1022,17 @@ if __name__ == '__main__':
     # show the form and exec the app
     form.show()
     app.exec_()
+
+
+class PlotWidgetWithDateAxis(pg.PlotWidget):
+    def __init__(self, parent=None, background='default', **kargs):
+        super().__init__(parent=parent,
+                         background=background,
+                         axisItems={'bottom': TimeAxisItem(orientation='bottom')},
+                         **kargs)
+
+
+class TimeAxisItem(pg.AxisItem):
+    def tickStrings(self, values, scale, spacing):
+        import datetime
+        return [str(datetime.timedelta(seconds=value)).split('.')[0] for value in values]

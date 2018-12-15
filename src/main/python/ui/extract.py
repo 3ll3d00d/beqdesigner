@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'extract.ui'
 #
-# Created by: PyQt5 UI code generator 5.9.2
+# Created by: PyQt5 UI code generator 5.11.3
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -116,6 +116,10 @@ class Ui_extractAudioDialog(object):
         self.compressAudio = QtWidgets.QCheckBox(extractAudioDialog)
         self.compressAudio.setObjectName("compressAudio")
         self.horizontalLayout.addWidget(self.compressAudio)
+        self.includeSubtitles = QtWidgets.QCheckBox(extractAudioDialog)
+        self.includeSubtitles.setToolTip("")
+        self.includeSubtitles.setObjectName("includeSubtitles")
+        self.horizontalLayout.addWidget(self.includeSubtitles)
         self.gridLayout.addLayout(self.horizontalLayout, 6, 1, 1, 1)
         self.videoStreamsLabel = QtWidgets.QLabel(extractAudioDialog)
         self.videoStreamsLabel.setObjectName("videoStreamsLabel")
@@ -194,6 +198,7 @@ class Ui_extractAudioDialog(object):
         self.rangeFrom.timeChanged['QTime'].connect(extractAudioDialog.update_start_time)
         self.limitRange.clicked.connect(extractAudioDialog.toggle_range)
         self.showRemuxCommand.clicked.connect(extractAudioDialog.show_remux_cmd)
+        self.includeSubtitles.clicked.connect(extractAudioDialog.toggle_include_subtitles)
         QtCore.QMetaObject.connectSlotsByName(extractAudioDialog)
 
     def retranslateUi(self, extractAudioDialog):
@@ -213,8 +218,9 @@ class Ui_extractAudioDialog(object):
         self.showProbeButton.setText(_translate("extractAudioDialog", "..."))
         self.monoMix.setText(_translate("extractAudioDialog", "Mix to Mono?"))
         self.decimateAudio.setText(_translate("extractAudioDialog", "Decimate Audio?"))
-        self.includeOriginalAudio.setText(_translate("extractAudioDialog", "Include Original Audio?"))
+        self.includeOriginalAudio.setText(_translate("extractAudioDialog", "Add Original Audio?"))
         self.compressAudio.setText(_translate("extractAudioDialog", "Compress Audio?"))
+        self.includeSubtitles.setText(_translate("extractAudioDialog", "Add Subtitles?"))
         self.videoStreamsLabel.setText(_translate("extractAudioDialog", "Video Stream"))
         self.inputFilePicker.setText(_translate("extractAudioDialog", "..."))
         self.inputFileLabel.setText(_translate("extractAudioDialog", "File"))

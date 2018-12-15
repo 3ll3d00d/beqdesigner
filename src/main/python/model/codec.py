@@ -1,5 +1,8 @@
-import numpy as np
 import logging
+import os
+from uuid import uuid4
+
+import numpy as np
 
 from model.iir import Gain
 
@@ -28,10 +31,11 @@ def signaldata_to_json(signal):
         out['master_name'] = signal.master.name
     if len(signal.slaves) > 0:
         out['slave_names'] = [s.name for s in signal.slaves]
-    if signal.duration_hhmmss is not None:
-        out['duration_hhmmss'] = signal.duration_hhmmss
-        out['start_hhmmss'] = signal.start_hhmmss
-        out['end_hhmmss'] = signal.end_hhmmss
+    if signal.duration_seconds is not None:
+        out['duration_seconds'] = signal.duration_seconds
+        out['start_seconds'] = signal.start_seconds
+    if signal.signal is not None and signal.signal.metadata is not None:
+        out['metadata'] = signal.signal.metadata
     return out
 
 
@@ -65,18 +69,45 @@ def signaldata_from_json(o):
     :param o: the dict (from json).
     :return: the SignalData (or an error)
     '''
-    from model.signal import SignalData
+    from model.signal import SingleChannelSignalData
     if '_type' not in o:
         raise ValueError(f"{o} is not SignalData")
-    elif o['_type'] == SignalData.__name__:
+    elif o['_type'] == SingleChannelSignalData.__name__ or o['_type'] == 'SignalData':
         filt = o.get('filter', None)
         if filt is not None:
             filt = filter_from_json(filt)
         data = o['data']
         avg = xydata_from_json(data['avg'])
         peak = xydata_from_json(data['peak'])
-        return SignalData(o['name'], o['fs'], [avg, peak], filter=filt, duration_hhmmss=o.get('duration_hhmmss', None),
-                          start_hhmmss=o.get('start_hhmmss', None), end_hhmmss=o.get('end_hhmmss', None))
+        metadata = o.get('metadata', None)
+        signal = None
+        if metadata is not None:
+            try:
+                if os.path.isfile(metadata['src']):
+                    from model.signal import readWav
+                    signal = readWav(o['name'], metadata['src'], channel=metadata['channel'],
+                                     start=metadata['start'], end=metadata['end'],
+                                     target_fs=o['fs'])
+            except:
+                logger.exception(f"Unable to load signal from {metadata['src']}")
+        if 'duration_seconds' in o:
+            signal_data = SingleChannelSignalData(o['name'], o['fs'], [avg, peak], filter=filt,
+                                                  duration_seconds=o.get('duration_seconds', None),
+                                                  start_seconds=o.get('start_seconds', None),
+                                                  signal=signal)
+        elif 'duration_hhmmss' in o:
+            h, m, s = o['duration_hhmmss'].split(':')
+            duration_seconds = (int(h) * 3600) + int(m) * (60 + float(s))
+            h, m, s = o['start_hhmmss'].split(':')
+            start_seconds = (int(h) * 3600) + int(m) * (60 + float(s))
+            signal_data = SingleChannelSignalData(o['name'], o['fs'], [avg, peak], filter=filt,
+                                                  duration_seconds=duration_seconds,
+                                                  start_seconds=start_seconds,
+                                                  signal=signal)
+        else:
+            signal_data = SingleChannelSignalData(o['name'], o['fs'], [avg, peak], filter=filt,
+                                                  signal=signal)
+        return signal_data
     raise ValueError(f"{o._type} is an unknown signal type")
 
 
@@ -90,35 +121,44 @@ def filter_from_json(o):
         FirstOrder_HighPass, SecondOrder_LowPass, SecondOrder_HighPass, AllPass, CompleteFilter, ComplexLowPass, \
         FilterType, ComplexHighPass
 
+    filt = None
     if '_type' not in o:
         raise ValueError(f"{o} is not a filter")
     if o['_type'] == Passthrough.__name__:
-        return Passthrough()
+        if 'fs' in o:
+            filt = Passthrough(fs=int(o['fs']))
+        else:
+            filt = Passthrough()
     elif o['_type'] == Gain.__name__:
-        return Gain(o['fs'], o['gain'])
+        filt = Gain(o['fs'], o['gain'])
     elif o['_type'] == PeakingEQ.__name__:
-        return PeakingEQ(o['fs'], o['fc'], o['q'], o['gain'])
+        filt = PeakingEQ(o['fs'], o['fc'], o['q'], o['gain'])
     elif o['_type'] == LowShelf.__name__:
-        return LowShelf(o['fs'], o['fc'], o['q'], o['gain'], o['count'])
+        filt = LowShelf(o['fs'], o['fc'], o['q'], o['gain'], o['count'])
     elif o['_type'] == HighShelf.__name__:
-        return HighShelf(o['fs'], o['fc'], o['q'], o['gain'], o['count'])
+        filt = HighShelf(o['fs'], o['fc'], o['q'], o['gain'], o['count'])
     elif o['_type'] == FirstOrder_LowPass.__name__:
-        return FirstOrder_LowPass(o['fs'], o['fc'], o['q'])
+        filt = FirstOrder_LowPass(o['fs'], o['fc'], o['q'])
     elif o['_type'] == FirstOrder_HighPass.__name__:
-        return FirstOrder_HighPass(o['fs'], o['fc'], o['q'])
+        filt = FirstOrder_HighPass(o['fs'], o['fc'], o['q'])
     elif o['_type'] == SecondOrder_LowPass.__name__:
-        return SecondOrder_LowPass(o['fs'], o['fc'], o['q'])
+        filt = SecondOrder_LowPass(o['fs'], o['fc'], o['q'])
     elif o['_type'] == SecondOrder_HighPass.__name__:
-        return SecondOrder_HighPass(o['fs'], o['fc'], o['q'])
+        filt = SecondOrder_HighPass(o['fs'], o['fc'], o['q'])
     elif o['_type'] == AllPass.__name__:
-        return AllPass(o['fs'], o['fc'], o['q'])
+        filt = AllPass(o['fs'], o['fc'], o['q'])
     elif o['_type'] == CompleteFilter.__name__:
-        return CompleteFilter(filters=[filter_from_json(x) for x in o['filters']], description=o['description'])
+        filt = CompleteFilter(filters=[filter_from_json(x) for x in o['filters']], description=o['description'])
     elif o['_type'] == ComplexLowPass.__name__:
-        return ComplexLowPass(FilterType(o['filter_type']), o['order'], o['fs'], o['fc'])
+        filt = ComplexLowPass(FilterType(o['filter_type']), o['order'], o['fs'], o['fc'])
     elif o['_type'] == ComplexHighPass.__name__:
-        return ComplexHighPass(FilterType(o['filter_type']), o['order'], o['fs'], o['fc'])
-    raise ValueError(f"{o._type} is an unknown filter type")
+        filt = ComplexHighPass(FilterType(o['filter_type']), o['order'], o['fs'], o['fc'])
+    if filt is None:
+        raise ValueError(f"{o._type} is an unknown filter type")
+    else:
+        if filt.id == -1:
+            filt.id = uuid4()
+        return filt
 
 
 def xydata_from_json(o):
@@ -157,3 +197,81 @@ def xydata_to_json(data):
         'colour': data.colour,
         'linestyle': data.linestyle
     }
+
+
+def minidspxml_to_filt(file, fs=1000):
+    ''' Extracts a set of filters from the provided minidsp file '''
+    from model.iir import PeakingEQ, LowShelf, HighShelf
+
+    filts = __extract_filters(file)
+    output = []
+    for filt_tup, count in filts.items():
+        filt_dict = dict(filt_tup)
+        if filt_dict['type'] == 'SL':
+            filt = LowShelf(fs, float(filt_dict['freq']), float(filt_dict['q']), float(filt_dict['boost']),
+                            count=count)
+            output.append(filt)
+        elif filt_dict['type'] == 'SH':
+            filt = HighShelf(fs, float(filt_dict['freq']), float(filt_dict['q']), float(filt_dict['boost']),
+                             count=count)
+            output.append(filt)
+        elif filt_dict['type'] == 'PK':
+            for i in range(0, count):
+                filt = PeakingEQ(fs, float(filt_dict['freq']), float(filt_dict['q']), float(filt_dict['boost']))
+                output.append(filt)
+        else:
+            logger.info(f"Ignoring unknown filter type {filt_dict}")
+    return output
+
+
+def __extract_filters(file):
+    import xml.etree.ElementTree as ET
+    from collections import Counter
+
+    ignore_vals = ['hex', 'dec']
+    tree = ET.parse(file)
+    root = tree.getroot()
+    filts = {}
+    for child in root:
+        if child.tag == 'filter':
+            if 'name' in child.attrib:
+                inner_filt = None
+                filter_tokens = child.attrib['name'].split('_')
+                if len(filter_tokens) == 3:
+                    if filter_tokens[0] == 'PEQ':
+                        if filter_tokens[1] not in filts:
+                            filts[filter_tokens[1]] = {}
+                        filt = filts[filter_tokens[1]]
+                        if filter_tokens[2] not in filt:
+                            filt[filter_tokens[2]] = {}
+                        inner_filt = filt[filter_tokens[2]]
+                        for val in child:
+                            if val.tag not in ignore_vals:
+                                inner_filt[val.tag] = val.text
+                if inner_filt is not None:
+                    if 'bypass' in inner_filt and inner_filt['bypass'] == '1':
+                        del filts[filter_tokens[1]]
+                    elif 'boost' in inner_filt and inner_filt['boost'] == '0':
+                        del filts[filter_tokens[1]]
+    final_filt = None
+    # if 1 and 2 are identical then throw one away
+    if '1' in filts and '2' in filts:
+        filt_1 = filts['1']
+        filt_2 = filts['2']
+        if filt_1 == filt_2:
+            final_filt = list(filt_1.values())
+        else:
+            raise ValueError(f"Different input filters found in {file} - Input 1: {filt_1} - Input 2: {filt_2}")
+    elif '1' in filts:
+        final_filt = list(filts['1'].values())
+    elif '2' in filts:
+        final_filt = list(filts['2'].values())
+    else:
+        if len(filts.keys()) == 1:
+            for k in filts.keys():
+                final_filt = filts[k]
+        else:
+            raise ValueError(f"Multiple active filters found in {file} - {filts}")
+    if final_filt is None:
+        raise ValueError(f"No filters found in {file}")
+    return Counter([tuple(f.items()) for f in final_filt])

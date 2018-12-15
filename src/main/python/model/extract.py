@@ -12,7 +12,8 @@ from qtpy.QtWidgets import QDialog, QFileDialog, QStatusBar, QDialogButtonBox, Q
 from model.ffmpeg import Executor, ViewProbeDialog, SIGNAL_CONNECTED, SIGNAL_ERROR, SIGNAL_COMPLETE, parse_audio_stream, \
     get_channel_name, parse_video_stream
 from model.preferences import EXTRACTION_OUTPUT_DIR, EXTRACTION_NOTIFICATION_SOUND, ANALYSIS_TARGET_FS, \
-    EXTRACTION_MIX_MONO, EXTRACTION_DECIMATE, EXTRACTION_INCLUDE_ORIGINAL, EXTRACTION_COMPRESS
+    EXTRACTION_MIX_MONO, EXTRACTION_DECIMATE, EXTRACTION_INCLUDE_ORIGINAL, EXTRACTION_INCLUDE_SUBTITLES, \
+    EXTRACTION_COMPRESS
 from model.signal import AutoWavLoader
 from ui.edit_mapping import Ui_editMappingDialog
 from ui.extract import Ui_extractAudioDialog
@@ -113,19 +114,23 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             self.filterMapping.setVisible(True)
             self.filterMappingLabel.setVisible(True)
             self.includeOriginalAudio.setVisible(True)
+            self.includeSubtitles.setVisible(True)
         else:
             self.signalName.setText('')
             self.filterMapping.setVisible(False)
             self.filterMappingLabel.setVisible(False)
             self.includeOriginalAudio.setVisible(False)
+            self.includeSubtitles.setVisible(False)
         self.monoMix.setChecked(self.__preferences.get(EXTRACTION_MIX_MONO))
         self.decimateAudio.setChecked(self.__preferences.get(EXTRACTION_DECIMATE))
         self.includeOriginalAudio.setChecked(self.__preferences.get(EXTRACTION_INCLUDE_ORIGINAL))
+        self.includeSubtitles.setChecked(self.__preferences.get(EXTRACTION_INCLUDE_SUBTITLES))
         self.compressAudio.setChecked(self.__preferences.get(EXTRACTION_COMPRESS))
         self.monoMix.setEnabled(False)
         self.decimateAudio.setEnabled(False)
         self.compressAudio.setEnabled(False)
         self.includeOriginalAudio.setEnabled(False)
+        self.includeSubtitles.setEnabled(False)
         self.inputFilePicker.setEnabled(True)
         self.audioStreams.setEnabled(False)
         self.videoStreams.setEnabled(False)
@@ -161,6 +166,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
                                    decimate_audio=self.decimateAudio.isChecked(),
                                    compress_audio=self.compressAudio.isChecked(),
                                    include_original=self.includeOriginalAudio.isChecked(),
+                                   include_subtitles=self.includeSubtitles.isChecked(),
                                    signal_model=self.__signal_model if self.__is_remux else None,
                                    decimate_fs=self.__preferences.get(ANALYSIS_TARGET_FS))
         self.__executor.progress_handler = self.__handle_ffmpeg_process
@@ -213,8 +219,11 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         if self.videoStreams.currentIndex() == 0:
             self.includeOriginalAudio.setChecked(False)
             self.includeOriginalAudio.setEnabled(False)
+            self.includeSubtitles.setChecked(False)
+            self.includeSubtitles.setEnabled(False)
         else:
             self.includeOriginalAudio.setEnabled(True)
+            self.includeSubtitles.setEnabled(True)
         # don't allow mono mix option if the stream is mono
         if self.channelCount.value() == 1:
             self.monoMix.setChecked(False)
@@ -265,6 +274,14 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         '''
         if self.audioStreams.count() > 0 and self.__executor is not None:
             self.__executor.include_original_audio = self.includeOriginalAudio.isChecked()
+            self.__display_command_info()
+
+    def toggle_include_subtitles(self):
+        '''
+        Reacts to the change in subtitles selection.
+        '''
+        if self.audioStreams.count() > 0 and self.__executor is not None:
+            self.__executor.include_subtitles = self.includeSubtitles.isChecked()
             self.__display_command_info()
 
     def toggleMonoMix(self):
@@ -360,19 +377,17 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
                 name_provider = lambda channel, channel_count: get_channel_name(self.signalName.text(), channel,
                                                                                 channel_count,
                                                                                 channel_layout_name=self.__executor.channel_layout_name)
-                signals = loader.auto_load(output_file, name_provider, self.decimateAudio.isChecked())
-                if len(signals) > 0:
-                    for s in signals:
-                        logger.info(f"Adding signal {s.name}")
-                        self.__signal_model.add(s)
-                    return True
+                loader.load(output_file)
+                signal = loader.auto_load(name_provider, self.decimateAudio.isChecked())
+                self.__signal_model.add(signal)
+            return True
         else:
             msg_box = QMessageBox()
             msg_box.setText(f"Extracted audio file does not exist at: \n\n {output_file}")
             msg_box.setIcon(QMessageBox.Critical)
             msg_box.setWindowTitle('Unexpected Error')
             msg_box.exec()
-        return False
+            return False
 
     def __extract(self):
         '''
@@ -425,6 +440,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         self.decimateAudio.setEnabled(False)
         self.compressAudio.setEnabled(False)
         self.includeOriginalAudio.setEnabled(False)
+        self.includeSubtitles.setEnabled(False)
         self.targetDirPicker.setEnabled(False)
         self.outputFilename.setEnabled(False)
         self.filterMapping.setEnabled(False)

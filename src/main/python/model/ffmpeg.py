@@ -1,6 +1,7 @@
 import datetime
 import logging
 import os
+import platform
 import socketserver
 import tempfile
 import subprocess
@@ -109,7 +110,7 @@ class Executor:
     '''
 
     def __init__(self, file, target_dir, mono_mix=True, decimate_audio=True, compress_audio=False,
-                 include_original=False, signal_model=None, decimate_fs=1000):
+                 include_original=False, include_subtitles=False, signal_model=None, decimate_fs=1000):
         self.file = file
         self.__target_dir = target_dir
         self.__probe = None
@@ -123,6 +124,7 @@ class Executor:
         self.__decimate_audio = decimate_audio
         self.__compress_audio = compress_audio
         self.__include_original_audio = include_original
+        self.__include_subtitles = include_subtitles
         self.__mono_mix_spec = None
         self.__selected_audio_stream_idx = -1
         self.__selected_video_stream_idx = -1
@@ -239,6 +241,15 @@ class Executor:
     @include_original_audio.setter
     def include_original_audio(self, include_original_audio):
         self.__include_original_audio = include_original_audio
+        self.__calculate_output()
+
+    @property
+    def include_subtitles(self):
+        return self.__include_subtitles
+
+    @include_subtitles.setter
+    def include_subtitles(self, include_subtitles):
+        self.__include_subtitles = include_subtitles
         self.__calculate_output()
 
     @property
@@ -569,11 +580,14 @@ class Executor:
         filename = self.file.replace('\\', '/')
         trim_args = ' '.join([f"-{key} {value}" for key, value in self.__calculate_trim_kwargs().items()])
         # TODO only write the filter file when it actually changes
+        exe = ".exe" if platform.system() == 'Windows' else ""
         self.__ffmpeg_cmd = \
-            f"ffmpeg.exe {trim_args} -i \"{filename}\"" \
+            f"ffmpeg{exe} {trim_args} -i \"{filename}\"" \
                 f" -filter_complex_script {self.__write_filter_complex()}"
         if self.__selected_video_stream_idx != -1:
             self.__ffmpeg_cmd += f" -map 0:v:{self.__selected_video_stream_idx} -c:v copy"
+        if self.include_subtitles:
+            self.__ffmpeg_cmd += " -map 0:s -c:s copy"
         acodec = 'flac' if self.compress_audio else 'pcm_s24le'
         if self.include_original_audio:
             self.__ffmpeg_cmd += f" -map 0:a:{self.__selected_audio_stream_idx}"

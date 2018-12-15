@@ -2,6 +2,7 @@ import glob
 import os
 from pathlib import Path
 
+import qtawesome as qta
 import matplotlib
 import matplotlib.style as style
 from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox
@@ -37,6 +38,7 @@ EXTRACTION_BATCH_FILTER = 'extraction/batch_filter'
 EXTRACTION_MIX_MONO = 'extraction/mix_to_mono'
 EXTRACTION_DECIMATE = 'extraction/decimate'
 EXTRACTION_INCLUDE_ORIGINAL = 'extraction/include_original'
+EXTRACTION_INCLUDE_SUBTITLES = 'extraction/include_subtitles'
 EXTRACTION_COMPRESS = 'extraction/compress'
 
 ANALYSIS_RESOLUTION = 'analysis/resolution'
@@ -62,6 +64,8 @@ BINARIES_FFPROBE = f"{BINARIES_GROUP}/ffprobe"
 BINARIES_FFMPEG = f"{BINARIES_GROUP}/ffmpeg"
 
 FILTERS_PRESET_x = 'filters/preset_%d'
+FILTERS_DEFAULT_Q = 'filters/defaults/q'
+FILTERS_DEFAULT_FREQ = 'filters/defaults/freq'
 
 SCREEN_GEOMETRY = 'screen/geometry'
 SCREEN_WINDOW_STATE = 'screen/window_state'
@@ -114,6 +118,11 @@ LOGGING_LEVEL = 'logging/level'
 
 SYSTEM_CHECK_FOR_UPDATES = 'system/check_for_updates'
 
+BEQ_DOWNLOAD_DIR = 'beq/directory'
+
+BIQUAD_EXPORT_FS = 'biquad/fs'
+BIQUAD_EXPORT_MAX = 'biquad/max'
+
 DEFAULT_PREFS = {
     ANALYSIS_RESOLUTION: 1.0,
     ANALYSIS_TARGET_FS: 1000,
@@ -129,19 +138,25 @@ DEFAULT_PREFS = {
     AUDIO_ANALYSIS_COLOUR_MAX: -10,
     AUDIO_ANALYSIS_COLOUR_MIN: -70,
     AUDIO_ANALYSIS_SIGNAL_MIN: -70.0,
+    BEQ_DOWNLOAD_DIR: os.path.join(os.path.expanduser('~'), '.beq'),
+    BIQUAD_EXPORT_FS: '48000',
+    BIQUAD_EXPORT_MAX: 10,
     STYLE_MATPLOTLIB_THEME: STYLE_MATPLOTLIB_THEME_DEFAULT,
     DISPLAY_SHOW_LEGEND: True,
     DISPLAY_SHOW_FILTERS: SHOW_ALL_FILTERS,
-    EXTRACTION_OUTPUT_DIR: os.path.expanduser('~'),
-    EXTRACTION_MIX_MONO: False,
-    EXTRACTION_COMPRESS: False,
-    EXTRACTION_DECIMATE: False,
-    EXTRACTION_INCLUDE_ORIGINAL: False,
     DISPLAY_FREQ_STEP: '1',
     DISPLAY_Q_STEP: '0.1',
     DISPLAY_S_STEP: '0.1',
     DISPLAY_GAIN_STEP: '0.1',
     DISPLAY_LINE_STYLE: True,
+    EXTRACTION_OUTPUT_DIR: os.path.expanduser('~'),
+    EXTRACTION_MIX_MONO: False,
+    EXTRACTION_COMPRESS: False,
+    EXTRACTION_DECIMATE: False,
+    EXTRACTION_INCLUDE_ORIGINAL: False,
+    EXTRACTION_INCLUDE_SUBTITLES: False,
+    FILTERS_DEFAULT_FREQ: 20.0,
+    FILTERS_DEFAULT_Q: 0.707,
     GRAPH_X_AXIS_SCALE: 'log',
     GRAPH_X_MIN: 1,
     GRAPH_X_MAX: 160,
@@ -165,7 +180,7 @@ DEFAULT_PREFS = {
     REPORT_FILTER_FONT_SIZE: matplotlib.rcParams['font.size'],
     REPORT_LAYOUT_HSPACE: matplotlib.rcParams['figure.subplot.hspace'],
     REPORT_LAYOUT_WSPACE: matplotlib.rcParams['figure.subplot.wspace'],
-    SYSTEM_CHECK_FOR_UPDATES: True
+    SYSTEM_CHECK_FOR_UPDATES: True,
 }
 
 TYPES = {
@@ -182,10 +197,14 @@ TYPES = {
     AUDIO_ANALYSIS_COLOUR_MAX: int,
     AUDIO_ANALYSIS_COLOUR_MIN: int,
     AUDIO_ANALYSIS_SIGNAL_MIN: float,
+    BIQUAD_EXPORT_MAX: int,
     EXTRACTION_MIX_MONO: bool,
     EXTRACTION_COMPRESS: bool,
     EXTRACTION_DECIMATE: bool,
     EXTRACTION_INCLUDE_ORIGINAL: bool,
+    EXTRACTION_INCLUDE_SUBTITLES: bool,
+    FILTERS_DEFAULT_FREQ: int,
+    FILTERS_DEFAULT_Q: float,
     GRAPH_X_MIN: int,
     GRAPH_X_MAX: int,
     REPORT_FILTER_ROW_HEIGHT_MULTIPLIER: float,
@@ -234,7 +253,9 @@ def get_peak_colour(idx):
 
 
 def get_filter_colour(idx):
-    return FILTER_COLOURS[idx % len(FILTER_COLOURS)]
+    colours = matplotlib.rcParams['axes.prop_cycle'].by_key()['color']
+    return colours[idx % len(colours)]
+    # return FILTER_COLOURS[idx % len(FILTER_COLOURS)]
 
 
 class Preferences:
@@ -317,6 +338,13 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         self.__preferences = preferences
         self.__main_chart_limits = main_chart_limits
 
+        self.beqDirectoryPicker.setIcon(qta.icon('fa5s.folder-open'))
+        self.defaultOutputDirectoryPicker.setIcon(qta.icon('fa5s.folder-open'))
+        self.ffmpegDirectoryPicker.setIcon(qta.icon('fa5s.folder-open'))
+        self.ffprobeDirectoryPicker.setIcon(qta.icon('fa5s.folder-open'))
+        self.extractCompleteAudioFilePicker.setIcon(qta.icon('fa5s.folder-open'))
+        self.refreshBeq.setIcon(qta.icon('fa5s.sync'))
+
         ffmpegLoc = self.__preferences.get(BINARIES_FFMPEG)
         if ffmpegLoc:
             if os.path.isdir(ffmpegLoc):
@@ -355,7 +383,14 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         self.monoMix.setChecked(self.__preferences.get(EXTRACTION_MIX_MONO))
         self.decimate.setChecked(self.__preferences.get(EXTRACTION_DECIMATE))
         self.includeOriginal.setChecked(self.__preferences.get(EXTRACTION_INCLUDE_ORIGINAL))
+        self.includeSubtitles.setChecked(self.__preferences.get(EXTRACTION_INCLUDE_SUBTITLES))
         self.compress.setChecked(self.__preferences.get(EXTRACTION_COMPRESS))
+
+        self.filterQ.setValue(self.__preferences.get(FILTERS_DEFAULT_Q))
+        self.filterFreq.setValue(self.__preferences.get(FILTERS_DEFAULT_FREQ))
+
+        self.beqFiltersDir.setText(self.__preferences.get(BEQ_DOWNLOAD_DIR))
+        self.__count_beq_files()
 
     def __init_themes(self):
         '''
@@ -442,7 +477,11 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         self.__preferences.set(EXTRACTION_MIX_MONO, self.monoMix.isChecked())
         self.__preferences.set(EXTRACTION_DECIMATE, self.decimate.isChecked())
         self.__preferences.set(EXTRACTION_INCLUDE_ORIGINAL, self.includeOriginal.isChecked())
+        self.__preferences.set(EXTRACTION_INCLUDE_SUBTITLES, self.includeSubtitles.isChecked())
         self.__preferences.set(EXTRACTION_COMPRESS, self.compress.isChecked())
+        self.__preferences.set(FILTERS_DEFAULT_FREQ, self.filterFreq.value())
+        self.__preferences.set(FILTERS_DEFAULT_Q, self.filterQ.value())
+        self.__preferences.set(BEQ_DOWNLOAD_DIR, self.beqFiltersDir.text())
         QDialog.accept(self)
 
     def alert_on_change(self, title, text='Change will not take effect until the application is restarted',
@@ -502,3 +541,42 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
                 self.extractCompleteAudioFile.setText('')
         else:
             self.extractCompleteAudioFile.setText('')
+
+    def showBeqDirectoryPicker(self):
+        ''' selects an output directory for the beq files '''
+        dialog = QFileDialog(parent=self)
+        dialog.setFileMode(QFileDialog.DirectoryOnly)
+        dialog.setWindowTitle(f"Select BEQ Files Download Directory")
+        if dialog.exec():
+            selected = dialog.selectedFiles()
+            if len(selected) > 0:
+                self.beqFiltersDir.setText(selected[0])
+                self.__count_beq_files()
+
+    def __count_beq_files(self):
+        if os.path.exists(self.beqFiltersDir.text()):
+            match = len(glob.glob(f"{self.beqFiltersDir.text()}{os.sep}**{os.sep}*.xml", recursive=True))
+            self.beqFiltersCount.setValue(match)
+
+    def updateBeq(self):
+        ''' Pulls or clones the named repository '''
+        from app import wait_cursor
+        with wait_cursor():
+            os.makedirs(self.beqFiltersDir.text(), exist_ok=True)
+            if os.path.exists(os.path.join(self.beqFiltersDir.text(), '.git')):
+                self.__pull_beq()
+            else:
+                self.__clone_beq()
+            self.__count_beq_files()
+
+    def __pull_beq(self):
+        ''' pulls the git repo'''
+        import git
+        repo = git.Repo(self.beqFiltersDir.text())
+        repo.remote('origin').pull()
+
+    def __clone_beq(self):
+        ''' clones the git repo '''
+        import git
+        git.Repo.clone_from('https://github.com/bmiller/miniDSPBEQ.git', self.beqFiltersDir.text())
+
