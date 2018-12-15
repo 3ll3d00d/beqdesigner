@@ -158,10 +158,9 @@ class MagnitudeModel:
         from matplotlib.lines import Line2D
         if isinstance(event.artist, Line2D):
             line = event.artist
-            from qtpy.QtGui import QGuiApplication
-            from qtpy.QtCore import Qt
-            modifiers = QGuiApplication.queryKeyboardModifiers()
-            if modifiers == Qt.NoModifier:
+            if line in self.__primary.artists() or line in self.__secondary.artists():
+                from qtpy.QtGui import QGuiApplication
+                from qtpy.QtCore import Qt
                 if event.mouseevent.button:
                     if event.mouseevent.button == 1:
                         line.set_linewidth(line.get_linewidth() + 1)
@@ -238,9 +237,7 @@ class MagnitudeModel:
 
                 # find the line corresponding to the legend proxy line and toggle the alpha
                 def onpick(event):
-                    from qtpy.QtGui import QGuiApplication
-                    from qtpy.QtCore import Qt
-                    if QGuiApplication.queryKeyboardModifiers() == Qt.ShiftModifier:
+                    if self.__legend is not None and event.artist in self.__legend.get_lines():
                         legline = event.artist
                         origline = lined[legline]
                         vis = not origline.get_visible()
