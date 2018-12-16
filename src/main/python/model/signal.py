@@ -657,6 +657,10 @@ class Signal:
         self.start_seconds = 0
         self.end = self.duration_seconds
         self.__metadata = metadata
+        self.__segments = self.__slice_into_large_signal_segments()
+        self.__segment_len = self.__segments[0].shape[-1]
+        if len(self.__segments) > 1:
+            logger.info(f"Split {self.name} into {len(self.__segments)} segments of length {self.__segment_len}")
         self.__avg = None
         self.__peak = None
         self.__cached = []
@@ -688,7 +692,7 @@ class Signal:
         else:
             return self
 
-    def getSegmentLength(self, resolution_shift=0):
+    def getSegmentLength(self, use_segment=False, resolution_shift=0):
         """
         Calculates a segment length such that the frequency resolution of the resulting analysis is in the region of 
         ~1Hz subject to a lower limit of the number of samples in the signal.
@@ -698,7 +702,8 @@ class Signal:
         :param resolution_shift: shifts the resolution up or down by the specified number of bits.
         :return: the segment length.
         """
-        return min(1 << ((self.fs - 1).bit_length() - int(resolution_shift)), self.samples.shape[-1])
+        return min(1 << ((self.fs - 1).bit_length() - int(resolution_shift)),
+                   self.__segment_len if use_segment else self.samples.shape[-1])
 
     def raw(self):
         """
@@ -718,11 +723,20 @@ class Signal:
             Pxx : ndarray
             linear spectrum.
         """
-        nperseg = self.getSegmentLength(resolution_shift=resolution_shift)
-        f, Pxx_spec = signal.welch(self.samples, self.fs, nperseg=nperseg, scaling='spectrum', detrend=False,
-                                   window=window if window else 'hann', **kwargs)
+        all_kwargs = {'resolution_shift': resolution_shift, 'window': window, **kwargs}
+        results = [self.__segment_spectrum(seg, **all_kwargs) for seg in self.__segments]
+        if len(results) > 1:
+            Pxx_spec = np.mean([r[1] for r in results], axis=0)
+        else:
+            Pxx_spec = results[0][1]
         # a 3dB adjustment is required to account for the change in nperseg
         Pxx_spec = amplitude_to_db(np.sqrt(Pxx_spec), ref * SPECLAB_REFERENCE)
+        return results[0][0], Pxx_spec
+
+    def __segment_spectrum(self, segment, resolution_shift=0, window=None, **kwargs):
+        nperseg = self.getSegmentLength(use_segment=True, resolution_shift=resolution_shift)
+        f, Pxx_spec = signal.welch(segment, self.fs, nperseg=nperseg, scaling='spectrum', detrend=False,
+                                   window=window if window else 'hann', **kwargs)
         return f, Pxx_spec
 
     def peakSpectrum(self, ref=SPECLAB_REFERENCE, resolution_shift=0, window=None):
@@ -737,8 +751,19 @@ class Signal:
             Pxx : ndarray
             linear spectrum max values.
         """
-        nperseg = self.getSegmentLength(resolution_shift=resolution_shift)
-        freqs, _, Pxy = signal.spectrogram(self.samples,
+        kwargs = {'resolution_shift': resolution_shift, 'window': window}
+        results = [self.__segment_peak(seg, **kwargs) for seg in self.__segments]
+        if len(results) > 1:
+            Pxy_max = np.vstack([r[1] for r in results]).max(axis=0)
+        else:
+            Pxy_max = results[0][1]
+        # a 3dB adjustment is required to account for the change in nperseg
+        Pxy_max = amplitude_to_db(Pxy_max, ref=ref * SPECLAB_REFERENCE)
+        return results[0][0], Pxy_max
+
+    def __segment_peak(self, segment, resolution_shift=0, window=None):
+        nperseg = self.getSegmentLength(use_segment=True, resolution_shift=resolution_shift)
+        freqs, _, Pxy = signal.spectrogram(segment,
                                            self.fs,
                                            window=window if window else ('tukey', 0.25),
                                            nperseg=int(nperseg),
@@ -746,7 +771,6 @@ class Signal:
                                            detrend=False,
                                            scaling='spectrum')
         Pxy_max = np.sqrt(Pxy.max(axis=-1).real)
-        Pxy_max = amplitude_to_db(Pxy_max, ref=ref * SPECLAB_REFERENCE)
         return freqs, Pxy_max
 
     def spectrogram(self, ref=SPECLAB_REFERENCE, resolution_shift=0, window=None):
@@ -867,6 +891,17 @@ class Signal:
         self.__peak = self.peakSpectrum(resolution_shift=resolution_shift, window=peak_wnd)
         self.__cached = [XYData(self.name, 'avg', self.__avg[0], self.__avg[1]),
                          XYData(self.name, 'peak', self.__peak[0], self.__peak[1])]
+
+    def __slice_into_large_signal_segments(self):
+        '''
+        split into equal sized chunks of no greater than 10mins of a 48kHz track size
+        '''
+        max_segment_length = float(10 * 60 * 48000)
+        segments = math.ceil(self.samples.size / max_segment_length)
+        if segments > 1:
+            return np.split(self.samples, segments)
+        else:
+            return [self.samples]
 
     def __get_window(self, preferences, key):
         from model.preferences import ANALYSIS_WINDOW_DEFAULT
@@ -1360,6 +1395,18 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
         if draw:
             self.__magnitudeModel.redraw()
 
+    def reject(self):
+        ''' ensure signals are released from memory after we close the dialog '''
+        self.__clear_down()
+        super().reject()
+
+    def __clear_down(self):
+        for l in self.__loaders:
+            try:
+                l.clear_signal()
+            except:
+                pass
+
     def enableLimitTimeRangeButton(self):
         ''' enables the button whenever the time range changes. '''
         self.applyTimeRangeButton.setEnabled(True)
@@ -1415,6 +1462,7 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
                     QDialog.accept(self)
                 else:
                     logger.warning(f"No signals produced by loader")
+            self.__clear_down()
 
     def save(self, signal):
         ''' saves the specified signals in the signal model'''
