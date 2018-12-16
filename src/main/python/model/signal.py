@@ -896,10 +896,11 @@ class Signal:
         '''
         split into equal sized chunks of no greater than 10mins of a 48kHz track size
         '''
-        max_segment_length = float(10 * 60 * 48000)
-        segments = math.ceil(self.samples.size / max_segment_length)
+        max_segment_length = 10 * 60 * 48000
+        segments = math.ceil(self.samples.size / float(max_segment_length))
         if segments > 1:
-            return np.split(self.samples, segments)
+            split_pos = list(range(max_segment_length, self.samples.size, max_segment_length))
+            return np.split(self.samples, split_pos)
         else:
             return [self.samples]
 
