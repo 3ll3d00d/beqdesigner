@@ -320,6 +320,11 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
     def set_mag_range_type(self, type):
         self.__spectrum_analyser.set_mag_range_type(type)
 
+    def reject(self):
+        ''' ensure signals are cleared from memory '''
+        self.__clear()
+        super().reject()
+
 
 class WaveformRange:
     '''
