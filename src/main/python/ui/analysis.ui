@@ -655,8 +655,8 @@
    <slot>select_wav_file()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>311</x>
-     <y>53</y>
+     <x>245</x>
+     <y>48</y>
     </hint>
     <hint type="destinationlabel">
      <x>241</x>
@@ -703,8 +703,8 @@
    <slot>show_limits()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>782</x>
-     <y>80</y>
+     <x>369</x>
+     <y>73</y>
     </hint>
     <hint type="destinationlabel">
      <x>329</x>
@@ -719,8 +719,8 @@
    <slot>show_chart()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>407</x>
-     <y>65</y>
+     <x>369</x>
+     <y>73</y>
     </hint>
     <hint type="destinationlabel">
      <x>355</x>
@@ -735,8 +735,8 @@
    <slot>set_mag_range_type()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>533</x>
-     <y>149</y>
+     <x>430</x>
+     <y>157</y>
     </hint>
     <hint type="destinationlabel">
      <x>357</x>
@@ -767,8 +767,8 @@
    <slot>update_marker_type()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>454</x>
-     <y>64</y>
+     <x>430</x>
+     <y>77</y>
     </hint>
     <hint type="destinationlabel">
      <x>331</x>
@@ -783,8 +783,8 @@
    <slot>save_chart()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1439</x>
-     <y>82</y>
+     <x>1474</x>
+     <y>79</y>
     </hint>
     <hint type="destinationlabel">
      <x>330</x>
@@ -815,8 +815,8 @@
    <slot>save_layout()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1414</x>
-     <y>163</y>
+     <x>1474</x>
+     <y>159</y>
     </hint>
     <hint type="destinationlabel">
      <x>331</x>
@@ -828,7 +828,7 @@
    <sender>leftSignal</sender>
    <signal>currentIndexChanged(QString)</signal>
    <receiver>analysisDialog</receiver>
-   <slot>select_left_signal()</slot>
+   <slot>enable_compare()</slot>
    <hints>
     <hint type="sourcelabel">
      <x>80</x>
@@ -844,7 +844,7 @@
    <sender>rightSignal</sender>
    <signal>currentIndexChanged(QString)</signal>
    <receiver>analysisDialog</receiver>
-   <slot>select_right_signal()</slot>
+   <slot>enable_compare()</slot>
    <hints>
     <hint type="sourcelabel">
      <x>100</x>
@@ -872,6 +872,38 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>filterLeft</sender>
+   <signal>clicked()</signal>
+   <receiver>analysisDialog</receiver>
+   <slot>enable_compare()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>231</x>
+     <y>475</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>216</x>
+     <y>447</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>filterRight</sender>
+   <signal>clicked()</signal>
+   <receiver>analysisDialog</receiver>
+   <slot>enable_compare()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>222</x>
+     <y>515</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>254</x>
+     <y>445</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>select_wav_file()</slot>
@@ -890,5 +922,6 @@
   <slot>select_left_signal()</slot>
   <slot>select_right_signal()</slot>
   <slot>compare_signals()</slot>
+  <slot>enable_compare()</slot>
  </slots>
 </ui>

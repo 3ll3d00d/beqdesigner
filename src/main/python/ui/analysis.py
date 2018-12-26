@@ -324,9 +324,11 @@ class Ui_analysisDialog(object):
         self.saveChart.clicked.connect(analysisDialog.save_chart)
         self.updateChart.clicked.connect(analysisDialog.update_chart)
         self.saveLayout.clicked.connect(analysisDialog.save_layout)
-        self.leftSignal.currentIndexChanged['QString'].connect(analysisDialog.select_left_signal)
-        self.rightSignal.currentIndexChanged['QString'].connect(analysisDialog.select_right_signal)
+        self.leftSignal.currentIndexChanged['QString'].connect(analysisDialog.enable_compare)
+        self.rightSignal.currentIndexChanged['QString'].connect(analysisDialog.enable_compare)
         self.compareSignalsButton.clicked.connect(analysisDialog.compare_signals)
+        self.filterLeft.clicked.connect(analysisDialog.enable_compare)
+        self.filterRight.clicked.connect(analysisDialog.enable_compare)
         QtCore.QMetaObject.connectSlotsByName(analysisDialog)
 
     def retranslateUi(self, analysisDialog):

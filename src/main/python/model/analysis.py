@@ -151,13 +151,11 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
             self.magLimitType.setVisible(False)
             self.set_mag_range_type('')
 
-    def select_left_signal(self, signal_name):
+    def enable_compare(self):
         ''' enables the compare button if left and right have different signals selected '''
-        self.compareSignalsButton.setEnabled(self.rightSignal.currentText() != signal_name)
-
-    def select_right_signal(self, signal_name):
-        ''' enables the compare button if left and right have different signals selected '''
-        self.compareSignalsButton.setEnabled(self.leftSignal.currentText() != signal_name)
+        enabled = self.leftSignal.currentText() != self.rightSignal.currentText() \
+                  or self.filterLeft.isChecked() != self.filterRight.isChecked()
+        self.compareSignalsButton.setEnabled(enabled)
 
     def compare_signals(self):
         ''' Loads the selected signals into the spectrum chart. '''
