@@ -468,7 +468,7 @@ class FirstOrder_HighPass(BiquadWithQ):
         # b0 = 1.0 + a1
         # a = np.array([1.0, -a1, 0.0], dtype=np.float64)
         # b = np.array([b0, 0.0, 0.0])
-        return sos[0][3:5], sos[0][0:2]
+        return sos[0][3:6], sos[0][0:3]
 
     def resample(self, new_fs):
         '''

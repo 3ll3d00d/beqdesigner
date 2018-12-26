@@ -9,8 +9,7 @@ Install [Anaconda](https://repo.anaconda.com/archive/Anaconda3-5.2.0-Windows-x86
     conda create -n beq numpy scipy qtpy mkl==2018.0.2 qtawesome pytest pytest-cov sortedcontainers pillow requests
     activate beq
     python -m pip install --upgrade pip
-    pip install pyqt5 matplotlib ffmpeg-python soundfile resampy pyqtgraph gitpython
-    pip install pyinstaller
+    pip install pyqt5 matplotlib ffmpeg-python soundfile resampy pyqtgraph gitpython pyinstaller
     
 Note that pyinstaller must be >=3.4 and pyqt5 must be from pypi because of the issue noted in [the pyinstaller release notes](https://pyinstaller.readthedocs.io/en/stable/CHANGES.html#id1)
 
