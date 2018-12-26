@@ -280,12 +280,14 @@ class SingleChannelSignalData(SignalData):
         '''
         returns the filtered signal if we have the raw sample data applying an optional gain factor.
         :param filt: whether to apply the filter.
-        :param clip: whether to clip values to a -1.0/1.0 range.
+        :param clip: whether to clip values to a -1.0/1.0 range (both before and after filtering)
         :param gain: the gain.
         :return: the filtered signal.
         '''
         if self.signal is not None:
             signal = self.signal
+            if clip:
+                signal = signal.clip()
             if filt:
                 sos = self.active_filter.resample(self.fs, copy_listener=False).get_sos()
                 if len(sos) > 0:
@@ -308,6 +310,8 @@ class BassManagedSignalData(SignalData):
         self.__lfe_channel_idx = None
         for s in signals:
             self.__add(s)
+        self.__headroom_type = 'WCS'
+        self.__headroom = self.__calc_wcs_headroom()
         self.__name = signals[0].name[:signals[0].name.rfind('_')]
         self.__fs = signals[0].fs
         self.__duration_seconds = signals[0].duration_seconds
@@ -320,21 +324,46 @@ class BassManagedSignalData(SignalData):
     def channels(self):
         return self.__channels
 
+    @property
+    def bm_headroom_type(self):
+        return self.__headroom_type
+
+    @property
+    def bm_headroom(self):
+        return self.__headroom
+
+    @bm_headroom_type.setter
+    def bm_headroom_type(self, bm_headroom_type):
+        self.__headroom_type = bm_headroom_type
+        if self.bm_headroom_type == 'WCS':
+            self.__headroom = self.__calc_wcs_headroom()
+        else:
+            try:
+                self.__headroom = abs(float(self.bm_headroom_type)) + 10.0
+            except:
+                logger.exception(f"Bad bm_headroom {self.bm_headroom_type}")
+
     def __add(self, signal):
         ''' Adds a new input channel to the signal '''
         if signal.name.endswith('_LFE'):
             self.__lfe_channel_idx = len(self.__channels)
         self.__channels.append(signal)
 
+    def __calc_wcs_headroom(self):
+        # calculate the total in dB of coherent summation of the main channels
+        main_sum = 20.0 * math.log10(len(self.__channels) - 1)
+        # calculate the total of the coherently summed main channels + the LFE channel (as 10dB)
+        return 20.0 * math.log10((10.0 ** (main_sum / 20.0)) + (10.0 ** (10.0 / 20.0)))
+
     def sum(self, apply_filter=True, clip=False):
         ''' Sums the signals to create a bass managed output '''
         if len(self.__channels) > 1:
-            main_sum = 20.0 * math.log10(len(self.__channels) - 1)
-            overall_sum = 20.0 * math.log10((10.0 ** (main_sum / 20.0)) + (10.0 ** 0.5))
-            main_attenuate = 10 ** (-overall_sum / 20.0)
-            lfe_attenuate = 10 ** ((-overall_sum + 10.0) / 20.0)
-            logger.debug(f"Attenuating {len(self.__channels) - 1} mains by {round(overall_sum,2)} dB (x{main_attenuate:.4})")
-            logger.debug(f"Attenuating LFE by {round(overall_sum - 10, 2)}dB (x{lfe_attenuate:.4})")
+            # reduce the main channels by the total amount of headroom
+            main_attenuate = 10 ** (-self.bm_headroom / 20.0)
+            # and reduce LFE by 10dB less
+            lfe_attenuate = 10 ** ((-self.bm_headroom + 10.0) / 20.0)
+            logger.debug(f"Attenuating {len(self.__channels) - 1} mains by {round(self.bm_headroom,2)} dB (x{main_attenuate:.4})")
+            logger.debug(f"Attenuating LFE by {round(self.bm_headroom - 10, 2)}dB (x{lfe_attenuate:.4})")
             samples = [x.filter_signal(filt=apply_filter,
                                        clip=False,
                                        gain=lfe_attenuate if idx == self.__lfe_channel_idx else main_attenuate).samples

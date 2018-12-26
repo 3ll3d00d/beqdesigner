@@ -15,7 +15,7 @@ logger = logging.getLogger('waveform')
 
 
 class WaveformController:
-    def __init__(self, preferences, signal_model, waveform_chart, spectrum_chart, signal_selector, headroom,
+    def __init__(self, preferences, signal_model, waveform_chart, spectrum_chart, signal_selector, headroom, bm_headroom,
                  is_filtered, apply_hard_clip, start_time, end_time, show_spectrum_btn, hide_spectrum_btn, zoom_in_btn,
                  zoom_out_btn, compare_spectrum_btn, source_file, load_signal_btn, show_limits_btn, y_min, y_max):
         self.__preferences = preferences
@@ -24,6 +24,7 @@ class WaveformController:
         self.__active_signal = None
         self.__is_filtered = is_filtered
         self.__apply_hard_clip = apply_hard_clip
+        self.__bm_headroom = bm_headroom
         self.__start_time = start_time
         self.__end_time = end_time
         self.__show_spectrum_btn = show_spectrum_btn
@@ -56,6 +57,7 @@ class WaveformController:
         self.__show_limits_btn.clicked.connect(self.__magnitude_model.show_limits)
         self.__is_filtered.stateChanged['int'].connect(self.toggle_filter)
         self.__apply_hard_clip.stateChanged['int'].connect(self.toggle_hard_clip)
+        self.__bm_headroom.currentIndexChanged['QString'].connect(self.change_bm_headroom)
         self.__selector.currentIndexChanged['QString'].connect(self.update_waveform)
         self.__zoom_in_btn.clicked.connect(self.__waveform_chart_model.zoom_in)
         self.__zoom_out_btn.clicked.connect(self.__zoom_out)
@@ -117,6 +119,7 @@ class WaveformController:
             self.__reset_time(self.__start_time)
             self.__reset_time(self.__end_time)
             self.__load_signal_btn.setEnabled(True)
+            self.__bm_headroom.setEnabled(False)
             self.__reset_controls()
             self.__active_signal = None
         else:
@@ -127,6 +130,13 @@ class WaveformController:
                     self.__source_file.setText(f"{metadata[SIGNAL_SOURCE_FILE]} - C{metadata[SIGNAL_CHANNEL]}")
                 else:
                     self.__source_file.setText(metadata[SIGNAL_SOURCE_FILE])
+            if signal_name.startswith('(BM) '):
+                from model.report import block_signals
+                with block_signals(self.__bm_headroom):
+                    self.__bm_headroom.setEnabled(True)
+                    self.__bm_headroom.setCurrentText(self.__current_signal.bm_headroom_type)
+            else:
+                self.__bm_headroom.setEnabled(False)
             self.__current_signal.register_listener(self.on_filter_update)
             self.__start_time.setEnabled(True)
             duration = QTime(0, 0, 0).addMSecs(self.__current_signal.duration_seconds * 1000.0)
@@ -160,6 +170,15 @@ class WaveformController:
             time_widget.clearMaximumDateTime()
             time_widget.setTime(QTime())
             time_widget.setEnabled(False)
+
+    def change_bm_headroom(self, headroom):
+        ''' Changes the headroom allowed for bass management '''
+        signal_name = self.__selector.currentText()
+        if signal_name.startswith('(BM) '):
+            signal_data = self.__get_signal_data(signal_name)
+            if signal_data is not None:
+                signal_data.bm_headroom_type = headroom
+                self.toggle_filter(self.__is_filtered.isChecked())
 
     def toggle_filter(self, state):
         ''' Applies or removes the filter from the visible waveform '''
