@@ -18,11 +18,12 @@ from scipy import signal
 from sortedcontainers import SortedDict
 
 from model.codec import signaldata_to_json
-from model.iir import XYData, CompleteFilter
+from model.iir import XYData, CompleteFilter, ComplexLowPass, FilterType
 from model.magnitude import MagnitudeModel
 from model.preferences import get_avg_colour, get_peak_colour, SHOW_PEAK, \
     SHOW_AVERAGE, SHOW_FILTERED_ONLY, SHOW_UNFILTERED_ONLY, DISPLAY_SHOW_SIGNALS, \
-    DISPLAY_SHOW_FILTERED_SIGNALS, ANALYSIS_TARGET_FS
+    DISPLAY_SHOW_FILTERED_SIGNALS, ANALYSIS_TARGET_FS, BASS_MANAGEMENT_LPF_FS, BASS_MANAGEMENT_LPF_POSITION, \
+    BM_LPF_BEFORE, BM_LPF_AFTER
 from ui.signal import Ui_addSignalDialog
 
 SIGNAL_END = 'end'
@@ -276,24 +277,32 @@ class SingleChannelSignalData(SignalData):
             return self.signal.adjust_gain(gain)
         return None
 
-    def filter_signal(self, filt=True, clip=False, gain=1.0):
+    def filter_signal(self, filt=True, clip=False, gain=1.0, pre_filt=None):
         '''
-        returns the filtered signal if we have the raw sample data applying an optional gain factor.
+        returns the filtered signal if we have the raw sample data by transforming the signal via the following steps:
+        * adjust_gain
+        * pre_filt
+        * clip
+        * filter
+        * clip
         :param filt: whether to apply the filter.
         :param clip: whether to clip values to a -1.0/1.0 range (both before and after filtering)
         :param gain: the gain.
+        :param pre_filt: an additional filter to apply before the active_filter is applied.
         :return: the filtered signal.
         '''
         if self.signal is not None:
             signal = self.signal
+            if not math.isclose(gain, 1.0):
+                signal = signal.adjust_gain(gain)
+            if pre_filt is not None:
+                signal = signal.sosfilter(pre_filt.resample(self.fs).get_sos())
             if clip:
                 signal = signal.clip()
             if filt:
                 sos = self.active_filter.resample(self.fs, copy_listener=False).get_sos()
                 if len(sos) > 0:
                     signal = signal.sosfilter(sos)
-            if not math.isclose(gain, 1.0):
-                signal = signal.adjust_gain(gain)
             if clip:
                 signal = signal.clip()
             return signal
@@ -304,14 +313,18 @@ class SingleChannelSignalData(SignalData):
 class BassManagedSignalData(SignalData):
     ''' A composite signal that will be bass managed. '''
 
-    def __init__(self, signals):
+    def __init__(self, signals, lpf_fs, lpf_position):
         super().__init__()
         self.__channels = []
         self.__lfe_channel_idx = None
+        self.__clip_before = False
+        self.__clip_after = False
         for s in signals:
             self.__add(s)
         self.__headroom_type = 'WCS'
         self.__headroom = self.__calc_wcs_headroom()
+        self.__lpf_fs = lpf_fs
+        self.__lpf_position = lpf_position
         self.__name = signals[0].name[:signals[0].name.rfind('_')]
         self.__fs = signals[0].fs
         self.__duration_seconds = signals[0].duration_seconds
@@ -321,16 +334,28 @@ class BassManagedSignalData(SignalData):
             del self.__metadata[SIGNAL_CHANNEL]
 
     @property
+    def clip_before(self):
+        return self.__clip_before
+    
+    @clip_before.setter
+    def clip_before(self, clip_before):
+        self.__clip_before = clip_before
+
+    @property
+    def clip_after(self):
+        return self.__clip_after
+    
+    @clip_after.setter
+    def clip_after(self, clip_after):
+        self.__clip_after = clip_after
+
+    @property
     def channels(self):
         return self.__channels
 
     @property
     def bm_headroom_type(self):
         return self.__headroom_type
-
-    @property
-    def bm_headroom(self):
-        return self.__headroom
 
     @bm_headroom_type.setter
     def bm_headroom_type(self, bm_headroom_type):
@@ -342,6 +367,18 @@ class BassManagedSignalData(SignalData):
                 self.__headroom = abs(float(self.bm_headroom_type)) + 10.0
             except:
                 logger.exception(f"Bad bm_headroom {self.bm_headroom_type}")
+
+    @property
+    def bm_lpf_position(self):
+        return self.__lpf_position
+
+    @bm_lpf_position.setter
+    def bm_lpf_position(self, bm_lpf_position):
+        self.__lpf_position = bm_lpf_position
+
+    @property
+    def bm_headroom(self):
+        return self.__headroom
 
     def __add(self, signal):
         ''' Adds a new input channel to the signal '''
@@ -355,7 +392,7 @@ class BassManagedSignalData(SignalData):
         # calculate the total of the coherently summed main channels + the LFE channel (as 10dB)
         return 20.0 * math.log10((10.0 ** (main_sum / 20.0)) + (10.0 ** (10.0 / 20.0)))
 
-    def sum(self, apply_filter=True, clip=False):
+    def sum(self, apply_filter=True):
         ''' Sums the signals to create a bass managed output '''
         if len(self.__channels) > 1:
             # reduce the main channels by the total amount of headroom
@@ -364,12 +401,17 @@ class BassManagedSignalData(SignalData):
             lfe_attenuate = 10 ** ((-self.bm_headroom + 10.0) / 20.0)
             logger.debug(f"Attenuating {len(self.__channels) - 1} mains by {round(self.bm_headroom,2)} dB (x{main_attenuate:.4})")
             logger.debug(f"Attenuating LFE by {round(self.bm_headroom - 10, 2)}dB (x{lfe_attenuate:.4})")
+            bm_filt = ComplexLowPass(FilterType.LINKWITZ_RILEY, 4, 1000, self.__lpf_fs)
             samples = [x.filter_signal(filt=apply_filter,
-                                       clip=False,
+                                       pre_filt=bm_filt if self.__lpf_position == BM_LPF_BEFORE else None,
+                                       clip=self.__clip_before,
                                        gain=lfe_attenuate if idx == self.__lfe_channel_idx else main_attenuate).samples
                            for idx, x in enumerate(self.__channels)]
             samples = np.sum(np.array(samples), axis=0)
-            if clip:
+            if self.__lpf_position == BM_LPF_AFTER:
+                logger.debug(f"Applying POST BM LPF {bm_filt}")
+                samples = signal.sosfilt(bm_filt.get_sos(), samples)
+            if self.__clip_after:
                 samples = np.clip(samples, -1.0, 1.0)
             return Signal(self.__name, samples, self.__fs)
         else:
@@ -389,14 +431,13 @@ class BassManagedSignalData(SignalData):
     def signal(self):
         return self.filter_signal(filt=False)
 
-    def filter_signal(self, filt=True, clip=False):
+    def filter_signal(self, filt=True, **kwargs):
         '''
         A filtered and/or clipped signal.
         :param filt: whether to apply the filter.
-        :param clip: whether to clip to -1.0/1.0 range.
         :return: the samples.
         '''
-        return self.sum(apply_filter=filt, clip=clip)
+        return self.sum(apply_filter=filt)
 
     @property
     def duration_seconds(self):
@@ -1074,7 +1115,10 @@ class AutoWavLoader:
             for x in range(0, self.info.channels):
                 self.prepare(channel=x + 1, name=name_provider(x, self.info.channels), channel_count=self.info.channels, decimate=decimate)
             if self.info.channels > 1:
-                return BassManagedSignalData([self.get_signal(x, name_provider(x-1, self.info.channels)) for x in self.__cache.keys()])
+                signals = [self.get_signal(x, name_provider(x-1, self.info.channels)) for x in self.__cache.keys()]
+                lpf_fs = self.__preferences.get(BASS_MANAGEMENT_LPF_FS)
+                lpf_position = self.__preferences.get(BASS_MANAGEMENT_LPF_POSITION)
+                return BassManagedSignalData(signals, lpf_fs, lpf_position)
             else:
                 return self.get_signal(1, name_provider(0, 1))
         finally:

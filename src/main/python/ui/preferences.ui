@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>809</width>
-    <height>762</height>
+    <height>764</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -437,6 +437,13 @@
      </item>
      <item>
       <layout class="QGridLayout" name="filterPane">
+       <item row="1" column="0">
+        <widget class="QLabel" name="filterQLabel">
+         <property name="text">
+          <string>Default Q</string>
+         </property>
+        </widget>
+       </item>
        <item row="1" column="2">
         <widget class="QLabel" name="filterFreqLabel">
          <property name="text">
@@ -457,13 +464,6 @@
          </property>
         </widget>
        </item>
-       <item row="1" column="0">
-        <widget class="QLabel" name="filterQLabel">
-         <property name="text">
-          <string>Default Q</string>
-         </property>
-        </widget>
-       </item>
        <item row="1" column="3">
         <widget class="QSpinBox" name="filterFreq">
          <property name="minimum">
@@ -474,7 +474,30 @@
          </property>
         </widget>
        </item>
-       <item row="0" column="0" colspan="4">
+       <item row="1" column="5">
+        <widget class="QSpinBox" name="bmlpfFreq">
+         <property name="suffix">
+          <string> Hz</string>
+         </property>
+         <property name="minimum">
+          <number>20</number>
+         </property>
+         <property name="maximum">
+          <number>160</number>
+         </property>
+         <property name="value">
+          <number>80</number>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="4">
+        <widget class="QLabel" name="bmlpfLabel">
+         <property name="text">
+          <string>BM LPF</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="0" colspan="6">
         <widget class="QLabel" name="filterLayoutLabel">
          <property name="font">
           <font>

@@ -9,6 +9,7 @@ from qtpy.QtCore import QTime
 from qtpy.QtGui import QFont
 
 from model.magnitude import MagnitudeModel
+from model.preferences import BM_LPF_OPTIONS
 from model.signal import SignalDialog, SIGNAL_SOURCE_FILE, SIGNAL_CHANNEL
 
 logger = logging.getLogger('waveform')
@@ -16,8 +17,9 @@ logger = logging.getLogger('waveform')
 
 class WaveformController:
     def __init__(self, preferences, signal_model, waveform_chart, spectrum_chart, signal_selector, headroom, bm_headroom,
-                 is_filtered, apply_hard_clip, start_time, end_time, show_spectrum_btn, hide_spectrum_btn, zoom_in_btn,
-                 zoom_out_btn, compare_spectrum_btn, source_file, load_signal_btn, show_limits_btn, y_min, y_max):
+                 bm_lpf_position, bm_clip_before, bm_clip_after, is_filtered, apply_hard_clip, start_time, end_time,
+                 show_spectrum_btn, hide_spectrum_btn, zoom_in_btn, zoom_out_btn, compare_spectrum_btn, source_file,
+                 load_signal_btn, show_limits_btn, y_min, y_max):
         self.__preferences = preferences
         self.__signal_model = signal_model
         self.__current_signal = None
@@ -25,6 +27,11 @@ class WaveformController:
         self.__is_filtered = is_filtered
         self.__apply_hard_clip = apply_hard_clip
         self.__bm_headroom = bm_headroom
+        self.__bm_lpf_position = bm_lpf_position
+        for x in BM_LPF_OPTIONS:
+            self.__bm_lpf_position.addItem(x)
+        self.__bm_clip_before = bm_clip_before
+        self.__bm_clip_after = bm_clip_after
         self.__start_time = start_time
         self.__end_time = end_time
         self.__show_spectrum_btn = show_spectrum_btn
@@ -58,6 +65,9 @@ class WaveformController:
         self.__is_filtered.stateChanged['int'].connect(self.toggle_filter)
         self.__apply_hard_clip.stateChanged['int'].connect(self.toggle_hard_clip)
         self.__bm_headroom.currentIndexChanged['QString'].connect(self.change_bm_headroom)
+        self.__bm_lpf_position.currentIndexChanged['QString'].connect(self.change_bm_lpf_position)
+        self.__bm_clip_before.stateChanged['int'].connect(self.toggle_bm_clip_before)
+        self.__bm_clip_after.stateChanged['int'].connect(self.toggle_bm_clip_after)
         self.__selector.currentIndexChanged['QString'].connect(self.update_waveform)
         self.__zoom_in_btn.clicked.connect(self.__waveform_chart_model.zoom_in)
         self.__zoom_out_btn.clicked.connect(self.__zoom_out)
@@ -120,6 +130,9 @@ class WaveformController:
             self.__reset_time(self.__end_time)
             self.__load_signal_btn.setEnabled(True)
             self.__bm_headroom.setEnabled(False)
+            self.__bm_lpf_position.setEnabled(False)
+            self.__bm_clip_before.setEnabled(False)
+            self.__bm_clip_after.setEnabled(False)
             self.__reset_controls()
             self.__active_signal = None
         else:
@@ -135,8 +148,20 @@ class WaveformController:
                 with block_signals(self.__bm_headroom):
                     self.__bm_headroom.setEnabled(True)
                     self.__bm_headroom.setCurrentText(self.__current_signal.bm_headroom_type)
+                with block_signals(self.__bm_lpf_position):
+                    self.__bm_lpf_position.setEnabled(True)
+                    self.__bm_lpf_position.setCurrentText(self.__current_signal.bm_lpf_position)
+                with block_signals(self.__bm_clip_before):
+                    self.__bm_clip_before.setEnabled(True)
+                    self.__bm_clip_before.setChecked(self.__current_signal.clip_before)
+                with block_signals(self.__bm_clip_after):
+                    self.__bm_clip_after.setEnabled(True)
+                    self.__bm_clip_after.setChecked(self.__current_signal.clip_after)
             else:
                 self.__bm_headroom.setEnabled(False)
+                self.__bm_lpf_position.setEnabled(False)
+                self.__bm_clip_before.setEnabled(False)
+                self.__bm_clip_after.setEnabled(False)
             self.__current_signal.register_listener(self.on_filter_update)
             self.__start_time.setEnabled(True)
             duration = QTime(0, 0, 0).addMSecs(self.__current_signal.duration_seconds * 1000.0)
@@ -178,6 +203,33 @@ class WaveformController:
             signal_data = self.__get_signal_data(signal_name)
             if signal_data is not None:
                 signal_data.bm_headroom_type = headroom
+                self.toggle_filter(self.__is_filtered.isChecked())
+
+    def change_bm_lpf_position(self, lpf_position):
+        ''' Changes the LPF applied during bass management '''
+        signal_name = self.__selector.currentText()
+        if signal_name.startswith('(BM) '):
+            signal_data = self.__get_signal_data(signal_name)
+            if signal_data is not None:
+                signal_data.bm_lpf_position = lpf_position
+                self.toggle_filter(self.__is_filtered.isChecked())
+
+    def toggle_bm_clip_before(self, state):
+        ''' Changes whether to clip the signal before summation '''
+        signal_name = self.__selector.currentText()
+        if signal_name.startswith('(BM) '):
+            signal_data = self.__get_signal_data(signal_name)
+            if signal_data is not None:
+                signal_data.clip_before = state
+                self.toggle_filter(self.__is_filtered.isChecked())
+
+    def toggle_bm_clip_after(self, state):
+        ''' Changes whether to clip the signal after summation '''
+        signal_name = self.__selector.currentText()
+        if signal_name.startswith('(BM) '):
+            signal_data = self.__get_signal_data(signal_name)
+            if signal_data is not None:
+                signal_data.clip_after = state
                 self.toggle_filter(self.__is_filtered.isChecked())
 
     def toggle_filter(self, state):

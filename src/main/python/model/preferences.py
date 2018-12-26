@@ -32,6 +32,11 @@ SHOW_FILTERED_ONLY = 'Filtered'
 SHOW_UNFILTERED_ONLY = 'Unfiltered'
 SHOW_FILTERED_SIGNAL_OPTIONS = [SHOW_ALL_FILTERED_SIGNALS, SHOW_FILTERED_ONLY, SHOW_UNFILTERED_ONLY]
 
+BM_LPF_BEFORE = 'Before'
+BM_LPF_AFTER = 'After'
+BM_LPF_OFF = 'Off'
+BM_LPF_OPTIONS = [BM_LPF_BEFORE, BM_LPF_AFTER, BM_LPF_OFF]
+
 EXTRACTION_OUTPUT_DIR = 'extraction/output_dir'
 EXTRACTION_NOTIFICATION_SOUND = 'extraction/notification_sound'
 EXTRACTION_BATCH_FILTER = 'extraction/batch_filter'
@@ -123,6 +128,9 @@ BEQ_DOWNLOAD_DIR = 'beq/directory'
 BIQUAD_EXPORT_FS = 'biquad/fs'
 BIQUAD_EXPORT_MAX = 'biquad/max'
 
+BASS_MANAGEMENT_LPF_FS = 'bm/fs'
+BASS_MANAGEMENT_LPF_POSITION = 'bm/type'
+
 DEFAULT_PREFS = {
     ANALYSIS_RESOLUTION: 1.0,
     ANALYSIS_TARGET_FS: 1000,
@@ -138,6 +146,8 @@ DEFAULT_PREFS = {
     AUDIO_ANALYSIS_COLOUR_MAX: -10,
     AUDIO_ANALYSIS_COLOUR_MIN: -70,
     AUDIO_ANALYSIS_SIGNAL_MIN: -70.0,
+    BASS_MANAGEMENT_LPF_FS: 80,
+    BASS_MANAGEMENT_LPF_POSITION: BM_LPF_BEFORE,
     BEQ_DOWNLOAD_DIR: os.path.join(os.path.expanduser('~'), '.beq'),
     BIQUAD_EXPORT_FS: '48000',
     BIQUAD_EXPORT_MAX: 10,
@@ -197,6 +207,7 @@ TYPES = {
     AUDIO_ANALYSIS_COLOUR_MAX: int,
     AUDIO_ANALYSIS_COLOUR_MIN: int,
     AUDIO_ANALYSIS_SIGNAL_MIN: float,
+    BASS_MANAGEMENT_LPF_FS: int,
     BIQUAD_EXPORT_MAX: int,
     EXTRACTION_MIX_MONO: bool,
     EXTRACTION_COMPRESS: bool,
@@ -390,6 +401,9 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         self.filterFreq.setValue(self.__preferences.get(FILTERS_DEFAULT_FREQ))
 
         self.beqFiltersDir.setText(self.__preferences.get(BEQ_DOWNLOAD_DIR))
+
+        self.bmlpfFreq.setValue(self.__preferences.get(BASS_MANAGEMENT_LPF_FS))
+
         self.__count_beq_files()
 
     def __init_themes(self):
@@ -482,6 +496,8 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         self.__preferences.set(FILTERS_DEFAULT_FREQ, self.filterFreq.value())
         self.__preferences.set(FILTERS_DEFAULT_Q, self.filterQ.value())
         self.__preferences.set(BEQ_DOWNLOAD_DIR, self.beqFiltersDir.text())
+        self.__preferences.set(BASS_MANAGEMENT_LPF_FS, self.bmlpfFreq.value())
+
         QDialog.accept(self)
 
     def alert_on_change(self, title, text='Change will not take effect until the application is restarted',
