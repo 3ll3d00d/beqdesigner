@@ -542,7 +542,8 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Saves the currently selected chart to a file.
         '''
-        dialog = SaveReportDialog(self, self.preferences, self.__signal_model, self.__filter_model, self.statusbar)
+        dialog = SaveReportDialog(self, self.preferences, self.__signal_model, self.__filter_model, self.statusbar,
+                                  self.__get_selected_signal())
         dialog.exec()
 
     def exportBiquads(self):

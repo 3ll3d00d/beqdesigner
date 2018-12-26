@@ -90,14 +90,20 @@ class SignalData(abc.ABC):
     def name(self):
         pass
 
+    @property
+    @abc.abstractmethod
+    def offset(self):
+        pass
+
 
 class SingleChannelSignalData(SignalData):
     '''
     Provides a mechanism for caching the assorted xy data surrounding a signal.
     '''
 
-    def __init__(self, name, fs, xy_data, filter, duration_seconds=None, start_seconds=None, signal=None):
+    def __init__(self, name, fs, xy_data, filter, duration_seconds=None, start_seconds=None, signal=None, offset=0.0):
         super().__init__()
+        self.__offset_db = offset
         self.__on_change_listeners = []
         self.__filter = None
         self.__name = None
@@ -122,6 +128,10 @@ class SingleChannelSignalData(SignalData):
     def unregister_listener(self, listener):
         ''' unregisters a listener to be notified when the filter updates '''
         self.__on_change_listeners.remove(listener)
+
+    @property
+    def offset(self):
+        return self.__offset_db
 
     @property
     def duration_seconds(self):
@@ -313,12 +323,13 @@ class SingleChannelSignalData(SignalData):
 class BassManagedSignalData(SignalData):
     ''' A composite signal that will be bass managed. '''
 
-    def __init__(self, signals, lpf_fs, lpf_position):
+    def __init__(self, signals, lpf_fs, lpf_position, offset=0.0):
         super().__init__()
         self.__channels = []
         self.__lfe_channel_idx = None
         self.__clip_before = False
         self.__clip_after = False
+        self.__offset_db = offset
         for s in signals:
             self.__add(s)
         self.__headroom_type = 'WCS'
@@ -332,6 +343,10 @@ class BassManagedSignalData(SignalData):
         self.__metadata = {**signals[0].metadata}
         if SIGNAL_CHANNEL in self.__metadata:
             del self.__metadata[SIGNAL_CHANNEL]
+
+    @property
+    def offset(self):
+        return self.__offset_db
 
     @property
     def clip_before(self):
@@ -1010,7 +1025,7 @@ class SignalTableModel(QAbstractTableModel):
 
     def __init__(self, model, parent=None):
         super().__init__(parent=parent)
-        self.__headers = ['Name', 'Linked', 'Fs', 'Duration']
+        self.__headers = ['Name', 'Linked', 'Fs', 'Duration', 'Offset']
         self.__signal_model = model
         self.__signal_model.table = self
 
@@ -1053,6 +1068,8 @@ class SignalTableModel(QAbstractTableModel):
                 return QVariant(signal_at_row.fs)
             elif index.column() == 3:
                 return QVariant(signal_at_row.duration_hhmmss)
+            elif index.column() == 4:
+                return QVariant(signal_at_row.offset)
             else:
                 return QVariant()
 
@@ -1103,11 +1120,12 @@ class AutoWavLoader:
         self.__wav_data = None
         self.info = None
 
-    def auto_load(self, name_provider, decimate):
+    def auto_load(self, name_provider, decimate, offset=0.0):
         '''
         Loads the file and automatically creates a signal for each channel found.
         :param name_provider: a callable that yields a signal name for the given channel.
         :param decimate: if true, decimate
+        :param offset: the gain offset to apply in dB
         :return: the signals.
         '''
         start = time.time()
@@ -1115,12 +1133,12 @@ class AutoWavLoader:
             for x in range(0, self.info.channels):
                 self.prepare(channel=x + 1, name=name_provider(x, self.info.channels), channel_count=self.info.channels, decimate=decimate)
             if self.info.channels > 1:
-                signals = [self.get_signal(x, name_provider(x-1, self.info.channels)) for x in self.__cache.keys()]
+                signals = [self.get_signal(x, name_provider(x-1, self.info.channels), offset=offset) for x in self.__cache.keys()]
                 lpf_fs = self.__preferences.get(BASS_MANAGEMENT_LPF_FS)
                 lpf_position = self.__preferences.get(BASS_MANAGEMENT_LPF_POSITION)
                 return BassManagedSignalData(signals, lpf_fs, lpf_position)
             else:
-                return self.get_signal(1, name_provider(0, 1))
+                return self.get_signal(1, name_provider(0, 1), offset=offset)
         finally:
             logger.info(f"Loaded {self.info.channels} from {self.info.name} in {round(time.time() - start, 3)}s")
 
@@ -1172,16 +1190,20 @@ class AutoWavLoader:
             signal.calculate_peak_average(self.__preferences)
             self.__cache[channel] = signal
 
-    def get_signal(self, channel_idx, name):
+    def get_signal(self, channel_idx, name, offset=0.0):
         '''
         Converts the loaded signal into a SignalData.
         :return: the signal data.
         '''
         signal = self.__cache[channel_idx]
+        if not math.isclose(offset, 0.0):
+            signal = signal.adjust_gain(10**(offset/20.0))
+            signal.calculate_peak_average(self.__preferences)
         return SingleChannelSignalData(name, signal.fs, signal.getXY(), CompleteFilter(),
                                        duration_seconds=signal.duration_seconds,
                                        start_seconds=signal.start_seconds,
-                                       signal=signal)
+                                       signal=signal,
+                                       offset=offset)
 
     def get_magnitude_data(self, channel_idx):
         '''
@@ -1223,6 +1245,7 @@ class DialogWavLoaderBridge:
         self.__duration = 0
         self.__dialog.wavStartTime.setEnabled(False)
         self.__dialog.wavEndTime.setEnabled(False)
+        self.__dialog.gainOffset.setEnabled(False)
         self.__dialog.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
 
     def __load_info(self):
@@ -1266,6 +1289,7 @@ class DialogWavLoaderBridge:
         self.__auto_loader.prepare(name=self.__dialog.wavSignalName.text(), channel=channel_idx,
                                    decimate=self.__dialog.decimate.isChecked())
         self.__dialog.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
+        self.__dialog.gainOffset.setEnabled(True)
 
     def __get_window(self, key):
         from model.preferences import ANALYSIS_WINDOW_DEFAULT
@@ -1293,7 +1317,7 @@ class DialogWavLoaderBridge:
         enabled = len(self.__dialog.wavSignalName.text()) > 0 and self.can_save()
         self.__dialog.buttonBox.button(QDialogButtonBox.Ok).setEnabled(enabled)
 
-    def get_signal(self):
+    def get_signal(self, offset=0.0):
         '''
         Converts the loaded signal into a SignalData.
         :return: the signal data.
@@ -1302,10 +1326,13 @@ class DialogWavLoaderBridge:
             from model.extract import get_channel_name
             name_provider = lambda channel, channel_count: get_channel_name(self.__dialog.wavSignalName.text(), channel,
                                                                             channel_count)
-            return self.__auto_loader.auto_load(name_provider, self.__dialog.decimate.isChecked())
+            return self.__auto_loader.auto_load(name_provider,
+                                                self.__dialog.decimate.isChecked(),
+                                                offset=offset)
         else:
             return self.__auto_loader.get_signal(int(self.__dialog.wavChannelSelector.currentText()),
-                                                 self.__dialog.wavSignalName.text())
+                                                 self.__dialog.wavSignalName.text(),
+                                                 offset=offset)
 
 
 class FrdLoader:
@@ -1530,7 +1557,7 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
         if loader.can_save():
             from app import wait_cursor
             with wait_cursor(f"Saving signals"):
-                signals = loader.get_signal()
+                signals = loader.get_signal(offset=self.gainOffset.value())
                 if signals is not None:
                     self.save(signals)
                     QDialog.accept(self)

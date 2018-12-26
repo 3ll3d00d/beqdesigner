@@ -56,16 +56,6 @@
           <layout class="QGridLayout" name="gridLayout_3">
            <item row="0" column="0">
             <layout class="QGridLayout" name="wavGridLayout">
-             <item row="5" column="1">
-              <widget class="QTimeEdit" name="wavEndTime">
-               <property name="enabled">
-                <bool>false</bool>
-               </property>
-               <property name="displayFormat">
-                <string>HH:mm:ss.zzz</string>
-               </property>
-              </widget>
-             </item>
              <item row="4" column="1">
               <widget class="QTimeEdit" name="wavStartTime">
                <property name="enabled">
@@ -83,50 +73,12 @@
                </property>
               </widget>
              </item>
-             <item row="3" column="0">
-              <widget class="QLabel" name="wavChannelLabel">
-               <property name="text">
-                <string>Channel</string>
-               </property>
-              </widget>
-             </item>
-             <item row="3" column="1">
-              <widget class="QComboBox" name="wavChannelSelector">
+             <item row="1" column="1">
+              <widget class="QLineEdit" name="wavFile">
                <property name="enabled">
                 <bool>false</bool>
                </property>
-              </widget>
-             </item>
-             <item row="4" column="0">
-              <widget class="QLabel" name="wavStartTimeLabel">
-               <property name="text">
-                <string>Start</string>
-               </property>
-              </widget>
-             </item>
-             <item row="1" column="2">
-              <widget class="QToolButton" name="wavFilePicker">
-               <property name="text">
-                <string>...</string>
-               </property>
-              </widget>
-             </item>
-             <item row="7" column="1">
-              <widget class="QCheckBox" name="loadAllChannels">
-               <property name="text">
-                <string>Load All Channels?</string>
-               </property>
-               <property name="checked">
-                <bool>true</bool>
-               </property>
-              </widget>
-             </item>
-             <item row="8" column="1">
-              <widget class="QCheckBox" name="decimate">
-               <property name="text">
-                <string>Resample?</string>
-               </property>
-               <property name="checked">
+               <property name="readOnly">
                 <bool>true</bool>
                </property>
               </widget>
@@ -138,17 +90,41 @@
                </property>
               </widget>
              </item>
-             <item row="1" column="1">
-              <widget class="QLineEdit" name="wavFile">
+             <item row="6" column="1">
+              <widget class="QLineEdit" name="wavSignalName">
                <property name="enabled">
                 <bool>false</bool>
-               </property>
-               <property name="readOnly">
-                <bool>true</bool>
                </property>
               </widget>
              </item>
              <item row="9" column="1">
+              <widget class="QCheckBox" name="decimate">
+               <property name="text">
+                <string>Resample?</string>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="0">
+              <widget class="QLabel" name="wavFileLabel">
+               <property name="text">
+                <string>File</string>
+               </property>
+              </widget>
+             </item>
+             <item row="8" column="1">
+              <widget class="QCheckBox" name="loadAllChannels">
+               <property name="text">
+                <string>Load All Channels?</string>
+               </property>
+               <property name="checked">
+                <bool>true</bool>
+               </property>
+              </widget>
+             </item>
+             <item row="10" column="1">
               <spacer name="verticalSpacer_2">
                <property name="orientation">
                 <enum>Qt::Vertical</enum>
@@ -161,6 +137,30 @@
                </property>
               </spacer>
              </item>
+             <item row="5" column="2">
+              <widget class="QToolButton" name="applyTimeRangeButton">
+               <property name="text">
+                <string>...</string>
+               </property>
+              </widget>
+             </item>
+             <item row="4" column="0">
+              <widget class="QLabel" name="wavStartTimeLabel">
+               <property name="text">
+                <string>Start</string>
+               </property>
+              </widget>
+             </item>
+             <item row="5" column="1">
+              <widget class="QTimeEdit" name="wavEndTime">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="displayFormat">
+                <string>HH:mm:ss.zzz</string>
+               </property>
+              </widget>
+             </item>
              <item row="6" column="0">
               <widget class="QLabel" name="wavSignalNameLabel">
                <property name="text">
@@ -168,17 +168,17 @@
                </property>
               </widget>
              </item>
-             <item row="6" column="1">
-              <widget class="QLineEdit" name="wavSignalName">
-               <property name="enabled">
-                <bool>false</bool>
+             <item row="1" column="2">
+              <widget class="QToolButton" name="wavFilePicker">
+               <property name="text">
+                <string>...</string>
                </property>
               </widget>
              </item>
-             <item row="1" column="0">
-              <widget class="QLabel" name="wavFileLabel">
-               <property name="text">
-                <string>File</string>
+             <item row="3" column="1">
+              <widget class="QComboBox" name="wavChannelSelector">
+               <property name="enabled">
+                <bool>false</bool>
                </property>
               </widget>
              </item>
@@ -196,10 +196,36 @@
                </property>
               </widget>
              </item>
-             <item row="5" column="2">
-              <widget class="QToolButton" name="applyTimeRangeButton">
+             <item row="3" column="0">
+              <widget class="QLabel" name="wavChannelLabel">
                <property name="text">
-                <string>...</string>
+                <string>Channel</string>
+               </property>
+              </widget>
+             </item>
+             <item row="7" column="1">
+              <widget class="QDoubleSpinBox" name="gainOffset">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="suffix">
+                <string> dB</string>
+               </property>
+               <property name="minimum">
+                <double>-100.000000000000000</double>
+               </property>
+               <property name="maximum">
+                <double>100.000000000000000</double>
+               </property>
+               <property name="singleStep">
+                <double>0.010000000000000</double>
+               </property>
+              </widget>
+             </item>
+             <item row="7" column="0">
+              <widget class="QLabel" name="gainOffsetLabel">
+               <property name="text">
+                <string>Offset</string>
                </property>
               </widget>
              </item>
@@ -484,8 +510,8 @@
    <slot>enableOk()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>194</x>
-     <y>273</y>
+     <x>217</x>
+     <y>271</y>
     </hint>
     <hint type="destinationlabel">
      <x>102</x>
@@ -517,7 +543,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>267</x>
-     <y>431</y>
+     <y>463</y>
     </hint>
     <hint type="destinationlabel">
      <x>167</x>
@@ -603,5 +629,6 @@
   <slot>previewChannel()</slot>
   <slot>limitTimeRange()</slot>
   <slot>enableLimitTimeRangeButton()</slot>
+  <slot>offsetGain()</slot>
  </slots>
 </ui>

@@ -35,9 +35,10 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
     Save Report dialog
     '''
 
-    def __init__(self, parent, preferences, signal_model, filter_model, status_bar):
+    def __init__(self, parent, preferences, signal_model, filter_model, status_bar, selected_signal):
         super(SaveReportDialog, self).__init__(parent)
         self.__table = None
+        self.__selected_signal = selected_signal
         self.__first_create = True
         self.__magnitude_model = None
         self.__imshow_axes = None
@@ -195,6 +196,8 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         if 'bbox' in cell_kwargs:
             col_width *= cell_kwargs['bbox'][2]
         cells = [self.__table_print(f) for f in self.__filter_model]
+        if self.__selected_signal is not None and not math.isclose(self.__selected_signal.offset, 0.0):
+            cells.append(['', f"{self.__selected_signal.offset:+.2f}", '', 'MV', ''])
         show_header = self.showTableHeader.isChecked()
         ec = matplotlib.rcParams['axes.edgecolor']
         if show_header:
