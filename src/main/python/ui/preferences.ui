@@ -433,6 +433,16 @@
          </property>
         </widget>
        </item>
+       <item row="1" column="1">
+        <widget class="QCheckBox" name="smoothFullRange">
+         <property name="text">
+          <string>Smooth Full Range?</string>
+         </property>
+         <property name="checked">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
       </layout>
      </item>
      <item>

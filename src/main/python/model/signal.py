@@ -796,7 +796,7 @@ class Signal:
         """
         return self.samples
 
-    def spectrum(self, ref=SPECLAB_REFERENCE, resolution_shift=0, window=None, **kwargs):
+    def spectrum(self, ref=SPECLAB_REFERENCE, resolution_shift=0, window=None, smooth_full=True, **kwargs):
         """
         analyses the source to generate the linear spectrum.
         :param ref: the reference value for dB purposes.
@@ -814,9 +814,14 @@ class Signal:
             Pxx_spec = np.mean([r[1] for r in results], axis=0)
         else:
             Pxx_spec = results[0][1]
+        f = results[0][0]
+        if self.fs > 24000 and smooth_full:
+            from acoustics.smooth import fractional_octaves
+            fob, Pxx_spec = fractional_octaves(f, Pxx_spec)
+            f = fob.center
         # a 3dB adjustment is required to account for the change in nperseg
         Pxx_spec = amplitude_to_db(np.sqrt(Pxx_spec), ref * SPECLAB_REFERENCE)
-        return results[0][0], Pxx_spec
+        return f, Pxx_spec
 
     def __segment_spectrum(self, segment, resolution_shift=0, window=None, **kwargs):
         nperseg = self.getSegmentLength(use_segment=True, resolution_shift=resolution_shift)
@@ -824,7 +829,7 @@ class Signal:
                                    window=window if window else 'hann', **kwargs)
         return f, Pxx_spec
 
-    def peakSpectrum(self, ref=SPECLAB_REFERENCE, resolution_shift=0, window=None):
+    def peakSpectrum(self, ref=SPECLAB_REFERENCE, resolution_shift=0, window=None, smooth_full=True):
         """
         analyses the source to generate the max values per bin per segment
         :param resolution_shift: allows resolution to go down (if positive) or up (if negative).
@@ -842,9 +847,14 @@ class Signal:
             Pxy_max = np.vstack([r[1] for r in results]).max(axis=0)
         else:
             Pxy_max = results[0][1]
+        f = results[0][0]
+        if self.fs > 24000 and smooth_full:
+            from acoustics.smooth import fractional_octaves
+            fob, Pxy_max = fractional_octaves(f, Pxy_max)
+            f = fob.center
         # a 3dB adjustment is required to account for the change in nperseg
         Pxy_max = amplitude_to_db(Pxy_max, ref=ref * SPECLAB_REFERENCE)
-        return results[0][0], Pxy_max
+        return f, Pxy_max
 
     def __segment_peak(self, segment, resolution_shift=0, window=None):
         nperseg = self.getSegmentLength(use_segment=True, resolution_shift=resolution_shift)
@@ -966,14 +976,15 @@ class Signal:
         '''
         caches the peak and avg spectrum.
         '''
-        from model.preferences import ANALYSIS_RESOLUTION, ANALYSIS_PEAK_WINDOW, ANALYSIS_AVG_WINDOW
+        from model.preferences import ANALYSIS_RESOLUTION, ANALYSIS_PEAK_WINDOW, ANALYSIS_AVG_WINDOW, DISPLAY_SMOOTH_FULL_RANGE
         resolution_shift = math.log(preferences.get(ANALYSIS_RESOLUTION), 2)
         peak_wnd = self.__get_window(preferences, ANALYSIS_PEAK_WINDOW)
         avg_wnd = self.__get_window(preferences, ANALYSIS_AVG_WINDOW)
+        smooth_full = preferences.get(DISPLAY_SMOOTH_FULL_RANGE)
         logger.debug(
             f"Analysing {self.name} at {resolution_shift}x resolution using {peak_wnd}/{avg_wnd} peak/avg windows")
-        self.__avg = self.spectrum(resolution_shift=resolution_shift, window=avg_wnd)
-        self.__peak = self.peakSpectrum(resolution_shift=resolution_shift, window=peak_wnd)
+        self.__avg = self.spectrum(resolution_shift=resolution_shift, window=avg_wnd, smooth_full=smooth_full)
+        self.__peak = self.peakSpectrum(resolution_shift=resolution_shift, window=peak_wnd, smooth_full=smooth_full)
         self.__cached = [XYData(self.name, 'avg', self.__avg[0], self.__avg[1]),
                          XYData(self.name, 'peak', self.__peak[0], self.__peak[1])]
 
