@@ -367,7 +367,7 @@
       </layout>
      </item>
      <item>
-      <layout class="QGridLayout" name="graphPane" columnstretch="0,0,0">
+      <layout class="QGridLayout" name="graphPane" columnstretch="0,0,0,0">
        <item row="2" column="1">
         <widget class="QSpinBox" name="xmin">
          <property name="minimum">
@@ -378,6 +378,26 @@
          </property>
          <property name="value">
           <number>2</number>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="0">
+        <widget class="QLabel" name="xminmaxLabel">
+         <property name="text">
+          <string>x min/max</string>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="2">
+        <widget class="QSpinBox" name="xmax">
+         <property name="minimum">
+          <number>2</number>
+         </property>
+         <property name="maximum">
+          <number>24000</number>
+         </property>
+         <property name="value">
+          <number>160</number>
          </property>
         </widget>
        </item>
@@ -413,35 +433,39 @@
          </property>
         </widget>
        </item>
-       <item row="2" column="0">
-        <widget class="QLabel" name="xminmaxLabel">
-         <property name="text">
-          <string>x min/max</string>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="2">
-        <widget class="QSpinBox" name="xmax">
-         <property name="minimum">
-          <number>2</number>
-         </property>
-         <property name="maximum">
-          <number>24000</number>
-         </property>
-         <property name="value">
-          <number>160</number>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="1">
-        <widget class="QCheckBox" name="smoothFullRange">
-         <property name="text">
-          <string>Smooth Full Range?</string>
-         </property>
-         <property name="checked">
-          <bool>true</bool>
-         </property>
-        </widget>
+       <item row="1" column="1" colspan="2">
+        <layout class="QHBoxLayout" name="horizontalLayout">
+         <item>
+          <widget class="QLabel" name="fractionalOctaveLabel">
+           <property name="text">
+            <string>Fractional Octave:</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QSpinBox" name="fractionalOctave">
+           <property name="minimum">
+            <number>1</number>
+           </property>
+           <property name="maximum">
+            <number>24</number>
+           </property>
+           <property name="value">
+            <number>3</number>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="smoothFullRange">
+           <property name="text">
+            <string>Smooth Full Range?</string>
+           </property>
+           <property name="checked">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+        </layout>
        </item>
       </layout>
      </item>
@@ -664,7 +688,6 @@
   <tabstop>themePicker</tabstop>
   <tabstop>freqIsLogScale</tabstop>
   <tabstop>xmin</tabstop>
-  <tabstop>xmax</tabstop>
   <tabstop>ffmpegDirectory</tabstop>
   <tabstop>defaultOutputDirectory</tabstop>
   <tabstop>extractCompleteAudioFile</tabstop>

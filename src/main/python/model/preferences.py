@@ -88,6 +88,7 @@ DISPLAY_S_STEP = 'display/s_step'
 DISPLAY_GAIN_STEP = 'display/gain_step'
 DISPLAY_LINE_STYLE = 'display/line_style'
 DISPLAY_SMOOTH_FULL_RANGE = 'display/smooth_full'
+DISPLAY_SMOOTH_FRACTION = 'display/fraction'
 
 GRAPH_X_AXIS_SCALE = 'graph/x_axis'
 GRAPH_X_MIN = 'graph/x_min'
@@ -161,6 +162,7 @@ DEFAULT_PREFS = {
     DISPLAY_GAIN_STEP: '0.1',
     DISPLAY_LINE_STYLE: True,
     DISPLAY_SMOOTH_FULL_RANGE: True,
+    DISPLAY_SMOOTH_FRACTION: 3,
     EXTRACTION_OUTPUT_DIR: os.path.expanduser('~'),
     EXTRACTION_MIX_MONO: False,
     EXTRACTION_COMPRESS: False,
@@ -212,6 +214,7 @@ TYPES = {
     DISPLAY_SHOW_LEGEND: bool,
     DISPLAY_LINE_STYLE: bool,
     DISPLAY_SMOOTH_FULL_RANGE: bool,
+    DISPLAY_SMOOTH_FRACTION: int,
     EXTRACTION_MIX_MONO: bool,
     EXTRACTION_COMPRESS: bool,
     EXTRACTION_DECIMATE: bool,
@@ -408,6 +411,7 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         self.bmlpfFreq.setValue(self.__preferences.get(BASS_MANAGEMENT_LPF_FS))
 
         self.smoothFullRange.setChecked(self.__preferences.get(DISPLAY_SMOOTH_FULL_RANGE))
+        self.fractionalOctave.setValue(self.__preferences.get(DISPLAY_SMOOTH_FRACTION))
 
         self.__count_beq_files()
 
@@ -503,6 +507,7 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         self.__preferences.set(BEQ_DOWNLOAD_DIR, self.beqFiltersDir.text())
         self.__preferences.set(BASS_MANAGEMENT_LPF_FS, self.bmlpfFreq.value())
         self.__preferences.set(DISPLAY_SMOOTH_FULL_RANGE, self.smoothFullRange.isChecked())
+        self.__preferences.set(DISPLAY_SMOOTH_FRACTION, self.fractionalOctave.value())
 
         QDialog.accept(self)
 

@@ -796,7 +796,8 @@ class Signal:
         """
         return self.samples
 
-    def spectrum(self, ref=SPECLAB_REFERENCE, resolution_shift=0, window=None, smooth_full=True, **kwargs):
+    def spectrum(self, ref=SPECLAB_REFERENCE, resolution_shift=0, window=None, smooth_full=True, smooth_fraction=3,
+                 **kwargs):
         """
         analyses the source to generate the linear spectrum.
         :param ref: the reference value for dB purposes.
@@ -817,7 +818,7 @@ class Signal:
         f = results[0][0]
         if self.fs > 24000 and smooth_full:
             from acoustics.smooth import fractional_octaves
-            fob, Pxx_spec = fractional_octaves(f, Pxx_spec)
+            fob, Pxx_spec = fractional_octaves(f, Pxx_spec, fraction=smooth_fraction)
             f = fob.center
         # a 3dB adjustment is required to account for the change in nperseg
         Pxx_spec = amplitude_to_db(np.sqrt(Pxx_spec), ref * SPECLAB_REFERENCE)
@@ -829,7 +830,7 @@ class Signal:
                                    window=window if window else 'hann', **kwargs)
         return f, Pxx_spec
 
-    def peakSpectrum(self, ref=SPECLAB_REFERENCE, resolution_shift=0, window=None, smooth_full=True):
+    def peakSpectrum(self, ref=SPECLAB_REFERENCE, resolution_shift=0, window=None, smooth_full=True, smooth_fraction=3):
         """
         analyses the source to generate the max values per bin per segment
         :param resolution_shift: allows resolution to go down (if positive) or up (if negative).
@@ -850,7 +851,7 @@ class Signal:
         f = results[0][0]
         if self.fs > 24000 and smooth_full:
             from acoustics.smooth import fractional_octaves
-            fob, Pxy_max = fractional_octaves(f, Pxy_max)
+            fob, Pxy_max = fractional_octaves(f, Pxy_max, fraction=smooth_fraction)
             f = fob.center
         # a 3dB adjustment is required to account for the change in nperseg
         Pxy_max = amplitude_to_db(Pxy_max, ref=ref * SPECLAB_REFERENCE)
@@ -976,15 +977,19 @@ class Signal:
         '''
         caches the peak and avg spectrum.
         '''
-        from model.preferences import ANALYSIS_RESOLUTION, ANALYSIS_PEAK_WINDOW, ANALYSIS_AVG_WINDOW, DISPLAY_SMOOTH_FULL_RANGE
+        from model.preferences import ANALYSIS_RESOLUTION, ANALYSIS_PEAK_WINDOW, ANALYSIS_AVG_WINDOW, \
+            DISPLAY_SMOOTH_FULL_RANGE, DISPLAY_SMOOTH_FRACTION
         resolution_shift = math.log(preferences.get(ANALYSIS_RESOLUTION), 2)
         peak_wnd = self.__get_window(preferences, ANALYSIS_PEAK_WINDOW)
         avg_wnd = self.__get_window(preferences, ANALYSIS_AVG_WINDOW)
         smooth_full = preferences.get(DISPLAY_SMOOTH_FULL_RANGE)
+        smooth_fraction = preferences.get(DISPLAY_SMOOTH_FRACTION)
         logger.debug(
             f"Analysing {self.name} at {resolution_shift}x resolution using {peak_wnd}/{avg_wnd} peak/avg windows")
-        self.__avg = self.spectrum(resolution_shift=resolution_shift, window=avg_wnd, smooth_full=smooth_full)
-        self.__peak = self.peakSpectrum(resolution_shift=resolution_shift, window=peak_wnd, smooth_full=smooth_full)
+        self.__avg = self.spectrum(resolution_shift=resolution_shift, window=avg_wnd, smooth_full=smooth_full,
+                                   smooth_fraction=smooth_fraction)
+        self.__peak = self.peakSpectrum(resolution_shift=resolution_shift, window=peak_wnd, smooth_full=smooth_full,
+                                        smooth_fraction=smooth_fraction)
         self.__cached = [XYData(self.name, 'avg', self.__avg[0], self.__avg[1]),
                          XYData(self.name, 'peak', self.__peak[0], self.__peak[1])]
 
@@ -1142,9 +1147,12 @@ class AutoWavLoader:
         start = time.time()
         try:
             for x in range(0, self.info.channels):
-                self.prepare(channel=x + 1, name=name_provider(x, self.info.channels), channel_count=self.info.channels, decimate=decimate)
+                self.prepare(channel=x + 1, name=name_provider(x, self.info.channels),
+                             channel_count=self.info.channels,
+                             decimate=decimate)
             if self.info.channels > 1:
-                signals = [self.get_signal(x, name_provider(x-1, self.info.channels), offset=offset) for x in self.__cache.keys()]
+                signals = [self.get_signal(x, name_provider(x-1, self.info.channels), offset=offset)
+                           for x in self.__cache.keys()]
                 lpf_fs = self.__preferences.get(BASS_MANAGEMENT_LPF_FS)
                 lpf_position = self.__preferences.get(BASS_MANAGEMENT_LPF_POSITION)
                 return BassManagedSignalData(signals, lpf_fs, lpf_position)
@@ -1229,6 +1237,9 @@ class AutoWavLoader:
         '''
         return len(self.__cache) > 0
 
+    def toggle_decimate(self):
+        pass
+
 
 class DialogWavLoaderBridge:
     '''
@@ -1241,6 +1252,10 @@ class DialogWavLoaderBridge:
         self.__auto_loader = AutoWavLoader(preferences)
         self.__duration = 0
         self.__allow_multichannel = allow_multichannel
+
+    def toggle_decimate(self, channel_idx):
+        self.__auto_loader.clear_cache()
+        self.prepare_signal(channel_idx)
 
     def select_wav_file(self):
         file = select_file(self.__dialog, ['wav', 'flac'])
@@ -1297,7 +1312,8 @@ class DialogWavLoaderBridge:
         '''
         Reads the actual file and calculates the relevant peak/avg spectrum.
         '''
-        self.__auto_loader.prepare(name=self.__dialog.wavSignalName.text(), channel=channel_idx,
+        self.__auto_loader.prepare(name=self.__dialog.wavSignalName.text(),
+                                   channel=channel_idx,
                                    decimate=self.__dialog.decimate.isChecked())
         self.__dialog.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
         self.__dialog.gainOffset.setEnabled(True)
@@ -1614,6 +1630,13 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
         else:
             for s in signal:
                 s.filter = self.__signal_model.default_signal.filter.resample(s.fs)
+
+    def toggleDecimate(self, state):
+        ''' toggles whether to decimate '''
+        from app import wait_cursor
+        with (wait_cursor()):
+            self.__loaders[self.__loader_idx].toggle_decimate(int(self.wavChannelSelector.currentText()))
+            self.__magnitudeModel.redraw()
 
 
 def read_wav_data(input_file, start=None, end=None):
