@@ -526,7 +526,7 @@
    <slot>enableOk()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>159</x>
+     <x>161</x>
      <y>193</y>
     </hint>
     <hint type="destinationlabel">
@@ -615,6 +615,22 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>decimate</sender>
+   <signal>stateChanged(int)</signal>
+   <receiver>addSignalDialog</receiver>
+   <slot>toggleDecimate()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>118</x>
+     <y>351</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>50</x>
+     <y>588</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>selectFile()</slot>
@@ -630,5 +646,6 @@
   <slot>limitTimeRange()</slot>
   <slot>enableLimitTimeRangeButton()</slot>
   <slot>offsetGain()</slot>
+  <slot>toggleDecimate()</slot>
  </slots>
 </ui>
