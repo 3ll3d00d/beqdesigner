@@ -197,7 +197,7 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
             col_width *= cell_kwargs['bbox'][2]
         cells = [self.__table_print(f) for f in self.__filter_model]
         if self.__selected_signal is not None and not math.isclose(self.__selected_signal.offset, 0.0):
-            cells.append(['', f"{self.__selected_signal.offset:+.2f}", '', 'MV', ''])
+            cells.append(['', f"{self.__selected_signal.offset:+g}", '', 'MV', ''])
         show_header = self.showTableHeader.isChecked()
         ec = matplotlib.rcParams['axes.edgecolor']
         if show_header:
