@@ -1,4 +1,5 @@
 import logging
+import math
 import os
 from uuid import uuid4
 
@@ -24,6 +25,7 @@ def signaldata_to_json(signal):
             'avg': xydata_to_json(avg),
             'peak': xydata_to_json(peak),
         },
+        'offset': f"{signal.offset:g}"
     }
     if signal.filter is not None:
         out['filter'] = signal.filter.to_json()
@@ -80,6 +82,7 @@ def signaldata_from_json(o):
         avg = xydata_from_json(data['avg'])
         peak = xydata_from_json(data['peak'])
         metadata = o.get('metadata', None)
+        offset = float(o.get('offset', 0.0))
         signal = None
         if metadata is not None:
             try:
@@ -87,14 +90,15 @@ def signaldata_from_json(o):
                     from model.signal import readWav
                     signal = readWav(o['name'], metadata['src'], channel=metadata['channel'],
                                      start=metadata['start'], end=metadata['end'],
-                                     target_fs=o['fs'])
+                                     target_fs=o['fs'], offset=offset)
             except:
                 logger.exception(f"Unable to load signal from {metadata['src']}")
         if 'duration_seconds' in o:
             signal_data = SingleChannelSignalData(o['name'], o['fs'], [avg, peak], filter=filt,
                                                   duration_seconds=o.get('duration_seconds', None),
                                                   start_seconds=o.get('start_seconds', None),
-                                                  signal=signal)
+                                                  signal=signal,
+                                                  offset=offset)
         elif 'duration_hhmmss' in o:
             h, m, s = o['duration_hhmmss'].split(':')
             duration_seconds = (int(h) * 3600) + int(m) * (60 + float(s))
@@ -103,10 +107,11 @@ def signaldata_from_json(o):
             signal_data = SingleChannelSignalData(o['name'], o['fs'], [avg, peak], filter=filt,
                                                   duration_seconds=duration_seconds,
                                                   start_seconds=start_seconds,
-                                                  signal=signal)
+                                                  signal=signal,
+                                                  offset=offset)
         else:
-            signal_data = SingleChannelSignalData(o['name'], o['fs'], [avg, peak], filter=filt,
-                                                  signal=signal)
+            signal_data = SingleChannelSignalData(o['name'], o['fs'], [avg, peak], filter=filt, signal=signal,
+                                                  offset=offset)
         return signal_data
     raise ValueError(f"{o._type} is an unknown signal type")
 

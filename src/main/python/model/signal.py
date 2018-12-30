@@ -917,6 +917,17 @@ class Signal:
         '''
         return Signal(self.name, self.samples * gain, fs=self.fs, metadata=self.metadata)
 
+    def offset(self, offset):
+        '''
+        Adjusts the gain via the specified offset (in dB).
+        :param gain: the offset in dB to apply.
+        :return: the adjusted signal.
+        '''
+        if not math.isclose(offset, 0.0):
+            return self.adjust_gain(10 ** (offset / 20.0))
+        else:
+            return self
+
     def clip(self, amin=-1.0, amax=1.0):
         '''
         Clamps the samples to the given range.
@@ -1216,7 +1227,7 @@ class AutoWavLoader:
         '''
         signal = self.__cache[channel_idx]
         if not math.isclose(offset, 0.0):
-            signal = signal.adjust_gain(10**(offset/20.0))
+            signal = signal.offset(offset)
             signal.calculate_peak_average(self.__preferences)
         return SingleChannelSignalData(name, signal.fs, signal.getXY(), CompleteFilter(),
                                        duration_seconds=signal.duration_seconds,
@@ -1658,7 +1669,7 @@ def read_wav_data(input_file, start=None, end=None):
     return ys, frameRate, {SIGNAL_SOURCE_FILE: input_file, SIGNAL_START: start, SIGNAL_END: end}
 
 
-def readWav(name, input_file=None, input_data=None, channel=1, start=None, end=None, target_fs=1000) -> Signal:
+def readWav(name, input_file=None, input_data=None, channel=1, start=None, end=None, target_fs=1000, offset=0.0) -> Signal:
     """ reads a wav file or data from a wav file into Signal, one of input_file or input_data must be provided.
     :param name: the name of the signal.
     :param input_file: a path to the input signal file
@@ -1678,4 +1689,4 @@ def readWav(name, input_file=None, input_data=None, channel=1, start=None, end=N
     signal = Signal(name, ys[:, channel - 1], fs, metadata={**metadata,  SIGNAL_CHANNEL: channel})
     if target_fs is None or target_fs == 0:
         target_fs = signal.fs
-    return signal.resample(target_fs)
+    return signal.resample(target_fs).offset(offset)
