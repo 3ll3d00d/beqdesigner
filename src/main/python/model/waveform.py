@@ -10,7 +10,7 @@ from qtpy.QtGui import QFont
 
 from model.magnitude import MagnitudeModel
 from model.preferences import BM_LPF_OPTIONS
-from model.signal import SignalDialog, SIGNAL_SOURCE_FILE, SIGNAL_CHANNEL
+from model.signal import SignalDialog, SIGNAL_SOURCE_FILE, SIGNAL_CHANNEL, BassManagedSignalData
 
 logger = logging.getLogger('waveform')
 
@@ -413,6 +413,7 @@ def to_seconds(time_widget):
     return time_widget.time().msecsSinceStartOfDay() / 1000.0
 
 
+# TODO initialise signal dialog with values from the signal
 class AssociateSignalDialog(SignalDialog):
     ''' Customises the signal dialog to allow a single channel to be loaded from a wav only '''
 
@@ -423,7 +424,7 @@ class AssociateSignalDialog(SignalDialog):
 
     def save(self, signal):
         ''' writes the underlying signal into the existing signaldata '''
-        self.__signal_data.signal = signal[0].signal
+        self.__signal_data.signal = signal.signal
 
     def selectFile(self):
         ''' autopopulates and disables the signal name field (as it is irrelevant here) '''
