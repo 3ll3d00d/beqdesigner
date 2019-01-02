@@ -197,67 +197,59 @@ class WaveformController:
             time_widget.setTime(QTime())
             time_widget.setEnabled(False)
 
-    def change_bm_headroom(self, headroom):
-        ''' Changes the headroom allowed for bass management '''
+    def __set_bm_signal_attr(self, attr_name, attr_value):
         signal_name = self.__selector.currentText()
         if signal_name.startswith('(BM) '):
             signal_data = self.__get_signal_data(signal_name)
             if signal_data is not None:
-                signal_data.bm_headroom_type = headroom
-                self.toggle_filter(self.__is_filtered.isChecked())
+                setattr(signal_data, attr_name, attr_value)
+                self.toggle_filter(Qt.Checked if self.__is_filtered.isChecked() else Qt.Unchecked)
+
+    def change_bm_headroom(self, headroom):
+        ''' Changes the headroom allowed for bass management '''
+        self.__set_bm_signal_attr('bm_headroom_type', headroom)
 
     def change_bm_lpf_position(self, lpf_position):
         ''' Changes the LPF applied during bass management '''
-        signal_name = self.__selector.currentText()
-        if signal_name.startswith('(BM) '):
-            signal_data = self.__get_signal_data(signal_name)
-            if signal_data is not None:
-                signal_data.bm_lpf_position = lpf_position
-                self.toggle_filter(self.__is_filtered.isChecked())
+        self.__set_bm_signal_attr('bm_lpf_position', lpf_position)
 
     def toggle_bm_clip_before(self, state):
         ''' Changes whether to clip the signal before summation '''
-        signal_name = self.__selector.currentText()
-        if signal_name.startswith('(BM) '):
-            signal_data = self.__get_signal_data(signal_name)
-            if signal_data is not None:
-                signal_data.clip_before = state == Qt.Checked
-                self.toggle_filter(self.__is_filtered.isChecked())
+        self.__set_bm_signal_attr('clip_before', state == Qt.Checked)
 
     def toggle_bm_clip_after(self, state):
         ''' Changes whether to clip the signal after summation '''
-        signal_name = self.__selector.currentText()
-        if signal_name.startswith('(BM) '):
-            signal_data = self.__get_signal_data(signal_name)
-            if signal_data is not None:
-                signal_data.clip_after = state == Qt.Checked
-                self.toggle_filter(self.__is_filtered.isChecked())
+        self.__set_bm_signal_attr('clip_after', state == Qt.Checked)
 
     def toggle_filter(self, state):
         ''' Applies or removes the filter from the visible waveform '''
         signal_name = self.__selector.currentText()
         signal_data = self.__get_signal_data(signal_name)
         if signal_data is not None:
-            signal = signal_data.filter_signal(filt=state == Qt.Checked, clip=self.__apply_hard_clip.isChecked())
-            self.__active_signal = signal
-            self.__waveform_chart_model.signal = signal
-            self.__waveform_chart_model.idx = self.__selector.currentIndex() - 1
-            self.__waveform_chart_model.analyse()
-            if self.__magnitude_model.is_visible():
-                self.__magnitude_model.redraw()
+            from app import wait_cursor
+            with wait_cursor():
+                signal = signal_data.filter_signal(filt=state == Qt.Checked, clip=self.__apply_hard_clip.isChecked())
+                self.__active_signal = signal
+                self.__waveform_chart_model.signal = signal
+                self.__waveform_chart_model.idx = self.__selector.currentIndex() - 1
+                self.__waveform_chart_model.analyse()
+                if self.__magnitude_model.is_visible():
+                    self.__magnitude_model.redraw()
 
     def toggle_hard_clip(self, state):
         ''' Applies or removes the hard clip option from the visible waveform '''
         signal_name = self.__selector.currentText()
         signal_data = self.__get_signal_data(signal_name)
         if signal_data is not None:
-            signal = signal_data.filter_signal(filt=self.__is_filtered.isChecked, clip=state == Qt.Checked)
-            self.__active_signal = signal
-            self.__waveform_chart_model.signal = signal
-            self.__waveform_chart_model.idx = self.__selector.currentIndex() - 1
-            self.__waveform_chart_model.analyse()
-            if self.__magnitude_model.is_visible():
-                self.__magnitude_model.redraw()
+            from app import wait_cursor
+            with wait_cursor():
+                signal = signal_data.filter_signal(filt=self.__is_filtered.isChecked, clip=state == Qt.Checked)
+                self.__active_signal = signal
+                self.__waveform_chart_model.signal = signal
+                self.__waveform_chart_model.idx = self.__selector.currentIndex() - 1
+                self.__waveform_chart_model.analyse()
+                if self.__magnitude_model.is_visible():
+                    self.__magnitude_model.redraw()
 
     def on_filter_update(self):
         ''' if the signal is filtered then updated the chart when the filter changes. '''
