@@ -7,10 +7,11 @@ from matplotlib.font_manager import FontProperties
 from pyqtgraph import mkPen
 from qtpy.QtCore import QTime
 from qtpy.QtGui import QFont
+from qtpy.QtCore import Qt
 
 from model.magnitude import MagnitudeModel
 from model.preferences import BM_LPF_OPTIONS
-from model.signal import SignalDialog, SIGNAL_SOURCE_FILE, SIGNAL_CHANNEL, BassManagedSignalData
+from model.signal import SignalDialog, SIGNAL_SOURCE_FILE, SIGNAL_CHANNEL
 
 logger = logging.getLogger('waveform')
 
@@ -220,7 +221,7 @@ class WaveformController:
         if signal_name.startswith('(BM) '):
             signal_data = self.__get_signal_data(signal_name)
             if signal_data is not None:
-                signal_data.clip_before = state
+                signal_data.clip_before = state == Qt.Checked
                 self.toggle_filter(self.__is_filtered.isChecked())
 
     def toggle_bm_clip_after(self, state):
@@ -229,7 +230,7 @@ class WaveformController:
         if signal_name.startswith('(BM) '):
             signal_data = self.__get_signal_data(signal_name)
             if signal_data is not None:
-                signal_data.clip_after = state
+                signal_data.clip_after = state == Qt.Checked
                 self.toggle_filter(self.__is_filtered.isChecked())
 
     def toggle_filter(self, state):
@@ -237,7 +238,7 @@ class WaveformController:
         signal_name = self.__selector.currentText()
         signal_data = self.__get_signal_data(signal_name)
         if signal_data is not None:
-            signal = signal_data.filter_signal(filt=state, clip=self.__apply_hard_clip.isChecked())
+            signal = signal_data.filter_signal(filt=state == Qt.Checked, clip=self.__apply_hard_clip.isChecked())
             self.__active_signal = signal
             self.__waveform_chart_model.signal = signal
             self.__waveform_chart_model.idx = self.__selector.currentIndex() - 1
@@ -250,7 +251,7 @@ class WaveformController:
         signal_name = self.__selector.currentText()
         signal_data = self.__get_signal_data(signal_name)
         if signal_data is not None:
-            signal = signal_data.filter_signal(filt=self.__is_filtered.isChecked, clip=state)
+            signal = signal_data.filter_signal(filt=self.__is_filtered.isChecked, clip=state == Qt.Checked)
             self.__active_signal = signal
             self.__waveform_chart_model.signal = signal
             self.__waveform_chart_model.idx = self.__selector.currentIndex() - 1

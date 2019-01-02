@@ -307,13 +307,13 @@ class SingleChannelSignalData(SignalData):
                 signal = signal.adjust_gain(gain)
             if pre_filt is not None:
                 signal = signal.sosfilter(pre_filt.resample(self.fs).get_sos())
-            if clip:
+            if clip is True:
                 signal = signal.clip()
-            if filt:
+            if filt is True:
                 sos = self.active_filter.resample(self.fs, copy_listener=False).get_sos()
                 if len(sos) > 0:
                     signal = signal.sosfilter(sos)
-            if clip:
+            if clip is True:
                 signal = signal.clip()
             return signal
         else:
