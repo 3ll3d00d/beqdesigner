@@ -115,12 +115,17 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             self.filterMappingLabel.setVisible(True)
             self.includeOriginalAudio.setVisible(True)
             self.includeSubtitles.setVisible(True)
+            self.gainOffset.setVisible(True)
+            self.gainOffsetLabel.setVisible(True)
+            self.gainOffset.setEnabled(False)
         else:
             self.signalName.setText('')
             self.filterMapping.setVisible(False)
             self.filterMappingLabel.setVisible(False)
             self.includeOriginalAudio.setVisible(False)
             self.includeSubtitles.setVisible(False)
+            self.gainOffset.setVisible(False)
+            self.gainOffsetLabel.setVisible(False)
         self.monoMix.setChecked(self.__preferences.get(EXTRACTION_MIX_MONO))
         self.decimateAudio.setChecked(self.__preferences.get(EXTRACTION_DECIMATE))
         self.includeOriginalAudio.setChecked(self.__preferences.get(EXTRACTION_INCLUDE_ORIGINAL))
@@ -268,12 +273,19 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             self.__executor.compress_audio = self.compressAudio.isChecked()
             self.__display_command_info()
 
-    def toggle_include_original_audio(self):
+    def update_original_audio(self):
         '''
         Reacts to the change in original audio selection.
         '''
         if self.audioStreams.count() > 0 and self.__executor is not None:
-            self.__executor.include_original_audio = self.includeOriginalAudio.isChecked()
+            if self.includeOriginalAudio.isChecked():
+                self.__executor.include_original_audio = True
+                self.__executor.original_audio_offset = self.gainOffset.value()
+                self.gainOffset.setEnabled(True)
+            else:
+                self.__executor.include_original_audio = False
+                self.__executor.original_audio_offset = 0.0
+                self.gainOffset.setEnabled(False)
             self.__display_command_info()
 
     def toggle_include_subtitles(self):
@@ -444,6 +456,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         self.targetDirPicker.setEnabled(False)
         self.outputFilename.setEnabled(False)
         self.filterMapping.setEnabled(False)
+        self.gainOffset.setEnabled(False)
         self.ffmpegOutput.setEnabled(True)
         self.ffmpegProgress.setEnabled(True)
         self.ffmpegProgressLabel.setEnabled(True)

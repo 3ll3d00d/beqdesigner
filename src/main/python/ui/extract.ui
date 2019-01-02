@@ -25,44 +25,6 @@
   <layout class="QVBoxLayout" name="boxLayout">
    <item>
     <layout class="QGridLayout" name="gridLayout" rowstretch="1,0,0,0,0,0,0,0,0,0,0,0,0,0" columnstretch="0,0,0">
-     <item row="0" column="1">
-      <widget class="QLineEdit" name="inputFile">
-       <property name="enabled">
-        <bool>false</bool>
-       </property>
-      </widget>
-     </item>
-     <item row="4" column="1">
-      <widget class="QSpinBox" name="lfeChannelIndex">
-       <property name="toolTip">
-        <string>0 = No LFE</string>
-       </property>
-       <property name="minimum">
-        <number>0</number>
-       </property>
-      </widget>
-     </item>
-     <item row="3" column="0">
-      <widget class="QLabel" name="channelCountLabel">
-       <property name="text">
-        <string>Channel Count</string>
-       </property>
-      </widget>
-     </item>
-     <item row="2" column="0">
-      <widget class="QLabel" name="streamsLabel">
-       <property name="text">
-        <string>Audio Stream</string>
-       </property>
-      </widget>
-     </item>
-     <item row="13" column="1">
-      <widget class="QLineEdit" name="signalName">
-       <property name="enabled">
-        <bool>true</bool>
-       </property>
-      </widget>
-     </item>
      <item row="12" column="1">
       <widget class="QPlainTextEdit" name="ffmpegOutput">
        <property name="enabled">
@@ -81,56 +43,24 @@
        </property>
       </widget>
      </item>
-     <item row="8" column="0">
-      <widget class="QLabel" name="targetDirectoryLabel">
-       <property name="text">
-        <string>Target Directory</string>
+     <item row="13" column="1">
+      <widget class="QLineEdit" name="signalName">
+       <property name="enabled">
+        <bool>true</bool>
        </property>
       </widget>
      </item>
-     <item row="8" column="2">
-      <widget class="QToolButton" name="targetDirPicker">
-       <property name="text">
-        <string>...</string>
-       </property>
-      </widget>
-     </item>
-     <item row="2" column="1">
-      <widget class="QComboBox" name="audioStreams"/>
-     </item>
-     <item row="8" column="1">
-      <widget class="QLineEdit" name="targetDir">
+     <item row="0" column="1">
+      <widget class="QLineEdit" name="inputFile">
        <property name="enabled">
         <bool>false</bool>
        </property>
       </widget>
      </item>
-     <item row="9" column="0">
-      <widget class="QLabel" name="outputFilenameLabel">
+     <item row="1" column="2" rowspan="2">
+      <widget class="QToolButton" name="showProbeButton">
        <property name="text">
-        <string>Output Filename</string>
-       </property>
-      </widget>
-     </item>
-     <item row="10" column="1">
-      <widget class="QPlainTextEdit" name="ffmpegCommandLine">
-       <property name="enabled">
-        <bool>true</bool>
-       </property>
-       <property name="font">
-        <font>
-         <family>Consolas</family>
-        </font>
-       </property>
-       <property name="readOnly">
-        <bool>true</bool>
-       </property>
-      </widget>
-     </item>
-     <item row="13" column="0">
-      <widget class="QLabel" name="signalNameLabel">
-       <property name="text">
-        <string>Signal Name</string>
+        <string>...</string>
        </property>
       </widget>
      </item>
@@ -144,51 +74,10 @@
        </property>
       </widget>
      </item>
-     <item row="11" column="0">
-      <widget class="QLabel" name="ffmpegProgressLabel">
+     <item row="8" column="0">
+      <widget class="QLabel" name="targetDirectoryLabel">
        <property name="text">
-        <string>Progress</string>
-       </property>
-      </widget>
-     </item>
-     <item row="11" column="1">
-      <widget class="QProgressBar" name="ffmpegProgress">
-       <property name="value">
-        <number>0</number>
-       </property>
-      </widget>
-     </item>
-     <item row="7" column="0">
-      <widget class="QLabel" name="filterMappingLabel">
-       <property name="text">
-        <string>Signal Mapping</string>
-       </property>
-      </widget>
-     </item>
-     <item row="12" column="0">
-      <widget class="QLabel" name="ffmpegOutputLabel">
-       <property name="text">
-        <string>ffmpeg output</string>
-       </property>
-       <property name="alignment">
-        <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
-       </property>
-      </widget>
-     </item>
-     <item row="7" column="1">
-      <widget class="QListWidget" name="filterMapping">
-       <property name="editTriggers">
-        <set>QAbstractItemView::NoEditTriggers</set>
-       </property>
-       <property name="selectionMode">
-        <enum>QAbstractItemView::NoSelection</enum>
-       </property>
-      </widget>
-     </item>
-     <item row="1" column="2" rowspan="2">
-      <widget class="QToolButton" name="showProbeButton">
-       <property name="text">
-        <string>...</string>
+        <string>Target Directory</string>
        </property>
       </widget>
      </item>
@@ -243,20 +132,90 @@
        </item>
       </layout>
      </item>
-     <item row="1" column="0">
-      <widget class="QLabel" name="videoStreamsLabel">
-       <property name="text">
-        <string>Video Stream</string>
+     <item row="10" column="1">
+      <widget class="QPlainTextEdit" name="ffmpegCommandLine">
+       <property name="enabled">
+        <bool>true</bool>
+       </property>
+       <property name="font">
+        <font>
+         <family>Consolas</family>
+        </font>
+       </property>
+       <property name="readOnly">
+        <bool>true</bool>
        </property>
       </widget>
      </item>
-     <item row="1" column="1">
-      <widget class="QComboBox" name="videoStreams"/>
+     <item row="7" column="0">
+      <widget class="QLabel" name="filterMappingLabel">
+       <property name="text">
+        <string>Signal Mapping</string>
+       </property>
+      </widget>
      </item>
-     <item row="0" column="2">
-      <widget class="QToolButton" name="inputFilePicker">
+     <item row="11" column="0">
+      <widget class="QLabel" name="ffmpegProgressLabel">
+       <property name="text">
+        <string>Progress</string>
+       </property>
+      </widget>
+     </item>
+     <item row="9" column="0">
+      <widget class="QLabel" name="outputFilenameLabel">
+       <property name="text">
+        <string>Output Filename</string>
+       </property>
+      </widget>
+     </item>
+     <item row="11" column="1">
+      <widget class="QProgressBar" name="ffmpegProgress">
+       <property name="value">
+        <number>0</number>
+       </property>
+      </widget>
+     </item>
+     <item row="7" column="1">
+      <widget class="QListWidget" name="filterMapping">
+       <property name="editTriggers">
+        <set>QAbstractItemView::NoEditTriggers</set>
+       </property>
+       <property name="selectionMode">
+        <enum>QAbstractItemView::NoSelection</enum>
+       </property>
+      </widget>
+     </item>
+     <item row="8" column="2">
+      <widget class="QToolButton" name="targetDirPicker">
        <property name="text">
         <string>...</string>
+       </property>
+      </widget>
+     </item>
+     <item row="12" column="0">
+      <widget class="QLabel" name="ffmpegOutputLabel">
+       <property name="text">
+        <string>ffmpeg output</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+       </property>
+      </widget>
+     </item>
+     <item row="9" column="1">
+      <widget class="QLineEdit" name="outputFilename"/>
+     </item>
+     <item row="8" column="1">
+      <widget class="QLineEdit" name="targetDir">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="0">
+      <widget class="QLabel" name="streamsLabel">
+       <property name="text">
+        <string>A/V Streams</string>
        </property>
       </widget>
      </item>
@@ -267,29 +226,22 @@
        </property>
       </widget>
      </item>
-     <item row="3" column="1">
-      <widget class="QSpinBox" name="channelCount">
-       <property name="minimum">
-        <number>1</number>
-       </property>
-      </widget>
-     </item>
-     <item row="4" column="0">
-      <widget class="QLabel" name="lfeChannelIndexLabel">
-       <property name="text">
-        <string>LFE Channel</string>
-       </property>
-      </widget>
-     </item>
-     <item row="9" column="1">
-      <widget class="QLineEdit" name="outputFilename"/>
-     </item>
      <item row="5" column="0">
       <widget class="QLabel" name="label">
        <property name="text">
         <string>Range</string>
        </property>
       </widget>
+     </item>
+     <item row="1" column="1">
+      <layout class="QHBoxLayout" name="horizontalLayout_3">
+       <item>
+        <widget class="QComboBox" name="audioStreams"/>
+       </item>
+       <item>
+        <widget class="QComboBox" name="videoStreams"/>
+       </item>
+      </layout>
      </item>
      <item row="5" column="1">
       <layout class="QHBoxLayout" name="rangeLayout" stretch="0,1,0,1">
@@ -321,6 +273,84 @@
         <widget class="QTimeEdit" name="rangeTo">
          <property name="displayFormat">
           <string>HH:mm:ss.zzz</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item row="3" column="0">
+      <widget class="QLabel" name="channelsLabel">
+       <property name="text">
+        <string>LFE Channel/Total</string>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="2">
+      <widget class="QToolButton" name="inputFilePicker">
+       <property name="text">
+        <string>...</string>
+       </property>
+      </widget>
+     </item>
+     <item row="13" column="0">
+      <widget class="QLabel" name="signalNameLabel">
+       <property name="text">
+        <string>Signal Name</string>
+       </property>
+      </widget>
+     </item>
+     <item row="3" column="1">
+      <layout class="QHBoxLayout" name="horizontalLayout_2">
+       <item>
+        <widget class="QSpinBox" name="lfeChannelIndex">
+         <property name="toolTip">
+          <string>0 = No LFE</string>
+         </property>
+         <property name="minimum">
+          <number>0</number>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QSpinBox" name="channelCount">
+         <property name="minimum">
+          <number>1</number>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <spacer name="horizontalSpacer">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>40</width>
+           <height>20</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item>
+        <widget class="QLabel" name="gainOffsetLabel">
+         <property name="text">
+          <string>Gain Adjustment</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QDoubleSpinBox" name="gainOffset">
+         <property name="suffix">
+          <string> dB</string>
+         </property>
+         <property name="minimum">
+          <double>-100.000000000000000</double>
+         </property>
+         <property name="maximum">
+          <double>100.000000000000000</double>
+         </property>
+         <property name="singleStep">
+          <double>0.010000000000000</double>
          </property>
         </widget>
        </item>
@@ -425,7 +455,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>872</x>
-     <y>492</y>
+     <y>444</y>
     </hint>
     <hint type="destinationlabel">
      <x>715</x>
@@ -441,7 +471,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>833</x>
-     <y>530</y>
+     <y>482</y>
     </hint>
     <hint type="destinationlabel">
      <x>706</x>
@@ -456,8 +486,8 @@
    <slot>updateFfmpegSpec()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>501</x>
-     <y>106</y>
+     <x>476</x>
+     <y>79</y>
     </hint>
     <hint type="destinationlabel">
      <x>123</x>
@@ -472,8 +502,8 @@
    <slot>updateOutputFilename()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>815</x>
-     <y>530</y>
+     <x>833</x>
+     <y>482</y>
     </hint>
     <hint type="destinationlabel">
      <x>117</x>
@@ -489,7 +519,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>259</x>
-     <y>263</y>
+     <y>191</y>
     </hint>
     <hint type="destinationlabel">
      <x>162</x>
@@ -504,8 +534,8 @@
    <slot>overrideFfmpegSpec()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>644</x>
-     <y>174</y>
+     <x>178</x>
+     <y>119</y>
     </hint>
     <hint type="destinationlabel">
      <x>133</x>
@@ -520,8 +550,8 @@
    <slot>overrideFfmpegSpec()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>527</x>
-     <y>140</y>
+     <x>236</x>
+     <y>119</y>
     </hint>
     <hint type="destinationlabel">
      <x>131</x>
@@ -553,7 +583,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>398</x>
-     <y>263</y>
+     <y>191</y>
     </hint>
     <hint type="destinationlabel">
      <x>841</x>
@@ -565,11 +595,11 @@
    <sender>includeOriginalAudio</sender>
    <signal>clicked()</signal>
    <receiver>extractAudioDialog</receiver>
-   <slot>toggle_include_original_audio()</slot>
+   <slot>update_original_audio()</slot>
    <hints>
     <hint type="sourcelabel">
      <x>553</x>
-     <y>263</y>
+     <y>191</y>
     </hint>
     <hint type="destinationlabel">
      <x>846</x>
@@ -585,7 +615,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>693</x>
-     <y>263</y>
+     <y>191</y>
     </hint>
     <hint type="destinationlabel">
      <x>844</x>
@@ -601,7 +631,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>832</x>
-     <y>232</y>
+     <y>160</y>
     </hint>
     <hint type="destinationlabel">
      <x>847</x>
@@ -616,8 +646,8 @@
    <slot>update_start_time()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>364</x>
-     <y>201</y>
+     <x>486</x>
+     <y>160</y>
     </hint>
     <hint type="destinationlabel">
      <x>88</x>
@@ -633,7 +663,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>159</x>
-     <y>233</y>
+     <y>161</y>
     </hint>
     <hint type="destinationlabel">
      <x>99</x>
@@ -649,7 +679,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>872</x>
-     <y>570</y>
+     <y>522</y>
     </hint>
     <hint type="destinationlabel">
      <x>865</x>
@@ -664,12 +694,28 @@
    <slot>toggle_include_subtitles()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>767</x>
-     <y>253</y>
+     <x>832</x>
+     <y>191</y>
     </hint>
     <hint type="destinationlabel">
      <x>854</x>
      <y>312</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>gainOffset</sender>
+   <signal>valueChanged(double)</signal>
+   <receiver>extractAudioDialog</receiver>
+   <slot>update_original_audio()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>780</x>
+     <y>105</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>587</x>
+     <y>112</y>
     </hint>
    </hints>
   </connection>
@@ -684,7 +730,7 @@
   <slot>updateChannelLayout()</slot>
   <slot>overrideFfmpegSpec()</slot>
   <slot>toggle_decimate_audio()</slot>
-  <slot>toggle_include_original_audio()</slot>
+  <slot>update_original_audio()</slot>
   <slot>toggle_compress_audio()</slot>
   <slot>update_start_time()</slot>
   <slot>update_end_time()</slot>

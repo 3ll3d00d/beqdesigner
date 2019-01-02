@@ -1,5 +1,6 @@
 import datetime
 import logging
+import math
 import os
 import platform
 import socketserver
@@ -124,6 +125,7 @@ class Executor:
         self.__decimate_audio = decimate_audio
         self.__compress_audio = compress_audio
         self.__include_original_audio = include_original
+        self.__original_audio_offset = 0.0
         self.__include_subtitles = include_subtitles
         self.__mono_mix_spec = None
         self.__selected_audio_stream_idx = -1
@@ -241,6 +243,15 @@ class Executor:
     @include_original_audio.setter
     def include_original_audio(self, include_original_audio):
         self.__include_original_audio = include_original_audio
+        self.__calculate_output()
+
+    @property
+    def original_audio_offset(self):
+        return self.__original_audio_offset
+
+    @original_audio_offset.setter
+    def original_audio_offset(self, original_audio_offset):
+        self.__original_audio_offset = original_audio_offset
         self.__calculate_output()
 
     @property
@@ -469,6 +480,7 @@ class Executor:
     def __write_filter_complex(self):
         filts = []
         ch_outs = []
+        audio_input = f"[a:{self.selected_stream_idx}]"
         for channel_idx in range(0, self.channel_count):
             c_name = get_channel_name(None, channel_idx, self.channel_count, self.channel_layout_name)
             sig = self.__channel_to_filter[channel_idx]
@@ -477,7 +489,7 @@ class Executor:
             # pipe it through each biquad in the matching signal
             # convert back to 32bit into the original fs and place in a named mono stream
             #   [0:a]pan=1c|c0=c<channel_num>[<c_name>];[L]aformat=sample_fmts=dbl[Lin];[Lin]biquad=b0=1.00080054343984:b1=-1.99150225042309:b2=0.990752403334702:a0=1.0:a1=-1.99150965346467:a2=0.991545543732965[L1];[L1]biquad=b0=0.999200096917323:b1=-1.98991663875369:b2=0.990752403395918:a0=1.0:a1=-1.98990924163382:a2=0.989959897433105[L2];[L2]aformat=sample_fmts=s32:sample_rates=48000:channel_layouts=mono[Lout];
-            filt = f"[a:{self.selected_stream_idx}]pan=1c|c0=c{channel_idx}[{c_name}];"
+            filt = f"{audio_input}pan=1c|c0=c{channel_idx}[{c_name}];"
             filt += f"[{c_name}]aformat=sample_fmts=dbl[{c_name}_{f_idx}];"
             if sig is not None:
                 sig_filter = sig.active_filter.resample(int(self.__sample_rate))
@@ -509,6 +521,10 @@ class Executor:
             merge_filt += '[s0]'
 
         new_filt = f"{';'.join(filts)};{merge_filt}"
+
+        if self.include_original_audio and not math.isclose(self.original_audio_offset, 0.0):
+            new_filt += f";{audio_input}volume=volume={self.original_audio_offset:+g}dB[s1]"
+
         if self.__filter_complex_script_content is None or self.__filter_complex_script_content != new_filt:
             self.__filter_complex_script_content = new_filt
 
@@ -578,25 +594,35 @@ class Executor:
     def __calculate_remux_cmd(self, output_file):
         ''' calculates the command filter the audio and remux it back into the output file '''
         filename = self.file.replace('\\', '/')
-        trim_args = ' '.join([f"-{key} {value}" for key, value in self.__calculate_trim_kwargs().items()])
         # TODO only write the filter file when it actually changes
         exe = ".exe" if platform.system() == 'Windows' else ""
-        self.__ffmpeg_cmd = \
-            f"ffmpeg{exe} {trim_args} -i \"{filename}\"" \
-                f" -filter_complex_script {self.__write_filter_complex()}"
+        self.__ffmpeg_cmd = [f"ffmpeg{exe}"]
+        for key, value in self.__calculate_trim_kwargs().items():
+            self.__ffmpeg_cmd += [f"-{key}", value]
+        self.__ffmpeg_cmd += [
+            '-i', f"\"{filename}\"",
+            '-filter_complex_script', self.__write_filter_complex()
+        ]
         if self.__selected_video_stream_idx != -1:
-            self.__ffmpeg_cmd += f" -map 0:v:{self.__selected_video_stream_idx} -c:v copy"
+            self.__ffmpeg_cmd += ['-map', f"0:v:{self.__selected_video_stream_idx}" , '-c:v', 'copy']
         if self.include_subtitles:
-            self.__ffmpeg_cmd += " -map 0:s -c:s copy"
+            self.__ffmpeg_cmd += ['-map', '0:s', '-c:s', 'copy']
         acodec = 'flac' if self.compress_audio else 'pcm_s24le'
         if self.include_original_audio:
-            self.__ffmpeg_cmd += f" -map 0:a:{self.__selected_audio_stream_idx}"
-            self.__ffmpeg_cmd += f" -c:a:{self.__selected_audio_stream_idx} copy"
-        self.__ffmpeg_cmd += f" -map [s0] -acodec \"{acodec}\" \"{output_file}\""
+            if math.isclose(self.original_audio_offset, 0.0):
+                self.__ffmpeg_cmd += [
+                    '-map',
+                    f"0:a:{self.__selected_audio_stream_idx}",
+                    f"-c:a:{self.__selected_audio_stream_idx}",
+                    'copy'
+                ]
+            else:
+                self.__ffmpeg_cmd += ['-map' , '"[s1]"']
+        self.__ffmpeg_cmd += ['-map', '"[s0]"', '-acodec',  f"\"{acodec}\"",  f"\"{output_file}\""]
         if self.progress_handler is not None:
-            self.__ffmpeg_cmd += f" -progress \"udp://127.0.0.1:{self.__progress_port}\""
-        self.__ffmpeg_cmd += ' -y'
-        self.__ffmpeg_cli = self.__ffmpeg_cmd
+            self.__ffmpeg_cmd += ['-progress', f"\"udp://127.0.0.1:{self.__progress_port}\""]
+        self.__ffmpeg_cmd += ['-y']
+        self.__ffmpeg_cli = ' '.join(self.__ffmpeg_cmd)
 
     def get_output_path(self):
         '''
@@ -639,7 +665,7 @@ class Executor:
         '''
         if self.__ffmpeg_cmd is not None:
             self.__extractor = AudioExtractor(self.__ffmpeg_cmd, port=self.__progress_port, cancel=self.__cancel,
-                                              progress_handler=self.progress_handler)
+                                              progress_handler=self.progress_handler, is_remux=self.__is_remux)
             QThreadPool.globalInstance().start(self.__extractor)
 
     def cancel(self):
@@ -668,9 +694,10 @@ class AudioExtractor(QRunnable):
     Allows audio extraction to be performed outside the main UI thread.
     '''
 
-    def __init__(self, ffmpeg_cmd, port=None, progress_handler=None, cancel=False):
+    def __init__(self, ffmpeg_cmd, port=None, progress_handler=None, cancel=False, is_remux=False):
         super().__init__()
         self.__ffmpeg_cmd = ffmpeg_cmd
+        self.__is_remux = is_remux
         self.__progress_handler = progress_handler
         self.__signals = JobSignals()
         if self.__progress_handler is not None:
@@ -706,7 +733,7 @@ class AudioExtractor(QRunnable):
             start = time.time()
             try:
                 logger.info("Starting ffmpeg command")
-                if isinstance(self.__ffmpeg_cmd, str):
+                if self.__is_remux:
                     out, err = self.__execute_ffmpeg()
                 else:
                     out, err = self.__ffmpeg_cmd.run(overwrite_output=True, quiet=True)
