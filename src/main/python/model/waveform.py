@@ -254,7 +254,7 @@ class WaveformController:
     def on_filter_update(self):
         ''' if the signal is filtered then updated the chart when the filter changes. '''
         if self.__is_filtered.isChecked():
-            self.toggle_filter(True)
+            self.toggle_filter(Qt.Checked)
 
     def show_spectrum(self):
         ''' Updates the visible spectrum for the selected waveform limits '''
