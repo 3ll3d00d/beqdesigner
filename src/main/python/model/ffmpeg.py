@@ -617,8 +617,8 @@ class Executor:
                     'copy'
                 ]
             else:
-                self.__ffmpeg_cmd += ['-map', '"[s1]"']
-        self.__ffmpeg_cmd += ['-map', '"[s0]"', '-acodec',  acodec,  output_file]
+                self.__ffmpeg_cmd += ['-map', '[s1]']
+        self.__ffmpeg_cmd += ['-map', '[s0]', '-acodec',  acodec,  output_file]
         if self.progress_handler is not None:
             self.__ffmpeg_cmd += ['-progress', f"udp://127.0.0.1:{self.__progress_port}"]
         self.__ffmpeg_cmd += ['-y']
