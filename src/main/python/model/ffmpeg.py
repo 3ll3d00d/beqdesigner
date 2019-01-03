@@ -600,7 +600,7 @@ class Executor:
         for key, value in self.__calculate_trim_kwargs().items():
             self.__ffmpeg_cmd += [f"-{key}", value]
         self.__ffmpeg_cmd += [
-            '-i', f"\"{filename}\"",
+            '-i', filename,
             '-filter_complex_script', self.__write_filter_complex()
         ]
         if self.__selected_video_stream_idx != -1:
@@ -617,10 +617,10 @@ class Executor:
                     'copy'
                 ]
             else:
-                self.__ffmpeg_cmd += ['-map' , '"[s1]"']
-        self.__ffmpeg_cmd += ['-map', '"[s0]"', '-acodec',  f"\"{acodec}\"",  f"\"{output_file}\""]
+                self.__ffmpeg_cmd += ['-map', '"[s1]"']
+        self.__ffmpeg_cmd += ['-map', '"[s0]"', '-acodec',  acodec,  output_file]
         if self.progress_handler is not None:
-            self.__ffmpeg_cmd += ['-progress', f"\"udp://127.0.0.1:{self.__progress_port}\""]
+            self.__ffmpeg_cmd += ['-progress', f"udp://127.0.0.1:{self.__progress_port}"]
         self.__ffmpeg_cmd += ['-y']
         self.__ffmpeg_cli = ' '.join(self.__ffmpeg_cmd)
 
