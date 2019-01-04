@@ -1644,10 +1644,11 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
 
     def toggleDecimate(self, state):
         ''' toggles whether to decimate '''
-        from app import wait_cursor
-        with (wait_cursor()):
-            self.__loaders[self.__loader_idx].toggle_decimate(int(self.wavChannelSelector.currentText()))
-            self.__magnitudeModel.redraw()
+        if self.wavChannelSelector.count() > 0:
+            from app import wait_cursor
+            with (wait_cursor()):
+                self.__loaders[self.__loader_idx].toggle_decimate(int(self.wavChannelSelector.currentText()))
+                self.__magnitudeModel.redraw()
 
 
 def read_wav_data(input_file, start=None, end=None):
