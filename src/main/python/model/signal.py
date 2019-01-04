@@ -143,11 +143,11 @@ class SingleChannelSignalData(SignalData):
 
     @property
     def duration_hhmmss(self):
-        return str(datetime.timedelta(seconds=self.duration_seconds))
+        return str(datetime.timedelta(seconds=self.duration_seconds)) if self.duration_seconds is not None else None
 
     @property
     def start_hhmmss(self):
-        return str(datetime.timedelta(seconds=self.start_seconds))
+        return str(datetime.timedelta(seconds=self.start_seconds)) if self.start_seconds is not None else None
 
     @property
     def end_hhmmss(self):
@@ -1458,7 +1458,7 @@ class FrdLoader:
     def can_save(self):
         return self.__avg is not None and self.__peak is not None
 
-    def get_signal(self):
+    def get_signal(self, **kwargs):
         frd_name = self.__dialog.frdSignalName.text()
         self.__avg.internal_name = frd_name
         self.__peak.internal_name = frd_name
