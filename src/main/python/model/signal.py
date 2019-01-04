@@ -103,6 +103,7 @@ class SingleChannelSignalData(SignalData):
 
     def __init__(self, name, fs, xy_data, filter, duration_seconds=None, start_seconds=None, signal=None, offset=0.0):
         super().__init__()
+        self.__idx = 0
         self.__offset_db = offset
         self.__on_change_listeners = []
         self.__filter = None
@@ -200,6 +201,7 @@ class SingleChannelSignalData(SignalData):
         return f"SignalData {self.name}-{self.fs}"
 
     def reindex(self, idx):
+        self.__idx = idx
         self.raw[0].colour = get_avg_colour(idx)
         self.raw[1].colour = get_peak_colour(idx)
         if len(self.filtered) == 2:
@@ -239,6 +241,20 @@ class SingleChannelSignalData(SignalData):
     def on_reference_change(self):
         pass
 
+    def smooth(self, preferences, fraction):
+        '''
+        applies the given octave fractional smoothing.
+        :param preferences:
+        :param fraction: the octave fraction, if 0 then remove the smoothing.
+        :return:
+        '''
+        changed = self.__signal.calculate_peak_average(preferences, smooth_fraction=fraction)
+        if changed is True:
+            self.raw = self.__signal.getXY()
+            self.__refresh_filtered(self.filter)
+            self.reindex(self.__idx)
+        return changed
+
     def get_all_xy(self):
         '''
         :return all the xy data
@@ -261,10 +277,7 @@ class SingleChannelSignalData(SignalData):
                 r.linestyle = '-'
         elif isinstance(filt, CompleteFilter):
             # TODO detect if the filter has changed and only recalc if it has
-            filter_mag = filt.getTransferFunction().getMagnitude()
-            self.filtered = [f.filter(filter_mag) for f in self.raw]
-            for r in self.raw:
-                r.linestyle = '--'
+            self.__refresh_filtered(filt)
         else:
             raise ValueError(f"Unsupported filter type {filt}")
         for l in self.__on_change_listeners:
@@ -272,6 +285,12 @@ class SingleChannelSignalData(SignalData):
         for s in self.slaves:
             logger.debug(f"Propagating filter change to {s.name}")
             s.on_filter_change(filt)
+
+    def __refresh_filtered(self, filt):
+        filter_mag = filt.getTransferFunction().getMagnitude()
+        self.filtered = [f.filter(filter_mag) for f in self.raw]
+        for r in self.raw:
+            r.linestyle = '--'
 
     def tilt(self, tilt):
         ''' applies or removes the equal energy tilt '''
@@ -749,6 +768,7 @@ class Signal:
         self.__avg = None
         self.__peak = None
         self.__cached = []
+        self.__smoothing = None
 
     @property
     def duration_hhmmss(self):
@@ -796,7 +816,7 @@ class Signal:
         """
         return self.samples
 
-    def spectrum(self, ref=SPECLAB_REFERENCE, resolution_shift=0, window=None, smooth_full=True, smooth_fraction=3,
+    def spectrum(self, ref=SPECLAB_REFERENCE, resolution_shift=0, window=None, smooth=False, smooth_fraction=3,
                  **kwargs):
         """
         analyses the source to generate the linear spectrum.
@@ -816,7 +836,7 @@ class Signal:
         else:
             Pxx_spec = results[0][1]
         f = results[0][0]
-        if self.fs > 24000 and smooth_full:
+        if smooth is True:
             from acoustics.smooth import fractional_octaves
             fob, Pxx_spec = fractional_octaves(f, Pxx_spec, fraction=smooth_fraction)
             f = fob.center
@@ -830,7 +850,7 @@ class Signal:
                                    window=window if window else 'hann', **kwargs)
         return f, Pxx_spec
 
-    def peakSpectrum(self, ref=SPECLAB_REFERENCE, resolution_shift=0, window=None, smooth_full=True, smooth_fraction=3):
+    def peakSpectrum(self, ref=SPECLAB_REFERENCE, resolution_shift=0, window=None, smooth=False, smooth_fraction=3):
         """
         analyses the source to generate the max values per bin per segment
         :param resolution_shift: allows resolution to go down (if positive) or up (if negative).
@@ -849,7 +869,7 @@ class Signal:
         else:
             Pxy_max = results[0][1]
         f = results[0][0]
-        if self.fs > 24000 and smooth_full:
+        if smooth is True:
             from acoustics.smooth import fractional_octaves
             fob, Pxy_max = fractional_octaves(f, Pxy_max, fraction=smooth_fraction)
             f = fob.center
@@ -984,25 +1004,41 @@ class Signal:
             logger.error(f"getXY called on {self.name} before calculate, must be error!")
             return []
 
-    def calculate_peak_average(self, preferences):
+    def calculate_peak_average(self, preferences, smooth_fraction=None):
         '''
-        caches the peak and avg spectrum.
+        caches the peak and avg spectrum if the smoothing has changed or we have no data.
         '''
         from model.preferences import ANALYSIS_RESOLUTION, ANALYSIS_PEAK_WINDOW, ANALYSIS_AVG_WINDOW, \
             DISPLAY_SMOOTH_FULL_RANGE, DISPLAY_SMOOTH_FRACTION
         resolution_shift = math.log(preferences.get(ANALYSIS_RESOLUTION), 2)
         peak_wnd = self.__get_window(preferences, ANALYSIS_PEAK_WINDOW)
         avg_wnd = self.__get_window(preferences, ANALYSIS_AVG_WINDOW)
-        smooth_full = preferences.get(DISPLAY_SMOOTH_FULL_RANGE)
-        smooth_fraction = preferences.get(DISPLAY_SMOOTH_FRACTION)
-        logger.debug(
-            f"Analysing {self.name} at {resolution_shift}x resolution using {peak_wnd}/{avg_wnd} peak/avg windows")
-        self.__avg = self.spectrum(resolution_shift=resolution_shift, window=avg_wnd, smooth_full=smooth_full,
-                                   smooth_fraction=smooth_fraction)
-        self.__peak = self.peakSpectrum(resolution_shift=resolution_shift, window=peak_wnd, smooth_full=smooth_full,
-                                        smooth_fraction=smooth_fraction)
-        self.__cached = [XYData(self.name, 'avg', self.__avg[0], self.__avg[1]),
-                         XYData(self.name, 'peak', self.__peak[0], self.__peak[1])]
+        if smooth_fraction is None:
+            smooth = preferences.get(DISPLAY_SMOOTH_FULL_RANGE) and self.fs > 20000
+            smooth_fraction = preferences.get(DISPLAY_SMOOTH_FRACTION)
+        else:
+            if smooth_fraction == 0:
+                smooth = False
+                smooth_fraction = None
+            else:
+                smooth = True
+        if len(self.__cached) == 0 or self.__smoothing != smooth_fraction:
+            logger.debug(
+                f"Analysing {self.name} at {resolution_shift}x resolution using {peak_wnd}/{avg_wnd} peak/avg windows")
+            self.__avg = self.spectrum(resolution_shift=resolution_shift, window=avg_wnd, smooth=smooth,
+                                       smooth_fraction=smooth_fraction)
+            self.__peak = self.peakSpectrum(resolution_shift=resolution_shift, window=peak_wnd, smooth=smooth,
+                                            smooth_fraction=smooth_fraction)
+            self.__cached = [XYData(self.name, 'avg', self.__avg[0], self.__avg[1]),
+                             XYData(self.name, 'peak', self.__peak[0], self.__peak[1])]
+            if smooth:
+                self.__smoothing = smooth_fraction
+            else:
+                self.__smoothing = None
+            return True
+        else:
+            return False
+
 
     def __slice_into_large_signal_segments(self):
         '''

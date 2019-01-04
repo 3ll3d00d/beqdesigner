@@ -211,6 +211,33 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.actionSave_Signal.triggered.connect(self.showExportSignalDialog)
         self.action_Save_Project.triggered.connect(self.exportProject)
         self.actionAbout.triggered.connect(self.showAbout)
+        # smooth
+        self.action1_1_Smoothing.triggered.connect(self.__smooth_signal(1))
+        self.action1_3_Smoothing.triggered.connect(self.__smooth_signal(3))
+        self.action1_6_Smoothing.triggered.connect(self.__smooth_signal(6))
+        self.action1_1_2_Smoothing.triggered.connect(self.__smooth_signal(12))
+        self.action1_2_4_Smoothing.triggered.connect(self.__smooth_signal(24))
+        self.action_Remove_Smoothing.triggered.connect(self.__smooth_signal(0))
+        self.__allow_smoothing(False)
+
+    def __smooth_signal(self, fraction):
+        def smooth():
+            signal_select = self.signalView.selectionModel()
+            if signal_select.hasSelection() and len(signal_select.selectedRows()) == 1:
+                signal_data = self.__signal_model[signal_select.selectedRows()[0].row()]
+                if signal_data.signal is not None:
+                    with wait_cursor():
+                        if signal_data.smooth(self.preferences, fraction) is True:
+                            self.__magnitude_model.redraw()
+        return smooth
+
+    def __allow_smoothing(self, allow):
+        self.action1_1_Smoothing.setEnabled(allow)
+        self.action1_3_Smoothing.setEnabled(allow)
+        self.action1_6_Smoothing.setEnabled(allow)
+        self.action1_1_2_Smoothing.setEnabled(allow)
+        self.action1_2_4_Smoothing.setEnabled(allow)
+        self.action_Remove_Smoothing.setEnabled(allow)
 
     def __decorate_splitter(self):
         '''
@@ -340,7 +367,6 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
                 signal = signal.master
         else:
             signal = self.__signal_model.default_signal
-        logger.debug(f"Selected signal is {signal.name}")
         return signal
 
     def __handle_signals_inserted(self, idx, first, last):
@@ -423,12 +449,14 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.deleteSignalButton.setEnabled(selection.hasSelection())
         if len(selection.selectedRows()) == 1:
             self.__filter_model.filter = self.__get_selected_signal().filter
+            self.__allow_smoothing(True)
         else:
             if len(self.__filter_model.filter) > 0:
                 self.__default_signal.filter = self.__filter_model.filter
             # we have to set the filter on the default signal and then set that back onto the filter model to ensure
             # the right links are established re listeners and label names
             self.__filter_model.filter = self.__default_signal.filter
+            self.__allow_smoothing(False)
 
     def on_filter_change(self, names):
         '''

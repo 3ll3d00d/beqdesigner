@@ -686,7 +686,19 @@
     <addaction name="separator"/>
     <addaction name="actionAnalyse_Audio"/>
    </widget>
+   <widget class="QMenu" name="menuView">
+    <property name="title">
+     <string>&amp;View</string>
+    </property>
+    <addaction name="action1_1_Smoothing"/>
+    <addaction name="action1_3_Smoothing"/>
+    <addaction name="action1_6_Smoothing"/>
+    <addaction name="action1_1_2_Smoothing"/>
+    <addaction name="action1_2_4_Smoothing"/>
+    <addaction name="action_Remove_Smoothing"/>
+   </widget>
    <addaction name="menuFile"/>
+   <addaction name="menuView"/>
    <addaction name="menuSettings"/>
    <addaction name="menu_Tools"/>
    <addaction name="menuHelp"/>
@@ -890,6 +902,62 @@
   <action name="actionClear_Signals">
    <property name="text">
     <string>Clear S&amp;ignals</string>
+   </property>
+  </action>
+  <action name="action1_1_Smoothing">
+   <property name="text">
+    <string>1/&amp;1 Smoothing</string>
+   </property>
+   <property name="shortcut">
+    <string>Alt+Shift+1</string>
+   </property>
+  </action>
+  <action name="action1_3_Smoothing">
+   <property name="text">
+    <string>1/&amp;3 Smoothing</string>
+   </property>
+   <property name="shortcut">
+    <string>Alt+Shift+2</string>
+   </property>
+  </action>
+  <action name="action1_6_Smoothing">
+   <property name="text">
+    <string>1/&amp;6 Smoothing</string>
+   </property>
+   <property name="shortcut">
+    <string>Alt+Shift+3</string>
+   </property>
+  </action>
+  <action name="action1_1_2_Smoothing">
+   <property name="text">
+    <string>1/1&amp;2 Smoothing</string>
+   </property>
+   <property name="shortcut">
+    <string>Alt+Shift+4</string>
+   </property>
+  </action>
+  <action name="action1_2_4_Smoothing">
+   <property name="text">
+    <string>1/2&amp;4 Smoothing</string>
+   </property>
+   <property name="shortcut">
+    <string>Alt+Shift+5</string>
+   </property>
+  </action>
+  <action name="action1_4_8_Smoothing">
+   <property name="text">
+    <string>1/4&amp;8 Smoothing</string>
+   </property>
+   <property name="shortcut">
+    <string>Alt+Shift+6</string>
+   </property>
+  </action>
+  <action name="action_Remove_Smoothing">
+   <property name="text">
+    <string>&amp;Remove Smoothing</string>
+   </property>
+   <property name="shortcut">
+    <string>Alt+Shift+0</string>
    </property>
   </action>
  </widget>
