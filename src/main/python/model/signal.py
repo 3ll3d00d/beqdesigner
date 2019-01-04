@@ -253,12 +253,13 @@ class SingleChannelSignalData(SignalData):
         :param store: if true, updates the active signal smoothing.
         :return: true if the call changed the signal.
         '''
-        changed = self.__signal.calculate_peak_average(smooth_type=smooth_type, store=store)
-        if changed is True and store is True:
-            self.raw = self.__signal.getXY()
-            self.__refresh_filtered(self.filter)
-            self.reindex(self.__idx)
-        return changed
+        if self.__signal is not None:
+            changed = self.__signal.calculate_peak_average(smooth_type=smooth_type, store=store)
+            if changed is True and store is True:
+                self.raw = self.__signal.getXY()
+                self.__refresh_filtered(self.filter)
+                self.reindex(self.__idx)
+            return changed
 
     def get_all_xy(self):
         '''
@@ -705,6 +706,8 @@ class SignalModel(Sequence):
             self.__table.beginResetModel()
         self.__signals = signals
         for idx, s in enumerate(self.__signals):
+            if self.__preferences.get(DISPLAY_SMOOTH_PRECALC):
+                QThreadPool.globalInstance().start(Smoother(s))
             s.reindex(idx)
         self.__ensure_master_slave_integrity()
         self.__discard_incomplete_bass_managed_signals()
@@ -1656,8 +1659,6 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
             with wait_cursor(f"Saving signals"):
                 signal = loader.get_signal(offset=self.gainOffset.value())
                 if signal is not None:
-                    if self.__preferences.get(DISPLAY_SMOOTH_PRECALC):
-                        QThreadPool.globalInstance().start(Smoother(signal))
                     self.save(signal)
                     QDialog.accept(self)
                 else:
@@ -1666,6 +1667,8 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
 
     def save(self, signal):
         ''' saves the specified signals in the signal model'''
+        if self.__preferences.get(DISPLAY_SMOOTH_PRECALC):
+            QThreadPool.globalInstance().start(Smoother(signal))
         selected_filter_idx = self.filterSelect.currentIndex()
         if selected_filter_idx > 0:  # 0 because the dropdown has a None value first
             if self.filterSelect.currentText() == 'Default':

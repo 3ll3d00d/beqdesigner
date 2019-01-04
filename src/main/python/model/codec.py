@@ -88,9 +88,8 @@ def signaldata_from_json(o, preferences):
             try:
                 if os.path.isfile(metadata['src']):
                     from model.signal import readWav
-                    signal = readWav(o['name'], metadata['src'], preferences, channel=metadata['channel'],
-                                     start=metadata['start'], end=metadata['end'],
-                                     target_fs=o['fs'], offset=offset)
+                    signal = readWav(o['name'], preferences, input_file=metadata['src'], channel=metadata['channel'],
+                                     start=metadata['start'], end=metadata['end'], target_fs=o['fs'], offset=offset)
             except:
                 logger.exception(f"Unable to load signal from {metadata['src']}")
         if 'duration_seconds' in o:
