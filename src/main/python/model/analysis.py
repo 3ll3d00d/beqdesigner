@@ -244,7 +244,8 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
         from model.preferences import ANALYSIS_TARGET_FS
         from app import wait_cursor
         with wait_cursor(f"Loading {self.__info.name}"):
-            self.__signal = readWav('analysis', self.__info.name, channel=channel, start=start, end=end,
+            self.__signal = readWav('analysis', self.__preferences, self.__info.name,
+                                    channel=channel, start=start, end=end,
                                     target_fs=self.__preferences.get(ANALYSIS_TARGET_FS))
             self.__filtered_signals = {}
             self.__init_resolution_selector(self.__signal)

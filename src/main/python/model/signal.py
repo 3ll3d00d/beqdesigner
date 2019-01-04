@@ -12,7 +12,7 @@ import numpy as np
 import qtawesome as qta
 import resampy
 from qtpy import QtCore
-from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt
+from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt, QRunnable, QThreadPool
 from qtpy.QtWidgets import QDialog, QFileDialog, QDialogButtonBox
 from scipy import signal
 from sortedcontainers import SortedDict
@@ -23,7 +23,7 @@ from model.magnitude import MagnitudeModel
 from model.preferences import get_avg_colour, get_peak_colour, SHOW_PEAK, \
     SHOW_AVERAGE, SHOW_FILTERED_ONLY, SHOW_UNFILTERED_ONLY, DISPLAY_SHOW_SIGNALS, \
     DISPLAY_SHOW_FILTERED_SIGNALS, ANALYSIS_TARGET_FS, BASS_MANAGEMENT_LPF_FS, BASS_MANAGEMENT_LPF_POSITION, \
-    BM_LPF_BEFORE, BM_LPF_AFTER
+    BM_LPF_BEFORE, BM_LPF_AFTER, DISPLAY_SMOOTH_PRECALC
 from ui.signal import Ui_addSignalDialog
 
 SIGNAL_END = 'end'
@@ -160,6 +160,14 @@ class SingleChannelSignalData(SignalData):
         return self.signal.metadata if self.signal is not None else None
 
     @property
+    def smoothing_description(self):
+        return self.signal.smoothing_description() if self.signal is not None and self.signal.is_smoothed() else ''
+
+    @property
+    def smoothing_type(self):
+        return self.signal.smoothing_type if self.signal is not None else None
+
+    @property
     def signal(self):
         '''
         :return: the underlying sample data (may not exist for signals loaded from txt).
@@ -238,18 +246,15 @@ class SingleChannelSignalData(SignalData):
             self.master = None
             self.filter = CompleteFilter()
 
-    def on_reference_change(self):
-        pass
-
-    def smooth(self, preferences, fraction):
+    def smooth(self, smooth_type, store=True):
         '''
         applies the given octave fractional smoothing.
-        :param preferences:
-        :param fraction: the octave fraction, if 0 then remove the smoothing.
-        :return:
+        :param smooth_type: the octave fraction, if 0 then remove the smoothing.
+        :param store: if true, updates the active signal smoothing.
+        :return: true if the call changed the signal.
         '''
-        changed = self.__signal.calculate_peak_average(preferences, smooth_fraction=fraction)
-        if changed is True:
+        changed = self.__signal.calculate_peak_average(smooth_type=smooth_type, store=store)
+        if changed is True and store is True:
             self.raw = self.__signal.getXY()
             self.__refresh_filtered(self.filter)
             self.reindex(self.__idx)
@@ -342,9 +347,10 @@ class SingleChannelSignalData(SignalData):
 class BassManagedSignalData(SignalData):
     ''' A composite signal that will be bass managed. '''
 
-    def __init__(self, signals, lpf_fs, lpf_position, offset=0.0):
+    def __init__(self, signals, lpf_fs, lpf_position, preferences, offset=0.0):
         super().__init__()
         self.__channels = []
+        self.__preferences = preferences
         self.__lfe_channel_idx = None
         self.__clip_before = False
         self.__clip_after = False
@@ -447,7 +453,7 @@ class BassManagedSignalData(SignalData):
                 samples = signal.sosfilt(bm_filt.get_sos(), samples)
             if self.__clip_after:
                 samples = np.clip(samples, -1.0, 1.0)
-            return Signal(self.__name, samples, self.__fs)
+            return Signal(self.__name, samples, self.__preferences, fs=self.__fs)
         else:
             return self.__channels[0]
 
@@ -753,7 +759,8 @@ class Signal:
         :var fs: the sample rate
     """
 
-    def __init__(self, name, samples, fs=48000, metadata=None):
+    def __init__(self, name, samples, preferences, fs=48000, metadata=None):
+        self.__preferences = preferences
         self.name = name
         self.samples = samples
         self.fs = fs
@@ -765,10 +772,18 @@ class Signal:
         self.__segment_len = self.__segments[0].shape[-1]
         if len(self.__segments) > 1:
             logger.info(f"Split {self.name} into {len(self.__segments)} segments of length {self.__segment_len}")
-        self.__avg = None
-        self.__peak = None
-        self.__cached = []
-        self.__smoothing = None
+        self.__cached = {None: []}
+        self.__smoothing_type = None
+
+    @property
+    def smoothing_type(self):
+        return self.__smoothing_type
+
+    def is_smoothed(self):
+        return self.__smoothing_type is not None
+
+    def smoothing_description(self):
+        return '' if self.is_smoothed() is None else f"1/{self.__smoothing_type}"
 
     @property
     def duration_hhmmss(self):
@@ -792,7 +807,10 @@ class Signal:
             metadata = None
             if self.metadata is not None:
                 metadata = {**self.metadata, 'start': start, 'end': end}
-            return Signal(self.name, self.samples[int(start * self.fs): int(end * self.fs) + 1], fs=self.fs,
+            return Signal(self.name,
+                          self.samples[int(start * self.fs): int(end * self.fs) + 1],
+                          self.__preferences,
+                          fs=self.fs,
                           metadata=metadata)
         else:
             return self
@@ -816,8 +834,7 @@ class Signal:
         """
         return self.samples
 
-    def spectrum(self, ref=SPECLAB_REFERENCE, resolution_shift=0, window=None, smooth=False, smooth_fraction=3,
-                 **kwargs):
+    def spectrum(self, ref=SPECLAB_REFERENCE, resolution_shift=0, window=None, smooth_type=None, **kwargs):
         """
         analyses the source to generate the linear spectrum.
         :param ref: the reference value for dB purposes.
@@ -836,9 +853,9 @@ class Signal:
         else:
             Pxx_spec = results[0][1]
         f = results[0][0]
-        if smooth is True:
+        if smooth_type is not None:
             from acoustics.smooth import fractional_octaves
-            fob, Pxx_spec = fractional_octaves(f, Pxx_spec, fraction=smooth_fraction)
+            fob, Pxx_spec = fractional_octaves(f, Pxx_spec, fraction=smooth_type)
             f = fob.center
         # a 3dB adjustment is required to account for the change in nperseg
         Pxx_spec = amplitude_to_db(np.sqrt(Pxx_spec), ref * SPECLAB_REFERENCE)
@@ -850,7 +867,7 @@ class Signal:
                                    window=window if window else 'hann', **kwargs)
         return f, Pxx_spec
 
-    def peakSpectrum(self, ref=SPECLAB_REFERENCE, resolution_shift=0, window=None, smooth=False, smooth_fraction=3):
+    def peakSpectrum(self, ref=SPECLAB_REFERENCE, resolution_shift=0, window=None, smooth_type=None):
         """
         analyses the source to generate the max values per bin per segment
         :param resolution_shift: allows resolution to go down (if positive) or up (if negative).
@@ -869,9 +886,9 @@ class Signal:
         else:
             Pxy_max = results[0][1]
         f = results[0][0]
-        if smooth is True:
+        if smooth_type is not None:
             from acoustics.smooth import fractional_octaves
-            fob, Pxy_max = fractional_octaves(f, Pxy_max, fraction=smooth_fraction)
+            fob, Pxy_max = fractional_octaves(f, Pxy_max, fraction=smooth_type)
             f = fob.center
         # a 3dB adjustment is required to account for the change in nperseg
         Pxy_max = amplitude_to_db(Pxy_max, ref=ref * SPECLAB_REFERENCE)
@@ -919,7 +936,11 @@ class Signal:
         :param b: the b coeffs.
         :return: the filtered signal.
         """
-        return Signal(self.name, signal.filtfilt(b, a, self.samples), fs=self.fs, metadata=self.metadata)
+        return Signal(self.name,
+                      signal.filtfilt(b, a, self.samples),
+                      self.__preferences,
+                      fs=self.fs,
+                      metadata=self.metadata)
 
     def sosfilter(self, sos):
         '''
@@ -927,7 +948,11 @@ class Signal:
         :param sos: the sections.
         :return: the filtered signal
         '''
-        return Signal(self.name, signal.sosfilt(sos, self.samples), fs=self.fs, metadata=self.metadata)
+        return Signal(self.name,
+                      signal.sosfilt(sos, self.samples),
+                      self.__preferences,
+                      fs=self.fs,
+                      metadata=self.metadata)
 
     def adjust_gain(self, gain):
         '''
@@ -935,7 +960,11 @@ class Signal:
         :param gain: the gain ratio to apply.
         :return: the adjusted signal.
         '''
-        return Signal(self.name, self.samples * gain, fs=self.fs, metadata=self.metadata)
+        return Signal(self.name,
+                      self.samples * gain,
+                      self.__preferences,
+                      fs=self.fs,
+                      metadata=self.metadata)
 
     def offset(self, offset):
         '''
@@ -955,7 +984,11 @@ class Signal:
         :param amax: the max value.
         :return: the clipped signal.
         '''
-        return Signal(self.name, np.clip(self.samples, amin, amax), fs=self.fs, metadata=self.metadata)
+        return Signal(self.name,
+                      np.clip(self.samples, amin, amax),
+                      self.__preferences,
+                      fs=self.fs,
+                      metadata=self.metadata)
 
     def resample(self, new_fs):
         '''
@@ -967,6 +1000,7 @@ class Signal:
             start = time.time()
             resampled = Signal(self.name,
                                resampy.resample(self.samples, self.fs, new_fs, filter=self.load_resampy_filter()),
+                               self.__preferences,
                                fs=new_fs,
                                metadata=self.metadata)
             end = time.time()
@@ -996,49 +1030,37 @@ class Signal:
         '''
         :return: renders itself as peak/avg spectrum xydata.
         '''
-        if self.__avg is not None:
-            self.__cached[0].colour = get_avg_colour(idx)
-            self.__cached[1].colour = get_peak_colour(idx)
-            return self.__cached
+        if len(self.__cached[self.__smoothing_type]) == 2:
+            avg_col = get_avg_colour(idx)
+            peak_col = get_peak_colour(idx)
+            self.__cached[self.__smoothing_type][0].colour = avg_col
+            self.__cached[self.__smoothing_type][1].colour = peak_col
+            return self.__cached[self.__smoothing_type]
         else:
             logger.error(f"getXY called on {self.name} before calculate, must be error!")
             return []
 
-    def calculate_peak_average(self, preferences, smooth_fraction=None):
+    def calculate_peak_average(self, smooth_type=None, store=True):
         '''
         caches the peak and avg spectrum if the smoothing has changed or we have no data.
         '''
-        from model.preferences import ANALYSIS_RESOLUTION, ANALYSIS_PEAK_WINDOW, ANALYSIS_AVG_WINDOW, \
-            DISPLAY_SMOOTH_FULL_RANGE, DISPLAY_SMOOTH_FRACTION
-        resolution_shift = math.log(preferences.get(ANALYSIS_RESOLUTION), 2)
-        peak_wnd = self.__get_window(preferences, ANALYSIS_PEAK_WINDOW)
-        avg_wnd = self.__get_window(preferences, ANALYSIS_AVG_WINDOW)
-        if smooth_fraction is None:
-            smooth = preferences.get(DISPLAY_SMOOTH_FULL_RANGE) and self.fs > 20000
-            smooth_fraction = preferences.get(DISPLAY_SMOOTH_FRACTION)
-        else:
-            if smooth_fraction == 0:
-                smooth = False
-                smooth_fraction = None
-            else:
-                smooth = True
-        if len(self.__cached) == 0 or self.__smoothing != smooth_fraction:
+        from model.preferences import ANALYSIS_RESOLUTION, ANALYSIS_PEAK_WINDOW, ANALYSIS_AVG_WINDOW
+        resolution_shift = math.log(self.__preferences.get(ANALYSIS_RESOLUTION), 2)
+        peak_wnd = self.__get_window(self.__preferences, ANALYSIS_PEAK_WINDOW)
+        avg_wnd = self.__get_window(self.__preferences, ANALYSIS_AVG_WINDOW)
+        if smooth_type is not None and smooth_type == 0:
+            smooth_type = None
+        if smooth_type not in self.__cached or len(self.__cached[smooth_type]) == 0:
             logger.debug(
                 f"Analysing {self.name} at {resolution_shift}x resolution using {peak_wnd}/{avg_wnd} peak/avg windows")
-            self.__avg = self.spectrum(resolution_shift=resolution_shift, window=avg_wnd, smooth=smooth,
-                                       smooth_fraction=smooth_fraction)
-            self.__peak = self.peakSpectrum(resolution_shift=resolution_shift, window=peak_wnd, smooth=smooth,
-                                            smooth_fraction=smooth_fraction)
-            self.__cached = [XYData(self.name, 'avg', self.__avg[0], self.__avg[1]),
-                             XYData(self.name, 'peak', self.__peak[0], self.__peak[1])]
-            if smooth:
-                self.__smoothing = smooth_fraction
-            else:
-                self.__smoothing = None
-            return True
-        else:
-            return False
-
+            avg = self.spectrum(resolution_shift=resolution_shift, window=avg_wnd, smooth_type=smooth_type)
+            peak = self.peakSpectrum(resolution_shift=resolution_shift, window=peak_wnd, smooth_type=smooth_type)
+            cached = [XYData(self.name, 'avg', avg[0], avg[1]), XYData(self.name, 'peak', peak[0], peak[1])]
+            self.__cached[smooth_type] = cached
+        changed = self.__smoothing_type != smooth_type and store is True
+        if store is True:
+            self.__smoothing_type = smooth_type
+        return changed
 
     def __slice_into_large_signal_segments(self):
         '''
@@ -1202,7 +1224,7 @@ class AutoWavLoader:
                            for x in self.__cache.keys()]
                 lpf_fs = self.__preferences.get(BASS_MANAGEMENT_LPF_FS)
                 lpf_position = self.__preferences.get(BASS_MANAGEMENT_LPF_POSITION)
-                return BassManagedSignalData(signals, lpf_fs, lpf_position)
+                return BassManagedSignalData(signals, lpf_fs, lpf_position, self.__preferences)
             else:
                 return self.get_signal(1, name_provider(0, 1), offset=offset)
         finally:
@@ -1252,8 +1274,8 @@ class AutoWavLoader:
                     name += f"_c{channel}"
             from model.preferences import ANALYSIS_TARGET_FS
             target_fs = self.__preferences.get(ANALYSIS_TARGET_FS) if decimate is True else self.info.samplerate
-            signal = readWav(name, input_data=self.__wav_data, channel=channel, target_fs=target_fs)
-            signal.calculate_peak_average(self.__preferences)
+            signal = readWav(name, self.__preferences, input_data=self.__wav_data, channel=channel, target_fs=target_fs)
+            signal.calculate_peak_average()
             self.__cache[channel] = signal
 
     def get_signal(self, channel_idx, name, offset=0.0):
@@ -1264,7 +1286,7 @@ class AutoWavLoader:
         signal = self.__cache[channel_idx]
         if not math.isclose(offset, 0.0):
             signal = signal.offset(offset)
-            signal.calculate_peak_average(self.__preferences)
+            signal.calculate_peak_average()
         return SingleChannelSignalData(name, signal.fs, signal.getXY(), CompleteFilter(),
                                        duration_seconds=signal.duration_seconds,
                                        start_seconds=signal.start_seconds,
@@ -1515,6 +1537,7 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
         self.frdPeakFilePicker.setIcon(qta.icon('fa5s.folder-open'))
         self.applyTimeRangeButton.setIcon(qta.icon('fa5s.cut'))
         self.applyTimeRangeButton.setEnabled(False)
+        self.__preferences = preferences
         self.__loaders = [DialogWavLoaderBridge(self, preferences, allow_multichannel=allow_multichannel),
                           FrdLoader(self)]
         self.__loader_idx = self.signalTypeTabs.currentIndex()
@@ -1631,9 +1654,11 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
         if loader.can_save():
             from app import wait_cursor
             with wait_cursor(f"Saving signals"):
-                signals = loader.get_signal(offset=self.gainOffset.value())
-                if signals is not None:
-                    self.save(signals)
+                signal = loader.get_signal(offset=self.gainOffset.value())
+                if signal is not None:
+                    if self.__preferences.get(DISPLAY_SMOOTH_PRECALC):
+                        QThreadPool.globalInstance().start(Smoother(signal))
+                    self.save(signal)
                     QDialog.accept(self)
                 else:
                     logger.warning(f"No signals produced by loader")
@@ -1706,7 +1731,7 @@ def read_wav_data(input_file, start=None, end=None):
     return ys, frameRate, {SIGNAL_SOURCE_FILE: input_file, SIGNAL_START: start, SIGNAL_END: end}
 
 
-def readWav(name, input_file=None, input_data=None, channel=1, start=None, end=None, target_fs=1000, offset=0.0) -> Signal:
+def readWav(name, preferences, input_file=None, input_data=None, channel=1, start=None, end=None, target_fs=1000, offset=0.0) -> Signal:
     """ reads a wav file or data from a wav file into Signal, one of input_file or input_data must be provided.
     :param name: the name of the signal.
     :param input_file: a path to the input signal file
@@ -1723,7 +1748,30 @@ def readWav(name, input_file=None, input_data=None, channel=1, start=None, end=N
         ys, fs, metadata = input_data
     else:
         raise ValueError('must supply one of input_file or input_data')
-    signal = Signal(name, ys[:, channel - 1], fs, metadata={**metadata,  SIGNAL_CHANNEL: channel})
+    signal = Signal(name, ys[:, channel - 1], preferences, fs=fs, metadata={**metadata,  SIGNAL_CHANNEL: channel})
     if target_fs is None or target_fs == 0:
         target_fs = signal.fs
     return signal.resample(target_fs).offset(offset)
+
+
+class Smoother(QRunnable):
+    '''
+    Precalculates the fractional octave smoothing.
+    '''
+    def __init__(self, signal_data):
+        super().__init__()
+        self.__signal_data = signal_data
+
+    def run(self):
+        if isinstance(self.__signal_data, BassManagedSignalData):
+            for c in self.__signal_data.channels:
+                QThreadPool.globalInstance().start(Smoother(c))
+        else:
+            self.__smooth(self.__signal_data)
+
+    def __smooth(self, signal_data):
+        for fraction in [0, 1, 2, 3, 6, 12, 24]:
+            start = time.time()
+            signal_data.smooth(fraction, store=False)
+            end = time.time()
+            logger.info(f"Smoothed {signal_data} at {fraction} in {round(end - start, 3)}s")

@@ -248,7 +248,7 @@ def test_codec_signal():
     data = SingleChannelSignalData('test', fs, [avg, peak], filter=filt, duration_seconds=123456, start_seconds=123, offset=4.2)
     output = json.dumps(signaldata_to_json(data))
     assert output is not None
-    decoded = signaldata_from_json(json.loads(output))
+    decoded = signaldata_from_json(json.loads(output), None)
     assert decoded is not None
     assert isinstance(decoded, SingleChannelSignalData)
     assert decoded.name == data.name

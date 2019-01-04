@@ -91,7 +91,7 @@ class WaveformController:
         '''
         if self.__active_signal is not None and self.__magnitude_model.is_visible():
             sig = self.__active_signal.cut(to_seconds(self.__start_time), to_seconds(self.__end_time))
-            sig.calculate_peak_average(self.__preferences)
+            sig.calculate_peak_average()
             return sig.getXY(idx=self.__selector.currentIndex() - 1)
         return []
 

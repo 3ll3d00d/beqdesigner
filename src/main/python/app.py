@@ -14,7 +14,7 @@ matplotlib.use("Qt5Agg")
 
 from model.waveform import WaveformController
 from model.checker import VersionChecker
-from model.report import SaveReportDialog
+from model.report import SaveReportDialog, block_signals
 from model.batch import BatchExtractDialog
 from model.analysis import AnalyseSignalDialog
 from model.link import LinkSignalsDialog
@@ -211,33 +211,28 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.actionSave_Signal.triggered.connect(self.showExportSignalDialog)
         self.action_Save_Project.triggered.connect(self.exportProject)
         self.actionAbout.triggered.connect(self.showAbout)
-        # smooth
-        self.action1_1_Smoothing.triggered.connect(self.__smooth_signal(1))
-        self.action1_3_Smoothing.triggered.connect(self.__smooth_signal(3))
-        self.action1_6_Smoothing.triggered.connect(self.__smooth_signal(6))
-        self.action1_1_2_Smoothing.triggered.connect(self.__smooth_signal(12))
-        self.action1_2_4_Smoothing.triggered.connect(self.__smooth_signal(24))
-        self.action_Remove_Smoothing.triggered.connect(self.__smooth_signal(0))
-        self.__allow_smoothing(False)
 
-    def __smooth_signal(self, fraction):
-        def smooth():
-            signal_select = self.signalView.selectionModel()
-            if signal_select.hasSelection() and len(signal_select.selectedRows()) == 1:
-                signal_data = self.__signal_model[signal_select.selectedRows()[0].row()]
-                if signal_data.signal is not None:
-                    with wait_cursor():
-                        if signal_data.smooth(self.preferences, fraction) is True:
-                            self.__magnitude_model.redraw()
-        return smooth
-
-    def __allow_smoothing(self, allow):
-        self.action1_1_Smoothing.setEnabled(allow)
-        self.action1_3_Smoothing.setEnabled(allow)
-        self.action1_6_Smoothing.setEnabled(allow)
-        self.action1_1_2_Smoothing.setEnabled(allow)
-        self.action1_2_4_Smoothing.setEnabled(allow)
-        self.action_Remove_Smoothing.setEnabled(allow)
+    def smoothSignals(self):
+        ''' Applies the current smoothing options to the visible signals. '''
+        fraction_idx = self.octaveSmoothing.currentIndex()
+        if fraction_idx == 0:
+            fraction = 0
+        else:
+            fraction = int(self.octaveSmoothing.currentText()[2:])
+        changed = False
+        with wait_cursor():
+            if self.smoothAllSignals.isChecked():
+                for s in self.__signal_model:
+                    changed |= s.smooth(fraction)
+            else:
+                signal_select = self.signalView.selectionModel()
+                if signal_select.hasSelection() and len(signal_select.selectedRows()) == 1:
+                    signal_data = self.__signal_model[signal_select.selectedRows()[0].row()]
+                    if signal_data.signal is not None:
+                        changed = signal_data.smooth(fraction)
+        if changed:
+            self.__magnitude_model.redraw()
+            self.signalView.viewport().update()
 
     def __decorate_splitter(self):
         '''
@@ -439,7 +434,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         input = self.__load('*.signal', 'Load Signal', parser)
         if input is not None:
             from model.codec import signaldata_from_json
-            self.__signal_model.add(signaldata_from_json(input))
+            self.__signal_model.add(signaldata_from_json(input, self.preferences))
 
     def on_signal_selected(self):
         '''
@@ -448,15 +443,21 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         selection = self.signalView.selectionModel()
         self.deleteSignalButton.setEnabled(selection.hasSelection())
         if len(selection.selectedRows()) == 1:
-            self.__filter_model.filter = self.__get_selected_signal().filter
-            self.__allow_smoothing(True)
+            signal_data = self.__get_selected_signal()
+            self.__filter_model.filter = signal_data.filter
+            with block_signals(self.octaveSmoothing):
+                if signal_data.smoothing_type is not None:
+                    self.octaveSmoothing.setCurrentText(signal_data.smoothing_description)
+                else:
+                    self.octaveSmoothing.setCurrentText('None')
         else:
             if len(self.__filter_model.filter) > 0:
                 self.__default_signal.filter = self.__filter_model.filter
             # we have to set the filter on the default signal and then set that back onto the filter model to ensure
             # the right links are established re listeners and label names
             self.__filter_model.filter = self.__default_signal.filter
-            self.__allow_smoothing(False)
+            with block_signals(self.octaveSmoothing):
+                self.octaveSmoothing.setCurrentText('None')
 
     def on_filter_change(self, names):
         '''
@@ -732,7 +733,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         input = self.__load('*.beq', 'Load Project', parser)
         if input is not None:
             from model.codec import signalmodel_from_json
-            self.__signal_model.replace(signalmodel_from_json(input))
+            self.__signal_model.replace(signalmodel_from_json(input, self.preferences))
             self.__magnitude_model.redraw()
 
     def normaliseSignalMagnitude(self):

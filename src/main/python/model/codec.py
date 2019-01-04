@@ -41,13 +41,13 @@ def signaldata_to_json(signal):
     return out
 
 
-def signalmodel_from_json(input):
+def signalmodel_from_json(input, preferences):
     '''
     Reassembles all signals from the json including master/slave relationships.
     :param input: the input, a list of json dicts.
     :return: the signals
     '''
-    signals = [signaldata_from_json(x) for x in input]
+    signals = [signaldata_from_json(x, preferences) for x in input]
     for x in input:
         if 'slave_names' in x:
             master_name = x['name']
@@ -65,7 +65,7 @@ def signalmodel_from_json(input):
     return signals
 
 
-def signaldata_from_json(o):
+def signaldata_from_json(o, preferences):
     '''
     Converts the given dict to a SignalData if it is compatible.
     :param o: the dict (from json).
@@ -88,7 +88,7 @@ def signaldata_from_json(o):
             try:
                 if os.path.isfile(metadata['src']):
                     from model.signal import readWav
-                    signal = readWav(o['name'], metadata['src'], channel=metadata['channel'],
+                    signal = readWav(o['name'], metadata['src'], preferences, channel=metadata['channel'],
                                      start=metadata['start'], end=metadata['end'],
                                      target_fs=o['fs'], offset=offset)
             except:
