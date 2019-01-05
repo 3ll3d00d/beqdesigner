@@ -27,12 +27,12 @@ from model.preferences import get_avg_colour, get_peak_colour, SHOW_PEAK, \
 from ui.signal import Ui_addSignalDialog
 
 SIGNAL_END = 'end'
-
 SIGNAL_START = 'start'
-
 SIGNAL_CHANNEL = 'channel'
-
 SIGNAL_SOURCE_FILE = 'src'
+
+SAVGOL_WINDOW_LENGTH = 101
+SAVGOL_POLYORDER = 7
 
 logger = logging.getLogger('signal')
 
@@ -117,10 +117,10 @@ class SingleChannelSignalData(SignalData):
         self.filtered = []
         self.reference_name = None
         self.reference = []
+        self.name = name
+        self.__signal = signal
         self.filter = filter
         self.tilt_on = False
-        self.__signal = signal
-        self.name = name
 
     def register_listener(self, listener):
         ''' registers a listener to be notified when the filter updates (used by the WaveformController) '''
@@ -786,7 +786,13 @@ class Signal:
         return self.__smoothing_type is not None
 
     def smoothing_description(self):
-        return '' if self.is_smoothed() is None else f"1/{self.__smoothing_type}"
+        if self.is_smoothed():
+            try:
+                return f"1/{int(self.smoothing_type)}"
+            except:
+                return self.smoothing_type
+        else:
+            return ''
 
     @property
     def duration_hhmmss(self):
@@ -857,11 +863,23 @@ class Signal:
             Pxx_spec = results[0][1]
         f = results[0][0]
         if smooth_type is not None:
-            from acoustics.smooth import fractional_octaves
-            fob, Pxx_spec = fractional_octaves(f, Pxx_spec, fraction=smooth_type)
-            f = fob.center
+            try:
+                int(smooth_type)
+                from acoustics.smooth import fractional_octaves
+                fob, Pxx_spec = fractional_octaves(f, Pxx_spec, fraction=smooth_type)
+                f = fob.center
+            except:
+                from scipy.signal import savgol_filter
+                tokens = smooth_type.split('/')
+                if len(tokens) == 1:
+                    wl = SAVGOL_WINDOW_LENGTH
+                    poly = SAVGOL_POLYORDER
+                else:
+                    wl = int(tokens[1])
+                    poly = int(tokens[2])
+                Pxx_spec = savgol_filter(Pxx_spec, wl, poly)
         # a 3dB adjustment is required to account for the change in nperseg
-        Pxx_spec = amplitude_to_db(np.sqrt(Pxx_spec), ref * SPECLAB_REFERENCE)
+        Pxx_spec = amplitude_to_db(np.nan_to_num(np.sqrt(Pxx_spec)), ref * SPECLAB_REFERENCE)
         return f, Pxx_spec
 
     def __segment_spectrum(self, segment, resolution_shift=0, window=None, **kwargs):
@@ -890,9 +908,21 @@ class Signal:
             Pxy_max = results[0][1]
         f = results[0][0]
         if smooth_type is not None:
-            from acoustics.smooth import fractional_octaves
-            fob, Pxy_max = fractional_octaves(f, Pxy_max, fraction=smooth_type)
-            f = fob.center
+            try:
+                int(smooth_type)
+                from acoustics.smooth import fractional_octaves
+                fob, Pxy_max = fractional_octaves(f, Pxy_max, fraction=smooth_type)
+                f = fob.center
+            except:
+                from scipy.signal import savgol_filter
+                tokens = smooth_type.split('/')
+                if len(tokens) == 1:
+                    wl = SAVGOL_WINDOW_LENGTH
+                    poly = SAVGOL_POLYORDER
+                else:
+                    wl = int(tokens[1])
+                    poly = int(tokens[2])
+                Pxy_max = savgol_filter(Pxy_max, wl, poly)
         # a 3dB adjustment is required to account for the change in nperseg
         Pxy_max = amplitude_to_db(Pxy_max, ref=ref * SPECLAB_REFERENCE)
         return f, Pxy_max
@@ -1048,22 +1078,36 @@ class Signal:
         caches the peak and avg spectrum if the smoothing has changed or we have no data.
         '''
         from model.preferences import ANALYSIS_RESOLUTION, ANALYSIS_PEAK_WINDOW, ANALYSIS_AVG_WINDOW
-        resolution_shift = math.log(self.__preferences.get(ANALYSIS_RESOLUTION), 2)
+        resolution = self.__preferences.get(ANALYSIS_RESOLUTION)
+        resolution_shift = int(math.log(resolution, 2))
         peak_wnd = self.__get_window(self.__preferences, ANALYSIS_PEAK_WINDOW)
         avg_wnd = self.__get_window(self.__preferences, ANALYSIS_AVG_WINDOW)
         if smooth_type is not None and smooth_type == 0:
             smooth_type = None
         if smooth_type not in self.__cached or len(self.__cached[smooth_type]) == 0:
             logger.debug(
-                f"Analysing {self.name} at {resolution_shift}x resolution using {peak_wnd}/{avg_wnd} peak/avg windows")
+                f"Analysing {self.name} at {resolution} Hz resolution using {peak_wnd if peak_wnd else 'Default'}/{avg_wnd if avg_wnd else 'Default'} peak/avg windows")
             avg = self.spectrum(resolution_shift=resolution_shift, window=avg_wnd, smooth_type=smooth_type)
             peak = self.peakSpectrum(resolution_shift=resolution_shift, window=peak_wnd, smooth_type=smooth_type)
-            cached = [XYData(self.name, 'avg', avg[0], avg[1]), XYData(self.name, 'peak', peak[0], peak[1])]
-            self.__cached[smooth_type] = cached
+            force_interp = self.__force_interp(smooth_type)
+            self.__cached[smooth_type] = [
+                XYData(self.name, 'avg', avg[0], avg[1], force_interp=force_interp),
+                XYData(self.name, 'peak', peak[0], peak[1], force_interp=force_interp)
+            ]
         changed = self.__smoothing_type != smooth_type and store is True
         if store is True:
             self.__smoothing_type = smooth_type
         return changed
+
+    def __force_interp(self, smooth_type):
+        if smooth_type is None:
+            return False
+        else:
+            try:
+                int(smooth_type)
+                return True
+            except:
+                return False
 
     def __slice_into_large_signal_segments(self):
         '''

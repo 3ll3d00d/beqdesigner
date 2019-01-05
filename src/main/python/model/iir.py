@@ -951,20 +951,23 @@ class XYData:
     Value object for showing data on a magnitude graph.
     '''
 
-    def __init__(self, name, description, x, y, colour=None, linestyle='-'):
+    def __init__(self, name, description, x, y, colour=None, linestyle='-', force_interp=False):
         self.__name = name
         self.__description = description
         self.x = x
         self.y = np.nan_to_num(y)
-        # TODO consider a variable spacing so we don't go overboard for full range view
-        required_points = math.ceil(self.x[-1]) * 4
-        if self.y.size != required_points:
-            new_x = np.linspace(self.x[0], self.x[-1], num=required_points, endpoint=True)
-            cs = CubicSpline(self.x, self.y)
-            new_y = cs(new_x)
-            logger.debug(f"Interpolating {name} from {self.y.size} to {required_points}")
-            self.x = new_x
-            self.y = new_y
+        new_x = np.arange(self.x[0], min(160.0, self.x[-1]), 0.1)
+        if self.x[-1] > 160.0:
+            if force_interp is True:
+                from acoustics.smooth import OctaveBand
+                new_x = np.concatenate((new_x, OctaveBand(fstart=160, fstop=min(24000, self.x[-1]), fraction=24).center))
+            else:
+                new_x = np.concatenate((new_x, self.x[self.x >= 160.0]))
+        cs = CubicSpline(self.x, self.y)
+        new_y = cs(new_x)
+        logger.debug(f"Interpolating {name} from {self.y.size} to {new_x.size}")
+        self.x = new_x
+        self.y = new_y
         self.__equal_energy_adjusted = None
         self.colour = colour
         self.linestyle = linestyle

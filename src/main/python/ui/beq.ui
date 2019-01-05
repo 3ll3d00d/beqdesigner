@@ -429,6 +429,11 @@
             <string>1/24</string>
            </property>
           </item>
+          <item>
+           <property name="text">
+            <string>Savitzky–Golay</string>
+           </property>
+          </item>
          </widget>
         </item>
         <item row="0" column="5">

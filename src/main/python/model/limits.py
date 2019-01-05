@@ -275,3 +275,15 @@ class LimitsDialog(QDialog, Ui_graphLayoutDialog):
         self.__limits.update(x_min=self.xMin.value(), x_max=self.xMax.value(), y1_min=self.y1Min.value(),
                              y1_max=self.y1Max.value(), y2_min=self.y2Min.value(), y2_max=self.y2Max.value(),
                              x_scale='log' if self.hzLog.isChecked() else 'linear', draw=True)
+
+    def fullRangeLimits(self):
+        ''' changes the x limits to show a full range signal '''
+        self.xMin.setValue(20)
+        self.xMax.setValue(20000)
+        self.hzLog.setChecked(True)
+
+    def bassLimits(self):
+        ''' changes the x limits to show a bass limited signal '''
+        self.xMin.setValue(1)
+        self.xMax.setValue(160)
+        self.hzLog.setChecked(False)
