@@ -13,7 +13,7 @@ import qtawesome as qta
 import resampy
 from qtpy import QtCore
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt, QRunnable, QThreadPool
-from qtpy.QtWidgets import QDialog, QFileDialog, QDialogButtonBox
+from qtpy.QtWidgets import QDialog, QFileDialog, QDialogButtonBox, QStatusBar
 from scipy import signal
 from sortedcontainers import SortedDict
 
@@ -1360,11 +1360,13 @@ class DialogWavLoaderBridge:
                 self.__dialog.wavChannelSelector.addItem(f"{i + 1}")
             self.__dialog.wavChannelSelector.setEnabled(info.channels > 1)
         self.__dialog.loadAllChannels.setEnabled(info.channels > 1 and self.__allow_multichannel)
-        self.__dialog.wavStartTime.setTime(QtCore.QTime(0, 0, 0))
-        self.__dialog.wavStartTime.setEnabled(True)
+        with block_signals(self.__dialog.wavStartTime):
+            self.__dialog.wavStartTime.setTime(QtCore.QTime(0, 0, 0))
+            self.__dialog.wavStartTime.setEnabled(True)
         self.__duration = math.floor(info.duration * 1000)
-        self.__dialog.wavEndTime.setTime(QtCore.QTime(0, 0, 0).addMSecs(self.__duration))
-        self.__dialog.wavEndTime.setEnabled(True)
+        with block_signals(self.__dialog.wavEndTime):
+            self.__dialog.wavEndTime.setTime(QtCore.QTime(0, 0, 0).addMSecs(self.__duration))
+            self.__dialog.wavEndTime.setEnabled(True)
         self.__dialog.wavSignalName.setEnabled(True)
         self.prepare_signal(int(self.__dialog.wavChannelSelector.currentText()))
         self.__dialog.applyTimeRangeButton.setEnabled(False)
@@ -1413,8 +1415,9 @@ class DialogWavLoaderBridge:
         return self.__auto_loader.has_signal()
 
     def enable_ok(self):
-        enabled = len(self.__dialog.wavSignalName.text()) > 0 and self.can_save()
+        enabled = len(self.__dialog.wavSignalName.text()) > 0 and not self.__dialog.applyTimeRangeButton.isEnabled() and self.can_save()
         self.__dialog.buttonBox.button(QDialogButtonBox.Ok).setEnabled(enabled)
+        return enabled
 
     def get_signal(self, offset=0.0):
         '''
@@ -1502,6 +1505,7 @@ class FrdLoader:
     def enable_ok(self):
         enabled = len(self.__dialog.frdSignalName.text()) > 0 and self.can_save()
         self.__dialog.buttonBox.button(QDialogButtonBox.Ok).setEnabled(enabled)
+        return enabled
 
     def clear_signal(self):
         self.__peak = None
@@ -1535,6 +1539,8 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
     def __init__(self, preferences, signal_model, allow_multichannel=True, parent=None):
         super(SignalDialog, self).__init__(parent=parent)
         self.setupUi(self)
+        self.statusBar = QStatusBar()
+        self.verticalLayout.addWidget(self.statusBar)
         self.wavFilePicker.setIcon(qta.icon('fa5s.folder-open'))
         self.frdAvgFilePicker.setIcon(qta.icon('fa5s.folder-open'))
         self.frdPeakFilePicker.setIcon(qta.icon('fa5s.folder-open'))
@@ -1611,11 +1617,15 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
     def enableLimitTimeRangeButton(self):
         ''' enables the button whenever the time range changes. '''
         self.applyTimeRangeButton.setEnabled(True)
+        self.statusBar.showMessage('Click the scissors button to change the slice of the source file to analyse', 8000)
+        self.enableOk()
 
     def limitTimeRange(self):
         ''' changes the applied time range. '''
         self.previewChannel(self.wavChannelSelector.currentText())
         self.applyTimeRangeButton.setEnabled(False)
+        self.statusBar.clearMessage()
+        self.enableOk()
 
     def previewChannel(self, channel_idx):
         '''
