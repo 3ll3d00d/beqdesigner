@@ -152,7 +152,10 @@ def filter_from_json(o):
     elif o['_type'] == AllPass.__name__:
         filt = AllPass(o['fs'], o['fc'], o['q'])
     elif o['_type'] == CompleteFilter.__name__:
-        filt = CompleteFilter(filters=[filter_from_json(x) for x in o['filters']], description=o['description'])
+        kwargs = {}
+        if 'fs' in o:
+            kwargs['fs'] = o['fs']
+        filt = CompleteFilter(filters=[filter_from_json(x) for x in o['filters']], description=o['description'], **kwargs)
     elif o['_type'] == ComplexLowPass.__name__:
         filt = ComplexLowPass(FilterType(o['filter_type']), o['order'], o['fs'], o['fc'])
     elif o['_type'] == ComplexHighPass.__name__:

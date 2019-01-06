@@ -659,14 +659,19 @@ class ComplexFilter(Sequence):
     A filter composed of many other filters.
     '''
 
-    def __init__(self, filters=None, description='Complex', preset_idx=-1, listener=None):
+    def __init__(self, fs=1000, filters=None, description='Complex', preset_idx=-1, listener=None):
         self.filters = filters if filters is not None else []
         self.description = description
         self.id = -1
         self.listener = listener
         self.__on_change()
+        self.__fs = fs
         self.__cached_transfer = None
         self.preset_idx = preset_idx
+
+    @property
+    def fs(self):
+        return self.__fs
 
     def __getitem__(self, i):
         return self.filters[i]
@@ -733,7 +738,7 @@ class ComplexFilter(Sequence):
         '''
         if self.__cached_transfer is None:
             if len(self.filters) == 0:
-                return Passthrough().getTransferFunction()
+                return Passthrough(fs=self.__fs).getTransferFunction()
             else:
                 self.__cached_transfer = getCascadeTransferFunction(self.__repr__(),
                                                                     [x.getTransferFunction() for x in self.filters])
@@ -756,14 +761,15 @@ class ComplexFilter(Sequence):
         return {
             '_type': self.__class__.__name__,
             'description': self.description,
+            'fs': self.__fs,
             'filters': [x.to_json() for x in self.filters]
         }
 
 
 class CompleteFilter(ComplexFilter):
 
-    def __init__(self, filters=None, description=COMBINED, preset_idx=-1, listener=None):
-        super().__init__(filters=filters, description=description, preset_idx=preset_idx, listener=listener)
+    def __init__(self, fs=1000, filters=None, description=COMBINED, preset_idx=-1, listener=None):
+        super().__init__(fs=fs, filters=filters, description=description, preset_idx=preset_idx, listener=listener)
 
     def preview(self, filter):
         '''
@@ -771,7 +777,7 @@ class CompleteFilter(ComplexFilter):
         :param filter: the filter.
         :return: a copied filter.
         '''
-        return CompleteFilter(self.save0(filter, self.filters.copy()), self.description, listener=None)
+        return CompleteFilter(self.save0(filter, self.filters.copy()), self.description, listener=None, fs=self.fs)
 
     def resample(self, new_fs, copy_listener=True):
         '''
@@ -783,9 +789,10 @@ class CompleteFilter(ComplexFilter):
         listener = self.listener if copy_listener else None
         if len(self) > 0:
             return CompleteFilter(filters=[f.resample(new_fs) for f in self.filters], description=self.description,
-                                  preset_idx=self.preset_idx, listener=listener)
+                                  preset_idx=self.preset_idx, listener=listener, fs=new_fs)
         else:
-            return CompleteFilter(description=self.description, preset_idx=self.preset_idx, listener=listener)
+            return CompleteFilter(description=self.description, preset_idx=self.preset_idx, listener=listener,
+                                  fs=new_fs)
 
 
 class FilterType(Enum):

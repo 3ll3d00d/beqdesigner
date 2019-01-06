@@ -233,7 +233,7 @@ class SingleChannelSignalData(SignalData):
         for s in self.slaves:
             logger.debug(f"Freeing {s} from {self}")
             s.master = None
-            s.filter = CompleteFilter()
+            s.filter = CompleteFilter(fs=self.fs)
         self.slaves = []
 
     def free(self):
@@ -244,7 +244,7 @@ class SingleChannelSignalData(SignalData):
             logger.debug(f"Freeing {self.name} from {self.master.name}")
             self.master.slaves.remove(self)
             self.master = None
-            self.filter = CompleteFilter()
+            self.filter = CompleteFilter(fs=self.fs)
 
     def smooth(self, smooth_type, store=True):
         '''
@@ -1334,7 +1334,7 @@ class AutoWavLoader:
         if not math.isclose(offset, 0.0):
             signal = signal.offset(offset)
             signal.calculate_peak_average()
-        return SingleChannelSignalData(name, signal.fs, signal.getXY(), CompleteFilter(),
+        return SingleChannelSignalData(name, signal.fs, signal.getXY(), CompleteFilter(fs=signal.fs),
                                        duration_seconds=signal.duration_seconds,
                                        start_seconds=signal.start_seconds,
                                        signal=signal,
@@ -1572,7 +1572,7 @@ class FrdLoader:
         self.__avg.internal_name = frd_name
         self.__peak.internal_name = frd_name
         return SingleChannelSignalData(frd_name, self.__dialog.frdFs.value(), self.get_magnitude_data(),
-                                       CompleteFilter())
+                                       CompleteFilter(fs=self.__dialog.frdFs.value()))
 
 
 class SignalDialog(QDialog, Ui_addSignalDialog):
@@ -1812,6 +1812,8 @@ def readWav(name, preferences, input_file=None, input_data=None, channel=1, star
 
 
 class Smoother(QRunnable):
+    fractions = [0, 1, 2, 3, 6, 12, 24]
+
     '''
     Precalculates the fractional octave smoothing.
     '''
@@ -1827,7 +1829,7 @@ class Smoother(QRunnable):
             self.__smooth(self.__signal_data)
 
     def __smooth(self, signal_data):
-        for fraction in [0, 1, 2, 3, 6, 12, 24]:
+        for fraction in self.fractions:
             start = time.time()
             signal_data.smooth(fraction, store=False)
             end = time.time()

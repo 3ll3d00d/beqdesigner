@@ -105,9 +105,10 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.actionShow_Logs.triggered.connect(self.logViewer.show_logs)
         self.actionPreferences.triggered.connect(self.showPreferences)
         # init a default signal for when we want to edit a filter without a signal
-        default_mag = Passthrough().getTransferFunction().getMagnitude()
-        self.__default_signal = SingleChannelSignalData('default', self.preferences.get(ANALYSIS_TARGET_FS),
-                                                        [default_mag, default_mag], filter=CompleteFilter())
+        default_mag = Passthrough(fs=self.preferences.get(ANALYSIS_TARGET_FS)).getTransferFunction().getMagnitude()
+        default_fs = self.preferences.get(ANALYSIS_TARGET_FS)
+        self.__default_signal = SingleChannelSignalData('default', default_fs, [default_mag, default_mag],
+                                                        filter=CompleteFilter(fs=default_fs))
         # init the filter view selector
         self.showFilters.blockSignals(True)
         for x in SHOW_FILTER_OPTIONS:
