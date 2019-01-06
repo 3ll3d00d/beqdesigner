@@ -487,7 +487,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
     def __apply_filter(self, filter_json):
         from model.codec import filter_from_json
         signal = self.__get_selected_signal()
-        filt = filter_from_json(filter_json)
+        filt = filter_from_json(filter_json).resample(signal.fs)
         signal.filter = filt
         self.__filter_model.filter = filt
 

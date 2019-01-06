@@ -108,7 +108,6 @@ class RollingLogger(logging.Handler):
             self.__logWindow.logLevel.setCurrentIndex(levelIdx)
             self.__logWindow.show()
             self.__logWindow.refresh(self.__buffer)
-            logging.info("Opening Log Viewer")
 
     def close_logs(self):
         '''
@@ -116,7 +115,6 @@ class RollingLogger(logging.Handler):
         '''
         self.__logWindow = None
         self.__signals.append_msg.disconnect()
-        logging.info("Closed Log Viewer")
 
     def set_size(self, size):
         '''

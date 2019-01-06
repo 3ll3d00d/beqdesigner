@@ -777,7 +777,8 @@ class CompleteFilter(ComplexFilter):
         :param filter: the filter.
         :return: a copied filter.
         '''
-        return CompleteFilter(self.save0(filter, self.filters.copy()), self.description, listener=None, fs=self.fs)
+        return CompleteFilter(filters=self.save0(filter, self.filters.copy()),
+                              description=self.description, listener=None, fs=self.fs)
 
     def resample(self, new_fs, copy_listener=True):
         '''
@@ -810,7 +811,6 @@ class CompoundPassFilter(ComplexFilter):
         self.__bw2 = two_pole_ctor
         self.type = filter_type
         self.order = order
-        self.fs = fs
         self.freq = round(freq, 2)
         if self.type is FilterType.LINKWITZ_RILEY:
             if self.order % 2 != 0:
@@ -818,33 +818,33 @@ class CompoundPassFilter(ComplexFilter):
         if self.order == 0:
             raise ValueError("Filter cannot have order = 0")
         self.__filter_type = f"{high_or_low} {filter_type.value}{order}"
-        super().__init__(filters=self._calculate_biquads(), description=f"{self.__filter_type}/{self.freq}Hz")
+        super().__init__(fs=fs, filters=self._calculate_biquads(fs), description=f"{self.__filter_type}/{self.freq}Hz")
 
     @property
     def filter_type(self):
         return self.__filter_type
 
-    def _calculate_biquads(self):
+    def _calculate_biquads(self, fs):
         if self.type is FilterType.BUTTERWORTH:
             if self.order == 1:
-                return [self.__bw1(self.fs, self.freq)]
+                return [self.__bw1(fs, self.freq)]
             elif self.order == 2:
-                return [self.__bw2(self.fs, self.freq)]
+                return [self.__bw2(fs, self.freq)]
             else:
-                return self.__calculate_high_order_bw(self.order)
+                return self.__calculate_high_order_bw(fs, self.order)
         elif self.type is FilterType.LINKWITZ_RILEY:
             # LRx is 2 * BW(x/2)
             if self.order == 2:
-                return [self.__bw1(self.fs, self.freq) for _ in range(0, 2)]
+                return [self.__bw1(fs, self.freq) for _ in range(0, 2)]
             elif self.order == 4:
-                return [self.__bw2(self.fs, self.freq) for _ in range(0, 2)]
+                return [self.__bw2(fs, self.freq) for _ in range(0, 2)]
             else:
                 bw_order = int(self.order / 2)
-                return self.__calculate_high_order_bw(bw_order) + self.__calculate_high_order_bw(bw_order)
+                return self.__calculate_high_order_bw(fs, bw_order) + self.__calculate_high_order_bw(fs, bw_order)
         else:
             raise ValueError("Unknown filter type " + str(self.type))
 
-    def __calculate_high_order_bw(self, order):
+    def __calculate_high_order_bw(self, fs, order):
         # approach taken from http://www.earlevel.com/main/2016/09/29/cascading-filters/
         biquads = []
         pairs = order >> 1
@@ -854,9 +854,10 @@ class CompoundPassFilter(ComplexFilter):
         if not odd_poles:
             first_angle /= 2
         else:
-            biquads.append(self.__bw1(self.fs, self.freq, 0.5))
-        biquads += [self.__bw2(self.fs, self.freq, 1.0 / (2.0 * math.cos(first_angle + x * pole_inc))) for x in
-                    range(0, pairs)]
+            biquads.append(self.__bw1(fs, self.freq, 0.5))
+        biquads += [
+            self.__bw2(fs, self.freq, 1.0 / (2.0 * math.cos(first_angle + x * pole_inc))) for x in range(0, pairs)
+        ]
         return biquads
 
 
