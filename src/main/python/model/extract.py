@@ -4,79 +4,21 @@ import os
 from pathlib import Path
 
 import qtawesome as qta
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QPalette, QColor
+from qtpy.QtCore import Qt, QTime
+from qtpy.QtGui import QPalette, QColor, QFont
 from qtpy.QtMultimedia import QSound
 from qtpy.QtWidgets import QDialog, QFileDialog, QStatusBar, QDialogButtonBox, QMessageBox
 
-from model.ffmpeg import Executor, ViewProbeDialog, SIGNAL_CONNECTED, SIGNAL_ERROR, SIGNAL_COMPLETE, parse_audio_stream
-from model.preferences import EXTRACTION_OUTPUT_DIR, EXTRACTION_NOTIFICATION_SOUND
+from model.ffmpeg import Executor, ViewProbeDialog, SIGNAL_CONNECTED, SIGNAL_ERROR, SIGNAL_COMPLETE, parse_audio_stream, \
+    get_channel_name, parse_video_stream
+from model.preferences import EXTRACTION_OUTPUT_DIR, EXTRACTION_NOTIFICATION_SOUND, ANALYSIS_TARGET_FS, \
+    EXTRACTION_MIX_MONO, EXTRACTION_DECIMATE, EXTRACTION_INCLUDE_ORIGINAL, EXTRACTION_INCLUDE_SUBTITLES, \
+    EXTRACTION_COMPRESS
 from model.signal import AutoWavLoader
+from ui.edit_mapping import Ui_editMappingDialog
 from ui.extract import Ui_extractAudioDialog
 
 logger = logging.getLogger('extract')
-
-# copied from https://trac.ffmpeg.org/wiki/AudioChannelManipulation
-
-CHANNEL_LAYOUTS = {
-    'stereo': ['FL', 'FR'],
-    '2.1': ['FL', 'FR', 'LFE'],
-    '3.0': ['FL', 'FR', 'FC'],
-    '3.0(back)': ['FL', 'FR', 'BC'],
-    '4.0': ['FL', 'FR', 'FC', 'BC'],
-    'quad': ['FL', 'FR', 'BL', 'BR'],
-    'quad(side)': ['FL', 'FR', 'SL', 'SR'],
-    '3.1': ['FL', 'FR', 'FC', 'LFE'],
-    '5.0': ['FL', 'FR', 'FC', 'BL', 'BR'],
-    '5.0(side)': ['FL', 'FR', 'FC', 'SL', 'SR'],
-    '4.1': ['FL', 'FR', 'FC', 'LFE', 'BC'],
-    '5.1': ['FL', 'FR', 'FC', 'LFE', 'BL', 'BR'],
-    '5.1(side)': ['FL', 'FR', 'FC', 'LFE', 'SL', 'SR'],
-    '6.0': ['FL', 'FR', 'FC', 'BC', 'SL', 'SR'],
-    '6.0(front)': ['FL', 'FR', 'FLC', 'FRC', 'SL', 'SR'],
-    'hexagonal': ['FL', 'FR', 'FC', 'BL', 'BR', 'BC'],
-    '6.1': ['FL', 'FR', 'FC', 'LFE', 'BC', 'SL', 'SR'],
-    '6.1(back)': ['FL', 'FR', 'FC', 'LFE', 'BL', 'BR', 'BC'],
-    '6.1(front)': ['FL', 'FR', 'LFE', 'FLC', 'FRC', 'SL', 'SR'],
-    '7.0': ['FL', 'FR', 'FC', 'BL', 'BR', 'SL', 'SR'],
-    '7.0(front)': ['FL', 'FR', 'FC', 'FLC', 'FRC', 'SL', 'SR'],
-    '7.1': ['FL', 'FR', 'FC', 'LFE', 'BL', 'BR', 'SL', 'SR'],
-    '7.1(wide)': ['FL', 'FR', 'FC', 'LFE', 'BL', 'BR', 'FLC', 'FRC'],
-    '7.1(wide-side)': ['FL', 'FR', 'FC', 'LFE', 'FLC', 'FRC', 'SL', 'SR'],
-    'octagonal': ['FL', 'FR', 'FC', 'BL', 'BR', 'BC', 'SL', 'SR'],
-    'hexadecagonal': ['FL', 'FR', 'FC', 'BL', 'BR', 'BC', 'SL', 'SR', 'TFL', 'TFC', 'TFR', 'TBL', 'TBC', 'TBR', 'WL',
-                      'WR'],
-    'downmix': ['DL', 'DR']
-}
-
-UNKNOWN_CHANNEL_LAYOUTS = {
-    2: CHANNEL_LAYOUTS['stereo'],
-    3: CHANNEL_LAYOUTS['2.1'],
-    4: CHANNEL_LAYOUTS['3.1'],
-    5: CHANNEL_LAYOUTS['4.1'],
-    6: CHANNEL_LAYOUTS['5.1'],
-    8: CHANNEL_LAYOUTS['7.1']
-}
-
-
-def get_channel_name(text, channel, channel_count, channel_layout_name='unknown'):
-    '''
-    Appends a named channel to the given name.
-    :param text: the prefix.
-    :param channel: the channel idx (0 based)
-    :param channel_count: the channel count.
-    :param channel_layout_name: the channel layout.
-    :return: the named channel.
-    '''
-    if channel_count == 1:
-        return text
-    else:
-        if channel_layout_name == 'unknown' and channel_count in UNKNOWN_CHANNEL_LAYOUTS:
-            return f"{text}_{UNKNOWN_CHANNEL_LAYOUTS[channel_count][channel]}"
-        elif channel_layout_name in CHANNEL_LAYOUTS:
-            return f"{text}_{CHANNEL_LAYOUTS[channel_layout_name][channel]}"
-        else:
-            return f"{text}_c{channel+1}"
 
 
 class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
@@ -84,23 +26,59 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
     Allows user to load a signal, processing it if necessary.
     '''
 
-    def __init__(self, parent, preferences, signal_model):
+    def __init__(self, parent, preferences, signal_model, is_remux=False):
         super(ExtractAudioDialog, self).__init__(parent)
         self.setupUi(self)
-        self.showProbeButton.setIcon(qta.icon('fa.info'))
-        self.inputFilePicker.setIcon(qta.icon('fa.folder-open-o'))
-        self.targetDirPicker.setIcon(qta.icon('fa.folder-open-o'))
+        self.showProbeButton.setIcon(qta.icon('fa5s.info'))
+        self.showRemuxCommand.setIcon(qta.icon('fa5s.info'))
+        self.inputFilePicker.setIcon(qta.icon('fa5s.folder-open'))
+        self.targetDirPicker.setIcon(qta.icon('fa5s.folder-open'))
+        self.limitRange.setIcon(qta.icon('fa5s.cut'))
         self.statusBar = QStatusBar()
-        self.gridLayout.addWidget(self.statusBar, 5, 1, 1, 1)
+        self.statusBar.setSizeGripEnabled(False)
+        self.boxLayout.addWidget(self.statusBar)
         self.__preferences = preferences
         self.__signal_model = signal_model
         self.__executor = None
         self.__sound = None
         self.__extracted = False
+        self.__stream_duration_micros = []
+        self.__is_remux = is_remux
+        if self.__is_remux:
+            self.setWindowTitle('Remux Audio')
+        self.showRemuxCommand.setVisible(self.__is_remux)
         defaultOutputDir = self.__preferences.get(EXTRACTION_OUTPUT_DIR)
         if os.path.isdir(defaultOutputDir):
             self.targetDir.setText(defaultOutputDir)
         self.__reinit_fields()
+        self.filterMapping.itemDoubleClicked.connect(self.show_mapping_dialog)
+
+    def show_remux_cmd(self):
+        ''' Pops the ffmpeg command into a message box '''
+        if self.__executor is not None and self.__executor.filter_complex_script_content is not None:
+            msg_box = QMessageBox()
+            font = QFont()
+            font.setFamily("Consolas")
+            font.setPointSize(8)
+            msg_box.setFont(font)
+            msg_box.setText(self.__executor.filter_complex_script_content.replace(';', ';\n'))
+            msg_box.setIcon(QMessageBox.Information)
+            msg_box.setWindowTitle('Remux Script')
+            msg_box.exec()
+
+    def show_mapping_dialog(self, item):
+        ''' Shows the edit mapping dialog '''
+        if len(self.__signal_model) > 0:
+            channel_idx = self.filterMapping.indexFromItem(item).row()
+            mapped_filter = self.__executor.channel_to_filter.get(channel_idx, None)
+            EditMappingDialog(self, channel_idx, self.__signal_model, mapped_filter, self.filterMapping.count(),
+                              self.map_filter_to_channel).exec()
+
+    def map_filter_to_channel(self, channel_idx, signal_name):
+        ''' updates the mapping of the given signal to the specified channel idx '''
+        if self.audioStreams.count() > 0 and self.__executor is not None:
+            self.__executor.map_filter_to_channel(channel_idx, signal_name)
+            self.__display_command_info()
 
     def selectFile(self):
         self.__reinit_fields()
@@ -123,23 +101,51 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
                 self.__sound.stop()
                 self.__sound = None
         self.audioStreams.clear()
+        self.videoStreams.clear()
         self.statusBar.clearMessage()
         self.__executor = None
         self.__extracted = False
         self.__stream_duration_micros = []
         self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
-        self.buttonBox.button(QDialogButtonBox.Ok).setText('Extract')
-        self.signalName.setEnabled(False)
-        self.signalNameLabel.setEnabled(False)
-        self.signalName.setText('')
+        self.buttonBox.button(QDialogButtonBox.Ok).setText('Remux' if self.__is_remux else 'Extract')
+        if self.__is_remux:
+            self.signalName.setVisible(False)
+            self.signalNameLabel.setVisible(False)
+            self.filterMapping.setVisible(True)
+            self.filterMappingLabel.setVisible(True)
+            self.includeOriginalAudio.setVisible(True)
+            self.includeSubtitles.setVisible(True)
+            self.gainOffset.setVisible(True)
+            self.gainOffsetLabel.setVisible(True)
+            self.gainOffset.setEnabled(False)
+        else:
+            self.signalName.setText('')
+            self.filterMapping.setVisible(False)
+            self.filterMappingLabel.setVisible(False)
+            self.includeOriginalAudio.setVisible(False)
+            self.includeSubtitles.setVisible(False)
+            self.gainOffset.setVisible(False)
+            self.gainOffsetLabel.setVisible(False)
+        self.monoMix.setChecked(self.__preferences.get(EXTRACTION_MIX_MONO))
+        self.decimateAudio.setChecked(self.__preferences.get(EXTRACTION_DECIMATE))
+        self.includeOriginalAudio.setChecked(self.__preferences.get(EXTRACTION_INCLUDE_ORIGINAL))
+        self.includeSubtitles.setChecked(self.__preferences.get(EXTRACTION_INCLUDE_SUBTITLES))
+        self.compressAudio.setChecked(self.__preferences.get(EXTRACTION_COMPRESS))
+        self.monoMix.setEnabled(False)
+        self.decimateAudio.setEnabled(False)
+        self.compressAudio.setEnabled(False)
+        self.includeOriginalAudio.setEnabled(False)
+        self.includeSubtitles.setEnabled(False)
         self.inputFilePicker.setEnabled(True)
         self.audioStreams.setEnabled(False)
+        self.videoStreams.setEnabled(False)
         self.channelCount.setEnabled(False)
         self.lfeChannelIndex.setEnabled(False)
-        self.monoMix.setEnabled(False)
         self.targetDirPicker.setEnabled(True)
         self.outputFilename.setEnabled(False)
         self.showProbeButton.setEnabled(False)
+        self.filterMapping.setEnabled(False)
+        self.filterMapping.clear()
         self.ffmpegCommandLine.clear()
         self.ffmpegCommandLine.setEnabled(False)
         self.ffmpegOutput.clear()
@@ -147,13 +153,27 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         self.ffmpegProgress.setEnabled(False)
         self.ffmpegProgressLabel.setEnabled(False)
         self.ffmpegProgress.setValue(0)
+        self.rangeFrom.setEnabled(False)
+        self.rangeSeparatorLabel.setEnabled(False)
+        self.rangeTo.setEnabled(False)
+        self.limitRange.setEnabled(False)
+        self.signalName.setEnabled(False)
+        self.signalNameLabel.setEnabled(False)
+        self.showRemuxCommand.setEnabled(False)
 
     def __probe_file(self):
         '''
         Probes the specified file using ffprobe in order to discover the audio streams.
         '''
         file_name = self.inputFile.text()
-        self.__executor = Executor(file_name, self.targetDir.text())
+        self.__executor = Executor(file_name, self.targetDir.text(),
+                                   mono_mix=self.monoMix.isChecked(),
+                                   decimate_audio=self.decimateAudio.isChecked(),
+                                   compress_audio=self.compressAudio.isChecked(),
+                                   include_original=self.includeOriginalAudio.isChecked(),
+                                   include_subtitles=self.includeSubtitles.isChecked(),
+                                   signal_model=self.__signal_model if self.__is_remux else None,
+                                   decimate_fs=self.__preferences.get(ANALYSIS_TARGET_FS))
         self.__executor.progress_handler = self.__handle_ffmpeg_process
         from app import wait_cursor
         with wait_cursor(f"Probing {file_name}"):
@@ -164,12 +184,25 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
                 text, duration_micros = parse_audio_stream(self.__executor.probe, a)
                 self.audioStreams.addItem(text)
                 self.__stream_duration_micros.append(duration_micros)
+            self.videoStreams.addItem('No Video')
+            for a in self.__executor.video_stream_data:
+                self.videoStreams.addItem(parse_video_stream(self.__executor.probe, a))
+            if self.__is_remux and self.videoStreams.count() > 1:
+                self.videoStreams.setCurrentIndex(1)
             self.audioStreams.setEnabled(True)
+            self.videoStreams.setEnabled(True)
             self.channelCount.setEnabled(True)
             self.lfeChannelIndex.setEnabled(True)
             self.monoMix.setEnabled(True)
+            self.decimateAudio.setEnabled(True)
+            self.compressAudio.setEnabled(True)
+            self.includeOriginalAudio.setEnabled(True)
             self.outputFilename.setEnabled(True)
             self.ffmpegCommandLine.setEnabled(True)
+            self.filterMapping.setEnabled(True)
+            self.limitRange.setEnabled(True)
+            self.showRemuxCommand.setEnabled(True)
+            self.__fit_options_to_selected()
         else:
             self.statusBar.showMessage(f"{file_name} contains no audio streams!")
 
@@ -178,14 +211,37 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         Creates a new ffmpeg command for the specified channel layout.
         '''
         if self.__executor is not None:
-            self.__executor.update_spec(self.audioStreams.currentIndex(), self.monoMix.isChecked())
+            self.__executor.update_spec(self.audioStreams.currentIndex(), self.videoStreams.currentIndex() - 1,
+                                        self.monoMix.isChecked())
+
             self.__init_channel_count_fields(self.__executor.channel_count, lfe_index=self.__executor.lfe_idx)
+            self.__fit_options_to_selected()
             self.__display_command_info()
             self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
+
+    def __fit_options_to_selected(self):
+        # if we have no video then the output cannot contain multiple streams
+        if self.videoStreams.currentIndex() == 0:
+            self.includeOriginalAudio.setChecked(False)
+            self.includeOriginalAudio.setEnabled(False)
+            self.includeSubtitles.setChecked(False)
+            self.includeSubtitles.setEnabled(False)
+        else:
+            self.includeOriginalAudio.setEnabled(True)
+            self.includeSubtitles.setEnabled(True)
+        # don't allow mono mix option if the stream is mono
+        if self.channelCount.value() == 1:
+            self.monoMix.setChecked(False)
+            self.monoMix.setEnabled(False)
+        else:
+            self.monoMix.setEnabled(True)
 
     def __display_command_info(self):
         self.outputFilename.setText(self.__executor.output_file_name)
         self.ffmpegCommandLine.setPlainText(self.__executor.ffmpeg_cli)
+        self.filterMapping.clear()
+        for channel_idx, signal in self.__executor.channel_to_filter.items():
+            self.filterMapping.addItem(f"Channel {channel_idx + 1} -> {signal.name if signal else 'Passthrough'}")
 
     def updateOutputFilename(self):
         '''
@@ -198,6 +254,46 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
     def overrideFfmpegSpec(self, _):
         if self.__executor is not None:
             self.__executor.override('custom', self.channelCount.value(), self.lfeChannelIndex.value())
+            self.__fit_options_to_selected()
+            self.__display_command_info()
+
+    def toggle_decimate_audio(self):
+        '''
+        Reacts to the change in decimation.
+        '''
+        if self.audioStreams.count() > 0 and self.__executor is not None:
+            self.__executor.decimate_audio = self.decimateAudio.isChecked()
+            self.__display_command_info()
+
+    def toggle_compress_audio(self):
+        '''
+        Reacts to the change in decimation.
+        '''
+        if self.audioStreams.count() > 0 and self.__executor is not None:
+            self.__executor.compress_audio = self.compressAudio.isChecked()
+            self.__display_command_info()
+
+    def update_original_audio(self):
+        '''
+        Reacts to the change in original audio selection.
+        '''
+        if self.audioStreams.count() > 0 and self.__executor is not None:
+            if self.includeOriginalAudio.isChecked():
+                self.__executor.include_original_audio = True
+                self.__executor.original_audio_offset = self.gainOffset.value()
+                self.gainOffset.setEnabled(True)
+            else:
+                self.__executor.include_original_audio = False
+                self.__executor.original_audio_offset = 0.0
+                self.gainOffset.setEnabled(False)
+            self.__display_command_info()
+
+    def toggle_include_subtitles(self):
+        '''
+        Reacts to the change in subtitles selection.
+        '''
+        if self.audioStreams.count() > 0 and self.__executor is not None:
+            self.__executor.include_subtitles = self.includeSubtitles.isChecked()
             self.__display_command_info()
 
     def toggleMonoMix(self):
@@ -208,11 +304,54 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             self.__executor.mono_mix = self.monoMix.isChecked()
             self.__display_command_info()
 
+    def toggle_range(self):
+        ''' toggles whether the range is enabled or not '''
+        if self.limitRange.isChecked():
+            self.limitRange.setText('Cut')
+            if self.audioStreams.count() > 0:
+                duration_ms = int(self.__stream_duration_micros[self.audioStreams.currentIndex()] / 1000)
+                if duration_ms > 1:
+                    from model.report import block_signals
+                    with block_signals(self.rangeFrom):
+                        self.rangeFrom.setTimeRange(QTime.fromMSecsSinceStartOfDay(0),
+                                                    QTime.fromMSecsSinceStartOfDay(duration_ms - 1))
+                        self.rangeFrom.setTime(QTime.fromMSecsSinceStartOfDay(0))
+                        self.rangeFrom.setEnabled(True)
+                    self.rangeSeparatorLabel.setEnabled(True)
+                    with block_signals(self.rangeTo):
+                        self.rangeTo.setEnabled(True)
+                        self.rangeTo.setTimeRange(QTime.fromMSecsSinceStartOfDay(1),
+                                                  QTime.fromMSecsSinceStartOfDay(duration_ms))
+                        self.rangeTo.setTime(QTime.fromMSecsSinceStartOfDay(duration_ms))
+        else:
+            self.limitRange.setText('Enable')
+            self.rangeFrom.setEnabled(False)
+            self.rangeSeparatorLabel.setEnabled(False)
+            self.rangeTo.setEnabled(False)
+            if self.__executor is not None:
+                self.__executor.start_time_ms = 0
+                self.__executor.end_time_ms = 0
+
+    def update_start_time(self, time):
+        ''' Reacts to start time changes '''
+        self.__executor.start_time_ms = time.msecsSinceStartOfDay()
+        self.__display_command_info()
+
+    def update_end_time(self, time):
+        ''' Reacts to end time changes '''
+        msecs = time.msecsSinceStartOfDay()
+        duration_ms = int(self.__stream_duration_micros[self.audioStreams.currentIndex()] / 1000)
+        self.__executor.end_time_ms = msecs if msecs != duration_ms else 0
+        self.__display_command_info()
+
     def __init_channel_count_fields(self, channels, lfe_index=0):
-        self.lfeChannelIndex.setMaximum(channels)
-        self.lfeChannelIndex.setValue(lfe_index)
-        self.channelCount.setMaximum(channels)
-        self.channelCount.setValue(channels)
+        from model.report import block_signals
+        with block_signals(self.lfeChannelIndex):
+            self.lfeChannelIndex.setMaximum(channels)
+            self.lfeChannelIndex.setValue(lfe_index)
+        with block_signals(self.channelCount):
+            self.channelCount.setMaximum(channels)
+            self.channelCount.setValue(channels)
 
     def reject(self):
         '''
@@ -229,6 +368,9 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         '''
         if self.__extracted is False:
             self.__extract()
+            if not self.__is_remux:
+                self.signalName.setEnabled(True)
+                self.signalNameLabel.setEnabled(True)
         else:
             if self.__create_signals():
                 QDialog.accept(self)
@@ -247,19 +389,17 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
                 name_provider = lambda channel, channel_count: get_channel_name(self.signalName.text(), channel,
                                                                                 channel_count,
                                                                                 channel_layout_name=self.__executor.channel_layout_name)
-                signals = loader.auto_load(output_file, name_provider)
-                if len(signals) > 0:
-                    for s in signals:
-                        logger.info(f"Adding signal {s.name}")
-                        self.__signal_model.add(s)
-                    return True
+                loader.load(output_file)
+                signal = loader.auto_load(name_provider, self.decimateAudio.isChecked())
+                self.__signal_model.add(signal)
+            return True
         else:
             msg_box = QMessageBox()
             msg_box.setText(f"Extracted audio file does not exist at: \n\n {output_file}")
             msg_box.setIcon(QMessageBox.Critical)
             msg_box.setWindowTitle('Unexpected Error')
             msg_box.exec()
-        return False
+            return False
 
     def __extract(self):
         '''
@@ -280,7 +420,14 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             self.__extract_started()
         elif key == 'out_time_ms':
             out_time_ms = int(value)
-            total_micros = self.__stream_duration_micros[self.audioStreams.currentIndex()]
+            if self.__executor.start_time_ms > 0 and self.__executor.end_time_ms > 0:
+                total_micros = (self.__executor.end_time_ms - self.__executor.start_time_ms) * 1000
+            elif self.__executor.end_time_ms > 0:
+                total_micros = self.__executor.end_time_ms * 1000
+            elif self.__executor.start_time_ms > 0:
+                total_micros = self.__stream_duration_micros[self.audioStreams.currentIndex()] - (self.__executor.start_time_ms * 1000)
+            else:
+                total_micros = self.__stream_duration_micros[self.audioStreams.currentIndex()]
             logger.debug(f"{self.inputFile.text()} -- {key}={value} vs {total_micros}")
             if total_micros > 0:
                 progress = (out_time_ms / total_micros) * 100.0
@@ -298,11 +445,18 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         '''
         self.inputFilePicker.setEnabled(False)
         self.audioStreams.setEnabled(False)
+        self.videoStreams.setEnabled(False)
         self.channelCount.setEnabled(False)
         self.lfeChannelIndex.setEnabled(False)
         self.monoMix.setEnabled(False)
+        self.decimateAudio.setEnabled(False)
+        self.compressAudio.setEnabled(False)
+        self.includeOriginalAudio.setEnabled(False)
+        self.includeSubtitles.setEnabled(False)
         self.targetDirPicker.setEnabled(False)
         self.outputFilename.setEnabled(False)
+        self.filterMapping.setEnabled(False)
+        self.gainOffset.setEnabled(False)
         self.ffmpegOutput.setEnabled(True)
         self.ffmpegProgress.setEnabled(True)
         self.ffmpegProgressLabel.setEnabled(True)
@@ -320,10 +474,11 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
                 logger.info(f"Extraction complete for {self.outputFilename.text()}")
                 self.ffmpegProgress.setValue(100)
                 self.__extracted = True
-                self.signalName.setEnabled(True)
-                self.signalNameLabel.setEnabled(True)
-                self.signalName.setText(Path(self.outputFilename.text()).resolve().stem)
-                self.buttonBox.button(QDialogButtonBox.Ok).setText('Create Signals')
+                if not self.__is_remux:
+                    self.signalName.setEnabled(True)
+                    self.signalNameLabel.setEnabled(True)
+                    self.signalName.setText(Path(self.outputFilename.text()).resolve().stem)
+                    self.buttonBox.button(QDialogButtonBox.Ok).setText('Create Signals')
             else:
                 logger.error(f"Extraction failed for {self.outputFilename.text()}")
                 palette = QPalette(self.ffmpegProgress.palette())
@@ -360,3 +515,31 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
                 if self.__executor is not None:
                     self.__executor.target_dir = selected[0]
                     self.__display_command_info()
+
+
+class EditMappingDialog(QDialog, Ui_editMappingDialog):
+    ''' Allows the user to override the signal to channel mapping '''
+
+    def __init__(self, parent, channel_idx, signal_model, selected_signal, channel_count, on_change_handler):
+        super(EditMappingDialog, self).__init__(parent)
+        self.setupUi(self)
+        self.channel_idx = channel_idx
+        self.channelIdx.setText(str(channel_idx + 1))
+        self.signal.addItem('Passthrough')
+        self.channel_count = channel_count
+        for idx, s in enumerate(signal_model):
+            self.signal.addItem(s.name)
+        if selected_signal is not None:
+            self.signal.setCurrentText(selected_signal.name)
+        self.on_change_handler = on_change_handler
+
+    def accept(self):
+        filt = None if self.signal.currentText() == 'Passthrough' else self.signal.currentText()
+        if self.applyToAll.isChecked():
+            for idx in range(0, self.channel_count):
+                self.on_change_handler(idx, filt)
+        else:
+            self.on_change_handler(self.channel_idx, filt)
+        super().accept()
+
+

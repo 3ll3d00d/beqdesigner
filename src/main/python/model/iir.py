@@ -31,14 +31,8 @@ def float_to_str(f):
 
 
 class Biquad(ABC):
-    def __init__(self, fs, freq, q):
+    def __init__(self, fs):
         self.fs = fs
-        self.freq = round(freq, 2)
-        self.q = round(q, 4)
-        self.w0 = 2.0 * math.pi * self.freq / self.fs
-        self.cos_w0 = math.cos(self.w0)
-        self.sin_w0 = math.sin(self.w0)
-        self.alpha = self.sin_w0 / (2.0 * self.q)
         self.a, self.b = self._compute_coeffs()
         self.id = -1
         self.__transferFunction = None
@@ -46,8 +40,6 @@ class Biquad(ABC):
     def __eq__(self, o: object) -> bool:
         equal = self.__class__.__name__ == o.__class__.__name__
         equal &= self.fs == o.fs
-        equal &= self.q == o.q
-        equal &= self.freq == o.freq
         return equal
 
     def __repr__(self):
@@ -58,7 +50,6 @@ class Biquad(ABC):
         description = ''
         if hasattr(self, 'display_name'):
             description += self.display_name
-        description += f" {self.freq}/{self.q}"
         return description
 
     @property
@@ -84,21 +75,71 @@ class Biquad(ABC):
             self.__transferFunction = ComplexData(self.__repr__(), f, h)
         return self.__transferFunction
 
-    def format_biquads(self, minidsp_style):
+    def format_biquads(self, minidsp_style, separator=',\n'):
         ''' Creates a biquad report '''
-        a = ",\n".join(
+        a = separator.join(
             [f"a{idx}={float_to_str(-x if minidsp_style else x)}" for idx, x in enumerate(self.a) if
              idx != 0 or minidsp_style is False])
-        b = ",\n".join([f"b{idx}={float_to_str(x)}" for idx, x in enumerate(self.b)])
-        return [f"{b},\n{a}"]
+        b = separator.join([f"b{idx}={float_to_str(x)}" for idx, x in enumerate(self.b)])
+        return [f"{b}{separator}{a}"]
+
+    def get_sos(self):
+        return [np.concatenate((self.b, self.a)).tolist()]
 
 
-class Passthrough(Biquad):
-    def __init__(self):
-        super().__init__(1000, 100, 1)
+class Gain(Biquad):
+    def __init__(self, fs, gain):
+        self.gain = gain
+        super().__init__(fs)
+
+    @property
+    def filter_type(self):
+        return 'Gain'
+
+    @property
+    def display_name(self):
+        return 'Gain'
 
     def _compute_coeffs(self):
-        return np.array([1.0, 0.0, 0.0]), [1.0, 0.0, 0.0]
+        return np.array([1.0, 0.0, 0.0]), np.array([10.0 ** (self.gain / 20.0), 0.0, 0.0])
+
+    def resample(self, new_fs):
+        '''
+        Creates a filter at the specified fs.
+        :param new_fs: the new fs.
+        :return: the new filter.
+        '''
+        return Gain(new_fs, self.gain)
+
+    def to_json(self):
+        return {
+            '_type': self.__class__.__name__,
+            'fs': self.fs,
+            'gain': self.gain
+        }
+
+
+class BiquadWithQ(Biquad):
+    def __init__(self, fs, freq, q):
+        self.freq = round(freq, 2)
+        self.q = round(q, 4)
+        self.w0 = 2.0 * math.pi * freq / fs
+        self.cos_w0 = math.cos(self.w0)
+        self.sin_w0 = math.sin(self.w0)
+        self.alpha = self.sin_w0 / (2.0 * self.q)
+        super().__init__(fs)
+
+    def __eq__(self, o: object) -> bool:
+        return super().__eq__(o) and self.freq == o.freq
+
+    @property
+    def description(self):
+        return super().description + f" {self.freq}/{self.q}"
+
+
+class Passthrough(Gain):
+    def __init__(self, fs=1000):
+        super().__init__(fs, 0)
 
     @property
     def description(self):
@@ -106,11 +147,12 @@ class Passthrough(Biquad):
 
     def to_json(self):
         return {
-            '_type': self.__class__.__name__
+            '_type': self.__class__.__name__,
+            'fs': self.fs
         }
 
 
-class BiquadWithGain(Biquad):
+class BiquadWithQGain(BiquadWithQ):
     def __init__(self, fs, freq, q, gain):
         self.gain = round(gain, 3)
         super().__init__(fs, freq, q)
@@ -123,7 +165,7 @@ class BiquadWithGain(Biquad):
         return super().description + f"/{self.gain}dB"
 
 
-class PeakingEQ(BiquadWithGain):
+class PeakingEQ(BiquadWithQGain):
     '''
     H(s) = (s^2 + s*(A/Q) + 1) / (s^2 + s/(A*Q) + 1)
 
@@ -139,8 +181,12 @@ class PeakingEQ(BiquadWithGain):
         super().__init__(fs, freq, q, gain)
 
     @property
+    def filter_type(self):
+        return 'PEQ'
+
+    @property
     def display_name(self):
-        return 'Peak'
+        return 'PEQ'
 
     def _compute_coeffs(self):
         A = 10.0 ** (self.gain / 40.0)
@@ -201,7 +247,7 @@ def max_permitted_s(gain):
     return max_s
 
 
-class Shelf(BiquadWithGain):
+class Shelf(BiquadWithQGain):
     def __init__(self, fs, freq, q, gain, count):
         self.A = 10.0 ** (gain / 40.0)
         super().__init__(fs, freq, q, gain)
@@ -228,14 +274,17 @@ class Shelf(BiquadWithGain):
         else:
             raise ValueError('Shelf must have non zero count')
 
-    def format_biquads(self, minidsp_style):
-        single = super().format_biquads(minidsp_style)
+    def format_biquads(self, minidsp_style, separator=',\n'):
+        single = super().format_biquads(minidsp_style, separator=separator)
         if self.count == 1:
             return single
         elif self.count > 1:
             return single * self.count
         else:
             raise ValueError('Shelf must have non zero count')
+
+    def get_sos(self):
+        return super().get_sos() * self.count
 
     def to_json(self):
         return {
@@ -246,6 +295,13 @@ class Shelf(BiquadWithGain):
             'gain': self.gain,
             'count': self.count
         }
+
+    @property
+    def description(self):
+        if self.count > 1:
+            return super().description + f" x{self.count}"
+        else:
+            return super().description
 
 
 class LowShelf(Shelf):
@@ -346,7 +402,7 @@ class HighShelf(Shelf):
         return HighShelf(new_fs, self.freq, self.q, self.gain, self.count)
 
 
-class FirstOrder_LowPass(Biquad):
+class FirstOrder_LowPass(BiquadWithQ):
     '''
     A one pole low pass filter.
     '''
@@ -385,7 +441,7 @@ class FirstOrder_LowPass(Biquad):
         return fs_freq_q_json(self)
 
 
-class FirstOrder_HighPass(Biquad):
+class FirstOrder_HighPass(BiquadWithQ):
     '''
     A one pole high pass filter.
     '''
@@ -412,7 +468,7 @@ class FirstOrder_HighPass(Biquad):
         # b0 = 1.0 + a1
         # a = np.array([1.0, -a1, 0.0], dtype=np.float64)
         # b = np.array([b0, 0.0, 0.0])
-        return sos[0][3:5], sos[0][0:2]
+        return sos[0][3:6], sos[0][0:3]
 
     def resample(self, new_fs):
         '''
@@ -435,7 +491,7 @@ def fs_freq_q_json(o):
     }
 
 
-class SecondOrder_LowPass(Biquad):
+class SecondOrder_LowPass(BiquadWithQ):
     '''
     LPF:        H(s) = 1 / (s^2 + s/Q + 1)
 
@@ -487,7 +543,7 @@ class SecondOrder_LowPass(Biquad):
         return fs_freq_q_json(self)
 
 
-class SecondOrder_HighPass(Biquad):
+class SecondOrder_HighPass(BiquadWithQ):
     '''
     HPF:        H(s) = s^2 / (s^2 + s/Q + 1)
 
@@ -540,7 +596,7 @@ class SecondOrder_HighPass(Biquad):
         return fs_freq_q_json(self)
 
 
-class AllPass(Biquad):
+class AllPass(BiquadWithQ):
     '''
     APF:        H(s) = (s^2 - s/Q + 1) / (s^2 + s/Q + 1)
 
@@ -655,10 +711,11 @@ class ComplexFilter(Sequence):
             self.listener.on_filter_change(self)
 
     def save0(self, filter, filters):
-        match = next((f for f in filters if f.id == filter.id), None)
-        if match:
-            filters.remove(match)
-        filters.append(filter)
+        match = next((idx for idx, f in enumerate(filters) if f.id == filter.id), None)
+        if match is not None:
+            filters[match] = filter
+        else:
+            filters.append(filter)
         return filters
 
     def removeByIndex(self, indices):
@@ -682,13 +739,18 @@ class ComplexFilter(Sequence):
                                                                     [x.getTransferFunction() for x in self.filters])
         return self.__cached_transfer
 
-    def format_biquads(self, invert_a):
+    def format_biquads(self, invert_a, separator=',\n'):
         '''
         Formats the filter into a biquad report.
         :param invert_a: whether to invert the a coeffs.
         :return: the report.
         '''
-        return [f.format_biquads(invert_a) for f in self.filters]
+        import itertools
+        return list(itertools.chain(*[f.format_biquads(invert_a, separator=separator) for f in self.filters]))
+
+    def get_sos(self):
+        ''' outputs the filter in cascaded second order sections ready for consumption by sosfiltfilt '''
+        return [x for f in self.filters for x in f.get_sos()]
 
     def to_json(self):
         return {
@@ -711,17 +773,19 @@ class CompleteFilter(ComplexFilter):
         '''
         return CompleteFilter(self.save0(filter, self.filters.copy()), self.description, listener=None)
 
-    def resample(self, new_fs):
+    def resample(self, new_fs, copy_listener=True):
         '''
         Creates a new filter at the desired fs.
         :param new_fs: the fs.
+        :param copy_listener: if true, carry the listener forward to the resampled filter.
         :return: the new filter.
         '''
+        listener = self.listener if copy_listener else None
         if len(self) > 0:
             return CompleteFilter(filters=[f.resample(new_fs) for f in self.filters], description=self.description,
-                                  preset_idx=self.preset_idx, listener=self.listener)
+                                  preset_idx=self.preset_idx, listener=listener)
         else:
-            return CompleteFilter(description=self.description, preset_idx=self.preset_idx, listener=self.listener)
+            return CompleteFilter(description=self.description, preset_idx=self.preset_idx, listener=listener)
 
 
 class FilterType(Enum):
@@ -870,6 +934,8 @@ class ComplexData:
         else:
             self.__cached_mag_ref = ref
             y = np.abs(self.y) * self.scaleFactor / ref
+            # avoid divide by zero issues when converting to decibels
+            y[np.abs(y) < 0.0000001] = 0.0000001
             self.__cached_mag = XYData(self.name, None, self.x, 20 * np.log10(y), colour=colour,
                                        linestyle=linestyle)
         return self.__cached_mag
@@ -890,13 +956,16 @@ class XYData:
         self.__description = description
         self.x = x
         self.y = np.nan_to_num(y)
-        if self.y.size < 8192:
-            new_x = np.linspace(self.x[0], self.x[-1], num=8192, endpoint=True)
+        # TODO consider a variable spacing so we don't go overboard for full range view
+        required_points = math.ceil(self.x[-1]) * 4
+        if self.y.size != required_points:
+            new_x = np.linspace(self.x[0], self.x[-1], num=required_points, endpoint=True)
             cs = CubicSpline(self.x, self.y)
             new_y = cs(new_x)
-            logger.debug(f"Interpolating {name} from {self.y.size} to 8192")
+            logger.debug(f"Interpolating {name} from {self.y.size} to {required_points}")
             self.x = new_x
             self.y = new_y
+        self.__equal_energy_adjusted = None
         self.colour = colour
         self.linestyle = linestyle
         self.miny = np.ma.masked_invalid(y).min()
@@ -952,8 +1021,9 @@ class XYData:
         '''
         if target.name not in self.__normalised_cache:
             logger.debug(f"Normalising {self.name} against {target.name}")
-            self.__normalised_cache[target.name] = XYData(self.__name, self.__description, self.x, self.y - target.y,
-                                                          colour=self.colour,
+            count = min(self.x.size, target.x.size) - 1
+            self.__normalised_cache[target.name] = XYData(self.__name, self.__description, self.x[0:count],
+                                                          self.y[0:count] - target.y[0:count], colour=self.colour,
                                                           linestyle=self.linestyle)
         return self.__normalised_cache[target.name]
 
@@ -977,3 +1047,12 @@ class XYData:
         else:
             return XYData(self.__name, f"{self.__description}-filtered", self.x, self.y + filt.y, colour=self.colour,
                           linestyle='-')
+
+    def with_equal_energy_adjustment(self):
+        ''' returns the equal energy adjusted version of this data. '''
+        if self.__equal_energy_adjusted is None:
+            x = np.linspace(self.x[1], self.x[-1], num=self.x.size)
+            adjustment = np.log10(x) * 10
+            self.__equal_energy_adjusted = XYData(self.__name, self.__description, self.x, self.y + adjustment,
+                                                  colour=self.colour, linestyle=self.linestyle)
+        return self.__equal_energy_adjusted

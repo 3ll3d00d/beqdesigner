@@ -1,0 +1,1423 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>saveReportDialog</class>
+ <widget class="QDialog" name="saveReportDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1530</width>
+    <height>700</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Save Report</string>
+  </property>
+  <layout class="QGridLayout" name="gridLayout_2">
+   <item row="0" column="1">
+    <layout class="QHBoxLayout" name="horizontalLayout" stretch="0,1">
+     <property name="spacing">
+      <number>0</number>
+     </property>
+     <item>
+      <layout class="QVBoxLayout" name="toolboxContainer">
+       <item>
+        <widget class="QToolBox" name="toolBox">
+         <property name="font">
+          <font>
+           <weight>50</weight>
+           <bold>false</bold>
+          </font>
+         </property>
+         <property name="frameShape">
+          <enum>QFrame::NoFrame</enum>
+         </property>
+         <property name="frameShadow">
+          <enum>QFrame::Plain</enum>
+         </property>
+         <property name="currentIndex">
+          <number>0</number>
+         </property>
+         <widget class="QWidget" name="page">
+          <property name="geometry">
+           <rect>
+            <x>0</x>
+            <y>0</y>
+            <width>368</width>
+            <height>342</height>
+           </rect>
+          </property>
+          <attribute name="label">
+           <string>Image</string>
+          </attribute>
+          <layout class="QGridLayout" name="gridLayout_4">
+           <item row="0" column="0">
+            <layout class="QGridLayout" name="gridLayout_3">
+             <item row="6" column="1">
+              <layout class="QHBoxLayout" name="horizontalLayout_6" stretch="1,0,1">
+               <item>
+                <widget class="QSpinBox" name="imageWidthPixels">
+                 <property name="enabled">
+                  <bool>false</bool>
+                 </property>
+                 <property name="minimum">
+                  <number>0</number>
+                 </property>
+                 <property name="maximum">
+                  <number>999999</number>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLabel" name="label_3">
+                 <property name="text">
+                  <string>x</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QSpinBox" name="imageHeightPixels">
+                 <property name="enabled">
+                  <bool>false</bool>
+                 </property>
+                 <property name="minimum">
+                  <number>0</number>
+                 </property>
+                 <property name="maximum">
+                  <number>999999</number>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </item>
+             <item row="0" column="0">
+              <widget class="QLabel" name="imageFileLabel">
+               <property name="text">
+                <string>File</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="2">
+              <widget class="QToolButton" name="imagePicker">
+               <property name="text">
+                <string>...</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="1">
+              <widget class="QLineEdit" name="image">
+               <property name="enabled">
+                <bool>true</bool>
+               </property>
+               <property name="readOnly">
+                <bool>true</bool>
+               </property>
+              </widget>
+             </item>
+             <item row="4" column="0">
+              <widget class="QLabel" name="titleLabel">
+               <property name="text">
+                <string>Title</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="0">
+              <widget class="QLabel" name="imageURLLabel">
+               <property name="text">
+                <string>URL</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="1">
+              <widget class="QLineEdit" name="imageURL"/>
+             </item>
+             <item row="2" column="0">
+              <widget class="QLabel" name="label_4">
+               <property name="text">
+                <string>Native Size</string>
+               </property>
+              </widget>
+             </item>
+             <item row="5" column="0">
+              <widget class="QLabel" name="titleFontSizeLabel">
+               <property name="text">
+                <string>Font Size</string>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="0">
+              <widget class="QLabel" name="imageAlphaLabel">
+               <property name="text">
+                <string>Alpha</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="1">
+              <layout class="QHBoxLayout" name="horizontalLayout_8" stretch="1,0,1">
+               <item>
+                <widget class="QSpinBox" name="nativeImageWidth">
+                 <property name="enabled">
+                  <bool>false</bool>
+                 </property>
+                 <property name="maximum">
+                  <number>99999</number>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLabel" name="label_5">
+                 <property name="text">
+                  <string>x</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QSpinBox" name="nativeImageHeight">
+                 <property name="enabled">
+                  <bool>false</bool>
+                 </property>
+                 <property name="maximum">
+                  <number>99999</number>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </item>
+             <item row="3" column="1">
+              <widget class="QDoubleSpinBox" name="imageOpacity">
+               <property name="decimals">
+                <number>2</number>
+               </property>
+               <property name="minimum">
+                <double>0.010000000000000</double>
+               </property>
+               <property name="maximum">
+                <double>1.000000000000000</double>
+               </property>
+               <property name="singleStep">
+                <double>0.010000000000000</double>
+               </property>
+               <property name="value">
+                <double>1.000000000000000</double>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="2">
+              <widget class="QToolButton" name="loadURL">
+               <property name="text">
+                <string>...</string>
+               </property>
+              </widget>
+             </item>
+             <item row="5" column="1">
+              <widget class="QSpinBox" name="titleFontSize"/>
+             </item>
+             <item row="6" column="0">
+              <widget class="QLabel" name="widthLabel">
+               <property name="text">
+                <string>Actual Size</string>
+               </property>
+              </widget>
+             </item>
+             <item row="4" column="1">
+              <widget class="QLineEdit" name="title"/>
+             </item>
+             <item row="7" column="1">
+              <widget class="QCheckBox" name="imageBorder">
+               <property name="text">
+                <string>Show Border?</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item row="1" column="0">
+            <spacer name="verticalSpacer">
+             <property name="orientation">
+              <enum>Qt::Vertical</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>20</width>
+               <height>40</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+          </layout>
+         </widget>
+         <widget class="QWidget" name="page_2">
+          <property name="geometry">
+           <rect>
+            <x>0</x>
+            <y>0</y>
+            <width>368</width>
+            <height>310</height>
+           </rect>
+          </property>
+          <attribute name="label">
+           <string>Filters</string>
+          </attribute>
+          <layout class="QGridLayout" name="gridLayout_6">
+           <item row="0" column="0">
+            <layout class="QGridLayout" name="gridLayout_5">
+             <item row="5" column="0">
+              <widget class="QLabel" name="tableAlphaLabel">
+               <property name="text">
+                <string>Alpha</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="1">
+              <layout class="QHBoxLayout" name="horizontalLayout_3">
+               <item>
+                <widget class="QDoubleSpinBox" name="x0">
+                 <property name="decimals">
+                  <number>3</number>
+                 </property>
+                 <property name="maximum">
+                  <double>0.999000000000000</double>
+                 </property>
+                 <property name="singleStep">
+                  <double>0.001000000000000</double>
+                 </property>
+                 <property name="value">
+                  <double>0.748000000000000</double>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <spacer name="horizontalSpacer_5">
+                 <property name="orientation">
+                  <enum>Qt::Horizontal</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>40</width>
+                   <height>20</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+               <item>
+                <widget class="QDoubleSpinBox" name="x1">
+                 <property name="decimals">
+                  <number>3</number>
+                 </property>
+                 <property name="maximum">
+                  <double>1.000000000000000</double>
+                 </property>
+                 <property name="singleStep">
+                  <double>0.001000000000000</double>
+                 </property>
+                 <property name="value">
+                  <double>1.000000000000000</double>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </item>
+             <item row="3" column="1">
+              <layout class="QHBoxLayout" name="horizontalLayout_4">
+               <item>
+                <spacer name="horizontalSpacer_4">
+                 <property name="orientation">
+                  <enum>Qt::Horizontal</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>40</width>
+                   <height>20</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+               <item>
+                <widget class="QDoubleSpinBox" name="y0">
+                 <property name="decimals">
+                  <number>3</number>
+                 </property>
+                 <property name="maximum">
+                  <double>0.999000000000000</double>
+                 </property>
+                 <property name="singleStep">
+                  <double>0.001000000000000</double>
+                 </property>
+                 <property name="value">
+                  <double>0.750000000000000</double>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <spacer name="horizontalSpacer_3">
+                 <property name="orientation">
+                  <enum>Qt::Horizontal</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>40</width>
+                   <height>20</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+              </layout>
+             </item>
+             <item row="0" column="0">
+              <widget class="QLabel" name="tableRowHeightLabel">
+               <property name="text">
+                <string>Row Height</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="1">
+              <layout class="QHBoxLayout" name="horizontalLayout_2">
+               <item>
+                <spacer name="horizontalSpacer_2">
+                 <property name="orientation">
+                  <enum>Qt::Horizontal</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>40</width>
+                   <height>20</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+               <item>
+                <widget class="QDoubleSpinBox" name="y1">
+                 <property name="decimals">
+                  <number>3</number>
+                 </property>
+                 <property name="maximum">
+                  <double>1.000000000000000</double>
+                 </property>
+                 <property name="singleStep">
+                  <double>0.001000000000000</double>
+                 </property>
+                 <property name="value">
+                  <double>1.000000000000000</double>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <spacer name="horizontalSpacer">
+                 <property name="orientation">
+                  <enum>Qt::Horizontal</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>40</width>
+                   <height>20</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+              </layout>
+             </item>
+             <item row="0" column="1">
+              <widget class="QDoubleSpinBox" name="filterRowHeightMultiplier">
+               <property name="maximum">
+                <double>3.000000000000000</double>
+               </property>
+               <property name="singleStep">
+                <double>0.010000000000000</double>
+               </property>
+               <property name="value">
+                <double>1.200000000000000</double>
+               </property>
+              </widget>
+             </item>
+             <item row="6" column="0">
+              <widget class="QLabel" name="tableFontSizeLabel">
+               <property name="text">
+                <string>Font Size</string>
+               </property>
+              </widget>
+             </item>
+             <item row="4" column="1">
+              <widget class="QCheckBox" name="showTableHeader">
+               <property name="text">
+                <string>Show Header?</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="0" rowspan="3">
+              <widget class="QLabel" name="tablePositionLabel">
+               <property name="text">
+                <string>Position</string>
+               </property>
+              </widget>
+             </item>
+             <item row="5" column="1">
+              <widget class="QDoubleSpinBox" name="tableAlpha">
+               <property name="minimum">
+                <double>0.010000000000000</double>
+               </property>
+               <property name="maximum">
+                <double>1.000000000000000</double>
+               </property>
+               <property name="singleStep">
+                <double>0.010000000000000</double>
+               </property>
+               <property name="value">
+                <double>1.000000000000000</double>
+               </property>
+              </widget>
+             </item>
+             <item row="6" column="1">
+              <widget class="QSpinBox" name="tableFontSize">
+               <property name="maximum">
+                <number>24</number>
+               </property>
+               <property name="value">
+                <number>10</number>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item row="1" column="0">
+            <spacer name="verticalSpacer_2">
+             <property name="orientation">
+              <enum>Qt::Vertical</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>20</width>
+               <height>40</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+          </layout>
+         </widget>
+         <widget class="QWidget" name="page_3">
+          <property name="geometry">
+           <rect>
+            <x>0</x>
+            <y>0</y>
+            <width>410</width>
+            <height>308</height>
+           </rect>
+          </property>
+          <attribute name="label">
+           <string>Layout</string>
+          </attribute>
+          <layout class="QGridLayout" name="gridLayout_8">
+           <item row="0" column="0">
+            <layout class="QGridLayout" name="gridLayout_7">
+             <item row="5" column="0">
+              <widget class="QLabel" name="label_6">
+               <property name="text">
+                <string>Width Spacing</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="0">
+              <widget class="QLabel" name="majorSplitRatioLabel">
+               <property name="text">
+                <string>Major Ratio</string>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="0">
+              <widget class="QLabel" name="label_7">
+               <property name="text">
+                <string>Layout</string>
+               </property>
+              </widget>
+             </item>
+             <item row="6" column="1">
+              <widget class="QDoubleSpinBox" name="heightSpacing">
+               <property name="maximum">
+                <double>1.000000000000000</double>
+               </property>
+               <property name="singleStep">
+                <double>0.010000000000000</double>
+               </property>
+              </widget>
+             </item>
+             <item row="7" column="0" colspan="3">
+              <spacer name="verticalSpacer_3">
+               <property name="orientation">
+                <enum>Qt::Vertical</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>20</width>
+                 <height>40</height>
+                </size>
+               </property>
+              </spacer>
+             </item>
+             <item row="0" column="1">
+              <widget class="QDoubleSpinBox" name="majorSplitRatio">
+               <property name="decimals">
+                <number>3</number>
+               </property>
+               <property name="minimum">
+                <double>0.100000000000000</double>
+               </property>
+               <property name="maximum">
+                <double>10.000000000000000</double>
+               </property>
+               <property name="singleStep">
+                <double>0.001000000000000</double>
+               </property>
+               <property name="value">
+                <double>1.000000000000000</double>
+               </property>
+              </widget>
+             </item>
+             <item row="5" column="1">
+              <widget class="QDoubleSpinBox" name="widthSpacing">
+               <property name="maximum">
+                <double>1.000000000000000</double>
+               </property>
+               <property name="singleStep">
+                <double>0.010000000000000</double>
+               </property>
+              </widget>
+             </item>
+             <item row="6" column="0">
+              <widget class="QLabel" name="label_8">
+               <property name="text">
+                <string>Height Spacing</string>
+               </property>
+              </widget>
+             </item>
+             <item row="4" column="0">
+              <widget class="QLabel" name="label">
+               <property name="text">
+                <string>Size</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="0">
+              <widget class="QLabel" name="chartSplitLabel">
+               <property name="text">
+                <string>Split</string>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="1">
+              <widget class="QComboBox" name="chartLayout">
+               <property name="currentIndex">
+                <number>0</number>
+               </property>
+               <item>
+                <property name="text">
+                 <string>Image | Chart, Filters</string>
+                </property>
+               </item>
+               <item>
+                <property name="text">
+                 <string>Image | Filters, Chart</string>
+                </property>
+               </item>
+               <item>
+                <property name="text">
+                 <string>Chart | Image, Filter</string>
+                </property>
+               </item>
+               <item>
+                <property name="text">
+                 <string>Chart | Filters, Image</string>
+                </property>
+               </item>
+               <item>
+                <property name="text">
+                 <string>Filters | Image, Chart</string>
+                </property>
+               </item>
+               <item>
+                <property name="text">
+                 <string>Filters | Chart, Image</string>
+                </property>
+               </item>
+               <item>
+                <property name="text">
+                 <string>Image, Filters | Chart</string>
+                </property>
+               </item>
+               <item>
+                <property name="text">
+                 <string>Filters, Image | Chart</string>
+                </property>
+               </item>
+               <item>
+                <property name="text">
+                 <string>Chart, Image | Filters</string>
+                </property>
+               </item>
+               <item>
+                <property name="text">
+                 <string>Image, Chart | Filters</string>
+                </property>
+               </item>
+               <item>
+                <property name="text">
+                 <string>Filters, Chart | Image</string>
+                </property>
+               </item>
+               <item>
+                <property name="text">
+                 <string>Chart, Filters | Image</string>
+                </property>
+               </item>
+               <item>
+                <property name="text">
+                 <string>Chart | Filters</string>
+                </property>
+               </item>
+               <item>
+                <property name="text">
+                 <string>Filters | Chart</string>
+                </property>
+               </item>
+               <item>
+                <property name="text">
+                 <string>Chart | Image</string>
+                </property>
+               </item>
+               <item>
+                <property name="text">
+                 <string>Image | Chart</string>
+                </property>
+               </item>
+               <item>
+                <property name="text">
+                 <string>Pixel Perfect Image | Chart</string>
+                </property>
+               </item>
+              </widget>
+             </item>
+             <item row="2" column="1">
+              <widget class="QComboBox" name="chartSplit">
+               <property name="currentIndex">
+                <number>1</number>
+               </property>
+               <item>
+                <property name="text">
+                 <string>Horizontal</string>
+                </property>
+               </item>
+               <item>
+                <property name="text">
+                 <string>Vertical</string>
+                </property>
+               </item>
+              </widget>
+             </item>
+             <item row="4" column="1">
+              <layout class="QHBoxLayout" name="horizontalLayout_7" stretch="1,0,1">
+               <item>
+                <widget class="QSpinBox" name="widthPixels">
+                 <property name="minimum">
+                  <number>512</number>
+                 </property>
+                 <property name="maximum">
+                  <number>8192</number>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QLabel" name="label_2">
+                 <property name="text">
+                  <string>x</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QSpinBox" name="heightPixels">
+                 <property name="minimum">
+                  <number>512</number>
+                 </property>
+                 <property name="maximum">
+                  <number>8192</number>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </item>
+             <item row="1" column="1">
+              <widget class="QDoubleSpinBox" name="minorSplitRatio">
+               <property name="decimals">
+                <number>3</number>
+               </property>
+               <property name="minimum">
+                <double>0.001000000000000</double>
+               </property>
+               <property name="maximum">
+                <double>10.000000000000000</double>
+               </property>
+               <property name="singleStep">
+                <double>0.001000000000000</double>
+               </property>
+               <property name="value">
+                <double>3.000000000000000</double>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="0">
+              <widget class="QLabel" name="label_9">
+               <property name="text">
+                <string>Minor Ratio</string>
+               </property>
+              </widget>
+             </item>
+             <item row="5" column="2">
+              <widget class="QToolButton" name="snapToImageSize">
+               <property name="text">
+                <string>...</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+          </layout>
+         </widget>
+         <widget class="QWidget" name="page_4">
+          <property name="geometry">
+           <rect>
+            <x>0</x>
+            <y>0</y>
+            <width>410</width>
+            <height>329</height>
+           </rect>
+          </property>
+          <attribute name="label">
+           <string>Chart</string>
+          </attribute>
+          <layout class="QGridLayout" name="gridLayout_10">
+           <item row="0" column="0">
+            <layout class="QGridLayout" name="gridLayout_9" columnstretch="0,0,0" columnminimumwidth="0,0,0">
+             <item row="1" column="1">
+              <widget class="QListWidget" name="curves">
+               <property name="selectionMode">
+                <enum>QAbstractItemView::MultiSelection</enum>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="2">
+              <widget class="QToolButton" name="limitsButton">
+               <property name="text">
+                <string>...</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="0">
+              <widget class="QLabel" name="curvesLabel">
+               <property name="text">
+                <string>Curves</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="0">
+              <widget class="QLabel" name="gridAlphaLabel">
+               <property name="text">
+                <string>Grid Alpha</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="1">
+              <widget class="QDoubleSpinBox" name="gridOpacity">
+               <property name="maximum">
+                <double>1.000000000000000</double>
+               </property>
+               <property name="singleStep">
+                <double>0.010000000000000</double>
+               </property>
+               <property name="value">
+                <double>0.400000000000000</double>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="1">
+              <widget class="QPushButton" name="saveLayout">
+               <property name="text">
+                <string>Save Layout</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="1">
+              <widget class="QCheckBox" name="showLegend">
+               <property name="text">
+                <string>Show Legend?</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+          </layout>
+         </widget>
+        </widget>
+       </item>
+       <item>
+        <spacer name="verticalSpacer_4">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item>
+        <widget class="QDialogButtonBox" name="buttonBox">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+         <property name="standardButtons">
+          <set>QDialogButtonBox::Close|QDialogButtonBox::RestoreDefaults|QDialogButtonBox::Save</set>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <widget class="MplWidget" name="preview"/>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>MplWidget</class>
+   <extends>QGraphicsView</extends>
+   <header>mpl</header>
+  </customwidget>
+ </customwidgets>
+ <tabstops>
+  <tabstop>x0</tabstop>
+  <tabstop>y0</tabstop>
+  <tabstop>x1</tabstop>
+  <tabstop>y1</tabstop>
+  <tabstop>preview</tabstop>
+ </tabstops>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>accepted()</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>accept()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>323</x>
+     <y>684</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>157</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>rejected()</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>reject()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>382</x>
+     <y>684</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>286</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>curves</sender>
+   <signal>itemSelectionChanged()</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>set_selected()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>127</x>
+     <y>57</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>356</x>
+     <y>165</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>widthPixels</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>update_height()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>127</x>
+     <y>57</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>363</x>
+     <y>666</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>showLegend</sender>
+   <signal>clicked()</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>redraw()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>127</x>
+     <y>57</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>361</x>
+     <y>618</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>imagePicker</sender>
+   <signal>clicked()</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>choose_image()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>368</x>
+     <y>89</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>358</x>
+     <y>91</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>title</sender>
+   <signal>textChanged(QString)</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>set_title()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>327</x>
+     <y>227</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>356</x>
+     <y>213</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>majorSplitRatio</sender>
+   <signal>valueChanged(double)</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>redraw_all_axes()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>127</x>
+     <y>57</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>424</x>
+     <y>493</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>chartSplit</sender>
+   <signal>currentIndexChanged(int)</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>redraw_all_axes()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>127</x>
+     <y>57</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>71</x>
+     <y>689</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>limitsButton</sender>
+   <signal>clicked()</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>show_limits()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>127</x>
+     <y>57</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>410</x>
+     <y>450</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>chartSplit</sender>
+   <signal>currentIndexChanged(int)</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>redraw_all_axes()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>127</x>
+     <y>57</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>93</x>
+     <y>717</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>chartLayout</sender>
+   <signal>currentIndexChanged(int)</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>redraw_all_axes()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>127</x>
+     <y>57</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>117</x>
+     <y>731</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>minorSplitRatio</sender>
+   <signal>valueChanged(double)</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>redraw_all_axes()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>127</x>
+     <y>57</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>92</x>
+     <y>647</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>gridOpacity</sender>
+   <signal>valueChanged(double)</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>set_grid_opacity()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>127</x>
+     <y>57</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>419</x>
+     <y>399</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>imageOpacity</sender>
+   <signal>valueChanged(double)</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>set_image_opacity()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>327</x>
+     <y>193</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>423</x>
+     <y>362</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>filterRowHeightMultiplier</sender>
+   <signal>valueChanged(double)</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>replace_table()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>127</x>
+     <y>57</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>436</x>
+     <y>163</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>y0</sender>
+   <signal>valueChanged(double)</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>replace_table()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>127</x>
+     <y>57</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>121</x>
+     <y>343</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>x0</sender>
+   <signal>valueChanged(double)</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>replace_table()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>127</x>
+     <y>57</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>136</x>
+     <y>398</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>y1</sender>
+   <signal>valueChanged(double)</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>replace_table()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>127</x>
+     <y>57</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>426</x>
+     <y>325</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>x1</sender>
+   <signal>valueChanged(double)</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>replace_table()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>127</x>
+     <y>57</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>447</x>
+     <y>387</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>saveLayout</sender>
+   <signal>clicked()</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>save_layout()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>127</x>
+     <y>57</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>73</x>
+     <y>891</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>imageURL</sender>
+   <signal>textChanged(QString)</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>update_image_url()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>300</x>
+     <y>105</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>121</x>
+     <y>41</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>loadURL</sender>
+   <signal>clicked()</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>load_image_from_url()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>368</x>
+     <y>123</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>429</x>
+     <y>114</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>tableAlpha</sender>
+   <signal>valueChanged(double)</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>replace_table()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>127</x>
+     <y>57</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>147</x>
+     <y>440</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>tableFontSize</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>replace_table()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>127</x>
+     <y>57</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>193</x>
+     <y>424</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>showTableHeader</sender>
+   <signal>clicked()</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>replace_table()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>127</x>
+     <y>57</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>120</x>
+     <y>527</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>imageBorder</sender>
+   <signal>clicked()</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>set_image_border()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>277</x>
+     <y>329</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>77</x>
+     <y>300</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>widthSpacing</sender>
+   <signal>valueChanged(double)</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>redraw_all_axes()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>127</x>
+     <y>57</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>426</x>
+     <y>770</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>heightSpacing</sender>
+   <signal>valueChanged(double)</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>redraw_all_axes()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>127</x>
+     <y>57</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>426</x>
+     <y>812</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>snapToImageSize</sender>
+   <signal>clicked()</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>snap_to_image_size()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>127</x>
+     <y>57</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>406</x>
+     <y>842</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>titleFontSize</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>saveReportDialog</receiver>
+   <slot>set_title_size()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>252</x>
+     <y>250</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>229</x>
+     <y>557</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+ <slots>
+  <slot>set_selected()</slot>
+  <slot>update_height()</slot>
+  <slot>redraw()</slot>
+  <slot>choose_image()</slot>
+  <slot>set_title()</slot>
+  <slot>redraw_all_axes()</slot>
+  <slot>set_table_font_size()</slot>
+  <slot>show_limits()</slot>
+  <slot>set_grid_opacity()</slot>
+  <slot>set_image_opacity()</slot>
+  <slot>set_filter_row_height()</slot>
+  <slot>replace_table()</slot>
+  <slot>save_layout()</slot>
+  <slot>update_image_url()</slot>
+  <slot>load_image_from_url()</slot>
+  <slot>set_image_border()</slot>
+  <slot>snap_to_image_size()</slot>
+  <slot>set_title_size()</slot>
+ </slots>
+</ui>

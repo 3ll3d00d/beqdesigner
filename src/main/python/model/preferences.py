@@ -2,6 +2,8 @@ import glob
 import os
 from pathlib import Path
 
+import qtawesome as qta
+import matplotlib
 import matplotlib.style as style
 from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox
 
@@ -9,6 +11,11 @@ from ui.preferences import Ui_preferencesDialog
 
 WINDOWS = ['barthann', 'bartlett', 'blackman', 'blackmanharris', 'bohman', 'boxcar', 'cosine', 'flattop', 'hamming',
            'hann', 'nuttall', 'parzen', 'triang', 'tukey']
+
+SPECTROGRAM_FLAT = 'spectrogram (flat)'
+SPECTROGRAM_CONTOURED = 'spectrogram (contoured)'
+ELLIPSE = 'ellipse'
+POINT = 'point'
 
 SHOW_ALL_FILTERS = 'All'
 SHOW_COMBINED_FILTER = 'Total'
@@ -25,9 +32,19 @@ SHOW_FILTERED_ONLY = 'Filtered'
 SHOW_UNFILTERED_ONLY = 'Unfiltered'
 SHOW_FILTERED_SIGNAL_OPTIONS = [SHOW_ALL_FILTERED_SIGNALS, SHOW_FILTERED_ONLY, SHOW_UNFILTERED_ONLY]
 
+BM_LPF_BEFORE = 'Before'
+BM_LPF_AFTER = 'After'
+BM_LPF_OFF = 'Off'
+BM_LPF_OPTIONS = [BM_LPF_BEFORE, BM_LPF_AFTER, BM_LPF_OFF]
+
 EXTRACTION_OUTPUT_DIR = 'extraction/output_dir'
 EXTRACTION_NOTIFICATION_SOUND = 'extraction/notification_sound'
 EXTRACTION_BATCH_FILTER = 'extraction/batch_filter'
+EXTRACTION_MIX_MONO = 'extraction/mix_to_mono'
+EXTRACTION_DECIMATE = 'extraction/decimate'
+EXTRACTION_INCLUDE_ORIGINAL = 'extraction/include_original'
+EXTRACTION_INCLUDE_SUBTITLES = 'extraction/include_subtitles'
+EXTRACTION_COMPRESS = 'extraction/compress'
 
 ANALYSIS_RESOLUTION = 'analysis/resolution'
 ANALYSIS_TARGET_FS = 'analysis/target_fs'
@@ -35,11 +52,25 @@ ANALYSIS_WINDOW_DEFAULT = 'Default'
 ANALYSIS_AVG_WINDOW = 'analysis/avg_window'
 ANALYSIS_PEAK_WINDOW = 'analysis/peak_window'
 
+AUDIO_ANALYSIS_MARKER_SIZE = 'audio/marker_size'
+AUDIO_ANALYSIS_MARKER_TYPE = 'audio/marker_type'
+AUDIO_ANALYSIS_ELLIPSE_WIDTH = 'audio/ellipse_width'
+AUDIO_ANALYSIS_ELLIPSE_HEIGHT = 'audio/ellipse_height'
+AUDIO_ANALYIS_MIN_FREQ = 'audio/min_freq'
+AUDIO_ANALYIS_MAX_UNFILTERED_FREQ = 'audio/max_unfiltered_freq'
+AUDIO_ANALYIS_MAX_FILTERED_FREQ = 'audio/max_filtered_freq'
+AUDIO_ANALYSIS_COLOUR_MAX = 'audio/colour_max'
+AUDIO_ANALYSIS_COLOUR_MIN = 'audio/colour_min'
+AUDIO_ANALYSIS_SIGNAL_MIN = 'audio/signal_min'
+AUDIO_ANALYSIS_GEOMETRY = 'audio/geometry'
+
 BINARIES_GROUP = 'binaries'
 BINARIES_FFPROBE = f"{BINARIES_GROUP}/ffprobe"
 BINARIES_FFMPEG = f"{BINARIES_GROUP}/ffmpeg"
 
 FILTERS_PRESET_x = 'filters/preset_%d'
+FILTERS_DEFAULT_Q = 'filters/defaults/q'
+FILTERS_DEFAULT_FREQ = 'filters/defaults/freq'
 
 SCREEN_GEOMETRY = 'screen/geometry'
 SCREEN_WINDOW_STATE = 'screen/window_state'
@@ -55,60 +86,197 @@ DISPLAY_FREQ_STEP = 'display/freq_step'
 DISPLAY_Q_STEP = 'display/q_step'
 DISPLAY_S_STEP = 'display/s_step'
 DISPLAY_GAIN_STEP = 'display/gain_step'
+DISPLAY_LINE_STYLE = 'display/line_style'
+DISPLAY_SMOOTH_PRECALC = 'display/precalc_smooth'
 
 GRAPH_X_AXIS_SCALE = 'graph/x_axis'
 GRAPH_X_MIN = 'graph/x_min'
 GRAPH_X_MAX = 'graph/x_max'
 
+REPORT_GROUP = 'report'
+REPORT_TITLE_FONT_SIZE = 'report/title_font_size'
+REPORT_IMAGE_ALPHA = 'report/image/alpha'
+REPORT_IMAGE_WIDTH = 'report/image/width'
+REPORT_IMAGE_HEIGHT = 'report/image/height'
+REPORT_FILTER_ROW_HEIGHT_MULTIPLIER = 'report/filter/row_height'
+REPORT_FILTER_X0 = 'report/filter/x0'
+REPORT_FILTER_X1 = 'report/filter/x1'
+REPORT_FILTER_Y0 = 'report/filter/y0'
+REPORT_FILTER_Y1 = 'report/filter/y1'
+REPORT_FILTER_FONT_SIZE = 'report/filter/font_size'
+REPORT_FILTER_SHOW_HEADER = 'report/filter/show_header'
+REPORT_LAYOUT_MAJOR_RATIO = 'report/layout/major_ratio'
+REPORT_LAYOUT_MINOR_RATIO = 'report/layout/minor_ratio'
+REPORT_LAYOUT_SPLIT_DIRECTION = 'report/layout/split_direction'
+REPORT_LAYOUT_WSPACE = 'report/layout/wspace'
+REPORT_LAYOUT_HSPACE = 'report/layout/hspace'
+REPORT_LAYOUT_TYPE = 'report/layout/type'
+REPORT_CHART_GRID_ALPHA = 'report/chart/grid_alpha'
+REPORT_CHART_SHOW_LEGEND = 'report/chart/show_legend'
+REPORT_CHART_LIMITS_X0 = 'report/chart/limits_x0'
+REPORT_CHART_LIMITS_X1 = 'report/chart/limits_x1'
+REPORT_CHART_LIMITS_Y0 = 'report/chart/limits_y0'
+REPORT_CHART_LIMITS_Y1 = 'report/chart/limits_y1'
+REPORT_CHART_LIMITS_X_SCALE = 'report/chart/limits_x_scale'
+REPORT_GEOMETRY = 'report/geometry'
+
 LOGGING_LEVEL = 'logging/level'
 
+SYSTEM_CHECK_FOR_UPDATES = 'system/check_for_updates'
+
+BEQ_DOWNLOAD_DIR = 'beq/directory'
+
+BIQUAD_EXPORT_FS = 'biquad/fs'
+BIQUAD_EXPORT_MAX = 'biquad/max'
+
+BASS_MANAGEMENT_LPF_FS = 'bm/fs'
+BASS_MANAGEMENT_LPF_POSITION = 'bm/type'
+
 DEFAULT_PREFS = {
-    ANALYSIS_RESOLUTION: 1,
+    ANALYSIS_RESOLUTION: 1.0,
     ANALYSIS_TARGET_FS: 1000,
     ANALYSIS_AVG_WINDOW: ANALYSIS_WINDOW_DEFAULT,
     ANALYSIS_PEAK_WINDOW: ANALYSIS_WINDOW_DEFAULT,
+    AUDIO_ANALYSIS_MARKER_SIZE: 1,
+    AUDIO_ANALYSIS_MARKER_TYPE: POINT,
+    AUDIO_ANALYSIS_ELLIPSE_WIDTH: 3.0,
+    AUDIO_ANALYSIS_ELLIPSE_HEIGHT: 1.0,
+    AUDIO_ANALYIS_MIN_FREQ: 1,
+    AUDIO_ANALYIS_MAX_UNFILTERED_FREQ: 160,
+    AUDIO_ANALYIS_MAX_FILTERED_FREQ: 40,
+    AUDIO_ANALYSIS_COLOUR_MAX: -10,
+    AUDIO_ANALYSIS_COLOUR_MIN: -70,
+    AUDIO_ANALYSIS_SIGNAL_MIN: -70.0,
+    BASS_MANAGEMENT_LPF_FS: 80,
+    BASS_MANAGEMENT_LPF_POSITION: BM_LPF_BEFORE,
+    BEQ_DOWNLOAD_DIR: os.path.join(os.path.expanduser('~'), '.beq'),
+    BIQUAD_EXPORT_FS: '48000',
+    BIQUAD_EXPORT_MAX: 10,
     STYLE_MATPLOTLIB_THEME: STYLE_MATPLOTLIB_THEME_DEFAULT,
     DISPLAY_SHOW_LEGEND: True,
     DISPLAY_SHOW_FILTERS: SHOW_ALL_FILTERS,
-    EXTRACTION_OUTPUT_DIR: os.path.expanduser('~'),
     DISPLAY_FREQ_STEP: '1',
     DISPLAY_Q_STEP: '0.1',
     DISPLAY_S_STEP: '0.1',
     DISPLAY_GAIN_STEP: '0.1',
+    DISPLAY_LINE_STYLE: True,
+    DISPLAY_SMOOTH_PRECALC: False,
+    EXTRACTION_OUTPUT_DIR: os.path.expanduser('~'),
+    EXTRACTION_MIX_MONO: False,
+    EXTRACTION_COMPRESS: False,
+    EXTRACTION_DECIMATE: False,
+    EXTRACTION_INCLUDE_ORIGINAL: False,
+    EXTRACTION_INCLUDE_SUBTITLES: False,
+    FILTERS_DEFAULT_FREQ: 20.0,
+    FILTERS_DEFAULT_Q: 0.707,
     GRAPH_X_AXIS_SCALE: 'log',
     GRAPH_X_MIN: 1,
-    GRAPH_X_MAX: 160
+    GRAPH_X_MAX: 160,
+    REPORT_FILTER_ROW_HEIGHT_MULTIPLIER: 1.2,
+    REPORT_TITLE_FONT_SIZE: 36,
+    REPORT_IMAGE_ALPHA: 1.0,
+    REPORT_FILTER_X0: 0.748,
+    REPORT_FILTER_X1: 1.0,
+    REPORT_FILTER_Y0: 0.75,
+    REPORT_FILTER_Y1: 1.0,
+    REPORT_LAYOUT_MAJOR_RATIO: 1.0,
+    REPORT_LAYOUT_MINOR_RATIO: 2.0,
+    REPORT_LAYOUT_SPLIT_DIRECTION: 'Vertical',
+    REPORT_LAYOUT_TYPE: 'Image | Chart',
+    REPORT_CHART_GRID_ALPHA: 0.5,
+    REPORT_CHART_SHOW_LEGEND: False,
+    REPORT_CHART_LIMITS_X0: 1,
+    REPORT_CHART_LIMITS_X1: 160,
+    REPORT_CHART_LIMITS_X_SCALE: 'linear',
+    REPORT_FILTER_SHOW_HEADER: True,
+    REPORT_FILTER_FONT_SIZE: matplotlib.rcParams['font.size'],
+    REPORT_LAYOUT_HSPACE: matplotlib.rcParams['figure.subplot.hspace'],
+    REPORT_LAYOUT_WSPACE: matplotlib.rcParams['figure.subplot.wspace'],
+    SYSTEM_CHECK_FOR_UPDATES: True,
 }
 
 TYPES = {
-    DISPLAY_SHOW_LEGEND: bool,
+    ANALYSIS_RESOLUTION: float,
     ANALYSIS_TARGET_FS: int,
+    AUDIO_ANALYSIS_MARKER_SIZE: int,
+    AUDIO_ANALYSIS_ELLIPSE_WIDTH: float,
+    AUDIO_ANALYSIS_ELLIPSE_HEIGHT: float,
+    AUDIO_ANALYIS_MIN_FREQ: int,
+    AUDIO_ANALYIS_MAX_UNFILTERED_FREQ: int,
+    AUDIO_ANALYIS_MAX_FILTERED_FREQ: int,
+    AUDIO_ANALYSIS_COLOUR_MAX: int,
+    AUDIO_ANALYSIS_COLOUR_MIN: int,
+    AUDIO_ANALYSIS_SIGNAL_MIN: float,
+    BASS_MANAGEMENT_LPF_FS: int,
+    BIQUAD_EXPORT_MAX: int,
+    DISPLAY_SHOW_LEGEND: bool,
+    DISPLAY_LINE_STYLE: bool,
+    DISPLAY_SMOOTH_PRECALC: bool,
+    EXTRACTION_MIX_MONO: bool,
+    EXTRACTION_COMPRESS: bool,
+    EXTRACTION_DECIMATE: bool,
+    EXTRACTION_INCLUDE_ORIGINAL: bool,
+    EXTRACTION_INCLUDE_SUBTITLES: bool,
+    FILTERS_DEFAULT_FREQ: int,
+    FILTERS_DEFAULT_Q: float,
     GRAPH_X_MIN: int,
-    GRAPH_X_MAX: int
+    GRAPH_X_MAX: int,
+    REPORT_FILTER_ROW_HEIGHT_MULTIPLIER: float,
+    REPORT_TITLE_FONT_SIZE: int,
+    REPORT_IMAGE_ALPHA: float,
+    REPORT_FILTER_X0: float,
+    REPORT_FILTER_X1: float,
+    REPORT_FILTER_Y0: float,
+    REPORT_FILTER_Y1: float,
+    REPORT_LAYOUT_MAJOR_RATIO: float,
+    REPORT_LAYOUT_MINOR_RATIO: float,
+    REPORT_LAYOUT_HSPACE: float,
+    REPORT_LAYOUT_WSPACE: float,
+    REPORT_CHART_GRID_ALPHA: float,
+    REPORT_CHART_SHOW_LEGEND: bool,
+    REPORT_CHART_LIMITS_X0: int,
+    REPORT_CHART_LIMITS_X1: int,
+    REPORT_FILTER_SHOW_HEADER: bool,
+    REPORT_FILTER_FONT_SIZE: int,
+    SYSTEM_CHECK_FOR_UPDATES: bool
 }
 
 COLOUR_INTERVALS = [x / 255 for x in range(36, 250, 24)] + [1.0]
 # keep peak green, avg red and filters cyan
-AVG_COLOURS = [(x, 0.0, 0.0) for x in COLOUR_INTERVALS[::-1]]
-PEAK_COLOURS = [(0.0, x, 0.0) for x in COLOUR_INTERVALS[::-1]]
+AVG_SPECLAB_COLOURS = [(x, 0.0, 0.0) for x in COLOUR_INTERVALS[::-1]]
+PEAK_SPECLAB_COLOURS = [(0.0, x, 0.0) for x in COLOUR_INTERVALS[::-1]]
 FILTER_COLOURS = [(0.0, x, x) for x in COLOUR_INTERVALS[::-1]]
+
+singleton = None
 
 
 def get_avg_colour(idx):
-    return AVG_COLOURS[idx % len(AVG_COLOURS)]
+    if singleton is None or singleton.get(DISPLAY_LINE_STYLE) is True:
+        return AVG_SPECLAB_COLOURS[idx % len(AVG_SPECLAB_COLOURS)]
+    else:
+        colours = matplotlib.rcParams['axes.prop_cycle'].by_key()['color']
+        return colours[idx % len(colours)]
 
 
 def get_peak_colour(idx):
-    return PEAK_COLOURS[idx % len(PEAK_COLOURS)]
+    if singleton is None or singleton.get(DISPLAY_LINE_STYLE) is True:
+        return PEAK_SPECLAB_COLOURS[idx % len(PEAK_SPECLAB_COLOURS)]
+    else:
+        colours = matplotlib.rcParams['axes.prop_cycle'].by_key()['color']
+        return colours[idx % len(colours)]
 
 
 def get_filter_colour(idx):
-    return FILTER_COLOURS[idx % len(FILTER_COLOURS)]
+    colours = matplotlib.rcParams['axes.prop_cycle'].by_key()['color']
+    return colours[idx % len(colours)]
+    # return FILTER_COLOURS[idx % len(FILTER_COLOURS)]
 
 
 class Preferences:
     def __init__(self, settings):
         self.__settings = settings
+        global singleton
+        singleton = self
 
     def has(self, key):
         '''
@@ -155,13 +323,26 @@ class Preferences:
         else:
             self.__settings.setValue(key, value)
 
+    def clear_all(self, prefix):
+        ''' clears all under the given group '''
+        self.__settings.beginGroup(prefix)
+        self.__settings.remove('')
+        self.__settings.endGroup()
+
+    def clear(self, key):
+        '''
+        Removes the stored value.
+        :param key: the key.
+        '''
+        self.set(key, None)
+
 
 class PreferencesDialog(QDialog, Ui_preferencesDialog):
     '''
     Allows user to set some basic preferences.
     '''
 
-    def __init__(self, preferences, style_root, parent=None):
+    def __init__(self, preferences, style_root, main_chart_limits, parent=None):
         super(PreferencesDialog, self).__init__(parent)
         self.__style_root = style_root
         self.setupUi(self)
@@ -169,6 +350,14 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         self.__init_analysis_window(self.peakAnalysisWindow)
         self.__init_themes()
         self.__preferences = preferences
+        self.__main_chart_limits = main_chart_limits
+
+        self.beqDirectoryPicker.setIcon(qta.icon('fa5s.folder-open'))
+        self.defaultOutputDirectoryPicker.setIcon(qta.icon('fa5s.folder-open'))
+        self.ffmpegDirectoryPicker.setIcon(qta.icon('fa5s.folder-open'))
+        self.ffprobeDirectoryPicker.setIcon(qta.icon('fa5s.folder-open'))
+        self.extractCompleteAudioFilePicker.setIcon(qta.icon('fa5s.folder-open'))
+        self.refreshBeq.setIcon(qta.icon('fa5s.sync'))
 
         ffmpegLoc = self.__preferences.get(BINARIES_FFMPEG)
         if ffmpegLoc:
@@ -201,6 +390,26 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         self.freqIsLogScale.setChecked(freq_is_log == 'log')
         self.xmin.setValue(self.__preferences.get(GRAPH_X_MIN))
         self.xmax.setValue(self.__preferences.get(GRAPH_X_MAX))
+
+        self.speclabLineStyle.setChecked(self.__preferences.get(DISPLAY_LINE_STYLE))
+        self.checkForUpdates.setChecked(self.__preferences.get(SYSTEM_CHECK_FOR_UPDATES))
+
+        self.monoMix.setChecked(self.__preferences.get(EXTRACTION_MIX_MONO))
+        self.decimate.setChecked(self.__preferences.get(EXTRACTION_DECIMATE))
+        self.includeOriginal.setChecked(self.__preferences.get(EXTRACTION_INCLUDE_ORIGINAL))
+        self.includeSubtitles.setChecked(self.__preferences.get(EXTRACTION_INCLUDE_SUBTITLES))
+        self.compress.setChecked(self.__preferences.get(EXTRACTION_COMPRESS))
+
+        self.filterQ.setValue(self.__preferences.get(FILTERS_DEFAULT_Q))
+        self.filterFreq.setValue(self.__preferences.get(FILTERS_DEFAULT_FREQ))
+
+        self.beqFiltersDir.setText(self.__preferences.get(BEQ_DOWNLOAD_DIR))
+
+        self.bmlpfFreq.setValue(self.__preferences.get(BASS_MANAGEMENT_LPF_FS))
+
+        self.precalcSmoothing.setChecked(self.__preferences.get(DISPLAY_SMOOTH_PRECALC))
+
+        self.__count_beq_files()
 
     def __init_themes(self):
         '''
@@ -265,19 +474,35 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
             self.alert_on_change('Theme Change')
         self.__preferences.set(STYLE_MATPLOTLIB_THEME, self.themePicker.currentText())
         new_x_scale = 'log' if self.freqIsLogScale.isChecked() else 'linear'
+        update_limits = False
         if self.__preferences.get(GRAPH_X_AXIS_SCALE) != new_x_scale:
-            self.alert_on_change('X Axis Scale Change')
+            update_limits = True
         self.__preferences.set(GRAPH_X_AXIS_SCALE, new_x_scale)
         if self.xmin.value() < self.xmax.value():
             if self.__preferences.get(GRAPH_X_MIN) != self.xmin.value():
-                self.alert_on_change('X Axis Minimum Change')
+                update_limits = True
                 self.__preferences.set(GRAPH_X_MIN, self.xmin.value())
             if self.__preferences.get(GRAPH_X_MAX) != self.xmax.value():
-                self.alert_on_change('X Axis Maximum Change')
+                update_limits = True
                 self.__preferences.set(GRAPH_X_MAX, self.xmax.value())
         else:
             self.alert_on_change('X Axis Invalid', text='Invalid values: x_min must be less than x_max',
                                  icon=QMessageBox.Critical)
+        if update_limits:
+            self.__main_chart_limits.update(x_min=self.xmin.value(), x_max=self.xmax.value(),
+                                            x_scale=new_x_scale, draw=True)
+        self.__preferences.set(SYSTEM_CHECK_FOR_UPDATES, self.checkForUpdates.isChecked())
+        self.__preferences.set(DISPLAY_LINE_STYLE, self.speclabLineStyle.isChecked())
+        self.__preferences.set(EXTRACTION_MIX_MONO, self.monoMix.isChecked())
+        self.__preferences.set(EXTRACTION_DECIMATE, self.decimate.isChecked())
+        self.__preferences.set(EXTRACTION_INCLUDE_ORIGINAL, self.includeOriginal.isChecked())
+        self.__preferences.set(EXTRACTION_INCLUDE_SUBTITLES, self.includeSubtitles.isChecked())
+        self.__preferences.set(EXTRACTION_COMPRESS, self.compress.isChecked())
+        self.__preferences.set(FILTERS_DEFAULT_FREQ, self.filterFreq.value())
+        self.__preferences.set(FILTERS_DEFAULT_Q, self.filterQ.value())
+        self.__preferences.set(BEQ_DOWNLOAD_DIR, self.beqFiltersDir.text())
+        self.__preferences.set(BASS_MANAGEMENT_LPF_FS, self.bmlpfFreq.value())
+        self.__preferences.set(DISPLAY_SMOOTH_PRECALC, self.precalcSmoothing.isChecked())
 
         QDialog.accept(self)
 
@@ -338,3 +563,42 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
                 self.extractCompleteAudioFile.setText('')
         else:
             self.extractCompleteAudioFile.setText('')
+
+    def showBeqDirectoryPicker(self):
+        ''' selects an output directory for the beq files '''
+        dialog = QFileDialog(parent=self)
+        dialog.setFileMode(QFileDialog.DirectoryOnly)
+        dialog.setWindowTitle(f"Select BEQ Files Download Directory")
+        if dialog.exec():
+            selected = dialog.selectedFiles()
+            if len(selected) > 0:
+                self.beqFiltersDir.setText(selected[0])
+                self.__count_beq_files()
+
+    def __count_beq_files(self):
+        if os.path.exists(self.beqFiltersDir.text()):
+            match = len(glob.glob(f"{self.beqFiltersDir.text()}{os.sep}**{os.sep}*.xml", recursive=True))
+            self.beqFiltersCount.setValue(match)
+
+    def updateBeq(self):
+        ''' Pulls or clones the named repository '''
+        from app import wait_cursor
+        with wait_cursor():
+            os.makedirs(self.beqFiltersDir.text(), exist_ok=True)
+            if os.path.exists(os.path.join(self.beqFiltersDir.text(), '.git')):
+                self.__pull_beq()
+            else:
+                self.__clone_beq()
+            self.__count_beq_files()
+
+    def __pull_beq(self):
+        ''' pulls the git repo'''
+        import git
+        repo = git.Repo(self.beqFiltersDir.text())
+        repo.remote('origin').pull()
+
+    def __clone_beq(self):
+        ''' clones the git repo '''
+        import git
+        git.Repo.clone_from('https://github.com/bmiller/miniDSPBEQ.git', self.beqFiltersDir.text())
+

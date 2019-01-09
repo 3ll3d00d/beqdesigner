@@ -11,7 +11,7 @@ from qtpy.QtWidgets import QDialog, QStatusBar, QFileDialog
 
 from model.ffmpeg import Executor, parse_audio_stream, ViewProbeDialog, SIGNAL_CONNECTED, SIGNAL_ERROR, \
     SIGNAL_COMPLETE, SIGNAL_CANCELLED, FFMpegDetailsDialog
-from model.preferences import EXTRACTION_OUTPUT_DIR, EXTRACTION_BATCH_FILTER
+from model.preferences import EXTRACTION_OUTPUT_DIR, EXTRACTION_BATCH_FILTER, ANALYSIS_TARGET_FS
 from ui.batch import Ui_batchExtractDialog
 
 logger = logging.getLogger('batch')
@@ -43,7 +43,7 @@ class BatchExtractDialog(QDialog, Ui_batchExtractDialog):
         filt = self.__preferences.get(EXTRACTION_BATCH_FILTER)
         if filt is not None:
             self.filter.setText(filt)
-        self.outputDirPicker.setIcon(qta.icon('fa.folder-open-o'))
+        self.outputDirPicker.setIcon(qta.icon('fa5s.folder-open'))
         self.statusBar = QStatusBar()
         self.verticalLayout.addWidget(self.statusBar)
         try:
@@ -114,7 +114,7 @@ class BatchExtractDialog(QDialog, Ui_batchExtractDialog):
         Searches for files matching the filter in the input directory.
         '''
         self.filter.setEnabled(False)
-        self.__candidates = ExtractCandidates(self)
+        self.__candidates = ExtractCandidates(self, self.__preferences.get(ANALYSIS_TARGET_FS))
         self.__preferences.set(EXTRACTION_BATCH_FILTER, self.filter.text())
         globs = self.filter.text().split(';')
         job = FileSearch(globs)
@@ -130,7 +130,7 @@ class BatchExtractDialog(QDialog, Ui_batchExtractDialog):
         '''
         self.searchButton.setText('Searching...')
         self.__search_spinner = qta.Spin(self.searchButton)
-        spin_icon = qta.icon('fa.spinner', color='green', animation=self.__search_spinner)
+        spin_icon = qta.icon('fa5s.spinner', color='green', animation=self.__search_spinner)
         self.searchButton.setIcon(spin_icon)
         self.searchButton.blockSignals(True)
 
@@ -154,7 +154,7 @@ class BatchExtractDialog(QDialog, Ui_batchExtractDialog):
             self.resetButton.setEnabled(True)
             self.searchButton.setEnabled(False)
             self.searchButton.setText('Search')
-            self.searchButton.setIcon(qta.icon('fa.check'))
+            self.searchButton.setIcon(qta.icon('fa5s.check'))
             self.__candidates.probe()
         else:
             self.resetButton.setEnabled(False)
@@ -216,12 +216,13 @@ class FileSearch(QRunnable):
 
 class ExtractCandidates:
 
-    def __init__(self, dialog):
+    def __init__(self, dialog, decimate_fs=1000):
         self.__dialog = dialog
         self.__candidates = []
         self.__probed = []
         self.__extracting = False
         self.__extracted = []
+        self.__decimate_fs = decimate_fs
 
     @property
     def is_extracting(self):
@@ -239,7 +240,7 @@ class ExtractCandidates:
         :param candidate: the candidate.
         '''
         extract_candidate = ExtractCandidate(len(self.__candidates), candidate, self.__dialog, self.on_probe_complete,
-                                             self.on_extract_complete)
+                                             self.on_extract_complete, self.__decimate_fs)
         self.__candidates.append(extract_candidate)
         extract_candidate.render()
 
@@ -321,7 +322,7 @@ class ExtractStatus(Enum):
 
 
 class ExtractCandidate:
-    def __init__(self, idx, filename, dialog, on_probe_complete, on_extract_complete):
+    def __init__(self, idx, filename, dialog, on_probe_complete, on_extract_complete, decimate_fs):
         self.__idx = idx
         self.__filename = filename
         self.__dialog = dialog
@@ -331,7 +332,7 @@ class ExtractCandidate:
         self.__on_extract_complete = on_extract_complete
         self.__result = None
         self.__status = ExtractStatus.NEW
-        self.executor = Executor(self.__filename, self.__dialog.outputDir.text())
+        self.executor = Executor(self.__filename, self.__dialog.outputDir.text(), decimate_fs=decimate_fs)
         self.executor.progress_handler = self.__handle_ffmpeg_process
         self.actionButton = None
         self.probeButton = None
@@ -363,7 +364,7 @@ class ExtractCandidate:
         self.probeButton.setAttribute(Qt.WA_DeleteOnClose)
         # self.probeButton.setAlignment(QtCore.Qt.AlignLeading | QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
         self.probeButton.setObjectName(f"probeButton{self.__idx}")
-        self.probeButton.setIcon(qta.icon('fa.info'))
+        self.probeButton.setIcon(qta.icon('fa5s.info'))
         self.probeButton.setEnabled(False)
         self.probeButton.clicked.connect(self.show_probe_detail)
         dialog.resultsLayout.addWidget(self.probeButton, self.__idx + 1, 2, 1, 1)
@@ -399,7 +400,7 @@ class ExtractCandidate:
         self.ffmpegButton.setAttribute(Qt.WA_DeleteOnClose)
         # self.ffmpegButton.setAlignment(QtCore.Qt.AlignLeading | QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
         self.ffmpegButton.setObjectName(f"ffmpegButton{self.__idx}")
-        self.ffmpegButton.setIcon(qta.icon('fa.info'))
+        self.ffmpegButton.setIcon(qta.icon('fa5s.info'))
         self.ffmpegButton.setEnabled(False)
         self.ffmpegButton.clicked.connect(self.show_ffmpeg_cmd)
         dialog.resultsLayout.addWidget(self.ffmpegButton, self.__idx + 1, 7, 1, 1)
@@ -432,11 +433,11 @@ class ExtractCandidate:
     def status(self, status):
         self.__status = status
         if status == ExtractStatus.NEW:
-            self.actionButton.setIcon(qta.icon('fa.check', color='green'))
+            self.actionButton.setIcon(qta.icon('fa5s.check', color='green'))
         elif status == ExtractStatus.IN_PROGRESS:
             self.actionButton.blockSignals(True)
             self.__in_progress_icon = qta.Spin(self.actionButton)
-            self.actionButton.setIcon(qta.icon('fa.spinner', color='blue', animation=self.__in_progress_icon))
+            self.actionButton.setIcon(qta.icon('fa5s.spinner', color='blue', animation=self.__in_progress_icon))
             self.probeButton.setEnabled(False)
             self.input.setEnabled(False)
             self.audioStreams.setEnabled(False)
@@ -444,10 +445,10 @@ class ExtractCandidate:
             self.lfeChannelIndex.setEnabled(False)
             self.outputFilename.setEnabled(False)
         elif status == ExtractStatus.EXCLUDED:
-            self.actionButton.setIcon(qta.icon('fa.times', color='green'))
+            self.actionButton.setIcon(qta.icon('fa5s.times', color='green'))
         elif status == ExtractStatus.PROBED:
             self.actionButton.blockSignals(False)
-            self.actionButton.setIcon(qta.icon('fa.check', color='green'))
+            self.actionButton.setIcon(qta.icon('fa5s.check', color='green'))
             self.probeButton.setEnabled(True)
             self.input.setEnabled(False)
             self.audioStreams.setEnabled(True)
@@ -456,7 +457,7 @@ class ExtractCandidate:
             self.outputFilename.setEnabled(True)
             self.ffmpegButton.setEnabled(True)
         elif status == ExtractStatus.FAILED:
-            self.actionButton.setIcon(qta.icon('fa.exclamation-triangle', color='red'))
+            self.actionButton.setIcon(qta.icon('fa5s.exclamation-triangle', color='red'))
             self.actionButton.blockSignals(True)
             self.probeButton.setEnabled(False)
             self.input.setEnabled(False)
@@ -467,7 +468,7 @@ class ExtractCandidate:
             self.ffmpegProgress.setEnabled(False)
         elif status == ExtractStatus.CANCELLED:
             self.actionButton.blockSignals(True)
-            self.actionButton.setIcon(qta.icon('fa.ban', color='green'))
+            self.actionButton.setIcon(qta.icon('fa5s.ban', color='green'))
             self.probeButton.setEnabled(False)
             self.input.setEnabled(False)
             self.audioStreams.setEnabled(False)
@@ -477,7 +478,7 @@ class ExtractCandidate:
             self.ffmpegProgress.setEnabled(False)
         elif status == ExtractStatus.COMPLETE:
             self.actionButton.blockSignals(True)
-            self.actionButton.setIcon(qta.icon('fa.check', color='green'))
+            self.actionButton.setIcon(qta.icon('fa5s.check', color='green'))
             self.probeButton.setEnabled(False)
             self.input.setEnabled(False)
             self.audioStreams.setEnabled(False)
@@ -585,7 +586,7 @@ class ExtractCandidate:
         Calculates an ffmpeg cmd for the selected options.
         :return:
         '''
-        self.executor.update_spec(self.audioStreams.currentIndex(), self.__dialog.monoMix.isChecked())
+        self.executor.update_spec(self.audioStreams.currentIndex(), -1, self.__dialog.monoMix.isChecked())
         self.lfeChannelIndex.setMaximum(self.executor.channel_count)
         self.lfeChannelIndex.setValue(self.executor.lfe_idx)
         self.channelCount.setMaximum(self.executor.channel_count)

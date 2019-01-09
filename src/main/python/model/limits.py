@@ -3,7 +3,7 @@ import math
 from math import log10
 
 from PyQt5.QtWidgets import QDialog
-from matplotlib.ticker import EngFormatter, Formatter, NullFormatter, LinearLocator
+from matplotlib.ticker import EngFormatter, Formatter, NullFormatter, LinearLocator, MaxNLocator
 from qtpy import QtWidgets
 
 from ui.limits import Ui_graphLayoutDialog
@@ -91,13 +91,12 @@ class Limits:
         self.x_scale = x_scale
         self.x_min = x_lim[0]
         self.x_max = x_lim[1]
-        numticks = 13
-        self.axes_1.yaxis.set_major_locator(LinearLocator(numticks))
+        self.axes_1.yaxis.set_major_locator(MaxNLocator(nbins=12, steps=[1, 2, 4, 5, 10], min_n_ticks=8))
         self.y1_min, self.y1_max = self.__y_range_calculator.calculate((0, 0))
         if axes_2 is not None:
             self.y2_min, self.y2_max = self.__y_range_calculator.calculate((0, 0))
             self.axes_2 = axes_2
-            self.axes_2.yaxis.set_major_locator(LinearLocator(numticks))
+            self.axes_2.yaxis.set_major_locator(MaxNLocator(nbins=12, steps=[1, 2, 4, 5, 10], min_n_ticks=8))
         else:
             self.axes_2 = self.y2_min = self.y2_max = None
         self.propagate_to_axes()
@@ -241,7 +240,7 @@ class LimitsDialog(QDialog, Ui_graphLayoutDialog):
     Provides some basic chart controls.
     '''
 
-    def __init__(self, limits, x_min=1, x_max=500, y1_min=-200, y1_max=200, y2_min=-200, y2_max=200, parent=None):
+    def __init__(self, limits, x_min=1, x_max=24000, y1_min=-200, y1_max=200, y2_min=-200, y2_max=200, parent=None):
         super(LimitsDialog, self).__init__(parent)
         self.setupUi(self)
         self.__limits = limits

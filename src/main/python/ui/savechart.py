@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'saveChart.ui'
+# Form implementation generated from reading ui file 'savechart.ui'
 #
-# Created by: PyQt5 UI code generator 5.9.2
+# Created by: PyQt5 UI code generator 5.11.3
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -45,7 +45,7 @@ class Ui_saveChartDialog(object):
         self.retranslateUi(saveChartDialog)
         self.buttonBox.accepted.connect(saveChartDialog.accept)
         self.buttonBox.rejected.connect(saveChartDialog.reject)
-        self.widthPixels.valueChanged['int'].connect(saveChartDialog.updateHeight)
+        self.widthPixels.valueChanged['int'].connect(saveChartDialog.set_height)
         QtCore.QMetaObject.connectSlotsByName(saveChartDialog)
 
     def retranslateUi(self, saveChartDialog):

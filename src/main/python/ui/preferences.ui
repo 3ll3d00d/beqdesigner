@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>809</width>
-    <height>536</height>
+    <height>776</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -90,6 +90,11 @@
         <widget class="QComboBox" name="targetFs">
          <item>
           <property name="text">
+           <string>250 Hz</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
            <string>500 Hz</string>
           </property>
          </item>
@@ -105,7 +110,12 @@
          </item>
          <item>
           <property name="text">
-           <string>Full Range</string>
+           <string>4000 Hz</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>8000 Hz</string>
           </property>
          </item>
         </widget>
@@ -148,9 +158,12 @@
        </item>
        <item row="1" column="3">
         <widget class="QComboBox" name="resolutionSelect">
+         <property name="currentText">
+          <string>0.25 Hz</string>
+         </property>
          <item>
           <property name="text">
-           <string>1 Hz</string>
+           <string>0.25 Hz</string>
           </property>
          </item>
          <item>
@@ -160,7 +173,17 @@
          </item>
          <item>
           <property name="text">
-           <string>0.25 Hz</string>
+           <string>1.0 Hz</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>2.0 Hz</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>4.0 Hz</string>
           </property>
          </item>
         </widget>
@@ -253,6 +276,45 @@
          </property>
         </widget>
        </item>
+       <item row="3" column="0" colspan="3">
+        <layout class="QHBoxLayout" name="extractOptions">
+         <item>
+          <widget class="QCheckBox" name="monoMix">
+           <property name="text">
+            <string>Mix to mono?</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="decimate">
+           <property name="text">
+            <string>Decimate?</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="includeOriginal">
+           <property name="text">
+            <string>Add Original Audio?</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="compress">
+           <property name="text">
+            <string>Compress Audio?</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="includeSubtitles">
+           <property name="text">
+            <string>Add Subtitles?</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
       </layout>
      </item>
      <item>
@@ -295,10 +357,17 @@
          </property>
         </widget>
        </item>
+       <item row="1" column="2">
+        <widget class="QCheckBox" name="speclabLineStyle">
+         <property name="text">
+          <string>Speclab Line Colours?</string>
+         </property>
+        </widget>
+       </item>
       </layout>
      </item>
      <item>
-      <layout class="QGridLayout" name="graphLayout" columnstretch="0,0,0">
+      <layout class="QGridLayout" name="graphPane" columnstretch="0,0,0">
        <item row="1" column="0">
         <widget class="QCheckBox" name="freqIsLogScale">
          <property name="text">
@@ -331,13 +400,6 @@
          </property>
         </widget>
        </item>
-       <item row="2" column="0">
-        <widget class="QLabel" name="xminmaxLabel">
-         <property name="text">
-          <string>x min/max</string>
-         </property>
-        </widget>
-       </item>
        <item row="2" column="1">
         <widget class="QSpinBox" name="xmin">
          <property name="minimum">
@@ -361,6 +423,216 @@
          </property>
          <property name="value">
           <number>160</number>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="0">
+        <widget class="QLabel" name="xminmaxLabel">
+         <property name="text">
+          <string>x min/max</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QCheckBox" name="precalcSmoothing">
+         <property name="text">
+          <string>Precalculate Octave Smoothing?</string>
+         </property>
+         <property name="checked">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <layout class="QGridLayout" name="filterPane">
+       <item row="1" column="0">
+        <widget class="QLabel" name="filterQLabel">
+         <property name="text">
+          <string>Default Q</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="2">
+        <widget class="QLabel" name="filterFreqLabel">
+         <property name="text">
+          <string>Default Freq</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QDoubleSpinBox" name="filterQ">
+         <property name="decimals">
+          <number>3</number>
+         </property>
+         <property name="minimum">
+          <double>0.001000000000000</double>
+         </property>
+         <property name="singleStep">
+          <double>0.001000000000000</double>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="3">
+        <widget class="QSpinBox" name="filterFreq">
+         <property name="minimum">
+          <number>1</number>
+         </property>
+         <property name="maximum">
+          <number>24000</number>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="5">
+        <widget class="QSpinBox" name="bmlpfFreq">
+         <property name="suffix">
+          <string> Hz</string>
+         </property>
+         <property name="minimum">
+          <number>20</number>
+         </property>
+         <property name="maximum">
+          <number>160</number>
+         </property>
+         <property name="value">
+          <number>80</number>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="4">
+        <widget class="QLabel" name="bmlpfLabel">
+         <property name="text">
+          <string>BM LPF</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="0" colspan="6">
+        <widget class="QLabel" name="filterLayoutLabel">
+         <property name="font">
+          <font>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="frameShape">
+          <enum>QFrame::Box</enum>
+         </property>
+         <property name="frameShadow">
+          <enum>QFrame::Sunken</enum>
+         </property>
+         <property name="text">
+          <string>Filter</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignCenter</set>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <layout class="QGridLayout" name="systemPane">
+       <item row="0" column="0">
+        <widget class="QLabel" name="systemLayoutLabel">
+         <property name="font">
+          <font>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="frameShape">
+          <enum>QFrame::Box</enum>
+         </property>
+         <property name="frameShadow">
+          <enum>QFrame::Sunken</enum>
+         </property>
+         <property name="text">
+          <string>System</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignCenter</set>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="QCheckBox" name="checkForUpdates">
+         <property name="text">
+          <string>Check for Updates on startup?</string>
+         </property>
+         <property name="checked">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <layout class="QGridLayout" name="beqPane">
+       <item row="0" column="0" colspan="6">
+        <widget class="QLabel" name="beqLayoutLabel">
+         <property name="font">
+          <font>
+           <weight>75</weight>
+           <bold>true</bold>
+          </font>
+         </property>
+         <property name="frameShape">
+          <enum>QFrame::Box</enum>
+         </property>
+         <property name="frameShadow">
+          <enum>QFrame::Sunken</enum>
+         </property>
+         <property name="text">
+          <string>BEQ Files</string>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignCenter</set>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QLineEdit" name="beqFiltersDir">
+         <property name="readOnly">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="5">
+        <widget class="QToolButton" name="refreshBeq">
+         <property name="text">
+          <string>...</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="3">
+        <widget class="QLabel" name="filteredLoadedLabel">
+         <property name="text">
+          <string>Filters Loaded</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="4">
+        <widget class="QSpinBox" name="beqFiltersCount">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
+         <property name="maximum">
+          <number>100000</number>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="QLabel" name="beqDirectoryLabel">
+         <property name="text">
+          <string>Directory</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="2">
+        <widget class="QToolButton" name="beqDirectoryPicker">
+         <property name="text">
+          <string>...</string>
          </property>
         </widget>
        </item>
@@ -392,7 +664,6 @@
   <tabstop>themePicker</tabstop>
   <tabstop>freqIsLogScale</tabstop>
   <tabstop>xmin</tabstop>
-  <tabstop>xmax</tabstop>
   <tabstop>ffmpegDirectory</tabstop>
   <tabstop>defaultOutputDirectory</tabstop>
   <tabstop>extractCompleteAudioFile</tabstop>
@@ -407,8 +678,8 @@
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>270</x>
-     <y>422</y>
+     <x>276</x>
+     <y>755</y>
     </hint>
     <hint type="destinationlabel">
      <x>157</x>
@@ -423,8 +694,8 @@
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>338</x>
-     <y>422</y>
+     <x>344</x>
+     <y>755</y>
     </hint>
     <hint type="destinationlabel">
      <x>286</x>
@@ -496,6 +767,38 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>beqDirectoryPicker</sender>
+   <signal>clicked()</signal>
+   <receiver>preferencesDialog</receiver>
+   <slot>showBeqDirectoryPicker()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>566</x>
+     <y>705</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>810</x>
+     <y>624</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>refreshBeq</sender>
+   <signal>clicked()</signal>
+   <receiver>preferencesDialog</receiver>
+   <slot>updateBeq()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>782</x>
+     <y>693</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>809</x>
+     <y>672</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>showFfmpegDirectoryPicker()</slot>
@@ -503,5 +806,7 @@
   <slot>showFfprobeDirectoryPicker()</slot>
   <slot>showDefaultOutputDirectoryPicker()</slot>
   <slot>showExtractCompleteSoundPicker()</slot>
+  <slot>showBeqDirectoryPicker()</slot>
+  <slot>updateBeq()</slot>
  </slots>
 </ui>

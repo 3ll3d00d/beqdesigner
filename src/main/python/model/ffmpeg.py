@@ -1,7 +1,11 @@
 import datetime
 import logging
+import math
 import os
+import platform
 import socketserver
+import tempfile
+import subprocess
 import threading
 import time
 from pathlib import Path
@@ -12,6 +16,7 @@ from qtpy import QtWidgets
 from qtpy.QtCore import Signal, QRunnable, QObject, QThreadPool
 from qtpy.QtWidgets import QDialog, QTreeWidget, QTreeWidgetItem
 
+from model.iir import Passthrough
 from ui.ffmpeg import Ui_ffmpegReportDialog
 
 logger = logging.getLogger('progress')
@@ -24,6 +29,73 @@ SIGNAL_ERROR = 'signal_error'
 SIGNAL_COMPLETE = 'signal_complete'
 SIGNAL_CANCELLED = 'signal_cancel'
 NEXT_PORT = 12000
+
+# copied from https://trac.ffmpeg.org/wiki/AudioChannelManipulation
+
+CHANNEL_LAYOUTS = {
+    'stereo': ['FL', 'FR'],
+    '2.1': ['FL', 'FR', 'LFE'],
+    '3.0': ['FL', 'FR', 'FC'],
+    '3.0(back)': ['FL', 'FR', 'BC'],
+    '4.0': ['FL', 'FR', 'FC', 'BC'],
+    'quad': ['FL', 'FR', 'BL', 'BR'],
+    'quad(side)': ['FL', 'FR', 'SL', 'SR'],
+    '3.1': ['FL', 'FR', 'FC', 'LFE'],
+    '5.0': ['FL', 'FR', 'FC', 'BL', 'BR'],
+    '5.0(side)': ['FL', 'FR', 'FC', 'SL', 'SR'],
+    '4.1': ['FL', 'FR', 'FC', 'LFE', 'BC'],
+    '5.1': ['FL', 'FR', 'FC', 'LFE', 'BL', 'BR'],
+    '5.1(side)': ['FL', 'FR', 'FC', 'LFE', 'SL', 'SR'],
+    '6.0': ['FL', 'FR', 'FC', 'BC', 'SL', 'SR'],
+    '6.0(front)': ['FL', 'FR', 'FLC', 'FRC', 'SL', 'SR'],
+    'hexagonal': ['FL', 'FR', 'FC', 'BL', 'BR', 'BC'],
+    '6.1': ['FL', 'FR', 'FC', 'LFE', 'BC', 'SL', 'SR'],
+    '6.1(back)': ['FL', 'FR', 'FC', 'LFE', 'BL', 'BR', 'BC'],
+    '6.1(front)': ['FL', 'FR', 'LFE', 'FLC', 'FRC', 'SL', 'SR'],
+    '7.0': ['FL', 'FR', 'FC', 'BL', 'BR', 'SL', 'SR'],
+    '7.0(front)': ['FL', 'FR', 'FC', 'FLC', 'FRC', 'SL', 'SR'],
+    '7.1': ['FL', 'FR', 'FC', 'LFE', 'BL', 'BR', 'SL', 'SR'],
+    '7.1(wide)': ['FL', 'FR', 'FC', 'LFE', 'BL', 'BR', 'FLC', 'FRC'],
+    '7.1(wide-side)': ['FL', 'FR', 'FC', 'LFE', 'FLC', 'FRC', 'SL', 'SR'],
+    'octagonal': ['FL', 'FR', 'FC', 'BL', 'BR', 'BC', 'SL', 'SR'],
+    'hexadecagonal': ['FL', 'FR', 'FC', 'BL', 'BR', 'BC', 'SL', 'SR', 'TFL', 'TFC', 'TFR', 'TBL', 'TBC', 'TBR', 'WL',
+                      'WR'],
+    'downmix': ['DL', 'DR']
+}
+
+UNKNOWN_CHANNEL_LAYOUTS = {
+    2: CHANNEL_LAYOUTS['stereo'],
+    3: CHANNEL_LAYOUTS['2.1'],
+    4: CHANNEL_LAYOUTS['3.1'],
+    5: CHANNEL_LAYOUTS['4.1'],
+    6: CHANNEL_LAYOUTS['5.1'],
+    8: CHANNEL_LAYOUTS['7.1']
+}
+
+
+def format_biquad(f):
+    return f.format_biquads(False, separator=':')
+
+
+def get_channel_name(text, channel, channel_count, channel_layout_name='unknown'):
+    '''
+    Appends a named channel to the given name.
+    :param text: the prefix.
+    :param channel: the channel idx (0 based)
+    :param channel_count: the channel count.
+    :param channel_layout_name: the channel layout.
+    :return: the named channel.
+    '''
+    if channel_count == 1:
+        return text
+    else:
+        prefix = f"{text}_" if text is not None else ''
+        if channel_layout_name == 'unknown' and channel_count in UNKNOWN_CHANNEL_LAYOUTS:
+            return f"{prefix}{UNKNOWN_CHANNEL_LAYOUTS[channel_count][channel]}"
+        elif channel_layout_name in CHANNEL_LAYOUTS:
+            return f"{prefix}{CHANNEL_LAYOUTS[channel_layout_name][channel]}"
+        else:
+            return f"{prefix}c{channel + 1}"
 
 
 def get_next_port():
@@ -38,24 +110,68 @@ class Executor:
     Deals with calculating an ffmpeg command for extracting audio from some input file.
     '''
 
-    def __init__(self, file, target_dir):
+    def __init__(self, file, target_dir, mono_mix=True, decimate_audio=True, compress_audio=False,
+                 include_original=False, include_subtitles=False, signal_model=None, decimate_fs=1000):
         self.file = file
         self.__target_dir = target_dir
         self.__probe = None
         self.__audio_stream_data = []
+        self.__video_stream_data = []
+        self.__channel_to_filter = {}
         self.__channel_count = 0
         self.__lfe_idx = 0
         self.__channel_layout_name = None
-        self.__mono_mix = True
+        self.__mono_mix = mono_mix
+        self.__decimate_audio = decimate_audio
+        self.__compress_audio = compress_audio
+        self.__include_original_audio = include_original
+        self.__original_audio_offset = 0.0
+        self.__include_subtitles = include_subtitles
         self.__mono_mix_spec = None
-        self.__selected_stream_idx = 0
+        self.__selected_audio_stream_idx = -1
+        self.__selected_video_stream_idx = -1
         self.__output_file_name = None
+        self.__output_file_name_overridden = False
         self.__ffmpeg_cmd = None
         self.__ffmpeg_cli = None
+        self.__filter_complex_script_content = None
         self.__progress_handler = None
         self.__progress_port = get_next_port()
         self.__extractor = None
         self.__cancel = False
+        self.__sample_rate = None
+        self.__filter_complex_filter = None
+        self.__is_remux = signal_model is not None
+        self.__signal_model = signal_model
+        self.__decimate_fs = int(decimate_fs)
+        self.__start_time_ms = 0
+        self.__end_time_ms = 0
+
+    @property
+    def filter_complex_script_content(self):
+        return self.__filter_complex_script_content
+
+    @property
+    def start_time_ms(self):
+        return self.__start_time_ms
+
+    @start_time_ms.setter
+    def start_time_ms(self, start_time_ms):
+        self.__start_time_ms = start_time_ms
+        self.__calculate_output()
+
+    @property
+    def end_time_ms(self):
+        return self.__end_time_ms
+
+    @end_time_ms.setter
+    def end_time_ms(self, end_time_ms):
+        self.__end_time_ms = end_time_ms
+        self.__calculate_output()
+
+    @property
+    def channel_to_filter(self):
+        return self.__channel_to_filter
 
     @property
     def target_dir(self):
@@ -87,6 +203,10 @@ class Executor:
         return self.__audio_stream_data
 
     @property
+    def video_stream_data(self):
+        return self.__video_stream_data
+
+    @property
     def channel_count(self):
         return self.__channel_count
 
@@ -97,6 +217,51 @@ class Executor:
     @property
     def channel_layout_name(self):
         return self.__channel_layout_name
+
+    @property
+    def decimate_audio(self):
+        return self.__decimate_audio
+
+    @decimate_audio.setter
+    def decimate_audio(self, decimate_audio):
+        self.__decimate_audio = decimate_audio
+        self.__calculate_output()
+
+    @property
+    def compress_audio(self):
+        return self.__compress_audio
+
+    @compress_audio.setter
+    def compress_audio(self, compress_audio):
+        self.__compress_audio = compress_audio
+        self.__calculate_output()
+
+    @property
+    def include_original_audio(self):
+        return self.__include_original_audio
+
+    @include_original_audio.setter
+    def include_original_audio(self, include_original_audio):
+        self.__include_original_audio = include_original_audio
+        self.__calculate_output()
+
+    @property
+    def original_audio_offset(self):
+        return self.__original_audio_offset
+
+    @original_audio_offset.setter
+    def original_audio_offset(self, original_audio_offset):
+        self.__original_audio_offset = original_audio_offset
+        self.__calculate_output()
+
+    @property
+    def include_subtitles(self):
+        return self.__include_subtitles
+
+    @include_subtitles.setter
+    def include_subtitles(self, include_subtitles):
+        self.__include_subtitles = include_subtitles
+        self.__calculate_output()
 
     @property
     def mono_mix(self):
@@ -113,7 +278,7 @@ class Executor:
 
     @property
     def selected_stream_idx(self):
-        return self.__selected_stream_idx
+        return self.__selected_audio_stream_idx
 
     @property
     def output_file_name(self):
@@ -122,11 +287,17 @@ class Executor:
     @output_file_name.setter
     def output_file_name(self, output_file_name):
         self.__output_file_name = output_file_name
+        self.__output_file_name_overridden = True
         self.__calculate_ffmpeg_cmd()
 
     @property
     def ffmpeg_cli(self):
         return self.__ffmpeg_cli
+
+    def map_filter_to_channel(self, channel_idx, signal_name):
+        ''' updates the mapping of the given signal to the specified channel idx '''
+        self.__channel_to_filter[channel_idx] = next((s for s in self.__signal_model if s.name == signal_name), None)
+        self.__calculate_ffmpeg_cmd()
 
     def probe_file(self):
         '''
@@ -136,14 +307,21 @@ class Executor:
         start = time.time()
         self.__probe = ffmpeg.probe(self.file)
         self.__audio_stream_data = [s for s in self.__probe.get('streams', []) if s['codec_type'] == 'audio']
+        self.__video_stream_data = [s for s in self.__probe.get('streams', []) if s['codec_type'] == 'video']
         end = time.time()
-        logger.info(f"Probed {self.file} in {round(end-start, 3)}s")
+        logger.info(f"Probed {self.file} in {round(end - start, 3)}s")
 
     def has_audio(self):
         '''
         :return: True if we have one or more audio streams in the file.
         '''
         return len(self.__audio_stream_data) > 0
+
+    def has_video(self):
+        '''
+        :return: True if we have one or more video streams in the file.
+        '''
+        return len(self.__video_stream_data) > 0
 
     def override(self, channel_layout, channel_count, lfe_idx):
         '''
@@ -159,24 +337,28 @@ class Executor:
             self.__mono_mix_spec = self.__get_no_lfe_mono_mix(channel_count)
         self.__calculate_output()
 
-    def update_spec(self, selected_stream_idx, mono_mix):
+    def update_spec(self, audio_stream_idx, video_stream_idx, mono_mix):
         '''
         Creates a new ffmpeg command for the specified channel layout.
-        :param selected_stream_idx: the stream idx we want to extract.
+        :param audio_stream_idx: the stream idx we want to extract.
+        :param video_stream_idx: the video idx we want to extract, if -1 no video is extracted.
         :param mono_mix: whether to mix to mono
         '''
-        self.__selected_stream_idx = selected_stream_idx
-        selected_stream = self.__audio_stream_data[selected_stream_idx]
+        recalc_signal_mapping = self.__selected_audio_stream_idx != audio_stream_idx and self.__is_remux is True
+        self.__selected_audio_stream_idx = audio_stream_idx
+        self.__selected_video_stream_idx = video_stream_idx
+        selected_audio_stream = self.__audio_stream_data[audio_stream_idx]
         self.__mono_mix = mono_mix
+        self.__sample_rate = selected_audio_stream['sample_rate'] if 'sample_rate' in selected_audio_stream else 48000
         channel_layout = None
         channel_layout_name = None
         mono_mix = None
         channel_count = 0
         lfe_idx = 0
-        if 'channel_layout' in selected_stream:
-            channel_layout = selected_stream['channel_layout']
+        if 'channel_layout' in selected_audio_stream:
+            channel_layout = selected_audio_stream['channel_layout']
         else:
-            channel_count = selected_stream['channels']
+            channel_count = selected_audio_stream['channels']
             if channel_count == 1:
                 channel_layout = 'mono'
             elif channel_count == 2:
@@ -268,6 +450,12 @@ class Executor:
         self.__lfe_idx = lfe_idx
         self.__channel_layout_name = channel_layout_name
         self.__mono_mix_spec = mono_mix
+        if recalc_signal_mapping:
+            self.__channel_to_filter = {}
+            for channel_idx in range(0, self.channel_count):
+                c_name = get_channel_name(None, channel_idx, self.channel_count, self.channel_layout_name)
+                sig = next((x for x in self.__signal_model if x.name.endswith(f"_{c_name}")), None)
+                self.__channel_to_filter[channel_idx] = sig
         self.__calculate_output()
 
     def __calculate_output(self):
@@ -280,33 +468,161 @@ class Executor:
     def __calculate_output_file_name(self):
         '''
         Creates a new output file name based on the currently selected stream
-        :return:
         '''
-        stream_idx = str(self.__selected_stream_idx + 1)
-        channel_layout = self.__channel_layout_name
-        output_file_name = f"{Path(self.file).resolve().stem}_s{stream_idx}_{channel_layout}"
-        if self.__mono_mix is True:
-            output_file_name += '_to_mono'
-        output_file_name += '.wav'
-        self.__output_file_name = output_file_name
+        if self.__output_file_name_overridden is False:
+            stream_idx = str(self.__selected_audio_stream_idx + 1)
+            channel_layout = self.__channel_layout_name
+            output_file_name = f"{Path(self.file).resolve().stem}_s{stream_idx}_{channel_layout}"
+            if self.__mono_mix is True:
+                output_file_name += '_to_mono'
+            self.__output_file_name = output_file_name
+
+    def __write_filter_complex(self):
+        filts = []
+        ch_outs = []
+        audio_input = f"[a:{self.selected_stream_idx}]"
+        for channel_idx in range(0, self.channel_count):
+            c_name = get_channel_name(None, channel_idx, self.channel_count, self.channel_layout_name)
+            sig = self.__channel_to_filter[channel_idx]
+            f_idx = 0
+            # extract a single channel, convert it to dbl sample format
+            # pipe it through each biquad in the matching signal
+            # convert back to 32bit into the original fs and place in a named mono stream
+            #   [0:a]pan=1c|c0=c<channel_num>[<c_name>];[L]aformat=sample_fmts=dbl[Lin];[Lin]biquad=b0=1.00080054343984:b1=-1.99150225042309:b2=0.990752403334702:a0=1.0:a1=-1.99150965346467:a2=0.991545543732965[L1];[L1]biquad=b0=0.999200096917323:b1=-1.98991663875369:b2=0.990752403395918:a0=1.0:a1=-1.98990924163382:a2=0.989959897433105[L2];[L2]aformat=sample_fmts=s32:sample_rates=48000:channel_layouts=mono[Lout];
+            filt = f"{audio_input}pan=1c|c0=c{channel_idx}[{c_name}];"
+            filt += f"[{c_name}]aformat=sample_fmts=dbl[{c_name}_{f_idx}];"
+            if sig is not None:
+                sig_filter = sig.active_filter.resample(int(self.__sample_rate))
+                for f in sig_filter.filters:
+                    for bq in format_biquad(f):
+                        filt += f"[{c_name}_{f_idx}]biquad={bq}[{c_name}_{f_idx + 1}];"
+                        f_idx += 1
+            else:
+                filt += f"[{c_name}_{f_idx}]biquad={format_biquad(Passthrough())[0]}[{c_name}_{f_idx + 1}];"
+                f_idx += 1
+            filt += f"[{c_name}_{f_idx}]aformat=sample_fmts=s32:sample_rates={self.__sample_rate}"
+            filt += f":channel_layouts=mono[{c_name}out]"
+            filts.append(filt)
+            ch_outs.append(f"[{c_name}out]")
+        if self.__mono_mix:
+            # merge the filtered mono streams down into a single mono mix at the usual sample rate
+            merge_filt = "".join(ch_outs)
+            merge_filt += f"amerge=inputs={len(ch_outs)},pan=mono|c0={self.__mono_mix_spec}"
+        else:
+            # merge the filtered mono streams back into a single multichannel stream
+            # [Lout][Rin]amerge=inputs=2,pan=stereo|c0=c0|c1=c1[Wout]
+            merge_filt = "".join(ch_outs)
+            merge_filt += f"amerge=inputs={len(ch_outs)},pan={len(ch_outs)}c"
+            merge_filt += ''.join([f"|c{idx}=c{idx}" for idx, x in enumerate(ch_outs)])
+
+        if self.decimate_audio is True:
+            merge_filt += f"[m0];[m0]aresample={self.__decimate_fs}:resampler=soxr[s0]"
+        else:
+            merge_filt += '[s0]'
+
+        new_filt = f"{';'.join(filts)};{merge_filt}"
+
+        if self.include_original_audio and not math.isclose(self.original_audio_offset, 0.0):
+            new_filt += f";{audio_input}volume=volume={self.original_audio_offset:+g}dB[s1]"
+
+        if self.__filter_complex_script_content is None or self.__filter_complex_script_content != new_filt:
+            self.__filter_complex_script_content = new_filt
+
+            if self.__filter_complex_filter is not None:
+                os.remove(self.__filter_complex_filter.name)
+            self.__filter_complex_filter = tempfile.NamedTemporaryFile(delete=False, suffix='.filt', mode='w')
+
+            print(self.__filter_complex_script_content, file=self.__filter_complex_filter)
+            self.__filter_complex_filter.close()
+        return self.__filter_complex_filter.name.replace('\\', '/')
 
     def __calculate_ffmpeg_cmd(self):
         output_file = self.get_output_path()
-        input_stream = ffmpeg.input(self.file)
-        if self.__mono_mix:
-            self.__ffmpeg_cmd = \
-                input_stream \
-                    .filter('pan', **{'mono|c0': self.__mono_mix_spec}) \
-                    .filter('aresample', '1000', resampler='soxr') \
-                    .output(output_file, acodec='pcm_s24le')
+        if self.__is_remux:
+            self.__calculate_remux_cmd(output_file)
         else:
-            filtered_stream = input_stream[f"{self.__selected_stream_idx+1}"]
-            self.__ffmpeg_cmd = \
-                filtered_stream.filter('aresample', '1000', resampler='soxr').output(output_file, acodec='pcm_s24le')
+            self.__calculate_extract_command(output_file)
+
+    def __calculate_trim_kwargs(self):
+        args = {}
+        if self.start_time_ms > 0:
+            args['ss'] = round(self.start_time_ms / 1000, 3)
+        if self.end_time_ms > 0:
+            args['t'] = round((self.end_time_ms - self.start_time_ms) / 1000, 3)
+        return args
+
+    def __calculate_extract_command(self, output_file):
+        ''' calculates the command required to extract the audio to the specified output file '''
+        input_stream = ffmpeg.input(self.file, **self.__calculate_trim_kwargs())
+        acodec = 'flac' if self.compress_audio else 'pcm_s24le'
+        if self.__mono_mix:
+            self.__ffmpeg_cmd = self.__calculate_extract_mono_cmd(acodec, input_stream, output_file)
+        else:
+            self.__ffmpeg_cmd = self.__calculate_extract_multi_cmd(acodec, input_stream, output_file)
         if self.progress_handler is not None:
-            self.__ffmpeg_cmd = self.__ffmpeg_cmd.global_args('-progress', f"udp://127.0.0.1:{self.__progress_port}")
+            self.__ffmpeg_cmd = self.__ffmpeg_cmd.global_args('-progress',
+                                                              f"udp://127.0.0.1:{self.__progress_port}")
         command_args = self.__ffmpeg_cmd.compile(overwrite_output=True)
-        self.__ffmpeg_cli = ' '.join([s if s == 'ffmpeg' or s.startswith('-') else f"\"{s}\"" for s in command_args])
+        self.__ffmpeg_cli = ' '.join(
+            [s if s == 'ffmpeg' or s.startswith('-') else f"\"{s}\"" for s in command_args])
+
+    def __calculate_extract_multi_cmd(self, acodec, input_stream, output_file):
+        ''' Calculates an ffmpeg-python cmd for extracting multichannel audio from an input stream. '''
+        audio_filter = input_stream[f"a:{self.__selected_audio_stream_idx}"]
+        if self.decimate_audio is True:
+            audio_filter = audio_filter.filter('aresample', str(self.__decimate_fs), resampler='soxr')
+        if self.__selected_video_stream_idx != -1:
+            return ffmpeg.output(input_stream[f"v:{self.__selected_video_stream_idx}"], audio_filter, output_file,
+                                 acodec=acodec, vcodec='copy')
+        else:
+            return audio_filter.output(output_file, acodec=acodec)
+
+    def __calculate_extract_mono_cmd(self, acodec, input_stream, output_file):
+        ''' Calculates an ffmpeg-python cmd for extracting mono (bass managed) audio from an input stream. '''
+        if self.__selected_video_stream_idx != -1:
+            audio_filter = input_stream[f"a:{self.__selected_audio_stream_idx}"].filter('pan', **{'mono|c0': self.__mono_mix_spec})
+            if self.decimate_audio is True:
+                audio_filter = audio_filter.filter('aresample', str(self.__decimate_fs), resampler='soxr')
+            return ffmpeg.output(input_stream[f"v:{self.__selected_video_stream_idx}"], audio_filter, output_file,
+                                 acodec=acodec, vcodec='copy')
+        else:
+            mix = input_stream[f"a:{self.__selected_audio_stream_idx}"].filter('pan', **{'mono|c0': self.__mono_mix_spec})
+            if self.decimate_audio is True:
+                mix = mix.filter('aresample', str(self.__decimate_fs), resampler='soxr')
+            return mix.output(output_file, acodec=acodec)
+
+    def __calculate_remux_cmd(self, output_file):
+        ''' calculates the command filter the audio and remux it back into the output file '''
+        filename = self.file.replace('\\', '/')
+        # TODO only write the filter file when it actually changes
+        exe = ".exe" if platform.system() == 'Windows' else ""
+        self.__ffmpeg_cmd = [f"ffmpeg{exe}"]
+        for key, value in self.__calculate_trim_kwargs().items():
+            self.__ffmpeg_cmd += [f"-{key}", value]
+        self.__ffmpeg_cmd += [
+            '-i', filename,
+            '-filter_complex_script', self.__write_filter_complex()
+        ]
+        if self.__selected_video_stream_idx != -1:
+            self.__ffmpeg_cmd += ['-map', f"0:v:{self.__selected_video_stream_idx}" , '-c:v', 'copy']
+        if self.include_subtitles:
+            self.__ffmpeg_cmd += ['-map', '0:s', '-c:s', 'copy']
+        acodec = 'flac' if self.compress_audio else 'pcm_s24le'
+        if self.include_original_audio:
+            if math.isclose(self.original_audio_offset, 0.0):
+                self.__ffmpeg_cmd += [
+                    '-map',
+                    f"0:a:{self.__selected_audio_stream_idx}",
+                    f"-c:a:{self.__selected_audio_stream_idx}",
+                    'copy'
+                ]
+            else:
+                self.__ffmpeg_cmd += ['-map', '[s1]']
+        self.__ffmpeg_cmd += ['-map', '[s0]', '-acodec',  acodec,  output_file]
+        if self.progress_handler is not None:
+            self.__ffmpeg_cmd += ['-progress', f"udp://127.0.0.1:{self.__progress_port}"]
+        self.__ffmpeg_cmd += ['-y']
+        self.__ffmpeg_cli = ' '.join(self.__ffmpeg_cmd)
 
     def get_output_path(self):
         '''
@@ -316,7 +632,11 @@ class Executor:
             output_file = os.path.join(self.__target_dir, self.__output_file_name)
         else:
             output_file = self.__output_file_name
-        return output_file
+        if self.__selected_video_stream_idx != -1:
+            return f"{output_file}{os.path.splitext(self.file)[1]}"
+        else:
+            audio_ext = 'flac' if self.compress_audio else 'wav'
+            return f"{output_file}.{audio_ext}"
 
     def __get_lfe_mono_mix(self, channels, lfe_idx):
         '''
@@ -345,7 +665,7 @@ class Executor:
         '''
         if self.__ffmpeg_cmd is not None:
             self.__extractor = AudioExtractor(self.__ffmpeg_cmd, port=self.__progress_port, cancel=self.__cancel,
-                                              progress_handler=self.progress_handler)
+                                              progress_handler=self.progress_handler, is_remux=self.__is_remux)
             QThreadPool.globalInstance().start(self.__extractor)
 
     def cancel(self):
@@ -374,9 +694,10 @@ class AudioExtractor(QRunnable):
     Allows audio extraction to be performed outside the main UI thread.
     '''
 
-    def __init__(self, ffmpeg_cmd, port=None, progress_handler=None, cancel=False):
+    def __init__(self, ffmpeg_cmd, port=None, progress_handler=None, cancel=False, is_remux=False):
         super().__init__()
         self.__ffmpeg_cmd = ffmpeg_cmd
+        self.__is_remux = is_remux
         self.__progress_handler = progress_handler
         self.__signals = JobSignals()
         if self.__progress_handler is not None:
@@ -412,7 +733,10 @@ class AudioExtractor(QRunnable):
             start = time.time()
             try:
                 logger.info("Starting ffmpeg command")
-                out, err = self.__ffmpeg_cmd.run(overwrite_output=True, quiet=True)
+                if self.__is_remux:
+                    out, err = self.__execute_ffmpeg()
+                else:
+                    out, err = self.__ffmpeg_cmd.run(overwrite_output=True, quiet=True)
                 end = time.time()
                 elapsed = round(end - start, 3)
                 logger.info(f"Executed ffmpeg command in {elapsed}s")
@@ -428,6 +752,14 @@ class AudioExtractor(QRunnable):
                 self.__signals.on_progress.emit(SIGNAL_ERROR, result)
             finally:
                 self.__stop_socket_server()
+
+    def __execute_ffmpeg(self):
+        p = subprocess.Popen(self.__ffmpeg_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out, err = p.communicate()
+        retcode = p.poll()
+        if retcode:
+            raise ffmpeg.Error('ffmpeg', out, err)
+        return out, err
 
     def __append_out_err(self, err, out, result):
         result += 'STDOUT' + os.linesep + '------' + os.linesep + os.linesep
@@ -593,6 +925,19 @@ class ViewTree(QTreeWidget):
                 new_item(item, str(value))
 
         fill_item(self.invisibleRootItem(), value)
+
+
+def parse_video_stream(probe, video_stream):
+    '''
+    Parses key details from the specified audio stream.
+    :param probe: the probe data.
+    :param video_stream: the stream data.
+    :return: friendly description of the stream
+    '''
+    desc = f"{video_stream['index']}: {video_stream['codec_name']}"
+    if 'height' in video_stream and 'width' in video_stream:
+        desc += f" ({video_stream['width']}x{video_stream['height']})"
+    return desc
 
 
 def parse_audio_stream(probe, audio_stream):

@@ -2,17 +2,38 @@ import json
 
 from model.codec import filter_from_json, signaldata_from_json, signaldata_to_json
 from model.iir import ComplexLowPass, FilterType, ComplexHighPass, Passthrough, PeakingEQ, FirstOrder_LowPass, \
-    FirstOrder_HighPass, SecondOrder_LowPass, SecondOrder_HighPass, AllPass, LowShelf, CompleteFilter, HighShelf
-from model.signal import SignalData
+    FirstOrder_HighPass, SecondOrder_LowPass, SecondOrder_HighPass, AllPass, LowShelf, CompleteFilter, HighShelf, Gain
+from model.signal import SingleChannelSignalData
 
 
 def test_codec_Passthrough():
     filter = Passthrough()
     output = json.dumps(filter.to_json())
-    assert output == '{"_type": "Passthrough"}'
+    assert output == '{"_type": "Passthrough", "fs": 1000}'
     decoded = filter_from_json(json.loads(output))
     assert decoded is not None
     assert isinstance(decoded, Passthrough)
+    assert filter.fs == decoded.fs
+
+def test_codec_Passthrough_with_fs():
+    filter = Passthrough(fs=2000)
+    output = json.dumps(filter.to_json())
+    assert output == '{"_type": "Passthrough", "fs": 2000}'
+    decoded = filter_from_json(json.loads(output))
+    assert decoded is not None
+    assert isinstance(decoded, Passthrough)
+    assert filter.fs == decoded.fs
+
+def test_codec_Gain():
+    filter = Gain(1000, 10.0)
+    output = json.dumps(filter.to_json())
+    assert output == '{"_type": "Gain", "fs": 1000, "gain": 10.0}'
+    decoded = filter_from_json(json.loads(output))
+    assert decoded is not None
+    assert isinstance(decoded, Gain)
+    assert filter.fs == decoded.fs
+    assert filter.gain == decoded.gain
+    assert decoded.getTransferFunction() is not None
 
 
 def test_codec_PeakingEQ():
@@ -224,20 +245,23 @@ def test_codec_signal():
     avg = LowShelf(fs, 30, 1, 10).getTransferFunction().getMagnitude()
     filt = CompleteFilter()
     filt.save(HighShelf(fs, 60, 1, 5, count=2))
-    data = SignalData('test', fs, [avg, peak], filter=filt, duration_hhmmss='01:23:45', start_hhmmss='00:01:10',
-                      end_hhmmss='00:10:20')
+    data = SingleChannelSignalData('test', fs, [avg, peak], filter=filt, duration_seconds=123456, start_seconds=123, offset=4.2)
     output = json.dumps(signaldata_to_json(data))
     assert output is not None
-    decoded = signaldata_from_json(json.loads(output))
+    decoded = signaldata_from_json(json.loads(output), None)
     assert decoded is not None
-    assert isinstance(decoded, SignalData)
+    assert isinstance(decoded, SingleChannelSignalData)
     assert decoded.name == data.name
     assert decoded.fs == data.fs
     assert decoded.filter is not None
-    assert decoded.filter == data.filter
+    assert type(decoded.filter) is type(data.filter)
+    assert decoded.filter.id != -1
+    assert decoded.filter.description == data.filter.description
+    assert decoded.filter.filters == data.filter.filters
     assert decoded.raw is not None
     assert len(decoded.raw) == 2
     assert decoded.raw == data.raw
     assert decoded.duration_hhmmss == data.duration_hhmmss
     assert decoded.start_hhmmss == data.start_hhmmss
     assert decoded.end_hhmmss == data.end_hhmmss
+    assert decoded.offset == data.offset
