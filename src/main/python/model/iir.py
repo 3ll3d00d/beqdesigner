@@ -17,7 +17,7 @@ logger = logging.getLogger('iir')
 import decimal
 
 ctx = decimal.Context()
-ctx.prec = 15
+ctx.prec = 17
 
 COMBINED = 'Combined'
 
