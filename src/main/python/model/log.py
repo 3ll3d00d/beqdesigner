@@ -1,7 +1,8 @@
 import itertools
 import logging
 
-from PyQt5 import QtGui
+from qtpy import QtGui
+from qtpy.QtCore import QObject, Signal
 from qtpy.QtWidgets import QMainWindow
 
 from model.preferences import LOGGING_LEVEL
@@ -62,10 +63,15 @@ class LogViewer(QMainWindow, Ui_logsForm):
         self.logViewer.verticalScrollBar().setValue(self.logViewer.verticalScrollBar().maximum())
 
 
+class MessageSignals(QObject):
+    append_msg = Signal(str, name='append_msg')
+
+
 class RollingLogger(logging.Handler):
     def __init__(self, preferences, size=1000, parent=None):
         super().__init__()
         self.__buffer = RingBuffer(size)
+        self.__signals = MessageSignals()
         self.__visible = False
         self.__logWindow = None
         self.__preferences = preferences
@@ -88,28 +94,27 @@ class RollingLogger(logging.Handler):
     def emit(self, record):
         msg = self.format(record)
         self.__buffer.append(msg)
-        if self.__logWindow is not None:
-            self.__logWindow.appendMsg(msg)
+        self.__signals.append_msg.emit(msg)
 
     def show_logs(self):
         '''
         Creates a new log viewer window.
         '''
-        if self.__logWindow == None:
+        if self.__logWindow is None:
             self.__logWindow = LogViewer(self, len(self.__buffer))
             self.__logWindow.maxRows.setValue(len(self.__buffer))
+            self.__signals.append_msg.connect(self.__logWindow.appendMsg)
             levelIdx = self.__logWindow.logLevel.findText(self.__levelName)
             self.__logWindow.logLevel.setCurrentIndex(levelIdx)
             self.__logWindow.show()
             self.__logWindow.refresh(self.__buffer)
-            logging.info("Opening Log Viewer")
 
     def close_logs(self):
         '''
         Reacts to the closure of the window so we don't keep writing logs to something that doesn't exist.
         '''
         self.__logWindow = None
-        logging.info("Closed Log Viewer")
+        self.__signals.append_msg.disconnect()
 
     def set_size(self, size):
         '''

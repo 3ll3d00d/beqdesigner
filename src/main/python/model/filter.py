@@ -427,7 +427,6 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         :param original_id: the id.
         :return: the filter.
         '''
-        filt = None
         if self.filterType.currentText() == 'Low Pass':
             filt = ComplexLowPass(FilterType[self.passFilterType.currentText().upper().replace('-', '_')],
                                   self.filterOrder.value(), self.__signal.fs, self.freq.value())

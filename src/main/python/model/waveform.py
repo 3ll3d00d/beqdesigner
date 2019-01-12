@@ -243,7 +243,7 @@ class WaveformController:
         if signal_data is not None:
             from app import wait_cursor
             with wait_cursor():
-                signal = signal_data.filter_signal(filt=self.__is_filtered.isChecked, clip=state == Qt.Checked)
+                signal = signal_data.filter_signal(filt=self.__is_filtered.isChecked(), clip=state == Qt.Checked)
                 self.__active_signal = signal
                 self.__waveform_chart_model.signal = signal
                 self.__waveform_chart_model.idx = self.__selector.currentIndex() - 1

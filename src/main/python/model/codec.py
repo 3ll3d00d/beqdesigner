@@ -152,7 +152,10 @@ def filter_from_json(o):
     elif o['_type'] == AllPass.__name__:
         filt = AllPass(o['fs'], o['fc'], o['q'])
     elif o['_type'] == CompleteFilter.__name__:
-        filt = CompleteFilter(filters=[filter_from_json(x) for x in o['filters']], description=o['description'])
+        kwargs = {}
+        if 'fs' in o:
+            kwargs['fs'] = o['fs']
+        filt = CompleteFilter(filters=[filter_from_json(x) for x in o['filters']], description=o['description'], **kwargs)
     elif o['_type'] == ComplexLowPass.__name__:
         filt = ComplexLowPass(FilterType(o['filter_type']), o['order'], o['fs'], o['fc'])
     elif o['_type'] == ComplexHighPass.__name__:
@@ -176,7 +179,10 @@ def xydata_from_json(o):
         raise ValueError(f"{o} is not XYData")
     elif o['_type'] == XYData.__name__:
         x_json = o['x']
-        x_vals = np.linspace(x_json['min'], x_json['max'], num=x_json['count'], dtype=np.float64)
+        if 'count' in x_json:
+            x_vals = np.linspace(x_json['min'], x_json['max'], num=x_json['count'], dtype=np.float64)
+        else:
+            x_vals = np.array(x_json)
         description = o['description'] if 'description' in o else ''
         return XYData(o['name'], description, x_vals, np.array(o['y']), colour=o.get('colour', None),
                       linestyle=o.get('linestyle', '-'))
@@ -192,11 +198,7 @@ def xydata_to_json(data):
         '_type': data.__class__.__name__,
         'name': data.internal_name,
         'description': data.internal_description,
-        'x': {
-            'count': data.x.size,
-            'min': data.x[0],
-            'max': data.x[-1]
-        },
+        'x': np.around(data.x, decimals=6).tolist(),
         'y': np.around(data.y, decimals=6).tolist(),
         'colour': data.colour,
         'linestyle': data.linestyle
@@ -239,24 +241,25 @@ def __extract_filters(file):
     for child in root:
         if child.tag == 'filter':
             if 'name' in child.attrib:
-                inner_filt = None
+                current_filt = None
                 filter_tokens = child.attrib['name'].split('_')
+                (filt_type, filt_channel, filt_slot) = filter_tokens
                 if len(filter_tokens) == 3:
-                    if filter_tokens[0] == 'PEQ':
-                        if filter_tokens[1] not in filts:
-                            filts[filter_tokens[1]] = {}
-                        filt = filts[filter_tokens[1]]
-                        if filter_tokens[2] not in filt:
-                            filt[filter_tokens[2]] = {}
-                        inner_filt = filt[filter_tokens[2]]
+                    if filt_type == 'PEQ':
+                        if filt_channel not in filts:
+                            filts[filt_channel] = {}
+                        filt = filts[filt_channel]
+                        if filt_slot not in filt:
+                            filt[filt_slot] = {}
+                        current_filt = filt[filt_slot]
                         for val in child:
                             if val.tag not in ignore_vals:
-                                inner_filt[val.tag] = val.text
-                if inner_filt is not None:
-                    if 'bypass' in inner_filt and inner_filt['bypass'] == '1':
-                        del filts[filter_tokens[1]]
-                    elif 'boost' in inner_filt and inner_filt['boost'] == '0':
-                        del filts[filter_tokens[1]]
+                                current_filt[val.tag] = val.text
+                if current_filt is not None:
+                    if 'bypass' in current_filt and current_filt['bypass'] == '1':
+                        del filts[filt_channel][filt_slot]
+                    elif 'boost' in current_filt and current_filt['boost'] == '0':
+                        del filts[filt_channel][filt_slot]
     final_filt = None
     # if 1 and 2 are identical then throw one away
     if '1' in filts and '2' in filts:

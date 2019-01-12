@@ -13,7 +13,7 @@ from model.ffmpeg import Executor, ViewProbeDialog, SIGNAL_CONNECTED, SIGNAL_ERR
     get_channel_name, parse_video_stream
 from model.preferences import EXTRACTION_OUTPUT_DIR, EXTRACTION_NOTIFICATION_SOUND, ANALYSIS_TARGET_FS, \
     EXTRACTION_MIX_MONO, EXTRACTION_DECIMATE, EXTRACTION_INCLUDE_ORIGINAL, EXTRACTION_INCLUDE_SUBTITLES, \
-    EXTRACTION_COMPRESS
+    EXTRACTION_COMPRESS, COMPRESS_FORMAT_OPTIONS, COMPRESS_FORMAT_FLAC, COMPRESS_FORMAT_NATIVE, COMPRESS_FORMAT_EAC3
 from model.signal import AutoWavLoader
 from ui.edit_mapping import Ui_editMappingDialog
 from ui.extract import Ui_extractAudioDialog
@@ -29,6 +29,8 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
     def __init__(self, parent, preferences, signal_model, is_remux=False):
         super(ExtractAudioDialog, self).__init__(parent)
         self.setupUi(self)
+        for f in COMPRESS_FORMAT_OPTIONS:
+            self.audioFormat.addItem(f)
         self.showProbeButton.setIcon(qta.icon('fa5s.info'))
         self.showRemuxCommand.setIcon(qta.icon('fa5s.info'))
         self.inputFilePicker.setIcon(qta.icon('fa5s.folder-open'))
@@ -126,14 +128,19 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             self.includeSubtitles.setVisible(False)
             self.gainOffset.setVisible(False)
             self.gainOffsetLabel.setVisible(False)
+        self.eacBitRate.setVisible(False)
         self.monoMix.setChecked(self.__preferences.get(EXTRACTION_MIX_MONO))
         self.decimateAudio.setChecked(self.__preferences.get(EXTRACTION_DECIMATE))
         self.includeOriginalAudio.setChecked(self.__preferences.get(EXTRACTION_INCLUDE_ORIGINAL))
         self.includeSubtitles.setChecked(self.__preferences.get(EXTRACTION_INCLUDE_SUBTITLES))
-        self.compressAudio.setChecked(self.__preferences.get(EXTRACTION_COMPRESS))
+        if self.__preferences.get(EXTRACTION_COMPRESS):
+            self.audioFormat.setCurrentText(COMPRESS_FORMAT_FLAC)
+        else:
+            self.audioFormat.setCurrentText(COMPRESS_FORMAT_NATIVE)
         self.monoMix.setEnabled(False)
         self.decimateAudio.setEnabled(False)
-        self.compressAudio.setEnabled(False)
+        self.audioFormat.setEnabled(False)
+        self.eacBitRate.setEnabled(False)
         self.includeOriginalAudio.setEnabled(False)
         self.includeSubtitles.setEnabled(False)
         self.inputFilePicker.setEnabled(True)
@@ -169,7 +176,8 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         self.__executor = Executor(file_name, self.targetDir.text(),
                                    mono_mix=self.monoMix.isChecked(),
                                    decimate_audio=self.decimateAudio.isChecked(),
-                                   compress_audio=self.compressAudio.isChecked(),
+                                   audio_format=self.audioFormat.currentText(),
+                                   audio_bitrate=self.eacBitRate.value(),
                                    include_original=self.includeOriginalAudio.isChecked(),
                                    include_subtitles=self.includeSubtitles.isChecked(),
                                    signal_model=self.__signal_model if self.__is_remux else None,
@@ -188,6 +196,14 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             for a in self.__executor.video_stream_data:
                 self.videoStreams.addItem(parse_video_stream(self.__executor.probe, a))
             if self.__is_remux and self.videoStreams.count() > 1:
+                if self.audioFormat.findText(COMPRESS_FORMAT_EAC3) == -1:
+                    self.audioFormat.addItem(COMPRESS_FORMAT_EAC3)
+                if self.__preferences.get(EXTRACTION_COMPRESS):
+                    self.audioFormat.setCurrentText(COMPRESS_FORMAT_EAC3)
+                    self.eacBitRate.setVisible(True)
+                else:
+                    self.audioFormat.setCurrentText(COMPRESS_FORMAT_NATIVE)
+                    self.eacBitRate.setVisible(False)
                 self.videoStreams.setCurrentIndex(1)
             self.audioStreams.setEnabled(True)
             self.videoStreams.setEnabled(True)
@@ -195,7 +211,8 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             self.lfeChannelIndex.setEnabled(True)
             self.monoMix.setEnabled(True)
             self.decimateAudio.setEnabled(True)
-            self.compressAudio.setEnabled(True)
+            self.audioFormat.setEnabled(True)
+            self.eacBitRate.setEnabled(True)
             self.includeOriginalAudio.setEnabled(True)
             self.outputFilename.setEnabled(True)
             self.ffmpegCommandLine.setEnabled(True)
@@ -205,6 +222,24 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             self.__fit_options_to_selected()
         else:
             self.statusBar.showMessage(f"{file_name} contains no audio streams!")
+
+    def onVideoStreamChange(self, idx):
+        if idx == 0:
+            eac_idx = self.audioFormat.findText(COMPRESS_FORMAT_EAC3)
+            if eac_idx > -1:
+                self.audioFormat.removeItem(eac_idx)
+            if self.__preferences.get(EXTRACTION_COMPRESS):
+                self.audioFormat.setCurrentText(COMPRESS_FORMAT_FLAC)
+            else:
+                self.audioFormat.setCurrentText(COMPRESS_FORMAT_NATIVE)
+        else:
+            if self.audioFormat.findText(COMPRESS_FORMAT_EAC3) == -1:
+                self.audioFormat.addItem(COMPRESS_FORMAT_EAC3)
+            if self.__preferences.get(EXTRACTION_COMPRESS):
+                self.audioFormat.setCurrentText(COMPRESS_FORMAT_EAC3)
+            else:
+                self.audioFormat.setCurrentText(COMPRESS_FORMAT_NATIVE)
+        self.updateFfmpegSpec()
 
     def updateFfmpegSpec(self):
         '''
@@ -265,12 +300,23 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             self.__executor.decimate_audio = self.decimateAudio.isChecked()
             self.__display_command_info()
 
-    def toggle_compress_audio(self):
+    def change_audio_format(self, audio_format):
         '''
-        Reacts to the change in decimation.
+        Reacts to the change in audio format.
         '''
         if self.audioStreams.count() > 0 and self.__executor is not None:
-            self.__executor.compress_audio = self.compressAudio.isChecked()
+            self.__executor.audio_format = audio_format
+            if audio_format == COMPRESS_FORMAT_EAC3:
+                self.eacBitRate.setVisible(True)
+                self.__executor.audio_bitrate = self.eacBitRate.value()
+            else:
+                self.eacBitRate.setVisible(False)
+            self.__display_command_info()
+
+    def change_audio_bitrate(self, bitrate):
+        ''' Allows the bitrate to be updated '''
+        if self.__executor is not None:
+            self.__executor.audio_bitrate = bitrate
             self.__display_command_info()
 
     def update_original_audio(self):
@@ -450,7 +496,8 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         self.lfeChannelIndex.setEnabled(False)
         self.monoMix.setEnabled(False)
         self.decimateAudio.setEnabled(False)
-        self.compressAudio.setEnabled(False)
+        self.audioFormat.setEnabled(False)
+        self.eacBitRate.setEnabled(False)
         self.includeOriginalAudio.setEnabled(False)
         self.includeSubtitles.setEnabled(False)
         self.targetDirPicker.setEnabled(False)

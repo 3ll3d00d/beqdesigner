@@ -49,6 +49,7 @@ from model.signal import SignalModel, SignalTableModel, SignalDialog, SingleChan
 from ui.beq import Ui_MainWindow
 
 logger = logging.getLogger('beq')
+logging.getLogger('matplotlib').setLevel(logging.WARNING)
 
 
 @contextmanager
@@ -104,9 +105,10 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.actionShow_Logs.triggered.connect(self.logViewer.show_logs)
         self.actionPreferences.triggered.connect(self.showPreferences)
         # init a default signal for when we want to edit a filter without a signal
-        default_mag = Passthrough().getTransferFunction().getMagnitude()
-        self.__default_signal = SingleChannelSignalData('default', self.preferences.get(ANALYSIS_TARGET_FS),
-                                                        [default_mag, default_mag], filter=CompleteFilter())
+        default_mag = Passthrough(fs=self.preferences.get(ANALYSIS_TARGET_FS)).getTransferFunction().getMagnitude()
+        default_fs = self.preferences.get(ANALYSIS_TARGET_FS)
+        self.__default_signal = SingleChannelSignalData('default', default_fs, [default_mag, default_mag],
+                                                        filter=CompleteFilter(fs=default_fs))
         # init the filter view selector
         self.showFilters.blockSignals(True)
         for x in SHOW_FILTER_OPTIONS:
@@ -216,20 +218,23 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         ''' Applies the current smoothing options to the visible signals. '''
         fraction_idx = self.octaveSmoothing.currentIndex()
         if fraction_idx == 0:
-            fraction = 0
+            smooth_type = 0
         else:
-            fraction = int(self.octaveSmoothing.currentText()[2:])
+            try:
+                smooth_type = int(self.octaveSmoothing.currentText()[2:])
+            except:
+                smooth_type = 'SG'
         changed = False
         with wait_cursor():
             if self.smoothAllSignals.isChecked():
                 for s in self.__signal_model:
-                    changed |= s.smooth(fraction)
+                    changed |= s.smooth(smooth_type)
             else:
                 signal_select = self.signalView.selectionModel()
                 if signal_select.hasSelection() and len(signal_select.selectedRows()) == 1:
                     signal_data = self.__signal_model[signal_select.selectedRows()[0].row()]
                     if signal_data.signal is not None:
-                        changed = signal_data.smooth(fraction)
+                        changed = signal_data.smooth(smooth_type)
         if changed:
             self.__magnitude_model.redraw()
             self.signalView.viewport().update()
@@ -482,7 +487,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
     def __apply_filter(self, filter_json):
         from model.codec import filter_from_json
         signal = self.__get_selected_signal()
-        filt = filter_from_json(filter_json)
+        filt = filter_from_json(filter_json).resample(signal.fs)
         signal.filter = filt
         self.__filter_model.filter = filt
 
