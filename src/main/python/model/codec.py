@@ -179,7 +179,10 @@ def xydata_from_json(o):
         raise ValueError(f"{o} is not XYData")
     elif o['_type'] == XYData.__name__:
         x_json = o['x']
-        x_vals = np.linspace(x_json['min'], x_json['max'], num=x_json['count'], dtype=np.float64)
+        if 'count' in x_json:
+            x_vals = np.linspace(x_json['min'], x_json['max'], num=x_json['count'], dtype=np.float64)
+        else:
+            x_vals = np.array(x_json)
         description = o['description'] if 'description' in o else ''
         return XYData(o['name'], description, x_vals, np.array(o['y']), colour=o.get('colour', None),
                       linestyle=o.get('linestyle', '-'))
@@ -195,11 +198,7 @@ def xydata_to_json(data):
         '_type': data.__class__.__name__,
         'name': data.internal_name,
         'description': data.internal_description,
-        'x': {
-            'count': data.x.size,
-            'min': data.x[0],
-            'max': data.x[-1]
-        },
+        'x': np.around(data.x, decimals=6).tolist(),
         'y': np.around(data.y, decimals=6).tolist(),
         'colour': data.colour,
         'linestyle': data.linestyle
