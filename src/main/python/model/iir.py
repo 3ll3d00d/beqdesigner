@@ -662,10 +662,10 @@ class ComplexFilter(Sequence):
     def __init__(self, fs=1000, filters=None, description='Complex', preset_idx=-1, listener=None):
         self.filters = filters if filters is not None else []
         self.description = description
+        self.__fs = fs
         self.id = -1
         self.listener = listener
         self.__on_change()
-        self.__fs = fs
         self.__cached_transfer = None
         self.preset_idx = preset_idx
 
@@ -738,7 +738,7 @@ class ComplexFilter(Sequence):
         '''
         if self.__cached_transfer is None:
             if len(self.filters) == 0:
-                return Passthrough(fs=self.__fs).getTransferFunction()
+                return Passthrough(fs=self.fs).getTransferFunction()
             else:
                 self.__cached_transfer = getCascadeTransferFunction(self.__repr__(),
                                                                     [x.getTransferFunction() for x in self.filters])
