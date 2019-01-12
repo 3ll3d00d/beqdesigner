@@ -1,4 +1,5 @@
 import json
+import os
 
 from model.codec import filter_from_json, signaldata_from_json, signaldata_to_json, minidspxml_to_filt
 from model.iir import ComplexLowPass, FilterType, ComplexHighPass, Passthrough, PeakingEQ, FirstOrder_LowPass, \
@@ -268,7 +269,7 @@ def test_codec_signal():
 
 
 def test_codec_minidsp_xml():
-    filts = minidspxml_to_filt('minidsp.xml')
+    filts = minidspxml_to_filt(os.path.join(os.path.dirname(__file__), 'minidsp.xml'))
     assert filts
     assert len(filts) == 2
     assert type(filts[0]) is PeakingEQ
