@@ -242,24 +242,25 @@ def __extract_filters(file):
     for child in root:
         if child.tag == 'filter':
             if 'name' in child.attrib:
-                inner_filt = None
+                current_filt = None
                 filter_tokens = child.attrib['name'].split('_')
+                (filt_type, filt_channel, filt_slot) = filter_tokens
                 if len(filter_tokens) == 3:
-                    if filter_tokens[0] == 'PEQ':
-                        if filter_tokens[1] not in filts:
-                            filts[filter_tokens[1]] = {}
-                        filt = filts[filter_tokens[1]]
-                        if filter_tokens[2] not in filt:
-                            filt[filter_tokens[2]] = {}
-                        inner_filt = filt[filter_tokens[2]]
+                    if filt_type == 'PEQ':
+                        if filt_channel not in filts:
+                            filts[filt_channel] = {}
+                        filt = filts[filt_channel]
+                        if filt_slot not in filt:
+                            filt[filt_slot] = {}
+                        current_filt = filt[filt_slot]
                         for val in child:
                             if val.tag not in ignore_vals:
-                                inner_filt[val.tag] = val.text
-                if inner_filt is not None:
-                    if 'bypass' in inner_filt and inner_filt['bypass'] == '1':
-                        del filts[filter_tokens[1]]
-                    elif 'boost' in inner_filt and inner_filt['boost'] == '0':
-                        del filts[filter_tokens[1]]
+                                current_filt[val.tag] = val.text
+                if current_filt is not None:
+                    if 'bypass' in current_filt and current_filt['bypass'] == '1':
+                        del filts[filt_channel][filt_slot]
+                    elif 'boost' in current_filt and current_filt['boost'] == '0':
+                        del filts[filt_channel][filt_slot]
     final_filt = None
     # if 1 and 2 are identical then throw one away
     if '1' in filts and '2' in filts:
