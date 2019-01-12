@@ -944,6 +944,9 @@
    <property name="text">
     <string>Add BE&amp;Q Filter</string>
    </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+B</string>
+   </property>
   </action>
   <action name="actionClear_Signals">
    <property name="text">

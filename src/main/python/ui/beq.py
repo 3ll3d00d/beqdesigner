@@ -590,6 +590,7 @@ class Ui_MainWindow(object):
         self.action_Remux_Audio.setText(_translate("MainWindow", "&Remux Audio"))
         self.action_Remux_Audio.setShortcut(_translate("MainWindow", "Ctrl+U"))
         self.actionAdd_BEQ_Filter.setText(_translate("MainWindow", "Add BE&Q Filter"))
+        self.actionAdd_BEQ_Filter.setShortcut(_translate("MainWindow", "Ctrl+Shift+B"))
         self.actionClear_Signals.setText(_translate("MainWindow", "Clear S&ignals"))
         self.action1_1_Smoothing.setText(_translate("MainWindow", "1/&1 Smoothing"))
         self.action1_1_Smoothing.setShortcut(_translate("MainWindow", "Alt+Shift+1"))
