@@ -633,7 +633,7 @@ class Executor:
         exe = ".exe" if platform.system() == 'Windows' else ""
         self.__ffmpeg_cmd = [f"ffmpeg{exe}"]
         for key, value in self.__calculate_trim_kwargs().items():
-            self.__ffmpeg_cmd += [f"-{key}", value]
+            self.__ffmpeg_cmd += [f"-{key}", str(value)]
         self.__ffmpeg_cmd += [
             '-i', filename,
             '-filter_complex_script', self.__write_filter_complex()
