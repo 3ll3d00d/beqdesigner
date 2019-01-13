@@ -474,8 +474,11 @@ class Executor:
         '''
         Translates the current configuration into the output commands.
         '''
+        start = time.time()
         self.__calculate_output_file_name()
         self.__calculate_ffmpeg_cmd()
+        end = time.time()
+        logger.debug(f"Recalculated output in {round(end - start, 3)}s")
 
     def __calculate_output_file_name(self):
         '''
@@ -504,7 +507,7 @@ class Executor:
             filt = f"{audio_input}pan=1c|c0=c{channel_idx}[{c_name}];"
             filt += f"[{c_name}]aformat=sample_fmts=dbl[{c_name}_{f_idx}];"
             if sig is not None:
-                sig_filter = sig.active_filter.resample(int(self.__sample_rate))
+                sig_filter = sig.active_filter.resample(int(self.__sample_rate), copy_listener=False)
                 for f in sig_filter.filters:
                     for bq in format_biquad(f):
                         filt += f"[{c_name}_{f_idx}]biquad={bq}[{c_name}_{f_idx + 1}];"
