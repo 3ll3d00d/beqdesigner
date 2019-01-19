@@ -170,7 +170,7 @@ class WaveformController:
             self.__end_time.setEnabled(True)
             self.__end_time.setMaximumTime(duration)
             self.__end_time.setTime(duration)
-            self.toggle_filter(self.__is_filtered.isChecked())
+            self.toggle_filter(Qt.Checked if self.__is_filtered.isChecked() else Qt.Unchecked)
 
     def __load_signal(self):
         signal_name = self.__selector.currentText()
