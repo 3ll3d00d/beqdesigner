@@ -102,13 +102,18 @@ class WaveformController:
         with block_signals(self.__selector):
             self.__selector.clear()
             self.__selector.addItem('  ')
-            for s in self.__signal_model:
+            for bm in self.__signal_model.bass_managed_signals:
+                self.__selector.addItem(f"(BM) {bm.name}")
+                for c in bm.channels:
+                    if c.signal is not None:
+                        self.__selector.addItem(c.name)
+                    else:
+                        self.__selector.addItem(f"-- {c.name}")
+            for s in self.__signal_model.non_bm_signals:
                 if s.signal is not None:
                     self.__selector.addItem(s.name)
                 else:
                     self.__selector.addItem(f"-- {s.name}")
-            for bm in self.__signal_model.bass_managed_signals:
-                self.__selector.addItem(f"(BM) {bm.name}")
             idx = self.__selector.findText(currently_selected)
             if idx > -1:
                 self.__selector.setCurrentIndex(idx)

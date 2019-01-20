@@ -435,11 +435,11 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         def parser(file_name):
             with gzip.open(file_name, 'r') as infile:
                 return json.loads(infile.read().decode('utf-8'))
-
         input = self.__load('*.signal', 'Load Signal', parser)
         if input is not None:
-            from model.codec import signaldata_from_json
-            self.__signal_model.add(signaldata_from_json(input, self.preferences))
+            with (wait_cursor()):
+                from model.codec import signaldata_from_json
+                self.__signal_model.add(signaldata_from_json(input, self.preferences))
 
     def on_signal_selected(self):
         '''
@@ -734,12 +734,12 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         def parser(file_name):
             with gzip.open(file_name, 'r') as infile:
                 return json.loads(infile.read().decode('utf-8'))
-
         input = self.__load('*.beq', 'Load Project', parser)
         if input is not None:
-            from model.codec import signalmodel_from_json
-            self.__signal_model.replace(signalmodel_from_json(input, self.preferences))
-            self.__magnitude_model.redraw()
+            with (wait_cursor()):
+                from model.codec import signalmodel_from_json
+                self.__signal_model.replace(signalmodel_from_json(input, self.preferences))
+                self.__magnitude_model.redraw()
 
     def normaliseSignalMagnitude(self):
         '''

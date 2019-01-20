@@ -21,6 +21,7 @@ pytest-cov = "*"
 sortedcontainers = "*"
 pillow = "*"
 requests = "*"
+semver = "*"
 
 [dev-packages]
 

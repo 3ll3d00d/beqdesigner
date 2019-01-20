@@ -17,7 +17,7 @@ from qtpy.QtWidgets import QDialog, QFileDialog, QDialogButtonBox, QStatusBar
 from scipy import signal
 from sortedcontainers import SortedDict
 
-from model.codec import signaldata_to_json
+from model.codec import signaldata_to_json, bassmanagedsignaldata_to_json
 from model.iir import XYData, CompleteFilter, ComplexLowPass, FilterType
 from model.magnitude import MagnitudeModel
 from model.preferences import get_avg_colour, get_peak_colour, SHOW_PEAK, \
@@ -418,6 +418,10 @@ class BassManagedSignalData(SignalData):
         self.__lpf_position = bm_lpf_position
 
     @property
+    def bm_lpf_fs(self):
+        return self.__lpf_fs
+
+    @property
     def bm_headroom(self):
         return self.__headroom
 
@@ -531,6 +535,10 @@ class SignalModel(Sequence):
     def bass_managed_signals(self):
         return self.__bass_managed_signals
 
+    @property
+    def non_bm_signals(self):
+        return [s for s in self.__signals if not self.__is_bass_managed(s)]
+
     @table.setter
     def table(self, table):
         self.__table = table
@@ -545,7 +553,22 @@ class SignalModel(Sequence):
         '''
         :return: a json compatible format of the data in the model.
         '''
-        return [signaldata_to_json(x) for x in self.__signals]
+        json = [bassmanagedsignaldata_to_json(x) for x in self.__bass_managed_signals]
+        json += [signaldata_to_json(x) for x in self.__signals if not self.__is_bass_managed(x)]
+        return json
+
+    def __is_bass_managed(self, signal):
+        '''
+        :param signal: the signal.
+        :return: true if this signal is found in a bass managed signal.
+        '''
+        is_bm = False
+        for bm in self.__bass_managed_signals:
+            for c in bm.channels:
+                if c is signal:
+                    is_bm = True
+                    break
+        return is_bm
 
     def free_all(self):
         '''
@@ -704,7 +727,11 @@ class SignalModel(Sequence):
         '''
         if self.__table is not None:
             self.__table.beginResetModel()
-        self.__signals = signals
+        self.__bass_managed_signals = [s for s in signals if isinstance(s, BassManagedSignalData)]
+        sigs = [s for s in signals if isinstance(s, SingleChannelSignalData)]
+        for b in self.__bass_managed_signals:
+            sigs += b.channels
+        self.__signals = sigs
         for idx, s in enumerate(self.__signals):
             if self.__preferences.get(DISPLAY_SMOOTH_PRECALC):
                 QThreadPool.globalInstance().start(Smoother(s))

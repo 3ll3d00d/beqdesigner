@@ -1,5 +1,4 @@
 import logging
-import math
 import os
 from uuid import uuid4
 
@@ -8,6 +7,30 @@ import numpy as np
 from model.iir import Gain
 
 logger = logging.getLogger('codec')
+
+
+def bassmanagedsignaldata_to_json(signal):
+    '''
+    Converts the bass managed signal to a json compatible format.
+    :param signal: the signal.
+    :return: a dict to write to json.
+    '''
+    out = {
+        '_type': signal.__class__.__name__,
+        'name': signal.name,
+        'channels': [signaldata_to_json(x) for x in signal.channels],
+        'bm': {
+            'lpf_fs': signal.bm_lpf_fs,
+            'lpf_position': signal.bm_lpf_position,
+            'headroom_type': signal.bm_headroom_type
+        },
+        'clip': {
+            'before': signal.clip_before,
+            'after': signal.clip_after
+        },
+        'offset': f"{signal.offset:g}"
+    }
+    return out
 
 
 def signaldata_to_json(signal):
@@ -48,21 +71,34 @@ def signalmodel_from_json(input, preferences):
     :return: the signals
     '''
     signals = [signaldata_from_json(x, preferences) for x in input]
+    from model.signal import SingleChannelSignalData, BassManagedSignalData
+    single_signals = [x for x in signals if isinstance(x, SingleChannelSignalData)]
+    bm_channels = [y for x in signals if isinstance(x, BassManagedSignalData) for y in x.channels]
+    channels = single_signals + bm_channels
     for x in input:
-        if 'slave_names' in x:
-            master_name = x['name']
-            logger.debug(f"Reassembling slaves for {master_name}")
-            master = next((s for s in signals if s.name == master_name), None)
-            if master is not None:
-                for slave_name in x['slave_names']:
-                    slave = next((s for s in signals if s.name == slave_name), None)
-                    if slave is not None:
-                        master.enslave(slave)
-                    else:
-                        logger.error(f"Bad json encountered, slave not decoded ({master_name} -> {slave_name})")
-            else:
-                logger.error(f"Bad json encountered, master {master_name} not decoded")
+        if x['_type'] == BassManagedSignalData.__name__:
+            for signal_json in x['channels']:
+                if 'slave_names' in signal_json:
+                    __link_master_slave(channels, signal_json)
+        else:
+            if 'slave_names' in x:
+                __link_master_slave(channels, x)
     return signals
+
+
+def __link_master_slave(channels, signal_json):
+    master_name = signal_json['name']
+    logger.debug(f"Reassembling slaves for {master_name}")
+    master = next((s for s in channels if s.name == master_name), None)
+    if master is not None:
+        for slave_name in signal_json['slave_names']:
+            slave = next((s for s in channels if s.name == slave_name), None)
+            if slave is not None:
+                master.enslave(slave)
+            else:
+                logger.error(f"Bad json encountered, slave not decoded ({master_name} -> {slave_name})")
+    else:
+        logger.error(f"Bad json encountered, master {master_name} not decoded")
 
 
 def signaldata_from_json(o, preferences):
@@ -71,9 +107,19 @@ def signaldata_from_json(o, preferences):
     :param o: the dict (from json).
     :return: the SignalData (or an error)
     '''
-    from model.signal import SingleChannelSignalData
+    from model.signal import SingleChannelSignalData, BassManagedSignalData
     if '_type' not in o:
         raise ValueError(f"{o} is not SignalData")
+    elif o['_type'] == BassManagedSignalData.__name__:
+        channels = [signaldata_from_json(c, preferences) for c in o['channels']]
+        lpf_fs = float(o['bm']['lpf_fs'])
+        lpf_position = o['bm']['lpf_position']
+        offset = float(o['offset'])
+        bmsd = BassManagedSignalData(channels, lpf_fs, lpf_position, preferences, offset=offset)
+        bmsd.bm_headroom_type = o['bm']['headroom_type']
+        bmsd.clip_before = o['clip']['before']
+        bmsd.clip_after = o['clip']['after']
+        return bmsd
     elif o['_type'] == SingleChannelSignalData.__name__ or o['_type'] == 'SignalData':
         filt = o.get('filter', None)
         if filt is not None:
