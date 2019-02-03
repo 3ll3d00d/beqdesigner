@@ -600,12 +600,11 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
 
     def __pull_beq(self):
         ''' pulls the git repo'''
-        import git
-        repo = git.Repo(self.beqFiltersDir.text())
-        repo.remote('origin').pull()
+        from dulwich import porcelain
+        porcelain.fetch(self.beqFiltersDir.text(), 'https://github.com/bmiller/miniDSPBEQ.git')
+        porcelain.pull(self.beqFiltersDir.text(), 'https://github.com/bmiller/miniDSPBEQ.git')
 
     def __clone_beq(self):
         ''' clones the git repo '''
-        import git
-        git.Repo.clone_from('https://github.com/bmiller/miniDSPBEQ.git', self.beqFiltersDir.text())
-
+        from dulwich import porcelain
+        porcelain.clone('https://github.com/bmiller/miniDSPBEQ.git', self.beqFiltersDir.text(), checkout=True)
