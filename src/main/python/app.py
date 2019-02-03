@@ -686,7 +686,8 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Show the remux audio dialog.
         '''
-        ExtractAudioDialog(self, self.preferences, self.__signal_model, is_remux=True).show()
+        ExtractAudioDialog(self, self.preferences, self.__signal_model,
+                           default_signal=self.__default_signal, is_remux=True).show()
 
     def showBatchExtractDialog(self):
         '''

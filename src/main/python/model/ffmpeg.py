@@ -306,9 +306,9 @@ class Executor:
     def ffmpeg_cli(self):
         return self.__ffmpeg_cli
 
-    def map_filter_to_channel(self, channel_idx, signal_name):
+    def map_filter_to_channel(self, channel_idx, signal):
         ''' updates the mapping of the given signal to the specified channel idx '''
-        self.__channel_to_filter[channel_idx] = next((s for s in self.__signal_model if s.name == signal_name), None)
+        self.__channel_to_filter[channel_idx] = signal
         self.__calculate_ffmpeg_cmd()
 
     def probe_file(self):

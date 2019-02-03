@@ -26,7 +26,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
     Allows user to load a signal, processing it if necessary.
     '''
 
-    def __init__(self, parent, preferences, signal_model, is_remux=False):
+    def __init__(self, parent, preferences, signal_model, default_signal=None, is_remux=False):
         super(ExtractAudioDialog, self).__init__(parent)
         self.setupUi(self)
         for f in COMPRESS_FORMAT_OPTIONS:
@@ -41,6 +41,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         self.boxLayout.addWidget(self.statusBar)
         self.__preferences = preferences
         self.__signal_model = signal_model
+        self.__default_signal = default_signal
         self.__executor = None
         self.__sound = None
         self.__extracted = False
@@ -70,16 +71,16 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
 
     def show_mapping_dialog(self, item):
         ''' Shows the edit mapping dialog '''
-        if len(self.__signal_model) > 0:
+        if len(self.__signal_model) > 0 or self.__default_signal is not None:
             channel_idx = self.filterMapping.indexFromItem(item).row()
             mapped_filter = self.__executor.channel_to_filter.get(channel_idx, None)
-            EditMappingDialog(self, channel_idx, self.__signal_model, mapped_filter, self.filterMapping.count(),
-                              self.map_filter_to_channel).exec()
+            EditMappingDialog(self, channel_idx, self.__signal_model, self.__default_signal,
+                              mapped_filter, self.filterMapping.count(), self.map_filter_to_channel).exec()
 
-    def map_filter_to_channel(self, channel_idx, signal_name):
+    def map_filter_to_channel(self, channel_idx, signal):
         ''' updates the mapping of the given signal to the specified channel idx '''
         if self.audioStreams.count() > 0 and self.__executor is not None:
-            self.__executor.map_filter_to_channel(channel_idx, signal_name)
+            self.__executor.map_filter_to_channel(channel_idx, signal)
             self.__display_command_info()
 
     def selectFile(self):
@@ -567,26 +568,35 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
 class EditMappingDialog(QDialog, Ui_editMappingDialog):
     ''' Allows the user to override the signal to channel mapping '''
 
-    def __init__(self, parent, channel_idx, signal_model, selected_signal, channel_count, on_change_handler):
+    def __init__(self, parent, channel_idx, signal_model, default_signal, selected_signal, channel_count, on_change_handler):
         super(EditMappingDialog, self).__init__(parent)
         self.setupUi(self)
+        self.__signal_model = signal_model
+        self.__default_signal = default_signal
         self.channel_idx = channel_idx
         self.channelIdx.setText(str(channel_idx + 1))
         self.signal.addItem('Passthrough')
         self.channel_count = channel_count
-        for idx, s in enumerate(signal_model):
-            self.signal.addItem(s.name)
+        if len(signal_model) > 0:
+            for idx, s in enumerate(signal_model):
+                self.signal.addItem(s.name)
+        elif default_signal is not None:
+            self.signal.addItem(default_signal.name)
         if selected_signal is not None:
             self.signal.setCurrentText(selected_signal.name)
         self.on_change_handler = on_change_handler
 
     def accept(self):
-        filt = None if self.signal.currentText() == 'Passthrough' else self.signal.currentText()
+        signal_name = None if self.signal.currentText() == 'Passthrough' else self.signal.currentText()
+        if len(self.__signal_model) > 0:
+            signal = next((s for s in self.__signal_model if s.name == signal_name), None)
+        elif self.__default_signal is not None:
+            signal = self.__default_signal if signal_name == self.__default_signal.name else None
         if self.applyToAll.isChecked():
             for idx in range(0, self.channel_count):
-                self.on_change_handler(idx, filt)
+                self.on_change_handler(idx, signal)
         else:
-            self.on_change_handler(self.channel_idx, filt)
+            self.on_change_handler(self.channel_idx, signal)
         super().accept()
 
 
