@@ -791,7 +791,7 @@ class Signal:
 
     def __init__(self, name, samples, preferences, fs=48000, metadata=None):
         self.__preferences = preferences
-        self.name = name
+        self.__name = name
         self.samples = samples
         self.fs = fs
         self.duration_seconds = self.samples.size / self.fs
@@ -804,6 +804,17 @@ class Signal:
             logger.info(f"Split {self.name} into {len(self.__segments)} segments of length {self.__segment_len}")
         self.__cached = {None: []}
         self.__smoothing_type = None
+
+    @property
+    def name(self):
+        return self.__name
+
+    @name.setter
+    def name(self, name):
+        self.__name = name
+        for v in self.__cached.values():
+            for xy in v:
+                xy.internal_name = name
 
     @property
     def smoothing_type(self):
@@ -1341,16 +1352,19 @@ class AutoWavLoader:
         :param channel_count: the channel count, only used for creating a default name.
         :param decimate: if true, decimate the wav.
         '''
+        if name is None or len(name.strip()) == 0:
+            name = Path(self.info.name).resolve().stem
+            if channel_count > 1:
+                name += f"_c{channel}"
         if channel not in self.__cache:
-            if name is None or len(name.strip()) == 0:
-                name = Path(self.info.name).resolve().stem
-                if channel_count > 1:
-                    name += f"_c{channel}"
             from model.preferences import ANALYSIS_TARGET_FS
             target_fs = self.__preferences.get(ANALYSIS_TARGET_FS) if decimate is True else self.info.samplerate
             signal = readWav(name, self.__preferences, input_data=self.__wav_data, channel=channel, target_fs=target_fs)
             signal.calculate_peak_average()
             self.__cache[channel] = signal
+        else:
+            if name is not None:
+                self.__cache[channel].name = name
 
     def get_signal(self, channel_idx, name, offset=0.0):
         '''
@@ -1361,6 +1375,7 @@ class AutoWavLoader:
         if not math.isclose(offset, 0.0):
             signal = signal.offset(offset)
             signal.calculate_peak_average()
+        signal.name = name
         return SingleChannelSignalData(name, signal.fs, signal.getXY(), CompleteFilter(fs=signal.fs),
                                        duration_seconds=signal.duration_seconds,
                                        start_seconds=signal.start_seconds,
