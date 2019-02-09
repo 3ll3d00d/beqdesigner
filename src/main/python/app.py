@@ -134,6 +134,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
             getattr(self, f"action_store_preset_{i}").triggered.connect(self.set_preset(i))
             self.enable_preset(i)
         self.actionAdd_BEQ_Filter.triggered.connect(self.add_beq_filter)
+        self.actionClear_Filters.triggered.connect(self.clearFilters)
         # init the signal view selector
         self.showSignals.blockSignals(True)
         for x in SHOW_SIGNAL_OPTIONS:
@@ -533,6 +534,12 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         if selection.hasSelection():
             self.__filter_model.delete([x.row() for x in selection.selectedRows()])
 
+    def clearFilters(self):
+        ''' Deletes all filters  '''
+        while len(self.__filter_model) > 0:
+            self.filterView.selectRow(0)
+            self.deleteFilter()
+
     def __enable_save_filter(self):
         '''
         Enables the save filter if we have filters to save.
@@ -906,6 +913,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         filt_file = selected[0] if selected is not None else None
         if filt_file is not None:
             filters = minidspxml_to_filt(filt_file, self.__get_selected_signal().fs)
+            self.clearFilters()
             if len(filters) > 0:
                 for f in filters:
                     f.id = uuid4()

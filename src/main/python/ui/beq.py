@@ -406,6 +406,8 @@ class Ui_MainWindow(object):
         self.action1_4_8_Smoothing.setObjectName("action1_4_8_Smoothing")
         self.action_Remove_Smoothing = QtWidgets.QAction(MainWindow)
         self.action_Remove_Smoothing.setObjectName("action_Remove_Smoothing")
+        self.actionClear_Filters = QtWidgets.QAction(MainWindow)
+        self.actionClear_Filters.setObjectName("actionClear_Filters")
         self.menuHelp.addAction(self.actionShow_Logs)
         self.menuHelp.addAction(self.actionAbout)
         self.menuSettings.addAction(self.actionPreferences)
@@ -431,8 +433,10 @@ class Ui_MainWindow(object):
         self.menuFile.addSeparator()
         self.menuFile.addAction(self.actionLoad_Filter)
         self.menuFile.addAction(self.actionSave_Filter)
-        self.menuFile.addAction(self.actionAdd_BEQ_Filter)
+        self.menuFile.addAction(self.actionClear_Filters)
         self.menuFile.addAction(self.menuPresets.menuAction())
+        self.menuFile.addSeparator()
+        self.menuFile.addAction(self.actionAdd_BEQ_Filter)
         self.menuFile.addSeparator()
         self.menuFile.addAction(self.actionExport_Biquad)
         self.menuFile.addAction(self.actionExport_FRD)
@@ -606,6 +610,7 @@ class Ui_MainWindow(object):
         self.action1_4_8_Smoothing.setShortcut(_translate("MainWindow", "Alt+Shift+6"))
         self.action_Remove_Smoothing.setText(_translate("MainWindow", "&Remove Smoothing"))
         self.action_Remove_Smoothing.setShortcut(_translate("MainWindow", "Alt+Shift+0"))
+        self.actionClear_Filters.setText(_translate("MainWindow", "Clear Filters"))
 
 from app import PlotWidgetWithDateAxis
 from mpl import MplWidget

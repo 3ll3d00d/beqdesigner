@@ -725,8 +725,10 @@
     <addaction name="separator"/>
     <addaction name="actionLoad_Filter"/>
     <addaction name="actionSave_Filter"/>
-    <addaction name="actionAdd_BEQ_Filter"/>
+    <addaction name="actionClear_Filters"/>
     <addaction name="menuPresets"/>
+    <addaction name="separator"/>
+    <addaction name="actionAdd_BEQ_Filter"/>
     <addaction name="separator"/>
     <addaction name="actionExport_Biquad"/>
     <addaction name="actionExport_FRD"/>
@@ -1007,6 +1009,11 @@
    </property>
    <property name="shortcut">
     <string>Alt+Shift+0</string>
+   </property>
+  </action>
+  <action name="actionClear_Filters">
+   <property name="text">
+    <string>Clear Filters</string>
    </property>
   </action>
  </widget>
