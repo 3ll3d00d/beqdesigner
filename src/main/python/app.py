@@ -447,6 +447,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         Enables the edit & delete button if there are selected rows.
         '''
         selection = self.signalView.selectionModel()
+        self.clearSignalsButton.setEnabled(len(self.__signal_model) > 0)
         self.deleteSignalButton.setEnabled(selection.hasSelection())
         if len(selection.selectedRows()) == 1:
             signal_data = self.__get_selected_signal()
@@ -473,7 +474,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         self.update_reference_series(names, self.filterReference, False)
         self.__magnitude_model.redraw()
-        self.__enable_save_filter()
+        self.__enable_filter_actions()
         self.__check_active_preset(self.__filter_model.filter.preset_idx)
 
     def importFilter(self):
@@ -539,12 +540,16 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         while len(self.__filter_model) > 0:
             self.filterView.selectRow(0)
             self.deleteFilter()
+        self.on_filter_selected()
 
-    def __enable_save_filter(self):
+    def __enable_filter_actions(self):
         '''
         Enables the save filter if we have filters to save.
         '''
-        self.actionSave_Filter.setEnabled(len(self.__filter_model) > 0)
+        enabled = len(self.__filter_model) > 0
+        self.actionSave_Filter.setEnabled(enabled)
+        self.actionClear_Filters.setEnabled(enabled)
+        self.clearFiltersButton.setEnabled(enabled)
 
     def on_filter_selected(self):
         '''
