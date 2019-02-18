@@ -17,7 +17,7 @@ logger = logging.getLogger('iir')
 import decimal
 
 ctx = decimal.Context()
-ctx.prec = 15
+ctx.prec = 17
 
 COMBINED = 'Combined'
 
@@ -659,14 +659,19 @@ class ComplexFilter(Sequence):
     A filter composed of many other filters.
     '''
 
-    def __init__(self, filters=None, description='Complex', preset_idx=-1, listener=None):
+    def __init__(self, fs=1000, filters=None, description='Complex', preset_idx=-1, listener=None):
         self.filters = filters if filters is not None else []
         self.description = description
+        self.__fs = fs
         self.id = -1
         self.listener = listener
         self.__on_change()
         self.__cached_transfer = None
         self.preset_idx = preset_idx
+
+    @property
+    def fs(self):
+        return self.__fs
 
     def __getitem__(self, i):
         return self.filters[i]
@@ -733,7 +738,7 @@ class ComplexFilter(Sequence):
         '''
         if self.__cached_transfer is None:
             if len(self.filters) == 0:
-                return Passthrough().getTransferFunction()
+                return Passthrough(fs=self.fs).getTransferFunction()
             else:
                 self.__cached_transfer = getCascadeTransferFunction(self.__repr__(),
                                                                     [x.getTransferFunction() for x in self.filters])
@@ -756,14 +761,15 @@ class ComplexFilter(Sequence):
         return {
             '_type': self.__class__.__name__,
             'description': self.description,
+            'fs': self.__fs,
             'filters': [x.to_json() for x in self.filters]
         }
 
 
 class CompleteFilter(ComplexFilter):
 
-    def __init__(self, filters=None, description=COMBINED, preset_idx=-1, listener=None):
-        super().__init__(filters=filters, description=description, preset_idx=preset_idx, listener=listener)
+    def __init__(self, fs=1000, filters=None, description=COMBINED, preset_idx=-1, listener=None):
+        super().__init__(fs=fs, filters=filters, description=description, preset_idx=preset_idx, listener=listener)
 
     def preview(self, filter):
         '''
@@ -771,7 +777,8 @@ class CompleteFilter(ComplexFilter):
         :param filter: the filter.
         :return: a copied filter.
         '''
-        return CompleteFilter(self.save0(filter, self.filters.copy()), self.description, listener=None)
+        return CompleteFilter(filters=self.save0(filter, self.filters.copy()),
+                              description=self.description, listener=None, fs=self.fs)
 
     def resample(self, new_fs, copy_listener=True):
         '''
@@ -783,9 +790,10 @@ class CompleteFilter(ComplexFilter):
         listener = self.listener if copy_listener else None
         if len(self) > 0:
             return CompleteFilter(filters=[f.resample(new_fs) for f in self.filters], description=self.description,
-                                  preset_idx=self.preset_idx, listener=listener)
+                                  preset_idx=self.preset_idx, listener=listener, fs=new_fs)
         else:
-            return CompleteFilter(description=self.description, preset_idx=self.preset_idx, listener=listener)
+            return CompleteFilter(description=self.description, preset_idx=self.preset_idx, listener=listener,
+                                  fs=new_fs)
 
 
 class FilterType(Enum):
@@ -803,7 +811,6 @@ class CompoundPassFilter(ComplexFilter):
         self.__bw2 = two_pole_ctor
         self.type = filter_type
         self.order = order
-        self.fs = fs
         self.freq = round(freq, 2)
         if self.type is FilterType.LINKWITZ_RILEY:
             if self.order % 2 != 0:
@@ -811,33 +818,33 @@ class CompoundPassFilter(ComplexFilter):
         if self.order == 0:
             raise ValueError("Filter cannot have order = 0")
         self.__filter_type = f"{high_or_low} {filter_type.value}{order}"
-        super().__init__(filters=self._calculate_biquads(), description=f"{self.__filter_type}/{self.freq}Hz")
+        super().__init__(fs=fs, filters=self._calculate_biquads(fs), description=f"{self.__filter_type}/{self.freq}Hz")
 
     @property
     def filter_type(self):
         return self.__filter_type
 
-    def _calculate_biquads(self):
+    def _calculate_biquads(self, fs):
         if self.type is FilterType.BUTTERWORTH:
             if self.order == 1:
-                return [self.__bw1(self.fs, self.freq)]
+                return [self.__bw1(fs, self.freq)]
             elif self.order == 2:
-                return [self.__bw2(self.fs, self.freq)]
+                return [self.__bw2(fs, self.freq)]
             else:
-                return self.__calculate_high_order_bw(self.order)
+                return self.__calculate_high_order_bw(fs, self.order)
         elif self.type is FilterType.LINKWITZ_RILEY:
             # LRx is 2 * BW(x/2)
             if self.order == 2:
-                return [self.__bw1(self.fs, self.freq) for _ in range(0, 2)]
+                return [self.__bw1(fs, self.freq) for _ in range(0, 2)]
             elif self.order == 4:
-                return [self.__bw2(self.fs, self.freq) for _ in range(0, 2)]
+                return [self.__bw2(fs, self.freq) for _ in range(0, 2)]
             else:
                 bw_order = int(self.order / 2)
-                return self.__calculate_high_order_bw(bw_order) + self.__calculate_high_order_bw(bw_order)
+                return self.__calculate_high_order_bw(fs, bw_order) + self.__calculate_high_order_bw(fs, bw_order)
         else:
             raise ValueError("Unknown filter type " + str(self.type))
 
-    def __calculate_high_order_bw(self, order):
+    def __calculate_high_order_bw(self, fs, order):
         # approach taken from http://www.earlevel.com/main/2016/09/29/cascading-filters/
         biquads = []
         pairs = order >> 1
@@ -847,9 +854,10 @@ class CompoundPassFilter(ComplexFilter):
         if not odd_poles:
             first_angle /= 2
         else:
-            biquads.append(self.__bw1(self.fs, self.freq, 0.5))
-        biquads += [self.__bw2(self.fs, self.freq, 1.0 / (2.0 * math.cos(first_angle + x * pole_inc))) for x in
-                    range(0, pairs)]
+            biquads.append(self.__bw1(fs, self.freq, 0.5))
+        biquads += [
+            self.__bw2(fs, self.freq, 1.0 / (2.0 * math.cos(first_angle + x * pole_inc))) for x in range(0, pairs)
+        ]
         return biquads
 
 
@@ -951,20 +959,23 @@ class XYData:
     Value object for showing data on a magnitude graph.
     '''
 
-    def __init__(self, name, description, x, y, colour=None, linestyle='-'):
+    def __init__(self, name, description, x, y, colour=None, linestyle='-', force_interp=False):
         self.__name = name
         self.__description = description
         self.x = x
         self.y = np.nan_to_num(y)
-        # TODO consider a variable spacing so we don't go overboard for full range view
-        required_points = math.ceil(self.x[-1]) * 4
-        if self.y.size != required_points:
-            new_x = np.linspace(self.x[0], self.x[-1], num=required_points, endpoint=True)
-            cs = CubicSpline(self.x, self.y)
-            new_y = cs(new_x)
-            logger.debug(f"Interpolating {name} from {self.y.size} to {required_points}")
-            self.x = new_x
-            self.y = new_y
+        new_x = np.arange(self.x[0], min(160.0, self.x[-1]), 0.1)
+        if self.x[-1] > 160.0:
+            if force_interp is True:
+                from acoustics.smooth import OctaveBand
+                new_x = np.concatenate((new_x, OctaveBand(fstart=160, fstop=min(24000, self.x[-1]), fraction=24).center))
+            else:
+                new_x = np.concatenate((new_x, self.x[self.x >= 160.0]))
+        cs = CubicSpline(self.x, self.y)
+        new_y = cs(new_x)
+        logger.debug(f"Interpolating {name} from {self.y.size} to {new_x.size}")
+        self.x = new_x
+        self.y = new_y
         self.__equal_energy_adjusted = None
         self.colour = colour
         self.linestyle = linestyle

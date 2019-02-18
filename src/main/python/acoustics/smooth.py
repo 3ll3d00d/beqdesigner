@@ -236,9 +236,20 @@ def integrate_bands(data, a, b):
     return ((lower < center) * (center <= upper) * data[..., None]).sum(axis=-2)
 
 
-def fractional_octaves(f, p, start=5.0, stop=16000.0, fraction=3):
+def fractional_octaves(f, p, fraction=3):
     """Calculate level per 1/N-octave in frequency domain`.
     """
+    if fraction < 6:
+        start = 5.0
+    elif fraction == 6:
+        start = 8.0
+    elif fraction <= 12:
+        start = 15.0
+    elif fraction <= 24:
+        start = 20.0
+    else:
+        raise ValueError(f'Unknown fraction {fraction}')
+    stop = min(20000.0, f[-1])
     fob = OctaveBand(fstart=start, fstop=stop, fraction=fraction)
     fnb = EqualBand(f)
     power = integrate_bands(p, fnb, fob)

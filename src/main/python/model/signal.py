@@ -17,7 +17,7 @@ from qtpy.QtWidgets import QDialog, QFileDialog, QDialogButtonBox, QStatusBar
 from scipy import signal
 from sortedcontainers import SortedDict
 
-from model.codec import signaldata_to_json
+from model.codec import signaldata_to_json, bassmanagedsignaldata_to_json
 from model.iir import XYData, CompleteFilter, ComplexLowPass, FilterType
 from model.magnitude import MagnitudeModel
 from model.preferences import get_avg_colour, get_peak_colour, SHOW_PEAK, \
@@ -27,12 +27,12 @@ from model.preferences import get_avg_colour, get_peak_colour, SHOW_PEAK, \
 from ui.signal import Ui_addSignalDialog
 
 SIGNAL_END = 'end'
-
 SIGNAL_START = 'start'
-
 SIGNAL_CHANNEL = 'channel'
-
 SIGNAL_SOURCE_FILE = 'src'
+
+SAVGOL_WINDOW_LENGTH = 101
+SAVGOL_POLYORDER = 7
 
 logger = logging.getLogger('signal')
 
@@ -117,10 +117,10 @@ class SingleChannelSignalData(SignalData):
         self.filtered = []
         self.reference_name = None
         self.reference = []
+        self.name = name
+        self.__signal = signal
         self.filter = filter
         self.tilt_on = False
-        self.__signal = signal
-        self.name = name
 
     def register_listener(self, listener):
         ''' registers a listener to be notified when the filter updates (used by the WaveformController) '''
@@ -233,7 +233,7 @@ class SingleChannelSignalData(SignalData):
         for s in self.slaves:
             logger.debug(f"Freeing {s} from {self}")
             s.master = None
-            s.filter = CompleteFilter()
+            s.filter = CompleteFilter(fs=self.fs)
         self.slaves = []
 
     def free(self):
@@ -244,7 +244,7 @@ class SingleChannelSignalData(SignalData):
             logger.debug(f"Freeing {self.name} from {self.master.name}")
             self.master.slaves.remove(self)
             self.master = None
-            self.filter = CompleteFilter()
+            self.filter = CompleteFilter(fs=self.fs)
 
     def smooth(self, smooth_type, store=True):
         '''
@@ -418,6 +418,10 @@ class BassManagedSignalData(SignalData):
         self.__lpf_position = bm_lpf_position
 
     @property
+    def bm_lpf_fs(self):
+        return self.__lpf_fs
+
+    @property
     def bm_headroom(self):
         return self.__headroom
 
@@ -531,6 +535,10 @@ class SignalModel(Sequence):
     def bass_managed_signals(self):
         return self.__bass_managed_signals
 
+    @property
+    def non_bm_signals(self):
+        return [s for s in self.__signals if not self.__is_bass_managed(s)]
+
     @table.setter
     def table(self, table):
         self.__table = table
@@ -545,7 +553,22 @@ class SignalModel(Sequence):
         '''
         :return: a json compatible format of the data in the model.
         '''
-        return [signaldata_to_json(x) for x in self.__signals]
+        json = [bassmanagedsignaldata_to_json(x) for x in self.__bass_managed_signals]
+        json += [signaldata_to_json(x) for x in self.__signals if not self.__is_bass_managed(x)]
+        return json
+
+    def __is_bass_managed(self, signal):
+        '''
+        :param signal: the signal.
+        :return: true if this signal is found in a bass managed signal.
+        '''
+        is_bm = False
+        for bm in self.__bass_managed_signals:
+            for c in bm.channels:
+                if c is signal:
+                    is_bm = True
+                    break
+        return is_bm
 
     def free_all(self):
         '''
@@ -704,7 +727,11 @@ class SignalModel(Sequence):
         '''
         if self.__table is not None:
             self.__table.beginResetModel()
-        self.__signals = signals
+        self.__bass_managed_signals = [s for s in signals if isinstance(s, BassManagedSignalData)]
+        sigs = [s for s in signals if isinstance(s, SingleChannelSignalData)]
+        for b in self.__bass_managed_signals:
+            sigs += b.channels
+        self.__signals = sigs
         for idx, s in enumerate(self.__signals):
             if self.__preferences.get(DISPLAY_SMOOTH_PRECALC):
                 QThreadPool.globalInstance().start(Smoother(s))
@@ -764,7 +791,7 @@ class Signal:
 
     def __init__(self, name, samples, preferences, fs=48000, metadata=None):
         self.__preferences = preferences
-        self.name = name
+        self.__name = name
         self.samples = samples
         self.fs = fs
         self.duration_seconds = self.samples.size / self.fs
@@ -779,6 +806,17 @@ class Signal:
         self.__smoothing_type = None
 
     @property
+    def name(self):
+        return self.__name
+
+    @name.setter
+    def name(self, name):
+        self.__name = name
+        for v in self.__cached.values():
+            for xy in v:
+                xy.internal_name = name
+
+    @property
     def smoothing_type(self):
         return self.__smoothing_type
 
@@ -786,7 +824,13 @@ class Signal:
         return self.__smoothing_type is not None
 
     def smoothing_description(self):
-        return '' if self.is_smoothed() is None else f"1/{self.__smoothing_type}"
+        if self.is_smoothed():
+            try:
+                return f"1/{int(self.smoothing_type)}"
+            except:
+                return self.smoothing_type
+        else:
+            return ''
 
     @property
     def duration_hhmmss(self):
@@ -857,11 +901,23 @@ class Signal:
             Pxx_spec = results[0][1]
         f = results[0][0]
         if smooth_type is not None:
-            from acoustics.smooth import fractional_octaves
-            fob, Pxx_spec = fractional_octaves(f, Pxx_spec, fraction=smooth_type)
-            f = fob.center
+            try:
+                int(smooth_type)
+                from acoustics.smooth import fractional_octaves
+                fob, Pxx_spec = fractional_octaves(f, Pxx_spec, fraction=smooth_type)
+                f = fob.center
+            except:
+                from scipy.signal import savgol_filter
+                tokens = smooth_type.split('/')
+                if len(tokens) == 1:
+                    wl = SAVGOL_WINDOW_LENGTH
+                    poly = SAVGOL_POLYORDER
+                else:
+                    wl = int(tokens[1])
+                    poly = int(tokens[2])
+                Pxx_spec = savgol_filter(Pxx_spec, wl, poly)
         # a 3dB adjustment is required to account for the change in nperseg
-        Pxx_spec = amplitude_to_db(np.sqrt(Pxx_spec), ref * SPECLAB_REFERENCE)
+        Pxx_spec = amplitude_to_db(np.nan_to_num(np.sqrt(Pxx_spec)), ref * SPECLAB_REFERENCE)
         return f, Pxx_spec
 
     def __segment_spectrum(self, segment, resolution_shift=0, window=None, **kwargs):
@@ -890,9 +946,21 @@ class Signal:
             Pxy_max = results[0][1]
         f = results[0][0]
         if smooth_type is not None:
-            from acoustics.smooth import fractional_octaves
-            fob, Pxy_max = fractional_octaves(f, Pxy_max, fraction=smooth_type)
-            f = fob.center
+            try:
+                int(smooth_type)
+                from acoustics.smooth import fractional_octaves
+                fob, Pxy_max = fractional_octaves(f, Pxy_max, fraction=smooth_type)
+                f = fob.center
+            except:
+                from scipy.signal import savgol_filter
+                tokens = smooth_type.split('/')
+                if len(tokens) == 1:
+                    wl = SAVGOL_WINDOW_LENGTH
+                    poly = SAVGOL_POLYORDER
+                else:
+                    wl = int(tokens[1])
+                    poly = int(tokens[2])
+                Pxy_max = savgol_filter(Pxy_max, wl, poly)
         # a 3dB adjustment is required to account for the change in nperseg
         Pxy_max = amplitude_to_db(Pxy_max, ref=ref * SPECLAB_REFERENCE)
         return f, Pxy_max
@@ -1048,22 +1116,36 @@ class Signal:
         caches the peak and avg spectrum if the smoothing has changed or we have no data.
         '''
         from model.preferences import ANALYSIS_RESOLUTION, ANALYSIS_PEAK_WINDOW, ANALYSIS_AVG_WINDOW
-        resolution_shift = math.log(self.__preferences.get(ANALYSIS_RESOLUTION), 2)
+        resolution = self.__preferences.get(ANALYSIS_RESOLUTION)
+        resolution_shift = int(math.log(resolution, 2))
         peak_wnd = self.__get_window(self.__preferences, ANALYSIS_PEAK_WINDOW)
         avg_wnd = self.__get_window(self.__preferences, ANALYSIS_AVG_WINDOW)
         if smooth_type is not None and smooth_type == 0:
             smooth_type = None
         if smooth_type not in self.__cached or len(self.__cached[smooth_type]) == 0:
             logger.debug(
-                f"Analysing {self.name} at {resolution_shift}x resolution using {peak_wnd}/{avg_wnd} peak/avg windows")
+                f"Analysing {self.name} at {resolution} Hz resolution using {peak_wnd if peak_wnd else 'Default'}/{avg_wnd if avg_wnd else 'Default'} peak/avg windows")
             avg = self.spectrum(resolution_shift=resolution_shift, window=avg_wnd, smooth_type=smooth_type)
             peak = self.peakSpectrum(resolution_shift=resolution_shift, window=peak_wnd, smooth_type=smooth_type)
-            cached = [XYData(self.name, 'avg', avg[0], avg[1]), XYData(self.name, 'peak', peak[0], peak[1])]
-            self.__cached[smooth_type] = cached
+            force_interp = self.__force_interp(smooth_type)
+            self.__cached[smooth_type] = [
+                XYData(self.name, 'avg', avg[0], avg[1], force_interp=force_interp),
+                XYData(self.name, 'peak', peak[0], peak[1], force_interp=force_interp)
+            ]
         changed = self.__smoothing_type != smooth_type and store is True
         if store is True:
             self.__smoothing_type = smooth_type
         return changed
+
+    def __force_interp(self, smooth_type):
+        if smooth_type is None:
+            return False
+        else:
+            try:
+                int(smooth_type)
+                return True
+            except:
+                return False
 
     def __slice_into_large_signal_segments(self):
         '''
@@ -1270,16 +1352,19 @@ class AutoWavLoader:
         :param channel_count: the channel count, only used for creating a default name.
         :param decimate: if true, decimate the wav.
         '''
+        if name is None or len(name.strip()) == 0:
+            name = Path(self.info.name).resolve().stem
+            if channel_count > 1:
+                name += f"_c{channel}"
         if channel not in self.__cache:
-            if name is None or len(name.strip()) == 0:
-                name = Path(self.info.name).resolve().stem
-                if channel_count > 1:
-                    name += f"_c{channel}"
             from model.preferences import ANALYSIS_TARGET_FS
             target_fs = self.__preferences.get(ANALYSIS_TARGET_FS) if decimate is True else self.info.samplerate
             signal = readWav(name, self.__preferences, input_data=self.__wav_data, channel=channel, target_fs=target_fs)
             signal.calculate_peak_average()
             self.__cache[channel] = signal
+        else:
+            if name is not None:
+                self.__cache[channel].name = name
 
     def get_signal(self, channel_idx, name, offset=0.0):
         '''
@@ -1290,7 +1375,8 @@ class AutoWavLoader:
         if not math.isclose(offset, 0.0):
             signal = signal.offset(offset)
             signal.calculate_peak_average()
-        return SingleChannelSignalData(name, signal.fs, signal.getXY(), CompleteFilter(),
+        signal.name = name
+        return SingleChannelSignalData(name, signal.fs, signal.getXY(), CompleteFilter(fs=signal.fs),
                                        duration_seconds=signal.duration_seconds,
                                        start_seconds=signal.start_seconds,
                                        signal=signal,
@@ -1528,7 +1614,7 @@ class FrdLoader:
         self.__avg.internal_name = frd_name
         self.__peak.internal_name = frd_name
         return SingleChannelSignalData(frd_name, self.__dialog.frdFs.value(), self.get_magnitude_data(),
-                                       CompleteFilter())
+                                       CompleteFilter(fs=self.__dialog.frdFs.value()))
 
 
 class SignalDialog(QDialog, Ui_addSignalDialog):
@@ -1768,6 +1854,8 @@ def readWav(name, preferences, input_file=None, input_data=None, channel=1, star
 
 
 class Smoother(QRunnable):
+    fractions = [0, 1, 2, 3, 6, 12, 24]
+
     '''
     Precalculates the fractional octave smoothing.
     '''
@@ -1783,7 +1871,7 @@ class Smoother(QRunnable):
             self.__smooth(self.__signal_data)
 
     def __smooth(self, signal_data):
-        for fraction in [0, 1, 2, 3, 6, 12, 24]:
+        for fraction in self.fractions:
             start = time.time()
             signal_data.smooth(fraction, store=False)
             end = time.time()

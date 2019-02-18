@@ -114,13 +114,6 @@
         </widget>
        </item>
        <item>
-        <widget class="QCheckBox" name="compressAudio">
-         <property name="text">
-          <string>Compress Audio?</string>
-         </property>
-        </widget>
-       </item>
-       <item>
         <widget class="QCheckBox" name="includeSubtitles">
          <property name="toolTip">
           <string extracomment="EXPERIMENTAL!"/>
@@ -320,6 +313,45 @@
        </item>
        <item>
         <spacer name="horizontalSpacer">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>40</width>
+           <height>20</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+       <item>
+        <widget class="QLabel" name="audioFormatLabel">
+         <property name="text">
+          <string>Format</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QComboBox" name="audioFormat"/>
+       </item>
+       <item>
+        <widget class="QSpinBox" name="eacBitRate">
+         <property name="suffix">
+          <string> kbps</string>
+         </property>
+         <property name="minimum">
+          <number>32</number>
+         </property>
+         <property name="maximum">
+          <number>6000</number>
+         </property>
+         <property name="value">
+          <number>1500</number>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <spacer name="horizontalSpacer_2">
          <property name="orientation">
           <enum>Qt::Horizontal</enum>
          </property>
@@ -560,22 +592,6 @@
    </hints>
   </connection>
   <connection>
-   <sender>videoStreams</sender>
-   <signal>currentIndexChanged(int)</signal>
-   <receiver>extractAudioDialog</receiver>
-   <slot>updateFfmpegSpec()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>740</x>
-     <y>56</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>843</x>
-     <y>127</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
    <sender>decimateAudio</sender>
    <signal>clicked()</signal>
    <receiver>extractAudioDialog</receiver>
@@ -604,22 +620,6 @@
     <hint type="destinationlabel">
      <x>846</x>
      <y>228</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>compressAudio</sender>
-   <signal>clicked()</signal>
-   <receiver>extractAudioDialog</receiver>
-   <slot>toggle_compress_audio()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>693</x>
-     <y>191</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>844</x>
-     <y>177</y>
     </hint>
    </hints>
   </connection>
@@ -719,6 +719,54 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>videoStreams</sender>
+   <signal>currentIndexChanged(int)</signal>
+   <receiver>extractAudioDialog</receiver>
+   <slot>onVideoStreamChange()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>570</x>
+     <y>55</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>612</x>
+     <y>41</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>audioFormat</sender>
+   <signal>currentTextChanged(QString)</signal>
+   <receiver>extractAudioDialog</receiver>
+   <slot>change_audio_format()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>381</x>
+     <y>102</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>286</x>
+     <y>103</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>eacBitRate</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>extractAudioDialog</receiver>
+   <slot>change_audio_bitrate()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>535</x>
+     <y>95</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>497</x>
+     <y>167</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>selectFile()</slot>
@@ -731,11 +779,13 @@
   <slot>overrideFfmpegSpec()</slot>
   <slot>toggle_decimate_audio()</slot>
   <slot>update_original_audio()</slot>
-  <slot>toggle_compress_audio()</slot>
+  <slot>change_audio_format()</slot>
   <slot>update_start_time()</slot>
   <slot>update_end_time()</slot>
   <slot>toggle_range()</slot>
   <slot>show_remux_cmd()</slot>
   <slot>toggle_include_subtitles()</slot>
+  <slot>onVideoStreamChange()</slot>
+  <slot>change_audio_bitrate()</slot>
  </slots>
 </ui>

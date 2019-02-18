@@ -17,6 +17,7 @@ from qtpy.QtCore import Signal, QRunnable, QObject, QThreadPool
 from qtpy.QtWidgets import QDialog, QTreeWidget, QTreeWidgetItem
 
 from model.iir import Passthrough
+from model.preferences import COMPRESS_FORMAT_NATIVE, COMPRESS_FORMAT_FLAC, COMPRESS_FORMAT_EAC3
 from ui.ffmpeg import Ui_ffmpegReportDialog
 
 logger = logging.getLogger('progress')
@@ -68,7 +69,7 @@ UNKNOWN_CHANNEL_LAYOUTS = {
     3: CHANNEL_LAYOUTS['2.1'],
     4: CHANNEL_LAYOUTS['3.1'],
     5: CHANNEL_LAYOUTS['4.1'],
-    6: CHANNEL_LAYOUTS['5.1'],
+    6: CHANNEL_LAYOUTS['5.1(side)'],
     8: CHANNEL_LAYOUTS['7.1']
 }
 
@@ -110,8 +111,9 @@ class Executor:
     Deals with calculating an ffmpeg command for extracting audio from some input file.
     '''
 
-    def __init__(self, file, target_dir, mono_mix=True, decimate_audio=True, compress_audio=False,
-                 include_original=False, include_subtitles=False, signal_model=None, decimate_fs=1000):
+    def __init__(self, file, target_dir, mono_mix=True, decimate_audio=True, audio_format=COMPRESS_FORMAT_NATIVE,
+                 audio_bitrate=1500, include_original=False, include_subtitles=False, signal_model=None,
+                 decimate_fs=1000):
         self.file = file
         self.__target_dir = target_dir
         self.__probe = None
@@ -123,7 +125,8 @@ class Executor:
         self.__channel_layout_name = None
         self.__mono_mix = mono_mix
         self.__decimate_audio = decimate_audio
-        self.__compress_audio = compress_audio
+        self.__audio_format = audio_format
+        self.__audio_bitrate = audio_bitrate
         self.__include_original_audio = include_original
         self.__original_audio_offset = 0.0
         self.__include_subtitles = include_subtitles
@@ -228,12 +231,21 @@ class Executor:
         self.__calculate_output()
 
     @property
-    def compress_audio(self):
-        return self.__compress_audio
+    def audio_format(self):
+        return self.__audio_format
 
-    @compress_audio.setter
-    def compress_audio(self, compress_audio):
-        self.__compress_audio = compress_audio
+    @audio_format.setter
+    def audio_format(self, audio_format):
+        self.__audio_format = audio_format
+        self.__calculate_output()
+
+    @property
+    def audio_bitrate(self):
+        return self.__audio_bitrate
+
+    @audio_bitrate.setter
+    def audio_bitrate(self, audio_bitrate):
+        self.__audio_bitrate = audio_bitrate
         self.__calculate_output()
 
     @property
@@ -294,9 +306,9 @@ class Executor:
     def ffmpeg_cli(self):
         return self.__ffmpeg_cli
 
-    def map_filter_to_channel(self, channel_idx, signal_name):
+    def map_filter_to_channel(self, channel_idx, signal):
         ''' updates the mapping of the given signal to the specified channel idx '''
-        self.__channel_to_filter[channel_idx] = next((s for s in self.__signal_model if s.name == signal_name), None)
+        self.__channel_to_filter[channel_idx] = signal
         self.__calculate_ffmpeg_cmd()
 
     def probe_file(self):
@@ -462,8 +474,11 @@ class Executor:
         '''
         Translates the current configuration into the output commands.
         '''
+        start = time.time()
         self.__calculate_output_file_name()
         self.__calculate_ffmpeg_cmd()
+        end = time.time()
+        logger.debug(f"Recalculated output in {round(end - start, 3)}s")
 
     def __calculate_output_file_name(self):
         '''
@@ -492,7 +507,7 @@ class Executor:
             filt = f"{audio_input}pan=1c|c0=c{channel_idx}[{c_name}];"
             filt += f"[{c_name}]aformat=sample_fmts=dbl[{c_name}_{f_idx}];"
             if sig is not None:
-                sig_filter = sig.active_filter.resample(int(self.__sample_rate))
+                sig_filter = sig.active_filter.resample(int(self.__sample_rate), copy_listener=False)
                 for f in sig_filter.filters:
                     for bq in format_biquad(f):
                         filt += f"[{c_name}_{f_idx}]biquad={bq}[{c_name}_{f_idx + 1}];"
@@ -554,7 +569,7 @@ class Executor:
     def __calculate_extract_command(self, output_file):
         ''' calculates the command required to extract the audio to the specified output file '''
         input_stream = ffmpeg.input(self.file, **self.__calculate_trim_kwargs())
-        acodec = 'flac' if self.compress_audio else 'pcm_s24le'
+        acodec = self.__get_acodec()
         if self.__mono_mix:
             self.__ffmpeg_cmd = self.__calculate_extract_mono_cmd(acodec, input_stream, output_file)
         else:
@@ -565,6 +580,26 @@ class Executor:
         command_args = self.__ffmpeg_cmd.compile(overwrite_output=True)
         self.__ffmpeg_cli = ' '.join(
             [s if s == 'ffmpeg' or s.startswith('-') else f"\"{s}\"" for s in command_args])
+
+    def __get_acodec(self):
+        if self.audio_format == COMPRESS_FORMAT_NATIVE:
+            return 'pcm_s24le'
+        elif self.audio_format == COMPRESS_FORMAT_FLAC:
+            return 'flac'
+        elif self.audio_format == COMPRESS_FORMAT_EAC3:
+            return 'eac3'
+        else:
+            raise ValueError(f"Unknown audio format {self.audio_format}")
+
+    def __get_audio_ext(self):
+        if self.audio_format == COMPRESS_FORMAT_NATIVE:
+            return 'wav'
+        elif self.audio_format == COMPRESS_FORMAT_FLAC:
+            return 'flac'
+        elif self.audio_format == COMPRESS_FORMAT_EAC3:
+            return 'mkv'
+        else:
+            raise ValueError(f"Unknown audio format {self.audio_format}")
 
     def __calculate_extract_multi_cmd(self, acodec, input_stream, output_file):
         ''' Calculates an ffmpeg-python cmd for extracting multichannel audio from an input stream. '''
@@ -598,7 +633,7 @@ class Executor:
         exe = ".exe" if platform.system() == 'Windows' else ""
         self.__ffmpeg_cmd = [f"ffmpeg{exe}"]
         for key, value in self.__calculate_trim_kwargs().items():
-            self.__ffmpeg_cmd += [f"-{key}", value]
+            self.__ffmpeg_cmd += [f"-{key}", str(value)]
         self.__ffmpeg_cmd += [
             '-i', filename,
             '-filter_complex_script', self.__write_filter_complex()
@@ -607,7 +642,7 @@ class Executor:
             self.__ffmpeg_cmd += ['-map', f"0:v:{self.__selected_video_stream_idx}" , '-c:v', 'copy']
         if self.include_subtitles:
             self.__ffmpeg_cmd += ['-map', '0:s', '-c:s', 'copy']
-        acodec = 'flac' if self.compress_audio else 'pcm_s24le'
+        acodec = self.__get_acodec()
         if self.include_original_audio:
             if math.isclose(self.original_audio_offset, 0.0):
                 self.__ffmpeg_cmd += [
@@ -618,7 +653,10 @@ class Executor:
                 ]
             else:
                 self.__ffmpeg_cmd += ['-map', '[s1]']
-        self.__ffmpeg_cmd += ['-map', '[s0]', '-acodec',  acodec,  output_file]
+        self.__ffmpeg_cmd += ['-map', '[s0]', '-acodec',  acodec]
+        if self.audio_format == COMPRESS_FORMAT_EAC3:
+            self.__ffmpeg_cmd += ['-ab', f"{self.audio_bitrate}k"]
+        self.__ffmpeg_cmd += [output_file]
         if self.progress_handler is not None:
             self.__ffmpeg_cmd += ['-progress', f"udp://127.0.0.1:{self.__progress_port}"]
         self.__ffmpeg_cmd += ['-y']
@@ -635,8 +673,7 @@ class Executor:
         if self.__selected_video_stream_idx != -1:
             return f"{output_file}{os.path.splitext(self.file)[1]}"
         else:
-            audio_ext = 'flac' if self.compress_audio else 'wav'
-            return f"{output_file}.{audio_ext}"
+            return f"{output_file}.{self.__get_audio_ext()}"
 
     def __get_lfe_mono_mix(self, channels, lfe_idx):
         '''

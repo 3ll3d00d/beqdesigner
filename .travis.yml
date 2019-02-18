@@ -2,8 +2,10 @@ language: python
 cache:
   pip: true
 sudo: required
+dist: 'xenial'
 python:
     - "3.6"
+    - "3.7"
 addons:
   apt:
     packages:

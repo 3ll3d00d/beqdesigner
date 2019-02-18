@@ -102,13 +102,18 @@ class WaveformController:
         with block_signals(self.__selector):
             self.__selector.clear()
             self.__selector.addItem('  ')
-            for s in self.__signal_model:
+            for bm in self.__signal_model.bass_managed_signals:
+                self.__selector.addItem(f"(BM) {bm.name}")
+                for c in bm.channels:
+                    if c.signal is not None:
+                        self.__selector.addItem(c.name)
+                    else:
+                        self.__selector.addItem(f"-- {c.name}")
+            for s in self.__signal_model.non_bm_signals:
                 if s.signal is not None:
                     self.__selector.addItem(s.name)
                 else:
                     self.__selector.addItem(f"-- {s.name}")
-            for bm in self.__signal_model.bass_managed_signals:
-                self.__selector.addItem(f"(BM) {bm.name}")
             idx = self.__selector.findText(currently_selected)
             if idx > -1:
                 self.__selector.setCurrentIndex(idx)
@@ -170,7 +175,7 @@ class WaveformController:
             self.__end_time.setEnabled(True)
             self.__end_time.setMaximumTime(duration)
             self.__end_time.setTime(duration)
-            self.toggle_filter(self.__is_filtered.isChecked())
+            self.toggle_filter(Qt.Checked if self.__is_filtered.isChecked() else Qt.Unchecked)
 
     def __load_signal(self):
         signal_name = self.__selector.currentText()
@@ -243,7 +248,7 @@ class WaveformController:
         if signal_data is not None:
             from app import wait_cursor
             with wait_cursor():
-                signal = signal_data.filter_signal(filt=self.__is_filtered.isChecked, clip=state == Qt.Checked)
+                signal = signal_data.filter_signal(filt=self.__is_filtered.isChecked(), clip=state == Qt.Checked)
                 self.__active_signal = signal
                 self.__waveform_chart_model.signal = signal
                 self.__waveform_chart_model.idx = self.__selector.currentIndex() - 1

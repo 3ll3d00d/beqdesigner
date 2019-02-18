@@ -32,7 +32,7 @@ class VersionChecker(QRunnable):
                 latest = r.json()
                 if latest:
                     latest_tag = latest['tag_name']
-                    if self.__is_new(latest_tag):
+                    if self.__is_new(latest_tag) > 0:
                         download_url = f"https://github.com/3ll3d00d/beqdesigner/releases/{latest_tag}"
                         self.__signals.on_old_version.emit(latest_tag, download_url)
             else:
@@ -42,9 +42,8 @@ class VersionChecker(QRunnable):
 
     def __is_new(self, new_version):
         try:
-            new_vers = [int(x) for x in new_version.split('.')]
-            old_vers = [int(x) for x in self.__version.split('.')]
-            return new_vers > old_vers
+            import semver
+            return semver.compare(new_version, self.__version)
         except Exception as e:
             logger.exception(f"Unable to compare releases {new_version} to {self.__version}", e)
             return True

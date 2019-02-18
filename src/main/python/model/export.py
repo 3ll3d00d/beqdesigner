@@ -7,8 +7,9 @@ from enum import Enum
 import numpy as np
 from qtpy.QtWidgets import QDialog, QFileDialog, QDialogButtonBox
 
-from model.codec import signaldata_to_json
+from model.codec import signaldata_to_json, bassmanagedsignaldata_to_json
 from model.preferences import EXTRACTION_OUTPUT_DIR
+from model.signal import SingleChannelSignalData
 from ui.export import Ui_exportSignalDialog
 
 logger = logging.getLogger('export')
@@ -27,19 +28,29 @@ class ExportSignalDialog(QDialog, Ui_exportSignalDialog):
         self.__signal_model = signalModel
         self.__mode = mode
         self.__statusbar = statusbar
-        for s in self.__signal_model:
+        for bm in self.__signal_model.bass_managed_signals:
+            self.signal.addItem(f"(BM) {bm.name}")
+            for c in bm.channels:
+                self.signal.addItem(c.name)
+        for s in self.__signal_model.non_bm_signals:
             self.signal.addItem(s.name)
         if len(self.__signal_model) == 0:
             self.buttonBox.button(QDialogButtonBox.Save).setEnabled(False)
 
     def accept(self):
-        idx = self.signal.currentIndex()
-        to_export = self.__signal_model[idx]
-        if self.__mode == Mode.FRD:
-            self.export_frd(to_export)
-        elif self.__mode == Mode.SIGNAL:
-            self.export_signal(to_export)
-        QDialog.accept(self)
+        signal_name = self.signal.currentText()
+
+        if signal_name is not None and signal_name.startswith('(BM) '):
+            to_export = next((s for s in self.__signal_model.bass_managed_signals if s.name == signal_name[5:]), None)
+        else:
+            to_export = next((s for s in self.__signal_model if s.name == signal_name), None)
+
+        if to_export:
+            if self.__mode == Mode.FRD:
+                self.export_frd(to_export)
+            elif self.__mode == Mode.SIGNAL:
+                self.export_signal(to_export)
+            QDialog.accept(self)
 
     def export_signal(self, signal):
         '''
@@ -49,7 +60,10 @@ class ExportSignalDialog(QDialog, Ui_exportSignalDialog):
                                                       "BEQ Signal (*.signal)")
         file_name = str(file_name[0]).strip()
         if len(file_name) > 0:
-            out = signaldata_to_json(signal)
+            if isinstance(signal, SingleChannelSignalData):
+                out = signaldata_to_json(signal)
+            else:
+                out = bassmanagedsignaldata_to_json(signal)
             if not file_name.endswith('.signal'):
                 file_name += '.signal'
             with gzip.open(file_name, 'wb+') as outfile:

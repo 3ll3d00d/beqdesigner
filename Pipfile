@@ -10,7 +10,6 @@ ffmpeg-python = "*"
 soundfile = "*"
 resampy = "*"
 pyqtgraph = "*"
-gitpython = "*"
 pyinstaller = "*"
 numpy = "*"
 scipy = "*"
@@ -21,6 +20,8 @@ pytest-cov = "*"
 sortedcontainers = "*"
 pillow = "*"
 requests = "*"
+semver = "*"
+dulwich = "*"
 
 [dev-packages]
 

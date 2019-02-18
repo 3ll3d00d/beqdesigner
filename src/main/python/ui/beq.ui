@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1574</width>
+    <width>1569</width>
     <height>956</height>
    </rect>
   </property>
@@ -388,7 +388,7 @@
         <item row="0" column="3">
          <widget class="QLabel" name="label">
           <property name="text">
-           <string>Smoothing: </string>
+           <string>Smoothing:</string>
           </property>
          </widget>
         </item>
@@ -429,6 +429,11 @@
             <string>1/24</string>
            </property>
           </item>
+          <item>
+           <property name="text">
+            <string>Savitzky–Golay</string>
+           </property>
+          </item>
          </widget>
         </item>
         <item row="0" column="5">
@@ -441,30 +446,8 @@
        </layout>
       </item>
       <item>
-       <layout class="QGridLayout" name="rightPane">
-        <item row="3" column="0" colspan="3">
-         <widget class="QLabel" name="filtersLabel">
-          <property name="font">
-           <font>
-            <weight>75</weight>
-            <bold>true</bold>
-           </font>
-          </property>
-          <property name="frameShape">
-           <enum>QFrame::Box</enum>
-          </property>
-          <property name="frameShadow">
-           <enum>QFrame::Sunken</enum>
-          </property>
-          <property name="text">
-           <string>Filters</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
-          </property>
-         </widget>
-        </item>
-        <item row="0" column="0" colspan="3">
+       <layout class="QVBoxLayout" name="rightPane">
+        <item>
          <widget class="QLabel" name="signalsLabel">
           <property name="font">
            <font>
@@ -486,165 +469,241 @@
           </property>
          </widget>
         </item>
-        <item row="1" column="0">
-         <widget class="QPushButton" name="addSignalButton">
-          <property name="text">
-           <string>Add</string>
-          </property>
-          <property name="shortcut">
-           <string>Ctrl+Shift+=</string>
-          </property>
-          <property name="flat">
-           <bool>false</bool>
-          </property>
-         </widget>
+        <item>
+         <layout class="QHBoxLayout" name="signalButtonsLayout">
+          <item>
+           <widget class="QToolButton" name="addSignalButton">
+            <property name="text">
+             <string>Add</string>
+            </property>
+            <property name="shortcut">
+             <string>Ctrl+Shift+=</string>
+            </property>
+            <property name="flat" stdset="0">
+             <bool>false</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QToolButton" name="linkSignalButton">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="text">
+             <string>Link</string>
+            </property>
+            <property name="shortcut">
+             <string>Ctrl+Shift+L</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QToolButton" name="deleteSignalButton">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="text">
+             <string>Delete</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QToolButton" name="clearSignalsButton">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="text">
+             <string>Clear</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
         </item>
-        <item row="4" column="0">
-         <widget class="QPushButton" name="preset1Button">
-          <property name="enabled">
-           <bool>false</bool>
-          </property>
-          <property name="text">
-           <string>Preset 1</string>
-          </property>
-          <property name="shortcut">
-           <string>Ctrl+Shift+1</string>
-          </property>
-         </widget>
-        </item>
-        <item row="4" column="1">
-         <widget class="QPushButton" name="preset2Button">
-          <property name="enabled">
-           <bool>false</bool>
-          </property>
-          <property name="text">
-           <string>Preset 2</string>
-          </property>
-          <property name="shortcut">
-           <string>Ctrl+Shift+2</string>
-          </property>
-         </widget>
-        </item>
-        <item row="5" column="0">
-         <widget class="QPushButton" name="addFilterButton">
-          <property name="enabled">
-           <bool>true</bool>
-          </property>
-          <property name="text">
-           <string>Add</string>
-          </property>
-          <property name="shortcut">
-           <string>Ctrl+=</string>
-          </property>
-         </widget>
-        </item>
-        <item row="2" column="0" colspan="3">
+        <item>
          <widget class="QTableView" name="signalView"/>
         </item>
-        <item row="4" column="2">
-         <widget class="QPushButton" name="preset3Button">
-          <property name="enabled">
-           <bool>false</bool>
+        <item>
+         <widget class="QLabel" name="filtersLabel">
+          <property name="font">
+           <font>
+            <weight>75</weight>
+            <bold>true</bold>
+           </font>
+          </property>
+          <property name="frameShape">
+           <enum>QFrame::Box</enum>
+          </property>
+          <property name="frameShadow">
+           <enum>QFrame::Sunken</enum>
           </property>
           <property name="text">
-           <string>Preset 3</string>
+           <string>Filters</string>
           </property>
-          <property name="shortcut">
-           <string>Ctrl+Shift+3</string>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
           </property>
          </widget>
         </item>
-        <item row="5" column="1">
-         <widget class="QPushButton" name="editFilterButton">
-          <property name="enabled">
-           <bool>false</bool>
-          </property>
-          <property name="text">
-           <string>Edit</string>
-          </property>
-          <property name="flat">
-           <bool>false</bool>
-          </property>
-         </widget>
+        <item>
+         <layout class="QHBoxLayout" name="filterToolbarLayout">
+          <item>
+           <widget class="QToolButton" name="preset1Button">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="toolTip">
+             <string extracomment="Preset 1"/>
+            </property>
+            <property name="text">
+             <string>P1</string>
+            </property>
+            <property name="shortcut">
+             <string>Ctrl+Shift+1</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QToolButton" name="preset2Button">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="toolTip">
+             <string extracomment="Preset 2"/>
+            </property>
+            <property name="text">
+             <string>P2</string>
+            </property>
+            <property name="shortcut">
+             <string>Ctrl+Shift+2</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QToolButton" name="preset3Button">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="toolTip">
+             <string/>
+            </property>
+            <property name="statusTip">
+             <string extracomment="Preset 3"/>
+            </property>
+            <property name="text">
+             <string>P3</string>
+            </property>
+            <property name="shortcut">
+             <string>Ctrl+Shift+3</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QToolButton" name="addFilterButton">
+            <property name="enabled">
+             <bool>true</bool>
+            </property>
+            <property name="text">
+             <string>Add</string>
+            </property>
+            <property name="shortcut">
+             <string>Ctrl+=</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QToolButton" name="editFilterButton">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="text">
+             <string>Edit</string>
+            </property>
+            <property name="flat" stdset="0">
+             <bool>false</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QToolButton" name="deleteFilterButton">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="text">
+             <string>Delete</string>
+            </property>
+            <property name="shortcut">
+             <string>Ctrl+-</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QToolButton" name="clearFiltersButton">
+            <property name="enabled">
+             <bool>false</bool>
+            </property>
+            <property name="text">
+             <string>Clear</string>
+            </property>
+            <property name="shortcut">
+             <string>Ctrl+Shift+-</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
         </item>
-        <item row="5" column="2">
-         <widget class="QPushButton" name="deleteFilterButton">
-          <property name="enabled">
-           <bool>false</bool>
-          </property>
-          <property name="text">
-           <string>Delete</string>
-          </property>
-          <property name="shortcut">
-           <string>Ctrl+-</string>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="2">
-         <widget class="QPushButton" name="deleteSignalButton">
-          <property name="enabled">
-           <bool>false</bool>
-          </property>
-          <property name="text">
-           <string>Delete</string>
-          </property>
-         </widget>
-        </item>
-        <item row="6" column="0" colspan="3">
+        <item>
          <widget class="QTableView" name="filterView"/>
         </item>
-        <item row="9" column="0">
-         <widget class="QLabel" name="showFiltersLabel">
-          <property name="text">
-           <string>Show Filters?</string>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="1">
-         <widget class="QPushButton" name="linkSignalButton">
-          <property name="enabled">
-           <bool>false</bool>
-          </property>
-          <property name="text">
-           <string>Link</string>
-          </property>
-          <property name="shortcut">
-           <string>Ctrl+Shift+L</string>
-          </property>
-         </widget>
-        </item>
-        <item row="9" column="1">
-         <widget class="QComboBox" name="showFilters"/>
-        </item>
-        <item row="7" column="0">
-         <widget class="QLabel" name="showSignalsLabel">
-          <property name="text">
-           <string>Show Signals?</string>
-          </property>
-         </widget>
-        </item>
-        <item row="7" column="1">
-         <widget class="QComboBox" name="showSignals"/>
-        </item>
-        <item row="7" column="2">
-         <widget class="QComboBox" name="showFilteredSignals"/>
-        </item>
-        <item row="9" column="2">
-         <widget class="QCheckBox" name="showLegend">
-          <property name="text">
-           <string>Show Legend</string>
-          </property>
-          <property name="checked">
-           <bool>true</bool>
-          </property>
-         </widget>
-        </item>
-        <item row="10" column="1" colspan="2">
-         <widget class="QCheckBox" name="equalEnergyTilt">
-          <property name="text">
-           <string>+3dB/octave adjustment?</string>
-          </property>
-         </widget>
+        <item>
+         <layout class="QGridLayout" name="selectorsLayout">
+          <item row="0" column="0">
+           <widget class="QLabel" name="showSignalsLabel">
+            <property name="text">
+             <string>Peak/Avg</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="1">
+           <widget class="QLabel" name="showFiltersLabel">
+            <property name="text">
+             <string>With Filters?</string>
+            </property>
+           </widget>
+          </item>
+          <item row="0" column="2">
+           <widget class="QLabel" name="showFiltersLabel">
+            <property name="text">
+             <string>Filter Response?</string>
+            </property>
+           </widget>
+          </item>
+          <item row="1" column="0">
+           <widget class="QComboBox" name="showSignals"/>
+          </item>
+          <item row="1" column="1">
+           <widget class="QComboBox" name="showFilteredSignals"/>
+          </item>
+          <item row="1" column="2">
+           <widget class="QComboBox" name="showFilters"/>
+          </item>
+          <item row="2" column="2">
+           <widget class="QCheckBox" name="equalEnergyTilt">
+            <property name="text">
+             <string>+3dB/octave?</string>
+            </property>
+           </widget>
+          </item>
+          <item row="2" column="0">
+           <widget class="QCheckBox" name="showLegend">
+            <property name="text">
+             <string>Show Legend</string>
+            </property>
+            <property name="checked">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+         </layout>
         </item>
        </layout>
       </item>
@@ -657,7 +716,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1574</width>
+     <width>1569</width>
      <height>30</height>
     </rect>
    </property>
@@ -720,8 +779,10 @@
     <addaction name="separator"/>
     <addaction name="actionLoad_Filter"/>
     <addaction name="actionSave_Filter"/>
-    <addaction name="actionAdd_BEQ_Filter"/>
+    <addaction name="actionClear_Filters"/>
     <addaction name="menuPresets"/>
+    <addaction name="separator"/>
+    <addaction name="actionAdd_BEQ_Filter"/>
     <addaction name="separator"/>
     <addaction name="actionExport_Biquad"/>
     <addaction name="actionExport_FRD"/>
@@ -939,6 +1000,9 @@
    <property name="text">
     <string>Add BE&amp;Q Filter</string>
    </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+B</string>
+   </property>
   </action>
   <action name="actionClear_Signals">
    <property name="text">
@@ -1001,6 +1065,11 @@
     <string>Alt+Shift+0</string>
    </property>
   </action>
+  <action name="actionClear_Filters">
+   <property name="text">
+    <string>Clear Filters</string>
+   </property>
+  </action>
  </widget>
  <customwidgets>
   <customwidget>
@@ -1023,8 +1092,8 @@
    <slot>addFilter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1304</x>
-     <y>514</y>
+     <x>1364</x>
+     <y>501</y>
     </hint>
     <hint type="destinationlabel">
      <x>1381</x>
@@ -1039,8 +1108,8 @@
    <slot>deleteFilter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1565</x>
-     <y>514</y>
+     <x>1488</x>
+     <y>501</y>
     </hint>
     <hint type="destinationlabel">
      <x>1462</x>
@@ -1055,8 +1124,8 @@
    <slot>editFilter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1434</x>
-     <y>514</y>
+     <x>1418</x>
+     <y>501</y>
     </hint>
     <hint type="destinationlabel">
      <x>1302</x>
@@ -1071,8 +1140,8 @@
    <slot>addSignal()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1304</x>
-     <y>99</y>
+     <x>1254</x>
+     <y>100</y>
     </hint>
     <hint type="destinationlabel">
      <x>1137</x>
@@ -1087,8 +1156,8 @@
    <slot>deleteSignal()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1565</x>
-     <y>99</y>
+     <x>1436</x>
+     <y>100</y>
     </hint>
     <hint type="destinationlabel">
      <x>1351</x>
@@ -1119,7 +1188,7 @@
    <slot>showLimits()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1162</x>
+     <x>1159</x>
      <y>71</y>
     </hint>
     <hint type="destinationlabel">
@@ -1151,7 +1220,7 @@
    <slot>showValues()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1123</x>
+     <x>1120</x>
      <y>71</y>
     </hint>
     <hint type="destinationlabel">
@@ -1167,8 +1236,8 @@
    <slot>changeLegendVisibility()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1534</x>
-     <y>877</y>
+     <x>1300</x>
+     <y>923</y>
     </hint>
     <hint type="destinationlabel">
      <x>1434</x>
@@ -1183,8 +1252,8 @@
    <slot>changeFilterVisibility()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1397</x>
-     <y>878</y>
+     <x>1559</x>
+     <y>895</y>
     </hint>
     <hint type="destinationlabel">
      <x>1271</x>
@@ -1199,8 +1268,8 @@
    <slot>applyPreset1()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1304</x>
-     <y>474</y>
+     <x>1217</x>
+     <y>501</y>
     </hint>
     <hint type="destinationlabel">
      <x>1155</x>
@@ -1215,8 +1284,8 @@
    <slot>applyPreset2()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1434</x>
-     <y>474</y>
+     <x>1263</x>
+     <y>501</y>
     </hint>
     <hint type="destinationlabel">
      <x>1152</x>
@@ -1231,8 +1300,8 @@
    <slot>applyPreset3()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1565</x>
-     <y>474</y>
+     <x>1309</x>
+     <y>501</y>
     </hint>
     <hint type="destinationlabel">
      <x>1545</x>
@@ -1247,8 +1316,8 @@
    <slot>changeSignalVisibility()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1397</x>
-     <y>844</y>
+     <x>1300</x>
+     <y>895</y>
     </hint>
     <hint type="destinationlabel">
      <x>1491</x>
@@ -1263,8 +1332,8 @@
    <slot>changeSignalFilterVisibility()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1534</x>
-     <y>844</y>
+     <x>1430</x>
+     <y>895</y>
     </hint>
     <hint type="destinationlabel">
      <x>1474</x>
@@ -1311,8 +1380,8 @@
    <slot>smoothSignals()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>756</x>
-     <y>56</y>
+     <x>979</x>
+     <y>70</y>
     </hint>
     <hint type="destinationlabel">
      <x>1013</x>
@@ -1333,6 +1402,38 @@
     <hint type="destinationlabel">
      <x>1001</x>
      <y>69</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>clearSignalsButton</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>clearSignals()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1520</x>
+     <y>84</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1552</x>
+     <y>79</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>clearFiltersButton</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>clearFilters()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1535</x>
+     <y>482</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1562</x>
+     <y>483</y>
     </hint>
    </hints>
   </connection>
@@ -1369,5 +1470,7 @@
   <slot>zoomInWaveform()</slot>
   <slot>zoomOutWaveform()</slot>
   <slot>smoothSignals()</slot>
+  <slot>clearSignals()</slot>
+  <slot>clearFilters()</slot>
  </slots>
 </ui>

@@ -1,5 +1,4 @@
 import logging
-import math
 import os
 from uuid import uuid4
 
@@ -8,6 +7,30 @@ import numpy as np
 from model.iir import Gain
 
 logger = logging.getLogger('codec')
+
+
+def bassmanagedsignaldata_to_json(signal):
+    '''
+    Converts the bass managed signal to a json compatible format.
+    :param signal: the signal.
+    :return: a dict to write to json.
+    '''
+    out = {
+        '_type': signal.__class__.__name__,
+        'name': signal.name,
+        'channels': [signaldata_to_json(x) for x in signal.channels],
+        'bm': {
+            'lpf_fs': signal.bm_lpf_fs,
+            'lpf_position': signal.bm_lpf_position,
+            'headroom_type': signal.bm_headroom_type
+        },
+        'clip': {
+            'before': signal.clip_before,
+            'after': signal.clip_after
+        },
+        'offset': f"{signal.offset:g}"
+    }
+    return out
 
 
 def signaldata_to_json(signal):
@@ -48,21 +71,34 @@ def signalmodel_from_json(input, preferences):
     :return: the signals
     '''
     signals = [signaldata_from_json(x, preferences) for x in input]
+    from model.signal import SingleChannelSignalData, BassManagedSignalData
+    single_signals = [x for x in signals if isinstance(x, SingleChannelSignalData)]
+    bm_channels = [y for x in signals if isinstance(x, BassManagedSignalData) for y in x.channels]
+    channels = single_signals + bm_channels
     for x in input:
-        if 'slave_names' in x:
-            master_name = x['name']
-            logger.debug(f"Reassembling slaves for {master_name}")
-            master = next((s for s in signals if s.name == master_name), None)
-            if master is not None:
-                for slave_name in x['slave_names']:
-                    slave = next((s for s in signals if s.name == slave_name), None)
-                    if slave is not None:
-                        master.enslave(slave)
-                    else:
-                        logger.error(f"Bad json encountered, slave not decoded ({master_name} -> {slave_name})")
-            else:
-                logger.error(f"Bad json encountered, master {master_name} not decoded")
+        if x['_type'] == BassManagedSignalData.__name__:
+            for signal_json in x['channels']:
+                if 'slave_names' in signal_json:
+                    __link_master_slave(channels, signal_json)
+        else:
+            if 'slave_names' in x:
+                __link_master_slave(channels, x)
     return signals
+
+
+def __link_master_slave(channels, signal_json):
+    master_name = signal_json['name']
+    logger.debug(f"Reassembling slaves for {master_name}")
+    master = next((s for s in channels if s.name == master_name), None)
+    if master is not None:
+        for slave_name in signal_json['slave_names']:
+            slave = next((s for s in channels if s.name == slave_name), None)
+            if slave is not None:
+                master.enslave(slave)
+            else:
+                logger.error(f"Bad json encountered, slave not decoded ({master_name} -> {slave_name})")
+    else:
+        logger.error(f"Bad json encountered, master {master_name} not decoded")
 
 
 def signaldata_from_json(o, preferences):
@@ -71,9 +107,19 @@ def signaldata_from_json(o, preferences):
     :param o: the dict (from json).
     :return: the SignalData (or an error)
     '''
-    from model.signal import SingleChannelSignalData
+    from model.signal import SingleChannelSignalData, BassManagedSignalData
     if '_type' not in o:
         raise ValueError(f"{o} is not SignalData")
+    elif o['_type'] == BassManagedSignalData.__name__:
+        channels = [signaldata_from_json(c, preferences) for c in o['channels']]
+        lpf_fs = float(o['bm']['lpf_fs'])
+        lpf_position = o['bm']['lpf_position']
+        offset = float(o['offset'])
+        bmsd = BassManagedSignalData(channels, lpf_fs, lpf_position, preferences, offset=offset)
+        bmsd.bm_headroom_type = o['bm']['headroom_type']
+        bmsd.clip_before = o['clip']['before']
+        bmsd.clip_after = o['clip']['after']
+        return bmsd
     elif o['_type'] == SingleChannelSignalData.__name__ or o['_type'] == 'SignalData':
         filt = o.get('filter', None)
         if filt is not None:
@@ -152,7 +198,10 @@ def filter_from_json(o):
     elif o['_type'] == AllPass.__name__:
         filt = AllPass(o['fs'], o['fc'], o['q'])
     elif o['_type'] == CompleteFilter.__name__:
-        filt = CompleteFilter(filters=[filter_from_json(x) for x in o['filters']], description=o['description'])
+        kwargs = {}
+        if 'fs' in o:
+            kwargs['fs'] = o['fs']
+        filt = CompleteFilter(filters=[filter_from_json(x) for x in o['filters']], description=o['description'], **kwargs)
     elif o['_type'] == ComplexLowPass.__name__:
         filt = ComplexLowPass(FilterType(o['filter_type']), o['order'], o['fs'], o['fc'])
     elif o['_type'] == ComplexHighPass.__name__:
@@ -176,7 +225,10 @@ def xydata_from_json(o):
         raise ValueError(f"{o} is not XYData")
     elif o['_type'] == XYData.__name__:
         x_json = o['x']
-        x_vals = np.linspace(x_json['min'], x_json['max'], num=x_json['count'], dtype=np.float64)
+        if 'count' in x_json:
+            x_vals = np.linspace(x_json['min'], x_json['max'], num=x_json['count'], dtype=np.float64)
+        else:
+            x_vals = np.array(x_json)
         description = o['description'] if 'description' in o else ''
         return XYData(o['name'], description, x_vals, np.array(o['y']), colour=o.get('colour', None),
                       linestyle=o.get('linestyle', '-'))
@@ -192,11 +244,7 @@ def xydata_to_json(data):
         '_type': data.__class__.__name__,
         'name': data.internal_name,
         'description': data.internal_description,
-        'x': {
-            'count': data.x.size,
-            'min': data.x[0],
-            'max': data.x[-1]
-        },
+        'x': np.around(data.x, decimals=6).tolist(),
         'y': np.around(data.y, decimals=6).tolist(),
         'colour': data.colour,
         'linestyle': data.linestyle
@@ -239,24 +287,25 @@ def __extract_filters(file):
     for child in root:
         if child.tag == 'filter':
             if 'name' in child.attrib:
-                inner_filt = None
+                current_filt = None
                 filter_tokens = child.attrib['name'].split('_')
+                (filt_type, filt_channel, filt_slot) = filter_tokens
                 if len(filter_tokens) == 3:
-                    if filter_tokens[0] == 'PEQ':
-                        if filter_tokens[1] not in filts:
-                            filts[filter_tokens[1]] = {}
-                        filt = filts[filter_tokens[1]]
-                        if filter_tokens[2] not in filt:
-                            filt[filter_tokens[2]] = {}
-                        inner_filt = filt[filter_tokens[2]]
+                    if filt_type == 'PEQ':
+                        if filt_channel not in filts:
+                            filts[filt_channel] = {}
+                        filt = filts[filt_channel]
+                        if filt_slot not in filt:
+                            filt[filt_slot] = {}
+                        current_filt = filt[filt_slot]
                         for val in child:
                             if val.tag not in ignore_vals:
-                                inner_filt[val.tag] = val.text
-                if inner_filt is not None:
-                    if 'bypass' in inner_filt and inner_filt['bypass'] == '1':
-                        del filts[filter_tokens[1]]
-                    elif 'boost' in inner_filt and inner_filt['boost'] == '0':
-                        del filts[filter_tokens[1]]
+                                current_filt[val.tag] = val.text
+                if current_filt is not None:
+                    if 'bypass' in current_filt and current_filt['bypass'] == '1':
+                        del filts[filt_channel][filt_slot]
+                    elif 'boost' in current_filt and current_filt['boost'] == '0':
+                        del filts[filt_channel][filt_slot]
     final_filt = None
     # if 1 and 2 are identical then throw one away
     if '1' in filts and '2' in filts:

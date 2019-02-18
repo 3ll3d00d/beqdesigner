@@ -49,6 +49,7 @@ from model.signal import SignalModel, SignalTableModel, SignalDialog, SingleChan
 from ui.beq import Ui_MainWindow
 
 logger = logging.getLogger('beq')
+logging.getLogger('matplotlib').setLevel(logging.WARNING)
 
 
 @contextmanager
@@ -104,9 +105,10 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.actionShow_Logs.triggered.connect(self.logViewer.show_logs)
         self.actionPreferences.triggered.connect(self.showPreferences)
         # init a default signal for when we want to edit a filter without a signal
-        default_mag = Passthrough().getTransferFunction().getMagnitude()
-        self.__default_signal = SingleChannelSignalData('default', self.preferences.get(ANALYSIS_TARGET_FS),
-                                                        [default_mag, default_mag], filter=CompleteFilter())
+        default_mag = Passthrough(fs=self.preferences.get(ANALYSIS_TARGET_FS)).getTransferFunction().getMagnitude()
+        default_fs = self.preferences.get(ANALYSIS_TARGET_FS)
+        self.__default_signal = SingleChannelSignalData('default', default_fs, [default_mag, default_mag],
+                                                        filter=CompleteFilter(fs=default_fs))
         # init the filter view selector
         self.showFilters.blockSignals(True)
         for x in SHOW_FILTER_OPTIONS:
@@ -132,6 +134,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
             getattr(self, f"action_store_preset_{i}").triggered.connect(self.set_preset(i))
             self.enable_preset(i)
         self.actionAdd_BEQ_Filter.triggered.connect(self.add_beq_filter)
+        self.actionClear_Filters.triggered.connect(self.clearFilters)
         # init the signal view selector
         self.showSignals.blockSignals(True)
         for x in SHOW_SIGNAL_OPTIONS:
@@ -216,20 +219,23 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         ''' Applies the current smoothing options to the visible signals. '''
         fraction_idx = self.octaveSmoothing.currentIndex()
         if fraction_idx == 0:
-            fraction = 0
+            smooth_type = 0
         else:
-            fraction = int(self.octaveSmoothing.currentText()[2:])
+            try:
+                smooth_type = int(self.octaveSmoothing.currentText()[2:])
+            except:
+                smooth_type = 'SG'
         changed = False
         with wait_cursor():
             if self.smoothAllSignals.isChecked():
                 for s in self.__signal_model:
-                    changed |= s.smooth(fraction)
+                    changed |= s.smooth(smooth_type)
             else:
                 signal_select = self.signalView.selectionModel()
                 if signal_select.hasSelection() and len(signal_select.selectedRows()) == 1:
                     signal_data = self.__signal_model[signal_select.selectedRows()[0].row()]
                     if signal_data.signal is not None:
-                        changed = signal_data.smooth(fraction)
+                        changed = signal_data.smooth(smooth_type)
         if changed:
             self.__magnitude_model.redraw()
             self.signalView.viewport().update()
@@ -430,17 +436,18 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         def parser(file_name):
             with gzip.open(file_name, 'r') as infile:
                 return json.loads(infile.read().decode('utf-8'))
-
         input = self.__load('*.signal', 'Load Signal', parser)
         if input is not None:
-            from model.codec import signaldata_from_json
-            self.__signal_model.add(signaldata_from_json(input, self.preferences))
+            with (wait_cursor()):
+                from model.codec import signaldata_from_json
+                self.__signal_model.add(signaldata_from_json(input, self.preferences))
 
     def on_signal_selected(self):
         '''
         Enables the edit & delete button if there are selected rows.
         '''
         selection = self.signalView.selectionModel()
+        self.clearSignalsButton.setEnabled(len(self.__signal_model) > 0)
         self.deleteSignalButton.setEnabled(selection.hasSelection())
         if len(selection.selectedRows()) == 1:
             signal_data = self.__get_selected_signal()
@@ -467,7 +474,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         self.update_reference_series(names, self.filterReference, False)
         self.__magnitude_model.redraw()
-        self.__enable_save_filter()
+        self.__enable_filter_actions()
         self.__check_active_preset(self.__filter_model.filter.preset_idx)
 
     def importFilter(self):
@@ -482,7 +489,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
     def __apply_filter(self, filter_json):
         from model.codec import filter_from_json
         signal = self.__get_selected_signal()
-        filt = filter_from_json(filter_json)
+        filt = filter_from_json(filter_json).resample(signal.fs)
         signal.filter = filt
         self.__filter_model.filter = filt
 
@@ -528,11 +535,21 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         if selection.hasSelection():
             self.__filter_model.delete([x.row() for x in selection.selectedRows()])
 
-    def __enable_save_filter(self):
+    def clearFilters(self):
+        ''' Deletes all filters  '''
+        while len(self.__filter_model) > 0:
+            self.filterView.selectRow(0)
+            self.deleteFilter()
+        self.on_filter_selected()
+
+    def __enable_filter_actions(self):
         '''
         Enables the save filter if we have filters to save.
         '''
-        self.actionSave_Filter.setEnabled(len(self.__filter_model) > 0)
+        enabled = len(self.__filter_model) > 0
+        self.actionSave_Filter.setEnabled(enabled)
+        self.actionClear_Filters.setEnabled(enabled)
+        self.clearFiltersButton.setEnabled(enabled)
 
     def on_filter_selected(self):
         '''
@@ -681,7 +698,8 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Show the remux audio dialog.
         '''
-        ExtractAudioDialog(self, self.preferences, self.__signal_model, is_remux=True).show()
+        ExtractAudioDialog(self, self.preferences, self.__signal_model,
+                           default_signal=self.__default_signal, is_remux=True).show()
 
     def showBatchExtractDialog(self):
         '''
@@ -729,12 +747,12 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         def parser(file_name):
             with gzip.open(file_name, 'r') as infile:
                 return json.loads(infile.read().decode('utf-8'))
-
         input = self.__load('*.beq', 'Load Project', parser)
         if input is not None:
-            from model.codec import signalmodel_from_json
-            self.__signal_model.replace(signalmodel_from_json(input, self.preferences))
-            self.__magnitude_model.redraw()
+            with (wait_cursor()):
+                from model.codec import signalmodel_from_json
+                self.__signal_model.replace(signalmodel_from_json(input, self.preferences))
+                self.__magnitude_model.redraw()
 
     def normaliseSignalMagnitude(self):
         '''
@@ -900,6 +918,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         filt_file = selected[0] if selected is not None else None
         if filt_file is not None:
             filters = minidspxml_to_filt(filt_file, self.__get_selected_signal().fs)
+            self.clearFilters()
             if len(filters) > 0:
                 for f in filters:
                     f.id = uuid4()

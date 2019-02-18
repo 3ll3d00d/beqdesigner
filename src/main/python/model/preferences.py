@@ -17,25 +17,30 @@ SPECTROGRAM_CONTOURED = 'spectrogram (contoured)'
 ELLIPSE = 'ellipse'
 POINT = 'point'
 
-SHOW_ALL_FILTERS = 'All'
-SHOW_COMBINED_FILTER = 'Total'
+SHOW_ALL_FILTERS = 'Individual'
+SHOW_COMBINED_FILTER = 'Combined'
 SHOW_NO_FILTERS = 'None'
 SHOW_FILTER_OPTIONS = [SHOW_ALL_FILTERS, SHOW_COMBINED_FILTER, SHOW_NO_FILTERS]
 
-SHOW_ALL_SIGNALS = 'All'
+SHOW_ALL_SIGNALS = 'Peak & Average'
 SHOW_PEAK = 'Peak'
 SHOW_AVERAGE = 'Average'
 SHOW_SIGNAL_OPTIONS = [SHOW_ALL_SIGNALS, SHOW_PEAK, SHOW_AVERAGE]
 
-SHOW_ALL_FILTERED_SIGNALS = 'All'
-SHOW_FILTERED_ONLY = 'Filtered'
-SHOW_UNFILTERED_ONLY = 'Unfiltered'
+SHOW_ALL_FILTERED_SIGNALS = 'Both'
+SHOW_FILTERED_ONLY = 'Yes'
+SHOW_UNFILTERED_ONLY = 'No'
 SHOW_FILTERED_SIGNAL_OPTIONS = [SHOW_ALL_FILTERED_SIGNALS, SHOW_FILTERED_ONLY, SHOW_UNFILTERED_ONLY]
 
 BM_LPF_BEFORE = 'Before'
 BM_LPF_AFTER = 'After'
 BM_LPF_OFF = 'Off'
 BM_LPF_OPTIONS = [BM_LPF_BEFORE, BM_LPF_AFTER, BM_LPF_OFF]
+
+COMPRESS_FORMAT_NATIVE = 'Native'
+COMPRESS_FORMAT_FLAC = 'FLAC'
+COMPRESS_FORMAT_EAC3 = 'EAC3'
+COMPRESS_FORMAT_OPTIONS = [COMPRESS_FORMAT_NATIVE, COMPRESS_FORMAT_FLAC]
 
 EXTRACTION_OUTPUT_DIR = 'extraction/output_dir'
 EXTRACTION_NOTIFICATION_SOUND = 'extraction/notification_sound'
@@ -45,6 +50,7 @@ EXTRACTION_DECIMATE = 'extraction/decimate'
 EXTRACTION_INCLUDE_ORIGINAL = 'extraction/include_original'
 EXTRACTION_INCLUDE_SUBTITLES = 'extraction/include_subtitles'
 EXTRACTION_COMPRESS = 'extraction/compress'
+EXTRACTION_COMPRESS_FORMAT = 'extraction/compress_format'
 
 ANALYSIS_RESOLUTION = 'analysis/resolution'
 ANALYSIS_TARGET_FS = 'analysis/target_fs'
@@ -164,6 +170,7 @@ DEFAULT_PREFS = {
     EXTRACTION_OUTPUT_DIR: os.path.expanduser('~'),
     EXTRACTION_MIX_MONO: False,
     EXTRACTION_COMPRESS: False,
+    EXTRACTION_COMPRESS_FORMAT: COMPRESS_FORMAT_NATIVE,
     EXTRACTION_DECIMATE: False,
     EXTRACTION_INCLUDE_ORIGINAL: False,
     EXTRACTION_INCLUDE_SUBTITLES: False,
@@ -593,12 +600,11 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
 
     def __pull_beq(self):
         ''' pulls the git repo'''
-        import git
-        repo = git.Repo(self.beqFiltersDir.text())
-        repo.remote('origin').pull()
+        from dulwich import porcelain
+        porcelain.fetch(self.beqFiltersDir.text(), 'https://github.com/bmiller/miniDSPBEQ.git')
+        porcelain.pull(self.beqFiltersDir.text(), 'https://github.com/bmiller/miniDSPBEQ.git')
 
     def __clone_beq(self):
         ''' clones the git repo '''
-        import git
-        git.Repo.clone_from('https://github.com/bmiller/miniDSPBEQ.git', self.beqFiltersDir.text())
-
+        from dulwich import porcelain
+        porcelain.clone('https://github.com/bmiller/miniDSPBEQ.git', self.beqFiltersDir.text(), checkout=True)
