@@ -11,7 +11,8 @@ a = Analysis(['src/main/python/app.py'],
                 ('src/main/icons/Icon.ico', '.'),
                 ('/usr/local/lib/python3.7/site-packages/resampy/data/kaiser_fast.npz', '_resampy_filters'),
                 ('src/main/python/style', 'style'),
-                ('src/main/python/VERSION', '.')
+                ('src/main/python/VERSION', '.'),
+                ('/usr/local/lib/python3.7/site-packages/_soundfile_data/libsndfile.dylib', '_soundfile_data')
              ],
              hiddenimports=[],
              hookspath=[],
