@@ -3,7 +3,7 @@ import math
 from math import log10
 
 from PyQt5.QtWidgets import QDialog
-from matplotlib.ticker import EngFormatter, Formatter, NullFormatter, LinearLocator, MaxNLocator
+from matplotlib.ticker import EngFormatter, Formatter, NullFormatter, LinearLocator, MaxNLocator, AutoMinorLocator
 from qtpy import QtWidgets
 
 from ui.limits import Ui_graphLayoutDialog
@@ -63,8 +63,12 @@ def configure_freq_axis(axes, x_scale):
     axes.set_xscale(x_scale)
     hzFormatter = EngFormatter(places=0)
     axes.get_xaxis().set_major_formatter(hzFormatter)
-    axes.get_xaxis().set_minor_formatter(PrintFirstHalfFormatter(hzFormatter))
     axes.set_xlabel('Hz')
+    if x_scale == 'log':
+        axes.get_xaxis().set_minor_formatter(PrintFirstHalfFormatter(hzFormatter))
+    else:
+        axes.get_xaxis().set_major_locator(MaxNLocator(nbins=24, steps=[1, 2, 4, 5, 10], min_n_ticks=8))
+        axes.get_xaxis().set_minor_locator(AutoMinorLocator(2))
 
 
 class Limits:
