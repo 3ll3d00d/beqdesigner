@@ -81,7 +81,7 @@ FILTERS_DEFAULT_FREQ = 'filters/defaults/freq'
 SCREEN_GEOMETRY = 'screen/geometry'
 SCREEN_WINDOW_STATE = 'screen/window_state'
 
-STYLE_MATPLOTLIB_THEME_DEFAULT = 'default'
+STYLE_MATPLOTLIB_THEME_DEFAULT = 'beq_dark'
 STYLE_MATPLOTLIB_THEME = 'style/matplotlib_theme'
 
 DISPLAY_SHOW_LEGEND = 'display/show_legend'

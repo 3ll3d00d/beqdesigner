@@ -1,11 +1,13 @@
 # -*- mode: python -*-
 import platform
+import os
 
 block_cipher = None
 
+spec_root = os.path.abspath(SPECPATH)
 
 a = Analysis(['src/main/python/app.py'],
-             pathex=['/Users/bradmiller/Projects/beqdesigner'],
+             pathex=[spec_root],
              binaries=[],
              datas=[
                 ('src/main/icons/Icon.ico', '.'),
@@ -42,7 +44,7 @@ exe = EXE(pyz,
 if platform.system() == 'Darwin':
     app = BUNDLE(exe,
                  name='BEQDesigner.app',
-                 bundle_identifier=None,
+                 bundle_identifier='com.3ll3d00d.beqdesigner',
                  info_plist={
                   'NSHighResolutionCapable': 'True',
                   'LSBackgroundOnly': 'False'
