@@ -47,7 +47,10 @@ if platform.system() == 'Darwin':
                  bundle_identifier='com.3ll3d00d.beqdesigner',
                  info_plist={
                   'NSHighResolutionCapable': 'True',
-                  'LSBackgroundOnly': 'False'
+                  'LSBackgroundOnly': 'False',
+                  'LSEnvironment': {
+                    'PATH': '/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:'
+                  }
                 },
                 icon='src/main/icons/icon.icns'
                 )
