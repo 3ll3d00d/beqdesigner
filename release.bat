@@ -1,7 +1,7 @@
 set release=%1
 echo "Releasing %release%"
-git semver --next-%release% > src\main\python\VERSION
-if errorlevel 1 exit
+echo "git semver --next-%release% > src\main\python\VERSION"
+echo "if errorlevel 1 exit"
 set /p VERSION=<src\main\python\VERSION
 echo "Next version is %VERSION%"
 git add src\main\python\VERSION
