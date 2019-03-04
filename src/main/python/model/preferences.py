@@ -9,6 +9,8 @@ from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox
 
 from ui.preferences import Ui_preferencesDialog
 
+BMILLER_MINI_DSPBEQ_GIT_REPO = 'https://github.com/bmiller/miniDSPBEQ.git'
+
 WINDOWS = ['barthann', 'bartlett', 'blackman', 'blackmanharris', 'bohman', 'boxcar', 'cosine', 'flattop', 'hamming',
            'hann', 'nuttall', 'parzen', 'triang', 'tukey']
 
@@ -599,12 +601,16 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
             self.__count_beq_files()
 
     def __pull_beq(self):
-        ''' pulls the git repo'''
-        from dulwich import porcelain
-        porcelain.fetch(self.beqFiltersDir.text(), 'https://github.com/bmiller/miniDSPBEQ.git')
-        porcelain.pull(self.beqFiltersDir.text(), 'https://github.com/bmiller/miniDSPBEQ.git')
+        ''' pulls the git repo but does not use dulwich pull as it has file lock issues hon windows '''
+        from dulwich import porcelain, index
+        with porcelain.open_repo_closing(self.beqFiltersDir.text()) as local_repo:
+            remote_refs = porcelain.fetch(local_repo, BMILLER_MINI_DSPBEQ_GIT_REPO)
+            local_repo[b"HEAD"] = remote_refs[b"refs/heads/master"]
+            index_file = local_repo.index_path()
+            tree = local_repo[b"HEAD"].tree
+            index.build_index_from_tree(local_repo.path, index_file, local_repo.object_store, tree)
 
     def __clone_beq(self):
         ''' clones the git repo '''
         from dulwich import porcelain
-        porcelain.clone('https://github.com/bmiller/miniDSPBEQ.git', self.beqFiltersDir.text(), checkout=True)
+        porcelain.clone(BMILLER_MINI_DSPBEQ_GIT_REPO, self.beqFiltersDir.text(), checkout=True)
