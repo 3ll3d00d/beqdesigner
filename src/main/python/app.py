@@ -916,7 +916,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         selected = QFileDialog.getOpenFileName(parent=self, directory=self.preferences.get(BEQ_DOWNLOAD_DIR),
                                                caption='Load Minidsp XML Filter', filter='Filter (*.xml)')
         filt_file = selected[0] if selected is not None else None
-        if filt_file is not None:
+        if filt_file is not None and len(filt_file) > 0:
             filters = minidspxml_to_filt(filt_file, self.__get_selected_signal().fs)
             self.clearFilters()
             if len(filters) > 0:
