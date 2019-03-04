@@ -306,7 +306,11 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
             if sig.name not in self.__filtered_signals:
                 start = time.time()
                 filt = sig.filter
-                self.__filtered_signals[sig.name] = self.__signal.sosfilter(filt.resample(self.__signal.fs).get_sos())
+                sos = filt.resample(self.__signal.fs).get_sos()
+                if len(sos) > 0:
+                    self.__filtered_signals[sig.name] = self.__signal.sosfilter(sos)
+                else:
+                    self.__filtered_signals[sig.name] = self.__signal
                 end = time.time()
                 logger.debug(f"Filtered in {round(end - start, 3)}s")
             return self.__filtered_signals[sig.name]
