@@ -38,8 +38,8 @@ def signaldata_to_json(signal):
     Converts the signal to a json compatible format.
     :return: a dict to write to json.
     '''
-    avg = signal.raw[0]
-    peak = signal.raw[1]
+    avg = signal.unfiltered[0]
+    peak = signal.unfiltered[1]
     out = {
         '_type': signal.__class__.__name__,
         'name': signal.name,
@@ -139,7 +139,7 @@ def signaldata_from_json(o, preferences):
             except:
                 logger.exception(f"Unable to load signal from {metadata['src']}")
         if 'duration_seconds' in o:
-            signal_data = SingleChannelSignalData(o['name'], o['fs'], [avg, peak], filter=filt,
+            signal_data = SingleChannelSignalData(o['name'], o['fs'], xy_data=[avg, peak], filter=filt,
                                                   duration_seconds=o.get('duration_seconds', None),
                                                   start_seconds=o.get('start_seconds', None),
                                                   signal=signal,
@@ -149,13 +149,13 @@ def signaldata_from_json(o, preferences):
             duration_seconds = (int(h) * 3600) + int(m) * (60 + float(s))
             h, m, s = o['start_hhmmss'].split(':')
             start_seconds = (int(h) * 3600) + int(m) * (60 + float(s))
-            signal_data = SingleChannelSignalData(o['name'], o['fs'], [avg, peak], filter=filt,
+            signal_data = SingleChannelSignalData(o['name'], o['fs'], xy_data=[avg, peak], filter=filt,
                                                   duration_seconds=duration_seconds,
                                                   start_seconds=start_seconds,
                                                   signal=signal,
                                                   offset=offset)
         else:
-            signal_data = SingleChannelSignalData(o['name'], o['fs'], [avg, peak], filter=filt, signal=signal,
+            signal_data = SingleChannelSignalData(o['name'], o['fs'], xy_data=[avg, peak], filter=filt, signal=signal,
                                                   offset=offset)
         return signal_data
     raise ValueError(f"{o._type} is an unknown signal type")
@@ -216,22 +216,22 @@ def filter_from_json(o):
 
 def xydata_from_json(o):
     '''
-    Converts a json dict to an XYData.
+    Converts a json dict to a MagnitudeData.
     :param o: the dict.
-    :return: the XYData (or an error).
+    :return: the MagnitudeData (or an error).
     '''
-    from model.iir import XYData
+    from model.xy import MagnitudeData
     if '_type' not in o:
-        raise ValueError(f"{o} is not XYData")
-    elif o['_type'] == XYData.__name__:
+        raise ValueError(f"{o} is not MagnitudeData")
+    elif o['_type'] == MagnitudeData.__name__:
         x_json = o['x']
         if 'count' in x_json:
             x_vals = np.linspace(x_json['min'], x_json['max'], num=x_json['count'], dtype=np.float64)
         else:
             x_vals = np.array(x_json)
         description = o['description'] if 'description' in o else ''
-        return XYData(o['name'], description, x_vals, np.array(o['y']), colour=o.get('colour', None),
-                      linestyle=o.get('linestyle', '-'))
+        return MagnitudeData(o['name'], description, x_vals, np.array(o['y']), colour=o.get('colour', None),
+                             linestyle=o.get('linestyle', '-'))
     raise ValueError(f"{o._type} is an unknown data type")
 
 

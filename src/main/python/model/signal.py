@@ -18,7 +18,8 @@ from scipy import signal
 from sortedcontainers import SortedDict
 
 from model.codec import signaldata_to_json, bassmanagedsignaldata_to_json
-from model.iir import XYData, CompleteFilter, ComplexLowPass, FilterType
+from model.iir import CompleteFilter, ComplexLowPass, FilterType
+from model.xy import MagnitudeData
 from model.magnitude import MagnitudeModel
 from model.preferences import get_avg_colour, get_peak_colour, SHOW_PEAK, \
     SHOW_AVERAGE, SHOW_FILTERED_ONLY, SHOW_UNFILTERED_ONLY, DISPLAY_SHOW_SIGNALS, \
@@ -30,9 +31,6 @@ SIGNAL_END = 'end'
 SIGNAL_START = 'start'
 SIGNAL_CHANNEL = 'channel'
 SIGNAL_SOURCE_FILE = 'src'
-
-SAVGOL_WINDOW_LENGTH = 101
-SAVGOL_POLYORDER = 7
 
 logger = logging.getLogger('signal')
 
@@ -101,26 +99,42 @@ class SingleChannelSignalData(SignalData):
     Provides a mechanism for caching the assorted xy data surrounding a signal.
     '''
 
-    def __init__(self, name, fs, xy_data, filter, duration_seconds=None, start_seconds=None, signal=None, offset=0.0):
+    def __init__(self, name=None, fs=None, filter=None, xy_data=None, duration_seconds=None, start_seconds=None, signal=None, offset=0.0):
         super().__init__()
         self.__idx = 0
         self.__offset_db = offset
         self.__on_change_listeners = []
+        self.__unfiltered = {}
+        self.__filtered = []
+        self.__smoothing_type = None
         self.__filter = None
         self.__name = None
-        self.fs = fs
-        self.__duration_seconds = duration_seconds
-        self.__start_seconds = start_seconds
-        self.raw = xy_data
+        self.__signal = signal
         self.slaves = []
         self.master = None
-        self.filtered = []
         self.reference_name = None
         self.reference = []
         self.name = name
-        self.__signal = signal
+        if signal is not None:
+            self.fs = signal.fs
+            self.__duration_seconds = signal.duration_seconds
+            self.__start_seconds = signal.start_seconds
+            self.smooth(None)
+        else:
+            self.fs = fs
+            self.__duration_seconds = duration_seconds
+            self.__start_seconds = start_seconds
+            self.__unfiltered[None] = xy_data
         self.filter = filter
         self.tilt_on = False
+
+    @property
+    def current_unfiltered(self):
+        return self.__unfiltered[self.__smoothing_type] if self.__smoothing_type in self.__unfiltered else []
+
+    @property
+    def current_filtered(self):
+        return self.__filtered if self.__filtered is not None else []
 
     def register_listener(self, listener):
         ''' registers a listener to be notified when the filter updates (used by the WaveformController) '''
@@ -161,11 +175,16 @@ class SingleChannelSignalData(SignalData):
 
     @property
     def smoothing_description(self):
-        return self.signal.smoothing_description() if self.signal is not None and self.signal.is_smoothed() else ''
+        if self.signal is not None and self.__smoothing_type is not None:
+            try:
+                return f"1/{int(self.smoothing_type)}"
+            except:
+                return self.smoothing_type
+        return ''
 
     @property
     def smoothing_type(self):
-        return self.signal.smoothing_type if self.signal is not None else None
+        return self.__smoothing_type if self.signal is not None else None
 
     @property
     def signal(self):
@@ -185,11 +204,13 @@ class SingleChannelSignalData(SignalData):
     @name.setter
     def name(self, name):
         self.__name = name
-        self.raw[0].internal_name = name
-        self.raw[1].internal_name = name
-        if len(self.filtered) == 2:
-            self.filtered[0].internal_name = name
-            self.filtered[1].internal_name = name
+        if self.signal is not None:
+            self.signal.name = name
+        for v in self.__filtered:
+            v.internal_name = name
+        for k, v in self.__unfiltered.items():
+            for v1 in v:
+                v1.internal_name = name
 
     @property
     def filter(self):
@@ -202,7 +223,8 @@ class SingleChannelSignalData(SignalData):
     @filter.setter
     def filter(self, filt):
         self.__filter = filt
-        self.__filter.listener = self
+        if filt is not None:
+            self.__filter.listener = self
         self.on_filter_change(filt)
 
     def __repr__(self) -> str:
@@ -210,11 +232,11 @@ class SingleChannelSignalData(SignalData):
 
     def reindex(self, idx):
         self.__idx = idx
-        self.raw[0].colour = get_avg_colour(idx)
-        self.raw[1].colour = get_peak_colour(idx)
-        if len(self.filtered) == 2:
-            self.filtered[0].colour = get_avg_colour(idx)
-            self.filtered[1].colour = get_peak_colour(idx)
+        self.current_unfiltered[0].colour = get_avg_colour(idx)
+        self.current_unfiltered[1].colour = get_peak_colour(idx)
+        if len(self.current_filtered) == 2:
+            self.current_filtered[0].colour = get_avg_colour(idx)
+            self.current_filtered[1].colour = get_peak_colour(idx)
 
     def enslave(self, signal):
         '''
@@ -246,30 +268,33 @@ class SingleChannelSignalData(SignalData):
             self.master = None
             self.filter = CompleteFilter(fs=self.fs)
 
-    def smooth(self, smooth_type, store=True):
+    def smooth(self, smooth_type, set_active=True):
         '''
         applies the given octave fractional smoothing.
         :param smooth_type: the octave fraction, if 0 then remove the smoothing.
-        :param store: if true, updates the active signal smoothing.
-        :return: true if the call changed the signal.
+        :param set_active: if true, updates the active signal smoothing.
         '''
         if self.__signal is not None:
-            changed = self.__signal.calculate_peak_average(smooth_type=smooth_type, store=store)
-            if changed is True and store is True:
-                self.raw = self.__signal.getXY()
-                self.__refresh_filtered(self.filter)
+            if smooth_type is not None and smooth_type == 0:
+                smooth_type = None
+            if smooth_type not in self.__unfiltered:
+                avg = MagnitudeData(self.name, 'avg', self.__signal.avg[0], self.__signal.avg[1], smooth_type=smooth_type)
+                peak = MagnitudeData(self.name, 'peak', self.__signal.peak[0], self.__signal.peak[1], smooth_type=smooth_type)
+                self.__unfiltered[smooth_type] = [avg, peak]
+                self.__filtered = []
+            if set_active is True:
+                self.__smoothing_type = smooth_type
+                self.__refresh_filtered(self.__filter)
                 self.reindex(self.__idx)
-            return changed
 
     def get_all_xy(self):
         '''
         :return all the xy data
         '''
+        all = self.current_unfiltered + self.current_filtered
         if self.tilt_on:
-            return [r.with_equal_energy_adjustment() for r in self.raw] + [f.with_equal_energy_adjustment() for f in
-                                                                           self.filtered]
-        else:
-            return self.raw + self.filtered
+            all = [mag.with_equal_energy_adjustment() for mag in all]
+        return [mag.normalise_x() for mag in all]
 
     def on_filter_change(self, filt):
         '''
@@ -278,9 +303,8 @@ class SingleChannelSignalData(SignalData):
         '''
         logger.debug(f"Applying filter change to {self.name}")
         if filt is None:
-            self.filtered = []
-            for r in self.raw:
-                r.linestyle = '-'
+            self.__filtered = []
+            self.__set_unfiltered_linestyle('-')
         elif isinstance(filt, CompleteFilter):
             # TODO detect if the filter has changed and only recalc if it has
             self.__refresh_filtered(filt)
@@ -292,11 +316,19 @@ class SingleChannelSignalData(SignalData):
             logger.debug(f"Propagating filter change to {s.name}")
             s.on_filter_change(filt)
 
+    def __set_unfiltered_linestyle(self, style):
+        for _, v in self.__unfiltered.items():
+            for mag in v:
+                mag.linestyle = style
+
     def __refresh_filtered(self, filt):
-        filter_mag = filt.getTransferFunction().getMagnitude()
-        self.filtered = [f.filter(filter_mag) for f in self.raw]
-        for r in self.raw:
-            r.linestyle = '--'
+        if filt is not None:
+            unfiltered_avg = self.__unfiltered[None][0]
+            unfiltered_peak = self.__unfiltered[None][1]
+            filter_mag = filt.getTransferFunction().getMagnitude()
+            self.__filtered = [unfiltered_avg.filter(filter_mag).smooth(self.__smoothing_type),
+                               unfiltered_peak.filter(filter_mag).smooth(self.__smoothing_type)]
+            self.__set_unfiltered_linestyle('--')
 
     def tilt(self, tilt):
         ''' applies or removes the equal energy tilt '''
@@ -802,8 +834,20 @@ class Signal:
         self.__segment_len = self.__segments[0].shape[-1]
         if len(self.__segments) > 1:
             logger.info(f"Split {self.name} into {len(self.__segments)} segments of length {self.__segment_len}")
-        self.__cached = {None: []}
-        self.__smoothing_type = None
+        self.__avg = None
+        self.__peak = None
+
+    @property
+    def avg(self):
+        if self.__avg is None:
+            self.calculate_peak_average()
+        return self.__avg
+
+    @property
+    def peak(self):
+        if self.__peak is None:
+            self.calculate_peak_average()
+        return self.__peak
 
     @property
     def name(self):
@@ -812,25 +856,6 @@ class Signal:
     @name.setter
     def name(self, name):
         self.__name = name
-        for v in self.__cached.values():
-            for xy in v:
-                xy.internal_name = name
-
-    @property
-    def smoothing_type(self):
-        return self.__smoothing_type
-
-    def is_smoothed(self):
-        return self.__smoothing_type is not None
-
-    def smoothing_description(self):
-        if self.is_smoothed():
-            try:
-                return f"1/{int(self.smoothing_type)}"
-            except:
-                return self.smoothing_type
-        else:
-            return ''
 
     @property
     def duration_hhmmss(self):
@@ -862,7 +887,7 @@ class Signal:
         else:
             return self
 
-    def getSegmentLength(self, use_segment=False, resolution_shift=0):
+    def get_segment_length(self, use_segment=False, resolution_shift=0):
         """
         Calculates a segment length such that the frequency resolution of the resulting analysis is in the region of 
         ~1Hz subject to a lower limit of the number of samples in the signal.
@@ -881,7 +906,7 @@ class Signal:
         """
         return self.samples
 
-    def spectrum(self, ref=SPECLAB_REFERENCE, resolution_shift=0, window=None, smooth_type=None, **kwargs):
+    def avg_spectrum(self, ref=SPECLAB_REFERENCE, resolution_shift=0, window=None, **kwargs):
         """
         analyses the source to generate the linear spectrum.
         :param ref: the reference value for dB purposes.
@@ -900,33 +925,17 @@ class Signal:
         else:
             Pxx_spec = results[0][1]
         f = results[0][0]
-        if smooth_type is not None:
-            try:
-                int(smooth_type)
-                from acoustics.smooth import fractional_octaves
-                fob, Pxx_spec = fractional_octaves(f, Pxx_spec, fraction=smooth_type)
-                f = fob.center
-            except:
-                from scipy.signal import savgol_filter
-                tokens = smooth_type.split('/')
-                if len(tokens) == 1:
-                    wl = SAVGOL_WINDOW_LENGTH
-                    poly = SAVGOL_POLYORDER
-                else:
-                    wl = int(tokens[1])
-                    poly = int(tokens[2])
-                Pxx_spec = savgol_filter(Pxx_spec, wl, poly)
         # a 3dB adjustment is required to account for the change in nperseg
         Pxx_spec = amplitude_to_db(np.nan_to_num(np.sqrt(Pxx_spec)), ref * SPECLAB_REFERENCE)
         return f, Pxx_spec
 
     def __segment_spectrum(self, segment, resolution_shift=0, window=None, **kwargs):
-        nperseg = self.getSegmentLength(use_segment=True, resolution_shift=resolution_shift)
+        nperseg = self.get_segment_length(use_segment=True, resolution_shift=resolution_shift)
         f, Pxx_spec = signal.welch(segment, self.fs, nperseg=nperseg, scaling='spectrum', detrend=False,
                                    window=window if window else 'hann', **kwargs)
         return f, Pxx_spec
 
-    def peakSpectrum(self, ref=SPECLAB_REFERENCE, resolution_shift=0, window=None, smooth_type=None):
+    def peak_spectrum(self, ref=SPECLAB_REFERENCE, resolution_shift=0, window=None):
         """
         analyses the source to generate the max values per bin per segment
         :param resolution_shift: allows resolution to go down (if positive) or up (if negative).
@@ -945,28 +954,12 @@ class Signal:
         else:
             Pxy_max = results[0][1]
         f = results[0][0]
-        if smooth_type is not None:
-            try:
-                int(smooth_type)
-                from acoustics.smooth import fractional_octaves
-                fob, Pxy_max = fractional_octaves(f, Pxy_max, fraction=smooth_type)
-                f = fob.center
-            except:
-                from scipy.signal import savgol_filter
-                tokens = smooth_type.split('/')
-                if len(tokens) == 1:
-                    wl = SAVGOL_WINDOW_LENGTH
-                    poly = SAVGOL_POLYORDER
-                else:
-                    wl = int(tokens[1])
-                    poly = int(tokens[2])
-                Pxy_max = savgol_filter(Pxy_max, wl, poly)
         # a 3dB adjustment is required to account for the change in nperseg
         Pxy_max = amplitude_to_db(Pxy_max, ref=ref * SPECLAB_REFERENCE)
         return f, Pxy_max
 
     def __segment_peak(self, segment, resolution_shift=0, window=None):
-        nperseg = self.getSegmentLength(use_segment=True, resolution_shift=resolution_shift)
+        nperseg = self.get_segment_length(use_segment=True, resolution_shift=resolution_shift)
         freqs, _, Pxy = signal.spectrogram(segment,
                                            self.fs,
                                            window=window if window else ('tukey', 0.25),
@@ -989,7 +982,7 @@ class Signal:
             Pxx : ndarray
             linear spectrum values.
         """
-        nperseg = self.getSegmentLength(resolution_shift=resolution_shift)
+        nperseg = self.get_segment_length(resolution_shift=resolution_shift)
         f, t, Sxx = signal.spectrogram(self.samples,
                                        self.fs,
                                        window=window if window else ('tukey', 0.25),
@@ -1097,55 +1090,20 @@ class Signal:
         else:
             return 'kaiser_fast'
 
-    def getXY(self, idx=0):
+    def calculate_peak_average(self):
         '''
-        :return: renders itself as peak/avg spectrum xydata.
+        caches the peak and avg spectrum if we have no data.
         '''
-        if len(self.__cached[self.__smoothing_type]) == 2:
-            avg_col = get_avg_colour(idx)
-            peak_col = get_peak_colour(idx)
-            self.__cached[self.__smoothing_type][0].colour = avg_col
-            self.__cached[self.__smoothing_type][1].colour = peak_col
-            return self.__cached[self.__smoothing_type]
-        else:
-            logger.error(f"getXY called on {self.name} before calculate, must be error!")
-            return []
-
-    def calculate_peak_average(self, smooth_type=None, store=True):
-        '''
-        caches the peak and avg spectrum if the smoothing has changed or we have no data.
-        '''
-        from model.preferences import ANALYSIS_RESOLUTION, ANALYSIS_PEAK_WINDOW, ANALYSIS_AVG_WINDOW
-        resolution = self.__preferences.get(ANALYSIS_RESOLUTION)
-        resolution_shift = int(math.log(resolution, 2))
-        peak_wnd = self.__get_window(self.__preferences, ANALYSIS_PEAK_WINDOW)
-        avg_wnd = self.__get_window(self.__preferences, ANALYSIS_AVG_WINDOW)
-        if smooth_type is not None and smooth_type == 0:
-            smooth_type = None
-        if smooth_type not in self.__cached or len(self.__cached[smooth_type]) == 0:
+        if self.__avg is None or self.__peak is None:
+            from model.preferences import ANALYSIS_RESOLUTION, ANALYSIS_PEAK_WINDOW, ANALYSIS_AVG_WINDOW
+            resolution = self.__preferences.get(ANALYSIS_RESOLUTION)
+            resolution_shift = int(math.log(resolution, 2))
+            peak_wnd = self.__get_window(self.__preferences, ANALYSIS_PEAK_WINDOW)
+            avg_wnd = self.__get_window(self.__preferences, ANALYSIS_AVG_WINDOW)
             logger.debug(
                 f"Analysing {self.name} at {resolution} Hz resolution using {peak_wnd if peak_wnd else 'Default'}/{avg_wnd if avg_wnd else 'Default'} peak/avg windows")
-            avg = self.spectrum(resolution_shift=resolution_shift, window=avg_wnd, smooth_type=smooth_type)
-            peak = self.peakSpectrum(resolution_shift=resolution_shift, window=peak_wnd, smooth_type=smooth_type)
-            force_interp = self.__force_interp(smooth_type)
-            self.__cached[smooth_type] = [
-                XYData(self.name, 'avg', avg[0], avg[1], force_interp=force_interp),
-                XYData(self.name, 'peak', peak[0], peak[1], force_interp=force_interp)
-            ]
-        changed = self.__smoothing_type != smooth_type and store is True
-        if store is True:
-            self.__smoothing_type = smooth_type
-        return changed
-
-    def __force_interp(self, smooth_type):
-        if smooth_type is None:
-            return False
-        else:
-            try:
-                int(smooth_type)
-                return True
-            except:
-                return False
+            self.__avg = self.avg_spectrum(resolution_shift=resolution_shift, window=avg_wnd)
+            self.__peak = self.peak_spectrum(resolution_shift=resolution_shift, window=peak_wnd)
 
     def __slice_into_large_signal_segments(self):
         '''
@@ -1173,7 +1131,7 @@ class Signal:
 def amplitude_to_db(s, ref=1.0):
     '''
     Convert an amplitude spectrogram to dB-scaled spectrogram. Implementation taken from librosa to avoid adding a
-    dependency on librosa for a single function.
+    dependency on librosa for a few util functions.
     :param s: the amplitude spectrogram.
     :return: s_db : np.ndarray ``s`` measured in dB
     '''
@@ -1186,6 +1144,38 @@ def amplitude_to_db(s, ref=1.0):
     log_spec -= 10.0 * np.log10(np.maximum(amin, ref_power))
     log_spec = np.maximum(log_spec, log_spec.max() - top_db)
     return log_spec
+
+
+def db_to_amplitude(s, ref=1.0):
+    '''
+    Convert a dB-scaled spectrogram to an amplitude spectrogram. Implementation taken from librosa to avoid adding a
+    dependency on librosa for a few util functions.
+
+    This effectively inverts `amplitude_to_db`:
+
+        `db_to_amplitude(S_db) ~= 10.0**(0.5 * (S_db + log10(ref)/10))`
+
+    :param s: the dB scaled spectrogram.
+    :param ref: reference power.
+    :return: s_lin : Linear magnitude spectrogram
+    '''
+    return db_to_power(s, ref=ref**2)**0.5
+
+
+def db_to_power(s, ref=1.0):
+    '''
+    Convert a dB-scale spectrogram to a power spectrogram. Implementation taken from librosa to avoid adding a
+    dependency on librosa for a few util functions.
+
+    This effectively inverts `power_to_db`:
+
+        `db_to_power(S_db) ~= ref * 10.0**(S_db / 10)`
+
+    :param s: the dB scaled spectrogram.
+    :param ref: reference power.
+    :return: s_lin : Linear magnitude spectrogram
+    '''
+    return ref * np.power(10.0, 0.1 * s)
 
 
 class SignalTableModel(QAbstractTableModel):
@@ -1360,8 +1350,7 @@ class AutoWavLoader:
             from model.preferences import ANALYSIS_TARGET_FS
             target_fs = self.__preferences.get(ANALYSIS_TARGET_FS) if decimate is True else self.info.samplerate
             signal = readWav(name, self.__preferences, input_data=self.__wav_data, channel=channel, target_fs=target_fs)
-            signal.calculate_peak_average()
-            self.__cache[channel] = signal
+            self.__cache[channel] = SingleChannelSignalData(name=name, signal=signal)
         else:
             if name is not None:
                 self.__cache[channel].name = name
@@ -1371,14 +1360,12 @@ class AutoWavLoader:
         Converts the loaded signal into a SignalData.
         :return: the signal data.
         '''
-        signal = self.__cache[channel_idx]
+        signal = self.__cache[channel_idx].signal
         if not math.isclose(offset, 0.0):
             signal = signal.offset(offset)
-            signal.calculate_peak_average()
         signal.name = name
-        return SingleChannelSignalData(name, signal.fs, signal.getXY(), CompleteFilter(fs=signal.fs),
-                                       duration_seconds=signal.duration_seconds,
-                                       start_seconds=signal.start_seconds,
+        return SingleChannelSignalData(name=name,
+                                       filter=CompleteFilter(fs=signal.fs),
                                        signal=signal,
                                        offset=offset)
 
@@ -1387,7 +1374,10 @@ class AutoWavLoader:
         :param channel_idx: the channel.
         :return: magnitude data for this signal, if we have one.
         '''
-        return self.__cache[channel_idx].getXY() if channel_idx in self.__cache else []
+        if channel_idx in self.__cache:
+            return [x.normalise_x() for x in self.__cache[channel_idx].current_unfiltered]
+        else:
+            return []
 
     def has_signal(self):
         '''
@@ -1556,7 +1546,7 @@ class FrdLoader:
                 signal_name = signal_name[:-12]
             elif signal_name.endswith('_peak'):
                 signal_name = signal_name[:-5]
-            self.__peak = XYData(signal_name, 'peak', f, m, colour=get_peak_colour(0))
+            self.__peak = MagnitudeData(signal_name, 'peak', f, m, colour=get_peak_colour(0))
             self.__dialog.frdSignalName.setText(signal_name)
             self.__dialog.frdPeakFile.setText(name)
             self.__enable_fields()
@@ -1572,7 +1562,7 @@ class FrdLoader:
                 signal_name = signal_name[:-11]
             elif signal_name.endswith('_avg'):
                 signal_name = signal_name[:-4]
-            self.__avg = XYData(signal_name, 'avg', f, m, colour=get_avg_colour(0))
+            self.__avg = MagnitudeData(signal_name, 'avg', f, m, colour=get_avg_colour(0))
             self.__dialog.frdSignalName.setText(signal_name)
             self.__dialog.frdAvgFile.setText(name)
             self.__enable_fields()
@@ -1613,8 +1603,10 @@ class FrdLoader:
         frd_name = self.__dialog.frdSignalName.text()
         self.__avg.internal_name = frd_name
         self.__peak.internal_name = frd_name
-        return SingleChannelSignalData(frd_name, self.__dialog.frdFs.value(), self.get_magnitude_data(),
-                                       CompleteFilter(fs=self.__dialog.frdFs.value()))
+        return SingleChannelSignalData(name=frd_name,
+                                       fs=self.__dialog.frdFs.value(),
+                                       filter=CompleteFilter(fs=self.__dialog.frdFs.value()),
+                                       xy_data=self.get_magnitude_data())
 
 
 class SignalDialog(QDialog, Ui_addSignalDialog):
@@ -1873,6 +1865,6 @@ class Smoother(QRunnable):
     def __smooth(self, signal_data):
         for fraction in self.fractions:
             start = time.time()
-            signal_data.smooth(fraction, store=False)
+            signal_data.smooth(fraction, set_active=False)
             end = time.time()
             logger.info(f"Smoothed {signal_data} at {fraction} in {round(end - start, 3)}s")

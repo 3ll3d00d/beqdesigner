@@ -362,7 +362,6 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
                 else:
                     self.filter = self.create_shaping_filter(self.__original_id)
                 self.__combined_preview = self.__filter_model.preview(self.filter)
-                self.passthrough.rendered = False
             else:
                 self.__combined_preview = self.__filter_model.preview(Passthrough(fs=self.__signal.fs))
                 self.filter = None

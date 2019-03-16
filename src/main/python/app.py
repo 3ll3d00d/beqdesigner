@@ -6,6 +6,7 @@ import math
 import os
 import re
 import sys
+from scipy import signal
 from contextlib import contextmanager
 
 import matplotlib
@@ -45,7 +46,7 @@ from model.preferences import PreferencesDialog, BINARIES_GROUP, ANALYSIS_TARGET
     Preferences, \
     SCREEN_GEOMETRY, SCREEN_WINDOW_STATE, FILTERS_PRESET_x, DISPLAY_SHOW_LEGEND, DISPLAY_SHOW_FILTERS, \
     SHOW_FILTER_OPTIONS, SHOW_SIGNAL_OPTIONS, DISPLAY_SHOW_SIGNALS, SHOW_FILTERED_SIGNAL_OPTIONS
-from model.signal import SignalModel, SignalTableModel, SignalDialog, SingleChannelSignalData
+from model.signal import SignalModel, SignalTableModel, SignalDialog, SingleChannelSignalData, Signal
 from ui.beq import Ui_MainWindow
 
 logger = logging.getLogger('beq')
@@ -105,9 +106,10 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.actionShow_Logs.triggered.connect(self.logViewer.show_logs)
         self.actionPreferences.triggered.connect(self.showPreferences)
         # init a default signal for when we want to edit a filter without a signal
-        default_mag = Passthrough(fs=self.preferences.get(ANALYSIS_TARGET_FS)).getTransferFunction().getMagnitude()
         default_fs = self.preferences.get(ANALYSIS_TARGET_FS)
-        self.__default_signal = SingleChannelSignalData('default', default_fs, [default_mag, default_mag],
+        default_signal = Signal('default', signal.unit_impulse(default_fs, 'mid'), self.preferences, fs=default_fs)
+        self.__default_signal = SingleChannelSignalData(name='default',
+                                                        signal=default_signal,
                                                         filter=CompleteFilter(fs=default_fs))
         # init the filter view selector
         self.showFilters.blockSignals(True)
@@ -225,20 +227,18 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
                 smooth_type = int(self.octaveSmoothing.currentText()[2:])
             except:
                 smooth_type = 'SG'
-        changed = False
         with wait_cursor():
             if self.smoothAllSignals.isChecked():
                 for s in self.__signal_model:
-                    changed |= s.smooth(smooth_type)
+                    s.smooth(smooth_type)
             else:
                 signal_select = self.signalView.selectionModel()
                 if signal_select.hasSelection() and len(signal_select.selectedRows()) == 1:
                     signal_data = self.__signal_model[signal_select.selectedRows()[0].row()]
                     if signal_data.signal is not None:
-                        changed = signal_data.smooth(smooth_type)
-        if changed:
-            self.__magnitude_model.redraw()
-            self.signalView.viewport().update()
+                        signal_data.smooth(smooth_type)
+        self.__magnitude_model.redraw()
+        self.signalView.viewport().update()
 
     def __decorate_splitter(self):
         '''

@@ -8,7 +8,8 @@ from functools import reduce
 
 import numpy as np
 from scipy import signal
-from scipy.interpolate import CubicSpline
+
+from model.xy import MagnitudeData
 
 DEFAULT_Q = 1 / np.math.sqrt(2.0)
 
@@ -944,126 +945,11 @@ class ComplexData:
             y = np.abs(self.y) * self.scaleFactor / ref
             # avoid divide by zero issues when converting to decibels
             y[np.abs(y) < 0.0000001] = 0.0000001
-            self.__cached_mag = XYData(self.name, None, self.x, 20 * np.log10(y), colour=colour,
-                                       linestyle=linestyle)
+            self.__cached_mag = MagnitudeData(self.name, None, self.x, 20 * np.log10(y), colour=colour,
+                                              linestyle=linestyle)
         return self.__cached_mag
 
     def getPhase(self, colour=None):
         if self.__cached_phase is None:
-            self.__cached_phase = XYData(self.name, None, self.x, np.angle(self.y), colour=colour)
+            self.__cached_phase = MagnitudeData(self.name, None, self.x, np.angle(self.y), colour=colour)
         return self.__cached_phase
-
-
-class XYData:
-    '''
-    Value object for showing data on a magnitude graph.
-    '''
-
-    def __init__(self, name, description, x, y, colour=None, linestyle='-', force_interp=False):
-        self.__name = name
-        self.__description = description
-        self.x = x
-        self.y = np.nan_to_num(y)
-        new_x = np.arange(self.x[0], min(160.0, self.x[-1]), 0.1)
-        if self.x[-1] > 160.0:
-            if force_interp is True:
-                from acoustics.smooth import OctaveBand
-                new_x = np.concatenate((new_x, OctaveBand(fstart=160, fstop=min(24000, self.x[-1]), fraction=24).center))
-            else:
-                new_x = np.concatenate((new_x, self.x[self.x >= 160.0]))
-        cs = CubicSpline(self.x, self.y)
-        new_y = cs(new_x)
-        logger.debug(f"Interpolating {name} from {self.y.size} to {new_x.size}")
-        self.x = new_x
-        self.y = new_y
-        self.__equal_energy_adjusted = None
-        self.colour = colour
-        self.linestyle = linestyle
-        self.miny = np.ma.masked_invalid(y).min()
-        self.maxy = np.ma.masked_invalid(y).max()
-        self.__rendered = False
-        self.__normalised_cache = {}
-
-    @property
-    def name(self):
-        if self.__description is None:
-            return self.__name
-        else:
-            return f"{self.__name}_{self.__description}"
-
-    @property
-    def internal_name(self):
-        return self.__name
-
-    @internal_name.setter
-    def internal_name(self, name):
-        self.__name = name
-
-    @property
-    def internal_description(self):
-        return self.__description
-
-    def __repr__(self):
-        return f"XYData: {self.name} - {self.x.size} - {self.colour}"
-
-    def __eq__(self, o: object) -> bool:
-        equal = self.__class__.__name__ == o.__class__.__name__
-        equal &= self.name == o.name
-        # allow tolerance because of the way we serialise to save space
-        equal &= np.allclose(self.x, o.x)
-        equal &= np.allclose(self.y, o.y, rtol=1e-5, atol=1e-5)
-        equal &= self.colour == o.colour
-        equal &= self.linestyle == o.linestyle
-        return equal
-
-    @property
-    def rendered(self):
-        return self.__rendered
-
-    @rendered.setter
-    def rendered(self, value):
-        self.__rendered = value
-
-    def normalise(self, target):
-        '''
-        Normalises the y value against the target y.
-        :param target: the target.
-        :return: a normalised XYData.
-        '''
-        if target.name not in self.__normalised_cache:
-            logger.debug(f"Normalising {self.name} against {target.name}")
-            count = min(self.x.size, target.x.size) - 1
-            self.__normalised_cache[target.name] = XYData(self.__name, self.__description, self.x[0:count],
-                                                          self.y[0:count] - target.y[0:count], colour=self.colour,
-                                                          linestyle=self.linestyle)
-        return self.__normalised_cache[target.name]
-
-    def filter(self, filt):
-        '''
-        Adds filt.y to the data.y as we're dealing in the frequency domain. Interpolates the smaller xy if required so
-        we can just add them together.
-        :param filt: the filter in XYData form.
-        :return: the filtered response.
-        '''
-        if self.x.size != filt.x.size:
-            logger.debug(f"Interpolating filt {filt.x.size} vs self {self.x.size}")
-            if self.x.size > filt.x.size:
-                interp_y = np.interp(self.x, filt.x, filt.y)
-                return XYData(self.__name, f"{self.__description}-filtered", self.x, self.y + interp_y,
-                              colour=self.colour, linestyle='-')
-            else:
-                interp_y = np.interp(filt.x, self.x, self.y)
-                return XYData(self.__name, f"{self.__description}-filtered", filt.x, filt.y + interp_y,
-                              colour=self.colour, linestyle='-')
-        else:
-            return XYData(self.__name, f"{self.__description}-filtered", self.x, self.y + filt.y, colour=self.colour,
-                          linestyle='-')
-
-    def with_equal_energy_adjustment(self):
-        ''' returns the equal energy adjusted version of this data. '''
-        if self.__equal_energy_adjusted is None:
-            x = np.linspace(self.x[1], self.x[-1], num=self.x.size)
-            adjustment = np.log10(x) * 10
-            self.__equal_energy_adjusted = XYData(self.__name, self.__description, self.x, self.y + adjustment,
-                                                  colour=self.colour, linestyle=self.linestyle)
-        return self.__equal_energy_adjusted

@@ -88,7 +88,6 @@ class AxesManager:
             self.__polygons[data.name] = self.__axes.fill_between(data.x, data.y,
                                                                   color=data.colour,
                                                                   alpha=self.__fill_alpha)
-        data.rendered = True
         return data.name
 
     def get_ylimits(self):

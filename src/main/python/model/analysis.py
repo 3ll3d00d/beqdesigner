@@ -256,7 +256,7 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
         from model.report import block_signals
         with block_signals(self.analysisResolution):
             self.analysisResolution.clear()
-            default_length = signal.getSegmentLength()
+            default_length = signal.get_segment_length()
             for m in MULTIPLIERS:
                 freq_res = float(signal.fs) / (default_length * m)
                 time_res = (m * default_length) / signal.fs
@@ -656,7 +656,7 @@ class MaxSpectrumByTime:
         elif self.__ui.magLimitType.currentText() == 'Peak':
             Pthreshold = Sxx.max(axis=-1) + self.__ui.magLowerLimit.value()
         else:
-            _, Pthreshold = signal.spectrum(resolution_shift=resolution_shift)
+            _, Pthreshold = signal.avg_spectrum(resolution_shift=resolution_shift)
 
         vmax = self.__ui.colourUpperLimit.value()
         vmin = self.__ui.colourLowerLimit.value()
