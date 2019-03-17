@@ -1,12 +1,16 @@
 import logging
 
 import numpy as np
+from PyQt5.QtCore import QSettings
 from scipy.interpolate import CubicSpline
+
+from model.preferences import DISPLAY_SMOOTH_GRAPHS, Preferences
 
 SAVGOL_WINDOW_LENGTH = 101
 SAVGOL_POLYORDER = 7
 
 logger = logging.getLogger('xy')
+preferences = Preferences(QSettings("3ll3d00d", "beqdesigner"))
 
 
 class MagnitudeData:
@@ -88,13 +92,13 @@ class MagnitudeData:
         if self.x.size != filt.x.size:
             logger.debug(f"Interpolating filt {filt.x.size} vs self {self.x.size}")
             if self.x.size > filt.x.size:
-                interp_y = np.interp(self.x, filt.x, filt.y)
+                _, interp_y = interp(filt.x, filt.y, self.x)
                 return MagnitudeData(self.__name, f"{self.__description}-filtered", self.x, self.y + interp_y,
                                      colour=self.colour,
                                      linestyle='-',
                                      smooth_type=self.__smooth_type)
             else:
-                interp_y = np.interp(filt.x, self.x, self.y)
+                _, interp_y = interp(self.x, self.y, filt.x)
                 return MagnitudeData(self.__name, f"{self.__description}-filtered", filt.x, filt.y + interp_y,
                                      colour=self.colour,
                                      linestyle='-',
@@ -111,6 +115,8 @@ class MagnitudeData:
         :param smooth_type: the smoothing type.
         :return: the smoothed data.
         '''
+        if smooth_type is None:
+            return self
         return MagnitudeData(self.__name, self.__description, self.x, self.y,
                              colour=self.colour,
                              linestyle=self.linestyle,
@@ -126,8 +132,7 @@ class MagnitudeData:
                                         OctaveBand(fstart=160, fstop=min(24000, self.x[-1]), fraction=24).center))
             else:
                 new_x = np.concatenate((new_x, self.x[self.x >= 160.0]))
-        cs = CubicSpline(self.x, self.y)
-        new_y = cs(new_x)
+        new_x, new_y = interp(self.x, self.y, new_x)
         logger.debug(f"Interpolating {self.name} from {self.y.size} to {new_x.size}")
         return MagnitudeData(self.__name, self.__description, new_x, new_y,
                              colour=self.colour,
@@ -212,3 +217,13 @@ def must_interpolate(smooth_type):
         except:
             return False
 
+
+def interp(x1, y1, x2):
+    ''' Interpolates xy based on the preferred smoothing style. '''
+    smooth = preferences.get(DISPLAY_SMOOTH_GRAPHS)
+    if smooth:
+        cs = CubicSpline(x1, y1)
+        return x2, cs(x2)
+        pass
+    else:
+        return x2, np.interp(x2, x1, y1)
