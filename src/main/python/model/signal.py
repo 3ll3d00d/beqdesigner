@@ -294,7 +294,7 @@ class SingleChannelSignalData(SignalData):
         all = self.current_unfiltered + self.current_filtered
         if self.tilt_on:
             all = [mag.with_equal_energy_adjustment() for mag in all]
-        return [mag.normalise_x() for mag in all]
+        return all
 
     def on_filter_change(self, filt):
         '''
@@ -1375,7 +1375,7 @@ class AutoWavLoader:
         :return: magnitude data for this signal, if we have one.
         '''
         if channel_idx in self.__cache:
-            return [x.normalise_x() for x in self.__cache[channel_idx].current_unfiltered]
+            return self.__cache[channel_idx].current_unfiltered
         else:
             return []
 

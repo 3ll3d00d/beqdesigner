@@ -69,6 +69,9 @@ class AxesManager:
         :return the curve name.
         '''
         curve = self.__curves.get(data.name, None)
+        from model.xy import MagnitudeData
+        if isinstance(data, MagnitudeData):
+            data = data.normalise_x()
         if curve:
             curve.set_data(data.x, data.y)
             curve.set_linestyle(data.linestyle)

@@ -223,7 +223,7 @@ def xydata_from_json(o):
     from model.xy import MagnitudeData
     if '_type' not in o:
         raise ValueError(f"{o} is not MagnitudeData")
-    elif o['_type'] == MagnitudeData.__name__:
+    elif o['_type'] == MagnitudeData.__name__ or o['_type'] == 'XYData':
         x_json = o['x']
         if 'count' in x_json:
             x_vals = np.linspace(x_json['min'], x_json['max'], num=x_json['count'], dtype=np.float64)
@@ -232,7 +232,7 @@ def xydata_from_json(o):
         description = o['description'] if 'description' in o else ''
         return MagnitudeData(o['name'], description, x_vals, np.array(o['y']), colour=o.get('colour', None),
                              linestyle=o.get('linestyle', '-'))
-    raise ValueError(f"{o._type} is an unknown data type")
+    raise ValueError(f"{o['_type']} is an unknown data type")
 
 
 def xydata_to_json(data):
