@@ -2,7 +2,7 @@ import logging
 
 import numpy as np
 from PyQt5.QtCore import QSettings
-from scipy.interpolate import CubicSpline
+from scipy.interpolate import PchipInterpolator
 
 from model.preferences import DISPLAY_SMOOTH_GRAPHS, Preferences
 
@@ -222,8 +222,7 @@ def interp(x1, y1, x2):
     ''' Interpolates xy based on the preferred smoothing style. '''
     smooth = preferences.get(DISPLAY_SMOOTH_GRAPHS)
     if smooth:
-        cs = CubicSpline(x1, y1)
+        cs = PchipInterpolator(x1, y1)
         return x2, cs(x2)
-        pass
     else:
         return x2, np.interp(x2, x1, y1)
