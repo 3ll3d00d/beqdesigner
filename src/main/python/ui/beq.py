@@ -2,11 +2,12 @@
 
 # Form implementation generated from reading ui file 'beq.ui'
 #
-# Created by: PyQt5 UI code generator 5.11.3
+# Created by: PyQt5 UI code generator 5.12.1
 #
 # WARNING! All changes made in this file will be lost!
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
@@ -641,6 +642,7 @@ class Ui_MainWindow(object):
         self.action_Remove_Smoothing.setText(_translate("MainWindow", "&Remove Smoothing"))
         self.action_Remove_Smoothing.setShortcut(_translate("MainWindow", "Alt+Shift+0"))
         self.actionClear_Filters.setText(_translate("MainWindow", "Clear Filters"))
+
 
 from app import PlotWidgetWithDateAxis
 from mpl import MplWidget

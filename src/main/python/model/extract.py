@@ -35,6 +35,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         self.showRemuxCommand.setIcon(qta.icon('fa5s.info'))
         self.inputFilePicker.setIcon(qta.icon('fa5s.folder-open'))
         self.targetDirPicker.setIcon(qta.icon('fa5s.folder-open'))
+        self.calculateGainAdjustment.setIcon(qta.icon('fa5s.sliders-h'))
         self.limitRange.setIcon(qta.icon('fa5s.cut'))
         self.statusBar = QStatusBar()
         self.statusBar.setSizeGripEnabled(False)
@@ -121,6 +122,13 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             self.gainOffset.setVisible(True)
             self.gainOffsetLabel.setVisible(True)
             self.gainOffset.setEnabled(False)
+            self.gainOffsetLabel.setEnabled(False)
+            self.calculateGainAdjustment.setVisible(True)
+            self.calculateGainAdjustment.setEnabled(False)
+            self.adjustRemuxedAudio.setVisible(True)
+            self.remuxedAudioOffset.setVisible(True)
+            self.adjustRemuxedAudio.setEnabled(False)
+            self.remuxedAudioOffset.setEnabled(False)
         else:
             self.signalName.setText('')
             self.filterMapping.setVisible(False)
@@ -129,6 +137,9 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             self.includeSubtitles.setVisible(False)
             self.gainOffset.setVisible(False)
             self.gainOffsetLabel.setVisible(False)
+            self.calculateGainAdjustment.setVisible(False)
+            self.adjustRemuxedAudio.setVisible(False)
+            self.remuxedAudioOffset.setVisible(False)
         self.eacBitRate.setVisible(False)
         self.monoMix.setChecked(self.__preferences.get(EXTRACTION_MIX_MONO))
         self.decimateAudio.setChecked(self.__preferences.get(EXTRACTION_DECIMATE))
@@ -206,6 +217,10 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
                     self.audioFormat.setCurrentText(COMPRESS_FORMAT_NATIVE)
                     self.eacBitRate.setVisible(False)
                 self.videoStreams.setCurrentIndex(1)
+                self.adjustRemuxedAudio.setEnabled(True)
+                self.remuxedAudioOffset.setEnabled(True)
+                self.gainOffsetLabel.setEnabled(True)
+                self.calculateGainAdjustment.setEnabled(True)
             self.audioStreams.setEnabled(True)
             self.videoStreams.setEnabled(True)
             self.channelCount.setEnabled(True)
@@ -329,10 +344,12 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
                 self.__executor.include_original_audio = True
                 self.__executor.original_audio_offset = self.gainOffset.value()
                 self.gainOffset.setEnabled(True)
+                self.gainOffsetLabel.setEnabled(True)
             else:
                 self.__executor.include_original_audio = False
                 self.__executor.original_audio_offset = 0.0
                 self.gainOffset.setEnabled(False)
+                self.gainOffsetLabel.setEnabled(False)
             self.__display_command_info()
 
     def toggle_include_subtitles(self):
@@ -563,6 +580,17 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
                 if self.__executor is not None:
                     self.__executor.target_dir = selected[0]
                     self.__display_command_info()
+
+    def override_filtered_gain_adjustment(self, val):
+        ''' forces the gain adjustment to a specific value. '''
+        if self.__executor is not None:
+            self.__executor.filtered_audio_offset = val
+
+    def calculate_gain_adjustment(self):
+        '''
+        Based on the filters applied, calculates the gain adjustment that is required to avoid clipping.
+        '''
+        pass
 
 
 class EditMappingDialog(QDialog, Ui_editMappingDialog):

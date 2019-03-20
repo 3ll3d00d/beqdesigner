@@ -2,11 +2,12 @@
 
 # Form implementation generated from reading ui file 'preferences.ui'
 #
-# Created by: PyQt5 UI code generator 5.11.3
+# Created by: PyQt5 UI code generator 5.12.1
 #
 # WARNING! All changes made in this file will be lost!
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+
 
 class Ui_preferencesDialog(object):
     def setupUi(self, preferencesDialog):
@@ -389,4 +390,5 @@ class Ui_preferencesDialog(object):
         self.filteredLoadedLabel.setText(_translate("preferencesDialog", "Filters Loaded"))
         self.beqDirectoryLabel.setText(_translate("preferencesDialog", "Directory"))
         self.beqDirectoryPicker.setText(_translate("preferencesDialog", "..."))
+
 

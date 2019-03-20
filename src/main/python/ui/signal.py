@@ -2,11 +2,12 @@
 
 # Form implementation generated from reading ui file 'signal.ui'
 #
-# Created by: PyQt5 UI code generator 5.11.3
+# Created by: PyQt5 UI code generator 5.12.1
 #
 # WARNING! All changes made in this file will be lost!
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+
 
 class Ui_addSignalDialog(object):
     def setupUi(self, addSignalDialog):
@@ -240,5 +241,6 @@ class Ui_addSignalDialog(object):
         self.signalTypeTabs.setTabText(self.signalTypeTabs.indexOf(self.frdTab), _translate("addSignalDialog", "TXT"))
         self.filterSelectLabel.setText(_translate("addSignalDialog", "Copy Filter"))
         self.filterSelect.setItemText(0, _translate("addSignalDialog", "None"))
+
 
 from mpl import MplWidget

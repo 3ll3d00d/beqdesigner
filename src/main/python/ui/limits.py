@@ -2,11 +2,12 @@
 
 # Form implementation generated from reading ui file 'limits.ui'
 #
-# Created by: PyQt5 UI code generator 5.11.3
+# Created by: PyQt5 UI code generator 5.12.1
 #
 # WARNING! All changes made in this file will be lost!
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+
 
 class Ui_graphLayoutDialog(object):
     def setupUi(self, graphLayoutDialog):
@@ -85,4 +86,5 @@ class Ui_graphLayoutDialog(object):
         self.hzLog.setText(_translate("graphLayoutDialog", "log scale?"))
         self.applyFullRangeX.setText(_translate("graphLayoutDialog", "20-20k"))
         self.applyBassX.setText(_translate("graphLayoutDialog", "1-160"))
+
 

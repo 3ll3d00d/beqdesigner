@@ -129,6 +129,7 @@ class Executor:
         self.__audio_bitrate = audio_bitrate
         self.__include_original_audio = include_original
         self.__original_audio_offset = 0.0
+        self.__filtered_audio_offset = 0.0
         self.__include_subtitles = include_subtitles
         self.__mono_mix_spec = None
         self.__selected_audio_stream_idx = -1
@@ -264,6 +265,15 @@ class Executor:
     @original_audio_offset.setter
     def original_audio_offset(self, original_audio_offset):
         self.__original_audio_offset = original_audio_offset
+        self.__calculate_output()
+
+    @property
+    def filtered_audio_offset(self):
+        return self.__filtered_audio_offset
+
+    @filtered_audio_offset.setter
+    def filtered_audio_offset(self, filtered_audio_offset):
+        self.__filtered_audio_offset = filtered_audio_offset
         self.__calculate_output()
 
     @property
@@ -515,6 +525,11 @@ class Executor:
             else:
                 filt += f"[{c_name}_{f_idx}]biquad={format_biquad(Passthrough())[0]}[{c_name}_{f_idx + 1}];"
                 f_idx += 1
+
+            if not math.isclose(self.filtered_audio_offset, 0.0):
+                filt += f"[{c_name}_{f_idx}]volume=volume={self.filtered_audio_offset:+g}dB[{c_name}_{f_idx + 1}];"
+                f_idx += 1
+
             filt += f"[{c_name}_{f_idx}]aformat=sample_fmts=s32:sample_rates={self.__sample_rate}"
             filt += f":channel_layouts=mono[{c_name}out]"
             filts.append(filt)

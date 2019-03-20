@@ -2,11 +2,12 @@
 
 # Form implementation generated from reading ui file 'ffmpeg.ui'
 #
-# Created by: PyQt5 UI code generator 5.11.3
+# Created by: PyQt5 UI code generator 5.12.1
 #
 # WARNING! All changes made in this file will be lost!
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+
 
 class Ui_ffmpegReportDialog(object):
     def setupUi(self, ffmpegReportDialog):
@@ -41,4 +42,5 @@ class Ui_ffmpegReportDialog(object):
     def retranslateUi(self, ffmpegReportDialog):
         _translate = QtCore.QCoreApplication.translate
         ffmpegReportDialog.setWindowTitle(_translate("ffmpegReportDialog", "ffmpeg"))
+
 
