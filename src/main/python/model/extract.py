@@ -3,6 +3,7 @@ import math
 import os
 from pathlib import Path
 
+import numpy as np
 import qtawesome as qta
 from qtpy.QtCore import Qt, QTime
 from qtpy.QtGui import QPalette, QColor, QFont
@@ -590,7 +591,17 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         '''
         Based on the filters applied, calculates the gain adjustment that is required to avoid clipping.
         '''
-        pass
+        filts = list(set(self.__executor.channel_to_filter.values()))
+        if len(filts) > 1 or filts[0] is not None:
+            from app import wait_cursor
+            with wait_cursor():
+                headroom = min([self.__calc_headroom(x.filter_signal(filt=True, clip=False).samples)
+                                for x in filts if x is not None])
+            self.remuxedAudioOffset.setValue(headroom)
+
+    @staticmethod
+    def __calc_headroom(samples):
+        return 20 * math.log(1.0 / np.nanmax(np.abs(samples)), 10)
 
 
 class EditMappingDialog(QDialog, Ui_editMappingDialog):
