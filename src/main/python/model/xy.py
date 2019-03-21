@@ -21,6 +21,8 @@ class MagnitudeData:
     def __init__(self, name, description, x, y, colour=None, linestyle='-', smooth_type=None):
         self.__name = name
         self.__description = description
+        self.__x_normal_x = None
+        self.__x_normal_y = None
         results = smooth(x, y, smooth_type)
         self.x = results[0]
         self.y = np.nan_to_num(results[1])
@@ -124,17 +126,21 @@ class MagnitudeData:
 
     def normalise_x(self):
         ''' produces a version of this data with a normalised set of x axis values '''
-        new_x = np.arange(self.x[0], min(160.0, self.x[-1]), 0.1)
-        if self.x[-1] > 160.0:
-            if must_interpolate(self.__smooth_type) is True:
-                from acoustics.smooth import OctaveBand
-                new_x = np.concatenate((new_x,
-                                        OctaveBand(fstart=160, fstop=min(24000, self.x[-1]), fraction=24).center))
-            else:
-                new_x = np.concatenate((new_x, self.x[self.x >= 160.0]))
-        new_x, new_y = interp(self.x, self.y, new_x)
-        logger.debug(f"Interpolating {self.name} from {self.y.size} to {new_x.size}")
-        return MagnitudeData(self.__name, self.__description, new_x, new_y,
+        if self.__x_normal_x is None:
+            logger.info(f"Calculating normalised_x version of {self.__name}")
+            new_x = np.arange(self.x[0], min(160.0, self.x[-1]), 0.1)
+            if self.x[-1] > 160.0:
+                if must_interpolate(self.__smooth_type) is True:
+                    from acoustics.smooth import OctaveBand
+                    new_x = np.concatenate((new_x,
+                                            OctaveBand(fstart=160, fstop=min(24000, self.x[-1]), fraction=24).center))
+                else:
+                    new_x = np.concatenate((new_x, self.x[self.x >= 160.0]))
+            new_x, new_y = interp(self.x, self.y, new_x)
+            logger.debug(f"Interpolating {self.name} from {self.y.size} to {new_x.size}")
+            self.__x_normal_x = new_x
+            self.__x_normal_y = new_y
+        return MagnitudeData(self.__name, self.__description, self.__x_normal_x, self.__x_normal_y,
                              colour=self.colour,
                              linestyle=self.linestyle)
 
