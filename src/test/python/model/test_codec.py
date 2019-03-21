@@ -259,9 +259,9 @@ def test_codec_signal():
     assert decoded.filter.id != -1
     assert decoded.filter.description == data.filter.description
     assert decoded.filter.filters == data.filter.filters
-    assert decoded.unfiltered is not None
-    assert len(decoded.unfiltered) == 2
-    assert decoded.unfiltered == data.unfiltered
+    assert decoded.current_unfiltered is not None
+    assert len(decoded.current_unfiltered) == 2
+    assert decoded.current_unfiltered == data.current_unfiltered
     assert decoded.duration_hhmmss == data.duration_hhmmss
     assert decoded.start_hhmmss == data.start_hhmmss
     assert decoded.end_hhmmss == data.end_hhmmss

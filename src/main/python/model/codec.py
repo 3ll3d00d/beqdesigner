@@ -38,8 +38,8 @@ def signaldata_to_json(signal):
     Converts the signal to a json compatible format.
     :return: a dict to write to json.
     '''
-    avg = signal.unfiltered[0]
-    peak = signal.unfiltered[1]
+    avg = signal.current_unfiltered[0]
+    peak = signal.current_unfiltered[1]
     out = {
         '_type': signal.__class__.__name__,
         'name': signal.name,
