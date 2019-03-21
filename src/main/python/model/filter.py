@@ -261,7 +261,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.__combined_preview = signal.filter
         # init the chart
         self.__magnitudeModel = MagnitudeModel('preview', self.previewChart, preferences, self, 'Filter',
-                                               db_range_calc=dBRangeCalculator(30), fill_curves=True)
+                                               db_range_calc=dBRangeCalculator(30), fill_curves=True, normalise_x=False)
         # load the selector and populate the fields
         self.__refresh_selector()
 
