@@ -230,7 +230,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
     freq_steps = [0.1, 1.0, 2.0, 5.0]
     passthrough = Passthrough()
 
-    def __init__(self, preferences, signal, filter_model, filter=None, parent=None):
+    def __init__(self, preferences, signal, filter_model, selected_filter=None, parent=None):
         self.__preferences = preferences
         # prevent signals from recalculating the filter before we've populated the fields
         self.__starting = True
@@ -257,7 +257,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         if self.__filter_model.filter.listener is not None:
             logger.debug(f"Selected filter has listener {self.__filter_model.filter.listener.name}")
         self.__filter = None
-        self.__original_id = filter.id if filter is not None else None
+        self.__original_id = selected_filter.id if selected_filter is not None else None
         self.__combined_preview = signal.filter
         # init the chart
         self.__magnitudeModel = MagnitudeModel('preview', self.previewChart, preferences, self, 'Filter',

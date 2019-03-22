@@ -525,7 +525,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         if selection.hasSelection() and len(selection.selectedRows()) == 1:
             signal = self.__get_selected_signal()
             FilterDialog(self.preferences, signal, self.__filter_model,
-                         filter=signal.filter[selection.selectedRows()[0].row()], parent=self).show()
+                         selected_filter=signal.filter[selection.selectedRows()[0].row()], parent=self).show()
 
     def deleteFilter(self):
         '''
