@@ -595,7 +595,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         if len(filts) > 1 or filts[0] is not None:
             from app import wait_cursor
             with wait_cursor():
-                headroom = min([self.__calc_headroom(x.filter_signal(filt=True, clip=False).samples)
+                headroom = min([min(self.__calc_headroom(x.filter_signal(filt=True, clip=False).samples), 0.0)
                                 for x in filts if x is not None])
             self.remuxedAudioOffset.setValue(headroom)
 
