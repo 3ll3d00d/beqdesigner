@@ -129,7 +129,7 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
         '''
         kwargs = {}
         if self.configFile.text() is not None and len(self.configFile.text()) > 0:
-            kwargs['directory'] = Path(self.configFile.text()).parent.resolve()
+            kwargs['directory'] = str(Path(self.configFile.text()).parent.resolve())
         selected = QFileDialog.getOpenFileName(parent=self, caption='Select Minidsp XML Filter',
                                                filter='Filter (*.xml)', **kwargs)
         self.configFile.setText(selected[0] if selected is not None else '')
