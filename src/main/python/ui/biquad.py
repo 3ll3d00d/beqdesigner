@@ -2,11 +2,12 @@
 
 # Form implementation generated from reading ui file 'biquad.ui'
 #
-# Created by: PyQt5 UI code generator 5.11.3
+# Created by: PyQt5 UI code generator 5.12.1
 #
 # WARNING! All changes made in this file will be lost!
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+
 
 class Ui_exportBiquadDialog(object):
     def setupUi(self, exportBiquadDialog):
@@ -80,4 +81,5 @@ class Ui_exportBiquadDialog(object):
         self.minidspFormat.setText(_translate("exportBiquadDialog", "Minidsp Style?"))
         self.saveToFile.setText(_translate("exportBiquadDialog", "..."))
         self.copyToClipboardBtn.setText(_translate("exportBiquadDialog", "..."))
+
 

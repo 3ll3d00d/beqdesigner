@@ -6,9 +6,12 @@ import math
 import os
 import re
 import sys
+from scipy import signal
 from contextlib import contextmanager
 
 import matplotlib
+
+from model.minidsp import MergeFiltersDialog
 
 matplotlib.use("Qt5Agg")
 
@@ -45,7 +48,7 @@ from model.preferences import PreferencesDialog, BINARIES_GROUP, ANALYSIS_TARGET
     Preferences, \
     SCREEN_GEOMETRY, SCREEN_WINDOW_STATE, FILTERS_PRESET_x, DISPLAY_SHOW_LEGEND, DISPLAY_SHOW_FILTERS, \
     SHOW_FILTER_OPTIONS, SHOW_SIGNAL_OPTIONS, DISPLAY_SHOW_SIGNALS, SHOW_FILTERED_SIGNAL_OPTIONS
-from model.signal import SignalModel, SignalTableModel, SignalDialog, SingleChannelSignalData
+from model.signal import SignalModel, SignalTableModel, SignalDialog, SingleChannelSignalData, Signal
 from ui.beq import Ui_MainWindow
 
 logger = logging.getLogger('beq')
@@ -105,9 +108,10 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.actionShow_Logs.triggered.connect(self.logViewer.show_logs)
         self.actionPreferences.triggered.connect(self.showPreferences)
         # init a default signal for when we want to edit a filter without a signal
-        default_mag = Passthrough(fs=self.preferences.get(ANALYSIS_TARGET_FS)).getTransferFunction().getMagnitude()
         default_fs = self.preferences.get(ANALYSIS_TARGET_FS)
-        self.__default_signal = SingleChannelSignalData('default', default_fs, [default_mag, default_mag],
+        default_signal = Signal('default', signal.unit_impulse(default_fs, 'mid'), self.preferences, fs=default_fs)
+        self.__default_signal = SingleChannelSignalData(name='default',
+                                                        signal=default_signal,
                                                         filter=CompleteFilter(fs=default_fs))
         # init the filter view selector
         self.showFilters.blockSignals(True)
@@ -214,6 +218,8 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.actionSave_Signal.triggered.connect(self.showExportSignalDialog)
         self.action_Save_Project.triggered.connect(self.exportProject)
         self.actionAbout.triggered.connect(self.showAbout)
+        # tools
+        self.actionMerge_Minidsp_XML.triggered.connect(self.merge_minidsp_xml)
 
     def smoothSignals(self):
         ''' Applies the current smoothing options to the visible signals. '''
@@ -225,20 +231,18 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
                 smooth_type = int(self.octaveSmoothing.currentText()[2:])
             except:
                 smooth_type = 'SG'
-        changed = False
         with wait_cursor():
             if self.smoothAllSignals.isChecked():
                 for s in self.__signal_model:
-                    changed |= s.smooth(smooth_type)
+                    s.smooth(smooth_type)
             else:
                 signal_select = self.signalView.selectionModel()
                 if signal_select.hasSelection() and len(signal_select.selectedRows()) == 1:
                     signal_data = self.__signal_model[signal_select.selectedRows()[0].row()]
                     if signal_data.signal is not None:
-                        changed = signal_data.smooth(smooth_type)
-        if changed:
-            self.__magnitude_model.redraw()
-            self.signalView.viewport().update()
+                        signal_data.smooth(smooth_type)
+        self.__magnitude_model.redraw()
+        self.signalView.viewport().update()
 
     def __decorate_splitter(self):
         '''
@@ -525,7 +529,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         if selection.hasSelection() and len(selection.selectedRows()) == 1:
             signal = self.__get_selected_signal()
             FilterDialog(self.preferences, signal, self.__filter_model,
-                         filter=signal.filter[selection.selectedRows()[0].row()], parent=self).show()
+                         selected_filter=signal.filter[selection.selectedRows()[0].row()], parent=self).show()
 
     def deleteFilter(self):
         '''
@@ -910,19 +914,26 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         Presents a file dialog to the user so they can choose a minidsp beq filter to load.
         :return: the loaded filter, if any.
         '''
-        from model.codec import minidspxml_to_filt
+        from model.minidsp import xml_to_filt
         from uuid import uuid4
 
         selected = QFileDialog.getOpenFileName(parent=self, directory=self.preferences.get(BEQ_DOWNLOAD_DIR),
                                                caption='Load Minidsp XML Filter', filter='Filter (*.xml)')
         filt_file = selected[0] if selected is not None else None
         if filt_file is not None:
-            filters = minidspxml_to_filt(filt_file, self.__get_selected_signal().fs)
+            filters = xml_to_filt(filt_file, self.__get_selected_signal().fs)
             self.clearFilters()
             if len(filters) > 0:
                 for f in filters:
                     f.id = uuid4()
                     self.__filter_model.save(f)
+
+    def merge_minidsp_xml(self):
+        '''
+        Shows the merge minidsp XML dialog.
+        '''
+        dialog = MergeFiltersDialog(self, self.preferences, self.statusbar)
+        dialog.exec()
 
 
 class SaveChartDialog(QDialog, Ui_saveChartDialog):

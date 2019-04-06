@@ -2,11 +2,12 @@
 
 # Form implementation generated from reading ui file 'preferences.ui'
 #
-# Created by: PyQt5 UI code generator 5.11.3
+# Created by: PyQt5 UI code generator 5.12.1
 #
 # WARNING! All changes made in this file will be lost!
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+
 
 class Ui_preferencesDialog(object):
     def setupUi(self, preferencesDialog):
@@ -150,13 +151,6 @@ class Ui_preferencesDialog(object):
         self.panes.addLayout(self.extractPane)
         self.stylePane = QtWidgets.QGridLayout()
         self.stylePane.setObjectName("stylePane")
-        self.themeLabel = QtWidgets.QLabel(preferencesDialog)
-        self.themeLabel.setObjectName("themeLabel")
-        self.stylePane.addWidget(self.themeLabel, 1, 0, 1, 1)
-        self.themePicker = QtWidgets.QComboBox(preferencesDialog)
-        self.themePicker.setObjectName("themePicker")
-        self.themePicker.addItem("")
-        self.stylePane.addWidget(self.themePicker, 1, 1, 1, 1)
         self.styleLabel = QtWidgets.QLabel(preferencesDialog)
         font = QtGui.QFont()
         font.setBold(True)
@@ -166,10 +160,20 @@ class Ui_preferencesDialog(object):
         self.styleLabel.setFrameShadow(QtWidgets.QFrame.Sunken)
         self.styleLabel.setAlignment(QtCore.Qt.AlignCenter)
         self.styleLabel.setObjectName("styleLabel")
-        self.stylePane.addWidget(self.styleLabel, 0, 0, 1, 3)
+        self.stylePane.addWidget(self.styleLabel, 0, 0, 1, 4)
+        self.themeLabel = QtWidgets.QLabel(preferencesDialog)
+        self.themeLabel.setObjectName("themeLabel")
+        self.stylePane.addWidget(self.themeLabel, 1, 0, 1, 1)
         self.speclabLineStyle = QtWidgets.QCheckBox(preferencesDialog)
         self.speclabLineStyle.setObjectName("speclabLineStyle")
-        self.stylePane.addWidget(self.speclabLineStyle, 1, 2, 1, 1)
+        self.stylePane.addWidget(self.speclabLineStyle, 1, 3, 1, 1)
+        self.themePicker = QtWidgets.QComboBox(preferencesDialog)
+        self.themePicker.setObjectName("themePicker")
+        self.themePicker.addItem("")
+        self.stylePane.addWidget(self.themePicker, 1, 1, 1, 1)
+        self.smoothGraphs = QtWidgets.QCheckBox(preferencesDialog)
+        self.smoothGraphs.setObjectName("smoothGraphs")
+        self.stylePane.addWidget(self.smoothGraphs, 1, 2, 1, 1)
         self.stylePane.setColumnStretch(1, 1)
         self.panes.addLayout(self.stylePane)
         self.graphPane = QtWidgets.QGridLayout()
@@ -365,10 +369,11 @@ class Ui_preferencesDialog(object):
         self.includeOriginal.setText(_translate("preferencesDialog", "Add Original Audio?"))
         self.compress.setText(_translate("preferencesDialog", "Compress Audio?"))
         self.includeSubtitles.setText(_translate("preferencesDialog", "Add Subtitles?"))
-        self.themeLabel.setText(_translate("preferencesDialog", "Theme"))
-        self.themePicker.setItemText(0, _translate("preferencesDialog", "default"))
         self.styleLabel.setText(_translate("preferencesDialog", "Style"))
+        self.themeLabel.setText(_translate("preferencesDialog", "Theme"))
         self.speclabLineStyle.setText(_translate("preferencesDialog", "Speclab Line Colours?"))
+        self.themePicker.setItemText(0, _translate("preferencesDialog", "default"))
+        self.smoothGraphs.setText(_translate("preferencesDialog", "Smooth?"))
         self.freqIsLogScale.setText(_translate("preferencesDialog", "Frequency Axis Log Scale?"))
         self.graphLabel.setText(_translate("preferencesDialog", "Graph"))
         self.xminmaxLabel.setText(_translate("preferencesDialog", "x min/max"))
@@ -385,4 +390,5 @@ class Ui_preferencesDialog(object):
         self.filteredLoadedLabel.setText(_translate("preferencesDialog", "Filters Loaded"))
         self.beqDirectoryLabel.setText(_translate("preferencesDialog", "Directory"))
         self.beqDirectoryPicker.setText(_translate("preferencesDialog", "..."))
+
 

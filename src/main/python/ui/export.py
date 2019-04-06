@@ -2,11 +2,12 @@
 
 # Form implementation generated from reading ui file 'export.ui'
 #
-# Created by: PyQt5 UI code generator 5.11.3
+# Created by: PyQt5 UI code generator 5.12.1
 #
 # WARNING! All changes made in this file will be lost!
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+
 
 class Ui_exportSignalDialog(object):
     def setupUi(self, exportSignalDialog):
@@ -38,4 +39,5 @@ class Ui_exportSignalDialog(object):
         _translate = QtCore.QCoreApplication.translate
         exportSignalDialog.setWindowTitle(_translate("exportSignalDialog", "Export Signal"))
         self.signalLabel.setText(_translate("exportSignalDialog", "Signal"))
+
 

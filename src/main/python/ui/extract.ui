@@ -24,8 +24,8 @@
   </property>
   <layout class="QVBoxLayout" name="boxLayout">
    <item>
-    <layout class="QGridLayout" name="gridLayout" rowstretch="1,0,0,0,0,0,0,0,0,0,0,0,0,0" columnstretch="0,0,0">
-     <item row="12" column="1">
+    <layout class="QGridLayout" name="gridLayout" rowstretch="1,0,0,0,0,0,0,0,0,0,0,0,0,0,0" columnstretch="0,0,0">
+     <item row="13" column="1">
       <widget class="QPlainTextEdit" name="ffmpegOutput">
        <property name="enabled">
         <bool>true</bool>
@@ -43,15 +43,22 @@
        </property>
       </widget>
      </item>
-     <item row="13" column="1">
-      <widget class="QLineEdit" name="signalName">
-       <property name="enabled">
-        <bool>true</bool>
+     <item row="1" column="0">
+      <widget class="QLabel" name="streamsLabel">
+       <property name="text">
+        <string>A/V Streams</string>
        </property>
       </widget>
      </item>
-     <item row="0" column="1">
-      <widget class="QLineEdit" name="inputFile">
+     <item row="9" column="2">
+      <widget class="QToolButton" name="targetDirPicker">
+       <property name="text">
+        <string>...</string>
+       </property>
+      </widget>
+     </item>
+     <item row="9" column="1">
+      <widget class="QLineEdit" name="targetDir">
        <property name="enabled">
         <bool>false</bool>
        </property>
@@ -64,20 +71,73 @@
        </property>
       </widget>
      </item>
-     <item row="10" column="0">
+     <item row="14" column="1">
+      <widget class="QLineEdit" name="signalName">
+       <property name="enabled">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="2">
+      <widget class="QToolButton" name="inputFilePicker">
+       <property name="text">
+        <string>...</string>
+       </property>
+      </widget>
+     </item>
+     <item row="11" column="2" alignment="Qt::AlignTop">
+      <widget class="QToolButton" name="showRemuxCommand">
+       <property name="text">
+        <string>...</string>
+       </property>
+      </widget>
+     </item>
+     <item row="9" column="0">
+      <widget class="QLabel" name="targetDirectoryLabel">
+       <property name="text">
+        <string>Target Directory</string>
+       </property>
+      </widget>
+     </item>
+     <item row="8" column="1">
+      <widget class="QListWidget" name="filterMapping">
+       <property name="editTriggers">
+        <set>QAbstractItemView::NoEditTriggers</set>
+       </property>
+       <property name="selectionMode">
+        <enum>QAbstractItemView::NoSelection</enum>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="1">
+      <widget class="QLineEdit" name="inputFile">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+      </widget>
+     </item>
+     <item row="11" column="1">
+      <widget class="QPlainTextEdit" name="ffmpegCommandLine">
+       <property name="enabled">
+        <bool>true</bool>
+       </property>
+       <property name="font">
+        <font>
+         <family>Consolas</family>
+        </font>
+       </property>
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item row="11" column="0">
       <widget class="QLabel" name="ffmpegCommandLabel">
        <property name="text">
         <string>ffmpeg command </string>
        </property>
        <property name="alignment">
         <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
-       </property>
-      </widget>
-     </item>
-     <item row="8" column="0">
-      <widget class="QLabel" name="targetDirectoryLabel">
-       <property name="text">
-        <string>Target Directory</string>
        </property>
       </widget>
      </item>
@@ -107,13 +167,6 @@
         </widget>
        </item>
        <item>
-        <widget class="QCheckBox" name="includeOriginalAudio">
-         <property name="text">
-          <string>Add Original Audio?</string>
-         </property>
-        </widget>
-       </item>
-       <item>
         <widget class="QCheckBox" name="includeSubtitles">
          <property name="toolTip">
           <string extracomment="EXPERIMENTAL!"/>
@@ -125,107 +178,6 @@
        </item>
       </layout>
      </item>
-     <item row="10" column="1">
-      <widget class="QPlainTextEdit" name="ffmpegCommandLine">
-       <property name="enabled">
-        <bool>true</bool>
-       </property>
-       <property name="font">
-        <font>
-         <family>Consolas</family>
-        </font>
-       </property>
-       <property name="readOnly">
-        <bool>true</bool>
-       </property>
-      </widget>
-     </item>
-     <item row="7" column="0">
-      <widget class="QLabel" name="filterMappingLabel">
-       <property name="text">
-        <string>Signal Mapping</string>
-       </property>
-      </widget>
-     </item>
-     <item row="11" column="0">
-      <widget class="QLabel" name="ffmpegProgressLabel">
-       <property name="text">
-        <string>Progress</string>
-       </property>
-      </widget>
-     </item>
-     <item row="9" column="0">
-      <widget class="QLabel" name="outputFilenameLabel">
-       <property name="text">
-        <string>Output Filename</string>
-       </property>
-      </widget>
-     </item>
-     <item row="11" column="1">
-      <widget class="QProgressBar" name="ffmpegProgress">
-       <property name="value">
-        <number>0</number>
-       </property>
-      </widget>
-     </item>
-     <item row="7" column="1">
-      <widget class="QListWidget" name="filterMapping">
-       <property name="editTriggers">
-        <set>QAbstractItemView::NoEditTriggers</set>
-       </property>
-       <property name="selectionMode">
-        <enum>QAbstractItemView::NoSelection</enum>
-       </property>
-      </widget>
-     </item>
-     <item row="8" column="2">
-      <widget class="QToolButton" name="targetDirPicker">
-       <property name="text">
-        <string>...</string>
-       </property>
-      </widget>
-     </item>
-     <item row="12" column="0">
-      <widget class="QLabel" name="ffmpegOutputLabel">
-       <property name="text">
-        <string>ffmpeg output</string>
-       </property>
-       <property name="alignment">
-        <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
-       </property>
-      </widget>
-     </item>
-     <item row="9" column="1">
-      <widget class="QLineEdit" name="outputFilename"/>
-     </item>
-     <item row="8" column="1">
-      <widget class="QLineEdit" name="targetDir">
-       <property name="enabled">
-        <bool>false</bool>
-       </property>
-      </widget>
-     </item>
-     <item row="1" column="0">
-      <widget class="QLabel" name="streamsLabel">
-       <property name="text">
-        <string>A/V Streams</string>
-       </property>
-      </widget>
-     </item>
-     <item row="0" column="0">
-      <widget class="QLabel" name="inputFileLabel">
-       <property name="text">
-        <string>File</string>
-       </property>
-      </widget>
-     </item>
-     <item row="5" column="0">
-      <widget class="QLabel" name="label">
-       <property name="text">
-        <string>Range</string>
-       </property>
-      </widget>
-     </item>
      <item row="1" column="1">
       <layout class="QHBoxLayout" name="horizontalLayout_3">
        <item>
@@ -235,6 +187,20 @@
         <widget class="QComboBox" name="videoStreams"/>
        </item>
       </layout>
+     </item>
+     <item row="3" column="0">
+      <widget class="QLabel" name="channelsLabel">
+       <property name="text">
+        <string>LFE Channel/Total</string>
+       </property>
+      </widget>
+     </item>
+     <item row="14" column="0">
+      <widget class="QLabel" name="signalNameLabel">
+       <property name="text">
+        <string>Signal Name</string>
+       </property>
+      </widget>
      </item>
      <item row="5" column="1">
       <layout class="QHBoxLayout" name="rangeLayout" stretch="0,1,0,1">
@@ -271,24 +237,27 @@
        </item>
       </layout>
      </item>
-     <item row="3" column="0">
-      <widget class="QLabel" name="channelsLabel">
-       <property name="text">
-        <string>LFE Channel/Total</string>
+     <item row="12" column="1">
+      <widget class="QProgressBar" name="ffmpegProgress">
+       <property name="value">
+        <number>0</number>
        </property>
       </widget>
      </item>
-     <item row="0" column="2">
-      <widget class="QToolButton" name="inputFilePicker">
+     <item row="10" column="1">
+      <widget class="QLineEdit" name="outputFilename"/>
+     </item>
+     <item row="10" column="0">
+      <widget class="QLabel" name="outputFilenameLabel">
        <property name="text">
-        <string>...</string>
+        <string>Output Filename</string>
        </property>
       </widget>
      </item>
-     <item row="13" column="0">
-      <widget class="QLabel" name="signalNameLabel">
+     <item row="12" column="0">
+      <widget class="QLabel" name="ffmpegProgressLabel">
        <property name="text">
-        <string>Signal Name</string>
+        <string>Progress</string>
        </property>
       </widget>
      </item>
@@ -363,10 +332,52 @@
          </property>
         </spacer>
        </item>
+      </layout>
+     </item>
+     <item row="0" column="0">
+      <widget class="QLabel" name="inputFileLabel">
+       <property name="text">
+        <string>File</string>
+       </property>
+      </widget>
+     </item>
+     <item row="5" column="0">
+      <widget class="QLabel" name="label">
+       <property name="text">
+        <string>Range</string>
+       </property>
+      </widget>
+     </item>
+     <item row="13" column="0">
+      <widget class="QLabel" name="ffmpegOutputLabel">
+       <property name="text">
+        <string>ffmpeg output</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+       </property>
+      </widget>
+     </item>
+     <item row="8" column="0">
+      <widget class="QLabel" name="filterMappingLabel">
+       <property name="text">
+        <string>Signal Mapping</string>
+       </property>
+      </widget>
+     </item>
+     <item row="7" column="1">
+      <layout class="QHBoxLayout" name="remuxOptionsLayout" stretch="1,0,0,1,0">
+       <item>
+        <widget class="QCheckBox" name="includeOriginalAudio">
+         <property name="text">
+          <string>Add Original Audio?</string>
+         </property>
+        </widget>
+       </item>
        <item>
         <widget class="QLabel" name="gainOffsetLabel">
          <property name="text">
-          <string>Gain Adjustment</string>
+          <string>Offset:</string>
          </property>
         </widget>
        </item>
@@ -386,10 +397,43 @@
          </property>
         </widget>
        </item>
+       <item>
+        <widget class="QCheckBox" name="adjustRemuxedAudio">
+         <property name="text">
+          <string>Adjust Remuxed Audio?</string>
+         </property>
+         <property name="checked">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QDoubleSpinBox" name="remuxedAudioOffset">
+         <property name="suffix">
+          <string> dB</string>
+         </property>
+         <property name="minimum">
+          <double>-120.000000000000000</double>
+         </property>
+         <property name="maximum">
+          <double>12.000000000000000</double>
+         </property>
+         <property name="singleStep">
+          <double>0.010000000000000</double>
+         </property>
+        </widget>
+       </item>
       </layout>
      </item>
-     <item row="10" column="2" alignment="Qt::AlignTop">
-      <widget class="QToolButton" name="showRemuxCommand">
+     <item row="6" column="0" rowspan="2">
+      <widget class="QLabel" name="label_2">
+       <property name="text">
+        <string>Options</string>
+       </property>
+      </widget>
+     </item>
+     <item row="7" column="2">
+      <widget class="QToolButton" name="calculateGainAdjustment">
        <property name="text">
         <string>...</string>
        </property>
@@ -614,8 +658,8 @@
    <slot>update_original_audio()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>553</x>
-     <y>191</y>
+     <x>275</x>
+     <y>226</y>
     </hint>
     <hint type="destinationlabel">
      <x>846</x>
@@ -710,8 +754,8 @@
    <slot>update_original_audio()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>780</x>
-     <y>105</y>
+     <x>500</x>
+     <y>231</y>
     </hint>
     <hint type="destinationlabel">
      <x>587</x>
@@ -742,8 +786,8 @@
    <slot>change_audio_format()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>381</x>
-     <y>102</y>
+     <x>551</x>
+     <y>119</y>
     </hint>
     <hint type="destinationlabel">
      <x>286</x>
@@ -758,12 +802,44 @@
    <slot>change_audio_bitrate()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>535</x>
-     <y>95</y>
+     <x>657</x>
+     <y>119</y>
     </hint>
     <hint type="destinationlabel">
      <x>497</x>
      <y>167</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>calculateGainAdjustment</sender>
+   <signal>clicked()</signal>
+   <receiver>extractAudioDialog</receiver>
+   <slot>calculate_gain_adjustment()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>872</x>
+     <y>232</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>866</x>
+     <y>143</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>remuxedAudioOffset</sender>
+   <signal>valueChanged(double)</signal>
+   <receiver>extractAudioDialog</receiver>
+   <slot>override_filtered_gain_adjustment()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>797</x>
+     <y>220</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>852</x>
+     <y>283</y>
     </hint>
    </hints>
   </connection>
@@ -787,5 +863,7 @@
   <slot>toggle_include_subtitles()</slot>
   <slot>onVideoStreamChange()</slot>
   <slot>change_audio_bitrate()</slot>
+  <slot>calculate_filtered_gain_adjustment()</slot>
+  <slot>override_filtered_gain_adjustment()</slot>
  </slots>
 </ui>

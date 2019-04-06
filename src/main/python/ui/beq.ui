@@ -799,6 +799,8 @@
     <addaction name="action_Remux_Audio"/>
     <addaction name="separator"/>
     <addaction name="actionAnalyse_Audio"/>
+    <addaction name="separator"/>
+    <addaction name="actionMerge_Minidsp_XML"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuSettings"/>
@@ -1068,6 +1070,14 @@
   <action name="actionClear_Filters">
    <property name="text">
     <string>Clear Filters</string>
+   </property>
+  </action>
+  <action name="actionMerge_Minidsp_XML">
+   <property name="text">
+    <string>Merge Minidsp XML</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+X</string>
    </property>
   </action>
  </widget>

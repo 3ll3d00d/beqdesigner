@@ -11,7 +11,7 @@ from qtpy.QtCore import Qt
 
 from model.magnitude import MagnitudeModel
 from model.preferences import BM_LPF_OPTIONS
-from model.signal import SignalDialog, SIGNAL_SOURCE_FILE, SIGNAL_CHANNEL
+from model.signal import SignalDialog, SIGNAL_SOURCE_FILE, SIGNAL_CHANNEL, SingleChannelSignalData
 
 logger = logging.getLogger('waveform')
 
@@ -90,9 +90,10 @@ class WaveformController:
         :return: the peak and avg spectrum for the currently filtered signal (if any).
         '''
         if self.__active_signal is not None and self.__magnitude_model.is_visible():
-            sig = self.__active_signal.cut(to_seconds(self.__start_time), to_seconds(self.__end_time))
-            sig.calculate_peak_average()
-            return sig.getXY(idx=self.__selector.currentIndex() - 1)
+            sig = SingleChannelSignalData(signal=self.__active_signal.cut(to_seconds(self.__start_time),
+                                                                          to_seconds(self.__end_time)))
+            sig.reindex(self.__selector.currentIndex() - 1)
+            return sig.get_all_xy()
         return []
 
     def refresh_selector(self):

@@ -1,6 +1,7 @@
 # from http://www.musicdsp.org/files/Audio-EQ-Cookbook.txt
 import logging
 import math
+import struct
 from abc import ABC, abstractmethod
 from collections import Sequence
 from enum import Enum
@@ -8,7 +9,8 @@ from functools import reduce
 
 import numpy as np
 from scipy import signal
-from scipy.interpolate import CubicSpline
+
+from model.xy import MagnitudeData
 
 DEFAULT_Q = 1 / np.math.sqrt(2.0)
 
@@ -22,19 +24,33 @@ ctx.prec = 17
 COMBINED = 'Combined'
 
 
-def float_to_str(f):
+def float_to_str(f, as_32bit_hex=False, minidsp_style=False):
     """
-    Convert the given float to a string, without resorting to scientific notation
+    Convert the given float to a string, without resorting to scientific notation if as_hex is False.
     """
-    d1 = ctx.create_decimal(repr(f))
-    return format(d1, 'f')
+    if as_32bit_hex is True:
+        return float_to_hex(f, minidsp_style)
+    else:
+        d1 = ctx.create_decimal(repr(f))
+        return format(d1, 'f')
+
+
+def float_to_hex(f, minidsp_style):
+    '''
+    Converts a floating number to its 32bit IEEE 754 hex representation.
+    :param f: the float.
+    :param minidsp_style: if true, don't print 0x prefix.
+    :return: the hex value.
+    '''
+    value = struct.unpack('<I', struct.pack('<f', f))[0]
+    return f"{value:{'#' if minidsp_style is True else ''}010x}"
 
 
 class Biquad(ABC):
-    def __init__(self, fs):
+    def __init__(self, fs, f_id=-1):
         self.fs = fs
         self.a, self.b = self._compute_coeffs()
-        self.id = -1
+        self.id = f_id
         self.__transferFunction = None
 
     def __eq__(self, o: object) -> bool:
@@ -66,7 +82,6 @@ class Biquad(ABC):
     def getTransferFunction(self):
         '''
         Computes the transfer function of the filter.
-        :param filt: the filter.
         :return: the transfer function.
         '''
         if self.__transferFunction is None:
@@ -75,22 +90,30 @@ class Biquad(ABC):
             self.__transferFunction = ComplexData(self.__repr__(), f, h)
         return self.__transferFunction
 
-    def format_biquads(self, minidsp_style, separator=',\n'):
+    def format_biquads(self, minidsp_style, separator=',\n', show_index=True, as_32bit_hex=False):
         ''' Creates a biquad report '''
+        kwargs = {'as_32bit_hex': as_32bit_hex, 'minidsp_style': minidsp_style}
         a = separator.join(
-            [f"a{idx}={float_to_str(-x if minidsp_style else x)}" for idx, x in enumerate(self.a) if
-             idx != 0 or minidsp_style is False])
-        b = separator.join([f"b{idx}={float_to_str(x)}" for idx, x in enumerate(self.b)])
+            [f"{self.__format_index('a', idx, show_index)}{float_to_str(-x if minidsp_style else x, **kwargs)}"
+             for idx, x in enumerate(self.a) if idx != 0 or minidsp_style is False])
+        b = separator.join([f"{self.__format_index('b', idx, show_index)}{float_to_str(x, **kwargs)}"
+                            for idx, x in enumerate(self.b)])
         return [f"{b}{separator}{a}"]
+
+    def __format_index(self, prefix, idx, show_index):
+        if show_index:
+            return f"{prefix}{idx}="
+        else:
+            return ''
 
     def get_sos(self):
         return [np.concatenate((self.b, self.a)).tolist()]
 
 
 class Gain(Biquad):
-    def __init__(self, fs, gain):
+    def __init__(self, fs, gain, f_id=-1):
         self.gain = gain
-        super().__init__(fs)
+        super().__init__(fs, f_id=f_id)
 
     @property
     def filter_type(self):
@@ -109,7 +132,7 @@ class Gain(Biquad):
         :param new_fs: the new fs.
         :return: the new filter.
         '''
-        return Gain(new_fs, self.gain)
+        return Gain(new_fs, self.gain, f_id=self.id)
 
     def to_json(self):
         return {
@@ -120,14 +143,14 @@ class Gain(Biquad):
 
 
 class BiquadWithQ(Biquad):
-    def __init__(self, fs, freq, q):
+    def __init__(self, fs, freq, q, f_id=-1):
         self.freq = round(freq, 2)
         self.q = round(q, 4)
         self.w0 = 2.0 * math.pi * freq / fs
         self.cos_w0 = math.cos(self.w0)
         self.sin_w0 = math.sin(self.w0)
         self.alpha = self.sin_w0 / (2.0 * self.q)
-        super().__init__(fs)
+        super().__init__(fs, f_id=f_id)
 
     def __eq__(self, o: object) -> bool:
         return super().__eq__(o) and self.freq == o.freq
@@ -138,8 +161,8 @@ class BiquadWithQ(Biquad):
 
 
 class Passthrough(Gain):
-    def __init__(self, fs=1000):
-        super().__init__(fs, 0)
+    def __init__(self, fs=1000, f_id=-1):
+        super().__init__(fs, 0, f_id=f_id)
 
     @property
     def description(self):
@@ -153,9 +176,9 @@ class Passthrough(Gain):
 
 
 class BiquadWithQGain(BiquadWithQ):
-    def __init__(self, fs, freq, q, gain):
+    def __init__(self, fs, freq, q, gain, f_id=-1):
         self.gain = round(gain, 3)
-        super().__init__(fs, freq, q)
+        super().__init__(fs, freq, q, f_id=f_id)
 
     def __eq__(self, o: object) -> bool:
         return super().__eq__(o) and self.gain == o.gain
@@ -177,8 +200,8 @@ class PeakingEQ(BiquadWithQGain):
             a2 =   1 - alpha/A
     '''
 
-    def __init__(self, fs, freq, q, gain):
-        super().__init__(fs, freq, q, gain)
+    def __init__(self, fs, freq, q, gain, f_id=-1):
+        super().__init__(fs, freq, q, gain, f_id=f_id)
 
     @property
     def filter_type(self):
@@ -200,7 +223,7 @@ class PeakingEQ(BiquadWithQGain):
         :param new_fs: the new fs.
         :return: the new filter.
         '''
-        return PeakingEQ(new_fs, self.freq, self.q, self.gain)
+        return PeakingEQ(new_fs, self.freq, self.q, self.gain, f_id=self.id)
 
     def to_json(self):
         return {
@@ -248,9 +271,9 @@ def max_permitted_s(gain):
 
 
 class Shelf(BiquadWithQGain):
-    def __init__(self, fs, freq, q, gain, count):
+    def __init__(self, fs, freq, q, gain, count, f_id=-1):
         self.A = 10.0 ** (gain / 40.0)
-        super().__init__(fs, freq, q, gain)
+        super().__init__(fs, freq, q, gain, f_id=f_id)
         self.count = count
         self.__cached_cascade = None
 
@@ -263,6 +286,15 @@ class Shelf(BiquadWithQGain):
     def __len__(self):
         return self.count
 
+    def flatten(self):
+        '''
+        :return: an iterable of length count of this shelf where each shelf has count=1
+        '''
+        if self.count == 1:
+            return [self]
+        else:
+            return [self.__class__(self.fs, self.freq, self.q, self.gain, 1)] * self.count
+
     def getTransferFunction(self):
         single = super().getTransferFunction()
         if self.count == 1:
@@ -274,8 +306,9 @@ class Shelf(BiquadWithQGain):
         else:
             raise ValueError('Shelf must have non zero count')
 
-    def format_biquads(self, minidsp_style, separator=',\n'):
-        single = super().format_biquads(minidsp_style, separator=separator)
+    def format_biquads(self, minidsp_style, separator=',\n', show_index=False, as_32bit_hex=False):
+        single = super().format_biquads(minidsp_style, separator=separator, show_index=show_index,
+                                        as_32bit_hex=as_32bit_hex)
         if self.count == 1:
             return single
         elif self.count > 1:
@@ -316,8 +349,8 @@ class LowShelf(Shelf):
             a2 =        (A+1) + (A-1)*cos(w0) - 2*sqrt(A)*alpha
     '''
 
-    def __init__(self, fs, freq, q, gain, count=1):
-        super().__init__(fs, freq, q, gain, count)
+    def __init__(self, fs, freq, q, gain, count=1, f_id=-1):
+        super().__init__(fs, freq, q, gain, count, f_id=f_id)
 
     @property
     def filter_type(self):
@@ -347,7 +380,7 @@ class LowShelf(Shelf):
         :param new_fs: the new fs.
         :return: the new filter.
         '''
-        return LowShelf(new_fs, self.freq, self.q, self.gain, self.count)
+        return LowShelf(new_fs, self.freq, self.q, self.gain, self.count, f_id=self.id)
 
 
 class HighShelf(Shelf):
@@ -363,8 +396,8 @@ class HighShelf(Shelf):
 
     '''
 
-    def __init__(self, fs, freq, q, gain, count=1):
-        super().__init__(fs, freq, q, gain, count)
+    def __init__(self, fs, freq, q, gain, count=1, f_id=-1):
+        super().__init__(fs, freq, q, gain, count, f_id=f_id)
 
     def __eq__(self, o: object) -> bool:
         return super().__eq__(o) and self.count == o.count
@@ -399,7 +432,7 @@ class HighShelf(Shelf):
         :param new_fs: the new fs.
         :return: the new filter.
         '''
-        return HighShelf(new_fs, self.freq, self.q, self.gain, self.count)
+        return HighShelf(new_fs, self.freq, self.q, self.gain, self.count, f_id=self.id)
 
 
 class FirstOrder_LowPass(BiquadWithQ):
@@ -407,8 +440,8 @@ class FirstOrder_LowPass(BiquadWithQ):
     A one pole low pass filter.
     '''
 
-    def __init__(self, fs, freq, q=DEFAULT_Q):
-        super().__init__(fs, freq, q)
+    def __init__(self, fs, freq, q=DEFAULT_Q, f_id=-1):
+        super().__init__(fs, freq, q, f_id=f_id)
         self.order = 1
 
     def __eq__(self, o: object) -> bool:
@@ -435,7 +468,7 @@ class FirstOrder_LowPass(BiquadWithQ):
         :param new_fs: the new fs.
         :return: the new filter.
         '''
-        return FirstOrder_LowPass(new_fs, self.freq, q=self.q)
+        return FirstOrder_LowPass(new_fs, self.freq, q=self.q, f_id=self.id)
 
     def to_json(self):
         return fs_freq_q_json(self)
@@ -446,8 +479,8 @@ class FirstOrder_HighPass(BiquadWithQ):
     A one pole high pass filter.
     '''
 
-    def __init__(self, fs, freq, q=DEFAULT_Q):
-        super().__init__(fs, freq, q)
+    def __init__(self, fs, freq, q=DEFAULT_Q, f_id=-1):
+        super().__init__(fs, freq, q, f_id=f_id)
         self.order = 1
 
     def __eq__(self, o: object) -> bool:
@@ -476,7 +509,7 @@ class FirstOrder_HighPass(BiquadWithQ):
         :param new_fs: the new fs.
         :return: the new filter.
         '''
-        return FirstOrder_HighPass(new_fs, self.freq, q=self.q)
+        return FirstOrder_HighPass(new_fs, self.freq, q=self.q, f_id=self.id)
 
     def to_json(self):
         return fs_freq_q_json(self)
@@ -503,8 +536,8 @@ class SecondOrder_LowPass(BiquadWithQ):
             a2 =   1 - alpha
     '''
 
-    def __init__(self, fs, freq, q=DEFAULT_Q):
-        super().__init__(fs, freq, q)
+    def __init__(self, fs, freq, q=DEFAULT_Q, f_id=-1):
+        super().__init__(fs, freq, q, f_id=f_id)
         self.order = 2
 
     def __eq__(self, o: object) -> bool:
@@ -537,7 +570,7 @@ class SecondOrder_LowPass(BiquadWithQ):
         :param new_fs: the new fs.
         :return: the new filter.
         '''
-        return SecondOrder_LowPass(new_fs, self.freq, q=self.q)
+        return SecondOrder_LowPass(new_fs, self.freq, q=self.q, f_id=self.id)
 
     def to_json(self):
         return fs_freq_q_json(self)
@@ -556,8 +589,8 @@ class SecondOrder_HighPass(BiquadWithQ):
 
     '''
 
-    def __init__(self, fs, freq, q=DEFAULT_Q):
-        super().__init__(fs, freq, q)
+    def __init__(self, fs, freq, q=DEFAULT_Q, f_id=-1):
+        super().__init__(fs, freq, q, f_id=f_id)
         self.order = 2
 
     def __eq__(self, o: object) -> bool:
@@ -590,7 +623,7 @@ class SecondOrder_HighPass(BiquadWithQ):
         :param new_fs: the new fs.
         :return: the new filter.
         '''
-        return SecondOrder_HighPass(new_fs, self.freq, q=self.q)
+        return SecondOrder_HighPass(new_fs, self.freq, q=self.q, f_id=self.id)
 
     def to_json(self):
         return fs_freq_q_json(self)
@@ -608,8 +641,8 @@ class AllPass(BiquadWithQ):
             a2 =   1 - alpha
     '''
 
-    def __init__(self, fs, freq, q):
-        super().__init__(fs, freq, q)
+    def __init__(self, fs, freq, q, f_id=-1):
+        super().__init__(fs, freq, q, f_id=f_id)
 
     @property
     def filter_type(self):
@@ -638,7 +671,7 @@ class AllPass(BiquadWithQ):
         :param new_fs: the new fs.
         :return: the new filter.
         '''
-        return AllPass(new_fs, self.freq, self.q)
+        return AllPass(new_fs, self.freq, self.q, f_id=self.id)
 
     def to_json(self):
         return fs_freq_q_json(self)
@@ -659,11 +692,11 @@ class ComplexFilter(Sequence):
     A filter composed of many other filters.
     '''
 
-    def __init__(self, fs=1000, filters=None, description='Complex', preset_idx=-1, listener=None):
+    def __init__(self, fs=1000, filters=None, description='Complex', preset_idx=-1, listener=None, f_id=-1):
         self.filters = filters if filters is not None else []
         self.description = description
         self.__fs = fs
-        self.id = -1
+        self.id = f_id
         self.listener = listener
         self.__on_change()
         self.__cached_transfer = None
@@ -744,14 +777,18 @@ class ComplexFilter(Sequence):
                                                                     [x.getTransferFunction() for x in self.filters])
         return self.__cached_transfer
 
-    def format_biquads(self, invert_a, separator=',\n'):
+    def format_biquads(self, invert_a, separator=',\n', show_index=False, as_32bit_hex=False):
         '''
         Formats the filter into a biquad report.
         :param invert_a: whether to invert the a coeffs.
         :return: the report.
         '''
         import itertools
-        return list(itertools.chain(*[f.format_biquads(invert_a, separator=separator) for f in self.filters]))
+        return list(itertools.chain(*[f.format_biquads(invert_a,
+                                                       separator=separator,
+                                                       show_index=show_index,
+                                                       as_32bit_hex=as_32bit_hex)
+                                      for f in self.filters]))
 
     def get_sos(self):
         ''' outputs the filter in cascaded second order sections ready for consumption by sosfiltfilt '''
@@ -768,8 +805,9 @@ class ComplexFilter(Sequence):
 
 class CompleteFilter(ComplexFilter):
 
-    def __init__(self, fs=1000, filters=None, description=COMBINED, preset_idx=-1, listener=None):
-        super().__init__(fs=fs, filters=filters, description=description, preset_idx=preset_idx, listener=listener)
+    def __init__(self, fs=1000, filters=None, description=COMBINED, preset_idx=-1, listener=None, f_id=-1):
+        super().__init__(fs=fs, filters=filters, description=description, preset_idx=preset_idx, listener=listener,
+                         f_id=f_id)
 
     def preview(self, filter):
         '''
@@ -790,10 +828,10 @@ class CompleteFilter(ComplexFilter):
         listener = self.listener if copy_listener else None
         if len(self) > 0:
             return CompleteFilter(filters=[f.resample(new_fs) for f in self.filters], description=self.description,
-                                  preset_idx=self.preset_idx, listener=listener, fs=new_fs)
+                                  preset_idx=self.preset_idx, listener=listener, fs=new_fs, f_id=self.id)
         else:
             return CompleteFilter(description=self.description, preset_idx=self.preset_idx, listener=listener,
-                                  fs=new_fs)
+                                  fs=new_fs, f_id=self.id)
 
 
 class FilterType(Enum):
@@ -806,7 +844,7 @@ class CompoundPassFilter(ComplexFilter):
     A high or low pass filter of different types and orders that are implemented using one or more biquads.
     '''
 
-    def __init__(self, high_or_low, one_pole_ctor, two_pole_ctor, filter_type, order, fs, freq):
+    def __init__(self, high_or_low, one_pole_ctor, two_pole_ctor, filter_type, order, fs, freq, f_id=-1):
         self.__bw1 = one_pole_ctor
         self.__bw2 = two_pole_ctor
         self.type = filter_type
@@ -818,7 +856,8 @@ class CompoundPassFilter(ComplexFilter):
         if self.order == 0:
             raise ValueError("Filter cannot have order = 0")
         self.__filter_type = f"{high_or_low} {filter_type.value}{order}"
-        super().__init__(fs=fs, filters=self._calculate_biquads(fs), description=f"{self.__filter_type}/{self.freq}Hz")
+        super().__init__(fs=fs, filters=self._calculate_biquads(fs), description=f"{self.__filter_type}/{self.freq}Hz",
+                         f_id=f_id)
 
     @property
     def filter_type(self):
@@ -866,8 +905,8 @@ class ComplexLowPass(CompoundPassFilter):
     A low pass filter of different types and orders that are implemented using one or more biquads.
     '''
 
-    def __init__(self, filter_type, order, fs, freq):
-        super().__init__('Low', FirstOrder_LowPass, SecondOrder_LowPass, filter_type, order, fs, freq)
+    def __init__(self, filter_type, order, fs, freq, f_id=-1):
+        super().__init__('Low', FirstOrder_LowPass, SecondOrder_LowPass, filter_type, order, fs, freq, f_id=f_id)
 
     @property
     def display_name(self):
@@ -879,7 +918,7 @@ class ComplexLowPass(CompoundPassFilter):
         :param new_fs: the fs.
         :return: the new filter.
         '''
-        return ComplexLowPass(self.type, self.order, new_fs, self.freq)
+        return ComplexLowPass(self.type, self.order, new_fs, self.freq, f_id=self.id)
 
     def to_json(self):
         return {
@@ -896,8 +935,8 @@ class ComplexHighPass(CompoundPassFilter):
     A high pass filter of different types and orders that are implemented using one or more biquads.
     '''
 
-    def __init__(self, filter_type, order, fs, freq):
-        super().__init__('High', FirstOrder_HighPass, SecondOrder_HighPass, filter_type, order, fs, freq)
+    def __init__(self, filter_type, order, fs, freq, f_id=-1):
+        super().__init__('High', FirstOrder_HighPass, SecondOrder_HighPass, filter_type, order, fs, freq, f_id=f_id)
 
     @property
     def display_name(self):
@@ -909,7 +948,7 @@ class ComplexHighPass(CompoundPassFilter):
         :param new_fs: the fs.
         :return: the new filter.
         '''
-        return ComplexHighPass(self.type, self.order, new_fs, self.freq)
+        return ComplexHighPass(self.type, self.order, new_fs, self.freq, f_id=self.id)
 
     def to_json(self):
         return {
@@ -944,126 +983,11 @@ class ComplexData:
             y = np.abs(self.y) * self.scaleFactor / ref
             # avoid divide by zero issues when converting to decibels
             y[np.abs(y) < 0.0000001] = 0.0000001
-            self.__cached_mag = XYData(self.name, None, self.x, 20 * np.log10(y), colour=colour,
-                                       linestyle=linestyle)
+            self.__cached_mag = MagnitudeData(self.name, None, self.x, 20 * np.log10(y), colour=colour,
+                                              linestyle=linestyle)
         return self.__cached_mag
 
     def getPhase(self, colour=None):
         if self.__cached_phase is None:
-            self.__cached_phase = XYData(self.name, None, self.x, np.angle(self.y), colour=colour)
+            self.__cached_phase = MagnitudeData(self.name, None, self.x, np.angle(self.y), colour=colour)
         return self.__cached_phase
-
-
-class XYData:
-    '''
-    Value object for showing data on a magnitude graph.
-    '''
-
-    def __init__(self, name, description, x, y, colour=None, linestyle='-', force_interp=False):
-        self.__name = name
-        self.__description = description
-        self.x = x
-        self.y = np.nan_to_num(y)
-        new_x = np.arange(self.x[0], min(160.0, self.x[-1]), 0.1)
-        if self.x[-1] > 160.0:
-            if force_interp is True:
-                from acoustics.smooth import OctaveBand
-                new_x = np.concatenate((new_x, OctaveBand(fstart=160, fstop=min(24000, self.x[-1]), fraction=24).center))
-            else:
-                new_x = np.concatenate((new_x, self.x[self.x >= 160.0]))
-        cs = CubicSpline(self.x, self.y)
-        new_y = cs(new_x)
-        logger.debug(f"Interpolating {name} from {self.y.size} to {new_x.size}")
-        self.x = new_x
-        self.y = new_y
-        self.__equal_energy_adjusted = None
-        self.colour = colour
-        self.linestyle = linestyle
-        self.miny = np.ma.masked_invalid(y).min()
-        self.maxy = np.ma.masked_invalid(y).max()
-        self.__rendered = False
-        self.__normalised_cache = {}
-
-    @property
-    def name(self):
-        if self.__description is None:
-            return self.__name
-        else:
-            return f"{self.__name}_{self.__description}"
-
-    @property
-    def internal_name(self):
-        return self.__name
-
-    @internal_name.setter
-    def internal_name(self, name):
-        self.__name = name
-
-    @property
-    def internal_description(self):
-        return self.__description
-
-    def __repr__(self):
-        return f"XYData: {self.name} - {self.x.size} - {self.colour}"
-
-    def __eq__(self, o: object) -> bool:
-        equal = self.__class__.__name__ == o.__class__.__name__
-        equal &= self.name == o.name
-        # allow tolerance because of the way we serialise to save space
-        equal &= np.allclose(self.x, o.x)
-        equal &= np.allclose(self.y, o.y, rtol=1e-5, atol=1e-5)
-        equal &= self.colour == o.colour
-        equal &= self.linestyle == o.linestyle
-        return equal
-
-    @property
-    def rendered(self):
-        return self.__rendered
-
-    @rendered.setter
-    def rendered(self, value):
-        self.__rendered = value
-
-    def normalise(self, target):
-        '''
-        Normalises the y value against the target y.
-        :param target: the target.
-        :return: a normalised XYData.
-        '''
-        if target.name not in self.__normalised_cache:
-            logger.debug(f"Normalising {self.name} against {target.name}")
-            count = min(self.x.size, target.x.size) - 1
-            self.__normalised_cache[target.name] = XYData(self.__name, self.__description, self.x[0:count],
-                                                          self.y[0:count] - target.y[0:count], colour=self.colour,
-                                                          linestyle=self.linestyle)
-        return self.__normalised_cache[target.name]
-
-    def filter(self, filt):
-        '''
-        Adds filt.y to the data.y as we're dealing in the frequency domain. Interpolates the smaller xy if required so
-        we can just add them together.
-        :param filt: the filter in XYData form.
-        :return: the filtered response.
-        '''
-        if self.x.size != filt.x.size:
-            logger.debug(f"Interpolating filt {filt.x.size} vs self {self.x.size}")
-            if self.x.size > filt.x.size:
-                interp_y = np.interp(self.x, filt.x, filt.y)
-                return XYData(self.__name, f"{self.__description}-filtered", self.x, self.y + interp_y,
-                              colour=self.colour, linestyle='-')
-            else:
-                interp_y = np.interp(filt.x, self.x, self.y)
-                return XYData(self.__name, f"{self.__description}-filtered", filt.x, filt.y + interp_y,
-                              colour=self.colour, linestyle='-')
-        else:
-            return XYData(self.__name, f"{self.__description}-filtered", self.x, self.y + filt.y, colour=self.colour,
-                          linestyle='-')
-
-    def with_equal_energy_adjustment(self):
-        ''' returns the equal energy adjusted version of this data. '''
-        if self.__equal_energy_adjusted is None:
-            x = np.linspace(self.x[1], self.x[-1], num=self.x.size)
-            adjustment = np.log10(x) * 10
-            self.__equal_energy_adjusted = XYData(self.__name, self.__description, self.x, self.y + adjustment,
-                                                  colour=self.colour, linestyle=self.linestyle)
-        return self.__equal_energy_adjusted

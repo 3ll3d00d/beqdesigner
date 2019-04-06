@@ -83,14 +83,14 @@ class ExportSignalDialog(QDialog, Ui_exportSignalDialog):
 
             header = self.__make_header(signal)
             # TODO add phase if we have it
-            xy = signal.raw[0]
+            xy = signal.current_unfiltered[0]
             np.savetxt(__file_name('avg'), np.transpose([xy.x, xy.y]), fmt='%8.3f', header=header)
-            xy = signal.raw[1]
+            xy = signal.current_unfiltered[1]
             np.savetxt(__file_name('peak'), np.transpose([xy.x, xy.y]), fmt='%8.3f', header=header)
-            if len(signal.filtered) > 0:
-                xy = signal.filtered[0]
+            if len(signal.current_filtered) > 0:
+                xy = signal.current_filtered[0]
                 np.savetxt(__file_name('filter_avg'), np.transpose([xy.x, xy.y]), fmt='%8.3f', header=header)
-                xy = signal.filtered[1]
+                xy = signal.current_filtered[1]
                 np.savetxt(__file_name('filter_peak'), np.transpose([xy.x, xy.y]), fmt='%8.3f', header=header)
             QDialog.accept(self)
 

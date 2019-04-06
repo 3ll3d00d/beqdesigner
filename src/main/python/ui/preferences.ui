@@ -318,24 +318,8 @@
       </layout>
      </item>
      <item>
-      <layout class="QGridLayout" name="stylePane" columnstretch="0,1,0">
-       <item row="1" column="0">
-        <widget class="QLabel" name="themeLabel">
-         <property name="text">
-          <string>Theme</string>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="1">
-        <widget class="QComboBox" name="themePicker">
-         <item>
-          <property name="text">
-           <string>default</string>
-          </property>
-         </item>
-        </widget>
-       </item>
-       <item row="0" column="0" colspan="3">
+      <layout class="QGridLayout" name="stylePane" columnstretch="0,1,0,0">
+       <item row="0" column="0" colspan="4">
         <widget class="QLabel" name="styleLabel">
          <property name="font">
           <font>
@@ -357,10 +341,33 @@
          </property>
         </widget>
        </item>
-       <item row="1" column="2">
+       <item row="1" column="0">
+        <widget class="QLabel" name="themeLabel">
+         <property name="text">
+          <string>Theme</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="3">
         <widget class="QCheckBox" name="speclabLineStyle">
          <property name="text">
           <string>Speclab Line Colours?</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QComboBox" name="themePicker">
+         <item>
+          <property name="text">
+           <string>default</string>
+          </property>
+         </item>
+        </widget>
+       </item>
+       <item row="1" column="2">
+        <widget class="QCheckBox" name="smoothGraphs">
+         <property name="text">
+          <string>Smooth?</string>
          </property>
         </widget>
        </item>

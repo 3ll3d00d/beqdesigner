@@ -96,6 +96,7 @@ DISPLAY_S_STEP = 'display/s_step'
 DISPLAY_GAIN_STEP = 'display/gain_step'
 DISPLAY_LINE_STYLE = 'display/line_style'
 DISPLAY_SMOOTH_PRECALC = 'display/precalc_smooth'
+DISPLAY_SMOOTH_GRAPHS = 'display/smooth_graphs'
 
 GRAPH_X_AXIS_SCALE = 'graph/x_axis'
 GRAPH_X_MIN = 'graph/x_min'
@@ -133,6 +134,9 @@ LOGGING_LEVEL = 'logging/level'
 SYSTEM_CHECK_FOR_UPDATES = 'system/check_for_updates'
 
 BEQ_DOWNLOAD_DIR = 'beq/directory'
+BEQ_MERGE_DIR = 'beq/merge_dir'
+BEQ_CONFIG_FILE = 'beq/config_file'
+BEQ_MINIDSP_TYPE = 'beq/minidsp_type'
 
 BIQUAD_EXPORT_FS = 'biquad/fs'
 BIQUAD_EXPORT_MAX = 'biquad/max'
@@ -158,6 +162,7 @@ DEFAULT_PREFS = {
     BASS_MANAGEMENT_LPF_FS: 80,
     BASS_MANAGEMENT_LPF_POSITION: BM_LPF_BEFORE,
     BEQ_DOWNLOAD_DIR: os.path.join(os.path.expanduser('~'), '.beq'),
+    BEQ_MERGE_DIR: os.path.join(os.path.expanduser('~'), '.beq_out'),
     BIQUAD_EXPORT_FS: '48000',
     BIQUAD_EXPORT_MAX: 10,
     STYLE_MATPLOTLIB_THEME: STYLE_MATPLOTLIB_THEME_DEFAULT,
@@ -168,6 +173,7 @@ DEFAULT_PREFS = {
     DISPLAY_S_STEP: '0.1',
     DISPLAY_GAIN_STEP: '0.1',
     DISPLAY_LINE_STYLE: True,
+    DISPLAY_SMOOTH_GRAPHS: True,
     DISPLAY_SMOOTH_PRECALC: False,
     EXTRACTION_OUTPUT_DIR: os.path.expanduser('~'),
     EXTRACTION_MIX_MONO: False,
@@ -221,6 +227,7 @@ TYPES = {
     DISPLAY_SHOW_LEGEND: bool,
     DISPLAY_LINE_STYLE: bool,
     DISPLAY_SMOOTH_PRECALC: bool,
+    DISPLAY_SMOOTH_GRAPHS: bool,
     EXTRACTION_MIX_MONO: bool,
     EXTRACTION_COMPRESS: bool,
     EXTRACTION_DECIMATE: bool,
@@ -402,6 +409,7 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
 
         self.speclabLineStyle.setChecked(self.__preferences.get(DISPLAY_LINE_STYLE))
         self.checkForUpdates.setChecked(self.__preferences.get(SYSTEM_CHECK_FOR_UPDATES))
+        self.smoothGraphs.setChecked(self.__preferences.get(DISPLAY_SMOOTH_GRAPHS))
 
         self.monoMix.setChecked(self.__preferences.get(EXTRACTION_MIX_MONO))
         self.decimate.setChecked(self.__preferences.get(EXTRACTION_DECIMATE))
@@ -502,6 +510,7 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
                                             x_scale=new_x_scale, draw=True)
         self.__preferences.set(SYSTEM_CHECK_FOR_UPDATES, self.checkForUpdates.isChecked())
         self.__preferences.set(DISPLAY_LINE_STYLE, self.speclabLineStyle.isChecked())
+        self.__preferences.set(DISPLAY_SMOOTH_GRAPHS, self.smoothGraphs.isChecked())
         self.__preferences.set(EXTRACTION_MIX_MONO, self.monoMix.isChecked())
         self.__preferences.set(EXTRACTION_DECIMATE, self.decimate.isChecked())
         self.__preferences.set(EXTRACTION_INCLUDE_ORIGINAL, self.includeOriginal.isChecked())

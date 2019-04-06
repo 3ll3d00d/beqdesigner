@@ -4,7 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-pyqt5 = "*"
+pyqt5 = ">=5.12.1"
 matplotlib = "*"
 ffmpeg-python = "*"
 soundfile = "*"
@@ -14,7 +14,7 @@ pyinstaller = "*"
 numpy = "*"
 scipy = "*"
 qtpy = "*"
-qtawesome = "*"
+qtawesome = ">=0.5.7"
 pytest = "*"
 pytest-cov = "*"
 sortedcontainers = "*"

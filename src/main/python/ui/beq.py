@@ -2,11 +2,12 @@
 
 # Form implementation generated from reading ui file 'beq.ui'
 #
-# Created by: PyQt5 UI code generator 5.11.3
+# Created by: PyQt5 UI code generator 5.12.1
 #
 # WARNING! All changes made in this file will be lost!
 
 from PyQt5 import QtCore, QtGui, QtWidgets
+
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
@@ -432,6 +433,8 @@ class Ui_MainWindow(object):
         self.action_Remove_Smoothing.setObjectName("action_Remove_Smoothing")
         self.actionClear_Filters = QtWidgets.QAction(MainWindow)
         self.actionClear_Filters.setObjectName("actionClear_Filters")
+        self.actionMerge_Minidsp_XML = QtWidgets.QAction(MainWindow)
+        self.actionMerge_Minidsp_XML.setObjectName("actionMerge_Minidsp_XML")
         self.menuHelp.addAction(self.actionShow_Logs)
         self.menuHelp.addAction(self.actionAbout)
         self.menuSettings.addAction(self.actionPreferences)
@@ -472,6 +475,8 @@ class Ui_MainWindow(object):
         self.menu_Tools.addAction(self.action_Remux_Audio)
         self.menu_Tools.addSeparator()
         self.menu_Tools.addAction(self.actionAnalyse_Audio)
+        self.menu_Tools.addSeparator()
+        self.menu_Tools.addAction(self.actionMerge_Minidsp_XML)
         self.menubar.addAction(self.menuFile.menuAction())
         self.menubar.addAction(self.menuSettings.menuAction())
         self.menubar.addAction(self.menu_Tools.menuAction())
@@ -641,6 +646,9 @@ class Ui_MainWindow(object):
         self.action_Remove_Smoothing.setText(_translate("MainWindow", "&Remove Smoothing"))
         self.action_Remove_Smoothing.setShortcut(_translate("MainWindow", "Alt+Shift+0"))
         self.actionClear_Filters.setText(_translate("MainWindow", "Clear Filters"))
+        self.actionMerge_Minidsp_XML.setText(_translate("MainWindow", "Merge Minidsp XML"))
+        self.actionMerge_Minidsp_XML.setShortcut(_translate("MainWindow", "Ctrl+X"))
+
 
 from app import PlotWidgetWithDateAxis
 from mpl import MplWidget

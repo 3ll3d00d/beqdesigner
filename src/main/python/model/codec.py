@@ -38,8 +38,8 @@ def signaldata_to_json(signal):
     Converts the signal to a json compatible format.
     :return: a dict to write to json.
     '''
-    avg = signal.raw[0]
-    peak = signal.raw[1]
+    avg = signal.current_unfiltered[0]
+    peak = signal.current_unfiltered[1]
     out = {
         '_type': signal.__class__.__name__,
         'name': signal.name,
@@ -139,7 +139,7 @@ def signaldata_from_json(o, preferences):
             except:
                 logger.exception(f"Unable to load signal from {metadata['src']}")
         if 'duration_seconds' in o:
-            signal_data = SingleChannelSignalData(o['name'], o['fs'], [avg, peak], filter=filt,
+            signal_data = SingleChannelSignalData(o['name'], o['fs'], xy_data=[avg, peak], filter=filt,
                                                   duration_seconds=o.get('duration_seconds', None),
                                                   start_seconds=o.get('start_seconds', None),
                                                   signal=signal,
@@ -149,13 +149,13 @@ def signaldata_from_json(o, preferences):
             duration_seconds = (int(h) * 3600) + int(m) * (60 + float(s))
             h, m, s = o['start_hhmmss'].split(':')
             start_seconds = (int(h) * 3600) + int(m) * (60 + float(s))
-            signal_data = SingleChannelSignalData(o['name'], o['fs'], [avg, peak], filter=filt,
+            signal_data = SingleChannelSignalData(o['name'], o['fs'], xy_data=[avg, peak], filter=filt,
                                                   duration_seconds=duration_seconds,
                                                   start_seconds=start_seconds,
                                                   signal=signal,
                                                   offset=offset)
         else:
-            signal_data = SingleChannelSignalData(o['name'], o['fs'], [avg, peak], filter=filt, signal=signal,
+            signal_data = SingleChannelSignalData(o['name'], o['fs'], xy_data=[avg, peak], filter=filt, signal=signal,
                                                   offset=offset)
         return signal_data
     raise ValueError(f"{o._type} is an unknown signal type")
@@ -216,23 +216,23 @@ def filter_from_json(o):
 
 def xydata_from_json(o):
     '''
-    Converts a json dict to an XYData.
+    Converts a json dict to a MagnitudeData.
     :param o: the dict.
-    :return: the XYData (or an error).
+    :return: the MagnitudeData (or an error).
     '''
-    from model.iir import XYData
+    from model.xy import MagnitudeData
     if '_type' not in o:
-        raise ValueError(f"{o} is not XYData")
-    elif o['_type'] == XYData.__name__:
+        raise ValueError(f"{o} is not MagnitudeData")
+    elif o['_type'] == MagnitudeData.__name__ or o['_type'] == 'XYData':
         x_json = o['x']
         if 'count' in x_json:
             x_vals = np.linspace(x_json['min'], x_json['max'], num=x_json['count'], dtype=np.float64)
         else:
             x_vals = np.array(x_json)
         description = o['description'] if 'description' in o else ''
-        return XYData(o['name'], description, x_vals, np.array(o['y']), colour=o.get('colour', None),
-                      linestyle=o.get('linestyle', '-'))
-    raise ValueError(f"{o._type} is an unknown data type")
+        return MagnitudeData(o['name'], description, x_vals, np.array(o['y']), colour=o.get('colour', None),
+                             linestyle=o.get('linestyle', '-'))
+    raise ValueError(f"{o['_type']} is an unknown data type")
 
 
 def xydata_to_json(data):
@@ -249,82 +249,3 @@ def xydata_to_json(data):
         'colour': data.colour,
         'linestyle': data.linestyle
     }
-
-
-def minidspxml_to_filt(file, fs=1000):
-    ''' Extracts a set of filters from the provided minidsp file '''
-    from model.iir import PeakingEQ, LowShelf, HighShelf
-
-    filts = __extract_filters(file)
-    output = []
-    for filt_tup, count in filts.items():
-        filt_dict = dict(filt_tup)
-        if filt_dict['type'] == 'SL':
-            filt = LowShelf(fs, float(filt_dict['freq']), float(filt_dict['q']), float(filt_dict['boost']),
-                            count=count)
-            output.append(filt)
-        elif filt_dict['type'] == 'SH':
-            filt = HighShelf(fs, float(filt_dict['freq']), float(filt_dict['q']), float(filt_dict['boost']),
-                             count=count)
-            output.append(filt)
-        elif filt_dict['type'] == 'PK':
-            for i in range(0, count):
-                filt = PeakingEQ(fs, float(filt_dict['freq']), float(filt_dict['q']), float(filt_dict['boost']))
-                output.append(filt)
-        else:
-            logger.info(f"Ignoring unknown filter type {filt_dict}")
-    return output
-
-
-def __extract_filters(file):
-    import xml.etree.ElementTree as ET
-    from collections import Counter
-
-    ignore_vals = ['hex', 'dec']
-    tree = ET.parse(file)
-    root = tree.getroot()
-    filts = {}
-    for child in root:
-        if child.tag == 'filter':
-            if 'name' in child.attrib:
-                current_filt = None
-                filter_tokens = child.attrib['name'].split('_')
-                (filt_type, filt_channel, filt_slot) = filter_tokens
-                if len(filter_tokens) == 3:
-                    if filt_type == 'PEQ':
-                        if filt_channel not in filts:
-                            filts[filt_channel] = {}
-                        filt = filts[filt_channel]
-                        if filt_slot not in filt:
-                            filt[filt_slot] = {}
-                        current_filt = filt[filt_slot]
-                        for val in child:
-                            if val.tag not in ignore_vals:
-                                current_filt[val.tag] = val.text
-                if current_filt is not None:
-                    if 'bypass' in current_filt and current_filt['bypass'] == '1':
-                        del filts[filt_channel][filt_slot]
-                    elif 'boost' in current_filt and current_filt['boost'] == '0':
-                        del filts[filt_channel][filt_slot]
-    final_filt = None
-    # if 1 and 2 are identical then throw one away
-    if '1' in filts and '2' in filts:
-        filt_1 = filts['1']
-        filt_2 = filts['2']
-        if filt_1 == filt_2:
-            final_filt = list(filt_1.values())
-        else:
-            raise ValueError(f"Different input filters found in {file} - Input 1: {filt_1} - Input 2: {filt_2}")
-    elif '1' in filts:
-        final_filt = list(filts['1'].values())
-    elif '2' in filts:
-        final_filt = list(filts['2'].values())
-    else:
-        if len(filts.keys()) == 1:
-            for k in filts.keys():
-                final_filt = filts[k]
-        else:
-            raise ValueError(f"Multiple active filters found in {file} - {filts}")
-    if final_filt is None:
-        raise ValueError(f"No filters found in {file}")
-    return Counter([tuple(f.items()) for f in final_filt])

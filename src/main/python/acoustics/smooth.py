@@ -239,14 +239,10 @@ def integrate_bands(data, a, b):
 def fractional_octaves(f, p, fraction=3):
     """Calculate level per 1/N-octave in frequency domain`.
     """
-    if fraction < 6:
+    if fraction < 12:
         start = 5.0
-    elif fraction == 6:
-        start = 8.0
-    elif fraction <= 12:
-        start = 15.0
     elif fraction <= 24:
-        start = 20.0
+        start = 10.0
     else:
         raise ValueError(f'Unknown fraction {fraction}')
     stop = min(20000.0, f[-1])
