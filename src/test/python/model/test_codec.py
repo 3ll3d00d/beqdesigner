@@ -1,7 +1,6 @@
 import json
-import os
 
-from model.codec import filter_from_json, signaldata_from_json, signaldata_to_json, minidspxml_to_filt
+from model.codec import filter_from_json, signaldata_from_json, signaldata_to_json
 from model.iir import ComplexLowPass, FilterType, ComplexHighPass, Passthrough, PeakingEQ, FirstOrder_LowPass, \
     FirstOrder_HighPass, SecondOrder_LowPass, SecondOrder_HighPass, AllPass, LowShelf, CompleteFilter, HighShelf, Gain
 from model.signal import SingleChannelSignalData
@@ -16,6 +15,7 @@ def test_codec_Passthrough():
     assert isinstance(decoded, Passthrough)
     assert filter.fs == decoded.fs
 
+
 def test_codec_Passthrough_with_fs():
     filter = Passthrough(fs=2000)
     output = json.dumps(filter.to_json())
@@ -24,6 +24,7 @@ def test_codec_Passthrough_with_fs():
     assert decoded is not None
     assert isinstance(decoded, Passthrough)
     assert filter.fs == decoded.fs
+
 
 def test_codec_Gain():
     filter = Gain(1000, 10.0)
@@ -266,18 +267,3 @@ def test_codec_signal():
     assert decoded.start_hhmmss == data.start_hhmmss
     assert decoded.end_hhmmss == data.end_hhmmss
     assert decoded.offset == data.offset
-
-
-def test_codec_minidsp_xml():
-    filts = minidspxml_to_filt(os.path.join(os.path.dirname(__file__), 'minidsp.xml'))
-    assert filts
-    assert len(filts) == 2
-    assert type(filts[0]) is PeakingEQ
-    assert filts[0].freq == 45.0
-    assert filts[0].gain == 0.4
-    assert filts[0].q == 1.0
-    assert type(filts[1]) is LowShelf
-    assert filts[1].freq == 19.0
-    assert filts[1].gain == 3.8
-    assert filts[1].q == 0.9
-    assert filts[1].count == 3

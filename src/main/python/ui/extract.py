@@ -193,6 +193,7 @@ class Ui_extractAudioDialog(object):
         self.gainOffset.setObjectName("gainOffset")
         self.remuxOptionsLayout.addWidget(self.gainOffset)
         self.adjustRemuxedAudio = QtWidgets.QCheckBox(extractAudioDialog)
+        self.adjustRemuxedAudio.setChecked(True)
         self.adjustRemuxedAudio.setObjectName("adjustRemuxedAudio")
         self.remuxOptionsLayout.addWidget(self.adjustRemuxedAudio)
         self.remuxedAudioOffset = QtWidgets.QDoubleSpinBox(extractAudioDialog)

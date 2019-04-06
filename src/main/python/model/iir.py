@@ -1,6 +1,7 @@
 # from http://www.musicdsp.org/files/Audio-EQ-Cookbook.txt
 import logging
 import math
+import struct
 from abc import ABC, abstractmethod
 from collections import Sequence
 from enum import Enum
@@ -23,12 +24,26 @@ ctx.prec = 17
 COMBINED = 'Combined'
 
 
-def float_to_str(f):
+def float_to_str(f, as_32bit_hex=False, minidsp_style=False):
     """
-    Convert the given float to a string, without resorting to scientific notation
+    Convert the given float to a string, without resorting to scientific notation if as_hex is False.
     """
-    d1 = ctx.create_decimal(repr(f))
-    return format(d1, 'f')
+    if as_32bit_hex is True:
+        return float_to_hex(f, minidsp_style)
+    else:
+        d1 = ctx.create_decimal(repr(f))
+        return format(d1, 'f')
+
+
+def float_to_hex(f, minidsp_style):
+    '''
+    Converts a floating number to its 32bit IEEE 754 hex representation.
+    :param f: the float.
+    :param minidsp_style: if true, don't print 0x prefix.
+    :return: the hex value.
+    '''
+    value = struct.unpack('<I', struct.pack('<f', f))[0]
+    return f"{value:{'#' if minidsp_style is True else ''}010x}"
 
 
 class Biquad(ABC):
@@ -75,13 +90,21 @@ class Biquad(ABC):
             self.__transferFunction = ComplexData(self.__repr__(), f, h)
         return self.__transferFunction
 
-    def format_biquads(self, minidsp_style, separator=',\n'):
+    def format_biquads(self, minidsp_style, separator=',\n', show_index=True, as_32bit_hex=False):
         ''' Creates a biquad report '''
+        kwargs = {'as_32bit_hex': as_32bit_hex, 'minidsp_style': minidsp_style}
         a = separator.join(
-            [f"a{idx}={float_to_str(-x if minidsp_style else x)}" for idx, x in enumerate(self.a) if
-             idx != 0 or minidsp_style is False])
-        b = separator.join([f"b{idx}={float_to_str(x)}" for idx, x in enumerate(self.b)])
+            [f"{self.__format_index('a', idx, show_index)}{float_to_str(-x if minidsp_style else x, **kwargs)}"
+             for idx, x in enumerate(self.a) if idx != 0 or minidsp_style is False])
+        b = separator.join([f"{self.__format_index('b', idx, show_index)}{float_to_str(x, **kwargs)}"
+                            for idx, x in enumerate(self.b)])
         return [f"{b}{separator}{a}"]
+
+    def __format_index(self, prefix, idx, show_index):
+        if show_index:
+            return f"{prefix}{idx}="
+        else:
+            return ''
 
     def get_sos(self):
         return [np.concatenate((self.b, self.a)).tolist()]
@@ -263,6 +286,15 @@ class Shelf(BiquadWithQGain):
     def __len__(self):
         return self.count
 
+    def flatten(self):
+        '''
+        :return: an iterable of length count of this shelf where each shelf has count=1
+        '''
+        if self.count == 1:
+            return [self]
+        else:
+            return [self.__class__(self.fs, self.freq, self.q, self.gain, 1)] * self.count
+
     def getTransferFunction(self):
         single = super().getTransferFunction()
         if self.count == 1:
@@ -274,8 +306,9 @@ class Shelf(BiquadWithQGain):
         else:
             raise ValueError('Shelf must have non zero count')
 
-    def format_biquads(self, minidsp_style, separator=',\n'):
-        single = super().format_biquads(minidsp_style, separator=separator)
+    def format_biquads(self, minidsp_style, separator=',\n', show_index=False, as_32bit_hex=False):
+        single = super().format_biquads(minidsp_style, separator=separator, show_index=show_index,
+                                        as_32bit_hex=as_32bit_hex)
         if self.count == 1:
             return single
         elif self.count > 1:
@@ -744,14 +777,18 @@ class ComplexFilter(Sequence):
                                                                     [x.getTransferFunction() for x in self.filters])
         return self.__cached_transfer
 
-    def format_biquads(self, invert_a, separator=',\n'):
+    def format_biquads(self, invert_a, separator=',\n', show_index=False, as_32bit_hex=False):
         '''
         Formats the filter into a biquad report.
         :param invert_a: whether to invert the a coeffs.
         :return: the report.
         '''
         import itertools
-        return list(itertools.chain(*[f.format_biquads(invert_a, separator=separator) for f in self.filters]))
+        return list(itertools.chain(*[f.format_biquads(invert_a,
+                                                       separator=separator,
+                                                       show_index=show_index,
+                                                       as_32bit_hex=as_32bit_hex)
+                                      for f in self.filters]))
 
     def get_sos(self):
         ''' outputs the filter in cascaded second order sections ready for consumption by sosfiltfilt '''

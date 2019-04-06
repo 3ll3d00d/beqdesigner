@@ -134,6 +134,9 @@ LOGGING_LEVEL = 'logging/level'
 SYSTEM_CHECK_FOR_UPDATES = 'system/check_for_updates'
 
 BEQ_DOWNLOAD_DIR = 'beq/directory'
+BEQ_MERGE_DIR = 'beq/merge_dir'
+BEQ_CONFIG_FILE = 'beq/config_file'
+BEQ_MINIDSP_TYPE = 'beq/minidsp_type'
 
 BIQUAD_EXPORT_FS = 'biquad/fs'
 BIQUAD_EXPORT_MAX = 'biquad/max'
@@ -159,6 +162,7 @@ DEFAULT_PREFS = {
     BASS_MANAGEMENT_LPF_FS: 80,
     BASS_MANAGEMENT_LPF_POSITION: BM_LPF_BEFORE,
     BEQ_DOWNLOAD_DIR: os.path.join(os.path.expanduser('~'), '.beq'),
+    BEQ_MERGE_DIR: os.path.join(os.path.expanduser('~'), '.beq_out'),
     BIQUAD_EXPORT_FS: '48000',
     BIQUAD_EXPORT_MAX: 10,
     STYLE_MATPLOTLIB_THEME: STYLE_MATPLOTLIB_THEME_DEFAULT,

@@ -659,6 +659,7 @@ class ProbeJob(QRunnable):
             self.__signals.errored.emit()
         logger.info(f"<< ProbeJob.run {self.__candidate.executor.file}")
 
+
 def stop_spinner(spinner, button):
     '''
     Stops the qtawesome spinner safely.
