@@ -12,12 +12,11 @@ SINGLE_SUBPLOT_SPEC = GridSpec(1, 1).new_subplotspec((0, 0), 1, 1)
 
 
 class AxesManager:
-    def __init__(self, data_provider, axes, fill_curves, fill_alpha, normalise_x=True):
+    def __init__(self, data_provider, axes, fill_curves, fill_alpha):
         self.__provider = data_provider
         self.__axes = axes
         self.__fill_curves = fill_curves
         self.__fill_alpha = fill_alpha
-        self.__normalise_x = normalise_x
         self.reference_curve = None
         self.__curves = {}
         self.__polygons = {}
@@ -70,9 +69,6 @@ class AxesManager:
         :return the curve name.
         '''
         curve = self.__curves.get(data.name, None)
-        from model.xy import MagnitudeData
-        if isinstance(data, MagnitudeData) and self.__normalise_x is True:
-            data = data.normalise_x()
         if curve:
             curve.set_data(data.x, data.y)
             curve.set_linestyle(data.linestyle)
@@ -126,7 +122,7 @@ class MagnitudeModel:
                  secondary_name=None, show_legend=lambda: True, db_range_calc=dBRangeCalculator(60),
                  subplot_spec=SINGLE_SUBPLOT_SPEC, redraw_listener=None, grid_alpha=0.5, x_min_pref_key=GRAPH_X_MIN,
                  x_max_pref_key=GRAPH_X_MAX, x_scale_pref_key=GRAPH_X_AXIS_SCALE, fill_curves=False, fill_alpha=0.5,
-                 allow_line_resize=False, normalise_x=True):
+                 allow_line_resize=False):
         self.__name = name
         self.__chart = chart
         self.__redraw_listener = redraw_listener
@@ -137,8 +133,7 @@ class MagnitudeModel:
         primary_axes.set_ylabel(f"dBFS ({primary_name})")
         primary_axes.grid(linestyle='-', which='major', linewidth=1, alpha=grid_alpha)
         primary_axes.grid(linestyle='--', which='minor', linewidth=1, alpha=grid_alpha * 0.5)
-        self.__primary = AxesManager(primary_data_provider, primary_axes, fill_curves, fill_alpha,
-                                     normalise_x=normalise_x)
+        self.__primary = AxesManager(primary_data_provider, primary_axes, fill_curves, fill_alpha)
         if secondary_data_provider is None:
             secondary_axes = None
         else:

@@ -1,9 +1,11 @@
 import logging
+import time
 
 import numpy as np
 from PyQt5.QtCore import QSettings
-from scipy.interpolate import PchipInterpolator
+from scipy.interpolate import PchipInterpolator, CubicSpline
 
+from acoustics.smooth import OctaveBand
 from model.preferences import DISPLAY_SMOOTH_GRAPHS, Preferences
 
 SAVGOL_WINDOW_LENGTH = 101
@@ -124,26 +126,6 @@ class MagnitudeData:
                              linestyle=self.linestyle,
                              smooth_type=smooth_type)
 
-    def normalise_x(self):
-        ''' produces a version of this data with a normalised set of x axis values '''
-        if self.__x_normal_x is None:
-            logger.info(f"Calculating normalised_x version of {self.__name}")
-            new_x = np.arange(self.x[0], min(160.0, self.x[-1]), 0.1)
-            if self.x[-1] > 160.0:
-                if must_interpolate(self.__smooth_type) is True:
-                    from acoustics.smooth import OctaveBand
-                    new_x = np.concatenate((new_x,
-                                            OctaveBand(fstart=160, fstop=min(24000, self.x[-1]), fraction=24).center))
-                else:
-                    new_x = np.concatenate((new_x, self.x[self.x >= 160.0]))
-            new_x, new_y = interp(self.x, self.y, new_x)
-            logger.debug(f"Interpolating {self.name} from {self.y.size} to {new_x.size}")
-            self.__x_normal_x = new_x
-            self.__x_normal_y = new_y
-        return MagnitudeData(self.__name, self.__description, self.__x_normal_x, self.__x_normal_y,
-                             colour=self.colour,
-                             linestyle=self.linestyle)
-
     def with_equal_energy_adjustment(self):
         ''' returns the equal energy adjusted version of this data. '''
         if self.__equal_energy_adjusted is None:
@@ -226,9 +208,14 @@ def must_interpolate(smooth_type):
 
 def interp(x1, y1, x2):
     ''' Interpolates xy based on the preferred smoothing style. '''
+    start = time.time()
     smooth = preferences.get(DISPLAY_SMOOTH_GRAPHS)
     if smooth:
         cs = PchipInterpolator(x1, y1)
-        return x2, cs(x2)
+        y2 = cs(x2)
     else:
-        return x2, np.interp(x2, x1, y1)
+        y2 = np.interp(x2, x1, y1)
+    end = time.time()
+    logger.debug(f"Interpolation from {len(x1)} to {len(x2)} in {round((end - start) * 1000, 3)}ms")
+    return x2, y2
+

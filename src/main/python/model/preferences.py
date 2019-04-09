@@ -11,6 +11,8 @@ from ui.preferences import Ui_preferencesDialog
 
 BMILLER_MINI_DSPBEQ_GIT_REPO = 'https://github.com/bmiller/miniDSPBEQ.git'
 
+X_RESOLUTION = 32769
+
 WINDOWS = ['barthann', 'bartlett', 'blackman', 'blackmanharris', 'bohman', 'boxcar', 'cosine', 'flattop', 'hamming',
            'hann', 'nuttall', 'parzen', 'triang', 'tukey']
 

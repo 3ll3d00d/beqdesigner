@@ -19,12 +19,12 @@ from sortedcontainers import SortedDict
 
 from model.codec import signaldata_to_json, bassmanagedsignaldata_to_json
 from model.iir import CompleteFilter, ComplexLowPass, FilterType
-from model.xy import MagnitudeData
+from model.xy import MagnitudeData, interp
 from model.magnitude import MagnitudeModel
 from model.preferences import get_avg_colour, get_peak_colour, SHOW_PEAK, \
     SHOW_AVERAGE, SHOW_FILTERED_ONLY, SHOW_UNFILTERED_ONLY, DISPLAY_SHOW_SIGNALS, \
     DISPLAY_SHOW_FILTERED_SIGNALS, ANALYSIS_TARGET_FS, BASS_MANAGEMENT_LPF_FS, BASS_MANAGEMENT_LPF_POSITION, \
-    BM_LPF_BEFORE, BM_LPF_AFTER, DISPLAY_SMOOTH_PRECALC
+    BM_LPF_BEFORE, BM_LPF_AFTER, DISPLAY_SMOOTH_PRECALC, X_RESOLUTION
 from ui.signal import Ui_addSignalDialog
 
 SIGNAL_END = 'end'
@@ -927,7 +927,21 @@ class Signal:
         f = results[0][0]
         # a 3dB adjustment is required to account for the change in nperseg
         Pxx_spec = amplitude_to_db(np.nan_to_num(np.sqrt(Pxx_spec)), ref * SPECLAB_REFERENCE)
-        return f, Pxx_spec
+        return self.__rescale_x(f, Pxx_spec)
+
+    @staticmethod
+    def __rescale_x(x, y):
+        step = (x[-1] - x[0]) / X_RESOLUTION
+        steps = np.arange(x[0], x[-1], step)
+        if len(steps) == len(x):
+            return x, y
+        else:
+            import time
+            start = time.time()
+            x2, y2 = interp(x, y, steps)
+            end = time.time()
+            logger.debug(f"Interpolation from {len(x)} to {len(x2)} in {round((end - start) * 1000, 3)}ms")
+            return x2, y2
 
     def __segment_spectrum(self, segment, resolution_shift=0, window=None, **kwargs):
         nperseg = self.get_segment_length(use_segment=True, resolution_shift=resolution_shift)
@@ -956,7 +970,7 @@ class Signal:
         f = results[0][0]
         # a 3dB adjustment is required to account for the change in nperseg
         Pxy_max = amplitude_to_db(Pxy_max, ref=ref * SPECLAB_REFERENCE)
-        return f, Pxy_max
+        return self.__rescale_x(f, Pxy_max)
 
     def __segment_peak(self, segment, resolution_shift=0, window=None):
         nperseg = self.get_segment_length(use_segment=True, resolution_shift=resolution_shift)

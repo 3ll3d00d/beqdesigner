@@ -85,7 +85,12 @@ class Biquad(ABC):
         :return: the transfer function.
         '''
         if self.__transferFunction is None:
-            w, h = signal.freqz(b=self.b, a=self.a, worN=max(1 << (self.fs - 1).bit_length(), 8192))
+            from model.preferences import X_RESOLUTION
+            import time
+            start = time.time()
+            w, h = signal.freqz(b=self.b, a=self.a, worN=X_RESOLUTION)
+            end = time.time()
+            logger.debug(f"freqz in {round((end - start) * 1000, 3)}ms")
             f = w * self.fs / (2 * np.pi)
             self.__transferFunction = ComplexData(self.__repr__(), f, h)
         return self.__transferFunction

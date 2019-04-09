@@ -1,5 +1,6 @@
 import logging
 import math
+import numpy as np
 from math import log10
 
 from PyQt5.QtWidgets import QDialog
@@ -197,8 +198,8 @@ class ValuesDialog(QDialog, Ui_valuesDialog):
     def __init__(self, data):
         super(ValuesDialog, self).__init__()
         self.setupUi(self)
-        self.data = data
-        self.__step = 0
+        self.__step = 1
+        self.__min_x, self.__max_x, self.data = self.__interpolate_data(self.__step, data)
         self.valueFields = []
         for idx, xy in enumerate(data):
             label = QtWidgets.QLabel(self)
@@ -212,7 +213,6 @@ class ValuesDialog(QDialog, Ui_valuesDialog):
             self.formLayout.setWidget(idx + 1, QtWidgets.QFormLayout.FieldRole, lineEdit)
         if len(data) > 0:
             xdata = data[0].get_xdata()
-            self.__step = xdata[1] - xdata[0]
             self.freq.setMinimum(xdata[0])
             self.freq.setSingleStep(self.__step)
             self.freq.setMaximum(xdata[-1])
@@ -221,22 +221,27 @@ class ValuesDialog(QDialog, Ui_valuesDialog):
         else:
             self.freq.setEnabled(False)
 
+    @staticmethod
+    def __interpolate_data(step, data):
+        '''
+        Interpolates the data using a simple 1D interpolation so the values becomes a simple lookup.
+        :param step: the step in x values.
+        :param data: the input data.
+        :return: min_x, max_x, the interpolated data.
+        '''
+        min_x = data[0].get_xdata()[0]
+        max_x = max(d.get_xdata()[-1] for d in data)
+        x2 = np.arange(min_x, max_x + step, step)
+        return min_x, max_x, [(x2, np.interp(x2, d.get_xdata(), d.get_ydata())) for d in data]
+
     def updateValues(self, freq):
         '''
         propagates the freq value change.
-        :return:
         '''
         freq_idx = int(freq / self.__step)
         for idx, xy in enumerate(self.data):
-            val = xy.get_ydata()[freq_idx]
+            val = xy[1][freq_idx]
             self.valueFields[idx].setText(str(round(val, 3)))
-
-    def redraw(self, curves):
-        '''
-        Loads a new set of curves into the screen.
-        :param curves: the curves.
-        '''
-        self.curves = curves
 
 
 class LimitsDialog(QDialog, Ui_graphLayoutDialog):
