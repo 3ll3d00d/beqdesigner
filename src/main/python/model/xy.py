@@ -62,7 +62,7 @@ class MagnitudeData:
         equal = self.__class__.__name__ == o.__class__.__name__
         equal &= self.name == o.name
         # allow tolerance because of the way we serialise to save space
-        equal &= np.allclose(self.x, o.x)
+        equal &= np.allclose(self.x, o.x, rtol=1e-5, atol=1e-5)
         equal &= np.allclose(self.y, o.y, rtol=1e-5, atol=1e-5)
         equal &= self.colour == o.colour
         equal &= self.linestyle == o.linestyle
