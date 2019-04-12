@@ -311,7 +311,7 @@ class Shelf(BiquadWithQGain):
         else:
             raise ValueError('Shelf must have non zero count')
 
-    def format_biquads(self, minidsp_style, separator=',\n', show_index=False, as_32bit_hex=False):
+    def format_biquads(self, minidsp_style, separator=',\n', show_index=True, as_32bit_hex=False):
         single = super().format_biquads(minidsp_style, separator=separator, show_index=show_index,
                                         as_32bit_hex=as_32bit_hex)
         if self.count == 1:
@@ -782,7 +782,7 @@ class ComplexFilter(Sequence):
                                                                     [x.getTransferFunction() for x in self.filters])
         return self.__cached_transfer
 
-    def format_biquads(self, invert_a, separator=',\n', show_index=False, as_32bit_hex=False):
+    def format_biquads(self, invert_a, separator=',\n', show_index=True, as_32bit_hex=False):
         '''
         Formats the filter into a biquad report.
         :param invert_a: whether to invert the a coeffs.
