@@ -997,7 +997,7 @@ class ExportBiquadDialog(QDialog, Ui_exportBiquadDialog):
         has_txt = False
         if self.__filter is not None and len(self.__filter) > 0:
             self.__filter = self.__filter.resample(int(self.fs.currentText()))
-            biquads = list(flatten([self.__filter.format_biquads(self.minidspFormat.isChecked())]))
+            biquads = list(flatten([self.__filter.format_biquads(self.minidspFormat.isChecked(), show_index=True)]))
             if len(biquads) < self.maxBiquads.value():
                 passthrough = [Passthrough()] * (self.maxBiquads.value() - len(biquads))
                 biquads += list(flatten([x.format_biquads(self.minidspFormat.isChecked()) for x in passthrough]))
