@@ -7,3 +7,28 @@ markdown_extensions:
   - admonition
 extra:
   disqus: 'beqdesigner'
+nav:
+  - Home: index.md
+  - User Guide:
+      - 'Getting Started': install.md
+      - 'User Interface':
+        - 'The Main Window': ui/main_window.md
+        - 'Loading Signals': ui/load_signal.md
+        - 'Creating Filters': ui/add_filter.md
+        - 'Looking at Waveforms': ui/waveform.md
+        - 'Sharing Content': ui/report.md
+      - 'Import/Export': 
+        - 'Projects, Signals and Filters': ui/load_save.md
+        - 'Managing Presets': ui/presets.md
+        - 'Export Biquads': ui/export_biquads.md
+      - 'Tools':
+        - 'Extract Audio': ui/extract_audio.md
+        - 'Batch Extract': ui/batch_extract.md
+        - 'Remux Audio': ui/remux_audio.md
+        - 'Analyse Audio': ui/spectrum.md
+        - 'Merge Minidsp XML': ui/merge_minidsp_xml.md
+      - 'Preferences': ui/preferences.md
+#  - Workflow:
+#      - 'A BEQ Workflow': workflow/beq.md
+#      - 'Remuxing': workflow/remux.md
+#      - 'Simulating Bass Management': workflow/bass_management.md
