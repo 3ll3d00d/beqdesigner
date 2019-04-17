@@ -5,7 +5,7 @@ import shutil
 import qtawesome as qta
 from pathlib import Path
 
-from qtpy.QtCore import QObject, Signal, QRunnable, QThreadPool
+from qtpy.QtCore import QObject, Signal, QRunnable, QThreadPool, Qt, QDateTime
 from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox
 
 from model.iir import Passthrough, PeakingEQ, Shelf, LowShelf, HighShelf
@@ -13,6 +13,9 @@ from model.preferences import BEQ_CONFIG_FILE, BEQ_MERGE_DIR, BEQ_MINIDSP_TYPE, 
 from ui.minidsp import Ui_mergeMinidspDialog
 
 logger = logging.getLogger('minidsp')
+
+BMILLER_GITHUB_MINIDSP = 'https://github.com/bmiller/miniDSPBEQ'
+BMILLER_MINI_DSPBEQ_GIT_REPO = f"{BMILLER_GITHUB_MINIDSP}.git"
 
 
 class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
@@ -27,6 +30,7 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
         self.configFilePicker.setIcon(qta.icon('fa5s.folder-open'))
         self.outputDirectoryPicker.setIcon(qta.icon('fa5s.folder-open'))
         self.processFiles.setIcon(qta.icon('fa5s.check'))
+        self.refreshGitRepo.setIcon(qta.icon('fa5s.sync'))
         self.__preferences = prefs
         self.statusbar = statusbar
         config_file = self.__preferences.get(BEQ_CONFIG_FILE)
@@ -38,13 +42,38 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
         if minidsp_type is not None and len(minidsp_type) > 0:
             self.minidspType.setCurrentText(minidsp_type)
         self.__beq_dir = self.__preferences.get(BEQ_DOWNLOAD_DIR)
-        self.__count_beq_files()
+        self.__update_beq_metadata()
         self.__enable_process()
 
-    def __count_beq_files(self):
+    def refresh_repo(self):
+        RepoRefresher(self.__beq_dir).refresh()
+        self.__update_beq_metadata()
+
+    def __update_beq_metadata(self):
         if os.path.exists(self.__beq_dir):
             match = len(glob.glob(f"{self.__beq_dir}{os.sep}**{os.sep}*.xml", recursive=True))
             self.totalFiles.setValue(match)
+            from dulwich import porcelain, index
+            with porcelain.open_repo_closing(self.__beq_dir) as local_repo:
+                last_commit = local_repo[local_repo.head()]
+                last_commit_time_utc = last_commit.commit_time
+                last_commit_qdt = QDateTime()
+                last_commit_qdt.setTime_t(last_commit_time_utc)
+                self.lastCommitDate.setDateTime(last_commit_qdt)
+                from datetime import datetime
+                import calendar
+                d = datetime.utcnow()
+                now_utc = calendar.timegm(d.utctimetuple())
+                days_since_commit = (now_utc - last_commit_time_utc) / 60 / 60 / 24
+                warning_msg = ''
+                if days_since_commit > 7.0:
+                    warning_msg = f"&nbsp;was {round(days_since_commit)} days ago, press the button to update -->"
+                commit_link = f"{BMILLER_GITHUB_MINIDSP}/commit/{last_commit.id.decode('utf-8')}"
+                self.infoLabel.setText(f"<a href=\"{commit_link}\">Last Commit</a>{warning_msg}")
+                self.infoLabel.setTextFormat(Qt.RichText)
+                self.infoLabel.setTextInteractionFlags(Qt.TextBrowserInteraction)
+                self.infoLabel.setOpenExternalLinks(True)
+                self.lastCommitMessage.setPlainText(f"Author: {last_commit.author.decode('utf-8')}\n\n{last_commit.message.decode('utf-8')}")
 
     def process_files(self):
         '''
@@ -55,7 +84,7 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
         self.__preferences.set(BEQ_MINIDSP_TYPE, self.minidspType.currentText())
         self.filesProcessed.setValue(0)
         self.errors.clear()
-        self.__count_beq_files()
+        self.__update_beq_metadata()
         if self.__clear_output_directory():
             self.__start_spinning()
             QThreadPool.globalInstance().start(XmlProcessor(self.__beq_dir,
@@ -373,3 +402,34 @@ class TooManyFiltersError(Exception):
     '''
     def __init__(self, *args, **kwargs):
         super().__init__(args, kwargs)
+
+
+class RepoRefresher:
+
+    def __init__(self, repo_dir):
+        self.repo_dir = repo_dir
+
+    def refresh(self):
+        ''' Pulls or clones the named repository '''
+        from app import wait_cursor
+        with wait_cursor():
+            os.makedirs(self.repo_dir, exist_ok=True)
+            if os.path.exists(os.path.join(self.repo_dir, '.git')):
+                self.__pull_beq()
+            else:
+                self.__clone_beq()
+
+    def __pull_beq(self):
+        ''' pulls the git repo but does not use dulwich pull as it has file lock issues hon windows '''
+        from dulwich import porcelain, index
+        with porcelain.open_repo_closing(self.repo_dir) as local_repo:
+            remote_refs = porcelain.fetch(local_repo, BMILLER_MINI_DSPBEQ_GIT_REPO)
+            local_repo[b"HEAD"] = remote_refs[b"refs/heads/master"]
+            index_file = local_repo.index_path()
+            tree = local_repo[b"HEAD"].tree
+            index.build_index_from_tree(local_repo.path, index_file, local_repo.object_store, tree)
+
+    def __clone_beq(self):
+        ''' clones the git repo '''
+        from dulwich import porcelain
+        porcelain.clone(BMILLER_MINI_DSPBEQ_GIT_REPO, self.repo_dir, checkout=True)
