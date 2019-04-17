@@ -1,0 +1,9 @@
+site_name: BEQDesigner
+theme:
+  name: 'material'
+markdown_extensions:
+  - toc:
+      permalink: true
+  - admonition
+extra:
+  disqus: 'beqdesigner'
