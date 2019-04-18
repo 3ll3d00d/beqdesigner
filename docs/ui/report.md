@@ -14,7 +14,7 @@ The report is created from the on screen rendering so screen and window size is 
 
 ### The Report Dialog
 
-![Dialog](../img/report.png)
+![Image](../img/report_1.png)
 
 The dialog shows a preview of the report on the right and the controls which allow the report design to be tailored on the left. There are many options so they are grouped into expandable sections.
 
@@ -25,8 +25,6 @@ Once the report is configured to your preference, click the Save button to expor
 A brief overview of each option will be provided. This is a mechanism for creating a visual report though so users are encouraged to play around with the options to see how they behave.
 
 #### Image
-
-![Image](../img/report_1.png)
 
 An image can be loaded from a file or via a URL to some publicly available content. 
 

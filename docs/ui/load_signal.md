@@ -26,7 +26,7 @@ Changing the selected channel will update the preview chart to show the selected
 
 Uncheck the *Load All Channels?* checkbox to load a single channel.
 
-##### Loading All Channels.
+##### Loading All Channels
 
 Check the *Load All Channels?* checkbox to load all channels.
 
