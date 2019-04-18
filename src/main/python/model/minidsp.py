@@ -52,6 +52,10 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
     def __update_beq_metadata(self):
         if os.path.exists(self.__beq_dir):
             match = len(glob.glob(f"{self.__beq_dir}{os.sep}**{os.sep}*.xml", recursive=True))
+            self.lastCommitDate.setVisible(True)
+            self.totalFiles.setVisible(True)
+            self.lastCommitMessage.setVisible(True)
+            self.lastUpdateLabel.setVisible(True)
             self.totalFiles.setValue(match)
             from dulwich import porcelain, index
             with porcelain.open_repo_closing(self.__beq_dir) as local_repo:
@@ -74,6 +78,12 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
                 self.infoLabel.setTextInteractionFlags(Qt.TextBrowserInteraction)
                 self.infoLabel.setOpenExternalLinks(True)
                 self.lastCommitMessage.setPlainText(f"Author: {last_commit.author.decode('utf-8')}\n\n{last_commit.message.decode('utf-8')}")
+        else:
+            self.lastCommitDate.setVisible(False)
+            self.totalFiles.setVisible(False)
+            self.lastCommitMessage.setVisible(False)
+            self.lastUpdateLabel.setVisible(False)
+            self.infoLabel.setText(f"BEQ Filter repo not found at {self.__beq_dir}, press the button to clone the repository -->")
 
     def process_files(self):
         '''
