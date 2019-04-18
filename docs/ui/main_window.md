@@ -35,9 +35,30 @@ When no signals are loaded, there is just one enabled button:
     
 The remaining buttons are enabled after a signal has been loaded, these are:
 
-* Link: link signals in a master-slave relationship
+* Link: [link signals](#linking-signals) in a master-slave relationship
 * Delete: remove an individual signal
 * Clear: remove all signals
+
+#### Linking Signals
+
+The link button opens the Link Signals dialog.
+
+![Link Signals](../img/link_signals_1.png)
+
+To link signals in a [master-slave relationship](../index.md#linking-signals):
+
+  1. Select the master signal from the dropdown
+  2. Click the + button
+  3. Check the boxes for the signals you want to enslave
+  4. Click OK
+  
+Here's an example showing a 7.1 track with the LCR and the surrounds linked into 2 groups.
+
+![Link Example](../img/link_signals_2.png)
+
+After clicking OK, the signal table updates to show the relationship between the signals
+
+![Linked Table](../img/link_signals_3.png)
 
 ### Filters
 
@@ -70,7 +91,7 @@ The precise data shown will vary with the type of filter, for example:
 
 When no filters have been added, there are 4 separate buttons enabled. These are:
 
-* P1, P2 and P3: clicking any one of these buttons will load the specified filter preset. See [Filter Presets](./menu.md#presets) for instructions on how to define such presets.
+* P1, P2 and P3: clicking any one of these buttons will load the specified filter preset. See [Filter Presets](./presets.md) for instructions on how to define such presets.
 * Add : opens the [Add Filter](./add_filter.md) dialog 
 
 When 1 or more filters have been added, the remaining buttons become relevant.

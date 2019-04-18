@@ -41,13 +41,13 @@ The 1st section of the control pane manages the presentation of the selected wav
 * Signal: shows a list of available signals
 * Source File: shows the underlying filename of the selected signal, use the button to the right to change this file (typically used if you've reloaded a saved signal but have moved the underlying audio file in the meantime)
 * Filtered?
-  * if checked, the filters for this signal are applied to the waveform
-  * if unchecked, the original signal is shown
+    * if checked, the filters for this signal are applied to the waveform
+    * if unchecked, the original signal is shown
 * Clip?
-  * if checked, the signal is hard clipped at full scale
+    * if checked, the signal is hard clipped at full scale
 * Headroom
-  * shows the headroom in the signal in dB, i.e. the difference between the absolute peak sample value and 1.0
-  * if a negative value is shown, this signal will clip
+    * shows the headroom in the signal in dB, i.e. the difference between the absolute peak sample value and 1.0
+    * if a negative value is shown, this signal will clip
 * Start/End: the visible range of the x axis, will update if the chart is zoomed interactively and will update the chart view if the value is changed in the field
 * Y Range: the visible y axis range, will update if the chart is zoomed interactively and will update the chart view if the value is changed in the field
 
@@ -55,10 +55,10 @@ The 2nd section governs how the [bass management simulation](../workflow/bass_ma
 
 The final section is a list of buttons, from left to right
 
-* Show Spectrum View: described in [the associated reference](./spectrum.md)
+* Show Spectrum View: described in full details in [the associated page](./spectrum.md)
 * Show Magnitude Response: analyses the currently visible time range of the signal and shows the peak/average for that time slice, the view is recalculated in realtime as the waveform time limits are changed
 * Hide Magnitude Response: hides the above view
-* Set Limits: shows the [Limits Dialog](./main_window.md#Controlling-Graph-Limits) for the magnitude view
+* Set Limits: shows the [Limits Dialog](./main_window.md#controlling-graph-limits) for the magnitude view
 * Zoom In: resets the y axis limits to the min/max sample values
 * Zoom Out: resets the y axis limits to +/- 1.0
 

@@ -67,7 +67,7 @@ Check the *Check for updates on startup?* option to allow BEQDesigner to query t
 
 ### BEQ Files
 
-Manages the github repo which contains the BEQ filters created by aron7awol on avsforum.
+Manages the github repo which contains the BEQ filters created by [aron7awol on avsforum](https://www.avsforum.com/forum/members/8588090-aron7awol.html).
 
 * Directory: the location to which to clone the repo
 * Filters Loaded: shows how many filters are present in the directory

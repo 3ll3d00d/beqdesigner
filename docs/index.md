@@ -60,7 +60,7 @@ BEQDesigner allows certain signals to be linked together. This means a filter ca
 
 This terminology can be ignored for most practical purposes, it simply means that the filter applied is owned by the master signal.
 
-Refer to [Link Signals](./link_signals.md) for how to link signals in BEQDesigner.
+Refer to [Link Signals](ui/main_window.md#linking-signals) for how to link signals in BEQDesigner.
 
 #### Why is this useful? 
 

@@ -1,7 +1,5 @@
 The Remux Audio dialog allows you to apply filters to an audio track and create a new file containing a video track, the filtered audio and, optionally, the original audio track. 
 
-Refer to the [remux workflow](../workflow/remuxing.md) for a more in depth discussion of how to safely remux filtered audio back into a video file.
-
 !!! info
     Most options behave the same as found in [Extract Audio](./extract_audio.md) so only options specific to remuxing will be covered here.
     

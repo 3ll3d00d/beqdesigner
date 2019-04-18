@@ -1,6 +1,6 @@
 BEQDesigner provides support for the most commonly used mechanism for applying BEQ filters
 
-  1. the published filters which are curated by AVS community member DesertDog via his [github repo](https://github.com/bmiller/miniDSPBEQ)
+  1. the published filters which are curated by AVS community member [DesertDog](https://www.avsforum.com/forum/members/7429388-desertdog.html) via his [github repo](https://github.com/bmiller/miniDSPBEQ)
   2. application of those filters to the minidsp hardware 
 
 ### Prerequisites
@@ -53,7 +53,7 @@ This should ultimately show all files have been processed successfully
 
 ### Keeping the Repository Up to date
 
-BEQ community member aron7awol cranks out new filters at a rate of knots so the repository is regularly updated. 
+BEQ community member [aron7awol](https://www.avsforum.com/forum/members/8588090-aron7awol.html) cranks out new filters at a rate of knots so the repository is regularly updated. 
 
 If more than 7 days have passed since the last commit found locally then BEQDesigner will prompt you to update your local copy
 
