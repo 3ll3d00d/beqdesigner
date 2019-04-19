@@ -29,12 +29,12 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
         self.__process_spinner = None
         self.configFilePicker.setIcon(qta.icon('fa5s.folder-open'))
         self.outputDirectoryPicker.setIcon(qta.icon('fa5s.folder-open'))
-        self.processFiles.setIcon(qta.icon('fa5s.check'))
+        self.processFiles.setIcon(qta.icon('fa5s.save'))
         self.refreshGitRepo.setIcon(qta.icon('fa5s.sync'))
         self.__preferences = prefs
         self.statusbar = statusbar
         config_file = self.__preferences.get(BEQ_CONFIG_FILE)
-        if config_file is not None and len(config_file) > 0:
+        if config_file is not None and len(config_file) > 0 and os.path.exists(config_file):
             self.configFile.setText(config_file)
         self.outputDirectory.setText(self.__preferences.get(BEQ_MERGE_DIR))
         os.makedirs(self.outputDirectory.text(), exist_ok=True)
@@ -52,10 +52,7 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
     def __update_beq_metadata(self):
         if os.path.exists(self.__beq_dir):
             match = len(glob.glob(f"{self.__beq_dir}{os.sep}**{os.sep}*.xml", recursive=True))
-            self.lastCommitDate.setVisible(True)
-            self.totalFiles.setVisible(True)
-            self.lastCommitMessage.setVisible(True)
-            self.lastUpdateLabel.setVisible(True)
+            self.__show_or_hide(True)
             self.totalFiles.setValue(match)
             from dulwich import porcelain, index
             with porcelain.open_repo_closing(self.__beq_dir) as local_repo:
@@ -79,11 +76,22 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
                 self.infoLabel.setOpenExternalLinks(True)
                 self.lastCommitMessage.setPlainText(f"Author: {last_commit.author.decode('utf-8')}\n\n{last_commit.message.decode('utf-8')}")
         else:
-            self.lastCommitDate.setVisible(False)
-            self.totalFiles.setVisible(False)
-            self.lastCommitMessage.setVisible(False)
-            self.lastUpdateLabel.setVisible(False)
+            self.__show_or_hide(False)
             self.infoLabel.setText(f"BEQ Filter repo not found at {self.__beq_dir}, press the button to clone the repository -->")
+
+    def __show_or_hide(self, show):
+        self.lastCommitDate.setVisible(show)
+        self.totalFiles.setVisible(show)
+        self.lastCommitMessage.setVisible(show)
+        self.lastUpdateLabel.setVisible(show)
+        self.filesProcessed.setVisible(show)
+        self.filesProcessedLabel.setVisible(show)
+        self.ofLabel.setVisible(show)
+        self.minidspType.setVisible(show)
+        self.minidspTypeLabel.setVisible(show)
+        self.processFiles.setVisible(show)
+        self.errors.setVisible(show)
+        self.errorsLabel.setVisible(show)
 
     def process_files(self):
         '''
@@ -118,29 +126,33 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
         from model.batch import stop_spinner
         stop_spinner(self.__process_spinner, self.processFiles)
         self.__process_spinner = None
-        self.processFiles.setIcon(qta.icon('fa5s.check'))
+        self.processFiles.setIcon(qta.icon('fa5s.save'))
+        self.processFiles.setEnabled(True)
 
     def __start_spinning(self):
         self.__process_spinner = qta.Spin(self.processFiles)
         spin_icon = qta.icon('fa5s.spinner', color='green', animation=self.__process_spinner)
         self.processFiles.setIcon(spin_icon)
-        self.processFiles.blockSignals(True)
+        self.processFiles.setEnabled(False)
 
     def __clear_output_directory(self):
         '''
         Empties the output directory if required
         '''
-        if len(os.listdir(self.outputDirectory.text())) > 0:
+        import glob
+        matching_files = glob.glob(f"{self.outputDirectory.text()}/**/*.xml", recursive=True)
+        if len(matching_files) > 0:
             result = QMessageBox.question(self,
                                           'Clear Directory',
-                                          f"All files will be deleted from {self.outputDirectory.text()}\nAre you sure you want to continue?",
+                                          f"All XML files will be deleted from {self.outputDirectory.text()}\nAre you sure you want to continue?",
                                           QMessageBox.Yes | QMessageBox.No,
                                           QMessageBox.No)
             if result == QMessageBox.Yes:
-                self.statusbar.showMessage(f"Clearing {self.outputDirectory.text()}", 5000)
-                shutil.rmtree(self.outputDirectory.text())
-                os.makedirs(self.outputDirectory.text())
-                self.statusbar.showMessage(f"Cleared {self.outputDirectory.text()}", 5000)
+                for file in matching_files:
+                    self.statusbar.showMessage(f"Deleting {file}", 2000)
+                    os.remove(file)
+                    self.statusbar.showMessage(f"Deleted {file}", 2000)
+                self.statusbar.showMessage(f"Cleared {len(matching_files)} XML files from {self.outputDirectory.text()}", 5000)
                 return True
             else:
                 return False
@@ -149,16 +161,28 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
 
     def pick_output_dir(self):
         '''
-        Sets the output directory
+        Sets the output directory.
         '''
         dialog = QFileDialog(parent=self)
         dialog.setFileMode(QFileDialog.DirectoryOnly)
-        dialog.setWindowTitle('Select Output Directory')
-        self.outputDirectory.setText('')
+        dialog.setOption(QFileDialog.ShowDirsOnly)
+        dialog.setWindowTitle('Select a location to store the generated minidsp config files')
         if dialog.exec():
             selected = dialog.selectedFiles()
             if len(selected) > 0:
-                self.outputDirectory.setText(selected[0])
+                if os.path.abspath(selected[0]) == os.path.abspath(self.__beq_dir):
+                    QMessageBox.critical(self, '',
+                                         f"Output directory cannot be inside the input directory, choose a different folder",
+                                         QMessageBox.Ok)
+                else:
+                    abspath = os.path.abspath(f"{selected[0]}{os.path.sep}beq_minidsp")
+                    if not os.path.exists(abspath):
+                        try:
+                            os.mkdir(abspath)
+                        except:
+                            QMessageBox.critical(self, '', f"Unable to create directory - {abspath}", QMessageBox.Ok)
+                    if os.path.exists(abspath):
+                        self.outputDirectory.setText(abspath)
         self.__enable_process()
 
     def pick_config_file(self):
@@ -171,7 +195,8 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
             kwargs['directory'] = str(Path(self.configFile.text()).parent.resolve())
         selected = QFileDialog.getOpenFileName(parent=self, caption='Select Minidsp XML Filter',
                                                filter='Filter (*.xml)', **kwargs)
-        self.configFile.setText(selected[0] if selected is not None else '')
+        if selected is not None:
+            self.configFile.setText(selected[0])
         self.__enable_process()
 
     def __enable_process(self):

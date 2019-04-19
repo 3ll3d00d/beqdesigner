@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>826</width>
-    <height>436</height>
+    <width>617</width>
+    <height>344</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -25,62 +25,35 @@
     </widget>
    </item>
    <item row="0" column="0">
-    <layout class="QGridLayout" name="innerLayout" rowstretch="0,1,0,0,0,0,1" columnstretch="0,0,0,0,0,0">
-     <item row="5" column="3">
-      <widget class="QSpinBox" name="totalFiles">
-       <property name="readOnly">
-        <bool>true</bool>
-       </property>
-       <property name="maximum">
-        <number>10000</number>
+    <layout class="QGridLayout" name="innerLayout" rowstretch="0,0,0,0,0,0,0" columnstretch="0,0,0,0,0,0">
+     <item row="5" column="0">
+      <widget class="QLabel" name="filesProcessedLabel">
+       <property name="text">
+        <string>Files Processed</string>
        </property>
       </widget>
      </item>
-     <item row="5" column="1">
-      <widget class="QSpinBox" name="filesProcessed">
-       <property name="readOnly">
-        <bool>true</bool>
-       </property>
-       <property name="maximum">
-        <number>100000</number>
-       </property>
-      </widget>
-     </item>
-     <item row="5" column="5">
-      <widget class="QToolButton" name="processFiles">
+     <item row="0" column="5">
+      <widget class="QToolButton" name="refreshGitRepo">
        <property name="text">
         <string>...</string>
        </property>
       </widget>
      </item>
-     <item row="6" column="1" colspan="4">
-      <widget class="QListWidget" name="errors"/>
-     </item>
-     <item row="2" column="1" colspan="4">
-      <widget class="QLineEdit" name="configFile">
+     <item row="3" column="1" colspan="4">
+      <widget class="QLineEdit" name="outputDirectory">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
        <property name="readOnly">
         <bool>true</bool>
        </property>
       </widget>
      </item>
-     <item row="4" column="1" colspan="4">
-      <widget class="QComboBox" name="minidspType">
-       <item>
-        <property name="text">
-         <string>2x4 HD</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>2x4</string>
-        </property>
-       </item>
-      </widget>
-     </item>
-     <item row="2" column="0">
-      <widget class="QLabel" name="configFileLabel">
+     <item row="3" column="5">
+      <widget class="QToolButton" name="outputDirectoryPicker">
        <property name="text">
-        <string>Config File</string>
+        <string>...</string>
        </property>
       </widget>
      </item>
@@ -98,24 +71,64 @@
        </property>
       </widget>
      </item>
-     <item row="3" column="5">
-      <widget class="QToolButton" name="outputDirectoryPicker">
-       <property name="text">
-        <string>...</string>
-       </property>
-      </widget>
-     </item>
-     <item row="3" column="1" colspan="4">
-      <widget class="QLineEdit" name="outputDirectory">
+     <item row="0" column="1" colspan="3">
+      <widget class="QDateTimeEdit" name="lastCommitDate">
        <property name="readOnly">
         <bool>true</bool>
        </property>
       </widget>
      </item>
+     <item row="5" column="4">
+      <spacer name="horizontalSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
      <item row="0" column="0">
       <widget class="QLabel" name="lastUpdateLabel">
        <property name="text">
         <string>Last Update</string>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="1" colspan="4">
+      <widget class="QPlainTextEdit" name="lastCommitMessage">
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item row="5" column="1">
+      <widget class="QSpinBox" name="filesProcessed">
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+       <property name="maximum">
+        <number>100000</number>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="1" colspan="4">
+      <widget class="QLineEdit" name="configFile">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="4">
+      <widget class="QLabel" name="infoLabel">
+       <property name="text">
+        <string/>
        </property>
       </widget>
      </item>
@@ -133,17 +146,41 @@
        </property>
       </widget>
      </item>
-     <item row="5" column="0">
-      <widget class="QLabel" name="filesProcessedLabel">
+     <item row="2" column="0">
+      <widget class="QLabel" name="configFileLabel">
        <property name="text">
-        <string>Files Processed</string>
+        <string>Config File</string>
        </property>
       </widget>
      </item>
-     <item row="0" column="1" colspan="3">
-      <widget class="QDateTimeEdit" name="lastCommitDate">
+     <item row="4" column="1" colspan="4">
+      <widget class="QComboBox" name="minidspType">
+       <item>
+        <property name="text">
+         <string>2x4 HD</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>2x4</string>
+        </property>
+       </item>
+      </widget>
+     </item>
+     <item row="6" column="1" colspan="4">
+      <widget class="QListWidget" name="errors">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+      </widget>
+     </item>
+     <item row="5" column="3">
+      <widget class="QSpinBox" name="totalFiles">
        <property name="readOnly">
         <bool>true</bool>
+       </property>
+       <property name="maximum">
+        <number>10000</number>
        </property>
       </widget>
      </item>
@@ -154,35 +191,12 @@
        </property>
       </widget>
      </item>
-     <item row="5" column="4">
-      <spacer name="horizontalSpacer">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>40</width>
-         <height>20</height>
-        </size>
-       </property>
-      </spacer>
-     </item>
-     <item row="0" column="4">
-      <widget class="QLabel" name="infoLabel">
-       <property name="text">
-        <string/>
-       </property>
-      </widget>
-     </item>
-     <item row="0" column="5">
-      <widget class="QToolButton" name="refreshGitRepo">
+     <item row="5" column="5">
+      <widget class="QToolButton" name="processFiles">
        <property name="text">
         <string>...</string>
        </property>
       </widget>
-     </item>
-     <item row="1" column="1" colspan="4">
-      <widget class="QPlainTextEdit" name="lastCommitMessage"/>
      </item>
     </layout>
    </item>
