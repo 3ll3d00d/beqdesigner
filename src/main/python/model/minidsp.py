@@ -279,7 +279,7 @@ class XmlProcessor(QRunnable):
                     (filt_type, filt_channel, filt_slot) = filter_tokens
                     if len(filter_tokens) == 3:
                         if filt_type == 'PEQ':
-                            if filt_channel == '1' or filt_channel == '2':
+                            if filt_channel in self.__valid_filt_channels():
                                 if int(filt_slot) >= len(filters):
                                     root.remove(child)
                                 else:
@@ -308,6 +308,12 @@ class XmlProcessor(QRunnable):
 
     def __is_fixed_point_hardware(self):
         return False if self.__minidsp_type == '2x4 HD' else True
+
+    def __valid_filt_channels(self):
+        '''
+            :return: list of valid channels.
+        '''
+        return ['11', '12', '13', '14', '15', '16', '17', '18', '19', '20'] if self.__minidsp_type == '10x10 HD' else ['1', '2']
 
     @staticmethod
     def __get_minidsp_filter_type(filt):
