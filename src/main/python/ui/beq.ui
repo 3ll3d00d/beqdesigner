@@ -717,7 +717,7 @@
      <x>0</x>
      <y>0</y>
      <width>1569</width>
-     <height>30</height>
+     <height>18</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuHelp">
@@ -784,7 +784,6 @@
     <addaction name="separator"/>
     <addaction name="actionAdd_BEQ_Filter"/>
     <addaction name="separator"/>
-    <addaction name="actionExport_Biquad"/>
     <addaction name="actionExport_FRD"/>
     <addaction name="separator"/>
     <addaction name="actionSave_Chart"/>
@@ -800,6 +799,7 @@
     <addaction name="separator"/>
     <addaction name="actionAnalyse_Audio"/>
     <addaction name="separator"/>
+    <addaction name="actionExport_Biquad"/>
     <addaction name="actionMerge_Minidsp_XML"/>
    </widget>
    <addaction name="menuFile"/>

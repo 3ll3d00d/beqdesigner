@@ -25,7 +25,7 @@
     </widget>
    </item>
    <item row="0" column="0">
-    <layout class="QGridLayout" name="innerLayout" columnstretch="0,0,0,0,0,0">
+    <layout class="QGridLayout" name="innerLayout" rowstretch="0,1,0,0,0,0,1" columnstretch="0,0,0,0,0,0">
      <item row="5" column="3">
       <widget class="QSpinBox" name="totalFiles">
        <property name="readOnly">

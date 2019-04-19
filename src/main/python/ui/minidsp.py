@@ -94,6 +94,8 @@ class Ui_mergeMinidspDialog(object):
         self.lastCommitMessage = QtWidgets.QPlainTextEdit(mergeMinidspDialog)
         self.lastCommitMessage.setObjectName("lastCommitMessage")
         self.innerLayout.addWidget(self.lastCommitMessage, 1, 1, 1, 4)
+        self.innerLayout.setRowStretch(1, 1)
+        self.innerLayout.setRowStretch(6, 1)
         self.gridLayout.addLayout(self.innerLayout, 0, 0, 1, 1)
 
         self.retranslateUi(mergeMinidspDialog)

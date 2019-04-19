@@ -12,7 +12,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_preferencesDialog(object):
     def setupUi(self, preferencesDialog):
         preferencesDialog.setObjectName("preferencesDialog")
-        preferencesDialog.resize(809, 776)
+        preferencesDialog.resize(519, 477)
         self.verticalLayout = QtWidgets.QVBoxLayout(preferencesDialog)
         self.verticalLayout.setObjectName("verticalLayout")
         self.panes = QtWidgets.QVBoxLayout()
