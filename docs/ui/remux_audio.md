@@ -15,8 +15,8 @@ The Remux Audio dialog allows you to apply filters to an audio track and create 
 
 ![Dialog](../img/remux_audio_1.png)
 
-  1. Load the required channels as signals
-  2. Apply filters as necessary
+  1. Load all channels from the source audio as signals
+  2. Apply filters and/or link signals as necessary
   3. Open the Remux dialog using `Tools > Remux Audio` or `CTRL+U`
   4. Select the source file 
   5. Pick the desired audio and video tracks
@@ -29,9 +29,8 @@ The Remux Audio dialog allows you to apply filters to an audio track and create 
     * Format
   8. Apply volume offsets to the remuxed audio and/or original audio tracks as desired
   9. Update the mapping of filter channels to source audio channels via the *Signal Mapping* dialog
-  
+    * BEQDesigner will automatically map filters to channels if all source audio channels have been added as signals before the remux dialog is opened
 ![SignalMapping](../img/remux_audio_2.png)
-
   10. Set the output directory and filename
   11. Click Remux
   12. Sit back and wait for the processing to complete
