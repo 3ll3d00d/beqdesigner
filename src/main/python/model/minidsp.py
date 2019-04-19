@@ -35,7 +35,7 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
         self.statusbar = statusbar
         config_file = self.__preferences.get(BEQ_CONFIG_FILE)
         if config_file is not None and len(config_file) > 0 and os.path.exists(config_file):
-            self.configFile.setText(config_file)
+            self.configFile.setText(os.path.abspath(config_file))
         self.outputDirectory.setText(self.__preferences.get(BEQ_MERGE_DIR))
         os.makedirs(self.outputDirectory.text(), exist_ok=True)
         minidsp_type = self.__preferences.get(BEQ_MINIDSP_TYPE)
@@ -100,11 +100,12 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
         self.__preferences.set(BEQ_CONFIG_FILE, self.configFile.text())
         self.__preferences.set(BEQ_MERGE_DIR, self.outputDirectory.text())
         self.__preferences.set(BEQ_MINIDSP_TYPE, self.minidspType.currentText())
-        self.filesProcessed.setValue(0)
-        self.errors.clear()
         self.__update_beq_metadata()
         if self.__clear_output_directory():
+            self.filesProcessed.setValue(0)
             self.__start_spinning()
+            self.errors.clear()
+            self.errors.setEnabled(False)
             QThreadPool.globalInstance().start(XmlProcessor(self.__beq_dir,
                                                             self.outputDirectory.text(),
                                                             self.configFile.text(),
@@ -114,6 +115,7 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
                                                             self.__on_complete))
 
     def __on_file_fail(self, file, message):
+        self.errors.setEnabled(True)
         self.errors.addItem(f"{file} - {message}")
 
     def __on_file_ok(self):
@@ -196,7 +198,7 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
         selected = QFileDialog.getOpenFileName(parent=self, caption='Select Minidsp XML Filter',
                                                filter='Filter (*.xml)', **kwargs)
         if selected is not None and len(selected[0]) > 0:
-            self.configFile.setText(selected[0])
+            self.configFile.setText(os.path.abspath(selected[0]))
         self.__enable_process()
 
     def __enable_process(self):
@@ -278,27 +280,34 @@ class XmlProcessor(QRunnable):
                     if len(filter_tokens) == 3:
                         if filt_type == 'PEQ':
                             if filt_channel == '1' or filt_channel == '2':
-                                filt = filters[int(filt_slot)-1]
-                                if isinstance(filt, Passthrough):
-                                    child.find('freq').text = '1000'
-                                    child.find('q').text = '0.7'
-                                    child.find('boost').text = '0'
-                                    child.find('type').text = 'PK'
-                                    child.find('bypass').text = '1'
+                                if int(filt_slot) >= len(filters):
+                                    root.remove(child)
                                 else:
-                                    child.find('freq').text = str(filt.freq)
-                                    child.find('q').text = str(filt.q)
-                                    child.find('boost').text = str(filt.gain)
-                                    child.find('type').text = self.__get_minidsp_filter_type(filt)
-                                    child.find('bypass').text = '0'
-                                dec_txt = filt.format_biquads(True, separator=',',
-                                                              show_index=False, as_32bit_hex=False)[0]
-                                child.find('dec').text = f"{dec_txt},"
-                                hex_txt = filt.format_biquads(True, separator=',',
-                                                              show_index=False, as_32bit_hex=True)[0]
-                                child.find('hex').text = f"{hex_txt},"
+                                    filt = filters[int(filt_slot)-1]
+                                    if isinstance(filt, Passthrough):
+                                        child.find('freq').text = '1000'
+                                        child.find('q').text = '0.7'
+                                        child.find('boost').text = '0'
+                                        child.find('type').text = 'PK'
+                                        child.find('bypass').text = '1'
+                                    else:
+                                        child.find('freq').text = str(filt.freq)
+                                        child.find('q').text = str(filt.q)
+                                        child.find('boost').text = str(filt.gain)
+                                        child.find('type').text = self.__get_minidsp_filter_type(filt)
+                                        child.find('bypass').text = '0'
+                                    dec_txt = filt.format_biquads(True, separator=',',
+                                                                  show_index=False, to_hex=False)[0]
+                                    child.find('dec').text = f"{dec_txt},"
+                                    hex_txt = filt.format_biquads(True, separator=',',
+                                                                  show_index=False, to_hex=True,
+                                                                  fixed_point=self.__is_fixed_point_hardware())[0]
+                                    child.find('hex').text = f"{hex_txt},"
 
         return ET.tostring(root, encoding='unicode')
+
+    def __is_fixed_point_hardware(self):
+        return False if self.__minidsp_type == '2x4 HD' else True
 
     @staticmethod
     def __get_minidsp_filter_type(filt):
@@ -427,16 +436,8 @@ def extract_and_pad_with_passthrough(filt_xml, fs, required=10):
         pad_filters = [Passthrough(fs=fs)] * padding
         flattened_filters.extend(pad_filters)
     elif padding < 0:
-        raise TooManyFiltersError(f"{abs(padding)} too many filters")
+        raise ValueError(f"BEQ has too many filters for device (remove {abs(padding)} biquads)")
     return flattened_filters
-
-
-class TooManyFiltersError(Exception):
-    '''
-    Raised when we have too many filters to fit into the available space.
-    '''
-    def __init__(self, *args, **kwargs):
-        super().__init__(args, kwargs)
 
 
 class RepoRefresher:

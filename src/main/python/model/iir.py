@@ -24,26 +24,32 @@ ctx.prec = 17
 COMBINED = 'Combined'
 
 
-def float_to_str(f, as_32bit_hex=False, minidsp_style=False):
+def float_to_str(f, to_hex=False, minidsp_style=False, fixed_point=False):
     """
-    Convert the given float to a string, without resorting to scientific notation if as_hex is False.
+    Convert the given float to a string without scientific notation or in the correct hex format.
     """
-    if as_32bit_hex is True:
-        return float_to_hex(f, minidsp_style)
+    if to_hex is True:
+        return float_to_hex(f, minidsp_style, fixed_point)
     else:
         d1 = ctx.create_decimal(repr(f))
         return format(d1, 'f')
 
 
-def float_to_hex(f, minidsp_style):
+def float_to_hex(f, minidsp_style, fixed_point):
     '''
-    Converts a floating number to its 32bit IEEE 754 hex representation.
+    Converts a floating number to its 32bit IEEE 754 hex representation if fixed_point is None else converts to
+    Q5.23 format.
     :param f: the float.
     :param minidsp_style: if true, don't print 0x prefix.
     :return: the hex value.
     '''
-    value = struct.unpack('<I', struct.pack('<f', f))[0]
-    return f"{value:{'#' if minidsp_style is True else ''}010x}"
+    if fixed_point is True:
+        # use 2s complement for negative values
+        val = int(-f * (2 ** 23)) ^ 0xFFFFFFF if f < 0 else int(f * (2 ** 23))
+        return f"{val:{'#' if minidsp_style is True else ''}08x}"
+    else:
+        value = struct.unpack('<I', struct.pack('<f', f))[0]
+        return f"{value:{'#' if minidsp_style is True else ''}010x}"
 
 
 class Biquad(ABC):
@@ -95,9 +101,9 @@ class Biquad(ABC):
             self.__transferFunction = ComplexData(self.__repr__(), f, h)
         return self.__transferFunction
 
-    def format_biquads(self, minidsp_style, separator=',\n', show_index=True, as_32bit_hex=False):
+    def format_biquads(self, minidsp_style, separator=',\n', show_index=True, to_hex=False, fixed_point=False):
         ''' Creates a biquad report '''
-        kwargs = {'as_32bit_hex': as_32bit_hex, 'minidsp_style': minidsp_style}
+        kwargs = {'to_hex': to_hex, 'minidsp_style': minidsp_style, 'fixed_point': fixed_point}
         a = separator.join(
             [f"{self.__format_index('a', idx, show_index)}{float_to_str(-x if minidsp_style else x, **kwargs)}"
              for idx, x in enumerate(self.a) if idx != 0 or minidsp_style is False])
@@ -311,9 +317,9 @@ class Shelf(BiquadWithQGain):
         else:
             raise ValueError('Shelf must have non zero count')
 
-    def format_biquads(self, minidsp_style, separator=',\n', show_index=True, as_32bit_hex=False):
+    def format_biquads(self, minidsp_style, separator=',\n', show_index=True, to_hex=False, fixed_point=False):
         single = super().format_biquads(minidsp_style, separator=separator, show_index=show_index,
-                                        as_32bit_hex=as_32bit_hex)
+                                        to_hex=to_hex, fixed_point=fixed_point)
         if self.count == 1:
             return single
         elif self.count > 1:
@@ -782,7 +788,7 @@ class ComplexFilter(Sequence):
                                                                     [x.getTransferFunction() for x in self.filters])
         return self.__cached_transfer
 
-    def format_biquads(self, invert_a, separator=',\n', show_index=True, as_32bit_hex=False):
+    def format_biquads(self, invert_a, separator=',\n', show_index=True, to_hex=False, fixed_point=False):
         '''
         Formats the filter into a biquad report.
         :param invert_a: whether to invert the a coeffs.
@@ -792,7 +798,8 @@ class ComplexFilter(Sequence):
         return list(itertools.chain(*[f.format_biquads(invert_a,
                                                        separator=separator,
                                                        show_index=show_index,
-                                                       as_32bit_hex=as_32bit_hex)
+                                                       to_hex=to_hex,
+                                                       fixed_point=fixed_point)
                                       for f in self.filters]))
 
     def get_sos(self):
