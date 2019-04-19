@@ -42,12 +42,11 @@ Next
 
 !!! warning
     BEQDesigner will ask for confirmation if the output directory contains any files with the .xml extension. 
-        * If you click Yes, all such files will be deleted
-        * If you click No, no files will be deleted and BEQDesigner will take no further action 
- 
-* click Yes to continue
 
-The following events should now happen:
+    * If you click Yes, all such files will be deleted
+    * If you click No, no files will be deleted and BEQDesigner will take no further action 
+ 
+If you clicked Yes, the following events should now happen:
 
 * The count of files processed should increase rapidly
 * The save button should change to a spinner which continues to spin
@@ -58,7 +57,7 @@ If the selected minidsp type is the 2x4 HD then all files should be processed su
 
 ![Done](../img/merge_5.png)
 
-However if the selected minidsp type is either the 2x4 or the 10x10 HD then errors should be expected as the hardware only supports 6 biquads per output channel and some BEQ filters require more than 6  biquads. The error section will specify which files were not processed successfully and how many biquads you'd need to eliminate to use this directly. A suggested workaround is found [below](#Working-around-Fixed-Point-Hardware-Limitations)
+However if the selected minidsp type is either the 2x4 or the 10x10 HD then errors should be expected as the hardware only supports 6 biquads per output channel and some BEQ filters require more than 6  biquads. The error section will specify which files were not processed successfully and how many biquads you'd need to eliminate to use this directly. A suggested workaround is found [below](#working-around-fixed-point-hardware-limitations)
 
 ![NonHD](../img/merge_error.png)
 
@@ -108,5 +107,6 @@ Many BEQs stack multiple low shelf filters in order to reduce the magnitude of t
 
 !!! warning
     There are 2 possible problems with this approach
-        1. the minidsp UI only accept Q values with 1 decimal place, you will most likely need to convert these filters to custom biquads in order to import them
-        2. some LS filters are at ULF frequencies and the 2x4 hardware has precision issues in this region, be careful when translating this to your own hardware
+    
+    1. the minidsp UI only accept Q values with 1 decimal place, you will most likely need to convert these filters to custom biquads in order to import them
+    2. some LS filters are at ULF frequencies and the 2x4 hardware has precision issues in this region, be careful when translating this to your own hardware
