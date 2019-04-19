@@ -280,7 +280,7 @@ class XmlProcessor(QRunnable):
                     if len(filter_tokens) == 3:
                         if filt_type == 'PEQ':
                             if filt_channel in self.__valid_filt_channels():
-                                if int(filt_slot) >= len(filters):
+                                if int(filt_slot) > len(filters):
                                     root.remove(child)
                                 else:
                                     filt = filters[int(filt_slot)-1]
