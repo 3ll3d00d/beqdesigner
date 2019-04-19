@@ -19,6 +19,10 @@ From top to bottom:
 * Gain: the filter gain in dB
 * Count: for Shelf filters only, a convenience mechanism for stacking multiple shelf filters
 
+!!! info
+    Use the button next to each field to change the size of the step up or down
+    Click multiple times to see the available step sizes
+
 The buttons to the right of each field show the current step size for the field, click the field to change the resolution to allow fine tuning or coarse adjustments.
 
 The buttons across the bottom are, from left to right:
