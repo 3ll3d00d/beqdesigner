@@ -17,6 +17,37 @@ BEQDesigner is a application which provides the means to:
 * remux movie tracks to include the BEQ'ed audio track
 * apply freely distributed BEQ filters to your own personal minidsp configuration
 
+### When is BEQ applied?
+
+There are 2 fundamentally different styles of BEQ.
+
+#### Pre Bass Management (or Input) BEQ
+
+All BEQs published on [data-bass](http://data-bass.ipbhost.com/topic/285-the-bass-eq-for-movies-thread/) are filters that are applied to the input channels.
+
+This approach has the benefit of accuracy, the precise rolloff for each channel can be reversed independently.
+
+However it does carry some downsides
+
+* accessibility: DSP needs to be available before decoding which is not something most people have access to
+* complexity: such filters are harder to create and verify
+* gain management: input channels typically reach full range so any filtering means losing (digital) signal level
+
+#### Post Bass Management (or Output) BEQDesigner
+
+All BEQs published on [avsforum](https://www.avsforum.com/forum/113-subwoofers-bass-transducers/2995212-bass-eq-filtered-movies.html) are filters that are applied to the subwoofer output channel.
+
+This approach is the polar opposite of input BEQ in that it is:
+
+* relatively simple
+* accessible
+* at relatively low risk (of clipping)
+* will not be as accurate for some tracks as the filter will be dominated by the behaviour of the LFE channel
+
+#### Does per channel accuracy matter?
+
+There are certainly film soundtracks that have markedly different rolloffs per channel that, on paper, will benefit from input BEQ. However whether these differences are substantial enough to be audible is a question left to the reader to answer.
+
 ## Core Concepts
 
 ### Signals and Filters
