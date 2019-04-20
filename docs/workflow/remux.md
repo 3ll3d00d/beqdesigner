@@ -17,7 +17,7 @@ Remuxing a Post BM BEQ means applying that same filter to every single channel.
       * Decimate audio : unchecked
       * All other options : set according to your own needs
   6. Check the "Adjust Remuxed Audio?" box and click the button next to it, the value may change to a negative number. 
-        * Tweak this value, or the filters, if necessary as per [Avoiding Clipping](#avoiding-clipping)
+      * Tweak this value, or the filters, if necessary as per [Avoiding Clipping](#avoiding-clipping)
   7. Check the filter to channel mapping is accurate, update if necessary.
   ![Mapping](../img/workflow_remux_mapping.png)
   8. Set the output directory and file name
