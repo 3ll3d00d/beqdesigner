@@ -47,3 +47,15 @@ This approach is the polar opposite of input BEQ in that it is:
 #### Does per channel accuracy matter?
 
 There are certainly film soundtracks that have markedly different rolloffs per channel that, on paper, will benefit from input BEQ. However whether these differences are substantial enough to be audible is a question left to the reader to answer.
+
+### Is BEQ safe?
+
+If applied correctly then yes as the filters are simply recovering content that is already on the disk albeit at a very low level. 
+
+!!! warning
+    Applying a BEQ filter to the wrong content could result in egregious clipping at low frequencies and hence can pose a risk to your subs if combined with high playback levels. 
+    Always take care to ensure you're using the right filter for the track you're playing.
+
+### Does BEQ just boost noise?
+
+Generally speaking, no, real content is restored to audible/tactile playback levels. However there is some risk of this, particularly with older (e.g. 80s and earlier) soundtracks. 

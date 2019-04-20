@@ -36,8 +36,8 @@ nav:
         - 'Merge Minidsp XML': ui/merge_minidsp_xml.md
       - 'Preferences': ui/preferences.md
   - Workflow:
-      - 'A BEQ Workflow': workflow/beq.md
-      - 'Simulating Bass Management': workflow/bass_management.md
+      - 'A Worked Example': workflow/beq.md
       - 'Remuxing': workflow/remux.md
+      - 'Simulating Bass Management': workflow/bass_management.md
 extra_javascript:
   - 'https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-MML-AM_CHTML'
