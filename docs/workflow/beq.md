@@ -206,3 +206,22 @@ The slope of a shelf filter is specified by S hence why it is useful to talk in 
 
 S is related to Q and Gain so changing either Q or Gain will change S (and vice versa).
 
+### Pre or Post BM BEQ?
+
+If you have the signal chain that can implement either style of BEQ then the question arises of which style should be preferred. 
+
+Ultimately there is no right or wrong answer to this question but there are some objective points we can list:
+
+* if the intent of BEQ is to recover filtered out content then pre BM BEQ is the technically correct solution as some tracks show significantly different rolloffs per channel
+* some tracks rolloff all channels with the same shape 
+* some (many?) tracks only have significant LF content on the C channel and/or put the surrounds a few dB down
+* the SW output is invariably dominated by the LFE channel due to the +10dB level change 
+
+As such, we can conclude
+
+* there are undoubtedly tracks that will benefit from pre BM BEQ
+* there are other tracks that will behave the same either way
+* there is no way to know, in advance, whether pre BM BEQ is audibly superior to post BM BEQ
+
+Ultimately, as with many things audio, you just have to try it out for yourself and decide.
+
