@@ -2,7 +2,7 @@
 
 Releases are hosted on github, the latest official release will always be available via the [github releases page](https://github.com/3ll3d00d/beqdesigner/releases/latest)
 
-3 binaries are provided:
+3 binaries are provided for official releases:
 
 File Name | OS | Description 
 ----------|----|------------
@@ -11,6 +11,12 @@ beqdesignerSetup.exe | Windows | An installer, will startup more quickly than th
 beqdesigner | Linux | A portable, self contained binary (tested on Debian Stretch and Fedora 29) 
 
 To use, simply download one of the above binaries and run it.
+
+### Is there any difference between beqdesigner.exe and beqdesignerSetup.exe?
+
+Functionally, no.
+
+The only difference is that using beqdesignerSetup.exe should lead to faster startup times.
 
 ### Windows Smartscreen   
 
@@ -38,3 +44,11 @@ Refer to your distro for instructions
 
 * [debian](https://wiki.debian.org/ffmpeg#Installation)
 * [fedora via rpm-fusion](https://www.cyberciti.biz/faq/how-to-install-ffmpeg-on-fedora-linux-using-dnf)   
+
+## Beta Releases
+
+Beta releases are published more regularly than official releases. Beta releases provide early access to new or experimental features. Review the release notes for any particular beta release for more details.
+
+They can be found via the full release page on [github](https://github.com/3ll3d00d/beqdesigner/releases).
+
+Note that beta releases are typically shared in `beqdesigner.exe` format only.
