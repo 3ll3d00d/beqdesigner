@@ -61,7 +61,7 @@ The slope of a shelf filter is governed by the `S` parameter so we want a shelf 
     Try entering a low shelf with a gain of 27dB and S=3
     This is a completely unstable filter with the response utterly dominated by overshoot.
 
-Keeping [the limitations of a shelf filter](#understanding-filter-shape) in mind, we'd probably aim slightly low with the S value so lets say try 5 S=2.5 with a gain of 5dB for a total target gain of 25dB and a centre frequency of 18Hz (i.e. somewhere around the middle of the rolloff).
+Keeping the limitations of a shelf filter in mind, we'd probably aim slightly low with the S value so lets say try 5 S=2.5 with a gain of 5dB for a total target gain of 25dB and a centre frequency of 18Hz (i.e. somewhere around the middle of the rolloff).
 
 ![Shelf Take1](../img/beq_rp1_shelf_1.png)
 
@@ -99,7 +99,7 @@ using S=1 +4dB low shelf filter to flatten it out
 
 ![RP1 Take 2 Filters](../img/beq_rp1_shelf_2_filters.png)
 
-Now we've restored our 30Hz level while pulling up that 
+Now we've restored our 30Hz level while still recovering that rolled off content.
 
 !!! tip
     Use [Presets](../ui/presets.md) to store a few different filters so you can quickly switch back and forth to see the difference. 
