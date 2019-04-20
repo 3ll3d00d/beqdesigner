@@ -61,7 +61,7 @@ The slope of a shelf filter is governed by the `S` parameter so we want a shelf 
     Try entering a low shelf with a gain of 27dB and S=3
     This is a completely unstable filter with the response utterly dominated by overshoot.
 
-Keeping the limitations of a shelf filter in mind, we'd probably aim slightly low with the S value so lets say try 5 S=2.5 with a gain of 5dB for a total target gain of 25dB and a centre frequency of 18Hz (i.e. somewhere around the middle of the rolloff).
+Keeping [the limitations of a shelf filter](#understanding-filter-shape) in mind, we'd probably aim slightly low with the S value so lets say try 5 S=2.5 with a gain of 5dB for a total target gain of 25dB and a centre frequency of 18Hz (i.e. somewhere around the middle of the rolloff).
 
 ![Shelf Take1](../img/beq_rp1_shelf_1.png)
 
@@ -162,3 +162,47 @@ It's generally impractical to watch an entire film on every iteration of a filte
 #### Step 9: Share
 
 If you're happy with the results then create a [report](../ui/report.md) and share your work with the community! 
+
+### Filter Strategies
+
+The main weapon in the BEQ armoury is the Low Shelf filter, unfortunately this type of filter has some limitations which require some care to work around.
+
+#### The Low Shelf 
+
+A Low Shelf filter is defined by 3 key values:
+
+* S : the shelf slope
+* Frequency : the centre frequency, i.e. the point at which half of the gain has been delivered
+* Gain : the ultimate change in gain caused by the slope 
+
+This example is S=1 +5dB at 30Hz
+
+![LS Example 1](../img/ls_example_1.png)
+
+We can see that the shelf has a smooth shape and reaches a gain of +2.5dB at 30Hz.
+
+##### Shelf Limitations
+
+Take a look at the same gain and frequency but with gradually increasing S values
+
+![LS Overshoot Filters](../img/ls_overshoot_filters.png)
+
+![LS Overshoot](../img/ls_overshoot.png)
+
+It's clear that shelf filters with S > 2 become increasingly unuseable due to the excessive overshoot at either end of the shelf
+
+The overshoot with S = 5 is extremely large at this gain and we can see Q = 1.7 in this case with S = 5. 
+
+!!! tip
+    A rough rule of thumb is that S <= 3 and/or Q <= 1.3 is a filter which can be used without significant corrective action.
+    
+##### Counteracting Overshoot
+
+As illustrated in [Step 4](#step-4-create-filters) , PEQ and/or additional shelf filters can be used to counteract the overshoot at either end of the shelf. There are no fixed rules dictating how to do this, it's simply a case of using your eye to dial it in.
+
+##### S vs Q
+
+The slope of a shelf filter is specified by S hence why it is useful to talk in terms of S when dealing with shelf filters. However most DSP platforms ask the user to enter a shelf filter in terms of Q so BEQDesigner allows you to define a shelf filter by either Q or S and will report the other value for reference.
+
+S is related to Q and Gain so changing either Q or Gain will change S (and vice versa).
+
