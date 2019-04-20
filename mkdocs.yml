@@ -3,6 +3,8 @@ site_url: 'https://beqdesigner.readthedocs.io'
 copyright: 'Copyright &copy; 2019 Matt Khan'
 theme:
   name: 'material'
+  logo: 'img/icon.png'
+  favicon: 'img/icon.ico'
 markdown_extensions:
   - toc:
       permalink: true
