@@ -85,7 +85,7 @@ Select the *(BM)* signal to get started.
 
 #### Simulation Options
 
-There are 3 options
+There are 3 options in the waveform view.
 
 ##### When is the low pass filter applied?
 
@@ -94,6 +94,10 @@ The *LPF* option controls when the LPF is applied, the options are:
 * Before: the main channels are low passed before summation
 * After: the channels are combined and the resulting output signal is low passed
 * Off: no low pass filter is applied
+
+The low pass filter itself is a 4th order Linkwitz-Riley filter. This is not configurable.
+
+The corner frequency for this filter is configurable and is specified via the *BM LPF* option in [Preferences](../ui/preferences.md#filter).
 
 ##### Simulating Headroom
 

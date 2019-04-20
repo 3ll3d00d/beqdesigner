@@ -10,6 +10,7 @@ markdown_extensions:
       permalink: true
   - admonition
   - pymdownx.arithmatex
+  - pymdownx.superfences
 extra:
   disqus: beqdesigner
 nav:
