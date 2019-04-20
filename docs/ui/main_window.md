@@ -7,7 +7,7 @@ This window has two columns.
 On the left is the main graph pane which is used to display the various signals and filters loaded into the application.
 On the right are a pair of tables with associated controls which allow you to see and control which signals and filters are loaded into the application.
 
-Refer to [Signals & Filters](../index.md#signals-and-filters) for an explanation of what a signal or a filter is.
+Refer to [Signals & Filters](../concepts.md#signals-and-filters) for an explanation of what a signal or a filter is.
 
 ### Signals
 
@@ -20,7 +20,7 @@ Take a closer look at the signal table.
 After signals have been added, the signal table shows a list of all those signals and shows:
 
 * the signal name
-* whether it is a [master or slave](../index.md#linking-signals) signal
+* whether it is a [master or slave](../concepts.md#linking-signals) signal
 * the sample rate of the signal in Hz
 * how long the signal is 
 * whether a volume offset (in dB) has been applied
@@ -45,7 +45,7 @@ The link button opens the Link Signals dialog.
 
 ![Link Signals](../img/link_signals_1.png)
 
-To link signals in a [master-slave relationship](../index.md#linking-signals):
+To link signals in a [master-slave relationship](../concepts.md#linking-signals):
 
   1. Select the master signal from the dropdown
   2. Click the + button
