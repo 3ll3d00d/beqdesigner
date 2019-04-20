@@ -48,6 +48,7 @@ if platform.system() == 'Darwin':
                  info_plist={
                   'NSHighResolutionCapable': 'True',
                   'LSBackgroundOnly': 'False',
+                  'NSRequiresAquaSystemAppearance': 'False',
                   'LSEnvironment': {
                     'PATH': '/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:'
                   }
