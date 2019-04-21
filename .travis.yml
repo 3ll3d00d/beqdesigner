@@ -1,6 +1,12 @@
 language: python
 cache:
-  pip: true
+  directories:
+    - $PIP_CACHE_DIR
+    - $PIPENV_CACHE_DIR
+env:
+  global:
+    - PIP_CACHE_DIR=$HOME/.cache/pip
+    - PIPENV_CACHE_DIR=$HOME/.cache/pipenv
 matrix:
   include:
     - name: "Python 3.7.1 on Xenial Linux"
@@ -18,7 +24,6 @@ matrix:
       before_install: choco install python
       env: PATH=/c/Python37:/c/Python37/Scripts:$PATH
   allow_failures:
-    - os: osx
     - os: windows
 addons:
   apt:
