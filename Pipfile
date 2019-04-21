@@ -14,8 +14,6 @@ numpy = "*"
 scipy = "*"
 qtpy = "*"
 qtawesome = ">=0.5.7"
-pytest = "*"
-pytest-cov = "*"
 sortedcontainers = "*"
 pillow = "*"
 requests = "*"
@@ -23,7 +21,8 @@ semver = "*"
 dulwich = "*"
 
 [dev-packages]
-pyinstaller = "*"
+pytest = "*"
+pytest-cov = "*"
 
 [requires]
 python_version = "3.7"
