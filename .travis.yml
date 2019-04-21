@@ -26,8 +26,11 @@ addons:
     - libblas-dev
     - liblapack-dev
     - libsndfile1
+  homebrew:
+    packages:
+      - pipenv
+      - libsndfile
 install:
-  - echo $PATH
   - pip3 install --upgrade pip
   - pip3 install pipenv
   - pipenv install
