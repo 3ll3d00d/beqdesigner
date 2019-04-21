@@ -62,3 +62,5 @@ deploy:
     branch: travis
   skip_cleanup: true
   draft: true
+after_deploy:
+  - ls -la dist
