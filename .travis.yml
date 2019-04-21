@@ -15,6 +15,7 @@ matrix:
     env:
     - PYINST_SPEC_NAME=linux
     - PYINST_DIST_NAME=beqdesigner
+    - PIPENV_VERBOSITY=-1
     after_success:
     - bash <(curl -s https://codecov.io/bash)
   - name: Python 3.7.2 on macOS
@@ -49,7 +50,8 @@ install:
 script:
 - PYTHONPATH=./src/main/python pipenv run pytest --cov=./src/main/python
 before_deploy:
-- PYTHONPATH= pipenv install -d
+- echo $PYTHONPATH
+- pipenv install -d
 - pipenv run pyinstaller --clean --log-level=INFO -F for_$PYINST_SPEC_NAME.spec
 deploy:
   provider: releases
