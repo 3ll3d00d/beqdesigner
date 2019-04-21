@@ -16,6 +16,7 @@ matrix:
     env:
     - PYINST_DIST_NAME=beqdesigner
     - PIPENV_VERBOSITY=-1
+    - COVERAGE_ARGS="--cov=./src/main/python"
     after_success:
     - bash <(curl -s https://codecov.io/bash)
   - name: Python 3.7.2 on macOS
@@ -27,7 +28,7 @@ matrix:
   - name: Python 3.7.3 on Windows
     os: windows
     language: shell
-    before_install: choco install python
+    before_install: choco install python upx
     env:
     - PATH=/c/Python37:/c/Python37/Scripts:$PATH
     - PYINST_DIST_NAME=beqdesigner.exe
@@ -37,15 +38,17 @@ addons:
     - libblas-dev
     - liblapack-dev
     - libsndfile1
+    - upx
   homebrew:
     packages:
     - pipenv
+    - upx
 install:
 - pip3 install --upgrade pip
 - pip3 install pipenv
 - pipenv install -d
 script:
-- PYTHONPATH=./src/main/python pipenv run pytest --cov=./src/main/python
+- PYTHONPATH=./src/main/python pipenv run pytest $COVERAGE_ARGS
 before_deploy:
 - pipenv run pip3 install pyinstaller
 - pipenv run pyinstaller --clean --log-level=INFO -F beqdesigner.spec
