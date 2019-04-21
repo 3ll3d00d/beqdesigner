@@ -4,7 +4,7 @@ cache:
 matrix:
   include:
     - name: "Python 3.7.1 on Xenial Linux"
-      python: 3.7
+      python: '3.7'
       dist: xenial
       after_success:
         - bash <(curl -s https://codecov.io/bash)
@@ -35,6 +35,6 @@ script:
   - PYTHONPATH=./src/main/python pytest --cov=./src/main/python
 jobs:
   include:
-    - stage: build
+    - stage: publish
       script: echo "building"
       dist: xenial
