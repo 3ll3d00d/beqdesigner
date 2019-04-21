@@ -10,7 +10,6 @@ ffmpeg-python = "*"
 soundfile = "*"
 resampy = "*"
 pyqtgraph = "*"
-pyinstaller = "*"
 numpy = "*"
 scipy = "*"
 qtpy = "*"
@@ -24,6 +23,7 @@ semver = "*"
 dulwich = "*"
 
 [dev-packages]
+pyinstaller = "*"
 
 [requires]
 python_version = "3.7"

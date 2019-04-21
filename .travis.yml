@@ -6,6 +6,8 @@ matrix:
     - name: "Python 3.7.1 on Xenial Linux"
       python: 3.7
       dist: xenial
+      after_success:
+        - bash <(curl -s https://codecov.io/bash)
     - name: "Python 3.7.2 on macOS"
       os: osx
       osx_image: xcode10.2
@@ -23,9 +25,9 @@ addons:
     packages:
     - libblas-dev
     - liblapack-dev
-    - gfortran
     - libsndfile1
 install:
+  - echo $PATH
   - pip3 install --upgrade pip
   - pip3 install pipenv
   - pipenv install
@@ -33,6 +35,6 @@ script:
   - PYTHONPATH=./src/main/python pytest --cov=./src/main/python
 jobs:
   include:
-    - stage: coverage
-      script: bash <(curl -s https://codecov.io/bash)
+    - stage: build
+      script: echo "building"
       dist: xenial
