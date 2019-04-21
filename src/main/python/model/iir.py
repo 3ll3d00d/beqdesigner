@@ -3,7 +3,7 @@ import logging
 import math
 import struct
 from abc import ABC, abstractmethod
-from collections import Sequence
+from collections.abc import Sequence
 from enum import Enum
 from functools import reduce
 
