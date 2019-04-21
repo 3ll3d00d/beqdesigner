@@ -32,4 +32,4 @@ exe = EXE(pyz,
           strip=False,
           upx=False,
           console=True,
-          icon='src/main/icons/Icon.ico' )
+          icon='src/main/icons/Icon.ico')

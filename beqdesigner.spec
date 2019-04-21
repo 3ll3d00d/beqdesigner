@@ -4,7 +4,7 @@ import platform
 
 def get_resampy_path():
     import resampy as _
-    return _.__path__
+    return _.__path__[0]
 
 def get_site_path():
     import site
@@ -14,10 +14,10 @@ block_cipher = None
 spec_root = os.path.abspath(SPECPATH)
 
 datas = [
-    ('src\\main\\icons\\Icon.ico', '.'),
+    ('src/main/icons/Icon.ico', '.'),
     (os.path.abspath(f"{get_resampy_path()}/data/kaiser_fast.npz"), '_resampy_filters'),
-    ('src\\main\\python\\style', 'style'),
-    ('src\\main\\python\\VERSION', '.')
+    ('src/main/python/style', 'style'),
+    ('src/main/python/VERSION', '.')
 ]
 if platform.system() == 'Windows':
     data.append((os.path.abspath(f"{get_site_path()}/_soundfile_data"), '_soundfile_data'))
