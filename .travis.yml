@@ -13,7 +13,7 @@ matrix:
     python: '3.7'
     dist: xenial
     env:
-    - PYINST_SPEC_NAME=linux
+    - PYINST_SPEC_NAME=for_linux.spec
     - PYINST_DIST_NAME=beqdesigner
     - PIPENV_VERBOSITY=-1
     after_success:
@@ -23,18 +23,20 @@ matrix:
     osx_image: xcode10.2
     language: shell
     env:
-    - PYINST_SPEC_NAME=mac
+    - PYINST_SPEC_NAME=for_mac.spec
     - PYINST_DIST_NAME=BEQDesigner.app
     - PIP_USER=yes
+    - PIPENV_VENV_IN_PROJECT=yes
   - name: Python 3.7.3 on Windows
     os: windows
     language: shell
     before_install: choco install python
     env:
     - PATH=/c/Python37:/c/Python37/Scripts:$PATH
-    - PYINST_SPEC_NAME=exe
+    - PYINST_SPEC_NAME=for_exe.spec
     - PYINST_DIST_SUFFIX=beqdesigner.exe
     - PIP_USER=yes
+    - PIPENV_VENV_IN_PROJECT=yes
 addons:
   apt:
     packages:
@@ -52,8 +54,8 @@ install:
 script:
 - PYTHONPATH=./src/main/python pipenv run pytest --cov=./src/main/python
 before_deploy:
-- pip3 install pyinstaller
-- pyinstaller --clean --log-level=INFO -F for_$PYINST_SPEC_NAME.spec
+- pipenv run pip3 install pyinstaller
+- pipenv run pyinstaller --clean --log-level=INFO -F $PYINST_SPEC_NAME
 deploy:
   provider: releases
   api_key:
