@@ -7,6 +7,7 @@ env:
   global:
   - PIP_CACHE_DIR=$HOME/.cache/pip
   - PIPENV_CACHE_DIR=$HOME/.cache/pipenv
+  - PIPENV_VENV_IN_PROJECT=yes
 matrix:
   include:
   - name: Python 3.7.1 on Xenial Linux
@@ -25,8 +26,6 @@ matrix:
     env:
     - PYINST_SPEC_NAME=for_mac.spec
     - PYINST_DIST_NAME=BEQDesigner.app
-    - PIP_USER=yes
-    - PIPENV_VENV_IN_PROJECT=yes
   - name: Python 3.7.3 on Windows
     os: windows
     language: shell
@@ -34,9 +33,7 @@ matrix:
     env:
     - PATH=/c/Python37:/c/Python37/Scripts:$PATH
     - PYINST_SPEC_NAME=for_exe.spec
-    - PYINST_DIST_SUFFIX=beqdesigner.exe
-    - PIP_USER=yes
-    - PIPENV_VENV_IN_PROJECT=yes
+    - PYINST_DIST_NAME=beqdesigner.exe
 addons:
   apt:
     packages:
