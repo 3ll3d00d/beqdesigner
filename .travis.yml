@@ -50,8 +50,7 @@ install:
 script:
 - PYTHONPATH=./src/main/python pipenv run pytest --cov=./src/main/python
 before_deploy:
-- echo $PYTHONPATH
-- pipenv install -d
+- pip install --user pyinstaller
 - pipenv run pyinstaller --clean --log-level=INFO -F for_$PYINST_SPEC_NAME.spec
 deploy:
   provider: releases
