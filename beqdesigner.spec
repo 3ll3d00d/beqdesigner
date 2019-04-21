@@ -46,7 +46,7 @@ exe = EXE(pyz,
           name='beqdesigner',
           debug=False,
           strip=False,
-          upx=True,
+          upx=platform.system() != 'Windows',
           console=True,
           icon=icon)
 
