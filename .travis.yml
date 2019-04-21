@@ -47,7 +47,7 @@ addons:
 install:
 - pip3 install --upgrade pip
 - pip3 install pipenv
-- pipenv install
+- pipenv install -d
 script:
 - PYTHONPATH=./src/main/python pipenv run pytest --cov=./src/main/python
 before_deploy:
