@@ -25,6 +25,8 @@ matrix:
     env:
     - PYINST_SPEC_NAME=mac
     - PYINST_DIST_NAME=BEQDesigner.app
+    - PIPENV_RUN="pipenv run"
+    - PIP_USER="--user"
   - name: Python 3.7.3 on Windows
     os: windows
     language: shell
@@ -33,6 +35,8 @@ matrix:
     - PATH=/c/Python37:/c/Python37/Scripts:$PATH
     - PYINST_SPEC_NAME=exe
     - PYINST_DIST_SUFFIX=beqdesigner.exe
+    - PIPENV_RUN="pipenv run"
+    - PIP_USER="--user"
 addons:
   apt:
     packages:
@@ -45,13 +49,13 @@ addons:
     - libsndfile
 install:
 - pip3 install --upgrade pip
-- pip3 install pipenv
+- pip3 install ${PIP_USER} pipenv
 - pipenv install
 script:
-- PYTHONPATH=./src/main/python pipenv run pytest --cov=./src/main/python
+- PYTHONPATH=./src/main/python $PIPENV_RUN pytest --cov=./src/main/python
 before_deploy:
-- pip install --user pyinstaller
-- pipenv run pyinstaller --clean --log-level=INFO -F for_$PYINST_SPEC_NAME.spec
+- pip3 install ${PIP_USER} pyinstaller
+- $PIPENV_RUN pyinstaller --clean --log-level=INFO -F for_$PYINST_SPEC_NAME.spec
 deploy:
   provider: releases
   api_key:
