@@ -21,7 +21,11 @@ Assuming pipenv and python3.7 is installed
 
 # Release
 
-### Hack ffmpeg-python (on Windows only)
+## numba and enum34
+
+numba has a dependency on enum34 which should only be used for python <=3.4 , had to be manually removed from pipfile.lock
+
+## Hack ffmpeg-python (on Windows only)
 
 * hack ffmpeg to workaround https://github.com/kkroening/ffmpeg-python/issues/116 
   * in _run.py
