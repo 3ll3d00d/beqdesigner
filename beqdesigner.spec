@@ -20,9 +20,9 @@ datas = [
     ('src/main/python/VERSION', '.')
 ]
 if platform.system() == 'Windows':
-    data.append((os.path.abspath(f"{get_site_path()}/_soundfile_data"), '_soundfile_data'))
+    datas.append((os.path.abspath(f"{get_site_path()}/_soundfile_data"), '_soundfile_data'))
 elif platform.system() == 'Darwin':
-    data.append((os.path.abspath(f"{get_site_path()}/_soundfile_data/libsndfile.dylib"), '_soundfile_data'))
+    datas.append((os.path.abspath(f"{get_site_path()}/_soundfile_data/libsndfile.dylib"), '_soundfile_data'))
 
 icon = f"src/main/icons/{'icon.icns' if platform.system() == 'Darwin' else 'Icon.ico'}"
 
