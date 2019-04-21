@@ -12,6 +12,8 @@ matrix:
       os: osx
       osx_image: xcode10.2
       language: shell
+      before_script:
+        - pipenv shell
     - name: "Python 3.7.3 on Windows"
       os: windows
       language: shell
