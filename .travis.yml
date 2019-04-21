@@ -43,6 +43,7 @@ addons:
     packages:
     - pipenv
     - upx
+    - libsndfile
 install:
 - pip3 install --upgrade pip
 - pip3 install pipenv
