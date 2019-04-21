@@ -6,9 +6,9 @@ def get_resampy_path():
     import resampy as _
     return _.__path__[0]
 
-def get_site_path():
-    import site
-    return site.USER_SITE
+def get_sndfile_path():
+    import soundfile as _
+    return os.path.dirname(_.__file__)
 
 block_cipher = None
 spec_root = os.path.abspath(SPECPATH)
@@ -20,9 +20,9 @@ datas = [
     ('src/main/python/VERSION', '.')
 ]
 if platform.system() == 'Windows':
-    datas.append((os.path.abspath(f"{get_site_path()}/_soundfile_data"), '_soundfile_data'))
+    datas.append((os.path.abspath(f"{get_sndfile_path()}/_soundfile_data"), '_soundfile_data'))
 elif platform.system() == 'Darwin':
-    datas.append((os.path.abspath(f"{get_site_path()}/_soundfile_data/libsndfile.dylib"), '_soundfile_data'))
+    datas.append((os.path.abspath(f"{get_sndfile_path()}/_soundfile_data/libsndfile.dylib"), '_soundfile_data'))
 
 icon = f"src/main/icons/{'icon.icns' if platform.system() == 'Darwin' else 'Icon.ico'}"
 

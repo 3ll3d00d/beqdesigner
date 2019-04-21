@@ -28,7 +28,7 @@ matrix:
   - name: Python 3.7.3 on Windows
     os: windows
     language: shell
-    before_install: choco install python upx
+    before_install: choco install python upx nsis
     env:
     - PATH=/c/Python37:/c/Python37/Scripts:$PATH
     - PYINST_DIST_NAME=beqdesigner.exe
@@ -43,7 +43,6 @@ addons:
     packages:
     - pipenv
     - upx
-    - libsndfile
 install:
 - pip3 install --upgrade pip
 - pip3 install pipenv
