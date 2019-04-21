@@ -12,8 +12,6 @@ matrix:
       os: osx
       osx_image: xcode10.2
       language: shell
-      before_script:
-        - pipenv shell
     - name: "Python 3.7.3 on Windows"
       os: windows
       language: shell
@@ -37,4 +35,4 @@ install:
   - pip3 install pipenv
   - pipenv install
 script:
-  - PYTHONPATH=./src/main/python pytest --cov=./src/main/python
+  - PYTHONPATH=./src/main/python pipenv run pytest --cov=./src/main/python
