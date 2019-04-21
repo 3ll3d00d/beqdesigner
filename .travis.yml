@@ -1,11 +1,23 @@
 language: python
 cache:
   pip: true
-sudo: required
-dist: 'xenial'
-python:
-    - "3.6"
-    - "3.7"
+matrix:
+  include:
+    - name: "Python 3.7.1 on Xenial Linux"
+      python: 3.7
+      dist: xenial
+    - name: "Python 3.7.2 on macOS"
+      os: osx
+      osx_image: xcode10.2
+      language: shell
+    - name: "Python 3.7.3 on Windows"
+      os: windows
+      language: shell
+      before_install: choco install python
+      env: PATH=/c/Python37:/c/Python37/Scripts:$PATH
+  allow_failures:
+    - os: osx
+    - os: windows
 addons:
   apt:
     packages:
@@ -14,18 +26,13 @@ addons:
     - gfortran
     - libsndfile1
 install:
-  - sudo apt-get update
-  - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
-  - bash miniconda.sh -b -p $HOME/miniconda
-  - export PATH="$HOME/miniconda/bin:$PATH"
-  - hash -r
-  - conda config --set always_yes yes --set changeps1 no
-  - conda update -q conda
-  - conda info -a
-  - conda create -q -n test python=$TRAVIS_PYTHON_VERSION numpy scipy qtpy mkl==2018.0.2 qtawesome pytest pytest-cov sortedcontainers
-  - source activate test
-  - pip install -q -U pyqt5 matplotlib ffmpeg-python soundfile resampy coverage
+  - pip3 install --upgrade pip
+  - pip3 install pipenv
+  - pipenv install
 script:
   - PYTHONPATH=./src/main/python pytest --cov=./src/main/python
-after_success:
-  - bash <(curl -s https://codecov.io/bash)
+jobs:
+  include:
+    - stage: coverage
+      script: bash <(curl -s https://codecov.io/bash)
+      dist: xenial
