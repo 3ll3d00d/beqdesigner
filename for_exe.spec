@@ -1,9 +1,10 @@
 # -*- mode: python -*-
 
 block_cipher = None
+spec_root = os.path.abspath(SPECPATH)
 
 a = Analysis(['src\\main\\python\\app.py'],
-             pathex=['C:\\Users\\mattk\\github\\beq'],
+             pathex=[spec_root],
              binaries=None,
              datas=[
                 ('src\\main\\icons\\Icon.ico', '.'),

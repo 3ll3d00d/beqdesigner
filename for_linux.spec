@@ -1,10 +1,13 @@
 # -*- mode: python -*-
+import os
 
 block_cipher = None
 
+spec_root = os.path.abspath(SPECPATH)
+
 a = Analysis(['src/main/python/app.py'],
-             pathex=['/home/mattk/github/beq'],
-             binaries=None,
+             pathex=[spec_root],
+             binaries=[],
              datas=[
                 ('src/main/icons/Icon.ico', '.'),
                 ('/home/matt/python/beq/lib/python3.7/site-packages/resampy/data/kaiser_fast.npz', '_resampy_filters'),

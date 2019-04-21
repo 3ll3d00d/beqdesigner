@@ -1,34 +1,37 @@
 language: python
 cache:
   directories:
-    - $PIP_CACHE_DIR
-    - $PIPENV_CACHE_DIR
+  - "$PIP_CACHE_DIR"
+  - "$PIPENV_CACHE_DIR"
 env:
   global:
-    - PIP_CACHE_DIR=$HOME/.cache/pip
-    - PIPENV_CACHE_DIR=$HOME/.cache/pipenv
+  - PIP_CACHE_DIR=$HOME/.cache/pip
+  - PIPENV_CACHE_DIR=$HOME/.cache/pipenv
 matrix:
   include:
-    - name: "Python 3.7.1 on Xenial Linux"
-      python: '3.7'
-      dist: xenial
-      env:
-        - PYINST_SPEC_NAME=for_linux
-      after_success:
-        - bash <(curl -s https://codecov.io/bash)
-    - name: "Python 3.7.2 on macOS"
-      os: osx
-      osx_image: xcode10.2
-      language: shell
-      env:
-        - PYINST_SPEC_NAME=for_mac
-    - name: "Python 3.7.3 on Windows"
-      os: windows
-      language: shell
-      before_install: choco install python
-      env:
-        - PATH=/c/Python37:/c/Python37/Scripts:$PATH
-        - PYINST_SPEC_NAME=for_exe
+  - name: Python 3.7.1 on Xenial Linux
+    python: '3.7'
+    dist: xenial
+    env:
+    - PYINST_SPEC_NAME=linux
+    - PYINST_DIST_NAME=beqdesigner
+    after_success:
+    - bash <(curl -s https://codecov.io/bash)
+  - name: Python 3.7.2 on macOS
+    os: osx
+    osx_image: xcode10.2
+    language: shell
+    env:
+    - PYINST_SPEC_NAME=mac
+    - PYINST_DIST_NAME=BEQDesigner.app
+  - name: Python 3.7.3 on Windows
+    os: windows
+    language: shell
+    before_install: choco install python
+    env:
+    - PATH=/c/Python37:/c/Python37/Scripts:$PATH
+    - PYINST_SPEC_NAME=exe
+    - PYINST_DIST_SUFFIX=beqdesigner.exe
 addons:
   apt:
     packages:
@@ -37,14 +40,24 @@ addons:
     - libsndfile1
   homebrew:
     packages:
-      - pipenv
-      - libsndfile
+    - pipenv
+    - libsndfile
 install:
-  - pip3 install --upgrade pip
-  - pip3 install pipenv
-  - pipenv install
+- pip3 install --upgrade pip
+- pip3 install pipenv
+- pipenv install
 script:
-  - PYTHONPATH=./src/main/python pipenv run pytest --cov=./src/main/python
+- PYTHONPATH=./src/main/python pipenv run pytest --cov=./src/main/python
 before_deploy:
-  - pipenv -d install
-  - pipenv run pyinstaller --clean --log-level=INFO -F $PYINST_SPEC_NAME.spec
+- pipenv -d install
+- pipenv run pyinstaller --clean --log-level=INFO -F for_$PYINST_SPEC_NAME.spec
+deploy:
+  provider: releases
+  api_key:
+    secure: suMGc8kljRDWs/K0eLiMtVMNtxAZygMwOaJZfNUaz7HN70MAgblSjsfHXWwzugy7IoJ0E0Pe3zCc57CRuexgLfBEqLYS6Lm/Nn3lY9XOljqWqbZ6z1SDsxedY3WgpJra9H6gG0R23dzfy+AoaIO+WXjMrEw4fZKwnNBpxM6wtBa4CaIVqujQ0fGRODI/s29ZziGGHPi0PsAjIiABz/VDUbFMajB55NQHcTDxbiTOFVkjbkSM4gwFr2aUPAezJCZVxNoihtIn+IKrAFwgPGQAC830uIRa0lqQJY+umi5tTgmwblcmsC5471jK0rMuFrNhF7ANMyOeoFtl0fW7BHxY4RHuUWqACJyY7CiJzN2m6nML8//DAHnISLpii6Zr6oh0til5oJGWIh0zr5Sd6oRMalCMoWJjGn7ErNFvHcbssP7TMW8kEepXytMXQePCKm8iQnYvTYdOafjVaRqVAXYCRIkUu8v1XJPxnMGRxwMuZoi301Hv/hpu0BUin3Cauu6NH8waEynL5/bgsyK873CQNQ+LH5lim9wOjEnw3dYX1kkekm5Mv7DsCFg/qXaQ5DJPh4ZUe0cYhKP1Zx14nUJmUOCWD5pqHN0foKADPpkCB1yeM9gSaZx1PT+v3MY21jAqBcRArvxCK8mQU5WrKPzTDztWVp91s9zVZ6koiz7cWRg=
+  file: dist/$PYINST_DIST_NAME
+  on:
+    repo: 3ll3d00d/beqdesigner
+    branch: travis
+  skip_cleanup: true
+  draft: true
