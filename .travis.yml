@@ -33,8 +33,3 @@ install:
   - pipenv install
 script:
   - PYTHONPATH=./src/main/python pytest --cov=./src/main/python
-jobs:
-  include:
-    - stage: publish
-      script: echo "building"
-      dist: xenial
