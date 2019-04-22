@@ -1,3 +1,8 @@
+# work-around for https://github.com/pyinstaller/pyinstaller/issues/4064
+import distutils
+if distutils.distutils_path.endswith('__init__.py'):
+    distutils.distutils_path = os.path.dirname(distutils.distutils_path)
+
 # -*- mode: python -*-
 import os
 import platform
