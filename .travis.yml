@@ -47,11 +47,9 @@ addons:
     - libblas-dev
     - liblapack-dev
     - libsndfile1
-    - upx
   homebrew:
     packages:
     - pipenv
-    - upx
 install:
 - $PBIN install pipenv
 - pipenv install -d
