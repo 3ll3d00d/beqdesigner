@@ -44,7 +44,7 @@ a = Analysis(['src/main/python/app.py'],
              cipher=block_cipher)
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
-use_win_nsis = platform.system() == 'Windows' and 'USE_NSIS' in os.environ:
+use_win_nsis = platform.system() == 'Windows' and 'USE_NSIS' in os.environ
 
 if use_win_nsis is True:
     exe_args = (a.scripts,)
