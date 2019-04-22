@@ -52,7 +52,7 @@ script:
 before_deploy:
 - pipenv run pip3 install pyinstaller
 - pipenv run pyinstaller --clean --log-level=INFO -F beqdesigner.spec
-- if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then cd dist; zip BEQDesigner.app.zip BEQDesigner.app; fi
+- if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then cd dist; zip -r BEQDesigner.app.zip BEQDesigner.app; fi
 deploy:
   provider: releases
   api_key:
