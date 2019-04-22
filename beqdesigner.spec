@@ -43,11 +43,16 @@ a = Analysis(['src/main/python/app.py'],
              win_private_assemblies=False,
              cipher=block_cipher)
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+
+use_win_nsis = platform.system() == 'Windows' and 'USE_NSIS' in os.environ:
+
+if use_win_nsis is True:
+    exe_args = (a.scripts,)
+else:
+    exe_args = (a.scripts, a.binaries, a.zipfiles, a.datas)
+
 exe = EXE(pyz,
-          a.scripts,
-          a.binaries,
-          a.zipfiles,
-          a.datas,
+          *exe_args,
           name='beqdesigner',
           debug=False,
           strip=False,
@@ -57,7 +62,7 @@ exe = EXE(pyz,
 
 if platform.system() == 'Darwin':
     app = BUNDLE(exe,
-                 name='BEQDesigner.app',
+                 name='beqdesigner.app',
                  bundle_identifier='com.3ll3d00d.beqdesigner',
                  icon='src/main/icons/icon.icns',
                  info_plist={
@@ -68,3 +73,11 @@ if platform.system() == 'Darwin':
                      'PATH': '/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:'
                     }
                  })
+elif use_win_nsis is True:
+    coll = COLLECT(exe,
+                   a.binaries,
+                   a.zipfiles,
+                   a.datas,
+                   strip=False,
+                   upx=False,
+                   name='beqdesigner')

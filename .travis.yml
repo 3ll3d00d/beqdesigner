@@ -14,7 +14,6 @@ matrix:
     python: '3.7'
     dist: xenial
     env:
-    - PYINST_DIST_NAME=beqdesigner
     - PIPENV_VERBOSITY=-1
     - COVERAGE_ARGS="--cov=./src/main/python"
     - PBIN=pip3
@@ -27,7 +26,6 @@ matrix:
     osx_image: xcode10.2
     language: shell
     env:
-    - PYINST_DIST_NAME=BEQDesigner.app.zip
     - PBIN=pip3
     before_install:
     - pip3 install --upgrade pip
@@ -35,11 +33,10 @@ matrix:
     os: windows
     language: shell
     env:
-    - PATH="/c/tools/miniconda3/:/c/tools/miniconda3/Scripts:$PATH"
-    - PYINST_DIST_NAME=beqdesigner.exe
+    - PATH="/c/tools/miniconda3/:/c/tools/miniconda3/Scripts:/c/Program\ Files\ \(x86\)/NSIS:$PATH"
     - PBIN=pip
     before_install:
-    - choco install miniconda3 openssl.light
+    - choco install miniconda3 openssl.light nsis
     - conda config --set always_yes yes --set changeps1 no
     - conda create -q -n test python=$TRAVIS_PYTHON_VERSION numpy scipy
     - source activate test
@@ -65,15 +62,28 @@ script:
 before_deploy:
 - pipenv run $PBIN install pyinstaller
 - pipenv run pyinstaller --clean --log-level=INFO -F beqdesigner.spec
-- if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then pushd dist; zip -r BEQDesigner.app.zip BEQDesigner.app; popd; fi
+- |
+  if [[ "$TRAVIS_OS_NAME" == "osx" ]]
+  then
+    pushd dist
+    zip -r BEQDesigner.app.zip BEQDesigner.app
+    popd
+  elif [[ "$TRAVIS_OS_NAME" == "windows" ]]
+  then
+    export USE_NSIS=Y
+    pipenv run pyinstaller --clean --log-level=INFO -D beqdesigner.spec
+    makensis src\main\nsis\Installer.nsi
+  fi
 deploy:
   provider: releases
   api_key:
     secure: a2Ju6IVLQjD2RTNlIhDe9saFGcNfdr+F9P2LO1q4zT8Bke8EGlDlBeE5xKmMhD7KWiS5IJDJz9djXlqI0JG3D2Tve2VhpYrLUD7mABTxIZqKReYXL5b/p4B4mkg0KLlUHleyu4t2GWZ1+PNPmCO3Q0G1k7aNl8NQb2wZMBujaKFM/HHf9PBS7ioROrnJjW2VlNg86YDCKZKUYOGc1tOgIYrwX0h4HqE0/oHj7ZNAxLqi2OYr22To4NFJCnMPXxF81n95N2o7AlwLUElaSdHC5D2OPgCVATDzkX7MzD2cpkI1ca0a5exqo3pdX3q0wofygWj3zNwVWKbub+poLtKFV2BowCWrr89UPZYPXlmnivolD5cfFRpgO8SABYnVWzXWhsaxdS2xEBL/SZ0ssuuPiJRSWjsiunjTPQBDoqxBYPSPlUcKbvrE6mcmfjCREQKdXVSnJRtEGhA/JD91oDtNbOr2Vk+u3hSwpNcSr1oXmG/J2PCGgsjcY+RKv/aGF4CzFdBYya4PGqODhiaZKKSW8rKub5ZW+c+8ELCRk5Fu3DAWVvJN7ZhVVuR+gYPG+avKDYwXF1/NwX/IXumS5a8LAwnZTVtzPRwntQr9rIJfXqNaCV1sFFJ+MDaf8K4u0P8T3yGtRO1BtfTYyO+YXRrBMCn4VZ2dN7Qv5L1YdIpbm1M=
-  file: dist/$PYINST_DIST_NAME
+  file_glob: true
+  file: dist/beqdesigner*
   on:
     repo: 3ll3d00d/beqdesigner
     branch: travis
+#    os: linux
 #    tags: true
   skip_cleanup: true
   draft: true
