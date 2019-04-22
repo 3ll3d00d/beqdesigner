@@ -17,6 +17,9 @@ matrix:
     - PYINST_DIST_NAME=beqdesigner
     - PIPENV_VERBOSITY=-1
     - COVERAGE_ARGS="--cov=./src/main/python"
+    - PBIN=pip3
+    before_install:
+    - pip3 install --upgrade pip
     after_success:
     - bash <(curl -s https://codecov.io/bash)
   - name: Python 3.7.2 on macOS
@@ -25,18 +28,22 @@ matrix:
     language: shell
     env:
     - PYINST_DIST_NAME=BEQDesigner.app.zip
+    - PBIN=pip3
+    before_install:
+    - pip3 install --upgrade pip
   - name: Python 3.7.3 on Windows
     os: windows
     language: shell
+    env:
+    - PATH="/c/tools/miniconda3/:/c/tools/miniconda3/Scripts:$PATH"
+    - PYINST_DIST_NAME=beqdesigner.exe
+    - PBIN=pip
     before_install:
     - choco install miniconda3 openssl.light
     - conda config --set always_yes yes --set changeps1 no
     - conda create -q -n test python=$TRAVIS_PYTHON_VERSION numpy scipy
     - source activate test
-    - ln -s $(which pip) $(which pip)3
-    env:
-    - PATH="/c/tools/miniconda3/:/c/tools/miniconda3/Scripts:$PATH"
-    - PYINST_DIST_NAME=beqdesigner.exe
+    - python -m pip install --upgrade pip
 addons:
   apt:
     packages:
@@ -49,15 +56,14 @@ addons:
     - pipenv
     - upx
 install:
-- pip3 install --upgrade pip
-- pip3 install pipenv
+- $PBIN install pipenv
 - pipenv install -d
-- pip3 list
-- pipenv run pip3 list
+- $PBIN list
+- pipenv run $PBIN list
 script:
 - PYTHONPATH=./src/main/python pipenv run pytest $COVERAGE_ARGS
 before_deploy:
-- pipenv run pip3 install pyinstaller
+- pipenv run $PBIN install pyinstaller
 - pipenv run pyinstaller --clean --log-level=INFO -F beqdesigner.spec
 - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then pushd dist; zip -r BEQDesigner.app.zip BEQDesigner.app; popd; fi
 deploy:
