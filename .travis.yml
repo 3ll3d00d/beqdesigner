@@ -47,7 +47,8 @@ install:
 - pip3 install --upgrade pip
 - pip3 install pipenv
 - pipenv install -d
-- pip3 show distutils
+- pip3 list
+- pipenv run pip3 list
 script:
 - PYTHONPATH=./src/main/python pipenv run pytest $COVERAGE_ARGS
 before_deploy:
