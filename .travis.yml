@@ -44,18 +44,16 @@ addons:
     - pipenv
     - upx
 install:
-# workaround for https://github.com/pyinstaller/pyinstaller/issues/4064
-- pip3 install --user virtualenv==16.1
 - pip3 install --upgrade pip
 - pip3 install pipenv
 - pipenv install -d
+- pip3 show distutils
 script:
 - PYTHONPATH=./src/main/python pipenv run pytest $COVERAGE_ARGS
 before_deploy:
 - pipenv run pip3 install pyinstaller
 - pipenv run pyinstaller --clean --log-level=INFO -F beqdesigner.spec
 - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then pushd dist; zip -r BEQDesigner.app.zip BEQDesigner.app; popd; fi
-- find dist
 deploy:
   provider: releases
   api_key:
@@ -64,5 +62,6 @@ deploy:
   on:
     repo: 3ll3d00d/beqdesigner
     branch: travis
+#    tags: true
   skip_cleanup: true
   draft: true
