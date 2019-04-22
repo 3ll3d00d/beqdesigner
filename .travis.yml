@@ -44,6 +44,8 @@ addons:
     - pipenv
     - upx
 install:
+# workaround for https://github.com/pyinstaller/pyinstaller/issues/4064
+- pip3 install --user virtualenv==16.1
 - pip3 install --upgrade pip
 - pip3 install pipenv
 - pipenv install -d
