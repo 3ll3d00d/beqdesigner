@@ -24,7 +24,7 @@ matrix:
     osx_image: xcode10.2
     language: shell
     env:
-    - PYINST_DIST_NAME=BEQDesigner.app
+    - PYINST_DIST_NAME=BEQDesigner.app.zip
   - name: Python 3.7.3 on Windows
     os: windows
     language: shell
@@ -52,6 +52,7 @@ script:
 before_deploy:
 - pipenv run pip3 install pyinstaller
 - pipenv run pyinstaller --clean --log-level=INFO -F beqdesigner.spec
+- if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then cd dist; zip BEQDesigner.app.zip BEQDesigner.app; fi
 deploy:
   provider: releases
   api_key:
@@ -62,5 +63,3 @@ deploy:
     branch: travis
   skip_cleanup: true
   draft: true
-after_deploy:
-  - ls -la dist
