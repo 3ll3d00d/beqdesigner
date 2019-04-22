@@ -28,9 +28,12 @@ matrix:
   - name: Python 3.7.3 on Windows
     os: windows
     language: shell
-    before_install: choco install python nsis
+    before_install:
+    - choco install miniconda3 --params="'/AddToPath:1'"
+    - conda config --set always_yes yes --set changeps1 no
+    - conda create -q -n test python=$TRAVIS_PYTHON_VERSION numpy scipy
+    - conda activate test
     env:
-    - PATH=/c/Python37:/c/Python37/Scripts:$PATH
     - PYINST_DIST_NAME=beqdesigner.exe
 addons:
   apt:
