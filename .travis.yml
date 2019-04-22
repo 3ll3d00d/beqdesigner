@@ -30,6 +30,7 @@ matrix:
     language: shell
     before_install:
     - choco install miniconda3 --params="'/AddToPath:1'"
+    - refreshenv
     - conda config --set always_yes yes --set changeps1 no
     - conda create -q -n test python=$TRAVIS_PYTHON_VERSION numpy scipy
     - conda activate test
