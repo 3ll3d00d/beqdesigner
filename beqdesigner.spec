@@ -135,6 +135,16 @@ def remove_platform_specific_binaries(a):
     a.binaries = [x for x in a.binaries if should_keep_binary(x) is True]
 
 
+def get_exe_name():
+    '''
+    Gets the executable name which is beqdesigner for osx & windows and has some dist specific suffix for linux.
+    '''
+    if platform.system().lower().startswith('linux'):
+        linux_dist = distro.linux_distribution(full_distribution_name=False)
+        return f"beqdesigner_{'_'.join((x for x in linux_dist if x is not None and len(x) > 0))}"
+    return 'beqdesigner'
+
+
 block_cipher = None
 spec_root = os.path.abspath(SPECPATH)
 
@@ -156,7 +166,7 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 exe = EXE(pyz,
           *get_exe_args(),
-          name='beqdesigner',
+          name=get_exe_name(),
           debug=False,
           strip=False,
           upx=False,
