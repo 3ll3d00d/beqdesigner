@@ -23,6 +23,7 @@ dulwich = "*"
 [dev-packages]
 pytest = "*"
 pytest-cov = "*"
+distro = "*"
 
 [requires]
 python_version = "3.7"
