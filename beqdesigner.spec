@@ -23,6 +23,9 @@ fedora_excludes = [
     'libssl.so.',
     'libfontconfig.so.'
 ]
+debian_excludes = [
+    'libfontconfig.so.'
+]
 ubuntu_excludes = [
     'libgpg-error.so.',
     'libgtk-3.so.*',
@@ -32,7 +35,8 @@ linux_excludes = {
     'ubuntu': generic_linux_excludes + ubuntu_excludes,
     'linuxmint': generic_linux_excludes + ubuntu_excludes,
     'fedora': generic_linux_excludes + fedora_excludes,
-    'centos': generic_linux_excludes + fedora_excludes
+    'centos': generic_linux_excludes + fedora_excludes,
+    'debian': generic_linux_excludes + debian_excludes
 }
 
 # helper functions
@@ -181,3 +185,10 @@ if use_nsis() is True:
                    strip=False,
                    upx=False,
                    name='beqdesigner')
+
+'''
+TODO
+ubuntu 18.04 needs the following to squelch loads of error messages 
+
+export GIO_EXTRA_MODULES="/usr/lib/x86_64-linux-gnu/gio/modules/"
+'''
