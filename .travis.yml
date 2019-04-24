@@ -38,14 +38,17 @@ matrix:
     before_install:
     - choco install miniconda3 openssl.light nsis
     - conda config --set always_yes yes --set changeps1 no
-    - conda update -n base -c defaults conda
-    - conda install numpy scipy
+    - conda create -q -n test python=$TRAVIS_PYTHON_VERSION scipy numpy
+    - conda activate test
     - python -m pip install --upgrade pip
     install:
     - pip install pipenv
-    - pipenv --python=$(which python).exe --site-packages install -d
+    - pipenv lock -r | tail -n +2  > requirements.txt
+    - pip install -r requirements.txt
+    - pipenv lock -r --dev | tail -n +2 > requirements.txt
+    - pip install -r requirements.txt
     - conda list
-    - pipenv run pip list
+    - pip list
 addons:
   apt:
     packages:
