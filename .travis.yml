@@ -41,6 +41,11 @@ matrix:
     - conda create -q -n test python=$TRAVIS_PYTHON_VERSION numpy scipy
     - source activate test
     - python -m pip install --upgrade pip
+    install:
+    - pip install pipenv
+    - pipenv --python=$(which python) --site-packages install -d
+    - conda list
+    - pipenv run pip list
 addons:
   apt:
     packages:
