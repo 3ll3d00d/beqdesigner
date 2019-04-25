@@ -17,6 +17,7 @@ matrix:
     - PIPENV_VERBOSITY=-1
     - COVERAGE_ARGS="--cov=./src/main/python"
     - PBIN=pip3
+    - PRUN="pipenv run"
     before_install:
     - pip3 install --upgrade pip
     after_success:
@@ -27,6 +28,7 @@ matrix:
     language: shell
     env:
     - PBIN=pip3
+    - PRUN="pipenv run"
     before_install:
     - pip3 install --upgrade pip
   - name: Python 3.7.3 on Windows
@@ -35,6 +37,7 @@ matrix:
     env:
     - PATH="/c/tools/miniconda3/:/c/tools/miniconda3/Scripts:$PATH"
     - PBIN=pip
+    - PRUN="pipenv run"
     before_install:
     - choco install miniconda3 openssl.light nsis
     - conda config --set always_yes yes --set changeps1 no
@@ -64,10 +67,10 @@ install:
 - $PBIN list
 - pipenv run $PBIN list
 script:
-- PYTHONPATH=./src/main/python pipenv run pytest $COVERAGE_ARGS
+- PYTHONPATH=./src/main/python $PRUN pytest $COVERAGE_ARGS
 before_deploy:
-- pipenv run $PBIN install pyinstaller
-- pipenv run pyinstaller --clean --log-level=INFO -F beqdesigner.spec
+- $PRUN $PBIN install pyinstaller
+- $PRUN pyinstaller --clean --log-level=INFO -F beqdesigner.spec
 - |
   if [[ "$TRAVIS_OS_NAME" == "osx" ]]
   then
@@ -80,7 +83,7 @@ before_deploy:
   then
     export USE_NSIS=Y
     mv dist/beqdesigner.exe dist/bak.exe
-    pipenv run pyinstaller --clean --log-level=INFO -D beqdesigner.spec
+    $PRUN pyinstaller --clean --log-level=INFO -D beqdesigner.spec
     "/c/Program Files (x86)/NSIS/makensis.exe" src/main/nsis/Installer.nsi
     mv dist/bak.exe dist/beqdesigner.exe
   fi
