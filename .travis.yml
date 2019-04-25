@@ -10,7 +10,7 @@ env:
   - PIPENV_VENV_IN_PROJECT=yes
 matrix:
   include:
-  - name: Python 3.7.1 on Xenial Linux
+  - name: Xenial Linux
     python: '3.7'
     dist: xenial
     env:
@@ -22,7 +22,7 @@ matrix:
     - pip3 install --upgrade pip
     after_success:
     - bash <(curl -s https://codecov.io/bash)
-  - name: Python 3.7.2 on macOS
+  - name: OSX
     os: osx
     osx_image: xcode10.2
     language: shell
@@ -31,7 +31,7 @@ matrix:
     - PRUN="pipenv run"
     before_install:
     - pip3 install --upgrade pip
-  - name: Python 3.7.3 on Windows
+  - name: Conda on Windows
     os: windows
     language: shell
     env:
@@ -53,6 +53,16 @@ matrix:
     - pip install -r requirements.txt
     - conda list
     - pip list
+  - name: Pip on Windows
+    os: windows
+    language: shell
+    env:
+    - NO_MKL=Y
+    - PBIN=pip
+    - PRUN="pipenv run"
+    - PATH=/c/Python37:/c/Python37/Scripts:$PATH
+    before_install:
+    - choco install python
 addons:
   apt:
     packages:
@@ -70,7 +80,6 @@ install:
 script:
 - PYTHONPATH=./src/main/python $PRUN pytest $COVERAGE_ARGS
 before_deploy:
-- echo $CONDA_PREFIX
 - $PRUN $PBIN install pyinstaller
 - $PRUN pyinstaller --clean --log-level=INFO -F beqdesigner.spec
 - |
@@ -88,6 +97,12 @@ before_deploy:
     $PRUN pyinstaller --clean --log-level=INFO -D beqdesigner.spec
     "/c/Program Files (x86)/NSIS/makensis.exe" src/main/nsis/Installer.nsi
     mv dist/bak.exe dist/beqdesigner.exe
+  fi
+- |
+  if [[ "$NO_MKL" == "Y" ]]
+  then
+    mv dist/beqdesigner.exe dist/beqdesigner_small.exe
+    mv dist/beqdesignerSetup.exe dist/beqdesignerSetup_small.exe
   fi
 deploy:
   provider: releases
