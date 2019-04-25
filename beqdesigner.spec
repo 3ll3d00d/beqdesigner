@@ -172,6 +172,7 @@ exe = EXE(pyz,
           strip=False,
           upx=False,
           console=True,
+          exclude_binaries=use_nsis(),
           icon=get_icon_file())
 
 if platform.system() == 'Darwin':
@@ -196,10 +197,3 @@ if use_nsis() is True:
                    strip=False,
                    upx=False,
                    name='beqdesigner')
-
-'''
-TODO
-ubuntu 18.04 needs the following to squelch loads of error messages 
-
-export GIO_EXTRA_MODULES="/usr/lib/x86_64-linux-gnu/gio/modules/"
-'''
