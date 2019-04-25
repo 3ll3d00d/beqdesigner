@@ -41,6 +41,7 @@ matrix:
     before_install:
     - choco install miniconda3 openssl.light nsis
     - conda config --set always_yes yes --set changeps1 no
+    - conda update -n base -c defaults conda python
     - conda create -q -n test python=$TRAVIS_PYTHON_VERSION scipy numpy
     - source activate test
     - python -m pip install --upgrade pip
