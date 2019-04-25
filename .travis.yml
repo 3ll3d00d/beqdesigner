@@ -69,6 +69,7 @@ install:
 script:
 - PYTHONPATH=./src/main/python $PRUN pytest $COVERAGE_ARGS
 before_deploy:
+- echo $CONDA_PREFIX
 - $PRUN $PBIN install pyinstaller
 - $PRUN pyinstaller --clean --log-level=INFO -F beqdesigner.spec
 - |
@@ -96,7 +97,7 @@ deploy:
   on:
     repo: 3ll3d00d/beqdesigner
     branch: travis
-#    os: linux
+    os: windows
 #    tags: true
   skip_cleanup: true
   draft: true
