@@ -62,7 +62,7 @@ matrix:
     - PRUN="pipenv run"
     - PATH=/c/Python37:/c/Python37/Scripts:$PATH
     before_install:
-    - choco install python
+    - choco install python openssl.light nsis
 addons:
   apt:
     packages:
