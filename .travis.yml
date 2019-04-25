@@ -113,7 +113,6 @@ deploy:
   on:
     repo: 3ll3d00d/beqdesigner
     branch: travis
-    os: windows
-#    tags: true
+    tags: true
   skip_cleanup: true
-  draft: true
+  prerelease: true
