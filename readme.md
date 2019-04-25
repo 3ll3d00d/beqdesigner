@@ -15,19 +15,17 @@ Note that pyinstaller must be >=3.4 and pyqt5 must be from pypi because of the i
 
 ## Linux/OSX
 
-Assuming pipenv and python3 is installed
+Assuming pipenv and python3.7 is installed
 
     pipenv install
 
 # Release
 
-## Prerequisites
+## numba and enum34
 
-Install git-semver
+numba has a dependency on enum34 which should only be used for python <=3.4 , had to be manually removed from pipfile.lock
 
-    pip install git-semver
-    
-### Hack ffmpeg-python
+## Hack ffmpeg-python (on Windows only)
 
 * hack ffmpeg to workaround https://github.com/kkroening/ffmpeg-python/issues/116 
   * in _run.py
@@ -38,10 +36,6 @@ Install git-semver
 ```  
     p = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 ```
-
-### Hack qtawesome
-
-* hack qtawesome by applying https://github.com/spyder-ide/qtawesome/pull/77/files to animation.py
 
 ## Exe
 

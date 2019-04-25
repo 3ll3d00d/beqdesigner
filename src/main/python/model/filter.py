@@ -1,7 +1,7 @@
 import logging
 import math
 import typing
-from collections import Sequence
+from collections.abc import Sequence
 from uuid import uuid4
 
 import qtawesome as qta

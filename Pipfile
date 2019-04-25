@@ -10,13 +10,10 @@ ffmpeg-python = "*"
 soundfile = "*"
 resampy = "*"
 pyqtgraph = "*"
-pyinstaller = "*"
 numpy = "*"
 scipy = "*"
 qtpy = "*"
 qtawesome = ">=0.5.7"
-pytest = "*"
-pytest-cov = "*"
 sortedcontainers = "*"
 pillow = "*"
 requests = "*"
@@ -24,6 +21,9 @@ semver = "*"
 dulwich = "*"
 
 [dev-packages]
+pytest = "*"
+pytest-cov = "*"
+distro = "*"
 
 [requires]
 python_version = "3.7"

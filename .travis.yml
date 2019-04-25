@@ -1,31 +1,118 @@
 language: python
 cache:
-  pip: true
-sudo: required
-dist: 'xenial'
-python:
-    - "3.6"
-    - "3.7"
+  directories:
+  - "$PIP_CACHE_DIR"
+  - "$PIPENV_CACHE_DIR"
+env:
+  global:
+  - PIP_CACHE_DIR=$HOME/.cache/pip
+  - PIPENV_CACHE_DIR=$HOME/.cache/pipenv
+  - PIPENV_VENV_IN_PROJECT=yes
+matrix:
+  include:
+  - name: Xenial Linux
+    python: '3.7'
+    dist: xenial
+    env:
+    - PIPENV_VERBOSITY=-1
+    - COVERAGE_ARGS="--cov=./src/main/python"
+    - PBIN=pip3
+    - PRUN="pipenv run"
+    before_install:
+    - pip3 install --upgrade pip
+    after_success:
+    - bash <(curl -s https://codecov.io/bash)
+  - name: OSX
+    os: osx
+    osx_image: xcode10.2
+    language: shell
+    env:
+    - PBIN=pip3
+    - PRUN="pipenv run"
+    before_install:
+    - pip3 install --upgrade pip
+  - name: Conda on Windows
+    os: windows
+    language: shell
+    env:
+    - PATH="/c/tools/miniconda3/:/c/tools/miniconda3/Scripts:$PATH"
+    - PBIN=pip
+    - PRUN=
+    before_install:
+    - choco install miniconda3 openssl.light nsis
+    - conda config --set always_yes yes --set changeps1 no
+    - conda update -n base -c defaults conda python
+    - conda create -q -n test python=$TRAVIS_PYTHON_VERSION scipy numpy
+    - source activate test
+    - python -m pip install --upgrade pip
+    install:
+    - pip install pipenv
+    - pipenv lock -r | tail -n +2  > requirements.txt
+    - pip install -r requirements.txt
+    - pipenv lock -r --dev | tail -n +2 > requirements.txt
+    - pip install -r requirements.txt
+    - conda list
+    - pip list
+  - name: Pip on Windows
+    os: windows
+    language: shell
+    env:
+    - NO_MKL=Y
+    - PBIN=pip
+    - PRUN="pipenv run"
+    - PATH=/c/Python37:/c/Python37/Scripts:$PATH
+    before_install:
+    - choco install python openssl.light nsis
 addons:
   apt:
     packages:
     - libblas-dev
     - liblapack-dev
-    - gfortran
     - libsndfile1
+  homebrew:
+    packages:
+    - pipenv
 install:
-  - sudo apt-get update
-  - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
-  - bash miniconda.sh -b -p $HOME/miniconda
-  - export PATH="$HOME/miniconda/bin:$PATH"
-  - hash -r
-  - conda config --set always_yes yes --set changeps1 no
-  - conda update -q conda
-  - conda info -a
-  - conda create -q -n test python=$TRAVIS_PYTHON_VERSION numpy scipy qtpy mkl==2018.0.2 qtawesome pytest pytest-cov sortedcontainers
-  - source activate test
-  - pip install -q -U pyqt5 matplotlib ffmpeg-python soundfile resampy coverage
+- $PBIN install pipenv
+- pipenv install -d
+- $PBIN list
+- pipenv run $PBIN list
 script:
-  - PYTHONPATH=./src/main/python pytest --cov=./src/main/python
-after_success:
-  - bash <(curl -s https://codecov.io/bash)
+- PYTHONPATH=./src/main/python $PRUN pytest $COVERAGE_ARGS
+before_deploy:
+- $PRUN $PBIN install pyinstaller
+- $PRUN pyinstaller --clean --log-level=INFO -F beqdesigner.spec
+- |
+  if [[ "$TRAVIS_OS_NAME" == "osx" ]]
+  then
+    pushd dist
+    rm beqdesigner
+    zip -r beqdesigner.app.zip beqdesigner.app
+    rm -Rf beqdesigner.app
+    popd
+  elif [[ "$TRAVIS_OS_NAME" == "windows" ]]
+  then
+    export USE_NSIS=Y
+    mv dist/beqdesigner.exe dist/bak.exe
+    $PRUN pyinstaller --clean --log-level=INFO -D beqdesigner.spec
+    "/c/Program Files (x86)/NSIS/makensis.exe" src/main/nsis/Installer.nsi
+    mv dist/bak.exe dist/beqdesigner.exe
+  fi
+- |
+  if [[ "$NO_MKL" == "Y" ]]
+  then
+    mv dist/beqdesigner.exe dist/beqdesigner_small.exe
+    mv dist/beqdesignerSetup.exe dist/beqdesignerSetup_small.exe
+  fi
+deploy:
+  provider: releases
+  api_key:
+    secure: a2Ju6IVLQjD2RTNlIhDe9saFGcNfdr+F9P2LO1q4zT8Bke8EGlDlBeE5xKmMhD7KWiS5IJDJz9djXlqI0JG3D2Tve2VhpYrLUD7mABTxIZqKReYXL5b/p4B4mkg0KLlUHleyu4t2GWZ1+PNPmCO3Q0G1k7aNl8NQb2wZMBujaKFM/HHf9PBS7ioROrnJjW2VlNg86YDCKZKUYOGc1tOgIYrwX0h4HqE0/oHj7ZNAxLqi2OYr22To4NFJCnMPXxF81n95N2o7AlwLUElaSdHC5D2OPgCVATDzkX7MzD2cpkI1ca0a5exqo3pdX3q0wofygWj3zNwVWKbub+poLtKFV2BowCWrr89UPZYPXlmnivolD5cfFRpgO8SABYnVWzXWhsaxdS2xEBL/SZ0ssuuPiJRSWjsiunjTPQBDoqxBYPSPlUcKbvrE6mcmfjCREQKdXVSnJRtEGhA/JD91oDtNbOr2Vk+u3hSwpNcSr1oXmG/J2PCGgsjcY+RKv/aGF4CzFdBYya4PGqODhiaZKKSW8rKub5ZW+c+8ELCRk5Fu3DAWVvJN7ZhVVuR+gYPG+avKDYwXF1/NwX/IXumS5a8LAwnZTVtzPRwntQr9rIJfXqNaCV1sFFJ+MDaf8K4u0P8T3yGtRO1BtfTYyO+YXRrBMCn4VZ2dN7Qv5L1YdIpbm1M=
+  file_glob: true
+  file: dist/beqdesigner*
+  on:
+    repo: 3ll3d00d/beqdesigner
+    branch: travis
+    tags: true
+  skip_cleanup: true
+  prerelease: true

@@ -5,7 +5,7 @@ import math
 import re
 import time
 import typing
-from collections import Sequence
+from collections.abc import Sequence
 from pathlib import Path
 
 import numpy as np
