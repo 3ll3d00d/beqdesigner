@@ -42,7 +42,7 @@ matrix:
     - choco install miniconda3 openssl.light nsis
     - conda config --set always_yes yes --set changeps1 no
     - conda create -q -n test python=$TRAVIS_PYTHON_VERSION scipy numpy
-    - conda activate test
+    - source activate test
     - python -m pip install --upgrade pip
     install:
     - pip install pipenv
