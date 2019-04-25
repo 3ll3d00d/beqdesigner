@@ -37,7 +37,7 @@ matrix:
     env:
     - PATH="/c/tools/miniconda3/:/c/tools/miniconda3/Scripts:$PATH"
     - PBIN=pip
-    - PRUN="pipenv run"
+    - PRUN=
     before_install:
     - choco install miniconda3 openssl.light nsis
     - conda config --set always_yes yes --set changeps1 no
