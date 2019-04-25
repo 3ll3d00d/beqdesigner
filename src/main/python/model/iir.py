@@ -45,8 +45,9 @@ def float_to_hex(f, minidsp_style, fixed_point):
     '''
     if fixed_point is True:
         # use 2s complement for negative values
+        # the 10x10HD plays no sound if 0x prefix and causes feedback if not 0 padded to 8 chars.
         val = int(-f * (2 ** 23)) ^ 0xFFFFFFF if f < 0 else int(f * (2 ** 23))
-        return f"{val:{'#' if minidsp_style is True else ''}08x}"
+        return f"{val:08x}"
     else:
         value = struct.unpack('<I', struct.pack('<f', f))[0]
         return f"{value:{'#' if minidsp_style is True else ''}010x}"
