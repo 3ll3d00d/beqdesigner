@@ -132,6 +132,14 @@ class Limits:
             logger.debug(f"{self.name} Redrawing axes on limits change")
             self.__redraw_func()
 
+    def set_expand_y(self, expand):
+        '''
+        sets the expand mode on the y range calculator.
+        :param expand: true or false.
+        '''
+        if isinstance(self.__y_range_calculator, dBRangeCalculator):
+            self.__y_range_calculator.expand_range = expand
+
     def update(self, x_min=None, x_max=None, y1_min=None, y1_max=None, y2_min=None, y2_max=None, x_scale=None,
                draw=False):
         '''

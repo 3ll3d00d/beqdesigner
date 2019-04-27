@@ -232,8 +232,17 @@ class MagnitudeModel:
         self.__secondary.display_curves()
         self.limits.configure_x_axis()
         self.__secondary.hide_axes_if_empty()
-        self.limits.on_data_change(self.__primary.get_ylimits(self.limits.x_min, self.limits.x_max),
-                                   self.__secondary.get_ylimits(self.limits.x_min, self.limits.x_max))
+        primary_ylim = self.__primary.get_ylimits(self.limits.x_min, self.limits.x_max)
+        secondary_ylim = self.__secondary.get_ylimits(self.limits.x_min, self.limits.x_max)
+        primary_range = primary_ylim[1] - primary_ylim[0]
+        secondary_range = secondary_ylim[1] - secondary_ylim[0]
+        if secondary_range > 0:
+            range_delta = primary_range - secondary_range
+            if range_delta > 0:
+                secondary_ylim = (secondary_ylim[0] - range_delta, secondary_ylim[1])
+            elif range_delta < 0:
+                primary_ylim = (primary_ylim[0] + range_delta, primary_ylim[1])
+        self.limits.on_data_change(primary_ylim, secondary_ylim)
 
     def __make_legend(self):
         '''

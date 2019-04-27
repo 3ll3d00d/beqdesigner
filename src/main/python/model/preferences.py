@@ -470,18 +470,18 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         '''
         Saves the locations if they exist.
         '''
-        ffmpegLoc = self.ffmpegDirectory.text()
-        if os.path.isdir(ffmpegLoc):
-            self.__preferences.set(BINARIES_FFMPEG, ffmpegLoc)
-        ffprobeLoc = self.ffprobeDirectory.text()
-        if os.path.isdir(ffprobeLoc):
-            self.__preferences.set(BINARIES_FFPROBE, ffprobeLoc)
-        outputDir = self.defaultOutputDirectory.text()
-        if os.path.isdir(outputDir):
-            self.__preferences.set(EXTRACTION_OUTPUT_DIR, outputDir)
-        notifySound = self.extractCompleteAudioFile.text()
-        if len(notifySound) > 0 and os.path.isfile(notifySound):
-            self.__preferences.set(EXTRACTION_NOTIFICATION_SOUND, notifySound)
+        ffmpeg_loc = self.ffmpegDirectory.text()
+        if os.path.isdir(ffmpeg_loc):
+            self.__preferences.set(BINARIES_FFMPEG, ffmpeg_loc)
+        ffprobe_loc = self.ffprobeDirectory.text()
+        if os.path.isdir(ffprobe_loc):
+            self.__preferences.set(BINARIES_FFPROBE, ffprobe_loc)
+        output_dir = self.defaultOutputDirectory.text()
+        if os.path.isdir(output_dir):
+            self.__preferences.set(EXTRACTION_OUTPUT_DIR, output_dir)
+        notify_sound = self.extractCompleteAudioFile.text()
+        if len(notify_sound) > 0 and os.path.isfile(notify_sound):
+            self.__preferences.set(EXTRACTION_NOTIFICATION_SOUND, notify_sound)
         else:
             self.__preferences.set(EXTRACTION_NOTIFICATION_SOUND, None)
         text = self.targetFs.currentText()
@@ -514,6 +514,7 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         if self.__preferences.get(GRAPH_EXPAND_Y) != self.expandYLimits.isChecked():
             update_limits = True
             self.__preferences.set(GRAPH_EXPAND_Y, self.expandYLimits.isChecked())
+            self.__main_chart_limits.set_expand_y(self.expandYLimits.isChecked())
         if update_limits:
             self.__main_chart_limits.update(x_min=self.xmin.value(), x_max=self.xmax.value(),
                                             x_scale=new_x_scale, draw=True)
