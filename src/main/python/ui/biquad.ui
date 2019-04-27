@@ -85,12 +85,36 @@
       </widget>
      </item>
      <item>
-      <widget class="QCheckBox" name="minidspFormat">
+      <widget class="QComboBox" name="outputFormat">
+       <item>
+        <property name="text">
+         <string>Minidsp 2x4HD</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Minidsp 10x10HD</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Minidsp 2x4</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>User Selected</string>
+        </property>
+       </item>
+      </widget>
+     </item>
+     <item>
+      <widget class="QCheckBox" name="showHex">
        <property name="text">
-        <string>Minidsp Style?</string>
+        <string>Show Hex Value?</string>
        </property>
        <property name="checked">
-        <bool>true</bool>
+        <bool>false</bool>
        </property>
       </widget>
      </item>
@@ -115,14 +139,14 @@
  <resources/>
  <connections>
   <connection>
-   <sender>minidspFormat</sender>
+   <sender>showHex</sender>
    <signal>clicked()</signal>
    <receiver>exportBiquadDialog</receiver>
    <slot>updateBiquads()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>233</x>
-     <y>20</y>
+     <x>599</x>
+     <y>33</y>
     </hint>
     <hint type="destinationlabel">
      <x>181</x>
@@ -169,8 +193,8 @@
    <slot>save()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>629</x>
-     <y>26</y>
+     <x>178</x>
+     <y>33</y>
     </hint>
     <hint type="destinationlabel">
      <x>681</x>
@@ -201,12 +225,28 @@
    <slot>export()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>587</x>
-     <y>32</y>
+     <x>638</x>
+     <y>39</y>
     </hint>
     <hint type="destinationlabel">
      <x>496</x>
      <y>-11</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>outputFormat</sender>
+   <signal>currentTextChanged(QString)</signal>
+   <receiver>exportBiquadDialog</receiver>
+   <slot>update_format()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>304</x>
+     <y>19</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>0</x>
+     <y>66</y>
     </hint>
    </hints>
   </connection>
@@ -216,5 +256,6 @@
   <slot>save()</slot>
   <slot>copyToClipboard()</slot>
   <slot>export()</slot>
+  <slot>update_format()</slot>
  </slots>
 </ui>

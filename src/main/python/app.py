@@ -22,7 +22,7 @@ from model.batch import BatchExtractDialog
 from model.analysis import AnalyseSignalDialog
 from model.link import LinkSignalsDialog
 from model.preferences import DISPLAY_SHOW_FILTERED_SIGNALS, SYSTEM_CHECK_FOR_UPDATES, BEQ_DOWNLOAD_DIR, \
-    BIQUAD_EXPORT_MAX, BIQUAD_EXPORT_FS
+    BIQUAD_EXPORT_MAX, BIQUAD_EXPORT_FS, BIQUAD_EXPORT_DEVICE
 from ui.delegates import RegexValidator
 
 import pyqtgraph as pg
@@ -991,17 +991,44 @@ class ExportBiquadDialog(QDialog, Ui_exportBiquadDialog):
         self.saveToFile.setIcon(qta.icon('fa5s.file-export'))
         self.maxBiquads.setValue(prefs.get(BIQUAD_EXPORT_MAX))
         self.fs.setCurrentText(prefs.get(BIQUAD_EXPORT_FS))
+        self.outputFormat.setCurrentText(prefs.get(BIQUAD_EXPORT_DEVICE))
+        self.update_format(self.outputFormat.currentText())
+
+    def update_format(self, selected_format):
+        if selected_format == 'User Selected':
+            self.fs.setEnabled(True)
+            self.maxBiquads.setEnabled(True)
+            self.maxBiquads.setMaximum(1000)
+            self.showHex.setVisible(False)
+        else:
+            if selected_format == 'Minidsp 2x4HD':
+                self.fs.setCurrentText('96000')
+                self.maxBiquads.setMaximum(10)
+                self.maxBiquads.setValue(10)
+            else:
+                self.fs.setCurrentText('48000')
+                self.maxBiquads.setMaximum(6)
+                self.maxBiquads.setValue(6)
+            self.showHex.setVisible('HD' in selected_format)
+            self.fs.setEnabled(False)
+            self.maxBiquads.setEnabled(False)
+        if not self.showHex.isVisible():
+            self.showHex.setChecked(False)
         self.updateBiquads()
 
     def updateBiquads(self):
         has_txt = False
         if self.__filter is not None and len(self.__filter) > 0:
             self.__filter = self.__filter.resample(int(self.fs.currentText()))
-            biquads = list(flatten([self.__filter.format_biquads(self.minidspFormat.isChecked())]))
+            is_fixed_point = 'Minidsp 10x10HD' == self.outputFormat.currentText() or 'Minidsp 2x4' == self.outputFormat.currentText()
+            kwargs = {'to_hex': self.showHex.isChecked(), 'fixed_point': is_fixed_point}
+            biquads = list(flatten([self.__filter.format_biquads(self.outputFormat.currentText() != 'User Selected',
+                                                                 **kwargs)]))
             if len(biquads) < self.maxBiquads.value():
                 passthrough = [Passthrough()] * (self.maxBiquads.value() - len(biquads))
-                biquads += list(flatten([x.format_biquads(self.minidspFormat.isChecked()) for x in passthrough]))
-            text = "\n".join([f"biquad{idx},\n{bq}" for idx, bq in enumerate(biquads)])
+                biquads += list(flatten([x.format_biquads(self.outputFormat.currentText() != 'User Selected', **kwargs) for x in passthrough]))
+            prefix = 'hex' if self.showHex.isChecked() else 'biquad'
+            text = "\n".join([f"{prefix}{idx},\n{bq}" for idx, bq in enumerate(biquads)])
             has_txt = len(text.strip()) > 0
             self.biquads.setPlainText(text)
         if not has_txt:
@@ -1012,6 +1039,7 @@ class ExportBiquadDialog(QDialog, Ui_exportBiquadDialog):
         ''' saves the current preferences '''
         self.__prefs.set(BIQUAD_EXPORT_FS, self.fs.currentText())
         self.__prefs.set(BIQUAD_EXPORT_MAX, self.maxBiquads.value())
+        self.__prefs.set(BIQUAD_EXPORT_DEVICE, self.outputFormat.currentText())
 
     def copyToClipboard(self):
         ''' copies all the text to the clipboard '''
