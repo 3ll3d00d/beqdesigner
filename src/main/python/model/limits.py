@@ -36,8 +36,9 @@ class dBRangeCalculator:
     A calculator for y axis ranges of dBFS signals.
     '''
 
-    def __init__(self, default_range=60):
+    def __init__(self, default_range=60, expand=True):
         self.__default_range = default_range
+        self.__expand_range = expand
 
     def calculate(self, y_range):
         '''
@@ -53,7 +54,13 @@ class dBRangeCalculator:
             vmax = (vmax - vmax % multiple) + multiple
         else:
             vmax += multiple
-        return vmax - self.__default_range, vmax
+        return vmax - self.__range(y_range, self.__default_range), vmax
+
+    def __range(self, data_range, target_range):
+        if self.__expand_range is True and data_range[1] - data_range[0] >= target_range - 10:
+            return self.__range(data_range, target_range+10)
+        else:
+            return target_range
 
 
 def configure_freq_axis(axes, x_scale):
