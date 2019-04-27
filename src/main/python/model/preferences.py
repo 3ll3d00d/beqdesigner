@@ -101,6 +101,7 @@ DISPLAY_SMOOTH_GRAPHS = 'display/smooth_graphs'
 GRAPH_X_AXIS_SCALE = 'graph/x_axis'
 GRAPH_X_MIN = 'graph/x_min'
 GRAPH_X_MAX = 'graph/x_max'
+GRAPH_EXPAND_Y = 'graph/expand_y'
 
 REPORT_GROUP = 'report'
 REPORT_TITLE_FONT_SIZE = 'report/title_font_size'
@@ -189,6 +190,7 @@ DEFAULT_PREFS = {
     GRAPH_X_AXIS_SCALE: 'log',
     GRAPH_X_MIN: 1,
     GRAPH_X_MAX: 160,
+    GRAPH_EXPAND_Y: False,
     REPORT_FILTER_ROW_HEIGHT_MULTIPLIER: 1.2,
     REPORT_TITLE_FONT_SIZE: 36,
     REPORT_IMAGE_ALPHA: 1.0,
@@ -239,6 +241,7 @@ TYPES = {
     FILTERS_DEFAULT_Q: float,
     GRAPH_X_MIN: int,
     GRAPH_X_MAX: int,
+    GRAPH_EXPAND_Y: bool,
     REPORT_FILTER_ROW_HEIGHT_MULTIPLIER: float,
     REPORT_TITLE_FONT_SIZE: int,
     REPORT_IMAGE_ALPHA: float,
@@ -408,6 +411,7 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         self.freqIsLogScale.setChecked(freq_is_log == 'log')
         self.xmin.setValue(self.__preferences.get(GRAPH_X_MIN))
         self.xmax.setValue(self.__preferences.get(GRAPH_X_MAX))
+        self.expandYLimits.setChecked(self.__preferences.get(GRAPH_EXPAND_Y))
 
         self.speclabLineStyle.setChecked(self.__preferences.get(DISPLAY_LINE_STYLE))
         self.checkForUpdates.setChecked(self.__preferences.get(SYSTEM_CHECK_FOR_UPDATES))
@@ -507,6 +511,9 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         else:
             self.alert_on_change('X Axis Invalid', text='Invalid values: x_min must be less than x_max',
                                  icon=QMessageBox.Critical)
+        if self.__preferences.get(GRAPH_EXPAND_Y) != self.expandYLimits.isChecked():
+            update_limits = True
+            self.__preferences.set(GRAPH_EXPAND_Y, self.expandYLimits.isChecked())
         if update_limits:
             self.__main_chart_limits.update(x_min=self.xmin.value(), x_max=self.xmax.value(),
                                             x_scale=new_x_scale, draw=True)

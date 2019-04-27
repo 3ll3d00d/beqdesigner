@@ -1,10 +1,11 @@
 import logging
 import math
 
+import numpy as np
 from matplotlib.gridspec import GridSpec
 
 from model.limits import Limits, LimitsDialog, ValuesDialog, dBRangeCalculator
-from model.preferences import GRAPH_X_AXIS_SCALE, GRAPH_X_MIN, GRAPH_X_MAX
+from model.preferences import GRAPH_X_AXIS_SCALE, GRAPH_X_MIN, GRAPH_X_MAX, GRAPH_EXPAND_Y
 
 logger = logging.getLogger('magnitude')
 
@@ -20,8 +21,6 @@ class AxesManager:
         self.reference_curve = None
         self.__curves = {}
         self.__polygons = {}
-        self.__maxy = 0
-        self.__miny = 0
 
     def artists(self):
         '''
@@ -48,8 +47,6 @@ class AxesManager:
             data = self.__provider.getMagnitudeData(reference=self.reference_curve)
             if len(data) > 0:
                 curve_names = [self.__create_or_update_curve(x) for x in data if data is not None]
-                self.__miny = math.floor(min([x.miny for x in data]))
-                self.__maxy = math.ceil(max([x.maxy for x in data]))
             else:
                 curve_names = []
             self.__delete_old(curve_names, self.__curves)
@@ -90,11 +87,35 @@ class AxesManager:
                                                                   alpha=self.__fill_alpha)
         return data.name
 
-    def get_ylimits(self):
+    def get_ylimits(self, x1, x2):
         '''
+        :param x1: the lower x limit.
+        :param x2: the upper x limit.
         :return: min y, max y
         '''
-        return self.__miny, self.__maxy
+        values = [self.__get_ylimits(c.get_xdata(), c.get_ydata(), x1, x2) for c in self.__curves.values()]
+        if len(values) > 0:
+            miny = math.floor(min([x[0] for x in values]))
+            maxy = math.ceil(max([x[1] for x in values]))
+            return miny, maxy
+        else:
+            return 0, 0
+
+    @staticmethod
+    def __get_ylimits(x, y, x1, x2):
+        '''
+        :param x: the x data.
+        :param y: the y data.
+        :param x1: the lower x limit.
+        :param x2: the upper x limit.
+        :return: the y data range in the x limits.
+        '''
+        x1_idx = np.argmax(np.array(x) >= x1)
+        x2_idx = np.argmax(np.array(x) >= x2)
+        if x2_idx == 0:
+            x2_idx = len(x) - 1
+        visible_y = np.array(y)[x1_idx:x2_idx]
+        return visible_y.min(), visible_y.max()
 
     def make_legend(self, lines, ncol):
         '''
@@ -143,6 +164,8 @@ class MagnitudeModel:
             primary_axes.set_zorder(secondary_axes.get_zorder() + 1)
             primary_axes.patch.set_visible(False)
         self.__secondary = AxesManager(secondary_data_provider, secondary_axes, fill_curves, fill_alpha)
+        if isinstance(db_range_calc, dBRangeCalculator):
+            db_range_calc.expand_range = preferences.get(GRAPH_EXPAND_Y)
         self.limits = Limits(self.__repr__(), self.__redraw_func, primary_axes,
                              x_lim=(preferences.get(x_min_pref_key), preferences.get(x_max_pref_key)),
                              y_range_calculator=db_range_calc, axes_2=secondary_axes,
@@ -209,7 +232,8 @@ class MagnitudeModel:
         self.__secondary.display_curves()
         self.limits.configure_x_axis()
         self.__secondary.hide_axes_if_empty()
-        self.limits.on_data_change(self.__primary.get_ylimits(), self.__secondary.get_ylimits())
+        self.limits.on_data_change(self.__primary.get_ylimits(self.limits.x_min, self.limits.x_max),
+                                   self.__secondary.get_ylimits(self.limits.x_min, self.limits.x_max))
 
     def __make_legend(self):
         '''

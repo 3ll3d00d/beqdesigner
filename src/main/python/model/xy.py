@@ -31,8 +31,6 @@ class MagnitudeData:
         self.__equal_energy_adjusted = None
         self.colour = colour
         self.linestyle = linestyle
-        self.miny = np.ma.masked_invalid(y).min()
-        self.maxy = np.ma.masked_invalid(y).max()
         self.__normalised_cache = {}
         self.__smooth_type = smooth_type
 

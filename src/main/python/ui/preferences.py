@@ -12,7 +12,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_preferencesDialog(object):
     def setupUi(self, preferencesDialog):
         preferencesDialog.setObjectName("preferencesDialog")
-        preferencesDialog.resize(519, 477)
+        preferencesDialog.resize(643, 764)
         self.verticalLayout = QtWidgets.QVBoxLayout(preferencesDialog)
         self.verticalLayout.setObjectName("verticalLayout")
         self.panes = QtWidgets.QVBoxLayout()
@@ -211,6 +211,9 @@ class Ui_preferencesDialog(object):
         self.precalcSmoothing.setChecked(True)
         self.precalcSmoothing.setObjectName("precalcSmoothing")
         self.graphPane.addWidget(self.precalcSmoothing, 1, 1, 1, 1)
+        self.expandYLimits = QtWidgets.QCheckBox(preferencesDialog)
+        self.expandYLimits.setObjectName("expandYLimits")
+        self.graphPane.addWidget(self.expandYLimits, 1, 2, 1, 1)
         self.panes.addLayout(self.graphPane)
         self.filterPane = QtWidgets.QGridLayout()
         self.filterPane.setObjectName("filterPane")
@@ -378,6 +381,7 @@ class Ui_preferencesDialog(object):
         self.graphLabel.setText(_translate("preferencesDialog", "Graph"))
         self.xminmaxLabel.setText(_translate("preferencesDialog", "x min/max"))
         self.precalcSmoothing.setText(_translate("preferencesDialog", "Precalculate Octave Smoothing?"))
+        self.expandYLimits.setText(_translate("preferencesDialog", "Auto Expand Y Limits?"))
         self.filterQLabel.setText(_translate("preferencesDialog", "Default Q"))
         self.filterFreqLabel.setText(_translate("preferencesDialog", "Default Freq"))
         self.bmlpfFreq.setSuffix(_translate("preferencesDialog", " Hz"))

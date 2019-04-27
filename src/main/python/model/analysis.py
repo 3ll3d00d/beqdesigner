@@ -480,7 +480,7 @@ class MaxSpectrumByTime:
         self.__clear_scatter(self.__right_scatter)
 
     def __clear_scatter(self, scatter):
-        if scatter is not None:
+        if scatter is not None and (self.__current_marker == POINT or self.__current_marker == ELLIPSE):
             scatter.set_offsets(np.c_[np.array([]), np.array([])])
             scatter.set_array(np.array([]))
 
