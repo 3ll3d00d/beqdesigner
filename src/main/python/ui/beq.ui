@@ -137,10 +137,18 @@
                   </spacer>
                  </item>
                  <item>
-                  <widget class="QToolButton" name="y1AutoOnButton"/>
+                  <widget class="QToolButton" name="y1AutoOnButton">
+                   <property name="checkable">
+                    <bool>true</bool>
+                   </property>
+                  </widget>
                  </item>
                  <item>
-                  <widget class="QToolButton" name="y1AutoOffButton"/>
+                  <widget class="QToolButton" name="y1AutoOffButton">
+                   <property name="checkable">
+                    <bool>true</bool>
+                   </property>
+                  </widget>
                  </item>
                  <item>
                   <spacer name="leftToolMidBottomSpacer">
@@ -258,10 +266,18 @@
                   </spacer>
                  </item>
                  <item>
-                  <widget class="QToolButton" name="y2AutoOnButton"/>
+                  <widget class="QToolButton" name="y2AutoOnButton">
+                   <property name="checkable">
+                    <bool>true</bool>
+                   </property>
+                  </widget>
                  </item>
                  <item>
-                  <widget class="QToolButton" name="y2AutoOffButton"/>
+                  <widget class="QToolButton" name="y2AutoOffButton">
+                   <property name="checkable">
+                    <bool>true</bool>
+                   </property>
+                  </widget>
                  </item>
                  <item>
                   <spacer name="rightToolMidBottomSpacer">

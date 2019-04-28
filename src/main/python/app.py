@@ -179,6 +179,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.y1MinMinus5Button.setIcon(qta.icon('mdi.chevron-down'))
         self.y1MinMinus10Button.setIcon(qta.icon('mdi.chevron-double-down'))
         self.y1AutoOnButton.setIcon(qta.icon('fa5s.magic'))
+        self.y1AutoOnButton.setChecked(True)
         self.y1AutoOffButton.setIcon(qta.icon('fa5s.magic', 'fa5s.ban', options=[{'scale_factor': 0.75}, {}]))
         self.y2MaxPlus10Button.setIcon(qta.icon('mdi.chevron-double-up'))
         self.y2MaxPlus5Button.setIcon(qta.icon('mdi.chevron-up'))
@@ -189,6 +190,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.y2MinMinus5Button.setIcon(qta.icon('mdi.chevron-down'))
         self.y2MinMinus10Button.setIcon(qta.icon('mdi.chevron-double-down'))
         self.y2AutoOnButton.setIcon(qta.icon('fa5s.magic'))
+        self.y2AutoOnButton.setChecked(True)
         self.y2AutoOffButton.setIcon(qta.icon('fa5s.magic', 'fa5s.ban', options=[{'scale_factor': 0.75}, {}]))
         # waveform
         self.__waveform_controller = WaveformController(self.preferences,
@@ -972,10 +974,16 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.__magnitude_model.limits.shift(y2_max=-10)
 
     def y2_auto_on(self):
-        self.__magnitude_model.limits.y2_auto = True
+        auto = self.y2AutoOnButton.isChecked()
+        self.__magnitude_model.limits.y2_auto = auto
+        with block_signals(self.y2AutoOffButton):
+            self.y2AutoOffButton.setChecked(not auto)
 
     def y2_auto_off(self):
-        self.__magnitude_model.limits.y2_auto = False
+        auto = self.y2AutoOffButton.isChecked()
+        self.__magnitude_model.limits.y2_auto = not auto
+        with block_signals(self.y2AutoOnButton):
+            self.y2AutoOnButton.setChecked(not auto)
 
     def y2_min_plus_10(self):
         self.__magnitude_model.limits.shift(y2_min=10)
@@ -1002,10 +1010,16 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.__magnitude_model.limits.shift(y1_max=-10)
 
     def y1_auto_on(self):
-        self.__magnitude_model.limits.y1_auto = True
+        auto = self.y1AutoOnButton.isChecked()
+        self.__magnitude_model.limits.y1_auto = auto
+        with block_signals(self.y1AutoOffButton):
+            self.y1AutoOffButton.setChecked(not auto)
 
     def y1_auto_off(self):
-        self.__magnitude_model.limits.y1_auto = False
+        auto = self.y1AutoOffButton.isChecked()
+        self.__magnitude_model.limits.y1_auto = not auto
+        with block_signals(self.y1AutoOnButton):
+            self.y1AutoOnButton.setChecked(not auto)
 
     def y1_min_plus_10(self):
         self.__magnitude_model.limits.shift(y1_min=10)

@@ -103,8 +103,8 @@ class Limits:
         self.x_scale = x_scale
         self.x_min = x_lim[0]
         self.x_max = x_lim[1]
-        self.y1_auto = True
-        self.y2_auto = True
+        self.__y1_auto = True
+        self.__y2_auto = True
         self.axes_1.yaxis.set_major_locator(MaxNLocator(nbins=12, steps=[1, 2, 4, 5, 10], min_n_ticks=8))
         self.y1_min, self.y1_max = self.__y_range_calculator.calculate((0, 0))
         if axes_2 is not None:
@@ -114,6 +114,22 @@ class Limits:
         else:
             self.axes_2 = self.y2_min = self.y2_max = None
         self.propagate_to_axes()
+
+    @property
+    def y1_auto(self):
+        return self.__y1_auto
+
+    @y1_auto.setter
+    def y1_auto(self, auto):
+        self.__y1_auto = auto
+
+    @property
+    def y2_auto(self):
+        return self.__y2_auto
+
+    @y2_auto.setter
+    def y2_auto(self, auto):
+        self.__y2_auto = auto
 
     def configure_x_axis(self):
         '''
