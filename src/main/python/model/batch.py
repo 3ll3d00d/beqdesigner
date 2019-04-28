@@ -8,6 +8,7 @@ import qtawesome as qta
 from qtawesome import Spin
 from qtpy import QtWidgets, QtCore
 from qtpy.QtCore import Qt, QObject, QRunnable, QThread, Signal, QThreadPool
+from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import QDialog, QStatusBar, QFileDialog
 
 from model.ffmpeg import Executor, parse_audio_stream, ViewProbeDialog, SIGNAL_CONNECTED, SIGNAL_ERROR, \
@@ -86,6 +87,8 @@ class BatchExtractDialog(QDialog, Ui_batchExtractDialog):
             if self.__candidates.is_extracting is False:
                 self.__candidates = None
                 self.enable_search(self.filter.text())
+                self.searchButton.blockSignals(False)
+                self.searchButton.setIcon(QIcon())
                 self.resetButton.setEnabled(False)
                 self.extractButton.setEnabled(False)
 
@@ -150,6 +153,7 @@ class BatchExtractDialog(QDialog, Ui_batchExtractDialog):
 
     def __on_search_complete(self):
         stop_spinner(self.__search_spinner, self.searchButton)
+        self.searchButton.blockSignals(False)
         self.__search_spinner = None
         if len(self.__candidates) > 0:
             self.resetButton.setEnabled(True)
