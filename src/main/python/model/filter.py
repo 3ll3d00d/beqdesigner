@@ -260,8 +260,8 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.__original_id = selected_filter.id if selected_filter is not None else None
         self.__combined_preview = signal.filter
         # init the chart
-        self.__magnitudeModel = MagnitudeModel('preview', self.previewChart, preferences, self, 'Filter',
-                                               db_range_calc=dBRangeCalculator(30, expand=True), fill_curves=True)
+        self.__magnitude_model = MagnitudeModel('preview', self.previewChart, preferences, self, 'Filter',
+                                                db_range_calc=dBRangeCalculator(30, expand=True), fill_curves=True)
         # load the selector and populate the fields
         self.__refresh_selector()
 
@@ -286,6 +286,10 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
                     current_idx = idx + 1
             self.filterSelector.setCurrentIndex(current_idx)
             self.select_filter(current_idx)
+
+    def show_limits(self):
+        ''' shows the limits dialog for the filter chart. '''
+        self.__magnitude_model.show_limits()
 
     def select_filter(self, idx):
         ''' Refreshes the params and display with the selected filter '''
@@ -365,7 +369,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
             else:
                 self.__combined_preview = self.__filter_model.preview(Passthrough(fs=self.__signal.fs))
                 self.filter = None
-            self.__magnitudeModel.redraw()
+            self.__magnitude_model.redraw()
 
     def getMagnitudeData(self, reference=None):
         ''' preview of the filter to display on the chart '''
@@ -509,6 +513,8 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.saveButton.setIconSize(QtCore.QSize(32, 32))
         self.exitButton.setIcon(qta.icon('fa5s.sign-out-alt'))
         self.exitButton.setIconSize(QtCore.QSize(32, 32))
+        self.limitsButton.setIcon(qta.icon('fa5s.arrows-alt'))
+        self.limitsButton.setIconSize(QtCore.QSize(32, 32))
         self.enableOkIfGainIsValid()
 
     def changeOrderStep(self):
