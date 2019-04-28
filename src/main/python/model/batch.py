@@ -5,6 +5,7 @@ import os
 from enum import Enum
 
 import qtawesome as qta
+from qtawesome import Spin
 from qtpy import QtWidgets, QtCore
 from qtpy.QtCore import Qt, QObject, QRunnable, QThread, Signal, QThreadPool
 from qtpy.QtWidgets import QDialog, QStatusBar, QFileDialog
@@ -129,7 +130,7 @@ class BatchExtractDialog(QDialog, Ui_batchExtractDialog):
         Reacts to the search job starting by providing a visual indication that it has started.
         '''
         self.searchButton.setText('Searching...')
-        self.__search_spinner = qta.Spin(self.searchButton)
+        self.__search_spinner = StoppableSpin(self.searchButton, 'search')
         spin_icon = qta.icon('fa5s.spinner', color='green', animation=self.__search_spinner)
         self.searchButton.setIcon(spin_icon)
         self.searchButton.blockSignals(True)
@@ -432,11 +433,12 @@ class ExtractCandidate:
     @status.setter
     def status(self, status):
         self.__status = status
+        do_stop = False
         if status == ExtractStatus.NEW:
             self.actionButton.setIcon(qta.icon('fa5s.check', color='green'))
         elif status == ExtractStatus.IN_PROGRESS:
             self.actionButton.blockSignals(True)
-            self.__in_progress_icon = qta.Spin(self.actionButton)
+            self.__in_progress_icon = StoppableSpin(self.actionButton, self.__filename)
             self.actionButton.setIcon(qta.icon('fa5s.spinner', color='blue', animation=self.__in_progress_icon))
             self.probeButton.setEnabled(False)
             self.input.setEnabled(False)
@@ -456,6 +458,7 @@ class ExtractCandidate:
             self.lfeChannelIndex.setEnabled(True)
             self.outputFilename.setEnabled(True)
             self.ffmpegButton.setEnabled(True)
+            do_stop = True
         elif status == ExtractStatus.FAILED:
             self.actionButton.setIcon(qta.icon('fa5s.exclamation-triangle', color='red'))
             self.actionButton.blockSignals(True)
@@ -466,6 +469,7 @@ class ExtractCandidate:
             self.lfeChannelIndex.setEnabled(False)
             self.outputFilename.setEnabled(False)
             self.ffmpegProgress.setEnabled(False)
+            do_stop = True
         elif status == ExtractStatus.CANCELLED:
             self.actionButton.blockSignals(True)
             self.actionButton.setIcon(qta.icon('fa5s.ban', color='green'))
@@ -476,6 +480,7 @@ class ExtractCandidate:
             self.lfeChannelIndex.setEnabled(False)
             self.outputFilename.setEnabled(False)
             self.ffmpegProgress.setEnabled(False)
+            do_stop = True
         elif status == ExtractStatus.COMPLETE:
             self.actionButton.blockSignals(True)
             self.actionButton.setIcon(qta.icon('fa5s.check', color='green'))
@@ -486,9 +491,11 @@ class ExtractCandidate:
             self.lfeChannelIndex.setEnabled(False)
             self.outputFilename.setEnabled(False)
             self.ffmpegProgress.setEnabled(False)
+            do_stop = True
 
-        stop_spinner(self.__in_progress_icon, self.actionButton)
-        self.__in_progress_icon = None
+        if do_stop is True:
+            stop_spinner(self.__in_progress_icon, self.actionButton)
+            self.__in_progress_icon = None
 
     def toggle(self):
         '''
@@ -667,5 +674,40 @@ def stop_spinner(spinner, button):
     :param button: the button that owns the spinner.
     '''
     if spinner is not None:
-        if button in spinner.info:
-            spinner.info[button][0].stop()
+        if isinstance(spinner, StoppableSpin):
+            spinner.stop()
+        else:
+            if button in spinner.info:
+                spinner.info[button][0].stop()
+
+
+class StoppableSpin(Spin):
+
+    def __init__(self, parent_widget, name):
+        Spin.__init__(self, parent_widget, interval=25, step=1)
+        self.__stopped = False
+        self.__name = name
+
+    def _update(self):
+        if self.__stopped is False:
+            super(StoppableSpin, self)._update()
+        else:
+            logger.debug(f"Ignoring update for stopped spinner - {self.__name}")
+
+    def setup(self, icon_painter, painter, rect):
+        if self.__stopped is True:
+            logger.debug(f"Ignoring setup for stopped spinner - {self.__name}")
+        else:
+            logger.debug(f"Setting up spinner {self.__name} (has timer? {self.parent_widget in self.info})")
+            super(StoppableSpin, self).setup(icon_painter, painter, rect)
+
+    def stop(self):
+        if self.__stopped is False:
+            logger.debug(f"Stopping spinner {self.__name}")
+            self.__stopped = True
+            if self.parent_widget in self.info:
+                self.info[self.parent_widget][0].stop()
+            else:
+                logger.debug(f"Unable to stop spinner - {self.__name}")
+        else:
+            logger.debug(f"Ignoring duplicate stop for spinner - {self.__name}")
