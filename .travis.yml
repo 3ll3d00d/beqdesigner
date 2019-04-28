@@ -9,6 +9,7 @@ env:
   - PIPENV_CACHE_DIR=$HOME/.cache/pipenv
   - PIPENV_VENV_IN_PROJECT=yes
 matrix:
+  fast_finish: true
   include:
   - name: Xenial Linux
     python: '3.7'
