@@ -1202,34 +1202,33 @@
     <hex>0f8c2dcd</hex>
   </item>
   <filter name="EQ_ch1_2_1">
-    <freq>10</freq>
+    <freq>30</freq>
     <q>0.5</q>
     <gain>0</gain>
-    <boost>0</boost>
+    <boost>10</boost>
     <type>PK</type>
     <bypass>0</bypass>
     <basic>true</basic>
-    <A0>1</A0>
   </filter>
   <item name="EQ_ch1_2_1_B0" addr="322">
     <dec>0</dec>
-    <hex>00800000</hex>
+    <hex>00809c1f</hex>
   </item>
   <item name="EQ_ch1_2_1_B1" addr="323">
     <dec>0</dec>
-    <hex>00000000</hex>
+    <hex>0f0090e8</hex>
   </item>
   <item name="EQ_ch1_2_1_B2" addr="324">
     <dec>0</dec>
-    <hex>00000000</hex>
+    <hex>007ed379</hex>
   </item>
   <item name="EQ_ch1_2_1_A1" addr="325">
     <dec>0</dec>
-    <hex>00000000</hex>
+    <hex>00ff6f17</hex>
   </item>
   <item name="EQ_ch1_2_1_A2" addr="326">
     <dec>0</dec>
-    <hex>00000000</hex>
+    <hex>0f809067</hex>
   </item>
   <filter name="EQ_ch1_2_2">
     <freq>10</freq>
@@ -1377,33 +1376,33 @@
     <hex>00000000</hex>
   </item>
   <filter name="EQ_ch1_3_1">
-    <freq>10</freq>
+    <freq>40</freq>
     <q>0.5</q>
     <gain>0</gain>
-    <boost>0</boost>
+    <boost>10</boost>
     <type>PK</type>
     <bypass>0</bypass>
     <basic>true</basic>
   </filter>
   <item name="EQ_ch1_3_1_B0" addr="232">
     <dec>0</dec>
-    <hex>00800000</hex>
+    <hex>0080d002</hex>
   </item>
   <item name="EQ_ch1_3_1_B1" addr="233">
     <dec>0</dec>
-    <hex>00000000</hex>
+    <hex>0f00c14b</hex>
   </item>
   <item name="EQ_ch1_3_1_B2" addr="234">
     <dec>0</dec>
-    <hex>00000000</hex>
+    <hex>007e6f98</hex>
   </item>
   <item name="EQ_ch1_3_1_A1" addr="235">
     <dec>0</dec>
-    <hex>00000000</hex>
+    <hex>00ff3eb4</hex>
   </item>
   <item name="EQ_ch1_3_1_A2" addr="236">
     <dec>0</dec>
-    <hex>00000000</hex>
+    <hex>0f80c065</hex>
   </item>
   <filter name="EQ_ch1_3_2">
     <freq>10</freq>
@@ -1551,33 +1550,33 @@
     <hex>00000000</hex>
   </item>
   <filter name="EQ_ch2_2_1">
-    <freq>10</freq>
+    <freq>50</freq>
     <q>0.5</q>
     <gain>0</gain>
-    <boost>0</boost>
+    <boost>10</boost>
     <type>PK</type>
     <bypass>0</bypass>
     <basic>true</basic>
   </filter>
   <item name="EQ_ch2_2_1_B0" addr="292">
     <dec>0</dec>
-    <hex>00800000</hex>
+    <hex>008103d1</hex>
   </item>
   <item name="EQ_ch2_2_1_B1" addr="293">
     <dec>0</dec>
-    <hex>00000000</hex>
+    <hex>0f00f1b7</hex>
   </item>
   <item name="EQ_ch2_2_1_B2" addr="294">
     <dec>0</dec>
-    <hex>00000000</hex>
+    <hex>007e0bdc</hex>
   </item>
   <item name="EQ_ch2_2_1_A1" addr="295">
     <dec>0</dec>
-    <hex>00000000</hex>
+    <hex>00ff0e48</hex>
   </item>
   <item name="EQ_ch2_2_1_A2" addr="296">
     <dec>0</dec>
-    <hex>00000000</hex>
+    <hex>0f80f051</hex>
   </item>
   <filter name="EQ_ch2_2_2">
     <freq>10</freq>
@@ -1725,33 +1724,33 @@
     <hex>00000000</hex>
   </item>
   <filter name="EQ_ch2_3_1">
-    <freq>10</freq>
+    <freq>60</freq>
     <q>0.5</q>
     <gain>0</gain>
-    <boost>0</boost>
+    <boost>10</boost>
     <type>PK</type>
     <bypass>0</bypass>
     <basic>true</basic>
   </filter>
   <item name="EQ_ch2_3_1_B0" addr="262">
     <dec>0</dec>
-    <hex>00800000</hex>
+    <hex>0081378d</hex>
   </item>
   <item name="EQ_ch2_3_1_B1" addr="263">
     <dec>0</dec>
-    <hex>00000000</hex>
+    <hex>0f01222f</hex>
   </item>
   <item name="EQ_ch2_3_1_B2" addr="264">
     <dec>0</dec>
-    <hex>00000000</hex>
+    <hex>007da846</hex>
   </item>
   <item name="EQ_ch2_3_1_A1" addr="265">
     <dec>0</dec>
-    <hex>00000000</hex>
+    <hex>00feddd0</hex>
   </item>
   <item name="EQ_ch2_3_1_A2" addr="266">
     <dec>0</dec>
-    <hex>00000000</hex>
+    <hex>0f81202b</hex>
   </item>
   <filter name="EQ_ch2_3_2">
     <freq>10</freq>

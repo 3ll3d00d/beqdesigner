@@ -224,7 +224,9 @@ class XmlProcessor(QRunnable):
         self.__beq_dir = beq_dir
         self.__output_dir = output_dir
         self.__config_file = config_file
-        self.__minidsp_type = minidsp_type
+        self.__parser = TwoByFourXmlParser() if minidsp_type == '2x4' else HDXmlParser(minidsp_type)
+        self.__target_fs = get_minidsp_fs(minidsp_type)
+        self.__filters_required = get_filters_required(minidsp_type)
         self.__signals = ProcessSignals()
         self.__signals.on_failure.connect(failure_handler)
         self.__signals.on_success.connect(success_handler)
@@ -251,9 +253,9 @@ class XmlProcessor(QRunnable):
             logger.info(f"Copying {self.__config_file} to {dst}")
             dst = shutil.copy2(self.__config_file, dst.resolve())
             filters = extract_and_pad_with_passthrough(str(xml),
-                                                       fs=self.__get_target_fs(),
-                                                       required=self.__get_filters_required())
-            output_xml = self.__overwrite_beq_filters(filters, dst)
+                                                       fs=self.__target_fs,
+                                                       required=self.__filters_required)
+            output_xml = self.__parser.overwrite(filters, dst)
             with dst.open('w') as dst_file:
                 dst_file.write(output_xml)
             self.__signals.on_success.emit()
@@ -261,7 +263,75 @@ class XmlProcessor(QRunnable):
             logger.exception(f"Unexpected failure during processing of {xml}")
             self.__signals.on_failure.emit(xml.name, str(e))
 
-    def __overwrite_beq_filters(self, filters, target):
+
+class TwoByFourXmlParser:
+    '''
+    Handles the 2x4 model
+    '''
+    def overwrite(self, filters, target):
+        import xml.etree.ElementTree as ET
+        import re
+        logger.info(f"Copying {len(filters)} to {target}")
+        et_tree = ET.parse(str(target))
+        root = et_tree.getroot()
+        filter_matcher = re.compile('^EQ_ch([1-2])_1_([1-6])$')
+        bq_matcher = re.compile('^EQ_ch([1-2])_1_([1-6])_([A-B][0-2])$')
+        for child in root:
+            if child.tag == 'filter':
+                filter_name = child.attrib['name']
+                matches = filter_matcher.match(filter_name)
+                if matches is not None and len(matches.groups()) == 2:
+                    filt_slot = matches.group(2)
+                    if int(filt_slot) > len(filters):
+                        root.remove(child)
+                    else:
+                        filt = filters[int(filt_slot) - 1]
+                        if isinstance(filt, Passthrough):
+                            child.find('freq').text = '1000'
+                            child.find('q').text = '1'
+                            child.find('gain').text = '0'
+                            child.find('boost').text = '0'
+                            child.find('type').text = 'PK'
+                            child.find('bypass').text = '1'
+                            child.find('basic').text = 'true'
+                        else:
+                            child.find('freq').text = str(filt.freq)
+                            child.find('q').text = str(filt.q)
+                            child.find('boost').text = str(filt.gain)
+                            child.find('type').text = get_minidsp_filter_code(filt)
+                            child.find('bypass').text = '0'
+                            child.find('basic').text = 'true'
+            elif child.tag == 'item':
+                filter_name = child.attrib['name']
+                matches = bq_matcher.match(filter_name)
+                if matches is not None and len(matches.groups()) == 3:
+                    filt_slot = matches.group(2)
+                    biquad_coeff = matches.group(3)
+                    if int(filt_slot) > len(filters):
+                        root.remove(child)
+                    else:
+                        filt = filters[int(filt_slot) - 1]
+                        if isinstance(filt, Passthrough):
+                            child.find('dec').text = '0'
+                            child.find('hex').text = '00800000' if biquad_coeff == 'B0' else '00800000'
+                        else:
+                            child.find('dec').text = '0'
+                            hex_txt = filt.format_biquads(True, separator=',', show_index=True, to_hex=True,
+                                                          fixed_point=True)[0]
+                            hex_val = dict(item.split("=") for item in hex_txt.split(','))[biquad_coeff.lower()]
+                            child.find('hex').text = hex_val
+
+        return ET.tostring(root, encoding='unicode')
+
+
+class HDXmlParser:
+    '''
+    Handles HD models (2x4HD and 10x10HD)
+    '''
+    def __init__(self, minidsp_type):
+        self.__minidsp_type = minidsp_type
+
+    def overwrite(self, filters, target):
         '''
         Overwrites the PEQ_1_x and PEQ_2_x filters.
         :param filters: the filters.
@@ -294,7 +364,7 @@ class XmlProcessor(QRunnable):
                                         child.find('freq').text = str(filt.freq)
                                         child.find('q').text = str(filt.q)
                                         child.find('boost').text = str(filt.gain)
-                                        child.find('type').text = self.__get_minidsp_filter_type(filt)
+                                        child.find('type').text = get_minidsp_filter_code(filt)
                                         child.find('bypass').text = '0'
                                     dec_txt = filt.format_biquads(True, separator=',',
                                                                   show_index=False, to_hex=False)[0]
@@ -311,36 +381,38 @@ class XmlProcessor(QRunnable):
 
     def __valid_filt_channels(self):
         '''
-            :return: list of valid channels.
+        :return: list of valid channels.
         '''
-        return ['11', '12', '13', '14', '15', '16', '17', '18', '19', '20'] if self.__minidsp_type == '10x10 HD' else ['1', '2']
+        return [str(x) for x in range(11, 21)] if self.__minidsp_type == '10x10 HD' else ['1', '2']
 
-    @staticmethod
-    def __get_minidsp_filter_type(filt):
-        '''
-        :param filt: the filter.
-        :return: the string filter type for a minidsp xml.
-        '''
-        if isinstance(filt, PeakingEQ):
-            return 'PK'
-        elif isinstance(filt, LowShelf):
-            return 'SL'
-        elif isinstance(filt, HighShelf):
-            return 'SH'
-        else:
-            raise ValueError(f"Unknown minidsp filter type {type(filt)}")
 
-    def __get_target_fs(self):
-        '''
-        :return: the fs for the selected minidsp.
-        '''
-        return 96000 if self.__minidsp_type == '2x4 HD' else 48000
+def get_filters_required(minidsp_type):
+    '''
+    :return: the fs for the selected minidsp.
+    '''
+    return 10 if minidsp_type == '2x4 HD' else 6
 
-    def __get_filters_required(self):
-        '''
-        :return: the fs for the selected minidsp.
-        '''
-        return 10 if self.__minidsp_type == '2x4 HD' else 6
+
+def get_minidsp_fs(minidsp_type):
+    '''
+    :return: the fs for the selected minidsp.
+    '''
+    return 96000 if minidsp_type == '2x4 HD' else 48000
+
+
+def get_minidsp_filter_code(filt):
+    '''
+    :param filt: the filter.
+    :return: the string filter type for a minidsp xml.
+    '''
+    if isinstance(filt, PeakingEQ):
+        return 'PK'
+    elif isinstance(filt, LowShelf):
+        return 'SL'
+    elif isinstance(filt, HighShelf):
+        return 'SH'
+    else:
+        raise ValueError(f"Unknown minidsp filter type {type(filt)}")
 
 
 def xml_to_filt(file, fs=1000):
