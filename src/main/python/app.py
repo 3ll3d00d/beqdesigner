@@ -14,6 +14,8 @@ import matplotlib
 from model.minidsp import MergeFiltersDialog
 
 matplotlib.use("Qt5Agg")
+os.environ['QT_API'] = 'pyqt5'
+# os.environ['PYQTGRAPH_QT_LIB'] = 'PyQt5'
 
 from model.waveform import WaveformController
 from model.checker import VersionChecker
@@ -45,9 +47,9 @@ from model.filter import FilterTableModel, FilterModel, FilterDialog
 from model.log import RollingLogger
 from model.magnitude import MagnitudeModel
 from model.preferences import PreferencesDialog, BINARIES_GROUP, ANALYSIS_TARGET_FS, STYLE_MATPLOTLIB_THEME, \
-    Preferences, \
-    SCREEN_GEOMETRY, SCREEN_WINDOW_STATE, FILTERS_PRESET_x, DISPLAY_SHOW_LEGEND, DISPLAY_SHOW_FILTERS, \
-    SHOW_FILTER_OPTIONS, SHOW_SIGNAL_OPTIONS, DISPLAY_SHOW_SIGNALS, SHOW_FILTERED_SIGNAL_OPTIONS
+    Preferences, STYLE_MATPLOTLIB_THEME_DEFAULT, SCREEN_GEOMETRY, SCREEN_WINDOW_STATE, FILTERS_PRESET_x, \
+    DISPLAY_SHOW_LEGEND, DISPLAY_SHOW_FILTERS, SHOW_FILTER_OPTIONS, SHOW_SIGNAL_OPTIONS, DISPLAY_SHOW_SIGNALS, \
+    SHOW_FILTERED_SIGNAL_OPTIONS
 from model.signal import SignalModel, SignalTableModel, SignalDialog, SingleChannelSignalData, Signal
 from ui.beq import Ui_MainWindow
 
@@ -73,11 +75,11 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
     The main UI.
     '''
 
-    def __init__(self, app, parent=None):
+    def __init__(self, app, prefs, parent=None):
         super(BeqDesigner, self).__init__(parent)
         self.logger = logging.getLogger('beqdesigner')
         self.app = app
-        self.preferences = Preferences(QSettings("3ll3d00d", "beqdesigner"))
+        self.preferences = prefs
         if getattr(sys, 'frozen', False):
             self.__style_path_root = sys._MEIPASS
         else:
@@ -1177,12 +1179,17 @@ def make_app():
         icon_path = os.path.abspath(os.path.join(os.path.dirname('__file__'), '../icons/Icon.ico'))
     if os.path.exists(icon_path):
         app.setWindowIcon(QIcon(icon_path))
-    return app
+    prefs = Preferences(QSettings("3ll3d00d", "beqdesigner"))
+    if prefs.get(STYLE_MATPLOTLIB_THEME) == f"{STYLE_MATPLOTLIB_THEME_DEFAULT}_extra":
+        import qdarkstyle
+        style = qdarkstyle.load_stylesheet_from_environment()
+        app.setStyleSheet(style)
+    return app, prefs
 
 
 if __name__ == '__main__':
-    app = make_app()
-    form = BeqDesigner(app)
+    app, prefs = make_app()
+    form = BeqDesigner(app, prefs)
     # setup the error handler
     e_dialog = QErrorMessage(form)
     e_dialog.setWindowModality(QtCore.Qt.WindowModal)
