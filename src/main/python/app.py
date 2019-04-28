@@ -22,7 +22,7 @@ from model.batch import BatchExtractDialog
 from model.analysis import AnalyseSignalDialog
 from model.link import LinkSignalsDialog
 from model.preferences import DISPLAY_SHOW_FILTERED_SIGNALS, SYSTEM_CHECK_FOR_UPDATES, BEQ_DOWNLOAD_DIR, \
-    BIQUAD_EXPORT_MAX, BIQUAD_EXPORT_FS, BIQUAD_EXPORT_DEVICE
+    BIQUAD_EXPORT_MAX, BIQUAD_EXPORT_FS, BIQUAD_EXPORT_DEVICE, SHOW_NO_FILTERS
 from ui.delegates import RegexValidator
 
 import pyqtgraph as pg
@@ -170,6 +170,26 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
                                                 'Signals', self.__filter_model, 'Filters',
                                                 show_legend=lambda: self.showLegend.isChecked(), allow_line_resize=True)
         self.__filter_model.filter = self.__default_signal.filter
+        self.y1MaxPlus10Button.setIcon(qta.icon('mdi.chevron-double-up'))
+        self.y1MaxPlus5Button.setIcon(qta.icon('mdi.chevron-up'))
+        self.y1MaxMinus5Button.setIcon(qta.icon('mdi.chevron-down'))
+        self.y1MaxMinus10Button.setIcon(qta.icon('mdi.chevron-double-down'))
+        self.y1MinPlus10Button.setIcon(qta.icon('mdi.chevron-double-up'))
+        self.y1MinPlus5Button.setIcon(qta.icon('mdi.chevron-up'))
+        self.y1MinMinus5Button.setIcon(qta.icon('mdi.chevron-down'))
+        self.y1MinMinus10Button.setIcon(qta.icon('mdi.chevron-double-down'))
+        self.y1AutoOnButton.setIcon(qta.icon('fa5s.magic'))
+        self.y1AutoOffButton.setIcon(qta.icon('fa5s.magic', 'fa5s.ban', options=[{'scale_factor': 0.75}, {}]))
+        self.y2MaxPlus10Button.setIcon(qta.icon('mdi.chevron-double-up'))
+        self.y2MaxPlus5Button.setIcon(qta.icon('mdi.chevron-up'))
+        self.y2MaxMinus5Button.setIcon(qta.icon('mdi.chevron-down'))
+        self.y2MaxMinus10Button.setIcon(qta.icon('mdi.chevron-double-down'))
+        self.y2MinPlus10Button.setIcon(qta.icon('mdi.chevron-double-up'))
+        self.y2MinPlus5Button.setIcon(qta.icon('mdi.chevron-up'))
+        self.y2MinMinus5Button.setIcon(qta.icon('mdi.chevron-down'))
+        self.y2MinMinus10Button.setIcon(qta.icon('mdi.chevron-double-down'))
+        self.y2AutoOnButton.setIcon(qta.icon('fa5s.magic'))
+        self.y2AutoOffButton.setIcon(qta.icon('fa5s.magic', 'fa5s.ban', options=[{'scale_factor': 0.75}, {}]))
         # waveform
         self.__waveform_controller = WaveformController(self.preferences,
                                                         self.__signal_model,
@@ -480,6 +500,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.__magnitude_model.redraw()
         self.__enable_filter_actions()
         self.__check_active_preset(self.__filter_model.filter.preset_idx)
+        self.show_y2_tool_buttons(self.showFilters.currentText() != SHOW_NO_FILTERS and len(self.__filter_model) > 0)
 
     def importFilter(self):
         '''
@@ -934,6 +955,69 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         dialog = MergeFiltersDialog(self, self.preferences, self.statusbar)
         dialog.exec()
+
+    def show_y2_tool_buttons(self, show=True):
+        self.mainChartRightTools.setVisible(show)
+
+    def y2_max_plus_10(self):
+        self.__magnitude_model.limits.shift(y2_max=10)
+
+    def y2_max_plus_5(self):
+        self.__magnitude_model.limits.shift(y2_max=5)
+    
+    def y2_max_minus_5(self):
+        self.__magnitude_model.limits.shift(y2_max=-5)
+
+    def y2_max_minus_10(self):
+        self.__magnitude_model.limits.shift(y2_max=-10)
+
+    def y2_auto_on(self):
+        self.__magnitude_model.limits.y2_auto = True
+
+    def y2_auto_off(self):
+        self.__magnitude_model.limits.y2_auto = False
+
+    def y2_min_plus_10(self):
+        self.__magnitude_model.limits.shift(y2_min=10)
+
+    def y2_min_plus_5(self):
+        self.__magnitude_model.limits.shift(y2_min=5)
+
+    def y2_min_minus_5(self):
+        self.__magnitude_model.limits.shift(y2_min=-5)
+
+    def y2_min_minus_10(self):
+        self.__magnitude_model.limits.shift(y2_min=-10)
+
+    def y1_max_plus_10(self):
+        self.__magnitude_model.limits.shift(y1_max=10)
+
+    def y1_max_plus_5(self):
+        self.__magnitude_model.limits.shift(y1_max=5)
+
+    def y1_max_minus_5(self):
+        self.__magnitude_model.limits.shift(y1_max=-5)
+
+    def y1_max_minus_10(self):
+        self.__magnitude_model.limits.shift(y1_max=-10)
+
+    def y1_auto_on(self):
+        self.__magnitude_model.limits.y1_auto = True
+
+    def y1_auto_off(self):
+        self.__magnitude_model.limits.y1_auto = False
+
+    def y1_min_plus_10(self):
+        self.__magnitude_model.limits.shift(y1_min=10)
+
+    def y1_min_plus_5(self):
+        self.__magnitude_model.limits.shift(y1_min=5)
+
+    def y1_min_minus_5(self):
+        self.__magnitude_model.limits.shift(y1_min=-5)
+
+    def y1_min_minus_10(self):
+        self.__magnitude_model.limits.shift(y1_min=-10)
 
 
 class SaveChartDialog(QDialog, Ui_saveChartDialog):

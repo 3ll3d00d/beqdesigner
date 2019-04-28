@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1569</width>
-    <height>956</height>
+    <height>968</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -69,7 +69,249 @@
           <property name="orientation">
            <enum>Qt::Vertical</enum>
           </property>
-          <widget class="MplWidget" name="mainChart"/>
+          <widget class="QFrame" name="mainChartContainer">
+           <layout class="QHBoxLayout" name="mainChartLayout" stretch="0,1,0">
+            <item>
+             <widget class="QFrame" name="mainChartLeftTools">
+              <property name="lineWidth">
+               <number>0</number>
+              </property>
+              <layout class="QVBoxLayout" name="mainChartLeftToolLayout">
+               <property name="spacing">
+                <number>0</number>
+               </property>
+               <property name="leftMargin">
+                <number>0</number>
+               </property>
+               <property name="topMargin">
+                <number>0</number>
+               </property>
+               <property name="rightMargin">
+                <number>0</number>
+               </property>
+               <property name="bottomMargin">
+                <number>0</number>
+               </property>
+               <item>
+                <layout class="QVBoxLayout" name="mainChartLeftToolTopLayout">
+                 <item>
+                  <widget class="QToolButton" name="y1MaxPlus10Button"/>
+                 </item>
+                 <item>
+                  <widget class="QToolButton" name="y1MaxPlus5Button"/>
+                 </item>
+                 <item>
+                  <widget class="QToolButton" name="y1MaxMinus5Button"/>
+                 </item>
+                 <item>
+                  <widget class="QToolButton" name="y1MaxMinus10Button"/>
+                 </item>
+                 <item>
+                  <spacer name="leftToolTopSpacer">
+                   <property name="orientation">
+                    <enum>Qt::Vertical</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>20</width>
+                     <height>40</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
+                </layout>
+               </item>
+               <item>
+                <layout class="QVBoxLayout" name="mainChartLeftToolMidLayout">
+                 <item>
+                  <spacer name="leftToolMidTopSpacer">
+                   <property name="orientation">
+                    <enum>Qt::Vertical</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>20</width>
+                     <height>40</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
+                 <item>
+                  <widget class="QToolButton" name="y1AutoOnButton"/>
+                 </item>
+                 <item>
+                  <widget class="QToolButton" name="y1AutoOffButton"/>
+                 </item>
+                 <item>
+                  <spacer name="leftToolMidBottomSpacer">
+                   <property name="orientation">
+                    <enum>Qt::Vertical</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>20</width>
+                     <height>40</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
+                </layout>
+               </item>
+               <item>
+                <layout class="QVBoxLayout" name="mainChartLeftToolBottomLayout">
+                 <item>
+                  <spacer name="leftToolBottomSpacer">
+                   <property name="orientation">
+                    <enum>Qt::Vertical</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>20</width>
+                     <height>40</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
+                 <item>
+                  <widget class="QToolButton" name="y1MinPlus10Button"/>
+                 </item>
+                 <item>
+                  <widget class="QToolButton" name="y1MinPlus5Button"/>
+                 </item>
+                 <item>
+                  <widget class="QToolButton" name="y1MinMinus5Button"/>
+                 </item>
+                 <item>
+                  <widget class="QToolButton" name="y1MinMinus10Button"/>
+                 </item>
+                </layout>
+               </item>
+              </layout>
+             </widget>
+            </item>
+            <item>
+             <widget class="MplWidget" name="mainChart"/>
+            </item>
+            <item>
+             <widget class="QFrame" name="mainChartRightTools">
+              <property name="lineWidth">
+               <number>0</number>
+              </property>
+              <layout class="QVBoxLayout" name="mainChartRightToolLayout">
+               <property name="spacing">
+                <number>0</number>
+               </property>
+               <property name="leftMargin">
+                <number>0</number>
+               </property>
+               <property name="topMargin">
+                <number>0</number>
+               </property>
+               <property name="rightMargin">
+                <number>0</number>
+               </property>
+               <property name="bottomMargin">
+                <number>0</number>
+               </property>
+               <item>
+                <layout class="QVBoxLayout" name="mainChartRightToolTopLayout">
+                 <item>
+                  <widget class="QToolButton" name="y2MaxPlus10Button"/>
+                 </item>
+                 <item>
+                  <widget class="QToolButton" name="y2MaxPlus5Button"/>
+                 </item>
+                 <item>
+                  <widget class="QToolButton" name="y2MaxMinus5Button"/>
+                 </item>
+                 <item>
+                  <widget class="QToolButton" name="y2MaxMinus10Button"/>
+                 </item>
+                 <item>
+                  <spacer name="rightToolTopSpacer">
+                   <property name="orientation">
+                    <enum>Qt::Vertical</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>20</width>
+                     <height>40</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
+                </layout>
+               </item>
+               <item>
+                <layout class="QVBoxLayout" name="mainChartRightToolMidLayout">
+                 <item>
+                  <spacer name="rightToolMidTopSpacer">
+                   <property name="orientation">
+                    <enum>Qt::Vertical</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>20</width>
+                     <height>40</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
+                 <item>
+                  <widget class="QToolButton" name="y2AutoOnButton"/>
+                 </item>
+                 <item>
+                  <widget class="QToolButton" name="y2AutoOffButton"/>
+                 </item>
+                 <item>
+                  <spacer name="rightToolMidBottomSpacer">
+                   <property name="orientation">
+                    <enum>Qt::Vertical</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>20</width>
+                     <height>40</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
+                </layout>
+               </item>
+               <item>
+                <layout class="QVBoxLayout" name="mainChartRightToolBottomLayout">
+                 <item>
+                  <spacer name="rightToolBottomSpacer">
+                   <property name="orientation">
+                    <enum>Qt::Vertical</enum>
+                   </property>
+                   <property name="sizeHint" stdset="0">
+                    <size>
+                     <width>20</width>
+                     <height>40</height>
+                    </size>
+                   </property>
+                  </spacer>
+                 </item>
+                 <item>
+                  <widget class="QToolButton" name="y2MinPlus10Button"/>
+                 </item>
+                 <item>
+                  <widget class="QToolButton" name="y2MinPlus5Button"/>
+                 </item>
+                 <item>
+                  <widget class="QToolButton" name="y2MinMinus5Button"/>
+                 </item>
+                 <item>
+                  <widget class="QToolButton" name="y2MinMinus10Button"/>
+                 </item>
+                </layout>
+               </item>
+              </layout>
+             </widget>
+            </item>
+           </layout>
+          </widget>
           <widget class="QFrame" name="waveformContainer">
            <layout class="QHBoxLayout" name="waveformLayout" stretch="0,1,1">
             <item>
@@ -717,7 +959,7 @@
      <x>0</x>
      <y>0</y>
      <width>1569</width>
-     <height>18</height>
+     <height>30</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuHelp">
@@ -1374,8 +1616,8 @@
    <slot>toggleTilt()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1534</x>
-     <y>910</y>
+     <x>1559</x>
+     <y>935</y>
     </hint>
     <hint type="destinationlabel">
      <x>1241</x>
@@ -1447,6 +1689,326 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>y2MaxPlus10Button</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>y2_max_plus_10()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1146</x>
+     <y>111</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1168</x>
+     <y>115</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>y2MaxMinus10Button</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>y2_max_minus_10()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1158</x>
+     <y>230</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1167</x>
+     <y>318</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>y1MaxPlus10Button</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>y1_max_plus_10()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>27</x>
+     <y>91</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>4</x>
+     <y>139</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>y1MaxPlus5Button</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>y1_max_plus_5()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>39</x>
+     <y>139</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>5</x>
+     <y>173</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>y1AutoOnButton</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>y1_auto_on()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>43</x>
+     <y>276</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>4</x>
+     <y>255</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>y1AutoOffButton</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>y1_auto_off()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>28</x>
+     <y>296</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>4</x>
+     <y>298</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>y1MaxMinus5Button</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>y1_max_minus_5()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>45</x>
+     <y>192</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>4</x>
+     <y>413</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>y1MaxMinus10Button</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>y1_max_minus_10()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>37</x>
+     <y>230</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>6</x>
+     <y>454</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>y2MaxPlus5Button</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>y2_max_plus_5()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1141</x>
+     <y>151</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1170</x>
+     <y>159</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>y2AutoOnButton</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>y2_auto_on()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1147</x>
+     <y>261</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1169</x>
+     <y>262</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>y2AutoOffButton</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>y2_auto_off()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1151</x>
+     <y>291</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1173</x>
+     <y>296</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>y2MaxMinus5Button</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>y2_max_minus_5()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1158</x>
+     <y>192</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1168</x>
+     <y>406</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>y1MinPlus10Button</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>y1_min_plus_10()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>23</x>
+     <y>348</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>4</x>
+     <y>353</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>y1MinPlus5Button</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>y1_min_plus_5()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>27</x>
+     <y>389</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>6</x>
+     <y>488</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>y1MinMinus5Button</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>y1_min_minus_5()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>20</x>
+     <y>429</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>7</x>
+     <y>442</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>y1MinMinus10Button</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>y1_min_minus_10()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>33</x>
+     <y>457</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>5</x>
+     <y>523</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>y2MinPlus10Button</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>y2_min_plus_10()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1141</x>
+     <y>347</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1166</x>
+     <y>360</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>y2MinPlus5Button</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>y2_min_plus_5()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1145</x>
+     <y>389</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1171</x>
+     <y>391</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>y2MinMinus5Button</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>y2_min_minus_5()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1152</x>
+     <y>419</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1170</x>
+     <y>445</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>y2MinMinus10Button</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>y2_min_minus_10()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1134</x>
+     <y>460</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1169</x>
+     <y>479</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>addFilter()</slot>
@@ -1482,5 +2044,25 @@
   <slot>smoothSignals()</slot>
   <slot>clearSignals()</slot>
   <slot>clearFilters()</slot>
+  <slot>y1_max_plus_10()</slot>
+  <slot>y1_max_minus_10()</slot>
+  <slot>y1_max_plus_5()</slot>
+  <slot>y1_max_minus_5()</slot>
+  <slot>y1_min_plus_10()</slot>
+  <slot>y1_min_minus_10()</slot>
+  <slot>y1_min_plus_5()</slot>
+  <slot>y1_min_minus_5()</slot>
+  <slot>y1_max_auto_on()</slot>
+  <slot>y1_max_auto_off()</slot>
+  <slot>y2_max_plus_10()</slot>
+  <slot>y2_max_minus_10()</slot>
+  <slot>y2_max_plus_5()</slot>
+  <slot>y2_max_minus_5()</slot>
+  <slot>y2_min_plus_10()</slot>
+  <slot>y2_min_minus_10()</slot>
+  <slot>y2_min_plus_5()</slot>
+  <slot>y2_min_minus_5()</slot>
+  <slot>y2_max_auto_on()</slot>
+  <slot>y2_max_auto_off()</slot>
  </slots>
 </ui>

@@ -103,6 +103,8 @@ class Limits:
         self.x_scale = x_scale
         self.x_min = x_lim[0]
         self.x_max = x_lim[1]
+        self.y1_auto = True
+        self.y2_auto = True
         self.axes_1.yaxis.set_major_locator(MaxNLocator(nbins=12, steps=[1, 2, 4, 5, 10], min_n_ticks=8))
         self.y1_min, self.y1_max = self.__y_range_calculator.calculate((0, 0))
         if axes_2 is not None:
@@ -167,13 +169,37 @@ class Limits:
             self.x_scale = x_scale
         self.propagate_to_axes(draw)
 
+    def shift(self, x_min=None, x_max=None, y1_min=None, y1_max=None, y2_min=None, y2_max=None, draw=True):
+        '''
+        Shifts the specified axis by the given amount.
+        :param x_min: lower x.
+        :param x_max: upper x.
+        :param y1_min: lower y1.
+        :param y1_max: upper y1.
+        :param y2_min: lower y2.
+        :param y2_max: upper y2.
+        '''
+        if x_min is not None:
+            self.x_min = self.x_min + x_min
+        if x_max is not None:
+            self.x_max = self.x_max + x_max
+        if y1_min is not None:
+            self.y1_min = self.y1_min + y1_min
+        if y1_max is not None:
+            self.y1_max = self.y1_max + y1_max
+        if y2_min is not None:
+            self.y2_min = self.y2_min + y2_min
+        if y2_max is not None:
+            self.y2_max = self.y2_max + y2_max
+        self.propagate_to_axes(draw)
+
     def on_data_change(self, primary_range, secondary_range):
         '''
         Updates the y axes when the data changes.
         :param primary_range: the primary y range.
         :param secondary_range: the secondary y range.
         '''
-        if self.is_auto_1():
+        if self.y1_auto is True:
             new_min, new_max = self.__y_range_calculator.calculate(primary_range)
             y1_changed = new_min != self.y1_min or new_max != self.y1_max
             if y1_changed:
@@ -182,7 +208,7 @@ class Limits:
             self.y1_max = new_max
             if y1_changed:
                 self.axes_1.set_ylim(bottom=self.y1_min, top=self.y1_max)
-        if self.is_auto_2() and self.axes_2 is not None:
+        if self.y2_auto is True and self.axes_2 is not None:
             new_min, new_max = self.__y_range_calculator.calculate(secondary_range)
             y2_changed = new_min != self.y2_min or new_max != self.y2_max
             if y2_changed:
@@ -191,18 +217,6 @@ class Limits:
             self.y2_max = new_max
             if y2_changed:
                 self.axes_2.set_ylim(bottom=self.y2_min, top=self.y2_max)
-
-    def is_auto_1(self):
-        '''
-        :return: True if y_1 is on auto update.
-        '''
-        return True
-
-    def is_auto_2(self):
-        '''
-        :return: True if y_2 is on auto update.
-        '''
-        return True
 
 
 class ValuesDialog(QDialog, Ui_valuesDialog):
