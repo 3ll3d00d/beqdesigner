@@ -74,14 +74,54 @@ class MagnitudeData:
         '''
         if target.name not in self.__normalised_cache:
             logger.debug(f"Normalising {self.name} against {target.name}")
-            count = min(self.x.size, target.x.size) - 1
-            self.__normalised_cache[target.name] = MagnitudeData(self.__name,
-                                                                 self.__description,
-                                                                 self.x[0:count],
-                                                                 self.y[0:count] - target.y[0:count],
-                                                                 colour=self.colour,
-                                                                 linestyle=self.linestyle,
-                                                                 smooth_type=self.__smooth_type)
+            self_step = self.x[1] - self.x[0]
+            target_step = target.x[1] - target.x[0]
+            if self_step == target_step:
+                count = min(self.x.size, target.x.size) - 1
+                self.__normalised_cache[target.name] = MagnitudeData(self.__name,
+                                                                     self.__description,
+                                                                     self.x[0:count],
+                                                                     self.y[0:count] - target.y[0:count],
+                                                                     colour=self.colour,
+                                                                     linestyle=self.linestyle,
+                                                                     smooth_type=self.__smooth_type)
+            else:
+                if self.x[-1] == target.x[-1]:
+                    # same max so upsample to the more precise one
+                    if self_step < target_step:
+                        new_x = self.x
+                        new_y = self.y - interp(target.x, target.y, self.x)[1]
+                    else:
+                        new_x = target.x
+                        new_y = self.y - interp(self.x, self.y, target.x)[1]
+                elif self.x[-1] > target.x[-1]:
+                    # restrict the self data range to the limits of the target
+                    capped_x = self.x[self.x <= target.x[-1]]
+                    capped_y = self.y[0:capped_x.size]
+                    if self_step < target_step:
+                        new_x = capped_x
+                        new_y = capped_y - interp(target.x, target.y, capped_x)[1]
+                    else:
+                        new_x = target.x
+                        new_y = interp(capped_x, capped_y, target.x)[1] - target.y
+                else:
+                    # restrict the target data range to the limits of the self
+                    capped_x = target.x[target.x <= self.x[-1]]
+                    capped_y = target.y[0:capped_x.size]
+                    if self_step < target_step:
+                        new_x = self.x
+                        new_y = self.y - interp(capped_x, capped_y, self.x)[1]
+                    else:
+                        new_x = capped_x
+                        new_y = interp(self.x, self.y, target.x)[1] - target.y
+                self.__normalised_cache[target.name] = MagnitudeData(self.__name,
+                                                                     self.__description,
+                                                                     new_x,
+                                                                     new_y,
+                                                                     colour=self.colour,
+                                                                     linestyle=self.linestyle,
+                                                                     smooth_type=self.__smooth_type)
+
         return self.__normalised_cache[target.name]
 
     def filter(self, filt):
