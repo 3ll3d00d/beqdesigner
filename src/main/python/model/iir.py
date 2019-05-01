@@ -86,6 +86,10 @@ class Biquad(ABC):
     def _compute_coeffs(self):
         pass
 
+    @abstractmethod
+    def sort_key(self):
+        pass
+
     def getTransferFunction(self):
         '''
         Computes the transfer function of the filter.
@@ -171,6 +175,9 @@ class BiquadWithQ(Biquad):
     def description(self):
         return super().description + f" {self.freq}/{self.q}"
 
+    def sort_key(self):
+        return f"{self.freq:05}00000{self.filter_type}"
+
 
 class Passthrough(Gain):
     def __init__(self, fs=1000, f_id=-1):
@@ -179,6 +186,9 @@ class Passthrough(Gain):
     @property
     def description(self):
         return 'Passthrough'
+
+    def sort_key(self):
+        return "ZZZZZZZZZZZZZZ"
 
     def to_json(self):
         return {
@@ -198,6 +208,9 @@ class BiquadWithQGain(BiquadWithQ):
     @property
     def description(self):
         return super().description + f"/{self.gain}dB"
+
+    def sort_key(self):
+        return f"{self.freq:05}{self.gain:05}{self.filter_type}"
 
 
 class PeakingEQ(BiquadWithQGain):
@@ -753,6 +766,7 @@ class ComplexFilter(Sequence):
         '''
         Resets some cached values when the filter changes.
         '''
+        self.filters.sort(key=lambda f: f.sort_key())
         self.__cached_transfer = None
         self.preset_idx = -1
         if self.listener is not None:
@@ -875,6 +889,9 @@ class CompoundPassFilter(ComplexFilter):
     @property
     def filter_type(self):
         return self.__filter_type
+
+    def sort_key(self):
+        return f"{self.freq:05}{self.order:05}{self.filter_type}"
 
     def _calculate_biquads(self, fs):
         if self.type is FilterType.BUTTERWORTH:
