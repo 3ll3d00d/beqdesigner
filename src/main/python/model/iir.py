@@ -150,6 +150,9 @@ class Gain(Biquad):
         '''
         return Gain(new_fs, self.gain, f_id=self.id)
 
+    def sort_key(self):
+        return f"00000{self.gain:05}{self.filter_type}"
+
     def to_json(self):
         return {
             '_type': self.__class__.__name__,
