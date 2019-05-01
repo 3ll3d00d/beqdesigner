@@ -128,6 +128,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.showFilters.blockSignals(False)
         # filter view/model
         self.filterView.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.filterView.doubleClicked.connect(self.editFilter)
         self.__filter_model = FilterModel(self.filterView, self.filtersLabel, self.preferences,
                                           on_update=self.on_filter_change)
         self.__filter_table_model = FilterTableModel(self.__filter_model, parent=parent)
