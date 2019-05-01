@@ -281,10 +281,13 @@
        <item>
         <widget class="QToolButton" name="saveButton">
          <property name="toolTip">
-          <string>Save and Exit</string>
+          <string>Save</string>
          </property>
          <property name="text">
           <string/>
+         </property>
+         <property name="shortcut">
+          <string>Return</string>
          </property>
         </widget>
        </item>
