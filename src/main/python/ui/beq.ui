@@ -975,7 +975,7 @@
      <x>0</x>
      <y>0</y>
      <width>1569</width>
-     <height>30</height>
+     <height>18</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuHelp">
@@ -1105,7 +1105,7 @@
     <string>Save &amp;Chart</string>
    </property>
    <property name="shortcut">
-    <string>Ctrl+S</string>
+    <string>Ctrl+Shift+C</string>
    </property>
   </action>
   <action name="actionExport_Biquad">
@@ -1123,6 +1123,9 @@
    <property name="text">
     <string>Save &amp;Filter</string>
    </property>
+   <property name="shortcut">
+    <string>Ctrl+Alt+S</string>
+   </property>
   </action>
   <action name="actionLoad_Filter">
    <property name="checkable">
@@ -1133,6 +1136,9 @@
    </property>
    <property name="text">
     <string>Load Filte&amp;r</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Alt+L</string>
    </property>
   </action>
   <action name="action_load_preset_1">
@@ -1198,20 +1204,32 @@
    <property name="text">
     <string>&amp;Save Project</string>
    </property>
+   <property name="shortcut">
+    <string>Ctrl+S</string>
+   </property>
   </action>
   <action name="action_Load_Project">
    <property name="text">
     <string>&amp;Load Project</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+O</string>
    </property>
   </action>
   <action name="actionSave_Signal">
    <property name="text">
     <string>Save Si&amp;gnal</string>
    </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+S</string>
+   </property>
   </action>
   <action name="actionLoad_Signal">
    <property name="text">
     <string>Loa&amp;d Signal</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+O</string>
    </property>
   </action>
   <action name="actionClear_Project">
