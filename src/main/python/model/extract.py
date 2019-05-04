@@ -2,11 +2,13 @@ import logging
 import math
 import os
 from pathlib import Path
+from urllib.parse import urlparse
+from urllib.request import url2pathname
 
 import numpy as np
 import qtawesome as qta
 from qtpy.QtCore import Qt, QTime
-from qtpy.QtGui import QPalette, QColor, QFont
+from qtpy.QtGui import QPalette, QColor, QFont, QBrush
 from qtpy.QtMultimedia import QSound
 from qtpy.QtWidgets import QDialog, QFileDialog, QStatusBar, QDialogButtonBox, QMessageBox
 
@@ -57,6 +59,14 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             self.targetDir.setText(defaultOutputDir)
         self.__reinit_fields()
         self.filterMapping.itemDoubleClicked.connect(self.show_mapping_dialog)
+        self.inputDrop.callback = self.__handle_drop
+
+    def __handle_drop(self, file):
+        if file.startswith('file:/'):
+            file = url2pathname(urlparse(file).path)
+        if os.path.exists(file) and os.path.isfile(file):
+            self.inputFile.setText(file)
+            self.__probe_file()
 
     def show_remux_cmd(self):
         ''' Pops the ffmpeg command into a message box '''

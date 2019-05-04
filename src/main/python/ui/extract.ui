@@ -110,11 +110,43 @@
       </widget>
      </item>
      <item row="0" column="1">
-      <widget class="QLineEdit" name="inputFile">
-       <property name="enabled">
-        <bool>false</bool>
-       </property>
-      </widget>
+      <layout class="QHBoxLayout" name="inputLayout" stretch="1,0">
+       <item>
+        <widget class="QLineEdit" name="inputFile">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="DropArea" name="inputDrop">
+         <property name="minimumSize">
+          <size>
+           <width>100</width>
+           <height>0</height>
+          </size>
+         </property>
+         <property name="autoFillBackground">
+          <bool>false</bool>
+         </property>
+         <property name="frameShape">
+          <enum>QFrame::StyledPanel</enum>
+         </property>
+         <property name="frameShadow">
+          <enum>QFrame::Sunken</enum>
+         </property>
+         <property name="text">
+          <string/>
+         </property>
+         <property name="scaledContents">
+          <bool>false</bool>
+         </property>
+         <property name="alignment">
+          <set>Qt::AlignCenter</set>
+         </property>
+        </widget>
+       </item>
+      </layout>
      </item>
      <item row="11" column="1">
       <widget class="QPlainTextEdit" name="ffmpegCommandLine">
@@ -457,6 +489,13 @@
    </item>
   </layout>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>DropArea</class>
+   <extends>QLabel</extends>
+   <header>ui.drop</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections>
   <connection>
