@@ -547,7 +547,24 @@
      </item>
      <item>
       <layout class="QGridLayout" name="systemPane">
-       <item row="0" column="0">
+       <item row="1" column="0">
+        <widget class="QCheckBox" name="checkForUpdates">
+         <property name="text">
+          <string>Check for Updates on startup?</string>
+         </property>
+         <property name="checked">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QCheckBox" name="checkForBetaUpdates">
+         <property name="text">
+          <string>Include Beta Versions?</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="0" colspan="2">
         <widget class="QLabel" name="systemLayoutLabel">
          <property name="font">
           <font>
@@ -566,16 +583,6 @@
          </property>
          <property name="alignment">
           <set>Qt::AlignCenter</set>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="0">
-        <widget class="QCheckBox" name="checkForUpdates">
-         <property name="text">
-          <string>Check for Updates on startup?</string>
-         </property>
-         <property name="checked">
-          <bool>true</bool>
          </property>
         </widget>
        </item>

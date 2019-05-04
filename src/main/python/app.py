@@ -24,7 +24,7 @@ from model.batch import BatchExtractDialog
 from model.analysis import AnalyseSignalDialog
 from model.link import LinkSignalsDialog
 from model.preferences import DISPLAY_SHOW_FILTERED_SIGNALS, SYSTEM_CHECK_FOR_UPDATES, BEQ_DOWNLOAD_DIR, \
-    BIQUAD_EXPORT_MAX, BIQUAD_EXPORT_FS, BIQUAD_EXPORT_DEVICE, SHOW_NO_FILTERS
+    BIQUAD_EXPORT_MAX, BIQUAD_EXPORT_FS, BIQUAD_EXPORT_DEVICE, SHOW_NO_FILTERS, SYSTEM_CHECK_FOR_BETA_UPDATES
 from ui.delegates import RegexValidator
 
 import pyqtgraph as pg
@@ -88,8 +88,10 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         with open(os.path.join(self.__style_path_root, 'VERSION')) as version_file:
             self.__version = version_file.read().strip()
         if self.preferences.get(SYSTEM_CHECK_FOR_UPDATES):
-            QThreadPool.globalInstance().start(VersionChecker(self.__alert_on_old_version,
-                                                              self.__alert_on_version_check_fail, self.__version))
+            QThreadPool.globalInstance().start(VersionChecker(self.preferences.get(SYSTEM_CHECK_FOR_BETA_UPDATES),
+                                                              self.__alert_on_old_version,
+                                                              self.__alert_on_version_check_fail,
+                                                              self.__version))
 
         matplotlib_theme = self.preferences.get(STYLE_MATPLOTLIB_THEME)
         if matplotlib_theme is not None:

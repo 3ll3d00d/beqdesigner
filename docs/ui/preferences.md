@@ -66,7 +66,11 @@ This option sets the frequency for the low pass filter applied in the [Bass Mana
 
 ### System
 
-Check the *Check for updates on startup?* option to allow BEQDesigner to query the github releases api on startup. If the latest release is not the current release, an alert will be shown to notify you.
+Check the *Check for updates on startup?* option to allow BEQDesigner to query the github releases api on startup. 
+
+Check the *Include Beta Versions?* option to be notified when new prerelease versions are published.
+
+If the latest release is not the current release, an alert will be shown to notify you.
 
 ### BEQ Files
 

@@ -133,6 +133,7 @@ REPORT_GEOMETRY = 'report/geometry'
 LOGGING_LEVEL = 'logging/level'
 
 SYSTEM_CHECK_FOR_UPDATES = 'system/check_for_updates'
+SYSTEM_CHECK_FOR_BETA_UPDATES = 'system/check_for_beta_updates'
 
 BEQ_DOWNLOAD_DIR = 'beq/directory'
 BEQ_MERGE_DIR = 'beq/merge_dir'
@@ -212,6 +213,7 @@ DEFAULT_PREFS = {
     REPORT_LAYOUT_HSPACE: matplotlib.rcParams['figure.subplot.hspace'],
     REPORT_LAYOUT_WSPACE: matplotlib.rcParams['figure.subplot.wspace'],
     SYSTEM_CHECK_FOR_UPDATES: True,
+    SYSTEM_CHECK_FOR_BETA_UPDATES: False,
 }
 
 TYPES = {
@@ -259,7 +261,8 @@ TYPES = {
     REPORT_CHART_LIMITS_X1: int,
     REPORT_FILTER_SHOW_HEADER: bool,
     REPORT_FILTER_FONT_SIZE: int,
-    SYSTEM_CHECK_FOR_UPDATES: bool
+    SYSTEM_CHECK_FOR_UPDATES: bool,
+    SYSTEM_CHECK_FOR_BETA_UPDATES: bool
 }
 
 COLOUR_INTERVALS = [x / 255 for x in range(36, 250, 24)] + [1.0]
@@ -415,6 +418,7 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
 
         self.speclabLineStyle.setChecked(self.__preferences.get(DISPLAY_LINE_STYLE))
         self.checkForUpdates.setChecked(self.__preferences.get(SYSTEM_CHECK_FOR_UPDATES))
+        self.checkForBetaUpdates.setChecked(self.__preferences.get(SYSTEM_CHECK_FOR_BETA_UPDATES))
         self.smoothGraphs.setChecked(self.__preferences.get(DISPLAY_SMOOTH_GRAPHS))
 
         self.monoMix.setChecked(self.__preferences.get(EXTRACTION_MIX_MONO))
@@ -519,6 +523,7 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
             self.__main_chart_limits.update(x_min=self.xmin.value(), x_max=self.xmax.value(),
                                             x_scale=new_x_scale, draw=True)
         self.__preferences.set(SYSTEM_CHECK_FOR_UPDATES, self.checkForUpdates.isChecked())
+        self.__preferences.set(SYSTEM_CHECK_FOR_BETA_UPDATES, self.checkForBetaUpdates.isChecked())
         self.__preferences.set(DISPLAY_LINE_STYLE, self.speclabLineStyle.isChecked())
         self.__preferences.set(DISPLAY_SMOOTH_GRAPHS, self.smoothGraphs.isChecked())
         self.__preferences.set(EXTRACTION_MIX_MONO, self.monoMix.isChecked())
