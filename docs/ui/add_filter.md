@@ -21,6 +21,7 @@ From top to bottom:
 
 !!! info
     Use the button next to each field to change the size of the step up or down
+    
     Click multiple times to see the available step sizes
 
 The buttons to the right of each field show the current step size for the field, click the field to change the resolution to allow fine tuning or coarse adjustments.
@@ -30,6 +31,7 @@ The buttons across the bottom are, from left to right:
 * Add a new filter
 * Save the current filter
 * Close the dialog
+* Show the [axes limits](./main_window.md#graph-limits) dialog
 
 !!! warning
     Remember to click Add or Edit as changes are not committed to the signal unless one of these buttons is clicked

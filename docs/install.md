@@ -2,13 +2,16 @@
 
 Releases are hosted on github, the latest official release will always be available via the [github releases page](https://github.com/3ll3d00d/beqdesigner/releases/latest)
 
-3 binaries are provided for official releases:
+4 sets of binaries are provided for official releases:
 
 File Name | OS | Description 
 ----------|----|------------
-beqdesigner.exe | Windows | A portable, self contained exe 
-beqdesignerSetup.exe | Windows | An installer, will startup more quickly than the portable exe 
-beqdesigner | Linux | A portable, self contained binary (tested on Debian Stretch and Fedora 29) 
+beqdesigner.exe | Windows | A portable, self contained exe which is built using the anaconda python distribution and hence uses the MKL libraries
+beqdesignerSetup.exe | Windows | An installer, will startup more quickly than the portable exe which is built using the anaconda python distribution and hence uses the MKL libraries
+beqdesigner_small.exe | Windows | A portable, self contained exe which is built using the python.org python distribution
+beqdesignerSetup_small.exe | Windows | An installer, will startup more quickly than the portable exe which is built using the python.org python distribution 
+beqdesigner_*distro*\_*version*\_*name* | Linux | A portable, self contained binary built for the specified distribution
+beqdesigner.app.zip | OSX | An OSX app bundle 
 
 To use, simply download one of the above binaries and run it.
 
@@ -26,8 +29,16 @@ The only difference is that using beqdesignerSetup.exe should lead to faster sta
 ### OSX Builds
 
 !!! note
-    BEQDesigner is known to work on OSX but binaries are not provided by the author at this point in time. Some binaries are provided by community member bmiller (refer to the [BEQ slack group](https://join.slack.com/t/beqworkspace/shared_invite/enQtNTE3Mjg4MTgzMjY5LWIzZWZjYzNkOTQzZThkYzM5YTAwNzFmY2VlNjFkYTI1NWQ0NDU1ZTViMzg0OWUyMTdkZjQ5NDNmNGFmYzliODY)) for details.
+    OSX binaries are not signed so the user has to explicitly allow it to run. Contributions are welcome to fix this issue, please track [the github issue](https://github.com/3ll3d00d/beqdesigner/issues/251) for more details.
 
+### How can I trust these binaries?
+
+All binaries are compiled on fresh VMs using [travis-ci](https://travis-ci.com/3ll3d00d/beqdesigner/branches) and publishes automatically to github by a [github machine user](https://developer.github.com/v3/guides/managing-deploy-keys/#machine-users).
+
+Builds are created and published from tags in the repo.
+
+This approach means the binaries are completely reproducible by anyone so feel free to make your own or run from source if you do not wish to trust the published binaries.
+    
 ## Optional Dependencies
 
 If you intend to use BEQDesigner to extract audio from movie files and/or remux movie files then you will need a local installation of ffmpeg.
@@ -50,5 +61,3 @@ Refer to your distro for instructions
 Beta releases are published more regularly than official releases. Beta releases provide early access to new or experimental features. Review the release notes for any particular beta release for more details.
 
 They can be found via the full release page on [github](https://github.com/3ll3d00d/beqdesigner/releases).
-
-Note that beta releases are typically shared in `beqdesigner.exe` format only.

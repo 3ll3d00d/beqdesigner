@@ -87,6 +87,10 @@ The precise data shown will vary with the type of filter, for example:
 * S is only defined for a shelf filter
 * gain is not applicable to a low or high pass filter 
 
+Filters are automatically sorted as they are added into ascending frequency order.
+
+Double clicking a row will open the [Edit Filter](./add_filter.md) dialog for that filter.
+
 #### Filter Controls
 
 When no filters have been added, there are 4 separate buttons enabled. These are:
@@ -111,8 +115,6 @@ Lets take a look at the main window when a filter is loaded
 
 This shows the spectral content of the signal. 
 
-The y axis range is automatically set to display a 60dB range while ensuring the peaks of the signal are visible.
-
 #### Main Graph Controls
 
 The precise content shown depends on the selections made via the controls in the bottom right corner
@@ -128,6 +130,34 @@ The options available are:
 * +3dB/octave? : applies a crude 3dB/octave adjustment which approximates the difference between white noise showing as flat or pink noise showing as flat  
 
 Further options to render the responses differently or interact with the content are available above the main graph. 
+
+#### Managing the Y Axis Range
+
+By default, the y axis range is automatically set to display a 60dB range with the maximum values set to ensure the peaks of the signal are visible.
+
+This behaviour can be changed using the *Auto Expand Y Limits?* option in [Preferences](./preferences.md#graph). If this value is checked then the maximum value will be set to include the visible peak and the minimum value will be set to ensure the minimum is value is also visible. 
+
+!!! info
+    Auto ranging is based on the data visible in the current x axis range only.
+
+A quick access toolbar is also available alongside each y axis
+
+![Graph Toolbar](../img/graph_toolbar.png)
+
+3 groups of controls are available
+
+1. Shift upper limit
+2. Auto ranging toggle
+3. Shift lower limit
+
+Each shift group has 4 buttons which perform the following shifts in dB
+
+* +10
+* +5
+* -5
+* -10
+
+The middle group acts as a toggle and either turns on or turns off the currently configured auto ranging.
 
 #### Showing the difference between Curves
 
@@ -168,7 +198,9 @@ This allows you to enter a frequency and see the magnitude at that frequency for
 
 ![Graph Options](../img/graph_options.png)
 
-Clicking the right hand button opens the Graph Limits dialog
+Clicking the right hand button opens the [Graph Limits](#graph-limits) dialog.
+
+#### Graph Limits
 
 ![Graph Limits](../img/graph_limits.png)
 

@@ -117,3 +117,4 @@ src/scratch
 *.filter
 
 scratch.py
+.directory
