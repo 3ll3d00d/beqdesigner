@@ -450,7 +450,7 @@ class Ui_MainWindow(object):
         self.widgetGridLayout.addLayout(self.panes, 0, 0, 1, 1)
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 1569, 18))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 1569, 30))
         self.menubar.setObjectName("menubar")
         self.menuHelp = QtWidgets.QMenu(self.menubar)
         self.menuHelp.setObjectName("menuHelp")
@@ -555,7 +555,11 @@ class Ui_MainWindow(object):
         self.actionClear_Filters.setObjectName("actionClear_Filters")
         self.actionMerge_Minidsp_XML = QtWidgets.QAction(MainWindow)
         self.actionMerge_Minidsp_XML.setObjectName("actionMerge_Minidsp_XML")
+        self.actionUser_Guide = QtWidgets.QAction(MainWindow)
+        self.actionUser_Guide.setObjectName("actionUser_Guide")
+        self.menuHelp.addAction(self.actionUser_Guide)
         self.menuHelp.addAction(self.actionShow_Logs)
+        self.menuHelp.addSeparator()
         self.menuHelp.addAction(self.actionAbout)
         self.menuSettings.addAction(self.actionPreferences)
         self.menuSettings.addSeparator()
@@ -794,6 +798,8 @@ class Ui_MainWindow(object):
         self.actionClear_Filters.setText(_translate("MainWindow", "Clear Filters"))
         self.actionMerge_Minidsp_XML.setText(_translate("MainWindow", "Merge Minidsp XML"))
         self.actionMerge_Minidsp_XML.setShortcut(_translate("MainWindow", "Ctrl+X"))
+        self.actionUser_Guide.setText(_translate("MainWindow", "User Guide"))
+        self.actionUser_Guide.setShortcut(_translate("MainWindow", "F1"))
 
 
 from app import PlotWidgetWithDateAxis

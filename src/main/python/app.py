@@ -37,8 +37,8 @@ from ui.biquad import Ui_exportBiquadDialog
 from ui.savechart import Ui_saveChartDialog
 
 from qtpy import QtCore
-from qtpy.QtCore import QSettings, QThreadPool
-from qtpy.QtGui import QIcon, QFont, QCursor, QTextCursor
+from qtpy.QtCore import QSettings, QThreadPool, QUrl
+from qtpy.QtGui import QIcon, QFont, QCursor, QTextCursor, QDesktopServices
 from qtpy.QtWidgets import QMainWindow, QApplication, QErrorMessage, QAbstractItemView, QDialog, QFileDialog, \
     QHeaderView, QMessageBox, QHBoxLayout, QToolButton
 
@@ -247,6 +247,11 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.actionAbout.triggered.connect(self.showAbout)
         # tools
         self.actionMerge_Minidsp_XML.triggered.connect(self.merge_minidsp_xml)
+        self.actionUser_Guide.triggered.connect(self.show_help)
+
+    def show_help(self):
+        ''' Opens the user guide in a browser '''
+        QDesktopServices.openUrl(QUrl('https://beqdesigner.readthedocs.io/en/latest'))
 
     def smoothSignals(self):
         ''' Applies the current smoothing options to the visible signals. '''
