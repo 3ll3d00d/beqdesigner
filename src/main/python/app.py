@@ -488,8 +488,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
                     self.octaveSmoothing.setCurrentText(signal_data.smoothing_description)
                 else:
                     self.octaveSmoothing.setCurrentText('None')
-            if self.__waveform_controller.is_visible is False:
-                self.__waveform_controller.selected_name = self.__signal_model[selection.selectedRows()[0].row()].name
+            self.__waveform_controller.selected_name = self.__signal_model[selection.selectedRows()[0].row()].name
         else:
             if len(self.__filter_model.filter) > 0:
                 self.__default_signal.filter = self.__filter_model.filter
