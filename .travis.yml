@@ -78,6 +78,7 @@ install:
 - pipenv install -d
 - $PBIN list
 - pipenv run $PBIN list
+- [[ -n ${TRAVIS_TAG }]] && echo $TRAVIS_TAG > src/main/python/VERSION
 script:
 - PYTHONPATH=./src/main/python $PRUN pytest $COVERAGE_ARGS
 before_deploy:
