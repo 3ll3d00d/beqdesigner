@@ -289,9 +289,11 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
 
     def __hide_waveform_chart(self):
         self.chartSplitter.setSizes([1, 0])
+        self.__waveform_controller.on_visibility_change(show=False)
 
     def __show_waveform_chart(self):
         self.chartSplitter.setSizes([100000, 100000])
+        self.__waveform_controller.on_visibility_change(show=True)
 
     def __alert_on_version_check_fail(self, message):
         '''
@@ -486,6 +488,8 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
                     self.octaveSmoothing.setCurrentText(signal_data.smoothing_description)
                 else:
                     self.octaveSmoothing.setCurrentText('None')
+            if self.__waveform_controller.is_visible is False:
+                self.__waveform_controller.selected_name = self.__signal_model[selection.selectedRows()[0].row()].name
         else:
             if len(self.__filter_model.filter) > 0:
                 self.__default_signal.filter = self.__filter_model.filter

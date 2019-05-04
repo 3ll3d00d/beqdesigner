@@ -21,6 +21,8 @@ class WaveformController:
                  bm_lpf_position, bm_clip_before, bm_clip_after, is_filtered, apply_hard_clip, start_time, end_time,
                  show_spectrum_btn, hide_spectrum_btn, zoom_in_btn, zoom_out_btn, compare_spectrum_btn, source_file,
                  load_signal_btn, show_limits_btn, y_min, y_max):
+        self.__is_visible = False
+        self.__selected_name = None
         self.__preferences = preferences
         self.__signal_model = signal_model
         self.__current_signal = None
@@ -74,6 +76,18 @@ class WaveformController:
         self.__zoom_out_btn.clicked.connect(self.__zoom_out)
         self.update_waveform(None)
 
+    @property
+    def is_visible(self):
+        return self.__is_visible
+
+    @property
+    def selected_name(self):
+        return self.__selected_name
+
+    @selected_name.setter
+    def selected_name(self, selected_name):
+        self.__selected_name = selected_name
+
     def __zoom_out(self):
         ''' zooms out and hides the spectrum '''
         self.hide_spectrum()
@@ -95,6 +109,26 @@ class WaveformController:
             sig.reindex(self.__selector.currentIndex() - 1)
             return sig.get_all_xy()
         return []
+
+    def on_visibility_change(self, show=True):
+        '''
+        Reacts to a change in visibility by deselecting the visible chart or showing the previously selected one.
+        :param show: True if we're showing the chart.
+        '''
+        self.__is_visible = show
+        if show is True:
+            if self.__selected_name is not None:
+                idx = self.__selector.findText(self.__selected_name)
+                if idx > -1:
+                    self.__selector.setCurrentIndex(idx)
+                else:
+                    if self.__selector.count() == 2:
+                        self.__selector.setCurrentIndex(1)
+                    else:
+                        self.__reset_controls()
+        else:
+            self.__selected_name = self.__selector.currentText()
+            self.__selector.setCurrentIndex(0)
 
     def refresh_selector(self):
         ''' Updates the selector with the available signals. '''
