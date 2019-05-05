@@ -78,6 +78,7 @@ install:
 - pipenv install -d
 - $PBIN list
 - pipenv run $PBIN list
+before_script:
 - |
   if [[ -n ${TRAVIS_TAG} ]]
   then
