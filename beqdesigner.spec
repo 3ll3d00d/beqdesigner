@@ -42,6 +42,7 @@ linux_excludes = {
 
 # helper functions
 
+
 def get_resampy_path():
     '''
     :return: gets the current path to the resampy module in order to find where the kaiser data files are.

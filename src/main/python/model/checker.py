@@ -1,8 +1,9 @@
 import logging
-
+import platform
 import requests
 from qtpy.QtCore import Signal, QRunnable, QObject, QAbstractTableModel, QModelIndex, Qt, QVariant
-from qtpy.QtWidgets import QDialog, QHeaderView, QItemDelegate
+from qtpy.QtWidgets import QDialog
+
 from ui.newversion import Ui_newVersionDialog
 
 logger = logging.getLogger('checker')
@@ -90,10 +91,10 @@ class ReleaseNotesDialog(QDialog, Ui_newVersionDialog):
         self.versionTable.setModel(self.__table_model)
         self.versionTable.selectionModel().selectionChanged.connect(self.on_version_selected)
         self.versionTable.resizeColumnsToContents()
-
+        self.versionTable.selectRow(0)
         if self.__versions[0]['current'] is False:
-            self.message.setText(f"{self.__versions[0]['version']} is out, <a href='{self.__versions[0]['url']}'>download</a> it now!")
-            self.setWindowTitle('New Version Available!')
+            self.message.setText(f"{self.__versions[0]['version']} is out, grab it while it is fresh!")
+            self.setWindowTitle(f"New {'Beta' if self.__versions[0]['version'].prerelease is not None else 'Final'} Version Available!")
         else:
             self.message.setText('')
             self.setWindowTitle('Release Notes')
@@ -106,7 +107,12 @@ class ReleaseNotesDialog(QDialog, Ui_newVersionDialog):
 
     @staticmethod
     def __format(v):
-        return f"## {v['tag']} - {v['date']}\nDownload from [GitHub]({v['url']})\n\n{v['description']}\n"
+        download_link = _get_download_link(v['assets'], platform.system())
+        if download_link is not None:
+            download_link = f"Download from [GitHub]({download_link})\n"
+        else:
+            download_link = ''
+        return f"## {v['tag']} - {v['date']}\n{download_link}\n{v['description']}\n"
 
     @staticmethod
     def __convert_to_html(text, issues):
@@ -152,28 +158,43 @@ class VersionTableModel(QAbstractTableModel):
             elif index.column() == 1:
                 return QVariant(at_row['date'])
             elif index.column() == 2:
-                return QVariant(self.__has_os(at_row['assets'], 'win'))
+                return QVariant('Y' if _has_os(at_row['assets'], 'win') is True else 'N')
             elif index.column() == 3:
-                return QVariant(self.__has_os(at_row['assets'], 'osx'))
+                return QVariant('Y' if _has_os(at_row['assets'], 'osx') else 'N')
             elif index.column() == 4:
-                return QVariant(self.__has_os(at_row['assets'], 'linux'))
+                return QVariant('Y' if _has_os(at_row['assets'], 'linux') else 'N')
             else:
                 return QVariant()
-
-    def __has_os(self, assets, os):
-        for a in assets:
-            if os == 'win':
-                if a['name'].endswith('exe'):
-                    return 'Y'
-            elif os == 'osx':
-                if a['name'].endswith('app.zip'):
-                    return 'Y'
-            elif os == 'linux':
-                if not a['name'].endswith('exe') and not a['name'].endswith('app.zip'):
-                    return 'Y'
-        return 'N'
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int = ...):
         if orientation == Qt.Horizontal and role == Qt.DisplayRole:
             return QVariant(self.__headers[section])
         return QVariant()
+
+
+def _get_download_link(assets, os):
+    for a in assets:
+        if os == 'Windows':
+            if a['name'] == 'beqdesigner_small.exe':
+                return a['url']
+        elif os == 'Darwn':
+            if a['name'] == 'beqdesigner.app.zip':
+                return a['url']
+        elif os.lower().startswith('linux'):
+            if not a['name'].endswith('exe') and not a['name'].endswith('app.zip'):
+                return a['url']
+    return None
+
+
+def _has_os(assets, os):
+    for a in assets:
+        if os == 'win':
+            if a['name'].endswith('exe'):
+                return True
+        elif os == 'osx':
+            if a['name'].endswith('app.zip'):
+                return True
+        elif os == 'linux':
+            if not a['name'].endswith('exe') and not a['name'].endswith('app.zip'):
+                return True
+    return False
