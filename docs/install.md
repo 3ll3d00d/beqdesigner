@@ -15,6 +15,20 @@ beqdesigner.app.zip | OSX | An OSX app bundle
 
 To use, simply download one of the above binaries and run it.
 
+### Checking for Updates
+
+Release notes and download links are accessible via the *Help > Release Notes* menu item. This is also displayed on startup if a new version is detected and the github release api is accessible.
+
+![New Version](./img/new_version.png)
+
+The OS columns show whether a binary is available for that operating system.
+
+Multiple rows can be selected to see what has changed in each release.
+
+![Many Releases](./img/show_release_notes.png)
+
+If a binary is available for your operating system for any selected release, the download link will be provided alongside the release notes.
+
 ### Is there any difference between beqdesigner.exe and beqdesignerSetup.exe?
 
 Functionally, no.
