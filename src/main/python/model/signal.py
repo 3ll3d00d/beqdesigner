@@ -1882,3 +1882,4 @@ class Smoother(QRunnable):
             signal_data.smooth(fraction, set_active=False)
             end = time.time()
             logger.info(f"Smoothed {signal_data} at {fraction} in {round(end - start, 3)}s")
+

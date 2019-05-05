@@ -20,6 +20,7 @@ pillow = "*"
 requests = "*"
 semver = "*"
 dulwich = "*"
+markdown = "*"
 
 [dev-packages]
 pytest = "*"

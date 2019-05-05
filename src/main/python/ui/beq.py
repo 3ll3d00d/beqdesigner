@@ -557,9 +557,12 @@ class Ui_MainWindow(object):
         self.actionMerge_Minidsp_XML.setObjectName("actionMerge_Minidsp_XML")
         self.actionUser_Guide = QtWidgets.QAction(MainWindow)
         self.actionUser_Guide.setObjectName("actionUser_Guide")
+        self.actionRelease_Notes = QtWidgets.QAction(MainWindow)
+        self.actionRelease_Notes.setObjectName("actionRelease_Notes")
         self.menuHelp.addAction(self.actionUser_Guide)
         self.menuHelp.addAction(self.actionShow_Logs)
         self.menuHelp.addSeparator()
+        self.menuHelp.addAction(self.actionRelease_Notes)
         self.menuHelp.addAction(self.actionAbout)
         self.menuSettings.addAction(self.actionPreferences)
         self.menuSettings.addSeparator()
@@ -800,6 +803,7 @@ class Ui_MainWindow(object):
         self.actionMerge_Minidsp_XML.setShortcut(_translate("MainWindow", "Ctrl+X"))
         self.actionUser_Guide.setText(_translate("MainWindow", "User Guide"))
         self.actionUser_Guide.setShortcut(_translate("MainWindow", "F1"))
+        self.actionRelease_Notes.setText(_translate("MainWindow", "Release Notes"))
 
 
 from app import PlotWidgetWithDateAxis

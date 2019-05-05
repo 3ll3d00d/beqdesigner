@@ -985,6 +985,7 @@
     <addaction name="actionUser_Guide"/>
     <addaction name="actionShow_Logs"/>
     <addaction name="separator"/>
+    <addaction name="actionRelease_Notes"/>
     <addaction name="actionAbout"/>
    </widget>
    <widget class="QMenu" name="menuSettings">
@@ -1364,6 +1365,11 @@
    </property>
    <property name="shortcut">
     <string>F1</string>
+   </property>
+  </action>
+  <action name="actionRelease_Notes">
+   <property name="text">
+    <string>Release Notes</string>
    </property>
   </action>
  </widget>

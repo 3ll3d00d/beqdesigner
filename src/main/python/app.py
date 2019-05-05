@@ -6,25 +6,25 @@ import math
 import os
 import re
 import sys
-from scipy import signal
 from contextlib import contextmanager
 
 import matplotlib
-
-from model.minidsp import MergeFiltersDialog
+from scipy import signal
 
 matplotlib.use("Qt5Agg")
 os.environ['QT_API'] = 'pyqt5'
 # os.environ['PYQTGRAPH_QT_LIB'] = 'PyQt5'
 
 from model.waveform import WaveformController
-from model.checker import VersionChecker
+from model.checker import VersionChecker, ReleaseNotesDialog
 from model.report import SaveReportDialog, block_signals
 from model.batch import BatchExtractDialog
 from model.analysis import AnalyseSignalDialog
 from model.link import LinkSignalsDialog
 from model.preferences import DISPLAY_SHOW_FILTERED_SIGNALS, SYSTEM_CHECK_FOR_UPDATES, BEQ_DOWNLOAD_DIR, \
     BIQUAD_EXPORT_MAX, BIQUAD_EXPORT_FS, BIQUAD_EXPORT_DEVICE, SHOW_NO_FILTERS, SYSTEM_CHECK_FOR_BETA_UPDATES
+from model.minidsp import MergeFiltersDialog
+
 from ui.delegates import RegexValidator
 
 import pyqtgraph as pg
@@ -248,6 +248,15 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         # tools
         self.actionMerge_Minidsp_XML.triggered.connect(self.merge_minidsp_xml)
         self.actionUser_Guide.triggered.connect(self.show_help)
+        self.actionRelease_Notes.triggered.connect(self.show_release_notes)
+
+    def show_release_notes(self):
+        ''' Shows the release notes '''
+        QThreadPool.globalInstance().start(VersionChecker(self.preferences.get(SYSTEM_CHECK_FOR_BETA_UPDATES),
+                                                          self.__alert_on_old_version,
+                                                          self.__alert_on_version_check_fail,
+                                                          self.__version,
+                                                          signal_anyway=True))
 
     def show_help(self):
         ''' Opens the user guide in a browser '''
@@ -313,13 +322,9 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         msg_box.setWindowTitle('Unable to Complete Version Check')
         msg_box.exec()
 
-    def __alert_on_old_version(self, new_version, download_url):
+    def __alert_on_old_version(self, versions, issues):
         ''' Presents a dialog if there is a new version available. '''
-        msg_box = QMessageBox()
-        msg_box.setText(f"{new_version} is out now! <p><p> Download from <a href='{download_url}'>github</a> now!")
-        msg_box.setIcon(QMessageBox.Information)
-        msg_box.setWindowTitle('New Version Available')
-        msg_box.exec()
+        ReleaseNotesDialog(self, versions, issues).exec()
 
     def __configure_signal_model(self, parent):
         '''
