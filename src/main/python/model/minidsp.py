@@ -50,34 +50,42 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
         self.__update_beq_metadata()
 
     def __update_beq_metadata(self):
-        if os.path.exists(self.__beq_dir):
+        if os.path.exists(self.__beq_dir) and os.path.exists(os.path.join(self.__beq_dir, '.git')):
             match = len(glob.glob(f"{self.__beq_dir}{os.sep}**{os.sep}*.xml", recursive=True))
             self.__show_or_hide(True)
             self.totalFiles.setValue(match)
             from dulwich import porcelain, index
-            with porcelain.open_repo_closing(self.__beq_dir) as local_repo:
-                last_commit = local_repo[local_repo.head()]
-                last_commit_time_utc = last_commit.commit_time
-                last_commit_qdt = QDateTime()
-                last_commit_qdt.setTime_t(last_commit_time_utc)
-                self.lastCommitDate.setDateTime(last_commit_qdt)
-                from datetime import datetime
-                import calendar
-                d = datetime.utcnow()
-                now_utc = calendar.timegm(d.utctimetuple())
-                days_since_commit = (now_utc - last_commit_time_utc) / 60 / 60 / 24
-                warning_msg = ''
-                if days_since_commit > 7.0:
-                    warning_msg = f"&nbsp;was {round(days_since_commit)} days ago, press the button to update -->"
-                commit_link = f"{BMILLER_GITHUB_MINIDSP}/commit/{last_commit.id.decode('utf-8')}"
-                self.infoLabel.setText(f"<a href=\"{commit_link}\">Last Commit</a>{warning_msg}")
-                self.infoLabel.setTextFormat(Qt.RichText)
-                self.infoLabel.setTextInteractionFlags(Qt.TextBrowserInteraction)
-                self.infoLabel.setOpenExternalLinks(True)
-                self.lastCommitMessage.setPlainText(f"Author: {last_commit.author.decode('utf-8')}\n\n{last_commit.message.decode('utf-8')}")
+            try:
+                with porcelain.open_repo_closing(self.__beq_dir) as local_repo:
+                    last_commit = local_repo[local_repo.head()]
+                    last_commit_time_utc = last_commit.commit_time
+                    last_commit_qdt = QDateTime()
+                    last_commit_qdt.setTime_t(last_commit_time_utc)
+                    self.lastCommitDate.setDateTime(last_commit_qdt)
+                    from datetime import datetime
+                    import calendar
+                    d = datetime.utcnow()
+                    now_utc = calendar.timegm(d.utctimetuple())
+                    days_since_commit = (now_utc - last_commit_time_utc) / 60 / 60 / 24
+                    warning_msg = ''
+                    if days_since_commit > 7.0:
+                        warning_msg = f"&nbsp;was {round(days_since_commit)} days ago, press the button to update -->"
+                    commit_link = f"{BMILLER_GITHUB_MINIDSP}/commit/{last_commit.id.decode('utf-8')}"
+                    self.infoLabel.setText(f"<a href=\"{commit_link}\">Last Commit</a>{warning_msg}")
+                    self.infoLabel.setTextFormat(Qt.RichText)
+                    self.infoLabel.setTextInteractionFlags(Qt.TextBrowserInteraction)
+                    self.infoLabel.setOpenExternalLinks(True)
+                    self.lastCommitMessage.setPlainText(f"Author: {last_commit.author.decode('utf-8')}\n\n{last_commit.message.decode('utf-8')}")
+            except:
+                logger.exception(f"Unable to open git repo in {self.__beq_dir}")
+                self.__beq_dir_not_exists()
         else:
-            self.__show_or_hide(False)
-            self.infoLabel.setText(f"BEQ Filter repo not found at {self.__beq_dir}, press the button to clone the repository -->")
+            self.__beq_dir_not_exists()
+
+    def __beq_dir_not_exists(self):
+        self.__show_or_hide(False)
+        self.infoLabel.setText(
+            f"BEQ Filter repo not found at {self.__beq_dir}, press the button to clone the repository -->")
 
     def __show_or_hide(self, show):
         self.lastCommitDate.setVisible(show)

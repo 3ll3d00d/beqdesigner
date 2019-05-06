@@ -84,9 +84,13 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
             self.__style_path_root = sys._MEIPASS
         else:
             self.__style_path_root = os.path.dirname(__file__)
-        self.__version = 'UNKNOWN'
-        with open(os.path.join(self.__style_path_root, 'VERSION')) as version_file:
-            self.__version = version_file.read().strip()
+        self.__version = '0.0.0-alpha.1'
+        v_path = os.path.abspath(os.path.join(self.__style_path_root, 'VERSION'))
+        try:
+            with open(v_path) as version_file:
+                self.__version = version_file.read().strip()
+        except:
+            logger.exception(f"Unable to read {v_path}")
         if self.preferences.get(SYSTEM_CHECK_FOR_UPDATES):
             QThreadPool.globalInstance().start(VersionChecker(self.preferences.get(SYSTEM_CHECK_FOR_BETA_UPDATES),
                                                               self.__alert_on_old_version,
