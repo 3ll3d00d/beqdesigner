@@ -536,8 +536,15 @@ class RepoRefresher:
         from app import wait_cursor
         with wait_cursor():
             os.makedirs(self.repo_dir, exist_ok=True)
-            if os.path.exists(os.path.join(self.repo_dir, '.git')):
-                self.__pull_beq()
+            git_metadata_dir = os.path.abspath(os.path.join(self.repo_dir, '.git'))
+            if os.path.exists(git_metadata_dir):
+                from dulwich.errors import NotGitRepository
+                try:
+                    self.__pull_beq()
+                except NotGitRepository as e:
+                    logger.exception('.git exists but is not a git repo, attempting to delete .git directory and clone')
+                    os.rmdir(git_metadata_dir)
+                    self.__clone_beq()
             else:
                 self.__clone_beq()
 
