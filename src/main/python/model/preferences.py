@@ -5,7 +5,7 @@ from pathlib import Path
 import qtawesome as qta
 import matplotlib
 import matplotlib.style as style
-from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox
+from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox, QDialogButtonBox
 
 from ui.preferences import Ui_preferencesDialog
 
@@ -360,6 +360,12 @@ class Preferences:
         '''
         self.set(key, None)
 
+    def reset(self):
+        '''
+        Resets all preferences.
+        '''
+        self.__settings.clear()
+
 
 class PreferencesDialog(QDialog, Ui_preferencesDialog):
     '''
@@ -375,6 +381,7 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         self.__init_themes()
         self.__preferences = preferences
         self.__main_chart_limits = main_chart_limits
+        self.buttonBox.button(QDialogButtonBox.RestoreDefaults).clicked.connect(self.__reset)
 
         self.beqDirectoryPicker.setIcon(qta.icon('fa5s.folder-open'))
         self.defaultOutputDirectoryPicker.setIcon(qta.icon('fa5s.folder-open'))
@@ -437,6 +444,20 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         self.precalcSmoothing.setChecked(self.__preferences.get(DISPLAY_SMOOTH_PRECALC))
 
         self.__count_beq_files()
+
+    def __reset(self):
+        '''
+        Reset all settings
+        '''
+        result = QMessageBox.question(self,
+                                      'Reset Preferences?',
+                                      f"All preferences will be restored to their default values. This action is irreversible.\nAre you sure you want to continue?",
+                                      QMessageBox.Yes | QMessageBox.No,
+                                      QMessageBox.No)
+        if result == QMessageBox.Yes:
+            self.__preferences.reset()
+            self.alert_on_change('Defaults Restored')
+            self.reject()
 
     def __init_themes(self):
         '''
