@@ -637,5 +637,7 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
     def updateBeq(self):
         ''' Pulls or clones the named repository '''
         from model.minidsp import RepoRefresher
-        RepoRefresher(self.beqFiltersDir.text()).refresh()
-        self.__count_beq_files()
+        from app import wait_cursor
+        with wait_cursor():
+            RepoRefresher(self.beqFiltersDir.text()).refresh()
+            self.__count_beq_files()

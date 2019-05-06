@@ -46,8 +46,10 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
         self.__enable_process()
 
     def refresh_repo(self):
-        RepoRefresher(self.__beq_dir).refresh()
-        self.__update_beq_metadata()
+        from app import wait_cursor
+        with wait_cursor():
+            RepoRefresher(self.__beq_dir).refresh()
+            self.__update_beq_metadata()
 
     def __update_beq_metadata(self):
         if os.path.exists(self.__beq_dir) and os.path.exists(os.path.join(self.__beq_dir, '.git')):
