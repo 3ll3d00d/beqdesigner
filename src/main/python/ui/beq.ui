@@ -975,7 +975,7 @@
      <x>0</x>
      <y>0</y>
      <width>1569</width>
-     <height>30</height>
+     <height>18</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuHelp">
@@ -1044,6 +1044,7 @@
     <addaction name="menuPresets"/>
     <addaction name="separator"/>
     <addaction name="actionAdd_BEQ_Filter"/>
+    <addaction name="actionExport_BEQ_Filter"/>
     <addaction name="separator"/>
     <addaction name="actionExport_FRD"/>
     <addaction name="separator"/>
@@ -1279,7 +1280,7 @@
   </action>
   <action name="actionAdd_BEQ_Filter">
    <property name="text">
-    <string>Add BE&amp;Q Filter</string>
+    <string>Load BE&amp;Q Filter</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+Shift+B</string>
@@ -1370,6 +1371,14 @@
   <action name="actionRelease_Notes">
    <property name="text">
     <string>Release Notes</string>
+   </property>
+  </action>
+  <action name="actionExport_BEQ_Filter">
+   <property name="text">
+    <string>Export BEQ Filter</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Alt+E</string>
    </property>
   </action>
  </widget>

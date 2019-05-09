@@ -512,7 +512,10 @@ def extract_and_pad_with_passthrough(filt_xml, fs, required=10):
     :param required: how many filters do we need.
     :return: the filters.
     '''
-    filters = xml_to_filt(filt_xml, fs=fs)
+    return pad_with_passthrough(xml_to_filt(filt_xml, fs=fs), fs, required)
+
+
+def pad_with_passthrough(filters, fs, required):
     flattened_filters = []
     for filt in filters:
         if isinstance(filt, PeakingEQ):

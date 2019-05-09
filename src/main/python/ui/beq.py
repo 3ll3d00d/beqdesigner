@@ -450,7 +450,7 @@ class Ui_MainWindow(object):
         self.widgetGridLayout.addLayout(self.panes, 0, 0, 1, 1)
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 1569, 30))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 1569, 18))
         self.menubar.setObjectName("menubar")
         self.menuHelp = QtWidgets.QMenu(self.menubar)
         self.menuHelp.setObjectName("menuHelp")
@@ -559,6 +559,8 @@ class Ui_MainWindow(object):
         self.actionUser_Guide.setObjectName("actionUser_Guide")
         self.actionRelease_Notes = QtWidgets.QAction(MainWindow)
         self.actionRelease_Notes.setObjectName("actionRelease_Notes")
+        self.actionExport_BEQ_Filter = QtWidgets.QAction(MainWindow)
+        self.actionExport_BEQ_Filter.setObjectName("actionExport_BEQ_Filter")
         self.menuHelp.addAction(self.actionUser_Guide)
         self.menuHelp.addAction(self.actionShow_Logs)
         self.menuHelp.addSeparator()
@@ -591,6 +593,7 @@ class Ui_MainWindow(object):
         self.menuFile.addAction(self.menuPresets.menuAction())
         self.menuFile.addSeparator()
         self.menuFile.addAction(self.actionAdd_BEQ_Filter)
+        self.menuFile.addAction(self.actionExport_BEQ_Filter)
         self.menuFile.addSeparator()
         self.menuFile.addAction(self.actionExport_FRD)
         self.menuFile.addSeparator()
@@ -781,7 +784,7 @@ class Ui_MainWindow(object):
         self.actionAbout.setText(_translate("MainWindow", "&About"))
         self.action_Remux_Audio.setText(_translate("MainWindow", "&Remux Audio"))
         self.action_Remux_Audio.setShortcut(_translate("MainWindow", "Ctrl+U"))
-        self.actionAdd_BEQ_Filter.setText(_translate("MainWindow", "Add BE&Q Filter"))
+        self.actionAdd_BEQ_Filter.setText(_translate("MainWindow", "Load BE&Q Filter"))
         self.actionAdd_BEQ_Filter.setShortcut(_translate("MainWindow", "Ctrl+Shift+B"))
         self.actionClear_Signals.setText(_translate("MainWindow", "Clear S&ignals"))
         self.action1_1_Smoothing.setText(_translate("MainWindow", "1/&1 Smoothing"))
@@ -804,6 +807,8 @@ class Ui_MainWindow(object):
         self.actionUser_Guide.setText(_translate("MainWindow", "User Guide"))
         self.actionUser_Guide.setShortcut(_translate("MainWindow", "F1"))
         self.actionRelease_Notes.setText(_translate("MainWindow", "Release Notes"))
+        self.actionExport_BEQ_Filter.setText(_translate("MainWindow", "Export BEQ Filter"))
+        self.actionExport_BEQ_Filter.setShortcut(_translate("MainWindow", "Ctrl+Alt+E"))
 
 
 from app import PlotWidgetWithDateAxis
