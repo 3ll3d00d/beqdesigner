@@ -101,7 +101,7 @@ def get_data_args():
         (os.path.abspath(f"{get_resampy_path()}/data/kaiser_fast.npz"), '_resampy_filters'),
         ('src/main/python/style', 'style'),
         ('src/main/python/VERSION', '.'),
-        ('src/main/data/flat24hd.xml', '.'),
+        ('src/main/xml/flat24hd.xml', '.'),
     ]
     sndfile_data = get_sndfile_data()
     if sndfile_data is not None:

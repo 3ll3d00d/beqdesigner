@@ -1063,7 +1063,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
             if getattr(sys, 'frozen', False):
                 file_path = os.path.join(sys._MEIPASS, 'flat24hd.xml')
             else:
-                file_path = os.path.abspath(os.path.join(os.path.dirname('__file__'), '../data/flat24hd.xml'))
+                file_path = os.path.abspath(os.path.join(os.path.dirname('__file__'), '../xml/flat24hd.xml'))
             filters = pad_with_passthrough(self.__filter_model.filter, 96000, 10)
             output_xml = HDXmlParser('2x4 HD').overwrite(filters, file_path)
             with open(file_name, 'w') as f:
