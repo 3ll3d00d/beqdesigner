@@ -415,8 +415,9 @@ class WaveformModel:
         '''
         from app import wait_cursor
         with wait_cursor(f"Analysing"):
-            step = 1.0 / self.signal.fs
-            x = np.arange(0, self.signal.duration_seconds, step)
+            x = np.linspace(0, self.signal.duration_seconds * self.signal.fs,
+                            endpoint=False,
+                            num=len(self.signal.samples))
             y = self.signal.samples
             if self.__curve is None:
                 self.__curve = self.__chart.plot(x, y, pen=mkPen('c', width=1))
