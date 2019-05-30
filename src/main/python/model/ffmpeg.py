@@ -1002,7 +1002,15 @@ def parse_audio_stream(probe, audio_stream):
     duration, duration_ms = get_duration(probe, audio_stream)
     if duration is None:
         duration = ''
-    text = f"{audio_stream['index']}: {audio_stream['codec_long_name']} - {audio_stream['sample_rate']}Hz"
+    if 'codec_name' in audio_stream and audio_stream['codec_name'] == 'dts' and 'profile' in audio_stream:
+        codec = audio_stream['profile']
+    else:
+        codec = audio_stream['codec_long_name']
+    if 'tags' in audio_stream and 'language' in audio_stream['tags']:
+        lang = f"{audio_stream['tags']['language']} - "
+    else:
+        lang = ''
+    text = f"{audio_stream['index']}: {codec} - {lang}{audio_stream['sample_rate']}Hz"
     if 'channel_layout' in audio_stream:
         text += f" {audio_stream['channel_layout']} "
     elif 'channels' in audio_stream:
