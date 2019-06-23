@@ -710,6 +710,7 @@ class MaxSpectrumByTime:
                 scatter = axes.scatter(x, y, c=z, s=s, vmin=vmin, vmax=vmax, marker=marker)
             axes.yaxis.set_major_formatter(FuncFormatter(seconds_to_hhmmss))
             axes.yaxis.set_major_locator(MaxNLocator(nbins=24, min_n_ticks=8, steps=[1, 3, 6]))
+            axes.xaxis.set_major_locator(MaxNLocator(nbins=12, steps=[1, 5, 10], min_n_ticks=8))
         else:
             if self.__current_marker == POINT or self.__current_marker == ELLIPSE:
                 new_data = np.c_[x, y]
