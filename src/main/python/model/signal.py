@@ -24,7 +24,7 @@ from model.magnitude import MagnitudeModel
 from model.preferences import get_avg_colour, get_peak_colour, SHOW_PEAK, \
     SHOW_AVERAGE, SHOW_FILTERED_ONLY, SHOW_UNFILTERED_ONLY, DISPLAY_SHOW_SIGNALS, \
     DISPLAY_SHOW_FILTERED_SIGNALS, ANALYSIS_TARGET_FS, BASS_MANAGEMENT_LPF_FS, BASS_MANAGEMENT_LPF_POSITION, \
-    BM_LPF_BEFORE, BM_LPF_AFTER, DISPLAY_SMOOTH_PRECALC, X_RESOLUTION
+    BM_LPF_BEFORE, BM_LPF_AFTER, DISPLAY_SMOOTH_PRECALC, X_RESOLUTION, ANALYSIS_AVG_CALC
 from ui.signal import Ui_addSignalDialog
 
 SIGNAL_END = 'end'
@@ -946,7 +946,8 @@ class Signal:
     def __segment_spectrum(self, segment, resolution_shift=0, window=None, **kwargs):
         nperseg = self.get_segment_length(use_segment=True, resolution_shift=resolution_shift)
         f, Pxx_spec = signal.welch(segment, self.fs, nperseg=nperseg, scaling='spectrum', detrend=False,
-                                   window=window if window else 'hann', **kwargs)
+                                   window=window if window else 'hann',
+                                   average=self.__preferences.get(ANALYSIS_AVG_CALC).lower(), **kwargs)
         return f, Pxx_spec
 
     def peak_spectrum(self, ref=SPECLAB_REFERENCE, resolution_shift=0, window=None):

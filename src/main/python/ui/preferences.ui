@@ -86,6 +86,62 @@
      </item>
      <item>
       <layout class="QGridLayout" name="analysisPane">
+       <item row="2" column="0">
+        <widget class="QLabel" name="avgAnalysisWindowLabel">
+         <property name="text">
+          <string>Avg Window</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="3">
+        <widget class="QComboBox" name="resolutionSelect">
+         <property name="currentText">
+          <string>0.25 Hz</string>
+         </property>
+         <item>
+          <property name="text">
+           <string>0.25 Hz</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>0.5 Hz</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>1.0 Hz</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>2.0 Hz</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>4.0 Hz</string>
+          </property>
+         </item>
+        </widget>
+       </item>
+       <item row="1" column="4">
+        <widget class="QLabel" name="averagingLabel">
+         <property name="text">
+          <string>Averaging</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="QLabel" name="targetFsLabel">
+         <property name="text">
+          <string>Target Fs</string>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="3">
+        <widget class="QComboBox" name="peakAnalysisWindow"/>
+       </item>
        <item row="1" column="1">
         <widget class="QComboBox" name="targetFs">
          <item>
@@ -127,14 +183,31 @@
          </property>
         </widget>
        </item>
-       <item row="1" column="0">
-        <widget class="QLabel" name="targetFsLabel">
+       <item row="2" column="1">
+        <widget class="QComboBox" name="avgAnalysisWindow"/>
+       </item>
+       <item row="2" column="2">
+        <widget class="QLabel" name="peakAnalysisWindowLabel">
          <property name="text">
-          <string>Target Fs</string>
+          <string>Peak Window</string>
          </property>
         </widget>
        </item>
-       <item row="0" column="0" colspan="4">
+       <item row="1" column="5">
+        <widget class="QComboBox" name="averaging">
+         <item>
+          <property name="text">
+           <string>Mean</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Median</string>
+          </property>
+         </item>
+        </widget>
+       </item>
+       <item row="0" column="0" colspan="6">
         <widget class="QLabel" name="analysisLabel">
          <property name="font">
           <font>
@@ -155,58 +228,6 @@
           <set>Qt::AlignCenter</set>
          </property>
         </widget>
-       </item>
-       <item row="1" column="3">
-        <widget class="QComboBox" name="resolutionSelect">
-         <property name="currentText">
-          <string>0.25 Hz</string>
-         </property>
-         <item>
-          <property name="text">
-           <string>0.25 Hz</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>0.5 Hz</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>1.0 Hz</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>2.0 Hz</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>4.0 Hz</string>
-          </property>
-         </item>
-        </widget>
-       </item>
-       <item row="2" column="0">
-        <widget class="QLabel" name="avgAnalysisWindowLabel">
-         <property name="text">
-          <string>Avg Window</string>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="1">
-        <widget class="QComboBox" name="avgAnalysisWindow"/>
-       </item>
-       <item row="2" column="2">
-        <widget class="QLabel" name="peakAnalysisWindowLabel">
-         <property name="text">
-          <string>Peak Window</string>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="3">
-        <widget class="QComboBox" name="peakAnalysisWindow"/>
        </item>
       </layout>
      </item>
