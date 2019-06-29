@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'signal.ui'
+# Form implementation generated from reading ui file 'signal.ui',
+# licensing of 'signal.ui' applies.
 #
-# Created by: PyQt5 UI code generator 5.12.1
+# Created: Sat Jun 29 23:16:17 2019
+#      by: pyside2-uic  running on PySide2 5.13.0
 #
 # WARNING! All changes made in this file will be lost!
 
-from PyQt5 import QtCore, QtGui, QtWidgets
-
+from PySide2 import QtCore, QtGui, QtWidgets
 
 class Ui_addSignalDialog(object):
     def setupUi(self, addSignalDialog):
@@ -179,20 +180,20 @@ class Ui_addSignalDialog(object):
 
         self.retranslateUi(addSignalDialog)
         self.signalTypeTabs.setCurrentIndex(0)
-        self.buttonBox.rejected.connect(addSignalDialog.reject)
-        self.buttonBox.accepted.connect(addSignalDialog.accept)
-        self.wavFilePicker.clicked.connect(addSignalDialog.selectFile)
-        self.signalTypeTabs.currentChanged['int'].connect(addSignalDialog.changeLoader)
-        self.frdAvgFilePicker.clicked.connect(addSignalDialog.selectAvgFile)
-        self.frdPeakFilePicker.clicked.connect(addSignalDialog.selectPeakFile)
-        self.wavSignalName.textChanged['QString'].connect(addSignalDialog.enableOk)
-        self.frdSignalName.textChanged['QString'].connect(addSignalDialog.enableOk)
-        self.filterSelect.currentIndexChanged['int'].connect(addSignalDialog.masterFilterChanged)
-        self.wavChannelSelector.currentTextChanged['QString'].connect(addSignalDialog.previewChannel)
-        self.applyTimeRangeButton.clicked.connect(addSignalDialog.limitTimeRange)
-        self.wavStartTime.timeChanged['QTime'].connect(addSignalDialog.enableLimitTimeRangeButton)
-        self.wavEndTime.timeChanged['QTime'].connect(addSignalDialog.enableLimitTimeRangeButton)
-        self.decimate.stateChanged['int'].connect(addSignalDialog.toggleDecimate)
+        QtCore.QObject.connect(self.buttonBox, QtCore.SIGNAL("rejected()"), addSignalDialog.reject)
+        QtCore.QObject.connect(self.buttonBox, QtCore.SIGNAL("accepted()"), addSignalDialog.accept)
+        QtCore.QObject.connect(self.wavFilePicker, QtCore.SIGNAL("clicked()"), addSignalDialog.selectFile)
+        QtCore.QObject.connect(self.signalTypeTabs, QtCore.SIGNAL("currentChanged(int)"), addSignalDialog.changeLoader)
+        QtCore.QObject.connect(self.frdAvgFilePicker, QtCore.SIGNAL("clicked()"), addSignalDialog.selectAvgFile)
+        QtCore.QObject.connect(self.frdPeakFilePicker, QtCore.SIGNAL("clicked()"), addSignalDialog.selectPeakFile)
+        QtCore.QObject.connect(self.wavSignalName, QtCore.SIGNAL("textChanged(QString)"), addSignalDialog.enableOk)
+        QtCore.QObject.connect(self.frdSignalName, QtCore.SIGNAL("textChanged(QString)"), addSignalDialog.enableOk)
+        QtCore.QObject.connect(self.filterSelect, QtCore.SIGNAL("currentIndexChanged(int)"), addSignalDialog.masterFilterChanged)
+        QtCore.QObject.connect(self.wavChannelSelector, QtCore.SIGNAL("currentTextChanged(QString)"), addSignalDialog.previewChannel)
+        QtCore.QObject.connect(self.applyTimeRangeButton, QtCore.SIGNAL("clicked()"), addSignalDialog.limitTimeRange)
+        QtCore.QObject.connect(self.wavStartTime, QtCore.SIGNAL("timeChanged(QTime)"), addSignalDialog.enableLimitTimeRangeButton)
+        QtCore.QObject.connect(self.wavEndTime, QtCore.SIGNAL("timeChanged(QTime)"), addSignalDialog.enableLimitTimeRangeButton)
+        QtCore.QObject.connect(self.decimate, QtCore.SIGNAL("stateChanged(int)"), addSignalDialog.toggleDecimate)
         QtCore.QMetaObject.connectSlotsByName(addSignalDialog)
         addSignalDialog.setTabOrder(self.signalTypeTabs, self.wavFilePicker)
         addSignalDialog.setTabOrder(self.wavFilePicker, self.wavChannelSelector)
@@ -214,33 +215,31 @@ class Ui_addSignalDialog(object):
         addSignalDialog.setTabOrder(self.frdPeakFile, self.previewChart)
 
     def retranslateUi(self, addSignalDialog):
-        _translate = QtCore.QCoreApplication.translate
-        addSignalDialog.setWindowTitle(_translate("addSignalDialog", "Load Signal"))
-        self.linkedSignal.setText(_translate("addSignalDialog", "Linked Filter?"))
-        self.wavStartTime.setDisplayFormat(_translate("addSignalDialog", "HH:mm:ss.zzz"))
-        self.decimate.setText(_translate("addSignalDialog", "Resample?"))
-        self.wavFileLabel.setText(_translate("addSignalDialog", "File"))
-        self.loadAllChannels.setText(_translate("addSignalDialog", "Load All Channels?"))
-        self.applyTimeRangeButton.setText(_translate("addSignalDialog", "..."))
-        self.wavStartTimeLabel.setText(_translate("addSignalDialog", "Start"))
-        self.wavEndTime.setDisplayFormat(_translate("addSignalDialog", "HH:mm:ss.zzz"))
-        self.wavSignalNameLabel.setText(_translate("addSignalDialog", "Name"))
-        self.wavFilePicker.setText(_translate("addSignalDialog", "..."))
-        self.wavEndTimeLabel.setText(_translate("addSignalDialog", "End"))
-        self.wavFsLabel.setText(_translate("addSignalDialog", "Fs"))
-        self.wavChannelLabel.setText(_translate("addSignalDialog", "Channel"))
-        self.gainOffset.setSuffix(_translate("addSignalDialog", " dB"))
-        self.gainOffsetLabel.setText(_translate("addSignalDialog", "Offset"))
-        self.signalTypeTabs.setTabText(self.signalTypeTabs.indexOf(self.wavTab), _translate("addSignalDialog", "AUDIO"))
-        self.frdFsLabel.setText(_translate("addSignalDialog", "Fs"))
-        self.frdAvgFileLabel.setText(_translate("addSignalDialog", "Avg"))
-        self.frdAvgFilePicker.setText(_translate("addSignalDialog", "..."))
-        self.frdSignalNameLabel.setText(_translate("addSignalDialog", "Name"))
-        self.frdPeakFileLabel.setText(_translate("addSignalDialog", "Peak"))
-        self.frdPeakFilePicker.setText(_translate("addSignalDialog", "..."))
-        self.signalTypeTabs.setTabText(self.signalTypeTabs.indexOf(self.frdTab), _translate("addSignalDialog", "TXT"))
-        self.filterSelectLabel.setText(_translate("addSignalDialog", "Copy Filter"))
-        self.filterSelect.setItemText(0, _translate("addSignalDialog", "None"))
-
+        addSignalDialog.setWindowTitle(QtWidgets.QApplication.translate("addSignalDialog", "Load Signal", None, -1))
+        self.linkedSignal.setText(QtWidgets.QApplication.translate("addSignalDialog", "Linked Filter?", None, -1))
+        self.wavStartTime.setDisplayFormat(QtWidgets.QApplication.translate("addSignalDialog", "HH:mm:ss.zzz", None, -1))
+        self.decimate.setText(QtWidgets.QApplication.translate("addSignalDialog", "Resample?", None, -1))
+        self.wavFileLabel.setText(QtWidgets.QApplication.translate("addSignalDialog", "File", None, -1))
+        self.loadAllChannels.setText(QtWidgets.QApplication.translate("addSignalDialog", "Load All Channels?", None, -1))
+        self.applyTimeRangeButton.setText(QtWidgets.QApplication.translate("addSignalDialog", "...", None, -1))
+        self.wavStartTimeLabel.setText(QtWidgets.QApplication.translate("addSignalDialog", "Start", None, -1))
+        self.wavEndTime.setDisplayFormat(QtWidgets.QApplication.translate("addSignalDialog", "HH:mm:ss.zzz", None, -1))
+        self.wavSignalNameLabel.setText(QtWidgets.QApplication.translate("addSignalDialog", "Name", None, -1))
+        self.wavFilePicker.setText(QtWidgets.QApplication.translate("addSignalDialog", "...", None, -1))
+        self.wavEndTimeLabel.setText(QtWidgets.QApplication.translate("addSignalDialog", "End", None, -1))
+        self.wavFsLabel.setText(QtWidgets.QApplication.translate("addSignalDialog", "Fs", None, -1))
+        self.wavChannelLabel.setText(QtWidgets.QApplication.translate("addSignalDialog", "Channel", None, -1))
+        self.gainOffset.setSuffix(QtWidgets.QApplication.translate("addSignalDialog", " dB", None, -1))
+        self.gainOffsetLabel.setText(QtWidgets.QApplication.translate("addSignalDialog", "Offset", None, -1))
+        self.signalTypeTabs.setTabText(self.signalTypeTabs.indexOf(self.wavTab), QtWidgets.QApplication.translate("addSignalDialog", "AUDIO", None, -1))
+        self.frdFsLabel.setText(QtWidgets.QApplication.translate("addSignalDialog", "Fs", None, -1))
+        self.frdAvgFileLabel.setText(QtWidgets.QApplication.translate("addSignalDialog", "Avg", None, -1))
+        self.frdAvgFilePicker.setText(QtWidgets.QApplication.translate("addSignalDialog", "...", None, -1))
+        self.frdSignalNameLabel.setText(QtWidgets.QApplication.translate("addSignalDialog", "Name", None, -1))
+        self.frdPeakFileLabel.setText(QtWidgets.QApplication.translate("addSignalDialog", "Peak", None, -1))
+        self.frdPeakFilePicker.setText(QtWidgets.QApplication.translate("addSignalDialog", "...", None, -1))
+        self.signalTypeTabs.setTabText(self.signalTypeTabs.indexOf(self.frdTab), QtWidgets.QApplication.translate("addSignalDialog", "TXT", None, -1))
+        self.filterSelectLabel.setText(QtWidgets.QApplication.translate("addSignalDialog", "Copy Filter", None, -1))
+        self.filterSelect.setItemText(0, QtWidgets.QApplication.translate("addSignalDialog", "None", None, -1))
 
 from mpl import MplWidget

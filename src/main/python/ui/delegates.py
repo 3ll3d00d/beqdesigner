@@ -1,6 +1,6 @@
 import logging
 
-from PyQt5.QtGui import QRegExpValidator
+from qtpy.QtGui import QRegExpValidator
 from qtpy.QtCore import QEvent, Qt, QRegExp
 from qtpy.QtWidgets import QItemDelegate, QStyledItemDelegate, QLineEdit
 

@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'savechart.ui'
+# Form implementation generated from reading ui file 'savechart.ui',
+# licensing of 'savechart.ui' applies.
 #
-# Created by: PyQt5 UI code generator 5.12.1
+# Created: Sat Jun 29 23:16:17 2019
+#      by: pyside2-uic  running on PySide2 5.13.0
 #
 # WARNING! All changes made in this file will be lost!
 
-from PyQt5 import QtCore, QtGui, QtWidgets
-
+from PySide2 import QtCore, QtGui, QtWidgets
 
 class Ui_saveChartDialog(object):
     def setupUi(self, saveChartDialog):
@@ -44,15 +45,13 @@ class Ui_saveChartDialog(object):
         self.gridLayout.addWidget(self.buttonBox, 1, 0, 1, 1)
 
         self.retranslateUi(saveChartDialog)
-        self.buttonBox.accepted.connect(saveChartDialog.accept)
-        self.buttonBox.rejected.connect(saveChartDialog.reject)
-        self.widthPixels.valueChanged['int'].connect(saveChartDialog.set_height)
+        QtCore.QObject.connect(self.buttonBox, QtCore.SIGNAL("accepted()"), saveChartDialog.accept)
+        QtCore.QObject.connect(self.buttonBox, QtCore.SIGNAL("rejected()"), saveChartDialog.reject)
+        QtCore.QObject.connect(self.widthPixels, QtCore.SIGNAL("valueChanged(int)"), saveChartDialog.set_height)
         QtCore.QMetaObject.connectSlotsByName(saveChartDialog)
 
     def retranslateUi(self, saveChartDialog):
-        _translate = QtCore.QCoreApplication.translate
-        saveChartDialog.setWindowTitle(_translate("saveChartDialog", "Save Chart"))
-        self.label.setText(_translate("saveChartDialog", "Width"))
-        self.label_2.setText(_translate("saveChartDialog", "Height"))
-
+        saveChartDialog.setWindowTitle(QtWidgets.QApplication.translate("saveChartDialog", "Save Chart", None, -1))
+        self.label.setText(QtWidgets.QApplication.translate("saveChartDialog", "Width", None, -1))
+        self.label_2.setText(QtWidgets.QApplication.translate("saveChartDialog", "Height", None, -1))
 

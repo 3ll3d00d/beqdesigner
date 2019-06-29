@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'values.ui'
+# Form implementation generated from reading ui file 'values.ui',
+# licensing of 'values.ui' applies.
 #
-# Created by: PyQt5 UI code generator 5.12.1
+# Created: Sat Jun 29 23:16:17 2019
+#      by: pyside2-uic  running on PySide2 5.13.0
 #
 # WARNING! All changes made in this file will be lost!
 
-from PyQt5 import QtCore, QtGui, QtWidgets
-
+from PySide2 import QtCore, QtGui, QtWidgets
 
 class Ui_valuesDialog(object):
     def setupUi(self, valuesDialog):
@@ -32,12 +33,10 @@ class Ui_valuesDialog(object):
         self.formLayout.setWidget(0, QtWidgets.QFormLayout.FieldRole, self.freq)
 
         self.retranslateUi(valuesDialog)
-        self.freq.valueChanged['double'].connect(valuesDialog.updateValues)
+        QtCore.QObject.connect(self.freq, QtCore.SIGNAL("valueChanged(double)"), valuesDialog.updateValues)
         QtCore.QMetaObject.connectSlotsByName(valuesDialog)
 
     def retranslateUi(self, valuesDialog):
-        _translate = QtCore.QCoreApplication.translate
-        valuesDialog.setWindowTitle(_translate("valuesDialog", "Values"))
-        self.label.setText(_translate("valuesDialog", "Freq (Hz)"))
-
+        valuesDialog.setWindowTitle(QtWidgets.QApplication.translate("valuesDialog", "Values", None, -1))
+        self.label.setText(QtWidgets.QApplication.translate("valuesDialog", "Freq (Hz)", None, -1))
 

@@ -2,7 +2,7 @@ import logging
 import time
 
 import numpy as np
-from PyQt5.QtCore import QSettings
+from qtpy.QtCore import QSettings
 from scipy.interpolate import PchipInterpolator, CubicSpline
 
 from acoustics.smooth import OctaveBand

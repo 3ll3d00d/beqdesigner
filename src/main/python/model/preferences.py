@@ -344,10 +344,10 @@ class Preferences:
         '''
         default_value = DEFAULT_PREFS.get(key, None) if default_if_unset is True else None
         value_type = TYPES.get(key, None)
+        value = self.__settings.value(key, defaultValue=default_value)
         if value_type is not None:
-            return self.__settings.value(key, defaultValue=default_value, type=value_type)
-        else:
-            return self.__settings.value(key, defaultValue=default_value)
+            value = value_type(value)
+        return value
 
     def get_all(self, prefix):
         '''

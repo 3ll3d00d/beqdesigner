@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'ffmpeg.ui'
+# Form implementation generated from reading ui file 'ffmpeg.ui',
+# licensing of 'ffmpeg.ui' applies.
 #
-# Created by: PyQt5 UI code generator 5.12.1
+# Created: Sat Jun 29 23:16:14 2019
+#      by: pyside2-uic  running on PySide2 5.13.0
 #
 # WARNING! All changes made in this file will be lost!
 
-from PyQt5 import QtCore, QtGui, QtWidgets
-
+from PySide2 import QtCore, QtGui, QtWidgets
 
 class Ui_ffmpegReportDialog(object):
     def setupUi(self, ffmpegReportDialog):
@@ -35,12 +36,10 @@ class Ui_ffmpegReportDialog(object):
         self.verticalLayout.addWidget(self.buttonBox)
 
         self.retranslateUi(ffmpegReportDialog)
-        self.buttonBox.accepted.connect(ffmpegReportDialog.accept)
-        self.buttonBox.rejected.connect(ffmpegReportDialog.reject)
+        QtCore.QObject.connect(self.buttonBox, QtCore.SIGNAL("accepted()"), ffmpegReportDialog.accept)
+        QtCore.QObject.connect(self.buttonBox, QtCore.SIGNAL("rejected()"), ffmpegReportDialog.reject)
         QtCore.QMetaObject.connectSlotsByName(ffmpegReportDialog)
 
     def retranslateUi(self, ffmpegReportDialog):
-        _translate = QtCore.QCoreApplication.translate
-        ffmpegReportDialog.setWindowTitle(_translate("ffmpegReportDialog", "ffmpeg"))
-
+        ffmpegReportDialog.setWindowTitle(QtWidgets.QApplication.translate("ffmpegReportDialog", "ffmpeg", None, -1))
 

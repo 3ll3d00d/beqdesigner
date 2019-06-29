@@ -1,7 +1,7 @@
 import logging
 import platform
 import requests
-from qtpy.QtCore import Signal, QRunnable, QObject, QAbstractTableModel, QModelIndex, Qt, QVariant
+from qtpy.QtCore import Signal, QRunnable, QObject, QAbstractTableModel, QModelIndex, Qt
 from qtpy.QtWidgets import QDialog
 
 from ui.newversion import Ui_newVersionDialog
@@ -148,28 +148,28 @@ class VersionTableModel(QAbstractTableModel):
 
     def data(self, index: QModelIndex, role: int = ...):
         if not index.isValid():
-            return QVariant()
+            return None
         elif role != Qt.DisplayRole:
-            return QVariant()
+            return None
         else:
             at_row = self.__versions[index.row()]
             if index.column() == 0:
-                return QVariant(at_row['tag'])
+                return at_row['tag']
             elif index.column() == 1:
-                return QVariant(at_row['date'])
+                return at_row['date']
             elif index.column() == 2:
-                return QVariant('Y' if _has_os(at_row['assets'], 'win') is True else 'N')
+                return 'Y' if _has_os(at_row['assets'], 'win') is True else 'N'
             elif index.column() == 3:
-                return QVariant('Y' if _has_os(at_row['assets'], 'osx') else 'N')
+                return 'Y' if _has_os(at_row['assets'], 'osx') else 'N'
             elif index.column() == 4:
-                return QVariant('Y' if _has_os(at_row['assets'], 'linux') else 'N')
+                return 'Y' if _has_os(at_row['assets'], 'linux') else 'N'
             else:
-                return QVariant()
+                return None
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int = ...):
         if orientation == Qt.Horizontal and role == Qt.DisplayRole:
-            return QVariant(self.__headers[section])
-        return QVariant()
+            return self.__headers[section]
+        return None
 
 
 def _get_download_link(assets, os):

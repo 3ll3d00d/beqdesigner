@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'biquad.ui'
+# Form implementation generated from reading ui file 'biquad.ui',
+# licensing of 'biquad.ui' applies.
 #
-# Created by: PyQt5 UI code generator 5.12.1
+# Created: Sat Jun 29 23:16:13 2019
+#      by: pyside2-uic  running on PySide2 5.13.0
 #
 # WARNING! All changes made in this file will be lost!
 
-from PyQt5 import QtCore, QtGui, QtWidgets
-
+from PySide2 import QtCore, QtGui, QtWidgets
 
 class Ui_exportBiquadDialog(object):
     def setupUi(self, exportBiquadDialog):
@@ -68,30 +69,28 @@ class Ui_exportBiquadDialog(object):
         self.gridLayout.setColumnStretch(1, 4)
 
         self.retranslateUi(exportBiquadDialog)
-        self.showHex.clicked.connect(exportBiquadDialog.updateBiquads)
-        self.fs.currentIndexChanged['int'].connect(exportBiquadDialog.updateBiquads)
-        self.maxBiquads.valueChanged['int'].connect(exportBiquadDialog.updateBiquads)
-        self.setDefaults.clicked.connect(exportBiquadDialog.save)
-        self.copyToClipboardBtn.clicked.connect(exportBiquadDialog.copyToClipboard)
-        self.saveToFile.clicked.connect(exportBiquadDialog.export)
-        self.outputFormat.currentTextChanged['QString'].connect(exportBiquadDialog.update_format)
+        QtCore.QObject.connect(self.showHex, QtCore.SIGNAL("clicked()"), exportBiquadDialog.updateBiquads)
+        QtCore.QObject.connect(self.fs, QtCore.SIGNAL("currentIndexChanged(int)"), exportBiquadDialog.updateBiquads)
+        QtCore.QObject.connect(self.maxBiquads, QtCore.SIGNAL("valueChanged(int)"), exportBiquadDialog.updateBiquads)
+        QtCore.QObject.connect(self.setDefaults, QtCore.SIGNAL("clicked()"), exportBiquadDialog.save)
+        QtCore.QObject.connect(self.copyToClipboardBtn, QtCore.SIGNAL("clicked()"), exportBiquadDialog.copyToClipboard)
+        QtCore.QObject.connect(self.saveToFile, QtCore.SIGNAL("clicked()"), exportBiquadDialog.export)
+        QtCore.QObject.connect(self.outputFormat, QtCore.SIGNAL("currentTextChanged(QString)"), exportBiquadDialog.update_format)
         QtCore.QMetaObject.connectSlotsByName(exportBiquadDialog)
 
     def retranslateUi(self, exportBiquadDialog):
-        _translate = QtCore.QCoreApplication.translate
-        exportBiquadDialog.setWindowTitle(_translate("exportBiquadDialog", "Export Biquads"))
-        self.fs.setItemText(0, _translate("exportBiquadDialog", "48000"))
-        self.fs.setItemText(1, _translate("exportBiquadDialog", "96000"))
-        self.fs.setItemText(2, _translate("exportBiquadDialog", "192000"))
-        self.maxBiquadsLabel.setText(_translate("exportBiquadDialog", "Max Biquads"))
-        self.fsLabel.setText(_translate("exportBiquadDialog", "Sample Rate (Hz)"))
-        self.setDefaults.setText(_translate("exportBiquadDialog", "..."))
-        self.outputFormat.setItemText(0, _translate("exportBiquadDialog", "Minidsp 2x4HD"))
-        self.outputFormat.setItemText(1, _translate("exportBiquadDialog", "Minidsp 10x10HD"))
-        self.outputFormat.setItemText(2, _translate("exportBiquadDialog", "Minidsp 2x4"))
-        self.outputFormat.setItemText(3, _translate("exportBiquadDialog", "User Selected"))
-        self.showHex.setText(_translate("exportBiquadDialog", "Show Hex Value?"))
-        self.saveToFile.setText(_translate("exportBiquadDialog", "..."))
-        self.copyToClipboardBtn.setText(_translate("exportBiquadDialog", "..."))
-
+        exportBiquadDialog.setWindowTitle(QtWidgets.QApplication.translate("exportBiquadDialog", "Export Biquads", None, -1))
+        self.fs.setItemText(0, QtWidgets.QApplication.translate("exportBiquadDialog", "48000", None, -1))
+        self.fs.setItemText(1, QtWidgets.QApplication.translate("exportBiquadDialog", "96000", None, -1))
+        self.fs.setItemText(2, QtWidgets.QApplication.translate("exportBiquadDialog", "192000", None, -1))
+        self.maxBiquadsLabel.setText(QtWidgets.QApplication.translate("exportBiquadDialog", "Max Biquads", None, -1))
+        self.fsLabel.setText(QtWidgets.QApplication.translate("exportBiquadDialog", "Sample Rate (Hz)", None, -1))
+        self.setDefaults.setText(QtWidgets.QApplication.translate("exportBiquadDialog", "...", None, -1))
+        self.outputFormat.setItemText(3, QtWidgets.QApplication.translate("exportBiquadDialog", "Minidsp 2x4HD", None, -1))
+        self.outputFormat.setItemText(4, QtWidgets.QApplication.translate("exportBiquadDialog", "Minidsp 10x10HD", None, -1))
+        self.outputFormat.setItemText(5, QtWidgets.QApplication.translate("exportBiquadDialog", "Minidsp 2x4", None, -1))
+        self.outputFormat.setItemText(6, QtWidgets.QApplication.translate("exportBiquadDialog", "User Selected", None, -1))
+        self.showHex.setText(QtWidgets.QApplication.translate("exportBiquadDialog", "Show Hex Value?", None, -1))
+        self.saveToFile.setText(QtWidgets.QApplication.translate("exportBiquadDialog", "...", None, -1))
+        self.copyToClipboardBtn.setText(QtWidgets.QApplication.translate("exportBiquadDialog", "...", None, -1))
 

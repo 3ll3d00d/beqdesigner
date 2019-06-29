@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'newversion.ui'
+# Form implementation generated from reading ui file 'newversion.ui',
+# licensing of 'newversion.ui' applies.
 #
-# Created by: PyQt5 UI code generator 5.12.1
+# Created: Sat Jun 29 23:16:16 2019
+#      by: pyside2-uic  running on PySide2 5.13.0
 #
 # WARNING! All changes made in this file will be lost!
 
-from PyQt5 import QtCore, QtGui, QtWidgets
-
+from PySide2 import QtCore, QtGui, QtWidgets
 
 class Ui_newVersionDialog(object):
     def setupUi(self, newVersionDialog):
@@ -41,13 +42,11 @@ class Ui_newVersionDialog(object):
         self.verticalLayout.setStretch(2, 1)
 
         self.retranslateUi(newVersionDialog)
-        self.buttonBox.accepted.connect(newVersionDialog.accept)
-        self.buttonBox.rejected.connect(newVersionDialog.reject)
+        QtCore.QObject.connect(self.buttonBox, QtCore.SIGNAL("accepted()"), newVersionDialog.accept)
+        QtCore.QObject.connect(self.buttonBox, QtCore.SIGNAL("rejected()"), newVersionDialog.reject)
         QtCore.QMetaObject.connectSlotsByName(newVersionDialog)
 
     def retranslateUi(self, newVersionDialog):
-        _translate = QtCore.QCoreApplication.translate
-        newVersionDialog.setWindowTitle(_translate("newVersionDialog", "New Version Available!"))
-        self.message.setText(_translate("newVersionDialog", "Message"))
-
+        newVersionDialog.setWindowTitle(QtWidgets.QApplication.translate("newVersionDialog", "New Version Available!", None, -1))
+        self.message.setText(QtWidgets.QApplication.translate("newVersionDialog", "Message", None, -1))
 

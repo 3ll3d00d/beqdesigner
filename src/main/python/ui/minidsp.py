@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'minidsp.ui'
+# Form implementation generated from reading ui file 'minidsp.ui',
+# licensing of 'minidsp.ui' applies.
 #
-# Created by: PyQt5 UI code generator 5.12.1
+# Created: Sat Jun 29 23:16:15 2019
+#      by: pyside2-uic  running on PySide2 5.13.0
 #
 # WARNING! All changes made in this file will be lost!
 
-from PyQt5 import QtCore, QtGui, QtWidgets
-
+from PySide2 import QtCore, QtGui, QtWidgets
 
 class Ui_mergeMinidspDialog(object):
     def setupUi(self, mergeMinidspDialog):
@@ -118,35 +119,33 @@ class Ui_mergeMinidspDialog(object):
         self.gridLayout.addLayout(self.innerLayout, 0, 0, 1, 1)
 
         self.retranslateUi(mergeMinidspDialog)
-        self.buttonBox.accepted.connect(mergeMinidspDialog.accept)
-        self.buttonBox.rejected.connect(mergeMinidspDialog.reject)
-        self.configFilePicker.clicked.connect(mergeMinidspDialog.pick_config_file)
-        self.outputDirectoryPicker.clicked.connect(mergeMinidspDialog.pick_output_dir)
-        self.processFiles.clicked.connect(mergeMinidspDialog.process_files)
-        self.refreshGitRepo.clicked.connect(mergeMinidspDialog.refresh_repo)
-        self.userSourceDirPicker.clicked.connect(mergeMinidspDialog.pick_user_source_dir)
-        self.clearUserSourceDir.clicked.connect(mergeMinidspDialog.clear_user_source_dir)
+        QtCore.QObject.connect(self.buttonBox, QtCore.SIGNAL("accepted()"), mergeMinidspDialog.accept)
+        QtCore.QObject.connect(self.buttonBox, QtCore.SIGNAL("rejected()"), mergeMinidspDialog.reject)
+        QtCore.QObject.connect(self.configFilePicker, QtCore.SIGNAL("clicked()"), mergeMinidspDialog.pick_config_file)
+        QtCore.QObject.connect(self.outputDirectoryPicker, QtCore.SIGNAL("clicked()"), mergeMinidspDialog.pick_output_dir)
+        QtCore.QObject.connect(self.processFiles, QtCore.SIGNAL("clicked()"), mergeMinidspDialog.process_files)
+        QtCore.QObject.connect(self.refreshGitRepo, QtCore.SIGNAL("clicked()"), mergeMinidspDialog.refresh_repo)
+        QtCore.QObject.connect(self.userSourceDirPicker, QtCore.SIGNAL("clicked()"), mergeMinidspDialog.pick_user_source_dir)
+        QtCore.QObject.connect(self.clearUserSourceDir, QtCore.SIGNAL("clicked()"), mergeMinidspDialog.clear_user_source_dir)
         QtCore.QMetaObject.connectSlotsByName(mergeMinidspDialog)
 
     def retranslateUi(self, mergeMinidspDialog):
-        _translate = QtCore.QCoreApplication.translate
-        mergeMinidspDialog.setWindowTitle(_translate("mergeMinidspDialog", "Merge Minidsp Config"))
-        self.minidspTypeLabel.setText(_translate("mergeMinidspDialog", "Minidsp Type"))
-        self.processFiles.setText(_translate("mergeMinidspDialog", "..."))
-        self.outputDirectoryLabel.setText(_translate("mergeMinidspDialog", "Output Directory"))
-        self.ofLabel.setText(_translate("mergeMinidspDialog", "of"))
-        self.userSourceDirPicker.setText(_translate("mergeMinidspDialog", "..."))
-        self.lastUpdateLabel.setText(_translate("mergeMinidspDialog", "Last Update"))
-        self.outputDirectoryPicker.setText(_translate("mergeMinidspDialog", "..."))
-        self.errorsLabel.setText(_translate("mergeMinidspDialog", "Errors"))
-        self.configFileLabel.setText(_translate("mergeMinidspDialog", "Config File"))
-        self.userSourceDirLabel.setText(_translate("mergeMinidspDialog", "User Source Directory"))
-        self.minidspType.setItemText(0, _translate("mergeMinidspDialog", "2x4 HD"))
-        self.minidspType.setItemText(1, _translate("mergeMinidspDialog", "2x4"))
-        self.minidspType.setItemText(2, _translate("mergeMinidspDialog", "10x10 HD"))
-        self.filesProcessedLabel.setText(_translate("mergeMinidspDialog", "Files Processed"))
-        self.configFilePicker.setText(_translate("mergeMinidspDialog", "..."))
-        self.refreshGitRepo.setText(_translate("mergeMinidspDialog", "..."))
-        self.clearUserSourceDir.setText(_translate("mergeMinidspDialog", "..."))
-
+        mergeMinidspDialog.setWindowTitle(QtWidgets.QApplication.translate("mergeMinidspDialog", "Merge Minidsp Config", None, -1))
+        self.minidspTypeLabel.setText(QtWidgets.QApplication.translate("mergeMinidspDialog", "Minidsp Type", None, -1))
+        self.processFiles.setText(QtWidgets.QApplication.translate("mergeMinidspDialog", "...", None, -1))
+        self.outputDirectoryLabel.setText(QtWidgets.QApplication.translate("mergeMinidspDialog", "Output Directory", None, -1))
+        self.ofLabel.setText(QtWidgets.QApplication.translate("mergeMinidspDialog", "of", None, -1))
+        self.userSourceDirPicker.setText(QtWidgets.QApplication.translate("mergeMinidspDialog", "...", None, -1))
+        self.lastUpdateLabel.setText(QtWidgets.QApplication.translate("mergeMinidspDialog", "Last Update", None, -1))
+        self.outputDirectoryPicker.setText(QtWidgets.QApplication.translate("mergeMinidspDialog", "...", None, -1))
+        self.errorsLabel.setText(QtWidgets.QApplication.translate("mergeMinidspDialog", "Errors", None, -1))
+        self.configFileLabel.setText(QtWidgets.QApplication.translate("mergeMinidspDialog", "Config File", None, -1))
+        self.userSourceDirLabel.setText(QtWidgets.QApplication.translate("mergeMinidspDialog", "User Source Directory", None, -1))
+        self.minidspType.setItemText(0, QtWidgets.QApplication.translate("mergeMinidspDialog", "2x4 HD", None, -1))
+        self.minidspType.setItemText(1, QtWidgets.QApplication.translate("mergeMinidspDialog", "2x4", None, -1))
+        self.minidspType.setItemText(2, QtWidgets.QApplication.translate("mergeMinidspDialog", "10x10 HD", None, -1))
+        self.filesProcessedLabel.setText(QtWidgets.QApplication.translate("mergeMinidspDialog", "Files Processed", None, -1))
+        self.configFilePicker.setText(QtWidgets.QApplication.translate("mergeMinidspDialog", "...", None, -1))
+        self.refreshGitRepo.setText(QtWidgets.QApplication.translate("mergeMinidspDialog", "...", None, -1))
+        self.clearUserSourceDir.setText(QtWidgets.QApplication.translate("mergeMinidspDialog", "...", None, -1))
 

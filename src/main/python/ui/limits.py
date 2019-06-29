@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'limits.ui'
+# Form implementation generated from reading ui file 'limits.ui',
+# licensing of 'limits.ui' applies.
 #
-# Created by: PyQt5 UI code generator 5.12.1
+# Created: Sat Jun 29 23:16:15 2019
+#      by: pyside2-uic  running on PySide2 5.13.0
 #
 # WARNING! All changes made in this file will be lost!
 
-from PyQt5 import QtCore, QtGui, QtWidgets
-
+from PySide2 import QtCore, QtGui, QtWidgets
 
 class Ui_graphLayoutDialog(object):
     def setupUi(self, graphLayoutDialog):
@@ -74,17 +75,15 @@ class Ui_graphLayoutDialog(object):
         self.gridLayout_2.addLayout(self.gridLayout, 0, 0, 1, 1)
 
         self.retranslateUi(graphLayoutDialog)
-        self.applyButton.clicked.connect(graphLayoutDialog.changeLimits)
-        self.applyFullRangeX.clicked.connect(graphLayoutDialog.fullRangeLimits)
-        self.applyBassX.clicked.connect(graphLayoutDialog.bassLimits)
+        QtCore.QObject.connect(self.applyButton, QtCore.SIGNAL("clicked()"), graphLayoutDialog.changeLimits)
+        QtCore.QObject.connect(self.applyFullRangeX, QtCore.SIGNAL("clicked()"), graphLayoutDialog.fullRangeLimits)
+        QtCore.QObject.connect(self.applyBassX, QtCore.SIGNAL("clicked()"), graphLayoutDialog.bassLimits)
         QtCore.QMetaObject.connectSlotsByName(graphLayoutDialog)
 
     def retranslateUi(self, graphLayoutDialog):
-        _translate = QtCore.QCoreApplication.translate
-        graphLayoutDialog.setWindowTitle(_translate("graphLayoutDialog", "Graph Limits"))
-        self.applyButton.setText(_translate("graphLayoutDialog", "Apply"))
-        self.hzLog.setText(_translate("graphLayoutDialog", "log scale?"))
-        self.applyFullRangeX.setText(_translate("graphLayoutDialog", "20-20k"))
-        self.applyBassX.setText(_translate("graphLayoutDialog", "1-160"))
-
+        graphLayoutDialog.setWindowTitle(QtWidgets.QApplication.translate("graphLayoutDialog", "Graph Limits", None, -1))
+        self.applyButton.setText(QtWidgets.QApplication.translate("graphLayoutDialog", "Apply", None, -1))
+        self.hzLog.setText(QtWidgets.QApplication.translate("graphLayoutDialog", "log scale?", None, -1))
+        self.applyFullRangeX.setText(QtWidgets.QApplication.translate("graphLayoutDialog", "20-20k", None, -1))
+        self.applyBassX.setText(QtWidgets.QApplication.translate("graphLayoutDialog", "1-160", None, -1))
 

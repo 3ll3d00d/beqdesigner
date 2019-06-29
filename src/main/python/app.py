@@ -12,8 +12,8 @@ import matplotlib
 from scipy import signal
 
 matplotlib.use("Qt5Agg")
-os.environ['QT_API'] = 'pyqt5'
-# os.environ['PYQTGRAPH_QT_LIB'] = 'PyQt5'
+# os.environ['QT_API'] = 'pyqt5'
+# os.environ['PYQTGRAPH_QT_LIB'] = 'qtpy'
 
 from model.waveform import WaveformController
 from model.checker import VersionChecker, ReleaseNotesDialog

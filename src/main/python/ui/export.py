@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'export.ui'
+# Form implementation generated from reading ui file 'export.ui',
+# licensing of 'export.ui' applies.
 #
-# Created by: PyQt5 UI code generator 5.12.1
+# Created: Sat Jun 29 23:16:14 2019
+#      by: pyside2-uic  running on PySide2 5.13.0
 #
 # WARNING! All changes made in this file will be lost!
 
-from PyQt5 import QtCore, QtGui, QtWidgets
-
+from PySide2 import QtCore, QtGui, QtWidgets
 
 class Ui_exportSignalDialog(object):
     def setupUi(self, exportSignalDialog):
@@ -31,13 +32,11 @@ class Ui_exportSignalDialog(object):
         self.gridLayout.addLayout(self.formLayout, 0, 0, 1, 1)
 
         self.retranslateUi(exportSignalDialog)
-        self.buttonBox.accepted.connect(exportSignalDialog.accept)
-        self.buttonBox.rejected.connect(exportSignalDialog.reject)
+        QtCore.QObject.connect(self.buttonBox, QtCore.SIGNAL("accepted()"), exportSignalDialog.accept)
+        QtCore.QObject.connect(self.buttonBox, QtCore.SIGNAL("rejected()"), exportSignalDialog.reject)
         QtCore.QMetaObject.connectSlotsByName(exportSignalDialog)
 
     def retranslateUi(self, exportSignalDialog):
-        _translate = QtCore.QCoreApplication.translate
-        exportSignalDialog.setWindowTitle(_translate("exportSignalDialog", "Export Signal"))
-        self.signalLabel.setText(_translate("exportSignalDialog", "Signal"))
-
+        exportSignalDialog.setWindowTitle(QtWidgets.QApplication.translate("exportSignalDialog", "Export Signal", None, -1))
+        self.signalLabel.setText(QtWidgets.QApplication.translate("exportSignalDialog", "Signal", None, -1))
 

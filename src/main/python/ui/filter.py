@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'filter.ui'
+# Form implementation generated from reading ui file 'filter.ui',
+# licensing of 'filter.ui' applies.
 #
-# Created by: PyQt5 UI code generator 5.12.1
+# Created: Sat Jun 29 23:16:14 2019
+#      by: pyside2-uic  running on PySide2 5.13.0
 #
 # WARNING! All changes made in this file will be lost!
 
-from PyQt5 import QtCore, QtGui, QtWidgets
-
+from PySide2 import QtCore, QtGui, QtWidgets
 
 class Ui_editFilterDialog(object):
     def setupUi(self, editFilterDialog):
@@ -147,29 +148,29 @@ class Ui_editFilterDialog(object):
         self.panes.setColumnStretch(1, 1)
 
         self.retranslateUi(editFilterDialog)
-        self.filterType.currentTextChanged['QString'].connect(editFilterDialog.enableFilterParams)
-        self.passFilterType.currentTextChanged['QString'].connect(editFilterDialog.changeOrderStep)
-        self.filterGain.valueChanged['double'].connect(editFilterDialog.enableOkIfGainIsValid)
-        self.filterQ.valueChanged['double'].connect(editFilterDialog.recalcShelfFromQ)
-        self.filterGain.valueChanged['double'].connect(editFilterDialog.recalcShelfFromGain)
-        self.filterType.currentIndexChanged['int'].connect(editFilterDialog.previewFilter)
-        self.passFilterType.currentIndexChanged['int'].connect(editFilterDialog.previewFilter)
-        self.filterOrder.valueChanged['int'].connect(editFilterDialog.previewFilter)
-        self.freq.valueChanged['double'].connect(editFilterDialog.previewFilter)
-        self.filterQ.valueChanged['double'].connect(editFilterDialog.previewFilter)
-        self.filterGain.valueChanged['double'].connect(editFilterDialog.previewFilter)
-        self.filterCount.valueChanged['int'].connect(editFilterDialog.previewFilter)
-        self.filterS.valueChanged['double'].connect(editFilterDialog.recalcShelfFromS)
-        self.sStepButton.clicked.connect(editFilterDialog.handleSToolButton)
-        self.qStepButton.clicked.connect(editFilterDialog.handleQToolButton)
-        self.gainStepButton.clicked.connect(editFilterDialog.handleGainToolButton)
-        self.freqStepButton.clicked.connect(editFilterDialog.handleFreqToolButton)
-        self.saveButton.clicked.connect(editFilterDialog.accept)
-        self.exitButton.clicked.connect(editFilterDialog.reject)
-        self.filterSelector.currentIndexChanged['int'].connect(editFilterDialog.select_filter)
-        self.showIndividual.clicked.connect(editFilterDialog.previewFilter)
-        self.addButton.clicked.connect(editFilterDialog.add)
-        self.limitsButton.clicked.connect(editFilterDialog.show_limits)
+        QtCore.QObject.connect(self.filterType, QtCore.SIGNAL("currentTextChanged(QString)"), editFilterDialog.enableFilterParams)
+        QtCore.QObject.connect(self.passFilterType, QtCore.SIGNAL("currentTextChanged(QString)"), editFilterDialog.changeOrderStep)
+        QtCore.QObject.connect(self.filterGain, QtCore.SIGNAL("valueChanged(double)"), editFilterDialog.enableOkIfGainIsValid)
+        QtCore.QObject.connect(self.filterQ, QtCore.SIGNAL("valueChanged(double)"), editFilterDialog.recalcShelfFromQ)
+        QtCore.QObject.connect(self.filterGain, QtCore.SIGNAL("valueChanged(double)"), editFilterDialog.recalcShelfFromGain)
+        QtCore.QObject.connect(self.filterType, QtCore.SIGNAL("currentIndexChanged(int)"), editFilterDialog.previewFilter)
+        QtCore.QObject.connect(self.passFilterType, QtCore.SIGNAL("currentIndexChanged(int)"), editFilterDialog.previewFilter)
+        QtCore.QObject.connect(self.filterOrder, QtCore.SIGNAL("valueChanged(int)"), editFilterDialog.previewFilter)
+        QtCore.QObject.connect(self.freq, QtCore.SIGNAL("valueChanged(double)"), editFilterDialog.previewFilter)
+        QtCore.QObject.connect(self.filterQ, QtCore.SIGNAL("valueChanged(double)"), editFilterDialog.previewFilter)
+        QtCore.QObject.connect(self.filterGain, QtCore.SIGNAL("valueChanged(double)"), editFilterDialog.previewFilter)
+        QtCore.QObject.connect(self.filterCount, QtCore.SIGNAL("valueChanged(int)"), editFilterDialog.previewFilter)
+        QtCore.QObject.connect(self.filterS, QtCore.SIGNAL("valueChanged(double)"), editFilterDialog.recalcShelfFromS)
+        QtCore.QObject.connect(self.sStepButton, QtCore.SIGNAL("clicked()"), editFilterDialog.handleSToolButton)
+        QtCore.QObject.connect(self.qStepButton, QtCore.SIGNAL("clicked()"), editFilterDialog.handleQToolButton)
+        QtCore.QObject.connect(self.gainStepButton, QtCore.SIGNAL("clicked()"), editFilterDialog.handleGainToolButton)
+        QtCore.QObject.connect(self.freqStepButton, QtCore.SIGNAL("clicked()"), editFilterDialog.handleFreqToolButton)
+        QtCore.QObject.connect(self.saveButton, QtCore.SIGNAL("clicked()"), editFilterDialog.accept)
+        QtCore.QObject.connect(self.exitButton, QtCore.SIGNAL("clicked()"), editFilterDialog.reject)
+        QtCore.QObject.connect(self.filterSelector, QtCore.SIGNAL("currentIndexChanged(int)"), editFilterDialog.select_filter)
+        QtCore.QObject.connect(self.showIndividual, QtCore.SIGNAL("clicked()"), editFilterDialog.previewFilter)
+        QtCore.QObject.connect(self.addButton, QtCore.SIGNAL("clicked()"), editFilterDialog.add)
+        QtCore.QObject.connect(self.limitsButton, QtCore.SIGNAL("clicked()"), editFilterDialog.show_limits)
         QtCore.QMetaObject.connectSlotsByName(editFilterDialog)
         editFilterDialog.setTabOrder(self.filterType, self.passFilterType)
         editFilterDialog.setTabOrder(self.passFilterType, self.filterOrder)
@@ -185,36 +186,34 @@ class Ui_editFilterDialog(object):
         editFilterDialog.setTabOrder(self.sStepButton, self.previewChart)
 
     def retranslateUi(self, editFilterDialog):
-        _translate = QtCore.QCoreApplication.translate
-        editFilterDialog.setWindowTitle(_translate("editFilterDialog", "Create Filter"))
-        self.passFilterType.setItemText(0, _translate("editFilterDialog", "Butterworth"))
-        self.passFilterType.setItemText(1, _translate("editFilterDialog", "Linkwitz-Riley"))
-        self.filterType.setItemText(0, _translate("editFilterDialog", "Low Shelf"))
-        self.filterType.setItemText(1, _translate("editFilterDialog", "High Shelf"))
-        self.filterType.setItemText(2, _translate("editFilterDialog", "PEQ"))
-        self.filterType.setItemText(3, _translate("editFilterDialog", "Gain"))
-        self.filterType.setItemText(4, _translate("editFilterDialog", "Variable Q LPF"))
-        self.filterType.setItemText(5, _translate("editFilterDialog", "Variable Q HPF"))
-        self.filterType.setItemText(6, _translate("editFilterDialog", "Low Pass"))
-        self.filterType.setItemText(7, _translate("editFilterDialog", "High Pass"))
-        self.typeLabel.setText(_translate("editFilterDialog", "Type"))
-        self.gainLabel.setText(_translate("editFilterDialog", "Gain"))
-        self.filterQLabel.setText(_translate("editFilterDialog", "Q"))
-        self.sLabel.setText(_translate("editFilterDialog", "S"))
-        self.freqStepButton.setText(_translate("editFilterDialog", "..."))
-        self.orderLabel.setText(_translate("editFilterDialog", "Order"))
-        self.gainStepButton.setText(_translate("editFilterDialog", "..."))
-        self.freqLabel.setText(_translate("editFilterDialog", "Freq"))
-        self.qStepButton.setText(_translate("editFilterDialog", "..."))
-        self.sStepButton.setText(_translate("editFilterDialog", "..."))
-        self.addButton.setText(_translate("editFilterDialog", "..."))
-        self.saveButton.setToolTip(_translate("editFilterDialog", "Save"))
-        self.saveButton.setShortcut(_translate("editFilterDialog", "Return"))
-        self.exitButton.setToolTip(_translate("editFilterDialog", "Exit"))
-        self.exitButton.setText(_translate("editFilterDialog", "..."))
-        self.limitsButton.setText(_translate("editFilterDialog", "..."))
-        self.filterCountLabel.setText(_translate("editFilterDialog", "Count"))
-        self.showIndividual.setText(_translate("editFilterDialog", "Show Individual Filters"))
-
+        editFilterDialog.setWindowTitle(QtWidgets.QApplication.translate("editFilterDialog", "Create Filter", None, -1))
+        self.passFilterType.setItemText(0, QtWidgets.QApplication.translate("editFilterDialog", "Butterworth", None, -1))
+        self.passFilterType.setItemText(1, QtWidgets.QApplication.translate("editFilterDialog", "Linkwitz-Riley", None, -1))
+        self.filterType.setItemText(2, QtWidgets.QApplication.translate("editFilterDialog", "Low Shelf", None, -1))
+        self.filterType.setItemText(3, QtWidgets.QApplication.translate("editFilterDialog", "High Shelf", None, -1))
+        self.filterType.setItemText(4, QtWidgets.QApplication.translate("editFilterDialog", "PEQ", None, -1))
+        self.filterType.setItemText(5, QtWidgets.QApplication.translate("editFilterDialog", "Gain", None, -1))
+        self.filterType.setItemText(6, QtWidgets.QApplication.translate("editFilterDialog", "Variable Q LPF", None, -1))
+        self.filterType.setItemText(7, QtWidgets.QApplication.translate("editFilterDialog", "Variable Q HPF", None, -1))
+        self.filterType.setItemText(8, QtWidgets.QApplication.translate("editFilterDialog", "Low Pass", None, -1))
+        self.filterType.setItemText(9, QtWidgets.QApplication.translate("editFilterDialog", "High Pass", None, -1))
+        self.typeLabel.setText(QtWidgets.QApplication.translate("editFilterDialog", "Type", None, -1))
+        self.gainLabel.setText(QtWidgets.QApplication.translate("editFilterDialog", "Gain", None, -1))
+        self.filterQLabel.setText(QtWidgets.QApplication.translate("editFilterDialog", "Q", None, -1))
+        self.sLabel.setText(QtWidgets.QApplication.translate("editFilterDialog", "S", None, -1))
+        self.freqStepButton.setText(QtWidgets.QApplication.translate("editFilterDialog", "...", None, -1))
+        self.orderLabel.setText(QtWidgets.QApplication.translate("editFilterDialog", "Order", None, -1))
+        self.gainStepButton.setText(QtWidgets.QApplication.translate("editFilterDialog", "...", None, -1))
+        self.freqLabel.setText(QtWidgets.QApplication.translate("editFilterDialog", "Freq", None, -1))
+        self.qStepButton.setText(QtWidgets.QApplication.translate("editFilterDialog", "...", None, -1))
+        self.sStepButton.setText(QtWidgets.QApplication.translate("editFilterDialog", "...", None, -1))
+        self.addButton.setText(QtWidgets.QApplication.translate("editFilterDialog", "...", None, -1))
+        self.saveButton.setToolTip(QtWidgets.QApplication.translate("editFilterDialog", "Save", None, -1))
+        self.saveButton.setShortcut(QtWidgets.QApplication.translate("editFilterDialog", "Return", None, -1))
+        self.exitButton.setToolTip(QtWidgets.QApplication.translate("editFilterDialog", "Exit", None, -1))
+        self.exitButton.setText(QtWidgets.QApplication.translate("editFilterDialog", "...", None, -1))
+        self.limitsButton.setText(QtWidgets.QApplication.translate("editFilterDialog", "...", None, -1))
+        self.filterCountLabel.setText(QtWidgets.QApplication.translate("editFilterDialog", "Count", None, -1))
+        self.showIndividual.setText(QtWidgets.QApplication.translate("editFilterDialog", "Show Individual Filters", None, -1))
 
 from mpl import MplWidget

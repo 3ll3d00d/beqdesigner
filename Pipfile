@@ -4,13 +4,13 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-pyqt5 = ">=5.12.1"
+pyside2 = ">=5.13.0"
 qdarkstyle =">=2.6.6"
 matplotlib = "*"
 ffmpeg-python = "*"
 soundfile = "*"
 resampy = "*"
-pyqtgraph = "*"
+pyqtgraph = {editable = true,git = "https://github.com/pyqtgraph/pyqtgraph",ref = "develop"}
 numpy = "*"
 scipy = "*"
 qtpy = "*"

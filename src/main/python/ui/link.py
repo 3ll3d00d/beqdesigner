@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'link.ui'
+# Form implementation generated from reading ui file 'link.ui',
+# licensing of 'link.ui' applies.
 #
-# Created by: PyQt5 UI code generator 5.12.1
+# Created: Sat Jun 29 23:16:15 2019
+#      by: pyside2-uic  running on PySide2 5.13.0
 #
 # WARNING! All changes made in this file will be lost!
 
-from PyQt5 import QtCore, QtGui, QtWidgets
-
+from PySide2 import QtCore, QtGui, QtWidgets
 
 class Ui_linkSignalDialog(object):
     def setupUi(self, linkSignalDialog):
@@ -35,15 +36,13 @@ class Ui_linkSignalDialog(object):
         self.gridLayout.setColumnStretch(1, 1)
 
         self.retranslateUi(linkSignalDialog)
-        self.buttonBox.accepted.connect(linkSignalDialog.accept)
-        self.buttonBox.rejected.connect(linkSignalDialog.reject)
-        self.addToMaster.clicked.connect(linkSignalDialog.addMaster)
+        QtCore.QObject.connect(self.buttonBox, QtCore.SIGNAL("accepted()"), linkSignalDialog.accept)
+        QtCore.QObject.connect(self.buttonBox, QtCore.SIGNAL("rejected()"), linkSignalDialog.reject)
+        QtCore.QObject.connect(self.addToMaster, QtCore.SIGNAL("clicked()"), linkSignalDialog.addMaster)
         QtCore.QMetaObject.connectSlotsByName(linkSignalDialog)
 
     def retranslateUi(self, linkSignalDialog):
-        _translate = QtCore.QCoreApplication.translate
-        linkSignalDialog.setWindowTitle(_translate("linkSignalDialog", "Link Signals"))
-        self.addToMaster.setText(_translate("linkSignalDialog", "..."))
-        self.masterCandidatesLabel.setText(_translate("linkSignalDialog", "Make Master"))
-
+        linkSignalDialog.setWindowTitle(QtWidgets.QApplication.translate("linkSignalDialog", "Link Signals", None, -1))
+        self.addToMaster.setText(QtWidgets.QApplication.translate("linkSignalDialog", "...", None, -1))
+        self.masterCandidatesLabel.setText(QtWidgets.QApplication.translate("linkSignalDialog", "Make Master", None, -1))
 

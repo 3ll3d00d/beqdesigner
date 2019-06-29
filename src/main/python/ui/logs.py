@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'logs.ui'
+# Form implementation generated from reading ui file 'logs.ui',
+# licensing of 'logs.ui' applies.
 #
-# Created by: PyQt5 UI code generator 5.12.1
+# Created: Sat Jun 29 23:16:15 2019
+#      by: pyside2-uic  running on PySide2 5.13.0
 #
 # WARNING! All changes made in this file will be lost!
 
-from PyQt5 import QtCore, QtGui, QtWidgets
-
+from PySide2 import QtCore, QtGui, QtWidgets
 
 class Ui_logsForm(object):
     def setupUi(self, logsForm):
@@ -55,20 +56,18 @@ class Ui_logsForm(object):
         logsForm.setCentralWidget(self.centralwidget)
 
         self.retranslateUi(logsForm)
-        self.maxRows.valueChanged['int'].connect(logsForm.setLogSize)
-        self.logLevel.currentTextChanged['QString'].connect(logsForm.setLogLevel)
+        QtCore.QObject.connect(self.maxRows, QtCore.SIGNAL("valueChanged(int)"), logsForm.setLogSize)
+        QtCore.QObject.connect(self.logLevel, QtCore.SIGNAL("currentTextChanged(QString)"), logsForm.setLogLevel)
         QtCore.QMetaObject.connectSlotsByName(logsForm)
 
     def retranslateUi(self, logsForm):
-        _translate = QtCore.QCoreApplication.translate
-        logsForm.setWindowTitle(_translate("logsForm", "Logs"))
-        self.label.setText(_translate("logsForm", "Log Size"))
-        self.label_2.setText(_translate("logsForm", "Log Level"))
-        self.logLevel.setCurrentText(_translate("logsForm", "DEBUG"))
-        self.logLevel.setItemText(0, _translate("logsForm", "DEBUG"))
-        self.logLevel.setItemText(1, _translate("logsForm", "INFO"))
-        self.logLevel.setItemText(2, _translate("logsForm", "WARNING"))
-        self.logLevel.setItemText(3, _translate("logsForm", "ERROR"))
-        self.logLevel.setItemText(4, _translate("logsForm", "CRITICAL"))
-
+        logsForm.setWindowTitle(QtWidgets.QApplication.translate("logsForm", "Logs", None, -1))
+        self.label.setText(QtWidgets.QApplication.translate("logsForm", "Log Size", None, -1))
+        self.label_2.setText(QtWidgets.QApplication.translate("logsForm", "Log Level", None, -1))
+        self.logLevel.setCurrentText(QtWidgets.QApplication.translate("logsForm", "DEBUG", None, -1))
+        self.logLevel.setItemText(0, QtWidgets.QApplication.translate("logsForm", "DEBUG", None, -1))
+        self.logLevel.setItemText(1, QtWidgets.QApplication.translate("logsForm", "INFO", None, -1))
+        self.logLevel.setItemText(2, QtWidgets.QApplication.translate("logsForm", "WARNING", None, -1))
+        self.logLevel.setItemText(3, QtWidgets.QApplication.translate("logsForm", "ERROR", None, -1))
+        self.logLevel.setItemText(4, QtWidgets.QApplication.translate("logsForm", "CRITICAL", None, -1))
 

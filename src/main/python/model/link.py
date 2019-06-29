@@ -1,7 +1,7 @@
 import typing
 
 import qtawesome as qta
-from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt
+from qtpy.QtCore import QAbstractTableModel, QModelIndex, Qt
 from qtpy.QtWidgets import QDialog, QPushButton, QHeaderView
 from sortedcontainers import SortedDict, SortedSet
 
@@ -119,27 +119,27 @@ class LinkedSignalsTableModel(QAbstractTableModel):
 
     def data(self, index: QModelIndex, role: int = ...) -> typing.Any:
         if not index.isValid() or role != Qt.DisplayRole:
-            return QVariant()
+            return None
         else:
             if index.column() == 0:
-                return QVariant()
+                return None
             elif index.column() == 1:
-                return QVariant(self.__model.row_keys[index.row()])
+                return self.__model.row_keys[index.row()]
             else:
-                return QVariant(self.__model.is_slave(index.row(), index.column() - 2))
+                return self.__model.is_slave(index.row(), index.column() - 2)
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int = ...) -> typing.Any:
         if orientation == Qt.Horizontal and role == Qt.DisplayRole:
             if section == 0:
-                return QVariant('')
+                return ''
             elif section == 1:
-                return QVariant('Master')
+                return 'Master'
             else:
                 if section - 2 < len(self.__model.columns):
-                    return QVariant(self.__model.columns[section - 2])
+                    return self.__model.columns[section - 2]
                 else:
-                    return QVariant()
-        return QVariant()
+                    return None
+        return None
 
     def delegate_to_checkbox(self, view):
         delegate = CheckBoxDelegate()

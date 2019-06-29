@@ -12,7 +12,7 @@ import numpy as np
 import qtawesome as qta
 import resampy
 from qtpy import QtCore
-from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt, QRunnable, QThreadPool
+from qtpy.QtCore import QAbstractTableModel, QModelIndex, Qt, QRunnable, QThreadPool
 from qtpy.QtWidgets import QDialog, QFileDialog, QDialogButtonBox, QStatusBar
 from scipy import signal
 from sortedcontainers import SortedDict
@@ -1233,33 +1233,33 @@ class SignalTableModel(QAbstractTableModel):
 
     def data(self, index: QModelIndex, role: int = ...) -> typing.Any:
         if not index.isValid():
-            return QVariant()
+            return None
         elif role != Qt.DisplayRole:
-            return QVariant()
+            return None
         else:
             signal_at_row = self.__signal_model[index.row()]
             if index.column() == 0:
-                return QVariant(signal_at_row.name)
+                return signal_at_row.name
             if index.column() == 1:
                 if signal_at_row.master is not None:
-                    return QVariant(f"S - {signal_at_row.master.name}")
+                    return f"S - {signal_at_row.master.name}"
                 elif len(signal_at_row.slaves) > 0:
-                    return QVariant(f"M {len(signal_at_row.slaves)}")
+                    return f"M {len(signal_at_row.slaves)}"
                 else:
-                    return QVariant('')
+                    return ''
             elif index.column() == 2:
-                return QVariant(signal_at_row.fs)
+                return signal_at_row.fs
             elif index.column() == 3:
-                return QVariant(signal_at_row.duration_hhmmss)
+                return signal_at_row.duration_hhmmss
             elif index.column() == 4:
-                return QVariant(signal_at_row.offset)
+                return signal_at_row.offset
             else:
-                return QVariant()
+                return None
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int = ...) -> typing.Any:
         if orientation == Qt.Horizontal and role == Qt.DisplayRole:
-            return QVariant(self.__headers[section])
-        return QVariant()
+            return self.__headers[section]
+        return None
 
 
 def select_file(owner, file_types):
