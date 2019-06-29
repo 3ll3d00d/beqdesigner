@@ -24,10 +24,25 @@ SHOW_COMBINED_FILTER = 'Combined'
 SHOW_NO_FILTERS = 'None'
 SHOW_FILTER_OPTIONS = [SHOW_ALL_FILTERS, SHOW_COMBINED_FILTER, SHOW_NO_FILTERS]
 
-SHOW_ALL_SIGNALS = 'Peak & Average'
+SHOW_ALL_SIGNALS = 'All'
+SHOW_PEAK_MEDIAN = 'Peak & Median'
+SHOW_PEAK_AVERAGE = 'Peak & Average'
+SHOW_MEDIAN_AVERAGE = 'Average & Median'
 SHOW_PEAK = 'Peak'
 SHOW_AVERAGE = 'Average'
-SHOW_SIGNAL_OPTIONS = [SHOW_ALL_SIGNALS, SHOW_PEAK, SHOW_AVERAGE]
+SHOW_MEDIAN = 'Median'
+SHOW_SIGNAL_OPTIONS = [
+    SHOW_ALL_SIGNALS,
+    SHOW_PEAK_MEDIAN,
+    SHOW_PEAK_AVERAGE,
+    SHOW_MEDIAN_AVERAGE,
+    SHOW_PEAK,
+    SHOW_AVERAGE,
+    SHOW_MEDIAN
+]
+SHOWING_AVERAGE = [SHOW_ALL_SIGNALS, SHOW_PEAK_AVERAGE, SHOW_MEDIAN_AVERAGE, SHOW_AVERAGE]
+SHOWING_MEDIAN = [SHOW_ALL_SIGNALS, SHOW_PEAK_MEDIAN, SHOW_MEDIAN_AVERAGE, SHOW_MEDIAN]
+SHOWING_PEAK = [SHOW_ALL_SIGNALS, SHOW_PEAK_MEDIAN, SHOW_PEAK_AVERAGE, SHOW_PEAK]
 
 SHOW_ALL_FILTERED_SIGNALS = 'Both'
 SHOW_FILTERED_ONLY = 'Yes'
@@ -59,7 +74,6 @@ ANALYSIS_TARGET_FS = 'analysis/target_fs'
 ANALYSIS_WINDOW_DEFAULT = 'Default'
 ANALYSIS_AVG_WINDOW = 'analysis/avg_window'
 ANALYSIS_PEAK_WINDOW = 'analysis/peak_window'
-ANALYSIS_AVG_CALC = 'analysis/avg_calc'
 
 AUDIO_ANALYSIS_MARKER_SIZE = 'audio/marker_size'
 AUDIO_ANALYSIS_MARKER_TYPE = 'audio/marker_type'
@@ -154,7 +168,6 @@ DEFAULT_PREFS = {
     ANALYSIS_TARGET_FS: 1000,
     ANALYSIS_AVG_WINDOW: ANALYSIS_WINDOW_DEFAULT,
     ANALYSIS_PEAK_WINDOW: ANALYSIS_WINDOW_DEFAULT,
-    ANALYSIS_AVG_CALC: 'Mean',
     AUDIO_ANALYSIS_MARKER_SIZE: 1,
     AUDIO_ANALYSIS_MARKER_TYPE: POINT,
     AUDIO_ANALYSIS_ELLIPSE_WIDTH: 3.0,
@@ -269,9 +282,10 @@ TYPES = {
 }
 
 COLOUR_INTERVALS = [x / 255 for x in range(36, 250, 24)] + [1.0]
-# keep peak green, avg red and filters cyan
+# keep peak green, avg red, median blue and filters cyan
 AVG_SPECLAB_COLOURS = [(x, 0.0, 0.0) for x in COLOUR_INTERVALS[::-1]]
 PEAK_SPECLAB_COLOURS = [(0.0, x, 0.0) for x in COLOUR_INTERVALS[::-1]]
+MEDIAN_SPECLAB_COLOURS = [(0.0, 0.0, x) for x in COLOUR_INTERVALS[::-1]]
 FILTER_COLOURS = [(0.0, x, x) for x in COLOUR_INTERVALS[::-1]]
 
 singleton = None
@@ -288,6 +302,14 @@ def get_avg_colour(idx):
 def get_peak_colour(idx):
     if singleton is None or singleton.get(DISPLAY_LINE_STYLE) is True:
         return PEAK_SPECLAB_COLOURS[idx % len(PEAK_SPECLAB_COLOURS)]
+    else:
+        colours = matplotlib.rcParams['axes.prop_cycle'].by_key()['color']
+        return colours[idx % len(colours)]
+
+
+def get_median_colour(idx):
+    if singleton is None or singleton.get(DISPLAY_LINE_STYLE) is True:
+        return MEDIAN_SPECLAB_COLOURS[idx % len(MEDIAN_SPECLAB_COLOURS)]
     else:
         colours = matplotlib.rcParams['axes.prop_cycle'].by_key()['color']
         return colours[idx % len(colours)]
@@ -413,7 +435,6 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         self.init_combo(ANALYSIS_RESOLUTION, self.resolutionSelect, translater=lambda a: str(a) + ' Hz')
         self.init_combo(ANALYSIS_AVG_WINDOW, self.avgAnalysisWindow)
         self.init_combo(ANALYSIS_PEAK_WINDOW, self.peakAnalysisWindow)
-        self.init_combo(ANALYSIS_AVG_CALC, self.averaging)
         self.init_combo(STYLE_MATPLOTLIB_THEME, self.themePicker)
 
         outputDir = self.__preferences.get(EXTRACTION_OUTPUT_DIR)
@@ -520,7 +541,6 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
             self.__preferences.set(ANALYSIS_TARGET_FS, int(text.split(' ')[0]))
         self.__preferences.set(ANALYSIS_RESOLUTION, float(self.resolutionSelect.currentText().split(' ')[0]))
         self.__preferences.set(ANALYSIS_AVG_WINDOW, self.avgAnalysisWindow.currentText())
-        self.__preferences.set(ANALYSIS_AVG_CALC, self.averaging.currentText())
         self.__preferences.set(ANALYSIS_PEAK_WINDOW, self.peakAnalysisWindow.currentText())
         current_theme = self.__preferences.get(STYLE_MATPLOTLIB_THEME)
         if current_theme is not None and current_theme != self.themePicker.currentText():

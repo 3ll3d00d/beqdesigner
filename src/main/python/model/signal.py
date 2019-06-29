@@ -19,12 +19,12 @@ from sortedcontainers import SortedDict
 
 from model.codec import signaldata_to_json, bassmanagedsignaldata_to_json
 from model.iir import CompleteFilter, ComplexLowPass, FilterType
-from model.xy import MagnitudeData, interp
 from model.magnitude import MagnitudeModel
-from model.preferences import get_avg_colour, get_peak_colour, SHOW_PEAK, \
-    SHOW_AVERAGE, SHOW_FILTERED_ONLY, SHOW_UNFILTERED_ONLY, DISPLAY_SHOW_SIGNALS, \
-    DISPLAY_SHOW_FILTERED_SIGNALS, ANALYSIS_TARGET_FS, BASS_MANAGEMENT_LPF_FS, BASS_MANAGEMENT_LPF_POSITION, \
-    BM_LPF_BEFORE, BM_LPF_AFTER, DISPLAY_SMOOTH_PRECALC, X_RESOLUTION, ANALYSIS_AVG_CALC
+from model.preferences import get_avg_colour, get_peak_colour, get_median_colour, SHOW_FILTERED_ONLY, \
+    DISPLAY_SHOW_SIGNALS, DISPLAY_SHOW_FILTERED_SIGNALS, ANALYSIS_TARGET_FS, BASS_MANAGEMENT_LPF_FS,\
+    BASS_MANAGEMENT_LPF_POSITION, BM_LPF_BEFORE, BM_LPF_AFTER, DISPLAY_SMOOTH_PRECALC, X_RESOLUTION,\
+    SHOWING_AVERAGE, SHOWING_PEAK, SHOWING_MEDIAN, SHOW_UNFILTERED_ONLY
+from model.xy import MagnitudeData, interp
 from ui.signal import Ui_addSignalDialog
 
 SIGNAL_END = 'end'
@@ -234,9 +234,11 @@ class SingleChannelSignalData(SignalData):
         self.__idx = idx
         self.current_unfiltered[0].colour = get_avg_colour(idx)
         self.current_unfiltered[1].colour = get_peak_colour(idx)
+        self.current_unfiltered[2].colour = get_median_colour(idx)
         if len(self.current_filtered) == 2:
             self.current_filtered[0].colour = get_avg_colour(idx)
             self.current_filtered[1].colour = get_peak_colour(idx)
+            self.current_filtered[2].colour = get_median_colour(idx)
 
     def enslave(self, signal):
         '''
@@ -280,7 +282,8 @@ class SingleChannelSignalData(SignalData):
             if smooth_type not in self.__unfiltered:
                 avg = MagnitudeData(self.name, 'avg', self.__signal.avg[0], self.__signal.avg[1], smooth_type=smooth_type)
                 peak = MagnitudeData(self.name, 'peak', self.__signal.peak[0], self.__signal.peak[1], smooth_type=smooth_type)
-                self.__unfiltered[smooth_type] = [avg, peak]
+                median = MagnitudeData(self.name, 'median', self.__signal.median[0], self.__signal.median[1], smooth_type=smooth_type)
+                self.__unfiltered[smooth_type] = [avg, peak, median]
                 self.__filtered = []
             if set_active is True:
                 self.__smoothing_type = smooth_type
@@ -325,9 +328,11 @@ class SingleChannelSignalData(SignalData):
         if filt is not None:
             unfiltered_avg = self.__unfiltered[None][0]
             unfiltered_peak = self.__unfiltered[None][1]
+            unfiltered_median = self.__unfiltered[None][2]
             filter_mag = filt.getTransferFunction().getMagnitude()
             self.__filtered = [unfiltered_avg.filter(filter_mag).smooth(self.__smoothing_type),
-                               unfiltered_peak.filter(filter_mag).smooth(self.__smoothing_type)]
+                               unfiltered_peak.filter(filter_mag).smooth(self.__smoothing_type),
+                               unfiltered_median.filter(filter_mag).smooth(self.__smoothing_type)]
             self.__set_unfiltered_linestyle('--')
 
     def tilt(self, tilt):
@@ -682,27 +687,21 @@ class SignalModel(Sequence):
         :param show_signals: which signals to show.
         :return: the pattern (if any)
         '''
-        pattern = None
-        if show_signals == SHOW_AVERAGE:
-            if show_filtered_signals == SHOW_FILTERED_ONLY:
-                pattern = re.compile(".*_avg-filtered$")
-            elif show_filtered_signals == SHOW_UNFILTERED_ONLY:
-                pattern = re.compile(".*_avg$")
-            else:
-                pattern = re.compile(".*_avg(-filtered)?$")
-        elif show_signals == SHOW_PEAK:
-            if show_filtered_signals == SHOW_FILTERED_ONLY:
-                pattern = re.compile(".*_peak-filtered$")
-            elif show_filtered_signals == SHOW_UNFILTERED_ONLY:
-                pattern = re.compile(".*_peak$")
-            else:
-                pattern = re.compile(".*_peak(-filtered)?$")
+        analysis_types = []
+        if show_signals in SHOWING_AVERAGE:
+            analysis_types.append('avg')
+        if show_signals in SHOWING_PEAK:
+            analysis_types.append('peak')
+        if show_signals in SHOWING_MEDIAN:
+            analysis_types.append('median')
+        analysis_match = '|'.join(analysis_types)
+        if show_filtered_signals == SHOW_FILTERED_ONLY:
+            filter_match = '-filtered'
+        elif show_filtered_signals == SHOW_UNFILTERED_ONLY:
+            filter_match = ''
         else:
-            if show_filtered_signals == SHOW_FILTERED_ONLY:
-                pattern = re.compile(".*_(avg|peak)-filtered$")
-            elif show_filtered_signals == SHOW_UNFILTERED_ONLY:
-                pattern = re.compile(".*_(avg|peak)$")
-        return pattern
+            filter_match = '(-filtered)?'
+        return re.compile(f".*_({analysis_match}){filter_match}$")
 
     def remove(self, signal):
         '''
@@ -738,7 +737,7 @@ class SignalModel(Sequence):
     def getMagnitudeData(self, reference=None):
         '''
         :param reference: the curve against which to normalise.
-        :return: the peak and avg spectrum for the signals (if any) + the filter signals.
+        :return: the peak,  avg and median spectrum for the signals (if any) + the filter signals.
         '''
         results = self.get_all_magnitude_data()
         show_signals = self.__preferences.get(DISPLAY_SHOW_SIGNALS)
@@ -836,6 +835,7 @@ class Signal:
             logger.info(f"Split {self.name} into {len(self.__segments)} segments of length {self.__segment_len}")
         self.__avg = None
         self.__peak = None
+        self.__median = None
 
     @property
     def avg(self):
@@ -848,6 +848,12 @@ class Signal:
         if self.__peak is None:
             self.calculate_peak_average()
         return self.__peak
+
+    @property
+    def median(self):
+        if self.__median is None:
+            self.calculate_peak_average()
+        return self.__median
 
     @property
     def name(self):
@@ -946,8 +952,7 @@ class Signal:
     def __segment_spectrum(self, segment, resolution_shift=0, window=None, **kwargs):
         nperseg = self.get_segment_length(use_segment=True, resolution_shift=resolution_shift)
         f, Pxx_spec = signal.welch(segment, self.fs, nperseg=nperseg, scaling='spectrum', detrend=False,
-                                   window=window if window else 'hann',
-                                   average=self.__preferences.get(ANALYSIS_AVG_CALC).lower(), **kwargs)
+                                   window=window if window else 'hann', **kwargs)
         return f, Pxx_spec
 
     def peak_spectrum(self, ref=SPECLAB_REFERENCE, resolution_shift=0, window=None):
@@ -1107,9 +1112,9 @@ class Signal:
 
     def calculate_peak_average(self):
         '''
-        caches the peak and avg spectrum if we have no data.
+        caches the peak, avg and median spectrum if we have no data.
         '''
-        if self.__avg is None or self.__peak is None:
+        if self.__avg is None or self.__peak is None or self.__median is None:
             from model.preferences import ANALYSIS_RESOLUTION, ANALYSIS_PEAK_WINDOW, ANALYSIS_AVG_WINDOW
             resolution = self.__preferences.get(ANALYSIS_RESOLUTION)
             resolution_shift = int(math.log(resolution, 2))
@@ -1117,7 +1122,8 @@ class Signal:
             avg_wnd = self.__get_window(self.__preferences, ANALYSIS_AVG_WINDOW)
             logger.debug(
                 f"Analysing {self.name} at {resolution} Hz resolution using {peak_wnd if peak_wnd else 'Default'}/{avg_wnd if avg_wnd else 'Default'} peak/avg windows")
-            self.__avg = self.avg_spectrum(resolution_shift=resolution_shift, window=avg_wnd)
+            self.__avg = self.avg_spectrum(resolution_shift=resolution_shift, window=avg_wnd, average='mean')
+            self.__median = self.avg_spectrum(resolution_shift=resolution_shift, window=avg_wnd, average='median')
             self.__peak = self.peak_spectrum(resolution_shift=resolution_shift, window=peak_wnd)
 
     def __slice_into_large_signal_segments(self):
