@@ -246,9 +246,10 @@ def test_codec_signal():
     fs = 1000
     peak = LowShelf(fs, 30, 1, 10, count=2).getTransferFunction().getMagnitude()
     avg = LowShelf(fs, 30, 1, 10).getTransferFunction().getMagnitude()
+    median = LowShelf(fs, 30, 1, 10).getTransferFunction().getMagnitude()
     filt = CompleteFilter()
     filt.save(HighShelf(fs, 60, 1, 5, count=2))
-    data = SingleChannelSignalData('test', fs, xy_data=[avg, peak], filter=filt, duration_seconds=123456, start_seconds=123, offset=4.2)
+    data = SingleChannelSignalData('test', fs, xy_data=[avg, peak, median], filter=filt, duration_seconds=123456, start_seconds=123, offset=4.2)
     output = json.dumps(signaldata_to_json(data))
     assert output is not None
     decoded = signaldata_from_json(json.loads(output), None)
@@ -262,7 +263,7 @@ def test_codec_signal():
     assert decoded.filter.description == data.filter.description
     assert decoded.filter.filters == data.filter.filters
     assert decoded.current_unfiltered is not None
-    assert len(decoded.current_unfiltered) == 2
+    assert len(decoded.current_unfiltered) == 3
     assert decoded.current_unfiltered == data.current_unfiltered
     assert decoded.duration_hhmmss == data.duration_hhmmss
     assert decoded.start_hhmmss == data.start_hhmmss

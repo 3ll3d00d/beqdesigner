@@ -234,11 +234,13 @@ class SingleChannelSignalData(SignalData):
         self.__idx = idx
         self.current_unfiltered[0].colour = get_avg_colour(idx)
         self.current_unfiltered[1].colour = get_peak_colour(idx)
-        self.current_unfiltered[2].colour = get_median_colour(idx)
+        if len(self.current_unfiltered) == 3:
+            self.current_unfiltered[2].colour = get_median_colour(idx)
         if len(self.current_filtered) == 2:
             self.current_filtered[0].colour = get_avg_colour(idx)
             self.current_filtered[1].colour = get_peak_colour(idx)
-            self.current_filtered[2].colour = get_median_colour(idx)
+            if len(self.current_filtered) == 3:
+                self.current_filtered[2].colour = get_median_colour(idx)
 
     def enslave(self, signal):
         '''

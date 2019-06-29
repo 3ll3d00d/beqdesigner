@@ -40,6 +40,7 @@ def signaldata_to_json(signal):
     '''
     avg = signal.current_unfiltered[0]
     peak = signal.current_unfiltered[1]
+    median = signal.current_unfiltered[2] if len(signal.current_unfiltered) == 3 else None
     out = {
         '_type': signal.__class__.__name__,
         'name': signal.name,
@@ -50,6 +51,8 @@ def signaldata_to_json(signal):
         },
         'offset': f"{signal.offset:g}"
     }
+    if median is not None:
+        out['data']['median'] = xydata_to_json(median)
     if signal.filter is not None:
         out['filter'] = signal.filter.to_json()
     if signal.master is not None:
@@ -127,6 +130,7 @@ def signaldata_from_json(o, preferences):
         data = o['data']
         avg = xydata_from_json(data['avg'])
         peak = xydata_from_json(data['peak'])
+        median = xydata_from_json(data['median']) if 'median' in data else None
         metadata = o.get('metadata', None)
         offset = float(o.get('offset', 0.0))
         signal = None
@@ -139,7 +143,7 @@ def signaldata_from_json(o, preferences):
             except:
                 logger.exception(f"Unable to load signal from {metadata['src']}")
         if 'duration_seconds' in o:
-            signal_data = SingleChannelSignalData(o['name'], o['fs'], xy_data=[avg, peak], filter=filt,
+            signal_data = SingleChannelSignalData(o['name'], o['fs'], xy_data=[avg, peak, median], filter=filt,
                                                   duration_seconds=o.get('duration_seconds', None),
                                                   start_seconds=o.get('start_seconds', None),
                                                   signal=signal,
@@ -149,13 +153,13 @@ def signaldata_from_json(o, preferences):
             duration_seconds = (int(h) * 3600) + int(m) * (60 + float(s))
             h, m, s = o['start_hhmmss'].split(':')
             start_seconds = (int(h) * 3600) + int(m) * (60 + float(s))
-            signal_data = SingleChannelSignalData(o['name'], o['fs'], xy_data=[avg, peak], filter=filt,
+            signal_data = SingleChannelSignalData(o['name'], o['fs'], xy_data=[avg, peak, median], filter=filt,
                                                   duration_seconds=duration_seconds,
                                                   start_seconds=start_seconds,
                                                   signal=signal,
                                                   offset=offset)
         else:
-            signal_data = SingleChannelSignalData(o['name'], o['fs'], xy_data=[avg, peak], filter=filt, signal=signal,
+            signal_data = SingleChannelSignalData(o['name'], o['fs'], xy_data=[avg, peak, median], filter=filt, signal=signal,
                                                   offset=offset)
         return signal_data
     raise ValueError(f"{o._type} is an unknown signal type")
@@ -248,4 +252,4 @@ def xydata_to_json(data):
         'y': np.around(data.y, decimals=6).tolist(),
         'colour': data.colour,
         'linestyle': data.linestyle
-    }
+    } if data else {}
