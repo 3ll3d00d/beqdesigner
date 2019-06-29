@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>617</width>
-    <height>396</height>
+    <height>508</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -25,23 +25,40 @@
     </widget>
    </item>
    <item row="0" column="0">
-    <layout class="QGridLayout" name="innerLayout" rowstretch="0,0,0,0,0,0,0" columnstretch="0,0,0,0,0,0">
-     <item row="5" column="0">
-      <widget class="QLabel" name="filesProcessedLabel">
-       <property name="text">
-        <string>Files Processed</string>
+    <layout class="QGridLayout" name="innerLayout" rowstretch="0,0,0,0,0,0,0,0" columnstretch="0,0,0,0,0,0">
+     <item row="6" column="1">
+      <widget class="QSpinBox" name="filesProcessed">
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+       <property name="maximum">
+        <number>100000</number>
        </property>
       </widget>
      </item>
-     <item row="0" column="5">
-      <widget class="QToolButton" name="refreshGitRepo">
+     <item row="5" column="0">
+      <widget class="QLabel" name="minidspTypeLabel">
+       <property name="text">
+        <string>Minidsp Type</string>
+       </property>
+      </widget>
+     </item>
+     <item row="6" column="5">
+      <widget class="QToolButton" name="processFiles">
        <property name="text">
         <string>...</string>
        </property>
       </widget>
      </item>
+     <item row="4" column="0">
+      <widget class="QLabel" name="outputDirectoryLabel">
+       <property name="text">
+        <string>Output Directory</string>
+       </property>
+      </widget>
+     </item>
      <item row="3" column="1" colspan="4">
-      <widget class="QLineEdit" name="outputDirectory">
+      <widget class="QLineEdit" name="configFile">
        <property name="enabled">
         <bool>false</bool>
        </property>
@@ -50,46 +67,36 @@
        </property>
       </widget>
      </item>
-     <item row="3" column="5">
-      <widget class="QToolButton" name="outputDirectoryPicker">
+     <item row="6" column="2">
+      <widget class="QLabel" name="ofLabel">
        <property name="text">
-        <string>...</string>
+        <string>of</string>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="4">
+      <widget class="QLabel" name="infoLabel">
+       <property name="text">
+        <string/>
        </property>
       </widget>
      </item>
      <item row="2" column="5">
-      <widget class="QToolButton" name="configFilePicker">
+      <widget class="QToolButton" name="userSourceDirPicker">
        <property name="text">
         <string>...</string>
        </property>
       </widget>
      </item>
-     <item row="3" column="0">
-      <widget class="QLabel" name="outputDirectoryLabel">
-       <property name="text">
-        <string>Output Directory</string>
-       </property>
-      </widget>
-     </item>
-     <item row="0" column="1" colspan="3">
-      <widget class="QDateTimeEdit" name="lastCommitDate">
+     <item row="6" column="3">
+      <widget class="QSpinBox" name="totalFiles">
        <property name="readOnly">
         <bool>true</bool>
        </property>
+       <property name="maximum">
+        <number>10000</number>
+       </property>
       </widget>
-     </item>
-     <item row="5" column="4">
-      <spacer name="horizontalSpacer">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>40</width>
-         <height>20</height>
-        </size>
-       </property>
-      </spacer>
      </item>
      <item row="0" column="0">
       <widget class="QLabel" name="lastUpdateLabel">
@@ -105,55 +112,35 @@
        </property>
       </widget>
      </item>
-     <item row="5" column="1">
-      <widget class="QSpinBox" name="filesProcessed">
-       <property name="readOnly">
-        <bool>true</bool>
-       </property>
-       <property name="maximum">
-        <number>100000</number>
-       </property>
-      </widget>
-     </item>
-     <item row="2" column="1" colspan="4">
-      <widget class="QLineEdit" name="configFile">
-       <property name="enabled">
-        <bool>false</bool>
-       </property>
-       <property name="readOnly">
-        <bool>true</bool>
-       </property>
-      </widget>
-     </item>
-     <item row="0" column="4">
-      <widget class="QLabel" name="infoLabel">
+     <item row="4" column="5">
+      <widget class="QToolButton" name="outputDirectoryPicker">
        <property name="text">
-        <string/>
+        <string>...</string>
        </property>
       </widget>
      </item>
-     <item row="5" column="2">
-      <widget class="QLabel" name="ofLabel">
-       <property name="text">
-        <string>of</string>
-       </property>
-      </widget>
-     </item>
-     <item row="6" column="0">
+     <item row="7" column="0">
       <widget class="QLabel" name="errorsLabel">
        <property name="text">
         <string>Errors</string>
        </property>
       </widget>
      </item>
-     <item row="2" column="0">
+     <item row="3" column="0">
       <widget class="QLabel" name="configFileLabel">
        <property name="text">
         <string>Config File</string>
        </property>
       </widget>
      </item>
-     <item row="4" column="1" colspan="4">
+     <item row="2" column="0">
+      <widget class="QLabel" name="userSourceDirLabel">
+       <property name="text">
+        <string>User Source Directory</string>
+       </property>
+      </widget>
+     </item>
+     <item row="5" column="1" colspan="4">
       <widget class="QComboBox" name="minidspType">
        <item>
         <property name="text">
@@ -172,36 +159,81 @@
        </item>
       </widget>
      </item>
-     <item row="6" column="1" colspan="4">
+     <item row="6" column="0">
+      <widget class="QLabel" name="filesProcessedLabel">
+       <property name="text">
+        <string>Files Processed</string>
+       </property>
+      </widget>
+     </item>
+     <item row="3" column="5">
+      <widget class="QToolButton" name="configFilePicker">
+       <property name="text">
+        <string>...</string>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="5">
+      <widget class="QToolButton" name="refreshGitRepo">
+       <property name="text">
+        <string>...</string>
+       </property>
+      </widget>
+     </item>
+     <item row="7" column="1" colspan="4">
       <widget class="QListWidget" name="errors">
        <property name="enabled">
         <bool>false</bool>
        </property>
       </widget>
      </item>
-     <item row="5" column="3">
-      <widget class="QSpinBox" name="totalFiles">
+     <item row="6" column="4">
+      <spacer name="horizontalSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item row="0" column="1" colspan="3">
+      <widget class="QDateTimeEdit" name="lastCommitDate">
        <property name="readOnly">
         <bool>true</bool>
        </property>
-       <property name="maximum">
-        <number>10000</number>
+      </widget>
+     </item>
+     <item row="4" column="1" colspan="4">
+      <widget class="QLineEdit" name="outputDirectory">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+       <property name="readOnly">
+        <bool>true</bool>
        </property>
       </widget>
      </item>
-     <item row="4" column="0">
-      <widget class="QLabel" name="minidspTypeLabel">
-       <property name="text">
-        <string>Minidsp Type</string>
-       </property>
-      </widget>
-     </item>
-     <item row="5" column="5">
-      <widget class="QToolButton" name="processFiles">
-       <property name="text">
-        <string>...</string>
-       </property>
-      </widget>
+     <item row="2" column="1" colspan="4">
+      <layout class="QHBoxLayout" name="userSourceDirLayout">
+       <item>
+        <widget class="QLineEdit" name="userSourceDir">
+         <property name="readOnly">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="clearUserSourceDir">
+         <property name="text">
+          <string>...</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
      </item>
     </layout>
    </item>
@@ -216,8 +248,8 @@
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>230</x>
-     <y>429</y>
+     <x>242</x>
+     <y>501</y>
     </hint>
     <hint type="destinationlabel">
      <x>157</x>
@@ -232,8 +264,8 @@
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>322</x>
-     <y>429</y>
+     <x>334</x>
+     <y>501</y>
     </hint>
     <hint type="destinationlabel">
      <x>286</x>
@@ -248,8 +280,8 @@
    <slot>pick_config_file()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>818</x>
-     <y>77</y>
+     <x>609</x>
+     <y>232</y>
     </hint>
     <hint type="destinationlabel">
      <x>379</x>
@@ -264,8 +296,8 @@
    <slot>pick_output_dir()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>818</x>
-     <y>120</y>
+     <x>609</x>
+     <y>272</y>
     </hint>
     <hint type="destinationlabel">
      <x>381</x>
@@ -280,8 +312,8 @@
    <slot>process_files()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>818</x>
-     <y>198</y>
+     <x>609</x>
+     <y>350</y>
     </hint>
     <hint type="destinationlabel">
      <x>363</x>
@@ -296,12 +328,44 @@
    <slot>refresh_repo()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>800</x>
-     <y>24</y>
+     <x>609</x>
+     <y>31</y>
     </hint>
     <hint type="destinationlabel">
-     <x>754</x>
+     <x>616</x>
      <y>25</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>userSourceDirPicker</sender>
+   <signal>clicked()</signal>
+   <receiver>mergeMinidspDialog</receiver>
+   <slot>pick_user_source_dir()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>609</x>
+     <y>191</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>616</x>
+     <y>92</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>clearUserSourceDir</sender>
+   <signal>clicked()</signal>
+   <receiver>mergeMinidspDialog</receiver>
+   <slot>clear_user_source_dir()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>560</x>
+     <y>179</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>592</x>
+     <y>98</y>
     </hint>
    </hints>
   </connection>
@@ -311,5 +375,7 @@
   <slot>pick_output_dir()</slot>
   <slot>process_files()</slot>
   <slot>refresh_repo()</slot>
+  <slot>pick_user_source_dir()</slot>
+  <slot>clear_user_source_dir()</slot>
  </slots>
 </ui>

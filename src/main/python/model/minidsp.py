@@ -2,14 +2,14 @@ import glob
 import logging
 import os
 import shutil
-import qtawesome as qta
 from pathlib import Path
 
+import qtawesome as qta
 from qtpy.QtCore import QObject, Signal, QRunnable, QThreadPool, Qt, QDateTime
 from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox
 
 from model.iir import Passthrough, PeakingEQ, Shelf, LowShelf, HighShelf
-from model.preferences import BEQ_CONFIG_FILE, BEQ_MERGE_DIR, BEQ_MINIDSP_TYPE, BEQ_DOWNLOAD_DIR
+from model.preferences import BEQ_CONFIG_FILE, BEQ_MERGE_DIR, BEQ_MINIDSP_TYPE, BEQ_DOWNLOAD_DIR, BEQ_EXTRA_DIR
 from ui.minidsp import Ui_mergeMinidspDialog
 
 logger = logging.getLogger('minidsp')
@@ -31,6 +31,8 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
         self.outputDirectoryPicker.setIcon(qta.icon('fa5s.folder-open'))
         self.processFiles.setIcon(qta.icon('fa5s.save'))
         self.refreshGitRepo.setIcon(qta.icon('fa5s.sync'))
+        self.userSourceDirPicker.setIcon(qta.icon('fa5s.folder-open'))
+        self.clearUserSourceDir.setIcon(qta.icon('fa5s.times', color='red'))
         self.__preferences = prefs
         self.statusbar = statusbar
         config_file = self.__preferences.get(BEQ_CONFIG_FILE)
@@ -42,6 +44,9 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
         if minidsp_type is not None and len(minidsp_type) > 0:
             self.minidspType.setCurrentText(minidsp_type)
         self.__beq_dir = self.__preferences.get(BEQ_DOWNLOAD_DIR)
+        extra_dir = self.__preferences.get(BEQ_EXTRA_DIR)
+        if extra_dir is not None and len(extra_dir) > 0 and os.path.exists(extra_dir):
+            self.userSourceDir.setText(os.path.abspath(extra_dir))
         self.__update_beq_metadata()
         self.__enable_process()
 
@@ -52,56 +57,67 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
             self.__update_beq_metadata()
 
     def __update_beq_metadata(self):
+        git_files = 0
+        user_files = 0
         if os.path.exists(self.__beq_dir) and os.path.exists(os.path.join(self.__beq_dir, '.git')):
-            match = len(glob.glob(f"{self.__beq_dir}{os.sep}**{os.sep}*.xml", recursive=True))
-            self.__show_or_hide(True)
-            self.totalFiles.setValue(match)
-            from dulwich import porcelain, index
-            try:
-                with porcelain.open_repo_closing(self.__beq_dir) as local_repo:
-                    last_commit = local_repo[local_repo.head()]
-                    last_commit_time_utc = last_commit.commit_time
-                    last_commit_qdt = QDateTime()
-                    last_commit_qdt.setTime_t(last_commit_time_utc)
-                    self.lastCommitDate.setDateTime(last_commit_qdt)
-                    from datetime import datetime
-                    import calendar
-                    d = datetime.utcnow()
-                    now_utc = calendar.timegm(d.utctimetuple())
-                    days_since_commit = (now_utc - last_commit_time_utc) / 60 / 60 / 24
-                    warning_msg = ''
-                    if days_since_commit > 7.0:
-                        warning_msg = f"&nbsp;was {round(days_since_commit)} days ago, press the button to update -->"
-                    commit_link = f"{BMILLER_GITHUB_MINIDSP}/commit/{last_commit.id.decode('utf-8')}"
-                    self.infoLabel.setText(f"<a href=\"{commit_link}\">Last Commit</a>{warning_msg}")
-                    self.infoLabel.setTextFormat(Qt.RichText)
-                    self.infoLabel.setTextInteractionFlags(Qt.TextBrowserInteraction)
-                    self.infoLabel.setOpenExternalLinks(True)
-                    self.lastCommitMessage.setPlainText(f"Author: {last_commit.author.decode('utf-8')}\n\n{last_commit.message.decode('utf-8')}")
-            except:
-                logger.exception(f"Unable to open git repo in {self.__beq_dir}")
-                self.__beq_dir_not_exists()
+            git_files = len(glob.glob(f"{self.__beq_dir}{os.sep}**{os.sep}*.xml", recursive=True))
+            self.__load_repo_metadata()
         else:
             self.__beq_dir_not_exists()
 
+        if len(self.userSourceDir.text().strip()) > 0 and os.path.exists(self.userSourceDir.text()):
+            user_files = len(glob.glob(f"{self.userSourceDir.text()}{os.sep}**{os.sep}*.xml", recursive=True))
+
+        if user_files > 0 or git_files > 0:
+            self.__show_or_hide(git_files > 0, user_files > 0)
+            self.totalFiles.setValue(user_files + git_files)
+
+    def __load_repo_metadata(self):
+        from dulwich import porcelain
+        try:
+            with porcelain.open_repo_closing(self.__beq_dir) as local_repo:
+                last_commit = local_repo[local_repo.head()]
+                last_commit_time_utc = last_commit.commit_time
+                last_commit_qdt = QDateTime()
+                last_commit_qdt.setTime_t(last_commit_time_utc)
+                self.lastCommitDate.setDateTime(last_commit_qdt)
+                from datetime import datetime
+                import calendar
+                d = datetime.utcnow()
+                now_utc = calendar.timegm(d.utctimetuple())
+                days_since_commit = (now_utc - last_commit_time_utc) / 60 / 60 / 24
+                warning_msg = ''
+                if days_since_commit > 7.0:
+                    warning_msg = f"&nbsp;was {round(days_since_commit)} days ago, press the button to update -->"
+                commit_link = f"{BMILLER_GITHUB_MINIDSP}/commit/{last_commit.id.decode('utf-8')}"
+                self.infoLabel.setText(f"<a href=\"{commit_link}\">Last Commit</a>{warning_msg}")
+                self.infoLabel.setTextFormat(Qt.RichText)
+                self.infoLabel.setTextInteractionFlags(Qt.TextBrowserInteraction)
+                self.infoLabel.setOpenExternalLinks(True)
+                self.lastCommitMessage.setPlainText(
+                    f"Author: {last_commit.author.decode('utf-8')}\n\n{last_commit.message.decode('utf-8')}")
+        except:
+            logger.exception(f"Unable to open git repo in {self.__beq_dir}")
+            self.__beq_dir_not_exists()
+
     def __beq_dir_not_exists(self):
-        self.__show_or_hide(False)
         self.infoLabel.setText(
             f"BEQ Filter repo not found at {self.__beq_dir}, press the button to clone the repository -->")
 
-    def __show_or_hide(self, show):
-        self.lastCommitDate.setVisible(show)
-        self.totalFiles.setVisible(show)
-        self.lastCommitMessage.setVisible(show)
-        self.lastUpdateLabel.setVisible(show)
-        self.filesProcessed.setVisible(show)
-        self.filesProcessedLabel.setVisible(show)
-        self.ofLabel.setVisible(show)
-        self.minidspType.setVisible(show)
-        self.minidspTypeLabel.setVisible(show)
-        self.processFiles.setVisible(show)
-        self.errors.setVisible(show)
-        self.errorsLabel.setVisible(show)
+    def __show_or_hide(self, has_git_files, has_user_files):
+        self.lastCommitDate.setVisible(has_git_files)
+        has_any_files = has_git_files or has_user_files
+        self.totalFiles.setVisible(has_any_files)
+        self.lastCommitMessage.setVisible(has_git_files)
+        self.lastUpdateLabel.setVisible(has_git_files)
+        self.filesProcessed.setVisible(has_any_files)
+        self.filesProcessedLabel.setVisible(has_any_files)
+        self.ofLabel.setVisible(has_any_files)
+        self.minidspType.setVisible(has_any_files)
+        self.minidspTypeLabel.setVisible(has_any_files)
+        self.processFiles.setVisible(has_any_files)
+        self.errors.setVisible(has_any_files)
+        self.errorsLabel.setVisible(has_any_files)
 
     def process_files(self):
         '''
@@ -110,6 +126,7 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
         self.__preferences.set(BEQ_CONFIG_FILE, self.configFile.text())
         self.__preferences.set(BEQ_MERGE_DIR, self.outputDirectory.text())
         self.__preferences.set(BEQ_MINIDSP_TYPE, self.minidspType.currentText())
+        self.__preferences.set(BEQ_EXTRA_DIR, self.userSourceDir.text())
         self.__update_beq_metadata()
         if self.__clear_output_directory():
             self.filesProcessed.setValue(0)
@@ -117,6 +134,7 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
             self.errors.clear()
             self.errors.setEnabled(False)
             QThreadPool.globalInstance().start(XmlProcessor(self.__beq_dir,
+                                                            self.userSourceDir.text(),
                                                             self.outputDirectory.text(),
                                                             self.configFile.text(),
                                                             self.minidspType.currentText(),
@@ -197,6 +215,29 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
                         self.outputDirectory.setText(abspath)
         self.__enable_process()
 
+    def clear_user_source_dir(self):
+        self.userSourceDir.clear()
+        self.__update_beq_metadata()
+
+    def pick_user_source_dir(self):
+        '''
+        Sets the user source directory.
+        '''
+        dialog = QFileDialog(parent=self)
+        dialog.setFileMode(QFileDialog.DirectoryOnly)
+        dialog.setOption(QFileDialog.ShowDirsOnly)
+        dialog.setWindowTitle('Choose a directory which holds your own BEQ files')
+        if dialog.exec():
+            selected = dialog.selectedFiles()
+            if len(selected) > 0:
+                if os.path.abspath(selected[0]) == os.path.abspath(self.__beq_dir):
+                    QMessageBox.critical(self, '',
+                                         f"User directory cannot be inside the input directory, choose a different folder",
+                                         QMessageBox.Ok)
+                else:
+                    self.userSourceDir.setText(selected[0])
+                    self.__update_beq_metadata()
+
     def pick_config_file(self):
         '''
         Picks the master config file.
@@ -229,9 +270,10 @@ class XmlProcessor(QRunnable):
     '''
     Completes the batch conversion of minidsp files in a separate thread.
     '''
-    def __init__(self, beq_dir, output_dir, config_file, minidsp_type, failure_handler, success_handler, complete_handler):
+    def __init__(self, beq_dir, user_source_dir, output_dir, config_file, minidsp_type, failure_handler, success_handler, complete_handler):
         super().__init__()
         self.__beq_dir = beq_dir
+        self.__user_source_dir = user_source_dir
         self.__output_dir = output_dir
         self.__config_file = config_file
         self.__parser = TwoByFourXmlParser() if minidsp_type == '2x4' else HDXmlParser(minidsp_type)
@@ -243,11 +285,16 @@ class XmlProcessor(QRunnable):
         self.__signals.on_complete.connect(complete_handler)
 
     def run(self):
-        beq_dir = Path(self.__beq_dir)
-        base_parts_idx = len(beq_dir.parts)
-        for xml in beq_dir.glob(f"**{os.sep}*.xml"):
-            self.__process_file(base_parts_idx, xml)
+        self.__process_dir(self.__beq_dir)
+        self.__process_dir(self.__user_source_dir)
         self.__signals.on_complete.emit()
+
+    def __process_dir(self, src_dir):
+        if len(src_dir) > 0:
+            beq_dir = Path(src_dir)
+            base_parts_idx = len(beq_dir.parts)
+            for xml in beq_dir.glob(f"**{os.sep}*.xml"):
+                self.__process_file(base_parts_idx, xml)
 
     def __process_file(self, base_parts_idx, xml):
         '''
