@@ -36,14 +36,13 @@ matrix:
     os: windows
     language: shell
     env:
-    - PATH="/c/tools/miniconda3/:/c/tools/miniconda3/Scripts:$PATH"
+    - PATH="/c/tools/miniconda3/:/c/tools/miniconda3/Library/mingw-w64:/c/tools/miniconda3/Library/usr/bin:/c/tools/miniconda3/Library/bin:/c/tools/miniconda3/Scripts:/c/tools/miniconda3/bin:$PATH"
     - PBIN=pip
     - PRUN=
     before_install:
     - choco install miniconda3 openssl.light nsis
     - conda config --set always_yes yes --set changeps1 no
     - conda update -n base -c defaults conda python
-    - activate
     - conda create -q -n test python=$TRAVIS_PYTHON_VERSION scipy numpy
     - source activate test
     - python -m pip install --upgrade pip
