@@ -573,8 +573,8 @@ class Executor:
         else:
             self.__calculate_extract_command(output_file)
 
-    def __calculate_trim_kwargs(self):
-        args = {}
+    def __calculate_input_kwargs(self):
+        args = {'drc_scale': 0}
         if self.start_time_ms > 0:
             args['ss'] = round(self.start_time_ms / 1000, 3)
         if self.end_time_ms > 0:
@@ -583,7 +583,7 @@ class Executor:
 
     def __calculate_extract_command(self, output_file):
         ''' calculates the command required to extract the audio to the specified output file '''
-        input_stream = ffmpeg.input(self.file, **self.__calculate_trim_kwargs())
+        input_stream = ffmpeg.input(self.file, **self.__calculate_input_kwargs())
         acodec = self.__get_acodec()
         if self.__mono_mix:
             self.__ffmpeg_cmd = self.__calculate_extract_mono_cmd(acodec, input_stream, output_file)
@@ -647,7 +647,7 @@ class Executor:
         # TODO only write the filter file when it actually changes
         exe = ".exe" if platform.system() == 'Windows' else ""
         self.__ffmpeg_cmd = [f"ffmpeg{exe}"]
-        for key, value in self.__calculate_trim_kwargs().items():
+        for key, value in self.__calculate_input_kwargs().items():
             self.__ffmpeg_cmd += [f"-{key}", str(value)]
         self.__ffmpeg_cmd += [
             '-i', filename,
