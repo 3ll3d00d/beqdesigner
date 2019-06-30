@@ -10,7 +10,7 @@ matplotlib = "*"
 ffmpeg-python = "*"
 soundfile = "*"
 resampy = "*"
-pyqtgraph = {editable = true,git = "https://github.com/pyqtgraph/pyqtgraph",ref = "develop"}
+#pyqtgraph = {editable = true,git = "https://github.com/pyqtgraph/pyqtgraph",ref = "develop"}
 numpy = "*"
 scipy = "*"
 qtpy = "*"

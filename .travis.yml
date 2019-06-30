@@ -79,6 +79,8 @@ install:
 - $PBIN list
 - pipenv run $PBIN list
 before_script:
+# workaround pipenv lock fail when dealing with source dependencies
+- $PBIN install git+https://github.com/pyqtgraph/pyqtgraph@develop
 - |
   if [[ -n ${TRAVIS_TAG} ]]
   then
