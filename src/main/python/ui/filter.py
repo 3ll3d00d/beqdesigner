@@ -3,7 +3,7 @@
 # Form implementation generated from reading ui file 'filter.ui',
 # licensing of 'filter.ui' applies.
 #
-# Created: Sat Jun 29 23:16:14 2019
+# Created: Sun Jun 30 22:06:40 2019
 #      by: pyside2-uic  running on PySide2 5.13.0
 #
 # WARNING! All changes made in this file will be lost!
@@ -27,19 +27,9 @@ class Ui_editFilterDialog(object):
         self.passFilterType = QtWidgets.QComboBox(editFilterDialog)
         self.passFilterType.setEnabled(True)
         self.passFilterType.setObjectName("passFilterType")
-        self.passFilterType.addItem("")
-        self.passFilterType.addItem("")
         self.paramsPane.addWidget(self.passFilterType, 2, 1, 1, 1)
         self.filterType = QtWidgets.QComboBox(editFilterDialog)
         self.filterType.setObjectName("filterType")
-        self.filterType.addItem("")
-        self.filterType.addItem("")
-        self.filterType.addItem("")
-        self.filterType.addItem("")
-        self.filterType.addItem("")
-        self.filterType.addItem("")
-        self.filterType.addItem("")
-        self.filterType.addItem("")
         self.paramsPane.addWidget(self.filterType, 1, 1, 1, 1)
         self.typeLabel = QtWidgets.QLabel(editFilterDialog)
         self.typeLabel.setObjectName("typeLabel")
@@ -187,16 +177,6 @@ class Ui_editFilterDialog(object):
 
     def retranslateUi(self, editFilterDialog):
         editFilterDialog.setWindowTitle(QtWidgets.QApplication.translate("editFilterDialog", "Create Filter", None, -1))
-        self.passFilterType.setItemText(0, QtWidgets.QApplication.translate("editFilterDialog", "Butterworth", None, -1))
-        self.passFilterType.setItemText(1, QtWidgets.QApplication.translate("editFilterDialog", "Linkwitz-Riley", None, -1))
-        self.filterType.setItemText(2, QtWidgets.QApplication.translate("editFilterDialog", "Low Shelf", None, -1))
-        self.filterType.setItemText(3, QtWidgets.QApplication.translate("editFilterDialog", "High Shelf", None, -1))
-        self.filterType.setItemText(4, QtWidgets.QApplication.translate("editFilterDialog", "PEQ", None, -1))
-        self.filterType.setItemText(5, QtWidgets.QApplication.translate("editFilterDialog", "Gain", None, -1))
-        self.filterType.setItemText(6, QtWidgets.QApplication.translate("editFilterDialog", "Variable Q LPF", None, -1))
-        self.filterType.setItemText(7, QtWidgets.QApplication.translate("editFilterDialog", "Variable Q HPF", None, -1))
-        self.filterType.setItemText(8, QtWidgets.QApplication.translate("editFilterDialog", "Low Pass", None, -1))
-        self.filterType.setItemText(9, QtWidgets.QApplication.translate("editFilterDialog", "High Pass", None, -1))
         self.typeLabel.setText(QtWidgets.QApplication.translate("editFilterDialog", "Type", None, -1))
         self.gainLabel.setText(QtWidgets.QApplication.translate("editFilterDialog", "Gain", None, -1))
         self.filterQLabel.setText(QtWidgets.QApplication.translate("editFilterDialog", "Q", None, -1))

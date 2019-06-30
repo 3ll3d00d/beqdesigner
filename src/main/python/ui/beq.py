@@ -3,7 +3,7 @@
 # Form implementation generated from reading ui file 'beq.ui',
 # licensing of 'beq.ui' applies.
 #
-# Created: Sat Jun 29 23:16:13 2019
+# Created: Sun Jun 30 22:06:39 2019
 #      by: pyside2-uic  running on PySide2 5.13.0
 #
 # WARNING! All changes made in this file will be lost!
@@ -28,14 +28,12 @@ class Ui_MainWindow(object):
         self.leftPane.addWidget(self.showValuesButton, 0, 6, 1, 1)
         self.filterReference = QtWidgets.QComboBox(self.centralwidget)
         self.filterReference.setObjectName("filterReference")
-        self.filterReference.addItem("")
         self.leftPane.addWidget(self.filterReference, 0, 2, 1, 1)
         self.limitsButton = QtWidgets.QToolButton(self.centralwidget)
         self.limitsButton.setObjectName("limitsButton")
         self.leftPane.addWidget(self.limitsButton, 0, 7, 1, 1)
         self.signalReference = QtWidgets.QComboBox(self.centralwidget)
         self.signalReference.setObjectName("signalReference")
-        self.signalReference.addItem("")
         self.leftPane.addWidget(self.signalReference, 0, 1, 1, 1)
         self.referenceLabel = QtWidgets.QLabel(self.centralwidget)
         self.referenceLabel.setObjectName("referenceLabel")
@@ -275,11 +273,6 @@ class Ui_MainWindow(object):
         self.waveformControls.addWidget(self.bmHeadroomLabel, 10, 0, 1, 1)
         self.bmHeadroom = QtWidgets.QComboBox(self.waveformContainer)
         self.bmHeadroom.setObjectName("bmHeadroom")
-        self.bmHeadroom.addItem("")
-        self.bmHeadroom.addItem("")
-        self.bmHeadroom.addItem("")
-        self.bmHeadroom.addItem("")
-        self.bmHeadroom.addItem("")
         self.waveformControls.addWidget(self.bmHeadroom, 10, 1, 1, 1)
         self.horizontalLayout = QtWidgets.QHBoxLayout()
         self.horizontalLayout.setObjectName("horizontalLayout")
@@ -319,14 +312,6 @@ class Ui_MainWindow(object):
         self.leftPane.addWidget(self.label, 0, 3, 1, 1)
         self.octaveSmoothing = QtWidgets.QComboBox(self.centralwidget)
         self.octaveSmoothing.setObjectName("octaveSmoothing")
-        self.octaveSmoothing.addItem("")
-        self.octaveSmoothing.addItem("")
-        self.octaveSmoothing.addItem("")
-        self.octaveSmoothing.addItem("")
-        self.octaveSmoothing.addItem("")
-        self.octaveSmoothing.addItem("")
-        self.octaveSmoothing.addItem("")
-        self.octaveSmoothing.addItem("")
         self.leftPane.addWidget(self.octaveSmoothing, 0, 4, 1, 1)
         self.smoothAllSignals = QtWidgets.QCheckBox(self.centralwidget)
         self.smoothAllSignals.setObjectName("smoothAllSignals")
@@ -451,7 +436,7 @@ class Ui_MainWindow(object):
         self.widgetGridLayout.addLayout(self.panes, 0, 0, 1, 1)
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 1569, 18))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 1569, 17))
         self.menubar.setObjectName("menubar")
         self.menuHelp = QtWidgets.QMenu(self.menubar)
         self.menuHelp.setObjectName("menuHelp")
@@ -661,9 +646,7 @@ class Ui_MainWindow(object):
     def retranslateUi(self, MainWindow):
         MainWindow.setWindowTitle(QtWidgets.QApplication.translate("MainWindow", "BEQ Designer", None, -1))
         self.showValuesButton.setText(QtWidgets.QApplication.translate("MainWindow", "...", None, -1))
-        self.filterReference.setItemText(0, QtWidgets.QApplication.translate("MainWindow", "None", None, -1))
         self.limitsButton.setText(QtWidgets.QApplication.translate("MainWindow", "...", None, -1))
-        self.signalReference.setItemText(1, QtWidgets.QApplication.translate("MainWindow", "None", None, -1))
         self.referenceLabel.setText(QtWidgets.QApplication.translate("MainWindow", "Reference:", None, -1))
         self.signalSelectorLabel.setText(QtWidgets.QApplication.translate("MainWindow", "Signal", None, -1))
         self.sourceFileLabel.setText(QtWidgets.QApplication.translate("MainWindow", "Source File", None, -1))
@@ -682,11 +665,6 @@ class Ui_MainWindow(object):
         self.bmClipBefore.setText(QtWidgets.QApplication.translate("MainWindow", "Before", None, -1))
         self.bmClipAfter.setText(QtWidgets.QApplication.translate("MainWindow", "After", None, -1))
         self.bmHeadroomLabel.setText(QtWidgets.QApplication.translate("MainWindow", "Headroom", None, -1))
-        self.bmHeadroom.setItemText(2, QtWidgets.QApplication.translate("MainWindow", "WCS", None, -1))
-        self.bmHeadroom.setItemText(3, QtWidgets.QApplication.translate("MainWindow", "-8", None, -1))
-        self.bmHeadroom.setItemText(4, QtWidgets.QApplication.translate("MainWindow", "-7", None, -1))
-        self.bmHeadroom.setItemText(5, QtWidgets.QApplication.translate("MainWindow", "-6", None, -1))
-        self.bmHeadroom.setItemText(6, QtWidgets.QApplication.translate("MainWindow", "-5", None, -1))
         self.compareSpectrumButton.setText(QtWidgets.QApplication.translate("MainWindow", "...", None, -1))
         self.showSpectrumButton.setText(QtWidgets.QApplication.translate("MainWindow", "...", None, -1))
         self.hideSpectrumButton.setText(QtWidgets.QApplication.translate("MainWindow", "...", None, -1))
@@ -694,14 +672,6 @@ class Ui_MainWindow(object):
         self.zoomInButton.setText(QtWidgets.QApplication.translate("MainWindow", "...", None, -1))
         self.zoomOutButton.setText(QtWidgets.QApplication.translate("MainWindow", "...", None, -1))
         self.label.setText(QtWidgets.QApplication.translate("MainWindow", "Smoothing:", None, -1))
-        self.octaveSmoothing.setItemText(7, QtWidgets.QApplication.translate("MainWindow", "None", None, -1))
-        self.octaveSmoothing.setItemText(8, QtWidgets.QApplication.translate("MainWindow", "1/1", None, -1))
-        self.octaveSmoothing.setItemText(9, QtWidgets.QApplication.translate("MainWindow", "1/2", None, -1))
-        self.octaveSmoothing.setItemText(10, QtWidgets.QApplication.translate("MainWindow", "1/3", None, -1))
-        self.octaveSmoothing.setItemText(11, QtWidgets.QApplication.translate("MainWindow", "1/6", None, -1))
-        self.octaveSmoothing.setItemText(12, QtWidgets.QApplication.translate("MainWindow", "1/12", None, -1))
-        self.octaveSmoothing.setItemText(13, QtWidgets.QApplication.translate("MainWindow", "1/24", None, -1))
-        self.octaveSmoothing.setItemText(14, QtWidgets.QApplication.translate("MainWindow", "Savitzky–Golay", None, -1))
         self.smoothAllSignals.setText(QtWidgets.QApplication.translate("MainWindow", "All Signals?", None, -1))
         self.signalsLabel.setText(QtWidgets.QApplication.translate("MainWindow", "Signals", None, -1))
         self.addSignalButton.setText(QtWidgets.QApplication.translate("MainWindow", "Add", None, -1))
@@ -810,5 +780,5 @@ class Ui_MainWindow(object):
         self.actionExport_BEQ_Filter.setText(QtWidgets.QApplication.translate("MainWindow", "Export BEQ Filter", None, -1))
         self.actionExport_BEQ_Filter.setShortcut(QtWidgets.QApplication.translate("MainWindow", "Ctrl+Alt+E", None, -1))
 
-from mpl import MplWidget
 from app import PlotWidgetWithDateAxis
+from mpl import MplWidget

@@ -401,6 +401,7 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         super(PreferencesDialog, self).__init__(parent)
         self.__style_root = style_root
         self.setupUi(self)
+        self.__init_combos()
         self.__init_analysis_window(self.avgAnalysisWindow)
         self.__init_analysis_window(self.peakAnalysisWindow)
         self.__init_themes()
@@ -469,6 +470,24 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         self.precalcSmoothing.setChecked(self.__preferences.get(DISPLAY_SMOOTH_PRECALC))
 
         self.__count_beq_files()
+
+    def __init_combos(self):
+        from model.report import block_signals
+        with block_signals(self.targetFs):
+            self.targetFs.addItem("250 Hz")
+            self.targetFs.addItem("500 Hz")
+            self.targetFs.addItem("1000 Hz")
+            self.targetFs.addItem("2000 Hz")
+            self.targetFs.addItem("4000 Hz")
+            self.targetFs.addItem("8000 Hz")
+        with block_signals(self.resolutionSelect):
+            self.resolutionSelect.addItem("0.25 Hz")
+            self.resolutionSelect.addItem("0.5 Hz")
+            self.resolutionSelect.addItem("1.0 Hz")
+            self.resolutionSelect.addItem("2.0 Hz")
+            self.resolutionSelect.addItem("4.0 Hz")
+        with block_signals(self.themePicker):
+            self.themePicker.addItem("default")
 
     def __reset(self):
         '''

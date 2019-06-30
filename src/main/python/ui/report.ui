@@ -43,8 +43,8 @@
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>368</width>
-            <height>342</height>
+            <width>248</width>
+            <height>242</height>
            </rect>
           </property>
           <attribute name="label">
@@ -251,8 +251,8 @@
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>368</width>
-            <height>310</height>
+            <width>248</width>
+            <height>242</height>
            </rect>
           </property>
           <attribute name="label">
@@ -498,8 +498,8 @@
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>410</width>
-            <height>308</height>
+            <width>248</width>
+            <height>242</height>
            </rect>
           </property>
           <attribute name="label">
@@ -605,110 +605,15 @@
              <item row="3" column="1">
               <widget class="QComboBox" name="chartLayout">
                <property name="currentIndex">
-                <number>0</number>
+                <number>-1</number>
                </property>
-               <item>
-                <property name="text">
-                 <string>Image | Chart, Filters</string>
-                </property>
-               </item>
-               <item>
-                <property name="text">
-                 <string>Image | Filters, Chart</string>
-                </property>
-               </item>
-               <item>
-                <property name="text">
-                 <string>Chart | Image, Filter</string>
-                </property>
-               </item>
-               <item>
-                <property name="text">
-                 <string>Chart | Filters, Image</string>
-                </property>
-               </item>
-               <item>
-                <property name="text">
-                 <string>Filters | Image, Chart</string>
-                </property>
-               </item>
-               <item>
-                <property name="text">
-                 <string>Filters | Chart, Image</string>
-                </property>
-               </item>
-               <item>
-                <property name="text">
-                 <string>Image, Filters | Chart</string>
-                </property>
-               </item>
-               <item>
-                <property name="text">
-                 <string>Filters, Image | Chart</string>
-                </property>
-               </item>
-               <item>
-                <property name="text">
-                 <string>Chart, Image | Filters</string>
-                </property>
-               </item>
-               <item>
-                <property name="text">
-                 <string>Image, Chart | Filters</string>
-                </property>
-               </item>
-               <item>
-                <property name="text">
-                 <string>Filters, Chart | Image</string>
-                </property>
-               </item>
-               <item>
-                <property name="text">
-                 <string>Chart, Filters | Image</string>
-                </property>
-               </item>
-               <item>
-                <property name="text">
-                 <string>Chart | Filters</string>
-                </property>
-               </item>
-               <item>
-                <property name="text">
-                 <string>Filters | Chart</string>
-                </property>
-               </item>
-               <item>
-                <property name="text">
-                 <string>Chart | Image</string>
-                </property>
-               </item>
-               <item>
-                <property name="text">
-                 <string>Image | Chart</string>
-                </property>
-               </item>
-               <item>
-                <property name="text">
-                 <string>Pixel Perfect Image | Chart</string>
-                </property>
-               </item>
               </widget>
              </item>
              <item row="2" column="1">
               <widget class="QComboBox" name="chartSplit">
                <property name="currentIndex">
-                <number>1</number>
+                <number>-1</number>
                </property>
-               <item>
-                <property name="text">
-                 <string>Horizontal</string>
-                </property>
-               </item>
-               <item>
-                <property name="text">
-                 <string>Vertical</string>
-                </property>
-               </item>
               </widget>
              </item>
              <item row="4" column="1">
@@ -784,8 +689,8 @@
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>410</width>
-            <height>329</height>
+            <width>337</width>
+            <height>242</height>
            </rect>
           </property>
           <attribute name="label">

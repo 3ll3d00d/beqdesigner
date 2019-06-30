@@ -3,7 +3,7 @@
 # Form implementation generated from reading ui file 'limits.ui',
 # licensing of 'limits.ui' applies.
 #
-# Created: Sat Jun 29 23:16:15 2019
+# Created: Sun Jun 30 22:06:41 2019
 #      by: pyside2-uic  running on PySide2 5.13.0
 #
 # WARNING! All changes made in this file will be lost!

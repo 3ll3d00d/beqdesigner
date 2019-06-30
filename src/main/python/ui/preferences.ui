@@ -111,38 +111,7 @@
         <widget class="QComboBox" name="peakAnalysisWindow"/>
        </item>
        <item row="1" column="1">
-        <widget class="QComboBox" name="targetFs">
-         <item>
-          <property name="text">
-           <string>250 Hz</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>500 Hz</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>1000 Hz</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>2000 Hz</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>4000 Hz</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>8000 Hz</string>
-          </property>
-         </item>
-        </widget>
+        <widget class="QComboBox" name="targetFs"/>
        </item>
        <item row="1" column="0">
         <widget class="QLabel" name="targetFsLabel">
@@ -179,33 +148,8 @@
        <item row="1" column="3">
         <widget class="QComboBox" name="resolutionSelect">
          <property name="currentText">
-          <string>0.25 Hz</string>
+          <string/>
          </property>
-         <item>
-          <property name="text">
-           <string>0.25 Hz</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>0.5 Hz</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>1.0 Hz</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>2.0 Hz</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>4.0 Hz</string>
-          </property>
-         </item>
         </widget>
        </item>
       </layout>
@@ -356,13 +300,7 @@
         </widget>
        </item>
        <item row="1" column="1">
-        <widget class="QComboBox" name="themePicker">
-         <item>
-          <property name="text">
-           <string>default</string>
-          </property>
-         </item>
-        </widget>
+        <widget class="QComboBox" name="themePicker"/>
        </item>
        <item row="1" column="2">
         <widget class="QCheckBox" name="smoothGraphs">

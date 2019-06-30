@@ -57,6 +57,7 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         self.__selected_xy = []
         self.setWindowFlags(self.windowFlags() | Qt.WindowSystemMenuHint | Qt.WindowMinMaxButtonsHint)
         self.setupUi(self)
+        self.__init_combos()
         self.imagePicker.setIcon(qta.icon('fa5s.folder-open'))
         self.limitsButton.setIcon(qta.icon('fa5s.arrows-alt'))
         self.saveLayout.setIcon(qta.icon('fa5s.save'))
@@ -73,6 +74,29 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         self.__restore_geometry()
         self.restore_layout(redraw=True)
         self.__record_image_size()
+
+    def __init_combos(self):
+        with block_signals(self.chartLayout):
+            self.chartLayout.setItemText('Image | Chart, Filters')
+            self.chartLayout.setItemText('Image | Filters, Chart')
+            self.chartLayout.setItemText('Chart | Image, Filter')
+            self.chartLayout.setItemText('Chart | Filters, Image')
+            self.chartLayout.setItemText('Filters | Image, Chart')
+            self.chartLayout.setItemText('Filters | Chart, Image')
+            self.chartLayout.setItemText('Image, Filters | Chart')
+            self.chartLayout.setItemText('Filters, Image | Chart')
+            self.chartLayout.setItemText('Chart, Image | Filters')
+            self.chartLayout.setItemText('Image, Chart | Filters')
+            self.chartLayout.setItemText('Filters, Chart | Image')
+            self.chartLayout.setItemText('Chart, Filters | Image')
+            self.chartLayout.setItemText('Chart | Filters')
+            self.chartLayout.setItemText('Filters | Chart')
+            self.chartLayout.setItemText('Chart | Image')
+            self.chartLayout.setItemText('Image | Chart')
+            self.chartLayout.setItemText('Pixel Perfect Image | Chart')
+        with block_signals(self.chartSplit):
+            self.chartSplit.setItemText('Horizontal')
+            self.chartSplit.setItemText('Vertical')
 
     def __restore_geometry(self):
         ''' loads the saved window size '''

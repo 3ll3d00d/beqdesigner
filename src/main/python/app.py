@@ -12,7 +12,7 @@ import matplotlib
 from scipy import signal
 
 matplotlib.use("Qt5Agg")
-# os.environ['QT_API'] = 'pyqt5'
+os.environ['QT_API'] = 'pyside2'
 # os.environ['PYQTGRAPH_QT_LIB'] = 'qtpy'
 
 from model.waveform import WaveformController
@@ -108,6 +108,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         pg.setConfigOption('foreground', matplotlib.colors.to_hex(matplotlib.rcParams['axes.edgecolor']))
         pg.setConfigOption('leftButtonPan', False)
         self.setupUi(self)
+        self.__init_combos()
         self.__decorate_splitter()
         self.limitsButton.setIcon(qta.icon('fa5s.arrows-alt'))
         self.showValuesButton.setIcon(qta.icon('ei.eye-open'))
@@ -255,6 +256,27 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.actionRelease_Notes.triggered.connect(self.show_release_notes)
         self.actionExport_BEQ_Filter.triggered.connect(self.export_beq_filter)
 
+    def __init_combos(self):
+        with block_signals(self.filterReference):
+            self.filterReference.addItem('None')
+        with block_signals(self.signalReference):
+            self.signalReference.addItem('None')
+        with block_signals(self.bmHeadroom):
+            self.bmHeadroom.addItem('WCS')
+            self.bmHeadroom.addItem('-8')
+            self.bmHeadroom.addItem('-7')
+            self.bmHeadroom.addItem('-6')
+            self.bmHeadroom.addItem('-5')
+        with block_signals(self.octaveSmoothing):
+            self.octaveSmoothing.addItem('None')
+            self.octaveSmoothing.addItem('1/1')
+            self.octaveSmoothing.addItem('1/2')
+            self.octaveSmoothing.addItem('1/3')
+            self.octaveSmoothing.addItem('1/6')
+            self.octaveSmoothing.addItem('1/12')
+            self.octaveSmoothing.addItem('1/24')
+            self.octaveSmoothing.addItem('Savitzky–Golay')
+
     def show_release_notes(self):
         ''' Shows the release notes '''
         QThreadPool.globalInstance().start(VersionChecker(self.preferences.get(SYSTEM_CHECK_FOR_BETA_UPDATES),
@@ -283,7 +305,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
                     s.smooth(smooth_type)
             else:
                 signal_select = self.signalView.selectionModel()
-                if signal_select.hasSelection() and len(signal_select.selectedRows()) == 1:
+                if signal_select and signal_select.hasSelection() and len(signal_select.selectedRows()) == 1:
                     signal_data = self.__signal_model[signal_select.selectedRows()[0].row()]
                     if signal_data.signal is not None:
                         signal_data.smooth(smooth_type)
@@ -1118,6 +1140,7 @@ class ExportBiquadDialog(QDialog, Ui_exportBiquadDialog):
     def __init__(self, filter, prefs):
         super(ExportBiquadDialog, self).__init__()
         self.setupUi(self)
+        self.__init_combos()
         self.__filter = filter
         self.__prefs = prefs
         self.setDefaults.setIcon(qta.icon('fa5s.save'))
@@ -1127,6 +1150,17 @@ class ExportBiquadDialog(QDialog, Ui_exportBiquadDialog):
         self.fs.setCurrentText(prefs.get(BIQUAD_EXPORT_FS))
         self.outputFormat.setCurrentText(prefs.get(BIQUAD_EXPORT_DEVICE))
         self.update_format(self.outputFormat.currentText())
+        
+    def __init_combos(self):
+        with block_signals(self.fs):
+            self.fs.addItem('48000')
+            self.fs.addItem('96000')
+            self.fs.addItem('192000')
+        with block_signals(self.outputFormat):
+            self.outputFormat.addItem('Minidsp 2x4HD')
+            self.outputFormat.addItem('Minidsp 10x10HD')
+            self.outputFormat.addItem('Minidsp 2x4')
+            self.outputFormat.addItem('User Selected')
 
     def update_format(self, selected_format):
         if selected_format == 'User Selected':

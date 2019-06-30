@@ -3,7 +3,7 @@
 # Form implementation generated from reading ui file 'preferences.ui',
 # licensing of 'preferences.ui' applies.
 #
-# Created: Sat Jun 29 23:16:16 2019
+# Created: Sun Jun 30 22:06:42 2019
 #      by: pyside2-uic  running on PySide2 5.13.0
 #
 # WARNING! All changes made in this file will be lost!
@@ -67,12 +67,6 @@ class Ui_preferencesDialog(object):
         self.analysisPane.addWidget(self.peakAnalysisWindow, 2, 3, 1, 1)
         self.targetFs = QtWidgets.QComboBox(preferencesDialog)
         self.targetFs.setObjectName("targetFs")
-        self.targetFs.addItem("")
-        self.targetFs.addItem("")
-        self.targetFs.addItem("")
-        self.targetFs.addItem("")
-        self.targetFs.addItem("")
-        self.targetFs.addItem("")
         self.analysisPane.addWidget(self.targetFs, 1, 1, 1, 1)
         self.targetFsLabel = QtWidgets.QLabel(preferencesDialog)
         self.targetFsLabel.setObjectName("targetFsLabel")
@@ -91,12 +85,8 @@ class Ui_preferencesDialog(object):
         self.avgAnalysisWindow.setObjectName("avgAnalysisWindow")
         self.analysisPane.addWidget(self.avgAnalysisWindow, 2, 1, 1, 1)
         self.resolutionSelect = QtWidgets.QComboBox(preferencesDialog)
+        self.resolutionSelect.setCurrentText("")
         self.resolutionSelect.setObjectName("resolutionSelect")
-        self.resolutionSelect.addItem("")
-        self.resolutionSelect.addItem("")
-        self.resolutionSelect.addItem("")
-        self.resolutionSelect.addItem("")
-        self.resolutionSelect.addItem("")
         self.analysisPane.addWidget(self.resolutionSelect, 1, 3, 1, 1)
         self.panes.addLayout(self.analysisPane)
         self.extractPane = QtWidgets.QGridLayout()
@@ -170,7 +160,6 @@ class Ui_preferencesDialog(object):
         self.stylePane.addWidget(self.speclabLineStyle, 1, 3, 1, 1)
         self.themePicker = QtWidgets.QComboBox(preferencesDialog)
         self.themePicker.setObjectName("themePicker")
-        self.themePicker.addItem("")
         self.stylePane.addWidget(self.themePicker, 1, 1, 1, 1)
         self.smoothGraphs = QtWidgets.QCheckBox(preferencesDialog)
         self.smoothGraphs.setObjectName("smoothGraphs")
@@ -351,20 +340,8 @@ class Ui_preferencesDialog(object):
         self.resolutionLabel.setText(QtWidgets.QApplication.translate("preferencesDialog", "Resolution", None, -1))
         self.peakAnalysisWindowLabel.setText(QtWidgets.QApplication.translate("preferencesDialog", "Peak Window", None, -1))
         self.avgAnalysisWindowLabel.setText(QtWidgets.QApplication.translate("preferencesDialog", "Avg Window", None, -1))
-        self.targetFs.setItemText(0, QtWidgets.QApplication.translate("preferencesDialog", "250 Hz", None, -1))
-        self.targetFs.setItemText(1, QtWidgets.QApplication.translate("preferencesDialog", "500 Hz", None, -1))
-        self.targetFs.setItemText(2, QtWidgets.QApplication.translate("preferencesDialog", "1000 Hz", None, -1))
-        self.targetFs.setItemText(3, QtWidgets.QApplication.translate("preferencesDialog", "2000 Hz", None, -1))
-        self.targetFs.setItemText(4, QtWidgets.QApplication.translate("preferencesDialog", "4000 Hz", None, -1))
-        self.targetFs.setItemText(5, QtWidgets.QApplication.translate("preferencesDialog", "8000 Hz", None, -1))
         self.targetFsLabel.setText(QtWidgets.QApplication.translate("preferencesDialog", "Target Fs", None, -1))
         self.analysisLabel.setText(QtWidgets.QApplication.translate("preferencesDialog", "Analysis", None, -1))
-        self.resolutionSelect.setCurrentText(QtWidgets.QApplication.translate("preferencesDialog", "0.25 Hz", None, -1))
-        self.resolutionSelect.setItemText(6, QtWidgets.QApplication.translate("preferencesDialog", "0.25 Hz", None, -1))
-        self.resolutionSelect.setItemText(7, QtWidgets.QApplication.translate("preferencesDialog", "0.5 Hz", None, -1))
-        self.resolutionSelect.setItemText(8, QtWidgets.QApplication.translate("preferencesDialog", "1.0 Hz", None, -1))
-        self.resolutionSelect.setItemText(9, QtWidgets.QApplication.translate("preferencesDialog", "2.0 Hz", None, -1))
-        self.resolutionSelect.setItemText(10, QtWidgets.QApplication.translate("preferencesDialog", "4.0 Hz", None, -1))
         self.defaultOutputDirectoryLabel.setText(QtWidgets.QApplication.translate("preferencesDialog", "Default Output Directory", None, -1))
         self.defaultOutputDirectoryPicker.setText(QtWidgets.QApplication.translate("preferencesDialog", "...", None, -1))
         self.extractionLabel.setText(QtWidgets.QApplication.translate("preferencesDialog", "Extraction", None, -1))
@@ -378,7 +355,6 @@ class Ui_preferencesDialog(object):
         self.styleLabel.setText(QtWidgets.QApplication.translate("preferencesDialog", "Style", None, -1))
         self.themeLabel.setText(QtWidgets.QApplication.translate("preferencesDialog", "Theme", None, -1))
         self.speclabLineStyle.setText(QtWidgets.QApplication.translate("preferencesDialog", "Speclab Line Colours?", None, -1))
-        self.themePicker.setItemText(11, QtWidgets.QApplication.translate("preferencesDialog", "default", None, -1))
         self.smoothGraphs.setText(QtWidgets.QApplication.translate("preferencesDialog", "Smooth?", None, -1))
         self.freqIsLogScale.setText(QtWidgets.QApplication.translate("preferencesDialog", "Frequency Axis Log Scale?", None, -1))
         self.graphLabel.setText(QtWidgets.QApplication.translate("preferencesDialog", "Graph", None, -1))

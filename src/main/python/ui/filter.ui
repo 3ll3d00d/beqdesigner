@@ -28,61 +28,10 @@
        <property name="enabled">
         <bool>true</bool>
        </property>
-       <item>
-        <property name="text">
-         <string>Butterworth</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>Linkwitz-Riley</string>
-        </property>
-       </item>
       </widget>
      </item>
      <item row="1" column="1">
-      <widget class="QComboBox" name="filterType">
-       <item>
-        <property name="text">
-         <string>Low Shelf</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>High Shelf</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>PEQ</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>Gain</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>Variable Q LPF</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>Variable Q HPF</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>Low Pass</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>High Pass</string>
-        </property>
-       </item>
-      </widget>
+      <widget class="QComboBox" name="filterType"/>
      </item>
      <item row="1" column="0">
       <widget class="QLabel" name="typeLabel">

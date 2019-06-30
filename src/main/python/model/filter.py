@@ -247,6 +247,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.__freq_step_idx = self.__get_step(self.freq_steps, self.__preferences.get(DISPLAY_FREQ_STEP), 1)
         # init the UI itself
         self.setupUi(self)
+        self.__init_combos()
         self.__set_q_step(self.q_steps[self.__q_step_idx])
         self.__set_s_step(self.q_steps[self.__s_step_idx])
         self.__set_gain_step(self.gain_steps[self.__gain_step_idx])
@@ -264,6 +265,21 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
                                                 db_range_calc=dBRangeCalculator(30, expand=True), fill_curves=True)
         # load the selector and populate the fields
         self.__refresh_selector()
+        
+    def __init_combos(self):
+        from model.report import block_signals
+        with block_signals(self.passFilterType):
+            self.passFilterType.addItem('Butterworth')
+            self.passFilterType.addItem('Linkwitz-Riley')
+        with block_signals(self.filterType):
+            self.filterType.addItem('Low Shelf')
+            self.filterType.addItem('High Shelf')
+            self.filterType.addItem('PEQ')
+            self.filterType.addItem('Gain')
+            self.filterType.addItem('Variable Q LPF')
+            self.filterType.addItem('Variable Q HPF')
+            self.filterType.addItem('Low Pass')
+            self.filterType.addItem('High Pass')
 
     @property
     def filter(self):
