@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1569</width>
-    <height>968</height>
+    <height>941</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -975,7 +975,7 @@
      <x>0</x>
      <y>0</y>
      <width>1569</width>
-     <height>18</height>
+     <height>22</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuHelp">
@@ -1063,6 +1063,7 @@
     <addaction name="separator"/>
     <addaction name="actionExport_Biquad"/>
     <addaction name="actionMerge_Minidsp_XML"/>
+    <addaction name="actionCreate_Post"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuSettings"/>
@@ -1379,6 +1380,11 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+Alt+E</string>
+   </property>
+  </action>
+  <action name="actionCreate_Post">
+   <property name="text">
+    <string>Create Post</string>
    </property>
   </action>
  </widget>

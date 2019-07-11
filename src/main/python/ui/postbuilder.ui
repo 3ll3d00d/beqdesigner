@@ -1,0 +1,353 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>postbuilder</class>
+ <widget class="QDialog" name="postbuilder">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>671</width>
+    <height>562</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Post Builder</string>
+  </property>
+  <layout class="QGridLayout" name="gridLayout">
+   <item row="0" column="0">
+    <layout class="QGridLayout" name="dataGrid">
+     <item row="8" column="2">
+      <widget class="QLineEdit" name="spectrumField"/>
+     </item>
+     <item row="10" column="0">
+      <widget class="QLabel" name="formatLabel">
+       <property name="text">
+        <string>Audio Format</string>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="0">
+      <widget class="QLabel" name="yearLabel">
+       <property name="text">
+        <string>Year</string>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="2">
+      <widget class="QLineEdit" name="titleField"/>
+     </item>
+     <item row="2" column="2">
+      <widget class="QLineEdit" name="editionField"/>
+     </item>
+     <item row="7" column="2">
+      <widget class="QLineEdit" name="pvaField"/>
+     </item>
+     <item row="1" column="2">
+      <widget class="QLineEdit" name="yearField"/>
+     </item>
+     <item row="4" column="0">
+      <widget class="QLabel" name="noteLabel">
+       <property name="text">
+        <string>Note</string>
+       </property>
+      </widget>
+     </item>
+     <item row="4" column="2">
+      <widget class="QLineEdit" name="noteField"/>
+     </item>
+     <item row="0" column="0">
+      <widget class="QLabel" name="titleLabel">
+       <property name="text">
+        <string>Title</string>
+       </property>
+      </widget>
+     </item>
+     <item row="6" column="2">
+      <widget class="QComboBox" name="sourcePicker">
+       <item>
+        <property name="text">
+         <string>Disc</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Amazon Prime</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>iTunes</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Netflix</string>
+        </property>
+       </item>
+      </widget>
+     </item>
+     <item row="7" column="0">
+      <widget class="QLabel" name="pvaLabel">
+       <property name="text">
+        <string>PvA Graph URL</string>
+       </property>
+      </widget>
+     </item>
+     <item row="3" column="0">
+      <widget class="QLabel" name="seasonLabel">
+       <property name="text">
+        <string>TV Season</string>
+       </property>
+      </widget>
+     </item>
+     <item row="6" column="0">
+      <widget class="QLabel" name="sourceLabel">
+       <property name="text">
+        <string>Source</string>
+       </property>
+      </widget>
+     </item>
+     <item row="11" column="0">
+      <widget class="QLabel" name="postLabel">
+       <property name="text">
+        <string>BEQ Post</string>
+       </property>
+      </widget>
+     </item>
+     <item row="8" column="0">
+      <widget class="QLabel" name="spectrumLabel">
+       <property name="text">
+        <string>Spectrum URL</string>
+       </property>
+      </widget>
+     </item>
+     <item row="3" column="2">
+      <widget class="QLineEdit" name="seasonField"/>
+     </item>
+     <item row="10" column="2">
+      <layout class="QGridLayout" name="formatGrid">
+       <item row="4" column="2">
+        <widget class="QCheckBox" name="ddCheckBox">
+         <property name="text">
+          <string>DD</string>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="1">
+        <widget class="QCheckBox" name="dts71CheckBox">
+         <property name="text">
+          <string>DTS-HD MA 7.1</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="2">
+        <widget class="QCheckBox" name="truehd51CheckBox">
+         <property name="text">
+          <string>TrueHD 5.1</string>
+         </property>
+        </widget>
+       </item>
+       <item row="4" column="1">
+        <widget class="QCheckBox" name="ddPlusCheckBox">
+         <property name="text">
+          <string>DD+</string>
+         </property>
+        </widget>
+       </item>
+       <item row="5" column="1">
+        <widget class="QCheckBox" name="lpcm51CheckBox">
+         <property name="text">
+          <string>LPCM 5.1</string>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="2">
+        <widget class="QCheckBox" name="dts61CheckBox">
+         <property name="text">
+          <string>DTS-HD MA 6.1</string>
+         </property>
+        </widget>
+       </item>
+       <item row="5" column="0">
+        <widget class="QCheckBox" name="lpcm71CheckBox">
+         <property name="text">
+          <string>LPCM 7.1</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QCheckBox" name="truehd71CheckBox">
+         <property name="text">
+          <string>TrueHD 7.1</string>
+         </property>
+        </widget>
+       </item>
+       <item row="4" column="0">
+        <widget class="QCheckBox" name="ddAtmosCheckBox">
+         <property name="text">
+          <string>DD+Atmos</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="0">
+        <widget class="QCheckBox" name="atmosCheckBox">
+         <property name="text">
+          <string>Atmos</string>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="0">
+        <widget class="QCheckBox" name="dtsxCheckBox">
+         <property name="text">
+          <string>DTS:X</string>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="3">
+        <widget class="QCheckBox" name="dts51CheckBox">
+         <property name="text">
+          <string>DTS-HD MA 5.1</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item row="2" column="0">
+      <widget class="QLabel" name="editionLabel">
+       <property name="text">
+        <string>Edition</string>
+       </property>
+      </widget>
+     </item>
+     <item row="11" column="2">
+      <widget class="QPlainTextEdit" name="postTextEdit"/>
+     </item>
+     <item row="5" column="0">
+      <widget class="QLabel" name="warningLabel">
+       <property name="text">
+        <string>Warning</string>
+       </property>
+      </widget>
+     </item>
+     <item row="5" column="2">
+      <widget class="QLineEdit" name="warningField"/>
+     </item>
+    </layout>
+   </item>
+   <item row="2" column="0">
+    <layout class="QGridLayout" name="buttonGrid">
+     <item row="0" column="2">
+      <spacer name="leadingSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item row="0" column="3">
+      <widget class="QPushButton" name="closeButton">
+       <property name="text">
+        <string>Close</string>
+       </property>
+       <property name="default">
+        <bool>false</bool>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="0">
+      <spacer name="middleSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item row="0" column="1">
+      <widget class="QPushButton" name="generateButton">
+       <property name="text">
+        <string>Generate Post + 2x4HD XML File</string>
+       </property>
+       <property name="autoDefault">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <tabstops>
+  <tabstop>titleField</tabstop>
+  <tabstop>yearField</tabstop>
+  <tabstop>editionField</tabstop>
+  <tabstop>seasonField</tabstop>
+  <tabstop>noteField</tabstop>
+  <tabstop>warningField</tabstop>
+  <tabstop>sourcePicker</tabstop>
+  <tabstop>pvaField</tabstop>
+  <tabstop>spectrumField</tabstop>
+  <tabstop>atmosCheckBox</tabstop>
+  <tabstop>truehd71CheckBox</tabstop>
+  <tabstop>truehd51CheckBox</tabstop>
+  <tabstop>dtsxCheckBox</tabstop>
+  <tabstop>dts71CheckBox</tabstop>
+  <tabstop>dts61CheckBox</tabstop>
+  <tabstop>dts51CheckBox</tabstop>
+  <tabstop>ddAtmosCheckBox</tabstop>
+  <tabstop>ddPlusCheckBox</tabstop>
+  <tabstop>ddCheckBox</tabstop>
+  <tabstop>lpcm71CheckBox</tabstop>
+  <tabstop>lpcm51CheckBox</tabstop>
+  <tabstop>postTextEdit</tabstop>
+  <tabstop>generateButton</tabstop>
+  <tabstop>closeButton</tabstop>
+ </tabstops>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>closeButton</sender>
+   <signal>clicked()</signal>
+   <receiver>postbuilder</receiver>
+   <slot>close()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>620</x>
+     <y>533</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>335</x>
+     <y>261</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>generateButton</sender>
+   <signal>clicked()</signal>
+   <receiver>postbuilder</receiver>
+   <slot>generate_post()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>310</x>
+     <y>532</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>17</x>
+     <y>510</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+ <slots>
+  <slot>generate_post()</slot>
+ </slots>
+</ui>

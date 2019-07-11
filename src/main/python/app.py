@@ -24,6 +24,7 @@ from model.link import LinkSignalsDialog
 from model.preferences import DISPLAY_SHOW_FILTERED_SIGNALS, SYSTEM_CHECK_FOR_UPDATES, BEQ_DOWNLOAD_DIR, \
     BIQUAD_EXPORT_MAX, BIQUAD_EXPORT_FS, BIQUAD_EXPORT_DEVICE, SHOW_NO_FILTERS, SYSTEM_CHECK_FOR_BETA_UPDATES
 from model.minidsp import MergeFiltersDialog, HDXmlParser, pad_with_passthrough
+from model.postbuilder import CreatePostDialog
 
 from ui.delegates import RegexValidator
 
@@ -251,6 +252,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.actionAbout.triggered.connect(self.showAbout)
         # tools
         self.actionMerge_Minidsp_XML.triggered.connect(self.merge_minidsp_xml)
+        self.actionCreate_Post.triggered.connect(self.create_post)
         self.actionUser_Guide.triggered.connect(self.show_help)
         self.actionRelease_Notes.triggered.connect(self.show_release_notes)
         self.actionExport_BEQ_Filter.triggered.connect(self.export_beq_filter)
@@ -981,6 +983,13 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         dialog = MergeFiltersDialog(self, self.preferences, self.statusbar)
         dialog.exec()
 
+    def create_post(self):
+        '''
+        Shows the create post dialog.
+        '''
+        dialog = CreatePostDialog(self, self.preferences, self.__filter_model)
+        dialog.exec()
+
     def show_y2_tool_buttons(self, show=True):
         self.mainChartRightTools.setVisible(show)
 
@@ -1056,7 +1065,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
     def y1_min_minus_10(self):
         self.__magnitude_model.limits.shift(y1_min=-10)
 
-    def export_beq_filter(self):
+    def export_beq_filter(self, metadata=None):
         file_name = QFileDialog(self).getSaveFileName(self, 'Export BEQ Filter', f"beq.xml", "XML (*.xml)")
         file_name = str(file_name[0]).strip()
         if len(file_name) > 0:
@@ -1065,7 +1074,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
             else:
                 file_path = os.path.abspath(os.path.join(os.path.dirname('__file__'), '../xml/flat24hd.xml'))
             filters = pad_with_passthrough(self.__filter_model.filter, 96000, 10)
-            output_xml = HDXmlParser('2x4 HD').overwrite(filters, file_path)
+            output_xml = HDXmlParser('2x4 HD').overwrite(filters, file_path, metadata)
             with open(file_name, 'w') as f:
                 f.write(output_xml)
 
