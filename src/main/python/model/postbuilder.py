@@ -12,19 +12,19 @@ from ui.postbuilder import Ui_postbuilder
 logger = logging.getLogger('postbuilder')
 
 
-class CreatePostDialog(QDialog, Ui_postbuilder):
+class CreateAVSPostDialog(QDialog, Ui_postbuilder):
     '''
-    Create Post dialog
+    Create AVS Post dialog
     '''
 
     def __init__(self, parent, prefs, filter_model):
-        super(CreatePostDialog, self).__init__(parent)
+        super(CreateAVSPostDialog, self).__init__(parent)
         self.setupUi(self)
         self.__preferences = prefs
         self.__beq_dir = self.__preferences.get(BEQ_DOWNLOAD_DIR)
         self.__filter_model = filter_model
 
-    def generate_post(self):
+    def generate_avs_post(self):
         '''
         Creates the output content.
         '''
@@ -40,6 +40,9 @@ class CreatePostDialog(QDialog, Ui_postbuilder):
         if len(metadata['beq_season']) > 0:
             season_display = f"Season {metadata['beq_season']}"
             save_name += f' ({season_display})'
+
+        if len(metadata['beq_edition']) > 0:
+            save_name += f" ({metadata['beq_edition']})"
 
         if metadata['beq_source'] != 'Disc':
             source_display = metadata['beq_source']
@@ -76,16 +79,11 @@ class CreatePostDialog(QDialog, Ui_postbuilder):
                 f.write(output_xml)
 
     def __build_metadata(self):
-        metadata = {'beq_title': self.titleField.text()}
-        metadata['beq_year'] = self.yearField.text()
-        metadata['beq_spectrumURL'] = self.spectrumField.text()
-        metadata['beq_pvaURL'] = self.pvaField.text()
-        metadata['beq_edition'] = self.editionField.text()
-        metadata['beq_season'] = self.seasonField.text()
-        metadata['beq_note'] = self.noteField.text()
-        metadata['beq_source'] = str(self.sourcePicker.currentText())
-        metadata['beq_warning'] = self.warningField.text()
-        metadata['beq_audioTypes'] = self.__build_audio_list()
+        metadata = {'beq_title': self.titleField.text().strip(), 'beq_year': self.yearField.text().strip(),
+                    'beq_spectrumURL': self.spectrumField.text().strip(), 'beq_pvaURL': self.pvaField.text().strip(),
+                    'beq_edition': self.editionField.text().strip(), 'beq_season': self.seasonField.text().strip(),
+                    'beq_note': self.noteField.text().strip(), 'beq_source': str(self.sourcePicker.currentText().strip()),
+                    'beq_warning': self.warningField.text().strip(), 'beq_audioTypes': self.__build_audio_list()}
 
         return metadata
 

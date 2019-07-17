@@ -13,6 +13,7 @@ class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
         MainWindow.resize(1569, 941)
+        MainWindow.setMaximumSize(QtCore.QSize(16777215, 16777214))
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
         self.widgetGridLayout = QtWidgets.QGridLayout(self.centralwidget)
@@ -561,8 +562,8 @@ class Ui_MainWindow(object):
         self.actionRelease_Notes.setObjectName("actionRelease_Notes")
         self.actionExport_BEQ_Filter = QtWidgets.QAction(MainWindow)
         self.actionExport_BEQ_Filter.setObjectName("actionExport_BEQ_Filter")
-        self.actionCreate_Post = QtWidgets.QAction(MainWindow)
-        self.actionCreate_Post.setObjectName("actionCreate_Post")
+        self.actionCreate_AVS_Post = QtWidgets.QAction(MainWindow)
+        self.actionCreate_AVS_Post.setObjectName("actionCreate_AVS_Post")
         self.menuHelp.addAction(self.actionUser_Guide)
         self.menuHelp.addAction(self.actionShow_Logs)
         self.menuHelp.addSeparator()
@@ -609,7 +610,7 @@ class Ui_MainWindow(object):
         self.menu_Tools.addSeparator()
         self.menu_Tools.addAction(self.actionExport_Biquad)
         self.menu_Tools.addAction(self.actionMerge_Minidsp_XML)
-        self.menu_Tools.addAction(self.actionCreate_Post)
+        self.menu_Tools.addAction(self.actionCreate_AVS_Post)
         self.menubar.addAction(self.menuFile.menuAction())
         self.menubar.addAction(self.menuSettings.menuAction())
         self.menubar.addAction(self.menu_Tools.menuAction())
@@ -812,7 +813,9 @@ class Ui_MainWindow(object):
         self.actionRelease_Notes.setText(_translate("MainWindow", "Release Notes"))
         self.actionExport_BEQ_Filter.setText(_translate("MainWindow", "Export BEQ Filter"))
         self.actionExport_BEQ_Filter.setShortcut(_translate("MainWindow", "Ctrl+Alt+E"))
-        self.actionCreate_Post.setText(_translate("MainWindow", "Create Post"))
+        self.actionCreate_AVS_Post.setText(_translate("MainWindow", "Create AVS Post and XML"))
+        self.actionCreate_AVS_Post.setToolTip(_translate("MainWindow", "Create AVS Post and XML"))
+        self.actionCreate_AVS_Post.setShortcut(_translate("MainWindow", "Ctrl+P"))
 
 
 from app import PlotWidgetWithDateAxis

@@ -10,6 +10,12 @@
     <height>941</height>
    </rect>
   </property>
+  <property name="maximumSize">
+   <size>
+    <width>16777215</width>
+    <height>16777214</height>
+   </size>
+  </property>
   <property name="windowTitle">
    <string>BEQ Designer</string>
   </property>
@@ -1063,7 +1069,7 @@
     <addaction name="separator"/>
     <addaction name="actionExport_Biquad"/>
     <addaction name="actionMerge_Minidsp_XML"/>
-    <addaction name="actionCreate_Post"/>
+    <addaction name="actionCreate_AVS_Post"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuSettings"/>
@@ -1382,9 +1388,15 @@
     <string>Ctrl+Alt+E</string>
    </property>
   </action>
-  <action name="actionCreate_Post">
+  <action name="actionCreate_AVS_Post">
    <property name="text">
-    <string>Create Post</string>
+    <string>Create AVS Post and XML</string>
+   </property>
+   <property name="toolTip">
+    <string>Create AVS Post and XML</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+P</string>
    </property>
   </action>
  </widget>
@@ -1409,8 +1421,8 @@
    <slot>addFilter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1364</x>
-     <y>501</y>
+     <x>1360</x>
+     <y>485</y>
     </hint>
     <hint type="destinationlabel">
      <x>1381</x>
@@ -1425,8 +1437,8 @@
    <slot>deleteFilter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1488</x>
-     <y>501</y>
+     <x>1479</x>
+     <y>485</y>
     </hint>
     <hint type="destinationlabel">
      <x>1462</x>
@@ -1441,8 +1453,8 @@
    <slot>editFilter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1418</x>
-     <y>501</y>
+     <x>1413</x>
+     <y>485</y>
     </hint>
     <hint type="destinationlabel">
      <x>1302</x>
@@ -1457,8 +1469,8 @@
    <slot>addSignal()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1254</x>
-     <y>100</y>
+     <x>1248</x>
+     <y>86</y>
     </hint>
     <hint type="destinationlabel">
      <x>1137</x>
@@ -1473,8 +1485,8 @@
    <slot>deleteSignal()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1436</x>
-     <y>100</y>
+     <x>1424</x>
+     <y>86</y>
     </hint>
     <hint type="destinationlabel">
      <x>1351</x>
@@ -1489,8 +1501,8 @@
    <slot>normaliseSignalMagnitude()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>347</x>
-     <y>70</y>
+     <x>421</x>
+     <y>62</y>
     </hint>
     <hint type="destinationlabel">
      <x>10</x>
@@ -1505,8 +1517,8 @@
    <slot>showLimits()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1159</x>
-     <y>71</y>
+     <x>1152</x>
+     <y>59</y>
     </hint>
     <hint type="destinationlabel">
      <x>977</x>
@@ -1537,8 +1549,8 @@
    <slot>showValues()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1120</x>
-     <y>71</y>
+     <x>1118</x>
+     <y>59</y>
     </hint>
     <hint type="destinationlabel">
      <x>782</x>
@@ -1553,8 +1565,8 @@
    <slot>changeLegendVisibility()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1300</x>
-     <y>923</y>
+     <x>1301</x>
+     <y>905</y>
     </hint>
     <hint type="destinationlabel">
      <x>1434</x>
@@ -1569,8 +1581,8 @@
    <slot>changeFilterVisibility()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1559</x>
-     <y>895</y>
+     <x>1548</x>
+     <y>882</y>
     </hint>
     <hint type="destinationlabel">
      <x>1271</x>
@@ -1585,8 +1597,8 @@
    <slot>applyPreset1()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1217</x>
-     <y>501</y>
+     <x>1212</x>
+     <y>485</y>
     </hint>
     <hint type="destinationlabel">
      <x>1155</x>
@@ -1601,8 +1613,8 @@
    <slot>applyPreset2()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1263</x>
-     <y>501</y>
+     <x>1259</x>
+     <y>485</y>
     </hint>
     <hint type="destinationlabel">
      <x>1152</x>
@@ -1617,8 +1629,8 @@
    <slot>applyPreset3()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1309</x>
-     <y>501</y>
+     <x>1306</x>
+     <y>485</y>
     </hint>
     <hint type="destinationlabel">
      <x>1545</x>
@@ -1633,8 +1645,8 @@
    <slot>changeSignalVisibility()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1300</x>
-     <y>895</y>
+     <x>1295</x>
+     <y>882</y>
     </hint>
     <hint type="destinationlabel">
      <x>1491</x>
@@ -1649,8 +1661,8 @@
    <slot>changeSignalFilterVisibility()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1430</x>
-     <y>895</y>
+     <x>1420</x>
+     <y>882</y>
     </hint>
     <hint type="destinationlabel">
      <x>1474</x>
@@ -1665,8 +1677,8 @@
    <slot>linkSignals()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1316</x>
-     <y>92</y>
+     <x>1330</x>
+     <y>86</y>
     </hint>
     <hint type="destinationlabel">
      <x>1153</x>
@@ -1681,8 +1693,8 @@
    <slot>toggleTilt()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1559</x>
-     <y>935</y>
+     <x>1554</x>
+     <y>905</y>
     </hint>
     <hint type="destinationlabel">
      <x>1241</x>
@@ -1697,8 +1709,8 @@
    <slot>smoothSignals()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>979</x>
-     <y>70</y>
+     <x>990</x>
+     <y>62</y>
     </hint>
     <hint type="destinationlabel">
      <x>1013</x>
@@ -1729,8 +1741,8 @@
    <slot>clearSignals()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1520</x>
-     <y>84</y>
+     <x>1512</x>
+     <y>86</y>
     </hint>
     <hint type="destinationlabel">
      <x>1552</x>
@@ -1761,8 +1773,8 @@
    <slot>y2_max_plus_10()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1146</x>
-     <y>111</y>
+     <x>1149</x>
+     <y>108</y>
     </hint>
     <hint type="destinationlabel">
      <x>1168</x>
@@ -1777,8 +1789,8 @@
    <slot>y2_max_minus_10()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1158</x>
-     <y>230</y>
+     <x>1149</x>
+     <y>210</y>
     </hint>
     <hint type="destinationlabel">
      <x>1167</x>
@@ -1825,8 +1837,8 @@
    <slot>y1_auto_on()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>43</x>
-     <y>276</y>
+     <x>52</x>
+     <y>274</y>
     </hint>
     <hint type="destinationlabel">
      <x>4</x>
@@ -1857,8 +1869,8 @@
    <slot>y1_max_minus_5()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>45</x>
-     <y>192</y>
+     <x>52</x>
+     <y>176</y>
     </hint>
     <hint type="destinationlabel">
      <x>4</x>
@@ -1873,8 +1885,8 @@
    <slot>y1_max_minus_10()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>37</x>
-     <y>230</y>
+     <x>52</x>
+     <y>210</y>
     </hint>
     <hint type="destinationlabel">
      <x>6</x>
@@ -1889,8 +1901,8 @@
    <slot>y2_max_plus_5()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1141</x>
-     <y>151</y>
+     <x>1149</x>
+     <y>142</y>
     </hint>
     <hint type="destinationlabel">
      <x>1170</x>
@@ -1921,8 +1933,8 @@
    <slot>y2_auto_off()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1151</x>
-     <y>291</y>
+     <x>1149</x>
+     <y>308</y>
     </hint>
     <hint type="destinationlabel">
      <x>1173</x>
@@ -1937,8 +1949,8 @@
    <slot>y2_max_minus_5()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1158</x>
-     <y>192</y>
+     <x>1149</x>
+     <y>176</y>
     </hint>
     <hint type="destinationlabel">
      <x>1168</x>
@@ -1953,8 +1965,8 @@
    <slot>y1_min_plus_10()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>23</x>
-     <y>348</y>
+     <x>50</x>
+     <y>372</y>
     </hint>
     <hint type="destinationlabel">
      <x>4</x>
@@ -1985,8 +1997,8 @@
    <slot>y1_min_minus_5()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>20</x>
-     <y>429</y>
+     <x>47</x>
+     <y>440</y>
     </hint>
     <hint type="destinationlabel">
      <x>7</x>
@@ -2049,8 +2061,8 @@
    <slot>y2_min_minus_5()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1152</x>
-     <y>419</y>
+     <x>1149</x>
+     <y>440</y>
     </hint>
     <hint type="destinationlabel">
      <x>1170</x>

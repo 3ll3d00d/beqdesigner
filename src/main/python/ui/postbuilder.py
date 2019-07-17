@@ -142,7 +142,7 @@ class Ui_postbuilder(object):
 
         self.retranslateUi(postbuilder)
         self.closeButton.clicked.connect(postbuilder.close)
-        self.generateButton.clicked.connect(postbuilder.generate_post)
+        self.generateButton.clicked.connect(postbuilder.generate_avs_post)
         QtCore.QMetaObject.connectSlotsByName(postbuilder)
         postbuilder.setTabOrder(self.titleField, self.yearField)
         postbuilder.setTabOrder(self.yearField, self.editionField)
@@ -170,7 +170,7 @@ class Ui_postbuilder(object):
 
     def retranslateUi(self, postbuilder):
         _translate = QtCore.QCoreApplication.translate
-        postbuilder.setWindowTitle(_translate("postbuilder", "Post Builder"))
+        postbuilder.setWindowTitle(_translate("postbuilder", "AVS Post Builder"))
         self.formatLabel.setText(_translate("postbuilder", "Audio Format"))
         self.yearLabel.setText(_translate("postbuilder", "Year"))
         self.noteLabel.setText(_translate("postbuilder", "Note"))
@@ -199,6 +199,6 @@ class Ui_postbuilder(object):
         self.editionLabel.setText(_translate("postbuilder", "Edition"))
         self.warningLabel.setText(_translate("postbuilder", "Warning"))
         self.closeButton.setText(_translate("postbuilder", "Close"))
-        self.generateButton.setText(_translate("postbuilder", "Generate Post + 2x4HD XML File"))
+        self.generateButton.setText(_translate("postbuilder", "Generate AVS Post + 2x4HD XML File"))
 
 

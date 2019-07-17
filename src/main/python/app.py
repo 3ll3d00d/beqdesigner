@@ -24,7 +24,7 @@ from model.link import LinkSignalsDialog
 from model.preferences import DISPLAY_SHOW_FILTERED_SIGNALS, SYSTEM_CHECK_FOR_UPDATES, BEQ_DOWNLOAD_DIR, \
     BIQUAD_EXPORT_MAX, BIQUAD_EXPORT_FS, BIQUAD_EXPORT_DEVICE, SHOW_NO_FILTERS, SYSTEM_CHECK_FOR_BETA_UPDATES
 from model.minidsp import MergeFiltersDialog, HDXmlParser, pad_with_passthrough
-from model.postbuilder import CreatePostDialog
+from model.postbuilder import CreateAVSPostDialog
 
 from ui.delegates import RegexValidator
 
@@ -252,7 +252,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.actionAbout.triggered.connect(self.showAbout)
         # tools
         self.actionMerge_Minidsp_XML.triggered.connect(self.merge_minidsp_xml)
-        self.actionCreate_Post.triggered.connect(self.create_post)
+        self.actionCreate_AVS_Post.triggered.connect(self.create_avs_post)
         self.actionUser_Guide.triggered.connect(self.show_help)
         self.actionRelease_Notes.triggered.connect(self.show_release_notes)
         self.actionExport_BEQ_Filter.triggered.connect(self.export_beq_filter)
@@ -983,11 +983,11 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         dialog = MergeFiltersDialog(self, self.preferences, self.statusbar)
         dialog.exec()
 
-    def create_post(self):
+    def create_avs_post(self):
         '''
         Shows the create post dialog.
         '''
-        dialog = CreatePostDialog(self, self.preferences, self.__filter_model)
+        dialog = CreateAVSPostDialog(self, self.preferences, self.__filter_model)
         dialog.exec()
 
     def show_y2_tool_buttons(self, show=True):

@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Post Builder</string>
+   <string>AVS Post Builder</string>
   </property>
   <layout class="QGridLayout" name="gridLayout">
    <item row="0" column="0">
@@ -275,7 +275,7 @@
      <item row="0" column="1">
       <widget class="QPushButton" name="generateButton">
        <property name="text">
-        <string>Generate Post + 2x4HD XML File</string>
+        <string>Generate AVS Post + 2x4HD XML File</string>
        </property>
        <property name="autoDefault">
         <bool>true</bool>
@@ -334,20 +334,20 @@
    <sender>generateButton</sender>
    <signal>clicked()</signal>
    <receiver>postbuilder</receiver>
-   <slot>generate_post()</slot>
+   <slot>generate_avs_post()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>310</x>
-     <y>532</y>
+     <x>227</x>
+     <y>534</y>
     </hint>
     <hint type="destinationlabel">
-     <x>17</x>
-     <y>510</y>
+     <x>69</x>
+     <y>523</y>
     </hint>
    </hints>
   </connection>
  </connections>
  <slots>
-  <slot>generate_post()</slot>
+  <slot>generate_avs_post()</slot>
  </slots>
 </ui>
