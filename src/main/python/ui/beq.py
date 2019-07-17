@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'beq.ui'
 #
-# Created by: PyQt5 UI code generator 5.12.1
+# Created by: PyQt5 UI code generator 5.12.2
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -12,7 +12,8 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(1569, 968)
+        MainWindow.resize(1569, 941)
+        MainWindow.setMaximumSize(QtCore.QSize(16777215, 16777214))
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
         self.widgetGridLayout = QtWidgets.QGridLayout(self.centralwidget)
@@ -450,7 +451,7 @@ class Ui_MainWindow(object):
         self.widgetGridLayout.addLayout(self.panes, 0, 0, 1, 1)
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 1569, 18))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 1569, 22))
         self.menubar.setObjectName("menubar")
         self.menuHelp = QtWidgets.QMenu(self.menubar)
         self.menuHelp.setObjectName("menuHelp")
@@ -561,6 +562,8 @@ class Ui_MainWindow(object):
         self.actionRelease_Notes.setObjectName("actionRelease_Notes")
         self.actionExport_BEQ_Filter = QtWidgets.QAction(MainWindow)
         self.actionExport_BEQ_Filter.setObjectName("actionExport_BEQ_Filter")
+        self.actionCreate_AVS_Post = QtWidgets.QAction(MainWindow)
+        self.actionCreate_AVS_Post.setObjectName("actionCreate_AVS_Post")
         self.menuHelp.addAction(self.actionUser_Guide)
         self.menuHelp.addAction(self.actionShow_Logs)
         self.menuHelp.addSeparator()
@@ -607,6 +610,7 @@ class Ui_MainWindow(object):
         self.menu_Tools.addSeparator()
         self.menu_Tools.addAction(self.actionExport_Biquad)
         self.menu_Tools.addAction(self.actionMerge_Minidsp_XML)
+        self.menu_Tools.addAction(self.actionCreate_AVS_Post)
         self.menubar.addAction(self.menuFile.menuAction())
         self.menubar.addAction(self.menuSettings.menuAction())
         self.menubar.addAction(self.menu_Tools.menuAction())
@@ -809,6 +813,9 @@ class Ui_MainWindow(object):
         self.actionRelease_Notes.setText(_translate("MainWindow", "Release Notes"))
         self.actionExport_BEQ_Filter.setText(_translate("MainWindow", "Export BEQ Filter"))
         self.actionExport_BEQ_Filter.setShortcut(_translate("MainWindow", "Ctrl+Alt+E"))
+        self.actionCreate_AVS_Post.setText(_translate("MainWindow", "Create AVS Post and XML"))
+        self.actionCreate_AVS_Post.setToolTip(_translate("MainWindow", "Create AVS Post and XML"))
+        self.actionCreate_AVS_Post.setShortcut(_translate("MainWindow", "Ctrl+P"))
 
 
 from app import PlotWidgetWithDateAxis
