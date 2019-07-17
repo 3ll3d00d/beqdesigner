@@ -388,7 +388,7 @@ class HDXmlParser:
     def __init__(self, minidsp_type):
         self.__minidsp_type = minidsp_type
 
-    def overwrite(self, filters, target):
+    def overwrite(self, filters, target, metadata=None):
         '''
         Overwrites the PEQ_1_x and PEQ_2_x filters.
         :param filters: the filters.
@@ -430,6 +430,21 @@ class HDXmlParser:
                                                                   show_index=False, to_hex=True,
                                                                   fixed_point=self.__is_fixed_point_hardware())[0]
                                     child.find('hex').text = f"{hex_txt},"
+        if metadata:
+            metadata_tag = ET.Element('beq_metadata')
+            for key, value in metadata.items():
+                tag = ET.Element(key)
+
+                if type(value) is list:
+                    for item in value:
+                        sub_tag = ET.Element('value')
+                        sub_tag.text = item
+                        tag.append(sub_tag)
+                else:
+                    tag.text = metadata[key]
+                metadata_tag.append(tag)
+
+            root.append(metadata_tag)
 
         return ET.tostring(root, encoding='unicode')
 
