@@ -105,6 +105,7 @@ def get_data_args():
     ]
     sndfile_data = get_sndfile_data()
     if sndfile_data is not None:
+        print(f"Adding soundfile {sndfile_data}")
         datas.append(sndfile_data)
     return datas
 
