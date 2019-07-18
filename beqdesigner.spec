@@ -161,8 +161,6 @@ def get_binaries():
 block_cipher = None
 spec_root = os.path.abspath(SPECPATH)
 
-#             hiddenimports=['numpy.random.common','numpy.random.bounded_integers', 'numpy.random.entropy'],
-
 a = Analysis(['src/main/python/app.py'],
              pathex=[spec_root],
              binaries=get_binaries(),
