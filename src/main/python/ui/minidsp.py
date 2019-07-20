@@ -2,9 +2,10 @@
 
 # Form implementation generated from reading ui file 'minidsp.ui'
 #
-# Created by: PyQt5 UI code generator 5.12.1
+# Created by: PyQt5 UI code generator 5.13.0
 #
 # WARNING! All changes made in this file will be lost!
+
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
@@ -148,5 +149,3 @@ class Ui_mergeMinidspDialog(object):
         self.configFilePicker.setText(_translate("mergeMinidspDialog", "..."))
         self.refreshGitRepo.setText(_translate("mergeMinidspDialog", "..."))
         self.clearUserSourceDir.setText(_translate("mergeMinidspDialog", "..."))
-
-

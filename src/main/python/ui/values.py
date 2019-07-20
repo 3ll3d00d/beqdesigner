@@ -2,9 +2,10 @@
 
 # Form implementation generated from reading ui file 'values.ui'
 #
-# Created by: PyQt5 UI code generator 5.12.1
+# Created by: PyQt5 UI code generator 5.13.0
 #
 # WARNING! All changes made in this file will be lost!
+
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
@@ -39,5 +40,3 @@ class Ui_valuesDialog(object):
         _translate = QtCore.QCoreApplication.translate
         valuesDialog.setWindowTitle(_translate("valuesDialog", "Values"))
         self.label.setText(_translate("valuesDialog", "Freq (Hz)"))
-
-

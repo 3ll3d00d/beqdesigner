@@ -2,9 +2,10 @@
 
 # Form implementation generated from reading ui file 'edit_mapping.ui'
 #
-# Created by: PyQt5 UI code generator 5.12.1
+# Created by: PyQt5 UI code generator 5.13.0
 #
 # WARNING! All changes made in this file will be lost!
+
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
@@ -47,5 +48,3 @@ class Ui_editMappingDialog(object):
         self.channelIdxLabel.setText(_translate("editMappingDialog", "Channel"))
         self.signalLabel.setText(_translate("editMappingDialog", "Signal"))
         self.applyToAll.setText(_translate("editMappingDialog", "Apply to all channels?"))
-
-

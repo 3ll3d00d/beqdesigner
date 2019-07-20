@@ -2,9 +2,10 @@
 
 # Form implementation generated from reading ui file 'filter.ui'
 #
-# Created by: PyQt5 UI code generator 5.12.1
+# Created by: PyQt5 UI code generator 5.13.0
 #
 # WARNING! All changes made in this file will be lost!
+
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
@@ -215,6 +216,4 @@ class Ui_editFilterDialog(object):
         self.limitsButton.setText(_translate("editFilterDialog", "..."))
         self.filterCountLabel.setText(_translate("editFilterDialog", "Count"))
         self.showIndividual.setText(_translate("editFilterDialog", "Show Individual Filters"))
-
-
 from mpl import MplWidget

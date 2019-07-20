@@ -2,9 +2,10 @@
 
 # Form implementation generated from reading ui file 'link.ui'
 #
-# Created by: PyQt5 UI code generator 5.12.1
+# Created by: PyQt5 UI code generator 5.13.0
 #
 # WARNING! All changes made in this file will be lost!
+
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
@@ -45,5 +46,3 @@ class Ui_linkSignalDialog(object):
         linkSignalDialog.setWindowTitle(_translate("linkSignalDialog", "Link Signals"))
         self.addToMaster.setText(_translate("linkSignalDialog", "..."))
         self.masterCandidatesLabel.setText(_translate("linkSignalDialog", "Make Master"))
-
-

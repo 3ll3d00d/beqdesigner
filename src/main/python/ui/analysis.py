@@ -2,9 +2,10 @@
 
 # Form implementation generated from reading ui file 'analysis.ui'
 #
-# Created by: PyQt5 UI code generator 5.12.1
+# Created by: PyQt5 UI code generator 5.13.0
 #
 # WARNING! All changes made in this file will be lost!
+
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
@@ -372,6 +373,4 @@ class Ui_analysisDialog(object):
         self.leftSignalLabel.setText(_translate("analysisDialog", "Left"))
         self.rightSignalLabel.setText(_translate("analysisDialog", "Right"))
         self.compareSignalsButton.setText(_translate("analysisDialog", "Compare"))
-
-
 from mpl import MplWidget

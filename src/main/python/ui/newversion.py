@@ -2,9 +2,10 @@
 
 # Form implementation generated from reading ui file 'newversion.ui'
 #
-# Created by: PyQt5 UI code generator 5.12.1
+# Created by: PyQt5 UI code generator 5.13.0
 #
 # WARNING! All changes made in this file will be lost!
+
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
@@ -49,5 +50,3 @@ class Ui_newVersionDialog(object):
         _translate = QtCore.QCoreApplication.translate
         newVersionDialog.setWindowTitle(_translate("newVersionDialog", "New Version Available!"))
         self.message.setText(_translate("newVersionDialog", "Message"))
-
-
