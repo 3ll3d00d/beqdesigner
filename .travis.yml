@@ -88,7 +88,8 @@ script:
 - PYTHONPATH=./src/main/python $PRUN pytest $COVERAGE_ARGS
 before_deploy:
 - $PRUN $PBIN install pyinstaller
-- [[ ${TRAVIS_TAG} =~ ^([0-9]+\.){2}[0-9]+\-[a-z]+\.[0-9]+$ ]] && DEBUG_FLAG=" --debug"
+- |
+  [[ ${TRAVIS_TAG} =~ ^([0-9]+\.){2}[0-9]+\-[a-z]+\.[0-9]+$ ]] && DEBUG_FLAG=" --debug"
 - $PRUN pyinstaller --clean --log-level=INFO ${DEBUG_FLAG} -F beqdesigner.spec
 - |
   if [[ "$TRAVIS_OS_NAME" == "osx" ]]
