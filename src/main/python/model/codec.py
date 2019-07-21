@@ -131,7 +131,7 @@ def signaldata_from_json(o, preferences):
         avg = xydata_from_json(data['avg'])
         peak = xydata_from_json(data['peak'])
         median = xydata_from_json(data['median']) if 'median' in data else None
-        xy_data = [avg, peak] if median is None else [avg, peak, media]
+        xy_data = [avg, peak] if median is None else [avg, peak, median]
         metadata = o.get('metadata', None)
         offset = float(o.get('offset', 0.0))
         signal = None
