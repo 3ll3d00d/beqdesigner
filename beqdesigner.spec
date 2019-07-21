@@ -51,26 +51,6 @@ def get_resampy_path():
     return _.__path__[0]
 
 
-def get_sndfile_path():
-    '''
-    :return: gets the current path to the soundfile module in order to find where the bundled libsndfile binaries are.
-    '''
-    import soundfile as _
-    return os.path.dirname(_.__file__)
-
-
-def get_sndfile_data():
-    '''
-    :return: a tuple to add to the datas if we're on a platform which packages libsndfile binaries otherwise None.
-    '''
-    path = None
-    if platform.system() == 'Windows':
-        path = os.path.abspath(f"{get_sndfile_path()}/_soundfile_data")
-    elif platform.system() == 'Darwin':
-        path = os.path.abspath(f"{get_sndfile_path()}/_soundfile_data/libsndfile.dylib")
-    return (path , '_soundfile_data') if path is not None else None
-
-
 def get_icon_file():
     '''
     :return: the full path to the icon file for the current platform.
@@ -92,21 +72,30 @@ def get_exe_args():
     return (a.scripts,) if use_nsis() is True else (a.scripts, a.binaries, a.zipfiles, a.datas)
 
 
+def overwrite_soundfile_hook():
+    '''
+    workaround https://github.com/pyinstaller/pyinstaller/issues/4325
+    '''
+    import sys
+    site_packages = next((p for p in sys.path if p.endswith('site-packages')), None)
+    if site_packages is not None:
+        from shutil import copyfile
+        copyfile(os.path.join('hooks', 'hook-soundfile.py'),
+                 os.path.join(site_packages, 'PyInstaller', 'hooks', 'hook-soundfile.py'))
+
+
 def get_data_args():
     '''
     :return: the data array for the analysis.
     '''
-    datas = [
+    overwrite_soundfile_hook()
+    return [
         ('src/main/icons/Icon.ico', '.'),
         (os.path.abspath(f"{get_resampy_path()}/data/kaiser_fast.npz"), '_resampy_filters'),
         ('src/main/python/style', 'style'),
         ('src/main/python/VERSION', '.'),
         ('src/main/xml/flat24hd.xml', '.'),
     ]
-    sndfile_data = get_sndfile_data()
-    if sndfile_data is not None:
-        datas.append(sndfile_data)
-    return datas
 
 
 def should_keep_binary(x):
