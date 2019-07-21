@@ -337,11 +337,13 @@ class SingleChannelSignalData(SignalData):
         if filt is not None:
             unfiltered_avg = self.__unfiltered[None][0]
             unfiltered_peak = self.__unfiltered[None][1]
-            unfiltered_median = self.__unfiltered[None][2]
             filter_mag = filt.getTransferFunction().getMagnitude()
-            self.filtered = [unfiltered_avg.filter(filter_mag).smooth(self.__smoothing_type),
-                               unfiltered_peak.filter(filter_mag).smooth(self.__smoothing_type),
-                               unfiltered_median.filter(filter_mag).smooth(self.__smoothing_type)]
+            filtered = [unfiltered_avg.filter(filter_mag).smooth(self.__smoothing_type),
+                        unfiltered_peak.filter(filter_mag).smooth(self.__smoothing_type)]
+            if len(self.__unfiltered[None]) == 3:
+                unfiltered_median = self.__unfiltered[None][2]
+                filtered.append(unfiltered_median.filter(filter_mag).smooth(self.__smoothing_type))
+            self.filtered = filtered
             self.__set_unfiltered_linestyle('--')
 
     def tilt(self, tilt):
