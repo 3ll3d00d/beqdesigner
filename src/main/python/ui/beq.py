@@ -838,5 +838,10 @@ class Ui_MainWindow(object):
         self.actionRelease_Notes.setText(_translate("MainWindow", "Release Notes"))
         self.actionExport_BEQ_Filter.setText(_translate("MainWindow", "Export BEQ Filter"))
         self.actionExport_BEQ_Filter.setShortcut(_translate("MainWindow", "Ctrl+Alt+E"))
+        self.actionCreate_AVS_Post.setText(_translate("MainWindow", "Create AVS Post and XML"))
+        self.actionCreate_AVS_Post.setToolTip(_translate("MainWindow", "Create AVS Post and XML"))
+        self.actionCreate_AVS_Post.setShortcut(_translate("MainWindow", "Ctrl+Shift+P"))
+
+
 from app import PlotWidgetWithDateAxis
 from mpl import MplWidget
