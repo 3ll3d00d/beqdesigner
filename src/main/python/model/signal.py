@@ -134,7 +134,15 @@ class SingleChannelSignalData(SignalData):
 
     @property
     def current_filtered(self):
-        return self.__filtered if self.__filtered is not None else []
+        return self.filtered if self.filtered is not None else []
+
+    @property
+    def filtered(self):
+        return self.__filtered
+
+    @filtered.setter
+    def filtered(self, filtered):
+        self.__filtered = filtered
 
     def register_listener(self, listener):
         ''' registers a listener to be notified when the filter updates (used by the WaveformController) '''
@@ -206,7 +214,7 @@ class SingleChannelSignalData(SignalData):
         self.__name = name
         if self.signal is not None:
             self.signal.name = name
-        for v in self.__filtered:
+        for v in self.filtered:
             v.internal_name = name
         for k, v in self.__unfiltered.items():
             for v1 in v:
@@ -236,7 +244,7 @@ class SingleChannelSignalData(SignalData):
         self.current_unfiltered[1].colour = get_peak_colour(idx)
         if len(self.current_unfiltered) == 3:
             self.current_unfiltered[2].colour = get_median_colour(idx)
-        if len(self.current_filtered) == 2:
+        if len(self.current_filtered) >= 2:
             self.current_filtered[0].colour = get_avg_colour(idx)
             self.current_filtered[1].colour = get_peak_colour(idx)
             if len(self.current_filtered) == 3:
@@ -286,7 +294,6 @@ class SingleChannelSignalData(SignalData):
                 peak = MagnitudeData(self.name, 'peak', self.__signal.peak[0], self.__signal.peak[1], smooth_type=smooth_type)
                 median = MagnitudeData(self.name, 'median', self.__signal.median[0], self.__signal.median[1], smooth_type=smooth_type)
                 self.__unfiltered[smooth_type] = [avg, peak, median]
-                self.__filtered = []
             if set_active is True:
                 self.__smoothing_type = smooth_type
                 self.__refresh_filtered(self.__filter)
@@ -308,7 +315,7 @@ class SingleChannelSignalData(SignalData):
         '''
         logger.debug(f"Applying filter change to {self.name}")
         if filt is None:
-            self.__filtered = []
+            self.filtered = []
             self.__set_unfiltered_linestyle('-')
         elif isinstance(filt, CompleteFilter):
             # TODO detect if the filter has changed and only recalc if it has
@@ -330,11 +337,13 @@ class SingleChannelSignalData(SignalData):
         if filt is not None:
             unfiltered_avg = self.__unfiltered[None][0]
             unfiltered_peak = self.__unfiltered[None][1]
-            unfiltered_median = self.__unfiltered[None][2]
             filter_mag = filt.getTransferFunction().getMagnitude()
-            self.__filtered = [unfiltered_avg.filter(filter_mag).smooth(self.__smoothing_type),
-                               unfiltered_peak.filter(filter_mag).smooth(self.__smoothing_type),
-                               unfiltered_median.filter(filter_mag).smooth(self.__smoothing_type)]
+            filtered = [unfiltered_avg.filter(filter_mag).smooth(self.__smoothing_type),
+                        unfiltered_peak.filter(filter_mag).smooth(self.__smoothing_type)]
+            if len(self.__unfiltered[None]) == 3:
+                unfiltered_median = self.__unfiltered[None][2]
+                filtered.append(unfiltered_median.filter(filter_mag).smooth(self.__smoothing_type))
+            self.filtered = filtered
             self.__set_unfiltered_linestyle('--')
 
     def tilt(self, tilt):

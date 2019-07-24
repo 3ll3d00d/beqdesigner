@@ -2,9 +2,10 @@
 
 # Form implementation generated from reading ui file 'extract.ui'
 #
-# Created by: PyQt5 UI code generator 5.12.1
+# Created by: PyQt5 UI code generator 5.13.0
 #
 # WARNING! All changes made in this file will be lost!
+
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
@@ -298,6 +299,4 @@ class Ui_extractAudioDialog(object):
         self.remuxedAudioOffset.setSuffix(_translate("extractAudioDialog", " dB"))
         self.label_2.setText(_translate("extractAudioDialog", "Options"))
         self.calculateGainAdjustment.setText(_translate("extractAudioDialog", "..."))
-
-
 from ui.drop import DropArea

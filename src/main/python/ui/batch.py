@@ -2,9 +2,10 @@
 
 # Form implementation generated from reading ui file 'batch.ui'
 #
-# Created by: PyQt5 UI code generator 5.12.1
+# Created by: PyQt5 UI code generator 5.13.0
 #
 # WARNING! All changes made in this file will be lost!
+
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
@@ -233,5 +234,3 @@ class Ui_batchExtractDialog(object):
         self.progressHeaderLabel.setText(_translate("batchExtractDialog", "Progress"))
         self.lfeHeaderLabel.setText(_translate("batchExtractDialog", "LFE"))
         self.ffmpegCliLabel.setText(_translate("batchExtractDialog", "ffmpeg"))
-
-

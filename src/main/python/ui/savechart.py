@@ -2,9 +2,10 @@
 
 # Form implementation generated from reading ui file 'savechart.ui'
 #
-# Created by: PyQt5 UI code generator 5.12.1
+# Created by: PyQt5 UI code generator 5.13.0
 #
 # WARNING! All changes made in this file will be lost!
+
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
@@ -54,5 +55,3 @@ class Ui_saveChartDialog(object):
         saveChartDialog.setWindowTitle(_translate("saveChartDialog", "Save Chart"))
         self.label.setText(_translate("saveChartDialog", "Width"))
         self.label_2.setText(_translate("saveChartDialog", "Height"))
-
-

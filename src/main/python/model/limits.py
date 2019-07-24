@@ -105,12 +105,12 @@ class Limits:
         self.x_max = x_lim[1]
         self.__y1_auto = True
         self.__y2_auto = True
-        self.axes_1.yaxis.set_major_locator(MaxNLocator(nbins=12, steps=[1, 2, 4, 5, 10], min_n_ticks=8))
+        self.axes_1.yaxis.set_major_locator(MaxNLocator(nbins=24, steps=[1, 2, 5, 10], min_n_ticks=8))
         self.y1_min, self.y1_max = self.__y_range_calculator.calculate((0, 0))
         if axes_2 is not None:
             self.y2_min, self.y2_max = self.__y_range_calculator.calculate((0, 0))
             self.axes_2 = axes_2
-            self.axes_2.yaxis.set_major_locator(MaxNLocator(nbins=12, steps=[1, 2, 4, 5, 10], min_n_ticks=8))
+            self.axes_2.yaxis.set_major_locator(MaxNLocator(nbins=24, steps=[1, 2, 5, 10], min_n_ticks=8))
         else:
             self.axes_2 = self.y2_min = self.y2_max = None
         self.propagate_to_axes()

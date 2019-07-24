@@ -131,6 +131,7 @@ def signaldata_from_json(o, preferences):
         avg = xydata_from_json(data['avg'])
         peak = xydata_from_json(data['peak'])
         median = xydata_from_json(data['median']) if 'median' in data else None
+        xy_data = [avg, peak] if median is None else [avg, peak, median]
         metadata = o.get('metadata', None)
         offset = float(o.get('offset', 0.0))
         signal = None
@@ -143,7 +144,7 @@ def signaldata_from_json(o, preferences):
             except:
                 logger.exception(f"Unable to load signal from {metadata['src']}")
         if 'duration_seconds' in o:
-            signal_data = SingleChannelSignalData(o['name'], o['fs'], xy_data=[avg, peak, median], filter=filt,
+            signal_data = SingleChannelSignalData(o['name'], o['fs'], xy_data=xy_data, filter=filt,
                                                   duration_seconds=o.get('duration_seconds', None),
                                                   start_seconds=o.get('start_seconds', None),
                                                   signal=signal,
@@ -153,13 +154,13 @@ def signaldata_from_json(o, preferences):
             duration_seconds = (int(h) * 3600) + int(m) * (60 + float(s))
             h, m, s = o['start_hhmmss'].split(':')
             start_seconds = (int(h) * 3600) + int(m) * (60 + float(s))
-            signal_data = SingleChannelSignalData(o['name'], o['fs'], xy_data=[avg, peak, median], filter=filt,
+            signal_data = SingleChannelSignalData(o['name'], o['fs'], xy_data=xy_data, filter=filt,
                                                   duration_seconds=duration_seconds,
                                                   start_seconds=start_seconds,
                                                   signal=signal,
                                                   offset=offset)
         else:
-            signal_data = SingleChannelSignalData(o['name'], o['fs'], xy_data=[avg, peak, median], filter=filt, signal=signal,
+            signal_data = SingleChannelSignalData(o['name'], o['fs'], xy_data=xy_data, filter=filt, signal=signal,
                                                   offset=offset)
         return signal_data
     raise ValueError(f"{o._type} is an unknown signal type")

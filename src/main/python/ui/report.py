@@ -2,9 +2,10 @@
 
 # Form implementation generated from reading ui file 'report.ui'
 #
-# Created by: PyQt5 UI code generator 5.12.1
+# Created by: PyQt5 UI code generator 5.13.0
 #
 # WARNING! All changes made in this file will be lost!
+
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
@@ -471,6 +472,4 @@ class Ui_saveReportDialog(object):
         self.saveLayout.setText(_translate("saveReportDialog", "Save Layout"))
         self.showLegend.setText(_translate("saveReportDialog", "Show Legend?"))
         self.toolBox.setItemText(self.toolBox.indexOf(self.page_4), _translate("saveReportDialog", "Chart"))
-
-
 from mpl import MplWidget

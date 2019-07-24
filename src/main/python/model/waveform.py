@@ -17,10 +17,10 @@ logger = logging.getLogger('waveform')
 
 
 class WaveformController:
-    def __init__(self, preferences, signal_model, waveform_chart, spectrum_chart, signal_selector, headroom, bm_headroom,
-                 bm_lpf_position, bm_clip_before, bm_clip_after, is_filtered, apply_hard_clip, start_time, end_time,
-                 show_spectrum_btn, hide_spectrum_btn, zoom_in_btn, zoom_out_btn, compare_spectrum_btn, source_file,
-                 load_signal_btn, show_limits_btn, y_min, y_max):
+    def __init__(self, preferences, signal_model, waveform_chart, spectrum_chart, signal_selector, rms_level, headroom,
+                 crest_factor, bm_headroom, bm_lpf_position, bm_clip_before, bm_clip_after, is_filtered,
+                 apply_hard_clip, start_time, end_time, show_spectrum_btn, hide_spectrum_btn, zoom_in_btn, zoom_out_btn,
+                 compare_spectrum_btn, source_file, load_signal_btn, show_limits_btn, y_min, y_max):
         self.__is_visible = False
         self.__selected_name = None
         self.__preferences = preferences
@@ -45,8 +45,8 @@ class WaveformController:
         self.__load_signal_btn = load_signal_btn
         self.__source_file = source_file
         self.__selector = signal_selector
-        self.__waveform_chart_model = WaveformModel(waveform_chart, headroom, start_time, end_time, y_min, y_max,
-                                                    self.__on_x_range_change)
+        self.__waveform_chart_model = WaveformModel(waveform_chart, crest_factor, rms_level, headroom, start_time,
+                                                    end_time, y_min, y_max, self.__on_x_range_change)
         spectrum_chart.vbl.setContentsMargins(1, 1, 1, 1)
         spectrum_chart.setVisible(False)
         self.__magnitude_model = MagnitudeModel('spectrum', spectrum_chart, preferences, self, 'Spectrum',
@@ -315,7 +315,7 @@ class WaveformModel:
     Displays and interacts with a waveform that is linked to the spectrum view.
     '''
 
-    def __init__(self, chart, headroom, x_min, x_max, y_min, y_max, on_x_range_change):
+    def __init__(self, chart, crest_factor, rms_level, headroom, x_min, x_max, y_min, y_max, on_x_range_change):
         self.idx = 0
         self.__chart = chart
         self.__on_x_range_change = on_x_range_change
@@ -344,6 +344,8 @@ class WaveformModel:
         self.__chart.getPlotItem().sigXRangeChanged.connect(self.__propagate_x_range)
         self.__chart.getPlotItem().sigYRangeChanged.connect(self.__propagate_y_range)
         self.__headroom = headroom
+        self.__rms_level = rms_level
+        self.__crest_factor = crest_factor
         self.__signal = None
         self.__curve = None
 
@@ -387,10 +389,18 @@ class WaveformModel:
     def signal(self, signal):
         self.__signal = signal
         if signal is not None:
-            headroom = 20 * math.log(1.0 / np.nanmax(np.abs(signal.samples)), 10)
+            peak_value = np.nanmax(np.abs(signal.samples))
+            rms_level_raw = np.sqrt(np.mean(np.square(np.abs(signal.samples))))
+            crest_factor = 20 * math.log(peak_value / rms_level_raw, 10)
+            rms_level = 20 * math.log(rms_level_raw, 10)
+            headroom = 20 * math.log(1.0 / peak_value, 10)
         else:
+            crest_factor = 0.0
+            rms_level = 0.0
             headroom = 0.0
         self.__headroom.setValue(headroom)
+        self.__rms_level.setValue(rms_level)
+        self.__crest_factor.setValue(crest_factor)
         x_range = self.__chart.getPlotItem().getAxis('bottom').range
         if self.signal is None:
             x_max = 1.0
