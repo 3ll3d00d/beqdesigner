@@ -14,8 +14,25 @@
    <string>AVS Post Builder</string>
   </property>
   <layout class="QGridLayout" name="gridLayout">
-   <item row="0" column="0">
+   <item row="1" column="0">
     <layout class="QGridLayout" name="dataGrid">
+     <item row="1" column="0">
+      <widget class="QLabel" name="yearLabel">
+       <property name="text">
+        <string>Year</string>
+       </property>
+      </widget>
+     </item>
+     <item row="6" column="0">
+      <widget class="QLabel" name="sourceLabel">
+       <property name="text">
+        <string>Source</string>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="2">
+      <widget class="QLineEdit" name="editionField"/>
+     </item>
      <item row="8" column="2">
       <widget class="QLineEdit" name="spectrumField"/>
      </item>
@@ -26,34 +43,8 @@
        </property>
       </widget>
      </item>
-     <item row="1" column="0">
-      <widget class="QLabel" name="yearLabel">
-       <property name="text">
-        <string>Year</string>
-       </property>
-      </widget>
-     </item>
      <item row="0" column="2">
       <widget class="QLineEdit" name="titleField"/>
-     </item>
-     <item row="2" column="2">
-      <widget class="QLineEdit" name="editionField"/>
-     </item>
-     <item row="7" column="2">
-      <widget class="QLineEdit" name="pvaField"/>
-     </item>
-     <item row="1" column="2">
-      <widget class="QLineEdit" name="yearField"/>
-     </item>
-     <item row="4" column="0">
-      <widget class="QLabel" name="noteLabel">
-       <property name="text">
-        <string>Note</string>
-       </property>
-      </widget>
-     </item>
-     <item row="4" column="2">
-      <widget class="QLineEdit" name="noteField"/>
      </item>
      <item row="0" column="0">
       <widget class="QLabel" name="titleLabel">
@@ -61,6 +52,16 @@
         <string>Title</string>
        </property>
       </widget>
+     </item>
+     <item row="3" column="0">
+      <widget class="QLabel" name="seasonLabel">
+       <property name="text">
+        <string>TV Season</string>
+       </property>
+      </widget>
+     </item>
+     <item row="7" column="2">
+      <widget class="QLineEdit" name="pvaField"/>
      </item>
      <item row="6" column="2">
       <widget class="QComboBox" name="sourcePicker">
@@ -86,24 +87,20 @@
        </item>
       </widget>
      </item>
+     <item row="4" column="0">
+      <widget class="QLabel" name="noteLabel">
+       <property name="text">
+        <string>Note</string>
+       </property>
+      </widget>
+     </item>
+     <item row="4" column="2">
+      <widget class="QLineEdit" name="noteField"/>
+     </item>
      <item row="7" column="0">
       <widget class="QLabel" name="pvaLabel">
        <property name="text">
         <string>PvA Graph URL</string>
-       </property>
-      </widget>
-     </item>
-     <item row="3" column="0">
-      <widget class="QLabel" name="seasonLabel">
-       <property name="text">
-        <string>TV Season</string>
-       </property>
-      </widget>
-     </item>
-     <item row="6" column="0">
-      <widget class="QLabel" name="sourceLabel">
-       <property name="text">
-        <string>Source</string>
        </property>
       </widget>
      </item>
@@ -123,6 +120,23 @@
      </item>
      <item row="3" column="2">
       <widget class="QLineEdit" name="seasonField"/>
+     </item>
+     <item row="2" column="0">
+      <widget class="QLabel" name="editionLabel">
+       <property name="text">
+        <string>Edition</string>
+       </property>
+      </widget>
+     </item>
+     <item row="11" column="2">
+      <widget class="QPlainTextEdit" name="postTextEdit"/>
+     </item>
+     <item row="5" column="0">
+      <widget class="QLabel" name="warningLabel">
+       <property name="text">
+        <string>Warning</string>
+       </property>
+      </widget>
      </item>
      <item row="10" column="2">
       <layout class="QGridLayout" name="formatGrid">
@@ -212,29 +226,15 @@
        </item>
       </layout>
      </item>
-     <item row="2" column="0">
-      <widget class="QLabel" name="editionLabel">
-       <property name="text">
-        <string>Edition</string>
-       </property>
-      </widget>
-     </item>
-     <item row="11" column="2">
-      <widget class="QPlainTextEdit" name="postTextEdit"/>
-     </item>
-     <item row="5" column="0">
-      <widget class="QLabel" name="warningLabel">
-       <property name="text">
-        <string>Warning</string>
-       </property>
-      </widget>
-     </item>
      <item row="5" column="2">
       <widget class="QLineEdit" name="warningField"/>
      </item>
+     <item row="1" column="2">
+      <widget class="QLineEdit" name="yearField"/>
+     </item>
     </layout>
    </item>
-   <item row="2" column="0">
+   <item row="3" column="0">
     <layout class="QGridLayout" name="buttonGrid">
      <item row="0" column="2">
       <spacer name="leadingSpacer">
@@ -253,6 +253,9 @@
       <widget class="QPushButton" name="closeButton">
        <property name="text">
         <string>Close</string>
+       </property>
+       <property name="autoDefault">
+        <bool>false</bool>
        </property>
        <property name="default">
         <bool>false</bool>
@@ -275,14 +278,34 @@
      <item row="0" column="1">
       <widget class="QPushButton" name="generateButton">
        <property name="text">
-        <string>Generate AVS Post + 2x4HD XML File</string>
+        <string>Generate 2x4HD XML File</string>
        </property>
        <property name="autoDefault">
-        <bool>true</bool>
+        <bool>false</bool>
        </property>
       </widget>
      </item>
     </layout>
+   </item>
+   <item row="0" column="0" alignment="Qt::AlignRight">
+    <widget class="QComboBox" name="comboBox">
+     <property name="maximumSize">
+      <size>
+       <width>250</width>
+       <height>16777215</height>
+      </size>
+     </property>
+     <item>
+      <property name="text">
+       <string>Movie</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>TV Show</string>
+      </property>
+     </item>
+    </widget>
    </item>
   </layout>
  </widget>
@@ -346,8 +369,362 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>titleField</sender>
+   <signal>editingFinished()</signal>
+   <receiver>postbuilder</receiver>
+   <slot>build_avs_post()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>285</x>
+     <y>63</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>82</x>
+     <y>5</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>yearField</sender>
+   <signal>editingFinished()</signal>
+   <receiver>postbuilder</receiver>
+   <slot>build_avs_post()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>253</x>
+     <y>94</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>109</x>
+     <y>65</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>editionField</sender>
+   <signal>editingFinished()</signal>
+   <receiver>postbuilder</receiver>
+   <slot>build_avs_post()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>246</x>
+     <y>125</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>110</x>
+     <y>106</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>seasonField</sender>
+   <signal>editingFinished()</signal>
+   <receiver>postbuilder</receiver>
+   <slot>build_avs_post()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>316</x>
+     <y>156</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>116</x>
+     <y>147</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>noteField</sender>
+   <signal>editingFinished()</signal>
+   <receiver>postbuilder</receiver>
+   <slot>build_avs_post()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>341</x>
+     <y>187</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>115</x>
+     <y>190</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>warningField</sender>
+   <signal>editingFinished()</signal>
+   <receiver>postbuilder</receiver>
+   <slot>build_avs_post()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>359</x>
+     <y>218</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>114</x>
+     <y>273</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>pvaField</sender>
+   <signal>editingFinished()</signal>
+   <receiver>postbuilder</receiver>
+   <slot>build_avs_post()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>301</x>
+     <y>279</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>9</x>
+     <y>249</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>sourcePicker</sender>
+   <signal>currentIndexChanged(QString)</signal>
+   <receiver>postbuilder</receiver>
+   <slot>build_avs_post()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>307</x>
+     <y>252</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>7</x>
+     <y>299</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>spectrumField</sender>
+   <signal>editingFinished()</signal>
+   <receiver>postbuilder</receiver>
+   <slot>build_avs_post()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>369</x>
+     <y>310</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>28</x>
+     <y>381</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>atmosCheckBox</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>postbuilder</receiver>
+   <slot>build_avs_post()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>243</x>
+     <y>340</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>110</x>
+     <y>400</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>dtsxCheckBox</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>postbuilder</receiver>
+   <slot>build_avs_post()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>245</x>
+     <y>363</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>114</x>
+     <y>361</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>ddAtmosCheckBox</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>postbuilder</receiver>
+   <slot>build_avs_post()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>250</x>
+     <y>386</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>109</x>
+     <y>333</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>lpcm71CheckBox</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>postbuilder</receiver>
+   <slot>build_avs_post()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>250</x>
+     <y>409</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>113</x>
+     <y>455</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>truehd71CheckBox</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>postbuilder</receiver>
+   <slot>build_avs_post()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>385</x>
+     <y>340</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>411</x>
+     <y>365</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>dts71CheckBox</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>postbuilder</receiver>
+   <slot>build_avs_post()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>385</x>
+     <y>363</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>391</x>
+     <y>371</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>ddPlusCheckBox</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>postbuilder</receiver>
+   <slot>build_avs_post()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>385</x>
+     <y>386</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>343</x>
+     <y>380</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>lpcm51CheckBox</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>postbuilder</receiver>
+   <slot>build_avs_post()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>385</x>
+     <y>409</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>282</x>
+     <y>386</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>truehd51CheckBox</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>postbuilder</receiver>
+   <slot>build_avs_post()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>520</x>
+     <y>340</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>556</x>
+     <y>295</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>dts61CheckBox</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>postbuilder</receiver>
+   <slot>build_avs_post()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>520</x>
+     <y>363</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>543</x>
+     <y>361</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>ddCheckBox</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>postbuilder</receiver>
+   <slot>build_avs_post()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>520</x>
+     <y>386</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>525</x>
+     <y>376</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>dts51CheckBox</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>postbuilder</receiver>
+   <slot>build_avs_post()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>655</x>
+     <y>363</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>533</x>
+     <y>349</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>comboBox</sender>
+   <signal>currentIndexChanged(int)</signal>
+   <receiver>postbuilder</receiver>
+   <slot>post_type_changed(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>575</x>
+     <y>18</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>525</x>
+     <y>16</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>generate_avs_post()</slot>
+  <slot>build_avs_post()</slot>
+  <slot>post_type_changed(int)</slot>
  </slots>
 </ui>

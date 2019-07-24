@@ -815,7 +815,7 @@ class Ui_MainWindow(object):
         self.actionExport_BEQ_Filter.setShortcut(_translate("MainWindow", "Ctrl+Alt+E"))
         self.actionCreate_AVS_Post.setText(_translate("MainWindow", "Create AVS Post and XML"))
         self.actionCreate_AVS_Post.setToolTip(_translate("MainWindow", "Create AVS Post and XML"))
-        self.actionCreate_AVS_Post.setShortcut(_translate("MainWindow", "Ctrl+P"))
+        self.actionCreate_AVS_Post.setShortcut(_translate("MainWindow", "Ctrl+Shift+P"))
 
 
 from app import PlotWidgetWithDateAxis

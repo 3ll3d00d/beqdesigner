@@ -1,8 +1,9 @@
 import logging
 import os
 import sys
+import re
 
-from qtpy.QtWidgets import QDialog, QFileDialog
+from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox
 
 from model.iir import Gain
 from model.minidsp import HDXmlParser, pad_with_passthrough
@@ -23,38 +24,19 @@ class CreateAVSPostDialog(QDialog, Ui_postbuilder):
         self.__preferences = prefs
         self.__beq_dir = self.__preferences.get(BEQ_DOWNLOAD_DIR)
         self.__filter_model = filter_model
+        self.post_type_changed(0)
 
     def generate_avs_post(self):
         '''
         Creates the output content.
         '''
         metadata = self.__build_metadata()
-        audio_display = ' / '.join(metadata['beq_audioTypes'])
 
-        season_display = ''
-        source_display = ''
-        post_warning = ''
-
-        save_name = f"{metadata['beq_title']} ({metadata['beq_year']})"
-
-        if len(metadata['beq_season']) > 0:
-            season_display = f"Season {metadata['beq_season']}"
-            save_name += f' ({season_display})'
-
-        if len(metadata['beq_edition']) > 0:
-            save_name += f" ({metadata['beq_edition']})"
+        if not self.__validate_metadata(metadata):
+            return
 
         if metadata['beq_source'] != 'Disc':
-            source_display = metadata['beq_source']
             save_name += f" ({metadata['beq_source']})"
-
-        if len(metadata['beq_warning']) > 0:
-            post_warning = f'\n[SIZE="3"][COLOR="DarkRed"][B]WARNING: {metadata["beq_warning"]}[/B][/COLOR][/SIZE]\n\n'
-
-        post = f"[CENTER][B]BassEQ {metadata['beq_title']} ({metadata['beq_year']}) {season_display} {metadata['beq_edition']} {source_display} {audio_display}[/B][/CENTER]\n{post_warning}[IMG]{metadata['beq_pvaURL']}[/IMG]\n[IMG]{metadata['beq_spectrumURL']}[/IMG]"
-
-        self.postTextEdit.clear()
-        self.postTextEdit.insertPlainText(post)
 
         gain_filter = self.__find_gain(self.__filter_model.filter)
 
@@ -77,6 +59,55 @@ class CreateAVSPostDialog(QDialog, Ui_postbuilder):
             output_xml = HDXmlParser('2x4 HD').overwrite(filters, file_path, metadata)
             with open(file_name, 'w') as f:
                 f.write(output_xml)
+
+    def build_avs_post(self):
+        '''
+        Creates the output content.
+        '''
+        metadata = self.__build_metadata()
+
+        if not self.__validate_metadata_urls(metadata):
+            return
+
+        post = f"[CENTER][B]BassEQ {metadata['beq_title']}"
+
+        if len(metadata['beq_year']) > 0:
+            post += f" ({metadata['beq_year']})"
+
+        if len(metadata['beq_season']) > 0:
+            post += f" Season {metadata['beq_season']}"
+
+        if len(metadata['beq_edition']) > 0:
+            post += f" {metadata['beq_edition']}"
+
+        if metadata['beq_source'] != 'Disc':
+            post += f" {metadata['beq_source']}"
+
+        audio_display = ' / '.join(metadata['beq_audioTypes'])
+        post += f"{audio_display}[/B][/CENTER]\n"
+
+        if len(metadata['beq_warning']) > 0:
+            post += f'\n[SIZE="3"][COLOR="DarkRed"][B]WARNING: {metadata["beq_warning"]}[/B][/COLOR][/SIZE]\n\n'
+
+        if len(metadata['beq_pvaURL']) > 0:
+            post += f"[IMG]{metadata['beq_pvaURL']}[/IMG]\n"
+
+        if len(metadata['beq_spectrumURL']) > 0:
+            post += f"[IMG]{metadata['beq_spectrumURL']}[/IMG]"
+
+        self.postTextEdit.clear()
+        self.postTextEdit.insertPlainText(post)
+
+    def post_type_changed(self, index):
+        isHidden = False
+        if index == 1:
+            isHidden = True
+
+        self.seasonField.setVisible(isHidden)
+        self.seasonLabel.setVisible(isHidden)
+
+
+
 
     def __build_metadata(self):
         metadata = {'beq_title': self.titleField.text().strip(), 'beq_year': self.yearField.text().strip(),
@@ -112,4 +143,46 @@ class CreateAVSPostDialog(QDialog, Ui_postbuilder):
         for filt in filters:
             if isinstance(filt, Gain):
                 return filt
+
+    def __validate_metadata(self, metadata):
+        if len(metadata['beq_title']) < 1:
+            QMessageBox.about(self, "Input Error", "Please enter a Title")
+            return False
+        elif len(metadata['beq_year']) < 1:
+            QMessageBox.about(self, "Input Error", "Please enter a Year")
+            return False
+        elif not self.__validate_url(metadata['beq_pvaURL']):
+            QMessageBox.about(self, "Input Error", "Please enter a valid PvA Graph URL")
+            return False
+        elif not self.__validate_url(metadata['beq_spectrumURL']):
+            QMessageBox.about(self, "Input Error", "Please enter a valid Spectrum Graph URL")
+            return False
+        elif len(metadata['beq_audioTypes']) < 1:
+            QMessageBox.about(self, "Input Error", "Please select an audio format")
+            return False
+
+        return True
+
+    def __validate_metadata_urls(self, metadata):
+        if len(metadata['beq_pvaURL']) > 0 and not self.__validate_url(metadata['beq_pvaURL']):
+            QMessageBox.about(self, "Input Error", "Please enter a valid PvA Graph URL")
+            self.pvaField.setFocus()
+            return False
+        elif len(metadata['beq_spectrumURL']) > 0 and not self.__validate_url(metadata['beq_spectrumURL']):
+            QMessageBox.about(self, "Input Error", "Please enter a valid Spectrum Graph URL")
+            self.spectrumField.setFocus()
+            return False
+
+        return True
+
+    def __validate_url(self, url):
+        regex = re.compile(
+            r'^(?:http|ftp)s?://'  # http:// or https://
+            r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+(?:[A-Z]{2,6}\.?|[A-Z0-9-]{2,}\.?)|'  # domain...
+            r'localhost|'  # localhost...
+            r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'  # ...or ip
+            r'(?::\d+)?'  # optional port
+            r'(?:/?|[/?]\S+)$', re.IGNORECASE)
+
+        return re.match(regex, url) is not None
 
