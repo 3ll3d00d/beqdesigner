@@ -1396,7 +1396,7 @@
     <string>Create AVS Post and XML</string>
    </property>
    <property name="shortcut">
-    <string>Ctrl+P</string>
+    <string>Ctrl+Shift+P</string>
    </property>
   </action>
  </widget>
