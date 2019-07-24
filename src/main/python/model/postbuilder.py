@@ -31,7 +31,7 @@ class CreateAVSPostDialog(QDialog, Ui_postbuilder):
         Creates the output content.
         '''
         metadata = self.__build_metadata()
-
+        
         if not self.__validate_metadata(metadata):
             return
 
@@ -105,9 +105,6 @@ class CreateAVSPostDialog(QDialog, Ui_postbuilder):
 
         self.seasonField.setVisible(isHidden)
         self.seasonLabel.setVisible(isHidden)
-
-
-
 
     def __build_metadata(self):
         metadata = {'beq_title': self.titleField.text().strip(), 'beq_year': self.yearField.text().strip(),
@@ -185,4 +182,3 @@ class CreateAVSPostDialog(QDialog, Ui_postbuilder):
             r'(?:/?|[/?]\S+)$', re.IGNORECASE)
 
         return re.match(regex, url) is not None
-

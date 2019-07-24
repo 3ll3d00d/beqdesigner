@@ -205,6 +205,7 @@ class Ui_postbuilder(object):
         self.formatLabel.setText(_translate("postbuilder", "Audio Format"))
         self.titleLabel.setText(_translate("postbuilder", "Title"))
         self.seasonLabel.setText(_translate("postbuilder", "TV Season"))
+
         self.sourcePicker.setItemText(0, _translate("postbuilder", "Disc"))
         self.sourcePicker.setItemText(1, _translate("postbuilder", "Amazon Prime"))
         self.sourcePicker.setItemText(2, _translate("postbuilder", "iTunes"))

@@ -96,7 +96,11 @@ def get_data_args():
         ('src/main/python/VERSION', '.'),
         ('src/main/xml/flat24hd.xml', '.'),
     ]
-
+    sndfile_data = get_sndfile_data()
+    if sndfile_data is not None:
+        print(f"Adding soundfile {sndfile_data}")
+        datas.append(sndfile_data)
+    return datas
 
 def should_keep_binary(x):
     '''
