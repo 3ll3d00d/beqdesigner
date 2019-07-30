@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'beq.ui'
+# Form implementation generated from reading ui file 'src/main/python/ui/beq.ui'
 #
 # Created by: PyQt5 UI code generator 5.13.0
 #
@@ -13,7 +13,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(1569, 1008)
+        MainWindow.resize(1569, 1010)
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
         self.widgetGridLayout = QtWidgets.QGridLayout(self.centralwidget)
@@ -184,9 +184,15 @@ class Ui_MainWindow(object):
         self.startTime = QtWidgets.QTimeEdit(self.waveformContainer)
         self.startTime.setObjectName("startTime")
         self.waveformControls.addWidget(self.startTime, 5, 1, 1, 1)
+        self.bmLayout = QtWidgets.QHBoxLayout()
+        self.bmLayout.setObjectName("bmLayout")
         self.bmlpfPosition = QtWidgets.QComboBox(self.waveformContainer)
         self.bmlpfPosition.setObjectName("bmlpfPosition")
-        self.waveformControls.addWidget(self.bmlpfPosition, 9, 1, 1, 1)
+        self.bmLayout.addWidget(self.bmlpfPosition)
+        self.bmhpfOn = QtWidgets.QCheckBox(self.waveformContainer)
+        self.bmhpfOn.setObjectName("bmhpfOn")
+        self.bmLayout.addWidget(self.bmhpfOn)
+        self.waveformControls.addLayout(self.bmLayout, 9, 1, 1, 1)
         self.bmClippingLabel = QtWidgets.QLabel(self.waveformContainer)
         self.bmClippingLabel.setObjectName("bmClippingLabel")
         self.waveformControls.addWidget(self.bmClippingLabel, 10, 0, 1, 1)
@@ -686,9 +692,10 @@ class Ui_MainWindow(object):
         self.limitsButton.setText(_translate("MainWindow", "..."))
         self.signalReference.setItemText(0, _translate("MainWindow", "None"))
         self.referenceLabel.setText(_translate("MainWindow", "Reference:"))
-        self.bmlpfPositionLabel.setText(_translate("MainWindow", "LPF"))
+        self.bmlpfPositionLabel.setText(_translate("MainWindow", "XO Filter"))
         self.bmHeadroomLabel.setText(_translate("MainWindow", "Headroom"))
         self.startTime.setDisplayFormat(_translate("MainWindow", "HH:mm:ss.zzz"))
+        self.bmhpfOn.setText(_translate("MainWindow", "HPF On?"))
         self.bmClippingLabel.setText(_translate("MainWindow", "Clip"))
         self.signalSelectorLabel.setText(_translate("MainWindow", "Signal"))
         self.bmClipBefore.setText(_translate("MainWindow", "Before"))

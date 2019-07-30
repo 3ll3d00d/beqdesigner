@@ -360,18 +360,20 @@ class SingleChannelSignalData(SignalData):
             return self.signal.adjust_gain(gain)
         return None
 
-    def filter_signal(self, filt=True, clip=False, gain=1.0, pre_filt=None):
+    def filter_signal(self, filt=True, clip=False, gain=1.0, pre_filt=None, post_filt=None):
         '''
         returns the filtered signal if we have the raw sample data by transforming the signal via the following steps:
         * adjust_gain
         * pre_filt
         * clip
         * filter
+        * post_filt
         * clip
         :param filt: whether to apply the filter.
         :param clip: whether to clip values to a -1.0/1.0 range (both before and after filtering)
         :param gain: the gain.
         :param pre_filt: an additional filter to apply before the active_filter is applied.
+        :param post_filt: an additional filter to apply after the active_filter is applied.
         :return: the filtered signal.
         '''
         if self.signal is not None:
@@ -386,6 +388,8 @@ class SingleChannelSignalData(SignalData):
                 sos = self.active_filter.resample(self.fs, copy_listener=False).get_sos()
                 if len(sos) > 0:
                     signal = signal.sosfilter(sos)
+            if post_filt is not None:
+                signal = signal.sosfilter(post_filt.resample(self.fs).get_sos())
             if clip is True:
                 signal = signal.clip()
             return signal

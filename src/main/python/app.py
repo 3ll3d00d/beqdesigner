@@ -231,7 +231,8 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
                                                         self.loadSignalButton,
                                                         self.filteredSpectrumLimitsButton,
                                                         self.yMin,
-                                                        self.yMax)
+                                                        self.yMax,
+                                                        self.bmhpfOn)
         self.__hide_waveform_chart()
         self.actionClear_Signals.triggered.connect(self.clearSignals)
         # processing
