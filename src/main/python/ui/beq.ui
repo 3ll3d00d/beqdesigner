@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1569</width>
-    <height>1008</height>
+    <height>1010</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -335,7 +335,7 @@
               <item row="9" column="0">
                <widget class="QLabel" name="bmlpfPositionLabel">
                 <property name="text">
-                 <string>LPF</string>
+                 <string>XO Filter</string>
                 </property>
                </widget>
               </item>
@@ -357,7 +357,18 @@
                </widget>
               </item>
               <item row="9" column="1">
-               <widget class="QComboBox" name="bmlpfPosition"/>
+               <layout class="QHBoxLayout" name="bmLayout">
+                <item>
+                 <widget class="QComboBox" name="bmlpfPosition"/>
+                </item>
+                <item>
+                 <widget class="QCheckBox" name="bmhpfOn">
+                  <property name="text">
+                   <string>HPF On?</string>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
               </item>
               <item row="10" column="0">
                <widget class="QLabel" name="bmClippingLabel">

@@ -10,7 +10,7 @@ from qtpy.QtGui import QFont
 from qtpy.QtCore import Qt
 
 from model.magnitude import MagnitudeModel
-from model.preferences import BM_LPF_OPTIONS
+from model.preferences import BM_LPF_OPTIONS, BASS_MANAGEMENT_LPF_FS
 from model.signal import SignalDialog, SIGNAL_SOURCE_FILE, SIGNAL_CHANNEL, SingleChannelSignalData
 
 logger = logging.getLogger('waveform')
@@ -20,7 +20,7 @@ class WaveformController:
     def __init__(self, preferences, signal_model, waveform_chart, spectrum_chart, signal_selector, rms_level, headroom,
                  crest_factor, bm_headroom, bm_lpf_position, bm_clip_before, bm_clip_after, is_filtered,
                  apply_hard_clip, start_time, end_time, show_spectrum_btn, hide_spectrum_btn, zoom_in_btn, zoom_out_btn,
-                 compare_spectrum_btn, source_file, load_signal_btn, show_limits_btn, y_min, y_max):
+                 compare_spectrum_btn, source_file, load_signal_btn, show_limits_btn, y_min, y_max, bm_hpf):
         self.__is_visible = False
         self.__selected_name = None
         self.__preferences = preferences
@@ -30,6 +30,7 @@ class WaveformController:
         self.__is_filtered = is_filtered
         self.__apply_hard_clip = apply_hard_clip
         self.__bm_headroom = bm_headroom
+        self.__bm_hpf = bm_hpf
         self.__bm_lpf_position = bm_lpf_position
         for x in BM_LPF_OPTIONS:
             self.__bm_lpf_position.addItem(x)
@@ -69,6 +70,7 @@ class WaveformController:
         self.__apply_hard_clip.stateChanged['int'].connect(self.toggle_hard_clip)
         self.__bm_headroom.currentIndexChanged['QString'].connect(self.change_bm_headroom)
         self.__bm_lpf_position.currentIndexChanged['QString'].connect(self.change_bm_lpf_position)
+        self.__bm_hpf.stateChanged['int'].connect(self.toggle_hpf)
         self.__bm_clip_before.stateChanged['int'].connect(self.toggle_bm_clip_before)
         self.__bm_clip_after.stateChanged['int'].connect(self.toggle_bm_clip_after)
         self.__selector.currentIndexChanged['QString'].connect(self.update_waveform)
@@ -172,6 +174,7 @@ class WaveformController:
             self.__load_signal_btn.setEnabled(True)
             self.__bm_headroom.setEnabled(False)
             self.__bm_lpf_position.setEnabled(False)
+            self.__bm_hpf.setEnabled(False)
             self.__bm_clip_before.setEnabled(False)
             self.__bm_clip_after.setEnabled(False)
             self.__reset_controls()
@@ -184,8 +187,10 @@ class WaveformController:
                     self.__source_file.setText(f"{metadata[SIGNAL_SOURCE_FILE]} - C{metadata[SIGNAL_CHANNEL]}")
                 else:
                     self.__source_file.setText(metadata[SIGNAL_SOURCE_FILE])
+            from model.report import block_signals
             if signal_name.startswith('(BM) '):
-                from model.report import block_signals
+                with block_signals(self.__bm_hpf):
+                    self.__bm_hpf.setEnabled(False)
                 with block_signals(self.__bm_headroom):
                     self.__bm_headroom.setEnabled(True)
                     self.__bm_headroom.setCurrentText(self.__current_signal.bm_headroom_type)
@@ -199,6 +204,12 @@ class WaveformController:
                     self.__bm_clip_after.setEnabled(True)
                     self.__bm_clip_after.setChecked(self.__current_signal.clip_after)
             else:
+                if signal_name.endswith('LFE'):
+                    with block_signals(self.__bm_hpf):
+                        self.__bm_hpf.setEnabled(False)
+                else:
+                    with block_signals(self.__bm_hpf):
+                        self.__bm_hpf.setEnabled(True)
                 self.__bm_headroom.setEnabled(False)
                 self.__bm_lpf_position.setEnabled(False)
                 self.__bm_clip_before.setEnabled(False)
@@ -261,6 +272,33 @@ class WaveformController:
         ''' Changes whether to clip the signal after summation '''
         self.__set_bm_signal_attr('clip_after', state == Qt.Checked)
 
+    def toggle_hpf(self, state):
+        ''' applies or removes the hpf from the visible waveform '''
+        signal_name = self.__selector.currentText()
+        signal_data = self.__get_signal_data(signal_name)
+        if signal_data is not None:
+            from app import wait_cursor
+            with wait_cursor():
+                signal = signal_data.filter_signal(filt=self.__is_filtered.isChecked(),
+                                                   clip=self.__apply_hard_clip.isChecked(),
+                                                   post_filt=self.__get_post_filt_hpf(apply=state == Qt.Checked))
+                self.__active_signal = signal
+                self.__waveform_chart_model.signal = signal
+                self.__waveform_chart_model.idx = self.__selector.currentIndex() - 1
+                self.__waveform_chart_model.analyse()
+                if self.__magnitude_model.is_visible():
+                    self.__magnitude_model.redraw()
+
+    def __get_post_filt_hpf(self, apply=None):
+        post_filt = None
+        if apply is None:
+            apply = self.__bm_hpf.isChecked() and self.__bm_hpf.isEnabled()
+        if apply is True:
+            from model.iir import FilterType, ComplexHighPass
+            hpf_fs = self.__preferences.get(BASS_MANAGEMENT_LPF_FS)
+            post_filt = ComplexHighPass(FilterType.LINKWITZ_RILEY, 4, 1000, hpf_fs)
+        return post_filt
+
     def toggle_filter(self, state):
         ''' Applies or removes the filter from the visible waveform '''
         signal_name = self.__selector.currentText()
@@ -268,7 +306,9 @@ class WaveformController:
         if signal_data is not None:
             from app import wait_cursor
             with wait_cursor():
-                signal = signal_data.filter_signal(filt=state == Qt.Checked, clip=self.__apply_hard_clip.isChecked())
+                signal = signal_data.filter_signal(filt=state == Qt.Checked,
+                                                   clip=self.__apply_hard_clip.isChecked(),
+                                                   post_filt=self.__get_post_filt_hpf())
                 self.__active_signal = signal
                 self.__waveform_chart_model.signal = signal
                 self.__waveform_chart_model.idx = self.__selector.currentIndex() - 1
@@ -283,7 +323,9 @@ class WaveformController:
         if signal_data is not None:
             from app import wait_cursor
             with wait_cursor():
-                signal = signal_data.filter_signal(filt=self.__is_filtered.isChecked(), clip=state == Qt.Checked)
+                signal = signal_data.filter_signal(filt=self.__is_filtered.isChecked(),
+                                                   clip=state == Qt.Checked,
+                                                   post_filt=self.__get_post_filt_hpf())
                 self.__active_signal = signal
                 self.__waveform_chart_model.signal = signal
                 self.__waveform_chart_model.idx = self.__selector.currentIndex() - 1
