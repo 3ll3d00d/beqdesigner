@@ -175,6 +175,7 @@ class WaveformController:
             self.__bm_headroom.setEnabled(False)
             self.__bm_lpf_position.setEnabled(False)
             self.__bm_hpf.setEnabled(False)
+            self.__bm_hpf.setChecked(False)
             self.__bm_clip_before.setEnabled(False)
             self.__bm_clip_after.setEnabled(False)
             self.__reset_controls()
@@ -191,6 +192,7 @@ class WaveformController:
             if signal_name.startswith('(BM) '):
                 with block_signals(self.__bm_hpf):
                     self.__bm_hpf.setEnabled(False)
+                    self.__bm_hpf.setChecked(False)
                 with block_signals(self.__bm_headroom):
                     self.__bm_headroom.setEnabled(True)
                     self.__bm_headroom.setCurrentText(self.__current_signal.bm_headroom_type)
@@ -207,9 +209,11 @@ class WaveformController:
                 if signal_name.endswith('LFE'):
                     with block_signals(self.__bm_hpf):
                         self.__bm_hpf.setEnabled(False)
+                        self.__bm_hpf.setChecked(False)
                 else:
                     with block_signals(self.__bm_hpf):
                         self.__bm_hpf.setEnabled(True)
+                        self.__bm_hpf.setChecked(self.__current_signal.high_pass)
                 self.__bm_headroom.setEnabled(False)
                 self.__bm_lpf_position.setEnabled(False)
                 self.__bm_clip_before.setEnabled(False)
@@ -277,6 +281,7 @@ class WaveformController:
         signal_name = self.__selector.currentText()
         signal_data = self.__get_signal_data(signal_name)
         if signal_data is not None:
+            signal_data.high_pass = state == Qt.Checked
             from app import wait_cursor
             with wait_cursor():
                 signal = signal_data.filter_signal(filt=self.__is_filtered.isChecked(),

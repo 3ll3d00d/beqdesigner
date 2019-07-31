@@ -106,6 +106,7 @@ class SingleChannelSignalData(SignalData):
         self.__on_change_listeners = []
         self.__unfiltered = {}
         self.__filtered = []
+        self.__high_pass = False
         self.__smoothing_type = None
         self.__filter = None
         self.__name = None
@@ -127,6 +128,14 @@ class SingleChannelSignalData(SignalData):
             self.__unfiltered[None] = xy_data
         self.filter = filter
         self.tilt_on = False
+
+    @property
+    def high_pass(self):
+        return self.__high_pass
+
+    @high_pass.setter
+    def high_pass(self, high_pass):
+        self.__high_pass = high_pass
 
     @property
     def current_unfiltered(self):
