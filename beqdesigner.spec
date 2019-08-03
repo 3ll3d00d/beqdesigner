@@ -140,12 +140,14 @@ def get_exe_name():
 block_cipher = None
 spec_root = os.path.abspath(SPECPATH)
 
+#             hiddenimports=['numpy.random.common','numpy.random.bounded_integers', 'numpy.random.entropy'],
+
 a = Analysis(['src/main/python/app.py'],
              pathex=[spec_root],
              binaries=None,
              datas=get_data_args(),
-             hiddenimports=[],
-             hookspath=[],
+             hiddenimports=['numpy.random'],
+             hookspath=['hooks/'],
              runtime_hooks=[],
              excludes=[],
              win_no_prefer_redirects=False,
