@@ -35,6 +35,14 @@ class CreateAVSPostDialog(QDialog, Ui_postbuilder):
         if not self.__validate_metadata(metadata):
             return
 
+        save_name = f"{metadata['beq_title']} ({metadata['beq_year']})"
+
+        if len(metadata['beq_season']) > 0:
+            save_name += f' ({season_display})'
+
+        if len(metadata['beq_edition']) > 0:
+            save_name += f" ({metadata['beq_edition']})"
+
         if metadata['beq_source'] != 'Disc':
             save_name += f" ({metadata['beq_source']})"
 
