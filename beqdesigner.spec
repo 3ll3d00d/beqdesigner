@@ -144,8 +144,15 @@ def get_binaries():
     if platform.system() == 'Windows':
         import os
         ssl_dll = 'c:/Windows/System32/libssl-1_1-x64.dll'
+        crypto_dll = 'c:/Windows/System32/libcrypto-1_1-x64.dll'
         if os.path.isfile(ssl_dll):
-            return [(ssl_dll, '.')]
+            if os.path.isfile(crypto_dll):
+                return [
+                    (ssl_dll, '.'),
+                    (crypto_dll, '.'),
+                ]
+            else:
+                print(f"MISSING libcrypto-1_1-x64.dll")
         else:
             print(f"MISSING libssl-1_1-x64.dll")
     return None
