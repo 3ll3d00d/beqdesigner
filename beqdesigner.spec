@@ -137,6 +137,20 @@ def get_exe_name():
     return 'beqdesigner'
 
 
+def get_binaries():
+    '''
+    :return: the ssl binaries if we're on windows and they exist.
+    '''
+    if platform.system() == 'Windows':
+        import os
+        ssl_dll = 'c:/Windows/System32/libssl-1_1-x64.dll'
+        if os.path.isfile(ssl_dll):
+            return [(ssl_dll, '.')]
+        else:
+            print(f"MISSING libssl-1_1-x64.dll")
+    return None
+
+
 block_cipher = None
 spec_root = os.path.abspath(SPECPATH)
 
@@ -144,7 +158,7 @@ spec_root = os.path.abspath(SPECPATH)
 
 a = Analysis(['src/main/python/app.py'],
              pathex=[spec_root],
-             binaries=None,
+             binaries=get_binaries(),
              datas=get_data_args(),
              hiddenimports=['numpy.random'],
              hookspath=['hooks/'],
