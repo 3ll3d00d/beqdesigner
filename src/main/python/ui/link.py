@@ -39,7 +39,7 @@ class Ui_linkSignalDialog(object):
         self.buttonBox.accepted.connect(linkSignalDialog.accept)
         self.buttonBox.rejected.connect(linkSignalDialog.reject)
         self.addToMaster.clicked.connect(linkSignalDialog.addMaster)
-        QtCore.QMetaObject.connectSlotsByName(linkSignalDialog)
+        # QtCore.QMetaObject.connectSlotsByName(linkSignalDialog)
 
     def retranslateUi(self, linkSignalDialog):
         _translate = QtCore.QCoreApplication.translate

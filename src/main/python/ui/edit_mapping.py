@@ -40,7 +40,7 @@ class Ui_editMappingDialog(object):
         self.retranslateUi(editMappingDialog)
         self.buttonBox.accepted.connect(editMappingDialog.accept)
         self.buttonBox.rejected.connect(editMappingDialog.reject)
-        QtCore.QMetaObject.connectSlotsByName(editMappingDialog)
+        # QtCore.QMetaObject.connectSlotsByName(editMappingDialog)
 
     def retranslateUi(self, editMappingDialog):
         _translate = QtCore.QCoreApplication.translate

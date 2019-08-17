@@ -78,7 +78,7 @@ class Ui_graphLayoutDialog(object):
         self.applyButton.clicked.connect(graphLayoutDialog.changeLimits)
         self.applyFullRangeX.clicked.connect(graphLayoutDialog.fullRangeLimits)
         self.applyBassX.clicked.connect(graphLayoutDialog.bassLimits)
-        QtCore.QMetaObject.connectSlotsByName(graphLayoutDialog)
+        # QtCore.QMetaObject.connectSlotsByName(graphLayoutDialog)
 
     def retranslateUi(self, graphLayoutDialog):
         _translate = QtCore.QCoreApplication.translate
