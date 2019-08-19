@@ -6,7 +6,7 @@ from pathlib import Path
 
 import qtawesome as qta
 from qtpy.QtCore import QObject, Signal, QRunnable, QThreadPool, Qt, QDateTime
-from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox
+from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox, QDialogButtonBox
 
 from model.iir import Passthrough, PeakingEQ, Shelf, LowShelf, HighShelf
 from model.preferences import BEQ_CONFIG_FILE, BEQ_MERGE_DIR, BEQ_MINIDSP_TYPE, BEQ_DOWNLOAD_DIR, BEQ_EXTRA_DIR
@@ -26,6 +26,7 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
     def __init__(self, parent, prefs, statusbar):
         super(MergeFiltersDialog, self).__init__(parent)
         self.setupUi(self)
+        self.buttonBox.button(QDialogButtonBox.Reset).clicked.connect(self.__force_clone)
         self.__process_spinner = None
         self.configFilePicker.setIcon(qta.icon('fa5s.folder-open'))
         self.outputDirectoryPicker.setIcon(qta.icon('fa5s.folder-open'))
@@ -49,6 +50,23 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
             self.userSourceDir.setText(os.path.abspath(extra_dir))
         self.__update_beq_metadata()
         self.__enable_process()
+
+    def __force_clone(self):
+        refresh = False
+        if not os.path.exists(self.__beq_dir):
+            refresh = True
+        else:
+            result = QMessageBox.question(self,
+                                          'Get Clean Copy?',
+                                          f"Do you want to delete {self.__beq_dir} and clone the repository again?"
+                                          f"\n\nEverything in {self.__beq_dir} will be deleted. "
+                                          f"\n\nThis action is irreversible!",
+                                          QMessageBox.Yes | QMessageBox.No,
+                                          QMessageBox.No)
+            refresh = result == QMessageBox.Yes
+        if refresh is True:
+            shutil.rmtree(self.__beq_dir)
+            self.refresh_repo()
 
     def refresh_repo(self):
         from app import wait_cursor
