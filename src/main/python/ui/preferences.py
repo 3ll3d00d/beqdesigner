@@ -325,7 +325,7 @@ class Ui_preferencesDialog(object):
         self.extractCompleteAudioFilePicker.clicked.connect(preferencesDialog.showExtractCompleteSoundPicker)
         self.beqDirectoryPicker.clicked.connect(preferencesDialog.showBeqDirectoryPicker)
         self.refreshBeq.clicked.connect(preferencesDialog.updateBeq)
-        # QtCore.QMetaObject.connectSlotsByName(preferencesDialog)
+        QtCore.QMetaObject.connectSlotsByName(preferencesDialog)
         preferencesDialog.setTabOrder(self.ffmpegDirectoryPicker, self.ffprobeDirectoryPicker)
         preferencesDialog.setTabOrder(self.ffprobeDirectoryPicker, self.targetFs)
         preferencesDialog.setTabOrder(self.targetFs, self.resolutionSelect)

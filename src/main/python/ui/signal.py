@@ -194,7 +194,7 @@ class Ui_addSignalDialog(object):
         self.wavStartTime.timeChanged['QTime'].connect(addSignalDialog.enableLimitTimeRangeButton)
         self.wavEndTime.timeChanged['QTime'].connect(addSignalDialog.enableLimitTimeRangeButton)
         self.decimate.stateChanged['int'].connect(addSignalDialog.toggleDecimate)
-        # QtCore.QMetaObject.connectSlotsByName(addSignalDialog)
+        QtCore.QMetaObject.connectSlotsByName(addSignalDialog)
         addSignalDialog.setTabOrder(self.signalTypeTabs, self.wavFilePicker)
         addSignalDialog.setTabOrder(self.wavFilePicker, self.wavChannelSelector)
         addSignalDialog.setTabOrder(self.wavChannelSelector, self.wavStartTime)

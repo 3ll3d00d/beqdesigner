@@ -38,7 +38,7 @@ class Ui_ffmpegReportDialog(object):
         self.retranslateUi(ffmpegReportDialog)
         self.buttonBox.accepted.connect(ffmpegReportDialog.accept)
         self.buttonBox.rejected.connect(ffmpegReportDialog.reject)
-        # QtCore.QMetaObject.connectSlotsByName(ffmpegReportDialog)
+        QtCore.QMetaObject.connectSlotsByName(ffmpegReportDialog)
 
     def retranslateUi(self, ffmpegReportDialog):
         _translate = QtCore.QCoreApplication.translate
