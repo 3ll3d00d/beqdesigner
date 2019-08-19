@@ -698,34 +698,11 @@ class SignalModel(Sequence):
         from app import flatten
         show_signals = self.__preferences.get(DISPLAY_SHOW_SIGNALS)
         show_filtered_signals = self.__preferences.get(DISPLAY_SHOW_FILTERED_SIGNALS)
-        pattern = self.__get_visible_signal_name_filter(show_filtered_signals, show_signals)
+        pattern = get_visible_signal_name_filter(show_filtered_signals, show_signals)
         visible_signal_names = [x.name for x in flatten([y for x in self.__signals for y in x.get_all_xy()])]
         if pattern is not None:
             visible_signal_names = [x for x in visible_signal_names if pattern.match(x) is not None]
         self.__on_update(visible_signal_names)
-
-    def __get_visible_signal_name_filter(self, show_filtered_signals, show_signals):
-        '''
-        Creates a regex that will filter the signal names according to the avg/peak patterns.
-        :param show_filtered_signals: which filtered signals to show.
-        :param show_signals: which signals to show.
-        :return: the pattern (if any)
-        '''
-        analysis_types = []
-        if show_signals in SHOWING_AVERAGE:
-            analysis_types.append('avg')
-        if show_signals in SHOWING_PEAK:
-            analysis_types.append('peak')
-        if show_signals in SHOWING_MEDIAN:
-            analysis_types.append('median')
-        analysis_match = '|'.join(analysis_types)
-        if show_filtered_signals == SHOW_FILTERED_ONLY:
-            filter_match = '-filtered'
-        elif show_filtered_signals == SHOW_UNFILTERED_ONLY:
-            filter_match = ''
-        else:
-            filter_match = '(-filtered)?'
-        return re.compile(f".*_({analysis_match}){filter_match}$")
 
     def remove(self, signal):
         '''
@@ -766,7 +743,7 @@ class SignalModel(Sequence):
         results = self.get_all_magnitude_data()
         show_signals = self.__preferences.get(DISPLAY_SHOW_SIGNALS)
         show_filtered_signals = self.__preferences.get(DISPLAY_SHOW_FILTERED_SIGNALS)
-        pattern = self.__get_visible_signal_name_filter(show_filtered_signals, show_signals)
+        pattern = get_visible_signal_name_filter(show_filtered_signals, show_signals)
         if pattern is not None:
             results = [x for x in results if pattern.match(x.name) is not None]
         if reference is not None:
@@ -1913,4 +1890,28 @@ class Smoother(QRunnable):
             signal_data.smooth(fraction, set_active=False)
             end = time.time()
             logger.info(f"Smoothed {signal_data} at {fraction} in {round(end - start, 3)}s")
+
+
+def get_visible_signal_name_filter(show_filtered_signals, show_signals):
+    '''
+    Creates a regex that will filter the signal names according to the avg/peak patterns.
+    :param show_filtered_signals: which filtered signals to show.
+    :param show_signals: which signals to show.
+    :return: the pattern (if any)
+    '''
+    analysis_types = []
+    if show_signals in SHOWING_AVERAGE:
+        analysis_types.append('avg')
+    if show_signals in SHOWING_PEAK:
+        analysis_types.append('peak')
+    if show_signals in SHOWING_MEDIAN:
+        analysis_types.append('median')
+    analysis_match = '|'.join(analysis_types)
+    if show_filtered_signals == SHOW_FILTERED_ONLY:
+        filter_match = '-filtered'
+    elif show_filtered_signals == SHOW_UNFILTERED_ONLY:
+        filter_match = ''
+    else:
+        filter_match = '(-filtered)?'
+    return re.compile(f".*_({analysis_match}){filter_match}$")
 

@@ -22,7 +22,8 @@ from model.preferences import REPORT_TITLE_FONT_SIZE, REPORT_IMAGE_ALPHA, REPORT
     REPORT_LAYOUT_MAJOR_RATIO, REPORT_LAYOUT_MINOR_RATIO, REPORT_CHART_GRID_ALPHA, REPORT_CHART_SHOW_LEGEND, \
     REPORT_GEOMETRY, REPORT_LAYOUT_SPLIT_DIRECTION, REPORT_LAYOUT_TYPE, REPORT_CHART_LIMITS_X0, \
     REPORT_CHART_LIMITS_X_SCALE, REPORT_CHART_LIMITS_X1, REPORT_FILTER_FONT_SIZE, REPORT_FILTER_SHOW_HEADER, \
-    REPORT_GROUP, REPORT_LAYOUT_WSPACE, REPORT_LAYOUT_HSPACE
+    REPORT_GROUP, REPORT_LAYOUT_WSPACE, REPORT_LAYOUT_HSPACE, DISPLAY_SHOW_SIGNALS, DISPLAY_SHOW_FILTERED_SIGNALS
+from model.signal import get_visible_signal_name_filter
 from ui.report import Ui_saveReportDialog
 
 VALID_IMG_FORMATS = ['jpg', 'jpeg', 'png']
@@ -67,7 +68,16 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         self.buttonBox.button(QDialogButtonBox.RestoreDefaults).clicked.connect(self.discard_layout)
         for xy in self.__xy_data:
             self.curves.addItem(QListWidgetItem(xy.name, self.curves))
-        self.curves.selectAll()
+        show_signals = self.__preferences.get(DISPLAY_SHOW_SIGNALS)
+        show_filtered_signals = self.__preferences.get(DISPLAY_SHOW_FILTERED_SIGNALS)
+        pattern = get_visible_signal_name_filter(show_filtered_signals, show_signals)
+        if pattern is not None:
+            for idx in range(0, self.curves.count()):
+                item = self.curves.item(idx)
+                if pattern.match(item.text()):
+                    item.setSelected(True)
+        else:
+            self.curves.selectAll()
         self.preview.canvas.mpl_connect('resize_event', self.__canvas_size_to_xy)
         # init fields
         self.__restore_geometry()
