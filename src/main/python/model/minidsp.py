@@ -393,6 +393,7 @@ class HDXmlParser:
         Overwrites the PEQ_1_x and PEQ_2_x filters.
         :param filters: the filters.
         :param target: the target file.
+        :param metadata: the minidsp metadata.
         :return: the xml to output to the file.
         '''
         import xml.etree.ElementTree as ET
@@ -430,7 +431,7 @@ class HDXmlParser:
                                                                   show_index=False, to_hex=True,
                                                                   fixed_point=self.__is_fixed_point_hardware())[0]
                                     child.find('hex').text = f"{hex_txt},"
-        if metadata:
+        if metadata is not None:
             metadata_tag = ET.Element('beq_metadata')
             for key, value in metadata.items():
                 tag = ET.Element(key)
