@@ -6,64 +6,100 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>671</width>
-    <height>562</height>
+    <width>586</width>
+    <height>715</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>AVS Post Builder</string>
   </property>
   <layout class="QGridLayout" name="gridLayout">
-   <item row="1" column="0">
-    <layout class="QGridLayout" name="dataGrid">
-     <item row="1" column="0">
-      <widget class="QLabel" name="yearLabel">
-       <property name="text">
-        <string>Year</string>
-       </property>
-      </widget>
-     </item>
-     <item row="6" column="0">
-      <widget class="QLabel" name="sourceLabel">
-       <property name="text">
-        <string>Source</string>
-       </property>
-      </widget>
-     </item>
-     <item row="2" column="2">
-      <widget class="QLineEdit" name="editionField"/>
-     </item>
-     <item row="8" column="2">
-      <widget class="QLineEdit" name="spectrumField"/>
-     </item>
-     <item row="10" column="0">
-      <widget class="QLabel" name="formatLabel">
-       <property name="text">
-        <string>Audio Format</string>
-       </property>
-      </widget>
-     </item>
+   <item row="3" column="0">
+    <layout class="QGridLayout" name="buttonGrid">
      <item row="0" column="2">
-      <widget class="QLineEdit" name="titleField"/>
+      <spacer name="leadingSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item row="0" column="3">
+      <widget class="QPushButton" name="closeButton">
+       <property name="text">
+        <string>Close</string>
+       </property>
+       <property name="autoDefault">
+        <bool>false</bool>
+       </property>
+       <property name="default">
+        <bool>false</bool>
+       </property>
+      </widget>
      </item>
      <item row="0" column="0">
-      <widget class="QLabel" name="titleLabel">
+      <spacer name="middleSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item row="0" column="1">
+      <widget class="QPushButton" name="generateButton">
        <property name="text">
-        <string>Title</string>
+        <string>Generate 2x4HD XML File</string>
+       </property>
+       <property name="autoDefault">
+        <bool>false</bool>
        </property>
       </widget>
      </item>
-     <item row="3" column="0">
-      <widget class="QLabel" name="seasonLabel">
+    </layout>
+   </item>
+   <item row="0" column="0" alignment="Qt::AlignRight">
+    <widget class="QComboBox" name="comboBox">
+     <property name="maximumSize">
+      <size>
+       <width>250</width>
+       <height>16777215</height>
+      </size>
+     </property>
+     <item>
+      <property name="text">
+       <string>Movie</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>TV Show</string>
+      </property>
+     </item>
+    </widget>
+   </item>
+   <item row="1" column="0">
+    <layout class="QGridLayout" name="dataGrid">
+     <item row="8" column="0">
+      <widget class="QLabel" name="spectrumLabel">
        <property name="text">
-        <string>TV Season</string>
+        <string>Spectrum URL</string>
        </property>
       </widget>
      </item>
-     <item row="7" column="2">
-      <widget class="QLineEdit" name="pvaField"/>
+     <item row="11" column="2" colspan="2">
+      <widget class="QPlainTextEdit" name="postTextEdit"/>
      </item>
-     <item row="6" column="2">
+     <item row="6" column="2" colspan="2">
       <widget class="QComboBox" name="sourcePicker">
        <item>
         <property name="text">
@@ -87,22 +123,21 @@
        </item>
       </widget>
      </item>
-     <item row="4" column="0">
-      <widget class="QLabel" name="noteLabel">
+     <item row="7" column="3">
+      <widget class="QToolButton" name="pvaValid">
+       <property name="enabled">
+        <bool>true</bool>
+       </property>
        <property name="text">
-        <string>Note</string>
+        <string/>
        </property>
       </widget>
      </item>
-     <item row="4" column="2">
-      <widget class="QLineEdit" name="noteField"/>
+     <item row="7" column="2">
+      <widget class="QLineEdit" name="pvaField"/>
      </item>
-     <item row="7" column="0">
-      <widget class="QLabel" name="pvaLabel">
-       <property name="text">
-        <string>PvA Graph URL</string>
-       </property>
-      </widget>
+     <item row="5" column="2" colspan="2">
+      <widget class="QLineEdit" name="warningField"/>
      </item>
      <item row="11" column="0">
       <widget class="QLabel" name="postLabel">
@@ -111,15 +146,70 @@
        </property>
       </widget>
      </item>
-     <item row="8" column="0">
-      <widget class="QLabel" name="spectrumLabel">
+     <item row="3" column="0">
+      <widget class="QLabel" name="seasonLabel">
        <property name="text">
-        <string>Spectrum URL</string>
+        <string>TV Season</string>
        </property>
       </widget>
      </item>
-     <item row="3" column="2">
-      <widget class="QLineEdit" name="seasonField"/>
+     <item row="4" column="2" colspan="2">
+      <widget class="QLineEdit" name="noteField"/>
+     </item>
+     <item row="8" column="3">
+      <widget class="QToolButton" name="spectrumValid">
+       <property name="enabled">
+        <bool>true</bool>
+       </property>
+       <property name="text">
+        <string/>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="0">
+      <widget class="QLabel" name="yearLabel">
+       <property name="text">
+        <string>Year</string>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="2" colspan="2">
+      <widget class="QLineEdit" name="editionField"/>
+     </item>
+     <item row="12" column="0">
+      <widget class="QLabel" name="label">
+       <property name="text">
+        <string>XML File Name</string>
+       </property>
+      </widget>
+     </item>
+     <item row="7" column="0">
+      <widget class="QLabel" name="pvaLabel">
+       <property name="text">
+        <string>PvA Graph URL</string>
+       </property>
+      </widget>
+     </item>
+     <item row="10" column="0">
+      <widget class="QLabel" name="formatLabel">
+       <property name="text">
+        <string>Audio Format</string>
+       </property>
+      </widget>
+     </item>
+     <item row="5" column="0">
+      <widget class="QLabel" name="warningLabel">
+       <property name="text">
+        <string>Warning</string>
+       </property>
+      </widget>
+     </item>
+     <item row="4" column="0">
+      <widget class="QLabel" name="noteLabel">
+       <property name="text">
+        <string>Note</string>
+       </property>
+      </widget>
      </item>
      <item row="2" column="0">
       <widget class="QLabel" name="editionLabel">
@@ -128,13 +218,53 @@
        </property>
       </widget>
      </item>
-     <item row="11" column="2">
-      <widget class="QPlainTextEdit" name="postTextEdit"/>
+     <item row="8" column="2">
+      <widget class="QLineEdit" name="spectrumField"/>
      </item>
-     <item row="5" column="0">
-      <widget class="QLabel" name="warningLabel">
+     <item row="3" column="2" colspan="2">
+      <widget class="QLineEdit" name="seasonField"/>
+     </item>
+     <item row="0" column="0">
+      <widget class="QLabel" name="titleLabel">
        <property name="text">
-        <string>Warning</string>
+        <string>Title</string>
+       </property>
+      </widget>
+     </item>
+     <item row="6" column="0">
+      <widget class="QLabel" name="sourceLabel">
+       <property name="text">
+        <string>Source</string>
+       </property>
+      </widget>
+     </item>
+     <item row="12" column="2" colspan="2">
+      <widget class="QLineEdit" name="fileName">
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="2">
+      <widget class="QLineEdit" name="titleField"/>
+     </item>
+     <item row="1" column="2">
+      <widget class="QLineEdit" name="yearField"/>
+     </item>
+     <item row="0" column="3">
+      <widget class="QToolButton" name="titleValid">
+       <property name="text">
+        <string/>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="3">
+      <widget class="QToolButton" name="yearValid">
+       <property name="enabled">
+        <bool>true</bool>
+       </property>
+       <property name="text">
+        <string/>
        </property>
       </widget>
      </item>
@@ -226,86 +356,14 @@
        </item>
       </layout>
      </item>
-     <item row="5" column="2">
-      <widget class="QLineEdit" name="warningField"/>
-     </item>
-     <item row="1" column="2">
-      <widget class="QLineEdit" name="yearField"/>
-     </item>
-    </layout>
-   </item>
-   <item row="3" column="0">
-    <layout class="QGridLayout" name="buttonGrid">
-     <item row="0" column="2">
-      <spacer name="leadingSpacer">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>40</width>
-         <height>20</height>
-        </size>
-       </property>
-      </spacer>
-     </item>
-     <item row="0" column="3">
-      <widget class="QPushButton" name="closeButton">
+     <item row="10" column="3">
+      <widget class="QToolButton" name="audioValid">
        <property name="text">
-        <string>Close</string>
-       </property>
-       <property name="autoDefault">
-        <bool>false</bool>
-       </property>
-       <property name="default">
-        <bool>false</bool>
-       </property>
-      </widget>
-     </item>
-     <item row="0" column="0">
-      <spacer name="middleSpacer">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>40</width>
-         <height>20</height>
-        </size>
-       </property>
-      </spacer>
-     </item>
-     <item row="0" column="1">
-      <widget class="QPushButton" name="generateButton">
-       <property name="text">
-        <string>Generate 2x4HD XML File</string>
-       </property>
-       <property name="autoDefault">
-        <bool>false</bool>
+        <string/>
        </property>
       </widget>
      </item>
     </layout>
-   </item>
-   <item row="0" column="0" alignment="Qt::AlignRight">
-    <widget class="QComboBox" name="comboBox">
-     <property name="maximumSize">
-      <size>
-       <width>250</width>
-       <height>16777215</height>
-      </size>
-     </property>
-     <item>
-      <property name="text">
-       <string>Movie</string>
-      </property>
-     </item>
-     <item>
-      <property name="text">
-       <string>TV Show</string>
-      </property>
-     </item>
-    </widget>
    </item>
   </layout>
  </widget>
@@ -344,8 +402,8 @@
    <slot>close()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>620</x>
-     <y>533</y>
+     <x>663</x>
+     <y>626</y>
     </hint>
     <hint type="destinationlabel">
      <x>335</x>
@@ -360,8 +418,8 @@
    <slot>generate_avs_post()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>227</x>
-     <y>534</y>
+     <x>375</x>
+     <y>626</y>
     </hint>
     <hint type="destinationlabel">
      <x>69</x>
@@ -371,7 +429,7 @@
   </connection>
   <connection>
    <sender>titleField</sender>
-   <signal>editingFinished()</signal>
+   <signal>textChanged(QString)</signal>
    <receiver>postbuilder</receiver>
    <slot>build_avs_post()</slot>
    <hints>
@@ -387,7 +445,7 @@
   </connection>
   <connection>
    <sender>yearField</sender>
-   <signal>editingFinished()</signal>
+   <signal>textChanged(QString)</signal>
    <receiver>postbuilder</receiver>
    <slot>build_avs_post()</slot>
    <hints>
@@ -403,7 +461,7 @@
   </connection>
   <connection>
    <sender>editionField</sender>
-   <signal>editingFinished()</signal>
+   <signal>textChanged(QString)</signal>
    <receiver>postbuilder</receiver>
    <slot>build_avs_post()</slot>
    <hints>
@@ -419,13 +477,13 @@
   </connection>
   <connection>
    <sender>seasonField</sender>
-   <signal>editingFinished()</signal>
+   <signal>textChanged(QString)</signal>
    <receiver>postbuilder</receiver>
    <slot>build_avs_post()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>316</x>
-     <y>156</y>
+     <x>421</x>
+     <y>190</y>
     </hint>
     <hint type="destinationlabel">
      <x>116</x>
@@ -435,13 +493,13 @@
   </connection>
   <connection>
    <sender>noteField</sender>
-   <signal>editingFinished()</signal>
+   <signal>textChanged(QString)</signal>
    <receiver>postbuilder</receiver>
    <slot>build_avs_post()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>341</x>
-     <y>187</y>
+     <x>446</x>
+     <y>228</y>
     </hint>
     <hint type="destinationlabel">
      <x>115</x>
@@ -451,13 +509,13 @@
   </connection>
   <connection>
    <sender>warningField</sender>
-   <signal>editingFinished()</signal>
+   <signal>textChanged(QString)</signal>
    <receiver>postbuilder</receiver>
    <slot>build_avs_post()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>359</x>
-     <y>218</y>
+     <x>464</x>
+     <y>266</y>
     </hint>
     <hint type="destinationlabel">
      <x>114</x>
@@ -467,13 +525,13 @@
   </connection>
   <connection>
    <sender>pvaField</sender>
-   <signal>editingFinished()</signal>
+   <signal>textChanged(QString)</signal>
    <receiver>postbuilder</receiver>
    <slot>build_avs_post()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>301</x>
-     <y>279</y>
+     <x>406</x>
+     <y>342</y>
     </hint>
     <hint type="destinationlabel">
      <x>9</x>
@@ -488,8 +546,8 @@
    <slot>build_avs_post()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>307</x>
-     <y>252</y>
+     <x>412</x>
+     <y>304</y>
     </hint>
     <hint type="destinationlabel">
      <x>7</x>
@@ -499,13 +557,13 @@
   </connection>
   <connection>
    <sender>spectrumField</sender>
-   <signal>editingFinished()</signal>
+   <signal>textChanged(QString)</signal>
    <receiver>postbuilder</receiver>
    <slot>build_avs_post()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>369</x>
-     <y>310</y>
+     <x>474</x>
+     <y>380</y>
     </hint>
     <hint type="destinationlabel">
      <x>28</x>
@@ -520,8 +578,8 @@
    <slot>build_avs_post()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>243</x>
-     <y>340</y>
+     <x>240</x>
+     <y>409</y>
     </hint>
     <hint type="destinationlabel">
      <x>110</x>
@@ -536,8 +594,8 @@
    <slot>build_avs_post()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>245</x>
-     <y>363</y>
+     <x>240</x>
+     <y>437</y>
     </hint>
     <hint type="destinationlabel">
      <x>114</x>
@@ -552,8 +610,8 @@
    <slot>build_avs_post()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>250</x>
-     <y>386</y>
+     <x>240</x>
+     <y>465</y>
     </hint>
     <hint type="destinationlabel">
      <x>109</x>
@@ -568,8 +626,8 @@
    <slot>build_avs_post()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>250</x>
-     <y>409</y>
+     <x>240</x>
+     <y>493</y>
     </hint>
     <hint type="destinationlabel">
      <x>113</x>
@@ -584,8 +642,8 @@
    <slot>build_avs_post()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>385</x>
-     <y>340</y>
+     <x>381</x>
+     <y>409</y>
     </hint>
     <hint type="destinationlabel">
      <x>411</x>
@@ -600,8 +658,8 @@
    <slot>build_avs_post()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>385</x>
-     <y>363</y>
+     <x>381</x>
+     <y>437</y>
     </hint>
     <hint type="destinationlabel">
      <x>391</x>
@@ -616,8 +674,8 @@
    <slot>build_avs_post()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>385</x>
-     <y>386</y>
+     <x>381</x>
+     <y>465</y>
     </hint>
     <hint type="destinationlabel">
      <x>343</x>
@@ -632,8 +690,8 @@
    <slot>build_avs_post()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>385</x>
-     <y>409</y>
+     <x>381</x>
+     <y>493</y>
     </hint>
     <hint type="destinationlabel">
      <x>282</x>
@@ -648,8 +706,8 @@
    <slot>build_avs_post()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>520</x>
-     <y>340</y>
+     <x>521</x>
+     <y>409</y>
     </hint>
     <hint type="destinationlabel">
      <x>556</x>
@@ -664,8 +722,8 @@
    <slot>build_avs_post()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>520</x>
-     <y>363</y>
+     <x>521</x>
+     <y>437</y>
     </hint>
     <hint type="destinationlabel">
      <x>543</x>
@@ -680,8 +738,8 @@
    <slot>build_avs_post()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>520</x>
-     <y>386</y>
+     <x>521</x>
+     <y>465</y>
     </hint>
     <hint type="destinationlabel">
      <x>525</x>
@@ -696,8 +754,8 @@
    <slot>build_avs_post()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>655</x>
-     <y>363</y>
+     <x>662</x>
+     <y>437</y>
     </hint>
     <hint type="destinationlabel">
      <x>533</x>
@@ -712,8 +770,8 @@
    <slot>post_type_changed(int)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>575</x>
-     <y>18</y>
+     <x>664</x>
+     <y>24</y>
     </hint>
     <hint type="destinationlabel">
      <x>525</x>
