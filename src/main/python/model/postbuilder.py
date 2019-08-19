@@ -1,9 +1,11 @@
 import logging
 import os
 import sys
-import re
 
-from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox
+import qtawesome as qta
+from qtpy.QtCore import QRegExp, Qt
+from qtpy.QtGui import QRegExpValidator, QValidator, QIcon
+from qtpy.QtWidgets import QDialog, QFileDialog
 
 from model.iir import Gain
 from model.minidsp import HDXmlParser, pad_with_passthrough
@@ -11,6 +13,15 @@ from model.preferences import BEQ_DOWNLOAD_DIR
 from ui.postbuilder import Ui_postbuilder
 
 logger = logging.getLogger('postbuilder')
+
+URL_REGEX_FRAGMENTS = [
+    r'^(?:http|ftp)s?://',  # http:// or https://
+    r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+(?:[A-Z]{2,6}\.?|[A-Z0-9-]{2,}\.?)|',  # domain...
+    r'localhost|',  # localhost...
+    r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})',  # ...or ip
+    r'(?::\d+)?',  # optional port
+    r'(?:/?|[/?]\S+)$'
+]
 
 
 class CreateAVSPostDialog(QDialog, Ui_postbuilder):
@@ -21,52 +32,51 @@ class CreateAVSPostDialog(QDialog, Ui_postbuilder):
     def __init__(self, parent, prefs, filter_model):
         super(CreateAVSPostDialog, self).__init__(parent)
         self.setupUi(self)
+        self.pvaField.setValidator(UrlValidator(self.pvaField, self.pvaValid))
+        self.spectrumField.setValidator(UrlValidator(self.spectrumField, self.spectrumValid))
         self.__preferences = prefs
         self.__beq_dir = self.__preferences.get(BEQ_DOWNLOAD_DIR)
         self.__filter_model = filter_model
         self.post_type_changed(0)
+        self.generateButton.setEnabled(False)
 
     def generate_avs_post(self):
         '''
         Creates the output content.
         '''
         metadata = self.__build_metadata()
+        save_name = self.__get_file_name(metadata)
+        file_name = QFileDialog(self).getSaveFileName(self, 'Export BEQ Filter', f'{save_name}.xml', 'XML (*.xml)')
+        if file_name:
+            file_name = str(file_name[0]).strip()
+            if len(file_name) > 0:
+                if getattr(sys, 'frozen', False):
+                    file_path = os.path.join(sys._MEIPASS, 'flat24hd.xml')
+                else:
+                    file_path = os.path.abspath(os.path.join(os.path.dirname('__file__'), '../xml/flat24hd.xml'))
+                filters = pad_with_passthrough(self.__filter_model.filter, 96000, 10)
+                output_xml = HDXmlParser('2x4 HD').overwrite(filters, file_path, metadata)
+                with open(file_name, 'w') as f:
+                    f.write(output_xml)
 
-        if not self.__validate_metadata(metadata):
-            return
-
-        save_name = f"{metadata['beq_title']} ({metadata['beq_year']})"
-
+    def __get_file_name(self, metadata):
+        save_name = f"{metadata['beq_title']}"
+        if len(metadata['beq_year']) > 0:
+            save_name += f" ({metadata['beq_year']})"
         if len(metadata['beq_season']) > 0:
-            save_name += f' ({season_display})'
-
+            save_name += f" ({metadata['beq_season']})"
         if len(metadata['beq_edition']) > 0:
             save_name += f" ({metadata['beq_edition']})"
-
         if metadata['beq_source'] != 'Disc':
             save_name += f" ({metadata['beq_source']})"
-
         gain_filter = self.__find_gain(self.__filter_model.filter)
-
         if gain_filter is not None:
             save_name += f' ({gain_filter.gain:+.1f} gain)'
             metadata['beq_gain'] = f'{gain_filter.gain:+.1f}'
-
-        save_name += f' BEQ {metadata["beq_audioTypes"][0]}'
+        if len(metadata["beq_audioTypes"]) > 0:
+            save_name += f' BEQ {metadata["beq_audioTypes"][0]}'
         save_name = save_name.replace(':', '-')
-
-        file_name = QFileDialog(self).getSaveFileName(self, 'Export BEQ Filter', f'{save_name}.xml', 'XML (*.xml)')
-        file_name = str(file_name[0]).strip()
-
-        if len(file_name) > 0:
-            if getattr(sys, 'frozen', False):
-                file_path = os.path.join(sys._MEIPASS, 'flat24hd.xml')
-            else:
-                file_path = os.path.abspath(os.path.join(os.path.dirname('__file__'), '../xml/flat24hd.xml'))
-            filters = pad_with_passthrough(self.__filter_model.filter, 96000, 10)
-            output_xml = HDXmlParser('2x4 HD').overwrite(filters, file_path, metadata)
-            with open(file_name, 'w') as f:
-                f.write(output_xml)
+        return save_name
 
     def build_avs_post(self):
         '''
@@ -74,8 +84,9 @@ class CreateAVSPostDialog(QDialog, Ui_postbuilder):
         '''
         metadata = self.__build_metadata()
 
-        if not self.__validate_metadata_urls(metadata):
-            return
+        self.generateButton.setEnabled(self.__validate_metadata(metadata) is True)
+        save_name = self.__get_file_name(metadata)
+        self.fileName.setText(save_name)
 
         post = f"[CENTER][B]BassEQ {metadata['beq_title']}"
 
@@ -92,7 +103,7 @@ class CreateAVSPostDialog(QDialog, Ui_postbuilder):
             post += f" {metadata['beq_source']}"
 
         audio_display = ' / '.join(metadata['beq_audioTypes'])
-        post += f"{audio_display}[/B][/CENTER]\n"
+        post += f" {audio_display}[/B][/CENTER]\n"
 
         if len(metadata['beq_warning']) > 0:
             post += f'\n[SIZE="3"][COLOR="DarkRed"][B]WARNING: {metadata["beq_warning"]}[/B][/COLOR][/SIZE]\n\n'
@@ -107,90 +118,92 @@ class CreateAVSPostDialog(QDialog, Ui_postbuilder):
         self.postTextEdit.insertPlainText(post)
 
     def post_type_changed(self, index):
-        isHidden = False
+        is_hidden = False
         if index == 1:
-            isHidden = True
+            is_hidden = True
 
-        self.seasonField.setVisible(isHidden)
-        self.seasonLabel.setVisible(isHidden)
-
-
-
+        self.seasonField.setVisible(is_hidden)
+        self.seasonLabel.setVisible(is_hidden)
 
     def __build_metadata(self):
-        metadata = {'beq_title': self.titleField.text().strip(), 'beq_year': self.yearField.text().strip(),
-                    'beq_spectrumURL': self.spectrumField.text().strip(), 'beq_pvaURL': self.pvaField.text().strip(),
-                    'beq_edition': self.editionField.text().strip(), 'beq_season': self.seasonField.text().strip(),
-                    'beq_note': self.noteField.text().strip(), 'beq_source': str(self.sourcePicker.currentText().strip()),
-                    'beq_warning': self.warningField.text().strip(), 'beq_audioTypes': self.__build_audio_list()}
-
-        return metadata
+        return {
+            'beq_title': self.titleField.text().strip(),
+            'beq_year': self.yearField.text().strip(),
+            'beq_spectrumURL': self.spectrumField.text().strip(),
+            'beq_pvaURL': self.pvaField.text().strip(),
+            'beq_edition': self.editionField.text().strip(),
+            'beq_season': self.seasonField.text().strip(),
+            'beq_note': self.noteField.text().strip(),
+            'beq_source': str(self.sourcePicker.currentText().strip()),
+            'beq_warning': self.warningField.text().strip(),
+            'beq_audioTypes': self.__build_audio_list()
+        }
 
     def __build_audio_list(self):
-        audioTypes = []
-        self.__add_audio(audioTypes, self.atmosCheckBox)
-        self.__add_audio(audioTypes, self.truehd51CheckBox)
-        self.__add_audio(audioTypes, self.truehd71CheckBox)
-        self.__add_audio(audioTypes, self.dtsxCheckBox)
-        self.__add_audio(audioTypes, self.dts51CheckBox)
-        self.__add_audio(audioTypes, self.dts61CheckBox)
-        self.__add_audio(audioTypes, self.dts71CheckBox)
-        self.__add_audio(audioTypes, self.ddAtmosCheckBox)
-        self.__add_audio(audioTypes, self.ddCheckBox)
-        self.__add_audio(audioTypes, self.ddPlusCheckBox)
-        self.__add_audio(audioTypes, self.lpcm51CheckBox)
-        self.__add_audio(audioTypes, self.lpcm71CheckBox)
+        audio_types = []
+        self.__add_audio(audio_types, self.atmosCheckBox)
+        self.__add_audio(audio_types, self.truehd51CheckBox)
+        self.__add_audio(audio_types, self.truehd71CheckBox)
+        self.__add_audio(audio_types, self.dtsxCheckBox)
+        self.__add_audio(audio_types, self.dts51CheckBox)
+        self.__add_audio(audio_types, self.dts61CheckBox)
+        self.__add_audio(audio_types, self.dts71CheckBox)
+        self.__add_audio(audio_types, self.ddAtmosCheckBox)
+        self.__add_audio(audio_types, self.ddCheckBox)
+        self.__add_audio(audio_types, self.ddPlusCheckBox)
+        self.__add_audio(audio_types, self.lpcm51CheckBox)
+        self.__add_audio(audio_types, self.lpcm71CheckBox)
 
-        return audioTypes
+        return audio_types
 
-    def __add_audio(self, audioTypes, audio):
+    @staticmethod
+    def __add_audio(audio_types, audio):
         if audio.isChecked():
-            audioTypes.append(audio.text())
+            audio_types.append(audio.text())
 
-    def __find_gain(self, filters):
+    @staticmethod
+    def __find_gain(filters):
         for filt in filters:
             if isinstance(filt, Gain):
                 return filt
 
     def __validate_metadata(self, metadata):
+        valid = True
         if len(metadata['beq_title']) < 1:
-            QMessageBox.about(self, "Input Error", "Please enter a Title")
-            return False
-        elif len(metadata['beq_year']) < 1:
-            QMessageBox.about(self, "Input Error", "Please enter a Year")
-            return False
-        elif not self.__validate_url(metadata['beq_pvaURL']):
-            QMessageBox.about(self, "Input Error", "Please enter a valid PvA Graph URL")
-            return False
-        elif not self.__validate_url(metadata['beq_spectrumURL']):
-            QMessageBox.about(self, "Input Error", "Please enter a valid Spectrum Graph URL")
-            return False
-        elif len(metadata['beq_audioTypes']) < 1:
-            QMessageBox.about(self, "Input Error", "Please select an audio format")
-            return False
+            self.titleValid.setIcon(qta.icon('fa5s.times', color='red'))
+            valid = False
+        else:
+            self.titleValid.setIcon(qta.icon('fa5s.check', color='green'))
 
-        return True
+        if len(metadata['beq_year']) < 1:
+            self.yearValid.setIcon(qta.icon('fa5s.times', color='red'))
+            valid = False
+        else:
+            self.yearValid.setIcon(qta.icon('fa5s.check', color='green'))
 
-    def __validate_metadata_urls(self, metadata):
-        if len(metadata['beq_pvaURL']) > 0 and not self.__validate_url(metadata['beq_pvaURL']):
-            QMessageBox.about(self, "Input Error", "Please enter a valid PvA Graph URL")
-            self.pvaField.setFocus()
-            return False
-        elif len(metadata['beq_spectrumURL']) > 0 and not self.__validate_url(metadata['beq_spectrumURL']):
-            QMessageBox.about(self, "Input Error", "Please enter a valid Spectrum Graph URL")
-            self.spectrumField.setFocus()
-            return False
+        if len(metadata['beq_audioTypes']) < 1:
+            self.audioValid.setIcon(qta.icon('fa5s.times', color='red'))
+            valid = False
+        else:
+            self.audioValid.setIcon(qta.icon('fa5s.check', color='green'))
 
-        return True
+        return valid
 
-    def __validate_url(self, url):
-        regex = re.compile(
-            r'^(?:http|ftp)s?://'  # http:// or https://
-            r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+(?:[A-Z]{2,6}\.?|[A-Z0-9-]{2,}\.?)|'  # domain...
-            r'localhost|'  # localhost...
-            r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'  # ...or ip
-            r'(?::\d+)?'  # optional port
-            r'(?:/?|[/?]\S+)$', re.IGNORECASE)
 
-        return re.match(regex, url) is not None
+class UrlValidator(QRegExpValidator):
+    def __init__(self, parent, button):
+        regex = QRegExp(''.join(URL_REGEX_FRAGMENTS))
+        regex.setCaseSensitivity(Qt.CaseInsensitive)
+        self.__button = button
+        super().__init__(regex, parent)
 
+    def validate(self, p_str, p_int):
+        validate = super().validate(p_str, p_int)
+        if validate:
+            if validate[0] == QValidator.Invalid:
+                self.__button.setIcon(qta.icon('fa5s.times', color='red'))
+            elif validate[0] == QValidator.Acceptable:
+                self.__button.setIcon(qta.icon('fa5s.check', color='green'))
+            elif validate[0] == QValidator.Intermediate:
+                self.__button.setIcon(QIcon())
+        return validate
