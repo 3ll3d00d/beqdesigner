@@ -58,7 +58,7 @@ class Ui_logsForm(object):
         self.retranslateUi(logsForm)
         self.maxRows.valueChanged['int'].connect(logsForm.setLogSize)
         self.logLevel.currentTextChanged['QString'].connect(logsForm.setLogLevel)
-        # QtCore.QMetaObject.connectSlotsByName(logsForm)
+        QtCore.QMetaObject.connectSlotsByName(logsForm)
 
     def retranslateUi(self, logsForm):
         _translate = QtCore.QCoreApplication.translate

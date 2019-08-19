@@ -127,7 +127,7 @@ class Ui_mergeMinidspDialog(object):
         self.refreshGitRepo.clicked.connect(mergeMinidspDialog.refresh_repo)
         self.userSourceDirPicker.clicked.connect(mergeMinidspDialog.pick_user_source_dir)
         self.clearUserSourceDir.clicked.connect(mergeMinidspDialog.clear_user_source_dir)
-        # QtCore.QMetaObject.connectSlotsByName(mergeMinidspDialog)
+        QtCore.QMetaObject.connectSlotsByName(mergeMinidspDialog)
 
     def retranslateUi(self, mergeMinidspDialog):
         _translate = QtCore.QCoreApplication.translate
