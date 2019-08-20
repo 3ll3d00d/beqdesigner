@@ -210,7 +210,7 @@ class Ui_batchExtractDialog(object):
         self.filter.textChanged['QString'].connect(batchExtractDialog.enable_search)
         self.resetButton.clicked.connect(batchExtractDialog.reset_batch)
         self.threads.valueChanged['int'].connect(batchExtractDialog.change_pool_size)
-        QtCore.QMetaObject.connectSlotsByName(batchExtractDialog)
+        # QtCore.QMetaObject.connectSlotsByName(batchExtractDialog)
 
     def retranslateUi(self, batchExtractDialog):
         _translate = QtCore.QCoreApplication.translate

@@ -331,7 +331,7 @@ class Ui_analysisDialog(object):
         self.compareSignalsButton.clicked.connect(analysisDialog.compare_signals)
         self.filterLeft.clicked.connect(analysisDialog.enable_compare)
         self.filterRight.clicked.connect(analysisDialog.enable_compare)
-        QtCore.QMetaObject.connectSlotsByName(analysisDialog)
+        # QtCore.QMetaObject.connectSlotsByName(analysisDialog)
 
     def retranslateUi(self, analysisDialog):
         _translate = QtCore.QCoreApplication.translate

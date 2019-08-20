@@ -34,7 +34,7 @@ class Ui_valuesDialog(object):
 
         self.retranslateUi(valuesDialog)
         self.freq.valueChanged['double'].connect(valuesDialog.updateValues)
-        QtCore.QMetaObject.connectSlotsByName(valuesDialog)
+        # QtCore.QMetaObject.connectSlotsByName(valuesDialog)
 
     def retranslateUi(self, valuesDialog):
         _translate = QtCore.QCoreApplication.translate
