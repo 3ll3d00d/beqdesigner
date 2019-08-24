@@ -994,7 +994,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Shows the create post dialog.
         '''
-        dialog = CreateAVSPostDialog(self, self.preferences, self.__filter_model)
+        dialog = CreateAVSPostDialog(self, self.preferences, self.__filter_model, self.__get_selected_signal())
         dialog.exec()
 
     def show_y2_tool_buttons(self, show=True):
