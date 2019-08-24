@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>586</width>
+    <width>628</width>
     <height>715</height>
    </rect>
   </property>
@@ -329,7 +329,7 @@
        <item row="4" column="0">
         <widget class="QCheckBox" name="ddAtmosCheckBox">
          <property name="text">
-          <string>DD+Atmos</string>
+          <string>DD+ Atmos</string>
          </property>
         </widget>
        </item>

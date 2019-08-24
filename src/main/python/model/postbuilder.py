@@ -1,4 +1,5 @@
 import logging
+import math
 import os
 import sys
 
@@ -29,7 +30,7 @@ class CreateAVSPostDialog(QDialog, Ui_postbuilder):
     Create AVS Post dialog
     '''
 
-    def __init__(self, parent, prefs, filter_model):
+    def __init__(self, parent, prefs, filter_model, selected_signal):
         super(CreateAVSPostDialog, self).__init__(parent)
         self.setupUi(self)
         self.pvaField.setValidator(UrlValidator(self.pvaField, self.pvaValid))
@@ -37,6 +38,7 @@ class CreateAVSPostDialog(QDialog, Ui_postbuilder):
         self.__preferences = prefs
         self.__beq_dir = self.__preferences.get(BEQ_DOWNLOAD_DIR)
         self.__filter_model = filter_model
+        self.__selected_signal = selected_signal
         self.post_type_changed(0)
         self.generateButton.setEnabled(False)
 
@@ -69,10 +71,9 @@ class CreateAVSPostDialog(QDialog, Ui_postbuilder):
             save_name += f" ({metadata['beq_edition']})"
         if metadata['beq_source'] != 'Disc':
             save_name += f" ({metadata['beq_source']})"
-        gain_filter = self.__find_gain(self.__filter_model.filter)
-        if gain_filter is not None:
-            save_name += f' ({gain_filter.gain:+.1f} gain)'
-            metadata['beq_gain'] = f'{gain_filter.gain:+.1f}'
+        if self.__selected_signal is not None and not math.isclose(self.__selected_signal.offset, 0.0):
+            save_name += f' ({self.__selected_signal.offset:+.1f} gain)'
+            metadata['beq_gain'] = f'{self.__selected_signal.offset:+.1f}'
         if len(metadata["beq_audioTypes"]) > 0:
             save_name += f' BEQ {metadata["beq_audioTypes"][0]}'
         save_name = save_name.replace(':', '-')
@@ -103,7 +104,7 @@ class CreateAVSPostDialog(QDialog, Ui_postbuilder):
             post += f" {metadata['beq_source']}"
 
         audio_display = ' / '.join(metadata['beq_audioTypes'])
-        post += f" {audio_display}[/B][/CENTER]\n"
+        post += f" {audio_display}[/B][/CENTER]\n\n"
 
         if len(metadata['beq_warning']) > 0:
             post += f'\n[SIZE="3"][COLOR="DarkRed"][B]WARNING: {metadata["beq_warning"]}[/B][/COLOR][/SIZE]\n\n'

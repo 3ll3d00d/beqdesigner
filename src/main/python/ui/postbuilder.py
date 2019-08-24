@@ -13,7 +13,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_postbuilder(object):
     def setupUi(self, postbuilder):
         postbuilder.setObjectName("postbuilder")
-        postbuilder.resize(586, 715)
+        postbuilder.resize(628, 715)
         self.gridLayout = QtWidgets.QGridLayout(postbuilder)
         self.gridLayout.setObjectName("gridLayout")
         self.buttonGrid = QtWidgets.QGridLayout()
@@ -259,7 +259,7 @@ class Ui_postbuilder(object):
         self.dts61CheckBox.setText(_translate("postbuilder", "DTS-HD MA 6.1"))
         self.lpcm71CheckBox.setText(_translate("postbuilder", "LPCM 7.1"))
         self.truehd71CheckBox.setText(_translate("postbuilder", "TrueHD 7.1"))
-        self.ddAtmosCheckBox.setText(_translate("postbuilder", "DD+Atmos"))
+        self.ddAtmosCheckBox.setText(_translate("postbuilder", "DD+ Atmos"))
         self.atmosCheckBox.setText(_translate("postbuilder", "Atmos"))
         self.dtsxCheckBox.setText(_translate("postbuilder", "DTS:X"))
         self.dts51CheckBox.setText(_translate("postbuilder", "DTS-HD MA 5.1"))
