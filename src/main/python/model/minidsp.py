@@ -449,7 +449,7 @@ class HDXmlParser:
                                                                   show_index=False, to_hex=True,
                                                                   fixed_point=self.__is_fixed_point_hardware())[0]
                                     child.find('hex').text = f"{hex_txt},"
-        if metadata is not None:
+        if metadata is not None and metadata is not False:
             metadata_tag = ET.Element('beq_metadata')
             for key, value in metadata.items():
                 tag = ET.Element(key)
