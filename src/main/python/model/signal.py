@@ -1834,14 +1834,45 @@ def read_wav_data(input_file, start=None, end=None):
     :return: the samples, fs and metadata
     '''
     import soundfile as sf
+    info = sf.info(input_file)
+    max_frames = math.floor(0x1000000 / info.channels)
     if start is not None or end is not None:
-        info = sf.info(input_file)
-        startFrame = 0 if start is None else int(start * (info.samplerate / 1000))
-        endFrame = None if end is None else int(end * (info.samplerate / 1000))
-        ys, frameRate = sf.read(input_file, start=startFrame, stop=endFrame, always_2d=True)
+        start_frame = 0 if start is None else int(start * (info.samplerate / 1000))
+        end_frame = None if end is None else int(end * (info.samplerate / 1000))
+        frames_to_read = end_frame - start_frame
+        if info.format.upper() == 'FLAC' and frames_to_read > max_frames:
+            ys, frame_rate = __read_flac_in_chunks(input_file, max_frames, start_frame, end_frame)
+        else:
+            ys, frame_rate = sf.read(input_file, start=start_frame, stop=end_frame, always_2d=True)
     else:
-        ys, frameRate = sf.read(input_file, always_2d=True)
-    return ys, frameRate, {SIGNAL_SOURCE_FILE: input_file, SIGNAL_START: start, SIGNAL_END: end}
+        if info.format.upper() == 'FLAC' and info.frames > max_frames:
+            ys, frame_rate = __read_flac_in_chunks(input_file, max_frames, 0, info.frames)
+        else:
+            ys, frame_rate = sf.read(input_file, always_2d=True)
+    return ys, frame_rate, {SIGNAL_SOURCE_FILE: input_file, SIGNAL_START: start, SIGNAL_END: end}
+
+
+def __read_flac_in_chunks(input_file, max_frames, start_frame, end_frame):
+    '''
+    Workaround for https://github.com/erikd/libsndfile/issues/431 by reading the flac in chunks.
+    :param input_file: the input file.
+    :param max_frames: the frames to read in one chunk.
+    :param start_frame: the first frame to read.
+    :param end_frame: the last frame to read.
+    :return: data, frame_rate array.
+    '''
+    import soundfile as sf
+    dats = []
+    read_end_frame = start_frame
+    while read_end_frame < end_frame:
+        read_end_frame = min(start_frame + max_frames, end_frame)
+        logger.info(f"Loading {input_file} chunk from {start_frame} to {read_end_frame}")
+        ys, frame_rate = sf.read(input_file, start=start_frame, stop=read_end_frame, always_2d=True)
+        dats.append(ys)
+        start_frame = read_end_frame
+    ys = np.concatenate(dats)
+    logger.info(f"Loaded {input_file} {ys.shape} ")
+    return ys, frame_rate
 
 
 def readWav(name, preferences, input_file=None, input_data=None, channel=1, start=None, end=None, target_fs=1000, offset=0.0) -> Signal:
