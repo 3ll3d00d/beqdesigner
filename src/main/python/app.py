@@ -1072,7 +1072,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
     def y1_min_minus_10(self):
         self.__magnitude_model.limits.shift(y1_min=-10)
 
-    def export_beq_filter(self, metadata=None):
+    def export_beq_filter(self):
         file_name = QFileDialog(self).getSaveFileName(self, 'Export BEQ Filter', f"beq.xml", "XML (*.xml)")
         file_name = str(file_name[0]).strip()
         if len(file_name) > 0:
@@ -1081,7 +1081,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
             else:
                 file_path = os.path.abspath(os.path.join(os.path.dirname('__file__'), '../xml/flat24hd.xml'))
             filters = pad_with_passthrough(self.__filter_model.filter, 96000, 10)
-            output_xml = HDXmlParser('2x4 HD').overwrite(filters, file_path, metadata)
+            output_xml = HDXmlParser('2x4 HD').overwrite(filters, file_path)
             with open(file_name, 'w') as f:
                 f.write(output_xml)
 
