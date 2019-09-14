@@ -302,7 +302,7 @@ class Ui_preferencesDialog(object):
         self.addRepoButton.clicked.connect(preferencesDialog.add_beq_repo)
         self.deleteRepoButton.clicked.connect(preferencesDialog.remove_beq_repo)
         self.repoURL.textChanged['QString'].connect(preferencesDialog.validate_beq_repo)
-        QtCore.QMetaObject.connectSlotsByName(preferencesDialog)
+        # QtCore.QMetaObject.connectSlotsByName(preferencesDialog)
         preferencesDialog.setTabOrder(self.ffmpegDirectory, self.ffmpegDirectoryPicker)
         preferencesDialog.setTabOrder(self.ffmpegDirectoryPicker, self.ffprobeDirectory)
         preferencesDialog.setTabOrder(self.ffprobeDirectory, self.ffprobeDirectoryPicker)

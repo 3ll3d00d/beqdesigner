@@ -134,7 +134,7 @@ class Ui_mergeMinidspDialog(object):
         self.userSourceDirPicker.clicked.connect(mergeMinidspDialog.pick_user_source_dir)
         self.clearUserSourceDir.clicked.connect(mergeMinidspDialog.clear_user_source_dir)
         self.beqRepos.currentTextChanged['QString'].connect(mergeMinidspDialog.update_beq_repo_status)
-        QtCore.QMetaObject.connectSlotsByName(mergeMinidspDialog)
+        # QtCore.QMetaObject.connectSlotsByName(mergeMinidspDialog)
         mergeMinidspDialog.setTabOrder(self.beqRepos, self.lastCommitDate)
         mergeMinidspDialog.setTabOrder(self.lastCommitDate, self.refreshGitRepo)
         mergeMinidspDialog.setTabOrder(self.refreshGitRepo, self.lastCommitMessage)

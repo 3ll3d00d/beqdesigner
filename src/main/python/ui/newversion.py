@@ -44,7 +44,7 @@ class Ui_newVersionDialog(object):
         self.retranslateUi(newVersionDialog)
         self.buttonBox.accepted.connect(newVersionDialog.accept)
         self.buttonBox.rejected.connect(newVersionDialog.reject)
-        QtCore.QMetaObject.connectSlotsByName(newVersionDialog)
+        # QtCore.QMetaObject.connectSlotsByName(newVersionDialog)
 
     def retranslateUi(self, newVersionDialog):
         _translate = QtCore.QCoreApplication.translate

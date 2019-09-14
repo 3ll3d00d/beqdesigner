@@ -262,7 +262,7 @@ class Ui_extractAudioDialog(object):
         self.eacBitRate.valueChanged['int'].connect(extractAudioDialog.change_audio_bitrate)
         self.calculateGainAdjustment.clicked.connect(extractAudioDialog.calculate_gain_adjustment)
         self.remuxedAudioOffset.valueChanged['double'].connect(extractAudioDialog.override_filtered_gain_adjustment)
-        QtCore.QMetaObject.connectSlotsByName(extractAudioDialog)
+        # QtCore.QMetaObject.connectSlotsByName(extractAudioDialog)
 
     def retranslateUi(self, extractAudioDialog):
         _translate = QtCore.QCoreApplication.translate

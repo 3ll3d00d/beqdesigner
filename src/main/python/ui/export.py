@@ -34,7 +34,7 @@ class Ui_exportSignalDialog(object):
         self.retranslateUi(exportSignalDialog)
         self.buttonBox.accepted.connect(exportSignalDialog.accept)
         self.buttonBox.rejected.connect(exportSignalDialog.reject)
-        QtCore.QMetaObject.connectSlotsByName(exportSignalDialog)
+        # QtCore.QMetaObject.connectSlotsByName(exportSignalDialog)
 
     def retranslateUi(self, exportSignalDialog):
         _translate = QtCore.QCoreApplication.translate
