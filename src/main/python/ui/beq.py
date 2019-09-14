@@ -685,7 +685,7 @@ class Ui_MainWindow(object):
         self.y2MinPlus5Button.clicked.connect(MainWindow.y2_min_plus_5)
         self.y2MinMinus5Button.clicked.connect(MainWindow.y2_min_minus_5)
         self.y2MinMinus10Button.clicked.connect(MainWindow.y2_min_minus_10)
-        # QtCore.QMetaObject.connectSlotsByName(MainWindow)
+        QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate

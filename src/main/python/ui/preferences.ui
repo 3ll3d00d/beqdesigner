@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>643</width>
-    <height>764</height>
+    <width>375</width>
+    <height>485</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -17,647 +17,608 @@
    <item>
     <layout class="QVBoxLayout" name="panes">
      <item>
-      <layout class="QGridLayout" name="binariesPane">
-       <item row="2" column="0">
-        <widget class="QLabel" name="ffprobeLabel">
-         <property name="text">
-          <string>ffprobe</string>
-         </property>
-        </widget>
-       </item>
-       <item row="0" column="0" colspan="4">
-        <widget class="QLabel" name="binaryLabel">
-         <property name="font">
-          <font>
-           <weight>75</weight>
-           <bold>true</bold>
-          </font>
-         </property>
-         <property name="frameShape">
-          <enum>QFrame::Box</enum>
-         </property>
-         <property name="frameShadow">
-          <enum>QFrame::Sunken</enum>
-         </property>
-         <property name="text">
-          <string>Binaries</string>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignCenter</set>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="3">
-        <widget class="QToolButton" name="ffprobeDirectoryPicker">
-         <property name="text">
-          <string>...</string>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="0">
-        <widget class="QLabel" name="ffmpegLabel">
-         <property name="text">
-          <string>ffmpeg</string>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="1" colspan="2">
-        <widget class="QLineEdit" name="ffmpegDirectory">
-         <property name="enabled">
-          <bool>false</bool>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="3">
-        <widget class="QToolButton" name="ffmpegDirectoryPicker">
-         <property name="text">
-          <string>...</string>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="1" colspan="2">
-        <widget class="QLineEdit" name="ffprobeDirectory">
-         <property name="enabled">
-          <bool>false</bool>
-         </property>
-        </widget>
-       </item>
-      </layout>
-     </item>
-     <item>
-      <layout class="QGridLayout" name="analysisPane">
-       <item row="1" column="2">
-        <widget class="QLabel" name="resolutionLabel">
-         <property name="text">
-          <string>Resolution</string>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="2">
-        <widget class="QLabel" name="peakAnalysisWindowLabel">
-         <property name="text">
-          <string>Peak Window</string>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="0">
-        <widget class="QLabel" name="avgAnalysisWindowLabel">
-         <property name="text">
-          <string>Avg Window</string>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="3">
-        <widget class="QComboBox" name="peakAnalysisWindow"/>
-       </item>
-       <item row="1" column="1">
-        <widget class="QComboBox" name="targetFs">
-         <item>
-          <property name="text">
-           <string>250 Hz</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>500 Hz</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>1000 Hz</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>2000 Hz</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>4000 Hz</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>8000 Hz</string>
-          </property>
-         </item>
-        </widget>
-       </item>
-       <item row="1" column="0">
-        <widget class="QLabel" name="targetFsLabel">
-         <property name="text">
-          <string>Target Fs</string>
-         </property>
-        </widget>
-       </item>
-       <item row="0" column="0" colspan="4">
-        <widget class="QLabel" name="analysisLabel">
-         <property name="font">
-          <font>
-           <weight>75</weight>
-           <bold>true</bold>
-          </font>
-         </property>
-         <property name="frameShape">
-          <enum>QFrame::Box</enum>
-         </property>
-         <property name="frameShadow">
-          <enum>QFrame::Sunken</enum>
-         </property>
-         <property name="text">
-          <string>Analysis</string>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignCenter</set>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="1">
-        <widget class="QComboBox" name="avgAnalysisWindow"/>
-       </item>
-       <item row="1" column="3">
-        <widget class="QComboBox" name="resolutionSelect">
-         <property name="currentText">
-          <string>0.25 Hz</string>
-         </property>
-         <item>
-          <property name="text">
-           <string>0.25 Hz</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>0.5 Hz</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>1.0 Hz</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>2.0 Hz</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>4.0 Hz</string>
-          </property>
-         </item>
-        </widget>
-       </item>
-      </layout>
-     </item>
-     <item>
-      <layout class="QGridLayout" name="extractPane">
-       <item row="1" column="0">
-        <widget class="QLabel" name="defaultOutputDirectoryLabel">
-         <property name="text">
-          <string>Default Output Directory</string>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="2">
-        <widget class="QToolButton" name="defaultOutputDirectoryPicker">
-         <property name="text">
-          <string>...</string>
-         </property>
-        </widget>
-       </item>
-       <item row="0" column="0" colspan="3">
-        <widget class="QLabel" name="extractionLabel">
-         <property name="font">
-          <font>
-           <weight>75</weight>
-           <bold>true</bold>
-          </font>
-         </property>
-         <property name="frameShape">
-          <enum>QFrame::Box</enum>
-         </property>
-         <property name="frameShadow">
-          <enum>QFrame::Sunken</enum>
-         </property>
-         <property name="text">
-          <string>Extraction</string>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignCenter</set>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="1">
-        <widget class="QLineEdit" name="defaultOutputDirectory">
-         <property name="enabled">
-          <bool>false</bool>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="0">
-        <widget class="QLabel" name="extractCompleteAudioFileLabel">
-         <property name="text">
-          <string>Extract Complete Sound</string>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="1">
-        <widget class="QLineEdit" name="extractCompleteAudioFile">
-         <property name="enabled">
-          <bool>false</bool>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="2">
-        <widget class="QToolButton" name="extractCompleteAudioFilePicker">
-         <property name="text">
-          <string>...</string>
-         </property>
-        </widget>
-       </item>
-       <item row="3" column="0" colspan="3">
-        <layout class="QHBoxLayout" name="extractOptions">
-         <item>
-          <widget class="QCheckBox" name="monoMix">
-           <property name="text">
-            <string>Mix to mono?</string>
+      <widget class="QToolBox" name="toolBox">
+       <property name="currentIndex">
+        <number>7</number>
+       </property>
+       <widget class="QWidget" name="binariesPage">
+        <property name="geometry">
+         <rect>
+          <x>0</x>
+          <y>0</y>
+          <width>152</width>
+          <height>86</height>
+         </rect>
+        </property>
+        <attribute name="label">
+         <string>Binaries</string>
+        </attribute>
+        <layout class="QGridLayout" name="binariesPane">
+         <item row="0" column="1">
+          <widget class="QLineEdit" name="ffmpegDirectory">
+           <property name="enabled">
+            <bool>false</bool>
            </property>
           </widget>
          </item>
-         <item>
-          <widget class="QCheckBox" name="decimate">
+         <item row="0" column="0">
+          <widget class="QLabel" name="ffmpegLabel">
            <property name="text">
-            <string>Decimate?</string>
+            <string>ffmpeg</string>
            </property>
           </widget>
          </item>
-         <item>
-          <widget class="QCheckBox" name="includeOriginal">
+         <item row="0" column="2">
+          <widget class="QToolButton" name="ffmpegDirectoryPicker">
            <property name="text">
-            <string>Add Original Audio?</string>
+            <string>...</string>
            </property>
           </widget>
          </item>
-         <item>
-          <widget class="QCheckBox" name="compress">
+         <item row="1" column="0">
+          <widget class="QLabel" name="ffprobeLabel">
            <property name="text">
-            <string>Compress Audio?</string>
+            <string>ffprobe</string>
            </property>
           </widget>
          </item>
-         <item>
-          <widget class="QCheckBox" name="includeSubtitles">
+         <item row="1" column="1">
+          <widget class="QLineEdit" name="ffprobeDirectory">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="2">
+          <widget class="QToolButton" name="ffprobeDirectoryPicker">
            <property name="text">
-            <string>Add Subtitles?</string>
+            <string>...</string>
            </property>
           </widget>
          </item>
         </layout>
-       </item>
-      </layout>
-     </item>
-     <item>
-      <layout class="QGridLayout" name="stylePane" columnstretch="0,1,0,0">
-       <item row="0" column="0" colspan="4">
-        <widget class="QLabel" name="styleLabel">
-         <property name="font">
-          <font>
-           <weight>75</weight>
-           <bold>true</bold>
-          </font>
-         </property>
-         <property name="frameShape">
-          <enum>QFrame::Box</enum>
-         </property>
-         <property name="frameShadow">
-          <enum>QFrame::Sunken</enum>
-         </property>
-         <property name="text">
-          <string>Style</string>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignCenter</set>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="0">
-        <widget class="QLabel" name="themeLabel">
-         <property name="text">
-          <string>Theme</string>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="3">
-        <widget class="QCheckBox" name="speclabLineStyle">
-         <property name="text">
-          <string>Speclab Line Colours?</string>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="1">
-        <widget class="QComboBox" name="themePicker">
-         <item>
-          <property name="text">
-           <string>default</string>
-          </property>
+       </widget>
+       <widget class="QWidget" name="analysisPage">
+        <property name="geometry">
+         <rect>
+          <x>0</x>
+          <y>0</y>
+          <width>185</width>
+          <height>158</height>
+         </rect>
+        </property>
+        <attribute name="label">
+         <string>Analysis</string>
+        </attribute>
+        <layout class="QGridLayout" name="analysisPane" columnstretch="0,1">
+         <item row="3" column="1">
+          <widget class="QComboBox" name="peakAnalysisWindow"/>
          </item>
-        </widget>
-       </item>
-       <item row="1" column="2">
-        <widget class="QCheckBox" name="smoothGraphs">
-         <property name="text">
-          <string>Smooth?</string>
-         </property>
-        </widget>
-       </item>
-      </layout>
-     </item>
-     <item>
-      <layout class="QGridLayout" name="graphPane" columnstretch="0,0,0">
-       <item row="1" column="0">
-        <widget class="QCheckBox" name="freqIsLogScale">
-         <property name="text">
-          <string>Frequency Axis Log Scale?</string>
-         </property>
-         <property name="checked">
-          <bool>true</bool>
-         </property>
-        </widget>
-       </item>
-       <item row="0" column="0" colspan="3">
-        <widget class="QLabel" name="graphLabel">
-         <property name="font">
-          <font>
-           <weight>75</weight>
-           <bold>true</bold>
-          </font>
-         </property>
-         <property name="frameShape">
-          <enum>QFrame::Box</enum>
-         </property>
-         <property name="frameShadow">
-          <enum>QFrame::Sunken</enum>
-         </property>
-         <property name="text">
-          <string>Graph</string>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignCenter</set>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="1">
-        <widget class="QSpinBox" name="xmin">
-         <property name="minimum">
-          <number>1</number>
-         </property>
-         <property name="maximum">
-          <number>23999</number>
-         </property>
-         <property name="value">
-          <number>2</number>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="2">
-        <widget class="QSpinBox" name="xmax">
-         <property name="minimum">
-          <number>2</number>
-         </property>
-         <property name="maximum">
-          <number>24000</number>
-         </property>
-         <property name="value">
-          <number>160</number>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="0">
-        <widget class="QLabel" name="xminmaxLabel">
-         <property name="text">
-          <string>x min/max</string>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="1">
-        <widget class="QCheckBox" name="precalcSmoothing">
-         <property name="text">
-          <string>Precalculate Octave Smoothing?</string>
-         </property>
-         <property name="checked">
-          <bool>true</bool>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="2">
-        <widget class="QCheckBox" name="expandYLimits">
-         <property name="text">
-          <string>Auto Expand Y Limits?</string>
-         </property>
-        </widget>
-       </item>
-      </layout>
-     </item>
-     <item>
-      <layout class="QGridLayout" name="filterPane">
-       <item row="1" column="0">
-        <widget class="QLabel" name="filterQLabel">
-         <property name="text">
-          <string>Default Q</string>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="2">
-        <widget class="QLabel" name="filterFreqLabel">
-         <property name="text">
-          <string>Default Freq</string>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="1">
-        <widget class="QDoubleSpinBox" name="filterQ">
-         <property name="decimals">
-          <number>3</number>
-         </property>
-         <property name="minimum">
-          <double>0.001000000000000</double>
-         </property>
-         <property name="singleStep">
-          <double>0.001000000000000</double>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="3">
-        <widget class="QSpinBox" name="filterFreq">
-         <property name="minimum">
-          <number>1</number>
-         </property>
-         <property name="maximum">
-          <number>24000</number>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="5">
-        <widget class="QSpinBox" name="bmlpfFreq">
-         <property name="suffix">
-          <string> Hz</string>
-         </property>
-         <property name="minimum">
-          <number>20</number>
-         </property>
-         <property name="maximum">
-          <number>160</number>
-         </property>
-         <property name="value">
-          <number>80</number>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="4">
-        <widget class="QLabel" name="bmlpfLabel">
-         <property name="text">
-          <string>BM LPF</string>
-         </property>
-        </widget>
-       </item>
-       <item row="0" column="0" colspan="6">
-        <widget class="QLabel" name="filterLayoutLabel">
-         <property name="font">
-          <font>
-           <weight>75</weight>
-           <bold>true</bold>
-          </font>
-         </property>
-         <property name="frameShape">
-          <enum>QFrame::Box</enum>
-         </property>
-         <property name="frameShadow">
-          <enum>QFrame::Sunken</enum>
-         </property>
-         <property name="text">
-          <string>Filter</string>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignCenter</set>
-         </property>
-        </widget>
-       </item>
-      </layout>
-     </item>
-     <item>
-      <layout class="QGridLayout" name="systemPane">
-       <item row="1" column="0">
-        <widget class="QCheckBox" name="checkForUpdates">
-         <property name="text">
-          <string>Check for Updates on startup?</string>
-         </property>
-         <property name="checked">
-          <bool>true</bool>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="1">
-        <widget class="QCheckBox" name="checkForBetaUpdates">
-         <property name="text">
-          <string>Include Beta Versions?</string>
-         </property>
-        </widget>
-       </item>
-       <item row="0" column="0" colspan="2">
-        <widget class="QLabel" name="systemLayoutLabel">
-         <property name="font">
-          <font>
-           <weight>75</weight>
-           <bold>true</bold>
-          </font>
-         </property>
-         <property name="frameShape">
-          <enum>QFrame::Box</enum>
-         </property>
-         <property name="frameShadow">
-          <enum>QFrame::Sunken</enum>
-         </property>
-         <property name="text">
-          <string>System</string>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignCenter</set>
-         </property>
-        </widget>
-       </item>
-      </layout>
-     </item>
-     <item>
-      <layout class="QGridLayout" name="beqPane">
-       <item row="0" column="0" colspan="6">
-        <widget class="QLabel" name="beqLayoutLabel">
-         <property name="font">
-          <font>
-           <weight>75</weight>
-           <bold>true</bold>
-          </font>
-         </property>
-         <property name="frameShape">
-          <enum>QFrame::Box</enum>
-         </property>
-         <property name="frameShadow">
-          <enum>QFrame::Sunken</enum>
-         </property>
-         <property name="text">
-          <string>BEQ Files</string>
-         </property>
-         <property name="alignment">
-          <set>Qt::AlignCenter</set>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="1">
-        <widget class="QLineEdit" name="beqFiltersDir">
-         <property name="readOnly">
-          <bool>true</bool>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="5">
-        <widget class="QToolButton" name="refreshBeq">
-         <property name="text">
-          <string>...</string>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="3">
-        <widget class="QLabel" name="filteredLoadedLabel">
-         <property name="text">
-          <string>Filters Loaded</string>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="4">
-        <widget class="QSpinBox" name="beqFiltersCount">
-         <property name="enabled">
-          <bool>false</bool>
-         </property>
-         <property name="maximum">
-          <number>100000</number>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="0">
-        <widget class="QLabel" name="beqDirectoryLabel">
-         <property name="text">
-          <string>Directory</string>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="2">
-        <widget class="QToolButton" name="beqDirectoryPicker">
-         <property name="text">
-          <string>...</string>
-         </property>
-        </widget>
-       </item>
-      </layout>
+         <item row="3" column="0">
+          <widget class="QLabel" name="peakAnalysisWindowLabel">
+           <property name="text">
+            <string>Peak Window</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="0">
+          <widget class="QLabel" name="avgAnalysisWindowLabel">
+           <property name="text">
+            <string>Avg Window</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="1">
+          <widget class="QComboBox" name="avgAnalysisWindow"/>
+         </item>
+         <item row="0" column="0">
+          <widget class="QLabel" name="targetFsLabel">
+           <property name="text">
+            <string>Target Fs</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="1">
+          <widget class="QComboBox" name="targetFs">
+           <item>
+            <property name="text">
+             <string>250 Hz</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>500 Hz</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>1000 Hz</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>2000 Hz</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>4000 Hz</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>8000 Hz</string>
+            </property>
+           </item>
+          </widget>
+         </item>
+         <item row="1" column="0">
+          <widget class="QLabel" name="resolutionLabel">
+           <property name="text">
+            <string>Resolution</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="1">
+          <widget class="QComboBox" name="resolutionSelect">
+           <property name="currentText">
+            <string>0.25 Hz</string>
+           </property>
+           <item>
+            <property name="text">
+             <string>0.25 Hz</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>0.5 Hz</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>1.0 Hz</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>2.0 Hz</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>4.0 Hz</string>
+            </property>
+           </item>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+       <widget class="QWidget" name="widget">
+        <property name="geometry">
+         <rect>
+          <x>0</x>
+          <y>0</y>
+          <width>344</width>
+          <height>146</height>
+         </rect>
+        </property>
+        <attribute name="label">
+         <string>Extraction</string>
+        </attribute>
+        <layout class="QGridLayout" name="extractPane">
+         <item row="0" column="0">
+          <widget class="QLabel" name="defaultOutputDirectoryLabel">
+           <property name="text">
+            <string>Default Output Directory</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="1">
+          <widget class="QLineEdit" name="defaultOutputDirectory">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="2">
+          <widget class="QToolButton" name="defaultOutputDirectoryPicker">
+           <property name="text">
+            <string>...</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="0">
+          <widget class="QLabel" name="extractCompleteAudioFileLabel">
+           <property name="text">
+            <string>Extract Complete Sound</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="1">
+          <widget class="QLineEdit" name="extractCompleteAudioFile">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="2">
+          <widget class="QToolButton" name="extractCompleteAudioFilePicker">
+           <property name="text">
+            <string>...</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="0" colspan="3">
+          <layout class="QHBoxLayout" name="extractOptions1">
+           <item>
+            <widget class="QCheckBox" name="includeOriginal">
+             <property name="text">
+              <string>Add Original Audio?</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="compress">
+             <property name="text">
+              <string>Compress Audio?</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         <item row="3" column="0" colspan="3">
+          <layout class="QHBoxLayout" name="extractOptions2">
+           <item>
+            <widget class="QCheckBox" name="monoMix">
+             <property name="text">
+              <string>Mix to mono?</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="decimate">
+             <property name="text">
+              <string>Decimate?</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="includeSubtitles">
+             <property name="text">
+              <string>Add Subtitles?</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+        </layout>
+       </widget>
+       <widget class="QWidget" name="widget">
+        <property name="geometry">
+         <rect>
+          <x>0</x>
+          <y>0</y>
+          <width>222</width>
+          <height>100</height>
+         </rect>
+        </property>
+        <attribute name="label">
+         <string>Style</string>
+        </attribute>
+        <layout class="QGridLayout" name="stylePane" columnstretch="0,1">
+         <item row="0" column="0">
+          <widget class="QLabel" name="themeLabel">
+           <property name="text">
+            <string>Theme</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="1">
+          <widget class="QComboBox" name="themePicker">
+           <item>
+            <property name="text">
+             <string>default</string>
+            </property>
+           </item>
+          </widget>
+         </item>
+         <item row="1" column="1">
+          <widget class="QCheckBox" name="speclabLineStyle">
+           <property name="text">
+            <string>Speclab Line Colours?</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="1">
+          <widget class="QCheckBox" name="smoothGraphs">
+           <property name="text">
+            <string>Smooth?</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+       <widget class="QWidget" name="graphPage">
+        <property name="geometry">
+         <rect>
+          <x>0</x>
+          <y>0</y>
+          <width>239</width>
+          <height>130</height>
+         </rect>
+        </property>
+        <attribute name="label">
+         <string>Graph</string>
+        </attribute>
+        <layout class="QVBoxLayout" name="graphPane">
+         <item>
+          <widget class="QCheckBox" name="freqIsLogScale">
+           <property name="text">
+            <string>Frequency Axis Log Scale?</string>
+           </property>
+           <property name="checked">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="precalcSmoothing">
+           <property name="text">
+            <string>Precalculate Octave Smoothing?</string>
+           </property>
+           <property name="checked">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QCheckBox" name="expandYLimits">
+           <property name="text">
+            <string>Auto Expand Y Limits?</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <layout class="QHBoxLayout" name="xminmaxLayout">
+           <item>
+            <widget class="QLabel" name="xminmaxLabel">
+             <property name="text">
+              <string>x min/max</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QSpinBox" name="xmin">
+             <property name="minimum">
+              <number>1</number>
+             </property>
+             <property name="maximum">
+              <number>23999</number>
+             </property>
+             <property name="value">
+              <number>2</number>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QSpinBox" name="xmax">
+             <property name="minimum">
+              <number>2</number>
+             </property>
+             <property name="maximum">
+              <number>24000</number>
+             </property>
+             <property name="value">
+              <number>160</number>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+        </layout>
+       </widget>
+       <widget class="QWidget" name="filterPage">
+        <property name="geometry">
+         <rect>
+          <x>0</x>
+          <y>0</y>
+          <width>173</width>
+          <height>120</height>
+         </rect>
+        </property>
+        <attribute name="label">
+         <string>Filters</string>
+        </attribute>
+        <layout class="QGridLayout" name="filterPane" columnstretch="0,1">
+         <item row="0" column="0">
+          <widget class="QLabel" name="filterQLabel">
+           <property name="text">
+            <string>Default Q</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="1">
+          <widget class="QSpinBox" name="bmlpfFreq">
+           <property name="suffix">
+            <string> Hz</string>
+           </property>
+           <property name="minimum">
+            <number>20</number>
+           </property>
+           <property name="maximum">
+            <number>160</number>
+           </property>
+           <property name="value">
+            <number>80</number>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="1">
+          <widget class="QSpinBox" name="filterFreq">
+           <property name="minimum">
+            <number>1</number>
+           </property>
+           <property name="maximum">
+            <number>24000</number>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="1">
+          <widget class="QDoubleSpinBox" name="filterQ">
+           <property name="decimals">
+            <number>3</number>
+           </property>
+           <property name="minimum">
+            <double>0.001000000000000</double>
+           </property>
+           <property name="singleStep">
+            <double>0.001000000000000</double>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="0">
+          <widget class="QLabel" name="filterFreqLabel">
+           <property name="text">
+            <string>Default Freq</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="0">
+          <widget class="QLabel" name="bmlpfLabel">
+           <property name="text">
+            <string>BM LPF</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+       <widget class="QWidget" name="systemPage">
+        <property name="geometry">
+         <rect>
+          <x>0</x>
+          <y>0</y>
+          <width>225</width>
+          <height>62</height>
+         </rect>
+        </property>
+        <attribute name="label">
+         <string>System</string>
+        </attribute>
+        <layout class="QGridLayout" name="systemPane">
+         <item row="1" column="0">
+          <widget class="QCheckBox" name="checkForBetaUpdates">
+           <property name="text">
+            <string>Include Beta Versions?</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="0">
+          <widget class="QCheckBox" name="checkForUpdates">
+           <property name="text">
+            <string>Check for Updates on startup?</string>
+           </property>
+           <property name="checked">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+       <widget class="QWidget" name="beqPage">
+        <property name="geometry">
+         <rect>
+          <x>0</x>
+          <y>0</y>
+          <width>361</width>
+          <height>175</height>
+         </rect>
+        </property>
+        <attribute name="label">
+         <string>BEQ</string>
+        </attribute>
+        <layout class="QGridLayout" name="beqPane">
+         <item row="0" column="0">
+          <widget class="QLabel" name="beqDirectoryLabel">
+           <property name="text">
+            <string>Directory</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="1">
+          <widget class="QLineEdit" name="beqFiltersDir">
+           <property name="readOnly">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="2">
+          <widget class="QToolButton" name="beqDirectoryPicker">
+           <property name="text">
+            <string>...</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="0">
+          <widget class="QLabel" name="repoURLLabel">
+           <property name="text">
+            <string>New Repo</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="1">
+          <widget class="QLineEdit" name="repoURL"/>
+         </item>
+         <item row="1" column="2">
+          <widget class="QToolButton" name="addRepoButton">
+           <property name="text">
+            <string>...</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="1">
+          <widget class="QComboBox" name="beqRepos"/>
+         </item>
+         <item row="2" column="2">
+          <widget class="QToolButton" name="deleteRepoButton">
+           <property name="text">
+            <string>...</string>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="0">
+          <widget class="QLabel" name="filteredLoadedLabel">
+           <property name="text">
+            <string>Filter Count</string>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="1">
+          <widget class="QSpinBox" name="beqFiltersCount">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
+           <property name="maximum">
+            <number>100000</number>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="2">
+          <widget class="QToolButton" name="refreshBeq">
+           <property name="text">
+            <string>...</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="0">
+          <widget class="QLabel" name="beqReposLabel">
+           <property name="text">
+            <string>Repos</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </widget>
      </item>
     </layout>
    </item>
@@ -674,21 +635,40 @@
   </layout>
  </widget>
  <tabstops>
+  <tabstop>ffmpegDirectory</tabstop>
   <tabstop>ffmpegDirectoryPicker</tabstop>
+  <tabstop>ffprobeDirectory</tabstop>
   <tabstop>ffprobeDirectoryPicker</tabstop>
   <tabstop>targetFs</tabstop>
   <tabstop>resolutionSelect</tabstop>
   <tabstop>avgAnalysisWindow</tabstop>
   <tabstop>peakAnalysisWindow</tabstop>
-  <tabstop>defaultOutputDirectoryPicker</tabstop>
-  <tabstop>extractCompleteAudioFilePicker</tabstop>
-  <tabstop>themePicker</tabstop>
-  <tabstop>freqIsLogScale</tabstop>
-  <tabstop>xmin</tabstop>
-  <tabstop>ffmpegDirectory</tabstop>
   <tabstop>defaultOutputDirectory</tabstop>
+  <tabstop>defaultOutputDirectoryPicker</tabstop>
   <tabstop>extractCompleteAudioFile</tabstop>
-  <tabstop>ffprobeDirectory</tabstop>
+  <tabstop>extractCompleteAudioFilePicker</tabstop>
+  <tabstop>includeOriginal</tabstop>
+  <tabstop>compress</tabstop>
+  <tabstop>monoMix</tabstop>
+  <tabstop>decimate</tabstop>
+  <tabstop>includeSubtitles</tabstop>
+  <tabstop>themePicker</tabstop>
+  <tabstop>speclabLineStyle</tabstop>
+  <tabstop>smoothGraphs</tabstop>
+  <tabstop>freqIsLogScale</tabstop>
+  <tabstop>precalcSmoothing</tabstop>
+  <tabstop>expandYLimits</tabstop>
+  <tabstop>xmin</tabstop>
+  <tabstop>xmax</tabstop>
+  <tabstop>filterQ</tabstop>
+  <tabstop>filterFreq</tabstop>
+  <tabstop>bmlpfFreq</tabstop>
+  <tabstop>checkForUpdates</tabstop>
+  <tabstop>checkForBetaUpdates</tabstop>
+  <tabstop>beqFiltersDir</tabstop>
+  <tabstop>beqDirectoryPicker</tabstop>
+  <tabstop>beqFiltersCount</tabstop>
+  <tabstop>refreshBeq</tabstop>
  </tabstops>
  <resources/>
  <connections>
@@ -699,8 +679,8 @@
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>276</x>
-     <y>755</y>
+     <x>282</x>
+     <y>478</y>
     </hint>
     <hint type="destinationlabel">
      <x>157</x>
@@ -715,8 +695,8 @@
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>344</x>
-     <y>755</y>
+     <x>350</x>
+     <y>478</y>
     </hint>
     <hint type="destinationlabel">
      <x>286</x>
@@ -731,11 +711,11 @@
    <slot>showFfmpegDirectoryPicker()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>793</x>
-     <y>53</y>
+     <x>361</x>
+     <y>91</y>
     </hint>
     <hint type="destinationlabel">
-     <x>393</x>
+     <x>374</x>
      <y>10</y>
     </hint>
    </hints>
@@ -747,11 +727,11 @@
    <slot>showFfprobeDirectoryPicker()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>793</x>
-     <y>105</y>
+     <x>361</x>
+     <y>144</y>
     </hint>
     <hint type="destinationlabel">
-     <x>808</x>
+     <x>374</x>
      <y>60</y>
     </hint>
    </hints>
@@ -763,11 +743,11 @@
    <slot>showDefaultOutputDirectoryPicker()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>793</x>
-     <y>275</y>
+     <x>361</x>
+     <y>142</y>
     </hint>
     <hint type="destinationlabel">
-     <x>802</x>
+     <x>374</x>
      <y>185</y>
     </hint>
    </hints>
@@ -779,11 +759,11 @@
    <slot>showExtractCompleteSoundPicker()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>773</x>
-     <y>304</y>
+     <x>361</x>
+     <y>182</y>
     </hint>
     <hint type="destinationlabel">
-     <x>801</x>
+     <x>374</x>
      <y>331</y>
     </hint>
    </hints>
@@ -795,12 +775,12 @@
    <slot>showBeqDirectoryPicker()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>566</x>
-     <y>705</y>
+     <x>361</x>
+     <y>303</y>
     </hint>
     <hint type="destinationlabel">
-     <x>810</x>
-     <y>624</y>
+     <x>374</x>
+     <y>484</y>
     </hint>
    </hints>
   </connection>
@@ -811,12 +791,60 @@
    <slot>updateBeq()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>782</x>
-     <y>693</y>
+     <x>361</x>
+     <y>426</y>
     </hint>
     <hint type="destinationlabel">
-     <x>809</x>
-     <y>672</y>
+     <x>374</x>
+     <y>484</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>addRepoButton</sender>
+   <signal>clicked()</signal>
+   <receiver>preferencesDialog</receiver>
+   <slot>add_beq_repo()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>341</x>
+     <y>331</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>370</x>
+     <y>327</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>deleteRepoButton</sender>
+   <signal>clicked()</signal>
+   <receiver>preferencesDialog</receiver>
+   <slot>remove_beq_repo()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>347</x>
+     <y>365</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>380</x>
+     <y>373</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>repoURL</sender>
+   <signal>textChanged(QString)</signal>
+   <receiver>preferencesDialog</receiver>
+   <slot>validate_beq_repo()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>183</x>
+     <y>341</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>5</x>
+     <y>358</y>
     </hint>
    </hints>
   </connection>
@@ -829,5 +857,8 @@
   <slot>showExtractCompleteSoundPicker()</slot>
   <slot>showBeqDirectoryPicker()</slot>
   <slot>updateBeq()</slot>
+  <slot>add_beq_repo()</slot>
+  <slot>remove_beq_repo()</slot>
+  <slot>validate_beq_repo()</slot>
  </slots>
 </ui>

@@ -155,6 +155,10 @@ BEQ_MERGE_DIR = 'beq/merge_dir'
 BEQ_CONFIG_FILE = 'beq/config_file'
 BEQ_EXTRA_DIR = 'beq/extra_dir'
 BEQ_MINIDSP_TYPE = 'beq/minidsp_type'
+BEQ_REPOS = 'beq/repos'
+
+BEQ_DEFAULT_GH_URL = 'https://github.com/bmiller/miniDSPBEQ'
+BEQ_DEFAULT_REPO = f"{BEQ_DEFAULT_GH_URL}.git"
 
 BIQUAD_EXPORT_FS = 'biquad/fs'
 BIQUAD_EXPORT_MAX = 'biquad/max'
@@ -468,7 +472,30 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
 
         self.precalcSmoothing.setChecked(self.__preferences.get(DISPLAY_SMOOTH_PRECALC))
 
+        repos = self.__preferences.get(BEQ_REPOS)
+        if repos != 'NONE':
+            for repo in repos.split('|'):
+                self.beqRepos.addItem(repo)
+        self.addRepoButton.setEnabled(False)
+        self.addRepoButton.setIcon(qta.icon('fa5s.plus'))
+        self.deleteRepoButton.setIcon(qta.icon('fa5s.times'))
         self.__count_beq_files()
+
+    def validate_beq_repo(self, repo_url):
+        ''' enables the add button if the url is valid. '''
+        # TODO validate the url properly
+        self.addRepoButton.setEnabled(len(repo_url) > 0 and repo_url[-4:] == '.git')
+
+    def add_beq_repo(self):
+        ''' Adds a new repo to the list. '''
+        self.beqRepos.addItem(self.repoURL.text())
+        self.repoURL.clear()
+
+    def remove_beq_repo(self):
+        '''
+        removes the currently selected repo.
+        '''
+        self.beqRepos.removeItem(self.beqRepos.currentIndex())
 
     def __reset(self):
         '''
@@ -582,6 +609,7 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         self.__preferences.set(BEQ_DOWNLOAD_DIR, self.beqFiltersDir.text())
         self.__preferences.set(BASS_MANAGEMENT_LPF_FS, self.bmlpfFreq.value())
         self.__preferences.set(DISPLAY_SMOOTH_PRECALC, self.precalcSmoothing.isChecked())
+        self.__preferences.set(BEQ_REPOS, '|'.join(self.__get_beq_repos()))
 
         QDialog.accept(self)
 
@@ -664,5 +692,9 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         from model.minidsp import RepoRefresher
         from app import wait_cursor
         with wait_cursor():
-            RepoRefresher(self.beqFiltersDir.text()).refresh()
+            RepoRefresher(self.beqFiltersDir.text(), self.__get_beq_repos()).refresh()
             self.__count_beq_files()
+
+    def __get_beq_repos(self):
+        return [self.beqRepos.itemText(r) for r in range(0, self.beqRepos.count())]
+

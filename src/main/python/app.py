@@ -26,7 +26,8 @@ from model.batch import BatchExtractDialog
 from model.analysis import AnalyseSignalDialog
 from model.link import LinkSignalsDialog
 from model.preferences import DISPLAY_SHOW_FILTERED_SIGNALS, SYSTEM_CHECK_FOR_UPDATES, BEQ_DOWNLOAD_DIR, \
-    BIQUAD_EXPORT_MAX, BIQUAD_EXPORT_FS, BIQUAD_EXPORT_DEVICE, SHOW_NO_FILTERS, SYSTEM_CHECK_FOR_BETA_UPDATES
+    BIQUAD_EXPORT_MAX, BIQUAD_EXPORT_FS, BIQUAD_EXPORT_DEVICE, SHOW_NO_FILTERS, SYSTEM_CHECK_FOR_BETA_UPDATES, \
+    BEQ_REPOS, BEQ_DEFAULT_REPO
 from model.minidsp import MergeFiltersDialog, HDXmlParser, pad_with_passthrough
 from model.postbuilder import CreateAVSPostDialog
 
@@ -116,6 +117,8 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.__decorate_splitter()
         self.limitsButton.setIcon(qta.icon('fa5s.arrows-alt'))
         self.showValuesButton.setIcon(qta.icon('ei.eye-open'))
+        # init beq repos for 0.9.0 backwards compatibility
+        self.__ensure_beq_repos_exist()
         # logs
         self.logViewer = RollingLogger(self.preferences, parent=self)
         self.actionShow_Logs.triggered.connect(self.logViewer.show_logs)
@@ -263,6 +266,22 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.actionUser_Guide.triggered.connect(self.show_help)
         self.actionRelease_Notes.triggered.connect(self.show_release_notes)
         self.actionExport_BEQ_Filter.triggered.connect(self.export_beq_filter)
+
+    def __ensure_beq_repos_exist(self):
+        '''
+        Allows the user to choose whether to add MOberhardt's BEQ repo.
+        This should only ever be displayed once on upgrade beyond 0.9.0
+        '''
+        if not self.preferences.has(BEQ_REPOS):
+            repo_list = [BEQ_DEFAULT_REPO]
+            result = QMessageBox.question(self,
+                                          'Add MOberhardt BEQ Repo?',
+                                          f"Do you want to use MOberhardt's BEQs?",
+                                          QMessageBox.Yes | QMessageBox.No,
+                                          QMessageBox.No)
+            if result == QMessageBox.Yes:
+                repo_list.append('https://github.com/Mobe1969/miniDSPBEQ.git')
+            self.preferences.set(BEQ_REPOS, '|'.join(repo_list))
 
     def show_release_notes(self):
         ''' Shows the release notes '''

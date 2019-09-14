@@ -9,7 +9,8 @@ from qtpy.QtCore import QObject, Signal, QRunnable, QThreadPool, Qt, QDateTime
 from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox, QDialogButtonBox
 
 from model.iir import Passthrough, PeakingEQ, Shelf, LowShelf, HighShelf
-from model.preferences import BEQ_CONFIG_FILE, BEQ_MERGE_DIR, BEQ_MINIDSP_TYPE, BEQ_DOWNLOAD_DIR, BEQ_EXTRA_DIR
+from model.preferences import BEQ_CONFIG_FILE, BEQ_MERGE_DIR, BEQ_MINIDSP_TYPE, BEQ_DOWNLOAD_DIR, BEQ_EXTRA_DIR, \
+    BEQ_REPOS, BEQ_DEFAULT_REPO
 from ui.minidsp import Ui_mergeMinidspDialog
 
 logger = logging.getLogger('minidsp')
@@ -48,17 +49,45 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
         extra_dir = self.__preferences.get(BEQ_EXTRA_DIR)
         if extra_dir is not None and len(extra_dir) > 0 and os.path.exists(extra_dir):
             self.userSourceDir.setText(os.path.abspath(extra_dir))
-        self.__update_beq_metadata()
+        self.__delete_legacy_dir()
+        self.__beq_repos = self.__preferences.get(BEQ_REPOS).split('|')
+        for r in self.__beq_repos:
+            self.beqRepos.addItem(r)
+        self.update_beq_count()
         self.__enable_process()
 
+    def __delete_legacy_dir(self):
+        git_metadata_dir = os.path.abspath(os.path.join(self.__beq_dir, '.git'))
+        move_it = False
+        if os.path.exists(git_metadata_dir):
+            from dulwich import porcelain
+            with porcelain.open_repo_closing(self.__beq_dir) as local_repo:
+                config = local_repo.get_config()
+                remote_url = config.get(('remote', 'origin'), 'url').decode()
+                if remote_url == BEQ_DEFAULT_REPO:
+                    move_it = True
+        if move_it is True:
+            logger.info(f"Migrating legacy repo location from {self.__beq_dir}")
+            target_dir = os.path.abspath(os.path.join(self.__beq_dir, 'bmiller_miniDSPBEQ'))
+            os.mkdir(target_dir)
+            for d in os.listdir(self.__beq_dir):
+                if d != 'bmiller_miniDSPBEQ':
+                    src = os.path.abspath(os.path.join(self.__beq_dir, d))
+                    if os.path.isdir(src):
+                        dst = os.path.abspath(os.path.join(target_dir, d))
+                        logger.info(f"Migrating {src} to {dst}")
+                        shutil.move(src, dst)
+                    else:
+                        logger.info(f"Migrating {src} to {target_dir}")
+                        shutil.move(src, target_dir)
+
     def __force_clone(self):
-        refresh = False
         if not os.path.exists(self.__beq_dir):
             refresh = True
         else:
             result = QMessageBox.question(self,
                                           'Get Clean Copy?',
-                                          f"Do you want to delete {self.__beq_dir} and clone the repository again?"
+                                          f"Do you want to delete {self.__beq_dir} and download a fresh copy?"
                                           f"\n\nEverything in {self.__beq_dir} will be deleted. "
                                           f"\n\nThis action is irreversible!",
                                           QMessageBox.Yes | QMessageBox.No,
@@ -71,17 +100,26 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
     def refresh_repo(self):
         from app import wait_cursor
         with wait_cursor():
-            RepoRefresher(self.__beq_dir).refresh()
-            self.__update_beq_metadata()
+            RepoRefresher(self.__beq_dir, self.__beq_repos).refresh()
+            self.update_beq_repo_status(self.beqRepos.currentText())
+            self.update_beq_count()
+            self.filesProcessed.setValue(0)
 
-    def __update_beq_metadata(self):
+    def update_beq_repo_status(self, repo_url):
+        ''' updates the displayed state of the selected beq repo '''
+        subdir = get_repo_subdir(repo_url)
+        if os.path.exists(self.__beq_dir) and os.path.exists(os.path.join(self.__beq_dir, subdir, '.git')):
+            self.__load_repo_metadata(repo_url)
+        else:
+            self.__beq_dir_not_exists(repo_url)
+
+    def update_beq_count(self):
         git_files = 0
         user_files = 0
-        if os.path.exists(self.__beq_dir) and os.path.exists(os.path.join(self.__beq_dir, '.git')):
-            git_files = len(glob.glob(f"{self.__beq_dir}{os.sep}**{os.sep}*.xml", recursive=True))
-            self.__load_repo_metadata()
-        else:
-            self.__beq_dir_not_exists()
+        for repo_url in self.__beq_repos:
+            subdir = get_repo_subdir(repo_url)
+            if os.path.exists(self.__beq_dir) and os.path.exists(os.path.join(self.__beq_dir, subdir, '.git')):
+                git_files += len(glob.glob(f"{self.__beq_dir}{os.sep}{subdir}{os.sep}**{os.sep}*.xml", recursive=True))
 
         if len(self.userSourceDir.text().strip()) > 0 and os.path.exists(self.userSourceDir.text()):
             user_files = len(glob.glob(f"{self.userSourceDir.text()}{os.sep}**{os.sep}*.xml", recursive=True))
@@ -90,10 +128,13 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
             self.__show_or_hide(git_files > 0, user_files > 0)
             self.totalFiles.setValue(user_files + git_files)
 
-    def __load_repo_metadata(self):
+    def __load_repo_metadata(self, repo_url):
         from dulwich import porcelain
+        subdir = get_repo_subdir(repo_url)
+        repo_dir = os.path.join(self.__beq_dir, subdir)
+        commit_url = get_commit_url(repo_url)
         try:
-            with porcelain.open_repo_closing(self.__beq_dir) as local_repo:
+            with porcelain.open_repo_closing(repo_dir) as local_repo:
                 last_commit = local_repo[local_repo.head()]
                 last_commit_time_utc = last_commit.commit_time
                 last_commit_qdt = QDateTime()
@@ -107,7 +148,7 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
                 warning_msg = ''
                 if days_since_commit > 7.0:
                     warning_msg = f"&nbsp;was {round(days_since_commit)} days ago, press the button to update -->"
-                commit_link = f"{BMILLER_GITHUB_MINIDSP}/commit/{last_commit.id.decode('utf-8')}"
+                commit_link = f"{commit_url}/{last_commit.id.decode('utf-8')}"
                 self.infoLabel.setText(f"<a href=\"{commit_link}\">Last Commit</a>{warning_msg}")
                 self.infoLabel.setTextFormat(Qt.RichText)
                 self.infoLabel.setTextInteractionFlags(Qt.TextBrowserInteraction)
@@ -116,11 +157,16 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
                     f"Author: {last_commit.author.decode('utf-8')}\n\n{last_commit.message.decode('utf-8')}")
         except:
             logger.exception(f"Unable to open git repo in {self.__beq_dir}")
-            self.__beq_dir_not_exists()
+            self.__beq_dir_not_exists(repo_url)
 
-    def __beq_dir_not_exists(self):
+    def __beq_dir_not_exists(self, repo_url):
+        target_path = os.path.abspath(os.path.join(self.__beq_dir, get_repo_subdir(repo_url)))
         self.infoLabel.setText(
-            f"BEQ Filter repo not found at {self.__beq_dir}, press the button to clone the repository -->")
+            f"BEQ repo not found in {target_path}, press the button to clone the repository -->")
+        self.lastCommitMessage.clear()
+        time = QDateTime()
+        time.setMSecsSinceEpoch(0)
+        self.lastCommitDate.setDateTime(time)
 
     def __show_or_hide(self, has_git_files, has_user_files):
         self.lastCommitDate.setVisible(has_git_files)
@@ -145,7 +191,6 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
         self.__preferences.set(BEQ_MERGE_DIR, self.outputDirectory.text())
         self.__preferences.set(BEQ_MINIDSP_TYPE, self.minidspType.currentText())
         self.__preferences.set(BEQ_EXTRA_DIR, self.userSourceDir.text())
-        self.__update_beq_metadata()
         if self.__clear_output_directory():
             self.filesProcessed.setValue(0)
             self.__start_spinning()
@@ -235,7 +280,7 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
 
     def clear_user_source_dir(self):
         self.userSourceDir.clear()
-        self.__update_beq_metadata()
+        self.update_beq_count()
 
     def pick_user_source_dir(self):
         '''
@@ -254,7 +299,7 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
                                          QMessageBox.Ok)
                 else:
                     self.userSourceDir.setText(selected[0])
-                    self.__update_beq_metadata()
+                    self.update_beq_count()
 
     def pick_config_file(self):
         '''
@@ -614,37 +659,67 @@ def pad_with_passthrough(filters, fs, required):
 
 class RepoRefresher:
 
-    def __init__(self, repo_dir):
+    def __init__(self, repo_dir, repos):
         self.repo_dir = repo_dir
+        self.repos = repos
 
     def refresh(self):
         ''' Pulls or clones the named repository '''
         from app import wait_cursor
         with wait_cursor():
             os.makedirs(self.repo_dir, exist_ok=True)
-            git_metadata_dir = os.path.abspath(os.path.join(self.repo_dir, '.git'))
-            if os.path.exists(git_metadata_dir):
-                from dulwich.errors import NotGitRepository
-                try:
-                    self.__pull_beq()
-                except NotGitRepository as e:
-                    logger.exception('.git exists but is not a git repo, attempting to delete .git directory and clone')
-                    os.rmdir(git_metadata_dir)
-                    self.__clone_beq()
-            else:
-                self.__clone_beq()
+            for repo in self.repos:
+                subdir = get_repo_subdir(repo)
+                git_metadata_dir = os.path.abspath(os.path.join(self.repo_dir, subdir, '.git'))
+                local_dir = os.path.join(self.repo_dir, subdir)
+                if os.path.exists(git_metadata_dir):
+                    from dulwich.errors import NotGitRepository
+                    try:
+                        self.__pull_beq(repo, local_dir)
+                    except NotGitRepository as e:
+                        logger.exception('.git exists but is not a git repo, attempting to delete .git directory and clone')
+                        os.rmdir(git_metadata_dir)
+                        self.__clone_beq(repo, local_dir)
+                else:
+                    self.__clone_beq(repo, local_dir)
 
-    def __pull_beq(self):
-        ''' pulls the git repo but does not use dulwich pull as it has file lock issues hon windows '''
+    @staticmethod
+    def __pull_beq(repo, local_dir):
+        ''' pulls the git repo but does not use dulwich pull as it has file lock issues on windows '''
         from dulwich import porcelain, index
-        with porcelain.open_repo_closing(self.repo_dir) as local_repo:
-            remote_refs = porcelain.fetch(local_repo, BMILLER_MINI_DSPBEQ_GIT_REPO)
+        with porcelain.open_repo_closing(local_dir) as local_repo:
+            remote_refs = porcelain.fetch(local_repo, repo)
             local_repo[b"HEAD"] = remote_refs[b"refs/heads/master"]
             index_file = local_repo.index_path()
             tree = local_repo[b"HEAD"].tree
             index.build_index_from_tree(local_repo.path, index_file, local_repo.object_store, tree)
 
-    def __clone_beq(self):
-        ''' clones the git repo '''
+    @staticmethod
+    def __clone_beq(repo, local_dir):
+        ''' clones the git repo into the local dir. '''
         from dulwich import porcelain
-        porcelain.clone(BMILLER_MINI_DSPBEQ_GIT_REPO, self.repo_dir, checkout=True)
+        porcelain.clone(repo, local_dir, checkout=True)
+
+
+def get_repo_subdir(repo):
+    '''
+    Extracts the local subdir from the repo url
+    :param repo: the repo url.
+    :return the subdir.
+    '''
+    chunks = repo.split('/')
+    if len(chunks) > 1:
+        subdir = f"{chunks[-2]}_{chunks[-1]}"
+    else:
+        subdir = chunks[-1]
+    return subdir[0:-4] if subdir[-4:] == '.git' else subdir
+
+
+def get_commit_url(repo):
+    '''
+    Extracts the commit url from the repo url
+    :param repo: the repo url.
+    :return the commit url.
+    '''
+    return f"{repo[0:-4]}/commit/"
+

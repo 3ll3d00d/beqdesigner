@@ -203,7 +203,7 @@ class Ui_postbuilder(object):
         self.ddCheckBox.toggled['bool'].connect(postbuilder.build_avs_post)
         self.dts51CheckBox.toggled['bool'].connect(postbuilder.build_avs_post)
         self.comboBox.currentIndexChanged['int'].connect(postbuilder.post_type_changed)
-        # QtCore.QMetaObject.connectSlotsByName(postbuilder)
+        QtCore.QMetaObject.connectSlotsByName(postbuilder)
         postbuilder.setTabOrder(self.titleField, self.yearField)
         postbuilder.setTabOrder(self.yearField, self.editionField)
         postbuilder.setTabOrder(self.editionField, self.seasonField)
