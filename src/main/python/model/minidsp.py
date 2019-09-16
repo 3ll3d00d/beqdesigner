@@ -8,7 +8,7 @@ import qtawesome as qta
 from qtpy.QtCore import QObject, Signal, QRunnable, QThreadPool, Qt, QDateTime
 from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox, QDialogButtonBox
 
-from model.iir import Passthrough, PeakingEQ, Shelf, LowShelf, HighShelf
+from model.iir import Passthrough, PeakingEQ, Shelf, LowShelf, HighShelf, s_to_q
 from model.preferences import BEQ_CONFIG_FILE, BEQ_MERGE_DIR, BEQ_MINIDSP_TYPE, BEQ_DOWNLOAD_DIR, BEQ_EXTRA_DIR, \
     BEQ_REPOS, BEQ_DEFAULT_REPO
 from ui.minidsp import Ui_mergeMinidspDialog
@@ -37,6 +37,8 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
         self.clearUserSourceDir.setIcon(qta.icon('fa5s.times', color='red'))
         self.__preferences = prefs
         self.statusbar = statusbar
+        self.optimised.setVisible(False)
+        self.optimisedLabel.setVisible(False)
         config_file = self.__preferences.get(BEQ_CONFIG_FILE)
         if config_file is not None and len(config_file) > 0 and os.path.exists(config_file):
             self.configFile.setText(os.path.abspath(config_file))
@@ -193,9 +195,25 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
         self.__preferences.set(BEQ_EXTRA_DIR, self.userSourceDir.text())
         if self.__clear_output_directory():
             self.filesProcessed.setValue(0)
+            optimise_filters = False
+            if is_fixed_point_hardware(self.minidspType.currentText()):
+                result = QMessageBox.question(self,
+                                              'Are you feeling lucky?',
+                                              f"Do you want to automatically optimise filters to fit in the 6 biquad limit? \n\n"
+                                              f"Note this feature is experimental. \n"
+                                              f"You are strongly encouraged to review the generated filters to ensure they are safe to use.\n"
+                                              f"USE AT YOUR OWN RISK!\n\n"
+                                              f"Are you sure you want to continue?",
+                                              QMessageBox.Yes | QMessageBox.No,
+                                              QMessageBox.No)
+                optimise_filters = result == QMessageBox.Yes
             self.__start_spinning()
             self.errors.clear()
             self.errors.setEnabled(False)
+            self.optimised.clear()
+            self.optimised.setEnabled(False)
+            self.optimised.setVisible(optimise_filters)
+            self.optimisedLabel.setVisible(optimise_filters)
             QThreadPool.globalInstance().start(XmlProcessor(self.__beq_dir,
                                                             self.userSourceDir.text(),
                                                             self.outputDirectory.text(),
@@ -203,7 +221,9 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
                                                             self.minidspType.currentText(),
                                                             self.__on_file_fail,
                                                             self.__on_file_ok,
-                                                            self.__on_complete))
+                                                            self.__on_complete,
+                                                            self.__on_optimised,
+                                                            optimise_filters))
 
     def __on_file_fail(self, file, message):
         self.errors.setEnabled(True)
@@ -214,6 +234,11 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
 
     def __on_complete(self):
         self.__stop_spinning()
+
+    def __on_optimised(self, file):
+        self.optimised.setEnabled(True)
+        self.optimised.addItem(f"{file}")
+        self.filesProcessed.setValue(self.filesProcessed.value()+1)
 
     def __stop_spinning(self):
         from model.batch import stop_spinner
@@ -327,14 +352,17 @@ class ProcessSignals(QObject):
     on_failure = Signal(str, str)
     on_success = Signal()
     on_complete = Signal()
+    on_optimised = Signal(str)
 
 
 class XmlProcessor(QRunnable):
     '''
     Completes the batch conversion of minidsp files in a separate thread.
     '''
-    def __init__(self, beq_dir, user_source_dir, output_dir, config_file, minidsp_type, failure_handler, success_handler, complete_handler):
+    def __init__(self, beq_dir, user_source_dir, output_dir, config_file, minidsp_type, failure_handler,
+                 success_handler, complete_handler, optimise_handler, optimise_filters):
         super().__init__()
+        self.__optimise_filters = optimise_filters
         self.__beq_dir = beq_dir
         self.__user_source_dir = user_source_dir
         self.__output_dir = output_dir
@@ -346,6 +374,7 @@ class XmlProcessor(QRunnable):
         self.__signals.on_failure.connect(failure_handler)
         self.__signals.on_success.connect(success_handler)
         self.__signals.on_complete.connect(complete_handler)
+        self.__signals.on_optimised.connect(optimise_handler)
 
     def run(self):
         self.__process_dir(self.__beq_dir)
@@ -372,13 +401,22 @@ class XmlProcessor(QRunnable):
             dst = Path(file_output_dir).joinpath(xml.name)
             logger.info(f"Copying {self.__config_file} to {dst}")
             dst = shutil.copy2(self.__config_file, dst.resolve())
-            filters = extract_and_pad_with_passthrough(str(xml),
-                                                       fs=self.__target_fs,
-                                                       required=self.__filters_required)
+            was_optimised = False
+            try:
+                filters = extract_and_pad_with_passthrough(str(xml),
+                                                           fs=self.__target_fs,
+                                                           required=self.__filters_required,
+                                                           optimise=self.__optimise_filters)
+            except OptimisedFilters as e:
+                was_optimised = True
+                filters = e.flattened_filters
             output_xml = self.__parser.overwrite(filters, dst)
             with dst.open('w') as dst_file:
                 dst_file.write(output_xml)
-            self.__signals.on_success.emit()
+            if was_optimised is False:
+                self.__signals.on_success.emit()
+            else:
+                self.__signals.on_optimised.emit(xml.name)
         except Exception as e:
             logger.exception(f"Unexpected failure during processing of {xml}")
             self.__signals.on_failure.emit(xml.name, str(e))
@@ -492,7 +530,7 @@ class HDXmlParser:
                                     child.find('dec').text = f"{dec_txt},"
                                     hex_txt = filt.format_biquads(True, separator=',',
                                                                   show_index=False, to_hex=True,
-                                                                  fixed_point=self.__is_fixed_point_hardware())[0]
+                                                                  fixed_point=is_fixed_point_hardware(self.__minidsp_type))[0]
                                     child.find('hex').text = f"{hex_txt},"
         if metadata is not None:
             metadata_tag = ET.Element('beq_metadata')
@@ -512,14 +550,15 @@ class HDXmlParser:
 
         return ET.tostring(root, encoding='unicode')
 
-    def __is_fixed_point_hardware(self):
-        return False if self.__minidsp_type == '2x4 HD' else True
-
     def __valid_filt_channels(self):
         '''
         :return: list of valid channels.
         '''
         return [str(x) for x in range(11, 21)] if self.__minidsp_type == '10x10 HD' else ['1', '2']
+
+
+def is_fixed_point_hardware(minidsp_type):
+    return False if minidsp_type == '2x4 HD' else True
 
 
 def get_filters_required(minidsp_type):
@@ -630,18 +669,28 @@ def __extract_filters(file):
     return Counter([tuple(f.items()) for f in final_filt])
 
 
-def extract_and_pad_with_passthrough(filt_xml, fs, required=10):
+def extract_and_pad_with_passthrough(filt_xml, fs, required=10, optimise=False):
     '''
     Extracts the filters from the XML and pads with passthrough filters.
     :param filt_xml: the xml file.
     :param fs: the target fs.
     :param required: how many filters do we need.
+    :param optimise: whether to optimise filters that use more than required biquads.
     :return: the filters.
     '''
-    return pad_with_passthrough(xml_to_filt(filt_xml, fs=fs), fs, required)
+    return pad_with_passthrough(xml_to_filt(filt_xml, fs=fs), fs, required, optimise)
 
 
-def pad_with_passthrough(filters, fs, required):
+def pad_with_passthrough(filters, fs, required, optimise):
+    '''
+    Pads to the required number of biquads. If the filter uses more than required and optimise is true, attempts to
+    squeeze the biquad count.
+    :param filters: the filters.
+    :param fs: sample rate.
+    :param required: no of required biquads.
+    :param optimise: whether to try to reduce biquad count.
+    :return: the raw biquad filters.
+    '''
     flattened_filters = []
     for filt in filters:
         if isinstance(filt, PeakingEQ):
@@ -653,8 +702,66 @@ def pad_with_passthrough(filters, fs, required):
         pad_filters = [Passthrough(fs=fs)] * padding
         flattened_filters.extend(pad_filters)
     elif padding < 0:
-        raise ValueError(f"BEQ has too many filters for device (remove {abs(padding)} biquads)")
+        if optimise is True:
+            padded = pad_with_passthrough(optimise_filters(filters, fs, -padding), fs, required, False)
+            raise OptimisedFilters(padded)
+        raise TooManyFilters(f"BEQ has too many filters for device (remove {abs(padding)} biquads)")
     return flattened_filters
+
+
+class TooManyFilters(Exception):
+    pass
+
+
+class OptimisedFilters(Exception):
+    def __init__(self, flattened_filters):
+        self.flattened_filters = flattened_filters
+
+
+def optimise_filters(filters, fs, to_save):
+    '''
+    Attempts to optimise the no of filters required.
+    :param filters:
+    :param fs:
+    :param to_save:
+    :return:
+    '''
+    unstackable = sorted([f for f in filters if isinstance(f, Shelf) and f.count > 1],
+                         key=lambda f: f.count, reverse=True)
+    unstackable = sorted(unstackable, key=lambda f: f.gain * f.count, reverse=True)
+
+    if len(unstackable) == 1:
+        s = unstackable[0]
+        new_filts = [f for f in filters if not isinstance(f, Shelf)]
+        total_gain = s.gain * s.count
+        new_count = s.count - to_save
+        if new_count > 0:
+            new_gain = total_gain / new_count
+            tmp_shelf = LowShelf(fs, s.freq, s.q, new_gain, count=new_count)
+            average_s = (tmp_shelf.q_to_s() + s.q_to_s()) / 2
+            new_shelf = LowShelf(fs, s.freq, s_to_q(average_s, new_gain), new_gain, count=new_count)
+            logger.info(f"Replacing {s} with {new_shelf}")
+            new_filts.append(new_shelf)
+            return new_filts
+    # reduce 1 from each
+    elif len(unstackable) >= to_save:
+        saved = 0
+        new_filts = [f for f in filters if not isinstance(f, Shelf)]
+        for s in unstackable:
+            if saved < to_save:
+                total_gain = s.gain * s.count
+                new_count = s.count - 1
+                new_gain = total_gain / new_count
+                tmp_shelf = LowShelf(fs, s.freq, s.q, new_gain, count=new_count)
+                average_s = (tmp_shelf.q_to_s() + s.q_to_s()) / 2
+                new_shelf = LowShelf(fs, s.freq, s_to_q(average_s, new_gain), new_gain, count=new_count)
+                logger.info(f"Replacing {s} with {new_shelf}")
+                new_filts.append(new_shelf)
+                saved += 1
+            else:
+                new_filts.append(s)
+        return new_filts
+    return filters
 
 
 class RepoRefresher:
