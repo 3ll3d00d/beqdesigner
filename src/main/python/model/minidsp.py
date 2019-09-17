@@ -678,10 +678,10 @@ def extract_and_pad_with_passthrough(filt_xml, fs, required=10, optimise=False):
     :param optimise: whether to optimise filters that use more than required biquads.
     :return: the filters.
     '''
-    return pad_with_passthrough(xml_to_filt(filt_xml, fs=fs), fs, required, optimise)
+    return pad_with_passthrough(xml_to_filt(filt_xml, fs=fs), fs, required, optimise=optimise)
 
 
-def pad_with_passthrough(filters, fs, required, optimise):
+def pad_with_passthrough(filters, fs, required, optimise=False):
     '''
     Pads to the required number of biquads. If the filter uses more than required and optimise is true, attempts to
     squeeze the biquad count.
@@ -703,7 +703,7 @@ def pad_with_passthrough(filters, fs, required, optimise):
         flattened_filters.extend(pad_filters)
     elif padding < 0:
         if optimise is True:
-            padded = pad_with_passthrough(optimise_filters(filters, fs, -padding), fs, required, False)
+            padded = pad_with_passthrough(optimise_filters(filters, fs, -padding), fs, required, optimise=False)
             raise OptimisedFilters(padded)
         raise TooManyFilters(f"BEQ has too many filters for device (remove {abs(padding)} biquads)")
     return flattened_filters
