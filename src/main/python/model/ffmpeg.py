@@ -656,7 +656,7 @@ class Executor:
         if self.__selected_video_stream_idx != -1:
             self.__ffmpeg_cmd += ['-map', f"0:v:{self.__selected_video_stream_idx}" , '-c:v', 'copy']
         if self.include_subtitles:
-            self.__ffmpeg_cmd += ['-map', '0:s', '-c:s', 'copy']
+            self.__ffmpeg_cmd += ['-map', '0:s?', '-c:s', 'copy']
         acodec = self.__get_acodec()
         if self.include_original_audio:
             if math.isclose(self.original_audio_offset, 0.0):
