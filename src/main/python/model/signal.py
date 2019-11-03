@@ -21,8 +21,8 @@ from model.codec import signaldata_to_json, bassmanagedsignaldata_to_json
 from model.iir import CompleteFilter, ComplexLowPass, FilterType
 from model.magnitude import MagnitudeModel
 from model.preferences import get_avg_colour, get_peak_colour, get_median_colour, SHOW_FILTERED_ONLY, \
-    DISPLAY_SHOW_SIGNALS, DISPLAY_SHOW_FILTERED_SIGNALS, ANALYSIS_TARGET_FS, BASS_MANAGEMENT_LPF_FS,\
-    BASS_MANAGEMENT_LPF_POSITION, BM_LPF_BEFORE, BM_LPF_AFTER, DISPLAY_SMOOTH_PRECALC, X_RESOLUTION,\
+    DISPLAY_SHOW_SIGNALS, DISPLAY_SHOW_FILTERED_SIGNALS, ANALYSIS_TARGET_FS, BASS_MANAGEMENT_LPF_FS, \
+    BASS_MANAGEMENT_LPF_POSITION, BM_LPF_BEFORE, BM_LPF_AFTER, DISPLAY_SMOOTH_PRECALC, X_RESOLUTION, \
     SHOWING_AVERAGE, SHOWING_PEAK, SHOWING_MEDIAN, SHOW_UNFILTERED_ONLY
 from model.xy import MagnitudeData, interp
 from ui.signal import Ui_addSignalDialog
@@ -1945,4 +1945,3 @@ def get_visible_signal_name_filter(show_filtered_signals, show_signals):
     else:
         filter_match = '(-filtered)?'
     return re.compile(f".*_({analysis_match}){filter_match}$")
-

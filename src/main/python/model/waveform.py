@@ -8,10 +8,12 @@ from pyqtgraph import mkPen
 from qtpy.QtCore import QTime
 from qtpy.QtGui import QFont
 from qtpy.QtCore import Qt
+from qtpy.QtWidgets import QDialog
 
 from model.magnitude import MagnitudeModel
 from model.preferences import BM_LPF_OPTIONS, BASS_MANAGEMENT_LPF_FS
 from model.signal import SignalDialog, SIGNAL_SOURCE_FILE, SIGNAL_CHANNEL, SingleChannelSignalData
+from ui.stats import Ui_signalStatsDialog
 
 logger = logging.getLogger('waveform')
 
@@ -20,7 +22,8 @@ class WaveformController:
     def __init__(self, preferences, signal_model, waveform_chart, spectrum_chart, signal_selector, rms_level, headroom,
                  crest_factor, bm_headroom, bm_lpf_position, bm_clip_before, bm_clip_after, is_filtered,
                  apply_hard_clip, start_time, end_time, show_spectrum_btn, hide_spectrum_btn, zoom_in_btn, zoom_out_btn,
-                 compare_spectrum_btn, source_file, load_signal_btn, show_limits_btn, y_min, y_max, bm_hpf):
+                 compare_spectrum_btn, source_file, load_signal_btn, show_limits_btn, show_stats_btn, y_min, y_max,
+                 bm_hpf):
         self.__is_visible = False
         self.__selected_name = None
         self.__preferences = preferences
@@ -44,6 +47,7 @@ class WaveformController:
         self.__zoom_in_btn = zoom_in_btn
         self.__zoom_out_btn = zoom_out_btn
         self.__load_signal_btn = load_signal_btn
+        self.__show_stats_btn = show_stats_btn
         self.__source_file = source_file
         self.__selector = signal_selector
         self.__waveform_chart_model = WaveformModel(waveform_chart, crest_factor, rms_level, headroom, start_time,
@@ -62,10 +66,12 @@ class WaveformController:
         self.__load_signal_btn.setIcon(qta.icon('fa5s.folder-open'))
         self.__show_limits_btn.setIcon(qta.icon('fa5s.arrows-alt'))
         self.__compare_spectrum_btn.setIcon(qta.icon('fa5s.chart-area'))
+        self.__show_stats_btn.setIcon(qta.icon('fa5s.info-circle'))
         self.__show_spectrum_btn.clicked.connect(self.show_spectrum)
         self.__hide_spectrum_btn.clicked.connect(self.hide_spectrum)
         self.__compare_spectrum_btn.clicked.connect(self.compare_spectrum)
         self.__show_limits_btn.clicked.connect(self.__magnitude_model.show_limits)
+        self.__show_stats_btn.clicked.connect(self.show_stats)
         self.__is_filtered.stateChanged['int'].connect(self.toggle_filter)
         self.__apply_hard_clip.stateChanged['int'].connect(self.toggle_hard_clip)
         self.__bm_headroom.currentIndexChanged['QString'].connect(self.change_bm_headroom)
@@ -178,10 +184,12 @@ class WaveformController:
             self.__bm_hpf.setChecked(False)
             self.__bm_clip_before.setEnabled(False)
             self.__bm_clip_after.setEnabled(False)
+            self.__show_stats_btn.setEnabled(False)
             self.__reset_controls()
             self.__active_signal = None
         else:
             self.__load_signal_btn.setEnabled(False)
+            self.__show_stats_btn.setEnabled(True)
             metadata = self.__current_signal.metadata
             if metadata is not None:
                 if SIGNAL_CHANNEL in metadata:
@@ -244,7 +252,8 @@ class WaveformController:
         else:
             return next((s for s in self.__signal_model if s.name == signal_name), None)
 
-    def __reset_time(self, time_widget):
+    @staticmethod
+    def __reset_time(time_widget):
         ''' resets and disables the supplied time field. '''
         from model.report import block_signals
         with block_signals(time_widget):
@@ -356,6 +365,10 @@ class WaveformController:
         from model.analysis import AnalyseSignalDialog
         AnalyseSignalDialog(self.__preferences, self.__signal_model, allow_load=False).exec()
 
+    def show_stats(self):
+        ''' Shows the signal stats dialog. '''
+        StatsDialog(self.__active_signal, self.__waveform_chart_model.rms).exec()
+
 
 class WaveformModel:
     '''
@@ -395,6 +408,10 @@ class WaveformModel:
         self.__crest_factor = crest_factor
         self.__signal = None
         self.__curve = None
+
+    @property
+    def rms(self):
+        return self.__rms_level.value()
 
     def __propagate_x_range(self, _, range):
         ''' passes the updates range to the fields '''
@@ -520,3 +537,155 @@ class AssociateSignalDialog(SignalDialog):
         super().selectFile()
         self.wavSignalName.setText(self.__signal_data.name)
         self.wavSignalName.setEnabled(False)
+
+
+class StatsDialog(QDialog, Ui_signalStatsDialog):
+
+    def __init__(self, signal, rms, level_adjust=0.0, parent=None):
+        from app import wait_cursor
+        with wait_cursor():
+            super(StatsDialog, self).__init__(parent=parent) if parent is not None else super(StatsDialog, self).__init__()
+            self.__level_adjust = level_adjust
+            self.__signal = signal
+            self.setupUi(self)
+            self.rms.setValue(rms)
+            self.__set_peaks()
+            self.set_extension()
+
+    def set_composite(self):
+        '''
+        recalculates the composite level.
+        '''
+        values = []
+        if self.includeRMS.isChecked():
+            values.append(self.rms.value())
+            logger.info(f"Including RMS in composite {values[-1]:g} dB")
+        if self.includeFast.isChecked():
+            values.append(self.fastPeak.value())
+            logger.info(f"Including fast in composite {values[-1]:g} dB")
+        if self.includeSlow.isChecked():
+            values.append(self.slowPeak.value())
+            logger.info(f"Including slow in composite {values[-1]:g} dB")
+        if self.includeInstant.isChecked():
+            values.append(self.instantPeak.value())
+            logger.info(f"Including instant in composite {values[-1]:g} dB")
+        if self.includeCustom.isChecked():
+            values.append(self.customPeak.value())
+            logger.info(f"Including Custom in composite {values[-1]:g} dB")
+        if len(values) > 0:
+            self.compositeLevel.setValue(10.0 * np.log10((10.0**(np.array(values) / 10.0)).mean()))
+        else:
+            self.compositeLevel.setValue(self.compositeLevel.minimum())
+        self.rate_dynamics()
+
+    def set_custom_peak(self):
+        ''' calculates the custom peak based on the specified integration time. '''
+        self.customPeak.setValue(self.__get_peak_value(self.__signal, self.customIntegrationTime.value() / 1000.0))
+
+    def set_extension(self):
+        '''
+        finds the frequency of the peak frequency bin in both peak and average curves then finds the point at which
+        the signal is lower by the specified dB.
+        '''
+        x_peak, y_peak = self.__find_extension(*self.__signal.peak)
+        x_avg, y_avg = self.__find_extension(*self.__signal.avg)
+        self.averageExtensionY2.setValue(y_avg[1])
+        self.averageExtensionX2.setValue(x_avg[1])
+        self.averageExtensionY1.setValue(y_avg[0])
+        self.averageExtensionX1.setValue(x_avg[0])
+        self.peakExtensionY2.setValue(y_peak[1])
+        self.peakExtensionX2.setValue(x_peak[1])
+        self.peakExtensionY1.setValue(y_peak[0])
+        self.peakExtensionX1.setValue(x_peak[0])
+        self.rate_extension()
+
+    def __find_extension(self, x, y):
+        upper_y_idx = np.argmax(y)
+        upper_x = x[upper_y_idx]
+        lower_y = y[upper_y_idx] + self.extensionLimit.value()
+        lower_x = x[np.argmax(y >= lower_y)]
+        return (lower_x, upper_x), (lower_y, y[upper_y_idx])
+
+    def __set_peaks(self):
+        self.instantPeak.setValue(self.__get_peak_value(self.__signal, 0.035))
+        self.fastPeak.setValue(self.__get_peak_value(self.__signal, 0.125))
+        self.slowPeak.setValue(self.__get_peak_value(self.__signal, 1.0))
+        self.set_custom_peak()
+        self.set_composite()
+
+    def rate_level(self, val):
+        adjusted_level = val + self.__level_adjust
+        if adjusted_level >= -15.5:
+            rate = 5
+        elif adjusted_level >= -18.0:
+            rate = 4
+        elif adjusted_level >= -20.5:
+            rate = 3
+        elif adjusted_level >= -23.0:
+            rate = 2
+        else:
+            rate = 1
+        self.levelRating.setValue(rate)
+
+    def rate_dynamics(self):
+        range = self.instantPeak.value() - self.rms.value()
+        self.dynamics.setValue(range)
+        logger.info(f"Dynamics {range:g} - {self.instantPeak.value():g} / {self.rms.value():g}")
+        if range >= 27.5:
+            rate = 5
+        elif range >= 25.0:
+            rate = 4
+        elif range >= 22.5:
+            rate = 3
+        elif range >= 20.0:
+            rate = 4
+        else:
+            rate = 1
+        self.dynamicsRating.setValue(rate)
+
+    def rate_extension(self):
+        ''' Rates extension based on the lower frequency limit. '''
+        if self.peakExtensionX2.value() > self.averageExtensionX2.value():
+            lower_limit = self.peakExtensionX1.value()
+            src = 'Peak'
+        elif math.isclose(self.peakExtensionX2.value(), self.averageExtensionX2.value()):
+            lower_limit = min(self.peakExtensionX1.value(), self.averageExtensionX1.value())
+            src = 'Peak' if lower_limit == self.peakExtensionX1.value() else 'Average'
+        else:
+            lower_limit = self.averageExtensionX1.value()
+            src = 'Average'
+        self.extensionSource.setCurrentText(src)
+        if lower_limit < 10:
+            rate = 5
+        elif lower_limit < 15:
+            rate = 4
+        elif lower_limit < 20:
+            rate = 3
+        elif lower_limit < 25:
+            rate = 2
+        else:
+            rate = 1
+        self.extensionRating.setValue(rate)
+
+    # get RMS via an exponentially weighted moving average
+    # produces the same result as just getting the rms of the signal but leavng here for a reminder in case it is needed
+    # @staticmethod
+    # def window_rms(data, fs, window_size):
+    #     import pandas as pd
+    #     length = fs * window_size
+    #     alpha = math.exp(-1/length)
+    #     mean = pd.DataFrame(data=data)[0].ewm(alpha=alpha).mean().to_numpy()
+    #     return mean
+
+    @staticmethod
+    def __get_peak_value(signal, window_size):
+        window = int(signal.fs * window_size)
+        to_pad = signal.samples.shape[-1] % window
+
+        def rms(row):
+            val = np.sqrt(np.mean(np.square(np.abs(row))))
+            return 20*math.log(val, 10) if val > 0 else -120.0
+
+        chunks = np.pad(signal.samples, (0, window - to_pad)).reshape(-1, window)
+        rms_per_window = np.apply_along_axis(rms, 1, chunks)
+        return np.max(rms_per_window)

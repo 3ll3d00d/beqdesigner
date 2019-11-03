@@ -1,0 +1,824 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>signalStatsDialog</class>
+ <widget class="QDialog" name="signalStatsDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>306</width>
+    <height>561</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Stats</string>
+  </property>
+  <layout class="QGridLayout" name="gridLayout" columnstretch="0,0,0">
+   <item row="2" column="1">
+    <widget class="QDoubleSpinBox" name="rms">
+     <property name="readOnly">
+      <bool>true</bool>
+     </property>
+     <property name="suffix">
+      <string> dB</string>
+     </property>
+     <property name="minimum">
+      <double>-150.000000000000000</double>
+     </property>
+     <property name="maximum">
+      <double>10.000000000000000</double>
+     </property>
+     <property name="singleStep">
+      <double>0.010000000000000</double>
+     </property>
+    </widget>
+   </item>
+   <item row="8" column="0">
+    <widget class="QLabel" name="label_7">
+     <property name="text">
+      <string>Composite Level</string>
+     </property>
+    </widget>
+   </item>
+   <item row="10" column="0" colspan="3">
+    <widget class="QLabel" name="label_10">
+     <property name="font">
+      <font>
+       <weight>75</weight>
+       <bold>true</bold>
+      </font>
+     </property>
+     <property name="frameShape">
+      <enum>QFrame::Box</enum>
+     </property>
+     <property name="frameShadow">
+      <enum>QFrame::Sunken</enum>
+     </property>
+     <property name="text">
+      <string>Extension</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignCenter</set>
+     </property>
+    </widget>
+   </item>
+   <item row="5" column="1">
+    <widget class="QDoubleSpinBox" name="slowPeak">
+     <property name="readOnly">
+      <bool>true</bool>
+     </property>
+     <property name="suffix">
+      <string> dB</string>
+     </property>
+     <property name="minimum">
+      <double>-150.000000000000000</double>
+     </property>
+     <property name="maximum">
+      <double>10.000000000000000</double>
+     </property>
+     <property name="singleStep">
+      <double>0.010000000000000</double>
+     </property>
+    </widget>
+   </item>
+   <item row="5" column="0">
+    <widget class="QLabel" name="label_4">
+     <property name="text">
+      <string>Slow Peak</string>
+     </property>
+    </widget>
+   </item>
+   <item row="11" column="0">
+    <widget class="QLabel" name="label_14">
+     <property name="text">
+      <string>Limit</string>
+     </property>
+    </widget>
+   </item>
+   <item row="14" column="0">
+    <widget class="QLabel" name="label_17">
+     <property name="font">
+      <font>
+       <weight>75</weight>
+       <bold>true</bold>
+      </font>
+     </property>
+     <property name="text">
+      <string>Rating</string>
+     </property>
+    </widget>
+   </item>
+   <item row="18" column="0" colspan="3">
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Close</set>
+     </property>
+    </widget>
+   </item>
+   <item row="17" column="0">
+    <widget class="QLabel" name="label_18">
+     <property name="font">
+      <font>
+       <weight>75</weight>
+       <bold>true</bold>
+      </font>
+     </property>
+     <property name="text">
+      <string>Rating</string>
+     </property>
+    </widget>
+   </item>
+   <item row="3" column="2">
+    <widget class="QToolButton" name="includeInstant">
+     <property name="text">
+      <string/>
+     </property>
+     <property name="checkable">
+      <bool>true</bool>
+     </property>
+     <property name="checked">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item row="7" column="1">
+    <widget class="QDoubleSpinBox" name="customPeak">
+     <property name="readOnly">
+      <bool>true</bool>
+     </property>
+     <property name="suffix">
+      <string> dB</string>
+     </property>
+     <property name="minimum">
+      <double>-150.000000000000000</double>
+     </property>
+     <property name="maximum">
+      <double>10.000000000000000</double>
+     </property>
+     <property name="singleStep">
+      <double>0.010000000000000</double>
+     </property>
+    </widget>
+   </item>
+   <item row="13" column="1" colspan="2">
+    <layout class="QGridLayout" name="gridLayout_3">
+     <item row="0" column="0">
+      <widget class="QDoubleSpinBox" name="peakExtensionX1">
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+       <property name="suffix">
+        <string> Hz</string>
+       </property>
+       <property name="decimals">
+        <number>1</number>
+       </property>
+       <property name="maximum">
+        <double>160.000000000000000</double>
+       </property>
+       <property name="singleStep">
+        <double>0.100000000000000</double>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="1">
+      <widget class="QDoubleSpinBox" name="peakExtensionX2">
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+       <property name="suffix">
+        <string> Hz</string>
+       </property>
+       <property name="decimals">
+        <number>1</number>
+       </property>
+       <property name="maximum">
+        <double>160.000000000000000</double>
+       </property>
+       <property name="singleStep">
+        <double>0.100000000000000</double>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="0">
+      <widget class="QDoubleSpinBox" name="peakExtensionY1">
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+       <property name="suffix">
+        <string> dB</string>
+       </property>
+       <property name="minimum">
+        <double>-120.000000000000000</double>
+       </property>
+       <property name="maximum">
+        <double>0.000000000000000</double>
+       </property>
+       <property name="singleStep">
+        <double>0.010000000000000</double>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="1">
+      <widget class="QDoubleSpinBox" name="peakExtensionY2">
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+       <property name="suffix">
+        <string> dB</string>
+       </property>
+       <property name="minimum">
+        <double>-120.000000000000000</double>
+       </property>
+       <property name="maximum">
+        <double>0.000000000000000</double>
+       </property>
+       <property name="singleStep">
+        <double>0.010000000000000</double>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item row="7" column="0">
+    <widget class="QLabel" name="label_6">
+     <property name="text">
+      <string>Custom Peak</string>
+     </property>
+    </widget>
+   </item>
+   <item row="15" column="0" colspan="3">
+    <widget class="QLabel" name="label_11">
+     <property name="font">
+      <font>
+       <weight>75</weight>
+       <bold>true</bold>
+      </font>
+     </property>
+     <property name="frameShape">
+      <enum>QFrame::Box</enum>
+     </property>
+     <property name="frameShadow">
+      <enum>QFrame::Sunken</enum>
+     </property>
+     <property name="text">
+      <string>Dynamics</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignCenter</set>
+     </property>
+    </widget>
+   </item>
+   <item row="4" column="2">
+    <widget class="QToolButton" name="includeFast">
+     <property name="text">
+      <string/>
+     </property>
+     <property name="checkable">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="2">
+    <widget class="QToolButton" name="includeRMS">
+     <property name="text">
+      <string/>
+     </property>
+     <property name="checkable">
+      <bool>true</bool>
+     </property>
+     <property name="checked">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item row="12" column="0">
+    <widget class="QLabel" name="label_19">
+     <property name="text">
+      <string>Average</string>
+     </property>
+    </widget>
+   </item>
+   <item row="3" column="0">
+    <widget class="QLabel" name="label_2">
+     <property name="text">
+      <string>Instantaneous Peak </string>
+     </property>
+    </widget>
+   </item>
+   <item row="9" column="1">
+    <widget class="QSpinBox" name="levelRating">
+     <property name="readOnly">
+      <bool>true</bool>
+     </property>
+     <property name="maximum">
+      <number>5</number>
+     </property>
+    </widget>
+   </item>
+   <item row="16" column="0">
+    <widget class="QLabel" name="label_15">
+     <property name="text">
+      <string>Range</string>
+     </property>
+    </widget>
+   </item>
+   <item row="12" column="1" colspan="2">
+    <layout class="QGridLayout" name="gridLayout_2">
+     <item row="0" column="0">
+      <widget class="QDoubleSpinBox" name="averageExtensionX1">
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+       <property name="suffix">
+        <string> Hz</string>
+       </property>
+       <property name="decimals">
+        <number>1</number>
+       </property>
+       <property name="maximum">
+        <double>160.000000000000000</double>
+       </property>
+       <property name="singleStep">
+        <double>0.100000000000000</double>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="1">
+      <widget class="QDoubleSpinBox" name="averageExtensionX2">
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+       <property name="suffix">
+        <string> Hz</string>
+       </property>
+       <property name="decimals">
+        <number>1</number>
+       </property>
+       <property name="maximum">
+        <double>160.000000000000000</double>
+       </property>
+       <property name="singleStep">
+        <double>0.100000000000000</double>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="0">
+      <widget class="QDoubleSpinBox" name="averageExtensionY1">
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+       <property name="suffix">
+        <string> dB</string>
+       </property>
+       <property name="minimum">
+        <double>-120.000000000000000</double>
+       </property>
+       <property name="maximum">
+        <double>10.000000000000000</double>
+       </property>
+       <property name="singleStep">
+        <double>0.010000000000000</double>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="1">
+      <widget class="QDoubleSpinBox" name="averageExtensionY2">
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+       <property name="suffix">
+        <string> dB</string>
+       </property>
+       <property name="minimum">
+        <double>-120.000000000000000</double>
+       </property>
+       <property name="maximum">
+        <double>10.000000000000000</double>
+       </property>
+       <property name="singleStep">
+        <double>0.010000000000000</double>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item row="5" column="2">
+    <widget class="QToolButton" name="includeSlow">
+     <property name="text">
+      <string/>
+     </property>
+     <property name="checkable">
+      <bool>true</bool>
+     </property>
+     <property name="checked">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="2">
+    <widget class="QLabel" name="label_9">
+     <property name="text">
+      <string>Include?</string>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="0" colspan="3">
+    <widget class="QLabel" name="label_8">
+     <property name="font">
+      <font>
+       <weight>75</weight>
+       <bold>true</bold>
+      </font>
+     </property>
+     <property name="frameShape">
+      <enum>QFrame::Box</enum>
+     </property>
+     <property name="frameShadow">
+      <enum>QFrame::Sunken</enum>
+     </property>
+     <property name="text">
+      <string>Level</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignCenter</set>
+     </property>
+    </widget>
+   </item>
+   <item row="8" column="1">
+    <widget class="QDoubleSpinBox" name="compositeLevel">
+     <property name="readOnly">
+      <bool>true</bool>
+     </property>
+     <property name="suffix">
+      <string> dB</string>
+     </property>
+     <property name="minimum">
+      <double>-150.000000000000000</double>
+     </property>
+     <property name="maximum">
+      <double>10.000000000000000</double>
+     </property>
+     <property name="singleStep">
+      <double>0.010000000000000</double>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="0">
+    <widget class="QLabel" name="label">
+     <property name="text">
+      <string>RMS:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="9" column="0">
+    <widget class="QLabel" name="label_16">
+     <property name="font">
+      <font>
+       <weight>75</weight>
+       <italic>false</italic>
+       <bold>true</bold>
+      </font>
+     </property>
+     <property name="text">
+      <string>Rating</string>
+     </property>
+    </widget>
+   </item>
+   <item row="3" column="1">
+    <widget class="QDoubleSpinBox" name="instantPeak">
+     <property name="readOnly">
+      <bool>true</bool>
+     </property>
+     <property name="suffix">
+      <string> dB</string>
+     </property>
+     <property name="minimum">
+      <double>-150.000000000000000</double>
+     </property>
+     <property name="maximum">
+      <double>10.000000000000000</double>
+     </property>
+     <property name="singleStep">
+      <double>0.010000000000000</double>
+     </property>
+    </widget>
+   </item>
+   <item row="4" column="0">
+    <widget class="QLabel" name="label_3">
+     <property name="text">
+      <string>Fast Peak</string>
+     </property>
+    </widget>
+   </item>
+   <item row="11" column="1" colspan="2">
+    <widget class="QSpinBox" name="extensionLimit">
+     <property name="suffix">
+      <string> dB</string>
+     </property>
+     <property name="minimum">
+      <number>-20</number>
+     </property>
+     <property name="maximum">
+      <number>-1</number>
+     </property>
+     <property name="value">
+      <number>-10</number>
+     </property>
+    </widget>
+   </item>
+   <item row="13" column="0">
+    <widget class="QLabel" name="label_12">
+     <property name="text">
+      <string>Peak</string>
+     </property>
+    </widget>
+   </item>
+   <item row="6" column="1">
+    <widget class="QSpinBox" name="customIntegrationTime">
+     <property name="suffix">
+      <string> ms</string>
+     </property>
+     <property name="minimum">
+      <number>1</number>
+     </property>
+     <property name="maximum">
+      <number>60000</number>
+     </property>
+     <property name="value">
+      <number>5000</number>
+     </property>
+    </widget>
+   </item>
+   <item row="6" column="0">
+    <widget class="QLabel" name="label_5">
+     <property name="text">
+      <string>Custom Integration Time</string>
+     </property>
+    </widget>
+   </item>
+   <item row="16" column="1" colspan="2">
+    <widget class="QDoubleSpinBox" name="dynamics">
+     <property name="readOnly">
+      <bool>true</bool>
+     </property>
+     <property name="suffix">
+      <string> dB</string>
+     </property>
+     <property name="singleStep">
+      <double>0.010000000000000</double>
+     </property>
+    </widget>
+   </item>
+   <item row="7" column="2">
+    <widget class="QToolButton" name="includeCustom">
+     <property name="text">
+      <string/>
+     </property>
+     <property name="checkable">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item row="4" column="1">
+    <widget class="QDoubleSpinBox" name="fastPeak">
+     <property name="readOnly">
+      <bool>true</bool>
+     </property>
+     <property name="suffix">
+      <string> dB</string>
+     </property>
+     <property name="minimum">
+      <double>-150.000000000000000</double>
+     </property>
+     <property name="maximum">
+      <double>10.000000000000000</double>
+     </property>
+     <property name="singleStep">
+      <double>0.010000000000000</double>
+     </property>
+    </widget>
+   </item>
+   <item row="17" column="1" colspan="2">
+    <widget class="QSpinBox" name="dynamicsRating">
+     <property name="readOnly">
+      <bool>true</bool>
+     </property>
+     <property name="maximum">
+      <number>5</number>
+     </property>
+    </widget>
+   </item>
+   <item row="14" column="1" colspan="2">
+    <layout class="QHBoxLayout" name="horizontalLayout">
+     <item>
+      <widget class="QComboBox" name="extensionSource">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+       <item>
+        <property name="text">
+         <string/>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Peak</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Average</string>
+        </property>
+       </item>
+      </widget>
+     </item>
+     <item>
+      <widget class="QSpinBox" name="extensionRating">
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+       <property name="maximum">
+        <number>5</number>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>accepted()</signal>
+   <receiver>signalStatsDialog</receiver>
+   <slot>accept()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>236</x>
+     <y>497</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>157</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>rejected()</signal>
+   <receiver>signalStatsDialog</receiver>
+   <slot>reject()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>276</x>
+     <y>497</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>285</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>includeRMS</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>signalStatsDialog</receiver>
+   <slot>set_composite()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>247</x>
+     <y>59</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>279</x>
+     <y>79</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>includeInstant</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>signalStatsDialog</receiver>
+   <slot>set_composite()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>251</x>
+     <y>86</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>275</x>
+     <y>121</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>includeFast</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>signalStatsDialog</receiver>
+   <slot>set_composite()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>245</x>
+     <y>115</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>274</x>
+     <y>165</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>includeSlow</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>signalStatsDialog</receiver>
+   <slot>set_composite()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>253</x>
+     <y>144</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>276</x>
+     <y>208</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>includeCustom</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>signalStatsDialog</receiver>
+   <slot>set_composite()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>246</x>
+     <y>191</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>267</x>
+     <y>191</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>customIntegrationTime</sender>
+   <signal>editingFinished()</signal>
+   <receiver>signalStatsDialog</receiver>
+   <slot>set_custom_peak()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>202</x>
+     <y>165</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>239</x>
+     <y>158</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>extensionLimit</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>signalStatsDialog</receiver>
+   <slot>set_extension()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>276</x>
+     <y>311</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>284</x>
+     <y>242</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>compositeLevel</sender>
+   <signal>valueChanged(double)</signal>
+   <receiver>signalStatsDialog</receiver>
+   <slot>rate_level()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>196</x>
+     <y>218</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>251</x>
+     <y>217</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+ <slots>
+  <slot>set_composite()</slot>
+  <slot>set_custom_peak()</slot>
+  <slot>set_extension()</slot>
+  <slot>rate_level()</slot>
+  <slot>rate_extension()</slot>
+  <slot>rate_dynamics()</slot>
+ </slots>
+</ui>

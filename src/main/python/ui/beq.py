@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'beq.ui'
 #
-# Created by: PyQt5 UI code generator 5.13.0
+# Created by: PyQt5 UI code generator 5.13.1
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -312,6 +312,9 @@ class Ui_MainWindow(object):
         self.zoomOutButton = QtWidgets.QToolButton(self.waveformContainer)
         self.zoomOutButton.setObjectName("zoomOutButton")
         self.horizontalLayout.addWidget(self.zoomOutButton)
+        self.showStatsButton = QtWidgets.QToolButton(self.waveformContainer)
+        self.showStatsButton.setObjectName("showStatsButton")
+        self.horizontalLayout.addWidget(self.showStatsButton)
         self.waveformControls.addLayout(self.horizontalLayout, 12, 0, 1, 2)
         self.checkboxContainer = QtWidgets.QHBoxLayout()
         self.checkboxContainer.setObjectName("checkboxContainer")
@@ -477,7 +480,7 @@ class Ui_MainWindow(object):
         self.widgetGridLayout.addLayout(self.panes, 0, 0, 1, 1)
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 1569, 30))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 1569, 21))
         self.menubar.setObjectName("menubar")
         self.menuHelp = QtWidgets.QMenu(self.menubar)
         self.menuHelp.setObjectName("menuHelp")
@@ -718,6 +721,7 @@ class Ui_MainWindow(object):
         self.filteredSpectrumLimitsButton.setText(_translate("MainWindow", "..."))
         self.zoomInButton.setText(_translate("MainWindow", "..."))
         self.zoomOutButton.setText(_translate("MainWindow", "..."))
+        self.showStatsButton.setText(_translate("MainWindow", "..."))
         self.waveformIsFiltered.setText(_translate("MainWindow", "Filtered?"))
         self.hardClipWaveform.setText(_translate("MainWindow", "Clip?"))
         self.bmHeadroom.setItemText(0, _translate("MainWindow", "WCS"))

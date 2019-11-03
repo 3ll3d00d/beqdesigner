@@ -234,6 +234,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
                                                         self.sourceFile,
                                                         self.loadSignalButton,
                                                         self.filteredSpectrumLimitsButton,
+                                                        self.showStatsButton,
                                                         self.yMin,
                                                         self.yMax,
                                                         self.bmhpfOn)
