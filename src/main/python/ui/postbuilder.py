@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'postbuilder.ui'
 #
-# Created by: PyQt5 UI code generator 5.13.1
+# Created by: PyQt5 UI code generator 5.13.0
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -48,6 +48,9 @@ class Ui_postbuilder(object):
         self.dataGrid.addWidget(self.postTextEdit, 11, 2, 1, 2)
         self.sourcePicker = QtWidgets.QComboBox(postbuilder)
         self.sourcePicker.setObjectName("sourcePicker")
+        self.sourcePicker.addItem("")
+        self.sourcePicker.addItem("")
+        self.sourcePicker.addItem("")
         self.sourcePicker.addItem("")
         self.sourcePicker.addItem("")
         self.sourcePicker.addItem("")
@@ -203,7 +206,7 @@ class Ui_postbuilder(object):
         self.ddCheckBox.toggled['bool'].connect(postbuilder.build_avs_post)
         self.dts51CheckBox.toggled['bool'].connect(postbuilder.build_avs_post)
         self.comboBox.currentIndexChanged['int'].connect(postbuilder.post_type_changed)
-        # QtCore.QMetaObject.connectSlotsByName(postbuilder)
+        QtCore.QMetaObject.connectSlotsByName(postbuilder)
         postbuilder.setTabOrder(self.titleField, self.yearField)
         postbuilder.setTabOrder(self.yearField, self.editionField)
         postbuilder.setTabOrder(self.editionField, self.seasonField)
@@ -237,9 +240,12 @@ class Ui_postbuilder(object):
         self.comboBox.setItemText(1, _translate("postbuilder", "TV Show"))
         self.spectrumLabel.setText(_translate("postbuilder", "Spectrum URL"))
         self.sourcePicker.setItemText(0, _translate("postbuilder", "Disc"))
-        self.sourcePicker.setItemText(1, _translate("postbuilder", "Amazon Prime"))
-        self.sourcePicker.setItemText(2, _translate("postbuilder", "iTunes"))
-        self.sourcePicker.setItemText(3, _translate("postbuilder", "Netflix"))
+        self.sourcePicker.setItemText(1, _translate("postbuilder", "Apple TV+"))
+        self.sourcePicker.setItemText(2, _translate("postbuilder", "Amazon Prime"))
+        self.sourcePicker.setItemText(3, _translate("postbuilder", "Disney+"))
+        self.sourcePicker.setItemText(4, _translate("postbuilder", "Hulu"))
+        self.sourcePicker.setItemText(5, _translate("postbuilder", "iTunes"))
+        self.sourcePicker.setItemText(6, _translate("postbuilder", "Netflix"))
         self.postLabel.setText(_translate("postbuilder", "BEQ Post"))
         self.seasonLabel.setText(_translate("postbuilder", "TV Season"))
         self.yearLabel.setText(_translate("postbuilder", "Year"))
@@ -251,7 +257,7 @@ class Ui_postbuilder(object):
         self.editionLabel.setText(_translate("postbuilder", "Edition"))
         self.titleLabel.setText(_translate("postbuilder", "Title"))
         self.sourceLabel.setText(_translate("postbuilder", "Source"))
-        self.ddCheckBox.setText(_translate("postbuilder", "DD"))
+        self.ddCheckBox.setText(_translate("postbuilder", "DD 5.1"))
         self.dts71CheckBox.setText(_translate("postbuilder", "DTS-HD MA 7.1"))
         self.truehd51CheckBox.setText(_translate("postbuilder", "TrueHD 5.1"))
         self.ddPlusCheckBox.setText(_translate("postbuilder", "DD+"))
