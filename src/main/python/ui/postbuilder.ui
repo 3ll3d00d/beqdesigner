@@ -108,7 +108,22 @@
        </item>
        <item>
         <property name="text">
+         <string>Apple TV+</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
          <string>Amazon Prime</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Disney+</string>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string>Hulu</string>
         </property>
        </item>
        <item>
@@ -273,7 +288,7 @@
        <item row="4" column="2">
         <widget class="QCheckBox" name="ddCheckBox">
          <property name="text">
-          <string>DD</string>
+          <string>DD 5.1</string>
          </property>
         </widget>
        </item>
