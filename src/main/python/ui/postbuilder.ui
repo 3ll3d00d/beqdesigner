@@ -106,36 +106,6 @@
          <string>Disc</string>
         </property>
        </item>
-       <item>
-        <property name="text">
-         <string>Apple TV+</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>Amazon Prime</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>Disney+</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>Hulu</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>iTunes</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>Netflix</string>
-        </property>
-       </item>
       </widget>
      </item>
      <item row="7" column="3">

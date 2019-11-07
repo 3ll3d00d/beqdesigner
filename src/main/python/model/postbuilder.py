@@ -4,7 +4,7 @@ import os
 import sys
 
 import qtawesome as qta
-from qtpy.QtCore import QRegExp, Qt
+from qtpy.QtCore import QRegExp, Qt, QCoreApplication
 from qtpy.QtGui import QRegExpValidator, QValidator, QIcon
 from qtpy.QtWidgets import QDialog, QFileDialog
 
@@ -33,6 +33,7 @@ class CreateAVSPostDialog(QDialog, Ui_postbuilder):
     def __init__(self, parent, prefs, filter_model, selected_signal):
         super(CreateAVSPostDialog, self).__init__(parent)
         self.setupUi(self)
+        self.__build_source_picker()
         self.pvaField.setValidator(UrlValidator(self.pvaField, self.pvaValid))
         self.spectrumField.setValidator(UrlValidator(self.spectrumField, self.spectrumValid))
         self.__preferences = prefs
@@ -41,6 +42,12 @@ class CreateAVSPostDialog(QDialog, Ui_postbuilder):
         self.__selected_signal = selected_signal
         self.post_type_changed(0)
         self.generateButton.setEnabled(False)
+
+    def __build_source_picker(self):
+        _translate = QCoreApplication.translate
+        sources = ["Apple TV+", "Amazon Prime", "Disney+", "Hulu", "iTunes", "Netflix"]
+        for source in sources:
+            self.sourcePicker.addItem(_translate("postbuilder", source))
 
     def generate_avs_post(self):
         '''
