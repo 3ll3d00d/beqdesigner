@@ -1,6 +1,7 @@
 import logging
 import math
 import typing
+import json
 from collections.abc import Sequence
 from uuid import uuid4
 
@@ -8,7 +9,7 @@ import qtawesome as qta
 from qtpy import QtCore
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt
 from qtpy.QtGui import QIcon
-from qtpy.QtWidgets import QDialog
+from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox, QHeaderView
 
 from model.iir import FilterType, LowShelf, HighShelf, PeakingEQ, SecondOrder_LowPass, \
     SecondOrder_HighPass, ComplexLowPass, ComplexHighPass, q_to_s, s_to_q, max_permitted_s, CompleteFilter, COMBINED, \
@@ -27,7 +28,7 @@ class FilterModel(Sequence):
     A model to hold onto the filters and provide magnitude data to a chart about those filters.
     '''
 
-    def __init__(self, view, label, preferences, on_update=lambda _: True):
+    def __init__(self, view, preferences, label=None, on_update=lambda _: True):
         self.__filter = CompleteFilter()
         self.__view = view
         self.__preferences = preferences
@@ -47,10 +48,11 @@ class FilterModel(Sequence):
             if self.__table is not None:
                 self.__table.beginResetModel()
             self.__filter = filt
-            if self.__filter.listener is not None:
-                self.__label.setText(f"Filter - {filt.listener.name}")
-            else:
-                self.__label.setText(f"Filter - Default")
+            if self.__label is not None:
+                if self.__filter.listener is not None:
+                    self.__label.setText(f"Filter - {filt.listener.name}")
+                else:
+                    self.__label.setText(f"Filter - Default")
             self.post_update()
             if self.__table is not None:
                 self.__table.endResetModel()
@@ -168,7 +170,7 @@ class FilterTableModel(QAbstractTableModel):
     '''
 
     def __init__(self, model, parent=None):
-        super().__init__(parent=parent)
+        super().__init__(parent=parent) if parent is not None else super().__init__()
         self.__headers = ['Type', 'Freq', 'Q', 'S', 'Gain', 'Biquads']
         self.__filter_model = model
         self.__filter_model.table = self
@@ -247,6 +249,8 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.__freq_step_idx = self.__get_step(self.freq_steps, self.__preferences.get(DISPLAY_FREQ_STEP), 1)
         # init the UI itself
         self.setupUi(self)
+        self.__snapshot = FilterModel(self.snapshotFilterView, self.__preferences, on_update=self.__on_snapshot_change)
+        self.__decorate_ui()
         self.__set_q_step(self.q_steps[self.__q_step_idx])
         self.__set_s_step(self.q_steps[self.__s_step_idx])
         self.__set_gain_step(self.gain_steps[self.__gain_step_idx])
@@ -264,6 +268,114 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
                                                 db_range_calc=dBRangeCalculator(30, expand=True), fill_curves=True)
         # load the selector and populate the fields
         self.__refresh_selector()
+
+    def __on_snapshot_change(self, visible_names):
+        self.snapshotFilterView.setVisible(len(self.__snapshot) > 0)
+        self.__magnitude_model.redraw()
+
+    def __decorate_ui(self):
+        self.snapshotFilterView.setVisible(False)
+        self.__set_tooltips()
+        self.__set_icons()
+        self.__connect_snapshot_buttons()
+        self.__link_snapshot_to_view()
+
+    def __link_snapshot_to_view(self):
+        self.snapshotFilterView.setVisible(False)
+        self.snapshotFilterView.setModel(FilterTableModel(self.__snapshot))
+        self.snapshotFilterView.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+
+    def __set_icons(self):
+        self.addButton.setIcon(qta.icon('fa5s.plus'))
+        self.addButton.setIconSize(QtCore.QSize(32, 32))
+        self.saveButton.setIcon(qta.icon('fa5s.save'))
+        self.saveButton.setIconSize(QtCore.QSize(32, 32))
+        self.exitButton.setIcon(qta.icon('fa5s.sign-out-alt'))
+        self.exitButton.setIconSize(QtCore.QSize(32, 32))
+        self.limitsButton.setIcon(qta.icon('fa5s.arrows-alt'))
+        self.limitsButton.setIconSize(QtCore.QSize(32, 32))
+        self.snapFilterButton.setIcon(qta.icon('fa5s.copy'))
+        self.acceptSnapButton.setIcon(qta.icon('fa5s.check'))
+        self.loadSnapButton.setIcon(qta.icon('fa5s.folder-open'))
+        self.resetButton.setIcon(qta.icon('fa5s.undo'))
+        self.optimiseButton.setIcon(qta.icon('fa5s.magic'))
+
+    def __set_tooltips(self):
+        self.snapFilterButton.setToolTip('Freeze snapshot')
+        self.loadSnapButton.setToolTip('Load snapshot')
+        self.acceptSnapButton.setToolTip('Apply snapshot')
+        self.resetButton.setToolTip('Reset snapshot')
+        self.optimiseButton.setToolTip('Optimise filters')
+        self.targetBiquadCount.setToolTip('Optimised filter target biquad count')
+        self.saveButton.setToolTip('Save')
+        self.exitButton.setToolTip('Exit')
+        self.limitsButton.setToolTip('Set Graph Limits')
+        self.addButton.setToolTip('Add New Filter')
+
+    def __connect_snapshot_buttons(self):
+        self.snapFilterButton.clicked.connect(self.__snap_filter)
+        self.resetButton.clicked.connect(self.__clear_snapshot)
+        self.acceptSnapButton.clicked.connect(self.__apply_snapshot)
+        self.loadSnapButton.clicked.connect(self.__load_filter_as_snapshot)
+        self.optimiseButton.clicked.connect(self.__optimise_filter)
+
+    def __snap_filter(self):
+        '''
+        Captures the current filter as the snapshot.
+        '''
+        self.__snapshot.filter = self.__combined_preview.preview(None)
+
+    def __clear_snapshot(self):
+        ''' Removes the current snapshot. '''
+        self.__snapshot.delete(range(len(self.__snapshot)))
+
+    def __apply_snapshot(self):
+        ''' Saves the snapshot as the filter. '''
+        if len(self.__snapshot) > 0:
+            snap = self.__snapshot.filter
+            self.__clear_snapshot()
+            snap.description = self.__filter_model.filter.description
+            self.__filter_model.filter = snap
+            self.__refresh_selector()
+            self.__magnitude_model.redraw()
+
+    def __load_filter_as_snapshot(self):
+        ''' Allows a filter to be loaded from a supported file format and set as the snapshot. '''
+        result = QMessageBox.question(self,
+                                      'Load Filter or XML?',
+                                      f"Do you want to load from a filter or a minidsp beq file?"
+                                      f"\n\nClick Yes to load from a filter or No for a beq file",
+                                      QMessageBox.Yes | QMessageBox.No,
+                                      QMessageBox.No)
+        load_xml = result == QMessageBox.No
+        loaded_snapshot = None
+        if load_xml is True:
+            from model.minidsp import load_as_filter
+            filters = load_as_filter(self, self.__preferences, self.__signal.fs)
+            if filters is not None:
+                loaded_snapshot = CompleteFilter(fs=self.__signal.fs, filters=filters, description='Snapshot')
+        else:
+            loaded_snapshot = load_filter(self)
+        if loaded_snapshot is not None:
+            self.__snapshot.filter = loaded_snapshot
+
+    def __optimise_filter(self):
+        '''
+        Optimises the current filter and stores it as a snapshot.
+        '''
+        current_filter = self.__combined_preview.preview(None)
+        to_save = self.targetBiquadCount.value() - current_filter.biquads
+        if to_save < 0:
+            optimised_filter = CompleteFilter(fs=current_filter.fs,
+                                              filters=optimise_filters(current_filter, current_filter.fs, -to_save),
+                                              description='Optimised')
+            self.__snapshot.filter = optimised_filter
+            self.__refresh_selector()
+            self.__magnitude_model.redraw()
+        else:
+            QMessageBox.information(self,
+                                    'Optimise Filters',
+                                    f"Current filter uses {current_filter.biquads} biquads so no optimisation required")
 
     @property
     def filter(self):
@@ -330,7 +442,8 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
     def __is_edit(self):
         return self.__original_id is not None
 
-    def __get_step(self, steps, value, default_idx):
+    @staticmethod
+    def __get_step(steps, value, default_idx):
         for idx, val in enumerate(steps):
             if str(val) == value:
                 return idx
@@ -367,18 +480,21 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
                     self.filter = self.create_shaping_filter(self.__original_id)
                 self.__combined_preview = self.__filter_model.preview(self.filter)
             else:
-                self.__combined_preview = self.__filter_model.preview(Passthrough(fs=self.__signal.fs))
+                self.__combined_preview = self.__filter_model.preview(None)
                 self.filter = None
             self.__magnitude_model.redraw()
 
     def getMagnitudeData(self, reference=None):
         ''' preview of the filter to display on the chart '''
-        result = self.__add_individual_filters()
+        result = []
+        if len(self.__snapshot) > 0:
+            result.append(self.__snapshot.getTransferFunction().getMagnitude(colour=get_filter_colour(len(result)),
+                                                                             linestyle='-.'))
+        self.__add_individual_filters(result)
         result.append(self.__combined_preview.getTransferFunction().getMagnitude(colour=FILTER_COLOURS[0]))
         return result
 
-    def __add_individual_filters(self):
-        result = []
+    def __add_individual_filters(self, result):
         if self.showIndividual.isChecked():
             for f in self.__filter_model:
                 if self.filter is not None and f.id == self.filter.id:
@@ -507,14 +623,6 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.sLabel.setVisible(is_shelf_filter)
         self.filterS.setVisible(is_shelf_filter)
         self.sStepButton.setVisible(is_shelf_filter)
-        self.addButton.setIcon(qta.icon('fa5s.plus'))
-        self.addButton.setIconSize(QtCore.QSize(32, 32))
-        self.saveButton.setIcon(qta.icon('fa5s.save'))
-        self.saveButton.setIconSize(QtCore.QSize(32, 32))
-        self.exitButton.setIcon(qta.icon('fa5s.sign-out-alt'))
-        self.exitButton.setIconSize(QtCore.QSize(32, 32))
-        self.limitsButton.setIcon(qta.icon('fa5s.arrows-alt'))
-        self.limitsButton.setIconSize(QtCore.QSize(32, 32))
         self.enableOkIfGainIsValid()
 
     def changeOrderStep(self):
@@ -647,3 +755,63 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.__preferences.set(DISPLAY_FREQ_STEP, str(step_val))
         self.freqStepButton.setText(str(step_val))
         self.freq.setSingleStep(step_val)
+
+
+def optimise_filters(filters, fs, to_save):
+    '''
+    Attempts to optimise the no of filters required.
+    :param filters: the filters to optimise.
+    :param fs: the sigma fs.
+    :param to_save: how many filters we want to save.
+    :return: the optimised filters.
+    '''
+    unstackable = sorted([f for f in filters if isinstance(f, Shelf) and f.count > 1],
+                         key=lambda f: f.count, reverse=True)
+    unstackable = sorted(unstackable, key=lambda f: f.gain * f.count, reverse=True)
+    weights = [w.gain * w.count for w in unstackable]
+    total_weight = sum(weights)
+    allocated = []
+    for weight in weights:
+        weight = float(weight)
+        p = weight / total_weight
+        distributed_amount = round(p * (to_save - sum(allocated)))
+        total_weight -= weight
+        allocated.append(distributed_amount)
+    new_filts = [f for f in filters if not isinstance(f, Shelf)]
+    for idx, s in enumerate(unstackable):
+        reduce_by = allocated[idx]
+        if reduce_by > 0:
+            total_gain = s.gain * s.count
+            new_count = s.count - reduce_by
+            if new_count > 0:
+                new_gain = total_gain / new_count
+                tmp_shelf = LowShelf(fs, s.freq, s.q, new_gain, count=new_count)
+                average_s = (tmp_shelf.q_to_s() + s.q_to_s()) / 2
+                new_shelf = LowShelf(fs, s.freq, s_to_q(average_s, new_gain), new_gain, count=new_count)
+                logger.info(f"Replacing {s} with {new_shelf}")
+                new_filts.append(new_shelf)
+            else:
+                raise ValueError('Invalid')
+        else:
+            new_filts.append(s)
+    return new_filts
+
+
+def load_filter(parent, status_bar=None):
+    '''
+    Presents a file dialog to the user so they can choose a filter to load.
+    :return: the loaded filter, if any.
+    '''
+    dialog = QFileDialog(parent=parent)
+    dialog.setFileMode(QFileDialog.ExistingFile)
+    dialog.setNameFilter(f"*.filter")
+    dialog.setWindowTitle(f"Load Filter")
+    if dialog.exec():
+        selected = dialog.selectedFiles()
+        if len(selected) > 0:
+            with open(selected[0], 'r') as infile:
+                input = json.load(infile)
+                if status_bar is not None:
+                    status_bar.showMessage(f"Loaded filter from {infile.name}")
+                return input
+    return None

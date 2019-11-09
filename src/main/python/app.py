@@ -49,7 +49,7 @@ from qtpy.QtWidgets import QMainWindow, QApplication, QErrorMessage, QAbstractIt
     QHeaderView, QMessageBox, QHBoxLayout, QToolButton
 
 from model.extract import ExtractAudioDialog
-from model.filter import FilterTableModel, FilterModel, FilterDialog
+from model.filter import FilterTableModel, FilterModel, FilterDialog, load_filter
 from model.log import RollingLogger
 from model.magnitude import MagnitudeModel
 from model.preferences import PreferencesDialog, BINARIES_GROUP, ANALYSIS_TARGET_FS, STYLE_MATPLOTLIB_THEME, \
@@ -143,7 +143,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         # filter view/model
         self.filterView.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.filterView.doubleClicked.connect(self.editFilter)
-        self.__filter_model = FilterModel(self.filterView, self.filtersLabel, self.preferences,
+        self.__filter_model = FilterModel(self.filterView, self.preferences, label=self.filtersLabel,
                                           on_update=self.on_filter_change)
         self.__filter_table_model = FilterTableModel(self.__filter_model, parent=parent)
         self.filterView.setModel(self.__filter_table_model)
@@ -560,7 +560,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Allows the user to replace the current filter with one loaded from a file.
         '''
-        filter_json = self.__load_filter()
+        filter_json = load_filter(self, self.statusbar)
         if filter_json is not None:
             self.__apply_filter(filter_json)
             self.__magnitude_model.redraw()
@@ -571,24 +571,6 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         filt = filter_from_json(filter_json).resample(signal.fs)
         signal.filter = filt
         self.__filter_model.filter = filt
-
-    def __load_filter(self):
-        '''
-        Presents a file dialog to the user so they can choose a filter to load.
-        :return: the loaded filter, if any.
-        '''
-        dialog = QFileDialog(parent=self)
-        dialog.setFileMode(QFileDialog.ExistingFile)
-        dialog.setNameFilter(f"*.filter")
-        dialog.setWindowTitle(f"Load Filter")
-        if dialog.exec():
-            selected = dialog.selectedFiles()
-            if len(selected) > 0:
-                with open(selected[0], 'r') as infile:
-                    input = json.load(infile)
-                    self.statusbar.showMessage(f"Loaded filter from {infile.name}")
-                    return input
-        return None
 
     def addFilter(self):
         '''
@@ -947,7 +929,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
 
         def __load_preset():
             preset_key = FILTERS_PRESET_x % idx
-            input = self.__load_filter()
+            input = load_filter(self, self.statusbar)
             if input is not None:
                 logger.info(f"Loaded filter for preset {idx}")
                 self.preferences.set(preset_key, input)
@@ -989,19 +971,13 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         Presents a file dialog to the user so they can choose a minidsp beq filter to load.
         :return: the loaded filter, if any.
         '''
-        from model.minidsp import xml_to_filt
-        from uuid import uuid4
+        from model.minidsp import load_as_filter
 
-        selected = QFileDialog.getOpenFileName(parent=self, directory=self.preferences.get(BEQ_DOWNLOAD_DIR),
-                                               caption='Load Minidsp XML Filter', filter='Filter (*.xml)')
-        filt_file = selected[0] if selected is not None else None
-        if filt_file is not None and len(filt_file) > 0:
-            filters = xml_to_filt(filt_file, self.__get_selected_signal().fs)
+        filters = load_as_filter(self, self.preferences, self.__get_selected_signal().fs)
+        if filters is not None:
             self.clearFilters()
-            if len(filters) > 0:
-                for f in filters:
-                    f.id = uuid4()
-                    self.__filter_model.save(f)
+            for f in filters:
+                self.__filter_model.save(f)
 
     def merge_minidsp_xml(self):
         '''

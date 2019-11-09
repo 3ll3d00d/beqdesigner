@@ -3,6 +3,7 @@ import logging
 import os
 import shutil
 from pathlib import Path
+from uuid import uuid4
 
 import qtawesome as qta
 from qtpy.QtCore import QObject, Signal, QRunnable, QThreadPool, Qt, QDateTime
@@ -703,6 +704,7 @@ def pad_with_passthrough(filters, fs, required, optimise=False):
         flattened_filters.extend(pad_filters)
     elif padding < 0:
         if optimise is True:
+            from model.filter import optimise_filters
             padded = pad_with_passthrough(optimise_filters(filters, fs, -padding), fs, required, optimise=False)
             raise OptimisedFilters(padded)
         raise TooManyFilters(f"BEQ has too many filters for device (remove {abs(padding)} biquads)")
@@ -716,52 +718,6 @@ class TooManyFilters(Exception):
 class OptimisedFilters(Exception):
     def __init__(self, flattened_filters):
         self.flattened_filters = flattened_filters
-
-
-def optimise_filters(filters, fs, to_save):
-    '''
-    Attempts to optimise the no of filters required.
-    :param filters:
-    :param fs:
-    :param to_save:
-    :return:
-    '''
-    unstackable = sorted([f for f in filters if isinstance(f, Shelf) and f.count > 1],
-                         key=lambda f: f.count, reverse=True)
-    unstackable = sorted(unstackable, key=lambda f: f.gain * f.count, reverse=True)
-
-    if len(unstackable) == 1:
-        s = unstackable[0]
-        new_filts = [f for f in filters if not isinstance(f, Shelf)]
-        total_gain = s.gain * s.count
-        new_count = s.count - to_save
-        if new_count > 0:
-            new_gain = total_gain / new_count
-            tmp_shelf = LowShelf(fs, s.freq, s.q, new_gain, count=new_count)
-            average_s = (tmp_shelf.q_to_s() + s.q_to_s()) / 2
-            new_shelf = LowShelf(fs, s.freq, s_to_q(average_s, new_gain), new_gain, count=new_count)
-            logger.info(f"Replacing {s} with {new_shelf}")
-            new_filts.append(new_shelf)
-            return new_filts
-    # reduce 1 from each
-    elif len(unstackable) >= to_save:
-        saved = 0
-        new_filts = [f for f in filters if not isinstance(f, Shelf)]
-        for s in unstackable:
-            if saved < to_save:
-                total_gain = s.gain * s.count
-                new_count = s.count - 1
-                new_gain = total_gain / new_count
-                tmp_shelf = LowShelf(fs, s.freq, s.q, new_gain, count=new_count)
-                average_s = (tmp_shelf.q_to_s() + s.q_to_s()) / 2
-                new_shelf = LowShelf(fs, s.freq, s_to_q(average_s, new_gain), new_gain, count=new_count)
-                logger.info(f"Replacing {s} with {new_shelf}")
-                new_filts.append(new_shelf)
-                saved += 1
-            else:
-                new_filts.append(s)
-        return new_filts
-    return filters
 
 
 class RepoRefresher:
@@ -830,3 +786,18 @@ def get_commit_url(repo):
     '''
     return f"{repo[0:-4]}/commit/"
 
+
+def load_as_filter(parent, preferences, fs):
+    '''
+    Load a minidsp xml file as a filter.
+    '''
+    selected = QFileDialog.getOpenFileName(parent=parent, directory=preferences.get(BEQ_DOWNLOAD_DIR),
+                                           caption='Load Minidsp XML Filter', filter='Filter (*.xml)')
+    filt_file = selected[0] if selected is not None else None
+    if filt_file is not None and len(filt_file) > 0:
+        filt = xml_to_filt(filt_file, fs)
+        if filt is not None and len(filt) > 0:
+            for f in filt:
+                f.id = uuid4()
+            return filt
+    return None

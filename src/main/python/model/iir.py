@@ -187,6 +187,10 @@ class Passthrough(Gain):
         super().__init__(fs, 0, f_id=f_id)
 
     @property
+    def display_name(self):
+        return 'Passthrough'
+
+    @property
     def description(self):
         return 'Passthrough'
 
@@ -778,11 +782,12 @@ class ComplexFilter(Sequence):
             self.listener.on_filter_change(self)
 
     def save0(self, filter, filters):
-        match = next((idx for idx, f in enumerate(filters) if f.id == filter.id), None)
-        if match is not None:
-            filters[match] = filter
-        else:
-            filters.append(filter)
+        if filter is not None:
+            match = next((idx for idx, f in enumerate(filters) if f.id == filter.id), None)
+            if match is not None:
+                filters[match] = filter
+            else:
+                filters.append(filter)
         return filters
 
     def removeByIndex(self, indices):
@@ -862,6 +867,13 @@ class CompleteFilter(ComplexFilter):
         else:
             return CompleteFilter(description=self.description, preset_idx=self.preset_idx, listener=listener,
                                   fs=new_fs, f_id=self.id)
+
+    @property
+    def biquads(self):
+        count = 0
+        for f in self:
+            count += len(f)
+        return count
 
 
 class FilterType(Enum):
