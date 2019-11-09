@@ -768,13 +768,14 @@ def optimise_filters(filters, fs, to_save):
     unstackable = sorted([f for f in filters if isinstance(f, Shelf) and f.count > 1],
                          key=lambda f: f.count, reverse=True)
     unstackable = sorted(unstackable, key=lambda f: f.gain * f.count, reverse=True)
-    weights = [w.gain * w.count for w in unstackable]
+    weights = [abs(w.gain * w.count) for w in unstackable]
     total_weight = sum(weights)
     allocated = []
-    for weight in weights:
+    for idx, weight in enumerate(weights):
         weight = float(weight)
         p = weight / total_weight
-        distributed_amount = round(p * (to_save - sum(allocated)))
+        max_amount = unstackable[idx].count - 1
+        distributed_amount = min(round(p * (to_save - sum(allocated))), max_amount)
         total_weight -= weight
         allocated.append(distributed_amount)
     new_filts = [f for f in filters if not isinstance(f, Shelf)]
