@@ -255,6 +255,20 @@
      <item row="8" column="1" colspan="4">
       <widget class="QListWidget" name="optimised"/>
      </item>
+     <item row="8" column="5">
+      <widget class="QToolButton" name="copyOptimisedButton">
+       <property name="text">
+        <string>...</string>
+       </property>
+      </widget>
+     </item>
+     <item row="9" column="5">
+      <widget class="QToolButton" name="copyErrorsButton">
+       <property name="text">
+        <string>...</string>
+       </property>
+      </widget>
+     </item>
     </layout>
    </item>
   </layout>
@@ -286,8 +300,8 @@
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>248</x>
-     <y>499</y>
+     <x>257</x>
+     <y>645</y>
     </hint>
     <hint type="destinationlabel">
      <x>157</x>
@@ -302,8 +316,8 @@
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>340</x>
-     <y>499</y>
+     <x>349</x>
+     <y>645</y>
     </hint>
     <hint type="destinationlabel">
      <x>286</x>
@@ -318,8 +332,8 @@
    <slot>pick_config_file()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>609</x>
-     <y>232</y>
+     <x>628</x>
+     <y>251</y>
     </hint>
     <hint type="destinationlabel">
      <x>379</x>
@@ -350,8 +364,8 @@
    <slot>process_files()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>609</x>
-     <y>350</y>
+     <x>628</x>
+     <y>329</y>
     </hint>
     <hint type="destinationlabel">
      <x>363</x>
@@ -366,8 +380,8 @@
    <slot>refresh_repo()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>609</x>
-     <y>76</y>
+     <x>628</x>
+     <y>54</y>
     </hint>
     <hint type="destinationlabel">
      <x>616</x>
@@ -382,8 +396,8 @@
    <slot>pick_user_source_dir()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>609</x>
-     <y>191</y>
+     <x>628</x>
+     <y>224</y>
     </hint>
     <hint type="destinationlabel">
      <x>616</x>
@@ -398,8 +412,8 @@
    <slot>clear_user_source_dir()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>560</x>
-     <y>179</y>
+     <x>596</x>
+     <y>224</y>
     </hint>
     <hint type="destinationlabel">
      <x>592</x>
@@ -423,6 +437,38 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>copyOptimisedButton</sender>
+   <signal>clicked()</signal>
+   <receiver>mergeMinidspDialog</receiver>
+   <slot>copy_optimised()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>615</x>
+     <y>409</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>624</x>
+     <y>462</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>copyErrorsButton</sender>
+   <signal>clicked()</signal>
+   <receiver>mergeMinidspDialog</receiver>
+   <slot>copy_errors()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>606</x>
+     <y>543</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>626</x>
+     <y>573</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>pick_config_file()</slot>
@@ -432,5 +478,7 @@
   <slot>pick_user_source_dir()</slot>
   <slot>clear_user_source_dir()</slot>
   <slot>update_beq_repo_status()</slot>
+  <slot>copy_optimised()</slot>
+  <slot>copy_errors()</slot>
  </slots>
 </ui>

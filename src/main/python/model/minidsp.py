@@ -6,6 +6,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import qtawesome as qta
+from qtpy.QtGui import QGuiApplication
 from qtpy.QtCore import QObject, Signal, QRunnable, QThreadPool, Qt, QDateTime
 from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox, QDialogButtonBox
 
@@ -36,9 +37,12 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
         self.refreshGitRepo.setIcon(qta.icon('fa5s.sync'))
         self.userSourceDirPicker.setIcon(qta.icon('fa5s.folder-open'))
         self.clearUserSourceDir.setIcon(qta.icon('fa5s.times', color='red'))
+        self.copyOptimisedButton.setIcon(qta.icon('fa5s.copy'))
+        self.copyErrorsButton.setIcon(qta.icon('fa5s.copy'))
         self.__preferences = prefs
         self.statusbar = statusbar
         self.optimised.setVisible(False)
+        self.copyOptimisedButton.setVisible(False)
         self.optimisedLabel.setVisible(False)
         config_file = self.__preferences.get(BEQ_CONFIG_FILE)
         if config_file is not None and len(config_file) > 0 and os.path.exists(config_file):
@@ -211,9 +215,12 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
             self.__start_spinning()
             self.errors.clear()
             self.errors.setEnabled(False)
+            self.copyErrorsButton.setEnabled(False)
             self.optimised.clear()
             self.optimised.setEnabled(False)
+            self.copyOptimisedButton.setEnabled(False)
             self.optimised.setVisible(optimise_filters)
+            self.copyOptimisedButton.setVisible(optimise_filters)
             self.optimisedLabel.setVisible(optimise_filters)
             QThreadPool.globalInstance().start(XmlProcessor(self.__beq_dir,
                                                             self.userSourceDir.text(),
@@ -228,6 +235,7 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
 
     def __on_file_fail(self, file, message):
         self.errors.setEnabled(True)
+        self.copyErrorsButton.setEnabled(True)
         self.errors.addItem(f"{file} - {message}")
 
     def __on_file_ok(self):
@@ -238,6 +246,7 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
 
     def __on_optimised(self, file):
         self.optimised.setEnabled(True)
+        self.copyOptimisedButton.setEnabled(True)
         self.optimised.addItem(f"{file}")
         self.filesProcessed.setValue(self.filesProcessed.value()+1)
 
@@ -347,6 +356,22 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
         '''
         enable = os.path.exists(self.configFile.text()) and os.path.exists(self.outputDirectory.text())
         self.processFiles.setEnabled(enable)
+
+    def copy_optimised(self):
+        '''
+        Copy the optimised files to the clipboard
+        '''
+        self.__to_clipboard(self.optimised)
+
+    def copy_errors(self):
+        '''
+        Copy the errored files to the clipboard
+        '''
+        self.__to_clipboard(self.errors)
+
+    @staticmethod
+    def __to_clipboard(widget):
+        QGuiApplication.clipboard().setText('\n'.join([widget.item(i).text() for i in range(widget.count())]))
 
 
 class ProcessSignals(QObject):

@@ -791,7 +791,7 @@ def optimise_filters(filters, fs, to_save):
                 logger.info(f"Replacing {s} with {new_shelf}")
                 new_filts.append(new_shelf)
             else:
-                raise ValueError('Invalid')
+                raise ValueError(f"Attempted to reduce shelf count to 0 from {s.count}")
         else:
             new_filts.append(s)
     return new_filts
