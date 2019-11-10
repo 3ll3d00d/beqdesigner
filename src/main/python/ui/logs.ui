@@ -24,33 +24,16 @@
     </sizepolicy>
    </property>
    <layout class="QGridLayout" name="gridLayout">
-    <item row="0" column="0">
-     <widget class="QLabel" name="label">
-      <property name="text">
-       <string>Log Size</string>
+    <item row="3" column="0" colspan="2">
+     <widget class="QPlainTextEdit" name="logViewer">
+      <property name="font">
+       <font>
+        <family>Consolas</family>
+        <pointsize>9</pointsize>
+       </font>
       </property>
-     </widget>
-    </item>
-    <item row="0" column="1">
-     <widget class="QSpinBox" name="maxRows">
-      <property name="minimum">
-       <number>10</number>
-      </property>
-      <property name="maximum">
-       <number>5000</number>
-      </property>
-      <property name="singleStep">
-       <number>10</number>
-      </property>
-      <property name="value">
-       <number>1000</number>
-      </property>
-     </widget>
-    </item>
-    <item row="1" column="0">
-     <widget class="QLabel" name="label_2">
-      <property name="text">
-       <string>Log Level</string>
+      <property name="readOnly">
+       <bool>true</bool>
       </property>
      </widget>
     </item>
@@ -86,29 +69,62 @@
       </item>
      </widget>
     </item>
-    <item row="2" column="0" colspan="2">
-     <widget class="QPlainTextEdit" name="logViewer">
-      <property name="font">
-       <font>
-        <family>Consolas</family>
-        <pointsize>9</pointsize>
-       </font>
-      </property>
-      <property name="readOnly">
-       <bool>true</bool>
+    <item row="0" column="0">
+     <widget class="QLabel" name="logSizeLabel">
+      <property name="text">
+       <string>Log Size</string>
       </property>
      </widget>
+    </item>
+    <item row="0" column="1">
+     <widget class="QSpinBox" name="maxRows">
+      <property name="minimum">
+       <number>10</number>
+      </property>
+      <property name="maximum">
+       <number>5000</number>
+      </property>
+      <property name="singleStep">
+       <number>10</number>
+      </property>
+      <property name="value">
+       <number>1000</number>
+      </property>
+     </widget>
+    </item>
+    <item row="1" column="0">
+     <widget class="QLabel" name="logLevelLabel">
+      <property name="text">
+       <string>Log Level</string>
+      </property>
+     </widget>
+    </item>
+    <item row="2" column="0">
+     <widget class="QLabel" name="excludesLabel">
+      <property name="text">
+       <string>Excludes</string>
+      </property>
+     </widget>
+    </item>
+    <item row="2" column="1">
+     <widget class="QLineEdit" name="excludes"/>
     </item>
    </layout>
   </widget>
  </widget>
+ <tabstops>
+  <tabstop>maxRows</tabstop>
+  <tabstop>logLevel</tabstop>
+  <tabstop>excludes</tabstop>
+  <tabstop>logViewer</tabstop>
+ </tabstops>
  <resources/>
  <connections>
   <connection>
    <sender>maxRows</sender>
    <signal>valueChanged(int)</signal>
    <receiver>logsForm</receiver>
-   <slot>setLogSize()</slot>
+   <slot>set_log_size()</slot>
    <hints>
     <hint type="sourcelabel">
      <x>584</x>
@@ -124,7 +140,7 @@
    <sender>logLevel</sender>
    <signal>currentTextChanged(QString)</signal>
    <receiver>logsForm</receiver>
-   <slot>setLogLevel()</slot>
+   <slot>set_log_level()</slot>
    <hints>
     <hint type="sourcelabel">
      <x>551</x>
@@ -136,9 +152,26 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>excludes</sender>
+   <signal>returnPressed()</signal>
+   <receiver>logsForm</receiver>
+   <slot>set_excludes()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>125</x>
+     <y>98</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>62</x>
+     <y>-6</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
-  <slot>setLogSize()</slot>
-  <slot>setLogLevel()</slot>
+  <slot>set_log_size()</slot>
+  <slot>set_log_level()</slot>
+  <slot>set_excludes()</slot>
  </slots>
 </ui>
