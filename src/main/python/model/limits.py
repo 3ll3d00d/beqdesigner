@@ -38,7 +38,15 @@ class dBRangeCalculator:
 
     def __init__(self, default_range=60, expand=False):
         self.__default_range = default_range
-        self.expand_range = expand
+        self.__expand_range = expand
+
+    @property
+    def expand_range(self):
+        return self.__expand_range
+
+    @expand_range.setter
+    def expand_range(self, expand_range):
+        self.__expand_range = expand_range
 
     def calculate(self, y_range):
         '''

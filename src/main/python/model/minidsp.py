@@ -233,10 +233,10 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
                                                             self.__on_optimised,
                                                             optimise_filters))
 
-    def __on_file_fail(self, file, message):
+    def __on_file_fail(self, dir_name, file, message):
         self.errors.setEnabled(True)
         self.copyErrorsButton.setEnabled(True)
-        self.errors.addItem(f"{file} - {message}")
+        self.errors.addItem(f"{dir_name} - {file} - {message}")
 
     def __on_file_ok(self):
         self.filesProcessed.setValue(self.filesProcessed.value()+1)
@@ -244,10 +244,10 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
     def __on_complete(self):
         self.__stop_spinning()
 
-    def __on_optimised(self, file):
+    def __on_optimised(self, dir_name, file):
         self.optimised.setEnabled(True)
         self.copyOptimisedButton.setEnabled(True)
-        self.optimised.addItem(f"{file}")
+        self.optimised.addItem(f"{dir_name} - {file}")
         self.filesProcessed.setValue(self.filesProcessed.value()+1)
 
     def __stop_spinning(self):
@@ -375,10 +375,10 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
 
 
 class ProcessSignals(QObject):
-    on_failure = Signal(str, str)
+    on_failure = Signal(str, str, str)
     on_success = Signal()
     on_complete = Signal()
-    on_optimised = Signal(str)
+    on_optimised = Signal(str, str)
 
 
 class XmlProcessor(QRunnable):
@@ -420,6 +420,7 @@ class XmlProcessor(QRunnable):
         :param base_parts_idx: the path index to start from.
         :param xml: the source xml.
         '''
+        dir_parts = []
         try:
             dir_parts = xml.parts[base_parts_idx:-1]
             file_output_dir = os.path.join(self.__output_dir, *dir_parts)
@@ -442,10 +443,10 @@ class XmlProcessor(QRunnable):
             if was_optimised is False:
                 self.__signals.on_success.emit()
             else:
-                self.__signals.on_optimised.emit(xml.name)
+                self.__signals.on_optimised.emit(' - '.join(dir_parts), xml.name)
         except Exception as e:
             logger.exception(f"Unexpected failure during processing of {xml}")
-            self.__signals.on_failure.emit(xml.name, str(e))
+            self.__signals.on_failure.emit(' - '.join(dir_parts), xml.name, str(e))
 
 
 class TwoByFourXmlParser:

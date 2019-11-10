@@ -164,7 +164,7 @@ class MagnitudeModel:
             primary_axes.set_zorder(secondary_axes.get_zorder() + 1)
             primary_axes.patch.set_visible(False)
         self.__secondary = AxesManager(secondary_data_provider, secondary_axes, fill_curves, fill_alpha)
-        if isinstance(db_range_calc, dBRangeCalculator):
+        if isinstance(db_range_calc, dBRangeCalculator) and not db_range_calc.expand_range:
             db_range_calc.expand_range = preferences.get(GRAPH_EXPAND_Y)
         self.limits = Limits(self.__repr__(), self.__redraw_func, primary_axes,
                              x_lim=(preferences.get(x_min_pref_key), preferences.get(x_max_pref_key)),
