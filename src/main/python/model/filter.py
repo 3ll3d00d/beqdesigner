@@ -820,7 +820,7 @@ def optimise_filters(filters, fs, to_save):
         distributed_amount = min(round(p * (to_save - sum(allocated))), max_amount)
         total_weight -= weight
         allocated.append(distributed_amount)
-    new_filts = [f for f in filters if not isinstance(f, Shelf)]
+    new_filts = [f for f in filters if not isinstance(f, Shelf) or f.count < 2]
     for idx, s in enumerate(unstackable):
         reduce_by = allocated[idx]
         if reduce_by > 0:
