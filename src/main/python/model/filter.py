@@ -93,6 +93,16 @@ class FilterModel(Sequence):
         '''
         return self.filter.preview(filter)
 
+    def clone(self, detach=False):
+        '''
+        Clones the current filter.
+        '''
+        clone = self.filter.preview(None)
+        if detach is True:
+            for f in clone:
+                f.id = uuid4()
+        return clone
+
     def delete(self, indices):
         '''
         Deletes the filter at the specified index.
@@ -261,38 +271,44 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.__magnitude_model = MagnitudeModel('preview', self.previewChart, preferences, self, 'Filter',
                                                 db_range_calc=dBRangeCalculator(30, expand=True), fill_curves=True)
         # copy the filter into the working table
-        self.__working.filter = self.__filter_model.preview(None)
+        self.__working.filter = self.__filter_model.clone()
         # and initialise the view
-        if selected_filter is None:
+        for idx, f in enumerate(self.__working):
+            selected = selected_filter is not None and f.id == selected_filter.id
+            f.id = uuid4()
+            if selected is True:
+                self.__selected_id = f.id
+                self.workingFilterView.selectRow(idx)
+        if self.__selected_id is None:
             self.__add_working_filter()
-        else:
-            for idx, f in enumerate(self.__working):
-                if f.id == self.__selected_id:
-                    self.workingFilterView.selectRow(idx)
 
     def __select_working_filter(self):
         ''' Loads the selected filter into the edit fields. '''
         selection = self.workingFilterView.selectionModel()
         if selection.hasSelection():
             idx = selection.selectedRows()[0].row()
-            self.select_filter(idx, self.__working[idx])
+            self.headerLabel.setText(f"Working Filter {idx+1}")
+            self.__select_filter(self.__working[idx])
 
     def __select_snapshot_filter(self):
         ''' Loads the selected filter into the edit fields. '''
         selection = self.snapshotFilterView.selectionModel()
         if selection.hasSelection():
             idx = selection.selectedRows()[0].row()
-            self.select_filter(idx, self.__snapshot[idx])
+            self.headerLabel.setText(f"Snapshot Filter {idx+1}")
+            self.__select_filter(self.__snapshot[idx])
 
-    def __on_snapshot_change(self, visible_names):
+    def __on_snapshot_change(self, _):
         ''' makes the snapshot table visible when we have one. '''
         self.snapshotFilterView.setVisible(len(self.__snapshot) > 0)
         self.snapshotViewButtonWidget.setVisible(len(self.__snapshot) > 0)
         self.__magnitude_model.redraw()
+        return True
 
     def __on_working_change(self, visible_names):
         ''' ensure the graph redraws when a filter changes. '''
         self.__magnitude_model.redraw()
+        return True
 
     def __decorate_ui(self):
         ''' polishes the UI by setting tooltips, adding icons and connecting widgets to functions. '''
@@ -356,6 +372,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.__working.save(new_filter)
         for idx, f in enumerate(self.__working):
             if f.id == new_filter.id:
+                self.__selected_id = f.id
                 self.workingFilterView.selectRow(idx)
 
     def __remove_working_filter(self):
@@ -378,8 +395,11 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
 
     def __add_snapshot_filter(self):
         ''' adds a new filter. '''
-        self.__snapshot.save(self.__make_default_filter())
-        self.snapshotFilterView.selectRow(len(self.__snapshot) - 1)
+        new_filter = self.__make_default_filter()
+        self.__snapshot.save(new_filter)
+        for idx, f in enumerate(self.__snapshot):
+            if f.id == new_filter.id:
+                self.snapshotFilterView.selectRow(idx)
 
     def __make_default_filter(self):
         ''' Creates a new filter using the default preferences. '''
@@ -401,7 +421,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         '''
         Captures the current filter as the snapshot.
         '''
-        self.__snapshot.filter = self.__working.preview(None)
+        self.__snapshot.filter = self.__working.clone()
 
     def __clear_snapshot(self):
         ''' Removes the current snapshot. '''
@@ -439,7 +459,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         '''
         Optimises the current filter and stores it as a snapshot.
         '''
-        current_filter = self.__working.preview(None)
+        current_filter = self.__working.clone()
         to_save = self.targetBiquadCount.value() - current_filter.biquads
         if to_save < 0:
             optimised_filter = CompleteFilter(fs=current_filter.fs,
@@ -455,12 +475,11 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         ''' shows the limits dialog for the filter chart. '''
         self.__magnitude_model.show_limits()
 
-    def select_filter(self, idx, selected_filter):
+    def __select_filter(self, selected_filter):
         ''' Refreshes the params and display with the selected filter '''
         from model.report import block_signals
         self.__selected_id = selected_filter.id
         # populate the fields with values if we're editing an existing filter
-        self.setWindowTitle(f"Edit Filter {idx + 1}")
         if hasattr(selected_filter, 'gain'):
             with block_signals(self.filterGain):
                 self.filterGain.setValue(selected_filter.gain)
@@ -486,8 +505,6 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.enableFilterParams()
         with block_signals(self.freq):
             self.freq.setMaximum(self.__signal.fs / 2.0)
-        # ensure the preview graph is shown if we have something to show
-        self.previewFilter()
 
     @staticmethod
     def __get_step(steps, value, default_idx):
@@ -507,7 +524,26 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
 
     def previewFilter(self):
         ''' creates a filter if the params are valid '''
-        self.__working.save(self.__create_filter())
+        if self.headerLabel.text().startswith('Working'):
+            active_model = self.__working
+            active_view = self.workingFilterView
+        else:
+            active_model = self.__snapshot
+            active_view = self.snapshotFilterView
+        active_model.save(self.__create_filter())
+        self.__ensure_filter_is_selected(active_view, active_model)
+
+    def __ensure_filter_is_selected(self, active_view, active_model):
+        '''
+        Filter model resets the model on every change, this clears the selection so we have to restore that selection
+        to ensure the row remains visibly selected while also blocking signals to avoid a pointless update of the
+        fields.
+        '''
+        for idx, f in enumerate(active_model):
+            if f.id == self.__selected_id:
+                from model.report import block_signals
+                with block_signals(active_view):
+                    active_view.selectRow(idx)
 
     def getMagnitudeData(self, reference=None):
         ''' preview of the filter to display on the chart '''

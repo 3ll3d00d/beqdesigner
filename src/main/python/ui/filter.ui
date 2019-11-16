@@ -470,9 +470,24 @@
       </widget>
      </item>
      <item row="1" column="0" colspan="2">
-      <widget class="QLabel" name="label">
+      <widget class="QLabel" name="headerLabel">
+       <property name="font">
+        <font>
+         <weight>75</weight>
+         <bold>true</bold>
+        </font>
+       </property>
+       <property name="frameShape">
+        <enum>QFrame::Box</enum>
+       </property>
+       <property name="frameShadow">
+        <enum>QFrame::Sunken</enum>
+       </property>
        <property name="text">
         <string/>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignCenter</set>
        </property>
       </widget>
      </item>
@@ -836,7 +851,6 @@
   <slot>handleQToolButton()</slot>
   <slot>handleGainToolButton()</slot>
   <slot>handleFreqToolButton()</slot>
-  <slot>select_filter()</slot>
   <slot>show_limits()</slot>
  </slots>
 </ui>

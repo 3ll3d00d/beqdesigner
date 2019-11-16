@@ -906,6 +906,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
             self.__apply_filter(preset)
             self.__filter_model.filter.preset_idx = idx
             self.__check_active_preset(idx)
+            self.on_filter_selected()
 
     def __check_active_preset(self, preset_idx):
         pattern = re.compile("^preset[0-9]Button$")

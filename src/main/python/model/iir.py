@@ -163,8 +163,8 @@ class Gain(Biquad):
 
 class BiquadWithQ(Biquad):
     def __init__(self, fs, freq, q, f_id=-1):
-        self.freq = round(freq, 2)
-        self.q = round(q, 4)
+        self.freq = round(float(freq), 2)
+        self.q = round(float(q), 4)
         self.w0 = 2.0 * math.pi * freq / fs
         self.cos_w0 = math.cos(self.w0)
         self.sin_w0 = math.sin(self.w0)
@@ -206,7 +206,7 @@ class Passthrough(Gain):
 
 class BiquadWithQGain(BiquadWithQ):
     def __init__(self, fs, freq, q, gain, f_id=-1):
-        self.gain = round(gain, 3)
+        self.gain = round(float(gain), 3)
         super().__init__(fs, freq, q, f_id=f_id)
 
     def __eq__(self, o: object) -> bool:
