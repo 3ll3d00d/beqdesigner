@@ -524,16 +524,20 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
 
     def previewFilter(self):
         ''' creates a filter if the params are valid '''
-        if self.headerLabel.text().startswith('Working'):
+        active_model, active_view = self.__get_active()
+        active_model.save(self.__create_filter())
+        self.__ensure_filter_is_selected(active_model, active_view)
+
+    def __get_active(self):
+        if self.headerLabel.text().startswith('Working') or len(self.headerLabel.text()) == 0:
             active_model = self.__working
             active_view = self.workingFilterView
         else:
             active_model = self.__snapshot
             active_view = self.snapshotFilterView
-        active_model.save(self.__create_filter())
-        self.__ensure_filter_is_selected(active_view, active_model)
+        return active_model, active_view
 
-    def __ensure_filter_is_selected(self, active_view, active_model):
+    def __ensure_filter_is_selected(self, active_model, active_view):
         '''
         Filter model resets the model on every change, this clears the selection so we have to restore that selection
         to ensure the row remains visibly selected while also blocking signals to avoid a pointless update of the
@@ -561,7 +565,8 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
                                          .getMagnitude(colour=get_filter_colour(len(result) + extra), linestyle='-.'))
         else:
             extra += 1
-        for f in self.__working:
+        active_model, _ = self.__get_active()
+        for f in active_model:
             if self.showIndividual.isChecked() or f.id == self.__selected_id:
                 style = '--' if f.id == self.__selected_id else ':'
                 result.append(f.getTransferFunction()
