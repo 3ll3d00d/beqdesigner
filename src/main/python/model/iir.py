@@ -891,7 +891,7 @@ class CompoundPassFilter(ComplexFilter):
         self.__bw2 = two_pole_ctor
         self.type = filter_type
         self.order = order
-        self.freq = round(freq, 2)
+        self.freq = round(float(freq), 2)
         if self.type is FilterType.LINKWITZ_RILEY:
             if self.order % 2 != 0:
                 raise ValueError("LR filters must be even order")

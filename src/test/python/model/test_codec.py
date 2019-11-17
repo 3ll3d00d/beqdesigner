@@ -41,7 +41,7 @@ def test_codec_Gain():
 def test_codec_PeakingEQ():
     filter = PeakingEQ(48000, 100, 0.707, 4.3)
     output = json.dumps(filter.to_json())
-    assert output == '{"_type": "PeakingEQ", "fs": 48000, "fc": 100, "q": 0.707, "gain": 4.3}'
+    assert output == '{"_type": "PeakingEQ", "fs": 48000, "fc": 100.0, "q": 0.707, "gain": 4.3}'
     decoded = filter_from_json(json.loads(output))
     assert decoded is not None
     assert isinstance(decoded, PeakingEQ)
@@ -55,7 +55,7 @@ def test_codec_PeakingEQ():
 def test_codec_LowShelf():
     filter = LowShelf(48000, 20, 1.5, 2.5)
     output = json.dumps(filter.to_json())
-    assert output == '{"_type": "LowShelf", "fs": 48000, "fc": 20, "q": 1.5, "gain": 2.5, "count": 1}'
+    assert output == '{"_type": "LowShelf", "fs": 48000, "fc": 20.0, "q": 1.5, "gain": 2.5, "count": 1}'
     decoded = filter_from_json(json.loads(output))
     assert decoded is not None
     assert isinstance(decoded, LowShelf)
@@ -70,7 +70,7 @@ def test_codec_LowShelf():
 def test_codec_StackedLowShelf():
     filter = LowShelf(48000, 20, 1.5, 2.5, count=5)
     output = json.dumps(filter.to_json())
-    assert output == '{"_type": "LowShelf", "fs": 48000, "fc": 20, "q": 1.5, "gain": 2.5, "count": 5}'
+    assert output == '{"_type": "LowShelf", "fs": 48000, "fc": 20.0, "q": 1.5, "gain": 2.5, "count": 5}'
     decoded = filter_from_json(json.loads(output))
     assert decoded is not None
     assert isinstance(decoded, LowShelf)
@@ -85,7 +85,7 @@ def test_codec_StackedLowShelf():
 def test_codec_HighShelf():
     filter = HighShelf(48000, 20, 1.5, 2.5)
     output = json.dumps(filter.to_json())
-    assert output == '{"_type": "HighShelf", "fs": 48000, "fc": 20, "q": 1.5, "gain": 2.5, "count": 1}'
+    assert output == '{"_type": "HighShelf", "fs": 48000, "fc": 20.0, "q": 1.5, "gain": 2.5, "count": 1}'
     decoded = filter_from_json(json.loads(output))
     assert decoded is not None
     assert isinstance(decoded, HighShelf)
@@ -100,7 +100,7 @@ def test_codec_HighShelf():
 def test_codec_StackedHighShelf():
     filter = HighShelf(48000, 20, 1.5, 2.5, count=5)
     output = json.dumps(filter.to_json())
-    assert output == '{"_type": "HighShelf", "fs": 48000, "fc": 20, "q": 1.5, "gain": 2.5, "count": 5}'
+    assert output == '{"_type": "HighShelf", "fs": 48000, "fc": 20.0, "q": 1.5, "gain": 2.5, "count": 5}'
     decoded = filter_from_json(json.loads(output))
     assert decoded is not None
     assert isinstance(decoded, HighShelf)
@@ -115,7 +115,7 @@ def test_codec_StackedHighShelf():
 def test_codec_FirstOrderLowPass():
     filter = FirstOrder_LowPass(48000, 2000, 1.5)
     output = json.dumps(filter.to_json())
-    assert output == '{"_type": "FirstOrder_LowPass", "fs": 48000, "fc": 2000, "q": 1.5}'
+    assert output == '{"_type": "FirstOrder_LowPass", "fs": 48000, "fc": 2000.0, "q": 1.5}'
     decoded = filter_from_json(json.loads(output))
     assert decoded is not None
     assert isinstance(decoded, FirstOrder_LowPass)
@@ -128,7 +128,7 @@ def test_codec_FirstOrderLowPass():
 def test_codec_FirstOrderHighPass():
     filter = FirstOrder_HighPass(48000, 2000, 1.5)
     output = json.dumps(filter.to_json())
-    assert output == '{"_type": "FirstOrder_HighPass", "fs": 48000, "fc": 2000, "q": 1.5}'
+    assert output == '{"_type": "FirstOrder_HighPass", "fs": 48000, "fc": 2000.0, "q": 1.5}'
     decoded = filter_from_json(json.loads(output))
     assert decoded is not None
     assert isinstance(decoded, FirstOrder_HighPass)
@@ -141,7 +141,7 @@ def test_codec_FirstOrderHighPass():
 def test_codec_SecondOrderLowPass():
     filter = SecondOrder_LowPass(48000, 2000, 1.5)
     output = json.dumps(filter.to_json())
-    assert output == '{"_type": "SecondOrder_LowPass", "fs": 48000, "fc": 2000, "q": 1.5}'
+    assert output == '{"_type": "SecondOrder_LowPass", "fs": 48000, "fc": 2000.0, "q": 1.5}'
     decoded = filter_from_json(json.loads(output))
     assert decoded is not None
     assert isinstance(decoded, SecondOrder_LowPass)
@@ -154,7 +154,7 @@ def test_codec_SecondOrderLowPass():
 def test_codec_SecondOrderHighPass():
     filter = SecondOrder_HighPass(48000, 2000, 1.5)
     output = json.dumps(filter.to_json())
-    assert output == '{"_type": "SecondOrder_HighPass", "fs": 48000, "fc": 2000, "q": 1.5}'
+    assert output == '{"_type": "SecondOrder_HighPass", "fs": 48000, "fc": 2000.0, "q": 1.5}'
     decoded = filter_from_json(json.loads(output))
     assert decoded is not None
     assert isinstance(decoded, SecondOrder_HighPass)
@@ -167,7 +167,7 @@ def test_codec_SecondOrderHighPass():
 def test_codec_AllPass():
     filter = AllPass(1000, 250, 1.5)
     output = json.dumps(filter.to_json())
-    assert output == '{"_type": "AllPass", "fs": 1000, "fc": 250, "q": 1.5}'
+    assert output == '{"_type": "AllPass", "fs": 1000, "fc": 250.0, "q": 1.5}'
     decoded = filter_from_json(json.loads(output))
     assert decoded is not None
     assert isinstance(decoded, AllPass)
@@ -180,7 +180,7 @@ def test_codec_AllPass():
 def test_codec_ComplexLowPass():
     filter = ComplexLowPass(FilterType.BUTTERWORTH, 2, 48000, 100)
     output = json.dumps(filter.to_json())
-    assert output == '{"_type": "ComplexLowPass", "filter_type": "BW", "order": 2, "fs": 48000, "fc": 100}'
+    assert output == '{"_type": "ComplexLowPass", "filter_type": "BW", "order": 2, "fs": 48000, "fc": 100.0}'
     decoded = filter_from_json(json.loads(output))
     assert decoded is not None
     assert isinstance(decoded, ComplexLowPass)
@@ -194,7 +194,7 @@ def test_codec_ComplexLowPass():
 def test_codec_ComplexHighPass():
     filter = ComplexHighPass(FilterType.LINKWITZ_RILEY, 2, 48000, 100)
     output = json.dumps(filter.to_json())
-    assert output == '{"_type": "ComplexHighPass", "filter_type": "LR", "order": 2, "fs": 48000, "fc": 100}'
+    assert output == '{"_type": "ComplexHighPass", "filter_type": "LR", "order": 2, "fs": 48000, "fc": 100.0}'
     decoded = filter_from_json(json.loads(output))
     assert decoded is not None
     assert isinstance(decoded, ComplexHighPass)
@@ -212,9 +212,9 @@ def test_codec_CompleteFilter():
                             description='Hello from me')
     output = json.dumps(filter.to_json())
     expected = '{"_type": "CompleteFilter", "description": "Hello from me", "fs": 1000, "filters": [' \
-               '{"_type": "ComplexHighPass", "filter_type": "BW", "order": 6, "fs": 1000, "fc": 12}, ' \
-               '{"_type": "LowShelf", "fs": 1000, "fc": 25, "q": 1, "gain": 3.2, "count": 3}, ' \
-               '{"_type": "PeakingEQ", "fs": 1000, "fc": 50, "q": 3.2, "gain": -5}' \
+               '{"_type": "ComplexHighPass", "filter_type": "BW", "order": 6, "fs": 1000, "fc": 12.0}, ' \
+               '{"_type": "LowShelf", "fs": 1000, "fc": 25.0, "q": 1.0, "gain": 3.2, "count": 3}, ' \
+               '{"_type": "PeakingEQ", "fs": 1000, "fc": 50.0, "q": 3.2, "gain": -5.0}' \
                ']}'
     assert output == expected
     decoded = filter_from_json(json.loads(output))
