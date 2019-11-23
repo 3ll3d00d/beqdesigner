@@ -107,10 +107,14 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
     def refresh_repo(self):
         from app import wait_cursor
         with wait_cursor():
-            RepoRefresher(self.__beq_dir, self.__beq_repos).refresh()
-            self.update_beq_repo_status(self.beqRepos.currentText())
-            self.update_beq_count()
-            self.filesProcessed.setValue(0)
+            refresher = RepoRefresher(self.__beq_dir, self.__beq_repos)
+            refresher.signals.on_end.connect(lambda: self.__refresh_complete())
+            QThreadPool.globalInstance().start(refresher)
+
+    def __refresh_complete(self):
+        self.update_beq_repo_status(self.beqRepos.currentText())
+        self.update_beq_count()
+        self.filesProcessed.setValue(0)
 
     def update_beq_repo_status(self, repo_url):
         ''' updates the displayed state of the selected beq repo '''
@@ -746,11 +750,25 @@ class OptimisedFilters(Exception):
         self.flattened_filters = flattened_filters
 
 
-class RepoRefresher:
+class RefreshSignals(QObject):
+    on_start = Signal()
+    on_end = Signal()
+
+
+class RepoRefresher(QRunnable):
 
     def __init__(self, repo_dir, repos):
+        super().__init__()
         self.repo_dir = repo_dir
         self.repos = repos
+        self.signals = RefreshSignals()
+
+    def run(self):
+        self.signals.on_start.emit()
+        try:
+            self.refresh()
+        except:
+            self.signals.on_end.emit()
 
     def refresh(self):
         ''' Pulls or clones the named repository '''

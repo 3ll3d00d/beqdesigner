@@ -5,7 +5,9 @@ from pathlib import Path
 import qtawesome as qta
 import matplotlib
 import matplotlib.style as style
-from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox, QDialogButtonBox
+from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox, QDialogButtonBox, QApplication
+from qtpy.QtCore import QThreadPool, Qt
+from qtpy.QtGui import QCursor
 
 from ui.preferences import Ui_preferencesDialog
 
@@ -691,9 +693,13 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
     def updateBeq(self):
         ''' Pulls or clones the named repository '''
         from model.minidsp import RepoRefresher
+        refresher = RepoRefresher(self.beqFiltersDir.text(), self.__get_beq_repos())
+        refresher.signals.on_end.connect(lambda: self.__count_and_return_cursor())
+        QThreadPool.globalInstance().start(refresher)
+
+    def __count_and_return_cursor(self):
         from app import wait_cursor
         with wait_cursor():
-            RepoRefresher(self.beqFiltersDir.text(), self.__get_beq_repos()).refresh()
             self.__count_beq_files()
 
     def __get_beq_repos(self):
