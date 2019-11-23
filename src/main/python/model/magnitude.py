@@ -297,3 +297,9 @@ class MagnitudeModel:
         :return: true if the chart is visible.
         '''
         return self.__chart.isVisible()
+
+    def export_chart(self, status_bar=None):
+        ''' Exports the chart. '''
+        from app import SaveChartDialog, MatplotlibExportProcessor
+        SaveChartDialog(self.__chart, self.__name, self.__chart.canvas.figure,
+                        MatplotlibExportProcessor(self.__chart.canvas.figure), statusbar=status_bar).exec()

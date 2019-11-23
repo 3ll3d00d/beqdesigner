@@ -184,11 +184,13 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
 
     def save_chart(self):
         ''' opens the save chart dialog '''
-        from app import SaveChartDialog
+        from app import SaveChartDialog, MatplotlibExportProcessor
         if self.analysisTabs.currentIndex() == 0:
-            SaveChartDialog(self, 'peak spectrum', self.spectrumChart.canvas.figure).exec()
+            SaveChartDialog(self, 'peak spectrum', self.spectrumChart.canvas.figure,
+                            MatplotlibExportProcessor(self.spectrumChart.canvas.figure)).exec()
         elif self.analysisTabs.currentIndex() == 1:
-            SaveChartDialog(self, 'waveform', self.waveformChart.canvas.figure).exec()
+            SaveChartDialog(self, 'waveform', self.waveformChart.canvas.figure,
+                            MatplotlibExportProcessor(self.waveformChart.canvas.figure)).exec()
 
     def select_wav_file(self):
         '''

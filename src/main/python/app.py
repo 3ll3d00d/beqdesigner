@@ -1,3 +1,4 @@
+import abc
 import collections
 import gzip
 import json
@@ -237,7 +238,8 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
                                                         self.showStatsButton,
                                                         self.yMin,
                                                         self.yMax,
-                                                        self.bmhpfOn)
+                                                        self.bmhpfOn,
+                                                        self.saveWaveformChartButton)
         self.__hide_waveform_chart()
         self.actionClear_Signals.triggered.connect(self.clearSignals)
         # processing
@@ -644,8 +646,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Saves the currently selected chart to a file.
         '''
-        dialog = SaveChartDialog(self, 'beq', self.mainChart.canvas.figure, self.statusbar)
-        dialog.exec()
+        self.__magnitude_model.export_chart(status_bar=self.statusbar)
 
     def exportReport(self):
         '''
@@ -1090,13 +1091,13 @@ class SaveChartDialog(QDialog, Ui_saveChartDialog):
     Save Chart dialog
     '''
 
-    def __init__(self, parent, name, figure, statusbar=None):
+    def __init__(self, parent, name, figure, processor, statusbar=None):
         super(SaveChartDialog, self).__init__(parent)
         self.setupUi(self)
         self.name = name
         self.figure = figure
-        self.__dpi = self.figure.dpi
-        self.__x, self.__y = self.figure.get_size_inches() * self.figure.dpi
+        self.processor = processor
+        self.__x, self.__y = processor.get_dims(self.figure)
         self.__aspectRatio = self.__x / self.__y
         self.widthPixels.setValue(self.__x)
         self.heightPixels.setValue(self.__y)
@@ -1105,16 +1106,15 @@ class SaveChartDialog(QDialog, Ui_saveChartDialog):
 
     def accept(self):
         formats = "Portable Network Graphic (*.png)"
-        fileName = self.__dialog.getSaveFileName(self, 'Export Chart', f"{self.name}.png", formats)
-        if fileName:
-            outputFile = str(fileName[0]).strip()
-            if len(outputFile) == 0:
+        file_name = self.__dialog.getSaveFileName(self, 'Export Chart', f"{self.name}.png", formats)
+        if file_name:
+            output_file = str(file_name[0]).strip()
+            if len(output_file) == 0:
                 return
             else:
-                scaleFactor = self.widthPixels.value() / self.__x
-                self.figure.savefig(outputFile, format='png', dpi=self.__dpi * scaleFactor)
+                self.processor.export(self.figure, self.widthPixels.value(), output_file)
                 if self.statusbar is not None:
-                    self.statusbar.showMessage(f"Saved {self.name} to {outputFile}", 5000)
+                    self.statusbar.showMessage(f"Saved {self.name} to {output_file}", 5000)
         QDialog.accept(self)
 
     def set_height(self, newWidth):
@@ -1123,6 +1123,43 @@ class SaveChartDialog(QDialog, Ui_saveChartDialog):
         :param newWidth: the new width.
         '''
         self.heightPixels.setValue(int(math.floor(newWidth / self.__aspectRatio)))
+
+
+class MatplotlibExportProcessor:
+
+    def __init__(self, figure):
+        self.__figure = figure
+        self.__x, self.__y = figure.get_size_inches() * figure.dpi
+
+    def get_dims(self, plot):
+        return self.__x, self.__y
+
+    def export(self, plot, width, output_file):
+        scale_factor = width / self.__x
+        plot.savefig(output_file, format='png', dpi=plot.dpi * scale_factor)
+
+
+class PyQtGraphExportProcessor:
+
+    @staticmethod
+    def get_dims(plot):
+        return plot.size().width(), plot.size().height()
+
+    def export(self, plot, width, output_file):
+        from pyqtgraph.exporters import ImageExporter
+        exporter = ImageExporter(plot.getPlotItem())
+        exporter.parameters()['width'] = width
+        self.__force_to_int('height', exporter)
+        self.__force_to_int('width', exporter)
+        exporter.export(output_file)
+
+    @staticmethod
+    def __force_to_int(param_name, exporter):
+        h = exporter.params.param(param_name)
+        orig_h = int(exporter.parameters()[param_name])
+        with block_signals(h):
+            h.setValue(orig_h + 0.1)
+            h.setValue(orig_h)
 
 
 class ExportBiquadDialog(QDialog, Ui_exportBiquadDialog):

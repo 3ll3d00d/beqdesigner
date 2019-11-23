@@ -23,7 +23,7 @@ class WaveformController:
                  crest_factor, bm_headroom, bm_lpf_position, bm_clip_before, bm_clip_after, is_filtered,
                  apply_hard_clip, start_time, end_time, show_spectrum_btn, hide_spectrum_btn, zoom_in_btn, zoom_out_btn,
                  compare_spectrum_btn, source_file, load_signal_btn, show_limits_btn, show_stats_btn, y_min, y_max,
-                 bm_hpf):
+                 bm_hpf, waveform_chart_btn):
         self.__is_visible = False
         self.__selected_name = None
         self.__preferences = preferences
@@ -67,6 +67,8 @@ class WaveformController:
         self.__show_limits_btn.setIcon(qta.icon('fa5s.arrows-alt'))
         self.__compare_spectrum_btn.setIcon(qta.icon('fa5s.chart-area'))
         self.__show_stats_btn.setIcon(qta.icon('fa5s.info-circle'))
+        waveform_chart_btn.setIcon(qta.icon('fa5s.save'))
+        waveform_chart_btn.setToolTip('Export to Chart')
         self.__show_spectrum_btn.clicked.connect(self.show_spectrum)
         self.__hide_spectrum_btn.clicked.connect(self.hide_spectrum)
         self.__compare_spectrum_btn.clicked.connect(self.compare_spectrum)
@@ -82,7 +84,13 @@ class WaveformController:
         self.__selector.currentIndexChanged['QString'].connect(self.update_waveform)
         self.__zoom_in_btn.clicked.connect(self.__waveform_chart_model.zoom_in)
         self.__zoom_out_btn.clicked.connect(self.__zoom_out)
+        waveform_chart_btn.clicked.connect(self.save_charts)
         self.update_waveform(None)
+
+    def save_charts(self):
+        self.__waveform_chart_model.export_chart()
+        if self.__magnitude_model.is_visible() is True:
+            self.__magnitude_model.export_chart()
 
     @property
     def is_visible(self):
@@ -408,6 +416,13 @@ class WaveformModel:
         self.__crest_factor = crest_factor
         self.__signal = None
         self.__curve = None
+
+    def export_chart(self):
+        '''
+        exports the waveform chart.
+        '''
+        from app import SaveChartDialog, PyQtGraphExportProcessor
+        SaveChartDialog(self.__chart, 'waveform', self.__chart, PyQtGraphExportProcessor()).exec()
 
     @property
     def rms(self):
