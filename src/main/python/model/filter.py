@@ -242,9 +242,10 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
     freq_steps = [0.1, 1.0, 2.0, 5.0]
     passthrough = Passthrough()
 
-    def __init__(self, preferences, signal, filter_model, selected_filter=None, parent=None):
+    def __init__(self, preferences, signal, filter_model, redraw_main, selected_filter=None, parent=None):
         self.__preferences = preferences
         super(FilterDialog, self).__init__(parent) if parent is not None else super(FilterDialog, self).__init__()
+        self.__redraw_main = redraw_main
         # for shelf filter, allow input via Q or S not both
         self.__q_is_active = True
         # allow user to control the steps for different fields, default to reasonably quick moving values
@@ -516,6 +517,8 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
     def __write_to_filter_model(self):
         ''' Stores the filter in the model. '''
         self.__filter_model.filter = self.__working.filter
+        self.__signal.filter = self.__filter_model.filter
+        self.__redraw_main()
 
     def accept(self):
         ''' Saves the filter. '''
