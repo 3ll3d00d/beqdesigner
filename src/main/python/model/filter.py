@@ -556,8 +556,11 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         ''' preview of the filter to display on the chart '''
         result = []
         extra = 0
-        result.append(self.__filter_model.getTransferFunction()
-                                         .getMagnitude(colour=get_filter_colour(len(result))))
+        if len(self.__filter_model) > 0:
+            result.append(self.__filter_model.getTransferFunction()
+                                             .getMagnitude(colour=get_filter_colour(len(result))))
+        else:
+            extra += 1
         if len(self.__working) > 0:
             result.append(self.__working.getTransferFunction()
                                         .getMagnitude(colour=get_filter_colour(len(result)), linestyle='-'))
