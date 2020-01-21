@@ -108,7 +108,7 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
         from app import wait_cursor
         with wait_cursor():
             refresher = RepoRefresher(self.__beq_dir, self.__beq_repos)
-            refresher.signals.on_end.connect(lambda: self.__refresh_complete())
+            refresher.signals.on_end.connect(self.__refresh_complete)
             QThreadPool.globalInstance().start(refresher)
 
     def __refresh_complete(self):
@@ -768,7 +768,8 @@ class RepoRefresher(QRunnable):
         try:
             self.refresh()
         except:
-            self.signals.on_end.emit()
+            pass
+        self.signals.on_end.emit()
 
     def refresh(self):
         ''' Pulls or clones the named repository '''
