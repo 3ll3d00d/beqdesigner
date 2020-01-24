@@ -72,23 +72,10 @@ def get_exe_args():
     return (a.scripts,) if use_nsis() is True else (a.scripts, a.binaries, a.zipfiles, a.datas)
 
 
-def overwrite_soundfile_hook():
-    '''
-    workaround https://github.com/pyinstaller/pyinstaller/issues/4325
-    '''
-    import sys
-    site_packages = next((p for p in sys.path if p.endswith('site-packages')), None)
-    if site_packages is not None:
-        from shutil import copyfile
-        copyfile(os.path.join('hooks', 'hook-soundfile.py'),
-                 os.path.join(site_packages, 'PyInstaller', 'hooks', 'hook-soundfile.py'))
-
-
 def get_data_args():
     '''
     :return: the data array for the analysis.
     '''
-    overwrite_soundfile_hook()
     return [
         ('src/main/icons/Icon.ico', '.'),
         (os.path.abspath(f"{get_resampy_path()}/data/kaiser_fast.npz"), '_resampy_filters'),
