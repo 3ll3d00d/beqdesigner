@@ -48,7 +48,7 @@ class Ui_saveChartDialog(object):
         self.buttonBox.accepted.connect(saveChartDialog.accept)
         self.buttonBox.rejected.connect(saveChartDialog.reject)
         self.widthPixels.valueChanged['int'].connect(saveChartDialog.set_height)
-        # QtCore.QMetaObject.connectSlotsByName(saveChartDialog)
+        QtCore.QMetaObject.connectSlotsByName(saveChartDialog)
 
     def retranslateUi(self, saveChartDialog):
         _translate = QtCore.QCoreApplication.translate

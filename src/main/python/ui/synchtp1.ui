@@ -1,0 +1,371 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>syncHtp1Dialog</class>
+ <widget class="QDialog" name="syncHtp1Dialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1416</width>
+    <height>549</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>HTP-1 Filter Manager</string>
+  </property>
+  <layout class="QGridLayout" name="gridLayout" columnstretch="1,3">
+   <item row="0" column="0">
+    <layout class="QGridLayout" name="gridLayout_3" columnstretch="0,0,0">
+     <item row="0" column="0">
+      <widget class="QLabel" name="ipAddressLabel">
+       <property name="text">
+        <string>IP Address</string>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="2">
+      <layout class="QVBoxLayout" name="connectButtonLayout">
+       <item>
+        <widget class="QToolButton" name="connectButton">
+         <property name="toolTip">
+          <string>Connect</string>
+         </property>
+         <property name="text">
+          <string>...</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="disconnectButton">
+         <property name="toolTip">
+          <string>Disconnect</string>
+         </property>
+         <property name="text">
+          <string>...</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item row="3" column="1">
+      <widget class="QLineEdit" name="beqFile">
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="1">
+      <widget class="QLineEdit" name="ipAddress">
+       <property name="inputMask">
+        <string>000.000.000.000:00000</string>
+       </property>
+      </widget>
+     </item>
+     <item row="5" column="1">
+      <spacer name="verticalSpacer">
+       <property name="orientation">
+        <enum>Qt::Vertical</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>20</width>
+         <height>40</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item row="1" column="0">
+      <widget class="QLabel" name="filtersetLabel">
+       <property name="text">
+        <string>Filter Set</string>
+       </property>
+      </widget>
+     </item>
+     <item row="4" column="1">
+      <layout class="QGridLayout" name="gridLayout_2">
+       <item row="0" column="2">
+        <widget class="QPushButton" name="applyFiltersButton">
+         <property name="text">
+          <string>Sync to HTP-1</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QPushButton" name="removeBeqButton">
+         <property name="text">
+          <string>Remove BEQ</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="0">
+        <widget class="QPushButton" name="addBeqButton">
+         <property name="text">
+          <string>Add BEQ</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item row="3" column="2">
+      <widget class="QToolButton" name="selectBeqButton">
+       <property name="text">
+        <string>...</string>
+       </property>
+      </widget>
+     </item>
+     <item row="3" column="0">
+      <widget class="QLabel" name="beqLabel">
+       <property name="text">
+        <string>BEQ</string>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="0">
+      <widget class="QLabel" name="label">
+       <property name="text">
+        <string>Filters</string>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="2">
+      <widget class="QToolButton" name="deleteFiltersButton">
+       <property name="text">
+        <string>...</string>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="1">
+      <widget class="QComboBox" name="filtersetSelector"/>
+     </item>
+     <item row="1" column="2">
+      <widget class="QToolButton" name="resyncFilters">
+       <property name="toolTip">
+        <string>Resync from HTP-1</string>
+       </property>
+       <property name="text">
+        <string>...</string>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="1">
+      <widget class="QTableView" name="filterView">
+       <property name="selectionMode">
+        <enum>QAbstractItemView::MultiSelection</enum>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item row="1" column="1">
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Close</set>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="1">
+    <widget class="MplWidget" name="previewChart"/>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>MplWidget</class>
+   <extends>QGraphicsView</extends>
+   <header>mpl</header>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>accepted()</signal>
+   <receiver>syncHtp1Dialog</receiver>
+   <slot>accept()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>612</x>
+     <y>539</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>157</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>rejected()</signal>
+   <receiver>syncHtp1Dialog</receiver>
+   <slot>reject()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>680</x>
+     <y>539</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>286</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>selectBeqButton</sender>
+   <signal>clicked()</signal>
+   <receiver>syncHtp1Dialog</receiver>
+   <slot>select_beq()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>349</x>
+     <y>298</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>345</x>
+     <y>334</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>deleteFiltersButton</sender>
+   <signal>clicked()</signal>
+   <receiver>syncHtp1Dialog</receiver>
+   <slot>clear_filters()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>344</x>
+     <y>185</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>349</x>
+     <y>205</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>filtersetSelector</sender>
+   <signal>currentTextChanged(QString)</signal>
+   <receiver>syncHtp1Dialog</receiver>
+   <slot>display_filterset()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>310</x>
+     <y>71</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>340</x>
+     <y>102</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>applyFiltersButton</sender>
+   <signal>clicked()</signal>
+   <receiver>syncHtp1Dialog</receiver>
+   <slot>apply_filters()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>275</x>
+     <y>323</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>235</x>
+     <y>357</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>connectButton</sender>
+   <signal>clicked()</signal>
+   <receiver>syncHtp1Dialog</receiver>
+   <slot>connect_htp1()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>342</x>
+     <y>22</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>354</x>
+     <y>87</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>disconnectButton</sender>
+   <signal>clicked()</signal>
+   <receiver>syncHtp1Dialog</receiver>
+   <slot>disconnect_htp1()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>350</x>
+     <y>43</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>333</x>
+     <y>136</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>resyncFilters</sender>
+   <signal>clicked()</signal>
+   <receiver>syncHtp1Dialog</receiver>
+   <slot>resync_filters()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>336</x>
+     <y>73</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>358</x>
+     <y>149</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>addBeqButton</sender>
+   <signal>clicked()</signal>
+   <receiver>syncHtp1Dialog</receiver>
+   <slot>add_beq()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>126</x>
+     <y>324</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>162</x>
+     <y>374</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>removeBeqButton</sender>
+   <signal>clicked()</signal>
+   <receiver>syncHtp1Dialog</receiver>
+   <slot>remove_beq()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>187</x>
+     <y>325</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>254</x>
+     <y>396</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+ <slots>
+  <slot>select_beq()</slot>
+  <slot>clear_filters()</slot>
+  <slot>display_filterset()</slot>
+  <slot>add_beq()</slot>
+  <slot>apply_filters()</slot>
+  <slot>connect_htp1()</slot>
+  <slot>disconnect_htp1()</slot>
+  <slot>resync_filters()</slot>
+  <slot>remove_beq()</slot>
+ </slots>
+</ui>

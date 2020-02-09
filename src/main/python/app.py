@@ -12,6 +12,8 @@ from contextlib import contextmanager
 import matplotlib
 from scipy import signal
 
+from model.sync import SyncHTP1Dialog
+
 matplotlib.use("Qt5Agg")
 os.environ['QT_API'] = 'pyqt5'
 # os.environ['PYQTGRAPH_QT_LIB'] = 'PyQt5'
@@ -269,6 +271,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.actionUser_Guide.triggered.connect(self.show_help)
         self.actionRelease_Notes.triggered.connect(self.show_release_notes)
         self.actionExport_BEQ_Filter.triggered.connect(self.export_beq_filter)
+        self.actionSync_with_HTP_1.triggered.connect(self.sync_htp1)
 
     def __ensure_beq_repos_exist(self):
         '''
@@ -977,7 +980,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         from model.minidsp import load_as_filter
 
-        filters = load_as_filter(self, self.preferences, self.__get_selected_signal().fs)
+        filters, _ = load_as_filter(self, self.preferences, self.__get_selected_signal().fs)
         if filters is not None:
             self.clearFilters()
             for f in filters:
@@ -995,6 +998,13 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         Shows the create post dialog.
         '''
         dialog = CreateAVSPostDialog(self, self.preferences, self.__filter_model, self.__get_selected_signal())
+        dialog.exec()
+
+    def sync_htp1(self):
+        '''
+        displays the Sync HTP1 dialog
+        '''
+        dialog = SyncHTP1Dialog(self, self.preferences)
         dialog.exec()
 
     def show_y2_tool_buttons(self, show=True):

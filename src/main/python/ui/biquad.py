@@ -76,7 +76,7 @@ class Ui_exportBiquadDialog(object):
         self.copyToClipboardBtn.clicked.connect(exportBiquadDialog.copyToClipboard)
         self.saveToFile.clicked.connect(exportBiquadDialog.export)
         self.outputFormat.currentTextChanged['QString'].connect(exportBiquadDialog.update_format)
-        # QtCore.QMetaObject.connectSlotsByName(exportBiquadDialog)
+        QtCore.QMetaObject.connectSlotsByName(exportBiquadDialog)
 
     def retranslateUi(self, exportBiquadDialog):
         _translate = QtCore.QCoreApplication.translate

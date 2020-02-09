@@ -616,6 +616,8 @@ class Ui_MainWindow(object):
         self.actionExport_BEQ_Filter.setObjectName("actionExport_BEQ_Filter")
         self.actionCreate_AVS_Post = QtWidgets.QAction(MainWindow)
         self.actionCreate_AVS_Post.setObjectName("actionCreate_AVS_Post")
+        self.actionSync_with_HTP_1 = QtWidgets.QAction(MainWindow)
+        self.actionSync_with_HTP_1.setObjectName("actionSync_with_HTP_1")
         self.menuHelp.addAction(self.actionUser_Guide)
         self.menuHelp.addAction(self.actionShow_Logs)
         self.menuHelp.addSeparator()
@@ -663,6 +665,8 @@ class Ui_MainWindow(object):
         self.menu_Tools.addAction(self.actionExport_Biquad)
         self.menu_Tools.addAction(self.actionMerge_Minidsp_XML)
         self.menu_Tools.addAction(self.actionCreate_AVS_Post)
+        self.menu_Tools.addSeparator()
+        self.menu_Tools.addAction(self.actionSync_with_HTP_1)
         self.menubar.addAction(self.menuFile.menuAction())
         self.menubar.addAction(self.menuSettings.menuAction())
         self.menubar.addAction(self.menu_Tools.menuAction())
@@ -711,7 +715,7 @@ class Ui_MainWindow(object):
         self.y2MinPlus5Button.clicked.connect(MainWindow.y2_min_plus_5)
         self.y2MinMinus5Button.clicked.connect(MainWindow.y2_min_minus_5)
         self.y2MinMinus10Button.clicked.connect(MainWindow.y2_min_minus_10)
-        # QtCore.QMetaObject.connectSlotsByName(MainWindow)
+        QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
@@ -874,5 +878,6 @@ class Ui_MainWindow(object):
         self.actionCreate_AVS_Post.setText(_translate("MainWindow", "Create AVS Post and XML"))
         self.actionCreate_AVS_Post.setToolTip(_translate("MainWindow", "Create AVS Post and XML"))
         self.actionCreate_AVS_Post.setShortcut(_translate("MainWindow", "Ctrl+Shift+P"))
+        self.actionSync_with_HTP_1.setText(_translate("MainWindow", "Sync with &HTP-1 "))
 from app import PlotWidgetWithDateAxis
 from mpl import MplWidget

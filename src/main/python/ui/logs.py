@@ -65,7 +65,7 @@ class Ui_logsForm(object):
         self.maxRows.valueChanged['int'].connect(logsForm.set_log_size)
         self.logLevel.currentTextChanged['QString'].connect(logsForm.set_log_level)
         self.excludes.returnPressed.connect(logsForm.set_excludes)
-        # QtCore.QMetaObject.connectSlotsByName(logsForm)
+        QtCore.QMetaObject.connectSlotsByName(logsForm)
         logsForm.setTabOrder(self.maxRows, self.logLevel)
         logsForm.setTabOrder(self.logLevel, self.excludes)
         logsForm.setTabOrder(self.excludes, self.logViewer)

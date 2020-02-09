@@ -844,5 +844,5 @@ def load_as_filter(parent, preferences, fs):
         if filt is not None and len(filt) > 0:
             for f in filt:
                 f.id = uuid4()
-            return filt
+            return filt, filt_file
     return None

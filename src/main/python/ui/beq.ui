@@ -1176,6 +1176,8 @@
     <addaction name="actionExport_Biquad"/>
     <addaction name="actionMerge_Minidsp_XML"/>
     <addaction name="actionCreate_AVS_Post"/>
+    <addaction name="separator"/>
+    <addaction name="actionSync_with_HTP_1"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuSettings"/>
@@ -1503,6 +1505,11 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+Shift+P</string>
+   </property>
+  </action>
+  <action name="actionSync_with_HTP_1">
+   <property name="text">
+    <string>Sync with &amp;HTP-1 </string>
    </property>
   </action>
  </widget>
