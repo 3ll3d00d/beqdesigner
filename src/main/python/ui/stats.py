@@ -296,7 +296,7 @@ class Ui_signalStatsDialog(object):
         self.customIntegrationTime.editingFinished.connect(signalStatsDialog.set_custom_peak)
         self.extensionLimit.valueChanged['int'].connect(signalStatsDialog.set_extension)
         self.compositeLevel.valueChanged['double'].connect(signalStatsDialog.rate_level)
-        # QtCore.QMetaObject.connectSlotsByName(signalStatsDialog)
+        QtCore.QMetaObject.connectSlotsByName(signalStatsDialog)
 
     def retranslateUi(self, signalStatsDialog):
         _translate = QtCore.QCoreApplication.translate

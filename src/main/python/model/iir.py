@@ -724,8 +724,10 @@ class ComplexFilter(Sequence):
     A filter composed of many other filters.
     '''
 
-    def __init__(self, fs=1000, filters=None, description='Complex', preset_idx=-1, listener=None, f_id=-1):
+    def __init__(self, fs=1000, filters=None, description='Complex', preset_idx=-1, listener=None, f_id=-1,
+                 sort_by_id=False):
         self.filters = filters if filters is not None else []
+        self.__sort_by_id = sort_by_id
         self.description = description
         self.__fs = fs
         self.id = f_id
@@ -773,7 +775,7 @@ class ComplexFilter(Sequence):
         '''
         Resets some cached values when the filter changes.
         '''
-        self.filters.sort(key=lambda f: f.sort_key())
+        self.filters.sort(key=lambda f: f.sort_key() if not self.__sort_by_id else f.id)
         self.__cached_transfer = None
         self.preset_idx = -1
         if self.listener is not None:
@@ -840,9 +842,10 @@ class ComplexFilter(Sequence):
 
 class CompleteFilter(ComplexFilter):
 
-    def __init__(self, fs=1000, filters=None, description=COMBINED, preset_idx=-1, listener=None, f_id=-1):
+    def __init__(self, fs=1000, filters=None, description=COMBINED, preset_idx=-1, listener=None, f_id=-1,
+                 sort_by_id=False):
         super().__init__(fs=fs, filters=filters, description=description, preset_idx=preset_idx, listener=listener,
-                         f_id=f_id)
+                         f_id=f_id, sort_by_id=sort_by_id)
 
     def preview(self, filter):
         '''

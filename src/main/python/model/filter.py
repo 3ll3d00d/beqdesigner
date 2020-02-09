@@ -448,7 +448,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         loaded_snapshot = None
         if load_xml is True:
             from model.minidsp import load_as_filter
-            filters = load_as_filter(self, self.__preferences, self.__signal.fs)
+            filters, _ = load_as_filter(self, self.__preferences, self.__signal.fs)
             if filters is not None:
                 loaded_snapshot = CompleteFilter(fs=self.__signal.fs, filters=filters, description='Snapshot')
         else:

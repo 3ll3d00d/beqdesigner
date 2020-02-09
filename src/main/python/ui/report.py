@@ -409,7 +409,7 @@ class Ui_saveReportDialog(object):
         self.heightSpacing.valueChanged['double'].connect(saveReportDialog.redraw_all_axes)
         self.snapToImageSize.clicked.connect(saveReportDialog.snap_to_image_size)
         self.titleFontSize.valueChanged['int'].connect(saveReportDialog.set_title_size)
-        # QtCore.QMetaObject.connectSlotsByName(saveReportDialog)
+        QtCore.QMetaObject.connectSlotsByName(saveReportDialog)
         saveReportDialog.setTabOrder(self.x0, self.y0)
         saveReportDialog.setTabOrder(self.y0, self.x1)
         saveReportDialog.setTabOrder(self.x1, self.y1)

@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'postbuilder.ui'
 #
-# Created by: PyQt5 UI code generator 5.13.0
+# Created by: PyQt5 UI code generator 5.13.1
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -200,7 +200,7 @@ class Ui_postbuilder(object):
         self.ddCheckBox.toggled['bool'].connect(postbuilder.build_avs_post)
         self.dts51CheckBox.toggled['bool'].connect(postbuilder.build_avs_post)
         self.comboBox.currentIndexChanged['int'].connect(postbuilder.post_type_changed)
-        # QtCore.QMetaObject.connectSlotsByName(postbuilder)
+        QtCore.QMetaObject.connectSlotsByName(postbuilder)
         postbuilder.setTabOrder(self.titleField, self.yearField)
         postbuilder.setTabOrder(self.yearField, self.editionField)
         postbuilder.setTabOrder(self.editionField, self.seasonField)

@@ -148,7 +148,7 @@ class Ui_mergeMinidspDialog(object):
         self.beqRepos.currentTextChanged['QString'].connect(mergeMinidspDialog.update_beq_repo_status)
         self.copyOptimisedButton.clicked.connect(mergeMinidspDialog.copy_optimised)
         self.copyErrorsButton.clicked.connect(mergeMinidspDialog.copy_errors)
-        # QtCore.QMetaObject.connectSlotsByName(mergeMinidspDialog)
+        QtCore.QMetaObject.connectSlotsByName(mergeMinidspDialog)
         mergeMinidspDialog.setTabOrder(self.beqRepos, self.lastCommitDate)
         mergeMinidspDialog.setTabOrder(self.lastCommitDate, self.refreshGitRepo)
         mergeMinidspDialog.setTabOrder(self.refreshGitRepo, self.lastCommitMessage)

@@ -250,7 +250,7 @@ class Ui_editFilterDialog(object):
         self.exitButton.clicked.connect(editFilterDialog.reject)
         self.showIndividual.clicked.connect(editFilterDialog.previewFilter)
         self.limitsButton.clicked.connect(editFilterDialog.show_limits)
-        # QtCore.QMetaObject.connectSlotsByName(editFilterDialog)
+        QtCore.QMetaObject.connectSlotsByName(editFilterDialog)
         editFilterDialog.setTabOrder(self.filterType, self.passFilterType)
         editFilterDialog.setTabOrder(self.passFilterType, self.filterOrder)
         editFilterDialog.setTabOrder(self.filterOrder, self.freq)
