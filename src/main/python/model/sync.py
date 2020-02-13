@@ -3,14 +3,17 @@ import logging
 
 import qtawesome as qta
 from qtpy import QtWebSockets
-from qtpy.QtCore import QUrl, QItemSelectionModel, QTimer
-from qtpy.QtWidgets import QDialog, QAbstractItemView, QHeaderView
+from qtpy.QtCore import QUrl
+from qtpy.QtGui import QIcon
+from qtpy.QtWidgets import QDialog, QAbstractItemView, QHeaderView, QLineEdit, QToolButton
 
+from model.batch import StoppableSpin, stop_spinner
 from model.filter import FilterModel, FilterTableModel
 from model.iir import CompleteFilter, PeakingEQ
 from model.limits import dBRangeCalculator
 from model.magnitude import MagnitudeModel
 from model.preferences import get_filter_colour, HTP1_ADDRESS
+from ui.syncdetails import Ui_syncDetailsDialog
 from ui.synchtp1 import Ui_syncHtp1Dialog
 
 HTP1_FS = 48000
@@ -19,15 +22,15 @@ logger = logging.getLogger('htp1sync')
 
 
 class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
-    '''
-    Create AVS Post dialog
-    '''
 
     def __init__(self, parent, prefs):
         super(SyncHTP1Dialog, self).__init__(parent)
         self.__preferences = prefs
         self.__filters_by_channel = {}
+        self.__spinner = None
         self.__beq_filter = None
+        self.__last_requested_msoupdate = None
+        self.__last_received_msoupdate = None
         self.setupUi(self)
         self.ipAddress.setText(self.__preferences.get(HTP1_ADDRESS))
         self.filterView.setSelectionBehavior(QAbstractItemView.SelectRows)
@@ -41,6 +44,8 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         self.resyncFilters.setIcon(qta.icon('fa5s.sync'))
         self.deleteFiltersButton.setIcon(qta.icon('fa5s.trash'))
         self.selectBeqButton.setIcon(qta.icon('fa5s.folder-open'))
+        self.limitsButton.setIcon(qta.icon('fa5s.arrows-alt'))
+        self.showDetailsButton.setIcon(qta.icon('fa5s.info'))
         self.__ws_client = QtWebSockets.QWebSocket('', QtWebSockets.QWebSocketProtocol.Version13, None)
         self.__ws_client.error.connect(self.__on_ws_error)
         self.__ws_client.connected.connect(self.__on_ws_connect)
@@ -77,6 +82,7 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         self.ipAddress.setReadOnly(False)
         self.resyncFilters.setEnabled(False)
         self.deleteFiltersButton.setEnabled(False)
+        self.showDetailsButton.setEnabled(False)
         self.filtersetSelector.clear()
         self.__filters_by_channel = {}
         self.beqFile.clear()
@@ -103,31 +109,93 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         Handles messages from the device.
         :param msg: the message.
         '''
-        logger.debug(f"Received {msg}")
         if msg.startswith('mso '):
-            self.__on_mso(json.loads(msg[4:])['peq']['slots'])
+            logger.debug(f"Processing mso {msg}")
+            self.__on_mso(json.loads(msg[4:]))
+        elif msg.startswith('msoupdate '):
+            logger.debug(f"Processing msoupdate {msg}")
+            self.__on_msoupdate(json.loads(msg[10:]))
+        else:
+            logger.info(f"Unknown message {msg}")
 
-    def __on_mso(self, peq_slots):
-        channels = {c for s in peq_slots for c in s['channels'].keys()}
-        existing = [self.filtersetSelector.itemText(idx) for idx in range(self.filtersetSelector.count())]
-        for c in sorted([c for c in channels if c not in existing]):
-            self.filtersetSelector.addItem(c)
+    def __on_msoupdate(self, msoupdate):
+        '''
+        Handles msoupdate message sent after the device is updated.
+        :param msoupdate: the update.
+        '''
+        self.__last_received_msoupdate = msoupdate
+        was_requested = False
+        if self.__spinner is not None:
+            was_requested = True
+            stop_spinner(self.__spinner, self.applyFiltersButton)
+            self.applyFiltersButton.setIcon(QIcon())
+            self.__spinner = None
+        if self.__msoupdate_matches(msoupdate):
+            pass
+        else:
+            if was_requested:
+                self.show_sync_details()
+            else:
+                self.applyFiltersButton.setIcon(qta.icon('fa5s.times', color='red'))
+        self.showDetailsButton.setEnabled(True)
+
+    def show_sync_details(self):
+        if self.__last_requested_msoupdate is not None and self.__last_received_msoupdate is not None:
+            SyncDetailsDialog(self, self.__last_requested_msoupdate, self.__last_received_msoupdate).exec()
+
+    def __msoupdate_matches(self, msoupdate):
+        '''
+        compares each operation for equivalence.
+        :param msoupdate: the update
+        :returns true if they match
+        '''
+        for idx, actual in enumerate(msoupdate):
+            expected = self.__last_requested_msoupdate[idx]
+            if actual['op'] != expected['op'] or actual['path'] != expected['path'] or actual['value'] != expected['value']:
+                logger.error(f"msoupdate does not match {actual} vs {expected}")
+                return False
+        return True
+
+    def __on_mso(self, mso):
+        '''
+        Handles mso message from the device sent after a getmso is issued.
+        :param mso: the mso.
+        '''
+        speakers = mso['speakers']['groups']
+        channels = ['lf', 'rf'] + [s for s, v in speakers.items() if 'present' in v and v['present'] is True]
+        peq_slots = mso['peq']['slots']
+        from model.report import block_signals
+        with block_signals(self.filtersetSelector):
+            now = self.filtersetSelector.currentText()
+            self.filtersetSelector.clear()
+            now_idx = -1
+            for idx, c in enumerate(sorted(channels)):
+                self.filtersetSelector.addItem(c)
+                if c == now:
+                    now_idx = idx
+            if now_idx > -1:
+                self.filtersetSelector.setCurrentIndex(now_idx)
+
         tmp = {c: CompleteFilter(fs=HTP1_FS, sort_by_id=True) for c in channels}
         raw_filters = {c: [] for c in channels}
         for idx, s in enumerate(peq_slots):
             for c in channels:
                 tmp[c].save(self.__convert_to_filter(s['channels'][c], idx))
                 raw_filters[c].append(s['channels'][c])
-        raw_filters_txt = {k: json.dumps(v) for k, v in raw_filters.items()}
-        from collections import defaultdict
-        filtersets = defaultdict(list)
-        for key, value in sorted(raw_filters_txt.items()):
-            filtersets[value].append(key)
-        print(filtersets.values())
+        # raw_filters_txt = {k: json.dumps(v) for k, v in raw_filters.items()}
+        # from collections import defaultdict
+        # filtersets = defaultdict(list)
+        # for key, value in sorted(raw_filters_txt.items()):
+        #     filtersets[value].append(key)
+        # print(filtersets.values())
         # TODO provide a way to group and ungroup channels
         self.__filters_by_channel = tmp
         self.__filters.filter = self.__filters_by_channel[self.filtersetSelector.itemText(0)]
         self.__magnitude_model.redraw()
+        self.applyFiltersButton.setIcon(QIcon())
+        self.__last_received_msoupdate = None
+        self.__last_requested_msoupdate = None
+        self.showDetailsButton.setEnabled(False)
 
     @staticmethod
     def __convert_to_filter(filter_params, id):
@@ -175,10 +243,13 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         with wait_cursor():
             ops = [self.__as_operation(idx, self.filtersetSelector.currentText(), f) for idx, f in enumerate(self.__filters.filter)]
             all_ops = [op for slot_ops in ops for op in slot_ops]
-            msg = f"changemso {json.dumps(all_ops)}"
+            self.__last_requested_msoupdate = all_ops
+            msg = f"changemso {json.dumps(self.__last_requested_msoupdate)}"
             logger.debug(f"Sending to {self.ipAddress.text()} -> {msg}")
+            self.__spinner = StoppableSpin(self.applyFiltersButton, 'sync')
+            spin_icon = qta.icon('fa5s.spinner', color='green', animation=self.__spinner)
+            self.applyFiltersButton.setIcon(spin_icon)
             self.__ws_client.sendTextMessage(msg)
-            QTimer.singleShot(500, self.__load_peq_slots)
 
     @staticmethod
     def __as_operation(idx, channel, f):
@@ -274,3 +345,40 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         '''
         self.disconnect_htp1()
         super().reject()
+
+    def show_limits(self):
+        '''
+        Shows the limits dialog.
+        '''
+        self.__magnitude_model.show_limits()
+
+
+class SyncDetailsDialog(QDialog, Ui_syncDetailsDialog):
+
+    def __init__(self, parent, expected_ops, actual_ops):
+        super(SyncDetailsDialog, self).__init__(parent)
+        self.setupUi(self)
+        for idx, actual_op in enumerate(actual_ops):
+            actual = actual_ops[idx]
+            expected = expected_ops[idx]
+            path = QLineEdit(self.scrollAreaWidgetContents)
+            path.setReadOnly(True)
+            path.setEnabled(False)
+            path.setText(actual['path'])
+            requested = QLineEdit(self.scrollAreaWidgetContents)
+            requested.setReadOnly(True)
+            path.setEnabled(False)
+            requested.setText(str(expected['value']))
+            actual_text = QLineEdit(self.scrollAreaWidgetContents)
+            actual_text.setReadOnly(True)
+            path.setEnabled(False)
+            actual_text.setText(str(actual['value']))
+            status = QToolButton(self)
+            if actual['op'] != expected['op'] or actual['path'] != expected['path'] or actual['value'] != expected['value']:
+                status.setIcon(qta.icon('fa5s.times', color='red'))
+            else:
+                status.setIcon(qta.icon('fa5s.check', color='green'))
+            self.gridLayout_2.addWidget(path, idx+1, 0, 1, 1)
+            self.gridLayout_2.addWidget(requested, idx+1, 1, 1, 1)
+            self.gridLayout_2.addWidget(actual_text, idx+1, 2, 1, 1)
+            self.gridLayout_2.addWidget(status, idx+1, 3, 1, 1)
