@@ -1631,6 +1631,40 @@ class FrdLoader:
                                        xy_data=self.get_magnitude_data())
 
 
+class PulseLoader:
+    '''
+    Generates pulse signals.
+    '''
+
+    def __init__(self, dialog, prefs):
+        self.__dialog = dialog
+        self.__prefs = prefs
+        from scipy.signal import unit_impulse
+        signal = Signal('signal', unit_impulse(4 * 48000, 'mid'), prefs, fs=48000)
+        self.__pulse = SingleChannelSignalData(name=f"signal", signal=signal)
+
+    def can_save(self):
+        '''
+        :return: true if we can save at least one signal.
+        '''
+        return len(self.__dialog.pulsePrefix.text()) > 0
+
+    def enable_ok(self):
+        enabled = self.can_save()
+        self.__dialog.buttonBox.button(QDialogButtonBox.Ok).setEnabled(enabled)
+        return enabled
+
+    def get_magnitude_data(self):
+        return self.__pulse.current_unfiltered
+
+    def get_signal(self, **kwargs):
+        from scipy.signal import unit_impulse
+        fs = int(self.__dialog.pulseFs.currentText()[0:2]) * 1000
+        samples = unit_impulse(4 * fs, 'mid')
+        signal = Signal(self.__dialog.pulsePrefix.text(), samples, self.__prefs, fs=fs)
+        return SingleChannelSignalData(name=signal.name, signal=signal)
+
+
 class SignalDialog(QDialog, Ui_addSignalDialog):
     '''
     Alows user to extract a signal from a wav or frd.
@@ -1647,8 +1681,12 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
         self.applyTimeRangeButton.setIcon(qta.icon('fa5s.cut'))
         self.applyTimeRangeButton.setEnabled(False)
         self.__preferences = preferences
-        self.__loaders = [DialogWavLoaderBridge(self, preferences, allow_multichannel=allow_multichannel),
-                          FrdLoader(self)]
+        pulse_loader = PulseLoader(self, preferences)
+        self.__loaders = [
+            DialogWavLoaderBridge(self, preferences, allow_multichannel=allow_multichannel),
+            FrdLoader(self),
+            pulse_loader
+        ]
         self.__loader_idx = self.signalTypeTabs.currentIndex()
         self.__magnitudeModel = MagnitudeModel('preview', self.previewChart, preferences, self, 'Signal')
         self.__signal_model = signal_model

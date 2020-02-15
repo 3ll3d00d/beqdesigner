@@ -1004,7 +1004,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         displays the Sync HTP1 dialog
         '''
-        dialog = SyncHTP1Dialog(self, self.preferences)
+        dialog = SyncHTP1Dialog(self, self.preferences, self.__signal_model)
         dialog.exec()
 
     def show_y2_tool_buttons(self, show=True):

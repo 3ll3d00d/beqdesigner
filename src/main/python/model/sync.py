@@ -23,12 +23,14 @@ logger = logging.getLogger('htp1sync')
 
 class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
 
-    def __init__(self, parent, prefs):
+    def __init__(self, parent, prefs, signal_model):
         super(SyncHTP1Dialog, self).__init__(parent)
         self.__preferences = prefs
+        self.__signal_model = signal_model
         self.__filters_by_channel = {}
         self.__spinner = None
         self.__beq_filter = None
+        self.__signal_filter = None
         self.__last_requested_msoupdate = None
         self.__last_received_msoupdate = None
         self.setupUi(self)
@@ -46,6 +48,11 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         self.selectBeqButton.setIcon(qta.icon('fa5s.folder-open'))
         self.limitsButton.setIcon(qta.icon('fa5s.arrows-alt'))
         self.showDetailsButton.setIcon(qta.icon('fa5s.info'))
+        self.createPulsesButton.setIcon(qta.icon('fa5s.wave-square'))
+        from model.report import block_signals
+        with block_signals(self.filterChannel):
+            for s in self.__signal_model:
+                self.filterChannel.addItem(s.name)
         self.__ws_client = QtWebSockets.QWebSocket('', QtWebSockets.QWebSocketProtocol.Version13, None)
         self.__ws_client.error.connect(self.__on_ws_error)
         self.__ws_client.connected.connect(self.__on_ws_connect)
@@ -83,14 +90,16 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         self.resyncFilters.setEnabled(False)
         self.deleteFiltersButton.setEnabled(False)
         self.showDetailsButton.setEnabled(False)
+        self.createPulsesButton.setEnabled(False)
         self.filtersetSelector.clear()
         self.__filters_by_channel = {}
         self.beqFile.clear()
         self.__beq_filter = None
         self.selectBeqButton.setEnabled(False)
-        self.addBeqButton.setEnabled(False)
-        self.removeBeqButton.setEnabled(False)
+        self.addFilterButton.setEnabled(False)
+        self.removeFilterButton.setEnabled(False)
         self.applyFiltersButton.setEnabled(False)
+        self.filterChannel.setEnabled(False)
         self.__filters.filter = CompleteFilter(fs=HTP1_FS, sort_by_id=True)
         self.__magnitude_model.redraw()
 
@@ -103,6 +112,9 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         self.resyncFilters.setEnabled(True)
         self.selectBeqButton.setEnabled(True)
         self.applyFiltersButton.setEnabled(True)
+        self.createPulsesButton.setEnabled(True)
+        if len(self.__signal_model) > 0:
+            self.filterChannel.setEnabled(True)
 
     def __on_ws_message(self, msg):
         '''
@@ -130,13 +142,11 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
             stop_spinner(self.__spinner, self.applyFiltersButton)
             self.applyFiltersButton.setIcon(QIcon())
             self.__spinner = None
-        if self.__msoupdate_matches(msoupdate):
-            pass
-        else:
-            if was_requested:
+        if was_requested:
+            if not self.__msoupdate_matches(msoupdate):
                 self.show_sync_details()
-            else:
-                self.applyFiltersButton.setIcon(qta.icon('fa5s.times', color='red'))
+        else:
+            self.applyFiltersButton.setIcon(qta.icon('fa5s.times', color='red'))
         self.showDetailsButton.setEnabled(True)
 
     def show_sync_details(self):
@@ -162,26 +172,50 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         :param mso: the mso.
         '''
         speakers = mso['speakers']['groups']
-        channels = ['lf', 'rf'] + [s for s, v in speakers.items() if 'present' in v and v['present'] is True]
+        channels = ['lf', 'rf']
+        for group in [s for s, v in speakers.items() if 'present' in v and v['present'] is True]:
+            if group[0:2] == 'lr' and len(group) > 2:
+                channels.append('l' + group[2:])
+                channels.append('r' + group[2:])
+            else:
+                channels.append(group)
+
         peq_slots = mso['peq']['slots']
+
+        class Filters(dict):
+            def __init__(self):
+                super().__init__()
+
+            def __missing__(self, key):
+                self[key] = CompleteFilter(fs=HTP1_FS, sort_by_id=True)
+                return self[key]
+
+        tmp = Filters()
+        raw_filters = {c: [] for c in channels}
+        unknown_channels = set()
+        for idx, s in enumerate(peq_slots):
+            for c in channels:
+                if c in s['channels']:
+                    tmp[c].save(self.__convert_to_filter(s['channels'][c], idx))
+                    raw_filters[c].append(s['channels'][c])
+                else:
+                    unknown_channels.add(c)
+        if unknown_channels:
+            peq_channels = peq_slots[0]['channels'].keys()
+            logger.error(f"Unknown channels encountered [peq channels: {peq_channels}, unknown: {unknown_channels}]")
+
         from model.report import block_signals
         with block_signals(self.filtersetSelector):
             now = self.filtersetSelector.currentText()
             self.filtersetSelector.clear()
             now_idx = -1
-            for idx, c in enumerate(sorted(channels)):
+            for idx, c in enumerate(channels):
                 self.filtersetSelector.addItem(c)
                 if c == now:
                     now_idx = idx
             if now_idx > -1:
                 self.filtersetSelector.setCurrentIndex(now_idx)
 
-        tmp = {c: CompleteFilter(fs=HTP1_FS, sort_by_id=True) for c in channels}
-        raw_filters = {c: [] for c in channels}
-        for idx, s in enumerate(peq_slots):
-            for c in channels:
-                tmp[c].save(self.__convert_to_filter(s['channels'][c], idx))
-                raw_filters[c].append(s['channels'][c])
         # raw_filters_txt = {k: json.dumps(v) for k, v in raw_filters.items()}
         # from collections import defaultdict
         # filtersets = defaultdict(list)
@@ -202,34 +236,56 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         # TODO support different filter types
         return PeakingEQ(HTP1_FS, filter_params['Fc'], filter_params['Q'], filter_params['gaindB'], f_id=id)
 
-    def add_beq(self):
+    def add_filter(self):
         '''
-        Adds the BEQ to the selected channel.
+        Adds the filter to the selected channel.
         '''
-        if self.__beq_filter is not None:
+        selected_filter = self.__get_selected_filter()
+        if selected_filter is not None:
             max_idx = len(self.__filters.filter)
-            self.__filters.filter.removeByIndex(range(max_idx-len(self.__beq_filter), max_idx))
-            for f in self.__beq_filter:
+            self.__filters.filter.removeByIndex(range(max_idx-len(selected_filter), max_idx))
+            for f in selected_filter:
                 f.id = len(self.__filters.filter)
                 self.__filters.save(f)
             self.__magnitude_model.redraw()
 
-    def remove_beq(self):
+    def __get_selected_filter(self):
+        selected_filter = None
+        if self.__signal_filter is not None:
+            selected_filter = self.__signal_filter
+        elif self.__beq_filter is not None:
+            selected_filter = self.__beq_filter
+        return selected_filter
+
+    def remove_filter(self):
         '''
         Searches for the BEQ in the selected channel and highlights them for deletion.
         '''
-        beq_filt_idx = 0
-        rows = []
-        for i, f in enumerate(self.__filters.filter):
-            if self.__is_equivalent(f, self.__beq_filter[beq_filt_idx]):
-                beq_filt_idx += 1
-                rows.append(i)
-            if beq_filt_idx >= len(self.__beq_filter):
-                break
-        self.filterView.clearSelection()
-        if len(rows) > 0:
-            for r in rows:
-                self.filterView.selectRow(r)
+        selected_filter = self.__get_selected_filter()
+        if selected_filter is not None:
+            filt_idx = 0
+            rows = []
+            for i, f in enumerate(self.__filters.filter):
+                if self.__is_equivalent(f, selected_filter[filt_idx]):
+                    filt_idx += 1
+                    rows.append(i)
+                if filt_idx >= len(selected_filter):
+                    break
+            self.filterView.clearSelection()
+            if len(rows) > 0:
+                for r in rows:
+                    self.filterView.selectRow(r)
+
+    def select_filter(self, channel_name):
+        '''
+        loads a filter from the current signals.
+        '''
+        signal = self.__signal_model.find_by_name(channel_name)
+        if signal is not None:
+            self.__signal_filter = signal.filter
+        else:
+            self.__signal_filter = None
+        self.__enable_filter_buttons()
 
     @staticmethod
     def __is_equivalent(a, b):
@@ -326,8 +382,12 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         filters, file_name = load_as_filter(self, self.__preferences, HTP1_FS)
         self.beqFile.setText(file_name)
         self.__beq_filter = filters
-        self.addBeqButton.setEnabled(filters is not None)
-        self.removeBeqButton.setEnabled(filters is not None)
+        self.__enable_filter_buttons()
+
+    def __enable_filter_buttons(self):
+        enable = self.__beq_filter is not None or self.__signal_filter is not None
+        self.addFilterButton.setEnabled(enable)
+        self.removeFilterButton.setEnabled(enable)
 
     def getMagnitudeData(self, reference=None):
         ''' preview of the filter to display on the chart '''
@@ -351,6 +411,25 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         Shows the limits dialog.
         '''
         self.__magnitude_model.show_limits()
+
+    def show_full_range(self):
+        ''' sets the limits to full range. '''
+        self.__magnitude_model.show_full_range()
+
+    def show_sub_only(self):
+        ''' sets the limits to sub only. '''
+        self.__magnitude_model.show_sub_only()
+
+    def create_pulses(self):
+        ''' Creates a dirac pulse with the specified filter for each channel and loads them into the signal model. '''
+        for p in [self.__create_pulse(c, f) for c, f in self.__filters_by_channel.items()]:
+            self.__signal_model.add(p)
+
+    def __create_pulse(self, c, f):
+        from scipy.signal import unit_impulse
+        from model.signal import SingleChannelSignalData, Signal
+        signal = Signal(f"pulse_{c}", unit_impulse(4 * HTP1_FS, 'mid'), self.__preferences, fs=HTP1_FS)
+        return SingleChannelSignalData(name=f"pulse_{c}", filter=f, signal=signal)
 
 
 class SyncDetailsDialog(QDialog, Ui_syncDetailsDialog):
