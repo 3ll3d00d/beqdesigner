@@ -211,6 +211,18 @@ class MagnitudeModel:
         '''
         LimitsDialog(self.limits).exec()
 
+    def show_full_range(self):
+        '''
+        Sets limits to full range.
+        '''
+        self.limits.update(x_min=10, x_max=20000, x_scale='log', draw=True)
+
+    def show_sub_only(self):
+        '''
+        Sets limits to sub only.
+        '''
+        self.limits.update(x_min=1, x_max=160, x_scale='linear', draw=True)
+
     def show_values(self):
         '''
         Shows the values dialog.
