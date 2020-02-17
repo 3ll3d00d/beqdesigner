@@ -99,7 +99,6 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         self.__reinit_fields()
         dialog = QFileDialog(parent=self)
         dialog.setFileMode(QFileDialog.ExistingFile)
-        # dialog.setNameFilter()
         dialog.setWindowTitle('Select Audio or Video File')
         if dialog.exec():
             selected = dialog.selectedFiles()
@@ -622,8 +621,10 @@ class EditMappingDialog(QDialog, Ui_editMappingDialog):
         self.setupUi(self)
         self.__signal_model = signal_model
         self.__default_signal = default_signal
-        self.channel_idx = channel_idx
-        self.channelIdx.setText(str(channel_idx + 1))
+        for i in range(channel_count):
+            self.channels.addItem(str(i + 1))
+            if i == channel_idx:
+                self.channels.setCurrentRow(i)
         self.signal.addItem('Passthrough')
         self.channel_count = channel_count
         if len(signal_model) > 0:
@@ -637,15 +638,11 @@ class EditMappingDialog(QDialog, Ui_editMappingDialog):
 
     def accept(self):
         signal_name = None if self.signal.currentText() == 'Passthrough' else self.signal.currentText()
+        signal = None
         if len(self.__signal_model) > 0:
             signal = next((s for s in self.__signal_model if s.name == signal_name), None)
         elif self.__default_signal is not None:
             signal = self.__default_signal if signal_name == self.__default_signal.name else None
-        if self.applyToAll.isChecked():
-            for idx in range(0, self.channel_count):
-                self.on_change_handler(idx, signal)
-        else:
-            self.on_change_handler(self.channel_idx, signal)
+        for c in self.channels.selectedItems():
+            self.on_change_handler(int(c.text())-1, signal)
         super().accept()
-
-

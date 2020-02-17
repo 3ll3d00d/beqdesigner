@@ -7,17 +7,24 @@
     <x>0</x>
     <y>0</y>
     <width>415</width>
-    <height>160</height>
+    <height>347</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Edit Mapping</string>
   </property>
-  <layout class="QFormLayout" name="formLayout">
+  <layout class="QGridLayout" name="gridLayout">
    <item row="0" column="0">
-    <widget class="QLabel" name="channelIdxLabel">
+    <widget class="QLabel" name="channelLabel">
      <property name="text">
-      <string>Channel</string>
+      <string>Channels</string>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="1">
+    <widget class="QListWidget" name="channels">
+     <property name="selectionMode">
+      <enum>QAbstractItemView::MultiSelection</enum>
      </property>
     </widget>
    </item>
@@ -28,24 +35,10 @@
      </property>
     </widget>
    </item>
-   <item row="0" column="1">
-    <widget class="QLineEdit" name="channelIdx">
-     <property name="readOnly">
-      <bool>true</bool>
-     </property>
-    </widget>
-   </item>
    <item row="1" column="1">
     <widget class="QComboBox" name="signal"/>
    </item>
    <item row="2" column="1">
-    <widget class="QCheckBox" name="applyToAll">
-     <property name="text">
-      <string>Apply to all channels?</string>
-     </property>
-    </widget>
-   </item>
-   <item row="3" column="1">
     <widget class="QDialogButtonBox" name="buttonBox">
      <property name="standardButtons">
       <set>QDialogButtonBox::Cancel|QDialogButtonBox::Save</set>
@@ -63,12 +56,12 @@
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>210</x>
-     <y>130</y>
+     <x>264</x>
+     <y>106</y>
     </hint>
     <hint type="destinationlabel">
      <x>29</x>
-     <y>121</y>
+     <y>115</y>
     </hint>
    </hints>
   </connection>
@@ -79,8 +72,8 @@
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>355</x>
-     <y>136</y>
+     <x>405</x>
+     <y>106</y>
     </hint>
     <hint type="destinationlabel">
      <x>405</x>
