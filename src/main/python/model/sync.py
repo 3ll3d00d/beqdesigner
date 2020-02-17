@@ -3,9 +3,8 @@ import logging
 
 import qtawesome as qta
 from qtpy import QtWebSockets
-from qtpy.QtCore import QUrl
-from qtpy.QtGui import QIcon
-from qtpy.QtWidgets import QDialog, QAbstractItemView, QHeaderView, QLineEdit, QToolButton
+from qtpy.QtCore import QUrl, QItemSelectionModel, Qt
+from qtpy.QtWidgets import QDialog, QAbstractItemView, QHeaderView, QLineEdit, QToolButton, QListWidgetItem, QMessageBox
 
 from model.batch import StoppableSpin, stop_spinner
 from model.filter import FilterModel, FilterTableModel
@@ -13,6 +12,7 @@ from model.iir import CompleteFilter, PeakingEQ
 from model.limits import dBRangeCalculator
 from model.magnitude import MagnitudeModel
 from model.preferences import get_filter_colour, HTP1_ADDRESS
+from ui.edit_mapping import Ui_editMappingDialog
 from ui.syncdetails import Ui_syncDetailsDialog
 from ui.synchtp1 import Ui_syncHtp1Dialog
 
@@ -33,7 +33,10 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         self.__signal_filter = None
         self.__last_requested_msoupdate = None
         self.__last_received_msoupdate = None
+        self.__channel_to_signal = {}
         self.setupUi(self)
+        self.syncStatus = qta.IconWidget('fa5s.unlink')
+        self.syncLayout.addWidget(self.syncStatus)
         self.ipAddress.setText(self.__preferences.get(HTP1_ADDRESS))
         self.filterView.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.__filters = FilterModel(self.filterView, self.__preferences)
@@ -49,16 +52,15 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         self.limitsButton.setIcon(qta.icon('fa5s.arrows-alt'))
         self.showDetailsButton.setIcon(qta.icon('fa5s.info'))
         self.createPulsesButton.setIcon(qta.icon('fa5s.wave-square'))
-        from model.report import block_signals
-        with block_signals(self.filterChannel):
-            for s in self.__signal_model:
-                self.filterChannel.addItem(s.name)
+        self.fullRangeButton.setIcon(qta.icon('fa5s.expand'))
+        self.subOnlyButton.setIcon(qta.icon('fa5s.compress'))
         self.__ws_client = QtWebSockets.QWebSocket('', QtWebSockets.QWebSocketProtocol.Version13, None)
         self.__ws_client.error.connect(self.__on_ws_error)
         self.__ws_client.connected.connect(self.__on_ws_connect)
         self.__ws_client.disconnected.connect(self.__on_ws_disconnect)
         self.__ws_client.textMessageReceived.connect(self.__on_ws_message)
         self.__disable_on_disconnect()
+        self.filterMapping.itemDoubleClicked.connect(self.__show_mapping_dialog)
 
     def __on_ws_error(self, error_code):
         '''
@@ -73,6 +75,8 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         self.__preferences.set(HTP1_ADDRESS, self.ipAddress.text())
         self.__load_peq_slots()
         self.__enable_on_connect()
+        self.syncStatus.setIcon(qta.icon('fa5s.link'))
+        self.syncStatus.setEnabled(True)
 
     def __load_peq_slots(self):
         b = self.__ws_client.sendTextMessage('getmso')
@@ -99,7 +103,9 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         self.addFilterButton.setEnabled(False)
         self.removeFilterButton.setEnabled(False)
         self.applyFiltersButton.setEnabled(False)
-        self.filterChannel.setEnabled(False)
+        self.__show_signal_mapping()
+        self.syncStatus.setIcon(qta.icon('fa5s.unlink'))
+        self.syncStatus.setEnabled(False)
         self.__filters.filter = CompleteFilter(fs=HTP1_FS, sort_by_id=True)
         self.__magnitude_model.redraw()
 
@@ -111,10 +117,9 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         self.ipAddress.setReadOnly(True)
         self.resyncFilters.setEnabled(True)
         self.selectBeqButton.setEnabled(True)
-        self.applyFiltersButton.setEnabled(True)
         self.createPulsesButton.setEnabled(True)
-        if len(self.__signal_model) > 0:
-            self.filterChannel.setEnabled(True)
+        self.__show_signal_mapping()
+        self.enable_sync()
 
     def __on_ws_message(self, msg):
         '''
@@ -128,7 +133,12 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
             logger.debug(f"Processing msoupdate {msg}")
             self.__on_msoupdate(json.loads(msg[10:]))
         else:
-            logger.info(f"Unknown message {msg}")
+            logger.warning(f"Unknown message {msg}")
+            msg_box = QMessageBox(QMessageBox.Critical, 'Unknown Message',
+                                  f"Received unexpected message from {self.ipAddress.text()}")
+            msg_box.setDetailedText(f"<code>{msg}</code>")
+            msg_box.setTextFormat(Qt.RichText)
+            msg_box.exec()
 
     def __on_msoupdate(self, msoupdate):
         '''
@@ -139,14 +149,16 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         was_requested = False
         if self.__spinner is not None:
             was_requested = True
-            stop_spinner(self.__spinner, self.applyFiltersButton)
-            self.applyFiltersButton.setIcon(QIcon())
+            stop_spinner(self.__spinner, self.syncStatus)
             self.__spinner = None
         if was_requested:
             if not self.__msoupdate_matches(msoupdate):
+                self.syncStatus.setIcon(qta.icon('fa5s.times', color='red'))
                 self.show_sync_details()
+            else:
+                self.syncStatus.setIcon(qta.icon('fa5s.check', color='green'))
         else:
-            self.applyFiltersButton.setIcon(qta.icon('fa5s.times', color='red'))
+            self.syncStatus.setIcon(qta.icon('fa5s.question', color='red'))
         self.showDetailsButton.setEnabled(True)
 
     def show_sync_details(self):
@@ -216,17 +228,13 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
             if now_idx > -1:
                 self.filtersetSelector.setCurrentIndex(now_idx)
 
-        # raw_filters_txt = {k: json.dumps(v) for k, v in raw_filters.items()}
-        # from collections import defaultdict
-        # filtersets = defaultdict(list)
-        # for key, value in sorted(raw_filters_txt.items()):
-        #     filtersets[value].append(key)
-        # print(filtersets.values())
-        # TODO provide a way to group and ungroup channels
         self.__filters_by_channel = tmp
         self.__filters.filter = self.__filters_by_channel[self.filtersetSelector.itemText(0)]
+        if not self.__channel_to_signal:
+            self.__recalc_mapping()
+            self.__show_signal_mapping()
         self.__magnitude_model.redraw()
-        self.applyFiltersButton.setIcon(QIcon())
+        self.syncStatus.setIcon(qta.icon('fa5s.link'))
         self.__last_received_msoupdate = None
         self.__last_requested_msoupdate = None
         self.showDetailsButton.setEnabled(False)
@@ -297,14 +305,24 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         '''
         from app import wait_cursor
         with wait_cursor():
-            ops = [self.__as_operation(idx, self.filtersetSelector.currentText(), f) for idx, f in enumerate(self.__filters.filter)]
+            if self.__in_complex_mode():
+                ops = []
+                for i in self.filterMapping.selectedItems():
+                    c = i.text().split(' ')[1]
+                    s = self.__channel_to_signal[c]
+                    if s is not None:
+                        ops += [self.__as_operation(idx, c, f) for idx, f in enumerate(s.filter)]
+                # TODO ensure all slots are filled
+            else:
+                selected_filter = self.filtersetSelector.currentText()
+                ops = [self.__as_operation(idx, selected_filter , f) for idx, f in enumerate(self.__filters.filter)]
             all_ops = [op for slot_ops in ops for op in slot_ops]
             self.__last_requested_msoupdate = all_ops
             msg = f"changemso {json.dumps(self.__last_requested_msoupdate)}"
             logger.debug(f"Sending to {self.ipAddress.text()} -> {msg}")
-            self.__spinner = StoppableSpin(self.applyFiltersButton, 'sync')
+            self.__spinner = StoppableSpin(self.syncStatus, 'sync')
             spin_icon = qta.icon('fa5s.spinner', color='green', animation=self.__spinner)
-            self.applyFiltersButton.setIcon(spin_icon)
+            self.syncStatus.setIcon(spin_icon)
             self.__ws_client.sendTextMessage(msg)
 
     @staticmethod
@@ -424,12 +442,85 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         ''' Creates a dirac pulse with the specified filter for each channel and loads them into the signal model. '''
         for p in [self.__create_pulse(c, f) for c, f in self.__filters_by_channel.items()]:
             self.__signal_model.add(p)
+        self.load_from_signals()
+
+    def __recalc_mapping(self):
+        for c in self.__filters_by_channel.keys():
+            found = False
+            for s in self.__signal_model:
+                if s.name.endswith(f"_{c}"):
+                    self.__channel_to_signal[c] = s
+                    found = True
+                    break
+            if not found:
+                self.__channel_to_signal[c] = None
+
+    def __show_signal_mapping(self):
+        show_it = self.__in_complex_mode()
+        self.loadFromSignalsButton.setEnabled(show_it)
+        self.filterMappingLabel.setVisible(show_it)
+        self.filterMapping.setVisible(show_it)
+        self.filterMappingLabel.setEnabled(show_it)
+        self.filterMapping.setEnabled(show_it)
+        self.selectNoneButton.setVisible(show_it)
+        self.selectAllButton.setVisible(show_it)
+        self.filterMapping.clear()
+        for c, signal in self.__channel_to_signal.items():
+            self.filterMapping.addItem(f"Channel {c} -> {signal.name if signal else 'No Filter'}")
+
+    def __in_complex_mode(self):
+        '''
+        :return: true if we have signals and are connected.
+        '''
+        return len(self.__signal_model) > 0 and not self.connectButton.isEnabled()
 
     def __create_pulse(self, c, f):
         from scipy.signal import unit_impulse
         from model.signal import SingleChannelSignalData, Signal
         signal = Signal(f"pulse_{c}", unit_impulse(4 * HTP1_FS, 'mid'), self.__preferences, fs=HTP1_FS)
         return SingleChannelSignalData(name=f"pulse_{c}", filter=f, signal=signal)
+
+    def load_from_signals(self):
+        '''
+        Maps the signals to the HTP1 channels.
+        '''
+        self.__recalc_mapping()
+        self.__show_signal_mapping()
+        self.enable_sync()
+
+    def __show_mapping_dialog(self, item: QListWidgetItem):
+        ''' Shows the edit mapping dialog '''
+        if self.filterMapping.isEnabled():
+            text = item.text()
+            channel_name = text.split(' ')[1]
+            mapped_signal = self.__channel_to_signal.get(channel_name, None)
+            EditMappingDialog(self, self.__filters_by_channel.keys(), channel_name, self.__signal_model,
+                              mapped_signal, self.__map_signal_to_channel).exec()
+
+    def __map_signal_to_channel(self, channel_name, signal):
+        '''
+        updates the mapping of a signal to a channel.
+        :param channel_name: the channel name.
+        :param signal: the mapped signal.
+        '''
+        if signal:
+            self.__channel_to_signal[channel_name] = signal
+        else:
+            self.__channel_to_signal[channel_name] = None
+        self.__show_signal_mapping()
+
+    def enable_sync(self):
+        ''' if any channels are selected, enable the sync button. '''
+        enable = self.filterMapping.selectionModel().hasSelection() or self.filterMapping.count() == 0
+        self.applyFiltersButton.setEnabled(enable)
+
+    def clear_sync_selection(self):
+        ''' clears any selection for sync . '''
+        self.filterMapping.selectionModel().clearSelection()
+
+    def select_all_for_sync(self):
+        ''' selects all channels for sync. '''
+        self.filterMapping.selectAll()
 
 
 class SyncDetailsDialog(QDialog, Ui_syncDetailsDialog):
@@ -461,3 +552,33 @@ class SyncDetailsDialog(QDialog, Ui_syncDetailsDialog):
             self.gridLayout_2.addWidget(requested, idx+1, 1, 1, 1)
             self.gridLayout_2.addWidget(actual_text, idx+1, 2, 1, 1)
             self.gridLayout_2.addWidget(status, idx+1, 3, 1, 1)
+
+
+class EditMappingDialog(QDialog, Ui_editMappingDialog):
+    ''' Allows the user to override the signal to channel mapping '''
+
+    def __init__(self, parent, channels, channel_name, signal_model, selected_signal, on_change_handler):
+        super(EditMappingDialog, self).__init__(parent)
+        self.setupUi(self)
+        self.__channels = channels
+        self.__signal_model = signal_model
+        self.signal.addItem('No Filter')
+        if len(signal_model) > 0:
+            for idx, s in enumerate(signal_model):
+                self.signal.addItem(s.name)
+        for idx, c in enumerate(channels):
+            self.channels.addItem(c)
+            if c == channel_name:
+                self.channels.setCurrentRow(idx)
+        if selected_signal is not None:
+            self.signal.setCurrentText(selected_signal.name)
+        self.on_change_handler = on_change_handler
+
+    def accept(self):
+        signal_name = None if self.signal.currentText() == 'No Filter' else self.signal.currentText()
+        signal = None
+        if len(self.__signal_model) > 0:
+            signal = next((s for s in self.__signal_model if s.name == signal_name), None)
+        for c in self.channels.selectedItems():
+            self.on_change_handler(c.text(), signal)
+        super().accept()
