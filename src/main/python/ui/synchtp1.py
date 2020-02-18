@@ -13,7 +13,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_syncHtp1Dialog(object):
     def setupUi(self, syncHtp1Dialog):
         syncHtp1Dialog.setObjectName("syncHtp1Dialog")
-        syncHtp1Dialog.resize(1416, 673)
+        syncHtp1Dialog.resize(1416, 700)
         self.gridLayout = QtWidgets.QGridLayout(syncHtp1Dialog)
         self.gridLayout.setObjectName("gridLayout")
         self.gridLayout_3 = QtWidgets.QGridLayout()
@@ -148,7 +148,7 @@ class Ui_syncHtp1Dialog(object):
         self.loadFromSignalsButton.clicked.connect(syncHtp1Dialog.load_from_signals)
         self.selectNoneButton.clicked.connect(syncHtp1Dialog.clear_sync_selection)
         self.selectAllButton.clicked.connect(syncHtp1Dialog.select_all_for_sync)
-        self.filterMapping.itemSelectionChanged.connect(syncHtp1Dialog.enable_sync)
+        self.filterMapping.itemSelectionChanged.connect(syncHtp1Dialog.on_signal_selected)
         QtCore.QMetaObject.connectSlotsByName(syncHtp1Dialog)
 
     def retranslateUi(self, syncHtp1Dialog):

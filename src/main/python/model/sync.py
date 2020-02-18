@@ -119,7 +119,7 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         self.selectBeqButton.setEnabled(True)
         self.createPulsesButton.setEnabled(True)
         self.__show_signal_mapping()
-        self.enable_sync()
+        self.on_signal_selected()
 
     def __on_ws_message(self, msg):
         '''
@@ -494,7 +494,7 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         '''
         self.__recalc_mapping()
         self.__show_signal_mapping()
-        self.enable_sync()
+        self.on_signal_selected()
 
     def __show_mapping_dialog(self, item: QListWidgetItem):
         ''' Shows the edit mapping dialog '''
