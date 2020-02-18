@@ -272,8 +272,8 @@ Mapping</string>
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>621</x>
-     <y>663</y>
+     <x>630</x>
+     <y>690</y>
     </hint>
     <hint type="destinationlabel">
      <x>157</x>
@@ -288,8 +288,8 @@ Mapping</string>
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>689</x>
-     <y>663</y>
+     <x>698</x>
+     <y>690</y>
     </hint>
     <hint type="destinationlabel">
      <x>286</x>
@@ -305,7 +305,7 @@ Mapping</string>
    <hints>
     <hint type="sourcelabel">
      <x>354</x>
-     <y>325</y>
+     <y>352</y>
     </hint>
     <hint type="destinationlabel">
      <x>345</x>
@@ -353,7 +353,7 @@ Mapping</string>
    <hints>
     <hint type="sourcelabel">
      <x>322</x>
-     <y>632</y>
+     <y>659</y>
     </hint>
     <hint type="destinationlabel">
      <x>235</x>
@@ -417,7 +417,7 @@ Mapping</string>
    <hints>
     <hint type="sourcelabel">
      <x>143</x>
-     <y>356</y>
+     <y>383</y>
     </hint>
     <hint type="destinationlabel">
      <x>162</x>
@@ -433,7 +433,7 @@ Mapping</string>
    <hints>
     <hint type="sourcelabel">
      <x>224</x>
-     <y>356</y>
+     <y>383</y>
     </hint>
     <hint type="destinationlabel">
      <x>254</x>
@@ -465,7 +465,7 @@ Mapping</string>
    <hints>
     <hint type="sourcelabel">
      <x>354</x>
-     <y>616</y>
+     <y>657</y>
     </hint>
     <hint type="destinationlabel">
      <x>329</x>
@@ -481,7 +481,7 @@ Mapping</string>
    <hints>
     <hint type="sourcelabel">
      <x>354</x>
-     <y>354</y>
+     <y>381</y>
     </hint>
     <hint type="destinationlabel">
      <x>355</x>
@@ -529,7 +529,7 @@ Mapping</string>
    <hints>
     <hint type="sourcelabel">
      <x>322</x>
-     <y>356</y>
+     <y>383</y>
     </hint>
     <hint type="destinationlabel">
      <x>32</x>
@@ -544,8 +544,8 @@ Mapping</string>
    <slot>clear_sync_selection()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>87</x>
-     <y>616</y>
+     <x>143</x>
+     <y>659</y>
     </hint>
     <hint type="destinationlabel">
      <x>48</x>
@@ -560,12 +560,28 @@ Mapping</string>
    <slot>select_all_for_sync()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>179</x>
-     <y>619</y>
+     <x>224</x>
+     <y>659</y>
     </hint>
     <hint type="destinationlabel">
      <x>55</x>
      <y>608</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>filterMapping</sender>
+   <signal>itemSelectionChanged()</signal>
+   <receiver>syncHtp1Dialog</receiver>
+   <slot>on_signal_selected()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>286</x>
+     <y>492</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>344</x>
+     <y>531</y>
     </hint>
    </hints>
   </connection>
