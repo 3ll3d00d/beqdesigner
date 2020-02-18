@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1416</width>
-    <height>673</height>
+    <height>700</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -569,22 +569,6 @@ Mapping</string>
     </hint>
    </hints>
   </connection>
-  <connection>
-   <sender>filterMapping</sender>
-   <signal>itemSelectionChanged()</signal>
-   <receiver>syncHtp1Dialog</receiver>
-   <slot>enable_sync()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>134</x>
-     <y>499</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>63</x>
-     <y>601</y>
-    </hint>
-   </hints>
-  </connection>
  </connections>
  <slots>
   <slot>select_beq()</slot>
@@ -606,6 +590,6 @@ Mapping</string>
   <slot>load_from_signals()</slot>
   <slot>clear_sync_selection()</slot>
   <slot>select_all_for_sync()</slot>
-  <slot>enable_sync()</slot>
+  <slot>on_signal_selected()</slot>
  </slots>
 </ui>
