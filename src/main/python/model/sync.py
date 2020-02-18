@@ -311,8 +311,11 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
                     c = i.text().split(' ')[1]
                     s = self.__channel_to_signal[c]
                     if s is not None:
-                        ops += [self.__as_operation(idx, c, f) for idx, f in enumerate(s.filter)]
-                # TODO ensure all slots are filled
+                        channel_ops = [self.__as_operation(idx, c, f) for idx, f in enumerate(s.filter)]
+                        remainder = 16 - len(channel_ops)
+                        if remainder > 0:
+                            channel_ops += [self.__make_passthrough(i) for i in range(remainder)]
+                        ops += channel_ops
             else:
                 selected_filter = self.filtersetSelector.currentText()
                 ops = [self.__as_operation(idx, selected_filter , f) for idx, f in enumerate(self.__filters.filter)]
@@ -324,6 +327,10 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
             spin_icon = qta.icon('fa5s.spinner', color='green', animation=self.__spinner)
             self.syncStatus.setIcon(spin_icon)
             self.__ws_client.sendTextMessage(msg)
+
+    @staticmethod
+    def __make_passthrough(idx):
+        return PeakingEQ(HTP1_FS, 100, 1, 0, f_id=idx)
 
     @staticmethod
     def __as_operation(idx, channel, f):
@@ -467,6 +474,7 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         self.filterMapping.clear()
         for c, signal in self.__channel_to_signal.items():
             self.filterMapping.addItem(f"Channel {c} -> {signal.name if signal else 'No Filter'}")
+        self.filtersetLabel.setText('Preview' if show_it else 'Channel')
 
     def __in_complex_mode(self):
         '''
@@ -509,10 +517,14 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
             self.__channel_to_signal[channel_name] = None
         self.__show_signal_mapping()
 
-    def enable_sync(self):
+    def on_signal_selected(self):
         ''' if any channels are selected, enable the sync button. '''
-        enable = self.filterMapping.selectionModel().hasSelection() or self.filterMapping.count() == 0
+        is_selected = self.filterMapping.selectionModel().hasSelection()
+        enable = is_selected or self.filterMapping.count() == 0
         self.applyFiltersButton.setEnabled(enable)
+        enable_beq = enable and self.__beq_filter is not None
+        self.addFilterButton.setEnabled(enable_beq)
+        self.removeFilterButton.setEnabled(enable_beq)
 
     def clear_sync_selection(self):
         ''' clears any selection for sync . '''
