@@ -250,12 +250,31 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         '''
         selected_filter = self.__get_selected_filter()
         if selected_filter is not None:
-            max_idx = len(self.__filters.filter)
-            self.__filters.filter.removeByIndex(range(max_idx-len(selected_filter), max_idx))
-            for f in selected_filter:
-                f.id = len(self.__filters.filter)
-                self.__filters.save(f)
+            if self.__in_complex_mode():
+                for i in self.filterMapping.selectedItems():
+                    c = i.text().split(' ')[1]
+                    s = self.__channel_to_signal[c]
+                    if s is not None:
+                        self.__apply_filter(selected_filter, s.filter)
+                        if c == self.filtersetSelector.currentText():
+                            self.__filters.filter = self.__filters.filter
+            else:
+                self.__apply_filter(selected_filter, self.__filters.filter)
+                self.__filters.filter = self.__filters.filter
             self.__magnitude_model.redraw()
+
+    @staticmethod
+    def __apply_filter(source, target):
+        '''
+        Places the target filter in the source in the last n slots.
+        :param source: the source filter.
+        :param target: the target.
+        '''
+        max_idx = len(target)
+        target.removeByIndex(range(max_idx-len(source), max_idx))
+        for f in source:
+            f.id = len(target)
+            target.save(f)
 
     def __get_selected_filter(self):
         selected_filter = None
@@ -268,21 +287,36 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
     def remove_filter(self):
         '''
         Searches for the BEQ in the selected channel and highlights them for deletion.
+        Auto deletes if in complex mode.
         '''
         selected_filter = self.__get_selected_filter()
         if selected_filter is not None:
-            filt_idx = 0
-            rows = []
-            for i, f in enumerate(self.__filters.filter):
-                if self.__is_equivalent(f, selected_filter[filt_idx]):
-                    filt_idx += 1
-                    rows.append(i)
-                if filt_idx >= len(selected_filter):
-                    break
-            self.filterView.clearSelection()
-            if len(rows) > 0:
-                for r in rows:
-                    self.filterView.selectRow(r)
+            if self.__in_complex_mode():
+                for i in self.filterMapping.selectedItems():
+                    c = i.text().split(' ')[1]
+                    s = self.__channel_to_signal[c]
+                    if s is not None:
+                        for r in self.__remove_from_filter(selected_filter, s.filter):
+                            to_save = self.__filters if c == self.filtersetSelector.currentText() else s.filter
+                            to_save.save(self.__make_passthrough(r))
+                self.__magnitude_model.redraw()
+            else:
+                rows = self.__remove_from_filter(selected_filter, self.__filters.filter)
+                self.filterView.clearSelection()
+                if len(rows) > 0:
+                    for r in rows:
+                        self.filterView.selectRow(r)
+
+    def __remove_from_filter(self, to_remove, target):
+        filt_idx = 0
+        rows = []
+        for i, f in enumerate(target):
+            if self.__is_equivalent(f, to_remove[filt_idx]):
+                filt_idx += 1
+                rows.append(i)
+            if filt_idx >= len(to_remove):
+                break
+        return rows
 
     def select_filter(self, channel_name):
         '''
@@ -299,7 +333,7 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
     def __is_equivalent(a, b):
         return a.freq == b.freq and a.gain == b.gain and hasattr(a, 'q') and hasattr(b, 'q') and a.q == b.q
 
-    def apply_filters(self):
+    def send_filters_to_device(self):
         '''
         Sends the selected filters to the device
         '''
@@ -360,7 +394,7 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         selection_model = self.filterView.selectionModel()
         if selection_model.hasSelection():
             for x in selection_model.selectedRows():
-                self.__filters.save(PeakingEQ(HTP1_FS, 100, 1, 0, f_id=x.row()))
+                self.__filters.save(self.__make_passthrough(x.row()))
             self.__magnitude_model.redraw()
 
     def connect_htp1(self):
@@ -522,7 +556,9 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         is_selected = self.filterMapping.selectionModel().hasSelection()
         enable = is_selected or self.filterMapping.count() == 0
         self.applyFiltersButton.setEnabled(enable)
-        enable_beq = enable and self.__beq_filter is not None
+        enable_beq = enable and self.__get_selected_filter() is not None
+        self.addFilterButton.setEnabled(enable_beq)
+        self.removeFilterButton.setEnabled(enable_beq)
         self.addFilterButton.setEnabled(enable_beq)
         self.removeFilterButton.setEnabled(enable_beq)
 
