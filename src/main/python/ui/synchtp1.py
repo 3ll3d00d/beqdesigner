@@ -134,7 +134,7 @@ class Ui_syncHtp1Dialog(object):
         self.selectBeqButton.clicked.connect(syncHtp1Dialog.select_beq)
         self.deleteFiltersButton.clicked.connect(syncHtp1Dialog.clear_filters)
         self.filtersetSelector.currentTextChanged['QString'].connect(syncHtp1Dialog.display_filterset)
-        self.applyFiltersButton.clicked.connect(syncHtp1Dialog.apply_filters)
+        self.applyFiltersButton.clicked.connect(syncHtp1Dialog.send_filters_to_device)
         self.connectButton.clicked.connect(syncHtp1Dialog.connect_htp1)
         self.disconnectButton.clicked.connect(syncHtp1Dialog.disconnect_htp1)
         self.resyncFilters.clicked.connect(syncHtp1Dialog.resync_filters)

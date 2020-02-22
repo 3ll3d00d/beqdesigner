@@ -349,7 +349,7 @@ Mapping</string>
    <sender>applyFiltersButton</sender>
    <signal>clicked()</signal>
    <receiver>syncHtp1Dialog</receiver>
-   <slot>apply_filters()</slot>
+   <slot>send_filters_to_device()</slot>
    <hints>
     <hint type="sourcelabel">
      <x>322</x>
@@ -591,7 +591,7 @@ Mapping</string>
   <slot>clear_filters()</slot>
   <slot>display_filterset()</slot>
   <slot>add_filter()</slot>
-  <slot>apply_filters()</slot>
+  <slot>send_filters_to_device()</slot>
   <slot>connect_htp1()</slot>
   <slot>disconnect_htp1()</slot>
   <slot>resync_filters()</slot>
