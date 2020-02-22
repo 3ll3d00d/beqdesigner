@@ -337,30 +337,48 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         '''
         Sends the selected filters to the device
         '''
-        from app import wait_cursor
-        with wait_cursor():
-            if self.__in_complex_mode():
-                ops = []
-                for i in self.filterMapping.selectedItems():
-                    c = i.text().split(' ')[1]
-                    s = self.__channel_to_signal[c]
-                    if s is not None:
-                        channel_ops = [self.__as_operation(idx, c, f) for idx, f in enumerate(s.filter)]
-                        remainder = 16 - len(channel_ops)
-                        if remainder > 0:
-                            channel_ops += [self.__make_passthrough(i) for i in range(remainder)]
-                        ops += channel_ops
-            else:
-                selected_filter = self.filtersetSelector.currentText()
-                ops = [self.__as_operation(idx, selected_filter , f) for idx, f in enumerate(self.__filters.filter)]
-            all_ops = [op for slot_ops in ops for op in slot_ops]
-            self.__last_requested_msoupdate = all_ops
-            msg = f"changemso {json.dumps(self.__last_requested_msoupdate)}"
-            logger.debug(f"Sending to {self.ipAddress.text()} -> {msg}")
-            self.__spinner = StoppableSpin(self.syncStatus, 'sync')
-            spin_icon = qta.icon('fa5s.spinner', color='green', animation=self.__spinner)
-            self.syncStatus.setIcon(spin_icon)
-            self.__ws_client.sendTextMessage(msg)
+        non_peq_filter_types_by_channel = {}
+        if self.__in_complex_mode():
+            ops = []
+            for i in self.filterMapping.selectedItems():
+                c = i.text().split(' ')[1]
+                s = self.__channel_to_signal[c]
+                if s is not None:
+                    non_peq_types = [f.filter_type for f in s.filter if f.filter_type != 'PEQ']
+                    if non_peq_types:
+                        non_peq_filter_types_by_channel[c] = set(non_peq_types)
+                    channel_ops = [self.__as_operation(idx, c, f) for idx, f in enumerate(s.filter)]
+                    remainder = 16 - len(channel_ops)
+                    if remainder > 0:
+                        channel_ops += [self.__make_passthrough(i) for i in range(remainder)]
+                    ops += channel_ops
+        else:
+            selected_filter = self.filtersetSelector.currentText()
+            ops = [self.__as_operation(idx, selected_filter, f) for idx, f in enumerate(self.__filters.filter)]
+            non_peq_types = [f.filter_type for f in self.__filters.filter if f.filter_type != 'PEQ']
+            if non_peq_types:
+                non_peq_filter_types_by_channel[selected_filter] = set(non_peq_types)
+        do_send = True
+        if non_peq_filter_types_by_channel:
+            result = QMessageBox.question(self,
+                                          'Send as PEQ?',
+                                          f"HTP-1 supports PEQ filters only but other filter types are found in "
+                                          f"{','.join(sorted([k for k in non_peq_filter_types_by_channel.keys()]))}"
+                                          f"\n\nDo you want to send all filters as PEQ for testing purposes? ",
+                                          QMessageBox.Yes | QMessageBox.No,
+                                          QMessageBox.No)
+            do_send = result == QMessageBox.Yes
+            if do_send:
+                from app import wait_cursor
+                with wait_cursor():
+                    all_ops = [op for slot_ops in ops for op in slot_ops]
+                    self.__last_requested_msoupdate = all_ops
+                    msg = f"changemso {json.dumps(self.__last_requested_msoupdate)}"
+                    logger.debug(f"Sending to {self.ipAddress.text()} -> {msg}")
+                    self.__spinner = StoppableSpin(self.syncStatus, 'sync')
+                    spin_icon = qta.icon('fa5s.spinner', color='green', animation=self.__spinner)
+                    self.syncStatus.setIcon(spin_icon)
+                    self.__ws_client.sendTextMessage(msg)
 
     @staticmethod
     def __make_passthrough(idx):
