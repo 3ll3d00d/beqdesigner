@@ -3,7 +3,7 @@ import logging
 
 import qtawesome as qta
 from qtpy import QtWebSockets
-from qtpy.QtCore import QUrl, QItemSelectionModel, Qt
+from qtpy.QtCore import QUrl, Qt, QItemSelectionModel
 from qtpy.QtWidgets import QDialog, QAbstractItemView, QHeaderView, QLineEdit, QToolButton, QListWidgetItem, QMessageBox
 
 from model.batch import StoppableSpin, stop_spinner
@@ -28,6 +28,7 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         self.__preferences = prefs
         self.__signal_model = signal_model
         self.__filters_by_channel = {}
+        self.__current_device_filters_by_channel = {}
         self.__spinner = None
         self.__beq_filter = None
         self.__signal_filter = None
@@ -97,6 +98,7 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         self.createPulsesButton.setEnabled(False)
         self.filtersetSelector.clear()
         self.__filters_by_channel = {}
+        self.__current_device_filters_by_channel = {}
         self.beqFile.clear()
         self.__beq_filter = None
         self.selectBeqButton.setEnabled(False)
@@ -159,7 +161,31 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
                 self.syncStatus.setIcon(qta.icon('fa5s.check', color='green'))
         else:
             self.syncStatus.setIcon(qta.icon('fa5s.question', color='red'))
+        self.__update_device_state(msoupdate)
         self.showDetailsButton.setEnabled(True)
+
+    def __update_device_state(self, msoupdate):
+        ''' applies the delta from msoupdate to the local cache of the device state. '''
+        for op in msoupdate:
+            if 'path' in op and op['path'].startswith('/peq/slots'):
+                path = op['path']
+                if path[0] == '/':
+                    path = path[1:]
+                tokens = path.split('/')
+                idx = int(tokens[2])
+                channel = tokens[4]
+                attrib = tokens[5]
+                val = op['value']
+                if channel in self.__current_device_filters_by_channel:
+                    cf = self.__current_device_filters_by_channel[channel]
+                    f = cf[idx].resample(HTP1_FS)
+                    if attrib == 'gaindB':
+                        f.gain = float(val)
+                    elif attrib == 'Fc':
+                        f.freq = float(val)
+                    elif attrib == 'Q':
+                        f.q = float(val)
+                    cf.save(f)
 
     def show_sync_details(self):
         if self.__last_requested_msoupdate is not None and self.__last_received_msoupdate is not None:
@@ -202,13 +228,15 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
                 self[key] = CompleteFilter(fs=HTP1_FS, sort_by_id=True)
                 return self[key]
 
-        tmp = Filters()
+        tmp1 = Filters()
+        tmp2 = Filters()
         raw_filters = {c: [] for c in channels}
         unknown_channels = set()
         for idx, s in enumerate(peq_slots):
             for c in channels:
                 if c in s['channels']:
-                    tmp[c].save(self.__convert_to_filter(s['channels'][c], idx))
+                    tmp1[c].save(self.__convert_to_filter(s['channels'][c], idx))
+                    tmp2[c].save(self.__convert_to_filter(s['channels'][c], idx))
                     raw_filters[c].append(s['channels'][c])
                 else:
                     unknown_channels.add(c)
@@ -228,7 +256,8 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
             if now_idx > -1:
                 self.filtersetSelector.setCurrentIndex(now_idx)
 
-        self.__filters_by_channel = tmp
+        self.__filters_by_channel = tmp1
+        self.__current_device_filters_by_channel = tmp2
         self.__filters.filter = self.__filters_by_channel[self.filtersetSelector.itemText(0)]
         if not self.__channel_to_signal:
             self.__recalc_mapping()
@@ -337,27 +366,36 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         '''
         Sends the selected filters to the device
         '''
-        non_peq_filter_types_by_channel = {}
         if self.__in_complex_mode():
-            ops = []
-            for i in self.filterMapping.selectedItems():
-                c = i.text().split(' ')[1]
-                s = self.__channel_to_signal[c]
-                if s is not None:
-                    non_peq_types = [f.filter_type for f in s.filter if f.filter_type != 'PEQ']
-                    if non_peq_types:
-                        non_peq_filter_types_by_channel[c] = set(non_peq_types)
-                    channel_ops = [self.__as_operation(idx, c, f) for idx, f in enumerate(s.filter)]
-                    remainder = 16 - len(channel_ops)
-                    if remainder > 0:
-                        channel_ops += [self.__make_passthrough(i) for i in range(remainder)]
-                    ops += channel_ops
+            ops, non_peq_filter_types_by_channel = self.__convert_filter_mappings_to_ops()
+            channels_to_update = [i.text().split(' ')[1] for i in self.filterMapping.selectedItems()]
+            unsynced_channels = []
+            for c, s in self.__channel_to_signal.items():
+                if c not in channels_to_update:
+                    if c in self.__current_device_filters_by_channel:
+                        current = s.filter
+                        device = self.__current_device_filters_by_channel[c]
+                        if current != device:
+                            unsynced_channels.append(c)
+            if unsynced_channels:
+                result = QMessageBox.question(self,
+                                              'Sync all changed channels?',
+                                              f"Filters in {len(unsynced_channels)} have changed but will not be "
+                                              f"synced to the HTP-1."
+                                              f"\n\nChannels: {', '.join(sorted([k for k in unsynced_channels]))}"
+                                              f"\n\nDo you want to sync all changed channels? ",
+                                              QMessageBox.Yes | QMessageBox.No,
+                                              QMessageBox.No)
+                if result == QMessageBox.Yes:
+                    for c in unsynced_channels:
+                        for i in range(self.filterMapping.count()):
+                            item: QListWidgetItem = self.filterMapping.item(i)
+                            if c == item.text().split(' ')[1]:
+                                item.setSelected(True)
+                    self.send_filters_to_device()
+                    return
         else:
-            selected_filter = self.filtersetSelector.currentText()
-            ops = [self.__as_operation(idx, selected_filter, f) for idx, f in enumerate(self.__filters.filter)]
-            non_peq_types = [f.filter_type for f in self.__filters.filter if f.filter_type != 'PEQ']
-            if non_peq_types:
-                non_peq_filter_types_by_channel[selected_filter] = set(non_peq_types)
+            ops, non_peq_filter_types_by_channel = self.__convert_current_filter_to_ops()
         do_send = True
         if non_peq_filter_types_by_channel:
             result = QMessageBox.question(self,
@@ -368,17 +406,51 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
                                           QMessageBox.Yes | QMessageBox.No,
                                           QMessageBox.No)
             do_send = result == QMessageBox.Yes
-            if do_send:
-                from app import wait_cursor
-                with wait_cursor():
-                    all_ops = [op for slot_ops in ops for op in slot_ops]
-                    self.__last_requested_msoupdate = all_ops
-                    msg = f"changemso {json.dumps(self.__last_requested_msoupdate)}"
-                    logger.debug(f"Sending to {self.ipAddress.text()} -> {msg}")
-                    self.__spinner = StoppableSpin(self.syncStatus, 'sync')
-                    spin_icon = qta.icon('fa5s.spinner', color='green', animation=self.__spinner)
-                    self.syncStatus.setIcon(spin_icon)
-                    self.__ws_client.sendTextMessage(msg)
+        if do_send:
+            from app import wait_cursor
+            with wait_cursor():
+                all_ops = [op for slot_ops in ops for op in slot_ops]
+                self.__last_requested_msoupdate = all_ops
+                msg = f"changemso {json.dumps(self.__last_requested_msoupdate)}"
+                logger.debug(f"Sending to {self.ipAddress.text()} -> {msg}")
+                self.__spinner = StoppableSpin(self.syncStatus, 'sync')
+                spin_icon = qta.icon('fa5s.spinner', color='green', animation=self.__spinner)
+                self.syncStatus.setIcon(spin_icon)
+                self.__ws_client.sendTextMessage(msg)
+
+    def __convert_current_filter_to_ops(self):
+        '''
+        Converts the selected filter to operations.
+        :return: (the operations, channel with non PEQ filters)
+        '''
+        non_peq_filter_types_by_channel = {}
+        selected_filter = self.filtersetSelector.currentText()
+        ops = [self.__as_operation(idx, selected_filter, f) for idx, f in enumerate(self.__filters.filter)]
+        non_peq_types = [f.filter_type for f in self.__filters.filter if f.filter_type != 'PEQ']
+        if non_peq_types:
+            non_peq_filter_types_by_channel[selected_filter] = set(non_peq_types)
+        return ops, non_peq_filter_types_by_channel
+
+    def __convert_filter_mappings_to_ops(self):
+        '''
+        Converts the selected filter mappings to operations.
+        :return: (the operations, the channels with non PEQ filters)
+        '''
+        ops = []
+        non_peq_filter_types_by_channel = {}
+        for i in self.filterMapping.selectedItems():
+            c = i.text().split(' ')[1]
+            s = self.__channel_to_signal[c]
+            if s is not None:
+                non_peq_types = [f.filter_type for f in s.filter if f.filter_type != 'PEQ']
+                if non_peq_types:
+                    non_peq_filter_types_by_channel[c] = set(non_peq_types)
+                channel_ops = [self.__as_operation(idx, c, f) for idx, f in enumerate(s.filter)]
+                remainder = 16 - len(channel_ops)
+                if remainder > 0:
+                    channel_ops += [self.__make_passthrough(i) for i in range(remainder)]
+                ops += channel_ops
+        return ops, non_peq_filter_types_by_channel
 
     @staticmethod
     def __make_passthrough(idx):
