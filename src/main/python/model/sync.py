@@ -1,9 +1,10 @@
 import json
 import logging
+from collections import OrderedDict
 
 import qtawesome as qta
 from qtpy import QtWebSockets
-from qtpy.QtCore import QUrl, Qt, QItemSelectionModel
+from qtpy.QtCore import QUrl, Qt
 from qtpy.QtWidgets import QDialog, QAbstractItemView, QHeaderView, QLineEdit, QToolButton, QListWidgetItem, QMessageBox
 
 from model.batch import StoppableSpin, stop_spinner
@@ -380,7 +381,7 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
             if unsynced_channels:
                 result = QMessageBox.question(self,
                                               'Sync all changed channels?',
-                                              f"Filters in {len(unsynced_channels)} have changed but will not be "
+                                              f"Filters in {len(unsynced_channels)} channels have changed but will not be "
                                               f"synced to the HTP-1."
                                               f"\n\nChannels: {', '.join(sorted([k for k in unsynced_channels]))}"
                                               f"\n\nDo you want to sync all changed channels? ",
@@ -398,11 +399,12 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
             ops, non_peq_filter_types_by_channel = self.__convert_current_filter_to_ops()
         do_send = True
         if non_peq_filter_types_by_channel:
+            printed = '\n'.join([f"{k} - {', '.join(v)}" for k, v in non_peq_filter_types_by_channel.items()])
             result = QMessageBox.question(self,
-                                          'Send as PEQ?',
-                                          f"HTP-1 supports PEQ filters only but other filter types are found in "
-                                          f"{','.join(sorted([k for k in non_peq_filter_types_by_channel.keys()]))}"
-                                          f"\n\nDo you want to send all filters as PEQ for testing purposes? ",
+                                          'Unsupported Filters Detected',
+                                          f"HTP-1 supports PEQ filters only.\n\nUnsupported filters found:"
+                                          f"\n\n{printed}"
+                                          f"\n\nDo you want sync the PEQ filters only? ",
                                           QMessageBox.Yes | QMessageBox.No,
                                           QMessageBox.No)
             do_send = result == QMessageBox.Yes
@@ -437,14 +439,14 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         :return: (the operations, the channels with non PEQ filters)
         '''
         ops = []
-        non_peq_filter_types_by_channel = {}
+        non_peq_filter_types_by_channel = OrderedDict()
         for i in self.filterMapping.selectedItems():
             c = i.text().split(' ')[1]
             s = self.__channel_to_signal[c]
             if s is not None:
                 non_peq_types = [f.filter_type for f in s.filter if f.filter_type != 'PEQ']
                 if non_peq_types:
-                    non_peq_filter_types_by_channel[c] = set(non_peq_types)
+                    non_peq_filter_types_by_channel[c] = sorted(set(non_peq_types))
                 channel_ops = [self.__as_operation(idx, c, f) for idx, f in enumerate(s.filter)]
                 remainder = 16 - len(channel_ops)
                 if remainder > 0:
