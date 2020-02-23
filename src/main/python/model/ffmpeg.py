@@ -16,7 +16,7 @@ from qtpy import QtWidgets
 from qtpy.QtCore import Signal, QRunnable, QObject, QThreadPool
 from qtpy.QtWidgets import QDialog, QTreeWidget, QTreeWidgetItem
 
-from model.iir import Passthrough
+from model.iir import Passthrough, FilterType, ComplexHighPass, ComplexLowPass
 from model.preferences import COMPRESS_FORMAT_NATIVE, COMPRESS_FORMAT_FLAC, COMPRESS_FORMAT_EAC3
 from ui.ffmpeg import Ui_ffmpegReportDialog
 
@@ -112,8 +112,8 @@ class Executor:
     '''
 
     def __init__(self, file, target_dir, mono_mix=True, decimate_audio=True, audio_format=COMPRESS_FORMAT_NATIVE,
-                 audio_bitrate=1500, include_original=False, include_subtitles=False, signal_model=None,
-                 decimate_fs=1000):
+                 audio_bitrate=1500, include_original=False, include_subtitles=False, bass_manage=False,
+                 signal_model=None, decimate_fs=1000, bm_fs=80):
         self.file = file
         self.__target_dir = target_dir
         self.__probe = None
@@ -125,6 +125,8 @@ class Executor:
         self.__channel_layout_name = None
         self.__mono_mix = mono_mix
         self.__decimate_audio = decimate_audio
+        self.__bass_manage = bass_manage
+        self.__bm_fs = bm_fs
         self.__audio_format = audio_format
         self.__audio_bitrate = audio_bitrate
         self.__include_original_audio = include_original
@@ -229,6 +231,15 @@ class Executor:
     @decimate_audio.setter
     def decimate_audio(self, decimate_audio):
         self.__decimate_audio = decimate_audio
+        self.__calculate_output()
+
+    @property
+    def bass_manage(self):
+        return self.__bass_manage
+
+    @bass_manage.setter
+    def bass_manage(self, bass_manage):
+        self.__bass_manage = bass_manage
         self.__calculate_output()
 
     @property
@@ -505,43 +516,54 @@ class Executor:
     def __write_filter_complex(self):
         filts = []
         ch_outs = []
+        bm_ch_ins = []
         audio_input = f"[a:{self.selected_stream_idx}]"
         for channel_idx in range(0, self.channel_count):
             c_name = get_channel_name(None, channel_idx, self.channel_count, self.channel_layout_name)
             sig = self.__channel_to_filter[channel_idx]
-            f_idx = 0
-            # extract a single channel, convert it to dbl sample format
-            # pipe it through each biquad in the matching signal
-            # convert back to 32bit into the original fs and place in a named mono stream
-            #   [0:a]pan=1c|c0=c<channel_num>[<c_name>];[L]aformat=sample_fmts=dbl[Lin];[Lin]biquad=b0=1.00080054343984:b1=-1.99150225042309:b2=0.990752403334702:a0=1.0:a1=-1.99150965346467:a2=0.991545543732965[L1];[L1]biquad=b0=0.999200096917323:b1=-1.98991663875369:b2=0.990752403395918:a0=1.0:a1=-1.98990924163382:a2=0.989959897433105[L2];[L2]aformat=sample_fmts=s32:sample_rates=48000:channel_layouts=mono[Lout];
-            filt = f"{audio_input}pan=1c|c0=c{channel_idx}[{c_name}];"
-            filt += f"[{c_name}]aformat=sample_fmts=dbl[{c_name}_{f_idx}];"
-            if sig is not None:
-                sig_filter = sig.active_filter.resample(int(self.__sample_rate), copy_listener=False)
-                for f in sig_filter.filters:
-                    for bq in format_biquad(f):
-                        filt += f"[{c_name}_{f_idx}]biquad={bq}[{c_name}_{f_idx + 1}];"
-                        f_idx += 1
+            filt = self.__convert_to_ffmpeg_filter_complex(audio_input, c_name, channel_idx, sig)
+            if channel_idx == (self.lfe_idx-1) and self.bass_manage is True and not self.mono_mix:
+                output_name = f"{c_name}BMin"
+                bm_ch_ins.append(f"[{output_name}]")
             else:
-                filt += f"[{c_name}_{f_idx}]biquad={format_biquad(Passthrough())[0]}[{c_name}_{f_idx + 1}];"
-                f_idx += 1
-
-            if not math.isclose(self.filtered_audio_offset, 0.0):
-                filt += f"[{c_name}_{f_idx}]volume=volume={self.filtered_audio_offset:+g}dB[{c_name}_{f_idx + 1}];"
-                f_idx += 1
-
-            filt += f"[{c_name}_{f_idx}]aformat=sample_fmts=s32:sample_rates={self.__sample_rate}"
-            filt += f":channel_layouts=mono[{c_name}out]"
+                output_name = f"{c_name}out"
+            filt += f":channel_layouts=mono[{output_name}]"
             filts.append(filt)
             ch_outs.append(f"[{c_name}out]")
-        if self.__mono_mix:
+
+        if self.bass_manage is True and not self.mono_mix:
+            # create low passed copies of all main channels
+            # amix the low pass copies with the lfe channel into a new sw channel
+            for channel_idx in range(0, self.channel_count):
+                if channel_idx != (self.lfe_idx-1):
+                    c_name = get_channel_name(None, channel_idx, self.channel_count, self.channel_layout_name)
+                    sig = self.__channel_to_filter[channel_idx]
+                    filt = self.__convert_to_ffmpeg_filter_complex(audio_input, c_name, channel_idx, sig,
+                                                                   low_pass_main_bm=True)
+                    filt += f":channel_layouts=mono[{c_name}BMin]"
+                    filts.append(filt)
+                    bm_ch_ins.append(f"[{c_name}BMin]")
+
+        if self.mono_mix:
             # merge the filtered mono streams down into a single mono mix at the usual sample rate
             merge_filt = "".join(ch_outs)
             merge_filt += f"amerge=inputs={len(ch_outs)},pan=mono|c0={self.__mono_mix_spec}"
         else:
+            merge_filt = ""
+            if bm_ch_ins:
+                # merge the bm in channels to produce the SW channel
+                merge_filt = "".join(bm_ch_ins)
+                merge_filt += f"amerge=inputs={len(bm_ch_ins)},pan=1c|c0="
+                for idx, ch in enumerate(bm_ch_ins):
+                    attenuate = 10 ** ((-10.0 if idx == 0 else -15.0) / 20.0)
+                    if idx > 0:
+                        merge_filt += '+'
+                    merge_filt += f"{attenuate}*c{idx}"
+                merge_filt += '[LFEout];'
+
             # merge the filtered mono streams back into a single multichannel stream
             # [Lout][Rin]amerge=inputs=2,pan=stereo|c0=c0|c1=c1[Wout]
-            merge_filt = "".join(ch_outs)
+            merge_filt += "".join(ch_outs)
             merge_filt += f"amerge=inputs={len(ch_outs)},pan={len(ch_outs)}c"
             merge_filt += ''.join([f"|c{idx}=c{idx}" for idx, x in enumerate(ch_outs)])
 
@@ -565,6 +587,57 @@ class Executor:
             print(self.__filter_complex_script_content, file=self.__filter_complex_filter)
             self.__filter_complex_filter.close()
         return self.__filter_complex_filter.name.replace('\\', '/')
+
+    def __convert_to_ffmpeg_filter_complex(self, audio_input, c_name, channel_idx, sig, low_pass_main_bm=False):
+        '''
+        Formats a channel to a ffmpeg filter chain.
+        :param audio_input:the ffmpeg input channel that contains the audio track.
+        :param c_name: the channel name we're processing (FL, FR etc)
+        :param channel_idx: the channel idx, 0 based.
+        :param sig: the signal containing the filter.
+        :return: a formatted filter string.
+        '''
+        f_idx = 0
+        # extract a single channel, convert it to dbl sample format
+        # pipe it through each biquad in the matching signal
+        # convert back to 32bit into the original fs and place in a named mono stream
+        #   [0:a]pan=1c|c0=c<channel_num>[<c_name>];[L]aformat=sample_fmts=dbl[Lin];[Lin]biquad=b0=1.00080054343984:b1=-1.99150225042309:b2=0.990752403334702:a0=1.0:a1=-1.99150965346467:a2=0.991545543732965[L1];[L1]biquad=b0=0.999200096917323:b1=-1.98991663875369:b2=0.990752403395918:a0=1.0:a1=-1.98990924163382:a2=0.989959897433105[L2];[L2]aformat=sample_fmts=s32:sample_rates=48000:channel_layouts=mono[Lout];
+        if low_pass_main_bm:
+            c_name = f"BM{c_name}"
+        filt = f"{audio_input}pan=1c|c0=c{channel_idx}[{c_name}];"
+        filt += f"[{c_name}]aformat=sample_fmts=dbl[{c_name}_{f_idx}];"
+        if sig is not None:
+            sig_filter = sig.active_filter.resample(int(self.__sample_rate), copy_listener=False)
+            for f in sig_filter.filters:
+                for bq in format_biquad(f):
+                    filt += f"[{c_name}_{f_idx}]biquad={bq}[{c_name}_{f_idx + 1}];"
+                    f_idx += 1
+
+        # apply BM high or low pass filter after the filters are applied
+        bmpf = None
+        if low_pass_main_bm:
+            bmpf = ComplexLowPass(FilterType.LINKWITZ_RILEY, 4, int(self.__sample_rate), self.__bm_fs)
+        elif self.bass_manage is True and (self.lfe_idx-1) != channel_idx:
+            bmpf = ComplexHighPass(FilterType.LINKWITZ_RILEY, 4, int(self.__sample_rate), self.__bm_fs)
+        if bmpf:
+            for bq in format_biquad(bmpf):
+                filt += f"[{c_name}_{f_idx}]biquad={bq}[{c_name}_{f_idx + 1}];"
+                f_idx += 1
+
+        # add a passthrough filter if we have no other filters to add
+        if f_idx == 0:
+            filt += f"[{c_name}_{f_idx}]biquad={format_biquad(Passthrough())[0]}[{c_name}_{f_idx + 1}];"
+            f_idx += 1
+
+        # gain adjustment
+        if not math.isclose(self.filtered_audio_offset, 0.0):
+            filt += f"[{c_name}_{f_idx}]volume=volume={self.filtered_audio_offset:+g}dB[{c_name}_{f_idx + 1}];"
+            f_idx += 1
+
+        # enforce sample format
+        filt += f"[{c_name}_{f_idx}]aformat=sample_fmts=s32:sample_rates={self.__sample_rate}"
+
+        return filt
 
     def __calculate_ffmpeg_cmd(self):
         output_file = self.get_output_path()

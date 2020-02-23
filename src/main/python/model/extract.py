@@ -16,7 +16,8 @@ from model.ffmpeg import Executor, ViewProbeDialog, SIGNAL_CONNECTED, SIGNAL_ERR
     get_channel_name, parse_video_stream
 from model.preferences import EXTRACTION_OUTPUT_DIR, EXTRACTION_NOTIFICATION_SOUND, ANALYSIS_TARGET_FS, \
     EXTRACTION_MIX_MONO, EXTRACTION_DECIMATE, EXTRACTION_INCLUDE_ORIGINAL, EXTRACTION_INCLUDE_SUBTITLES, \
-    EXTRACTION_COMPRESS, COMPRESS_FORMAT_OPTIONS, COMPRESS_FORMAT_FLAC, COMPRESS_FORMAT_NATIVE, COMPRESS_FORMAT_EAC3
+    EXTRACTION_COMPRESS, COMPRESS_FORMAT_OPTIONS, COMPRESS_FORMAT_FLAC, COMPRESS_FORMAT_NATIVE, COMPRESS_FORMAT_EAC3, \
+    BASS_MANAGEMENT_LPF_FS
 from model.signal import AutoWavLoader
 from ui.edit_mapping import Ui_editMappingDialog
 from ui.extract import Ui_extractAudioDialog
@@ -152,6 +153,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             self.remuxedAudioOffset.setVisible(False)
         self.eacBitRate.setVisible(False)
         self.monoMix.setChecked(self.__preferences.get(EXTRACTION_MIX_MONO))
+        self.bassManage.setChecked(False)
         self.decimateAudio.setChecked(self.__preferences.get(EXTRACTION_DECIMATE))
         self.includeOriginalAudio.setChecked(self.__preferences.get(EXTRACTION_INCLUDE_ORIGINAL))
         self.includeSubtitles.setChecked(self.__preferences.get(EXTRACTION_INCLUDE_SUBTITLES))
@@ -160,6 +162,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         else:
             self.audioFormat.setCurrentText(COMPRESS_FORMAT_NATIVE)
         self.monoMix.setEnabled(False)
+        self.bassManage.setEnabled(False)
         self.decimateAudio.setEnabled(False)
         self.audioFormat.setEnabled(False)
         self.eacBitRate.setEnabled(False)
@@ -203,7 +206,8 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
                                    include_original=self.includeOriginalAudio.isChecked(),
                                    include_subtitles=self.includeSubtitles.isChecked(),
                                    signal_model=self.__signal_model if self.__is_remux else None,
-                                   decimate_fs=self.__preferences.get(ANALYSIS_TARGET_FS))
+                                   decimate_fs=self.__preferences.get(ANALYSIS_TARGET_FS),
+                                   bm_fs=self.__preferences.get(BASS_MANAGEMENT_LPF_FS))
         self.__executor.progress_handler = self.__handle_ffmpeg_process
         from app import wait_cursor
         with wait_cursor(f"Probing {file_name}"):
@@ -236,6 +240,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             self.channelCount.setEnabled(True)
             self.lfeChannelIndex.setEnabled(True)
             self.monoMix.setEnabled(True)
+            self.bassManage.setEnabled(True)
             self.decimateAudio.setEnabled(True)
             self.audioFormat.setEnabled(True)
             self.eacBitRate.setEnabled(True)
@@ -294,8 +299,16 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         if self.channelCount.value() == 1:
             self.monoMix.setChecked(False)
             self.monoMix.setEnabled(False)
+            self.bassManage.setChecked(False)
+            self.bassManage.setEnabled(False)
         else:
             self.monoMix.setEnabled(True)
+            # only allow bass management if we have an LFE channel
+            if self.__executor.lfe_idx == 0:
+                self.bassManage.setChecked(False)
+                self.bassManage.setEnabled(False)
+            else:
+                self.bassManage.setEnabled(True)
 
     def __display_command_info(self):
         self.outputFilename.setText(self.__executor.output_file_name)
@@ -324,6 +337,14 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         '''
         if self.audioStreams.count() > 0 and self.__executor is not None:
             self.__executor.decimate_audio = self.decimateAudio.isChecked()
+            self.__display_command_info()
+
+    def toggle_bass_manage(self):
+        '''
+        Reacts to the change in bass management.
+        '''
+        if self.audioStreams.count() > 0 and self.__executor is not None:
+            self.__executor.bass_manage = self.bassManage.isChecked()
             self.__display_command_info()
 
     def change_audio_format(self, audio_format):
@@ -523,6 +544,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         self.channelCount.setEnabled(False)
         self.lfeChannelIndex.setEnabled(False)
         self.monoMix.setEnabled(False)
+        self.bassManage.setEnabled(False)
         self.decimateAudio.setEnabled(False)
         self.audioFormat.setEnabled(False)
         self.eacBitRate.setEnabled(False)

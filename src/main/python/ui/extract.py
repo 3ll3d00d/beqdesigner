@@ -106,6 +106,9 @@ class Ui_extractAudioDialog(object):
         self.includeSubtitles.setToolTip("")
         self.includeSubtitles.setObjectName("includeSubtitles")
         self.horizontalLayout.addWidget(self.includeSubtitles)
+        self.bassManage = QtWidgets.QCheckBox(extractAudioDialog)
+        self.bassManage.setObjectName("bassManage")
+        self.horizontalLayout.addWidget(self.bassManage)
         self.gridLayout.addLayout(self.horizontalLayout, 6, 1, 1, 1)
         self.horizontalLayout_3 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_3.setObjectName("horizontalLayout_3")
@@ -262,6 +265,7 @@ class Ui_extractAudioDialog(object):
         self.eacBitRate.valueChanged['int'].connect(extractAudioDialog.change_audio_bitrate)
         self.calculateGainAdjustment.clicked.connect(extractAudioDialog.calculate_gain_adjustment)
         self.remuxedAudioOffset.valueChanged['double'].connect(extractAudioDialog.override_filtered_gain_adjustment)
+        self.bassManage.clicked.connect(extractAudioDialog.toggle_bass_manage)
         QtCore.QMetaObject.connectSlotsByName(extractAudioDialog)
 
     def retranslateUi(self, extractAudioDialog):
@@ -277,6 +281,7 @@ class Ui_extractAudioDialog(object):
         self.monoMix.setText(_translate("extractAudioDialog", "Mix to Mono?"))
         self.decimateAudio.setText(_translate("extractAudioDialog", "Decimate Audio?"))
         self.includeSubtitles.setText(_translate("extractAudioDialog", "Add Subtitles?"))
+        self.bassManage.setText(_translate("extractAudioDialog", "Bass Manage?"))
         self.channelsLabel.setText(_translate("extractAudioDialog", "LFE Channel/Total"))
         self.signalNameLabel.setText(_translate("extractAudioDialog", "Signal Name"))
         self.limitRange.setText(_translate("extractAudioDialog", "..."))
