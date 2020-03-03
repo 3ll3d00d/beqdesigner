@@ -95,6 +95,7 @@ addons:
   homebrew:
     packages:
     - pipenv
+    update: true
 install:
 - $PBIN install pipenv
 - pipenv install -d
