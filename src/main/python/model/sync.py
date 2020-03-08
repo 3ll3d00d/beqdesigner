@@ -261,8 +261,7 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         self.__current_device_filters_by_channel = tmp2
         self.__filters.filter = self.__filters_by_channel[self.filtersetSelector.itemText(0)]
         if not self.__channel_to_signal:
-            self.__recalc_mapping()
-            self.__show_signal_mapping()
+            self.load_from_signals()
         self.__magnitude_model.redraw()
         self.syncStatus.setIcon(qta.icon('fa5s.link'))
         self.__last_received_msoupdate = None
@@ -372,12 +371,13 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
             channels_to_update = [i.text().split(' ')[1] for i in self.filterMapping.selectedItems()]
             unsynced_channels = []
             for c, s in self.__channel_to_signal.items():
-                if c not in channels_to_update:
-                    if c in self.__current_device_filters_by_channel:
-                        current = s.filter
-                        device = self.__current_device_filters_by_channel[c]
-                        if current != device:
-                            unsynced_channels.append(c)
+                if s is not None:
+                    if c not in channels_to_update:
+                        if c in self.__current_device_filters_by_channel:
+                            current = s.filter
+                            device = self.__current_device_filters_by_channel[c]
+                            if current != device:
+                                unsynced_channels.append(c)
             if unsynced_channels:
                 result = QMessageBox.question(self,
                                               'Sync all changed channels?',
@@ -448,9 +448,10 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
                 if non_peq_types:
                     non_peq_filter_types_by_channel[c] = sorted(set(non_peq_types))
                 channel_ops = [self.__as_operation(idx, c, f) for idx, f in enumerate(s.filter)]
-                remainder = 16 - len(channel_ops)
+                base = len(channel_ops)
+                remainder = 16 - base
                 if remainder > 0:
-                    channel_ops += [self.__make_passthrough(i) for i in range(remainder)]
+                    channel_ops += [self.__as_operation(base + i, c, self.__make_passthrough(i)) for i in range(remainder)]
                 ops += channel_ops
         return ops, non_peq_filter_types_by_channel
 
@@ -600,6 +601,10 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         self.filterMapping.clear()
         for c, signal in self.__channel_to_signal.items():
             self.filterMapping.addItem(f"Channel {c} -> {signal.name if signal else 'No Filter'}")
+        for i in range(self.filterMapping.count()):
+            item: QListWidgetItem = self.filterMapping.item(i)
+            if item.text().endswith('No Filter'):
+                item.setFlags(item.flags() & ~Qt.ItemIsEnabled & ~Qt.ItemIsSelectable)
         self.filtersetLabel.setText('Preview' if show_it else 'Channel')
 
     def __in_complex_mode(self):
@@ -620,7 +625,16 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         '''
         self.__recalc_mapping()
         self.__show_signal_mapping()
+        self.__apply_filters_to_channels()
         self.on_signal_selected()
+
+    def __apply_filters_to_channels(self):
+        '''
+        Applies the filters from the mapped signals to the channels.
+        '''
+        for c, signal in self.__channel_to_signal.items():
+            if signal is not None:
+                self.__filters_by_channel[c] = signal.filter
 
     def __show_mapping_dialog(self, item: QListWidgetItem):
         ''' Shows the edit mapping dialog '''
