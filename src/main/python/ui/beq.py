@@ -878,6 +878,7 @@ class Ui_MainWindow(object):
         self.actionCreate_AVS_Post.setText(_translate("MainWindow", "Create AVS Post and XML"))
         self.actionCreate_AVS_Post.setToolTip(_translate("MainWindow", "Create AVS Post and XML"))
         self.actionCreate_AVS_Post.setShortcut(_translate("MainWindow", "Ctrl+Shift+P"))
-        self.actionSync_with_HTP_1.setText(_translate("MainWindow", "Sync with &HTP-1 "))
+        self.actionSync_with_HTP_1.setText(_translate("MainWindow", "Manage &HTP-1 Filters"))
+        self.actionSync_with_HTP_1.setShortcut(_translate("MainWindow", "Ctrl+M"))
 from app import PlotWidgetWithDateAxis
 from mpl import MplWidget

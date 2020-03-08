@@ -34,6 +34,7 @@ nav:
         - 'Remux Audio': ui/remux_audio.md
         - 'Analyse Audio': ui/spectrum.md
         - 'Merge Minidsp XML': ui/merge_minidsp_xml.md
+        - 'Manage HTP-1 Filters': ui/manage_htp1.md
       - 'Preferences': ui/preferences.md
   - Workflow:
       - 'A Worked Example': workflow/beq.md

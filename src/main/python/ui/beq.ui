@@ -1509,7 +1509,10 @@
   </action>
   <action name="actionSync_with_HTP_1">
    <property name="text">
-    <string>Sync with &amp;HTP-1 </string>
+    <string>Manage &amp;HTP-1 Filters</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+M</string>
    </property>
   </action>
  </widget>
