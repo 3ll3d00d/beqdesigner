@@ -3,13 +3,14 @@ import logging
 from collections import OrderedDict
 
 import qtawesome as qta
+import semver
 from qtpy import QtWebSockets
 from qtpy.QtCore import QUrl, Qt
 from qtpy.QtWidgets import QDialog, QAbstractItemView, QHeaderView, QLineEdit, QToolButton, QListWidgetItem, QMessageBox
 
 from model.batch import StoppableSpin, stop_spinner
 from model.filter import FilterModel, FilterTableModel
-from model.iir import CompleteFilter, PeakingEQ
+from model.iir import CompleteFilter, PeakingEQ, LowShelf, HighShelf
 from model.limits import dBRangeCalculator
 from model.magnitude import MagnitudeModel
 from model.preferences import get_filter_colour, HTP1_ADDRESS
@@ -35,6 +36,7 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         self.__signal_filter = None
         self.__last_requested_msoupdate = None
         self.__last_received_msoupdate = None
+        self.__supports_shelf = False
         self.__channel_to_signal = {}
         self.setupUi(self)
         self.syncStatus = qta.IconWidget('fa5s.unlink')
@@ -142,6 +144,10 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
             msg_box.setDetailedText(f"<code>{msg}</code>")
             msg_box.setTextFormat(Qt.RichText)
             msg_box.exec()
+            if self.__spinner is not None:
+                stop_spinner(self.__spinner, self.syncStatus)
+                self.__spinner = None
+                self.syncStatus.setIcon(qta.icon('fa5s.times', color='red'))
 
     def __on_msoupdate(self, msoupdate):
         '''
@@ -210,6 +216,14 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         Handles mso message from the device sent after a getmso is issued.
         :param mso: the mso.
         '''
+        version = mso['versions']['swVer']
+        version = version[1:] if version[0] == 'v' else version
+        try:
+            self.__supports_shelf = semver.parse_version_info(version) > semver.parse_version_info('1.4.0')
+        except:
+            logger.error(f"Unable to parse version {mso['versions']['swVer']}")
+            self.__supports_shelf = False
+
         speakers = mso['speakers']['groups']
         channels = ['lf', 'rf']
         for group in [s for s, v in speakers.items() if 'present' in v and v['present'] is True]:
@@ -270,8 +284,17 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
 
     @staticmethod
     def __convert_to_filter(filter_params, id):
-        # TODO support different filter types
-        return PeakingEQ(HTP1_FS, filter_params['Fc'], filter_params['Q'], filter_params['gaindB'], f_id=id)
+        ft = int(filter_params['FilterType']) if SyncHTP1Dialog.__has_filter_type(filter_params) else 0
+        if ft == 0:
+            return PeakingEQ(HTP1_FS, filter_params['Fc'], filter_params['Q'], filter_params['gaindB'], f_id=id)
+        elif ft == 1:
+            return LowShelf(HTP1_FS, filter_params['Fc'], filter_params['Q'], filter_params['gaindB'], f_id=id)
+        elif ft == 2:
+            return HighShelf(HTP1_FS, filter_params['Fc'], filter_params['Q'], filter_params['gaindB'], f_id=id)
+
+    @staticmethod
+    def __has_filter_type(filter_params):
+        return 'FilterType' in filter_params
 
     def add_filter(self):
         '''
@@ -367,7 +390,7 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         Sends the selected filters to the device
         '''
         if self.__in_complex_mode():
-            ops, non_peq_filter_types_by_channel = self.__convert_filter_mappings_to_ops()
+            ops, unsupported_filter_types_per_channel = self.__convert_filter_mappings_to_ops()
             channels_to_update = [i.text().split(' ')[1] for i in self.filterMapping.selectedItems()]
             unsynced_channels = []
             for c, s in self.__channel_to_signal.items():
@@ -396,15 +419,15 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
                     self.send_filters_to_device()
                     return
         else:
-            ops, non_peq_filter_types_by_channel = self.__convert_current_filter_to_ops()
+            ops, unsupported_filter_types_per_channel = self.__convert_current_filter_to_ops()
         do_send = True
-        if non_peq_filter_types_by_channel:
-            printed = '\n'.join([f"{k} - {', '.join(v)}" for k, v in non_peq_filter_types_by_channel.items()])
+        if unsupported_filter_types_per_channel:
+            printed = '\n'.join([f"{k} - {', '.join(v)}" for k, v in unsupported_filter_types_per_channel.items()])
             result = QMessageBox.question(self,
                                           'Unsupported Filters Detected',
-                                          f"HTP-1 supports PEQ filters only.\n\nUnsupported filters found:"
+                                          f"Unsupported filter types found in the filter set:"
                                           f"\n\n{printed}"
-                                          f"\n\nDo you want sync the PEQ filters only? ",
+                                          f"\n\nDo you want sync the supported filters only? ",
                                           QMessageBox.Yes | QMessageBox.No,
                                           QMessageBox.No)
             do_send = result == QMessageBox.Yes
@@ -425,44 +448,50 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         Converts the selected filter to operations.
         :return: (the operations, channel with non PEQ filters)
         '''
-        non_peq_filter_types_by_channel = {}
+        unsupported_filter_types_per_channel = {}
         selected_filter = self.filtersetSelector.currentText()
         ops = [self.__as_operation(idx, selected_filter, f) for idx, f in enumerate(self.__filters.filter)]
-        non_peq_types = [f.filter_type for f in self.__filters.filter if f.filter_type != 'PEQ']
-        if non_peq_types:
-            non_peq_filter_types_by_channel[selected_filter] = set(non_peq_types)
-        return ops, non_peq_filter_types_by_channel
+        unsupported_types = [f.filter_type for f in self.__filters.filter if self.__not_supported(f.filter_type)]
+        if unsupported_types:
+            unsupported_filter_types_per_channel[selected_filter] = set(unsupported_types)
+        return ops, unsupported_filter_types_per_channel
 
     def __convert_filter_mappings_to_ops(self):
         '''
         Converts the selected filter mappings to operations.
-        :return: (the operations, the channels with non PEQ filters)
+        :return: (the operations, the channels with unsupported filter types)
         '''
         ops = []
-        non_peq_filter_types_by_channel = OrderedDict()
+        unsupported_filter_types_per_channel = OrderedDict()
         for i in self.filterMapping.selectedItems():
             c = i.text().split(' ')[1]
             s = self.__channel_to_signal[c]
             if s is not None:
-                non_peq_types = [f.filter_type for f in s.filter if f.filter_type != 'PEQ']
-                if non_peq_types:
-                    non_peq_filter_types_by_channel[c] = sorted(set(non_peq_types))
+                unsupported_types = [f.filter_type for f in s.filter if self.__not_supported(f.filter_type)]
+                if unsupported_types:
+                    unsupported_filter_types_per_channel[c] = sorted(set(unsupported_types))
                 channel_ops = [self.__as_operation(idx, c, f) for idx, f in enumerate(s.filter)]
                 base = len(channel_ops)
                 remainder = 16 - base
                 if remainder > 0:
                     channel_ops += [self.__as_operation(base + i, c, self.__make_passthrough(i)) for i in range(remainder)]
                 ops += channel_ops
-        return ops, non_peq_filter_types_by_channel
+        return ops, unsupported_filter_types_per_channel
+
+    def __not_supported(self, filter_type):
+        if self.__supports_shelf:
+            supported = filter_type == 'PEQ' or filter_type == 'LS' or filter_type == 'HS'
+        else:
+            supported = filter_type == 'PEQ'
+        return not supported
 
     @staticmethod
     def __make_passthrough(idx):
         return PeakingEQ(HTP1_FS, 100, 1, 0, f_id=idx)
 
-    @staticmethod
-    def __as_operation(idx, channel, f):
+    def __as_operation(self, idx, channel, f):
         prefix = f"/peq/slots/{idx}/channels/{channel}"
-        return [
+        ops = [
             {
                 'op': 'replace',
                 'path': f"{prefix}/Fc",
@@ -479,6 +508,23 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
                 'value': f.gain
             }
         ]
+        if self.__supports_shelf:
+            if isinstance(f, PeakingEQ):
+                ft = 0
+            elif isinstance(f, LowShelf):
+                ft = 1
+            elif isinstance(f, HighShelf):
+                ft = 2
+            else:
+                raise ValueError(f"Unknown filter type {f}")
+            ops.append(
+                {
+                    'op': 'replace',
+                    'path': f"{prefix}/FilterType",
+                    'value': ft
+                }
+            )
+        return ops
 
     def clear_filters(self):
         '''
@@ -660,7 +706,7 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
     def on_signal_selected(self):
         ''' if any channels are selected, enable the sync button. '''
         is_selected = self.filterMapping.selectionModel().hasSelection()
-        enable = is_selected or self.filterMapping.count() == 0
+        enable = is_selected or not self.__in_complex_mode()
         self.applyFiltersButton.setEnabled(enable)
         enable_beq = enable and self.__get_selected_filter() is not None
         self.addFilterButton.setEnabled(enable_beq)
