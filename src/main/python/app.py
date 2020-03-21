@@ -1224,7 +1224,7 @@ class ExportBiquadDialog(QDialog, Ui_exportBiquadDialog):
                 passthrough = [Passthrough()] * (self.maxBiquads.value() - len(biquads))
                 biquads += list(flatten([x.format_biquads(self.outputFormat.currentText() != 'User Selected', **kwargs) for x in passthrough]))
             prefix = 'hex' if self.showHex.isChecked() else 'biquad'
-            text = "\n".join([f"{prefix}{idx},\n{bq}" for idx, bq in enumerate(biquads)])
+            text = ",\n".join([f"{prefix}{idx},\n{bq}" for idx, bq in enumerate(biquads)])
             has_txt = len(text.strip()) > 0
             self.biquads.setPlainText(text)
         if not has_txt:
