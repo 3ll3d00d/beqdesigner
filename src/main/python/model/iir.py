@@ -116,7 +116,8 @@ class Biquad(ABC):
                             for idx, x in enumerate(self.b)])
         return [f"{b}{separator}{a}"]
 
-    def __format_index(self, prefix, idx, show_index):
+    @staticmethod
+    def __format_index(prefix, idx, show_index):
         if show_index:
             return f"{prefix}{idx}="
         else:
@@ -816,6 +817,10 @@ class ComplexFilter(Sequence):
     def format_biquads(self, invert_a, separator=',\n', show_index=True, to_hex=False, fixed_point=False):
         '''
         Formats the filter into a biquad report.
+        :param fixed_point: if true, output biquads in fixed point format.
+        :param to_hex: convert the biquad to a hex format (for minidsp).
+        :param separator: separator biquads with the string.
+        :param show_index: whether to include the biquad index.
         :param invert_a: whether to invert the a coeffs.
         :return: the report.
         '''

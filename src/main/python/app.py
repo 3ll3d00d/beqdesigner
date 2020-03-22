@@ -1195,19 +1195,25 @@ class ExportBiquadDialog(QDialog, Ui_exportBiquadDialog):
             self.fs.setEnabled(True)
             self.maxBiquads.setEnabled(True)
             self.maxBiquads.setMaximum(1000)
+            self.maxBiquads.setMinimum(1)
+            self.maxBiquads.setSingleStep(1)
             self.showHex.setVisible(False)
         else:
             if selected_format == 'Minidsp 2x4HD':
                 self.fs.setCurrentText('96000')
                 self.maxBiquads.setMaximum(10)
+                self.maxBiquads.setMinimum(1)
                 self.maxBiquads.setValue(10)
+                self.maxBiquads.setSingleStep(1)
             else:
                 self.fs.setCurrentText('48000')
-                self.maxBiquads.setMaximum(6)
+                self.maxBiquads.setMaximum(8)
+                self.maxBiquads.setMinimum(6)
                 self.maxBiquads.setValue(6)
+                self.maxBiquads.setSingleStep(2)
             self.showHex.setVisible('HD' in selected_format)
             self.fs.setEnabled(False)
-            self.maxBiquads.setEnabled(False)
+            self.maxBiquads.setEnabled(True)
         if not self.showHex.isVisible():
             self.showHex.setChecked(False)
         self.updateBiquads()
@@ -1224,7 +1230,7 @@ class ExportBiquadDialog(QDialog, Ui_exportBiquadDialog):
                 passthrough = [Passthrough()] * (self.maxBiquads.value() - len(biquads))
                 biquads += list(flatten([x.format_biquads(self.outputFormat.currentText() != 'User Selected', **kwargs) for x in passthrough]))
             prefix = 'hex' if self.showHex.isChecked() else 'biquad'
-            text = ",\n".join([f"{prefix}{idx},\n{bq}" for idx, bq in enumerate(biquads)])
+            text = ",\n".join([f"{prefix}{idx+1},\n{bq}" for idx, bq in enumerate(biquads)])
             has_txt = len(text.strip()) > 0
             self.biquads.setPlainText(text)
         if not has_txt:
