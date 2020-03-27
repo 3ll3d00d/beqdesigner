@@ -1,42 +1,60 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'export.ui'
-#
-# Created by: PyQt5 UI code generator 5.13.1
-#
-# WARNING! All changes made in this file will be lost!
+################################################################################
+## Form generated from reading UI file 'export.ui'
+##
+## Created by: Qt User Interface Compiler version 5.14.1
+##
+## WARNING! All changes made in this file will be lost when recompiling UI file!
+################################################################################
 
-
-from PyQt5 import QtCore, QtGui, QtWidgets
+from PySide2.QtCore import (QCoreApplication, QMetaObject, QObject, QPoint,
+    QRect, QSize, QUrl, Qt)
+from PySide2.QtGui import (QBrush, QColor, QConicalGradient, QCursor, QFont,
+    QFontDatabase, QIcon, QLinearGradient, QPalette, QPainter, QPixmap,
+    QRadialGradient)
+from PySide2.QtWidgets import *
 
 
 class Ui_exportSignalDialog(object):
     def setupUi(self, exportSignalDialog):
-        exportSignalDialog.setObjectName("exportSignalDialog")
+        if exportSignalDialog.objectName():
+            exportSignalDialog.setObjectName(u"exportSignalDialog")
         exportSignalDialog.resize(408, 96)
-        self.gridLayout = QtWidgets.QGridLayout(exportSignalDialog)
-        self.gridLayout.setObjectName("gridLayout")
-        self.buttonBox = QtWidgets.QDialogButtonBox(exportSignalDialog)
-        self.buttonBox.setOrientation(QtCore.Qt.Horizontal)
-        self.buttonBox.setStandardButtons(QtWidgets.QDialogButtonBox.Cancel|QtWidgets.QDialogButtonBox.Save)
-        self.buttonBox.setObjectName("buttonBox")
+        self.gridLayout = QGridLayout(exportSignalDialog)
+        self.gridLayout.setObjectName(u"gridLayout")
+        self.buttonBox = QDialogButtonBox(exportSignalDialog)
+        self.buttonBox.setObjectName(u"buttonBox")
+        self.buttonBox.setOrientation(Qt.Horizontal)
+        self.buttonBox.setStandardButtons(QDialogButtonBox.Cancel|QDialogButtonBox.Save)
+
         self.gridLayout.addWidget(self.buttonBox, 1, 0, 1, 1)
-        self.formLayout = QtWidgets.QFormLayout()
-        self.formLayout.setObjectName("formLayout")
-        self.signal = QtWidgets.QComboBox(exportSignalDialog)
-        self.signal.setObjectName("signal")
-        self.formLayout.setWidget(0, QtWidgets.QFormLayout.FieldRole, self.signal)
-        self.signalLabel = QtWidgets.QLabel(exportSignalDialog)
-        self.signalLabel.setObjectName("signalLabel")
-        self.formLayout.setWidget(0, QtWidgets.QFormLayout.LabelRole, self.signalLabel)
+
+        self.formLayout = QFormLayout()
+        self.formLayout.setObjectName(u"formLayout")
+        self.signal = QComboBox(exportSignalDialog)
+        self.signal.setObjectName(u"signal")
+
+        self.formLayout.setWidget(0, QFormLayout.FieldRole, self.signal)
+
+        self.signalLabel = QLabel(exportSignalDialog)
+        self.signalLabel.setObjectName(u"signalLabel")
+
+        self.formLayout.setWidget(0, QFormLayout.LabelRole, self.signalLabel)
+
+
         self.gridLayout.addLayout(self.formLayout, 0, 0, 1, 1)
+
 
         self.retranslateUi(exportSignalDialog)
         self.buttonBox.accepted.connect(exportSignalDialog.accept)
         self.buttonBox.rejected.connect(exportSignalDialog.reject)
-        QtCore.QMetaObject.connectSlotsByName(exportSignalDialog)
+
+        QMetaObject.connectSlotsByName(exportSignalDialog)
+    # setupUi
 
     def retranslateUi(self, exportSignalDialog):
-        _translate = QtCore.QCoreApplication.translate
-        exportSignalDialog.setWindowTitle(_translate("exportSignalDialog", "Export Signal"))
-        self.signalLabel.setText(_translate("exportSignalDialog", "Signal"))
+        exportSignalDialog.setWindowTitle(QCoreApplication.translate("exportSignalDialog", u"Export Signal", None))
+        self.signalLabel.setText(QCoreApplication.translate("exportSignalDialog", u"Signal", None))
+    # retranslateUi
+

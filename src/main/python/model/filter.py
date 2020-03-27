@@ -7,7 +7,7 @@ from uuid import uuid4
 
 import qtawesome as qta
 from qtpy import QtCore
-from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt
+from qtpy.QtCore import QAbstractTableModel, QModelIndex, Qt
 from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox, QHeaderView
 
@@ -193,42 +193,42 @@ class FilterTableModel(QAbstractTableModel):
 
     def data(self, index: QModelIndex, role: int = ...) -> typing.Any:
         if not index.isValid():
-            return QVariant()
+            return None
         elif role != Qt.DisplayRole:
-            return QVariant()
+            return None
         else:
             filter_at_row = self.__filter_model[index.row()]
             if index.column() == 0:
-                return QVariant(filter_at_row.filter_type)
+                return filter_at_row.filter_type
             elif index.column() == 1:
                 if hasattr(filter_at_row, 'freq'):
-                    return QVariant(filter_at_row.freq)
+                    return filter_at_row.freq
                 else:
-                    return QVariant('N/A')
+                    return 'N/A'
             elif index.column() == 2:
                 if hasattr(filter_at_row, 'q'):
-                    return QVariant(filter_at_row.q)
+                    return filter_at_row.q
                 else:
-                    return QVariant('N/A')
+                    return 'N/A'
             elif index.column() == 3:
                 if hasattr(filter_at_row, 'q_to_s'):
-                    return QVariant(round(filter_at_row.q_to_s(), 3))
+                    return round(filter_at_row.q_to_s(), 3)
                 else:
-                    return QVariant('N/A')
+                    return 'N/A'
             elif index.column() == 4:
                 if hasattr(filter_at_row, 'gain'):
-                    return QVariant(filter_at_row.gain)
+                    return filter_at_row.gain
                 else:
-                    return QVariant('N/A')
+                    return 'N/A'
             elif index.column() == 5:
-                return QVariant(len(filter_at_row))
+                return len(filter_at_row)
             else:
-                return QVariant()
+                return None
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int = ...) -> typing.Any:
         if orientation == Qt.Horizontal and role == Qt.DisplayRole:
-            return QVariant(self.__headers[section])
-        return QVariant()
+            return self.__headers[section]
+        return None
 
 
 class FilterDialog(QDialog, Ui_editFilterDialog):

@@ -1,244 +1,363 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'extract.ui'
-#
-# Created by: PyQt5 UI code generator 5.13.1
-#
-# WARNING! All changes made in this file will be lost!
+################################################################################
+## Form generated from reading UI file 'extract.ui'
+##
+## Created by: Qt User Interface Compiler version 5.14.1
+##
+## WARNING! All changes made in this file will be lost when recompiling UI file!
+################################################################################
 
+from PySide2.QtCore import (QCoreApplication, QMetaObject, QObject, QPoint,
+    QRect, QSize, QUrl, Qt)
+from PySide2.QtGui import (QBrush, QColor, QConicalGradient, QCursor, QFont,
+    QFontDatabase, QIcon, QLinearGradient, QPalette, QPainter, QPixmap,
+    QRadialGradient)
+from PySide2.QtWidgets import *
 
-from PyQt5 import QtCore, QtGui, QtWidgets
+from ui.drop import DropArea
 
 
 class Ui_extractAudioDialog(object):
     def setupUi(self, extractAudioDialog):
-        extractAudioDialog.setObjectName("extractAudioDialog")
-        extractAudioDialog.setWindowModality(QtCore.Qt.ApplicationModal)
+        if extractAudioDialog.objectName():
+            extractAudioDialog.setObjectName(u"extractAudioDialog")
+        extractAudioDialog.setWindowModality(Qt.ApplicationModal)
         extractAudioDialog.resize(880, 1027)
         extractAudioDialog.setSizeGripEnabled(True)
         extractAudioDialog.setModal(False)
-        self.boxLayout = QtWidgets.QVBoxLayout(extractAudioDialog)
-        self.boxLayout.setObjectName("boxLayout")
-        self.gridLayout = QtWidgets.QGridLayout()
-        self.gridLayout.setObjectName("gridLayout")
-        self.ffmpegOutput = QtWidgets.QPlainTextEdit(extractAudioDialog)
+        self.boxLayout = QVBoxLayout(extractAudioDialog)
+        self.boxLayout.setObjectName(u"boxLayout")
+        self.gridLayout = QGridLayout()
+        self.gridLayout.setObjectName(u"gridLayout")
+        self.ffmpegOutput = QPlainTextEdit(extractAudioDialog)
+        self.ffmpegOutput.setObjectName(u"ffmpegOutput")
         self.ffmpegOutput.setEnabled(True)
-        font = QtGui.QFont()
-        font.setFamily("Consolas")
+        font = QFont()
+        font.setFamily(u"Consolas")
         self.ffmpegOutput.setFont(font)
         self.ffmpegOutput.setReadOnly(True)
-        self.ffmpegOutput.setTextInteractionFlags(QtCore.Qt.TextSelectableByMouse)
-        self.ffmpegOutput.setObjectName("ffmpegOutput")
+        self.ffmpegOutput.setTextInteractionFlags(Qt.TextSelectableByMouse)
+
         self.gridLayout.addWidget(self.ffmpegOutput, 13, 1, 1, 1)
-        self.streamsLabel = QtWidgets.QLabel(extractAudioDialog)
-        self.streamsLabel.setObjectName("streamsLabel")
+
+        self.streamsLabel = QLabel(extractAudioDialog)
+        self.streamsLabel.setObjectName(u"streamsLabel")
+
         self.gridLayout.addWidget(self.streamsLabel, 1, 0, 1, 1)
-        self.targetDirPicker = QtWidgets.QToolButton(extractAudioDialog)
-        self.targetDirPicker.setObjectName("targetDirPicker")
+
+        self.targetDirPicker = QToolButton(extractAudioDialog)
+        self.targetDirPicker.setObjectName(u"targetDirPicker")
+
         self.gridLayout.addWidget(self.targetDirPicker, 9, 2, 1, 1)
-        self.targetDir = QtWidgets.QLineEdit(extractAudioDialog)
+
+        self.targetDir = QLineEdit(extractAudioDialog)
+        self.targetDir.setObjectName(u"targetDir")
         self.targetDir.setEnabled(False)
-        self.targetDir.setObjectName("targetDir")
+
         self.gridLayout.addWidget(self.targetDir, 9, 1, 1, 1)
-        self.showProbeButton = QtWidgets.QToolButton(extractAudioDialog)
-        self.showProbeButton.setObjectName("showProbeButton")
+
+        self.showProbeButton = QToolButton(extractAudioDialog)
+        self.showProbeButton.setObjectName(u"showProbeButton")
+
         self.gridLayout.addWidget(self.showProbeButton, 1, 2, 2, 1)
-        self.signalName = QtWidgets.QLineEdit(extractAudioDialog)
+
+        self.signalName = QLineEdit(extractAudioDialog)
+        self.signalName.setObjectName(u"signalName")
         self.signalName.setEnabled(True)
-        self.signalName.setObjectName("signalName")
+
         self.gridLayout.addWidget(self.signalName, 14, 1, 1, 1)
-        self.inputFilePicker = QtWidgets.QToolButton(extractAudioDialog)
-        self.inputFilePicker.setObjectName("inputFilePicker")
+
+        self.inputFilePicker = QToolButton(extractAudioDialog)
+        self.inputFilePicker.setObjectName(u"inputFilePicker")
+
         self.gridLayout.addWidget(self.inputFilePicker, 0, 2, 1, 1)
-        self.showRemuxCommand = QtWidgets.QToolButton(extractAudioDialog)
-        self.showRemuxCommand.setObjectName("showRemuxCommand")
-        self.gridLayout.addWidget(self.showRemuxCommand, 11, 2, 1, 1, QtCore.Qt.AlignTop)
-        self.targetDirectoryLabel = QtWidgets.QLabel(extractAudioDialog)
-        self.targetDirectoryLabel.setObjectName("targetDirectoryLabel")
+
+        self.showRemuxCommand = QToolButton(extractAudioDialog)
+        self.showRemuxCommand.setObjectName(u"showRemuxCommand")
+
+        self.gridLayout.addWidget(self.showRemuxCommand, 11, 2, 1, 1, Qt.AlignTop)
+
+        self.targetDirectoryLabel = QLabel(extractAudioDialog)
+        self.targetDirectoryLabel.setObjectName(u"targetDirectoryLabel")
+
         self.gridLayout.addWidget(self.targetDirectoryLabel, 9, 0, 1, 1)
-        self.filterMapping = QtWidgets.QListWidget(extractAudioDialog)
-        self.filterMapping.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
-        self.filterMapping.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
-        self.filterMapping.setObjectName("filterMapping")
+
+        self.filterMapping = QListWidget(extractAudioDialog)
+        self.filterMapping.setObjectName(u"filterMapping")
+        self.filterMapping.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.filterMapping.setSelectionMode(QAbstractItemView.NoSelection)
+
         self.gridLayout.addWidget(self.filterMapping, 8, 1, 1, 1)
-        self.inputLayout = QtWidgets.QHBoxLayout()
-        self.inputLayout.setObjectName("inputLayout")
-        self.inputFile = QtWidgets.QLineEdit(extractAudioDialog)
+
+        self.inputLayout = QHBoxLayout()
+        self.inputLayout.setObjectName(u"inputLayout")
+        self.inputFile = QLineEdit(extractAudioDialog)
+        self.inputFile.setObjectName(u"inputFile")
         self.inputFile.setEnabled(False)
-        self.inputFile.setObjectName("inputFile")
+
         self.inputLayout.addWidget(self.inputFile)
+
         self.inputDrop = DropArea(extractAudioDialog)
-        self.inputDrop.setMinimumSize(QtCore.QSize(100, 0))
+        self.inputDrop.setObjectName(u"inputDrop")
+        self.inputDrop.setMinimumSize(QSize(100, 0))
         self.inputDrop.setAutoFillBackground(False)
-        self.inputDrop.setFrameShape(QtWidgets.QFrame.StyledPanel)
-        self.inputDrop.setFrameShadow(QtWidgets.QFrame.Sunken)
-        self.inputDrop.setText("")
+        self.inputDrop.setFrameShape(QFrame.StyledPanel)
+        self.inputDrop.setFrameShadow(QFrame.Sunken)
         self.inputDrop.setScaledContents(False)
-        self.inputDrop.setAlignment(QtCore.Qt.AlignCenter)
-        self.inputDrop.setObjectName("inputDrop")
+        self.inputDrop.setAlignment(Qt.AlignCenter)
+
         self.inputLayout.addWidget(self.inputDrop)
+
         self.inputLayout.setStretch(0, 1)
+
         self.gridLayout.addLayout(self.inputLayout, 0, 1, 1, 1)
-        self.ffmpegCommandLine = QtWidgets.QPlainTextEdit(extractAudioDialog)
+
+        self.ffmpegCommandLine = QPlainTextEdit(extractAudioDialog)
+        self.ffmpegCommandLine.setObjectName(u"ffmpegCommandLine")
         self.ffmpegCommandLine.setEnabled(True)
-        font = QtGui.QFont()
-        font.setFamily("Consolas")
         self.ffmpegCommandLine.setFont(font)
         self.ffmpegCommandLine.setReadOnly(True)
-        self.ffmpegCommandLine.setObjectName("ffmpegCommandLine")
+
         self.gridLayout.addWidget(self.ffmpegCommandLine, 11, 1, 1, 1)
-        self.ffmpegCommandLabel = QtWidgets.QLabel(extractAudioDialog)
-        self.ffmpegCommandLabel.setAlignment(QtCore.Qt.AlignLeading|QtCore.Qt.AlignLeft|QtCore.Qt.AlignTop)
-        self.ffmpegCommandLabel.setObjectName("ffmpegCommandLabel")
+
+        self.ffmpegCommandLabel = QLabel(extractAudioDialog)
+        self.ffmpegCommandLabel.setObjectName(u"ffmpegCommandLabel")
+        self.ffmpegCommandLabel.setAlignment(Qt.AlignLeading|Qt.AlignLeft|Qt.AlignTop)
+
         self.gridLayout.addWidget(self.ffmpegCommandLabel, 11, 0, 1, 1)
-        self.horizontalLayout = QtWidgets.QHBoxLayout()
-        self.horizontalLayout.setObjectName("horizontalLayout")
-        self.monoMix = QtWidgets.QCheckBox(extractAudioDialog)
+
+        self.horizontalLayout = QHBoxLayout()
+        self.horizontalLayout.setObjectName(u"horizontalLayout")
+        self.monoMix = QCheckBox(extractAudioDialog)
+        self.monoMix.setObjectName(u"monoMix")
         self.monoMix.setEnabled(True)
         self.monoMix.setChecked(True)
-        self.monoMix.setObjectName("monoMix")
+
         self.horizontalLayout.addWidget(self.monoMix)
-        self.decimateAudio = QtWidgets.QCheckBox(extractAudioDialog)
+
+        self.decimateAudio = QCheckBox(extractAudioDialog)
+        self.decimateAudio.setObjectName(u"decimateAudio")
         self.decimateAudio.setChecked(True)
-        self.decimateAudio.setObjectName("decimateAudio")
+
         self.horizontalLayout.addWidget(self.decimateAudio)
-        self.includeSubtitles = QtWidgets.QCheckBox(extractAudioDialog)
-        self.includeSubtitles.setToolTip("")
-        self.includeSubtitles.setObjectName("includeSubtitles")
+
+        self.includeSubtitles = QCheckBox(extractAudioDialog)
+        self.includeSubtitles.setObjectName(u"includeSubtitles")
+
         self.horizontalLayout.addWidget(self.includeSubtitles)
-        self.bassManage = QtWidgets.QCheckBox(extractAudioDialog)
-        self.bassManage.setObjectName("bassManage")
+
+        self.bassManage = QCheckBox(extractAudioDialog)
+        self.bassManage.setObjectName(u"bassManage")
+
         self.horizontalLayout.addWidget(self.bassManage)
+
+
         self.gridLayout.addLayout(self.horizontalLayout, 6, 1, 1, 1)
-        self.horizontalLayout_3 = QtWidgets.QHBoxLayout()
-        self.horizontalLayout_3.setObjectName("horizontalLayout_3")
-        self.audioStreams = QtWidgets.QComboBox(extractAudioDialog)
-        self.audioStreams.setObjectName("audioStreams")
+
+        self.horizontalLayout_3 = QHBoxLayout()
+        self.horizontalLayout_3.setObjectName(u"horizontalLayout_3")
+        self.audioStreams = QComboBox(extractAudioDialog)
+        self.audioStreams.setObjectName(u"audioStreams")
+
         self.horizontalLayout_3.addWidget(self.audioStreams)
-        self.videoStreams = QtWidgets.QComboBox(extractAudioDialog)
-        self.videoStreams.setObjectName("videoStreams")
+
+        self.videoStreams = QComboBox(extractAudioDialog)
+        self.videoStreams.setObjectName(u"videoStreams")
+
         self.horizontalLayout_3.addWidget(self.videoStreams)
+
+
         self.gridLayout.addLayout(self.horizontalLayout_3, 1, 1, 1, 1)
-        self.channelsLabel = QtWidgets.QLabel(extractAudioDialog)
-        self.channelsLabel.setObjectName("channelsLabel")
+
+        self.channelsLabel = QLabel(extractAudioDialog)
+        self.channelsLabel.setObjectName(u"channelsLabel")
+
         self.gridLayout.addWidget(self.channelsLabel, 3, 0, 1, 1)
-        self.signalNameLabel = QtWidgets.QLabel(extractAudioDialog)
-        self.signalNameLabel.setObjectName("signalNameLabel")
+
+        self.signalNameLabel = QLabel(extractAudioDialog)
+        self.signalNameLabel.setObjectName(u"signalNameLabel")
+
         self.gridLayout.addWidget(self.signalNameLabel, 14, 0, 1, 1)
-        self.rangeLayout = QtWidgets.QHBoxLayout()
-        self.rangeLayout.setObjectName("rangeLayout")
-        self.limitRange = QtWidgets.QToolButton(extractAudioDialog)
+
+        self.rangeLayout = QHBoxLayout()
+        self.rangeLayout.setObjectName(u"rangeLayout")
+        self.limitRange = QToolButton(extractAudioDialog)
+        self.limitRange.setObjectName(u"limitRange")
         self.limitRange.setCheckable(True)
-        self.limitRange.setObjectName("limitRange")
+
         self.rangeLayout.addWidget(self.limitRange)
-        self.rangeFrom = QtWidgets.QTimeEdit(extractAudioDialog)
-        self.rangeFrom.setObjectName("rangeFrom")
+
+        self.rangeFrom = QTimeEdit(extractAudioDialog)
+        self.rangeFrom.setObjectName(u"rangeFrom")
+
         self.rangeLayout.addWidget(self.rangeFrom)
-        self.rangeSeparatorLabel = QtWidgets.QLabel(extractAudioDialog)
-        self.rangeSeparatorLabel.setObjectName("rangeSeparatorLabel")
+
+        self.rangeSeparatorLabel = QLabel(extractAudioDialog)
+        self.rangeSeparatorLabel.setObjectName(u"rangeSeparatorLabel")
+
         self.rangeLayout.addWidget(self.rangeSeparatorLabel)
-        self.rangeTo = QtWidgets.QTimeEdit(extractAudioDialog)
-        self.rangeTo.setObjectName("rangeTo")
+
+        self.rangeTo = QTimeEdit(extractAudioDialog)
+        self.rangeTo.setObjectName(u"rangeTo")
+
         self.rangeLayout.addWidget(self.rangeTo)
+
         self.rangeLayout.setStretch(1, 1)
         self.rangeLayout.setStretch(3, 1)
+
         self.gridLayout.addLayout(self.rangeLayout, 5, 1, 1, 1)
-        self.ffmpegProgress = QtWidgets.QProgressBar(extractAudioDialog)
-        self.ffmpegProgress.setProperty("value", 0)
-        self.ffmpegProgress.setObjectName("ffmpegProgress")
+
+        self.ffmpegProgress = QProgressBar(extractAudioDialog)
+        self.ffmpegProgress.setObjectName(u"ffmpegProgress")
+        self.ffmpegProgress.setValue(0)
+
         self.gridLayout.addWidget(self.ffmpegProgress, 12, 1, 1, 1)
-        self.outputFilename = QtWidgets.QLineEdit(extractAudioDialog)
-        self.outputFilename.setObjectName("outputFilename")
+
+        self.outputFilename = QLineEdit(extractAudioDialog)
+        self.outputFilename.setObjectName(u"outputFilename")
+
         self.gridLayout.addWidget(self.outputFilename, 10, 1, 1, 1)
-        self.outputFilenameLabel = QtWidgets.QLabel(extractAudioDialog)
-        self.outputFilenameLabel.setObjectName("outputFilenameLabel")
+
+        self.outputFilenameLabel = QLabel(extractAudioDialog)
+        self.outputFilenameLabel.setObjectName(u"outputFilenameLabel")
+
         self.gridLayout.addWidget(self.outputFilenameLabel, 10, 0, 1, 1)
-        self.ffmpegProgressLabel = QtWidgets.QLabel(extractAudioDialog)
-        self.ffmpegProgressLabel.setObjectName("ffmpegProgressLabel")
+
+        self.ffmpegProgressLabel = QLabel(extractAudioDialog)
+        self.ffmpegProgressLabel.setObjectName(u"ffmpegProgressLabel")
+
         self.gridLayout.addWidget(self.ffmpegProgressLabel, 12, 0, 1, 1)
-        self.horizontalLayout_2 = QtWidgets.QHBoxLayout()
-        self.horizontalLayout_2.setObjectName("horizontalLayout_2")
-        self.lfeChannelIndex = QtWidgets.QSpinBox(extractAudioDialog)
+
+        self.horizontalLayout_2 = QHBoxLayout()
+        self.horizontalLayout_2.setObjectName(u"horizontalLayout_2")
+        self.lfeChannelIndex = QSpinBox(extractAudioDialog)
+        self.lfeChannelIndex.setObjectName(u"lfeChannelIndex")
         self.lfeChannelIndex.setMinimum(0)
-        self.lfeChannelIndex.setObjectName("lfeChannelIndex")
+
         self.horizontalLayout_2.addWidget(self.lfeChannelIndex)
-        self.channelCount = QtWidgets.QSpinBox(extractAudioDialog)
+
+        self.channelCount = QSpinBox(extractAudioDialog)
+        self.channelCount.setObjectName(u"channelCount")
         self.channelCount.setMinimum(1)
-        self.channelCount.setObjectName("channelCount")
+
         self.horizontalLayout_2.addWidget(self.channelCount)
-        spacerItem = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
-        self.horizontalLayout_2.addItem(spacerItem)
-        self.audioFormatLabel = QtWidgets.QLabel(extractAudioDialog)
-        self.audioFormatLabel.setObjectName("audioFormatLabel")
+
+        self.horizontalSpacer = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
+
+        self.horizontalLayout_2.addItem(self.horizontalSpacer)
+
+        self.audioFormatLabel = QLabel(extractAudioDialog)
+        self.audioFormatLabel.setObjectName(u"audioFormatLabel")
+
         self.horizontalLayout_2.addWidget(self.audioFormatLabel)
-        self.audioFormat = QtWidgets.QComboBox(extractAudioDialog)
-        self.audioFormat.setObjectName("audioFormat")
+
+        self.audioFormat = QComboBox(extractAudioDialog)
+        self.audioFormat.setObjectName(u"audioFormat")
+
         self.horizontalLayout_2.addWidget(self.audioFormat)
-        self.eacBitRate = QtWidgets.QSpinBox(extractAudioDialog)
+
+        self.eacBitRate = QSpinBox(extractAudioDialog)
+        self.eacBitRate.setObjectName(u"eacBitRate")
         self.eacBitRate.setMinimum(32)
         self.eacBitRate.setMaximum(6000)
-        self.eacBitRate.setProperty("value", 1500)
-        self.eacBitRate.setObjectName("eacBitRate")
+        self.eacBitRate.setValue(1500)
+
         self.horizontalLayout_2.addWidget(self.eacBitRate)
-        spacerItem1 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
-        self.horizontalLayout_2.addItem(spacerItem1)
+
+        self.horizontalSpacer_2 = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
+
+        self.horizontalLayout_2.addItem(self.horizontalSpacer_2)
+
+
         self.gridLayout.addLayout(self.horizontalLayout_2, 3, 1, 1, 1)
-        self.inputFileLabel = QtWidgets.QLabel(extractAudioDialog)
-        self.inputFileLabel.setObjectName("inputFileLabel")
+
+        self.inputFileLabel = QLabel(extractAudioDialog)
+        self.inputFileLabel.setObjectName(u"inputFileLabel")
+
         self.gridLayout.addWidget(self.inputFileLabel, 0, 0, 1, 1)
-        self.label = QtWidgets.QLabel(extractAudioDialog)
-        self.label.setObjectName("label")
+
+        self.label = QLabel(extractAudioDialog)
+        self.label.setObjectName(u"label")
+
         self.gridLayout.addWidget(self.label, 5, 0, 1, 1)
-        self.ffmpegOutputLabel = QtWidgets.QLabel(extractAudioDialog)
-        self.ffmpegOutputLabel.setAlignment(QtCore.Qt.AlignLeading|QtCore.Qt.AlignLeft|QtCore.Qt.AlignTop)
-        self.ffmpegOutputLabel.setObjectName("ffmpegOutputLabel")
+
+        self.ffmpegOutputLabel = QLabel(extractAudioDialog)
+        self.ffmpegOutputLabel.setObjectName(u"ffmpegOutputLabel")
+        self.ffmpegOutputLabel.setAlignment(Qt.AlignLeading|Qt.AlignLeft|Qt.AlignTop)
+
         self.gridLayout.addWidget(self.ffmpegOutputLabel, 13, 0, 1, 1)
-        self.filterMappingLabel = QtWidgets.QLabel(extractAudioDialog)
-        self.filterMappingLabel.setObjectName("filterMappingLabel")
+
+        self.filterMappingLabel = QLabel(extractAudioDialog)
+        self.filterMappingLabel.setObjectName(u"filterMappingLabel")
+
         self.gridLayout.addWidget(self.filterMappingLabel, 8, 0, 1, 1)
-        self.remuxOptionsLayout = QtWidgets.QHBoxLayout()
-        self.remuxOptionsLayout.setObjectName("remuxOptionsLayout")
-        self.includeOriginalAudio = QtWidgets.QCheckBox(extractAudioDialog)
-        self.includeOriginalAudio.setObjectName("includeOriginalAudio")
+
+        self.remuxOptionsLayout = QHBoxLayout()
+        self.remuxOptionsLayout.setObjectName(u"remuxOptionsLayout")
+        self.includeOriginalAudio = QCheckBox(extractAudioDialog)
+        self.includeOriginalAudio.setObjectName(u"includeOriginalAudio")
+
         self.remuxOptionsLayout.addWidget(self.includeOriginalAudio)
-        self.gainOffsetLabel = QtWidgets.QLabel(extractAudioDialog)
-        self.gainOffsetLabel.setObjectName("gainOffsetLabel")
+
+        self.gainOffsetLabel = QLabel(extractAudioDialog)
+        self.gainOffsetLabel.setObjectName(u"gainOffsetLabel")
+
         self.remuxOptionsLayout.addWidget(self.gainOffsetLabel)
-        self.gainOffset = QtWidgets.QDoubleSpinBox(extractAudioDialog)
-        self.gainOffset.setMinimum(-100.0)
-        self.gainOffset.setMaximum(100.0)
-        self.gainOffset.setSingleStep(0.01)
-        self.gainOffset.setObjectName("gainOffset")
+
+        self.gainOffset = QDoubleSpinBox(extractAudioDialog)
+        self.gainOffset.setObjectName(u"gainOffset")
+        self.gainOffset.setMinimum(-100.000000000000000)
+        self.gainOffset.setMaximum(100.000000000000000)
+        self.gainOffset.setSingleStep(0.010000000000000)
+
         self.remuxOptionsLayout.addWidget(self.gainOffset)
-        self.adjustRemuxedAudio = QtWidgets.QCheckBox(extractAudioDialog)
+
+        self.adjustRemuxedAudio = QCheckBox(extractAudioDialog)
+        self.adjustRemuxedAudio.setObjectName(u"adjustRemuxedAudio")
         self.adjustRemuxedAudio.setChecked(True)
-        self.adjustRemuxedAudio.setObjectName("adjustRemuxedAudio")
+
         self.remuxOptionsLayout.addWidget(self.adjustRemuxedAudio)
-        self.remuxedAudioOffset = QtWidgets.QDoubleSpinBox(extractAudioDialog)
-        self.remuxedAudioOffset.setMinimum(-120.0)
-        self.remuxedAudioOffset.setMaximum(12.0)
-        self.remuxedAudioOffset.setSingleStep(0.01)
-        self.remuxedAudioOffset.setObjectName("remuxedAudioOffset")
+
+        self.remuxedAudioOffset = QDoubleSpinBox(extractAudioDialog)
+        self.remuxedAudioOffset.setObjectName(u"remuxedAudioOffset")
+        self.remuxedAudioOffset.setMinimum(-120.000000000000000)
+        self.remuxedAudioOffset.setMaximum(12.000000000000000)
+        self.remuxedAudioOffset.setSingleStep(0.010000000000000)
+
         self.remuxOptionsLayout.addWidget(self.remuxedAudioOffset)
+
         self.remuxOptionsLayout.setStretch(0, 1)
         self.remuxOptionsLayout.setStretch(3, 1)
+
         self.gridLayout.addLayout(self.remuxOptionsLayout, 7, 1, 1, 1)
-        self.label_2 = QtWidgets.QLabel(extractAudioDialog)
-        self.label_2.setObjectName("label_2")
+
+        self.label_2 = QLabel(extractAudioDialog)
+        self.label_2.setObjectName(u"label_2")
+
         self.gridLayout.addWidget(self.label_2, 6, 0, 2, 1)
-        self.calculateGainAdjustment = QtWidgets.QToolButton(extractAudioDialog)
-        self.calculateGainAdjustment.setObjectName("calculateGainAdjustment")
+
+        self.calculateGainAdjustment = QToolButton(extractAudioDialog)
+        self.calculateGainAdjustment.setObjectName(u"calculateGainAdjustment")
+
         self.gridLayout.addWidget(self.calculateGainAdjustment, 7, 2, 1, 1)
+
         self.gridLayout.setRowStretch(0, 1)
+
         self.boxLayout.addLayout(self.gridLayout)
-        self.buttonLayout = QtWidgets.QGridLayout()
-        self.buttonLayout.setObjectName("buttonLayout")
-        self.buttonBox = QtWidgets.QDialogButtonBox(extractAudioDialog)
-        self.buttonBox.setOrientation(QtCore.Qt.Horizontal)
-        self.buttonBox.setStandardButtons(QtWidgets.QDialogButtonBox.Cancel|QtWidgets.QDialogButtonBox.Ok)
-        self.buttonBox.setObjectName("buttonBox")
+
+        self.buttonLayout = QGridLayout()
+        self.buttonLayout.setObjectName(u"buttonLayout")
+        self.buttonBox = QDialogButtonBox(extractAudioDialog)
+        self.buttonBox.setObjectName(u"buttonBox")
+        self.buttonBox.setOrientation(Qt.Horizontal)
+        self.buttonBox.setStandardButtons(QDialogButtonBox.Cancel|QDialogButtonBox.Ok)
+
         self.buttonLayout.addWidget(self.buttonBox, 0, 0, 1, 1)
+
+
         self.boxLayout.addLayout(self.buttonLayout)
+
 
         self.retranslateUi(extractAudioDialog)
         self.buttonBox.accepted.connect(extractAudioDialog.accept)
@@ -247,61 +366,69 @@ class Ui_extractAudioDialog(object):
         self.showProbeButton.clicked.connect(extractAudioDialog.showProbeInDetail)
         self.targetDirPicker.clicked.connect(extractAudioDialog.setTargetDirectory)
         self.outputFilename.editingFinished.connect(extractAudioDialog.updateOutputFilename)
-        self.audioStreams.currentIndexChanged['int'].connect(extractAudioDialog.updateFfmpegSpec)
+        self.audioStreams.currentIndexChanged.connect(extractAudioDialog.updateFfmpegSpec)
         self.outputFilename.editingFinished.connect(extractAudioDialog.updateOutputFilename)
         self.monoMix.clicked.connect(extractAudioDialog.toggleMonoMix)
-        self.lfeChannelIndex.valueChanged['int'].connect(extractAudioDialog.overrideFfmpegSpec)
-        self.channelCount.valueChanged['int'].connect(extractAudioDialog.overrideFfmpegSpec)
+        self.lfeChannelIndex.valueChanged.connect(extractAudioDialog.overrideFfmpegSpec)
+        self.channelCount.valueChanged.connect(extractAudioDialog.overrideFfmpegSpec)
         self.decimateAudio.clicked.connect(extractAudioDialog.toggle_decimate_audio)
         self.includeOriginalAudio.clicked.connect(extractAudioDialog.update_original_audio)
-        self.rangeTo.timeChanged['QTime'].connect(extractAudioDialog.update_end_time)
-        self.rangeFrom.timeChanged['QTime'].connect(extractAudioDialog.update_start_time)
+        self.rangeTo.timeChanged.connect(extractAudioDialog.update_end_time)
+        self.rangeFrom.timeChanged.connect(extractAudioDialog.update_start_time)
         self.limitRange.clicked.connect(extractAudioDialog.toggle_range)
         self.showRemuxCommand.clicked.connect(extractAudioDialog.show_remux_cmd)
         self.includeSubtitles.clicked.connect(extractAudioDialog.toggle_include_subtitles)
-        self.gainOffset.valueChanged['double'].connect(extractAudioDialog.update_original_audio)
-        self.videoStreams.currentIndexChanged['int'].connect(extractAudioDialog.onVideoStreamChange)
-        self.audioFormat.currentTextChanged['QString'].connect(extractAudioDialog.change_audio_format)
-        self.eacBitRate.valueChanged['int'].connect(extractAudioDialog.change_audio_bitrate)
+        self.gainOffset.valueChanged.connect(extractAudioDialog.update_original_audio)
+        self.videoStreams.currentIndexChanged.connect(extractAudioDialog.onVideoStreamChange)
+        self.audioFormat.currentTextChanged.connect(extractAudioDialog.change_audio_format)
+        self.eacBitRate.valueChanged.connect(extractAudioDialog.change_audio_bitrate)
         self.calculateGainAdjustment.clicked.connect(extractAudioDialog.calculate_gain_adjustment)
-        self.remuxedAudioOffset.valueChanged['double'].connect(extractAudioDialog.override_filtered_gain_adjustment)
+        self.remuxedAudioOffset.valueChanged.connect(extractAudioDialog.override_filtered_gain_adjustment)
         self.bassManage.clicked.connect(extractAudioDialog.toggle_bass_manage)
-        QtCore.QMetaObject.connectSlotsByName(extractAudioDialog)
+
+        QMetaObject.connectSlotsByName(extractAudioDialog)
+    # setupUi
 
     def retranslateUi(self, extractAudioDialog):
-        _translate = QtCore.QCoreApplication.translate
-        extractAudioDialog.setWindowTitle(_translate("extractAudioDialog", "Extract Audio"))
-        self.streamsLabel.setText(_translate("extractAudioDialog", "A/V Streams"))
-        self.targetDirPicker.setText(_translate("extractAudioDialog", "..."))
-        self.showProbeButton.setText(_translate("extractAudioDialog", "..."))
-        self.inputFilePicker.setText(_translate("extractAudioDialog", "..."))
-        self.showRemuxCommand.setText(_translate("extractAudioDialog", "..."))
-        self.targetDirectoryLabel.setText(_translate("extractAudioDialog", "Target Directory"))
-        self.ffmpegCommandLabel.setText(_translate("extractAudioDialog", "ffmpeg command "))
-        self.monoMix.setText(_translate("extractAudioDialog", "Mix to Mono?"))
-        self.decimateAudio.setText(_translate("extractAudioDialog", "Decimate Audio?"))
-        self.includeSubtitles.setText(_translate("extractAudioDialog", "Add Subtitles?"))
-        self.bassManage.setText(_translate("extractAudioDialog", "Bass Manage?"))
-        self.channelsLabel.setText(_translate("extractAudioDialog", "LFE Channel/Total"))
-        self.signalNameLabel.setText(_translate("extractAudioDialog", "Signal Name"))
-        self.limitRange.setText(_translate("extractAudioDialog", "..."))
-        self.rangeFrom.setDisplayFormat(_translate("extractAudioDialog", "HH:mm:ss.zzz"))
-        self.rangeSeparatorLabel.setText(_translate("extractAudioDialog", "to"))
-        self.rangeTo.setDisplayFormat(_translate("extractAudioDialog", "HH:mm:ss.zzz"))
-        self.outputFilenameLabel.setText(_translate("extractAudioDialog", "Output Filename"))
-        self.ffmpegProgressLabel.setText(_translate("extractAudioDialog", "Progress"))
-        self.lfeChannelIndex.setToolTip(_translate("extractAudioDialog", "0 = No LFE"))
-        self.audioFormatLabel.setText(_translate("extractAudioDialog", "Format"))
-        self.eacBitRate.setSuffix(_translate("extractAudioDialog", " kbps"))
-        self.inputFileLabel.setText(_translate("extractAudioDialog", "File"))
-        self.label.setText(_translate("extractAudioDialog", "Range"))
-        self.ffmpegOutputLabel.setText(_translate("extractAudioDialog", "ffmpeg output"))
-        self.filterMappingLabel.setText(_translate("extractAudioDialog", "Signal Mapping"))
-        self.includeOriginalAudio.setText(_translate("extractAudioDialog", "Add Original Audio?"))
-        self.gainOffsetLabel.setText(_translate("extractAudioDialog", "Offset:"))
-        self.gainOffset.setSuffix(_translate("extractAudioDialog", " dB"))
-        self.adjustRemuxedAudio.setText(_translate("extractAudioDialog", "Adjust Remuxed Audio?"))
-        self.remuxedAudioOffset.setSuffix(_translate("extractAudioDialog", " dB"))
-        self.label_2.setText(_translate("extractAudioDialog", "Options"))
-        self.calculateGainAdjustment.setText(_translate("extractAudioDialog", "..."))
-from ui.drop import DropArea
+        extractAudioDialog.setWindowTitle(QCoreApplication.translate("extractAudioDialog", u"Extract Audio", None))
+        self.streamsLabel.setText(QCoreApplication.translate("extractAudioDialog", u"A/V Streams", None))
+        self.targetDirPicker.setText(QCoreApplication.translate("extractAudioDialog", u"...", None))
+        self.showProbeButton.setText(QCoreApplication.translate("extractAudioDialog", u"...", None))
+        self.inputFilePicker.setText(QCoreApplication.translate("extractAudioDialog", u"...", None))
+        self.showRemuxCommand.setText(QCoreApplication.translate("extractAudioDialog", u"...", None))
+        self.targetDirectoryLabel.setText(QCoreApplication.translate("extractAudioDialog", u"Target Directory", None))
+        self.inputDrop.setText("")
+        self.ffmpegCommandLabel.setText(QCoreApplication.translate("extractAudioDialog", u"ffmpeg command ", None))
+        self.monoMix.setText(QCoreApplication.translate("extractAudioDialog", u"Mix to Mono?", None))
+        self.decimateAudio.setText(QCoreApplication.translate("extractAudioDialog", u"Decimate Audio?", None))
+#if QT_CONFIG(tooltip)
+        self.includeSubtitles.setToolTip("")
+#endif // QT_CONFIG(tooltip)
+        self.includeSubtitles.setText(QCoreApplication.translate("extractAudioDialog", u"Add Subtitles?", None))
+        self.bassManage.setText(QCoreApplication.translate("extractAudioDialog", u"Bass Manage?", None))
+        self.channelsLabel.setText(QCoreApplication.translate("extractAudioDialog", u"LFE Channel/Total", None))
+        self.signalNameLabel.setText(QCoreApplication.translate("extractAudioDialog", u"Signal Name", None))
+        self.limitRange.setText(QCoreApplication.translate("extractAudioDialog", u"...", None))
+        self.rangeFrom.setDisplayFormat(QCoreApplication.translate("extractAudioDialog", u"HH:mm:ss.zzz", None))
+        self.rangeSeparatorLabel.setText(QCoreApplication.translate("extractAudioDialog", u"to", None))
+        self.rangeTo.setDisplayFormat(QCoreApplication.translate("extractAudioDialog", u"HH:mm:ss.zzz", None))
+        self.outputFilenameLabel.setText(QCoreApplication.translate("extractAudioDialog", u"Output Filename", None))
+        self.ffmpegProgressLabel.setText(QCoreApplication.translate("extractAudioDialog", u"Progress", None))
+#if QT_CONFIG(tooltip)
+        self.lfeChannelIndex.setToolTip(QCoreApplication.translate("extractAudioDialog", u"0 = No LFE", None))
+#endif // QT_CONFIG(tooltip)
+        self.audioFormatLabel.setText(QCoreApplication.translate("extractAudioDialog", u"Format", None))
+        self.eacBitRate.setSuffix(QCoreApplication.translate("extractAudioDialog", u" kbps", None))
+        self.inputFileLabel.setText(QCoreApplication.translate("extractAudioDialog", u"File", None))
+        self.label.setText(QCoreApplication.translate("extractAudioDialog", u"Range", None))
+        self.ffmpegOutputLabel.setText(QCoreApplication.translate("extractAudioDialog", u"ffmpeg output", None))
+        self.filterMappingLabel.setText(QCoreApplication.translate("extractAudioDialog", u"Signal Mapping", None))
+        self.includeOriginalAudio.setText(QCoreApplication.translate("extractAudioDialog", u"Add Original Audio?", None))
+        self.gainOffsetLabel.setText(QCoreApplication.translate("extractAudioDialog", u"Offset:", None))
+        self.gainOffset.setSuffix(QCoreApplication.translate("extractAudioDialog", u" dB", None))
+        self.adjustRemuxedAudio.setText(QCoreApplication.translate("extractAudioDialog", u"Adjust Remuxed Audio?", None))
+        self.remuxedAudioOffset.setSuffix(QCoreApplication.translate("extractAudioDialog", u" dB", None))
+        self.label_2.setText(QCoreApplication.translate("extractAudioDialog", u"Options", None))
+        self.calculateGainAdjustment.setText(QCoreApplication.translate("extractAudioDialog", u"...", None))
+    # retranslateUi
+

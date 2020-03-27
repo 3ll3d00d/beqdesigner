@@ -1,52 +1,72 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'newversion.ui'
-#
-# Created by: PyQt5 UI code generator 5.13.1
-#
-# WARNING! All changes made in this file will be lost!
+################################################################################
+## Form generated from reading UI file 'newversion.ui'
+##
+## Created by: Qt User Interface Compiler version 5.14.1
+##
+## WARNING! All changes made in this file will be lost when recompiling UI file!
+################################################################################
 
-
-from PyQt5 import QtCore, QtGui, QtWidgets
+from PySide2.QtCore import (QCoreApplication, QMetaObject, QObject, QPoint,
+    QRect, QSize, QUrl, Qt)
+from PySide2.QtGui import (QBrush, QColor, QConicalGradient, QCursor, QFont,
+    QFontDatabase, QIcon, QLinearGradient, QPalette, QPainter, QPixmap,
+    QRadialGradient)
+from PySide2.QtWidgets import *
 
 
 class Ui_newVersionDialog(object):
     def setupUi(self, newVersionDialog):
-        newVersionDialog.setObjectName("newVersionDialog")
+        if newVersionDialog.objectName():
+            newVersionDialog.setObjectName(u"newVersionDialog")
         newVersionDialog.resize(586, 544)
-        self.verticalLayout = QtWidgets.QVBoxLayout(newVersionDialog)
-        self.verticalLayout.setObjectName("verticalLayout")
-        self.headerLayout = QtWidgets.QHBoxLayout()
-        self.headerLayout.setObjectName("headerLayout")
-        self.message = QtWidgets.QLabel(newVersionDialog)
-        self.message.setObjectName("message")
+        self.verticalLayout = QVBoxLayout(newVersionDialog)
+        self.verticalLayout.setObjectName(u"verticalLayout")
+        self.headerLayout = QHBoxLayout()
+        self.headerLayout.setObjectName(u"headerLayout")
+        self.message = QLabel(newVersionDialog)
+        self.message.setObjectName(u"message")
+
         self.headerLayout.addWidget(self.message)
+
         self.headerLayout.setStretch(0, 1)
+
         self.verticalLayout.addLayout(self.headerLayout)
-        self.versionTable = QtWidgets.QTableView(newVersionDialog)
-        self.versionTable.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.AdjustToContents)
-        self.versionTable.setSelectionMode(QtWidgets.QAbstractItemView.MultiSelection)
-        self.versionTable.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
-        self.versionTable.setObjectName("versionTable")
+
+        self.versionTable = QTableView(newVersionDialog)
+        self.versionTable.setObjectName(u"versionTable")
+        self.versionTable.setSizeAdjustPolicy(QAbstractScrollArea.AdjustToContents)
+        self.versionTable.setSelectionMode(QAbstractItemView.MultiSelection)
+        self.versionTable.setSelectionBehavior(QAbstractItemView.SelectRows)
+
         self.verticalLayout.addWidget(self.versionTable)
-        self.releaseNotes = QtWidgets.QTextBrowser(newVersionDialog)
+
+        self.releaseNotes = QTextBrowser(newVersionDialog)
+        self.releaseNotes.setObjectName(u"releaseNotes")
         self.releaseNotes.setOpenExternalLinks(True)
-        self.releaseNotes.setObjectName("releaseNotes")
+
         self.verticalLayout.addWidget(self.releaseNotes)
-        self.buttonBox = QtWidgets.QDialogButtonBox(newVersionDialog)
-        self.buttonBox.setOrientation(QtCore.Qt.Horizontal)
-        self.buttonBox.setStandardButtons(QtWidgets.QDialogButtonBox.Ok)
-        self.buttonBox.setObjectName("buttonBox")
+
+        self.buttonBox = QDialogButtonBox(newVersionDialog)
+        self.buttonBox.setObjectName(u"buttonBox")
+        self.buttonBox.setOrientation(Qt.Horizontal)
+        self.buttonBox.setStandardButtons(QDialogButtonBox.Ok)
+
         self.verticalLayout.addWidget(self.buttonBox)
+
         self.verticalLayout.setStretch(1, 1)
         self.verticalLayout.setStretch(2, 1)
 
         self.retranslateUi(newVersionDialog)
         self.buttonBox.accepted.connect(newVersionDialog.accept)
         self.buttonBox.rejected.connect(newVersionDialog.reject)
-        QtCore.QMetaObject.connectSlotsByName(newVersionDialog)
+
+        QMetaObject.connectSlotsByName(newVersionDialog)
+    # setupUi
 
     def retranslateUi(self, newVersionDialog):
-        _translate = QtCore.QCoreApplication.translate
-        newVersionDialog.setWindowTitle(_translate("newVersionDialog", "New Version Available!"))
-        self.message.setText(_translate("newVersionDialog", "Message"))
+        newVersionDialog.setWindowTitle(QCoreApplication.translate("newVersionDialog", u"New Version Available!", None))
+        self.message.setText(QCoreApplication.translate("newVersionDialog", u"Message", None))
+    # retranslateUi
+

@@ -1,101 +1,150 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'filter.ui'
-#
-# Created by: PyQt5 UI code generator 5.13.1
-#
-# WARNING! All changes made in this file will be lost!
+################################################################################
+## Form generated from reading UI file 'filter.ui'
+##
+## Created by: Qt User Interface Compiler version 5.14.1
+##
+## WARNING! All changes made in this file will be lost when recompiling UI file!
+################################################################################
 
+from PySide2.QtCore import (QCoreApplication, QMetaObject, QObject, QPoint,
+    QRect, QSize, QUrl, Qt)
+from PySide2.QtGui import (QBrush, QColor, QConicalGradient, QCursor, QFont,
+    QFontDatabase, QIcon, QLinearGradient, QPalette, QPainter, QPixmap,
+    QRadialGradient)
+from PySide2.QtWidgets import *
 
-from PyQt5 import QtCore, QtGui, QtWidgets
+from mpl import MplWidget
 
 
 class Ui_editFilterDialog(object):
     def setupUi(self, editFilterDialog):
-        editFilterDialog.setObjectName("editFilterDialog")
+        if editFilterDialog.objectName():
+            editFilterDialog.setObjectName(u"editFilterDialog")
         editFilterDialog.resize(1390, 658)
-        self.panes = QtWidgets.QGridLayout(editFilterDialog)
-        self.panes.setObjectName("panes")
-        self.viewPane = QtWidgets.QGridLayout()
-        self.viewPane.setObjectName("viewPane")
+        self.panes = QGridLayout(editFilterDialog)
+        self.panes.setObjectName(u"panes")
+        self.viewPane = QGridLayout()
+        self.viewPane.setObjectName(u"viewPane")
         self.previewChart = MplWidget(editFilterDialog)
-        self.previewChart.setObjectName("previewChart")
+        self.previewChart.setObjectName(u"previewChart")
+
         self.viewPane.addWidget(self.previewChart, 0, 0, 1, 1)
+
+
         self.panes.addLayout(self.viewPane, 0, 1, 1, 1)
-        self.paramsPane = QtWidgets.QGridLayout()
-        self.paramsPane.setObjectName("paramsPane")
-        self.gainLabel = QtWidgets.QLabel(editFilterDialog)
-        self.gainLabel.setObjectName("gainLabel")
+
+        self.paramsPane = QGridLayout()
+        self.paramsPane.setObjectName(u"paramsPane")
+        self.gainLabel = QLabel(editFilterDialog)
+        self.gainLabel.setObjectName(u"gainLabel")
+
         self.paramsPane.addWidget(self.gainLabel, 8, 0, 1, 1)
-        self.filterQLabel = QtWidgets.QLabel(editFilterDialog)
-        self.filterQLabel.setObjectName("filterQLabel")
+
+        self.filterQLabel = QLabel(editFilterDialog)
+        self.filterQLabel.setObjectName(u"filterQLabel")
+
         self.paramsPane.addWidget(self.filterQLabel, 6, 0, 1, 1)
-        self.snapLayout = QtWidgets.QHBoxLayout()
-        self.snapLayout.setObjectName("snapLayout")
-        self.snapLabel = QtWidgets.QLabel(editFilterDialog)
-        font = QtGui.QFont()
+
+        self.snapLayout = QHBoxLayout()
+        self.snapLayout.setObjectName(u"snapLayout")
+        self.snapLabel = QLabel(editFilterDialog)
+        self.snapLabel.setObjectName(u"snapLabel")
+        font = QFont()
         font.setBold(True)
         font.setWeight(75)
         self.snapLabel.setFont(font)
-        self.snapLabel.setObjectName("snapLabel")
+
         self.snapLayout.addWidget(self.snapLabel)
-        self.snapFilterButton = QtWidgets.QToolButton(editFilterDialog)
-        self.snapFilterButton.setObjectName("snapFilterButton")
+
+        self.snapFilterButton = QToolButton(editFilterDialog)
+        self.snapFilterButton.setObjectName(u"snapFilterButton")
+
         self.snapLayout.addWidget(self.snapFilterButton)
-        self.loadSnapButton = QtWidgets.QToolButton(editFilterDialog)
-        self.loadSnapButton.setObjectName("loadSnapButton")
+
+        self.loadSnapButton = QToolButton(editFilterDialog)
+        self.loadSnapButton.setObjectName(u"loadSnapButton")
+
         self.snapLayout.addWidget(self.loadSnapButton)
-        self.acceptSnapButton = QtWidgets.QToolButton(editFilterDialog)
-        self.acceptSnapButton.setObjectName("acceptSnapButton")
+
+        self.acceptSnapButton = QToolButton(editFilterDialog)
+        self.acceptSnapButton.setObjectName(u"acceptSnapButton")
+
         self.snapLayout.addWidget(self.acceptSnapButton)
-        self.resetButton = QtWidgets.QToolButton(editFilterDialog)
-        self.resetButton.setObjectName("resetButton")
+
+        self.resetButton = QToolButton(editFilterDialog)
+        self.resetButton.setObjectName(u"resetButton")
+
         self.snapLayout.addWidget(self.resetButton)
+
+
         self.paramsPane.addLayout(self.snapLayout, 13, 0, 1, 2)
-        self.typeLabel = QtWidgets.QLabel(editFilterDialog)
-        self.typeLabel.setObjectName("typeLabel")
+
+        self.typeLabel = QLabel(editFilterDialog)
+        self.typeLabel.setObjectName(u"typeLabel")
+
         self.paramsPane.addWidget(self.typeLabel, 2, 0, 1, 1)
-        self.sLabel = QtWidgets.QLabel(editFilterDialog)
-        self.sLabel.setObjectName("sLabel")
+
+        self.sLabel = QLabel(editFilterDialog)
+        self.sLabel.setObjectName(u"sLabel")
+
         self.paramsPane.addWidget(self.sLabel, 7, 0, 1, 1)
-        self.buttonLayout = QtWidgets.QHBoxLayout()
-        self.buttonLayout.setObjectName("buttonLayout")
-        self.saveButton = QtWidgets.QToolButton(editFilterDialog)
-        self.saveButton.setText("")
-        self.saveButton.setObjectName("saveButton")
+
+        self.buttonLayout = QHBoxLayout()
+        self.buttonLayout.setObjectName(u"buttonLayout")
+        self.saveButton = QToolButton(editFilterDialog)
+        self.saveButton.setObjectName(u"saveButton")
+
         self.buttonLayout.addWidget(self.saveButton)
-        self.exitButton = QtWidgets.QToolButton(editFilterDialog)
-        self.exitButton.setObjectName("exitButton")
+
+        self.exitButton = QToolButton(editFilterDialog)
+        self.exitButton.setObjectName(u"exitButton")
+
         self.buttonLayout.addWidget(self.exitButton)
-        self.limitsButton = QtWidgets.QToolButton(editFilterDialog)
-        self.limitsButton.setObjectName("limitsButton")
+
+        self.limitsButton = QToolButton(editFilterDialog)
+        self.limitsButton.setObjectName(u"limitsButton")
+
         self.buttonLayout.addWidget(self.limitsButton)
+
+
         self.paramsPane.addLayout(self.buttonLayout, 11, 0, 1, 2)
-        self.passFilterType = QtWidgets.QComboBox(editFilterDialog)
+
+        self.passFilterType = QComboBox(editFilterDialog)
+        self.passFilterType.addItem("")
+        self.passFilterType.addItem("")
+        self.passFilterType.setObjectName(u"passFilterType")
         self.passFilterType.setEnabled(True)
-        self.passFilterType.setObjectName("passFilterType")
-        self.passFilterType.addItem("")
-        self.passFilterType.addItem("")
+
         self.paramsPane.addWidget(self.passFilterType, 3, 1, 1, 1)
-        self.snapshotFilterView = QtWidgets.QTableView(editFilterDialog)
-        self.snapshotFilterView.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
-        self.snapshotFilterView.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
-        self.snapshotFilterView.setObjectName("snapshotFilterView")
+
+        self.snapshotFilterView = QTableView(editFilterDialog)
+        self.snapshotFilterView.setObjectName(u"snapshotFilterView")
+        self.snapshotFilterView.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.snapshotFilterView.setSelectionBehavior(QAbstractItemView.SelectRows)
+
         self.paramsPane.addWidget(self.snapshotFilterView, 15, 0, 1, 2)
-        self.filterCount = QtWidgets.QSpinBox(editFilterDialog)
+
+        self.filterCount = QSpinBox(editFilterDialog)
+        self.filterCount.setObjectName(u"filterCount")
         self.filterCount.setMinimum(1)
         self.filterCount.setMaximum(20)
-        self.filterCount.setObjectName("filterCount")
+
         self.paramsPane.addWidget(self.filterCount, 9, 1, 1, 1)
-        spacerItem = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
-        self.paramsPane.addItem(spacerItem, 12, 1, 1, 1)
-        self.workingFilterView = QtWidgets.QTableView(editFilterDialog)
-        self.workingFilterView.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
-        self.workingFilterView.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
-        self.workingFilterView.setObjectName("workingFilterView")
+
+        self.verticalSpacer_2 = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
+
+        self.paramsPane.addItem(self.verticalSpacer_2, 12, 1, 1, 1)
+
+        self.workingFilterView = QTableView(editFilterDialog)
+        self.workingFilterView.setObjectName(u"workingFilterView")
+        self.workingFilterView.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.workingFilterView.setSelectionBehavior(QAbstractItemView.SelectRows)
+
         self.paramsPane.addWidget(self.workingFilterView, 0, 0, 1, 2)
-        self.filterType = QtWidgets.QComboBox(editFilterDialog)
-        self.filterType.setObjectName("filterType")
+
+        self.filterType = QComboBox(editFilterDialog)
         self.filterType.addItem("")
         self.filterType.addItem("")
         self.filterType.addItem("")
@@ -104,144 +153,204 @@ class Ui_editFilterDialog(object):
         self.filterType.addItem("")
         self.filterType.addItem("")
         self.filterType.addItem("")
+        self.filterType.setObjectName(u"filterType")
+
         self.paramsPane.addWidget(self.filterType, 2, 1, 1, 1)
-        self.showIndividual = QtWidgets.QCheckBox(editFilterDialog)
+
+        self.showIndividual = QCheckBox(editFilterDialog)
+        self.showIndividual.setObjectName(u"showIndividual")
         self.showIndividual.setChecked(True)
-        self.showIndividual.setObjectName("showIndividual")
+
         self.paramsPane.addWidget(self.showIndividual, 10, 0, 1, 2)
-        self.qStepButton = QtWidgets.QToolButton(editFilterDialog)
-        self.qStepButton.setObjectName("qStepButton")
+
+        self.qStepButton = QToolButton(editFilterDialog)
+        self.qStepButton.setObjectName(u"qStepButton")
+
         self.paramsPane.addWidget(self.qStepButton, 6, 2, 1, 1)
-        self.filterS = QtWidgets.QDoubleSpinBox(editFilterDialog)
+
+        self.filterS = QDoubleSpinBox(editFilterDialog)
+        self.filterS.setObjectName(u"filterS")
         self.filterS.setEnabled(False)
         self.filterS.setDecimals(4)
-        self.filterS.setMinimum(0.1)
-        self.filterS.setMaximum(100.0)
-        self.filterS.setSingleStep(0.0001)
-        self.filterS.setProperty("value", 1.0)
-        self.filterS.setObjectName("filterS")
+        self.filterS.setMinimum(0.100000000000000)
+        self.filterS.setMaximum(100.000000000000000)
+        self.filterS.setSingleStep(0.000100000000000)
+        self.filterS.setValue(1.000000000000000)
+
         self.paramsPane.addWidget(self.filterS, 7, 1, 1, 1)
-        self.freqStepButton = QtWidgets.QToolButton(editFilterDialog)
-        self.freqStepButton.setObjectName("freqStepButton")
+
+        self.freqStepButton = QToolButton(editFilterDialog)
+        self.freqStepButton.setObjectName(u"freqStepButton")
+
         self.paramsPane.addWidget(self.freqStepButton, 5, 2, 1, 1)
-        self.freqLabel = QtWidgets.QLabel(editFilterDialog)
-        self.freqLabel.setObjectName("freqLabel")
+
+        self.freqLabel = QLabel(editFilterDialog)
+        self.freqLabel.setObjectName(u"freqLabel")
+
         self.paramsPane.addWidget(self.freqLabel, 5, 0, 1, 1)
-        self.freq = QtWidgets.QDoubleSpinBox(editFilterDialog)
+
+        self.freq = QDoubleSpinBox(editFilterDialog)
+        self.freq.setObjectName(u"freq")
         self.freq.setDecimals(1)
-        self.freq.setMinimum(1.0)
-        self.freq.setMaximum(500.0)
-        self.freq.setSingleStep(0.1)
-        self.freq.setProperty("value", 40.0)
-        self.freq.setObjectName("freq")
+        self.freq.setMinimum(1.000000000000000)
+        self.freq.setMaximum(500.000000000000000)
+        self.freq.setSingleStep(0.100000000000000)
+        self.freq.setValue(40.000000000000000)
+
         self.paramsPane.addWidget(self.freq, 5, 1, 1, 1)
-        self.filterCountLabel = QtWidgets.QLabel(editFilterDialog)
-        self.filterCountLabel.setObjectName("filterCountLabel")
+
+        self.filterCountLabel = QLabel(editFilterDialog)
+        self.filterCountLabel.setObjectName(u"filterCountLabel")
+
         self.paramsPane.addWidget(self.filterCountLabel, 9, 0, 1, 1)
-        self.snapshotViewButtonWidget = QtWidgets.QWidget(editFilterDialog)
-        self.snapshotViewButtonWidget.setObjectName("snapshotViewButtonWidget")
-        self.snapshotViewButtonLayout = QtWidgets.QVBoxLayout(self.snapshotViewButtonWidget)
-        self.snapshotViewButtonLayout.setObjectName("snapshotViewButtonLayout")
-        self.addSnapshotRowButton = QtWidgets.QToolButton(self.snapshotViewButtonWidget)
-        self.addSnapshotRowButton.setObjectName("addSnapshotRowButton")
+
+        self.snapshotViewButtonWidget = QWidget(editFilterDialog)
+        self.snapshotViewButtonWidget.setObjectName(u"snapshotViewButtonWidget")
+        self.snapshotViewButtonLayout = QVBoxLayout(self.snapshotViewButtonWidget)
+        self.snapshotViewButtonLayout.setObjectName(u"snapshotViewButtonLayout")
+        self.addSnapshotRowButton = QToolButton(self.snapshotViewButtonWidget)
+        self.addSnapshotRowButton.setObjectName(u"addSnapshotRowButton")
+
         self.snapshotViewButtonLayout.addWidget(self.addSnapshotRowButton)
-        self.removeSnapshotRowButton = QtWidgets.QToolButton(self.snapshotViewButtonWidget)
-        self.removeSnapshotRowButton.setObjectName("removeSnapshotRowButton")
+
+        self.removeSnapshotRowButton = QToolButton(self.snapshotViewButtonWidget)
+        self.removeSnapshotRowButton.setObjectName(u"removeSnapshotRowButton")
+
         self.snapshotViewButtonLayout.addWidget(self.removeSnapshotRowButton)
+
+
         self.paramsPane.addWidget(self.snapshotViewButtonWidget, 15, 2, 1, 1)
-        self.filterQ = QtWidgets.QDoubleSpinBox(editFilterDialog)
+
+        self.filterQ = QDoubleSpinBox(editFilterDialog)
+        self.filterQ.setObjectName(u"filterQ")
         self.filterQ.setDecimals(4)
-        self.filterQ.setMinimum(0.001)
-        self.filterQ.setMaximum(20.0)
-        self.filterQ.setSingleStep(0.0001)
-        self.filterQ.setProperty("value", 0.7071)
-        self.filterQ.setObjectName("filterQ")
+        self.filterQ.setMinimum(0.001000000000000)
+        self.filterQ.setMaximum(20.000000000000000)
+        self.filterQ.setSingleStep(0.000100000000000)
+        self.filterQ.setValue(0.707100000000000)
+
         self.paramsPane.addWidget(self.filterQ, 6, 1, 1, 1)
-        self.filterGain = QtWidgets.QDoubleSpinBox(editFilterDialog)
+
+        self.filterGain = QDoubleSpinBox(editFilterDialog)
+        self.filterGain.setObjectName(u"filterGain")
         self.filterGain.setDecimals(1)
-        self.filterGain.setMinimum(-30.0)
-        self.filterGain.setMaximum(30.0)
-        self.filterGain.setSingleStep(0.1)
-        self.filterGain.setObjectName("filterGain")
+        self.filterGain.setMinimum(-30.000000000000000)
+        self.filterGain.setMaximum(30.000000000000000)
+        self.filterGain.setSingleStep(0.100000000000000)
+
         self.paramsPane.addWidget(self.filterGain, 8, 1, 1, 1)
-        self.gainStepButton = QtWidgets.QToolButton(editFilterDialog)
-        self.gainStepButton.setObjectName("gainStepButton")
+
+        self.gainStepButton = QToolButton(editFilterDialog)
+        self.gainStepButton.setObjectName(u"gainStepButton")
+
         self.paramsPane.addWidget(self.gainStepButton, 8, 2, 1, 1)
-        self.orderLabel = QtWidgets.QLabel(editFilterDialog)
-        self.orderLabel.setObjectName("orderLabel")
+
+        self.orderLabel = QLabel(editFilterDialog)
+        self.orderLabel.setObjectName(u"orderLabel")
+
         self.paramsPane.addWidget(self.orderLabel, 4, 0, 1, 1)
-        self.sStepButton = QtWidgets.QToolButton(editFilterDialog)
-        self.sStepButton.setObjectName("sStepButton")
+
+        self.sStepButton = QToolButton(editFilterDialog)
+        self.sStepButton.setObjectName(u"sStepButton")
+
         self.paramsPane.addWidget(self.sStepButton, 7, 2, 1, 1)
-        self.optimiseLayout = QtWidgets.QHBoxLayout()
-        self.optimiseLayout.setObjectName("optimiseLayout")
-        self.label_2 = QtWidgets.QLabel(editFilterDialog)
-        font = QtGui.QFont()
-        font.setBold(True)
-        font.setWeight(75)
+
+        self.optimiseLayout = QHBoxLayout()
+        self.optimiseLayout.setObjectName(u"optimiseLayout")
+        self.label_2 = QLabel(editFilterDialog)
+        self.label_2.setObjectName(u"label_2")
         self.label_2.setFont(font)
-        self.label_2.setObjectName("label_2")
+
         self.optimiseLayout.addWidget(self.label_2)
-        self.optimiseButton = QtWidgets.QToolButton(editFilterDialog)
-        self.optimiseButton.setObjectName("optimiseButton")
+
+        self.optimiseButton = QToolButton(editFilterDialog)
+        self.optimiseButton.setObjectName(u"optimiseButton")
+
         self.optimiseLayout.addWidget(self.optimiseButton)
-        self.targetBiquadCount = QtWidgets.QSpinBox(editFilterDialog)
+
+        self.targetBiquadCount = QSpinBox(editFilterDialog)
+        self.targetBiquadCount.setObjectName(u"targetBiquadCount")
         self.targetBiquadCount.setMinimum(1)
         self.targetBiquadCount.setMaximum(20)
-        self.targetBiquadCount.setProperty("value", 6)
-        self.targetBiquadCount.setObjectName("targetBiquadCount")
+        self.targetBiquadCount.setValue(6)
+
         self.optimiseLayout.addWidget(self.targetBiquadCount)
+
+
         self.paramsPane.addLayout(self.optimiseLayout, 14, 0, 1, 2)
-        self.filterOrder = QtWidgets.QSpinBox(editFilterDialog)
+
+        self.filterOrder = QSpinBox(editFilterDialog)
+        self.filterOrder.setObjectName(u"filterOrder")
         self.filterOrder.setEnabled(True)
         self.filterOrder.setMinimum(1)
         self.filterOrder.setMaximum(24)
-        self.filterOrder.setProperty("value", 2)
-        self.filterOrder.setObjectName("filterOrder")
+        self.filterOrder.setValue(2)
+
         self.paramsPane.addWidget(self.filterOrder, 4, 1, 1, 1)
-        spacerItem1 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
-        self.paramsPane.addItem(spacerItem1, 16, 1, 1, 1)
-        self.workingViewButtonWidget = QtWidgets.QWidget(editFilterDialog)
-        self.workingViewButtonWidget.setObjectName("workingViewButtonWidget")
-        self.workingViewButtonLayout = QtWidgets.QVBoxLayout(self.workingViewButtonWidget)
-        self.workingViewButtonLayout.setObjectName("workingViewButtonLayout")
-        self.addWorkingRowButton = QtWidgets.QToolButton(self.workingViewButtonWidget)
-        self.addWorkingRowButton.setObjectName("addWorkingRowButton")
+
+        self.verticalSpacer = QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding)
+
+        self.paramsPane.addItem(self.verticalSpacer, 16, 1, 1, 1)
+
+        self.workingViewButtonWidget = QWidget(editFilterDialog)
+        self.workingViewButtonWidget.setObjectName(u"workingViewButtonWidget")
+        self.workingViewButtonLayout = QVBoxLayout(self.workingViewButtonWidget)
+        self.workingViewButtonLayout.setObjectName(u"workingViewButtonLayout")
+        self.addWorkingRowButton = QToolButton(self.workingViewButtonWidget)
+        self.addWorkingRowButton.setObjectName(u"addWorkingRowButton")
+
         self.workingViewButtonLayout.addWidget(self.addWorkingRowButton)
-        self.removeWorkingRowButton = QtWidgets.QToolButton(self.workingViewButtonWidget)
-        self.removeWorkingRowButton.setObjectName("removeWorkingRowButton")
+
+        self.removeWorkingRowButton = QToolButton(self.workingViewButtonWidget)
+        self.removeWorkingRowButton.setObjectName(u"removeWorkingRowButton")
+
         self.workingViewButtonLayout.addWidget(self.removeWorkingRowButton)
+
+
         self.paramsPane.addWidget(self.workingViewButtonWidget, 0, 2, 1, 1)
-        self.headerLabel = QtWidgets.QLabel(editFilterDialog)
-        font = QtGui.QFont()
-        font.setBold(True)
-        font.setWeight(75)
+
+        self.headerLabel = QLabel(editFilterDialog)
+        self.headerLabel.setObjectName(u"headerLabel")
         self.headerLabel.setFont(font)
-        self.headerLabel.setFrameShape(QtWidgets.QFrame.Box)
-        self.headerLabel.setFrameShadow(QtWidgets.QFrame.Sunken)
-        self.headerLabel.setText("")
-        self.headerLabel.setAlignment(QtCore.Qt.AlignCenter)
-        self.headerLabel.setObjectName("headerLabel")
+        self.headerLabel.setFrameShape(QFrame.Box)
+        self.headerLabel.setFrameShadow(QFrame.Sunken)
+        self.headerLabel.setAlignment(Qt.AlignCenter)
+
         self.paramsPane.addWidget(self.headerLabel, 1, 0, 1, 2)
+
         self.paramsPane.setColumnStretch(0, 1)
         self.paramsPane.setColumnStretch(1, 4)
+
         self.panes.addLayout(self.paramsPane, 0, 0, 1, 1)
+
         self.panes.setColumnStretch(0, 1)
         self.panes.setColumnStretch(1, 3)
+        QWidget.setTabOrder(self.filterType, self.passFilterType)
+        QWidget.setTabOrder(self.passFilterType, self.filterOrder)
+        QWidget.setTabOrder(self.filterOrder, self.freq)
+        QWidget.setTabOrder(self.freq, self.filterQ)
+        QWidget.setTabOrder(self.filterQ, self.filterS)
+        QWidget.setTabOrder(self.filterS, self.filterGain)
+        QWidget.setTabOrder(self.filterGain, self.filterCount)
+        QWidget.setTabOrder(self.filterCount, self.freqStepButton)
+        QWidget.setTabOrder(self.freqStepButton, self.qStepButton)
+        QWidget.setTabOrder(self.qStepButton, self.gainStepButton)
+        QWidget.setTabOrder(self.gainStepButton, self.sStepButton)
+        QWidget.setTabOrder(self.sStepButton, self.previewChart)
 
         self.retranslateUi(editFilterDialog)
-        self.filterType.currentTextChanged['QString'].connect(editFilterDialog.enableFilterParams)
-        self.passFilterType.currentTextChanged['QString'].connect(editFilterDialog.changeOrderStep)
-        self.filterQ.valueChanged['double'].connect(editFilterDialog.recalcShelfFromQ)
-        self.filterGain.valueChanged['double'].connect(editFilterDialog.recalcShelfFromGain)
-        self.filterType.currentIndexChanged['int'].connect(editFilterDialog.previewFilter)
-        self.passFilterType.currentIndexChanged['int'].connect(editFilterDialog.previewFilter)
-        self.filterOrder.valueChanged['int'].connect(editFilterDialog.previewFilter)
-        self.freq.valueChanged['double'].connect(editFilterDialog.previewFilter)
-        self.filterQ.valueChanged['double'].connect(editFilterDialog.previewFilter)
-        self.filterGain.valueChanged['double'].connect(editFilterDialog.previewFilter)
-        self.filterCount.valueChanged['int'].connect(editFilterDialog.previewFilter)
-        self.filterS.valueChanged['double'].connect(editFilterDialog.recalcShelfFromS)
+        self.filterType.currentTextChanged.connect(editFilterDialog.enableFilterParams)
+        self.passFilterType.currentTextChanged.connect(editFilterDialog.changeOrderStep)
+        self.filterQ.valueChanged.connect(editFilterDialog.recalcShelfFromQ)
+        self.filterGain.valueChanged.connect(editFilterDialog.recalcShelfFromGain)
+        self.filterType.currentIndexChanged.connect(editFilterDialog.previewFilter)
+        self.passFilterType.currentIndexChanged.connect(editFilterDialog.previewFilter)
+        self.filterOrder.valueChanged.connect(editFilterDialog.previewFilter)
+        self.freq.valueChanged.connect(editFilterDialog.previewFilter)
+        self.filterQ.valueChanged.connect(editFilterDialog.previewFilter)
+        self.filterGain.valueChanged.connect(editFilterDialog.previewFilter)
+        self.filterCount.valueChanged.connect(editFilterDialog.previewFilter)
+        self.filterS.valueChanged.connect(editFilterDialog.recalcShelfFromS)
         self.sStepButton.clicked.connect(editFilterDialog.handleSToolButton)
         self.qStepButton.clicked.connect(editFilterDialog.handleQToolButton)
         self.gainStepButton.clicked.connect(editFilterDialog.handleGainToolButton)
@@ -250,57 +359,53 @@ class Ui_editFilterDialog(object):
         self.exitButton.clicked.connect(editFilterDialog.reject)
         self.showIndividual.clicked.connect(editFilterDialog.previewFilter)
         self.limitsButton.clicked.connect(editFilterDialog.show_limits)
-        QtCore.QMetaObject.connectSlotsByName(editFilterDialog)
-        editFilterDialog.setTabOrder(self.filterType, self.passFilterType)
-        editFilterDialog.setTabOrder(self.passFilterType, self.filterOrder)
-        editFilterDialog.setTabOrder(self.filterOrder, self.freq)
-        editFilterDialog.setTabOrder(self.freq, self.filterQ)
-        editFilterDialog.setTabOrder(self.filterQ, self.filterS)
-        editFilterDialog.setTabOrder(self.filterS, self.filterGain)
-        editFilterDialog.setTabOrder(self.filterGain, self.filterCount)
-        editFilterDialog.setTabOrder(self.filterCount, self.freqStepButton)
-        editFilterDialog.setTabOrder(self.freqStepButton, self.qStepButton)
-        editFilterDialog.setTabOrder(self.qStepButton, self.gainStepButton)
-        editFilterDialog.setTabOrder(self.gainStepButton, self.sStepButton)
-        editFilterDialog.setTabOrder(self.sStepButton, self.previewChart)
+
+        QMetaObject.connectSlotsByName(editFilterDialog)
+    # setupUi
 
     def retranslateUi(self, editFilterDialog):
-        _translate = QtCore.QCoreApplication.translate
-        editFilterDialog.setWindowTitle(_translate("editFilterDialog", "Create Filter"))
-        self.gainLabel.setText(_translate("editFilterDialog", "Gain"))
-        self.filterQLabel.setText(_translate("editFilterDialog", "Q"))
-        self.snapLabel.setText(_translate("editFilterDialog", "Compare"))
-        self.snapFilterButton.setText(_translate("editFilterDialog", "..."))
-        self.loadSnapButton.setText(_translate("editFilterDialog", "..."))
-        self.acceptSnapButton.setText(_translate("editFilterDialog", "..."))
-        self.resetButton.setText(_translate("editFilterDialog", "..."))
-        self.typeLabel.setText(_translate("editFilterDialog", "Type"))
-        self.sLabel.setText(_translate("editFilterDialog", "S"))
-        self.saveButton.setShortcut(_translate("editFilterDialog", "Return"))
-        self.exitButton.setText(_translate("editFilterDialog", "..."))
-        self.limitsButton.setText(_translate("editFilterDialog", "..."))
-        self.passFilterType.setItemText(0, _translate("editFilterDialog", "Butterworth"))
-        self.passFilterType.setItemText(1, _translate("editFilterDialog", "Linkwitz-Riley"))
-        self.filterType.setItemText(0, _translate("editFilterDialog", "Low Shelf"))
-        self.filterType.setItemText(1, _translate("editFilterDialog", "High Shelf"))
-        self.filterType.setItemText(2, _translate("editFilterDialog", "PEQ"))
-        self.filterType.setItemText(3, _translate("editFilterDialog", "Gain"))
-        self.filterType.setItemText(4, _translate("editFilterDialog", "Variable Q LPF"))
-        self.filterType.setItemText(5, _translate("editFilterDialog", "Variable Q HPF"))
-        self.filterType.setItemText(6, _translate("editFilterDialog", "Low Pass"))
-        self.filterType.setItemText(7, _translate("editFilterDialog", "High Pass"))
-        self.showIndividual.setText(_translate("editFilterDialog", "Show Individual Filters"))
-        self.qStepButton.setText(_translate("editFilterDialog", "..."))
-        self.freqStepButton.setText(_translate("editFilterDialog", "..."))
-        self.freqLabel.setText(_translate("editFilterDialog", "Freq"))
-        self.filterCountLabel.setText(_translate("editFilterDialog", "Count"))
-        self.addSnapshotRowButton.setText(_translate("editFilterDialog", "..."))
-        self.removeSnapshotRowButton.setText(_translate("editFilterDialog", "..."))
-        self.gainStepButton.setText(_translate("editFilterDialog", "..."))
-        self.orderLabel.setText(_translate("editFilterDialog", "Order"))
-        self.sStepButton.setText(_translate("editFilterDialog", "..."))
-        self.label_2.setText(_translate("editFilterDialog", "Optimise"))
-        self.optimiseButton.setText(_translate("editFilterDialog", "..."))
-        self.addWorkingRowButton.setText(_translate("editFilterDialog", "..."))
-        self.removeWorkingRowButton.setText(_translate("editFilterDialog", "..."))
-from mpl import MplWidget
+        editFilterDialog.setWindowTitle(QCoreApplication.translate("editFilterDialog", u"Create Filter", None))
+        self.gainLabel.setText(QCoreApplication.translate("editFilterDialog", u"Gain", None))
+        self.filterQLabel.setText(QCoreApplication.translate("editFilterDialog", u"Q", None))
+        self.snapLabel.setText(QCoreApplication.translate("editFilterDialog", u"Compare", None))
+        self.snapFilterButton.setText(QCoreApplication.translate("editFilterDialog", u"...", None))
+        self.loadSnapButton.setText(QCoreApplication.translate("editFilterDialog", u"...", None))
+        self.acceptSnapButton.setText(QCoreApplication.translate("editFilterDialog", u"...", None))
+        self.resetButton.setText(QCoreApplication.translate("editFilterDialog", u"...", None))
+        self.typeLabel.setText(QCoreApplication.translate("editFilterDialog", u"Type", None))
+        self.sLabel.setText(QCoreApplication.translate("editFilterDialog", u"S", None))
+        self.saveButton.setText("")
+#if QT_CONFIG(shortcut)
+        self.saveButton.setShortcut(QCoreApplication.translate("editFilterDialog", u"Return", None))
+#endif // QT_CONFIG(shortcut)
+        self.exitButton.setText(QCoreApplication.translate("editFilterDialog", u"...", None))
+        self.limitsButton.setText(QCoreApplication.translate("editFilterDialog", u"...", None))
+        self.passFilterType.setItemText(0, QCoreApplication.translate("editFilterDialog", u"Butterworth", None))
+        self.passFilterType.setItemText(1, QCoreApplication.translate("editFilterDialog", u"Linkwitz-Riley", None))
+
+        self.filterType.setItemText(0, QCoreApplication.translate("editFilterDialog", u"Low Shelf", None))
+        self.filterType.setItemText(1, QCoreApplication.translate("editFilterDialog", u"High Shelf", None))
+        self.filterType.setItemText(2, QCoreApplication.translate("editFilterDialog", u"PEQ", None))
+        self.filterType.setItemText(3, QCoreApplication.translate("editFilterDialog", u"Gain", None))
+        self.filterType.setItemText(4, QCoreApplication.translate("editFilterDialog", u"Variable Q LPF", None))
+        self.filterType.setItemText(5, QCoreApplication.translate("editFilterDialog", u"Variable Q HPF", None))
+        self.filterType.setItemText(6, QCoreApplication.translate("editFilterDialog", u"Low Pass", None))
+        self.filterType.setItemText(7, QCoreApplication.translate("editFilterDialog", u"High Pass", None))
+
+        self.showIndividual.setText(QCoreApplication.translate("editFilterDialog", u"Show Individual Filters", None))
+        self.qStepButton.setText(QCoreApplication.translate("editFilterDialog", u"...", None))
+        self.freqStepButton.setText(QCoreApplication.translate("editFilterDialog", u"...", None))
+        self.freqLabel.setText(QCoreApplication.translate("editFilterDialog", u"Freq", None))
+        self.filterCountLabel.setText(QCoreApplication.translate("editFilterDialog", u"Count", None))
+        self.addSnapshotRowButton.setText(QCoreApplication.translate("editFilterDialog", u"...", None))
+        self.removeSnapshotRowButton.setText(QCoreApplication.translate("editFilterDialog", u"...", None))
+        self.gainStepButton.setText(QCoreApplication.translate("editFilterDialog", u"...", None))
+        self.orderLabel.setText(QCoreApplication.translate("editFilterDialog", u"Order", None))
+        self.sStepButton.setText(QCoreApplication.translate("editFilterDialog", u"...", None))
+        self.label_2.setText(QCoreApplication.translate("editFilterDialog", u"Optimise", None))
+        self.optimiseButton.setText(QCoreApplication.translate("editFilterDialog", u"...", None))
+        self.addWorkingRowButton.setText(QCoreApplication.translate("editFilterDialog", u"...", None))
+        self.removeWorkingRowButton.setText(QCoreApplication.translate("editFilterDialog", u"...", None))
+        self.headerLabel.setText("")
+    # retranslateUi
+

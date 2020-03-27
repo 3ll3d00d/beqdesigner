@@ -1,46 +1,66 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'edit_mapping.ui'
-#
-# Created by: PyQt5 UI code generator 5.13.1
-#
-# WARNING! All changes made in this file will be lost!
+################################################################################
+## Form generated from reading UI file 'edit_mapping.ui'
+##
+## Created by: Qt User Interface Compiler version 5.14.1
+##
+## WARNING! All changes made in this file will be lost when recompiling UI file!
+################################################################################
 
-
-from PyQt5 import QtCore, QtGui, QtWidgets
+from PySide2.QtCore import (QCoreApplication, QMetaObject, QObject, QPoint,
+    QRect, QSize, QUrl, Qt)
+from PySide2.QtGui import (QBrush, QColor, QConicalGradient, QCursor, QFont,
+    QFontDatabase, QIcon, QLinearGradient, QPalette, QPainter, QPixmap,
+    QRadialGradient)
+from PySide2.QtWidgets import *
 
 
 class Ui_editMappingDialog(object):
     def setupUi(self, editMappingDialog):
-        editMappingDialog.setObjectName("editMappingDialog")
+        if editMappingDialog.objectName():
+            editMappingDialog.setObjectName(u"editMappingDialog")
         editMappingDialog.resize(415, 347)
-        self.gridLayout = QtWidgets.QGridLayout(editMappingDialog)
-        self.gridLayout.setObjectName("gridLayout")
-        self.channelLabel = QtWidgets.QLabel(editMappingDialog)
-        self.channelLabel.setObjectName("channelLabel")
+        self.gridLayout = QGridLayout(editMappingDialog)
+        self.gridLayout.setObjectName(u"gridLayout")
+        self.channelLabel = QLabel(editMappingDialog)
+        self.channelLabel.setObjectName(u"channelLabel")
+
         self.gridLayout.addWidget(self.channelLabel, 0, 0, 1, 1)
-        self.channels = QtWidgets.QListWidget(editMappingDialog)
-        self.channels.setSelectionMode(QtWidgets.QAbstractItemView.MultiSelection)
-        self.channels.setObjectName("channels")
+
+        self.channels = QListWidget(editMappingDialog)
+        self.channels.setObjectName(u"channels")
+        self.channels.setSelectionMode(QAbstractItemView.MultiSelection)
+
         self.gridLayout.addWidget(self.channels, 0, 1, 1, 1)
-        self.signalLabel = QtWidgets.QLabel(editMappingDialog)
-        self.signalLabel.setObjectName("signalLabel")
+
+        self.signalLabel = QLabel(editMappingDialog)
+        self.signalLabel.setObjectName(u"signalLabel")
+
         self.gridLayout.addWidget(self.signalLabel, 1, 0, 1, 1)
-        self.signal = QtWidgets.QComboBox(editMappingDialog)
-        self.signal.setObjectName("signal")
+
+        self.signal = QComboBox(editMappingDialog)
+        self.signal.setObjectName(u"signal")
+
         self.gridLayout.addWidget(self.signal, 1, 1, 1, 1)
-        self.buttonBox = QtWidgets.QDialogButtonBox(editMappingDialog)
-        self.buttonBox.setStandardButtons(QtWidgets.QDialogButtonBox.Cancel|QtWidgets.QDialogButtonBox.Save)
-        self.buttonBox.setObjectName("buttonBox")
+
+        self.buttonBox = QDialogButtonBox(editMappingDialog)
+        self.buttonBox.setObjectName(u"buttonBox")
+        self.buttonBox.setStandardButtons(QDialogButtonBox.Cancel|QDialogButtonBox.Save)
+
         self.gridLayout.addWidget(self.buttonBox, 2, 1, 1, 1)
+
 
         self.retranslateUi(editMappingDialog)
         self.buttonBox.accepted.connect(editMappingDialog.accept)
         self.buttonBox.rejected.connect(editMappingDialog.reject)
-        QtCore.QMetaObject.connectSlotsByName(editMappingDialog)
+
+        QMetaObject.connectSlotsByName(editMappingDialog)
+    # setupUi
 
     def retranslateUi(self, editMappingDialog):
-        _translate = QtCore.QCoreApplication.translate
-        editMappingDialog.setWindowTitle(_translate("editMappingDialog", "Edit Mapping"))
-        self.channelLabel.setText(_translate("editMappingDialog", "Channels"))
-        self.signalLabel.setText(_translate("editMappingDialog", "Signal"))
+        editMappingDialog.setWindowTitle(QCoreApplication.translate("editMappingDialog", u"Edit Mapping", None))
+        self.channelLabel.setText(QCoreApplication.translate("editMappingDialog", u"Channels", None))
+        self.signalLabel.setText(QCoreApplication.translate("editMappingDialog", u"Signal", None))
+    # retranslateUi
+

@@ -1,4 +1,3 @@
-import abc
 import collections
 import gzip
 import json
@@ -15,7 +14,7 @@ from scipy import signal
 from model.sync import SyncHTP1Dialog
 
 matplotlib.use("Qt5Agg")
-os.environ['QT_API'] = 'pyqt5'
+os.environ['QT_API'] = 'pyside2'
 # os.environ['PYQTGRAPH_QT_LIB'] = 'PyQt5'
 if sys.platform == 'win32' and getattr(sys, '_MEIPASS', False):
     # Workaround for PyInstaller being unable to find Qt5Core.dll on PATH.
@@ -1321,17 +1320,3 @@ if __name__ == '__main__':
     # show the form and exec the app
     form.show()
     app.exec_()
-
-
-class PlotWidgetWithDateAxis(pg.PlotWidget):
-    def __init__(self, parent=None, background='default', **kargs):
-        super().__init__(parent=parent,
-                         background=background,
-                         axisItems={'bottom': TimeAxisItem(orientation='bottom')},
-                         **kargs)
-
-
-class TimeAxisItem(pg.AxisItem):
-    def tickStrings(self, values, scale, spacing):
-        import datetime
-        return [str(datetime.timedelta(seconds=value)).split('.')[0] for value in values]

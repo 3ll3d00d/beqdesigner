@@ -4,13 +4,13 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-pyqt5 = "<=5.13.1"
+pyside2 = ">=5.13.0"
 qdarkstyle =">=2.6.6"
 matplotlib = "*"
 ffmpeg-python = "*"
 soundfile = "*"
 resampy = "*"
-pyqtgraph = "*"
+pyqtgraph = "==0.11.0rc0"
 numpy = "*"
 scipy = "*"
 qtpy = "*"

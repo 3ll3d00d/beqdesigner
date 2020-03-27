@@ -1,140 +1,229 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'minidsp.ui'
-#
-# Created by: PyQt5 UI code generator 5.13.1
-#
-# WARNING! All changes made in this file will be lost!
+################################################################################
+## Form generated from reading UI file 'minidsp.ui'
+##
+## Created by: Qt User Interface Compiler version 5.14.1
+##
+## WARNING! All changes made in this file will be lost when recompiling UI file!
+################################################################################
 
-
-from PyQt5 import QtCore, QtGui, QtWidgets
+from PySide2.QtCore import (QCoreApplication, QMetaObject, QObject, QPoint,
+    QRect, QSize, QUrl, Qt)
+from PySide2.QtGui import (QBrush, QColor, QConicalGradient, QCursor, QFont,
+    QFontDatabase, QIcon, QLinearGradient, QPalette, QPainter, QPixmap,
+    QRadialGradient)
+from PySide2.QtWidgets import *
 
 
 class Ui_mergeMinidspDialog(object):
     def setupUi(self, mergeMinidspDialog):
-        mergeMinidspDialog.setObjectName("mergeMinidspDialog")
+        if mergeMinidspDialog.objectName():
+            mergeMinidspDialog.setObjectName(u"mergeMinidspDialog")
         mergeMinidspDialog.resize(639, 655)
-        self.gridLayout = QtWidgets.QGridLayout(mergeMinidspDialog)
-        self.gridLayout.setObjectName("gridLayout")
-        self.buttonBox = QtWidgets.QDialogButtonBox(mergeMinidspDialog)
-        self.buttonBox.setOrientation(QtCore.Qt.Horizontal)
-        self.buttonBox.setStandardButtons(QtWidgets.QDialogButtonBox.Close|QtWidgets.QDialogButtonBox.Reset)
-        self.buttonBox.setObjectName("buttonBox")
+        self.gridLayout = QGridLayout(mergeMinidspDialog)
+        self.gridLayout.setObjectName(u"gridLayout")
+        self.buttonBox = QDialogButtonBox(mergeMinidspDialog)
+        self.buttonBox.setObjectName(u"buttonBox")
+        self.buttonBox.setOrientation(Qt.Horizontal)
+        self.buttonBox.setStandardButtons(QDialogButtonBox.Close|QDialogButtonBox.Reset)
+
         self.gridLayout.addWidget(self.buttonBox, 1, 0, 1, 1)
-        self.innerLayout = QtWidgets.QGridLayout()
-        self.innerLayout.setObjectName("innerLayout")
-        self.outputDirectoryLabel = QtWidgets.QLabel(mergeMinidspDialog)
-        self.outputDirectoryLabel.setObjectName("outputDirectoryLabel")
+
+        self.innerLayout = QGridLayout()
+        self.innerLayout.setObjectName(u"innerLayout")
+        self.outputDirectoryLabel = QLabel(mergeMinidspDialog)
+        self.outputDirectoryLabel.setObjectName(u"outputDirectoryLabel")
+
         self.innerLayout.addWidget(self.outputDirectoryLabel, 5, 0, 1, 1)
-        self.filesProcessedLabel = QtWidgets.QLabel(mergeMinidspDialog)
-        self.filesProcessedLabel.setObjectName("filesProcessedLabel")
+
+        self.filesProcessedLabel = QLabel(mergeMinidspDialog)
+        self.filesProcessedLabel.setObjectName(u"filesProcessedLabel")
+
         self.innerLayout.addWidget(self.filesProcessedLabel, 7, 0, 1, 1)
-        self.totalFiles = QtWidgets.QSpinBox(mergeMinidspDialog)
+
+        self.totalFiles = QSpinBox(mergeMinidspDialog)
+        self.totalFiles.setObjectName(u"totalFiles")
         self.totalFiles.setReadOnly(True)
         self.totalFiles.setMaximum(10000)
-        self.totalFiles.setObjectName("totalFiles")
+
         self.innerLayout.addWidget(self.totalFiles, 7, 3, 1, 1)
-        self.configFileLabel = QtWidgets.QLabel(mergeMinidspDialog)
-        self.configFileLabel.setObjectName("configFileLabel")
+
+        self.configFileLabel = QLabel(mergeMinidspDialog)
+        self.configFileLabel.setObjectName(u"configFileLabel")
+
         self.innerLayout.addWidget(self.configFileLabel, 4, 0, 1, 1)
-        self.userSourceDirLayout = QtWidgets.QHBoxLayout()
-        self.userSourceDirLayout.setObjectName("userSourceDirLayout")
-        self.userSourceDir = QtWidgets.QLineEdit(mergeMinidspDialog)
+
+        self.userSourceDirLayout = QHBoxLayout()
+        self.userSourceDirLayout.setObjectName(u"userSourceDirLayout")
+        self.userSourceDir = QLineEdit(mergeMinidspDialog)
+        self.userSourceDir.setObjectName(u"userSourceDir")
         self.userSourceDir.setReadOnly(True)
-        self.userSourceDir.setObjectName("userSourceDir")
+
         self.userSourceDirLayout.addWidget(self.userSourceDir)
-        self.clearUserSourceDir = QtWidgets.QToolButton(mergeMinidspDialog)
-        self.clearUserSourceDir.setObjectName("clearUserSourceDir")
+
+        self.clearUserSourceDir = QToolButton(mergeMinidspDialog)
+        self.clearUserSourceDir.setObjectName(u"clearUserSourceDir")
+
         self.userSourceDirLayout.addWidget(self.clearUserSourceDir)
+
+
         self.innerLayout.addLayout(self.userSourceDirLayout, 3, 1, 1, 4)
-        self.lastCommitDate = QtWidgets.QDateTimeEdit(mergeMinidspDialog)
+
+        self.lastCommitDate = QDateTimeEdit(mergeMinidspDialog)
+        self.lastCommitDate.setObjectName(u"lastCommitDate")
         self.lastCommitDate.setReadOnly(True)
-        self.lastCommitDate.setObjectName("lastCommitDate")
+
         self.innerLayout.addWidget(self.lastCommitDate, 1, 1, 1, 3)
-        self.beqRepos = QtWidgets.QComboBox(mergeMinidspDialog)
-        self.beqRepos.setObjectName("beqRepos")
+
+        self.beqRepos = QComboBox(mergeMinidspDialog)
+        self.beqRepos.setObjectName(u"beqRepos")
+
         self.innerLayout.addWidget(self.beqRepos, 0, 1, 1, 4)
-        self.minidspType = QtWidgets.QComboBox(mergeMinidspDialog)
-        self.minidspType.setObjectName("minidspType")
+
+        self.minidspType = QComboBox(mergeMinidspDialog)
         self.minidspType.addItem("")
         self.minidspType.addItem("")
         self.minidspType.addItem("")
+        self.minidspType.setObjectName(u"minidspType")
+
         self.innerLayout.addWidget(self.minidspType, 6, 1, 1, 4)
-        self.errors = QtWidgets.QListWidget(mergeMinidspDialog)
+
+        self.errors = QListWidget(mergeMinidspDialog)
+        self.errors.setObjectName(u"errors")
         self.errors.setEnabled(False)
-        self.errors.setObjectName("errors")
+
         self.innerLayout.addWidget(self.errors, 9, 1, 1, 4)
-        self.errorsLabel = QtWidgets.QLabel(mergeMinidspDialog)
-        self.errorsLabel.setObjectName("errorsLabel")
+
+        self.errorsLabel = QLabel(mergeMinidspDialog)
+        self.errorsLabel.setObjectName(u"errorsLabel")
+
         self.innerLayout.addWidget(self.errorsLabel, 9, 0, 1, 1)
-        self.lastUpdateLabel = QtWidgets.QLabel(mergeMinidspDialog)
-        self.lastUpdateLabel.setObjectName("lastUpdateLabel")
+
+        self.lastUpdateLabel = QLabel(mergeMinidspDialog)
+        self.lastUpdateLabel.setObjectName(u"lastUpdateLabel")
+
         self.innerLayout.addWidget(self.lastUpdateLabel, 1, 0, 1, 1)
-        self.outputDirectory = QtWidgets.QLineEdit(mergeMinidspDialog)
+
+        self.outputDirectory = QLineEdit(mergeMinidspDialog)
+        self.outputDirectory.setObjectName(u"outputDirectory")
         self.outputDirectory.setEnabled(False)
         self.outputDirectory.setReadOnly(True)
-        self.outputDirectory.setObjectName("outputDirectory")
+
         self.innerLayout.addWidget(self.outputDirectory, 5, 1, 1, 4)
-        self.processFiles = QtWidgets.QToolButton(mergeMinidspDialog)
-        self.processFiles.setObjectName("processFiles")
+
+        self.processFiles = QToolButton(mergeMinidspDialog)
+        self.processFiles.setObjectName(u"processFiles")
+
         self.innerLayout.addWidget(self.processFiles, 7, 5, 1, 1)
-        self.minidspTypeLabel = QtWidgets.QLabel(mergeMinidspDialog)
-        self.minidspTypeLabel.setObjectName("minidspTypeLabel")
+
+        self.minidspTypeLabel = QLabel(mergeMinidspDialog)
+        self.minidspTypeLabel.setObjectName(u"minidspTypeLabel")
+
         self.innerLayout.addWidget(self.minidspTypeLabel, 6, 0, 1, 1)
-        self.filesProcessed = QtWidgets.QSpinBox(mergeMinidspDialog)
+
+        self.filesProcessed = QSpinBox(mergeMinidspDialog)
+        self.filesProcessed.setObjectName(u"filesProcessed")
         self.filesProcessed.setReadOnly(True)
         self.filesProcessed.setMaximum(100000)
-        self.filesProcessed.setObjectName("filesProcessed")
+
         self.innerLayout.addWidget(self.filesProcessed, 7, 1, 1, 1)
-        spacerItem = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
-        self.innerLayout.addItem(spacerItem, 7, 4, 1, 1)
-        self.beqReposLabel = QtWidgets.QLabel(mergeMinidspDialog)
-        self.beqReposLabel.setObjectName("beqReposLabel")
+
+        self.horizontalSpacer = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
+
+        self.innerLayout.addItem(self.horizontalSpacer, 7, 4, 1, 1)
+
+        self.beqReposLabel = QLabel(mergeMinidspDialog)
+        self.beqReposLabel.setObjectName(u"beqReposLabel")
+
         self.innerLayout.addWidget(self.beqReposLabel, 0, 0, 1, 1)
-        self.lastCommitMessage = QtWidgets.QPlainTextEdit(mergeMinidspDialog)
+
+        self.lastCommitMessage = QPlainTextEdit(mergeMinidspDialog)
+        self.lastCommitMessage.setObjectName(u"lastCommitMessage")
         self.lastCommitMessage.setReadOnly(True)
-        self.lastCommitMessage.setObjectName("lastCommitMessage")
+
         self.innerLayout.addWidget(self.lastCommitMessage, 2, 1, 1, 4)
-        self.ofLabel = QtWidgets.QLabel(mergeMinidspDialog)
-        self.ofLabel.setObjectName("ofLabel")
+
+        self.ofLabel = QLabel(mergeMinidspDialog)
+        self.ofLabel.setObjectName(u"ofLabel")
+
         self.innerLayout.addWidget(self.ofLabel, 7, 2, 1, 1)
-        self.configFile = QtWidgets.QLineEdit(mergeMinidspDialog)
+
+        self.configFile = QLineEdit(mergeMinidspDialog)
+        self.configFile.setObjectName(u"configFile")
         self.configFile.setEnabled(False)
         self.configFile.setReadOnly(True)
-        self.configFile.setObjectName("configFile")
+
         self.innerLayout.addWidget(self.configFile, 4, 1, 1, 4)
-        self.outputDirectoryPicker = QtWidgets.QToolButton(mergeMinidspDialog)
-        self.outputDirectoryPicker.setObjectName("outputDirectoryPicker")
+
+        self.outputDirectoryPicker = QToolButton(mergeMinidspDialog)
+        self.outputDirectoryPicker.setObjectName(u"outputDirectoryPicker")
+
         self.innerLayout.addWidget(self.outputDirectoryPicker, 5, 5, 1, 1)
-        self.refreshGitRepo = QtWidgets.QToolButton(mergeMinidspDialog)
-        self.refreshGitRepo.setObjectName("refreshGitRepo")
+
+        self.refreshGitRepo = QToolButton(mergeMinidspDialog)
+        self.refreshGitRepo.setObjectName(u"refreshGitRepo")
+
         self.innerLayout.addWidget(self.refreshGitRepo, 1, 5, 1, 1)
-        self.infoLabel = QtWidgets.QLabel(mergeMinidspDialog)
-        self.infoLabel.setText("")
-        self.infoLabel.setObjectName("infoLabel")
+
+        self.infoLabel = QLabel(mergeMinidspDialog)
+        self.infoLabel.setObjectName(u"infoLabel")
+
         self.innerLayout.addWidget(self.infoLabel, 1, 4, 1, 1)
-        self.configFilePicker = QtWidgets.QToolButton(mergeMinidspDialog)
-        self.configFilePicker.setObjectName("configFilePicker")
+
+        self.configFilePicker = QToolButton(mergeMinidspDialog)
+        self.configFilePicker.setObjectName(u"configFilePicker")
+
         self.innerLayout.addWidget(self.configFilePicker, 4, 5, 1, 1)
-        self.userSourceDirLabel = QtWidgets.QLabel(mergeMinidspDialog)
-        self.userSourceDirLabel.setObjectName("userSourceDirLabel")
+
+        self.userSourceDirLabel = QLabel(mergeMinidspDialog)
+        self.userSourceDirLabel.setObjectName(u"userSourceDirLabel")
+
         self.innerLayout.addWidget(self.userSourceDirLabel, 3, 0, 1, 1)
-        self.userSourceDirPicker = QtWidgets.QToolButton(mergeMinidspDialog)
-        self.userSourceDirPicker.setObjectName("userSourceDirPicker")
+
+        self.userSourceDirPicker = QToolButton(mergeMinidspDialog)
+        self.userSourceDirPicker.setObjectName(u"userSourceDirPicker")
+
         self.innerLayout.addWidget(self.userSourceDirPicker, 3, 5, 1, 1)
-        self.optimisedLabel = QtWidgets.QLabel(mergeMinidspDialog)
-        self.optimisedLabel.setObjectName("optimisedLabel")
+
+        self.optimisedLabel = QLabel(mergeMinidspDialog)
+        self.optimisedLabel.setObjectName(u"optimisedLabel")
+
         self.innerLayout.addWidget(self.optimisedLabel, 8, 0, 1, 1)
-        self.optimised = QtWidgets.QListWidget(mergeMinidspDialog)
-        self.optimised.setObjectName("optimised")
+
+        self.optimised = QListWidget(mergeMinidspDialog)
+        self.optimised.setObjectName(u"optimised")
+
         self.innerLayout.addWidget(self.optimised, 8, 1, 1, 4)
-        self.copyOptimisedButton = QtWidgets.QToolButton(mergeMinidspDialog)
-        self.copyOptimisedButton.setObjectName("copyOptimisedButton")
+
+        self.copyOptimisedButton = QToolButton(mergeMinidspDialog)
+        self.copyOptimisedButton.setObjectName(u"copyOptimisedButton")
+
         self.innerLayout.addWidget(self.copyOptimisedButton, 8, 5, 1, 1)
-        self.copyErrorsButton = QtWidgets.QToolButton(mergeMinidspDialog)
-        self.copyErrorsButton.setObjectName("copyErrorsButton")
+
+        self.copyErrorsButton = QToolButton(mergeMinidspDialog)
+        self.copyErrorsButton.setObjectName(u"copyErrorsButton")
+
         self.innerLayout.addWidget(self.copyErrorsButton, 9, 5, 1, 1)
+
+
         self.gridLayout.addLayout(self.innerLayout, 0, 0, 1, 1)
+
+        QWidget.setTabOrder(self.beqRepos, self.lastCommitDate)
+        QWidget.setTabOrder(self.lastCommitDate, self.refreshGitRepo)
+        QWidget.setTabOrder(self.refreshGitRepo, self.lastCommitMessage)
+        QWidget.setTabOrder(self.lastCommitMessage, self.userSourceDir)
+        QWidget.setTabOrder(self.userSourceDir, self.clearUserSourceDir)
+        QWidget.setTabOrder(self.clearUserSourceDir, self.userSourceDirPicker)
+        QWidget.setTabOrder(self.userSourceDirPicker, self.configFile)
+        QWidget.setTabOrder(self.configFile, self.configFilePicker)
+        QWidget.setTabOrder(self.configFilePicker, self.outputDirectory)
+        QWidget.setTabOrder(self.outputDirectory, self.outputDirectoryPicker)
+        QWidget.setTabOrder(self.outputDirectoryPicker, self.minidspType)
+        QWidget.setTabOrder(self.minidspType, self.filesProcessed)
+        QWidget.setTabOrder(self.filesProcessed, self.totalFiles)
+        QWidget.setTabOrder(self.totalFiles, self.processFiles)
+        QWidget.setTabOrder(self.processFiles, self.errors)
 
         self.retranslateUi(mergeMinidspDialog)
         self.buttonBox.accepted.connect(mergeMinidspDialog.accept)
@@ -145,47 +234,37 @@ class Ui_mergeMinidspDialog(object):
         self.refreshGitRepo.clicked.connect(mergeMinidspDialog.refresh_repo)
         self.userSourceDirPicker.clicked.connect(mergeMinidspDialog.pick_user_source_dir)
         self.clearUserSourceDir.clicked.connect(mergeMinidspDialog.clear_user_source_dir)
-        self.beqRepos.currentTextChanged['QString'].connect(mergeMinidspDialog.update_beq_repo_status)
+        self.beqRepos.currentTextChanged.connect(mergeMinidspDialog.update_beq_repo_status)
         self.copyOptimisedButton.clicked.connect(mergeMinidspDialog.copy_optimised)
         self.copyErrorsButton.clicked.connect(mergeMinidspDialog.copy_errors)
-        QtCore.QMetaObject.connectSlotsByName(mergeMinidspDialog)
-        mergeMinidspDialog.setTabOrder(self.beqRepos, self.lastCommitDate)
-        mergeMinidspDialog.setTabOrder(self.lastCommitDate, self.refreshGitRepo)
-        mergeMinidspDialog.setTabOrder(self.refreshGitRepo, self.lastCommitMessage)
-        mergeMinidspDialog.setTabOrder(self.lastCommitMessage, self.userSourceDir)
-        mergeMinidspDialog.setTabOrder(self.userSourceDir, self.clearUserSourceDir)
-        mergeMinidspDialog.setTabOrder(self.clearUserSourceDir, self.userSourceDirPicker)
-        mergeMinidspDialog.setTabOrder(self.userSourceDirPicker, self.configFile)
-        mergeMinidspDialog.setTabOrder(self.configFile, self.configFilePicker)
-        mergeMinidspDialog.setTabOrder(self.configFilePicker, self.outputDirectory)
-        mergeMinidspDialog.setTabOrder(self.outputDirectory, self.outputDirectoryPicker)
-        mergeMinidspDialog.setTabOrder(self.outputDirectoryPicker, self.minidspType)
-        mergeMinidspDialog.setTabOrder(self.minidspType, self.filesProcessed)
-        mergeMinidspDialog.setTabOrder(self.filesProcessed, self.totalFiles)
-        mergeMinidspDialog.setTabOrder(self.totalFiles, self.processFiles)
-        mergeMinidspDialog.setTabOrder(self.processFiles, self.errors)
+
+        QMetaObject.connectSlotsByName(mergeMinidspDialog)
+    # setupUi
 
     def retranslateUi(self, mergeMinidspDialog):
-        _translate = QtCore.QCoreApplication.translate
-        mergeMinidspDialog.setWindowTitle(_translate("mergeMinidspDialog", "Merge Minidsp Config"))
-        self.outputDirectoryLabel.setText(_translate("mergeMinidspDialog", "Output Directory"))
-        self.filesProcessedLabel.setText(_translate("mergeMinidspDialog", "Files Processed"))
-        self.configFileLabel.setText(_translate("mergeMinidspDialog", "Config File"))
-        self.clearUserSourceDir.setText(_translate("mergeMinidspDialog", "..."))
-        self.minidspType.setItemText(0, _translate("mergeMinidspDialog", "2x4 HD"))
-        self.minidspType.setItemText(1, _translate("mergeMinidspDialog", "2x4"))
-        self.minidspType.setItemText(2, _translate("mergeMinidspDialog", "10x10 HD"))
-        self.errorsLabel.setText(_translate("mergeMinidspDialog", "Errors"))
-        self.lastUpdateLabel.setText(_translate("mergeMinidspDialog", "Last Update"))
-        self.processFiles.setText(_translate("mergeMinidspDialog", "..."))
-        self.minidspTypeLabel.setText(_translate("mergeMinidspDialog", "Minidsp Type"))
-        self.beqReposLabel.setText(_translate("mergeMinidspDialog", "Repo"))
-        self.ofLabel.setText(_translate("mergeMinidspDialog", "of"))
-        self.outputDirectoryPicker.setText(_translate("mergeMinidspDialog", "..."))
-        self.refreshGitRepo.setText(_translate("mergeMinidspDialog", "..."))
-        self.configFilePicker.setText(_translate("mergeMinidspDialog", "..."))
-        self.userSourceDirLabel.setText(_translate("mergeMinidspDialog", "User Source Directory"))
-        self.userSourceDirPicker.setText(_translate("mergeMinidspDialog", "..."))
-        self.optimisedLabel.setText(_translate("mergeMinidspDialog", "Optimised"))
-        self.copyOptimisedButton.setText(_translate("mergeMinidspDialog", "..."))
-        self.copyErrorsButton.setText(_translate("mergeMinidspDialog", "..."))
+        mergeMinidspDialog.setWindowTitle(QCoreApplication.translate("mergeMinidspDialog", u"Merge Minidsp Config", None))
+        self.outputDirectoryLabel.setText(QCoreApplication.translate("mergeMinidspDialog", u"Output Directory", None))
+        self.filesProcessedLabel.setText(QCoreApplication.translate("mergeMinidspDialog", u"Files Processed", None))
+        self.configFileLabel.setText(QCoreApplication.translate("mergeMinidspDialog", u"Config File", None))
+        self.clearUserSourceDir.setText(QCoreApplication.translate("mergeMinidspDialog", u"...", None))
+        self.minidspType.setItemText(0, QCoreApplication.translate("mergeMinidspDialog", u"2x4 HD", None))
+        self.minidspType.setItemText(1, QCoreApplication.translate("mergeMinidspDialog", u"2x4", None))
+        self.minidspType.setItemText(2, QCoreApplication.translate("mergeMinidspDialog", u"10x10 HD", None))
+
+        self.errorsLabel.setText(QCoreApplication.translate("mergeMinidspDialog", u"Errors", None))
+        self.lastUpdateLabel.setText(QCoreApplication.translate("mergeMinidspDialog", u"Last Update", None))
+        self.processFiles.setText(QCoreApplication.translate("mergeMinidspDialog", u"...", None))
+        self.minidspTypeLabel.setText(QCoreApplication.translate("mergeMinidspDialog", u"Minidsp Type", None))
+        self.beqReposLabel.setText(QCoreApplication.translate("mergeMinidspDialog", u"Repo", None))
+        self.ofLabel.setText(QCoreApplication.translate("mergeMinidspDialog", u"of", None))
+        self.outputDirectoryPicker.setText(QCoreApplication.translate("mergeMinidspDialog", u"...", None))
+        self.refreshGitRepo.setText(QCoreApplication.translate("mergeMinidspDialog", u"...", None))
+        self.infoLabel.setText("")
+        self.configFilePicker.setText(QCoreApplication.translate("mergeMinidspDialog", u"...", None))
+        self.userSourceDirLabel.setText(QCoreApplication.translate("mergeMinidspDialog", u"User Source Directory", None))
+        self.userSourceDirPicker.setText(QCoreApplication.translate("mergeMinidspDialog", u"...", None))
+        self.optimisedLabel.setText(QCoreApplication.translate("mergeMinidspDialog", u"Optimised", None))
+        self.copyOptimisedButton.setText(QCoreApplication.translate("mergeMinidspDialog", u"...", None))
+        self.copyErrorsButton.setText(QCoreApplication.translate("mergeMinidspDialog", u"...", None))
+    # retranslateUi
+

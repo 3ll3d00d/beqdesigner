@@ -1,84 +1,109 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'logs.ui'
-#
-# Created by: PyQt5 UI code generator 5.13.1
-#
-# WARNING! All changes made in this file will be lost!
+################################################################################
+## Form generated from reading UI file 'logs.ui'
+##
+## Created by: Qt User Interface Compiler version 5.14.1
+##
+## WARNING! All changes made in this file will be lost when recompiling UI file!
+################################################################################
 
-
-from PyQt5 import QtCore, QtGui, QtWidgets
+from PySide2.QtCore import (QCoreApplication, QMetaObject, QObject, QPoint,
+    QRect, QSize, QUrl, Qt)
+from PySide2.QtGui import (QBrush, QColor, QConicalGradient, QCursor, QFont,
+    QFontDatabase, QIcon, QLinearGradient, QPalette, QPainter, QPixmap,
+    QRadialGradient)
+from PySide2.QtWidgets import *
 
 
 class Ui_logsForm(object):
     def setupUi(self, logsForm):
-        logsForm.setObjectName("logsForm")
+        if logsForm.objectName():
+            logsForm.setObjectName(u"logsForm")
         logsForm.setEnabled(True)
         logsForm.resize(960, 768)
-        self.centralwidget = QtWidgets.QWidget(logsForm)
-        sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        self.centralwidget = QWidget(logsForm)
+        self.centralwidget.setObjectName(u"centralwidget")
+        sizePolicy = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.centralwidget.sizePolicy().hasHeightForWidth())
         self.centralwidget.setSizePolicy(sizePolicy)
-        self.centralwidget.setObjectName("centralwidget")
-        self.gridLayout = QtWidgets.QGridLayout(self.centralwidget)
-        self.gridLayout.setObjectName("gridLayout")
-        self.logViewer = QtWidgets.QPlainTextEdit(self.centralwidget)
-        font = QtGui.QFont()
-        font.setFamily("Consolas")
+        self.gridLayout = QGridLayout(self.centralwidget)
+        self.gridLayout.setObjectName(u"gridLayout")
+        self.logViewer = QPlainTextEdit(self.centralwidget)
+        self.logViewer.setObjectName(u"logViewer")
+        font = QFont()
+        font.setFamily(u"Consolas")
         font.setPointSize(9)
         self.logViewer.setFont(font)
         self.logViewer.setReadOnly(True)
-        self.logViewer.setObjectName("logViewer")
+
         self.gridLayout.addWidget(self.logViewer, 3, 0, 1, 2)
-        self.logLevel = QtWidgets.QComboBox(self.centralwidget)
-        self.logLevel.setObjectName("logLevel")
+
+        self.logLevel = QComboBox(self.centralwidget)
         self.logLevel.addItem("")
         self.logLevel.addItem("")
         self.logLevel.addItem("")
         self.logLevel.addItem("")
         self.logLevel.addItem("")
+        self.logLevel.setObjectName(u"logLevel")
+
         self.gridLayout.addWidget(self.logLevel, 1, 1, 1, 1)
-        self.logSizeLabel = QtWidgets.QLabel(self.centralwidget)
-        self.logSizeLabel.setObjectName("logSizeLabel")
+
+        self.logSizeLabel = QLabel(self.centralwidget)
+        self.logSizeLabel.setObjectName(u"logSizeLabel")
+
         self.gridLayout.addWidget(self.logSizeLabel, 0, 0, 1, 1)
-        self.maxRows = QtWidgets.QSpinBox(self.centralwidget)
+
+        self.maxRows = QSpinBox(self.centralwidget)
+        self.maxRows.setObjectName(u"maxRows")
         self.maxRows.setMinimum(10)
         self.maxRows.setMaximum(5000)
         self.maxRows.setSingleStep(10)
-        self.maxRows.setProperty("value", 1000)
-        self.maxRows.setObjectName("maxRows")
+        self.maxRows.setValue(1000)
+
         self.gridLayout.addWidget(self.maxRows, 0, 1, 1, 1)
-        self.logLevelLabel = QtWidgets.QLabel(self.centralwidget)
-        self.logLevelLabel.setObjectName("logLevelLabel")
+
+        self.logLevelLabel = QLabel(self.centralwidget)
+        self.logLevelLabel.setObjectName(u"logLevelLabel")
+
         self.gridLayout.addWidget(self.logLevelLabel, 1, 0, 1, 1)
-        self.excludesLabel = QtWidgets.QLabel(self.centralwidget)
-        self.excludesLabel.setObjectName("excludesLabel")
+
+        self.excludesLabel = QLabel(self.centralwidget)
+        self.excludesLabel.setObjectName(u"excludesLabel")
+
         self.gridLayout.addWidget(self.excludesLabel, 2, 0, 1, 1)
-        self.excludes = QtWidgets.QLineEdit(self.centralwidget)
-        self.excludes.setObjectName("excludes")
+
+        self.excludes = QLineEdit(self.centralwidget)
+        self.excludes.setObjectName(u"excludes")
+
         self.gridLayout.addWidget(self.excludes, 2, 1, 1, 1)
+
         logsForm.setCentralWidget(self.centralwidget)
+        QWidget.setTabOrder(self.maxRows, self.logLevel)
+        QWidget.setTabOrder(self.logLevel, self.excludes)
+        QWidget.setTabOrder(self.excludes, self.logViewer)
 
         self.retranslateUi(logsForm)
-        self.maxRows.valueChanged['int'].connect(logsForm.set_log_size)
-        self.logLevel.currentTextChanged['QString'].connect(logsForm.set_log_level)
+        self.maxRows.valueChanged.connect(logsForm.set_log_size)
+        self.logLevel.currentTextChanged.connect(logsForm.set_log_level)
         self.excludes.returnPressed.connect(logsForm.set_excludes)
-        QtCore.QMetaObject.connectSlotsByName(logsForm)
-        logsForm.setTabOrder(self.maxRows, self.logLevel)
-        logsForm.setTabOrder(self.logLevel, self.excludes)
-        logsForm.setTabOrder(self.excludes, self.logViewer)
+
+        QMetaObject.connectSlotsByName(logsForm)
+    # setupUi
 
     def retranslateUi(self, logsForm):
-        _translate = QtCore.QCoreApplication.translate
-        logsForm.setWindowTitle(_translate("logsForm", "Logs"))
-        self.logLevel.setCurrentText(_translate("logsForm", "DEBUG"))
-        self.logLevel.setItemText(0, _translate("logsForm", "DEBUG"))
-        self.logLevel.setItemText(1, _translate("logsForm", "INFO"))
-        self.logLevel.setItemText(2, _translate("logsForm", "WARNING"))
-        self.logLevel.setItemText(3, _translate("logsForm", "ERROR"))
-        self.logLevel.setItemText(4, _translate("logsForm", "CRITICAL"))
-        self.logSizeLabel.setText(_translate("logsForm", "Log Size"))
-        self.logLevelLabel.setText(_translate("logsForm", "Log Level"))
-        self.excludesLabel.setText(_translate("logsForm", "Excludes"))
+        logsForm.setWindowTitle(QCoreApplication.translate("logsForm", u"Logs", None))
+        self.logLevel.setItemText(0, QCoreApplication.translate("logsForm", u"DEBUG", None))
+        self.logLevel.setItemText(1, QCoreApplication.translate("logsForm", u"INFO", None))
+        self.logLevel.setItemText(2, QCoreApplication.translate("logsForm", u"WARNING", None))
+        self.logLevel.setItemText(3, QCoreApplication.translate("logsForm", u"ERROR", None))
+        self.logLevel.setItemText(4, QCoreApplication.translate("logsForm", u"CRITICAL", None))
+
+        self.logLevel.setCurrentText(QCoreApplication.translate("logsForm", u"DEBUG", None))
+        self.logSizeLabel.setText(QCoreApplication.translate("logsForm", u"Log Size", None))
+        self.logLevelLabel.setText(QCoreApplication.translate("logsForm", u"Log Level", None))
+        self.excludesLabel.setText(QCoreApplication.translate("logsForm", u"Excludes", None))
+    # retranslateUi
+
