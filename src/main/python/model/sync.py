@@ -222,7 +222,14 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
             self.__supports_shelf = semver.parse_version_info(version) > semver.parse_version_info('1.4.0')
         except:
             logger.error(f"Unable to parse version {mso['versions']['swVer']}")
-            self.__supports_shelf = False
+            result = QMessageBox.question(self,
+                                          'Supports Shelf Filters?',
+                                          f"Reported software version is "
+                                          f"\n\n    {version}"
+                                          f"\n\nDoes this version support shelf filters?",
+                                          QMessageBox.Yes | QMessageBox.No,
+                                          QMessageBox.No)
+            self.__supports_shelf = result == QMessageBox.Yes
 
         speakers = mso['speakers']['groups']
         channels = ['lf', 'rf']
@@ -479,7 +486,7 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         return ops, unsupported_filter_types_per_channel
 
     def __not_supported(self, filter_type):
-        if self.__supports_shelf:
+        if self.__supports_shelf is True:
             supported = filter_type == 'PEQ' or filter_type == 'LS' or filter_type == 'HS'
         else:
             supported = filter_type == 'PEQ'
