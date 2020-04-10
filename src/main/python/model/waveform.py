@@ -447,12 +447,13 @@ class WaveformModel:
         self.__chart.getPlotItem().setYRange(self.__y_min.value(), self.__y_max.value(), padding=0.0)
 
     def __update_x_range(self):
-        ''' changes the y limits '''
+        ''' changes the x limits in response to user input. '''
         max_secs, min_secs = self.__propagate_btn_state_on_xrange_change()
         self.__chart.getPlotItem().setXRange(min_secs, max_secs, padding=0.0)
 
     def __propagate_btn_state_on_xrange_change(self):
         min_secs, max_secs = self.get_time_range()
+        self.__recalc_stats(self.signal.cut(min_secs, max_secs) if self.signal else None)
         self.__on_x_range_change()
         return max_secs, min_secs
 
@@ -467,6 +468,21 @@ class WaveformModel:
     @signal.setter
     def signal(self, signal):
         self.__signal = signal
+        self.__recalc_stats(signal)
+        x_range = self.__chart.getPlotItem().getAxis('bottom').range
+        if self.signal is None:
+            x_max = 1.0
+        else:
+            x_max = self.signal.duration_seconds
+        self.__chart.getPlotItem().setLimits(xMin=0.0, xMax=x_max)
+        if x_range[1] > x_max:
+            self.__chart.getPlotItem().setXRange(x_range[0], x_max, padding=0.0)
+        if self.__curve is not None and signal is None:
+            self.__chart.getPlotItem().removeItem(self.__curve)
+            self.__curve = None
+
+    def __recalc_stats(self, signal):
+        print('recalcing')
         if signal is not None:
             peak_value = np.nanmax(np.abs(signal.samples))
             rms_level_raw = np.sqrt(np.mean(np.square(np.abs(signal.samples))))
@@ -480,17 +496,6 @@ class WaveformModel:
         self.__headroom.setValue(headroom)
         self.__rms_level.setValue(rms_level)
         self.__crest_factor.setValue(crest_factor)
-        x_range = self.__chart.getPlotItem().getAxis('bottom').range
-        if self.signal is None:
-            x_max = 1.0
-        else:
-            x_max = self.signal.duration_seconds
-        self.__chart.getPlotItem().setLimits(xMin=0.0, xMax=x_max)
-        if x_range[1] > x_max:
-            self.__chart.getPlotItem().setXRange(x_range[0], x_max, padding=0.0)
-        if self.__curve is not None and signal is None:
-            self.__chart.getPlotItem().removeItem(self.__curve)
-            self.__curve = None
 
     def clear(self):
         '''
