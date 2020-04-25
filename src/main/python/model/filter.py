@@ -242,7 +242,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
     freq_steps = [0.1, 1.0, 2.0, 5.0]
     passthrough = Passthrough()
 
-    def __init__(self, preferences, signal, filter_model, redraw_main, selected_filter=None, parent=None):
+    def __init__(self, preferences, signal, filter_model, redraw_main, selected_filter=None, parent=None, valid_filter_types=None):
         self.__preferences = preferences
         super(FilterDialog, self).__init__(parent) if parent is not None else super(FilterDialog, self).__init__()
         self.__redraw_main = redraw_main
@@ -271,6 +271,14 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         # init the chart
         self.__magnitude_model = MagnitudeModel('preview', self.previewChart, preferences, self, 'Filter',
                                                 db_range_calc=dBRangeCalculator(30, expand=True), fill_curves=True)
+        # remove unsupported filter types
+        if valid_filter_types:
+            to_remove = []
+            for i in range(self.filterType.count()):
+                if self.filterType.itemText(i) not in valid_filter_types:
+                    to_remove.append(i)
+            for i1, i2 in enumerate(to_remove):
+                self.filterType.removeItem(i2 - i1)
         # copy the filter into the working table
         self.__working.filter = self.__filter_model.clone()
         # and initialise the view
@@ -335,8 +343,6 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.saveButton.setIconSize(QtCore.QSize(32, 32))
         self.exitButton.setIcon(qta.icon('fa5s.sign-out-alt'))
         self.exitButton.setIconSize(QtCore.QSize(32, 32))
-        self.limitsButton.setIcon(qta.icon('fa5s.arrows-alt'))
-        self.limitsButton.setIconSize(QtCore.QSize(32, 32))
         self.snapFilterButton.setIcon(qta.icon('fa5s.copy'))
         self.acceptSnapButton.setIcon(qta.icon('fa5s.check'))
         self.loadSnapButton.setIcon(qta.icon('fa5s.folder-open'))
@@ -346,6 +352,9 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.addSnapshotRowButton.setIcon(qta.icon('fa5s.plus'))
         self.removeWorkingRowButton.setIcon(qta.icon('fa5s.minus'))
         self.removeSnapshotRowButton.setIcon(qta.icon('fa5s.minus'))
+        self.limitsButton.setIcon(qta.icon('fa5s.arrows-alt'))
+        self.fullRangeButton.setIcon(qta.icon('fa5s.expand'))
+        self.subOnlyButton.setIcon(qta.icon('fa5s.compress'))
 
     def __set_tooltips(self):
         self.addSnapshotRowButton.setToolTip('Add new filter to snapshot')
@@ -475,6 +484,14 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
     def show_limits(self):
         ''' shows the limits dialog for the filter chart. '''
         self.__magnitude_model.show_limits()
+
+    def show_full_range(self):
+        ''' sets the limits to full range. '''
+        self.__magnitude_model.show_full_range()
+
+    def show_sub_only(self):
+        ''' sets the limits to sub only. '''
+        self.__magnitude_model.show_sub_only()
 
     def __select_filter(self, selected_filter):
         ''' Refreshes the params and display with the selected filter '''

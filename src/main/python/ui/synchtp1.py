@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'synchtp1.ui'
 #
-# Created by: PyQt5 UI code generator 5.13.1
+# Created by: PyQt5 UI code generator 5.14.2
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -38,6 +38,10 @@ class Ui_syncHtp1Dialog(object):
         self.applyFiltersButton = QtWidgets.QPushButton(syncHtp1Dialog)
         self.applyFiltersButton.setObjectName("applyFiltersButton")
         self.syncLayout.addWidget(self.applyFiltersButton)
+        self.autoSyncButton = QtWidgets.QToolButton(syncHtp1Dialog)
+        self.autoSyncButton.setCheckable(True)
+        self.autoSyncButton.setObjectName("autoSyncButton")
+        self.syncLayout.addWidget(self.autoSyncButton)
         self.syncLayout.setStretch(2, 1)
         self.gridLayout_3.addLayout(self.syncLayout, 6, 1, 1, 1)
         self.filterView = QtWidgets.QTableView(syncHtp1Dialog)
@@ -82,9 +86,15 @@ class Ui_syncHtp1Dialog(object):
         self.beqLabel = QtWidgets.QLabel(syncHtp1Dialog)
         self.beqLabel.setObjectName("beqLabel")
         self.gridLayout_3.addWidget(self.beqLabel, 3, 0, 1, 1)
+        self.toolButtonsLayout = QtWidgets.QVBoxLayout()
+        self.toolButtonsLayout.setObjectName("toolButtonsLayout")
+        self.editFilterButton = QtWidgets.QToolButton(syncHtp1Dialog)
+        self.editFilterButton.setObjectName("editFilterButton")
+        self.toolButtonsLayout.addWidget(self.editFilterButton)
         self.deleteFiltersButton = QtWidgets.QToolButton(syncHtp1Dialog)
         self.deleteFiltersButton.setObjectName("deleteFiltersButton")
-        self.gridLayout_3.addWidget(self.deleteFiltersButton, 2, 2, 1, 1)
+        self.toolButtonsLayout.addWidget(self.deleteFiltersButton)
+        self.gridLayout_3.addLayout(self.toolButtonsLayout, 2, 2, 1, 1)
         self.filterMapping = QtWidgets.QListWidget(syncHtp1Dialog)
         self.filterMapping.setSelectionMode(QtWidgets.QAbstractItemView.MultiSelection)
         self.filterMapping.setObjectName("filterMapping")
@@ -149,6 +159,7 @@ class Ui_syncHtp1Dialog(object):
         self.selectNoneButton.clicked.connect(syncHtp1Dialog.clear_sync_selection)
         self.selectAllButton.clicked.connect(syncHtp1Dialog.select_all_for_sync)
         self.filterMapping.itemSelectionChanged.connect(syncHtp1Dialog.on_signal_selected)
+        self.editFilterButton.clicked.connect(syncHtp1Dialog.edit_filter)
         QtCore.QMetaObject.connectSlotsByName(syncHtp1Dialog)
 
     def retranslateUi(self, syncHtp1Dialog):
@@ -161,6 +172,7 @@ class Ui_syncHtp1Dialog(object):
         self.selectNoneButton.setText(_translate("syncHtp1Dialog", "Clear"))
         self.selectAllButton.setText(_translate("syncHtp1Dialog", "Select All"))
         self.applyFiltersButton.setText(_translate("syncHtp1Dialog", "Sync to HTP-1"))
+        self.autoSyncButton.setText(_translate("syncHtp1Dialog", "..."))
         self.addFilterButton.setText(_translate("syncHtp1Dialog", "Add Filter"))
         self.removeFilterButton.setText(_translate("syncHtp1Dialog", "Remove Filter"))
         self.loadFromSignalsButton.setText(_translate("syncHtp1Dialog", "Load from Signals"))
@@ -173,6 +185,7 @@ class Ui_syncHtp1Dialog(object):
         self.disconnectButton.setToolTip(_translate("syncHtp1Dialog", "Disconnect"))
         self.disconnectButton.setText(_translate("syncHtp1Dialog", "..."))
         self.beqLabel.setText(_translate("syncHtp1Dialog", "BEQ"))
+        self.editFilterButton.setText(_translate("syncHtp1Dialog", "..."))
         self.deleteFiltersButton.setText(_translate("syncHtp1Dialog", "..."))
         self.filtersetLabel.setText(_translate("syncHtp1Dialog", "Channel"))
         self.filterMappingLabel.setText(_translate("syncHtp1Dialog", "Signal\n"

@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'filter.ui'
 #
-# Created by: PyQt5 UI code generator 5.13.1
+# Created by: PyQt5 UI code generator 5.14.2
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -22,6 +22,20 @@ class Ui_editFilterDialog(object):
         self.previewChart.setObjectName("previewChart")
         self.viewPane.addWidget(self.previewChart, 0, 0, 1, 1)
         self.panes.addLayout(self.viewPane, 0, 1, 1, 1)
+        self.graphButtonsLayout = QtWidgets.QVBoxLayout()
+        self.graphButtonsLayout.setObjectName("graphButtonsLayout")
+        self.limitsButton = QtWidgets.QToolButton(editFilterDialog)
+        self.limitsButton.setObjectName("limitsButton")
+        self.graphButtonsLayout.addWidget(self.limitsButton)
+        self.fullRangeButton = QtWidgets.QToolButton(editFilterDialog)
+        self.fullRangeButton.setObjectName("fullRangeButton")
+        self.graphButtonsLayout.addWidget(self.fullRangeButton)
+        self.subOnlyButton = QtWidgets.QToolButton(editFilterDialog)
+        self.subOnlyButton.setObjectName("subOnlyButton")
+        self.graphButtonsLayout.addWidget(self.subOnlyButton)
+        spacerItem = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        self.graphButtonsLayout.addItem(spacerItem)
+        self.panes.addLayout(self.graphButtonsLayout, 0, 2, 1, 1)
         self.paramsPane = QtWidgets.QGridLayout()
         self.paramsPane.setObjectName("paramsPane")
         self.gainLabel = QtWidgets.QLabel(editFilterDialog)
@@ -67,9 +81,6 @@ class Ui_editFilterDialog(object):
         self.exitButton = QtWidgets.QToolButton(editFilterDialog)
         self.exitButton.setObjectName("exitButton")
         self.buttonLayout.addWidget(self.exitButton)
-        self.limitsButton = QtWidgets.QToolButton(editFilterDialog)
-        self.limitsButton.setObjectName("limitsButton")
-        self.buttonLayout.addWidget(self.limitsButton)
         self.paramsPane.addLayout(self.buttonLayout, 11, 0, 1, 2)
         self.passFilterType = QtWidgets.QComboBox(editFilterDialog)
         self.passFilterType.setEnabled(True)
@@ -87,8 +98,8 @@ class Ui_editFilterDialog(object):
         self.filterCount.setMaximum(20)
         self.filterCount.setObjectName("filterCount")
         self.paramsPane.addWidget(self.filterCount, 9, 1, 1, 1)
-        spacerItem = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
-        self.paramsPane.addItem(spacerItem, 12, 1, 1, 1)
+        spacerItem1 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        self.paramsPane.addItem(spacerItem1, 12, 1, 1, 1)
         self.workingFilterView = QtWidgets.QTableView(editFilterDialog)
         self.workingFilterView.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
         self.workingFilterView.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
@@ -199,8 +210,8 @@ class Ui_editFilterDialog(object):
         self.filterOrder.setProperty("value", 2)
         self.filterOrder.setObjectName("filterOrder")
         self.paramsPane.addWidget(self.filterOrder, 4, 1, 1, 1)
-        spacerItem1 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
-        self.paramsPane.addItem(spacerItem1, 16, 1, 1, 1)
+        spacerItem2 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
+        self.paramsPane.addItem(spacerItem2, 16, 1, 1, 1)
         self.workingViewButtonWidget = QtWidgets.QWidget(editFilterDialog)
         self.workingViewButtonWidget.setObjectName("workingViewButtonWidget")
         self.workingViewButtonLayout = QtWidgets.QVBoxLayout(self.workingViewButtonWidget)
@@ -250,6 +261,8 @@ class Ui_editFilterDialog(object):
         self.exitButton.clicked.connect(editFilterDialog.reject)
         self.showIndividual.clicked.connect(editFilterDialog.previewFilter)
         self.limitsButton.clicked.connect(editFilterDialog.show_limits)
+        self.fullRangeButton.clicked.connect(editFilterDialog.show_full_range)
+        self.subOnlyButton.clicked.connect(editFilterDialog.show_sub_only)
         QtCore.QMetaObject.connectSlotsByName(editFilterDialog)
         editFilterDialog.setTabOrder(self.filterType, self.passFilterType)
         editFilterDialog.setTabOrder(self.passFilterType, self.filterOrder)
@@ -267,6 +280,9 @@ class Ui_editFilterDialog(object):
     def retranslateUi(self, editFilterDialog):
         _translate = QtCore.QCoreApplication.translate
         editFilterDialog.setWindowTitle(_translate("editFilterDialog", "Create Filter"))
+        self.limitsButton.setText(_translate("editFilterDialog", "..."))
+        self.fullRangeButton.setText(_translate("editFilterDialog", "..."))
+        self.subOnlyButton.setText(_translate("editFilterDialog", "..."))
         self.gainLabel.setText(_translate("editFilterDialog", "Gain"))
         self.filterQLabel.setText(_translate("editFilterDialog", "Q"))
         self.snapLabel.setText(_translate("editFilterDialog", "Compare"))
@@ -278,7 +294,6 @@ class Ui_editFilterDialog(object):
         self.sLabel.setText(_translate("editFilterDialog", "S"))
         self.saveButton.setShortcut(_translate("editFilterDialog", "Return"))
         self.exitButton.setText(_translate("editFilterDialog", "..."))
-        self.limitsButton.setText(_translate("editFilterDialog", "..."))
         self.passFilterType.setItemText(0, _translate("editFilterDialog", "Butterworth"))
         self.passFilterType.setItemText(1, _translate("editFilterDialog", "Linkwitz-Riley"))
         self.filterType.setItemText(0, _translate("editFilterDialog", "Low Shelf"))

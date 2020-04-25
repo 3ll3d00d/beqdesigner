@@ -41,7 +41,7 @@
       </widget>
      </item>
      <item row="6" column="1">
-      <layout class="QHBoxLayout" name="syncLayout" stretch="0,0,1">
+      <layout class="QHBoxLayout" name="syncLayout" stretch="0,0,1,0">
        <item>
         <widget class="QPushButton" name="selectNoneButton">
          <property name="text">
@@ -60,6 +60,16 @@
         <widget class="QPushButton" name="applyFiltersButton">
          <property name="text">
           <string>Sync to HTP-1</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="autoSyncButton">
+         <property name="text">
+          <string>...</string>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
          </property>
         </widget>
        </item>
@@ -163,11 +173,22 @@
       </widget>
      </item>
      <item row="2" column="2">
-      <widget class="QToolButton" name="deleteFiltersButton">
-       <property name="text">
-        <string>...</string>
-       </property>
-      </widget>
+      <layout class="QVBoxLayout" name="toolButtonsLayout">
+       <item>
+        <widget class="QToolButton" name="editFilterButton">
+         <property name="text">
+          <string>...</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="deleteFiltersButton">
+         <property name="text">
+          <string>...</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
      </item>
      <item row="5" column="1">
       <widget class="QListWidget" name="filterMapping">
@@ -320,8 +341,8 @@ Mapping</string>
    <slot>clear_filters()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>354</x>
-     <y>203</y>
+     <x>355</x>
+     <y>260</y>
     </hint>
     <hint type="destinationlabel">
      <x>349</x>
@@ -352,7 +373,7 @@ Mapping</string>
    <slot>send_filters_to_device()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>322</x>
+     <x>306</x>
      <y>659</y>
     </hint>
     <hint type="destinationlabel">
@@ -368,8 +389,8 @@ Mapping</string>
    <slot>connect_htp1()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>342</x>
-     <y>22</y>
+     <x>370</x>
+     <y>29</y>
     </hint>
     <hint type="destinationlabel">
      <x>354</x>
@@ -384,8 +405,8 @@ Mapping</string>
    <slot>disconnect_htp1()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>342</x>
-     <y>43</y>
+     <x>370</x>
+     <y>54</y>
     </hint>
     <hint type="destinationlabel">
      <x>333</x>
@@ -400,8 +421,8 @@ Mapping</string>
    <slot>resync_filters()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>336</x>
-     <y>73</y>
+     <x>369</x>
+     <y>80</y>
     </hint>
     <hint type="destinationlabel">
      <x>358</x>
@@ -585,6 +606,22 @@ Mapping</string>
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>editFilterButton</sender>
+   <signal>clicked()</signal>
+   <receiver>syncHtp1Dialog</receiver>
+   <slot>edit_filter()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>370</x>
+     <y>171</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>354</x>
+     <y>187</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>select_beq()</slot>
@@ -607,5 +644,6 @@ Mapping</string>
   <slot>clear_sync_selection()</slot>
   <slot>select_all_for_sync()</slot>
   <slot>on_signal_selected()</slot>
+  <slot>edit_filter()</slot>
  </slots>
 </ui>

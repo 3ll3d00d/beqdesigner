@@ -482,7 +482,6 @@ class WaveformModel:
             self.__curve = None
 
     def __recalc_stats(self, signal):
-        print('recalcing')
         if signal is not None:
             peak_value = np.nanmax(np.abs(signal.samples))
             rms_level_raw = np.sqrt(np.mean(np.square(np.abs(signal.samples))))

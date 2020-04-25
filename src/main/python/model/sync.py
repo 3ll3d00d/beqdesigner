@@ -9,11 +9,11 @@ from qtpy.QtCore import QUrl, Qt
 from qtpy.QtWidgets import QDialog, QAbstractItemView, QHeaderView, QLineEdit, QToolButton, QListWidgetItem, QMessageBox
 
 from model.batch import StoppableSpin, stop_spinner
-from model.filter import FilterModel, FilterTableModel
+from model.filter import FilterModel, FilterTableModel, FilterDialog
 from model.iir import CompleteFilter, PeakingEQ, LowShelf, HighShelf
 from model.limits import dBRangeCalculator
 from model.magnitude import MagnitudeModel
-from model.preferences import get_filter_colour, HTP1_ADDRESS
+from model.preferences import get_filter_colour, HTP1_ADDRESS, HTP1_AUTOSYNC
 from ui.edit_mapping import Ui_editMappingDialog
 from ui.syncdetails import Ui_syncDetailsDialog
 from ui.synchtp1 import Ui_syncHtp1Dialog
@@ -29,6 +29,7 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         super(SyncHTP1Dialog, self).__init__(parent)
         self.__preferences = prefs
         self.__signal_model = signal_model
+        self.__simple_signal = None
         self.__filters_by_channel = {}
         self.__current_device_filters_by_channel = {}
         self.__spinner = None
@@ -46,18 +47,23 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         self.__filters = FilterModel(self.filterView, self.__preferences)
         self.filterView.setModel(FilterTableModel(self.__filters))
         self.filterView.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.filterView.selectionModel().selectionChanged.connect(self.__on_filter_selected)
         self.__magnitude_model = MagnitudeModel('preview', self.previewChart, self.__preferences, self, 'Filter',
                                                 db_range_calc=dBRangeCalculator(30, expand=True), fill_curves=True)
         self.connectButton.setIcon(qta.icon('fa5s.check'))
         self.disconnectButton.setIcon(qta.icon('fa5s.times'))
         self.resyncFilters.setIcon(qta.icon('fa5s.sync'))
         self.deleteFiltersButton.setIcon(qta.icon('fa5s.trash'))
+        self.editFilterButton.setIcon(qta.icon('fa5s.edit'))
         self.selectBeqButton.setIcon(qta.icon('fa5s.folder-open'))
         self.limitsButton.setIcon(qta.icon('fa5s.arrows-alt'))
         self.showDetailsButton.setIcon(qta.icon('fa5s.info'))
         self.createPulsesButton.setIcon(qta.icon('fa5s.wave-square'))
         self.fullRangeButton.setIcon(qta.icon('fa5s.expand'))
         self.subOnlyButton.setIcon(qta.icon('fa5s.compress'))
+        self.autoSyncButton.setIcon(qta.icon('fa5s.magic'))
+        self.autoSyncButton.toggled.connect(lambda b: self.__preferences.set(HTP1_AUTOSYNC, b))
+        self.autoSyncButton.setChecked(self.__preferences.get(HTP1_AUTOSYNC))
         self.__ws_client = QtWebSockets.QWebSocket('', QtWebSockets.QWebSocketProtocol.Version13, None)
         self.__ws_client.error.connect(self.__on_ws_error)
         self.__ws_client.connected.connect(self.__on_ws_connect)
@@ -97,6 +103,7 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         self.ipAddress.setReadOnly(False)
         self.resyncFilters.setEnabled(False)
         self.deleteFiltersButton.setEnabled(False)
+        self.editFilterButton.setEnabled(False)
         self.showDetailsButton.setEnabled(False)
         self.createPulsesButton.setEnabled(False)
         self.filtersetSelector.clear()
@@ -108,19 +115,21 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         self.addFilterButton.setEnabled(False)
         self.removeFilterButton.setEnabled(False)
         self.applyFiltersButton.setEnabled(False)
+        self.autoSyncButton.setEnabled(False)
         self.__show_signal_mapping()
         self.syncStatus.setIcon(qta.icon('fa5s.unlink'))
         self.syncStatus.setEnabled(False)
         self.__filters.filter = CompleteFilter(fs=HTP1_FS, sort_by_id=True)
+        self.__simple_signal = self.__create_pulse('default', self.__filters.filter)
         self.__magnitude_model.redraw()
 
     def __enable_on_connect(self):
         ''' Prepares the UI for operation. '''
         self.connectButton.setEnabled(False)
         self.disconnectButton.setEnabled(True)
-        self.deleteFiltersButton.setEnabled(True)
         self.ipAddress.setReadOnly(True)
         self.resyncFilters.setEnabled(True)
+        self.autoSyncButton.setEnabled(True)
         self.selectBeqButton.setEnabled(True)
         self.createPulsesButton.setEnabled(True)
         self.__show_signal_mapping()
@@ -154,22 +163,25 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         Handles msoupdate message sent after the device is updated.
         :param msoupdate: the update.
         '''
-        self.__last_received_msoupdate = msoupdate
-        was_requested = False
-        if self.__spinner is not None:
-            was_requested = True
-            stop_spinner(self.__spinner, self.syncStatus)
-            self.__spinner = None
-        if was_requested:
-            if not self.__msoupdate_matches(msoupdate):
-                self.syncStatus.setIcon(qta.icon('fa5s.times', color='red'))
-                self.show_sync_details()
+        if len(msoupdate) > 0 and 'path' in msoupdate[0] and msoupdate[0]['path'].startswith('/peq/slots/'):
+            self.__last_received_msoupdate = msoupdate
+            was_requested = False
+            if self.__spinner is not None:
+                was_requested = True
+                stop_spinner(self.__spinner, self.syncStatus)
+                self.__spinner = None
+            if was_requested:
+                if not self.__msoupdate_matches(msoupdate):
+                    self.syncStatus.setIcon(qta.icon('fa5s.times', color='red'))
+                    self.show_sync_details()
+                else:
+                    self.syncStatus.setIcon(qta.icon('fa5s.check', color='green'))
             else:
-                self.syncStatus.setIcon(qta.icon('fa5s.check', color='green'))
+                self.syncStatus.setIcon(qta.icon('fa5s.question', color='red'))
+            self.__update_device_state(msoupdate)
+            self.showDetailsButton.setEnabled(True)
         else:
-            self.syncStatus.setIcon(qta.icon('fa5s.question', color='red'))
-        self.__update_device_state(msoupdate)
-        self.showDetailsButton.setEnabled(True)
+            logger.debug(f"Ignoring UI driven update")
 
     def __update_device_state(self, msoupdate):
         ''' applies the delta from msoupdate to the local cache of the device state. '''
@@ -695,8 +707,12 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
             text = item.text()
             channel_name = text.split(' ')[1]
             mapped_signal = self.__channel_to_signal.get(channel_name, None)
-            EditMappingDialog(self, self.__filters_by_channel.keys(), channel_name, self.__signal_model,
-                              mapped_signal, self.__map_signal_to_channel).exec()
+            EditMappingDialog(self,
+                              self.__filters_by_channel.keys(),
+                              channel_name,
+                              self.__signal_model,
+                              mapped_signal,
+                              self.__map_signal_to_channel).exec()
 
     def __map_signal_to_channel(self, channel_name, signal):
         '''
@@ -728,6 +744,38 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
     def select_all_for_sync(self):
         ''' selects all channels for sync. '''
         self.filterMapping.selectAll()
+
+    def __on_filter_selected(self):
+        ''' enables the edit/delete buttons when selections change. '''
+        selection = self.filterView.selectionModel()
+        self.deleteFiltersButton.setEnabled(selection.hasSelection())
+        self.editFilterButton.setEnabled(selection.hasSelection())
+
+    def edit_filter(self):
+        selection = self.filterView.selectionModel()
+        if selection.hasSelection():
+            if self.__in_complex_mode():
+                signal = self.__signal_model.find_by_name(f"pulse_{self.filtersetSelector.currentText()}")
+                # ensure edited signal is selected for sync (otherwise autosync can get v confused)
+                for i in range(self.filterMapping.count()):
+                    item: QListWidgetItem = self.filterMapping.item(i)
+                    if self.filtersetSelector.currentText() == item.text().split(' ')[1]:
+                        item.setSelected(True)
+            else:
+                signal = self.__simple_signal
+            FilterDialog(self.__preferences,
+                         signal,
+                         self.__filters,
+                         self.__on_filter_save,
+                         selected_filter=self.__filters[selection.selectedRows()[0].row()],
+                         valid_filter_types=['PEQ', 'Low Shelf', 'High Shelf'] if self.__supports_shelf else ['PEQ'],
+                         parent=self).show()
+
+    def __on_filter_save(self):
+        ''' reacts to a filter being saved by redrawing the UI and syncing the filter to the HTP-1. '''
+        self.__magnitude_model.redraw()
+        if self.autoSyncButton.isChecked():
+            self.send_filters_to_device()
 
 
 class SyncDetailsDialog(QDialog, Ui_syncDetailsDialog):
