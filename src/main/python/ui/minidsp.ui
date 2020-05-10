@@ -102,6 +102,11 @@
          <string>10x10 HD</string>
         </property>
        </item>
+       <item>
+        <property name="text">
+         <string>SHD</string>
+        </property>
+       </item>
       </widget>
      </item>
      <item row="9" column="1" colspan="4">

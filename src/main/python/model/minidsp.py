@@ -522,7 +522,7 @@ class HDXmlParser:
 
     def overwrite(self, filters, target, metadata=None):
         '''
-        Overwrites the PEQ_1_x and PEQ_2_x filters.
+        Overwrites the PEQ_1_x and PEQ_2_x filters (or the 1-4 filters for the SHD).
         :param filters: the filters.
         :param target: the target file.
         :param metadata: the minidsp metadata.
@@ -585,25 +585,37 @@ class HDXmlParser:
         '''
         :return: list of valid channels.
         '''
-        return [str(x) for x in range(11, 21)] if self.__minidsp_type == '10x10 HD' else ['1', '2']
+        if self.__minidsp_type == '10x10 HD':
+            return [str(x) for x in range(11, 21)]
+        elif self.__minidsp_type == 'SHD':
+            return ['1', '2', '3', '4']
+        else:
+            return ['1', '2']
 
 
 def is_fixed_point_hardware(minidsp_type):
-    return False if minidsp_type == '2x4 HD' else True
+    return False if is_hd_compatible(minidsp_type) else True
 
 
 def get_filters_required(minidsp_type):
     '''
     :return: the fs for the selected minidsp.
     '''
-    return 10 if minidsp_type == '2x4 HD' else 6
+    return 10 if is_hd_compatible(minidsp_type) else 6
 
 
 def get_minidsp_fs(minidsp_type):
     '''
     :return: the fs for the selected minidsp.
     '''
-    return 96000 if minidsp_type == '2x4 HD' else 48000
+    return 96000 if is_hd_compatible(minidsp_type) else 48000
+
+
+def is_hd_compatible(minidsp_type):
+    '''
+    :return: true if this is a HD compatible model.
+    '''
+    return minidsp_type == '2x4 HD' or minidsp_type == 'SHD'
 
 
 def get_minidsp_filter_code(filt):
