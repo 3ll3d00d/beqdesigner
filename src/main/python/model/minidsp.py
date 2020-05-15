@@ -2,6 +2,7 @@ import glob
 import logging
 import os
 import shutil
+from enum import Enum
 from pathlib import Path
 from uuid import uuid4
 
@@ -19,6 +20,53 @@ logger = logging.getLogger('minidsp')
 
 BMILLER_GITHUB_MINIDSP = 'https://github.com/bmiller/miniDSPBEQ'
 BMILLER_MINI_DSPBEQ_GIT_REPO = f"{BMILLER_GITHUB_MINIDSP}.git"
+
+
+class MinidspType(Enum):
+    TWO_BY_FOUR_HD = ('2x4 HD', True)
+    TWO_BY_FOUR = ('2x4', False)
+    TEN_BY_TEN = ('10x10', False)
+    SHD = ('SHD', True)
+    EIGHTY_EIGHT_BM = ('88BM', True)
+
+    def __init__(self, display_name, hd_compatible):
+        self.display_name = display_name
+        self.hd_compatible = hd_compatible
+
+    def is_fixed_point_hardware(self):
+        return not self.hd_compatible
+
+    @property
+    def filters_required(self):
+        '''
+        :return: the no of filter slots expected.
+        '''
+        return 10 if self.hd_compatible else 6
+
+    @property
+    def target_fs(self):
+        '''
+        :return: the fs for the selected minidsp.
+        '''
+        return 96000 if self.hd_compatible else 48000
+
+    @classmethod
+    def parse(cls, minidsp_type):
+        return next((t for t in cls if t.display_name == minidsp_type), None)
+
+    @property
+    def filter_channels(self):
+        '''
+        :return: list of valid channels.
+        '''
+        if self == MinidspType.TEN_BY_TEN:
+            return [str(x) for x in range(11, 21)]
+        elif self == MinidspType.SHD:
+            return ['1', '2', '3', '4']
+        elif self == MinidspType.EIGHTY_EIGHT_BM:
+            return ['3']
+        else:
+            return ['1', '2']
 
 
 class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
@@ -49,6 +97,8 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
             self.configFile.setText(os.path.abspath(config_file))
         self.outputDirectory.setText(self.__preferences.get(BEQ_MERGE_DIR))
         os.makedirs(self.outputDirectory.text(), exist_ok=True)
+        for t in MinidspType:
+            self.minidspType.addItem(t.display_name)
         minidsp_type = self.__preferences.get(BEQ_MINIDSP_TYPE)
         if minidsp_type is not None and len(minidsp_type) > 0:
             self.minidspType.setCurrentText(minidsp_type)
@@ -205,7 +255,7 @@ class MergeFiltersDialog(QDialog, Ui_mergeMinidspDialog):
         if self.__clear_output_directory():
             self.filesProcessed.setValue(0)
             optimise_filters = False
-            if is_fixed_point_hardware(self.minidspType.currentText()):
+            if MinidspType.parse(self.minidspType.currentText()).is_fixed_point_hardware():
                 result = QMessageBox.question(self,
                                               'Are you feeling lucky?',
                                               f"Do you want to automatically optimise filters to fit in the 6 biquad limit? \n\n"
@@ -397,9 +447,8 @@ class XmlProcessor(QRunnable):
         self.__user_source_dir = user_source_dir
         self.__output_dir = output_dir
         self.__config_file = config_file
-        self.__parser = TwoByFourXmlParser() if minidsp_type == '2x4' else HDXmlParser(minidsp_type)
-        self.__target_fs = get_minidsp_fs(minidsp_type)
-        self.__filters_required = get_filters_required(minidsp_type)
+        self.__minidsp_type = MinidspType.parse(minidsp_type)
+        self.__parser = TwoByFourXmlParser() if MinidspType.TWO_BY_FOUR == self.__minidsp_type else HDXmlParser(self.__minidsp_type)
         self.__signals = ProcessSignals()
         self.__signals.on_failure.connect(failure_handler)
         self.__signals.on_success.connect(success_handler)
@@ -435,8 +484,8 @@ class XmlProcessor(QRunnable):
             was_optimised = False
             try:
                 filters = extract_and_pad_with_passthrough(str(xml),
-                                                           fs=self.__target_fs,
-                                                           required=self.__filters_required,
+                                                           fs=self.__minidsp_type.target_fs,
+                                                           required=self.__minidsp_type.filters_required,
                                                            optimise=self.__optimise_filters)
             except OptimisedFilters as e:
                 was_optimised = True
@@ -539,7 +588,7 @@ class HDXmlParser:
                     (filt_type, filt_channel, filt_slot) = filter_tokens
                     if len(filter_tokens) == 3:
                         if filt_type == 'PEQ':
-                            if filt_channel in self.__valid_filt_channels():
+                            if filt_channel in self.__minidsp_type.filter_channels:
                                 if int(filt_slot) > len(filters):
                                     root.remove(child)
                                 else:
@@ -561,7 +610,7 @@ class HDXmlParser:
                                     child.find('dec').text = f"{dec_txt},"
                                     hex_txt = filt.format_biquads(True, separator=',',
                                                                   show_index=False, to_hex=True,
-                                                                  fixed_point=is_fixed_point_hardware(self.__minidsp_type))[0]
+                                                                  fixed_point=self.__minidsp_type.hd_compatible)[0]
                                     child.find('hex').text = f"{hex_txt},"
         if metadata is not None:
             metadata_tag = ET.Element('beq_metadata')
@@ -580,42 +629,6 @@ class HDXmlParser:
             root.append(metadata_tag)
 
         return ET.tostring(root, encoding='unicode')
-
-    def __valid_filt_channels(self):
-        '''
-        :return: list of valid channels.
-        '''
-        if self.__minidsp_type == '10x10 HD':
-            return [str(x) for x in range(11, 21)]
-        elif self.__minidsp_type == 'SHD':
-            return ['1', '2', '3', '4']
-        else:
-            return ['1', '2']
-
-
-def is_fixed_point_hardware(minidsp_type):
-    return False if is_hd_compatible(minidsp_type) else True
-
-
-def get_filters_required(minidsp_type):
-    '''
-    :return: the fs for the selected minidsp.
-    '''
-    return 10 if is_hd_compatible(minidsp_type) else 6
-
-
-def get_minidsp_fs(minidsp_type):
-    '''
-    :return: the fs for the selected minidsp.
-    '''
-    return 96000 if is_hd_compatible(minidsp_type) else 48000
-
-
-def is_hd_compatible(minidsp_type):
-    '''
-    :return: true if this is a HD compatible model.
-    '''
-    return minidsp_type == '2x4 HD' or minidsp_type == 'SHD'
 
 
 def get_minidsp_filter_code(filt):

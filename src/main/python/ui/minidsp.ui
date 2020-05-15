@@ -86,28 +86,7 @@
       <widget class="QComboBox" name="beqRepos"/>
      </item>
      <item row="6" column="1" colspan="4">
-      <widget class="QComboBox" name="minidspType">
-       <item>
-        <property name="text">
-         <string>2x4 HD</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>2x4</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>10x10 HD</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>SHD</string>
-        </property>
-       </item>
-      </widget>
+      <widget class="QComboBox" name="minidspType"/>
      </item>
      <item row="9" column="1" colspan="4">
       <widget class="QListWidget" name="errors">
