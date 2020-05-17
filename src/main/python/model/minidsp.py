@@ -610,7 +610,7 @@ class HDXmlParser:
                                     child.find('dec').text = f"{dec_txt},"
                                     hex_txt = filt.format_biquads(True, separator=',',
                                                                   show_index=False, to_hex=True,
-                                                                  fixed_point=self.__minidsp_type.hd_compatible)[0]
+                                                                  fixed_point=self.__minidsp_type.is_fixed_point_hardware())[0]
                                     child.find('hex').text = f"{hex_txt},"
         if metadata is not None:
             metadata_tag = ET.Element('beq_metadata')
