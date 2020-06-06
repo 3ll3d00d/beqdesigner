@@ -31,6 +31,12 @@ class PrintFirstHalfFormatter(Formatter):
         return log10(x) % 1 <= self.__max
 
 
+class PhaseRangeCalculator:
+
+    def calculate(self, y_range):
+        return -180.0, 180
+
+
 class dBRangeCalculator:
     '''
     A calculator for y axis ranges of dBFS signals.
@@ -93,7 +99,7 @@ class Limits:
     '''
 
     def __init__(self, name, redraw_func, axes_1, x_lim, x_axis_configurer=configure_freq_axis,
-                 y_range_calculator=dBRangeCalculator(), x_scale='log', axes_2=None):
+                 y1_range_calculator=dBRangeCalculator(), x_scale='log', axes_2=None, y2_range_calculator=None):
         '''
         :param name: the name of the chart.
         :param redraw_func: redraws the owning canvas.
@@ -106,7 +112,8 @@ class Limits:
         self.name = name
         self.__redraw_func = redraw_func
         self.__configure_x_axis = x_axis_configurer
-        self.__y_range_calculator = y_range_calculator
+        self.__y1_range_calculator = y1_range_calculator
+        self.__y2_range_calculator = y2_range_calculator if y2_range_calculator else y1_range_calculator
         self.axes_1 = axes_1
         self.x_scale = x_scale
         self.x_min = x_lim[0]
@@ -114,9 +121,9 @@ class Limits:
         self.__y1_auto = True
         self.__y2_auto = True
         self.axes_1.yaxis.set_major_locator(MaxNLocator(nbins=24, steps=[1, 2, 5, 10], min_n_ticks=8))
-        self.y1_min, self.y1_max = self.__y_range_calculator.calculate((0, 0))
+        self.y1_min, self.y1_max = self.__y1_range_calculator.calculate((0, 0))
         if axes_2 is not None:
-            self.y2_min, self.y2_max = self.__y_range_calculator.calculate((0, 0))
+            self.y2_min, self.y2_max = self.__y2_range_calculator.calculate((0, 0))
             self.axes_2 = axes_2
             self.axes_2.yaxis.set_major_locator(MaxNLocator(nbins=24, steps=[1, 2, 5, 10], min_n_ticks=8))
         else:
@@ -163,8 +170,10 @@ class Limits:
         sets the expand mode on the y range calculator.
         :param expand: true or false.
         '''
-        if isinstance(self.__y_range_calculator, dBRangeCalculator):
-            self.__y_range_calculator.expand_range = expand
+        if isinstance(self.__y1_range_calculator, dBRangeCalculator):
+            self.__y1_range_calculator.expand_range = expand
+        if isinstance(self.__y2_range_calculator, dBRangeCalculator):
+            self.__y2_range_calculator.expand_range = expand
 
     def update(self, x_min=None, x_max=None, y1_min=None, y1_max=None, y2_min=None, y2_max=None, x_scale=None,
                draw=False):
@@ -224,7 +233,7 @@ class Limits:
         :param secondary_range: the secondary y range.
         '''
         if self.y1_auto is True:
-            new_min, new_max = self.__y_range_calculator.calculate(primary_range)
+            new_min, new_max = self.__y1_range_calculator.calculate(primary_range)
             y1_changed = new_min != self.y1_min or new_max != self.y1_max
             if y1_changed:
                 logger.debug(f"{self.name} y1 axis changed from {self.y1_min}/{self.y1_max} to {new_min}/{new_max}")
@@ -233,7 +242,7 @@ class Limits:
             if y1_changed:
                 self.axes_1.set_ylim(bottom=self.y1_min, top=self.y1_max)
         if self.y2_auto is True and self.axes_2 is not None:
-            new_min, new_max = self.__y_range_calculator.calculate(secondary_range)
+            new_min, new_max = self.__y2_range_calculator.calculate(secondary_range)
             y2_changed = new_min != self.y2_min or new_max != self.y2_max
             if y2_changed:
                 logger.debug(f"{self.name} y2 axis changed from {self.y2_min}/{self.y2_max} to {new_min}/{new_max}")

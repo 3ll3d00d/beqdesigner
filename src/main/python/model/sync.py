@@ -48,7 +48,8 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         self.filterView.setModel(FilterTableModel(self.__filters))
         self.filterView.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.filterView.selectionModel().selectionChanged.connect(self.__on_filter_selected)
-        self.__magnitude_model = MagnitudeModel('preview', self.previewChart, self.__preferences, self, 'Filter',
+        self.__magnitude_model = MagnitudeModel('preview', self.previewChart, self.__preferences,
+                                                self.get_curve_data, 'Filter',
                                                 db_range_calc=dBRangeCalculator(30, expand=True), fill_curves=True)
         self.connectButton.setIcon(qta.icon('fa5s.check'))
         self.disconnectButton.setIcon(qta.icon('fa5s.times'))
@@ -606,14 +607,14 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         self.addFilterButton.setEnabled(enable)
         self.removeFilterButton.setEnabled(enable)
 
-    def getMagnitudeData(self, reference=None):
+    def get_curve_data(self, reference=None):
         ''' preview of the filter to display on the chart '''
         result = []
         if len(self.__filters) > 0:
-            result.append(self.__filters.getTransferFunction().getMagnitude(colour=get_filter_colour(len(result))))
+            result.append(self.__filters.get_transfer_function().get_magnitude(colour=get_filter_colour(len(result))))
             for f in self.__filters:
-                result.append(f.getTransferFunction()
-                               .getMagnitude(colour=get_filter_colour(len(result)), linestyle=':'))
+                result.append(f.get_transfer_function()
+                               .get_magnitude(colour=get_filter_colour(len(result)), linestyle=':'))
         return result
 
     def reject(self):

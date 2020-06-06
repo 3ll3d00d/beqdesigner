@@ -35,7 +35,7 @@ def test_codec_Gain():
     assert isinstance(decoded, Gain)
     assert filter.fs == decoded.fs
     assert filter.gain == decoded.gain
-    assert decoded.getTransferFunction() is not None
+    assert decoded.get_transfer_function() is not None
 
 
 def test_codec_PeakingEQ():
@@ -49,7 +49,7 @@ def test_codec_PeakingEQ():
     assert filter.q == decoded.q
     assert filter.gain == decoded.gain
     assert filter.freq == decoded.freq
-    assert decoded.getTransferFunction() is not None
+    assert decoded.get_transfer_function() is not None
 
 
 def test_codec_LowShelf():
@@ -64,7 +64,7 @@ def test_codec_LowShelf():
     assert filter.gain == decoded.gain
     assert filter.freq == decoded.freq
     assert filter.count == decoded.count
-    assert decoded.getTransferFunction() is not None
+    assert decoded.get_transfer_function() is not None
 
 
 def test_codec_StackedLowShelf():
@@ -79,7 +79,7 @@ def test_codec_StackedLowShelf():
     assert filter.gain == decoded.gain
     assert filter.freq == decoded.freq
     assert filter.count == decoded.count
-    assert decoded.getTransferFunction() is not None
+    assert decoded.get_transfer_function() is not None
 
 
 def test_codec_HighShelf():
@@ -94,7 +94,7 @@ def test_codec_HighShelf():
     assert filter.gain == decoded.gain
     assert filter.freq == decoded.freq
     assert filter.count == decoded.count
-    assert decoded.getTransferFunction() is not None
+    assert decoded.get_transfer_function() is not None
 
 
 def test_codec_StackedHighShelf():
@@ -109,7 +109,7 @@ def test_codec_StackedHighShelf():
     assert filter.gain == decoded.gain
     assert filter.freq == decoded.freq
     assert filter.count == decoded.count
-    assert decoded.getTransferFunction() is not None
+    assert decoded.get_transfer_function() is not None
 
 
 def test_codec_FirstOrderLowPass():
@@ -122,7 +122,7 @@ def test_codec_FirstOrderLowPass():
     assert filter.fs == decoded.fs
     assert filter.q == decoded.q
     assert filter.freq == decoded.freq
-    assert decoded.getTransferFunction() is not None
+    assert decoded.get_transfer_function() is not None
 
 
 def test_codec_FirstOrderHighPass():
@@ -135,7 +135,7 @@ def test_codec_FirstOrderHighPass():
     assert filter.fs == decoded.fs
     assert filter.q == decoded.q
     assert filter.freq == decoded.freq
-    assert decoded.getTransferFunction() is not None
+    assert decoded.get_transfer_function() is not None
 
 
 def test_codec_SecondOrderLowPass():
@@ -148,7 +148,7 @@ def test_codec_SecondOrderLowPass():
     assert filter.fs == decoded.fs
     assert filter.q == decoded.q
     assert filter.freq == decoded.freq
-    assert decoded.getTransferFunction() is not None
+    assert decoded.get_transfer_function() is not None
 
 
 def test_codec_SecondOrderHighPass():
@@ -161,7 +161,7 @@ def test_codec_SecondOrderHighPass():
     assert filter.fs == decoded.fs
     assert filter.q == decoded.q
     assert filter.freq == decoded.freq
-    assert decoded.getTransferFunction() is not None
+    assert decoded.get_transfer_function() is not None
 
 
 def test_codec_AllPass():
@@ -174,7 +174,7 @@ def test_codec_AllPass():
     assert filter.fs == decoded.fs
     assert filter.q == decoded.q
     assert filter.freq == decoded.freq
-    assert decoded.getTransferFunction() is not None
+    assert decoded.get_transfer_function() is not None
 
 
 def test_codec_ComplexLowPass():
@@ -188,7 +188,7 @@ def test_codec_ComplexLowPass():
     assert filter.type == decoded.type
     assert filter.order == decoded.order
     assert filter.freq == decoded.freq
-    assert decoded.getTransferFunction() is not None
+    assert decoded.get_transfer_function() is not None
 
 
 def test_codec_ComplexHighPass():
@@ -202,7 +202,7 @@ def test_codec_ComplexHighPass():
     assert filter.type == decoded.type
     assert filter.order == decoded.order
     assert filter.freq == decoded.freq
-    assert decoded.getTransferFunction() is not None
+    assert decoded.get_transfer_function() is not None
 
 
 def test_codec_CompleteFilter():
@@ -223,7 +223,7 @@ def test_codec_CompleteFilter():
     assert decoded.description == 'Hello from me'
     assert decoded.filters is not None
     assert len(decoded.filters) == len(filter.filters)
-    assert decoded.getTransferFunction() is not None
+    assert decoded.get_transfer_function() is not None
     assert isinstance(decoded.filters[0], filter.filters[0].__class__)
     assert filter.filters[0].fs == decoded.filters[0].fs
     assert filter.filters[0].type == decoded.filters[0].type
@@ -244,9 +244,9 @@ def test_codec_CompleteFilter():
 
 def test_codec_signal():
     fs = 1000
-    peak = LowShelf(fs, 30, 1, 10, count=2).getTransferFunction().getMagnitude()
-    avg = LowShelf(fs, 30, 1, 10).getTransferFunction().getMagnitude()
-    median = LowShelf(fs, 30, 1, 10).getTransferFunction().getMagnitude()
+    peak = LowShelf(fs, 30, 1, 10, count=2).get_transfer_function().get_magnitude()
+    avg = LowShelf(fs, 30, 1, 10).get_transfer_function().get_magnitude()
+    median = LowShelf(fs, 30, 1, 10).get_transfer_function().get_magnitude()
     filt = CompleteFilter()
     filt.save(HighShelf(fs, 60, 1, 5, count=2))
     data = SingleChannelSignalData('test', fs, xy_data=[avg, peak, median], filter=filt, duration_seconds=123456, start_seconds=123, offset=4.2)

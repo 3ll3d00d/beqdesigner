@@ -44,7 +44,7 @@ class AxesManager:
         :param axes: the axes on which to display.
         '''
         if self.__provider is not None:
-            data = self.__provider.getMagnitudeData(reference=self.reference_curve)
+            data = self.__provider(reference=self.reference_curve)
             if len(data) > 0:
                 curve_names = [self.__create_or_update_curve(x) for x in data if data is not None]
             else:
@@ -139,11 +139,12 @@ class MagnitudeModel:
     Allows a set of filters to be displayed on a chart as magnitude responses.
     '''
 
-    def __init__(self, name, chart, preferences, primary_data_provider, primary_name, secondary_data_provider=None,
-                 secondary_name=None, show_legend=lambda: True, db_range_calc=dBRangeCalculator(60),
+    def __init__(self, name, chart, preferences, primary_data_provider, primary_name, primary_prefix='dBFS',
+                 secondary_data_provider=None, secondary_name=None, secondary_prefix='dBFS',
+                 show_legend=lambda: True, db_range_calc=dBRangeCalculator(60),
                  subplot_spec=SINGLE_SUBPLOT_SPEC, redraw_listener=None, grid_alpha=0.5, x_min_pref_key=GRAPH_X_MIN,
                  x_max_pref_key=GRAPH_X_MAX, x_scale_pref_key=GRAPH_X_AXIS_SCALE, fill_curves=False, fill_alpha=0.5,
-                 allow_line_resize=False):
+                 allow_line_resize=False, fill_primary=False, fill_secondary=False, y2_range_calc=None):
         self.__name = name
         self.__chart = chart
         self.__redraw_listener = redraw_listener
@@ -151,25 +152,25 @@ class MagnitudeModel:
         if allow_line_resize:
             self.__chart.canvas.mpl_connect('pick_event', self.__adjust_line_size)
         primary_axes = self.__chart.canvas.figure.add_subplot(subplot_spec)
-        primary_axes.set_ylabel(f"dBFS ({primary_name})")
+        primary_axes.set_ylabel(f"{primary_prefix} ({primary_name})")
         primary_axes.grid(linestyle='-', which='major', linewidth=1, alpha=grid_alpha)
         primary_axes.grid(linestyle='--', which='minor', linewidth=1, alpha=grid_alpha * 0.5)
-        self.__primary = AxesManager(primary_data_provider, primary_axes, fill_curves, fill_alpha)
+        self.__primary = AxesManager(primary_data_provider, primary_axes, fill_curves or fill_primary, fill_alpha)
         if secondary_data_provider is None:
             secondary_axes = None
         else:
             secondary_axes = primary_axes.twinx()
-            secondary_axes.set_ylabel(f"dBFS ({secondary_name})")
+            secondary_axes.set_ylabel(f"{secondary_prefix} ({secondary_name})")
             # bump the z axis so pick events are directed to the primary
             primary_axes.set_zorder(secondary_axes.get_zorder() + 1)
             primary_axes.patch.set_visible(False)
-        self.__secondary = AxesManager(secondary_data_provider, secondary_axes, fill_curves, fill_alpha)
+        self.__secondary = AxesManager(secondary_data_provider, secondary_axes, fill_curves or fill_secondary, fill_alpha)
         if isinstance(db_range_calc, dBRangeCalculator) and not db_range_calc.expand_range:
             db_range_calc.expand_range = preferences.get(GRAPH_EXPAND_Y)
         self.limits = Limits(self.__repr__(), self.__redraw_func, primary_axes,
                              x_lim=(preferences.get(x_min_pref_key), preferences.get(x_max_pref_key)),
-                             y_range_calculator=db_range_calc, axes_2=secondary_axes,
-                             x_scale=preferences.get(x_scale_pref_key))
+                             y1_range_calculator=db_range_calc, axes_2=secondary_axes,
+                             x_scale=preferences.get(x_scale_pref_key), y2_range_calculator=y2_range_calc)
         self.limits.propagate_to_axes(draw=True)
         self.__legend = None
         self.__legend_cid = None

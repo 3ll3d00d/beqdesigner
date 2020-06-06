@@ -14,7 +14,7 @@ from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox, QHeaderView
 from model.iir import FilterType, LowShelf, HighShelf, PeakingEQ, SecondOrder_LowPass, \
     SecondOrder_HighPass, ComplexLowPass, ComplexHighPass, q_to_s, s_to_q, max_permitted_s, CompleteFilter, COMBINED, \
     Passthrough, Gain, Shelf
-from model.limits import dBRangeCalculator
+from model.limits import dBRangeCalculator, PhaseRangeCalculator
 from model.magnitude import MagnitudeModel
 from model.preferences import SHOW_ALL_FILTERS, SHOW_NO_FILTERS, FILTER_COLOURS, DISPLAY_SHOW_FILTERS, DISPLAY_Q_STEP, \
     DISPLAY_GAIN_STEP, DISPLAY_S_STEP, DISPLAY_FREQ_STEP, get_filter_colour, FILTERS_DEFAULT_Q, FILTERS_DEFAULT_FREQ
@@ -127,7 +127,7 @@ class FilterModel(Sequence):
             visible_filter_names += self.filter.child_names()
         self.__on_update(visible_filter_names)
 
-    def getMagnitudeData(self, reference=None):
+    def get_curve_data(self, reference=None):
         '''
         :param reference: the name of the reference data.
         :return: the magnitude response of each filter.
@@ -138,12 +138,12 @@ class FilterModel(Sequence):
         elif len(self.filter) == 0:
             return []
         else:
-            children = [x.getTransferFunction() for x in self.filter]
-            combined = self.filter.getTransferFunction()
+            children = [x.get_transfer_function() for x in self.filter]
+            combined = self.filter.get_transfer_function()
             results = [combined]
             if show_filters == SHOW_ALL_FILTERS and len(self) > 1:
                 results += children
-            mags = [r.getMagnitude() for r in results]
+            mags = [r.get_magnitude() for r in results]
             for idx, m in enumerate(mags):
                 if m.name == COMBINED:
                     m.colour = FILTER_COLOURS[0]
@@ -162,15 +162,15 @@ class FilterModel(Sequence):
         '''
         return self.filter.resample(fs)
 
-    def getTransferFunction(self, fs=None):
+    def get_transfer_function(self, fs=None):
         '''
         :return: the transfer function for this filter (in total) if we have any filters or None if we have none.
         '''
         if len(self.filter) > 0:
             if fs is not None:
-                return self.filter.resample(fs).getTransferFunction()
+                return self.filter.resample(fs).get_transfer_function()
             else:
-                return self.filter.getTransferFunction()
+                return self.filter.get_transfer_function()
         return None
 
 
@@ -269,8 +269,12 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         if self.__filter_model.filter.listener is not None:
             logger.debug(f"Selected filter has listener {self.__filter_model.filter.listener.name}")
         # init the chart
-        self.__magnitude_model = MagnitudeModel('preview', self.previewChart, preferences, self, 'Filter',
-                                                db_range_calc=dBRangeCalculator(30, expand=True), fill_curves=True)
+        self.__magnitude_model = MagnitudeModel('preview', self.previewChart, preferences,
+                                                self.__get_data(), 'Filter', fill_primary=True,
+                                                secondary_data_provider=self.__get_data('phase'),
+                                                secondary_name='Phase', secondary_prefix='deg', fill_secondary=False,
+                                                db_range_calc=dBRangeCalculator(30, expand=True),
+                                                y2_range_calc=PhaseRangeCalculator())
         # remove unsupported filter types
         if valid_filter_types:
             to_remove = []
@@ -569,31 +573,36 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
                 with block_signals(active_view):
                     active_view.selectRow(idx)
 
-    def getMagnitudeData(self, reference=None):
+    def __get_data(self, mode='mag'):
+        return lambda *args, **kwargs: self.get_curve_data(mode, *args, **kwargs)
+
+    def get_curve_data(self, mode, reference=None):
         ''' preview of the filter to display on the chart '''
         result = []
-        extra = 0
-        if len(self.__filter_model) > 0:
-            result.append(self.__filter_model.getTransferFunction()
-                                             .getMagnitude(colour=get_filter_colour(len(result))))
-        else:
-            extra += 1
-        if len(self.__working) > 0:
-            result.append(self.__working.getTransferFunction()
-                                        .getMagnitude(colour=get_filter_colour(len(result)), linestyle='-'))
-        else:
-            extra += 1
-        if len(self.__snapshot) > 0:
-            result.append(self.__snapshot.getTransferFunction()
-                                         .getMagnitude(colour=get_filter_colour(len(result) + extra), linestyle='-.'))
-        else:
-            extra += 1
-        active_model, _ = self.__get_active()
-        for f in active_model:
-            if self.showIndividual.isChecked() or f.id == self.__selected_id:
-                style = '--' if f.id == self.__selected_id else ':'
-                result.append(f.getTransferFunction()
-                               .getMagnitude(colour=get_filter_colour(len(result) + extra), linestyle=style))
+        if mode == 'mag' or self.showPhase.isChecked():
+            extra = 0
+            if len(self.__filter_model) > 0:
+                result.append(self.__filter_model.get_transfer_function()
+                                                 .get_data(mode=mode, colour=get_filter_colour(len(result))))
+            else:
+                extra += 1
+            if len(self.__working) > 0:
+                result.append(self.__working.get_transfer_function()
+                                            .get_data(mode=mode, colour=get_filter_colour(len(result)), linestyle='-'))
+            else:
+                extra += 1
+            if len(self.__snapshot) > 0:
+                result.append(self.__snapshot.get_transfer_function()
+                                             .get_data(mode=mode, colour=get_filter_colour(len(result) + extra),
+                                                       linestyle='-.'))
+            else:
+                extra += 1
+            active_model, _ = self.__get_active()
+            for f in active_model:
+                if self.showIndividual.isChecked() or f.id == self.__selected_id:
+                    style = '--' if f.id == self.__selected_id else ':'
+                    result.append(f.get_transfer_function()
+                                   .get_data(mode=mode, colour=get_filter_colour(len(result) + extra), linestyle=style))
         return result
 
     def create_shaping_filter(self):
@@ -825,6 +834,9 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.__preferences.set(DISPLAY_FREQ_STEP, str(step_val))
         self.freqStepButton.setText(str(step_val))
         self.freq.setSingleStep(step_val)
+
+    def show_phase_response(self):
+        self.__magnitude_model.redraw()
 
 
 def optimise_filters(filters, fs, to_save):

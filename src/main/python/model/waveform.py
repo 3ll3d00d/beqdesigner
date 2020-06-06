@@ -54,8 +54,8 @@ class WaveformController:
                                                     end_time, y_min, y_max, self.__on_x_range_change)
         spectrum_chart.vbl.setContentsMargins(1, 1, 1, 1)
         spectrum_chart.setVisible(False)
-        self.__magnitude_model = MagnitudeModel('spectrum', spectrum_chart, preferences, self, 'Spectrum',
-                                                show_legend=lambda: False)
+        self.__magnitude_model = MagnitudeModel('spectrum', spectrum_chart, preferences, self.get_curve_data,
+                                                'Spectrum', show_legend=lambda: False)
         self.__show_limits_btn = show_limits_btn
         # match the pyqtgraph layout
         self.__load_signal_btn.clicked.connect(self.__load_signal)
@@ -114,7 +114,7 @@ class WaveformController:
         if self.__magnitude_model.is_visible():
             self.__magnitude_model.redraw()
 
-    def getMagnitudeData(self, reference=None):
+    def get_curve_data(self, reference=None):
         '''
         :param reference: ignored as we don't expose a normalisation control in this chart.
         :return: the peak and avg spectrum for the currently filtered signal (if any).

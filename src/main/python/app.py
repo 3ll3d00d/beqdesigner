@@ -186,8 +186,10 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.__configure_signal_model(parent)
         # magnitude
         self.showLegend.setChecked(bool(self.preferences.get(DISPLAY_SHOW_LEGEND)))
-        self.__magnitude_model = MagnitudeModel('main', self.mainChart, self.preferences, self.__signal_model,
-                                                'Signals', self.__filter_model, 'Filters',
+        self.__magnitude_model = MagnitudeModel('main', self.mainChart, self.preferences,
+                                                self.__signal_model.get_curve_data, 'Signals',
+                                                secondary_data_provider=self.__filter_model.get_curve_data,
+                                                secondary_name='Filters',
                                                 show_legend=lambda: self.showLegend.isChecked(), allow_line_resize=True)
         self.__filter_model.filter = self.__default_signal.filter
         self.y1MaxPlus10Button.setIcon(qta.icon('mdi.chevron-double-up'))

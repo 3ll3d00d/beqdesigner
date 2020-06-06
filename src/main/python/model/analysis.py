@@ -357,7 +357,7 @@ class Waveform:
         self.__axes = self.__chart.canvas.figure.add_subplot(111)
         self.__waveform_range = WaveformRange(is_db=self.__ui.magnitudeDecibels.isChecked())
         self.__limits = Limits('waveform', self.__redraw, self.__axes, x_axis_configurer=self.configure_time_axis,
-                               y_range_calculator=self.__waveform_range, x_lim=(0, 1), x_scale='linear')
+                               y1_range_calculator=self.__waveform_range, x_lim=(0, 1), x_scale='linear')
         self.__signal = None
         self.__curve = None
 

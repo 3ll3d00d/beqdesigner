@@ -346,7 +346,7 @@ class SingleChannelSignalData(SignalData):
         if filt is not None:
             unfiltered_avg = self.__unfiltered[None][0]
             unfiltered_peak = self.__unfiltered[None][1]
-            filter_mag = filt.getTransferFunction().getMagnitude()
+            filter_mag = filt.get_transfer_function().get_magnitude()
             filtered = [unfiltered_avg.filter(filter_mag).smooth(self.__smoothing_type),
                         unfiltered_peak.filter(filter_mag).smooth(self.__smoothing_type)]
             if len(self.__unfiltered[None]) == 3:
@@ -735,7 +735,7 @@ class SignalModel(Sequence):
         results = list(flatten([s.get_all_xy() for s in self.__signals]))
         return results
 
-    def getMagnitudeData(self, reference=None):
+    def get_curve_data(self, reference=None):
         '''
         :param reference: the curve against which to normalise.
         :return: the peak,  avg and median spectrum for the signals (if any) + the filter signals.
@@ -1688,7 +1688,7 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
             pulse_loader
         ]
         self.__loader_idx = self.signalTypeTabs.currentIndex()
-        self.__magnitudeModel = MagnitudeModel('preview', self.previewChart, preferences, self, 'Signal')
+        self.__magnitudeModel = MagnitudeModel('preview', self.previewChart, preferences, self.get_curve_data, 'Signal')
         self.__signal_model = signal_model
         if self.__signal_model is None:
             self.filterSelectLabel.setEnabled(False)
@@ -1782,7 +1782,7 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
         '''
         self.__loaders[self.__loader_idx].enable_ok()
 
-    def getMagnitudeData(self, reference=None):
+    def get_curve_data(self, reference=None):
         '''
         :param reference: ignored as we don't expose a normalisation control in this chart.
         :return: the peak and avg spectrum for the currently loaded signal (if any).

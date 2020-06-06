@@ -90,7 +90,7 @@ class Biquad(ABC):
     def sort_key(self):
         pass
 
-    def getTransferFunction(self):
+    def get_transfer_function(self):
         '''
         Computes the transfer function of the filter.
         :return: the transfer function.
@@ -328,8 +328,8 @@ class Shelf(BiquadWithQGain):
         else:
             return [self.__class__(self.fs, self.freq, self.q, self.gain, 1)] * self.count
 
-    def getTransferFunction(self):
-        single = super().getTransferFunction()
+    def get_transfer_function(self):
+        single = super().get_transfer_function()
         if self.count == 1:
             return single
         elif self.count > 1:
@@ -801,17 +801,17 @@ class ComplexFilter(Sequence):
         self.filters = [filter for idx, filter in enumerate(self.filters) if idx not in indices]
         self.__on_change()
 
-    def getTransferFunction(self):
+    def get_transfer_function(self):
         '''
         Computes the transfer function of the filter.
         :return: the transfer function.
         '''
         if self.__cached_transfer is None:
             if len(self.filters) == 0:
-                return Passthrough(fs=self.fs).getTransferFunction()
+                return Passthrough(fs=self.fs).get_transfer_function()
             else:
                 self.__cached_transfer = getCascadeTransferFunction(self.__repr__(),
-                                                                    [x.getTransferFunction() for x in self.filters])
+                                                                    [x.get_transfer_function() for x in self.filters])
         return self.__cached_transfer
 
     def format_biquads(self, invert_a, separator=',\n', show_index=True, to_hex=False, fixed_point=False):
@@ -1027,7 +1027,13 @@ class ComplexData:
         self.__cached_mag = None
         self.__cached_phase = None
 
-    def getMagnitude(self, ref=1, colour=None, linestyle='-'):
+    def get_data(self, mode='mag', **kwargs):
+        if mode == 'mag':
+            return self.get_magnitude(**kwargs)
+        else:
+            return self.get_phase(**kwargs)
+
+    def get_magnitude(self, ref=1, colour=None, linestyle='-'):
         if self.__cached_mag_ref is not None and math.isclose(ref, self.__cached_mag_ref):
             self.__cached_mag.colour = colour
             self.__cached_mag.linestyle = linestyle
@@ -1040,7 +1046,8 @@ class ComplexData:
                                               linestyle=linestyle)
         return self.__cached_mag
 
-    def getPhase(self, colour=None):
+    def get_phase(self, colour=None, linestyle='-', **kwargs):
         if self.__cached_phase is None:
-            self.__cached_phase = MagnitudeData(self.name, None, self.x, np.angle(self.y), colour=colour)
+            self.__cached_phase = MagnitudeData(self.name, None, self.x, np.angle(self.y, deg=True), colour=colour,
+                                                linestyle=linestyle)
         return self.__cached_phase

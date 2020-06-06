@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1390</width>
-    <height>658</height>
+    <height>700</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -260,14 +260,28 @@
       </widget>
      </item>
      <item row="10" column="0" colspan="2">
-      <widget class="QCheckBox" name="showIndividual">
-       <property name="text">
-        <string>Show Individual Filters</string>
-       </property>
-       <property name="checked">
-        <bool>true</bool>
-       </property>
-      </widget>
+      <layout class="QHBoxLayout">
+       <item>
+        <widget class="QCheckBox" name="showIndividual">
+         <property name="text">
+          <string>Show Individual Filters</string>
+         </property>
+         <property name="checked">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QCheckBox" name="showPhase">
+         <property name="text">
+          <string>Show Phase Response</string>
+         </property>
+         <property name="checked">
+          <bool>false</bool>
+         </property>
+        </widget>
+       </item>
+      </layout>
      </item>
      <item row="6" column="2">
       <widget class="QToolButton" name="qStepButton">
@@ -557,8 +571,8 @@
    <slot>enableFilterParams()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>291</x>
-     <y>198</y>
+     <x>344</x>
+     <y>158</y>
     </hint>
     <hint type="destinationlabel">
      <x>53</x>
@@ -573,8 +587,8 @@
    <slot>changeOrderStep()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>291</x>
-     <y>224</y>
+     <x>344</x>
+     <y>196</y>
     </hint>
     <hint type="destinationlabel">
      <x>70</x>
@@ -605,8 +619,8 @@
    <slot>recalcShelfFromGain()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>291</x>
-     <y>354</y>
+     <x>344</x>
+     <y>393</y>
     </hint>
     <hint type="destinationlabel">
      <x>52</x>
@@ -621,8 +635,8 @@
    <slot>previewFilter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>291</x>
-     <y>198</y>
+     <x>344</x>
+     <y>158</y>
     </hint>
     <hint type="destinationlabel">
      <x>252</x>
@@ -637,8 +651,8 @@
    <slot>previewFilter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>291</x>
-     <y>224</y>
+     <x>344</x>
+     <y>196</y>
     </hint>
     <hint type="destinationlabel">
      <x>251</x>
@@ -653,8 +667,8 @@
    <slot>previewFilter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>291</x>
-     <y>250</y>
+     <x>344</x>
+     <y>234</y>
     </hint>
     <hint type="destinationlabel">
      <x>250</x>
@@ -669,8 +683,8 @@
    <slot>previewFilter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>291</x>
-     <y>276</y>
+     <x>344</x>
+     <y>273</y>
     </hint>
     <hint type="destinationlabel">
      <x>196</x>
@@ -701,8 +715,8 @@
    <slot>previewFilter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>291</x>
-     <y>354</y>
+     <x>344</x>
+     <y>393</y>
     </hint>
     <hint type="destinationlabel">
      <x>132</x>
@@ -717,8 +731,8 @@
    <slot>previewFilter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>291</x>
-     <y>380</y>
+     <x>344</x>
+     <y>432</y>
     </hint>
     <hint type="destinationlabel">
      <x>212</x>
@@ -749,8 +763,8 @@
    <slot>handleSToolButton()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>322</x>
-     <y>327</y>
+     <x>383</x>
+     <y>354</y>
     </hint>
     <hint type="destinationlabel">
      <x>292</x>
@@ -765,8 +779,8 @@
    <slot>handleQToolButton()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>322</x>
-     <y>301</y>
+     <x>383</x>
+     <y>314</y>
     </hint>
     <hint type="destinationlabel">
      <x>272</x>
@@ -781,8 +795,8 @@
    <slot>handleGainToolButton()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>322</x>
-     <y>353</y>
+     <x>383</x>
+     <y>394</y>
     </hint>
     <hint type="destinationlabel">
      <x>281</x>
@@ -797,8 +811,8 @@
    <slot>handleFreqToolButton()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>322</x>
-     <y>275</y>
+     <x>383</x>
+     <y>274</y>
     </hint>
     <hint type="destinationlabel">
      <x>278</x>
@@ -813,8 +827,8 @@
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>108</x>
-     <y>432</y>
+     <x>127</x>
+     <y>502</y>
     </hint>
     <hint type="destinationlabel">
      <x>187</x>
@@ -829,8 +843,8 @@
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>214</x>
-     <y>430</y>
+     <x>254</x>
+     <y>503</y>
     </hint>
     <hint type="destinationlabel">
      <x>203</x>
@@ -845,8 +859,8 @@
    <slot>previewFilter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>91</x>
-     <y>403</y>
+     <x>99</x>
+     <y>461</y>
     </hint>
     <hint type="destinationlabel">
      <x>132</x>
@@ -893,12 +907,28 @@
    <slot>show_sub_only()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1372</x>
-     <y>69</y>
+     <x>1382</x>
+     <y>120</y>
     </hint>
     <hint type="destinationlabel">
      <x>1353</x>
      <y>112</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>showPhase</sender>
+   <signal>clicked()</signal>
+   <receiver>editFilterDialog</receiver>
+   <slot>show_phase_response()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>318</x>
+     <y>449</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>392</x>
+     <y>465</y>
     </hint>
    </hints>
   </connection>
@@ -917,5 +947,6 @@
   <slot>show_limits()</slot>
   <slot>show_full_range()</slot>
   <slot>show_sub_only()</slot>
+  <slot>show_phase_response()</slot>
  </slots>
 </ui>
