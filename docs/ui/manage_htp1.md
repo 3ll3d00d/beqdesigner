@@ -63,8 +63,9 @@ This mode allows an existing BEQ filter to be added to the currently selected ch
 
 This relies on the presence of the BEQ filters shared in minidsp xml format, download these using [the Preferences dialog](preferences.md#BEQ-Files)   
 
-!!! warning
-    This feature is of no practical use until the HTP-1 supports shelf filters. A warning will be displayed if you do try to sync until that time
+!!! info
+    The HTP-1 has supported shelf filters since v1.4.1 of its firmware. 
+    A warning will be displayed if you attempt to sync a shelf filter to a device running an earlier version. 
     ![Unsupported Warning](../img/htp1_unsupported.png)  
     
 #### Adding a BEQ
@@ -124,6 +125,3 @@ An alternative to downloading all channels from the device is as follows
   ![BEQMode](../img/htp1_beq_design.png)
   5. Preview the channel to verify
   6. [Sync](#updating-filters-in-the-htp-1) the filters to the device
-
-!!! warning
-    This feature has a flaw in the current beta, watch [the defect](https://github.com/3ll3d00d/beqdesigner/issues/349) for a fix
