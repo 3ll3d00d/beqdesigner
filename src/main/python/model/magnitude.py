@@ -13,7 +13,7 @@ SINGLE_SUBPLOT_SPEC = GridSpec(1, 1).new_subplotspec((0, 0), 1, 1)
 
 
 class AxesManager:
-    def __init__(self, data_provider, axes, fill_curves, fill_alpha):
+    def __init__(self, data_provider, axes, fill_curves, fill_alpha, show_in_legend=True):
         self.__provider = data_provider
         self.__axes = axes
         self.__fill_curves = fill_curves
@@ -21,6 +21,11 @@ class AxesManager:
         self.reference_curve = None
         self.__curves = {}
         self.__polygons = {}
+        self.__show_in_legend = show_in_legend
+
+    @property
+    def show_in_legend(self):
+        return self.__show_in_legend
 
     def artists(self):
         '''
@@ -144,11 +149,13 @@ class MagnitudeModel:
                  show_legend=lambda: True, db_range_calc=dBRangeCalculator(60),
                  subplot_spec=SINGLE_SUBPLOT_SPEC, redraw_listener=None, grid_alpha=0.5, x_min_pref_key=GRAPH_X_MIN,
                  x_max_pref_key=GRAPH_X_MAX, x_scale_pref_key=GRAPH_X_AXIS_SCALE, fill_curves=False, fill_alpha=0.5,
-                 allow_line_resize=False, fill_primary=False, fill_secondary=False, y2_range_calc=None):
+                 allow_line_resize=False, fill_primary=False, fill_secondary=False, y2_range_calc=None,
+                 show_y2_in_legend=True):
         self.__name = name
         self.__chart = chart
         self.__redraw_listener = redraw_listener
         self.__show_legend = show_legend
+        self.__linked_y = y2_range_calc is None
         if allow_line_resize:
             self.__chart.canvas.mpl_connect('pick_event', self.__adjust_line_size)
         primary_axes = self.__chart.canvas.figure.add_subplot(subplot_spec)
@@ -164,7 +171,8 @@ class MagnitudeModel:
             # bump the z axis so pick events are directed to the primary
             primary_axes.set_zorder(secondary_axes.get_zorder() + 1)
             primary_axes.patch.set_visible(False)
-        self.__secondary = AxesManager(secondary_data_provider, secondary_axes, fill_curves or fill_secondary, fill_alpha)
+        self.__secondary = AxesManager(secondary_data_provider, secondary_axes, fill_curves or fill_secondary,
+                                       fill_alpha, show_in_legend=show_y2_in_legend)
         if isinstance(db_range_calc, dBRangeCalculator) and not db_range_calc.expand_range:
             db_range_calc.expand_range = preferences.get(GRAPH_EXPAND_Y)
         self.limits = Limits(self.__repr__(), self.__redraw_func, primary_axes,
@@ -249,7 +257,7 @@ class MagnitudeModel:
         secondary_ylim = self.__secondary.get_ylimits(self.limits.x_min, self.limits.x_max)
         primary_range = primary_ylim[1] - primary_ylim[0]
         secondary_range = secondary_ylim[1] - secondary_ylim[0]
-        if secondary_range > 0:
+        if secondary_range > 0 and self.__linked_y is True:
             range_delta = primary_range - secondary_range
             if range_delta > 0:
                 secondary_ylim = (secondary_ylim[0] - range_delta, secondary_ylim[1])
@@ -269,7 +277,7 @@ class MagnitudeModel:
             self.__chart.canvas.mpl_disconnect(self.__legend_cid)
 
         if self.__show_legend():
-            lines = self.__primary.artists() + self.__secondary.artists()
+            lines = self.__primary.artists() + (self.__secondary.artists() if self.__secondary.show_in_legend else [])
             if len(lines) > 0:
                 ncol = int(len(lines) / 3) if len(lines) % 3 == 0 else int(len(lines) / 3) + 1
                 self.__legend = self.__primary.make_legend(lines, ncol)

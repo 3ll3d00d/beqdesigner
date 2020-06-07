@@ -34,7 +34,7 @@ class PrintFirstHalfFormatter(Formatter):
 class PhaseRangeCalculator:
 
     def calculate(self, y_range):
-        return -180.0, 180
+        return -180.0, 360.0
 
 
 class dBRangeCalculator:

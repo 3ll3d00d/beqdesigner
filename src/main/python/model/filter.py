@@ -274,7 +274,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
                                                 secondary_data_provider=self.__get_data('phase'),
                                                 secondary_name='Phase', secondary_prefix='deg', fill_secondary=False,
                                                 db_range_calc=dBRangeCalculator(30, expand=True),
-                                                y2_range_calc=PhaseRangeCalculator())
+                                                y2_range_calc=PhaseRangeCalculator(), show_y2_in_legend=False)
         # remove unsupported filter types
         if valid_filter_types:
             to_remove = []
