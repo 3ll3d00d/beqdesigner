@@ -41,7 +41,7 @@ import qtawesome as qta
 from matplotlib import style
 
 from model.export import ExportSignalDialog, Mode
-from model.iir import Passthrough, CompleteFilter
+from model.iir import Passthrough, CompleteFilter, as_equalizer_apo
 from ui.biquad import Ui_exportBiquadDialog
 from ui.savechart import Ui_saveChartDialog
 
@@ -1194,11 +1194,19 @@ class ExportBiquadDialog(QDialog, Ui_exportBiquadDialog):
 
     def update_format(self, selected_format):
         if selected_format == 'User Selected':
+            self.fs.setVisible(True)
+            self.fsLabel.setVisible(True)
             self.fs.setEnabled(True)
+            self.maxBiquads.setVisible(True)
             self.maxBiquads.setEnabled(True)
             self.maxBiquads.setMaximum(1000)
             self.maxBiquads.setMinimum(1)
             self.maxBiquads.setSingleStep(1)
+            self.showHex.setVisible(False)
+        elif selected_format == 'Equalizer APO':
+            self.fs.setVisible(False)
+            self.fsLabel.setVisible(False)
+            self.maxBiquads.setVisible(False)
             self.showHex.setVisible(False)
         else:
             if selected_format == 'Minidsp 2x4HD':
@@ -1215,6 +1223,9 @@ class ExportBiquadDialog(QDialog, Ui_exportBiquadDialog):
                 self.maxBiquads.setSingleStep(2)
             self.showHex.setVisible('HD' in selected_format)
             self.fs.setEnabled(False)
+            self.fs.setVisible(True)
+            self.maxBiquads.setVisible(True)
+            self.fsLabel.setVisible(True)
             self.maxBiquads.setEnabled(True)
         if not self.showHex.isVisible():
             self.showHex.setChecked(False)
@@ -1223,16 +1234,19 @@ class ExportBiquadDialog(QDialog, Ui_exportBiquadDialog):
     def updateBiquads(self):
         has_txt = False
         if self.__filter is not None and len(self.__filter) > 0:
-            self.__filter = self.__filter.resample(int(self.fs.currentText()))
-            is_fixed_point = 'Minidsp 10x10HD' == self.outputFormat.currentText() or 'Minidsp 2x4' == self.outputFormat.currentText()
-            kwargs = {'to_hex': self.showHex.isChecked(), 'fixed_point': is_fixed_point}
-            biquads = list(flatten([self.__filter.format_biquads(self.outputFormat.currentText() != 'User Selected',
-                                                                 **kwargs)]))
-            if len(biquads) < self.maxBiquads.value():
-                passthrough = [Passthrough()] * (self.maxBiquads.value() - len(biquads))
-                biquads += list(flatten([x.format_biquads(self.outputFormat.currentText() != 'User Selected', **kwargs) for x in passthrough]))
-            prefix = 'hex' if self.showHex.isChecked() else 'biquad'
-            text = ",\n".join([f"{prefix}{idx+1},\n{bq}" for idx, bq in enumerate(biquads)])
+            if 'Equalizer APO' == self.outputFormat.currentText():
+                text = "\n".join([f"Filter {idx+1}: {t}" for idx, t in enumerate(list(flatten([as_equalizer_apo(f) for f in self.__filter])))])
+            else:
+                self.__filter = self.__filter.resample(int(self.fs.currentText()))
+                is_fixed_point = 'Minidsp 10x10HD' == self.outputFormat.currentText() or 'Minidsp 2x4' == self.outputFormat.currentText()
+                kwargs = {'to_hex': self.showHex.isChecked(), 'fixed_point': is_fixed_point}
+                biquads = list(flatten([self.__filter.format_biquads(self.outputFormat.currentText() != 'User Selected',
+                                                                     **kwargs)]))
+                if len(biquads) < self.maxBiquads.value():
+                    passthrough = [Passthrough()] * (self.maxBiquads.value() - len(biquads))
+                    biquads += list(flatten([x.format_biquads(self.outputFormat.currentText() != 'User Selected', **kwargs) for x in passthrough]))
+                prefix = 'hex' if self.showHex.isChecked() else 'biquad'
+                text = ",\n".join([f"{prefix}{idx+1},\n{bq}" for idx, bq in enumerate(biquads)])
             has_txt = len(text.strip()) > 0
             self.biquads.setPlainText(text)
         if not has_txt:

@@ -1051,3 +1051,22 @@ class ComplexData:
             self.__cached_phase = MagnitudeData(self.name, None, self.x, np.angle(self.y, deg=True), colour=colour,
                                                 linestyle=linestyle)
         return self.__cached_phase
+
+
+def as_equalizer_apo(filt):
+    '''
+    formats a filter in Equalizer APO config format (https://sourceforge.net/p/equalizerapo/wiki/Configuration%20reference/)
+    :param filt: the filter.
+    :return: the text.
+    '''
+    if isinstance(filt, PeakingEQ):
+        return f"ON PK Fc {filt.freq:g} Hz Gain {filt.gain:g} dB Q {filt.q:g}"
+    elif isinstance(filt, Shelf):
+        if filt.count == 1:
+            return f"ON {filt.filter_type}C Fc {filt.freq:g} Hz Gain {filt.gain:g} dB Q {filt.q:g}"
+        else:
+            return [as_equalizer_apo(f) for f in filt.flatten()]
+    elif isinstance(filt, AllPass):
+        return f"ON AP Fc {filt.freq:g} Hz Q {filt.q:g}"
+    else:
+        return None
