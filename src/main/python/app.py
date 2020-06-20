@@ -1199,6 +1199,7 @@ class ExportBiquadDialog(QDialog, Ui_exportBiquadDialog):
             self.fs.setEnabled(True)
             self.maxBiquads.setVisible(True)
             self.maxBiquads.setEnabled(True)
+            self.maxBiquadsLabel.setVisible(True)
             self.maxBiquads.setMaximum(1000)
             self.maxBiquads.setMinimum(1)
             self.maxBiquads.setSingleStep(1)
@@ -1207,6 +1208,7 @@ class ExportBiquadDialog(QDialog, Ui_exportBiquadDialog):
             self.fs.setVisible(False)
             self.fsLabel.setVisible(False)
             self.maxBiquads.setVisible(False)
+            self.maxBiquadsLabel.setVisible(False)
             self.showHex.setVisible(False)
         else:
             if selected_format == 'Minidsp 2x4HD':
@@ -1225,6 +1227,7 @@ class ExportBiquadDialog(QDialog, Ui_exportBiquadDialog):
             self.fs.setEnabled(False)
             self.fs.setVisible(True)
             self.maxBiquads.setVisible(True)
+            self.maxBiquadsLabel.setVisible(True)
             self.fsLabel.setVisible(True)
             self.maxBiquads.setEnabled(True)
         if not self.showHex.isVisible():
