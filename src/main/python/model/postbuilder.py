@@ -9,6 +9,7 @@ from qtpy.QtGui import QRegExpValidator, QValidator, QIcon
 from qtpy.QtWidgets import QDialog, QFileDialog
 
 from model.iir import Gain
+from model.merge import DspType
 from model.minidsp import HDXmlParser, pad_with_passthrough
 from model.preferences import BEQ_DOWNLOAD_DIR
 from ui.postbuilder import Ui_postbuilder
@@ -63,8 +64,8 @@ class CreateAVSPostDialog(QDialog, Ui_postbuilder):
                     file_path = os.path.join(sys._MEIPASS, 'flat24hd.xml')
                 else:
                     file_path = os.path.abspath(os.path.join(os.path.dirname('__file__'), '../xml/flat24hd.xml'))
-                filters = pad_with_passthrough(self.__filter_model.filter, 96000, 10)
-                output_xml = HDXmlParser('2x4 HD').overwrite(filters, file_path, metadata)
+                filt = self.__filter_model.filter
+                output_xml = HDXmlParser(DspType.MINIDSP_TWO_BY_FOUR_HD, False).convert(file_path, filt, metadata)
                 with open(file_name, 'w') as f:
                     f.write(output_xml)
 

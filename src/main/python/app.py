@@ -31,7 +31,8 @@ from model.link import LinkSignalsDialog
 from model.preferences import DISPLAY_SHOW_FILTERED_SIGNALS, SYSTEM_CHECK_FOR_UPDATES, BIQUAD_EXPORT_MAX,\
     BIQUAD_EXPORT_FS, BIQUAD_EXPORT_DEVICE, SHOW_NO_FILTERS, SYSTEM_CHECK_FOR_BETA_UPDATES, \
     BEQ_REPOS, BEQ_DEFAULT_REPO
-from model.minidsp import MergeFiltersDialog, HDXmlParser, pad_with_passthrough
+from model.minidsp import HDXmlParser, pad_with_passthrough
+from model.merge import MergeFiltersDialog
 from model.postbuilder import CreateAVSPostDialog
 
 from ui.delegates import RegexValidator
@@ -1093,7 +1094,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
             else:
                 file_path = os.path.abspath(os.path.join(os.path.dirname('__file__'), '../xml/flat24hd.xml'))
             filters = pad_with_passthrough(self.__filter_model.filter, 96000, 10)
-            output_xml = HDXmlParser('2x4 HD').overwrite(filters, file_path)
+            output_xml = HDXmlParser('2x4 HD')._overwrite(filters, file_path)
             with open(file_name, 'w') as f:
                 f.write(output_xml)
 

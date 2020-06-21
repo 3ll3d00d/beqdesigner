@@ -157,6 +157,7 @@ BEQ_MERGE_DIR = 'beq/merge_dir'
 BEQ_CONFIG_FILE = 'beq/config_file'
 BEQ_EXTRA_DIR = 'beq/extra_dir'
 BEQ_MINIDSP_TYPE = 'beq/minidsp_type'
+BEQ_OUTPUT_CHANNELS = 'beq/output_channels'
 BEQ_REPOS = 'beq/repos'
 
 BEQ_DEFAULT_GH_URL = 'https://github.com/bmiller/miniDSPBEQ'

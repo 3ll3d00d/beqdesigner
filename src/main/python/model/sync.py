@@ -838,3 +838,53 @@ class EditMappingDialog(QDialog, Ui_editMappingDialog):
         for c in self.channels.selectedItems():
             self.on_change_handler(c.text(), signal)
         super().accept()
+
+
+class HTP1Parser:
+
+    def __init__(self, channels=('sub1',)):
+        self.__target_channels = channels
+
+    def convert(self, dst, filt, **kwargs):
+        from model.minidsp import flatten_filters
+        flat_filts = flatten_filters(filt)
+        conf = json.loads(dst.read_text())
+        if len(flat_filts) > 0:
+            logger.info(f"Copying {len(flat_filts)} to {dst}")
+            htp1_filts = [self.__to_htp_filt(f) for f in flat_filts]
+            start_idx = 16 - len(htp1_filts)
+            for slot_idx, slot in enumerate(conf['peq']['slots']):
+                filt_idx = slot_idx - start_idx
+                if filt_idx >= 0:
+                    peq_by_channel = conf['peq']['slots'][slot_idx]['channels']
+                    for c in self.__target_channels:
+                        for k in htp1_filts[filt_idx].keys():
+                            peq_by_channel[c][k] = htp1_filts[filt_idx][k]
+        else:
+            logger.warning(f"Nop for empty filter file {dst}")
+        return json.dumps(conf, indent=2, sort_keys=True), False
+
+    @staticmethod
+    def __to_htp_filt(filt):
+        '''
+        :param filt: a filter.
+        :return: a dict in htp1 format.
+        '''
+        filt_type = -1
+        if isinstance(filt, PeakingEQ):
+            filt_type = 0
+        elif isinstance(filt, LowShelf):
+            filt_type = 1
+        elif isinstance(filt, HighShelf):
+            filt_type = 2
+        if filt_type == -1:
+            raise ValueError(f"Unsupported filter type {filt}")
+        return {
+            'Fc': filt.freq,
+            'Q': filt.q,
+            'gaindB': filt.gain,
+            'FilterType': filt_type
+        }
+
+    def file_extension(self):
+        return '.json'

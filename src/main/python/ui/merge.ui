@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>mergeMinidspDialog</class>
- <widget class="QDialog" name="mergeMinidspDialog">
+ <class>mergeDspDialog</class>
+ <widget class="QDialog" name="mergeDspDialog">
   <property name="geometry">
    <rect>
     <x>0</x>
     <y>0</y>
     <width>639</width>
-    <height>655</height>
+    <height>686</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Merge Minidsp Config</string>
+   <string>Merge DSP Config</string>
   </property>
   <layout class="QGridLayout" name="gridLayout">
    <item row="1" column="0">
@@ -25,28 +25,31 @@
     </widget>
    </item>
    <item row="0" column="0">
-    <layout class="QGridLayout" name="innerLayout" rowstretch="0,0,0,0,0,0,0,0,0,0" columnstretch="0,0,0,0,0,0">
-     <item row="5" column="0">
-      <widget class="QLabel" name="outputDirectoryLabel">
-       <property name="text">
-        <string>Output Directory</string>
-       </property>
-      </widget>
+    <layout class="QGridLayout" name="innerLayout" rowstretch="0,0,0,0,0,0,0,0,0,0,0" columnstretch="0,0,0,0,0,0">
+     <item row="0" column="1" colspan="4">
+      <widget class="QComboBox" name="beqRepos"/>
      </item>
-     <item row="7" column="0">
-      <widget class="QLabel" name="filesProcessedLabel">
-       <property name="text">
-        <string>Files Processed</string>
-       </property>
-      </widget>
+     <item row="6" column="1" colspan="4">
+      <widget class="QComboBox" name="dspType"/>
      </item>
-     <item row="7" column="3">
-      <widget class="QSpinBox" name="totalFiles">
+     <item row="1" column="1" colspan="3">
+      <widget class="QDateTimeEdit" name="lastCommitDate">
        <property name="readOnly">
         <bool>true</bool>
        </property>
-       <property name="maximum">
-        <number>10000</number>
+      </widget>
+     </item>
+     <item row="10" column="1" colspan="4">
+      <widget class="QListWidget" name="errors">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+      </widget>
+     </item>
+     <item row="10" column="5">
+      <widget class="QToolButton" name="copyErrorsButton">
+       <property name="text">
+        <string>...</string>
        </property>
       </widget>
      </item>
@@ -54,6 +57,109 @@
       <widget class="QLabel" name="configFileLabel">
        <property name="text">
         <string>Config File</string>
+       </property>
+      </widget>
+     </item>
+     <item row="3" column="5">
+      <widget class="QToolButton" name="userSourceDirPicker">
+       <property name="text">
+        <string>...</string>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="4">
+      <widget class="QLabel" name="infoLabel">
+       <property name="text">
+        <string/>
+       </property>
+      </widget>
+     </item>
+     <item row="4" column="1" colspan="4">
+      <widget class="QLineEdit" name="configFile">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item row="8" column="4">
+      <spacer name="horizontalSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item row="4" column="5">
+      <widget class="QToolButton" name="configFilePicker">
+       <property name="text">
+        <string>...</string>
+       </property>
+      </widget>
+     </item>
+     <item row="8" column="0">
+      <widget class="QLabel" name="filesProcessedLabel">
+       <property name="text">
+        <string>Files Processed</string>
+       </property>
+      </widget>
+     </item>
+     <item row="10" column="0">
+      <widget class="QLabel" name="errorsLabel">
+       <property name="text">
+        <string>Errors</string>
+       </property>
+      </widget>
+     </item>
+     <item row="5" column="0">
+      <widget class="QLabel" name="outputDirectoryLabel">
+       <property name="text">
+        <string>Output Directory</string>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="0">
+      <widget class="QLabel" name="beqReposLabel">
+       <property name="text">
+        <string>Repo</string>
+       </property>
+      </widget>
+     </item>
+     <item row="5" column="5">
+      <widget class="QToolButton" name="outputDirectoryPicker">
+       <property name="text">
+        <string>...</string>
+       </property>
+      </widget>
+     </item>
+     <item row="9" column="5">
+      <widget class="QToolButton" name="copyOptimisedButton">
+       <property name="text">
+        <string>...</string>
+       </property>
+      </widget>
+     </item>
+     <item row="9" column="0">
+      <widget class="QLabel" name="optimisedLabel">
+       <property name="text">
+        <string>Optimised</string>
+       </property>
+      </widget>
+     </item>
+     <item row="5" column="1" colspan="4">
+      <widget class="QLineEdit" name="outputDirectory">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+       <property name="readOnly">
+        <bool>true</bool>
        </property>
       </widget>
      </item>
@@ -75,91 +181,20 @@
        </item>
       </layout>
      </item>
-     <item row="1" column="1" colspan="3">
-      <widget class="QDateTimeEdit" name="lastCommitDate">
-       <property name="readOnly">
-        <bool>true</bool>
-       </property>
-      </widget>
-     </item>
-     <item row="0" column="1" colspan="4">
-      <widget class="QComboBox" name="beqRepos"/>
-     </item>
-     <item row="6" column="1" colspan="4">
-      <widget class="QComboBox" name="minidspType"/>
-     </item>
-     <item row="9" column="1" colspan="4">
-      <widget class="QListWidget" name="errors">
-       <property name="enabled">
-        <bool>false</bool>
-       </property>
-      </widget>
-     </item>
-     <item row="9" column="0">
-      <widget class="QLabel" name="errorsLabel">
+     <item row="8" column="2">
+      <widget class="QLabel" name="ofLabel">
        <property name="text">
-        <string>Errors</string>
+        <string>of</string>
        </property>
       </widget>
      </item>
-     <item row="1" column="0">
-      <widget class="QLabel" name="lastUpdateLabel">
-       <property name="text">
-        <string>Last Update</string>
-       </property>
-      </widget>
-     </item>
-     <item row="5" column="1" colspan="4">
-      <widget class="QLineEdit" name="outputDirectory">
-       <property name="enabled">
-        <bool>false</bool>
-       </property>
-       <property name="readOnly">
-        <bool>true</bool>
-       </property>
-      </widget>
-     </item>
-     <item row="7" column="5">
-      <widget class="QToolButton" name="processFiles">
-       <property name="text">
-        <string>...</string>
-       </property>
-      </widget>
-     </item>
-     <item row="6" column="0">
-      <widget class="QLabel" name="minidspTypeLabel">
-       <property name="text">
-        <string>Minidsp Type</string>
-       </property>
-      </widget>
-     </item>
-     <item row="7" column="1">
+     <item row="8" column="1">
       <widget class="QSpinBox" name="filesProcessed">
        <property name="readOnly">
         <bool>true</bool>
        </property>
        <property name="maximum">
         <number>100000</number>
-       </property>
-      </widget>
-     </item>
-     <item row="7" column="4">
-      <spacer name="horizontalSpacer">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>40</width>
-         <height>20</height>
-        </size>
-       </property>
-      </spacer>
-     </item>
-     <item row="0" column="0">
-      <widget class="QLabel" name="beqReposLabel">
-       <property name="text">
-        <string>Repo</string>
        </property>
       </widget>
      </item>
@@ -170,48 +205,27 @@
        </property>
       </widget>
      </item>
-     <item row="7" column="2">
-      <widget class="QLabel" name="ofLabel">
+     <item row="8" column="5">
+      <widget class="QToolButton" name="processFiles">
        <property name="text">
-        <string>of</string>
+        <string>...</string>
        </property>
       </widget>
      </item>
-     <item row="4" column="1" colspan="4">
-      <widget class="QLineEdit" name="configFile">
-       <property name="enabled">
-        <bool>false</bool>
+     <item row="6" column="0">
+      <widget class="QLabel" name="dspTypeLabel">
+       <property name="text">
+        <string>DSP Type</string>
        </property>
+      </widget>
+     </item>
+     <item row="8" column="3">
+      <widget class="QSpinBox" name="totalFiles">
        <property name="readOnly">
         <bool>true</bool>
        </property>
-      </widget>
-     </item>
-     <item row="5" column="5">
-      <widget class="QToolButton" name="outputDirectoryPicker">
-       <property name="text">
-        <string>...</string>
-       </property>
-      </widget>
-     </item>
-     <item row="1" column="5">
-      <widget class="QToolButton" name="refreshGitRepo">
-       <property name="text">
-        <string>...</string>
-       </property>
-      </widget>
-     </item>
-     <item row="1" column="4">
-      <widget class="QLabel" name="infoLabel">
-       <property name="text">
-        <string/>
-       </property>
-      </widget>
-     </item>
-     <item row="4" column="5">
-      <widget class="QToolButton" name="configFilePicker">
-       <property name="text">
-        <string>...</string>
+       <property name="maximum">
+        <number>10000</number>
        </property>
       </widget>
      </item>
@@ -222,34 +236,34 @@
        </property>
       </widget>
      </item>
-     <item row="3" column="5">
-      <widget class="QToolButton" name="userSourceDirPicker">
+     <item row="1" column="5">
+      <widget class="QToolButton" name="refreshGitRepo">
        <property name="text">
         <string>...</string>
        </property>
       </widget>
      </item>
-     <item row="8" column="0">
-      <widget class="QLabel" name="optimisedLabel">
-       <property name="text">
-        <string>Optimised</string>
-       </property>
-      </widget>
-     </item>
-     <item row="8" column="1" colspan="4">
+     <item row="9" column="1" colspan="4">
       <widget class="QListWidget" name="optimised"/>
      </item>
-     <item row="8" column="5">
-      <widget class="QToolButton" name="copyOptimisedButton">
+     <item row="1" column="0">
+      <widget class="QLabel" name="lastUpdateLabel">
        <property name="text">
-        <string>...</string>
+        <string>Last Update</string>
        </property>
       </widget>
      </item>
-     <item row="9" column="5">
-      <widget class="QToolButton" name="copyErrorsButton">
+     <item row="7" column="0">
+      <widget class="QLabel" name="outputChannelsLabel">
        <property name="text">
-        <string>...</string>
+        <string>Output Channels</string>
+       </property>
+      </widget>
+     </item>
+     <item row="7" column="1" colspan="3">
+      <widget class="QListWidget" name="outputChannels">
+       <property name="selectionMode">
+        <enum>QAbstractItemView::MultiSelection</enum>
        </property>
       </widget>
      </item>
@@ -269,7 +283,7 @@
   <tabstop>configFilePicker</tabstop>
   <tabstop>outputDirectory</tabstop>
   <tabstop>outputDirectoryPicker</tabstop>
-  <tabstop>minidspType</tabstop>
+  <tabstop>dspType</tabstop>
   <tabstop>filesProcessed</tabstop>
   <tabstop>totalFiles</tabstop>
   <tabstop>processFiles</tabstop>
@@ -280,12 +294,12 @@
   <connection>
    <sender>buttonBox</sender>
    <signal>accepted()</signal>
-   <receiver>mergeMinidspDialog</receiver>
+   <receiver>mergeDspDialog</receiver>
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>257</x>
-     <y>645</y>
+     <x>263</x>
+     <y>679</y>
     </hint>
     <hint type="destinationlabel">
      <x>157</x>
@@ -296,12 +310,12 @@
   <connection>
    <sender>buttonBox</sender>
    <signal>rejected()</signal>
-   <receiver>mergeMinidspDialog</receiver>
+   <receiver>mergeDspDialog</receiver>
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>349</x>
-     <y>645</y>
+     <x>355</x>
+     <y>679</y>
     </hint>
     <hint type="destinationlabel">
      <x>286</x>
@@ -312,12 +326,12 @@
   <connection>
    <sender>configFilePicker</sender>
    <signal>clicked()</signal>
-   <receiver>mergeMinidspDialog</receiver>
+   <receiver>mergeDspDialog</receiver>
    <slot>pick_config_file()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>628</x>
-     <y>251</y>
+     <x>631</x>
+     <y>250</y>
     </hint>
     <hint type="destinationlabel">
      <x>379</x>
@@ -328,7 +342,7 @@
   <connection>
    <sender>outputDirectoryPicker</sender>
    <signal>clicked()</signal>
-   <receiver>mergeMinidspDialog</receiver>
+   <receiver>mergeDspDialog</receiver>
    <slot>pick_output_dir()</slot>
    <hints>
     <hint type="sourcelabel">
@@ -344,12 +358,12 @@
   <connection>
    <sender>processFiles</sender>
    <signal>clicked()</signal>
-   <receiver>mergeMinidspDialog</receiver>
+   <receiver>mergeDspDialog</receiver>
    <slot>process_files()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>628</x>
-     <y>329</y>
+     <x>631</x>
+     <y>458</y>
     </hint>
     <hint type="destinationlabel">
      <x>363</x>
@@ -360,7 +374,7 @@
   <connection>
    <sender>refreshGitRepo</sender>
    <signal>clicked()</signal>
-   <receiver>mergeMinidspDialog</receiver>
+   <receiver>mergeDspDialog</receiver>
    <slot>refresh_repo()</slot>
    <hints>
     <hint type="sourcelabel">
@@ -376,12 +390,12 @@
   <connection>
    <sender>userSourceDirPicker</sender>
    <signal>clicked()</signal>
-   <receiver>mergeMinidspDialog</receiver>
+   <receiver>mergeDspDialog</receiver>
    <slot>pick_user_source_dir()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>628</x>
-     <y>224</y>
+     <x>631</x>
+     <y>209</y>
     </hint>
     <hint type="destinationlabel">
      <x>616</x>
@@ -392,12 +406,12 @@
   <connection>
    <sender>clearUserSourceDir</sender>
    <signal>clicked()</signal>
-   <receiver>mergeMinidspDialog</receiver>
+   <receiver>mergeDspDialog</receiver>
    <slot>clear_user_source_dir()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>596</x>
-     <y>224</y>
+     <x>591</x>
+     <y>209</y>
     </hint>
     <hint type="destinationlabel">
      <x>592</x>
@@ -408,7 +422,7 @@
   <connection>
    <sender>beqRepos</sender>
    <signal>currentTextChanged(QString)</signal>
-   <receiver>mergeMinidspDialog</receiver>
+   <receiver>mergeDspDialog</receiver>
    <slot>update_beq_repo_status()</slot>
    <hints>
     <hint type="sourcelabel">
@@ -424,12 +438,12 @@
   <connection>
    <sender>copyOptimisedButton</sender>
    <signal>clicked()</signal>
-   <receiver>mergeMinidspDialog</receiver>
+   <receiver>mergeDspDialog</receiver>
    <slot>copy_optimised()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>615</x>
-     <y>409</y>
+     <x>631</x>
+     <y>523</y>
     </hint>
     <hint type="destinationlabel">
      <x>624</x>
@@ -440,16 +454,32 @@
   <connection>
    <sender>copyErrorsButton</sender>
    <signal>clicked()</signal>
-   <receiver>mergeMinidspDialog</receiver>
+   <receiver>mergeDspDialog</receiver>
    <slot>copy_errors()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>606</x>
-     <y>543</y>
+     <x>631</x>
+     <y>613</y>
     </hint>
     <hint type="destinationlabel">
      <x>626</x>
      <y>573</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>dspType</sender>
+   <signal>currentTextChanged(QString)</signal>
+   <receiver>mergeDspDialog</receiver>
+   <slot>dsp_type_changed()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>520</x>
+     <y>315</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>610</x>
+     <y>363</y>
     </hint>
    </hints>
   </connection>
@@ -464,5 +494,6 @@
   <slot>update_beq_repo_status()</slot>
   <slot>copy_optimised()</slot>
   <slot>copy_errors()</slot>
+  <slot>dsp_type_changed()</slot>
  </slots>
 </ui>
