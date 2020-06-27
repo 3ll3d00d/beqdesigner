@@ -20,12 +20,16 @@ class XmlParser(ABC):
         self.__minidsp_type = minidsp_type
         self.__optimise_filters = optimise_filters
 
+    @property
+    def minidsp_type(self):
+        return self.__minidsp_type
+
     def __pad(self, filt):
         was_optimised = False
         try:
             filters = pad_with_passthrough(filt,
-                                           fs=self.__minidsp_type.target_fs,
-                                           required=self.__minidsp_type.filters_required,
+                                           fs=self.minidsp_type.target_fs,
+                                           required=self.minidsp_type.filters_required,
                                            optimise=self.__optimise_filters)
         except OptimisedFilters as e:
             was_optimised = True
@@ -112,8 +116,23 @@ class HDXmlParser(XmlParser):
     '''
     Handles HD models (2x4HD and 10x10HD)
     '''
-    def __init__(self, minidsp_type, optimise_filters):
+    def __init__(self, minidsp_type, optimise_filters, selected_channels):
         super().__init__(minidsp_type, optimise_filters)
+        if selected_channels:
+            self.__selected_channels = [self.__extract_channel(i) for i in selected_channels]
+        else:
+            self.__selected_channels = minidsp_type.filter_channels
+
+    @staticmethod
+    def __extract_channel(txt):
+        if len(txt) == 1:
+            return txt[0]
+        elif txt[0:5] == 'Input':
+            return txt[-1]
+        elif txt[0:6] == 'Output':
+            return str(int(txt[-1]) + 2)
+        else:
+            raise ValueError(f"Unsupported channel {txt}")
 
     def _overwrite(self, filters, target, metadata=None):
         '''
@@ -134,7 +153,7 @@ class HDXmlParser(XmlParser):
                     (filt_type, filt_channel, filt_slot) = filter_tokens
                     if len(filter_tokens) == 3:
                         if filt_type == 'PEQ':
-                            if filt_channel in self.__minidsp_type.filter_channels:
+                            if filt_channel in self.__selected_channels:
                                 if int(filt_slot) > len(filters):
                                     root.remove(child)
                                 else:
@@ -156,7 +175,7 @@ class HDXmlParser(XmlParser):
                                     child.find('dec').text = f"{dec_txt},"
                                     hex_txt = filt.format_biquads(True, separator=',',
                                                                   show_index=False, to_hex=True,
-                                                                  fixed_point=self.__minidsp_type.is_fixed_point_hardware())[0]
+                                                                  fixed_point=self.minidsp_type.is_fixed_point_hardware())[0]
                                     child.find('hex').text = f"{hex_txt},"
         if metadata is not None:
             metadata_tag = ET.Element('beq_metadata')

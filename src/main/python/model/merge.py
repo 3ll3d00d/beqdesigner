@@ -401,44 +401,26 @@ class MergeFiltersDialog(QDialog, Ui_mergeDspDialog):
         :param selected: the dsp type
         '''
         dsp_type = DspType.parse(selected)
-        if dsp_type == DspType.MONOPRICE_HTP1:
+        if dsp_type in OUTPUT_CHANNELS_BY_DEVICE:
             self.outputChannels.clear()
-            self.outputChannels.addItem('sub1')
-            self.outputChannels.addItem('sub2')
-            self.outputChannels.addItem('sub3')
-            self.outputChannels.addItem('sub4')
-            self.outputChannels.addItem('sub5')
-            self.outputChannels.addItem('lf')
-            self.outputChannels.addItem('rf')
-            self.outputChannels.addItem('c')
-            self.outputChannels.addItem('ls')
-            self.outputChannels.addItem('rs')
-            self.outputChannels.addItem('lb')
-            self.outputChannels.addItem('rb')
-            self.outputChannels.addItem('ltf')
-            self.outputChannels.addItem('rtf')
-            self.outputChannels.addItem('ltm')
-            self.outputChannels.addItem('rtm')
-            self.outputChannels.addItem('ltr')
-            self.outputChannels.addItem('rtr')
-            self.outputChannels.addItem('lw')
-            self.outputChannels.addItem('rw')
-            self.outputChannels.addItem('lfh')
-            self.outputChannels.addItem('rfh')
-            self.outputChannels.addItem('lhb')
-            self.outputChannels.addItem('rhb')
+            for c in OUTPUT_CHANNELS_BY_DEVICE[dsp_type]:
+                self.outputChannels.addItem(c)
             self.outputChannels.setVisible(True)
             self.outputChannelsLabel.setVisible(True)
         else:
             self.outputChannels.setVisible(False)
             self.outputChannelsLabel.setVisible(False)
-        saved_channels = self.__preferences.get(BEQ_OUTPUT_CHANNELS)
+        saved_channels = self.__preferences.get(BEQ_OUTPUT_CHANNELS) if selected == self.__preferences.get(BEQ_MINIDSP_TYPE) else None
         if saved_channels is not None:
             selected_channels = saved_channels.split('|')
-            for i in range(self.outputChannels.count()):
-                w: QListWidgetItem = self.outputChannels.item(i)
-                if w.text() in selected_channels:
-                    w.setSelected(True)
+        elif dsp_type in DEFAULT_OUTPUT_CHANNELS_BY_DEVICE:
+            selected_channels = DEFAULT_OUTPUT_CHANNELS_BY_DEVICE[dsp_type]
+        else:
+            selected_channels = []
+        for i in range(self.outputChannels.count()):
+            w: QListWidgetItem = self.outputChannels.item(i)
+            if w.text() in selected_channels:
+                w.setSelected(True)
 
 
 class DspType(Enum):
@@ -491,6 +473,19 @@ class DspType(Enum):
             return ['1', '2']
 
 
+OUTPUT_CHANNELS_BY_DEVICE = {
+    DspType.MONOPRICE_HTP1: ['sub1', 'sub2', 'sub3', 'sub4', 'sub5', 'lf', 'rf', 'c', 'ls', 'rs', 'lb', 'rb', 'ltf', 'rtf', 'ltm', 'rtm', 'ltr', 'rtr', 'lw', 'rw', 'lfh', 'rfh', 'lhb', 'rhb'],
+    DspType.MINIDSP_TWO_BY_FOUR_HD: ['Input 1', 'Input 2', 'Output 1', 'Output 2', 'Output 3', 'Output 4'],
+    DspType.MINIDSP_EIGHTY_EIGHT_BM: [str(i+1) for i in range(8)]
+}
+
+DEFAULT_OUTPUT_CHANNELS_BY_DEVICE = {
+    DspType.MONOPRICE_HTP1: ['sub1'],
+    DspType.MINIDSP_TWO_BY_FOUR_HD: ['Input 1', 'Input 2'],
+    DspType.MINIDSP_EIGHTY_EIGHT_BM: ['3']
+}
+
+
 class XmlProcessor(QRunnable):
     '''
     Completes the batch conversion of config files in a separate thread.
@@ -509,7 +504,7 @@ class XmlProcessor(QRunnable):
         elif DspType.MINIDSP_TWO_BY_FOUR == self.__dsp_type:
             self.__parser = TwoByFourXmlParser(self.__dsp_type, self.__optimise_filters)
         else:
-            self.__parser = HDXmlParser(self.__dsp_type, self.__optimise_filters)
+            self.__parser = HDXmlParser(self.__dsp_type, self.__optimise_filters, selected_channels)
         self.__signals = ProcessSignals()
         self.__signals.on_failure.connect(failure_handler)
         self.__signals.on_success.connect(success_handler)
