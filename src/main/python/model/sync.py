@@ -597,7 +597,7 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         '''
         from model.minidsp import load_as_filter
 
-        filters, file_name = load_as_filter(self, self.__preferences, HTP1_FS)
+        filters, file_name = load_as_filter(self, self.__preferences, HTP1_FS, unroll=True)
         self.beqFile.setText(file_name)
         self.__beq_filter = filters
         self.__enable_filter_buttons()

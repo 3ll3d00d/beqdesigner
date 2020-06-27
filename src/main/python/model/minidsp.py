@@ -192,7 +192,7 @@ def get_minidsp_filter_code(filt):
         raise ValueError(f"Unknown minidsp filter type {type(filt)}")
 
 
-def xml_to_filt(file, fs=1000):
+def xml_to_filt(file, fs=1000, unroll=False):
     ''' Extracts a set of filters from the provided minidsp file '''
     from model.iir import PeakingEQ, LowShelf, HighShelf
 
@@ -201,13 +201,15 @@ def xml_to_filt(file, fs=1000):
     for filt_tup, count in filts.items():
         filt_dict = dict(filt_tup)
         if filt_dict['type'] == 'SL':
-            filt = LowShelf(fs, float(filt_dict['freq']), float(filt_dict['q']), float(filt_dict['boost']),
-                            count=count)
-            output.append(filt)
+            for i in range(0, count if unroll is True else 1):
+                filt = LowShelf(fs, float(filt_dict['freq']), float(filt_dict['q']), float(filt_dict['boost']),
+                                count=1 if unroll is True else count)
+                output.append(filt)
         elif filt_dict['type'] == 'SH':
-            filt = HighShelf(fs, float(filt_dict['freq']), float(filt_dict['q']), float(filt_dict['boost']),
-                             count=count)
-            output.append(filt)
+            for i in range(0, count if unroll is True else 1):
+                filt = HighShelf(fs, float(filt_dict['freq']), float(filt_dict['q']), float(filt_dict['boost']),
+                                 count=1 if unroll is True else count)
+                output.append(filt)
         elif filt_dict['type'] == 'PK':
             for i in range(0, count):
                 filt = PeakingEQ(fs, float(filt_dict['freq']), float(filt_dict['q']), float(filt_dict['boost']))
@@ -413,7 +415,7 @@ def get_commit_url(repo):
     return f"{repo[0:-4]}/commit/"
 
 
-def load_as_filter(parent, preferences, fs):
+def load_as_filter(parent, preferences, fs, unroll=False):
     '''
     Load a minidsp xml file as a filter.
     '''
@@ -421,7 +423,7 @@ def load_as_filter(parent, preferences, fs):
                                            caption='Load Minidsp XML Filter', filter='Filter (*.xml)')
     filt_file = selected[0] if selected is not None else None
     if filt_file is not None and len(filt_file) > 0:
-        filt = xml_to_filt(filt_file, fs)
+        filt = xml_to_filt(filt_file, fs, unroll=unroll)
         if filt is not None and len(filt) > 0:
             for f in filt:
                 f.id = uuid4()
