@@ -12,7 +12,7 @@ from qtpy.QtWidgets import QDialog, QDialogButtonBox, QMessageBox, QFileDialog, 
 from model.minidsp import logger, RepoRefresher, get_repo_subdir, get_commit_url, TwoByFourXmlParser, HDXmlParser, \
     xml_to_filt
 from model.preferences import BEQ_CONFIG_FILE, BEQ_MERGE_DIR, BEQ_MINIDSP_TYPE, BEQ_DOWNLOAD_DIR, BEQ_EXTRA_DIR, \
-    BEQ_REPOS, BEQ_DEFAULT_REPO, BEQ_OUTPUT_CHANNELS
+    BEQ_REPOS, BEQ_DEFAULT_REPO, BEQ_OUTPUT_CHANNELS, BEQ_OUTPUT_MODE
 from model.sync import HTP1Parser
 from ui.merge import Ui_mergeDspDialog
 
@@ -202,6 +202,8 @@ class MergeFiltersDialog(QDialog, Ui_mergeDspDialog):
         self.__preferences.set(BEQ_EXTRA_DIR, self.userSourceDir.text())
         selected_channels = [item.text() for item in self.outputChannels.selectedItems()]
         self.__preferences.set(BEQ_OUTPUT_CHANNELS, "|".join(selected_channels))
+        if self.outputMode.isVisible():
+            self.__preferences.set(BEQ_OUTPUT_MODE, self.outputMode.currentText())
         if self.__clear_output_directory():
             self.filesProcessed.setValue(0)
             optimise_filters = False
@@ -238,6 +240,12 @@ class MergeFiltersDialog(QDialog, Ui_mergeDspDialog):
                 self.optimised.setVisible(optimise_filters)
                 self.copyOptimisedButton.setVisible(optimise_filters)
                 self.optimisedLabel.setVisible(optimise_filters)
+                in_out_split = None
+                if self.outputMode.isVisible() and not self.outputChannels.isVisible():
+                    import re
+                    m = re.search('Input ([1-9]) / Output ([1-9])', self.outputMode.currentText())
+                    if m:
+                        in_out_split = (m.group(1), m.group(2))
                 QThreadPool.globalInstance().start(XmlProcessor(self.__beq_dir,
                                                                 self.userSourceDir.text(),
                                                                 self.outputDirectory.text(),
@@ -248,7 +256,8 @@ class MergeFiltersDialog(QDialog, Ui_mergeDspDialog):
                                                                 self.__on_complete,
                                                                 self.__on_optimised,
                                                                 optimise_filters,
-                                                                selected_channels))
+                                                                selected_channels,
+                                                                in_out_split))
 
     def __on_file_fail(self, dir_name, file, message):
         self.errors.setEnabled(True)
@@ -421,21 +430,49 @@ class MergeFiltersDialog(QDialog, Ui_mergeDspDialog):
             w: QListWidgetItem = self.outputChannels.item(i)
             if w.text() in selected_channels:
                 w.setSelected(True)
+        if dsp_type.can_split is True:
+            self.outputMode.setVisible(True)
+            self.outputModeLabel.setVisible(True)
+            self.outputMode.clear()
+            self.outputMode.addItem('Overwrite')
+            for i in reversed(range(1, dsp_type.filters_required)):
+                self.outputMode.addItem(f"Input {i} / Output {dsp_type.filters_required - i}")
+            saved = self.__preferences.get(BEQ_OUTPUT_MODE)
+            if saved is not None:
+                self.outputMode.setCurrentText(saved)
+            else:
+                self.outputMode.setCurrentText('Overwrite')
+        else:
+            self.outputMode.setVisible(False)
+            self.outputModeLabel.setVisible(False)
+
+    def output_mode_changed(self, txt):
+        if txt == 'Overwrite':
+            self.outputChannels.setVisible(True)
+            self.outputChannelsLabel.setVisible(True)
+        else:
+            self.outputChannels.setVisible(False)
+            self.outputChannelsLabel.setVisible(False)
 
 
 class DspType(Enum):
-    MINIDSP_TWO_BY_FOUR_HD = ('2x4 HD', True, True, False)
-    MINIDSP_TWO_BY_FOUR = ('2x4', False, True, False)
-    MINIDSP_TEN_BY_TEN = ('10x10', False, True, False)
-    MINIDSP_SHD = ('SHD', True, True, False)
-    MINIDSP_EIGHTY_EIGHT_BM = ('88BM', True, True, False)
-    MONOPRICE_HTP1 = ('HTP-1', False, False, True)
+    MINIDSP_TWO_BY_FOUR_HD = ('2x4 HD', True, True, False, (('1', '2'), ('3', '4', '5', '6')))
+    MINIDSP_TWO_BY_FOUR = ('2x4', False, True, False, None)
+    MINIDSP_TEN_BY_TEN = ('10x10', False, True, False, None)
+    MINIDSP_SHD = ('SHD', True, True, False, None)
+    MINIDSP_EIGHTY_EIGHT_BM = ('88BM', True, True, False, None)
+    MONOPRICE_HTP1 = ('HTP-1', False, False, True, None)
 
-    def __init__(self, display_name, hd_compatible, is_minidsp, is_experimental):
+    def __init__(self, display_name, hd_compatible, is_minidsp, is_experimental, split_channels):
         self.display_name = display_name
         self.hd_compatible = hd_compatible
         self.is_minidsp = is_minidsp
         self.is_experimental = is_experimental
+        self.split_channels = split_channels
+
+    @property
+    def can_split(self):
+        return self.split_channels is not None
 
     def is_fixed_point_hardware(self):
         return not self.hd_compatible
@@ -490,8 +527,8 @@ class XmlProcessor(QRunnable):
     '''
     Completes the batch conversion of config files in a separate thread.
     '''
-    def __init__(self, beq_dir, user_source_dir, output_dir, config_file, dsp_type, failure_handler,
-                 success_handler, complete_handler, optimise_handler, optimise_filters, selected_channels):
+    def __init__(self, beq_dir, user_source_dir, output_dir, config_file, dsp_type, failure_handler, success_handler,
+                 complete_handler, optimise_handler, optimise_filters, selected_channels, in_out_split):
         super().__init__()
         self.__optimise_filters = optimise_filters
         self.__beq_dir = beq_dir
@@ -504,7 +541,7 @@ class XmlProcessor(QRunnable):
         elif DspType.MINIDSP_TWO_BY_FOUR == self.__dsp_type:
             self.__parser = TwoByFourXmlParser(self.__dsp_type, self.__optimise_filters)
         else:
-            self.__parser = HDXmlParser(self.__dsp_type, self.__optimise_filters, selected_channels)
+            self.__parser = HDXmlParser(self.__dsp_type, self.__optimise_filters, selected_channels, in_out_split)
         self.__signals = ProcessSignals()
         self.__signals.on_failure.connect(failure_handler)
         self.__signals.on_success.connect(success_handler)

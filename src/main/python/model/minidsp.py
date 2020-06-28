@@ -16,28 +16,33 @@ BMILLER_MINI_DSPBEQ_GIT_REPO = f"{BMILLER_GITHUB_MINIDSP}.git"
 
 
 class XmlParser(ABC):
-    def __init__(self, minidsp_type, optimise_filters):
+    def __init__(self, minidsp_type, optimise_filters, pad=True):
         self.__minidsp_type = minidsp_type
         self.__optimise_filters = optimise_filters
+        self.__should_pad = pad
 
     @property
     def minidsp_type(self):
         return self.__minidsp_type
 
-    def __pad(self, filt):
+    def __preprocess(self, filt):
         was_optimised = False
-        try:
-            filters = pad_with_passthrough(filt,
-                                           fs=self.minidsp_type.target_fs,
-                                           required=self.minidsp_type.filters_required,
-                                           optimise=self.__optimise_filters)
-        except OptimisedFilters as e:
-            was_optimised = True
-            filters = e.flattened_filters
+        fs = self.minidsp_type.target_fs
+        filters_required = self.minidsp_type.filters_required
+        filters = flatten_filters(filt)
+        if self.__should_pad is True:
+            padding, filters = pad_with_passthrough(filters, fs=fs, required=filters_required)
+            if padding < 0:
+                if self.__optimise_filters is True:
+                    from model.filter import optimise_filters
+                    filters = pad_with_passthrough(optimise_filters(filt, fs, -padding), fs, filters_required)
+                    was_optimised = True
+                else:
+                    raise TooManyFilters(f"BEQ has too many filters for device (remove {abs(padding)} biquads)")
         return filters, was_optimised
 
     def convert(self, dst, filt, metadata=None):
-        filters, was_optimised = self.__pad(filt)
+        filters, was_optimised = self.__preprocess(filt)
         output_config = self._overwrite(filters, dst, metadata)
         return output_config, was_optimised
 
@@ -116,8 +121,9 @@ class HDXmlParser(XmlParser):
     '''
     Handles HD models (2x4HD and 10x10HD)
     '''
-    def __init__(self, minidsp_type, optimise_filters, selected_channels):
-        super().__init__(minidsp_type, optimise_filters)
+    def __init__(self, minidsp_type, optimise_filters, selected_channels, in_out_split):
+        super().__init__(minidsp_type, optimise_filters, pad=in_out_split is None)
+        self.__in_out_split = in_out_split
         if selected_channels:
             self.__selected_channels = [self.__extract_channel(i) for i in selected_channels]
         else:
@@ -133,6 +139,21 @@ class HDXmlParser(XmlParser):
             return str(int(txt[-1]) + 2)
         else:
             raise ValueError(f"Unsupported channel {txt}")
+
+    def __should_overwrite(self, filt_channel, filt_slot):
+        '''
+        :param filt_channel: the filter channel.
+        :param filt_slot: the filter slot.
+        :param filt_idx: the filter index.
+        :return: True if this filter should be overwritten.
+        '''
+        if self.__in_out_split is None:
+            return filt_channel in self.__selected_channels
+        else:
+            if filt_channel == '1' or filt_channel == '2':
+                return int(filt_slot) <= int(self.__in_out_split[0])
+            else:
+                return int(filt_slot) >= int(self.__in_out_split[1])
 
     def _overwrite(self, filters, target, metadata=None):
         '''
@@ -153,30 +174,35 @@ class HDXmlParser(XmlParser):
                     (filt_type, filt_channel, filt_slot) = filter_tokens
                     if len(filter_tokens) == 3:
                         if filt_type == 'PEQ':
-                            if filt_channel in self.__selected_channels:
-                                if int(filt_slot) > len(filters):
+                            if self.__should_overwrite(filt_channel, filt_slot):
+                                if int(filt_slot) > len(filters) and self.__in_out_split is None:
                                     root.remove(child)
                                 else:
-                                    filt = filters[int(filt_slot)-1]
-                                    if isinstance(filt, Passthrough):
-                                        child.find('freq').text = '1000'
-                                        child.find('q').text = '0.7'
-                                        child.find('boost').text = '0'
-                                        child.find('type').text = 'PK'
-                                        child.find('bypass').text = '1'
+                                    idx = int(filt_slot)-1
+                                    if idx < len(filters):
+                                        filt = filters[idx]
+                                        if isinstance(filt, Passthrough):
+                                            child.find('freq').text = '1000'
+                                            child.find('q').text = '0.7'
+                                            child.find('boost').text = '0'
+                                            child.find('type').text = 'PK'
+                                            child.find('bypass').text = '1'
+                                        else:
+                                            child.find('freq').text = str(filt.freq)
+                                            child.find('q').text = str(filt.q)
+                                            child.find('boost').text = str(filt.gain)
+                                            child.find('type').text = get_minidsp_filter_code(filt)
+                                            child.find('bypass').text = '0'
+                                        dec_txt = filt.format_biquads(True, separator=',',
+                                                                      show_index=False, to_hex=False)[0]
+                                        child.find('dec').text = f"{dec_txt},"
+                                        hex_txt = filt.format_biquads(True, separator=',',
+                                                                      show_index=False, to_hex=True,
+                                                                      fixed_point=self.minidsp_type.is_fixed_point_hardware())[0]
+                                        child.find('hex').text = f"{hex_txt},"
                                     else:
-                                        child.find('freq').text = str(filt.freq)
-                                        child.find('q').text = str(filt.q)
-                                        child.find('boost').text = str(filt.gain)
-                                        child.find('type').text = get_minidsp_filter_code(filt)
-                                        child.find('bypass').text = '0'
-                                    dec_txt = filt.format_biquads(True, separator=',',
-                                                                  show_index=False, to_hex=False)[0]
-                                    child.find('dec').text = f"{dec_txt},"
-                                    hex_txt = filt.format_biquads(True, separator=',',
-                                                                  show_index=False, to_hex=True,
-                                                                  fixed_point=self.minidsp_type.is_fixed_point_hardware())[0]
-                                    child.find('hex').text = f"{hex_txt},"
+                                        if self.__in_out_split is None:
+                                            raise ValueError(f"Missing filter at idx {idx}")
         if metadata is not None:
             metadata_tag = ET.Element('beq_metadata')
             for key, value in metadata.items():
@@ -292,40 +318,19 @@ def __extract_filters(file):
     return Counter([tuple(f.items()) for f in final_filt])
 
 
-def extract_and_pad_with_passthrough(filt_xml, fs, required=10, optimise=False):
+def pad_with_passthrough(filters, fs, required):
     '''
-    Extracts the filters from the XML and pads with passthrough filters.
-    :param filt_xml: the xml file.
-    :param fs: the target fs.
-    :param required: how many filters do we need.
-    :param optimise: whether to optimise filters that use more than required biquads.
-    :return: the filters.
-    '''
-    return pad_with_passthrough(xml_to_filt(filt_xml, fs=fs), fs, required, optimise=optimise)
-
-
-def pad_with_passthrough(filters, fs, required, optimise=False):
-    '''
-    Pads to the required number of biquads. If the filter uses more than required and optimise is true, attempts to
-    squeeze the biquad count.
+    Pads to the required number of biquads.
     :param filters: the filters.
     :param fs: sample rate.
     :param required: no of required biquads.
-    :param optimise: whether to try to reduce biquad count.
     :return: the raw biquad filters.
     '''
-    flattened_filters = flatten_filters(filters)
-    padding = required - len(flattened_filters)
+    padding = required - len(filters)
     if padding > 0:
-        pad_filters = [Passthrough(fs=fs)] * padding
-        flattened_filters.extend(pad_filters)
-    elif padding < 0:
-        if optimise is True:
-            from model.filter import optimise_filters
-            padded = pad_with_passthrough(optimise_filters(filters, fs, -padding), fs, required, optimise=False)
-            raise OptimisedFilters(padded)
-        raise TooManyFilters(f"BEQ has too many filters for device (remove {abs(padding)} biquads)")
-    return flattened_filters
+        pad_filters = [Passthrough(fs=fs, f_id=uuid4())] * padding
+        filters.extend(pad_filters)
+    return padding, filters
 
 
 def flatten_filters(filter):
