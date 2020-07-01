@@ -230,7 +230,7 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         :param mso: the mso.
         '''
         version = mso['versions']['swVer']
-        version = version[1:] if version[0] == 'v' else version
+        version = version[1:] if version[0] == 'v' or version[0] == 'V' else version
         try:
             self.__supports_shelf = semver.parse_version_info(version) > semver.parse_version_info('1.4.0')
         except:
