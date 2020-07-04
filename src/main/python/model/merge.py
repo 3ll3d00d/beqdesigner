@@ -538,7 +538,7 @@ class XmlProcessor(QRunnable):
             logger.info(f"Copying {self.__config_file} to {dst}")
             dst = shutil.copy2(self.__config_file, dst.resolve())
             filt = xml_to_filt(str(xml), fs=self.__dsp_type.target_fs)
-            output_config, was_optimised = self.__parser.convert(dst, filt)
+            output_config, was_optimised = self.__parser.convert(str(dst), filt)
             with dst.open('w') as dst_file:
                 dst_file.write(output_config)
             if was_optimised is False:

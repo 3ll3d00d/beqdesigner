@@ -144,7 +144,7 @@ class HDXmlParser(XmlParser):
         '''
         import xml.etree.ElementTree as ET
         logger.info(f"Copying {len(filters)} to {target}")
-        et_tree = ET.parse(str(target))
+        et_tree = ET.parse(target)
         root = et_tree.getroot()
         for child in root:
             if child.tag == 'filter':
