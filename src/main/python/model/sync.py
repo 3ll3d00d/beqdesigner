@@ -13,7 +13,7 @@ from model.filter import FilterModel, FilterTableModel, FilterDialog
 from model.iir import CompleteFilter, PeakingEQ, LowShelf, HighShelf
 from model.limits import dBRangeCalculator
 from model.magnitude import MagnitudeModel
-from model.preferences import get_filter_colour, HTP1_ADDRESS, HTP1_AUTOSYNC
+from model.preferences import get_filter_colour, HTP1_ADDRESS, HTP1_AUTOSYNC, HTP1_SYNC_GEOMETRY
 from ui.edit_mapping import Ui_editMappingDialog
 from ui.syncdetails import Ui_syncDetailsDialog
 from ui.synchtp1 import Ui_syncHtp1Dialog
@@ -40,6 +40,8 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         self.__supports_shelf = False
         self.__channel_to_signal = {}
         self.setupUi(self)
+        self.setWindowFlag(Qt.WindowMinimizeButtonHint)
+        self.setWindowFlag(Qt.WindowMaximizeButtonHint)
         self.syncStatus = qta.IconWidget('fa5s.unlink')
         self.syncLayout.addWidget(self.syncStatus)
         self.ipAddress.setText(self.__preferences.get(HTP1_ADDRESS))
@@ -72,6 +74,18 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         self.__ws_client.textMessageReceived.connect(self.__on_ws_message)
         self.__disable_on_disconnect()
         self.filterMapping.itemDoubleClicked.connect(self.__show_mapping_dialog)
+        self.__restore_geometry()
+
+    def __restore_geometry(self):
+        ''' loads the saved window size '''
+        geometry = self.__preferences.get(HTP1_SYNC_GEOMETRY)
+        if geometry is not None:
+            self.restoreGeometry(geometry)
+
+    def closeEvent(self, QCloseEvent):
+        ''' Stores the window size on close '''
+        self.__preferences.set(HTP1_SYNC_GEOMETRY, self.saveGeometry())
+        super().closeEvent(QCloseEvent)
 
     def __on_ws_error(self, error_code):
         '''

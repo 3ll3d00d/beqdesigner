@@ -173,6 +173,7 @@ BASS_MANAGEMENT_LPF_POSITION = 'bm/type'
 
 HTP1_ADDRESS = 'htp1/address'
 HTP1_AUTOSYNC = 'htp1/autosync'
+HTP1_SYNC_GEOMETRY = 'htp1/geometry'
 
 DEFAULT_PREFS = {
     ANALYSIS_RESOLUTION: 1.0,
