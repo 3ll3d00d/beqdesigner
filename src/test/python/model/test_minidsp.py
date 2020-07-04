@@ -25,8 +25,8 @@ def test_merge_2x4hd():
     dsp_type = DspType.MINIDSP_TWO_BY_FOUR_HD
     parser = HDXmlParser(dsp_type, False, None, None)
     filt = xml_to_filt(os.path.join(os.path.dirname(__file__), 'input.xml'))
-    with open('MiniDSP-2x4HD-setting.xml', 'r') as f1:
-        with open('expected_output_2x4HD.xml', 'r') as f2:
+    with open(os.path.join(os.path.dirname(__file__), 'MiniDSP-2x4HD-setting.xml'), 'r') as f1:
+        with open(os.path.join(os.path.dirname(__file__), 'expected_output_2x4HD.xml'), 'r') as f2:
             convert_and_compare(f1, f2, filt, parser)
 
 
@@ -34,8 +34,8 @@ def test_merge_2x4hd_output_with_output():
     dsp_type = DspType.MINIDSP_TWO_BY_FOUR_HD
     parser = HDXmlParser(dsp_type, False, [str(i) for i in range(1, 7)], None)
     filt = xml_to_filt(os.path.join(os.path.dirname(__file__), 'input.xml'))
-    with open('MiniDSP-2x4HD-setting.xml', 'r') as f1:
-        with open('expected_output_2x4HD_output.xml', 'r') as f2:
+    with open(os.path.join(os.path.dirname(__file__), 'MiniDSP-2x4HD-setting.xml'), 'r') as f1:
+        with open(os.path.join(os.path.dirname(__file__), 'expected_output_2x4HD_output.xml'), 'r') as f2:
             convert_and_compare(f1, f2, filt, parser)
 
 
@@ -43,8 +43,8 @@ def test_merge_2x4hd_output_with_split():
     dsp_type = DspType.MINIDSP_TWO_BY_FOUR_HD
     parser = HDXmlParser(dsp_type, False, None, ['4', '6'])
     filt = xml_to_filt(os.path.join(os.path.dirname(__file__), 'input.xml'))
-    with open('MiniDSP-2x4HD-setting.xml', 'r') as f1:
-        with open('expected_output_2x4HD_split.xml', 'r') as f2:
+    with open(os.path.join(os.path.dirname(__file__), 'MiniDSP-2x4HD-setting.xml'), 'r') as f1:
+        with open(os.path.join(os.path.dirname(__file__), 'expected_output_2x4HD_split.xml'), 'r') as f2:
             convert_and_compare(f1, f2, filt, parser)
 
 
