@@ -153,7 +153,7 @@ class HDXmlParser(XmlParser):
             if filt_channel == '1' or filt_channel == '2':
                 return int(filt_slot) <= int(self.__in_out_split[0])
             else:
-                return int(filt_slot) >= int(self.__in_out_split[1])
+                return int(filt_slot) <= int(self.__in_out_split[1])
 
     def _overwrite(self, filters, target, metadata=None):
         '''
@@ -165,7 +165,7 @@ class HDXmlParser(XmlParser):
         '''
         import xml.etree.ElementTree as ET
         logger.info(f"Copying {len(filters)} to {target}")
-        et_tree = ET.parse(str(target))
+        et_tree = ET.parse(target)
         root = et_tree.getroot()
         for child in root:
             if child.tag == 'filter':
