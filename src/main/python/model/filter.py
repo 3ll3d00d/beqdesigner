@@ -238,7 +238,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
     is_shelf = ['Low Shelf', 'High Shelf']
     gain_required = is_shelf + ['PEQ', 'Gain']
     q_steps = [0.0001, 0.001, 0.01, 0.1]
-    gain_steps = [0.1, 1.0]
+    gain_steps = [0.01, 0.1, 1.0]
     freq_steps = [0.1, 1.0, 2.0, 5.0]
     passthrough = Passthrough()
 
