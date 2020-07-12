@@ -96,6 +96,7 @@ BINARIES_FFMPEG = f"{BINARIES_GROUP}/ffmpeg"
 FILTERS_PRESET_x = 'filters/preset_%d'
 FILTERS_DEFAULT_Q = 'filters/defaults/q'
 FILTERS_DEFAULT_FREQ = 'filters/defaults/freq'
+FILTERS_GEOMETRY = 'filters/geometry'
 
 SCREEN_GEOMETRY = 'screen/geometry'
 SCREEN_WINDOW_STATE = 'screen/window_state'

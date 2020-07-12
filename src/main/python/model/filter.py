@@ -17,7 +17,8 @@ from model.iir import FilterType, LowShelf, HighShelf, PeakingEQ, SecondOrder_Lo
 from model.limits import dBRangeCalculator, PhaseRangeCalculator
 from model.magnitude import MagnitudeModel
 from model.preferences import SHOW_ALL_FILTERS, SHOW_NO_FILTERS, FILTER_COLOURS, DISPLAY_SHOW_FILTERS, DISPLAY_Q_STEP, \
-    DISPLAY_GAIN_STEP, DISPLAY_S_STEP, DISPLAY_FREQ_STEP, get_filter_colour, FILTERS_DEFAULT_Q, FILTERS_DEFAULT_FREQ
+    DISPLAY_GAIN_STEP, DISPLAY_S_STEP, DISPLAY_FREQ_STEP, get_filter_colour, FILTERS_DEFAULT_Q, FILTERS_DEFAULT_FREQ, \
+    FILTERS_GEOMETRY
 from ui.filter import Ui_editFilterDialog
 
 logger = logging.getLogger('filter')
@@ -294,6 +295,18 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
                 self.workingFilterView.selectRow(idx)
         if self.__selected_id is None:
             self.__add_working_filter()
+        self.__restore_geometry()
+
+    def __restore_geometry(self):
+        ''' loads the saved window size '''
+        geometry = self.__preferences.get(FILTERS_GEOMETRY)
+        if geometry is not None:
+            self.restoreGeometry(geometry)
+
+    def closeEvent(self, QCloseEvent):
+        ''' Stores the window size on close '''
+        self.__preferences.set(FILTERS_GEOMETRY, self.saveGeometry())
+        super().closeEvent(QCloseEvent)
 
     def __select_working_filter(self):
         ''' Loads the selected filter into the edit fields. '''
