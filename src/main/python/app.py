@@ -1,5 +1,4 @@
-import abc
-import collections
+from collections import abc
 import gzip
 import json
 import logging
@@ -31,7 +30,7 @@ from model.link import LinkSignalsDialog
 from model.preferences import DISPLAY_SHOW_FILTERED_SIGNALS, SYSTEM_CHECK_FOR_UPDATES, BIQUAD_EXPORT_MAX,\
     BIQUAD_EXPORT_FS, BIQUAD_EXPORT_DEVICE, SHOW_NO_FILTERS, SYSTEM_CHECK_FOR_BETA_UPDATES, \
     BEQ_REPOS, BEQ_DEFAULT_REPO
-from model.minidsp import HDXmlParser, pad_with_passthrough
+from model.minidsp import HDXmlParser
 from model.merge import MergeFiltersDialog, DspType
 from model.postbuilder import CreateAVSPostDialog
 
@@ -42,7 +41,7 @@ import qtawesome as qta
 from matplotlib import style
 
 from model.export import ExportSignalDialog, Mode
-from model.iir import Passthrough, CompleteFilter, as_equalizer_apo
+from model.iir import Passthrough, CompleteFilter, as_equalizer_apo, COMBINED
 from ui.biquad import Ui_exportBiquadDialog
 from ui.savechart import Ui_saveChartDialog
 
@@ -983,11 +982,13 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         from model.minidsp import load_as_filter
 
-        filters, _ = load_as_filter(self, self.preferences, self.__get_selected_signal().fs)
+        filters, filt_file = load_as_filter(self, self.preferences, self.__get_selected_signal().fs)
         if filters is not None:
             self.clearFilters()
+            self.__filter_model.filter.description = os.path.splitext(os.path.split(filt_file)[1])[0]
             for f in filters:
                 self.__filter_model.save(f)
+            self.statusbar.showMessage(f"Loaded {filt_file}", 15000)
 
     def merge_minidsp_xml(self):
         '''
@@ -1240,6 +1241,8 @@ class ExportBiquadDialog(QDialog, Ui_exportBiquadDialog):
         if self.__filter is not None and len(self.__filter) > 0:
             if 'Equalizer APO' == self.outputFormat.currentText():
                 text = "\n".join([f"Filter {idx+1}: {t}" for idx, t in enumerate(list(flatten([as_equalizer_apo(f) for f in self.__filter])))])
+                if self.__filter.description != COMBINED:
+                    text = f"# {self.__filter.description}\n{text}"
             else:
                 self.__filter = self.__filter.resample(int(self.fs.currentText()))
                 is_fixed_point = 'Minidsp 10x10HD' == self.outputFormat.currentText() or 'Minidsp 2x4' == self.outputFormat.currentText()
@@ -1287,7 +1290,7 @@ def flatten(l):
     solution from https://stackoverflow.com/questions/2158395/flatten-an-irregular-list-of-lists
     '''
     for el in l:
-        if isinstance(el, collections.Iterable) and not isinstance(el, (str, bytes)):
+        if isinstance(el, abc.Iterable) and not isinstance(el, (str, bytes)):
             yield from flatten(el)
         else:
             yield el
