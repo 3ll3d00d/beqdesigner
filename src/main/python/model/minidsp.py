@@ -121,7 +121,7 @@ class HDXmlParser(XmlParser):
     '''
     Handles HD models (2x4HD and 10x10HD)
     '''
-    def __init__(self, minidsp_type, optimise_filters, selected_channels, in_out_split):
+    def __init__(self, minidsp_type, optimise_filters, selected_channels=None, in_out_split=None):
         super().__init__(minidsp_type, optimise_filters, pad=in_out_split is None)
         self.__in_out_split = in_out_split
         if selected_channels:

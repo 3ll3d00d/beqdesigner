@@ -541,7 +541,8 @@ class XmlProcessor(QRunnable):
         elif DspType.MINIDSP_TWO_BY_FOUR == self.__dsp_type:
             self.__parser = TwoByFourXmlParser(self.__dsp_type, self.__optimise_filters)
         else:
-            self.__parser = HDXmlParser(self.__dsp_type, self.__optimise_filters, selected_channels, in_out_split)
+            self.__parser = HDXmlParser(self.__dsp_type, self.__optimise_filters, selected_channels=selected_channels,
+                                        in_out_split=in_out_split)
         self.__signals = ProcessSignals()
         self.__signals.on_failure.connect(failure_handler)
         self.__signals.on_success.connect(success_handler)

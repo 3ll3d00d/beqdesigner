@@ -3,7 +3,7 @@ import os
 
 from model.iir import PeakingEQ, LowShelf
 from model.merge import DspType
-from model.minidsp import xml_to_filt, HDXmlParser, pad_with_passthrough
+from model.minidsp import xml_to_filt, HDXmlParser
 
 
 def test_codec_minidsp_xml():
@@ -23,7 +23,7 @@ def test_codec_minidsp_xml():
 
 def test_merge_2x4hd():
     dsp_type = DspType.MINIDSP_TWO_BY_FOUR_HD
-    parser = HDXmlParser(dsp_type, False, None, None)
+    parser = HDXmlParser(dsp_type, False)
     filt = xml_to_filt(os.path.join(os.path.dirname(__file__), 'input.xml'))
     with open(os.path.join(os.path.dirname(__file__), 'MiniDSP-2x4HD-setting.xml'), 'r') as f1:
         with open(os.path.join(os.path.dirname(__file__), 'expected_output_2x4HD.xml'), 'r') as f2:
@@ -32,7 +32,7 @@ def test_merge_2x4hd():
 
 def test_merge_2x4hd_output_with_output():
     dsp_type = DspType.MINIDSP_TWO_BY_FOUR_HD
-    parser = HDXmlParser(dsp_type, False, [str(i) for i in range(1, 7)], None)
+    parser = HDXmlParser(dsp_type, False, selected_channels=[str(i) for i in range(1, 7)])
     filt = xml_to_filt(os.path.join(os.path.dirname(__file__), 'input.xml'))
     with open(os.path.join(os.path.dirname(__file__), 'MiniDSP-2x4HD-setting.xml'), 'r') as f1:
         with open(os.path.join(os.path.dirname(__file__), 'expected_output_2x4HD_output.xml'), 'r') as f2:
@@ -41,7 +41,7 @@ def test_merge_2x4hd_output_with_output():
 
 def test_merge_2x4hd_output_with_split():
     dsp_type = DspType.MINIDSP_TWO_BY_FOUR_HD
-    parser = HDXmlParser(dsp_type, False, None, ['4', '6'])
+    parser = HDXmlParser(dsp_type, False, in_out_split=['4', '6'])
     filt = xml_to_filt(os.path.join(os.path.dirname(__file__), 'input.xml'))
     with open(os.path.join(os.path.dirname(__file__), 'MiniDSP-2x4HD-setting.xml'), 'r') as f1:
         with open(os.path.join(os.path.dirname(__file__), 'expected_output_2x4HD_split.xml'), 'r') as f2:
