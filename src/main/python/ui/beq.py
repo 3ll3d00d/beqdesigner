@@ -14,7 +14,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(1569, 1012)
+        MainWindow.resize(1569, 1078)
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
         self.widgetGridLayout = QtWidgets.QGridLayout(self.centralwidget)
@@ -504,7 +504,7 @@ class Ui_MainWindow(object):
         self.widgetGridLayout.addLayout(self.panes, 0, 0, 1, 1)
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 1569, 21))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 1569, 30))
         self.menubar.setObjectName("menubar")
         self.menuHelp = QtWidgets.QMenu(self.menubar)
         self.menuHelp.setObjectName("menuHelp")
@@ -619,6 +619,8 @@ class Ui_MainWindow(object):
         self.actionCreate_AVS_Post.setObjectName("actionCreate_AVS_Post")
         self.actionSync_with_HTP_1 = QtWidgets.QAction(MainWindow)
         self.actionSync_with_HTP_1.setObjectName("actionSync_with_HTP_1")
+        self.actionBrowse_Catalogue = QtWidgets.QAction(MainWindow)
+        self.actionBrowse_Catalogue.setObjectName("actionBrowse_Catalogue")
         self.menuHelp.addAction(self.actionUser_Guide)
         self.menuHelp.addAction(self.actionShow_Logs)
         self.menuHelp.addSeparator()
@@ -663,8 +665,10 @@ class Ui_MainWindow(object):
         self.menu_Tools.addSeparator()
         self.menu_Tools.addAction(self.actionAnalyse_Audio)
         self.menu_Tools.addSeparator()
+        self.menu_Tools.addAction(self.actionBrowse_Catalogue)
         self.menu_Tools.addAction(self.actionExport_Biquad)
         self.menu_Tools.addAction(self.actionMerge_Minidsp_XML)
+        self.menu_Tools.addSeparator()
         self.menu_Tools.addAction(self.actionCreate_AVS_Post)
         self.menu_Tools.addSeparator()
         self.menu_Tools.addAction(self.actionSync_with_HTP_1)
@@ -881,5 +885,7 @@ class Ui_MainWindow(object):
         self.actionCreate_AVS_Post.setShortcut(_translate("MainWindow", "Ctrl+Shift+P"))
         self.actionSync_with_HTP_1.setText(_translate("MainWindow", "Manage &HTP-1 Filters"))
         self.actionSync_with_HTP_1.setShortcut(_translate("MainWindow", "Ctrl+M"))
+        self.actionBrowse_Catalogue.setText(_translate("MainWindow", "Browse &Catalogue"))
+        self.actionBrowse_Catalogue.setShortcut(_translate("MainWindow", "Ctrl+Alt+C"))
 from app import PlotWidgetWithDateAxis
 from mpl import MplWidget

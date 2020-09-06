@@ -11,6 +11,7 @@ from contextlib import contextmanager
 import matplotlib
 from scipy import signal
 
+from model.catalogue import CatalogueDialog
 from model.sync import SyncHTP1Dialog
 
 matplotlib.use("Qt5Agg")
@@ -272,6 +273,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.actionCreate_AVS_Post.triggered.connect(self.create_avs_post)
         self.actionUser_Guide.triggered.connect(self.show_help)
         self.actionRelease_Notes.triggered.connect(self.show_release_notes)
+        self.actionBrowse_Catalogue.triggered.connect(self.show_catalogue)
         self.actionExport_BEQ_Filter.triggered.connect(self.export_beq_filter)
         self.actionSync_with_HTP_1.triggered.connect(self.sync_htp1)
 
@@ -984,11 +986,22 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
 
         filters, filt_file = load_as_filter(self, self.preferences, self.__get_selected_signal().fs)
         if filters is not None:
-            self.clearFilters()
-            self.__filter_model.filter.description = os.path.splitext(os.path.split(filt_file)[1])[0]
-            for f in filters:
-                self.__filter_model.save(f)
+            self.__load_filter(os.path.splitext(os.path.split(filt_file)[1])[0], filters)
             self.statusbar.showMessage(f"Loaded {filt_file}", 15000)
+
+    def __load_filter(self, description, filters):
+        self.clearFilters()
+        self.__filter_model.filter.description = description
+        for f in filters:
+            self.__filter_model.save(f)
+
+    def show_catalogue(self):
+        '''
+        Shows the catalogue dialog.
+        '''
+        dialog = CatalogueDialog(self, self.preferences, self.__load_filter)
+        dialog.show()
+        dialog.setVisible(True)
 
     def merge_minidsp_xml(self):
         '''

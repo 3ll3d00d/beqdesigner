@@ -1,0 +1,487 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>catalogueDialog</class>
+ <widget class="QDialog" name="catalogueDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>938</width>
+    <height>518</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>BEQ Catalogue</string>
+  </property>
+  <layout class="QGridLayout" name="gridLayout" columnstretch="1,1">
+   <item row="0" column="0">
+    <widget class="QFrame" name="searchFrame">
+     <property name="frameShape">
+      <enum>QFrame::StyledPanel</enum>
+     </property>
+     <property name="frameShadow">
+      <enum>QFrame::Raised</enum>
+     </property>
+     <layout class="QGridLayout" name="gridLayout_3">
+      <item row="0" column="0">
+       <layout class="QGridLayout" name="searchLayout">
+        <item row="0" column="0" colspan="2">
+         <widget class="QLabel" name="filterHeaderLabel">
+          <property name="font">
+           <font>
+            <weight>75</weight>
+            <italic>true</italic>
+            <bold>true</bold>
+           </font>
+          </property>
+          <property name="frameShape">
+           <enum>QFrame::Box</enum>
+          </property>
+          <property name="frameShadow">
+           <enum>QFrame::Sunken</enum>
+          </property>
+          <property name="text">
+           <string>Search</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+         </widget>
+        </item>
+        <item row="4" column="0">
+         <widget class="QListWidget" name="yearFilter">
+          <property name="selectionMode">
+           <enum>QAbstractItemView::MultiSelection</enum>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="0" colspan="2">
+         <layout class="QHBoxLayout" name="nameLayout">
+          <item>
+           <widget class="QLabel" name="nameFilterLabel">
+            <property name="text">
+             <string>Name</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLineEdit" name="nameFilter"/>
+          </item>
+         </layout>
+        </item>
+        <item row="4" column="1">
+         <widget class="QListWidget" name="contentTypeFilter">
+          <property name="selectionMode">
+           <enum>QAbstractItemView::MultiSelection</enum>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="0">
+         <widget class="QLabel" name="yearFilterLabel">
+          <property name="text">
+           <string>Year</string>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="1">
+         <widget class="QLabel" name="contentTypeFilterLabel">
+          <property name="text">
+           <string>Content Type</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="0" colspan="2">
+         <layout class="QHBoxLayout" name="catalogueFilterLayout">
+          <item>
+           <widget class="QRadioButton" name="allRadioButton">
+            <property name="text">
+             <string>All</string>
+            </property>
+            <property name="checked">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QRadioButton" name="missingFromCatalogueRadioButton">
+            <property name="text">
+             <string>Missing from Catalogue</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QRadioButton" name="inCatalogueOnlyRadioButton">
+            <property name="text">
+             <string>In Catalogue Only</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="0" column="1">
+    <widget class="QFrame" name="matchesFrame">
+     <property name="frameShape">
+      <enum>QFrame::StyledPanel</enum>
+     </property>
+     <property name="frameShadow">
+      <enum>QFrame::Raised</enum>
+     </property>
+     <layout class="QGridLayout" name="gridLayout_2">
+      <item row="0" column="0">
+       <layout class="QGridLayout" name="matchesLayout">
+        <item row="4" column="0">
+         <layout class="QHBoxLayout" name="resultButtonsLayout">
+          <item>
+           <widget class="QPushButton" name="loadFilterButton">
+            <property name="text">
+             <string>Load Filter</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="showInfoButton">
+            <property name="text">
+             <string>Show Info</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="openCatalogueButton">
+            <property name="text">
+             <string>Open Catalogue</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="openAvsButton">
+            <property name="text">
+             <string>Open AVS</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item row="2" column="0">
+         <widget class="QListWidget" name="resultsList"/>
+        </item>
+        <item row="1" column="0">
+         <layout class="QHBoxLayout" name="matchesLayout" stretch="0,1,0,1">
+          <item>
+           <widget class="QLabel" name="label">
+            <property name="text">
+             <string>Local Repo:</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QSpinBox" name="matchCount">
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+            <property name="maximum">
+             <number>100000</number>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLabel" name="ofLabel">
+            <property name="text">
+             <string>of</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QSpinBox" name="totalCount">
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+            <property name="maximum">
+             <number>100000</number>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item row="3" column="0">
+         <layout class="QHBoxLayout" name="pathLayout">
+          <item>
+           <widget class="QLabel" name="pathLabel">
+            <property name="text">
+             <string>File Path</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLineEdit" name="path">
+            <property name="readOnly">
+             <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item row="0" column="0">
+         <widget class="QLabel" name="resultsLabel">
+          <property name="font">
+           <font>
+            <weight>75</weight>
+            <italic>true</italic>
+            <bold>true</bold>
+           </font>
+          </property>
+          <property name="frameShape">
+           <enum>QFrame::Box</enum>
+          </property>
+          <property name="frameShadow">
+           <enum>QFrame::Sunken</enum>
+          </property>
+          <property name="text">
+           <string>Results</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="1" column="0" colspan="2">
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>accepted()</signal>
+   <receiver>catalogueDialog</receiver>
+   <slot>accept()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>230</x>
+     <y>511</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>157</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>rejected()</signal>
+   <receiver>catalogueDialog</receiver>
+   <slot>reject()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>298</x>
+     <y>511</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>286</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>yearFilter</sender>
+   <signal>itemSelectionChanged()</signal>
+   <receiver>catalogueDialog</receiver>
+   <slot>apply_filter()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>232</x>
+     <y>321</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>530</x>
+     <y>384</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>contentTypeFilter</sender>
+   <signal>itemSelectionChanged()</signal>
+   <receiver>catalogueDialog</receiver>
+   <slot>apply_filter()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>456</x>
+     <y>391</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>770</x>
+     <y>376</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>nameFilter</sender>
+   <signal>textChanged(QString)</signal>
+   <receiver>catalogueDialog</receiver>
+   <slot>apply_filter()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>233</x>
+     <y>75</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>246</x>
+     <y>126</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>loadFilterButton</sender>
+   <signal>clicked()</signal>
+   <receiver>catalogueDialog</receiver>
+   <slot>load_filter()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>583</x>
+     <y>461</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>938</x>
+     <y>382</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>resultsList</sender>
+   <signal>itemSelectionChanged()</signal>
+   <receiver>catalogueDialog</receiver>
+   <slot>on_result_selection_changed()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>855</x>
+     <y>194</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>939</x>
+     <y>212</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>showInfoButton</sender>
+   <signal>clicked()</signal>
+   <receiver>catalogueDialog</receiver>
+   <slot>show_info()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>692</x>
+     <y>461</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>937</x>
+     <y>366</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>openCatalogueButton</sender>
+   <signal>clicked()</signal>
+   <receiver>catalogueDialog</receiver>
+   <slot>goto_catalogue()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>813</x>
+     <y>446</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>941</x>
+     <y>472</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>openAvsButton</sender>
+   <signal>clicked()</signal>
+   <receiver>catalogueDialog</receiver>
+   <slot>goto_avs()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>896</x>
+     <y>448</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>938</x>
+     <y>440</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>allRadioButton</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>catalogueDialog</receiver>
+   <slot>apply_filter()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>52</x>
+     <y>94</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>0</x>
+     <y>142</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>missingFromCatalogueRadioButton</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>catalogueDialog</receiver>
+   <slot>apply_filter()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>200</x>
+     <y>90</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>2</x>
+     <y>212</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>inCatalogueOnlyRadioButton</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>catalogueDialog</receiver>
+   <slot>apply_filter()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>380</x>
+     <y>92</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>470</x>
+     <y>206</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+ <slots>
+  <slot>apply_filter()</slot>
+  <slot>load_filter()</slot>
+  <slot>on_result_selection_changed()</slot>
+  <slot>show_info()</slot>
+  <slot>goto_catalogue()</slot>
+  <slot>goto_avs()</slot>
+ </slots>
+</ui>

@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1569</width>
-    <height>1012</height>
+    <height>1078</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -1087,7 +1087,7 @@
      <x>0</x>
      <y>0</y>
      <width>1569</width>
-     <height>21</height>
+     <height>30</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuHelp">
@@ -1173,8 +1173,10 @@
     <addaction name="separator"/>
     <addaction name="actionAnalyse_Audio"/>
     <addaction name="separator"/>
+    <addaction name="actionBrowse_Catalogue"/>
     <addaction name="actionExport_Biquad"/>
     <addaction name="actionMerge_Minidsp_XML"/>
+    <addaction name="separator"/>
     <addaction name="actionCreate_AVS_Post"/>
     <addaction name="separator"/>
     <addaction name="actionSync_with_HTP_1"/>
@@ -1513,6 +1515,14 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+M</string>
+   </property>
+  </action>
+  <action name="actionBrowse_Catalogue">
+   <property name="text">
+    <string>Browse &amp;Catalogue</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Alt+C</string>
    </property>
   </action>
  </widget>
