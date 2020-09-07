@@ -7,13 +7,13 @@
     <x>0</x>
     <y>0</y>
     <width>938</width>
-    <height>518</height>
+    <height>552</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>BEQ Catalogue</string>
   </property>
-  <layout class="QGridLayout" name="gridLayout" columnstretch="1,1">
+  <layout class="QGridLayout" name="gridLayout" columnstretch="3,2">
    <item row="0" column="0">
     <widget class="QFrame" name="searchFrame">
      <property name="frameShape">
@@ -25,6 +25,115 @@
      <layout class="QGridLayout" name="gridLayout_3">
       <item row="0" column="0">
        <layout class="QGridLayout" name="searchLayout">
+        <item row="6" column="1">
+         <widget class="QListWidget" name="contentTypeFilter">
+          <property name="selectionMode">
+           <enum>QAbstractItemView::MultiSelection</enum>
+          </property>
+         </widget>
+        </item>
+        <item row="6" column="0">
+         <widget class="QListWidget" name="yearFilter">
+          <property name="selectionMode">
+           <enum>QAbstractItemView::MultiSelection</enum>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="0" colspan="2">
+         <widget class="QGroupBox" name="catalogueBox">
+          <property name="font">
+           <font>
+            <pointsize>8</pointsize>
+            <weight>50</weight>
+            <bold>false</bold>
+           </font>
+          </property>
+          <property name="title">
+           <string>Catalogue</string>
+          </property>
+          <layout class="QHBoxLayout" name="horizontalLayout_2">
+           <item>
+            <widget class="QToolButton" name="browseCatalogueButton">
+             <property name="text">
+              <string>...</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QRadioButton" name="allRadioButton">
+             <property name="font">
+              <font>
+               <pointsize>10</pointsize>
+               <weight>50</weight>
+               <bold>false</bold>
+              </font>
+             </property>
+             <property name="text">
+              <string>All</string>
+             </property>
+             <property name="checked">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QRadioButton" name="inCatalogueOnlyRadioButton">
+             <property name="font">
+              <font>
+               <pointsize>10</pointsize>
+               <weight>50</weight>
+               <bold>false</bold>
+              </font>
+             </property>
+             <property name="text">
+              <string>Match</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QRadioButton" name="missingFromCatalogueRadioButton">
+             <property name="font">
+              <font>
+               <pointsize>10</pointsize>
+               <weight>50</weight>
+               <bold>false</bold>
+              </font>
+             </property>
+             <property name="text">
+              <string>No Match</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item row="5" column="0">
+         <layout class="QHBoxLayout" name="yearFilterLayout">
+          <item>
+           <widget class="QSpinBox" name="yearMinFilter"/>
+          </item>
+          <item>
+           <widget class="QSpinBox" name="yearMaxFilter"/>
+          </item>
+         </layout>
+        </item>
+        <item row="5" column="1">
+         <widget class="QLineEdit" name="contentFilter"/>
+        </item>
+        <item row="1" column="0" colspan="2">
+         <layout class="QHBoxLayout" name="nameLayout">
+          <item>
+           <widget class="QLabel" name="nameFilterLabel">
+            <property name="text">
+             <string>Name</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLineEdit" name="nameFilter"/>
+          </item>
+         </layout>
+        </item>
         <item row="0" column="0" colspan="2">
          <widget class="QLabel" name="filterHeaderLabel">
           <property name="font">
@@ -49,41 +158,13 @@
          </widget>
         </item>
         <item row="4" column="0">
-         <widget class="QListWidget" name="yearFilter">
-          <property name="selectionMode">
-           <enum>QAbstractItemView::MultiSelection</enum>
-          </property>
-         </widget>
-        </item>
-        <item row="1" column="0" colspan="2">
-         <layout class="QHBoxLayout" name="nameLayout">
-          <item>
-           <widget class="QLabel" name="nameFilterLabel">
-            <property name="text">
-             <string>Name</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QLineEdit" name="nameFilter"/>
-          </item>
-         </layout>
-        </item>
-        <item row="4" column="1">
-         <widget class="QListWidget" name="contentTypeFilter">
-          <property name="selectionMode">
-           <enum>QAbstractItemView::MultiSelection</enum>
-          </property>
-         </widget>
-        </item>
-        <item row="3" column="0">
          <widget class="QLabel" name="yearFilterLabel">
           <property name="text">
            <string>Year</string>
           </property>
          </widget>
         </item>
-        <item row="3" column="1">
+        <item row="4" column="1">
          <widget class="QLabel" name="contentTypeFilterLabel">
           <property name="text">
            <string>Content Type</string>
@@ -91,32 +172,61 @@
          </widget>
         </item>
         <item row="2" column="0" colspan="2">
-         <layout class="QHBoxLayout" name="catalogueFilterLayout">
-          <item>
-           <widget class="QRadioButton" name="allRadioButton">
-            <property name="text">
-             <string>All</string>
-            </property>
-            <property name="checked">
-             <bool>true</bool>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QRadioButton" name="missingFromCatalogueRadioButton">
-            <property name="text">
-             <string>Missing from Catalogue</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QRadioButton" name="inCatalogueOnlyRadioButton">
-            <property name="text">
-             <string>In Catalogue Only</string>
-            </property>
-           </widget>
-          </item>
-         </layout>
+         <widget class="QGroupBox" name="repoGroupBox">
+          <property name="font">
+           <font>
+            <pointsize>8</pointsize>
+            <italic>false</italic>
+           </font>
+          </property>
+          <property name="title">
+           <string>Repos</string>
+          </property>
+          <layout class="QHBoxLayout" name="horizontalLayout">
+           <item>
+            <widget class="QRadioButton" name="allReposRadioButton">
+             <property name="font">
+              <font>
+               <pointsize>10</pointsize>
+               <italic>false</italic>
+              </font>
+             </property>
+             <property name="text">
+              <string>All</string>
+             </property>
+             <property name="checked">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QRadioButton" name="aron7awolRepoButton">
+             <property name="font">
+              <font>
+               <pointsize>10</pointsize>
+               <italic>false</italic>
+              </font>
+             </property>
+             <property name="text">
+              <string>aron7awol</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QRadioButton" name="mobe1969RepoButton">
+             <property name="font">
+              <font>
+               <pointsize>10</pointsize>
+               <italic>false</italic>
+              </font>
+             </property>
+             <property name="text">
+              <string>mobe1969</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
         </item>
        </layout>
       </item>
@@ -259,7 +369,7 @@
       <enum>Qt::Horizontal</enum>
      </property>
      <property name="standardButtons">
-      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+      <set>QDialogButtonBox::Close</set>
      </property>
     </widget>
    </item>
@@ -274,8 +384,8 @@
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>230</x>
-     <y>511</y>
+     <x>236</x>
+     <y>545</y>
     </hint>
     <hint type="destinationlabel">
      <x>157</x>
@@ -290,8 +400,8 @@
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>298</x>
-     <y>511</y>
+     <x>304</x>
+     <y>545</y>
     </hint>
     <hint type="destinationlabel">
      <x>286</x>
@@ -354,8 +464,8 @@
    <slot>load_filter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>583</x>
-     <y>461</y>
+     <x>620</x>
+     <y>495</y>
     </hint>
     <hint type="destinationlabel">
      <x>938</x>
@@ -386,8 +496,8 @@
    <slot>show_info()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>692</x>
-     <y>461</y>
+     <x>710</x>
+     <y>495</y>
     </hint>
     <hint type="destinationlabel">
      <x>937</x>
@@ -402,8 +512,8 @@
    <slot>goto_catalogue()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>813</x>
-     <y>446</y>
+     <x>831</x>
+     <y>495</y>
     </hint>
     <hint type="destinationlabel">
      <x>941</x>
@@ -418,8 +528,8 @@
    <slot>goto_avs()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>896</x>
-     <y>448</y>
+     <x>921</x>
+     <y>495</y>
     </hint>
     <hint type="destinationlabel">
      <x>938</x>
@@ -434,8 +544,8 @@
    <slot>apply_filter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>52</x>
-     <y>94</y>
+     <x>130</x>
+     <y>210</y>
     </hint>
     <hint type="destinationlabel">
      <x>0</x>
@@ -450,8 +560,8 @@
    <slot>apply_filter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>200</x>
-     <y>90</y>
+     <x>503</x>
+     <y>210</y>
     </hint>
     <hint type="destinationlabel">
      <x>2</x>
@@ -466,12 +576,124 @@
    <slot>apply_filter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>380</x>
-     <y>92</y>
+     <x>354</x>
+     <y>210</y>
     </hint>
     <hint type="destinationlabel">
      <x>470</x>
      <y>206</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>contentFilter</sender>
+   <signal>textChanged(QString)</signal>
+   <receiver>catalogueDialog</receiver>
+   <slot>filter_content_type()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>511</x>
+     <y>287</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>470</x>
+     <y>148</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>yearMinFilter</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>catalogueDialog</receiver>
+   <slot>filter_min_year()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>122</x>
+     <y>287</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>2</x>
+     <y>258</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>yearMaxFilter</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>catalogueDialog</receiver>
+   <slot>filter_max_year()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>258</x>
+     <y>287</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>-2</x>
+     <y>344</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>allReposRadioButton</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>catalogueDialog</receiver>
+   <slot>apply_filter()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>167</x>
+     <y>136</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>270</x>
+     <y>-1</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>aron7awolRepoButton</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>catalogueDialog</receiver>
+   <slot>apply_filter()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>341</x>
+     <y>136</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>362</x>
+     <y>3</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>mobe1969RepoButton</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>catalogueDialog</receiver>
+   <slot>apply_filter()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>503</x>
+     <y>136</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>460</x>
+     <y>-5</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>browseCatalogueButton</sender>
+   <signal>clicked()</signal>
+   <receiver>catalogueDialog</receiver>
+   <slot>browse_catalogue()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>47</x>
+     <y>202</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>-1</x>
+     <y>178</y>
     </hint>
    </hints>
   </connection>
@@ -483,5 +705,9 @@
   <slot>show_info()</slot>
   <slot>goto_catalogue()</slot>
   <slot>goto_avs()</slot>
+  <slot>filter_content_type()</slot>
+  <slot>filter_min_year()</slot>
+  <slot>filter_max_year()</slot>
+  <slot>browse_catalogue()</slot>
  </slots>
 </ui>

@@ -14,7 +14,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_imgViewerDialog(object):
     def setupUi(self, imgViewerDialog):
         imgViewerDialog.setObjectName("imgViewerDialog")
-        imgViewerDialog.resize(908, 710)
+        imgViewerDialog.resize(1188, 892)
         imgViewerDialog.setSizeGripEnabled(True)
         self.verticalLayout = QtWidgets.QVBoxLayout(imgViewerDialog)
         self.verticalLayout.setContentsMargins(0, 0, 0, 0)
@@ -27,7 +27,7 @@ class Ui_imgViewerDialog(object):
         self.scrollArea.setWidgetResizable(True)
         self.scrollArea.setObjectName("scrollArea")
         self.scrollAreaWidgetContents = QtWidgets.QWidget()
-        self.scrollAreaWidgetContents.setGeometry(QtCore.QRect(0, 0, 908, 710))
+        self.scrollAreaWidgetContents.setGeometry(QtCore.QRect(0, 0, 1188, 892))
         self.scrollAreaWidgetContents.setObjectName("scrollAreaWidgetContents")
         self.label = QtWidgets.QLabel(self.scrollAreaWidgetContents)
         self.label.setGeometry(QtCore.QRect(20, 30, 58, 18))

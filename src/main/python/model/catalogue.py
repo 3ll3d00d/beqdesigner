@@ -3,22 +3,25 @@ import glob
 import logging
 import os
 import re
-import tempfile
 import time
+from typing import Optional, Any
 from datetime import datetime
 from itertools import groupby
 from pathlib import Path
 from urllib.parse import urlparse
 
+import qtawesome as qta
 import requests
 from dateutil.parser import parse as parsedate
-from qtpy.QtCore import Signal, QRunnable, QObject, QThreadPool, QUrl, Qt
+from qtpy.QtCore import Signal, QRunnable, QObject, QThreadPool, QUrl, Qt, QAbstractTableModel, QModelIndex, QVariant
 from qtpy.QtGui import QDesktopServices, QImageReader, QPixmap
-from qtpy.QtWidgets import QDialog, QMessageBox, QSizePolicy
+from qtpy.QtWidgets import QDialog, QMessageBox, QSizePolicy, QListWidgetItem, QHeaderView
 from sortedcontainers import SortedSet
 
 from model.minidsp import get_repo_subdir, load_filter_file
 from model.preferences import BEQ_DOWNLOAD_DIR, BEQ_REPOS
+from model.report import block_signals
+from ui.browse_catalogue import Ui_catalogueViewerDialog
 from ui.catalogue import Ui_catalogueDialog
 from ui.imgviewer import Ui_imgViewerDialog
 
@@ -36,6 +39,8 @@ class CatalogueDialog(QDialog, Ui_catalogueDialog):
         self.__beq_dir = self.__preferences.get(BEQ_DOWNLOAD_DIR)
         self.__db_csv_file = os.path.join(self.__beq_dir, 'database.csv')
         self.__db_csv = {}
+        self.browseCatalogueButton.setEnabled(False)
+        self.browseCatalogueButton.setIcon(qta.icon('fa5s.folder-open'))
         QThreadPool.globalInstance().start(DatabaseDownloader(self.__on_database_load,
                                                               self.__alert_on_database_load_error,
                                                               self.__db_csv_file))
@@ -45,11 +50,21 @@ class CatalogueDialog(QDialog, Ui_catalogueDialog):
         self.openCatalogueButton.setEnabled(False)
         for r in self.__preferences.get(BEQ_REPOS).split('|'):
             self.__populate_catalogue(r)
-        for y in reversed(SortedSet({c.year for c in self.__catalogue.values()})):
+        years = SortedSet({c.year for c in self.__catalogue.values()})
+        for y in reversed(years):
             self.yearFilter.addItem(y)
+        self.yearMinFilter.setMinimum(int(years[0]))
+        self.yearMinFilter.setMaximum(int(years[-1]) - 1)
+        self.yearMaxFilter.setMinimum(int(years[0]) + 1)
+        self.yearMaxFilter.setMaximum(int(years[-1]))
+        self.yearMinFilter.setValue(int(years[0]))
+        self.filter_min_year(self.yearMinFilter.value())
+        self.yearMaxFilter.setValue(int(years[-1]))
+        self.filter_max_year(self.yearMaxFilter.value())
         content_types = SortedSet({c.content_type for c in self.__catalogue.values()})
         for c in content_types:
             self.contentTypeFilter.addItem(c)
+        self.filter_content_type('')
         self.totalCount.setValue(len(self.__catalogue))
 
     def __on_database_load(self, database):
@@ -81,6 +96,7 @@ class CatalogueDialog(QDialog, Ui_catalogueDialog):
                     k = c['Title'] if len(cats_list) == 1 else f"{c['Title']} -- {c['Format']}"
                     db_csv_dict[k] = c
             self.__db_csv = db_csv_dict
+            self.browseCatalogueButton.setEnabled(True)
 
     @staticmethod
     def __alert_on_database_load_error(message):
@@ -136,12 +152,23 @@ class CatalogueDialog(QDialog, Ui_catalogueDialog):
 
     def __included_in_catalogue_filter(self, beq):
         ''' if this beq can be found in the catalogue. '''
+        include = False
         if self.allRadioButton.isChecked():
-            return True
+            include = True
         elif self.inCatalogueOnlyRadioButton.isChecked():
-            return self.__make_key(beq) in self.__db_csv or beq.name in self.__db_csv
+            include = self.__make_key(beq) in self.__db_csv or beq.name in self.__db_csv
         elif self.missingFromCatalogueRadioButton.isChecked():
-            return self.__make_key(beq) not in self.__db_csv and beq.name not in self.__db_csv
+            include = self.__make_key(beq) not in self.__db_csv and beq.name not in self.__db_csv
+
+        if include:
+            if self.allReposRadioButton.isChecked():
+                return True
+            elif self.aron7awolRepoButton.isChecked():
+                return beq.repo == 'bmiller_miniDSPBEQ'
+            elif self.mobe1969RepoButton.isChecked():
+                return beq.repo == 'Mobe1969_miniDSPBEQ'
+        else:
+            return False
 
     @staticmethod
     def __make_key(beq):
@@ -174,10 +201,11 @@ class CatalogueDialog(QDialog, Ui_catalogueDialog):
         self.path.clear()
         if selected:
             self.path.setText(self.__get_beq_from_results().filename)
-            if self.__db_csv and self.__get_catalogue_from_results():
+            cat = self.__get_catalogue_from_results()
+            if self.__db_csv and cat:
                 self.showInfoButton.setEnabled(True)
                 self.openCatalogueButton.setEnabled(True)
-                self.openAvsButton.setEnabled(True)
+                self.openAvsButton.setEnabled('AVS' in cat and len(cat['AVS']) > 0)
 
     def show_info(self):
         ''' Displays the info about the BEQ from the catalogue '''
@@ -193,6 +221,41 @@ class CatalogueDialog(QDialog, Ui_catalogueDialog):
     def goto_avs(self):
         ''' Open the corresponding AVS post. '''
         QDesktopServices.openUrl(QUrl(self.__get_catalogue_from_results()['AVS']))
+
+    def filter_min_year(self, min_year: int):
+        ''' sets the min year filter '''
+        max_year = self.yearMaxFilter.value()
+        with block_signals(self.yearFilter):
+            for i in range(self.yearFilter.count()):
+                item: QListWidgetItem = self.yearFilter.item(i)
+                val = int(item.text())
+                item.setSelected(min_year <= val <= max_year)
+            self.yearMaxFilter.setMinimum(min_year + 1)
+        self.apply_filter()
+
+    def filter_max_year(self, max_year: int):
+        ''' sets the max year filter '''
+        min_year = self.yearMinFilter.value()
+        with block_signals(self.yearFilter):
+            for i in range(self.yearFilter.count()):
+                item: QListWidgetItem = self.yearFilter.item(i)
+                val = int(item.text())
+                item.setSelected(min_year <= val <= max_year)
+            self.yearMinFilter.setMaximum(max_year - 1)
+        self.apply_filter()
+
+    def filter_content_type(self, txt: str):
+        ''' filters the selected content types to match the given string '''
+        with block_signals(self.contentTypeFilter):
+            for i in range(self.contentTypeFilter.count()):
+                item: QListWidgetItem = self.contentTypeFilter.item(i)
+                item.setSelected(len(txt.strip()) == 0 or item.text().casefold().find(txt.casefold()) > -1)
+        self.apply_filter()
+
+    def browse_catalogue(self):
+        ''' Show the DB csv browser. '''
+        dialog = BrowseCatalogueDialog(self, self.__db_csv, filt=self.nameFilter.text())
+        dialog.show()
 
 
 class BEQ:
@@ -352,3 +415,54 @@ def show_alert(title, message):
     msg_box.setIcon(QMessageBox.Warning)
     msg_box.setWindowTitle(title)
     msg_box.exec()
+
+
+class BrowseCatalogueDialog(QDialog, Ui_catalogueViewerDialog):
+
+    def __init__(self, parent, catalogue, filt: Optional[str] = None):
+        super(BrowseCatalogueDialog, self).__init__(parent=parent)
+        self.__catalogue = catalogue
+        super().setupUi(self)
+        self.__model = CatalogueTableModel(catalogue, parent=parent)
+        self.tableView.setModel(self.__model)
+        self.tableView.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.nameFilter.setText(filt)
+
+    def apply_filter(self, txt: str):
+        self.__model.filter(txt)
+
+
+class CatalogueTableModel(QAbstractTableModel):
+
+    def __init__(self, data: dict, filt: Optional[str] = None, parent=None):
+        super().__init__(parent=parent)
+        self.__raw_data = list(data.values())
+        self.__data = None
+        self.__cols = ['Title', 'Format', 'Author']
+        self.filter(filt)
+
+    def rowCount(self, parent=None):
+        return len(self.__data)
+
+    def columnCount(self, parent=None):
+        return len(self.__cols)
+
+    def data(self, index: QModelIndex, role: int = ...) -> Any:
+        if not index.isValid() or role != Qt.DisplayRole:
+            return QVariant()
+        else:
+            return QVariant(self.__data[index.row()][self.__cols[index.column()]])
+
+    def headerData(self, section: int, orientation: Qt.Orientation, role: int = ...) -> Any:
+        if orientation == Qt.Horizontal and role == Qt.DisplayRole:
+            return QVariant(self.__cols[section])
+        return QVariant()
+
+    def filter(self, txt: str):
+        self.beginResetModel()
+        if txt is None or len(txt.strip()) == 0:
+            self.__data = self.__raw_data
+        else:
+            match_txt = txt.casefold()
+            self.__data = [d for d in self.__raw_data if d['Title'].casefold().find(match_txt) > -1]
+        self.endResetModel()
