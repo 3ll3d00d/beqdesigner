@@ -11,6 +11,30 @@ env:
 matrix:
   fast_finish: true
   include:
+  - name: Bionic Linux
+    python: '3.7'
+    dist: bionic
+    env:
+    - PIPENV_VERBOSITY=-1
+    - COVERAGE_ARGS="--cov=./src/main/python"
+    - PBIN=pip3
+    - PRUN="pipenv run"
+    before_install:
+    - pip3 install --upgrade pip
+    after_success:
+    - bash <(curl -s https://codecov.io/bash)
+  - name: Focal Linux
+    python: '3.7'
+    dist: focal
+    env:
+    - PIPENV_VERBOSITY=-1
+    - COVERAGE_ARGS="--cov=./src/main/python"
+    - PBIN=pip3
+    - PRUN="pipenv run"
+    before_install:
+    - pip3 install --upgrade pip
+    after_success:
+    - bash <(curl -s https://codecov.io/bash)
   - name: Xenial Linux
     python: '3.7'
     dist: xenial
