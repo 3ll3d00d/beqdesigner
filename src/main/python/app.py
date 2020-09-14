@@ -1108,8 +1108,8 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
             else:
                 file_path = os.path.abspath(os.path.join(os.path.dirname('__file__'), '../xml/flat24hd.xml'))
             parser = HDXmlParser(DspType.MINIDSP_TWO_BY_FOUR_HD, False)
-            output_xml = parser.convert(file_path, self.__filter_model.filter)
-            with open(file_name, 'w') as f:
+            output_xml, _ = parser.convert(file_path, self.__filter_model.filter)
+            with open(file_name, 'w+') as f:
                 f.write(output_xml)
 
 
