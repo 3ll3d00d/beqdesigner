@@ -43,8 +43,12 @@ class XmlParser(ABC):
 
     def convert(self, dst, filt, metadata=None):
         filters, was_optimised = self.__preprocess(filt)
-        output_config = self._overwrite(filters, dst, metadata)
+        output_config = self._overwrite(self.__ensure_fs(filters), dst, metadata)
         return output_config, was_optimised
+
+    def __ensure_fs(self, filters):
+        fs = self.minidsp_type.target_fs
+        return [f.resample(fs) if f.fs != fs else f for f in filters]
 
     def file_extension(self):
         return '.xml'

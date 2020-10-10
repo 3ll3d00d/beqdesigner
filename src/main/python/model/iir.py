@@ -198,6 +198,9 @@ class Passthrough(Gain):
     def sort_key(self):
         return "ZZZZZZZZZZZZZZ"
 
+    def resample(self, new_fs):
+        return Passthrough(fs=new_fs, f_id=self.id)
+
     def to_json(self):
         return {
             '_type': self.__class__.__name__,
