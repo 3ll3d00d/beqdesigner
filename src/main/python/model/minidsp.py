@@ -212,13 +212,22 @@ class HDXmlParser(XmlParser):
             for key, value in metadata.items():
                 tag = ET.Element(key)
 
-                if type(value) is list:
+                if isinstance(value,list):
+                    subKey = key[key.startswith("beq_") and len("beq_"):]
+                    subKey = subKey[:-1]
                     for item in value:
-                        sub_tag = ET.Element('value')
-                        sub_tag.text = item
+                        sub_tag = ET.Element(subKey)
+                        if isinstance(item,dict):
+                            sub_tag.text = item.get("name")
+                            sub_tag.set('id', str(item.get("id")))
+                        else:
+                            sub_tag.text = item
                         tag.append(sub_tag)
+                elif isinstance(value,dict):
+                    tag.text = value.get("name")
+                    tag.set('id', str(value.get("id")))
                 else:
-                    tag.text = metadata[key]
+                    tag.text = value
                 metadata_tag.append(tag)
 
             root.append(metadata_tag)

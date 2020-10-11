@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>628</width>
-    <height>715</height>
+    <width>920</width>
+    <height>855</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -16,33 +16,7 @@
   <layout class="QGridLayout" name="gridLayout">
    <item row="3" column="0">
     <layout class="QGridLayout" name="buttonGrid">
-     <item row="0" column="2">
-      <spacer name="leadingSpacer">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>40</width>
-         <height>20</height>
-        </size>
-       </property>
-      </spacer>
-     </item>
-     <item row="0" column="3">
-      <widget class="QPushButton" name="closeButton">
-       <property name="text">
-        <string>Close</string>
-       </property>
-       <property name="autoDefault">
-        <bool>false</bool>
-       </property>
-       <property name="default">
-        <bool>false</bool>
-       </property>
-      </widget>
-     </item>
-     <item row="0" column="0">
+     <item row="0" column="1">
       <spacer name="middleSpacer">
        <property name="orientation">
         <enum>Qt::Horizontal</enum>
@@ -55,7 +29,20 @@
        </property>
       </spacer>
      </item>
-     <item row="0" column="1">
+     <item row="0" column="4">
+      <widget class="QPushButton" name="closeButton">
+       <property name="text">
+        <string>Close</string>
+       </property>
+       <property name="autoDefault">
+        <bool>false</bool>
+       </property>
+       <property name="default">
+        <bool>false</bool>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="2">
       <widget class="QPushButton" name="generateButton">
        <property name="text">
         <string>Generate 2x4HD XML File</string>
@@ -65,10 +52,33 @@
        </property>
       </widget>
      </item>
+     <item row="0" column="3">
+      <spacer name="leadingSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item row="0" column="0">
+      <widget class="QPushButton" name="tmdbButton">
+       <property name="text">
+        <string>Load TMDB Info</string>
+       </property>
+       <property name="autoDefault">
+        <bool>false</bool>
+       </property>
+      </widget>
+     </item>
     </layout>
    </item>
    <item row="0" column="0" alignment="Qt::AlignRight">
-    <widget class="QComboBox" name="comboBox">
+    <widget class="QComboBox" name="postTypePicker">
      <property name="maximumSize">
       <size>
        <width>250</width>
@@ -89,121 +99,24 @@
    </item>
    <item row="1" column="0">
     <layout class="QGridLayout" name="dataGrid">
-     <item row="8" column="0">
+     <item row="15" column="2" colspan="2">
+      <widget class="QPlainTextEdit" name="postTextEdit"/>
+     </item>
+     <item row="10" column="0">
       <widget class="QLabel" name="spectrumLabel">
        <property name="text">
         <string>Spectrum URL</string>
        </property>
       </widget>
      </item>
-     <item row="11" column="2" colspan="2">
-      <widget class="QPlainTextEdit" name="postTextEdit"/>
-     </item>
-     <item row="6" column="2" colspan="2">
-      <widget class="QComboBox" name="sourcePicker">
-       <item>
-        <property name="text">
-         <string>Disc</string>
-        </property>
-       </item>
-      </widget>
-     </item>
-     <item row="7" column="3">
-      <widget class="QToolButton" name="pvaValid">
-       <property name="enabled">
-        <bool>true</bool>
-       </property>
+     <item row="14" column="3">
+      <widget class="QToolButton" name="audioValid">
        <property name="text">
         <string/>
        </property>
       </widget>
      </item>
-     <item row="7" column="2">
-      <widget class="QLineEdit" name="pvaField"/>
-     </item>
-     <item row="5" column="2" colspan="2">
-      <widget class="QLineEdit" name="warningField"/>
-     </item>
-     <item row="11" column="0">
-      <widget class="QLabel" name="postLabel">
-       <property name="text">
-        <string>BEQ Post</string>
-       </property>
-      </widget>
-     </item>
-     <item row="3" column="0">
-      <widget class="QLabel" name="seasonLabel">
-       <property name="text">
-        <string>TV Season</string>
-       </property>
-      </widget>
-     </item>
-     <item row="4" column="2" colspan="2">
-      <widget class="QLineEdit" name="noteField"/>
-     </item>
-     <item row="8" column="3">
-      <widget class="QToolButton" name="spectrumValid">
-       <property name="enabled">
-        <bool>true</bool>
-       </property>
-       <property name="text">
-        <string/>
-       </property>
-      </widget>
-     </item>
-     <item row="1" column="0">
-      <widget class="QLabel" name="yearLabel">
-       <property name="text">
-        <string>Year</string>
-       </property>
-      </widget>
-     </item>
-     <item row="2" column="2" colspan="2">
-      <widget class="QLineEdit" name="editionField"/>
-     </item>
-     <item row="12" column="0">
-      <widget class="QLabel" name="label">
-       <property name="text">
-        <string>XML File Name</string>
-       </property>
-      </widget>
-     </item>
-     <item row="7" column="0">
-      <widget class="QLabel" name="pvaLabel">
-       <property name="text">
-        <string>PvA Graph URL</string>
-       </property>
-      </widget>
-     </item>
-     <item row="10" column="0">
-      <widget class="QLabel" name="formatLabel">
-       <property name="text">
-        <string>Audio Format</string>
-       </property>
-      </widget>
-     </item>
-     <item row="5" column="0">
-      <widget class="QLabel" name="warningLabel">
-       <property name="text">
-        <string>Warning</string>
-       </property>
-      </widget>
-     </item>
-     <item row="4" column="0">
-      <widget class="QLabel" name="noteLabel">
-       <property name="text">
-        <string>Note</string>
-       </property>
-      </widget>
-     </item>
-     <item row="2" column="0">
-      <widget class="QLabel" name="editionLabel">
-       <property name="text">
-        <string>Edition</string>
-       </property>
-      </widget>
-     </item>
-     <item row="8" column="2">
+     <item row="10" column="2">
       <widget class="QLineEdit" name="spectrumField"/>
      </item>
      <item row="3" column="2" colspan="2">
@@ -223,7 +136,7 @@
        </property>
       </widget>
      </item>
-     <item row="12" column="2" colspan="2">
+     <item row="16" column="2" colspan="2">
       <widget class="QLineEdit" name="fileName">
        <property name="readOnly">
         <bool>true</bool>
@@ -253,7 +166,7 @@
        </property>
       </widget>
      </item>
-     <item row="10" column="2">
+     <item row="14" column="2">
       <layout class="QGridLayout" name="formatGrid">
        <item row="4" column="2">
         <widget class="QCheckBox" name="ddCheckBox">
@@ -341,11 +254,198 @@
        </item>
       </layout>
      </item>
+     <item row="7" column="0">
+      <widget class="QLabel" name="languageLabel">
+       <property name="text">
+        <string>Language</string>
+       </property>
+      </widget>
+     </item>
+     <item row="9" column="0">
+      <widget class="QLabel" name="pvaLabel">
+       <property name="text">
+        <string>PvA Graph URL</string>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="0">
+      <widget class="QLabel" name="editionLabel">
+       <property name="text">
+        <string>Edition</string>
+       </property>
+      </widget>
+     </item>
+     <item row="14" column="0">
+      <widget class="QLabel" name="formatLabel">
+       <property name="text">
+        <string>Audio Format</string>
+       </property>
+      </widget>
+     </item>
+     <item row="5" column="0">
+      <widget class="QLabel" name="warningLabel">
+       <property name="text">
+        <string>Warning</string>
+       </property>
+      </widget>
+     </item>
+     <item row="4" column="0">
+      <widget class="QLabel" name="noteLabel">
+       <property name="text">
+        <string>Note</string>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="0">
+      <widget class="QLabel" name="yearLabel">
+       <property name="text">
+        <string>Year</string>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="2" colspan="2">
+      <widget class="QLineEdit" name="editionField"/>
+     </item>
+     <item row="16" column="0">
+      <widget class="QLabel" name="label">
+       <property name="text">
+        <string>XML File Name</string>
+       </property>
+      </widget>
+     </item>
      <item row="10" column="3">
-      <widget class="QToolButton" name="audioValid">
+      <widget class="QToolButton" name="spectrumValid">
+       <property name="enabled">
+        <bool>true</bool>
+       </property>
        <property name="text">
         <string/>
        </property>
+      </widget>
+     </item>
+     <item row="13" column="0">
+      <widget class="QLabel" name="altTitleLabel">
+       <property name="text">
+        <string>Alt TItle</string>
+       </property>
+      </widget>
+     </item>
+     <item row="13" column="2">
+      <widget class="QLineEdit" name="altTitleField"/>
+     </item>
+     <item row="8" column="0">
+      <widget class="QLabel" name="avsURLLabel">
+       <property name="text">
+        <string>AVS URL</string>
+       </property>
+      </widget>
+     </item>
+     <item row="12" column="0">
+      <widget class="QLabel" name="sortLabel">
+       <property name="text">
+        <string>Sort Title</string>
+       </property>
+      </widget>
+     </item>
+     <item row="8" column="2">
+      <widget class="QLineEdit" name="avsURLField"/>
+     </item>
+     <item row="11" column="0">
+      <widget class="QLabel" name="movieDBIDLabel">
+       <property name="text">
+        <string>MovieDB ID</string>
+       </property>
+      </widget>
+     </item>
+     <item row="7" column="2" colspan="2">
+      <widget class="QComboBox" name="languagePicker">
+       <item>
+        <property name="text">
+         <string>English</string>
+        </property>
+       </item>
+      </widget>
+     </item>
+     <item row="11" column="2">
+      <layout class="QGridLayout" name="tmdbGrid">
+       <item row="0" column="1">
+        <widget class="QLabel" name="runtimeLabel">
+         <property name="text">
+          <string>Runtime</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="6">
+        <widget class="QLineEdit" name="authorField"/>
+       </item>
+       <item row="0" column="3">
+        <widget class="QLabel" name="ratingLabel">
+         <property name="text">
+          <string>Rating</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="2">
+        <widget class="QLineEdit" name="runtimeField"/>
+       </item>
+       <item row="0" column="0">
+        <widget class="QLineEdit" name="movidDBIDField"/>
+       </item>
+       <item row="0" column="5">
+        <widget class="QLabel" name="authorLabel">
+         <property name="text">
+          <string>Author</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="4">
+        <widget class="QLineEdit" name="ratingField"/>
+       </item>
+      </layout>
+     </item>
+     <item row="9" column="2">
+      <widget class="QLineEdit" name="pvaField"/>
+     </item>
+     <item row="9" column="3">
+      <widget class="QToolButton" name="pvaValid">
+       <property name="enabled">
+        <bool>true</bool>
+       </property>
+       <property name="text">
+        <string/>
+       </property>
+      </widget>
+     </item>
+     <item row="5" column="2" colspan="2">
+      <widget class="QLineEdit" name="warningField"/>
+     </item>
+     <item row="4" column="2" colspan="2">
+      <widget class="QLineEdit" name="noteField"/>
+     </item>
+     <item row="3" column="0">
+      <widget class="QLabel" name="seasonLabel">
+       <property name="text">
+        <string>TV Season</string>
+       </property>
+      </widget>
+     </item>
+     <item row="15" column="0">
+      <widget class="QLabel" name="postLabel">
+       <property name="text">
+        <string>BEQ Post</string>
+       </property>
+      </widget>
+     </item>
+     <item row="12" column="2">
+      <widget class="QLineEdit" name="sortField"/>
+     </item>
+     <item row="6" column="2" colspan="2">
+      <widget class="QComboBox" name="sourcePicker">
+       <item>
+        <property name="text">
+         <string>Disc</string>
+        </property>
+       </item>
       </widget>
      </item>
     </layout>
@@ -360,8 +460,16 @@
   <tabstop>noteField</tabstop>
   <tabstop>warningField</tabstop>
   <tabstop>sourcePicker</tabstop>
+  <tabstop>languagePicker</tabstop>
+  <tabstop>avsURLField</tabstop>
   <tabstop>pvaField</tabstop>
   <tabstop>spectrumField</tabstop>
+  <tabstop>movidDBIDField</tabstop>
+  <tabstop>runtimeField</tabstop>
+  <tabstop>ratingField</tabstop>
+  <tabstop>authorField</tabstop>
+  <tabstop>sortField</tabstop>
+  <tabstop>altTitleField</tabstop>
   <tabstop>atmosCheckBox</tabstop>
   <tabstop>truehd71CheckBox</tabstop>
   <tabstop>truehd51CheckBox</tabstop>
@@ -375,7 +483,15 @@
   <tabstop>lpcm71CheckBox</tabstop>
   <tabstop>lpcm51CheckBox</tabstop>
   <tabstop>postTextEdit</tabstop>
+  <tabstop>fileName</tabstop>
+  <tabstop>tmdbButton</tabstop>
   <tabstop>generateButton</tabstop>
+  <tabstop>audioValid</tabstop>
+  <tabstop>spectrumValid</tabstop>
+  <tabstop>pvaValid</tabstop>
+  <tabstop>titleValid</tabstop>
+  <tabstop>yearValid</tabstop>
+  <tabstop>postTypePicker</tabstop>
   <tabstop>closeButton</tabstop>
  </tabstops>
  <resources/>
@@ -387,8 +503,8 @@
    <slot>close()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>663</x>
-     <y>626</y>
+     <x>907</x>
+     <y>842</y>
     </hint>
     <hint type="destinationlabel">
      <x>335</x>
@@ -403,8 +519,8 @@
    <slot>generate_avs_post()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>375</x>
-     <y>626</y>
+     <x>590</x>
+     <y>842</y>
     </hint>
     <hint type="destinationlabel">
      <x>69</x>
@@ -467,8 +583,8 @@
    <slot>build_avs_post()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>421</x>
-     <y>190</y>
+     <x>546</x>
+     <y>166</y>
     </hint>
     <hint type="destinationlabel">
      <x>116</x>
@@ -483,8 +599,8 @@
    <slot>build_avs_post()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>446</x>
-     <y>228</y>
+     <x>571</x>
+     <y>197</y>
     </hint>
     <hint type="destinationlabel">
      <x>115</x>
@@ -499,8 +615,8 @@
    <slot>build_avs_post()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>464</x>
-     <y>266</y>
+     <x>589</x>
+     <y>228</y>
     </hint>
     <hint type="destinationlabel">
      <x>114</x>
@@ -531,8 +647,8 @@
    <slot>build_avs_post()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>412</x>
-     <y>304</y>
+     <x>534</x>
+     <y>262</y>
     </hint>
     <hint type="destinationlabel">
      <x>7</x>
@@ -563,8 +679,8 @@
    <slot>build_avs_post()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>240</x>
-     <y>409</y>
+     <x>302</x>
+     <y>547</y>
     </hint>
     <hint type="destinationlabel">
      <x>110</x>
@@ -579,8 +695,8 @@
    <slot>build_avs_post()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>240</x>
-     <y>437</y>
+     <x>302</x>
+     <y>570</y>
     </hint>
     <hint type="destinationlabel">
      <x>114</x>
@@ -595,8 +711,8 @@
    <slot>build_avs_post()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>240</x>
-     <y>465</y>
+     <x>302</x>
+     <y>593</y>
     </hint>
     <hint type="destinationlabel">
      <x>109</x>
@@ -611,8 +727,8 @@
    <slot>build_avs_post()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>240</x>
-     <y>493</y>
+     <x>302</x>
+     <y>616</y>
     </hint>
     <hint type="destinationlabel">
      <x>113</x>
@@ -627,8 +743,8 @@
    <slot>build_avs_post()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>381</x>
-     <y>409</y>
+     <x>491</x>
+     <y>547</y>
     </hint>
     <hint type="destinationlabel">
      <x>411</x>
@@ -643,8 +759,8 @@
    <slot>build_avs_post()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>381</x>
-     <y>437</y>
+     <x>491</x>
+     <y>570</y>
     </hint>
     <hint type="destinationlabel">
      <x>391</x>
@@ -659,8 +775,8 @@
    <slot>build_avs_post()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>381</x>
-     <y>465</y>
+     <x>491</x>
+     <y>593</y>
     </hint>
     <hint type="destinationlabel">
      <x>343</x>
@@ -675,8 +791,8 @@
    <slot>build_avs_post()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>381</x>
-     <y>493</y>
+     <x>491</x>
+     <y>616</y>
     </hint>
     <hint type="destinationlabel">
      <x>282</x>
@@ -691,8 +807,8 @@
    <slot>build_avs_post()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>521</x>
-     <y>409</y>
+     <x>679</x>
+     <y>547</y>
     </hint>
     <hint type="destinationlabel">
      <x>556</x>
@@ -707,8 +823,8 @@
    <slot>build_avs_post()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>521</x>
-     <y>437</y>
+     <x>679</x>
+     <y>570</y>
     </hint>
     <hint type="destinationlabel">
      <x>543</x>
@@ -723,8 +839,8 @@
    <slot>build_avs_post()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>521</x>
-     <y>465</y>
+     <x>679</x>
+     <y>593</y>
     </hint>
     <hint type="destinationlabel">
      <x>525</x>
@@ -739,8 +855,8 @@
    <slot>build_avs_post()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>662</x>
-     <y>437</y>
+     <x>868</x>
+     <y>570</y>
     </hint>
     <hint type="destinationlabel">
      <x>533</x>
@@ -749,18 +865,82 @@
    </hints>
   </connection>
   <connection>
-   <sender>comboBox</sender>
+   <sender>postTypePicker</sender>
    <signal>currentIndexChanged(int)</signal>
    <receiver>postbuilder</receiver>
    <slot>post_type_changed(int)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>664</x>
-     <y>24</y>
+     <x>910</x>
+     <y>35</y>
     </hint>
     <hint type="destinationlabel">
      <x>525</x>
      <y>16</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>languagePicker</sender>
+   <signal>currentIndexChanged(QString)</signal>
+   <receiver>postbuilder</receiver>
+   <slot>build_avs_post()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>400</x>
+     <y>279</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>367</x>
+     <y>372</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>tmdbButton</sender>
+   <signal>clicked()</signal>
+   <receiver>postbuilder</receiver>
+   <slot>load_tmdb_info()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>136</x>
+     <y>842</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>220</x>
+     <y>759</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>avsURLField</sender>
+   <signal>textChanged(QString)</signal>
+   <receiver>postbuilder</receiver>
+   <slot>build_avs_post()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>820</x>
+     <y>312</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>905</x>
+     <y>309</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>titleField</sender>
+   <signal>editingFinished()</signal>
+   <receiver>postbuilder</receiver>
+   <slot>autofillSortTitle()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>337</x>
+     <y>53</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>318</x>
+     <y>13</y>
     </hint>
    </hints>
   </connection>
@@ -769,5 +949,7 @@
   <slot>generate_avs_post()</slot>
   <slot>build_avs_post()</slot>
   <slot>post_type_changed(int)</slot>
+  <slot>load_tmdb_info()</slot>
+  <slot>autofillSortTitle()</slot>
  </slots>
 </ui>

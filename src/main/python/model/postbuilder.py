@@ -2,6 +2,7 @@ import logging
 import math
 import os
 import sys
+import requests
 
 import qtawesome as qta
 from qtpy.QtCore import QRegExp, Qt, QCoreApplication
@@ -35,6 +36,7 @@ class CreateAVSPostDialog(QDialog, Ui_postbuilder):
         super(CreateAVSPostDialog, self).__init__(parent)
         self.setupUi(self)
         self.__build_source_picker()
+        self.__build_language_picker()
         self.pvaField.setValidator(UrlValidator(self.pvaField, self.pvaValid))
         self.spectrumField.setValidator(UrlValidator(self.spectrumField, self.spectrumValid))
         self.__preferences = prefs
@@ -43,12 +45,22 @@ class CreateAVSPostDialog(QDialog, Ui_postbuilder):
         self.__selected_signal = selected_signal
         self.post_type_changed(0)
         self.generateButton.setEnabled(False)
+        self.posterURL = None
+        self.overview = None
+        self.genres = None
+        self.collection = None
 
     def __build_source_picker(self):
         _translate = QCoreApplication.translate
-        sources = ["Apple TV+", "Amazon Prime", "Disney+", "Hulu", "iTunes", "Netflix"]
+        sources = ["Apple TV+", "Amazon", "DC Universe", "Disney+", "HBOMax", "Hulu", "iTunes", "Netflix", "Peacock"]
         for source in sources:
             self.sourcePicker.addItem(_translate("postbuilder", source))
+            
+    def __build_language_picker(self):
+        _translate = QCoreApplication.translate
+        languages = ["Cantonese", "Danish", "English", "French", "German", "Hebrew", "Indonesian", "Italian", "Japanese", "Korean", "Mandarin", "Mayan", "Norwegian", "Portuguese", "Russian", "Spanish", "Swahili", "Vietnamese"]
+        for language in languages:
+            self.languagePicker.addItem(_translate("postbuilder", language))
 
     def generate_avs_post(self):
         '''
@@ -81,11 +93,17 @@ class CreateAVSPostDialog(QDialog, Ui_postbuilder):
             save_name += f" ({metadata['beq_source']})"
         if self.__selected_signal is not None and not math.isclose(self.__selected_signal.offset, 0.0):
             save_name += f' ({self.__selected_signal.offset:+.1f} gain)'
-            metadata['beq_gain'] = f'{self.__selected_signal.offset:+.1f}'
+            metadata['beq_gain'] = f'{self.__selected_signal.offset:+.1f} gain'
         if len(metadata["beq_audioTypes"]) > 0:
             save_name += f' BEQ {metadata["beq_audioTypes"][0]}'
         save_name = save_name.replace(':', '-')
         return save_name
+
+    def autofillSortTitle(self):
+        if self.sortField.text().strip() == '':
+            title = self.titleField.text().strip()
+            title = title[title.startswith("The ") and len("The "):]
+            self.sortField.setText(title)
 
     def build_avs_post(self):
         '''
@@ -134,18 +152,126 @@ class CreateAVSPostDialog(QDialog, Ui_postbuilder):
         self.seasonField.setVisible(is_hidden)
         self.seasonLabel.setVisible(is_hidden)
 
+    def load_tmdb_info(self):
+        tmdbID = self.movidDBIDField.text().strip()
+        if tmdbID == '':
+            self.__search_tmdb()
+        else:
+            self.__get_tmdb_details(tmdbID)
+
+    def __search_tmdb(self):
+        url = 'https://api.themoviedb.org/3/search/movie'
+
+        if self.postTypePicker.currentIndex() == 1:
+            url = 'https://api.themoviedb.org/3/search/tv'
+            params = {
+                "api_key": "5e23b4412adb55e7cca19cfb9d0196b6",
+                "query": self.titleField.text().strip(),
+                "first_air_date_year": self.yearField.text().strip(),
+                "include_adult": 'false'
+            }
+        else:
+            params = {
+                "api_key": "5e23b4412adb55e7cca19cfb9d0196b6",
+                "query": self.titleField.text().strip(),
+                "year": self.yearField.text().strip(),
+                "include_adult": 'false'
+            }
+
+        r = requests.get(url=url, params=params)
+        if r.status_code == 200:
+            json = r.json()
+            results = json.get("results")
+            if results is not None and len(results) > 0:
+                first = results[0]
+                theID = first.get("id")
+                if theID is not None:
+                    self.movidDBIDField.setText(str(theID))
+                    self.__get_tmdb_details(theID)
+
+    def __get_tmdb_details(self, movieID):
+        url = f"https://api.themoviedb.org/3/movie/{movieID}"
+
+        if self.postTypePicker.currentIndex() == 1:
+            url = f"https://api.themoviedb.org/3/tv/{movieID}"
+            params = {
+                "api_key": "5e23b4412adb55e7cca19cfb9d0196b6",
+                "append_to_response": "content_ratings",
+            }
+        else:
+            params = {
+                "api_key": "5e23b4412adb55e7cca19cfb9d0196b6",
+                "append_to_response": "release_dates"
+            }
+
+        r = requests.get(url=url, params=params)
+        if r.status_code == 200:
+            result = r.json()
+            self.posterURL = result["poster_path"]
+            self.overview = result["overview"]
+            self.genres = result["genres"]
+
+            if self.postTypePicker.currentIndex() == 1:
+                title = result["name"]
+                alt = result["original_name"]
+                if alt != title: self.altTitleField.setText(alt)
+                cr = result.get("content_ratings")
+                if cr is not None:
+                    results = cr["results"]
+                    for item in results:
+                        code = item.get("iso_3166_1")
+                        if code == "US":
+                            self.ratingField.setText(item.get("rating"))
+                            break
+            else:
+                title = result["title"]
+                alt = result["original_title"]
+                if alt != title: self.altTitleField.setText(alt)
+                self.collection = result.get("belongs_to_collection")
+                runtime = result["runtime"]
+                if runtime is not None: self.runtimeField.setText(str(runtime))
+                cr = result.get("release_dates")
+                if cr is not None:
+                    results = cr["results"]
+                    for result in results:
+                        code = result.get("iso_3166_1")
+                        if code == "US":
+                            releases = result.get("release_dates")
+                            for release in releases:
+                                type = release.get("type")
+                                if type == 3 or type == 4:
+                                    self.ratingField.setText(release.get("certification"))
+                                    break
+                            break
+
+            self.titleField.setText(title)
+            self.autofillSortTitle()
+
     def __build_metadata(self):
         return {
             'beq_title': self.titleField.text().strip(),
+            'beq_alt_title': self.altTitleField.text().strip(),
+            'beq_sortTitle': self.sortField.text().strip(),
             'beq_year': self.yearField.text().strip(),
             'beq_spectrumURL': self.spectrumField.text().strip(),
             'beq_pvaURL': self.pvaField.text().strip(),
             'beq_edition': self.editionField.text().strip(),
             'beq_season': self.seasonField.text().strip(),
             'beq_note': self.noteField.text().strip(),
-            'beq_source': str(self.sourcePicker.currentText().strip()),
             'beq_warning': self.warningField.text().strip(),
-            'beq_audioTypes': self.__build_audio_list()
+            'beq_gain': None,
+            'beq_language': str(self.languagePicker.currentText().strip()),
+            'beq_source': str(self.sourcePicker.currentText().strip()),
+            'beq_overview': self.overview,
+            'beq_rating': self.ratingField.text().strip(),
+            'beq_author': self.authorField.text().strip(),
+            'beq_avs': self.avsURLField.text().strip(),
+            'beq_theMovieDB': self.movidDBIDField.text().strip(),
+            'beq_poster': self.posterURL,
+            'beq_runtime': self.runtimeField.text().strip(),
+            'beq_collection': self.collection,
+            'beq_audioTypes': self.__build_audio_list(),
+            'beq_genres': self.genres
         }
 
     def __build_audio_list(self):
