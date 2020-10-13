@@ -3,6 +3,7 @@ import math
 import os
 import sys
 import requests
+import json
 
 import qtawesome as qta
 from qtpy.QtCore import QRegExp, Qt, QCoreApplication
@@ -49,6 +50,7 @@ class CreateAVSPostDialog(QDialog, Ui_postbuilder):
         self.overview = None
         self.genres = None
         self.collection = None
+        self.__tmdb_spinner = None
 
     def __build_source_picker(self):
         _translate = QCoreApplication.translate
@@ -100,10 +102,9 @@ class CreateAVSPostDialog(QDialog, Ui_postbuilder):
         return save_name
 
     def autofillSortTitle(self):
-        if self.sortField.text().strip() == '':
-            title = self.titleField.text().strip()
-            title = title[title.startswith("The ") and len("The "):]
-            self.sortField.setText(title)
+        title = self.titleField.text().strip().lower()
+        title = title[title.startswith("the ") and len("the "):]
+        self.sortField.setText(title)
 
     def build_avs_post(self):
         '''
@@ -160,6 +161,7 @@ class CreateAVSPostDialog(QDialog, Ui_postbuilder):
             self.__get_tmdb_details(tmdbID)
 
     def __search_tmdb(self):
+        self.__start_spinning()
         url = 'https://api.themoviedb.org/3/search/movie'
 
         if self.postTypePicker.currentIndex() == 1:
@@ -179,9 +181,12 @@ class CreateAVSPostDialog(QDialog, Ui_postbuilder):
             }
 
         r = requests.get(url=url, params=params)
+        logger.info(r)
+        self.__stop_spinning()
         if r.status_code == 200:
-            json = r.json()
-            results = json.get("results")
+            jsonResutls = r.json()
+            logger.info(json.dumps(jsonResutls, indent=4, sort_keys=False))
+            results = jsonResutls.get("results")
             if results is not None and len(results) > 0:
                 first = results[0]
                 theID = first.get("id")
@@ -190,6 +195,7 @@ class CreateAVSPostDialog(QDialog, Ui_postbuilder):
                     self.__get_tmdb_details(theID)
 
     def __get_tmdb_details(self, movieID):
+        self.__start_spinning()
         url = f"https://api.themoviedb.org/3/movie/{movieID}"
 
         if self.postTypePicker.currentIndex() == 1:
@@ -205,8 +211,11 @@ class CreateAVSPostDialog(QDialog, Ui_postbuilder):
             }
 
         r = requests.get(url=url, params=params)
+        logger.info(r)
+        self.__stop_spinning()
         if r.status_code == 200:
             result = r.json()
+            logger.info(json.dumps(result, indent=4, sort_keys=False))
             self.posterURL = result["poster_path"]
             self.overview = result["overview"]
             self.genres = result["genres"]
@@ -246,6 +255,21 @@ class CreateAVSPostDialog(QDialog, Ui_postbuilder):
 
             self.titleField.setText(title)
             self.autofillSortTitle()
+
+    def __stop_spinning(self):
+        from model.batch import stop_spinner
+        stop_spinner(self.__tmdb_spinner, self.tmdbButton)
+        self.__tmdb_spinner = None
+        self.tmdbButton.setIcon(QIcon())
+        self.tmdbButton.setText('Load TMDB Info')
+        self.tmdbButton.setEnabled(True)
+
+    def __start_spinning(self):
+        self.__tmdb_spinner = qta.Spin(self.tmdbButton)
+        spin_icon = qta.icon('fa5s.spinner', color='green', animation=self.__tmdb_spinner)
+        self.tmdbButton.setIcon(spin_icon)
+        self.tmdbButton.setText('Loading...')
+        self.tmdbButton.setEnabled(False)
 
     def __build_metadata(self):
         return {

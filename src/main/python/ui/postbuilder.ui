@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>920</width>
+    <width>1024</width>
     <height>855</height>
    </rect>
   </property>
@@ -16,6 +16,16 @@
   <layout class="QGridLayout" name="gridLayout">
    <item row="3" column="0">
     <layout class="QGridLayout" name="buttonGrid">
+     <item row="0" column="2">
+      <widget class="QPushButton" name="generateButton">
+       <property name="text">
+        <string>Generate 2x4HD XML File</string>
+       </property>
+       <property name="autoDefault">
+        <bool>false</bool>
+       </property>
+      </widget>
+     </item>
      <item row="0" column="1">
       <spacer name="middleSpacer">
        <property name="orientation">
@@ -42,16 +52,6 @@
        </property>
       </widget>
      </item>
-     <item row="0" column="2">
-      <widget class="QPushButton" name="generateButton">
-       <property name="text">
-        <string>Generate 2x4HD XML File</string>
-       </property>
-       <property name="autoDefault">
-        <bool>false</bool>
-       </property>
-      </widget>
-     </item>
      <item row="0" column="3">
       <spacer name="leadingSpacer">
        <property name="orientation">
@@ -64,16 +64,6 @@
         </size>
        </property>
       </spacer>
-     </item>
-     <item row="0" column="0">
-      <widget class="QPushButton" name="tmdbButton">
-       <property name="text">
-        <string>Load TMDB Info</string>
-       </property>
-       <property name="autoDefault">
-        <bool>false</bool>
-       </property>
-      </widget>
      </item>
     </layout>
    </item>
@@ -99,72 +89,149 @@
    </item>
    <item row="1" column="0">
     <layout class="QGridLayout" name="dataGrid">
-     <item row="15" column="2" colspan="2">
-      <widget class="QPlainTextEdit" name="postTextEdit"/>
+     <item row="11" column="2">
+      <layout class="QGridLayout" name="tmdbGrid">
+       <item row="0" column="2">
+        <widget class="QLabel" name="runtimeLabel">
+         <property name="text">
+          <string>Runtime</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="7">
+        <widget class="QLineEdit" name="authorField"/>
+       </item>
+       <item row="0" column="4">
+        <widget class="QLabel" name="ratingLabel">
+         <property name="text">
+          <string>Rating</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="3">
+        <widget class="QLineEdit" name="runtimeField"/>
+       </item>
+       <item row="0" column="0">
+        <widget class="QLineEdit" name="movidDBIDField"/>
+       </item>
+       <item row="0" column="6">
+        <widget class="QLabel" name="authorLabel">
+         <property name="text">
+          <string>Author</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="5">
+        <widget class="QLineEdit" name="ratingField"/>
+       </item>
+       <item row="0" column="1">
+        <widget class="QPushButton" name="tmdbButton">
+         <property name="text">
+          <string>Load TMDB Info</string>
+         </property>
+         <property name="autoDefault">
+          <bool>false</bool>
+         </property>
+        </widget>
+       </item>
+      </layout>
      </item>
-     <item row="10" column="0">
-      <widget class="QLabel" name="spectrumLabel">
+     <item row="8" column="2">
+      <widget class="QLineEdit" name="avsURLField"/>
+     </item>
+     <item row="9" column="0">
+      <widget class="QLabel" name="pvaLabel">
        <property name="text">
-        <string>Spectrum URL</string>
+        <string>PvA Graph URL</string>
        </property>
       </widget>
      </item>
-     <item row="14" column="3">
-      <widget class="QToolButton" name="audioValid">
+     <item row="2" column="0">
+      <widget class="QLabel" name="editionLabel">
        <property name="text">
-        <string/>
+        <string>Edition</string>
        </property>
       </widget>
      </item>
-     <item row="10" column="2">
-      <widget class="QLineEdit" name="spectrumField"/>
-     </item>
-     <item row="3" column="2" colspan="2">
-      <widget class="QLineEdit" name="seasonField"/>
-     </item>
-     <item row="0" column="0">
-      <widget class="QLabel" name="titleLabel">
+     <item row="14" column="0">
+      <widget class="QLabel" name="formatLabel">
        <property name="text">
-        <string>Title</string>
+        <string>Audio Format</string>
        </property>
       </widget>
      </item>
-     <item row="6" column="0">
-      <widget class="QLabel" name="sourceLabel">
+     <item row="5" column="0">
+      <widget class="QLabel" name="warningLabel">
        <property name="text">
-        <string>Source</string>
+        <string>Warning</string>
        </property>
       </widget>
      </item>
-     <item row="16" column="2" colspan="2">
-      <widget class="QLineEdit" name="fileName">
-       <property name="readOnly">
-        <bool>true</bool>
-       </property>
-      </widget>
-     </item>
-     <item row="0" column="2">
-      <widget class="QLineEdit" name="titleField"/>
-     </item>
-     <item row="1" column="2">
-      <widget class="QLineEdit" name="yearField"/>
-     </item>
-     <item row="0" column="3">
-      <widget class="QToolButton" name="titleValid">
+     <item row="1" column="0">
+      <widget class="QLabel" name="yearLabel">
        <property name="text">
-        <string/>
+        <string>Year</string>
        </property>
       </widget>
      </item>
-     <item row="1" column="3">
-      <widget class="QToolButton" name="yearValid">
+     <item row="2" column="2" colspan="2">
+      <widget class="QLineEdit" name="editionField"/>
+     </item>
+     <item row="16" column="0">
+      <widget class="QLabel" name="label">
+       <property name="text">
+        <string>XML File Name</string>
+       </property>
+      </widget>
+     </item>
+     <item row="10" column="3">
+      <widget class="QToolButton" name="spectrumValid">
        <property name="enabled">
         <bool>true</bool>
        </property>
+       <property name="focusPolicy">
+        <enum>Qt::NoFocus</enum>
+       </property>
        <property name="text">
         <string/>
        </property>
       </widget>
+     </item>
+     <item row="13" column="0">
+      <widget class="QLabel" name="altTitleLabel">
+       <property name="text">
+        <string>Alt TItle</string>
+       </property>
+      </widget>
+     </item>
+     <item row="13" column="2">
+      <widget class="QLineEdit" name="altTitleField"/>
+     </item>
+     <item row="12" column="0">
+      <widget class="QLabel" name="sortLabel">
+       <property name="text">
+        <string>Sort Title</string>
+       </property>
+      </widget>
+     </item>
+     <item row="8" column="0">
+      <widget class="QLabel" name="avsURLLabel">
+       <property name="text">
+        <string>AVS URL</string>
+       </property>
+      </widget>
+     </item>
+     <item row="7" column="2" colspan="2">
+      <widget class="QComboBox" name="languagePicker">
+       <item>
+        <property name="text">
+         <string>English</string>
+        </property>
+       </item>
+      </widget>
+     </item>
+     <item row="3" column="2" colspan="2">
+      <widget class="QLineEdit" name="seasonField"/>
      </item>
      <item row="14" column="2">
       <layout class="QGridLayout" name="formatGrid">
@@ -261,155 +328,13 @@
        </property>
       </widget>
      </item>
-     <item row="9" column="0">
-      <widget class="QLabel" name="pvaLabel">
-       <property name="text">
-        <string>PvA Graph URL</string>
-       </property>
-      </widget>
-     </item>
-     <item row="2" column="0">
-      <widget class="QLabel" name="editionLabel">
-       <property name="text">
-        <string>Edition</string>
-       </property>
-      </widget>
-     </item>
-     <item row="14" column="0">
-      <widget class="QLabel" name="formatLabel">
-       <property name="text">
-        <string>Audio Format</string>
-       </property>
-      </widget>
-     </item>
-     <item row="5" column="0">
-      <widget class="QLabel" name="warningLabel">
-       <property name="text">
-        <string>Warning</string>
-       </property>
-      </widget>
-     </item>
-     <item row="4" column="0">
-      <widget class="QLabel" name="noteLabel">
-       <property name="text">
-        <string>Note</string>
-       </property>
-      </widget>
-     </item>
-     <item row="1" column="0">
-      <widget class="QLabel" name="yearLabel">
-       <property name="text">
-        <string>Year</string>
-       </property>
-      </widget>
-     </item>
-     <item row="2" column="2" colspan="2">
-      <widget class="QLineEdit" name="editionField"/>
-     </item>
-     <item row="16" column="0">
-      <widget class="QLabel" name="label">
-       <property name="text">
-        <string>XML File Name</string>
-       </property>
-      </widget>
-     </item>
-     <item row="10" column="3">
-      <widget class="QToolButton" name="spectrumValid">
-       <property name="enabled">
-        <bool>true</bool>
-       </property>
-       <property name="text">
-        <string/>
-       </property>
-      </widget>
-     </item>
-     <item row="13" column="0">
-      <widget class="QLabel" name="altTitleLabel">
-       <property name="text">
-        <string>Alt TItle</string>
-       </property>
-      </widget>
-     </item>
-     <item row="13" column="2">
-      <widget class="QLineEdit" name="altTitleField"/>
-     </item>
-     <item row="8" column="0">
-      <widget class="QLabel" name="avsURLLabel">
-       <property name="text">
-        <string>AVS URL</string>
-       </property>
-      </widget>
-     </item>
-     <item row="12" column="0">
-      <widget class="QLabel" name="sortLabel">
-       <property name="text">
-        <string>Sort Title</string>
-       </property>
-      </widget>
-     </item>
-     <item row="8" column="2">
-      <widget class="QLineEdit" name="avsURLField"/>
-     </item>
-     <item row="11" column="0">
-      <widget class="QLabel" name="movieDBIDLabel">
-       <property name="text">
-        <string>MovieDB ID</string>
-       </property>
-      </widget>
-     </item>
-     <item row="7" column="2" colspan="2">
-      <widget class="QComboBox" name="languagePicker">
-       <item>
-        <property name="text">
-         <string>English</string>
-        </property>
-       </item>
-      </widget>
-     </item>
-     <item row="11" column="2">
-      <layout class="QGridLayout" name="tmdbGrid">
-       <item row="0" column="1">
-        <widget class="QLabel" name="runtimeLabel">
-         <property name="text">
-          <string>Runtime</string>
-         </property>
-        </widget>
-       </item>
-       <item row="0" column="6">
-        <widget class="QLineEdit" name="authorField"/>
-       </item>
-       <item row="0" column="3">
-        <widget class="QLabel" name="ratingLabel">
-         <property name="text">
-          <string>Rating</string>
-         </property>
-        </widget>
-       </item>
-       <item row="0" column="2">
-        <widget class="QLineEdit" name="runtimeField"/>
-       </item>
-       <item row="0" column="0">
-        <widget class="QLineEdit" name="movidDBIDField"/>
-       </item>
-       <item row="0" column="5">
-        <widget class="QLabel" name="authorLabel">
-         <property name="text">
-          <string>Author</string>
-         </property>
-        </widget>
-       </item>
-       <item row="0" column="4">
-        <widget class="QLineEdit" name="ratingField"/>
-       </item>
-      </layout>
-     </item>
-     <item row="9" column="2">
-      <widget class="QLineEdit" name="pvaField"/>
-     </item>
      <item row="9" column="3">
       <widget class="QToolButton" name="pvaValid">
        <property name="enabled">
         <bool>true</bool>
+       </property>
+       <property name="focusPolicy">
+        <enum>Qt::NoFocus</enum>
        </property>
        <property name="text">
         <string/>
@@ -448,6 +373,96 @@
        </item>
       </widget>
      </item>
+     <item row="15" column="2" colspan="2">
+      <widget class="QPlainTextEdit" name="postTextEdit"/>
+     </item>
+     <item row="10" column="0">
+      <widget class="QLabel" name="spectrumLabel">
+       <property name="text">
+        <string>Spectrum URL</string>
+       </property>
+      </widget>
+     </item>
+     <item row="14" column="3">
+      <widget class="QToolButton" name="audioValid">
+       <property name="focusPolicy">
+        <enum>Qt::NoFocus</enum>
+       </property>
+       <property name="text">
+        <string/>
+       </property>
+      </widget>
+     </item>
+     <item row="10" column="2">
+      <widget class="QLineEdit" name="spectrumField"/>
+     </item>
+     <item row="4" column="0">
+      <widget class="QLabel" name="noteLabel">
+       <property name="text">
+        <string>Note</string>
+       </property>
+      </widget>
+     </item>
+     <item row="9" column="2">
+      <widget class="QLineEdit" name="pvaField"/>
+     </item>
+     <item row="0" column="0">
+      <widget class="QLabel" name="titleLabel">
+       <property name="text">
+        <string>Title</string>
+       </property>
+      </widget>
+     </item>
+     <item row="6" column="0">
+      <widget class="QLabel" name="sourceLabel">
+       <property name="text">
+        <string>Source</string>
+       </property>
+      </widget>
+     </item>
+     <item row="16" column="2" colspan="2">
+      <widget class="QLineEdit" name="fileName">
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="2">
+      <widget class="QLineEdit" name="titleField"/>
+     </item>
+     <item row="1" column="2">
+      <widget class="QLineEdit" name="yearField"/>
+     </item>
+     <item row="0" column="3">
+      <widget class="QToolButton" name="titleValid">
+       <property name="focusPolicy">
+        <enum>Qt::NoFocus</enum>
+       </property>
+       <property name="text">
+        <string/>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="3">
+      <widget class="QToolButton" name="yearValid">
+       <property name="enabled">
+        <bool>true</bool>
+       </property>
+       <property name="focusPolicy">
+        <enum>Qt::NoFocus</enum>
+       </property>
+       <property name="text">
+        <string/>
+       </property>
+      </widget>
+     </item>
+     <item row="11" column="0">
+      <widget class="QLabel" name="movieDBIDLabel">
+       <property name="text">
+        <string>MovieDB ID</string>
+       </property>
+      </widget>
+     </item>
     </layout>
    </item>
   </layout>
@@ -484,7 +499,6 @@
   <tabstop>lpcm51CheckBox</tabstop>
   <tabstop>postTextEdit</tabstop>
   <tabstop>fileName</tabstop>
-  <tabstop>tmdbButton</tabstop>
   <tabstop>generateButton</tabstop>
   <tabstop>audioValid</tabstop>
   <tabstop>spectrumValid</tabstop>
