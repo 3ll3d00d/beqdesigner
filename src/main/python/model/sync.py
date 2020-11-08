@@ -1,6 +1,7 @@
 import json
 import logging
 from collections import OrderedDict
+from pathlib import Path
 
 import qtawesome as qta
 import semver
@@ -862,7 +863,7 @@ class HTP1Parser:
     def convert(self, dst, filt, **kwargs):
         from model.minidsp import flatten_filters
         flat_filts = flatten_filters(filt)
-        conf = json.loads(dst.read_text())
+        conf = json.loads(Path(dst).read_text())
         if len(flat_filts) > 0:
             logger.info(f"Copying {len(flat_filts)} to {dst}")
             htp1_filts = [self.__to_htp_filt(f) for f in flat_filts]
