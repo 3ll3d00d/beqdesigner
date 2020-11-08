@@ -72,6 +72,9 @@ matrix:
     - python -m pip install --upgrade pip
     install:
     - pip install pipenv
+    - |
+      # https://github.com/ContinuumIO/anaconda-issues/issues/10822
+      pip install -I virtualenv==20.0.33
     - pipenv lock -r | tail -n +2  > requirements.txt
     - pip install -r requirements.txt
     - pipenv lock -r --dev | tail -n +2 > requirements.txt
