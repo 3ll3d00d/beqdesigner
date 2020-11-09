@@ -127,14 +127,14 @@ class CatalogueDialog(QDialog, Ui_catalogueDialog):
         '''
         years = [i.text() for i in self.yearFilter.selectedItems()]
         content_types = [i.text() for i in self.contentTypeFilter.selectedItems()]
-        name_filter = self.nameFilter.text()
+        name_filter = self.nameFilter.text().casefold()
         count = 0
         selected_text = self.resultsList.selectedItems()[0].text() if len(self.resultsList.selectedItems()) > 0 else None
         self.resultsList.clear()
         self.on_result_selection_changed()
         matches = []
         for key, beq in self.__catalogue.items():
-            name = key.split(' -- ', maxsplit=1)[0]
+            name = key.split(' -- ', maxsplit=1)[0].casefold()
             if not years or beq.year in years:
                 if not content_types or beq.content_type in content_types:
                     if not name_filter or name.find(name_filter) > -1:
