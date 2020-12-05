@@ -104,6 +104,7 @@ addons:
     packages:
     - python@3.8
     - pipenv
+    update: true
 install:
 - $PBIN install pipenv
 - pipenv install -d
