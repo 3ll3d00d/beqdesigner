@@ -12,7 +12,7 @@ matrix:
   fast_finish: true
   include:
   - name: Bionic Linux
-    python: '3.7'
+    python: '3.8'
     dist: bionic
     env:
     - PIPENV_VERBOSITY=-1
@@ -24,7 +24,7 @@ matrix:
     after_success:
     - bash <(curl -s https://codecov.io/bash)
   - name: Focal Linux
-    python: '3.7'
+    python: '3.8'
     dist: focal
     env:
     - PIPENV_VERBOSITY=-1
@@ -36,7 +36,7 @@ matrix:
     after_success:
     - bash <(curl -s https://codecov.io/bash)
   - name: Xenial Linux
-    python: '3.7'
+    python: '3.8'
     dist: xenial
     env:
     - PIPENV_VERBOSITY=-1
@@ -67,7 +67,7 @@ matrix:
     - choco install miniconda3 openssl.light nsis
     - conda config --set always_yes yes --set changeps1 no
     - conda update -n base -c defaults conda python
-    - conda create -q -n test python=3.7.6 scipy numpy
+    - conda create -q -n test python=3.8.6 scipy numpy
     - source activate test
     - python -m pip install --upgrade pip
     install:
@@ -89,9 +89,9 @@ matrix:
     - NO_MKL=Y
     - PBIN=pip
     - PRUN="pipenv run"
-    - PATH=/c/Python37:/c/Python37/Scripts:$PATH
+    - PATH=/c/Python38:/c/Python38/Scripts:$PATH
     before_install:
-      - choco install python --version=3.7.6
+      - choco install python --version=3.8.6
       - choco install openssl.light nsis
 addons:
   apt:

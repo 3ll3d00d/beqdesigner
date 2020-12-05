@@ -4,8 +4,8 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-pyqt5 = "<=5.13.1"
-qdarkstyle =">=2.6.6"
+pyqt5 = "*"
+qdarkstyle ="*"
 matplotlib = "*"
 ffmpeg-python = "*"
 soundfile = "*"
@@ -14,7 +14,7 @@ pyqtgraph = "*"
 numpy = "*"
 scipy = "*"
 qtpy = "*"
-qtawesome = ">=0.5.7"
+qtawesome = "*"
 sortedcontainers = "*"
 pillow = "*"
 requests = "*"
@@ -28,4 +28,4 @@ pytest-cov = "*"
 distro = "*"
 
 [requires]
-python_version = "3.7"
+python_version = "3.8"
