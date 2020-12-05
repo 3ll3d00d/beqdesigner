@@ -637,8 +637,8 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
     def __get_directory(self, name):
         dialog = QFileDialog(parent=self)
         dialog.setFileMode(QFileDialog.ExistingFile)
-        dialog.setNameFilter(f"{name}.exe")
-        dialog.setWindowTitle(f"Select {name}.exe")
+        dialog.setNameFilter(f"{name} ({name}.exe {name})")
+        dialog.setWindowTitle(f"Select {name}")
         if dialog.exec():
             selected = dialog.selectedFiles()
             if len(selected) > 0:
@@ -650,7 +650,7 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         if loc is not None:
             dirname = os.path.dirname(loc)
             self.ffmpegDirectory.setText(dirname)
-            if os.path.exists(os.path.join(dirname, 'ffprobe.exe')):
+            if os.path.exists(os.path.join(dirname, 'ffprobe.exe')) or os.path.exists(os.path.join(dirname, 'ffprobe')):
                 self.ffprobeDirectory.setText(dirname)
 
     def showFfprobeDirectoryPicker(self):
@@ -658,7 +658,7 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         if loc is not None:
             dirname = os.path.dirname(loc)
             self.ffprobeDirectory.setText(dirname)
-            if os.path.exists(os.path.join(dirname, 'ffmpeg.exe')):
+            if os.path.exists(os.path.join(dirname, 'ffmpeg.exe')) or os.path.exists(os.path.join(dirname, 'ffmpeg')):
                 self.ffmpegDirectory.setText(dirname)
 
     def showDefaultOutputDirectoryPicker(self):
