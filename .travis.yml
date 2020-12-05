@@ -52,6 +52,7 @@ matrix:
     osx_image: xcode10.2
     language: shell
     env:
+    - PATH="/usr/local/opt/python@3.8/bin:$PATH"
     - PBIN=pip3
     - PRUN="pipenv run"
     before_install:
@@ -101,6 +102,7 @@ addons:
     - libsndfile1
   homebrew:
     packages:
+    - python@3.8
     - pipenv
 install:
 - $PBIN install pipenv
