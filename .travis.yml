@@ -105,6 +105,11 @@ addons:
 install:
 - $PBIN install pipenv
 - pipenv install -d
+- |
+  if [[ "$TRAVIS_OS_NAME" == "windows" ]]
+  then
+    pip install -Iv numpy==1.19.3
+  fi
 - $PBIN list
 - pipenv run $PBIN list
 before_script:
