@@ -80,6 +80,7 @@ matrix:
     - pipenv lock -r --dev | tail -n +2 > requirements.txt
     - pip install -r requirements.txt
     - pip install -Iv numba==0.49.1rc1
+    - pip install -Iv numpy==1.19.3
     - conda list
     - pip list
   - name: Pip on Windows
