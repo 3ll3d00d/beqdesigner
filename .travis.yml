@@ -56,6 +56,8 @@ matrix:
     - PBIN=pip3
     - PRUN="pipenv run"
     before_install:
+    - brew install python@3.8
+    - brew install pipenv
     - pip3 install --upgrade pip
   - name: Conda on Windows
     os: windows
@@ -68,7 +70,7 @@ matrix:
     - choco install miniconda3 openssl.light nsis
     - conda config --set always_yes yes --set changeps1 no
     - conda update -n base -c defaults conda python
-    - conda create -q -n test python=3.8.6 scipy numpy
+    - conda create -q -n test python=3.8.5 scipy numpy
     - source activate test
     - python -m pip install --upgrade pip
     install:
@@ -102,9 +104,7 @@ addons:
     - libsndfile1
   homebrew:
     packages:
-    - python@3.8
     - pipenv
-    update: true
 install:
 - $PBIN install pipenv
 - pipenv install -d
