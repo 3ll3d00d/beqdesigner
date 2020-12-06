@@ -26,6 +26,7 @@ markdown = "*"
 pytest = "*"
 pytest-cov = "*"
 distro = "*"
+atomicwrites = "*"
 
 [requires]
 python_version = "3.8"
