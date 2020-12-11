@@ -17,7 +17,7 @@ from qtpy.QtCore import Signal, QRunnable, QObject, QThreadPool
 from qtpy.QtWidgets import QDialog, QTreeWidget, QTreeWidgetItem
 
 from model.iir import Passthrough, FilterType, ComplexHighPass, ComplexLowPass
-from model.preferences import COMPRESS_FORMAT_NATIVE, COMPRESS_FORMAT_FLAC, COMPRESS_FORMAT_EAC3
+from model.preferences import COMPRESS_FORMAT_NATIVE, COMPRESS_FORMAT_FLAC, COMPRESS_FORMAT_EAC3, COMPRESS_FORMAT_AC3
 from ui.ffmpeg import Ui_ffmpegReportDialog
 
 logger = logging.getLogger('progress')
@@ -676,6 +676,8 @@ class Executor:
             return 'flac'
         elif self.audio_format == COMPRESS_FORMAT_EAC3:
             return 'eac3'
+        elif self.audio_format == COMPRESS_FORMAT_AC3:
+            return 'ac3'
         else:
             raise ValueError(f"Unknown audio format {self.audio_format}")
 
@@ -684,7 +686,7 @@ class Executor:
             return 'wav'
         elif self.audio_format == COMPRESS_FORMAT_FLAC:
             return 'flac'
-        elif self.audio_format == COMPRESS_FORMAT_EAC3:
+        elif self.audio_format == COMPRESS_FORMAT_EAC3 or self.audio_format == COMPRESS_FORMAT_AC3:
             return 'mkv'
         else:
             raise ValueError(f"Unknown audio format {self.audio_format}")
@@ -742,7 +744,7 @@ class Executor:
             else:
                 self.__ffmpeg_cmd += ['-map', '[s1]']
         self.__ffmpeg_cmd += ['-map', '[s0]', '-acodec',  acodec]
-        if self.audio_format == COMPRESS_FORMAT_EAC3:
+        if self.audio_format == COMPRESS_FORMAT_EAC3 or self.audio_format == COMPRESS_FORMAT_AC3:
             self.__ffmpeg_cmd += ['-ab', f"{self.audio_bitrate}k"]
         self.__ffmpeg_cmd += [output_file]
         if self.progress_handler is not None:

@@ -17,7 +17,7 @@ from model.ffmpeg import Executor, ViewProbeDialog, SIGNAL_CONNECTED, SIGNAL_ERR
 from model.preferences import EXTRACTION_OUTPUT_DIR, EXTRACTION_NOTIFICATION_SOUND, ANALYSIS_TARGET_FS, \
     EXTRACTION_MIX_MONO, EXTRACTION_DECIMATE, EXTRACTION_INCLUDE_ORIGINAL, EXTRACTION_INCLUDE_SUBTITLES, \
     EXTRACTION_COMPRESS, COMPRESS_FORMAT_OPTIONS, COMPRESS_FORMAT_FLAC, COMPRESS_FORMAT_NATIVE, COMPRESS_FORMAT_EAC3, \
-    BASS_MANAGEMENT_LPF_FS
+    BASS_MANAGEMENT_LPF_FS, COMPRESS_FORMAT_AC3
 from model.signal import AutoWavLoader
 from ui.edit_mapping import Ui_editMappingDialog
 from ui.extract import Ui_extractAudioDialog
@@ -224,6 +224,8 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             if self.__is_remux and self.videoStreams.count() > 1:
                 if self.audioFormat.findText(COMPRESS_FORMAT_EAC3) == -1:
                     self.audioFormat.addItem(COMPRESS_FORMAT_EAC3)
+                if self.audioFormat.findText(COMPRESS_FORMAT_AC3) == -1:
+                    self.audioFormat.addItem(COMPRESS_FORMAT_AC3)
                 if self.__preferences.get(EXTRACTION_COMPRESS):
                     self.audioFormat.setCurrentText(COMPRESS_FORMAT_EAC3)
                     self.eacBitRate.setVisible(True)
@@ -259,6 +261,9 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             eac_idx = self.audioFormat.findText(COMPRESS_FORMAT_EAC3)
             if eac_idx > -1:
                 self.audioFormat.removeItem(eac_idx)
+            ac_idx = self.audioFormat.findText(COMPRESS_FORMAT_AC3)
+            if ac_idx > -1:
+                self.audioFormat.removeItem(ac_idx)
             if self.__preferences.get(EXTRACTION_COMPRESS):
                 self.audioFormat.setCurrentText(COMPRESS_FORMAT_FLAC)
             else:
@@ -266,6 +271,8 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         else:
             if self.audioFormat.findText(COMPRESS_FORMAT_EAC3) == -1:
                 self.audioFormat.addItem(COMPRESS_FORMAT_EAC3)
+            if self.audioFormat.findText(COMPRESS_FORMAT_AC3) == -1:
+                self.audioFormat.addItem(COMPRESS_FORMAT_AC3)
             if self.__preferences.get(EXTRACTION_COMPRESS):
                 self.audioFormat.setCurrentText(COMPRESS_FORMAT_EAC3)
             else:
@@ -355,6 +362,11 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             self.__executor.audio_format = audio_format
             if audio_format == COMPRESS_FORMAT_EAC3:
                 self.eacBitRate.setVisible(True)
+                self.eacBitRate.setValue(1500)
+                self.__executor.audio_bitrate = self.eacBitRate.value()
+            elif audio_format == COMPRESS_FORMAT_AC3:
+                self.eacBitRate.setVisible(True)
+                self.eacBitRate.setValue(640)
                 self.__executor.audio_bitrate = self.eacBitRate.value()
             else:
                 self.eacBitRate.setVisible(False)
