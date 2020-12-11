@@ -54,6 +54,17 @@ matrix:
     env:
     - PBIN=pip3
     - PRUN="pipenv run"
+    - APP_NAME="beqdesigner.app.10.15.zip"
+    before_install:
+    - pip3 install --upgrade pip
+  - name: OSX 10.14
+    os: osx
+    osx_image: xcode11.3
+    language: shell
+    env:
+    - PBIN=pip3
+    - PRUN="pipenv run"
+    - APP_NAME="beqdesigner.app.10.14.zip"
     before_install:
     - pip3 install --upgrade pip
   - name: Conda on Windows
@@ -129,7 +140,7 @@ before_deploy:
   then
     pushd dist
     rm beqdesigner
-    zip -r beqdesigner.app.zip beqdesigner.app
+    zip -r $APP_NAME beqdesigner.app
     rm -Rf beqdesigner.app
     popd
   elif [[ "$TRAVIS_OS_NAME" == "windows" ]]
