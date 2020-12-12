@@ -42,7 +42,7 @@ jobs:
           then
             choco install openssl.light nsis
           fi
-          pipenv run install pyinstaller
+          pipenv run pip install pyinstaller
       - name: Get latest release version number
         id: get_version
         uses: battila7/get-version-action@v2
