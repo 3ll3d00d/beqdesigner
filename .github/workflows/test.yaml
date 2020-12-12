@@ -22,7 +22,7 @@ jobs:
           pipenv install -d
           if [[ "$RUNNER_OS" == "Windows" ]]
           then
-            pipenv run $PBIN install -Iv numpy==1.19.3
+            pipenv run pip install -Iv numpy==1.19.3
           fi
           pip list
           pipenv run pip list
@@ -41,8 +41,6 @@ jobs:
           elif [ "$RUNNER_OS" == "Windows" ]
           then
             choco install openssl.light nsis
-          else
-            echo "Running on $RUNNER_OS"
           fi
           pipenv run install pyinstaller
       - name: Get latest release version number
@@ -53,7 +51,7 @@ jobs:
           echo ${{ steps.get_version.outputs.version-without-v }} > src/main/python/VERSION
       - name: Create distribution
         run: |
-          $PRUN pyinstaller --clean --log-level=INFO ${DEBUG_FLAG} -F beqdesigner.spec
+          $PRUN pyinstaller --clean --log-level=INFO -F beqdesigner.spec
           if [[ "$RUNNER_OS" == "macOS" ]]
           then
             pushd dist
