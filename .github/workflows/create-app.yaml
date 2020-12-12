@@ -1,5 +1,8 @@
-name: run tests
-on: [ push, pull_request ]
+name: create apps
+on:
+  push:
+    tags:
+      - '*'
 defaults:
   run:
     shell: bash
@@ -43,10 +46,12 @@ jobs:
             choco install openssl.light nsis
           fi
           pipenv run pip install pyinstaller
+      - name: Get latest release version number
+        id: get_version
+        uses: battila7/get-version-action@v2
       - name: Set version
-        uses: FranzDiebold/github-env-vars-action@v1.2.0
         run: |
-          echo $GITHUB_SHA_SHORT > src/main/python/VERSION
+          echo ${{ steps.get_version.outputs.version-without-v }} > src/main/python/VERSION
       - name: Create distribution
         run: |
           pipenv run pyinstaller --clean --log-level=INFO -F beqdesigner.spec
@@ -57,13 +62,25 @@ jobs:
             zip -r beqdesigner.app.${{ matrix.os }}.zip beqdesigner.app
             rm -Rf beqdesigner.app
             popd
+          elif [[ "$RUNNER_OS" == "Windows" ]]
+          then
+            export USE_NSIS=Y
+            mv dist/beqdesigner.exe dist/bak.exe
+            pipenv run pyinstaller --clean --log-level=INFO -D beqdesigner.spec
+            "/c/Program Files (x86)/NSIS/makensis.exe" src/main/nsis/Installer.nsi
+            mv dist/bak.exe dist/beqdesigner.exe
           fi
-      - name: Archive app binaries
-        uses: actions/upload-artifact@v2
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          name: beqdesigner-apps
-          path: |
+          files: |
             dist/beqdesigner.exe
             dist/beqdesigner*.zip
             dist/beqdesigner_*
-          retention-days: 1
+          draft: false
+          prerelease: true
+          fail_on_unmatched_files: false
+          body: |
+            TODO
