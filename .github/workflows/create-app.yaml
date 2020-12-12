@@ -76,7 +76,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           files: |
-            dist/beqdesigner.exe
+            dist/beqdesigner*.exe
             dist/beqdesigner*.zip
             dist/beqdesigner_*
           draft: false
