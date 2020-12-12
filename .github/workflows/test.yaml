@@ -43,8 +43,9 @@ jobs:
             choco install openssl.light nsis
           fi
           pipenv run pip install pyinstaller
-      - name: Set version
+      - name: Get version
         uses: FranzDiebold/github-env-vars-action@v1.2.0
+      - name: Append version
         run: |
           echo $GITHUB_SHA_SHORT > src/main/python/VERSION
       - name: Create distribution
