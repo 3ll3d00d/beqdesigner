@@ -51,7 +51,7 @@ jobs:
           echo ${{ steps.get_version.outputs.version-without-v }} > src/main/python/VERSION
       - name: Create distribution
         run: |
-          $PRUN pyinstaller --clean --log-level=INFO -F beqdesigner.spec
+          pipenv run pyinstaller --clean --log-level=INFO -F beqdesigner.spec
           if [[ "$RUNNER_OS" == "macOS" ]]
           then
             pushd dist
@@ -63,7 +63,7 @@ jobs:
           then
             export USE_NSIS=Y
             mv dist/beqdesigner.exe dist/bak.exe
-            $PRUN pyinstaller --clean --log-level=INFO -D beqdesigner.spec
+            pipenv run pyinstaller --clean --log-level=INFO -D beqdesigner.spec
             "/c/Program Files (x86)/NSIS/makensis.exe" src/main/nsis/Installer.nsi
             mv dist/bak.exe dist/beqdesigner.exe
             mv dist/beqdesigner.exe dist/beqdesigner_small.exe
