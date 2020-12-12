@@ -37,7 +37,7 @@ jobs:
         run: |
           if [ "$RUNNER_OS" == "Linux" ]
           then
-            apt install libblas-dev liblapack-dev libsndfile1
+            sudo apt install libblas-dev liblapack-dev libsndfile1
           elif [ "$RUNNER_OS" == "Windows" ]
           then
             choco install openssl.light nsis
