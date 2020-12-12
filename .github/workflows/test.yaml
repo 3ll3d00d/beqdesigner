@@ -1,5 +1,8 @@
 name: run tests
 on: [ push, pull_request ]
+defaults:
+  run:
+    shell: bash
 jobs:
   build:
     runs-on: ${{ matrix.os }}
@@ -21,4 +24,4 @@ jobs:
           pipenv run pip list
       - name: Test with pytest
         run: |
-          PYTHONPATH=./src/main/python pipenv run pytest $COVERAGE_ARGS --cov=./src/main/python
+          PYTHONPATH=./src/main/python pipenv run pytest --cov=./src/main/python
