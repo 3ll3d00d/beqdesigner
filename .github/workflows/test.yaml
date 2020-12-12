@@ -48,7 +48,7 @@ jobs:
         run: echo "::set-output name=sha_short::$(git rev-parse --short HEAD)"
       - name: Append version
         run: |
-          echo ${{ steps.vars.outputs.sha_short }} > src/main/python/VERSION
+          echo ${{ steps.get_version.outputs.sha_short }} > src/main/python/VERSION
       - name: Create distribution
         run: |
           pipenv run pyinstaller --clean --log-level=INFO -F beqdesigner.spec
