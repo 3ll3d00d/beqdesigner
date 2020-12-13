@@ -3,9 +3,13 @@ on:
   push:
     branches:
       - '*'
+    paths:
+      - 'src/main/python/**'
   pull_request:
     branches:
       - '*'
+    paths:
+      - 'src/main/python/**'
 defaults:
   run:
     shell: bash
