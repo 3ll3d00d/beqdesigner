@@ -95,8 +95,8 @@ jobs:
             pipenv run pyinstaller --clean --log-level=INFO -D beqdesigner.spec
             "/c/Program Files (x86)/NSIS/makensis.exe" src/main/nsis/Installer.nsi
             mv dist/bak.exe dist/beqdesigner.exe
-            echo ::set-output name=binary_path::"beqdesigner.exe"
-            echo ::set-output name=binary_name::"dist/beqdesigner.exe"
+            echo ::set-output name=binary_path::"dist/beqdesigner.exe"
+            echo ::set-output name=binary_name::"beqdesigner.exe"
             echo ::set-output name=binary_content_type::"application/vnd.microsoft.portable-executable"
           else
             MATCHES=( dist/beqdesigner_* )
