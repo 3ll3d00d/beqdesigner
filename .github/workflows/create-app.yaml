@@ -85,7 +85,8 @@ jobs:
             zip -r beqdesigner.app.zip beqdesigner.app
             rm -Rf beqdesigner.app
             popd
-            echo ::set-output name=binary_name::"dist/beqdesigner.app.zip"
+            echo ::set-output name=binary_path::"dist/beqdesigner.app.zip"
+            echo ::set-output name=binary_name::"beqdesigner.app.zip"
             echo ::set-output name=binary_content_type::"application/zip"
           elif [[ "$RUNNER_OS" == "Windows" ]]
           then
@@ -94,11 +95,13 @@ jobs:
             pipenv run pyinstaller --clean --log-level=INFO -D beqdesigner.spec
             "/c/Program Files (x86)/NSIS/makensis.exe" src/main/nsis/Installer.nsi
             mv dist/bak.exe dist/beqdesigner.exe
+            echo ::set-output name=binary_path::"beqdesigner.exe"
             echo ::set-output name=binary_name::"dist/beqdesigner.exe"
             echo ::set-output name=binary_content_type::"application/vnd.microsoft.portable-executable"
           else
             MATCHES=( dist/beqdesigner_* )
-            echo ::set-output name=binary_name::"${MATCHES[0]}"
+            echo ::set-output name=binary_path::"${MATCHES[0]}"
+            echo ::set-output name=binary_name::"${MATCHES[0]:5}"
             echo ::set-output name=binary_content_type::"application/octet-stream"
           fi
       - name: Upload beqdesigner
@@ -107,8 +110,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_name: beqdesigner-${{ matrix.os }}
-          asset_path: ${{ steps.create_dist.outputs.binary_name }}
+          asset_name: ${{ steps.create_dist.outputs.binary_name }}
+          asset_path: ${{ steps.create_dist.outputs.binary_path }}
           asset_content_type: ${{ steps.create_dist.outputs.binary_content_type }}
       - name: Upload beqdesignerSetup
         uses: actions/upload-release-asset@v1
@@ -117,6 +120,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_name: beqdesigner-${{ matrix.config.os }}
+          asset_name: beqdesignerSetup.exe
           asset_path: dist/beqdesignerSetup.exe
           asset_content_type: application/vnd.microsoft.portable-executable
