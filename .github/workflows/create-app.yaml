@@ -7,7 +7,31 @@ defaults:
   run:
     shell: bash
 jobs:
+  create_release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    steps:
+      - name: Generate changelog
+        id: changelog
+        uses: metcalfc/changelog-generator@v0.4.4
+        with:
+          myToken: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          body: ${{ steps.changelog.outputs.changelog }}
+          draft: false
+          prerelease: true
   build:
+    name: Create Binaries
+    needs: create_release
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -32,10 +56,6 @@ jobs:
       - name: pytest
         run: |
           PYTHONPATH=./src/main/python pipenv run pytest --cov=./src/main/python
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v1
-        with:
-          file: ./coverage.xml
       - name: Install packaging dependencies
         run: |
           if [ "$RUNNER_OS" == "Linux" ]
@@ -53,6 +73,7 @@ jobs:
         run: |
           echo ${{ steps.get_version.outputs.version-without-v }} > src/main/python/VERSION
       - name: Create distribution
+        id: create_dist
         run: |
           pipenv run pyinstaller --clean --log-level=INFO -F beqdesigner.spec
           if [[ "$RUNNER_OS" == "macOS" ]]
@@ -62,6 +83,8 @@ jobs:
             zip -r beqdesigner.app.${{ matrix.os }}.zip beqdesigner.app
             rm -Rf beqdesigner.app
             popd
+            echo ::set-output name=binary_name::"beqdesigner.app.${{ matrix.os }}.zip"
+            echo ::set-output name=binary_content_type::"application/zip"
           elif [[ "$RUNNER_OS" == "Windows" ]]
           then
             export USE_NSIS=Y
@@ -69,22 +92,29 @@ jobs:
             pipenv run pyinstaller --clean --log-level=INFO -D beqdesigner.spec
             "/c/Program Files (x86)/NSIS/makensis.exe" src/main/nsis/Installer.nsi
             mv dist/bak.exe dist/beqdesigner.exe
+            echo ::set-output name=binary_name::"beqdesigner.exe"
+            echo ::set-output name=binary_content_type::"application/vnd.microsoft.portable-executable"
+          else
+            MATCHES=( beqdesigner_* )
+            echo ::set-output name=binary_name::"${MATCHES[0]}"
+            echo ::set-output name=binary_content_type::"application/octet-stream"
           fi
-      - name: Generate changelog
-        id: changelog
-        uses: metcalfc/changelog-generator@v0.4.4
-        with:
-          myToken: ${{ secrets.GITHUB_TOKEN }}
-      - name: Release
-        uses: softprops/action-gh-release@v1
+      - name: Upload beqdesigner
+        uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          files: |
-            dist/beqdesigner*.exe
-            dist/beqdesigner*.zip
-            dist/beqdesigner_*
-          draft: false
-          prerelease: true
-          fail_on_unmatched_files: false
-          body: ${{ steps.changelog.outputs.changelog }}
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_name: beqdesigner-${{ matrix.config.os }}
+          asset_path: ${{ steps.create_dist.outputs.binary_name }}
+          asset_content_type: ${{ steps.create_dist.outputs.binary_content_type }}
+      - name: Upload beqdesignerSetup
+        uses: actions/upload-release-asset@v1
+        if: matrix.os == 'windows-2019'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_name: beqdesigner-${{ matrix.config.os }}
+          asset_path: dist/beqdesignerSetup.exe
+          asset_content_type: application/vnd.microsoft.portable-executable
