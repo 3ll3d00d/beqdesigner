@@ -37,6 +37,7 @@ jobs:
     strategy:
       matrix:
         os: [ ubuntu-18.04, macos-10.15, windows-2019 ]
+      fail-fast: false
     steps:
       - uses: actions/checkout@v2
       - name: Set up Python 3.8
@@ -81,10 +82,10 @@ jobs:
           then
             pushd dist
             rm beqdesigner
-            zip -r beqdesigner.app.${{ matrix.os }}.zip beqdesigner.app
+            zip -r beqdesigner.app.zip beqdesigner.app
             rm -Rf beqdesigner.app
             popd
-            echo ::set-output name=binary_name::"dist/beqdesigner.app.${{ matrix.os }}.zip"
+            echo ::set-output name=binary_name::"dist/beqdesigner.app.zip"
             echo ::set-output name=binary_content_type::"application/zip"
           elif [[ "$RUNNER_OS" == "Windows" ]]
           then
@@ -106,7 +107,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_name: beqdesigner-${{ matrix.config.os }}
+          asset_name: beqdesigner-${{ matrix.os }}
           asset_path: ${{ steps.create_dist.outputs.binary_name }}
           asset_content_type: ${{ steps.create_dist.outputs.binary_content_type }}
       - name: Upload beqdesignerSetup
