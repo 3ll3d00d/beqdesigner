@@ -96,7 +96,7 @@ jobs:
             echo ::set-output name=binary_name::"beqdesigner.exe"
             echo ::set-output name=binary_content_type::"application/vnd.microsoft.portable-executable"
           else
-            MATCHES=( beqdesigner_* )
+            MATCHES=( dist/beqdesigner_* )
             echo ::set-output name=binary_name::"${MATCHES[0]}"
             echo ::set-output name=binary_content_type::"application/octet-stream"
           fi
