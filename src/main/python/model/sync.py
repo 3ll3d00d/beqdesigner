@@ -901,5 +901,10 @@ class HTP1Parser:
             'FilterType': filt_type
         }
 
-    def file_extension(self):
+    @staticmethod
+    def file_extension():
         return '.json'
+
+    @staticmethod
+    def newline():
+        return None

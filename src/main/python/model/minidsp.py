@@ -50,8 +50,13 @@ class XmlParser(ABC):
         fs = self.minidsp_type.target_fs
         return [f.resample(fs) if f.fs != fs else f for f in filters]
 
-    def file_extension(self):
+    @staticmethod
+    def file_extension():
         return '.xml'
+
+    @staticmethod
+    def newline():
+        return None
 
     @abstractmethod
     def _overwrite(self, filters, target, metadata=None):
