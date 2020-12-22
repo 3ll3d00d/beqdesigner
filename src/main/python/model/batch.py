@@ -86,11 +86,15 @@ class BatchExtractDialog(QDialog, Ui_batchExtractDialog):
             self.__candidates.reset()
             if self.__candidates.is_extracting is False:
                 self.__candidates = None
-                self.enable_search(self.filter.text())
-                self.searchButton.blockSignals(False)
-                self.searchButton.setIcon(QIcon())
-                self.resetButton.setEnabled(False)
-                self.extractButton.setEnabled(False)
+                self.__prepare_search()
+
+    def __prepare_search(self):
+        self.enable_search(self.filter.text())
+        self.filter.setEnabled(True)
+        self.searchButton.blockSignals(False)
+        self.searchButton.setIcon(QIcon())
+        self.resetButton.setEnabled(False)
+        self.extractButton.setEnabled(False)
 
     def accept(self):
         '''
@@ -142,8 +146,8 @@ class BatchExtractDialog(QDialog, Ui_batchExtractDialog):
         '''
         Adds the match to the candidates.
         '''
-        self.__candidates.append(matching_file)
-        self.resultsTitle.setText(f"Results - {len(self.__candidates)} matches")
+        if self.__candidates.append(matching_file):
+            self.resultsTitle.setText(f"Results - {len(self.__candidates)} matches")
 
     def __on_search_error(self, bad_glob):
         '''
@@ -154,15 +158,16 @@ class BatchExtractDialog(QDialog, Ui_batchExtractDialog):
     def __on_search_complete(self):
         stop_spinner(self.__search_spinner, self.searchButton)
         self.searchButton.blockSignals(False)
+        self.searchButton.setText('Search')
         self.__search_spinner = None
         if len(self.__candidates) > 0:
             self.resetButton.setEnabled(True)
             self.searchButton.setEnabled(False)
-            self.searchButton.setText('Search')
             self.searchButton.setIcon(qta.icon('fa5s.check'))
             self.__candidates.probe()
         else:
-            self.resetButton.setEnabled(False)
+            self.resultsTitle.setText(f"Results - no matches, try a different search filter")
+            self.__prepare_search()
 
     def extract(self):
         '''
@@ -211,6 +216,8 @@ class FileSearch(QRunnable):
         self.signals.started.emit()
         for g in self.globs:
             try:
+                if os.path.isdir(g):
+                    g = f"{g}{os.sep}*"
                 for matching_file in glob.iglob(g, recursive=True):
                     self.signals.on_match.emit(matching_file)
             except Exception as e:
@@ -244,10 +251,13 @@ class ExtractCandidates:
         Adds a new candidate to the group and renders it on the dialog.
         :param candidate: the candidate.
         '''
-        extract_candidate = ExtractCandidate(len(self.__candidates), candidate, self.__dialog, self.on_probe_complete,
-                                             self.on_extract_complete, self.__decimate_fs)
-        self.__candidates.append(extract_candidate)
-        extract_candidate.render()
+        if os.path.isfile(candidate):
+            extract_candidate = ExtractCandidate(len(self.__candidates), candidate, self.__dialog,
+                                                 self.on_probe_complete, self.on_extract_complete, self.__decimate_fs)
+            self.__candidates.append(extract_candidate)
+            extract_candidate.render()
+            return True
+        return False
 
     def reset(self):
         '''
@@ -662,12 +672,21 @@ class ProbeJob(QRunnable):
     def run(self):
         logger.info(f">> ProbeJob.run {self.__candidate.executor.file}")
         self.__signals.started.emit()
+        from ffmpeg import Error
         try:
             self.__candidate.executor.probe_file()
             self.__signals.finished.emit()
-        except Exception as e:
-            logger.exception(f"Probe {self.__candidate.executor.file} failed", e)
+        except Error as err:
+            errorMsg = err.stderr.decode('utf-8') if err.stderr is not None else 'no stderr available'
+            logger.error(f"ffprobe {self.__candidate.executor.file} failed [msg: {errorMsg}]")
             self.__signals.errored.emit()
+        except Exception as e:
+            try:
+                logger.exception(f"Probe {self.__candidate.executor.file} failed", e)
+            except:
+                logger.exception(f"Probe {self.__candidate.executor.file} failed, unable to format exception")
+            finally:
+                self.__signals.errored.emit()
         logger.info(f"<< ProbeJob.run {self.__candidate.executor.file}")
 
 
