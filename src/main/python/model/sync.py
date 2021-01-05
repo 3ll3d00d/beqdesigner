@@ -10,7 +10,6 @@ from qtpy.QtCore import QUrl, Qt
 from qtpy.QtWidgets import QDialog, QAbstractItemView, QHeaderView, QLineEdit, QToolButton, QListWidgetItem, QMessageBox
 
 from model.batch import StoppableSpin, stop_spinner
-from model.filter import FilterModel, FilterTableModel, FilterDialog
 from model.iir import CompleteFilter, PeakingEQ, LowShelf, HighShelf
 from model.limits import dBRangeCalculator
 from model.magnitude import MagnitudeModel
@@ -47,6 +46,8 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         self.syncLayout.addWidget(self.syncStatus)
         self.ipAddress.setText(self.__preferences.get(HTP1_ADDRESS))
         self.filterView.setSelectionBehavior(QAbstractItemView.SelectRows)
+
+        from model.filter import FilterModel, FilterTableModel
         self.__filters = FilterModel(self.filterView, self.__preferences)
         self.filterView.setModel(FilterTableModel(self.__filters))
         self.filterView.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
@@ -779,6 +780,7 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
                         item.setSelected(True)
             else:
                 signal = self.__simple_signal
+            from model.filter import FilterDialog
             FilterDialog(self.__preferences,
                          signal,
                          self.__filters,
