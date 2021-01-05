@@ -1,4 +1,6 @@
 import logging
+from typing import Tuple, Optional
+
 import math
 
 import numpy as np
@@ -82,7 +84,7 @@ class AxesManager:
                                                             linestyle=data.linestyle,
                                                             color=data.colour,
                                                             label=data.name,
-                                                            picker=2)[0]
+                                                            pickradius=2)[0]
         if self.__fill_curves:
             polygon = self.__polygons.get(data.name, None)
             if polygon:
@@ -150,7 +152,7 @@ class MagnitudeModel:
                  subplot_spec=SINGLE_SUBPLOT_SPEC, redraw_listener=None, grid_alpha=0.5, x_min_pref_key=GRAPH_X_MIN,
                  x_max_pref_key=GRAPH_X_MAX, x_scale_pref_key=GRAPH_X_AXIS_SCALE, fill_curves=False, fill_alpha=0.5,
                  allow_line_resize=False, fill_primary=False, fill_secondary=False, y2_range_calc=None,
-                 show_y2_in_legend=True):
+                 show_y2_in_legend=True, x_lim: Optional[Tuple[int, int]] = None):
         self.__name = name
         self.__chart = chart
         self.__redraw_listener = redraw_listener
@@ -175,9 +177,10 @@ class MagnitudeModel:
                                        fill_alpha, show_in_legend=show_y2_in_legend)
         if isinstance(db_range_calc, dBRangeCalculator) and not db_range_calc.expand_range:
             db_range_calc.expand_range = preferences.get(GRAPH_EXPAND_Y)
+        if x_lim is None:
+            x_lim = (preferences.get(x_min_pref_key), preferences.get(x_max_pref_key))
         self.limits = Limits(self.__repr__(), self.__redraw_func, primary_axes,
-                             x_lim=(preferences.get(x_min_pref_key), preferences.get(x_max_pref_key)),
-                             y1_range_calculator=db_range_calc, axes_2=secondary_axes,
+                             x_lim=x_lim, y1_range_calculator=db_range_calc, axes_2=secondary_axes,
                              x_scale=preferences.get(x_scale_pref_key), y2_range_calculator=y2_range_calc)
         self.limits.propagate_to_axes(draw=True)
         self.__legend = None
@@ -283,7 +286,7 @@ class MagnitudeModel:
                 self.__legend = self.__primary.make_legend(lines, ncol)
                 lined = dict()
                 for legline, origline in zip(self.__legend.get_lines(), lines):
-                    legline.set_picker(5)  # 5 pts tolerance
+                    legline.set_pickradius(5)  # 5 pts tolerance
                     lined[legline] = origline
 
                 # find the line corresponding to the legend proxy line and toggle the alpha

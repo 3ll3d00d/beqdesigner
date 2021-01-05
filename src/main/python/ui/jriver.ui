@@ -1,0 +1,300 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>jriverDspDialog</class>
+ <widget class="QDialog" name="jriverDspDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1703</width>
+    <height>698</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>JRiver Media Center DSP Editor</string>
+  </property>
+  <layout class="QGridLayout" name="dialogLayout" columnstretch="2,3">
+   <item row="2" column="0" colspan="2">
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Close|QDialogButtonBox::Reset</set>
+     </property>
+     <property name="centerButtons">
+      <bool>false</bool>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="1">
+    <widget class="MplWidget" name="previewChart"/>
+   </item>
+   <item row="0" column="1">
+    <layout class="QHBoxLayout" name="chartControlLayout">
+     <item>
+      <widget class="QToolButton" name="limitsButton">
+       <property name="text">
+        <string>...</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QToolButton" name="fullRangeButton">
+       <property name="text">
+        <string>...</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QToolButton" name="subOnlyButton">
+       <property name="text">
+        <string>...</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QCheckBox" name="showPhase">
+       <property name="text">
+        <string>Show Phase Response</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item row="0" column="0" rowspan="2">
+    <layout class="QVBoxLayout" name="mainLayout">
+     <item>
+      <layout class="QHBoxLayout" name="configLayout" stretch="0,4,0,2">
+       <item>
+        <widget class="QLabel" name="filenameLabel">
+         <property name="text">
+          <string>Config</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLineEdit" name="filename">
+         <property name="readOnly">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="findFilenameButton">
+         <property name="text">
+          <string>...</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QComboBox" name="blockSelector">
+         <item>
+          <property name="text">
+           <string>Parametric Equaliser 1</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Parametric Equaliser 2</string>
+          </property>
+         </item>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <layout class="QHBoxLayout" name="selectorLayout" stretch="0,1">
+       <item>
+        <widget class="QListWidget" name="channelList">
+         <property name="showDropIndicator" stdset="0">
+          <bool>false</bool>
+         </property>
+         <property name="selectionMode">
+          <enum>QAbstractItemView::MultiSelection</enum>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QListWidget" name="filterList">
+         <property name="dragDropMode">
+          <enum>QAbstractItemView::InternalMove</enum>
+         </property>
+         <property name="selectionMode">
+          <enum>QAbstractItemView::ContiguousSelection</enum>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <layout class="QHBoxLayout" name="perChannelLayout"/>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>MplWidget</class>
+   <extends>QGraphicsView</extends>
+   <header>mpl</header>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>accepted()</signal>
+   <receiver>jriverDspDialog</receiver>
+   <slot>accept()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>230</x>
+     <y>691</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>157</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>rejected()</signal>
+   <receiver>jriverDspDialog</receiver>
+   <slot>reject()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>298</x>
+     <y>691</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>286</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>findFilenameButton</sender>
+   <signal>clicked()</signal>
+   <receiver>jriverDspDialog</receiver>
+   <slot>find_dsp_file()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>478</x>
+     <y>41</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>738</x>
+     <y>511</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>channelList</sender>
+   <signal>itemSelectionChanged()</signal>
+   <receiver>jriverDspDialog</receiver>
+   <slot>show_channel_filters()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>172</x>
+     <y>182</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>352</x>
+     <y>348</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>showPhase</sender>
+   <signal>stateChanged(int)</signal>
+   <receiver>jriverDspDialog</receiver>
+   <slot>show_phase_response()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>848</x>
+     <y>24</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>678</x>
+     <y>4</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>subOnlyButton</sender>
+   <signal>clicked()</signal>
+   <receiver>jriverDspDialog</receiver>
+   <slot>show_sub_only()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>784</x>
+     <y>22</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>950</x>
+     <y>2</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>fullRangeButton</sender>
+   <signal>clicked()</signal>
+   <receiver>jriverDspDialog</receiver>
+   <slot>show_full_range()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>746</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1076</x>
+     <y>-4</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>limitsButton</sender>
+   <signal>clicked()</signal>
+   <receiver>jriverDspDialog</receiver>
+   <slot>show_limits()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>710</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1220</x>
+     <y>0</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>blockSelector</sender>
+   <signal>currentTextChanged(QString)</signal>
+   <receiver>jriverDspDialog</receiver>
+   <slot>show_filters()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>599</x>
+     <y>30</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>681</x>
+     <y>100</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+ <slots>
+  <slot>find_dsp_file()</slot>
+  <slot>show_filters()</slot>
+  <slot>show_channel_filters()</slot>
+  <slot>show_phase_response()</slot>
+  <slot>show_sub_only()</slot>
+  <slot>show_full_range()</slot>
+  <slot>show_limits()</slot>
+ </slots>
+</ui>

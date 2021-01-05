@@ -11,9 +11,6 @@ from contextlib import contextmanager
 import matplotlib
 from scipy import signal
 
-from model.catalogue import CatalogueDialog
-from model.sync import SyncHTP1Dialog
-
 matplotlib.use("Qt5Agg")
 os.environ['QT_API'] = 'pyqt5'
 # os.environ['PYQTGRAPH_QT_LIB'] = 'PyQt5'
@@ -25,15 +22,9 @@ if sys.platform == 'win32' and getattr(sys, '_MEIPASS', False):
 from model.waveform import WaveformController
 from model.checker import VersionChecker, ReleaseNotesDialog
 from model.report import SaveReportDialog, block_signals
-from model.batch import BatchExtractDialog
-from model.analysis import AnalyseSignalDialog
-from model.link import LinkSignalsDialog
-from model.preferences import DISPLAY_SHOW_FILTERED_SIGNALS, SYSTEM_CHECK_FOR_UPDATES, BIQUAD_EXPORT_MAX,\
+from model.preferences import DISPLAY_SHOW_FILTERED_SIGNALS, SYSTEM_CHECK_FOR_UPDATES, BIQUAD_EXPORT_MAX, \
     BIQUAD_EXPORT_FS, BIQUAD_EXPORT_DEVICE, SHOW_NO_FILTERS, SYSTEM_CHECK_FOR_BETA_UPDATES, \
     BEQ_REPOS, BEQ_DEFAULT_REPO
-from model.minidsp import HDXmlParser
-from model.merge import MergeFiltersDialog, DspType
-from model.postbuilder import CreateAVSPostDialog
 
 from ui.delegates import RegexValidator
 
@@ -41,26 +32,20 @@ import pyqtgraph as pg
 import qtawesome as qta
 from matplotlib import style
 
-from model.export import ExportSignalDialog, Mode
 from model.iir import Passthrough, CompleteFilter, as_equalizer_apo, COMBINED
 from ui.biquad import Ui_exportBiquadDialog
 from ui.savechart import Ui_saveChartDialog
 
-from qtpy import QtCore
+from qtpy import QtCore, QtWidgets
 from qtpy.QtCore import QSettings, QThreadPool, QUrl
 from qtpy.QtGui import QIcon, QFont, QCursor, QTextCursor, QDesktopServices
 from qtpy.QtWidgets import QMainWindow, QApplication, QErrorMessage, QAbstractItemView, QDialog, QFileDialog, \
     QHeaderView, QMessageBox, QHBoxLayout, QToolButton
 
-from model.extract import ExtractAudioDialog
-from model.filter import FilterTableModel, FilterModel, FilterDialog, load_filter
-from model.log import RollingLogger
-from model.magnitude import MagnitudeModel
 from model.preferences import PreferencesDialog, BINARIES_GROUP, ANALYSIS_TARGET_FS, STYLE_MATPLOTLIB_THEME, \
     Preferences, STYLE_MATPLOTLIB_THEME_DEFAULT, SCREEN_GEOMETRY, SCREEN_WINDOW_STATE, FILTERS_PRESET_x, \
     DISPLAY_SHOW_LEGEND, DISPLAY_SHOW_FILTERS, SHOW_FILTER_OPTIONS, SHOW_SIGNAL_OPTIONS, DISPLAY_SHOW_SIGNALS, \
     SHOW_FILTERED_SIGNAL_OPTIONS
-from model.signal import SignalModel, SignalTableModel, SignalDialog, SingleChannelSignalData, Signal
 from ui.beq import Ui_MainWindow
 
 logger = logging.getLogger('beq')
@@ -124,10 +109,12 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         # init beq repos for 0.9.0 backwards compatibility
         self.__ensure_beq_repos_exist()
         # logs
+        from model.log import RollingLogger
         self.logViewer = RollingLogger(self.preferences, parent=self)
         self.actionShow_Logs.triggered.connect(self.logViewer.show_logs)
         self.actionPreferences.triggered.connect(self.showPreferences)
         # init a default signal for when we want to edit a filter without a signal
+        from model.signal import SingleChannelSignalData, Signal
         default_fs = self.preferences.get(ANALYSIS_TARGET_FS)
         default_signal = Signal('default', signal.unit_impulse(default_fs, 'mid'), self.preferences, fs=default_fs)
         self.__default_signal = SingleChannelSignalData(name='default',
@@ -147,6 +134,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         # filter view/model
         self.filterView.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.filterView.doubleClicked.connect(self.editFilter)
+        from model.filter import FilterTableModel, FilterModel
         self.__filter_model = FilterModel(self.filterView, self.preferences, label=self.filtersLabel,
                                           on_update=self.on_filter_change)
         self.__filter_table_model = FilterTableModel(self.__filter_model, parent=parent)
@@ -187,6 +175,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.__configure_signal_model(parent)
         # magnitude
         self.showLegend.setChecked(bool(self.preferences.get(DISPLAY_SHOW_LEGEND)))
+        from model.magnitude import MagnitudeModel
         self.__magnitude_model = MagnitudeModel('main', self.mainChart, self.preferences,
                                                 self.__signal_model.get_curve_data, 'Signals',
                                                 secondary_data_provider=self.__filter_model.get_curve_data,
@@ -276,6 +265,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.actionBrowse_Catalogue.triggered.connect(self.show_catalogue)
         self.actionExport_BEQ_Filter.triggered.connect(self.export_beq_filter)
         self.actionSync_with_HTP_1.triggered.connect(self.sync_htp1)
+        self.actionManage_JRiver_MC.triggered.connect(self.__import_jriver_peq)
 
     def __ensure_beq_repos_exist(self):
         '''
@@ -382,6 +372,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.signalView.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.signalView.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.signalView.setSelectionMode(QAbstractItemView.SingleSelection)
+        from model.signal import SignalModel, SignalTableModel
         self.__signal_model = SignalModel(self.signalView, self.__default_signal, self.preferences,
                                           on_update=self.on_signal_change)
         self.__signal_table_model = SignalTableModel(self.__signal_model, parent=parent)
@@ -486,12 +477,14 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Adds signals via the signal dialog.
         '''
+        from model.signal import SignalDialog
         SignalDialog(self.preferences, self.__signal_model, parent=self).show()
 
     def linkSignals(self):
         '''
         Lets the user link signals via a matrix mapping.
         '''
+        from model.link import LinkSignalsDialog
         LinkSignalsDialog(self.__signal_model, parent=self).exec()
 
     def deleteSignal(self):
@@ -569,6 +562,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Allows the user to replace the current filter with one loaded from a file.
         '''
+        from model.filter import load_filter
         filter_json = load_filter(self, self.statusbar)
         if filter_json is not None:
             self.__apply_filter(filter_json)
@@ -585,6 +579,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Adds a filter via the filter dialog.
         '''
+        from model.filter import FilterDialog
         FilterDialog(self.preferences, self.__get_selected_signal(), self.__filter_model,
                      lambda: self.__magnitude_model.redraw(), parent=self).show()
 
@@ -595,6 +590,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         selection = self.filterView.selectionModel()
         if selection.hasSelection() and len(selection.selectedRows()) == 1:
             signal = self.__get_selected_signal()
+            from model.filter import FilterDialog
             FilterDialog(self.preferences, signal, self.__filter_model,
                          lambda: self.__magnitude_model.redraw(),
                          selected_filter=signal.filter[selection.selectedRows()[0].row()], parent=self).show()
@@ -763,12 +759,14 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Show the extract audio dialog.
         '''
+        from model.extract import ExtractAudioDialog
         ExtractAudioDialog(self, self.preferences, self.__signal_model).show()
 
     def showRemuxAudioDialog(self):
         '''
         Show the remux audio dialog.
         '''
+        from model.extract import ExtractAudioDialog
         ExtractAudioDialog(self, self.preferences, self.__signal_model,
                            default_signal=self.__default_signal, is_remux=True).show()
 
@@ -776,24 +774,28 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Show the batch extract dialog.
         '''
+        from model.batch import BatchExtractDialog
         BatchExtractDialog(self, self.preferences).show()
 
     def showAnalyseAudioDialog(self):
         '''
         Show the analyse audio dialog.
         '''
+        from model.analysis import AnalyseSignalDialog
         AnalyseSignalDialog(self.preferences, self.__signal_model).exec()
 
     def showExportFRDDialog(self):
         '''
         Shows the export frd dialog.
         '''
+        from model.export import ExportSignalDialog
         ExportSignalDialog(self.preferences, self.__signal_model, self, self.statusbar).exec()
 
     def showExportSignalDialog(self):
         '''
         Shows the export signal dialog.
         '''
+        from model.export import ExportSignalDialog, Mode
         ExportSignalDialog(self.preferences, self.__signal_model, self, self.statusbar, mode=Mode.SIGNAL).exec()
 
     def exportProject(self):
@@ -937,6 +939,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         Allows the user to load a preset from a saved filter.
         :param idx: the index.
         '''
+        from model.filter import load_filter
 
         def __load_preset():
             preset_key = FILTERS_PRESET_x % idx
@@ -999,6 +1002,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Shows the catalogue dialog.
         '''
+        from model.catalogue import CatalogueDialog
         dialog = CatalogueDialog(self, self.preferences, self.__load_filter)
         dialog.show()
         dialog.setVisible(True)
@@ -1007,6 +1011,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Shows the merge minidsp XML dialog.
         '''
+        from model.merge import MergeFiltersDialog
         dialog = MergeFiltersDialog(self, self.preferences, self.statusbar)
         dialog.exec()
 
@@ -1014,6 +1019,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Shows the create post dialog.
         '''
+        from model.postbuilder import CreateAVSPostDialog
         dialog = CreateAVSPostDialog(self, self.preferences, self.__filter_model, self.__get_selected_signal())
         dialog.exec()
 
@@ -1021,8 +1027,13 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         displays the Sync HTP1 dialog
         '''
+        from model.sync import SyncHTP1Dialog
         dialog = SyncHTP1Dialog(self, self.preferences, self.__signal_model)
         dialog.exec()
+
+    def __import_jriver_peq(self):
+        from model.jriver import JRiverDSPDialog
+        JRiverDSPDialog(self, self.preferences).exec()
 
     def show_y2_tool_buttons(self, show=True):
         self.mainChartRightTools.setVisible(show)
@@ -1107,6 +1118,8 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
                 file_path = os.path.join(sys._MEIPASS, 'flat24hd.xml')
             else:
                 file_path = os.path.abspath(os.path.join(os.path.dirname('__file__'), '../xml/flat24hd.xml'))
+            from model.minidsp import HDXmlParser
+            from model.merge import DspType
             parser = HDXmlParser(DspType.MINIDSP_TWO_BY_FOUR_HD, False)
             output_xml, _ = parser.convert(file_path, self.__filter_model.filter)
             with open(file_name, 'w+') as f:
@@ -1371,3 +1384,12 @@ class TimeAxisItem(pg.AxisItem):
     def tickStrings(self, values, scale, spacing):
         import datetime
         return [str(datetime.timedelta(seconds=value)).split('.')[0] for value in values]
+
+
+class NoFillDoubleSpinBox(QtWidgets.QDoubleSpinBox):
+
+    def __init__(self, parent=None):
+        super(QtWidgets.QDoubleSpinBox, self).__init__(parent)
+
+    def textFromValue(self, p_float: float):
+        return f"{p_float:.1f}" if p_float.is_integer() else f"{p_float:.7g}"

@@ -1180,6 +1180,8 @@
     <addaction name="actionCreate_AVS_Post"/>
     <addaction name="separator"/>
     <addaction name="actionSync_with_HTP_1"/>
+    <addaction name="separator"/>
+    <addaction name="actionManage_JRiver_MC"/>
    </widget>
    <addaction name="menuFile"/>
    <addaction name="menuSettings"/>
@@ -1523,6 +1525,14 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+Alt+C</string>
+   </property>
+  </action>
+  <action name="actionManage_JRiver_MC">
+   <property name="text">
+    <string>Manage JRiver MC Filters</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+J</string>
    </property>
   </action>
  </widget>

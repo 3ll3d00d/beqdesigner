@@ -1,19 +1,20 @@
-import logging
-import math
-import typing
 import json
+import logging
+import typing
+from collections import defaultdict
 from collections.abc import Sequence
 from uuid import uuid4
 
+import math
 import qtawesome as qta
 from qtpy import QtCore
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt
 from qtpy.QtGui import QIcon
-from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox, QHeaderView
+from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox, QHeaderView, QTableView
 
 from model.iir import FilterType, LowShelf, HighShelf, PeakingEQ, SecondOrder_LowPass, \
     SecondOrder_HighPass, ComplexLowPass, ComplexHighPass, q_to_s, s_to_q, max_permitted_s, CompleteFilter, COMBINED, \
-    Passthrough, Gain, Shelf
+    Passthrough, Gain, Shelf, LinkwitzTransform
 from model.limits import dBRangeCalculator, PhaseRangeCalculator
 from model.magnitude import MagnitudeModel
 from model.preferences import SHOW_ALL_FILTERS, SHOW_NO_FILTERS, FILTER_COLOURS, DISPLAY_SHOW_FILTERS, DISPLAY_Q_STEP, \
@@ -186,10 +187,10 @@ class FilterTableModel(QAbstractTableModel):
         self.__filter_model = model
         self.__filter_model.table = self
 
-    def rowCount(self, parent: QModelIndex = ...):
+    def rowCount(self, parent: QModelIndex = ..., *args, **kwargs):
         return len(self.__filter_model)
 
-    def columnCount(self, parent: QModelIndex = ...):
+    def columnCount(self, parent: QModelIndex = ..., *args, **kwargs):
         return len(self.__headers)
 
     def data(self, index: QModelIndex, role: int = ...) -> typing.Any:
@@ -240,10 +241,11 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
     gain_required = is_shelf + ['PEQ', 'Gain']
     q_steps = [0.0001, 0.001, 0.01, 0.1]
     gain_steps = [0.01, 0.1, 1.0]
-    freq_steps = [0.1, 1.0, 2.0, 5.0]
+    freq_steps = [0.01, 0.1, 1.0, 2.0, 5.0]
     passthrough = Passthrough()
 
-    def __init__(self, preferences, signal, filter_model, redraw_main, selected_filter=None, parent=None, valid_filter_types=None):
+    def __init__(self, preferences, signal, filter_model, redraw_main, selected_filter=None, parent=None,
+                 valid_filter_types=None, **kwargs):
         self.__preferences = preferences
         super(FilterDialog, self).__init__(parent) if parent is not None else super(FilterDialog, self).__init__()
         self.__redraw_main = redraw_main
@@ -253,7 +255,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.__q_step_idx = self.__get_step(self.q_steps, self.__preferences.get(DISPLAY_Q_STEP), 3)
         self.__s_step_idx = self.__get_step(self.q_steps, self.__preferences.get(DISPLAY_S_STEP), 3)
         self.__gain_step_idx = self.__get_step(self.gain_steps, self.__preferences.get(DISPLAY_GAIN_STEP), 0)
-        self.__freq_step_idx = self.__get_step(self.freq_steps, self.__preferences.get(DISPLAY_FREQ_STEP), 1)
+        self.__freq_step_idx = self.__get_step(self.freq_steps, self.__preferences.get(DISPLAY_FREQ_STEP), 2)
         # init the UI itself
         self.setupUi(self)
         self.__snapshot = FilterModel(self.snapshotFilterView, self.__preferences, on_update=self.__on_snapshot_change)
@@ -269,13 +271,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.__filter_model = filter_model
         if self.__filter_model.filter.listener is not None:
             logger.debug(f"Selected filter has listener {self.__filter_model.filter.listener.name}")
-        # init the chart
-        self.__magnitude_model = MagnitudeModel('preview', self.previewChart, preferences,
-                                                self.__get_data(), 'Filter', fill_primary=True,
-                                                secondary_data_provider=self.__get_data('phase'),
-                                                secondary_name='Phase', secondary_prefix='deg', fill_secondary=False,
-                                                db_range_calc=dBRangeCalculator(30, expand=True),
-                                                y2_range_calc=PhaseRangeCalculator(), show_y2_in_legend=False)
+        self.__magnitude_model = None
         # remove unsupported filter types
         if valid_filter_types:
             to_remove = []
@@ -295,7 +291,16 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
                 self.workingFilterView.selectRow(idx)
         if self.__selected_id is None:
             self.__add_working_filter()
+        # init the chart
+        self.__magnitude_model = MagnitudeModel('preview', self.previewChart, preferences,
+                                                self.__get_data(), 'Filter', fill_primary=True,
+                                                secondary_data_provider=self.__get_data('phase'),
+                                                secondary_name='Phase', secondary_prefix='deg', fill_secondary=False,
+                                                db_range_calc=dBRangeCalculator(30, expand=True),
+                                                y2_range_calc=PhaseRangeCalculator(), show_y2_in_legend=False,
+                                                **kwargs)
         self.__restore_geometry()
+        self.filterType.setFocus()
 
     def __restore_geometry(self):
         ''' loads the saved window size '''
@@ -328,12 +333,14 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         ''' makes the snapshot table visible when we have one. '''
         self.snapshotFilterView.setVisible(len(self.__snapshot) > 0)
         self.snapshotViewButtonWidget.setVisible(len(self.__snapshot) > 0)
-        self.__magnitude_model.redraw()
+        if self.__magnitude_model is not None:
+            self.__magnitude_model.redraw()
         return True
 
     def __on_working_change(self, visible_names):
         ''' ensure the graph redraws when a filter changes. '''
-        self.__magnitude_model.redraw()
+        if self.__magnitude_model is not None:
+            self.__magnitude_model.redraw()
         return True
 
     def __decorate_ui(self):
@@ -372,6 +379,8 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.limitsButton.setIcon(qta.icon('fa5s.arrows-alt'))
         self.fullRangeButton.setIcon(qta.icon('fa5s.expand'))
         self.subOnlyButton.setIcon(qta.icon('fa5s.compress'))
+        self.importWorkingButton.setIcon(qta.icon('fa5s.file-import'))
+        self.importSnapshotButton.setIcon(qta.icon('fa5s.file-import'))
 
     def __set_tooltips(self):
         self.addSnapshotRowButton.setToolTip('Add new filter to snapshot')
@@ -387,28 +396,22 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.saveButton.setToolTip('Save')
         self.exitButton.setToolTip('Exit')
         self.limitsButton.setToolTip('Set Graph Limits')
+        self.importWorkingButton.setToolTip('Import Filters from REW')
+        self.importSnapshotButton.setToolTip('Import Filters from REW')
 
     def __connect_working_buttons(self):
         ''' Connects the buttons associated with the working filter. '''
         self.addWorkingRowButton.clicked.connect(self.__add_working_filter)
         self.removeWorkingRowButton.clicked.connect(self.__remove_working_filter)
+        self.importWorkingButton.clicked.connect(self.__import_working_filters)
 
     def __add_working_filter(self):
         ''' adds a new filter. '''
-        new_filter = self.__make_default_filter()
-        self.__working.save(new_filter)
-        for idx, f in enumerate(self.__working):
-            if f.id == new_filter.id:
-                self.__selected_id = f.id
-                self.workingFilterView.selectRow(idx)
+        self.__add_filter(self.__make_default_filter(), self.__working, self.workingFilterView)
 
     def __remove_working_filter(self):
         ''' removes the selected filter. '''
-        selection = self.workingFilterView.selectionModel()
-        if selection.hasSelection():
-            self.__working.delete([r.row() for r in selection.selectedRows()])
-            if len(self.__working) > 0:
-                self.workingFilterView.selectRow(0)
+        self.__remove_filter(self.workingFilterView, self.__working)
 
     def __connect_snapshot_buttons(self):
         ''' Connects the buttons associated with the snapshot filter. '''
@@ -419,17 +422,28 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.optimiseButton.clicked.connect(self.__optimise_filter)
         self.addSnapshotRowButton.clicked.connect(self.__add_snapshot_filter)
         self.removeSnapshotRowButton.clicked.connect(self.__remove_snapshot_filter)
+        self.importSnapshotButton.clicked.connect(self.__import_snapshot_filters)
 
     def __add_snapshot_filter(self):
         ''' adds a new filter. '''
-        new_filter = self.__make_default_filter()
-        self.__snapshot.save(new_filter)
-        for idx, f in enumerate(self.__snapshot):
+        self.__add_filter(self.__make_default_filter(), self.__snapshot, self.snapshotFilterView)
+
+    @staticmethod
+    def __add_filter(new_filter, filter_model: FilterModel, filter_view: QTableView):
+        filter_model.save(new_filter)
+        for idx, f in enumerate(filter_model):
             if f.id == new_filter.id:
-                self.snapshotFilterView.selectRow(idx)
+                filter_view.selectRow(idx)
 
     def __make_default_filter(self):
-        ''' Creates a new filter using the default preferences. '''
+        ''' Creates a new filter using the default preferences or by copying the currently selected filter. '''
+        active_model, _ = self.__get_active()
+        if len(active_model) > 0:
+            for f in active_model:
+                if f.id == self.__selected_id:
+                    new_f = f.resample(self.__signal.fs)
+                    new_f.id = uuid4()
+                    return new_f
         return LowShelf(self.__signal.fs,
                         self.__preferences.get(FILTERS_DEFAULT_FREQ),
                         self.__preferences.get(FILTERS_DEFAULT_Q),
@@ -438,11 +452,53 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
 
     def __remove_snapshot_filter(self):
         ''' removes the selected filter. '''
-        selection = self.snapshotFilterView.selectionModel()
+        self.__remove_filter(self.snapshotFilterView, self.__snapshot)
+
+    @staticmethod
+    def __remove_filter(filter_view: QTableView, filter_model: FilterModel):
+        selection = filter_view.selectionModel()
         if selection.hasSelection():
-            self.__snapshot.delete([r.row() for r in selection.selectedRows()])
-            if len(self.__snapshot) > 0:
-                self.snapshotFilterView.selectRow(0)
+            to_delete = [r.row() for r in selection.selectedRows()]
+            filter_model.delete(to_delete)
+            if len(filter_model) > 0:
+                filter_view.selectRow(min(max(to_delete), len(filter_model) - 1))
+
+    def __import_working_filters(self):
+        self.__import_filters(self.__working, self.workingFilterView)
+
+    def __import_snapshot_filters(self):
+        self.__import_filters(self.__snapshot, self.snapshotFilterView)
+
+    def __import_filters(self, filter_model: FilterModel, filter_view: QTableView):
+        selected = QFileDialog.getOpenFileName(parent=self, caption='Import REW Filters', filter='Filter (*.txt)')
+        if selected and selected[0]:
+            filts = []
+            discarded = defaultdict(list)
+            with open(selected[0]) as f:
+                for line in f:
+                    tokens = line.split()
+                    if len(tokens) > 4 and tokens[0] == 'Filter' and tokens[2] == 'ON':
+                        filt = None
+                        if tokens[3] == 'PK':
+                            filt = PeakingEQ(self.__signal.fs, float(tokens[5]), float(tokens[11]), float(tokens[8]), f_id=uuid4())
+                        elif tokens[3] == 'LSQ':
+                            filt = LowShelf(self.__signal.fs, float(tokens[5]), float(tokens[11]), float(tokens[8]), f_id=uuid4())
+                        elif tokens[3] == 'HSQ':
+                            filt = HighShelf(self.__signal.fs, float(tokens[5]), float(tokens[11]), float(tokens[8]), f_id=uuid4())
+                        else:
+                            discarded[tokens[3]].append(tokens[1][:-1])
+                        if filt:
+                            filts.append(filt)
+            if filts:
+                for f in filts:
+                    self.__add_filter(f, filter_model, filter_view)
+            if discarded.keys():
+                msg_box = QMessageBox()
+                formatted = '\n'.join([f"{k} - Filter{'s' if len(v) > 1 else ''} {','.join(v)}" for k,v in discarded.items()])
+                msg_box.setText(f"Ignored filters\n\n{formatted}")
+                msg_box.setIcon(QMessageBox.Information)
+                msg_box.setWindowTitle('Ignored Unsupported Filter Types')
+                msg_box.exec()
 
     def __snap_filter(self):
         '''
@@ -565,7 +621,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         active_model.save(self.__create_filter())
         self.__ensure_filter_is_selected(active_model, active_view)
 
-    def __get_active(self):
+    def __get_active(self) -> typing.Tuple[FilterModel, QTableView]:
         if self.headerLabel.text().startswith('Working') or len(self.headerLabel.text()) == 0:
             active_model = self.__working
             active_view = self.workingFilterView
@@ -638,6 +694,8 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
             filt = SecondOrder_LowPass(self.__signal.fs, self.freq.value(), self.filterQ.value())
         elif self.filterType.currentText() == 'Variable Q HPF':
             filt = SecondOrder_HighPass(self.__signal.fs, self.freq.value(), self.filterQ.value())
+        elif self.filterType.currentText() == 'Linkwitz Transform':
+            filt = LinkwitzTransform(self.__signal.fs, self.f0.value(), self.q0.value(), self.fp.value(), self.qp.value())
         if filt is None:
             raise ValueError(f"Unknown filter type {self.filterType.currentText()}")
         else:
@@ -671,15 +729,28 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
 
     def __is_gain_filter(self):
         '''
-        :return: true if the current options indicate a predefined high or low pass filter.
+        :return: true if the current options indicate a gain filter.
         '''
         selected_filter = self.filterType.currentText()
         return selected_filter == 'Gain'
+
+    def __is_linkwitz_transform(self):
+        '''
+        :return: true if the current options indicate an LT.
+        '''
+        selected_filter = self.filterType.currentText()
+        return selected_filter == 'Linkwitz Transform'
 
     def enableFilterParams(self):
         '''
         Configures the various input fields for the currently selected filter type.
         '''
+        self.f0.setVisible(False)
+        self.q0.setVisible(False)
+        self.fp.setVisible(False)
+        self.qp.setVisible(False)
+        self.ltInLabel.setVisible(False)
+        self.ltOutLabel.setVisible(False)
         if self.__is_pass_filter():
             self.passFilterType.setVisible(True)
             self.filterOrder.setVisible(True)
@@ -701,6 +772,19 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
                 self.freq.setVisible(False)
                 self.freqStepButton.setVisible(False)
                 self.freqLabel.setVisible(False)
+            elif self.__is_linkwitz_transform():
+                self.qStepButton.setVisible(False)
+                self.filterQ.setVisible(False)
+                self.filterQLabel.setVisible(False)
+                self.freq.setVisible(False)
+                self.freqStepButton.setVisible(False)
+                self.freqLabel.setVisible(False)
+                self.f0.setVisible(True)
+                self.q0.setVisible(True)
+                self.fp.setVisible(True)
+                self.qp.setVisible(True)
+                self.ltInLabel.setVisible(True)
+                self.ltOutLabel.setVisible(True)
             else:
                 self.qStepButton.setVisible(True)
                 self.filterQ.setVisible(True)

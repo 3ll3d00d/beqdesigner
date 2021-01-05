@@ -106,6 +106,19 @@ class Biquad(ABC):
             self.__transferFunction = ComplexData(self.__repr__(), f, h)
         return self.__transferFunction
 
+    def get_impulse_response(self, dt=None, n=None):
+        '''
+        Converts the 2nd order section to a transfer function (b, a) and then computes the IR of the discrete time
+        system.
+        :param dt: the time delta.
+        :param n: the no of samples to output, defaults to 1s.
+        :return: t, y
+        '''
+        t, y = signal.dimpulse(signal.dlti(*signal.sos2tf(np.array(self.get_sos())),
+                                           dt=1/self.fs if dt is None else dt),
+                               n=self.fs if n is None else n)
+        return t, y
+
     def format_biquads(self, minidsp_style, separator=',\n', show_index=True, to_hex=False, fixed_point=False):
         ''' Creates a biquad report '''
         kwargs = {'to_hex': to_hex, 'minidsp_style': minidsp_style, 'fixed_point': fixed_point}
@@ -125,6 +138,85 @@ class Biquad(ABC):
 
     def get_sos(self):
         return [np.concatenate((self.b, self.a)).tolist()]
+
+
+class LinkwitzTransform(Biquad):
+
+    def __init__(self, fs, f0, q0, fp, qp, f_id=-1):
+        '''
+        B11 = (f0 + fp) / 2.0
+        B26 = (2.0 * pi * f0) * (2.0 * pi * f0)
+        B27 = (2.0 * pi * f0) / q0
+        B30 = (2.0 * pi * fp) * (2.0 * pi * fp)
+        B31 = (2.0 * pi * fp) / qp
+        B34 = (2.0 * pi * B11) / tan(pi * B11 / fs)
+        B35 = B30 + (B34 * B31) + (B34 * B34)
+
+        a0 = 1
+        a1 = (2.0 * (B30 - (B34 * B34)) / B35)
+        a2 = ((B30 - B34 * B31 + (B34 * B34)) / B35)
+        b0 = (B26 + B34 * B27 + (B34 * B34)) / B35
+        b1 = 2.0 * (B26 - (B34 * B34)) / B35
+        b2 = (B26 - B34 * B27 + (B34 * B34)) / B35
+        '''
+        self.f0 = f0
+        self.fp = fp
+        self.q0 = q0
+        self.qp = qp
+        super().__init__(fs, f_id=f_id)
+
+    @property
+    def filter_type(self):
+        return 'Linkwitz Transform'
+
+    @property
+    def display_name(self):
+        return 'LT'
+
+    def _compute_coeffs(self):
+        b11 = (self.f0 + self.fp) / 2.0
+        two_pi = 2.0 * math.pi
+        b26 = (two_pi * self.f0) ** 2.0
+        b27 = (two_pi * self.f0) / self.q0
+        b30 = (two_pi * self.fp) ** 2.0
+        b31 = (two_pi * self.fp) / self.qp
+        b34 = (two_pi * b11) / math.tan(math.pi * b11 / self.fs)
+        b35 = b30 + (b34 * b31) + (b34 * b34)
+        a0 = 1.0
+        a1 = 2.0 * (b30 - (b34 * b34)) / b35
+        a2 = (b30 - b34 * b31 + (b34 * b34)) / b35
+        b0 = (b26 + b34 * b27 + (b34 * b34)) / b35
+        b1 = 2.0 * (b26 - (b34 * b34)) / b35
+        b2 = (b26 - b34 * b27 + (b34 * b34)) / b35
+        return np.array([a0, a1, a2]), np.array([b0, b1, b2])
+
+    def resample(self, new_fs):
+        '''
+        Creates a filter at the specified fs.
+        :param new_fs: the new fs.
+        :return: the new filter.
+        '''
+        return LinkwitzTransform(new_fs, self.f0, self.fp, self.q0, self.qp, f_id=self.id)
+
+    def __eq__(self, o: object) -> bool:
+        return super().__eq__(o) and self.f0 == o.f0 and self.fp == o.fp and self.q0 == o.q0 and self.qp == o.qp
+
+    @property
+    def description(self):
+        return super().description + f" {self.f0}/{self.q0} -> {self.fp}/{self.qp}"
+
+    def sort_key(self):
+        return f"{self.f0:05}{self.fp:05}{self.filter_type}"
+
+    def to_json(self):
+        return {
+            '_type': self.__class__.__name__,
+            'fs': self.fs,
+            'f0': self.f0,
+            'fp': self.fp,
+            'q0': self.q0,
+            'qp': self.qp
+        }
 
 
 class Gain(Biquad):
@@ -730,7 +822,7 @@ class ComplexFilter(Sequence):
 
     def __init__(self, fs=1000, filters=None, description='Complex', preset_idx=-1, listener=None, f_id=-1,
                  sort_by_id=False):
-        self.filters = filters if filters is not None else []
+        self.filters = [f for f in filters if f] if filters is not None else []
         self.__sort_by_id = sort_by_id
         self.description = description
         self.__fs = fs
@@ -838,6 +930,19 @@ class ComplexFilter(Sequence):
     def get_sos(self):
         ''' outputs the filter in cascaded second order sections ready for consumption by sosfiltfilt '''
         return [x for f in self.filters for x in f.get_sos()]
+
+    def get_impulse_response(self, dt=None, n=None):
+        '''
+        Converts the 2nd order section to a transfer function (b, a) and then computes the IR of the discrete time
+        system.
+        :param dt: the time delta.
+        :param n: the no of samples to output, defaults to 1s.
+        :return: t, y
+        '''
+        t, y = signal.dimpulse(signal.dlti(*signal.sos2tf(np.array(self.get_sos())),
+                                           dt=1/self.fs if dt is None else dt),
+                               n=self.fs if n is None else n)
+        return t, y
 
     def to_json(self):
         return {
@@ -1021,11 +1126,11 @@ class ComplexData:
     Value object for storing complex data.
     '''
 
-    def __init__(self, name, x, y, scaleFactor=1):
+    def __init__(self, name, x, y, scale_factor=1):
         self.name = name
         self.x = x
         self.y = y
-        self.scaleFactor = scaleFactor
+        self.scale_factor = scale_factor
         self.__cached_mag_ref = None
         self.__cached_mag = None
         self.__cached_phase = None
@@ -1042,7 +1147,7 @@ class ComplexData:
             self.__cached_mag.linestyle = linestyle
         else:
             self.__cached_mag_ref = ref
-            y = np.abs(self.y) * self.scaleFactor / ref
+            y = np.abs(self.y) * self.scale_factor / ref
             # avoid divide by zero issues when converting to decibels
             y[np.abs(y) < 0.0000001] = 0.0000001
             self.__cached_mag = MagnitudeData(self.name, None, self.x, 20 * np.log10(y), colour=colour,

@@ -9,6 +9,7 @@ from qtpy.QtCore import QThreadPool, QDateTime, Qt, QRunnable, QObject, Signal
 from qtpy.QtGui import QGuiApplication
 from qtpy.QtWidgets import QDialog, QDialogButtonBox, QMessageBox, QFileDialog, QListWidgetItem
 
+from model.jriver import JRIVER_CHANNELS, JRiverParser
 from model.minidsp import logger, RepoRefresher, get_repo_subdir, get_commit_url, TwoByFourXmlParser, HDXmlParser, \
     xml_to_filt
 from model.preferences import BEQ_CONFIG_FILE, BEQ_MERGE_DIR, BEQ_MINIDSP_TYPE, BEQ_DOWNLOAD_DIR, BEQ_EXTRA_DIR, \
@@ -516,9 +517,6 @@ class DspType(Enum):
             return ['1', '2']
 
 
-JRIVER_NAMED_CHANNELS = ['Left', 'Right', 'Centre', 'Subwoofer', 'Surround Left', 'Surround Right', 'Rear Left', 'Rear Right']
-JRIVER_NUMBERED_CHANNELS = [str(i + 9) for i in range(24)]
-JRIVER_CHANNELS = JRIVER_NAMED_CHANNELS + JRIVER_NUMBERED_CHANNELS
 OUTPUT_CHANNELS_BY_DEVICE = {
     DspType.MONOPRICE_HTP1: ['sub1', 'sub2', 'sub3', 'sub4', 'sub5', 'lf', 'rf', 'c', 'ls', 'rs', 'lb', 'rb', 'ltf', 'rtf', 'ltm', 'rtm', 'ltr', 'rtr', 'lw', 'rw', 'lfh', 'rfh', 'lhb', 'rhb'],
     DspType.MINIDSP_TWO_BY_FOUR_HD: ['Input 1', 'Input 2', 'Output 1', 'Output 2', 'Output 3', 'Output 4'],
@@ -610,103 +608,3 @@ class ProcessSignals(QObject):
     on_success = Signal()
     on_complete = Signal()
     on_optimised = Signal(str, str)
-
-
-class JRiverParser:
-
-    def __init__(self, block=1, channels=('Subwoofer',)):
-        self.__block = 'Parametric Equalizer' if block == 1 else 'Parametric Equalizer 2'
-        self.__target_channels = ';'.join([str(self.__channel_idx(c)) for c in channels])
-
-    @staticmethod
-    def __channel_idx(c):
-        try:
-            idx = JRIVER_NAMED_CHANNELS.index(c)
-            return idx + 2
-        except ValueError:
-            idx = JRIVER_NUMBERED_CHANNELS.index(c)
-            return idx + 4 + 9
-
-    def convert(self, dst, filt, **kwargs):
-        from model.minidsp import flatten_filters
-        flat_filts = flatten_filters(filt)
-        config_txt = Path(dst).read_text()
-        if len(flat_filts) > 0:
-            logger.info(f"Copying {len(flat_filts)} to {dst}")
-            # generate the xml formatted filters
-            xml_filts = ''.join([self.__to_filt_xml(f) for f in flat_filts])
-            # search for the matching DSP block and extract that as a string
-            start_idx = config_txt.find(f"<Key Name=\"{self.__block}\">")
-            if start_idx == -1:
-                raise ValueError('Invalid input file - No such block')
-            end_idx = config_txt.find('</Key>', start_idx)
-            fragment = config_txt[start_idx:end_idx]
-            # search for the inner Value block and extract that as a string
-            value_start = fragment.find('<Value>')
-            if value_start == -1:
-                raise ValueError('Invalid input file - No <Value> in block')
-            value_end = fragment.find('</Value>', value_start)
-            filt_section = fragment[value_start+7:value_end]
-            # separate the tokens, which are in (TOKEN) blocks, from within the Value element
-            filt_fragments = [v+')' for v in filt_section.split(')') if v]
-            if len(filt_fragments) < 2:
-                raise ValueError('Invalid input file - Unexpected <Value> format')
-            # find the filter count and replace it with the new filter count
-            filt_count = int(filt_fragments[1][1:-1].split(':')[1])
-            new_filt_count = filt_count + len(flat_filts)
-            filt_fragments[1] = f"({len(str(new_filt_count))}:{new_filt_count})"
-            # append the new filters to any existing ones
-            new_filt_section = ''.join(filt_fragments) + xml_filts
-            # replace the value block in the original string
-            before_value = config_txt[:start_idx+value_start+7]
-            after_value = config_txt[start_idx+value_end:]
-            config_txt = before_value + new_filt_section + after_value
-        else:
-            logger.warning(f"Nop for empty filter file {dst}")
-        return config_txt, False
-
-    def __to_filt_xml(self, filt):
-        items = [f"<Item Name=\"{k}\">{v}</Item>" for k, v in self.__to_filt_vals(filt).items()]
-        catted_items = '\n'.join(items)
-        prefix = '<XMLPH version="1.1">'
-        suffix = '</XMLPH>'
-        # 1 for each new line
-        segment_length = len(prefix) + 1 + len(' '.join(items)) + 1 + len(suffix) + 1
-        # 3 for the (:) formatting + 1 for another new line
-        segment_length = segment_length + len(str(segment_length)) + 3 + 1
-        xml_frag = f"({segment_length}:{prefix}\n{catted_items}\n{suffix})"
-        return xml_frag.replace('<', '&lt;').replace('>', '&gt;')
-
-    def __to_filt_vals(self, filt):
-        '''
-        :param filt: a filter.
-        :return: values to put in an xml fragment.
-        '''
-        from model.iir import PeakingEQ, LowShelf, Gain, BiquadWithQGain, q_to_s
-        if isinstance(filt, BiquadWithQGain):
-            return {
-                'Enabled': 1,
-                'Slope': 12,
-                'Q': f"{filt.q if isinstance(filt, PeakingEQ) else q_to_s(filt.q, filt.gain):.3g}",
-                'Type': 3 if isinstance(filt, PeakingEQ) else 10 if isinstance(filt, LowShelf) else 11,
-                'Gain': f"{filt.gain:.3g}",
-                'Frequency': f"{filt.freq:.3g}",
-                'Channels': self.__target_channels
-            }
-        elif isinstance(filt, Gain):
-            return {
-                'Enabled': 1,
-                'Type': 4,
-                'Gain': f"{filt.gain:.3g}",
-                'Channels': self.__target_channels
-            }
-        else:
-            raise ValueError(f"Unsupported filter type {filt}")
-
-    @staticmethod
-    def file_extension():
-        return '.dsp'
-
-    @staticmethod
-    def newline():
-        return '\r\n'
