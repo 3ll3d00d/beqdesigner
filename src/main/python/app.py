@@ -1392,4 +1392,5 @@ class NoFillDoubleSpinBox(QtWidgets.QDoubleSpinBox):
         super(QtWidgets.QDoubleSpinBox, self).__init__(parent)
 
     def textFromValue(self, p_float: float):
-        return f"{p_float:.1f}" if p_float.is_integer() else f"{p_float:.7g}"
+        txt = super().textFromValue(p_float).rstrip('0')
+        return f"{txt}0" if p_float.is_integer() else txt
