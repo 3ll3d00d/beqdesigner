@@ -14,12 +14,12 @@ from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox, QHeaderView, QTabl
 
 from model.iir import FilterType, LowShelf, HighShelf, PeakingEQ, SecondOrder_LowPass, \
     SecondOrder_HighPass, ComplexLowPass, ComplexHighPass, q_to_s, s_to_q, max_permitted_s, CompleteFilter, COMBINED, \
-    Passthrough, Gain, Shelf, LinkwitzTransform
+    Passthrough, Gain, Shelf, LinkwitzTransform, Biquad
 from model.limits import dBRangeCalculator, PhaseRangeCalculator
 from model.magnitude import MagnitudeModel
 from model.preferences import SHOW_ALL_FILTERS, SHOW_NO_FILTERS, FILTER_COLOURS, DISPLAY_SHOW_FILTERS, DISPLAY_Q_STEP, \
     DISPLAY_GAIN_STEP, DISPLAY_S_STEP, DISPLAY_FREQ_STEP, get_filter_colour, FILTERS_DEFAULT_Q, FILTERS_DEFAULT_FREQ, \
-    FILTERS_GEOMETRY
+    FILTERS_GEOMETRY, FILTERS_DEFAULT_HS_FREQ, FILTERS_DEFAULT_HS_Q, FILTERS_DEFAULT_PEAK_FREQ, FILTERS_DEFAULT_PEAK_Q
 from ui.filter import Ui_editFilterDialog
 
 logger = logging.getLogger('filter')
@@ -381,6 +381,8 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.subOnlyButton.setIcon(qta.icon('fa5s.compress'))
         self.importWorkingButton.setIcon(qta.icon('fa5s.file-import'))
         self.importSnapshotButton.setIcon(qta.icon('fa5s.file-import'))
+        self.pasteWorkingRowButton.setIcon(qta.icon('fa5s.paste'))
+        self.pasteSnapshotRowButton.setIcon(qta.icon('fa5s.paste'))
 
     def __set_tooltips(self):
         self.addSnapshotRowButton.setToolTip('Add new filter to snapshot')
@@ -398,16 +400,38 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.limitsButton.setToolTip('Set Graph Limits')
         self.importWorkingButton.setToolTip('Import Filters from REW')
         self.importSnapshotButton.setToolTip('Import Filters from REW')
+        self.pasteWorkingRowButton.setToolTip('Paste a copy of the currently selected filter')
+        self.pasteSnapshotRowButton.setToolTip('Paste a copy of the currently selected filter')
 
     def __connect_working_buttons(self):
         ''' Connects the buttons associated with the working filter. '''
         self.addWorkingRowButton.clicked.connect(self.__add_working_filter)
         self.removeWorkingRowButton.clicked.connect(self.__remove_working_filter)
         self.importWorkingButton.clicked.connect(self.__import_working_filters)
+        self.pasteWorkingRowButton.clicked.connect(self.__copy_working_filter)
+        self.addWorkingPeakingButton.clicked.connect(self.__add_working_peaking)
+        self.addWorkingLowShelfButton.clicked.connect(self.__add_working_low_shelf)
+        self.addWorkingHighShelfButton.clicked.connect(self.__add_working_high_shelf)
 
     def __add_working_filter(self):
         ''' adds a new filter. '''
         self.__add_filter(self.__make_default_filter(), self.__working, self.workingFilterView)
+
+    def __copy_working_filter(self):
+        ''' adds a new filter. '''
+        self.__add_filter(self.__make_copy_of_filter(), self.__working, self.workingFilterView)
+
+    def __add_working_peaking(self):
+        ''' adds a new filter. '''
+        self.__add_filter(self.__make_default_filter(filter_type=PeakingEQ), self.__working, self.workingFilterView)
+
+    def __add_working_low_shelf(self):
+        ''' adds a new filter. '''
+        self.__add_filter(self.__make_default_filter(filter_type=LowShelf), self.__working, self.workingFilterView)
+
+    def __add_working_high_shelf(self):
+        ''' adds a new filter. '''
+        self.__add_filter(self.__make_default_filter(filter_type=HighShelf), self.__working, self.workingFilterView)
 
     def __remove_working_filter(self):
         ''' removes the selected filter. '''
@@ -423,10 +447,15 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.addSnapshotRowButton.clicked.connect(self.__add_snapshot_filter)
         self.removeSnapshotRowButton.clicked.connect(self.__remove_snapshot_filter)
         self.importSnapshotButton.clicked.connect(self.__import_snapshot_filters)
+        self.pasteSnapshotRowButton.clicked.connect(self.__copy_snapshot_filter)
 
     def __add_snapshot_filter(self):
         ''' adds a new filter. '''
         self.__add_filter(self.__make_default_filter(), self.__snapshot, self.snapshotFilterView)
+
+    def __copy_snapshot_filter(self):
+        ''' adds a new filter. '''
+        self.__add_filter(self.__make_copy_of_filter(), self.__snapshot, self.snapshotFilterView)
 
     @staticmethod
     def __add_filter(new_filter, filter_model: FilterModel, filter_view: QTableView):
@@ -435,8 +464,29 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
             if f.id == new_filter.id:
                 filter_view.selectRow(idx)
 
-    def __make_default_filter(self):
+    def __make_default_filter(self, filter_type: typing.Type[Biquad] = LowShelf):
         ''' Creates a new filter using the default preferences or by copying the currently selected filter. '''
+        if filter_type == LowShelf:
+            return LowShelf(self.__signal.fs,
+                            self.__preferences.get(FILTERS_DEFAULT_FREQ),
+                            self.__preferences.get(FILTERS_DEFAULT_Q),
+                            0.0,
+                            f_id=uuid4())
+        elif filter_type == HighShelf:
+            return HighShelf(self.__signal.fs,
+                             self.__preferences.get(FILTERS_DEFAULT_HS_FREQ),
+                             self.__preferences.get(FILTERS_DEFAULT_HS_Q),
+                             0.0,
+                             f_id=uuid4())
+        elif filter_type == PeakingEQ:
+            return PeakingEQ(self.__signal.fs,
+                             self.__preferences.get(FILTERS_DEFAULT_PEAK_FREQ),
+                             self.__preferences.get(FILTERS_DEFAULT_PEAK_Q),
+                             0.0,
+                             f_id=uuid4())
+
+    def __make_copy_of_filter(self):
+        ''' Creates a new filter by copying the currently selected filter. '''
         active_model, _ = self.__get_active()
         if len(active_model) > 0:
             for f in active_model:
@@ -444,11 +494,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
                     new_f = f.resample(self.__signal.fs)
                     new_f.id = uuid4()
                     return new_f
-        return LowShelf(self.__signal.fs,
-                        self.__preferences.get(FILTERS_DEFAULT_FREQ),
-                        self.__preferences.get(FILTERS_DEFAULT_Q),
-                        0.0,
-                        f_id=uuid4())
+        return self.__make_default_filter()
 
     def __remove_snapshot_filter(self):
         ''' removes the selected filter. '''

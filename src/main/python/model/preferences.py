@@ -97,6 +97,10 @@ BINARIES_FFMPEG = f"{BINARIES_GROUP}/ffmpeg"
 FILTERS_PRESET_x = 'filters/preset_%d'
 FILTERS_DEFAULT_Q = 'filters/defaults/q'
 FILTERS_DEFAULT_FREQ = 'filters/defaults/freq'
+FILTERS_DEFAULT_HS_Q = 'filters/defaults/hs_q'
+FILTERS_DEFAULT_HS_FREQ = 'filters/defaults/hs_freq'
+FILTERS_DEFAULT_PEAK_Q = 'filters/defaults/peak_q'
+FILTERS_DEFAULT_PEAK_FREQ = 'filters/defaults/peak_freq'
 FILTERS_GEOMETRY = 'filters/geometry'
 
 SCREEN_GEOMETRY = 'screen/geometry'
@@ -224,6 +228,10 @@ DEFAULT_PREFS = {
     EXTRACTION_INCLUDE_SUBTITLES: False,
     FILTERS_DEFAULT_FREQ: 20.0,
     FILTERS_DEFAULT_Q: 0.707,
+    FILTERS_DEFAULT_HS_FREQ: 80.0,
+    FILTERS_DEFAULT_HS_Q: 0.707,
+    FILTERS_DEFAULT_PEAK_FREQ: 20.0,
+    FILTERS_DEFAULT_PEAK_Q: 1.000,
     GRAPH_X_AXIS_SCALE: 'log',
     GRAPH_X_MIN: 1,
     GRAPH_X_MAX: 160,
@@ -281,6 +289,10 @@ TYPES = {
     EXTRACTION_INCLUDE_SUBTITLES: bool,
     FILTERS_DEFAULT_FREQ: int,
     FILTERS_DEFAULT_Q: float,
+    FILTERS_DEFAULT_HS_FREQ: int,
+    FILTERS_DEFAULT_HS_Q: float,
+    FILTERS_DEFAULT_PEAK_FREQ: int,
+    FILTERS_DEFAULT_PEAK_Q: float,
     GRAPH_X_MIN: int,
     GRAPH_X_MAX: int,
     GRAPH_EXPAND_Y: bool,
@@ -486,8 +498,14 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         self.includeSubtitles.setChecked(self.__preferences.get(EXTRACTION_INCLUDE_SUBTITLES))
         self.compress.setChecked(self.__preferences.get(EXTRACTION_COMPRESS))
 
-        self.filterQ.setValue(self.__preferences.get(FILTERS_DEFAULT_Q))
-        self.filterFreq.setValue(self.__preferences.get(FILTERS_DEFAULT_FREQ))
+        self.lsQ.setValue(self.__preferences.get(FILTERS_DEFAULT_Q))
+        self.lsFreq.setValue(self.__preferences.get(FILTERS_DEFAULT_FREQ))
+
+        self.hsQ.setValue(self.__preferences.get(FILTERS_DEFAULT_HS_Q))
+        self.hsFreq.setValue(self.__preferences.get(FILTERS_DEFAULT_HS_FREQ))
+
+        self.peakQ.setValue(self.__preferences.get(FILTERS_DEFAULT_PEAK_Q))
+        self.peakFreq.setValue(self.__preferences.get(FILTERS_DEFAULT_PEAK_FREQ))
 
         self.beqFiltersDir.setText(self.__preferences.get(BEQ_DOWNLOAD_DIR))
 
@@ -627,8 +645,12 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         self.__preferences.set(EXTRACTION_INCLUDE_ORIGINAL, self.includeOriginal.isChecked())
         self.__preferences.set(EXTRACTION_INCLUDE_SUBTITLES, self.includeSubtitles.isChecked())
         self.__preferences.set(EXTRACTION_COMPRESS, self.compress.isChecked())
-        self.__preferences.set(FILTERS_DEFAULT_FREQ, self.filterFreq.value())
-        self.__preferences.set(FILTERS_DEFAULT_Q, self.filterQ.value())
+        self.__preferences.set(FILTERS_DEFAULT_FREQ, self.lsFreq.value())
+        self.__preferences.set(FILTERS_DEFAULT_Q, self.lsQ.value())
+        self.__preferences.set(FILTERS_DEFAULT_HS_FREQ, self.hsFreq.value())
+        self.__preferences.set(FILTERS_DEFAULT_HS_Q, self.hsQ.value())
+        self.__preferences.set(FILTERS_DEFAULT_PEAK_FREQ, self.peakFreq.value())
+        self.__preferences.set(FILTERS_DEFAULT_PEAK_Q, self.peakQ.value())
         self.__preferences.set(BEQ_DOWNLOAD_DIR, self.beqFiltersDir.text())
         self.__preferences.set(BASS_MANAGEMENT_LPF_FS, self.bmlpfFreq.value())
         self.__preferences.set(DISPLAY_SMOOTH_PRECALC, self.precalcSmoothing.isChecked())
