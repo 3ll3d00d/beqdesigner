@@ -315,6 +315,8 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
             self.optimiseButton.setVisible(False)
             self.optimiseLabel.setVisible(False)
             self.targetBiquadCount.setVisible(False)
+            self.showPhase.setVisible(False)
+            self.showIndividual.setVisible(False)
         self.__restore_geometry()
         self.filterType.setFocus()
 
