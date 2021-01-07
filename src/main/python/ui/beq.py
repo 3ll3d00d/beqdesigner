@@ -623,6 +623,8 @@ class Ui_MainWindow(object):
         self.actionBrowse_Catalogue.setObjectName("actionBrowse_Catalogue")
         self.actionManage_JRiver_MC = QtWidgets.QAction(MainWindow)
         self.actionManage_JRiver_MC.setObjectName("actionManage_JRiver_MC")
+        self.actionShow_Filter_Widget = QtWidgets.QAction(MainWindow)
+        self.actionShow_Filter_Widget.setObjectName("actionShow_Filter_Widget")
         self.menuHelp.addAction(self.actionUser_Guide)
         self.menuHelp.addAction(self.actionShow_Logs)
         self.menuHelp.addSeparator()
@@ -653,6 +655,7 @@ class Ui_MainWindow(object):
         self.menuFile.addAction(self.actionSave_Filter)
         self.menuFile.addAction(self.actionClear_Filters)
         self.menuFile.addAction(self.menuPresets.menuAction())
+        self.menuFile.addAction(self.actionShow_Filter_Widget)
         self.menuFile.addSeparator()
         self.menuFile.addAction(self.actionAdd_BEQ_Filter)
         self.menuFile.addAction(self.actionExport_BEQ_Filter)
@@ -893,5 +896,7 @@ class Ui_MainWindow(object):
         self.actionBrowse_Catalogue.setShortcut(_translate("MainWindow", "Ctrl+Alt+C"))
         self.actionManage_JRiver_MC.setText(_translate("MainWindow", "Manage JRiver MC Filters"))
         self.actionManage_JRiver_MC.setShortcut(_translate("MainWindow", "Ctrl+J"))
+        self.actionShow_Filter_Widget.setText(_translate("MainWindow", "Show Filter Widget"))
+        self.actionShow_Filter_Widget.setShortcut(_translate("MainWindow", "Ctrl+Alt+="))
 from app import PlotWidgetWithDateAxis
 from mpl import MplWidget

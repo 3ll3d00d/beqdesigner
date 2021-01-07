@@ -1154,6 +1154,7 @@
     <addaction name="actionSave_Filter"/>
     <addaction name="actionClear_Filters"/>
     <addaction name="menuPresets"/>
+    <addaction name="actionShow_Filter_Widget"/>
     <addaction name="separator"/>
     <addaction name="actionAdd_BEQ_Filter"/>
     <addaction name="actionExport_BEQ_Filter"/>
@@ -1533,6 +1534,14 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+J</string>
+   </property>
+  </action>
+  <action name="actionShow_Filter_Widget">
+   <property name="text">
+    <string>Show Filter Widget</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Alt+=</string>
    </property>
   </action>
  </widget>

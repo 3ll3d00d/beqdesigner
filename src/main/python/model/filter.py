@@ -19,7 +19,8 @@ from model.limits import dBRangeCalculator, PhaseRangeCalculator
 from model.magnitude import MagnitudeModel
 from model.preferences import SHOW_ALL_FILTERS, SHOW_NO_FILTERS, FILTER_COLOURS, DISPLAY_SHOW_FILTERS, DISPLAY_Q_STEP, \
     DISPLAY_GAIN_STEP, DISPLAY_S_STEP, DISPLAY_FREQ_STEP, get_filter_colour, FILTERS_DEFAULT_Q, FILTERS_DEFAULT_FREQ, \
-    FILTERS_GEOMETRY, FILTERS_DEFAULT_HS_FREQ, FILTERS_DEFAULT_HS_Q, FILTERS_DEFAULT_PEAK_FREQ, FILTERS_DEFAULT_PEAK_Q
+    FILTERS_GEOMETRY, FILTERS_DEFAULT_HS_FREQ, FILTERS_DEFAULT_HS_Q, FILTERS_DEFAULT_PEAK_FREQ, FILTERS_DEFAULT_PEAK_Q, \
+    FILTERS_GEOMETRY_SMALL
 from ui.filter import Ui_editFilterDialog
 
 logger = logging.getLogger('filter')
@@ -245,8 +246,9 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
     passthrough = Passthrough()
 
     def __init__(self, preferences, signal, filter_model, redraw_main, selected_filter=None, parent=None,
-                 valid_filter_types=None, **kwargs):
+                 valid_filter_types=None, small=False, **kwargs):
         self.__preferences = preferences
+        self.__small_mode = small
         super(FilterDialog, self).__init__(parent) if parent is not None else super(FilterDialog, self).__init__()
         self.__redraw_main = redraw_main
         # for shelf filter, allow input via Q or S not both
@@ -291,26 +293,44 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
                 self.workingFilterView.selectRow(idx)
         if self.__selected_id is None:
             self.__add_working_filter()
-        # init the chart
-        self.__magnitude_model = MagnitudeModel('preview', self.previewChart, preferences,
-                                                self.__get_data(), 'Filter', fill_primary=True,
-                                                secondary_data_provider=self.__get_data('phase'),
-                                                secondary_name='Phase', secondary_prefix='deg', fill_secondary=False,
-                                                db_range_calc=dBRangeCalculator(30, expand=True),
-                                                y2_range_calc=PhaseRangeCalculator(), show_y2_in_legend=False,
-                                                **kwargs)
+        if small is False:
+            # init the chart
+            self.__magnitude_model = MagnitudeModel('preview', self.previewChart, preferences,
+                                                    self.__get_data(), 'Filter', fill_primary=True,
+                                                    secondary_data_provider=self.__get_data('phase'),
+                                                    secondary_name='Phase', secondary_prefix='deg', fill_secondary=False,
+                                                    db_range_calc=dBRangeCalculator(30, expand=True),
+                                                    y2_range_calc=PhaseRangeCalculator(), show_y2_in_legend=False,
+                                                    **kwargs)
+        else:
+            self.previewChart.setVisible(False)
+            self.fullRangeButton.setVisible(False)
+            self.limitsButton.setVisible(False)
+            self.subOnlyButton.setVisible(False)
+            self.acceptSnapButton.setVisible(False)
+            self.loadSnapButton.setVisible(False)
+            self.resetButton.setVisible(False)
+            self.snapFilterButton.setVisible(False)
+            self.snapLabel.setVisible(False)
+            self.optimiseButton.setVisible(False)
+            self.optimiseLabel.setVisible(False)
+            self.targetBiquadCount.setVisible(False)
         self.__restore_geometry()
         self.filterType.setFocus()
 
     def __restore_geometry(self):
         ''' loads the saved window size '''
-        geometry = self.__preferences.get(FILTERS_GEOMETRY)
-        if geometry is not None:
-            self.restoreGeometry(geometry)
+        if self.__small_mode is True:
+            self.adjustSize()
+        else:
+            geometry = self.__preferences.get(FILTERS_GEOMETRY)
+            if geometry is not None:
+                self.restoreGeometry(geometry)
 
     def closeEvent(self, QCloseEvent):
         ''' Stores the window size on close '''
-        self.__preferences.set(FILTERS_GEOMETRY, self.saveGeometry())
+        if self.__small_mode is False:
+            self.__preferences.set(FILTERS_GEOMETRY, self.saveGeometry())
         super().closeEvent(QCloseEvent)
 
     def __select_working_filter(self):
@@ -457,12 +477,19 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         ''' adds a new filter. '''
         self.__add_filter(self.__make_copy_of_filter(), self.__snapshot, self.snapshotFilterView)
 
-    @staticmethod
-    def __add_filter(new_filter, filter_model: FilterModel, filter_view: QTableView):
+    def __add_filter(self, new_filter, filter_model: FilterModel, filter_view: QTableView):
         filter_model.save(new_filter)
         for idx, f in enumerate(filter_model):
             if f.id == new_filter.id:
                 filter_view.selectRow(idx)
+        if self.filterOrder.isVisible():
+            self.filterOrder.setFocus()
+        elif self.freq.isVisible():
+            self.freq.setFocus()
+        elif self.f0.isVisible():
+            self.f0.setFocus()
+        elif self.filterGain.isVisible():
+            self.filterGain.setFocus()
 
     def __make_default_filter(self, filter_type: typing.Type[Biquad] = LowShelf):
         ''' Creates a new filter using the default preferences or by copying the currently selected filter. '''

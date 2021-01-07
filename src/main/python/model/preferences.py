@@ -102,6 +102,7 @@ FILTERS_DEFAULT_HS_FREQ = 'filters/defaults/hs_freq'
 FILTERS_DEFAULT_PEAK_Q = 'filters/defaults/peak_q'
 FILTERS_DEFAULT_PEAK_FREQ = 'filters/defaults/peak_freq'
 FILTERS_GEOMETRY = 'filters/geometry'
+FILTERS_GEOMETRY_SMALL = 'filters/geometry_small'
 
 SCREEN_GEOMETRY = 'screen/geometry'
 SCREEN_WINDOW_STATE = 'screen/window_state'

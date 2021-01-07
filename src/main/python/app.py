@@ -132,6 +132,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
             logger.info(f"Ignoring unknown cached preference for {DISPLAY_SHOW_FILTERS} - {selected}")
         self.showFilters.blockSignals(False)
         # filter view/model
+        self.actionShow_Filter_Widget.triggered.connect(lambda:self.editFilter(small=True))
         self.filterView.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.filterView.doubleClicked.connect(self.editFilter)
         from model.filter import FilterTableModel, FilterModel
@@ -575,15 +576,15 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         signal.filter = filt
         self.__filter_model.filter = filt
 
-    def addFilter(self):
+    def addFilter(self, small=False):
         '''
         Adds a filter via the filter dialog.
         '''
         from model.filter import FilterDialog
         FilterDialog(self.preferences, self.__get_selected_signal(), self.__filter_model,
-                     lambda: self.__magnitude_model.redraw(), parent=self).show()
+                     lambda: self.__magnitude_model.redraw(), parent=self, small=small).show()
 
-    def editFilter(self):
+    def editFilter(self, small=False):
         '''
         Edits the currently selected filter via the filter dialog.
         '''
@@ -593,7 +594,10 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
             from model.filter import FilterDialog
             FilterDialog(self.preferences, signal, self.__filter_model,
                          lambda: self.__magnitude_model.redraw(),
-                         selected_filter=signal.filter[selection.selectedRows()[0].row()], parent=self).show()
+                         selected_filter=signal.filter[selection.selectedRows()[0].row()],
+                         parent=self, small=small).show()
+        else:
+            self.addFilter(small=small)
 
     def deleteFilter(self):
         '''
