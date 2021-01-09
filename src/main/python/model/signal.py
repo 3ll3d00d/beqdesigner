@@ -25,6 +25,7 @@ from model.preferences import get_avg_colour, get_peak_colour, get_median_colour
     BASS_MANAGEMENT_LPF_POSITION, BM_LPF_BEFORE, BM_LPF_AFTER, DISPLAY_SMOOTH_PRECALC, X_RESOLUTION, \
     SHOWING_AVERAGE, SHOWING_PEAK, SHOWING_MEDIAN, SHOW_UNFILTERED_ONLY
 from model.xy import MagnitudeData, interp
+from ui.merge_signals import Ui_MergeSignalDialog
 from ui.signal import Ui_addSignalDialog
 
 SIGNAL_END = 'end'
@@ -593,7 +594,7 @@ class SignalModel(Sequence):
         return self.__table
 
     @property
-    def bass_managed_signals(self):
+    def bass_managed_signals(self) -> typing.Iterable[BassManagedSignalData]:
         return self.__bass_managed_signals
 
     @property
@@ -1983,3 +1984,43 @@ def get_visible_signal_name_filter(show_filtered_signals, show_signals):
     else:
         filter_match = '(-filtered)?'
     return re.compile(f".*_({analysis_match}){filter_match}$")
+
+
+class MergeSignalDialog(QDialog, Ui_MergeSignalDialog):
+    '''
+    Alows user to merge multiple signals.
+    '''
+
+    def __init__(self, preferences, signal_model: SignalModel, parent=None):
+        super(MergeSignalDialog, self).__init__(parent=parent)
+        self.setupUi(self)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+        self.__prefs = preferences
+        self.__signal_model = signal_model
+        single_signals = {s.name: s for s in self.__signal_model.non_bm_signals if s.signal is not None}
+        bm_signals = {c.name: c for bm in [bm.channels for bm in self.__signal_model.bass_managed_signals] for c in bm}
+        self.__signals: typing.Dict[str, SingleChannelSignalData] = {**single_signals, **bm_signals}
+        for s in self.__signals.keys():
+            self.signals.addItem(s)
+        self.__validate()
+
+    def __validate(self):
+        self.buttonBox.button(QDialogButtonBox.Save).setEnabled(len(self.signals.selectedItems()) > 0)
+
+    def calc_duration(self):
+        duration = 0
+        if len(self.signals.selectedItems()) > 0:
+            duration = sum([self.__signals[s.text()].duration_seconds for s in self.signals.selectedItems()])
+        self.duration.setTime(QtCore.QTime(0, 0, 0).addMSecs(int(duration * 1000)))
+        self.__validate()
+
+    def accept(self):
+        selected_signals: typing.List[Signal] = [self.__signals[s.text()].signal for s in self.signals.selectedItems()]
+        logger.debug(f"Merging {','.join([s.name for s in selected_signals])}")
+        samples = np.concatenate([s.samples for s in selected_signals])
+        suffix = f"{len([s.name for s in self.__signal_model.non_bm_signals if s.name.startswith('merged')]) + 1}"
+        output_signal = Signal(f"merged{suffix}", samples, self.__prefs, selected_signals[0].fs)
+        self.__signal_model.add(SingleChannelSignalData(f"merged{suffix}", signal=output_signal,
+                                                        filter=CompleteFilter(fs=output_signal.fs)))
+        super().accept()

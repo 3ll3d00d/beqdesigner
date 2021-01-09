@@ -174,6 +174,9 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         # signal model
         self.__cached_selected_signal = None
         self.__configure_signal_model(parent)
+        # signal editor
+        self.actionMerge_Signals.triggered.connect(self.__open_merge_signal_dialog)
+        self.actionMerge_Signals.setEnabled(False)
         # magnitude
         self.showLegend.setChecked(bool(self.preferences.get(DISPLAY_SHOW_LEGEND)))
         from model.magnitude import MagnitudeModel
@@ -433,6 +436,9 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
             self.__hide_waveform_chart()
         self.linkSignalButton.setEnabled(len(self.__signal_model) > 1)
         self.__magnitude_model.redraw()
+        signal_count = sum(s.signal is not None for s in self.__signal_model.non_bm_signals)
+        signal_count += sum([len(bm.channels) for bm in self.__signal_model.bass_managed_signals])
+        self.actionMerge_Signals.setEnabled(signal_count > 1)
 
     def __get_selected_signal(self):
         '''
@@ -1128,6 +1134,10 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
             output_xml, _ = parser.convert(file_path, self.__filter_model.filter)
             with open(file_name, 'w+') as f:
                 f.write(output_xml)
+
+    def __open_merge_signal_dialog(self):
+        from model.signal import MergeSignalDialog
+        MergeSignalDialog(self.preferences, self.__signal_model, parent=self).exec()
 
 
 class SaveChartDialog(QDialog, Ui_saveChartDialog):

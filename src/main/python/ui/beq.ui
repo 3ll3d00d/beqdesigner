@@ -1171,6 +1171,7 @@
     <addaction name="actionExtract_Audio"/>
     <addaction name="action_Batch_Extract"/>
     <addaction name="action_Remux_Audio"/>
+    <addaction name="actionMerge_Signals"/>
     <addaction name="separator"/>
     <addaction name="actionAnalyse_Audio"/>
     <addaction name="separator"/>
@@ -1234,7 +1235,7 @@
   </action>
   <action name="actionExport_Biquad">
    <property name="text">
-    <string>Export &amp;Biquad</string>
+    <string>Export Bi&amp;quad</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+B</string>
@@ -1542,6 +1543,14 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+Alt+=</string>
+   </property>
+  </action>
+  <action name="actionMerge_Signals">
+   <property name="text">
+    <string>Merge &amp;Signals</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Alt+S</string>
    </property>
   </action>
  </widget>

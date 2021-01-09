@@ -625,6 +625,8 @@ class Ui_MainWindow(object):
         self.actionManage_JRiver_MC.setObjectName("actionManage_JRiver_MC")
         self.actionShow_Filter_Widget = QtWidgets.QAction(MainWindow)
         self.actionShow_Filter_Widget.setObjectName("actionShow_Filter_Widget")
+        self.actionMerge_Signals = QtWidgets.QAction(MainWindow)
+        self.actionMerge_Signals.setObjectName("actionMerge_Signals")
         self.menuHelp.addAction(self.actionUser_Guide)
         self.menuHelp.addAction(self.actionShow_Logs)
         self.menuHelp.addSeparator()
@@ -667,6 +669,7 @@ class Ui_MainWindow(object):
         self.menu_Tools.addAction(self.actionExtract_Audio)
         self.menu_Tools.addAction(self.action_Batch_Extract)
         self.menu_Tools.addAction(self.action_Remux_Audio)
+        self.menu_Tools.addAction(self.actionMerge_Signals)
         self.menu_Tools.addSeparator()
         self.menu_Tools.addAction(self.actionAnalyse_Audio)
         self.menu_Tools.addSeparator()
@@ -825,7 +828,7 @@ class Ui_MainWindow(object):
         self.actionClear_Preset_3.setText(_translate("MainWindow", "Clear Preset 3"))
         self.actionSave_Chart.setText(_translate("MainWindow", "Save &Chart"))
         self.actionSave_Chart.setShortcut(_translate("MainWindow", "Ctrl+Shift+C"))
-        self.actionExport_Biquad.setText(_translate("MainWindow", "Export &Biquad"))
+        self.actionExport_Biquad.setText(_translate("MainWindow", "Export Bi&quad"))
         self.actionExport_Biquad.setShortcut(_translate("MainWindow", "Ctrl+B"))
         self.actionSave_Filter.setText(_translate("MainWindow", "Save &Filter"))
         self.actionSave_Filter.setShortcut(_translate("MainWindow", "Ctrl+Alt+S"))
@@ -898,5 +901,7 @@ class Ui_MainWindow(object):
         self.actionManage_JRiver_MC.setShortcut(_translate("MainWindow", "Ctrl+J"))
         self.actionShow_Filter_Widget.setText(_translate("MainWindow", "Show Filter Widget"))
         self.actionShow_Filter_Widget.setShortcut(_translate("MainWindow", "Ctrl+Alt+="))
+        self.actionMerge_Signals.setText(_translate("MainWindow", "Merge &Signals"))
+        self.actionMerge_Signals.setShortcut(_translate("MainWindow", "Ctrl+Alt+S"))
 from app import PlotWidgetWithDateAxis
 from mpl import MplWidget

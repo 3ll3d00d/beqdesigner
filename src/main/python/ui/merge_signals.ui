@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MergeSignalDialog</class>
+ <widget class="QDialog" name="MergeSignalDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>400</width>
+    <height>308</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Merge Signals</string>
+  </property>
+  <layout class="QGridLayout" name="gridLayout">
+   <item row="0" column="1">
+    <widget class="QListWidget" name="signals">
+     <property name="dragEnabled">
+      <bool>true</bool>
+     </property>
+     <property name="dragDropMode">
+      <enum>QAbstractItemView::InternalMove</enum>
+     </property>
+     <property name="selectionMode">
+      <enum>QAbstractItemView::MultiSelection</enum>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="0">
+    <widget class="QLabel" name="signalsLabel">
+     <property name="text">
+      <string>Signals</string>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="0">
+    <widget class="QLabel" name="durationLabel">
+     <property name="text">
+      <string>Duration</string>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="1">
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Save</set>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="1">
+    <widget class="QTimeEdit" name="duration">
+     <property name="readOnly">
+      <bool>true</bool>
+     </property>
+     <property name="displayFormat">
+      <string>HH:mm:ss.zzz</string>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>signals</sender>
+   <signal>itemSelectionChanged()</signal>
+   <receiver>MergeSignalDialog</receiver>
+   <slot>calc_duration()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>204</x>
+     <y>106</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>374</x>
+     <y>120</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+ <slots>
+  <slot>calc_duration()</slot>
+ </slots>
+</ui>
