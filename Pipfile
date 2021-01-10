@@ -21,6 +21,7 @@ requests = "*"
 semver = "*"
 dulwich = "*"
 markdown = "*"
+plumbum = "*"
 
 [dev-packages]
 pytest = "*"

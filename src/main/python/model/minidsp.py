@@ -1,12 +1,13 @@
 import logging
 import os
 from abc import abstractmethod, ABC
+from typing import List, Optional, Tuple, Callable
 from uuid import uuid4
 
 from qtpy.QtCore import QObject, Signal, QRunnable
 from qtpy.QtWidgets import QFileDialog
 
-from model.iir import Passthrough, PeakingEQ, Shelf, LowShelf, HighShelf
+from model.iir import Passthrough, PeakingEQ, Shelf, LowShelf, HighShelf, Biquad
 from model.preferences import BEQ_DOWNLOAD_DIR
 
 logger = logging.getLogger('minidsp')
@@ -255,7 +256,7 @@ def get_minidsp_filter_code(filt):
         raise ValueError(f"Unknown minidsp filter type {type(filt)}")
 
 
-def xml_to_filt(file, fs=1000, unroll=False):
+def xml_to_filt(file, fs=1000, unroll=False) -> List[Biquad]:
     ''' Extracts a set of filters from the provided minidsp file '''
     from model.iir import PeakingEQ, LowShelf, HighShelf
 
@@ -457,7 +458,7 @@ def get_commit_url(repo):
     return f"{repo[0:-4]}/commit/"
 
 
-def load_as_filter(parent, preferences, fs, unroll=False):
+def load_as_filter(parent, preferences, fs, unroll=False) -> Optional[Tuple[Optional[List[Biquad]], str]]:
     '''
     allows user to select a minidsp xml file and load it as a filter.
     '''
@@ -469,7 +470,7 @@ def load_as_filter(parent, preferences, fs, unroll=False):
     return None
 
 
-def load_filter_file(filt_file, fs, unroll=False):
+def load_filter_file(filt_file, fs, unroll=False) -> Optional[List[Biquad]]:
     '''
     loads a given minidsp xml file as a filter.
     :param filt_file: the file.
@@ -483,3 +484,59 @@ def load_filter_file(filt_file, fs, unroll=False):
             f.id = uuid4()
         return filt
     return None
+
+
+class FilterPublisherSignals(QObject):
+    ON_START: int = 1
+    ON_COMPLETE: int = 0
+    ON_ERROR: int = 2
+
+    on_status = Signal(int, name='on_status')
+
+
+class FilterPublisher(QRunnable):
+
+    def __init__(self, filt: List[Biquad], minidsp_rs_binary: str, minidsp_rs_options: str, status_handler: Callable[[int], None]):
+        super().__init__()
+        self.__signals = FilterPublisherSignals()
+        self.__filt = filt
+        self.__signals.on_status.connect(status_handler)
+        self.__signals.on_status.emit(FilterPublisherSignals.ON_START)
+        from plumbum import local
+        cmd = local[minidsp_rs_binary]
+        if minidsp_rs_options:
+            self.__runner = cmd[minidsp_rs_options.split(' ')]
+        else:
+            self.__runner = cmd
+
+    def run(self):
+        try:
+            for c in range(2):
+                idx = 0
+                for f in self.__filt:
+                    for bq in f.format_biquads(True, separator='|', show_index=False):
+                        coeffs = bq.split('|')
+                        if len(coeffs) != 5:
+                            raise ValueError(f"Invalid coeff count {len(coeffs)} at idx {idx}")
+                        else:
+                            self.__send_biquad(str(c), str(idx), coeffs)
+                            idx += 1
+                for i in range(idx, 10):
+                    self.__send_bypass(str(c), str(i), True)
+            self.__signals.on_status.emit(FilterPublisherSignals.ON_COMPLETE)
+        except Exception as e:
+            logger.exception(f"Unexpected failure during filter publication")
+            self.__signals.on_status.emit(FilterPublisherSignals.ON_ERROR)
+
+    def __send_biquad(self, channel: str, idx: str, coeffs: List[str]):
+        # minidsp input <channel> peq <index> set -- <b0> <b1> <b2> <a1> <a2>
+        cmd = self.__runner['input', channel, 'peq', idx, 'set', '--', coeffs]
+        logger.info(f"Executing {cmd}")
+        cmd.run()
+        self.__send_bypass(channel, idx, False)
+
+    def __send_bypass(self, channel: str, idx: str, bypass: bool):
+        # minidsp input <channel> bypass on
+        cmd = self.__runner['input', channel, 'peq', idx, 'bypass', 'on' if bypass else 'off']
+        logger.info(f"Executing {cmd}")
+        cmd.run()

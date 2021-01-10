@@ -13,7 +13,7 @@ from model import iir
 from model.iir import CompleteFilter, s_to_q, q_to_s
 from model.limits import dBRangeCalculator, PhaseRangeCalculator
 from model.magnitude import MagnitudeModel
-from model.preferences import BEQ_CONFIG_FILE, JRIVER_GEOMETRY, get_filter_colour, GRAPH_X_MAX, JRIVER_GRAPH_X_MIN, \
+from model.preferences import BEQ_CONFIG_FILE, JRIVER_GEOMETRY, get_filter_colour, JRIVER_GRAPH_X_MIN, \
     JRIVER_GRAPH_X_MAX
 from ui.jriver import Ui_jriverDspDialog
 
@@ -232,12 +232,15 @@ class Filter:
         return self.__enabled
 
     def encode(self):
+        return filt_to_xml(self.get_all_vals())
+
+    def get_all_vals(self) -> Dict[str, str]:
         vals = {
             'Enabled': '1' if self.__enabled else '0',
             'Type': self.__type_code,
             **self.get_vals()
         }
-        return filt_to_xml(vals)
+        return vals
 
     def get_vals(self) -> Dict[str, str]:
         return {}
@@ -275,6 +278,16 @@ class ChannelFilter(Filter):
 
     def print_channel_names(self):
         return f"[{', '.join(self.channel_names)}]"
+
+    def for_channel(self, idx):
+        '''
+        Copies the filter overriding the channel to the provided idx.
+        :param idx: the channel idx.
+        :return: the copy.
+        '''
+        vals = self.get_all_vals()
+        vals['Channels'] = str(idx)
+        return type(self)(vals)
 
 
 class GainQFilter(ChannelFilter):
@@ -695,7 +708,15 @@ class ChannelFilterControl:
         self.layout.addWidget(self.filterList)
         parent.perChannelLayout.addWidget(self.frame)
         self.hide()
-        self.peqs: List[List[Filter]] = [[f for f in self.dsp.peq(idx) if self.__is_mine(f)] for idx in range(2)]
+        self.peqs: List[List[ChannelFilter]] = [self.__make_channel_filters(idx) for idx in range(2)]
+
+    def __make_channel_filters(self, idx) -> List[ChannelFilter]:
+        return [self.__for_me(f) for f in self.dsp.peq(idx) if self.__is_mine(f)]
+
+    def __for_me(self, f: Filter):
+        if isinstance(f, ChannelFilter):
+            return f.for_channel(self.__channel_idx)
+        raise TypeError(f"Can only own ChannelFilter not {f.__class__.__name__}")
 
     def edit_filter(self):
         from model.filter import FilterDialog, FilterModel

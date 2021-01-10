@@ -244,40 +244,28 @@
      <layout class="QGridLayout" name="gridLayout_2">
       <item row="0" column="0">
        <layout class="QGridLayout" name="matchesLayout">
-        <item row="4" column="0">
-         <layout class="QHBoxLayout" name="resultButtonsLayout">
-          <item>
-           <widget class="QPushButton" name="loadFilterButton">
-            <property name="text">
-             <string>Load Filter</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QPushButton" name="showInfoButton">
-            <property name="text">
-             <string>Show Info</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QPushButton" name="openCatalogueButton">
-            <property name="text">
-             <string>Open Catalogue</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QPushButton" name="openAvsButton">
-            <property name="text">
-             <string>Open AVS</string>
-            </property>
-           </widget>
-          </item>
-         </layout>
-        </item>
-        <item row="2" column="0">
-         <widget class="QListWidget" name="resultsList"/>
+        <item row="0" column="0">
+         <widget class="QLabel" name="resultsLabel">
+          <property name="font">
+           <font>
+            <weight>75</weight>
+            <italic>true</italic>
+            <bold>true</bold>
+           </font>
+          </property>
+          <property name="frameShape">
+           <enum>QFrame::Box</enum>
+          </property>
+          <property name="frameShadow">
+           <enum>QFrame::Sunken</enum>
+          </property>
+          <property name="text">
+           <string>Results</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+         </widget>
         </item>
         <item row="1" column="0">
          <layout class="QHBoxLayout" name="matchesLayout" stretch="0,1,0,1">
@@ -317,6 +305,9 @@
           </item>
          </layout>
         </item>
+        <item row="2" column="0">
+         <widget class="QListWidget" name="resultsList"/>
+        </item>
         <item row="3" column="0">
          <layout class="QHBoxLayout" name="pathLayout">
           <item>
@@ -335,28 +326,48 @@
           </item>
          </layout>
         </item>
-        <item row="0" column="0">
-         <widget class="QLabel" name="resultsLabel">
-          <property name="font">
-           <font>
-            <weight>75</weight>
-            <italic>true</italic>
-            <bold>true</bold>
-           </font>
-          </property>
-          <property name="frameShape">
-           <enum>QFrame::Box</enum>
-          </property>
-          <property name="frameShadow">
-           <enum>QFrame::Sunken</enum>
-          </property>
-          <property name="text">
-           <string>Results</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
-          </property>
-         </widget>
+        <item row="4" column="0">
+         <layout class="QHBoxLayout" name="resultButtonsLayout">
+          <item>
+           <widget class="QPushButton" name="showInfoButton">
+            <property name="text">
+             <string>Show Info</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="openCatalogueButton">
+            <property name="text">
+             <string>Open Catalogue</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="openAvsButton">
+            <property name="text">
+             <string>Open AVS</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item row="5" column="0">
+         <layout class="QHBoxLayout" name="sendToLayout">
+          <item>
+           <widget class="QPushButton" name="loadFilterButton">
+            <property name="text">
+             <string>Load Filter</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="sendToMinidspButton">
+            <property name="text">
+             <string>Send Filter to Minidsp</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
         </item>
        </layout>
       </item>
@@ -496,8 +507,8 @@
    <slot>show_info()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>710</x>
-     <y>495</y>
+     <x>684</x>
+     <y>453</y>
     </hint>
     <hint type="destinationlabel">
      <x>937</x>
@@ -512,8 +523,8 @@
    <slot>goto_catalogue()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>831</x>
-     <y>495</y>
+     <x>805</x>
+     <y>453</y>
     </hint>
     <hint type="destinationlabel">
      <x>941</x>
@@ -529,7 +540,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>921</x>
-     <y>495</y>
+     <y>453</y>
     </hint>
     <hint type="destinationlabel">
      <x>938</x>
@@ -544,8 +555,8 @@
    <slot>apply_filter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>130</x>
-     <y>210</y>
+     <x>190</x>
+     <y>209</y>
     </hint>
     <hint type="destinationlabel">
      <x>0</x>
@@ -560,8 +571,8 @@
    <slot>apply_filter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>503</x>
-     <y>210</y>
+     <x>540</x>
+     <y>209</y>
     </hint>
     <hint type="destinationlabel">
      <x>2</x>
@@ -576,8 +587,8 @@
    <slot>apply_filter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>354</x>
-     <y>210</y>
+     <x>378</x>
+     <y>209</y>
     </hint>
     <hint type="destinationlabel">
      <x>470</x>
@@ -592,8 +603,8 @@
    <slot>filter_content_type()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>511</x>
-     <y>287</y>
+     <x>548</x>
+     <y>285</y>
     </hint>
     <hint type="destinationlabel">
      <x>470</x>
@@ -608,8 +619,8 @@
    <slot>filter_min_year()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>122</x>
-     <y>287</y>
+     <x>138</x>
+     <y>285</y>
     </hint>
     <hint type="destinationlabel">
      <x>2</x>
@@ -624,8 +635,8 @@
    <slot>filter_max_year()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>258</x>
-     <y>287</y>
+     <x>277</x>
+     <y>285</y>
     </hint>
     <hint type="destinationlabel">
      <x>-2</x>
@@ -697,6 +708,22 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>sendToMinidspButton</sender>
+   <signal>clicked()</signal>
+   <receiver>catalogueDialog</receiver>
+   <slot>send_filter_to_minidsp()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>829</x>
+     <y>474</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>935</x>
+     <y>504</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>apply_filter()</slot>
@@ -709,5 +736,6 @@
   <slot>filter_min_year()</slot>
   <slot>filter_max_year()</slot>
   <slot>browse_catalogue()</slot>
+  <slot>send_filter_to_minidsp()</slot>
  </slots>
 </ui>

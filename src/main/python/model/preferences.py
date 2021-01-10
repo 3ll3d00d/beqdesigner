@@ -1,11 +1,12 @@
 import glob
 import os
 from pathlib import Path
+from typing import Optional, Callable
 
 import qtawesome as qta
 import matplotlib
 import matplotlib.style as style
-from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox, QDialogButtonBox, QApplication
+from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox, QDialogButtonBox, QApplication, QLineEdit
 from qtpy.QtCore import QThreadPool, Qt
 from qtpy.QtGui import QCursor
 
@@ -93,6 +94,7 @@ AUDIO_ANALYSIS_GEOMETRY = 'audio/geometry'
 BINARIES_GROUP = 'binaries'
 BINARIES_FFPROBE = f"{BINARIES_GROUP}/ffprobe"
 BINARIES_FFMPEG = f"{BINARIES_GROUP}/ffmpeg"
+BINARIES_MINIDSP_RS = f"{BINARIES_GROUP}/minidsprs"
 
 FILTERS_PRESET_x = 'filters/preset_%d'
 FILTERS_DEFAULT_Q = 'filters/defaults/q'
@@ -186,6 +188,7 @@ JRIVER_GEOMETRY = 'jriver/geometry'
 JRIVER_GRAPH_X_MIN = 'jriver/x_min'
 JRIVER_GRAPH_X_MAX = 'jriver/x_max'
 
+MINIDSP_RS_OPTIONS = 'minidsp/rs_options'
 
 DEFAULT_PREFS = {
     ANALYSIS_RESOLUTION: 1.0,
@@ -452,24 +455,17 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         self.defaultOutputDirectoryPicker.setIcon(qta.icon('fa5s.folder-open'))
         self.ffmpegDirectoryPicker.setIcon(qta.icon('fa5s.folder-open'))
         self.ffprobeDirectoryPicker.setIcon(qta.icon('fa5s.folder-open'))
+        self.minidspRsPathPicker.setIcon(qta.icon('fa5s.folder-open'))
         self.extractCompleteAudioFilePicker.setIcon(qta.icon('fa5s.folder-open'))
         self.refreshBeq.setIcon(qta.icon('fa5s.sync'))
 
-        ffmpegLoc = self.__preferences.get(BINARIES_FFMPEG)
-        if ffmpegLoc:
-            if os.path.isdir(ffmpegLoc):
-                self.ffmpegDirectory.setText(ffmpegLoc)
-
-        ffprobeLoc = self.__preferences.get(BINARIES_FFPROBE)
-        if ffprobeLoc:
-            if os.path.isdir(ffprobeLoc):
-                self.ffprobeDirectory.setText(ffprobeLoc)
-
-        notifySoundLoc = self.__preferences.get(EXTRACTION_NOTIFICATION_SOUND)
-        if notifySoundLoc:
-            if os.path.isfile(notifySoundLoc):
-                self.extractCompleteAudioFile.setText(notifySoundLoc)
-
+        self.__init_field(BINARIES_FFMPEG, os.path.isdir, self.ffmpegDirectory)
+        self.__init_field(BINARIES_FFPROBE, os.path.isdir, self.ffprobeDirectory)
+        self.__init_field(BINARIES_MINIDSP_RS, os.path.isdir, self.minidspRsPath)
+        self.__init_field(EXTRACTION_NOTIFICATION_SOUND, os.path.isfile, self.extractCompleteAudioFile)
+        minidsp_rs_options_txt = self.__preferences.get(MINIDSP_RS_OPTIONS)
+        if minidsp_rs_options_txt:
+            self.minidspRsOptions.setText(minidsp_rs_options_txt)
         self.init_combo(ANALYSIS_TARGET_FS, self.targetFs,
                         translater=lambda a: 'Full Range' if a == 0 else str(a) + ' Hz')
         self.init_combo(ANALYSIS_RESOLUTION, self.resolutionSelect, translater=lambda a: str(a) + ' Hz')
@@ -477,10 +473,7 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         self.init_combo(ANALYSIS_PEAK_WINDOW, self.peakAnalysisWindow)
         self.init_combo(STYLE_MATPLOTLIB_THEME, self.themePicker)
 
-        outputDir = self.__preferences.get(EXTRACTION_OUTPUT_DIR)
-        if outputDir:
-            if os.path.isdir(outputDir):
-                self.defaultOutputDirectory.setText(outputDir)
+        self.__init_field(EXTRACTION_OUTPUT_DIR, os.path.isdir, self.defaultOutputDirectory)
 
         freq_is_log = self.__preferences.get(GRAPH_X_AXIS_SCALE)
         self.freqIsLogScale.setChecked(freq_is_log == 'log')
@@ -522,6 +515,11 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         self.addRepoButton.setIcon(qta.icon('fa5s.plus'))
         self.deleteRepoButton.setIcon(qta.icon('fa5s.times'))
         self.__count_beq_files()
+
+    def __init_field(self, pref_key: str, lookup: Callable[[str], bool], field: QLineEdit):
+        loc = self.__preferences.get(pref_key)
+        if loc and lookup(loc):
+            field.setText(loc)
 
     def validate_beq_repo(self, repo_url):
         ''' enables the add button if the url is valid. '''
@@ -585,24 +583,27 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         if idx != -1:
             combo.setCurrentIndex(idx)
 
+    def __save_loc(self, field: QLineEdit, test: Callable[[str], bool], pref_key: str, clear_if_unset: bool = False):
+        loc = field.text()
+        if len(loc) > 0 and test(loc):
+            self.__preferences.set(pref_key, loc)
+        elif clear_if_unset:
+            self.__preferences.set(pref_key, None)
+
     def accept(self):
         '''
         Saves the locations if they exist.
         '''
-        ffmpeg_loc = self.ffmpegDirectory.text()
-        if os.path.isdir(ffmpeg_loc):
-            self.__preferences.set(BINARIES_FFMPEG, ffmpeg_loc)
-        ffprobe_loc = self.ffprobeDirectory.text()
-        if os.path.isdir(ffprobe_loc):
-            self.__preferences.set(BINARIES_FFPROBE, ffprobe_loc)
-        output_dir = self.defaultOutputDirectory.text()
-        if os.path.isdir(output_dir):
-            self.__preferences.set(EXTRACTION_OUTPUT_DIR, output_dir)
-        notify_sound = self.extractCompleteAudioFile.text()
-        if len(notify_sound) > 0 and os.path.isfile(notify_sound):
-            self.__preferences.set(EXTRACTION_NOTIFICATION_SOUND, notify_sound)
+        self.__save_loc(self.ffmpegDirectory, os.path.isdir, BINARIES_FFMPEG)
+        self.__save_loc(self.ffprobeDirectory, os.path.isdir, BINARIES_FFPROBE)
+        self.__save_loc(self.minidspRsPath, os.path.isdir, BINARIES_MINIDSP_RS)
+        self.__save_loc(self.defaultOutputDirectory, os.path.isdir, EXTRACTION_OUTPUT_DIR)
+        self.__save_loc(self.extractCompleteAudioFile, os.path.isfile, EXTRACTION_NOTIFICATION_SOUND, clear_if_unset=True)
+        text = self.minidspRsOptions.text()
+        if len(text) > 0:
+            self.__preferences.set(MINIDSP_RS_OPTIONS, text)
         else:
-            self.__preferences.set(EXTRACTION_NOTIFICATION_SOUND, None)
+            self.__preferences.set(MINIDSP_RS_OPTIONS, None)
         text = self.targetFs.currentText()
         if text == 'Full Range':
             self.__preferences.set(ANALYSIS_TARGET_FS, 0)
@@ -679,20 +680,27 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         return None
 
     def showFfmpegDirectoryPicker(self):
-        loc = self.__get_directory('ffmpeg')
-        if loc is not None:
-            dirname = os.path.dirname(loc)
-            self.ffmpegDirectory.setText(dirname)
+        dirname = self.__show_and_set_picker('ffmpeg', self.ffmpegDirectory)
+        if dirname:
             if os.path.exists(os.path.join(dirname, 'ffprobe.exe')) or os.path.exists(os.path.join(dirname, 'ffprobe')):
                 self.ffprobeDirectory.setText(dirname)
 
     def showFfprobeDirectoryPicker(self):
-        loc = self.__get_directory('ffprobe')
-        if loc is not None:
-            dirname = os.path.dirname(loc)
-            self.ffprobeDirectory.setText(dirname)
+        dirname = self.__show_and_set_picker('ffprobe', self.ffprobeDirectory)
+        if dirname:
             if os.path.exists(os.path.join(dirname, 'ffmpeg.exe')) or os.path.exists(os.path.join(dirname, 'ffmpeg')):
                 self.ffmpegDirectory.setText(dirname)
+
+    def show_minidsp_rs_picker(self):
+        self.__show_and_set_picker('minidsp', self.minidspRsPath)
+
+    def __show_and_set_picker(self, name: str, widget: QLineEdit) -> Optional[str]:
+        loc = self.__get_directory(name)
+        if loc is not None:
+            dirname = os.path.dirname(loc)
+            widget.setText(dirname)
+            return dirname
+        return None
 
     def showDefaultOutputDirectoryPicker(self):
         dialog = QFileDialog(parent=self)
@@ -747,4 +755,3 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
 
     def __get_beq_repos(self):
         return [self.beqRepos.itemText(r) for r in range(0, self.beqRepos.count())]
-

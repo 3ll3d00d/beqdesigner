@@ -18,8 +18,8 @@ from qtpy.QtGui import QDesktopServices, QImageReader, QPixmap
 from qtpy.QtWidgets import QDialog, QMessageBox, QSizePolicy, QListWidgetItem, QHeaderView
 from sortedcontainers import SortedSet
 
-from model.minidsp import get_repo_subdir, load_filter_file
-from model.preferences import BEQ_DOWNLOAD_DIR, BEQ_REPOS
+from model.minidsp import get_repo_subdir, load_filter_file, FilterPublisher, FilterPublisherSignals
+from model.preferences import BEQ_DOWNLOAD_DIR, BEQ_REPOS, BINARIES_MINIDSP_RS, MINIDSP_RS_OPTIONS
 from model.report import block_signals
 from ui.browse_catalogue import Ui_catalogueViewerDialog
 from ui.catalogue import Ui_catalogueDialog
@@ -28,12 +28,43 @@ from ui.imgviewer import Ui_imgViewerDialog
 logger = logging.getLogger('catalogue')
 
 
+class BEQ:
+
+    def __init__(self, repo, filename):
+        self.repo = repo
+        self.filename = filename
+        self.name = None
+        self.year = None
+        self.content_type = None
+        match = re.match(r"(.*)\((\d{4})\)(?:.*BEQ )?(.*)", os.path.basename(filename))
+        if match:
+            self.name = match.group(1).strip()
+            self.year = match.group(2)
+            self.content_type = match.group(3).strip()[:-4]
+
+    def __repr__(self):
+        return f"{self.repo} / {self.name} / {self.content_type}"
+
+
 class CatalogueDialog(QDialog, Ui_catalogueDialog):
 
     def __init__(self, parent, prefs, filter_loader):
         super(CatalogueDialog, self).__init__(parent=parent)
         self.__filter_loader = filter_loader
         self.__preferences = prefs
+        minidsp_rs_path = prefs.get(BINARIES_MINIDSP_RS)
+        self.__minidsp_rs_exe = None
+        if minidsp_rs_path:
+            minidsp_rs_exe = os.path.join(minidsp_rs_path, 'minidsp')
+            if os.path.isfile(minidsp_rs_exe):
+                self.__minidsp_rs_exe = minidsp_rs_exe
+            else:
+                minidsp_rs_exe = os.path.join(minidsp_rs_path, 'minidsp.exe')
+                if os.path.isfile(minidsp_rs_exe):
+                    self.__minidsp_rs_exe = minidsp_rs_exe
+        self.__minidsp_rs_options = None
+        if self.__minidsp_rs_exe:
+            self.__minidsp_rs_options = prefs.get(MINIDSP_RS_OPTIONS)
         self.__catalogue = {}
         self.setupUi(self)
         self.__beq_dir = self.__preferences.get(BEQ_DOWNLOAD_DIR)
@@ -182,7 +213,39 @@ class CatalogueDialog(QDialog, Ui_catalogueDialog):
         filt = load_filter_file(beq.filename, 48000)
         self.__filter_loader(beq.name, filt)
 
-    def __get_beq_from_results(self):
+    def send_filter_to_minidsp(self):
+        '''
+        Sends the currently selected filter to the filter publisher.
+        :return:
+        '''
+        beq = self.__get_beq_from_results()
+        filt = load_filter_file(beq.filename, 96000)
+        fp = FilterPublisher(filt, self.__minidsp_rs_exe, self.__minidsp_rs_options, self.__on_send_filter_event)
+        QThreadPool.globalInstance().start(fp)
+
+    def __on_send_filter_event(self, code: int):
+        if code == FilterPublisherSignals.ON_START:
+            self.__process_spinner = qta.Spin(self.sendToMinidspButton)
+            spin_icon = qta.icon('fa5s.spinner', color='green', animation=self.__process_spinner)
+            self.sendToMinidspButton.setIcon(spin_icon)
+            self.sendToMinidspButton.setEnabled(False)
+            pass
+        elif code == FilterPublisherSignals.ON_COMPLETE:
+            from model.batch import stop_spinner
+            stop_spinner(self.__process_spinner, self.sendToMinidspButton)
+            self.__process_spinner = None
+            self.sendToMinidspButton.setIcon(qta.icon('fa5s.check', color='green'))
+            self.sendToMinidspButton.setEnabled(True)
+        elif code == FilterPublisherSignals.ON_ERROR:
+            from model.batch import stop_spinner
+            stop_spinner(self.__process_spinner, self.sendToMinidspButton)
+            self.__process_spinner = None
+            self.sendToMinidspButton.setIcon(qta.icon('fa5s.times', color='red'))
+            self.sendToMinidspButton.setEnabled(True)
+        else:
+            logger.warning(f"Unknown code received from FilterPublisher - {code}")
+
+    def __get_beq_from_results(self) -> BEQ:
         return self.__catalogue[self.resultsList.selectedItems()[0].text()]
 
     def __get_catalogue_from_results(self):
@@ -194,7 +257,8 @@ class CatalogueDialog(QDialog, Ui_catalogueDialog):
         '''
         selected_items = self.resultsList.selectedItems()
         selected = len(selected_items) > 0
-        self.loadFilterButton.setEnabled(selected)
+        self.loadFilterButton.setEnabled(False)
+        self.sendToMinidspButton.setEnabled(False)
         self.showInfoButton.setEnabled(False)
         self.openCatalogueButton.setEnabled(False)
         self.openAvsButton.setEnabled(False)
@@ -206,6 +270,8 @@ class CatalogueDialog(QDialog, Ui_catalogueDialog):
                 self.showInfoButton.setEnabled(True)
                 self.openCatalogueButton.setEnabled(True)
                 self.openAvsButton.setEnabled('AVS' in cat and len(cat['AVS']) > 0)
+                self.loadFilterButton.setEnabled(True)
+                self.sendToMinidspButton.setEnabled(self.__minidsp_rs_exe is not None)
 
     def show_info(self):
         ''' Displays the info about the BEQ from the catalogue '''
@@ -256,24 +322,6 @@ class CatalogueDialog(QDialog, Ui_catalogueDialog):
         ''' Show the DB csv browser. '''
         dialog = BrowseCatalogueDialog(self, self.__db_csv, filt=self.nameFilter.text())
         dialog.show()
-
-
-class BEQ:
-
-    def __init__(self, repo, filename):
-        self.repo = repo
-        self.filename = filename
-        self.name = None
-        self.year = None
-        self.content_type = None
-        match = re.match(r"(.*)\((\d{4})\)(?:.*BEQ )?(.*)", os.path.basename(filename))
-        if match:
-            self.name = match.group(1).strip()
-            self.year = match.group(2)
-            self.content_type = match.group(3).strip()[:-4]
-
-    def __repr__(self):
-        return f"{self.repo} / {self.name} / {self.content_type}"
 
 
 class DatabaseDownloadSignals(QObject):
