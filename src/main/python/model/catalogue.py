@@ -102,7 +102,7 @@ class CatalogueDialog(QDialog, Ui_catalogueDialog):
         if database is True:
             db_csv = []
             db_csv_dict = {}
-            with open(self.__db_csv_file) as f:
+            with open(self.__db_csv_file, encoding='utf-8') as f:
                 indices = {
                     'Title': -1,
                     'Format': -1,

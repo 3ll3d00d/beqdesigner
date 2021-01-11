@@ -3,9 +3,8 @@ import time
 
 import numpy as np
 from PyQt5.QtCore import QSettings
-from scipy.interpolate import PchipInterpolator, CubicSpline
+from scipy.interpolate import PchipInterpolator
 
-from acoustics.smooth import OctaveBand
 from model.preferences import DISPLAY_SMOOTH_GRAPHS, Preferences
 
 SAVGOL_WINDOW_LENGTH = 101
