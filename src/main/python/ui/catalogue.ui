@@ -363,7 +363,14 @@
           <item>
            <widget class="QPushButton" name="sendToMinidspButton">
             <property name="text">
-             <string>Send Filter to Minidsp</string>
+             <string>Update Minidsp</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="bypassMinidspButton">
+            <property name="text">
+             <string>Bypass Minidsp</string>
             </property>
            </widget>
           </item>
@@ -705,22 +712,6 @@
     <hint type="destinationlabel">
      <x>-1</x>
      <y>178</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>sendToMinidspButton</sender>
-   <signal>clicked()</signal>
-   <receiver>catalogueDialog</receiver>
-   <slot>send_filter_to_minidsp()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>829</x>
-     <y>474</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>935</x>
-     <y>504</y>
     </hint>
    </hints>
   </connection>

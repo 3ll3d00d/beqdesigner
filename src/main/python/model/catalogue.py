@@ -15,7 +15,7 @@ import requests
 from dateutil.parser import parse as parsedate
 from qtpy.QtCore import Signal, QRunnable, QObject, QThreadPool, QUrl, Qt, QAbstractTableModel, QModelIndex, QVariant
 from qtpy.QtGui import QDesktopServices, QImageReader, QPixmap
-from qtpy.QtWidgets import QDialog, QMessageBox, QSizePolicy, QListWidgetItem, QHeaderView
+from qtpy.QtWidgets import QDialog, QMessageBox, QSizePolicy, QListWidgetItem, QHeaderView, QMenu, QAction, QPushButton
 from sortedcontainers import SortedSet
 
 from model.minidsp import get_repo_subdir, load_filter_file, FilterPublisher, FilterPublisherSignals
@@ -67,6 +67,8 @@ class CatalogueDialog(QDialog, Ui_catalogueDialog):
             self.__minidsp_rs_options = prefs.get(MINIDSP_RS_OPTIONS)
         self.__catalogue = {}
         self.setupUi(self)
+        self.sendToMinidspButton.setMenu(self.__make_minidsp_menu(self.send_filter_to_minidsp))
+        self.bypassMinidspButton.setMenu(self.__make_minidsp_menu(self.clear_filter_from_minidsp))
         self.__beq_dir = self.__preferences.get(BEQ_DOWNLOAD_DIR)
         self.__db_csv_file = os.path.join(self.__beq_dir, 'database.csv')
         self.__db_csv = {}
@@ -97,6 +99,23 @@ class CatalogueDialog(QDialog, Ui_catalogueDialog):
             self.contentTypeFilter.addItem(c)
         self.filter_content_type('')
         self.totalCount.setValue(len(self.__catalogue))
+
+    def __make_minidsp_menu(self, func):
+        menu = QMenu(self)
+        current_config = QAction(menu)
+        current_config.setText('Current')
+        current_config.triggered.connect(func)
+        menu.addAction(current_config)
+        for i in range(4):
+            self.__add_send_action(i, menu, func)
+        return menu
+
+    @staticmethod
+    def __add_send_action(slot_idx, menu, func):
+        a = QAction(menu)
+        a.setText(f"Slot {slot_idx + 1}")
+        menu.addAction(a)
+        a.triggered.connect(lambda: func(slot=slot_idx))
 
     def __on_database_load(self, database):
         if database is True:
@@ -213,35 +232,43 @@ class CatalogueDialog(QDialog, Ui_catalogueDialog):
         filt = load_filter_file(beq.filename, 48000)
         self.__filter_loader(beq.name, filt)
 
-    def send_filter_to_minidsp(self):
+    def send_filter_to_minidsp(self, slot=None):
         '''
         Sends the currently selected filter to the filter publisher.
-        :return:
         '''
         beq = self.__get_beq_from_results()
         filt = load_filter_file(beq.filename, 96000)
-        fp = FilterPublisher(filt, self.__minidsp_rs_exe, self.__minidsp_rs_options, self.__on_send_filter_event)
+        fp = FilterPublisher(filt, slot, self.__minidsp_rs_exe, self.__minidsp_rs_options,
+                             lambda c: self.__on_send_filter_event(c, self.sendToMinidspButton))
         QThreadPool.globalInstance().start(fp)
 
-    def __on_send_filter_event(self, code: int):
+    def clear_filter_from_minidsp(self, slot=None):
+        '''
+        Sets the config to bypass.
+        '''
+        fp = FilterPublisher([], slot, self.__minidsp_rs_exe, self.__minidsp_rs_options,
+                             lambda c: self.__on_send_filter_event(c, self.bypassMinidspButton))
+        QThreadPool.globalInstance().start(fp)
+
+    def __on_send_filter_event(self, code: int, btn: QPushButton):
         if code == FilterPublisherSignals.ON_START:
-            self.__process_spinner = qta.Spin(self.sendToMinidspButton)
+            self.__process_spinner = qta.Spin(btn)
             spin_icon = qta.icon('fa5s.spinner', color='green', animation=self.__process_spinner)
-            self.sendToMinidspButton.setIcon(spin_icon)
-            self.sendToMinidspButton.setEnabled(False)
+            btn.setIcon(spin_icon)
+            btn.setEnabled(False)
             pass
         elif code == FilterPublisherSignals.ON_COMPLETE:
             from model.batch import stop_spinner
-            stop_spinner(self.__process_spinner, self.sendToMinidspButton)
+            stop_spinner(self.__process_spinner, btn)
             self.__process_spinner = None
-            self.sendToMinidspButton.setIcon(qta.icon('fa5s.check', color='green'))
-            self.sendToMinidspButton.setEnabled(True)
+            btn.setIcon(qta.icon('fa5s.check', color='green'))
+            btn.setEnabled(True)
         elif code == FilterPublisherSignals.ON_ERROR:
             from model.batch import stop_spinner
-            stop_spinner(self.__process_spinner, self.sendToMinidspButton)
+            stop_spinner(self.__process_spinner, btn)
             self.__process_spinner = None
-            self.sendToMinidspButton.setIcon(qta.icon('fa5s.times', color='red'))
-            self.sendToMinidspButton.setEnabled(True)
+            btn.setIcon(qta.icon('fa5s.times', color='red'))
+            btn.setEnabled(True)
         else:
             logger.warning(f"Unknown code received from FilterPublisher - {code}")
 

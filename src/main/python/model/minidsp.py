@@ -496,9 +496,11 @@ class FilterPublisherSignals(QObject):
 
 class FilterPublisher(QRunnable):
 
-    def __init__(self, filt: List[Biquad], minidsp_rs_binary: str, minidsp_rs_options: str, status_handler: Callable[[int], None]):
+    def __init__(self, filt: List[Biquad], slot: Optional[int], minidsp_rs_binary: str, minidsp_rs_options: str,
+                 status_handler: Callable[[int], None]):
         super().__init__()
         self.__signals = FilterPublisherSignals()
+        self.__slot = slot
         self.__filt = filt
         self.__signals.on_status.connect(status_handler)
         self.__signals.on_status.emit(FilterPublisherSignals.ON_START)
@@ -511,6 +513,8 @@ class FilterPublisher(QRunnable):
 
     def run(self):
         try:
+            if self.__slot:
+                self.__send_config()
             for c in range(2):
                 idx = 0
                 for f in self.__filt:
@@ -528,6 +532,12 @@ class FilterPublisher(QRunnable):
             logger.exception(f"Unexpected failure during filter publication")
             self.__signals.on_status.emit(FilterPublisherSignals.ON_ERROR)
 
+    def __send_config(self):
+        # minidsp config <slot>
+        cmd = self.__runner['config', str(self.__slot)]
+        logger.info(f"Executing {cmd}")
+        cmd.run()
+
     def __send_biquad(self, channel: str, idx: str, coeffs: List[str]):
         # minidsp input <channel> peq <index> set -- <b0> <b1> <b2> <a1> <a2>
         cmd = self.__runner['input', channel, 'peq', idx, 'set', '--', coeffs]
@@ -539,4 +549,4 @@ class FilterPublisher(QRunnable):
         # minidsp input <channel> bypass on
         cmd = self.__runner['input', channel, 'peq', idx, 'bypass', 'on' if bypass else 'off']
         logger.info(f"Executing {cmd}")
-        cmd.run()
+        cmd.run(retcode=None)

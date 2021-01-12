@@ -215,6 +215,9 @@ class Ui_catalogueDialog(object):
         self.sendToMinidspButton = QtWidgets.QPushButton(self.matchesFrame)
         self.sendToMinidspButton.setObjectName("sendToMinidspButton")
         self.sendToLayout.addWidget(self.sendToMinidspButton)
+        self.bypassMinidspButton = QtWidgets.QPushButton(self.matchesFrame)
+        self.bypassMinidspButton.setObjectName("bypassMinidspButton")
+        self.sendToLayout.addWidget(self.bypassMinidspButton)
         self.matchesLayout.addLayout(self.sendToLayout, 5, 0, 1, 1)
         self.gridLayout_2.addLayout(self.matchesLayout, 0, 0, 1, 1)
         self.gridLayout.addWidget(self.matchesFrame, 0, 1, 1, 1)
@@ -247,7 +250,6 @@ class Ui_catalogueDialog(object):
         self.aron7awolRepoButton.toggled['bool'].connect(catalogueDialog.apply_filter)
         self.mobe1969RepoButton.toggled['bool'].connect(catalogueDialog.apply_filter)
         self.browseCatalogueButton.clicked.connect(catalogueDialog.browse_catalogue)
-        self.sendToMinidspButton.clicked.connect(catalogueDialog.send_filter_to_minidsp)
         QtCore.QMetaObject.connectSlotsByName(catalogueDialog)
 
     def retranslateUi(self, catalogueDialog):
@@ -274,4 +276,5 @@ class Ui_catalogueDialog(object):
         self.openCatalogueButton.setText(_translate("catalogueDialog", "Open Catalogue"))
         self.openAvsButton.setText(_translate("catalogueDialog", "Open AVS"))
         self.loadFilterButton.setText(_translate("catalogueDialog", "Load Filter"))
-        self.sendToMinidspButton.setText(_translate("catalogueDialog", "Send Filter to Minidsp"))
+        self.sendToMinidspButton.setText(_translate("catalogueDialog", "Update Minidsp"))
+        self.bypassMinidspButton.setText(_translate("catalogueDialog", "Bypass Minidsp"))
