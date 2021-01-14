@@ -536,17 +536,17 @@ class FilterPublisher(QRunnable):
         # minidsp config <slot>
         cmd = self.__runner['config', str(self.__slot)]
         logger.info(f"Executing {cmd}")
-        cmd.run()
+        cmd.run(timeout=5)
 
     def __send_biquad(self, channel: str, idx: str, coeffs: List[str]):
         # minidsp input <channel> peq <index> set -- <b0> <b1> <b2> <a1> <a2>
         cmd = self.__runner['input', channel, 'peq', idx, 'set', '--', coeffs]
         logger.info(f"Executing {cmd}")
-        cmd.run()
+        cmd.run(timeout=5)
         self.__send_bypass(channel, idx, False)
 
     def __send_bypass(self, channel: str, idx: str, bypass: bool):
         # minidsp input <channel> bypass on
         cmd = self.__runner['input', channel, 'peq', idx, 'bypass', 'on' if bypass else 'off']
         logger.info(f"Executing {cmd}")
-        cmd.run(retcode=None)
+        cmd.run(timeout=5)
