@@ -80,7 +80,7 @@ class CreateAVSPostDialog(QDialog, Ui_postbuilder):
                     file_path = os.path.abspath(os.path.join(os.path.dirname('__file__'), '../xml/flat24hd.xml'))
                 filt = self.__filter_model.filter
                 output_xml, _ = HDXmlParser(DspType.MINIDSP_TWO_BY_FOUR_HD, False).convert(str(file_path), filt, metadata)
-                with open(file_name, 'w+') as f:
+                with open(file_name, 'w+', encoding='utf-8') as f:
                     f.write(output_xml)
 
     def __get_file_name(self, metadata):
