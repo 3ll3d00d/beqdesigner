@@ -1,6 +1,6 @@
 import json
 import logging
-import typing
+from typing import Optional, Type, Tuple, Any, List
 from collections import defaultdict
 from collections.abc import Sequence
 from uuid import uuid4
@@ -10,7 +10,7 @@ import qtawesome as qta
 from qtpy import QtCore
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt
 from qtpy.QtGui import QIcon
-from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox, QHeaderView, QTableView
+from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox, QHeaderView, QTableView, QWidget
 
 from model.iir import FilterType, LowShelf, HighShelf, PeakingEQ, SecondOrder_LowPass, \
     SecondOrder_HighPass, ComplexLowPass, ComplexHighPass, q_to_s, s_to_q, max_permitted_s, CompleteFilter, COMBINED, \
@@ -194,7 +194,7 @@ class FilterTableModel(QAbstractTableModel):
     def columnCount(self, parent: QModelIndex = ..., *args, **kwargs):
         return len(self.__headers)
 
-    def data(self, index: QModelIndex, role: int = ...) -> typing.Any:
+    def data(self, index: QModelIndex, role: int = ...) -> Any:
         if not index.isValid():
             return QVariant()
         elif role != Qt.DisplayRole:
@@ -228,7 +228,7 @@ class FilterTableModel(QAbstractTableModel):
             else:
                 return QVariant()
 
-    def headerData(self, section: int, orientation: Qt.Orientation, role: int = ...) -> typing.Any:
+    def headerData(self, section: int, orientation: Qt.Orientation, role: int = ...) -> Any:
         if orientation == Qt.Horizontal and role == Qt.DisplayRole:
             return QVariant(self.__headers[section])
         return QVariant()
@@ -245,10 +245,11 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
     freq_steps = [0.01, 0.1, 1.0, 2.0, 5.0]
     passthrough = Passthrough()
 
-    def __init__(self, preferences, signal, filter_model, redraw_main, selected_filter=None, parent=None,
-                 valid_filter_types=None, small=False, **kwargs):
+    def __init__(self, preferences, signal, filter_model: FilterModel, redraw_main, selected_filter=None, parent=None,
+                 valid_filter_types=None, small=False, max_filters: Optional[int] = None, **kwargs):
         self.__preferences = preferences
         self.__small_mode = small
+        self.__max_filters = max_filters
         super(FilterDialog, self).__init__(parent) if parent is not None else super(FilterDialog, self).__init__()
         self.__redraw_main = redraw_main
         # for shelf filter, allow input via Q or S not both
@@ -260,6 +261,8 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.__freq_step_idx = self.__get_step(self.freq_steps, self.__preferences.get(DISPLAY_FREQ_STEP), 2)
         # init the UI itself
         self.setupUi(self)
+        self.__add_snapshot_buttons = [self.addSnapshotRowButton, self.pasteSnapshotRowButton, self.importSnapshotButton]
+        self.__add_working_buttons = [self.addWorkingRowButton, self.pasteWorkingRowButton, self.importWorkingButton]
         self.__snapshot = FilterModel(self.snapshotFilterView, self.__preferences, on_update=self.__on_snapshot_change)
         self.__working = FilterModel(self.workingFilterView, self.__preferences, on_update=self.__on_working_change)
         self.__selected_id = None
@@ -319,6 +322,8 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
             self.showIndividual.setVisible(False)
         self.__restore_geometry()
         self.filterType.setFocus()
+        self.__enable_add_more_buttons(self.__add_snapshot_buttons, filter_model)
+        self.__enable_add_more_buttons(self.__add_working_buttons, filter_model)
 
     def __restore_geometry(self):
         ''' loads the saved window size '''
@@ -437,11 +442,13 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
 
     def __add_working_filter(self):
         ''' adds a new filter. '''
-        self.__add_filter(self.__make_default_filter(), self.__working, self.workingFilterView)
+        self.__add_filter(self.__make_default_filter(), self.__working, self.workingFilterView,
+                          [self.addWorkingRowButton, self.pasteWorkingRowButton])
 
     def __copy_working_filter(self):
         ''' adds a new filter. '''
-        self.__add_filter(self.__make_copy_of_filter(), self.__working, self.workingFilterView)
+        self.__add_filter(self.__make_copy_of_filter(), self.__working, self.workingFilterView,
+                          [self.addWorkingRowButton, self.pasteWorkingRowButton])
 
     def __add_working_peaking(self):
         ''' adds a new filter. '''
@@ -457,7 +464,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
 
     def __remove_working_filter(self):
         ''' removes the selected filter. '''
-        self.__remove_filter(self.workingFilterView, self.__working)
+        self.__remove_filter(self.workingFilterView, self.__working, self.__add_working_buttons)
 
     def __connect_snapshot_buttons(self):
         ''' Connects the buttons associated with the snapshot filter. '''
@@ -473,13 +480,15 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
 
     def __add_snapshot_filter(self):
         ''' adds a new filter. '''
-        self.__add_filter(self.__make_default_filter(), self.__snapshot, self.snapshotFilterView)
+        self.__add_filter(self.__make_default_filter(), self.__snapshot, self.snapshotFilterView,
+                          self.__add_snapshot_buttons)
 
     def __copy_snapshot_filter(self):
         ''' adds a new filter. '''
-        self.__add_filter(self.__make_copy_of_filter(), self.__snapshot, self.snapshotFilterView)
+        self.__add_filter(self.__make_copy_of_filter(), self.__snapshot, self.snapshotFilterView,
+                          self.__add_snapshot_buttons)
 
-    def __add_filter(self, new_filter, filter_model: FilterModel, filter_view: QTableView):
+    def __add_filter(self, new_filter, filter_model: FilterModel, filter_view: QTableView, buttons: List[QWidget] = None):
         filter_model.save(new_filter)
         for idx, f in enumerate(filter_model):
             if f.id == new_filter.id:
@@ -492,8 +501,16 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
             self.f0.setFocus()
         elif self.filterGain.isVisible():
             self.filterGain.setFocus()
+        self.__enable_add_more_buttons(buttons, filter_model)
 
-    def __make_default_filter(self, filter_type: typing.Type[Biquad] = LowShelf):
+    def __enable_add_more_buttons(self, buttons: List[QWidget], filter_model: FilterModel):
+        if self.__max_filters is not None and buttons is not None:
+            allow_more_filters = len(filter_model) < self.__max_filters
+            for btn in buttons[0:-1]:
+                btn.setEnabled(allow_more_filters)
+            buttons[-1].setEnabled(len([f for f in filter_model if f.gain > 0]) < self.__max_filters)
+
+    def __make_default_filter(self, filter_type: Type[Biquad] = LowShelf):
         ''' Creates a new filter using the default preferences or by copying the currently selected filter. '''
         if filter_type == LowShelf:
             return LowShelf(self.__signal.fs,
@@ -527,16 +544,16 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
 
     def __remove_snapshot_filter(self):
         ''' removes the selected filter. '''
-        self.__remove_filter(self.snapshotFilterView, self.__snapshot)
+        self.__remove_filter(self.snapshotFilterView, self.__snapshot, self.__add_snapshot_buttons)
 
-    @staticmethod
-    def __remove_filter(filter_view: QTableView, filter_model: FilterModel):
+    def __remove_filter(self, filter_view: QTableView, filter_model: FilterModel, buttons):
         selection = filter_view.selectionModel()
         if selection.hasSelection():
             to_delete = [r.row() for r in selection.selectedRows()]
             filter_model.delete(to_delete)
             if len(filter_model) > 0:
                 filter_view.selectRow(min(max(to_delete), len(filter_model) - 1))
+            self.__enable_add_more_buttons(buttons, filter_model)
 
     def __import_working_filters(self):
         self.__import_filters(self.__working, self.workingFilterView)
@@ -567,6 +584,17 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
             if filts:
                 for f in filts:
                     self.__add_filter(f, filter_model, filter_view)
+                if self.__max_filters is not None:
+                    excess = len(filter_model) - self.__max_filters
+                    if excess > 0:
+                        to_delete = [idx for idx, f in enumerate(filter_model)
+                                     if hasattr(f, 'gain') and math.isclose(f.gain, 0.0)]
+                        if len(to_delete) > excess:
+                            to_delete = to_delete[0:excess]
+                        filter_model.delete(to_delete)
+                    excess = len(filter_model) - self.__max_filters
+                    if excess > 0:
+                        logger.error(f"Too many filters imported - {excess} must be removed")
             if discarded.keys():
                 msg_box = QMessageBox()
                 formatted = '\n'.join([f"{k} - Filter{'s' if len(v) > 1 else ''} {','.join(v)}" for k,v in discarded.items()])
@@ -696,7 +724,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         active_model.save(self.__create_filter())
         self.__ensure_filter_is_selected(active_model, active_view)
 
-    def __get_active(self) -> typing.Tuple[FilterModel, QTableView]:
+    def __get_active(self) -> Tuple[FilterModel, QTableView]:
         if self.headerLabel.text().startswith('Working') or len(self.headerLabel.text()) == 0:
             active_model = self.__working
             active_view = self.workingFilterView

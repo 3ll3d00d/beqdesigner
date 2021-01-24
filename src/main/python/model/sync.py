@@ -568,8 +568,10 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         '''
         selection_model = self.filterView.selectionModel()
         if selection_model.hasSelection():
-            for x in selection_model.selectedRows():
-                self.__filters.save(self.__make_passthrough(x.row()))
+            self.__filters.delete([x.row() for x in selection_model.selectedRows()])
+            for i in range(len(self.__filters), 16):
+                self.__filters.save(self.__make_passthrough(i))
+            print(f"{len(self.__filters)}")
             self.__magnitude_model.redraw()
 
     def connect_htp1(self):
@@ -787,12 +789,20 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
                          self.__on_filter_save,
                          selected_filter=self.__filters[selection.selectedRows()[0].row()],
                          valid_filter_types=['PEQ', 'Low Shelf', 'High Shelf'] if self.__supports_shelf else ['PEQ'],
-                         parent=self).show()
+                         parent=self,
+                         max_filters=16).show()
 
     def __on_filter_save(self):
         ''' reacts to a filter being saved by redrawing the UI and syncing the filter to the HTP-1. '''
         self.__magnitude_model.redraw()
-        if self.autoSyncButton.isChecked():
+        can_sync = len(self.__filters) == 16
+        if not can_sync:
+            msg_box = QMessageBox()
+            msg_box.setText(f"Too many filters loaded, remove {len(self.__filters) - 16} to be able to sync")
+            msg_box.setIcon(QMessageBox.Warning)
+            msg_box.setWindowTitle('Too Many Filters')
+            msg_box.exec()
+        if self.autoSyncButton.isChecked() and can_sync:
             self.send_filters_to_device()
 
 

@@ -856,6 +856,10 @@ class ComplexFilter(Sequence):
         return [x.__repr__() for x in self.filters]
 
     @property
+    def sort_by_id(self):
+        return self.__sort_by_id
+
+    @property
     def filter_type(self):
         return 'Complex'
 
@@ -966,8 +970,9 @@ class CompleteFilter(ComplexFilter):
         :param filter: the filter.
         :return: a copied filter.
         '''
-        return CompleteFilter(filters=self.save0(filter, self.filters.copy()),
-                              description=self.description, listener=None, fs=self.fs)
+        return CompleteFilter(fs=self.fs, filters=self.save0(filter, self.filters.copy()),
+                              description=self.description, preset_idx=self.preset_idx, listener=None,
+                              sort_by_id=self.sort_by_id)
 
     def resample(self, new_fs, copy_listener=True):
         '''
