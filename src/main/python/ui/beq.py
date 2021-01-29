@@ -902,6 +902,6 @@ class Ui_MainWindow(object):
         self.actionShow_Filter_Widget.setText(_translate("MainWindow", "Show Filter Widget"))
         self.actionShow_Filter_Widget.setShortcut(_translate("MainWindow", "Ctrl+Alt+="))
         self.actionMerge_Signals.setText(_translate("MainWindow", "Merge &Signals"))
-        self.actionMerge_Signals.setShortcut(_translate("MainWindow", "Ctrl+Alt+S"))
+        self.actionMerge_Signals.setShortcut(_translate("MainWindow", "Ctrl+Meta+S"))
 from app import PlotWidgetWithDateAxis
 from mpl import MplWidget

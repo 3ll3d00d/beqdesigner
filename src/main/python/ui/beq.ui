@@ -1550,7 +1550,7 @@
     <string>Merge &amp;Signals</string>
    </property>
    <property name="shortcut">
-    <string>Ctrl+Alt+S</string>
+    <string>Ctrl+Meta+S</string>
    </property>
   </action>
  </widget>
