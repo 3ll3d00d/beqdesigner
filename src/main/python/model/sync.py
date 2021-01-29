@@ -13,7 +13,8 @@ from model.batch import StoppableSpin, stop_spinner
 from model.iir import CompleteFilter, PeakingEQ, LowShelf, HighShelf
 from model.limits import dBRangeCalculator
 from model.magnitude import MagnitudeModel
-from model.preferences import get_filter_colour, HTP1_ADDRESS, HTP1_AUTOSYNC, HTP1_SYNC_GEOMETRY
+from model.preferences import get_filter_colour, HTP1_ADDRESS, HTP1_AUTOSYNC, HTP1_SYNC_GEOMETRY, HTP1_GRAPH_X_MAX, \
+    HTP1_GRAPH_X_MIN
 from ui.edit_mapping import Ui_editMappingDialog
 from ui.syncdetails import Ui_syncDetailsDialog
 from ui.synchtp1 import Ui_syncHtp1Dialog
@@ -54,6 +55,7 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         self.filterView.selectionModel().selectionChanged.connect(self.__on_filter_selected)
         self.__magnitude_model = MagnitudeModel('preview', self.previewChart, self.__preferences,
                                                 self.get_curve_data, 'Filter',
+                                                x_min_pref_key=HTP1_GRAPH_X_MIN, x_max_pref_key=HTP1_GRAPH_X_MAX,
                                                 db_range_calc=dBRangeCalculator(30, expand=True), fill_curves=True)
         self.connectButton.setIcon(qta.icon('fa5s.check'))
         self.disconnectButton.setIcon(qta.icon('fa5s.times'))
@@ -312,6 +314,7 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         self.__filters.filter = self.__filters_by_channel[self.filtersetSelector.itemText(0)]
         if not self.__channel_to_signal:
             self.load_from_signals()
+        self.filterView.selectRow(0)
         self.__magnitude_model.redraw()
         self.syncStatus.setIcon(qta.icon('fa5s.link'))
         self.__last_received_msoupdate = None
@@ -569,9 +572,11 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         selection_model = self.filterView.selectionModel()
         if selection_model.hasSelection():
             self.__filters.delete([x.row() for x in selection_model.selectedRows()])
-            for i in range(len(self.__filters), 16):
-                self.__filters.save(self.__make_passthrough(i))
-            print(f"{len(self.__filters)}")
+            ids = [f.id for f in self.__filters]
+            for i in range(16):
+                if i not in ids:
+                    self.__filters.save(self.__make_passthrough(i))
+            self.applyFiltersButton.setEnabled(len(self.__filters) == 16)
             self.__magnitude_model.redraw()
 
     def connect_htp1(self):
@@ -598,6 +603,7 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         '''
         if filterset in self.__filters_by_channel:
             self.__filters.filter = self.__filters_by_channel[filterset]
+            self.filterView.selectRow(0)
             self.__magnitude_model.redraw()
         else:
             logger.warning(f"Unknown filterset {filterset}")
@@ -790,12 +796,14 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
                          selected_filter=self.__filters[selection.selectedRows()[0].row()],
                          valid_filter_types=['PEQ', 'Low Shelf', 'High Shelf'] if self.__supports_shelf else ['PEQ'],
                          parent=self,
-                         max_filters=16).show()
+                         max_filters=16,
+                         x_lim=(self.__magnitude_model.limits.x_min, self.__magnitude_model.limits.x_max)).show()
 
     def __on_filter_save(self):
         ''' reacts to a filter being saved by redrawing the UI and syncing the filter to the HTP-1. '''
         self.__magnitude_model.redraw()
         can_sync = len(self.__filters) == 16
+        self.applyFiltersButton.setEnabled(can_sync)
         if not can_sync:
             msg_box = QMessageBox()
             msg_box.setText(f"Too many filters loaded, remove {len(self.__filters) - 16} to be able to sync")

@@ -40,7 +40,7 @@ class FilterModel(Sequence):
         self.__on_update = on_update
 
     @property
-    def filter(self):
+    def filter(self) -> CompleteFilter:
         return self.__filter
 
     @filter.setter
@@ -290,7 +290,8 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         # and initialise the view
         for idx, f in enumerate(self.__working):
             selected = selected_filter is not None and f.id == selected_filter.id
-            f.id = uuid4()
+            if not self.__working.filter.sort_by_id:
+                f.id = uuid4()
             if selected is True:
                 self.__selected_id = f.id
                 self.workingFilterView.selectRow(idx)
@@ -582,19 +583,23 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
                         if filt:
                             filts.append(filt)
             if filts:
-                for f in filts:
-                    self.__add_filter(f, filter_model, filter_view)
                 if self.__max_filters is not None:
-                    excess = len(filter_model) - self.__max_filters
+                    excess = len(filter_model) + len(filts) - self.__max_filters
+                    to_overwrite = []
                     if excess > 0:
-                        to_delete = [idx for idx, f in enumerate(filter_model)
-                                     if hasattr(f, 'gain') and math.isclose(f.gain, 0.0)]
-                        if len(to_delete) > excess:
-                            to_delete = to_delete[0:excess]
-                        filter_model.delete(to_delete)
-                    excess = len(filter_model) - self.__max_filters
-                    if excess > 0:
-                        logger.error(f"Too many filters imported - {excess} must be removed")
+                        to_overwrite = [idx for idx, f in enumerate(filter_model)
+                                       if hasattr(f, 'gain') and math.isclose(f.gain, 0.0)]
+                        if len(to_overwrite) > excess:
+                            to_overwrite = to_overwrite[0:excess]
+                    for idx, f in enumerate(filts):
+                        if to_overwrite:
+                            f.id = to_overwrite.pop(0)
+                        else:
+                            f.id = len(filter_model) + idx
+            for f in filts:
+                self.__add_filter(f, filter_model, filter_view)
+            if self.__max_filters is not None and len(filter_model) > self.__max_filters:
+                logger.error(f"Too many filters imported - {len(filter_model) - self.__max_filters} must be removed")
             if discarded.keys():
                 msg_box = QMessageBox()
                 formatted = '\n'.join([f"{k} - Filter{'s' if len(v) > 1 else ''} {','.join(v)}" for k,v in discarded.items()])

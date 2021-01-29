@@ -124,3 +124,4 @@ src/main/python/VERSION
 
 requirements.txt
 requirements_dev.txt
+src/test/python/scratch
