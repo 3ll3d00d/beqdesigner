@@ -3,12 +3,11 @@ import os
 from pathlib import Path
 from typing import Optional, Callable
 
-import qtawesome as qta
 import matplotlib
 import matplotlib.style as style
-from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox, QDialogButtonBox, QApplication, QLineEdit
-from qtpy.QtCore import QThreadPool, Qt
-from qtpy.QtGui import QCursor
+import qtawesome as qta
+from qtpy.QtCore import QThreadPool, QSettings
+from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox, QDialogButtonBox, QLineEdit
 
 from ui.preferences import Ui_preferencesDialog
 
@@ -74,6 +73,7 @@ EXTRACTION_COMPRESS = 'extraction/compress'
 EXTRACTION_COMPRESS_FORMAT = 'extraction/compress_format'
 
 ANALYSIS_RESOLUTION = 'analysis/resolution'
+ANALYSIS_RESOLUTION_DEFAULT = 1.0
 ANALYSIS_TARGET_FS = 'analysis/target_fs'
 ANALYSIS_WINDOW_DEFAULT = 'Default'
 ANALYSIS_AVG_WINDOW = 'analysis/avg_window'
@@ -189,11 +189,20 @@ HTP1_GRAPH_X_MAX = 'htp1/x_max'
 JRIVER_GEOMETRY = 'jriver/geometry'
 JRIVER_GRAPH_X_MIN = 'jriver/x_min'
 JRIVER_GRAPH_X_MAX = 'jriver/x_max'
+JRIVER_DSP_DIR = 'jriver/dsp_dir'
+
+GEQ_GEOMETRY = 'geq/geometry'
+GEQ_GRAPH_X_MIN = 'geq/x_min'
+GEQ_GRAPH_X_MAX = 'geq/x_max'
+
+XO_GEOMETRY = 'geq/geometry'
+XO_GRAPH_X_MIN = 'geq/x_min'
+XO_GRAPH_X_MAX = 'geq/x_max'
 
 MINIDSP_RS_OPTIONS = 'minidsp/rs_options'
 
 DEFAULT_PREFS = {
-    ANALYSIS_RESOLUTION: 1.0,
+    ANALYSIS_RESOLUTION: ANALYSIS_RESOLUTION_DEFAULT,
     ANALYSIS_TARGET_FS: 1000,
     ANALYSIS_AVG_WINDOW: ANALYSIS_WINDOW_DEFAULT,
     ANALYSIS_PEAK_WINDOW: ANALYSIS_WINDOW_DEFAULT,
@@ -238,6 +247,8 @@ DEFAULT_PREFS = {
     FILTERS_DEFAULT_HS_Q: 0.707,
     FILTERS_DEFAULT_PEAK_FREQ: 20.0,
     FILTERS_DEFAULT_PEAK_Q: 1.000,
+    GEQ_GRAPH_X_MIN: 10,
+    GEQ_GRAPH_X_MAX: 20000,
     GRAPH_X_AXIS_SCALE: 'log',
     GRAPH_X_MIN: 1,
     GRAPH_X_MAX: 160,
@@ -248,6 +259,7 @@ DEFAULT_PREFS = {
     HTP1_GRAPH_X_MAX: 20000,
     JRIVER_GRAPH_X_MIN: 10,
     JRIVER_GRAPH_X_MAX: 20000,
+    JRIVER_DSP_DIR: str(Path.home()),
     REPORT_FILTER_ROW_HEIGHT_MULTIPLIER: 1.2,
     REPORT_TITLE_FONT_SIZE: 36,
     REPORT_IMAGE_ALPHA: 1.0,
@@ -270,6 +282,8 @@ DEFAULT_PREFS = {
     REPORT_LAYOUT_WSPACE: matplotlib.rcParams['figure.subplot.wspace'],
     SYSTEM_CHECK_FOR_UPDATES: True,
     SYSTEM_CHECK_FOR_BETA_UPDATES: False,
+    XO_GRAPH_X_MIN: 10,
+    XO_GRAPH_X_MAX: 20000,
 }
 
 TYPES = {
@@ -301,6 +315,8 @@ TYPES = {
     FILTERS_DEFAULT_HS_Q: float,
     FILTERS_DEFAULT_PEAK_FREQ: int,
     FILTERS_DEFAULT_PEAK_Q: float,
+    GEQ_GRAPH_X_MIN: int,
+    GEQ_GRAPH_X_MAX: int,
     GRAPH_X_MIN: int,
     GRAPH_X_MAX: int,
     GRAPH_EXPAND_Y: bool,
@@ -325,7 +341,9 @@ TYPES = {
     REPORT_FILTER_SHOW_HEADER: bool,
     REPORT_FILTER_FONT_SIZE: int,
     SYSTEM_CHECK_FOR_UPDATES: bool,
-    SYSTEM_CHECK_FOR_BETA_UPDATES: bool
+    SYSTEM_CHECK_FOR_BETA_UPDATES: bool,
+    XO_GRAPH_X_MIN: int,
+    XO_GRAPH_X_MAX: int,
 }
 
 COLOUR_INTERVALS = [x / 255 for x in range(36, 250, 24)] + [1.0]
@@ -369,7 +387,7 @@ def get_filter_colour(idx):
 
 
 class Preferences:
-    def __init__(self, settings):
+    def __init__(self, settings: QSettings):
         self.__settings = settings
         global singleton
         singleton = self

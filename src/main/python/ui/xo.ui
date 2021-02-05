@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>xoDialog</class>
+ <widget class="QDialog" name="xoDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>886</width>
+    <height>820</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Crossover Design</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout" stretch="3,2,0">
+   <item>
+    <layout class="QHBoxLayout" name="chartLayout" stretch="0,0">
+     <item>
+      <widget class="MplWidget" name="previewChart"/>
+     </item>
+     <item>
+      <layout class="QVBoxLayout" name="chartControlsLayout">
+       <item>
+        <widget class="QToolButton" name="limitsButton">
+         <property name="text">
+          <string>...</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="showPhase">
+         <property name="text">
+          <string>...</string>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <spacer name="controlsSpacer">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QGridLayout" name="xoContainerLayout">
+     <item row="0" column="0">
+      <widget class="QPushButton" name="linkChannelsButton">
+       <property name="text">
+        <string>Link Channels</string>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="0" colspan="4">
+      <widget class="QScrollArea" name="peqScrollArea">
+       <property name="sizeAdjustPolicy">
+        <enum>QAbstractScrollArea::AdjustToContents</enum>
+       </property>
+       <property name="widgetResizable">
+        <bool>true</bool>
+       </property>
+       <widget class="QFrame" name="channelsFrame">
+        <property name="geometry">
+         <rect>
+          <x>0</x>
+          <y>0</y>
+          <width>868</width>
+          <height>259</height>
+         </rect>
+        </property>
+        <layout class="QVBoxLayout" name="channelsLayout"/>
+       </widget>
+      </widget>
+     </item>
+     <item row="0" column="1">
+      <widget class="QPushButton" name="showMatrixButton">
+       <property name="text">
+        <string>Input/Output  Routing</string>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="2">
+      <widget class="QPushButton" name="setSWChannelsButton">
+       <property name="text">
+        <string>Set SW Channels</string>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="3">
+      <layout class="QHBoxLayout" name="lfeAdjustLayout">
+       <item>
+        <widget class="QLabel" name="lfeAdjustLabel">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
+         <property name="text">
+          <string>LFE Headroom</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QSpinBox" name="lfeAdjust">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
+         <property name="suffix">
+          <string> dB</string>
+         </property>
+         <property name="minimum">
+          <number>1</number>
+         </property>
+         <property name="maximum">
+          <number>9</number>
+         </property>
+         <property name="value">
+          <number>5</number>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Save</set>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>MplWidget</class>
+   <extends>QGraphicsView</extends>
+   <header>mpl</header>
+  </customwidget>
+ </customwidgets>
+ <tabstops>
+  <tabstop>linkChannelsButton</tabstop>
+  <tabstop>showMatrixButton</tabstop>
+  <tabstop>setSWChannelsButton</tabstop>
+  <tabstop>lfeAdjust</tabstop>
+  <tabstop>peqScrollArea</tabstop>
+  <tabstop>limitsButton</tabstop>
+  <tabstop>showPhase</tabstop>
+  <tabstop>previewChart</tabstop>
+ </tabstops>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>accepted()</signal>
+   <receiver>xoDialog</receiver>
+   <slot>accept()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>254</x>
+     <y>813</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>157</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>rejected()</signal>
+   <receiver>xoDialog</receiver>
+   <slot>reject()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>322</x>
+     <y>813</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>286</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>showMatrixButton</sender>
+   <signal>clicked()</signal>
+   <receiver>xoDialog</receiver>
+   <slot>show_matrix()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>245</x>
+     <y>503</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>-2</x>
+     <y>531</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+ <slots>
+  <slot>show_matrix()</slot>
+ </slots>
+</ui>

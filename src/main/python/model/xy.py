@@ -1,8 +1,10 @@
 import logging
+import math
+
 import time
 
 import numpy as np
-from PyQt5.QtCore import QSettings
+from qtpy.QtCore import QSettings
 from scipy.interpolate import PchipInterpolator
 
 from model.preferences import DISPLAY_SMOOTH_GRAPHS, Preferences
@@ -20,6 +22,7 @@ class MagnitudeData:
     '''
 
     def __init__(self, name, description, x, y, colour=None, linestyle='-', smooth_type=None):
+        self.__override_name = None
         self.__name = name
         self.__description = description
         self.__x_normal_x = None
@@ -33,12 +36,25 @@ class MagnitudeData:
         self.__normalised_cache = {}
         self.__smooth_type = smooth_type
 
+    def override_name(self, name: str):
+        self.__override_name = name
+
     @property
     def name(self):
-        if self.__description is None:
+        if self.__override_name is not None:
+            return self.__override_name
+        elif self.__description is None:
             return self.__name
         else:
             return f"{self.__name}_{self.__description}"
+
+    @property
+    def description(self):
+        return self.__description
+
+    @description.setter
+    def description(self, description):
+        self.__description = description
 
     @property
     def internal_name(self):
@@ -256,3 +272,42 @@ def interp(x1, y1, x2):
     logger.debug(f"Interpolation from {len(x1)} to {len(x2)} in {round((end - start) * 1000, 3)}ms")
     return x2, y2
 
+
+class ComplexData:
+    '''
+    Value object for storing complex data.
+    '''
+
+    def __init__(self, name, x, y, scale_factor=1):
+        self.name = name
+        self.x = x
+        self.y = y
+        self.scale_factor = scale_factor
+        self.__cached_mag_ref = None
+        self.__cached_mag = None
+        self.__cached_phase = None
+
+    def get_data(self, mode='mag', **kwargs) -> MagnitudeData:
+        if mode == 'mag':
+            return self.get_magnitude(**kwargs)
+        else:
+            return self.get_phase(**kwargs)
+
+    def get_magnitude(self, ref=1, colour=None, linestyle='-'):
+        if self.__cached_mag_ref is not None and math.isclose(ref, self.__cached_mag_ref):
+            self.__cached_mag.colour = colour
+            self.__cached_mag.linestyle = linestyle
+        else:
+            self.__cached_mag_ref = ref
+            y = np.abs(self.y) * self.scale_factor / ref
+            # avoid divide by zero issues when converting to decibels
+            y[np.abs(y) < 0.0000001] = 0.0000001
+            self.__cached_mag = MagnitudeData(self.name, None, self.x, 20 * np.log10(y), colour=colour,
+                                              linestyle=linestyle)
+        return self.__cached_mag
+
+    def get_phase(self, colour=None, linestyle='-', **kwargs):
+        if self.__cached_phase is None:
+            self.__cached_phase = MagnitudeData(self.name, None, self.x, np.angle(self.y, deg=True), colour=colour,
+                                                linestyle=linestyle)
+        return self.__cached_phase

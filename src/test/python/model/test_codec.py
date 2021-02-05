@@ -113,27 +113,25 @@ def test_codec_StackedHighShelf():
 
 
 def test_codec_FirstOrderLowPass():
-    filter = FirstOrder_LowPass(48000, 2000, 1.5)
+    filter = FirstOrder_LowPass(48000, 2000.0)
     output = json.dumps(filter.to_json())
-    assert output == '{"_type": "FirstOrder_LowPass", "fs": 48000, "fc": 2000.0, "q": 1.5}'
+    assert output == '{"_type": "FirstOrder_LowPass", "fs": 48000, "fc": 2000.0}'
     decoded = filter_from_json(json.loads(output))
     assert decoded is not None
     assert isinstance(decoded, FirstOrder_LowPass)
     assert filter.fs == decoded.fs
-    assert filter.q == decoded.q
     assert filter.freq == decoded.freq
     assert decoded.get_transfer_function() is not None
 
 
 def test_codec_FirstOrderHighPass():
-    filter = FirstOrder_HighPass(48000, 2000, 1.5)
+    filter = FirstOrder_HighPass(48000, 2000.0)
     output = json.dumps(filter.to_json())
-    assert output == '{"_type": "FirstOrder_HighPass", "fs": 48000, "fc": 2000.0, "q": 1.5}'
+    assert output == '{"_type": "FirstOrder_HighPass", "fs": 48000, "fc": 2000.0}'
     decoded = filter_from_json(json.loads(output))
     assert decoded is not None
     assert isinstance(decoded, FirstOrder_HighPass)
     assert filter.fs == decoded.fs
-    assert filter.q == decoded.q
     assert filter.freq == decoded.freq
     assert decoded.get_transfer_function() is not None
 

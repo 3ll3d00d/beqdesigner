@@ -344,8 +344,8 @@ class LimitsDialog(QDialog, Ui_graphLayoutDialog):
         Updates the chart limits.
         '''
         self.__limits.update(x_min=self.xMin.value(), x_max=self.xMax.value(), y1_min=self.y1Min.value(),
-                             y1_max=self.y1Max.value(), y2_min=self.y2Min.value(), y2_max=self.y2Max.value(),
-                             x_scale='log' if self.hzLog.isChecked() else 'linear', draw=True)
+                               y1_max=self.y1Max.value(), y2_min=self.y2Min.value(), y2_max=self.y2Max.value(),
+                               x_scale='log' if self.hzLog.isChecked() else 'linear', draw=True)
 
     def fullRangeLimits(self):
         ''' changes the x limits to show a full range signal '''

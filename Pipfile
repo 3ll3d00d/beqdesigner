@@ -22,6 +22,7 @@ semver = "*"
 dulwich = "*"
 markdown = "*"
 plumbum = "*"
+graphviz = "*"
 
 [dev-packages]
 pytest = "*"
@@ -30,4 +31,4 @@ distro = "*"
 atomicwrites = "*"
 
 [requires]
-python_version = "3.8"
+python_version = "3.9"

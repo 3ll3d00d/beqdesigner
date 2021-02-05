@@ -4,7 +4,7 @@ import logging
 import math
 import re
 import time
-import typing
+from typing import List, Optional, Dict, Iterable, Any
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -23,7 +23,8 @@ from model.magnitude import MagnitudeModel
 from model.preferences import get_avg_colour, get_peak_colour, get_median_colour, SHOW_FILTERED_ONLY, \
     DISPLAY_SHOW_SIGNALS, DISPLAY_SHOW_FILTERED_SIGNALS, ANALYSIS_TARGET_FS, BASS_MANAGEMENT_LPF_FS, \
     BASS_MANAGEMENT_LPF_POSITION, BM_LPF_BEFORE, BM_LPF_AFTER, DISPLAY_SMOOTH_PRECALC, X_RESOLUTION, \
-    SHOWING_AVERAGE, SHOWING_PEAK, SHOWING_MEDIAN, SHOW_UNFILTERED_ONLY
+    SHOWING_AVERAGE, SHOWING_PEAK, SHOWING_MEDIAN, SHOW_UNFILTERED_ONLY, ANALYSIS_WINDOW_DEFAULT, \
+    ANALYSIS_RESOLUTION_DEFAULT
 from model.xy import MagnitudeData, interp
 from ui.merge_signals import Ui_MergeSignalDialog
 from ui.signal import Ui_addSignalDialog
@@ -105,7 +106,7 @@ class SingleChannelSignalData(SignalData):
         self.__idx = 0
         self.__offset_db = offset
         self.__on_change_listeners = []
-        self.__unfiltered = {}
+        self.__unfiltered: Dict[Optional[int], List[MagnitudeData]] = {}
         self.__filtered = []
         self.__high_pass = False
         self.__smoothing_type = None
@@ -139,11 +140,11 @@ class SingleChannelSignalData(SignalData):
         self.__high_pass = high_pass
 
     @property
-    def current_unfiltered(self):
+    def current_unfiltered(self) -> List[MagnitudeData]:
         return self.__unfiltered[self.__smoothing_type] if self.__smoothing_type in self.__unfiltered else []
 
     @property
-    def current_filtered(self):
+    def current_filtered(self) -> List[MagnitudeData]:
         return self.filtered if self.filtered is not None else []
 
     @property
@@ -594,7 +595,7 @@ class SignalModel(Sequence):
         return self.__table
 
     @property
-    def bass_managed_signals(self) -> typing.Iterable[BassManagedSignalData]:
+    def bass_managed_signals(self) -> Iterable[BassManagedSignalData]:
         return self.__bass_managed_signals
 
     @property
@@ -822,8 +823,18 @@ class Signal:
         :var fs: the sample rate
     """
 
-    def __init__(self, name, samples, preferences, fs=48000, metadata=None):
-        self.__preferences = preferences
+    def __init__(self, name, samples, preferences=None,
+                 analysis_resolution=ANALYSIS_RESOLUTION_DEFAULT, avg_window=ANALYSIS_WINDOW_DEFAULT,
+                 peak_window=ANALYSIS_WINDOW_DEFAULT, fs=48000, metadata=None):
+        if preferences is not None:
+            from model.preferences import ANALYSIS_RESOLUTION, ANALYSIS_PEAK_WINDOW, ANALYSIS_AVG_WINDOW
+            self.__analysis_resolution = preferences.get(ANALYSIS_RESOLUTION)
+            self.__avg_window = preferences.get(ANALYSIS_AVG_WINDOW)
+            self.__peak_window = preferences.get(ANALYSIS_PEAK_WINDOW)
+        else:
+            self.__peak_window = peak_window
+            self.__avg_window = avg_window
+            self.__analysis_resolution = analysis_resolution
         self.__name = name
         self.samples = samples
         self.fs = fs
@@ -841,20 +852,17 @@ class Signal:
 
     @property
     def avg(self):
-        if self.__avg is None:
-            self.calculate_peak_average()
+        self.calculate_average()
         return self.__avg
 
     @property
     def peak(self):
-        if self.__peak is None:
-            self.calculate_peak_average()
+        self.calculate_peak()
         return self.__peak
 
     @property
     def median(self):
-        if self.__median is None:
-            self.calculate_peak_average()
+        self.calculate_median()
         return self.__median
 
     @property
@@ -889,7 +897,9 @@ class Signal:
                 metadata = {**self.metadata, 'start': start, 'end': end}
             return Signal(self.name,
                           self.samples[int(start * self.fs): int(end * self.fs) + 1],
-                          self.__preferences,
+                          analysis_resolution=self.__analysis_resolution,
+                          avg_window=self.__avg_window,
+                          peak_window=self.__peak_window,
                           fs=self.fs,
                           metadata=metadata)
         else:
@@ -1024,7 +1034,9 @@ class Signal:
         """
         return Signal(self.name,
                       signal.filtfilt(b, a, self.samples),
-                      self.__preferences,
+                      analysis_resolution=self.__analysis_resolution,
+                      avg_window=self.__avg_window,
+                      peak_window=self.__peak_window,
                       fs=self.fs,
                       metadata=self.metadata)
 
@@ -1036,7 +1048,43 @@ class Signal:
         '''
         return Signal(self.name,
                       signal.sosfilt(sos, self.samples),
-                      self.__preferences,
+                      analysis_resolution=self.__analysis_resolution,
+                      avg_window=self.__avg_window,
+                      peak_window=self.__peak_window,
+                      fs=self.fs,
+                      metadata=self.metadata)
+
+    def invert(self):
+        '''
+        Inverts the signal
+        :return: the inverted signal
+        '''
+        return Signal(self.name,
+                      self.samples * -1,
+                      analysis_resolution=self.__analysis_resolution,
+                      avg_window=self.__avg_window,
+                      peak_window=self.__peak_window,
+                      fs=self.fs,
+                      metadata=self.metadata)
+
+    def shift(self, samples: int):
+        '''
+        shifts the signal by the specified no of samples while retaining signal length.
+        :param samples: no of samples to shift, negative means left shift (i.e. play earlier), positive means right
+        shift (i.e. play later).
+        :return: the shifted signal.
+        '''
+        if samples == 0:
+            new_samples = self.samples
+        elif samples < 0:
+            new_samples = np.append(self.samples, np.zeros(samples))[samples:]
+        else:
+            new_samples = np.insert(self.samples, 0, np.zeros(samples))[:-samples]
+        return Signal(self.name,
+                      new_samples,
+                      analysis_resolution=self.__analysis_resolution,
+                      avg_window=self.__avg_window,
+                      peak_window=self.__peak_window,
                       fs=self.fs,
                       metadata=self.metadata)
 
@@ -1048,7 +1096,9 @@ class Signal:
         '''
         return Signal(self.name,
                       self.samples * gain,
-                      self.__preferences,
+                      analysis_resolution=self.__analysis_resolution,
+                      avg_window=self.__avg_window,
+                      peak_window=self.__peak_window,
                       fs=self.fs,
                       metadata=self.metadata)
 
@@ -1072,7 +1122,37 @@ class Signal:
         '''
         return Signal(self.name,
                       np.clip(self.samples, amin, amax),
-                      self.__preferences,
+                      analysis_resolution=self.__analysis_resolution,
+                      avg_window=self.__avg_window,
+                      peak_window=self.__peak_window,
+                      fs=self.fs,
+                      metadata=self.metadata)
+
+    def add(self, samples):
+        '''
+        Adds the provided samples to this signal. Ensures the signals have the same shape is left to the caller.
+        :param samples: the samples
+        :return: a new signal.
+        '''
+        return Signal(self.name,
+                      self.samples + samples,
+                      analysis_resolution=self.__analysis_resolution,
+                      avg_window=self.__avg_window,
+                      peak_window=self.__peak_window,
+                      fs=self.fs,
+                      metadata=self.metadata)
+
+    def subtract(self, samples):
+        '''
+        Subtracts the provided samples from this signal. Ensures the signals have the same shape is left to the caller.
+        :param samples: the samples
+        :return: a new signal.
+        '''
+        return Signal(self.name,
+                      self.samples - samples,
+                      analysis_resolution=self.__analysis_resolution,
+                      avg_window=self.__avg_window,
+                      peak_window=self.__peak_window,
                       fs=self.fs,
                       metadata=self.metadata)
 
@@ -1086,7 +1166,9 @@ class Signal:
             start = time.time()
             resampled = Signal(self.name,
                                resampy.resample(self.samples, self.fs, new_fs, filter=self.load_resampy_filter()),
-                               self.__preferences,
+                               analysis_resolution=self.__analysis_resolution,
+                               avg_window=self.__avg_window,
+                               peak_window=self.__peak_window,
                                fs=new_fs,
                                metadata=self.metadata)
             end = time.time()
@@ -1112,21 +1194,42 @@ class Signal:
         else:
             return 'kaiser_fast'
 
+    def calculate_average(self):
+        '''
+        caches the avg spectrum if we have no data.
+        '''
+        if self.__avg is None:
+            resolution_shift = int(math.log(self.__analysis_resolution, 2))
+            avg_wnd = self.__get_window(self.__avg_window)
+            logger.debug(f"Analysing {self.name} at {self.__analysis_resolution} Hz resolution using {avg_wnd if avg_wnd else 'Default'} avg windows")
+            self.__avg = self.avg_spectrum(resolution_shift=resolution_shift, window=avg_wnd, average='mean')
+
+    def calculate_peak(self):
+        '''
+        caches the peak spectrum if we have no data.
+        '''
+        if self.__peak is None:
+            resolution_shift = int(math.log(self.__analysis_resolution, 2))
+            peak_wnd = self.__get_window(self.__peak_window)
+            logger.debug(f"Analysing {self.name} at {self.__analysis_resolution} Hz resolution using {peak_wnd if peak_wnd else 'Default'} peak windows")
+            self.__peak = self.peak_spectrum(resolution_shift=resolution_shift, window=peak_wnd)
+
+    def calculate_median(self):
+        '''
+        caches the median spectrum if we have no data.
+        '''
+        if self.__median is None:
+            resolution_shift = int(math.log(self.__analysis_resolution, 2))
+            avg_wnd = self.__get_window(self.__avg_window)
+            self.__median = self.avg_spectrum(resolution_shift=resolution_shift, window=avg_wnd, average='median')
+
     def calculate_peak_average(self):
         '''
         caches the peak, avg and median spectrum if we have no data.
         '''
-        if self.__avg is None or self.__peak is None or self.__median is None:
-            from model.preferences import ANALYSIS_RESOLUTION, ANALYSIS_PEAK_WINDOW, ANALYSIS_AVG_WINDOW
-            resolution = self.__preferences.get(ANALYSIS_RESOLUTION)
-            resolution_shift = int(math.log(resolution, 2))
-            peak_wnd = self.__get_window(self.__preferences, ANALYSIS_PEAK_WINDOW)
-            avg_wnd = self.__get_window(self.__preferences, ANALYSIS_AVG_WINDOW)
-            logger.debug(
-                f"Analysing {self.name} at {resolution} Hz resolution using {peak_wnd if peak_wnd else 'Default'}/{avg_wnd if avg_wnd else 'Default'} peak/avg windows")
-            self.__avg = self.avg_spectrum(resolution_shift=resolution_shift, window=avg_wnd, average='mean')
-            self.__median = self.avg_spectrum(resolution_shift=resolution_shift, window=avg_wnd, average='median')
-            self.__peak = self.peak_spectrum(resolution_shift=resolution_shift, window=peak_wnd)
+        self.calculate_average()
+        self.calculate_peak()
+        self.calculate_median()
 
     def __slice_into_large_signal_segments(self):
         '''
@@ -1140,15 +1243,18 @@ class Signal:
         else:
             return [self.samples]
 
-    def __get_window(self, preferences, key):
+    @staticmethod
+    def __get_window(window):
         from model.preferences import ANALYSIS_WINDOW_DEFAULT
-        window = preferences.get(key)
         if window is None or window == ANALYSIS_WINDOW_DEFAULT:
             window = None
         else:
             if window == 'tukey':
                 window = (window, 0.25)
         return window
+
+    def __repr__(self):
+        return f"Signal {self.name} {{fs: {self.fs}, len: {len(self.samples)}}}"
 
 
 def amplitude_to_db(s, ref=1.0):
@@ -1231,7 +1337,7 @@ class SignalTableModel(QAbstractTableModel):
             return True
         return super().setData(idx, value, role=role)
 
-    def data(self, index: QModelIndex, role: int = ...) -> typing.Any:
+    def data(self, index: QModelIndex, role: int = ...) -> Any:
         if not index.isValid():
             return QVariant()
         elif role != Qt.DisplayRole:
@@ -1256,7 +1362,7 @@ class SignalTableModel(QAbstractTableModel):
             else:
                 return QVariant()
 
-    def headerData(self, section: int, orientation: Qt.Orientation, role: int = ...) -> typing.Any:
+    def headerData(self, section: int, orientation: Qt.Orientation, role: int = ...) -> Any:
         if orientation == Qt.Horizontal and role == Qt.DisplayRole:
             return QVariant(self.__headers[section])
         return QVariant()
@@ -2000,7 +2106,7 @@ class MergeSignalDialog(QDialog, Ui_MergeSignalDialog):
         self.__signal_model = signal_model
         single_signals = {s.name: s for s in self.__signal_model.non_bm_signals if s.signal is not None}
         bm_signals = {c.name: c for bm in [bm.channels for bm in self.__signal_model.bass_managed_signals] for c in bm}
-        self.__signals: typing.Dict[str, SingleChannelSignalData] = {**single_signals, **bm_signals}
+        self.__signals: Dict[str, SingleChannelSignalData] = {**single_signals, **bm_signals}
         for s in self.__signals.keys():
             self.signals.addItem(s)
         self.__validate()
@@ -2016,7 +2122,7 @@ class MergeSignalDialog(QDialog, Ui_MergeSignalDialog):
         self.__validate()
 
     def accept(self):
-        selected_signals: typing.List[Signal] = [self.__signals[s.text()].signal for s in self.signals.selectedItems()]
+        selected_signals: List[Signal] = [self.__signals[s.text()].signal for s in self.signals.selectedItems()]
         logger.debug(f"Merging {','.join([s.name for s in selected_signals])}")
         samples = np.concatenate([s.samples for s in selected_signals])
         suffix = f"{len([s.name for s in self.__signal_model.non_bm_signals if s.name.startswith('merged')]) + 1}"

@@ -9,7 +9,7 @@ from qtpy.QtCore import QThreadPool, QDateTime, Qt, QRunnable, QObject, Signal
 from qtpy.QtGui import QGuiApplication
 from qtpy.QtWidgets import QDialog, QDialogButtonBox, QMessageBox, QFileDialog, QListWidgetItem
 
-from model.jriver import JRIVER_CHANNELS, JRiverParser
+from model import JRIVER_CHANNELS
 from model.minidsp import logger, RepoRefresher, get_repo_subdir, get_commit_url, TwoByFourXmlParser, HDXmlParser, \
     xml_to_filt
 from model.preferences import BEQ_CONFIG_FILE, BEQ_MERGE_DIR, BEQ_MINIDSP_TYPE, BEQ_DOWNLOAD_DIR, BEQ_EXTRA_DIR, \
@@ -550,8 +550,10 @@ class XmlProcessor(QRunnable):
         if DspType.MONOPRICE_HTP1 == self.__dsp_type:
             self.__parser = HTP1Parser(selected_channels)
         elif DspType.JRIVER_PEQ1 == self.__dsp_type:
+            from model.jriver import JRiverParser
             self.__parser = JRiverParser(1, selected_channels)
         elif DspType.JRIVER_PEQ2 == self.__dsp_type:
+            from model.jriver import JRiverParser
             self.__parser = JRiverParser(2, selected_channels)
         elif DspType.MINIDSP_TWO_BY_FOUR == self.__dsp_type:
             self.__parser = TwoByFourXmlParser(self.__dsp_type, self.__optimise_filters)

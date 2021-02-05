@@ -1,8 +1,8 @@
 import logging
 
-from PyQt5.QtGui import QRegExpValidator
-from qtpy.QtCore import QEvent, Qt, QRegExp
-from qtpy.QtWidgets import QItemDelegate, QStyledItemDelegate, QLineEdit
+from qtpy.QtGui import QRegExpValidator, QPainter
+from qtpy.QtCore import QEvent, Qt, QRegExp, QModelIndex
+from qtpy.QtWidgets import QItemDelegate, QStyledItemDelegate, QLineEdit, QStyleOptionViewItem
 
 logger = logging.getLogger('delegates')
 
@@ -16,8 +16,8 @@ class CheckBoxDelegate(QItemDelegate):
     YOU MUST ONLY CREATE ONE OF THESE PER VIEW OTHERWISE Qt CRASHES
     """
 
-    def __init__(self):
-        QItemDelegate.__init__(self)
+    def __init__(self, *args, **kwargs):
+        super(CheckBoxDelegate, self).__init__(*args, **kwargs)
 
     def createEditor(self, parent, option, index):
         """
@@ -25,7 +25,7 @@ class CheckBoxDelegate(QItemDelegate):
         """
         return None
 
-    def paint(self, painter, option, index):
+    def paint(self, painter: QPainter, option: QStyleOptionViewItem, index: QModelIndex):
         """
         Paint a checkbox without the label.
         """
@@ -34,6 +34,7 @@ class CheckBoxDelegate(QItemDelegate):
             logger.error(f"No data found at {index.row()}, {index.column()}")
             data = 0
         self.drawCheck(painter, option, option.rect, Qt.Unchecked if int(data) == 0 else Qt.Checked)
+        self.drawFocus(painter, option, option.rect)
 
     def editorEvent(self, event, model, option, index):
         '''

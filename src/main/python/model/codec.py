@@ -193,9 +193,9 @@ def filter_from_json(o):
     elif o['_type'] == HighShelf.__name__:
         filt = HighShelf(o['fs'], o['fc'], o['q'], o['gain'], o['count'])
     elif o['_type'] == FirstOrder_LowPass.__name__:
-        filt = FirstOrder_LowPass(o['fs'], o['fc'], o['q'])
+        filt = FirstOrder_LowPass(o['fs'], o['fc'])
     elif o['_type'] == FirstOrder_HighPass.__name__:
-        filt = FirstOrder_HighPass(o['fs'], o['fc'], o['q'])
+        filt = FirstOrder_HighPass(o['fs'], o['fc'])
     elif o['_type'] == SecondOrder_LowPass.__name__:
         filt = SecondOrder_LowPass(o['fs'], o['fc'], o['q'])
     elif o['_type'] == SecondOrder_HighPass.__name__:

@@ -1,14 +1,14 @@
 import json
 import logging
-from typing import Optional, Type, Tuple, Any, List
 from collections import defaultdict
 from collections.abc import Sequence
+from typing import Optional, Type, Tuple, Any, List
 from uuid import uuid4
 
 import math
 import qtawesome as qta
 from qtpy import QtCore
-from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt
+from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt, QTimer
 from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox, QHeaderView, QTableView, QWidget
 
@@ -19,8 +19,8 @@ from model.limits import dBRangeCalculator, PhaseRangeCalculator
 from model.magnitude import MagnitudeModel
 from model.preferences import SHOW_ALL_FILTERS, SHOW_NO_FILTERS, FILTER_COLOURS, DISPLAY_SHOW_FILTERS, DISPLAY_Q_STEP, \
     DISPLAY_GAIN_STEP, DISPLAY_S_STEP, DISPLAY_FREQ_STEP, get_filter_colour, FILTERS_DEFAULT_Q, FILTERS_DEFAULT_FREQ, \
-    FILTERS_GEOMETRY, FILTERS_DEFAULT_HS_FREQ, FILTERS_DEFAULT_HS_Q, FILTERS_DEFAULT_PEAK_FREQ, FILTERS_DEFAULT_PEAK_Q, \
-    FILTERS_GEOMETRY_SMALL
+    FILTERS_GEOMETRY, FILTERS_DEFAULT_HS_FREQ, FILTERS_DEFAULT_HS_Q, FILTERS_DEFAULT_PEAK_FREQ, FILTERS_DEFAULT_PEAK_Q
+from model.xy import MagnitudeData, ComplexData
 from ui.filter import Ui_editFilterDialog
 
 logger = logging.getLogger('filter')
@@ -165,7 +165,7 @@ class FilterModel(Sequence):
         '''
         return self.filter.resample(fs)
 
-    def get_transfer_function(self, fs=None):
+    def get_transfer_function(self, fs=None) -> Optional[ComplexData]:
         '''
         :return: the transfer function for this filter (in total) if we have any filters or None if we have none.
         '''
@@ -248,10 +248,13 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
     def __init__(self, preferences, signal, filter_model: FilterModel, redraw_main, selected_filter=None, parent=None,
                  valid_filter_types=None, small=False, max_filters: Optional[int] = None, **kwargs):
         self.__preferences = preferences
+        self.__allow_variable_q_pass_filter = kwargs.pop('allow_var_q_pass', False)
         self.__small_mode = small
         self.__max_filters = max_filters
         super(FilterDialog, self).__init__(parent) if parent is not None else super(FilterDialog, self).__init__()
         self.__redraw_main = redraw_main
+        self.__mag_update_timer = QTimer(self)
+        self.__mag_update_timer.setSingleShot(True)
         # for shelf filter, allow input via Q or S not both
         self.__q_is_active = True
         # allow user to control the steps for different fields, default to reasonably quick moving values
@@ -261,6 +264,13 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.__freq_step_idx = self.__get_step(self.freq_steps, self.__preferences.get(DISPLAY_FREQ_STEP), 2)
         # init the UI itself
         self.setupUi(self)
+        custom_window_title = kwargs.pop('window_title', None)
+        if custom_window_title:
+            self.setWindowTitle(custom_window_title)
+        from model.report import block_signals
+        with block_signals(self.passFilterType):
+            for filter_type in FilterType:
+                self.passFilterType.addItem(filter_type.display_name)
         self.__add_snapshot_buttons = [self.addSnapshotRowButton, self.pasteSnapshotRowButton, self.importSnapshotButton]
         self.__add_working_buttons = [self.addWorkingRowButton, self.pasteWorkingRowButton, self.importWorkingButton]
         self.__snapshot = FilterModel(self.snapshotFilterView, self.__preferences, on_update=self.__on_snapshot_change)
@@ -306,6 +316,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
                                                     db_range_calc=dBRangeCalculator(30, expand=True),
                                                     y2_range_calc=PhaseRangeCalculator(), show_y2_in_legend=False,
                                                     **kwargs)
+            self.__mag_update_timer.timeout.connect(self.__magnitude_model.redraw)
         else:
             self.previewChart.setVisible(False)
             self.fullRangeButton.setVisible(False)
@@ -362,13 +373,17 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.snapshotFilterView.setVisible(len(self.__snapshot) > 0)
         self.snapshotViewButtonWidget.setVisible(len(self.__snapshot) > 0)
         if self.__magnitude_model is not None:
-            self.__magnitude_model.redraw()
+            self.__trigger_redraw()
         return True
+
+    def __trigger_redraw(self):
+        if not self.__mag_update_timer.isActive():
+            self.__mag_update_timer.start(100)
 
     def __on_working_change(self, visible_names):
         ''' ensure the graph redraws when a filter changes. '''
         if self.__magnitude_model is not None:
-            self.__magnitude_model.redraw()
+            self.__trigger_redraw()
         return True
 
     def __decorate_ui(self):
@@ -490,6 +505,8 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
                           self.__add_snapshot_buttons)
 
     def __add_filter(self, new_filter, filter_model: FilterModel, filter_view: QTableView, buttons: List[QWidget] = None):
+        if filter_model.filter.sort_by_id:
+            new_filter.id = max((f.id for f in filter_model.filter), default=-1) + 1
         filter_model.save(new_filter)
         for idx, f in enumerate(filter_model):
             if f.id == new_filter.id:
@@ -562,6 +579,13 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
     def __import_snapshot_filters(self):
         self.__import_filters(self.__snapshot, self.snapshotFilterView)
 
+    @staticmethod
+    def __create_filter_id(active_model: FilterModel):
+        if active_model.filter.sort_by_id:
+            return len(active_model.filter)
+        else:
+            return uuid4()
+
     def __import_filters(self, filter_model: FilterModel, filter_view: QTableView):
         selected = QFileDialog.getOpenFileName(parent=self, caption='Import REW Filters', filter='Filter (*.txt)')
         if selected and selected[0]:
@@ -573,11 +597,14 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
                     if len(tokens) > 4 and tokens[0] == 'Filter' and tokens[2] == 'ON':
                         filt = None
                         if tokens[3] == 'PK':
-                            filt = PeakingEQ(self.__signal.fs, float(tokens[5]), float(tokens[11]), float(tokens[8]), f_id=uuid4())
+                            filt = PeakingEQ(self.__signal.fs, float(tokens[5]), float(tokens[11]), float(tokens[8]),
+                                             f_id=uuid4())
                         elif tokens[3] == 'LSQ':
-                            filt = LowShelf(self.__signal.fs, float(tokens[5]), float(tokens[11]), float(tokens[8]), f_id=uuid4())
+                            filt = LowShelf(self.__signal.fs, float(tokens[5]), float(tokens[11]), float(tokens[8]),
+                                            f_id=uuid4())
                         elif tokens[3] == 'HSQ':
-                            filt = HighShelf(self.__signal.fs, float(tokens[5]), float(tokens[11]), float(tokens[8]), f_id=uuid4())
+                            filt = HighShelf(self.__signal.fs, float(tokens[5]), float(tokens[11]), float(tokens[8]),
+                                             f_id=uuid4())
                         else:
                             discarded[tokens[3]].append(tokens[1][:-1])
                         if filt:
@@ -685,6 +712,9 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         if hasattr(selected_filter, 'q'):
             with block_signals(self.filterQ):
                 self.filterQ.setValue(selected_filter.q)
+        if hasattr(selected_filter, 'q_scale'):
+            with block_signals(self.filterQ):
+                self.filterQ.setValue(selected_filter.q_scale)
         if hasattr(selected_filter, 'freq'):
             with block_signals(self.freq):
                 self.freq.setValue(selected_filter.freq)
@@ -692,9 +722,8 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
             with block_signals(self.filterOrder):
                 self.filterOrder.setValue(selected_filter.order)
         if hasattr(selected_filter, 'type'):
-            displayName = 'Butterworth' if selected_filter.type is FilterType.BUTTERWORTH else 'Linkwitz-Riley'
             with block_signals(self.passFilterType):
-                self.passFilterType.setCurrentIndex(self.passFilterType.findText(displayName))
+                self.passFilterType.setCurrentIndex(self.passFilterType.findText(selected_filter.type.display_name))
         if hasattr(selected_filter, 'count') and issubclass(type(selected_filter), Shelf):
             with block_signals(self.filterCount):
                 self.filterCount.setValue(selected_filter.count)
@@ -778,8 +807,11 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
             for f in active_model:
                 if self.showIndividual.isChecked() or f.id == self.__selected_id:
                     style = '--' if f.id == self.__selected_id else ':'
-                    result.append(f.get_transfer_function()
-                                   .get_data(mode=mode, colour=get_filter_colour(len(result) + extra), linestyle=style))
+                    col = get_filter_colour(len(result) + extra)
+                    data: MagnitudeData = f.get_transfer_function().get_data(mode=mode, colour=col, linestyle=style)
+                    if active_model.filter.sort_by_id is True:
+                        data.override_name(f"{f.id + 1}")
+                    result.append(data)
         return result
 
     def create_shaping_filter(self):
@@ -819,12 +851,15 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         Creates a predefined high or low pass filter.
         :return: the filter.
         '''
+        q_scale = 1.0
+        if self.filterQ.isVisible():
+            q_scale = self.filterQ.value()
         if self.filterType.currentText() == 'Low Pass':
-            filt = ComplexLowPass(FilterType[self.passFilterType.currentText().upper().replace('-', '_')],
-                                  self.filterOrder.value(), self.__signal.fs, self.freq.value())
+            filt = ComplexLowPass(FilterType.value_of(self.passFilterType.currentText()), self.filterOrder.value(),
+                                  self.__signal.fs, self.freq.value(), q_scale=q_scale)
         else:
-            filt = ComplexHighPass(FilterType[self.passFilterType.currentText().upper().replace('-', '_')],
-                                   self.filterOrder.value(), self.__signal.fs, self.freq.value())
+            filt = ComplexHighPass(FilterType.value_of(self.passFilterType.currentText()), self.filterOrder.value(),
+                                   self.__signal.fs, self.freq.value(), q_scale=q_scale)
         filt.id = self.__selected_id
         return filt
 
@@ -863,8 +898,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
             self.passFilterType.setVisible(True)
             self.filterOrder.setVisible(True)
             self.orderLabel.setVisible(True)
-            self.filterQ.setVisible(False)
-            self.filterQLabel.setVisible(False)
+            self.__show_q_for_pass_filter()
             self.qStepButton.setVisible(False)
             self.filterGain.setVisible(False)
             self.gainStepButton.setVisible(False)
@@ -927,14 +961,20 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         '''
         Sets the order step based on the type of high/low pass filter to ensure that LR only allows even orders.
         '''
-        if self.passFilterType.currentText() == 'Butterworth':
-            self.filterOrder.setSingleStep(1)
-            self.filterOrder.setMinimum(1)
-        elif self.passFilterType.currentText() == 'Linkwitz-Riley':
+        self.__show_q_for_pass_filter()
+        if self.passFilterType.currentText() == FilterType.LINKWITZ_RILEY.display_name:
             if self.filterOrder.value() % 2 != 0:
                 self.filterOrder.setValue(max(2, self.filterOrder.value() - 1))
             self.filterOrder.setSingleStep(2)
             self.filterOrder.setMinimum(2)
+        else:
+            self.filterOrder.setSingleStep(1)
+            self.filterOrder.setMinimum(1)
+
+    def __show_q_for_pass_filter(self):
+        visible = self.__allow_variable_q_pass_filter and self.passFilterType.currentText() == FilterType.BUTTERWORTH.display_name
+        self.filterQ.setVisible(visible)
+        self.filterQLabel.setVisible(visible)
 
     def __is_gain_required(self):
         return self.filterType.currentText() in self.gain_required
