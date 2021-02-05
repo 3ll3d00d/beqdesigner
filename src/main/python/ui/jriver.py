@@ -60,6 +60,9 @@ class Ui_jriverDspDialog(object):
         self.blockSelector.addItem("")
         self.blockSelector.addItem("")
         self.configLayout.addWidget(self.blockSelector)
+        self.showGraphButton = QtWidgets.QToolButton(jriverDspDialog)
+        self.showGraphButton.setObjectName("showGraphButton")
+        self.configLayout.addWidget(self.showGraphButton)
         self.configLayout.setStretch(1, 4)
         self.configLayout.setStretch(3, 2)
         self.mainLayout.addLayout(self.configLayout)
@@ -107,4 +110,5 @@ class Ui_jriverDspDialog(object):
         self.findFilenameButton.setText(_translate("jriverDspDialog", "..."))
         self.blockSelector.setItemText(0, _translate("jriverDspDialog", "Parametric Equaliser 1"))
         self.blockSelector.setItemText(1, _translate("jriverDspDialog", "Parametric Equaliser 2"))
+        self.showGraphButton.setText(_translate("jriverDspDialog", "..."))
 from mpl import MplWidget

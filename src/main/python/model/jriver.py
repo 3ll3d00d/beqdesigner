@@ -16,40 +16,39 @@ from model.magnitude import MagnitudeModel
 from model.preferences import BEQ_CONFIG_FILE, JRIVER_GEOMETRY, get_filter_colour, JRIVER_GRAPH_X_MIN, \
     JRIVER_GRAPH_X_MAX
 from ui.jriver import Ui_jriverDspDialog
+from ui.pipeline import Ui_jriverGraphDialog
 
-JRIVER_NAMED_CHANNELS = ['Left', 'Right', 'Centre', 'Subwoofer', 'Surround Left', 'Surround Right', 'Rear Left',
-                         'Rear Right']
-JRIVER_NUMBERED_CHANNELS = [str(i + 9) for i in range(24)]
-JRIVER_CHANNELS = JRIVER_NAMED_CHANNELS + JRIVER_NUMBERED_CHANNELS
+USER_CHANNELS = ['User 1', 'User 2']
+SHORT_USER_CHANNELS = ['U1', 'U2']
+JRIVER_NAMED_CHANNELS = [None, None, 'Left', 'Right', 'Centre', 'Subwoofer', 'Surround Left', 'Surround Right',
+                         'Rear Left', 'Rear Right', None] + USER_CHANNELS
+JRIVER_SHORT_NAMED_CHANNELS = [None, None, 'L', 'R', 'C', 'SW', 'SL', 'SR', 'RL', 'RR', None] + SHORT_USER_CHANNELS
+JRIVER_CHANNELS = JRIVER_NAMED_CHANNELS + [f"Channel {i + 9}" for i in range(24)]
+JRIVER_SHORT_CHANNELS = JRIVER_SHORT_NAMED_CHANNELS + [f"#{i + 9}" for i in range(24)]
 
 logger = logging.getLogger('jriver')
 
 
-def get_channel_name(idx: int) -> str:
+def get_channel_name(idx: int, short: bool = False) -> str:
     '''
     Converts a channel index to a named channel.
     :param idx: the index.
+    :param short: get the short name if true.
     :return: the name.
     '''
-    if idx < 2:
-        raise ValueError(f"Unknown channel idx {idx}")
-    idx -= 2
-    if idx < len(JRIVER_NAMED_CHANNELS):
-        return JRIVER_NAMED_CHANNELS[idx]
-    return JRIVER_NUMBERED_CHANNELS[idx - 4 + len(JRIVER_NAMED_CHANNELS)]
+    channels = JRIVER_SHORT_CHANNELS if short else JRIVER_CHANNELS
+    return channels[idx]
 
 
-def get_channel_idx(name: str) -> int:
+def get_channel_idx(name: str, short: bool = False) -> int:
     '''
     Converts a channel name to an index.
     :param name the name.
+    :param short: search via short name if true.
     :return: the index.
     '''
-    if name in JRIVER_NAMED_CHANNELS:
-        return JRIVER_NAMED_CHANNELS.index(name) + 2
-    if name in JRIVER_NUMBERED_CHANNELS:
-        return int(name) + 4
-    raise ValueError(f"Unknown channel name {name}")
+    channels = JRIVER_SHORT_CHANNELS if short else JRIVER_CHANNELS
+    return channels.index(name)
 
 
 class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
@@ -72,6 +71,14 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
                                                 db_range_calc=dBRangeCalculator(30, expand=True),
                                                 y2_range_calc=PhaseRangeCalculator(), show_y2_in_legend=False)
         self.__restore_geometry()
+        self.showGraphButton.clicked.connect(self.__show_graph)
+
+    def __show_graph(self):
+        if self.__dsp is not None:
+            peq_idx = self.blockSelector.currentIndex()
+            in_c = self.__dsp.channel_names(short=True, output=False)
+            out_c = self.__dsp.channel_names(short=True, output=True)
+            JRiverFilterPipelineDialog(self.parent(), in_c, out_c, self.__dsp.peq(peq_idx)).exec()
 
     def redraw(self):
         self.__magnitude_model.redraw()
@@ -95,8 +102,8 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
             try:
                 self.channelList.clear()
                 self.__dsp = JRiverDSP(selected[0])
-                for i in range(self.__dsp.channel_count):
-                    self.channelList.addItem(self.__dsp.channel_name(i))
+                for n in self.__dsp.channel_names():
+                    self.channelList.addItem(n)
                 self.filename.setText(selected[0])
                 self.initialise_channel_filters()
                 self.show_filters()
@@ -110,8 +117,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         '''
         Creates and wires up the per channel filter display.
         '''
-        for i in range(self.__dsp.channel_count):
-            channel_name = self.__dsp.channel_name(i)
+        for channel_name in self.__dsp.channel_names():
             channel_idx = get_channel_idx(channel_name)
             if channel_name not in self.__channel_controls:
                 limits = self.__magnitude_model.limits
@@ -182,15 +188,18 @@ class JRiverDSP:
     def __init__(self, filename):
         self.__filename = filename
         config_txt = Path(self.__filename).read_text()
-        self.__channels = JRIVER_CHANNELS[:get_available_channels(config_txt)]
+        i, o = get_available_channels(config_txt)
+        self.__input_channel_indexes = i
+        self.__output_channel_indexes = o
         self.__peqs: List[List[Filter]] = [self.__parse_peq(config_txt, 1), self.__parse_peq(config_txt, 2)]
 
-    @property
-    def channel_count(self):
-        return len(self.__channels)
+    def channel_names(self, short=False, output=False):
+        idxs = self.__output_channel_indexes if output else self.__input_channel_indexes
+        return [get_channel_name(i, short=short) for i in idxs]
 
-    def channel_name(self, i):
-        return self.__channels[i]
+    @staticmethod
+    def channel_name(i):
+        return get_channel_name(i)
 
     def peq(self, idx):
         return self.__peqs[idx]
@@ -222,8 +231,9 @@ class JRiverDSP:
 
 class Filter:
 
-    def __init__(self, vals):
+    def __init__(self, vals, short_name):
         self.__vals = vals
+        self.__short_name = short_name
         self.__enabled = vals['Enabled'] == '1'
         self.__type_code = vals['Type']
 
@@ -251,11 +261,18 @@ class Filter:
     def print_disabled(self):
         return '' if self.enabled else f" *** DISABLED ***"
 
+    @property
+    def short_name(self):
+        return self.__short_name
+
+    def is_mine(self, idx):
+        return True
+
 
 class ChannelFilter(Filter):
 
-    def __init__(self, vals):
-        super().__init__(vals)
+    def __init__(self, vals, short_name):
+        super().__init__(vals, short_name)
         self.__channels = [int(c) for c in vals['Channels'].split(';')]
         self.__channel_names = [get_channel_name(i) for i in self.__channels]
 
@@ -289,11 +306,14 @@ class ChannelFilter(Filter):
         vals['Channels'] = str(idx)
         return type(self)(vals)
 
+    def is_mine(self, idx):
+        return idx in self.channels
+
 
 class GainQFilter(ChannelFilter):
 
-    def __init__(self, vals, create_iir):
-        super().__init__(vals)
+    def __init__(self, vals, create_iir, short_name):
+        super().__init__(vals, short_name)
         self.__create_iir = create_iir
         self.__gain = float(vals['Gain'])
         self.__frequency = float(vals['Frequency'])
@@ -324,13 +344,13 @@ class GainQFilter(ChannelFilter):
 class Peak(GainQFilter):
 
     def __init__(self, vals):
-        super().__init__(vals, iir.PeakingEQ)
+        super().__init__(vals, iir.PeakingEQ, 'Peak')
 
 
 class LowShelf(GainQFilter):
 
     def __init__(self, vals):
-        super().__init__(vals, iir.LowShelf)
+        super().__init__(vals, iir.LowShelf, 'LS')
 
     def from_jriver_q(self, q: float, gain: float):
         return s_to_q(q, gain)
@@ -342,7 +362,7 @@ class LowShelf(GainQFilter):
 class HighShelf(GainQFilter):
 
     def __init__(self, vals):
-        super().__init__(vals, iir.HighShelf)
+        super().__init__(vals, iir.HighShelf, 'HS')
 
     def from_jriver_q(self, q: float, gain: float):
         return s_to_q(q, gain)
@@ -354,7 +374,7 @@ class HighShelf(GainQFilter):
 class LowPass(GainQFilter):
 
     def __init__(self, vals):
-        super().__init__(vals, iir.SecondOrder_LowPass)
+        super().__init__(vals, iir.SecondOrder_LowPass, 'LPF')
 
     def from_jriver_q(self, q: float, gain: float):
         return q / 2**0.5
@@ -366,7 +386,7 @@ class LowPass(GainQFilter):
 class HighPass(GainQFilter):
 
     def __init__(self, vals):
-        super().__init__(vals, iir.SecondOrder_HighPass)
+        super().__init__(vals, iir.SecondOrder_HighPass, 'HPF')
 
     def from_jriver_q(self, q: float, gain: float):
         return q / 2**0.5
@@ -378,7 +398,7 @@ class HighPass(GainQFilter):
 class Gain(ChannelFilter):
 
     def __init__(self, vals):
-        super().__init__(vals)
+        super().__init__(vals, 'GAIN')
         self.__gain = float(vals['Gain'])
 
     def get_vals(self) -> Dict[str, str]:
@@ -397,7 +417,7 @@ class Gain(ChannelFilter):
 class BitdepthSimulator(Filter):
 
     def __init__(self, vals):
-        super().__init__(vals)
+        super().__init__(vals, 'BITDEPTH')
         self.__bits = int(vals['Bits'])
         self.__dither = vals['Dither']
 
@@ -414,7 +434,7 @@ class BitdepthSimulator(Filter):
 class Delay(ChannelFilter):
 
     def __init__(self, vals):
-        super().__init__(vals)
+        super().__init__(vals, 'DELAY')
         self.__delay = float(vals['Delay'])
 
     def get_vals(self) -> Dict[str, str]:
@@ -430,7 +450,7 @@ class Delay(ChannelFilter):
 class Divider(Filter):
 
     def __init__(self, vals):
-        super().__init__(vals)
+        super().__init__(vals, '---')
         self.__text = vals['Text'] if 'Text' in vals else ''
 
     def get_vals(self) -> Dict[str, str]:
@@ -450,7 +470,7 @@ class LimiterMode(Enum):
 class Limiter(ChannelFilter):
 
     def __init__(self, vals):
-        super().__init__(vals)
+        super().__init__(vals, 'LIMITER')
         self.__hold = vals['Hold']
         self.__mode = vals['Mode']
         self.__level = vals['Level']
@@ -474,7 +494,7 @@ class Limiter(ChannelFilter):
 class LinkwitzTransform(ChannelFilter):
 
     def __init__(self, vals):
-        super().__init__(vals)
+        super().__init__(vals, 'LT')
         self.__fp = float(vals['Fp'])
         self.__qp = float(vals['Qp'])
         self.__fz = float(vals['Fz'])
@@ -498,7 +518,7 @@ class LinkwitzTransform(ChannelFilter):
 class LinkwitzRiley(Filter):
 
     def __init__(self, vals):
-        super().__init__(vals)
+        super().__init__(vals, 'LR')
         self.__freq = float(vals['Frequency'])
 
     def get_vals(self) -> Dict[str, str]:
@@ -513,7 +533,7 @@ class LinkwitzRiley(Filter):
 class MidSideDecoding(Filter):
 
     def __init__(self, vals):
-        super().__init__(vals)
+        super().__init__(vals, 'MS Decode')
 
     def get_vals(self) -> Dict[str, str]:
         return {}
@@ -525,7 +545,7 @@ class MidSideDecoding(Filter):
 class MidSideEncoding(Filter):
 
     def __init__(self, vals):
-        super().__init__(vals)
+        super().__init__(vals, 'MS Encode')
 
     def get_vals(self) -> Dict[str, str]:
         return {}
@@ -560,14 +580,24 @@ class MixType(Enum):
 class Mix(Filter):
 
     def __init__(self, vals):
-        super().__init__(vals)
+        super().__init__(vals, f"{MixType(int(vals['Mode'])).name.capitalize()}")
         self.__source = vals['Source']
-        self.__source_name = get_channel_name(int(self.__source))
         self.__destination = vals['Destination']
-        self.__destination_name = get_channel_name(int(self.__destination))
         self.__gain = float(vals['Gain'])
         # mode: 3 = swap, 1 = copy, 2 = move, 0 = add, 4 = subtract
         self.__mode = vals['Mode']
+
+    @property
+    def src_idx(self):
+        return int(self.__source)
+
+    @property
+    def dst_idx(self):
+        return int(self.__destination)
+
+    @property
+    def mix_type(self):
+        return MixType(int(self.__mode)).name
 
     def get_vals(self) -> Dict[str, str]:
         return {
@@ -579,13 +609,18 @@ class Mix(Filter):
 
     def __repr__(self):
         mix_type = MixType(int(self.__mode))
-        return f"{mix_type.name.capitalize()} {self.__source_name} {mix_type.modifier} {self.__destination_name} {self.__gain:+.7g} dB{self.print_disabled()}"
+        src_name = get_channel_name(int(self.__source), short=True)
+        dst_name = get_channel_name(int(self.__destination), short=True)
+        return f"{mix_type.name.capitalize()} {src_name} {mix_type.modifier} {dst_name} {self.__gain:+.7g} dB{self.print_disabled()}"
+
+    def is_mine(self, idx):
+        return self.src_idx == idx
 
 
 class Order(Filter):
 
     def __init__(self, vals):
-        super().__init__(vals)
+        super().__init__(vals, 'ORDER')
         self.__order = vals['Order'].split(',')
         self.__named_order = [get_channel_name(int(i)) for i in self.__order]
 
@@ -601,7 +636,7 @@ class Order(Filter):
 class Mute(ChannelFilter):
 
     def __init__(self, vals):
-        super().__init__(vals)
+        super().__init__(vals, 'MUTE')
         self.__gain = float(vals['Gain'])
 
     def get_vals(self) -> Dict[str, str]:
@@ -614,13 +649,13 @@ class Mute(ChannelFilter):
 class Polarity(ChannelFilter):
 
     def __init__(self, vals):
-        super().__init__(vals)
+        super().__init__(vals, 'INVERT')
 
 
 class SubwooferLimiter(ChannelFilter):
 
     def __init__(self, vals):
-        super().__init__(vals)
+        super().__init__(vals, 'SW Limiter')
         self.__level = float(vals['Level'])
 
     def get_vals(self) -> Dict[str, str]:
@@ -733,7 +768,7 @@ class ChannelFilterControl:
 
     def __is_mine(self, filt: Filter):
         if isinstance(filt, ChannelFilter):
-            return self.__channel_idx in filt.channels
+            return filt.is_mine(self.__channel_idx)
         return False
 
     def display(self, idx: int):
@@ -818,16 +853,53 @@ def get_text_value(root, xpath):
         raise ValueError(f"No matches for {xpath}")
 
 
-def get_available_channels(config_txt):
+def get_available_channels(config_txt) -> Tuple[List[int], List[int]]:
     '''
     :param config_txt: the dsp config.
-    :return: the no of channels defined in the output format.
+    :return: the channel indexes in the config file as (input, output).
     '''
     root = et.fromstring(config_txt)
-    output_channels = int(get_text_value(root, xpath_to_key_data_value('Audio Settings', 'Output Channels')))
-    output_padding = int(get_text_value(root, xpath_to_key_data_value('Audio Settings', 'Output Padding Channels')))
-    available_channels = output_channels + output_padding
-    return available_channels
+
+    def xpath_val(key):
+        return get_text_value(root, xpath_to_key_data_value('Audio Settings', key))
+
+    output_channels = int(xpath_val('Output Channels'))
+    padding = int(xpath_val('Output Padding Channels'))
+    layout = int(xpath_val('Output Channel Layout'))
+    user_channel_indexes = [11, 12]
+    if output_channels == 0:
+        # source number of channels so assume 7.1
+        channels = [i + 2 for i in range(8)]
+        return channels, channels + user_channel_indexes
+    elif output_channels == 3:
+        # 2.1
+        return [2, 3, 5], [2, 3, 5] + user_channel_indexes
+    elif output_channels == 4 and layout == 15:
+        # 3.1
+        channels = [i+2 for i in range(4)]
+        return channels, channels + user_channel_indexes
+    elif output_channels == 2 and padding == 2:
+        # 2 in 4 channel container
+        return [2, 3], [i+2 for i in range(4)] + user_channel_indexes
+    elif output_channels == 2 and padding == 4:
+        # 2 in 5.1 channel container
+        return [2, 3], [i+2 for i in range(6)] + user_channel_indexes
+    elif output_channels == 6 and padding == 2:
+        # 5.1 in 7.1 channel container
+        return [i+2 for i in range(6)], [i+2 for i in range(8)] + user_channel_indexes
+    elif output_channels == 4:
+        # 4 channel
+        channels = [i + 2 for i in range(4)]
+        return channels, channels + user_channel_indexes
+    elif output_channels == 6 or output_channels == 8:
+        channels = [i + 2 for i in range(output_channels)]
+        return channels, channels + user_channel_indexes
+    else:
+        excess = output_channels - 8
+        if excess < 1:
+            raise ValueError(f"Illegal combination [ch: {output_channels}, p: {padding}, l: {layout}")
+        numbered = [i + len(JRIVER_SHORT_NAMED_CHANNELS) for i in range(excess + 1)]
+        return [i+2 for i in range(8)] + numbered, [i+2 for i in range(8)] + user_channel_indexes + numbered
 
 
 def write_dsp_file(root, file_name):
@@ -887,16 +959,7 @@ class JRiverParser:
 
     def __init__(self, block=1, channels=('Subwoofer',)):
         self.__block = get_peq_key_name(block)
-        self.__target_channels = ';'.join([str(self.__channel_idx(c)) for c in channels])
-
-    @staticmethod
-    def __channel_idx(c):
-        try:
-            idx = JRIVER_NAMED_CHANNELS.index(c)
-            return idx + 2
-        except ValueError:
-            idx = JRIVER_NUMBERED_CHANNELS.index(c)
-            return idx + 4 + 9
+        self.__target_channels = ';'.join([str(JRIVER_CHANNELS.index(c)) for c in channels])
 
     def convert(self, dst, filt, **kwargs):
         from model.minidsp import flatten_filters
@@ -932,3 +995,221 @@ class JRiverParser:
     @staticmethod
     def newline():
         return '\r\n'
+
+
+class Node:
+
+    def __init__(self, id: str, filt: Optional[Filter], channel: Optional[str] = None):
+        self.id = id
+        self.filt = filt
+        self.channel = channel
+        if self.filt is None and self.channel is None:
+            raise ValueError('Must have either filter or channel')
+        self.edges: List[Node] = []
+
+    def add(self, node):
+        self.edges.append(node)
+
+    def __repr__(self):
+        detail = 'EMPTY'
+        if self.filt:
+            detail = str(self.filt)
+        elif self.channel:
+            detail = self.channel
+        return f"{self.id} - {detail} -> {len(self.edges)} edges"
+
+
+class GraphGenerator:
+
+    def __init__(self, input_channels: List[str], output_channels: List[str], filts: List[Filter]):
+        self.__filts = filts
+        self.__output_channels = output_channels
+        self.__input_channels = input_channels
+
+    def generate(self, vertical: bool, selected_node: str = None) -> str:
+        nodes_by_channel = self.__align_grid(self.__collapse_nodes(self.__link_nodes(self.__init_by_channel_grid())))
+        gz, user_channel_clusters = self.__init_gz(nodes_by_channel, vertical, selected_node=selected_node)
+        # add edges
+        for channel, nodes in nodes_by_channel.items():
+            gz += self.__append_edges(channel, nodes, user_channel_clusters)
+        # calculate and add ranks
+        gz += "\n"
+        gz += self.__append_ranks(nodes_by_channel)
+        gz += "}"
+        return gz
+
+    @staticmethod
+    def __create_record(channels, prefix):
+        return '|'.join([f"<{prefix}{c}> {c}" for c in channels if c not in SHORT_USER_CHANNELS])
+
+    def __init_by_channel_grid(self):
+        # create a channel/filter grid
+        by_channel: Dict[str, List[Node]] = {c: [Node(f"IN:I{c}", None, c)] if c not in SHORT_USER_CHANNELS else [] for
+                                             c in self.__output_channels}
+        i = 0
+        for idx, f in enumerate(self.__filts):
+            if not isinstance(f, Divider):
+                for k, v in by_channel.items():
+                    channel_idx = get_channel_idx(k, short=True)
+                    if f.is_mine(channel_idx):
+                        if isinstance(f, Mix):
+                            dst_channel = by_channel[get_channel_name(f.dst_idx, short=True)]
+                            if len(dst_channel) < 2: # user channel or empty channel
+                                dst_channel.append(Node(f"c{k}_f{i}", f))
+                            v[-1].edges.append(dst_channel[-1])
+                        else:
+                            node = Node(f"c{k}_f{i}", f)
+                            v.append(node)
+                            i += 1
+        # add output nodes
+        for c, nodes in by_channel.items():
+            if c not in SHORT_USER_CHANNELS:
+                nodes.append(Node(f"OUT:O{c}", None, c))
+        return by_channel
+
+    @staticmethod
+    def __append_ranks(nodes_by_channel):
+        gz = ""
+        ranks = []
+        for channel, nodes in nodes_by_channel.items():
+            for i, node in enumerate(nodes):
+                if i <= len(ranks):
+                    ranks.append([])
+                if node.filt:
+                    ranks[i].append(node.id)
+        # for rank in ranks:
+        #     if len(rank) > 0:
+        #         gz += f"  {{rank = same; {'; '.join(rank)}}}"
+        #         gz += "\n"
+        return gz
+
+    @staticmethod
+    def __append_edges(channel, nodes, user_channel_clusters):
+        output = ""
+        for node in nodes:
+            for edge in node.edges:
+                output += f"  {node.id} -> {edge.id}"
+                # if isinstance(edge.filt, Mix) and get_channel_name(edge.filt.src_idx, short=True) == channel:
+                #     gz += f" [label=\"{edge.filt.mix_type}\"]"
+                output += ";"
+                output += "\n"
+        if not nodes and channel not in SHORT_USER_CHANNELS:
+            output += f"  IN:I{channel} -> OUT:O{channel};"
+        if channel in SHORT_USER_CHANNELS:
+            output = user_channel_clusters[channel] + output + "\n  }"
+        output += "\n"
+        return output
+
+    @staticmethod
+    def __create_io_record(name, definition):
+        return f"  {name} [shape=record label=\"{definition}\"];"
+
+    @staticmethod
+    def __create_channel_nodes(channel, nodes, selected_node=None):
+        to_append = ""
+        indent = "    " if channel in SHORT_USER_CHANNELS else "  "
+        for node in nodes:
+            if node.filt:
+                to_append += f"{indent}{node.id} [shape=box label=\"{node.filt.short_name}\""
+                if selected_node and selected_node == node.id:
+                    to_append += " style=filled fillcolor=lightgrey"
+                to_append += "]\n"
+        return to_append
+
+    @staticmethod
+    def __wrap_in_subcluster(name, nodes):
+        output = f"  subgraph cluster_{name} {{"
+        output += "\n"
+        output += nodes
+        output += f"    label = \"{name}\";"
+        return output
+
+    def __init_gz(self, by_channel, vertical, selected_node=None):
+        gz = "digraph G {"
+        gz += "\n"
+        gz += f"  rankdir={'TB' if vertical else 'LR'};"
+        gz += "\n"
+        gz += self.__create_io_record('IN', self.__create_record(self.__input_channels, 'I'))
+        gz += "\n"
+        gz += self.__create_io_record('OUT', self.__create_record(self.__output_channels, 'O'))
+        gz += "\n"
+        user_channel_clusters = {}
+        # add all nodes
+        for c, nodes in by_channel.items():
+            to_append = self.__create_channel_nodes(c, nodes, selected_node=selected_node)
+            if c in SHORT_USER_CHANNELS:
+                user_channel_clusters[c] = self.__wrap_in_subcluster(c, to_append)
+            else:
+                gz += to_append
+        gz += "\n"
+        return gz, user_channel_clusters
+
+    @staticmethod
+    def __link_nodes(by_channel):
+        # link nodes into a chain
+        for c, nodes in by_channel.items():
+            upstream: Optional[Node] = None
+            for node in nodes:
+                if upstream:
+                    upstream.add(node)
+                upstream = node
+        return by_channel
+
+    @staticmethod
+    def __collapse_nodes(by_channel):
+        # TODO collapse contiguous Peak/LS/HS into a composite filter
+        # TODO collapse contiguous Add nodes into a single node
+        return by_channel
+
+    @staticmethod
+    def __align_grid(by_channel):
+        # TODO ensure mix sections are aligned in the grid
+        return by_channel
+
+
+class JRiverFilterPipeline:
+
+    def __init__(self, dsp: JRiverDSP):
+        self.__dsp = dsp
+        self.__in_c = self.__dsp.channel_names(short=True, output=False)
+        self.__out_c = self.__dsp.channel_names(short=True, output=True)
+
+    def as_dot(self, idx, vertical=True, selected_id=None) -> str:
+        generator = GraphGenerator(self.__in_c, self.__out_c, self.__dsp.peq(idx))
+        return generator.generate(vertical, selected_node=selected_id)
+
+    def render(self, dot) -> bytes:
+        from graphviz import Source
+        return Source(dot, format='svg').pipe()
+
+
+class JRiverFilterPipelineDialog(QDialog, Ui_jriverGraphDialog):
+
+    def __init__(self, parent, input_channels: List[str], output_channels: List[str], peq: List[Filter]):
+        super(JRiverFilterPipelineDialog, self).__init__(parent)
+        self.setupUi(self)
+        self.__selected_node = None
+        self.__peq = peq
+        self.__inputs = input_channels
+        self.__outputs = output_channels
+        self.svgView.signal.on_click.connect(self.__on_selected_node)
+        self.__regen()
+        self.direction.toggled.connect(self.__regen)
+        self.source.textChanged.connect(self.__gen_svg)
+
+    def __regen(self):
+        dot = GraphGenerator(self.__inputs, self.__outputs, self.__peq).generate(self.direction.isChecked(),
+                                                                                 selected_node=self.__selected_node)
+        self.source.setPlainText(dot)
+        self.__gen_svg()
+
+    def __gen_svg(self):
+        dot = self.source.toPlainText()
+        from graphviz import Source
+        self.__dot = Source(dot, format='svg')
+        self.__svg = self.__dot.pipe()
+        self.svgView.render_bytes(self.__svg)
+
+    def __on_selected_node(self, node_name: str):
+        self.__selected_node = node_name
+        self.__regen()

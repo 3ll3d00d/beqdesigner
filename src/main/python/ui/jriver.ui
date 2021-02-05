@@ -65,7 +65,7 @@
    <item row="0" column="0" rowspan="2">
     <layout class="QVBoxLayout" name="mainLayout">
      <item>
-      <layout class="QHBoxLayout" name="configLayout" stretch="0,4,0,2">
+      <layout class="QHBoxLayout" name="configLayout" stretch="0,4,0,2,0">
        <item>
         <widget class="QLabel" name="filenameLabel">
          <property name="text">
@@ -99,6 +99,13 @@
            <string>Parametric Equaliser 2</string>
           </property>
          </item>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="showGraphButton">
+         <property name="text">
+          <string>...</string>
+         </property>
         </widget>
        </item>
       </layout>
@@ -182,7 +189,7 @@
    <slot>find_dsp_file()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>478</x>
+     <x>452</x>
      <y>41</y>
     </hint>
     <hint type="destinationlabel">

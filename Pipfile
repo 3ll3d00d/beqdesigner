@@ -22,6 +22,7 @@ semver = "*"
 dulwich = "*"
 markdown = "*"
 plumbum = "*"
+graphviz = "*"
 
 [dev-packages]
 pytest = "*"
