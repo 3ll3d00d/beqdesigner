@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1036</width>
+    <width>626</width>
     <height>742</height>
    </rect>
   </property>
@@ -16,39 +16,12 @@
   <property name="sizeGripEnabled">
    <bool>true</bool>
   </property>
-  <layout class="QHBoxLayout" name="horizontalLayout_2">
+  <layout class="QHBoxLayout" name="horizontalLayout">
    <item>
-    <layout class="QVBoxLayout" name="outerLayout">
-     <item>
-      <widget class="QCheckBox" name="direction">
-       <property name="text">
-        <string>Top to Bottom?</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QSplitter" name="splitter">
-       <property name="lineWidth">
-        <number>1</number>
-       </property>
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-       <widget class="QPlainTextEdit" name="source"/>
-       <widget class="SvgView" name="svgView"/>
-      </widget>
-     </item>
-    </layout>
+    <widget class="QPlainTextEdit" name="source"/>
    </item>
   </layout>
  </widget>
- <customwidgets>
-  <customwidget>
-   <class>SvgView</class>
-   <extends>QGraphicsView</extends>
-   <header>svg</header>
-  </customwidget>
- </customwidgets>
  <resources/>
  <connections/>
 </ui>

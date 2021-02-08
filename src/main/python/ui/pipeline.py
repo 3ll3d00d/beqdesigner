@@ -14,25 +14,13 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_jriverGraphDialog(object):
     def setupUi(self, jriverGraphDialog):
         jriverGraphDialog.setObjectName("jriverGraphDialog")
-        jriverGraphDialog.resize(1036, 742)
+        jriverGraphDialog.resize(626, 742)
         jriverGraphDialog.setSizeGripEnabled(True)
-        self.horizontalLayout_2 = QtWidgets.QHBoxLayout(jriverGraphDialog)
-        self.horizontalLayout_2.setObjectName("horizontalLayout_2")
-        self.outerLayout = QtWidgets.QVBoxLayout()
-        self.outerLayout.setObjectName("outerLayout")
-        self.direction = QtWidgets.QCheckBox(jriverGraphDialog)
-        self.direction.setObjectName("direction")
-        self.outerLayout.addWidget(self.direction)
-        self.splitter = QtWidgets.QSplitter(jriverGraphDialog)
-        self.splitter.setLineWidth(1)
-        self.splitter.setOrientation(QtCore.Qt.Horizontal)
-        self.splitter.setObjectName("splitter")
-        self.source = QtWidgets.QPlainTextEdit(self.splitter)
+        self.horizontalLayout = QtWidgets.QHBoxLayout(jriverGraphDialog)
+        self.horizontalLayout.setObjectName("horizontalLayout")
+        self.source = QtWidgets.QPlainTextEdit(jriverGraphDialog)
         self.source.setObjectName("source")
-        self.svgView = SvgView(self.splitter)
-        self.svgView.setObjectName("svgView")
-        self.outerLayout.addWidget(self.splitter)
-        self.horizontalLayout_2.addLayout(self.outerLayout)
+        self.horizontalLayout.addWidget(self.source)
 
         self.retranslateUi(jriverGraphDialog)
         QtCore.QMetaObject.connectSlotsByName(jriverGraphDialog)
@@ -40,5 +28,3 @@ class Ui_jriverGraphDialog(object):
     def retranslateUi(self, jriverGraphDialog):
         _translate = QtCore.QCoreApplication.translate
         jriverGraphDialog.setWindowTitle(_translate("jriverGraphDialog", "JRiver DSP Filter Pipeline"))
-        self.direction.setText(_translate("jriverGraphDialog", "Top to Bottom?"))
-from svg import SvgView

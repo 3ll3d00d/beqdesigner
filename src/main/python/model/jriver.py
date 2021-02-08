@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import os
 import xml.etree.ElementTree as et
@@ -6,7 +8,10 @@ from pathlib import Path
 from typing import Dict, Optional, List, Callable, Tuple
 
 import qtawesome as qta
-from qtpy.QtWidgets import QDialog, QFileDialog, QVBoxLayout, QLabel, QListWidget, QFrame, QHBoxLayout, QToolButton
+from qtpy.QtCore import QPoint
+from qtpy.QtGui import QColor, QPalette, QKeySequence
+from qtpy.QtWidgets import QDialog, QFileDialog, QVBoxLayout, QLabel, QListWidget, QFrame, QHBoxLayout, QToolButton, \
+    QMenu, QAction
 from scipy.signal import unit_impulse
 
 from model import iir
@@ -55,13 +60,21 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
 
     def __init__(self, parent, prefs):
         super(JRiverDSPDialog, self).__init__(parent)
+        self.__selected_node = None
+        self.__current_dot_txt = None
+        self.__channel_controls: Dict[str, ChannelFilterControl] = {}
+        self.prefs = prefs
         self.setupUi(self)
         self.limitsButton.setIcon(qta.icon('fa5s.arrows-alt'))
         self.fullRangeButton.setIcon(qta.icon('fa5s.expand'))
         self.subOnlyButton.setIcon(qta.icon('fa5s.compress'))
         self.findFilenameButton.setIcon(qta.icon('fa5s.folder-open'))
-        self.__channel_controls: Dict[str, ChannelFilterControl] = {}
-        self.prefs = prefs
+        self.showDotButton.setIcon(qta.icon('fa5s.info-circle'))
+        self.pipelineView.signal.on_click.connect(self.__on_selected_node)
+        self.pipelineView.signal.on_context.connect(self.__show_edit_menu)
+        self.showDotButton.clicked.connect(self.__show_dot_dialog)
+        self.direction.toggled.connect(self.__regen)
+        self.splitter.setSizes([100000, 100000])
         self.__dsp: Optional[JRiverDSP] = None
         self.__magnitude_model = MagnitudeModel('preview', self.previewChart, prefs,
                                                 self.__get_data(), 'Filter', fill_primary=True,
@@ -71,14 +84,36 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
                                                 db_range_calc=dBRangeCalculator(30, expand=True),
                                                 y2_range_calc=PhaseRangeCalculator(), show_y2_in_legend=False)
         self.__restore_geometry()
-        self.showGraphButton.clicked.connect(self.__show_graph)
 
-    def __show_graph(self):
-        if self.__dsp is not None:
-            peq_idx = self.blockSelector.currentIndex()
-            in_c = self.__dsp.channel_names(short=True, output=False)
-            out_c = self.__dsp.channel_names(short=True, output=True)
-            JRiverFilterPipelineDialog(self.parent(), in_c, out_c, self.__dsp.peq(peq_idx)).exec()
+    def __show_edit_menu(self, node_name: str, pos: QPoint):
+        menu = QMenu(self)
+        act = QAction(f"&Insert after {node_name}", self)
+        act.setShortcuts(QKeySequence.New)
+        # act.setStatusTip(f"Insert Filter after {node_name}")
+        # act.triggered.connect(self.__insert_node)
+        menu.addAction(act)
+        menu.exec(pos)
+
+    def __show_dot_dialog(self):
+        if self.__current_dot_txt:
+
+            def on_change(txt):
+                self.__current_dot_txt = txt
+                self.__gen_svg()
+
+            JRiverFilterPipelineDialog(self.__current_dot_txt, on_change, self).show()
+
+    def __regen(self):
+        self.__current_dot_txt = self.__dsp.pipeline.as_dot(self.blockSelector.currentIndex(),
+                                                            self.direction.isChecked(), self.__selected_node)
+        self.__gen_svg()
+
+    def __gen_svg(self):
+        self.pipelineView.render_bytes(render_dot(self.__current_dot_txt))
+
+    def __on_selected_node(self, node_name: str):
+        self.__selected_node = node_name
+        self.__regen()
 
     def redraw(self):
         self.__magnitude_model.redraw()
@@ -101,7 +136,9 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         if selected is not None and len(selected[0]) > 0:
             try:
                 self.channelList.clear()
-                self.__dsp = JRiverDSP(selected[0])
+                main_colour = QColor(QPalette().color(QPalette.Active, QPalette.Text)).name()
+                highlight_colour = QColor(QPalette().color(QPalette.Active, QPalette.Highlight)).name()
+                self.__dsp = JRiverDSP(selected[0], colours=(main_colour, highlight_colour))
                 for n in self.__dsp.channel_names():
                     self.channelList.addItem(n)
                 self.filename.setText(selected[0])
@@ -136,6 +173,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
                 self.filterList.addItem(str(f))
             for c in self.__channel_controls.values():
                 c.display(peq_idx)
+            self.__regen()
 
     def show_channel_filters(self):
         '''
@@ -185,13 +223,14 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
 
 class JRiverDSP:
 
-    def __init__(self, filename):
+    def __init__(self, filename, colours: Tuple[str, str] = None):
         self.__filename = filename
         config_txt = Path(self.__filename).read_text()
         i, o = get_available_channels(config_txt)
         self.__input_channel_indexes = i
         self.__output_channel_indexes = o
         self.__peqs: List[List[Filter]] = [self.__parse_peq(config_txt, 1), self.__parse_peq(config_txt, 2)]
+        self.__pipeline = JRiverFilterPipeline(self, colours=colours)
 
     def channel_names(self, short=False, output=False):
         idxs = self.__output_channel_indexes if output else self.__input_channel_indexes
@@ -203,6 +242,10 @@ class JRiverDSP:
 
     def peq(self, idx):
         return self.__peqs[idx]
+
+    @property
+    def pipeline(self):
+        return self.__pipeline
 
     def __parse_peq(self, xml, block):
         peq_block = get_peq_key_name(block)
@@ -227,6 +270,23 @@ class JRiverDSP:
 
     def __repr__(self):
         return f"{self.__filename}"
+
+
+class JRiverFilterPipeline:
+
+    def __init__(self, dsp: JRiverDSP, colours: Tuple[str, str] = None):
+        self.__dsp = dsp
+        self.__colours = colours
+        self.__in_c = self.__dsp.channel_names(short=True, output=False)
+        self.__out_c = self.__dsp.channel_names(short=True, output=True)
+        self.__graphs = [FilterGraph(i, self.__in_c, self.__out_c, self.__dsp.peq(i)) for i in [0, 1]]
+
+    def as_dot(self, idx, vertical=True, selected_id=None) -> str:
+        renderer = GraphRenderer(self.__graphs[idx], colours=self.__colours)
+        return renderer.generate(vertical, selected_node=selected_id)
+
+    def nodes_by_name(self, idx):
+        return self.__graphs[idx].nodes_by_name
 
 
 class Filter:
@@ -264,6 +324,9 @@ class Filter:
     @property
     def short_name(self):
         return self.__short_name
+
+    def short_desc(self):
+        return self.short_name
 
     def is_mine(self, idx):
         return True
@@ -318,6 +381,18 @@ class GainQFilter(ChannelFilter):
         self.__gain = float(vals['Gain'])
         self.__frequency = float(vals['Frequency'])
         self.__q = self.from_jriver_q(float(vals['Q']), self.__gain)
+
+    @property
+    def freq(self) -> float:
+        return self.__frequency
+
+    @property
+    def q(self) -> float:
+        return self.__q
+
+    @property
+    def gain(self) -> float:
+        return self.__gain
 
     def get_vals(self) -> Dict[str, str]:
         return {
@@ -382,6 +457,9 @@ class LowPass(GainQFilter):
     def to_jriver_q(self, q: float, gain: float):
         return q * 2**0.5
 
+    def short_desc(self):
+        return f"{self.short_name} {self.freq:g}Hz"
+
 
 class HighPass(GainQFilter):
 
@@ -394,12 +472,19 @@ class HighPass(GainQFilter):
     def to_jriver_q(self, q: float, gain: float):
         return q * 2**0.5
 
+    def short_desc(self):
+        return f"{self.short_name} {self.freq:g}Hz"
+
 
 class Gain(ChannelFilter):
 
     def __init__(self, vals):
         super().__init__(vals, 'GAIN')
         self.__gain = float(vals['Gain'])
+
+    @property
+    def gain(self):
+        return self.__gain
 
     def get_vals(self) -> Dict[str, str]:
         return {
@@ -412,6 +497,9 @@ class Gain(ChannelFilter):
 
     def get_filter(self):
         return iir.Gain(48000, self.__gain)
+
+    def short_desc(self):
+        return f"{self.__gain:+.7g} dB"
 
 
 class BitdepthSimulator(Filter):
@@ -437,6 +525,10 @@ class Delay(ChannelFilter):
         super().__init__(vals, 'DELAY')
         self.__delay = float(vals['Delay'])
 
+    @property
+    def delay(self) -> float:
+        return self.__delay
+
     def get_vals(self) -> Dict[str, str]:
         return {
             'Delay': f"{self.__delay:.7g}",
@@ -445,6 +537,9 @@ class Delay(ChannelFilter):
 
     def __repr__(self):
         return f"{self.__class__.__name__} {self.__delay:+.7g} ms {self.print_channel_names()}{self.print_disabled()}"
+
+    def short_desc(self):
+        return f"{self.__delay:+.7g}ms"
 
 
 class Divider(Filter):
@@ -585,7 +680,7 @@ class Mix(Filter):
         self.__destination = vals['Destination']
         self.__gain = float(vals['Gain'])
         # mode: 3 = swap, 1 = copy, 2 = move, 0 = add, 4 = subtract
-        self.__mode = vals['Mode']
+        self.__mode = int(vals['Mode'])
 
     @property
     def src_idx(self):
@@ -596,24 +691,26 @@ class Mix(Filter):
         return int(self.__destination)
 
     @property
-    def mix_type(self):
-        return MixType(int(self.__mode)).name
+    def mix_type(self) -> MixType:
+        return MixType(int(self.__mode))
 
     def get_vals(self) -> Dict[str, str]:
         return {
             'Source': self.__source,
             'Destination': self.__destination,
             'Gain': f"{self.__gain:.7g}",
-            'Mode': self.__mode
+            'Mode': f"{self.__mode}"
         }
 
     def __repr__(self):
-        mix_type = MixType(int(self.__mode))
+        mix_type = MixType(self.__mode)
         src_name = get_channel_name(int(self.__source), short=True)
         dst_name = get_channel_name(int(self.__destination), short=True)
         return f"{mix_type.name.capitalize()} {src_name} {mix_type.modifier} {dst_name} {self.__gain:+.7g} dB{self.print_disabled()}"
 
     def is_mine(self, idx):
+        if self.__mode == 3:
+            return self.src_idx == idx or self.dst_idx == idx
         return self.src_idx == idx
 
 
@@ -1005,10 +1102,20 @@ class Node:
         self.channel = channel
         if self.filt is None and self.channel is None:
             raise ValueError('Must have either filter or channel')
-        self.edges: List[Node] = []
+        self.__down_edges: List[Node] = []
+        self.__up_edge: Optional[Node] = None
 
-    def add(self, node):
-        self.edges.append(node)
+    def add(self, node: Node):
+        self.__down_edges.append(node)
+        node.__up_edge = self
+
+    @property
+    def downstream(self) -> List[Node]:
+        return self.__down_edges
+
+    @property
+    def upstream(self) -> Node:
+        return self.__up_edge
 
     def __repr__(self):
         detail = 'EMPTY'
@@ -1016,103 +1123,223 @@ class Node:
             detail = str(self.filt)
         elif self.channel:
             detail = self.channel
-        return f"{self.id} - {detail} -> {len(self.edges)} edges"
+        return f"{self.id} - {detail} -> {len(self.__down_edges)} edges"
+
+    @classmethod
+    def swap(cls, n1: Node, n2: Node):
+        '''
+        Routes n1 to n2 downstream and vice versa.
+        :param n1: first node.
+        :param n2: second node.
+        '''
+        tmp_down = n1.downstream
+        n1.__down_edges = n2.__down_edges
+        n2.__down_edges = tmp_down
+
+    @classmethod
+    def replace(cls, src: Node, dest: Node):
+        '''
+        Replaces the contents of n2 with n1, means leaving downstream intact but replacing the upstream and removing
+        the upstream on the src.
+        :param src: src.
+        :param dest: dest
+        '''
+        cls.copy(src, dest)
+        src.__up_edge = None
+
+    @classmethod
+    def copy(cls, src: Node, dst: Node):
+        '''
+        Copies the contents of n1 to n2, same as replace but leaves the upstream intact on the src.
+        :param src: src.
+        :param dst: dest
+        '''
+        dst.__up_edge = src.__up_edge
 
 
-class GraphGenerator:
+class FilterGraph:
 
-    def __init__(self, input_channels: List[str], output_channels: List[str], filts: List[Filter]):
+    def __init__(self, stage: int, input_channels: List[str], output_channels: List[str], filts: List[Filter]):
+        self.__stage = stage
         self.__filts = filts
         self.__output_channels = output_channels
         self.__input_channels = input_channels
+        self.__nodes_by_channel: Dict[str, Node] = self.__align(self.__collapse(self.__link(self.__init_nodes())))
 
-    def generate(self, vertical: bool, selected_node: str = None) -> str:
-        nodes_by_channel = self.__align_grid(self.__collapse_nodes(self.__link_nodes(self.__init_by_channel_grid())))
-        gz, user_channel_clusters = self.__init_gz(nodes_by_channel, vertical, selected_node=selected_node)
-        # add edges
-        for channel, nodes in nodes_by_channel.items():
-            gz += self.__append_edges(channel, nodes, user_channel_clusters)
-        # calculate and add ranks
-        gz += "\n"
-        gz += self.__append_ranks(nodes_by_channel)
-        gz += "}"
-        return gz
+    @property
+    def nodes_by_name(self) -> Dict[str, Node]:
+        return {n.id: n for nodes in self.__nodes_by_channel.values() for n in nodes}
 
-    @staticmethod
-    def __create_record(channels, prefix):
-        return '|'.join([f"<{prefix}{c}> {c}" for c in channels if c not in SHORT_USER_CHANNELS])
+    @property
+    def nodes_by_channel(self) -> Dict[str, Node]:
+        return self.__nodes_by_channel
 
-    def __init_by_channel_grid(self):
+    @property
+    def input_channels(self):
+        return self.__input_channels
+
+    @property
+    def output_channels(self):
+        return self.__output_channels
+
+    def __init_nodes(self) -> Dict[str, List[Node]]:
+        '''
+        transforms each filter into a node on each channel the filter affects.
+        :return: nodes by channel name.
+        '''
         # create a channel/filter grid
-        by_channel: Dict[str, List[Node]] = {c: [Node(f"IN:I{c}", None, c)] if c not in SHORT_USER_CHANNELS else [] for
+        by_channel: Dict[str, List[Node]] = {c: [Node(f"IN:{c}", None, c)] if c not in SHORT_USER_CHANNELS else [] for
                                              c in self.__output_channels}
         i = 0
         for idx, f in enumerate(self.__filts):
-            if not isinstance(f, Divider):
+            if not isinstance(f, Divider) and f.enabled:
                 for k, v in by_channel.items():
                     channel_idx = get_channel_idx(k, short=True)
                     if f.is_mine(channel_idx):
-                        if isinstance(f, Mix):
+                        # swap is added as a node to both channels with edges sorted out later
+                        if isinstance(f, Mix) and f.mix_type != MixType.SWAP:
                             dst_channel = by_channel[get_channel_name(f.dst_idx, short=True)]
-                            if len(dst_channel) < 2: # user channel or empty channel
-                                dst_channel.append(Node(f"c{k}_f{i}", f))
-                            v[-1].edges.append(dst_channel[-1])
+                            if len(dst_channel) < 2:
+                                # user channel or empty channel
+                                dst_channel.append(Node(f"{k}_{i}00_{f.short_name}", f))
+                            v[-1].add(dst_channel[-1])
                         else:
-                            node = Node(f"c{k}_f{i}", f)
+                            node = Node(f"{k}_{i}00_{f.short_name}", f)
                             v.append(node)
                             i += 1
         # add output nodes
         for c, nodes in by_channel.items():
             if c not in SHORT_USER_CHANNELS:
-                nodes.append(Node(f"OUT:O{c}", None, c))
+                nodes.append(Node(f"OUT:{c}", None, c))
         return by_channel
 
     @staticmethod
-    def __append_ranks(nodes_by_channel):
-        gz = ""
-        ranks = []
-        for channel, nodes in nodes_by_channel.items():
-            for i, node in enumerate(nodes):
-                if i <= len(ranks):
-                    ranks.append([])
-                if node.filt:
-                    ranks[i].append(node.id)
-        # for rank in ranks:
-        #     if len(rank) > 0:
-        #         gz += f"  {{rank = same; {'; '.join(rank)}}}"
-        #         gz += "\n"
+    def __link(by_channel: Dict[str, List[Node]]) -> Dict[str, Node]:
+        '''
+        Assembles edges between nodes. For all filters except Mix, this is just a link to the preceding. node.
+        Copy, move and swap mixes change this relationship.
+        :param by_channel: the nodes by channel
+        :return: the linked nodes by channel.
+        '''
+        return FilterGraph.__remix(FilterGraph.__generate_graph(by_channel))
+
+    @staticmethod
+    def __generate_graph(by_channel):
+        input_by_channel: Dict[str, Node] = {}
+        for c, nodes in by_channel.items():
+            upstream: Optional[Node] = None
+            for node in nodes:
+                if c not in input_by_channel:
+                    input_by_channel[c] = node
+                if upstream:
+                    upstream.add(node)
+                upstream = node
+        return input_by_channel
+
+    @staticmethod
+    def __remix(by_channel: Dict[str, Node]) -> Dict[str, Node]:
+        for c, node in by_channel.items():
+            FilterGraph.__remix_node(c, node, by_channel)
+        return by_channel
+
+    @staticmethod
+    def __remix_node(c: str, node: Node, by_channel: Dict[str, Node]) -> None:
+        f = node.filt
+        if isinstance(f, Mix) and f.enabled and not (f.mix_type == MixType.ADD or f.mix_type == MixType.SUBTRACT):
+            if f.mix_type == MixType.SWAP:
+                src_channel_name = get_channel_name(f.src_idx, short=True)
+                if src_channel_name == c:
+                    dst_channel_name = get_channel_name(f.dst_idx, short=True)
+                    swap_channel_name = src_channel_name if c == dst_channel_name else dst_channel_name
+                    swap_node = FilterGraph.__find_node(by_channel[swap_channel_name], f)
+                    Node.swap(node, swap_node)
+            elif f.mix_type == MixType.MOVE or f.mix_type == MixType.COPY:
+                dst_channel_name = get_channel_name(f.dst_idx, short=True)
+                dst_node = FilterGraph.__find_node(by_channel[dst_channel_name], f)
+                Node.copy(node, dst_node) if f.mix_type == MixType.COPY else Node.replace(node, dst_node)
+        for d in node.downstream:
+            FilterGraph.__remix_node(c, d, by_channel)
+
+    @staticmethod
+    def __find_node(node: Node, match: Filter) -> Node:
+        if node.filt and node.filt == match:
+            return node
+        for d in node.downstream:
+            return FilterGraph.__find_node(d, match)
+        raise ValueError(f"No match for {match} in {node}")
+
+    @staticmethod
+    def __collapse(by_channel: Dict[str, Node]) -> Dict[str, Node]:
+        # TODO collapse contiguous Peak/LS/HS into a composite filter
+        # TODO collapse contiguous Add nodes into a single node
+        # TODO eliminate swap/move/copy nodes
+        return by_channel
+
+    @staticmethod
+    def __align(by_channel: Dict[str, Node]) -> Dict[str, Node]:
+        # TODO ensure mix sections are aligned in the grid
+        return by_channel
+
+
+class GraphRenderer:
+
+    def __init__(self, graph: FilterGraph, colours: Tuple[str, str] = None):
+        self.__graph = graph
+        self.__colours = colours
+
+    def generate(self, vertical: bool, selected_node: str = None) -> str:
+        gz, user_channel_clusters = self.__init_gz(self.__graph.nodes_by_channel, vertical, selected_node=selected_node)
+        # add edges
+        for channel, node in self.__graph.nodes_by_channel.items():
+            gz += self.__append_edges(channel, node, user_channel_clusters)
+        # calculate and add ranks
+        gz += self.__append_ranks(self.__graph.nodes_by_channel)
+        gz += "}"
         return gz
 
     @staticmethod
-    def __append_edges(channel, nodes, user_channel_clusters):
-        output = ""
+    def __create_record(channels):
+        return '|'.join([f"<{c}> {c}" for c in channels if c not in SHORT_USER_CHANNELS])
+
+    @staticmethod
+    def __append_edges(channel: str, node: Node, user_channel_clusters):
+        nodes = GraphRenderer.__flatten_node(node, [])
+        output = ''
+        terminal = ''
         for node in nodes:
-            for edge in node.edges:
-                output += f"  {node.id} -> {edge.id}"
+            indent = '    ' if channel in SHORT_USER_CHANNELS else '  '
+            for edge in node.downstream:
+                edge_txt = f"{node.id} -> {edge.id}"
                 # if isinstance(edge.filt, Mix) and get_channel_name(edge.filt.src_idx, short=True) == channel:
                 #     gz += f" [label=\"{edge.filt.mix_type}\"]"
-                output += ";"
-                output += "\n"
+                edge_txt += ";"
+                edge_txt += "\n"
+                if edge.id.startswith('OUT:'):
+                    terminal = f"  {edge_txt}"
+                else:
+                    output += f"{indent}{edge_txt}"
         if not nodes and channel not in SHORT_USER_CHANNELS:
             output += f"  IN:I{channel} -> OUT:O{channel};"
-        if channel in SHORT_USER_CHANNELS:
-            output = user_channel_clusters[channel] + output + "\n  }"
-        output += "\n"
+        if channel in user_channel_clusters:
+            output = user_channel_clusters[channel] + output + "  }\n"
+        output += terminal
+        if output:
+            output += "\n"
         return output
 
     @staticmethod
     def __create_io_record(name, definition):
         return f"  {name} [shape=record label=\"{definition}\"];"
 
-    @staticmethod
-    def __create_channel_nodes(channel, nodes, selected_node=None):
+    def __create_channel_nodes(self, channel, nodes, selected_node=None):
         to_append = ""
         indent = "    " if channel in SHORT_USER_CHANNELS else "  "
         for node in nodes:
             if node.filt:
-                to_append += f"{indent}{node.id} [shape=box label=\"{node.filt.short_name}\""
+                to_append += f"{indent}{node.id} [label=\"{node.filt.short_desc()}\""
                 if selected_node and selected_node == node.id:
-                    to_append += " style=filled fillcolor=lightgrey"
+                    fill_colour = f"\"{self.__colours[1]}\"" if self.__colours else 'lightgrey'
+                    to_append += f" style=filled fillcolor={fill_colour}"
                 to_append += "]\n"
         return to_append
 
@@ -1121,95 +1348,80 @@ class GraphGenerator:
         output = f"  subgraph cluster_{name} {{"
         output += "\n"
         output += nodes
-        output += f"    label = \"{name}\";"
+        output += f"    label = \"{name}\";\n"
         return output
 
-    def __init_gz(self, by_channel, vertical, selected_node=None):
-        gz = "digraph G {"
+    def __init_gz(self, by_channel: Dict[str, Node], vertical, selected_node=None) -> Tuple[str, Dict[str, str]]:
+        gz = "digraph G {\n"
+        gz += f"  rankdir={'TB' if vertical else 'LR'};\n"
+        gz += "  node [\n"
+        gz += "    shape=\"box\"\n"
+        if self.__colours:
+            gz += f"    color=\"{self.__colours[0]}\"\n"
+            gz += f"    fontcolor=\"{self.__colours[0]}\"\n"
+        gz += "  ];\n"
+        if self.__colours:
+            gz += "  edge [\n"
+            gz += f"    color=\"{self.__colours[0]}\"\n"
+            gz += "  ];\n"
+            gz += "  graph [\n"
+            gz += f"    color=\"{self.__colours[0]}\"\n"
+            gz += f"    fontcolor=\"{self.__colours[0]}\"\n"
+            gz += "  ];"
+            gz += "\n"
         gz += "\n"
-        gz += f"  rankdir={'TB' if vertical else 'LR'};"
+        gz += self.__create_io_record('IN', self.__create_record(self.__graph.input_channels))
         gz += "\n"
-        gz += self.__create_io_record('IN', self.__create_record(self.__input_channels, 'I'))
-        gz += "\n"
-        gz += self.__create_io_record('OUT', self.__create_record(self.__output_channels, 'O'))
+        gz += self.__create_io_record('OUT', self.__create_record(self.__graph.output_channels))
         gz += "\n"
         user_channel_clusters = {}
         # add all nodes
-        for c, nodes in by_channel.items():
-            to_append = self.__create_channel_nodes(c, nodes, selected_node=selected_node)
-            if c in SHORT_USER_CHANNELS:
-                user_channel_clusters[c] = self.__wrap_in_subcluster(c, to_append)
-            else:
-                gz += to_append
+        for c, node in by_channel.items():
+            # TODO collect nodes into subgraphs and then add them all
+            to_append = self.__create_channel_nodes(c, self.__flatten_node(node, []), selected_node=selected_node)
+            if to_append:
+                if c in SHORT_USER_CHANNELS:
+                    user_channel_clusters[c] = self.__wrap_in_subcluster(c, to_append)
+                else:
+                    gz += to_append
         gz += "\n"
         return gz, user_channel_clusters
 
     @staticmethod
-    def __link_nodes(by_channel):
-        # link nodes into a chain
-        for c, nodes in by_channel.items():
-            upstream: Optional[Node] = None
-            for node in nodes:
-                if upstream:
-                    upstream.add(node)
-                upstream = node
-        return by_channel
+    def __flatten_node(node: Node, arr: List[Node]) -> List[Node]:
+        arr.append(node)
+        for d in node.downstream:
+            GraphRenderer.__flatten_node(d, arr)
+        return arr
 
     @staticmethod
-    def __collapse_nodes(by_channel):
-        # TODO collapse contiguous Peak/LS/HS into a composite filter
-        # TODO collapse contiguous Add nodes into a single node
-        return by_channel
-
-    @staticmethod
-    def __align_grid(by_channel):
-        # TODO ensure mix sections are aligned in the grid
-        return by_channel
-
-
-class JRiverFilterPipeline:
-
-    def __init__(self, dsp: JRiverDSP):
-        self.__dsp = dsp
-        self.__in_c = self.__dsp.channel_names(short=True, output=False)
-        self.__out_c = self.__dsp.channel_names(short=True, output=True)
-
-    def as_dot(self, idx, vertical=True, selected_id=None) -> str:
-        generator = GraphGenerator(self.__in_c, self.__out_c, self.__dsp.peq(idx))
-        return generator.generate(vertical, selected_node=selected_id)
-
-    def render(self, dot) -> bytes:
-        from graphviz import Source
-        return Source(dot, format='svg').pipe()
+    def __append_ranks(nodes_by_channel: Dict[str, Node]):
+        gz = ""
+        # ranks = []
+        # for channel, nodes in nodes_by_channel.items():
+        #     for i, node in enumerate(nodes):
+        #         if i <= len(ranks):
+        #             ranks.append([])
+        #         if node.filt:
+        #             ranks[i].append(node.id)
+        # gz += "\n"
+        # for rank in ranks:
+        #     if len(rank) > 0:
+        #         gz += f"  {{rank = same; {'; '.join(rank)}}}"
+        #         gz += "\n"
+        return gz
 
 
 class JRiverFilterPipelineDialog(QDialog, Ui_jriverGraphDialog):
 
-    def __init__(self, parent, input_channels: List[str], output_channels: List[str], peq: List[Filter]):
+    def __init__(self, dot: str, on_change, parent):
         super(JRiverFilterPipelineDialog, self).__init__(parent)
         self.setupUi(self)
-        self.__selected_node = None
-        self.__peq = peq
-        self.__inputs = input_channels
-        self.__outputs = output_channels
-        self.svgView.signal.on_click.connect(self.__on_selected_node)
-        self.__regen()
-        self.direction.toggled.connect(self.__regen)
-        self.source.textChanged.connect(self.__gen_svg)
-
-    def __regen(self):
-        dot = GraphGenerator(self.__inputs, self.__outputs, self.__peq).generate(self.direction.isChecked(),
-                                                                                 selected_node=self.__selected_node)
         self.source.setPlainText(dot)
-        self.__gen_svg()
+        if on_change:
+            self.source.textChanged.connect(lambda: on_change(self.source.toPlainText()))
 
-    def __gen_svg(self):
-        dot = self.source.toPlainText()
-        from graphviz import Source
-        self.__dot = Source(dot, format='svg')
-        self.__svg = self.__dot.pipe()
-        self.svgView.render_bytes(self.__svg)
 
-    def __on_selected_node(self, node_name: str):
-        self.__selected_node = node_name
-        self.__regen()
+def render_dot(txt):
+    from graphviz import Source
+    return Source(txt, format='svg').pipe()
