@@ -3,9 +3,10 @@ from __future__ import annotations
 import logging
 import os
 import xml.etree.ElementTree as et
+from collections import defaultdict
 from enum import Enum
 from pathlib import Path
-from typing import Dict, Optional, List, Callable, Tuple
+from typing import Dict, Optional, List, Callable, Tuple, Iterable
 
 import qtawesome as qta
 from qtpy.QtCore import QPoint
@@ -709,8 +710,6 @@ class Mix(Filter):
         return f"{mix_type.name.capitalize()} {src_name} {mix_type.modifier} {dst_name} {self.__gain:+.7g} dB{self.print_disabled()}"
 
     def is_mine(self, idx):
-        if self.__mode == 3:
-            return self.src_idx == idx or self.dst_idx == idx
         return self.src_idx == idx
 
 
@@ -1096,7 +1095,7 @@ class JRiverParser:
 
 class Node:
 
-    def __init__(self, id: str, filt: Optional[Filter], channel: Optional[str] = None):
+    def __init__(self, id: str, filt: Optional[Filter], channel: str):
         self.id = id
         self.filt = filt
         self.channel = channel
@@ -1106,8 +1105,9 @@ class Node:
         self.__up_edge: Optional[Node] = None
 
     def add(self, node: Node):
-        self.__down_edges.append(node)
-        node.__up_edge = self
+        if node not in self.__down_edges:
+            self.__down_edges.append(node)
+            node.__up_edge = self
 
     @property
     def downstream(self) -> List[Node]:
@@ -1118,12 +1118,7 @@ class Node:
         return self.__up_edge
 
     def __repr__(self):
-        detail = 'EMPTY'
-        if self.filt:
-            detail = str(self.filt)
-        elif self.channel:
-            detail = self.channel
-        return f"{self.id} - {detail} -> {len(self.__down_edges)} edges"
+        return f"{self.id} - {'U1' if self.__up_edge is not None else ''} D{len(self.__down_edges)}"
 
     @classmethod
     def swap(cls, n1: Node, n2: Node):
@@ -1193,25 +1188,26 @@ class FilterGraph:
         i = 0
         for idx, f in enumerate(self.__filts):
             if not isinstance(f, Divider) and f.enabled:
-                for k, v in by_channel.items():
-                    channel_idx = get_channel_idx(k, short=True)
+                for channel_name, nodes in by_channel.items():
+                    channel_idx = get_channel_idx(channel_name, short=True)
                     if f.is_mine(channel_idx):
-                        # swap is added as a node to both channels with edges sorted out later
-                        if isinstance(f, Mix) and f.mix_type != MixType.SWAP:
-                            dst_channel = by_channel[get_channel_name(f.dst_idx, short=True)]
-                            if len(dst_channel) < 2:
-                                # user channel or empty channel
-                                dst_channel.append(Node(f"{k}_{i}00_{f.short_name}", f))
-                            v[-1].add(dst_channel[-1])
+                        # mix is added as a node to both channels
+                        if isinstance(f, Mix):
+                            dst_channel_name = get_channel_name(f.dst_idx, short=True)
+                            by_channel[dst_channel_name].append(FilterGraph.__make_node(i, dst_channel_name, f))
+                            nodes.append(FilterGraph.__make_node(i, channel_name, f))
                         else:
-                            node = Node(f"{k}_{i}00_{f.short_name}", f)
-                            v.append(node)
-                            i += 1
+                            nodes.append(FilterGraph.__make_node(i, channel_name, f))
+                i += 1
         # add output nodes
         for c, nodes in by_channel.items():
             if c not in SHORT_USER_CHANNELS:
                 nodes.append(Node(f"OUT:{c}", None, c))
         return by_channel
+
+    @staticmethod
+    def __make_node(phase: int, channel_name: str, filt: Filter):
+        return Node(f"{channel_name}_{phase}00_{filt.short_name}", filt, channel_name)
 
     @staticmethod
     def __link(by_channel: Dict[str, List[Node]]) -> Dict[str, Node]:
@@ -1245,7 +1241,7 @@ class FilterGraph:
     @staticmethod
     def __remix_node(c: str, node: Node, by_channel: Dict[str, Node]) -> None:
         f = node.filt
-        if isinstance(f, Mix) and f.enabled and not (f.mix_type == MixType.ADD or f.mix_type == MixType.SUBTRACT):
+        if isinstance(f, Mix) and f.enabled:
             if f.mix_type == MixType.SWAP:
                 src_channel_name = get_channel_name(f.src_idx, short=True)
                 if src_channel_name == c:
@@ -1257,6 +1253,11 @@ class FilterGraph:
                 dst_channel_name = get_channel_name(f.dst_idx, short=True)
                 dst_node = FilterGraph.__find_node(by_channel[dst_channel_name], f)
                 Node.copy(node, dst_node) if f.mix_type == MixType.COPY else Node.replace(node, dst_node)
+            elif f.mix_type == MixType.ADD or f.mix_type == MixType.SUBTRACT:
+                if f.is_mine(get_channel_idx(node.channel, short=True)):
+                    dst_channel_name = get_channel_name(f.dst_idx, short=True)
+                    dst_node = FilterGraph.__find_node(by_channel[dst_channel_name], f)
+                    node.add(dst_node)
         for d in node.downstream:
             FilterGraph.__remix_node(c, d, by_channel)
 
@@ -1290,8 +1291,19 @@ class GraphRenderer:
     def generate(self, vertical: bool, selected_node: str = None) -> str:
         gz, user_channel_clusters = self.__init_gz(self.__graph.nodes_by_channel, vertical, selected_node=selected_node)
         # add edges
+        edges: Dict[str, Tuple[str, str]] = {}
         for channel, node in self.__graph.nodes_by_channel.items():
-            gz += self.__append_edges(channel, node, user_channel_clusters)
+            self.__append_edges(channel, node, edges)
+        if edges:
+            output = defaultdict(str)
+            for channel_edge in edges.values():
+                output[channel_edge[0]] += f"{channel_edge[1]}\n"
+            for c, v in output.items():
+                if c in user_channel_clusters:
+                    gz += user_channel_clusters[c] + v + '\n}\n'
+                else:
+                    gz += v
+                    gz += "\n"
         # calculate and add ranks
         gz += self.__append_ranks(self.__graph.nodes_by_channel)
         gz += "}"
@@ -1302,30 +1314,23 @@ class GraphRenderer:
         return '|'.join([f"<{c}> {c}" for c in channels if c not in SHORT_USER_CHANNELS])
 
     @staticmethod
-    def __append_edges(channel: str, node: Node, user_channel_clusters):
-        nodes = GraphRenderer.__flatten_node(node, [])
-        output = ''
-        terminal = ''
-        for node in nodes:
-            indent = '    ' if channel in SHORT_USER_CHANNELS else '  '
-            for edge in node.downstream:
-                edge_txt = f"{node.id} -> {edge.id}"
-                # if isinstance(edge.filt, Mix) and get_channel_name(edge.filt.src_idx, short=True) == channel:
-                #     gz += f" [label=\"{edge.filt.mix_type}\"]"
-                edge_txt += ";"
-                edge_txt += "\n"
-                if edge.id.startswith('OUT:'):
-                    terminal = f"  {edge_txt}"
+    def __append_edges(channel: str, start_node: Node, visited_edges: Dict[str, Tuple[str, str]]):
+        for end_node in start_node.downstream:
+            edge_txt = f"{start_node.id} -> {end_node.id}"
+            # if isinstance(edge.filt, Mix) and get_channel_name(edge.filt.src_idx, short=True) == channel:
+            #     gz += f" [label=\"{edge.filt.mix_type}\"]"
+            if edge_txt not in visited_edges:
+                indent = '    ' if end_node.channel in SHORT_USER_CHANNELS else '  '
+                if end_node.id.startswith('OUT'):
+                    target_channel = end_node.channel
+                elif end_node.channel in SHORT_USER_CHANNELS:
+                    target_channel = end_node.channel
+                elif start_node.channel in SHORT_USER_CHANNELS:
+                    target_channel = start_node.channel
                 else:
-                    output += f"{indent}{edge_txt}"
-        if not nodes and channel not in SHORT_USER_CHANNELS:
-            output += f"  IN:I{channel} -> OUT:O{channel};"
-        if channel in user_channel_clusters:
-            output = user_channel_clusters[channel] + output + "  }\n"
-        output += terminal
-        if output:
-            output += "\n"
-        return output
+                    target_channel = start_node.channel
+                visited_edges[edge_txt] = (target_channel, f"{indent}{edge_txt};")
+            GraphRenderer.__append_edges(channel, end_node, visited_edges)
 
     @staticmethod
     def __create_io_record(name, definition):
@@ -1374,24 +1379,27 @@ class GraphRenderer:
         gz += "\n"
         gz += self.__create_io_record('OUT', self.__create_record(self.__graph.output_channels))
         gz += "\n"
+        gz += "\n"
         user_channel_clusters = {}
         # add all nodes
         for c, node in by_channel.items():
             # TODO collect nodes into subgraphs and then add them all
-            to_append = self.__create_channel_nodes(c, self.__flatten_node(node, []), selected_node=selected_node)
+            to_append = self.__create_channel_nodes(c, self.__flatten_node(c, node, []), selected_node=selected_node)
             if to_append:
                 if c in SHORT_USER_CHANNELS:
                     user_channel_clusters[c] = self.__wrap_in_subcluster(c, to_append)
                 else:
                     gz += to_append
-        gz += "\n"
+                    gz += "\n"
         return gz, user_channel_clusters
 
     @staticmethod
-    def __flatten_node(node: Node, arr: List[Node]) -> List[Node]:
-        arr.append(node)
+    def __flatten_node(c: str, node: Node, arr: List[Node]) -> List[Node]:
+        if node not in arr:
+            if node.id.startswith(f"{c}_") or node.id.endswith(f":{c}"):
+                arr.append(node)
         for d in node.downstream:
-            GraphRenderer.__flatten_node(d, arr)
+            GraphRenderer.__flatten_node(c, d, arr)
         return arr
 
     @staticmethod
