@@ -1095,8 +1095,9 @@ class JRiverParser:
 
 class Node:
 
-    def __init__(self, id: str, filt: Optional[Filter], channel: str):
+    def __init__(self, rank: int, id: str, filt: Optional[Filter], channel: str):
         self.id = id
+        self.rank = rank
         self.filt = filt
         self.channel = channel
         if self.filt is None and self.channel is None:
@@ -1183,9 +1184,9 @@ class FilterGraph:
         :return: nodes by channel name.
         '''
         # create a channel/filter grid
-        by_channel: Dict[str, List[Node]] = {c: [Node(f"IN:{c}", None, c)] if c not in SHORT_USER_CHANNELS else [] for
+        by_channel: Dict[str, List[Node]] = {c: [Node(0, f"IN:{c}", None, c)] if c not in SHORT_USER_CHANNELS else [] for
                                              c in self.__output_channels}
-        i = 0
+        i = 1
         for idx, f in enumerate(self.__filts):
             if not isinstance(f, Divider) and f.enabled:
                 for channel_name, nodes in by_channel.items():
@@ -1202,12 +1203,12 @@ class FilterGraph:
         # add output nodes
         for c, nodes in by_channel.items():
             if c not in SHORT_USER_CHANNELS:
-                nodes.append(Node(f"OUT:{c}", None, c))
+                nodes.append(Node(i * 100, f"OUT:{c}", None, c))
         return by_channel
 
     @staticmethod
     def __make_node(phase: int, channel_name: str, filt: Filter):
-        return Node(f"{channel_name}_{phase}00_{filt.short_name}", filt, channel_name)
+        return Node(phase * 100, f"{channel_name}_{phase}00_{filt.short_name}", filt, channel_name)
 
     @staticmethod
     def __link(by_channel: Dict[str, List[Node]]) -> Dict[str, Node]:
@@ -1404,19 +1405,18 @@ class GraphRenderer:
 
     @staticmethod
     def __append_ranks(nodes_by_channel: Dict[str, Node]):
-        gz = ""
-        # ranks = []
-        # for channel, nodes in nodes_by_channel.items():
-        #     for i, node in enumerate(nodes):
-        #         if i <= len(ranks):
-        #             ranks.append([])
-        #         if node.filt:
-        #             ranks[i].append(node.id)
-        # gz += "\n"
-        # for rank in ranks:
-        #     if len(rank) > 0:
-        #         gz += f"  {{rank = same; {'; '.join(rank)}}}"
-        #         gz += "\n"
+        nodes = []
+        ranks = defaultdict(list)
+        for c, node in nodes_by_channel.items():
+            GraphRenderer.__flatten_node(c, node, nodes)
+        for node in nodes:
+            if node.filt and isinstance(node.filt, Mix) and node.filt.mix_type == MixType.SWAP:
+                if node not in ranks[node.rank]:
+                    ranks[node.rank].append(node)
+        gz = '\n'
+        for nodes in ranks.values():
+            gz += f"  {{rank = same; {'; '.join([n.id for n in nodes])}}}"
+            gz += "\n"
         return gz
 
 
