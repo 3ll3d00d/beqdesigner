@@ -41,6 +41,14 @@ class MagnitudeData:
             return f"{self.__name}_{self.__description}"
 
     @property
+    def description(self):
+        return self.__description
+
+    @description.setter
+    def description(self, description):
+        self.__description = description
+
+    @property
     def internal_name(self):
         return self.__name
 

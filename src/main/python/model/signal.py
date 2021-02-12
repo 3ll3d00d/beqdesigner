@@ -4,7 +4,7 @@ import logging
 import math
 import re
 import time
-import typing
+from typing import List, Optional, Dict, Iterable, Any
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -105,7 +105,7 @@ class SingleChannelSignalData(SignalData):
         self.__idx = 0
         self.__offset_db = offset
         self.__on_change_listeners = []
-        self.__unfiltered = {}
+        self.__unfiltered: Dict[Optional[int], List[MagnitudeData]] = {}
         self.__filtered = []
         self.__high_pass = False
         self.__smoothing_type = None
@@ -139,11 +139,11 @@ class SingleChannelSignalData(SignalData):
         self.__high_pass = high_pass
 
     @property
-    def current_unfiltered(self):
+    def current_unfiltered(self) -> List[MagnitudeData]:
         return self.__unfiltered[self.__smoothing_type] if self.__smoothing_type in self.__unfiltered else []
 
     @property
-    def current_filtered(self):
+    def current_filtered(self) -> List[MagnitudeData]:
         return self.filtered if self.filtered is not None else []
 
     @property
@@ -594,7 +594,7 @@ class SignalModel(Sequence):
         return self.__table
 
     @property
-    def bass_managed_signals(self) -> typing.Iterable[BassManagedSignalData]:
+    def bass_managed_signals(self) -> Iterable[BassManagedSignalData]:
         return self.__bass_managed_signals
 
     @property
@@ -1231,7 +1231,7 @@ class SignalTableModel(QAbstractTableModel):
             return True
         return super().setData(idx, value, role=role)
 
-    def data(self, index: QModelIndex, role: int = ...) -> typing.Any:
+    def data(self, index: QModelIndex, role: int = ...) -> Any:
         if not index.isValid():
             return QVariant()
         elif role != Qt.DisplayRole:
@@ -1256,7 +1256,7 @@ class SignalTableModel(QAbstractTableModel):
             else:
                 return QVariant()
 
-    def headerData(self, section: int, orientation: Qt.Orientation, role: int = ...) -> typing.Any:
+    def headerData(self, section: int, orientation: Qt.Orientation, role: int = ...) -> Any:
         if orientation == Qt.Horizontal and role == Qt.DisplayRole:
             return QVariant(self.__headers[section])
         return QVariant()
@@ -2000,7 +2000,7 @@ class MergeSignalDialog(QDialog, Ui_MergeSignalDialog):
         self.__signal_model = signal_model
         single_signals = {s.name: s for s in self.__signal_model.non_bm_signals if s.signal is not None}
         bm_signals = {c.name: c for bm in [bm.channels for bm in self.__signal_model.bass_managed_signals] for c in bm}
-        self.__signals: typing.Dict[str, SingleChannelSignalData] = {**single_signals, **bm_signals}
+        self.__signals: Dict[str, SingleChannelSignalData] = {**single_signals, **bm_signals}
         for s in self.__signals.keys():
             self.signals.addItem(s)
         self.__validate()
@@ -2016,7 +2016,7 @@ class MergeSignalDialog(QDialog, Ui_MergeSignalDialog):
         self.__validate()
 
     def accept(self):
-        selected_signals: typing.List[Signal] = [self.__signals[s.text()].signal for s in self.signals.selectedItems()]
+        selected_signals: List[Signal] = [self.__signals[s.text()].signal for s in self.signals.selectedItems()]
         logger.debug(f"Merging {','.join([s.name for s in selected_signals])}")
         samples = np.concatenate([s.samples for s in selected_signals])
         suffix = f"{len([s.name for s in self.__signal_model.non_bm_signals if s.name.startswith('merged')]) + 1}"

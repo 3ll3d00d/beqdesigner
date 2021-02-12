@@ -3,12 +3,11 @@ import os
 from pathlib import Path
 from typing import Optional, Callable
 
-import qtawesome as qta
 import matplotlib
 import matplotlib.style as style
-from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox, QDialogButtonBox, QApplication, QLineEdit
-from qtpy.QtCore import QThreadPool, Qt
-from qtpy.QtGui import QCursor
+import qtawesome as qta
+from qtpy.QtCore import QThreadPool, QSettings
+from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox, QDialogButtonBox, QLineEdit
 
 from ui.preferences import Ui_preferencesDialog
 
@@ -189,6 +188,7 @@ HTP1_GRAPH_X_MAX = 'htp1/x_max'
 JRIVER_GEOMETRY = 'jriver/geometry'
 JRIVER_GRAPH_X_MIN = 'jriver/x_min'
 JRIVER_GRAPH_X_MAX = 'jriver/x_max'
+JRIVER_DSP_DIR = 'jriver/dsp_dir'
 
 MINIDSP_RS_OPTIONS = 'minidsp/rs_options'
 
@@ -248,6 +248,7 @@ DEFAULT_PREFS = {
     HTP1_GRAPH_X_MAX: 20000,
     JRIVER_GRAPH_X_MIN: 10,
     JRIVER_GRAPH_X_MAX: 20000,
+    JRIVER_DSP_DIR: str(Path.home()),
     REPORT_FILTER_ROW_HEIGHT_MULTIPLIER: 1.2,
     REPORT_TITLE_FONT_SIZE: 36,
     REPORT_IMAGE_ALPHA: 1.0,
@@ -369,7 +370,7 @@ def get_filter_colour(idx):
 
 
 class Preferences:
-    def __init__(self, settings):
+    def __init__(self, settings: QSettings):
         self.__settings = settings
         global singleton
         singleton = self
