@@ -10,11 +10,10 @@ from typing import Dict, Optional, List, Tuple
 
 import qtawesome as qta
 import time
-from numpy import ndarray
 from qtpy.QtCore import QPoint
 from qtpy.QtGui import QColor, QPalette, QKeySequence
 from qtpy.QtWidgets import QDialog, QFileDialog, QMenu, QAction, QListWidgetItem
-from scipy.signal import unit_impulse, sosfilt
+from scipy.signal import unit_impulse
 
 from model import iir
 from model.iir import s_to_q, q_to_s, SOS
@@ -1409,36 +1408,48 @@ class GraphRenderer:
         self.__colours = colours
 
     def generate(self, vertical: bool, selected_nodes: Optional[List[str]] = None) -> str:
-        gz, user_channel_clusters = self.__init_gz(self.__graph.nodes_by_channel, vertical,
-                                                   selected_nodes=selected_nodes)
-        # add edges
-        edges: Dict[str, Tuple[str, str]] = {}
-        for channel, node in self.__graph.nodes_by_channel.items():
-            self.__append_edges(channel, node, edges)
+        gz = self.__init_gz(vertical)
+        node_defs, user_channel_clusters = self.__add_node_definitions(selected_nodes=selected_nodes)
+        if node_defs:
+            gz += node_defs
+            gz += "\n"
+        edges = self.__generate_edges()
         if edges:
-            output = defaultdict(str)
-            for channel_edge in edges.values():
-                output[channel_edge[0]] += f"{channel_edge[1]}\n"
-            for c, v in output.items():
-                if c in user_channel_clusters:
-                    gz += user_channel_clusters[c]
-                gz += v
-                gz += "\n"
-        # calculate and add ranks
-        gz += self.__append_ranks(self.__graph.nodes_by_channel)
+            gz += self.__generate_edge_definitions(edges, user_channel_clusters)
+        ranks = self.__generate_ranks()
+        if ranks:
+            gz += '\n'
+            gz += ranks
         gz += "}"
         return gz
+
+    @staticmethod
+    def __generate_edge_definitions(edges: Dict[str, Tuple[str, str]], user_channel_clusters: Dict[str, str]) -> str:
+        gz = ''
+        output = defaultdict(str)
+        for channel_edge in edges.values():
+            output[channel_edge[0]] += f"{channel_edge[1]}\n"
+        for c, v in output.items():
+            if c in user_channel_clusters:
+                gz += user_channel_clusters[c]
+            gz += v
+            gz += "\n"
+        return gz
+
+    def __generate_edges(self) -> Dict[str, Tuple[str, str]]:
+        edges: Dict[str, Tuple[str, str]] = {}
+        for channel, node in self.__graph.nodes_by_channel.items():
+            self.__locate_edges(channel, node, edges)
+        return edges
 
     @staticmethod
     def __create_record(channels):
         return '|'.join([f"<{c}> {c}" for c in channels if c not in SHORT_USER_CHANNELS])
 
     @staticmethod
-    def __append_edges(channel: str, start_node: Node, visited_edges: Dict[str, Tuple[str, str]]):
+    def __locate_edges(channel: str, start_node: Node, visited_edges: Dict[str, Tuple[str, str]]):
         for end_node in start_node.downstream:
             edge_txt = f"{start_node.name} -> {end_node.name}"
-            # if isinstance(edge.filt, Mix) and get_channel_name(edge.filt.src_idx, short=True) == channel:
-            #     gz += f" [label=\"{edge.filt.mix_type}\"]"
             if edge_txt not in visited_edges:
                 indent = '    ' if end_node.channel in SHORT_USER_CHANNELS else '  '
                 if end_node.name.startswith('OUT'):
@@ -1450,7 +1461,7 @@ class GraphRenderer:
                 else:
                     target_channel = start_node.channel
                 visited_edges[edge_txt] = (target_channel, f"{indent}{edge_txt};")
-            GraphRenderer.__append_edges(channel, end_node, visited_edges)
+            GraphRenderer.__locate_edges(channel, end_node, visited_edges)
 
     @staticmethod
     def __create_io_record(name, definition):
@@ -1468,8 +1479,7 @@ class GraphRenderer:
                 to_append += "]\n"
         return to_append
 
-    def __init_gz(self, by_channel: Dict[str, Node], vertical,
-                  selected_nodes: Optional[List[str]] = None) -> Tuple[str, Dict[str, str]]:
+    def __init_gz(self, vertical) -> str:
         gz = "digraph G {\n"
         gz += f"  rankdir={'TB' if vertical else 'LR'};\n"
         gz += "  node [\n"
@@ -1493,10 +1503,13 @@ class GraphRenderer:
         gz += self.__create_io_record('OUT', self.__create_record(self.__graph.output_channels))
         gz += "\n"
         gz += "\n"
+        return gz
+
+    def __add_node_definitions(self, selected_nodes: Optional[List[str]] = None) -> Tuple[str, Dict[str, str]]:
         user_channel_clusters = {}
+        gz = ''
         # add all nodes
-        for c, node in by_channel.items():
-            # TODO collect nodes into subgraphs and then add them all
+        for c, node in self.__graph.nodes_by_channel.items():
             to_append = self.__create_channel_nodes(c, collect_nodes(node, []), selected_nodes=selected_nodes)
             if to_append:
                 if c in SHORT_USER_CHANNELS:
@@ -1506,16 +1519,15 @@ class GraphRenderer:
                     gz += "\n"
         return gz, user_channel_clusters
 
-    @staticmethod
-    def __append_ranks(nodes_by_channel: Dict[str, Node]):
+    def __generate_ranks(self):
         nodes = []
         ranks = defaultdict(list)
-        for root in nodes_by_channel.values():
+        for root in self.__graph.nodes_by_channel.values():
             collect_nodes(root, nodes)
         for node in nodes:
             if node.filt and node not in ranks[node.rank]:
                 ranks[node.rank].append(node)
-        gz = '\n'
+        gz = ''
         for nodes in ranks.values():
             gz += f"  {{rank = same; {'; '.join([n.name for n in nodes])}}}"
             gz += "\n"
