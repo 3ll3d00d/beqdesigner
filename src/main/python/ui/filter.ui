@@ -216,16 +216,6 @@
        <property name="enabled">
         <bool>true</bool>
        </property>
-       <item>
-        <property name="text">
-         <string>Butterworth</string>
-        </property>
-       </item>
-       <item>
-        <property name="text">
-         <string>Linkwitz-Riley</string>
-        </property>
-       </item>
       </widget>
      </item>
      <item row="7" column="2">

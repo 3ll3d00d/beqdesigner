@@ -261,6 +261,10 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.__freq_step_idx = self.__get_step(self.freq_steps, self.__preferences.get(DISPLAY_FREQ_STEP), 2)
         # init the UI itself
         self.setupUi(self)
+        from model.report import block_signals
+        with block_signals(self.passFilterType):
+            for filter_type in FilterType:
+                self.passFilterType.addItem(filter_type.display_name)
         self.__add_snapshot_buttons = [self.addSnapshotRowButton, self.pasteSnapshotRowButton, self.importSnapshotButton]
         self.__add_working_buttons = [self.addWorkingRowButton, self.pasteWorkingRowButton, self.importWorkingButton]
         self.__snapshot = FilterModel(self.snapshotFilterView, self.__preferences, on_update=self.__on_snapshot_change)
@@ -692,9 +696,8 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
             with block_signals(self.filterOrder):
                 self.filterOrder.setValue(selected_filter.order)
         if hasattr(selected_filter, 'type'):
-            displayName = 'Butterworth' if selected_filter.type is FilterType.BUTTERWORTH else 'Linkwitz-Riley'
             with block_signals(self.passFilterType):
-                self.passFilterType.setCurrentIndex(self.passFilterType.findText(displayName))
+                self.passFilterType.setCurrentIndex(self.passFilterType.findText(selected_filter.type.display_name))
         if hasattr(selected_filter, 'count') and issubclass(type(selected_filter), Shelf):
             with block_signals(self.filterCount):
                 self.filterCount.setValue(selected_filter.count)
@@ -820,10 +823,10 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         :return: the filter.
         '''
         if self.filterType.currentText() == 'Low Pass':
-            filt = ComplexLowPass(FilterType[self.passFilterType.currentText().upper().replace('-', '_')],
+            filt = ComplexLowPass(FilterType.value_of(self.passFilterType.currentText()),
                                   self.filterOrder.value(), self.__signal.fs, self.freq.value())
         else:
-            filt = ComplexHighPass(FilterType[self.passFilterType.currentText().upper().replace('-', '_')],
+            filt = ComplexHighPass(FilterType.value_of(self.passFilterType.currentText()),
                                    self.filterOrder.value(), self.__signal.fs, self.freq.value())
         filt.id = self.__selected_id
         return filt
@@ -927,14 +930,14 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         '''
         Sets the order step based on the type of high/low pass filter to ensure that LR only allows even orders.
         '''
-        if self.passFilterType.currentText() == 'Butterworth':
-            self.filterOrder.setSingleStep(1)
-            self.filterOrder.setMinimum(1)
-        elif self.passFilterType.currentText() == 'Linkwitz-Riley':
+        if self.passFilterType.currentText() == FilterType.LINKWITZ_RILEY.display_name:
             if self.filterOrder.value() % 2 != 0:
                 self.filterOrder.setValue(max(2, self.filterOrder.value() - 1))
             self.filterOrder.setSingleStep(2)
             self.filterOrder.setMinimum(2)
+        else:
+            self.filterOrder.setSingleStep(1)
+            self.filterOrder.setMinimum(1)
 
     def __is_gain_required(self):
         return self.filterType.currentText() in self.gain_required

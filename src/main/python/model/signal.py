@@ -841,20 +841,17 @@ class Signal:
 
     @property
     def avg(self):
-        if self.__avg is None:
-            self.calculate_peak_average()
+        self.calculate_average()
         return self.__avg
 
     @property
     def peak(self):
-        if self.__peak is None:
-            self.calculate_peak_average()
+        self.calculate_peak()
         return self.__peak
 
     @property
     def median(self):
-        if self.__median is None:
-            self.calculate_peak_average()
+        self.calculate_median()
         return self.__median
 
     @property
@@ -1112,21 +1109,48 @@ class Signal:
         else:
             return 'kaiser_fast'
 
-    def calculate_peak_average(self):
+    def calculate_average(self):
         '''
-        caches the peak, avg and median spectrum if we have no data.
+        caches the avg spectrum if we have no data.
         '''
-        if self.__avg is None or self.__peak is None or self.__median is None:
+        if self.__avg is None:
+            from model.preferences import ANALYSIS_RESOLUTION, ANALYSIS_PEAK_WINDOW, ANALYSIS_AVG_WINDOW
+            resolution = self.__preferences.get(ANALYSIS_RESOLUTION)
+            resolution_shift = int(math.log(resolution, 2))
+            avg_wnd = self.__get_window(self.__preferences, ANALYSIS_AVG_WINDOW)
+            logger.debug(f"Analysing {self.name} at {resolution} Hz resolution using {avg_wnd if avg_wnd else 'Default'} avg windows")
+            self.__avg = self.avg_spectrum(resolution_shift=resolution_shift, window=avg_wnd, average='mean')
+
+    def calculate_peak(self):
+        '''
+        caches the peak spectrum if we have no data.
+        '''
+        if self.__peak is None:
             from model.preferences import ANALYSIS_RESOLUTION, ANALYSIS_PEAK_WINDOW, ANALYSIS_AVG_WINDOW
             resolution = self.__preferences.get(ANALYSIS_RESOLUTION)
             resolution_shift = int(math.log(resolution, 2))
             peak_wnd = self.__get_window(self.__preferences, ANALYSIS_PEAK_WINDOW)
-            avg_wnd = self.__get_window(self.__preferences, ANALYSIS_AVG_WINDOW)
-            logger.debug(
-                f"Analysing {self.name} at {resolution} Hz resolution using {peak_wnd if peak_wnd else 'Default'}/{avg_wnd if avg_wnd else 'Default'} peak/avg windows")
-            self.__avg = self.avg_spectrum(resolution_shift=resolution_shift, window=avg_wnd, average='mean')
-            self.__median = self.avg_spectrum(resolution_shift=resolution_shift, window=avg_wnd, average='median')
+            logger.debug(f"Analysing {self.name} at {resolution} Hz resolution using {peak_wnd if peak_wnd else 'Default'} peak windows")
             self.__peak = self.peak_spectrum(resolution_shift=resolution_shift, window=peak_wnd)
+
+    def calculate_median(self):
+        '''
+        caches the median spectrum if we have no data.
+        '''
+        if self.__median is None:
+            from model.preferences import ANALYSIS_RESOLUTION, ANALYSIS_PEAK_WINDOW, ANALYSIS_AVG_WINDOW
+            resolution = self.__preferences.get(ANALYSIS_RESOLUTION)
+            resolution_shift = int(math.log(resolution, 2))
+            avg_wnd = self.__get_window(self.__preferences, ANALYSIS_AVG_WINDOW)
+            self.__median = self.avg_spectrum(resolution_shift=resolution_shift, window=avg_wnd, average='median')
+
+    def calculate_peak_average(self):
+        '''
+        caches the peak, avg and median spectrum if we have no data.
+        '''
+        self.calculate_average()
+        self.calculate_peak()
+        self.calculate_median()
 
     def __slice_into_large_signal_segments(self):
         '''

@@ -400,22 +400,25 @@ class RepoRefresher(QRunnable):
     def refresh(self):
         ''' Pulls or clones the named repository '''
         from app import wait_cursor
-        with wait_cursor():
-            os.makedirs(self.repo_dir, exist_ok=True)
-            for repo in self.repos:
-                subdir = get_repo_subdir(repo)
-                git_metadata_dir = os.path.abspath(os.path.join(self.repo_dir, subdir, '.git'))
-                local_dir = os.path.join(self.repo_dir, subdir)
-                if os.path.exists(git_metadata_dir):
-                    from dulwich.errors import NotGitRepository
-                    try:
-                        self.__pull_beq(repo, local_dir)
-                    except NotGitRepository as e:
-                        logger.exception('.git exists but is not a git repo, attempting to delete .git directory and clone')
-                        os.rmdir(git_metadata_dir)
+        try:
+            with wait_cursor():
+                os.makedirs(self.repo_dir, exist_ok=True)
+                for repo in self.repos:
+                    subdir = get_repo_subdir(repo)
+                    git_metadata_dir = os.path.abspath(os.path.join(self.repo_dir, subdir, '.git'))
+                    local_dir = os.path.join(self.repo_dir, subdir)
+                    if os.path.exists(git_metadata_dir):
+                        from dulwich.errors import NotGitRepository
+                        try:
+                            self.__pull_beq(repo, local_dir)
+                        except NotGitRepository as e:
+                            logger.exception('.git exists but is not a git repo, attempting to delete .git directory and clone')
+                            os.rmdir(git_metadata_dir)
+                            self.__clone_beq(repo, local_dir)
+                    else:
                         self.__clone_beq(repo, local_dir)
-                else:
-                    self.__clone_beq(repo, local_dir)
+        except:
+            logger.exception('fail')
 
     @staticmethod
     def __pull_beq(repo, local_dir):

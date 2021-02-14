@@ -9,18 +9,22 @@ from pathlib import Path
 from typing import Dict, Optional, List, Tuple
 
 import qtawesome as qta
+import time
+from numpy import ndarray
 from qtpy.QtCore import QPoint
 from qtpy.QtGui import QColor, QPalette, QKeySequence
 from qtpy.QtWidgets import QDialog, QFileDialog, QMenu, QAction, QListWidgetItem
-from scipy.signal import unit_impulse
+from scipy.signal import unit_impulse, sosfilt
 
 from model import iir
-from model.iir import s_to_q, q_to_s, CompleteFilter
+from model.iir import s_to_q, q_to_s, SOS
 from model.limits import dBRangeCalculator, PhaseRangeCalculator
+from model.log import to_millis
 from model.magnitude import MagnitudeModel
-from model.preferences import JRIVER_GEOMETRY, JRIVER_GRAPH_X_MIN, \
-    JRIVER_GRAPH_X_MAX, JRIVER_DSP_DIR, Preferences, get_filter_colour
-from model.signal import Signal, SingleChannelSignalData
+from model.preferences import JRIVER_GEOMETRY, JRIVER_GRAPH_X_MIN, JRIVER_GRAPH_X_MAX, JRIVER_DSP_DIR, Preferences, \
+    get_filter_colour
+from model.signal import Signal
+from model.xy import MagnitudeData
 from ui.jriver import Ui_jriverDspDialog
 from ui.pipeline import Ui_jriverGraphDialog
 
@@ -125,7 +129,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
 
     def __highlight_selected_nodes(self):
         graph = self.__dsp.graph(self.blockSelector.currentIndex())
-        filts = [graph.get_filter(n) for n in self.__selected_node_names if graph.get_filter(n) is not None]
+        filts = [graph.get_filter_at_node(n) for n in self.__selected_node_names if graph.get_filter_at_node(n) is not None]
         if filts:
             i = 0
             for f in self.__dsp.graph(self.blockSelector.currentIndex()).filters:
@@ -183,7 +187,8 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         if self.__dsp is not None:
             peq_idx = self.blockSelector.currentIndex()
             self.filterList.clear()
-            for f in self.__dsp.graph(peq_idx).filters:
+            self.__dsp.activate(peq_idx)
+            for f in self.__dsp.active_graph.filters:
                 if not isinstance(f, Divider):
                     self.filterList.addItem(str(f))
             self.__regen()
@@ -199,10 +204,8 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
                 names = [n.text() for n in self.channelList.selectedItems()]
                 for signal in self.__dsp.signals:
                     if signal.name in names:
-                        u = signal.current_filtered[0]
-                        u.description = None
-                        u.colour = get_filter_colour(len(result))
-                        result.append(u)
+                        result.append(MagnitudeData(signal.name, None, *signal.avg,
+                                                    colour=get_filter_colour(len(result))))
         return result
 
     def show_limits(self):
@@ -229,31 +232,37 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
 class JRiverDSP:
 
     def __init__(self, filename: str, prefs: Preferences, colours: Tuple[str, str] = None):
+        self.__active_idx = 0
         self.__filename = filename
         self.__colours = colours
+        self.__prefs = prefs
+        start = time.time()
         config_txt = Path(self.__filename).read_text()
         peq_block_order = get_peq_block_order(config_txt)
         i, o = get_available_channels(config_txt)
         self.__input_channel_indexes = i
         self.__output_channel_indexes = o
-        self.__graphs = []
-        names = [get_channel_name(c) for c in self.__output_channel_indexes]
-        self.__signals: Dict[str, SingleChannelSignalData] = {c: self.__default_signal(c, prefs) for c in names}
+        self.__graphs: List[FilterGraph] = []
+        self.__signals: Dict[str, Signal] = {}
         for block in peq_block_order:
             out_names = self.channel_names(short=True, output=True)
             in_names = out_names if self.__graphs else self.channel_names(short=True, output=False)
             self.__graphs.append(FilterGraph(block, in_names, out_names, self.__parse_peq(config_txt, block)))
+        end = time.time()
+        logger.info(f"Parsed {filename} in {to_millis(start, end)}ms")
+
+    def __init_signals(self) -> Dict[str, Signal]:
+        names = [get_channel_name(c) for c in self.__output_channel_indexes]
+        return {c: self.__default_signal(c, self.__prefs) for c in names}
 
     @property
-    def signals(self) -> List[SingleChannelSignalData]:
+    def signals(self) -> List[Signal]:
         return list(self.__signals.values()) if self.__signals else []
 
     @staticmethod
     def __default_signal(channel: str, prefs: Preferences):
         fs = 48000
-        return SingleChannelSignalData(name=channel,
-                                       signal=Signal(channel, unit_impulse(fs*4, 'mid') * 23453.66, prefs, fs=fs),
-                                       filter=CompleteFilter(description=channel, fs=fs))
+        return Signal(channel, unit_impulse(fs*4, 'mid') * 23453.66, prefs, fs=fs)
 
     @property
     def graph_count(self) -> int:
@@ -298,6 +307,29 @@ class JRiverDSP:
     def __repr__(self):
         return f"{self.__filename}"
 
+    def activate(self, active_idx: int):
+        self.__active_idx = active_idx
+        self.__generate_signals()
+
+    def __generate_signals(self):
+        signals = self.__init_signals()
+        for c, node in self.active_graph.nodes_by_channel.items():
+            sos = self.__collect_sos(node, [])
+
+    def __collect_sos(self, node: Node, sos: List[List[float]]) -> List[List[float]]:
+        # TODO handle mixing
+        if node.filt:
+            f = node.filt.get_filter()
+            if f:
+                sos.extend(f.get_sos())
+        for d in node.downstream:
+            self.__collect_sos(d, sos)
+        return sos
+
+    @property
+    def active_graph(self):
+        return self.__graphs[self.__active_idx]
+
 
 class Filter:
 
@@ -325,7 +357,7 @@ class Filter:
     def get_vals(self) -> Dict[str, str]:
         return {}
 
-    def get_filter(self):
+    def get_filter(self) -> Optional[SOS]:
         return None
 
     def print_disabled(self):
@@ -419,7 +451,7 @@ class GainQFilter(ChannelFilter):
     def to_jriver_q(self,  q: float, gain: float):
         return q
 
-    def get_filter(self):
+    def get_filter(self) -> Optional[SOS]:
         return self.__create_iir(48000, self.__frequency, self.__q, self.__gain)
 
     def __repr__(self):
@@ -505,7 +537,7 @@ class Gain(ChannelFilter):
     def __repr__(self):
         return f"Gain {self.__gain:+.7g} dB {self.print_channel_names()}{self.print_disabled()}"
 
-    def get_filter(self):
+    def get_filter(self) -> Optional[SOS]:
         return iir.Gain(48000, self.__gain)
 
     def short_desc(self):
@@ -720,6 +752,15 @@ class Mix(Filter):
 
     def is_mine(self, idx):
         return self.src_idx == idx
+
+    def short_desc(self):
+        mix_type = MixType(self.__mode)
+        if mix_type == MixType.MOVE or mix_type == MixType.MOVE:
+            return f"{mix_type.name}\nto {get_channel_name(int(self.__destination), short=True)}"
+        elif mix_type == MixType.SWAP:
+            return f"{mix_type.name}\n{get_channel_name(int(self.__source), short=True)}-{get_channel_name(int(self.__destination), short=True)}"
+        else:
+            return super().short_desc()
 
 
 class Order(Filter):
@@ -945,7 +986,7 @@ def get_peq_block_order(config_txt):
         if order_elem is not None:
             block_order = [token for token in order_elem.text.split(')') if 'Parametric Equalizer' in token]
             if block_order:
-                if block_order[0] == 'Parametric Equalizer':
+                if block_order[0].endswith('Parametric Equalizer'):
                     return [0, 1]
                 else:
                     return [1, 0]
@@ -1045,26 +1086,35 @@ class Node:
         self.rank = rank
         self.filt = filt
         self.channel = channel
+        self.visited = False
         if self.filt is None and self.channel is None:
             raise ValueError('Must have either filter or channel')
         self.__down_edges: List[Node] = []
-        self.__up_edge: Optional[Node] = None
+        self.__up_edges: List[Node] = []
 
     def add(self, node: Node):
-        if node not in self.__down_edges:
-            self.__down_edges.append(node)
-            node.__up_edge = self
+        if node not in self.downstream:
+            self.downstream.append(node)
+            node.upstream.append(self)
 
     @property
     def downstream(self) -> List[Node]:
         return self.__down_edges
 
     @property
-    def upstream(self) -> Node:
-        return self.__up_edge
+    def upstream(self) -> List[Node]:
+        return self.__up_edges
+
+    def detach(self):
+        '''
+        Detaches this node from the upstream nodes.
+        '''
+        for u in self.upstream:
+            u.downstream.remove(self)
+        self.__up_edges = []
 
     def __repr__(self):
-        return f"{self.name} - {'U1' if self.__up_edge is not None else ''} D{len(self.__down_edges)}"
+        return f"{self.name}{'' if self.__up_edges else ' - ROOT'} - {self.filt} -> {self.__down_edges}"
 
     @classmethod
     def swap(cls, n1: Node, n2: Node):
@@ -1073,22 +1123,35 @@ class Node:
         :param n1: first node.
         :param n2: second node.
         '''
-        tmp_down = n1.downstream
-        n1.__down_edges = n2.__down_edges
-        n2.__down_edges = tmp_down
+        n2_target_upstream = [t for t in n1.upstream]
+        n1_target_upstream = [t for t in n2.upstream]
+        n1.detach()
+        n2.detach()
+        for to_attach in n1_target_upstream:
+            to_attach.add(n1)
+        for to_attach in n2_target_upstream:
+            to_attach.add(n2)
 
     @classmethod
-    def replace(cls, src: Node, dst: Node):
+    def replace(cls, src: Node, dst: Node) -> List[Node]:
         '''
-        Replaces the contents of dest with src, means leaving downstream intact but replacing the upstream and removing
-        the upstream on the src.
+        Replaces the contents of dest with src.
         :param src: src.
         :param dst: dest.
+        :returns detached downstream.
         '''
-        dst.__up_edge.downstream.remove(dst)
-        src.__up_edge.add(dst)
-        src.__up_edge.downstream.remove(src)
-        src.__up_edge = None
+        # detach dst from its upstream node(s)
+        dst.detach()
+        # copy the downstream nodes from src and then remove them from src
+        tmp_downstream = [d for d in src.downstream]
+        src.downstream.clear()
+        # attach the downstream nodes from dst to src
+        for d in dst.downstream:
+            src.add(d)
+        # remove those downstream nodes from dst
+        dst.downstream.clear()
+        # return any downstream nodes orphaned from the old src
+        return tmp_downstream
 
     @classmethod
     def copy(cls, src: Node, dst: Node):
@@ -1097,7 +1160,9 @@ class Node:
         :param src: src.
         :param dst: dest.
         '''
-        dst.__up_edge.downstream.remove(dst)
+        # detach dst from its upstream node(s)
+        dst.detach()
+        # add dst a new downstream to src
         src.add(dst)
 
 
@@ -1121,11 +1186,8 @@ class FilterGraph:
         self.__filters_by_node_name: Dict[str, Filter] = {}
         self.__nodes_by_channel: Dict[str, Node] = self.__align(self.__collapse(self.__link(self.__init_nodes())))
 
-    def get_filter(self, node_name: str) -> Optional[Filter]:
+    def get_filter_at_node(self, node_name: str) -> Optional[Filter]:
         return self.__filters_by_node_name.get(node_name, None)
-
-    def create_filter(self, channel: str, prefs: Preferences):
-        pass
 
     @property
     def filters(self):
@@ -1178,18 +1240,16 @@ class FilterGraph:
         self.__filters_by_node_name[node.name] = filt
         return node
 
-    @staticmethod
-    def __link(by_channel: Dict[str, List[Node]]) -> Dict[str, Node]:
+    def __link(self, by_channel: Dict[str, List[Node]]) -> Dict[str, Node]:
         '''
         Assembles edges between nodes. For all filters except Mix, this is just a link to the preceding. node.
         Copy, move and swap mixes change this relationship.
         :param by_channel: the nodes by channel
         :return: the linked nodes by channel.
         '''
-        return FilterGraph.__remix(FilterGraph.__generate_graph(by_channel))
+        return self.__remix(self.__generate_graph(by_channel))
 
-    @staticmethod
-    def __generate_graph(by_channel):
+    def __generate_graph(self, by_channel):
         input_by_channel: Dict[str, Node] = {}
         for c, nodes in by_channel.items():
             upstream: Optional[Node] = None
@@ -1201,54 +1261,143 @@ class FilterGraph:
                 upstream = node
         return input_by_channel
 
-    @staticmethod
-    def __remix(by_channel: Dict[str, Node]) -> Dict[str, Node]:
+    def __remix(self, by_channel: Dict[str, Node], orphaned_nodes: Dict[str, List[Node]] = None) -> Dict[str, Node]:
+        if orphaned_nodes is None:
+            orphaned_nodes = defaultdict(list)
         for c, node in by_channel.items():
-            FilterGraph.__remix_node(c, node, by_channel)
+            self.__remix_node(node, by_channel, orphaned_nodes)
+        self.__remix_orphans(by_channel, orphaned_nodes)
         return by_channel
 
-    @staticmethod
-    def __remix_node(c: str, node: Node, by_channel: Dict[str, Node]) -> None:
-        f = node.filt
-        if isinstance(f, Mix) and f.enabled:
-            if f.mix_type == MixType.SWAP:
-                src_channel_name = get_channel_name(f.src_idx, short=True)
-                if src_channel_name == c:
-                    dst_channel_name = get_channel_name(f.dst_idx, short=True)
-                    swap_channel_name = src_channel_name if c == dst_channel_name else dst_channel_name
-                    swap_node = FilterGraph.__find_node(by_channel[swap_channel_name], f)
-                    Node.swap(node, swap_node)
-            elif f.mix_type == MixType.MOVE or f.mix_type == MixType.COPY:
-                src_channel_name = get_channel_name(f.src_idx, short=True)
-                if src_channel_name == c and node.channel == c:
-                    dst_channel_name = get_channel_name(f.dst_idx, short=True)
-                    dst_node = FilterGraph.__find_node(by_channel[dst_channel_name], f)
-                    Node.copy(node, dst_node) if f.mix_type == MixType.COPY else Node.replace(node, dst_node)
-            elif f.mix_type == MixType.ADD or f.mix_type == MixType.SUBTRACT:
-                if f.is_mine(get_channel_idx(node.channel, short=True)):
-                    dst_channel_name = get_channel_name(f.dst_idx, short=True)
-                    dst_node = FilterGraph.__find_node(by_channel[dst_channel_name], f)
-                    node.add(dst_node)
-        for d in node.downstream:
-            FilterGraph.__remix_node(c, d, by_channel)
+    def __remix_orphans(self, by_channel, orphaned_nodes):
+        while True:
+            if orphaned_nodes:
+                c_to_remove = []
+                for c, orphans in orphaned_nodes.items():
+                    new_root = orphans.pop(0)
+                    by_channel[f"{c}:{new_root.rank}"] = new_root
+                    if not orphans:
+                        c_to_remove.append(c)
+                orphaned_nodes = {k: v for k, v in orphaned_nodes.items() if k not in c_to_remove}
+                self.__remix(by_channel, orphaned_nodes=orphaned_nodes)
+            else:
+                break
+
+    def get_unvisited_nodes(self, by_channel):
+        all_nodes = []
+        for c, node in by_channel.items():
+            collect_nodes(node, all_nodes)
+        return [n for n in all_nodes if not n.visited]
+
+    def __remix_node(self, node: Node, by_channel: Dict[str, Node], orphaned_nodes: Dict[str, List[Node]]) -> None:
+        downstream = [d for d in node.downstream]
+        if not node.visited:
+            node.visited = True
+            channel_name = self.__extract_channel_name(node)
+            f = node.filt
+            if isinstance(f, Mix) and f.enabled:
+                if f.mix_type == MixType.SWAP:
+                    downstream = self.__swap_node(by_channel, channel_name, downstream, f, node, orphaned_nodes)
+                elif f.mix_type == MixType.MOVE or f.mix_type == MixType.COPY:
+                    downstream = self.__copy_or_replace_node(by_channel, channel_name, downstream, f, node,
+                                                             orphaned_nodes)
+                elif f.mix_type == MixType.ADD or f.mix_type == MixType.SUBTRACT:
+                    self.__add_or_subtract_node(by_channel, f, node, orphaned_nodes)
+        for d in downstream:
+            self.__remix_node(d, by_channel, orphaned_nodes)
 
     @staticmethod
-    def __find_node(node: Node, match: Filter) -> Node:
-        if node.filt and node.filt == match:
+    def __extract_channel_name(node):
+        if ':' not in node.channel:
+            channel_name = node.channel
+        else:
+            channel_name = node.channel[0:node.channel.index(':')]
+        return channel_name
+
+    def __add_or_subtract_node(self, by_channel: Dict[str, Node], f: Mix, node: Node,
+                               orphaned_nodes: Dict[str, List[Node]]):
+        if f.is_mine(get_channel_idx(node.channel, short=True)):
+            dst_channel_name = get_channel_name(f.dst_idx, short=True)
+            try:
+                dst_node = self.__find_owning_node_in_channel(by_channel[dst_channel_name], f, dst_channel_name)
+                node.add(dst_node)
+            except ValueError:
+                dst_node = self.__find_owning_node_in_orphans(dst_channel_name, f, orphaned_nodes)
+                if dst_node:
+                    dst_node.visited = True
+                    node.add(dst_node)
+                else:
+                    logger.debug(f"No match for {f} in {dst_channel_name}, presumed orphaned")
+                    node.visited = False
+
+    def __find_owning_node_in_orphans(self, dst_channel_name, f, orphaned_nodes):
+        return next((n for n in orphaned_nodes.get(dst_channel_name, [])
+                     if self.__owns_filter(n, f, dst_channel_name)), None)
+
+    def __copy_or_replace_node(self, by_channel: Dict[str, Node], channel_name: str, downstream: List[Node], f: Mix,
+                               node: Node, orphaned_nodes: Dict[str, List[Node]]) -> List[Node]:
+        src_channel_name = get_channel_name(f.src_idx, short=True)
+        if src_channel_name == channel_name and node.channel == channel_name:
+            dst_channel_name = get_channel_name(f.dst_idx, short=True)
+            try:
+                dst_node = self.__find_owning_node_in_channel(by_channel[dst_channel_name], f, dst_channel_name)
+                if f.mix_type == MixType.COPY:
+                    Node.copy(node, dst_node)
+                else:
+                    new_downstream = Node.replace(node, dst_node)
+                    if new_downstream:
+                        if len(new_downstream) > 1:
+                            txt = f"{channel_name} - {new_downstream}"
+                            raise ValueError(f"Unexpected multiple downstream nodes on replace in channel {txt}")
+                        if not new_downstream[0].name.startswith('OUT:'):
+                            orphaned_nodes[channel_name].append(new_downstream[0])
+                downstream = node.downstream
+            except ValueError:
+                logger.debug(f"No match for {f} in {dst_channel_name}, presumed orphaned")
+                node.visited = False
+        else:
+            node.visited = False
+        return downstream
+
+    def __swap_node(self, by_channel: Dict[str, Node], channel_name: str, downstream: List[Node], f: Mix,
+                    node: Node, orphaned_nodes: Dict[str, List[Node]]) -> List[Node]:
+        src_channel_name = get_channel_name(f.src_idx, short=True)
+        if src_channel_name == channel_name:
+            dst_channel_name = get_channel_name(f.dst_idx, short=True)
+            swap_channel_name = src_channel_name if channel_name == dst_channel_name else dst_channel_name
+            try:
+                swap_node = self.__find_owning_node_in_channel(by_channel[swap_channel_name], f, swap_channel_name)
+            except ValueError:
+                swap_node = self.__find_owning_node_in_orphans(swap_channel_name, f, orphaned_nodes)
+            if swap_node:
+                Node.swap(node, swap_node)
+                downstream = node.downstream
+            else:
+                logger.debug(f"No match for {f} in {swap_channel_name}, presumed orphaned")
+                node.visited = False
+        else:
+            node.visited = False
+        return downstream
+
+    @staticmethod
+    def __find_owning_node_in_channel(node: Node, match: Filter, owning_channel_name: str) -> Node:
+        if FilterGraph.__owns_filter(node, match, owning_channel_name):
             return node
         for d in node.downstream:
-            return FilterGraph.__find_node(d, match)
+            return FilterGraph.__find_owning_node_in_channel(d, match, owning_channel_name)
         raise ValueError(f"No match for '{match}' in '{node}'")
 
     @staticmethod
-    def __collapse(by_channel: Dict[str, Node]) -> Dict[str, Node]:
+    def __owns_filter(node: Node, match: Filter, owning_channel_name: str) -> bool:
+        return node.filt and node.filt == match and node.channel == owning_channel_name
+
+    def __collapse(self, by_channel: Dict[str, Node]) -> Dict[str, Node]:
         # TODO collapse contiguous Peak/LS/HS into a composite filter
         # TODO collapse contiguous Add nodes into a single node
         # TODO eliminate swap/move/copy nodes
         return by_channel
 
-    @staticmethod
-    def __align(by_channel: Dict[str, Node]) -> Dict[str, Node]:
+    def __align(self, by_channel: Dict[str, Node]) -> Dict[str, Node]:
         # TODO ensure mix sections are aligned in the grid
         return by_channel
 
@@ -1272,10 +1421,9 @@ class GraphRenderer:
                 output[channel_edge[0]] += f"{channel_edge[1]}\n"
             for c, v in output.items():
                 if c in user_channel_clusters:
-                    gz += user_channel_clusters[c] + v + '\n}\n'
-                else:
-                    gz += v
-                    gz += "\n"
+                    gz += user_channel_clusters[c]
+                gz += v
+                gz += "\n"
         # calculate and add ranks
         gz += self.__append_ranks(self.__graph.nodes_by_channel)
         gz += "}"
@@ -1310,23 +1458,15 @@ class GraphRenderer:
 
     def __create_channel_nodes(self, channel, nodes, selected_nodes=None):
         to_append = ""
-        indent = "    " if channel in SHORT_USER_CHANNELS else "  "
+        label_prefix = f"{channel}\n" if channel in SHORT_USER_CHANNELS else ''
         for node in nodes:
             if node.filt:
-                to_append += f"{indent}{node.name} [label=\"{node.filt.short_desc()}\""
+                to_append += f"  {node.name} [label=\"{label_prefix}{node.filt.short_desc()}\""
                 if selected_nodes and next((n for n in selected_nodes if n == node.name), None) is not None:
                     fill_colour = f"\"{self.__colours[1]}\"" if self.__colours else 'lightgrey'
                     to_append += f" style=filled fillcolor={fill_colour}"
                 to_append += "]\n"
         return to_append
-
-    @staticmethod
-    def __wrap_in_subcluster(name, nodes):
-        output = f"  subgraph cluster_{name} {{"
-        output += "\n"
-        output += nodes
-        output += f"    label = \"{name}\";\n"
-        return output
 
     def __init_gz(self, by_channel: Dict[str, Node], vertical,
                   selected_nodes: Optional[List[str]] = None) -> Tuple[str, Dict[str, str]]:
@@ -1357,29 +1497,21 @@ class GraphRenderer:
         # add all nodes
         for c, node in by_channel.items():
             # TODO collect nodes into subgraphs and then add them all
-            to_append = self.__create_channel_nodes(c, self.__collect_nodes(node, []), selected_nodes=selected_nodes)
+            to_append = self.__create_channel_nodes(c, collect_nodes(node, []), selected_nodes=selected_nodes)
             if to_append:
                 if c in SHORT_USER_CHANNELS:
-                    user_channel_clusters[c] = self.__wrap_in_subcluster(c, to_append)
+                    user_channel_clusters[c] = to_append
                 else:
                     gz += to_append
                     gz += "\n"
         return gz, user_channel_clusters
 
     @staticmethod
-    def __collect_nodes(node: Node, arr: List[Node]) -> List[Node]:
-        if node not in arr:
-            arr.append(node)
-        for d in node.downstream:
-            GraphRenderer.__collect_nodes(d, arr)
-        return arr
-
-    @staticmethod
     def __append_ranks(nodes_by_channel: Dict[str, Node]):
         nodes = []
         ranks = defaultdict(list)
         for root in nodes_by_channel.values():
-            GraphRenderer.__collect_nodes(root, nodes)
+            collect_nodes(root, nodes)
         for node in nodes:
             if node.filt and node not in ranks[node.rank]:
                 ranks[node.rank].append(node)
@@ -1388,6 +1520,14 @@ class GraphRenderer:
             gz += f"  {{rank = same; {'; '.join([n.name for n in nodes])}}}"
             gz += "\n"
         return gz
+
+
+def collect_nodes(node: Node, arr: List[Node]) -> List[Node]:
+    if node not in arr:
+        arr.append(node)
+    for d in node.downstream:
+        collect_nodes(d, arr)
+    return arr
 
 
 class JRiverFilterPipelineDialog(QDialog, Ui_jriverGraphDialog):

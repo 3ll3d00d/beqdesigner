@@ -71,17 +71,17 @@ class SvgView(QGraphicsView):
         import xml.etree.ElementTree as ET
         g = "{http://www.w3.org/2000/svg}g"
         xml = svg_bytes.decode('utf-8')
-        logger.debug(xml)
+        # logger.debug(xml)
         for i in ET.fromstring(xml).findall(f"./{g}/{g}"):
             if i.attrib['class'] == 'edge':
                 item = SvgItem(i.attrib['id'], self.__svg_renderer)
             else:
                 node_name = next((c.text for c in i if c.tag == '{http://www.w3.org/2000/svg}title'), None)
                 if node_name:
-                    logger.debug(f"Adding clickable item for {node_name}")
+                    # logger.debug(f"Adding clickable item for {node_name}")
                     item = ClickableSvgItem(i.attrib['id'], self.__svg_renderer, self.signal, node_name)
                 else:
-                    logger.debug(f"Adding standard item for {i.attrib['id']}")
+                    # logger.debug(f"Adding standard item for {i.attrib['id']}")
                     item = SvgItem(i.attrib['id'], self.__svg_renderer)
             item.setFlags(QGraphicsItem.ItemClipsToShape)
             item.setCacheMode(QGraphicsItem.NoCache)

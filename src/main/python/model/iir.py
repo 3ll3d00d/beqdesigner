@@ -1,5 +1,7 @@
 # from http://www.musicdsp.org/files/Audio-EQ-Cookbook.txt
 import logging
+from typing import Optional, List
+
 import math
 import struct
 from abc import ABC, abstractmethod
@@ -53,7 +55,13 @@ def float_to_hex(f, minidsp_style, fixed_point):
         return f"{value:{'#' if minidsp_style is True else ''}010x}"
 
 
-class Biquad(ABC):
+class SOS(ABC):
+    @abstractmethod
+    def get_sos(self) -> Optional[List[List[float]]]:
+        pass
+
+
+class Biquad(SOS):
     def __init__(self, fs, f_id=-1):
         self.fs = fs
         self.a, self.b = self._compute_coeffs()
@@ -136,7 +144,7 @@ class Biquad(ABC):
         else:
             return ''
 
-    def get_sos(self):
+    def get_sos(self) -> Optional[List[List[float]]]:
         return [np.concatenate((self.b, self.a)).tolist()]
 
 
@@ -429,7 +437,7 @@ class Shelf(BiquadWithQGain):
             return single
         elif self.count > 1:
             if self.__cached_cascade is None:
-                self.__cached_cascade = getCascadeTransferFunction(self.__repr__(), [single] * self.count)
+                self.__cached_cascade = get_cascade_transfer_function(self.__repr__(), [single] * self.count)
             return self.__cached_cascade
         else:
             raise ValueError('Shelf must have non zero count')
@@ -563,17 +571,18 @@ class HighShelf(Shelf):
         return HighShelf(new_fs, self.freq, self.q, self.gain, self.count, f_id=self.id)
 
 
-class FirstOrder_LowPass(BiquadWithQ):
+class FirstOrder_LowPass(Biquad):
     '''
     A one pole low pass filter.
     '''
 
-    def __init__(self, fs, freq, q=DEFAULT_Q, f_id=-1):
-        super().__init__(fs, freq, q, f_id=f_id)
+    def __init__(self, fs, freq, f_id=-1):
+        self.freq = round(float(freq), 2)
         self.order = 1
+        super().__init__(fs, f_id=f_id)
 
     def __eq__(self, o: object) -> bool:
-        return super().__eq__(o) and self.order == o.order
+        return super().__eq__(o) and self.order == o.order and self.freq == o.freq
 
     @property
     def filter_type(self):
@@ -581,7 +590,7 @@ class FirstOrder_LowPass(BiquadWithQ):
 
     @property
     def display_name(self):
-        return 'Variable Q LPF'
+        return 'LPF1'
 
     def _compute_coeffs(self):
         a1 = math.exp(-2.0 * math.pi * (self.freq / self.fs))
@@ -596,23 +605,31 @@ class FirstOrder_LowPass(BiquadWithQ):
         :param new_fs: the new fs.
         :return: the new filter.
         '''
-        return FirstOrder_LowPass(new_fs, self.freq, q=self.q, f_id=self.id)
+        return FirstOrder_LowPass(new_fs, self.freq, f_id=self.id)
+
+    def sort_key(self):
+        return f"{self.freq:05}00000{self.filter_type}"
 
     def to_json(self):
-        return fs_freq_q_json(self)
+        return {
+            '_type': self.__class__.__name__,
+            'fs': self.fs,
+            'fc': self.freq
+        }
 
 
-class FirstOrder_HighPass(BiquadWithQ):
+class FirstOrder_HighPass(Biquad):
     '''
     A one pole high pass filter.
     '''
 
-    def __init__(self, fs, freq, q=DEFAULT_Q, f_id=-1):
-        super().__init__(fs, freq, q, f_id=f_id)
+    def __init__(self, fs, freq, f_id=-1):
+        self.freq = freq
         self.order = 1
+        super().__init__(fs, f_id=f_id)
 
     def __eq__(self, o: object) -> bool:
-        return super().__eq__(o) and self.order == o.order
+        return super().__eq__(o) and self.order == o.order and self.freq == o.freq
 
     @property
     def filter_type(self):
@@ -620,7 +637,7 @@ class FirstOrder_HighPass(BiquadWithQ):
 
     @property
     def display_name(self):
-        return 'Variable Q HPF'
+        return 'HPF1'
 
     def _compute_coeffs(self):
         # TODO work out how to implement this directly
@@ -637,10 +654,17 @@ class FirstOrder_HighPass(BiquadWithQ):
         :param new_fs: the new fs.
         :return: the new filter.
         '''
-        return FirstOrder_HighPass(new_fs, self.freq, q=self.q, f_id=self.id)
+        return FirstOrder_HighPass(new_fs, self.freq, f_id=self.id)
+
+    def sort_key(self):
+        return f"{self.freq:05}00000{self.filter_type}"
 
     def to_json(self):
-        return fs_freq_q_json(self)
+        return {
+            '_type': self.__class__.__name__,
+            'fs': self.fs,
+            'fc': self.freq
+        }
 
 
 def fs_freq_q_json(o):
@@ -805,7 +829,7 @@ class AllPass(BiquadWithQ):
         return fs_freq_q_json(self)
 
 
-def getCascadeTransferFunction(name, responses):
+def get_cascade_transfer_function(name, responses):
     '''
     The transfer function for a cascade of filters.
     :param name: the name.
@@ -815,7 +839,7 @@ def getCascadeTransferFunction(name, responses):
     return ComplexData(name, responses[0].x, reduce((lambda x, y: x * y), [r.y for r in responses]))
 
 
-class ComplexFilter(Sequence):
+class ComplexFilter(SOS, Sequence):
     '''
     A filter composed of many other filters.
     '''
@@ -909,8 +933,8 @@ class ComplexFilter(Sequence):
             if len(self.filters) == 0:
                 return Passthrough(fs=self.fs).get_transfer_function()
             else:
-                self.__cached_transfer = getCascadeTransferFunction(self.__repr__(),
-                                                                    [x.get_transfer_function() for x in self.filters])
+                self.__cached_transfer = get_cascade_transfer_function(self.__repr__(),
+                                                                       [x.get_transfer_function() for x in self.filters])
         return self.__cached_transfer
 
     def format_biquads(self, invert_a, separator=',\n', show_index=True, to_hex=False, fixed_point=False):
@@ -998,8 +1022,19 @@ class CompleteFilter(ComplexFilter):
 
 
 class FilterType(Enum):
-    BUTTERWORTH = 'BW'
-    LINKWITZ_RILEY = 'LR'
+    BUTTERWORTH = ('BW', 'Butterworth')
+    LINKWITZ_RILEY = ('LR', 'Linkwitz-Riley')
+    BESSEL = ('BES', 'Bessel')
+
+    def __new__(cls, name, display_name):
+        entry = object.__new__(cls)
+        entry._value_ = name
+        entry.display_name = display_name
+        return entry
+
+    @staticmethod
+    def value_of(display_name: str):
+        return next((f for f in FilterType if f.display_name == display_name), None)
 
 
 class CompoundPassFilter(ComplexFilter):
@@ -1019,7 +1054,7 @@ class CompoundPassFilter(ComplexFilter):
         if self.order == 0:
             raise ValueError("Filter cannot have order = 0")
         self.__filter_type = f"{high_or_low} {filter_type.value}{order}"
-        super().__init__(fs=fs, filters=self._calculate_biquads(fs), description=f"{self.__filter_type}/{self.freq}Hz",
+        super().__init__(fs=fs, filters=self.calculate_biquads(fs), description=f"{self.__filter_type}/{self.freq}Hz",
                          f_id=f_id)
 
     @property
@@ -1029,7 +1064,7 @@ class CompoundPassFilter(ComplexFilter):
     def sort_key(self):
         return f"{self.freq:05}{self.order:05}{self.filter_type}"
 
-    def _calculate_biquads(self, fs):
+    def calculate_biquads(self, fs):
         if self.type is FilterType.BUTTERWORTH:
             if self.order == 1:
                 return [self.__bw1(fs, self.freq)]
@@ -1046,6 +1081,10 @@ class CompoundPassFilter(ComplexFilter):
             else:
                 bw_order = int(self.order / 2)
                 return self.__calculate_high_order_bw(fs, bw_order) + self.__calculate_high_order_bw(fs, bw_order)
+        elif self.type is FilterType.BESSEL:
+            # TODO https://gist.github.com/endolith/4982787
+            # use lookup table : multiply target freq by scaling factor + use specified Q
+            pass
         else:
             raise ValueError("Unknown filter type " + str(self.type))
 
