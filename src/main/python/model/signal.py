@@ -1037,6 +1037,25 @@ class Signal:
                       fs=self.fs,
                       metadata=self.metadata)
 
+    def shift(self, samples: int):
+        '''
+        shifts the signal by the specified no of samples while retaining signal length.
+        :param samples: no of samples to shift, negative means left shift (i.e. play earlier), positive means right
+        shift (i.e. play later).
+        :return: the shifted signal.
+        '''
+        if samples == 0:
+            new_samples = self.samples
+        elif samples < 0:
+            new_samples = np.append(self.samples, np.zeros(samples))[samples:]
+        else:
+            new_samples = np.insert(self.samples, 0, np.zeros(samples))[:-samples]
+        return Signal(self.name,
+                      new_samples,
+                      self.__preferences,
+                      fs=self.fs,
+                      metadata=self.metadata)
+
     def adjust_gain(self, gain):
         '''
         Adjusts the gain via the specified gain factor (ratio)
@@ -1069,6 +1088,30 @@ class Signal:
         '''
         return Signal(self.name,
                       np.clip(self.samples, amin, amax),
+                      self.__preferences,
+                      fs=self.fs,
+                      metadata=self.metadata)
+
+    def add(self, samples):
+        '''
+        Adds the provided samples to this signal. Ensures the signals have the same shape is left to the caller.
+        :param samples: the samples
+        :return: a new signal.
+        '''
+        return Signal(self.name,
+                      self.samples + samples,
+                      self.__preferences,
+                      fs=self.fs,
+                      metadata=self.metadata)
+
+    def subtract(self, samples):
+        '''
+        Subtracts the provided samples from this signal. Ensures the signals have the same shape is left to the caller.
+        :param samples: the samples
+        :return: a new signal.
+        '''
+        return Signal(self.name,
+                      self.samples - samples,
                       self.__preferences,
                       fs=self.fs,
                       metadata=self.metadata)
@@ -1173,6 +1216,9 @@ class Signal:
             if window == 'tukey':
                 window = (window, 0.25)
         return window
+
+    def __repr__(self):
+        return f"Signal {self.name} {{fs: {self.fs}, len: {len(self.samples)}}}"
 
 
 def amplitude_to_db(s, ref=1.0):

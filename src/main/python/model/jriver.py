@@ -3,10 +3,11 @@ from __future__ import annotations
 import logging
 import os
 import xml.etree.ElementTree as et
+from abc import ABC, abstractmethod
 from collections import defaultdict
 from enum import Enum
 from pathlib import Path
-from typing import Dict, Optional, List, Tuple
+from typing import Dict, Optional, List, Tuple, Union
 
 import qtawesome as qta
 import time
@@ -16,7 +17,7 @@ from qtpy.QtWidgets import QDialog, QFileDialog, QMenu, QAction, QListWidgetItem
 from scipy.signal import unit_impulse
 
 from model import iir
-from model.iir import s_to_q, q_to_s, SOS
+from model.iir import s_to_q, q_to_s
 from model.limits import dBRangeCalculator, PhaseRangeCalculator
 from model.log import to_millis
 from model.magnitude import MagnitudeModel
@@ -36,6 +37,10 @@ JRIVER_CHANNELS = JRIVER_NAMED_CHANNELS + [f"Channel {i + 9}" for i in range(24)
 JRIVER_SHORT_CHANNELS = JRIVER_SHORT_NAMED_CHANNELS + [f"#{i + 9}" for i in range(24)]
 
 logger = logging.getLogger('jriver')
+
+
+def short_to_long(short: str) -> str:
+    return JRIVER_CHANNELS[JRIVER_SHORT_CHANNELS.index(short)]
 
 
 def get_channel_name(idx: int, short: bool = False) -> str:
@@ -167,13 +172,13 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
                 main_colour = QColor(QPalette().color(QPalette.Active, QPalette.Text)).name()
                 highlight_colour = QColor(QPalette().color(QPalette.Active, QPalette.Highlight)).name()
                 self.__dsp = JRiverDSP(selected[0], self.prefs, colours=(main_colour, highlight_colour))
-                for n in self.__dsp.channel_names(output=True):
+                for i, n in enumerate(self.__dsp.channel_names(output=True)):
                     self.channelList.addItem(n)
+                    item: QListWidgetItem = self.channelList.item(i)
+                    item.setSelected(n not in USER_CHANNELS)
                 self.filename.setText(os.path.basename(selected[0])[:-4])
                 self.show_filters()
-                self.channelList.selectAll()
                 self.prefs.set(JRIVER_DSP_DIR, os.path.dirname(selected[0]))
-                self.redraw()
             except Exception as e:
                 logger.exception(f"Unable to parse {selected[0]}")
                 from model.catalogue import show_alert
@@ -191,6 +196,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
                 if not isinstance(f, Divider):
                     self.filterList.addItem(str(f))
             self.__regen()
+        self.redraw()
 
     def __get_data(self, mode='mag'):
         return lambda *args, **kwargs: self.get_curve_data(mode, *args, **kwargs)
@@ -202,7 +208,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
             if self.__dsp:
                 names = [n.text() for n in self.channelList.selectedItems()]
                 for signal in self.__dsp.signals:
-                    if signal.name in names:
+                    if short_to_long(signal.name) in names:
                         result.append(MagnitudeData(signal.name, None, *signal.avg,
                                                     colour=get_filter_colour(len(result))))
         return result
@@ -251,7 +257,7 @@ class JRiverDSP:
         logger.info(f"Parsed {filename} in {to_millis(start, end)}ms")
 
     def __init_signals(self) -> Dict[str, Signal]:
-        names = [get_channel_name(c) for c in self.__output_channel_indexes]
+        names = [get_channel_name(c, short=True) for c in self.__output_channel_indexes]
         return {c: self.__default_signal(c, self.__prefs) for c in names}
 
     @property
@@ -311,19 +317,15 @@ class JRiverDSP:
         self.__generate_signals()
 
     def __generate_signals(self):
-        signals = self.__init_signals()
-        for c, node in self.active_graph.nodes_by_channel.items():
-            sos = self.__collect_sos(node, [])
-
-    def __collect_sos(self, node: Node, sos: List[List[float]]) -> List[List[float]]:
-        # TODO handle mixing
-        if node.filt:
-            f = node.filt.get_filter()
-            if f:
-                sos.extend(f.get_sos())
-        for d in node.downstream:
-            self.__collect_sos(d, sos)
-        return sos
+        start = time.time()
+        signals: Dict[str, Signal] = self.__init_signals()
+        for c, pipe in self.active_graph.filter_pipes_by_channel.items():
+            while pipe is not None:
+                signals[c] = pipe.op.apply(signals[c])
+                pipe = pipe.next
+        self.__signals = signals
+        end = time.time()
+        logger.info(f"Generated {len(signals)} signals in {to_millis(start, end)} ms")
 
     @property
     def active_graph(self):
@@ -356,8 +358,8 @@ class Filter:
     def get_vals(self) -> Dict[str, str]:
         return {}
 
-    def get_filter(self) -> Optional[SOS]:
-        return None
+    def get_filter(self) -> FilterOp:
+        return NopFilterOp()
 
     def print_disabled(self):
         return '' if self.enabled else f" *** DISABLED ***"
@@ -450,8 +452,12 @@ class GainQFilter(ChannelFilter):
     def to_jriver_q(self,  q: float, gain: float):
         return q
 
-    def get_filter(self) -> Optional[SOS]:
-        return self.__create_iir(48000, self.__frequency, self.__q, self.__gain)
+    def get_filter(self) -> FilterOp:
+        sos = self.__create_iir(48000, self.__frequency, self.__q, self.__gain).get_sos()
+        if sos:
+            return SosFilterOp(sos)
+        else:
+            return NopFilterOp()
 
     def __repr__(self):
         return f"{self.__class__.__name__} {self.__gain:+.7g} dB Q={self.__q:.7g} at {self.__frequency:.7g} Hz {self.print_channel_names()}{self.print_disabled()}"
@@ -536,8 +542,8 @@ class Gain(ChannelFilter):
     def __repr__(self):
         return f"Gain {self.__gain:+.7g} dB {self.print_channel_names()}{self.print_disabled()}"
 
-    def get_filter(self) -> Optional[SOS]:
-        return iir.Gain(48000, self.__gain)
+    def get_filter(self) -> FilterOp:
+        return GainFilterOp(self.__gain)
 
     def short_desc(self):
         return f"{self.__gain:+.7g} dB"
@@ -581,6 +587,9 @@ class Delay(ChannelFilter):
 
     def short_desc(self):
         return f"{self.__delay:+.7g}ms"
+
+    def get_filter(self) -> FilterOp:
+        return DelayFilterOp(self.__delay)
 
 
 class Divider(Filter):
@@ -649,6 +658,13 @@ class LinkwitzTransform(ChannelFilter):
 
     def __repr__(self):
         return f"{self.__class__.__name__} {self.__fz:.7g} Hz / {self.__qz:.7g} -> {self.__fp:.7g} Hz / {self.__qp:.7} {self.print_channel_names()}{self.print_disabled()}"
+
+    def get_filter(self) -> FilterOp:
+        sos = iir.LinkwitzTransform(48000, self.__fz, self.__qz, self.__fp, self.__qp).get_sos()
+        if sos:
+            return SosFilterOp(sos)
+        else:
+            return NopFilterOp()
 
 
 class LinkwitzRiley(Filter):
@@ -760,6 +776,14 @@ class Mix(Filter):
             return f"{mix_type.name}\n{get_channel_name(int(self.__source), short=True)}-{get_channel_name(int(self.__destination), short=True)}"
         else:
             return super().short_desc()
+
+    def get_filter(self) -> FilterOp:
+        if self.mix_type == MixType.ADD:
+            return AddFilterOp()
+        elif self.mix_type == MixType.SUBTRACT:
+            return SubtractFilterOp()
+        else:
+            return NopFilterOp()
 
 
 class Order(Filter):
@@ -1146,6 +1170,7 @@ class Node:
         src.downstream.clear()
         # attach the downstream nodes from dst to src
         for d in dst.downstream:
+            d.detach()
             src.add(d)
         # remove those downstream nodes from dst
         dst.downstream.clear()
@@ -1183,7 +1208,12 @@ class FilterGraph:
         self.__output_channels = output_channels
         self.__input_channels = input_channels
         self.__filters_by_node_name: Dict[str, Filter] = {}
-        self.__nodes_by_channel: Dict[str, Node] = self.__align(self.__collapse(self.__link(self.__init_nodes())))
+        self.__nodes_by_channel: Dict[str, Node] = self.__collapse(self.__link(self.__create_nodes()))
+        self.__filter_pipes_by_channel: Dict[str, FilterPipe] = self.__generate_filter_paths()
+
+    @property
+    def filter_pipes_by_channel(self) -> Dict[str, FilterPipe]:
+        return self.__filter_pipes_by_channel
 
     def get_filter_at_node(self, node_name: str) -> Optional[Filter]:
         return self.__filters_by_node_name.get(node_name, None)
@@ -1204,7 +1234,7 @@ class FilterGraph:
     def output_channels(self):
         return self.__output_channels
 
-    def __init_nodes(self) -> Dict[str, List[Node]]:
+    def __create_nodes(self) -> Dict[str, List[Node]]:
         '''
         transforms each filter into a node on each channel the filter affects.
         :return: nodes by channel name.
@@ -1246,9 +1276,10 @@ class FilterGraph:
         :param by_channel: the nodes by channel
         :return: the linked nodes by channel.
         '''
-        return self.__remix(self.__generate_graph(by_channel))
+        return self.__remix(self.__initialise_graph(by_channel))
 
-    def __generate_graph(self, by_channel):
+    @staticmethod
+    def __initialise_graph(by_channel):
         input_by_channel: Dict[str, Node] = {}
         for c, nodes in by_channel.items():
             upstream: Optional[Node] = None
@@ -1266,7 +1297,18 @@ class FilterGraph:
         for c, node in by_channel.items():
             self.__remix_node(node, by_channel, orphaned_nodes)
         self.__remix_orphans(by_channel, orphaned_nodes)
+        bad_nodes = [n for n in self.__collect_all_nodes(by_channel) if not self.__is_linked(n)]
+        if bad_nodes:
+            logger.warning(f"Found {len(bad_nodes)} badly linked nodes")
         return by_channel
+
+    @staticmethod
+    def __is_linked(node: Node):
+        for u in node.upstream:
+            if node not in u.downstream:
+                logger.debug(f"Node not cross linked with upstream {u.name} - {node.name}")
+                return False
+        return True
 
     def __remix_orphans(self, by_channel, orphaned_nodes):
         while True:
@@ -1281,12 +1323,6 @@ class FilterGraph:
                 self.__remix(by_channel, orphaned_nodes=orphaned_nodes)
             else:
                 break
-
-    def get_unvisited_nodes(self, by_channel):
-        all_nodes = []
-        for c, node in by_channel.items():
-            collect_nodes(node, all_nodes)
-        return [n for n in all_nodes if not n.visited]
 
     def __remix_node(self, node: Node, by_channel: Dict[str, Node], orphaned_nodes: Dict[str, List[Node]]) -> None:
         downstream = [d for d in node.downstream]
@@ -1392,13 +1428,60 @@ class FilterGraph:
 
     def __collapse(self, by_channel: Dict[str, Node]) -> Dict[str, Node]:
         # TODO collapse contiguous Peak/LS/HS into a composite filter
-        # TODO collapse contiguous Add nodes into a single node
         # TODO eliminate swap/move/copy nodes
         return by_channel
 
-    def __align(self, by_channel: Dict[str, Node]) -> Dict[str, Node]:
-        # TODO ensure mix sections are aligned in the grid
-        return by_channel
+    def __generate_filter_paths(self) -> Dict[str, FilterPipe]:
+        output_nodes = self.__get_output_nodes()
+        filter_pipes: Dict[str, FilterPipe] = {}
+        for channel_name, output_node in output_nodes.items():
+            parent = self.__get_parent(output_node)
+            filters: List[FilterOp] = []
+            while parent is not None:
+                if parent.filt:
+                    filters.append(parent.filt.get_filter())
+                parent = self.__get_parent(parent)
+            filter_pipes[channel_name] = coalesce_ops(filters[::-1])
+        return filter_pipes
+
+    @staticmethod
+    def __get_parent(node: Node) -> Optional[Node]:
+        if node.upstream:
+            if len(node.upstream) == 1:
+                return node.upstream[0]
+            else:
+                if len(node.upstream) == 2:
+                    u1, u2 = node.upstream
+                    if FilterGraph.__is_inbound_mix(node, u1):
+                        return u1
+                    elif FilterGraph.__is_inbound_mix(node, u2):
+                        return u2
+                    else:
+                        raise ValueError(f"Unexpected filter types upstream of {node} - {[n.name for n in node.upstream]}")
+                else:
+                    raise ValueError(f">2 upstream found! {node.name} -> {[n.name for n in node.upstream]}")
+        else:
+            return None
+
+    @staticmethod
+    def __is_inbound_mix(node: Node, upstream: Node):
+        return isinstance(upstream.filt, Mix) \
+                and (upstream.filt.mix_type == MixType.ADD or upstream.filt.mix_type == MixType.SUBTRACT) \
+                and upstream.channel != node.channel
+
+    def __get_output_nodes(self) -> Dict[str, Node]:
+        output = {}
+        for node in self.__collect_all_nodes(self.__nodes_by_channel):
+            if node.name.startswith('OUT:'):
+                output[node.channel] = node
+        return output
+
+    @staticmethod
+    def __collect_all_nodes(nodes_by_channel: Dict[str, Node]) -> List[Node]:
+        nodes = []
+        for root in nodes_by_channel.values():
+            collect_nodes(root, nodes)
+        return nodes
 
 
 class GraphRenderer:
@@ -1532,6 +1615,131 @@ class GraphRenderer:
             gz += f"  {{rank = same; {'; '.join([n.name for n in nodes])}}}"
             gz += "\n"
         return gz
+
+
+class FilterOp(ABC):
+
+    @abstractmethod
+    def apply(self, input_signal: Signal) -> Signal:
+        pass
+
+    def __repr__(self):
+        return self.__class__.__name__
+
+
+class FilterPipe:
+
+    def __init__(self, op: FilterOp):
+        self.op = op
+        self.next: Optional[FilterPipe] = None
+
+    def __repr__(self):
+        return f"{self.op} -> {self.next.op if self.next else 'END'}"
+
+
+def coalesce_ops(ops: List[FilterOp]) -> Optional[FilterPipe]:
+    root: Optional[FilterPipe] = None
+    tmp: Optional[FilterPipe] = None
+    last_sos: Optional[SosFilterOp] = None
+    for op in ops:
+        if isinstance(op, SosFilterOp):
+            if last_sos:
+                last_sos.extend(op)
+            else:
+                last_sos = op
+        else:
+            if last_sos:
+                if root is None:
+                    tmp = FilterPipe(last_sos)
+                    root = tmp
+                else:
+                    tmp.next = FilterPipe(last_sos)
+                    tmp = tmp.next
+                last_sos = None
+            if root is None:
+                tmp = FilterPipe(op)
+                root = tmp
+            else:
+                tmp.next = FilterPipe(op)
+                tmp = tmp.next
+    if last_sos:
+        t = FilterPipe(last_sos)
+        if root is None:
+            root = t
+        else:
+            tmp.next = t
+    return root
+
+
+class NopFilterOp(FilterOp):
+
+    def apply(self, input_signal: Signal) -> Signal:
+        return input_signal
+
+
+class BranchPointOp(FilterOp):
+
+    def __init__(self):
+        self.__branch: Optional[Signal] = None
+
+    def apply(self, input_signal: Signal) -> Signal:
+        self.__branch = input_signal
+        return input_signal
+
+    @property
+    def branch(self) -> Optional[Signal]:
+        return self.__branch
+
+
+class SosFilterOp(FilterOp):
+
+    def __init__(self, sos: List[List[float]]):
+        self.__sos = sos
+
+    def apply(self, input_signal: Signal) -> Signal:
+        return input_signal.sosfilter(self.__sos)
+
+    def extend(self, more_sos: SosFilterOp):
+        self.__sos += more_sos.__sos
+
+
+class DelayFilterOp(FilterOp):
+
+    def __init__(self, delay_millis: float, fs: int = 48000):
+        self.__shift_samples = int((delay_millis / 1000) / (1.0 / fs))
+
+    def apply(self, input_signal: Signal) -> Signal:
+        return input_signal.shift(self.__shift_samples)
+
+
+class AddFilterOp(FilterOp):
+
+    def __init__(self):
+        self.__other: Optional[Signal] = None
+
+    def apply(self, input_signal: Signal) -> Signal:
+        # return input_signal.add(samples)
+        logger.error(f"TODO bypassing ADD for {input_signal}")
+        return input_signal
+
+
+class SubtractFilterOp(FilterOp):
+
+    def __init__(self):
+        self.__other: Optional[Signal] = None
+
+    def apply(self, input_signal: Signal) -> Signal:
+        # return input_signal.subtract(samples)
+        logger.error(f"TODO bypassing ADD for {input_signal}")
+        return input_signal
+
+
+class GainFilterOp(FilterOp):
+    def __init__(self, gain_db: float):
+        self.__gain_db = gain_db
+
+    def apply(self, input_signal: Signal) -> Signal:
+        return input_signal.adjust_gain(10 ** (self.__gain_db / 20.0))
 
 
 def collect_nodes(node: Node, arr: List[Node]) -> List[Node]:

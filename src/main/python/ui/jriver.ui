@@ -23,6 +23,9 @@
          <property name="text">
           <string>...</string>
          </property>
+         <property name="shortcut">
+          <string>Ctrl+O</string>
+         </property>
         </widget>
        </item>
        <item>
@@ -185,6 +188,21 @@
    <header>svg</header>
   </customwidget>
  </customwidgets>
+ <tabstops>
+  <tabstop>findFilenameButton</tabstop>
+  <tabstop>filename</tabstop>
+  <tabstop>blockSelector</tabstop>
+  <tabstop>limitsButton</tabstop>
+  <tabstop>fullRangeButton</tabstop>
+  <tabstop>subOnlyButton</tabstop>
+  <tabstop>showPhase</tabstop>
+  <tabstop>showDotButton</tabstop>
+  <tabstop>direction</tabstop>
+  <tabstop>pipelineView</tabstop>
+  <tabstop>previewChart</tabstop>
+  <tabstop>filterList</tabstop>
+  <tabstop>channelList</tabstop>
+ </tabstops>
  <resources/>
  <connections>
   <connection>
