@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from enum import Enum
 from pathlib import Path
-from typing import Dict, Optional, List, Tuple, Union
+from typing import Dict, Optional, List, Tuple
 
 import qtawesome as qta
 import time
@@ -319,10 +319,26 @@ class JRiverDSP:
     def __generate_signals(self):
         start = time.time()
         signals: Dict[str, Signal] = self.__init_signals()
+        branches: List[BranchFilterOp] = []
+        incomplete: Dict[str, FilterPipe] = {}
         for c, pipe in self.active_graph.filter_pipes_by_channel.items():
+            logger.info(f"Filtering {c} using {pipe}")
             while pipe is not None:
-                signals[c] = pipe.op.apply(signals[c])
-                pipe = pipe.next
+                if isinstance(pipe.op, BranchFilterOp):
+                    branches.append(pipe.op)
+                if not pipe.op.ready:
+                    source = next((b for b in branches if b.is_source_for(pipe.op)), None)
+                    if source:
+                        pipe.op.accept(source.source_signal)
+                if pipe.op.ready:
+                    signals[c] = pipe.op.apply(signals[c])
+                    pipe = pipe.next
+                else:
+                    incomplete[c] = pipe
+                    pipe = None
+        if incomplete:
+            logger.error(f"Incomplete filter pipeline detected {incomplete}")
+            # TODO
         self.__signals = signals
         end = time.time()
         logger.info(f"Generated {len(signals)} signals in {to_millis(start, end)} ms")
@@ -1107,7 +1123,9 @@ class Node:
     def __init__(self, rank: int, name: str, filt: Optional[Filter], channel: str):
         self.name = name
         self.rank = rank
-        self.filt = filt
+        self.__filt = filt
+        self.__filter_op = filt.get_filter() if filt else NopFilterOp()
+        self.__filter_op.node_id = name
         self.channel = channel
         self.visited = False
         if self.filt is None and self.channel is None:
@@ -1115,10 +1133,16 @@ class Node:
         self.__down_edges: List[Node] = []
         self.__up_edges: List[Node] = []
 
-    def add(self, node: Node):
+    def add(self, node: Node, link_branch: bool = False):
         if node not in self.downstream:
             self.downstream.append(node)
             node.upstream.append(self)
+            if link_branch is True:
+                self.__filter_op = BranchFilterOp(node.filter_op, self.name)
+
+    @property
+    def filt(self) -> Optional[Filter]:
+        return self.__filt
 
     @property
     def downstream(self) -> List[Node]:
@@ -1135,6 +1159,10 @@ class Node:
         for u in self.upstream:
             u.downstream.remove(self)
         self.__up_edges = []
+
+    @property
+    def filter_op(self) -> FilterOp:
+        return self.__filter_op
 
     def __repr__(self):
         return f"{self.name}{'' if self.__up_edges else ' - ROOT'} - {self.filt} -> {self.__down_edges}"
@@ -1355,12 +1383,12 @@ class FilterGraph:
             dst_channel_name = get_channel_name(f.dst_idx, short=True)
             try:
                 dst_node = self.__find_owning_node_in_channel(by_channel[dst_channel_name], f, dst_channel_name)
-                node.add(dst_node)
+                node.add(dst_node, link_branch=True)
             except ValueError:
                 dst_node = self.__find_owning_node_in_orphans(dst_channel_name, f, orphaned_nodes)
                 if dst_node:
                     dst_node.visited = True
-                    node.add(dst_node)
+                    node.add(dst_node, link_branch=True)
                 else:
                     logger.debug(f"No match for {f} in {dst_channel_name}, presumed orphaned")
                     node.visited = False
@@ -1438,8 +1466,9 @@ class FilterGraph:
             parent = self.__get_parent(output_node)
             filters: List[FilterOp] = []
             while parent is not None:
-                if parent.filt:
-                    filters.append(parent.filt.get_filter())
+                f = parent.filter_op
+                if f:
+                    filters.append(f)
                 parent = self.__get_parent(parent)
             filter_pipes[channel_name] = coalesce_ops(filters[::-1])
         return filter_pipes
@@ -1619,22 +1648,38 @@ class GraphRenderer:
 
 class FilterOp(ABC):
 
+    def __init__(self):
+        self.node_id = None
+
     @abstractmethod
     def apply(self, input_signal: Signal) -> Signal:
         pass
 
+    @property
+    def ready(self):
+        return True
+
     def __repr__(self):
-        return self.__class__.__name__
+        class_name = self.__class__.__name__
+        return f"{class_name[:-8] if class_name.endswith('FilterOp') else class_name} [{self.node_id}]"
 
 
 class FilterPipe:
 
-    def __init__(self, op: FilterOp):
+    def __init__(self, op: FilterOp, parent: Optional[FilterPipe]):
         self.op = op
         self.next: Optional[FilterPipe] = None
+        self.parent = parent
+
+    @property
+    def ready(self):
+        return self.op.ready
 
     def __repr__(self):
-        return f"{self.op} -> {self.next.op if self.next else 'END'}"
+        if self.next:
+            return f"{self.op} -> {self.next}"
+        else:
+            return f"{self.op}"
 
 
 def coalesce_ops(ops: List[FilterOp]) -> Optional[FilterPipe]:
@@ -1650,50 +1695,59 @@ def coalesce_ops(ops: List[FilterOp]) -> Optional[FilterPipe]:
         else:
             if last_sos:
                 if root is None:
-                    tmp = FilterPipe(last_sos)
+                    tmp = FilterPipe(last_sos, None)
                     root = tmp
                 else:
-                    tmp.next = FilterPipe(last_sos)
+                    tmp.next = FilterPipe(last_sos, parent=tmp)
                     tmp = tmp.next
                 last_sos = None
             if root is None:
-                tmp = FilterPipe(op)
+                tmp = FilterPipe(op, None)
                 root = tmp
             else:
-                tmp.next = FilterPipe(op)
+                tmp.next = FilterPipe(op, tmp)
                 tmp = tmp.next
     if last_sos:
-        t = FilterPipe(last_sos)
         if root is None:
-            root = t
+            root = FilterPipe(last_sos, None)
         else:
-            tmp.next = t
+            tmp.next = FilterPipe(last_sos, tmp)
     return root
 
 
 class NopFilterOp(FilterOp):
 
+    def __init__(self):
+        super().__init__()
+
     def apply(self, input_signal: Signal) -> Signal:
         return input_signal
 
 
-class BranchPointOp(FilterOp):
+class BranchFilterOp(FilterOp):
 
-    def __init__(self):
-        self.__branch: Optional[Signal] = None
+    def __init__(self, branch: FilterOp, node_id: str):
+        super().__init__()
+        self.node_id = node_id
+        self.__branch = branch
+        self.__source_signal: Optional[Signal] = None
 
     def apply(self, input_signal: Signal) -> Signal:
-        self.__branch = input_signal
+        self.__source_signal = input_signal
         return input_signal
 
     @property
-    def branch(self) -> Optional[Signal]:
-        return self.__branch
+    def source_signal(self) -> Optional[Signal]:
+        return self.__source_signal
+
+    def is_source_for(self, target: FilterOp) -> bool:
+        return self.__branch == target
 
 
 class SosFilterOp(FilterOp):
 
     def __init__(self, sos: List[List[float]]):
+        super().__init__()
         self.__sos = sos
 
     def apply(self, input_signal: Signal) -> Signal:
@@ -1706,6 +1760,7 @@ class SosFilterOp(FilterOp):
 class DelayFilterOp(FilterOp):
 
     def __init__(self, delay_millis: float, fs: int = 48000):
+        super().__init__()
         self.__shift_samples = int((delay_millis / 1000) / (1.0 / fs))
 
     def apply(self, input_signal: Signal) -> Signal:
@@ -1715,27 +1770,45 @@ class DelayFilterOp(FilterOp):
 class AddFilterOp(FilterOp):
 
     def __init__(self):
+        super().__init__()
         self.__other: Optional[Signal] = None
 
+    def accept(self, signal: Signal):
+        if self.ready:
+            raise ValueError(f"Attempting to reuse AddFilterOp")
+        self.__other = signal
+
+    @property
+    def ready(self):
+        return self.__other is not None
+
     def apply(self, input_signal: Signal) -> Signal:
-        # return input_signal.add(samples)
-        logger.error(f"TODO bypassing ADD for {input_signal}")
-        return input_signal
+        return input_signal.add(self.__other.samples)
 
 
 class SubtractFilterOp(FilterOp):
 
     def __init__(self):
+        super().__init__()
         self.__other: Optional[Signal] = None
 
+    def accept(self, signal: Signal):
+        if self.ready:
+            raise ValueError(f"Attempting to reuse AddFilterOp")
+        self.__other = signal
+
+    @property
+    def ready(self):
+        return self.__other is not None
+
     def apply(self, input_signal: Signal) -> Signal:
-        # return input_signal.subtract(samples)
-        logger.error(f"TODO bypassing ADD for {input_signal}")
-        return input_signal
+        return input_signal.subtract(self.__other.samples)
 
 
 class GainFilterOp(FilterOp):
+
     def __init__(self, gain_db: float):
+        super().__init__()
         self.__gain_db = gain_db
 
     def apply(self, input_signal: Signal) -> Signal:
