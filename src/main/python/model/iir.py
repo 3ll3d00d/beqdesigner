@@ -56,6 +56,18 @@ def float_to_hex(f, minidsp_style, fixed_point):
 
 
 class SOS(ABC):
+
+    def __init__(self, f_id=-1):
+        self.__id = f_id
+
+    @property
+    def id(self):
+        return self.__id
+
+    @id.setter
+    def id(self, id):
+        self.__id = id
+
     @abstractmethod
     def get_sos(self) -> Optional[List[List[float]]]:
         pass
@@ -63,9 +75,9 @@ class SOS(ABC):
 
 class Biquad(SOS):
     def __init__(self, fs, f_id=-1):
+        super().__init__(f_id=f_id)
         self.fs = fs
         self.a, self.b = self._compute_coeffs()
-        self.id = f_id
         self.__transferFunction = None
 
     def __eq__(self, o: object) -> bool:
@@ -629,7 +641,7 @@ class FirstOrder_HighPass(Biquad):
         super().__init__(fs, f_id=f_id)
 
     def __eq__(self, o: object) -> bool:
-        return super().__eq__(o) and self.order == o.order and self.freq == o.freq
+        return super().__eq__(o) and self.freq == o.freq
 
     @property
     def filter_type(self):
@@ -676,7 +688,20 @@ def fs_freq_q_json(o):
     }
 
 
-class SecondOrder_LowPass(BiquadWithQ):
+class PassFilter(BiquadWithQ):
+
+    def __init__(self, fs, freq, order, q=DEFAULT_Q, f_id=-1):
+        super().__init__(fs, freq, q, f_id=f_id)
+        self.order = order
+
+    def __eq__(self, o: object) -> bool:
+        return super().__eq__(o) and self.order == o.order
+
+    def to_json(self):
+        return fs_freq_q_json(self)
+
+
+class SecondOrder_LowPass(PassFilter):
     '''
     LPF:        H(s) = 1 / (s^2 + s/Q + 1)
 
@@ -689,11 +714,7 @@ class SecondOrder_LowPass(BiquadWithQ):
     '''
 
     def __init__(self, fs, freq, q=DEFAULT_Q, f_id=-1):
-        super().__init__(fs, freq, q, f_id=f_id)
-        self.order = 2
-
-    def __eq__(self, o: object) -> bool:
-        return super().__eq__(o) and self.order == o.order
+        super().__init__(fs, freq, 2, q, f_id=f_id)
 
     @property
     def filter_type(self):
@@ -724,11 +745,8 @@ class SecondOrder_LowPass(BiquadWithQ):
         '''
         return SecondOrder_LowPass(new_fs, self.freq, q=self.q, f_id=self.id)
 
-    def to_json(self):
-        return fs_freq_q_json(self)
 
-
-class SecondOrder_HighPass(BiquadWithQ):
+class SecondOrder_HighPass(PassFilter):
     '''
     HPF:        H(s) = s^2 / (s^2 + s/Q + 1)
 
@@ -742,11 +760,7 @@ class SecondOrder_HighPass(BiquadWithQ):
     '''
 
     def __init__(self, fs, freq, q=DEFAULT_Q, f_id=-1):
-        super().__init__(fs, freq, q, f_id=f_id)
-        self.order = 2
-
-    def __eq__(self, o: object) -> bool:
-        return super().__eq__(o) and self.order == o.order
+        super().__init__(fs, freq, 2, q, f_id=f_id)
 
     @property
     def filter_type(self):
@@ -776,9 +790,6 @@ class SecondOrder_HighPass(BiquadWithQ):
         :return: the new filter.
         '''
         return SecondOrder_HighPass(new_fs, self.freq, q=self.q, f_id=self.id)
-
-    def to_json(self):
-        return fs_freq_q_json(self)
 
 
 class AllPass(BiquadWithQ):
@@ -846,11 +857,11 @@ class ComplexFilter(SOS, Sequence):
 
     def __init__(self, fs=1000, filters=None, description='Complex', preset_idx=-1, listener=None, f_id=-1,
                  sort_by_id=False):
+        super().__init__(f_id=f_id)
         self.filters = [f for f in filters if f] if filters is not None else []
         self.__sort_by_id = sort_by_id
         self.description = description
         self.__fs = fs
-        self.id = f_id
         self.listener = listener
         self.__on_change()
         self.__cached_transfer = None
@@ -1064,7 +1075,7 @@ class CompoundPassFilter(ComplexFilter):
     def sort_key(self):
         return f"{self.freq:05}{self.order:05}{self.filter_type}"
 
-    def calculate_biquads(self, fs):
+    def calculate_biquads(self, fs) -> List[Biquad]:
         if self.type is FilterType.BUTTERWORTH:
             if self.order == 1:
                 return [self.__bw1(fs, self.freq)]

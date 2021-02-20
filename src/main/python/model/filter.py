@@ -494,6 +494,8 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
                           self.__add_snapshot_buttons)
 
     def __add_filter(self, new_filter, filter_model: FilterModel, filter_view: QTableView, buttons: List[QWidget] = None):
+        if filter_model.filter.sort_by_id:
+            new_filter.id = len(filter_model.filter)
         filter_model.save(new_filter)
         for idx, f in enumerate(filter_model):
             if f.id == new_filter.id:
@@ -566,6 +568,13 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
     def __import_snapshot_filters(self):
         self.__import_filters(self.__snapshot, self.snapshotFilterView)
 
+    @staticmethod
+    def __create_filter_id(active_model: FilterModel):
+        if active_model.filter.sort_by_id:
+            return len(active_model.filter)
+        else:
+            return uuid4()
+
     def __import_filters(self, filter_model: FilterModel, filter_view: QTableView):
         selected = QFileDialog.getOpenFileName(parent=self, caption='Import REW Filters', filter='Filter (*.txt)')
         if selected and selected[0]:
@@ -577,11 +586,14 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
                     if len(tokens) > 4 and tokens[0] == 'Filter' and tokens[2] == 'ON':
                         filt = None
                         if tokens[3] == 'PK':
-                            filt = PeakingEQ(self.__signal.fs, float(tokens[5]), float(tokens[11]), float(tokens[8]), f_id=uuid4())
+                            filt = PeakingEQ(self.__signal.fs, float(tokens[5]), float(tokens[11]), float(tokens[8]),
+                                             f_id=uuid4())
                         elif tokens[3] == 'LSQ':
-                            filt = LowShelf(self.__signal.fs, float(tokens[5]), float(tokens[11]), float(tokens[8]), f_id=uuid4())
+                            filt = LowShelf(self.__signal.fs, float(tokens[5]), float(tokens[11]), float(tokens[8]),
+                                            f_id=uuid4())
                         elif tokens[3] == 'HSQ':
-                            filt = HighShelf(self.__signal.fs, float(tokens[5]), float(tokens[11]), float(tokens[8]), f_id=uuid4())
+                            filt = HighShelf(self.__signal.fs, float(tokens[5]), float(tokens[11]), float(tokens[8]),
+                                             f_id=uuid4())
                         else:
                             discarded[tokens[3]].append(tokens[1][:-1])
                         if filt:

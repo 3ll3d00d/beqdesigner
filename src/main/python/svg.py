@@ -1,10 +1,10 @@
 import logging
 
-from qtpy.QtCore import QByteArray, QObject, Signal, QRectF, QPoint
+from qtpy.QtCore import QByteArray, QObject, Signal, QRectF, QPoint, QTimer
 from qtpy.QtGui import QBrush, QColor, QPalette
 from qtpy.QtSvg import QGraphicsSvgItem, QSvgRenderer
 from qtpy.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsItem, QWidget, QGraphicsSceneMouseEvent, \
-    QGraphicsSceneContextMenuEvent
+    QGraphicsSceneContextMenuEvent, QApplication
 
 logger = logging.getLogger('svg')
 
@@ -32,11 +32,31 @@ class ClickableSvgItem(SvgItem):
         super().__init__(id, renderer, parent)
         self.__signal = signal
         self.__node_name = node_name
+        self.__timer = QTimer(self)
+        self.__timer.setSingleShot(True)
+        self.__timer.timeout.connect(self.__on_single_click)
+        self.__double_click_interval = QApplication.doubleClickInterval()
 
     def mousePressEvent(self, event: QGraphicsSceneMouseEvent) -> None:
-        self.__signal.on_click.emit(self.__node_name)
+        event.accept()
+
+    def mouseReleaseEvent(self, event: QGraphicsSceneMouseEvent):
+        event.accept()
+        if not self.__timer.isActive():
+            self.__timer.start(self.__double_click_interval)
+        else:
+            self.__timer.stop()
+            self.__on_double_click()
 
     def mouseDoubleClickEvent(self, event: QGraphicsSceneMouseEvent) -> None:
+        event.accept()
+        self.__timer.stop()
+        self.__on_double_click()
+
+    def __on_single_click(self):
+        self.__signal.on_click.emit(self.__node_name)
+
+    def __on_double_click(self):
         self.__signal.on_double_click.emit(self.__node_name)
 
     def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent):
@@ -85,7 +105,7 @@ class SvgView(QGraphicsView):
                     item = SvgItem(i.attrib['id'], self.__svg_renderer)
             item.setFlags(QGraphicsItem.ItemClipsToShape)
             item.setCacheMode(QGraphicsItem.NoCache)
-            item.setZValue(0)
+            item.setZValue(1)
             s.addItem(item)
         rect: QRectF = s.itemsBoundingRect()
         rect.adjust(-10, -10, 10, 10)
