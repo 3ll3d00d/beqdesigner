@@ -1,8 +1,8 @@
 import json
 import logging
-from typing import Optional, Type, Tuple, Any, List
 from collections import defaultdict
 from collections.abc import Sequence
+from typing import Optional, Type, Tuple, Any, List
 from uuid import uuid4
 
 import math
@@ -19,8 +19,7 @@ from model.limits import dBRangeCalculator, PhaseRangeCalculator
 from model.magnitude import MagnitudeModel
 from model.preferences import SHOW_ALL_FILTERS, SHOW_NO_FILTERS, FILTER_COLOURS, DISPLAY_SHOW_FILTERS, DISPLAY_Q_STEP, \
     DISPLAY_GAIN_STEP, DISPLAY_S_STEP, DISPLAY_FREQ_STEP, get_filter_colour, FILTERS_DEFAULT_Q, FILTERS_DEFAULT_FREQ, \
-    FILTERS_GEOMETRY, FILTERS_DEFAULT_HS_FREQ, FILTERS_DEFAULT_HS_Q, FILTERS_DEFAULT_PEAK_FREQ, FILTERS_DEFAULT_PEAK_Q, \
-    FILTERS_GEOMETRY_SMALL
+    FILTERS_GEOMETRY, FILTERS_DEFAULT_HS_FREQ, FILTERS_DEFAULT_HS_Q, FILTERS_DEFAULT_PEAK_FREQ, FILTERS_DEFAULT_PEAK_Q
 from ui.filter import Ui_editFilterDialog
 
 logger = logging.getLogger('filter')
@@ -248,6 +247,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
     def __init__(self, preferences, signal, filter_model: FilterModel, redraw_main, selected_filter=None, parent=None,
                  valid_filter_types=None, small=False, max_filters: Optional[int] = None, **kwargs):
         self.__preferences = preferences
+        self.__allow_variable_q_pass_filter = kwargs.pop('allow_var_q_pass', False)
         self.__small_mode = small
         self.__max_filters = max_filters
         super(FilterDialog, self).__init__(parent) if parent is not None else super(FilterDialog, self).__init__()
@@ -701,6 +701,9 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         if hasattr(selected_filter, 'q'):
             with block_signals(self.filterQ):
                 self.filterQ.setValue(selected_filter.q)
+        if hasattr(selected_filter, 'q_scale'):
+            with block_signals(self.filterQ):
+                self.filterQ.setValue(selected_filter.q_scale)
         if hasattr(selected_filter, 'freq'):
             with block_signals(self.freq):
                 self.freq.setValue(selected_filter.freq)
@@ -834,12 +837,15 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         Creates a predefined high or low pass filter.
         :return: the filter.
         '''
+        q_scale = 1.0
+        if self.filterQ.isVisible():
+            q_scale = self.filterQ.value()
         if self.filterType.currentText() == 'Low Pass':
-            filt = ComplexLowPass(FilterType.value_of(self.passFilterType.currentText()),
-                                  self.filterOrder.value(), self.__signal.fs, self.freq.value())
+            filt = ComplexLowPass(FilterType.value_of(self.passFilterType.currentText()), self.filterOrder.value(),
+                                  self.__signal.fs, self.freq.value(), q_scale=q_scale)
         else:
-            filt = ComplexHighPass(FilterType.value_of(self.passFilterType.currentText()),
-                                   self.filterOrder.value(), self.__signal.fs, self.freq.value())
+            filt = ComplexHighPass(FilterType.value_of(self.passFilterType.currentText()), self.filterOrder.value(),
+                                   self.__signal.fs, self.freq.value(), q_scale=q_scale)
         filt.id = self.__selected_id
         return filt
 
@@ -878,8 +884,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
             self.passFilterType.setVisible(True)
             self.filterOrder.setVisible(True)
             self.orderLabel.setVisible(True)
-            self.filterQ.setVisible(False)
-            self.filterQLabel.setVisible(False)
+            self.__show_q_for_pass_filter()
             self.qStepButton.setVisible(False)
             self.filterGain.setVisible(False)
             self.gainStepButton.setVisible(False)
@@ -942,6 +947,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         '''
         Sets the order step based on the type of high/low pass filter to ensure that LR only allows even orders.
         '''
+        self.__show_q_for_pass_filter()
         if self.passFilterType.currentText() == FilterType.LINKWITZ_RILEY.display_name:
             if self.filterOrder.value() % 2 != 0:
                 self.filterOrder.setValue(max(2, self.filterOrder.value() - 1))
@@ -950,6 +956,11 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         else:
             self.filterOrder.setSingleStep(1)
             self.filterOrder.setMinimum(1)
+
+    def __show_q_for_pass_filter(self):
+        visible = self.__allow_variable_q_pass_filter and self.passFilterType.currentText() == FilterType.BUTTERWORTH.display_name
+        self.filterQ.setVisible(visible)
+        self.filterQLabel.setVisible(visible)
 
     def __is_gain_required(self):
         return self.filterType.currentText() in self.gain_required

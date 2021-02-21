@@ -17,7 +17,7 @@
    <item row="0" column="0" rowspan="3">
     <layout class="QVBoxLayout" name="mainLayout">
      <item>
-      <layout class="QHBoxLayout" name="configLayout" stretch="0,0,2">
+      <layout class="QHBoxLayout" name="configLayout" stretch="0,0,2,0">
        <item>
         <widget class="QToolButton" name="findFilenameButton">
          <property name="text">
@@ -49,6 +49,13 @@
          </item>
         </widget>
        </item>
+       <item>
+        <widget class="QToolButton" name="saveDSPButton">
+         <property name="text">
+          <string>...</string>
+         </property>
+        </widget>
+       </item>
       </layout>
      </item>
      <item>
@@ -58,8 +65,11 @@
          <property name="dragDropMode">
           <enum>QAbstractItemView::InternalMove</enum>
          </property>
+         <property name="defaultDropAction">
+          <enum>Qt::IgnoreAction</enum>
+         </property>
          <property name="selectionMode">
-          <enum>QAbstractItemView::ContiguousSelection</enum>
+          <enum>QAbstractItemView::ExtendedSelection</enum>
          </property>
         </widget>
        </item>

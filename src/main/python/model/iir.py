@@ -1053,7 +1053,7 @@ class CompoundPassFilter(ComplexFilter):
     A high or low pass filter of different types and orders that are implemented using one or more biquads.
     '''
 
-    def __init__(self, high_or_low, one_pole_ctor, two_pole_ctor, filter_type, order, fs, freq, f_id=-1):
+    def __init__(self, high_or_low, one_pole_ctor, two_pole_ctor, filter_type, order, fs, freq, q_scale=1.0, f_id=-1):
         self.__bw1 = one_pole_ctor
         self.__bw2 = two_pole_ctor
         self.type = filter_type
@@ -1065,8 +1065,13 @@ class CompoundPassFilter(ComplexFilter):
         if self.order == 0:
             raise ValueError("Filter cannot have order = 0")
         self.__filter_type = f"{high_or_low} {filter_type.value}{order}"
+        self.__q_scale = q_scale
         super().__init__(fs=fs, filters=self.calculate_biquads(fs), description=f"{self.__filter_type}/{self.freq}Hz",
                          f_id=f_id)
+
+    @property
+    def q_scale(self):
+        return self.__q_scale
 
     @property
     def filter_type(self):
@@ -1111,7 +1116,8 @@ class CompoundPassFilter(ComplexFilter):
         else:
             biquads.append(self.__bw1(fs, self.freq, 0.5))
         biquads += [
-            self.__bw2(fs, self.freq, 1.0 / (2.0 * math.cos(first_angle + x * pole_inc))) for x in range(0, pairs)
+            self.__bw2(fs, self.freq, (1.0 / (2.0 * math.cos(first_angle + x * pole_inc)) * self.q_scale))
+            for x in range(0, pairs)
         ]
         return biquads
 
@@ -1121,8 +1127,9 @@ class ComplexLowPass(CompoundPassFilter):
     A low pass filter of different types and orders that are implemented using one or more biquads.
     '''
 
-    def __init__(self, filter_type, order, fs, freq, f_id=-1):
-        super().__init__('Low', FirstOrder_LowPass, SecondOrder_LowPass, filter_type, order, fs, freq, f_id=f_id)
+    def __init__(self, filter_type, order, fs, freq, q_scale=1.0, f_id=-1):
+        super().__init__('Low', FirstOrder_LowPass, SecondOrder_LowPass, filter_type, order, fs, freq, q_scale=q_scale,
+                         f_id=f_id)
 
     @property
     def display_name(self):
@@ -1151,8 +1158,9 @@ class ComplexHighPass(CompoundPassFilter):
     A high pass filter of different types and orders that are implemented using one or more biquads.
     '''
 
-    def __init__(self, filter_type, order, fs, freq, f_id=-1):
-        super().__init__('High', FirstOrder_HighPass, SecondOrder_HighPass, filter_type, order, fs, freq, f_id=f_id)
+    def __init__(self, filter_type, order, fs, freq, q_scale=1.0, f_id=-1):
+        super().__init__('High', FirstOrder_HighPass, SecondOrder_HighPass, filter_type, order, fs, freq,
+                         q_scale=q_scale, f_id=f_id)
 
     @property
     def display_name(self):

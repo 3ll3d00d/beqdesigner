@@ -19,6 +19,9 @@
      <item row="0" column="0">
       <widget class="MplWidget" name="previewChart"/>
      </item>
+     <item row="1" column="0">
+      <layout class="QHBoxLayout" name="sliderPane"/>
+     </item>
     </layout>
    </item>
    <item row="0" column="2">
