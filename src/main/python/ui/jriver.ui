@@ -17,14 +17,11 @@
    <item row="0" column="0" rowspan="3">
     <layout class="QVBoxLayout" name="mainLayout">
      <item>
-      <layout class="QHBoxLayout" name="configLayout" stretch="0,0,2,0">
+      <layout class="QHBoxLayout" name="configLayout" stretch="0,0,2,0,0">
        <item>
         <widget class="QToolButton" name="findFilenameButton">
          <property name="text">
           <string>...</string>
-         </property>
-         <property name="shortcut">
-          <string>Ctrl+O</string>
          </property>
         </widget>
        </item>
@@ -36,21 +33,23 @@
         </widget>
        </item>
        <item>
-        <widget class="QComboBox" name="blockSelector">
-         <item>
-          <property name="text">
-           <string>Parametric Equaliser 1</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>Parametric Equaliser 2</string>
-          </property>
-         </item>
+        <widget class="QComboBox" name="blockSelector"/>
+       </item>
+       <item>
+        <widget class="QToolButton" name="saveButton">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
+         <property name="text">
+          <string>...</string>
+         </property>
         </widget>
        </item>
        <item>
-        <widget class="QToolButton" name="saveDSPButton">
+        <widget class="QToolButton" name="saveAsButton">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
          <property name="text">
           <string>...</string>
          </property>
@@ -59,8 +58,77 @@
       </layout>
      </item>
      <item>
-      <layout class="QVBoxLayout" name="selectorLayout" stretch="1,0">
-       <item>
+      <layout class="QGridLayout" name="selectorLayout" rowstretch="1,0">
+       <item row="0" column="1">
+        <layout class="QVBoxLayout" name="filterButtonsLayout">
+         <item>
+          <widget class="QToolButton" name="addFilterButton">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
+           <property name="text">
+            <string>...</string>
+           </property>
+           <property name="shortcut">
+            <string>=</string>
+           </property>
+           <property name="popupMode">
+            <enum>QToolButton::InstantPopup</enum>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QToolButton" name="deleteFilterButton">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
+           <property name="text">
+            <string>...</string>
+           </property>
+           <property name="shortcut">
+            <string>-</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QToolButton" name="clearFiltersButton">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
+           <property name="text">
+            <string>...</string>
+           </property>
+           <property name="shortcut">
+            <string>X</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="verticalSpacer">
+           <property name="orientation">
+            <enum>Qt::Vertical</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>20</width>
+             <height>40</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+        </layout>
+       </item>
+       <item row="1" column="0" colspan="2">
+        <widget class="QListWidget" name="channelList">
+         <property name="showDropIndicator" stdset="0">
+          <bool>false</bool>
+         </property>
+         <property name="selectionMode">
+          <enum>QAbstractItemView::MultiSelection</enum>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="0">
         <widget class="QListWidget" name="filterList">
          <property name="dragDropMode">
           <enum>QAbstractItemView::InternalMove</enum>
@@ -73,16 +141,6 @@
          </property>
         </widget>
        </item>
-       <item>
-        <widget class="QListWidget" name="channelList">
-         <property name="showDropIndicator" stdset="0">
-          <bool>false</bool>
-         </property>
-         <property name="selectionMode">
-          <enum>QAbstractItemView::MultiSelection</enum>
-         </property>
-        </widget>
-       </item>
       </layout>
      </item>
     </layout>
@@ -91,6 +149,9 @@
     <layout class="QHBoxLayout" name="pipelineControlLayout">
      <item>
       <widget class="QToolButton" name="showDotButton">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
        <property name="text">
         <string>...</string>
        </property>
@@ -98,6 +159,9 @@
      </item>
      <item>
       <widget class="QCheckBox" name="direction">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
        <property name="text">
         <string>Vertical?</string>
        </property>
@@ -270,8 +334,8 @@
    <slot>show_phase_response()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1695</x>
-     <y>804</y>
+     <x>1694</x>
+     <y>574</y>
     </hint>
     <hint type="destinationlabel">
      <x>678</x>
@@ -286,8 +350,8 @@
    <slot>show_sub_only()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1525</x>
-     <y>799</y>
+     <x>1694</x>
+     <y>534</y>
     </hint>
     <hint type="destinationlabel">
      <x>950</x>
@@ -302,8 +366,8 @@
    <slot>show_full_range()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1486</x>
-     <y>797</y>
+     <x>1694</x>
+     <y>494</y>
     </hint>
     <hint type="destinationlabel">
      <x>1076</x>
@@ -318,8 +382,8 @@
    <slot>show_limits()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1447</x>
-     <y>797</y>
+     <x>1694</x>
+     <y>454</y>
     </hint>
     <hint type="destinationlabel">
      <x>1220</x>
@@ -334,8 +398,8 @@
    <slot>show_filters()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>424</x>
-     <y>39</y>
+     <x>346</x>
+     <y>40</y>
     </hint>
     <hint type="destinationlabel">
      <x>681</x>
@@ -350,12 +414,108 @@
    <slot>redraw()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>369</x>
-     <y>184</y>
+     <x>377</x>
+     <y>802</y>
     </hint>
     <hint type="destinationlabel">
      <x>427</x>
      <y>278</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>saveButton</sender>
+   <signal>clicked()</signal>
+   <receiver>jriverDspDialog</receiver>
+   <slot>save_dsp()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>383</x>
+     <y>34</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>427</x>
+     <y>68</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>saveAsButton</sender>
+   <signal>clicked()</signal>
+   <receiver>jriverDspDialog</receiver>
+   <slot>save_as_dsp()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>401</x>
+     <y>30</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>429</x>
+     <y>106</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>addFilterButton</sender>
+   <signal>clicked()</signal>
+   <receiver>jriverDspDialog</receiver>
+   <slot>add_filter()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>412</x>
+     <y>82</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>406</x>
+     <y>234</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>deleteFilterButton</sender>
+   <signal>clicked()</signal>
+   <receiver>jriverDspDialog</receiver>
+   <slot>delete_filter()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>398</x>
+     <y>104</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>422</x>
+     <y>194</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>clearFiltersButton</sender>
+   <signal>clicked()</signal>
+   <receiver>jriverDspDialog</receiver>
+   <slot>clear_filters()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>418</x>
+     <y>156</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>406</x>
+     <y>298</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>filterList</sender>
+   <signal>itemSelectionChanged()</signal>
+   <receiver>jriverDspDialog</receiver>
+   <slot>on_filter_select()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>342</x>
+     <y>384</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>412</x>
+     <y>440</y>
     </hint>
    </hints>
   </connection>
@@ -368,5 +528,11 @@
   <slot>show_full_range()</slot>
   <slot>show_limits()</slot>
   <slot>redraw()</slot>
+  <slot>save_dsp()</slot>
+  <slot>save_as_dsp()</slot>
+  <slot>add_filter()</slot>
+  <slot>delete_filter()</slot>
+  <slot>clear_filters()</slot>
+  <slot>on_filter_select()</slot>
  </slots>
 </ui>

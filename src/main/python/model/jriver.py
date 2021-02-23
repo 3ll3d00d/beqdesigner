@@ -83,6 +83,15 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         self.findFilenameButton.setIcon(qta.icon('fa5s.folder-open'))
         self.showDotButton.setIcon(qta.icon('fa5s.info-circle'))
         self.showPhase.setIcon(qta.icon('mdi.cosine-wave'))
+        self.saveButton.setIcon(qta.icon('fa5s.save'))
+        self.saveAsButton.setIcon(qta.icon('fa5s.file-export'))
+        self.addFilterButton.setIcon(qta.icon('fa5s.plus'))
+        self.deleteFilterButton.setIcon(qta.icon('fa5s.times'))
+        self.clearFiltersButton.setIcon(qta.icon('fa5s.trash'))
+        self.findFilenameButton.setShortcut(QKeySequence.Open)
+        self.saveButton.setShortcut(QKeySequence.Save)
+        self.saveAsButton.setShortcut(QKeySequence.SaveAs)
+        self.addFilterButton.setMenu(self.__make_add_filter_menu())
         self.pipelineView.signal.on_click.connect(self.__on_selected_node)
         self.pipelineView.signal.on_double_click.connect(self.__show_edit_filter_dialog)
         self.pipelineView.signal.on_context.connect(self.__show_edit_menu)
@@ -100,6 +109,67 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
                                                 y2_range_calc=PhaseRangeCalculator(), show_y2_in_legend=False)
         self.__restore_geometry()
 
+    def __make_add_filter_menu(self) -> QMenu:
+        menu = QMenu(self)
+        peq = QAction(f"&PEQ", self)
+        peq.setShortcuts(QKeySequence.New)
+        # act.setStatusTip(f"Insert Filter after {node_name}")
+        # act.triggered.connect(self.__insert_node)
+        menu.addAction(peq)
+        delay = QAction(f"&Delay", self)
+        # peq.setShortcuts(QKeySequence.New)
+        # act.setStatusTip(f"Insert Filter after {node_name}")
+        # act.triggered.connect(self.__insert_node)
+        menu.addAction(delay)
+        return menu
+
+    def add_filter(self):
+        pass
+
+    def delete_filter(self):
+        '''
+        Deletes the selected filter(s).
+        '''
+        selected_items = [i.text() for i in self.filterList.selectedItems()]
+        to_delete = [f for f in self.__dsp.active_graph.filters if str(f) in selected_items]
+        self.__dsp.active_graph.delete(to_delete)
+        self.__on_graph_change()
+        last_row = 0
+        i: QModelIndex
+        for i in self.filterList.selectedIndexes():
+            last_row = i.row()
+            self.filterList.takeItem(last_row)
+        if self.filterList.count() > 0:
+            self.filterList.item(max(min(last_row, self.filterList.count()) - 1, 0)).setSelected(True)
+
+    def __on_graph_change(self):
+        self.__regen()
+        self.redraw()
+
+    def on_filter_select(self):
+        enable = len(self.filterList.selectedItems()) > 0
+        self.deleteFilterButton.setEnabled(enable)
+
+    def clear_filters(self):
+        '''
+        Deletes all filters in the active graph.
+        '''
+        self.__dsp.active_graph.clear_filters()
+        self.show_filters()
+
+    def save_dsp(self):
+        if self.__dsp:
+            self.__dsp.write_to_file()
+
+    def save_as_dsp(self):
+        if self.__dsp:
+            file_name = QFileDialog(self).getSaveFileName(self, caption='Save DSP Config',
+                                                          directory=os.path.dirname(self.__dsp.filename),
+                                                          filter="JRiver DSP (*.dsp)")
+            file_name = str(file_name[0]).strip()
+            if len(file_name) > 0:
+                self.__dsp.write_to_file(file=file_name)
+
     def __show_edit_menu(self, node_name: str, pos: QPoint):
         menu = QMenu(self)
         act = QAction(f"&Insert after {node_name}", self)
@@ -111,8 +181,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
 
     def __reorder_filters(self, parent: QModelIndex, start: int, end: int, dest: QModelIndex, row: int):
         self.__dsp.active_graph.reorder(start, end, row)
-        self.__regen()
-        self.redraw()
+        self.__on_graph_change()
 
     def __show_edit_filter_dialog(self, node_name: str):
         node = self.__dsp.graph(self.blockSelector.currentIndex()).get_node(node_name)
@@ -158,6 +227,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
             JRiverFilterPipelineDialog(self.__current_dot_txt, on_change, self).show()
 
     def __regen(self):
+        self.clearFiltersButton.setEnabled(len(self.__dsp.active_graph.filters) > 0)
         self.__current_dot_txt = self.__dsp.as_dot(self.blockSelector.currentIndex(),
                                                    vertical=self.direction.isChecked(),
                                                    selected_nodes=self.__selected_node_names)
@@ -219,6 +289,11 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
                 self.show_channel_names()
                 self.filename.setText(os.path.basename(selected[0])[:-4])
                 self.show_filters()
+                self.saveButton.setEnabled(True)
+                self.saveAsButton.setEnabled(True)
+                self.addFilterButton.setEnabled(True)
+                self.showDotButton.setEnabled(True)
+                self.direction.setEnabled(True)
                 self.prefs.set(JRIVER_DSP_DIR, os.path.dirname(selected[0]))
             except Exception as e:
                 logger.exception(f"Unable to parse {selected[0]}")
@@ -227,12 +302,18 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
 
     def show_channel_names(self, retain_selected=False):
         ''' Refreshes the output channels with the current channel list. '''
-        selected = [i.text() for i in self.channelList.selectedItems()]
-        self.channelList.clear()
-        for i, n in enumerate(self.__dsp.channel_names(output=True)):
-            self.channelList.addItem(n)
-            item: QListWidgetItem = self.channelList.item(i)
-            item.setSelected(n in selected if retain_selected else n not in USER_CHANNELS)
+        from model.report import block_signals
+        with block_signals(self.channelList):
+            selected = [i.text() for i in self.channelList.selectedItems()]
+            self.channelList.clear()
+            for i, n in enumerate(self.__dsp.channel_names(output=True)):
+                self.channelList.addItem(n)
+                item: QListWidgetItem = self.channelList.item(i)
+                item.setSelected(n in selected if retain_selected else n not in SHORT_USER_CHANNELS)
+        with block_signals(self.blockSelector):
+            self.blockSelector.clear()
+            for i in range(self.__dsp.graph_count):
+                self.blockSelector.addItem(get_peq_key_name(self.__dsp.graph(i).stage))
 
     def show_filters(self):
         '''
@@ -258,7 +339,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
             if self.__dsp:
                 names = [n.text() for n in self.channelList.selectedItems()]
                 for signal in self.__dsp.signals:
-                    if short_to_long(signal.name) in names:
+                    if signal.name in names:
                         result.append(MagnitudeData(signal.name, None, *signal.avg,
                                                     colour=get_filter_colour(len(result))))
         return result
@@ -291,9 +372,9 @@ class JRiverDSP:
         self.__filename = filename
         self.__colours = colours
         start = time.time()
-        config_txt = Path(self.__filename).read_text()
-        peq_block_order = get_peq_block_order(config_txt)
-        i, o = get_available_channels(config_txt)
+        self.__config_txt = Path(self.__filename).read_text()
+        peq_block_order = get_peq_block_order(self.__config_txt)
+        i, o = get_available_channels(self.__config_txt)
         self.__input_channel_indexes = i
         self.__output_channel_indexes = o
         self.__graphs: List[FilterGraph] = []
@@ -301,9 +382,13 @@ class JRiverDSP:
         for block in peq_block_order:
             out_names = self.channel_names(output=True)
             in_names = out_names if self.__graphs else self.channel_names(output=False)
-            self.__graphs.append(FilterGraph(block, in_names, out_names, self.__parse_peq(config_txt, block)))
+            self.__graphs.append(FilterGraph(block, in_names, out_names, self.__parse_peq(self.__config_txt, block)))
         end = time.time()
         logger.info(f"Parsed {filename} in {to_millis(start, end)}ms")
+
+    @property
+    def filename(self):
+        return self.__filename
 
     def __init_signals(self) -> Dict[str, Signal]:
         names = [get_channel_name(c) for c in self.__output_channel_indexes]
@@ -413,6 +498,17 @@ class JRiverDSP:
     def active_graph(self):
         return self.__graphs[self.__active_idx]
 
+    def write_to_file(self, file=None):
+        output_file = self.filename if file is None else file
+        logger.info(f"Writing to {output_file}")
+        new_txt = self.__config_txt
+        for graph in self.__graphs:
+            xml_filts = [filts_to_xml(f.get_all_vals()) for f in graph.filters]
+            new_txt = include_filters_in_dsp(get_peq_key_name(graph.stage), new_txt, xml_filts)
+        with open(output_file, mode='w', newline='\r\n') as f:
+            f.write(new_txt)
+        logger.info(f"Written new config to {output_file}")
+
 
 class Filter(ABC):
 
@@ -451,6 +547,9 @@ class Filter(ABC):
     def get_filter(self) -> FilterOp:
         return NopFilterOp()
 
+    def is_mine(self, idx):
+        return True
+
     def __eq__(self, o: object) -> bool:
         if isinstance(o, Filter):
             return self.get_all_vals() == o.get_all_vals()
@@ -475,16 +574,20 @@ class SingleFilter(Filter):
             'Type': self.__type_code,
             **self.get_vals()
         }
-        return [vals]
+        if self.key_order:
+            return [{k: vals[k] for k in self.key_order}]
+        else:
+            return [vals]
+
+    @property
+    def key_order(self) -> List[str]:
+        return []
 
     def get_vals(self) -> Dict[str, str]:
         return {}
 
     def print_disabled(self):
         return '' if self.enabled else f" *** DISABLED ***"
-
-    def is_mine(self, idx):
-        return True
 
 
 class ChannelFilter(SingleFilter):
@@ -539,6 +642,10 @@ class GainQFilter(ChannelFilter):
         self.__q = self.from_jriver_q(float(vals['Q']), self.__gain)
 
     @property
+    def key_order(self) -> List[str]:
+        return ['Enabled', 'Slope', 'Q', 'Type', 'Gain', 'Frequency', 'Channels']
+
+    @property
     def freq(self) -> float:
         return self.__frequency
 
@@ -560,11 +667,11 @@ class GainQFilter(ChannelFilter):
         }
 
     @classmethod
-    def from_jriver_q(cls,  q: float, gain: float):
+    def from_jriver_q(cls,  q: float, gain: float) -> float:
         return q
 
     @classmethod
-    def to_jriver_q(cls,  q: float, gain: float):
+    def to_jriver_q(cls,  q: float, gain: float) -> float:
         return q
 
     def get_filter(self) -> FilterOp:
@@ -610,11 +717,11 @@ class HighShelf(GainQFilter):
         super().__init__(vals, iir.HighShelf, 'HS')
 
     @classmethod
-    def from_jriver_q(cls, q: float, gain: float):
+    def from_jriver_q(cls, q: float, gain: float) -> float:
         return s_to_q(q, gain)
 
     @classmethod
-    def to_jriver_q(cls, q: float, gain: float):
+    def to_jriver_q(cls, q: float, gain: float) -> float:
         return q_to_s(q, gain)
 
 
@@ -631,11 +738,11 @@ class Pass(ChannelFilter):
         self.__ctors = (one_pole_ctor, two_pole_ctor, many_pole_ctor)
 
     @classmethod
-    def from_jriver_q(cls, q: float):
+    def from_jriver_q(cls, q: float) -> float:
         return q / 2**0.5
 
     @classmethod
-    def to_jriver_q(cls, q: float):
+    def to_jriver_q(cls, q: float) -> float:
         return q * 2**0.5
 
     @property
@@ -666,6 +773,10 @@ class Pass(ChannelFilter):
             **super().get_vals()
         }
 
+    @property
+    def key_order(self) -> List[str]:
+        return ['Enabled', 'Slope', 'Q', 'Type', 'Gain', 'Frequency', 'Channels']
+
     def get_filter(self) -> FilterOp:
         sos = self.get_editable_filter().get_sos()
         if sos:
@@ -693,7 +804,7 @@ class Pass(ChannelFilter):
         elif self.order == 2:
             return self.__ctors[1](48000, self.freq, q=self.q)
         else:
-            return self.__ctors[2](FilterType.BUTTERWORTH, self.order, 48000, self.freq, q_scale=self.jriver_q)
+            return self.__ctors[2](FilterType.BUTTERWORTH, self.order, 48000, self.freq, q_scale=self.q)
 
     def __repr__(self):
         return f"{self.__class__.__name__} Order={self.order} Q={self.q:.4g} at {self.freq:.7g} Hz {self.print_channel_names()}{self.print_disabled()}"
@@ -730,6 +841,10 @@ class Gain(ChannelFilter):
             **super().get_vals()
         }
 
+    @property
+    def key_order(self) -> List[str]:
+        return ['Enabled', 'Type', 'Gain', 'Channels']
+
     def __repr__(self):
         return f"Gain {self.__gain:+.7g} dB {self.print_channel_names()}{self.print_disabled()}"
 
@@ -757,6 +872,10 @@ class BitdepthSimulator(SingleFilter):
             'Dither': self.__dither
         }
 
+    @property
+    def key_order(self) -> List[str]:
+        return ['Enabled', 'Bits', 'Type', 'Dither']
+
     def __repr__(self):
         return f"{self.__class__.__name__} ({self.__bits} bits){self.print_disabled()}"
 
@@ -777,6 +896,10 @@ class Delay(ChannelFilter):
             'Delay': f"{self.__delay:.7g}",
             **super().get_vals()
         }
+
+    @property
+    def key_order(self) -> List[str]:
+        return ['Enabled', 'Delay', 'Type', 'Channels']
 
     def __repr__(self):
         return f"{self.__class__.__name__} {self.__delay:+.7g} ms {self.print_channel_names()}{self.print_disabled()}"
@@ -834,6 +957,10 @@ class Limiter(ChannelFilter):
             **super().get_vals()
         }
 
+    @property
+    def key_order(self) -> List[str]:
+        return ['Enabled', 'Hold', 'Type', 'Mode', 'Channels', 'Level', 'Release', 'Attack']
+
     def __repr__(self):
         return f"{LimiterMode(int(self.__mode)).name.capitalize()} {self.__class__.__name__} at {self.__level} dB {self.print_channel_names()}{self.print_disabled()}"
 
@@ -851,13 +978,17 @@ class LinkwitzTransform(ChannelFilter):
 
     def get_vals(self) -> Dict[str, str]:
         return {
-            'Fp': self.__fp,
-            'Qp': self.__qp,
-            'Fz': self.__fz,
-            'Qz': self.__qz,
+            'Fp': f"{self.__fp:.7g}",
+            'Qp': f"{self.__qp:.4g}",
+            'Fz': f"{self.__fz:.7g}",
+            'Qz': f"{self.__qz:.4g}",
             'PreventClipping': self.__prevent_clipping,
             **super().get_vals()
         }
+
+    @property
+    def key_order(self) -> List[str]:
+        return ['Enabled', 'Fp', 'Qp', 'Type', 'Fz', 'Channels', 'Qz', 'PreventClipping']
 
     def __repr__(self):
         return f"{self.__class__.__name__} {self.__fz:.7g} Hz / {self.__qz:.4g} -> {self.__fp:.7g} Hz / {self.__qp:.4g} {self.print_channel_names()}{self.print_disabled()}"
@@ -881,6 +1012,10 @@ class LinkwitzRiley(SingleFilter):
         return {
             'Frequency': f"{self.__freq:.7g}"
         }
+
+    @property
+    def key_order(self) -> List[str]:
+        return ['Enabled', 'Type', 'Frequency']
 
     def __repr__(self):
         return f"{self.__class__.__name__} {self.__freq:.7g} Hz{self.print_disabled()}"
@@ -961,10 +1096,14 @@ class Mix(SingleFilter):
     def get_vals(self) -> Dict[str, str]:
         return {
             'Source': self.__source,
-            'Destination': self.__destination,
             'Gain': f"{self.__gain:.7g}",
+            'Destination': self.__destination,
             'Mode': f"{self.__mode}"
         }
+
+    @property
+    def key_order(self) -> List[str]:
+        return ['Enabled', 'Type', 'Source', 'Gain', 'Destination', 'Mode']
 
     def __repr__(self):
         mix_type = MixType(self.__mode)
@@ -1006,6 +1145,10 @@ class Order(SingleFilter):
             'Order': ','.join(self.__order)
         }
 
+    @property
+    def key_order(self) -> List[str]:
+        return ['Enabled', 'Order', 'Type']
+
     def __repr__(self):
         return f"{self.__class__.__name__} {self.__named_order}{self.print_disabled()}"
 
@@ -1023,12 +1166,20 @@ class Mute(ChannelFilter):
             **super().get_vals()
         }
 
+    @property
+    def key_order(self) -> List[str]:
+        return ['Enabled', 'Type', 'Gain', 'Channels']
+
 
 class Polarity(ChannelFilter):
     TYPE = '15'
 
     def __init__(self, vals):
         super().__init__(vals, 'INVERT')
+
+    @property
+    def key_order(self) -> List[str]:
+        return ['Enabled', 'Type', 'Channels']
 
 
 class SubwooferLimiter(ChannelFilter):
@@ -1043,6 +1194,10 @@ class SubwooferLimiter(ChannelFilter):
             'Level': f"{self.__level:.7g}",
             **super().get_vals()
         }
+
+    @property
+    def key_order(self) -> List[str]:
+        return ['Enabled', 'Type', 'Channels', 'Level']
 
     def __repr__(self):
         return f"{self.__class__.__name__} {self.__level:+.7g} dB {self.print_channel_names()}{self.print_disabled()}"
@@ -1075,6 +1230,9 @@ class CustomFilter(Filter):
     def __repr__(self):
         return self.__name
 
+    def is_mine(self, idx):
+        return self.filters[0].is_mine(idx)
+
     @staticmethod
     def get_custom_filter_name(text: str, start: bool) -> Optional[str]:
         prefix = f"***CUSTOM_{'START' if start else 'END'}"
@@ -1097,37 +1255,37 @@ def create_peq(vals: Dict[str, str]) -> Filter:
     return filter_classes_by_type[vals['Type']](vals)
 
 
-def convert_filter_to_mc_dsp(filt: SOS, target_channels: str) -> Tuple[Type[Filter], List[dict]]:
+def convert_filter_to_mc_dsp(filt: SOS, target_channels: str) -> Filter:
     '''
     :param filt: a filter.
     :param target_channels: the channels to output to.
-    :return: values to put in an xml fragment.
+    :return: a filter
     '''
     if isinstance(filt, BiquadWithQGain):
         if isinstance(filt, PeakingEQ):
-            f_type = Peak.TYPE
+            f_type = Peak
             q = filt.q
         else:
             q = q_to_s(filt.q, filt.gain)
-            f_type = LowShelf.TYPE if isinstance(filt, LS) else HighShelf.TYPE
-        return Peak, [{
+            f_type = LowShelf if isinstance(filt, LS) else HighShelf
+        return f_type({
             'Enabled': '1',
             'Slope': '12',
             'Q': f"{q:.4g}",
-            'Type': f_type,
+            'Type': f_type.TYPE,
             'Gain': f"{filt.gain:.7g}",
             'Frequency': f"{filt.freq:.7g}",
             'Channels': target_channels
-        }]
+        })
     elif isinstance(filt, G):
-        return Gain, [{
+        return Gain({
             'Enabled': '1',
             'Type': Gain.TYPE,
             'Gain': f"{filt.gain:.7g}",
             'Channels': target_channels
-        }]
+        })
     elif isinstance(filt, LT):
-        return LinkwitzTransform, [{
+        return LinkwitzTransform({
             'Enabled': '1',
             'Type': LinkwitzTransform.TYPE,
             'Fz': filt.f0,
@@ -1136,26 +1294,51 @@ def convert_filter_to_mc_dsp(filt: SOS, target_channels: str) -> Tuple[Type[Filt
             'Qp': filt.qp,
             'PreventClipping': 0,
             'Channels': target_channels
-        }]
+        })
     elif isinstance(filt, CompoundPassFilter):
-        pass_type = HighPass if isinstance(filt, ComplexHighPass) else LowPass
-        return filt.description, [__make_mc_pass_filter(f, pass_type, target_channels) for f in filt.filters]
+        if filt.type == FilterType.BUTTERWORTH and filt.order in [4, 6, 8]:
+            pass_type = HighPass if isinstance(filt, ComplexHighPass) else LowPass
+            vals = __make_high_order_mc_pass_filter(filt, pass_type.TYPE, pass_type.to_jriver_q, target_channels)
+            return pass_type(vals)
+        else:
+            return __make_mc_custom_pass_filter(filt, target_channels)
     elif isinstance(filt, PassFilter):
         pass_type = HighPass if isinstance(filt, SecondOrder_HighPass) else LowPass
-        return pass_type, [__make_mc_pass_filter(filt, pass_type, target_channels)]
+        return pass_type(__make_mc_pass_filter(filt, pass_type.TYPE, pass_type.to_jriver_q, target_channels))
     elif isinstance(filt, FirstOrder_LowPass) or isinstance(filt, FirstOrder_HighPass):
         pass_type = HighPass if isinstance(filt, FirstOrder_HighPass) else LowPass
-        return pass_type, [__make_mc_pass_filter(filt, pass_type, target_channels)]
+        return pass_type(__make_mc_pass_filter(filt, pass_type.TYPE, pass_type.to_jriver_q, target_channels))
     else:
         raise ValueError(f"Unsupported filter type {filt}")
 
 
-def __make_mc_pass_filter(f: Union[FirstOrder_LowPass, FirstOrder_HighPass, PassFilter], pass_type, target_channels):
+def __make_mc_custom_pass_filter(pass_filter: CompoundPassFilter, target_channels: str) -> CustomFilter:
+    pass_type = HighPass if isinstance(pass_filter, ComplexHighPass) else LowPass
+    mc_filts = [pass_type(__make_mc_pass_filter(f, pass_type.TYPE, pass_type.to_jriver_q, target_channels))
+                for f in pass_filter.filters]
+    return CustomFilter(pass_filter.description, mc_filts)
+
+
+def __make_high_order_mc_pass_filter(f: CompoundPassFilter, filt_type: str, convert_q: Callable[[float], float],
+                                     target_channels: str) -> Dict[str, str]:
     return {
         'Enabled': '1',
         'Slope': f"{f.order * 6}",
-        'Type': pass_type.TYPE,
-        'Q': f"{pass_type.to_jriver_q(f.q):.4g}" if hasattr(f, 'q') else '1',
+        'Type': filt_type,
+        'Q': f"{convert_q(f.q_scale):.4g}",
+        'Frequency': f"{f.freq:.7g}",
+        'Gain': '0',
+        'Channels': target_channels
+    }
+
+
+def __make_mc_pass_filter(f: Union[FirstOrder_LowPass, FirstOrder_HighPass, PassFilter],
+                          filt_type: str, convert_q: Callable[[float], float], target_channels: str) -> Dict[str, str]:
+    return {
+        'Enabled': '1',
+        'Slope': f"{f.order * 6}",
+        'Type': filt_type,
+        'Q': f"{convert_q(f.q):.4g}" if hasattr(f, 'q') else '1',
         'Frequency': f"{f.freq:.7g}",
         'Gain': '0',
         'Channels': target_channels
@@ -1264,7 +1447,7 @@ def get_peq_block_order(config_txt):
     return peq_blocks
 
 
-def extract_filters(config_txt, key_name):
+def extract_filters(config_txt: str, key_name: str):
     '''
     :param config_txt: the xml text.
     :param key_name: the filter key name.
@@ -1299,22 +1482,47 @@ def filts_to_xml(vals: List[Dict[str, str]]) -> str:
     return ''.join(filt_to_xml(f) for f in vals)
 
 
+XML_LEN_OFFSET: Dict[str, int] = {
+    Peak.TYPE: 2,
+    HighShelf.TYPE: 2,
+    LowShelf.TYPE: 2,
+    HighPass.TYPE: 2,
+    LowPass.TYPE: 2,
+    BitdepthSimulator.TYPE: -1,
+    Delay.TYPE: -1,
+    Gain.TYPE: -1,
+    Limiter.TYPE: 3,
+    LinkwitzTransform.TYPE: 3,
+    LinkwitzRiley.TYPE: -2,
+    MidSideEncoding.TYPE: -2,
+    MidSideDecoding.TYPE: -2,
+    Mix.TYPE: 1,
+    Mute.TYPE: -1,
+    Order.TYPE: -2,
+    Polarity.TYPE: -2,
+    SubwooferLimiter.TYPE: -1
+}
+
+
 def filt_to_xml(vals: Dict[str, str]) -> str:
     items = [f"<Item Name=\"{k}\">{v}</Item>" for k, v in vals.items()]
     catted_items = '\n'.join(items)
     prefix = '<XMLPH version="1.1">'
     suffix = '</XMLPH>'
-    # 1 for each new line
-    segment_length = len(prefix) + 1 + len(' '.join(items)) + 1 + len(suffix) + 1
-    # 3 for the (:) formatting + 1 for another new line
-    segment_length = segment_length + len(str(segment_length)) + 3 + 1
-    xml_frag = f"({segment_length}:{prefix}\n{catted_items}\n{suffix})"
-    return xml_frag.replace('<', '&lt;').replace('>', '&gt;')
+    txt_length = len(prefix) + len(''.join(items)) + len(suffix)
+    new_line_len = len(items) + 1
+    # (123:TEXT)
+    encoding_len = 3 + len(str(txt_length))
+    offset = XML_LEN_OFFSET.get(vals['Type'], 0)
+    total_len = txt_length + new_line_len + encoding_len + offset
+    xml_frag = f"({total_len}:{prefix}\n{catted_items}\n{suffix})"
+    # print(f"{filter_classes_by_type[vals['Type']].__name__} ({vals['Type']}): {offset}")
+    return xml_frag
 
 
 class JRiverParser:
 
-    def __init__(self, block=1, channels=('Subwoofer',)):
+    def __init__(self, block=0, channels=('Subwoofer',)):
         self.__block = get_peq_key_name(block)
         self.__target_channels = ';'.join([str(JRIVER_CHANNELS.index(c)) for c in channels])
 
@@ -1325,22 +1533,9 @@ class JRiverParser:
         if len(flat_filts) > 0:
             logger.info(f"Copying {len(flat_filts)} to {dst}")
             # generate the xml formatted filters
-            xml_filts = ''.join([filts_to_xml(convert_filter_to_mc_dsp(f, self.__target_channels)[1]) for f in flat_filts])
-            root, filt_element = extract_filters(config_txt, self.__block)
-            # before_value, after_value, filt_section = extract_value_section(config_txt, self.__block)
-            # separate the tokens, which are in (TOKEN) blocks, from within the Value element
-            filt_fragments = [v + ')' for v in filt_element.text.split(')') if v]
-            if len(filt_fragments) < 2:
-                raise ValueError('Invalid input file - Unexpected <Value> format')
-            # find the filter count and replace it with the new filter count
-            filt_count = int(filt_fragments[1][1:-1].split(':')[1])
-            new_filt_count = filt_count + len(flat_filts)
-            filt_fragments[1] = f"({len(str(new_filt_count))}:{new_filt_count})"
-            # append the new filters to any existing ones
-            new_filt_section = ''.join(filt_fragments) + xml_filts
-            # replace the value block in the original string
-            filt_element.text = new_filt_section
-            config_txt = et.tostring(root, encoding='UTF-8', xml_declaration=True).decode('utf-8')
+            xml_filts = [filts_to_xml(convert_filter_to_mc_dsp(f, self.__target_channels).get_all_vals())
+                         for f in flat_filts]
+            config_txt = include_filters_in_dsp(self.__block, config_txt, xml_filts, replace=False)
         else:
             logger.warning(f"Nop for empty filter file {dst}")
         return config_txt, False
@@ -1352,6 +1547,37 @@ class JRiverParser:
     @staticmethod
     def newline():
         return '\r\n'
+
+
+def include_filters_in_dsp(peq_block_name: str, config_txt: str, xml_filts: List[str], replace: bool = True) -> str:
+    '''
+    :param peq_block_name: the peq block to process.
+    :param config_txt: the dsp config in txt form.
+    :param xml_filts: the filters to include.
+    :param replace: if true, replace existing filters. if false, append.
+    :return: the new config txt.
+    '''
+    root, filt_element = extract_filters(config_txt, peq_block_name)
+    # before_value, after_value, filt_section = extract_value_section(config_txt, self.__block)
+    # separate the tokens, which are in (TOKEN) blocks, from within the Value element
+    filt_fragments = [v + ')' for v in filt_element.text.split(')') if v]
+    if len(filt_fragments) < 2:
+        raise ValueError('Invalid input file - Unexpected <Value> format')
+    # find the filter count and replace it with the new filter count
+    if replace:
+        new_filt_count = len(xml_filts)
+    else:
+        new_filt_count = int(filt_fragments[1][1:-1].split(':')[1]) + len(xml_filts)
+    filt_fragments[1] = f"({len(str(new_filt_count))}:{new_filt_count})"
+    # append the new filters to any existing ones or replace
+    if replace:
+        new_filt_section = ''.join(filt_fragments[0:2]) + ''.join(xml_filts)
+    else:
+        new_filt_section = ''.join(filt_fragments) + ''.join(xml_filts)
+    # replace the value block in the original string
+    filt_element.text = new_filt_section
+    config_txt = et.tostring(root, encoding='UTF-8', xml_declaration=True).decode('utf-8')
+    return config_txt
 
 
 class Node:
@@ -1496,6 +1722,10 @@ class FilterGraph:
         self.__nodes_by_channel: Dict[str, Node] = {}
         self.__filter_pipes_by_channel: Dict[str, FilterPipe] = {}
         self.__regen()
+
+    @property
+    def stage(self):
+        return self.__stage
 
     def __regen(self):
         self.__nodes_by_name = {}
@@ -1798,17 +2028,6 @@ class FilterGraph:
             collect_nodes(root, nodes)
         return nodes
 
-    def __insert(self, f: SOS, channel_name: str, idx: int) -> List[Filter]:
-        i = 0
-        new_filt_type, new_filt_vals = convert_filter_to_mc_dsp(f, str(get_channel_idx(channel_name)))
-        # TODO handle custom filter types
-        logger.debug(f"Inserting {len(new_filt_vals)} new filters for {f} in {channel_name} at {idx}")
-        new_filts = [create_peq(v) for v in new_filt_vals]
-        for v in new_filts:
-            self.__filts.insert(idx + i, v)
-            i += 1
-        return new_filts
-
     def start_edit(self, channel: str, node_chain: List[Node]):
         self.__editing = (channel, node_chain)
 
@@ -1820,6 +2039,7 @@ class FilterGraph:
         if self.__editing:
             node_chain: List[Node]
             channel_name, node_chain = self.__editing
+            channel_idx = str(get_channel_idx(channel_name))
             old_filters: List[Tuple[Filter, str]] = [(n.filt, n.channel) for n in node_chain]
             new_chain_filter: Optional[Filter] = None
             insert_at = self.__filts.index(node_chain[0].filt) + 1
@@ -1832,13 +2052,13 @@ class FilterGraph:
             #     if skipped past old filters, delete them
             #   insert filter
             for i, f in enumerate(new_filters):
+                new_filter = convert_filter_to_mc_dsp(f, channel_idx)
                 if last_match < len(old_filters):
                     handled = False
                     for j in range(last_match + 1, len(old_filters)):
                         old_filter, filter_channel = old_filters[j]
-                        new_filt_name, new_filt_vals = convert_filter_to_mc_dsp(f, str(get_channel_idx(filter_channel)))
                         old_filt_vals = old_filter.get_all_vals()
-                        if self.__pop_channels(new_filt_vals) == self.__pop_channels(old_filt_vals):
+                        if self.__pop_channels(new_filter.get_all_vals()) == self.__pop_channels(old_filt_vals):
                             if (j - last_match) > 1:
                                 offset -= self.__delete_filters(old_filters[last_match + 1:j])
                                 must_regen = True
@@ -1850,16 +2070,14 @@ class FilterGraph:
                             break
                     if not handled:
                         must_regen = True
-                        new_filts = self.__insert(f, channel_name, insert_at + offset)
-                        if new_filts:
-                            new_chain_filter = new_filts[0]
-                        offset += len(new_filts)
+                        self.__filts.insert(insert_at + offset, new_filter)
+                        new_chain_filter = new_filter
+                        offset += 1
                 else:
                     must_regen = True
-                    new_filts = self.__insert(f, channel_name, insert_at + offset)
-                    if new_filts:
-                        new_chain_filter = new_filts[0]
-                    offset += len(new_filts)
+                    self.__filts.insert(insert_at + offset, new_filter)
+                    new_chain_filter = new_filter
+                    offset += 1
             if last_match + 1 < len(old_filters):
                 if self.__delete_filters(old_filters[last_match + 1:]):
                     must_regen = True
@@ -1889,6 +2107,14 @@ class FilterGraph:
                 self.__filts.remove(filt_to_delete)
                 deleted += 1
         return deleted
+
+    def clear_filters(self):
+        self.__filts = []
+        self.__regen()
+
+    def delete(self, filters: List[Filter]):
+        self.__filts = [f for f in self.__filts if f not in filters]
+        self.__regen()
 
 
 class GraphRenderer:
