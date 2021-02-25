@@ -137,7 +137,7 @@
           <enum>Qt::IgnoreAction</enum>
          </property>
          <property name="selectionMode">
-          <enum>QAbstractItemView::ExtendedSelection</enum>
+          <enum>QAbstractItemView::MultiSelection</enum>
          </property>
         </widget>
        </item>
@@ -456,22 +456,6 @@
    </hints>
   </connection>
   <connection>
-   <sender>addFilterButton</sender>
-   <signal>clicked()</signal>
-   <receiver>jriverDspDialog</receiver>
-   <slot>add_filter()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>412</x>
-     <y>82</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>406</x>
-     <y>234</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
    <sender>deleteFilterButton</sender>
    <signal>clicked()</signal>
    <receiver>jriverDspDialog</receiver>
@@ -530,7 +514,6 @@
   <slot>redraw()</slot>
   <slot>save_dsp()</slot>
   <slot>save_as_dsp()</slot>
-  <slot>add_filter()</slot>
   <slot>delete_filter()</slot>
   <slot>clear_filters()</slot>
   <slot>on_filter_select()</slot>

@@ -7,14 +7,15 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from enum import Enum
 from pathlib import Path
-from typing import Dict, Optional, List, Tuple, Callable, Union, Type
+from typing import Dict, Optional, List, Tuple, Callable, Union, Type, Set, Iterable
 
 import math
 import qtawesome as qta
 import time
-from qtpy.QtCore import QPoint, QModelIndex
-from qtpy.QtGui import QColor, QPalette, QKeySequence, QCloseEvent
-from qtpy.QtWidgets import QDialog, QFileDialog, QMenu, QAction, QListWidgetItem
+from qtpy.QtCore import QPoint, QModelIndex, Qt
+from qtpy.QtGui import QColor, QPalette, QKeySequence, QCloseEvent, QFont
+from qtpy.QtWidgets import QDialog, QFileDialog, QMenu, QAction, QListWidgetItem, QListWidget, QAbstractItemView, \
+    QLabel, QFrame, QDoubleSpinBox, QWidget, QDialogButtonBox
 from scipy.signal import unit_impulse
 
 from model import iir
@@ -30,6 +31,7 @@ from model.preferences import JRIVER_GEOMETRY, JRIVER_GRAPH_X_MIN, JRIVER_GRAPH_
 from model.signal import Signal
 from model.xy import MagnitudeData
 from ui.jriver import Ui_jriverDspDialog
+from ui.jriver_filter import Ui_jriverFilterDialog
 from ui.pipeline import Ui_jriverGraphDialog
 
 USER_CHANNELS = ['User 1', 'User 2']
@@ -73,7 +75,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
 
     def __init__(self, parent, prefs: Preferences):
         super(JRiverDSPDialog, self).__init__(parent)
-        self.__selected_node_names: List[str] = []
+        self.__selected_node_names: Set[str] = set()
         self.__current_dot_txt = None
         self.prefs = prefs
         self.setupUi(self)
@@ -105,26 +107,73 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
                                                 x_min_pref_key=JRIVER_GRAPH_X_MIN, x_max_pref_key=JRIVER_GRAPH_X_MAX,
                                                 secondary_data_provider=self.__get_data('phase'),
                                                 secondary_name='Phase', secondary_prefix='deg', fill_secondary=False,
-                                                db_range_calc=dBRangeCalculator(30, expand=True),
+                                                db_range_calc=dBRangeCalculator(60),
                                                 y2_range_calc=PhaseRangeCalculator(), show_y2_in_legend=False)
         self.__restore_geometry()
 
     def __make_add_filter_menu(self) -> QMenu:
         menu = QMenu(self)
-        peq = QAction(f"&PEQ", self)
-        peq.setShortcuts(QKeySequence.New)
-        # act.setStatusTip(f"Insert Filter after {node_name}")
-        # act.triggered.connect(self.__insert_node)
+        peq = QAction(f"&1: PEQ", self)
+        peq.triggered.connect(self.__insert_peq)
         menu.addAction(peq)
-        delay = QAction(f"&Delay", self)
-        # peq.setShortcuts(QKeySequence.New)
-        # act.setStatusTip(f"Insert Filter after {node_name}")
-        # act.triggered.connect(self.__insert_node)
+        delay = QAction(f"&2: Delay", self)
+        delay.triggered.connect(self.__insert_delay)
         menu.addAction(delay)
+        polarity = QAction(f"&3: Polarity", self)
+        polarity.triggered.connect(self.__insert_polarity)
+        menu.addAction(polarity)
+        add = QAction(f"&4: Add", self)
+        add.triggered.connect(lambda: self.__insert_mix(MixType.ADD))
+        menu.addAction(add)
+        copy = QAction(f"&5: Copy", self)
+        copy.triggered.connect(lambda: self.__insert_mix(MixType.COPY))
+        menu.addAction(copy)
+        move = QAction(f"&6: Move", self)
+        move.triggered.connect(lambda: self.__insert_mix(MixType.MOVE))
+        menu.addAction(copy)
+        swap = QAction(f"&7: Swap", self)
+        swap.triggered.connect(lambda: self.__insert_mix(MixType.SWAP))
+        menu.addAction(swap)
+        subtract = QAction(f"&8: Subtract", self)
+        subtract.triggered.connect(lambda: self.__insert_mix(MixType.SUBTRACT))
+        menu.addAction(subtract)
         return menu
 
-    def add_filter(self):
+    def __insert_peq(self):
+        channel: Optional[str] = None
+
+        def __on_save(c: str):
+            nonlocal channel
+            channel = c
+
+        val = JRiverChannelSelectorDialog(self, self.__dsp.channel_names(output=True), __on_save).exec()
+        if val == QDialog.Accepted and channel is not None:
+            selected = [i.row() for i in self.filterList.selectedIndexes()]
+            insert_at = max(selected) + 1 if selected else 0
+            self.__edit_peq_chain(None, channel, [], insert_at)
+
+    def __insert_delay(self):
+        JRiverFilterEditDialog(self, self.__dsp.channel_names(output=True), Delay, self.__add_filter,
+                               Delay.default_values()).exec()
+
+    def __insert_polarity(self):
+        JRiverFilterEditDialog(self, self.__dsp.channel_names(output=True), Polarity, self.__add_filter,
+                               Polarity.default_values()).exec()
+
+    def __insert_mix(self, mix_type: MixType):
         pass
+
+    def __add_filter(self, vals: Dict[str, str]):
+        to_add = create_peq(vals)
+        if to_add:
+            logger.info(f"Storing {vals} as {to_add}")
+            selected = [i.row() for i in self.filterList.selectedIndexes()]
+            idx = max(selected) + 1 if selected else 0
+            self.__dsp.active_graph.insert(to_add, idx)
+            self.__on_graph_change()
+            self.filterList.insertItem(idx, str(to_add))
+        else:
+            logger.error(f"No PEQ created for {vals}")
 
     def delete_filter(self):
         '''
@@ -149,6 +198,13 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
     def on_filter_select(self):
         enable = len(self.filterList.selectedItems()) > 0
         self.deleteFilterButton.setEnabled(enable)
+        self.__selected_node_names.clear()
+        if enable:
+            selected_indexes = [i.row() for i in self.filterList.selectedIndexes()]
+            for i in selected_indexes:
+                for n in self.__dsp.active_graph.filters[i].nodes:
+                    self.__selected_node_names.add(n.name)
+        self.__regen()
 
     def clear_filters(self):
         '''
@@ -189,30 +245,50 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
             filt = node.filt
             if filt:
                 if node.has_editable_filter():
-                    filter_model = FilterModel(None, self.prefs)
                     node_idx, node_chain = node.editable_node_chain
-                    filters = [self.__enforce_filter_order(i, f) for i, f in enumerate(node_chain)]
-                    filter_model.filter = CompleteFilter(fs=48000, filters=filters, sort_by_id=True,
-                                                         description=node.channel)
-                    self.__dsp.active_graph.start_edit(node.channel, node_chain)
-
-                    def __on_save():
-                        if self.__dsp.active_graph.end_edit(filter_model.filter):
-                            self.show_filters()
-
-                    x_lim = (self.__magnitude_model.limits.x_min, self.__magnitude_model.limits.x_max)
-                    FilterDialog(self.prefs, make_signal(node_name), filter_model, __on_save, parent=self,
-                                 selected_filter=filters[node_idx], x_lim=x_lim, allow_var_q_pass=True).show()
+                    filters: List[SOS] = [self.__enforce_filter_order(i, f) for i, f in enumerate(node_chain)]
+                    self.__edit_peq_chain(filters, node.channel, node_chain,
+                                          self.__dsp.active_graph.filters.index(node_chain[0].filt) + 1,
+                                          selected_filter_idx=node_idx)
                 else:
-                    # TODO provide edit for other filter types
-                    logger.debug(f"Filter at node {node_name} is not editable")
+                    vals = node.filt.get_all_vals()
+                    if len(vals) == 1 and hasattr(filt, 'default_values'):
+
+                        def __on_save(vals: Dict[str, str]):
+                            to_add = create_peq(vals)
+                            if to_add:
+                                logger.info(f"Storing {vals} as {to_add}")
+                                if self.__dsp.active_graph.replace(node.filt, to_add):
+                                    self.__on_graph_change()
+                                else:
+                                    logger.error(f"Failed to replace {node.filt} at {node_name}")
+
+                        JRiverFilterEditDialog(self, self.__dsp.channel_names(output=True), node.filt.__class__,
+                                               __on_save, vals[0]).exec()
+                    else:
+                        logger.debug(f"Filter {filt} at node {node_name} is not editable")
             else:
                 logger.debug(f"No filter at node {node_name}")
         else:
             logger.debug(f"No such node {node_name}")
 
+    def __edit_peq_chain(self, filters: Optional[List[SOS]], channel: str, node_chain: List[Node],
+                         insert_at: int, selected_filter_idx: int = -1):
+        filter_model = FilterModel(None, self.prefs)
+        filter_model.filter = CompleteFilter(fs=48000, filters=filters, sort_by_id=True, description=channel)
+        self.__dsp.active_graph.start_edit(channel, node_chain, insert_at)
+
+        def __on_save():
+            if self.__dsp.active_graph.end_edit(filter_model.filter):
+                self.show_filters()
+
+        x_lim = (self.__magnitude_model.limits.x_min, self.__magnitude_model.limits.x_max)
+        FilterDialog(self.prefs, make_signal(channel), filter_model, __on_save, parent=self,
+                     selected_filter=filters[selected_filter_idx] if selected_filter_idx > -1 else None, x_lim=x_lim,
+                     allow_var_q_pass=True).show()
+
     @staticmethod
-    def __enforce_filter_order(index: int, node: Node):
+    def __enforce_filter_order(index: int, node: Node) -> SOS:
         f = node.editable_filter
         f.id = index
         return f
@@ -239,26 +315,39 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
     def __on_selected_node(self, node_name: str):
         if node_name in self.__selected_node_names:
             self.__selected_node_names.remove(node_name)
+            node_filter = self.__dsp.active_graph.get_filter_at_node(node_name)
+            if node_filter:
+                nodes_in_filter = [n.name for n in node_filter.nodes]
+                if not any(s in self.__selected_node_names for s in nodes_in_filter):
+                    from model.report import block_signals
+                    with block_signals(self.filterList):
+                        for item in self.filterList.selectedItems():
+                            if item.text() == str(node_filter):
+                                item.setSelected(False)
         else:
-            if len(self.__selected_node_names) == 2:
-                self.__selected_node_names.pop(0)
-            self.__selected_node_names.append(node_name)
-        self.__highlight_selected_nodes()
+            self.__selected_node_names.add(node_name)
+            self.__highlight_selected_nodes(node_name)
         self.__regen()
 
-    def __highlight_selected_nodes(self):
+    def __highlight_selected_nodes(self, selected_node: str):
         graph = self.__dsp.graph(self.blockSelector.currentIndex())
         filts = [graph.get_filter_at_node(n) for n in self.__selected_node_names if graph.get_filter_at_node(n) is not None]
         if filts:
+            selected_filter = graph.get_filter_at_node(selected_node)
             i = 0
             for f in self.__dsp.graph(self.blockSelector.currentIndex()).filters:
                 if not isinstance(f, Divider):
-                    item: QListWidgetItem = self.filterList.item(i)
-                    if filts and f in filts:
-                        filts.remove(f)
-                        item.setSelected(True)
-                    else:
-                        item.setSelected(False)
+                    from model.report import block_signals
+                    with block_signals(self.filterList):
+                        item: QListWidgetItem = self.filterList.item(i)
+                        if filts and f in filts:
+                            filts.remove(f)
+                            if f == selected_filter:
+                                for n in f.nodes:
+                                    self.__selected_node_names.add(n.name)
+                            item.setSelected(True)
+                        else:
+                            item.setSelected(False)
                     i += 1
         else:
             self.filterList.clearSelection()
@@ -341,7 +430,8 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
                 for signal in self.__dsp.signals:
                     if signal.name in names:
                         result.append(MagnitudeData(signal.name, None, *signal.avg,
-                                                    colour=get_filter_colour(len(result))))
+                                                    colour=get_filter_colour(len(result)),
+                                                    linestyle='-' if mode == 'mag' else '--'))
         return result
 
     def show_limits(self):
@@ -589,6 +679,13 @@ class SingleFilter(Filter):
     def print_disabled(self):
         return '' if self.enabled else f" *** DISABLED ***"
 
+    @classmethod
+    def default_values(cls) -> Dict[str, str]:
+        return {
+            'Enabled': '1',
+            'Type': cls.TYPE
+        }
+
 
 class ChannelFilter(SingleFilter):
 
@@ -630,6 +727,13 @@ class ChannelFilter(SingleFilter):
             self.__channels.remove(get_channel_idx(channel_name))
         else:
             raise ValueError(f"{channel_name} not found in {self}")
+
+    @classmethod
+    def default_values(cls) -> Dict[str, str]:
+        return {
+            **super(ChannelFilter, cls).default_values(),
+            'Channels': ''
+        }
 
 
 class GainQFilter(ChannelFilter):
@@ -1482,39 +1586,14 @@ def filts_to_xml(vals: List[Dict[str, str]]) -> str:
     return ''.join(filt_to_xml(f) for f in vals)
 
 
-XML_LEN_OFFSET: Dict[str, int] = {
-    Peak.TYPE: 2,
-    HighShelf.TYPE: 2,
-    LowShelf.TYPE: 2,
-    HighPass.TYPE: 2,
-    LowPass.TYPE: 2,
-    BitdepthSimulator.TYPE: -1,
-    Delay.TYPE: -1,
-    Gain.TYPE: -1,
-    Limiter.TYPE: 3,
-    LinkwitzTransform.TYPE: 3,
-    LinkwitzRiley.TYPE: -2,
-    MidSideEncoding.TYPE: -2,
-    MidSideDecoding.TYPE: -2,
-    Mix.TYPE: 1,
-    Mute.TYPE: -1,
-    Order.TYPE: -2,
-    Polarity.TYPE: -2,
-    SubwooferLimiter.TYPE: -1
-}
-
-
 def filt_to_xml(vals: Dict[str, str]) -> str:
     items = [f"<Item Name=\"{k}\">{v}</Item>" for k, v in vals.items()]
     catted_items = '\n'.join(items)
     prefix = '<XMLPH version="1.1">'
     suffix = '</XMLPH>'
     txt_length = len(prefix) + len(''.join(items)) + len(suffix)
-    new_line_len = len(items) + 1
-    # (123:TEXT)
-    encoding_len = 3 + len(str(txt_length))
-    offset = XML_LEN_OFFSET.get(vals['Type'], 0)
-    total_len = txt_length + new_line_len + encoding_len + offset
+    new_line_len = (len(items) + 1) * 2
+    total_len = txt_length + new_line_len
     xml_frag = f"({total_len}:{prefix}\n{catted_items}\n{suffix})"
     # print(f"{filter_classes_by_type[vals['Type']].__name__} ({vals['Type']}): {offset}")
     return xml_frag
@@ -1713,7 +1792,7 @@ class Node:
 class FilterGraph:
 
     def __init__(self, stage: int, input_channels: List[str], output_channels: List[str], filts: List[Filter]):
-        self.__editing: Optional[Tuple[str, List[Node]]] = None
+        self.__editing: Optional[Tuple[str, List[Node]], int] = None
         self.__stage = stage
         self.__filts = filts
         self.__output_channels = output_channels
@@ -2028,8 +2107,8 @@ class FilterGraph:
             collect_nodes(root, nodes)
         return nodes
 
-    def start_edit(self, channel: str, node_chain: List[Node]):
-        self.__editing = (channel, node_chain)
+    def start_edit(self, channel: str, node_chain: List[Node], insert_at: int):
+        self.__editing = (channel, node_chain, insert_at)
 
     def end_edit(self, new_filters: CompleteFilter):
         '''
@@ -2038,11 +2117,10 @@ class FilterGraph:
         '''
         if self.__editing:
             node_chain: List[Node]
-            channel_name, node_chain = self.__editing
+            channel_name, node_chain, insert_at = self.__editing
             channel_idx = str(get_channel_idx(channel_name))
             old_filters: List[Tuple[Filter, str]] = [(n.filt, n.channel) for n in node_chain]
             new_chain_filter: Optional[Filter] = None
-            insert_at = self.__filts.index(node_chain[0].filt) + 1
             last_match = -1
             must_regen = False
             offset = 0
@@ -2112,9 +2190,36 @@ class FilterGraph:
         self.__filts = []
         self.__regen()
 
-    def delete(self, filters: List[Filter]):
+    def delete(self, filters: List[Filter]) -> None:
+        '''
+        Removes the provided list of filters.
+        :param filters: the filters to remove.
+        '''
         self.__filts = [f for f in self.__filts if f not in filters]
         self.__regen()
+
+    def insert(self, to_insert: Filter, at: int) -> None:
+        '''
+        Inserts a filter a specified position.
+        :param to_insert: the filter to insert.
+        :param at: the position to insert at.
+        '''
+        self.__filts.insert(at, to_insert)
+        self.__regen()
+
+    def replace(self, old_filter: Filter, new_filter: Filter) -> bool:
+        '''
+        Replaces the specified filter.
+        :param old_filter: the filter to replace.
+        :param new_filter:  the replacement filter.
+        :return: true if it was replaced.
+        '''
+        try:
+            self.__filts[self.__filts.index(old_filter)] = new_filter
+            self.__regen()
+            return True
+        except:
+            return False
 
 
 class GraphRenderer:
@@ -2123,7 +2228,7 @@ class GraphRenderer:
         self.__graph = graph
         self.__colours = colours
 
-    def generate(self, vertical: bool, selected_nodes: Optional[List[str]] = None) -> str:
+    def generate(self, vertical: bool, selected_nodes: Optional[Iterable[str]] = None) -> str:
         gz = self.__init_gz(vertical)
         node_defs, user_channel_clusters = self.__add_node_definitions(selected_nodes=selected_nodes)
         if node_defs:
@@ -2183,7 +2288,7 @@ class GraphRenderer:
     def __create_io_record(name, definition):
         return f"  {name} [shape=record label=\"{definition}\"];"
 
-    def __create_channel_nodes(self, channel, nodes, selected_nodes=None):
+    def __create_channel_nodes(self, channel, nodes, selected_nodes: Optional[Iterable[str]] = None):
         to_append = ""
         label_prefix = f"{channel}\n" if channel in SHORT_USER_CHANNELS else ''
         for node in nodes:
@@ -2221,7 +2326,7 @@ class GraphRenderer:
         gz += "\n"
         return gz
 
-    def __add_node_definitions(self, selected_nodes: Optional[List[str]] = None) -> Tuple[str, Dict[str, str]]:
+    def __add_node_definitions(self, selected_nodes: Optional[Iterable[str]] = None) -> Tuple[str, Dict[str, str]]:
         user_channel_clusters = {}
         gz = ''
         # add all nodes
@@ -2445,3 +2550,139 @@ class JRiverFilterPipelineDialog(QDialog, Ui_jriverGraphDialog):
 def render_dot(txt):
     from graphviz import Source
     return Source(txt, format='svg').pipe()
+
+
+class JRiverChannelSelectorDialog(QDialog, Ui_jriverFilterDialog):
+
+    def __init__(self, parent: QDialog, channels: List[str], on_save: Callable[[str], None]):
+        super(JRiverChannelSelectorDialog, self).__init__(parent)
+        self.setupUi(self)
+        self.__validators: List[Callable[[], bool]] = []
+        self.header_label = None
+        self.channelList = None
+        self.__on_save = on_save
+        self.__configure(channels)
+
+    def accept(self):
+        self.__on_save([i.text() for i in self.channelList.selectedItems()][0])
+        super().accept()
+
+    def __configure(self, channels: List[str]):
+        self.__create_header()
+        self.__create_channel_list(channels)
+        self.gridLayout.addWidget(self.header_label, 0, 0, 1, -1)
+        self.gridLayout.addWidget(self.channelList, 1, 1, 1, 1)
+        self.setTabOrder(self.channelList, self.buttonBox)
+        self.__enable_accept()
+
+    def __create_channel_list(self, channels):
+        self.channelList = QListWidget(self)
+        self.channelList.setSelectionMode(QAbstractItemView.SingleSelection)
+        for c in channels:
+            self.channelList.addItem(c)
+        self.channelList.itemSelectionChanged.connect(self.__enable_accept)
+        self.__validators.append(lambda: len(self.channelList.selectedItems()) > 0)
+
+    def __enable_accept(self):
+        self.buttonBox.button(QDialogButtonBox.Save).setEnabled(all(v() for v in self.__validators))
+
+    def __create_header(self):
+        self.header_label = make_header_label(self)
+        self.header_label.setText('Select Channel(s) to filter')
+
+
+def make_header_label(parent: QWidget) -> QLabel:
+    header_label = QLabel(parent)
+    font = QFont()
+    font.setBold(True)
+    font.setItalic(True)
+    font.setWeight(75)
+    header_label.setFont(font)
+    header_label.setFrameShape(QFrame.Box)
+    header_label.setFrameShadow(QFrame.Sunken)
+    header_label.setAlignment(Qt.AlignCenter)
+    return header_label
+
+
+class JRiverFilterEditDialog(QDialog, Ui_jriverFilterDialog):
+
+    def __init__(self, parent: QDialog, channels: List[str], filter_type: Type[SingleFilter],
+                 on_save: Callable[[Dict[str, str]], None], vals: Dict[str, str] = None):
+        super(JRiverFilterEditDialog, self).__init__(parent)
+        self.setupUi(self)
+        self.__validators: List[Callable[[], bool]] = []
+        self.header_label = None
+        self.channel_list = None
+        self.__on_save = on_save
+        self.__vals = vals if vals else {}
+        self.__configure(channels, filter_type)
+
+    def accept(self):
+        self.__on_save(self.__vals)
+        super().accept()
+
+    def __configure(self, channels, filter_type):
+        self.__create_header(filter_type)
+        self.__create_channel_list(channels)
+        self.gridLayout.addWidget(self.header_label, 0, 0, 1, -1)
+        row = 1
+        last_widget = None
+        if filter_type == Delay:
+            row, last_widget = self.__add_delay_fields(1)
+        if 'Channels' in self.__vals:
+            self.gridLayout.addWidget(self.channel_list, row, 1, 1, 1)
+            if last_widget:
+                self.setTabOrder(last_widget, self.channel_list)
+        elif last_widget:
+            self.setTabOrder(last_widget, self.buttonBox)
+        self.__enable_accept()
+
+    def __add_delay_fields(self, row: int) -> Tuple[int, QWidget]:
+        millisLabel = QLabel(self)
+        millisLabel.setText("ms")
+        self.gridLayout.addWidget(millisLabel, row, 0, 1, 1)
+
+        millis = QDoubleSpinBox(self)
+        millis.setMinimum(-2000.0)
+        millis.setMaximum(2000.0)
+        millis.setSingleStep(0.001)
+        millis.setDecimals(3)
+        if 'Delay' in self.__vals:
+            millis.setValue(float(self.__vals['Delay']))
+        millis.valueChanged.connect(lambda v: self.__set_val('Delay', f"{v:.7g}"))
+        millis.valueChanged.connect(self.__enable_accept)
+        millis.setFocus()
+        self.__validators.append(lambda: not math.isclose(millis.value(), 0.0))
+        self.gridLayout.addWidget(millis, row, 1, 1, 1)
+        row += 1
+
+        return row, millis
+
+    def __set_val(self, key, val):
+        self.__vals[key] = val
+
+    def __create_channel_list(self, channels):
+        self.channel_list = QListWidget(self)
+        self.channel_list.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        for c in channels:
+            self.channel_list.addItem(c)
+        self.channel_list.itemSelectionChanged.connect(self.__enable_accept)
+        if 'Channels' in self.__vals and self.__vals['Channels']:
+            selected = [get_channel_name(int(i)) for i in self.__vals['Channels'].split(';')]
+            for c in selected:
+                item: QListWidgetItem
+                for item in self.channel_list.findItems(c, Qt.MatchCaseSensitive):
+                    item.setSelected(True)
+        self.__validators.append(lambda: len(self.channel_list.selectedItems()) > 0)
+
+        def __as_channel_indexes():
+            return ';'.join([str(get_channel_idx(c.text())) for c in self.channel_list.selectedItems()])
+
+        self.channel_list.itemSelectionChanged.connect(lambda: self.__set_val('Channels', __as_channel_indexes()))
+
+    def __enable_accept(self):
+        self.buttonBox.button(QDialogButtonBox.Save).setEnabled(all(v() for v in self.__validators))
+
+    def __create_header(self, filter_type):
+        self.header_label = make_header_label(self)
+        self.header_label.setText(filter_type.__name__)
