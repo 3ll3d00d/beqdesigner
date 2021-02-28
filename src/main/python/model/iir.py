@@ -1053,7 +1053,7 @@ class CompoundPassFilter(ComplexFilter):
     A high or low pass filter of different types and orders that are implemented using one or more biquads.
     '''
 
-    def __init__(self, high_or_low, one_pole_ctor, two_pole_ctor, filter_type, order, fs, freq, q_scale=1.0, f_id=-1):
+    def __init__(self, high_or_low, one_pole_ctor, two_pole_ctor, filter_type: FilterType, order, fs, freq, q_scale=1.0, f_id=-1):
         self.__bw1 = one_pole_ctor
         self.__bw2 = two_pole_ctor
         self.type = filter_type

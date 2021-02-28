@@ -78,6 +78,19 @@
           </widget>
          </item>
          <item>
+          <widget class="QToolButton" name="editFilterButton">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
+           <property name="text">
+            <string>...</string>
+           </property>
+           <property name="shortcut">
+            <string>E</string>
+           </property>
+          </widget>
+         </item>
+         <item>
           <widget class="QToolButton" name="deleteFilterButton">
            <property name="enabled">
             <bool>false</bool>
@@ -462,8 +475,8 @@
    <slot>delete_filter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>398</x>
-     <y>104</y>
+     <x>423</x>
+     <y>164</y>
     </hint>
     <hint type="destinationlabel">
      <x>422</x>
@@ -478,8 +491,8 @@
    <slot>clear_filters()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>418</x>
-     <y>156</y>
+     <x>423</x>
+     <y>204</y>
     </hint>
     <hint type="destinationlabel">
      <x>406</x>
@@ -503,6 +516,38 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>filterList</sender>
+   <signal>itemDoubleClicked(QListWidgetItem*)</signal>
+   <receiver>jriverDspDialog</receiver>
+   <slot>edit_filter()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>336</x>
+     <y>204</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>410</x>
+     <y>538</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>editFilterButton</sender>
+   <signal>clicked()</signal>
+   <receiver>jriverDspDialog</receiver>
+   <slot>edit_selected_filter()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>401</x>
+     <y>120</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>411</x>
+     <y>366</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>find_dsp_file()</slot>
@@ -517,5 +562,7 @@
   <slot>delete_filter()</slot>
   <slot>clear_filters()</slot>
   <slot>on_filter_select()</slot>
+  <slot>edit_filter()</slot>
+  <slot>edit_selected_filter()</slot>
  </slots>
 </ui>
