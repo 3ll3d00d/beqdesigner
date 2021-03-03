@@ -9,6 +9,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Dict, Optional, List, Tuple, Callable, Union, Set, Iterable
 
+import itertools
 import math
 import qtawesome as qta
 import time
@@ -96,6 +97,8 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         self.deleteFilterButton.setIcon(qta.icon('fa5s.times'))
         self.clearFiltersButton.setIcon(qta.icon('fa5s.trash'))
         self.editFilterButton.setIcon(qta.icon('fa5s.edit'))
+        self.splitFilterButton.setIcon(qta.icon('fa5s.object-ungroup'))
+        self.mergeFilterButton.setIcon(qta.icon('fa5s.object-group'))
         self.findFilenameButton.setShortcut(QKeySequence.Open)
         self.saveButton.setShortcut(QKeySequence.Save)
         self.saveAsButton.setShortcut(QKeySequence.SaveAs)
@@ -166,6 +169,10 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
                             if item.data(FILTER_ID_ROLE) != f.id:
                                 item.setText(str(f))
                                 item.setData(FILTER_ID_ROLE, f.id)
+                            else:
+                                f_t = str(f)
+                                if item.text() != f_t:
+                                    item.setText(f_t)
                         else:
                             item = QListWidgetItem(str(f))
                             item.setData(FILTER_ID_ROLE, f.id)
@@ -220,6 +227,42 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
             if self.filterList.count() > 0:
                 self.filterList.item(max(min(last_row, self.filterList.count()) - 1, 0)).setSelected(True)
         self.__enable_edit_buttons_if_filters_selected()
+
+    def split_filter(self):
+        ''' Splits a selected multichannel filter into separate filters. '''
+        selected_items: List[QListWidgetItem] = self.filterList.selectedItems()
+        splittable = self.__dsp.active_graph.get_filter_by_id(selected_items[0].data(FILTER_ID_ROLE))
+        item_idx: QModelIndex = self.filterList.indexFromItem(selected_items[0])
+        if splittable.can_split():
+            split = splittable.split()
+            for i, f in enumerate(split):
+                insert_at = item_idx.row() + i
+                self.__dsp.active_graph.insert(f, insert_at, regen=(i + 1 == len(split)))
+                new_item = QListWidgetItem(str(f))
+                new_item.setData(FILTER_ID_ROLE, f.id)
+                self.filterList.insertItem(insert_at, new_item)
+            self.__dsp.active_graph.delete([splittable])
+            self.filterList.takeItem(self.filterList.indexFromItem(selected_items[0]).row())
+            self.__regen()
+
+    def merge_filters(self):
+        ''' Merges multiple identical filters into a single multichannel filter. '''
+        selected_filters = [self.__dsp.active_graph.get_filter_by_id(i.data(FILTER_ID_ROLE))
+                            for i in self.filterList.selectedItems()]
+        item_idx: QModelIndex = self.filterList.indexFromItem(self.filterList.selectedItems()[0])
+        # can only merge a ChannelFilter
+        channels = ';'.join([str(f.channels[0]) for f in selected_filters])
+        merged_filter = create_peq({**selected_filters[0].get_all_vals()[0], 'Channels': channels})
+        insert_at = item_idx.row() + 1
+        # insert the new one in both the graph and the filter list
+        self.__dsp.active_graph.insert(merged_filter, insert_at)
+        new_item = QListWidgetItem(str(merged_filter))
+        new_item.setData(FILTER_ID_ROLE, merged_filter.id)
+        self.filterList.insertItem(insert_at, new_item)
+        # delete the old ones
+        self.__dsp.active_graph.delete(selected_filters)
+        for i in self.filterList.selectedItems():
+            self.filterList.takeItem(self.filterList.indexFromItem(i).row())
 
     def on_filter_select(self) -> None:
         '''
@@ -301,7 +344,11 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         peq.triggered.connect(lambda: self.__insert_peq_after_node(node_name))
         polarity.triggered.connect(lambda: self.__insert_polarity(idx))
         delay.triggered.connect(lambda: self.__insert_delay(idx))
-        # TODO mix filters
+        add.triggered.connect(lambda: self.__insert_mix(MixType.ADD, idx))
+        copy.triggered.connect(lambda: self.__insert_mix(MixType.COPY, idx))
+        move.triggered.connect(lambda: self.__insert_mix(MixType.MOVE, idx))
+        swap.triggered.connect(lambda: self.__insert_mix(MixType.SWAP, idx))
+        subtract.triggered.connect(lambda: self.__insert_mix(MixType.SUBTRACT, idx))
 
     def __get_idx_to_insert_filter_at_from_node_name(self, node_name: str) -> int:
         '''
@@ -347,17 +394,14 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         if node.filt:
             match = self.__find_item_by_filter_id(node.filt.id)
             if match:
-                self.__start_peq_edit_session(None, node.channel, [], match[0] + 1)
-        # TODO use an insert mode if we're adding to an existing filter chain
-        # self.__show_edit_filter_dialog(node_name)
-        # if node and node.filt:
-        #     node_idx, node_chain = node.editable_node_chain
-        #     selected = [i.row() for i in self.filterList.selectedIndexes()]
-        #     self.__edit_peq_chain(filters, node.channel, node_chain,
-        #                           self.__dsp.active_graph.filters.index(node_chain[0].filt) + 1,
-        #                           selected_filter_idx=node_idx)
-        # else:
-        #     logger.warning(f"Attempting to insert PEQ after non existent node {node_name}")
+                if node.has_editable_filter():
+                    node_idx, node_chain = node.editable_node_chain
+                    filters: List[SOS] = [f.editable_filter for f in node_chain]
+                    insert_at, _ = self.__find_item_by_filter_id(node_chain[0].filt.id)
+                    # TODO insert a filter into the chain immediately after this one
+                    self.__start_peq_edit_session(filters, node.channel, node_chain, insert_at + 1)
+                else:
+                    self.__start_peq_edit_session(None, node.channel, [], match[0] + 1)
 
     def __delete_node(self, node_name: str) -> None:
         '''
@@ -531,6 +575,17 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         count = len(self.filterList.selectedItems())
         self.editFilterButton.setEnabled(count == 1)
         self.deleteFilterButton.setEnabled(count > 0)
+        enable_split = False
+        enable_merge = False
+        if count == 1:
+            f_id = self.filterList.selectedItems()[0].data(FILTER_ID_ROLE)
+            enable_split = self.__dsp.active_graph.get_filter_by_id(f_id).can_split()
+        elif count > 1:
+            selected_filters = [self.__dsp.active_graph.get_filter_by_id(i.data(FILTER_ID_ROLE))
+                                for i in self.filterList.selectedItems()]
+            enable_merge = all(c[0].can_merge(c[1]) for c in itertools.combinations(selected_filters, 2))
+        self.splitFilterButton.setEnabled(enable_split)
+        self.mergeFilterButton.setEnabled(enable_merge)
         return count > 0
 
     def __reorder_filters(self, parent: QModelIndex, start: int, end: int, dest: QModelIndex, row: int) -> None:
@@ -557,8 +612,8 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
                 if node.has_editable_filter():
                     node_idx, node_chain = node.editable_node_chain
                     filters: List[SOS] = [f.editable_filter for f in node_chain]
-                    self.__start_peq_edit_session(filters, node.channel, node_chain,
-                                                  self.__dsp.active_graph.filters.index(node_chain[0].filt) + 1,
+                    insert_at, _ = self.__find_item_by_filter_id(node_chain[0].filt.id)
+                    self.__start_peq_edit_session(filters, node.channel, node_chain, insert_at + 1,
                                                   selected_filter_idx=node_idx)
                 else:
                     vals = filt.get_all_vals()
@@ -626,7 +681,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         x_lim = (self.__magnitude_model.limits.x_min, self.__magnitude_model.limits.x_max)
         FilterDialog(self.prefs, make_signal(channel), filter_model, __on_save, parent=self,
                      selected_filter=sorted_filters[selected_filter_idx] if selected_filter_idx > -1 else None,
-                     x_lim=x_lim, allow_var_q_pass=True).show()
+                     x_lim=x_lim, allow_var_q_pass=True, window_title=f"Edit Filter - {channel}").show()
 
     @staticmethod
     def __enforce_filter_order(index: int, f: SOS) -> SOS:
@@ -992,6 +1047,15 @@ class Filter(ABC):
     def is_mine(self, idx):
         return True
 
+    def can_merge(self, o: Filter):
+        return False
+
+    def can_split(self) -> bool:
+        return False
+
+    def split(self) -> List[Filter]:
+        return [self]
+
     def __eq__(self, o: object) -> bool:
         if isinstance(o, Filter):
             return self.get_all_vals() == o.get_all_vals()
@@ -1065,6 +1129,20 @@ class ChannelFilter(SingleFilter):
 
     def print_channel_names(self):
         return f"[{', '.join(self.channel_names)}]"
+
+    def can_merge(self, o: Filter):
+        if isinstance(o, ChannelFilter):
+            if self.__class__ == o.__class__:
+                if pop_channels(self.get_all_vals()) == pop_channels(o.get_all_vals()):
+                    repeating_channels = set(self.channels).intersection(set(o.channels))
+                    return len(repeating_channels) == 0
+        return False
+
+    def can_split(self) -> bool:
+        return len(self.channels) > 1
+
+    def split(self) -> List[Filter]:
+        return [create_peq({**self.get_all_vals()[0], 'Channels': str(c)}) for c in self.channels]
 
     def is_mine(self, idx):
         return idx in self.channels
@@ -1710,6 +1788,9 @@ class CustomFilter(Filter):
     def get_editable_filter(self) -> Optional[SOS]:
         return self.__decode_custom_filter()
 
+    def get_filter(self) -> FilterOp:
+        return SosFilterOp(self.get_editable_filter().get_sos())
+
     def __decode_custom_filter(self) -> SOS:
         '''
         Decodes a custom filter name into a filter.
@@ -1724,7 +1805,7 @@ class CustomFilter(Filter):
             q_scale = float(tokens[4])
             if tokens[0] == 'HP':
                 return ComplexHighPass(f_type, order, 48000, freq, q_scale)
-            elif tokens[1] == 'LP':
+            elif tokens[0] == 'LP':
                 return ComplexLowPass(f_type, order, 48000, freq, q_scale)
         raise ValueError(f"Unable to decode {self.__name}")
 
@@ -2212,6 +2293,14 @@ class FilterGraph:
             return node.filt
         return None
 
+    def get_filter_by_id(self, f_id: int) -> Optional[Filter]:
+        '''
+        Locates the filter with the given id.
+        :param f_id: the filter id.
+        :return: the filter, if any.
+        '''
+        return next((f for f in self.__filts if f.id == f_id), None)
+
     def get_node(self, node_name: str) -> Optional[Node]:
         '''
         Locates the named node.
@@ -2588,11 +2677,11 @@ class FilterGraph:
                     for j in range(last_match + 1, len(old_filters)):
                         old_filter, filter_channel = old_filters[j]
                         old_filt_vals = old_filter.get_all_vals()
-                        if self.__pop_channels(new_filter.get_all_vals()) == self.__pop_channels(old_filt_vals):
+                        if pop_channels(new_filter.get_all_vals()) == pop_channels(old_filt_vals):
                             if (j - last_match) > 1:
                                 offset -= self.__delete_filters(old_filters[last_match + 1:j])
                                 must_regen = True
-                            insert_at = self.__filts.index(old_filter) + 1
+                            insert_at = self.__get_filter_idx(old_filter) + 1
                             offset = 0
                             last_match = j
                             new_chain_filter = old_filter
@@ -2600,12 +2689,12 @@ class FilterGraph:
                             break
                     if not handled:
                         must_regen = True
-                        self.__filts.insert(insert_at + offset, new_filter)
+                        self.insert(new_filter, insert_at + offset)
                         new_chain_filter = new_filter
                         offset += 1
                 else:
                     must_regen = True
-                    self.__filts.insert(insert_at + offset, new_filter)
+                    self.insert(new_filter, insert_at + offset)
                     new_chain_filter = new_filter
                     offset += 1
             if last_match + 1 < len(old_filters):
@@ -2615,15 +2704,14 @@ class FilterGraph:
                         new_chain_filter = old_filters[:last_match + 1][0][0]
             if must_regen:
                 self.__regen()
-                nodes_in_channel = self.__collect_all_nodes({channel_name: self.__nodes_by_channel[channel_name]})
-                new_chain_node: Node = next((n for n in nodes_in_channel if n.filt and n.filt.id == new_chain_filter.id))
+                new_chain_node: Node = next((n for n in self.__collect_all_nodes(self.__nodes_by_channel)
+                                             if n.channel == channel_name and n.filt and n.filt.id == new_chain_filter.id))
                 editable_chain: List[Node] = new_chain_node.editable_node_chain[1]
-                self.__editing = (channel_name, editable_chain, self.filters.index(editable_chain[0].filt) + 1)
+                self.__editing = (channel_name, editable_chain, self.__get_filter_idx(editable_chain[0].filt) + 1)
             return must_regen
 
-    @staticmethod
-    def __pop_channels(vals: List[Dict[str, str]]):
-        return [{k: v for k, v in d.items() if k != 'Channels'} for d in vals]
+    def __get_filter_idx(self, to_match: Filter) -> int:
+        return next((i for i, f in enumerate(self.__filts) if f.id == to_match.id))
 
     def __delete_filters(self, to_delete: List[Tuple[Filter, str]]) -> int:
         '''
@@ -2637,12 +2725,15 @@ class FilterGraph:
             if isinstance(filt_to_delete, ChannelFilter):
                 filt_to_delete.pop_channel(filt_channel_to_delete)
                 if not filt_to_delete.channels:
-                    self.__filts.remove(filt_to_delete)
+                    self.__delete(filt_to_delete)
                     deleted += 1
             else:
-                self.__filts.remove(filt_to_delete)
+                self.__delete(filt_to_delete)
                 deleted += 1
         return deleted
+
+    def __delete(self, filt_to_delete):
+        self.__filts.pop(self.__get_filter_idx(filt_to_delete))
 
     def clear_filters(self) -> None:
         '''
@@ -2662,7 +2753,7 @@ class FilterGraph:
         channel_filter.pop_channel(channel)
         deleted_channel = False
         if not channel_filter.channels:
-            self.__filts.remove(channel_filter)
+            self.__delete(channel_filter)
             deleted_channel = True
         self.__regen()
         return deleted_channel
@@ -2675,19 +2766,22 @@ class FilterGraph:
         self.__filts = [f for f in self.__filts if f not in filters]
         self.__regen()
 
-    def insert(self, to_insert: Filter, at: int) -> None:
+    def insert(self, to_insert: Filter, at: int, regen=True) -> None:
         '''
         Inserts a filter a specified position.
         :param to_insert: the filter to insert.
         :param at: the position to insert at.
+        :param regen: react to the insertion by regenerating the graph.
         '''
         next_filt_id = self.__filts[at].id if at < len(self.__filts) else 2**31
         prev_filt_id = 0 if at == 0 else self.__filts[at-1].id
         self.__filts.insert(at, to_insert)
-        to_insert.id = prev_filt_id + 100
+        # TODO improve this
+        to_insert.id = prev_filt_id + int((next_filt_id - prev_filt_id) / 10)
         if to_insert.id >= next_filt_id:
-            raise ValueError(f"Unable to insert filter at {at}")
-        self.__regen()
+            raise ValueError(f"Unable to insert filter at {at}, attempting to insert {to_insert.id} before {next_filt_id}")
+        if regen:
+            self.__regen()
 
     def replace(self, old_filter: Filter, new_filter: Filter) -> bool:
         '''
@@ -2697,7 +2791,7 @@ class FilterGraph:
         :return: true if it was replaced.
         '''
         try:
-            self.__filts[self.__filts.index(old_filter)] = new_filter
+            self.__filts[self.__get_filter_idx(old_filter)] = new_filter
             self.__regen()
             return True
         except:
@@ -3035,6 +3129,14 @@ class JRiverFilterPipelineDialog(QDialog, Ui_jriverGraphDialog):
             self.source.textChanged.connect(lambda: on_change(self.source.toPlainText()))
 
 
+def pop_channels(vals: List[Dict[str, str]]):
+    '''
+    :param vals: a set of filter values.
+    :return: the values without the Channel key.
+    '''
+    return [{k: v for k, v in d.items() if k != 'Channels'} for d in vals]
+
+
 def render_dot(txt):
     from graphviz import Source
     return Source(txt, format='svg').pipe()
@@ -3117,12 +3219,13 @@ class JRiverMixFilterDialog(QDialog, Ui_jriverMixDialog):
         self.setupUi(self)
         self.__validators: List[Callable[[], bool]] = []
         self.__on_save = on_save
-        self.__vals = vals if vals else {'Mode': str(mix_type.value)}
+        self.__vals = vals if vals else {}
+        self.__vals['Mode'] = str(mix_type.value)
         self.setWindowTitle(f"{mix_type.name.capitalize()}")
-        self.__configure_channel_list(channels)
         self.gain.valueChanged.connect(lambda v: self.__set_val('Gain', f"{v:.7g}"))
         self.source.currentTextChanged.connect(lambda v: self.__set_val('Source', str(get_channel_idx(v))))
         self.destination.currentTextChanged.connect(lambda v: self.__set_val('Destination', str(get_channel_idx(v))))
+        self.__configure_channel_list(channels)
         self.__enable_accept()
 
     def accept(self):
@@ -3142,6 +3245,8 @@ class JRiverMixFilterDialog(QDialog, Ui_jriverMixDialog):
             self.source.setCurrentText(get_channel_name(int(self.__vals['Source'])))
         if 'Destination' in self.__vals:
             self.destination.setCurrentText(get_channel_name(int(self.__vals['Destination'])))
+        if 'Gain' in self.__vals:
+            self.gain.setValue(float(self.__vals['Gain']))
         self.__validators.append(lambda: self.source.currentText() != self.destination.currentText())
 
     def __enable_accept(self):

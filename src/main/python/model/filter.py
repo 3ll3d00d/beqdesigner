@@ -261,6 +261,9 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.__freq_step_idx = self.__get_step(self.freq_steps, self.__preferences.get(DISPLAY_FREQ_STEP), 2)
         # init the UI itself
         self.setupUi(self)
+        custom_window_title = kwargs.pop('window_title', None)
+        if custom_window_title:
+            self.setWindowTitle(custom_window_title)
         from model.report import block_signals
         with block_signals(self.passFilterType):
             for filter_type in FilterType:
@@ -495,7 +498,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
 
     def __add_filter(self, new_filter, filter_model: FilterModel, filter_view: QTableView, buttons: List[QWidget] = None):
         if filter_model.filter.sort_by_id:
-            new_filter.id = len(filter_model.filter)
+            new_filter.id = max(f.id for f in filter_model.filter) + 1
         filter_model.save(new_filter)
         for idx, f in enumerate(filter_model):
             if f.id == new_filter.id:
