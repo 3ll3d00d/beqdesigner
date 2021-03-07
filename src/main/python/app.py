@@ -1,14 +1,14 @@
-from collections import abc
 import gzip
 import json
 import logging
-import math
 import os
 import re
-import sys
+from collections import abc
 from contextlib import contextmanager
 
+import math
 import matplotlib
+import sys
 from scipy import signal
 
 matplotlib.use("Qt5Agg")

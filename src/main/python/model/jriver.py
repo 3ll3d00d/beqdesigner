@@ -85,23 +85,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         self.__current_dot_txt = None
         self.prefs = prefs
         self.setupUi(self)
-        self.limitsButton.setIcon(qta.icon('fa5s.arrows-alt'))
-        self.fullRangeButton.setIcon(qta.icon('fa5s.expand'))
-        self.subOnlyButton.setIcon(qta.icon('fa5s.compress'))
-        self.findFilenameButton.setIcon(qta.icon('fa5s.folder-open'))
-        self.showDotButton.setIcon(qta.icon('fa5s.info-circle'))
-        self.showPhase.setIcon(qta.icon('mdi.cosine-wave'))
-        self.saveButton.setIcon(qta.icon('fa5s.save'))
-        self.saveAsButton.setIcon(qta.icon('fa5s.file-export'))
-        self.addFilterButton.setIcon(qta.icon('fa5s.plus'))
-        self.deleteFilterButton.setIcon(qta.icon('fa5s.times'))
-        self.clearFiltersButton.setIcon(qta.icon('fa5s.trash'))
-        self.editFilterButton.setIcon(qta.icon('fa5s.edit'))
-        self.splitFilterButton.setIcon(qta.icon('fa5s.object-ungroup'))
-        self.mergeFilterButton.setIcon(qta.icon('fa5s.object-group'))
-        self.findFilenameButton.setShortcut(QKeySequence.Open)
-        self.saveButton.setShortcut(QKeySequence.Save)
-        self.saveAsButton.setShortcut(QKeySequence.SaveAs)
+        self.__decorate_buttons()
         self.addFilterButton.setMenu(self.__populate_add_filter_menu(QMenu(self)))
         self.pipelineView.signal.on_click.connect(self.__on_node_click)
         self.pipelineView.signal.on_double_click.connect(self.__show_edit_filter_dialog)
@@ -119,6 +103,50 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
                                                 db_range_calc=dBRangeCalculator(60),
                                                 y2_range_calc=PhaseRangeCalculator(), show_y2_in_legend=False)
         self.__restore_geometry()
+
+    @property
+    def dsp(self):
+        return self.__dsp
+
+    def __decorate_buttons(self):
+        self.addFilterButton.setToolTip('Add New Filter')
+        self.editFilterButton.setToolTip('Edit the selected filter')
+        self.deleteFilterButton.setToolTip('Delete the selected filter(s)')
+        self.clearFiltersButton.setToolTip('Delete all filters')
+        self.splitFilterButton.setToolTip('Split multi channel filter into separate filters per channel')
+        self.mergeFilterButton.setToolTip('Merge individual filters into a single multi channel filter')
+        self.limitsButton.setIcon(qta.icon('fa5s.arrows-alt'))
+        self.fullRangeButton.setIcon(qta.icon('fa5s.expand'))
+        self.subOnlyButton.setIcon(qta.icon('fa5s.compress'))
+        self.findFilenameButton.setIcon(qta.icon('fa5s.folder-open'))
+        self.showDotButton.setIcon(qta.icon('fa5s.info-circle'))
+        self.showPhase.setIcon(qta.icon('mdi.cosine-wave'))
+        self.saveButton.setIcon(qta.icon('fa5s.save'))
+        self.saveAsButton.setIcon(qta.icon('fa5s.file-export'))
+        self.addFilterButton.setIcon(qta.icon('fa5s.plus'))
+        self.deleteFilterButton.setIcon(qta.icon('fa5s.times'))
+        self.clearFiltersButton.setIcon(qta.icon('fa5s.trash'))
+        self.editFilterButton.setIcon(qta.icon('fa5s.edit'))
+        self.splitFilterButton.setIcon(qta.icon('fa5s.object-ungroup'))
+        self.mergeFilterButton.setIcon(qta.icon('fa5s.object-group'))
+        self.moveTopButton.setIcon(qta.icon('fa5s.angle-double-up'))
+        self.moveUpButton.setIcon(qta.icon('fa5s.angle-up'))
+        self.moveDownButton.setIcon(qta.icon('fa5s.angle-down'))
+        self.moveBottomButton.setIcon(qta.icon('fa5s.angle-double-down'))
+        self.findFilenameButton.setShortcut(QKeySequence.Open)
+        self.saveButton.setShortcut(QKeySequence.Save)
+        self.saveButton.setToolTip('Save DSP Config to currently loaded file')
+        self.saveAsButton.setShortcut(QKeySequence.SaveAs)
+        self.saveAsButton.setToolTip('Save DSP Config to a selected file')
+        self.findFilenameButton.setToolTip('Load DSP Config')
+        self.moveTopButton.setToolTip('Move selected filters to the top')
+        self.moveUpButton.setToolTip('Move selected filters up')
+        self.moveDownButton.setToolTip('Move selected filters down')
+        self.moveBottomButton.setToolTip('Move selected filters to the bottom')
+        self.limitsButton.setToolTip('Set graph axis range')
+        self.subOnlyButton.setToolTip('Restrict graph to subwoofer frequency range')
+        self.fullRangeButton.setToolTip('Expand graph to full frequency range')
+        self.showPhase.setToolTip('Show Phase Response')
 
     def find_dsp_file(self):
         '''
@@ -178,8 +206,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
                             item.setData(FILTER_ID_ROLE, f.id)
                             self.filterList.addItem(item)
                         i += 1
-                        if f.id in selected_ids:
-                            item.setSelected(True)
+                        item.setSelected(f.id in selected_ids)
                 for j in range(i, self.filterList.count()):
                     self.filterList.takeItem(j)
             self.__regen()
@@ -189,6 +216,24 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         if self.filterList.selectedItems():
             self.edit_filter(self.filterList.selectedItems()[0])
 
+    def __is_editable(self, item: QListWidgetItem) -> bool:
+        '''
+        :param item: the item.
+        :return: true if this item is editable directly, typically means applies to a single channel.
+        '''
+        f_id = item.data(FILTER_ID_ROLE)
+        selected_filter = next((f for f in self.__dsp.active_graph.filters if f.id == f_id), None)
+        if isinstance(selected_filter, GEQFilter):
+            return True
+        elif isinstance(selected_filter, CustomFilter):
+            return selected_filter.channels and len(selected_filter.channels) == 1
+        else:
+            if isinstance(selected_filter, (GainQFilter, Gain, Pass, LinkwitzTransform)):
+                return len(selected_filter.channels) == 1
+            else:
+                vals = selected_filter.get_all_vals()
+                return len(vals) == 1 and isinstance(selected_filter, (Delay, Mix, Polarity))
+
     def edit_filter(self, item: QListWidgetItem) -> None:
         '''
         Shows a jriver style filter dialog for the selected filter.
@@ -197,12 +242,15 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         f_id = item.data(FILTER_ID_ROLE)
         selected_filter = next((f for f in self.__dsp.active_graph.filters if f.id == f_id), None)
         logger.debug(f"Showing edit dialog for {selected_filter}")
-        if isinstance(selected_filter, CustomFilter):
-            pass
+        if isinstance(selected_filter, GEQFilter):
+            self.__start_geq_edit_session(selected_filter, selected_filter.channel_names)
         else:
             vals = selected_filter.get_all_vals()
-            if isinstance(selected_filter, SingleFilter):
-                if not self.__show_basic_edit_filter_dialog(selected_filter, vals):
+            if not self.__show_basic_edit_filter_dialog(selected_filter, vals):
+                nodes_for_filter = self.dsp.active_graph.get_nodes_for_filter(selected_filter)
+                if len(nodes_for_filter) == 1:
+                    self.__show_edit_filter_dialog(nodes_for_filter[0])
+                else:
                     logger.debug(f"Filter {selected_filter} at node {item.text()} is not editable")
             else:
                 logger.warning(f"Unexpected filter type {selected_filter} at {item.text()}, unable to edit")
@@ -251,9 +299,9 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
                             for i in self.filterList.selectedItems()]
         item_idx: QModelIndex = self.filterList.indexFromItem(self.filterList.selectedItems()[0])
         # can only merge a ChannelFilter
-        channels = ';'.join([str(f.channels[0]) for f in selected_filters])
+        channels = ';'.join([str(i) for i in sorted(set(c for f in selected_filters for c in f.channels))])
         merged_filter = create_peq({**selected_filters[0].get_all_vals()[0], 'Channels': channels})
-        insert_at = item_idx.row() + 1
+        insert_at = item_idx.row()
         # insert the new one in both the graph and the filter list
         self.__dsp.active_graph.insert(merged_filter, insert_at)
         new_item = QListWidgetItem(str(merged_filter))
@@ -261,8 +309,44 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         self.filterList.insertItem(insert_at, new_item)
         # delete the old ones
         self.__dsp.active_graph.delete(selected_filters)
-        for i in self.filterList.selectedItems():
-            self.filterList.takeItem(self.filterList.indexFromItem(i).row())
+        from model.report import block_signals
+        with block_signals(self.filterList):
+            for i in self.filterList.selectedItems():
+                self.filterList.takeItem(self.filterList.indexFromItem(i).row())
+            self.filterList.clearSelection()
+        new_item.setSelected(True)
+
+    def move_filter_to_top(self):
+        '''
+        Moves the selected filter(s) to the top.
+        '''
+        selected = [i.row() for i in self.filterList.selectedIndexes()]
+        self.__move_to(selected[0], selected[-1], 0)
+
+    def __move_to(self, start: int, end: int, to: int):
+        self.__dsp.active_graph.reorder(start, end, to)
+        self.show_filters()
+
+    def move_filter_up(self):
+        '''
+        moves the selected filter(s) up one slot.
+        '''
+        selected = [i.row() for i in self.filterList.selectedIndexes()]
+        self.__move_to(selected[0], selected[-1], max(0, selected[0] - 1))
+
+    def move_filter_down(self):
+        '''
+        moves the selected filter(s) down one slot.
+        '''
+        selected = [i.row() for i in self.filterList.selectedIndexes()]
+        self.__move_to(selected[0], selected[-1], min(self.filterList.count() - len(selected), selected[0] + 1) + 1)
+
+    def move_filter_to_bottom(self):
+        '''
+        Moves the selected filter(s) to the end of the list.
+        '''
+        selected = [i.row() for i in self.filterList.selectedIndexes()]
+        self.__move_to(selected[0], selected[-1], self.filterList.count() - len(selected) + 1)
 
     def on_filter_select(self) -> None:
         '''
@@ -339,7 +423,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         :param add_menu: the add menu.
         :param node_name: the selected node name.
         '''
-        add, copy, delay, move, peq, polarity, subtract, swap = self.__add_actions_to_filter_menu(add_menu)
+        add, copy, delay, move, peq, polarity, subtract, swap, geq = self.__add_actions_to_filter_menu(add_menu)
         idx = self.__get_idx_to_insert_filter_at_from_node_name(node_name)
         peq.triggered.connect(lambda: self.__insert_peq_after_node(node_name))
         polarity.triggered.connect(lambda: self.__insert_polarity(idx))
@@ -349,6 +433,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         move.triggered.connect(lambda: self.__insert_mix(MixType.MOVE, idx))
         swap.triggered.connect(lambda: self.__insert_mix(MixType.SWAP, idx))
         subtract.triggered.connect(lambda: self.__insert_mix(MixType.SUBTRACT, idx))
+        geq.triggered.connect(lambda: self.__insert_geq(idx))
 
     def __get_idx_to_insert_filter_at_from_node_name(self, node_name: str) -> int:
         '''
@@ -416,7 +501,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
                 if self.__dsp.active_graph.delete_channel(f, node.channel):
                     match = self.__find_item_by_filter_id(f.id)
                     if match:
-                        self.filterList.removeItemWidget(match[1])
+                        self.filterList.takeItem(match[0])
                 else:
                     match = self.__find_item_by_filter_id(f.id)
                     if match:
@@ -431,7 +516,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         :param menu: the menu to add to.
         :return: the menu.
         '''
-        add, copy, delay, move, peq, polarity, subtract, swap = self.__add_actions_to_filter_menu(menu)
+        add, copy, delay, move, peq, polarity, subtract, swap, geq = self.__add_actions_to_filter_menu(menu)
         peq.triggered.connect(lambda: self.__insert_peq(self.__get_idx_to_insert_filter_at_from_selection()))
         delay.triggered.connect(lambda: self.__insert_delay(self.__get_idx_to_insert_filter_at_from_selection()))
         polarity.triggered.connect(lambda: self.__insert_polarity(self.__get_idx_to_insert_filter_at_from_selection()))
@@ -445,6 +530,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
                                                          self.__get_idx_to_insert_filter_at_from_selection()))
         subtract.triggered.connect(lambda: self.__insert_mix(MixType.SUBTRACT,
                                                              self.__get_idx_to_insert_filter_at_from_selection()))
+        geq.triggered.connect(lambda: self.__insert_geq(self.__get_idx_to_insert_filter_at_from_selection()))
         return menu
 
     def __add_actions_to_filter_menu(self, menu) -> Tuple[QAction, ...]:
@@ -453,53 +539,60 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         :param menu: the menu to add to.
         :return: the actions.
         '''
-        peq = self.__create_peq_action(menu)
-        delay = self.__create_delay_action(menu)
-        polarity = self.__create_polarity_action(menu)
-        add = self.__create_add_action(menu)
-        copy = self.__create_copy_action(menu)
-        move = self.__create_move_action(menu)
-        swap = self.__create_swap_action(menu)
-        subtract = self.__create_subtract_action(menu)
-        return add, copy, delay, move, peq, polarity, subtract, swap
+        geq = self.__create_geq_action(1, menu)
+        peq = self.__create_peq_action(2, menu)
+        mix_menu = menu.addMenu('&3: Mix')
+        delay = self.__create_delay_action(4, menu)
+        polarity = self.__create_polarity_action(5, menu)
+        add = self.__create_add_action(1, mix_menu)
+        copy = self.__create_copy_action(2, mix_menu)
+        move = self.__create_move_action(3, mix_menu)
+        swap = self.__create_swap_action(4, mix_menu)
+        subtract = self.__create_subtract_action(5, mix_menu)
+        return add, copy, delay, move, peq, polarity, subtract, swap, geq
 
-    def __create_subtract_action(self, menu) -> QAction:
-        subtract = QAction(f"&8: Subtract", self)
+    def __create_geq_action(self, prefix: int, menu: QMenu) -> QAction:
+        geq = QAction(f"&{prefix}: GEQ", self)
+        menu.addAction(geq)
+        return geq
+
+    def __create_subtract_action(self, prefix: int, menu: QMenu) -> QAction:
+        subtract = QAction(f"&{prefix}: Subtract", self)
         menu.addAction(subtract)
         return subtract
 
-    def __create_swap_action(self, menu) -> QAction:
-        swap = QAction(f"&7: Swap", self)
+    def __create_swap_action(self, prefix: int, menu: QMenu) -> QAction:
+        swap = QAction(f"&{prefix}: Swap", self)
         menu.addAction(swap)
         return swap
 
-    def __create_move_action(self, menu) -> QAction:
-        move = QAction(f"&6: Move", self)
+    def __create_move_action(self, prefix: int, menu: QMenu) -> QAction:
+        move = QAction(f"&{prefix}: Move", self)
         menu.addAction(move)
         return move
 
-    def __create_copy_action(self, menu) -> QAction:
-        copy = QAction(f"&5: Copy", self)
+    def __create_copy_action(self, prefix: int, menu: QMenu) -> QAction:
+        copy = QAction(f"&{prefix}: Copy", self)
         menu.addAction(copy)
         return copy
 
-    def __create_add_action(self, menu) -> QAction:
-        add = QAction(f"&4: Add", self)
+    def __create_add_action(self, prefix: int, menu: QMenu) -> QAction:
+        add = QAction(f"&{prefix}: Add", self)
         menu.addAction(add)
         return add
 
-    def __create_polarity_action(self, menu) -> QAction:
-        polarity = QAction(f"&3: Polarity", self)
+    def __create_polarity_action(self, prefix: int, menu: QMenu) -> QAction:
+        polarity = QAction(f"&{prefix}: Polarity", self)
         menu.addAction(polarity)
         return polarity
 
-    def __create_delay_action(self, menu) -> QAction:
-        delay = QAction(f"&2: Delay", self)
+    def __create_delay_action(self, prefix: int, menu: QMenu) -> QAction:
+        delay = QAction(f"&{prefix}: Delay", self)
         menu.addAction(delay)
         return delay
 
-    def __create_peq_action(self, menu) -> QAction:
-        peq = QAction(f"&1: PEQ", self)
+    def __create_peq_action(self, prefix: int, menu: QMenu) -> QAction:
+        peq = QAction(f"&{prefix}: PEQ", self)
         menu.addAction(peq)
         return peq
 
@@ -518,6 +611,49 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
                                             multi=False).exec()
         if val == QDialog.Accepted and channel is not None:
             self.__start_peq_edit_session(None, channel, [], idx)
+
+    def __insert_geq(self, idx: int) -> None:
+        '''
+        Allows user to insert a new set of GEQ filters at the specified index in the filter list.
+        :param idx: the index to insert at.
+        '''
+        channels: Optional[List[str]] = None
+
+        def __on_save(vals: Dict[str, str]):
+            nonlocal channels
+            channels = [get_channel_name(int(i)) for i in vals['Channels'].split(';')]
+
+        val = JRiverChannelOnlyFilterDialog(self, self.__dsp.channel_names(output=True), __on_save, {}, title='GEQ').exec()
+        if val == QDialog.Accepted and channels:
+            self.__start_geq_edit_session(None, channels, idx)
+
+    def __start_geq_edit_session(self, geq: Optional[GEQFilter], channels: List[str], insert_at: Optional[int] = None) -> None:
+        '''
+        Creates a GEQ to insert.
+        :param geq: the existing geq, if set any value for insert_at is ignored.
+        :param channels: the channels to start with.
+        :param insert_at: the idx to insert at, geq must be None to use this.
+        '''
+        all_channels = self.__dsp.channel_names(output=True)
+
+        def __on_save(channel_names: List[str], filters: List[SOS]):
+            formatted_channels = ';'.join([str(get_channel_idx(c)) for c in channel_names])
+            mc_filters = [convert_filter_to_mc_dsp(f, formatted_channels) for f in filters]
+            new_geq = GEQFilter(mc_filters)
+            if geq is not None:
+                if self.__dsp.active_graph.replace(geq, new_geq):
+                    item = self.__find_item_by_filter_id(new_geq.id)
+                    if item:
+                        item[1].setText(str(new_geq))
+                    self.__on_graph_change()
+                else:
+                    logger.warning(f"Unable to replace {geq} with {new_geq}")
+            else:
+                self.__insert_filter(insert_at, new_geq)
+
+        existing_filters = [f.get_editable_filter() for f in geq.filters if f.get_editable_filter()] if geq else []
+        from model.geq import GeqDialog
+        GeqDialog(self, self.prefs, {c: c in channels for c in all_channels}, existing_filters, __on_save).exec()
 
     def __insert_delay(self, idx: int):
         '''
@@ -553,19 +689,28 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         to_add = create_peq(vals)
         if to_add:
             logger.info(f"Storing {vals} as {to_add}")
-            self.__dsp.active_graph.insert(to_add, idx)
-            self.__on_graph_change()
-            item = QListWidgetItem(str(to_add))
-            item.setData(FILTER_ID_ROLE, to_add.id)
-            self.filterList.insertItem(idx, item)
+            self.__insert_filter(idx, to_add)
         else:
             logger.error(f"No PEQ created for {vals}")
+
+    def __insert_filter(self, idx: int, to_add: Filter) -> None:
+        '''
+        inserts the filter to the active graph and updates the UI.
+        :param idx: the idx to insert at.
+        :param to_add: the filter.
+        '''
+        self.__dsp.active_graph.insert(to_add, idx)
+        self.__on_graph_change()
+        item = QListWidgetItem(str(to_add))
+        item.setData(FILTER_ID_ROLE, to_add.id)
+        self.filterList.insertItem(idx, item)
 
     def __on_graph_change(self) -> None:
         '''
         regenerates the svg and redraws the chart.
         '''
         self.__regen()
+        self.__dsp.generate_signals()
         self.redraw()
 
     def __enable_edit_buttons_if_filters_selected(self) -> bool:
@@ -573,12 +718,18 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         :return: true if the delete button was enabled.
         '''
         count = len(self.filterList.selectedItems())
-        self.editFilterButton.setEnabled(count == 1)
         self.deleteFilterButton.setEnabled(count > 0)
+        self.moveTopButton.setEnabled(count > 0)
+        self.moveUpButton.setEnabled(count > 0)
+        self.moveDownButton.setEnabled(count > 0)
+        self.moveBottomButton.setEnabled(count > 0)
         enable_split = False
         enable_merge = False
+        enable_edit = False
         if count == 1:
-            f_id = self.filterList.selectedItems()[0].data(FILTER_ID_ROLE)
+            selected_item = self.filterList.selectedItems()[0]
+            enable_edit = self.__is_editable(selected_item)
+            f_id = selected_item.data(FILTER_ID_ROLE)
             enable_split = self.__dsp.active_graph.get_filter_by_id(f_id).can_split()
         elif count > 1:
             selected_filters = [self.__dsp.active_graph.get_filter_by_id(i.data(FILTER_ID_ROLE))
@@ -586,6 +737,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
             enable_merge = all(c[0].can_merge(c[1]) for c in itertools.combinations(selected_filters, 2))
         self.splitFilterButton.setEnabled(enable_split)
         self.mergeFilterButton.setEnabled(enable_merge)
+        self.editFilterButton.setEnabled(enable_edit)
         return count > 0
 
     def __reorder_filters(self, parent: QModelIndex, start: int, end: int, dest: QModelIndex, row: int) -> None:
@@ -605,11 +757,13 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         Shows the edit dialog for the selected node.
         :param node_name: the node.
         '''
-        node = self.__dsp.graph(self.blockSelector.currentIndex()).get_node(node_name)
+        node = self.dsp.active_graph.get_node(node_name)
         if node:
             filt = node.filt
             if filt:
-                if node.has_editable_filter():
+                if isinstance(filt, GEQFilter):
+                    self.__start_geq_edit_session(filt, filt.channel_names)
+                elif node.has_editable_filter():
                     node_idx, node_chain = node.editable_node_chain
                     filters: List[SOS] = [f.editable_filter for f in node_chain]
                     insert_at, _ = self.__find_item_by_filter_id(node_chain[0].filt.id)
@@ -627,13 +781,12 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         else:
             logger.debug(f"No such node {node_name}")
 
-    def __show_basic_edit_filter_dialog(self, to_edit: SingleFilter, vals: List[Dict[str, str]]) -> bool:
+    def __show_basic_edit_filter_dialog(self, to_edit: Filter, vals: List[Dict[str, str]]) -> bool:
         if len(vals) == 1 and hasattr(to_edit, 'default_values'):
 
             def __on_save(vals_to_save: Dict[str, str]):
                 to_add = create_peq(vals_to_save)
                 if to_add:
-                    to_add.id = to_edit.id
                     logger.info(f"Storing {vals_to_save} as {to_add}")
                     if self.__dsp.active_graph.replace(to_edit, to_add):
                         item = self.__find_item_by_filter_id(to_edit.id)
@@ -650,9 +803,6 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
             elif isinstance(to_edit, Mix):
                 JRiverMixFilterDialog(self, self.__dsp.channel_names(output=True), __on_save, to_edit.mix_type,
                                       vals[0]).exec()
-            elif to_edit.get_editable_filter() is not None:
-                logger.debug("Unable to edit PEQ from the filter list")
-                return False
             else:
                 return False
             return True
@@ -946,9 +1096,9 @@ class JRiverDSP:
         :param active_idx: the active graph index.
         '''
         self.__active_idx = active_idx
-        self.__generate_signals()
+        self.generate_signals()
 
-    def __generate_signals(self) -> None:
+    def generate_signals(self) -> None:
         '''
         Creates a FilterPipeline for each channel and applies it to a unit impulse.
         '''
@@ -1111,11 +1261,11 @@ class ChannelFilter(SingleFilter):
         self.__channel_names = [get_channel_name(i) for i in self.__channels]
 
     @property
-    def channels(self):
+    def channels(self) -> List[int]:
         return self.__channels
 
     @property
-    def channel_names(self):
+    def channel_names(self) -> List[str]:
         return self.__channel_names
 
     def get_vals(self) -> Dict[str, str]:
@@ -1746,10 +1896,77 @@ class SubwooferLimiter(ChannelFilter):
         return f"{self.__class__.__name__} {self.__level:+.7g} dB {self.print_channel_names()}{self.print_disabled()}"
 
 
+class GEQFilter(Filter):
+
+    def __init__(self, filters: List[Filter]):
+        super().__init__('GEQ')
+        first_filt = filters[0]
+        if isinstance(first_filt, ChannelFilter):
+            self.__channels = first_filt.channels
+            self.__channel_names = first_filt.channel_names
+        else:
+            raise ValueError("Invalid filter type to load into a GEQ")
+        self.__prefix: SingleFilter = self.__make_divider(True)
+        self.__filters = filters
+        self.__suffix: SingleFilter = self.__make_divider(False)
+
+    @staticmethod
+    def __make_divider(start: bool):
+        return Divider({
+            'Enabled': '1',
+            'Type': Divider.TYPE,
+            'Text': f"***GEQ_{'START' if start else 'END'}***"
+        })
+
+    def short_desc(self):
+        return f"GEQ {len(self.__filters)}"
+
+    @property
+    def channels(self) -> List[int]:
+        return self.__channels
+
+    @property
+    def channel_names(self) -> List[str]:
+        return self.__channel_names
+
+    @property
+    def filters(self) -> List[Filter]:
+        return self.__filters
+
+    def get_all_vals(self) -> List[Dict[str, str]]:
+        all_filters: List[Filter] = [self.__prefix] + self.__filters + [self.__suffix]
+        return [v for f in all_filters for v in f.get_all_vals()]
+
+    def __repr__(self):
+        return f"GEQ [{', '.join(self.channel_names)}]"
+
+    def is_mine(self, idx):
+        return self.filters[0].is_mine(idx)
+
+    def get_editable_filter(self) -> Optional[SOS]:
+        editable_filters = [f.get_editable_filter() for f in self.__filters if f.get_editable_filter()]
+        return CompleteFilter(fs=48000, filters=editable_filters, description='GEQ', sort_by_id=True)
+
+    def get_filter(self) -> FilterOp:
+        return SosFilterOp(self.get_editable_filter().get_sos())
+
+    @staticmethod
+    def get_geq_filter_name(text: str, start: bool) -> Optional[str]:
+        prefix = f"***GEQ_{'START' if start else 'END'}"
+        return text.split('|')[1] if text.startswith(prefix) else None
+
+
 class CustomFilter(Filter):
 
     def __init__(self, name, filters: List[SingleFilter]):
         super().__init__('CF')
+        first_filt = filters[0]
+        if isinstance(first_filt, ChannelFilter):
+            self.__channels = first_filt.channels
+            self.__channel_names = first_filt.channel_names
+        else:
+            self.__channels = None
+            self.__channel_names = None
         self.__name = name
         self.__prefix: SingleFilter = self.__make_divider(True)
         self.__filters = filters
@@ -1772,6 +1989,10 @@ class CustomFilter(Filter):
         return f"{tokens[0]}{tokens[2]} {tokens[1]} {f}"
 
     @property
+    def channels(self) -> Optional[List[int]]:
+        return self.__channels
+
+    @property
     def filters(self) -> List[SingleFilter]:
         return self.__filters
 
@@ -1780,7 +2001,7 @@ class CustomFilter(Filter):
         return [v for f in all_filters for v in f.get_all_vals()]
 
     def __repr__(self):
-        return self.__name
+        return self.__name if self.channels is None else f"{self.__name} [{', '.join(self.__channel_names)}]"
 
     def is_mine(self, idx):
         return self.filters[0].is_mine(idx)
@@ -2763,7 +2984,8 @@ class FilterGraph:
         Removes the provided list of filters.
         :param filters: the filters to remove.
         '''
-        self.__filts = [f for f in self.__filts if f not in filters]
+        ids_to_delete: List[int] = [f.id for f in filters]
+        self.__filts = [f for f in self.__filts if f.id not in ids_to_delete]
         self.__regen()
 
     def insert(self, to_insert: Filter, at: int, regen=True) -> None:
@@ -2791,11 +3013,20 @@ class FilterGraph:
         :return: true if it was replaced.
         '''
         try:
+            new_filter.id = old_filter.id
             self.__filts[self.__get_filter_idx(old_filter)] = new_filter
             self.__regen()
             return True
         except:
             return False
+
+    def get_nodes_for_filter(self, filter: Filter) -> List[str]:
+        '''
+        Locates the node(s) occupied by this filter.
+        :param filter: the filter.
+        :return: the node names.
+        '''
+        return [n.name for n in self.__collect_all_nodes(self.nodes_by_channel) if n.filt and n.filt.id == filter.id]
 
 
 class GraphRenderer:

@@ -191,6 +191,10 @@ JRIVER_GRAPH_X_MIN = 'jriver/x_min'
 JRIVER_GRAPH_X_MAX = 'jriver/x_max'
 JRIVER_DSP_DIR = 'jriver/dsp_dir'
 
+GEQ_GEOMETRY = 'geq/geometry'
+GEQ_GRAPH_X_MIN = 'geq/x_min'
+GEQ_GRAPH_X_MAX = 'geq/x_max'
+
 MINIDSP_RS_OPTIONS = 'minidsp/rs_options'
 
 DEFAULT_PREFS = {
@@ -239,6 +243,8 @@ DEFAULT_PREFS = {
     FILTERS_DEFAULT_HS_Q: 0.707,
     FILTERS_DEFAULT_PEAK_FREQ: 20.0,
     FILTERS_DEFAULT_PEAK_Q: 1.000,
+    GEQ_GRAPH_X_MIN: 10,
+    GEQ_GRAPH_X_MAX: 20000,
     GRAPH_X_AXIS_SCALE: 'log',
     GRAPH_X_MIN: 1,
     GRAPH_X_MAX: 160,
@@ -303,6 +309,8 @@ TYPES = {
     FILTERS_DEFAULT_HS_Q: float,
     FILTERS_DEFAULT_PEAK_FREQ: int,
     FILTERS_DEFAULT_PEAK_Q: float,
+    GEQ_GRAPH_X_MIN: int,
+    GEQ_GRAPH_X_MAX: int,
     GRAPH_X_MIN: int,
     GRAPH_X_MAX: int,
     GRAPH_EXPAND_Y: bool,

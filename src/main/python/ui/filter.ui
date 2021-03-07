@@ -15,14 +15,7 @@
   </property>
   <layout class="QGridLayout" name="panes" columnstretch="1,3,0">
    <item row="0" column="1">
-    <layout class="QGridLayout" name="viewPane">
-     <item row="0" column="0">
-      <widget class="MplWidget" name="previewChart"/>
-     </item>
-     <item row="1" column="0">
-      <layout class="QHBoxLayout" name="sliderPane"/>
-     </item>
-    </layout>
+    <widget class="MplWidget" name="previewChart"/>
    </item>
    <item row="0" column="2">
     <layout class="QVBoxLayout" name="graphButtonsLayout">
@@ -771,8 +764,8 @@
    <slot>enableFilterParams()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>344</x>
-     <y>198</y>
+     <x>293</x>
+     <y>280</y>
     </hint>
     <hint type="destinationlabel">
      <x>53</x>
@@ -787,8 +780,8 @@
    <slot>changeOrderStep()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>344</x>
-     <y>236</y>
+     <x>293</x>
+     <y>318</y>
     </hint>
     <hint type="destinationlabel">
      <x>70</x>
@@ -803,8 +796,8 @@
    <slot>recalcShelfFromQ()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>344</x>
-     <y>353</y>
+     <x>293</x>
+     <y>435</y>
     </hint>
     <hint type="destinationlabel">
      <x>393</x>
@@ -819,8 +812,8 @@
    <slot>recalcShelfFromGain()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>344</x>
-     <y>433</y>
+     <x>293</x>
+     <y>515</y>
     </hint>
     <hint type="destinationlabel">
      <x>52</x>
@@ -835,8 +828,8 @@
    <slot>previewFilter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>344</x>
-     <y>198</y>
+     <x>293</x>
+     <y>280</y>
     </hint>
     <hint type="destinationlabel">
      <x>252</x>
@@ -851,8 +844,8 @@
    <slot>previewFilter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>344</x>
-     <y>236</y>
+     <x>293</x>
+     <y>318</y>
     </hint>
     <hint type="destinationlabel">
      <x>251</x>
@@ -867,8 +860,8 @@
    <slot>previewFilter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>344</x>
-     <y>274</y>
+     <x>293</x>
+     <y>356</y>
     </hint>
     <hint type="destinationlabel">
      <x>250</x>
@@ -883,8 +876,8 @@
    <slot>previewFilter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>344</x>
-     <y>313</y>
+     <x>293</x>
+     <y>395</y>
     </hint>
     <hint type="destinationlabel">
      <x>196</x>
@@ -899,8 +892,8 @@
    <slot>previewFilter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>344</x>
-     <y>353</y>
+     <x>293</x>
+     <y>435</y>
     </hint>
     <hint type="destinationlabel">
      <x>91</x>
@@ -915,8 +908,8 @@
    <slot>previewFilter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>344</x>
-     <y>433</y>
+     <x>293</x>
+     <y>515</y>
     </hint>
     <hint type="destinationlabel">
      <x>132</x>
@@ -931,8 +924,8 @@
    <slot>previewFilter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>344</x>
-     <y>472</y>
+     <x>293</x>
+     <y>554</y>
     </hint>
     <hint type="destinationlabel">
      <x>212</x>
@@ -947,8 +940,8 @@
    <slot>recalcShelfFromS()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>344</x>
-     <y>393</y>
+     <x>293</x>
+     <y>475</y>
     </hint>
     <hint type="destinationlabel">
      <x>169</x>
@@ -963,8 +956,8 @@
    <slot>handleSToolButton()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>383</x>
-     <y>394</y>
+     <x>332</x>
+     <y>476</y>
     </hint>
     <hint type="destinationlabel">
      <x>292</x>
@@ -979,8 +972,8 @@
    <slot>handleQToolButton()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>383</x>
-     <y>354</y>
+     <x>332</x>
+     <y>436</y>
     </hint>
     <hint type="destinationlabel">
      <x>272</x>
@@ -995,8 +988,8 @@
    <slot>handleGainToolButton()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>383</x>
-     <y>434</y>
+     <x>332</x>
+     <y>516</y>
     </hint>
     <hint type="destinationlabel">
      <x>281</x>
@@ -1011,8 +1004,8 @@
    <slot>handleFreqToolButton()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>383</x>
-     <y>314</y>
+     <x>332</x>
+     <y>396</y>
     </hint>
     <hint type="destinationlabel">
      <x>278</x>
@@ -1027,8 +1020,8 @@
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>127</x>
-     <y>622</y>
+     <x>110</x>
+     <y>704</y>
     </hint>
     <hint type="destinationlabel">
      <x>187</x>
@@ -1043,8 +1036,8 @@
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>254</x>
-     <y>623</y>
+     <x>220</x>
+     <y>705</y>
     </hint>
     <hint type="destinationlabel">
      <x>203</x>
@@ -1059,8 +1052,8 @@
    <slot>previewFilter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>115</x>
-     <y>581</y>
+     <x>123</x>
+     <y>663</y>
     </hint>
     <hint type="destinationlabel">
      <x>132</x>
@@ -1124,7 +1117,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>343</x>
-     <y>581</y>
+     <y>663</y>
     </hint>
     <hint type="destinationlabel">
      <x>392</x>
@@ -1139,8 +1132,8 @@
    <slot>previewFilter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>208</x>
-     <y>511</y>
+     <x>180</x>
+     <y>593</y>
     </hint>
     <hint type="destinationlabel">
      <x>372</x>
@@ -1155,8 +1148,8 @@
    <slot>previewFilter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>343</x>
-     <y>511</y>
+     <x>292</x>
+     <y>593</y>
     </hint>
     <hint type="destinationlabel">
      <x>388</x>
@@ -1171,8 +1164,8 @@
    <slot>previewFilter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>208</x>
-     <y>551</y>
+     <x>180</x>
+     <y>633</y>
     </hint>
     <hint type="destinationlabel">
      <x>368</x>
@@ -1187,8 +1180,8 @@
    <slot>previewFilter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>343</x>
-     <y>551</y>
+     <x>292</x>
+     <y>633</y>
     </hint>
     <hint type="destinationlabel">
      <x>392</x>

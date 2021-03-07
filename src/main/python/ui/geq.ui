@@ -1,0 +1,269 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>geqDialog</class>
+ <widget class="QDialog" name="geqDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1228</width>
+    <height>748</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>EQ Editor</string>
+  </property>
+  <layout class="QVBoxLayout" name="dialogLayout" stretch="1,1,0">
+   <item>
+    <layout class="QHBoxLayout" name="graphicsLayout">
+     <item>
+      <widget class="MplWidget" name="previewChart"/>
+     </item>
+     <item>
+      <layout class="QVBoxLayout" name="graphControlsLayout">
+       <item>
+        <widget class="QToolButton" name="limitsButton"/>
+       </item>
+       <item>
+        <widget class="QToolButton" name="showPhase">
+         <property name="text">
+          <string>...</string>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="showIndividual">
+         <property name="text">
+          <string>...</string>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <spacer name="verticalSpacer">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="QFrame" name="controlsFrame">
+     <property name="frameShape">
+      <enum>QFrame::StyledPanel</enum>
+     </property>
+     <property name="frameShadow">
+      <enum>QFrame::Raised</enum>
+     </property>
+     <layout class="QHBoxLayout" name="controlsLayout">
+      <item>
+       <layout class="QGridLayout" name="masterControlsLayout" columnstretch="0,0,0,0">
+        <item row="0" column="0">
+         <widget class="QLabel" name="peqCountLabel">
+          <property name="text">
+           <string>Filters</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="0" colspan="4">
+         <widget class="QListWidget" name="channelList">
+          <property name="selectionMode">
+           <enum>QAbstractItemView::MultiSelection</enum>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="3">
+         <widget class="QToolButton" name="advancedMode">
+          <property name="text">
+           <string>...</string>
+          </property>
+          <property name="checkable">
+           <bool>true</bool>
+          </property>
+          <property name="checked">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <widget class="QSpinBox" name="peqCount">
+          <property name="minimum">
+           <number>1</number>
+          </property>
+          <property name="maximum">
+           <number>24</number>
+          </property>
+          <property name="value">
+           <number>8</number>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="2">
+         <widget class="QComboBox" name="presetSelector"/>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <widget class="QScrollArea" name="peqScrollArea">
+        <property name="verticalScrollBarPolicy">
+         <enum>Qt::ScrollBarAlwaysOff</enum>
+        </property>
+        <property name="sizeAdjustPolicy">
+         <enum>QAbstractScrollArea::AdjustToContents</enum>
+        </property>
+        <property name="widgetResizable">
+         <bool>true</bool>
+        </property>
+        <widget class="QWidget" name="scrollable">
+         <property name="geometry">
+          <rect>
+           <x>0</x>
+           <y>0</y>
+           <width>932</width>
+           <height>325</height>
+          </rect>
+         </property>
+         <layout class="QHBoxLayout" name="scrollableLayout"/>
+        </widget>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Save</set>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>MplWidget</class>
+   <extends>QGraphicsView</extends>
+   <header>mpl</header>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>limitsButton</sender>
+   <signal>clicked()</signal>
+   <receiver>geqDialog</receiver>
+   <slot>show_limits()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1218</x>
+     <y>39</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>889</x>
+     <y>96</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>peqCount</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>geqDialog</receiver>
+   <slot>update_peq_editors()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>138</x>
+     <y>398</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>274</x>
+     <y>746</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>presetSelector</sender>
+   <signal>currentTextChanged(QString)</signal>
+   <receiver>geqDialog</receiver>
+   <slot>update_peq_editors()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>231</x>
+     <y>398</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>460</x>
+     <y>746</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>advancedMode</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>geqDialog</receiver>
+   <slot>update_peq_editors()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>270</x>
+     <y>399</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>630</x>
+     <y>746</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>accepted()</signal>
+   <receiver>geqDialog</receiver>
+   <slot>accept()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1110</x>
+     <y>726</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>966</x>
+     <y>744</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>rejected()</signal>
+   <receiver>geqDialog</receiver>
+   <slot>reject()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1178</x>
+     <y>726</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1208</x>
+     <y>748</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+ <slots>
+  <slot>show_limits()</slot>
+  <slot>update_peq_editors()</slot>
+ </slots>
+</ui>

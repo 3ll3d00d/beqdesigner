@@ -11,7 +11,7 @@ import math
 import numpy as np
 from scipy import signal
 
-from model.xy import MagnitudeData
+from model.xy import ComplexData
 
 DEFAULT_Q = 1 / np.math.sqrt(2.0)
 
@@ -195,7 +195,7 @@ class Biquad(SOS):
         super().__init__(f_id=f_id)
         self.fs = fs
         self.a, self.b = self._compute_coeffs()
-        self.__transferFunction = None
+        self.__transfer_function = None
 
     def __eq__(self, o: object) -> bool:
         equal = self.__class__.__name__ == o.__class__.__name__
@@ -227,12 +227,12 @@ class Biquad(SOS):
     def sort_key(self):
         pass
 
-    def get_transfer_function(self):
+    def get_transfer_function(self) -> ComplexData:
         '''
         Computes the transfer function of the filter.
         :return: the transfer function.
         '''
-        if self.__transferFunction is None:
+        if self.__transfer_function is None:
             from model.preferences import X_RESOLUTION
             import time
             start = time.time()
@@ -240,8 +240,8 @@ class Biquad(SOS):
             end = time.time()
             logger.debug(f"freqz in {round((end - start) * 1000, 3)}ms")
             f = w * self.fs / (2 * np.pi)
-            self.__transferFunction = ComplexData(self.__repr__(), f, h)
-        return self.__transferFunction
+            self.__transfer_function = ComplexData(f"{self}", f, h)
+        return self.__transfer_function
 
     def get_impulse_response(self, dt=None, n=None):
         '''
@@ -957,23 +957,13 @@ class AllPass(BiquadWithQ):
         return fs_freq_q_json(self)
 
 
-def get_cascade_transfer_function(name, responses):
-    '''
-    The transfer function for a cascade of filters.
-    :param name: the name.
-    :param responses: the individual filter responses.
-    :return: the transfer function (ComplexData)
-    '''
-    return ComplexData(name, responses[0].x, reduce((lambda x, y: x * y), [r.y for r in responses]))
-
-
 class ComplexFilter(SOS, Sequence):
     '''
     A filter composed of many other filters.
     '''
 
     def __init__(self, fs=1000, filters=None, description='Complex', preset_idx=-1, listener=None, f_id=-1,
-                 sort_by_id=False):
+                 sort_by_id: bool = False):
         super().__init__(f_id=f_id)
         self.filters = [f for f in filters if f] if filters is not None else []
         self.__sort_by_id = sort_by_id
@@ -1008,7 +998,7 @@ class ComplexFilter(SOS, Sequence):
         return [x.__repr__() for x in self.filters]
 
     @property
-    def sort_by_id(self):
+    def sort_by_id(self) -> bool:
         return self.__sort_by_id
 
     @property
@@ -1320,46 +1310,6 @@ class ComplexHighPass(CompoundPassFilter):
         }
 
 
-class ComplexData:
-    '''
-    Value object for storing complex data.
-    '''
-
-    def __init__(self, name, x, y, scale_factor=1):
-        self.name = name
-        self.x = x
-        self.y = y
-        self.scale_factor = scale_factor
-        self.__cached_mag_ref = None
-        self.__cached_mag = None
-        self.__cached_phase = None
-
-    def get_data(self, mode='mag', **kwargs):
-        if mode == 'mag':
-            return self.get_magnitude(**kwargs)
-        else:
-            return self.get_phase(**kwargs)
-
-    def get_magnitude(self, ref=1, colour=None, linestyle='-'):
-        if self.__cached_mag_ref is not None and math.isclose(ref, self.__cached_mag_ref):
-            self.__cached_mag.colour = colour
-            self.__cached_mag.linestyle = linestyle
-        else:
-            self.__cached_mag_ref = ref
-            y = np.abs(self.y) * self.scale_factor / ref
-            # avoid divide by zero issues when converting to decibels
-            y[np.abs(y) < 0.0000001] = 0.0000001
-            self.__cached_mag = MagnitudeData(self.name, None, self.x, 20 * np.log10(y), colour=colour,
-                                              linestyle=linestyle)
-        return self.__cached_mag
-
-    def get_phase(self, colour=None, linestyle='-', **kwargs):
-        if self.__cached_phase is None:
-            self.__cached_phase = MagnitudeData(self.name, None, self.x, np.angle(self.y, deg=True), colour=colour,
-                                                linestyle=linestyle)
-        return self.__cached_phase
-
-
 def as_equalizer_apo(filt):
     '''
     formats a filter in Equalizer APO config format (https://sourceforge.net/p/equalizerapo/wiki/Configuration%20reference/)
@@ -1377,3 +1327,14 @@ def as_equalizer_apo(filt):
         return f"ON AP Fc {filt.freq:g} Hz Q {filt.q:g}"
     else:
         return None
+
+
+def get_cascade_transfer_function(name, responses) -> ComplexData:
+    '''
+    The transfer function for a cascade of filters.
+    :param name: the name.
+    :param responses: the individual filter responses.
+    :return: the transfer function (ComplexData)
+    '''
+    return ComplexData(name, responses[0].x, reduce((lambda x, y: x * y), [r.y for r in responses]))
+

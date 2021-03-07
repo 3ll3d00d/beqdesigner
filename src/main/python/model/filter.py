@@ -8,7 +8,7 @@ from uuid import uuid4
 import math
 import qtawesome as qta
 from qtpy import QtCore
-from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt
+from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt, QTimer
 from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox, QHeaderView, QTableView, QWidget
 
@@ -20,6 +20,7 @@ from model.magnitude import MagnitudeModel
 from model.preferences import SHOW_ALL_FILTERS, SHOW_NO_FILTERS, FILTER_COLOURS, DISPLAY_SHOW_FILTERS, DISPLAY_Q_STEP, \
     DISPLAY_GAIN_STEP, DISPLAY_S_STEP, DISPLAY_FREQ_STEP, get_filter_colour, FILTERS_DEFAULT_Q, FILTERS_DEFAULT_FREQ, \
     FILTERS_GEOMETRY, FILTERS_DEFAULT_HS_FREQ, FILTERS_DEFAULT_HS_Q, FILTERS_DEFAULT_PEAK_FREQ, FILTERS_DEFAULT_PEAK_Q
+from model.xy import MagnitudeData, ComplexData
 from ui.filter import Ui_editFilterDialog
 
 logger = logging.getLogger('filter')
@@ -164,7 +165,7 @@ class FilterModel(Sequence):
         '''
         return self.filter.resample(fs)
 
-    def get_transfer_function(self, fs=None):
+    def get_transfer_function(self, fs=None) -> Optional[ComplexData]:
         '''
         :return: the transfer function for this filter (in total) if we have any filters or None if we have none.
         '''
@@ -252,6 +253,8 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.__max_filters = max_filters
         super(FilterDialog, self).__init__(parent) if parent is not None else super(FilterDialog, self).__init__()
         self.__redraw_main = redraw_main
+        self.__mag_update_timer = QTimer(self)
+        self.__mag_update_timer.setSingleShot(True)
         # for shelf filter, allow input via Q or S not both
         self.__q_is_active = True
         # allow user to control the steps for different fields, default to reasonably quick moving values
@@ -313,6 +316,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
                                                     db_range_calc=dBRangeCalculator(30, expand=True),
                                                     y2_range_calc=PhaseRangeCalculator(), show_y2_in_legend=False,
                                                     **kwargs)
+            self.__mag_update_timer.timeout.connect(self.__magnitude_model.redraw)
         else:
             self.previewChart.setVisible(False)
             self.fullRangeButton.setVisible(False)
@@ -369,13 +373,17 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.snapshotFilterView.setVisible(len(self.__snapshot) > 0)
         self.snapshotViewButtonWidget.setVisible(len(self.__snapshot) > 0)
         if self.__magnitude_model is not None:
-            self.__magnitude_model.redraw()
+            self.__trigger_redraw()
         return True
+
+    def __trigger_redraw(self):
+        if not self.__mag_update_timer.isActive():
+            self.__mag_update_timer.start(100)
 
     def __on_working_change(self, visible_names):
         ''' ensure the graph redraws when a filter changes. '''
         if self.__magnitude_model is not None:
-            self.__magnitude_model.redraw()
+            self.__trigger_redraw()
         return True
 
     def __decorate_ui(self):
@@ -498,7 +506,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
 
     def __add_filter(self, new_filter, filter_model: FilterModel, filter_view: QTableView, buttons: List[QWidget] = None):
         if filter_model.filter.sort_by_id:
-            new_filter.id = max(f.id for f in filter_model.filter) + 1
+            new_filter.id = max((f.id for f in filter_model.filter), default=-1) + 1
         filter_model.save(new_filter)
         for idx, f in enumerate(filter_model):
             if f.id == new_filter.id:
@@ -799,8 +807,11 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
             for f in active_model:
                 if self.showIndividual.isChecked() or f.id == self.__selected_id:
                     style = '--' if f.id == self.__selected_id else ':'
-                    result.append(f.get_transfer_function()
-                                   .get_data(mode=mode, colour=get_filter_colour(len(result) + extra), linestyle=style))
+                    col = get_filter_colour(len(result) + extra)
+                    data: MagnitudeData = f.get_transfer_function().get_data(mode=mode, colour=col, linestyle=style)
+                    if active_model.filter.sort_by_id is True:
+                        data.override_name(f"{f.id + 1}")
+                    result.append(data)
         return result
 
     def create_shaping_filter(self):
