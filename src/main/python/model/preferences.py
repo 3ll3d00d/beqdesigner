@@ -195,6 +195,10 @@ GEQ_GEOMETRY = 'geq/geometry'
 GEQ_GRAPH_X_MIN = 'geq/x_min'
 GEQ_GRAPH_X_MAX = 'geq/x_max'
 
+XO_GEOMETRY = 'geq/geometry'
+XO_GRAPH_X_MIN = 'geq/x_min'
+XO_GRAPH_X_MAX = 'geq/x_max'
+
 MINIDSP_RS_OPTIONS = 'minidsp/rs_options'
 
 DEFAULT_PREFS = {
@@ -278,6 +282,8 @@ DEFAULT_PREFS = {
     REPORT_LAYOUT_WSPACE: matplotlib.rcParams['figure.subplot.wspace'],
     SYSTEM_CHECK_FOR_UPDATES: True,
     SYSTEM_CHECK_FOR_BETA_UPDATES: False,
+    XO_GRAPH_X_MIN: 10,
+    XO_GRAPH_X_MAX: 20000,
 }
 
 TYPES = {
@@ -335,7 +341,9 @@ TYPES = {
     REPORT_FILTER_SHOW_HEADER: bool,
     REPORT_FILTER_FONT_SIZE: int,
     SYSTEM_CHECK_FOR_UPDATES: bool,
-    SYSTEM_CHECK_FOR_BETA_UPDATES: bool
+    SYSTEM_CHECK_FOR_BETA_UPDATES: bool,
+    XO_GRAPH_X_MIN: int,
+    XO_GRAPH_X_MAX: int,
 }
 
 COLOUR_INTERVALS = [x / 255 for x in range(36, 250, 24)] + [1.0]

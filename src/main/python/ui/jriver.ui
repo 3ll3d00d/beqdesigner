@@ -17,7 +17,7 @@
    <item row="0" column="0" rowspan="3">
     <layout class="QVBoxLayout" name="mainLayout">
      <item>
-      <layout class="QHBoxLayout" name="configLayout" stretch="0,0,2,0,0">
+      <layout class="QHBoxLayout" name="configLayout" stretch="0,0,0,2,0,0">
        <item>
         <widget class="QToolButton" name="findFilenameButton">
          <property name="text">
@@ -27,6 +27,13 @@
        </item>
        <item>
         <widget class="QLineEdit" name="filename">
+         <property name="readOnly">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QLineEdit" name="outputFormat">
          <property name="readOnly">
           <bool>true</bool>
          </property>

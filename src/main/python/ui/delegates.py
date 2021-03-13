@@ -16,8 +16,8 @@ class CheckBoxDelegate(QItemDelegate):
     YOU MUST ONLY CREATE ONE OF THESE PER VIEW OTHERWISE Qt CRASHES
     """
 
-    def __init__(self):
-        QItemDelegate.__init__(self)
+    def __init__(self, *args, **kwargs):
+        super(CheckBoxDelegate, self).__init__(*args, **kwargs)
 
     def createEditor(self, parent, option, index):
         """
@@ -34,6 +34,7 @@ class CheckBoxDelegate(QItemDelegate):
             logger.error(f"No data found at {index.row()}, {index.column()}")
             data = 0
         self.drawCheck(painter, option, option.rect, Qt.Unchecked if int(data) == 0 else Qt.Checked)
+        self.drawFocus(painter, option, option.rect)
 
     def editorEvent(self, event, model, option, index):
         '''

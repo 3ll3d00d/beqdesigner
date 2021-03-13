@@ -37,6 +37,7 @@ class GeqDialog(QDialog, Ui_geqDialog):
         for c in channels.keys():
             self.channelList.addItem(c)
         self.presetSelector.currentTextChanged.connect(self.__load_preset)
+        self.limitsButton.setIcon(qta.icon('fa5s.arrows-alt'))
         self.showPhase.setIcon(qta.icon('mdi.cosine-wave'))
         self.advancedMode.setIcon(qta.icon('mdi.toggle-switch'))
         self.showIndividual.setIcon(qta.icon('fa5s.chart-line'))
@@ -57,6 +58,7 @@ class GeqDialog(QDialog, Ui_geqDialog):
                                                 secondary_name='Phase', secondary_prefix='deg', fill_secondary=False,
                                                 db_range_calc=dBRangeCalculator(60),
                                                 y2_range_calc=PhaseRangeCalculator(), show_y2_in_legend=False, **kwargs)
+        self.limitsButton.setToolTip('Set graph axis limits')
         self.showPhase.toggled.connect(self.__trigger_redraw)
         self.showPhase.setToolTip('Display phase response')
         self.showIndividual.toggled.connect(self.__trigger_redraw)
@@ -140,20 +142,20 @@ class GeqDialog(QDialog, Ui_geqDialog):
         self.__peq_editors.append(editor)
         self.scrollableLayout.insertWidget(i, editor.widget)
 
+    def accept(self):
+        self.__on_save([c.text() for c in self.channelList.selectedItems()], self.__get_filters(include_zero=True))
+        self.prefs.set(GEQ_GEOMETRY, self.saveGeometry())
+        super().accept()
+
     def __restore_geometry(self):
         ''' loads the saved window size '''
         geometry = self.prefs.get(GEQ_GEOMETRY)
         if geometry is not None:
             self.restoreGeometry(geometry)
 
-    def accept(self):
-        self.__on_save([c.text() for c in self.channelList.selectedItems()], self.__get_filters(include_zero=True))
-        super().accept()
-
-    def closeEvent(self, event: QCloseEvent):
-        ''' Stores the window size on close. '''
+    def reject(self):
         self.prefs.set(GEQ_GEOMETRY, self.saveGeometry())
-        super().closeEvent(event)
+        super().reject()
 
 
 class PeqEditor:

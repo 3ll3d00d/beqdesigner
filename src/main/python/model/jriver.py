@@ -5,7 +5,7 @@ import os
 import xml.etree.ElementTree as et
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from enum import Enum
+from enum import Enum, auto
 from pathlib import Path
 from typing import Dict, Optional, List, Tuple, Callable, Union, Set, Iterable
 
@@ -51,6 +51,24 @@ FILTER_ID_ROLE = Qt.UserRole + 1
 logger = logging.getLogger('jriver')
 
 
+def get_all_channel_names(short: bool = True):
+    contents = JRIVER_SHORT_CHANNELS if short else JRIVER_CHANNELS
+    user_c = SHORT_USER_CHANNELS if short else USER_CHANNELS
+    return [c for c in contents if c and c not in user_c]
+
+
+def get_channel_indexes(names: List[str], short: bool = True):
+    contents = JRIVER_SHORT_CHANNELS if short else JRIVER_CHANNELS
+    return [contents.index(n) for n in names]
+
+
+def user_channel_indexes() -> List[int]:
+    '''
+    :return: the channel indexes of the user channels.
+    '''
+    return [JRIVER_SHORT_NAMED_CHANNELS.index(c) for c in SHORT_USER_CHANNELS]
+
+
 def short_to_long(short: str) -> str:
     return JRIVER_CHANNELS[JRIVER_SHORT_CHANNELS.index(short)]
 
@@ -75,6 +93,85 @@ def get_channel_idx(name: str, short: bool = True) -> int:
     '''
     channels = JRIVER_SHORT_CHANNELS if short else JRIVER_CHANNELS
     return channels.index(name)
+
+
+class OutputFormat(Enum):
+    SOURCE = auto(), 'Source', 8, 8, 1
+    MONO = auto(), 'Mono', 1, 1, 0
+    STEREO = auto(), 'Stereo', 2, 2, 0
+    STEREO_IN_FOUR = auto(), 'Stereo in a 4 channel container', 2, 4, 0
+    STEREO_IN_FIVE = auto(), 'Stereo in a 5.1 channel container', 2, 6, 0
+    STEREO_IN_SEVEN = auto(), 'Stereo in a 7.1 channel container', 2, 8, 0
+    TWO_ONE = auto(), '2.1', 3, 3, 1
+    THREE_ONE = auto(), '3.1', 4, 4, 1
+    FOUR = auto(), '4 channel', 4, 4, 0
+    FIVE_ONE = auto(), '5.1', 6, 6, 1
+    FIVE_ONE_IN_SEVEN = auto(), '5.1 in a 7.1 container', 6, 8, 1
+    SEVEN_ONE = auto(), '7.1', 8, 8, 1
+    TEN = auto(), '10 channels', 8, 10, 1
+    TWELVE = auto(), '12 channels', 8, 12, 1
+    FOURTEEN = auto(), '14 channels', 8, 14, 1
+    SIXTEEN = auto(), '16 channels', 8, 16, 1
+    EIGHTEEN = auto(), '18 channels', 8, 18, 1
+    TWENTY = auto(), '20 channels', 8, 20, 1
+    TWENTY_TWO = auto(), '22 channels', 8, 22, 1
+    TWENTY_FOUR = auto(), '24 channels', 8, 24, 1
+    THIRTY_TWO = auto(), '32 channels', 8, 32, 1
+
+    def __new__(cls, *args, **kwargs):
+        obj = object.__new__(cls)
+        obj._value_ = auto()
+        return obj
+
+    def __init__(self, _, display_name: str, input_channels: int, output_channels: int, lfe_channels: int):
+        self.__lfe_channels = lfe_channels
+        self.__output_channels = output_channels
+        self.__display_name = display_name
+        self.__input_channels = input_channels
+        all_names = get_all_channel_names()
+        # special case for 2.1
+        if self.__lfe_channels > 0 and self.__input_channels < 4:
+            self.__input_channel_indexes = [2, 3, 5]
+        else:
+            self.__input_channel_indexes = get_channel_indexes(all_names[:input_channels])
+        if self.__lfe_channels > 0 and self.__output_channels < 4:
+            self.__output_channel_indexes = [2, 3, 5] + user_channel_indexes()
+        else:
+            self.__output_channel_indexes = sorted(get_channel_indexes(all_names[:output_channels]) + user_channel_indexes())
+
+    def __str__(self):
+        return self.__display_name
+
+    @property
+    def display_name(self):
+        return self.__display_name
+
+    @property
+    def input_channels(self) -> int:
+        return self.__input_channels
+
+    @property
+    def output_channels(self) -> int:
+        return self.__output_channels
+
+    @property
+    def input_channel_indexes(self) -> List[int]:
+        return self.__input_channel_indexes
+
+    @property
+    def output_channel_indexes(self) -> List[int]:
+        return self.__output_channel_indexes
+
+    @property
+    def lfe_channels(self) -> int:
+        return self.__lfe_channels
+
+    @classmethod
+    def from_output_channels(cls, count: int):
+        for f in OutputFormat:
+            if f.output_channels == count:
+                return f
+        raise ValueError(f"Unsupported count {count}")
 
 
 class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
@@ -167,6 +264,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
                 self.__dsp = JRiverDSP(selected[0], colours=(main_colour, highlight_colour))
                 self.__refresh_channel_list()
                 self.filename.setText(os.path.basename(selected[0])[:-4])
+                self.outputFormat.setText(self.__dsp.output_format.display_name)
                 self.filterList.clear()
                 self.show_filters()
                 self.saveButton.setEnabled(True)
@@ -423,7 +521,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         :param add_menu: the add menu.
         :param node_name: the selected node name.
         '''
-        add, copy, delay, move, peq, polarity, subtract, swap, geq = self.__add_actions_to_filter_menu(add_menu)
+        add, copy, delay, move, peq, polarity, subtract, swap, geq, xo = self.__add_actions_to_filter_menu(add_menu)
         idx = self.__get_idx_to_insert_filter_at_from_node_name(node_name)
         peq.triggered.connect(lambda: self.__insert_peq_after_node(node_name))
         polarity.triggered.connect(lambda: self.__insert_polarity(idx))
@@ -434,6 +532,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         swap.triggered.connect(lambda: self.__insert_mix(MixType.SWAP, idx))
         subtract.triggered.connect(lambda: self.__insert_mix(MixType.SUBTRACT, idx))
         geq.triggered.connect(lambda: self.__insert_geq(idx))
+        xo.triggered.connect(lambda: self.__insert_xo(idx))
 
     def __get_idx_to_insert_filter_at_from_node_name(self, node_name: str) -> int:
         '''
@@ -510,13 +609,28 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
                 self.__dsp.active_graph.delete([f])
             self.__regen()
 
+    def __insert_xo(self, idx: int) -> None:
+        '''
+        Shows the XO dialog and inserts the resulting filters at the specified index.
+        :param idx: the index.
+        '''
+        def on_save(xo_filters: List[XOFilter]):
+            logger.info(f"Adding XOs at idx {idx} {xo_filters}")
+
+        self.__show_xo_dialog(on_save)
+
+    def __show_xo_dialog(self, on_save: Callable[[List[XOFilter]], None]):
+        from model.xo import XODialog
+        XODialog(self, self.prefs, self.__dsp.channel_names(), self.__dsp.channel_names(output=True, exclude_user=True),
+                 self.__dsp.output_format, on_save).exec()
+
     def __populate_add_filter_menu(self, menu: QMenu) -> QMenu:
         '''
         Adds filter editing actions to the add button next to the filter list.
         :param menu: the menu to add to.
         :return: the menu.
         '''
-        add, copy, delay, move, peq, polarity, subtract, swap, geq = self.__add_actions_to_filter_menu(menu)
+        add, copy, delay, move, peq, polarity, subtract, swap, geq, xo = self.__add_actions_to_filter_menu(menu)
         peq.triggered.connect(lambda: self.__insert_peq(self.__get_idx_to_insert_filter_at_from_selection()))
         delay.triggered.connect(lambda: self.__insert_delay(self.__get_idx_to_insert_filter_at_from_selection()))
         polarity.triggered.connect(lambda: self.__insert_polarity(self.__get_idx_to_insert_filter_at_from_selection()))
@@ -531,6 +645,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         subtract.triggered.connect(lambda: self.__insert_mix(MixType.SUBTRACT,
                                                              self.__get_idx_to_insert_filter_at_from_selection()))
         geq.triggered.connect(lambda: self.__insert_geq(self.__get_idx_to_insert_filter_at_from_selection()))
+        xo.triggered.connect(lambda: self.__insert_xo(self.__get_idx_to_insert_filter_at_from_selection()))
         return menu
 
     def __add_actions_to_filter_menu(self, menu) -> Tuple[QAction, ...]:
@@ -541,15 +656,16 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         '''
         geq = self.__create_geq_action(1, menu)
         peq = self.__create_peq_action(2, menu)
-        mix_menu = menu.addMenu('&3: Mix')
-        delay = self.__create_delay_action(4, menu)
-        polarity = self.__create_polarity_action(5, menu)
+        xo = self.__create_xo_action(3, menu)
+        mix_menu = menu.addMenu('&4: Mix')
+        delay = self.__create_delay_action(5, menu)
+        polarity = self.__create_polarity_action(6, menu)
         add = self.__create_add_action(1, mix_menu)
         copy = self.__create_copy_action(2, mix_menu)
         move = self.__create_move_action(3, mix_menu)
         swap = self.__create_swap_action(4, mix_menu)
         subtract = self.__create_subtract_action(5, mix_menu)
-        return add, copy, delay, move, peq, polarity, subtract, swap, geq
+        return add, copy, delay, move, peq, polarity, subtract, swap, geq, xo
 
     def __create_geq_action(self, prefix: int, menu: QMenu) -> QAction:
         geq = QAction(f"&{prefix}: GEQ", self)
@@ -595,6 +711,11 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         peq = QAction(f"&{prefix}: PEQ", self)
         menu.addAction(peq)
         return peq
+
+    def __create_xo_action(self, prefix: int, menu: QMenu) -> QAction:
+        xo = QAction(f"&{prefix}: Crossover and Bass Management", self)
+        menu.addAction(xo)
+        return xo
 
     def __insert_peq(self, idx: int) -> None:
         '''
@@ -986,9 +1107,7 @@ class JRiverDSP:
         start = time.time()
         self.__config_txt = Path(self.__filename).read_text()
         peq_block_order = get_peq_block_order(self.__config_txt)
-        i, o = get_available_channels(self.__config_txt)
-        self.__input_channel_indexes = i
-        self.__output_channel_indexes = o
+        self.__output_format: OutputFormat = get_output_format(self.__config_txt)
         self.__graphs: List[FilterGraph] = []
         self.__signals: Dict[str, Signal] = {}
         for block in peq_block_order:
@@ -999,11 +1118,15 @@ class JRiverDSP:
         logger.info(f"Parsed {filename} in {to_millis(start, end)}ms")
 
     @property
+    def output_format(self) -> OutputFormat:
+        return self.__output_format
+
+    @property
     def filename(self):
         return self.__filename
 
     def __init_signals(self) -> Dict[str, Signal]:
-        names = [get_channel_name(c) for c in self.__output_channel_indexes]
+        names = [get_channel_name(c) for c in self.output_format.output_channel_indexes]
         return {c: make_signal(c) for c in names}
 
     @property
@@ -1021,9 +1144,9 @@ class JRiverDSP:
         renderer = GraphRenderer(self.__graphs[idx], colours=self.__colours)
         return renderer.generate(vertical, selected_nodes=selected_nodes)
 
-    def channel_names(self, short=True, output=False):
-        idxs = self.__output_channel_indexes if output else self.__input_channel_indexes
-        return [get_channel_name(i, short=short) for i in idxs]
+    def channel_names(self, short=True, output=False, exclude_user=False):
+        idxs = self.output_format.output_channel_indexes if output else self.output_format.input_channel_indexes
+        return [get_channel_name(i, short=short) for i in idxs if not exclude_user or i not in user_channel_indexes()]
 
     @staticmethod
     def channel_name(i):
@@ -1874,6 +1997,9 @@ class Polarity(ChannelFilter):
     def key_order(self) -> List[str]:
         return ['Enabled', 'Type', 'Channels']
 
+    def get_filter(self) -> FilterOp:
+        return InvertPolarityFilterOp()
+
 
 class SubwooferLimiter(ChannelFilter):
     TYPE = '14'
@@ -1896,30 +2022,30 @@ class SubwooferLimiter(ChannelFilter):
         return f"{self.__class__.__name__} {self.__level:+.7g} dB {self.print_channel_names()}{self.print_disabled()}"
 
 
-class GEQFilter(Filter):
+class ComplexChannelFilter(Filter):
 
-    def __init__(self, filters: List[Filter]):
-        super().__init__('GEQ')
+    def __init__(self, filter_type: str, filters: List[Filter]):
+        super().__init__(filter_type)
         first_filt = filters[0]
-        if isinstance(first_filt, ChannelFilter):
+        if hasattr(first_filt, 'channels') and hasattr(first_filt, 'channel_names'):
             self.__channels = first_filt.channels
             self.__channel_names = first_filt.channel_names
         else:
-            raise ValueError("Invalid filter type to load into a GEQ")
-        self.__prefix: SingleFilter = self.__make_divider(True)
+            raise ValueError(f"Invalid filter type to load into an XO {first_filt}")
+        self.__prefix: SingleFilter = self.__make_divider(filter_type, True)
         self.__filters = filters
-        self.__suffix: SingleFilter = self.__make_divider(False)
+        self.__suffix: SingleFilter = self.__make_divider(filter_type, False)
 
     @staticmethod
-    def __make_divider(start: bool):
+    def __make_divider(filter_type: str, start: bool):
         return Divider({
             'Enabled': '1',
             'Type': Divider.TYPE,
-            'Text': f"***GEQ_{'START' if start else 'END'}***"
+            'Text': f"***{filter_type}_{'START' if start else 'END'}***"
         })
 
     def short_desc(self):
-        return f"GEQ {len(self.__filters)}"
+        return f"{self.short_name} {len(self.__filters)}"
 
     @property
     def channels(self) -> List[int]:
@@ -1938,21 +2064,38 @@ class GEQFilter(Filter):
         return [v for f in all_filters for v in f.get_all_vals()]
 
     def __repr__(self):
-        return f"GEQ [{', '.join(self.channel_names)}]"
+        return f"{self.short_name} [{', '.join(self.channel_names)}]"
 
     def is_mine(self, idx):
         return self.filters[0].is_mine(idx)
 
     def get_editable_filter(self) -> Optional[SOS]:
         editable_filters = [f.get_editable_filter() for f in self.__filters if f.get_editable_filter()]
-        return CompleteFilter(fs=48000, filters=editable_filters, description='GEQ', sort_by_id=True)
+        return CompleteFilter(fs=48000, filters=editable_filters, description='XO', sort_by_id=True)
 
     def get_filter(self) -> FilterOp:
         return SosFilterOp(self.get_editable_filter().get_sos())
 
+
+class GEQFilter(ComplexChannelFilter):
+
+    def __init__(self, filters: List[Filter]):
+        super().__init__('GEQ', filters)
+
     @staticmethod
     def get_geq_filter_name(text: str, start: bool) -> Optional[str]:
         prefix = f"***GEQ_{'START' if start else 'END'}"
+        return text.split('|')[1] if text.startswith(prefix) else None
+
+
+class XOFilter(ComplexChannelFilter):
+
+    def __init__(self, way: int, filters: List[Filter]):
+        super().__init__(f"XO|{way}", filters)
+
+    @staticmethod
+    def get_xo_filter_name(text: str, start: bool) -> Optional[str]:
+        prefix = f"***XO_{'START' if start else 'END'}"
         return text.split('|')[1] if text.startswith(prefix) else None
 
 
@@ -1991,6 +2134,10 @@ class CustomFilter(Filter):
     @property
     def channels(self) -> Optional[List[int]]:
         return self.__channels
+
+    @property
+    def channel_names(self) -> Optional[List[str]]:
+        return self.__channel_names
 
     @property
     def filters(self) -> List[SingleFilter]:
@@ -2166,10 +2313,10 @@ def get_text_value(root, xpath):
         raise ValueError(f"No matches for {xpath}")
 
 
-def get_available_channels(config_txt) -> Tuple[List[int], List[int]]:
+def get_output_format(config_txt) -> OutputFormat:
     '''
     :param config_txt: the dsp config.
-    :return: the channel indexes in the config file as (input, output).
+    :return: the output format.
     '''
     root = et.fromstring(config_txt)
 
@@ -2179,40 +2326,28 @@ def get_available_channels(config_txt) -> Tuple[List[int], List[int]]:
     output_channels = int(xpath_val('Output Channels'))
     padding = int(xpath_val('Output Padding Channels'))
     layout = int(xpath_val('Output Channel Layout'))
-    user_channel_indexes = [11, 12]
     if output_channels == 0:
         # source number of channels so assume 7.1
-        channels = [i + 2 for i in range(8)]
-        return channels, channels + user_channel_indexes
+        return OutputFormat.SOURCE
     elif output_channels == 3:
-        # 2.1
-        return [2, 3, 5], [2, 3, 5] + user_channel_indexes
+        return OutputFormat.TWO_ONE
     elif output_channels == 4 and layout == 15:
-        # 3.1
-        channels = [i+2 for i in range(4)]
-        return channels, channels + user_channel_indexes
+        return OutputFormat.THREE_ONE
     elif output_channels == 2 and padding == 2:
-        # 2 in 4 channel container
-        return [2, 3], [i+2 for i in range(4)] + user_channel_indexes
+        return OutputFormat.STEREO_IN_FOUR
     elif output_channels == 2 and padding == 4:
-        # 2 in 5.1 channel container
-        return [2, 3], [i+2 for i in range(6)] + user_channel_indexes
+        return OutputFormat.STEREO_IN_FIVE
     elif output_channels == 6 and padding == 2:
-        # 5.1 in 7.1 channel container
-        return [i+2 for i in range(6)], [i+2 for i in range(8)] + user_channel_indexes
+        return OutputFormat.FIVE_ONE_IN_SEVEN
     elif output_channels == 4:
-        # 4 channel
-        channels = [i + 2 for i in range(4)]
-        return channels, channels + user_channel_indexes
+        return OutputFormat.FOUR
     elif output_channels == 6 or output_channels == 8:
-        channels = [i + 2 for i in range(output_channels)]
-        return channels, channels + user_channel_indexes
+        return OutputFormat.FIVE_ONE if output_channels == 6 else OutputFormat.SEVEN_ONE
     else:
         excess = output_channels - 8
         if excess < 1:
             raise ValueError(f"Illegal combination [ch: {output_channels}, p: {padding}, l: {layout}")
-        numbered = [i + len(JRIVER_SHORT_NAMED_CHANNELS) for i in range(excess + 1)]
-        return [i+2 for i in range(8)] + numbered, [i+2 for i in range(8)] + user_channel_indexes + numbered
+        return OutputFormat.from_output_channels(output_channels)
 
 
 def write_dsp_file(root, file_name):
@@ -2689,10 +2824,10 @@ class FilterGraph:
 
     @staticmethod
     def __extract_channel_name(node):
-        if ':' not in node.channel:
-            channel_name = node.channel
+        if ':' not in node.name:
+            channel_name = node.name
         else:
-            channel_name = node.channel[0:node.channel.index(':')]
+            channel_name = node.name[0:node.name.index(':')]
         return channel_name
 
     def __add_or_subtract_node(self, by_channel: Dict[str, Node], f: Mix, node: Node,
@@ -3287,6 +3422,15 @@ class DelayFilterOp(FilterOp):
 
     def apply(self, input_signal: Signal) -> Signal:
         return input_signal.shift(self.__shift_samples)
+
+
+class InvertPolarityFilterOp(FilterOp):
+
+    def __init__(self):
+        super().__init__()
+
+    def apply(self, input_signal: Signal) -> Signal:
+        return input_signal.invert()
 
 
 class AddFilterOp(FilterOp):

@@ -1054,6 +1054,19 @@ class Signal:
                       fs=self.fs,
                       metadata=self.metadata)
 
+    def invert(self):
+        '''
+        Inverts the signal
+        :return: the inverted signal
+        '''
+        return Signal(self.name,
+                      self.samples * -1,
+                      analysis_resolution=self.__analysis_resolution,
+                      avg_window=self.__avg_window,
+                      peak_window=self.__peak_window,
+                      fs=self.fs,
+                      metadata=self.metadata)
+
     def shift(self, samples: int):
         '''
         shifts the signal by the specified no of samples while retaining signal length.
