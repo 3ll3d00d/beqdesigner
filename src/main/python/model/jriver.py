@@ -12,12 +12,14 @@ from typing import Dict, Optional, List, Tuple, Callable, Union, Set, Iterable
 import itertools
 import math
 import qtawesome as qta
+import sys
 import time
+from PyQt5.QtWidgets import QInputDialog
 from builtins import isinstance
 from qtpy.QtCore import QPoint, QModelIndex, Qt
 from qtpy.QtGui import QColor, QPalette, QKeySequence, QCloseEvent
 from qtpy.QtWidgets import QDialog, QFileDialog, QMenu, QAction, QListWidgetItem, QAbstractItemView, \
-    QDialogButtonBox
+    QDialogButtonBox, QMessageBox
 from scipy.signal import unit_impulse
 
 from model import iir
@@ -44,7 +46,7 @@ JRIVER_NAMED_CHANNELS = [None, None, 'Left', 'Right', 'Centre', 'Subwoofer', 'Su
                          'Rear Left', 'Rear Right', None] + USER_CHANNELS
 JRIVER_SHORT_NAMED_CHANNELS = [None, None, 'L', 'R', 'C', 'SW', 'SL', 'SR', 'RL', 'RR', None] + SHORT_USER_CHANNELS
 JRIVER_CHANNELS = JRIVER_NAMED_CHANNELS + [f"Channel {i + 9}" for i in range(24)]
-JRIVER_SHORT_CHANNELS = JRIVER_SHORT_NAMED_CHANNELS + [f"#{i + 9}" for i in range(24)]
+JRIVER_SHORT_CHANNELS = JRIVER_SHORT_NAMED_CHANNELS + [f"C{i + 9}" for i in range(24)]
 
 FILTER_ID_ROLE = Qt.UserRole + 1
 
@@ -96,38 +98,40 @@ def get_channel_idx(name: str, short: bool = True) -> int:
 
 
 class OutputFormat(Enum):
-    SOURCE = auto(), 'Source', 8, 8, 1
-    MONO = auto(), 'Mono', 1, 1, 0
-    STEREO = auto(), 'Stereo', 2, 2, 0
-    STEREO_IN_FOUR = auto(), 'Stereo in a 4 channel container', 2, 4, 0
-    STEREO_IN_FIVE = auto(), 'Stereo in a 5.1 channel container', 2, 6, 0
-    STEREO_IN_SEVEN = auto(), 'Stereo in a 7.1 channel container', 2, 8, 0
-    TWO_ONE = auto(), '2.1', 3, 3, 1
-    THREE_ONE = auto(), '3.1', 4, 4, 1
-    FOUR = auto(), '4 channel', 4, 4, 0
-    FIVE_ONE = auto(), '5.1', 6, 6, 1
-    FIVE_ONE_IN_SEVEN = auto(), '5.1 in a 7.1 container', 6, 8, 1
-    SEVEN_ONE = auto(), '7.1', 8, 8, 1
-    TEN = auto(), '10 channels', 8, 10, 1
-    TWELVE = auto(), '12 channels', 8, 12, 1
-    FOURTEEN = auto(), '14 channels', 8, 14, 1
-    SIXTEEN = auto(), '16 channels', 8, 16, 1
-    EIGHTEEN = auto(), '18 channels', 8, 18, 1
-    TWENTY = auto(), '20 channels', 8, 20, 1
-    TWENTY_TWO = auto(), '22 channels', 8, 22, 1
-    TWENTY_FOUR = auto(), '24 channels', 8, 24, 1
-    THIRTY_TWO = auto(), '32 channels', 8, 32, 1
+    SOURCE = auto(), 'Source', 8, 8, 1, (0, )
+    MONO = auto(), 'Mono', 1, 1, 0, (1, )
+    STEREO = auto(), 'Stereo', 2, 2, 0, (2, )
+    STEREO_IN_FOUR = auto(), 'Stereo in a 4 channel container', 2, 4, 0, (2, 2)
+    STEREO_IN_FIVE = auto(), 'Stereo in a 5.1 channel container', 2, 6, 0, (2, 4)
+    STEREO_IN_SEVEN = auto(), 'Stereo in a 7.1 channel container', 2, 8, 0, (2, 6)
+    TWO_ONE = auto(), '2.1', 3, 6, 1, (3, )
+    THREE_ONE = auto(), '3.1', 4, 4, 1, (4, None, 15)
+    FOUR = auto(), '4 channel', 4, 4, 0, (2, 2)
+    FIVE_ONE = auto(), '5.1', 6, 6, 1, (6, )
+    FIVE_ONE_IN_SEVEN = auto(), '5.1 in a 7.1 container', 6, 8, 1, (6, 2)
+    SEVEN_ONE = auto(), '7.1', 8, 8, 1, (8, )
+    TEN = auto(), '10 channels', 8, 10, 1, (10, )
+    TWELVE = auto(), '12 channels', 8, 12, 1, (12, )
+    FOURTEEN = auto(), '14 channels', 8, 14, 1, (14, )
+    SIXTEEN = auto(), '16 channels', 8, 16, 1, (16, )
+    EIGHTEEN = auto(), '18 channels', 8, 18, 1, (18, )
+    TWENTY = auto(), '20 channels', 8, 20, 1, (20, )
+    TWENTY_TWO = auto(), '22 channels', 8, 22, 1, (22, )
+    TWENTY_FOUR = auto(), '24 channels', 8, 24, 1, (24, )
+    THIRTY_TWO = auto(), '32 channels', 8, 32, 1, (32, )
 
     def __new__(cls, *args, **kwargs):
         obj = object.__new__(cls)
         obj._value_ = auto()
         return obj
 
-    def __init__(self, _, display_name: str, input_channels: int, output_channels: int, lfe_channels: int):
+    def __init__(self, _, display_name: str, input_channels: int, output_channels: int, lfe_channels: int,
+                 xml_vals: Tuple[int, ...]):
         self.__lfe_channels = lfe_channels
         self.__output_channels = output_channels
         self.__display_name = display_name
         self.__input_channels = input_channels
+        self.__xml_vals = xml_vals
         all_names = get_all_channel_names()
         # special case for 2.1
         if self.__lfe_channels > 0 and self.__input_channels < 4:
@@ -165,6 +169,10 @@ class OutputFormat(Enum):
     @property
     def lfe_channels(self) -> int:
         return self.__lfe_channels
+
+    @property
+    def xml_vals(self) -> Tuple[int, ...]:
+        return self.__xml_vals
 
     @classmethod
     def from_output_channels(cls, count: int):
@@ -206,6 +214,9 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         return self.__dsp
 
     def __decorate_buttons(self):
+        self.newConfigButton.setToolTip('Create New Configuration')
+        self.newConfigButton.setIcon(qta.icon('fa5s.file'))
+        self.newConfigButton.setShortcut(QKeySequence.New)
         self.addFilterButton.setToolTip('Add New Filter')
         self.editFilterButton.setToolTip('Edit the selected filter')
         self.deleteFilterButton.setToolTip('Delete the selected filter(s)')
@@ -245,6 +256,39 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         self.fullRangeButton.setToolTip('Expand graph to full frequency range')
         self.showPhase.setToolTip('Show Phase Response')
 
+    def create_new_config(self):
+        '''
+        Creates a new configuration with a selected output format.
+        '''
+        output_formats = [of.display_name for of in OutputFormat]
+        item, ok = QInputDialog.getItem(self, "Create New DSP Config", "Output Format:", output_formats, 0, False)
+        if ok and item:
+            selected: OutputFormat = next((of for of in OutputFormat if of.display_name == item))
+            logger.info(f"Creating new configuration for {selected}")
+            if getattr(sys, 'frozen', False):
+                file_path = os.path.join(sys._MEIPASS, 'default_jriver_config.xml')
+            else:
+                file_path = os.path.abspath(os.path.join(os.path.dirname('__file__'),
+                                                         '../xml/default_jriver_config.xml'))
+            config_txt = Path(file_path).read_text()
+            root = et.fromstring(config_txt)
+
+            def get(key) -> et.Element:
+                return get_element(root, xpath_to_key_data_value('Audio Settings', key))
+
+            output_channels = get('Output Channels')
+            padding = get('Output Padding Channels')
+            layout = get('Output Channel Layout')
+            output_channels.text = f"{selected.xml_vals[0]}"
+            if len(selected.xml_vals) > 1:
+                padding.text = f"{selected.xml_vals[1]}"
+            if len(selected.xml_vals) > 2:
+                layout.text = f"{selected.xml_vals[2]}"
+            file_name, ok = QInputDialog.getText(self, "Create New DSP Config", "Config Name:", text=selected.name)
+            output_file = os.path.join(self.prefs.get(JRIVER_DSP_DIR), f"{file_name}.dsp")
+            write_dsp_file(root, output_file)
+            self.load_dsp_file(output_file)
+
     def find_dsp_file(self):
         '''
         Allows user to select a DSP file and loads it as a set of graphs.
@@ -258,25 +302,32 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
             kwargs['directory'] = dsp_dir
         selected = QFileDialog.getOpenFileName(parent=self, **kwargs)
         if selected is not None and len(selected[0]) > 0:
-            try:
-                main_colour = QColor(QPalette().color(QPalette.Active, QPalette.Text)).name()
-                highlight_colour = QColor(QPalette().color(QPalette.Active, QPalette.Highlight)).name()
-                self.__dsp = JRiverDSP(selected[0], colours=(main_colour, highlight_colour))
-                self.__refresh_channel_list()
-                self.filename.setText(os.path.basename(selected[0])[:-4])
-                self.outputFormat.setText(self.__dsp.output_format.display_name)
-                self.filterList.clear()
-                self.show_filters()
-                self.saveButton.setEnabled(True)
-                self.saveAsButton.setEnabled(True)
-                self.addFilterButton.setEnabled(True)
-                self.showDotButton.setEnabled(True)
-                self.direction.setEnabled(True)
-                self.prefs.set(JRIVER_DSP_DIR, os.path.dirname(selected[0]))
-            except Exception as e:
-                logger.exception(f"Unable to parse {selected[0]}")
-                from model.catalogue import show_alert
-                show_alert('Unable to load DSP file', f"Invalid file\n\n{e}")
+            self.load_dsp_file(selected[0])
+
+    def load_dsp_file(self, selected: str) -> None:
+        '''
+        Loads the selected file.
+        :param selected: the selected file.
+        '''
+        try:
+            main_colour = QColor(QPalette().color(QPalette.Active, QPalette.Text)).name()
+            highlight_colour = QColor(QPalette().color(QPalette.Active, QPalette.Highlight)).name()
+            self.__dsp = JRiverDSP(selected, colours=(main_colour, highlight_colour))
+            self.__refresh_channel_list()
+            self.filename.setText(os.path.basename(selected)[:-4])
+            self.outputFormat.setText(self.__dsp.output_format.display_name)
+            self.filterList.clear()
+            self.show_filters()
+            self.saveButton.setEnabled(True)
+            self.saveAsButton.setEnabled(True)
+            self.addFilterButton.setEnabled(True)
+            self.showDotButton.setEnabled(True)
+            self.direction.setEnabled(True)
+            self.prefs.set(JRIVER_DSP_DIR, os.path.dirname(selected))
+        except Exception as e:
+            logger.exception(f"Unable to parse {selected}")
+            from model.catalogue import show_alert
+            show_alert('Unable to load DSP file', f"Invalid file\n\n{e}")
 
     def show_filters(self):
         '''
@@ -357,7 +408,8 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         '''
         Deletes the selected filter(s).
         '''
-        selected_filter_ids = [i.data(FILTER_ID_ROLE) for i in self.filterList.selectedItems()]
+        selected_items = [i for i in self.filterList.selectedItems()]
+        selected_filter_ids = [i.data(FILTER_ID_ROLE) for i in selected_items]
         to_delete = [f for f in self.__dsp.active_graph.filters if f.id in selected_filter_ids]
         logger.debug(f"Deleting filter ids {selected_filter_ids} -> {to_delete}")
         self.__dsp.active_graph.delete(to_delete)
@@ -366,12 +418,12 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         i: QModelIndex
         from model.report import block_signals
         with block_signals(self.filterList):
-            for i in self.filterList.selectedIndexes():
-                last_row = i.row()
+            for i in selected_items:
+                last_row = self.filterList.indexFromItem(i).row()
                 removed = self.filterList.takeItem(last_row)
                 logger.debug(f"Removing filter at row {last_row} - {removed.text()}")
-            if self.filterList.count() > 0:
-                self.filterList.item(max(min(last_row, self.filterList.count()) - 1, 0)).setSelected(True)
+        if self.filterList.count() > 0:
+            self.filterList.item(max(min(last_row, self.filterList.count()) - 1, 0)).setSelected(True)
         self.__enable_edit_buttons_if_filters_selected()
 
     def split_filter(self):
@@ -379,17 +431,21 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         selected_items: List[QListWidgetItem] = self.filterList.selectedItems()
         splittable = self.__dsp.active_graph.get_filter_by_id(selected_items[0].data(FILTER_ID_ROLE))
         item_idx: QModelIndex = self.filterList.indexFromItem(selected_items[0])
+        base_idx = item_idx.row()
         if splittable.can_split():
             split = splittable.split()
-            for i, f in enumerate(split):
-                insert_at = item_idx.row() + i
-                self.__dsp.active_graph.insert(f, insert_at, regen=(i + 1 == len(split)))
-                new_item = QListWidgetItem(str(f))
-                new_item.setData(FILTER_ID_ROLE, f.id)
-                self.filterList.insertItem(insert_at, new_item)
+            self.__insert_multiple_filters(base_idx, split)
             self.__dsp.active_graph.delete([splittable])
             self.filterList.takeItem(self.filterList.indexFromItem(selected_items[0]).row())
             self.__regen()
+
+    def __insert_multiple_filters(self, base_idx: int, to_insert: List[Filter]):
+        for i, f in enumerate(to_insert):
+            insert_at = base_idx + i
+            self.__dsp.active_graph.insert(f, insert_at, regen=(i + 1 == len(to_insert)))
+            new_item = QListWidgetItem(str(f))
+            new_item.setData(FILTER_ID_ROLE, f.id)
+            self.filterList.insertItem(insert_at, new_item)
 
     def merge_filters(self):
         ''' Merges multiple identical filters into a single multichannel filter. '''
@@ -614,12 +670,13 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         Shows the XO dialog and inserts the resulting filters at the specified index.
         :param idx: the index.
         '''
-        def on_save(xo_filters: List[XOFilter]):
-            logger.info(f"Adding XOs at idx {idx} {xo_filters}")
+        def on_save(xo_filters: List[Filter]):
+            self.__insert_multiple_filters(idx, xo_filters)
+            self.__on_graph_change()
 
         self.__show_xo_dialog(on_save)
 
-    def __show_xo_dialog(self, on_save: Callable[[List[XOFilter]], None]):
+    def __show_xo_dialog(self, on_save: Callable[[List[Filter]], None]):
         from model.xo import XODialog
         XODialog(self, self.prefs, self.__dsp.channel_names(), self.__dsp.channel_names(output=True, exclude_user=True),
                  self.__dsp.output_format, on_save).exec()
@@ -979,7 +1036,15 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         self.__current_dot_txt = self.__dsp.as_dot(self.blockSelector.currentIndex(),
                                                    vertical=self.direction.isChecked(),
                                                    selected_nodes=self.__selected_node_names)
-        self.__gen_svg()
+        try:
+            self.__gen_svg()
+        except Exception as e:
+            logger.exception(f"Failed to render {self.__current_dot_txt}")
+            msg_box = QMessageBox()
+            msg_box.setText(f"Invalid rendering ")
+            msg_box.setIcon(QMessageBox.Critical)
+            msg_box.setWindowTitle('Unable to render graph')
+            msg_box.exec()
 
     def __gen_svg(self):
         '''
@@ -1100,7 +1165,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
 
 class JRiverDSP:
 
-    def __init__(self, filename: str, colours: Tuple[str, str] = None):
+    def __init__(self, filename: str, colours: Tuple[str, str] = None, ):
         self.__active_idx = 0
         self.__filename = filename
         self.__colours = colours
@@ -1113,7 +1178,11 @@ class JRiverDSP:
         for block in peq_block_order:
             out_names = self.channel_names(output=True)
             in_names = out_names if self.__graphs else self.channel_names(output=False)
-            self.__graphs.append(FilterGraph(block, in_names, out_names, self.__parse_peq(self.__config_txt, block)))
+            try:
+                mc_filters = self.__parse_peq(self.__config_txt, block)
+            except NoFiltersError:
+                mc_filters = []
+            self.__graphs.append(FilterGraph(block, in_names, out_names, mc_filters))
         end = time.time()
         logger.info(f"Parsed {filename} in {to_millis(start, end)}ms")
 
@@ -2091,7 +2160,7 @@ class GEQFilter(ComplexChannelFilter):
 class XOFilter(ComplexChannelFilter):
 
     def __init__(self, way: int, filters: List[Filter]):
-        super().__init__(f"XO|{way}", filters)
+        super().__init__(f"XO{way + 1}", filters)
 
     @staticmethod
     def get_xo_filter_name(text: str, start: bool) -> Optional[str]:
@@ -2302,11 +2371,15 @@ def xpath_to_key_data_value(key_name, data_name):
     return f"./Preset/Key[@Name=\"{key_name}\"]/Data/Name[.=\"{data_name}\"]/../Value"
 
 
-def get_text_value(root, xpath):
+def get_text_value(root, xpath) -> str:
+    return get_element(root, xpath).text
+
+
+def get_element(root, xpath) -> et.Element:
     matches = root.findall(xpath)
     if matches:
         if len(matches) == 1:
-            return matches[0].text
+            return matches[0]
         else:
             raise ValueError(f"Multiple matches for {xpath}")
     else:
@@ -2327,8 +2400,11 @@ def get_output_format(config_txt) -> OutputFormat:
     padding = int(xpath_val('Output Padding Channels'))
     layout = int(xpath_val('Output Channel Layout'))
     if output_channels == 0:
-        # source number of channels so assume 7.1
         return OutputFormat.SOURCE
+    elif output_channels == 1:
+        return OutputFormat.MONO
+    elif output_channels == 2 and padding == 0:
+        return OutputFormat.STEREO
     elif output_channels == 3:
         return OutputFormat.TWO_ONE
     elif output_channels == 4 and layout == 15:
@@ -2337,6 +2413,8 @@ def get_output_format(config_txt) -> OutputFormat:
         return OutputFormat.STEREO_IN_FOUR
     elif output_channels == 2 and padding == 4:
         return OutputFormat.STEREO_IN_FIVE
+    elif output_channels == 2 and padding == 6:
+        return OutputFormat.STEREO_IN_SEVEN
     elif output_channels == 6 and padding == 2:
         return OutputFormat.FIVE_ONE_IN_SEVEN
     elif output_channels == 4:
@@ -2381,17 +2459,34 @@ def get_peq_block_order(config_txt):
     return peq_blocks
 
 
-def extract_filters(config_txt: str, key_name: str):
+class NoFiltersError(ValueError):
+    pass
+
+
+def extract_filters(config_txt: str, key_name: str, allow_empty: bool = False):
     '''
     :param config_txt: the xml text.
     :param key_name: the filter key name.
+    :param allow_empty: if true, create the missing filters element if it doesn't exist.
     :return: (root element, filter element)
     '''
     root = et.fromstring(config_txt)
     elements = root.findall(xpath_to_key_data_value(key_name, 'Filters'))
     if elements and len(elements) == 1:
         return root, elements[0]
-    raise ValueError(f"No Filters in {key_name} found in {config_txt}")
+    if allow_empty:
+        parent_element = root.find(f"./Preset/Key[@Name=\"{key_name}\"]")
+        data_element = et.Element('Data')
+        name_element = et.Element('Name')
+        name_element.text = 'Filters'
+        data_element.append(name_element)
+        value_element = et.Element('Value')
+        value_element.text = ''
+        data_element.append(value_element)
+        parent_element.append(data_element)
+        return root, value_element
+    else:
+        raise NoFiltersError(f"No Filters in {key_name} found in {config_txt}")
 
 
 def get_peq_key_name(block):
@@ -2442,26 +2537,32 @@ def include_filters_in_dsp(peq_block_name: str, config_txt: str, xml_filts: List
     :param replace: if true, replace existing filters. if false, append.
     :return: the new config txt.
     '''
-    root, filt_element = extract_filters(config_txt, peq_block_name)
-    # before_value, after_value, filt_section = extract_value_section(config_txt, self.__block)
-    # separate the tokens, which are in (TOKEN) blocks, from within the Value element
-    filt_fragments = [v + ')' for v in filt_element.text.split(')') if v]
-    if len(filt_fragments) < 2:
-        raise ValueError('Invalid input file - Unexpected <Value> format')
-    # find the filter count and replace it with the new filter count
-    new_filt_count = sum([x.count('<XMLPH version') for x in xml_filts])
-    if not replace:
-        new_filt_count = int(filt_fragments[1][1:-1].split(':')[1]) + new_filt_count
-    filt_fragments[1] = f"({len(str(new_filt_count))}:{new_filt_count})"
-    # append the new filters to any existing ones or replace
-    if replace:
-        new_filt_section = ''.join(filt_fragments[0:2]) + ''.join(xml_filts)
+    if xml_filts:
+        root, filt_element = extract_filters(config_txt, peq_block_name, allow_empty=True)
+        # before_value, after_value, filt_section = extract_value_section(config_txt, self.__block)
+        # separate the tokens, which are in (TOKEN) blocks, from within the Value element
+        if filt_element.text:
+            filt_fragments = [v + ')' for v in filt_element.text.split(')') if v]
+            if len(filt_fragments) < 2:
+                raise ValueError('Invalid input file - Unexpected <Value> format')
+        else:
+            filt_fragments = ['(1:1)', '(2:0)']
+        # find the filter count and replace it with the new filter count
+        new_filt_count = sum([x.count('<XMLPH version') for x in xml_filts])
+        if not replace:
+            new_filt_count = int(filt_fragments[1][1:-1].split(':')[1]) + new_filt_count
+        filt_fragments[1] = f"({len(str(new_filt_count))}:{new_filt_count})"
+        # append the new filters to any existing ones or replace
+        if replace:
+            new_filt_section = ''.join(filt_fragments[0:2]) + ''.join(xml_filts)
+        else:
+            new_filt_section = ''.join(filt_fragments) + ''.join(xml_filts)
+        # replace the value block in the original string
+        filt_element.text = new_filt_section
+        config_txt = et.tostring(root, encoding='UTF-8', xml_declaration=True).decode('utf-8')
+        return config_txt
     else:
-        new_filt_section = ''.join(filt_fragments) + ''.join(xml_filts)
-    # replace the value block in the original string
-    filt_element.text = new_filt_section
-    config_txt = et.tostring(root, encoding='UTF-8', xml_declaration=True).decode('utf-8')
-    return config_txt
+        return config_txt
 
 
 class Node:

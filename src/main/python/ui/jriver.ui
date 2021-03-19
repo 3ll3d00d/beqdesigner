@@ -17,7 +17,14 @@
    <item row="0" column="0" rowspan="3">
     <layout class="QVBoxLayout" name="mainLayout">
      <item>
-      <layout class="QHBoxLayout" name="configLayout" stretch="0,0,0,2,0,0">
+      <layout class="QHBoxLayout" name="configLayout" stretch="0,0,0,0,2,0,0">
+       <item>
+        <widget class="QToolButton" name="newConfigButton">
+         <property name="text">
+          <string>...</string>
+         </property>
+        </widget>
+       </item>
        <item>
         <widget class="QToolButton" name="findFilenameButton">
          <property name="text">
@@ -239,14 +246,17 @@
        </item>
        <item row="0" column="1">
         <widget class="QListWidget" name="filterList">
+         <property name="showDropIndicator" stdset="0">
+          <bool>false</bool>
+         </property>
          <property name="dragDropMode">
-          <enum>QAbstractItemView::InternalMove</enum>
+          <enum>QAbstractItemView::NoDragDrop</enum>
          </property>
          <property name="defaultDropAction">
           <enum>Qt::IgnoreAction</enum>
          </property>
          <property name="selectionMode">
-          <enum>QAbstractItemView::MultiSelection</enum>
+          <enum>QAbstractItemView::ExtendedSelection</enum>
          </property>
         </widget>
        </item>
@@ -427,7 +437,7 @@
    <slot>find_dsp_file()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>40</x>
+     <x>79</x>
      <y>41</y>
     </hint>
     <hint type="destinationlabel">
@@ -740,6 +750,22 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>newConfigButton</sender>
+   <signal>clicked()</signal>
+   <receiver>jriverDspDialog</receiver>
+   <slot>create_new_config()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>28</x>
+     <y>26</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>26</x>
+     <y>272</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>find_dsp_file()</slot>
@@ -762,5 +788,6 @@
   <slot>move_filter_down()</slot>
   <slot>move_filter_up()</slot>
   <slot>move_filter_to_top()</slot>
+  <slot>create_new_config()</slot>
  </slots>
 </ui>

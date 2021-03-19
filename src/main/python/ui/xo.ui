@@ -57,16 +57,6 @@
    </item>
    <item>
     <layout class="QGridLayout" name="xoContainerLayout">
-     <item row="0" column="1">
-      <widget class="QPushButton" name="showMatrixButton">
-       <property name="text">
-        <string>Input/Output  Routing</string>
-       </property>
-      </widget>
-     </item>
-     <item row="0" column="2">
-      <widget class="QComboBox" name="presetSelector"/>
-     </item>
      <item row="0" column="0">
       <widget class="QPushButton" name="linkChannelsButton">
        <property name="text">
@@ -74,7 +64,7 @@
        </property>
       </widget>
      </item>
-     <item row="1" column="0" colspan="3">
+     <item row="1" column="0" colspan="4">
       <widget class="QScrollArea" name="peqScrollArea">
        <property name="sizeAdjustPolicy">
         <enum>QAbstractScrollArea::AdjustToContents</enum>
@@ -93,6 +83,23 @@
         </property>
         <layout class="QVBoxLayout" name="channelsLayout"/>
        </widget>
+      </widget>
+     </item>
+     <item row="0" column="3">
+      <widget class="QComboBox" name="presetSelector"/>
+     </item>
+     <item row="0" column="1">
+      <widget class="QPushButton" name="showMatrixButton">
+       <property name="text">
+        <string>Input/Output  Routing</string>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="2">
+      <widget class="QPushButton" name="setSWChannelsButton">
+       <property name="text">
+        <string>Set SW Channels</string>
+       </property>
       </widget>
      </item>
     </layout>
@@ -157,8 +164,8 @@
    <slot>show_matrix()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>18</x>
-     <y>495</y>
+     <x>245</x>
+     <y>503</y>
     </hint>
     <hint type="destinationlabel">
      <x>-2</x>

@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<DSP Version="1">
+<Preset>
+<Key Name="DSP Studio">
+<Data>
+<Name>Plugin Order Version</Name>
+<Value>5</Value>
+</Data>
+<Data>
+<Name>Plugin Order</Name>
+<Value>(1:1)(2:12)(13:Output Format)(15:Volume Leveling)(15:Adaptive Volume)(9:Equalizer)(20:Parametric Equalizer)(7:Effects)(10:Headphones)(13:Tempo &amp; Pitch)(15:Room Correction)(11:Convolution)(22:Parametric Equalizer 2)(8:Analyzer)</Value>
+</Data>
+<Data>
+<Name>DSP Studio Last Selection</Name>
+<Value>Analyzer</Value>
+</Data>
+</Key>
+<Key Name="Room Correction"/>
+<Key Name="Analyzer">
+<Data>
+<Name>Enabled</Name>
+<Value>1</Value>
+</Data>
+<Data>
+<Name>Minimum Frequency</Name>
+<Value>40</Value>
+</Data>
+<Data>
+<Name>Maximum Frequency</Name>
+<Value>18000</Value>
+</Data>
+</Key>
+<Key Name="Parametric Equalizer">
+<Data>
+<Name>Enabled</Name>
+<Value>1</Value>
+</Data>
+</Key>
+<Key Name="Parametric Equalizer 2">
+<Data>
+<Name>Enabled</Name>
+<Value>1</Value>
+</Data>
+</Key>
+<Key Name="Tempo &amp; Pitch"/>
+<Key Name="Volume Leveling"/>
+<Key Name="Equalizer"/>
+<Key Name="Effects"/>
+<Key Name="Convolution"/>
+<Key Name="Audio Settings">
+<Data>
+<Name>Output Surround Subwoofer Impact Filter</Name>
+<Value>1</Value>
+</Data>
+<Data>
+<Name>Output Encoding</Name>
+<Value>0</Value>
+</Data>
+<Data>
+<Name>Output Pseudo Surround Detection</Name>
+<Value>1</Value>
+</Data>
+<Data>
+<Name>Output Channels</Name>
+<Value>0</Value>
+</Data>
+<Data>
+<Name>Output Sample Rate Settings</Name>
+<Value>(1:3)(1:0)(1:0)(1:0)(1:0)(1:0)(1:0)(1:0)(1:0)(1:0)(1:0)(1:0)(1:0)</Value>
+</Data>
+<Data>
+<Name>Output Surround Phantom Center</Name>
+<Value>0</Value>
+</Data>
+<Data>
+<Name>Output Channel Layout</Name>
+<Value>0</Value>
+</Data>
+<Data>
+<Name>Output Surround Two Point One Mixing</Name>
+<Value>0</Value>
+</Data>
+<Data>
+<Name>Output Surround Subwoofer Cutoff Downmix</Name>
+<Value>120</Value>
+</Data>
+<Data>
+<Name>Center Level</Name>
+<Value>0</Value>
+</Data>
+<Data>
+<Name>Allow Custom Output Format</Name>
+<Value>1</Value>
+</Data>
+<Data>
+<Name>Output Padding Channels</Name>
+<Value>0</Value>
+</Data>
+<Data>
+<Name>Output Surround Subwoofer Cutoff</Name>
+<Value>60</Value>
+</Data>
+<Data>
+<Name>Last Change Time</Name>
+<Value>1615739210</Value>
+</Data>
+<Data>
+<Name>Output Surround Mode</Name>
+<Value>1</Value>
+</Data>
+</Key>
+<Key Name="Adaptive Volume"/>
+</Preset>
+</DSP>

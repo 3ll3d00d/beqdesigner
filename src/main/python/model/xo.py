@@ -5,7 +5,7 @@ from typing import Callable, List, Optional, Any, Dict, Tuple, Type
 import math
 import qtawesome as qta
 from PyQt5.QtCore import QModelIndex, QVariant, QAbstractItemModel, QSize
-from PyQt5.QtWidgets import QHeaderView, QDialogButtonBox, QListWidgetItem, QListWidget, QPushButton
+from PyQt5.QtWidgets import QHeaderView, QDialogButtonBox, QListWidgetItem, QListWidget, QPushButton, QAbstractItemView
 from qtpy.QtCore import Qt, QTimer, QAbstractTableModel
 from qtpy.QtGui import QFont
 from qtpy.QtWidgets import QGridLayout, QLabel, QDoubleSpinBox, QComboBox, QSpinBox, QDialog, QSpacerItem, \
@@ -14,7 +14,7 @@ from scipy.signal import unit_impulse
 
 from model.iir import FilterType, ComplexHighPass, ComplexLowPass, CompleteFilter
 from model.jriver import XOFilter, convert_filter_to_mc_dsp, get_channel_idx, OutputFormat, SingleFilter, Filter, Delay, \
-    create_peq, Gain
+    create_peq, Gain, MixType, Mix, user_channel_indexes
 from model.limits import dBRangeCalculator, PhaseRangeCalculator
 from model.magnitude import MagnitudeModel
 from model.preferences import Preferences, XO_GRAPH_X_MIN, XO_GRAPH_X_MAX, get_filter_colour, XO_GEOMETRY
@@ -23,6 +23,7 @@ from model.xy import MagnitudeData
 from ui.channel_matrix import Ui_channelMatrixDialog
 from ui.delegates import CheckBoxDelegate
 from ui.group_channels import Ui_groupChannelsDialog
+from ui.jriver_channel_select import Ui_jriverChannelSelectDialog
 from ui.xo import Ui_xoDialog
 
 logger = logging.getLogger('xo')
@@ -37,33 +38,117 @@ class Matrix:
         # input channel -> way -> output channel -> enabled
         self.__ways: Dict[str, Dict[int, Dict[str, bool]]] = self.__make_default_ways()
 
-    def get_routes(self) -> List[Tuple[int, int, int]]:
+    def get_routes(self) -> List[Tuple[int, int, int, Optional[MixType]]]:
         '''
-        :return: the routes defined by this matrix which do not have input == output as a list of
-        (input channel idx, way, output channel idx tuples.
+        :return: the routes defined by this matrix.
         '''
-        routes: List[Tuple[int, int, int]] = []
+        routes: List[Tuple[int, int, int, Optional[MixType]]] = []
         for input_channel, v1 in self.__ways.items():
             for way, v2 in v1.items():
                 for output_channel, routed in v2.items():
-                    if routed and input_channel != output_channel:
-                        routes.append((get_channel_idx(input_channel), way, get_channel_idx(output_channel)))
-        return self.__sort_routes(routes)
+                    if routed:
+                        mt = None if input_channel == output_channel else MixType.MOVE
+                        routes.append((get_channel_idx(input_channel), way, get_channel_idx(output_channel), mt))
+        return self.__reorder_routes(self.__sort_routes(self.__fixup_mix_types(routes)))
 
     @staticmethod
-    def __sort_routes(routes: List[Tuple[int, int, int]]) -> List[Tuple[int, int, int]]:
+    def __fixup_mix_types(routes: List[Tuple[int, int, int, Optional[MixType]]]) -> List[Tuple[int, int, int, Optional[MixType]]]:
         '''
-        applies a topological sort to the input-output routes.
+        :param routes: the raw routes (all using MOVE).
+        :return: the routes with mixtype corrected to use add or copy as necessary.
+        '''
+        inputs_received = defaultdict(int)
+        outputs_routed = defaultdict(int)
+        for i, w, o, mt in routes:
+            inputs_received[o] = inputs_received[o] + 1
+            outputs_routed[(i, w)] = outputs_routed[(i, w)] + 1
+        routes_with_mix = []
+        for i, w, o, mt in routes:
+            actual_mt = mt
+            if inputs_received[o] > 1 and i != o:
+                actual_mt = MixType.ADD
+            elif outputs_routed[(i, w)] > 0 and mt:
+                actual_mt = MixType.COPY
+            if actual_mt:
+                routes_with_mix.append((i, w, o, actual_mt))
+        return routes_with_mix
+
+    @staticmethod
+    def __reorder_routes(routes: List[Tuple[int, int, int, Optional[MixType]]]) -> List[Tuple[int, int, int, Optional[MixType]]]:
+        '''
+        Reorders routing to ensure inputs are not overridden with outputs. Attempts to break circular dependencies using user channels if possible.
+        :param routes: the routes.
+        :return: the reordered routes.
+        '''
+        ordered_routes: List[List[int, int, int, Optional[MixType], int]] = []
+        u1_channel_idx = user_channel_indexes()[0]
+        for r_input, r_way, r_output, r_mixtype in routes:
+            def rebundle():
+                return [r_input, r_way, r_output, r_mixtype, -1]
+            if not ordered_routes or not r_mixtype or r_mixtype == MixType.ADD:
+                ordered_routes.append(rebundle())
+            else:
+                insert_at = -1
+                for idx, o_r in enumerate(ordered_routes):
+                    # if a route wants to write to this input, make sure this route comes first
+                    if o_r[2] == r_input:
+                        insert_at = idx
+                        break
+                if insert_at == -1:
+                    ordered_routes.append(rebundle())
+                else:
+                    broke_circular = False
+                    for o_r in ordered_routes[insert_at:]:
+                        if o_r[0] == r_output:
+                            # break a circular dependency using user channel, i.e. if a later route has an input matching this output
+                            broke_circular = True
+                            inserted_route = ordered_routes[insert_at]
+                            # only insert the copy to the user channel if we have not already done so
+                            if inserted_route[0] != r_input or inserted_route[2] != u1_channel_idx:
+                                ordered_routes.insert(insert_at, [r_input, r_way, u1_channel_idx, MixType.COPY, r_output])
+                            # now append the copy from the user channel to the actual target channel
+                            ordered_routes.insert(insert_at + 2, [u1_channel_idx, r_way, r_output, MixType.COPY, -1])
+                            break
+                    if not broke_circular:
+                        # if insert -1 == copy this channel to the user channel, insert one before
+                        ordered_routes.insert(insert_at, rebundle())
+        u1_in_use_for = -1
+        failed = False
+        for o_r in ordered_routes:
+            if o_r[-1] > -1:
+                if u1_in_use_for == -1:
+                    u1_in_use_for = o_r[-1]
+                else:
+                    if o_r[-1] != u1_in_use_for:
+                        failed = True
+            # else:
+            #     if u1_in_use_for == o_r[2]:
+            #         o_r[2] = u1_channel_idx
+            if o_r[0] == u1_channel_idx:
+                if o_r[2] != u1_in_use_for:
+                    failed = True
+                else:
+                    u1_in_use_for = -1
+        if failed:
+            raise ValueError(f'Unresolvable circular dependencies found in {ordered_routes}')
+        return [(o_r[0], o_r[1], o_r[2], o_r[3]) for o_r in ordered_routes]
+
+    def __sort_routes(self, routes: List[Tuple[int, int, int, Optional[MixType]]]) -> List[Tuple[int, int, int, Optional[MixType]]]:
+        '''
+        applies a topological sort to the input-output routes, primarily resolves issues with bass management additions.
         :param routes: the channel routes.
         :return: the sorted routes.
         '''
         edges = defaultdict(set)
-        for i, _, o in routes:
-            edges[o].add(i)
+        for i, _, o, _ in routes:
+            edges[f"O{o}"].add(f"I{i}")
+        for i in self.__inputs.keys():
+            if i in self.__outputs:
+                edges[f"O{get_channel_idx(i)}"].add(f"I{get_channel_idx(i)}")
         sorted_channels = []
         for d in Matrix.do_sort(edges):
             sorted_channels.extend(sorted(d))
-        sorted_channel_mapping = {v: i for i, v in enumerate(sorted_channels)}
+        sorted_channel_mapping = {int(v[1:]): i for i, v in enumerate(sorted_channels)}
         sorted_routes = sorted(routes, key=lambda x: (sorted_channel_mapping[x[0]], x[1]))
         return sorted_routes
 
@@ -155,25 +240,41 @@ class Matrix:
             self.__ways = self.__make_default_ways()
             self.__copy_matrix_values(old_ways)
 
+    def get_mapping(self) -> Dict[str, Dict[int, str]]:
+        '''
+        :return: channel mapping as input channel -> way -> output channel
+        '''
+        mapping = defaultdict(dict)
+        for input_channel, v1 in self.__ways.items():
+            for way, v2 in v1.items():
+                for output_channel, routed in v2.items():
+                    if routed:
+                        prefix = f"{mapping[input_channel][way]};" if way in mapping[input_channel] else ''
+                        mapping[input_channel][way] = f"{prefix}{get_channel_idx(output_channel)}"
+        return mapping
+
 
 class XODialog(QDialog, Ui_xoDialog):
 
     def __init__(self, parent, prefs: Preferences, input_channels: List[str], output_channels: List[str],
-                 output_format: OutputFormat, on_save: Callable[[List[XOFilter]], None], **kwargs):
+                 output_format: OutputFormat, on_save: Callable[[List[Filter]], None], **kwargs):
         super(XODialog, self).__init__(parent)
         self.__on_save = on_save
         self.__output_format = output_format
         self.__channel_groups = {c: [c] for c in input_channels}
         self.__output_channels = output_channels
+        self.__sw_channels = self.__calculate_sw_channels()
         self.__mag_update_timer = QTimer(self)
         self.__mag_update_timer.setSingleShot(True)
         self.prefs = prefs
         self.setupUi(self)
         self.showMatrixButton.setIcon(qta.icon('fa5s.route'))
+        self.setSWChannelsButton.clicked.connect(self.__show_sw_channel_selector_dialog)
         self.linkChannelsButton.clicked.connect(self.__show_group_channels_dialog)
         self.__matrix = None
         self.__editors = [
-            ChannelEditor(self.channelsFrame, name, channels, output_format, self.__trigger_redraw,
+            ChannelEditor(self.channelsFrame, name, channels, output_format,
+                          any(c in self.__sw_channels for c in channels), self.__trigger_redraw,
                           self.__on_output_channel_count_change)
             for name, channels in self.__channel_groups.items()
         ]
@@ -195,6 +296,9 @@ class XODialog(QDialog, Ui_xoDialog):
         self.__mag_update_timer.timeout.connect(self.__magnitude_model.redraw)
         self.__restore_geometry()
 
+    def __calculate_sw_channels(self) -> List[str]:
+        return [] if self.__output_format.lfe_channels == 0 else ['SW']
+
     def accepted(self):
         super().accepted()
 
@@ -204,19 +308,34 @@ class XODialog(QDialog, Ui_xoDialog):
         return matrix
 
     def __initialise_routing(self, matrix: Matrix):
+        channel_ways = [(c, w) for e in self.__editors for c in e.underlying_channels for w in range(len(e))]
         if self.__output_format.lfe_channels == 0:
-            for r in range(matrix.rows):
-                matrix.toggle(r, min(r, matrix.columns - 1))
+            for i, cw in enumerate(channel_ways):
+                c, w = cw
+                o = self.__output_channels[i % len(self.__output_channels)]
+                matrix.enable(c, w, o)
         else:
-            channel_ways = [(c, w) for e in self.__editors for c in e.underlying_channels for w in range(len(e))]
             for c, w in channel_ways:
                 if w == 0:
-                    matrix.enable(c, w, 'SW')
+                    for sw in self.__sw_channels:
+                        matrix.enable(c, w, sw)
                 else:
                     matrix.enable(c, w, c)
 
     def __show_group_channels_dialog(self):
-        GroupChannelsDialog(self, [e.name for e in self.__editors], self.__reconfigure_channel_groups).exec()
+        GroupChannelsDialog(self, {e.name: e.underlying_channels for e in self.__editors if e.widget.isVisible()},
+                            self.__reconfigure_channel_groups).exec()
+
+    def __show_sw_channel_selector_dialog(self) -> None:
+        '''
+        Allows user to specify multiple sw output channels.
+        '''
+        def on_save(sw_channels):
+            if sw_channels != self.__sw_channels:
+                self.__sw_channels = sw_channels
+                self.__matrix = self.__create_matrix()
+
+        SWChannelSelectorDialog(self, self.__output_channels, self.__sw_channels, on_save).exec()
 
     def __reconfigure_channel_groups(self, grouped_channels: Dict[str, List[str]]):
         '''
@@ -234,8 +353,9 @@ class XODialog(QDialog, Ui_xoDialog):
                     matching_editor.underlying_channels = channels
                     old_matrix = None
             else:
-                new_editor = ChannelEditor(self.channelsFrame, name, channels, self.__trigger_redraw,
-                                           self.__on_output_channel_count_change)
+                new_editor = ChannelEditor(self.channelsFrame, name, channels, self.__output_format,
+                                           any(c in self.__sw_channels for c in channels),
+                                           self.__trigger_redraw, self.__on_output_channel_count_change)
                 self.__editors.append(new_editor)
                 self.channelsLayout.addWidget(new_editor.widget)
                 old_matrix = None
@@ -259,7 +379,7 @@ class XODialog(QDialog, Ui_xoDialog):
         self.__matrix = matrix
 
     def accept(self):
-        self.__on_save(self.__make_xo_filters())
+        self.__on_save(self.__make_filters())
         self.prefs.set(XO_GEOMETRY, self.saveGeometry())
         super().accept()
 
@@ -267,11 +387,26 @@ class XODialog(QDialog, Ui_xoDialog):
         self.prefs.set(XO_GEOMETRY, self.saveGeometry())
         super().reject()
 
-    def __make_xo_filters(self) -> List[XOFilter]:
-        xo_filters = [x for e in self.__editors for x in e.xo_filters]
-        routes: List[Tuple[int, int, int]] = self.__matrix.get_routes()
-        print(routes)
-        return xo_filters
+    def __make_filters(self) -> List[Filter]:
+        routes = self.__matrix.get_routes()
+        routing_filters = [self.__convert_to_filter(i, mt, o) for i, w, o, mt in routes if mt]
+        channel_mapping: Dict[str, Dict[int, str]] = self.__matrix.get_mapping()
+        xo_filters = []
+        for e in self.__editors:
+            for c in e.underlying_channels:
+                xo_filters.extend(e.get_xo_filters(channel_mapping[c]))
+        # TODO combine into a single filter
+        # TODO handle LFE channel adjustments
+        return routing_filters + xo_filters
+
+    @staticmethod
+    def __convert_to_filter(i: int, mt: MixType, o: int) -> Filter:
+        vals = Mix.default_values()
+        # TODO handle gain for bass management
+        vals['Source'] = str(i)
+        vals['Destination'] = str(o)
+        vals['Mode'] = str(mt.value)
+        return Mix(vals)
 
     def show_limits(self):
         ''' shows the limits dialog for the filter chart. '''
@@ -321,13 +456,14 @@ class XODialog(QDialog, Ui_xoDialog):
 
 class ChannelEditor:
 
-    def __init__(self, channels_frame: QWidget, name: str, underlying_channels: List[str], output_format: OutputFormat,
-                 on_filter_change: Callable[[], None], on_way_count_change: Callable[[str, int], None]):
+    def __init__(self, channels_frame: QWidget, name: str, underlying_channels: List[str],
+                 output_format: OutputFormat, is_sw_channel: bool,  on_filter_change: Callable[[], None],
+                 on_way_count_change: Callable[[str, int], None]):
         self.__on_change = on_filter_change
+        self.__is_sw_channel = is_sw_channel
         self.__output_format = output_format
         self.__name = name
         self.__underlying_channels = underlying_channels
-        self.__channel_indexes = ';'.join([str(get_channel_idx(c)) for c in self.__underlying_channels])
         self.__editors: List[WayEditor] = []
         self.__frame = QFrame(channels_frame)
         self.__frame.setFrameShape(QFrame.StyledPanel)
@@ -372,11 +508,16 @@ class ChannelEditor:
         self.__layout.addWidget(self.__way_frame)
         self.__ways.valueChanged.connect(self.__update_editors)
         self.__ways.valueChanged.connect(self.__on_change)
-        self.__ways.valueChanged.connect(lambda v: on_way_count_change(self.__name, v))
-        if name == 'SW':
+        self.__ways.valueChanged.connect(lambda v: self.__propagate_way_count_change(on_way_count_change, v))
+        if self.__is_sw_channel:
+            self.__ways.hide()
             self.__update_editors()
         else:
             self.__ways.setValue(self.__calculate_ways())
+
+    def __propagate_way_count_change(self, func: Callable[[str, int], None], count: int):
+        for c in self.__underlying_channels:
+            func(c, count)
 
     def __calculate_ways(self) -> int:
         of = self.__output_format
@@ -409,7 +550,7 @@ class ChannelEditor:
 
     @property
     def impulses(self) -> List[Signal]:
-        return [way.impulse for way in self.__editors]
+        return [i for i in [way.impulse for way in self.__editors] if i]
 
     @property
     def phase_responses(self) -> List[MagnitudeData]:
@@ -428,7 +569,7 @@ class ChannelEditor:
 
     def __create_editor(self, i: int):
         editor = WayEditor(self.__way_frame, self.__name, i, self.__on_change, self.__propagate_symmetric_filter,
-                           self.__output_format.output_channels > 2)
+                           self.__output_format.lfe_channels > 0, self.__is_sw_channel)
         self.__editors.append(editor)
         self.__way_layout.insertWidget(i, editor.widget)
 
@@ -447,20 +588,20 @@ class ChannelEditor:
     def widget(self) -> QWidget:
         return self.__frame
 
-    @property
-    def xo_filters(self) -> List[XOFilter]:
+    def get_xo_filters(self, channels_by_way: Dict[int, str]) -> List[XOFilter]:
         mc_filters: List[XOFilter] = []
         for way, e in enumerate(self.__editors):
-            xo_filters = e.get_filters(self.__channel_indexes)
-            if xo_filters:
-                mc_filters.append(XOFilter(way, xo_filters))
+            if way in channels_by_way:
+                xo_filters = e.get_filters(channels_by_way[way])
+                if xo_filters:
+                    mc_filters.append(XOFilter(way, xo_filters))
         return mc_filters
 
 
 class WayEditor:
 
     def __init__(self, parent: QWidget, channel: str, way: int, on_change: Callable[[], None],
-                 propagate_low_pass_change: Callable[[int, str, float, int], None], allow_sw: bool):
+                 propagate_low_pass_change: Callable[[int, str, float, int], None], allow_sw: bool, is_sw: bool):
         self.__way = way
         self.__propagate_low_pass = propagate_low_pass_change
         self.__channel = channel
@@ -470,11 +611,14 @@ class WayEditor:
         self.__frame.setFrameShape(QFrame.StyledPanel)
         self.__frame.setFrameShadow(QFrame.Raised)
         self.__layout = QGridLayout(self.__frame)
+        self.__is_active = True
         # header
-        if self.__way == 0 and allow_sw:
+        checkable = False
+        if way == 0 and allow_sw and not is_sw:
             self.__header = QPushButton(self.__frame)
             self.__header.setCheckable(True)
             self.__header.toggled.connect(self.__on_sw_change)
+            checkable = True
         else:
             self.__header = QLabel(self.__frame)
             self.__header.setAlignment(Qt.AlignCenter)
@@ -483,7 +627,7 @@ class WayEditor:
         font.setItalic(True)
         font.setWeight(75)
         self.__header.setFont(font)
-        self.__header.setText(f"Way {way + 1}")
+        self.__header.setText('' if is_sw else f"Way {way + 1}")
         # controls
         self.__invert = QCheckBox(self.__frame)
         self.__invert.setText('Invert')
@@ -542,8 +686,8 @@ class WayEditor:
         self.__controls_layout.setStretch(1, 1)
         self.__controls_layout.setStretch(3, 1)
         self.__layout.addLayout(self.__controls_layout, row, 0, 1, -1)
-        if self.__way == 0:
-            self.__on_sw_change(self.__header.isChecked())
+        if self.__way == 0 and checkable:
+            self.__header.setChecked(True)
 
     def __on_lp_change(self):
         self.__propagate_low_pass(self.__way, self.__lp_filter_type.currentText(), self.__lp_freq.value(),
@@ -557,20 +701,20 @@ class WayEditor:
         else:
             self.__header.setText(f"Way {self.__way + 1}")
             self.__header.setToolTip('Select to send to a combined low frequency channel')
-        visible = not on
-        self.__invert.setVisible(visible)
-        self.__hp_label.setVisible(visible)
-        self.__hp_freq.setVisible(visible)
-        self.__hp_order.setVisible(visible)
-        self.__hp_filter_type.setVisible(visible)
-        self.__lp_label.setVisible(visible)
-        self.__lp_freq.setVisible(visible)
-        self.__lp_order.setVisible(visible)
-        self.__lp_filter_type.setVisible(visible)
-        self.__gain.setVisible(visible)
-        self.__gain_label.setVisible(visible)
-        self.__delay.setVisible(visible)
-        self.__delay_label.setVisible(visible)
+        self.__is_active = not on
+        self.__invert.setVisible(self.__is_active)
+        self.__hp_label.setVisible(self.__is_active)
+        self.__hp_freq.setVisible(self.__is_active)
+        self.__hp_order.setVisible(self.__is_active)
+        self.__hp_filter_type.setVisible(self.__is_active)
+        self.__lp_label.setVisible(self.__is_active)
+        self.__lp_freq.setVisible(self.__is_active)
+        self.__lp_order.setVisible(self.__is_active)
+        self.__lp_filter_type.setVisible(self.__is_active)
+        self.__gain.setVisible(self.__is_active)
+        self.__gain_label.setVisible(self.__is_active)
+        self.__delay.setVisible(self.__is_active)
+        self.__delay_label.setVisible(self.__is_active)
         self.__on_value_change()
 
     @property
@@ -647,28 +791,30 @@ class WayEditor:
         return self.__frame
 
     @property
-    def impulse(self) -> Signal:
-        fs = 48000
-        signal = Signal(f"{self.__channel}{self.__way + 1}", unit_impulse(fs*4, 'mid') * 23453.66, fs=fs)
-        f = self.__pass_filters
-        if f:
-            signal = signal.sosfilter(f.get_sos())
-        if self.inverted:
-            signal = signal.invert()
-        if not math.isclose(self.__gain.value(), 0.0):
-            signal = signal.adjust_gain(10 ** (self.__gain.value() / 20.0))
-        if not math.isclose(self.__delay.value(), 0.0):
-            signal = signal.shift(int((self.__delay.value() / 1000) / (1.0 / 48000)))
-        return signal
+    def impulse(self) -> Optional[Signal]:
+        if self.__is_active:
+            fs = 48000
+            signal = Signal(f"{self.__channel}{self.__way + 1}", unit_impulse(fs*4, 'mid') * 23453.66, fs=fs)
+            f = self.__pass_filters
+            if f:
+                signal = signal.sosfilter(f.get_sos())
+            if self.inverted:
+                signal = signal.invert()
+            if not math.isclose(self.__gain.value(), 0.0):
+                signal = signal.adjust_gain(10 ** (self.__gain.value() / 20.0))
+            if not math.isclose(self.__delay.value(), 0.0):
+                signal = signal.shift(int((self.__delay.value() / 1000) / (1.0 / 48000)))
+            return signal
+        return None
 
     @property
     def phase_response(self) -> Optional[MagnitudeData]:
-        if self.__pass_filters:
+        if self.__pass_filters and self.__is_active:
             return self.__pass_filters.get_transfer_function().get_phase()
         return None
 
     def get_filters(self, channel_indexes: str) -> List[Filter]:
-        if self.__invert.isVisible() and self.__pass_filters:
+        if self.__invert.isVisible() and self.__pass_filters and self.__is_active:
             mc_filters = [convert_filter_to_mc_dsp(f, channel_indexes) for f in self.__pass_filters]
             if not math.isclose(self.__delay.value(), 0.0):
                 mc_filters.append(self.__make_mc_filter(self.__delay, Delay, channel_indexes, 'Delay'))
@@ -691,12 +837,13 @@ class WayEditor:
 
     def __create_pass_filters(self) -> Optional[CompleteFilter]:
         f = []
-        if self.__lp_filter_type.currentIndex() > 0:
-            f.append(ComplexLowPass(FilterType.value_of(self.__lp_filter_type.currentText()), self.__lp_order.value(),
-                                    48000, self.__lp_freq.value()))
-        if self.__hp_filter_type.currentIndex() > 0 and self.__hp_filter_type.isVisible():
-            f.append(ComplexHighPass(FilterType.value_of(self.__hp_filter_type.currentText()), self.__hp_order.value(),
-                                     48000, self.__hp_freq.value()))
+        if self.__is_active:
+            if self.__lp_filter_type.currentIndex() > 0:
+                f.append(ComplexLowPass(FilterType.value_of(self.__lp_filter_type.currentText()),
+                                        self.__lp_order.value(), 48000, self.__lp_freq.value()))
+            if self.__hp_filter_type.currentIndex() > 0 and self.__hp_filter_type.isVisible():
+                f.append(ComplexHighPass(FilterType.value_of(self.__hp_filter_type.currentText()),
+                                         self.__hp_order.value(), 48000, self.__hp_freq.value()))
         return CompleteFilter(fs=48000, filters=f) if f else None
 
     def set_high_pass(self, filter_type: str, freq: float, order: int):
@@ -761,7 +908,7 @@ class MatrixDialog(QDialog, Ui_channelMatrixDialog):
     def __init__(self, parent: QWidget, matrix: Matrix, on_save: Callable[[Matrix], None]):
         super(MatrixDialog, self).__init__(parent)
         self.setupUi(self)
-        self.errorMessage.setStyleSheet('{ color: red }')
+        self.errorMessage.setStyleSheet('color: red')
         self.__on_save = on_save
         self.__matrix = matrix.clone()
         self.__table_model = MatrixTableModel(self.__matrix, self.__set_error)
@@ -786,12 +933,19 @@ class GroupChannelsDialog(QDialog, Ui_groupChannelsDialog):
 
     GROUP_CHANNELS_ROLE = Qt.UserRole + 1
 
-    def __init__(self, parent: QWidget, channels: List[str], on_save: Callable[[Dict[str, List[str]]], None]):
+    def __init__(self, parent: QWidget, channels: Dict[str, List[str]],
+                 on_save: Callable[[Dict[str, List[str]]], None]):
         super(GroupChannelsDialog, self).__init__(parent)
         self.setupUi(self)
         self.__on_save = on_save
-        for c in channels:
-            self.channels.addItem(c)
+        for c, u in channels.items():
+            if len(u) == 1:
+                self.channels.addItem(c)
+            else:
+                item = QListWidgetItem(c)
+                item.setData(self.GROUP_CHANNELS_ROLE, u)
+                self.channelGroups.addItem(item)
+        self.groupName.setEnabled(False)
         self.channels.itemSelectionChanged.connect(self.__enable_add_button)
         self.groupName.textChanged.connect(self.__enable_add_button)
         output_model: QAbstractItemModel = self.channelGroups.model()
@@ -808,7 +962,9 @@ class GroupChannelsDialog(QDialog, Ui_groupChannelsDialog):
         self.deleteGroupButton.setEnabled(len(self.channelGroups.selectedItems()) > 0)
 
     def __enable_add_button(self):
-        self.addGroupButton.setEnabled(len(self.channels.selectedIndexes()) > 0 and len(self.groupName.text()) > 0)
+        some_selected = len(self.channels.selectedIndexes()) > 0
+        self.groupName.setEnabled(some_selected)
+        self.addGroupButton.setEnabled(some_selected and len(self.groupName.text()) > 0)
 
     def __enable_save_button(self):
         self.buttonBox.button(QDialogButtonBox.Save).setEnabled(self.channelGroups.count() > 0)
@@ -832,6 +988,31 @@ class GroupChannelsDialog(QDialog, Ui_groupChannelsDialog):
             widget.takeItem(widget.indexFromItem(i).row())
 
     def accept(self):
-        self.__on_save({self.channelGroups.item(i).text(): self.channelGroups.item(i).data(self.GROUP_CHANNELS_ROLE)
-                        for i in range(self.channelGroups.count())})
+        groups = {self.channelGroups.item(i).text(): self.channelGroups.item(i).data(self.GROUP_CHANNELS_ROLE) for i in
+                  range(self.channelGroups.count())}
+        individuals = {self.channels.item(i).text(): [self.channels.item(i).text()] for i in range(self.channels.count())}
+        self.__on_save({**groups, **individuals})
         super().accept()
+
+
+class SWChannelSelectorDialog(QDialog, Ui_jriverChannelSelectDialog):
+
+    def __init__(self, parent: QDialog, channels: List[str], sw_channels: List[str],
+                 on_save: Callable[[List[str]], None]):
+        super(SWChannelSelectorDialog, self).__init__(parent)
+        self.setupUi(self)
+        self.channelList.setSelectionMode(QAbstractItemView.MultiSelection)
+        self.__on_save = on_save
+        self.setWindowTitle('Select SW Output Channels')
+        self.channelListLabel.hide()
+        for c in channels:
+            self.channelList.addItem(c)
+        for c in sw_channels:
+            item: QListWidgetItem
+            for item in self.channelList.findItems(c, Qt.MatchCaseSensitive):
+                item.setSelected(True)
+
+    def accept(self):
+        self.__on_save([i.text() for i in self.channelList.selectedItems()])
+        super().accept()
+

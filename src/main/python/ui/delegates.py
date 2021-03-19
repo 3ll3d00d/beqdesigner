@@ -1,8 +1,8 @@
 import logging
 
-from PyQt5.QtGui import QRegExpValidator
-from qtpy.QtCore import QEvent, Qt, QRegExp
-from qtpy.QtWidgets import QItemDelegate, QStyledItemDelegate, QLineEdit
+from qtpy.QtGui import QRegExpValidator, QPainter
+from qtpy.QtCore import QEvent, Qt, QRegExp, QModelIndex
+from qtpy.QtWidgets import QItemDelegate, QStyledItemDelegate, QLineEdit, QStyleOptionViewItem
 
 logger = logging.getLogger('delegates')
 
@@ -25,7 +25,7 @@ class CheckBoxDelegate(QItemDelegate):
         """
         return None
 
-    def paint(self, painter, option, index):
+    def paint(self, painter: QPainter, option: QStyleOptionViewItem, index: QModelIndex):
         """
         Paint a checkbox without the label.
         """
