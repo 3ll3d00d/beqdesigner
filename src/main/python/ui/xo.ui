@@ -85,9 +85,6 @@
        </widget>
       </widget>
      </item>
-     <item row="0" column="3">
-      <widget class="QComboBox" name="presetSelector"/>
-     </item>
      <item row="0" column="1">
       <widget class="QPushButton" name="showMatrixButton">
        <property name="text">
@@ -101,6 +98,39 @@
         <string>Set SW Channels</string>
        </property>
       </widget>
+     </item>
+     <item row="0" column="3">
+      <layout class="QHBoxLayout" name="lfeAdjustLayout">
+       <item>
+        <widget class="QLabel" name="lfeAdjustLabel">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
+         <property name="text">
+          <string>LFE Headroom</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QSpinBox" name="lfeAdjust">
+         <property name="enabled">
+          <bool>false</bool>
+         </property>
+         <property name="suffix">
+          <string> dB</string>
+         </property>
+         <property name="minimum">
+          <number>1</number>
+         </property>
+         <property name="maximum">
+          <number>9</number>
+         </property>
+         <property name="value">
+          <number>5</number>
+         </property>
+        </widget>
+       </item>
+      </layout>
      </item>
     </layout>
    </item>
@@ -123,6 +153,16 @@
    <header>mpl</header>
   </customwidget>
  </customwidgets>
+ <tabstops>
+  <tabstop>linkChannelsButton</tabstop>
+  <tabstop>showMatrixButton</tabstop>
+  <tabstop>setSWChannelsButton</tabstop>
+  <tabstop>lfeAdjust</tabstop>
+  <tabstop>peqScrollArea</tabstop>
+  <tabstop>limitsButton</tabstop>
+  <tabstop>showPhase</tabstop>
+  <tabstop>previewChart</tabstop>
+ </tabstops>
  <resources/>
  <connections>
   <connection>

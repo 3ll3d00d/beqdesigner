@@ -1,32 +1,32 @@
 from __future__ import annotations
 
+import itertools
 import logging
 import os
-import xml.etree.ElementTree as et
-from abc import ABC, abstractmethod
-from collections import defaultdict
-from enum import Enum, auto
-from pathlib import Path
-from typing import Dict, Optional, List, Tuple, Callable, Union, Set, Iterable
-
-import itertools
-import math
-import qtawesome as qta
 import sys
 import time
-from PyQt5.QtWidgets import QInputDialog
+import xml.etree.ElementTree as et
+from abc import ABC, abstractmethod
 from builtins import isinstance
+from collections import defaultdict, Sequence
+from enum import Enum, auto
+from pathlib import Path
+from typing import Dict, Optional, List, Tuple, Callable, Union, Set, Iterable, overload, Type
+
+import math
+import qtawesome as qta
 from qtpy.QtCore import QPoint, QModelIndex, Qt
 from qtpy.QtGui import QColor, QPalette, QKeySequence, QCloseEvent
 from qtpy.QtWidgets import QDialog, QFileDialog, QMenu, QAction, QListWidgetItem, QAbstractItemView, \
-    QDialogButtonBox, QMessageBox
+    QDialogButtonBox, QMessageBox, QInputDialog
 from scipy.signal import unit_impulse
 
-from model import iir
+from model import iir, JRIVER_SHORT_CHANNELS, JRIVER_CHANNELS, SHORT_USER_CHANNELS, USER_CHANNELS, \
+    JRIVER_SHORT_NAMED_CHANNELS
 from model.filter import FilterModel, FilterDialog
 from model.iir import s_to_q, SOS, CompleteFilter, SecondOrder_HighPass, PeakingEQ, LowShelf as LS, Gain as G, \
     LinkwitzTransform as LT, CompoundPassFilter, ComplexHighPass, BiquadWithQGain, q_to_s, SecondOrder_LowPass, \
-    ComplexLowPass, FilterType, FirstOrder_LowPass, ComplexFilter, PassFilter, FirstOrder_HighPass
+    ComplexLowPass, FilterType, FirstOrder_LowPass, ComplexFilter as CF, PassFilter, FirstOrder_HighPass
 from model.limits import dBRangeCalculator, PhaseRangeCalculator
 from model.log import to_millis
 from model.magnitude import MagnitudeModel
@@ -40,13 +40,6 @@ from ui.jriver_delay_filter import Ui_jriverDelayDialog
 from ui.jriver_mix_filter import Ui_jriverMixDialog
 from ui.pipeline import Ui_jriverGraphDialog
 
-USER_CHANNELS = ['User 1', 'User 2']
-SHORT_USER_CHANNELS = ['U1', 'U2']
-JRIVER_NAMED_CHANNELS = [None, None, 'Left', 'Right', 'Centre', 'Subwoofer', 'Surround Left', 'Surround Right',
-                         'Rear Left', 'Rear Right', None] + USER_CHANNELS
-JRIVER_SHORT_NAMED_CHANNELS = [None, None, 'L', 'R', 'C', 'SW', 'SL', 'SR', 'RL', 'RR', None] + SHORT_USER_CHANNELS
-JRIVER_CHANNELS = JRIVER_NAMED_CHANNELS + [f"Channel {i + 9}" for i in range(24)]
-JRIVER_SHORT_CHANNELS = JRIVER_SHORT_NAMED_CHANNELS + [f"C{i + 9}" for i in range(24)]
 
 FILTER_ID_ROLE = Qt.UserRole + 1
 
@@ -372,9 +365,9 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         '''
         f_id = item.data(FILTER_ID_ROLE)
         selected_filter = next((f for f in self.__dsp.active_graph.filters if f.id == f_id), None)
-        if isinstance(selected_filter, GEQFilter):
+        if isinstance(selected_filter, (GEQFilter, CompoundRoutingFilter)):
             return True
-        elif isinstance(selected_filter, CustomFilter):
+        elif isinstance(selected_filter, CustomPassFilter):
             return selected_filter.channels and len(selected_filter.channels) == 1
         else:
             if isinstance(selected_filter, (GainQFilter, Gain, Pass, LinkwitzTransform)):
@@ -393,6 +386,8 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         logger.debug(f"Showing edit dialog for {selected_filter}")
         if isinstance(selected_filter, GEQFilter):
             self.__start_geq_edit_session(selected_filter, selected_filter.channel_names)
+        elif isinstance(selected_filter, CompoundRoutingFilter):
+            self.__update_xo(selected_filter)
         else:
             vals = selected_filter.get_all_vals()
             if not self.__show_basic_edit_filter_dialog(selected_filter, vals):
@@ -670,16 +665,27 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         Shows the XO dialog and inserts the resulting filters at the specified index.
         :param idx: the index.
         '''
-        def on_save(xo_filters: List[Filter]):
-            self.__insert_multiple_filters(idx, xo_filters)
+        def on_save(xo_filters: CompoundRoutingFilter):
+            self.__insert_filter(idx, xo_filters)
             self.__on_graph_change()
 
         self.__show_xo_dialog(on_save)
 
-    def __show_xo_dialog(self, on_save: Callable[[List[Filter]], None]):
+    def __update_xo(self, existing: CompoundRoutingFilter) -> None:
+        '''
+        Shows the XO dialog and replaces the existing filter at the specified index.
+        :param existing: the current xo filter.
+        '''
+        def on_save(xo_filters: CompoundRoutingFilter):
+            if self.__dsp.active_graph.replace(existing, xo_filters):
+                self.__on_graph_change()
+
+        self.__show_xo_dialog(on_save, existing=existing)
+
+    def __show_xo_dialog(self, on_save: Callable[[CompoundRoutingFilter], None], existing: CompoundRoutingFilter = None):
         from model.xo import XODialog
         XODialog(self, self.prefs, self.__dsp.channel_names(), self.__dsp.channel_names(output=True, exclude_user=True),
-                 self.__dsp.output_format, on_save).exec()
+                 self.__dsp.output_format, on_save, existing=existing).exec()
 
     def __populate_add_filter_menu(self, menu: QMenu) -> QMenu:
         '''
@@ -1228,48 +1234,63 @@ class JRiverDSP:
         if len(filt_fragments) < 2:
             raise ValueError('Invalid input file - Unexpected <Value> format')
         individual_filters = [create_peq(d) for d in [self.__item_to_dicts(f) for f in filt_fragments[2:]] if d]
-        return self.__coalesce_peq(individual_filters)
+        return self.__extract_custom_filters(individual_filters)
 
     @staticmethod
-    def __coalesce_peq(individual_filters: List[Filter]) -> List[Filter]:
+    def __extract_custom_filters(individual_filters: List[Filter]) -> List[Filter]:
         '''
-        Combines individual filters into CustomFilter instances based on divider text.
+        Combines individual filters into ComplexFilter instances based on divider text.
         :param individual_filters: the raw filters.
         :return: the coalesced filters.
         '''
-        combined_filters: List[Filter] = []
-        custom_name: Optional[str] = None
-        custom_filters: List[SingleFilter] = []
+        output_filters: List[Filter] = []
+        buffer_stack: List[Tuple[Type, str, List[Filter]]] = []
         for f in individual_filters:
             if isinstance(f, Divider):
-                custom_name = CustomFilter.get_custom_filter_name(f.text, custom_name is None)
-                if custom_name is not None:
-                    if custom_filters:
-                        logger.debug(f"Coalesced {len(custom_filters)} into {custom_name}")
-                        combined_filters.append(CustomFilter(custom_name, custom_filters))
-                        custom_name = None
-                    else:
-                        custom_filters = []
-                else:
-                    logger.debug(f"Skipping divider {f.text}")
-            elif custom_name:
-                if isinstance(f, SingleFilter):
-                    custom_filters.append(f)
-                else:
-                    logger.error(f"Unexpected filter type ignored as part of custom filter {custom_name} {f}")
+                JRiverDSP.__handle_divider(buffer_stack, output_filters, f)
             else:
-                combined_filters.append(f)
-        for i, f in enumerate(combined_filters):
+                store_in = buffer_stack[-1][2] if buffer_stack else output_filters
+                store_in.append(f)
+        for i, f in enumerate(output_filters):
             f.id = (i + 1) * 1000
-            if isinstance(f, CustomFilter):
+            # TODO
+            if isinstance(f, CustomPassFilter):
                 for i1, f1 in enumerate(f.filters):
                     f1.id = f.id + 1 + i1
-        return combined_filters
+        return output_filters
+
+    @staticmethod
+    def __handle_divider(buffer: List[Tuple[Type, str, List[Filter]]], output_filters: List[Filter], f: Divider):
+        match = next((c.get_complex_filter_data(f.text) for c in complex_filter_classes_by_type.values()
+                      if c.get_complex_filter_data(f.text)), None)
+        if match is None:
+            if buffer:
+                buffer[-1][2].append(f)
+            else:
+                logger.debug(f"Ignoring divider outside complex filter parsing - {f.text}")
+        else:
+            filt_cls, data = match
+            is_end = filt_cls.is_end_of_complex_filter_data(f.text)
+            if is_end:
+                if buffer:
+                    if filt_cls == buffer[-1][0]:
+                        _, meta, accumulated = buffer.pop()
+                        complex_filt = filt_cls.create(meta, accumulated)
+                        store_in = buffer[-1][2] if buffer else output_filters
+                        store_in.append(complex_filt)
+                    else:
+                        raise ValueError(f"Mismatched start/end complex filter detected {buffer[0]} vs {filt_cls}")
+                else:
+                    raise ValueError(f"Empty complex filter {buffer}")
+            else:
+                buffer.append((filt_cls, data, []))
+        return buffer
 
     @staticmethod
     def __item_to_dicts(frag) -> Optional[Dict[str, str]]:
-        if frag.find(':') > -1:
-            peq_xml = frag.split(':')[1][:-1]
+        idx = frag.find(':')
+        if idx > -1:
+            peq_xml = frag[idx+1:-1]
             vals = {i.attrib['Name']: i.text for i in et.fromstring(peq_xml).findall('./Item')}
             if 'Enabled' in vals:
                 if vals['Enabled'] != '0' and vals['Enabled'] != '1':
@@ -1342,16 +1363,16 @@ class JRiverDSP:
 
 class Filter(ABC):
 
-    def __init__(self, short_name):
+    def __init__(self, short_name: str):
         self.__short_name = short_name
         self.__f_id = -1
         self.__nodes: List[Node] = []
 
-    def reset(self):
+    def reset(self) -> None:
         self.__nodes = []
 
     @property
-    def id(self):
+    def id(self) -> int:
         return self.__f_id
 
     @id.setter
@@ -1359,18 +1380,18 @@ class Filter(ABC):
         self.__f_id = f_id
 
     @property
-    def nodes(self):
+    def nodes(self) -> List[Node]:
         return self.__nodes
 
     @property
-    def short_name(self):
+    def short_name(self) -> str:
         return self.__short_name
 
-    def short_desc(self):
+    def short_desc(self) -> str:
         return self.short_name
 
     @property
-    def enabled(self):
+    def enabled(self) -> bool:
         return True
 
     def encode(self):
@@ -1386,10 +1407,10 @@ class Filter(ABC):
     def get_filter(self) -> FilterOp:
         return NopFilterOp()
 
-    def is_mine(self, idx):
+    def is_mine(self, idx: int) -> bool:
         return True
 
-    def can_merge(self, o: Filter):
+    def can_merge(self, o: Filter) -> bool:
         return False
 
     def can_split(self) -> bool:
@@ -2091,38 +2112,16 @@ class SubwooferLimiter(ChannelFilter):
         return f"{self.__class__.__name__} {self.__level:+.7g} dB {self.print_channel_names()}{self.print_disabled()}"
 
 
-class ComplexChannelFilter(Filter):
+class ComplexFilter(Filter):
 
-    def __init__(self, filter_type: str, filters: List[Filter]):
-        super().__init__(filter_type)
-        first_filt = filters[0]
-        if hasattr(first_filt, 'channels') and hasattr(first_filt, 'channel_names'):
-            self.__channels = first_filt.channels
-            self.__channel_names = first_filt.channel_names
-        else:
-            raise ValueError(f"Invalid filter type to load into an XO {first_filt}")
-        self.__prefix: SingleFilter = self.__make_divider(filter_type, True)
+    def __init__(self, filters: List[Filter]):
+        super().__init__(self.custom_type())
+        self.__prefix: SingleFilter = self.__make_divider(True)
         self.__filters = filters
-        self.__suffix: SingleFilter = self.__make_divider(filter_type, False)
-
-    @staticmethod
-    def __make_divider(filter_type: str, start: bool):
-        return Divider({
-            'Enabled': '1',
-            'Type': Divider.TYPE,
-            'Text': f"***{filter_type}_{'START' if start else 'END'}***"
-        })
+        self.__suffix: SingleFilter = self.__make_divider(False)
 
     def short_desc(self):
         return f"{self.short_name} {len(self.__filters)}"
-
-    @property
-    def channels(self) -> List[int]:
-        return self.__channels
-
-    @property
-    def channel_names(self) -> List[str]:
-        return self.__channel_names
 
     @property
     def filters(self) -> List[Filter]:
@@ -2132,64 +2131,183 @@ class ComplexChannelFilter(Filter):
         all_filters: List[Filter] = [self.__prefix] + self.__filters + [self.__suffix]
         return [v for f in all_filters for v in f.get_all_vals()]
 
+    def get_editable_filter(self) -> Optional[SOS]:
+        editable_filters = [f.get_editable_filter() for f in self.__filters if f.get_editable_filter()]
+        return CompleteFilter(fs=48000, filters=editable_filters, description=self.short_name, sort_by_id=True)
+
+    def get_filter(self) -> FilterOp:
+        return SosFilterOp(self.get_editable_filter().get_sos())
+
+    @classmethod
+    def get_complex_filter_data(cls, text: str) -> Optional[Type, str]:
+        '''
+        :param text: the text to parse
+        :return: none if this text does not identify a complex filter otherwise a tuple specifying whether the filter
+        is a start or end of a filter (true if end) then the filter data.
+        '''
+        if text.startswith(f"***{cls.custom_type()}_START"):
+            return cls, text.split('|')[1][:-3]
+        elif text.startswith(f"***{cls.custom_type()}_END"):
+            return cls, text.split('|')[1][:-3]
+        else:
+            return None
+
+    @classmethod
+    def is_end_of_complex_filter_data(cls, text: str) -> Optional[bool]:
+        '''
+        :param text: the text to parse
+        :return: true if this denotes the closing marker for a complex filter.
+        '''
+        return text.startswith(f"***{cls.custom_type()}_END")
+
+    @classmethod
+    @abstractmethod
+    def custom_type(cls) -> str:
+        pass
+
+    @classmethod
+    @abstractmethod
+    def create(cls, data: str, child_filters: List[Filter]):
+        pass
+
+    def metadata(self) -> str:
+        return ''
+
+    def __repr__(self):
+        return self.short_desc()
+
+    def __make_divider(self, start: bool):
+        return Divider({
+            'Enabled': '1',
+            'Type': Divider.TYPE,
+            'Text': f"***{self.custom_type()}_{'START' if start else 'END'}|{self.metadata()}***"
+        })
+
+
+class ComplexChannelFilter(ComplexFilter, ABC):
+
+    def __init__(self, filters: List[Filter]):
+        super().__init__(filters)
+        first_filt = filters[0]
+        if hasattr(first_filt, 'channels') and hasattr(first_filt, 'channel_names'):
+            self.__channels = first_filt.channels
+            self.__channel_names = first_filt.channel_names
+        else:
+            raise ValueError(f"Unsupported filter type {first_filt}")
+
+    @property
+    def channels(self) -> List[int]:
+        return self.__channels
+
+    @property
+    def channel_names(self) -> List[str]:
+        return self.__channel_names
+
     def __repr__(self):
         return f"{self.short_name} [{', '.join(self.channel_names)}]"
 
     def is_mine(self, idx):
         return self.filters[0].is_mine(idx)
 
-    def get_editable_filter(self) -> Optional[SOS]:
-        editable_filters = [f.get_editable_filter() for f in self.__filters if f.get_editable_filter()]
-        return CompleteFilter(fs=48000, filters=editable_filters, description='XO', sort_by_id=True)
-
-    def get_filter(self) -> FilterOp:
-        return SosFilterOp(self.get_editable_filter().get_sos())
-
 
 class GEQFilter(ComplexChannelFilter):
 
     def __init__(self, filters: List[Filter]):
-        super().__init__('GEQ', filters)
+        super().__init__(filters)
 
-    @staticmethod
-    def get_geq_filter_name(text: str, start: bool) -> Optional[str]:
-        prefix = f"***GEQ_{'START' if start else 'END'}"
-        return text.split('|')[1] if text.startswith(prefix) else None
+    @classmethod
+    def custom_type(cls) -> str:
+        return 'GEQ'
+
+    @classmethod
+    def create(cls, data: str, child_filters: List[Filter]):
+        return GEQFilter(child_filters)
 
 
 class XOFilter(ComplexChannelFilter):
 
-    def __init__(self, way: int, filters: List[Filter]):
-        super().__init__(f"XO{way + 1}", filters)
+    def __init__(self, input_channel: str, way: int, filters: List[Filter]):
+        self.__input_channel = input_channel
+        self.__way = way
+        super().__init__(filters)
 
-    @staticmethod
-    def get_xo_filter_name(text: str, start: bool) -> Optional[str]:
-        prefix = f"***XO_{'START' if start else 'END'}"
-        return text.split('|')[1] if text.startswith(prefix) else None
+    @classmethod
+    def custom_type(cls) -> str:
+        return 'XO'
+
+    def metadata(self) -> str:
+        return f"{self.__input_channel}/{self.__way}"
+
+    @property
+    def input_channel(self) -> str:
+        return self.__input_channel
+
+    @property
+    def way(self) -> int:
+        return self.__way
+
+    @classmethod
+    def create(cls, data: str, child_filters: List[Filter]):
+        c, w = data.split('/')
+        return XOFilter(c, int(w), child_filters)
 
 
-class CustomFilter(Filter):
+class CompoundRoutingFilter(ComplexFilter, Sequence[Filter]):
 
-    def __init__(self, name, filters: List[SingleFilter]):
-        super().__init__('CF')
-        first_filt = filters[0]
-        if isinstance(first_filt, ChannelFilter):
-            self.__channels = first_filt.channels
-            self.__channel_names = first_filt.channel_names
-        else:
-            self.__channels = None
-            self.__channel_names = None
+    def __init__(self, metadata: str, routing: List[Filter], xo: List[XOFilter]):
+        self.__metadata = metadata
+        all_filters = routing + xo
+        all_channels = set()
+        for f in all_filters:
+            if hasattr(f, 'channel_names'):
+                for c in f.channel_names:
+                    all_channels.add(c)
+            elif isinstance(f, Mix):
+                all_channels.add(get_channel_name(f.src_idx))
+                all_channels.add(get_channel_name(f.dst_idx))
+        self.__channel_names = [x for _, x in sorted(zip(all_channels, JRIVER_SHORT_CHANNELS)) if x]
+        super().__init__(routing + xo)
+
+    @overload
+    @abstractmethod
+    def __getitem__(self, i: int) -> Filter: ...
+
+    @overload
+    def __getitem__(self, s: slice) -> Sequence[Filter]: ...
+
+    def __getitem__(self, i: int) -> Filter:
+        return self.filters[i + 1]
+
+    def __len__(self) -> int:
+        return len(self.filters) - 1
+
+    def __repr__(self):
+        return f"XOBM [{', '.join(self.__channel_names)}]"
+
+    def metadata(self) -> str:
+        return self.__metadata
+
+    @classmethod
+    def custom_type(cls) -> str:
+        return 'XOBM'
+
+    @classmethod
+    def create(cls, data: str, child_filters: List[Filter]):
+        routing = []
+        pass_filters = []
+        active = routing
+        for f in child_filters:
+            if not isinstance(f, Mix):
+                active = pass_filters
+            active.append(f)
+        return CompoundRoutingFilter(data, routing, pass_filters)
+
+
+class CustomPassFilter(ComplexChannelFilter):
+
+    def __init__(self, name, filters: List[Filter]):
         self.__name = name
-        self.__prefix: SingleFilter = self.__make_divider(True)
-        self.__filters = filters
-        self.__suffix: SingleFilter = self.__make_divider(False)
-
-    def __make_divider(self, start: bool):
-        return Divider({
-            'Enabled': '1',
-            'Type': Divider.TYPE,
-            'Text': f"***CUSTOM_{'START' if start else 'END'}|{self.__name}|***"
-        })
+        super().__init__(filters)
 
     def short_desc(self):
         tokens = self.__name.split('/')
@@ -2200,33 +2318,8 @@ class CustomFilter(Filter):
             f = f"{freq:g}"
         return f"{tokens[0]}{tokens[2]} {tokens[1]} {f}"
 
-    @property
-    def channels(self) -> Optional[List[int]]:
-        return self.__channels
-
-    @property
-    def channel_names(self) -> Optional[List[str]]:
-        return self.__channel_names
-
-    @property
-    def filters(self) -> List[SingleFilter]:
-        return self.__filters
-
-    def get_all_vals(self) -> List[Dict[str, str]]:
-        all_filters: List[SingleFilter] = [self.__prefix] + self.__filters + [self.__suffix]
-        return [v for f in all_filters for v in f.get_all_vals()]
-
-    def __repr__(self):
-        return self.__name if self.channels is None else f"{self.__name} [{', '.join(self.__channel_names)}]"
-
-    def is_mine(self, idx):
-        return self.filters[0].is_mine(idx)
-
     def get_editable_filter(self) -> Optional[SOS]:
         return self.__decode_custom_filter()
-
-    def get_filter(self) -> FilterOp:
-        return SosFilterOp(self.get_editable_filter().get_sos())
 
     def __decode_custom_filter(self) -> SOS:
         '''
@@ -2246,17 +2339,24 @@ class CustomFilter(Filter):
                 return ComplexLowPass(f_type, order, 48000, freq, q_scale)
         raise ValueError(f"Unable to decode {self.__name}")
 
-    @staticmethod
-    def get_custom_filter_name(text: str, start: bool) -> Optional[str]:
-        prefix = f"***CUSTOM_{'START' if start else 'END'}"
-        return text.split('|')[1] if text.startswith(prefix) else None
+    def metadata(self) -> str:
+        return self.__name
+
+    @classmethod
+    def custom_type(cls) -> str:
+        return 'PASS'
+
+    @classmethod
+    def create(cls, data: str, child_filters: List[Filter]):
+        return CustomPassFilter(data, child_filters)
 
 
 def all_subclasses(cls):
     return set(cls.__subclasses__()).union([s for c in cls.__subclasses__() for s in all_subclasses(c)])
 
 
-filter_classes_by_type = {c.TYPE: c for c in all_subclasses(Filter) if hasattr(c, 'TYPE')}
+complex_filter_classes_by_type: Dict[str, Type[ComplexFilter]] = {c.custom_type(): c for c in all_subclasses(ComplexFilter)}
+filter_classes_by_type: Dict[str, Type[Filter]]  = {c.TYPE: c for c in all_subclasses(Filter) if hasattr(c, 'TYPE')}
 
 
 def create_peq(vals: Dict[str, str]) -> Filter:
@@ -2265,7 +2365,9 @@ def create_peq(vals: Dict[str, str]) -> Filter:
     :param channels: the available channel names.
     :return: a filter type.
     '''
-    return filter_classes_by_type[vals['Type']](vals)
+    type_: Type[Filter] = filter_classes_by_type[vals['Type']]
+    # noinspection PyTypeChecker
+    return type_(vals)
 
 
 def convert_filter_to_mc_dsp(filt: SOS, target_channels: str) -> Filter:
@@ -2325,13 +2427,13 @@ def convert_filter_to_mc_dsp(filt: SOS, target_channels: str) -> Filter:
         raise ValueError(f"Unsupported filter type {filt}")
 
 
-def __make_mc_custom_pass_filter(p_filter: CompoundPassFilter, target_channels: str) -> CustomFilter:
+def __make_mc_custom_pass_filter(p_filter: CompoundPassFilter, target_channels: str) -> CustomPassFilter:
     pass_type = HighPass if isinstance(p_filter, ComplexHighPass) else LowPass
     mc_filts = [pass_type(__make_mc_pass_filter(f, pass_type.TYPE, pass_type.to_jriver_q, target_channels))
                 for f in p_filter.filters]
     type_code = 'HP' if pass_type == HighPass else 'LP'
     encoded = f"{type_code}/{p_filter.type.value}/{p_filter.order}/{p_filter.freq:.7g}/{p_filter.q_scale:.4g}"
-    return CustomFilter(encoded, mc_filts)
+    return CustomPassFilter(encoded, mc_filts)
 
 
 def __make_high_order_mc_pass_filter(f: CompoundPassFilter, filt_type: str, convert_q: Callable[[float], float],
@@ -2733,7 +2835,25 @@ class FilterGraph:
         Parses the supplied filters into a linked set of nodes per channel.
         :return: the linked node per channel.
         '''
-        return self.__link(self.__create_nodes())
+        return self.__prune(self.__link(self.__create_nodes()))
+
+    def __prune(self, by_channel: Dict[str, Node]) -> Dict[str, Node]:
+        '''
+        Prunes non input channels so they don't start with an input.
+        :param by_channel: the nodes by channel
+        :return: the pruned nodes by channel.
+        '''
+        pruned = {}
+        for c, n in by_channel.items():
+            if c in self.__input_channels:
+                pruned[c] = n
+            else:
+                if len(n.downstream) > 1:
+                    logger.error(f"Unexpected multiple downstream for non input channel {n}")
+                    pruned[c] = n
+                elif n.downstream:
+                    pruned[c] = n.downstream[0]
+        return pruned
 
     @property
     def filter_pipes_by_channel(self) -> Dict[str, FilterPipe]:
@@ -2808,23 +2928,41 @@ class FilterGraph:
                                              for c in self.__output_channels}
         i = 1
         for idx, f in enumerate(self.__filts):
-            if not isinstance(f, Divider) and f.enabled:
-                for channel_name, nodes in by_channel.items():
-                    channel_idx = get_channel_idx(channel_name)
-                    if f.is_mine(channel_idx):
-                        # mix is added as a node to both channels
-                        if isinstance(f, Mix):
-                            dst_channel_name = get_channel_name(f.dst_idx)
-                            by_channel[dst_channel_name].append(self.__make_node(i, dst_channel_name, f))
-                            nodes.append(self.__make_node(i, channel_name, f))
-                        else:
-                            nodes.append(self.__make_node(i, channel_name, f))
-                i += 1
+            if isinstance(f, Sequence):
+                for f1 in f:
+                    if self.__process_filter(f1, by_channel, i):
+                        f.nodes.extend(f1.nodes)
+                        i += 1
+            else:
+                if self.__process_filter(f, by_channel, i):
+                    i += 1
         # add output nodes
         for c, nodes in by_channel.items():
             if c not in SHORT_USER_CHANNELS:
                 nodes.append(Node(i * 100, f"OUT:{c}", None, c))
         return by_channel
+
+    def __process_filter(self, f: Filter, by_channel: Dict[str, List[Node]], i: int) -> bool:
+        '''
+        Converts the filter into a node on the target channel.
+        :param f: the filter.
+        :param by_channel: the store of nodes.
+        :param i: the filter index.
+        :return: true if a node was added.
+        '''
+        if not isinstance(f, Divider) and f.enabled:
+            for channel_name, nodes in by_channel.items():
+                channel_idx = get_channel_idx(channel_name)
+                if f.is_mine(channel_idx):
+                    # mix is added as a node to both channels
+                    if isinstance(f, Mix):
+                        dst_channel_name = get_channel_name(f.dst_idx)
+                        by_channel[dst_channel_name].append(self.__make_node(i, dst_channel_name, f))
+                        nodes.append(self.__make_node(i, channel_name, f))
+                    else:
+                        nodes.append(self.__make_node(i, channel_name, f))
+            return True
+        return False
 
     def __make_node(self, phase: int, channel_name: str, filt: Filter):
         node = Node(phase * 100, f"{channel_name}_{phase}00_{filt.short_name}", filt, channel_name)
@@ -2924,12 +3062,14 @@ class FilterGraph:
             self.__remix_node(d, by_channel, orphaned_nodes)
 
     @staticmethod
-    def __extract_channel_name(node):
-        if ':' not in node.name:
-            channel_name = node.name
+    def __extract_channel_name(node: Node) -> str:
+        if '_' in node.name:
+            sep = '_'
+        elif ':' in node.name:
+            sep = ':'
         else:
-            channel_name = node.name[0:node.name.index(':')]
-        return channel_name
+            raise ValueError(f"Unable to extract channel name from {node}")
+        return node.name[0:node.name.index(sep)]
 
     def __add_or_subtract_node(self, by_channel: Dict[str, Node], f: Mix, node: Node,
                                orphaned_nodes: Dict[str, List[Node]]) -> None:
@@ -3674,7 +3814,7 @@ class JRiverDelayDialog(QDialog, Ui_jriverDelayDialog):
             selected = [get_channel_name(int(i)) for i in self.__vals['Channels'].split(';')]
             for c in selected:
                 item: QListWidgetItem
-                for item in self.channelList.findItems(c, Qt.MatchCaseSensitive):
+                for item in self.channelList.findItems(c, Qt.MatchFlag.MatchCaseSensitive):
                     item.setSelected(True)
         self.__validators.append(lambda: len(self.channelList.selectedItems()) > 0)
 
@@ -3780,7 +3920,7 @@ class JRiverParser:
         self.__block = get_peq_key_name(block)
         self.__target_channels = ';'.join([str(JRIVER_CHANNELS.index(c)) for c in channels])
 
-    def convert(self, dst, filt: ComplexFilter, **kwargs):
+    def convert(self, dst, filt: CF, **kwargs):
         from model.minidsp import flatten_filters
         flat_filts: List[SOS] = flatten_filters(filt)
         config_txt = Path(dst).read_text()
