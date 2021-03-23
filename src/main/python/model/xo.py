@@ -36,6 +36,7 @@ EDITOR_NAME_KEY = 'n'
 UNDERLYING_KEY = 'u'
 WAYS_KEY = 'w'
 SYM_KEY = 's'
+SW_KEY = 'x'
 
 logger = logging.getLogger('xo')
 
@@ -369,6 +370,8 @@ class XODialog(QDialog, Ui_xoDialog):
                     match = next(e for e in self.__editors
                                  if e.name in groups.keys() and f.input_channel in e.underlying_channels)
                     match.load_filter(f)
+        if SW_KEY in metadata:
+            self.__sw_channels = metadata[SW_KEY]
         if ROUTING_KEY in metadata:
             self.__matrix.decode(metadata[ROUTING_KEY])
 
@@ -475,8 +478,10 @@ class XODialog(QDialog, Ui_xoDialog):
                 {EDITOR_NAME_KEY: e.name, UNDERLYING_KEY: e.underlying_channels, WAYS_KEY: len(e), SYM_KEY: e.symmetric}
                 for e in self.__editors if e.widget.isVisible()
             ],
-            ROUTING_KEY: self.__matrix.encode()
+            ROUTING_KEY: self.__matrix.encode(),
         }
+        if self.__sw_channels:
+            meta[SW_KEY] = self.__sw_channels
         if self.lfeAdjust.isEnabled():
             meta[LFE_ADJUST_KEY] = self.lfeAdjust.value()
         # TODO add gain for LFE channel adjustments

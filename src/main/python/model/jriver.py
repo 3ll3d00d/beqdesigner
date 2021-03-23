@@ -2022,19 +2022,20 @@ class Mix(SingleFilter):
 
     def get_filter(self) -> FilterOp:
         if self.mix_type == MixType.ADD:
-            return AddFilterOp()
+            return AddFilterOp(GainFilterOp(self.__gain))
         elif self.mix_type == MixType.SUBTRACT:
-            return SubtractFilterOp()
+            return SubtractFilterOp(GainFilterOp(self.__gain))
         else:
-            return NopFilterOp()
+            # TODO only apply gain if the filter is provided to dst_idx
+            return GainFilterOp(self.__gain)
 
     @classmethod
     def default_values(cls) -> Dict[str, str]:
         return {
             **super(Mix, cls).default_values(),
-            'Source': '1',
+            'Source': str(get_channel_idx('L')),
             'Gain': '0',
-            'Destination': '2'
+            'Destination': str(get_channel_idx('R'))
         }
 
 
@@ -2116,12 +2117,12 @@ class ComplexFilter(Filter):
 
     def __init__(self, filters: List[Filter]):
         super().__init__(self.custom_type())
-        self.__prefix: SingleFilter = self.__make_divider(True)
+        self.__prefix: Filter = self.__make_divider(True)
         self.__filters = filters
-        self.__suffix: SingleFilter = self.__make_divider(False)
+        self.__suffix: Filter = self.__make_divider(False)
 
     def short_desc(self):
-        return f"{self.short_name} {len(self.__filters)}"
+        return f"{self.short_name}"
 
     @property
     def filters(self) -> List[Filter]:
@@ -2224,19 +2225,26 @@ class GEQFilter(ComplexChannelFilter):
         return GEQFilter(child_filters)
 
 
+class XOFilterType(Enum):
+    LPF = 1
+    HPF = 2
+    BPF = 3
+    PASS = 4
+
+
 class XOFilter(ComplexChannelFilter):
 
     def __init__(self, input_channel: str, way: int, filters: List[Filter]):
         self.__input_channel = input_channel
         self.__way = way
+        self.__filter_type = self.__calculate_filter_type(filters)
         super().__init__(filters)
 
-    @classmethod
-    def custom_type(cls) -> str:
-        return 'XO'
+    def short_desc(self):
+        return f"{self.__input_channel}{self.__way+1} {self.__filter_type.name}"
 
     def metadata(self) -> str:
-        return f"{self.__input_channel}/{self.__way}"
+        return f"{self.__input_channel}/{self.__way}/{self.__filter_type.name}"
 
     @property
     def input_channel(self) -> str:
@@ -2247,9 +2255,29 @@ class XOFilter(ComplexChannelFilter):
         return self.__way
 
     @classmethod
+    def custom_type(cls) -> str:
+        return 'XO'
+
+    @classmethod
     def create(cls, data: str, child_filters: List[Filter]):
         c, w = data.split('/')
         return XOFilter(c, int(w), child_filters)
+
+    @staticmethod
+    def __calculate_filter_type(filters: List[Filter]) -> XOFilterType:
+        ft: XOFilterType = XOFilterType.PASS
+        for f in filters:
+            if isinstance(f, LowPass):
+                ft = XOFilterType.LPF if ft == XOFilterType.PASS else XOFilterType.BPF
+            elif isinstance(f, HighPass):
+                ft = XOFilterType.HPF if ft == XOFilterType.PASS else XOFilterType.BPF
+            elif isinstance(f, CustomPassFilter):
+                editable = f.get_editable_filter()
+                if isinstance(editable, ComplexLowPass):
+                    ft = XOFilterType.LPF if ft == XOFilterType.PASS else XOFilterType.BPF
+                elif isinstance(editable, ComplexHighPass):
+                    ft = XOFilterType.HPF if ft == XOFilterType.PASS else XOFilterType.BPF
+        return ft
 
 
 class CompoundRoutingFilter(ComplexFilter, Sequence[Filter]):
@@ -2677,6 +2705,10 @@ class Node:
         self.rank = rank
         self.__filt = filt
         self.__filter_op = filt.get_filter() if filt else NopFilterOp()
+        if isinstance(filt, Mix) and isinstance(self.__filter_op, GainFilterOp):
+            if filt.is_mine(get_channel_idx(channel)):
+                # special case mix operations sa we only want gain to be applied on the destination
+                self.__filter_op = NopFilterOp()
         self.__filter_op.node_id = name
         self.channel = channel
         self.visited = False
@@ -3197,8 +3229,8 @@ class FilterGraph:
     @staticmethod
     def __get_parent(node: Node) -> Optional[Node]:
         '''
-        Provides the actual parent node for this node. If the node has multiple upstreams then it picks out the right
-        parent node for an add operation to ensure we include the added (or subtracted channel).
+        Provides the actual parent node for this node. If the node has multiple upstreams then it must be accepting
+        an inbound mix operation, in this case that upstream must be ignored.
         :param node: the node.
         :return: the parent node, if any.
         '''
@@ -3207,13 +3239,11 @@ class FilterGraph:
                 return node.upstream[0]
             else:
                 if len(node.upstream) == 2:
-                    u1, u2 = node.upstream
-                    if FilterGraph.__is_inbound_mix(node, u1):
-                        return u1
-                    elif FilterGraph.__is_inbound_mix(node, u2):
-                        return u2
-                    else:
-                        raise ValueError(f"Unexpected filter types upstream of {node} - {[n.name for n in node.upstream]}")
+                    parent = next((u for u in node.upstream
+                                   if u.channel == node.channel and not FilterGraph.__is_inbound_mix(node, u)), None)
+                    if parent is None:
+                        raise ValueError(f"Unable to locate parent for {node.name} in -> {[n.name for n in node.upstream]}")
+                    return parent
                 else:
                     raise ValueError(f">2 upstream found! {node.name} -> {[n.name for n in node.upstream]}")
         else:
@@ -3676,50 +3706,52 @@ class InvertPolarityFilterOp(FilterOp):
 
 class AddFilterOp(FilterOp):
 
-    def __init__(self):
+    def __init__(self, gain: GainFilterOp = None):
         super().__init__()
-        self.__other: Optional[Signal] = None
+        self.__gain = gain if gain else GainFilterOp()
+        self.__inbound_signal: Optional[Signal] = None
 
     def accept(self, signal: Signal):
         if self.ready:
             raise ValueError(f"Attempting to reuse AddFilterOp")
-        self.__other = signal
+        self.__inbound_signal = signal
 
     @property
     def ready(self):
-        return self.__other is not None
+        return self.__inbound_signal is not None
 
     def apply(self, input_signal: Signal) -> Signal:
-        return input_signal.add(self.__other.samples)
+        return input_signal.add(self.__gain.apply(self.__inbound_signal).samples)
 
 
 class SubtractFilterOp(FilterOp):
 
-    def __init__(self):
+    def __init__(self, gain: GainFilterOp = None):
         super().__init__()
-        self.__other: Optional[Signal] = None
+        self.__gain = gain if gain else GainFilterOp()
+        self.__inbound_signal: Optional[Signal] = None
 
     def accept(self, signal: Signal):
         if self.ready:
             raise ValueError(f"Attempting to reuse AddFilterOp")
-        self.__other = signal
+        self.__inbound_signal = signal
 
     @property
     def ready(self):
-        return self.__other is not None
+        return self.__inbound_signal is not None
 
     def apply(self, input_signal: Signal) -> Signal:
-        return input_signal.subtract(self.__other.samples)
+        return input_signal.add(self.__gain.apply(self.__inbound_signal).samples)
 
 
 class GainFilterOp(FilterOp):
 
-    def __init__(self, gain_db: float):
+    def __init__(self, gain_db: float = 0.0):
         super().__init__()
         self.__gain_db = gain_db
 
     def apply(self, input_signal: Signal) -> Signal:
-        return input_signal.adjust_gain(10 ** (self.__gain_db / 20.0))
+        return input_signal.offset(self.__gain_db)
 
 
 def collect_nodes(node: Node, arr: List[Node]) -> List[Node]:
@@ -3835,13 +3867,17 @@ class JRiverMixFilterDialog(QDialog, Ui_jriverMixDialog):
         self.setupUi(self)
         self.__validators: List[Callable[[], bool]] = []
         self.__on_save = on_save
-        self.__vals = vals if vals else {}
+        self.__vals = vals if vals else {
+            'Source': str(get_channel_idx(channels[0])),
+            'Destination': str(get_channel_idx(channels[0])),
+            'Gain': '0'
+        }
         self.__vals['Mode'] = str(mix_type.value)
         self.setWindowTitle(f"{mix_type.name.capitalize()}")
+        self.__configure_channel_list(channels)
         self.gain.valueChanged.connect(lambda v: self.__set_val('Gain', f"{v:.7g}"))
         self.source.currentTextChanged.connect(lambda v: self.__set_val('Source', str(get_channel_idx(v))))
         self.destination.currentTextChanged.connect(lambda v: self.__set_val('Destination', str(get_channel_idx(v))))
-        self.__configure_channel_list(channels)
         self.__enable_accept()
 
     def accept(self):
