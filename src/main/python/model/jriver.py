@@ -556,15 +556,20 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         :param node_name: the selected node.
         :param pos: the location to place the menu.
         '''
-        menu = QMenu(self)
-        self.__populate_edit_node_add_menu(menu.addMenu('&Add'), node_name)
-        edit = QAction(f"&Edit", self)
-        edit.triggered.connect(lambda: self.__show_edit_filter_dialog(node_name))
-        menu.addAction(edit)
-        delete = QAction(f"&Delete", self)
-        delete.triggered.connect(lambda: self.__delete_node(node_name))
-        menu.addAction(delete)
-        menu.exec(pos)
+        node = self.dsp.active_graph.get_node(node_name)
+        if node:
+            filt = node.parent if node.parent else node.filt
+            if filt:
+                menu = QMenu(self)
+                self.__populate_edit_node_add_menu(menu.addMenu('&Add'), node_name)
+                edit = QAction(f"&Edit", self)
+                edit.triggered.connect(lambda: self.__show_edit_filter_dialog(node_name))
+                menu.addAction(edit)
+                if not isinstance(filt, CompoundRoutingFilter):
+                    delete = QAction(f"&Delete", self)
+                    delete.triggered.connect(lambda: self.__delete_node(node_name))
+                    menu.addAction(delete)
+                menu.exec(pos)
 
     def __populate_edit_node_add_menu(self, add_menu: QMenu, node_name: str):
         '''
@@ -943,10 +948,12 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         '''
         node = self.dsp.active_graph.get_node(node_name)
         if node:
-            filt = node.filt
+            filt = node.parent if node.parent else node.filt
             if filt:
                 if isinstance(filt, GEQFilter):
                     self.__start_geq_edit_session(filt, filt.channel_names)
+                elif isinstance(filt, CompoundRoutingFilter):
+                    self.__update_xo(filt)
                 elif node.has_editable_filter():
                     node_idx, node_chain = node.editable_node_chain
                     filters: List[SOS] = [f.editable_filter for f in node_chain]
@@ -1322,24 +1329,40 @@ class JRiverDSP:
         for c, pipe in self.active_graph.filter_pipes_by_channel.items():
             logger.info(f"Filtering {c} using {pipe}")
             while pipe is not None:
-                if isinstance(pipe.op, BranchFilterOp):
-                    branches.append(pipe.op)
-                if not pipe.op.ready:
-                    source = next((b for b in branches if b.is_source_for(pipe.op)), None)
-                    if source:
-                        pipe.op.accept(source.source_signal)
-                if pipe.op.ready:
-                    signals[c] = pipe.op.apply(signals[c])
-                    pipe = pipe.next
-                else:
-                    incomplete[c] = pipe
-                    pipe = None
+                pipe = self.__process_pipe(branches, c, incomplete, pipe, signals)
+        max_attempts = len(incomplete.keys()) * 20
+        attempts = 0
+        while incomplete and attempts < max_attempts:
+            logger.info(f"Starting incomplete filter pipeline pass {attempts}")
+            incomplete_channels = list(incomplete.keys())
+            for c in incomplete_channels:
+                pipe = incomplete.pop(c, None)
+                logger.info(f"Filtering {c} using {pipe}")
+                while pipe is not None:
+                    pipe = self.__process_pipe(branches, c, incomplete, pipe, signals)
+            attempts += 1
         if incomplete:
-            logger.error(f"Incomplete filter pipeline detected {incomplete}")
-            # TODO
+            raise ValueError(f"Failed to process all filter pipelines {incomplete}")
         self.__signals = signals
         end = time.time()
         logger.info(f"Generated {len(signals)} signals in {to_millis(start, end)} ms")
+
+    @staticmethod
+    def __process_pipe(branches: List[BranchFilterOp], c: str, incomplete: Dict[str, FilterPipe], pipe: FilterPipe,
+                       signals: Dict[str, Signal]) -> FilterPipe:
+        if isinstance(pipe.op, BranchFilterOp):
+            branches.append(pipe.op)
+        if not pipe.op.ready:
+            source = next((b for b in branches if b.is_source_for(pipe.op)), None)
+            if source:
+                pipe.op.accept(source.source_signal)
+        if pipe.op.ready:
+            signals[c] = pipe.op.apply(signals[c])
+            pipe = pipe.next
+        else:
+            incomplete[c] = pipe
+            pipe = None
+        return pipe
 
     @property
     def active_graph(self):
@@ -1990,6 +2013,10 @@ class Mix(SingleFilter):
     def mix_type(self) -> MixType:
         return MixType(int(self.__mode))
 
+    @property
+    def gain(self) -> float:
+        return self.__gain
+
     def get_vals(self) -> Dict[str, str]:
         return {
             'Source': self.__source,
@@ -2241,7 +2268,7 @@ class XOFilter(ComplexChannelFilter):
         super().__init__(filters)
 
     def short_desc(self):
-        return f"{self.__input_channel}{self.__way+1} {self.__filter_type.name}"
+        return f"{self.__filter_type.name}"
 
     def metadata(self) -> str:
         return f"{self.__input_channel}/{self.__way}/{self.__filter_type.name}"
@@ -2260,8 +2287,8 @@ class XOFilter(ComplexChannelFilter):
 
     @classmethod
     def create(cls, data: str, child_filters: List[Filter]):
-        c, w = data.split('/')
-        return XOFilter(c, int(w), child_filters)
+        tokens = data.split('/')
+        return XOFilter(tokens[0], int(tokens[1]), child_filters)
 
     @staticmethod
     def __calculate_filter_type(filters: List[Filter]) -> XOFilterType:
@@ -2282,9 +2309,9 @@ class XOFilter(ComplexChannelFilter):
 
 class CompoundRoutingFilter(ComplexFilter, Sequence[Filter]):
 
-    def __init__(self, metadata: str, routing: List[Filter], xo: List[XOFilter]):
+    def __init__(self, metadata: str, routing: List[Filter], xo: List[XOFilter], sw_routing: List[Filter]):
         self.__metadata = metadata
-        all_filters = routing + xo
+        all_filters = routing + xo + sw_routing
         all_channels = set()
         for f in all_filters:
             if hasattr(f, 'channel_names'):
@@ -2294,7 +2321,7 @@ class CompoundRoutingFilter(ComplexFilter, Sequence[Filter]):
                 all_channels.add(get_channel_name(f.src_idx))
                 all_channels.add(get_channel_name(f.dst_idx))
         self.__channel_names = [x for _, x in sorted(zip(all_channels, JRIVER_SHORT_CHANNELS)) if x]
-        super().__init__(routing + xo)
+        super().__init__(all_filters)
 
     @overload
     @abstractmethod
@@ -2321,14 +2348,17 @@ class CompoundRoutingFilter(ComplexFilter, Sequence[Filter]):
 
     @classmethod
     def create(cls, data: str, child_filters: List[Filter]):
-        routing = []
-        pass_filters = []
-        active = routing
+        phase = 0
+        filters = [[], [], []]
+        # filters arranged as mix then XO then more mix
         for f in child_filters:
-            if not isinstance(f, Mix):
-                active = pass_filters
-            active.append(f)
-        return CompoundRoutingFilter(data, routing, pass_filters)
+            is_mix = isinstance(f, Mix)
+            if is_mix and phase > 0:
+                phase = 2
+            elif not is_mix and phase == 0:
+                phase = 1
+            filters[phase].append(f)
+        return CompoundRoutingFilter(data, *filters)
 
 
 class CustomPassFilter(ComplexChannelFilter):
@@ -2703,6 +2733,7 @@ class Node:
     def __init__(self, rank: int, name: str, filt: Optional[Filter], channel: str):
         self.name = name
         self.rank = rank
+        self.parent: Optional[Filter] = None
         self.__filt = filt
         self.__filter_op = filt.get_filter() if filt else NopFilterOp()
         if isinstance(filt, Mix) and isinstance(self.__filter_op, GainFilterOp):
@@ -2963,7 +2994,9 @@ class FilterGraph:
             if isinstance(f, Sequence):
                 for f1 in f:
                     if self.__process_filter(f1, by_channel, i):
-                        f.nodes.extend(f1.nodes)
+                        for n in f1.nodes:
+                            f.nodes.append(n)
+                            n.parent = f
                         i += 1
             else:
                 if self.__process_filter(f, by_channel, i):
@@ -3949,6 +3982,8 @@ class JRiverChannelOnlyFilterDialog(QDialog, Ui_jriverChannelSelectDialog):
                  vals: Dict[str, str] = None, title: str = 'Polarity', multi: bool = True):
         super(JRiverChannelOnlyFilterDialog, self).__init__(parent)
         self.setupUi(self)
+        self.lfeChannel.setVisible(False)
+        self.lfeChannelLabel.setVisible(False)
         if multi:
             self.channelList.setSelectionMode(QAbstractItemView.MultiSelection)
         else:

@@ -36,7 +36,8 @@ EDITOR_NAME_KEY = 'n'
 UNDERLYING_KEY = 'u'
 WAYS_KEY = 'w'
 SYM_KEY = 's'
-SW_KEY = 'x'
+LFE_IN_KEY = 'x'
+SW_OUT_KEY = 'y'
 
 logger = logging.getLogger('xo')
 
@@ -303,18 +304,24 @@ class XODialog(QDialog, Ui_xoDialog):
         self.__output_format = output_format
         self.__channel_groups = {c: [c] for c in input_channels}
         self.__output_channels = output_channels
-        self.__sw_channels = self.__calculate_sw_channels()
         self.__mag_update_timer = QTimer(self)
         self.__mag_update_timer.setSingleShot(True)
         self.prefs = prefs
         self.setupUi(self)
         self.showMatrixButton.setIcon(qta.icon('fa5s.route'))
-        self.setSWChannelsButton.clicked.connect(self.__show_sw_channel_selector_dialog)
+        if self.__output_format.lfe_channels > 0:
+            self.setSWChannelsButton.clicked.connect(self.__show_sw_channel_selector_dialog)
+            self.__lfe_channel = 'SW'
+            self.__sw_output_channels: List[str] = ['SW']
+        else:
+            self.setSWChannelsButton.setVisible(False)
+            self.__lfe_channel = None
+            self.__sw_output_channels: List[str] = []
         self.linkChannelsButton.clicked.connect(self.__show_group_channels_dialog)
         self.__matrix = None
         self.__editors = [
             ChannelEditor(self.channelsFrame, name, channels, output_format,
-                          any(c in self.__sw_channels for c in channels), self.__trigger_redraw,
+                          any(c == self.__lfe_channel for c in channels), self.__trigger_redraw,
                           self.__on_output_channel_count_change)
             for name, channels in self.__channel_groups.items()
         ]
@@ -337,8 +344,8 @@ class XODialog(QDialog, Ui_xoDialog):
         self.showPhase.toggled.connect(self.__trigger_redraw)
         self.showPhase.setToolTip('Display phase response')
         if output_format.lfe_channels > 0:
-            self.lfeAdjust.setEnabled(True)
-            self.lfeAdjustLabel.setEnabled(True)
+            self.lfeAdjust.setVisible(False)
+            self.lfeAdjustLabel.setVisible(False)
         self.__mag_update_timer.timeout.connect(self.__magnitude_model.redraw)
         self.__existing = existing
         self.linkChannelsButton.setFocus()
@@ -370,19 +377,23 @@ class XODialog(QDialog, Ui_xoDialog):
                     match = next(e for e in self.__editors
                                  if e.name in groups.keys() and f.input_channel in e.underlying_channels)
                     match.load_filter(f)
-        if SW_KEY in metadata:
-            self.__sw_channels = metadata[SW_KEY]
+        if LFE_IN_KEY in metadata:
+            self.__lfe_channel = metadata[LFE_IN_KEY]
+        if SW_OUT_KEY in metadata:
+            self.__sw_output_channels = metadata[SW_OUT_KEY]
         if ROUTING_KEY in metadata:
             self.__matrix.decode(metadata[ROUTING_KEY])
 
-    def __calculate_sw_channels(self) -> List[str]:
-        return [] if self.__output_format.lfe_channels == 0 else ['SW']
+    def __calculate_sw_channel(self) -> str:
+        return None if self.__output_format.lfe_channels == 0 else 'SW'
 
     def accepted(self):
         super().accepted()
 
     def __create_matrix(self):
-        matrix = Matrix({c: len(e) for e in self.__editors for c in e.underlying_channels}, self.__output_channels)
+        excess_sw = [] if len(self.__sw_output_channels) < 2 else self.__sw_output_channels[1:]
+        matrix = Matrix({c: len(e) for e in self.__editors for c in e.underlying_channels},
+                        [c for c in self.__output_channels if c not in excess_sw])
         self.__initialise_routing(matrix)
         return matrix
 
@@ -396,25 +407,33 @@ class XODialog(QDialog, Ui_xoDialog):
         else:
             for c, w in channel_ways:
                 if w == 0:
-                    for sw in self.__sw_channels:
-                        matrix.enable(c, w, sw)
+                    if self.__sw_output_channels:
+                        matrix.enable(c, w, self.__sw_output_channels[0])
                 else:
                     matrix.enable(c, w, c)
 
     def __show_group_channels_dialog(self):
-        GroupChannelsDialog(self, {e.name: e.underlying_channels for e in self.__editors if e.widget.isVisible()},
+        GroupChannelsDialog(self, {e.name: e.underlying_channels for e in self.__editors
+                                   if e.widget.isVisible() and e.name != self.__lfe_channel},
                             self.__reconfigure_channel_groups).exec()
 
     def __show_sw_channel_selector_dialog(self) -> None:
         '''
         Allows user to specify multiple sw output channels.
         '''
-        def on_save(sw_channels):
-            if sw_channels != self.__sw_channels:
-                self.__sw_channels = sw_channels
+        def on_save(input_sw: str, output_sw: List[str]):
+            changed = False
+            if input_sw != self.__lfe_channel:
+                self.__lfe_channel = input_sw
+                changed = True
+            if output_sw != self.__sw_output_channels:
+                self.__sw_output_channels = output_sw
+                changed = True
+            if changed:
                 self.__matrix = self.__create_matrix()
 
-        SWChannelSelectorDialog(self, self.__output_channels, self.__sw_channels, on_save).exec()
+        SWChannelSelectorDialog(self, self.__output_channels, self.__lfe_channel, self.__sw_output_channels,
+                                on_save).exec()
 
     def __reconfigure_channel_groups(self, grouped_channels: Dict[str, List[str]]):
         '''
@@ -424,6 +443,7 @@ class XODialog(QDialog, Ui_xoDialog):
         old_matrix = self.__matrix
         self.__matrix = None
         old_groups = self.__channel_groups
+        grouped_channels[self.__lfe_channel] = [self.__lfe_channel]
         self.__channel_groups = grouped_channels
         for name, channels in grouped_channels.items():
             matching_editor: ChannelEditor = next((e for e in self.__editors if e.name == name), None)
@@ -431,9 +451,10 @@ class XODialog(QDialog, Ui_xoDialog):
                 if matching_editor.underlying_channels != channels:
                     matching_editor.underlying_channels = channels
                     old_matrix = None
+                matching_editor.widget.setVisible(True)
             else:
                 new_editor = ChannelEditor(self.channelsFrame, name, channels, self.__output_format,
-                                           any(c in self.__sw_channels for c in channels),
+                                           any(c == self.__lfe_channel for c in channels),
                                            self.__trigger_redraw, self.__on_output_channel_count_change)
                 self.__editors.append(new_editor)
                 self.channelsLayout.addWidget(new_editor.widget)
@@ -467,12 +488,46 @@ class XODialog(QDialog, Ui_xoDialog):
 
     def __make_filters(self) -> CompoundRoutingFilter:
         routes = self.__matrix.get_routes()
-        routing_filters = [self.__convert_to_filter(i, mt, o) for i, w, o, mt in routes if mt]
+        lfe_adjust = 0
+        if self.__output_format.lfe_channels > 0:
+            lfe_adjust = -(self.lfeAdjust.value())
+        if lfe_adjust == 0:
+            main_adjust = 0
+        else:
+            main_adjust = lfe_adjust - 10
+        sw_channel_idxes = [get_channel_idx(c) for c in self.__sw_output_channels]
+        if sw_channel_idxes:
+            sw_channel_idx = sw_channel_idxes[0]
+        else:
+            sw_channel_idx = None
+        routing_filters: List[Mix] = [self.__convert_to_filter(i, mt, o, main_adjust, lfe_adjust, sw_channel_idx)
+                                      for i, w, o, mt in routes if mt]
+        gain_filters: List[Filter] = []
+        if lfe_adjust != 0:
+            def has_routed(c: int) -> bool:
+                return next((r for r in routing_filters if r.gain == lfe_adjust and r.dst_idx == c), None) is not None
+            sw_channels_to_adjust = [sw for sw in sw_channel_idxes if not has_routed(sw)]
+            for c in sw_channels_to_adjust:
+                gain_filters.append(Gain({
+                    'Enabled': '1',
+                    'Type': Gain.TYPE,
+                    'Gain': f"{lfe_adjust:.7g}",
+                    'Channels': str(c)
+                }))
         channel_mapping: Dict[str, Dict[int, str]] = self.__matrix.get_mapping()
         xo_filters = []
         for e in self.__editors:
             for c in e.underlying_channels:
                 xo_filters.extend(e.get_xo_filters(c, channel_mapping[c]))
+        sw_copy_filters = []
+        if len(sw_channel_idxes) > 1:
+            for i in sw_channel_idxes[1:]:
+                sw_copy_filters.append(Mix({
+                    **Mix.default_values(),
+                    'Source': str(sw_channel_idx),
+                    'Destination': str(i),
+                    'Mode': str(MixType.COPY.value)
+                }))
         meta = {
             EDITORS_KEY: [
                 {EDITOR_NAME_KEY: e.name, UNDERLYING_KEY: e.underlying_channels, WAYS_KEY: len(e), SYM_KEY: e.symmetric}
@@ -480,20 +535,23 @@ class XODialog(QDialog, Ui_xoDialog):
             ],
             ROUTING_KEY: self.__matrix.encode(),
         }
-        if self.__sw_channels:
-            meta[SW_KEY] = self.__sw_channels
-        if self.lfeAdjust.isEnabled():
+        if self.__lfe_channel:
+            meta[LFE_IN_KEY] = self.__lfe_channel
+        if self.__sw_output_channels:
+            meta[SW_OUT_KEY] = self.__sw_output_channels
+        if self.lfeAdjust.isVisible():
             meta[LFE_ADJUST_KEY] = self.lfeAdjust.value()
-        # TODO add gain for LFE channel adjustments
-        return CompoundRoutingFilter(json.dumps(meta), routing_filters, xo_filters)
+        return CompoundRoutingFilter(json.dumps(meta), gain_filters + routing_filters, xo_filters, sw_copy_filters)
 
     @staticmethod
-    def __convert_to_filter(i: int, mt: MixType, o: int) -> Filter:
+    def __convert_to_filter(i: int, mt: MixType, o: int, main_adjust: float, lfe_adjust: float, sw_channel: int) -> Mix:
         vals = Mix.default_values()
-        # TODO handle gain for bass management
         vals['Source'] = str(i)
         vals['Destination'] = str(o)
         vals['Mode'] = str(mt.value)
+        if mt == MixType.ADD:
+            adjust = main_adjust if o == sw_channel else lfe_adjust
+            vals['Gain'] = f"{adjust:.7g}"
         return Mix(vals)
 
     def show_limits(self):
@@ -545,7 +603,7 @@ class XODialog(QDialog, Ui_xoDialog):
 class ChannelEditor:
 
     def __init__(self, channels_frame: QWidget, name: str, underlying_channels: List[str],
-                 output_format: OutputFormat, is_sw_channel: bool,  on_filter_change: Callable[[], None],
+                 output_format: OutputFormat, is_sw_channel: bool, on_filter_change: Callable[[], None],
                  on_way_count_change: Callable[[str, int], None]):
         self.__on_change = on_filter_change
         self.__is_sw_channel = is_sw_channel
@@ -1107,15 +1165,16 @@ class GroupChannelsDialog(QDialog, Ui_groupChannelsDialog):
         self.groupName.setEnabled(False)
         self.channels.itemSelectionChanged.connect(self.__enable_add_button)
         self.groupName.textChanged.connect(self.__enable_add_button)
-        output_model: QAbstractItemModel = self.channelGroups.model()
-        output_model.rowsInserted.connect(self.__enable_save_button)
-        output_model.rowsRemoved.connect(self.__enable_save_button)
         self.channelGroups.itemSelectionChanged.connect(self.__enable_remove_button)
         self.addGroupButton.clicked.connect(self.__add_group)
         self.addGroupButton.setIcon(qta.icon('fa5s.plus'))
         self.deleteGroupButton.setIcon(qta.icon('fa5s.minus'))
+        self.linkAllButton.setIcon(qta.icon('fa5s.object-group'))
+        self.linkAllButton.clicked.connect(self.__group_all)
         self.deleteGroupButton.clicked.connect(self.__remove_group)
-        self.__enable_save_button()
+
+    def __group_all(self):
+        self.__add_named('All', [self.channels.item(i).text() for i in range(self.channels.count())])
 
     def __enable_remove_button(self):
         self.deleteGroupButton.setEnabled(len(self.channelGroups.selectedItems()) > 0)
@@ -1125,9 +1184,6 @@ class GroupChannelsDialog(QDialog, Ui_groupChannelsDialog):
         self.groupName.setEnabled(some_selected)
         self.addGroupButton.setEnabled(some_selected and len(self.groupName.text()) > 0)
 
-    def __enable_save_button(self):
-        self.buttonBox.button(QDialogButtonBox.Save).setEnabled(self.channelGroups.count() > 0)
-
     def __add_group(self):
         item: QListWidgetItem = QListWidgetItem(self.groupName.text())
         item.setData(self.GROUP_CHANNELS_ROLE, [i.text() for i in self.channels.selectedItems()])
@@ -1135,11 +1191,25 @@ class GroupChannelsDialog(QDialog, Ui_groupChannelsDialog):
         self.groupName.clear()
         self.__remove_selected(self.channels)
 
+    def __add_named(self, name: str, selected: List[str]):
+        if selected:
+            item: QListWidgetItem = QListWidgetItem(name)
+            item.setData(self.GROUP_CHANNELS_ROLE, selected)
+            self.channelGroups.addItem(item)
+            self.groupName.clear()
+            self.__remove_named(selected, self.channels)
+
     def __remove_group(self):
         for i in self.channelGroups.selectedItems():
             for c in i.data(self.GROUP_CHANNELS_ROLE):
                 self.channels.addItem(c)
         self.__remove_selected(self.channelGroups)
+
+    @staticmethod
+    def __remove_named(named: List[str], widget: QListWidget):
+        for i in reversed(range(widget.count())):
+            if widget.item(i).text() in named:
+                widget.takeItem(i)
 
     @staticmethod
     def __remove_selected(widget: QListWidget):
@@ -1156,22 +1226,24 @@ class GroupChannelsDialog(QDialog, Ui_groupChannelsDialog):
 
 class SWChannelSelectorDialog(QDialog, Ui_jriverChannelSelectDialog):
 
-    def __init__(self, parent: QDialog, channels: List[str], sw_channels: List[str],
-                 on_save: Callable[[List[str]], None]):
+    def __init__(self, parent: QDialog, channels: List[str], lfe_channel: str, sw_channels: List[str],
+                 on_save: Callable[[str, List[str]], None]):
         super(SWChannelSelectorDialog, self).__init__(parent)
         self.setupUi(self)
         self.channelList.setSelectionMode(QAbstractItemView.MultiSelection)
         self.__on_save = on_save
-        self.setWindowTitle('Select SW Output Channels')
+        self.setWindowTitle('Set LFE/SW Channels')
         self.channelListLabel.hide()
         for c in channels:
             self.channelList.addItem(c)
+            self.lfeChannel.addItem(c)
+        self.lfeChannel.setCurrentText(lfe_channel)
         for c in sw_channels:
             item: QListWidgetItem
             for item in self.channelList.findItems(c, Qt.MatchCaseSensitive):
                 item.setSelected(True)
 
     def accept(self):
-        self.__on_save([i.text() for i in self.channelList.selectedItems()])
+        self.__on_save(self.lfeChannel.currentText(), [i.text() for i in self.channelList.selectedItems()])
         super().accept()
 
