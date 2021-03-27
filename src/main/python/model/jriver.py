@@ -183,6 +183,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         self.__current_dot_txt = None
         self.prefs = prefs
         self.setupUi(self)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowSystemMenuHint | Qt.WindowMinMaxButtonsHint)
         self.__decorate_buttons()
         self.addFilterButton.setMenu(self.__populate_add_filter_menu(QMenu(self)))
         self.pipelineView.signal.on_click.connect(self.__on_node_click)

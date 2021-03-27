@@ -65,12 +65,13 @@ jobs:
             sudo apt install libblas-dev liblapack-dev libsndfile1 graphviz
           elif [[ "$RUNNER_OS" == "Windows" ]]
           then
-            choco install openssl.light nsis graphviz
+            choco install openssl.light graphviz
           elif [[ "$RUNNER_OS" == "macOS" ]]
           then
             brew install graphviz
+            brew ls -v graphviz
           fi
-          pipenv run pip install pyinstaller
+          pipenv run pip install https://github.com/pyinstaller/pyinstaller/tarball/develop
       - name: Get latest release version number
         id: get_version
         uses: battila7/get-version-action@v2
@@ -93,11 +94,6 @@ jobs:
             echo ::set-output name=binary_content_type::"application/zip"
           elif [[ "$RUNNER_OS" == "Windows" ]]
           then
-            export USE_NSIS=Y
-            mv dist/beqdesigner.exe dist/bak.exe
-            pipenv run pyinstaller --clean --log-level=INFO -D beqdesigner.spec
-            "/c/Program Files (x86)/NSIS/makensis.exe" src/main/nsis/Installer.nsi
-            mv dist/bak.exe dist/beqdesigner.exe
             echo ::set-output name=binary_path::"dist/beqdesigner.exe"
             echo ::set-output name=binary_name::"beqdesigner.exe"
             echo ::set-output name=binary_content_type::"application/vnd.microsoft.portable-executable"
@@ -116,13 +112,3 @@ jobs:
           asset_name: ${{ steps.create_dist.outputs.binary_name }}
           asset_path: ${{ steps.create_dist.outputs.binary_path }}
           asset_content_type: ${{ steps.create_dist.outputs.binary_content_type }}
-      - name: Upload beqdesignerSetup
-        uses: actions/upload-release-asset@v1
-        if: matrix.os == 'windows-2019'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_name: beqdesignerSetup.exe
-          asset_path: dist/beqdesignerSetup.exe
-          asset_content_type: application/vnd.microsoft.portable-executable

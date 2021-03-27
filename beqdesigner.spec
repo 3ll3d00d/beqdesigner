@@ -82,6 +82,7 @@ def get_data_args():
         ('src/main/python/style', 'style'),
         ('src/main/python/VERSION', '.'),
         ('src/main/xml/flat24hd.xml', '.'),
+        ('src/main/xml/default_jriver_config.xml', '.'),
     ]
 
 
@@ -126,8 +127,45 @@ def get_exe_name():
 
 def get_binaries():
     '''
-    :return: the ssl binaries if we're on windows and they exist.
+    :return: the ssl binaries if we're on windows and they exist + graphviz (if available).
     '''
+    ssl_dlls = get_ssl_dlls()
+    gz_binaries = get_graphviz_binaries()
+    return ssl_dlls + gz_binaries
+
+
+def get_graphviz_binaries():
+    '''
+    :return: the graphviz binaries.
+    '''
+    if platform.system() == 'Windows':
+        return get_graphviz_windows()
+    return []
+
+
+def get_graphviz_windows():
+    path_to_gz = os.environ.get('GZ_PATH', 'c:/Program Files/Graphviz/bin')
+    dot_exe = 'dot.exe'
+    if os.path.isfile(os.path.join(path_to_gz, dot_exe)):
+        gz = [
+            (os.path.join(path_to_gz, 'cdt.dll'), '.'),
+            (os.path.join(path_to_gz, 'cgraph.dll'), '.'),
+            (os.path.join(path_to_gz, 'config6'), '.'),
+            (os.path.join(path_to_gz, 'dot.exe'), '.'),
+            (os.path.join(path_to_gz, 'expat.dll'), '.'),
+            (os.path.join(path_to_gz, 'gvc.dll'), '.'),
+            (os.path.join(path_to_gz, 'gvplugin_core.dll'), '.'),
+            (os.path.join(path_to_gz, 'gvplugin_dot_layout.dll'), '.'),
+            (os.path.join(path_to_gz, 'pathplan.dll'), '.'),
+            (os.path.join(path_to_gz, 'xdot.dll'), '.')
+        ]
+        return gz
+    else:
+        print(f"MISSING {os.path.join(path_to_gz, dot_exe)}")
+        return []
+
+
+def get_ssl_dlls():
     if platform.system() == 'Windows':
         import os
         ssl_dll = 'c:/Windows/System32/libssl-1_1-x64.dll'
@@ -142,7 +180,7 @@ def get_binaries():
                 print(f"MISSING libcrypto-1_1-x64.dll")
         else:
             print(f"MISSING libssl-1_1-x64.dll")
-    return None
+    return []
 
 
 block_cipher = None
