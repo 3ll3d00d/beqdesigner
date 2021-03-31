@@ -57,14 +57,21 @@
    </item>
    <item>
     <layout class="QGridLayout" name="xoContainerLayout">
-     <item row="0" column="0">
-      <widget class="QPushButton" name="linkChannelsButton">
+     <item row="0" column="1">
+      <widget class="QPushButton" name="showMatrixButton">
        <property name="text">
-        <string>Link Channels</string>
+        <string>Input/Output  Routing</string>
        </property>
       </widget>
      </item>
-     <item row="1" column="0" colspan="4">
+     <item row="0" column="2">
+      <widget class="QPushButton" name="setSWChannelsButton">
+       <property name="text">
+        <string>Set SW Channels</string>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="0" colspan="5">
       <widget class="QScrollArea" name="peqScrollArea">
        <property name="sizeAdjustPolicy">
         <enum>QAbstractScrollArea::AdjustToContents</enum>
@@ -85,21 +92,14 @@
        </widget>
       </widget>
      </item>
-     <item row="0" column="1">
-      <widget class="QPushButton" name="showMatrixButton">
+     <item row="0" column="0">
+      <widget class="QPushButton" name="linkChannelsButton">
        <property name="text">
-        <string>Input/Output  Routing</string>
+        <string>Link Channels</string>
        </property>
       </widget>
      </item>
-     <item row="0" column="2">
-      <widget class="QPushButton" name="setSWChannelsButton">
-       <property name="text">
-        <string>Set SW Channels</string>
-       </property>
-      </widget>
-     </item>
-     <item row="0" column="3">
+     <item row="0" column="4">
       <layout class="QHBoxLayout" name="lfeAdjustLayout">
        <item>
         <widget class="QLabel" name="lfeAdjustLabel">
@@ -131,6 +131,13 @@
         </widget>
        </item>
       </layout>
+     </item>
+     <item row="0" column="3">
+      <widget class="QToolButton" name="showFiltersButton">
+       <property name="text">
+        <string>...</string>
+       </property>
+      </widget>
      </item>
     </layout>
    </item>

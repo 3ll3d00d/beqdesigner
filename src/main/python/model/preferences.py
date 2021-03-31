@@ -199,6 +199,11 @@ XO_GEOMETRY = 'geq/geometry'
 XO_GRAPH_X_MIN = 'geq/x_min'
 XO_GRAPH_X_MAX = 'geq/x_max'
 
+IMPULSE_GEOMETRY = 'impulse/geometry'
+IMPULSE_GRAPH_X_MIN = 'impulse/x_min'
+IMPULSE_GRAPH_X_MAX = 'impulse/x_max'
+
+
 MINIDSP_RS_OPTIONS = 'minidsp/rs_options'
 
 DEFAULT_PREFS = {
@@ -257,6 +262,8 @@ DEFAULT_PREFS = {
     HTP1_AUTOSYNC: False,
     HTP1_GRAPH_X_MIN: 10,
     HTP1_GRAPH_X_MAX: 20000,
+    IMPULSE_GRAPH_X_MIN: -0.02,
+    IMPULSE_GRAPH_X_MAX: 0.05,
     JRIVER_GRAPH_X_MIN: 10,
     JRIVER_GRAPH_X_MAX: 20000,
     JRIVER_DSP_DIR: str(Path.home()),

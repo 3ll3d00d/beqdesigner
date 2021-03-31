@@ -1038,7 +1038,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         dialog.exec()
 
     def __import_jriver_peq(self):
-        from model.jriver import JRiverDSPDialog
+        from model.jriver.ui import JRiverDSPDialog
         JRiverDSPDialog(self, self.preferences).exec()
 
     def show_y2_tool_buttons(self, show=True):

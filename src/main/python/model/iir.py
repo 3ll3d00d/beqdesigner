@@ -1091,6 +1091,19 @@ class ComplexFilter(SOS, Sequence):
                                n=self.fs if n is None else n)
         return t, y
 
+    def get_step_response(self, dt=None, n=None):
+        '''
+        Converts the 2nd order section to a transfer function (b, a) and then computes the SR of the discrete time
+        system.
+        :param dt: the time delta.
+        :param n: the no of samples to output, defaults to 1s.
+        :return: t, y
+        '''
+        t, y = signal.dstep(signal.dlti(*signal.sos2tf(np.array(self.get_sos())),
+                                        dt=1 / self.fs if dt is None else dt),
+                             n=self.fs if n is None else n)
+        return t, y
+
     def to_json(self):
         return {
             '_type': self.__class__.__name__,

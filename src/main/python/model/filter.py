@@ -15,7 +15,7 @@ from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox, QHeaderView, QTabl
 from model.iir import FilterType, LowShelf, HighShelf, PeakingEQ, SecondOrder_LowPass, \
     SecondOrder_HighPass, ComplexLowPass, ComplexHighPass, q_to_s, s_to_q, max_permitted_s, CompleteFilter, COMBINED, \
     Passthrough, Gain, Shelf, LinkwitzTransform, Biquad
-from model.limits import dBRangeCalculator, PhaseRangeCalculator
+from model.limits import DecibelRangeCalculator, PhaseRangeCalculator
 from model.magnitude import MagnitudeModel
 from model.preferences import SHOW_ALL_FILTERS, SHOW_NO_FILTERS, FILTER_COLOURS, DISPLAY_SHOW_FILTERS, DISPLAY_Q_STEP, \
     DISPLAY_GAIN_STEP, DISPLAY_S_STEP, DISPLAY_FREQ_STEP, get_filter_colour, FILTERS_DEFAULT_Q, FILTERS_DEFAULT_FREQ, \
@@ -313,7 +313,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
                                                     self.__get_data(), 'Filter', fill_primary=True,
                                                     secondary_data_provider=self.__get_data('phase'),
                                                     secondary_name='Phase', secondary_prefix='deg', fill_secondary=False,
-                                                    db_range_calc=dBRangeCalculator(30, expand=True),
+                                                    y_range_calc=DecibelRangeCalculator(30, expand=True),
                                                     y2_range_calc=PhaseRangeCalculator(), show_y2_in_legend=False,
                                                     **kwargs)
             self.__mag_update_timer.timeout.connect(self.__magnitude_model.redraw)

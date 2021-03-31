@@ -1040,14 +1040,16 @@ class Signal:
                       fs=self.fs,
                       metadata=self.metadata)
 
-    def sosfilter(self, sos):
+    def sosfilter(self, sos, filtfilt=False):
         '''
-        Applies a cascaded 2nd order series of filters via sosfiltfilt.
+        Applies a cascaded 2nd order series of filters.
+        :param filtfilt: use sosfiltfilt if true else sosfilt.
         :param sos: the sections.
         :return: the filtered signal
         '''
+        call = signal.sosfiltfilt if filtfilt else signal.sosfilt
         return Signal(self.name,
-                      signal.sosfilt(sos, self.samples),
+                      call(sos, self.samples),
                       analysis_resolution=self.__analysis_resolution,
                       avg_window=self.__avg_window,
                       peak_window=self.__peak_window,

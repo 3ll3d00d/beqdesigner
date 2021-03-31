@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>impulseDialog</class>
+ <widget class="QDialog" name="impulseDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1070</width>
+    <height>638</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Impulse/Step Response</string>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout">
+     <item>
+      <widget class="QGraphicsView" name="previewChart"/>
+     </item>
+     <item>
+      <layout class="QVBoxLayout" name="toolbarLayout">
+       <item>
+        <widget class="QToolButton" name="limitsButton"/>
+       </item>
+       <item>
+        <widget class="QToolButton" name="selectChannelsButton">
+         <property name="text">
+          <string>...</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="chartToggle">
+         <property name="text">
+          <string>...</string>
+         </property>
+         <property name="checkable">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <spacer name="verticalSpacer">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>20</width>
+           <height>40</height>
+          </size>
+         </property>
+        </spacer>
+       </item>
+      </layout>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Close</set>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>accepted()</signal>
+   <receiver>impulseDialog</receiver>
+   <slot>accept()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>254</x>
+     <y>631</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>157</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>rejected()</signal>
+   <receiver>impulseDialog</receiver>
+   <slot>reject()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>322</x>
+     <y>631</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>286</x>
+     <y>274</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>limitsButton</sender>
+   <signal>clicked()</signal>
+   <receiver>impulseDialog</receiver>
+   <slot>show_limits()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1051</x>
+     <y>24</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1061</x>
+     <y>156</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>selectChannelsButton</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>impulseDialog</receiver>
+   <slot>update_chart()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1051</x>
+     <y>68</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1039</x>
+     <y>140</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>chartToggle</sender>
+   <signal>clicked()</signal>
+   <receiver>impulseDialog</receiver>
+   <slot>select_channels()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1043</x>
+     <y>104</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1053</x>
+     <y>212</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+ <slots>
+  <slot>show_limits()</slot>
+  <slot>update_chart()</slot>
+  <slot>select_channels()</slot>
+ </slots>
+</ui>

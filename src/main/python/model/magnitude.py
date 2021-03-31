@@ -6,7 +6,7 @@ import math
 import numpy as np
 from matplotlib.gridspec import GridSpec
 
-from model.limits import Limits, LimitsDialog, ValuesDialog, dBRangeCalculator
+from model.limits import Limits, LimitsDialog, ValuesDialog, DecibelRangeCalculator
 from model.preferences import GRAPH_X_AXIS_SCALE, GRAPH_X_MIN, GRAPH_X_MAX, GRAPH_EXPAND_Y
 
 logger = logging.getLogger('magnitude')
@@ -148,7 +148,7 @@ class MagnitudeModel:
 
     def __init__(self, name, chart, preferences, primary_data_provider, primary_name, primary_prefix='dBFS',
                  secondary_data_provider=None, secondary_name=None, secondary_prefix='dBFS',
-                 show_legend=lambda: True, db_range_calc=dBRangeCalculator(60),
+                 show_legend=lambda: True, y_range_calc=DecibelRangeCalculator(60),
                  subplot_spec=SINGLE_SUBPLOT_SPEC, redraw_listener=None, grid_alpha=0.5, x_min_pref_key=GRAPH_X_MIN,
                  x_max_pref_key=GRAPH_X_MAX, x_scale_pref_key=GRAPH_X_AXIS_SCALE, fill_curves=False, fill_alpha=0.5,
                  allow_line_resize=False, fill_primary=False, fill_secondary=False, y2_range_calc=None,
@@ -175,12 +175,12 @@ class MagnitudeModel:
             primary_axes.patch.set_visible(False)
         self.__secondary = AxesManager(secondary_data_provider, secondary_axes, fill_curves or fill_secondary,
                                        fill_alpha, show_in_legend=show_y2_in_legend)
-        if isinstance(db_range_calc, dBRangeCalculator) and not db_range_calc.expand_range:
-            db_range_calc.expand_range = preferences.get(GRAPH_EXPAND_Y)
+        if isinstance(y_range_calc, DecibelRangeCalculator) and not y_range_calc.expand_range:
+            y_range_calc.expand_range = preferences.get(GRAPH_EXPAND_Y)
         if x_lim is None:
             x_lim = (preferences.get(x_min_pref_key), preferences.get(x_max_pref_key))
         self.limits = Limits(self.__repr__(), self.__redraw_func, primary_axes,
-                             x_lim=x_lim, y1_range_calculator=db_range_calc, axes_2=secondary_axes,
+                             x_lim=x_lim, y1_range_calculator=y_range_calc, axes_2=secondary_axes,
                              x_scale=preferences.get(x_scale_pref_key), y2_range_calculator=y2_range_calc)
         self.limits.propagate_to_axes(draw=True)
         self.__legend = None

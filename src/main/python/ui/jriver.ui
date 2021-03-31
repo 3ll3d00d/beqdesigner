@@ -17,57 +17,65 @@
    <item row="0" column="0" rowspan="3">
     <layout class="QVBoxLayout" name="mainLayout">
      <item>
-      <layout class="QHBoxLayout" name="configLayout" stretch="0,0,0,0,2,0,0">
-       <item>
-        <widget class="QToolButton" name="newConfigButton">
-         <property name="text">
-          <string>...</string>
-         </property>
-        </widget>
+      <layout class="QGridLayout" name="configLayout">
+       <item row="0" column="0">
+        <layout class="QHBoxLayout" name="configRow1Layout">
+         <item>
+          <widget class="QToolButton" name="newConfigButton">
+           <property name="text">
+            <string>...</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QToolButton" name="findFilenameButton">
+           <property name="text">
+            <string>...</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLineEdit" name="filename">
+           <property name="readOnly">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QToolButton" name="saveButton">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
+           <property name="text">
+            <string>...</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QToolButton" name="saveAsButton">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
+           <property name="text">
+            <string>...</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
        </item>
-       <item>
-        <widget class="QToolButton" name="findFilenameButton">
-         <property name="text">
-          <string>...</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QLineEdit" name="filename">
-         <property name="readOnly">
-          <bool>true</bool>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QLineEdit" name="outputFormat">
-         <property name="readOnly">
-          <bool>true</bool>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QComboBox" name="blockSelector"/>
-       </item>
-       <item>
-        <widget class="QToolButton" name="saveButton">
-         <property name="enabled">
-          <bool>false</bool>
-         </property>
-         <property name="text">
-          <string>...</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QToolButton" name="saveAsButton">
-         <property name="enabled">
-          <bool>false</bool>
-         </property>
-         <property name="text">
-          <string>...</string>
-         </property>
-        </widget>
+       <item row="1" column="0">
+        <layout class="QHBoxLayout" name="configRow2Layout" stretch="1,1">
+         <item>
+          <widget class="QLineEdit" name="outputFormat">
+           <property name="readOnly">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QComboBox" name="blockSelector"/>
+         </item>
+        </layout>
        </item>
       </layout>
      </item>
@@ -336,6 +344,13 @@
           </widget>
          </item>
          <item>
+          <widget class="QToolButton" name="showImpulseButton">
+           <property name="text">
+            <string>...</string>
+           </property>
+          </widget>
+         </item>
+         <item>
           <spacer name="chartControlSpacer">
            <property name="orientation">
             <enum>Qt::Vertical</enum>
@@ -383,8 +398,6 @@
  </customwidgets>
  <tabstops>
   <tabstop>findFilenameButton</tabstop>
-  <tabstop>filename</tabstop>
-  <tabstop>blockSelector</tabstop>
   <tabstop>limitsButton</tabstop>
   <tabstop>fullRangeButton</tabstop>
   <tabstop>subOnlyButton</tabstop>
@@ -517,8 +530,8 @@
    <slot>show_filters()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>346</x>
-     <y>40</y>
+     <x>423</x>
+     <y>82</y>
     </hint>
     <hint type="destinationlabel">
      <x>681</x>
@@ -582,7 +595,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>423</x>
-     <y>164</y>
+     <y>206</y>
     </hint>
     <hint type="destinationlabel">
      <x>422</x>
@@ -598,7 +611,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>423</x>
-     <y>204</y>
+     <y>246</y>
     </hint>
     <hint type="destinationlabel">
      <x>406</x>
@@ -645,8 +658,8 @@
    <slot>edit_selected_filter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>401</x>
-     <y>120</y>
+     <x>423</x>
+     <y>166</y>
     </hint>
     <hint type="destinationlabel">
      <x>411</x>
@@ -661,8 +674,8 @@
    <slot>split_filter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>415</x>
-     <y>236</y>
+     <x>423</x>
+     <y>286</y>
     </hint>
     <hint type="destinationlabel">
      <x>421</x>
@@ -677,8 +690,8 @@
    <slot>merge_filters()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>411</x>
-     <y>276</y>
+     <x>423</x>
+     <y>326</y>
     </hint>
     <hint type="destinationlabel">
      <x>401</x>
@@ -725,8 +738,8 @@
    <slot>move_filter_up()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>22</x>
-     <y>110</y>
+     <x>31</x>
+     <y>166</y>
     </hint>
     <hint type="destinationlabel">
      <x>30</x>
@@ -741,8 +754,8 @@
    <slot>move_filter_to_top()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>32</x>
-     <y>64</y>
+     <x>41</x>
+     <y>126</y>
     </hint>
     <hint type="destinationlabel">
      <x>20</x>
@@ -763,6 +776,22 @@
     <hint type="destinationlabel">
      <x>26</x>
      <y>272</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>showImpulseButton</sender>
+   <signal>clicked()</signal>
+   <receiver>jriverDspDialog</receiver>
+   <slot>show_impulse()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1673</x>
+     <y>614</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1701</x>
+     <y>686</y>
     </hint>
    </hints>
   </connection>
@@ -789,5 +818,6 @@
   <slot>move_filter_up()</slot>
   <slot>move_filter_to_top()</slot>
   <slot>create_new_config()</slot>
+  <slot>show_impulse()</slot>
  </slots>
 </ui>

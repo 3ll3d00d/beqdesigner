@@ -10,7 +10,7 @@ from qtpy.QtWidgets import QDialog, QFrame, QGridLayout, QHBoxLayout, QToolButto
 
 from acoustics.standards.iec_61260_1_2014 import NOMINAL_OCTAVE_CENTER_FREQUENCIES
 from model.iir import LowShelf, HighShelf, PeakingEQ, CompleteFilter, Passthrough, SOS
-from model.limits import PhaseRangeCalculator, dBRangeCalculator
+from model.limits import PhaseRangeCalculator, DecibelRangeCalculator
 from model.magnitude import MagnitudeModel
 from model.preferences import GEQ_GEOMETRY, GEQ_GRAPH_X_MIN, GEQ_GRAPH_X_MAX, get_filter_colour, Preferences
 from model.xy import MagnitudeData
@@ -56,7 +56,7 @@ class GeqDialog(QDialog, Ui_geqDialog):
                                                 x_min_pref_key=GEQ_GRAPH_X_MIN, x_max_pref_key=GEQ_GRAPH_X_MAX,
                                                 secondary_data_provider=self.__get_data('phase'),
                                                 secondary_name='Phase', secondary_prefix='deg', fill_secondary=False,
-                                                db_range_calc=dBRangeCalculator(60),
+                                                y_range_calc=DecibelRangeCalculator(60),
                                                 y2_range_calc=PhaseRangeCalculator(), show_y2_in_legend=False, **kwargs)
         self.limitsButton.setToolTip('Set graph axis limits')
         self.showPhase.toggled.connect(self.__trigger_redraw)

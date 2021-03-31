@@ -37,7 +37,13 @@ class PhaseRangeCalculator:
         return -180.0, 360.0
 
 
-class dBRangeCalculator:
+class ImpulseRangeCalculator:
+
+    def calculate(self, y_range):
+        return -1.0, 1.0
+
+
+class DecibelRangeCalculator:
     '''
     A calculator for y axis ranges of dBFS signals.
     '''
@@ -99,7 +105,7 @@ class Limits:
     '''
 
     def __init__(self, name, redraw_func, axes_1, x_lim, x_axis_configurer=configure_freq_axis,
-                 y1_range_calculator=dBRangeCalculator(), x_scale='log', axes_2=None, y2_range_calculator=None):
+                 y1_range_calculator=DecibelRangeCalculator(), x_scale='log', axes_2=None, y2_range_calculator=None):
         '''
         :param name: the name of the chart.
         :param redraw_func: redraws the owning canvas.
@@ -170,9 +176,9 @@ class Limits:
         sets the expand mode on the y range calculator.
         :param expand: true or false.
         '''
-        if isinstance(self.__y1_range_calculator, dBRangeCalculator):
+        if isinstance(self.__y1_range_calculator, DecibelRangeCalculator):
             self.__y1_range_calculator.expand_range = expand
-        if isinstance(self.__y2_range_calculator, dBRangeCalculator):
+        if isinstance(self.__y2_range_calculator, DecibelRangeCalculator):
             self.__y2_range_calculator.expand_range = expand
 
     def update(self, x_min=None, x_max=None, y1_min=None, y1_max=None, y2_min=None, y2_max=None, x_scale=None,

@@ -11,7 +11,7 @@ from qtpy.QtWidgets import QDialog, QAbstractItemView, QHeaderView, QLineEdit, Q
 
 from model.batch import StoppableSpin, stop_spinner
 from model.iir import CompleteFilter, PeakingEQ, LowShelf, HighShelf
-from model.limits import dBRangeCalculator
+from model.limits import DecibelRangeCalculator
 from model.magnitude import MagnitudeModel
 from model.preferences import get_filter_colour, HTP1_ADDRESS, HTP1_AUTOSYNC, HTP1_SYNC_GEOMETRY, HTP1_GRAPH_X_MAX, \
     HTP1_GRAPH_X_MIN
@@ -56,7 +56,7 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         self.__magnitude_model = MagnitudeModel('preview', self.previewChart, self.__preferences,
                                                 self.get_curve_data, 'Filter',
                                                 x_min_pref_key=HTP1_GRAPH_X_MIN, x_max_pref_key=HTP1_GRAPH_X_MAX,
-                                                db_range_calc=dBRangeCalculator(30, expand=True), fill_curves=True)
+                                                y_range_calc=DecibelRangeCalculator(30, expand=True), fill_curves=True)
         self.connectButton.setIcon(qta.icon('fa5s.check'))
         self.disconnectButton.setIcon(qta.icon('fa5s.times'))
         self.resyncFilters.setIcon(qta.icon('fa5s.sync'))
