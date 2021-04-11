@@ -29,7 +29,8 @@ from model.jriver.filter import Divider, GEQFilter, CompoundRoutingFilter, Custo
     LinkwitzTransform, Polarity, Mix, Delay, Filter, create_peq, MixType, ChannelFilter, convert_filter_to_mc_dsp, \
     SingleFilter, Node, XOFilter, HighPass, LowPass
 from model.jriver.render import render_dot
-from model.jriver.routing import Matrix, calculate_routing_filters
+from model.jriver.routing import Matrix, LFE_ADJUST_KEY, EDITORS_KEY, EDITOR_NAME_KEY, \
+    UNDERLYING_KEY, WAYS_KEY, SYM_KEY, LFE_IN_KEY, ROUTING_KEY, calculate_compound_routing_filter
 from model.limits import DecibelRangeCalculator, PhaseRangeCalculator
 from model.magnitude import MagnitudeModel
 from model.preferences import JRIVER_GEOMETRY, JRIVER_GRAPH_X_MIN, JRIVER_GRAPH_X_MAX, JRIVER_DSP_DIR, \
@@ -47,15 +48,6 @@ from ui.pipeline import Ui_jriverGraphDialog
 from ui.xo import Ui_xoDialog
 
 FILTER_ID_ROLE = Qt.UserRole + 1
-LFE_ADJUST_KEY = 'l'
-ROUTING_KEY = 'r'
-EDITORS_KEY = 'e'
-EDITOR_NAME_KEY = 'n'
-UNDERLYING_KEY = 'u'
-WAYS_KEY = 'w'
-SYM_KEY = 's'
-LFE_IN_KEY = 'x'
-SW_OUT_KEY = 'y'
 
 logger = logging.getLogger('jriver.ui')
 
@@ -1272,13 +1264,15 @@ class XODialog(QDialog, Ui_xoDialog):
         self.setupUi(self)
         self.showMatrixButton.setIcon(qta.icon('fa5s.route'))
         if self.__output_format.lfe_channels > 0:
-            self.setSWChannelsButton.clicked.connect(self.__show_sw_channel_selector_dialog)
+            for c in input_channels:
+                self.lfeChannelSelector.addItem(c)
             self.__lfe_channel = 'SW'
-            self.__sw_output_channels: List[str] = ['SW']
+            self.lfeChannelSelector.setCurrentText('SW')
+            self.lfeChannelSelector.currentTextChanged.connect(self.__set_lfe_channel)
         else:
-            self.setSWChannelsButton.setVisible(False)
+            self.lfeChannelSelector.setVisible(False)
+            self.lfeChannelSelectorLabel.setVisible(False)
             self.__lfe_channel = None
-            self.__sw_output_channels: List[str] = []
         self.linkChannelsButton.clicked.connect(self.__show_group_channels_dialog)
         self.__matrix = None
         self.__editors = [
@@ -1308,7 +1302,7 @@ class XODialog(QDialog, Ui_xoDialog):
         self.showFiltersButton.setIcon(qta.icon('fa5s.info-circle'))
         self.showFiltersButton.setToolTip('Show All Filters')
         self.showFiltersButton.clicked.connect(self.__show_filters_dialog)
-        if output_format.lfe_channels > 0:
+        if output_format.lfe_channels == 0:
             self.lfeAdjust.setVisible(False)
             self.lfeAdjustLabel.setVisible(False)
         self.__mag_update_timer.timeout.connect(self.__magnitude_model.redraw)
@@ -1349,8 +1343,6 @@ class XODialog(QDialog, Ui_xoDialog):
                     match.load_filter(f)
         if LFE_IN_KEY in metadata:
             self.__lfe_channel = metadata[LFE_IN_KEY]
-        if SW_OUT_KEY in metadata:
-            self.__sw_output_channels = metadata[SW_OUT_KEY]
         if ROUTING_KEY in metadata:
             self.__matrix.decode(metadata[ROUTING_KEY])
 
@@ -1361,9 +1353,8 @@ class XODialog(QDialog, Ui_xoDialog):
         super().accepted()
 
     def __create_matrix(self):
-        excess_sw = [] if len(self.__sw_output_channels) < 2 else self.__sw_output_channels[1:]
         matrix = Matrix({c: len(e) for e in self.__editors for c in e.underlying_channels},
-                        [c for c in self.__output_channels if c not in excess_sw])
+                        [c for c in self.__output_channels])
         self.__initialise_routing(matrix)
         return matrix
 
@@ -1377,34 +1368,22 @@ class XODialog(QDialog, Ui_xoDialog):
         else:
             for c, w in channel_ways:
                 if w == 0:
-                    if self.__sw_output_channels:
-                        matrix.enable(c, w, self.__sw_output_channels[0])
+                    matrix.enable(c, w, self.__lfe_channel)
                 else:
-                    if len(self.__sw_output_channels) < 2 or c not in self.__sw_output_channels[1:]:
-                        matrix.enable(c, w, c)
+                    matrix.enable(c, w, c)
 
     def __show_group_channels_dialog(self):
         GroupChannelsDialog(self, {e.name: e.underlying_channels for e in self.__editors
                                    if e.widget.isVisible() and e.name != self.__lfe_channel},
                             self.__reconfigure_channel_groups).exec()
 
-    def __show_sw_channel_selector_dialog(self) -> None:
+    def __set_lfe_channel(self, lfe_channel: str) -> None:
         '''
-        Allows user to specify multiple sw output channels.
+        Allows user to specify the current LFE input channel
         '''
-        def on_save(input_sw: str, output_sw: List[str]):
-            changed = False
-            if input_sw != self.__lfe_channel:
-                self.__lfe_channel = input_sw
-                changed = True
-            if output_sw != self.__sw_output_channels:
-                self.__sw_output_channels = output_sw
-                changed = True
-            if changed:
-                self.__matrix = self.__create_matrix()
-
-        SWChannelSelectorDialog(self, self.__output_channels, self.__lfe_channel, self.__sw_output_channels,
-                                on_save).exec()
+        if lfe_channel != self.__lfe_channel:
+            self.__lfe_channel = lfe_channel
+            self.__matrix = self.__create_matrix()
 
     def __reconfigure_channel_groups(self, grouped_channels: Dict[str, List[str]]):
         '''
@@ -1457,10 +1436,10 @@ class XODialog(QDialog, Ui_xoDialog):
         self.prefs.set(XO_GEOMETRY, self.saveGeometry())
         super().reject()
 
-    def __get_lfe_metadata(self) -> Tuple[int, int, List[int], int, int]:
+    def __get_lfe_metadata(self) -> Tuple[int, int, int]:
         '''
         Determines the gain adjustments required for bass management and the channels involved.
-        :return: input lfe channel index, output primary sw channel index, all sw channel indexes, lfe gain adjustment, main channel gain adjustment.
+        :return: input lfe channel index, lfe gain adjustment, main channel gain adjustment.
         '''
         lfe_adjust = 0
         if self.__output_format.lfe_channels > 0:
@@ -1469,68 +1448,29 @@ class XODialog(QDialog, Ui_xoDialog):
             main_adjust = 0
         else:
             main_adjust = lfe_adjust - 10
-        sw_channel_idxes = [get_channel_idx(c) for c in self.__sw_output_channels]
-        if sw_channel_idxes:
-            sw_channel_idx = sw_channel_idxes[0]
-        else:
-            sw_channel_idx = None
         if self.__lfe_channel:
             lfe_channel_idx = get_channel_idx(self.__lfe_channel)
         else:
             lfe_channel_idx = None
-        return lfe_channel_idx, sw_channel_idx, sw_channel_idxes, lfe_adjust, main_adjust
+        return lfe_channel_idx, lfe_adjust, main_adjust
 
     def __make_filters(self) -> CompoundRoutingFilter:
         '''
         Creates the routing filter.
         :return: the filter.
         '''
-        lfe_channel_idx, sw_channel_idx, sw_channel_idxes, lfe_adjust, main_adjust = self.__get_lfe_metadata()
-
-        routing_filters: List[Filter] = calculate_routing_filters(main_adjust, lfe_adjust, lfe_channel_idx,
-                                                                  sw_channel_idx, self.__matrix)
-
-        gain_filters: List[Filter] = []
-        if lfe_adjust != 0:
-            gain_filters.append(Gain({
-                'Enabled': '1',
-                'Type': Gain.TYPE,
-                'Gain': f"{lfe_adjust:.7g}",
-                'Channels': str(lfe_channel_idx)
-            }))
-
+        lfe_channel_idx, lfe_adjust, main_adjust = self.__get_lfe_metadata()
         channel_mapping: Dict[str, Dict[int, str]] = self.__matrix.get_mapping()
         xo_filters = []
         for e in self.__editors:
             for c in e.underlying_channels:
                 xo_filters.extend(e.get_xo_filters(c, channel_mapping[c]))
-        sw_copy_filters = []
-        if len(sw_channel_idxes) > 1:
-            for i in sw_channel_idxes[1:]:
-                sw_copy_filters.append(Mix({
-                    **Mix.default_values(),
-                    'Source': str(sw_channel_idx),
-                    'Destination': str(i),
-                    'Mode': str(MixType.COPY.value)
-                }))
-        meta = self.__create_routing_metadata()
-        return CompoundRoutingFilter(json.dumps(meta), gain_filters + routing_filters, xo_filters, sw_copy_filters)
-
-    def __create_routing_metadata(self):
-        meta = {
-            EDITORS_KEY: [
-                {EDITOR_NAME_KEY: e.name, UNDERLYING_KEY: e.underlying_channels, WAYS_KEY: len(e), SYM_KEY: e.symmetric}
-                for e in self.__editors if e.widget.isVisible()
-            ],
-            ROUTING_KEY: self.__matrix.encode(),
-        }
-        if self.__lfe_channel:
-            meta[LFE_IN_KEY] = self.__lfe_channel
-        if self.__sw_output_channels:
-            meta[SW_OUT_KEY] = self.__sw_output_channels
-        if self.lfeAdjust.isVisible():
-            meta[LFE_ADJUST_KEY] = self.lfeAdjust.value()
-        return meta
+        editor_meta = [
+            {EDITOR_NAME_KEY: e.name, UNDERLYING_KEY: e.underlying_channels, WAYS_KEY: len(e), SYM_KEY: e.symmetric}
+            for e in self.__editors if e.widget.isVisible()
+        ]
+        return calculate_compound_routing_filter(self.__matrix, editor_meta, xo_filters, main_adjust, lfe_adjust,
+                                                 lfe_channel_idx)
 
     def show_limits(self):
         ''' shows the limits dialog for the filter chart. '''

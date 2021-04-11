@@ -56,21 +56,7 @@
     </layout>
    </item>
    <item>
-    <layout class="QGridLayout" name="xoContainerLayout">
-     <item row="0" column="1">
-      <widget class="QPushButton" name="showMatrixButton">
-       <property name="text">
-        <string>Input/Output  Routing</string>
-       </property>
-      </widget>
-     </item>
-     <item row="0" column="2">
-      <widget class="QPushButton" name="setSWChannelsButton">
-       <property name="text">
-        <string>Set SW Channels</string>
-       </property>
-      </widget>
-     </item>
+    <layout class="QGridLayout" name="xoContainerLayout" columnstretch="1,1,0,0,1">
      <item row="1" column="0" colspan="5">
       <widget class="QScrollArea" name="peqScrollArea">
        <property name="sizeAdjustPolicy">
@@ -85,18 +71,11 @@
           <x>0</x>
           <y>0</y>
           <width>868</width>
-          <height>259</height>
+          <height>257</height>
          </rect>
         </property>
         <layout class="QVBoxLayout" name="channelsLayout"/>
        </widget>
-      </widget>
-     </item>
-     <item row="0" column="0">
-      <widget class="QPushButton" name="linkChannelsButton">
-       <property name="text">
-        <string>Link Channels</string>
-       </property>
       </widget>
      </item>
      <item row="0" column="4">
@@ -130,14 +109,38 @@
          </property>
         </widget>
        </item>
+       <item>
+        <widget class="QToolButton" name="showFiltersButton">
+         <property name="text">
+          <string>...</string>
+         </property>
+        </widget>
+       </item>
       </layout>
      </item>
-     <item row="0" column="3">
-      <widget class="QToolButton" name="showFiltersButton">
+     <item row="0" column="1">
+      <widget class="QPushButton" name="showMatrixButton">
        <property name="text">
-        <string>...</string>
+        <string>Input -&gt; Output Routes</string>
        </property>
       </widget>
+     </item>
+     <item row="0" column="2">
+      <widget class="QLabel" name="lfeChannelSelectorLabel">
+       <property name="text">
+        <string>LFE Channel: </string>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="0">
+      <widget class="QPushButton" name="linkChannelsButton">
+       <property name="text">
+        <string>Group Channels</string>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="3">
+      <widget class="QComboBox" name="lfeChannelSelector"/>
      </item>
     </layout>
    </item>
@@ -163,7 +166,6 @@
  <tabstops>
   <tabstop>linkChannelsButton</tabstop>
   <tabstop>showMatrixButton</tabstop>
-  <tabstop>setSWChannelsButton</tabstop>
   <tabstop>lfeAdjust</tabstop>
   <tabstop>peqScrollArea</tabstop>
   <tabstop>limitsButton</tabstop>

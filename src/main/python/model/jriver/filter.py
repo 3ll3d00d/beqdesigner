@@ -947,7 +947,7 @@ class CompoundRoutingFilter(ComplexFilter, Sequence[Filter]):
 
     def __init__(self, metadata: str, routing: List[Filter], xo: List[XOFilter], sw_routing: List[Filter]):
         self.__metadata = metadata
-        all_filters = routing + xo + sw_routing
+        all_filters = routing if routing else [] + xo if xo else [] + sw_routing if sw_routing else []
         all_channels = set()
         for f in all_filters:
             if hasattr(f, 'channel_names'):

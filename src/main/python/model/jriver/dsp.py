@@ -212,7 +212,7 @@ class JRiverDSP:
         return pipe
 
     @property
-    def active_graph(self):
+    def active_graph(self) -> FilterGraph:
         return self.__graphs[self.__active_idx]
 
     def write_to_file(self, file=None) -> None:
@@ -229,5 +229,3 @@ class JRiverDSP:
         with open(output_file, mode='w', newline='\r\n') as f:
             f.write(new_txt)
         logger.info(f"Written new config to {output_file}")
-
-
