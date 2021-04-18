@@ -9,9 +9,9 @@ from typing import Dict, Optional, List, Tuple, Type
 
 from model.jriver.codec import get_peq_block_order, get_output_format, NoFiltersError, get_peq_key_name, \
     extract_filters, filts_to_xml, include_filters_in_dsp
-from model.jriver.common import OutputFormat, get_channel_name, user_channel_indexes, make_signal
+from model.jriver.common import OutputFormat, get_channel_name, user_channel_indexes
 from model.jriver.filter import FilterGraph, create_peq, Filter, Divider, CustomPassFilter, \
-    complex_filter_classes_by_type, BranchFilterOp, FilterPipe
+    complex_filter_classes_by_type
 from model.jriver.render import GraphRenderer
 from model.log import to_millis
 from model.signal import Signal
@@ -49,10 +49,6 @@ class JRiverDSP:
     @property
     def filename(self):
         return self.__filename
-
-    def __init_signals(self) -> Dict[str, Signal]:
-        names = [get_channel_name(c) for c in self.output_format.output_channel_indexes]
-        return {c: make_signal(c) for c in names}
 
     @property
     def signals(self) -> List[Signal]:
@@ -163,53 +159,10 @@ class JRiverDSP:
         :param active_idx: the active graph index.
         '''
         self.__active_idx = active_idx
-        self.generate_signals()
+        self.simulate()
 
-    def generate_signals(self) -> None:
-        '''
-        Creates a FilterPipeline for each channel and applies it to a unit impulse.
-        '''
-        start = time.time()
-        signals: Dict[str, Signal] = self.__init_signals()
-        branches: List[BranchFilterOp] = []
-        incomplete: Dict[str, FilterPipe] = {}
-        for c, pipe in self.active_graph.filter_pipes_by_channel.items():
-            logger.info(f"Filtering {c} using {pipe}")
-            while pipe is not None:
-                pipe = self.__process_pipe(branches, c, incomplete, pipe, signals)
-        max_attempts = len(incomplete.keys()) * 20
-        attempts = 0
-        while incomplete and attempts < max_attempts:
-            logger.info(f"Starting incomplete filter pipeline pass {attempts}")
-            incomplete_channels = list(incomplete.keys())
-            for c in incomplete_channels:
-                pipe = incomplete.pop(c, None)
-                logger.info(f"Filtering {c} using {pipe}")
-                while pipe is not None:
-                    pipe = self.__process_pipe(branches, c, incomplete, pipe, signals)
-            attempts += 1
-        if incomplete:
-            raise ValueError(f"Failed to process all filter pipelines {incomplete}")
-        self.__signals = signals
-        end = time.time()
-        logger.info(f"Generated {len(signals)} signals in {to_millis(start, end)} ms")
-
-    @staticmethod
-    def __process_pipe(branches: List[BranchFilterOp], c: str, incomplete: Dict[str, FilterPipe], pipe: FilterPipe,
-                       signals: Dict[str, Signal]) -> FilterPipe:
-        if isinstance(pipe.op, BranchFilterOp):
-            branches.append(pipe.op)
-        if not pipe.op.ready:
-            source = next((b for b in branches if b.is_source_for(pipe.op)), None)
-            if source:
-                pipe.op.accept(source.source_signal)
-        if pipe.op.ready:
-            signals[c] = pipe.op.apply(signals[c])
-            pipe = pipe.next
-        else:
-            incomplete[c] = pipe
-            pipe = None
-        return pipe
+    def simulate(self):
+        self.__signals = self.active_graph.simulate()
 
     @property
     def active_graph(self) -> FilterGraph:

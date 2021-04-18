@@ -23,11 +23,11 @@ from scipy.signal import unit_impulse
 from model.filter import FilterModel, FilterDialog
 from model.iir import SOS, CompleteFilter, FilterType, ComplexLowPass, ComplexHighPass
 from model.jriver.codec import get_element, xpath_to_key_data_value, write_dsp_file, get_peq_key_name
-from model.jriver.common import get_channel_name, get_channel_idx, OutputFormat, SHORT_USER_CHANNELS, make_signal
+from model.jriver.common import get_channel_name, get_channel_idx, OutputFormat, SHORT_USER_CHANNELS, make_dirac_pulse
 from model.jriver.dsp import JRiverDSP
 from model.jriver.filter import Divider, GEQFilter, CompoundRoutingFilter, CustomPassFilter, GainQFilter, Gain, Pass, \
     LinkwitzTransform, Polarity, Mix, Delay, Filter, create_peq, MixType, ChannelFilter, convert_filter_to_mc_dsp, \
-    SingleFilter, Node, XOFilter, HighPass, LowPass
+    SingleFilter, Node, XOFilter, HighPass, LowPass, SimulationFailed
 from model.jriver.render import render_dot
 from model.jriver.routing import Matrix, LFE_ADJUST_KEY, EDITORS_KEY, EDITOR_NAME_KEY, \
     UNDERLYING_KEY, WAYS_KEY, SYM_KEY, LFE_IN_KEY, ROUTING_KEY, calculate_compound_routing_filter
@@ -207,7 +207,15 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         Displays the complete filter list for the selected PEQ block.
         '''
         if self.__dsp is not None:
-            self.__dsp.activate(self.blockSelector.currentIndex())
+            try:
+                self.__dsp.activate(self.blockSelector.currentIndex())
+            except SimulationFailed as e:
+                msg_box = QMessageBox()
+                msg_box.setText(f"{e}")
+                msg_box.setIcon(QMessageBox.Critical)
+                msg_box.setWindowTitle('Failed to Simulate Filter Pipeline!')
+                msg_box.exec()
+
             from model.report import block_signals
             with block_signals(self.filterList):
                 selected_ids = [i.data(FILTER_ID_ROLE) for i in self.filterList.selectedItems()]
@@ -790,7 +798,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         regenerates the svg and redraws the chart.
         '''
         self.__regen()
-        self.__dsp.generate_signals()
+        self.__dsp.simulate()
         self.redraw()
 
     def __enable_edit_buttons_if_filters_selected(self) -> bool:
@@ -911,7 +919,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
                 self.show_filters()
 
         x_lim = (self.__magnitude_model.limits.x_min, self.__magnitude_model.limits.x_max)
-        FilterDialog(self.prefs, make_signal(channel), filter_model, __on_save, parent=self,
+        FilterDialog(self.prefs, make_dirac_pulse(channel), filter_model, __on_save, parent=self,
                      selected_filter=sorted_filters[selected_filter_idx] if selected_filter_idx > -1 else None,
                      x_lim=x_lim, allow_var_q_pass=True, window_title=f"Edit Filter - {channel}").show()
 
@@ -1266,13 +1274,13 @@ class XODialog(QDialog, Ui_xoDialog):
         if self.__output_format.lfe_channels > 0:
             for c in input_channels:
                 self.lfeChannelSelector.addItem(c)
-            self.__lfe_channel = 'SW'
+            self.__lfe_channel: Optional[str] = 'SW'
             self.lfeChannelSelector.setCurrentText('SW')
             self.lfeChannelSelector.currentTextChanged.connect(self.__set_lfe_channel)
         else:
             self.lfeChannelSelector.setVisible(False)
             self.lfeChannelSelectorLabel.setVisible(False)
-            self.__lfe_channel = None
+            self.__lfe_channel: Optional[str] = None
         self.linkChannelsButton.clicked.connect(self.__show_group_channels_dialog)
         self.__matrix = None
         self.__editors = [
@@ -1328,7 +1336,7 @@ class XODialog(QDialog, Ui_xoDialog):
     def __load_filter(self):
         metadata = json.loads(self.__existing.metadata())
         if LFE_ADJUST_KEY in metadata:
-            self.lfeAdjust.setValue(metadata[LFE_ADJUST_KEY])
+            self.lfeAdjust.setValue(-metadata[LFE_ADJUST_KEY])
         if EDITORS_KEY in metadata:
             groups = {e[EDITOR_NAME_KEY]: e[UNDERLYING_KEY] for e in metadata[EDITORS_KEY]}
             self.__reconfigure_channel_groups(groups)
@@ -1342,7 +1350,7 @@ class XODialog(QDialog, Ui_xoDialog):
                                  if e.name in groups.keys() and f.input_channel in e.underlying_channels)
                     match.load_filter(f)
         if LFE_IN_KEY in metadata:
-            self.__lfe_channel = metadata[LFE_IN_KEY]
+            self.__lfe_channel = get_channel_name(metadata[LFE_IN_KEY])
         if ROUTING_KEY in metadata:
             self.__matrix.decode(metadata[ROUTING_KEY])
 
@@ -1463,8 +1471,9 @@ class XODialog(QDialog, Ui_xoDialog):
         channel_mapping: Dict[str, Dict[int, str]] = self.__matrix.get_mapping()
         xo_filters = []
         for e in self.__editors:
-            for c in e.underlying_channels:
-                xo_filters.extend(e.get_xo_filters(c, channel_mapping[c]))
+            if e.widget.isVisible():
+                for c in e.underlying_channels:
+                    xo_filters.extend(e.get_xo_filters(c, channel_mapping[c]))
         editor_meta = [
             {EDITOR_NAME_KEY: e.name, UNDERLYING_KEY: e.underlying_channels, WAYS_KEY: len(e), SYM_KEY: e.symmetric}
             for e in self.__editors if e.widget.isVisible()
@@ -1580,6 +1589,9 @@ class ChannelEditor:
             self.__update_editors()
         else:
             self.__ways.setValue(self.__calculate_ways())
+
+    def __repr__(self):
+        return f"ChannelEditor {self.__underlying_channels} {self.__ways.value()}"
 
     def __propagate_way_count_change(self, func: Callable[[str, int], None], count: int):
         for c in self.__underlying_channels:

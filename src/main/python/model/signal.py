@@ -1069,6 +1069,17 @@ class Signal:
                       fs=self.fs,
                       metadata=self.metadata)
 
+    def copy(self, new_name=None):
+        '''
+        Copies the signal, optionally setting a new name.
+        :param new_name: the new name, if any.
+        :return: the copied signal.
+        '''
+        copy = self.shift(0)
+        if new_name:
+            copy.name = new_name
+        return copy
+
     def shift(self, samples: int):
         '''
         shifts the signal by the specified no of samples while retaining signal length.
@@ -1077,7 +1088,7 @@ class Signal:
         :return: the shifted signal.
         '''
         if samples == 0:
-            new_samples = self.samples
+            new_samples = np.copy(self.samples)
         elif samples < 0:
             new_samples = np.append(self.samples, np.zeros(samples))[samples:]
         else:

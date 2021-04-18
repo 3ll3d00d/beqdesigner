@@ -35,9 +35,12 @@ class GraphRenderer:
         output = defaultdict(str)
         nodes_added = []
         for channel_edge in edges:
-            GraphRenderer.__append_node(channel_edge[0], channel_edge[-2], node_defs, nodes_added, output)
-            GraphRenderer.__append_node(channel_edge[0], channel_edge[-1], node_defs, nodes_added, output)
-            output[channel_edge[0]] += f"{channel_edge[1]}{channel_edge[2]} -> {channel_edge[3]};\n"
+            if channel_edge[0] in SHORT_USER_CHANNELS and channel_edge[-1] == f"END:{channel_edge[0]}":
+                pass
+            else:
+                GraphRenderer.__append_node(channel_edge[0], channel_edge[-2], node_defs, nodes_added, output)
+                GraphRenderer.__append_node(channel_edge[0], channel_edge[-1], node_defs, nodes_added, output)
+                output[channel_edge[0]] += f"{channel_edge[1]}{channel_edge[2]} -> {channel_edge[3]};\n"
         return '\n'.join(output.values())
 
     @staticmethod
@@ -139,9 +142,9 @@ class GraphRenderer:
 
     def __create_channel_nodes(self, channel, nodes, selected_nodes: Optional[Iterable[str]] = None) -> Dict[str, str]:
         node_defs = {}
-        label_prefix = f"{channel}\n" if channel in SHORT_USER_CHANNELS else ''
+        label_prefix = f"[{channel}]\n" if channel in SHORT_USER_CHANNELS else ''
         for node in nodes:
-            if node.filt:
+            if node.filt and node.name != f"END:{channel}":
                 txt = f"  {node.name} [label=\"{label_prefix}{node.filt.short_desc()}\""
                 if selected_nodes and next((n for n in selected_nodes if n == node.name), None) is not None:
                     fill_colour = f"\"{self.__colours[1]}\"" if self.__colours else 'lightgrey'

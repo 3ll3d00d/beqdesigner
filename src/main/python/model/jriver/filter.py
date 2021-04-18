@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import logging
+import time
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from enum import Enum
-from typing import List, Dict, Optional, Callable, Union, Type, Sequence, overload, Tuple
+from typing import List, Dict, Optional, Callable, Union, Type, Sequence, overload, Tuple, Iterable
 
 import math
 
@@ -14,7 +15,8 @@ from model.iir import SOS, s_to_q, q_to_s, FirstOrder_LowPass, FirstOrder_HighPa
     BiquadWithQGain, PeakingEQ, LowShelf as LS, Gain as G, LinkwitzTransform as LT
 from model.jriver.codec import filts_to_xml
 from model.jriver.common import get_channel_name, pop_channels, get_channel_idx, JRIVER_SHORT_CHANNELS, \
-    SHORT_USER_CHANNELS
+    SHORT_USER_CHANNELS, make_dirac_pulse, make_silence
+from model.log import to_millis
 from model.signal import Signal
 
 logger = logging.getLogger('jriver.filter')
@@ -63,7 +65,7 @@ class Filter(ABC):
     def get_editable_filter(self) -> Optional[SOS]:
         return None
 
-    def get_filter(self) -> FilterOp:
+    def get_filter_op(self) -> FilterOp:
         return NopFilterOp()
 
     def is_mine(self, idx: int) -> bool:
@@ -230,7 +232,7 @@ class GainQFilter(ChannelFilter):
     def to_jriver_q(cls,  q: float, gain: float) -> float:
         return q
 
-    def get_filter(self) -> FilterOp:
+    def get_filter_op(self) -> FilterOp:
         sos = self.get_editable_filter().get_sos()
         if sos:
             return SosFilterOp(sos)
@@ -333,7 +335,7 @@ class Pass(ChannelFilter):
     def key_order(self) -> List[str]:
         return ['Enabled', 'Slope', 'Q', 'Type', 'Gain', 'Frequency', 'Channels']
 
-    def get_filter(self) -> FilterOp:
+    def get_filter_op(self) -> FilterOp:
         sos = self.get_editable_filter().get_sos()
         if sos:
             return SosFilterOp(sos)
@@ -404,7 +406,7 @@ class Gain(ChannelFilter):
     def __repr__(self):
         return f"Gain {self.__gain:+.7g} dB {self.print_channel_names()}{self.print_disabled()}"
 
-    def get_filter(self) -> FilterOp:
+    def get_filter_op(self) -> FilterOp:
         return GainFilterOp(self.__gain)
 
     def short_desc(self):
@@ -463,7 +465,7 @@ class Delay(ChannelFilter):
     def short_desc(self):
         return f"{self.__delay:+.7g}ms"
 
-    def get_filter(self) -> FilterOp:
+    def get_filter_op(self) -> FilterOp:
         return DelayFilterOp(self.__delay)
 
 
@@ -549,7 +551,7 @@ class LinkwitzTransform(ChannelFilter):
     def __repr__(self):
         return f"{self.__class__.__name__} {self.__fz:.7g} Hz / {self.__qz:.4g} -> {self.__fp:.7g} Hz / {self.__qp:.4g} {self.print_channel_names()}{self.print_disabled()}"
 
-    def get_filter(self) -> FilterOp:
+    def get_filter_op(self) -> FilterOp:
         sos = iir.LinkwitzTransform(48000, self.__fz, self.__qz, self.__fp, self.__qp).get_sos()
         if sos:
             return SosFilterOp(sos)
@@ -675,7 +677,7 @@ class Mix(SingleFilter):
         return self.src_idx == idx
 
     def short_desc(self):
-        mix_type = MixType(self.__mode)
+        mix_type = self.mix_type
         if mix_type == MixType.MOVE or mix_type == MixType.MOVE:
             return f"{mix_type.name}\nto {get_channel_name(int(self.__destination))}"
         elif mix_type == MixType.SWAP:
@@ -683,14 +685,15 @@ class Mix(SingleFilter):
         else:
             return super().short_desc()
 
-    def get_filter(self) -> FilterOp:
+    def get_filter_op(self) -> FilterOp:
         if self.mix_type == MixType.ADD:
             return AddFilterOp(GainFilterOp(self.__gain))
         elif self.mix_type == MixType.SUBTRACT:
             return SubtractFilterOp(GainFilterOp(self.__gain))
-        else:
-            # TODO only apply gain if the filter is provided to dst_idx
+        elif not math.isclose(self.__gain, 0.0):
             return GainFilterOp(self.__gain)
+        else:
+            return NopFilterOp()
 
     @classmethod
     def default_values(cls) -> Dict[str, str]:
@@ -751,7 +754,7 @@ class Polarity(ChannelFilter):
     def key_order(self) -> List[str]:
         return ['Enabled', 'Type', 'Channels']
 
-    def get_filter(self) -> FilterOp:
+    def get_filter_op(self) -> FilterOp:
         return InvertPolarityFilterOp()
 
 
@@ -799,7 +802,7 @@ class ComplexFilter(Filter):
         editable_filters = [f.get_editable_filter() for f in self.__filters if f.get_editable_filter()]
         return CompleteFilter(fs=48000, filters=editable_filters, description=self.short_name, sort_by_id=True)
 
-    def get_filter(self) -> FilterOp:
+    def get_filter_op(self) -> FilterOp:
         return SosFilterOp(self.get_editable_filter().get_sos())
 
     @classmethod
@@ -945,9 +948,9 @@ class XOFilter(ComplexChannelFilter):
 
 class CompoundRoutingFilter(ComplexFilter, Sequence[Filter]):
 
-    def __init__(self, metadata: str, routing: List[Filter], xo: List[XOFilter], sw_routing: List[Filter]):
+    def __init__(self, metadata: str, routing: List[Filter], xo: List[XOFilter]):
         self.__metadata = metadata
-        all_filters = routing if routing else [] + xo if xo else [] + sw_routing if sw_routing else []
+        all_filters = (routing if routing else []) + (xo if xo else [])
         all_channels = set()
         for f in all_filters:
             if hasattr(f, 'channel_names'):
@@ -984,17 +987,15 @@ class CompoundRoutingFilter(ComplexFilter, Sequence[Filter]):
 
     @classmethod
     def create(cls, data: str, child_filters: List[Filter]):
-        phase = 0
-        filters = [[], [], []]
-        # filters arranged as mix then XO then more mix
+        routing_filters = []
+        xo_filters = []
+        # filters arranged as optional gain then mix then XO
         for f in child_filters:
-            is_mix = isinstance(f, Mix)
-            if is_mix and phase > 0:
-                phase = 2
-            elif not is_mix and phase == 0:
-                phase = 1
-            filters[phase].append(f)
-        return CompoundRoutingFilter(data, *filters)
+            if isinstance(f, XOFilter):
+                xo_filters.append(f)
+            else:
+                routing_filters.append(f)
+        return CompoundRoutingFilter(data, routing_filters, xo_filters)
 
 
 class CustomPassFilter(ComplexChannelFilter):
@@ -1158,9 +1159,6 @@ def __make_mc_pass_filter(f: Union[FirstOrder_LowPass, FirstOrder_HighPass, Pass
 
 class FilterOp(ABC):
 
-    def __init__(self):
-        self.node_id = None
-
     @abstractmethod
     def apply(self, input_signal: Signal) -> Signal:
         pass
@@ -1171,93 +1169,18 @@ class FilterOp(ABC):
 
     def __repr__(self):
         class_name = self.__class__.__name__
-        return f"{class_name[:-8] if class_name.endswith('FilterOp') else class_name} [{self.node_id}]"
-
-
-class FilterPipe:
-
-    def __init__(self, op: FilterOp, parent: Optional[FilterPipe]):
-        self.op = op
-        self.next: Optional[FilterPipe] = None
-        self.parent = parent
-
-    @property
-    def ready(self):
-        return self.op.ready
-
-    def __repr__(self):
-        if self.next:
-            return f"{self.op} -> {self.next}"
-        else:
-            return f"{self.op}"
-
-
-def coalesce_ops(ops: List[FilterOp]) -> Optional[FilterPipe]:
-    root: Optional[FilterPipe] = None
-    tmp: Optional[FilterPipe] = None
-    last_sos: Optional[SosFilterOp] = None
-    for op in ops:
-        if isinstance(op, SosFilterOp):
-            if last_sos:
-                last_sos.extend(op)
-            else:
-                last_sos = op
-        else:
-            if last_sos:
-                if root is None:
-                    tmp = FilterPipe(last_sos, None)
-                    root = tmp
-                else:
-                    tmp.next = FilterPipe(last_sos, parent=tmp)
-                    tmp = tmp.next
-                last_sos = None
-            if root is None:
-                tmp = FilterPipe(op, None)
-                root = tmp
-            else:
-                tmp.next = FilterPipe(op, tmp)
-                tmp = tmp.next
-    if last_sos:
-        if root is None:
-            root = FilterPipe(last_sos, None)
-        else:
-            tmp.next = FilterPipe(last_sos, tmp)
-    return root
+        return f"{class_name[:-8] if class_name.endswith('FilterOp') else class_name}"
 
 
 class NopFilterOp(FilterOp):
 
-    def __init__(self):
-        super().__init__()
-
     def apply(self, input_signal: Signal) -> Signal:
         return input_signal
-
-
-class BranchFilterOp(FilterOp):
-
-    def __init__(self, branch: FilterOp, node_id: str):
-        super().__init__()
-        self.node_id = node_id
-        self.__branch = branch
-        self.__source_signal: Optional[Signal] = None
-
-    def apply(self, input_signal: Signal) -> Signal:
-        self.__source_signal = input_signal
-        return input_signal
-
-    @property
-    def source_signal(self) -> Optional[Signal]:
-        return self.__source_signal
-
-    def is_source_for(self, target: FilterOp) -> bool:
-        return self.__branch == target
 
 
 class SosFilterOp(FilterOp):
 
     def __init__(self, sos: List[List[float]]):
-        super().__init__()
         self.__sos = sos
 
     def apply(self, input_signal: Signal) -> Signal:
@@ -1270,7 +1193,6 @@ class SosFilterOp(FilterOp):
 class DelayFilterOp(FilterOp):
 
     def __init__(self, delay_millis: float, fs: int = 48000):
-        super().__init__()
         self.__shift_samples = int((delay_millis / 1000) / (1.0 / fs))
 
     def apply(self, input_signal: Signal) -> Signal:
@@ -1279,17 +1201,13 @@ class DelayFilterOp(FilterOp):
 
 class InvertPolarityFilterOp(FilterOp):
 
-    def __init__(self):
-        super().__init__()
-
     def apply(self, input_signal: Signal) -> Signal:
         return input_signal.invert()
 
 
-class AddFilterOp(FilterOp):
+class CombineFilterOp(FilterOp, ABC):
 
     def __init__(self, gain: GainFilterOp = None):
-        super().__init__()
         self.__gain = gain if gain else GainFilterOp()
         self.__inbound_signal: Optional[Signal] = None
 
@@ -1297,39 +1215,48 @@ class AddFilterOp(FilterOp):
         if self.ready:
             raise ValueError(f"Attempting to reuse AddFilterOp")
         self.__inbound_signal = signal
+        return self
+
+    @property
+    def gain(self) -> GainFilterOp:
+        return self.__gain
 
     @property
     def ready(self):
         return self.__inbound_signal is not None
 
-    def apply(self, input_signal: Signal) -> Signal:
-        return input_signal.add(self.__gain.apply(self.__inbound_signal).samples)
+    @property
+    def src_signal(self) -> Optional[Signal]:
+        return self.__inbound_signal
 
 
-class SubtractFilterOp(FilterOp):
+class AddFilterOp(CombineFilterOp):
 
     def __init__(self, gain: GainFilterOp = None):
-        super().__init__()
-        self.__gain = gain if gain else GainFilterOp()
-        self.__inbound_signal: Optional[Signal] = None
-
-    def accept(self, signal: Signal):
-        if self.ready:
-            raise ValueError(f"Attempting to reuse AddFilterOp")
-        self.__inbound_signal = signal
-
-    @property
-    def ready(self):
-        return self.__inbound_signal is not None
+        super().__init__(gain)
 
     def apply(self, input_signal: Signal) -> Signal:
-        return input_signal.add(self.__gain.apply(self.__inbound_signal).samples)
+        if self.src_signal:
+            return input_signal.add(self.gain.apply(self.src_signal).samples)
+        else:
+            raise SimulationFailed()
+
+
+class SubtractFilterOp(CombineFilterOp):
+
+    def __init__(self, gain: GainFilterOp = None):
+        super().__init__(gain)
+
+    def apply(self, input_signal: Signal) -> Signal:
+        if self.src_signal:
+            return input_signal.subtract(self.gain.apply(self.src_signal).samples)
+        else:
+            raise SimulationFailed()
 
 
 class GainFilterOp(FilterOp):
 
     def __init__(self, gain_db: float = 0.0):
-        super().__init__()
         self.__gain_db = gain_db
 
     def apply(self, input_signal: Signal) -> Signal:
@@ -1346,12 +1273,6 @@ class Node:
         self.rank = rank
         self.parent: Optional[Filter] = None
         self.__filt = filt
-        self.__filter_op = filt.get_filter() if filt else NopFilterOp()
-        if isinstance(filt, Mix) and isinstance(self.__filter_op, GainFilterOp):
-            if filt.is_mine(get_channel_idx(channel)):
-                # special case mix operations as gain offset should only be applied on the destination
-                self.__filter_op = NopFilterOp()
-        self.__filter_op.node_id = name
         self.channel = channel
         self.visited = False
         if self.filt is None and self.channel is None:
@@ -1359,12 +1280,10 @@ class Node:
         self.__down_edges: List[Node] = []
         self.__up_edges: List[Node] = []
 
-    def add(self, node: Node, link_branch: bool = False):
+    def add(self, node: Node):
         if node not in self.downstream:
             self.downstream.append(node)
             node.upstream.append(self)
-            if link_branch is True:
-                self.__filter_op = BranchFilterOp(node.filter_op, self.name)
 
     def has_editable_filter(self):
         return self.__filt and self.__filt.get_editable_filter() is not None
@@ -1419,12 +1338,10 @@ class Node:
             u.downstream.remove(self)
         self.__up_edges = []
 
-    @property
-    def filter_op(self) -> FilterOp:
-        return self.__filter_op
-
     def __repr__(self):
-        return f"{self.name}{'' if self.__up_edges else ' - ROOT'} - {self.filt} -> {self.__down_edges}"
+        up = f"U{len(self.__up_edges)} " if self.__up_edges else ''
+        down = f"D{len(self.__down_edges)}" if self.__down_edges else ''
+        return f"{self.name} {up}{down}"
 
     @classmethod
     def swap(cls, n1: Node, n2: Node):
@@ -1487,8 +1404,10 @@ class FilterGraph:
         self.__input_channels = input_channels
         self.__nodes_by_name: Dict[str, Node] = {}
         self.__nodes_by_channel: Dict[str, Node] = {}
-        self.__filter_pipes_by_channel: Dict[str, FilterPipe] = {}
         self.__regen()
+
+    def __repr__(self):
+        return f"Stage {self.__stage} - {len(self.__filts)} Filters - {len(self.__input_channels)} in {len(self.__output_channels)} out"
 
     @property
     def stage(self):
@@ -1502,7 +1421,6 @@ class FilterGraph:
         for f in self.__filts:
             f.reset()
         self.__nodes_by_channel = self.__generate_nodes()
-        self.__filter_pipes_by_channel = self.__generate_filter_paths()
 
     def __generate_nodes(self) -> Dict[str, Node]:
         '''
@@ -1528,10 +1446,6 @@ class FilterGraph:
                 elif n.downstream:
                     pruned[c] = n.downstream[0]
         return pruned
-
-    @property
-    def filter_pipes_by_channel(self) -> Dict[str, FilterPipe]:
-        return self.__filter_pipes_by_channel
 
     def get_filter_at_node(self, node_name: str) -> Optional[Filter]:
         '''
@@ -1581,6 +1495,15 @@ class FilterGraph:
         return self.__filts
 
     @property
+    def all_filters(self) -> Iterable[Filter]:
+        for f in self.filters:
+            if isinstance(f, Sequence):
+                for f1 in f:
+                    yield f1
+            else:
+                yield f
+
+    @property
     def nodes_by_channel(self) -> Dict[str, Node]:
         return self.__nodes_by_channel
 
@@ -1614,7 +1537,9 @@ class FilterGraph:
                     i += 1
         # add output nodes
         for c, nodes in by_channel.items():
-            if c not in SHORT_USER_CHANNELS:
+            if c in SHORT_USER_CHANNELS:
+                nodes.append(Node(i * 100, f"END:{c}", None, c))
+            else:
                 nodes.append(Node(i * 100, f"OUT:{c}", None, c))
         return by_channel
 
@@ -1760,12 +1685,12 @@ class FilterGraph:
             dst_channel_name = get_channel_name(f.dst_idx)
             try:
                 dst_node = self.__find_owning_node_in_channel(by_channel[dst_channel_name], f, dst_channel_name)
-                node.add(dst_node, link_branch=True)
+                node.add(dst_node)
             except ValueError:
                 dst_node = self.__find_owning_node_in_orphans(dst_channel_name, f, orphaned_nodes)
                 if dst_node:
                     dst_node.visited = True
-                    node.add(dst_node, link_branch=True)
+                    node.add(dst_node)
                 else:
                     logger.debug(f"No match for {f} in {dst_channel_name}, presumed orphaned")
                     node.visited = False
@@ -1852,24 +1777,6 @@ class FilterGraph:
         # TODO compare by id?
         return node.filt and node.filt == match and node.channel == owning_channel_name
 
-    def __generate_filter_paths(self) -> Dict[str, FilterPipe]:
-        '''
-        Converts the filter graph into a filter pipeline per channel.
-        :return: a FilterPipe by output channel.
-        '''
-        output_nodes = self.__get_output_nodes()
-        filter_pipes: Dict[str, FilterPipe] = {}
-        for channel_name, output_node in output_nodes.items():
-            parent = self.__get_parent(output_node)
-            filters: List[FilterOp] = []
-            while parent is not None:
-                f = parent.filter_op
-                if f:
-                    filters.append(f)
-                parent = self.__get_parent(parent)
-            filter_pipes[channel_name] = coalesce_ops(filters[::-1])
-        return filter_pipes
-
     @staticmethod
     def __get_parent(node: Node) -> Optional[Node]:
         '''
@@ -1906,11 +1813,9 @@ class FilterGraph:
                and upstream.channel != node.channel
 
     def __get_output_nodes(self) -> Dict[str, Node]:
-        output = {}
-        for node in self.__collect_all_nodes(self.__nodes_by_channel):
-            if node.name.startswith('OUT:'):
-                output[node.channel] = node
-        return output
+        nodes = self.__collect_all_nodes(self.__nodes_by_channel)
+        by_channel = {node.channel: node for node in nodes if node.name.startswith('OUT:') or node.name.startswith('END:')}
+        return by_channel
 
     @staticmethod
     def __collect_all_nodes(nodes_by_channel: Dict[str, Node]) -> List[Node]:
@@ -2085,6 +1990,81 @@ class FilterGraph:
         '''
         return [n.name for n in self.__collect_all_nodes(self.nodes_by_channel) if n.filt and n.filt.id == filter.id]
 
+    def simulate(self) -> Dict[str, Signal]:
+        """
+        Applies each filter to unit impulse per channel.
+        """
+        start = time.time()
+        signals: Dict[str, Tuple[Signal, Optional[SosFilterOp]]] = {
+            c: (make_dirac_pulse(c) if c in self.input_channels else make_silence(c), None)
+            for c in self.output_channels
+        }
+        for f in self.all_filters:
+            self.__simulate_filter(f, signals)
+        end = time.time()
+        final_output = {k: v[1].apply(v[0]) if v[1] else v[0] for k, v in signals.items()}
+        logger.info(f"Generated {len(signals)} signals in {to_millis(start, end)} ms")
+        return final_output
+
+    @staticmethod
+    def __simulate_filter(f: Filter, signals: Dict[str, Tuple[Signal, Optional[SosFilterOp]]]):
+        filter_op = f.get_filter_op()
+        if isinstance(f, ChannelFilter) or isinstance(f, ComplexChannelFilter):
+            for c in f.channel_names:
+                signal, pending_sos = signals[c]
+                if isinstance(filter_op, SosFilterOp):
+                    if pending_sos:
+                        pending_sos.extend(filter_op)
+                    else:
+                        signals[c] = (signal, filter_op)
+                else:
+                    if pending_sos:
+                        signal = pending_sos.apply(signal)
+                    signal = filter_op.apply(signal)
+                    signals[c] = (signal, None)
+        elif isinstance(f, Mix):
+            dst_channel = get_channel_name(f.dst_idx)
+            dst_signal, pending_sos = signals[dst_channel]
+            if pending_sos:
+                dst_signal = pending_sos.apply(dst_signal)
+
+            src_channel = get_channel_name(f.src_idx)
+            src_signal, pending_sos = signals[src_channel]
+            if pending_sos:
+                src_signal = pending_sos.apply(src_signal)
+
+            if f.mix_type == MixType.ADD or f.mix_type == MixType.SUBTRACT:
+                dst_signal = filter_op.accept(src_signal).apply(dst_signal)
+            elif f.mix_type == MixType.MOVE:
+                dst_signal = filter_op.apply(src_signal).copy(new_name=dst_channel)
+                src_signal = make_dirac_pulse(src_channel)
+            elif f.mix_type == MixType.COPY:
+                dst_signal = filter_op.apply(src_signal).copy(new_name=dst_channel)
+            elif f.mix_type == MixType.SWAP:
+                src_signal = filter_op.apply(dst_signal).copy(new_name=src_channel)
+                dst_signal = filter_op.apply(src_signal).copy(new_name=dst_channel)
+
+            signals[src_channel] = (src_signal, None)
+            signals[dst_channel] = (dst_signal, None)
+        elif not isinstance(filter_op, NopFilterOp):
+            for c in signals.keys():
+                signal, pending_sos = signals[c]
+                if pending_sos:
+                    signal = pending_sos.apply(signal)
+                signals[c] = (filter_op.apply(signal), None)
+
+
+def print_node(channel: str, node: Node, depth: int = 0) -> str:
+    output = ''
+    for i in range(depth * 2):
+        output += ' '
+    output += f"{node.name} [{node.channel}]\n"
+    depth += 1
+    if node.channel == channel:
+        for d in node.downstream:
+            output += print_node(channel, d, depth)
+    return output
+
 
 def collect_nodes(node: Node, arr: List[Node]) -> List[Node]:
     if node not in arr:
@@ -2092,3 +2072,7 @@ def collect_nodes(node: Node, arr: List[Node]) -> List[Node]:
     for d in node.downstream:
         collect_nodes(d, arr)
     return arr
+
+
+class SimulationFailed(Exception):
+    pass

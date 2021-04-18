@@ -343,11 +343,15 @@ def __create_summed_output_channel_for_shared_lfe(output_channels: List[int],
             **Mix.default_values(),
             'Source': str(r.i),
             'Destination': str(target_channel),
-            'Mode': str(MixType.ADD.value)
+            'Mode': str(MixType.COPY.value if r.i in output_channels else MixType.ADD.value)
         }
         if r.i != lfe_channel_idx and main_adjust != 0:
             vals['Gain'] = f"{main_adjust:.7g}"
-        filters.append(Mix(vals))
+        mix = Mix(vals)
+        if mix.mix_type == MixType.COPY and filters:
+            filters.insert(0, mix)
+        else:
+            filters.append(mix)
     # copy from the mix target channel to the actual outputs
     for c in output_channels:
         if c != target_channel:
@@ -463,7 +467,7 @@ def calculate_compound_routing_filter(matrix: Matrix, editor_meta: Optional[List
             'Mode': str(o_r.mt.value)
         }))
     meta = __create_routing_metadata(matrix, editor_meta, lfe_channel_idx, lfe_adjust)
-    return CompoundRoutingFilter(json.dumps(meta), filters, xo_filters, [])
+    return CompoundRoutingFilter(json.dumps(meta), filters, xo_filters)
 
 
 def __count_lfe_routes(lfe_channel_idx, direct_routes, summed_routes_by_output_channels) -> int:
