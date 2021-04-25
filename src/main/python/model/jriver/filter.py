@@ -1778,46 +1778,6 @@ class FilterGraph:
         return node.filt and node.filt == match and node.channel == owning_channel_name
 
     @staticmethod
-    def __get_parent(node: Node) -> Optional[Node]:
-        '''
-        Provides the actual parent node for this node. If the node has multiple upstreams then it must be accepting
-        an inbound mix operation, in this case that upstream must be ignored.
-        :param node: the node.
-        :return: the parent node, if any.
-        '''
-        if node.upstream:
-            if len(node.upstream) == 1:
-                return node.upstream[0]
-            else:
-                if len(node.upstream) == 2:
-                    parent = next((u for u in node.upstream
-                                   if u.channel == node.channel and not FilterGraph.__is_inbound_mix(node, u)), None)
-                    if parent is None:
-                        raise ValueError(f"Unable to locate parent for {node.name} in -> {[n.name for n in node.upstream]}")
-                    return parent
-                else:
-                    raise ValueError(f">2 upstream found! {node.name} -> {[n.name for n in node.upstream]}")
-        else:
-            return None
-
-    @staticmethod
-    def __is_inbound_mix(node: Node, upstream: Node):
-        '''
-        :param node: the node.
-        :param upstream: the upstream node.
-        :return: true if the upstream is a add or subtract mix operation landing in this node from a different channel.
-        '''
-        f = upstream.filt
-        return isinstance(f, Mix) \
-               and (f.mix_type == MixType.ADD or f.mix_type == MixType.SUBTRACT) \
-               and upstream.channel != node.channel
-
-    def __get_output_nodes(self) -> Dict[str, Node]:
-        nodes = self.__collect_all_nodes(self.__nodes_by_channel)
-        by_channel = {node.channel: node for node in nodes if node.name.startswith('OUT:') or node.name.startswith('END:')}
-        return by_channel
-
-    @staticmethod
     def __collect_all_nodes(nodes_by_channel: Dict[str, Node]) -> List[Node]:
         nodes = []
         for root in nodes_by_channel.values():

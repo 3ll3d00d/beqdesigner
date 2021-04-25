@@ -82,7 +82,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         self.__restore_geometry()
 
     @property
-    def dsp(self):
+    def dsp(self) -> Optional[JRiverDSP]:
         return self.__dsp
 
     def __decorate_buttons(self):

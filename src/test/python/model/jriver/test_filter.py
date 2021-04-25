@@ -83,12 +83,17 @@ def test_stereo_subs():
     for c in ['L', 'R', 'C', 'SL', 'SR']:
         matrix.enable(c, 1, c)
     xo_filters = [XOFilter('SW', 0, [low_pass(2, 80, 'SW')])] + [XOFilter(c, 1, [high_pass(2, 80, c)]) for c in mains]
-    filters = calculate_compound_routing_filter(matrix, xo_filters=xo_filters, lfe_channel_idx=5).filters
-    graph = FilterGraph(0, input_channels + SHORT_USER_CHANNELS, output_channels + SHORT_USER_CHANNELS, filters)
+    crf = calculate_compound_routing_filter(matrix, xo_filters=xo_filters, lfe_channel_idx=5)
+    crf.id = 1
+    for i, f in enumerate(crf.filters):
+        f.id = i + 2
+    graph = FilterGraph(0, input_channels + SHORT_USER_CHANNELS, output_channels + SHORT_USER_CHANNELS, [crf])
     assert graph.nodes_by_channel
     signals_by_channel = graph.simulate()
     assert signals_by_channel
     gz = GraphRenderer(graph).generate(False)
+    print()
+    print(gz)
     assert gz
 
 
