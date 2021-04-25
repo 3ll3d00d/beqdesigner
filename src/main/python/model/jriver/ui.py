@@ -27,7 +27,7 @@ from model.jriver.common import get_channel_name, get_channel_idx, OutputFormat,
 from model.jriver.dsp import JRiverDSP
 from model.jriver.filter import Divider, GEQFilter, CompoundRoutingFilter, CustomPassFilter, GainQFilter, Gain, Pass, \
     LinkwitzTransform, Polarity, Mix, Delay, Filter, create_peq, MixType, ChannelFilter, convert_filter_to_mc_dsp, \
-    SingleFilter, Node, XOFilter, HighPass, LowPass, SimulationFailed
+    SingleFilter, XOFilter, HighPass, LowPass, SimulationFailed
 from model.jriver.render import render_dot
 from model.jriver.routing import Matrix, LFE_ADJUST_KEY, EDITORS_KEY, EDITOR_NAME_KEY, \
     UNDERLYING_KEY, WAYS_KEY, SYM_KEY, LFE_IN_KEY, ROUTING_KEY, calculate_compound_routing_filter
@@ -279,9 +279,8 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         else:
             vals = selected_filter.get_all_vals()
             if not self.__show_basic_edit_filter_dialog(selected_filter, vals):
-                nodes_for_filter = self.dsp.active_graph.get_nodes_for_filter(selected_filter)
-                if len(nodes_for_filter) == 1:
-                    self.__show_edit_filter_dialog(nodes_for_filter[0])
+                if len(selected_filter.nodes) == 1:
+                    self.__show_edit_filter_dialog(selected_filter.nodes[0])
                 else:
                     logger.debug(f"Filter {selected_filter} at node {item.text()} is not editable")
             else:
@@ -394,7 +393,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
             selected_indexes = [i.row() for i in self.filterList.selectedIndexes()]
             for i in selected_indexes:
                 for n in self.__dsp.active_graph.filters[i].nodes:
-                    self.__selected_node_names.add(n.name)
+                    self.__selected_node_names.add(n)
         self.__regen()
 
     def clear_filters(self):
@@ -450,20 +449,18 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         :param node_name: the selected node.
         :param pos: the location to place the menu.
         '''
-        node = self.dsp.active_graph.get_node(node_name)
-        if node:
-            filt = node.parent if node.parent else node.filt
-            if filt:
-                menu = QMenu(self)
-                self.__populate_edit_node_add_menu(menu.addMenu('&Add'), node_name)
-                edit = QAction(f"&Edit", self)
-                edit.triggered.connect(lambda: self.__show_edit_filter_dialog(node_name))
-                menu.addAction(edit)
-                if not isinstance(filt, CompoundRoutingFilter):
-                    delete = QAction(f"&Delete", self)
-                    delete.triggered.connect(lambda: self.__delete_node(node_name))
-                    menu.addAction(delete)
-                menu.exec(pos)
+        filt = self.dsp.active_graph.get_filter_at_node(node_name)
+        if filt:
+            menu = QMenu(self)
+            self.__populate_edit_node_add_menu(menu.addMenu('&Add'), node_name)
+            edit = QAction(f"&Edit", self)
+            edit.triggered.connect(lambda: self.__show_edit_filter_dialog(node_name))
+            menu.addAction(edit)
+            if not isinstance(filt, CompoundRoutingFilter):
+                delete = QAction(f"&Delete", self)
+                delete.triggered.connect(lambda: self.__delete_node(node_name))
+                menu.addAction(delete)
+            menu.exec(pos)
 
     def __populate_edit_node_add_menu(self, add_menu: QMenu, node_name: str):
         '''
@@ -491,9 +488,9 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         :param node_name: the node name.
         :return: an index to insert at.
         '''
-        node = self.__dsp.active_graph.get_node(node_name)
-        if node.filt:
-            match = self.__find_item_by_filter_id(node.filt.id)
+        filt = self.__dsp.active_graph.get_filter_at_node(node_name)
+        if filt:
+            match = self.__find_item_by_filter_id(filt.id)
             if match:
                 return match[0] + 1
         return 0
@@ -504,7 +501,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         :return: an index to insert at.
         '''
         selected = [i.row() for i in self.filterList.selectedIndexes()]
-        return max(selected) + 1 if selected else 0
+        return max(selected) + 1 if selected else self.filterList.count()
 
     def __find_item_by_filter_id(self, f_id: int) -> Optional[Tuple[int, QListWidgetItem]]:
         '''
@@ -524,30 +521,31 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         pipeline.
         :param node_name: the node to insert after.
         '''
-        node = self.__dsp.active_graph.get_node(node_name)
-        if node.filt:
-            match = self.__find_item_by_filter_id(node.filt.id)
+        filt = self.__dsp.active_graph.get_filter_at_node(node_name)
+        if filt:
+            match = self.__find_item_by_filter_id(filt.id)
             if match:
-                if node.has_editable_filter():
-                    node_idx, node_chain = node.editable_node_chain
-                    filters: List[SOS] = [f.editable_filter for f in node_chain]
-                    insert_at, _ = self.__find_item_by_filter_id(node_chain[0].filt.id)
+                if filt.get_editable_filter():
+                    node_idx, node_chain = self.__dsp.active_graph.get_editable_node_chain(node_name)
+                    filters: List[Filter] = [self.__dsp.active_graph.get_filter_at_node(n) for n in node_chain]
+                    insert_at, _ = self.__find_item_by_filter_id(filters[0].id)
                     # TODO insert a filter into the chain immediately after this one
-                    self.__start_peq_edit_session(filters, node.channel, node_chain, insert_at + 1)
+                    self.__start_peq_edit_session([f.get_editable_filter() for f in filters], node_name.split('_')[0],
+                                                  node_chain, insert_at + 1)
                 else:
-                    self.__start_peq_edit_session(None, node.channel, [], match[0] + 1)
+                    self.__start_peq_edit_session(None, node_name.split('_')[0], [], match[0] + 1)
 
     def __delete_node(self, node_name: str) -> None:
         '''
         Deletes the node from the filter list.
         :param node_name: the node to remove.
         '''
-        node = self.__dsp.active_graph.get_node(node_name)
-        if node and node.filt:
-            f = node.filt
+        f = self.__dsp.active_graph.get_filter_at_node(node_name)
+        node_channel = node_name.split('_')[0]
+        if f:
             if isinstance(f, ChannelFilter):
                 item: QListWidgetItem
-                if self.__dsp.active_graph.delete_channel(f, node.channel):
+                if self.__dsp.active_graph.delete_channel(f, node_channel):
                     match = self.__find_item_by_filter_id(f.id)
                     if match:
                         self.filterList.takeItem(match[0])
@@ -845,31 +843,27 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         Shows the edit dialog for the selected node.
         :param node_name: the node.
         '''
-        node = self.dsp.active_graph.get_node(node_name)
-        if node:
-            filt = node.parent if node.parent else node.filt
-            if filt:
-                if isinstance(filt, GEQFilter):
-                    self.__start_geq_edit_session(filt, filt.channel_names)
-                elif isinstance(filt, CompoundRoutingFilter):
-                    self.__update_xo(filt)
-                elif node.has_editable_filter():
-                    node_idx, node_chain = node.editable_node_chain
-                    filters: List[SOS] = [f.editable_filter for f in node_chain]
-                    insert_at, _ = self.__find_item_by_filter_id(node_chain[0].filt.id)
-                    self.__start_peq_edit_session(filters, node.channel, node_chain, insert_at + 1,
-                                                  selected_filter_idx=node_idx)
-                else:
-                    vals = filt.get_all_vals()
-                    if isinstance(filt, SingleFilter):
-                        if not self.__show_basic_edit_filter_dialog(filt, vals):
-                            logger.debug(f"Filter {filt} at node {node_name} is not editable")
-                    else:
-                        logger.warning(f"Unexpected filter type {filt} at {node_name}, unable to edit")
+        filt = self.__dsp.active_graph.get_filter_at_node(node_name)
+        if filt:
+            if isinstance(filt, GEQFilter):
+                self.__start_geq_edit_session(filt, filt.channel_names)
+            elif isinstance(filt, CompoundRoutingFilter):
+                self.__update_xo(filt)
+            elif filt.get_editable_filter():
+                node_idx, node_chain = self.__dsp.active_graph.get_editable_node_chain(node_name)
+                filters: List[Filter] = [self.__dsp.active_graph.get_filter_at_node(n) for n in node_chain]
+                insert_at, _ = self.__find_item_by_filter_id(filters[0].id)
+                self.__start_peq_edit_session([f.get_editable_filter() for f in filters], node_name.split('_')[0],
+                                              node_chain, insert_at + 1, selected_filter_idx=node_idx)
             else:
-                logger.debug(f"No filter at node {node_name}")
+                vals = filt.get_all_vals()
+                if isinstance(filt, SingleFilter):
+                    if not self.__show_basic_edit_filter_dialog(filt, vals):
+                        logger.debug(f"Filter {filt} at node {node_name} is not editable")
+                else:
+                    logger.warning(f"Unexpected filter type {filt} at {node_name}, unable to edit")
         else:
-            logger.debug(f"No such node {node_name}")
+            logger.debug(f"No filter at node {node_name}")
 
     def __show_basic_edit_filter_dialog(self, to_edit: Filter, vals: List[Dict[str, str]]) -> bool:
         if len(vals) == 1 and hasattr(to_edit, 'default_values'):
@@ -899,7 +893,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         else:
             return False
 
-    def __start_peq_edit_session(self, filters: Optional[List[SOS]], channel: str, node_chain: List[Node],
+    def __start_peq_edit_session(self, filters: Optional[List[SOS]], channel: str, node_chain: List[str],
                                  insert_at: int, selected_filter_idx: int = -1) -> None:
         '''
         Starts a PEQ editing session.
@@ -1000,7 +994,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         self.__selected_node_names.remove(node_name)
         node_filter = self.__dsp.active_graph.get_filter_at_node(node_name)
         if node_filter:
-            nodes_in_filter = [n.name for n in node_filter.nodes]
+            nodes_in_filter = [n for n in node_filter.nodes]
             if not any(s in self.__selected_node_names for s in nodes_in_filter):
                 from model.report import block_signals
                 with block_signals(self.filterList):
@@ -1029,7 +1023,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
                             if f.id == selected_filter.id:
                                 if not isinstance(f, Mix) or f.mix_type in [MixType.ADD, MixType.SUBTRACT]:
                                     for n in f.nodes:
-                                        self.__selected_node_names.add(n.name)
+                                        self.__selected_node_names.add(n)
                                 item.setSelected(True)
                         else:
                             item.setSelected(False)

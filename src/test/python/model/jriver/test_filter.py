@@ -1,6 +1,5 @@
 from model.jriver.common import SHORT_USER_CHANNELS, get_channel_idx
-from model.jriver.filter import FilterGraph, Mix, MixType, print_node, Peak, XOFilter, LowPass, HighPass
-from model.jriver.render import GraphRenderer
+from model.jriver.filter import FilterGraph, Mix, MixType, Peak, XOFilter, LowPass, HighPass
 from model.jriver.routing import Matrix, calculate_compound_routing_filter
 
 
@@ -18,12 +17,7 @@ def test_simple():
 
     filters = [peak(100, 'L'), peak(1000, 'R'), peak(500, 'L')]
     graph = FilterGraph(0, channels + SHORT_USER_CHANNELS, channels + SHORT_USER_CHANNELS, filters)
-    assert graph.nodes_by_channel
-    for c in ['L', 'R']:
-        printed = print_node(c, graph.nodes_by_channel[c])
-        print()
-        print(printed)
-    gz = GraphRenderer(graph).generate(False)
+    gz = graph.render()
     assert gz
     signals_by_channel = graph.simulate()
     assert signals_by_channel
@@ -42,12 +36,7 @@ def test_circular_add():
 
     filters = [mix('L', 'U1'), mix('R', 'U1'), mix('U1', 'R', MixType.COPY)]
     graph = FilterGraph(0, channels + SHORT_USER_CHANNELS, channels + SHORT_USER_CHANNELS, filters)
-    assert graph.nodes_by_channel
-    for c in ['L', 'R', 'U1']:
-        printed = print_node(c, graph.nodes_by_channel[c])
-        print()
-        print(printed)
-    gz = GraphRenderer(graph).generate(False)
+    gz = graph.render()
     assert gz
     signals_by_channel = graph.simulate()
     assert signals_by_channel
@@ -64,8 +53,7 @@ def test_circular_copy():
 
     filters = [mix('L', 'U1', MixType.COPY), mix('R', 'C'), mix('L', 'C'), mix('U1', 'L', MixType.COPY)]
     graph = FilterGraph(0, ['L', 'R'] + SHORT_USER_CHANNELS, ['L', 'R', 'C', 'SW'] + SHORT_USER_CHANNELS, filters)
-    assert graph.nodes_by_channel
-    gz = GraphRenderer(graph).generate(False)
+    gz = graph.render()
     assert gz
     signals_by_channel = graph.simulate()
     assert signals_by_channel
@@ -88,10 +76,9 @@ def test_stereo_subs():
     for i, f in enumerate(crf.filters):
         f.id = i + 2
     graph = FilterGraph(0, input_channels + SHORT_USER_CHANNELS, output_channels + SHORT_USER_CHANNELS, [crf])
-    assert graph.nodes_by_channel
     signals_by_channel = graph.simulate()
     assert signals_by_channel
-    gz = GraphRenderer(graph).generate(False)
+    gz = graph.render()
     print()
     print(gz)
     assert gz

@@ -4,7 +4,7 @@ from qtpy.QtCore import QByteArray, QObject, Signal, QRectF, QPoint, QTimer
 from qtpy.QtGui import QBrush, QColor, QPalette
 from qtpy.QtSvg import QGraphicsSvgItem, QSvgRenderer
 from qtpy.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsItem, QWidget, QGraphicsSceneMouseEvent, \
-    QGraphicsSceneContextMenuEvent, QApplication
+    QGraphicsSceneContextMenuEvent, QApplication, QGraphicsSceneHoverEvent
 
 logger = logging.getLogger('svg')
 
@@ -36,6 +36,7 @@ class ClickableSvgItem(SvgItem):
         self.__timer.setSingleShot(True)
         self.__timer.timeout.connect(self.__on_single_click)
         self.__double_click_interval = QApplication.doubleClickInterval()
+        self.setAcceptHoverEvents(True)
 
     def mousePressEvent(self, event: QGraphicsSceneMouseEvent) -> None:
         event.accept()
@@ -61,6 +62,12 @@ class ClickableSvgItem(SvgItem):
 
     def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent):
         self.__signal.on_context.emit(self.__node_name, event.screenPos())
+
+    def hoverEnterEvent(self, event: QGraphicsSceneHoverEvent):
+        self.setToolTip(self.__node_name)
+
+    def hoverLeaveEvent(self, event: QGraphicsSceneHoverEvent):
+        self.setToolTip('')
 
 
 class SvgView(QGraphicsView):

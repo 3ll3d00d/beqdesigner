@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 import time
 from abc import ABC, abstractmethod
-from collections import defaultdict
 from enum import Enum
 from typing import List, Dict, Optional, Callable, Union, Type, Sequence, overload, Tuple, Iterable
 
@@ -15,7 +14,7 @@ from model.iir import SOS, s_to_q, q_to_s, FirstOrder_LowPass, FirstOrder_HighPa
     BiquadWithQGain, PeakingEQ, LowShelf as LS, Gain as G, LinkwitzTransform as LT
 from model.jriver.codec import filts_to_xml
 from model.jriver.common import get_channel_name, pop_channels, get_channel_idx, JRIVER_SHORT_CHANNELS, \
-    SHORT_USER_CHANNELS, make_dirac_pulse, make_silence
+    make_dirac_pulse, make_silence
 from model.log import to_millis
 from model.signal import Signal
 
@@ -27,7 +26,7 @@ class Filter(ABC):
     def __init__(self, short_name: str):
         self.__short_name = short_name
         self.__f_id = -1
-        self.__nodes: List[Node] = []
+        self.__nodes: List[str] = []
 
     def reset(self) -> None:
         self.__nodes = []
@@ -41,7 +40,7 @@ class Filter(ABC):
         self.__f_id = f_id
 
     @property
-    def nodes(self) -> List[Node]:
+    def nodes(self) -> List[str]:
         return self.__nodes
 
     @property
@@ -783,6 +782,7 @@ class ComplexFilter(Filter):
 
     def __init__(self, filters: List[Filter]):
         super().__init__(self.custom_type())
+        self.__f_id = -1
         self.__prefix: Filter = self.__make_divider(True)
         self.__filters = filters
         self.__suffix: Filter = self.__make_divider(False)
@@ -793,6 +793,16 @@ class ComplexFilter(Filter):
     @property
     def filters(self) -> List[Filter]:
         return self.__filters
+
+    @Filter.id.getter
+    def id(self) -> int:
+        return self.__f_id
+
+    @id.setter
+    def id(self, f_id: int):
+        self.__f_id = f_id
+        for i, f in enumerate(self.filters):
+            f.id = f"{f_id}_{i}"
 
     def get_all_vals(self) -> List[Dict[str, str]]:
         all_filters: List[Filter] = [self.__prefix] + self.__filters + [self.__suffix]
@@ -889,6 +899,9 @@ class GEQFilter(ComplexChannelFilter):
     @classmethod
     def create(cls, data: str, child_filters: List[Filter]):
         return GEQFilter(child_filters)
+
+    def get_editable_filter(self) -> Optional[SOS]:
+        return None
 
 
 class XOFilterType(Enum):
@@ -996,6 +1009,9 @@ class CompoundRoutingFilter(ComplexFilter, Sequence[Filter]):
             else:
                 routing_filters.append(f)
         return CompoundRoutingFilter(data, routing_filters, xo_filters)
+
+    def get_editable_filter(self) -> Optional[SOS]:
+        return None
 
 
 class CustomPassFilter(ComplexChannelFilter):
@@ -1263,148 +1279,34 @@ class GainFilterOp(FilterOp):
         return input_signal.offset(self.__gain_db)
 
 
-class Node:
-    '''
-    A single node in a filter chain, linked in both directions to parent(s) and children, if any.
-    '''
-
-    def __init__(self, rank: int, name: str, filt: Optional[Filter], channel: str):
-        self.name = name
-        self.rank = rank
-        self.parent: Optional[Filter] = None
-        self.__filt = filt
-        self.channel = channel
-        self.visited = False
-        if self.filt is None and self.channel is None:
-            raise ValueError('Must have either filter or channel')
-        self.__down_edges: List[Node] = []
-        self.__up_edges: List[Node] = []
-
-    def add(self, node: Node):
-        if node not in self.downstream:
-            self.downstream.append(node)
-            node.upstream.append(self)
-
-    def has_editable_filter(self):
-        return self.__filt and self.__filt.get_editable_filter() is not None
-
-    @property
-    def editable_filter(self) -> Optional[SOS]:
-        '''
-        :return: a beqd filter, if one can be provided by this filter.
-        '''
-        if self.__filt:
-            return self.__filt.get_editable_filter()
-        return None
-
-    @property
-    def editable_node_chain(self) -> Tuple[int, List[Node]]:
-        '''
-        A contiguous chain of filters which can be edited in the filter dialog as one unit.
-        :return: idx of this node in the chain, the list of nodes.
-        '''
-        chain = []
-        pos = 0
-        if self.has_editable_filter():
-            t = self
-            while len(t.upstream) == 1 and t.upstream[0].has_editable_filter():
-                chain.insert(0, t.upstream[0])
-                t = t.upstream[0]
-            pos = len(chain)
-            chain.append(self)
-            t = self
-            while len(t.downstream) == 1 and t.downstream[0].has_editable_filter():
-                chain.append(t.downstream[0])
-                t = t.downstream[0]
-        return pos, chain
-
-    @property
-    def filt(self) -> Optional[Filter]:
-        return self.__filt
-
-    @property
-    def downstream(self) -> List[Node]:
-        return self.__down_edges
-
-    @property
-    def upstream(self) -> List[Node]:
-        return self.__up_edges
-
-    def detach(self):
-        '''
-        Detaches this node from the upstream nodes.
-        '''
-        for u in self.upstream:
-            u.downstream.remove(self)
-        self.__up_edges = []
-
-    def __repr__(self):
-        up = f"U{len(self.__up_edges)} " if self.__up_edges else ''
-        down = f"D{len(self.__down_edges)}" if self.__down_edges else ''
-        return f"{self.name} {up}{down}"
-
-    @classmethod
-    def swap(cls, n1: Node, n2: Node):
-        '''
-        Routes n1 to n2 downstream and vice versa.
-        :param n1: first node.
-        :param n2: second node.
-        '''
-        n2_target_upstream = [t for t in n1.upstream]
-        n1_target_upstream = [t for t in n2.upstream]
-        n1.detach()
-        n2.detach()
-        for to_attach in n1_target_upstream:
-            to_attach.add(n1)
-        for to_attach in n2_target_upstream:
-            to_attach.add(n2)
-
-    @classmethod
-    def replace(cls, src: Node, dst: Node) -> List[Node]:
-        '''
-        Replaces the contents of dest with src.
-        :param src: src.
-        :param dst: dest.
-        :returns detached downstream.
-        '''
-        # detach dst from its upstream node(s)
-        dst.detach()
-        # copy the downstream nodes from src and then remove them from src
-        tmp_downstream = [d for d in src.downstream]
-        src.downstream.clear()
-        # attach the downstream nodes from dst to src
-        for d in dst.downstream:
-            d.detach()
-            src.add(d)
-        # remove those downstream nodes from dst
-        dst.downstream.clear()
-        # return any downstream nodes orphaned from the old src
-        return tmp_downstream
-
-    @classmethod
-    def copy(cls, src: Node, dst: Node):
-        '''
-        Copies the contents of src to dst, same as replace but leaves the upstream intact on the src.
-        :param src: src.
-        :param dst: dest.
-        '''
-        # detach dst from its upstream node(s)
-        dst.detach()
-        # add dst a new downstream to src
-        src.add(dst)
-
-
 class FilterGraph:
 
     def __init__(self, stage: int, input_channels: List[str], output_channels: List[str], filts: List[Filter]):
-        self.__editing: Optional[Tuple[str, List[Node]], int] = None
+        self.__editing: Optional[Tuple[str, List[str]], int] = None
         self.__stage = stage
         self.__filts = filts
         self.__output_channels = output_channels
         self.__input_channels = input_channels
-        self.__nodes_by_name: Dict[str, Node] = {}
-        self.__nodes_by_channel: Dict[str, Node] = {}
+        self.__dot = None
         self.__regen()
+
+    def __regen(self):
+        '''
+        Regenerates the graph.
+        '''
+        from model.jriver.render import GraphRenderer
+        GraphRenderer(self).generate()
+
+    def render(self, colours=None, vertical=True, selected_nodes=None) -> str:
+        '''
+        Renders the graph to dot notation.
+        :param colours: the colours to use in the rendering.
+        :param vertical: whether to orient top to bottom or left to right.
+        :param selected_nodes: the nodes which to be highlighted.
+        :return: the dot rendering.
+        '''
+        from model.jriver.render import GraphRenderer
+        return GraphRenderer(self, colours=colours).generate(vertical=vertical, selected_nodes=selected_nodes)
 
     def __repr__(self):
         return f"Stage {self.__stage} - {len(self.__filts)} Filters - {len(self.__input_channels)} in {len(self.__output_channels)} out"
@@ -1413,50 +1315,56 @@ class FilterGraph:
     def stage(self):
         return self.__stage
 
-    def __regen(self):
-        '''
-        Regenerates the graph.
-        '''
-        self.__nodes_by_name = {}
-        for f in self.__filts:
-            f.reset()
-        self.__nodes_by_channel = self.__generate_nodes()
-
-    def __generate_nodes(self) -> Dict[str, Node]:
-        '''
-        Parses the supplied filters into a linked set of nodes per channel.
-        :return: the linked node per channel.
-        '''
-        return self.__prune(self.__link(self.__create_nodes()))
-
-    def __prune(self, by_channel: Dict[str, Node]) -> Dict[str, Node]:
-        '''
-        Prunes non input channels so they don't start with an input.
-        :param by_channel: the nodes by channel
-        :return: the pruned nodes by channel.
-        '''
-        pruned = {}
-        for c, n in by_channel.items():
-            if c in self.__input_channels:
-                pruned[c] = n
-            else:
-                if len(n.downstream) > 1:
-                    logger.error(f"Unexpected multiple downstream for non input channel {n}")
-                    pruned[c] = n
-                elif n.downstream:
-                    pruned[c] = n.downstream[0]
-        return pruned
-
     def get_filter_at_node(self, node_name: str) -> Optional[Filter]:
         '''
-        Locates the filter for the given node.
+        Locates the editable filter for the given node.
         :param node_name: the node to search for.
         :return: the filter, if any.
         '''
-        node = self.get_node(node_name)
-        if node and node.filt:
-            return node.filt
+        for f in self.filters:
+            if node_name in f.nodes:
+                return f
+            elif isinstance(f, CompoundRoutingFilter):
+                for f1 in f:
+                    if node_name in f1.nodes:
+                        return f
         return None
+
+    def get_editable_node_chain(self, node_name: str) -> Tuple[int, List[str]]:
+        '''
+        Looks up and down the filter list to compile a list of nodes that can be edited as a single unit.
+        :param node_name: the node name.
+        :return: the index of this node in the chain, the chain of nodes that can be edited as one.
+        '''
+        node_idx = -1
+        node_chain = []
+        channel = node_name.split('_')[0]
+        found = False
+        node_filter = self.get_filter_at_node(node_name)
+        if node_filter and node_filter.get_editable_filter():
+            for f in self.get_filters_by_channel(channel):
+                if f == node_filter:
+                    found = True
+                    node_idx = len(node_chain)
+                if f.get_editable_filter():
+                    for n in f.nodes:
+                        if n.startswith(f"{channel}_"):
+                            node_chain.append(n)
+                else:
+                    if found:
+                        break
+                    else:
+                        node_idx = -1
+                        node_chain = []
+        return node_idx, node_chain
+
+    def get_filters_by_channel(self, channel: str) -> List[Filter]:
+        '''
+        :param channel: the channel name.
+        :return: all filters applicable to that channel.
+        '''
+        channel_idx = get_channel_idx(channel)
+        return [f for f in self.filters if f.is_mine(channel_idx)]
 
     def get_filter_by_id(self, f_id: int) -> Optional[Filter]:
         '''
@@ -1465,14 +1373,6 @@ class FilterGraph:
         :return: the filter, if any.
         '''
         return next((f for f in self.__filts if f.id == f_id), None)
-
-    def get_node(self, node_name: str) -> Optional[Node]:
-        '''
-        Locates the named node.
-        :param node_name: the node to search for.
-        :return: the node, if any.
-        '''
-        return self.__nodes_by_name.get(node_name, None)
 
     def reorder(self, start: int, end: int, to: int) -> None:
         '''
@@ -1504,10 +1404,6 @@ class FilterGraph:
                 yield f
 
     @property
-    def nodes_by_channel(self) -> Dict[str, Node]:
-        return self.__nodes_by_channel
-
-    @property
     def input_channels(self):
         return self.__input_channels
 
@@ -1515,276 +1411,7 @@ class FilterGraph:
     def output_channels(self):
         return self.__output_channels
 
-    def __create_nodes(self) -> Dict[str, List[Node]]:
-        '''
-        transforms each filter into a node, one per channel the filter is applicable to.
-        :return: nodes by channel name.
-        '''
-        # create a channel/filter grid
-        by_channel: Dict[str, List[Node]] = {c: [Node(0, f"IN:{c}", None, c)] if c not in SHORT_USER_CHANNELS else []
-                                             for c in self.__output_channels}
-        i = 1
-        for idx, f in enumerate(self.__filts):
-            if isinstance(f, Sequence):
-                for f1 in f:
-                    if self.__process_filter(f1, by_channel, i):
-                        for n in f1.nodes:
-                            f.nodes.append(n)
-                            n.parent = f
-                        i += 1
-            else:
-                if self.__process_filter(f, by_channel, i):
-                    i += 1
-        # add output nodes
-        for c, nodes in by_channel.items():
-            if c in SHORT_USER_CHANNELS:
-                nodes.append(Node(i * 100, f"END:{c}", None, c))
-            else:
-                nodes.append(Node(i * 100, f"OUT:{c}", None, c))
-        return by_channel
-
-    def __process_filter(self, f: Filter, by_channel: Dict[str, List[Node]], i: int) -> bool:
-        '''
-        Converts the filter into a node on the target channel.
-        :param f: the filter.
-        :param by_channel: the store of nodes.
-        :param i: the filter index.
-        :return: true if a node was added.
-        '''
-        if not isinstance(f, Divider) and f.enabled:
-            for channel_name, nodes in by_channel.items():
-                channel_idx = get_channel_idx(channel_name)
-                if f.is_mine(channel_idx):
-                    # mix is added as a node to both channels
-                    if isinstance(f, Mix):
-                        dst_channel_name = get_channel_name(f.dst_idx)
-                        by_channel[dst_channel_name].append(self.__make_node(i, dst_channel_name, f))
-                        nodes.append(self.__make_node(i, channel_name, f))
-                    else:
-                        nodes.append(self.__make_node(i, channel_name, f))
-            return True
-        return False
-
-    def __make_node(self, phase: int, channel_name: str, filt: Filter):
-        node = Node(phase * 100, f"{channel_name}_{phase}00_{filt.short_name}", filt, channel_name)
-        if node.name in self.__nodes_by_name:
-            logger.warning(f"Duplicate node name detected in {channel_name}!!! {node.name}")
-        self.__nodes_by_name[node.name] = node
-        filt.nodes.append(node)
-        return node
-
-    def __link(self, by_channel: Dict[str, List[Node]]) -> Dict[str, Node]:
-        '''
-        Assembles edges between nodes. For all filters except Mix, this is just a link to the preceding. node.
-        Copy, move and swap mixes change this relationship.
-        :param by_channel: the nodes by channel
-        :return: the linked nodes by channel.
-        '''
-        return self.__remix(self.__initialise_graph(by_channel))
-
-    @staticmethod
-    def __initialise_graph(by_channel):
-        input_by_channel: Dict[str, Node] = {}
-        for c, nodes in by_channel.items():
-            upstream: Optional[Node] = None
-            for node in nodes:
-                if c not in input_by_channel:
-                    input_by_channel[c] = node
-                if upstream:
-                    upstream.add(node)
-                upstream = node
-        return input_by_channel
-
-    def __remix(self, by_channel: Dict[str, Node], orphaned_nodes: Dict[str, List[Node]] = None) -> Dict[str, Node]:
-        '''
-        Applies mix operations to the nodes.
-        :param by_channel: the simply linked nodes.
-        :param orphaned_nodes: any orphaned nodes.
-        :return: the remixed nodes.
-        '''
-        if orphaned_nodes is None:
-            orphaned_nodes = defaultdict(list)
-        for c, node in by_channel.items():
-            self.__remix_node(node, by_channel, orphaned_nodes)
-        self.__remix_orphans(by_channel, orphaned_nodes)
-        bad_nodes = [n for n in self.__collect_all_nodes(by_channel) if not self.__is_linked(n)]
-        if bad_nodes:
-            logger.warning(f"Found {len(bad_nodes)} badly linked nodes")
-        return by_channel
-
-    @staticmethod
-    def __is_linked(node: Node):
-        for u in node.upstream:
-            if node not in u.downstream:
-                logger.debug(f"Node not cross linked with upstream {u.name} - {node.name}")
-                return False
-        return True
-
-    def __remix_orphans(self, by_channel, orphaned_nodes) -> None:
-        '''
-        Allows orphaned nodes to be considered in the remix.
-        :param by_channel: the nodes by channel.
-        :param orphaned_nodes: orphaned nodes.
-        '''
-        while True:
-            if orphaned_nodes:
-                c_to_remove = []
-                for c, orphans in orphaned_nodes.items():
-                    new_root = orphans.pop(0)
-                    by_channel[f"{c}:{new_root.rank}"] = new_root
-                    if not orphans:
-                        c_to_remove.append(c)
-                orphaned_nodes = {k: v for k, v in orphaned_nodes.items() if k not in c_to_remove}
-                self.__remix(by_channel, orphaned_nodes=orphaned_nodes)
-            else:
-                break
-
-    def __remix_node(self, node: Node, by_channel: Dict[str, Node], orphaned_nodes: Dict[str, List[Node]]) -> None:
-        '''
-        Applies a mix to a particular node.
-        :param node: the node involved in the mix.
-        :param by_channel: the entire graph so far.
-        :param orphaned_nodes: unlinked node.
-        '''
-        downstream = [d for d in node.downstream]
-        if not node.visited:
-            node.visited = True
-            channel_name = self.__extract_channel_name(node)
-            f = node.filt
-            if isinstance(f, Mix) and f.enabled:
-                if f.mix_type == MixType.SWAP:
-                    downstream = self.__swap_node(by_channel, channel_name, downstream, f, node, orphaned_nodes)
-                elif f.mix_type == MixType.MOVE or f.mix_type == MixType.COPY:
-                    downstream = self.__copy_or_replace_node(by_channel, channel_name, downstream, f, node,
-                                                             orphaned_nodes)
-                elif f.mix_type == MixType.ADD or f.mix_type == MixType.SUBTRACT:
-                    self.__add_or_subtract_node(by_channel, f, node, orphaned_nodes)
-        for d in downstream:
-            self.__remix_node(d, by_channel, orphaned_nodes)
-
-    @staticmethod
-    def __extract_channel_name(node: Node) -> str:
-        if '_' in node.name:
-            sep = '_'
-        elif ':' in node.name:
-            sep = ':'
-        else:
-            raise ValueError(f"Unable to extract channel name from {node}")
-        return node.name[0:node.name.index(sep)]
-
-    def __add_or_subtract_node(self, by_channel: Dict[str, Node], f: Mix, node: Node,
-                               orphaned_nodes: Dict[str, List[Node]]) -> None:
-        '''
-        Applies an add or subtract mix operation if the filter owns the supplied node.
-        :param by_channel: the filter graph.
-        :param f: the mix filter.
-        :param node: the node to remix.
-        :param orphaned_nodes: unlinked nodes.
-        '''
-        if f.is_mine(get_channel_idx(node.channel)):
-            dst_channel_name = get_channel_name(f.dst_idx)
-            try:
-                dst_node = self.__find_owning_node_in_channel(by_channel[dst_channel_name], f, dst_channel_name)
-                node.add(dst_node)
-            except ValueError:
-                dst_node = self.__find_owning_node_in_orphans(dst_channel_name, f, orphaned_nodes)
-                if dst_node:
-                    dst_node.visited = True
-                    node.add(dst_node)
-                else:
-                    logger.debug(f"No match for {f} in {dst_channel_name}, presumed orphaned")
-                    node.visited = False
-
-    def __find_owning_node_in_orphans(self, dst_channel_name, f, orphaned_nodes):
-        return next((n for n in orphaned_nodes.get(dst_channel_name, [])
-                     if self.__owns_filter(n, f, dst_channel_name)), None)
-
-    def __copy_or_replace_node(self, by_channel: Dict[str, Node], channel_name: str, downstream: List[Node], f: Mix,
-                               node: Node, orphaned_nodes: Dict[str, List[Node]]) -> List[Node]:
-        '''
-        Applies a copy or replace operation to the supplied node.
-        :param by_channel: the filter graph.
-        :param channel_name: the channel being mixed.
-        :param downstream: the downstream nodes.
-        :param f: the mix filter.
-        :param node: the node that is the subject of the mix.
-        :param orphaned_nodes: unlinked nodes.
-        :return: the nodes that are now downstream of this node.
-        '''
-        src_channel_name = get_channel_name(f.src_idx)
-        if src_channel_name == channel_name and node.channel == channel_name:
-            dst_channel_name = get_channel_name(f.dst_idx)
-            try:
-                dst_node = self.__find_owning_node_in_channel(by_channel[dst_channel_name], f, dst_channel_name)
-                if f.mix_type == MixType.COPY:
-                    Node.copy(node, dst_node)
-                else:
-                    new_downstream = Node.replace(node, dst_node)
-                    if new_downstream:
-                        if len(new_downstream) > 1:
-                            txt = f"{channel_name} - {new_downstream}"
-                            raise ValueError(f"Unexpected multiple downstream nodes on replace in channel {txt}")
-                        if not new_downstream[0].name.startswith('OUT:'):
-                            orphaned_nodes[channel_name].append(new_downstream[0])
-                downstream = node.downstream
-            except ValueError:
-                logger.debug(f"No match for {f} in {dst_channel_name}, presumed orphaned")
-                node.visited = False
-        else:
-            node.visited = False
-        return downstream
-
-    def __swap_node(self, by_channel: Dict[str, Node], channel_name: str, downstream: List[Node], f: Mix,
-                    node: Node, orphaned_nodes: Dict[str, List[Node]]) -> List[Node]:
-        '''
-        Applies a swap operation to the supplied node.
-        :param by_channel: the filter graph.
-        :param channel_name: the channel being mixed.
-        :param downstream: the downstream nodes.
-        :param f: the mix filter.
-        :param node: the node that is the subject of the mix.
-        :param orphaned_nodes: unlinked nodes.
-        :return: the nodes that are now downstream of this node.
-        '''
-        src_channel_name = get_channel_name(f.src_idx)
-        if src_channel_name == channel_name:
-            dst_channel_name = get_channel_name(f.dst_idx)
-            swap_channel_name = src_channel_name if channel_name == dst_channel_name else dst_channel_name
-            try:
-                swap_node = self.__find_owning_node_in_channel(by_channel[swap_channel_name], f, swap_channel_name)
-            except ValueError:
-                swap_node = self.__find_owning_node_in_orphans(swap_channel_name, f, orphaned_nodes)
-            if swap_node:
-                Node.swap(node, swap_node)
-                downstream = node.downstream
-            else:
-                logger.debug(f"No match for {f} in {swap_channel_name}, presumed orphaned")
-                node.visited = False
-        else:
-            node.visited = False
-        return downstream
-
-    @staticmethod
-    def __find_owning_node_in_channel(node: Node, match: Filter, owning_channel_name: str) -> Node:
-        if FilterGraph.__owns_filter(node, match, owning_channel_name):
-            return node
-        for d in node.downstream:
-            return FilterGraph.__find_owning_node_in_channel(d, match, owning_channel_name)
-        raise ValueError(f"No match for '{match}' in '{node}'")
-
-    @staticmethod
-    def __owns_filter(node: Node, match: Filter, owning_channel_name: str) -> bool:
-        # TODO compare by id?
-        return node.filt and node.filt == match and node.channel == owning_channel_name
-
-    @staticmethod
-    def __collect_all_nodes(nodes_by_channel: Dict[str, Node]) -> List[Node]:
-        nodes = []
-        for root in nodes_by_channel.values():
-            collect_nodes(root, nodes)
-        return nodes
-
-    def start_edit(self, channel: str, node_chain: List[Node], insert_at: int):
+    def start_edit(self, channel: str, node_chain: List[str], insert_at: int):
         self.__editing = (channel, node_chain, insert_at)
 
     def end_edit(self, new_filters: CompleteFilter):
@@ -1793,10 +1420,10 @@ class FilterGraph:
         :param new_filters: the filters.
         '''
         if self.__editing:
-            node_chain: List[Node]
+            node_chain: List[str]
             channel_name, node_chain, insert_at = self.__editing
             channel_idx = str(get_channel_idx(channel_name))
-            old_filters: List[Tuple[Filter, str]] = [(n.filt, n.channel) for n in node_chain]
+            old_filters: List[Tuple[Filter, str]] = [(self.get_filter_at_node(n), n.split('_')[0]) for n in node_chain]
             new_chain_filter: Optional[Filter] = None
             last_match = -1
             must_regen = False
@@ -1840,10 +1467,10 @@ class FilterGraph:
                         new_chain_filter = old_filters[:last_match + 1][0][0]
             if must_regen:
                 self.__regen()
-                new_chain_node: Node = next((n for n in self.__collect_all_nodes(self.__nodes_by_channel)
-                                             if n.channel == channel_name and n.filt and n.filt.id == new_chain_filter.id))
-                editable_chain: List[Node] = new_chain_node.editable_node_chain[1]
-                self.__editing = (channel_name, editable_chain, self.__get_filter_idx(editable_chain[0].filt) + 1)
+                new_chain_node: str = next(n for n in new_chain_filter.nodes if n.split('_')[0] == channel_name)
+                editable_chain: List[str] = self.get_editable_node_chain(new_chain_node)[1]
+                first_in_chain = self.get_filter_at_node(editable_chain[0])
+                self.__editing = (channel_name, editable_chain, self.__get_filter_idx(first_in_chain) + 1)
             return must_regen
 
     def __get_filter_idx(self, to_match: Filter) -> int:
@@ -1942,14 +1569,6 @@ class FilterGraph:
         except:
             return False
 
-    def get_nodes_for_filter(self, filter: Filter) -> List[str]:
-        '''
-        Locates the node(s) occupied by this filter.
-        :param filter: the filter.
-        :return: the node names.
-        '''
-        return [n.name for n in self.__collect_all_nodes(self.nodes_by_channel) if n.filt and n.filt.id == filter.id]
-
     def simulate(self) -> Dict[str, Signal]:
         """
         Applies each filter to unit impulse per channel.
@@ -2014,25 +1633,19 @@ class FilterGraph:
                 signals[c] = (filter_op.apply(signal), None)
 
 
-def print_node(channel: str, node: Node, depth: int = 0) -> str:
-    output = ''
-    for i in range(depth * 2):
-        output += ' '
-    output += f"{node.name} [{node.channel}]\n"
-    depth += 1
-    if node.channel == channel:
-        for d in node.downstream:
-            output += print_node(channel, d, depth)
-    return output
-
-
-def collect_nodes(node: Node, arr: List[Node]) -> List[Node]:
-    if node not in arr:
-        arr.append(node)
-    for d in node.downstream:
-        collect_nodes(d, arr)
-    return arr
-
-
 class SimulationFailed(Exception):
     pass
+
+
+def set_filter_ids(filters: List[Filter]) -> List[Filter]:
+    '''
+    ensures filters have a monotonic filter id.
+    :param filters: filters that may need IDs.
+    :return: filters with IDs set.
+    '''
+    for i, f in enumerate(filters):
+        f.id = (i + 1) * (2**24)
+        if isinstance(f, ComplexFilter):
+            for i1, f1 in enumerate(f.filters):
+                f1.id = f.id + 1 + i1
+    return filters

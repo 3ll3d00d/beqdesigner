@@ -11,8 +11,7 @@ from model.jriver.codec import get_peq_block_order, get_output_format, NoFilters
     extract_filters, filts_to_xml, include_filters_in_dsp
 from model.jriver.common import OutputFormat, get_channel_name, user_channel_indexes
 from model.jriver.filter import FilterGraph, create_peq, Filter, Divider, CustomPassFilter, \
-    complex_filter_classes_by_type
-from model.jriver.render import GraphRenderer
+    complex_filter_classes_by_type, ComplexFilter, set_filter_ids
 from model.log import to_millis
 from model.signal import Signal
 
@@ -62,8 +61,7 @@ class JRiverDSP:
         return self.__graphs[idx]
 
     def as_dot(self, idx, vertical=True, selected_nodes=None) -> str:
-        renderer = GraphRenderer(self.__graphs[idx], colours=self.__colours)
-        return renderer.generate(vertical, selected_nodes=selected_nodes)
+        return self.__graphs[idx].render(colours=self.__colours, vertical=vertical, selected_nodes=selected_nodes)
 
     def channel_names(self, short=True, output=False, exclude_user=False):
         idxs = self.output_format.output_channel_indexes if output else self.output_format.input_channel_indexes
@@ -97,17 +95,7 @@ class JRiverDSP:
             else:
                 store_in = buffer_stack[-1][2] if buffer_stack else output_filters
                 store_in.append(f)
-        return JRiverDSP.__set_filter_ids(output_filters)
-
-    @staticmethod
-    def __set_filter_ids(output_filters: List[Filter]) -> List[Filter]:
-        for i, f in enumerate(output_filters):
-            f.id = (i + 1) * (2**24)
-            # TODO other custom filter types
-            if isinstance(f, CustomPassFilter):
-                for i1, f1 in enumerate(f.filters):
-                    f1.id = f.id + 1 + i1
-        return output_filters
+        return set_filter_ids(output_filters)
 
     @staticmethod
     def __handle_divider(buffer: List[Tuple[Type, str, List[Filter]]], output_filters: List[Filter], f: Divider):
