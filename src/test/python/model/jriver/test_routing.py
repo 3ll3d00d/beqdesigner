@@ -304,9 +304,9 @@ def test_stereo_subs(stereo_subs):
         stereo_subs.enable(c, 1, c)
     routing_filters = calculate_compound_routing_filter(stereo_subs, lfe_channel_idx=5).filters
     assert routing_filters
+    assert routing_filters.pop(0).get_all_vals() == [mix('SW', MixType.COPY, 'U1')]
     assert routing_filters.pop(0).get_all_vals() == [mix('L', MixType.ADD, 'U1')]
     assert routing_filters.pop(0).get_all_vals() == [mix('C', MixType.ADD, 'U1')]
-    assert routing_filters.pop(0).get_all_vals() == [mix('SW', MixType.ADD, 'U1')]
     assert routing_filters.pop(0).get_all_vals() == [mix('SL', MixType.ADD, 'U1')]
     assert routing_filters.pop(0).get_all_vals() == [mix('R', MixType.ADD, 'RR')]
     assert routing_filters.pop(0).get_all_vals() == [mix('C', MixType.ADD, 'RR')]

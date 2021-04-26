@@ -9,7 +9,7 @@ from qtpy.QtCore import QThreadPool, QDateTime, Qt, QRunnable, QObject, Signal
 from qtpy.QtGui import QGuiApplication
 from qtpy.QtWidgets import QDialog, QDialogButtonBox, QMessageBox, QFileDialog, QListWidgetItem
 
-from model import JRIVER_CHANNELS
+from model.jriver.common import JRIVER_CHANNELS
 from model.minidsp import logger, RepoRefresher, get_repo_subdir, get_commit_url, TwoByFourXmlParser, HDXmlParser, \
     xml_to_filt
 from model.preferences import BEQ_CONFIG_FILE, BEQ_MERGE_DIR, BEQ_MINIDSP_TYPE, BEQ_DOWNLOAD_DIR, BEQ_EXTRA_DIR, \

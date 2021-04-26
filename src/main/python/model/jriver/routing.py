@@ -253,7 +253,7 @@ def __reorder_routes(routes: List[Route]) -> List[Route]:
         output.append(r)
     if failed:
         # TODO this does not make sense with how bass management is implemented for stereo subs
-        logger.warning(f'Unresolvable circular dependencies found in {ordered_routes}')
+        logger.info(f'Unresolvable circular dependencies found in {ordered_routes}')
     return output
 
 
