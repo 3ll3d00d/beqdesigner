@@ -117,7 +117,7 @@ class GraphRenderer:
 
     @staticmethod
     def __get_node_name(channel: str, f: Filter):
-        return f"{channel}_{f.id}"
+        return f"{channel}_{f.id}".replace('.', '_')
 
     def __create_node(self, channel: str, f: Filter, node_cache: Dict[str, str],
                       selected_nodes: Optional[Iterable[str]], suffix: str = None) -> str:

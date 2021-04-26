@@ -232,11 +232,12 @@ class GainQFilter(ChannelFilter):
         return q
 
     def get_filter_op(self) -> FilterOp:
-        sos = self.get_editable_filter().get_sos()
-        if sos:
-            return SosFilterOp(sos)
-        else:
-            return NopFilterOp()
+        f = self.get_editable_filter()
+        if f:
+            sos = self.get_editable_filter().get_sos()
+            if sos:
+                return SosFilterOp(sos)
+        return NopFilterOp()
 
     def get_editable_filter(self) -> Optional[SOS]:
         return self.__create_iir(48000, self.__frequency, self.__q, self.__gain, f_id=self.id)
@@ -808,12 +809,11 @@ class ComplexFilter(Filter):
         all_filters: List[Filter] = [self.__prefix] + self.__filters + [self.__suffix]
         return [v for f in all_filters for v in f.get_all_vals()]
 
-    def get_editable_filter(self) -> Optional[SOS]:
-        editable_filters = [f.get_editable_filter() for f in self.__filters if f.get_editable_filter()]
-        return CompleteFilter(fs=48000, filters=editable_filters, description=self.short_name, sort_by_id=True)
-
     def get_filter_op(self) -> FilterOp:
-        return SosFilterOp(self.get_editable_filter().get_sos())
+        fop = CompositeFilterOp()
+        for f in self.filters:
+            fop.append(f.get_filter_op())
+        return fop
 
     @classmethod
     def get_complex_filter_data(cls, text: str) -> Optional[Type, str]:
@@ -900,9 +900,6 @@ class GEQFilter(ComplexChannelFilter):
     def create(cls, data: str, child_filters: List[Filter]):
         return GEQFilter(child_filters)
 
-    def get_editable_filter(self) -> Optional[SOS]:
-        return None
-
 
 class XOFilterType(Enum):
     LPF = 1
@@ -972,7 +969,7 @@ class CompoundRoutingFilter(ComplexFilter, Sequence[Filter]):
             elif isinstance(f, Mix):
                 all_channels.add(get_channel_name(f.src_idx))
                 all_channels.add(get_channel_name(f.dst_idx))
-        self.__channel_names = [x for _, x in sorted(zip(all_channels, JRIVER_SHORT_CHANNELS)) if x]
+        self.__channel_names = [x for x in JRIVER_SHORT_CHANNELS if x in all_channels]
         super().__init__(all_filters)
 
     @overload
@@ -1010,9 +1007,6 @@ class CompoundRoutingFilter(ComplexFilter, Sequence[Filter]):
                 routing_filters.append(f)
         return CompoundRoutingFilter(data, routing_filters, xo_filters)
 
-    def get_editable_filter(self) -> Optional[SOS]:
-        return None
-
 
 class CustomPassFilter(ComplexChannelFilter):
 
@@ -1028,6 +1022,9 @@ class CustomPassFilter(ComplexChannelFilter):
         else:
             f = f"{freq:g}"
         return f"{tokens[0]}{tokens[2]} {tokens[1]} {f}"
+
+    def get_filter_op(self) -> FilterOp:
+        return SosFilterOp(self.get_editable_filter().get_sos())
 
     def get_editable_filter(self) -> Optional[SOS]:
         return self.__decode_custom_filter()
@@ -1153,7 +1150,7 @@ def __make_high_order_mc_pass_filter(f: CompoundPassFilter, filt_type: str, conv
         'Enabled': '1',
         'Slope': f"{f.order * 6}",
         'Type': filt_type,
-        'Q': f"{convert_q(f.q_scale):.4g}",
+        'Q': f"{convert_q((1 / 2**0.5) * f.q_scale):.4g}",
         'Frequency': f"{f.freq:.7g}",
         'Gain': '0',
         'Channels': target_channels
@@ -1192,6 +1189,25 @@ class NopFilterOp(FilterOp):
 
     def apply(self, input_signal: Signal) -> Signal:
         return input_signal
+
+
+class CompositeFilterOp(FilterOp):
+
+    def __init__(self):
+        self.__children: List[FilterOp] = []
+
+    def append(self, f: FilterOp):
+        if not isinstance(f, NopFilterOp):
+            if self.__children and isinstance(self.__children[-1], SosFilterOp) and isinstance(f, SosFilterOp):
+                self.__children[-1].extend(f)
+            else:
+                self.__children.append(f)
+
+    def apply(self, input_signal: Signal) -> Signal:
+        o = input_signal
+        for c in self.__children:
+            o = c.apply(o)
+        return o
 
 
 class SosFilterOp(FilterOp):
