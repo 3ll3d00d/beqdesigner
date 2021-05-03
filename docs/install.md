@@ -6,10 +6,7 @@ Releases are hosted on github, the latest official release will always be availa
 
 File Name | OS | Description 
 ----------|----|------------
-beqdesigner.exe | Windows | A portable, self contained exe which is built using the anaconda python distribution and hence uses the MKL libraries
-beqdesignerSetup.exe | Windows | An installer, will startup more quickly than the portable exe which is built using the anaconda python distribution and hence uses the MKL libraries
-beqdesigner_small.exe | Windows | A portable, self contained exe which is built using the python.org python distribution
-beqdesignerSetup_small.exe | Windows | An installer, will startup more quickly than the portable exe which is built using the python.org python distribution 
+beqdesigner.exe | Windows | A portable, self contained exe which is built using the python.org python distribution
 beqdesigner_*distro*\_*version*\_*name* | Linux | A portable, self contained binary built for the specified distribution
 beqdesigner.app.zip | OSX | An OSX app bundle 
 
@@ -29,12 +26,6 @@ Multiple rows can be selected to see what has changed in each release.
 
 If a binary is available for your operating system for any selected release, the download link will be provided alongside the release notes.
 
-### Is there any difference between beqdesigner.exe and beqdesignerSetup.exe?
-
-Functionally, no.
-
-The only difference is that using beqdesignerSetup.exe should lead to faster startup times.
-
 ### Windows Smartscreen   
 
 !!! warning
@@ -47,7 +38,7 @@ The only difference is that using beqdesignerSetup.exe should lead to faster sta
 
 ### How can I trust these binaries?
 
-All binaries are compiled on fresh VMs using [travis-ci](https://travis-ci.com/3ll3d00d/beqdesigner/branches) and publishes automatically to github by a [github machine user](https://developer.github.com/v3/guides/managing-deploy-keys/#machine-users).
+All binaries are compiled on fresh VMs using [github actions](https://github.com/3ll3d00d/beqdesigner/actions) and publishes automatically to github.
 
 Builds are created and published from tags in the repo.
 
@@ -59,7 +50,7 @@ If you intend to use BEQDesigner to extract audio from movie files and/or remux 
 
 ### Windows/OSX
 
-ffmpeg binaries are available via [zeranoe](https://ffmpeg.zeranoe.com/builds/)
+ffmpeg binaries are available via [gyan.dev](https://www.gyan.dev/ffmpeg/builds/)
 
 Download the latest version and extract to a known directory, make a note of this location as it will be required during BEQ configuration.  
 

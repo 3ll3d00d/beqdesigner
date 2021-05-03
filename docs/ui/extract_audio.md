@@ -28,6 +28,7 @@ Use these controls to select exactly what to extract from the file:
 * Range: click the scissors button to set a time range, when set this will limit the output audio file to the specified time period
 * Mix to mono: applicable to multichannel audio files only, mixes the individual channels into a single mono file using per channel gain adjustments required to handle the LFE channel and to ensure the resulting signal does not clip during summation
 * Decimate Audio: resample to the sample rate set via [Preferences](./preferences.md#extraction), checking this option is generally a sensible choice when designing BEQ filters
+* Bass manage: application to multichannel audio files only, applies bass management to the individual channels to produce multichannel output
 * Target Directory: where to export the file to, default location is set via [Preferences](./preferences.md#extraction)
 * Output Filename
 

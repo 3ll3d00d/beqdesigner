@@ -1,14 +1,24 @@
 The Preferences dialog is accessible via the `Settings > Preferences` menu option or via the `CTRL+P` keyboard shortcut.
 
-![Preferences Dialog](../img/preferences.png)
-
 ### Binaries
+
+The binaries sheet allows the location of optional 3rd party binaries to be configured.
+
+![Binaries](../img/preferences_binaries.png)
+
+#### ffmpeg
 
 BEQDesigner uses [ffmpeg](https://ffmpeg.org/) for all AV file processing such as audio extraction or remuxing. It uses ffmpeg for the actual processing and ffprobe for discovering information about the file.
 
 If ffmpeg is not on your `PATH` (which typically means you are a Windows user) then set the location here.
 
+#### minidsp-rs
+
+BEQDesigner can use [minidsp-rs](https://github.com/mrene/minidsp-rs) to load filters into a minidsp 2x4HD. 
+
 ### Analysis
+
+![Analysis](../img/preferences_analysis.png)
 
 These options control how audio files are presented for analysis and are applied only when a signal is added.
 
@@ -23,6 +33,8 @@ These options control how audio files are presented for analysis and are applied
     
 ### Extraction
 
+![Extract](../img/preferences_extraction.png)
+
 These options set some defaults for the [Extract Audio](./extract_audio.md) dialog.
 
 * Default Output Directory: default location for extracted audio files
@@ -30,6 +42,8 @@ These options set some defaults for the [Extract Audio](./extract_audio.md) dial
 * All remaining checkboxes: sets the default state of the named checkboxes
 
 ### Style
+
+![Style](../img/preferences_style.png)
 
 These options influence the look and feel of BEQDesigner.
 
@@ -44,6 +58,8 @@ These options influence the look and feel of BEQDesigner.
 
 ### Graph
 
+![Graph](../img/preferences_graph.png)
+
 These options set defaults for the magnitude graph layout
 
 * Frequency Axis Log Scale? : if checked, use a log scale otherwise linear
@@ -55,16 +71,16 @@ These options set defaults for the magnitude graph layout
 
 ### Filter
 
+![Filter](../img/preferences_defaults.png)
+
 These options set defaults for the corresponding controls on [Filter Design](./add_filter.md) dialog 
 
-* Default Q
-* Default Freq
-
-This option sets the frequency for the low pass filter applied in the [Bass Management Simulation](../workflow/bass_management.md)
-
-* BM LPF
+* Default Q and Frequency for each commonly used filter type (low shelf, high shelf, peaking) 
+* BM LPF: sets the frequency for the low pass filter applied in the [Bass Management Simulation](../workflow/bass_management.md)
 
 ### System
+
+![System](../img/preferences_system.png)
 
 Check the *Check for updates on startup?* option to allow BEQDesigner to query the github releases api on startup. 
 
@@ -74,10 +90,14 @@ If the latest release is not the current release, an alert will be shown to noti
 
 ### BEQ Files
 
-Manages the github repo which contains the BEQ filters created by [aron7awol on avsforum](https://www.avsforum.com/forum/members/8588090-aron7awol.html).
+![BEQ](../img/preferences_beq.png)
+
+Allows configuration of git repos which are store published beq filters. 
 
 * Directory: the location to which to clone the repo
-* Filters Loaded: shows how many filters are present in the directory
+* New Repo: a git repository to add
+* Repos: a list of git repositories which are used by BEQDesigner when merging config files  
+* Filter Count: shows how many filters are present in the directory
 * Sync button: click to update the repo to the latest commit
 
 ### Where are preferences stored?

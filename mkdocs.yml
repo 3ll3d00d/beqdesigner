@@ -33,6 +33,8 @@ nav:
         - 'Batch Extract': ui/batch_extract.md
         - 'Remux Audio': ui/remux_audio.md
         - 'Analyse Audio': ui/spectrum.md
+        - 'Browse BEQ Catalogue': ui/catalogue.md
+        - 'Create AVS Post and XML': ui/avs_post.md
         - 'Merge Minidsp XML': ui/merge_minidsp_xml.md
         - 'Manage HTP-1 Filters': ui/manage_htp1.md
       - 'Preferences': ui/preferences.md

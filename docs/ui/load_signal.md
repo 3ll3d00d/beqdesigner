@@ -100,3 +100,14 @@ The FRD file format is commonly used in speaker design and room eq software. 2 f
 
 !!! info
     The spectrum and waveform views are not available when using signals loaded from FRD files. 
+
+### Adding a signal from a unit impulse
+
+The pulse option creates a signal from a unit impulse where the pulse is located at the centre of the waveform. 
+
+![Load Signal](../img/load_signal_pulse.png)
+
+  1. Click the PULSE tab
+  2. Enter some text in the prefix field
+  3. Select a sample rate
+  4. Click OK, the dialog will close and the signal(s) will now be available via the main screen.

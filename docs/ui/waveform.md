@@ -61,5 +61,6 @@ The final section is a list of buttons, from left to right
 * Set Limits: shows the [Limits Dialog](./main_window.md#controlling-graph-limits) for the magnitude view
 * Zoom In: resets the y axis limits to the min/max sample values
 * Zoom Out: resets the y axis limits to +/- 1.0
+* Stats: calculates a number of track statistics as per the [data-bass rating system](https://data-bass.ipbhost.com/topic/12-the-low-frequency-content-thread-films-games-music-etc/?tab=comments#comment-86) 
 
 ![Waveform with Magnitude](../img/waveform_with_mag.png)
