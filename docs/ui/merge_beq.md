@@ -1,22 +1,25 @@
 BEQDesigner provides support for the most commonly used mechanism for applying BEQ filters
 
   1. the published filters which are curated by AVS community member [DesertDog](https://www.avsforum.com/forum/members/7429388-desertdog.html) via his [github repo](https://github.com/bmiller/miniDSPBEQ)
-  2. application of those filters to the minidsp hardware 
+  2. application of those filters to supported hardware
 
 ### Prerequisites
 
-  1. You are using a supported minidsp device
-    * [2x4](https://www.minidsp.com/products/minidsp-in-a-box/minidsp-2x4) (either balanced or unbalanced)
-    * [2x4 HD](https://www.minidsp.com/products/minidsp-in-a-box/minidsp-2x4-hd)
-    * [10x10 HD](https://www.minidsp.com/products/minidsp-in-a-box/minidsp-10x10-hd)
-  2. You do not use the input EQ slots
-  3. You have exported your existing configuration via the minidsp UI to an XML file
+  1. You are using a supported device
+    * [Minidsp 2x4](https://www.minidsp.com/products/minidsp-in-a-box/minidsp-2x4) (either balanced or unbalanced)
+    * [Minidsp 2x4 HD](https://www.minidsp.com/products/minidsp-in-a-box/minidsp-2x4-hd)
+    * [Minidsp 10x10 HD](https://www.minidsp.com/products/minidsp-in-a-box/minidsp-10x10-hd)
+    * [Minidsp SHD](https://www.minidsp.com/products/streaming-hd-series/shd)
+    * [Minidsp 88BM](https://www.minidsp.com/products/dirac-series/ddrc-88bm)
+    * [Monoprice HTP-1](https://www.monoprice.com/product?p_id=37887)
+    * [JRiver Media Centre](https://jriver.com/) (v27.0.46 or higher)    
+  2. You have exported your existing configuration to a file (XML for minidsp, json for HTP-1, dsp for JRiver)
 
 This function is not for you if you do not meet these requirements.
 
 ### Instructions
 
-Hit the `Tools > Merge MiniDSP XML` menu item or press `CTRL+X` to open the dialog.
+Hit the `Tools > Merge BEQ` menu item or press `CTRL+X` to open the dialog.
 
 On first use, the dialog will state that no filter files have been found and instruct you to hit the button.
 
@@ -32,16 +35,17 @@ Clicking the button will instruct BEQDesigner to connect to github and clone the
 
 Next
 
-* click the button next to the config file and pick your XML config file
+* click the button next to the config file and pick your config file
 * change the output directory as necessary
     * note that BEQDesigner will create a new directory in whichever directory you pick in order to try to avoid clashing with any existing files
-* pick your minidsp device from the dropdown
+* pick your device from the dropdown
+* pick the channels to which the BEQ filters will be written to  
 * click the Save button (in the *Files Processed* row)
 
 ![Confirm](../img/merge_3.png)
 
 !!! warning
-    BEQDesigner will ask for confirmation if the output directory contains any files with the .xml extension. 
+    BEQDesigner will ask for confirmation if the output directory contains any files matching the extension of your configuration file. 
 
     * If you click Yes, all such files will be deleted
     * If you click No, no files will be deleted and BEQDesigner will take no further action 
@@ -53,20 +57,20 @@ If you clicked Yes, the following events should now happen:
 
 ![In Progress](../img/merge_4.png)
 
-If the selected minidsp type is the 2x4 HD then all files should be processed successfully
-
-![Done](../img/merge_5.png)
-
-However if the selected minidsp type is either the 2x4 or the 10x10 HD then errors should be expected as the hardware only supports 6 biquads per output channel and some BEQ filters require more than 6  biquads. The error section will specify which files were not processed successfully and how many biquads you'd need to eliminate to use this directly. A suggested workaround is found [below](#working-around-fixed-point-hardware-limitations)
+If the selected minidsp type is either the 2x4 or the 10x10 HD then errors should be expected as the hardware only supports 6 biquads per output channel and some BEQ filters require more than 6  biquads. The error section will specify which files were not processed successfully and how many biquads you'd need to eliminate to use this directly. A suggested workaround is found [below](#working-around-fixed-point-hardware-limitations)
 
 ![NonHD](../img/merge_error.png)
+
+For other DSP device types, all files should be processed successfully
+
+![Done](../img/merge_5.png)
 
 !!! info
     If any other errors are encountered, raise an issue via [github issues](https://github.com/3ll3d00d/beqdesigner/issues) to discuss further
 
 ### Keeping the Repository Up to date
 
-BEQ community member [aron7awol](https://www.avsforum.com/forum/members/8588090-aron7awol.html) cranks out new filters at a rate of knots so the repository is regularly updated. 
+The BEQ community cranks out new filters at a rate of knots so the repository is regularly updated. 
 
 If more than 7 days have passed since the last commit found locally then BEQDesigner will prompt you to update your local copy
 

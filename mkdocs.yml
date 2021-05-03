@@ -35,7 +35,7 @@ nav:
         - 'Analyse Audio': ui/spectrum.md
         - 'Browse BEQ Catalogue': ui/catalogue.md
         - 'Create AVS Post and XML': ui/avs_post.md
-        - 'Merge Minidsp XML': ui/merge_minidsp_xml.md
+        - 'Merge BEQ': ui/merge_beq.md
         - 'Manage HTP-1 Filters': ui/manage_htp1.md
       - 'Preferences': ui/preferences.md
   - Workflow:

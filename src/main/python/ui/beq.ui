@@ -1475,7 +1475,7 @@
   </action>
   <action name="actionMerge_Minidsp_XML">
    <property name="text">
-    <string>Merge Minidsp XML</string>
+    <string>Merge BEQ</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+X</string>
@@ -1550,7 +1550,7 @@
     <string>Merge &amp;Signals</string>
    </property>
    <property name="shortcut">
-    <string>Ctrl+Meta+S</string>
+    <string>Meta+Ctrl+S</string>
    </property>
   </action>
  </widget>

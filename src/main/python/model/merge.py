@@ -295,11 +295,13 @@ class MergeFiltersDialog(QDialog, Ui_mergeDspDialog):
         Empties the output directory if required
         '''
         import glob
-        matching_files = glob.glob(f"{self.outputDirectory.text()}/**/*.xml", recursive=True)
+        dsp_type: DspType = DspType.parse(self.dspType.currentText())
+        matching_files = glob.glob(f"{self.outputDirectory.text()}/**/*.{dsp_type.extension}", recursive=True)
         if len(matching_files) > 0:
             result = QMessageBox.question(self,
                                           'Clear Directory',
-                                          f"All generated config files will be deleted from {self.outputDirectory.text()}\nAre you sure you want to continue?",
+                                          f"All generated config files will be deleted from "
+                                          f"{self.outputDirectory.text()}\nAre you sure you want to continue?",
                                           QMessageBox.Yes | QMessageBox.No,
                                           QMessageBox.No)
             if result == QMessageBox.Yes:
@@ -461,21 +463,22 @@ class MergeFiltersDialog(QDialog, Ui_mergeDspDialog):
 
 
 class DspType(Enum):
-    MINIDSP_TWO_BY_FOUR_HD = ('2x4 HD', True, True, False, (('1', '2'), ('3', '4', '5', '6')))
-    MINIDSP_TWO_BY_FOUR = ('2x4', False, True, False, None)
-    MINIDSP_TEN_BY_TEN = ('10x10', False, True, False, None)
-    MINIDSP_SHD = ('SHD', True, True, False, None)
-    MINIDSP_EIGHTY_EIGHT_BM = ('88BM', True, True, False, None)
-    MONOPRICE_HTP1 = ('HTP-1', False, False, False, None)
-    JRIVER_PEQ1 = ('JRiver PEQ1', False, False, False, None)
-    JRIVER_PEQ2 = ('JRiver PEQ2', False, False, False, None)
+    MINIDSP_TWO_BY_FOUR_HD = ('2x4 HD', True, True, False, (('1', '2'), ('3', '4', '5', '6')), 'xml')
+    MINIDSP_TWO_BY_FOUR = ('2x4', False, True, False, None, 'xml')
+    MINIDSP_TEN_BY_TEN = ('10x10', False, True, False, None, 'xml')
+    MINIDSP_SHD = ('SHD', True, True, False, None, 'xml')
+    MINIDSP_EIGHTY_EIGHT_BM = ('88BM', True, True, False, None, 'xml')
+    MONOPRICE_HTP1 = ('HTP-1', False, False, False, None, 'json')
+    JRIVER_PEQ1 = ('JRiver PEQ1', False, False, False, None, 'dsp')
+    JRIVER_PEQ2 = ('JRiver PEQ2', False, False, False, None, 'dsp')
 
-    def __init__(self, display_name, hd_compatible, is_minidsp, is_experimental, split_channels):
+    def __init__(self, display_name, hd_compatible, is_minidsp, is_experimental, split_channels, ext):
         self.display_name = display_name
         self.hd_compatible = hd_compatible
         self.is_minidsp = is_minidsp
         self.is_experimental = is_experimental
         self.split_channels = split_channels
+        self.extension = ext
 
     @property
     def can_split(self):

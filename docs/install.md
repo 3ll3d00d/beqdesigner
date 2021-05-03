@@ -2,7 +2,7 @@
 
 Releases are hosted on github, the latest official release will always be available via the [github releases page](https://github.com/3ll3d00d/beqdesigner/releases/latest)
 
-4 sets of binaries are provided for official releases:
+3 sets of binaries are provided for official releases:
 
 File Name | OS | Description 
 ----------|----|------------
