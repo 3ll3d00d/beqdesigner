@@ -71,7 +71,7 @@ jobs:
             brew install graphviz
             brew ls -v graphviz
           fi
-          pipenv run pip install https://github.com/pyinstaller/pyinstaller/tarball/develop
+          pipenv run pip install pyinstaller
       - name: Get latest release version number
         id: get_version
         uses: battila7/get-version-action@v2
