@@ -58,10 +58,10 @@ class Ui_groupChannelsDialog(object):
 
     def retranslateUi(self, groupChannelsDialog):
         _translate = QtCore.QCoreApplication.translate
-        groupChannelsDialog.setWindowTitle(_translate("groupChannelsDialog", "Link Channels"))
+        groupChannelsDialog.setWindowTitle(_translate("groupChannelsDialog", "Group Channels"))
         self.groupName.setPlaceholderText(_translate("groupChannelsDialog", "Enter a channel group name"))
         self.channelsLabel.setText(_translate("groupChannelsDialog", "Channels"))
         self.deleteGroupButton.setText(_translate("groupChannelsDialog", "..."))
-        self.linkedLabel.setText(_translate("groupChannelsDialog", "Linked Channels"))
+        self.linkedLabel.setText(_translate("groupChannelsDialog", "Grouped Channels"))
         self.addGroupButton.setText(_translate("groupChannelsDialog", "..."))
         self.linkAllButton.setText(_translate("groupChannelsDialog", "..."))

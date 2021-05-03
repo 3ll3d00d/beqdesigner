@@ -63,6 +63,8 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         self.setupUi(self)
         self.setWindowFlags(self.windowFlags() | Qt.WindowSystemMenuHint | Qt.WindowMinMaxButtonsHint)
         self.__decorate_buttons()
+        # TODO remove or implement
+        self.showImpulseButton.setVisible(False)
         self.addFilterButton.setMenu(self.__populate_add_filter_menu(QMenu(self)))
         self.pipelineView.signal.on_click.connect(self.__on_node_click)
         self.pipelineView.signal.on_double_click.connect(self.__show_edit_filter_dialog)
@@ -1295,6 +1297,8 @@ class XODialog(QDialog, Ui_xoDialog):
         else:
             self.lfeChannelSelector.setVisible(False)
             self.lfeChannelSelectorLabel.setVisible(False)
+            self.lfeAdjust.setVisible(False)
+            self.lfeAdjustLabel.setVisible(False)
             self.__lfe_channel: Optional[str] = None
         self.linkChannelsButton.clicked.connect(self.__show_group_channels_dialog)
         self.__matrix = None
@@ -2118,7 +2122,7 @@ class GroupChannelsDialog(QDialog, Ui_groupChannelsDialog):
         self.deleteGroupButton.setToolTip('Remove selected group')
         self.linkAllButton.setIcon(qta.icon('fa5s.object-group'))
         self.linkAllButton.clicked.connect(self.__group_all)
-        self.linkAllButton.setToolTip('Link all channels into a single group')
+        self.linkAllButton.setToolTip('Group all channels into a single group')
         self.deleteGroupButton.clicked.connect(self.__remove_group)
 
     def __group_all(self):

@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Link Channels</string>
+   <string>Group Channels</string>
   </property>
   <layout class="QGridLayout" name="gridLayout">
    <item row="1" column="1" colspan="4">
@@ -75,7 +75,7 @@
    <item row="0" column="5">
     <widget class="QLabel" name="linkedLabel">
      <property name="text">
-      <string>Linked Channels</string>
+      <string>Grouped Channels</string>
      </property>
     </widget>
    </item>

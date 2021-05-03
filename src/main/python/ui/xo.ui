@@ -83,7 +83,7 @@
        <item>
         <widget class="QLabel" name="lfeAdjustLabel">
          <property name="enabled">
-          <bool>false</bool>
+          <bool>true</bool>
          </property>
          <property name="text">
           <string>LFE Headroom</string>
@@ -93,7 +93,7 @@
        <item>
         <widget class="QSpinBox" name="lfeAdjust">
          <property name="enabled">
-          <bool>false</bool>
+          <bool>true</bool>
          </property>
          <property name="suffix">
           <string> dB</string>

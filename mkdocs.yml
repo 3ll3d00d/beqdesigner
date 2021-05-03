@@ -37,6 +37,7 @@ nav:
         - 'Create AVS Post and XML': ui/avs_post.md
         - 'Merge BEQ': ui/merge_beq.md
         - 'Manage HTP-1 Filters': ui/manage_htp1.md
+        - 'Manage JRiver MC Filters': ui/manage_mc.md
       - 'Preferences': ui/preferences.md
   - Workflow:
       - 'A Worked Example': workflow/beq.md

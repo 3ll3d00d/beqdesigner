@@ -883,7 +883,7 @@ class Ui_MainWindow(object):
         self.action_Remove_Smoothing.setText(_translate("MainWindow", "&Remove Smoothing"))
         self.action_Remove_Smoothing.setShortcut(_translate("MainWindow", "Alt+Shift+0"))
         self.actionClear_Filters.setText(_translate("MainWindow", "Clear Filters"))
-        self.actionMerge_Minidsp_XML.setText(_translate("MainWindow", "Merge Minidsp XML"))
+        self.actionMerge_Minidsp_XML.setText(_translate("MainWindow", "Merge BEQ"))
         self.actionMerge_Minidsp_XML.setShortcut(_translate("MainWindow", "Ctrl+X"))
         self.actionUser_Guide.setText(_translate("MainWindow", "User Guide"))
         self.actionUser_Guide.setShortcut(_translate("MainWindow", "F1"))
@@ -902,6 +902,6 @@ class Ui_MainWindow(object):
         self.actionShow_Filter_Widget.setText(_translate("MainWindow", "Show Filter Widget"))
         self.actionShow_Filter_Widget.setShortcut(_translate("MainWindow", "Ctrl+Alt+="))
         self.actionMerge_Signals.setText(_translate("MainWindow", "Merge &Signals"))
-        self.actionMerge_Signals.setShortcut(_translate("MainWindow", "Ctrl+Meta+S"))
+        self.actionMerge_Signals.setShortcut(_translate("MainWindow", "Meta+Ctrl+S"))
 from app import PlotWidgetWithDateAxis
 from mpl import MplWidget
