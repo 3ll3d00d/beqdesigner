@@ -64,7 +64,27 @@
         </layout>
        </item>
        <item row="1" column="0">
-        <layout class="QHBoxLayout" name="configRow2Layout" stretch="1,1">
+        <layout class="QHBoxLayout" name="configRow2Layout" stretch="0,0,1,1">
+         <item>
+          <widget class="QToolButton" name="backButton">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
+           <property name="text">
+            <string>...</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QToolButton" name="forwardButton">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
+           <property name="text">
+            <string>...</string>
+           </property>
+          </widget>
+         </item>
          <item>
           <widget class="QLineEdit" name="outputFormat">
            <property name="readOnly">

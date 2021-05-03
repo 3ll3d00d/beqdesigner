@@ -79,8 +79,6 @@ def test_stereo_subs():
     signals_by_channel = graph.simulate()
     assert signals_by_channel
     gz = graph.render()
-    print()
-    print(gz)
     assert gz
 
 

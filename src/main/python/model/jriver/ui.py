@@ -81,6 +81,18 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
                                                 y2_range_calc=PhaseRangeCalculator(), show_y2_in_legend=False)
         self.__restore_geometry()
 
+    def __enable_history_buttons(self, back: bool, fwd: bool) -> None:
+        self.backButton.setEnabled(back)
+        self.forwardButton.setEnabled(fwd)
+
+    def __undo(self):
+        if self.dsp.active_graph.undo():
+            self.show_filters()
+
+    def __redo(self):
+        if self.dsp.active_graph.redo():
+            self.show_filters()
+
     @property
     def dsp(self) -> Optional[JRiverDSP]:
         return self.__dsp
@@ -128,6 +140,14 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         self.subOnlyButton.setToolTip('Restrict graph to subwoofer frequency range')
         self.fullRangeButton.setToolTip('Expand graph to full frequency range')
         self.showPhase.setToolTip('Show Phase Response')
+        self.forwardButton.setIcon(qta.icon('fa5s.arrow-right'))
+        self.forwardButton.setToolTip('Redo')
+        self.forwardButton.setShortcut(QKeySequence.Redo)
+        self.backButton.setIcon(qta.icon('fa5s.arrow-left'))
+        self.backButton.setToolTip('Undo')
+        self.backButton.setShortcut(QKeySequence.Undo)
+        self.backButton.clicked.connect(self.__undo)
+        self.forwardButton.clicked.connect(self.__redo)
 
     def create_new_config(self):
         '''
@@ -185,10 +205,11 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         try:
             main_colour = QColor(QPalette().color(QPalette.Active, QPalette.Text)).name()
             highlight_colour = QColor(QPalette().color(QPalette.Active, QPalette.Highlight)).name()
-            self.__dsp = JRiverDSP(selected, colours=(main_colour, highlight_colour))
+            self.__dsp = JRiverDSP(selected, colours=(main_colour, highlight_colour),
+                                   on_delta=self.__enable_history_buttons)
             self.__refresh_channel_list()
             self.filename.setText(os.path.basename(selected)[:-4])
-            self.outputFormat.setText(self.__dsp.output_format.display_name)
+            self.outputFormat.setText(self.dsp.output_format.display_name)
             self.filterList.clear()
             self.show_filters()
             self.saveButton.setEnabled(True)
@@ -206,9 +227,9 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         '''
         Displays the complete filter list for the selected PEQ block.
         '''
-        if self.__dsp is not None:
+        if self.dsp is not None:
             try:
-                self.__dsp.activate(self.blockSelector.currentIndex())
+                self.dsp.activate(self.blockSelector.currentIndex())
             except SimulationFailed as e:
                 msg_box = QMessageBox()
                 msg_box.setText(f"{e}")
@@ -220,7 +241,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
             with block_signals(self.filterList):
                 selected_ids = [i.data(FILTER_ID_ROLE) for i in self.filterList.selectedItems()]
                 i = 0
-                for f in self.__dsp.active_graph.filters:
+                for f in self.dsp.active_graph.filters:
                     if not isinstance(f, Divider):
                         if self.filterList.count() > i:
                             item: QListWidgetItem = self.filterList.item(i)
@@ -252,7 +273,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         :return: true if this item is editable directly, typically means applies to a single channel.
         '''
         f_id = item.data(FILTER_ID_ROLE)
-        selected_filter: Optional[Filter] = next((f for f in self.__dsp.active_graph.filters if f.id == f_id), None)
+        selected_filter: Optional[Filter] = next((f for f in self.dsp.active_graph.filters if f.id == f_id), None)
         if isinstance(selected_filter, (GEQFilter, CompoundRoutingFilter)):
             return True
         elif isinstance(selected_filter, CustomPassFilter):
@@ -270,7 +291,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         :param item: the item describing the filter.
         '''
         f_id = item.data(FILTER_ID_ROLE)
-        selected_filter: Optional[Filter] = next((f for f in self.__dsp.active_graph.filters if f.id == f_id), None)
+        selected_filter: Optional[Filter] = next((f for f in self.dsp.active_graph.filters if f.id == f_id), None)
         logger.debug(f"Showing edit dialog for {selected_filter}")
         if isinstance(selected_filter, GEQFilter):
             self.__start_geq_edit_session(selected_filter, selected_filter.channel_names)
@@ -292,9 +313,9 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         '''
         selected_items = [i for i in self.filterList.selectedItems()]
         selected_filter_ids = [i.data(FILTER_ID_ROLE) for i in selected_items]
-        to_delete = [f for f in self.__dsp.active_graph.filters if f.id in selected_filter_ids]
+        to_delete = [f for f in self.dsp.active_graph.filters if f.id in selected_filter_ids]
         logger.debug(f"Deleting filter ids {selected_filter_ids} -> {to_delete}")
-        self.__dsp.active_graph.delete(to_delete)
+        self.dsp.active_graph.delete(to_delete)
         self.__on_graph_change()
         last_row = 0
         i: QModelIndex
@@ -311,27 +332,27 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
     def split_filter(self):
         ''' Splits a selected multichannel filter into separate filters. '''
         selected_items: List[QListWidgetItem] = self.filterList.selectedItems()
-        splittable = self.__dsp.active_graph.get_filter_by_id(selected_items[0].data(FILTER_ID_ROLE))
+        splittable = self.dsp.active_graph.get_filter_by_id(selected_items[0].data(FILTER_ID_ROLE))
         item_idx: QModelIndex = self.filterList.indexFromItem(selected_items[0])
         base_idx = item_idx.row()
         if splittable.can_split():
             split = splittable.split()
             self.__insert_multiple_filters(base_idx, split)
-            self.__dsp.active_graph.delete([splittable])
+            self.dsp.active_graph.delete([splittable])
             self.filterList.takeItem(self.filterList.indexFromItem(selected_items[0]).row())
             self.__regen()
 
     def __insert_multiple_filters(self, base_idx: int, to_insert: List[Filter]):
         for i, f in enumerate(to_insert):
             insert_at = base_idx + i
-            self.__dsp.active_graph.insert(f, insert_at, regen=(i + 1 == len(to_insert)))
+            self.dsp.active_graph.insert(f, insert_at, regen=(i + 1 == len(to_insert)))
             new_item = QListWidgetItem(str(f))
             new_item.setData(FILTER_ID_ROLE, f.id)
             self.filterList.insertItem(insert_at, new_item)
 
     def merge_filters(self):
         ''' Merges multiple identical filters into a single multichannel filter. '''
-        selected_filters = [self.__dsp.active_graph.get_filter_by_id(i.data(FILTER_ID_ROLE))
+        selected_filters = [self.dsp.active_graph.get_filter_by_id(i.data(FILTER_ID_ROLE))
                             for i in self.filterList.selectedItems()]
         item_idx: QModelIndex = self.filterList.indexFromItem(self.filterList.selectedItems()[0])
         # can only merge a ChannelFilter
@@ -339,12 +360,12 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         merged_filter = create_peq({**selected_filters[0].get_all_vals()[0], 'Channels': channels})
         insert_at = item_idx.row()
         # insert the new one in both the graph and the filter list
-        self.__dsp.active_graph.insert(merged_filter, insert_at)
+        self.dsp.active_graph.insert(merged_filter, insert_at)
         new_item = QListWidgetItem(str(merged_filter))
         new_item.setData(FILTER_ID_ROLE, merged_filter.id)
         self.filterList.insertItem(insert_at, new_item)
         # delete the old ones
-        self.__dsp.active_graph.delete(selected_filters)
+        self.dsp.active_graph.delete(selected_filters)
         from model.report import block_signals
         with block_signals(self.filterList):
             for i in self.filterList.selectedItems():
@@ -360,7 +381,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         self.__move_to(selected[0], selected[-1], 0)
 
     def __move_to(self, start: int, end: int, to: int):
-        self.__dsp.active_graph.reorder(start, end, to)
+        self.dsp.active_graph.reorder(start, end, to)
         self.show_filters()
 
     def move_filter_up(self):
@@ -392,7 +413,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         if self.__enable_edit_buttons_if_filters_selected():
             selected_indexes = [i.row() for i in self.filterList.selectedIndexes()]
             for i in selected_indexes:
-                for n in self.__dsp.active_graph.filters[i].nodes:
+                for n in self.dsp.active_graph.filters[i].nodes:
                     self.__selected_node_names.add(n)
         self.__regen()
 
@@ -400,27 +421,27 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         '''
         Deletes all filters in the active graph.
         '''
-        self.__dsp.active_graph.clear_filters()
+        self.dsp.active_graph.clear_filters()
         self.show_filters()
 
     def save_dsp(self):
         '''
         Writes the graphs to the loaded file.
         '''
-        if self.__dsp:
-            self.__dsp.write_to_file()
+        if self.dsp:
+            self.dsp.write_to_file()
 
     def save_as_dsp(self):
         '''
         Writes the graphs to a user specified file.
         '''
-        if self.__dsp:
+        if self.dsp:
             file_name = QFileDialog(self).getSaveFileName(self, caption='Save DSP Config',
-                                                          directory=os.path.dirname(self.__dsp.filename),
+                                                          directory=os.path.dirname(self.dsp.filename),
                                                           filter="JRiver DSP (*.dsp)")
             file_name = str(file_name[0]).strip()
             if len(file_name) > 0:
-                self.__dsp.write_to_file(file=file_name)
+                self.dsp.write_to_file(file=file_name)
 
     def show_impulse(self):
         '''
@@ -434,14 +455,14 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         with block_signals(self.channelList):
             selected = [i.text() for i in self.channelList.selectedItems()]
             self.channelList.clear()
-            for i, n in enumerate(self.__dsp.channel_names(output=True)):
+            for i, n in enumerate(self.dsp.channel_names(output=True)):
                 self.channelList.addItem(n)
                 item: QListWidgetItem = self.channelList.item(i)
                 item.setSelected(n in selected if retain_selected else n not in SHORT_USER_CHANNELS)
         with block_signals(self.blockSelector):
             self.blockSelector.clear()
-            for i in range(self.__dsp.graph_count):
-                self.blockSelector.addItem(get_peq_key_name(self.__dsp.graph(i).stage))
+            for i in range(self.dsp.graph_count):
+                self.blockSelector.addItem(get_peq_key_name(self.dsp.graph(i).stage))
 
     def __show_edit_menu(self, node_name: str, pos: QPoint) -> None:
         '''
@@ -488,7 +509,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         :param node_name: the node name.
         :return: an index to insert at.
         '''
-        filt = self.__dsp.active_graph.get_filter_at_node(node_name)
+        filt = self.dsp.active_graph.get_filter_at_node(node_name)
         if filt:
             match = self.__find_item_by_filter_id(filt.id)
             if match:
@@ -521,13 +542,13 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         pipeline.
         :param node_name: the node to insert after.
         '''
-        filt = self.__dsp.active_graph.get_filter_at_node(node_name)
+        filt = self.dsp.active_graph.get_filter_at_node(node_name)
         if filt:
             match = self.__find_item_by_filter_id(filt.id)
             if match:
                 if filt.get_editable_filter():
-                    node_idx, node_chain = self.__dsp.active_graph.get_editable_node_chain(node_name)
-                    filters: List[Filter] = [self.__dsp.active_graph.get_filter_at_node(n) for n in node_chain]
+                    node_idx, node_chain = self.dsp.active_graph.get_editable_node_chain(node_name)
+                    filters: List[Filter] = [self.dsp.active_graph.get_filter_at_node(n) for n in node_chain]
                     insert_at, _ = self.__find_item_by_filter_id(filters[0].id)
                     # TODO insert a filter into the chain immediately after this one
                     self.__start_peq_edit_session([f.get_editable_filter() for f in filters], node_name.split('_')[0],
@@ -540,12 +561,12 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         Deletes the node from the filter list.
         :param node_name: the node to remove.
         '''
-        f = self.__dsp.active_graph.get_filter_at_node(node_name)
+        f = self.dsp.active_graph.get_filter_at_node(node_name)
         node_channel = node_name.split('_')[0]
         if f:
             if isinstance(f, ChannelFilter):
                 item: QListWidgetItem
-                if self.__dsp.active_graph.delete_channel(f, node_channel):
+                if self.dsp.active_graph.delete_channel(f, node_channel):
                     match = self.__find_item_by_filter_id(f.id)
                     if match:
                         self.filterList.takeItem(match[0])
@@ -554,7 +575,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
                     if match:
                         match[1].setText(str(f))
             else:
-                self.__dsp.active_graph.delete([f])
+                self.dsp.active_graph.delete([f])
             self.__regen()
 
     def __insert_xo(self, idx: int) -> None:
@@ -576,15 +597,15 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         '''
 
         def on_save(xo_filters: CompoundRoutingFilter):
-            if self.__dsp.active_graph.replace(existing, xo_filters):
+            if self.dsp.active_graph.replace(existing, xo_filters):
                 self.__on_graph_change()
 
         self.__show_xo_dialog(on_save, existing=existing)
 
     def __show_xo_dialog(self, on_save: Callable[[CompoundRoutingFilter], None],
                          existing: CompoundRoutingFilter = None):
-        XODialog(self, self.prefs, self.__dsp.channel_names(), self.__dsp.channel_names(output=True, exclude_user=True),
-                 self.__dsp.output_format, on_save, existing=existing).exec()
+        XODialog(self, self.prefs, self.dsp.channel_names(), self.dsp.channel_names(output=True, exclude_user=True),
+                 self.dsp.output_format, on_save, existing=existing).exec()
 
     def __populate_add_filter_menu(self, menu: QMenu) -> QMenu:
         '''
@@ -690,7 +711,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
             nonlocal channel
             channel = get_channel_name(int(vals['Channels']))
 
-        val = JRiverChannelOnlyFilterDialog(self, self.__dsp.channel_names(output=True), __on_save, {}, title='PEQ',
+        val = JRiverChannelOnlyFilterDialog(self, self.dsp.channel_names(output=True), __on_save, {}, title='PEQ',
                                             multi=False).exec()
         if val == QDialog.Accepted and channel is not None:
             self.__start_peq_edit_session(None, channel, [], idx)
@@ -706,7 +727,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
             nonlocal channels
             channels = [get_channel_name(int(i)) for i in vals['Channels'].split(';')]
 
-        val = JRiverChannelOnlyFilterDialog(self, self.__dsp.channel_names(output=True), __on_save, {},
+        val = JRiverChannelOnlyFilterDialog(self, self.dsp.channel_names(output=True), __on_save, {},
                                             title='GEQ').exec()
         if val == QDialog.Accepted and channels:
             self.__start_geq_edit_session(None, channels, idx)
@@ -719,14 +740,14 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         :param channels: the channels to start with.
         :param insert_at: the idx to insert at, geq must be None to use this.
         '''
-        all_channels = self.__dsp.channel_names(output=True)
+        all_channels = self.dsp.channel_names(output=True)
 
         def __on_save(channel_names: List[str], filters: List[SOS]):
             formatted_channels = ';'.join([str(get_channel_idx(c)) for c in channel_names])
             mc_filters = [convert_filter_to_mc_dsp(f, formatted_channels) for f in filters]
             new_geq = GEQFilter(mc_filters)
             if geq is not None:
-                if self.__dsp.active_graph.replace(geq, new_geq):
+                if self.dsp.active_graph.replace(geq, new_geq):
                     item = self.__find_item_by_filter_id(new_geq.id)
                     if item:
                         item[1].setText(str(new_geq))
@@ -745,7 +766,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         Allows user to insert a delay filter at the specified index in the filter list.
         :param idx: the index to insert at.
         '''
-        JRiverDelayDialog(self, self.__dsp.channel_names(output=True), lambda vals: self.__add_filter(vals, idx),
+        JRiverDelayDialog(self, self.dsp.channel_names(output=True), lambda vals: self.__add_filter(vals, idx),
                           Delay.default_values()).exec()
 
     def __insert_polarity(self, idx: int):
@@ -753,7 +774,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         Allows user to insert an invert polarity filter at the specified index in the filter list.
         :param idx: the index to insert at.
         '''
-        JRiverChannelOnlyFilterDialog(self, self.__dsp.channel_names(output=True),
+        JRiverChannelOnlyFilterDialog(self, self.dsp.channel_names(output=True),
                                       lambda vals: self.__add_filter(vals, idx), Polarity.default_values()).exec()
 
     def __insert_mix(self, mix_type: MixType, idx: int):
@@ -762,7 +783,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         :param mix_type: the type of mix.
         :param idx: the index to insert at.
         '''
-        JRiverMixFilterDialog(self, self.__dsp.channel_names(output=True), lambda vals: self.__add_filter(vals, idx),
+        JRiverMixFilterDialog(self, self.dsp.channel_names(output=True), lambda vals: self.__add_filter(vals, idx),
                               mix_type, Mix.default_values()).exec()
 
     def __add_filter(self, vals: Dict[str, str], idx: int) -> None:
@@ -784,7 +805,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         :param idx: the idx to insert at.
         :param to_add: the filter.
         '''
-        self.__dsp.active_graph.insert(to_add, idx)
+        self.dsp.active_graph.insert(to_add, idx)
         self.__on_graph_change()
         item = QListWidgetItem(str(to_add))
         item.setData(FILTER_ID_ROLE, to_add.id)
@@ -796,7 +817,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         regenerates the svg and redraws the chart.
         '''
         self.__regen()
-        self.__dsp.simulate()
+        self.dsp.simulate()
         self.redraw()
 
     def __enable_edit_buttons_if_filters_selected(self) -> bool:
@@ -816,9 +837,9 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
             selected_item = self.filterList.selectedItems()[0]
             enable_edit = self.__is_editable(selected_item)
             f_id = selected_item.data(FILTER_ID_ROLE)
-            enable_split = self.__dsp.active_graph.get_filter_by_id(f_id).can_split()
+            enable_split = self.dsp.active_graph.get_filter_by_id(f_id).can_split()
         elif count > 1:
-            selected_filters = [self.__dsp.active_graph.get_filter_by_id(i.data(FILTER_ID_ROLE))
+            selected_filters = [self.dsp.active_graph.get_filter_by_id(i.data(FILTER_ID_ROLE))
                                 for i in self.filterList.selectedItems()]
             enable_merge = all(c[0].can_merge(c[1]) for c in itertools.combinations(selected_filters, 2))
         self.splitFilterButton.setEnabled(enable_split)
@@ -835,7 +856,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         :param dest: the parent of the target items.
         :param row: the row to move to.
         '''
-        self.__dsp.active_graph.reorder(start, end, row)
+        self.dsp.active_graph.reorder(start, end, row)
         self.__on_graph_change()
 
     def __show_edit_filter_dialog(self, node_name: str) -> None:
@@ -843,15 +864,15 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         Shows the edit dialog for the selected node.
         :param node_name: the node.
         '''
-        filt = self.__dsp.active_graph.get_filter_at_node(node_name)
+        filt = self.dsp.active_graph.get_filter_at_node(node_name)
         if filt:
             if isinstance(filt, GEQFilter):
                 self.__start_geq_edit_session(filt, filt.channel_names)
             elif isinstance(filt, CompoundRoutingFilter):
                 self.__update_xo(filt)
             elif filt.get_editable_filter():
-                node_idx, node_chain = self.__dsp.active_graph.get_editable_node_chain(node_name)
-                filters: List[Filter] = [self.__dsp.active_graph.get_filter_at_node(n) for n in node_chain]
+                node_idx, node_chain = self.dsp.active_graph.get_editable_node_chain(node_name)
+                filters: List[Filter] = [self.dsp.active_graph.get_filter_at_node(n) for n in node_chain]
                 insert_at, _ = self.__find_item_by_filter_id(filters[0].id)
                 self.__start_peq_edit_session([f.get_editable_filter() for f in filters], node_name.split('_')[0],
                                               node_chain, insert_at + 1, selected_filter_idx=node_idx)
@@ -872,7 +893,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
                 to_add = create_peq(vals_to_save)
                 if to_add:
                     logger.info(f"Storing {vals_to_save} as {to_add}")
-                    if self.__dsp.active_graph.replace(to_edit, to_add):
+                    if self.dsp.active_graph.replace(to_edit, to_add):
                         item = self.__find_item_by_filter_id(to_edit.id)
                         if item:
                             item[1].setText(str(to_add))
@@ -881,11 +902,11 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
                         logger.error(f"Failed to replace {to_edit}")
 
             if isinstance(to_edit, Delay):
-                JRiverDelayDialog(self, self.__dsp.channel_names(output=True), __on_save, vals[0]).exec()
+                JRiverDelayDialog(self, self.dsp.channel_names(output=True), __on_save, vals[0]).exec()
             elif isinstance(to_edit, Polarity):
-                JRiverChannelOnlyFilterDialog(self, self.__dsp.channel_names(output=True), __on_save, vals[0]).exec()
+                JRiverChannelOnlyFilterDialog(self, self.dsp.channel_names(output=True), __on_save, vals[0]).exec()
             elif isinstance(to_edit, Mix):
-                JRiverMixFilterDialog(self, self.__dsp.channel_names(output=True), __on_save, to_edit.mix_type,
+                JRiverMixFilterDialog(self, self.dsp.channel_names(output=True), __on_save, to_edit.mix_type,
                                       vals[0]).exec()
             else:
                 return False
@@ -906,10 +927,10 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         filter_model = FilterModel(None, self.prefs)
         sorted_filters = [self.__enforce_filter_order(i, f) for i, f in enumerate(filters)] if filters else None
         filter_model.filter = CompleteFilter(fs=48000, filters=sorted_filters, sort_by_id=True, description=channel)
-        self.__dsp.active_graph.start_edit(channel, node_chain, insert_at)
+        self.dsp.active_graph.start_edit(channel, node_chain, insert_at)
 
         def __on_save():
-            if self.__dsp.active_graph.end_edit(filter_model.filter):
+            if self.dsp.active_graph.end_edit(filter_model.filter):
                 self.show_filters()
 
         x_lim = (self.__magnitude_model.limits.x_min, self.__magnitude_model.limits.x_max)
@@ -937,8 +958,8 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         '''
         Regenerates the graphviz display.
         '''
-        self.clearFiltersButton.setEnabled(len(self.__dsp.active_graph.filters) > 0)
-        self.__current_dot_txt = self.__dsp.as_dot(self.blockSelector.currentIndex(),
+        self.clearFiltersButton.setEnabled(len(self.dsp.active_graph.filters) > 0)
+        self.__current_dot_txt = self.dsp.as_dot(self.blockSelector.currentIndex(),
                                                    vertical=self.direction.isChecked(),
                                                    selected_nodes=self.__selected_node_names)
         from graphviz import ExecutableNotFound
@@ -992,7 +1013,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         :param node_name: the name of the deselected node.
         '''
         self.__selected_node_names.remove(node_name)
-        node_filter = self.__dsp.active_graph.get_filter_at_node(node_name)
+        node_filter = self.dsp.active_graph.get_filter_at_node(node_name)
         if node_filter:
             nodes_in_filter = [n for n in node_filter.nodes]
             if not any(s in self.__selected_node_names for s in nodes_in_filter):
@@ -1008,13 +1029,13 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         Ensures that all nodes for selected filters are shown as selected if they have not already been deselected.
         :param selected_node: the node that was just selected.
         '''
-        graph = self.__dsp.graph(self.blockSelector.currentIndex())
+        graph = self.dsp.active_graph
         filts = [graph.get_filter_at_node(n) for n in self.__selected_node_names if
                  graph.get_filter_at_node(n) is not None]
         if filts:
             selected_filter = graph.get_filter_at_node(selected_node)
             i = 0
-            for f in self.__dsp.graph(self.blockSelector.currentIndex()).filters:
+            for f in graph.filters:
                 if not isinstance(f, Divider):
                     from model.report import block_signals
                     with block_signals(self.filterList):
@@ -1048,9 +1069,9 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         ''' preview of the filter to display on the chart '''
         result = []
         if mode == 'mag' or self.showPhase.isChecked():
-            if self.__dsp:
+            if self.dsp:
                 names = [n.text() for n in self.channelList.selectedItems()]
-                for signal in self.__dsp.signals:
+                for signal in self.dsp.signals:
                     if signal.name in names:
                         result.append(MagnitudeData(signal.name, None, *signal.avg,
                                                     colour=get_filter_colour(len(result)),
@@ -2092,9 +2113,12 @@ class GroupChannelsDialog(QDialog, Ui_groupChannelsDialog):
         self.channelGroups.itemSelectionChanged.connect(self.__enable_remove_button)
         self.addGroupButton.clicked.connect(self.__add_group)
         self.addGroupButton.setIcon(qta.icon('fa5s.plus'))
+        self.addGroupButton.setToolTip('Create new channel group')
         self.deleteGroupButton.setIcon(qta.icon('fa5s.minus'))
+        self.deleteGroupButton.setToolTip('Remove selected group')
         self.linkAllButton.setIcon(qta.icon('fa5s.object-group'))
         self.linkAllButton.clicked.connect(self.__group_all)
+        self.linkAllButton.setToolTip('Link all channels into a single group')
         self.deleteGroupButton.clicked.connect(self.__remove_group)
 
     def __group_all(self):

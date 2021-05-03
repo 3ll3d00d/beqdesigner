@@ -85,7 +85,7 @@ class Filter(ABC):
         return False
 
 
-class SingleFilter(Filter):
+class SingleFilter(Filter, ABC):
 
     def __init__(self, vals, short_name):
         super().__init__(short_name)
@@ -126,7 +126,7 @@ class SingleFilter(Filter):
         }
 
 
-class ChannelFilter(SingleFilter):
+class ChannelFilter(SingleFilter, ABC):
 
     def __init__(self, vals, short_name):
         super().__init__(vals, short_name)
@@ -170,14 +170,20 @@ class ChannelFilter(SingleFilter):
     def is_mine(self, idx):
         return idx in self.channels
 
-    def pop_channel(self, channel_name: str):
+    def pop_channel(self, channel_name: str) -> Optional[ChannelFilter]:
         '''
         Removes a channel from the filter.
         :param channel_name: the (short) channel name to remove.
+        :return the filter without the channel or None if it was the last channel.
         '''
         if channel_name in self.__channel_names:
-            self.__channel_names.remove(channel_name)
-            self.__channels.remove(get_channel_idx(channel_name))
+            if len(self.__channel_names) == 1:
+                return None
+            else:
+                c = self.__class__(self.get_all_vals())
+                c.__channel_names.remove(channel_name)
+                c.__channels.remove(get_channel_idx(channel_name))
+                return c
         else:
             raise ValueError(f"{channel_name} not found in {self}")
 
@@ -189,7 +195,7 @@ class ChannelFilter(SingleFilter):
         }
 
 
-class GainQFilter(ChannelFilter):
+class GainQFilter(ChannelFilter, ABC):
 
     def __init__(self, vals, create_iir, short_name):
         super().__init__(vals, short_name)
@@ -217,7 +223,7 @@ class GainQFilter(ChannelFilter):
     def get_vals(self) -> Dict[str, str]:
         return {
             'Slope': '12',
-            'Q': f"{self.to_jriver_q(self.__q, self.__gain):.4g}",
+            'Q': f"{self.to_jriver_q(self.__q, self.__gain):.12g}",
             'Gain': f"{self.__gain:.7g}",
             'Frequency': f"{self.__frequency:.7g}",
             **super().get_vals()
@@ -283,7 +289,7 @@ class HighShelf(GainQFilter):
         return q_to_s(q, gain)
 
 
-class Pass(ChannelFilter):
+class Pass(ChannelFilter, ABC):
 
     def __init__(self, vals: dict, short_name: str,
                  one_pole_ctor: Callable[..., Union[FirstOrder_LowPass, FirstOrder_HighPass]],
@@ -326,7 +332,7 @@ class Pass(ChannelFilter):
         return {
             'Gain': '0',
             'Slope': f"{self.order * 6}",
-            'Q': f"{self.jriver_q:.4g}",
+            'Q': f"{self.jriver_q:.12g}",
             'Frequency': f"{self.__frequency:.7g}",
             **super().get_vals()
         }
@@ -1094,7 +1100,7 @@ def convert_filter_to_mc_dsp(filt: SOS, target_channels: str) -> Filter:
         return f_type({
             'Enabled': '1',
             'Slope': '12',
-            'Q': f"{q:.4g}",
+            'Q': f"{q:.7g}",
             'Type': f_type.TYPE,
             'Gain': f"{filt.gain:.7g}",
             'Frequency': f"{filt.freq:.7g}",
@@ -1150,7 +1156,7 @@ def __make_high_order_mc_pass_filter(f: CompoundPassFilter, filt_type: str, conv
         'Enabled': '1',
         'Slope': f"{f.order * 6}",
         'Type': filt_type,
-        'Q': f"{convert_q((1 / 2**0.5) * f.q_scale):.4g}",
+        'Q': f"{convert_q((1 / 2**0.5) * f.q_scale):.12g}",
         'Frequency': f"{f.freq:.7g}",
         'Gain': '0',
         'Channels': target_channels
@@ -1163,7 +1169,7 @@ def __make_mc_pass_filter(f: Union[FirstOrder_LowPass, FirstOrder_HighPass, Pass
         'Enabled': '1',
         'Slope': f"{f.order * 6}",
         'Type': filt_type,
-        'Q': f"{convert_q(f.q):.4g}" if hasattr(f, 'q') else '1',
+        'Q': f"{convert_q(f.q):.12g}" if hasattr(f, 'q') else '1',
         'Frequency': f"{f.freq:.7g}",
         'Gain': '0',
         'Channels': target_channels
@@ -1297,14 +1303,40 @@ class GainFilterOp(FilterOp):
 
 class FilterGraph:
 
-    def __init__(self, stage: int, input_channels: List[str], output_channels: List[str], filts: List[Filter]):
+    def __init__(self, stage: int, input_channels: List[str], output_channels: List[str], filts: List[Filter],
+                 on_delta: Callable[[bool, bool], None] = None):
+        self.__on_delta = on_delta
         self.__editing: Optional[Tuple[str, List[str]], int] = None
         self.__stage = stage
-        self.__filts = filts
+        self.__active_idx = -1
+        self.__filt_cache = [filts]
         self.__output_channels = output_channels
         self.__input_channels = input_channels
         self.__dot = None
         self.__regen()
+
+    def undo(self) -> bool:
+        changed = False
+        if len(self.__filt_cache) > 1:
+            if self.__active_idx == -1:
+                self.__active_idx = len(self.__filt_cache) - 2
+                changed = True
+            elif self.__active_idx != 0:
+                self.__active_idx = self.__active_idx - 1
+                changed = True
+        return changed
+
+    def redo(self) -> bool:
+        changed = False
+        if self.__active_idx != -1:
+            changed = True
+            self.__active_idx += 1
+            if self.__active_idx == len(self.__filt_cache) - 1:
+                self.__active_idx = -1
+        return changed
+
+    def activate(self):
+        self.__update_history()
 
     def __regen(self):
         '''
@@ -1325,7 +1357,7 @@ class FilterGraph:
         return GraphRenderer(self, colours=colours).generate(vertical=vertical, selected_nodes=selected_nodes)
 
     def __repr__(self):
-        return f"Stage {self.__stage} - {len(self.__filts)} Filters - {len(self.__input_channels)} in {len(self.__output_channels)} out"
+        return f"Stage {self.__stage} - {len(self.filters)} Filters - {len(self.__input_channels)} in {len(self.__output_channels)} out"
 
     @property
     def stage(self):
@@ -1388,7 +1420,7 @@ class FilterGraph:
         :param f_id: the filter id.
         :return: the filter, if any.
         '''
-        return next((f for f in self.__filts if f.id == f_id), None)
+        return next((f for f in self.filters if f.id == f_id), None)
 
     def reorder(self, start: int, end: int, to: int) -> None:
         '''
@@ -1403,12 +1435,12 @@ class FilterGraph:
         for i, f in enumerate(to_insert):
             new_filters.insert(to + i - (1 if start < to else 0), f)
         logger.debug(f"Order: {[f for f in new_filters]}")
-        self.__filts = new_filters
+        self.__append(new_filters)
         self.__regen()
 
     @property
     def filters(self) -> List[Filter]:
-        return self.__filts
+        return self.__filt_cache[self.__active_idx]
 
     @property
     def all_filters(self) -> Iterable[Filter]:
@@ -1427,6 +1459,18 @@ class FilterGraph:
     def output_channels(self):
         return self.__output_channels
 
+    def __append(self, filters: List[Filter] = None):
+        filters = filters if filters is not None else [f for f in self.filters]
+        if self.__active_idx != -1:
+            self.__filt_cache = self.__filt_cache[:self.__active_idx + 1]
+        self.__filt_cache.append(filters)
+        self.__active_idx = -1
+        self.__update_history()
+
+    def __update_history(self):
+        logger.info(f"FiltCache: {len(self.__filt_cache)}, idx: {self.__active_idx}")
+        self.__on_delta(len(self.__filt_cache) > 1, self.__active_idx != -1)
+
     def start_edit(self, channel: str, node_chain: List[str], insert_at: int):
         self.__editing = (channel, node_chain, insert_at)
 
@@ -1436,6 +1480,7 @@ class FilterGraph:
         :param new_filters: the filters.
         '''
         if self.__editing:
+            self.__append()
             node_chain: List[str]
             channel_name, node_chain, insert_at = self.__editing
             channel_idx = str(get_channel_idx(channel_name))
@@ -1468,12 +1513,12 @@ class FilterGraph:
                             break
                     if not handled:
                         must_regen = True
-                        self.insert(new_filter, insert_at + offset, regen=False)
+                        self.__insert(new_filter, insert_at + offset, regen=False)
                         new_chain_filter = new_filter
                         offset += 1
                 else:
                     must_regen = True
-                    self.insert(new_filter, insert_at + offset, regen=False)
+                    self.__insert(new_filter, insert_at + offset, regen=False)
                     new_chain_filter = new_filter
                     offset += 1
             if last_match + 1 < len(old_filters):
@@ -1490,7 +1535,7 @@ class FilterGraph:
             return must_regen
 
     def __get_filter_idx(self, to_match: Filter) -> int:
-        return next((i for i, f in enumerate(self.__filts) if f.id == to_match.id))
+        return next((i for i, f in enumerate(self.filters) if f.id == to_match.id))
 
     def __delete_filters(self, to_delete: List[Tuple[Filter, str]]) -> int:
         '''
@@ -1502,23 +1547,25 @@ class FilterGraph:
         for filt_to_delete, filt_channel_to_delete in to_delete:
             logger.debug(f"Deleting {filt_channel_to_delete} from {filt_to_delete}")
             if isinstance(filt_to_delete, ChannelFilter):
-                filt_to_delete.pop_channel(filt_channel_to_delete)
-                if not filt_to_delete.channels:
+                replacement = filt_to_delete.pop_channel(filt_channel_to_delete)
+                if replacement is None:
                     self.__delete(filt_to_delete)
                     deleted += 1
+                else:
+                    self.__replace(filt_to_delete, replacement)
             else:
                 self.__delete(filt_to_delete)
                 deleted += 1
         return deleted
 
     def __delete(self, filt_to_delete):
-        self.__filts.pop(self.__get_filter_idx(filt_to_delete))
+        self.filters.pop(self.__get_filter_idx(filt_to_delete))
 
     def clear_filters(self) -> None:
         '''
         Removes all filters.
         '''
-        self.__filts = []
+        self.__append([])
         self.__regen()
 
     def delete_channel(self, channel_filter: ChannelFilter, channel: str) -> bool:
@@ -1529,13 +1576,13 @@ class FilterGraph:
         :returns true if the filter is deleted.
         '''
         logger.debug(f"Deleting {channel} from {channel_filter}")
-        channel_filter.pop_channel(channel)
-        deleted_channel = False
-        if not channel_filter.channels:
+        replacement = channel_filter.pop_channel(channel)
+        if replacement is None:
             self.__delete(channel_filter)
-            deleted_channel = True
+        else:
+            self.replace(channel_filter, replacement)
         self.__regen()
-        return deleted_channel
+        return replacement is None
 
     def delete(self, filters: List[Filter]) -> None:
         '''
@@ -1543,7 +1590,7 @@ class FilterGraph:
         :param filters: the filters to remove.
         '''
         ids_to_delete: List[int] = [f.id for f in filters]
-        self.__filts = [f for f in self.__filts if f.id not in ids_to_delete]
+        self.__append([f for f in self.filters if f.id not in ids_to_delete])
         self.__regen()
 
     def insert(self, to_insert: Filter, at: int, regen=True) -> None:
@@ -1553,20 +1600,24 @@ class FilterGraph:
         :param at: the position to insert at.
         :param regen: react to the insertion by regenerating the graph.
         '''
-        if at < len(self.__filts):
-            if len(self.__filts) == 1:
-                filt_id = self.__filts[0].id / 2
+        self.__append()
+        self.__insert(to_insert, at, regen)
+
+    def __insert(self, to_insert: Filter, at: int, regen=True) -> None:
+        if at < len(self.filters):
+            if len(self.filters) == 1:
+                filt_id = self.filters[0].id / 2
             else:
-                filt_id = ((self.__filts[at].id - self.__filts[at-1].id) / 2) + self.__filts[at-1].id
-                if filt_id >= self.__filts[at].id:
-                    raise ValueError(f"Unable to insert filter at {at}, attempting to insert {filt_id} before {self.__filts[at].id}")
+                filt_id = ((self.filters[at].id - self.filters[at-1].id) / 2) + self.filters[at-1].id
+                if filt_id >= self.filters[at].id:
+                    raise ValueError(f"Unable to insert filter at {at}, attempting to insert {filt_id} before {self.filters[at].id}")
         else:
-            if len(self.__filts) == 0:
+            if len(self.filters) == 0:
                 filt_id = 2**24
             else:
-                filt_id = self.__filts[-1].id + 2**24
+                filt_id = self.filters[-1].id + 2**24
         to_insert.id = filt_id
-        self.__filts.insert(at, to_insert)
+        self.filters.insert(at, to_insert)
         if regen:
             self.__regen()
 
@@ -1577,9 +1628,13 @@ class FilterGraph:
         :param new_filter:  the replacement filter.
         :return: true if it was replaced.
         '''
+        self.__append()
+        return self.__replace(new_filter, old_filter)
+
+    def __replace(self, new_filter, old_filter):
         try:
             new_filter.id = old_filter.id
-            self.__filts[self.__get_filter_idx(old_filter)] = new_filter
+            self.filters[self.__get_filter_idx(old_filter)] = new_filter
             self.__regen()
             return True
         except:

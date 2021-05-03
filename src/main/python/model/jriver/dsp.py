@@ -5,13 +5,12 @@ import time
 import xml.etree.ElementTree as et
 from builtins import isinstance
 from pathlib import Path
-from typing import Dict, Optional, List, Tuple, Type
+from typing import Dict, Optional, List, Tuple, Type, Callable
 
 from model.jriver.codec import get_peq_block_order, get_output_format, NoFiltersError, get_peq_key_name, \
     extract_filters, filts_to_xml, include_filters_in_dsp
 from model.jriver.common import OutputFormat, get_channel_name, user_channel_indexes
-from model.jriver.filter import FilterGraph, create_peq, Filter, Divider, CustomPassFilter, \
-    complex_filter_classes_by_type, ComplexFilter, set_filter_ids
+from model.jriver.filter import FilterGraph, create_peq, Filter, Divider, complex_filter_classes_by_type, set_filter_ids
 from model.log import to_millis
 from model.signal import Signal
 
@@ -20,8 +19,10 @@ logger = logging.getLogger('jriver.dsp')
 
 class JRiverDSP:
 
-    def __init__(self, filename: str, colours: Tuple[str, str] = None, ):
+    def __init__(self, filename: str, colours: Tuple[str, str] = (None, ),
+                 on_delta: Callable[[bool, bool], None] = None):
         self.__active_idx = 0
+        self.__on_delta = on_delta
         self.__filename = filename
         self.__colours = colours
         start = time.time()
@@ -37,7 +38,7 @@ class JRiverDSP:
                 mc_filters = self.__parse_peq(self.__config_txt, block)
             except NoFiltersError:
                 mc_filters = []
-            self.__graphs.append(FilterGraph(block, in_names, out_names, mc_filters))
+            self.__graphs.append(FilterGraph(block, in_names, out_names, mc_filters, on_delta))
         end = time.time()
         logger.info(f"Parsed {filename} in {to_millis(start, end)}ms")
 
@@ -61,7 +62,7 @@ class JRiverDSP:
         return self.__graphs[idx]
 
     def as_dot(self, idx, vertical=True, selected_nodes=None) -> str:
-        return self.__graphs[idx].render(colours=self.__colours, vertical=vertical, selected_nodes=selected_nodes)
+        return self.graph(idx).render(colours=self.__colours, vertical=vertical, selected_nodes=selected_nodes)
 
     def channel_names(self, short=True, output=False, exclude_user=False):
         idxs = self.output_format.output_channel_indexes if output else self.output_format.input_channel_indexes
@@ -147,6 +148,7 @@ class JRiverDSP:
         :param active_idx: the active graph index.
         '''
         self.__active_idx = active_idx
+        self.active_graph.activate()
         self.simulate()
 
     def simulate(self):
@@ -154,7 +156,7 @@ class JRiverDSP:
 
     @property
     def active_graph(self) -> FilterGraph:
-        return self.__graphs[self.__active_idx]
+        return self.graph(self.__active_idx)
 
     def write_to_file(self, file=None) -> None:
         '''
