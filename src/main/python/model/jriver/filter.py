@@ -558,11 +558,14 @@ class LinkwitzTransform(ChannelFilter):
         return f"{self.__class__.__name__} {self.__fz:.7g} Hz / {self.__qz:.4g} -> {self.__fp:.7g} Hz / {self.__qp:.4g} {self.print_channel_names()}{self.print_disabled()}"
 
     def get_filter_op(self) -> FilterOp:
-        sos = iir.LinkwitzTransform(48000, self.__fz, self.__qz, self.__fp, self.__qp).get_sos()
+        sos = self.get_editable_filter().get_sos()
         if sos:
             return SosFilterOp(sos)
         else:
             return NopFilterOp()
+
+    def get_editable_filter(self) -> Optional[SOS]:
+        return iir.LinkwitzTransform(48000, self.__fz, self.__qz, self.__fp, self.__qp)
 
 
 class LinkwitzRiley(SingleFilter):
