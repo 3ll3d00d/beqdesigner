@@ -4,7 +4,6 @@ import math
 import numpy as np
 import qtawesome as qta
 from matplotlib.font_manager import FontProperties
-from pyqtgraph import mkPen
 from qtpy.QtCore import QTime
 from qtpy.QtGui import QFont
 from qtpy.QtCore import Qt
@@ -511,6 +510,7 @@ class WaveformModel:
             x = np.linspace(0, self.signal.duration_seconds, endpoint=False, num=len(self.signal.samples))
             y = self.signal.samples
             if self.__curve is None:
+                from pyqtgraph import mkPen
                 self.__curve = self.__chart.plot(x, y, pen=mkPen('c', width=1))
                 self.zoom_out()
             else:
