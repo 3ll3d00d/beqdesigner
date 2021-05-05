@@ -62,7 +62,7 @@ jobs:
         run: |
           if [[ "$RUNNER_OS" == "Linux" ]]
           then
-            sudo apt install libblas-dev liblapack-dev libsndfile1 graphviz
+            sudo apt install libblas-dev liblapack-dev libsndfile1 graphviz libxkbcommon-x11-0 libxcb-icccm4 libxcb-image0 libxcb-util1 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-xinerama0 libxcb-xkb1
           elif [[ "$RUNNER_OS" == "Windows" ]]
           then
             choco install openssl.light graphviz
