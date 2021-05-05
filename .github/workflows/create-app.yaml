@@ -62,7 +62,9 @@ jobs:
         run: |
           if [[ "$RUNNER_OS" == "Linux" ]]
           then
-            sudo apt install libblas-dev liblapack-dev libsndfile1 graphviz libxkbcommon-x11-0 libxcb-icccm4 libxcb-image0 libxcb-util1 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-xinerama0 libxcb-xkb1
+            sudo apt install -y libblas-dev liblapack-dev libsndfile1 graphviz
+            sudo apt-get install -y xvfb libxkbcommon-x11-0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-xinerama0 libxcb-xinput0 libxcb-xfixes0 libxcb-util1 libxcb-xkb1
+            sudo /usr/bin/Xvfb $DISPLAY -screen 0 1280x1024x24 &
           elif [[ "$RUNNER_OS" == "Windows" ]]
           then
             choco install openssl.light graphviz
@@ -72,12 +74,6 @@ jobs:
             brew ls -v graphviz
           fi
           pipenv run pip install pyinstaller
-      - name: Fixup pyinstaller pyqtgraph hook
-        if: runner.os == 'Linux'
-        run: |
-          ldd $(pipenv --venv)/lib/python3.9/site-packages/PyQt5/Qt/plugins/platforms/libqxcb.so
-          rm -f $(pipenv --venv)/lib/python3.9/site-packages/_pyinstaller_hooks_contrib/hooks/stdhooks/hook-pyqtgraph.py
-          find $(pipenv --venv)/lib/python3.9/site-packages/_pyinstaller_hooks_contrib/hooks/ -name \*pyqtgraph\*
       - name: Get latest release version number
         id: get_version
         uses: battila7/get-version-action@v2
