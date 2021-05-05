@@ -72,10 +72,11 @@ jobs:
             brew ls -v graphviz
           fi
           pipenv run pip install pyinstaller
-      - name: Check package
+      - name: Fixup pyinstaller pyqtgraph hook
         if: runner.os == 'Linux'
         run: |
-          ldd $(pipenv --venv)/lib/python3.9/site-packages/PyQt5/Qt/plugins/platforms/libqxcb.so
+          ldd $(pipenv --venv)/lib/python3.9/site-packages/PyQt5/Qt/plugins/platforms/libqxcb.soaxisCtrlTemplate_pyqt5
+          rm $(pipenv --venv)/lib/python3.9/site-packages/_pyinstaller_hooks_contrib/hooks/stdhooks/hook-pyqtgraph.py
       - name: Get latest release version number
         id: get_version
         uses: battila7/get-version-action@v2
