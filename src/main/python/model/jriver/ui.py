@@ -28,13 +28,14 @@ from model.jriver.dsp import JRiverDSP
 from model.jriver.filter import Divider, GEQFilter, CompoundRoutingFilter, CustomPassFilter, GainQFilter, Gain, Pass, \
     LinkwitzTransform, Polarity, Mix, Delay, Filter, create_peq, MixType, ChannelFilter, convert_filter_to_mc_dsp, \
     SingleFilter, XOFilter, HighPass, LowPass, SimulationFailed
+from model.jriver.mcws import MediaServer
 from model.jriver.render import render_dot
 from model.jriver.routing import Matrix, LFE_ADJUST_KEY, EDITORS_KEY, EDITOR_NAME_KEY, \
     UNDERLYING_KEY, WAYS_KEY, SYM_KEY, LFE_IN_KEY, ROUTING_KEY, calculate_compound_routing_filter
 from model.limits import DecibelRangeCalculator, PhaseRangeCalculator
 from model.magnitude import MagnitudeModel
 from model.preferences import JRIVER_GEOMETRY, JRIVER_GRAPH_X_MIN, JRIVER_GRAPH_X_MAX, JRIVER_DSP_DIR, \
-    get_filter_colour, Preferences, XO_GRAPH_X_MIN, XO_GRAPH_X_MAX, XO_GEOMETRY
+    get_filter_colour, Preferences, XO_GRAPH_X_MIN, XO_GRAPH_X_MAX, XO_GEOMETRY, JRIVER_MCWS_CONNECTIONS
 from model.signal import Signal
 from model.xy import MagnitudeData
 from ui.channel_matrix import Ui_channelMatrixDialog
@@ -44,6 +45,7 @@ from ui.group_channels import Ui_groupChannelsDialog
 from ui.jriver import Ui_jriverDspDialog
 from ui.jriver_delay_filter import Ui_jriverDelayDialog
 from ui.jriver_mix_filter import Ui_jriverMixDialog
+from ui.load_zone import Ui_loadDspFromZoneDialog
 from ui.pipeline import Ui_jriverGraphDialog
 from ui.xo import Ui_xoDialog
 
@@ -65,11 +67,13 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         self.__decorate_buttons()
         # TODO remove or implement
         self.showImpulseButton.setVisible(False)
+        self.loadZoneButton.clicked.connect(self.__show_zone_dialog)
         self.addFilterButton.setMenu(self.__populate_add_filter_menu(QMenu(self)))
         self.pipelineView.signal.on_click.connect(self.__on_node_click)
         self.pipelineView.signal.on_double_click.connect(self.__show_edit_filter_dialog)
         self.pipelineView.signal.on_context.connect(self.__show_edit_menu)
         self.showDotButton.clicked.connect(self.__show_dot_dialog)
+        self.uploadButton.clicked.connect(self.__upload_dsp)
         self.direction.toggled.connect(self.__regen)
         self.viewSplitter.setSizes([100000, 100000])
         self.filterList.model().rowsMoved.connect(self.__reorder_filters)
@@ -82,6 +86,18 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
                                                 y_range_calc=DecibelRangeCalculator(60),
                                                 y2_range_calc=PhaseRangeCalculator(), show_y2_in_legend=False)
         self.__restore_geometry()
+
+    def __show_zone_dialog(self):
+        def on_select(zone_name: str, dsp: str):
+            logger.info(f"Received dsp config from {zone_name} len {len(dsp)}")
+            self.__load_dsp(zone_name, dsp)
+
+        MCWSDialog(self, self.prefs, on_select=on_select).exec()
+
+    def __upload_dsp(self):
+        if self.dsp:
+            logger.info(f"Uploading dsp config")
+            MCWSDialog(self, self.prefs, txt=self.dsp.config_txt, download=False).exec()
 
     def __enable_history_buttons(self, back: bool, fwd: bool) -> None:
         self.backButton.setEnabled(back)
@@ -150,6 +166,10 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         self.backButton.setShortcut(QKeySequence.Undo)
         self.backButton.clicked.connect(self.__undo)
         self.forwardButton.clicked.connect(self.__redo)
+        self.loadZoneButton.setIcon(qta.icon('fa5s.download'))
+        self.loadZoneButton.setToolTip('Connect to JRiver Media Center to load DSP config for a zone')
+        self.uploadButton.setIcon(qta.icon('fa5s.upload'))
+        self.uploadButton.setToolTip('Load the current DSP to JRiver Media Center')
 
     def create_new_config(self):
         '''
@@ -182,7 +202,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
             file_name, ok = QInputDialog.getText(self, "Create New DSP Config", "Config Name:", text=selected.name)
             output_file = os.path.join(self.prefs.get(JRIVER_DSP_DIR), f"{file_name}.dsp")
             write_dsp_file(root, output_file)
-            self.load_dsp_file(output_file)
+            self.__load_dsp(output_file)
 
     def find_dsp_file(self):
         '''
@@ -197,20 +217,21 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
             kwargs['directory'] = dsp_dir
         selected = QFileDialog.getOpenFileName(parent=self, **kwargs)
         if selected is not None and len(selected[0]) > 0:
-            self.load_dsp_file(selected[0])
+            self.__load_dsp(selected[0])
 
-    def load_dsp_file(self, selected: str) -> None:
+    def __load_dsp(self, name: str, txt: str = None) -> None:
         '''
         Loads the selected file.
-        :param selected: the selected file.
+        :param name: the name of the dsp.
+        :param txt: the dsp config txt.
         '''
         try:
             main_colour = QColor(QPalette().color(QPalette.Active, QPalette.Text)).name()
             highlight_colour = QColor(QPalette().color(QPalette.Active, QPalette.Highlight)).name()
-            self.__dsp = JRiverDSP(selected, colours=(main_colour, highlight_colour),
-                                   on_delta=self.__enable_history_buttons)
+            self.__dsp = JRiverDSP(name, lambda: txt if txt else Path(name).read_text(),
+                                   colours=(main_colour, highlight_colour), on_delta=self.__enable_history_buttons)
             self.__refresh_channel_list()
-            self.filename.setText(os.path.basename(selected)[:-4])
+            self.filename.setText(os.path.basename(name)[:-4])
             self.outputFormat.setText(self.dsp.output_format.display_name)
             self.filterList.clear()
             self.show_filters()
@@ -219,9 +240,10 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
             self.addFilterButton.setEnabled(True)
             self.showDotButton.setEnabled(True)
             self.direction.setEnabled(True)
-            self.prefs.set(JRIVER_DSP_DIR, os.path.dirname(selected))
+            self.uploadButton.setEnabled(True)
+            self.prefs.set(JRIVER_DSP_DIR, os.path.dirname(name))
         except Exception as e:
-            logger.exception(f"Unable to parse {selected}")
+            logger.exception(f"Unable to parse {name}")
             from model.catalogue import show_alert
             show_alert('Unable to load DSP file', f"Invalid file\n\n{e}")
 
@@ -2196,4 +2218,126 @@ class SWChannelSelectorDialog(QDialog, Ui_channelSelectDialog):
 
     def accept(self):
         self.__on_save(self.lfeChannel.currentText(), [i.text() for i in self.channelList.selectedItems()])
+        super().accept()
+
+
+class MCWSDialog(QDialog, Ui_loadDspFromZoneDialog):
+    MCWS_ROLE = Qt.UserRole + 1
+
+    def __init__(self, parent: QDialog, prefs: Preferences, download: bool = True, txt: str = None,
+                 on_select: Callable[[str, str], None] = None):
+        super(MCWSDialog, self).__init__(parent)
+        self.setupUi(self)
+        self.prefs = prefs
+        self.__download = download
+        self.__txt = txt
+        self.addNewButton.setIcon(qta.icon('fa5s.plus'))
+        self.addNewButton.setToolTip('Add New MC Connection')
+        self.deleteSaved.setIcon(qta.icon('fa5s.times'))
+        self.deleteSaved.setToolTip('Delete selected connection')
+        self.testConnectionButton.setIcon(qta.icon('fa5s.sync'))
+        self.testConnectionButton.setToolTip('Check connection to MC')
+        if download:
+            self.upload.setVisible(False)
+        else:
+            self.upload.setIcon(qta.icon('fa5s.upload'))
+            self.upload.setToolTip('Upload DSP Configuration to selected zone')
+        self.__on_select = on_select
+        import re
+        self.__ip_pattern = re.compile(r'[0-9]+(?:\.[0-9]+){3}:[0-9]+')
+        mcws_connections = self.prefs.get(JRIVER_MCWS_CONNECTIONS)
+        for ip, auth in mcws_connections.items():
+            self.__add_media_server(ip, auth)
+        self.__media_server: Optional[MediaServer] = None
+        self.mcIP.textChanged.connect(self.__enable_buttons)
+        self.username.textChanged.connect(self.__enable_buttons)
+        self.password.textChanged.connect(self.__enable_buttons)
+        self.testConnectionButton.clicked.connect(self.__attempt_connect)
+        self.addNewButton.clicked.connect(self.__add_pending)
+        self.deleteSaved.clicked.connect(self.__delete_selected)
+        self.savedConnections.selectionModel().selectionChanged.connect(self.__enable_buttons)
+        self.savedConnections.selectionModel().selectionChanged.connect(self.__load_zones)
+        self.upload.clicked.connect(self.__upload_config)
+        self.__enable_buttons()
+        self.__load_zones()
+
+    def __load_zones(self):
+        selection = self.savedConnections.selectionModel()
+        self.zones.clear()
+        if selection.hasSelection():
+            self.__media_server = self.savedConnections.selectedItems()[0].data(self.MCWS_ROLE)
+            zones = self.__media_server.get_zones()
+            for zone_name in zones.keys():
+                self.zones.addItem(zone_name)
+            if zones:
+                self.upload.setEnabled(True)
+            else:
+                self.upload.setEnabled(False)
+
+    def __load_dsp(self):
+        if self.savedConnections.selectionModel().hasSelection() and self.zones.selectionModel().hasSelection():
+            media_server: MediaServer = self.savedConnections.selectedItems()[0].data(self.MCWS_ROLE)
+            zone_name = self.zones.selectedItems()[0].text()
+            dsp = media_server.get_dsp(zone_name)
+            self.__on_select(zone_name, dsp)
+
+    def __enable_buttons(self):
+        self.__media_server = None
+        self.testConnectionButton.setEnabled(len(self.username.text()) > 0 and len(self.password.text()) > 0 and
+                                             self.__ip_pattern.match(self.mcIP.text()) is not None)
+        self.addNewButton.setEnabled(self.__media_server is not None)
+        self.deleteSaved.setEnabled(len(self.savedConnections.selectedItems()) > 0)
+
+    def __attempt_connect(self):
+        self.__media_server = MediaServer(self.mcIP.text(), self.username.text(), self.password.text(),
+                                          self.https.isChecked())
+        if self.__media_server.authenticate():
+            self.addNewButton.setEnabled(True)
+        else:
+            self.__media_server = None
+            logger.warning(f"Failed to authenticate to {self.__media_server}")
+
+    def __add_pending(self):
+        if self.__media_server:
+            item = QListWidgetItem(f"{self.__media_server}")
+            item.setData(self.MCWS_ROLE, self.__media_server)
+            self.savedConnections.addItem(item)
+            self.prefs.set(JRIVER_MCWS_CONNECTIONS, {
+                **self.prefs.get(JRIVER_MCWS_CONNECTIONS),
+                **self.__media_server.as_dict()
+            })
+            self.mcIP.clear()
+            self.username.clear()
+            self.password.clear()
+            self.__media_server = None
+
+    def __add_media_server(self, ip, auth):
+        item = QListWidgetItem(f"{ip} [{auth[0]}]")
+        item.setData(self.MCWS_ROLE, MediaServer(ip, *auth))
+        self.savedConnections.addItem(item)
+
+    def __delete_selected(self):
+        to_delete = self.savedConnections.selectedItems()
+        if to_delete:
+            for d in to_delete:
+                self.savedConnections.takeItem(self.savedConnections.indexFromItem(d).row())
+            to_save = [self.savedConnections.item(i).getData(self.MCWS_ROLE).as_dict()
+                       for i in range(self.savedConnections.count())]
+            output = {}
+            for t in to_save:
+                output = {**output, **t}
+            self.prefs.set(JRIVER_MCWS_CONNECTIONS, output)
+
+    def __upload_config(self):
+        if self.__media_server:
+            zone_name = self.zones.selectedItems()[0].text()
+            result = self.__media_server.set_dsp(zone_name, self.__txt)
+            if result:
+                logger.info(f"Uploaded dsp to {zone_name}")
+            else:
+                logger.info(f"Failed to upload dsp to {zone_name}")
+
+    def accept(self):
+        if self.__download:
+            self.__load_dsp()
         super().accept()

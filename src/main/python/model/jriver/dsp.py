@@ -4,7 +4,6 @@ import logging
 import time
 import xml.etree.ElementTree as et
 from builtins import isinstance
-from pathlib import Path
 from typing import Dict, Optional, List, Tuple, Type, Callable
 
 from model.jriver.codec import get_peq_block_order, get_output_format, NoFiltersError, get_peq_key_name, \
@@ -19,28 +18,28 @@ logger = logging.getLogger('jriver.dsp')
 
 class JRiverDSP:
 
-    def __init__(self, filename: str, colours: Tuple[str, str] = (None, ),
+    def __init__(self, name: str, txt_provider: Callable[[], str], colours: Tuple[str, str] = (None,),
                  on_delta: Callable[[bool, bool], None] = None):
         self.__active_idx = 0
         self.__on_delta = on_delta
-        self.__filename = filename
+        self.__filename = name
         self.__colours = colours
         start = time.time()
-        self.__config_txt = Path(self.__filename).read_text()
-        peq_block_order = get_peq_block_order(self.__config_txt)
-        self.__output_format: OutputFormat = get_output_format(self.__config_txt)
+        self.__input_config_txt = txt_provider()
+        peq_block_order = get_peq_block_order(self.__input_config_txt)
+        self.__output_format: OutputFormat = get_output_format(self.__input_config_txt)
         self.__graphs: List[FilterGraph] = []
         self.__signals: Dict[str, Signal] = {}
         for block in peq_block_order:
             out_names = self.channel_names(output=True)
             in_names = out_names if self.__graphs else self.channel_names(output=False)
             try:
-                mc_filters = self.__parse_peq(self.__config_txt, block)
+                mc_filters = self.__parse_peq(self.__input_config_txt, block)
             except NoFiltersError:
                 mc_filters = []
             self.__graphs.append(FilterGraph(block, in_names, out_names, mc_filters, on_delta))
         end = time.time()
-        logger.info(f"Parsed {filename} in {to_millis(start, end)}ms")
+        logger.info(f"Parsed {name} in {to_millis(start, end)}ms")
 
     @property
     def output_format(self) -> OutputFormat:
@@ -165,10 +164,14 @@ class JRiverDSP:
         '''
         output_file = self.filename if file is None else file
         logger.info(f"Writing to {output_file}")
-        new_txt = self.__config_txt
+        with open(output_file, mode='w', newline='\r\n') as f:
+            f.write(self.config_txt)
+        logger.info(f"Written new config to {output_file}")
+
+    @property
+    def config_txt(self):
+        new_txt = self.__input_config_txt
         for graph in self.__graphs:
             xml_filts = [filts_to_xml(f.get_all_vals()) for f in graph.filters]
             new_txt = include_filters_in_dsp(get_peq_key_name(graph.stage), new_txt, xml_filts)
-        with open(output_file, mode='w', newline='\r\n') as f:
-            f.write(new_txt)
-        logger.info(f"Written new config to {output_file}")
+        return new_txt

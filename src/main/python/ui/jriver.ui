@@ -35,6 +35,13 @@
           </widget>
          </item>
          <item>
+          <widget class="QToolButton" name="loadZoneButton">
+           <property name="text">
+            <string>...</string>
+           </property>
+          </widget>
+         </item>
+         <item>
           <widget class="QLineEdit" name="filename">
            <property name="readOnly">
             <bool>true</bool>
@@ -53,6 +60,16 @@
          </item>
          <item>
           <widget class="QToolButton" name="saveAsButton">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
+           <property name="text">
+            <string>...</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QToolButton" name="uploadButton">
            <property name="enabled">
             <bool>false</bool>
            </property>
