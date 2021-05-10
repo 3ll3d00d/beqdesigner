@@ -52,7 +52,10 @@ If you intend to use BEQDesigner to extract audio from movie files and/or remux 
 
 ffmpeg binaries are available via [gyan.dev](https://www.gyan.dev/ffmpeg/builds/)
 
-Download the latest version and extract to a known directory, make a note of this location as it will be required during BEQ configuration.  
+Download the latest *release* version and extract to a known directory, make a note of this location as it will be required during BEQ configuration.
+
+!!! note
+    gyan.dev publishes 2 builds, full and essentials. The essentials version does not contain soxr which is used for resampling audio therefore always download the full build.
 
 ### Linux
 

@@ -44,7 +44,10 @@ def get_output_format(config_txt) -> OutputFormat:
 
     output_channels = int(xpath_val('Output Channels'))
     padding = int(xpath_val('Output Padding Channels'))
-    layout = int(xpath_val('Output Channel Layout'))
+    try:
+        layout = int(xpath_val('Output Channel Layout'))
+    except:
+        layout = -1
     if output_channels == 0:
         return OutputFormat.SOURCE
     elif output_channels == 1:

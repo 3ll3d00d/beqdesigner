@@ -28,7 +28,7 @@ from model.jriver.dsp import JRiverDSP
 from model.jriver.filter import Divider, GEQFilter, CompoundRoutingFilter, CustomPassFilter, GainQFilter, Gain, Pass, \
     LinkwitzTransform, Polarity, Mix, Delay, Filter, create_peq, MixType, ChannelFilter, convert_filter_to_mc_dsp, \
     SingleFilter, XOFilter, HighPass, LowPass, SimulationFailed
-from model.jriver.mcws import MediaServer
+from model.jriver.mcws import MediaServer, MCWSError
 from model.jriver.render import render_dot
 from model.jriver.routing import Matrix, LFE_ADJUST_KEY, EDITORS_KEY, EDITOR_NAME_KEY, \
     UNDERLYING_KEY, WAYS_KEY, SYM_KEY, LFE_IN_KEY, ROUTING_KEY, calculate_compound_routing_filter
@@ -2228,17 +2228,19 @@ class MCWSDialog(QDialog, Ui_loadDspFromZoneDialog):
                  on_select: Callable[[str, str], None] = None):
         super(MCWSDialog, self).__init__(parent)
         self.setupUi(self)
+        self.__last_test = None
         self.prefs = prefs
         self.__download = download
         self.__txt = txt
         self.addNewButton.setIcon(qta.icon('fa5s.plus'))
         self.addNewButton.setToolTip('Add New MC Connection')
-        self.deleteSaved.setIcon(qta.icon('fa5s.times'))
+        self.deleteSaved.setIcon(qta.icon('fa5s.trash-alt'))
         self.deleteSaved.setToolTip('Delete selected connection')
         self.testConnectionButton.setIcon(qta.icon('fa5s.sync'))
         self.testConnectionButton.setToolTip('Check connection to MC')
         if download:
-            self.upload.setVisible(False)
+            self.upload.setIcon(qta.icon('fa5s.download'))
+            self.upload.setToolTip('Download DSP Configuration to selected zone')
         else:
             self.upload.setIcon(qta.icon('fa5s.upload'))
             self.upload.setToolTip('Upload DSP Configuration to selected zone')
@@ -2254,48 +2256,61 @@ class MCWSDialog(QDialog, Ui_loadDspFromZoneDialog):
         self.password.textChanged.connect(self.__enable_buttons)
         self.testConnectionButton.clicked.connect(self.__attempt_connect)
         self.addNewButton.clicked.connect(self.__add_pending)
+        self.auth.clicked.connect(self.__check_auth)
         self.deleteSaved.clicked.connect(self.__delete_selected)
         self.savedConnections.selectionModel().selectionChanged.connect(self.__enable_buttons)
         self.savedConnections.selectionModel().selectionChanged.connect(self.__load_zones)
-        self.upload.clicked.connect(self.__upload_config)
+        self.upload.clicked.connect(self.__handle_config)
         self.__enable_buttons()
         self.__load_zones()
+
+    def __check_auth(self, required: bool):
+        self.username.setEnabled(required)
+        self.password.setEnabled(required)
+        self.__enable_buttons()
 
     def __load_zones(self):
         selection = self.savedConnections.selectionModel()
         self.zones.clear()
         if selection.hasSelection():
             self.__media_server = self.savedConnections.selectedItems()[0].data(self.MCWS_ROLE)
-            zones = self.__media_server.get_zones()
-            for zone_name in zones.keys():
-                self.zones.addItem(zone_name)
-            if zones:
-                self.upload.setEnabled(True)
-            else:
-                self.upload.setEnabled(False)
-
-    def __load_dsp(self):
-        if self.savedConnections.selectionModel().hasSelection() and self.zones.selectionModel().hasSelection():
-            media_server: MediaServer = self.savedConnections.selectedItems()[0].data(self.MCWS_ROLE)
-            zone_name = self.zones.selectedItems()[0].text()
-            dsp = media_server.get_dsp(zone_name)
-            self.__on_select(zone_name, dsp)
+            try:
+                zones = self.__media_server.get_zones()
+                for zone_name in zones.keys():
+                    self.zones.addItem(zone_name)
+                if zones:
+                    self.upload.setEnabled(True)
+                else:
+                    self.upload.setEnabled(False)
+            except MCWSError as e:
+                self.resultText.setPlainText(f"{e.url} - {e.status_code}\n\n{e.msg}\n\n{e.resp}")
+                self.zones.clear()
 
     def __enable_buttons(self):
+        if self.__last_test is not None:
+            self.__last_test = None
+            self.testConnectionButton.setIcon(qta.icon('fa5s.sync'))
         self.__media_server = None
-        self.testConnectionButton.setEnabled(len(self.username.text()) > 0 and len(self.password.text()) > 0 and
-                                             self.__ip_pattern.match(self.mcIP.text()) is not None)
-        self.addNewButton.setEnabled(self.__media_server is not None)
+        can_test = len(self.username.text()) > 0 and len(self.password.text()) > 0 if self.auth.isChecked() else True
+        can_test = can_test and self.__ip_pattern.match(self.mcIP.text()) is not None
+        self.testConnectionButton.setEnabled(can_test)
+        self.addNewButton.setEnabled(False)
         self.deleteSaved.setEnabled(len(self.savedConnections.selectedItems()) > 0)
 
     def __attempt_connect(self):
-        self.__media_server = MediaServer(self.mcIP.text(), self.username.text(), self.password.text(),
-                                          self.https.isChecked())
-        if self.__media_server.authenticate():
+        auth = (self.username.text(), self.password.text()) if self.auth.isChecked() else None
+        self.__media_server = MediaServer(self.mcIP.text(), auth=auth, secure=self.https.isChecked())
+        try:
+            self.__media_server.authenticate()
             self.addNewButton.setEnabled(True)
-        else:
+            self.testConnectionButton.setIcon(qta.icon('fa5s.check', color='green'))
+            self.__last_test = True
+            self.resultText.clear()
+        except MCWSError as e:
             self.__media_server = None
-            logger.warning(f"Failed to authenticate to {self.__media_server}")
+            self.resultText.setPlainText(f"{e.url} - {e.status_code}\n\n{e.msg}\n\n{e.resp}")
+            self.testConnectionButton.setIcon(qta.icon('fa5s.times', color='red'))
+            self.__last_test = False
 
     def __add_pending(self):
         if self.__media_server:
@@ -2313,6 +2328,8 @@ class MCWSDialog(QDialog, Ui_loadDspFromZoneDialog):
 
     def __add_media_server(self, ip, auth):
         item = QListWidgetItem(f"{ip} [{auth[0]}]")
+        if len(auth) == 3:
+            auth = ((auth[0], auth[1]), auth[2])
         item.setData(self.MCWS_ROLE, MediaServer(ip, *auth))
         self.savedConnections.addItem(item)
 
@@ -2328,16 +2345,30 @@ class MCWSDialog(QDialog, Ui_loadDspFromZoneDialog):
                 output = {**output, **t}
             self.prefs.set(JRIVER_MCWS_CONNECTIONS, output)
 
-    def __upload_config(self):
+    def __handle_config(self):
         if self.__media_server:
-            zone_name = self.zones.selectedItems()[0].text()
-            result = self.__media_server.set_dsp(zone_name, self.__txt)
-            if result:
-                logger.info(f"Uploaded dsp to {zone_name}")
+            if self.__download:
+                if self.savedConnections.selectionModel().hasSelection() and self.zones.selectionModel().hasSelection():
+                    media_server: MediaServer = self.savedConnections.selectedItems()[0].data(self.MCWS_ROLE)
+                    zone_name = self.zones.selectedItems()[0].text()
+                    try:
+                        dsp = media_server.get_dsp(zone_name)
+                        self.resultText.setPlainText(f"Downloaded DSP from {zone_name}\n\n{dsp}")
+                        self.__on_select(zone_name, dsp)
+                        self.upload.setIcon(qta.icon('fa5s.download', color='green'))
+                    except MCWSError as e:
+                        self.resultText.setPlainText(f"{e.url} - {e.status_code}\n\n{e.msg}\n\n{e.resp}")
+                        self.upload.setIcon(qta.icon('fa5s.download', color='red'))
             else:
-                logger.info(f"Failed to upload dsp to {zone_name}")
-
-    def accept(self):
-        if self.__download:
-            self.__load_dsp()
-        super().accept()
+                zone_name = self.zones.selectedItems()[0].text()
+                try:
+                    result = self.__media_server.set_dsp(zone_name, self.__txt)
+                    if result:
+                        self.resultText.setPlainText(f"Uploaded dsp to {zone_name}")
+                        self.upload.setIcon(qta.icon('fa5s.upload', color='green'))
+                    else:
+                        self.resultText.setPlainText(f"Failed to upload dsp to {zone_name}")
+                        self.upload.setIcon(qta.icon('fa5s.upload', color='red'))
+                except MCWSError as e:
+                    self.resultText.setPlainText(f"{e.url} - {e.status_code}\n\n{e.msg}\n\n{e.resp}")
+                    self.upload.setIcon(qta.icon('fa5s.upload', color='red'))
