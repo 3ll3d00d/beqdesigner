@@ -231,7 +231,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
             self.__dsp = JRiverDSP(name, lambda: txt if txt else Path(name).read_text(),
                                    colours=(main_colour, highlight_colour), on_delta=self.__enable_history_buttons)
             self.__refresh_channel_list()
-            self.filename.setText(os.path.basename(name)[:-4])
+            self.filename.setText(name if txt else os.path.basename(name)[:-4])
             self.outputFormat.setText(self.dsp.output_format.display_name)
             self.filterList.clear()
             self.show_filters()
@@ -241,7 +241,8 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
             self.showDotButton.setEnabled(True)
             self.direction.setEnabled(True)
             self.uploadButton.setEnabled(True)
-            self.prefs.set(JRIVER_DSP_DIR, os.path.dirname(name))
+            if not txt:
+                self.prefs.set(JRIVER_DSP_DIR, os.path.dirname(name))
         except Exception as e:
             logger.exception(f"Unable to parse {name}")
             from model.catalogue import show_alert
@@ -2276,8 +2277,10 @@ class MCWSDialog(QDialog, Ui_loadDspFromZoneDialog):
             self.__media_server = self.savedConnections.selectedItems()[0].data(self.MCWS_ROLE)
             try:
                 zones = self.__media_server.get_zones()
-                for zone_name in zones.keys():
-                    self.zones.addItem(zone_name)
+                for zone_name, zone_id in zones.items():
+                    item = QListWidgetItem(zone_name)
+                    item.setData(self.MCWS_ROLE, zone_id)
+                    self.zones.addItem(item)
                 if zones:
                     self.upload.setEnabled(True)
                 else:
@@ -2338,7 +2341,7 @@ class MCWSDialog(QDialog, Ui_loadDspFromZoneDialog):
         if to_delete:
             for d in to_delete:
                 self.savedConnections.takeItem(self.savedConnections.indexFromItem(d).row())
-            to_save = [self.savedConnections.item(i).getData(self.MCWS_ROLE).as_dict()
+            to_save = [self.savedConnections.item(i).data(self.MCWS_ROLE).as_dict()
                        for i in range(self.savedConnections.count())]
             output = {}
             for t in to_save:
@@ -2350,11 +2353,11 @@ class MCWSDialog(QDialog, Ui_loadDspFromZoneDialog):
             if self.__download:
                 if self.savedConnections.selectionModel().hasSelection() and self.zones.selectionModel().hasSelection():
                     media_server: MediaServer = self.savedConnections.selectedItems()[0].data(self.MCWS_ROLE)
-                    zone_name = self.zones.selectedItems()[0].text()
+                    zone = self.zones.selectedItems()[0]
                     try:
-                        dsp = media_server.get_dsp(zone_name)
-                        self.resultText.setPlainText(f"Downloaded DSP from {zone_name}\n\n{dsp}")
-                        self.__on_select(zone_name, dsp)
+                        dsp = media_server.get_dsp(zone.data(self.MCWS_ROLE))
+                        self.resultText.setPlainText(f"Downloaded DSP from {zone.text()}\n\n{dsp}")
+                        self.__on_select(zone.text(), dsp)
                         self.upload.setIcon(qta.icon('fa5s.download', color='green'))
                     except MCWSError as e:
                         self.resultText.setPlainText(f"{e.url} - {e.status_code}\n\n{e.msg}\n\n{e.resp}")

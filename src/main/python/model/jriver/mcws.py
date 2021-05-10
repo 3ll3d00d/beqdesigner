@@ -75,9 +75,9 @@ class MediaServer:
         if not self.connected:
             self.authenticate()
 
-    def get_dsp(self, zone_name: str) -> Optional[str]:
+    def get_dsp(self, zone_id: str) -> Optional[str]:
         self.__auth_if_required()
-        r = requests.get(f"{self.__base_url}/Playback/SaveDSPPreset", params={'Token': self.__token, 'Zone': zone_name, 'ZoneType': 'Name'})
+        r = requests.get(f"{self.__base_url}/Playback/SaveDSPPreset", params={'Token': self.__token, 'Zone': zone_id, 'ZoneType': 'ID'})
         if r.status_code == 200:
             response = ET.fromstring(r.content)
             if response:
