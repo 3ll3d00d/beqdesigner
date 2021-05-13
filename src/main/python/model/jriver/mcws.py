@@ -105,12 +105,18 @@ class MediaServer:
         if r.status_code == 200:
             logger.debug(f"LoadDSPPreset/{zone_id} success")
             loaded_dsp = self.get_dsp(zone_id)
-            if loaded_dsp == dsp:
+            if self.__compare(loaded_dsp, dsp):
                 return True
             else:
                 raise DSPMismatchError(zone_id, dsp, loaded_dsp)
         else:
             raise MCWSError('DSP not set',  r.url, r.status_code, r.text)
+
+    @staticmethod
+    def __compare(a: str, b: str):
+        a_xml = ET.canonicalize(a)
+        b_xml = ET.canonicalize(b)
+        return a_xml == b_xml
 
 
 class DSPMismatchError(Exception):
