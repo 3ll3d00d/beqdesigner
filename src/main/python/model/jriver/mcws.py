@@ -26,7 +26,7 @@ class MediaServer:
     def authenticate(self) -> bool:
         self.__token = None
         url = f"{self.__base_url}/Authenticate"
-        r = requests.get(url, auth=self.__auth)
+        r = requests.get(url, auth=self.__auth, timeout=(1, 5))
         if r.status_code == 200:
             response = ET.fromstring(r.content)
             if response:
@@ -46,7 +46,7 @@ class MediaServer:
 
     def get_zones(self) -> Dict[str, str]:
         self.__auth_if_required()
-        r = requests.get(f"{self.__base_url}/Playback/Zones", params={'Token': self.__token})
+        r = requests.get(f"{self.__base_url}/Playback/Zones", params={'Token': self.__token}, timeout=(1, 5))
         if r.status_code == 200:
             response = ET.fromstring(r.content)
             if response:
@@ -77,30 +77,49 @@ class MediaServer:
 
     def get_dsp(self, zone_id: str) -> Optional[str]:
         self.__auth_if_required()
-        r = requests.get(f"{self.__base_url}/Playback/SaveDSPPreset", params={'Token': self.__token, 'Zone': zone_id, 'ZoneType': 'ID'})
+        r = requests.get(f"{self.__base_url}/Playback/SaveDSPPreset",
+                         params={'Token': self.__token, 'Zone': zone_id, 'ZoneType': 'ID'},
+                         timeout=(1, 5))
         if r.status_code == 200:
-            response = ET.fromstring(r.content)
+            response = ET.fromstring(r.text)
             if response:
-                r_status = response.attrib.get('Status', None)
-                if r_status == 'OK':
-                    for child in response:
-                        if child.tag == 'Item' and 'Name' in child.attrib and child.attrib['Name'] == 'Preset':
-                            return child.text
+                if response.tag == 'DSP':
+                    return r.text
+                elif response.tag == 'Response':
+                    r_status = response.attrib.get('Status', None)
+                    if r_status == 'OK':
+                        for child in response:
+                            if child.tag == 'Item' and 'Name' in child.attrib and child.attrib['Name'] == 'Preset':
+                                return child.text
         raise MCWSError('No DSP loaded',  r.url, r.status_code, r.text)
 
-    def set_dsp(self, zone_name: str, dsp: str) -> bool:
+    def set_dsp(self, zone_id: str, dsp: str) -> bool:
         self.__auth_if_required()
         dsp = dsp.replace('\n', '\r\n')
         if not dsp.endswith('\r\n'):
             dsp = dsp + '\r\n'
         r = requests.post(f"{self.__base_url}/Playback/LoadDSPPreset",
-                          params={'Token': self.__token, 'Zone': zone_name, 'ZoneType': 'Name'},
-                          files={'Name': (None, dsp)})
+                          params={'Token': self.__token, 'Zone': zone_id, 'ZoneType': 'ID'},
+                          files={'Name': (None, dsp)},
+                          timeout=(1, 5))
         if r.status_code == 200:
-            logger.debug(f"LoadDSPPreset/{zone_name} success")
-            return True
+            logger.debug(f"LoadDSPPreset/{zone_id} success")
+            loaded_dsp = self.get_dsp(zone_id)
+            if loaded_dsp == dsp:
+                return True
+            else:
+                raise DSPMismatchError(zone_id, dsp, loaded_dsp)
         else:
             raise MCWSError('DSP not set',  r.url, r.status_code, r.text)
+
+
+class DSPMismatchError(Exception):
+
+    def __init__(self, zone_id: str, expected: str, actual):
+        super().__init__(f"Mismatch in DSP loaded to {zone_id}")
+        self.zone_id = zone_id
+        self.expected = expected
+        self.actual = actual
 
 
 class MCWSError(Exception):

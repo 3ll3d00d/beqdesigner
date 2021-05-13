@@ -28,7 +28,7 @@ from model.jriver.dsp import JRiverDSP
 from model.jriver.filter import Divider, GEQFilter, CompoundRoutingFilter, CustomPassFilter, GainQFilter, Gain, Pass, \
     LinkwitzTransform, Polarity, Mix, Delay, Filter, create_peq, MixType, ChannelFilter, convert_filter_to_mc_dsp, \
     SingleFilter, XOFilter, HighPass, LowPass, SimulationFailed
-from model.jriver.mcws import MediaServer, MCWSError
+from model.jriver.mcws import MediaServer, MCWSError, DSPMismatchError
 from model.jriver.render import render_dot
 from model.jriver.routing import Matrix, LFE_ADJUST_KEY, EDITORS_KEY, EDITOR_NAME_KEY, \
     UNDERLYING_KEY, WAYS_KEY, SYM_KEY, LFE_IN_KEY, ROUTING_KEY, calculate_compound_routing_filter
@@ -2330,9 +2330,9 @@ class MCWSDialog(QDialog, Ui_loadDspFromZoneDialog):
             self.__media_server = None
 
     def __add_media_server(self, ip, auth):
-        item = QListWidgetItem(f"{ip} [{auth[0]}]")
         if len(auth) == 3:
             auth = ((auth[0], auth[1]), auth[2])
+        item = QListWidgetItem(f"{ip} [{auth[0][0]}]")
         item.setData(self.MCWS_ROLE, MediaServer(ip, *auth))
         self.savedConnections.addItem(item)
 
@@ -2363,15 +2363,19 @@ class MCWSDialog(QDialog, Ui_loadDspFromZoneDialog):
                         self.resultText.setPlainText(f"{e.url} - {e.status_code}\n\n{e.msg}\n\n{e.resp}")
                         self.upload.setIcon(qta.icon('fa5s.download', color='red'))
             else:
-                zone_name = self.zones.selectedItems()[0].text()
-                try:
-                    result = self.__media_server.set_dsp(zone_name, self.__txt)
-                    if result:
-                        self.resultText.setPlainText(f"Uploaded dsp to {zone_name}")
-                        self.upload.setIcon(qta.icon('fa5s.upload', color='green'))
-                    else:
-                        self.resultText.setPlainText(f"Failed to upload dsp to {zone_name}")
+                if self.zones.selectionModel().hasSelection():
+                    zone = self.zones.selectedItems()[0]
+                    try:
+                        result = self.__media_server.set_dsp(zone.data(self.MCWS_ROLE), self.__txt)
+                        if result:
+                            self.resultText.setPlainText(f"Uploaded dsp to {zone.text()}")
+                            self.upload.setIcon(qta.icon('fa5s.upload', color='green'))
+                        else:
+                            self.resultText.setPlainText(f"Failed to upload dsp to {zone.text()}")
+                            self.upload.setIcon(qta.icon('fa5s.upload', color='red'))
+                    except DSPMismatchError as e:
+                        self.resultText.setPlainText(f"{e}\n\n{e.expected}\n\n{e.actual}")
                         self.upload.setIcon(qta.icon('fa5s.upload', color='red'))
-                except MCWSError as e:
-                    self.resultText.setPlainText(f"{e.url} - {e.status_code}\n\n{e.msg}\n\n{e.resp}")
-                    self.upload.setIcon(qta.icon('fa5s.upload', color='red'))
+                    except MCWSError as e:
+                        self.resultText.setPlainText(f"{e.url} - {e.status_code}\n\n{e.msg}\n\n{e.resp}")
+                        self.upload.setIcon(qta.icon('fa5s.upload', color='red'))

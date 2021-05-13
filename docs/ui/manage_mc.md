@@ -18,10 +18,12 @@ This is launched via `Tools > Manage JRiver MC Filters` or the `CTRL+J` keyboard
 
 ![MCDSP](../img/jriver_dsp_editor.png)
 
+!!! info
+Use the button tooltips to understand what they do.
+
 ### Getting Started
 
-!!! info
-    Use the button tooltips to understand what they do.
+#### Creating a Empty Configuration 
 
 To create a new (empty) configuration:
 
@@ -29,12 +31,48 @@ To create a new (empty) configuration:
 * select an output format
 * enter a configuration name
 
-To load an existing configuration:
+#### Loading an Existing Configuration...
+
+!!! warning
+When loading an existing configuration, it must already have at least one active _Parametric Equalizer_ block.
+
+##### from a file
+
+To load an existing configuration exported from Media Center using the _Load/Save DSP File_ option:
 
 * click Open
 * select a dsp file
 
-The screen will update to display the contents of the _Parametric Equalizer_ configuration
+The screen will update to display the contents of the 1st listed _Parametric Equalizer_ block in DSP Studio.
+
+##### from a running Media Server
+
+DSP configuration can be loaded from a running Media Server if:
+
+* it is a v28 installation 
+* [Media Network](https://wiki.jriver.com/index.php/Media_Network) is activated
+
+To load such a config
+
+* click Download 
+* (on first use) enter the connection details for the Media Server, click test connection and then save assuming the test was successful
+
+![MCWSNew](../img/jriver_add_new_mcws.png)
+
+* select the Media server instance and the zones list should be updated
+* select a zone and click the download button
+
+The downloaded config should be now be shown in the result text field and the configuration loaded into the editor.
+
+![MCWSDownload](../img/jriver_mcws_download.png)
+
+If the selected zone has no active Parametric Equalizer sections, an error dialog will be displayed
+
+![MCWSError](../img/jriver_mcws_download_error.png)
+
+To workaround this, open Media Center on the specified host and enable the Parametric Equalizer sections in DSP Studio.
+
+#### Initial View
 
 ![OnOpen](../img/jriver_on_open.png)
 
@@ -190,6 +228,23 @@ The _Delay_ filter behaves as per the JRiver [Delay Filter](https://wiki.jriver.
 The _Polarity_ filter behaves as per the JRiver [Polarity Filter](https://wiki.jriver.com/index.php/Parametric_Equalizer#Delay) The _Delay_filter behaves as per the JRiver [Polarity Filter](https://wiki.jriver.com/index.php/Parametric_Equalizer#Reverse_Polarity)
 
 ![Polarity](../img/jriver_polarity.png)
+
+### Transferring Configuration to Media Center
+
+#### via a dsp file
+
+The configuration can be saved to a DSP file which can be loaded via the _Load/Save DSP_ option in Media Center. To export as a file, click either Save or Save As and select a file to write to.
+
+#### loading directly into Media Center
+
+The configuration can be loaded into a zone in a running Media Server if
+
+* Media Center v28 is installed
+* [Media Network](https://wiki.jriver.com/index.php/Media_Network) is activated
+
+To do so, click the upload button and select a server & zone then click the upload button. The button should turn green if the configuration is uploaded successfully.
+
+![MCWSUp](../img/jriver_mcws_upload.png)
 
 ### Interactivity
 
