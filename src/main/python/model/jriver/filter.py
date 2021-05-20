@@ -1661,10 +1661,10 @@ class FilterGraph:
 
     @staticmethod
     def __simulate_filter(f: Filter, signals: Dict[str, Tuple[Signal, Optional[SosFilterOp]]]):
-        filter_op = f.get_filter_op()
         if isinstance(f, ChannelFilter) or isinstance(f, ComplexChannelFilter):
             for c in f.channel_names:
                 signal, pending_sos = signals[c]
+                filter_op = f.get_filter_op()
                 if isinstance(filter_op, SosFilterOp):
                     if pending_sos:
                         pending_sos.extend(filter_op)
@@ -1686,6 +1686,7 @@ class FilterGraph:
             if pending_sos:
                 src_signal = pending_sos.apply(src_signal)
 
+            filter_op = f.get_filter_op()
             if f.mix_type == MixType.ADD or f.mix_type == MixType.SUBTRACT:
                 dst_signal = filter_op.accept(src_signal).apply(dst_signal)
             elif f.mix_type == MixType.MOVE:
@@ -1699,12 +1700,12 @@ class FilterGraph:
 
             signals[src_channel] = (src_signal, None)
             signals[dst_channel] = (dst_signal, None)
-        elif not isinstance(filter_op, NopFilterOp):
+        elif not isinstance(f.get_filter_op(), NopFilterOp):
             for c in signals.keys():
                 signal, pending_sos = signals[c]
                 if pending_sos:
                     signal = pending_sos.apply(signal)
-                signals[c] = (filter_op.apply(signal), None)
+                signals[c] = (f.get_filter_op().apply(signal), None)
 
 
 class SimulationFailed(Exception):

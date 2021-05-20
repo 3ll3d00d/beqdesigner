@@ -283,8 +283,8 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
                             self.filterList.addItem(item)
                         i += 1
                         item.setSelected(f.id in selected_ids)
-                for j in range(i, self.filterList.count()):
-                    self.filterList.takeItem(j)
+                for j in range(self.filterList.count(), i, -1):
+                    self.filterList.takeItem(j-1)
             self.__regen()
         self.redraw()
 
@@ -299,16 +299,19 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         '''
         f_id = item.data(FILTER_ID_ROLE)
         selected_filter: Optional[Filter] = next((f for f in self.dsp.active_graph.filters if f.id == f_id), None)
-        if isinstance(selected_filter, (GEQFilter, CompoundRoutingFilter)):
-            return True
-        elif isinstance(selected_filter, CustomPassFilter):
-            return selected_filter.channels and len(selected_filter.channels) == 1
-        else:
-            if isinstance(selected_filter, (GainQFilter, Gain, Pass, LinkwitzTransform)):
-                return len(selected_filter.channels) == 1
+        if selected_filter:
+            if isinstance(selected_filter, (GEQFilter, CompoundRoutingFilter)):
+                return True
+            elif isinstance(selected_filter, CustomPassFilter):
+                return selected_filter.channels and len(selected_filter.channels) == 1
             else:
-                vals = selected_filter.get_all_vals()
-                return len(vals) == 1 and isinstance(selected_filter, (Delay, Mix, Polarity))
+                if isinstance(selected_filter, (GainQFilter, Gain, Pass, LinkwitzTransform)):
+                    return len(selected_filter.channels) == 1
+                else:
+                    vals = selected_filter.get_all_vals()
+                    return len(vals) == 1 and isinstance(selected_filter, (Delay, Mix, Polarity))
+        else:
+            logger.warning(f"Selected item has no filter {item.text()}")
 
     def edit_filter(self, item: QListWidgetItem) -> None:
         '''
