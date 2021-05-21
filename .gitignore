@@ -127,3 +127,4 @@ requirements_dev.txt
 src/test/python/scratch
 
 out/
+*.dsp

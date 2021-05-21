@@ -53,6 +53,7 @@ class MediaServer:
                 r_status = response.attrib.get('Status', None)
                 if r_status == 'OK':
                     zones = {}
+                    remote_zones = []
                     for child in response:
                         if child.tag == 'Item' and 'Name' in child.attrib:
                             attrib = child.attrib['Name']
@@ -68,7 +69,10 @@ class MediaServer:
                                     zones[item_idx]['id'] = child.text
                                 else:
                                     zones[item_idx] = {'id': child.text}
-                    return {v['name']: v['id'] for v in zones.values()}
+                            elif attrib.startswith('ZoneDLNA'):
+                                if child.text == '1':
+                                    remote_zones.append(attrib[8:])
+                    return {v['name']: v['id'] for k, v in zones.items() if k not in remote_zones}
         raise MCWSError('No zones loaded',  r.url, r.status_code, r.text)
 
     def __auth_if_required(self):
@@ -105,7 +109,7 @@ class MediaServer:
         if r.status_code == 200:
             logger.debug(f"LoadDSPPreset/{zone_id} success")
             loaded_dsp = self.get_dsp(zone_id)
-            if self.__compare(loaded_dsp, dsp):
+            if self.__compare_xml(ET.fromstring(dsp), ET.fromstring(loaded_dsp)):
                 return True
             else:
                 raise DSPMismatchError(zone_id, dsp, loaded_dsp)
@@ -113,10 +117,37 @@ class MediaServer:
             raise MCWSError('DSP not set',  r.url, r.status_code, r.text)
 
     @staticmethod
-    def __compare(a: str, b: str):
-        a_xml = ET.canonicalize(a)
-        b_xml = ET.canonicalize(b)
-        return a_xml == b_xml
+    def __compare_xml(x1, x2):
+        if x1.tag != x2.tag:
+            return False
+        for name, value in x1.attrib.items():
+            if x2.attrib.get(name) != value:
+                return False
+        for name in x2.attrib:
+            if name not in x1.attrib:
+                return False
+        if not MediaServer.__text_compare(x1.text, x2.text):
+            return False
+        if not MediaServer.__text_compare(x1.tail, x2.tail):
+            return False
+        cl1 = list(x1)
+        cl2 = list(x2)
+        if len(cl1) != len(cl2):
+            return False
+        i = 0
+        for c1, c2 in zip(cl1, cl2):
+            i += 1
+            if not MediaServer.__compare_xml(c1, c2):
+                return False
+        return True
+
+    @staticmethod
+    def __text_compare(t1, t2):
+        if not t1 and not t2:
+            return True
+        if t1 == '*' or t2 == '*':
+            return True
+        return (t1 or '').strip() == (t2 or '').strip()
 
 
 class DSPMismatchError(Exception):
