@@ -38,7 +38,7 @@ class MediaServer:
         if self.connected:
             return True
         else:
-            raise MCWSError('Authentication failure',  r.url, r.status_code, r.text)
+            raise MCWSError('Authentication failure', r.url, r.status_code, r.text)
 
     @property
     def connected(self) -> bool:
@@ -72,8 +72,9 @@ class MediaServer:
                             elif attrib.startswith('ZoneDLNA'):
                                 if child.text == '1':
                                     remote_zones.append(attrib[8:])
-                    return {v['name']: v['id'] for k, v in zones.items() if k not in remote_zones}
-        raise MCWSError('No zones loaded',  r.url, r.status_code, r.text)
+                    return {(v['name'] if k not in remote_zones else f"{v['name']} (DLNA)"): v['id'] for k, v in
+                            zones.items() if k not in remote_zones}
+        raise MCWSError('No zones loaded', r.url, r.status_code, r.text)
 
     def __auth_if_required(self):
         if not self.connected:
@@ -95,7 +96,7 @@ class MediaServer:
                         for child in response:
                             if child.tag == 'Item' and 'Name' in child.attrib and child.attrib['Name'] == 'Preset':
                                 return child.text
-        raise MCWSError('No DSP loaded',  r.url, r.status_code, r.text)
+        raise MCWSError('No DSP loaded', r.url, r.status_code, r.text)
 
     def set_dsp(self, zone_id: str, dsp: str) -> bool:
         self.__auth_if_required()
@@ -114,7 +115,7 @@ class MediaServer:
             else:
                 raise DSPMismatchError(zone_id, dsp, loaded_dsp)
         else:
-            raise MCWSError('DSP not set',  r.url, r.status_code, r.text)
+            raise MCWSError('DSP not set', r.url, r.status_code, r.text)
 
     @staticmethod
     def __compare_xml(x1, x2):

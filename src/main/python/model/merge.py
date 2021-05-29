@@ -554,10 +554,10 @@ class XmlProcessor(QRunnable):
             self.__parser = HTP1Parser(selected_channels)
         elif DspType.JRIVER_PEQ1 == self.__dsp_type:
             from model.jriver.parser import JRiverParser
-            self.__parser = JRiverParser(1, selected_channels)
+            self.__parser = JRiverParser(0, selected_channels)
         elif DspType.JRIVER_PEQ2 == self.__dsp_type:
             from model.jriver.parser import JRiverParser
-            self.__parser = JRiverParser(2, selected_channels)
+            self.__parser = JRiverParser(1, selected_channels)
         elif DspType.MINIDSP_TWO_BY_FOUR == self.__dsp_type:
             self.__parser = TwoByFourXmlParser(self.__dsp_type, self.__optimise_filters)
         else:
