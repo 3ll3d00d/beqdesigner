@@ -1330,14 +1330,14 @@ def as_equalizer_apo(filt):
     :return: the text.
     '''
     if isinstance(filt, PeakingEQ):
-        return f"ON PK Fc {filt.freq:g} Hz Gain {filt.gain:g} dB Q {filt.q:.4g}"
+        return f"ON PK Fc {filt.freq:g} Hz Gain {filt.gain:g} dB Q {round(filt.q, 4)}"
     elif isinstance(filt, Shelf):
         if filt.count == 1:
-            return f"ON {filt.filter_type}C Fc {filt.freq:g} Hz Gain {filt.gain:g} dB Q {filt.q:.4g}"
+            return f"ON {filt.filter_type}C Fc {filt.freq:g} Hz Gain {filt.gain:g} dB Q {round(filt.q, 4)}"
         else:
             return [as_equalizer_apo(f) for f in filt.flatten()]
     elif isinstance(filt, AllPass):
-        return f"ON AP Fc {filt.freq:g} Hz Q {filt.q:.4g}"
+        return f"ON AP Fc {filt.freq:g} Hz Q {round(filt.q, 4)}"
     else:
         return None
 

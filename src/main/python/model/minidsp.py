@@ -99,7 +99,7 @@ class TwoByFourXmlParser(XmlParser):
                             child.find('basic').text = 'true'
                         else:
                             child.find('freq').text = str(filt.freq)
-                            child.find('q').text = f"{filt.q:.4g}"
+                            child.find('q').text = str(round(filt.q, 4))
                             child.find('boost').text = str(filt.gain)
                             child.find('type').text = get_minidsp_filter_code(filt)
                             child.find('bypass').text = '0'
@@ -199,7 +199,7 @@ class HDXmlParser(XmlParser):
                                             child.find('bypass').text = '1'
                                         else:
                                             child.find('freq').text = str(filt.freq)
-                                            child.find('q').text = f"{filt.q:.4g}"
+                                            child.find('q').text = str(round(filt.q, 4))
                                             child.find('boost').text = str(filt.gain)
                                             child.find('type').text = get_minidsp_filter_code(filt)
                                             child.find('bypass').text = '0'

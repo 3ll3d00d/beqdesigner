@@ -428,7 +428,7 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
             vals.append('')
         elif filt.filter_type.startswith('LPF') or filt.filter_type.startswith('HPF'):
             vals.append('N/A')
-            vals.append(f"{filt.q:.4g}")
+            vals.append(f"{round(filt.q, 4)}")
             vals.append(filt.filter_type)
             vals.append('')
         else:
@@ -436,7 +436,7 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
             g_suffix = ' dB' if gain != 0 and not header else ''
             vals.append(f"{gain:+g}{g_suffix}" if gain != 0 else vals.append(str('N/A')))
 
-            vals.append(f"{filt.q:.4g}") if hasattr(filt, 'q') else vals.append(str('N/A'))
+            vals.append(f"{round(filt.q, 4)}") if hasattr(filt, 'q') else vals.append(str('N/A'))
             filter_type = filt.filter_type
             if len(filt) > 1:
                 filter_type += f" x{len(filt)}"
