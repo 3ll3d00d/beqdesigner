@@ -168,8 +168,10 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         self.forwardButton.clicked.connect(self.__redo)
         self.loadZoneButton.setIcon(qta.icon('fa5s.download'))
         self.loadZoneButton.setToolTip('Connect to JRiver Media Center to load DSP config for a zone')
+        self.loadZoneButton.setShortcut("Ctrl+Shift+O")
         self.uploadButton.setIcon(qta.icon('fa5s.upload'))
         self.uploadButton.setToolTip('Load the current DSP to JRiver Media Center')
+        self.uploadButton.setShortcut("Ctrl+Shift+S")
 
     def create_new_config(self):
         '''
@@ -330,6 +332,17 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
             if not self.__show_basic_edit_filter_dialog(selected_filter, vals):
                 if len(selected_filter.nodes) == 1:
                     self.__show_edit_filter_dialog(selected_filter.nodes[0])
+                elif selected_filter.get_editable_filter() is not None \
+                        and isinstance(selected_filter, ChannelFilter) \
+                        and len(selected_filter.channels) > 1:
+                    result = QMessageBox.question(self,
+                                                  'Split to Separate Filters?',
+                                                  f"The selected filter is applied to {len(selected_filter.channels)} channels."
+                                                  f"\n\nDo you want to split into a filter per channel in order to edit?",
+                                                  QMessageBox.Yes | QMessageBox.No,
+                                                  QMessageBox.No)
+                    if result == QMessageBox.Yes:
+                        self.split_filter()
                 else:
                     logger.debug(f"Filter {selected_filter} at node {item.text()} is not editable")
             else:
@@ -1062,22 +1075,25 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
                  graph.get_filter_at_node(n) is not None]
         if filts:
             selected_filter = graph.get_filter_at_node(selected_node)
-            i = 0
-            for f in graph.filters:
-                if not isinstance(f, Divider):
-                    from model.report import block_signals
-                    with block_signals(self.filterList):
-                        item: QListWidgetItem = self.filterList.item(i)
-                        if filts and f in filts:
-                            if f.id == selected_filter.id:
-                                if not isinstance(f, Mix) or f.mix_type in [MixType.ADD, MixType.SUBTRACT]:
-                                    for n in f.nodes:
-                                        self.__selected_node_names.add(n)
-                                item.setSelected(True)
-                        else:
-                            item.setSelected(False)
-                    i += 1
-            self.__enable_edit_buttons_if_filters_selected()
+            if selected_filter:
+                i = 0
+                for f in graph.filters:
+                    if not isinstance(f, Divider):
+                        from model.report import block_signals
+                        with block_signals(self.filterList):
+                            item: QListWidgetItem = self.filterList.item(i)
+                            if filts and f in filts:
+                                if f.id == selected_filter.id:
+                                    if not isinstance(f, Mix) or f.mix_type in [MixType.ADD, MixType.SUBTRACT]:
+                                        for n in f.nodes:
+                                            self.__selected_node_names.add(n)
+                                    item.setSelected(True)
+                            else:
+                                item.setSelected(False)
+                        i += 1
+                self.__enable_edit_buttons_if_filters_selected()
+            else:
+                logger.warning(f"No filter at node {selected_node}")
         else:
             self.filterList.clearSelection()
 

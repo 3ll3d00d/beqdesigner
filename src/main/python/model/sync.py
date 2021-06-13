@@ -1,5 +1,6 @@
 import json
 import logging
+import math
 from collections import OrderedDict
 from pathlib import Path
 
@@ -422,7 +423,7 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
 
     @staticmethod
     def __is_equivalent(a, b):
-        return a.freq == b.freq and a.gain == b.gain and hasattr(a, 'q') and hasattr(b, 'q') and a.q == b.q
+        return a.freq == b.freq and a.gain == b.gain and hasattr(a, 'q') and hasattr(b, 'q') and math.isclose(a.q, b.q)
 
     def send_filters_to_device(self):
         '''

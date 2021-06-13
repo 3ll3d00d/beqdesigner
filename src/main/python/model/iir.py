@@ -394,7 +394,7 @@ class Gain(Biquad):
 class BiquadWithQ(Biquad):
     def __init__(self, fs, freq, q, f_id=-1):
         self.freq = round(float(freq), 2)
-        self.q = round(float(q), 4)
+        self.q = float(q)
         self.w0 = 2.0 * math.pi * freq / fs
         self.cos_w0 = math.cos(self.w0)
         self.sin_w0 = math.sin(self.w0)
@@ -406,7 +406,7 @@ class BiquadWithQ(Biquad):
 
     @property
     def description(self):
-        return super().description + f" {self.freq}/{self.q}"
+        return super().description + f" {self.freq}/{self.q:.4g}"
 
     def sort_key(self):
         return f"{self.freq:05}00000{self.filter_type}"
@@ -1330,14 +1330,14 @@ def as_equalizer_apo(filt):
     :return: the text.
     '''
     if isinstance(filt, PeakingEQ):
-        return f"ON PK Fc {filt.freq:g} Hz Gain {filt.gain:g} dB Q {filt.q:g}"
+        return f"ON PK Fc {filt.freq:g} Hz Gain {filt.gain:g} dB Q {filt.q:.4g}"
     elif isinstance(filt, Shelf):
         if filt.count == 1:
-            return f"ON {filt.filter_type}C Fc {filt.freq:g} Hz Gain {filt.gain:g} dB Q {filt.q:g}"
+            return f"ON {filt.filter_type}C Fc {filt.freq:g} Hz Gain {filt.gain:g} dB Q {filt.q:.4g}"
         else:
             return [as_equalizer_apo(f) for f in filt.flatten()]
     elif isinstance(filt, AllPass):
-        return f"ON AP Fc {filt.freq:g} Hz Q {filt.q:g}"
+        return f"ON AP Fc {filt.freq:g} Hz Q {filt.q:.4g}"
     else:
         return None
 

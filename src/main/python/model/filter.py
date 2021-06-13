@@ -820,20 +820,24 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         :return: the filter.
         '''
         filt = None
+        q_value = self.filterQ.value()
+        sqrt2 = 1.0/(2.0**0.5)
+        if self.filterQ.decimals() >= 3 and math.isclose(q_value, round(sqrt2, self.filterQ.decimals())):
+            q_value = sqrt2
         if self.filterType.currentText() == 'Low Shelf':
-            filt = LowShelf(self.__signal.fs, self.freq.value(), self.filterQ.value(), self.filterGain.value(),
+            filt = LowShelf(self.__signal.fs, self.freq.value(), q_value, self.filterGain.value(),
                             self.filterCount.value())
         elif self.filterType.currentText() == 'High Shelf':
-            filt = HighShelf(self.__signal.fs, self.freq.value(), self.filterQ.value(), self.filterGain.value(),
+            filt = HighShelf(self.__signal.fs, self.freq.value(), q_value, self.filterGain.value(),
                              self.filterCount.value())
         elif self.filterType.currentText() == 'PEQ':
-            filt = PeakingEQ(self.__signal.fs, self.freq.value(), self.filterQ.value(), self.filterGain.value())
+            filt = PeakingEQ(self.__signal.fs, self.freq.value(), q_value, self.filterGain.value())
         elif self.filterType.currentText() == 'Gain':
             filt = Gain(self.__signal.fs, self.filterGain.value())
         elif self.filterType.currentText() == 'Variable Q LPF':
-            filt = SecondOrder_LowPass(self.__signal.fs, self.freq.value(), self.filterQ.value())
+            filt = SecondOrder_LowPass(self.__signal.fs, self.freq.value(), q_value)
         elif self.filterType.currentText() == 'Variable Q HPF':
-            filt = SecondOrder_HighPass(self.__signal.fs, self.freq.value(), self.filterQ.value())
+            filt = SecondOrder_HighPass(self.__signal.fs, self.freq.value(), q_value)
         elif self.filterType.currentText() == 'Linkwitz Transform':
             filt = LinkwitzTransform(self.__signal.fs, self.f0.value(), self.q0.value(), self.fp.value(), self.qp.value())
         if filt is None:

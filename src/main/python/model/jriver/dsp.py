@@ -7,7 +7,7 @@ from builtins import isinstance
 from typing import Dict, Optional, List, Tuple, Type, Callable
 
 from model.jriver.codec import get_peq_block_order, get_output_format, NoFiltersError, get_peq_key_name, \
-    extract_filters, filts_to_xml, include_filters_in_dsp
+    extract_filters, filts_to_xml, include_filters_in_dsp, item_to_dicts
 from model.jriver.common import OutputFormat, get_channel_name, user_channel_indexes
 from model.jriver.filter import FilterGraph, create_peq, Filter, Divider, complex_filter_classes_by_type, set_filter_ids
 from model.log import to_millis
@@ -77,7 +77,7 @@ class JRiverDSP:
         filt_fragments = [v + ')' for v in filt_element.text.split(')') if v]
         if len(filt_fragments) < 2:
             raise ValueError('Invalid input file - Unexpected <Value> format')
-        individual_filters = [create_peq(d) for d in [self.__item_to_dicts(f) for f in filt_fragments[2:]] if d]
+        individual_filters = [create_peq(d) for d in [item_to_dicts(f) for f in filt_fragments[2:]] if d]
         return self.__extract_custom_filters(individual_filters)
 
     @staticmethod
@@ -123,20 +123,6 @@ class JRiverDSP:
             else:
                 buffer.append((filt_cls, data, []))
         return buffer
-
-    @staticmethod
-    def __item_to_dicts(frag) -> Optional[Dict[str, str]]:
-        idx = frag.find(':')
-        if idx > -1:
-            peq_xml = frag[idx+1:-1]
-            vals = {i.attrib['Name']: i.text for i in et.fromstring(peq_xml).findall('./Item')}
-            if 'Enabled' in vals:
-                if vals['Enabled'] != '0' and vals['Enabled'] != '1':
-                    vals['Enabled'] = '1'
-            else:
-                vals['Enabled'] = '0'
-            return vals
-        return None
 
     def __repr__(self):
         return f"{self.__filename}"

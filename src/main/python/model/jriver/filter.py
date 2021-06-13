@@ -180,7 +180,9 @@ class ChannelFilter(SingleFilter, ABC):
             if len(self.__channel_names) == 1:
                 return None
             else:
-                c = self.__class__(self.get_all_vals())
+                vals = self.get_all_vals()
+                # guaranteed to be a single item in this list if we're in this class
+                c = self.__class__(vals[0])
                 c.__channel_names.remove(channel_name)
                 c.__channels.remove(get_channel_idx(channel_name))
                 return c
@@ -238,11 +240,12 @@ class GainQFilter(ChannelFilter, ABC):
         return q
 
     def get_filter_op(self) -> FilterOp:
-        f = self.get_editable_filter()
-        if f:
-            sos = self.get_editable_filter().get_sos()
-            if sos:
-                return SosFilterOp(sos)
+        if self.enabled:
+            f = self.get_editable_filter()
+            if f:
+                sos = self.get_editable_filter().get_sos()
+                if sos:
+                    return SosFilterOp(sos)
         return NopFilterOp()
 
     def get_editable_filter(self) -> Optional[SOS]:
@@ -342,11 +345,11 @@ class Pass(ChannelFilter, ABC):
         return ['Enabled', 'Slope', 'Q', 'Type', 'Gain', 'Frequency', 'Channels']
 
     def get_filter_op(self) -> FilterOp:
-        sos = self.get_editable_filter().get_sos()
-        if sos:
-            return SosFilterOp(sos)
-        else:
-            return NopFilterOp()
+        if self.enabled:
+            sos = self.get_editable_filter().get_sos()
+            if sos:
+                return SosFilterOp(sos)
+        return NopFilterOp()
 
     def short_desc(self):
         q_suffix = ''
@@ -413,7 +416,7 @@ class Gain(ChannelFilter):
         return f"Gain {self.__gain:+.7g} dB {self.print_channel_names()}{self.print_disabled()}"
 
     def get_filter_op(self) -> FilterOp:
-        return GainFilterOp(self.__gain)
+        return GainFilterOp(self.__gain) if self.enabled else NopFilterOp()
 
     def short_desc(self):
         return f"{self.__gain:+.7g} dB"
@@ -472,7 +475,7 @@ class Delay(ChannelFilter):
         return f"{self.__delay:+.7g}ms"
 
     def get_filter_op(self) -> FilterOp:
-        return DelayFilterOp(self.__delay)
+        return DelayFilterOp(self.__delay) if self.enabled else NopFilterOp()
 
 
 class Divider(SingleFilter):
@@ -558,11 +561,11 @@ class LinkwitzTransform(ChannelFilter):
         return f"{self.__class__.__name__} {self.__fz:.7g} Hz / {self.__qz:.4g} -> {self.__fp:.7g} Hz / {self.__qp:.4g} {self.print_channel_names()}{self.print_disabled()}"
 
     def get_filter_op(self) -> FilterOp:
-        sos = self.get_editable_filter().get_sos()
-        if sos:
-            return SosFilterOp(sos)
-        else:
-            return NopFilterOp()
+        if self.enabled:
+            sos = self.get_editable_filter().get_sos()
+            if sos:
+                return SosFilterOp(sos)
+        return NopFilterOp()
 
     def get_editable_filter(self) -> Optional[SOS]:
         return iir.LinkwitzTransform(48000, self.__fz, self.__qz, self.__fp, self.__qp)
@@ -695,14 +698,14 @@ class Mix(SingleFilter):
             return super().short_desc()
 
     def get_filter_op(self) -> FilterOp:
-        if self.mix_type == MixType.ADD:
-            return AddFilterOp(GainFilterOp(self.__gain))
-        elif self.mix_type == MixType.SUBTRACT:
-            return SubtractFilterOp(GainFilterOp(self.__gain))
-        elif not math.isclose(self.__gain, 0.0):
-            return GainFilterOp(self.__gain)
-        else:
-            return NopFilterOp()
+        if self.enabled:
+            if self.mix_type == MixType.ADD:
+                return AddFilterOp(GainFilterOp(self.__gain))
+            elif self.mix_type == MixType.SUBTRACT:
+                return SubtractFilterOp(GainFilterOp(self.__gain))
+            elif not math.isclose(self.__gain, 0.0):
+                return GainFilterOp(self.__gain)
+        return NopFilterOp()
 
     @classmethod
     def default_values(cls) -> Dict[str, str]:
@@ -819,10 +822,13 @@ class ComplexFilter(Filter):
         return [v for f in all_filters for v in f.get_all_vals()]
 
     def get_filter_op(self) -> FilterOp:
-        fop = CompositeFilterOp()
-        for f in self.filters:
-            fop.append(f.get_filter_op())
-        return fop
+        if self.enabled:
+            fop = CompositeFilterOp()
+            for f in self.filters:
+                fop.append(f.get_filter_op())
+            return fop
+        else:
+            return NopFilterOp()
 
     @classmethod
     def get_complex_filter_data(cls, text: str) -> Optional[Type, str]:
@@ -1030,10 +1036,12 @@ class CustomPassFilter(ComplexChannelFilter):
             f = f"{freq/1000.0:.3g}k"
         else:
             f = f"{freq:g}"
-        return f"{tokens[0]}{tokens[2]} {tokens[1]} {f}"
+        return f"{tokens[0]} {tokens[1]}{tokens[2]} {f}Hz"
 
     def get_filter_op(self) -> FilterOp:
-        return SosFilterOp(self.get_editable_filter().get_sos())
+        if self.enabled:
+            return SosFilterOp(self.get_editable_filter().get_sos())
+        return NopFilterOp()
 
     def get_editable_filter(self) -> Optional[SOS]:
         return self.__decode_custom_filter()
@@ -1062,6 +1070,9 @@ class CustomPassFilter(ComplexChannelFilter):
     @classmethod
     def custom_type(cls) -> str:
         return 'PASS'
+
+    def __repr__(self):
+        return self.short_desc()
 
     @classmethod
     def create(cls, data: str, child_filters: List[Filter]):
@@ -1500,11 +1511,12 @@ class FilterGraph:
             for i, f in enumerate(new_filters):
                 new_filter = convert_filter_to_mc_dsp(f, channel_idx)
                 if last_match < len(old_filters):
+                    new_filt_vals = new_filter.get_all_vals()
                     handled = False
                     for j in range(last_match + 1, len(old_filters)):
                         old_filter, filter_channel = old_filters[j]
                         old_filt_vals = old_filter.get_all_vals()
-                        if pop_channels(new_filter.get_all_vals()) == pop_channels(old_filt_vals):
+                        if pop_channels(new_filt_vals) == pop_channels(old_filt_vals):
                             if (j - last_match) > 1:
                                 offset -= self.__delete_filters(old_filters[last_match + 1:j])
                                 must_regen = True
@@ -1555,7 +1567,7 @@ class FilterGraph:
                     self.__delete(filt_to_delete)
                     deleted += 1
                 else:
-                    self.__replace(filt_to_delete, replacement)
+                    self.__replace(replacement, filt_to_delete)
             else:
                 self.__delete(filt_to_delete)
                 deleted += 1
@@ -1687,7 +1699,9 @@ class FilterGraph:
                 src_signal = pending_sos.apply(src_signal)
 
             filter_op = f.get_filter_op()
-            if f.mix_type == MixType.ADD or f.mix_type == MixType.SUBTRACT:
+            if isinstance(filter_op, NopFilterOp):
+                pass
+            elif f.mix_type == MixType.ADD or f.mix_type == MixType.SUBTRACT:
                 dst_signal = filter_op.accept(src_signal).apply(dst_signal)
             elif f.mix_type == MixType.MOVE:
                 dst_signal = filter_op.apply(src_signal).copy(new_name=dst_channel)

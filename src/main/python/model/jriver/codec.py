@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import xml.etree.ElementTree as et
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from model.jriver.common import OutputFormat
 
@@ -212,3 +212,17 @@ def include_filters_in_dsp(peq_block_name: str, config_txt: str, xml_filts: List
         return config_txt
     else:
         return config_txt
+
+
+def item_to_dicts(frag) -> Optional[Dict[str, str]]:
+    idx = frag.find(':')
+    if idx > -1:
+        peq_xml = frag[idx+1:-1]
+        vals = {i.attrib['Name']: i.text for i in et.fromstring(peq_xml).findall('./Item')}
+        if 'Enabled' in vals:
+            if vals['Enabled'] != '0' and vals['Enabled'] != '1':
+                vals['Enabled'] = '1'
+        else:
+            vals['Enabled'] = '0'
+        return vals
+    return None

@@ -1399,7 +1399,7 @@ class TimeAxisItem(pg.AxisItem):
 class NoFillDoubleSpinBox(QtWidgets.QDoubleSpinBox):
 
     def __init__(self, parent=None):
-        super(QtWidgets.QDoubleSpinBox, self).__init__(parent)
+        super().__init__(parent)
 
     def textFromValue(self, p_float: float):
         txt = super().textFromValue(p_float).rstrip('0')

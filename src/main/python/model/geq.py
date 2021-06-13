@@ -331,4 +331,4 @@ class PeqEditor:
         self.__freq_slider.setVisible(on)
 
     def load(self, f: Union[LowShelf, HighShelf, PeakingEQ]) -> None:
-        self.reset(f.filter_type, f.freq, f.q, gain= f.gain)
+        self.reset(f.filter_type, f.freq, f.q, gain=f.gain)
