@@ -1229,6 +1229,7 @@ class ExportBiquadDialog(QDialog, Ui_exportBiquadDialog):
         self.fs.setCurrentText(prefs.get(BIQUAD_EXPORT_FS))
         self.outputFormat.setCurrentText(prefs.get(BIQUAD_EXPORT_DEVICE))
         self.update_format(self.outputFormat.currentText())
+        self.outputFormat.addItem('Minidsp DDRC-24')
 
     def update_format(self, selected_format):
         if selected_format == 'User Selected':
@@ -1257,9 +1258,10 @@ class ExportBiquadDialog(QDialog, Ui_exportBiquadDialog):
                 self.maxBiquads.setSingleStep(1)
             else:
                 self.fs.setCurrentText('48000')
-                self.maxBiquads.setMaximum(8)
-                self.maxBiquads.setMinimum(6)
-                self.maxBiquads.setValue(6)
+                value = 10 if selected_format == 'Minidsp DDRC-24' else 6
+                self.maxBiquads.setMaximum(value)
+                self.maxBiquads.setMinimum(value)
+                self.maxBiquads.setValue(value)
                 self.maxBiquads.setSingleStep(2)
             self.showHex.setVisible('HD' in selected_format)
             self.fs.setEnabled(False)
