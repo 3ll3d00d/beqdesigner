@@ -1251,8 +1251,13 @@ class Signal:
         max_segment_length = 10 * 60 * 48000
         segments = math.ceil(self.samples.size / float(max_segment_length))
         if segments > 1:
-            split_pos = list(range(max_segment_length, self.samples.size, max_segment_length))
-            return np.split(self.samples, split_pos)
+            target_segment_length = math.ceil(self.samples.size / segments)
+            segments = list(range(target_segment_length, self.samples.size, target_segment_length))
+            split_samples = np.split(self.samples, segments)
+            to_pad = split_samples[0].size - split_samples[-1].size
+            if to_pad > 0:
+                split_samples[-1] = np.pad(split_samples[-1], (0, to_pad), constant_values=0)
+            return split_samples
         else:
             return [self.samples]
 
