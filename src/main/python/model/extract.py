@@ -586,7 +586,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
                 if not self.__is_remux:
                     self.signalName.setEnabled(True)
                     self.signalNameLabel.setEnabled(True)
-                    self.signalName.setText(Path(self.outputFilename.text()).resolve().stem)
+                    self.signalName.setText(Path(self.outputFilename.text()).resolve().name)
                     self.buttonBox.button(QDialogButtonBox.Ok).setText('Create Signals')
             else:
                 logger.error(f"Extraction failed for {self.outputFilename.text()}")
