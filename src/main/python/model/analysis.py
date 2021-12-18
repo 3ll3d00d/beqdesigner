@@ -6,6 +6,7 @@ import time
 import matplotlib
 import numpy as np
 import qtawesome as qta
+from PyQt5 import QtGui
 from matplotlib.gridspec import GridSpec
 from matplotlib.ticker import FuncFormatter, MaxNLocator
 from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -540,17 +541,31 @@ class MaxSpectrumByTime:
         with wait_cursor(f"Updating"):
             self.__clear_on_layout_change()
             if self.__left_signal is None:
-                self.__render_one_only()
+                times = self.__render_one_only()
             else:
-                self.__render_both()
+                times = self.__render_both()
             if self.__cb is None:
                 divider = make_axes_locatable(self.__right_axes)
                 cax = divider.append_axes("right", size="5%", pad=0.05)
                 self.__cb = self.__right_axes.figure.colorbar(self.__right_scatter, cax=cax)
+                times['cb'] = time.time()
+            self.__log_times(times)
             self.__redraw()
+
+    @staticmethod
+    def __log_times(times):
+        last_name = None
+        last_time = None
+        from model.log import to_millis
+        for k, v in times.items():
+            if last_name is not None:
+                logger.info(f"Heatmap,{last_name},{k},{to_millis(last_time, v)}")
+            last_name = k
+            last_time = v
 
     def __render_both(self):
         ''' renders two plots, one with the filtered and one without. '''
+        times = {'start': time.time()}
         if self.__left_axes is None:
             self.__width_ratio = self.__make_width_ratio()
             gs = GridSpec(1, 2, width_ratios=self.__make_width_ratio(adjusted=True), wspace=0.00)
@@ -559,18 +574,22 @@ class MaxSpectrumByTime:
             self.__add_grid(self.__left_axes)
             self.__right_axes = self.__chart.canvas.figure.add_subplot(gs.new_subplotspec((0, 1)))
             self.__add_grid(self.__right_axes)
+            times['l_axes_init'] = time.time()
 
         self.__left_scatter = self.__render_scatter(self.__left_cache, self.__left_axes,
-                                                     self.__left_scatter,
-                                                     self.__ui.maxFilteredFreq.value(), self.left)
+                                                    self.__left_scatter,
+                                                    self.__ui.maxFilteredFreq.value(), self.left, 'l', times)
         self.__set_limits(self.__left_axes, self.__ui.minFreq, self.__ui.maxFilteredFreq,
                           self.__ui.minTime, self.__ui.maxTime)
+        times['l_limits'] = time.time()
         self.__right_scatter = self.__render_scatter(self.__right_cache, self.__right_axes, self.__right_scatter,
-                                                    self.__ui.maxUnfilteredFreq.value(), self.right)
+                                                    self.__ui.maxUnfilteredFreq.value(), self.right, 'r', times)
         self.__right_axes.set_yticklabels([])
         self.__right_axes.get_yaxis().set_tick_params(length=0)
         self.__set_limits(self.__right_axes, self.__ui.minFreq, self.__ui.maxUnfilteredFreq,
                           self.__ui.minTime, self.__ui.maxTime)
+        times['r_limits'] = time.time()
+        return times
 
     def __make_width_ratio(self, adjusted=False):
         a = self.__ui.maxFilteredFreq.value()
@@ -584,13 +603,17 @@ class MaxSpectrumByTime:
 
     def __render_one_only(self):
         ''' renders a single plot with the unfiltered only '''
+        times = {'start': time.time()}
         if self.__right_axes is None:
             self.__right_axes = self.__chart.canvas.figure.add_subplot(111)
             self.__add_grid(self.__right_axes)
+            times['r_axes_init'] = time.time()
         self.__right_scatter = self.__render_scatter(self.__right_cache, self.__right_axes, self.__right_scatter,
-                                                    self.__ui.maxUnfilteredFreq.value(), self.right)
+                                                    self.__ui.maxUnfilteredFreq.value(), self.right, 'r', times)
         self.__set_limits(self.__right_axes, self.__ui.minFreq, self.__ui.maxUnfilteredFreq,
                           self.__ui.minTime, self.__ui.maxTime)
+        times['r_limits'] = time.time()
+        return times
 
     def __add_grid(self, axes):
         ''' adds a grid to the given axes '''
@@ -649,7 +672,7 @@ class MaxSpectrumByTime:
     def __init_mag_range(self):
         self.set_mag_range_type(self.__ui.magLimitType.currentText())
 
-    def __render_scatter(self, cache, axes, scatter, max_freq, signal):
+    def __render_scatter(self, cache, axes, scatter, max_freq, signal, prefix, times):
         ''' renders a scatter plot showing the biggest hits '''
         Sxx, f, resolution_shift, t, x, y, z = self.__load_from_cache(cache, signal)
         # determine the threshold based on the mode we're in
@@ -659,6 +682,7 @@ class MaxSpectrumByTime:
             Pthreshold = Sxx.max(axis=-1) + self.__ui.magLowerLimit.value()
         else:
             _, Pthreshold = signal.avg_spectrum(resolution_shift=resolution_shift)
+        times[f"{prefix}_data_loaded"] = time.time()
 
         vmax = self.__ui.colourUpperLimit.value()
         vmin = self.__ui.colourLowerLimit.value()
@@ -689,6 +713,7 @@ class MaxSpectrumByTime:
         z = above_threshold[:, 2]
         # marker size
         s = matplotlib.rcParams['lines.markersize'] ** 2.0 * (self.__ui.markerSize.value() ** 2)
+        times[f"{prefix}_data_processed"] = time.time()
         # now plot or update
         if scatter is None:
             self.__current_marker = self.__ui.markerType.currentText()
@@ -724,6 +749,7 @@ class MaxSpectrumByTime:
                 pass
             elif self.__current_marker == SPECTROGRAM_CONTOURED:
                 pass
+        times[f"{prefix}_data_plotted"] = time.time()
         return scatter
 
     def __cache_xyz(self, signal, cache):
