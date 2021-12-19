@@ -38,6 +38,7 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
         self.updateChart.setIcon(qta.icon('fa5s.sync'))
         self.saveChart.setIcon(qta.icon('fa5s.save'))
         self.saveLayout.setIcon(qta.icon('fa5s.save'))
+        self.lockButton.setIcon(qta.icon('fa5s.lock-open'))
         self.minFreq.setValue(preferences.get(GRAPH_X_MIN))
         self.maxUnfilteredFreq.setValue(preferences.get(GRAPH_X_MAX))
         self.__info = None
@@ -63,6 +64,14 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
             self.__init_for_load()
         else:
             self.__init_for_compare()
+
+    def lock_size(self, toggled):
+        hidden = self.spectrumChart.isHidden()
+        sp_retain = self.spectrumChart.sizePolicy()
+        sp_retain.setRetainSizeWhenHidden(not hidden)
+        self.spectrumChart.setSizePolicy(sp_retain)
+        self.spectrumChart.setVisible(hidden)
+        self.lockButton.setIcon(qta.icon('fa5s.lock-open' if hidden else 'fa5s.lock'))
 
     def __init_for_compare(self):
         ''' initialises the fields relevant to a compare signal based analysis. '''

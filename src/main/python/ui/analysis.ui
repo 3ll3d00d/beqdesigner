@@ -493,6 +493,16 @@
              </property>
             </widget>
            </item>
+           <item row="0" column="4">
+            <widget class="QToolButton" name="lockButton">
+             <property name="text">
+              <string>...</string>
+             </property>
+             <property name="checkable">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
           </layout>
          </item>
          <item row="3" column="0">
@@ -904,6 +914,22 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>lockButton</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>analysisDialog</receiver>
+   <slot>lock_size()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>636</x>
+     <y>68</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>256</x>
+     <y>478</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>select_wav_file()</slot>
@@ -923,5 +949,6 @@
   <slot>select_right_signal()</slot>
   <slot>compare_signals()</slot>
   <slot>enable_compare()</slot>
+  <slot>lock_size()</slot>
  </slots>
 </ui>
