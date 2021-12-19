@@ -65,6 +65,7 @@ class WaveformController:
         self.__load_signal_btn.setIcon(qta.icon('fa5s.folder-open'))
         self.__show_limits_btn.setIcon(qta.icon('fa5s.arrows-alt'))
         self.__compare_spectrum_btn.setIcon(qta.icon('fa5s.chart-area'))
+        self.__compare_spectrum_btn.setShortcut('Ctrl+Alt+Shift+C')
         self.__show_stats_btn.setIcon(qta.icon('fa5s.info-circle'))
         waveform_chart_btn.setIcon(qta.icon('fa5s.save'))
         waveform_chart_btn.setToolTip('Export to Chart')
