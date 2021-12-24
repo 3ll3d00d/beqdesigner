@@ -60,10 +60,15 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
         self.compareSignalsButton.setEnabled(False)
         self.__init_from_prefs()
         self.__clear()
+        self.__allow_load = allow_load
         if allow_load:
             self.__init_for_load()
         else:
             self.__init_for_compare()
+
+    def toggle_sidebar(self, toggled):
+        frame = self.analysisFrame if self.__allow_load else self.signalFrame
+        frame.setVisible(not toggled)
 
     def lock_size(self, toggled):
         hidden = self.spectrumChart.isHidden()
