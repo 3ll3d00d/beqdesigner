@@ -61,13 +61,16 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
         self.__init_from_prefs()
         self.__clear()
         self.__allow_load = allow_load
+        self.hideSidebar.setVisible(False)
         if allow_load:
             self.__init_for_load()
         else:
             self.__init_for_compare()
 
     def toggle_sidebar(self, toggled):
+        self.hideSidebar.setVisible(True)
         frame = self.analysisFrame if self.__allow_load else self.signalFrame
+        self.hideSidebar.setText('Show Signal Select' if toggled else 'Hide Select Select')
         frame.setVisible(not toggled)
 
     def lock_size(self, toggled):
@@ -188,6 +191,7 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
         self.__init_resolution_selector(left_signal.signal)
         self.__spectrum_analyser.left = left_signal.filter_signal(filt=self.filterLeft.isChecked())
         self.__spectrum_analyser.right = right_signal.filter_signal(filt=self.filterRight.isChecked())
+        self.hideSidebar.setChecked(True)
         self.__spectrum_analyser.analyse()
         self.updateChart.setEnabled(True)
 

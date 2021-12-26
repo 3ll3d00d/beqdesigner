@@ -508,7 +508,7 @@
              <item>
               <widget class="QPushButton" name="hideSidebar">
                <property name="text">
-                <string>Hide Sidebar</string>
+                <string>Hide Signal Select</string>
                </property>
                <property name="checkable">
                 <bool>true</bool>
