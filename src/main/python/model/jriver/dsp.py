@@ -19,7 +19,7 @@ logger = logging.getLogger('jriver.dsp')
 class JRiverDSP:
 
     def __init__(self, name: str, txt_provider: Callable[[], str], colours: Tuple[str, str] = (None,),
-                 on_delta: Callable[[bool, bool], None] = None):
+                 on_delta: Callable[[bool, bool], None] = None, convert_q: bool = False):
         self.__active_idx = 0
         self.__on_delta = on_delta
         self.__filename = name
@@ -34,7 +34,7 @@ class JRiverDSP:
             out_names = self.channel_names(output=True)
             in_names = out_names if self.__graphs else self.channel_names(output=False)
             try:
-                mc_filters = self.__parse_peq(self.__input_config_txt, block)
+                mc_filters = self.__parse_peq(self.__input_config_txt, block, convert_q)
             except NoFiltersError:
                 mc_filters = []
             self.__graphs.append(FilterGraph(block, in_names, out_names, mc_filters, on_delta))
@@ -71,13 +71,13 @@ class JRiverDSP:
     def channel_name(i):
         return get_channel_name(i)
 
-    def __parse_peq(self, xml, block):
+    def __parse_peq(self, xml, block, convert_q):
         peq_block = get_peq_key_name(block)
         _, filt_element = extract_filters(xml, peq_block)
         filt_fragments = [v + ')' for v in filt_element.text.split(')') if v]
         if len(filt_fragments) < 2:
             raise ValueError('Invalid input file - Unexpected <Value> format')
-        individual_filters = [create_peq(d) for d in [item_to_dicts(f) for f in filt_fragments[2:]] if d]
+        individual_filters = [create_peq(d, convert_q) for d in [item_to_dicts(f) for f in filt_fragments[2:]] if d]
         return self.__extract_custom_filters(individual_filters)
 
     @staticmethod
@@ -151,13 +151,12 @@ class JRiverDSP:
         output_file = self.filename if file is None else file
         logger.info(f"Writing to {output_file}")
         with open(output_file, mode='w', newline='\r\n') as f:
-            f.write(self.config_txt)
+            f.write(self.config_txt())
         logger.info(f"Written new config to {output_file}")
 
-    @property
-    def config_txt(self):
+    def config_txt(self, convert_q: bool = False) -> str:
         new_txt = self.__input_config_txt
         for graph in self.__graphs:
-            xml_filts = [filts_to_xml(f.get_all_vals()) for f in graph.filters]
+            xml_filts = [filts_to_xml(f.get_all_vals(convert_q=convert_q)) for f in graph.filters]
             new_txt = include_filters_in_dsp(get_peq_key_name(graph.stage), new_txt, xml_filts)
         return new_txt

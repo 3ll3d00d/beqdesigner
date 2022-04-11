@@ -88,16 +88,16 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         self.__restore_geometry()
 
     def __show_zone_dialog(self):
-        def on_select(zone_name: str, dsp: str):
+        def on_select(zone_name: str, dsp: str, convert_q: bool):
             logger.info(f"Received dsp config from {zone_name} len {len(dsp)}")
-            self.__load_dsp(zone_name, dsp)
+            self.__load_dsp(zone_name, txt=dsp, convert_q=convert_q)
 
         MCWSDialog(self, self.prefs, on_select=on_select).exec()
 
     def __upload_dsp(self):
         if self.dsp:
             logger.info(f"Uploading dsp config")
-            MCWSDialog(self, self.prefs, txt=self.dsp.config_txt, download=False).exec()
+            MCWSDialog(self, self.prefs, txt_provider=self.dsp.config_txt, download=False).exec()
 
     def __enable_history_buttons(self, back: bool, fwd: bool) -> None:
         self.backButton.setEnabled(back)
@@ -221,7 +221,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         if selected is not None and len(selected[0]) > 0:
             self.__load_dsp(selected[0])
 
-    def __load_dsp(self, name: str, txt: str = None) -> None:
+    def __load_dsp(self, name: str, txt: str = None, convert_q: bool = False) -> None:
         '''
         Loads the selected file.
         :param name: the name of the dsp.
@@ -231,7 +231,8 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
             main_colour = QColor(QPalette().color(QPalette.Active, QPalette.Text)).name()
             highlight_colour = QColor(QPalette().color(QPalette.Active, QPalette.Highlight)).name()
             self.__dsp = JRiverDSP(name, lambda: txt if txt else Path(name).read_text(),
-                                   colours=(main_colour, highlight_colour), on_delta=self.__enable_history_buttons)
+                                   convert_q=convert_q, colours=(main_colour, highlight_colour),
+                                   on_delta=self.__enable_history_buttons)
             self.__refresh_channel_list()
             self.filename.setText(name if txt else os.path.basename(name)[:-4])
             self.outputFormat.setText(self.dsp.output_format.display_name)
@@ -2244,14 +2245,14 @@ class SWChannelSelectorDialog(QDialog, Ui_channelSelectDialog):
 class MCWSDialog(QDialog, Ui_loadDspFromZoneDialog):
     MCWS_ROLE = Qt.UserRole + 1
 
-    def __init__(self, parent: QDialog, prefs: Preferences, download: bool = True, txt: str = None,
-                 on_select: Callable[[str, str], None] = None):
+    def __init__(self, parent: QDialog, prefs: Preferences, download: bool = True,
+                 txt_provider: Callable[[bool], str] = None, on_select: Callable[[str, str, bool], None] = None):
         super(MCWSDialog, self).__init__(parent)
         self.setupUi(self)
         self.__last_test = None
         self.prefs = prefs
         self.__download = download
-        self.__txt = txt
+        self.__txt_provider = txt_provider
         self.addNewButton.setIcon(qta.icon('fa5s.plus'))
         self.addNewButton.setToolTip('Add New MC Connection')
         self.deleteSaved.setIcon(qta.icon('fa5s.trash-alt'))
@@ -2351,7 +2352,7 @@ class MCWSDialog(QDialog, Ui_loadDspFromZoneDialog):
     def __add_media_server(self, ip, auth):
         if len(auth) == 3:
             auth = ((auth[0], auth[1]), auth[2])
-        item = QListWidgetItem(f"{ip} [{auth[0][0]}]")
+        item = QListWidgetItem(f"{ip} [{auth[0][0]}]" if auth[0] else f"{ip} [Unauthenticated]")
         item.setData(self.MCWS_ROLE, MediaServer(ip, *auth))
         self.savedConnections.addItem(item)
 
@@ -2376,7 +2377,7 @@ class MCWSDialog(QDialog, Ui_loadDspFromZoneDialog):
                     try:
                         dsp = media_server.get_dsp(zone.data(self.MCWS_ROLE))
                         self.resultText.setPlainText(f"Downloaded DSP from {zone.text()}\n\n{dsp}")
-                        self.__on_select(zone.text(), dsp)
+                        self.__on_select(zone.text(), dsp, media_server.convert_q)
                         self.upload.setIcon(qta.icon('fa5s.download', color='green'))
                     except MCWSError as e:
                         self.resultText.setPlainText(f"{e.url} - {e.status_code}\n\n{e.msg}\n\n{e.resp}")
@@ -2385,7 +2386,7 @@ class MCWSDialog(QDialog, Ui_loadDspFromZoneDialog):
                 if self.zones.selectionModel().hasSelection():
                     zone = self.zones.selectedItems()[0]
                     try:
-                        result = self.__media_server.set_dsp(zone.data(self.MCWS_ROLE), self.__txt)
+                        result = self.__media_server.set_dsp(zone.data(self.MCWS_ROLE), self.__txt_provider)
                         if result:
                             self.resultText.setPlainText(f"Uploaded dsp to {zone.text()}")
                             self.upload.setIcon(qta.icon('fa5s.upload', color='green'))

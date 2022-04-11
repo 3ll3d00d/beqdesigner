@@ -511,7 +511,7 @@ class DspType(Enum):
         :return: list of valid channels.
         '''
         if self == DspType.MINIDSP_TEN_BY_TEN:
-            return [str(x) for x in range(11, 21)]
+            return [str(x) for x in range(11, 19)]
         elif self == DspType.MINIDSP_SHD:
             return ['1', '2', '3', '4']
         elif self == DspType.MINIDSP_EIGHTY_EIGHT_BM:

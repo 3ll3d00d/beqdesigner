@@ -58,7 +58,7 @@ class Filter(ABC):
         return filts_to_xml(self.get_all_vals())
 
     @abstractmethod
-    def get_all_vals(self) -> List[Dict[str, str]]:
+    def get_all_vals(self, convert_q: bool = False) -> List[Dict[str, str]]:
         pass
 
     def get_editable_filter(self) -> Optional[SOS]:
@@ -97,11 +97,11 @@ class SingleFilter(Filter, ABC):
     def enabled(self):
         return self.__enabled
 
-    def get_all_vals(self) -> List[Dict[str, str]]:
+    def get_all_vals(self, convert_q: bool = False) -> List[Dict[str, str]]:
         vals = {
             'Enabled': '1' if self.__enabled else '0',
             'Type': self.__type_code,
-            **self.get_vals()
+            **self.get_vals(convert_q=convert_q)
         }
         if self.key_order:
             return [{k: vals[k] for k in self.key_order}]
@@ -112,7 +112,7 @@ class SingleFilter(Filter, ABC):
     def key_order(self) -> List[str]:
         return []
 
-    def get_vals(self) -> Dict[str, str]:
+    def get_vals(self, convert_q: bool = False) -> Dict[str, str]:
         return {}
 
     def print_disabled(self):
@@ -141,10 +141,10 @@ class ChannelFilter(SingleFilter, ABC):
     def channel_names(self) -> List[str]:
         return self.__channel_names
 
-    def get_vals(self) -> Dict[str, str]:
+    def get_vals(self, convert_q: bool = False) -> Dict[str, str]:
         return {
             'Channels': ';'.join([str(c) for c in self.channels]),
-            **super().get_vals()
+            **super().get_vals(convert_q=convert_q)
         }
 
     def __repr__(self):
@@ -199,12 +199,12 @@ class ChannelFilter(SingleFilter, ABC):
 
 class GainQFilter(ChannelFilter, ABC):
 
-    def __init__(self, vals, create_iir, short_name):
+    def __init__(self, vals, create_iir, short_name, convert_q: bool = False):
         super().__init__(vals, short_name)
         self.__create_iir = create_iir
         self.__gain = float(vals['Gain'])
         self.__frequency = float(vals['Frequency'])
-        self.__q = self.from_jriver_q(float(vals['Q']), self.__gain)
+        self.__q = self.from_jriver_q(float(vals['Q']), self.__gain, convert_q)
 
     @property
     def key_order(self) -> List[str]:
@@ -222,21 +222,21 @@ class GainQFilter(ChannelFilter, ABC):
     def gain(self) -> float:
         return self.__gain
 
-    def get_vals(self) -> Dict[str, str]:
+    def get_vals(self, convert_q: bool = False) -> Dict[str, str]:
         return {
             'Slope': '12',
-            'Q': f"{self.to_jriver_q(self.__q, self.__gain):.12g}",
+            'Q': f"{self.to_jriver_q(self.__q, self.__gain, convert_q=convert_q):.12g}",
             'Gain': f"{self.__gain:.7g}",
             'Frequency': f"{self.__frequency:.7g}",
-            **super().get_vals()
+            **super().get_vals(convert_q=convert_q)
         }
 
     @classmethod
-    def from_jriver_q(cls,  q: float, gain: float) -> float:
+    def from_jriver_q(cls,  q: float, gain: float, convert_q: bool = False) -> float:
         return q
 
     @classmethod
-    def to_jriver_q(cls,  q: float, gain: float) -> float:
+    def to_jriver_q(cls,  q: float, gain: float, convert_q: bool = False) -> float:
         return q
 
     def get_filter_op(self) -> FilterOp:
@@ -265,31 +265,31 @@ class Peak(GainQFilter):
 class LowShelf(GainQFilter):
     TYPE = '10'
 
-    def __init__(self, vals):
-        super().__init__(vals, iir.LowShelf, 'LS')
+    def __init__(self, vals, convert_q: bool = False):
+        super().__init__(vals, iir.LowShelf, 'LS', convert_q=convert_q)
 
     @classmethod
-    def from_jriver_q(cls, q: float, gain: float):
-        return s_to_q(q, gain)
+    def from_jriver_q(cls, q: float, gain: float, convert_q: bool = False):
+        return s_to_q(q, gain) if convert_q else q
 
     @classmethod
-    def to_jriver_q(cls, q: float, gain: float):
-        return q_to_s(q, gain)
+    def to_jriver_q(cls, q: float, gain: float, convert_q: bool = False):
+        return q_to_s(q, gain) if convert_q else q
 
 
 class HighShelf(GainQFilter):
     TYPE = '11'
 
-    def __init__(self, vals):
-        super().__init__(vals, iir.HighShelf, 'HS')
+    def __init__(self, vals, convert_q: bool = False):
+        super().__init__(vals, iir.HighShelf, 'HS', convert_q=convert_q)
 
     @classmethod
-    def from_jriver_q(cls, q: float, gain: float) -> float:
-        return s_to_q(q, gain)
+    def from_jriver_q(cls, q: float, gain: float, convert_q: bool = False) -> float:
+        return s_to_q(q, gain) if convert_q else q
 
     @classmethod
-    def to_jriver_q(cls, q: float, gain: float) -> float:
-        return q_to_s(q, gain)
+    def to_jriver_q(cls, q: float, gain: float, convert_q: bool = False) -> float:
+        return q_to_s(q, gain) if convert_q else q
 
 
 class Pass(ChannelFilter, ABC):
@@ -297,11 +297,13 @@ class Pass(ChannelFilter, ABC):
     def __init__(self, vals: dict, short_name: str,
                  one_pole_ctor: Callable[..., Union[FirstOrder_LowPass, FirstOrder_HighPass]],
                  two_pole_ctor: Callable[..., PassFilter],
-                 many_pole_ctor: Callable[..., CompoundPassFilter]):
+                 many_pole_ctor: Callable[..., CompoundPassFilter],
+                 convert_q: bool = False):
         super().__init__(vals, short_name)
         self.__order = int(int(vals['Slope']) / 6)
         self.__frequency = float(vals['Frequency'])
         self.__jriver_q = float(vals['Q'])
+        self.__q = self.from_jriver_q(self.jriver_q) if self.order == 2 and convert_q else self.jriver_q
         self.__ctors = (one_pole_ctor, two_pole_ctor, many_pole_ctor)
 
     @classmethod
@@ -322,22 +324,20 @@ class Pass(ChannelFilter, ABC):
 
     @property
     def q(self):
-        if self.order == 2:
-            return self.from_jriver_q(self.jriver_q)
-        else:
-            return self.jriver_q
+        return self.__q
 
     @property
     def order(self) -> int:
         return self.__order
 
-    def get_vals(self) -> Dict[str, str]:
+    def get_vals(self, convert_q: bool = False) -> Dict[str, str]:
+        q = self.to_jriver_q(self.jriver_q) if self.order == 2 and convert_q else self.jriver_q
         return {
             'Gain': '0',
             'Slope': f"{self.order * 6}",
-            'Q': f"{self.jriver_q:.12g}",
+            'Q': f"{q:.12g}",
             'Frequency': f"{self.__frequency:.7g}",
-            **super().get_vals()
+            **super().get_vals(convert_q=convert_q)
         }
 
     @property
@@ -380,15 +380,15 @@ class Pass(ChannelFilter, ABC):
 class LowPass(Pass):
     TYPE = '1'
 
-    def __init__(self, vals):
-        super().__init__(vals, 'LP', FirstOrder_LowPass, SecondOrder_LowPass, ComplexLowPass)
+    def __init__(self, vals, convert_q: bool = False):
+        super().__init__(vals, 'LP', FirstOrder_LowPass, SecondOrder_LowPass, ComplexLowPass, convert_q=convert_q)
 
 
 class HighPass(Pass):
     TYPE = '2'
 
-    def __init__(self, vals):
-        super().__init__(vals, 'HP', FirstOrder_HighPass, SecondOrder_HighPass, ComplexHighPass)
+    def __init__(self, vals, convert_q: bool = False):
+        super().__init__(vals, 'HP', FirstOrder_HighPass, SecondOrder_HighPass, ComplexHighPass, convert_q=convert_q)
 
 
 class Gain(ChannelFilter):
@@ -402,7 +402,7 @@ class Gain(ChannelFilter):
     def gain(self):
         return self.__gain
 
-    def get_vals(self) -> Dict[str, str]:
+    def get_vals(self, convert_q: bool = False) -> Dict[str, str]:
         return {
             'Gain': f"{self.__gain:.7g}",
             **super().get_vals()
@@ -433,7 +433,7 @@ class BitdepthSimulator(SingleFilter):
         self.__bits = int(vals['Bits'])
         self.__dither = vals['Dither']
 
-    def get_vals(self) -> Dict[str, str]:
+    def get_vals(self, convert_q: bool = False) -> Dict[str, str]:
         return {
             'Bits': str(self.__bits),
             'Dither': self.__dither
@@ -452,13 +452,13 @@ class Delay(ChannelFilter):
 
     def __init__(self, vals):
         super().__init__(vals, 'DELAY')
-        self.__delay = float(vals['Delay'])
+        self.__delay = float(vals['Delay'].replace(",", "."))
 
     @property
     def delay(self) -> float:
         return self.__delay
 
-    def get_vals(self) -> Dict[str, str]:
+    def get_vals(self, convert_q: bool = False) -> Dict[str, str]:
         return {
             'Delay': f"{self.__delay:.7g}",
             **super().get_vals()
@@ -489,7 +489,7 @@ class Divider(SingleFilter):
     def text(self):
         return self.__text
 
-    def get_vals(self) -> Dict[str, str]:
+    def get_vals(self, convert_q: bool = False) -> Dict[str, str]:
         return {
             'Text': self.__text
         }
@@ -514,7 +514,7 @@ class Limiter(ChannelFilter):
         self.__release = vals['Release']
         self.__attack = vals['Attack']
 
-    def get_vals(self) -> Dict[str, str]:
+    def get_vals(self, convert_q: bool = False) -> Dict[str, str]:
         return {
             'Hold': self.__hold,
             'Mode': self.__mode,
@@ -543,7 +543,7 @@ class LinkwitzTransform(ChannelFilter):
         self.__qz = float(vals['Qz'])
         self.__prevent_clipping = vals['PreventClipping']
 
-    def get_vals(self) -> Dict[str, str]:
+    def get_vals(self, convert_q: bool = False) -> Dict[str, str]:
         return {
             'Fp': f"{self.__fp:.7g}",
             'Qp': f"{self.__qp:.4g}",
@@ -578,7 +578,7 @@ class LinkwitzRiley(SingleFilter):
         super().__init__(vals, 'LR')
         self.__freq = float(vals['Frequency'])
 
-    def get_vals(self) -> Dict[str, str]:
+    def get_vals(self, convert_q: bool = False) -> Dict[str, str]:
         return {
             'Frequency': f"{self.__freq:.7g}"
         }
@@ -597,7 +597,7 @@ class MidSideDecoding(SingleFilter):
     def __init__(self, vals):
         super().__init__(vals, 'MS Decode')
 
-    def get_vals(self) -> Dict[str, str]:
+    def get_vals(self, convert_q: bool = False) -> Dict[str, str]:
         return {}
 
     def __repr__(self):
@@ -610,7 +610,7 @@ class MidSideEncoding(SingleFilter):
     def __init__(self, vals):
         super().__init__(vals, 'MS Encode')
 
-    def get_vals(self) -> Dict[str, str]:
+    def get_vals(self, convert_q: bool = False) -> Dict[str, str]:
         return {}
 
     def __repr__(self):
@@ -667,7 +667,7 @@ class Mix(SingleFilter):
     def gain(self) -> float:
         return self.__gain
 
-    def get_vals(self) -> Dict[str, str]:
+    def get_vals(self, convert_q: bool = False) -> Dict[str, str]:
         return {
             'Source': self.__source,
             'Gain': f"{self.__gain:.7g}",
@@ -725,7 +725,7 @@ class Order(SingleFilter):
         self.__order = vals['Order'].split(',')
         self.__named_order = [get_channel_name(int(i)) for i in self.__order]
 
-    def get_vals(self) -> Dict[str, str]:
+    def get_vals(self, convert_q: bool = False) -> Dict[str, str]:
         return {
             'Order': ','.join(self.__order)
         }
@@ -745,7 +745,7 @@ class Mute(ChannelFilter):
         super().__init__(vals, 'MUTE')
         self.__gain = float(vals['Gain'])
 
-    def get_vals(self) -> Dict[str, str]:
+    def get_vals(self, convert_q: bool = False) -> Dict[str, str]:
         return {
             'Gain': f"{self.__gain:.7g}",
             **super().get_vals()
@@ -777,7 +777,7 @@ class SubwooferLimiter(ChannelFilter):
         super().__init__(vals, 'SW Limiter')
         self.__level = float(vals['Level'])
 
-    def get_vals(self) -> Dict[str, str]:
+    def get_vals(self, convert_q: bool = False) -> Dict[str, str]:
         return {
             'Level': f"{self.__level:.7g}",
             **super().get_vals()
@@ -817,9 +817,9 @@ class ComplexFilter(Filter):
         for i, f in enumerate(self.filters):
             f.id = f"{f_id}_{i}"
 
-    def get_all_vals(self) -> List[Dict[str, str]]:
+    def get_all_vals(self, convert_q: bool = False) -> List[Dict[str, str]]:
         all_filters: List[Filter] = [self.__prefix] + self.__filters + [self.__suffix]
-        return [v for f in all_filters for v in f.get_all_vals()]
+        return [v for f in all_filters for v in f.get_all_vals(convert_q=convert_q)]
 
     def get_filter_op(self) -> FilterOp:
         if self.enabled:
@@ -1084,18 +1084,20 @@ def all_subclasses(cls):
 
 
 complex_filter_classes_by_type: Dict[str, Type[ComplexFilter]] = {c.custom_type(): c for c in all_subclasses(ComplexFilter)}
-filter_classes_by_type: Dict[str, Type[Filter]]  = {c.TYPE: c for c in all_subclasses(Filter) if hasattr(c, 'TYPE')}
+filter_classes_by_type: Dict[str, Type[Filter]] = {c.TYPE: c for c in all_subclasses(Filter) if hasattr(c, 'TYPE')}
+
+convert_q_types = [LowShelf.TYPE, HighShelf.TYPE, LowPass.TYPE, HighPass.TYPE]
 
 
-def create_peq(vals: Dict[str, str]) -> Filter:
+def create_peq(vals: Dict[str, str], convert_q: bool = False) -> Filter:
     '''
     :param vals: the vals from the encoded xml format.
-    :param channels: the available channel names.
+    :param convert_q: whether Q should be converted from the plain value.
     :return: a filter type.
     '''
     type_: Type[Filter] = filter_classes_by_type[vals['Type']]
     # noinspection PyTypeChecker
-    return type_(vals)
+    return type_(vals, convert_q) if vals['Type'] in convert_q_types else type_(vals)
 
 
 def convert_filter_to_mc_dsp(filt: SOS, target_channels: str) -> Filter:

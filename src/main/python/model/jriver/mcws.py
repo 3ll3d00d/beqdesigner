@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, Callable
 from xml.etree import ElementTree as ET
 
 import requests
@@ -15,6 +15,7 @@ class MediaServer:
         self.__secure = secure
         self.__base_url = f"http{'s' if secure else ''}://{ip}/MCWS/v1"
         self.__token = None
+        self.__major_version = None
 
     def as_dict(self) -> dict:
         return {self.__ip: (self.__auth, self.__secure)}
@@ -36,9 +37,29 @@ class MediaServer:
                         if item.attrib['Name'] == 'Token':
                             self.__token = item.text
         if self.connected:
+            self.__load_version()
             return True
         else:
             raise MCWSError('Authentication failure', r.url, r.status_code, r.text)
+
+    def __load_version(self):
+        url = f"{self.__base_url}/Alive"
+        r = requests.get(url, params={'Token': self.__token}, timeout=(1, 5))
+        if r.status_code == 200:
+            response = ET.fromstring(r.content)
+            if response:
+                r_status = response.attrib.get('Status', None)
+                if r_status == 'OK':
+                    v = next((item.text for item in response if item.attrib['Name'] == 'ProgramVersion'), None)
+                    if v:
+                        tokens = str(v).split('.')
+                        if tokens:
+                            try:
+                                self.__major_version = int(tokens[0])
+                            except:
+                                raise MCWSError(f"Unknown version format {v}", r.url, r.status_code, r.text)
+        if not self.__major_version:
+            raise MCWSError('No version', r.url, r.status_code, r.text)
 
     @property
     def connected(self) -> bool:
@@ -98,8 +119,9 @@ class MediaServer:
                                 return child.text
         raise MCWSError('No DSP loaded', r.url, r.status_code, r.text)
 
-    def set_dsp(self, zone_id: str, dsp: str) -> bool:
+    def set_dsp(self, zone_id: str, dsp_txt_provider: Callable[[bool], str]) -> bool:
         self.__auth_if_required()
+        dsp = dsp_txt_provider(self.convert_q)
         dsp = dsp.replace('\n', '\r\n')
         if not dsp.endswith('\r\n'):
             dsp = dsp + '\r\n'
@@ -116,6 +138,14 @@ class MediaServer:
                 raise DSPMismatchError(zone_id, dsp, loaded_dsp)
         else:
             raise MCWSError('DSP not set', r.url, r.status_code, r.text)
+
+    @property
+    def mc_version(self) -> Optional[int]:
+        return self.__major_version
+
+    @property
+    def convert_q(self) -> bool:
+        return False if self.mc_version and self.mc_version >= 29 else True
 
     @staticmethod
     def __compare_xml(x1, x2):
