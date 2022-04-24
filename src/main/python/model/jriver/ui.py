@@ -3,6 +3,7 @@ from __future__ import annotations
 import itertools
 import json
 import logging
+import math
 import os
 import sys
 import xml.etree.ElementTree as et
@@ -10,7 +11,6 @@ from builtins import isinstance
 from pathlib import Path
 from typing import Dict, Optional, List, Tuple, Callable, Set, Type, Any
 
-import math
 import qtawesome as qta
 from qtpy.QtCore import QPoint, QModelIndex, Qt, QTimer, QAbstractTableModel, QVariant, QSize
 from qtpy.QtGui import QColor, QPalette, QKeySequence, QCloseEvent, QShowEvent, QFont
@@ -27,8 +27,9 @@ from model.jriver.common import get_channel_name, get_channel_idx, OutputFormat,
 from model.jriver.dsp import JRiverDSP
 from model.jriver.filter import Divider, GEQFilter, CompoundRoutingFilter, CustomPassFilter, GainQFilter, Gain, Pass, \
     LinkwitzTransform, Polarity, Mix, Delay, Filter, create_peq, MixType, ChannelFilter, convert_filter_to_mc_dsp, \
-    SingleFilter, XOFilter, HighPass, LowPass, SimulationFailed
+    SingleFilter, XOFilter, HighPass, LowPass, SimulationFailed, MSOFilter
 from model.jriver.mcws import MediaServer, MCWSError, DSPMismatchError
+from model.jriver.parser import from_mso
 from model.jriver.render import render_dot
 from model.jriver.routing import Matrix, LFE_ADJUST_KEY, EDITORS_KEY, EDITOR_NAME_KEY, \
     UNDERLYING_KEY, WAYS_KEY, SYM_KEY, LFE_IN_KEY, ROUTING_KEY, calculate_compound_routing_filter
@@ -303,7 +304,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         f_id = item.data(FILTER_ID_ROLE)
         selected_filter: Optional[Filter] = next((f for f in self.dsp.active_graph.filters if f.id == f_id), None)
         if selected_filter:
-            if isinstance(selected_filter, (GEQFilter, CompoundRoutingFilter)):
+            if isinstance(selected_filter, (GEQFilter, CompoundRoutingFilter, MSOFilter)):
                 return True
             elif isinstance(selected_filter, CustomPassFilter):
                 return selected_filter.channels and len(selected_filter.channels) == 1
@@ -328,6 +329,8 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
             self.__start_geq_edit_session(selected_filter, selected_filter.channel_names)
         elif isinstance(selected_filter, CompoundRoutingFilter):
             self.__update_xo(selected_filter)
+        elif isinstance(selected_filter, MSOFilter):
+            self.__update_mso(selected_filter)
         else:
             vals = selected_filter.get_all_vals()
             if not self.__show_basic_edit_filter_dialog(selected_filter, vals):
@@ -531,7 +534,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         :param add_menu: the add menu.
         :param node_name: the selected node name.
         '''
-        add, copy, delay, move, peq, polarity, subtract, swap, geq, xo = self.__add_actions_to_filter_menu(add_menu)
+        add, copy, delay, move, peq, polarity, subtract, swap, geq, xo, mso = self.__add_actions_to_filter_menu(add_menu)
         idx = self.__get_idx_to_insert_filter_at_from_node_name(node_name)
         peq.triggered.connect(lambda: self.__insert_peq_after_node(node_name))
         polarity.triggered.connect(lambda: self.__insert_polarity(idx))
@@ -543,6 +546,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         subtract.triggered.connect(lambda: self.__insert_mix(MixType.SUBTRACT, idx))
         geq.triggered.connect(lambda: self.__insert_geq(idx))
         xo.triggered.connect(lambda: self.__insert_xo(idx))
+        mso.triggered.connect(lambda: self.__insert_mso(idx))
 
     def __get_idx_to_insert_filter_at_from_node_name(self, node_name: str) -> int:
         '''
@@ -649,13 +653,44 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         XODialog(self, self.prefs, self.dsp.channel_names(), self.dsp.channel_names(output=True, exclude_user=True),
                  self.dsp.output_format, on_save, existing=existing).exec()
 
+    def __insert_mso(self, idx: int) -> None:
+        '''
+        Shows the MSO dialog and inserts the resulting filters at the specified index.
+        :param idx: the index.
+        '''
+
+        def on_save(mso_filter: MSOFilter):
+            self.__insert_filter(idx, mso_filter)
+            self.__on_graph_change()
+
+        self.__show_mso_dialog(on_save)
+
+    def __update_mso(self, existing: MSOFilter) -> None:
+        '''
+        Shows the mso dialog and replaces the existing filter at the specified index.
+        :param existing: the current mso filter.
+        '''
+
+        def on_save(mso_filters: MSOFilter):
+            if self.dsp.active_graph.replace(existing, mso_filters):
+                self.__on_graph_change()
+
+        self.__show_mso_dialog(on_save, existing=existing)
+
+    def __show_mso_dialog(self, on_save: Callable[[MSOFilter], None], existing: MSOFilter = None):
+        selected = QFileDialog.getOpenFileName(parent=self, caption='Import MSO Filters', filter='Filter (*.json)')
+        if selected is not None and len(selected[0]) > 0:
+            txt = Path(selected[0]).read_text()
+            mso_filter = from_mso(txt)
+            on_save(mso_filter)
+
     def __populate_add_filter_menu(self, menu: QMenu) -> QMenu:
         '''
         Adds filter editing actions to the add button next to the filter list.
         :param menu: the menu to add to.
         :return: the menu.
         '''
-        add, copy, delay, move, peq, polarity, subtract, swap, geq, xo = self.__add_actions_to_filter_menu(menu)
+        add, copy, delay, move, peq, polarity, subtract, swap, geq, xo, mso = self.__add_actions_to_filter_menu(menu)
         peq.triggered.connect(lambda: self.__insert_peq(self.__get_idx_to_insert_filter_at_from_selection()))
         delay.triggered.connect(lambda: self.__insert_delay(self.__get_idx_to_insert_filter_at_from_selection()))
         polarity.triggered.connect(lambda: self.__insert_polarity(self.__get_idx_to_insert_filter_at_from_selection()))
@@ -671,6 +706,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
                                                              self.__get_idx_to_insert_filter_at_from_selection()))
         geq.triggered.connect(lambda: self.__insert_geq(self.__get_idx_to_insert_filter_at_from_selection()))
         xo.triggered.connect(lambda: self.__insert_xo(self.__get_idx_to_insert_filter_at_from_selection()))
+        mso.triggered.connect(lambda: self.__insert_mso(self.__get_idx_to_insert_filter_at_from_selection()))
         return menu
 
     def __add_actions_to_filter_menu(self, menu) -> Tuple[QAction, ...]:
@@ -690,7 +726,8 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         move = self.__create_move_action(3, mix_menu)
         swap = self.__create_swap_action(4, mix_menu)
         subtract = self.__create_subtract_action(5, mix_menu)
-        return add, copy, delay, move, peq, polarity, subtract, swap, geq, xo
+        mso = self.__create_mso_action(7, menu)
+        return add, copy, delay, move, peq, polarity, subtract, swap, geq, xo, mso
 
     def __create_geq_action(self, prefix: int, menu: QMenu) -> QAction:
         geq = QAction(f"&{prefix}: GEQ", self)
@@ -741,6 +778,11 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         xo = QAction(f"&{prefix}: Crossover and Bass Management", self)
         menu.addAction(xo)
         return xo
+
+    def __create_mso_action(self, prefix: int, menu: QMenu) -> QAction:
+        mso = QAction(f"&{prefix}: Multi-Sub Optimiser", self)
+        menu.addAction(mso)
+        return mso
 
     def __insert_peq(self, idx: int) -> None:
         '''
@@ -830,7 +872,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
 
     def __add_filter(self, vals: Dict[str, str], idx: int) -> None:
         '''
-        Creates a filter from the valures supplied and inserts it into the filter list at the given index.
+        Creates a filter from the values supplied and inserts it into the filter list at the given index.
         :param vals: the filter values.
         :param idx: the index to insert at.
         '''
@@ -912,6 +954,8 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
                 self.__start_geq_edit_session(filt, filt.channel_names)
             elif isinstance(filt, CompoundRoutingFilter):
                 self.__update_xo(filt)
+            elif isinstance(filt, MSOFilter):
+                self.__update_mso(filt)
             elif filt.get_editable_filter():
                 node_idx, node_chain = self.dsp.active_graph.get_editable_node_chain(node_name)
                 filters: List[Filter] = [self.dsp.active_graph.get_filter_at_node(n) for n in node_chain]

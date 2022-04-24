@@ -16,13 +16,13 @@ JRIVER_CHANNELS = JRIVER_NAMED_CHANNELS + [f"Channel {i + 9}" for i in range(24)
 JRIVER_SHORT_CHANNELS = JRIVER_SHORT_NAMED_CHANNELS + [f"C{i + 9}" for i in range(24)]
 
 
-def get_all_channel_names(short: bool = True):
+def get_all_channel_names(short: bool = True) -> List[str]:
     contents = JRIVER_SHORT_CHANNELS if short else JRIVER_CHANNELS
     user_c = SHORT_USER_CHANNELS if short else USER_CHANNELS
     return [c for c in contents if c and c not in user_c]
 
 
-def get_channel_indexes(names: List[str], short: bool = True):
+def get_channel_indexes(names: List[str], short: bool = True) -> List[int]:
     contents = JRIVER_SHORT_CHANNELS if short else JRIVER_CHANNELS
     return [contents.index(n) for n in names]
 

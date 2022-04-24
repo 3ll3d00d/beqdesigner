@@ -14,7 +14,7 @@ from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox, QHeaderView, QTabl
 
 from model.iir import FilterType, LowShelf, HighShelf, PeakingEQ, SecondOrder_LowPass, \
     SecondOrder_HighPass, ComplexLowPass, ComplexHighPass, q_to_s, s_to_q, max_permitted_s, CompleteFilter, COMBINED, \
-    Passthrough, Gain, Shelf, LinkwitzTransform, Biquad
+    Passthrough, Gain, Shelf, LinkwitzTransform, Biquad, AllPass
 from model.limits import DecibelRangeCalculator, PhaseRangeCalculator
 from model.magnitude import MagnitudeModel
 from model.preferences import SHOW_ALL_FILTERS, SHOW_NO_FILTERS, FILTER_COLOURS, DISPLAY_SHOW_FILTERS, DISPLAY_Q_STEP, \
@@ -840,6 +840,8 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
             filt = SecondOrder_HighPass(self.__signal.fs, self.freq.value(), q_value)
         elif self.filterType.currentText() == 'Linkwitz Transform':
             filt = LinkwitzTransform(self.__signal.fs, self.f0.value(), self.q0.value(), self.fp.value(), self.qp.value())
+        elif self.filterType.currentText() == 'All Pass':
+            filt = AllPass(self.__signal.fs, self.freq.value(), q_value)
         if filt is None:
             raise ValueError(f"Unknown filter type {self.filterType.currentText()}")
         else:

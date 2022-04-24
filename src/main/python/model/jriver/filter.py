@@ -251,6 +251,13 @@ class GainQFilter(ChannelFilter, ABC):
     def get_editable_filter(self) -> Optional[SOS]:
         return self.__create_iir(48000, self.__frequency, self.__q, self.__gain, f_id=self.id)
 
+    @classmethod
+    def default_values(cls) -> Dict[str, str]:
+        return {
+            **super(GainQFilter, cls).default_values(),
+            'Slope': '12'
+        }
+
     def __repr__(self):
         return f"{self.__class__.__name__} {self.__gain:+.7g} dB Q={self.__q:.4g} at {self.__frequency:.7g} Hz {self.print_channel_names()}{self.print_disabled()}"
 
@@ -290,6 +297,61 @@ class HighShelf(GainQFilter):
     @classmethod
     def to_jriver_q(cls, q: float, gain: float, convert_q: bool = False) -> float:
         return q_to_s(q, gain) if convert_q else q
+
+
+class AllPass(ChannelFilter):
+    TYPE = '17'
+
+    def __init__(self, vals):
+        super().__init__(vals, 'APF')
+        self.__frequency = float(vals['Frequency'])
+        self.__q = float(vals['Q'])
+
+    @property
+    def key_order(self) -> List[str]:
+        return ['Enabled', 'Slope', 'Q', 'Type', 'Version', 'Gain', 'Frequency', 'Channels']
+
+    @property
+    def freq(self) -> float:
+        return self.__frequency
+
+    @property
+    def q(self) -> float:
+        return self.__q
+
+    def get_vals(self, convert_q: bool = False) -> Dict[str, str]:
+        return {
+            'Slope': '12',
+            'Version': '1',
+            'Gain': '0',
+            'Q': f"{self.__q:.12g}",
+            'Frequency': f"{self.__frequency:.7g}",
+            **super().get_vals(convert_q=convert_q)
+        }
+
+    def get_filter_op(self) -> FilterOp:
+        if self.enabled:
+            f = self.get_editable_filter()
+            if f:
+                sos = self.get_editable_filter().get_sos()
+                if sos:
+                    return SosFilterOp(sos)
+        return NopFilterOp()
+
+    def get_editable_filter(self) -> Optional[SOS]:
+        return iir.AllPass(48000, self.__frequency, self.__q, f_id=self.id)
+
+    @classmethod
+    def default_values(cls) -> Dict[str, str]:
+        return {
+            **super(AllPass, cls).default_values(),
+            'Slope': '12',
+            'Gain': '0',
+            'Version': '1'
+        }
+
+    def __repr__(self):
+        return f"{self.__class__.__name__} Q={self.__q:.4g} at {self.__frequency:.7g} Hz {self.print_channel_names()}{self.print_disabled()}"
 
 
 class Pass(ChannelFilter, ABC):
@@ -914,6 +976,28 @@ class GEQFilter(ComplexChannelFilter):
     @classmethod
     def create(cls, data: str, child_filters: List[Filter]):
         return GEQFilter(child_filters)
+
+
+class MSOFilter(ComplexFilter):
+
+    def __init__(self, filters: List[ChannelFilter]):
+        super().__init__(filters)
+        self.__all_channel_names = [get_channel_name(i) for i in sorted(list({c for f in filters for c in f.channels}))]
+
+    @classmethod
+    def custom_type(cls) -> str:
+        return 'MSO'
+
+    @classmethod
+    def create(cls, data: str, child_filters: List[Filter]):
+        bad_filters = [c for c in child_filters if not isinstance(c, ChannelFilter)]
+        good_filters = [c for c in child_filters if isinstance(c, ChannelFilter)]
+        if bad_filters:
+            raise ValueError(f"Unsupported filter types supplied {bad_filters}")
+        return MSOFilter(good_filters)
+
+    def __repr__(self):
+        return f"{self.short_name} [{', '.join(self.__all_channel_names)}]"
 
 
 class XOFilterType(Enum):

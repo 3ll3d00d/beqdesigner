@@ -1342,6 +1342,28 @@ def as_equalizer_apo(filt):
         return None
 
 
+def from_equalizer_apo(filt: str, fs: int=48000) -> Optional[Biquad]:
+    '''
+    formats a filter from Equalizer APO config format (https://sourceforge.net/p/equalizerapo/wiki/Configuration%20reference/)
+    :param filt: the filter teext.
+    :return: the filter, if any.
+    '''
+    tokens = filt.split()
+    if tokens:
+        if tokens[0] == 'ON':
+            f_type = tokens[1]
+            fc = float(tokens[3])
+            if f_type == 'PK':
+                return PeakingEQ(fs, fc, float(tokens[9]), float(tokens[6]))
+            elif f_type == 'LSC':
+                return LowShelf(fs, fc, float(tokens[9]), float(tokens[6]))
+            elif f_type == 'HSC':
+                return HighShelf(fs, fc, float(tokens[9]), float(tokens[6]))
+            elif f_type == 'AP':
+                return AllPass(fs, fc, float(tokens[6]))
+    return None
+
+
 def get_cascade_transfer_function(name, responses) -> ComplexData:
     '''
     The transfer function for a cascade of filters.
