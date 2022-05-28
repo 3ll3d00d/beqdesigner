@@ -697,6 +697,9 @@ class SignalModel(Sequence):
             self.__table.endInsertRows()
 
     def post_update(self):
+        self.__on_update(self.get_visible_curve_names())
+
+    def get_visible_curve_names(self) -> List[str]:
         from app import flatten
         show_signals = self.__preferences.get(DISPLAY_SHOW_SIGNALS)
         show_filtered_signals = self.__preferences.get(DISPLAY_SHOW_FILTERED_SIGNALS)
@@ -704,7 +707,7 @@ class SignalModel(Sequence):
         visible_signal_names = [x.name for x in flatten([y for x in self.__signals for y in x.get_all_xy()])]
         if pattern is not None:
             visible_signal_names = [x for x in visible_signal_names if pattern.match(x) is not None]
-        self.__on_update(visible_signal_names)
+        return visible_signal_names
 
     def remove(self, signal):
         '''

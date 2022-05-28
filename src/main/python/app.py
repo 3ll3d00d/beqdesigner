@@ -555,6 +555,8 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         things.
         :param names: the signal names.
         '''
+        # this can change curve visibility of the signal so need to allow the signalmodel to update visibility
+        self.update_reference_series(self.__signal_model.get_visible_curve_names(), self.signalReference, True)
         self.update_reference_series(names, self.filterReference, False)
         self.__magnitude_model.redraw()
         self.__enable_filter_actions()
