@@ -85,7 +85,7 @@ jobs:
           export QT_DEBUG_PLUGINS=1
           export DISPLAY=:0
           sudo /usr/bin/Xvfb $DISPLAY -screen 0 1280x1024x24 &
-          pipenv run pyinstaller --clean --log-level=INFO -F beqdesigner.spec
+          pipenv run pyinstaller --clean --log-level=INFO beqdesigner.spec
           if [[ "$RUNNER_OS" == "macOS" ]]
           then
             pushd dist

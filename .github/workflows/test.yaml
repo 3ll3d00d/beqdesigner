@@ -61,7 +61,7 @@ jobs:
           echo ${{ steps.get_version.outputs.sha_short }} > src/main/python/VERSION
       - name: Create distribution
         run: |
-          pipenv run pyinstaller --clean --log-level=INFO -F beqdesigner.spec
+          pipenv run pyinstaller --clean --log-level=INFO beqdesigner.spec
           if [[ "$RUNNER_OS" == "macOS" ]]
           then
             pushd dist
