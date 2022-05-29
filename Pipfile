@@ -4,7 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-pyqt5 = "<5.15.4"
+pyqt5 = "*"
 qdarkstyle ="*"
 matplotlib = "*"
 ffmpeg-python = "*"
