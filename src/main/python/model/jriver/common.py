@@ -78,35 +78,9 @@ def make_silence(channel: str):
     return Signal(channel, np.zeros(fs * 4), fs=fs)
 
 
-class OutputFormat(Enum):
-    SOURCE = auto(), 'Source', 8, 8, 1, (0,)
-    MONO = auto(), 'Mono', 1, 1, 0, (1,)
-    STEREO = auto(), 'Stereo', 2, 2, 0, (2,)
-    STEREO_IN_FOUR = auto(), 'Stereo in a 4 channel container', 2, 4, 0, (2, 2)
-    STEREO_IN_FIVE = auto(), 'Stereo in a 5.1 channel container', 2, 6, 0, (2, 4)
-    STEREO_IN_SEVEN = auto(), 'Stereo in a 7.1 channel container', 2, 8, 0, (2, 6)
-    TWO_ONE = auto(), '2.1', 3, 6, 1, (3,)
-    THREE_ONE = auto(), '3.1', 4, 4, 1, (4, None, 15)
-    FOUR = auto(), '4 channel', 4, 4, 0, (2, 2)
-    FIVE_ONE = auto(), '5.1', 6, 6, 1, (6,)
-    FIVE_ONE_IN_SEVEN = auto(), '5.1 in a 7.1 container', 6, 8, 1, (6, 2)
-    SEVEN_ONE = auto(), '7.1', 8, 8, 1, (8,)
-    TEN = auto(), '10 channels', 8, 10, 1, (10,)
-    TWELVE = auto(), '12 channels', 8, 12, 1, (12,)
-    FOURTEEN = auto(), '14 channels', 8, 14, 1, (14,)
-    SIXTEEN = auto(), '16 channels', 8, 16, 1, (16,)
-    EIGHTEEN = auto(), '18 channels', 8, 18, 1, (18,)
-    TWENTY = auto(), '20 channels', 8, 20, 1, (20,)
-    TWENTY_TWO = auto(), '22 channels', 8, 22, 1, (22,)
-    TWENTY_FOUR = auto(), '24 channels', 8, 24, 1, (24,)
-    THIRTY_TWO = auto(), '32 channels', 8, 32, 1, (32,)
+class OutputFormat:
 
-    def __new__(cls, *args, **kwargs):
-        obj = object.__new__(cls)
-        obj._value_ = auto()
-        return obj
-
-    def __init__(self, _, display_name: str, input_channels: int, output_channels: int, lfe_channels: int,
+    def __init__(self, display_name: str, input_channels: int, output_channels: int, lfe_channels: int,
                  xml_vals: Tuple[int, ...]):
         self.__lfe_channels = lfe_channels
         self.__output_channels = output_channels
@@ -158,7 +132,35 @@ class OutputFormat(Enum):
 
     @classmethod
     def from_output_channels(cls, count: int):
-        for f in OutputFormat:
+        f: OutputFormat
+        for f in OUTPUT_FORMATS.values():
             if f.output_channels == count:
                 return f
         raise ValueError(f"Unsupported count {count}")
+
+
+# order is important otherwise from_output_channels will yield bad results
+OUTPUT_FORMATS: Dict[str, OutputFormat] = {
+    'MONO': OutputFormat('Mono', 1, 1, 0, (1,)),
+    'STEREO': OutputFormat('Stereo', 2, 2, 0, (2,)),
+    'FOUR': OutputFormat('4 channel', 4, 4, 0, (2, 2)),
+    'THREE_ONE': OutputFormat('3.1', 4, 4, 1, (4, None, 15)),
+    'FIVE_ONE': OutputFormat('5.1', 6, 6, 1, (6,)),
+    'SEVEN_ONE': OutputFormat('7.1', 8, 8, 1, (8,)),
+    'TWO_ONE': OutputFormat('2.1', 3, 6, 1, (3,)),
+    'TEN': OutputFormat('10 channels', 8, 10, 1, (10,)),
+    'TWELVE': OutputFormat('12 channels', 8, 12, 1, (12,)),
+    'FOURTEEN': OutputFormat('14 channels', 8, 14, 1, (14,)),
+    'SIXTEEN': OutputFormat('16 channels', 8, 16, 1, (16,)),
+    'EIGHTEEN': OutputFormat('18 channels', 8, 18, 1, (18,)),
+    'TWENTY': OutputFormat('20 channels', 8, 20, 1, (20,)),
+    'TWENTY_TWO': OutputFormat('22 channels', 8, 22, 1, (22,)),
+    'TWENTY_FOUR': OutputFormat('24 channels', 8, 24, 1, (24,)),
+    'THIRTY_TWO': OutputFormat('32 channels', 8, 32, 1, (32,)),
+    'SOURCE': OutputFormat('Source', 8, 8, 1, (0,)),
+    'STEREO_IN_FOUR': OutputFormat('Stereo in a 4 channel container', 2, 4, 0, (2, 2)),
+    'STEREO_IN_FIVE': OutputFormat('Stereo in a 5.1 channel container', 2, 6, 0, (2, 4)),
+    'STEREO_IN_SEVEN': OutputFormat('Stereo in a 7.1 channel container', 2, 8, 0, (2, 6)),
+    'FIVE_ONE_IN_SEVEN': OutputFormat('5.1 in a 7.1 container', 6, 8, 1, (6, 2)),
+}
+

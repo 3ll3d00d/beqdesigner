@@ -91,7 +91,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
     def __show_zone_dialog(self):
         def on_select(zone_name: str, dsp: str, convert_q: bool):
             logger.info(f"Received dsp config from {zone_name} len {len(dsp)}")
-            self.__load_dsp(zone_name, txt=dsp, convert_q=convert_q)
+            self.__load_dsp(zone_name, txt=dsp, convert_q=convert_q, allow_padding=not convert_q)
 
         MCWSDialog(self, self.prefs, on_select=on_select).exec()
 
@@ -222,7 +222,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         if selected is not None and len(selected[0]) > 0:
             self.__load_dsp(selected[0])
 
-    def __load_dsp(self, name: str, txt: str = None, convert_q: bool = False) -> None:
+    def __load_dsp(self, name: str, txt: str = None, convert_q: bool = False, allow_padding: bool = False) -> None:
         '''
         Loads the selected file.
         :param name: the name of the dsp.
@@ -232,7 +232,8 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
             main_colour = QColor(QPalette().color(QPalette.Active, QPalette.Text)).name()
             highlight_colour = QColor(QPalette().color(QPalette.Active, QPalette.Highlight)).name()
             self.__dsp = JRiverDSP(name, lambda: txt if txt else Path(name).read_text(),
-                                   convert_q=convert_q, colours=(main_colour, highlight_colour),
+                                   convert_q=convert_q, allow_padding=allow_padding,
+                                   colours=(main_colour, highlight_colour),
                                    on_delta=self.__enable_history_buttons)
             self.__refresh_channel_list()
             self.filename.setText(name if txt else os.path.basename(name)[:-4])

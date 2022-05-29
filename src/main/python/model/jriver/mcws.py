@@ -144,8 +144,15 @@ class MediaServer:
         return self.__major_version
 
     @property
+    def can_pad_output_channels(self) -> bool:
+        return self.__is_29()
+
+    @property
     def convert_q(self) -> bool:
-        return False if self.mc_version and self.mc_version >= 29 else True
+        return not self.__is_29()
+
+    def __is_29(self) -> bool:
+        return True if self.mc_version and self.mc_version >= 29 else False
 
     @staticmethod
     def __compare_xml(x1, x2):

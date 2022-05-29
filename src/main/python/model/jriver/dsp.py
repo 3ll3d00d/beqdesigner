@@ -19,7 +19,7 @@ logger = logging.getLogger('jriver.dsp')
 class JRiverDSP:
 
     def __init__(self, name: str, txt_provider: Callable[[], str], colours: Tuple[str, str] = (None,),
-                 on_delta: Callable[[bool, bool], None] = None, convert_q: bool = False):
+                 on_delta: Callable[[bool, bool], None] = None, convert_q: bool = False, allow_padding: bool = False):
         self.__active_idx = 0
         self.__on_delta = on_delta
         self.__filename = name
@@ -27,7 +27,7 @@ class JRiverDSP:
         start = time.time()
         self.__input_config_txt = txt_provider()
         peq_block_order = get_peq_block_order(self.__input_config_txt)
-        self.__output_format: OutputFormat = get_output_format(self.__input_config_txt)
+        self.__output_format: OutputFormat = get_output_format(self.__input_config_txt, allow_padding)
         self.__graphs: List[FilterGraph] = []
         self.__signals: Dict[str, Signal] = {}
         for block in peq_block_order:

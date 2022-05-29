@@ -3,7 +3,7 @@ from __future__ import annotations
 import xml.etree.ElementTree as et
 from typing import Dict, List, Optional
 
-from model.jriver.common import OutputFormat
+from model.jriver.common import OutputFormat, OUTPUT_FORMATS
 
 
 def xpath_to_key_data_value(key_name, data_name):
@@ -32,7 +32,7 @@ def get_element(root, xpath) -> et.Element:
         raise ValueError(f"No matches for {xpath}")
 
 
-def get_output_format(config_txt) -> OutputFormat:
+def get_output_format(config_txt: str, allow_padding: bool) -> OutputFormat:
     '''
     :param config_txt: the dsp config.
     :return: the output format.
@@ -48,28 +48,45 @@ def get_output_format(config_txt) -> OutputFormat:
         layout = int(xpath_val('Output Channel Layout'))
     except:
         layout = -1
+    if allow_padding and padding > 0:
+        if layout == 15:
+            template = OUTPUT_FORMATS['THREE_ONE']
+            xml_vals = (template.output_channels, padding, 15)
+        elif output_channels == 3:
+            template = OUTPUT_FORMATS['TWO_ONE']
+            xml_vals = (template.input_channels, padding)
+        else:
+            template = OutputFormat.from_output_channels(output_channels)
+            xml_vals = (template.output_channels, padding)
+        return OutputFormat(f"{template.display_name} (+{padding})", template.input_channels,
+                            template.input_channels + padding, template.lfe_channels, xml_vals)
+    else:
+        return get_legacy_output_format(output_channels, padding, layout)
+
+
+def get_legacy_output_format(output_channels: int, padding: int, layout: int) -> OutputFormat:
     if output_channels == 0:
-        return OutputFormat.SOURCE
+        return OUTPUT_FORMATS['SOURCE']
     elif output_channels == 1:
-        return OutputFormat.MONO
+        return OUTPUT_FORMATS['MONO']
     elif output_channels == 2 and padding == 0:
-        return OutputFormat.STEREO
+        return OUTPUT_FORMATS['STEREO']
     elif output_channels == 3:
-        return OutputFormat.TWO_ONE
+        return OUTPUT_FORMATS['TWO_ONE']
     elif output_channels == 4 and layout == 15:
-        return OutputFormat.THREE_ONE
+        return OUTPUT_FORMATS['THREE_ONE']
     elif output_channels == 2 and padding == 2:
-        return OutputFormat.STEREO_IN_FOUR
+        return OUTPUT_FORMATS['STEREO_IN_FOUR']
     elif output_channels == 2 and padding == 4:
-        return OutputFormat.STEREO_IN_FIVE
+        return OUTPUT_FORMATS['STEREO_IN_FIVE']
     elif output_channels == 2 and padding == 6:
-        return OutputFormat.STEREO_IN_SEVEN
+        return OUTPUT_FORMATS['STEREO_IN_SEVEN']
     elif output_channels == 6 and padding == 2:
-        return OutputFormat.FIVE_ONE_IN_SEVEN
-    elif output_channels == 4:
-        return OutputFormat.FOUR
+        return OUTPUT_FORMATS['FIVE_ONE_IN_SEVEN']
+    elif output_channels == 4 and padding == 0:
+        return OUTPUT_FORMATS['FOUR']
     elif output_channels == 6 or output_channels == 8:
-        return OutputFormat.FIVE_ONE if output_channels == 6 else OutputFormat.SEVEN_ONE
+        return OUTPUT_FORMATS['FIVE_ONE'] if output_channels == 6 else OUTPUT_FORMATS['SEVEN_ONE']
     else:
         excess = output_channels - 8
         if excess < 1:
