@@ -112,8 +112,9 @@ class GraphRenderer:
 
     @staticmethod
     def __add_edge(edges: List[str], src: str, dst: str, label: str = None):
-        label = f' [label="{label}"]' if label else ''
-        edges.append(f"  {src} -> {dst}{label};")
+        if src is not None:
+            label = f' [label="{label}"]' if label else ''
+            edges.append(f"  {src} -> {dst}{label};")
 
     @staticmethod
     def __get_node_name(channel: str, f: Filter):

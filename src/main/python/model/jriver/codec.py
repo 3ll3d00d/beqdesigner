@@ -59,7 +59,8 @@ def get_output_format(config_txt: str, allow_padding: bool) -> OutputFormat:
             template = OutputFormat.from_output_channels(output_channels)
             xml_vals = (template.output_channels, padding)
         return OutputFormat(f"{template.display_name} (+{padding})", template.input_channels,
-                            template.input_channels + padding, template.lfe_channels, xml_vals)
+                            template.input_channels + padding, template.lfe_channels, xml_vals,
+                            template.paddings[-1] if template.paddings else 0)
     else:
         return get_legacy_output_format(output_channels, padding, layout)
 

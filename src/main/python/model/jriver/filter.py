@@ -978,7 +978,7 @@ class GEQFilter(ComplexChannelFilter):
         return GEQFilter(child_filters)
 
 
-class MSOFilter(ComplexFilter):
+class MSOFilter(ComplexFilter, Sequence[ChannelFilter]):
 
     def __init__(self, filters: List[ChannelFilter]):
         super().__init__(filters)
@@ -995,6 +995,19 @@ class MSOFilter(ComplexFilter):
         if bad_filters:
             raise ValueError(f"Unsupported filter types supplied {bad_filters}")
         return MSOFilter(good_filters)
+
+    @overload
+    @abstractmethod
+    def __getitem__(self, i: int) -> Filter: ...
+
+    @overload
+    def __getitem__(self, s: slice) -> Sequence[Filter]: ...
+
+    def __getitem__(self, i: int) -> Filter:
+        return self.filters[i]
+
+    def __len__(self) -> int:
+        return len(self.filters)
 
     def __repr__(self):
         return f"{self.short_name} [{', '.join(self.__all_channel_names)}]"

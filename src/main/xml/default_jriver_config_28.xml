@@ -12,14 +12,14 @@
 </Data>
 <Data>
 <Name>DSP Studio Last Selection</Name>
-<Value>Analyzer</Value>
+<Value>Output Format</Value>
 </Data>
 </Key>
 <Key Name="Room Correction"/>
 <Key Name="Analyzer">
 <Data>
 <Name>Enabled</Name>
-<Value>1</Value>
+<Value>0</Value>
 </Data>
 <Data>
 <Name>Minimum Frequency</Name>
@@ -102,7 +102,7 @@
 </Data>
 <Data>
 <Name>Last Change Time</Name>
-<Value>1615739210</Value>
+<Value>1654183193</Value>
 </Data>
 <Data>
 <Name>Output Surround Mode</Name>

@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Optional, Tuple, Callable
+from typing import Dict, Optional, Tuple, Callable, List
 from xml.etree import ElementTree as ET
 
 import requests
@@ -132,10 +132,11 @@ class MediaServer:
         if r.status_code == 200:
             logger.debug(f"LoadDSPPreset/{zone_id} success")
             loaded_dsp = self.get_dsp(zone_id)
-            if self.__compare_xml(ET.fromstring(dsp), ET.fromstring(loaded_dsp)):
+            try:
+                self.__compare_xml(ET.fromstring(dsp), ET.fromstring(loaded_dsp), [])
                 return True
-            else:
-                raise DSPMismatchError(zone_id, dsp, loaded_dsp)
+            except XMLMismatchError as e:
+                raise DSPMismatchError(zone_id, dsp, loaded_dsp, str(e))
         else:
             raise MCWSError('DSP not set', r.url, r.status_code, r.text)
 
@@ -155,28 +156,28 @@ class MediaServer:
         return True if self.mc_version and self.mc_version >= 29 else False
 
     @staticmethod
-    def __compare_xml(x1, x2):
+    def __compare_xml(x1, x2, path: List[str]):
         if x1.tag != x2.tag:
-            return False
+            raise XMLMismatchError(path, f"tag mismatch [expected: '{x1.tag}' actual: '{x2.tag}'")
+        curr_path = path + [x1.tag]
         for name, value in x1.attrib.items():
             if x2.attrib.get(name) != value:
-                return False
+                raise XMLMismatchError(curr_path, f"attrib mismatch in '{name}' [expected: '{value}' actual: '{x2.attrib.get(name)}'")
         for name in x2.attrib:
             if name not in x1.attrib:
-                return False
+                raise XMLMismatchError(curr_path, f"extra attrib '{name}'")
         if not MediaServer.__text_compare(x1.text, x2.text):
-            return False
+            raise XMLMismatchError(curr_path, f"text mismatch [expected: '{x1.text}', actual: '{x2.text}'")
         if not MediaServer.__text_compare(x1.tail, x2.tail):
-            return False
+            raise XMLMismatchError(curr_path, f"tail mismatch [expected: '{x1.tail}', actual: '{x2.tail}'")
         cl1 = list(x1)
         cl2 = list(x2)
         if len(cl1) != len(cl2):
-            return False
+            raise XMLMismatchError(curr_path, f"child count mismatch [expected: '{len(cl1)}', actual: '{len(cl2)}'")
         i = 0
         for c1, c2 in zip(cl1, cl2):
             i += 1
-            if not MediaServer.__compare_xml(c1, c2):
-                return False
+            MediaServer.__compare_xml(c1, c2, curr_path)
         return True
 
     @staticmethod
@@ -188,10 +189,16 @@ class MediaServer:
         return (t1 or '').strip() == (t2 or '').strip()
 
 
+class XMLMismatchError(Exception):
+
+    def __init__(self, path: List[str], reason: str):
+        super().__init__(f"XML mismatch at /{'/'.join(path)} due to {reason}")
+
+
 class DSPMismatchError(Exception):
 
-    def __init__(self, zone_id: str, expected: str, actual):
-        super().__init__(f"Mismatch in DSP loaded to {zone_id}")
+    def __init__(self, zone_id: str, expected: str, actual: str, message: str):
+        super().__init__(f"Mismatch in DSP loaded to {zone_id} - {message}")
         self.zone_id = zone_id
         self.expected = expected
         self.actual = actual

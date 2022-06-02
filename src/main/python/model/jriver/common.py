@@ -81,12 +81,13 @@ def make_silence(channel: str):
 class OutputFormat:
 
     def __init__(self, display_name: str, input_channels: int, output_channels: int, lfe_channels: int,
-                 xml_vals: Tuple[int, ...]):
+                 xml_vals: Tuple[int, ...], max_padding: int):
         self.__lfe_channels = lfe_channels
         self.__output_channels = output_channels
         self.__display_name = display_name
         self.__input_channels = input_channels
         self.__xml_vals = xml_vals
+        self.__paddings: List[int] = range(2, max_padding + 1, 2) if max_padding > 0 else []
         all_names = get_all_channel_names()
         # special case for 2.1
         if self.__lfe_channels > 0 and self.__input_channels < 4:
@@ -127,8 +128,18 @@ class OutputFormat:
         return self.__lfe_channels
 
     @property
+    def paddings(self) -> List[int]:
+        return self.__paddings
+
+    @property
     def xml_vals(self) -> Tuple[int, ...]:
         return self.__xml_vals
+
+    def is_compatible(self, version: int) -> bool:
+        if not self.paddings:
+            return version == 28
+        else:
+            return True
 
     @classmethod
     def from_output_channels(cls, count: int):
@@ -141,26 +152,26 @@ class OutputFormat:
 
 # order is important otherwise from_output_channels will yield bad results
 OUTPUT_FORMATS: Dict[str, OutputFormat] = {
-    'MONO': OutputFormat('Mono', 1, 1, 0, (1,)),
-    'STEREO': OutputFormat('Stereo', 2, 2, 0, (2,)),
-    'FOUR': OutputFormat('4 channel', 4, 4, 0, (2, 2)),
-    'THREE_ONE': OutputFormat('3.1', 4, 4, 1, (4, None, 15)),
-    'FIVE_ONE': OutputFormat('5.1', 6, 6, 1, (6,)),
-    'SEVEN_ONE': OutputFormat('7.1', 8, 8, 1, (8,)),
-    'TWO_ONE': OutputFormat('2.1', 3, 6, 1, (3,)),
-    'TEN': OutputFormat('10 channels', 8, 10, 1, (10,)),
-    'TWELVE': OutputFormat('12 channels', 8, 12, 1, (12,)),
-    'FOURTEEN': OutputFormat('14 channels', 8, 14, 1, (14,)),
-    'SIXTEEN': OutputFormat('16 channels', 8, 16, 1, (16,)),
-    'EIGHTEEN': OutputFormat('18 channels', 8, 18, 1, (18,)),
-    'TWENTY': OutputFormat('20 channels', 8, 20, 1, (20,)),
-    'TWENTY_TWO': OutputFormat('22 channels', 8, 22, 1, (22,)),
-    'TWENTY_FOUR': OutputFormat('24 channels', 8, 24, 1, (24,)),
-    'THIRTY_TWO': OutputFormat('32 channels', 8, 32, 1, (32,)),
-    'SOURCE': OutputFormat('Source', 8, 8, 1, (0,)),
-    'STEREO_IN_FOUR': OutputFormat('Stereo in a 4 channel container', 2, 4, 0, (2, 2)),
-    'STEREO_IN_FIVE': OutputFormat('Stereo in a 5.1 channel container', 2, 6, 0, (2, 4)),
-    'STEREO_IN_SEVEN': OutputFormat('Stereo in a 7.1 channel container', 2, 8, 0, (2, 6)),
-    'FIVE_ONE_IN_SEVEN': OutputFormat('5.1 in a 7.1 container', 6, 8, 1, (6, 2)),
+    'MONO': OutputFormat('Mono', 1, 1, 0, (1,), 16),
+    'STEREO': OutputFormat('Stereo', 2, 2, 0, (2,), 16),
+    'FOUR': OutputFormat('4 channel', 4, 4, 0, (2, 2), 16),
+    'THREE_ONE': OutputFormat('3.1', 4, 4, 1, (4, None, 15), 16),
+    'FIVE_ONE': OutputFormat('5.1', 6, 6, 1, (6,), 16),
+    'SEVEN_ONE': OutputFormat('7.1', 8, 8, 1, (8,), 16),
+    'TWO_ONE': OutputFormat('2.1', 3, 6, 1, (3,), 16),
+    'TEN': OutputFormat('10 channels', 8, 10, 1, (10,), 0),
+    'TWELVE': OutputFormat('12 channels', 8, 12, 1, (12,), 0),
+    'FOURTEEN': OutputFormat('14 channels', 8, 14, 1, (14,), 0),
+    'SIXTEEN': OutputFormat('16 channels', 8, 16, 1, (16,), 0),
+    'EIGHTEEN': OutputFormat('18 channels', 8, 18, 1, (18,), 0),
+    'TWENTY': OutputFormat('20 channels', 8, 20, 1, (20,), 0),
+    'TWENTY_TWO': OutputFormat('22 channels', 8, 22, 1, (22,), 0),
+    'TWENTY_FOUR': OutputFormat('24 channels', 8, 24, 1, (24,), 0),
+    'THIRTY_TWO': OutputFormat('32 channels', 8, 32, 1, (32,), 0),
+    'SOURCE': OutputFormat('Source', 8, 8, 1, (0,), 16),
+    'STEREO_IN_FOUR': OutputFormat('Stereo in a 4 channel container', 2, 4, 0, (2, 2), 0),
+    'STEREO_IN_FIVE': OutputFormat('Stereo in a 5.1 channel container', 2, 6, 0, (2, 4), 0),
+    'STEREO_IN_SEVEN': OutputFormat('Stereo in a 7.1 channel container', 2, 8, 0, (2, 6), 0),
+    'FIVE_ONE_IN_SEVEN': OutputFormat('5.1 in a 7.1 container', 6, 8, 1, (6, 2), 0),
 }
 

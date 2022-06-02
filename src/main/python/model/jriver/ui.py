@@ -9,7 +9,7 @@ import sys
 import xml.etree.ElementTree as et
 from builtins import isinstance
 from pathlib import Path
-from typing import Dict, Optional, List, Tuple, Callable, Set, Type, Any
+from typing import Dict, Optional, List, Tuple, Callable, Set, Type, Any, Iterable
 
 import qtawesome as qta
 from qtpy.QtCore import QPoint, QModelIndex, Qt, QTimer, QAbstractTableModel, QVariant, QSize
@@ -23,7 +23,8 @@ from scipy.signal import unit_impulse
 from model.filter import FilterModel, FilterDialog
 from model.iir import SOS, CompleteFilter, FilterType, ComplexLowPass, ComplexHighPass
 from model.jriver.codec import get_element, xpath_to_key_data_value, write_dsp_file, get_peq_key_name
-from model.jriver.common import get_channel_name, get_channel_idx, OutputFormat, SHORT_USER_CHANNELS, make_dirac_pulse
+from model.jriver.common import get_channel_name, get_channel_idx, OutputFormat, SHORT_USER_CHANNELS, make_dirac_pulse, \
+    OUTPUT_FORMATS
 from model.jriver.dsp import JRiverDSP
 from model.jriver.filter import Divider, GEQFilter, CompoundRoutingFilter, CustomPassFilter, GainQFilter, Gain, Pass, \
     LinkwitzTransform, Polarity, Mix, Delay, Filter, create_peq, MixType, ChannelFilter, convert_filter_to_mc_dsp, \
@@ -178,16 +179,28 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         '''
         Creates a new configuration with a selected output format.
         '''
-        output_formats = [of.display_name for of in OutputFormat]
+        mc_version = 28
+        item, ok = QInputDialog.getItem(self, 'Choose MC Version', 'Version: ', ['29', '28'], 0, False)
+        if ok and item:
+            mc_version = int(item)
+        of: OutputFormat
+        all_formats: List[OutputFormat] = [of for of in OUTPUT_FORMATS.values() if of.is_compatible(mc_version)]
+        output_formats = [of.display_name for of in all_formats]
         item, ok = QInputDialog.getItem(self, "Create New DSP Config", "Output Format:", output_formats, 0, False)
         if ok and item:
-            selected: OutputFormat = next((of for of in OutputFormat if of.display_name == item))
-            logger.info(f"Creating new configuration for {selected}")
+            selected: OutputFormat = next((of for of in all_formats if of.display_name == item))
+            selected_padding: int = 0
+            if selected.paddings and mc_version == 29:
+                item, ok = QInputDialog.getItem(self, "Extra Channels?", "Count:",
+                                                ["None"] + [f"{p} channels" for p in selected.paddings], 0, False)
+                if ok and item and item != 'None':
+                    selected_padding = int(item.split()[0].rstrip())
+            logger.info(f"Creating new MC{mc_version} configuration for {selected} with {selected_padding} extra channels")
             if getattr(sys, 'frozen', False):
-                file_path = os.path.join(sys._MEIPASS, 'default_jriver_config.xml')
+                file_path = os.path.join(sys._MEIPASS, f"default_jriver_config_{mc_version}.xml")
             else:
                 file_path = os.path.abspath(os.path.join(os.path.dirname('__file__'),
-                                                         '../xml/default_jriver_config.xml'))
+                                                         f'../xml/default_jriver_config_{mc_version}.xml'))
             config_txt = Path(file_path).read_text()
             root = et.fromstring(config_txt)
 
@@ -198,14 +211,18 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
             padding = get('Output Padding Channels')
             layout = get('Output Channel Layout')
             output_channels.text = f"{selected.xml_vals[0]}"
-            if len(selected.xml_vals) > 1:
+            default_file_name: str = selected.display_name
+            if selected_padding > 0:
+                padding.text = str(selected_padding)
+                default_file_name = f"{default_file_name}+{selected_padding}C"
+            elif len(selected.xml_vals) > 1:
                 padding.text = f"{selected.xml_vals[1]}"
             if len(selected.xml_vals) > 2:
                 layout.text = f"{selected.xml_vals[2]}"
-            file_name, ok = QInputDialog.getText(self, "Create New DSP Config", "Config Name:", text=selected.name)
+            file_name, ok = QInputDialog.getText(self, "Create New DSP Config", "Config Name:", text=default_file_name)
             output_file = os.path.join(self.prefs.get(JRIVER_DSP_DIR), f"{file_name}.dsp")
             write_dsp_file(root, output_file)
-            self.__load_dsp(output_file)
+            self.__load_dsp(output_file, allow_padding=selected_padding > 0)
 
     def find_dsp_file(self):
         '''
