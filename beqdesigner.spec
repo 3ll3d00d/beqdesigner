@@ -82,7 +82,7 @@ def get_data_args():
         ('src/main/python/style', 'style'),
         ('src/main/python/VERSION', '.'),
         ('src/main/xml/flat24hd.xml', '.'),
-        ('src/main/xml/default_jriver_config_28.xml', '.'),,
+        ('src/main/xml/default_jriver_config_28.xml', '.'),
         ('src/main/xml/default_jriver_config_29.xml', '.'),
     ]
 
