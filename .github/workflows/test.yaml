@@ -10,6 +10,9 @@ on:
       - '*'
     paths:
       - 'src/main/python/**'
+  workflow_dispatch:
+    branches:
+      - '*'
 defaults:
   run:
     shell: bash
