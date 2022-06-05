@@ -382,7 +382,7 @@ class Ui_analysisDialog(object):
         self.magLimitType.setItemText(0, _translate("analysisDialog", "Constant"))
         self.magLimitType.setItemText(1, _translate("analysisDialog", "Peak"))
         self.magLimitType.setItemText(2, _translate("analysisDialog", "Average"))
-        self.hideSidebar.setText(_translate("analysisDialog", "Hide Sidebar"))
+        self.hideSidebar.setText(_translate("analysisDialog", "Hide Signal Select"))
         self.analysisTabs.setTabText(self.analysisTabs.indexOf(self.spectrumTab), _translate("analysisDialog", "Peak Spectrum"))
         self.magnitudeDecibels.setText(_translate("analysisDialog", "Waveform in dBFS?"))
         self.headroomLabel.setText(_translate("analysisDialog", "Headroom (dB)"))

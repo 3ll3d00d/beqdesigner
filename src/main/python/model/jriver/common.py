@@ -149,13 +149,16 @@ class OutputFormat:
                 return f
         raise ValueError(f"Unsupported count {count}")
 
+    def has_channels(self, channels: List[int]):
+        return set(self.output_channel_indexes).issuperset(set(channels))
+
 
 # order is important otherwise from_output_channels will yield bad results
 OUTPUT_FORMATS: Dict[str, OutputFormat] = {
     'MONO': OutputFormat('Mono', 1, 1, 0, (1,), 16),
     'STEREO': OutputFormat('Stereo', 2, 2, 0, (2,), 16),
     'FOUR': OutputFormat('4 channel', 4, 4, 0, (2, 2), 16),
-    'THREE_ONE': OutputFormat('3.1', 4, 4, 1, (4, None, 15), 16),
+    'THREE_ONE': OutputFormat('3.1', 4, 4, 1, (4, 0, 15), 16),
     'FIVE_ONE': OutputFormat('5.1', 6, 6, 1, (6,), 16),
     'SEVEN_ONE': OutputFormat('7.1', 8, 8, 1, (8,), 16),
     'TWO_ONE': OutputFormat('2.1', 3, 6, 1, (3,), 16),

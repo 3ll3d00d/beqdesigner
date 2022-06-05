@@ -1,19 +1,19 @@
 from __future__ import annotations
 
-import itertools
 import json
 import logging
-import math
 import os
-import sys
 import xml.etree.ElementTree as et
-from builtins import isinstance
 from pathlib import Path
-from typing import Dict, Optional, List, Tuple, Callable, Set, Type, Any, Iterable
+from typing import Dict, Optional, List, Tuple, Callable, Set, Type, Any
 
+import itertools
+import math
 import qtawesome as qta
+import sys
+from builtins import isinstance
 from qtpy.QtCore import QPoint, QModelIndex, Qt, QTimer, QAbstractTableModel, QVariant, QSize
-from qtpy.QtGui import QColor, QPalette, QKeySequence, QCloseEvent, QShowEvent, QFont
+from qtpy.QtGui import QColor, QPalette, QKeySequence, QCloseEvent, QShowEvent, QFont, QIcon
 from qtpy.QtWidgets import QDialog, QFileDialog, QMenu, QAction, QListWidgetItem, QMessageBox, QInputDialog, \
     QDialogButtonBox, QAbstractItemView, QWidget, QFrame, QVBoxLayout, QHBoxLayout, QLabel, QSpinBox, QCheckBox, \
     QSpacerItem, QSizePolicy, QGridLayout, QPushButton, QDoubleSpinBox, QAbstractSpinBox, QComboBox, QHeaderView, \
@@ -48,6 +48,7 @@ from ui.jriver import Ui_jriverDspDialog
 from ui.jriver_delay_filter import Ui_jriverDelayDialog
 from ui.jriver_mix_filter import Ui_jriverMixDialog
 from ui.load_zone import Ui_loadDspFromZoneDialog
+from ui.mso import Ui_msoDialog
 from ui.pipeline import Ui_jriverGraphDialog
 from ui.xo import Ui_xoDialog
 
@@ -696,11 +697,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         self.__show_mso_dialog(on_save, existing=existing)
 
     def __show_mso_dialog(self, on_save: Callable[[MSOFilter], None], existing: MSOFilter = None):
-        selected = QFileDialog.getOpenFileName(parent=self, caption='Import MSO Filters', filter='Filter (*.json)')
-        if selected is not None and len(selected[0]) > 0:
-            txt = Path(selected[0]).read_text()
-            mso_filter = from_mso(txt)
-            on_save(mso_filter)
+        MSODialog(existing, on_save, self.dsp.output_format, self).exec()
 
     def __populate_add_filter_menu(self, menu: QMenu) -> QMenu:
         '''
@@ -1204,6 +1201,56 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         ''' Stores the window size on close. '''
         self.prefs.set(JRIVER_GEOMETRY, self.saveGeometry())
         super().closeEvent(event)
+
+
+class MSODialog(QDialog, Ui_msoDialog):
+
+    def __init__(self, mso_filter: Optional[MSOFilter], on_change: Callable[[MSOFilter], None], output_format: OutputFormat, parent):
+        super(MSODialog, self).__init__(parent)
+        self.setupUi(self)
+        self.fileSelect.setIcon(qta.icon('fa5s.folder-open'))
+        self.file.setReadOnly(True)
+        self.status.setReadOnly(True)
+        self.__output_format = output_format
+        self.__mso_filter = mso_filter
+        self.__on_change = on_change
+        self.fileSelect.clicked.connect(self.__select_filter)
+        self.__show_filters()
+
+    def __select_filter(self):
+        selected = QFileDialog.getOpenFileName(parent=self, caption='Import MSO Filters', filter='Filter (*.json)')
+        if selected is not None and len(selected[0]) > 0:
+            txt = Path(selected[0]).read_text()
+            self.file.setText(selected[0])
+            self.__mso_filter = from_mso(txt)
+            self.__show_filters()
+
+    def __show_filters(self):
+        self.filterList.clear()
+        self.filterStatus.setIcon(QIcon())
+        reason: str = 'No Filter'
+        if self.__mso_filter:
+            for f in self.__mso_filter:
+                self.filterList.addItem(str(f))
+            if self.__mso_filter.filters:
+                bad_filters = [f for f in self.__mso_filter if not self.__output_format.has_channels(f.channels)]
+                if bad_filters:
+                    bad_channels = ', '.join(sorted(list(set(c for f in bad_filters for c in f.channel_names))))
+                    reason = f"Unsupported channels for {self.__output_format.display_name} - {bad_channels}"
+                else:
+                    reason = ''
+        if reason:
+            self.status.setText(reason)
+            self.filterStatus.setIcon(qta.icon('fa5s.times', color='red'))
+            self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
+        else:
+            self.status.clear()
+            self.filterStatus.setIcon(qta.icon('fa5s.check', color='green'))
+            self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
+
+    def accept(self):
+        self.__on_change(self.__mso_filter)
+        QDialog.accept(self)
 
 
 class JRiverFilterPipelineDialog(QDialog, Ui_jriverGraphDialog):
