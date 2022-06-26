@@ -1240,49 +1240,47 @@ def convert_filter_to_mc_dsp(filt: SOS, target_channels: str) -> Filter:
     elif isinstance(filt, CompoundPassFilter):
         if filt.type == FilterType.BUTTERWORTH and filt.order in [4, 6, 8]:
             pass_type = HighPass if isinstance(filt, ComplexHighPass) else LowPass
-            vals = __make_high_order_mc_pass_filter(filt, pass_type.TYPE, pass_type.to_jriver_q, target_channels)
+            vals = __make_high_order_mc_pass_filter(filt, pass_type.TYPE, target_channels)
             return pass_type(vals)
         else:
             return __make_mc_custom_pass_filter(filt, target_channels)
     elif isinstance(filt, PassFilter):
         pass_type = HighPass if isinstance(filt, SecondOrder_HighPass) else LowPass
-        return pass_type(__make_mc_pass_filter(filt, pass_type.TYPE, pass_type.to_jriver_q, target_channels))
+        return pass_type(__make_mc_pass_filter(filt, pass_type.TYPE, target_channels))
     elif isinstance(filt, FirstOrder_LowPass) or isinstance(filt, FirstOrder_HighPass):
         pass_type = HighPass if isinstance(filt, FirstOrder_HighPass) else LowPass
-        return pass_type(__make_mc_pass_filter(filt, pass_type.TYPE, pass_type.to_jriver_q, target_channels))
+        return pass_type(__make_mc_pass_filter(filt, pass_type.TYPE, target_channels))
     else:
         raise ValueError(f"Unsupported filter type {filt}")
 
 
 def __make_mc_custom_pass_filter(p_filter: CompoundPassFilter, target_channels: str) -> CustomPassFilter:
     pass_type = HighPass if isinstance(p_filter, ComplexHighPass) else LowPass
-    mc_filts = [pass_type(__make_mc_pass_filter(f, pass_type.TYPE, pass_type.to_jriver_q, target_channels))
-                for f in p_filter.filters]
+    mc_filts = [pass_type(__make_mc_pass_filter(f, pass_type.TYPE, target_channels)) for f in p_filter.filters]
     type_code = 'HP' if pass_type == HighPass else 'LP'
     encoded = f"{type_code}/{p_filter.type.value}/{p_filter.order}/{p_filter.freq:.7g}/{p_filter.q_scale:.4g}"
     return CustomPassFilter(encoded, mc_filts)
 
 
-def __make_high_order_mc_pass_filter(f: CompoundPassFilter, filt_type: str, convert_q: Callable[[float], float],
-                                     target_channels: str) -> Dict[str, str]:
+def __make_high_order_mc_pass_filter(f: CompoundPassFilter, filt_type: str, target_channels: str) -> Dict[str, str]:
     return {
         'Enabled': '1',
         'Slope': f"{f.order * 6}",
         'Type': filt_type,
-        'Q': f"{convert_q((1 / 2**0.5) * f.q_scale):.12g}",
+        'Q': f"{(1 / 2**0.5) * f.q_scale:.12g}",
         'Frequency': f"{f.freq:.7g}",
         'Gain': '0',
         'Channels': target_channels
     }
 
 
-def __make_mc_pass_filter(f: Union[FirstOrder_LowPass, FirstOrder_HighPass, PassFilter],
-                          filt_type: str, convert_q: Callable[[float], float], target_channels: str) -> Dict[str, str]:
+def __make_mc_pass_filter(f: Union[FirstOrder_LowPass, FirstOrder_HighPass, PassFilter], filt_type: str,
+                          target_channels: str) -> Dict[str, str]:
     return {
         'Enabled': '1',
         'Slope': f"{f.order * 6}",
         'Type': filt_type,
-        'Q': f"{convert_q(f.q):.12g}" if hasattr(f, 'q') else '1',
+        'Q': f"{f.q:.12g}" if hasattr(f, 'q') else '1',
         'Frequency': f"{f.freq:.7g}",
         'Gain': '0',
         'Channels': target_channels

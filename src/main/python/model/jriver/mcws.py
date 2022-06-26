@@ -56,6 +56,7 @@ class MediaServer:
                         if tokens:
                             try:
                                 self.__major_version = int(tokens[0])
+                                logger.info(f"MC Version = {self.__major_version} for {self.__base_url}")
                             except:
                                 raise MCWSError(f"Unknown version format {v}", r.url, r.status_code, r.text)
         if not self.__major_version:
