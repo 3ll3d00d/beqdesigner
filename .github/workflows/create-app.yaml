@@ -23,7 +23,7 @@ jobs:
         id: create_release
         uses: actions/create-release@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_PAT }}
         with:
           tag_name: ${{ github.ref }}
           release_name: ${{ github.ref }}
@@ -110,7 +110,7 @@ jobs:
       - name: Upload beqdesigner
         uses: actions/upload-release-asset@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_PAT }}
         with:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
           asset_name: ${{ steps.create_dist.outputs.binary_name }}
