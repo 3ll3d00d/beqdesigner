@@ -3,11 +3,11 @@ import logging
 from pathlib import Path
 from typing import List
 
-from model.iir import ComplexFilter, SOS
+from model.iir import ComplexFilter, SOS, ComplexLowPass, FilterType, ComplexHighPass, LinkwitzTransform
 from model.jriver.codec import get_peq_key_name, filts_to_xml, include_filters_in_dsp
 from model.jriver.common import JRIVER_CHANNELS, get_channel_indexes
 from model.jriver.filter import convert_filter_to_mc_dsp, MSOFilter, Filter, Delay, Peak, LowShelf, HighShelf, AllPass, \
-    Gain
+    Gain, Polarity, LowPass, HighPass
 
 logger = logging.getLogger('jriver.parser')
 
@@ -64,22 +64,45 @@ def convert_mso_filter(mso_filter: dict) -> Filter:
                                              'Gain': f"{mso_filter['gain']:.12g}",
                                              'Frequency': f"{mso_filter['fc']:.12g}",
                                              'Q': f"{mso_filter['q']:.12g}"})
-    elif f_type == 'LowShelf':
+    elif f_type == 'LF_ShelfVarQ':
         return LowShelf(LowShelf.default_values() | {'Channels': channels,
                                                      'Gain': f"{mso_filter['gain']:.12g}",
                                                      'Frequency': f"{mso_filter['fc']:.12g}",
                                                      'Q': f"{mso_filter['q']:.12g}"})
-    elif f_type == 'HighShelf':
+    elif f_type == 'HF_ShelfVarQ':
         return HighShelf(HighShelf.default_values() | {'Channels': channels,
                                                        'Gain': f"{mso_filter['gain']:.12g}",
                                                        'Frequency': f"{mso_filter['fc']:.12g}",
                                                        'Q': f"{mso_filter['q']:.12g}"})
-    elif f_type == 'AllPass':
+    elif f_type == 'APF_VarQ':
         return AllPass(AllPass.default_values() | {'Channels': channels,
                                                    'Frequency': f"{mso_filter['fc']:.12g}",
                                                    'Q': f"{mso_filter['q']:.12g}"})
     elif f_type == 'Gain':
         return Gain(Gain.default_values() | {'Channels': channels,
                                              'Gain': f"{mso_filter['gain_val']:.12g}"})
+    elif f_type == 'PolarityInversion':
+        return Polarity(Polarity.default_values() | {'Channels': channels})
+    elif f_type == 'ComplexLowPass':
+        ft = mso_filter['filter_type']
+        lp_ft = FilterType.BUTTERWORTH if ft == 'BW' else FilterType.LINKWITZ_RILEY if ft == 'LR' else FilterType.BESSEL_MAG
+        return convert_filter_to_mc_dsp(ComplexLowPass(lp_ft, mso_filter['order'], 48000, mso_filter['fc']), channels)
+    elif f_type == 'LPF_VarQ':
+        return LowPass(LowPass.default_values() | {'Channels': channels,
+                                                   'Slope': '12',
+                                                   'Frequency': f"{mso_filter['fc']:.12g}",
+                                                   'Q': f"{mso_filter['q']:.12g}"})
+    elif f_type == 'ComplexHighPass':
+        ft = mso_filter['filter_type']
+        lp_ft = FilterType.BUTTERWORTH if ft == 'BW' else FilterType.LINKWITZ_RILEY if ft == 'LR' else FilterType.BESSEL_MAG
+        return convert_filter_to_mc_dsp(ComplexHighPass(lp_ft, mso_filter['order'], 48000, mso_filter['fc']), channels)
+    elif f_type == 'HPF_VarQ':
+        return HighPass(HighPass.default_values() | {'Channels': channels,
+                                                     'Slope': '12',
+                                                     'Frequency': f"{mso_filter['fc']:.12g}",
+                                                     'Q': f"{mso_filter['q']:.12g}"})
+    elif f_type == 'LinkwitzTransform':
+        return convert_filter_to_mc_dsp(
+            LinkwitzTransform(48000, mso_filter['f0'], mso_filter['q0'], mso_filter['fp'], mso_filter['qp']), channels)
     else:
         raise ValueError(f"Unknown MSO filter type {json.dumps(mso_filter)}")
