@@ -11,7 +11,7 @@ import math
 from model import iir
 from model.iir import SOS, s_to_q, q_to_s, FirstOrder_LowPass, FirstOrder_HighPass, PassFilter, CompoundPassFilter, \
     FilterType, SecondOrder_LowPass, ComplexLowPass, SecondOrder_HighPass, ComplexHighPass, CompleteFilter, \
-    BiquadWithQGain, PeakingEQ, LowShelf as LS, Gain as G, LinkwitzTransform as LT
+    BiquadWithQGain, PeakingEQ, LowShelf as LS, Gain as G, LinkwitzTransform as LT, AllPass as AP
 from model.jriver.codec import filts_to_xml
 from model.jriver.common import get_channel_name, pop_channels, get_channel_idx, JRIVER_SHORT_CHANNELS, \
     make_dirac_pulse, make_silence
@@ -1250,6 +1250,17 @@ def convert_filter_to_mc_dsp(filt: SOS, target_channels: str) -> Filter:
     elif isinstance(filt, FirstOrder_LowPass) or isinstance(filt, FirstOrder_HighPass):
         pass_type = HighPass if isinstance(filt, FirstOrder_HighPass) else LowPass
         return pass_type(__make_mc_pass_filter(filt, pass_type.TYPE, target_channels))
+    elif isinstance(filt, AP):
+        return AllPass({
+            'Enabled': '1',
+            'Slope': '12',
+            'Q': f"{filt.q:.7g}",
+            'Type': AllPass.TYPE,
+            'Version': '1',
+            'Gain': '0',
+            'Frequency':  f"{filt.freq:.7g}",
+            'Channels': target_channels
+        })
     else:
         raise ValueError(f"Unsupported filter type {filt}")
 

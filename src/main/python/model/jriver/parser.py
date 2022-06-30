@@ -6,7 +6,8 @@ from typing import List
 from model.iir import ComplexFilter, SOS
 from model.jriver.codec import get_peq_key_name, filts_to_xml, include_filters_in_dsp
 from model.jriver.common import JRIVER_CHANNELS, get_channel_indexes
-from model.jriver.filter import convert_filter_to_mc_dsp, MSOFilter, Filter, Delay, Peak, LowShelf, HighShelf, AllPass
+from model.jriver.filter import convert_filter_to_mc_dsp, MSOFilter, Filter, Delay, Peak, LowShelf, HighShelf, AllPass, \
+    Gain
 
 logger = logging.getLogger('jriver.parser')
 
@@ -77,5 +78,8 @@ def convert_mso_filter(mso_filter: dict) -> Filter:
         return AllPass(AllPass.default_values() | {'Channels': channels,
                                                    'Frequency': f"{mso_filter['fc']:.12g}",
                                                    'Q': f"{mso_filter['q']:.12g}"})
+    elif f_type == 'Gain':
+        return Gain(Gain.default_values() | {'Channels': channels,
+                                             'Gain': f"{mso_filter['gain_val']:.12g}"})
     else:
         raise ValueError(f"Unknown MSO filter type {json.dumps(mso_filter)}")
