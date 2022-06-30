@@ -71,8 +71,7 @@ class GraphRenderer:
             if f.mix_type == MixType.ADD or f.mix_type == MixType.SUBTRACT:
                 last_dst = last_node_by_channel[dst_channel]
                 target_name: str = "SUM" if f.mix_type == MixType.ADD else "SUBTRACT"
-                if not last_dst or not re.search(fr'.*\[label=".*{target_name}"(?: style=filled fillcolor=.*)?].*',
-                                                 nodes[last_dst], flags=re.DOTALL):
+                if not last_dst or (last_dst.startswith('IN:' or not re.search(fr'.*\[label=".*{target_name}"(?: style=filled fillcolor=.*)?].*', nodes[last_dst], flags=re.DOTALL))):
                     added_nodes.append(self.__create_node(dst_channel, f, nodes, selected_nodes, suffix=target_name))
                     last_node_by_channel[dst_channel] = added_nodes[-1]
                     if last_dst:
