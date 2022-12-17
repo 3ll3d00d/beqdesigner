@@ -180,10 +180,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         '''
         Creates a new configuration with a selected output format.
         '''
-        mc_version = 28
-        item, ok = QInputDialog.getItem(self, 'Choose MC Version', 'Version: ', ['29', '28'], 0, False)
-        if ok and item:
-            mc_version = int(item)
+        mc_version = self.__pick_mc_version()
         of: OutputFormat
         all_formats: List[OutputFormat] = [of for of in OUTPUT_FORMATS.values() if of.is_compatible(mc_version)]
         output_formats = [of.display_name for of in all_formats]
@@ -225,10 +222,18 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
             write_dsp_file(root, output_file)
             self.__load_dsp(output_file, allow_padding=selected_padding > 0)
 
+    def __pick_mc_version(self) -> int:
+        mc_version = 30
+        item, ok = QInputDialog.getItem(self, 'Choose MC Version', 'Version: ', ['30', '29', '28'], 0, False)
+        if ok and item:
+            mc_version = int(item)
+        return mc_version
+
     def find_dsp_file(self):
         '''
         Allows user to select a DSP file and loads it as a set of graphs.
         '''
+        mc_version = self.__pick_mc_version()
         dsp_dir = self.prefs.get(JRIVER_DSP_DIR)
         kwargs = {
             'caption': 'Select JRiver Media Centre DSP File',
@@ -238,7 +243,8 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
             kwargs['directory'] = dsp_dir
         selected = QFileDialog.getOpenFileName(parent=self, **kwargs)
         if selected is not None and len(selected[0]) > 0:
-            self.__load_dsp(selected[0])
+            legacy = mc_version < 29
+            self.__load_dsp(selected[0], convert_q=legacy, allow_padding=not legacy)
 
     def __load_dsp(self, name: str, txt: str = None, convert_q: bool = False, allow_padding: bool = False) -> None:
         '''
