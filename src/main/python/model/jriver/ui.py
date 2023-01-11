@@ -188,7 +188,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         if ok and item:
             selected: OutputFormat = next((of for of in all_formats if of.display_name == item))
             selected_padding: int = 0
-            if selected.paddings and mc_version == 29:
+            if selected.paddings and mc_version >= 29:
                 item, ok = QInputDialog.getItem(self, "Extra Channels?", "Count:",
                                                 ["None"] + [f"{p} channels" for p in selected.paddings], 0, False)
                 if ok and item and item != 'None':

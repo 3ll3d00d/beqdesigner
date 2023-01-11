@@ -1807,9 +1807,7 @@ class FilterGraph:
                 src_signal = pending_sos.apply(src_signal)
 
             filter_op = f.get_filter_op()
-            if isinstance(filter_op, NopFilterOp):
-                pass
-            elif f.mix_type == MixType.ADD or f.mix_type == MixType.SUBTRACT:
+            if f.mix_type == MixType.ADD or f.mix_type == MixType.SUBTRACT:
                 dst_signal = filter_op.accept(src_signal).apply(dst_signal)
             elif f.mix_type == MixType.MOVE:
                 dst_signal = filter_op.apply(src_signal).copy(new_name=dst_channel)
