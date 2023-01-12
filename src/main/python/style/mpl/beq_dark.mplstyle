@@ -1,6 +1,5 @@
 # Set black background default line colors to white.
 
-
 lines.color: f4f4f4
 patch.edgecolor: f4f4f4
 
