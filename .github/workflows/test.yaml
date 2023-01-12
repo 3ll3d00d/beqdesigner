@@ -33,10 +33,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install pipenv
           pipenv install -d
-          if [[ "$RUNNER_OS" == "Windows" ]]
-          then
-            pipenv run pip install -Iv numpy==1.19.3
-          fi
           pip list
           pipenv run pip list
       - name: pytest

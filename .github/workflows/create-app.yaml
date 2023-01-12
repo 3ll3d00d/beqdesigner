@@ -16,17 +16,15 @@ jobs:
       - uses: actions/checkout@v2
       - name: Generate changelog
         id: changelog
-        uses: metcalfc/changelog-generator@v3.0.0
+        uses: metcalfc/changelog-generator@v4.0.1
         with:
           myToken: ${{ secrets.GITHUB_TOKEN }}
       - name: Create release
         id: create_release
-        uses: actions/create-release@v1
+        uses: softprops/action-gh-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ github.ref }}
-          release_name: ${{ github.ref }}
           body: ${{ steps.changelog.outputs.changelog }}
           draft: false
           prerelease: true
@@ -49,10 +47,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install pipenv
           pipenv install -d
-          if [[ "$RUNNER_OS" == "Windows" ]]
-          then
-            pipenv run pip install -Iv numpy==1.19.3
-          fi
           pip list
           pipenv run pip list
       - name: pytest
@@ -93,19 +87,19 @@ jobs:
             zip -r beqdesigner.app.zip beqdesigner.app
             rm -Rf beqdesigner.app
             popd
-            echo ::set-output name=binary_path::"dist/beqdesigner.app.zip"
-            echo ::set-output name=binary_name::"beqdesigner.app.zip"
-            echo ::set-output name=binary_content_type::"application/zip"
+            echo "binary_path=dist/beqdesigner.app.zip" >> $GITHUB_OUTPUT
+            echo "binary_name=beqdesigner.app.zip" >> $GITHUB_OUTPUT
+            echo "binary_content_type=application/zip" >> $GITHUB_OUTPUT
           elif [[ "$RUNNER_OS" == "Windows" ]]
           then
-            echo ::set-output name=binary_path::"dist/beqdesigner.exe"
-            echo ::set-output name=binary_name::"beqdesigner.exe"
-            echo ::set-output name=binary_content_type::"application/vnd.microsoft.portable-executable"
+            echo "binary_path=dist/beqdesigner.exe" >> $GITHUB_OUTPUT
+            echo "binary_name=beqdesigner.exe" >> $GITHUB_OUTPUT
+            echo "binary_content_type=application/vnd.microsoft.portable-executable" >> $GITHUB_OUTPUT
           else
             MATCHES=( dist/beqdesigner_* )
-            echo ::set-output name=binary_path::"${MATCHES[0]}"
-            echo ::set-output name=binary_name::"${MATCHES[0]:5}"
-            echo ::set-output name=binary_content_type::"application/octet-stream"
+            echo "binary_path=${MATCHES[0]}" >> $GITHUB_OUTPUT
+            echo "binary_name=${MATCHES[0]:5}" >> $GITHUB_OUTPUT
+            echo "binary_content_type=application/octet-stream" >> $GITHUB_OUTPUT
           fi
       - name: Upload beqdesigner
         uses: actions/upload-release-asset@v1
