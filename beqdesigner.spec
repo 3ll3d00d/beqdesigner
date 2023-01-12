@@ -123,6 +123,8 @@ def get_exe_name():
     if platform.system().lower().startswith('linux'):
         linux_dist = distro.linux_distribution(full_distribution_name=False)
         return f"beqdesigner_{'_'.join((x for x in linux_dist if x is not None and len(x) > 0))}"
+    elif platform.system().lower().startswith('windows'):
+        return f"beqdesigner_{platform.win32_ver()[0].replace('.', '_')}"
     return 'beqdesigner'
 
 

@@ -84,16 +84,18 @@ jobs:
           then
             pushd dist
             rm beqdesigner
-            zip -r beqdesigner.app.zip beqdesigner.app
+            zip -r beqdesigner.app.zip_$(sw_vers -productVersion) beqdesigner.app
             rm -Rf beqdesigner.app
             popd
-            echo "binary_path=dist/beqdesigner.app.zip" >> $GITHUB_OUTPUT
-            echo "binary_name=beqdesigner.app.zip" >> $GITHUB_OUTPUT
+            MATCHES=( dist/beqdesigner.app.zip_* )
+            echo "binary_path=${MATCHES[0]}" >> $GITHUB_OUTPUT
+            echo "binary_name=${MATCHES[0]:5}" >> $GITHUB_OUTPUT
             echo "binary_content_type=application/zip" >> $GITHUB_OUTPUT
           elif [[ "$RUNNER_OS" == "Windows" ]]
           then
-            echo "binary_path=dist/beqdesigner.exe" >> $GITHUB_OUTPUT
-            echo "binary_name=beqdesigner.exe" >> $GITHUB_OUTPUT
+            MATCHES=( dist/beqdesigner_* )
+            echo "binary_path=${MATCHES[0]}" >> $GITHUB_OUTPUT
+            echo "binary_name=${MATCHES[0]:5}" >> $GITHUB_OUTPUT
             echo "binary_content_type=application/vnd.microsoft.portable-executable" >> $GITHUB_OUTPUT
           else
             MATCHES=( dist/beqdesigner_* )
