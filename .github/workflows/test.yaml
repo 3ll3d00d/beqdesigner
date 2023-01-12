@@ -59,7 +59,7 @@ jobs:
           pipenv run pip install pyinstaller
       - name: Get version
         id: get_version
-        run: echo "::set-output name=sha_short::$(git rev-parse --short HEAD)"
+        run: echo "name=sha_short::$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
       - name: Append version
         run: |
           echo ${{ steps.get_version.outputs.sha_short }} > src/main/python/VERSION
