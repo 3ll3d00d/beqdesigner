@@ -37,7 +37,7 @@ class JRiverDSP:
                 mc_filters = self.__parse_peq(self.__input_config_txt, block, convert_q)
             except NoFiltersError:
                 mc_filters = []
-            self.__graphs.append(FilterGraph(block, in_names, out_names, mc_filters, on_delta))
+            self.__graphs.append(FilterGraph(block, in_names, out_names, mc_filters, on_delta=on_delta, convert_q=convert_q))
         end = time.time()
         logger.info(f"Parsed {name} in {to_millis(start, end)}ms")
 

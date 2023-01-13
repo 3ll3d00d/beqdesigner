@@ -1197,10 +1197,11 @@ def create_peq(vals: Dict[str, str], convert_q: bool = False) -> Filter:
     return type_(vals, convert_q) if vals['Type'] in convert_q_types else type_(vals)
 
 
-def convert_filter_to_mc_dsp(filt: SOS, target_channels: str) -> Filter:
+def convert_filter_to_mc_dsp(filt: SOS, target_channels: str, convert_q: bool = False) -> Filter:
     '''
     :param filt: a filter.
     :param target_channels: the channels to output to.
+    :param convert_q: true if backwards compatibility with MC28 is required.
     :return: a filter
     '''
     if isinstance(filt, BiquadWithQGain):
@@ -1208,7 +1209,7 @@ def convert_filter_to_mc_dsp(filt: SOS, target_channels: str) -> Filter:
             f_type = Peak
             q = filt.q
         else:
-            q = q_to_s(filt.q, filt.gain)
+            q = q_to_s(filt.q, filt.gain) if convert_q else filt.q
             f_type = LowShelf if isinstance(filt, LS) else HighShelf
         return f_type({
             'Enabled': '1',
@@ -1426,7 +1427,7 @@ class GainFilterOp(FilterOp):
 class FilterGraph:
 
     def __init__(self, stage: int, input_channels: List[str], output_channels: List[str], filts: List[Filter],
-                 on_delta: Callable[[bool, bool], None] = None):
+                 on_delta: Callable[[bool, bool], None] = None, convert_q: bool = False):
         self.__on_delta = on_delta
         self.__editing: Optional[Tuple[str, List[str]], int] = None
         self.__stage = stage
@@ -1435,6 +1436,7 @@ class FilterGraph:
         self.__output_channels = output_channels
         self.__input_channels = input_channels
         self.__dot = None
+        self.__convert_q = convert_q
         self.__regen()
 
     def undo(self) -> bool:
@@ -1617,7 +1619,7 @@ class FilterGraph:
             #     if skipped past old filters, delete them
             #   insert filter
             for i, f in enumerate(new_filters):
-                new_filter = convert_filter_to_mc_dsp(f, channel_idx)
+                new_filter = convert_filter_to_mc_dsp(f, channel_idx, convert_q=self.__convert_q)
                 if last_match < len(old_filters):
                     new_filt_vals = new_filter.get_all_vals()
                     handled = False
