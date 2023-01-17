@@ -6,7 +6,7 @@ name = "pypi"
 [packages]
 pyqt5 = "*"
 qdarkstyle ="*"
-matplotlib = "==3.5.2"
+matplotlib = "*"
 ffmpeg-python = "*"
 soundfile = "*"
 resampy = "*"
