@@ -85,8 +85,8 @@ def convert_mso_filter(mso_filter: dict) -> Filter:
         return Polarity(Polarity.default_values() | {'Channels': channels})
     elif f_type == 'ComplexLowPass':
         ft = mso_filter['filter_type']
-        lp_ft = FilterType.BUTTERWORTH if ft == 'BW' else FilterType.LINKWITZ_RILEY if ft == 'LR' else FilterType.BESSEL_MAG
-        return convert_filter_to_mc_dsp(ComplexLowPass(lp_ft, mso_filter['order'], 48000, mso_filter['fc']), channels)
+        lp_ft = FilterType.BUTTERWORTH if ft == 'BW' else FilterType.LINKWITZ_RILEY if ft == 'LR' else FilterType.BESSEL_MAG3
+        return convert_filter_to_mc_dsp(ComplexLowPass(lp_ft, mso_filter['order'], 192000, mso_filter['fc']), channels)
     elif f_type == 'LPF_VarQ':
         return LowPass(LowPass.default_values() | {'Channels': channels,
                                                    'Slope': '12',
@@ -94,8 +94,8 @@ def convert_mso_filter(mso_filter: dict) -> Filter:
                                                    'Q': f"{mso_filter['q']:.12g}"})
     elif f_type == 'ComplexHighPass':
         ft = mso_filter['filter_type']
-        lp_ft = FilterType.BUTTERWORTH if ft == 'BW' else FilterType.LINKWITZ_RILEY if ft == 'LR' else FilterType.BESSEL_MAG
-        return convert_filter_to_mc_dsp(ComplexHighPass(lp_ft, mso_filter['order'], 48000, mso_filter['fc']), channels)
+        lp_ft = FilterType.BUTTERWORTH if ft == 'BW' else FilterType.LINKWITZ_RILEY if ft == 'LR' else FilterType.BESSEL_MAG3
+        return convert_filter_to_mc_dsp(ComplexHighPass(lp_ft, mso_filter['order'], 192000, mso_filter['fc']), channels)
     elif f_type == 'HPF_VarQ':
         return HighPass(HighPass.default_values() | {'Channels': channels,
                                                      'Slope': '12',
@@ -103,6 +103,6 @@ def convert_mso_filter(mso_filter: dict) -> Filter:
                                                      'Q': f"{mso_filter['q']:.12g}"})
     elif f_type == 'LinkwitzTransform':
         return convert_filter_to_mc_dsp(
-            LinkwitzTransform(48000, mso_filter['f0'], mso_filter['q0'], mso_filter['fp'], mso_filter['qp']), channels)
+            LinkwitzTransform(192000, mso_filter['f0'], mso_filter['q0'], mso_filter['fp'], mso_filter['qp']), channels)
     else:
         raise ValueError(f"Unknown MSO filter type {json.dumps(mso_filter)}")

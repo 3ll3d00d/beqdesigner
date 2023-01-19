@@ -68,13 +68,14 @@ def pop_channels(vals: List[Dict[str, str]]):
     return [{k: v for k, v in d.items() if k != 'Channels'} for d in vals]
 
 
-def make_dirac_pulse(channel: str):
-    fs = 48000
-    return Signal(channel, unit_impulse(fs * 4, 'mid') * 23453.66, fs=fs)
+def make_dirac_pulse(channel: str, analysis_resolution=1.0):
+    fs = 192000
+    return Signal(channel, unit_impulse(fs * 4, 'mid') * 23453.66, fs=fs, analysis_resolution=analysis_resolution,
+                  rescale_x=False)
 
 
 def make_silence(channel: str):
-    fs = 48000
+    fs = 192000
     return Signal(channel, np.zeros(fs * 4), fs=fs)
 
 

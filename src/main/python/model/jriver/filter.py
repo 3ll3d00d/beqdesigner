@@ -8,13 +8,15 @@ from typing import List, Dict, Optional, Callable, Union, Type, Sequence, overlo
 
 import math
 
+import numpy as np
+
 from model import iir
 from model.iir import SOS, s_to_q, q_to_s, FirstOrder_LowPass, FirstOrder_HighPass, PassFilter, CompoundPassFilter, \
     FilterType, SecondOrder_LowPass, ComplexLowPass, SecondOrder_HighPass, ComplexHighPass, CompleteFilter, \
-    BiquadWithQGain, PeakingEQ, LowShelf as LS, Gain as G, LinkwitzTransform as LT, AllPass as AP
+    BiquadWithQGain, PeakingEQ, LowShelf as LS, Gain as G, LinkwitzTransform as LT, AllPass as AP, MDS_FREQ_DIVISOR
 from model.jriver.codec import filts_to_xml
 from model.jriver.common import get_channel_name, pop_channels, get_channel_idx, JRIVER_SHORT_CHANNELS, \
-    make_dirac_pulse, make_silence
+    make_dirac_pulse, make_silence, SHORT_USER_CHANNELS
 from model.log import to_millis
 from model.signal import Signal
 
@@ -249,7 +251,7 @@ class GainQFilter(ChannelFilter, ABC):
         return NopFilterOp()
 
     def get_editable_filter(self) -> Optional[SOS]:
-        return self.__create_iir(48000, self.__frequency, self.__q, self.__gain, f_id=self.id)
+        return self.__create_iir(192000, self.__frequency, self.__q, self.__gain, f_id=self.id)
 
     @classmethod
     def default_values(cls) -> Dict[str, str]:
@@ -339,7 +341,7 @@ class AllPass(ChannelFilter):
         return NopFilterOp()
 
     def get_editable_filter(self) -> Optional[SOS]:
-        return iir.AllPass(48000, self.__frequency, self.__q, f_id=self.id)
+        return iir.AllPass(192000, self.__frequency, self.__q, f_id=self.id)
 
     @classmethod
     def default_values(cls) -> Dict[str, str]:
@@ -429,11 +431,11 @@ class Pass(ChannelFilter, ABC):
         :return: the filters.
         '''
         if self.order == 1:
-            return self.__ctors[0](48000, self.freq, f_id=self.id)
+            return self.__ctors[0](192000, self.freq, f_id=self.id)
         elif self.order == 2:
-            return self.__ctors[1](48000, self.freq, q=self.q, f_id=self.id)
+            return self.__ctors[1](192000, self.freq, q=self.q, f_id=self.id)
         else:
-            return self.__ctors[2](FilterType.BUTTERWORTH, self.order, 48000, self.freq, q_scale=self.q, f_id=self.id)
+            return self.__ctors[2](FilterType.BUTTERWORTH, self.order, 192000, self.freq, q_scale=self.q, f_id=self.id)
 
     def __repr__(self):
         return f"{self.__class__.__name__} Order={self.order} Q={self.q:.4g} at {self.freq:.7g} Hz {self.print_channel_names()}{self.print_disabled()}"
@@ -484,7 +486,7 @@ class Gain(ChannelFilter):
         return f"{self.__gain:+.7g} dB"
 
     def get_editable_filter(self) -> Optional[SOS]:
-        return iir.Gain(48000, self.gain, f_id=self.id)
+        return iir.Gain(192000, self.gain, f_id=self.id)
 
 
 class BitdepthSimulator(SingleFilter):
@@ -630,7 +632,7 @@ class LinkwitzTransform(ChannelFilter):
         return NopFilterOp()
 
     def get_editable_filter(self) -> Optional[SOS]:
-        return iir.LinkwitzTransform(48000, self.__fz, self.__qz, self.__fp, self.__qp)
+        return iir.LinkwitzTransform(192000, self.__fz, self.__qz, self.__fp, self.__qp)
 
 
 class LinkwitzRiley(SingleFilter):
@@ -1151,14 +1153,16 @@ class CustomPassFilter(ComplexChannelFilter):
         '''
         tokens = self.__name.split('/')
         if len(tokens) == 5:
-            f_type = FilterType(tokens[1])
+            ft = tokens[1]
+            ft = 'BESM3' if ft == 'BESM' else ft
+            f_type = FilterType(ft)
             order = int(tokens[2])
             freq = float(tokens[3])
             q_scale = float(tokens[4])
             if tokens[0] == 'HP':
-                return ComplexHighPass(f_type, order, 48000, freq, q_scale)
+                return ComplexHighPass(f_type, order, 192000, freq, q_scale)
             elif tokens[0] == 'LP':
-                return ComplexLowPass(f_type, order, 48000, freq, q_scale)
+                return ComplexLowPass(f_type, order, 192000, freq, q_scale)
         raise ValueError(f"Unable to decode {self.__name}")
 
     def metadata(self) -> str:
@@ -1169,7 +1173,7 @@ class CustomPassFilter(ComplexChannelFilter):
         return 'PASS'
 
     def __repr__(self):
-        return self.short_desc()
+        return f"{self.short_desc()}  [{', '.join(self.channel_names)}]"
 
     @classmethod
     def create(cls, data: str, child_filters: List[Filter]):
@@ -1353,7 +1357,7 @@ class SosFilterOp(FilterOp):
 
 class DelayFilterOp(FilterOp):
 
-    def __init__(self, delay_millis: float, fs: int = 48000):
+    def __init__(self, delay_millis: float, fs: int = 192000):
         self.__shift_samples = int((delay_millis / 1000) / (1.0 / fs))
 
     def apply(self, input_signal: Signal) -> Signal:
@@ -1593,7 +1597,8 @@ class FilterGraph:
 
     def __update_history(self):
         logger.info(f"FiltCache: {len(self.__filt_cache)}, idx: {self.__active_idx}")
-        self.__on_delta(len(self.__filt_cache) > 1, self.__active_idx != -1)
+        if self.__on_delta:
+            self.__on_delta(len(self.__filt_cache) > 1, self.__active_idx != -1)
 
     def start_edit(self, channel: str, node_chain: List[str], insert_at: int):
         self.__editing = (channel, node_chain, insert_at)
@@ -1728,6 +1733,9 @@ class FilterGraph:
         self.__append()
         self.__insert(to_insert, at, regen)
 
+    def append(self, to_append: Filter, regen=True) -> None:
+        self.insert(to_append, 2**24, regen=regen)
+
     def __insert(self, to_insert: Filter, at: int, regen=True) -> None:
         if at < len(self.filters):
             if len(self.filters) == 1:
@@ -1765,13 +1773,13 @@ class FilterGraph:
         except:
             return False
 
-    def simulate(self) -> Dict[str, Signal]:
+    def simulate(self, analysis_resolution=1.0) -> Dict[str, Signal]:
         """
         Applies each filter to unit impulse per channel.
         """
         start = time.time()
         signals: Dict[str, Tuple[Signal, Optional[SosFilterOp]]] = {
-            c: (make_dirac_pulse(c) if c in self.input_channels else make_silence(c), None)
+            c: (make_dirac_pulse(c, analysis_resolution=analysis_resolution) if c in self.input_channels else make_silence(c), None)
             for c in self.output_channels
         }
         for f in self.all_filters:
@@ -1846,3 +1854,207 @@ def set_filter_ids(filters: List[Filter]) -> List[Filter]:
             for i1, f1 in enumerate(f.filters):
                 f1.id = f.id + 1 + i1
     return filters
+
+
+class MatchedDelaySubtractiveCrossover:
+
+    def __init__(self, order: int, fc: float, fs: int = 192000):
+        self.__order = order
+        self.__fs = fs
+        self.__fc = fc
+        self.__delay_samples = 0
+        self.__dc_gd: float = 0.0
+
+
+    @property
+    def fc_scaling(self) -> float:
+        return 0.0
+
+    @property
+    def delay_samples(self) -> int:
+        return self.__delay_samples
+
+    @delay_samples.setter
+    def delay_samples(self, val: int):
+        self.__delay_samples = val
+
+    @property
+    def dc_gd(self) -> float:
+        return self.__dc_gd
+
+
+class MDSFilter:
+
+    def __init__(self, order: int, target_fc: float, fc_divisor: float = 0.0, fs: int = 192000, in_channel: str = 'L',
+                 lp_channel: str = 'L', hp_channel: str = 'R'):
+        self.__order = order
+        self.__fs = fs
+        self.__target_fc = target_fc
+        self.__fc_divisor = fc_divisor if fc_divisor != 0.0 else MDS_FREQ_DIVISOR[order]
+        self.__dc_gd_millis = 0.0
+        self.__in_channel = in_channel
+        self.__lp_channel = lp_channel
+        self.__hp_channel = hp_channel
+        self.__filter = self.__calculate_graph()
+        self.__output = None
+        self.__crossing = None
+        self.__lp_slope = None
+        self.__hp_slope = None
+
+    def __repr__(self):
+        return '\n'.join([str(f) for f in self.__filter.filters])
+
+    @property
+    def delay(self) -> float:
+        return self.__dc_gd_millis
+
+    @property
+    def delay_samples(self) -> float:
+        return self.delay / self.__fs
+
+    @property
+    def target_fc(self) -> float:
+        return self.__target_fc
+
+    @property
+    def actual_fc(self) -> float:
+        self.__metrics()
+        return self.__crossing
+
+    @property
+    def lp_slope(self) -> float:
+        self.__metrics()
+        return self.__lp_slope
+
+    @property
+    def hp_slope(self) -> float:
+        self.__metrics()
+        return self.__hp_slope
+
+    def __metrics(self):
+        if self.__crossing is None:
+            self.__crossing, self.__lp_slope, self.__hp_slope = self.__assess_performance()
+
+    @property
+    def fc_delta(self) -> float:
+        return self.__target_fc - self.actual_fc
+
+    @property
+    def optimised_divisor(self) -> float:
+        return self.actual_fc / self.__target_fc * self.__fc_divisor
+
+    @property
+    def fc_divisor(self) -> float:
+        return self.__fc_divisor
+
+    @property
+    def lp_output(self) -> Signal:
+        self.__calc_output()
+        return self.__output[self.__lp_channel]
+
+    def __calc_output(self):
+        if self.__output is None:
+            self.__output = self.__filter.simulate(analysis_resolution=0.1)
+
+    @property
+    def hp_output(self) -> Signal:
+        self.__calc_output()
+        return self.__output[self.__hp_channel]
+
+    def __assess_performance(self) -> Tuple[float, float, float]:
+        lp_x, lp_y = self.lp_output.avg
+        hp_x, hp_y = self.hp_output.avg
+        fc_idx = np.argmax(hp_y >= lp_y).item()
+        hp_slope_start_idx = np.argmax(hp_x > (self.target_fc * 0.25))
+        hp_slope_end_idx = np.argmax(hp_x > (self.target_fc * 0.125))
+        hp_slope = hp_y[hp_slope_start_idx.item()] - hp_y[hp_slope_end_idx.item()]
+        lp_slope_start_idx = np.argmax(lp_x > self.target_fc * 4)
+        lp_slope_end_idx = np.argmax(lp_x > self.target_fc * 8)
+        lp_slope = lp_y[lp_slope_start_idx.item()] - lp_y[lp_slope_end_idx.item()]
+        return lp_x[fc_idx], lp_slope, hp_slope
+
+    def __calculate_graph(self) -> FilterGraph:
+        self.__dc_gd_millis = self.__calc_dc_gd(self.__make_low_pass())
+
+        channels = list({self.__in_channel, self.__lp_channel, self.__hp_channel}) + SHORT_USER_CHANNELS
+        graph = FilterGraph(0, channels, channels, [])
+        # copy input to user channels
+        graph.append(Mix({
+            **Mix.default_values(),
+            'Source': str(get_channel_idx(self.__in_channel)),
+            'Destination': str(get_channel_idx('U1')),
+            'Mode': str(MixType.COPY.value)
+        }), regen=False)
+        graph.append(Mix({
+            **Mix.default_values(),
+            'Source': str(get_channel_idx(self.__in_channel)),
+            'Destination': str(get_channel_idx('U2')),
+            'Mode': str(MixType.COPY.value)
+        }), regen=False)
+        # delayed LP
+        self.__add_delayed_low_pass(graph, self.__make_low_pass())
+        # subtract
+        graph.append(Mix({
+            **Mix.default_values(),
+            'Source': str(get_channel_idx('U2')),
+            'Destination': str(get_channel_idx('U1')),
+            'Mode': str(MixType.COPY.value)
+        }), regen=False)
+        self.__add_delayed_low_pass(graph, self.__make_low_pass())
+        # delay input x2
+        graph.append(Delay({
+            **Delay.default_values(),
+            'Channels': str(get_channel_idx(self.__in_channel)),
+            'Delay': f"{self.__dc_gd_millis * 2:.7g}",
+        }), regen=False)
+        # create low pass
+        if self.__in_channel != self.__lp_channel:
+            graph.append(Mix({
+                **Mix.default_values(),
+                'Source': str(get_channel_idx(self.__in_channel)),
+                'Destination': str(get_channel_idx(self.__lp_channel)),
+                'Mode': str(MixType.COPY.value)
+            }), regen=False)
+        graph.append(Mix({
+            **Mix.default_values(),
+            'Source': str(get_channel_idx('U2')),
+            'Destination': str(get_channel_idx(self.__lp_channel)),
+            'Mode': str(MixType.SUBTRACT.value)
+        }), regen=False)
+        # move high pass to output
+        graph.append(Mix({
+            **Mix.default_values(),
+            'Source': str(get_channel_idx('U2')),
+            'Destination': str(get_channel_idx(self.__hp_channel)),
+            'Mode': str(MixType.MOVE.value)
+        }), regen=False)
+        return graph
+
+    def __make_low_pass(self) -> ComplexLowPass:
+        return ComplexLowPass(FilterType.BESSEL_MAG6, self.__order, self.__fs, self.__target_fc / self.__fc_divisor)
+
+    def __add_delayed_low_pass(self, graph, low_pass: ComplexLowPass):
+        graph.append(convert_filter_to_mc_dsp(low_pass, str(get_channel_idx('U1'))), regen=False)
+        graph.append(Delay({
+            **Delay.default_values(),
+            'Channels': str(get_channel_idx('U2')),
+            'Delay': f"{self.__dc_gd_millis:.7g}",
+        }), regen=False)
+        graph.append(Mix({
+            **Mix.default_values(),
+            'Source': str(get_channel_idx('U1')),
+            'Destination': str(get_channel_idx('U2')),
+            'Mode': str(MixType.SUBTRACT.value)
+        }), regen=False)
+
+    def __calc_dc_gd(self, low_pass: ComplexLowPass) -> float:
+        from scipy.signal import group_delay
+        gd = None
+        for i, f in enumerate(low_pass.filters):
+            f_s, gd_c = group_delay((f.b, f.a), w=1) # w=1 calculates DC only
+            gd_c = gd_c / self.__fs * 1000.0
+            if i == 0:
+                gd = gd_c
+            else:
+                gd = gd + gd_c
+        return gd[0]

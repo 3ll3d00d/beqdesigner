@@ -103,7 +103,7 @@ class GeqDialog(QDialog, Ui_geqDialog):
     def get_curve_data(self, mode, reference=None):
         ''' preview of the filter to display on the chart '''
         result = []
-        final_filter = CompleteFilter(fs=48000, filters=self.__get_filters(), sort_by_id=True)
+        final_filter = CompleteFilter(fs=192000, filters=self.__get_filters(), sort_by_id=True)
         if mode == 'mag' or self.showPhase.isChecked():
             extra = 0
             if len(final_filter) > 0:
@@ -297,13 +297,13 @@ class PeqEditor:
         if math.isclose(self.__gain.value(), 0.0) and not include_zero:
             return None
         if self.__ls_button.isChecked():
-            return LowShelf(48000, self.__freq.value(), self.__q.value(), self.__gain.value(), f_id=self.__idx)
+            return LowShelf(192000, self.__freq.value(), self.__q.value(), self.__gain.value(), f_id=self.__idx)
         elif self.__hs_button.isChecked():
-            return HighShelf(48000, self.__freq.value(), self.__q.value(), self.__gain.value(), f_id=self.__idx)
+            return HighShelf(192000, self.__freq.value(), self.__q.value(), self.__gain.value(), f_id=self.__idx)
         elif self.__peq_button.isChecked():
-            return PeakingEQ(48000, self.__freq.value(), self.__q.value(), self.__gain.value(), f_id=self.__idx)
+            return PeakingEQ(192000, self.__freq.value(), self.__q.value(), self.__gain.value(), f_id=self.__idx)
         else:
-            return Passthrough(fs=48000)
+            return Passthrough(fs=192000)
 
     def show(self) -> None:
         self.__geq_frame.show()

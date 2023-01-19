@@ -2,9 +2,10 @@ import abc
 import datetime
 import logging
 import math
+import numbers
 import re
 import time
-from typing import List, Optional, Dict, Iterable, Any
+from typing import List, Optional, Dict, Iterable, Any, Union
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -828,7 +829,7 @@ class Signal:
 
     def __init__(self, name, samples, preferences=None,
                  analysis_resolution=ANALYSIS_RESOLUTION_DEFAULT, avg_window=ANALYSIS_WINDOW_DEFAULT,
-                 peak_window=ANALYSIS_WINDOW_DEFAULT, fs=48000, metadata=None):
+                 peak_window=ANALYSIS_WINDOW_DEFAULT, fs=48000, metadata=None, rescale_x=True):
         if preferences is not None:
             from model.preferences import ANALYSIS_RESOLUTION, ANALYSIS_PEAK_WINDOW, ANALYSIS_AVG_WINDOW
             self.__analysis_resolution = preferences.get(ANALYSIS_RESOLUTION)
@@ -838,6 +839,7 @@ class Signal:
             self.__peak_window = peak_window
             self.__avg_window = avg_window
             self.__analysis_resolution = analysis_resolution
+        self.__rescale_x_resolution = rescale_x
         self.__name = name
         self.samples = samples
         self.fs = fs
@@ -904,7 +906,8 @@ class Signal:
                           avg_window=self.__avg_window,
                           peak_window=self.__peak_window,
                           fs=self.fs,
-                          metadata=metadata)
+                          metadata=metadata,
+                          rescale_x=self.__rescale_x_resolution)
         else:
             return self
 
@@ -948,7 +951,10 @@ class Signal:
         f = results[0][0]
         # a 3dB adjustment is required to account for the change in nperseg
         Pxx_spec = amplitude_to_db(np.nan_to_num(np.sqrt(Pxx_spec)), ref * SPECLAB_REFERENCE)
-        return self.__rescale_x(f, Pxx_spec)
+        if self.__rescale_x_resolution is True:
+            return self.__rescale_x(f, Pxx_spec)
+        else:
+            return f, Pxx_spec
 
     @staticmethod
     def __rescale_x(x, y):
@@ -1041,7 +1047,8 @@ class Signal:
                       avg_window=self.__avg_window,
                       peak_window=self.__peak_window,
                       fs=self.fs,
-                      metadata=self.metadata)
+                      metadata=self.metadata,
+                      rescale_x=self.__rescale_x_resolution)
 
     def sosfilter(self, sos, filtfilt=False):
         '''
@@ -1057,7 +1064,8 @@ class Signal:
                       avg_window=self.__avg_window,
                       peak_window=self.__peak_window,
                       fs=self.fs,
-                      metadata=self.metadata)
+                      metadata=self.metadata,
+                      rescale_x=self.__rescale_x_resolution)
 
     def invert(self):
         '''
@@ -1070,7 +1078,8 @@ class Signal:
                       avg_window=self.__avg_window,
                       peak_window=self.__peak_window,
                       fs=self.fs,
-                      metadata=self.metadata)
+                      metadata=self.metadata,
+                      rescale_x=self.__rescale_x_resolution)
 
     def copy(self, new_name=None):
         '''
@@ -1102,7 +1111,8 @@ class Signal:
                       avg_window=self.__avg_window,
                       peak_window=self.__peak_window,
                       fs=self.fs,
-                      metadata=self.metadata)
+                      metadata=self.metadata,
+                      rescale_x=self.__rescale_x_resolution)
 
     def adjust_gain(self, gain):
         '''
@@ -1116,7 +1126,8 @@ class Signal:
                       avg_window=self.__avg_window,
                       peak_window=self.__peak_window,
                       fs=self.fs,
-                      metadata=self.metadata)
+                      metadata=self.metadata,
+                      rescale_x=self.__rescale_x_resolution)
 
     def offset(self, offset):
         '''
@@ -1142,7 +1153,8 @@ class Signal:
                       avg_window=self.__avg_window,
                       peak_window=self.__peak_window,
                       fs=self.fs,
-                      metadata=self.metadata)
+                      metadata=self.metadata,
+                      rescale_x=self.__rescale_x_resolution)
 
     def add(self, samples):
         '''
@@ -1156,7 +1168,8 @@ class Signal:
                       avg_window=self.__avg_window,
                       peak_window=self.__peak_window,
                       fs=self.fs,
-                      metadata=self.metadata)
+                      metadata=self.metadata,
+                      rescale_x=self.__rescale_x_resolution)
 
     def subtract(self, samples):
         '''
@@ -1170,7 +1183,8 @@ class Signal:
                       avg_window=self.__avg_window,
                       peak_window=self.__peak_window,
                       fs=self.fs,
-                      metadata=self.metadata)
+                      metadata=self.metadata,
+                      rescale_x=self.__rescale_x_resolution)
 
     def resample(self, new_fs):
         '''
@@ -1186,7 +1200,8 @@ class Signal:
                                avg_window=self.__avg_window,
                                peak_window=self.__peak_window,
                                fs=new_fs,
-                               metadata=self.metadata)
+                               metadata=self.metadata,
+                               rescale_x=self.__rescale_x_resolution)
             end = time.time()
             logger.info(f"Resampled {self.name} from {self.fs} to {new_fs} in {round(end - start, 3)}s")
             return resampled
@@ -1273,6 +1288,12 @@ class Signal:
             if window == 'tukey':
                 window = (window, 0.25)
         return window
+
+    def step_response(self):
+        t = np.arange(start=0.0, stop=self.samples.size / self.fs, step=1 / self.fs)
+        from scipy import integrate
+        sr = integrate.cumulative_trapezoid(self.samples, t, initial=0)
+        return t, sr
 
     def __repr__(self):
         return f"Signal {self.name} {{fs: {self.fs}, len: {len(self.samples)}}}"
@@ -1837,7 +1858,7 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
 
     def changeLoader(self, idx):
         self.__loader_idx = idx
-        self.__loaders[self.__loader_idx].enable_ok()
+        self.__loaderns[self.__loader_idx].enable_ok()
         self.__magnitudeModel.redraw()
 
     def selectFile(self):
