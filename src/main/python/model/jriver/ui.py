@@ -22,6 +22,7 @@ from scipy.signal import unit_impulse
 
 from model.filter import FilterModel, FilterDialog
 from model.iir import SOS, CompleteFilter, FilterType, ComplexLowPass, ComplexHighPass
+from model.jriver import JRIVER_FS
 from model.jriver.codec import get_element, xpath_to_key_data_value, write_dsp_file, get_peq_key_name
 from model.jriver.common import get_channel_name, get_channel_idx, OutputFormat, SHORT_USER_CHANNELS, make_dirac_pulse, \
     OUTPUT_FORMATS
@@ -1034,7 +1035,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         '''
         filter_model = FilterModel(None, self.prefs)
         sorted_filters = [self.__enforce_filter_order(i, f) for i, f in enumerate(filters)] if filters else None
-        filter_model.filter = CompleteFilter(fs=192000, filters=sorted_filters, sort_by_id=True, description=channel)
+        filter_model.filter = CompleteFilter(fs=JRIVER_FS, filters=sorted_filters, sort_by_id=True, description=channel)
         self.dsp.active_graph.start_edit(channel, node_chain, insert_at)
 
         def __on_save():
@@ -2093,7 +2094,7 @@ class WayEditor:
     @property
     def impulse(self) -> Optional[Signal]:
         if self.__is_active:
-            fs = 192000
+            fs = JRIVER_FS
             signal = Signal(f"{self.__channel}{self.__way + 1}", unit_impulse(fs*4, 'mid') * 23453.66, fs=fs)
             f = self.__pass_filters
             if f:
@@ -2103,7 +2104,7 @@ class WayEditor:
             if not math.isclose(self.__gain.value(), 0.0):
                 signal = signal.adjust_gain(10 ** (self.__gain.value() / 20.0))
             if not math.isclose(self.__delay.value(), 0.0):
-                signal = signal.shift(int((self.__delay.value() / 1000) / (1.0 / 192000)))
+                signal = signal.shift(int((self.__delay.value() / 1000) / (1.0 / JRIVER_FS)))
             return signal
         return None
 
@@ -2142,11 +2143,11 @@ class WayEditor:
         if self.__is_active:
             if self.__lp_filter_type.currentIndex() > 0:
                 f.append(ComplexLowPass(FilterType.value_of(self.__lp_filter_type.currentText()),
-                                        self.__lp_order.value(), 192000, self.__lp_freq.value()))
+                                        self.__lp_order.value(), JRIVER_FS, self.__lp_freq.value()))
             if self.__hp_filter_type.currentIndex() > 0:
                 f.append(ComplexHighPass(FilterType.value_of(self.__hp_filter_type.currentText()),
-                                         self.__hp_order.value(), 192000, self.__hp_freq.value()))
-        return CompleteFilter(fs=192000, filters=f) if f else None
+                                         self.__hp_order.value(), JRIVER_FS, self.__hp_freq.value()))
+        return CompleteFilter(fs=JRIVER_FS, filters=f) if f else None
 
     def set_high_pass(self, filter_type: str, freq: float, order: int):
         self.__hp_order.setValue(order)

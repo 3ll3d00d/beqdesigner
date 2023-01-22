@@ -14,6 +14,7 @@ from model import iir
 from model.iir import SOS, s_to_q, q_to_s, FirstOrder_LowPass, FirstOrder_HighPass, PassFilter, CompoundPassFilter, \
     FilterType, SecondOrder_LowPass, ComplexLowPass, SecondOrder_HighPass, ComplexHighPass, CompleteFilter, \
     BiquadWithQGain, PeakingEQ, LowShelf as LS, Gain as G, LinkwitzTransform as LT, AllPass as AP, MDS_FREQ_DIVISOR
+from model.jriver import JRIVER_FS
 from model.jriver.codec import filts_to_xml
 from model.jriver.common import get_channel_name, pop_channels, get_channel_idx, JRIVER_SHORT_CHANNELS, \
     make_dirac_pulse, make_silence, SHORT_USER_CHANNELS
@@ -251,7 +252,7 @@ class GainQFilter(ChannelFilter, ABC):
         return NopFilterOp()
 
     def get_editable_filter(self) -> Optional[SOS]:
-        return self.__create_iir(192000, self.__frequency, self.__q, self.__gain, f_id=self.id)
+        return self.__create_iir(JRIVER_FS, self.__frequency, self.__q, self.__gain, f_id=self.id)
 
     @classmethod
     def default_values(cls) -> Dict[str, str]:
@@ -341,7 +342,7 @@ class AllPass(ChannelFilter):
         return NopFilterOp()
 
     def get_editable_filter(self) -> Optional[SOS]:
-        return iir.AllPass(192000, self.__frequency, self.__q, f_id=self.id)
+        return iir.AllPass(JRIVER_FS, self.__frequency, self.__q, f_id=self.id)
 
     @classmethod
     def default_values(cls) -> Dict[str, str]:
@@ -431,11 +432,11 @@ class Pass(ChannelFilter, ABC):
         :return: the filters.
         '''
         if self.order == 1:
-            return self.__ctors[0](192000, self.freq, f_id=self.id)
+            return self.__ctors[0](JRIVER_FS, self.freq, f_id=self.id)
         elif self.order == 2:
-            return self.__ctors[1](192000, self.freq, q=self.q, f_id=self.id)
+            return self.__ctors[1](JRIVER_FS, self.freq, q=self.q, f_id=self.id)
         else:
-            return self.__ctors[2](FilterType.BUTTERWORTH, self.order, 192000, self.freq, q_scale=self.q, f_id=self.id)
+            return self.__ctors[2](FilterType.BUTTERWORTH, self.order, JRIVER_FS, self.freq, q_scale=self.q, f_id=self.id)
 
     def __repr__(self):
         return f"{self.__class__.__name__} Order={self.order} Q={self.q:.4g} at {self.freq:.7g} Hz {self.print_channel_names()}{self.print_disabled()}"
@@ -486,7 +487,7 @@ class Gain(ChannelFilter):
         return f"{self.__gain:+.7g} dB"
 
     def get_editable_filter(self) -> Optional[SOS]:
-        return iir.Gain(192000, self.gain, f_id=self.id)
+        return iir.Gain(JRIVER_FS, self.gain, f_id=self.id)
 
 
 class BitdepthSimulator(SingleFilter):
@@ -632,7 +633,7 @@ class LinkwitzTransform(ChannelFilter):
         return NopFilterOp()
 
     def get_editable_filter(self) -> Optional[SOS]:
-        return iir.LinkwitzTransform(192000, self.__fz, self.__qz, self.__fp, self.__qp)
+        return iir.LinkwitzTransform(JRIVER_FS, self.__fz, self.__qz, self.__fp, self.__qp)
 
 
 class LinkwitzRiley(SingleFilter):
@@ -1162,9 +1163,9 @@ class CustomPassFilter(ComplexChannelFilter):
             freq = float(tokens[3])
             q_scale = float(tokens[4])
             if tokens[0] == 'HP':
-                return ComplexHighPass(f_type, order, 192000, freq, q_scale)
+                return ComplexHighPass(f_type, order, JRIVER_FS, freq, q_scale)
             elif tokens[0] == 'LP':
-                return ComplexLowPass(f_type, order, 192000, freq, q_scale)
+                return ComplexLowPass(f_type, order, JRIVER_FS, freq, q_scale)
         raise ValueError(f"Unable to decode {self.__name}")
 
     def metadata(self) -> str:
@@ -1360,7 +1361,7 @@ class SosFilterOp(FilterOp):
 
 class DelayFilterOp(FilterOp):
 
-    def __init__(self, delay_millis: float, fs: int = 192000):
+    def __init__(self, delay_millis: float, fs: int = JRIVER_FS):
         self.__shift_samples = int((delay_millis / 1000) / (1.0 / fs))
 
     def apply(self, input_signal: Signal) -> Signal:
@@ -1868,7 +1869,7 @@ def set_filter_ids(filters: List[Filter]) -> List[Filter]:
 class MDSXO:
 
     def __init__(self, order: int, target_fc: float, fc_divisor: float = 0.0, lp_channel: str = 'L',
-                 hp_channel: str = 'R', fs: int = 192000, in_channel: str = 'L', calc: bool = False):
+                 hp_channel: str = 'R', fs: int = JRIVER_FS, in_channel: str = 'L', calc: bool = False):
         self.__order = order
         self.__target_fc = target_fc
         self.__fc_divisor = fc_divisor if fc_divisor != 0.0 else MDS_FREQ_DIVISOR[order]
@@ -2133,7 +2134,7 @@ class MDSFilter:
     def __init__(self,
                  lower_ways: List[Tuple[int, float, str]],
                  last_way: Tuple[int, float, str, str],
-                 fs: int = 192000,
+                 fs: int = JRIVER_FS,
                  in_channel: str = 'L'):
         self.__xos: List[MDSXO] = []
         self.__channels = []

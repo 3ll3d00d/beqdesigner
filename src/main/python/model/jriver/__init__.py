@@ -1,0 +1,1 @@
+JRIVER_FS: int = 192000

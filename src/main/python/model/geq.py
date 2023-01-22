@@ -10,6 +10,7 @@ from qtpy.QtWidgets import QDialog, QFrame, QGridLayout, QHBoxLayout, QToolButto
 
 from acoustics.standards.iec_61260_1_2014 import NOMINAL_OCTAVE_CENTER_FREQUENCIES
 from model.iir import LowShelf, HighShelf, PeakingEQ, CompleteFilter, Passthrough, SOS
+from model.jriver import JRIVER_FS
 from model.limits import PhaseRangeCalculator, DecibelRangeCalculator
 from model.magnitude import MagnitudeModel
 from model.preferences import GEQ_GEOMETRY, GEQ_GRAPH_X_MIN, GEQ_GRAPH_X_MAX, get_filter_colour, Preferences
@@ -103,7 +104,7 @@ class GeqDialog(QDialog, Ui_geqDialog):
     def get_curve_data(self, mode, reference=None):
         ''' preview of the filter to display on the chart '''
         result = []
-        final_filter = CompleteFilter(fs=192000, filters=self.__get_filters(), sort_by_id=True)
+        final_filter = CompleteFilter(fs=JRIVER_FS, filters=self.__get_filters(), sort_by_id=True)
         if mode == 'mag' or self.showPhase.isChecked():
             extra = 0
             if len(final_filter) > 0:
@@ -297,13 +298,13 @@ class PeqEditor:
         if math.isclose(self.__gain.value(), 0.0) and not include_zero:
             return None
         if self.__ls_button.isChecked():
-            return LowShelf(192000, self.__freq.value(), self.__q.value(), self.__gain.value(), f_id=self.__idx)
+            return LowShelf(JRIVER_FS, self.__freq.value(), self.__q.value(), self.__gain.value(), f_id=self.__idx)
         elif self.__hs_button.isChecked():
-            return HighShelf(192000, self.__freq.value(), self.__q.value(), self.__gain.value(), f_id=self.__idx)
+            return HighShelf(JRIVER_FS, self.__freq.value(), self.__q.value(), self.__gain.value(), f_id=self.__idx)
         elif self.__peq_button.isChecked():
-            return PeakingEQ(192000, self.__freq.value(), self.__q.value(), self.__gain.value(), f_id=self.__idx)
+            return PeakingEQ(JRIVER_FS, self.__freq.value(), self.__q.value(), self.__gain.value(), f_id=self.__idx)
         else:
-            return Passthrough(fs=192000)
+            return Passthrough(fs=JRIVER_FS)
 
     def show(self) -> None:
         self.__geq_frame.show()

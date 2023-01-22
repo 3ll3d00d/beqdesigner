@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import List
 
 from model.iir import ComplexFilter, SOS, ComplexLowPass, FilterType, ComplexHighPass, LinkwitzTransform
+from model.jriver import JRIVER_FS
 from model.jriver.codec import get_peq_key_name, filts_to_xml, include_filters_in_dsp
 from model.jriver.common import JRIVER_CHANNELS, get_channel_indexes
 from model.jriver.filter import convert_filter_to_mc_dsp, MSOFilter, Filter, Delay, Peak, LowShelf, HighShelf, AllPass, \
@@ -86,7 +87,7 @@ def convert_mso_filter(mso_filter: dict) -> Filter:
     elif f_type == 'ComplexLowPass':
         ft = mso_filter['filter_type']
         lp_ft = FilterType.BUTTERWORTH if ft == 'BW' else FilterType.LINKWITZ_RILEY if ft == 'LR' else FilterType.BESSEL_MAG3
-        return convert_filter_to_mc_dsp(ComplexLowPass(lp_ft, mso_filter['order'], 192000, mso_filter['fc']), channels)
+        return convert_filter_to_mc_dsp(ComplexLowPass(lp_ft, mso_filter['order'], JRIVER_FS, mso_filter['fc']), channels)
     elif f_type == 'LPF_VarQ':
         return LowPass(LowPass.default_values() | {'Channels': channels,
                                                    'Slope': '12',
@@ -95,7 +96,7 @@ def convert_mso_filter(mso_filter: dict) -> Filter:
     elif f_type == 'ComplexHighPass':
         ft = mso_filter['filter_type']
         lp_ft = FilterType.BUTTERWORTH if ft == 'BW' else FilterType.LINKWITZ_RILEY if ft == 'LR' else FilterType.BESSEL_MAG3
-        return convert_filter_to_mc_dsp(ComplexHighPass(lp_ft, mso_filter['order'], 192000, mso_filter['fc']), channels)
+        return convert_filter_to_mc_dsp(ComplexHighPass(lp_ft, mso_filter['order'], JRIVER_FS, mso_filter['fc']), channels)
     elif f_type == 'HPF_VarQ':
         return HighPass(HighPass.default_values() | {'Channels': channels,
                                                      'Slope': '12',
@@ -103,6 +104,6 @@ def convert_mso_filter(mso_filter: dict) -> Filter:
                                                      'Q': f"{mso_filter['q']:.12g}"})
     elif f_type == 'LinkwitzTransform':
         return convert_filter_to_mc_dsp(
-            LinkwitzTransform(192000, mso_filter['f0'], mso_filter['q0'], mso_filter['fp'], mso_filter['qp']), channels)
+            LinkwitzTransform(JRIVER_FS, mso_filter['f0'], mso_filter['q0'], mso_filter['fp'], mso_filter['qp']), channels)
     else:
         raise ValueError(f"Unknown MSO filter type {json.dumps(mso_filter)}")

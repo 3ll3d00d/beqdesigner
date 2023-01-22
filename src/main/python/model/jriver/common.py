@@ -1,11 +1,10 @@
 import functools
-from enum import Enum, auto
-
 from typing import List, Tuple, Dict
 
 import numpy as np
 from scipy.signal import unit_impulse
 
+from model.jriver import JRIVER_FS
 from model.signal import Signal
 
 USER_CHANNELS = ['User 1', 'User 2']
@@ -70,13 +69,13 @@ def pop_channels(vals: List[Dict[str, str]]):
 
 
 def make_dirac_pulse(channel: str, analysis_resolution=1.0):
-    fs = 192000
+    fs = JRIVER_FS
     return Signal(channel, unit_impulse(fs * 4, 'mid') * 23453.66, fs=fs, analysis_resolution=analysis_resolution,
                   rescale_x=False)
 
 
 def make_silence(channel: str):
-    fs = 192000
+    fs = JRIVER_FS
     return Signal(channel, np.zeros(fs * 4), fs=fs)
 
 
@@ -187,4 +186,3 @@ OUTPUT_FORMATS: Dict[str, OutputFormat] = {
     'STEREO_IN_SEVEN': OutputFormat('Stereo in a 7.1 channel container', 2, 8, 0, (2, 6), 0),
     'FIVE_ONE_IN_SEVEN': OutputFormat('5.1 in a 7.1 container', 6, 8, 1, (6, 2), 0),
 }
-
