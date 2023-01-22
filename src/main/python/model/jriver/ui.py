@@ -48,6 +48,7 @@ from ui.jriver import Ui_jriverDspDialog
 from ui.jriver_delay_filter import Ui_jriverDelayDialog
 from ui.jriver_mix_filter import Ui_jriverMixDialog
 from ui.load_zone import Ui_loadDspFromZoneDialog
+from ui.mds import Ui_mdsDialog
 from ui.mso import Ui_msoDialog
 from ui.pipeline import Ui_jriverGraphDialog
 from ui.xo import Ui_xoDialog
@@ -182,7 +183,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         '''
         mc_version = self.__pick_mc_version()
         of: OutputFormat
-        all_formats: List[OutputFormat] = [of for of in OUTPUT_FORMATS.values() if of.is_compatible(mc_version)]
+        all_formats: List[OutputFormat] = sorted([of for of in OUTPUT_FORMATS.values() if of.is_compatible(mc_version)])
         output_formats = [of.display_name for of in all_formats]
         item, ok = QInputDialog.getItem(self, "Create New DSP Config", "Output Format:", output_formats, 0, False)
         if ok and item:
@@ -1912,6 +1913,9 @@ class WayEditor:
         self.__invert = QCheckBox(self.__frame)
         self.__invert.setText('Invert')
         self.__invert.toggled.connect(self.__on_value_change)
+        self.__mds = QPushButton(self.__frame)
+        self.__mds.setText('MDS')
+        self.__mds.clicked.connect(self.__show_mds_info)
         self.__gain_label = QLabel(self.__frame)
         self.__gain_label.setText('Gain')
         self.__gain = QDoubleSpinBox(self.__frame)
@@ -2013,6 +2017,12 @@ class WayEditor:
     def __on_value_change(self):
         self.__refresh_filters()
         self.__notify_parent()
+
+    def __show_mds_info(self):
+        MDSDialog(self.__frame, self.__on_mds_change).show()
+
+    def __on_mds_change(self):
+        pass
 
     def __on_lp_filter_type_change(self):
         self.__change_pass_field_state(self.__lp_filter_type, self.__lp_order, self.__lp_freq)
@@ -2355,6 +2365,17 @@ class SWChannelSelectorDialog(QDialog, Ui_channelSelectDialog):
     def accept(self):
         self.__on_save(self.lfeChannel.currentText(), [i.text() for i in self.channelList.selectedItems()])
         super().accept()
+
+
+class MDSDialog(QDialog, Ui_mdsDialog):
+
+    def __init__(self, parent: QWidget, on_update: Callable):
+        super(MDSDialog, self).__init__(parent)
+        self.__on_update = on_update
+
+    def update_mds(self):
+        self.__on_update()
+
 
 
 class MCWSDialog(QDialog, Ui_loadDspFromZoneDialog):

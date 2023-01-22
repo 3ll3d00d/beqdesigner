@@ -1,3 +1,4 @@
+import functools
 from enum import Enum, auto
 
 from typing import List, Tuple, Dict
@@ -79,6 +80,7 @@ def make_silence(channel: str):
     return Signal(channel, np.zeros(fs * 4), fs=fs)
 
 
+@functools.total_ordering
 class OutputFormat:
 
     def __init__(self, display_name: str, input_channels: int, output_channels: int, lfe_channels: int,
@@ -152,6 +154,13 @@ class OutputFormat:
 
     def has_channels(self, channels: List[int]):
         return set(self.output_channel_indexes).issuperset(set(channels))
+
+    def __lt__(self, other):
+        if isinstance(other, OutputFormat):
+            delta = self.output_channels - other.output_channels
+            if delta == 0:
+                return self.input_channels - other.input_channels
+            return delta < 0
 
 
 # order is important otherwise from_output_channels will yield bad results

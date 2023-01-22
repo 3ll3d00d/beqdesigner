@@ -14,7 +14,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_mdsDialog(object):
     def setupUi(self, mdsDialog):
         mdsDialog.setObjectName("mdsDialog")
-        mdsDialog.resize(400, 300)
+        mdsDialog.resize(300, 352)
         self.verticalLayout = QtWidgets.QVBoxLayout(mdsDialog)
         self.verticalLayout.setObjectName("verticalLayout")
         self.gridLayout = QtWidgets.QGridLayout()
@@ -73,9 +73,16 @@ class Ui_mdsDialog(object):
         self.freqScalingFactor.setSingleStep(0.0001)
         self.freqScalingFactor.setObjectName("freqScalingFactor")
         self.gridLayout.addWidget(self.freqScalingFactor, 3, 1, 1, 1)
-        self.label = QtWidgets.QLabel(mdsDialog)
-        self.label.setObjectName("label")
-        self.gridLayout.addWidget(self.label, 3, 0, 1, 1)
+        self.freqScalingFactorLabel = QtWidgets.QLabel(mdsDialog)
+        self.freqScalingFactorLabel.setObjectName("freqScalingFactorLabel")
+        self.gridLayout.addWidget(self.freqScalingFactorLabel, 3, 0, 1, 1)
+        self.slopeDbLabel = QtWidgets.QLabel(mdsDialog)
+        self.slopeDbLabel.setObjectName("slopeDbLabel")
+        self.gridLayout.addWidget(self.slopeDbLabel, 7, 0, 1, 1)
+        self.slopeDb = QtWidgets.QLineEdit(mdsDialog)
+        self.slopeDb.setReadOnly(True)
+        self.slopeDb.setObjectName("slopeDb")
+        self.gridLayout.addWidget(self.slopeDb, 7, 1, 1, 1)
         self.verticalLayout.addLayout(self.gridLayout)
         self.buttonBox = QtWidgets.QDialogButtonBox(mdsDialog)
         self.buttonBox.setOrientation(QtCore.Qt.Horizontal)
@@ -86,6 +93,7 @@ class Ui_mdsDialog(object):
         self.retranslateUi(mdsDialog)
         self.buttonBox.accepted.connect(mdsDialog.accept) # type: ignore
         self.buttonBox.rejected.connect(mdsDialog.reject) # type: ignore
+        self.buttonBox.clicked['QAbstractButton*'].connect(mdsDialog.update_mds) # type: ignore
         QtCore.QMetaObject.connectSlotsByName(mdsDialog)
 
     def retranslateUi(self, mdsDialog):
@@ -97,4 +105,5 @@ class Ui_mdsDialog(object):
         self.delayMillisLabel.setText(_translate("mdsDialog", "Delay (ms)"))
         self.delaySamplesLabel.setText(_translate("mdsDialog", "Delay (samples)"))
         self.actualFrequencyLabel.setText(_translate("mdsDialog", "Actual Frequency (Hz)"))
-        self.label.setText(_translate("mdsDialog", "Freq Scaling Factor"))
+        self.freqScalingFactorLabel.setText(_translate("mdsDialog", "Freq Scaling Factor"))
+        self.slopeDbLabel.setText(_translate("mdsDialog", "Slope (dB)"))

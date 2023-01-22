@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>400</width>
-    <height>300</height>
+    <width>300</width>
+    <height>352</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -131,9 +131,23 @@
       </widget>
      </item>
      <item row="3" column="0">
-      <widget class="QLabel" name="label">
+      <widget class="QLabel" name="freqScalingFactorLabel">
        <property name="text">
         <string>Freq Scaling Factor</string>
+       </property>
+      </widget>
+     </item>
+     <item row="7" column="0">
+      <widget class="QLabel" name="slopeDbLabel">
+       <property name="text">
+        <string>Slope (dB)</string>
+       </property>
+      </widget>
+     </item>
+     <item row="7" column="1">
+      <widget class="QLineEdit" name="slopeDb">
+       <property name="readOnly">
+        <bool>true</bool>
        </property>
       </widget>
      </item>
@@ -160,8 +174,8 @@
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>248</x>
-     <y>254</y>
+     <x>224</x>
+     <y>326</y>
     </hint>
     <hint type="destinationlabel">
      <x>157</x>
@@ -176,8 +190,8 @@
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>316</x>
-     <y>260</y>
+     <x>292</x>
+     <y>332</y>
     </hint>
     <hint type="destinationlabel">
      <x>286</x>
@@ -185,5 +199,24 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>buttonBox</sender>
+   <signal>clicked(QAbstractButton*)</signal>
+   <receiver>mdsDialog</receiver>
+   <slot>update_mds()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>242</x>
+     <y>336</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>5</x>
+     <y>306</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
+ <slots>
+  <slot>update_mds()</slot>
+ </slots>
 </ui>
