@@ -1,17 +1,17 @@
 from __future__ import annotations
 
+import itertools
 import json
 import logging
+import math
 import os
+import sys
 import xml.etree.ElementTree as et
+from builtins import isinstance
 from pathlib import Path
 from typing import Dict, Optional, List, Tuple, Callable, Set, Type, Any
 
-import itertools
-import math
 import qtawesome as qta
-import sys
-from builtins import isinstance
 from qtpy.QtCore import QPoint, QModelIndex, Qt, QTimer, QAbstractTableModel, QVariant, QSize
 from qtpy.QtGui import QColor, QPalette, QKeySequence, QCloseEvent, QShowEvent, QFont, QIcon
 from qtpy.QtWidgets import QDialog, QFileDialog, QMenu, QAction, QListWidgetItem, QMessageBox, QInputDialog, \
@@ -43,7 +43,7 @@ from model.signal import Signal
 from model.xy import MagnitudeData
 from ui.channel_matrix import Ui_channelMatrixDialog
 from ui.channel_select import Ui_channelSelectDialog
-from ui.delegates import CheckBoxDelegate
+from ui.delegates import CheckBoxDelegate, FreqRangeEditor
 from ui.group_channels import Ui_groupChannelsDialog
 from ui.jriver import Ui_jriverDspDialog
 from ui.jriver_delay_filter import Ui_jriverDelayDialog
@@ -1710,10 +1710,11 @@ class ChannelEditor:
 
     def __init__(self, channels_frame: QWidget, name: str, underlying_channels: List[str],
                  output_format: OutputFormat, is_sw_channel: bool, on_filter_change: Callable[[], None],
-                 on_way_count_change: Callable[[str, int], None]):
+                 on_way_count_change: Callable[[str, int], None], mds_points: List[Tuple[int, int, float]] = None):
         self.__on_change = on_filter_change
         self.__is_sw_channel = is_sw_channel
         self.__output_format = output_format
+        self.__mds_points: List[Tuple[int, int, float]] = [] if mds_points is None else mds_points
         self.__name = name
         self.__underlying_channels = underlying_channels
         self.__editors: List[WayEditor] = []
@@ -1748,10 +1749,15 @@ class ChannelEditor:
         self.__symmetric.setText('Symmetric XO?')
         self.__symmetric.setChecked(True)
         self.__is_symmetric = lambda: self.__symmetric.isChecked()
+        self.__mds = QPushButton(self.__frame)
+        self.__mds.setText('MDS')
+        self.__mds.setToolTip('Configure Matched Delay Subtractive Crossover')
+        self.__mds.clicked.connect(self.__design_mds)
         self.__header_layout.addWidget(self.__channel_name_label)
         self.__header_layout.addWidget(self.__ways)
         self.__header_layout.addWidget(self.__show_response)
         self.__header_layout.addWidget(self.__symmetric)
+        self.__header_layout.addWidget(self.__mds)
         self.__header_layout.addItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
         self.__layout.addLayout(self.__header_layout)
         self.__way_frame = QFrame(self.__frame)
@@ -1771,6 +1777,12 @@ class ChannelEditor:
 
     def __repr__(self):
         return f"ChannelEditor {self.__underlying_channels} {self.__ways.value()}"
+
+    def __design_mds(self):
+        MDSDialog(self.__frame, self.__mds_points, self.__on_mds_change, self.__ways.value() - 1).show()
+
+    def __on_mds_change(self, ways: List[Tuple[int, int, float]]):
+        self.__mds_points = ways
 
     def __propagate_way_count_change(self, func: Callable[[str, int], None], count: int):
         for c in self.__underlying_channels:
@@ -1914,9 +1926,6 @@ class WayEditor:
         self.__invert = QCheckBox(self.__frame)
         self.__invert.setText('Invert')
         self.__invert.toggled.connect(self.__on_value_change)
-        self.__mds = QPushButton(self.__frame)
-        self.__mds.setText('MDS')
-        self.__mds.clicked.connect(self.__show_mds_info)
         self.__gain_label = QLabel(self.__frame)
         self.__gain_label.setText('Gain')
         self.__gain = QDoubleSpinBox(self.__frame)
@@ -2018,12 +2027,6 @@ class WayEditor:
     def __on_value_change(self):
         self.__refresh_filters()
         self.__notify_parent()
-
-    def __show_mds_info(self):
-        MDSDialog(self.__frame, self.__on_mds_change).show()
-
-    def __on_mds_change(self):
-        pass
 
     def __on_lp_filter_type_change(self):
         self.__change_pass_field_state(self.__lp_filter_type, self.__lp_order, self.__lp_freq)
@@ -2369,14 +2372,42 @@ class SWChannelSelectorDialog(QDialog, Ui_channelSelectDialog):
 
 
 class MDSDialog(QDialog, Ui_mdsDialog):
+    ORDER_ROLE = Qt.UserRole + 1
+    FREQ_ROLE = Qt.UserRole + 2
 
-    def __init__(self, parent: QWidget, on_update: Callable):
+    def __init__(self, parent: QWidget, current: List[Tuple[int, int, float]],
+                 on_update: Callable[[List[Tuple[int, int, float]]], None], max_ways: int):
         super(MDSDialog, self).__init__(parent)
+        self.setupUi(self)
+        self.clearSelectedButton.setIcon(qta.icon('fa5s.times'))
+        self.waysTable.setRowCount(max_ways)
+        self.waysTable.setHorizontalHeaderLabels(['Order', 'Freq (Hz)'])
+        self.waysTable.setVerticalHeaderLabels([str(i+1) for i in range(0, max_ways)])
+        self.__current_ways = current
+        for i in range(0, max_ways):
+            self.waysTable.setCellWidget(i, 0, self.__make_combo(i, 8))
+        self.waysTable.setItemDelegateForColumn(1, FreqRangeEditor())
         self.__on_update = on_update
+        self.__max_ways = max_ways
+
+    def __make_combo(self, row: int, orders: int) -> QComboBox:
+        cb = QComboBox()
+        for i in range(0, orders):
+            cb.addItem(str(i+1))
+        try:
+            cb.setCurrentIndex(self.__current_ways[row][0])
+        except IndexError:
+            cb.setCurrentIndex(3)
+        return cb
 
     def update_mds(self):
-        self.__on_update()
+        pass
 
+    def clear_way(self):
+        pass
+
+    def toggle_clear(self):
+        pass
 
 
 class MCWSDialog(QDialog, Ui_loadDspFromZoneDialog):

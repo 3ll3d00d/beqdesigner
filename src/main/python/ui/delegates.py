@@ -1,6 +1,6 @@
 import logging
 
-from qtpy.QtGui import QRegExpValidator, QPainter
+from qtpy.QtGui import QRegExpValidator, QPainter, QIntValidator
 from qtpy.QtCore import QEvent, Qt, QRegExp, QModelIndex
 from qtpy.QtWidgets import QItemDelegate, QStyledItemDelegate, QLineEdit, QStyleOptionViewItem
 
@@ -67,3 +67,20 @@ class RegexValidator(QStyledItemDelegate):
             editor.setValidator(validator)
             return editor
         return super(RegexValidator, self).createEditor(widget, option, index)
+
+
+class FreqRangeEditor(QStyledItemDelegate):
+    ''' Validates the input against the specified range '''
+
+    def __init__(self, min_val: int = 1, max_val: int = 22000):
+        QStyledItemDelegate.__init__(self)
+        self.__min_val = min_val
+        self.__max_val = max_val
+
+    def createEditor(self, widget, option, index):
+        if not index.isValid():
+            return 0
+        editor = QLineEdit(widget)
+        validator = QIntValidator(self.__min_val, self.__max_val, editor)
+        editor.setValidator(validator)
+        return editor

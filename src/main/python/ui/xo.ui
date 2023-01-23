@@ -56,36 +56,22 @@
     </layout>
    </item>
    <item>
-    <layout class="QGridLayout" name="xoContainerLayout" columnstretch="1,0,0,0,0">
-     <item row="1" column="0" colspan="5">
-      <widget class="QScrollArea" name="peqScrollArea">
-       <property name="sizeAdjustPolicy">
-        <enum>QAbstractScrollArea::AdjustToContents</enum>
-       </property>
-       <property name="widgetResizable">
-        <bool>true</bool>
-       </property>
-       <widget class="QFrame" name="channelsFrame">
-        <property name="geometry">
-         <rect>
-          <x>0</x>
-          <y>0</y>
-          <width>868</width>
-          <height>257</height>
-         </rect>
-        </property>
-        <layout class="QVBoxLayout" name="channelsLayout"/>
-       </widget>
-      </widget>
-     </item>
-     <item row="0" column="2">
+    <layout class="QGridLayout" name="xoContainerLayout" columnstretch="0,0,0,0,0,0">
+     <item row="0" column="3">
       <widget class="QLabel" name="lfeChannelSelectorLabel">
        <property name="text">
         <string>LFE Channel: </string>
        </property>
       </widget>
      </item>
-     <item row="0" column="4">
+     <item row="0" column="2">
+      <widget class="QPushButton" name="showMatrixButton">
+       <property name="text">
+        <string>Input -&gt; Output Routes</string>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="5">
       <layout class="QHBoxLayout" name="lfeAdjustLayout">
        <item>
         <widget class="QLabel" name="lfeAdjustLabel">
@@ -132,15 +118,42 @@
        </property>
       </widget>
      </item>
-     <item row="0" column="1">
-      <widget class="QPushButton" name="showMatrixButton">
-       <property name="text">
-        <string>Input -&gt; Output Routes</string>
+     <item row="1" column="0" colspan="6">
+      <widget class="QScrollArea" name="peqScrollArea">
+       <property name="sizeAdjustPolicy">
+        <enum>QAbstractScrollArea::AdjustToContents</enum>
        </property>
+       <property name="widgetResizable">
+        <bool>true</bool>
+       </property>
+       <widget class="QFrame" name="channelsFrame">
+        <property name="geometry">
+         <rect>
+          <x>0</x>
+          <y>0</y>
+          <width>868</width>
+          <height>257</height>
+         </rect>
+        </property>
+        <layout class="QVBoxLayout" name="channelsLayout"/>
+       </widget>
       </widget>
      </item>
-     <item row="0" column="3">
+     <item row="0" column="4">
       <widget class="QComboBox" name="lfeChannelSelector"/>
+     </item>
+     <item row="0" column="1">
+      <spacer name="headerSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
      </item>
     </layout>
    </item>

@@ -6,149 +6,23 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>300</width>
-    <height>352</height>
+    <width>356</width>
+    <height>302</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Matched Delay Subtractive Designer</string>
+   <string>MDS Designer</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
-    <layout class="QGridLayout" name="gridLayout">
-     <item row="0" column="0">
-      <widget class="QLabel" name="orderLabel">
-       <property name="text">
-        <string>Order</string>
+    <layout class="QHBoxLayout" name="fieldLayout">
+     <item>
+      <widget class="QTableWidget" name="waysTable">
+       <property name="columnCount">
+        <number>2</number>
        </property>
-      </widget>
-     </item>
-     <item row="6" column="1">
-      <widget class="QDoubleSpinBox" name="dcGroupDelayMillis">
-       <property name="readOnly">
-        <bool>true</bool>
-       </property>
-       <property name="decimals">
-        <number>3</number>
-       </property>
-       <property name="singleStep">
-        <double>0.001000000000000</double>
-       </property>
-      </widget>
-     </item>
-     <item row="1" column="1">
-      <widget class="QSpinBox" name="frequency">
-       <property name="minimum">
-        <number>1</number>
-       </property>
-       <property name="maximum">
-        <number>24000</number>
-       </property>
-       <property name="value">
-        <number>100</number>
-       </property>
-      </widget>
-     </item>
-     <item row="6" column="0">
-      <widget class="QLabel" name="dcGroupDelayLabel">
-       <property name="text">
-        <string>DC Group Delay (ms)</string>
-       </property>
-      </widget>
-     </item>
-     <item row="5" column="1">
-      <widget class="QDoubleSpinBox" name="delayMillis">
-       <property name="readOnly">
-        <bool>true</bool>
-       </property>
-       <property name="decimals">
-        <number>3</number>
-       </property>
-       <property name="singleStep">
-        <double>0.001000000000000</double>
-       </property>
-      </widget>
-     </item>
-     <item row="2" column="1">
-      <widget class="QDoubleSpinBox" name="actualFrequency"/>
-     </item>
-     <item row="4" column="1">
-      <widget class="QSpinBox" name="delaySamples">
-       <property name="readOnly">
-        <bool>false</bool>
-       </property>
-      </widget>
-     </item>
-     <item row="1" column="0">
-      <widget class="QLabel" name="frequencyLabel">
-       <property name="text">
-        <string>Target Frequency (Hz)</string>
-       </property>
-      </widget>
-     </item>
-     <item row="5" column="0">
-      <widget class="QLabel" name="delayMillisLabel">
-       <property name="text">
-        <string>Delay (ms)</string>
-       </property>
-      </widget>
-     </item>
-     <item row="0" column="1">
-      <widget class="QSpinBox" name="order">
-       <property name="minimum">
-        <number>1</number>
-       </property>
-       <property name="maximum">
-        <number>8</number>
-       </property>
-       <property name="value">
-        <number>4</number>
-       </property>
-      </widget>
-     </item>
-     <item row="4" column="0">
-      <widget class="QLabel" name="delaySamplesLabel">
-       <property name="text">
-        <string>Delay (samples)</string>
-       </property>
-      </widget>
-     </item>
-     <item row="2" column="0">
-      <widget class="QLabel" name="actualFrequencyLabel">
-       <property name="text">
-        <string>Actual Frequency (Hz)</string>
-       </property>
-      </widget>
-     </item>
-     <item row="3" column="1">
-      <widget class="QDoubleSpinBox" name="freqScalingFactor">
-       <property name="decimals">
-        <number>4</number>
-       </property>
-       <property name="singleStep">
-        <double>0.000100000000000</double>
-       </property>
-      </widget>
-     </item>
-     <item row="3" column="0">
-      <widget class="QLabel" name="freqScalingFactorLabel">
-       <property name="text">
-        <string>Freq Scaling Factor</string>
-       </property>
-      </widget>
-     </item>
-     <item row="7" column="0">
-      <widget class="QLabel" name="slopeDbLabel">
-       <property name="text">
-        <string>Slope (dB)</string>
-       </property>
-      </widget>
-     </item>
-     <item row="7" column="1">
-      <widget class="QLineEdit" name="slopeDb">
-       <property name="readOnly">
-        <bool>true</bool>
-       </property>
+       <column/>
+       <column/>
       </widget>
      </item>
     </layout>
@@ -165,6 +39,9 @@
    </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>waysTable</tabstop>
+ </tabstops>
  <resources/>
  <connections>
   <connection>
@@ -174,12 +51,12 @@
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>224</x>
-     <y>326</y>
+     <x>230</x>
+     <y>295</y>
     </hint>
     <hint type="destinationlabel">
      <x>157</x>
-     <y>274</y>
+     <y>262</y>
     </hint>
    </hints>
   </connection>
@@ -190,12 +67,12 @@
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>292</x>
-     <y>332</y>
+     <x>298</x>
+     <y>295</y>
     </hint>
     <hint type="destinationlabel">
      <x>286</x>
-     <y>274</y>
+     <y>262</y>
     </hint>
    </hints>
   </connection>
@@ -206,12 +83,28 @@
    <slot>update_mds()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>242</x>
-     <y>336</y>
+     <x>248</x>
+     <y>295</y>
     </hint>
     <hint type="destinationlabel">
      <x>5</x>
-     <y>306</y>
+     <y>262</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>waysTable</sender>
+   <signal>itemSelectionChanged()</signal>
+   <receiver>mdsDialog</receiver>
+   <slot>toggle_clear()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>140</x>
+     <y>128</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>3</x>
+     <y>131</y>
     </hint>
    </hints>
   </connection>
