@@ -1,10 +1,10 @@
 import logging
+import math
 from typing import List, Callable, Dict, Optional, Union
 
-import math
 import qtawesome as qta
 from qtpy.QtCore import Qt, QTimer
-from qtpy.QtGui import QFont, QCloseEvent
+from qtpy.QtGui import QFont
 from qtpy.QtWidgets import QDialog, QFrame, QGridLayout, QHBoxLayout, QToolButton, QButtonGroup, QLabel, QSlider, \
     QDoubleSpinBox, QSpacerItem, QSizePolicy, QWidget, QAbstractSpinBox, QListWidgetItem
 

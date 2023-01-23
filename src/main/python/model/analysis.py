@@ -6,7 +6,6 @@ import time
 import matplotlib
 import numpy as np
 import qtawesome as qta
-from PyQt5 import QtGui
 from matplotlib.gridspec import GridSpec
 from matplotlib.ticker import FuncFormatter, MaxNLocator
 from mpl_toolkits.axes_grid1 import make_axes_locatable

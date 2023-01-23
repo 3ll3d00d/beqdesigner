@@ -1,9 +1,9 @@
 import logging
 import math
-import numpy as np
 from math import log10
 
-from PyQt5.QtWidgets import QDialog
+import numpy as np
+from qtpy.QtWidgets import QDialog
 from matplotlib.ticker import EngFormatter, Formatter, NullFormatter, MaxNLocator, AutoMinorLocator
 from qtpy import QtWidgets
 

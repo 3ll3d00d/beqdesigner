@@ -1,18 +1,18 @@
+import json
 import logging
 import math
 import os
 import sys
-import requests
-import json
 
 import qtawesome as qta
+import requests
 from qtpy.QtCore import QRegExp, Qt, QCoreApplication
 from qtpy.QtGui import QRegExpValidator, QValidator, QIcon
 from qtpy.QtWidgets import QDialog, QFileDialog
 
 from model.iir import Gain
 from model.merge import DspType
-from model.minidsp import HDXmlParser, pad_with_passthrough
+from model.minidsp import HDXmlParser
 from model.preferences import BEQ_DOWNLOAD_DIR
 from ui.postbuilder import Ui_postbuilder
 

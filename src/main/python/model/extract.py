@@ -8,7 +8,7 @@ from urllib.request import url2pathname
 import numpy as np
 import qtawesome as qta
 from qtpy.QtCore import Qt, QTime
-from qtpy.QtGui import QPalette, QColor, QFont, QBrush
+from qtpy.QtGui import QPalette, QColor, QFont
 from qtpy.QtMultimedia import QSound
 from qtpy.QtWidgets import QDialog, QFileDialog, QStatusBar, QDialogButtonBox, QMessageBox
 

@@ -2,12 +2,11 @@ import abc
 import datetime
 import logging
 import math
-import numbers
 import re
 import time
-from typing import List, Optional, Dict, Iterable, Any, Union
 from collections.abc import Sequence
 from pathlib import Path
+from typing import List, Optional, Dict, Iterable, Any
 
 import numpy as np
 import qtawesome as qta

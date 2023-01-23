@@ -35,7 +35,6 @@ class Ui_mdsDialog(object):
         self.buttonBox.accepted.connect(mdsDialog.accept) # type: ignore
         self.buttonBox.rejected.connect(mdsDialog.reject) # type: ignore
         self.buttonBox.clicked['QAbstractButton*'].connect(mdsDialog.update_mds) # type: ignore
-        self.waysTable.itemSelectionChanged.connect(mdsDialog.toggle_clear) # type: ignore
         QtCore.QMetaObject.connectSlotsByName(mdsDialog)
 
     def retranslateUi(self, mdsDialog):

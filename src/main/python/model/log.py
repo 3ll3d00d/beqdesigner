@@ -1,10 +1,10 @@
 import logging
+from collections import Sequence
 
 import numpy as np
 from qtpy.QtCore import QObject, Signal
 from qtpy.QtWidgets import QMainWindow
 
-from collections import Sequence
 from model.preferences import LOGGING_LEVEL
 from ui.logs import Ui_logsForm
 

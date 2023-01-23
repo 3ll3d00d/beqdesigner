@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import logging
+import math
 import time
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import List, Dict, Optional, Callable, Union, Type, Sequence, overload, Tuple, Iterable, Set
-
-import math
+from typing import List, Dict, Optional, Callable, Union, Type, Sequence, overload, Tuple, Iterable
 
 import numpy as np
 
@@ -2075,7 +2074,11 @@ class MDSXO:
         self.__graph = graph
 
     def __make_low_pass(self) -> ComplexLowPass:
-        return ComplexLowPass(FilterType.BESSEL_MAG6, self.__order, self.__fs, round(self.__target_fc / self.__fc_divisor, 2))
+        return ComplexLowPass(FilterType.BESSEL_MAG6, self.__order, self.__fs, self.lp_fc)
+
+    @property
+    def lp_fc(self) -> float:
+        return self.__target_fc / self.__fc_divisor
 
     def __add_delayed_low_pass(self, graph, low_pass: ComplexLowPass):
         graph.append(convert_filter_to_mc_dsp(low_pass, str(get_channel_idx('U1'))), regen=False)

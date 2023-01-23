@@ -1,5 +1,6 @@
 import logging
 import platform
+
 import requests
 from qtpy.QtCore import Signal, QRunnable, QObject, QAbstractTableModel, QModelIndex, Qt, QVariant
 from qtpy.QtWidgets import QDialog

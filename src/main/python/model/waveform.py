@@ -5,8 +5,8 @@ import numpy as np
 import qtawesome as qta
 from matplotlib.font_manager import FontProperties
 from qtpy.QtCore import QTime
-from qtpy.QtGui import QFont
 from qtpy.QtCore import Qt
+from qtpy.QtGui import QFont
 from qtpy.QtWidgets import QDialog
 
 from model.magnitude import MagnitudeModel

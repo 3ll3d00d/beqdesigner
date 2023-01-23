@@ -1,11 +1,11 @@
 import json
 import logging
+import math
 from collections import defaultdict
 from collections.abc import Sequence
 from typing import Optional, Type, Tuple, Any, List
 from uuid import uuid4
 
-import math
 import qtawesome as qta
 from qtpy import QtCore
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt, QTimer

@@ -4,18 +4,18 @@ import math
 import os
 import platform
 import socketserver
-import tempfile
 import subprocess
+import tempfile
 import threading
 import time
 from pathlib import Path
 
-import ffmpeg
 from ffmpeg.nodes import filter_operator, FilterNode
 from qtpy import QtWidgets
 from qtpy.QtCore import Signal, QRunnable, QObject, QThreadPool
 from qtpy.QtWidgets import QDialog, QTreeWidget, QTreeWidgetItem
 
+import ffmpeg
 from model.iir import Passthrough, FilterType, ComplexHighPass, ComplexLowPass
 from model.preferences import COMPRESS_FORMAT_NATIVE, COMPRESS_FORMAT_FLAC, COMPRESS_FORMAT_EAC3, COMPRESS_FORMAT_AC3
 from ui.ffmpeg import Ui_ffmpegReportDialog

@@ -3,13 +3,15 @@ from matplotlib import pyplot as plt
 
 from model.jriver.filter import MDSXO
 
-o = MDSXO(4, 100)
+o = MDSXO(8, 250)
 
 f = plt.figure()
 plt.ylim(-70, -10)
 plt.grid(visible=True)
 plt.xlim(10, 1280)
+plt.xscale('log')
 plt.plot(o.lp_output.avg[0], o.lp_output.avg[1], label=f"lp")
+plt.plot(o.hp_output.avg[0], o.hp_output.avg[1], label=f"lp")
 plt.legend()
 
 # t, sr_l = opt_55.lp_output.step_response()

@@ -17,7 +17,7 @@ from qtpy.QtGui import QColor, QPalette, QKeySequence, QCloseEvent, QShowEvent, 
 from qtpy.QtWidgets import QDialog, QFileDialog, QMenu, QAction, QListWidgetItem, QMessageBox, QInputDialog, \
     QDialogButtonBox, QAbstractItemView, QWidget, QFrame, QVBoxLayout, QHBoxLayout, QLabel, QSpinBox, QCheckBox, \
     QSpacerItem, QSizePolicy, QGridLayout, QPushButton, QDoubleSpinBox, QAbstractSpinBox, QComboBox, QHeaderView, \
-    QListWidget
+    QListWidget, QTableWidgetItem
 from scipy.signal import unit_impulse
 
 from model.filter import FilterModel, FilterDialog
@@ -29,7 +29,7 @@ from model.jriver.common import get_channel_name, get_channel_idx, OutputFormat,
 from model.jriver.dsp import JRiverDSP
 from model.jriver.filter import Divider, GEQFilter, CompoundRoutingFilter, CustomPassFilter, GainQFilter, Gain, Pass, \
     LinkwitzTransform, Polarity, Mix, Delay, Filter, create_peq, MixType, ChannelFilter, convert_filter_to_mc_dsp, \
-    SingleFilter, XOFilter, HighPass, LowPass, SimulationFailed, MSOFilter
+    SingleFilter, XOFilter, HighPass, LowPass, SimulationFailed, MSOFilter, MDSXO
 from model.jriver.mcws import MediaServer, MCWSError, DSPMismatchError
 from model.jriver.parser import from_mso
 from model.jriver.render import render_dot
@@ -1715,6 +1715,7 @@ class ChannelEditor:
         self.__is_sw_channel = is_sw_channel
         self.__output_format = output_format
         self.__mds_points: List[Tuple[int, int, float]] = [] if mds_points is None else mds_points
+        self.__mds_xos: List[Optional[MDSXO]] = []
         self.__name = name
         self.__underlying_channels = underlying_channels
         self.__editors: List[WayEditor] = []
@@ -1774,6 +1775,7 @@ class ChannelEditor:
             self.__update_editors()
         else:
             self.__ways.setValue(self.__calculate_ways())
+            self.__mds_xos = [None] * self.__ways.value()
 
     def __repr__(self):
         return f"ChannelEditor {self.__underlying_channels} {self.__ways.value()}"
@@ -1783,6 +1785,16 @@ class ChannelEditor:
 
     def __on_mds_change(self, ways: List[Tuple[int, int, float]]):
         self.__mds_points = ways
+        self.__mds_xos = [MDSXO(w[1], w[2], calc=True) if w[2] else None for w in ways]
+        has_mds = any((x is not None for x in self.__mds_xos))
+        self.__mds.setIcon(qta.icon('fa5s.check') if has_mds else QIcon())
+        for i, xo in enumerate(self.__mds_xos):
+            if xo:
+                self.__editors[i].set_mds_low(xo.order, xo.lp_fc)
+                self.__editors[i+1].set_mds_high(xo.order, xo.lp_fc)
+            else:
+                self.__editors[i].clear_mds_low()
+                self.__editors[i+1].clear_mds_high()
 
     def __propagate_way_count_change(self, func: Callable[[str, int], None], count: int):
         for c in self.__underlying_channels:
@@ -1991,6 +2003,42 @@ class WayEditor:
 
         if self.__way == 0 and checkable:
             self.__header.setChecked(True)
+
+    def set_mds_low(self, order: int, freq: float) -> None:
+        from model.report import block_signals
+        with block_signals(self.__lp_filter_type):
+            self.__lp_filter_type.setCurrentText(FilterType.BESSEL_MAG6.display_name)
+            self.__lp_filter_type.setEnabled(False)
+        with block_signals(self.__lp_order):
+            self.__lp_order.setValue(order)
+            self.__lp_order.setEnabled(False)
+        with block_signals(self.__lp_freq):
+            self.__lp_freq.setValue(freq)
+            self.__lp_freq.setEnabled(False)
+        self.__on_value_change()
+
+    def clear_mds_low(self) -> None:
+        self.__lp_filter_type.setEnabled(True)
+        self.__lp_order.setEnabled(True)
+        self.__lp_freq.setEnabled(True)
+
+    def set_mds_high(self, order: int, freq: float) -> None:
+        from model.report import block_signals
+        with block_signals(self.__hp_filter_type):
+            self.__hp_filter_type.setCurrentText(FilterType.BESSEL_MAG6.display_name)
+            self.__hp_filter_type.setEnabled(False)
+        with block_signals(self.__hp_order):
+            self.__hp_order.setValue(order)
+            self.__hp_order.setEnabled(False)
+        with block_signals(self.__hp_freq):
+            self.__hp_freq.setValue(freq)
+            self.__hp_freq.setEnabled(False)
+        self.__on_value_change()
+
+    def clear_mds_high(self) -> None:
+        self.__hp_filter_type.setEnabled(True)
+        self.__hp_order.setEnabled(True)
+        self.__hp_freq.setEnabled(True)
 
     def __on_lp_change(self):
         self.__propagate_low_pass(self.__way, self.__lp_filter_type.currentText(), self.__lp_freq.value(),
@@ -2379,7 +2427,6 @@ class MDSDialog(QDialog, Ui_mdsDialog):
                  on_update: Callable[[List[Tuple[int, int, float]]], None], max_ways: int):
         super(MDSDialog, self).__init__(parent)
         self.setupUi(self)
-        self.clearSelectedButton.setIcon(qta.icon('fa5s.times'))
         self.waysTable.setRowCount(max_ways)
         self.waysTable.setHorizontalHeaderLabels(['Order', 'Freq (Hz)'])
         self.waysTable.setVerticalHeaderLabels([str(i+1) for i in range(0, max_ways)])
@@ -2387,8 +2434,15 @@ class MDSDialog(QDialog, Ui_mdsDialog):
         for i in range(0, max_ways):
             self.waysTable.setCellWidget(i, 0, self.__make_combo(i, 8))
         self.waysTable.setItemDelegateForColumn(1, FreqRangeEditor())
+        for way, order, freq in self.__current_ways:
+            if freq:
+                self.waysTable.cellWidget(way, 0).setCurrentText(str(order))
+                item = self.waysTable.item(way, 1)
+                if not item:
+                    item = QTableWidgetItem()
+                    self.waysTable.setItem(way, 1, item)
+                item.setText(str(freq))
         self.__on_update = on_update
-        self.__max_ways = max_ways
 
     def __make_combo(self, row: int, orders: int) -> QComboBox:
         cb = QComboBox()
@@ -2401,13 +2455,27 @@ class MDSDialog(QDialog, Ui_mdsDialog):
         return cb
 
     def update_mds(self):
-        pass
-
-    def clear_way(self):
-        pass
-
-    def toggle_clear(self):
-        pass
+        vals = []
+        for row in range(0, self.waysTable.rowCount()):
+            freq_item = self.waysTable.item(row, 1)
+            freq = float(freq_item.text()) if freq_item else None
+            vals.append((row, int(self.waysTable.cellWidget(row, 0).currentText()), freq))
+        freqs = [v[2] for v in vals if v[2]]
+        fail = False
+        if len(freqs) > 1:
+            last = freqs[0]
+            for f in freqs[1:]:
+                if f <= last or math.isclose(f, last):
+                    fail = True
+                    break
+        if fail:
+            msg_box = QMessageBox()
+            msg_box.setText(f"Crossing points must be in ascending order [supplied: {freqs}]")
+            msg_box.setIcon(QMessageBox.Warning)
+            msg_box.setWindowTitle('Invalid MDS Configuration!')
+            msg_box.exec()
+        else:
+            self.__on_update(vals)
 
 
 class MCWSDialog(QDialog, Ui_loadDspFromZoneDialog):

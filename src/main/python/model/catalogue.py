@@ -4,10 +4,10 @@ import logging
 import os
 import re
 import time
-from typing import Optional, Any
 from datetime import datetime
 from itertools import groupby
 from pathlib import Path
+from typing import Optional, Any
 from urllib.parse import urlparse
 
 import qtawesome as qta

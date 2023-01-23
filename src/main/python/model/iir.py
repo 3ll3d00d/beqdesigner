@@ -1,5 +1,6 @@
 # from http://www.musicdsp.org/files/Audio-EQ-Cookbook.txt
 import logging
+import math
 import struct
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
@@ -7,7 +8,6 @@ from enum import Enum
 from functools import reduce
 from typing import Optional, List, Callable
 
-import math
 import numpy as np
 from scipy import signal
 

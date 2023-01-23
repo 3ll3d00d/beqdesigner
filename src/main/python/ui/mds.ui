@@ -92,22 +92,6 @@
     </hint>
    </hints>
   </connection>
-  <connection>
-   <sender>waysTable</sender>
-   <signal>itemSelectionChanged()</signal>
-   <receiver>mdsDialog</receiver>
-   <slot>toggle_clear()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>140</x>
-     <y>128</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>3</x>
-     <y>131</y>
-    </hint>
-   </hints>
-  </connection>
  </connections>
  <slots>
   <slot>update_mds()</slot>

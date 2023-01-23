@@ -1,7 +1,6 @@
 import logging
-from typing import Tuple, Optional
-
 import math
+from typing import Tuple, Optional
 
 import numpy as np
 from matplotlib.gridspec import GridSpec
