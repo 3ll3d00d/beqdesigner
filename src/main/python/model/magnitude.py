@@ -178,9 +178,10 @@ class MagnitudeModel:
             y_range_calc.expand_range = preferences.get(GRAPH_EXPAND_Y)
         if x_lim is None:
             x_lim = (preferences.get(x_min_pref_key), preferences.get(x_max_pref_key))
+        x_scale = preferences.get(x_scale_pref_key) if x_scale_pref_key else None
         self.limits = Limits(self.__repr__(), self.__redraw_func, primary_axes,
                              x_lim=x_lim, y1_range_calculator=y_range_calc, axes_2=secondary_axes,
-                             x_scale=preferences.get(x_scale_pref_key), y2_range_calculator=y2_range_calc)
+                             x_scale=x_scale, y2_range_calculator=y2_range_calc)
         self.limits.propagate_to_axes(draw=True)
         self.__legend = None
         self.__legend_cid = None
@@ -216,11 +217,11 @@ class MagnitudeModel:
         self.__make_legend()
         self.__chart.canvas.draw_idle()
 
-    def show_limits(self):
+    def show_limits(self, parent=None):
         '''
         Shows the limits dialog.
         '''
-        LimitsDialog(self.limits).exec()
+        LimitsDialog(self.limits, parent=parent).exec()
 
     def show_full_range(self):
         '''

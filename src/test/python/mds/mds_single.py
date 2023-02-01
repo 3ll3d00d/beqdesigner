@@ -3,7 +3,7 @@ from matplotlib import pyplot as plt
 
 from model.jriver.filter import MDSXO
 
-o = MDSXO(8, 250)
+o = MDSXO(4, 100)
 
 f = plt.figure()
 plt.ylim(-70, -10)

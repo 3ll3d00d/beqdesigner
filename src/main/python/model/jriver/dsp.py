@@ -8,7 +8,7 @@ from typing import Dict, List, Tuple, Type, Callable
 from model.jriver.codec import get_peq_block_order, get_output_format, NoFiltersError, get_peq_key_name, \
     extract_filters, filts_to_xml, include_filters_in_dsp, item_to_dicts
 from model.jriver.common import OutputFormat, get_channel_name, user_channel_indexes
-from model.jriver.filter import FilterGraph, create_peq, Filter, Divider, complex_filter_classes_by_type, \
+from model.jriver.filter import FilterGraph, create_single_filter, Filter, Divider, complex_filter_classes_by_type, \
     set_filter_ids
 from model.log import to_millis
 from model.signal import Signal
@@ -77,7 +77,7 @@ class JRiverDSP:
         filt_fragments = [v + ')' for v in filt_element.text.split(')') if v]
         if len(filt_fragments) < 2:
             raise ValueError('Invalid input file - Unexpected <Value> format')
-        individual_filters = [create_peq(d, convert_q) for d in [item_to_dicts(f) for f in filt_fragments[2:]] if d]
+        individual_filters = [create_single_filter(d, convert_q) for d in [item_to_dicts(f) for f in filt_fragments[2:]] if d]
         return self.__extract_custom_filters(individual_filters)
 
     @staticmethod

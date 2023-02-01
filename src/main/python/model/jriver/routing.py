@@ -1,9 +1,11 @@
+import functools
 import json
 import logging
 from collections import defaultdict
+from itertools import groupby
 from typing import Optional, Dict, List, Tuple
 
-from model.jriver.common import get_channel_idx, user_channel_indexes
+from model.jriver.common import get_channel_idx, user_channel_indexes, get_channel_name
 from model.jriver.filter import MixType, Mix, CompoundRoutingFilter, Filter, Gain, XOFilter
 
 logger = logging.getLogger('jriver.routing')
@@ -23,6 +25,7 @@ class NoMixChannelError(Exception):
     pass
 
 
+@functools.total_ordering
 class Route:
     def __init__(self, i: int, w: int, o: int, mt: Optional[MixType] = None):
         self.i = i
@@ -32,6 +35,14 @@ class Route:
 
     def __repr__(self):
         return f"{self.i}.{self.w} -> {self.o} {self.mt.name if self.mt else ''}"
+
+    def __lt__(self, other):
+        if isinstance(other, Route):
+            delta = self.i - other.i
+            if delta == 0:
+                return self.w - other.w
+            return delta < 0
+        return False
 
 
 class Matrix:
@@ -175,6 +186,15 @@ class Matrix:
 
     def get_input_channels(self) -> List[int]:
         return [get_channel_idx(i) for i in self.__inputs]
+
+    def get_output_channels_for(self, input_channels: List[str]) -> Dict[str, List[Tuple[int, str]]]:
+        '''
+        :param input_channels: the input channel names.
+        :return: the output channel for each way by input channel.
+        '''
+        return {c: sorted([(r.w, get_channel_name(r.o)) for r in rs], key=lambda x: x[0]) for c, rs in
+                groupby([r for r in sorted(self.get_active_routes()) if get_channel_name(r.i) in input_channels],
+                        lambda r: get_channel_name(r.i))}
 
 
 def __reorder_routes(routes: List[Route]) -> List[Route]:

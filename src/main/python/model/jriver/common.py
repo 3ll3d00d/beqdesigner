@@ -12,8 +12,12 @@ SHORT_USER_CHANNELS = ['U1', 'U2']
 JRIVER_NAMED_CHANNELS = [None, None, 'Left', 'Right', 'Centre', 'Subwoofer', 'Surround Left', 'Surround Right',
                          'Rear Left', 'Rear Right', None] + USER_CHANNELS
 JRIVER_SHORT_NAMED_CHANNELS = [None, None, 'L', 'R', 'C', 'SW', 'SL', 'SR', 'RL', 'RR', None] + SHORT_USER_CHANNELS
-JRIVER_CHANNELS = JRIVER_NAMED_CHANNELS + [f"Channel {i + 9}" for i in range(24)]
-JRIVER_SHORT_CHANNELS = JRIVER_SHORT_NAMED_CHANNELS + [f"C{i + 9}" for i in range(24)]
+JRIVER_HIGHER_CHANNELS = [f"Channel {i + 9}" for i in range(24)]
+JRIVER_CHANNELS = JRIVER_NAMED_CHANNELS + JRIVER_HIGHER_CHANNELS
+JRIVER_SHORT_HIGHER_CHANNELS = [f"C{i + 9}" for i in range(24)]
+JRIVER_SHORT_CHANNELS = JRIVER_SHORT_NAMED_CHANNELS + JRIVER_SHORT_HIGHER_CHANNELS
+JRIVER_REAL_NAMED_CHANNELS = JRIVER_NAMED_CHANNELS[2:-3] + JRIVER_HIGHER_CHANNELS
+JRIVER_SHORT_REAL_NAMED_CHANNEL = JRIVER_SHORT_NAMED_CHANNELS[2:-3] + JRIVER_SHORT_HIGHER_CHANNELS
 
 
 def get_all_channel_names(short: bool = True) -> List[str]:
@@ -25,6 +29,11 @@ def get_all_channel_names(short: bool = True) -> List[str]:
 def get_channel_indexes(names: List[str], short: bool = True) -> List[int]:
     contents = JRIVER_SHORT_CHANNELS if short else JRIVER_CHANNELS
     return [contents.index(n) for n in names]
+
+
+def get_real_channel_name(idx: int, short: bool = True) -> str:
+    contents = JRIVER_SHORT_REAL_NAMED_CHANNEL if short else JRIVER_REAL_NAMED_CHANNELS
+    return contents[idx]
 
 
 def user_channel_indexes() -> List[int]:

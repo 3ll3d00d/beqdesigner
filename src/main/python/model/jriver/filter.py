@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import abc
 import logging
 import math
 import time
@@ -167,7 +168,7 @@ class ChannelFilter(SingleFilter, ABC):
         return len(self.channels) > 1
 
     def split(self) -> List[Filter]:
-        return [create_peq({**self.get_all_vals()[0], 'Channels': str(c)}) for c in self.channels]
+        return [create_single_filter({**self.get_all_vals()[0], 'Channels': str(c)}) for c in self.channels]
 
     def is_mine(self, idx):
         return idx in self.channels
@@ -1193,7 +1194,7 @@ filter_classes_by_type: Dict[str, Type[Filter]] = {c.TYPE: c for c in all_subcla
 convert_q_types = [LowShelf.TYPE, HighShelf.TYPE, LowPass.TYPE, HighPass.TYPE]
 
 
-def create_peq(vals: Dict[str, str], convert_q: bool = False) -> Filter:
+def create_single_filter(vals: Dict[str, str], convert_q: bool = False) -> Filter:
     '''
     :param vals: the vals from the encoded xml format.
     :param convert_q: whether Q should be converted from the plain value.
@@ -1360,11 +1361,11 @@ class SosFilterOp(FilterOp):
 
 class DelayFilterOp(FilterOp):
 
-    def __init__(self, delay_millis: float, fs: int = JRIVER_FS):
-        self.__shift_samples = int((delay_millis / 1000) / (1.0 / fs))
+    def __init__(self, delay_millis: float):
+        self.__delay_ms = delay_millis
 
     def apply(self, input_signal: Signal) -> Signal:
-        return input_signal.shift(self.__shift_samples)
+        return input_signal.shift(self.__delay_ms)
 
 
 class InvertPolarityFilterOp(FilterOp):
@@ -1447,6 +1448,7 @@ class FilterGraph:
         self.__input_channels = input_channels
         self.__dot = None
         self.__convert_q = convert_q
+        self.__sim: Dict[str, Signal] = {}
         self.__regen()
 
     def undo(self) -> bool:
@@ -1780,23 +1782,25 @@ class FilterGraph:
         except:
             return False
 
-    def simulate(self, analysis_resolution=1.0) -> Dict[str, Signal]:
+    def simulate(self, analysis_resolution=1.0, recalc=True) -> Dict[str, Signal]:
         """
         Applies each filter to unit impulse per channel.
         """
-        start = time.time()
-        signals: Dict[str, Tuple[Signal, Optional[SosFilterOp]]] = {
-            c: (
-            make_dirac_pulse(c, analysis_resolution=analysis_resolution) if c in self.input_channels else make_silence(
-                c), None)
-            for c in self.output_channels
-        }
-        for f in self.all_filters:
-            self.__simulate_filter(f, signals)
-        end = time.time()
-        final_output = {k: v[1].apply(v[0]) if v[1] else v[0] for k, v in signals.items()}
-        logger.info(f"Generated {len(signals)} signals in {to_millis(start, end)} ms")
-        return final_output
+        if recalc or self.__sim is None:
+            start = time.time()
+            signals: Dict[str, Tuple[Signal, Optional[SosFilterOp]]] = {
+                c: (
+                make_dirac_pulse(c, analysis_resolution=analysis_resolution) if c in self.input_channels else make_silence(
+                    c), None)
+                for c in self.output_channels
+            }
+            for f in self.all_filters:
+                self.__simulate_filter(f, signals)
+            end = time.time()
+            final_output = {k: v[1].apply(v[0]) if v[1] else v[0] for k, v in signals.items()}
+            logger.info(f"Generated {len(signals)} signals in {to_millis(start, end)} ms")
+            self.__sim = final_output
+        return self.__sim
 
     @staticmethod
     def __simulate_filter(f: Filter, signals: Dict[str, Tuple[Signal, Optional[SosFilterOp]]]):
@@ -1865,49 +1869,95 @@ def set_filter_ids(filters: List[Filter]) -> List[Filter]:
     return filters
 
 
-class MDSXO:
+class XO:
 
-    def __init__(self, order: int, target_fc: float, fc_divisor: float = 0.0, lp_channel: str = 'L',
-                 hp_channel: str = 'R', fs: int = JRIVER_FS, in_channel: str = 'L', calc: bool = False):
-        self.__order = order
-        self.__target_fc = target_fc
-        self.__fc_divisor = fc_divisor if fc_divisor != 0.0 else MDS_FREQ_DIVISOR[order]
-        self.__in_channel = in_channel
-        self.__lp_channel = lp_channel
-        self.__hp_channel = hp_channel
-        self.__dc_gd_millis = 0.0
+    def __init__(self, out_channel_lp: str, out_channel_hp: str, fs: int = JRIVER_FS):
+        self.in_channel = None
+        self.out_channel_lp = out_channel_lp
+        self.out_channel_hp = out_channel_hp
+        self.extra_delay_millis: float = 0.0
         self.__fs = fs
-        self.__multi_way_delay_filter: Optional[Delay] = None
-        self.__graph = None
-        self.__output = None
-        self.__crossing = None
-        self.__lp_slope = None
-        self.__hp_slope = None
-        if calc is True:
-            self.calc_graph_if_necessary()
 
     @property
     def fs(self) -> int:
         return self.__fs
 
-    @fs.setter
-    def fs(self, fs: int):
-        self.__fs = fs
-        self.__recalc()
+    @abc.abstractmethod
+    def calc_filters(self) -> List[Filter]:
+        raise NotImplementedError()
+
+    def __repr__(self):
+        return f"{self.out_channel_lp}/{self.out_channel_hp}"
+
+
+class StandardXO(XO):
+
+    def __init__(self, out_channel_lp: str, out_channel_hp: str,
+                 low_pass: Optional[ComplexLowPass] = None, high_pass: Optional[ComplexHighPass] = None,
+                 fs: int = JRIVER_FS):
+        super().__init__(out_channel_lp, out_channel_hp, fs=fs)
+        self.__low_pass = low_pass
+        self.__high_pass = high_pass
+
+    def calc_filters(self) -> List[Filter]:
+        assert self.in_channel is not None
+        filters: List[Filter] = []
+        if self.in_channel != self.out_channel_lp:
+            filters.append(create_single_filter({
+                **Mix.default_values(),
+                'Source': str(get_channel_idx(self.in_channel)),
+                'Destination': str(get_channel_idx(self.out_channel_lp)),
+                'Mode': str(MixType.COPY.value)
+            }))
+        if self.in_channel != self.out_channel_hp:
+            filters.append(create_single_filter({
+                **Mix.default_values(),
+                'Source': str(get_channel_idx(self.in_channel)),
+                'Destination': str(get_channel_idx(self.out_channel_hp)),
+                'Mode': str(MixType.COPY.value)
+            }))
+        if self.__low_pass:
+            filters.append(convert_filter_to_mc_dsp(self.__low_pass, str(get_channel_idx(self.out_channel_lp))))
+        if self.__high_pass:
+            filters.append(convert_filter_to_mc_dsp(self.__high_pass, str(get_channel_idx(self.out_channel_hp))))
+        return filters
+
+    @staticmethod
+    def __make_mc_filter(value: float, filt_type: Type[SingleFilter], channel_indexes: str, key: str) -> Filter:
+        return create_single_filter({
+            **filt_type.default_values(),
+            key: f"{value:.7g}",
+            'Channels': channel_indexes
+        })
+
+    def __repr__(self):
+        lp = f"LP: {self.__low_pass}" if self.__low_pass else ''
+        hp = f"HP: {self.__high_pass}" if self.__high_pass else ''
+        return f"{super().__repr__()} {hp} {lp}"
+
+
+class MDSXO(XO):
+
+    def __init__(self, order: int, target_fc: float, fc_divisor: float = 0.0, lp_channel: str = 'L',
+                 hp_channel: str = 'R', fs: int = JRIVER_FS, calc: bool = False):
+        super().__init__(lp_channel, hp_channel, fs=fs)
+        self.__order = order
+        self.__target_fc = target_fc
+        self.__fc_divisor = fc_divisor if fc_divisor != 0.0 else MDS_FREQ_DIVISOR[order]
+        self.__dc_gd_millis = self.__calc_dc_gd(self.__make_low_pass())
+        self.__multi_way_delay_filter: Optional[Delay] = None
+        self.__graph: Optional[FilterGraph] = None
+        self.__output = None
+        self.__crossing = None
+        self.__lp_slope = None
+        self.__hp_slope = None
+        if calc is True:
+            self.__recalc()
 
     @property
     def filter_graph(self) -> FilterGraph:
-        self.calc_graph_if_necessary()
-        return self.__graph
-
-    @property
-    def in_channel(self) -> str:
-        return self.__in_channel
-
-    @in_channel.setter
-    def in_channel(self, in_channel: str):
-        self.__in_channel = in_channel
         self.__recalc()
+        return self.__graph
 
     def __recalc(self):
         if self.__graph is not None:
@@ -1923,7 +1973,7 @@ class MDSXO:
 
     @property
     def delay_samples(self) -> float:
-        return self.delay / (1 / (self.__fs / 1000))
+        return self.delay / (1 / (self.fs / 1000))
 
     @property
     def target_fc(self) -> float:
@@ -1933,14 +1983,6 @@ class MDSXO:
     def actual_fc(self) -> float:
         self.__metrics()
         return self.__crossing
-
-    @property
-    def lp_channel(self) -> str:
-        return self.__lp_channel
-
-    @property
-    def hp_channel(self) -> str:
-        return self.__hp_channel
 
     @property
     def lp_slope(self) -> float:
@@ -1971,17 +2013,17 @@ class MDSXO:
     @property
     def lp_output(self) -> Signal:
         self.__calc_output()
-        return self.__output[self.__lp_channel]
+        return self.__output[self.out_channel_lp]
 
     def __calc_output(self):
-        self.calc_graph_if_necessary()
+        self.__recalc()
         if self.__output is None:
             self.__output = self.__graph.simulate(analysis_resolution=0.1)
 
     @property
     def hp_output(self) -> Signal:
         self.__calc_output()
-        return self.__output[self.__hp_channel]
+        return self.__output[self.out_channel_hp]
 
     @property
     def order(self) -> int:
@@ -1999,9 +2041,10 @@ class MDSXO:
         lp_slope = lp_y[lp_slope_start_idx.item()] - lp_y[lp_slope_end_idx.item()]
         return lp_x[fc_idx], lp_slope, hp_slope
 
-    def calc_graph_if_necessary(self):
+    def calc_filters(self):
         if self.__graph is None:
             self.__calc_graph()
+        return self.__graph.filters
 
     def __calc_graph(self):
         '''
@@ -2016,19 +2059,19 @@ class MDSXO:
                   -------- Delay ------- Delay ---- (+) ----- lowpass
         :return:
         '''
-        self.__dc_gd_millis = self.__calc_dc_gd(self.__make_low_pass())
-        channels = list({self.__in_channel, self.__lp_channel, self.__hp_channel}) + SHORT_USER_CHANNELS
+        assert self.in_channel is not None
+        channels = list({self.in_channel, self.out_channel_lp, self.out_channel_hp}) + SHORT_USER_CHANNELS
         graph = FilterGraph(0, channels, channels, [])
         # copy input to user channels
         graph.append(Mix({
             **Mix.default_values(),
-            'Source': str(get_channel_idx(self.__in_channel)),
+            'Source': str(get_channel_idx(self.in_channel)),
             'Destination': str(get_channel_idx('U1')),
             'Mode': str(MixType.COPY.value)
         }), regen=False)
         graph.append(Mix({
             **Mix.default_values(),
-            'Source': str(get_channel_idx(self.__in_channel)),
+            'Source': str(get_channel_idx(self.in_channel)),
             'Destination': str(get_channel_idx('U2')),
             'Mode': str(MixType.COPY.value)
         }), regen=False)
@@ -2036,45 +2079,49 @@ class MDSXO:
         self.__add_delayed_low_pass(graph, self.__make_low_pass())
         self.__add_delayed_low_pass(graph, self.__make_low_pass())
         # prepare the low pass output
-        if self.__in_channel != self.__lp_channel:
+        if self.in_channel != self.out_channel_lp:
             # if the input is not the lp channel then copy it
             graph.append(Mix({
                 **Mix.default_values(),
-                'Source': str(get_channel_idx(self.__in_channel)),
-                'Destination': str(get_channel_idx(self.__lp_channel)),
+                'Source': str(get_channel_idx(self.in_channel)),
+                'Destination': str(get_channel_idx(self.out_channel_lp)),
                 'Mode': str(MixType.COPY.value)
             }), regen=False)
         # delay the lp by 2d (split into 2 to ensure the same delay is applied at every stage to )
         graph.append(Delay({
             **Delay.default_values(),
-            'Channels': str(get_channel_idx(self.__lp_channel)),
+            'Channels': str(get_channel_idx(self.out_channel_lp)),
             'Delay': f"{self.__dc_gd_millis:.7g}",
         }), regen=False)
         graph.append(Delay({
             **Delay.default_values(),
-            'Channels': str(get_channel_idx(self.__lp_channel)),
+            'Channels': str(get_channel_idx(self.out_channel_lp)),
             'Delay': f"{self.__dc_gd_millis:.7g}",
         }), regen=False)
         # subtract U1 to make the low pass output
         graph.append(Mix({
             **Mix.default_values(),
             'Source': str(get_channel_idx('U1')),
-            'Destination': str(get_channel_idx(self.__lp_channel)),
+            'Destination': str(get_channel_idx(self.out_channel_lp)),
             'Mode': str(MixType.SUBTRACT.value)
         }), regen=False)
         # move high pass to output
         graph.append(Mix({
             **Mix.default_values(),
             'Source': str(get_channel_idx('U1')),
-            'Destination': str(get_channel_idx(self.__hp_channel)),
+            'Destination': str(get_channel_idx(self.out_channel_hp)),
             'Mode': str(MixType.MOVE.value)
         }), regen=False)
-        if self.__multi_way_delay_filter:
-            graph.append(self.__multi_way_delay_filter, regen=False)
+        if not math.isclose(self.extra_delay_millis, 0.0):
+            graph.append(Delay({
+                **Delay.default_values(),
+                'Channels': str(get_channel_idx(self.out_channel_lp)),
+                'Delay': f"{self.extra_delay_millis:.7g}",
+            }), regen=False)
         self.__graph = graph
 
     def __make_low_pass(self) -> ComplexLowPass:
-        return ComplexLowPass(FilterType.BESSEL_MAG6, self.__order, self.__fs, self.lp_fc)
+        return ComplexLowPass(FilterType.BESSEL_MAG6, self.__order, self.fs, self.lp_fc)
 
     @property
     def lp_fc(self) -> float:
@@ -2106,62 +2153,85 @@ class MDSXO:
         for i, f in enumerate(low_pass.filters):
             # w=1 calculates at DC only
             f_s, gd_c = group_delay((f.b, f.a), w=1)
-            gd_c = gd_c / self.__fs * 1000.0
+            gd_c = gd_c / self.fs * 1000.0
             if i == 0:
                 gd = gd_c
             else:
                 gd = gd + gd_c
         return round(gd[0], 6)
 
-    def add_delay_to_lp(self, delay_millis: float) -> None:
-        self.__multi_way_delay_filter = Delay({
-            **Delay.default_values(),
-            'Channels': str(get_channel_idx(self.__lp_channel)),
-            'Delay': f"{delay_millis:.7g}",
-        })
-        self.__recalc()
-
     def __repr__(self):
-        return f"{self.order} / {self.target_fc:.2f} -> {self.lp_channel} / {self.hp_channel}"
+        return f"MDS {super().__repr__()} {self.order} / {self.target_fc:.2f}"
 
 
-class MDSFilter:
+class WayValues:
+    def __init__(self, way: int, delay_millis: float = 0.0, gain: float = 0.0, inverted: bool = False):
+        self.way = way
+        self.delay_millis = delay_millis
+        self.gain = gain
+        self.inverted = inverted
+
+    def __repr__(self) -> str:
+        return f"W{self.way} Gain: {self.gain:.2f} Delay: {self.delay_millis:.3f} Inverted: {self.inverted}"
+
+
+class MultiwayCrossover:
     '''
     Example of how multiway output is generated
-    way 1 -> LP -> L
+    input -> LP -> L
           -> HP -> way 2 -> LP -> R
                          -> HP -> way 3 -> LP -> C
                                         -> HP -> SL
     '''
 
-    def __init__(self,
-                 lower_ways: List[Tuple[int, float, str]],
-                 last_way: Tuple[int, float, str, str],
-                 fs: int = JRIVER_FS,
-                 in_channel: str = 'L'):
-        self.__xos: List[MDSXO] = []
-        self.__channels = []
-        for way in lower_ways:
-            self.__channels.append(way[2])
-        self.__channels.extend([last_way[2], last_way[3]])
-
-        in_ch = in_channel
-        for i, xo in enumerate(lower_ways):
-            self.__xos.append(
-                MDSXO(xo[0], xo[1], in_channel=in_ch, lp_channel=self.__channels[0 + i],
-                      hp_channel=self.__channels[1 + i], fs=fs, calc=True))
-            in_ch = self.__channels[1 + i]
-        self.__xos.append(
-            MDSXO(last_way[0], last_way[1], in_channel=in_ch, lp_channel=self.__channels[-2],
-                  hp_channel=self.__channels[-1], fs=fs, calc=True))
-
+    def __init__(self, in_channel: str, crossovers: List[XO], way_values: List[WayValues],
+                 subsonic_filter: Optional[ComplexHighPass] = None, fs: int = JRIVER_FS):
+        self.__fs = fs
+        assert in_channel is not None
+        self.__in_channel = in_channel
+        self.__xos = crossovers
+        self.__channels = sorted(list({c for x in crossovers for c in [x.out_channel_lp, x.out_channel_hp]}),
+                                 key=lambda x: get_channel_idx(x))
         delay = 0
         for i, xo in enumerate(reversed(self.__xos)):
-            if i != 0:
-                xo.add_delay_to_lp(delay)
-            delay += (xo.delay * 2)
-        self.__fs = fs
-        filters = [f for x in self.__xos for f in x.filter_graph.filters]
+            if i != 0 and delay != 0:
+                xo.extra_delay_millis = delay
+            if isinstance(xo, MDSXO):
+                delay += (xo.delay * 2)
+
+        output_channels: List[str] = []
+        filters = []
+        last_x: Optional[XO] = None
+        for i, x in enumerate(self.__xos):
+            x.in_channel = self.__in_channel if i == 0 else last_x.out_channel_hp
+            if i == 0 and subsonic_filter:
+                filters.append(convert_filter_to_mc_dsp(subsonic_filter, x.out_channel_lp))
+            filters.extend(x.calc_filters())
+            last_x = x
+            output_channels.append(x.out_channel_lp)
+        output_channels.append(last_x.out_channel_hp)
+
+        for i, v in enumerate(way_values):
+            if v is not None:
+                if v.inverted:
+                    filters.append(Polarity({
+                        'Enabled': '1',
+                        'Type': Polarity.TYPE,
+                        'Channels': str(get_channel_idx(output_channels[i]))
+                    }))
+                if not math.isclose(v.gain, 0.0):
+                    filters.append(create_single_filter({
+                        **Gain.default_values(),
+                        'Gain': f"{v.gain:.7g}",
+                        'Channels': str(get_channel_idx(output_channels[i]))
+                    }))
+                if not math.isclose(v.delay_millis, 0.0):
+                    filters.append(create_single_filter({
+                        **Delay.default_values(),
+                        'Delay': f"{v.delay_millis:.7g}",
+                        'Channels': str(get_channel_idx(output_channels[i]))
+                    }))
+
         channels_with_user = list(self.__channels) + SHORT_USER_CHANNELS
         self.__graph = FilterGraph(0, channels_with_user, channels_with_user, filters)
         self.__output = self.__graph.simulate(analysis_resolution=0.1)
@@ -2169,6 +2239,15 @@ class MDSFilter:
     def output(self, way: int) -> Tuple[str, Signal]:
         ch = self.__channels[way]
         return ch, self.__output[ch]
+
+    @property
+    def output(self) -> List[Signal]:
+        return [self.__output[c] for c in self.__channels]
+
+    @property
+    def sum(self) -> Signal:
+        from functools import reduce
+        return reduce(lambda s1, s2: s1.add(s2), self.output)
 
     @property
     def graph(self) -> FilterGraph:

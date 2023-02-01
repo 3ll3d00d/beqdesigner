@@ -81,6 +81,6 @@ class FreqRangeEditor(QStyledItemDelegate):
         if not index.isValid():
             return 0
         editor = QLineEdit(widget)
-        validator = QDoubleValidator(self.__min_val, self.__max_val, editor)
+        validator = QDoubleValidator(self.__min_val, self.__max_val, 1, editor)
         editor.setValidator(validator)
         return editor

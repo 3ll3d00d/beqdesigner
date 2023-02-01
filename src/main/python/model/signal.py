@@ -1091,19 +1091,36 @@ class Signal:
             copy.name = new_name
         return copy
 
-    def shift(self, samples: int):
+    def shift(self, millis: float, subsample: bool = False):
         '''
         shifts the signal by the specified no of samples while retaining signal length.
-        :param samples: no of samples to shift, negative means left shift (i.e. play earlier), positive means right
+        :param millis: amount to shift by, negative means left shift (i.e. play earlier), positive means right
         shift (i.e. play later).
+        :param subsample: whether to apply a subsample shift
         :return: the shifted signal.
         '''
-        if samples == 0:
-            new_samples = np.copy(self.samples)
-        elif samples < 0:
-            new_samples = np.append(self.samples, np.zeros(samples))[samples:]
+        samples_exact = (millis / 1000) * self.fs
+        samples = math.floor(samples_exact)
+        fraction = samples_exact - samples
+
+        if samples:
+            if samples > 0:
+                new_samples = np.insert(self.samples, 0, np.zeros(samples))[:-samples]
+            else:
+                new_samples = np.append(self.samples, np.zeros(samples))[samples:]
         else:
-            new_samples = np.insert(self.samples, 0, np.zeros(samples))[:-samples]
+            new_samples = np.copy(self.samples)
+
+        if not math.isclose(fraction, 0.0):
+            if subsample:
+                # TODO 1st order APF does not work as intended, use an FIR filter instead
+                frac = 1.0 - fraction
+                coeffs = [frac, 1.0, 0.0, 1.0, frac, 0.0]
+                new_samples = signal.sosfiltfilt(coeffs, self.samples)
+            else:
+                # print(f"Ignoring {fraction:.4f} samples")
+                pass
+
         return Signal(self.name,
                       new_samples,
                       analysis_resolution=self.__analysis_resolution,
@@ -1162,7 +1179,7 @@ class Signal:
         :return: a new signal.
         '''
         return Signal(self.name,
-                      self.samples + samples,
+                      self.samples + (samples.samples if isinstance(samples, Signal) else samples),
                       analysis_resolution=self.__analysis_resolution,
                       avg_window=self.__avg_window,
                       peak_window=self.__peak_window,
@@ -1177,7 +1194,7 @@ class Signal:
         :return: a new signal.
         '''
         return Signal(self.name,
-                      self.samples - samples,
+                      self.samples - (samples.samples if isinstance(samples, Signal) else samples),
                       analysis_resolution=self.__analysis_resolution,
                       avg_window=self.__avg_window,
                       peak_window=self.__peak_window,

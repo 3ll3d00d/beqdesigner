@@ -121,7 +121,7 @@ class Limits:
         self.__y1_range_calculator = y1_range_calculator
         self.__y2_range_calculator = y2_range_calculator if y2_range_calculator else y1_range_calculator
         self.axes_1 = axes_1
-        self.x_scale = x_scale
+        self.x_scale = x_scale if x_scale else 'log'
         self.x_min = x_lim[0]
         self.x_max = x_lim[1]
         self.__y1_auto = True

@@ -1,1 +1,1 @@
-JRIVER_FS: int = 192000
+JRIVER_FS: int = 48000

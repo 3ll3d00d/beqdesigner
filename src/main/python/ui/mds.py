@@ -14,7 +14,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_mdsDialog(object):
     def setupUi(self, mdsDialog):
         mdsDialog.setObjectName("mdsDialog")
-        mdsDialog.resize(356, 302)
+        mdsDialog.resize(303, 302)
         self.verticalLayout = QtWidgets.QVBoxLayout(mdsDialog)
         self.verticalLayout.setObjectName("verticalLayout")
         self.fieldLayout = QtWidgets.QHBoxLayout()

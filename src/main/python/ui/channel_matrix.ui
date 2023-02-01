@@ -20,9 +20,6 @@
    <string>Channel Matrix</string>
   </property>
   <layout class="QGridLayout" name="gridLayout">
-   <item row="0" column="0" colspan="3">
-    <widget class="QTableView" name="matrix"/>
-   </item>
    <item row="1" column="0">
     <widget class="QLabel" name="errorMessageIcon">
      <property name="text">
@@ -31,6 +28,13 @@
     </widget>
    </item>
    <item row="1" column="2">
+    <widget class="QLabel" name="errorMessage">
+     <property name="text">
+      <string/>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="4">
     <widget class="QDialogButtonBox" name="buttonBox">
      <property name="layoutDirection">
       <enum>Qt::LeftToRight</enum>
@@ -39,16 +43,12 @@
       <enum>Qt::Horizontal</enum>
      </property>
      <property name="standardButtons">
-      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Save</set>
+      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Reset|QDialogButtonBox::Save</set>
      </property>
     </widget>
    </item>
-   <item row="1" column="1">
-    <widget class="QLabel" name="errorMessage">
-     <property name="text">
-      <string/>
-     </property>
-    </widget>
+   <item row="0" column="0" colspan="6">
+    <widget class="QTableView" name="matrix"/>
    </item>
   </layout>
  </widget>
@@ -61,8 +61,8 @@
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>224</x>
-     <y>460</y>
+     <x>270</x>
+     <y>317</y>
     </hint>
     <hint type="destinationlabel">
      <x>157</x>
@@ -77,8 +77,8 @@
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>292</x>
-     <y>466</y>
+     <x>338</x>
+     <y>317</y>
     </hint>
     <hint type="destinationlabel">
      <x>286</x>
@@ -87,4 +87,7 @@
    </hints>
   </connection>
  </connections>
+ <slots>
+  <slot>fill_missing()</slot>
+ </slots>
 </ui>
