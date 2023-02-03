@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import abc
+import json
 import logging
 import math
 import time
 from abc import ABC, abstractmethod
 from enum import Enum
+from json import JSONDecoder
 from typing import List, Dict, Optional, Callable, Union, Type, Sequence, overload, Tuple, Iterable
 
 import numpy as np
@@ -436,7 +438,8 @@ class Pass(ChannelFilter, ABC):
         elif self.order == 2:
             return self.__ctors[1](JRIVER_FS, self.freq, q=self.q, f_id=self.id)
         else:
-            return self.__ctors[2](FilterType.BUTTERWORTH, self.order, JRIVER_FS, self.freq, q_scale=self.q, f_id=self.id)
+            return self.__ctors[2](FilterType.BUTTERWORTH, self.order, JRIVER_FS, self.freq, q_scale=self.q,
+                                   f_id=self.id)
 
     def __repr__(self):
         return f"{self.__class__.__name__} Order={self.order} Q={self.q:.4g} at {self.freq:.7g} Hz {self.print_channel_names()}{self.print_disabled()}"
@@ -1023,6 +1026,65 @@ class XOFilterType(Enum):
     PASS = 4
 
 
+class MultiwayFilter(ComplexFilter, Sequence[Filter]):
+
+    def __init__(self, input_channel: str, output_channels: List[str], filters: List[Filter], meta: dict):
+        self.__input_channel = input_channel
+        self.__output_channels = output_channels
+        self.__meta = meta
+        super().__init__(filters)
+
+    def short_desc(self):
+        return 'MultiwayXO'
+
+    def metadata(self) -> str:
+        return json.dumps({
+            'i': self.input_channel,
+            'o': self.output_channels,
+            'm': self.__meta
+        })
+
+    @property
+    def ui_meta(self) -> dict:
+        return self.__meta
+
+    @overload
+    @abstractmethod
+    def __getitem__(self, i: int) -> Filter:
+        ...
+
+    @overload
+    def __getitem__(self, s: slice) -> Sequence[Filter]:
+        ...
+
+    def __getitem__(self, i: int) -> Filter:
+        return self.filters[i]
+
+    def __len__(self) -> int:
+        return len(self.filters)
+
+    @property
+    def input_channel(self) -> str:
+        return self.__input_channel
+
+    @property
+    def output_channels(self) -> List[str]:
+        return self.__output_channels
+
+    @property
+    def channel_names(self) -> List[str]:
+        return [self.input_channel] + self.output_channels
+
+    @classmethod
+    def custom_type(cls) -> str:
+        return 'Multiway'
+
+    @classmethod
+    def create(cls, data: str, child_filters: List[Filter]):
+        meta = json.loads(data)
+        return MultiwayFilter(meta['i'], meta['o'], child_filters, meta['m'])
+
+
 class XOFilter(ComplexChannelFilter):
 
     def __init__(self, input_channel: str, way: int, filters: List[Filter]):
@@ -1073,7 +1135,7 @@ class XOFilter(ComplexChannelFilter):
 
 class CompoundRoutingFilter(ComplexFilter, Sequence[Filter]):
 
-    def __init__(self, metadata: str, routing: List[Filter], xo: List[XOFilter]):
+    def __init__(self, metadata: str, routing: List[Filter], xo: List[MultiwayFilter]):
         self.__metadata = metadata
         all_filters = (routing if routing else []) + (xo if xo else [])
         all_channels = set()
@@ -1116,9 +1178,9 @@ class CompoundRoutingFilter(ComplexFilter, Sequence[Filter]):
     def create(cls, data: str, child_filters: List[Filter]):
         routing_filters = []
         xo_filters = []
-        # filters arranged as optional gain then mix then XO
+        # filters arranged as routing then multiway
         for f in child_filters:
-            if isinstance(f, XOFilter):
+            if isinstance(f, MultiwayFilter):
                 xo_filters.append(f)
             else:
                 routing_filters.append(f)
@@ -1580,12 +1642,14 @@ class FilterGraph:
 
     @property
     def all_filters(self) -> Iterable[Filter]:
-        for f in self.filters:
-            if isinstance(f, Sequence):
-                for f1 in f:
-                    yield f1
-            else:
-                yield f
+        def flatten(items):
+            for x in items:
+                if isinstance(x, Iterable):
+                    yield from flatten(x)
+                else:
+                    yield x
+        for f in flatten(self.filters):
+            yield f
 
     @property
     def input_channels(self):
@@ -1790,8 +1854,9 @@ class FilterGraph:
             start = time.time()
             signals: Dict[str, Tuple[Signal, Optional[SosFilterOp]]] = {
                 c: (
-                make_dirac_pulse(c, analysis_resolution=analysis_resolution) if c in self.input_channels else make_silence(
-                    c), None)
+                    make_dirac_pulse(c,
+                                     analysis_resolution=analysis_resolution) if c in self.input_channels else make_silence(
+                        c), None)
                 for c in self.output_channels
             }
             for f in self.all_filters:
@@ -1886,6 +1951,10 @@ class XO:
     def calc_filters(self) -> List[Filter]:
         raise NotImplementedError()
 
+    @abc.abstractmethod
+    def to_json(self) -> dict:
+        raise NotImplementedError()
+
     def __repr__(self):
         return f"{self.out_channel_lp}/{self.out_channel_hp}"
 
@@ -1898,6 +1967,20 @@ class StandardXO(XO):
         super().__init__(out_channel_lp, out_channel_hp, fs=fs)
         self.__low_pass = low_pass
         self.__high_pass = high_pass
+
+    def to_json(self) -> dict:
+        return {
+            'l': self.__low_pass.to_json() if self.__low_pass else {},
+            'h': self.__high_pass.to_json() if self.__high_pass else {},
+            'c': [self.out_channel_lp, self.out_channel_hp]
+        }
+
+    @staticmethod
+    def from_json(d: dict) -> StandardXO:
+        from model.codec import filter_from_json
+        return StandardXO(*d['c'],
+                          low_pass=filter_from_json(d['l']) if d['l'] else None,
+                          high_pass=filter_from_json(d['h']) if d['h'] else None)
 
     def calc_filters(self) -> List[Filter]:
         assert self.in_channel is not None
@@ -1953,6 +2036,14 @@ class MDSXO(XO):
         self.__hp_slope = None
         if calc is True:
             self.__recalc()
+
+    def to_json(self) -> dict:
+        return {'o': self.__order, 'f': self.__target_fc, 'd': self.__fc_divisor, 'l': self.out_channel_lp,
+                'h': self.out_channel_hp}
+
+    @staticmethod
+    def from_json(self, d: dict) -> MDSXO:
+        return MDSXO(d['o'], d['f'], fc_divisor=d['d'], lp_channel=d['l'], hp_channel=d['h'])
 
     @property
     def filter_graph(self) -> FilterGraph:
@@ -2165,11 +2256,31 @@ class MDSXO(XO):
 
 
 class WayValues:
-    def __init__(self, way: int, delay_millis: float = 0.0, gain: float = 0.0, inverted: bool = False):
+    def __init__(self, way: int, delay_millis: float = 0.0, gain: float = 0.0, inverted: bool = False,
+                 lp: list = None, hp: list = None):
         self.way = way
         self.delay_millis = delay_millis
         self.gain = gain
         self.inverted = inverted
+        self.lp = lp
+        self.hp = hp
+
+    def to_json(self) -> str:
+        return json.dumps({
+            'w': self.way,
+            'd': self.delay_millis,
+            'g': self.gain,
+            'i': 'Y' if self.inverted else 'N',
+            'l': self.lp if self.lp else [],
+            'h': self.hp if self.hp else []
+        })
+
+    @staticmethod
+    def from_json(v: dict) -> WayValues:
+        lp = v['l']
+        hp = v['h']
+        return WayValues(v['w'], v['d'], v['g'], True if v['inverted'] == 'Y' else False,
+                         lp=lp if lp else None, hp=hp if hp else None)
 
     def __repr__(self) -> str:
         return f"W{self.way} Gain: {self.gain:.2f} Delay: {self.delay_millis:.3f} Inverted: {self.inverted}"

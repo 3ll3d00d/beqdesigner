@@ -24,13 +24,13 @@ from model.iir import SOS, CompleteFilter, FilterType, ComplexLowPass, ComplexHi
 from model.jriver import JRIVER_FS
 from model.jriver.codec import get_element, xpath_to_key_data_value, write_dsp_file, get_peq_key_name
 from model.jriver.common import get_channel_name, get_channel_idx, OutputFormat, SHORT_USER_CHANNELS, make_dirac_pulse, \
-    OUTPUT_FORMATS, get_real_channel_name
+    OUTPUT_FORMATS
 from model.jriver.dsp import JRiverDSP
 from model.jriver.filter import Divider, GEQFilter, CompoundRoutingFilter, CustomPassFilter, GainQFilter, Gain, Pass, \
     LinkwitzTransform, Polarity, Mix, Delay, Filter, create_single_filter, MixType, ChannelFilter, \
     convert_filter_to_mc_dsp, \
-    SingleFilter, XOFilter, HighPass, LowPass, SimulationFailed, MSOFilter, MDSXO, FilterGraph, WayValues, XO, \
-    StandardXO, MultiwayCrossover
+    SingleFilter, XOFilter, HighPass, LowPass, SimulationFailed, MSOFilter, MDSXO, WayValues, XO, \
+    StandardXO, MultiwayCrossover, MultiwayFilter
 from model.jriver.mcws import MediaServer, MCWSError, DSPMismatchError
 from model.jriver.parser import from_mso
 from model.jriver.render import render_dot
@@ -39,7 +39,7 @@ from model.jriver.routing import Matrix, LFE_ADJUST_KEY, EDITORS_KEY, EDITOR_NAM
 from model.limits import DecibelRangeCalculator, PhaseRangeCalculator
 from model.magnitude import MagnitudeModel
 from model.preferences import JRIVER_GEOMETRY, JRIVER_GRAPH_X_MIN, JRIVER_GRAPH_X_MAX, JRIVER_DSP_DIR, \
-    get_filter_colour, Preferences, XO_GRAPH_X_MIN, XO_GRAPH_X_MAX, XO_GEOMETRY, JRIVER_MCWS_CONNECTIONS
+    get_filter_colour, Preferences, XO_GEOMETRY, JRIVER_MCWS_CONNECTIONS
 from model.signal import Signal
 from model.xy import MagnitudeData
 from ui.channel_matrix import Ui_channelMatrixDialog
@@ -1535,16 +1535,20 @@ class XODialog(QDialog, Ui_xoDialog):
                 editor: ChannelEditor = next((c for c in self.__editors if c.name == e[EDITOR_NAME_KEY]))
                 editor.ways = e[WAYS_KEY]
                 editor.symmetric = e[SYM_KEY]
-            for f in self.__existing.filters:
-                if isinstance(f, XOFilter):
-                    match = next(e for e in self.__editors
-                                 if e.name in groups.keys() and f.input_channel in e.underlying_channels)
-                    match.load_filter(f)
         if LFE_IN_KEY in metadata:
             self.__lfe_channel = get_channel_name(metadata[LFE_IN_KEY])
         if ROUTING_KEY in metadata:
             self.__matrix.decode(metadata[ROUTING_KEY])
             self.__on_matrix_update()
+        if EDITORS_KEY in metadata:
+            groups = {e[EDITOR_NAME_KEY]: e[UNDERLYING_KEY] for e in metadata[EDITORS_KEY]}
+            for f in self.__existing.filters:
+                if isinstance(f, MultiwayFilter):
+                    match = next(e for e in self.__editors
+                                 if e.name in groups.keys() and f.input_channel in e.underlying_channels)
+                    match.load_filter(f)
+                else:
+                    logger.error(f"Ignoring unknown filter type {f}")
 
     def __calculate_sw_channel(self) -> str:
         return None if self.__output_format.lfe_channels == 0 else 'SW'
@@ -1672,11 +1676,11 @@ class XODialog(QDialog, Ui_xoDialog):
         :return: the filter.
         '''
         lfe_channel_idx, lfe_adjust, main_adjust = self.__get_lfe_metadata()
-        xo_filters = []
+        xo_filters: List[MultiwayFilter] = []
         for e in self.__editors:
             if e.widget.isVisible():
                 for c in e.underlying_channels:
-                    xo_filters.extend(e.filters)
+                    xo_filters.append(MultiwayFilter(c, e.output_channels[c], e.filters, e.meta))
         editor_meta = [
             {EDITOR_NAME_KEY: e.name, UNDERLYING_KEY: e.underlying_channels, WAYS_KEY: len(e), SYM_KEY: e.symmetric}
             for e in self.__editors if e.widget.isVisible()
@@ -1738,6 +1742,7 @@ class ChannelEditor:
                  output_format: OutputFormat, is_sw_channel: bool, on_filter_change: Callable[[], None],
                  on_way_count_change: Callable[[str, int], None], mds_points: List[Tuple[int, int, float]] = None):
         self.__xos: Dict[str, MultiwayCrossover] = {}
+        self.__meta: dict = {}
         self.__notify_parent = on_filter_change
         self.__is_sw_channel = is_sw_channel
         self.__output_format = output_format
@@ -1817,6 +1822,7 @@ class ChannelEditor:
 
     def __reset(self):
         self.__xos = {}
+        self.__meta = {}
 
     def __repr__(self):
         return f"ChannelEditor {self.__underlying_channels} {self.__ways.value()}"
@@ -1896,9 +1902,17 @@ class ChannelEditor:
         self.__recalc()
         return [f for x in self.__xos.values() for f in x.graph.filters]
 
+    @property
+    def meta(self) -> dict:
+        return self.__meta
+
+    @property
+    def output_channels(self) -> Dict[str, List[str]]:
+        return {k: [v[1] for v in v1] for k, v1 in self.__output_channels_by_underlying.items()}
+
     def __recalc(self):
         if not self.__xos:
-            ss_filter: Optional[Filter] = None
+            ss_filter: Optional[ComplexHighPass] = None
             xos: List[XO] = []
             way_values: List[WayValues] = []
             lp_filter: Optional[ComplexLowPass] = None
@@ -1921,6 +1935,10 @@ class ChannelEditor:
                                                   low_pass=lp_filter, high_pass=e.hp_filter))
                         lp_filter = e.lp_filter
                     way_values.append(values)
+            self.__meta = {
+                'w': [w.to_json() for w in way_values],
+                'm': self.__mds_points
+            }
             self.__xos = {c: MultiwayCrossover(c, xos, way_values, subsonic_filter=ss_filter)
                           for c in self.__underlying_channels}
 
@@ -1961,12 +1979,15 @@ class ChannelEditor:
     def widget(self) -> QWidget:
         return self.__frame
 
-    def load_filter(self, f: XOFilter):
+    def load_filter(self, f: MultiwayFilter):
         '''
         Loads the filter into the specified way.
         :param f: the filter.
         '''
-        self.__editors[f.way].load_filter(f)
+        way_values = {w.way: w for w in [WayValues.from_json(w) for w in f.ui_meta['w']]}
+        for i, e in enumerate(self.__editors):
+            e.load_way_values(way_values[i])
+        self.__on_mds_change(f.ui_meta['m'])
 
 
 class WayEditor:
@@ -2117,7 +2138,9 @@ class WayEditor:
         return None
 
     def get_way_values(self) -> WayValues:
-        return WayValues(self.__way, self.__delay.value(), self.__gain.value(), self.inverted)
+        return WayValues(self.__way, self.__delay.value(), self.__gain.value(), self.inverted,
+                         lp=[self.__lp_filter_type.currentText(), self.__lp_order.value(), self.__lp_freq.value()],
+                         hp=[self.__hp_filter_type.currentText(), self.__hp_order.value(), self.__hp_freq.value()])
 
     def set_mds_low(self, order: int, freq: float) -> None:
         from model.report import block_signals
@@ -2260,6 +2283,19 @@ class WayEditor:
         self.__hp_order.setValue(order)
         self.__hp_freq.setValue(freq)
         self.__hp_filter_type.setCurrentText(filter_type)
+
+    def load_way_values(self, values: WayValues):
+        self.__delay.setValue(values.delay_millis)
+        self.__gain.setValue(values.gain)
+        self.__invert.setChecked(values.inverted)
+        if values.lp:
+            self.__lp_filter_type.setCurrentText(values.lp[0])
+            self.__lp_order.setValue(values.lp[1])
+            self.__lp_freq.setValue(values.lp[2])
+        if values.hp:
+            self.__hp_filter_type.setCurrentText(values.hp[0])
+            self.__hp_order.setValue(values.hp[1])
+            self.__hp_freq.setValue(values.hp[2])
 
     def load_filter(self, xo: XOFilter):
         '''

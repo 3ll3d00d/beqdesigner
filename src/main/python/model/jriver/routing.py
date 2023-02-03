@@ -6,10 +6,9 @@ from itertools import groupby
 from typing import Optional, Dict, List, Tuple
 
 from model.jriver.common import get_channel_idx, user_channel_indexes, get_channel_name
-from model.jriver.filter import MixType, Mix, CompoundRoutingFilter, Filter, Gain, XOFilter
+from model.jriver.filter import MixType, Mix, CompoundRoutingFilter, Filter, Gain, XOFilter, MultiwayFilter
 
 logger = logging.getLogger('jriver.routing')
-
 
 LFE_ADJUST_KEY = 'l'
 ROUTING_KEY = 'r'
@@ -73,7 +72,7 @@ class Matrix:
 
     def row_name(self, idx: int):
         c, w = self.__row_keys[idx]
-        suffix = '' if self.__inputs[c] < 2 else f" - {w+1}"
+        suffix = '' if self.__inputs[c] < 2 else f" - {w + 1}"
         return f"{c}{suffix}"
 
     @property
@@ -209,6 +208,7 @@ def __reorder_routes(routes: List[Route]) -> List[Route]:
     for r in routes:
         def repack() -> Tuple[Route, int]:
             return r, -1
+
         # just add the first route as there is nothing to reorder
         if not ordered_routes or not r.mt:
             ordered_routes.append(repack())
@@ -412,7 +412,8 @@ def __create_summed_output_channel_for_dedicated_lfe(output_channels: List[int],
 
 
 def calculate_compound_routing_filter(matrix: Matrix, editor_meta: Optional[List[dict]] = None,
-                                      xo_filters: List[XOFilter] = None, main_adjust: int = 0, lfe_adjust: int = 0,
+                                      xo_filters: List[MultiwayFilter] = None, main_adjust: int = 0,
+                                      lfe_adjust: int = 0,
                                       lfe_channel_idx: Optional[int] = None) -> CompoundRoutingFilter:
     '''
     Calculates the filters required to route and bass manage, if necessary, the input channels.
@@ -478,7 +479,7 @@ def calculate_compound_routing_filter(matrix: Matrix, editor_meta: Optional[List
                     if r.i != r.o:
                         direct_routes.append(Route(r.i, r.w, c, MixType.ADD))
 
-    ordered_routes = __reorder_routes(direct_routes)
+    ordered_routes = __reorder_routes(__without_xo_routes(direct_routes, xo_filters))
     for o_r in ordered_routes:
         filters.append(Mix({
             **Mix.default_values(),
@@ -488,6 +489,17 @@ def calculate_compound_routing_filter(matrix: Matrix, editor_meta: Optional[List
         }))
     meta = __create_routing_metadata(matrix, editor_meta, lfe_channel_idx, lfe_adjust)
     return CompoundRoutingFilter(json.dumps(meta), filters, xo_filters)
+
+
+def __without_xo_routes(routes: List[Route], xos: List[MultiwayFilter]) -> List[Route]:
+    '''
+    Removes the routes handled by the crossover from the direct route list.
+    :param routes: the routes.
+    :param xos: the XOs.
+    :return: the reordered routes.
+    '''
+    in_out_routing = [(get_channel_idx(x.input_channel), get_channel_idx(c)) for x in xos for c in x.output_channels]
+    return [r for r in routes if not any(e[0] == r.i and e[1] == r.o for e in in_out_routing)]
 
 
 def __count_lfe_routes(lfe_channel_idx, direct_routes, summed_routes_by_output_channels) -> int:
@@ -513,4 +525,3 @@ def __create_routing_metadata(matrix: Matrix, editor_meta: Optional[List[dict]],
     if lfe_adjust:
         meta[LFE_ADJUST_KEY] = lfe_adjust
     return meta
-
