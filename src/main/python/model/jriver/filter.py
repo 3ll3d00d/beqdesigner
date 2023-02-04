@@ -7,7 +7,6 @@ import math
 import time
 from abc import ABC, abstractmethod
 from enum import Enum
-from json import JSONDecoder
 from typing import List, Dict, Optional, Callable, Union, Type, Sequence, overload, Tuple, Iterable
 
 import numpy as np
@@ -16,7 +15,7 @@ from model import iir
 from model.iir import SOS, s_to_q, q_to_s, FirstOrder_LowPass, FirstOrder_HighPass, PassFilter, CompoundPassFilter, \
     FilterType, SecondOrder_LowPass, ComplexLowPass, SecondOrder_HighPass, ComplexHighPass, CompleteFilter, \
     BiquadWithQGain, PeakingEQ, LowShelf as LS, Gain as G, LinkwitzTransform as LT, AllPass as AP, MDS_FREQ_DIVISOR
-from model.jriver import JRIVER_FS
+from model.jriver import JRIVER_FS, flatten
 from model.jriver.codec import filts_to_xml
 from model.jriver.common import get_channel_name, pop_channels, get_channel_idx, JRIVER_SHORT_CHANNELS, \
     make_dirac_pulse, make_silence, SHORT_USER_CHANNELS
@@ -1180,7 +1179,7 @@ class CompoundRoutingFilter(ComplexFilter, Sequence[Filter]):
         xo_filters = []
         # filters arranged as routing then multiway
         for f in child_filters:
-            if isinstance(f, MultiwayFilter):
+            if isinstance(f, (MultiwayFilter, XOFilter)):
                 xo_filters.append(f)
             else:
                 routing_filters.append(f)
@@ -1570,8 +1569,8 @@ class FilterGraph:
         for f in self.filters:
             if node_name in f.nodes:
                 return f
-            elif isinstance(f, CompoundRoutingFilter):
-                for f1 in f:
+            elif isinstance(f, Sequence):
+                for f1 in flatten(f):
                     if node_name in f1.nodes:
                         return f
         return None
@@ -1642,12 +1641,6 @@ class FilterGraph:
 
     @property
     def all_filters(self) -> Iterable[Filter]:
-        def flatten(items):
-            for x in items:
-                if isinstance(x, Iterable):
-                    yield from flatten(x)
-                else:
-                    yield x
         for f in flatten(self.filters):
             yield f
 
@@ -2279,7 +2272,7 @@ class WayValues:
     def from_json(v: dict) -> WayValues:
         lp = v['l']
         hp = v['h']
-        return WayValues(v['w'], v['d'], v['g'], True if v['inverted'] == 'Y' else False,
+        return WayValues(v['w'], v['d'], v['g'], True if v['i'] == 'Y' else False,
                          lp=lp if lp else None, hp=hp if hp else None)
 
     def __repr__(self) -> str:
@@ -2316,32 +2309,37 @@ class MultiwayCrossover:
         for i, x in enumerate(self.__xos):
             x.in_channel = self.__in_channel if i == 0 else last_x.out_channel_hp
             if i == 0 and subsonic_filter:
-                filters.append(convert_filter_to_mc_dsp(subsonic_filter, x.out_channel_lp))
+                filters.append(convert_filter_to_mc_dsp(subsonic_filter,  str(get_channel_idx(x.out_channel_lp))))
             filters.extend(x.calc_filters())
             last_x = x
             output_channels.append(x.out_channel_lp)
-        output_channels.append(last_x.out_channel_hp)
+        if last_x:
+            output_channels.append(last_x.out_channel_hp)
 
         for i, v in enumerate(way_values):
             if v is not None:
-                if v.inverted:
-                    filters.append(Polarity({
-                        'Enabled': '1',
-                        'Type': Polarity.TYPE,
-                        'Channels': str(get_channel_idx(output_channels[i]))
-                    }))
-                if not math.isclose(v.gain, 0.0):
-                    filters.append(create_single_filter({
-                        **Gain.default_values(),
-                        'Gain': f"{v.gain:.7g}",
-                        'Channels': str(get_channel_idx(output_channels[i]))
-                    }))
-                if not math.isclose(v.delay_millis, 0.0):
-                    filters.append(create_single_filter({
-                        **Delay.default_values(),
-                        'Delay': f"{v.delay_millis:.7g}",
-                        'Channels': str(get_channel_idx(output_channels[i]))
-                    }))
+                try:
+                    output_index = output_channels[i]
+                    if v.inverted:
+                        filters.append(Polarity({
+                            'Enabled': '1',
+                            'Type': Polarity.TYPE,
+                            'Channels': str(get_channel_idx(output_index))
+                        }))
+                    if not math.isclose(v.gain, 0.0):
+                        filters.append(create_single_filter({
+                            **Gain.default_values(),
+                            'Gain': f"{v.gain:.7g}",
+                            'Channels': str(get_channel_idx(output_index))
+                        }))
+                    if not math.isclose(v.delay_millis, 0.0):
+                        filters.append(create_single_filter({
+                            **Delay.default_values(),
+                            'Delay': f"{v.delay_millis:.7g}",
+                            'Channels': str(get_channel_idx(output_index))
+                        }))
+                except IndexError as e:
+                    raise e
 
         channels_with_user = list(self.__channels) + SHORT_USER_CHANNELS
         self.__graph = FilterGraph(0, channels_with_user, channels_with_user, filters)

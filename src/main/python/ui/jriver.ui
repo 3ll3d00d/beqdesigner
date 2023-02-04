@@ -381,13 +381,6 @@
           </widget>
          </item>
          <item>
-          <widget class="QToolButton" name="showImpulseButton">
-           <property name="text">
-            <string>...</string>
-           </property>
-          </widget>
-         </item>
-         <item>
           <spacer name="chartControlSpacer">
            <property name="orientation">
             <enum>Qt::Vertical</enum>
@@ -813,22 +806,6 @@
     <hint type="destinationlabel">
      <x>26</x>
      <y>272</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>showImpulseButton</sender>
-   <signal>clicked()</signal>
-   <receiver>jriverDspDialog</receiver>
-   <slot>show_impulse()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>1673</x>
-     <y>614</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>1701</x>
-     <y>686</y>
     </hint>
    </hints>
   </connection>

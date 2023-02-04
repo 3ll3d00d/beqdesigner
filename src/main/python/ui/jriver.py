@@ -178,9 +178,6 @@ class Ui_jriverDspDialog(object):
         self.showPhase.setCheckable(True)
         self.showPhase.setObjectName("showPhase")
         self.chartControlLayout.addWidget(self.showPhase)
-        self.showImpulseButton = QtWidgets.QToolButton(self.chartWrapper)
-        self.showImpulseButton.setObjectName("showImpulseButton")
-        self.chartControlLayout.addWidget(self.showImpulseButton)
         spacerItem2 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.chartControlLayout.addItem(spacerItem2)
         self.chartLayout.addLayout(self.chartControlLayout)
@@ -219,7 +216,6 @@ class Ui_jriverDspDialog(object):
         self.moveUpButton.clicked.connect(jriverDspDialog.move_filter_up) # type: ignore
         self.moveTopButton.clicked.connect(jriverDspDialog.move_filter_to_top) # type: ignore
         self.newConfigButton.clicked.connect(jriverDspDialog.create_new_config) # type: ignore
-        self.showImpulseButton.clicked.connect(jriverDspDialog.show_impulse) # type: ignore
         QtCore.QMetaObject.connectSlotsByName(jriverDspDialog)
         jriverDspDialog.setTabOrder(self.findFilenameButton, self.limitsButton)
         jriverDspDialog.setTabOrder(self.limitsButton, self.fullRangeButton)
@@ -267,6 +263,5 @@ class Ui_jriverDspDialog(object):
         self.fullRangeButton.setText(_translate("jriverDspDialog", "..."))
         self.subOnlyButton.setText(_translate("jriverDspDialog", "..."))
         self.showPhase.setText(_translate("jriverDspDialog", "..."))
-        self.showImpulseButton.setText(_translate("jriverDspDialog", "..."))
 from mpl import MplWidget
 from svg import SvgView

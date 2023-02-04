@@ -13,6 +13,7 @@ from qtpy import QtCore
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import QDialog
 
+import model.jriver
 from model.limits import Limits, LimitsDialog
 from model.preferences import GRAPH_X_MIN, GRAPH_X_MAX, POINT, ELLIPSE, SPECTROGRAM_CONTOURED, SPECTROGRAM_FLAT, \
     AUDIO_ANALYSIS_MARKER_SIZE, AUDIO_ANALYSIS_MARKER_TYPE, AUDIO_ANALYSIS_ELLIPSE_WIDTH, AUDIO_ANALYSIS_ELLIPSE_HEIGHT, \
@@ -777,7 +778,7 @@ class MaxSpectrumByTime:
             f, t, Sxx = signal.spectrogram(resolution_shift=resolution_shift)
             x = f.repeat(t.size)
             y = np.tile(t, f.size)
-            z = Sxx.flatten()
+            z = model.jriver.flatten()
             cache['sxx'] = Sxx
             cache['f'] = f
             cache['res_shift'] = resolution_shift

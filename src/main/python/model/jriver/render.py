@@ -32,7 +32,7 @@ class GraphRenderer:
             c: f'IN:{c}' if c in self.__graph.input_channels and c not in SHORT_USER_CHANNELS else None
             for c in self.__graph.output_channels
         }
-        for f in self.__graph.filters:
+        for f in self.__graph.all_filters:
             f.reset()
             if isinstance(f, Sequence):
                 if isinstance(f, CompoundRoutingFilter):

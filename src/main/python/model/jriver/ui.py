@@ -9,7 +9,7 @@ import sys
 import xml.etree.ElementTree as et
 from builtins import isinstance
 from pathlib import Path
-from typing import Dict, Optional, List, Tuple, Callable, Set, Any
+from typing import Dict, Optional, List, Tuple, Callable, Set, Any, Sequence
 
 import qtawesome as qta
 from qtpy.QtCore import QPoint, QModelIndex, Qt, QTimer, QAbstractTableModel, QVariant, QSize
@@ -21,7 +21,7 @@ from qtpy.QtWidgets import QDialog, QFileDialog, QMenu, QAction, QListWidgetItem
 
 from model.filter import FilterModel, FilterDialog
 from model.iir import SOS, CompleteFilter, FilterType, ComplexLowPass, ComplexHighPass
-from model.jriver import JRIVER_FS
+from model.jriver import JRIVER_FS, flatten
 from model.jriver.codec import get_element, xpath_to_key_data_value, write_dsp_file, get_peq_key_name
 from model.jriver.common import get_channel_name, get_channel_idx, OutputFormat, SHORT_USER_CHANNELS, make_dirac_pulse, \
     OUTPUT_FORMATS
@@ -54,6 +54,7 @@ from ui.mds import Ui_mdsDialog
 from ui.mso import Ui_msoDialog
 from ui.pipeline import Ui_jriverGraphDialog
 from ui.xo import Ui_xoDialog
+from ui.xofilters import Ui_xoFiltersDialog
 
 FILTER_ID_ROLE = Qt.UserRole + 1
 
@@ -71,8 +72,6 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         self.setupUi(self)
         self.setWindowFlags(self.windowFlags() | Qt.WindowSystemMenuHint | Qt.WindowMinMaxButtonsHint)
         self.__decorate_buttons()
-        # TODO remove or implement
-        self.showImpulseButton.setVisible(False)
         self.loadZoneButton.clicked.connect(self.__show_zone_dialog)
         self.addFilterButton.setMenu(self.__populate_add_filter_menu(QMenu(self)))
         self.pipelineView.signal.on_click.connect(self.__on_node_click)
@@ -488,8 +487,9 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         if self.__enable_edit_buttons_if_filters_selected():
             selected_indexes = [i.row() for i in self.filterList.selectedIndexes()]
             for i in selected_indexes:
-                for n in self.dsp.active_graph.filters[i].nodes:
-                    self.__selected_node_names.add(n)
+                for f in flatten(self.dsp.active_graph.filters[i]):
+                    for n in f.nodes:
+                        self.__selected_node_names.add(n)
         self.__regen()
 
     def clear_filters(self):
@@ -1128,7 +1128,10 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         self.__selected_node_names.remove(node_name)
         node_filter = self.dsp.active_graph.get_filter_at_node(node_name)
         if node_filter:
-            nodes_in_filter = [n for n in node_filter.nodes]
+            if isinstance(node_filter, Sequence):
+                nodes_in_filter = [n for f in flatten(node_filter) for n in f.nodes]
+            else:
+                nodes_in_filter = [n for n in node_filter.nodes]
             if not any(s in self.__selected_node_names for s in nodes_in_filter):
                 from model.report import block_signals
                 with block_signals(self.filterList):
@@ -1444,6 +1447,15 @@ class ImpossibleRoutingError(ValueError):
         super().__init__(msg)
 
 
+class ShowFiltersDialog(QDialog, Ui_xoFiltersDialog):
+
+    def __init__(self, parent, filt: CompoundRoutingFilter):
+        super(ShowFiltersDialog, self).__init__(parent)
+        self.setupUi(self)
+        for f in flatten(filt):
+            self.filters.addItem(str(f))
+
+
 class XODialog(QDialog, Ui_xoDialog):
 
     def __init__(self, parent, prefs: Preferences, input_channels: List[str], output_channels: List[str],
@@ -1520,11 +1532,10 @@ class XODialog(QDialog, Ui_xoDialog):
             self.__existing = None
 
     def __show_filters_dialog(self):
-        crf = self.__make_filters()
-        txt = '\n'.join([str(f) for f in crf.filters])
-        QMessageBox.information(self, 'Filter List', txt)
+        ShowFiltersDialog(self, self.__make_filters()).show()
 
     def __load_filter(self):
+        legacy_mode = any(isinstance(f, XOFilter) for f in self.__existing.filters)
         metadata = json.loads(self.__existing.metadata())
         if LFE_ADJUST_KEY in metadata:
             self.lfeAdjust.setValue(-metadata[LFE_ADJUST_KEY])
@@ -1535,12 +1546,18 @@ class XODialog(QDialog, Ui_xoDialog):
                 editor: ChannelEditor = next((c for c in self.__editors if c.name == e[EDITOR_NAME_KEY]))
                 editor.ways = e[WAYS_KEY]
                 editor.symmetric = e[SYM_KEY]
+            if legacy_mode:
+                for f in self.__existing.filters:
+                    if isinstance(f, XOFilter):
+                        match = next(e for e in self.__editors
+                                     if e.name in groups.keys() and f.input_channel in e.underlying_channels)
+                        match.load_legacy_filter(f)
         if LFE_IN_KEY in metadata:
             self.__lfe_channel = get_channel_name(metadata[LFE_IN_KEY])
         if ROUTING_KEY in metadata:
             self.__matrix.decode(metadata[ROUTING_KEY])
             self.__on_matrix_update()
-        if EDITORS_KEY in metadata:
+        if EDITORS_KEY in metadata and not legacy_mode:
             groups = {e[EDITOR_NAME_KEY]: e[UNDERLYING_KEY] for e in metadata[EDITORS_KEY]}
             for f in self.__existing.filters:
                 if isinstance(f, MultiwayFilter):
@@ -1549,6 +1566,9 @@ class XODialog(QDialog, Ui_xoDialog):
                     match.load_filter(f)
                 else:
                     logger.error(f"Ignoring unknown filter type {f}")
+        if legacy_mode:
+            for e in self.__editors:
+                e.ensure_mds()
 
     def __calculate_sw_channel(self) -> str:
         return None if self.__output_format.lfe_channels == 0 else 'SW'
@@ -1567,21 +1587,22 @@ class XODialog(QDialog, Ui_xoDialog):
         input_channels = {c for e in self.__editors for c in e.underlying_channels}
         output_channels = [c for c in output_channels if c not in input_channels]
         for e in self.__editors:
-            for i, c in enumerate(e.underlying_channels):
-                way_count = len(e)
-                for w in range(way_count):
-                    if w == 0:
-                        if self.__output_format.lfe_channels:
-                            matrix.enable(c, w, self.__lfe_channel)
-                        else:
+            if e.widget.isVisible():
+                for i, c in enumerate(e.underlying_channels):
+                    way_count = len(e)
+                    for w in range(way_count):
+                        if w == 0:
+                            if self.__output_format.lfe_channels:
+                                matrix.enable(c, w, self.__lfe_channel)
+                            else:
+                                matrix.enable(c, w, c)
+                        elif w == 1 and self.__output_format.lfe_channels:
                             matrix.enable(c, w, c)
-                    elif w == 1 and self.__output_format.lfe_channels:
-                        matrix.enable(c, w, c)
-                    else:
-                        try:
-                            matrix.enable(c, w, output_channels.pop())
-                        except IndexError:
-                            raise ImpossibleRoutingError(f"Channel {c} Way {w} has no output channel to route to")
+                        else:
+                            try:
+                                matrix.enable(c, w, output_channels.pop())
+                            except IndexError:
+                                raise ImpossibleRoutingError(f"Channel {c} Way {w + 1} has no output channel to route to")
 
     def __show_group_channels_dialog(self):
         GroupChannelsDialog(self, {e.name: e.underlying_channels for e in self.__editors
@@ -1715,7 +1736,7 @@ class XODialog(QDialog, Ui_xoDialog):
                             summed = i
                         else:
                             summed = summed.add(i)
-                    if summed:
+                    if summed and len(signals) > 1:
                         result.append(MagnitudeData(f"sum {editor.name}", None, *summed.avg,
                                                     colour=get_filter_colour(len(result)),
                                                     linestyle='-' if mode == 'mag' else '--'))
@@ -1746,7 +1767,7 @@ class ChannelEditor:
         self.__notify_parent = on_filter_change
         self.__is_sw_channel = is_sw_channel
         self.__output_format = output_format
-        self.__output_channels_by_underlying: Dict[str, List[str]] = {}
+        self.__output_channels_by_underlying: Dict[str, List[Tuple[int, str]]] = {}
         self.__mds_points: List[Tuple[int, int, float]] = [] if mds_points is None else mds_points
         self.__mds_xos: List[Optional[MDSXO]] = []
         self.__name = name
@@ -1810,13 +1831,14 @@ class ChannelEditor:
             self.__update_editors()
         else:
             self.__ways.setValue(self.__calculate_ways())
-            self.__mds_xos: List[Optional[MDSXO]] = [None] * self.__ways.value()
+            self.__mds_xos: List[Optional[MDSXO]] = []
+            self.ensure_mds()
 
     def __on_change(self):
         self.__reset()
         self.__notify_parent()
 
-    def update_output_channels(self, channel_names: Dict[str, List[str]]):
+    def update_output_channels(self, channel_names: Dict[str, List[Tuple[int, str]]]):
         self.__output_channels_by_underlying = channel_names
         self.__reset()
 
@@ -1912,18 +1934,23 @@ class ChannelEditor:
 
     def __recalc(self):
         if not self.__xos:
-            ss_filter: Optional[ComplexHighPass] = None
-            xos: List[XO] = []
-            way_values: List[WayValues] = []
-            lp_filter: Optional[ComplexLowPass] = None
+            self.__xos = {}
+            meta_wv = None
             for in_ch, out_chs in self.__output_channels_by_underlying.items():
+                ss_filter: Optional[ComplexHighPass] = None
+                xos: List[XO] = []
+                way_values: List[WayValues] = []
+                lp_filter: Optional[ComplexLowPass] = None
                 for w in range(self.ways):
                     e = self.__editors[w]
                     values = e.get_way_values()
                     if w == 0:
                         if e.hp_filter_type:
                             ss_filter = e.hp_filter
-                        lp_filter = e.lp_filter
+                        if self.ways == 1:
+                            xos.append(StandardXO(out_chs[values.way][1], out_chs[values.way][1], low_pass=e.lp_filter))
+                        else:
+                            lp_filter = e.lp_filter
                     else:
                         mds_xo = self.__mds_xos[len(xos)]
                         if mds_xo:
@@ -1935,12 +1962,13 @@ class ChannelEditor:
                                                   low_pass=lp_filter, high_pass=e.hp_filter))
                         lp_filter = e.lp_filter
                     way_values.append(values)
+                self.__xos[in_ch] = MultiwayCrossover(in_ch, xos, way_values, subsonic_filter=ss_filter)
+                if not meta_wv:
+                    meta_wv = [w.to_json() for w in way_values]
             self.__meta = {
-                'w': [w.to_json() for w in way_values],
+                'w': meta_wv,
                 'm': self.__mds_points
             }
-            self.__xos = {c: MultiwayCrossover(c, xos, way_values, subsonic_filter=ss_filter)
-                          for c in self.__underlying_channels}
 
     def __update_editors(self):
         num_ways = self.__ways.value()
@@ -1956,7 +1984,7 @@ class ChannelEditor:
                 self.__editors[i].hide()
         self.__symmetric.setVisible(num_ways > 1)
         for i in range(num_ways):
-            self.__editors[i].can_low_pass(i < num_ways - 1)
+            self.__editors[i].can_low_pass(num_ways == 1 or i < num_ways - 1)
 
     def __create_editor(self, i: int):
         editor = WayEditor(self.__way_frame, self.__name, i, self.__on_change, self.__propagate_symmetric_filter,
@@ -1979,15 +2007,28 @@ class ChannelEditor:
     def widget(self) -> QWidget:
         return self.__frame
 
+    def load_legacy_filter(self, f: XOFilter):
+        self.__editors[f.way].load_legacy_filter(f)
+
     def load_filter(self, f: MultiwayFilter):
         '''
         Loads the filter into the specified way.
         :param f: the filter.
         '''
-        way_values = {w.way: w for w in [WayValues.from_json(w) for w in f.ui_meta['w']]}
+        way_values = {w.way: w for w in [WayValues.from_json(json.loads(w)) for w in f.ui_meta['w']]}
         for i, e in enumerate(self.__editors):
             e.load_way_values(way_values[i])
         self.__on_mds_change(f.ui_meta['m'])
+
+    def ensure_mds(self):
+        delta = len(self.__mds_xos) - self.ways
+        if delta > 0:
+            self.__mds_xos = self.__mds_xos[0: self.ways]
+        elif delta < 0:
+            self.__mds_xos.extend([None] * abs(delta))
+        delta = len(self.__mds_points) - self.ways
+        if delta > 0:
+            self.__mds_points = self.__mds_points[0: self.ways]
 
 
 class WayEditor:
@@ -2297,7 +2338,7 @@ class WayEditor:
             self.__hp_order.setValue(values.hp[1])
             self.__hp_freq.setValue(values.hp[2])
 
-    def load_filter(self, xo: XOFilter):
+    def load_legacy_filter(self, xo: XOFilter):
         '''
         Loads the filter.
         :param xo: the filter.
