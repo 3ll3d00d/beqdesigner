@@ -1216,7 +1216,7 @@ class CompoundPassFilter(ComplexFilter):
 
     def __init__(self, high_or_low, one_pole_ctor, two_pole_ctor,
                  bessel_freq_calculator: Callable[[float, float], float], filter_type: FilterType, order, fs, freq,
-                 q_scale=1.0, f_id=-1):
+                 q=DEFAULT_Q, f_id=-1):
         self.__bw1 = one_pole_ctor
         self.__bw2 = two_pole_ctor
         self.__bessel_freq_calculator = bessel_freq_calculator
@@ -1229,13 +1229,13 @@ class CompoundPassFilter(ComplexFilter):
         if self.order == 0:
             raise ValueError("Filter cannot have order = 0")
         self.__filter_type = f"{high_or_low} {filter_type.value}{order}"
-        self.__q_scale = q_scale
+        self.__q = q
         super().__init__(fs=fs, filters=self.calculate_biquads(fs), description=f"{self.__filter_type}/{self.freq}Hz",
                          f_id=f_id)
 
     @property
-    def q_scale(self):
-        return self.__q_scale
+    def q(self):
+        return self.__q
 
     @property
     def filter_type(self):
@@ -1249,7 +1249,7 @@ class CompoundPassFilter(ComplexFilter):
             if self.order == 1:
                 return [self.__bw1(fs, self.freq)]
             elif self.order == 2:
-                return [self.__bw2(fs, self.freq)]
+                return [self.__bw2(fs, self.freq, self.q)]
             else:
                 return self.__calculate_high_order_bw(fs, self.order)
         elif self.type is FilterType.LINKWITZ_RILEY:
@@ -1293,8 +1293,10 @@ class CompoundPassFilter(ComplexFilter):
             first_angle /= 2
         else:
             biquads.append(self.__bw1(fs, self.freq, 0.5))
+        # NB: jriver compatibility mode, no other part of the app will set q here to anything apart from DEFAULT_Q
+        q_scale = 1.0 if math.isclose(self.q, DEFAULT_Q, abs_tol=0.001) else self.q * (2 ** 0.5)
         biquads += [
-            self.__bw2(fs, self.freq, (1.0 / (2.0 * math.cos(first_angle + x * pole_inc)) * self.q_scale))
+            self.__bw2(fs, self.freq, (1.0 / (2.0 * math.cos(first_angle + x * pole_inc))) * q_scale)
             for x in range(0, pairs)
         ]
         return biquads
@@ -1305,9 +1307,9 @@ class ComplexLowPass(CompoundPassFilter):
     A low pass filter of different types and orders that are implemented using one or more biquads.
     '''
 
-    def __init__(self, filter_type, order, fs, freq, q_scale=1.0, f_id=-1):
+    def __init__(self, filter_type, order, fs, freq, q=1.0, f_id=-1):
         super().__init__('Low', FirstOrder_LowPass, SecondOrder_LowPass, lambda a, b: a*b, filter_type, order, fs, freq,
-                         q_scale=q_scale, f_id=f_id)
+                         q=q, f_id=f_id)
 
     @property
     def display_name(self):
@@ -1336,9 +1338,9 @@ class ComplexHighPass(CompoundPassFilter):
     A high pass filter of different types and orders that are implemented using one or more biquads.
     '''
 
-    def __init__(self, filter_type, order, fs, freq, q_scale=1.0, f_id=-1):
+    def __init__(self, filter_type, order, fs, freq, q=1.0, f_id=-1):
         super().__init__('High', FirstOrder_HighPass, SecondOrder_HighPass, lambda a, b: a/b, filter_type, order, fs,
-                         freq, q_scale=q_scale, f_id=f_id)
+                         freq, q=q, f_id=f_id)
 
     @property
     def display_name(self):

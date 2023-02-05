@@ -437,8 +437,7 @@ class Pass(ChannelFilter, ABC):
         elif self.order == 2:
             return self.__ctors[1](JRIVER_FS, self.freq, q=self.q, f_id=self.id)
         else:
-            return self.__ctors[2](FilterType.BUTTERWORTH, self.order, JRIVER_FS, self.freq, q_scale=self.q,
-                                   f_id=self.id)
+            return self.__ctors[2](FilterType.BUTTERWORTH, self.order, JRIVER_FS, self.freq, q=self.q, f_id=self.id)
 
     def __repr__(self):
         return f"{self.__class__.__name__} Order={self.order} Q={self.q:.4g} at {self.freq:.7g} Hz {self.print_channel_names()}{self.print_disabled()}"
@@ -1222,11 +1221,11 @@ class CustomPassFilter(ComplexChannelFilter):
             f_type = FilterType(ft)
             order = int(tokens[2])
             freq = float(tokens[3])
-            q_scale = float(tokens[4])
+            q = float(tokens[4])
             if tokens[0] == 'HP':
-                return ComplexHighPass(f_type, order, JRIVER_FS, freq, q_scale)
+                return ComplexHighPass(f_type, order, JRIVER_FS, freq, q)
             elif tokens[0] == 'LP':
-                return ComplexLowPass(f_type, order, JRIVER_FS, freq, q_scale)
+                return ComplexLowPass(f_type, order, JRIVER_FS, freq, q)
         raise ValueError(f"Unable to decode {self.__name}")
 
     def metadata(self) -> str:
@@ -1339,7 +1338,7 @@ def __make_mc_custom_pass_filter(p_filter: CompoundPassFilter, target_channels: 
     pass_type = HighPass if isinstance(p_filter, ComplexHighPass) else LowPass
     mc_filts = [pass_type(__make_mc_pass_filter(f, pass_type.TYPE, target_channels)) for f in p_filter.filters]
     type_code = 'HP' if pass_type == HighPass else 'LP'
-    encoded = f"{type_code}/{p_filter.type.value}/{p_filter.order}/{p_filter.freq:.7g}/{p_filter.q_scale:.4g}"
+    encoded = f"{type_code}/{p_filter.type.value}/{p_filter.order}/{p_filter.freq:.7g}/{p_filter.q:.4g}"
     return CustomPassFilter(encoded, mc_filts)
 
 
@@ -1348,7 +1347,7 @@ def __make_high_order_mc_pass_filter(f: CompoundPassFilter, filt_type: str, targ
         'Enabled': '1',
         'Slope': f"{f.order * 6}",
         'Type': filt_type,
-        'Q': f"{(1 / 2 ** 0.5) * f.q_scale:.12g}",
+        'Q': f"{f.q:.12g}",
         'Frequency': f"{f.freq:.7g}",
         'Gain': '0',
         'Channels': target_channels

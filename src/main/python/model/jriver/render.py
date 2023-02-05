@@ -4,9 +4,10 @@ import logging
 import re
 from typing import Dict, Optional, List, Tuple, Iterable, Sequence
 
+from model.jriver import flatten
 from model.jriver.common import SHORT_USER_CHANNELS, get_channel_name
 from model.jriver.filter import FilterGraph, Filter, ChannelFilter, ComplexChannelFilter, Mix, \
-    MixType, CompoundRoutingFilter, XOFilter
+    MixType, CompoundRoutingFilter, XOFilter, MultiwayFilter
 
 logger = logging.getLogger('jriver.render')
 
@@ -32,15 +33,15 @@ class GraphRenderer:
             c: f'IN:{c}' if c in self.__graph.input_channels and c not in SHORT_USER_CHANNELS else None
             for c in self.__graph.output_channels
         }
-        for f in self.__graph.all_filters:
+        for f in self.__graph.filters:
             f.reset()
             if isinstance(f, Sequence):
                 if isinstance(f, CompoundRoutingFilter):
                     ranks.append([])
-                for f1 in f:
+                for f1 in flatten(f):
                     f1.reset()
                     added_nodes = self.__process_filter(f1, last_node_by_channel, nodes, edges, selected_nodes)
-                    if isinstance(f1, XOFilter):
+                    if isinstance(f1, (XOFilter, MultiwayFilter)):
                         ranks[-1].extend(added_nodes)
             else:
                 self.__process_filter(f, last_node_by_channel, nodes, edges, selected_nodes)

@@ -1047,6 +1047,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
                 self.show_filters()
 
         x_lim = (self.__magnitude_model.limits.x_min, self.__magnitude_model.limits.x_max)
+        # TODO fix var_q filters + check behaviour in jriver
         FilterDialog(self.prefs, make_dirac_pulse(channel), filter_model, __on_save, parent=self,
                      selected_filter=sorted_filters[selected_filter_idx] if selected_filter_idx > -1 else None,
                      x_lim=x_lim, allow_var_q_pass=True, window_title=f"Edit Filter - {channel}").show()
@@ -1587,7 +1588,7 @@ class XODialog(QDialog, Ui_xoDialog):
         input_channels = {c for e in self.__editors for c in e.underlying_channels}
         output_channels = [c for c in output_channels if c not in input_channels]
         for e in self.__editors:
-            if e.widget.isVisible():
+            if e.visible:
                 for i, c in enumerate(e.underlying_channels):
                     way_count = len(e)
                     for w in range(way_count):
@@ -1606,7 +1607,7 @@ class XODialog(QDialog, Ui_xoDialog):
 
     def __show_group_channels_dialog(self):
         GroupChannelsDialog(self, {e.name: e.underlying_channels for e in self.__editors
-                                   if e.widget.isVisible() and e.name != self.__lfe_channel},
+                                   if e.visible and e.name != self.__lfe_channel},
                             self.__reconfigure_channel_groups).exec()
 
     def __set_lfe_channel(self, lfe_channel: str) -> None:
@@ -1633,7 +1634,7 @@ class XODialog(QDialog, Ui_xoDialog):
                 if matching_editor.underlying_channels != channels:
                     matching_editor.underlying_channels = channels
                     old_matrix = None
-                matching_editor.widget.setVisible(True)
+                matching_editor.show()
             else:
                 new_editor = ChannelEditor(self.channelsFrame, name, channels, self.__output_format,
                                            any(c == self.__lfe_channel for c in channels),
@@ -1699,12 +1700,12 @@ class XODialog(QDialog, Ui_xoDialog):
         lfe_channel_idx, lfe_adjust, main_adjust = self.__get_lfe_metadata()
         xo_filters: List[MultiwayFilter] = []
         for e in self.__editors:
-            if e.widget.isVisible():
+            if e.visible:
                 for c in e.underlying_channels:
                     xo_filters.append(MultiwayFilter(c, e.output_channels[c], e.filters, e.meta))
         editor_meta = [
             {EDITOR_NAME_KEY: e.name, UNDERLYING_KEY: e.underlying_channels, WAYS_KEY: len(e), SYM_KEY: e.symmetric}
-            for e in self.__editors if e.widget.isVisible()
+            for e in self.__editors if e.visible
         ]
         return calculate_compound_routing_filter(self.__matrix, editor_meta, xo_filters, main_adjust, lfe_adjust,
                                                  lfe_channel_idx)
@@ -1773,6 +1774,7 @@ class ChannelEditor:
         self.__name = name
         self.__underlying_channels = underlying_channels
         self.__editors: List[WayEditor] = []
+        self.__visible = True
         self.__frame = QFrame(channels_frame)
         self.__frame.setFrameShape(QFrame.StyledPanel)
         self.__frame.setFrameShadow(QFrame.Raised)
@@ -1912,7 +1914,7 @@ class ChannelEditor:
 
     @property
     def show_response(self) -> bool:
-        return self.widget.isVisible() and self.__show_response.isChecked()
+        return self.visible and self.__show_response.isChecked()
 
     @property
     def impulses(self) -> List[Signal]:
@@ -1997,10 +1999,16 @@ class ChannelEditor:
             if way + 1 < len(self.__editors):
                 self.__editors[way + 1].set_high_pass(filter_type, freq, order)
 
+    @property
+    def visible(self) -> bool:
+        return self.__visible
+
     def show(self) -> None:
+        self.__visible = True
         self.__frame.show()
 
     def hide(self) -> None:
+        self.__visible = False
         self.__frame.hide()
 
     @property

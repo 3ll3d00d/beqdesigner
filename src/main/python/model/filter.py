@@ -14,7 +14,7 @@ from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox, QHeaderView, QTabl
 
 from model.iir import FilterType, LowShelf, HighShelf, PeakingEQ, SecondOrder_LowPass, \
     SecondOrder_HighPass, ComplexLowPass, ComplexHighPass, q_to_s, s_to_q, max_permitted_s, CompleteFilter, COMBINED, \
-    Passthrough, Gain, Shelf, LinkwitzTransform, Biquad, AllPass
+    Passthrough, Gain, Shelf, LinkwitzTransform, Biquad, AllPass, DEFAULT_Q
 from model.limits import DecibelRangeCalculator, PhaseRangeCalculator
 from model.magnitude import MagnitudeModel
 from model.preferences import SHOW_ALL_FILTERS, SHOW_NO_FILTERS, FILTER_COLOURS, DISPLAY_SHOW_FILTERS, DISPLAY_Q_STEP, \
@@ -271,6 +271,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         with block_signals(self.passFilterType):
             for filter_type in FilterType:
                 self.passFilterType.addItem(filter_type.display_name)
+
         self.__add_snapshot_buttons = [self.addSnapshotRowButton, self.pasteSnapshotRowButton, self.importSnapshotButton]
         self.__add_working_buttons = [self.addWorkingRowButton, self.pasteWorkingRowButton, self.importWorkingButton]
         self.__snapshot = FilterModel(self.snapshotFilterView, self.__preferences, on_update=self.__on_snapshot_change)
@@ -712,9 +713,6 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         if hasattr(selected_filter, 'q'):
             with block_signals(self.filterQ):
                 self.filterQ.setValue(selected_filter.q)
-        if hasattr(selected_filter, 'q_scale'):
-            with block_signals(self.filterQ):
-                self.filterQ.setValue(selected_filter.q_scale)
         if hasattr(selected_filter, 'freq'):
             with block_signals(self.freq):
                 self.freq.setValue(selected_filter.freq)
@@ -857,15 +855,15 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         Creates a predefined high or low pass filter.
         :return: the filter.
         '''
-        q_scale = 1.0
-        if self.filterQ.isVisible():
-            q_scale = self.filterQ.value()
+        q = DEFAULT_Q
+        if self.filterQ.isVisible() and not math.isclose(self.filterQ.value(), 0.707):
+            q = self.filterQ.value()
         if self.filterType.currentText() == 'Low Pass':
             filt = ComplexLowPass(FilterType.value_of(self.passFilterType.currentText()), self.filterOrder.value(),
-                                  self.__signal.fs, self.freq.value(), q_scale=q_scale)
+                                  self.__signal.fs, self.freq.value(), q=q)
         else:
             filt = ComplexHighPass(FilterType.value_of(self.passFilterType.currentText()), self.filterOrder.value(),
-                                   self.__signal.fs, self.freq.value(), q_scale=q_scale)
+                                   self.__signal.fs, self.freq.value(), q=q)
         filt.id = self.__selected_id
         return filt
 
