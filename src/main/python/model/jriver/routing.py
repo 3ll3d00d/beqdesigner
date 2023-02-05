@@ -498,8 +498,11 @@ def __without_xo_routes(routes: List[Route], xos: List[MultiwayFilter]) -> List[
     :param xos: the XOs.
     :return: the reordered routes.
     '''
-    in_out_routing = [(get_channel_idx(x.input_channel), get_channel_idx(c)) for x in xos for c in x.output_channels]
-    return [r for r in routes if not any(e[0] == r.i and e[1] == r.o for e in in_out_routing)]
+    if xos:
+        in_out_routing = [(get_channel_idx(x.input_channel), get_channel_idx(c)) for x in xos for c in x.output_channels]
+        return [r for r in routes if not any(e[0] == r.i and e[1] == r.o for e in in_out_routing)]
+    else:
+        return routes
 
 
 def __count_lfe_routes(lfe_channel_idx, direct_routes, summed_routes_by_output_channels) -> int:

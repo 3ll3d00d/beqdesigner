@@ -1,5 +1,5 @@
 from model.jriver.common import SHORT_USER_CHANNELS, get_channel_idx
-from model.jriver.filter import FilterGraph, Mix, MixType, Peak, XOFilter, LowPass, HighPass
+from model.jriver.filter import FilterGraph, Mix, MixType, Peak, XOFilter, LowPass, HighPass, MultiwayFilter
 from model.jriver.routing import Matrix, calculate_compound_routing_filter
 
 
@@ -70,7 +70,8 @@ def test_stereo_subs():
         matrix.enable(c, 0, 'RR')
     for c in ['L', 'R', 'C', 'SL', 'SR']:
         matrix.enable(c, 1, c)
-    xo_filters = [XOFilter('SW', 0, [low_pass(2, 80, 'SW')])] + [XOFilter(c, 1, [high_pass(2, 80, c)]) for c in mains]
+    xo_filters = [MultiwayFilter('SW', ['SW'], [low_pass(2, 80, 'SW')], {})] \
+                 + [MultiwayFilter(c, [c], [high_pass(2, 80, c)], {}) for c in mains]
     crf = calculate_compound_routing_filter(matrix, xo_filters=xo_filters, lfe_channel_idx=5)
     crf.id = 1
     for i, f in enumerate(crf.filters):
