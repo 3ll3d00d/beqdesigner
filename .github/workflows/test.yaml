@@ -5,11 +5,13 @@ on:
       - '*'
     paths:
       - 'src/main/python/**'
+      - 'Pipfile.lock'
   pull_request:
     branches:
       - '*'
     paths:
       - 'src/main/python/**'
+      - 'Pipfile.lock'
   workflow_dispatch:
     branches:
       - '*'
