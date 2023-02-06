@@ -80,7 +80,10 @@ class GraphRenderer:
                     last_dst = added_nodes[-1]
                 self.__add_edge(edges, last_node_by_channel[src_channel], last_dst)
             elif f.mix_type == MixType.MOVE or f.mix_type == MixType.COPY:
-                last_src_node = last_node_by_channel[src_channel]
+                try:
+                    last_src_node = last_node_by_channel[src_channel]
+                except KeyError:
+                    raise
                 added_nodes.append(self.__create_node(dst_channel, f, nodes, selected_nodes))
                 last_node_by_channel[dst_channel] = added_nodes[-1]
                 if last_src_node:

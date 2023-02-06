@@ -2601,12 +2601,13 @@ class MDSDialog(QDialog, Ui_mdsDialog):
 
     def __make_combo(self, row: int, orders: int) -> QComboBox:
         cb = QComboBox()
-        for i in range(0, orders):
+        for i in range(1, orders):
             cb.addItem(str(i + 1))
         try:
-            cb.setCurrentIndex(self.__current_ways[row][0])
+            data = self.__current_ways[row]
+            cb.setCurrentText(str(data[1]) if data[2] else '4')
         except IndexError:
-            cb.setCurrentIndex(3)
+            cb.setCurrentText('4')
         return cb
 
     def update_mds(self):

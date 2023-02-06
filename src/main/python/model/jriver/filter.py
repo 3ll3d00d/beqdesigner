@@ -1495,7 +1495,7 @@ class GainFilterOp(FilterOp):
 class FilterGraph:
 
     def __init__(self, stage: int, input_channels: List[str], output_channels: List[str], filts: List[Filter],
-                 on_delta: Callable[[bool, bool], None] = None, convert_q: bool = False):
+                 on_delta: Callable[[bool, bool], None] = None, convert_q: bool = False, regen: bool = True):
         self.__on_delta = on_delta
         self.__editing: Optional[Tuple[str, List[str]], int] = None
         self.__stage = stage
@@ -1506,10 +1506,11 @@ class FilterGraph:
                 self.__insert(filt, len(self.filters) + 1, regen=False)
         self.__output_channels = output_channels
         self.__input_channels = input_channels
-        self.__dot = None
         self.__convert_q = convert_q
         self.__sim: Dict[str, Signal] = {}
-        self.__regen()
+        self.__render: str = ''
+        if regen:
+            self.__regen()
 
     def undo(self) -> bool:
         changed = False
@@ -1539,7 +1540,7 @@ class FilterGraph:
         Regenerates the graph.
         '''
         from model.jriver.render import GraphRenderer
-        GraphRenderer(self).generate()
+        self.__render = GraphRenderer(self).generate()
 
     def render(self, colours=None, vertical=True, selected_nodes=None) -> str:
         '''
@@ -2341,7 +2342,7 @@ class MultiwayCrossover:
                     raise e
 
         channels_with_user = list(self.__channels) + SHORT_USER_CHANNELS
-        self.__graph = FilterGraph(0, channels_with_user, channels_with_user, filters)
+        self.__graph = FilterGraph(0, channels_with_user, channels_with_user, filters, regen=False)
         self.__output = self.__graph.simulate(analysis_resolution=0.1)
 
     def output(self, way: int) -> Tuple[str, Signal]:
