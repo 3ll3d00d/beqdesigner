@@ -25,149 +25,13 @@
      <layout class="QGridLayout" name="gridLayout_3">
       <item row="0" column="0">
        <layout class="QGridLayout" name="searchLayout">
-        <item row="6" column="1">
+        <item row="4" column="1">
+         <widget class="QLineEdit" name="contentFilter"/>
+        </item>
+        <item row="5" column="1">
          <widget class="QListWidget" name="contentTypeFilter">
           <property name="selectionMode">
            <enum>QAbstractItemView::MultiSelection</enum>
-          </property>
-         </widget>
-        </item>
-        <item row="6" column="0">
-         <widget class="QListWidget" name="yearFilter">
-          <property name="selectionMode">
-           <enum>QAbstractItemView::MultiSelection</enum>
-          </property>
-         </widget>
-        </item>
-        <item row="3" column="0" colspan="2">
-         <widget class="QGroupBox" name="catalogueBox">
-          <property name="font">
-           <font>
-            <pointsize>8</pointsize>
-            <weight>50</weight>
-            <bold>false</bold>
-           </font>
-          </property>
-          <property name="title">
-           <string>Catalogue</string>
-          </property>
-          <layout class="QHBoxLayout" name="horizontalLayout_2">
-           <item>
-            <widget class="QToolButton" name="browseCatalogueButton">
-             <property name="text">
-              <string>...</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QRadioButton" name="allRadioButton">
-             <property name="font">
-              <font>
-               <pointsize>10</pointsize>
-               <weight>50</weight>
-               <bold>false</bold>
-              </font>
-             </property>
-             <property name="text">
-              <string>All</string>
-             </property>
-             <property name="checked">
-              <bool>true</bool>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QRadioButton" name="inCatalogueOnlyRadioButton">
-             <property name="font">
-              <font>
-               <pointsize>10</pointsize>
-               <weight>50</weight>
-               <bold>false</bold>
-              </font>
-             </property>
-             <property name="text">
-              <string>Match</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QRadioButton" name="missingFromCatalogueRadioButton">
-             <property name="font">
-              <font>
-               <pointsize>10</pointsize>
-               <weight>50</weight>
-               <bold>false</bold>
-              </font>
-             </property>
-             <property name="text">
-              <string>No Match</string>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </widget>
-        </item>
-        <item row="5" column="0">
-         <layout class="QHBoxLayout" name="yearFilterLayout">
-          <item>
-           <widget class="QSpinBox" name="yearMinFilter"/>
-          </item>
-          <item>
-           <widget class="QSpinBox" name="yearMaxFilter"/>
-          </item>
-         </layout>
-        </item>
-        <item row="5" column="1">
-         <widget class="QLineEdit" name="contentFilter"/>
-        </item>
-        <item row="1" column="0" colspan="2">
-         <layout class="QHBoxLayout" name="nameLayout">
-          <item>
-           <widget class="QLabel" name="nameFilterLabel">
-            <property name="text">
-             <string>Name</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QLineEdit" name="nameFilter"/>
-          </item>
-         </layout>
-        </item>
-        <item row="0" column="0" colspan="2">
-         <widget class="QLabel" name="filterHeaderLabel">
-          <property name="font">
-           <font>
-            <weight>75</weight>
-            <italic>true</italic>
-            <bold>true</bold>
-           </font>
-          </property>
-          <property name="frameShape">
-           <enum>QFrame::Box</enum>
-          </property>
-          <property name="frameShadow">
-           <enum>QFrame::Sunken</enum>
-          </property>
-          <property name="text">
-           <string>Search</string>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignCenter</set>
-          </property>
-         </widget>
-        </item>
-        <item row="4" column="0">
-         <widget class="QLabel" name="yearFilterLabel">
-          <property name="text">
-           <string>Year</string>
-          </property>
-         </widget>
-        </item>
-        <item row="4" column="1">
-         <widget class="QLabel" name="contentTypeFilterLabel">
-          <property name="text">
-           <string>Content Type</string>
           </property>
          </widget>
         </item>
@@ -226,6 +90,74 @@
             </widget>
            </item>
           </layout>
+         </widget>
+        </item>
+        <item row="3" column="0">
+         <widget class="QLabel" name="yearFilterLabel">
+          <property name="text">
+           <string>Year</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="0" colspan="2">
+         <layout class="QHBoxLayout" name="nameLayout">
+          <item>
+           <widget class="QLabel" name="nameFilterLabel">
+            <property name="text">
+             <string>Name</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLineEdit" name="nameFilter"/>
+          </item>
+         </layout>
+        </item>
+        <item row="0" column="0" colspan="2">
+         <widget class="QLabel" name="filterHeaderLabel">
+          <property name="font">
+           <font>
+            <weight>75</weight>
+            <italic>true</italic>
+            <bold>true</bold>
+           </font>
+          </property>
+          <property name="frameShape">
+           <enum>QFrame::Box</enum>
+          </property>
+          <property name="frameShadow">
+           <enum>QFrame::Sunken</enum>
+          </property>
+          <property name="text">
+           <string>Search</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignCenter</set>
+          </property>
+         </widget>
+        </item>
+        <item row="4" column="0">
+         <layout class="QHBoxLayout" name="yearFilterLayout">
+          <item>
+           <widget class="QSpinBox" name="yearMinFilter"/>
+          </item>
+          <item>
+           <widget class="QSpinBox" name="yearMaxFilter"/>
+          </item>
+         </layout>
+        </item>
+        <item row="3" column="1">
+         <widget class="QLabel" name="contentTypeFilterLabel">
+          <property name="text">
+           <string>Content Type</string>
+          </property>
+         </widget>
+        </item>
+        <item row="5" column="0">
+         <widget class="QListWidget" name="yearFilter">
+          <property name="selectionMode">
+           <enum>QAbstractItemView::MultiSelection</enum>
+          </property>
          </widget>
         </item>
        </layout>
@@ -556,54 +488,6 @@
    </hints>
   </connection>
   <connection>
-   <sender>allRadioButton</sender>
-   <signal>toggled(bool)</signal>
-   <receiver>catalogueDialog</receiver>
-   <slot>apply_filter()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>190</x>
-     <y>209</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>0</x>
-     <y>142</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>missingFromCatalogueRadioButton</sender>
-   <signal>toggled(bool)</signal>
-   <receiver>catalogueDialog</receiver>
-   <slot>apply_filter()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>540</x>
-     <y>209</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>2</x>
-     <y>212</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>inCatalogueOnlyRadioButton</sender>
-   <signal>toggled(bool)</signal>
-   <receiver>catalogueDialog</receiver>
-   <slot>apply_filter()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>378</x>
-     <y>209</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>470</x>
-     <y>206</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
    <sender>contentFilter</sender>
    <signal>textChanged(QString)</signal>
    <receiver>catalogueDialog</receiver>
@@ -696,22 +580,6 @@
     <hint type="destinationlabel">
      <x>460</x>
      <y>-5</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>browseCatalogueButton</sender>
-   <signal>clicked()</signal>
-   <receiver>catalogueDialog</receiver>
-   <slot>browse_catalogue()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>47</x>
-     <y>202</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>-1</x>
-     <y>178</y>
     </hint>
    </hints>
   </connection>

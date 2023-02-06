@@ -1567,9 +1567,8 @@ class XODialog(QDialog, Ui_xoDialog):
                     match.load_filter(f)
                 else:
                     logger.error(f"Ignoring unknown filter type {f}")
-        if legacy_mode:
-            for e in self.__editors:
-                e.ensure_mds()
+        for e in self.__editors:
+            e.resize_mds()
 
     def __calculate_sw_channel(self) -> str:
         return None if self.__output_format.lfe_channels == 0 else 'SW'
@@ -1626,7 +1625,8 @@ class XODialog(QDialog, Ui_xoDialog):
         old_matrix = self.__matrix
         self.__matrix = None
         old_groups = self.__channel_groups
-        grouped_channels[self.__lfe_channel] = [self.__lfe_channel]
+        if self.__lfe_channel:
+            grouped_channels[self.__lfe_channel] = [self.__lfe_channel]
         self.__channel_groups = grouped_channels
         for name, channels in grouped_channels.items():
             matching_editor: ChannelEditor = next((e for e in self.__editors if e.name == name), None)
@@ -1702,7 +1702,7 @@ class XODialog(QDialog, Ui_xoDialog):
         for e in self.__editors:
             if e.visible:
                 for c in e.underlying_channels:
-                    xo_filters.append(MultiwayFilter(c, e.output_channels[c], e.filters, e.meta))
+                    xo_filters.append(MultiwayFilter(c, e.output_channels[c], e.filters[c], e.meta))
         editor_meta = [
             {EDITOR_NAME_KEY: e.name, UNDERLYING_KEY: e.underlying_channels, WAYS_KEY: len(e), SYM_KEY: e.symmetric}
             for e in self.__editors if e.visible
@@ -1833,8 +1833,6 @@ class ChannelEditor:
             self.__update_editors()
         else:
             self.__ways.setValue(self.__calculate_ways())
-            self.__mds_xos: List[Optional[MDSXO]] = []
-            self.ensure_mds()
 
     def __on_change(self):
         self.__reset()
@@ -1922,12 +1920,13 @@ class ChannelEditor:
         return next(iter(self.__xos.values())).output if self.__xos else []
 
     @property
-    def filters(self) -> List[Filter]:
+    def filters(self) -> Dict[str, List[Filter]]:
         self.__recalc()
-        return [f for x in self.__xos.values() for f in x.graph.filters]
+        return {c: x.graph.filters for c, x in self.__xos.items()}
 
     @property
     def meta(self) -> dict:
+        self.__recalc()
         return self.__meta
 
     @property
@@ -1954,7 +1953,10 @@ class ChannelEditor:
                         else:
                             lp_filter = e.lp_filter
                     else:
-                        mds_xo = self.__mds_xos[len(xos)]
+                        try:
+                            mds_xo = self.__mds_xos[len(xos)]
+                        except IndexError as e:
+                            raise e
                         if mds_xo:
                             mds_xo.out_channel_lp = out_chs[values.way - 1][1]
                             mds_xo.out_channel_hp = out_chs[values.way][1]
@@ -1987,6 +1989,7 @@ class ChannelEditor:
         self.__symmetric.setVisible(num_ways > 1)
         for i in range(num_ways):
             self.__editors[i].can_low_pass(num_ways == 1 or i < num_ways - 1)
+        self.resize_mds()
 
     def __create_editor(self, i: int):
         editor = WayEditor(self.__way_frame, self.__name, i, self.__on_change, self.__propagate_symmetric_filter,
@@ -2027,16 +2030,20 @@ class ChannelEditor:
         for i, e in enumerate(self.__editors):
             e.load_way_values(way_values[i])
         self.__on_mds_change(f.ui_meta['m'])
+        self.resize_mds()
 
-    def ensure_mds(self):
+    def resize_mds(self):
         delta = len(self.__mds_xos) - self.ways
         if delta > 0:
             self.__mds_xos = self.__mds_xos[0: self.ways]
-        elif delta < 0:
-            self.__mds_xos.extend([None] * abs(delta))
+        elif delta < -1:
+            self.__mds_xos.extend([None] * (abs(delta) - 1))
         delta = len(self.__mds_points) - self.ways
         if delta > 0:
             self.__mds_points = self.__mds_points[0: self.ways]
+        elif delta < -1:
+            pts = len(self.__mds_points)
+            self.__mds_points.extend([(pts + i, 4, 0.0) for i in range(abs(delta) - 1)])
 
 
 class WayEditor:

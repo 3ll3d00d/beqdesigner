@@ -5,22 +5,21 @@ import os
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Any, List, Dict
+from typing import Optional, List, Dict
 from urllib.parse import urlparse
 
 import qtawesome as qta
 import requests
 from dateutil.parser import parse as parsedate
-from qtpy.QtCore import Signal, QRunnable, QObject, QThreadPool, QUrl, Qt, QAbstractTableModel, QModelIndex, QVariant
+from qtpy.QtCore import Signal, QRunnable, QObject, QThreadPool, QUrl, Qt
 from qtpy.QtGui import QDesktopServices, QImageReader, QPixmap
-from qtpy.QtWidgets import QDialog, QMessageBox, QSizePolicy, QListWidgetItem, QHeaderView, QMenu, QAction, QPushButton
+from qtpy.QtWidgets import QDialog, QMessageBox, QSizePolicy, QListWidgetItem, QMenu, QAction, QPushButton
 from sortedcontainers import SortedSet
 
 from model.iir import HighShelf, LowShelf, PeakingEQ, BiquadWithQGain
-from model.minidsp import load_filter_file, FilterPublisher, FilterPublisherSignals
+from model.minidsp import FilterPublisher, FilterPublisherSignals
 from model.preferences import BEQ_DOWNLOAD_DIR, BINARIES_MINIDSP_RS, MINIDSP_RS_OPTIONS
 from model.report import block_signals
-from ui.browse_catalogue import Ui_catalogueViewerDialog
 from ui.catalogue import Ui_catalogueDialog
 from ui.imgviewer import Ui_imgViewerDialog
 
@@ -56,8 +55,6 @@ class CatalogueDialog(QDialog, Ui_catalogueDialog):
         self.bypassMinidspButton.setMenu(self.__make_minidsp_menu(self.clear_filter_from_minidsp))
         self.__beq_dir = self.__preferences.get(BEQ_DOWNLOAD_DIR)
         self.__beq_file = os.path.join(self.__beq_dir, 'database.json')
-        self.browseCatalogueButton.setEnabled(False)
-        self.browseCatalogueButton.setIcon(qta.icon('fa5s.folder-open'))
         QThreadPool.globalInstance().start(DatabaseDownloader(self.__on_database_load,
                                                               self.__alert_on_database_load_error,
                                                               self.__beq_file))
@@ -88,7 +85,6 @@ class CatalogueDialog(QDialog, Ui_catalogueDialog):
             with open(self.__beq_file, 'r') as infile:
                 self.__catalogue = [CatalogueEntry(f"{idx}", c) for idx, c in enumerate(json.load(infile))]
                 self.__catalogue_by_idx = {c.idx: c for c in self.__catalogue}
-            self.browseCatalogueButton.setEnabled(True)
             years = SortedSet({c.year for c in self.__catalogue})
             for y in reversed(years):
                 self.yearFilter.addItem(str(y))
@@ -120,7 +116,7 @@ class CatalogueDialog(QDialog, Ui_catalogueDialog):
         '''
         years = [int(i.text()) for i in self.yearFilter.selectedItems()]
         content_types = [i.text() for i in self.contentTypeFilter.selectedItems()]
-        name_filter = self.nameFilter.text().casefold()
+        name_filter = self.nameFilter.text().casefold().strip()
         count = 0
         selected_text = self.resultsList.selectedItems()[0].text() if len(
             self.resultsList.selectedItems()) > 0 else None
@@ -130,8 +126,8 @@ class CatalogueDialog(QDialog, Ui_catalogueDialog):
         for beq in self.__catalogue:
             if not years or beq.year in years:
                 if not content_types or beq.content_type in content_types:
-                    if not name_filter or beq.title.find(name_filter) > -1:
-                        if self.__included_in_catalogue_filter(beq):
+                    if not name_filter or beq.casefolded_title.find(name_filter) > -1:
+                        if self.__included_in_filter(beq):
                             count += 1
                             matches.append(beq)
         row_to_set = -1
@@ -146,25 +142,13 @@ class CatalogueDialog(QDialog, Ui_catalogueDialog):
             self.resultsList.setCurrentRow(row_to_set)
         self.matchCount.setValue(count)
 
-    def __included_in_catalogue_filter(self, beq: 'CatalogueEntry'):
-        ''' if this beq can be found in the catalogue. '''
-        include = False
-        if self.allRadioButton.isChecked():
-            include = True
-        elif self.inCatalogueOnlyRadioButton.isChecked():
-            include = beq.title in self.__catalogue_by_idx
-        elif self.missingFromCatalogueRadioButton.isChecked():
-            include = beq.title not in self.__catalogue_by_idx
-
-        if include:
-            if self.allReposRadioButton.isChecked():
-                return True
-            elif self.aron7awolRepoButton.isChecked():
-                return beq.author == 'aron7awol'
-            elif self.mobe1969RepoButton.isChecked():
-                return beq.author == 'mobe1969'
-        else:
-            return False
+    def __included_in_filter(self, beq: 'CatalogueEntry'):
+        if self.allReposRadioButton.isChecked():
+            return True
+        elif self.aron7awolRepoButton.isChecked():
+            return beq.author == 'aron7awol'
+        elif self.mobe1969RepoButton.isChecked():
+            return beq.author == 'mobe1969'
 
     def load_filter(self):
         '''
@@ -280,12 +264,6 @@ class CatalogueDialog(QDialog, Ui_catalogueDialog):
                 item: QListWidgetItem = self.contentTypeFilter.item(i)
                 item.setSelected(len(txt.strip()) == 0 or item.text().casefold().find(txt.casefold()) > -1)
         self.apply_filter()
-
-    def browse_catalogue(self):
-        ''' Show the DB csv browser. '''
-        dialog = BrowseCatalogueDialog(self, self.__beq_db, filt=self.nameFilter.text())
-        dialog.show()
-
 
 class DatabaseDownloadSignals(QObject):
     on_load = Signal(bool, name='on_load')
@@ -429,62 +407,12 @@ def show_alert(title, message):
     msg_box.exec()
 
 
-class BrowseCatalogueDialog(QDialog, Ui_catalogueViewerDialog):
-
-    def __init__(self, parent, catalogue, filt: Optional[str] = None):
-        super(BrowseCatalogueDialog, self).__init__(parent=parent)
-        self.__catalogue = catalogue
-        super().setupUi(self)
-        self.__model = CatalogueTableModel(catalogue, parent=parent)
-        self.tableView.setModel(self.__model)
-        self.tableView.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.nameFilter.setText(filt)
-
-    def apply_filter(self, txt: str):
-        self.__model.filter(txt)
-
-
-class CatalogueTableModel(QAbstractTableModel):
-
-    def __init__(self, data: dict, filt: Optional[str] = None, parent=None):
-        super().__init__(parent=parent)
-        self.__raw_data = list(data.values())
-        self.__data = None
-        self.__cols = ['Title', 'Format', 'Author']
-        self.filter(filt)
-
-    def rowCount(self, parent=None):
-        return len(self.__data)
-
-    def columnCount(self, parent=None):
-        return len(self.__cols)
-
-    def data(self, index: QModelIndex, role: int = ...) -> Any:
-        if not index.isValid() or role != Qt.DisplayRole:
-            return QVariant()
-        else:
-            return QVariant(self.__data[index.row()][self.__cols[index.column()]])
-
-    def headerData(self, section: int, orientation: Qt.Orientation, role: int = ...) -> Any:
-        if orientation == Qt.Horizontal and role == Qt.DisplayRole:
-            return QVariant(self.__cols[section])
-        return QVariant()
-
-    def filter(self, txt: str):
-        self.beginResetModel()
-        if txt is None or len(txt.strip()) == 0:
-            self.__data = self.__raw_data
-        else:
-            match_txt = txt.casefold()
-            self.__data = [d for d in self.__raw_data if d['Title'].casefold().find(match_txt) > -1]
-        self.endResetModel()
-
-
 class CatalogueEntry:
 
     def __init__(self, idx: str, vals: dict):
         self.idx = idx
         self.title = vals.get('title', '')
+        self.casefolded_title = self.title.casefold()
         y = 0
         try:
             y = int(vals.get('year', 0))
