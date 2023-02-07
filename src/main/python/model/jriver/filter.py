@@ -1930,7 +1930,7 @@ def set_filter_ids(filters: List[Filter]) -> List[Filter]:
 class XO:
 
     def __init__(self, out_channel_lp: str, out_channel_hp: str, fs: int = JRIVER_FS):
-        self.in_channel = None
+        self.__in_channel = None
         self.out_channel_lp = out_channel_lp
         self.out_channel_hp = out_channel_hp
         self.extra_delay_millis: float = 0.0
@@ -1939,6 +1939,14 @@ class XO:
     @property
     def fs(self) -> int:
         return self.__fs
+
+    @property
+    def in_channel(self) -> str:
+        return self.__in_channel
+
+    @in_channel.setter
+    def in_channel(self, in_channel: str):
+        self.__in_channel = in_channel
 
     @abc.abstractmethod
     def calc_filters(self) -> List[Filter]:
@@ -2038,6 +2046,11 @@ class MDSXO(XO):
     def from_json(self, d: dict) -> MDSXO:
         return MDSXO(d['o'], d['f'], fc_divisor=d['d'], lp_channel=d['l'], hp_channel=d['h'])
 
+    @XO.in_channel.setter
+    def in_channel(self, in_channel):
+        XO.in_channel.fset(self, in_channel)
+        self.__calc_graph()
+
     @property
     def filter_graph(self) -> FilterGraph:
         self.__recalc()
@@ -2125,10 +2138,9 @@ class MDSXO(XO):
         lp_slope = lp_y[lp_slope_start_idx.item()] - lp_y[lp_slope_end_idx.item()]
         return lp_x[fc_idx], lp_slope, hp_slope
 
-    def calc_filters(self):
-        if self.__graph is None:
-            self.__calc_graph()
-        return self.__graph.filters
+    def calc_filters(self) -> List[Filter]:
+        self.__calc_graph()
+        return [f for f in self.__graph.filters]
 
     def __calc_graph(self):
         '''
@@ -2310,7 +2322,8 @@ class MultiwayCrossover:
             x.in_channel = self.__in_channel if i == 0 else last_x.out_channel_hp
             if i == 0 and subsonic_filter:
                 filters.append(convert_filter_to_mc_dsp(subsonic_filter,  str(get_channel_idx(x.out_channel_lp))))
-            filters.extend(x.calc_filters())
+            x_filters = x.calc_filters()
+            filters.extend(x_filters)
             last_x = x
             output_channels.append(x.out_channel_lp)
         if last_x:
