@@ -1486,12 +1486,11 @@ class XODialog(QDialog, Ui_xoDialog):
             self.lfeAdjustLabel.setVisible(False)
             self.__lfe_channel: Optional[str] = None
         self.linkChannelsButton.clicked.connect(self.__show_group_channels_dialog)
-        self.__editors = [
-            ChannelEditor(self.channelsFrame, name, channels, output_format,
-                          any(c == self.__lfe_channel for c in channels), self.__trigger_redraw,
-                          self.__on_output_channel_count_change)
-            for name, channels in self.__channel_groups.items()
-        ]
+        self.__editors = []
+        for name, channels in self.__channel_groups.items():
+            self.__editors.append(ChannelEditor(self.channelsFrame, name, channels, output_format,
+                                                any(c == self.__lfe_channel for c in channels), self.__trigger_redraw,
+                                                self.__on_output_channel_count_change))
         last_widget = None
         for e in self.__editors:
             self.channelsLayout.addWidget(e.widget)
@@ -1602,7 +1601,8 @@ class XODialog(QDialog, Ui_xoDialog):
                             try:
                                 matrix.enable(c, w, output_channels.pop())
                             except IndexError:
-                                raise ImpossibleRoutingError(f"Channel {c} Way {w + 1} has no output channel to route to")
+                                raise ImpossibleRoutingError(
+                                    f"Channel {c} Way {w + 1} has no output channel to route to")
 
     def __show_group_channels_dialog(self):
         GroupChannelsDialog(self, {e.name: e.underlying_channels for e in self.__editors
@@ -1653,6 +1653,10 @@ class XODialog(QDialog, Ui_xoDialog):
     def __on_output_channel_count_change(self, channel: str, ways: int):
         if self.__matrix:
             self.__matrix.resize(channel, ways)
+        free_outputs = self.__output_format.output_channels \
+                       - sum(((e.ways * len(e.underlying_channels)) for e in self.__editors if e.visible))
+        for e in self.__editors:
+            e.set_free_channels(free_outputs)
 
     def show_matrix(self):
         MatrixDialog(self, self.__matrix, self.__set_matrix, self.__create_matrix).show()
@@ -1662,8 +1666,13 @@ class XODialog(QDialog, Ui_xoDialog):
         self.__on_matrix_update()
 
     def __on_matrix_update(self):
+        free_outputs = self.__output_format.output_channels
         for e in self.__editors:
             e.update_output_channels(self.__matrix.get_output_channels_for(e.underlying_channels))
+            if e.visible:
+                free_outputs = free_outputs - (e.ways * len(e.underlying_channels))
+        for e in self.__editors:
+            e.set_free_channels(free_outputs)
 
     def accept(self):
         self.__on_save(self.__make_filters())
@@ -1822,10 +1831,8 @@ class ChannelEditor:
         self.__way_layout = QHBoxLayout(self.__way_frame)
         self.__way_layout.addItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
         self.__layout.addWidget(self.__way_frame)
-        self.__ways.valueChanged.connect(lambda v: self.__mds.setVisible(v > 1))
-        self.__ways.valueChanged.connect(self.__update_editors)
-        self.__ways.valueChanged.connect(self.__on_change)
-        self.__ways.valueChanged.connect(lambda v: self.__propagate_way_count_change(on_way_count_change, v))
+        self.__propagate_way_count_change = on_way_count_change
+        self.__ways.valueChanged.connect(self.__on_way_count_change)
         self.__frame.setTabOrder(self.__ways, self.__show_response)
         self.__frame.setTabOrder(self.__show_response, self.__symmetric)
         if self.__is_sw_channel:
@@ -1833,6 +1840,16 @@ class ChannelEditor:
             self.__update_editors()
         else:
             self.__ways.setValue(self.__calculate_ways())
+
+    def set_free_channels(self, count: int):
+        self.__ways.setMaximum(self.ways + count)
+
+    def __on_way_count_change(self, v: int):
+        self.__mds.setVisible(v > 1)
+        self.__on_change()
+        self.__update_editors()
+        for c in self.__underlying_channels:
+            self.__propagate_way_count_change(c, v)
 
     def __on_change(self):
         self.__reset()
@@ -1864,10 +1881,6 @@ class ChannelEditor:
             else:
                 self.__editors[i].clear_mds_low()
                 self.__editors[i + 1].clear_mds_high()
-
-    def __propagate_way_count_change(self, func: Callable[[str, int], None], count: int):
-        for c in self.__underlying_channels:
-            func(c, count)
 
     def __calculate_ways(self) -> int:
         of = self.__output_format
@@ -1942,7 +1955,7 @@ class ChannelEditor:
                 xos: List[XO] = []
                 way_values: List[WayValues] = []
                 lp_filter: Optional[ComplexLowPass] = None
-                for w in range(self.ways):
+                for w in range(min(self.ways, len(out_chs))):
                     e = self.__editors[w]
                     values = e.get_way_values()
                     if w == 0:
