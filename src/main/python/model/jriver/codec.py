@@ -60,7 +60,7 @@ def get_output_format(config_txt: str, allow_padding: bool) -> OutputFormat:
             xml_vals = (template.output_channels, padding)
         return OutputFormat(f"{template.display_name} (+{padding})", template.input_channels,
                             template.input_channels + padding, template.lfe_channels, xml_vals,
-                            template.paddings[-1] if template.paddings else 0)
+                            template.paddings[-1] if template.paddings else 0, template=False)
     else:
         return get_legacy_output_format(output_channels, padding, layout)
 
@@ -235,7 +235,7 @@ def include_filters_in_dsp(peq_block_name: str, config_txt: str, xml_filts: List
 def item_to_dicts(frag) -> Optional[Dict[str, str]]:
     idx = frag.find(':')
     if idx > -1:
-        peq_xml = frag[idx+1:-1]
+        peq_xml = frag[idx + 1:-1]
         vals = {i.attrib['Name']: i.text for i in et.fromstring(peq_xml).findall('./Item')}
         if 'Enabled' in vals:
             if vals['Enabled'] != '0' and vals['Enabled'] != '1':

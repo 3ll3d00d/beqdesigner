@@ -1,5 +1,5 @@
 import functools
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Union
 
 import numpy as np
 from scipy.signal import unit_impulse
@@ -92,24 +92,37 @@ def make_silence(channel: str):
 class OutputFormat:
 
     def __init__(self, display_name: str, input_channels: int, output_channels: int, lfe_channels: int,
-                 xml_vals: Tuple[int, ...], max_padding: int):
+                 xml_vals: Tuple[int, ...], max_padding: int, template: bool = True):
         self.__lfe_channels = lfe_channels
         self.__output_channels = output_channels
         self.__display_name = display_name
         self.__input_channels = input_channels
         self.__xml_vals = xml_vals
-        self.__paddings: List[int] = range(2, max_padding + 1, 2) if max_padding > 0 else []
-        all_names = get_all_channel_names()
-        # special case for 2.1
-        if self.__lfe_channels > 0 and self.__input_channels < 4:
-            self.__input_channel_indexes = [2, 3, 5]
+        if template:
+            self.__paddings: List[int] = list(range(2, max_padding + 1, 2)) if max_padding > 0 else []
         else:
-            self.__input_channel_indexes = get_channel_indexes(all_names[:input_channels])
+            self.__paddings: List[int] = [max_padding] if max_padding else []
+        all_names = get_all_channel_names()
+        # swap SL/SR and RL/RR for the 8 or more channel case
+        all_names_8 = all_names[0:4] + all_names[6:8] + all_names[4:6] + all_names[8:]
         if self.__lfe_channels > 0 and self.__output_channels < 4:
             self.__output_channel_indexes = [2, 3, 5] + user_channel_indexes()
         else:
             self.__output_channel_indexes = sorted(get_channel_indexes(all_names[:output_channels]) +
                                                    user_channel_indexes())
+        # special case for 2.1
+        if self.__lfe_channels > 0 and self.__input_channels < 4:
+            self.__input_channel_indexes = [2, 3, 5]
+        elif self.__lfe_channels > 0 and self.__input_channels == 6:
+            if output_channels == 6:
+                self.__input_channel_indexes = get_channel_indexes(all_names[:output_channels])
+            else:
+                self.__input_channel_indexes = get_channel_indexes(all_names_8[0:6])
+        else:
+            if output_channels < 7:
+                self.__input_channel_indexes = get_channel_indexes(all_names[:input_channels])
+            else:
+                self.__input_channel_indexes = get_channel_indexes(all_names_8[:input_channels])
 
     def __str__(self):
         return self.__display_name

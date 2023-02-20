@@ -30,7 +30,7 @@ multimix = MultiwayCrossover('L', [
                ComplexHighPass(FilterType.LINKWITZ_RILEY, 4, JRIVER_FS, 5000)),
 ], [None] * 4)
 
-multi = multimds
+multi = multistd
 f = plt.figure()
 plt.grid(visible=True)
 # plt.ylim(-85, -10)

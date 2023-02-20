@@ -134,7 +134,11 @@ class ChannelFilter(SingleFilter, ABC):
 
     def __init__(self, vals, short_name):
         super().__init__(vals, short_name)
-        self.__channels = [int(c) for c in vals['Channels'].split(';')]
+        ch = vals.get('Channels', None)
+        if ch:
+            self.__channels = [int(c) for c in ch.split(';')]
+        else:
+            raise ValueError(f"No channels specified in filter {short_name} {vals}")
         self.__channel_names = [get_channel_name(i) for i in self.__channels]
 
     @property
@@ -1033,7 +1037,7 @@ class MultiwayFilter(ComplexFilter, Sequence[Filter]):
         super().__init__(filters)
 
     def short_desc(self):
-        return 'MultiwayXO'
+        return f"MultiwayXO {self.input_channel} {self.output_channels}"
 
     def metadata(self) -> str:
         return json.dumps({
@@ -1985,25 +1989,52 @@ class StandardXO(XO):
 
     def calc_filters(self) -> List[Filter]:
         assert self.in_channel is not None
-        filters: List[Filter] = []
-        if self.in_channel != self.out_channel_lp:
+        filters = []
+        if self.__high_pass:
+            filters.append(create_single_filter({
+                **Mix.default_values(),
+                'Source': str(get_channel_idx(self.in_channel)),
+                'Destination': str(get_channel_idx('U2')),
+                'Mode': str(MixType.COPY.value if self.__low_pass else MixType.MOVE.value)
+            }))
+
+        if self.__low_pass:
+            if self.in_channel == self.out_channel_lp:
+                filters.append(convert_filter_to_mc_dsp(self.__low_pass, str(get_channel_idx(self.out_channel_lp))))
+            else:
+                filters.append(create_single_filter({
+                    **Mix.default_values(),
+                    'Source': str(get_channel_idx(self.in_channel)),
+                    'Destination': str(get_channel_idx('U1')),
+                    'Mode': str(MixType.COPY.value)
+                }))
+                filters.append(convert_filter_to_mc_dsp(self.__low_pass, str(get_channel_idx('U1'))))
+                filters.append(create_single_filter({
+                    **Mix.default_values(),
+                    'Source': str(get_channel_idx('U1')),
+                    'Destination': str(get_channel_idx(self.out_channel_lp)),
+                    'Mode': str(MixType.MOVE.value)
+                }))
+        else:
             filters.append(create_single_filter({
                 **Mix.default_values(),
                 'Source': str(get_channel_idx(self.in_channel)),
                 'Destination': str(get_channel_idx(self.out_channel_lp)),
                 'Mode': str(MixType.COPY.value)
             }))
-        if self.in_channel != self.out_channel_hp:
-            filters.append(create_single_filter({
-                **Mix.default_values(),
-                'Source': str(get_channel_idx(self.in_channel)),
-                'Destination': str(get_channel_idx(self.out_channel_hp)),
-                'Mode': str(MixType.COPY.value)
-            }))
-        if self.__low_pass:
-            filters.append(convert_filter_to_mc_dsp(self.__low_pass, str(get_channel_idx(self.out_channel_lp))))
+            
         if self.__high_pass:
-            filters.append(convert_filter_to_mc_dsp(self.__high_pass, str(get_channel_idx(self.out_channel_hp))))
+            if self.in_channel == self.out_channel_hp:
+                filters.append(convert_filter_to_mc_dsp(self.__high_pass, str(get_channel_idx(self.out_channel_hp))))
+            else:
+                filters.append(convert_filter_to_mc_dsp(self.__high_pass, str(get_channel_idx('U2'))))
+                filters.append(create_single_filter({
+                    **Mix.default_values(),
+                    'Source': str(get_channel_idx('U2')),
+                    'Destination': str(get_channel_idx(self.out_channel_hp)),
+                    'Mode': str(MixType.MOVE.value)
+                }))
+
         return filters
 
     @staticmethod
@@ -2306,8 +2337,7 @@ class MultiwayCrossover:
         assert in_channel is not None
         self.__in_channel = in_channel
         self.__xos = crossovers
-        self.__channels = sorted(list({c for x in crossovers for c in [x.out_channel_lp, x.out_channel_hp]}),
-                                 key=lambda x: get_channel_idx(x))
+        self.__channels: List[str] = []
         delay = 0
         for i, xo in enumerate(reversed(self.__xos)):
             if i != 0 and delay != 0:
@@ -2315,24 +2345,28 @@ class MultiwayCrossover:
             if isinstance(xo, MDSXO):
                 delay += (xo.delay * 2)
 
-        output_channels: List[str] = []
         filters = []
+        channels_by_way = []
         last_x: Optional[XO] = None
         for i, x in enumerate(self.__xos):
             x.in_channel = self.__in_channel if i == 0 else last_x.out_channel_hp
             if i == 0 and subsonic_filter:
-                filters.append(convert_filter_to_mc_dsp(subsonic_filter,  str(get_channel_idx(x.out_channel_lp))))
+                filters.append(convert_filter_to_mc_dsp(subsonic_filter, str(get_channel_idx(x.out_channel_lp))))
             x_filters = x.calc_filters()
             filters.extend(x_filters)
             last_x = x
-            output_channels.append(x.out_channel_lp)
+            channels_by_way.append(x.out_channel_lp)
+            if x.out_channel_lp not in self.__channels:
+                self.__channels.append(x.out_channel_lp)
         if last_x:
-            output_channels.append(last_x.out_channel_hp)
+            if last_x.out_channel_hp not in self.__channels:
+                self.__channels.append(last_x.out_channel_hp)
+            channels_by_way.append(last_x.out_channel_hp)
 
         for i, v in enumerate(way_values):
             if v is not None:
                 try:
-                    output_index = output_channels[i]
+                    output_index = self.__channels[i]
                     if v.inverted:
                         filters.append(Polarity({
                             'Enabled': '1',
@@ -2357,10 +2391,6 @@ class MultiwayCrossover:
         channels_with_user = list(self.__channels) + SHORT_USER_CHANNELS
         self.__graph = FilterGraph(0, channels_with_user, channels_with_user, filters, regen=False)
         self.__output = self.__graph.simulate(analysis_resolution=0.1)
-
-    def output(self, way: int) -> Tuple[str, Signal]:
-        ch = self.__channels[way]
-        return ch, self.__output[ch]
 
     @property
     def output(self) -> List[Signal]:

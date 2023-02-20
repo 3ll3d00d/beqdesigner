@@ -14,3 +14,9 @@ def flatten(items: Iterable) -> Iterable:
                 yield x
     else:
         yield items
+
+
+class ImpossibleRoutingError(ValueError):
+
+    def __init__(self, msg: str):
+        super().__init__(msg)

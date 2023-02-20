@@ -6,7 +6,8 @@ from itertools import groupby
 from typing import Optional, Dict, List, Tuple
 
 from model.jriver.common import get_channel_idx, user_channel_indexes, get_channel_name
-from model.jriver.filter import MixType, Mix, CompoundRoutingFilter, Filter, Gain, XOFilter, MultiwayFilter
+from model.jriver.filter import MixType, Mix, CompoundRoutingFilter, Filter, Gain, MultiwayFilter
+from model.jriver import ImpossibleRoutingError
 
 logger = logging.getLogger('jriver.routing')
 
@@ -53,7 +54,8 @@ class Matrix:
         # input channel -> way -> output channel -> enabled
         self.__ways: Dict[str, Dict[int, Dict[str, bool]]] = self.__make_default_ways()
 
-    def get_active_routes(self) -> List[Route]:
+    @property
+    def active_routes(self) -> List[Route]:
         '''
         :return: The active links from inputs to outputs defined by this matrix.
         '''
@@ -67,16 +69,16 @@ class Matrix:
         return [(c, w) for c, ways in self.__inputs.items() for w in range(ways)]
 
     @property
-    def rows(self):
+    def rows(self) -> int:
         return len(self.__row_keys)
 
-    def row_name(self, idx: int):
+    def row_name(self, idx: int) -> str:
         c, w = self.__row_keys[idx]
         suffix = '' if self.__inputs[c] < 2 else f" - {w + 1}"
         return f"{c}{suffix}"
 
     @property
-    def columns(self):
+    def columns(self) -> int:
         return len(self.__outputs)
 
     def column_name(self, idx: int) -> str:
@@ -168,9 +170,11 @@ class Matrix:
             for way, v2 in v1.items():
                 for output_channel in v2.keys():
                     v2[output_channel] = False
-        for r in routings:
-            i, w, o = r.split('/')
-            self.__ways[i][int(w)][o] = True
+        for ch, ways in groupby([r.split('/') for r in routings], lambda r: r[0]):
+            ways = list(ways)
+            self.resize(ch, len(ways))
+            for w in ways:
+                self.__ways[ch][int(w[1])][w[2]] = True
 
     def is_input(self, channel: str):
         return channel in self.__inputs.keys()
@@ -183,8 +187,13 @@ class Matrix:
                             if v3])
         return [get_channel_idx(o) for o in self.__outputs if o not in used_outputs]
 
-    def get_input_channels(self) -> List[int]:
+    @property
+    def input_channel_indexes(self) -> List[int]:
         return [get_channel_idx(i) for i in self.__inputs]
+
+    @property
+    def input_channel_names(self) -> List[str]:
+        return [i for i in self.__inputs]
 
     def get_output_channels_for(self, input_channels: List[str]) -> Dict[str, List[Tuple[int, str]]]:
         '''
@@ -192,92 +201,11 @@ class Matrix:
         :return: the output channel for each way by input channel.
         '''
         return {c: sorted([(r.w, get_channel_name(r.o)) for r in rs], key=lambda x: x[0]) for c, rs in
-                groupby([r for r in sorted(self.get_active_routes()) if get_channel_name(r.i) in input_channels],
+                groupby([r for r in sorted(self.active_routes) if get_channel_name(r.i) in input_channels],
                         lambda r: get_channel_name(r.i))}
 
 
-def __reorder_routes(routes: List[Route]) -> List[Route]:
-    '''
-    Reorders routing to ensure inputs are not overridden with outputs. Attempts to break circular dependencies
-    using user channels if possible.
-    :param routes: the routes.
-    :return: the reordered routes.
-    '''
-    ordered_routes: List[Tuple[Route, int]] = []
-    u1_channel_idx = user_channel_indexes()[0]
-    for r in routes:
-        def repack() -> Tuple[Route, int]:
-            return r, -1
-
-        # just add the first route as there is nothing to reorder
-        if not ordered_routes or not r.mt:
-            ordered_routes.append(repack())
-        else:
-            insert_at = -1
-            for idx, o_r in enumerate(ordered_routes):
-                # if a route wants to write to this input, make sure this route comes first
-                if o_r[0].o == r.i:
-                    insert_at = idx
-                    break
-            if insert_at == -1:
-                # the normal case, nothing to reorder so just add it
-                ordered_routes.append(repack())
-            else:
-                # search for circular dependencies, i.e. if this route wants to write to the input of a later route
-                # (and hence overwriting that input channel)
-                broke_circular: Optional[Route] = None
-                for o_r in ordered_routes[insert_at:]:
-                    if o_r[0].i == r.o:
-                        inserted_route = ordered_routes[insert_at]
-                        # make sure we only copy to the user channel once
-                        if inserted_route[0] != r.i or inserted_route[2] != u1_channel_idx:
-                            ordered_routes.insert(insert_at, (Route(r.i, r.w, u1_channel_idx, MixType.COPY), r.o))
-                        # cache the copy from the user channel to the actual output
-                        broke_circular = Route(u1_channel_idx, r.w, r.o, r.mt if r.mt else MixType.COPY)
-                        break
-                if broke_circular:
-                    # append the route after the last use of the route output as an input
-                    candidate_idx = -1
-                    for idx, o_r in enumerate(ordered_routes):
-                        if o_r[0].i == broke_circular.o:
-                            candidate_idx = idx + 1
-                    if candidate_idx == -1:
-                        raise ValueError(f"Logical error, circular dependency detected but now missing")
-                    elif candidate_idx == len(ordered_routes):
-                        ordered_routes.append((broke_circular, -1))
-                    else:
-                        ordered_routes.insert(candidate_idx, (broke_circular, -1))
-                else:
-                    # no circular dependency but make sure we insert before any copies to the user channel
-                    if insert_at > 0:
-                        inserted = ordered_routes[insert_at - 1]
-                        if inserted[1] > -1 and inserted[0].i == r.i:
-                            insert_at -= 1
-                    ordered_routes.insert(insert_at, repack())
-    # validate that the proposed routes make sense
-    u1_in_use_for = -1
-    failed = False
-    output: List[Route] = []
-    for r, target in ordered_routes:
-        if target > -1:
-            if u1_in_use_for == -1:
-                u1_in_use_for = target
-            else:
-                if target != u1_in_use_for:
-                    failed = True
-        if r.i == u1_channel_idx:
-            if r.o != u1_in_use_for:
-                failed = True
-            else:
-                u1_in_use_for = -1
-        output.append(r)
-    if failed:
-        # TODO this does not make sense with how bass management is implemented for stereo subs
-        logger.info(f'Unresolvable circular dependencies found in {ordered_routes}')
-    return output
-
-
-def collate_routes(summed_routes_by_output: Dict[int, List[Route]]) -> List[Tuple[List[int], List[Route]]]:
+def collate_many_to_one_routes(summed_routes_by_output: Dict[int, List[Route]]) -> List[Tuple[List[int], List[Route]]]:
     '''
     Collates output channels that are fed by identical sets of inputs.
     :param summed_routes_by_output: the summed routes.
@@ -305,13 +233,13 @@ def collate_routes(summed_routes_by_output: Dict[int, List[Route]]) -> List[Tupl
     return summed_routes
 
 
-def group_routes_by_output(matrix: Matrix):
+def group_routes_by_output_channel(active_routes: List[Route]) -> Tuple[List[Route], Dict[int, List[Route]]]:
     '''
-    :param matrix: the matrix.
+    :param active_routes: the active routes.
     :return: the direct routes (1 input to 1 output), the summed routes grouped by output channel (multiple inputs going to a single output).
     '''
     summed_routes: Dict[int, List[Route]] = defaultdict(list)
-    for r in matrix.get_active_routes():
+    for r in active_routes:
         summed_routes[r.o].append(r)
     direct_routes = [Route(v1.i, v1.w, v1.o, MixType.COPY)
                      for v in summed_routes.values() if len(v) == 1 for v1 in v if v1.i != v1.o]
@@ -324,95 +252,15 @@ def convert_to_routes(matrix: Matrix):
     :param matrix: the matrix.
     :return: the routes.
     '''
-    simple_routes, summed_routes_by_output = group_routes_by_output(matrix)
-    collated_summed_routes: List[Tuple[List[int], List[Route]]] = collate_routes(summed_routes_by_output)
+    simple_routes, summed_routes_by_output = group_routes_by_output_channel(matrix)
+    collated_summed_routes: List[Tuple[List[int], List[Route]]] = collate_many_to_one_routes(summed_routes_by_output)
     return simple_routes, collated_summed_routes
 
 
-def __create_summed_output_channel_for_shared_lfe(output_channels: List[int],
-                                                  routes: List[Route],
-                                                  main_adjust: int,
-                                                  lfe_channel_idx: int,
-                                                  empty_channels: List[int],
-                                                  input_channels: List[int]) -> Tuple[List[Filter], List[Route]]:
-    '''
-    converts routing of an lfe based mix to a set of filters where the LFE channel has been included in more than 1
-    distinct combination of main channels.
-    :param output_channels: the output channels.
-    :param routes: the routes.
-    :param main_adjust: main level adjustment.
-    :param lfe_channel_idx: the lfe channel idx.
-    :param empty_channels: channels which can be used to stage outputs.
-    :return: the filters, additional direct routes (to copy the summed output to other channels).
-    '''
-    # calculate a target channel as any output channel which is not an input channel
-    target_channel: Optional[int] = next((c for c in output_channels if c not in input_channels), None)
-    if not target_channel:
-        # if no such channel can be found then take the next empty channel (unlikely situation in practice)
-        if empty_channels:
-            target_channel = empty_channels.pop(0)
-        else:
-            # if no free channels left then blow up
-            raise NoMixChannelError()
-
-    filters: List[Filter] = []
-    direct_routes: List[Route] = []
-    # add all routes to the output
-    for r in routes:
-        vals = {
-            **Mix.default_values(),
-            'Source': str(r.i),
-            'Destination': str(target_channel),
-            'Mode': str(MixType.COPY.value if r.i in output_channels else MixType.ADD.value)
-        }
-        if r.i != lfe_channel_idx and main_adjust != 0:
-            vals['Gain'] = f"{main_adjust:.7g}"
-        mix = Mix(vals)
-        if mix.mix_type == MixType.COPY and filters:
-            filters.insert(0, mix)
-        else:
-            filters.append(mix)
-    # copy from the mix target channel to the actual outputs
-    for c in output_channels:
-        if c != target_channel:
-            direct_routes.append(Route(target_channel, 0, c, MixType.COPY))
-
-    return filters, direct_routes
-
-
-def __create_summed_output_channel_for_dedicated_lfe(output_channels: List[int], routes: List[Route], main_adjust: int,
-                                                     lfe_channel_idx: int) -> Tuple[List[Filter], List[Route]]:
-    '''
-    converts routing of an lfe based mix to a set of filters when the LFE channel is not shared across multiple outputs.
-    :param output_channels: the output channels.
-    :param routes: the routes.
-    :param main_adjust: main level adjustment.
-    :param lfe_channel_idx: the lfe channel idx.
-    :return: the filters, additional direct routes (to copy the summed output to other channels).
-    '''
-    filters: List[Filter] = []
-    direct_routes: List[Route] = []
-    # accumulate main channels into the LFE channel with an appropriate adjustment
-    for r in routes:
-        if r.i != lfe_channel_idx:
-            vals = {
-                **Mix.default_values(),
-                'Source': str(r.i),
-                'Destination': str(lfe_channel_idx),
-                'Mode': str(MixType.ADD.value)
-            }
-            if r.i != lfe_channel_idx and main_adjust != 0:
-                vals['Gain'] = f"{main_adjust:.7g}"
-            filters.append(Mix(vals))
-    # copy the LFE channel to any required output channel
-    for c in output_channels:
-        if c != lfe_channel_idx:
-            direct_routes.append(Route(lfe_channel_idx, 0, c, MixType.COPY))
-    return filters, direct_routes
-
-
-def calculate_compound_routing_filter(matrix: Matrix, editor_meta: Optional[List[dict]] = None,
-                                      xo_filters: List[MultiwayFilter] = None, main_adjust: int = 0,
+def calculate_compound_routing_filter(matrix: Matrix,
+                                      editor_meta: Optional[List[dict]] = None,
+                                      xo_filters: List[MultiwayFilter] = None,
+                                      main_adjust: int = 0,
                                       lfe_adjust: int = 0,
                                       lfe_channel_idx: Optional[int] = None) -> CompoundRoutingFilter:
     '''
@@ -425,84 +273,57 @@ def calculate_compound_routing_filter(matrix: Matrix, editor_meta: Optional[List
     :param lfe_channel_idx: the lfe channel index.
     :return: the filters.
     '''
-    direct_routes, summed_routes = group_routes_by_output(matrix)
-    empty_channels = user_channel_indexes() + matrix.get_free_output_channels()
-    summed_routes_by_output_channels: List[Tuple[List[int], List[Route]]] = collate_routes(summed_routes)
-    lfe_route_count = __count_lfe_routes(lfe_channel_idx, direct_routes, summed_routes_by_output_channels)
+    active_routes = matrix.active_routes
+    input_channel_indexes = matrix.input_channel_indexes
+    one_to_one_routes_by_output_channel, many_to_one_routes_by_output_channel = group_routes_by_output_channel(active_routes)
 
-    # Scenarios handled
-    # 1) Standard bass management
-    # = LFE channel is routed to the SW output with 1 or more other channels added to it
-    #    - do nothing to the LFE channel (gain already reduced by lfe_adjust)
-    #    - add other channels to the LFE channel
-    # 2) Standard bass management with LFE routed to some other output channel
-    #    - as 1 with additional direct route to move the SW output to the additional channel
-    # 3) Standard bass management with multiple SW outputs
-    #    - as 1 with additional direct route to copy the SW output to the additional channel
-    # 4) Stereo bass
-    # = LFE channel routed to >1 channel and combined differing sets of main channels
-    #    - find a free channel to mix into
-    #    - add all inputs to the channel
-    #    - copy from here to the output channels
-    # 5) Non LFE based subwoofers
-    # = >1 main channels to be summed into some output channel and copied to some other channels
-    #    - do direct routes first to copy the input channels to their target channels
-    #    - mix into each summed channel
+    illegal_routes = [r for r in one_to_one_routes_by_output_channel if r.o in input_channel_indexes and r.i != r.o]
+    if illegal_routes:
+        raise ImpossibleRoutingError(f"Overwriting an input channel is not supported - {illegal_routes}")
+
+    many_to_one_routes_by_output_channels: List[Tuple[List[int], List[Route]]] = collate_many_to_one_routes(many_to_one_routes_by_output_channel)
+
     filters: List[Filter] = []
-    if lfe_adjust != 0 and lfe_channel_idx:
-        filters.append(Gain({
-            'Enabled': '1',
-            'Type': Gain.TYPE,
-            'Gain': f"{lfe_adjust:.7g}",
-            'Channels': str(lfe_channel_idx)
-        }))
+    if lfe_channel_idx:
+        if lfe_adjust != 0:
+            filters.append(Gain({
+                'Enabled': '1',
+                'Type': Gain.TYPE,
+                'Gain': f"{lfe_adjust:.7g}",
+                'Channels': str(lfe_channel_idx)
+            }))
+    if main_adjust:
+        for i in input_channel_indexes:
+            if i != lfe_channel_idx:
+                filters.append(Gain({
+                    'Enabled': '1',
+                    'Type': Gain.TYPE,
+                    'Gain': f"{main_adjust:.7g}",
+                    'Channels': str(i)
+                }))
 
-    for output_channels, summed_route in summed_routes_by_output_channels:
-        includes_lfe = lfe_channel_idx and any((r.i == lfe_channel_idx for r in summed_route))
-        if includes_lfe:
-            if lfe_route_count > 1:
-                route_filters, extra_routes = \
-                    __create_summed_output_channel_for_shared_lfe(output_channels, summed_route, main_adjust,
-                                                                  lfe_channel_idx, empty_channels,
-                                                                  matrix.get_input_channels())
-            else:
-                route_filters, extra_routes = \
-                    __create_summed_output_channel_for_dedicated_lfe(output_channels, summed_route, main_adjust,
-                                                                     lfe_channel_idx)
-            if extra_routes:
-                direct_routes.extend(extra_routes)
-            if route_filters:
-                filters.extend(route_filters)
-        else:
-            for c in output_channels:
-                for r in summed_route:
-                    if r.i != r.o:
-                        direct_routes.append(Route(r.i, r.w, c, MixType.ADD))
+    # detect if a summed route is writing to a channel which is an input for another summed route
+    if len(many_to_one_routes_by_output_channels) > 1:
+        for i1, vals1 in enumerate(many_to_one_routes_by_output_channels):
+            output_channels1, summed_routes1 = vals1
+            for i2, vals2 in enumerate(many_to_one_routes_by_output_channels):
+                if i1 != i2:
+                    output_channels2, summed_routes2 = vals2
+                    inputs2 = {r.i for r in summed_routes2}
+                    overlap = inputs2.intersection({o for o in output_channels1})
+                    if overlap:
+                        # TODO only blow up if we have no spare channels to write to
+                        raise ImpossibleRoutingError(f"Unable to write summed output to {overlap}, is input channel for {summed_routes2}")
 
-    ordered_routes = __reorder_routes(__without_xo_routes(direct_routes, xo_filters))
-    for o_r in ordered_routes:
-        filters.append(Mix({
-            **Mix.default_values(),
-            'Source': str(o_r.i),
-            'Destination': str(o_r.o),
-            'Mode': str(o_r.mt.value)
-        }))
+    if xo_filters:
+        for xo in xo_filters:
+            for i, f in enumerate(xo.filters):
+                if isinstance(f, Mix):
+                    if f.dst_idx in many_to_one_routes_by_output_channel.keys():
+                        xo.filters[i] = Mix({**f.get_all_vals()[0], **{'Mode': MixType.ADD.value}})
+
     meta = __create_routing_metadata(matrix, editor_meta, lfe_channel_idx, lfe_adjust)
     return CompoundRoutingFilter(json.dumps(meta), filters, xo_filters)
-
-
-def __without_xo_routes(routes: List[Route], xos: List[MultiwayFilter]) -> List[Route]:
-    '''
-    Removes the routes handled by the crossover from the direct route list.
-    :param routes: the routes.
-    :param xos: the XOs.
-    :return: the reordered routes.
-    '''
-    if xos:
-        in_out_routing = [(get_channel_idx(x.input_channel), get_channel_idx(c)) for x in xos for c in x.output_channels]
-        return [r for r in routes if not any(e[0] == r.i and e[1] == r.o for e in in_out_routing)]
-    else:
-        return routes
 
 
 def __count_lfe_routes(lfe_channel_idx, direct_routes, summed_routes_by_output_channels) -> int:
