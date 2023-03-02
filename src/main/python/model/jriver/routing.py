@@ -195,14 +195,14 @@ class Matrix:
     def input_channel_names(self) -> List[str]:
         return [i for i in self.__inputs]
 
-    def get_output_channels_for(self, input_channels: List[str]) -> Dict[str, List[Tuple[int, str]]]:
+    def get_output_channels_for(self, input_channels: List[str]) -> Dict[str, List[Tuple[int, List[str]]]]:
         '''
         :param input_channels: the input channel names.
         :return: the output channel for each way by input channel.
         '''
-        return {c: sorted([(r.w, get_channel_name(r.o)) for r in rs], key=lambda x: x[0]) for c, rs in
-                groupby([r for r in sorted(self.active_routes) if get_channel_name(r.i) in input_channels],
-                        lambda r: get_channel_name(r.i))}
+        return {get_channel_name(c): sorted([(w, [c[1] for c in cs]) for w, cs in groupby([(r.w, get_channel_name(r.o)) for r in rs], key=lambda x: x[0])],
+                                            key=lambda w: w[0])
+                for c, rs in groupby([r for r in sorted(self.active_routes) if get_channel_name(r.i) in input_channels], lambda r: r.i)}
 
 
 def collate_many_to_one_routes(summed_routes_by_output: Dict[int, List[Route]]) -> List[Tuple[List[int], List[Route]]]:
@@ -319,7 +319,8 @@ def calculate_compound_routing_filter(matrix: Matrix,
         for xo in xo_filters:
             for i, f in enumerate(xo.filters):
                 if isinstance(f, Mix):
-                    if f.dst_idx in many_to_one_routes_by_output_channel.keys():
+                    # only change to add if it's not the subtract used by an MDS filter
+                    if f.dst_idx in many_to_one_routes_by_output_channel.keys() and f.mix_type != MixType.SUBTRACT:
                         xo.filters[i] = Mix({**f.get_all_vals()[0], **{'Mode': MixType.ADD.value}})
 
     meta = __create_routing_metadata(matrix, editor_meta, lfe_channel_idx, lfe_adjust)

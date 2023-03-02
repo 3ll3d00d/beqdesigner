@@ -5,27 +5,27 @@ from model.jriver import JRIVER_FS
 from model.jriver.filter import MultiwayCrossover, MDSXO, StandardXO
 
 multimds = MultiwayCrossover('L', [
-    MDSXO(4, 100, lp_channel='L', hp_channel='R'),
-    MDSXO(4, 350, lp_channel='R', hp_channel='C'),
-    MDSXO(4, 1200, lp_channel='C', hp_channel='SW'),
+    MDSXO(4, 100, lp_channel=['L'], hp_channel=['R']),
+    MDSXO(4, 350, lp_channel=['R'], hp_channel=['C']),
+    MDSXO(4, 1200, lp_channel=['C'], hp_channel=['SW']),
 ], [None] * 4, fs=48000)
 multistd = MultiwayCrossover('L', [
-    StandardXO('L', 'R',
+    StandardXO(['L'], ['R'],
                ComplexLowPass(FilterType.LINKWITZ_RILEY, 4, JRIVER_FS, 100),
                ComplexHighPass(FilterType.LINKWITZ_RILEY, 4, JRIVER_FS, 100)),
-    StandardXO('R', 'C',
+    StandardXO(['R'], ['C'],
                ComplexLowPass(FilterType.LINKWITZ_RILEY, 4, JRIVER_FS, 350),
                ComplexHighPass(FilterType.LINKWITZ_RILEY, 4, JRIVER_FS, 350)),
-    StandardXO('C', 'SW',
+    StandardXO(['C'], ['SW'],
                ComplexLowPass(FilterType.LINKWITZ_RILEY, 4, JRIVER_FS, 1250),
                ComplexHighPass(FilterType.LINKWITZ_RILEY, 4, JRIVER_FS, 1250)),
 ], [None] * 4)
 multimix = MultiwayCrossover('L', [
-    MDSXO(4, 100, lp_channel='L', hp_channel='R'),
-    StandardXO('R', 'C',
+    MDSXO(4, 100, lp_channel=['L'], hp_channel=['R']),
+    StandardXO(['R'], ['C'],
                ComplexLowPass(FilterType.LINKWITZ_RILEY, 4, JRIVER_FS, 1250),
                ComplexHighPass(FilterType.LINKWITZ_RILEY, 4, JRIVER_FS, 1250)),
-    StandardXO('C', 'SW',
+    StandardXO(['C'], ['SW'],
                ComplexLowPass(FilterType.LINKWITZ_RILEY, 4, JRIVER_FS, 5000),
                ComplexHighPass(FilterType.LINKWITZ_RILEY, 4, JRIVER_FS, 5000)),
 ], [None] * 4)

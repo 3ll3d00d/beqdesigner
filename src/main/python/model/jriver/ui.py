@@ -1693,6 +1693,8 @@ class XODialog(QDialog, Ui_xoDialog):
         for e in self.__editors:
             if e.visible:
                 for c in e.underlying_channels:
+                    # TODO if >1 MDS used, add extra delay per input channel
+                    # TODO if MDS and summing to an output channel, change the output to free channel & then add
                     xo_filters.append(MultiwayFilter(c, e.output_channels[c], e.filters[c], e.meta))
         editor_meta = [
             {EDITOR_NAME_KEY: e.name, UNDERLYING_KEY: e.underlying_channels, WAYS_KEY: len(e), SYM_KEY: e.symmetric}
@@ -1760,7 +1762,7 @@ class ChannelEditor:
         self.__notify_parent = on_filter_change
         self.__is_sw_channel = is_sw_channel
         self.__output_format = output_format
-        self.__output_channels_by_underlying: Dict[str, List[Tuple[int, str]]] = {}
+        self.__output_channels_by_underlying: Dict[str, List[Tuple[int, List[str]]]] = {}
         self.__mds_points: List[Tuple[int, int, float]] = [] if mds_points is None else mds_points
         self.__mds_xos: List[Optional[MDSXO]] = []
         self.__name = name
@@ -1846,7 +1848,7 @@ class ChannelEditor:
         self.__reset()
         self.__notify_parent()
 
-    def update_output_channels(self, channel_names: Dict[str, List[Tuple[int, str]]]):
+    def update_output_channels(self, channel_names: Dict[str, List[Tuple[int, List[str]]]]):
         self.__output_channels_by_underlying = channel_names
         self.__reset()
 
@@ -1939,7 +1941,7 @@ class ChannelEditor:
 
     @property
     def output_channels(self) -> Dict[str, List[str]]:
-        return {k: [v[1] for v in v1] for k, v1 in self.__output_channels_by_underlying.items()}
+        return {k: [c for a, b in v1 for c in b] for k, v1 in self.__output_channels_by_underlying.items()}
 
     def __recalc(self):
         if not self.__xos:
@@ -1953,11 +1955,12 @@ class ChannelEditor:
                 for w in range(min(self.ways, len(out_chs))):
                     e = self.__editors[w]
                     values = e.get_way_values()
+                    output_channels_this_way = out_chs[values.way][1]
                     if w == 0:
                         if e.hp_filter_type:
                             ss_filter = e.hp_filter
                         if self.ways == 1:
-                            xos.append(StandardXO(out_chs[values.way][1], out_chs[values.way][1], low_pass=e.lp_filter))
+                            xos.append(StandardXO(output_channels_this_way, output_channels_this_way, low_pass=e.lp_filter))
                         else:
                             lp_filter = e.lp_filter
                     else:
@@ -1965,12 +1968,13 @@ class ChannelEditor:
                             mds_xo = self.__mds_xos[len(xos)]
                         except IndexError as e:
                             raise e
+                        output_channels_previous_way = out_chs[values.way - 1][1]
                         if mds_xo:
-                            mds_xo.out_channel_lp = out_chs[values.way - 1][1]
-                            mds_xo.out_channel_hp = out_chs[values.way][1]
+                            mds_xo.out_channel_lp = output_channels_previous_way
+                            mds_xo.out_channel_hp = output_channels_this_way
                             xos.append(mds_xo)
                         else:
-                            xos.append(StandardXO(out_chs[values.way - 1][1], out_chs[values.way][1],
+                            xos.append(StandardXO(output_channels_previous_way, output_channels_this_way,
                                                   low_pass=lp_filter, high_pass=e.hp_filter))
                         lp_filter = e.lp_filter
                     way_values.append(values)

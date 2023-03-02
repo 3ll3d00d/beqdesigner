@@ -1075,7 +1075,7 @@ class MultiwayFilter(ComplexFilter, Sequence[Filter]):
 
     @property
     def channel_names(self) -> List[str]:
-        return [self.input_channel] + self.output_channels
+        return list({x for x in ([self.input_channel] + self.output_channels)})
 
     @classmethod
     def custom_type(cls) -> str:
@@ -1866,6 +1866,8 @@ class FilterGraph:
 
     @staticmethod
     def __simulate_filter(f: Filter, signals: Dict[str, Tuple[Signal, Optional[SosFilterOp]]]):
+        if not f.enabled:
+            return
         if isinstance(f, ChannelFilter) or isinstance(f, ComplexChannelFilter):
             for c in f.channel_names:
                 signal, pending_sos = signals[c]
@@ -1933,7 +1935,7 @@ def set_filter_ids(filters: List[Filter]) -> List[Filter]:
 
 class XO:
 
-    def __init__(self, out_channel_lp: str, out_channel_hp: str, fs: int = JRIVER_FS):
+    def __init__(self, out_channel_lp: List[str], out_channel_hp: List[str], fs: int = JRIVER_FS):
         self.__in_channel = None
         self.out_channel_lp = out_channel_lp
         self.out_channel_hp = out_channel_hp
@@ -1966,7 +1968,7 @@ class XO:
 
 class StandardXO(XO):
 
-    def __init__(self, out_channel_lp: str, out_channel_hp: str,
+    def __init__(self, out_channel_lp: List[str], out_channel_hp: List[str],
                  low_pass: Optional[ComplexLowPass] = None, high_pass: Optional[ComplexHighPass] = None,
                  fs: int = JRIVER_FS):
         super().__init__(out_channel_lp, out_channel_hp, fs=fs)
@@ -1998,9 +2000,12 @@ class StandardXO(XO):
                 'Mode': str(MixType.COPY.value if self.__low_pass else MixType.MOVE.value)
             }))
 
+        lp_out = self.out_channel_lp[0]
+        lp_final = self.in_channel
+        extra_lp_mt = MixType.COPY
         if self.__low_pass:
-            if self.in_channel == self.out_channel_lp:
-                filters.append(convert_filter_to_mc_dsp(self.__low_pass, str(get_channel_idx(self.out_channel_lp))))
+            if self.in_channel == lp_out:
+                filters.append(convert_filter_to_mc_dsp(self.__low_pass, str(get_channel_idx(lp_out))))
             else:
                 filters.append(create_single_filter({
                     **Mix.default_values(),
@@ -2012,27 +2017,56 @@ class StandardXO(XO):
                 filters.append(create_single_filter({
                     **Mix.default_values(),
                     'Source': str(get_channel_idx('U1')),
-                    'Destination': str(get_channel_idx(self.out_channel_lp)),
-                    'Mode': str(MixType.MOVE.value)
+                    'Destination': str(get_channel_idx(lp_out)),
+                    'Mode': str(MixType.COPY.value if len(self.out_channel_lp) > 1 else MixType.MOVE.value)
                 }))
+                lp_final = 'U1'
+                extra_lp_mt = MixType.MOVE
         else:
             filters.append(create_single_filter({
                 **Mix.default_values(),
                 'Source': str(get_channel_idx(self.in_channel)),
-                'Destination': str(get_channel_idx(self.out_channel_lp)),
+                'Destination': str(get_channel_idx(lp_out)),
                 'Mode': str(MixType.COPY.value)
             }))
-            
+        if len(self.out_channel_lp) > 1:
+            for i, extra_lp_out in enumerate(self.out_channel_lp[1:]):
+                mode = extra_lp_mt
+                if mode == MixType.MOVE and i + 1 != len(self.out_channel_lp):
+                    mode = MixType.COPY
+                filters.append(create_single_filter({
+                    **Mix.default_values(),
+                    'Source': str(get_channel_idx(lp_final)),
+                    'Destination': str(get_channel_idx(extra_lp_out)),
+                    'Mode': str(mode.value)
+                }))
+
+        hp_out = self.out_channel_hp[0]
+        hp_in = self.in_channel
+        extra_hp_mt = MixType.COPY
         if self.__high_pass:
-            if self.in_channel == self.out_channel_hp:
-                filters.append(convert_filter_to_mc_dsp(self.__high_pass, str(get_channel_idx(self.out_channel_hp))))
+            if self.in_channel == hp_out:
+                filters.append(convert_filter_to_mc_dsp(self.__high_pass, str(get_channel_idx(hp_out))))
             else:
                 filters.append(convert_filter_to_mc_dsp(self.__high_pass, str(get_channel_idx('U2'))))
                 filters.append(create_single_filter({
                     **Mix.default_values(),
                     'Source': str(get_channel_idx('U2')),
-                    'Destination': str(get_channel_idx(self.out_channel_hp)),
-                    'Mode': str(MixType.MOVE.value)
+                    'Destination': str(get_channel_idx(hp_out)),
+                    'Mode': str(str(MixType.COPY.value if len(self.out_channel_hp) > 1 else MixType.MOVE.value))
+                }))
+                hp_in = 'U2'
+                extra_hp_mt = MixType.MOVE
+        if len(self.out_channel_hp) > 1:
+            for i, extra_hp_out in enumerate(self.out_channel_hp[1:]):
+                mode = extra_hp_mt
+                if mode == MixType.MOVE and i + 1 != len(self.out_channel_hp):
+                    mode = MixType.COPY
+                filters.append(create_single_filter({
+                    **Mix.default_values(),
+                    'Source': str(get_channel_idx(hp_in)),
+                    'Destination': str(get_channel_idx(extra_hp_out)),
+                    'Mode': str(mode.value)
                 }))
 
         return filters
@@ -2053,8 +2087,8 @@ class StandardXO(XO):
 
 class MDSXO(XO):
 
-    def __init__(self, order: int, target_fc: float, fc_divisor: float = 0.0, lp_channel: str = 'L',
-                 hp_channel: str = 'R', fs: int = JRIVER_FS, calc: bool = False):
+    def __init__(self, order: int, target_fc: float, fc_divisor: float = 0.0, lp_channel: List[str] = None,
+                 hp_channel: List[str] = None, fs: int = JRIVER_FS, calc: bool = False):
         super().__init__(lp_channel, hp_channel, fs=fs)
         self.__order = order
         self.__target_fc = target_fc
@@ -2187,7 +2221,9 @@ class MDSXO(XO):
         :return:
         '''
         assert self.in_channel is not None
-        channels = list({self.in_channel, self.out_channel_lp, self.out_channel_hp}) + SHORT_USER_CHANNELS
+        channels = list({c for c in ([self.in_channel] + self.out_channel_lp + self.out_channel_hp + SHORT_USER_CHANNELS)})
+        out_lp_ch = self.out_channel_lp[0]
+        out_hp_ch = self.out_channel_hp[0]
         graph = FilterGraph(0, channels, channels, [])
         # copy input to user channels
         graph.append(Mix({
@@ -2206,45 +2242,61 @@ class MDSXO(XO):
         self.__add_delayed_low_pass(graph, self.__make_low_pass())
         self.__add_delayed_low_pass(graph, self.__make_low_pass())
         # prepare the low pass output
-        if self.in_channel != self.out_channel_lp:
+        if self.in_channel != out_lp_ch:
             # if the input is not the lp channel then copy it
             graph.append(Mix({
                 **Mix.default_values(),
                 'Source': str(get_channel_idx(self.in_channel)),
-                'Destination': str(get_channel_idx(self.out_channel_lp)),
+                'Destination': str(get_channel_idx(out_lp_ch)),
                 'Mode': str(MixType.COPY.value)
             }), regen=False)
         # delay the lp by 2d (split into 2 to ensure the same delay is applied at every stage to )
         graph.append(Delay({
             **Delay.default_values(),
-            'Channels': str(get_channel_idx(self.out_channel_lp)),
+            'Channels': str(get_channel_idx(out_lp_ch)),
             'Delay': f"{self.__dc_gd_millis:.7g}",
         }), regen=False)
         graph.append(Delay({
             **Delay.default_values(),
-            'Channels': str(get_channel_idx(self.out_channel_lp)),
+            'Channels': str(get_channel_idx(out_lp_ch)),
             'Delay': f"{self.__dc_gd_millis:.7g}",
         }), regen=False)
         # subtract U1 to make the low pass output
         graph.append(Mix({
             **Mix.default_values(),
             'Source': str(get_channel_idx('U1')),
-            'Destination': str(get_channel_idx(self.out_channel_lp)),
+            'Destination': str(get_channel_idx(out_lp_ch)),
             'Mode': str(MixType.SUBTRACT.value)
         }), regen=False)
         # move high pass to output
         graph.append(Mix({
             **Mix.default_values(),
             'Source': str(get_channel_idx('U1')),
-            'Destination': str(get_channel_idx(self.out_channel_hp)),
+            'Destination': str(get_channel_idx(out_hp_ch)),
             'Mode': str(MixType.MOVE.value)
         }), regen=False)
         if not math.isclose(self.extra_delay_millis, 0.0):
             graph.append(Delay({
                 **Delay.default_values(),
-                'Channels': str(get_channel_idx(self.out_channel_lp)),
+                'Channels': str(get_channel_idx(out_lp_ch)),
                 'Delay': f"{self.extra_delay_millis:.7g}",
             }), regen=False)
+        # copy to any remaining output channels
+        for extra_out in self.out_channel_lp[1:]:
+            graph.append(Mix({
+                **Mix.default_values(),
+                'Source': str(get_channel_idx(out_lp_ch)),
+                'Destination': str(get_channel_idx(extra_out)),
+                'Mode': str(MixType.COPY.value)
+            }), regen=False)
+        for extra_out in self.out_channel_hp[1:]:
+            graph.append(Mix({
+                **Mix.default_values(),
+                'Source': str(get_channel_idx(out_hp_ch)),
+                'Destination': str(get_channel_idx(extra_out)),
+                'Mode': str(MixType.COPY.value)
+            }), regen=False)
+
         self.__graph = graph
 
     def __make_low_pass(self) -> ComplexLowPass:
@@ -2349,19 +2401,22 @@ class MultiwayCrossover:
         channels_by_way = []
         last_x: Optional[XO] = None
         for i, x in enumerate(self.__xos):
-            x.in_channel = self.__in_channel if i == 0 else last_x.out_channel_hp
+            x.in_channel = self.__in_channel if i == 0 else last_x.out_channel_hp[0]
             if i == 0 and subsonic_filter:
-                filters.append(convert_filter_to_mc_dsp(subsonic_filter, str(get_channel_idx(x.out_channel_lp))))
+                for lp_out in x.out_channel_lp:
+                    filters.append(convert_filter_to_mc_dsp(subsonic_filter, str(get_channel_idx(lp_out))))
             x_filters = x.calc_filters()
             filters.extend(x_filters)
             last_x = x
-            channels_by_way.append(x.out_channel_lp)
-            if x.out_channel_lp not in self.__channels:
-                self.__channels.append(x.out_channel_lp)
+            channels_by_way.extend(x.out_channel_lp)
+            for lp_out in x.out_channel_lp:
+                if lp_out not in self.__channels:
+                    self.__channels.append(lp_out)
         if last_x:
-            if last_x.out_channel_hp not in self.__channels:
-                self.__channels.append(last_x.out_channel_hp)
-            channels_by_way.append(last_x.out_channel_hp)
+            for hp_out in x.out_channel_hp:
+                if hp_out not in self.__channels:
+                    self.__channels.append(hp_out)
+            channels_by_way.extend(last_x.out_channel_hp)
 
         for i, v in enumerate(way_values):
             if v is not None:
