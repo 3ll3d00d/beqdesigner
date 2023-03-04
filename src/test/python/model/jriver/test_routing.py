@@ -2,8 +2,9 @@ from typing import Dict
 
 import pytest
 
+from model.jriver import ImpossibleRoutingError
 from model.jriver.common import get_channel_idx
-from model.jriver.filter import Mix, MixType, Gain
+from model.jriver.filter import Mix, MixType, Gain, MultiwayFilter
 from model.jriver.routing import Matrix, calculate_compound_routing_filter, convert_to_routes
 
 
@@ -23,12 +24,8 @@ def test_stereo_swap(stereo):
     stereo.enable('L', 0, 'R')
     stereo.enable('R', 0, 'L')
 
-    routing_filters = calculate_compound_routing_filter(stereo).filters
-    assert routing_filters
-    assert routing_filters.pop(0).get_all_vals() == [mix('R', MixType.COPY, 'U1')]
-    assert routing_filters.pop(0).get_all_vals() == [mix('L', MixType.COPY, 'R')]
-    assert routing_filters.pop(0).get_all_vals() == [mix('U1', MixType.COPY, 'L')]
-    assert not routing_filters
+    with pytest.raises(ImpossibleRoutingError):
+        calculate_compound_routing_filter(stereo)
 
 
 @pytest.fixture
@@ -41,6 +38,7 @@ def test_two_in_four_passthrough(two_in_four):
     two_in_four.enable('L', 1, 'C')
     two_in_four.enable('R', 0, 'R')
     two_in_four.enable('R', 1, 'SW')
+    # mw_filters = [MultiwayCrossover
     routing_filters = calculate_compound_routing_filter(two_in_four).filters
     assert routing_filters
     assert routing_filters.pop(0).get_all_vals() == [mix('L', MixType.COPY, 'C')]

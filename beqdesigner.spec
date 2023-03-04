@@ -76,15 +76,17 @@ def get_data_args():
     '''
     :return: the data array for the analysis.
     '''
-    return [
+    vals = [
         ('src/main/icons/Icon.ico', '.'),
         (os.path.abspath(f"{get_resampy_path()}/data/kaiser_fast.npz"), '_resampy_filters'),
         ('src/main/python/style', 'style'),
         ('src/main/python/VERSION', '.'),
         ('src/main/xml/flat24hd.xml', '.'),
-        ('src/main/xml/default_jriver_config_28.xml', '.'),
-        ('src/main/xml/default_jriver_config_29.xml', '.'),
     ]
+    import glob
+    for p in glob.glob("src/main/xml/default_jriver_config_*.xml"):
+        vals.append((p, '.'))
+    return vals
 
 
 def should_keep_binary(x):

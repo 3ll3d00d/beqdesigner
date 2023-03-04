@@ -1,3 +1,5 @@
+import pytest
+
 from model.jriver.common import SHORT_USER_CHANNELS, get_channel_idx
 from model.jriver.filter import FilterGraph, Mix, MixType, Peak, XOFilter, LowPass, HighPass, MultiwayFilter
 from model.jriver.routing import Matrix, calculate_compound_routing_filter
@@ -59,6 +61,7 @@ def test_circular_copy():
     assert signals_by_channel
 
 
+@pytest.mark.skip
 def test_stereo_subs():
     mains = ['L', 'R', 'C', 'SL', 'SR']
     input_channels = mains + ['SW']

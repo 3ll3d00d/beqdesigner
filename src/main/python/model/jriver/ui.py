@@ -1639,6 +1639,7 @@ class XODialog(QDialog, Ui_xoDialog):
                 if matching_editor:
                     matching_editor.hide()
                     old_matrix = None
+        # TODO don't completely reinit it, just update anything that has changed
         self.__set_matrix(self.__create_matrix() if not old_matrix else old_matrix)
 
     def __on_output_channel_count_change(self, channel: str, ways: int):
