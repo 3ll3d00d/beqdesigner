@@ -172,7 +172,7 @@ class Matrix:
                     v2[output_channel] = False
         for ch, ways in groupby([r.split('/') for r in routings], lambda r: r[0]):
             ways = list(ways)
-            self.resize(ch, len(ways))
+            self.resize(ch, len({w[1] for w in ways}))
             for w in ways:
                 self.__ways[ch][int(w[1])][w[2]] = True
 
