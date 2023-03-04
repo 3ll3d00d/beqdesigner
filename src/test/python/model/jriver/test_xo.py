@@ -2,7 +2,7 @@ from typing import Dict
 
 import pytest
 
-from model.jriver import ImpossibleRoutingError
+from model.jriver import ImpossibleRoutingError, UnsupportedRoutingError
 from model.jriver.common import get_channel_idx
 from model.jriver.filter import Mix, MixType, Gain, MultiwayFilter, MultiwayCrossover, StandardXO
 from model.jriver.routing import Matrix, calculate_compound_routing_filter, convert_to_routes
@@ -312,21 +312,55 @@ def stereo_subs() -> Matrix:
                   ['L', 'R', 'C', 'SW', 'SL', 'SR', 'RL', 'RR'])
 
 
-@pytest.mark.skip(reason='fix stereo subs')
-def test_stereo_subs(stereo_subs):
-    for c in ['L', 'C', 'SW', 'SL']:
-        stereo_subs.enable(c, 0, 'SW')
-    for c in ['R', 'C', 'SW', 'SR']:
-        stereo_subs.enable(c, 0, 'RR')
-    for c in ['L', 'R', 'C', 'SL', 'SR']:
-        stereo_subs.enable(c, 1, c)
+def test_stereo_subs_overwrite(stereo_subs):
+    __map_stereo_subs_bm(stereo_subs, 'SW')
 
     mw_filters = \
         [MultiwayFilter(c, [c, 'SW'], MultiwayCrossover(c, [StandardXO(['SW'], [c])], []).graph.filters, {}) for c in ['L', 'SL']] + \
         [MultiwayFilter(c, [c, 'RR'], MultiwayCrossover(c, [StandardXO(['RR'], [c])], []).graph.filters, {}) for c in ['R', 'SR']] + \
         [MultiwayFilter('C', ['C', 'SW', 'RR'], MultiwayCrossover('C', [StandardXO(['SW', 'RR'], ['C'])], []).graph.filters, {})]
+    with pytest.raises(UnsupportedRoutingError):
+        calculate_compound_routing_filter(stereo_subs, xo_filters=mw_filters, lfe_channel_idx=5)
+
+
+def __map_stereo_subs_bm(stereo_subs: Matrix, sub1: str) -> None:
+    for c in ['L', 'C', 'SW', 'SL']:
+        stereo_subs.enable(c, 0, sub1)
+    for c in ['R', 'C', 'SW', 'SR']:
+        stereo_subs.enable(c, 0, 'RR')
+    for c in ['L', 'R', 'C', 'SL', 'SR']:
+        stereo_subs.enable(c, 1, c)
+
+
+def test_stereo_subs(stereo_subs):
+    __map_stereo_subs_bm(stereo_subs, 'RL')
+
+    mw_filters = \
+        [MultiwayFilter(c, [c, 'RL'], MultiwayCrossover(c, [StandardXO(['RL'], [c])], []).graph.filters, {}) for c in ['L', 'SL']] + \
+        [MultiwayFilter(c, [c, 'RR'], MultiwayCrossover(c, [StandardXO(['RR'], [c])], []).graph.filters, {}) for c in ['R', 'SR']] + \
+        [MultiwayFilter('C', ['C', 'RL', 'RR'], MultiwayCrossover('C', [StandardXO(['RL', 'RR'], ['C'])], []).graph.filters, {})]
     mc_filters = calculate_compound_routing_filter(stereo_subs, xo_filters=mw_filters, lfe_channel_idx=5).filters
     assert mc_filters
+    assert all(isinstance(x, MultiwayFilter) for x in mc_filters)
+
+    f = mc_filters.pop(0)
+    assert f.filters.pop(0).get_all_vals() == [mix('L', MixType.ADD, 'RL')]
+    assert not f.filters
+    f = mc_filters.pop(0)
+    assert f.filters.pop(0).get_all_vals() == [mix('SL', MixType.ADD, 'RL')]
+    assert not f.filters
+    f = mc_filters.pop(0)
+    assert f.filters.pop(0).get_all_vals() == [mix('R', MixType.ADD, 'RR')]
+    assert not f.filters
+    f = mc_filters.pop(0)
+    assert f.filters.pop(0).get_all_vals() == [mix('SR', MixType.ADD, 'RR')]
+    assert not f.filters
+    f = mc_filters.pop(0)
+    assert f.filters.pop(0).get_all_vals() == [mix('C', MixType.ADD, 'RL')]
+    assert f.filters.pop(0).get_all_vals() == [mix('C', MixType.ADD, 'RR')]
+    assert not f.filters
+
+    assert not mc_filters
 
 
 def mix(src: str, mt: MixType, dst: str, gain: float = 0.0) -> Dict[str, str]:

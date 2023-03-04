@@ -7,7 +7,7 @@ from typing import Optional, Dict, List, Tuple
 
 from model.jriver.common import get_channel_idx, user_channel_indexes, get_channel_name
 from model.jriver.filter import MixType, Mix, CompoundRoutingFilter, Filter, Gain, MultiwayFilter
-from model.jriver import ImpossibleRoutingError
+from model.jriver import ImpossibleRoutingError, UnsupportedRoutingError
 
 logger = logging.getLogger('jriver.routing')
 
@@ -56,6 +56,10 @@ class Matrix:
         self.__row_keys = self.__make_row_keys()
         # input channel -> way -> output channel -> enabled
         self.__ways: Dict[str, Dict[int, Dict[str, bool]]] = self.__make_default_ways()
+
+    @property
+    def empty_outputs(self) -> List[int]:
+        return [o for o in range(self.columns) if not any(self.is_routed(i, o) for i in range(self.rows))]
 
     @property
     def active_routes(self) -> List[Route]:
@@ -307,6 +311,7 @@ def calculate_compound_routing_filter(matrix: Matrix,
 
     # detect if a summed route is writing to a channel which is an input for another summed route
     if len(many_to_one_routes_by_output_channels) > 1:
+        empty_outputs = matrix.empty_outputs
         for i1, vals1 in enumerate(many_to_one_routes_by_output_channels):
             output_channels1, summed_routes1 = vals1
             for i2, vals2 in enumerate(many_to_one_routes_by_output_channels):
@@ -315,8 +320,18 @@ def calculate_compound_routing_filter(matrix: Matrix,
                     inputs2 = {r.i for r in summed_routes2}
                     overlap = inputs2.intersection({o for o in output_channels1})
                     if overlap:
-                        # TODO only blow up if we have no spare channels to write to
-                        raise ImpossibleRoutingError(f"Unable to write summed output to {[get_channel_name(o) for o in overlap]}, is input channel for {[r.pp() for r in summed_routes2]}")
+                        overlapping_channel_names = [get_channel_name(o) for o in overlap]
+                        summed_routes_pp = [r.pp() for r in summed_routes2]
+                        msg = f"Unable to write summed output to {overlapping_channel_names}, is input channel for {summed_routes_pp}"
+                        if empty_outputs:
+                            msg = f"{msg}... use an empty channel instead: {[get_channel_name(o) for o in empty_outputs]}"
+                        else:
+                            msg = f"{msg}... Additional output channels required to provide room for mixing"
+                        if len(overlap) <= len(empty_outputs):
+                            # TODO implement
+                            raise UnsupportedRoutingError(msg)
+                        else:
+                            raise ImpossibleRoutingError(msg)
 
     if xo_filters:
         for xo in xo_filters:

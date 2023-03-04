@@ -61,14 +61,13 @@ def test_circular_copy():
     assert signals_by_channel
 
 
-@pytest.mark.skip(reason='fix stereo subs')
 def test_stereo_subs():
     mains = ['L', 'R', 'C', 'SL', 'SR']
     input_channels = mains + ['SW']
     output_channels = input_channels + ['RL', 'RR']
     matrix = Matrix({'L': 2, 'R': 2, 'C': 2, 'SW': 1, 'SL': 2, 'SR': 2}, output_channels)
     for c in ['L', 'C', 'SW', 'SL']:
-        matrix.enable(c, 0, 'SW')
+        matrix.enable(c, 0, 'RL')
     for c in ['R', 'C', 'SW', 'SR']:
         matrix.enable(c, 0, 'RR')
     for c in ['L', 'R', 'C', 'SL', 'SR']:

@@ -16,7 +16,17 @@ def flatten(items: Iterable) -> Iterable:
         yield items
 
 
-class ImpossibleRoutingError(ValueError):
+class RoutingError(ValueError):
+    pass
+
+
+class ImpossibleRoutingError(RoutingError):
+
+    def __init__(self, msg: str):
+        super().__init__(msg)
+
+
+class UnsupportedRoutingError(RoutingError):
 
     def __init__(self, msg: str):
         super().__init__(msg)
