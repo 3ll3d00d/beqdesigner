@@ -2445,10 +2445,12 @@ class MultiwayCrossover:
 
         channels_with_user = list(self.__channels) + SHORT_USER_CHANNELS
         self.__graph = FilterGraph(0, channels_with_user, channels_with_user, filters, regen=False)
-        self.__output = self.__graph.simulate(analysis_resolution=0.1)
+        self.__output = None
 
     @property
     def output(self) -> List[Signal]:
+        if self.__output is None:
+            self.__output = self.__graph.simulate(analysis_resolution=0.1)
         return [self.__output[c] for c in self.__channels]
 
     @property

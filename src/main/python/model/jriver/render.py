@@ -34,17 +34,18 @@ class GraphRenderer:
             for c in self.__graph.output_channels
         }
         for f in self.__graph.filters:
-            f.reset()
-            if isinstance(f, Sequence):
-                if isinstance(f, CompoundRoutingFilter):
-                    ranks.append([])
-                for f1 in flatten(f):
-                    f1.reset()
-                    added_nodes = self.__process_filter(f1, last_node_by_channel, nodes, edges, selected_nodes)
-                    if isinstance(f1, (XOFilter, MultiwayFilter)):
-                        ranks[-1].extend(added_nodes)
-            else:
-                self.__process_filter(f, last_node_by_channel, nodes, edges, selected_nodes)
+            if f.enabled:
+                f.reset()
+                if isinstance(f, Sequence):
+                    if isinstance(f, CompoundRoutingFilter):
+                        ranks.append([])
+                    for f1 in flatten(f):
+                        f1.reset()
+                        added_nodes = self.__process_filter(f1, last_node_by_channel, nodes, edges, selected_nodes)
+                        if isinstance(f1, (XOFilter, MultiwayFilter)):
+                            ranks[-1].extend(added_nodes)
+                else:
+                    self.__process_filter(f, last_node_by_channel, nodes, edges, selected_nodes)
 
         gz += '\n'.join(nodes.values())
         gz += '\n'
