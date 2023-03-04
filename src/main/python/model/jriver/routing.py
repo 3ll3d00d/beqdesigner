@@ -36,6 +36,9 @@ class Route:
     def __repr__(self):
         return f"{self.i}.{self.w} -> {self.o} {self.mt.name if self.mt else ''}"
 
+    def pp(self) -> str:
+        return f"{get_channel_name(self.i)}.{self.w} -> {get_channel_name(self.o)}"
+
     def __lt__(self, other):
         if isinstance(other, Route):
             delta = self.i - other.i
@@ -313,7 +316,7 @@ def calculate_compound_routing_filter(matrix: Matrix,
                     overlap = inputs2.intersection({o for o in output_channels1})
                     if overlap:
                         # TODO only blow up if we have no spare channels to write to
-                        raise ImpossibleRoutingError(f"Unable to write summed output to {overlap}, is input channel for {summed_routes2}")
+                        raise ImpossibleRoutingError(f"Unable to write summed output to {[get_channel_name(o) for o in overlap]}, is input channel for {[r.pp() for r in summed_routes2]}")
 
     if xo_filters:
         for xo in xo_filters:
