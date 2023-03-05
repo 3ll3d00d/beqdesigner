@@ -29,6 +29,7 @@ pytest = "*"
 pytest-cov = "*"
 distro = "*"
 atomicwrites = "*"
+pyqt5-stubs = "==5.15.6.0"
 
 [requires]
 python_version = "3.9"

@@ -48,6 +48,7 @@ from ui.delegates import CheckBoxDelegate, FreqRangeEditor
 from ui.group_channels import Ui_groupChannelsDialog
 from ui.jriver import Ui_jriverDspDialog
 from ui.jriver_delay_filter import Ui_jriverDelayDialog
+from ui.jriver_gain_filter import Ui_jriverGainDialog
 from ui.jriver_mix_filter import Ui_jriverMixDialog
 from ui.load_zone import Ui_loadDspFromZoneDialog
 from ui.mds import Ui_mdsDialog
@@ -564,11 +565,11 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         :param add_menu: the add menu.
         :param node_name: the selected node name.
         '''
-        add, copy, delay, move, peq, polarity, subtract, swap, geq, xo, mso = self.__add_actions_to_filter_menu(
-            add_menu)
+        add, copy, delay, move, peq, polarity, gain, subtract, swap, geq, xo, mso = self.__add_actions_to_filter_menu(add_menu)
         idx = self.__get_idx_to_insert_filter_at_from_node_name(node_name)
         peq.triggered.connect(lambda: self.__insert_peq_after_node(node_name))
         polarity.triggered.connect(lambda: self.__insert_polarity(idx))
+        gain.triggered.connect(lambda: self.__insert_gain(idx))
         delay.triggered.connect(lambda: self.__insert_delay(idx))
         add.triggered.connect(lambda: self.__insert_mix(MixType.ADD, idx))
         copy.triggered.connect(lambda: self.__insert_mix(MixType.COPY, idx))
@@ -718,10 +719,11 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         :param menu: the menu to add to.
         :return: the menu.
         '''
-        add, copy, delay, move, peq, polarity, subtract, swap, geq, xo, mso = self.__add_actions_to_filter_menu(menu)
+        add, copy, delay, move, peq, polarity, gain, subtract, swap, geq, xo, mso = self.__add_actions_to_filter_menu(menu)
         peq.triggered.connect(lambda: self.__insert_peq(self.__get_idx_to_insert_filter_at_from_selection()))
         delay.triggered.connect(lambda: self.__insert_delay(self.__get_idx_to_insert_filter_at_from_selection()))
         polarity.triggered.connect(lambda: self.__insert_polarity(self.__get_idx_to_insert_filter_at_from_selection()))
+        gain.triggered.connect(lambda: self.__insert_gain(self.__get_idx_to_insert_filter_at_from_selection()))
         add.triggered.connect(lambda: self.__insert_mix(MixType.ADD,
                                                         self.__get_idx_to_insert_filter_at_from_selection()))
         copy.triggered.connect(lambda: self.__insert_mix(MixType.COPY,
@@ -749,13 +751,14 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         mix_menu = menu.addMenu('&4: Mix')
         delay = self.__create_delay_action(5, menu)
         polarity = self.__create_polarity_action(6, menu)
+        gain = self.__create_gain_action(7, menu)
         add = self.__create_add_action(1, mix_menu)
         copy = self.__create_copy_action(2, mix_menu)
         move = self.__create_move_action(3, mix_menu)
         swap = self.__create_swap_action(4, mix_menu)
         subtract = self.__create_subtract_action(5, mix_menu)
-        mso = self.__create_mso_action(7, menu)
-        return add, copy, delay, move, peq, polarity, subtract, swap, geq, xo, mso
+        mso = self.__create_mso_action(8, menu)
+        return add, copy, delay, move, peq, polarity, gain, subtract, swap, geq, xo, mso
 
     def __create_geq_action(self, prefix: int, menu: QMenu) -> QAction:
         geq = QAction(f"&{prefix}: GEQ", self)
@@ -791,6 +794,11 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         polarity = QAction(f"&{prefix}: Polarity", self)
         menu.addAction(polarity)
         return polarity
+
+    def __create_gain_action(self, prefix: int, menu: QMenu) -> QAction:
+        gain = QAction(f"&{prefix}: Gain", self)
+        menu.addAction(gain)
+        return gain
 
     def __create_delay_action(self, prefix: int, menu: QMenu) -> QAction:
         delay = QAction(f"&{prefix}: Delay", self)
@@ -878,16 +886,21 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         Allows user to insert a delay filter at the specified index in the filter list.
         :param idx: the index to insert at.
         '''
-        JRiverDelayDialog(self, self.dsp.channel_names(output=True), lambda vals: self.__add_filter(vals, idx),
-                          Delay.default_values()).exec()
+        JRiverDelayDialog(self, self.dsp.channel_names(output=True), lambda vals: self.__add_filter(vals, idx), Delay.default_values()).exec()
 
     def __insert_polarity(self, idx: int):
         '''
         Allows user to insert an invert polarity filter at the specified index in the filter list.
         :param idx: the index to insert at.
         '''
-        JRiverChannelOnlyFilterDialog(self, self.dsp.channel_names(output=True),
-                                      lambda vals: self.__add_filter(vals, idx), Polarity.default_values()).exec()
+        JRiverChannelOnlyFilterDialog(self, self.dsp.channel_names(output=True), lambda vals: self.__add_filter(vals, idx), Polarity.default_values()).exec()
+
+    def __insert_gain(self, idx: int):
+        '''
+        Allows user to insert a gain filter at the specified index in the filter list.
+        :param idx: the index to insert at.
+        '''
+        JRiverGainDialog(self, self.dsp.channel_names(output=True), lambda vals: self.__add_filter(vals, idx), Gain.default_values()).exec()
 
     def __insert_mix(self, mix_type: MixType, idx: int):
         '''
@@ -895,8 +908,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         :param mix_type: the type of mix.
         :param idx: the index to insert at.
         '''
-        JRiverMixFilterDialog(self, self.dsp.channel_names(output=True), lambda vals: self.__add_filter(vals, idx),
-                              mix_type, Mix.default_values()).exec()
+        JRiverMixFilterDialog(self, self.dsp.channel_names(output=True), lambda vals: self.__add_filter(vals, idx), mix_type, Mix.default_values()).exec()
 
     def __add_filter(self, vals: Dict[str, str], idx: int) -> None:
         '''
@@ -1022,6 +1034,8 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
             elif isinstance(to_edit, Mix):
                 JRiverMixFilterDialog(self, self.dsp.channel_names(output=True), __on_save, to_edit.mix_type,
                                       vals[0]).exec()
+            elif isinstance(to_edit, Gain):
+                JRiverGainDialog(self, self.dsp.channel_names(output=True), __on_save, vals[0]).exec()
             else:
                 return False
             return True
@@ -1281,6 +1295,52 @@ class JRiverFilterPipelineDialog(QDialog, Ui_jriverGraphDialog):
             self.source.textChanged.connect(lambda: on_change(self.source.toPlainText()))
 
 
+class JRiverGainDialog(QDialog, Ui_jriverGainDialog):
+
+    def __init__(self, parent: QDialog, channels: List[str], on_save: Callable[[Dict[str, str]], None], vals: Dict[str, str] = None):
+        super(JRiverGainDialog, self).__init__(parent)
+        self.setupUi(self)
+        self.setWindowTitle('Gain')
+        self.__validators: List[Callable[[], bool]] = []
+        self.__on_save = on_save
+        self.__vals = vals if vals else {}
+        self.__configure_channel_list(channels)
+        self.gain.valueChanged.connect(lambda v: self.__set_val('Gain', f"{v:.7g}"))
+        self.gain.valueChanged.connect(self.__enable_accept)
+        self.__validators.append(lambda: not math.isclose(self.gain.value(), 0.0))
+        if 'Gain' in self.__vals:
+            self.gain.setValue(float(self.__vals['Gain']))
+        self.gain.setFocus()
+        self.__enable_accept()
+
+    def accept(self):
+        self.__on_save(self.__vals)
+        super().accept()
+
+    def __set_val(self, key, val):
+        self.__vals[key] = val
+
+    def __configure_channel_list(self, channels):
+        for c in channels:
+            self.channelList.addItem(c)
+        self.channelList.itemSelectionChanged.connect(self.__enable_accept)
+        if 'Channels' in self.__vals and self.__vals['Channels']:
+            selected = [get_channel_name(int(i)) for i in self.__vals['Channels'].split(';')]
+            for c in selected:
+                item: QListWidgetItem
+                for item in self.channelList.findItems(c, Qt.MatchFlag.MatchCaseSensitive):
+                    item.setSelected(True)
+        self.__validators.append(lambda: len(self.channelList.selectedItems()) > 0)
+
+        def __as_channel_indexes():
+            return ';'.join([str(get_channel_idx(c.text())) for c in self.channelList.selectedItems()])
+
+        self.channelList.itemSelectionChanged.connect(lambda: self.__set_val('Channels', __as_channel_indexes()))
+
+    def __enable_accept(self):
+        self.buttonBox.button(QDialogButtonBox.Save).setEnabled(all(v() for v in self.__validators))
+
+
 class JRiverDelayDialog(QDialog, Ui_jriverDelayDialog):
 
     def __init__(self, parent: QDialog, channels: List[str], on_save: Callable[[Dict[str, str]], None],
@@ -1448,8 +1508,33 @@ class ShowFiltersDialog(QDialog, Ui_xoFiltersDialog):
     def __init__(self, parent, filt: CompoundRoutingFilter):
         super(ShowFiltersDialog, self).__init__(parent)
         self.setupUi(self)
-        for f in flatten(filt):
-            self.filters.addItem(str(f))
+        self.f = filt
+        from model.report import block_signals
+        with block_signals(self.selector):
+            self.selector.addItem('Show All')
+            if filt.routing:
+                self.selector.addItem('Gain/Routing')
+            for f in filt.xo:
+                self.selector.addItem(f'Channel {f.input_channel}')
+        self.update_list('Show All')
+
+    def update_list(self, txt: str):
+        self.filters.clear()
+        for f in flatten(self.f.routing):
+            if txt == 'Show All' or txt == 'Gain/Routing':
+                self.filters.addItem(str(f))
+        for xo in self.f.xo:
+            added_spacer = False
+            if txt == 'Show All':
+                if self.filters.count() > 0:
+                    self.filters.addItem('')
+                    added_spacer = True
+                self.filters.addItem(f'*** Channel {xo.input_channel} ***')
+            if txt == 'Show All' or txt[8:] == xo.input_channel:
+                if self.filters.count() > 0 and not added_spacer:
+                    self.filters.addItem('')
+                for f in flatten(xo.filters):
+                    self.filters.addItem(str(f))
 
 
 class XODialog(QDialog, Ui_xoDialog):
@@ -1461,7 +1546,8 @@ class XODialog(QDialog, Ui_xoDialog):
         self.__matrix: Matrix = None
         self.__on_save = on_save
         self.__output_format = output_format
-        self.__channel_groups = {c: [c] for c in input_channels}
+        channels_sw_first = sorted(input_channels, key=lambda c: get_channel_idx(c) if c != 'SW' else -1)
+        self.__channel_groups = {c: [c] for c in channels_sw_first}
         self.__output_channels = output_channels
         self.__mag_update_timer = QTimer(self)
         self.__mag_update_timer.setSingleShot(True)
@@ -1613,6 +1699,7 @@ class XODialog(QDialog, Ui_xoDialog):
         Reconfigures the UI to show the new channel groups.
         :param grouped_channels: the grouped channels.
         '''
+        new_widget_added = False
         old_matrix = self.__matrix
         self.__matrix = None
         old_groups = self.__channel_groups
@@ -1631,7 +1718,7 @@ class XODialog(QDialog, Ui_xoDialog):
                                            any(c == self.__lfe_channel for c in channels),
                                            self.__trigger_redraw, self.__on_output_channel_count_change)
                 self.__editors.append(new_editor)
-                self.channelsLayout.addWidget(new_editor.widget)
+                new_widget_added = True
                 old_matrix = None
         for name, channels in old_groups.items():
             if name not in grouped_channels.keys():
@@ -1639,6 +1726,16 @@ class XODialog(QDialog, Ui_xoDialog):
                 if matching_editor:
                     matching_editor.hide()
                     old_matrix = None
+        if new_widget_added:
+            for e in self.__editors:
+                self.channelsLayout.removeWidget(e.widget)
+            sw_first_editors = sorted(self.__editors, key=lambda e: -1 if 'SW' in e.underlying_channels else min(get_channel_idx(c) for c in e.underlying_channels))
+            for e in sw_first_editors:
+                self.channelsLayout.addWidget(e.widget)
+                if e.visible:
+                    e.show()
+                else:
+                    e.hide()
         # TODO don't completely reinit it, just update anything that has changed
         self.__set_matrix(self.__create_matrix() if not old_matrix else old_matrix)
 
@@ -2455,6 +2552,7 @@ class MatrixDialog(QDialog, Ui_channelMatrixDialog):
         self.matrix.setModel(self.__table_model)
         self.matrix.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.__table_model.delegate_to_checkbox(self.matrix)
+        self.adjustSize()
 
     def __reinit_propagate(self):
         self.__matrix = self.__re_init()
@@ -2505,11 +2603,11 @@ class GroupChannelsDialog(QDialog, Ui_groupChannelsDialog):
                 self.channelGroups.addItem(item)
         self.groupName.setEnabled(False)
         self.channels.itemSelectionChanged.connect(self.__enable_add_button)
-        self.groupName.textChanged.connect(self.__enable_add_button)
         self.channelGroups.itemSelectionChanged.connect(self.__enable_remove_button)
         self.addGroupButton.clicked.connect(self.__add_group)
         self.addGroupButton.setIcon(qta.icon('fa5s.plus'))
         self.addGroupButton.setToolTip('Create new channel group')
+        self.addGroupButton.setEnabled(True)
         self.deleteGroupButton.setIcon(qta.icon('fa5s.minus'))
         self.deleteGroupButton.setToolTip('Remove selected group')
         self.linkAllButton.setIcon(qta.icon('fa5s.object-group'))
@@ -2526,11 +2624,14 @@ class GroupChannelsDialog(QDialog, Ui_groupChannelsDialog):
     def __enable_add_button(self):
         some_selected = len(self.channels.selectedIndexes()) > 0
         self.groupName.setEnabled(some_selected)
-        self.addGroupButton.setEnabled(some_selected and len(self.groupName.text()) > 0)
 
     def __add_group(self):
-        item: QListWidgetItem = QListWidgetItem(self.groupName.text())
-        item.setData(self.GROUP_CHANNELS_ROLE, [i.text() for i in self.channels.selectedItems()])
+        group_name = self.groupName.text()
+        selected_channels = [i.text() for i in self.channels.selectedItems()]
+        if not group_name:
+            group_name = ''.join(selected_channels)
+        item: QListWidgetItem = QListWidgetItem(group_name)
+        item.setData(self.GROUP_CHANNELS_ROLE, selected_channels)
         self.channelGroups.addItem(item)
         self.groupName.clear()
         self.__remove_selected(self.channels)

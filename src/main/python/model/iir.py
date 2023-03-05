@@ -1307,7 +1307,7 @@ class ComplexLowPass(CompoundPassFilter):
     A low pass filter of different types and orders that are implemented using one or more biquads.
     '''
 
-    def __init__(self, filter_type, order, fs, freq, q=1.0, f_id=-1):
+    def __init__(self, filter_type: FilterType, order: int, fs: int, freq: float, q: float=1.0, f_id: int=-1):
         super().__init__('Low', FirstOrder_LowPass, SecondOrder_LowPass, lambda a, b: a*b, filter_type, order, fs, freq,
                          q=q, f_id=f_id)
 

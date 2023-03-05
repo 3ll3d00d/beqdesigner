@@ -15,6 +15,9 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
+    <widget class="QComboBox" name="selector"/>
+   </item>
+   <item>
     <widget class="QListWidget" name="filters"/>
    </item>
    <item>
@@ -38,8 +41,8 @@
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>248</x>
-     <y>254</y>
+     <x>254</x>
+     <y>497</y>
     </hint>
     <hint type="destinationlabel">
      <x>157</x>
@@ -54,8 +57,8 @@
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>316</x>
-     <y>260</y>
+     <x>322</x>
+     <y>497</y>
     </hint>
     <hint type="destinationlabel">
      <x>286</x>
@@ -63,5 +66,24 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>selector</sender>
+   <signal>currentTextChanged(QString)</signal>
+   <receiver>xoFiltersDialog</receiver>
+   <slot>update_list()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>300</x>
+     <y>20</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>398</x>
+     <y>99</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
+ <slots>
+  <slot>update_list()</slot>
+ </slots>
 </ui>

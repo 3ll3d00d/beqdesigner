@@ -1139,7 +1139,9 @@ class CompoundRoutingFilter(ComplexFilter, Sequence[Filter]):
 
     def __init__(self, metadata: str, routing: List[Filter], xo: List[MultiwayFilter]):
         self.__metadata = metadata
-        all_filters = (routing if routing else []) + (xo if xo else [])
+        self.routing = routing if routing is not None else []
+        self.xo = xo if xo is not None else []
+        all_filters = self.routing + self.xo
         all_channels = set()
         for f in all_filters:
             if hasattr(f, 'channel_names'):
@@ -1991,8 +1993,15 @@ class StandardXO(XO):
 
     def calc_filters(self) -> List[Filter]:
         assert self.in_channel is not None
+
+        lp_out = self.out_channel_lp[0]
+        lp_final = self.in_channel
+
+        hp_out = self.out_channel_hp[0]
+        hp_in = self.in_channel
+
         filters = []
-        if self.__high_pass:
+        if self.__high_pass and self.in_channel != hp_out:
             filters.append(create_single_filter({
                 **Mix.default_values(),
                 'Source': str(get_channel_idx(self.in_channel)),
@@ -2000,8 +2009,6 @@ class StandardXO(XO):
                 'Mode': str(MixType.COPY.value if self.__low_pass else MixType.MOVE.value)
             }))
 
-        lp_out = self.out_channel_lp[0]
-        lp_final = self.in_channel
         extra_lp_mt = MixType.COPY
         if self.__low_pass:
             if self.in_channel == lp_out:
@@ -2022,6 +2029,17 @@ class StandardXO(XO):
                 }))
                 lp_final = 'U1'
                 extra_lp_mt = MixType.MOVE
+            if len(self.out_channel_lp) > 1:
+                for i, extra_lp_out in enumerate(self.out_channel_lp[1:]):
+                    mode = extra_lp_mt
+                    if mode == MixType.MOVE and i + 1 != len(self.out_channel_lp):
+                        mode = MixType.COPY
+                    filters.append(create_single_filter({
+                        **Mix.default_values(),
+                        'Source': str(get_channel_idx(lp_final)),
+                        'Destination': str(get_channel_idx(extra_lp_out)),
+                        'Mode': str(mode.value)
+                    }))
         elif self.in_channel != lp_out:
             filters.append(create_single_filter({
                 **Mix.default_values(),
@@ -2029,20 +2047,7 @@ class StandardXO(XO):
                 'Destination': str(get_channel_idx(lp_out)),
                 'Mode': str(MixType.COPY.value)
             }))
-        if len(self.out_channel_lp) > 1:
-            for i, extra_lp_out in enumerate(self.out_channel_lp[1:]):
-                mode = extra_lp_mt
-                if mode == MixType.MOVE and i + 1 != len(self.out_channel_lp):
-                    mode = MixType.COPY
-                filters.append(create_single_filter({
-                    **Mix.default_values(),
-                    'Source': str(get_channel_idx(lp_final)),
-                    'Destination': str(get_channel_idx(extra_lp_out)),
-                    'Mode': str(mode.value)
-                }))
 
-        hp_out = self.out_channel_hp[0]
-        hp_in = self.in_channel
         extra_hp_mt = MixType.COPY
         if self.__high_pass:
             if self.in_channel == hp_out:
@@ -2057,24 +2062,35 @@ class StandardXO(XO):
                 }))
                 hp_in = 'U2'
                 extra_hp_mt = MixType.MOVE
-        elif self.in_channel != hp_out:
+            if len(self.out_channel_hp) > 1:
+                for i, extra_hp_out in enumerate(self.out_channel_hp[1:]):
+                    mode = extra_hp_mt
+                    if mode == MixType.MOVE and i + 1 != len(self.out_channel_hp):
+                        mode = MixType.COPY
+                    filters.append(create_single_filter({
+                        **Mix.default_values(),
+                        'Source': str(get_channel_idx(hp_in)),
+                        'Destination': str(get_channel_idx(extra_hp_out)),
+                        'Mode': str(mode.value)
+                    }))
+        elif self.in_channel != hp_out and hp_out != lp_out:
             filters.append(create_single_filter({
                 **Mix.default_values(),
                 'Source': str(get_channel_idx(self.in_channel)),
                 'Destination': str(get_channel_idx(hp_out)),
                 'Mode': str(MixType.COPY.value)
             }))
-        if len(self.out_channel_hp) > 1:
-            for i, extra_hp_out in enumerate(self.out_channel_hp[1:]):
-                mode = extra_hp_mt
-                if mode == MixType.MOVE and i + 1 != len(self.out_channel_hp):
-                    mode = MixType.COPY
-                filters.append(create_single_filter({
-                    **Mix.default_values(),
-                    'Source': str(get_channel_idx(hp_in)),
-                    'Destination': str(get_channel_idx(extra_hp_out)),
-                    'Mode': str(mode.value)
-                }))
+
+        if not self.out_channel_hp and not self.out_channel_lp:
+            extra_channels = (self.out_channel_lp[1:] if len(self.out_channel_lp) > 1 else []) + (self.out_channel_hp[1:] if len(self.out_channel_hp) > 1 else [])
+            if extra_channels:
+                for c in {e for e in extra_channels}:
+                    filters.append(create_single_filter({
+                        **Mix.default_values(),
+                        'Source': str(get_channel_idx(self.in_channel)),
+                        'Destination': str(get_channel_idx(c)),
+                        'Mode': str(MixType.COPY.value)
+                    }))
 
         return filters
 
