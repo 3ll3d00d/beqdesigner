@@ -2081,7 +2081,7 @@ class StandardXO(XO):
                 'Mode': str(MixType.COPY.value)
             }))
 
-        if not self.out_channel_hp and not self.out_channel_lp:
+        if not self.__low_pass and not self.__high_pass:
             extra_channels = (self.out_channel_lp[1:] if len(self.out_channel_lp) > 1 else []) + (self.out_channel_hp[1:] if len(self.out_channel_hp) > 1 else [])
             if extra_channels:
                 for c in {e for e in extra_channels}:
