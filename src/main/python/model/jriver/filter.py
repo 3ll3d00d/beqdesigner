@@ -1939,8 +1939,8 @@ class XO:
 
     def __init__(self, out_channel_lp: List[str], out_channel_hp: List[str], fs: int = JRIVER_FS):
         self.__in_channel = None
-        self.out_channel_lp = out_channel_lp
-        self.out_channel_hp = out_channel_hp
+        self.out_channel_lp = sorted(out_channel_lp, key=get_channel_idx)
+        self.out_channel_hp = sorted(out_channel_hp, key=get_channel_idx)
         self.extra_delay_millis: float = 0.0
         self.__fs = fs
 
@@ -1957,7 +1957,9 @@ class XO:
         self.__in_channel = in_channel
 
     @abc.abstractmethod
-    def calc_filters(self) -> List[Filter]:
+    def calc_filters(self,
+                     apply_output_filters_to_lp: Optional[Callable[[str], List[Filter]]],
+                     apply_output_filters_to_hp: Optional[Callable[[str], List[Filter]]]) -> List[Filter]:
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -1991,106 +1993,99 @@ class StandardXO(XO):
                           low_pass=filter_from_json(d['l']) if d['l'] else None,
                           high_pass=filter_from_json(d['h']) if d['h'] else None)
 
-    def calc_filters(self) -> List[Filter]:
+    def calc_filters(self,
+                     apply_output_filters_to_lp: Optional[Callable[[str], List[Filter]]],
+                     apply_output_filters_to_hp: Optional[Callable[[str], List[Filter]]]) -> List[Filter]:
         assert self.in_channel is not None
 
-        lp_out = self.out_channel_lp[0]
-        lp_final = self.in_channel
-
-        hp_out = self.out_channel_hp[0]
-        hp_in = self.in_channel
-
         filters = []
-        if self.__high_pass and self.in_channel != hp_out:
-            filters.append(create_single_filter({
-                **Mix.default_values(),
-                'Source': str(get_channel_idx(self.in_channel)),
-                'Destination': str(get_channel_idx('U2')),
-                'Mode': str(MixType.COPY.value if self.__low_pass else MixType.MOVE.value)
-            }))
 
-        extra_lp_mt = MixType.COPY
-        if self.__low_pass:
-            if self.in_channel == lp_out:
-                filters.append(convert_filter_to_mc_dsp(self.__low_pass, str(get_channel_idx(lp_out))))
-            else:
-                filters.append(create_single_filter({
-                    **Mix.default_values(),
-                    'Source': str(get_channel_idx(self.in_channel)),
-                    'Destination': str(get_channel_idx('U1')),
-                    'Mode': str(MixType.COPY.value)
-                }))
-                filters.append(convert_filter_to_mc_dsp(self.__low_pass, str(get_channel_idx('U1'))))
-                filters.append(create_single_filter({
-                    **Mix.default_values(),
-                    'Source': str(get_channel_idx('U1')),
-                    'Destination': str(get_channel_idx(lp_out)),
-                    'Mode': str(MixType.COPY.value if len(self.out_channel_lp) > 1 else MixType.MOVE.value)
-                }))
-                lp_final = 'U1'
-                extra_lp_mt = MixType.MOVE
-            if len(self.out_channel_lp) > 1:
-                for i, extra_lp_out in enumerate(self.out_channel_lp[1:]):
-                    mode = extra_lp_mt
-                    if mode == MixType.MOVE and i + 1 != len(self.out_channel_lp):
-                        mode = MixType.COPY
-                    filters.append(create_single_filter({
-                        **Mix.default_values(),
-                        'Source': str(get_channel_idx(lp_final)),
-                        'Destination': str(get_channel_idx(extra_lp_out)),
-                        'Mode': str(mode.value)
-                    }))
-        elif self.in_channel != lp_out:
-            filters.append(create_single_filter({
-                **Mix.default_values(),
-                'Source': str(get_channel_idx(self.in_channel)),
-                'Destination': str(get_channel_idx(lp_out)),
-                'Mode': str(MixType.COPY.value)
-            }))
+        is_passthrough = not self.__high_pass and not self.__low_pass and apply_output_filters_to_lp is None and apply_output_filters_to_hp is None
 
-        extra_hp_mt = MixType.COPY
-        if self.__high_pass:
-            if self.in_channel == hp_out:
-                filters.append(convert_filter_to_mc_dsp(self.__high_pass, str(get_channel_idx(hp_out))))
-            else:
-                filters.append(convert_filter_to_mc_dsp(self.__high_pass, str(get_channel_idx('U2'))))
-                filters.append(create_single_filter({
-                    **Mix.default_values(),
-                    'Source': str(get_channel_idx('U2')),
-                    'Destination': str(get_channel_idx(hp_out)),
-                    'Mode': str(str(MixType.COPY.value if len(self.out_channel_hp) > 1 else MixType.MOVE.value))
-                }))
-                hp_in = 'U2'
-                extra_hp_mt = MixType.MOVE
-            if len(self.out_channel_hp) > 1:
-                for i, extra_hp_out in enumerate(self.out_channel_hp[1:]):
-                    mode = extra_hp_mt
-                    if mode == MixType.MOVE and i + 1 != len(self.out_channel_hp):
-                        mode = MixType.COPY
-                    filters.append(create_single_filter({
-                        **Mix.default_values(),
-                        'Source': str(get_channel_idx(hp_in)),
-                        'Destination': str(get_channel_idx(extra_hp_out)),
-                        'Mode': str(mode.value)
-                    }))
-        elif self.in_channel != hp_out and hp_out != lp_out:
-            filters.append(create_single_filter({
-                **Mix.default_values(),
-                'Source': str(get_channel_idx(self.in_channel)),
-                'Destination': str(get_channel_idx(hp_out)),
-                'Mode': str(MixType.COPY.value)
-            }))
-
-        if not self.__low_pass and not self.__high_pass:
-            extra_channels = (self.out_channel_lp[1:] if len(self.out_channel_lp) > 1 else []) + (self.out_channel_hp[1:] if len(self.out_channel_hp) > 1 else [])
-            if extra_channels:
-                for c in {e for e in extra_channels}:
+        if is_passthrough:
+            for c in sorted({e for e in (self.out_channel_lp + self.out_channel_hp)}, key=get_channel_idx):
+                if c != self.in_channel:
                     filters.append(create_single_filter({
                         **Mix.default_values(),
                         'Source': str(get_channel_idx(self.in_channel)),
                         'Destination': str(get_channel_idx(c)),
                         'Mode': str(MixType.COPY.value)
                     }))
+        else:
+            lp_src_channel = self.in_channel
+            hp_src_channel = 'U2'
+            # 1 way only so there can be no high pass
+            if self.out_channel_lp != self.out_channel_hp:
+                filters.append(create_single_filter({
+                    **Mix.default_values(),
+                    'Source': str(get_channel_idx(self.in_channel)),
+                    'Destination': str(get_channel_idx(hp_src_channel)),
+                    'Mode': str(MixType.COPY.value)
+                }))
+
+                if (self.__high_pass or apply_output_filters_to_hp is not None) and self.in_channel in self.out_channel_hp:
+                    lp_src_channel = 'U1'
+                    filters.append(create_single_filter({
+                        **Mix.default_values(),
+                        'Source': str(get_channel_idx(self.in_channel)),
+                        'Destination': str(get_channel_idx(lp_src_channel)),
+                        'Mode': str(MixType.COPY.value)
+                    }))
+
+                if self.__high_pass:
+                    filters.append(convert_filter_to_mc_dsp(self.__high_pass, str(get_channel_idx(hp_src_channel))))
+
+                hp_gain_filter: Optional[Gain] = None
+                if apply_output_filters_to_hp is not None:
+                    way_filters = apply_output_filters_to_hp(hp_src_channel)
+                    if way_filters:
+                        hp_gain_filter = way_filters[-1] if isinstance(way_filters[-1], Gain) else None
+                        if hp_gain_filter:
+                            filters.extend(way_filters[:-1])
+                        else:
+                            filters.extend(way_filters)
+
+                for hp_out in self.out_channel_hp:
+                    filters.append(create_single_filter({
+                        **Mix.default_values(),
+                        'Source': str(get_channel_idx(hp_src_channel)),
+                        'Destination': str(get_channel_idx(hp_out)),
+                        'Mode': str(MixType.COPY.value),
+                        'Gain': f"{hp_gain_filter.gain:.7g}" if hp_gain_filter else '0.0'
+                    }))
+
+            if self.__low_pass:
+                filters.append(convert_filter_to_mc_dsp(self.__low_pass, str(get_channel_idx(lp_src_channel))))
+
+            lp_gain_filter: Optional[Gain] = None
+            if apply_output_filters_to_lp is not None:
+                way_filters = apply_output_filters_to_lp(lp_src_channel)
+                if way_filters:
+                    lp_gain_filter = way_filters[-1] if isinstance(way_filters[-1], Gain) else None
+                    if lp_gain_filter and lp_src_channel not in self.out_channel_lp:
+                        filters.extend(way_filters[:-1])
+                    else:
+                        lp_gain_filter = None
+                        filters.extend(way_filters)
+
+            for lp_out in self.out_channel_lp:
+                if lp_out != lp_src_channel:
+                    filters.append(create_single_filter({
+                        **Mix.default_values(),
+                        'Source': str(get_channel_idx(lp_src_channel)),
+                        'Destination': str(get_channel_idx(lp_out)),
+                        'Mode': str(MixType.COPY.value),
+                        'Gain': f"{lp_gain_filter.gain:.7g}" if lp_gain_filter else '0.0'
+                    }))
+
+        # TODO don't duplicate a passthrough copy
+        # elif self.in_channel != hp_out and hp_out != lp_out:
+        #     filters.append(create_single_filter({
+        #         **Mix.default_values(),
+        #         'Source': str(get_channel_idx(self.in_channel)),
+        #         'Destination': str(get_channel_idx(hp_out)),
+        #         'Mode': str(MixType.COPY.value)
+        #     }))
 
         return filters
 
@@ -2226,7 +2221,9 @@ class MDSXO(XO):
         lp_slope = lp_y[lp_slope_start_idx.item()] - lp_y[lp_slope_end_idx.item()]
         return lp_x[fc_idx], lp_slope, hp_slope
 
-    def calc_filters(self) -> List[Filter]:
+    def calc_filters(self,
+                     apply_output_filters_to_lp: Optional[Callable[[str], List[Filter]]],
+                     apply_output_filters_to_hp: Optional[Callable[[str], List[Filter]]]) -> List[Filter]:
         self.__calc_graph()
         return [f for f in self.__graph.filters]
 
@@ -2423,12 +2420,45 @@ class MultiwayCrossover:
         filters = []
         channels_by_way = []
         last_x: Optional[XO] = None
+
+        def output_way_is_filtered(way: int) -> Optional[WayValues]:
+            if len(way_values) > way and way_values[way] is not None:
+                if way_values[way].inverted or not math.isclose(way_values[way].gain, 0.0) or not math.isclose(way_values[way].delay_millis, 0.0):
+                    return way_values[way]
+            return None
+
+        def apply_output_way_filters(wv: Optional[WayValues], c: str) -> List[Filter]:
+            f = []
+            if wv and wv.inverted:
+                f.append(Polarity({
+                    'Enabled': '1',
+                    'Type': Polarity.TYPE,
+                    'Channels': str(get_channel_idx(c))
+                }))
+            if wv and not math.isclose(wv.delay_millis, 0.0):
+                f.append(create_single_filter({
+                    **Delay.default_values(),
+                    'Delay': f"{wv.delay_millis:.7g}",
+                    'Channels': str(get_channel_idx(c))
+                }))
+            if wv and not math.isclose(wv.gain, 0.0):
+                f.append(create_single_filter({
+                    **Gain.default_values(),
+                    'Gain': f"{wv.gain:.7g}",
+                    'Channels': str(get_channel_idx(c))
+                }))
+            return f
+
         for i, x in enumerate(self.__xos):
-            x.in_channel = self.__in_channel if i == 0 else last_x.out_channel_hp[0]
-            if i == 0 and subsonic_filter:
-                for lp_out in x.out_channel_lp:
+            if i == 0:
+                x.in_channel = self.__in_channel
+                if subsonic_filter:
                     filters.append(convert_filter_to_mc_dsp(subsonic_filter, str(get_channel_idx(lp_out))))
-            x_filters = x.calc_filters()
+            else:
+                x.in_channel = last_x.out_channel_hp[0]
+
+            x_filters = x.calc_filters((lambda c: apply_output_way_filters(way_values[i], c)) if output_way_is_filtered(i) else None,
+                                       (lambda c: apply_output_way_filters(way_values[i + 1], c)) if output_way_is_filtered(i + 1) and i + 1 == len(self.__xos) else None)
             filters.extend(x_filters)
             last_x = x
             channels_by_way.extend(x.out_channel_lp)
@@ -2436,35 +2466,10 @@ class MultiwayCrossover:
                 if lp_out not in self.__channels:
                     self.__channels.append(lp_out)
         if last_x:
-            for hp_out in x.out_channel_hp:
+            for hp_out in last_x.out_channel_hp:
                 if hp_out not in self.__channels:
                     self.__channels.append(hp_out)
             channels_by_way.extend(last_x.out_channel_hp)
-
-        for i, v in enumerate(way_values):
-            if v is not None:
-                try:
-                    output_index = self.__channels[i]
-                    if v.inverted:
-                        filters.append(Polarity({
-                            'Enabled': '1',
-                            'Type': Polarity.TYPE,
-                            'Channels': str(get_channel_idx(output_index))
-                        }))
-                    if not math.isclose(v.gain, 0.0):
-                        filters.append(create_single_filter({
-                            **Gain.default_values(),
-                            'Gain': f"{v.gain:.7g}",
-                            'Channels': str(get_channel_idx(output_index))
-                        }))
-                    if not math.isclose(v.delay_millis, 0.0):
-                        filters.append(create_single_filter({
-                            **Delay.default_values(),
-                            'Delay': f"{v.delay_millis:.7g}",
-                            'Channels': str(get_channel_idx(output_index))
-                        }))
-                except IndexError as e:
-                    raise e
 
         channels_with_user = list(self.__channels) + SHORT_USER_CHANNELS
         self.__graph = FilterGraph(0, channels_with_user, channels_with_user, filters, regen=False)

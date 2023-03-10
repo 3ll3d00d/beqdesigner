@@ -29,8 +29,8 @@ class GraphRenderer:
         nodes: Dict[str, str] = {}
         edges: List[str] = []
         ranks: List[List[str]] = []
-        last_node_by_channel: Dict[str, Optional[str]] = {
-            c: f'IN:{c}' if c in self.__graph.input_channels and c not in SHORT_USER_CHANNELS else None
+        nodes_by_channel: Dict[str, List[str]] = {
+            c: [f'IN:{c}'] if c in self.__graph.input_channels and c not in SHORT_USER_CHANNELS else []
             for c in self.__graph.output_channels
         }
         for f in self.__graph.filters:
@@ -38,81 +38,89 @@ class GraphRenderer:
                 f.reset()
                 if isinstance(f, Sequence):
                     if isinstance(f, CompoundRoutingFilter):
-                        ranks.append([])
-                    for f1 in flatten(f):
-                        f1.reset()
-                        added_nodes = self.__process_filter(f1, last_node_by_channel, nodes, edges, selected_nodes)
-                        if isinstance(f1, (XOFilter, MultiwayFilter)):
-                            ranks[-1].extend(added_nodes)
+                        for f1 in f:
+                            if isinstance(f1, Sequence):
+                                for i, f2 in enumerate(f1):
+                                    f2.reset()
+                                    self.__process_filter(f2, nodes_by_channel, nodes, edges, selected_nodes, ranks)
+                            else:
+                                f1.reset()
+                                self.__process_filter(f1, nodes_by_channel, nodes, edges, selected_nodes, ranks)
+                    else:
+                        for f1 in flatten(f):
+                            f1.reset()
+                            self.__process_filter(f1, nodes_by_channel, nodes, edges, selected_nodes, ranks)
                 else:
-                    self.__process_filter(f, last_node_by_channel, nodes, edges, selected_nodes)
+                    self.__process_filter(f, nodes_by_channel, nodes, edges, selected_nodes, ranks)
 
         gz += '\n'.join(nodes.values())
         gz += '\n'
         gz += '\n'.join(edges)
         gz += '\n'
 
-        for c, n in last_node_by_channel.items():
+        for c, n in nodes_by_channel.items():
             if n and c not in SHORT_USER_CHANNELS:
-                gz += f"  {n} -> OUT:{c};"
+                gz += f"  {n[-1]} -> OUT:{c};"
                 gz += '\n'
 
         for rank in ranks:
-            if rank:
-                gz += f"  {{rank = same; {'; '.join(rank)};}}"
+            ranked = [r for r in rank if not r.startswith('IN:') and not r.startswith('OUT:')]
+            if len(ranked) > 2:
+                gz += f"  {{rank = same; {'; '.join(ranked)};}}"
                 gz += '\n'
         gz += "}"
         return gz
 
-    def __process_filter(self, f: Filter, last_node_by_channel: Dict[str, Optional[str]], nodes: Dict[str, str],
-                         edges: List[str], selected_nodes: Optional[Iterable[str]]) -> List[str]:
-        added_nodes = []
+    def __process_filter(self, f: Filter, nodes_by_channel: Dict[str, List[str]], nodes: Dict[str, str], edges: List[str],
+                         selected_nodes: Optional[Iterable[str]], ranks: List[List[str]]):
+        def last_or_none(vals: List[str]) -> Optional[str]:
+            return vals[-1] if vals else None
+
+        def add_and_rank(n: str, dst: str, last_node: Optional[str]):
+            nodes_by_channel[dst].append(n)
+            # TODO implement ranking
+
         if isinstance(f, Mix):
             dst_channel = get_channel_name(f.dst_idx)
             src_channel = get_channel_name(f.src_idx)
             if f.mix_type == MixType.ADD or f.mix_type == MixType.SUBTRACT:
-                last_dst = last_node_by_channel[dst_channel]
+                last_dst = last_or_none(nodes_by_channel[dst_channel])
                 target_name: str = "SUM" if f.mix_type == MixType.ADD else "SUBTRACT"
-                if not last_dst or (last_dst.startswith('IN:' or not re.search(fr'.*\[label=".*{target_name}"(?: style=filled fillcolor=.*)?].*', nodes[last_dst], flags=re.DOTALL))):
-                    added_nodes.append(self.__create_node(dst_channel, f, nodes, selected_nodes, suffix=target_name))
-                    last_node_by_channel[dst_channel] = added_nodes[-1]
+                if not last_dst or (last_dst.startswith('IN:') or not re.search(fr'.*\[label=".*{target_name}"(?: style=filled fillcolor=.*)?].*', nodes[last_dst], flags=re.DOTALL)):
+                    node_name = self.__create_node(dst_channel, f, nodes, selected_nodes, suffix=target_name)
+                    add_and_rank(node_name, dst_channel, last_or_none(nodes_by_channel[src_channel]))
                     if last_dst:
-                        self.__add_edge(edges, last_dst, added_nodes[-1])
-                    last_dst = added_nodes[-1]
-                self.__add_edge(edges, last_node_by_channel[src_channel], last_dst)
+                        self.__add_edge(edges, last_dst, node_name)
+                    last_dst = node_name
+                self.__add_edge(edges, last_or_none(nodes_by_channel[src_channel]), last_dst)
             elif f.mix_type == MixType.MOVE or f.mix_type == MixType.COPY:
                 try:
-                    last_src_node = last_node_by_channel[src_channel]
+                    last_src_node = last_or_none(nodes_by_channel[src_channel])
                 except KeyError:
                     raise
-                added_nodes.append(self.__create_node(dst_channel, f, nodes, selected_nodes))
-                last_node_by_channel[dst_channel] = added_nodes[-1]
-                if last_src_node:
-                    self.__add_edge(edges, last_src_node, added_nodes[-1])
-                    if f.mix_type == MixType.MOVE:
-                        last_node_by_channel[src_channel] = None
+                add_and_rank(last_src_node, dst_channel, last_src_node)
+                if f.mix_type == MixType.MOVE:
+                    nodes_by_channel[src_channel] = []
             elif f.mix_type == MixType.SWAP:
                 src_node_name = self.__create_node(src_channel, f, nodes, selected_nodes)
                 dst_node_name = self.__create_node(dst_channel, f, nodes, selected_nodes)
-                previous_src_node = last_node_by_channel[src_channel]
-                previous_dst_node = last_node_by_channel[dst_channel]
+                previous_src_node = last_or_none(nodes_by_channel[src_channel])
+                previous_dst_node = last_or_none(nodes_by_channel[dst_channel])
                 if previous_src_node:
                     self.__add_edge(edges, previous_src_node, src_node_name)
                 if previous_dst_node:
                     self.__add_edge(edges, previous_dst_node, dst_node_name)
-                last_node_by_channel[src_channel] = dst_node_name
-                last_node_by_channel[dst_channel] = src_node_name
-                added_nodes.extend([src_node_name, dst_node_name])
+                add_and_rank(dst_node_name, src_channel, previous_dst_node)
+                add_and_rank(src_node_name, dst_channel, previous_src_node)
         else:
             channel_names = f.channel_names \
                 if isinstance(f, ChannelFilter) or isinstance(f, ComplexChannelFilter) \
                 else self.__graph.output_channels
             for c in channel_names:
-                added_nodes.append(self.__create_node(c, f, nodes, selected_nodes))
-                last_node = last_node_by_channel[c]
-                self.__add_edge(edges, last_node, added_nodes[-1])
-                last_node_by_channel[c] = added_nodes[-1]
-        return added_nodes
+                node_name = self.__create_node(c, f, nodes, selected_nodes)
+                last_node = last_or_none(nodes_by_channel[c])
+                self.__add_edge(edges, last_node, node_name)
+                add_and_rank(node_name, c, last_node)
 
     @staticmethod
     def __add_edge(edges: List[str], src: str, dst: str, label: str = None):

@@ -57,16 +57,16 @@ def test_two_in_four(two_in_four):
 
     f = mc_filters.pop(0)
     assert f.filters.pop(0).get_all_vals() == [mix('L', MixType.COPY, 'U2')]
-    assert str(f.filters.pop(0)) == 'LP BW2 2kHz  [L]'
     assert str(f.filters.pop(0)) == 'HP BW2 2kHz  [U2]'
-    assert f.filters.pop(0).get_all_vals() == [mix('U2', MixType.MOVE, 'C')]
+    assert f.filters.pop(0).get_all_vals() == [mix('U2', MixType.COPY, 'C')]
+    assert str(f.filters.pop(0)) == 'LP BW2 2kHz  [L]'
     assert not f.filters
 
     f = mc_filters.pop(0)
     assert f.filters.pop(0).get_all_vals() == [mix('R', MixType.COPY, 'U2')]
-    assert str(f.filters.pop(0)) == 'LP BW2 2kHz  [R]'
     assert str(f.filters.pop(0)) == 'HP BW2 2kHz  [U2]'
-    assert f.filters.pop(0).get_all_vals() == [mix('U2', MixType.MOVE, 'SW')]
+    assert f.filters.pop(0).get_all_vals() == [mix('U2', MixType.COPY, 'SW')]
+    assert str(f.filters.pop(0)) == 'LP BW2 2kHz  [R]'
     assert not f.filters
     assert not mc_filters
 
