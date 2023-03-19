@@ -6,7 +6,7 @@ from model.iir import ComplexLowPass, FilterType, ComplexHighPass
 from model.jriver import ImpossibleRoutingError, UnsupportedRoutingError, JRIVER_FS
 from model.jriver.common import get_channel_idx
 from model.jriver.filter import Mix, MixType, Gain, MultiwayFilter, MultiwayCrossover, StandardXO
-from model.jriver.routing import Matrix, calculate_compound_routing_filter, convert_to_routes
+from model.jriver.routing import Matrix, calculate_compound_routing_filter
 
 
 def lpf(freq: float) -> ComplexLowPass:

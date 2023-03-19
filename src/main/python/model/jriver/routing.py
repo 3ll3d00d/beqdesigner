@@ -1,13 +1,14 @@
 import functools
 import json
 import logging
+import math
 from collections import defaultdict
 from itertools import groupby
 from typing import Optional, Dict, List, Tuple
 
-from model.jriver.common import get_channel_idx, user_channel_indexes, get_channel_name
-from model.jriver.filter import MixType, Mix, CompoundRoutingFilter, Filter, Gain, MultiwayFilter
 from model.jriver import ImpossibleRoutingError, UnsupportedRoutingError
+from model.jriver.common import get_channel_idx, get_channel_name
+from model.jriver.filter import MixType, Mix, CompoundRoutingFilter, Filter, Gain, MultiwayFilter, Delay
 
 logger = logging.getLogger('jriver.routing')
 
@@ -240,10 +241,11 @@ def collate_many_to_one_routes(summed_routes_by_output: Dict[int, List[Route]]) 
     return summed_routes
 
 
-def group_routes_by_output_channel(active_routes: List[Route]) -> Tuple[List[Route], Dict[int, List[Route]]]:
+def group_routes_by_output_channel(active_routes: List[Route]) -> Tuple[List[Route], List[Tuple[List[int], List[Route]]]]:
     '''
     :param active_routes: the active routes.
-    :return: the direct routes (1 input to 1 output), the summed routes grouped by output channel (multiple inputs going to a single output).
+    :return: the direct routes (1 input to 1 output), the summed routes grouped by output channel (multiple inputs
+    going to a single output) collated so that inputs that feed the same output are collected together.
     '''
     summed_routes: Dict[int, List[Route]] = defaultdict(list)
     for r in active_routes:
@@ -251,21 +253,22 @@ def group_routes_by_output_channel(active_routes: List[Route]) -> Tuple[List[Rou
     direct_routes = [Route(v1.i, v1.w, v1.o, MixType.COPY)
                      for v in summed_routes.values() if len(v) == 1 for v1 in v if v1.i != v1.o]
     summed_routes = {k: v for k, v in summed_routes.items() if len(v) > 1}
-    return direct_routes, summed_routes
+    return direct_routes, collate_many_to_one_routes(summed_routes)
 
 
-def convert_to_routes(matrix: Matrix):
-    '''
-    :param matrix: the matrix.
-    :return: the routes.
-    '''
-    simple_routes, summed_routes_by_output = group_routes_by_output_channel(matrix)
-    collated_summed_routes: List[Tuple[List[int], List[Route]]] = collate_many_to_one_routes(summed_routes_by_output)
-    return simple_routes, collated_summed_routes
+def normalise_delays(channels_by_delay: Dict[float, List[str]]) -> Dict[float, List[str]]:
+    max_delay = max(channels_by_delay.keys())
+    result: Dict[float, List[str]] = defaultdict(list)
+    for k, v in channels_by_delay.items():
+        normalised_delay = round(max_delay - k, 6)
+        if not math.isclose(normalised_delay, 0.0):
+            result[normalised_delay].extend(v)
+    return result
 
 
 def calculate_compound_routing_filter(matrix: Matrix,
                                       editor_meta: Optional[List[dict]] = None,
+                                      xo_induced_delay: Dict[float, List[str]] = None,
                                       xo_filters: List[MultiwayFilter] = None,
                                       main_adjust: int = 0,
                                       lfe_adjust: int = 0,
@@ -274,6 +277,7 @@ def calculate_compound_routing_filter(matrix: Matrix,
     Calculates the filters required to route and bass manage, if necessary, the input channels.
     :param matrix: the routing matrix.
     :param editor_meta: extra editor metadata.
+    :param xo_induced_delay: additional delay induced by the xo filter.
     :param xo_filters: the XO filters.
     :param main_adjust: the gain adjustment for a main channel when bass management is required.
     :param lfe_adjust: the gain adjustment for the LFE channel when bass management is required.
@@ -282,32 +286,11 @@ def calculate_compound_routing_filter(matrix: Matrix,
     '''
     active_routes = matrix.active_routes
     input_channel_indexes = matrix.input_channel_indexes
-    one_to_one_routes_by_output_channel, many_to_one_routes_by_output_channel = group_routes_by_output_channel(active_routes)
+    one_to_one_routes_by_output_channel, many_to_one_routes_by_output_channels = group_routes_by_output_channel(active_routes)
 
     illegal_routes = [r for r in one_to_one_routes_by_output_channel if r.o in input_channel_indexes and r.i != r.o]
     if illegal_routes:
         raise ImpossibleRoutingError(f"Overwriting an input channel is not supported - {illegal_routes}")
-
-    many_to_one_routes_by_output_channels: List[Tuple[List[int], List[Route]]] = collate_many_to_one_routes(many_to_one_routes_by_output_channel)
-
-    filters: List[Filter] = []
-    if lfe_channel_idx:
-        if lfe_adjust != 0:
-            filters.append(Gain({
-                'Enabled': '1',
-                'Type': Gain.TYPE,
-                'Gain': f"{lfe_adjust:.7g}",
-                'Channels': str(lfe_channel_idx)
-            }))
-    if main_adjust:
-        for i in input_channel_indexes:
-            if i != lfe_channel_idx:
-                filters.append(Gain({
-                    'Enabled': '1',
-                    'Type': Gain.TYPE,
-                    'Gain': f"{main_adjust:.7g}",
-                    'Channels': str(i)
-                }))
 
     # detect if a summed route is writing to a channel which is an input for another summed route
     if len(many_to_one_routes_by_output_channels) > 1:
@@ -333,16 +316,57 @@ def calculate_compound_routing_filter(matrix: Matrix,
                         else:
                             raise ImpossibleRoutingError(msg)
 
+    filters: List[Filter] = []
+    if lfe_channel_idx:
+        if lfe_adjust != 0:
+            filters.append(Gain({
+                'Enabled': '1',
+                'Type': Gain.TYPE,
+                'Gain': f"{lfe_adjust:.7g}",
+                'Channels': str(lfe_channel_idx)
+            }))
+    if main_adjust:
+        for i in input_channel_indexes:
+            if i != lfe_channel_idx:
+                filters.append(Gain({
+                    'Enabled': '1',
+                    'Type': Gain.TYPE,
+                    'Gain': f"{main_adjust:.7g}",
+                    'Channels': str(i)
+                }))
+
+    normalised_delays = normalise_delays(xo_induced_delay)
+    delay_filters = []
+
+    summed_channels = [get_channel_name(i) for r in many_to_one_routes_by_output_channels for i in r[0]]
+    summed_channel_delays: Dict[str, float] = {}
+    for delay, channels in normalised_delays.items():
+        single_route_channels = []
+        for c in channels:
+            if c in summed_channels:
+                summed_channel_delays[c] = delay
+            else:
+                single_route_channels.append(str(get_channel_idx(c)))
+        delay_filters.append(Delay({
+            **Delay.default_values(),
+            'Channels': ';'.join(single_route_channels),
+            'Delay': f"{delay:.7g}",
+        }))
+    if summed_channel_delays:
+        # TODO now what?
+        pass
+
+    summed_inputs = [y for x in many_to_one_routes_by_output_channels for y in x[0]]
     if xo_filters:
         for xo in xo_filters:
             for i, f in enumerate(xo.filters):
                 if isinstance(f, Mix):
                     # only change to add if it's not the subtract used by an MDS filter
-                    if f.dst_idx in many_to_one_routes_by_output_channel.keys() and f.mix_type != MixType.SUBTRACT:
+                    if f.dst_idx in summed_inputs and f.mix_type != MixType.SUBTRACT:
                         xo.filters[i] = Mix({**f.get_all_vals()[0], **{'Mode': MixType.ADD.value}})
 
     meta = __create_routing_metadata(matrix, editor_meta, lfe_channel_idx, lfe_adjust)
-    return CompoundRoutingFilter(json.dumps(meta), filters, xo_filters)
+    return CompoundRoutingFilter(json.dumps(meta), filters, delay_filters, xo_filters)
 
 
 def __count_lfe_routes(lfe_channel_idx, direct_routes, summed_routes_by_output_channels) -> int:

@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import itertools
 import json
+import locale
 import logging
 import math
 import os
 import sys
 import xml.etree.ElementTree as et
 from builtins import isinstance
+from collections import defaultdict
 from pathlib import Path
 from typing import Dict, Optional, List, Tuple, Callable, Set, Any, Sequence
 
@@ -20,7 +22,7 @@ from qtpy.QtWidgets import QDialog, QFileDialog, QMenu, QAction, QListWidgetItem
     QListWidget, QTableWidgetItem
 
 from model.filter import FilterModel, FilterDialog
-from model.iir import SOS, CompleteFilter, FilterType, ComplexLowPass, ComplexHighPass
+from model.iir import SOS, CompleteFilter, FilterType, ComplexLowPass, ComplexHighPass, DEFAULT_Q
 from model.jriver import JRIVER_FS, flatten, ImpossibleRoutingError
 from model.jriver.codec import get_element, xpath_to_key_data_value, write_dsp_file, get_peq_key_name
 from model.jriver.common import get_channel_name, get_channel_idx, OutputFormat, SHORT_USER_CHANNELS, make_dirac_pulse, \
@@ -35,7 +37,8 @@ from model.jriver.mcws import MediaServer, MCWSError, DSPMismatchError
 from model.jriver.parser import from_mso
 from model.jriver.render import render_dot
 from model.jriver.routing import Matrix, LFE_ADJUST_KEY, EDITORS_KEY, EDITOR_NAME_KEY, \
-    UNDERLYING_KEY, WAYS_KEY, SYM_KEY, LFE_IN_KEY, ROUTING_KEY, calculate_compound_routing_filter
+    UNDERLYING_KEY, WAYS_KEY, SYM_KEY, LFE_IN_KEY, ROUTING_KEY, calculate_compound_routing_filter, normalise_delays, \
+    group_routes_by_output_channel
 from model.limits import DecibelRangeCalculator, PhaseRangeCalculator
 from model.magnitude import MagnitudeModel
 from model.preferences import JRIVER_GEOMETRY, JRIVER_GRAPH_X_MIN, JRIVER_GRAPH_X_MAX, JRIVER_DSP_DIR, \
@@ -565,7 +568,8 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         :param add_menu: the add menu.
         :param node_name: the selected node name.
         '''
-        add, copy, delay, move, peq, polarity, gain, subtract, swap, geq, xo, mso = self.__add_actions_to_filter_menu(add_menu)
+        add, copy, delay, move, peq, polarity, gain, subtract, swap, geq, xo, mso = self.__add_actions_to_filter_menu(
+            add_menu)
         idx = self.__get_idx_to_insert_filter_at_from_node_name(node_name)
         peq.triggered.connect(lambda: self.__insert_peq_after_node(node_name))
         polarity.triggered.connect(lambda: self.__insert_polarity(idx))
@@ -719,7 +723,8 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         :param menu: the menu to add to.
         :return: the menu.
         '''
-        add, copy, delay, move, peq, polarity, gain, subtract, swap, geq, xo, mso = self.__add_actions_to_filter_menu(menu)
+        add, copy, delay, move, peq, polarity, gain, subtract, swap, geq, xo, mso = self.__add_actions_to_filter_menu(
+            menu)
         peq.triggered.connect(lambda: self.__insert_peq(self.__get_idx_to_insert_filter_at_from_selection()))
         delay.triggered.connect(lambda: self.__insert_delay(self.__get_idx_to_insert_filter_at_from_selection()))
         polarity.triggered.connect(lambda: self.__insert_polarity(self.__get_idx_to_insert_filter_at_from_selection()))
@@ -886,21 +891,24 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         Allows user to insert a delay filter at the specified index in the filter list.
         :param idx: the index to insert at.
         '''
-        JRiverDelayDialog(self, self.dsp.channel_names(output=True), lambda vals: self.__add_filter(vals, idx), Delay.default_values()).exec()
+        JRiverDelayDialog(self, self.dsp.channel_names(output=True), lambda vals: self.__add_filter(vals, idx),
+                          Delay.default_values()).exec()
 
     def __insert_polarity(self, idx: int):
         '''
         Allows user to insert an invert polarity filter at the specified index in the filter list.
         :param idx: the index to insert at.
         '''
-        JRiverChannelOnlyFilterDialog(self, self.dsp.channel_names(output=True), lambda vals: self.__add_filter(vals, idx), Polarity.default_values()).exec()
+        JRiverChannelOnlyFilterDialog(self, self.dsp.channel_names(output=True),
+                                      lambda vals: self.__add_filter(vals, idx), Polarity.default_values()).exec()
 
     def __insert_gain(self, idx: int):
         '''
         Allows user to insert a gain filter at the specified index in the filter list.
         :param idx: the index to insert at.
         '''
-        JRiverGainDialog(self, self.dsp.channel_names(output=True), lambda vals: self.__add_filter(vals, idx), Gain.default_values()).exec()
+        JRiverGainDialog(self, self.dsp.channel_names(output=True), lambda vals: self.__add_filter(vals, idx),
+                         Gain.default_values()).exec()
 
     def __insert_mix(self, mix_type: MixType, idx: int):
         '''
@@ -908,7 +916,8 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         :param mix_type: the type of mix.
         :param idx: the index to insert at.
         '''
-        JRiverMixFilterDialog(self, self.dsp.channel_names(output=True), lambda vals: self.__add_filter(vals, idx), mix_type, Mix.default_values()).exec()
+        JRiverMixFilterDialog(self, self.dsp.channel_names(output=True), lambda vals: self.__add_filter(vals, idx),
+                              mix_type, Mix.default_values()).exec()
 
     def __add_filter(self, vals: Dict[str, str], idx: int) -> None:
         '''
@@ -1297,7 +1306,8 @@ class JRiverFilterPipelineDialog(QDialog, Ui_jriverGraphDialog):
 
 class JRiverGainDialog(QDialog, Ui_jriverGainDialog):
 
-    def __init__(self, parent: QDialog, channels: List[str], on_save: Callable[[Dict[str, str]], None], vals: Dict[str, str] = None):
+    def __init__(self, parent: QDialog, channels: List[str], on_save: Callable[[Dict[str, str]], None],
+                 vals: Dict[str, str] = None):
         super(JRiverGainDialog, self).__init__(parent)
         self.setupUi(self)
         self.setWindowTitle('Gain')
@@ -1309,7 +1319,7 @@ class JRiverGainDialog(QDialog, Ui_jriverGainDialog):
         self.gain.valueChanged.connect(self.__enable_accept)
         self.__validators.append(lambda: not math.isclose(self.gain.value(), 0.0))
         if 'Gain' in self.__vals:
-            self.gain.setValue(float(self.__vals['Gain']))
+            self.gain.setValue(locale.atof(self.__vals['Gain']))
         self.gain.setFocus()
         self.__enable_accept()
 
@@ -1363,7 +1373,7 @@ class JRiverDelayDialog(QDialog, Ui_jriverDelayDialog):
         self.__validators.append(lambda: not math.isclose(self.millis.value(), 0.0))
         self.distance.blockSignals(True)
         if 'Delay' in self.__vals:
-            self.millis.setValue(float(self.__vals['Delay']))
+            self.millis.setValue(locale.atof(self.__vals['Delay']))
         self.millis.setFocus()
         self.__enable_accept()
 
@@ -1449,7 +1459,7 @@ class JRiverMixFilterDialog(QDialog, Ui_jriverMixDialog):
         if 'Destination' in self.__vals:
             self.destination.setCurrentText(get_channel_name(int(self.__vals['Destination'])))
         if 'Gain' in self.__vals:
-            self.gain.setValue(float(self.__vals['Gain']))
+            self.gain.setValue(locale.atof(self.__vals['Gain']))
         self.__validators.append(lambda: self.source.currentText() != self.destination.currentText())
 
     def __enable_accept(self):
@@ -1514,6 +1524,8 @@ class ShowFiltersDialog(QDialog, Ui_xoFiltersDialog):
             self.selector.addItem('Show All')
             if filt.routing:
                 self.selector.addItem('Gain/Routing')
+            if filt.delays:
+                self.selector.addItem('Delay Normalisation')
             for f in filt.xo:
                 self.selector.addItem(f'Channel {f.input_channel}')
         self.update_list('Show All')
@@ -1522,6 +1534,9 @@ class ShowFiltersDialog(QDialog, Ui_xoFiltersDialog):
         self.filters.clear()
         for f in flatten(self.f.routing):
             if txt == 'Show All' or txt == 'Gain/Routing':
+                self.filters.addItem(str(f))
+        for f in flatten(self.f.delays):
+            if txt == 'Show All' or txt == 'Delay Normalisation':
                 self.filters.addItem(str(f))
         for xo in self.f.xo:
             added_spacer = False
@@ -1729,7 +1744,8 @@ class XODialog(QDialog, Ui_xoDialog):
         if new_widget_added:
             for e in self.__editors:
                 self.channelsLayout.removeWidget(e.widget)
-            sw_first_editors = sorted(self.__editors, key=lambda e: -1 if 'SW' in e.underlying_channels else min(get_channel_idx(c) for c in e.underlying_channels))
+            sw_first_editors = sorted(self.__editors, key=lambda e: -1 if 'SW' in e.underlying_channels else min(
+                get_channel_idx(c) for c in e.underlying_channels))
             for e in sw_first_editors:
                 self.channelsLayout.addWidget(e.widget)
                 if e.visible:
@@ -1787,19 +1803,27 @@ class XODialog(QDialog, Ui_xoDialog):
         :return: the filter.
         '''
         lfe_channel_idx, lfe_adjust, main_adjust = self.__get_lfe_metadata()
+        mds_channels = [e for e in self.__editors if e.visible if not math.isclose(e.xo_induced_delay, 0.0)]
+        _, summed_routes = group_routes_by_output_channel(self.__matrix.active_routes)
+        summed_routes_use_mds = False
+        if mds_channels and summed_routes:
+            # see if mds output is found
+            pass
+
         xo_filters: List[MultiwayFilter] = []
+        xo_induced_delay: Dict[float, List[str]] = defaultdict(list)
         for e in self.__editors:
             if e.visible:
+                xo_induced_delay[e.xo_induced_delay].extend(list({c for e in e.output_channels.values() for c in e}))
                 for c in e.underlying_channels:
-                    # TODO if >1 MDS used, add extra delay per input channel
                     # TODO if MDS and summing to an output channel, change the output to free channel & then add
                     xo_filters.append(MultiwayFilter(c, e.output_channels[c], e.filters[c], e.meta))
         editor_meta = [
             {EDITOR_NAME_KEY: e.name, UNDERLYING_KEY: e.underlying_channels, WAYS_KEY: len(e), SYM_KEY: e.symmetric}
             for e in self.__editors if e.visible
         ]
-        return calculate_compound_routing_filter(self.__matrix, editor_meta, xo_filters, main_adjust, lfe_adjust,
-                                                 lfe_channel_idx)
+        return calculate_compound_routing_filter(self.__matrix, editor_meta, xo_induced_delay, xo_filters, main_adjust,
+                                                 lfe_adjust, lfe_channel_idx)
 
     def show_limits(self):
         ''' shows the limits dialog for the xo filter chart. '''
@@ -1962,7 +1986,7 @@ class ChannelEditor:
 
     def __on_mds_change(self, ways: List[Tuple[int, int, float]]):
         self.__mds_points = ways
-        self.__mds_xos = [MDSXO(w[1], w[2], calc=True) if w[2] else None for w in ways]
+        self.__mds_xos = [MDSXO(w[1], w[2], calc=True, lp_channel=[], hp_channel=[]) if w[2] else None for w in ways]
         has_mds = any((x is not None for x in self.__mds_xos))
         self.__mds.setIcon(qta.icon('fa5s.check') if has_mds else QIcon())
         for i, xo in enumerate(self.__mds_xos):
@@ -2038,6 +2062,11 @@ class ChannelEditor:
         return self.__meta
 
     @property
+    def xo_induced_delay(self) -> float:
+        self.__recalc()
+        return next(iter(self.__xos.values())).xo_induced_delay if self.__xos else 0.0
+
+    @property
     def output_channels(self) -> Dict[str, List[str]]:
         return {k: [c for a, b in v1 for c in b] for k, v1 in self.__output_channels_by_underlying.items()}
 
@@ -2058,7 +2087,8 @@ class ChannelEditor:
                         if e.hp_filter_type:
                             ss_filter = e.hp_filter
                         if self.ways == 1:
-                            xos.append(StandardXO(output_channels_this_way, output_channels_this_way, low_pass=e.lp_filter))
+                            xos.append(
+                                StandardXO(output_channels_this_way, output_channels_this_way, low_pass=e.lp_filter))
                         else:
                             lp_filter = e.lp_filter
                     else:
@@ -2287,13 +2317,13 @@ class WayEditor:
     @property
     def hp_filter(self) -> Optional[ComplexHighPass]:
         if self.hp_filter_type:
-            return ComplexHighPass(self.hp_filter_type, self.hp_order, JRIVER_FS, self.hp_fc)
+            return ComplexHighPass(self.hp_filter_type, self.hp_order, JRIVER_FS, self.hp_fc, q=DEFAULT_Q)
         return None
 
     @property
     def lp_filter(self) -> Optional[ComplexLowPass]:
         if self.lp_filter_type:
-            return ComplexLowPass(self.lp_filter_type, self.lp_order, JRIVER_FS, self.lp_fc)
+            return ComplexLowPass(self.lp_filter_type, self.lp_order, JRIVER_FS, self.lp_fc, q=DEFAULT_Q)
         return None
 
     def get_way_values(self) -> WayValues:
