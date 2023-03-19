@@ -257,13 +257,16 @@ def group_routes_by_output_channel(active_routes: List[Route]) -> Tuple[List[Rou
 
 
 def normalise_delays(channels_by_delay: Dict[float, List[str]]) -> Dict[float, List[str]]:
-    max_delay = max(channels_by_delay.keys())
-    result: Dict[float, List[str]] = defaultdict(list)
-    for k, v in channels_by_delay.items():
-        normalised_delay = round(max_delay - k, 6)
-        if not math.isclose(normalised_delay, 0.0):
-            result[normalised_delay].extend(v)
-    return result
+    if channels_by_delay:
+        max_delay = max(channels_by_delay.keys())
+        result: Dict[float, List[str]] = defaultdict(list)
+        for k, v in channels_by_delay.items():
+            normalised_delay = round(max_delay - k, 6)
+            if not math.isclose(normalised_delay, 0.0):
+                result[normalised_delay].extend(v)
+        return result
+    else:
+        return {}
 
 
 def calculate_compound_routing_filter(matrix: Matrix,
