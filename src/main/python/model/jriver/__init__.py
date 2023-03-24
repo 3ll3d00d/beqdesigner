@@ -30,3 +30,7 @@ class UnsupportedRoutingError(RoutingError):
 
     def __init__(self, msg: str):
         super().__init__(msg)
+
+
+def s2f(val: str) -> float:
+    return float(val.replace(",", "."))

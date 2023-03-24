@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import itertools
 import json
-import locale
 import logging
 import math
 import os
@@ -23,7 +22,7 @@ from qtpy.QtWidgets import QDialog, QFileDialog, QMenu, QAction, QListWidgetItem
 
 from model.filter import FilterModel, FilterDialog
 from model.iir import SOS, CompleteFilter, FilterType, ComplexLowPass, ComplexHighPass, DEFAULT_Q
-from model.jriver import JRIVER_FS, flatten, ImpossibleRoutingError
+from model.jriver import JRIVER_FS, flatten, ImpossibleRoutingError, s2f
 from model.jriver.codec import get_element, xpath_to_key_data_value, write_dsp_file, get_peq_key_name
 from model.jriver.common import get_channel_name, get_channel_idx, OutputFormat, SHORT_USER_CHANNELS, make_dirac_pulse, \
     OUTPUT_FORMATS
@@ -37,8 +36,8 @@ from model.jriver.mcws import MediaServer, MCWSError, DSPMismatchError
 from model.jriver.parser import from_mso
 from model.jriver.render import render_dot
 from model.jriver.routing import Matrix, LFE_ADJUST_KEY, EDITORS_KEY, EDITOR_NAME_KEY, \
-    UNDERLYING_KEY, WAYS_KEY, SYM_KEY, LFE_IN_KEY, ROUTING_KEY, calculate_compound_routing_filter, normalise_delays, \
-    group_routes_by_output_channel
+    UNDERLYING_KEY, WAYS_KEY, SYM_KEY, LFE_IN_KEY, ROUTING_KEY, calculate_compound_routing_filter, \
+    calculate_mds_sum_remapping
 from model.limits import DecibelRangeCalculator, PhaseRangeCalculator
 from model.magnitude import MagnitudeModel
 from model.preferences import JRIVER_GEOMETRY, JRIVER_GRAPH_X_MIN, JRIVER_GRAPH_X_MAX, JRIVER_DSP_DIR, \
@@ -1319,7 +1318,7 @@ class JRiverGainDialog(QDialog, Ui_jriverGainDialog):
         self.gain.valueChanged.connect(self.__enable_accept)
         self.__validators.append(lambda: not math.isclose(self.gain.value(), 0.0))
         if 'Gain' in self.__vals:
-            self.gain.setValue(locale.atof(self.__vals['Gain']))
+            self.gain.setValue(s2f(self.__vals['Gain']))
         self.gain.setFocus()
         self.__enable_accept()
 
@@ -1373,7 +1372,7 @@ class JRiverDelayDialog(QDialog, Ui_jriverDelayDialog):
         self.__validators.append(lambda: not math.isclose(self.millis.value(), 0.0))
         self.distance.blockSignals(True)
         if 'Delay' in self.__vals:
-            self.millis.setValue(locale.atof(self.__vals['Delay']))
+            self.millis.setValue(s2f(self.__vals['Delay']))
         self.millis.setFocus()
         self.__enable_accept()
 
@@ -1459,7 +1458,7 @@ class JRiverMixFilterDialog(QDialog, Ui_jriverMixDialog):
         if 'Destination' in self.__vals:
             self.destination.setCurrentText(get_channel_name(int(self.__vals['Destination'])))
         if 'Gain' in self.__vals:
-            self.gain.setValue(locale.atof(self.__vals['Gain']))
+            self.gain.setValue(s2f(self.__vals['Gain']))
         self.__validators.append(lambda: self.source.currentText() != self.destination.currentText())
 
     def __enable_accept(self):
@@ -1802,13 +1801,9 @@ class XODialog(QDialog, Ui_xoDialog):
         Creates the routing filter.
         :return: the filter.
         '''
-        lfe_channel_idx, lfe_adjust, main_adjust = self.__get_lfe_metadata()
-        mds_channels = [e for e in self.__editors if e.visible if not math.isclose(e.xo_induced_delay, 0.0)]
-        _, summed_routes = group_routes_by_output_channel(self.__matrix.active_routes)
-        summed_routes_use_mds = False
-        if mds_channels and summed_routes:
-            # see if mds output is found
-            pass
+        mds_channel_ways: Dict[str, List[int]] = {c: e.mds_ways for e in self.__editors if e.visible and e.uses_mds for
+                                                  c in e.underlying_channels}
+        remapped_summed_mds_way = calculate_mds_sum_remapping(self.__matrix, mds_channel_ways)
 
         xo_filters: List[MultiwayFilter] = []
         xo_induced_delay: Dict[float, List[str]] = defaultdict(list)
@@ -1822,6 +1817,10 @@ class XODialog(QDialog, Ui_xoDialog):
             {EDITOR_NAME_KEY: e.name, UNDERLYING_KEY: e.underlying_channels, WAYS_KEY: len(e), SYM_KEY: e.symmetric}
             for e in self.__editors if e.visible
         ]
+        for input_c, input_way, output_c, tmp_c in remapped_summed_mds_way:
+            # TODO do we need to empty the output?
+            pass
+        lfe_channel_idx, lfe_adjust, main_adjust = self.__get_lfe_metadata()
         return calculate_compound_routing_filter(self.__matrix, editor_meta, xo_induced_delay, xo_filters, main_adjust,
                                                  lfe_adjust, lfe_channel_idx)
 
@@ -1947,6 +1946,10 @@ class ChannelEditor:
             self.__update_editors()
         else:
             self.__ways.setValue(self.__calculate_ways())
+
+    @property
+    def mds_ways(self) -> List[int]:
+        return [w for w, x in enumerate(self.__mds_xos) if x]
 
     @property
     def uses_mds(self) -> bool:

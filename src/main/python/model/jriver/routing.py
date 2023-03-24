@@ -187,7 +187,8 @@ class Matrix:
     def is_input(self, channel: str):
         return channel in self.__inputs.keys()
 
-    def get_free_output_channels(self) -> List[int]:
+    @property
+    def free_output_channels(self) -> List[int]:
         '''
         :return: the output channels which have no assigned inputs.
         '''
@@ -267,6 +268,33 @@ def normalise_delays(channels_by_delay: Dict[float, List[str]]) -> Dict[float, L
         return result
     else:
         return {}
+
+
+def calculate_mds_sum_remapping(matrix: Matrix, mds_channel_ways: Dict[str, List[int]]) -> List[Tuple[str, int, str, str]]:
+    _, summed_routes = group_routes_by_output_channel(matrix.active_routes)
+    mapping = matrix.get_mapping()
+    free_outputs = matrix.free_output_channels
+    # mds input channel/way -> target summed output channel/temporary output channel
+    remapped_summed_mds_way: List[Tuple[str, int, str, str]] = []
+    summed_output_channels = [o for r in summed_routes for o in r[0]]
+    unallocated_mds_summed_ways: List[Tuple[str, int, str]] = []
+    if mds_channel_ways and summed_routes:
+        for mds_channel, mds_ways in mds_channel_ways.items():
+            output_mapping = mapping[mds_channel]
+            for mds_way in mds_ways:
+                # mds_way is the xo index so technically this ignores the upper side of the xo
+                # but that will never be summed anyway so it's ok to continue
+                if get_channel_idx(output_mapping[mds_way]) in summed_output_channels:
+                    if free_outputs:
+                        remapped_summed_mds_way.append((mds_channel, mds_way, output_mapping[mds_way], get_channel_name(free_outputs.pop(0))))
+                    else:
+                        unallocated_mds_summed_ways.append((mds_channel, mds_way, output_mapping[mds_way]))
+    if unallocated_mds_summed_ways:
+        formatted = ', '.join([f"{u[0]}.{u[1]} -> {u[2]}" for u in unallocated_mds_summed_ways])
+        msg = f"{len(unallocated_mds_summed_ways)} unused output channels are required to supported summation of MDS filters used by {formatted}"
+        msg = f"{msg}\nchange output format to increase the number of output channels or remove use of MDS filters"
+        raise UnsupportedRoutingError(msg)
+    return remapped_summed_mds_way
 
 
 def calculate_compound_routing_filter(matrix: Matrix,
@@ -356,7 +384,6 @@ def calculate_compound_routing_filter(matrix: Matrix,
             'Delay': f"{delay:.7g}",
         }))
     if summed_channel_delays:
-        # TODO now what?
         pass
 
     summed_inputs = [y for x in many_to_one_routes_by_output_channels for y in x[0]]

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import abc
 import json
-import locale
 import logging
 import math
 import time
@@ -16,7 +15,7 @@ from model import iir
 from model.iir import SOS, s_to_q, q_to_s, FirstOrder_LowPass, FirstOrder_HighPass, PassFilter, CompoundPassFilter, \
     FilterType, SecondOrder_LowPass, ComplexLowPass, SecondOrder_HighPass, ComplexHighPass, CompleteFilter, \
     BiquadWithQGain, PeakingEQ, LowShelf as LS, Gain as G, LinkwitzTransform as LT, AllPass as AP, MDS_FREQ_DIVISOR
-from model.jriver import JRIVER_FS, flatten
+from model.jriver import JRIVER_FS, flatten, s2f
 from model.jriver.codec import filts_to_xml
 from model.jriver.common import get_channel_name, pop_channels, get_channel_idx, JRIVER_SHORT_CHANNELS, \
     make_dirac_pulse, make_silence, SHORT_USER_CHANNELS
@@ -211,9 +210,9 @@ class GainQFilter(ChannelFilter, ABC):
     def __init__(self, vals, create_iir, short_name, convert_q: bool = False):
         super().__init__(vals, short_name)
         self.__create_iir = create_iir
-        self.__gain = locale.atof(vals['Gain'])
-        self.__frequency = locale.atof(vals['Frequency'])
-        self.__q = self.from_jriver_q(locale.atof(vals['Q']), self.__gain, convert_q)
+        self.__gain = s2f(vals['Gain'])
+        self.__frequency = s2f(vals['Frequency'])
+        self.__q = self.from_jriver_q(s2f(vals['Q']), self.__gain, convert_q)
 
     @property
     def key_order(self) -> List[str]:
@@ -313,8 +312,8 @@ class AllPass(ChannelFilter):
 
     def __init__(self, vals):
         super().__init__(vals, 'APF')
-        self.__frequency = locale.atof(vals['Frequency'])
-        self.__q = locale.atof(vals['Q'])
+        self.__frequency = s2f(vals['Frequency'])
+        self.__q = s2f(vals['Q'])
 
     @property
     def key_order(self) -> List[str]:
@@ -372,8 +371,8 @@ class Pass(ChannelFilter, ABC):
                  convert_q: bool = False):
         super().__init__(vals, short_name)
         self.__order = int(int(vals['Slope']) / 6)
-        self.__frequency = locale.atof(vals['Frequency'])
-        self.__jriver_q = locale.atof(vals['Q'])
+        self.__frequency = s2f(vals['Frequency'])
+        self.__jriver_q = s2f(vals['Q'])
         self.__q = self.from_jriver_q(self.jriver_q) if self.order == 2 and convert_q else self.jriver_q
         self.__ctors = (one_pole_ctor, two_pole_ctor, many_pole_ctor)
 
@@ -467,7 +466,7 @@ class Gain(ChannelFilter):
 
     def __init__(self, vals):
         super().__init__(vals, 'GAIN')
-        self.__gain = locale.atof(vals['Gain'])
+        self.__gain = s2f(vals['Gain'])
 
     @property
     def gain(self):
@@ -523,7 +522,7 @@ class Delay(ChannelFilter):
 
     def __init__(self, vals):
         super().__init__(vals, 'DELAY')
-        self.__delay = locale.atof(vals['Delay'])
+        self.__delay = s2f(vals['Delay'])
 
     @property
     def delay(self) -> float:
@@ -608,10 +607,10 @@ class LinkwitzTransform(ChannelFilter):
 
     def __init__(self, vals):
         super().__init__(vals, 'LT')
-        self.__fp = locale.atof(vals['Fp'])
-        self.__qp = locale.atof(vals['Qp'])
-        self.__fz = locale.atof(vals['Fz'])
-        self.__qz = locale.atof(vals['Qz'])
+        self.__fp = s2f(vals['Fp'])
+        self.__qp = s2f(vals['Qp'])
+        self.__fz = s2f(vals['Fz'])
+        self.__qz = s2f(vals['Qz'])
         self.__prevent_clipping = vals['PreventClipping']
 
     def get_vals(self, convert_q: bool = False) -> Dict[str, str]:
@@ -647,7 +646,7 @@ class LinkwitzRiley(SingleFilter):
 
     def __init__(self, vals):
         super().__init__(vals, 'LR')
-        self.__freq = locale.atof(vals['Frequency'])
+        self.__freq = s2f(vals['Frequency'])
 
     def get_vals(self, convert_q: bool = False) -> Dict[str, str]:
         return {
@@ -718,7 +717,7 @@ class Mix(SingleFilter):
         super().__init__(vals, f"{MixType(int(vals['Mode'])).name.capitalize()}")
         self.__source = vals['Source']
         self.__destination = vals['Destination']
-        self.__gain = locale.atof(vals['Gain'])
+        self.__gain = s2f(vals['Gain'])
         # mode: 3 = swap, 1 = copy, 2 = move, 0 = add, 4 = subtract
         self.__mode = int(vals['Mode'])
 
@@ -814,7 +813,7 @@ class Mute(ChannelFilter):
 
     def __init__(self, vals):
         super().__init__(vals, 'MUTE')
-        self.__gain = locale.atof(vals['Gain'])
+        self.__gain = s2f(vals['Gain'])
 
     def get_vals(self, convert_q: bool = False) -> Dict[str, str]:
         return {
@@ -846,7 +845,7 @@ class SubwooferLimiter(ChannelFilter):
 
     def __init__(self, vals):
         super().__init__(vals, 'SW Limiter')
-        self.__level = locale.atof(vals['Level'])
+        self.__level = s2f(vals['Level'])
 
     def get_vals(self, convert_q: bool = False) -> Dict[str, str]:
         return {
