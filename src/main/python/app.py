@@ -1353,13 +1353,6 @@ def make_app():
 
 
 if __name__ == '__main__':
-    import locale
-    current_loc = locale.getlocale()
-    locale.setlocale(locale.LC_ALL, '')
-    user_loc = locale.getlocale()
-    if current_loc != user_loc:
-        print(f'locale changed from {current_loc} to {user_loc}')
-
     app, prefs = make_app()
     form = BeqDesigner(app, prefs)
     # setup the error handler
