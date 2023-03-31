@@ -6,19 +6,23 @@ import logging
 import math
 import time
 from abc import ABC, abstractmethod
+from collections import defaultdict
+from dataclasses import dataclass
 from enum import Enum
-from typing import List, Dict, Optional, Callable, Union, Type, Sequence, overload, Tuple, Iterable
+from typing import List, Dict, Optional, Callable, Union, Type, Sequence, overload, Tuple, Iterable, Set
 
 import numpy as np
 
 from model import iir
 from model.iir import SOS, s_to_q, q_to_s, FirstOrder_LowPass, FirstOrder_HighPass, PassFilter, CompoundPassFilter, \
     FilterType, SecondOrder_LowPass, ComplexLowPass, SecondOrder_HighPass, ComplexHighPass, CompleteFilter, \
-    BiquadWithQGain, PeakingEQ, LowShelf as LS, Gain as G, LinkwitzTransform as LT, AllPass as AP, MDS_FREQ_DIVISOR
-from model.jriver import JRIVER_FS, flatten, s2f
+    BiquadWithQGain, PeakingEQ, LowShelf as LS, Gain as G, LinkwitzTransform as LT, AllPass as AP, MDS_FREQ_DIVISOR, \
+    DEFAULT_Q
+from model.jriver import JRIVER_FS, flatten, s2f, UnsupportedRoutingError, ImpossibleRoutingError
 from model.jriver.codec import filts_to_xml
 from model.jriver.common import get_channel_name, pop_channels, get_channel_idx, JRIVER_SHORT_CHANNELS, \
     make_dirac_pulse, make_silence, SHORT_USER_CHANNELS
+from model.jriver.routing import Matrix
 from model.log import to_millis
 from model.signal import Signal
 
@@ -722,6 +726,10 @@ class Mix(SingleFilter):
         self.__mode = int(vals['Mode'])
 
     @property
+    def channel_names(self) -> List[str]:
+        return [get_channel_name(self.src_idx), get_channel_name(self.dst_idx)]
+
+    @property
     def src_idx(self):
         return int(self.__source)
 
@@ -813,7 +821,7 @@ class Mute(ChannelFilter):
 
     def __init__(self, vals):
         super().__init__(vals, 'MUTE')
-        self.__gain = s2f(vals['Gain'])
+        self.__gain = 0.0
 
     def get_vals(self, convert_q: bool = False) -> Dict[str, str]:
         return {
@@ -824,6 +832,9 @@ class Mute(ChannelFilter):
     @property
     def key_order(self) -> List[str]:
         return ['Enabled', 'Type', 'Gain', 'Channels']
+
+    def get_filter_op(self) -> FilterOp:
+        return ZeroFilterOp() if self.enabled else NopFilterOp()
 
 
 class Polarity(ChannelFilter):
@@ -837,7 +848,7 @@ class Polarity(ChannelFilter):
         return ['Enabled', 'Type', 'Channels']
 
     def get_filter_op(self) -> FilterOp:
-        return InvertPolarityFilterOp()
+        return InvertPolarityFilterOp() if self.enabled else NopFilterOp()
 
 
 class SubwooferLimiter(ChannelFilter):
@@ -1137,20 +1148,19 @@ class XOFilter(ComplexChannelFilter):
 
 class CompoundRoutingFilter(ComplexFilter, Sequence[Filter]):
 
-    def __init__(self, metadata: str, routing: List[Filter], delays: List[Delay], xo: List[MultiwayFilter]):
+    def __init__(self, metadata: str, gain: List[Filter], delays: List[Delay], xo: List[MultiwayFilter],
+                 sums: List[Mix]):
         self.__metadata = metadata
-        self.routing = routing if routing is not None else []
+        self.gain = gain if gain is not None else []
         self.xo = xo if xo is not None else []
+        self.sums = sums if sums is not None else []
         self.delays = delays if delays is not None else []
-        all_filters = self.routing + self.xo + self.delays
+        all_filters = self.gain + self.xo + self.delays + self.sums
         all_channels = set()
         for f in all_filters:
             if hasattr(f, 'channel_names'):
                 for c in f.channel_names:
                     all_channels.add(c)
-            elif isinstance(f, Mix):
-                all_channels.add(get_channel_name(f.src_idx))
-                all_channels.add(get_channel_name(f.dst_idx))
         self.__channel_names = [x for x in JRIVER_SHORT_CHANNELS if x in all_channels]
         super().__init__(all_filters)
 
@@ -1184,15 +1194,18 @@ class CompoundRoutingFilter(ComplexFilter, Sequence[Filter]):
         gain_filters = []
         xo_filters = []
         delay_filters = []
-        # filters arranged as gain - delay - multiway
+        sum_filters = []
+        active_filters = gain_filters
+        # filters arranged as gain - multiway - sum - delay
         for f in child_filters:
             if isinstance(f, (MultiwayFilter, XOFilter)):
-                xo_filters.append(f)
+                active_filters = xo_filters
+            elif isinstance(f, (Mix, Mute)):
+                active_filters = sum_filters
             elif isinstance(f, Delay):
-                delay_filters.append(f)
-            else:
-                gain_filters.append(f)
-        return CompoundRoutingFilter(data, gain_filters, delay_filters, xo_filters)
+                active_filters = delay_filters
+            active_filters.append(f)
+        return CompoundRoutingFilter(data, gain_filters, delay_filters, xo_filters, sum_filters)
 
 
 class CustomPassFilter(ComplexChannelFilter):
@@ -1221,7 +1234,6 @@ class CustomPassFilter(ComplexChannelFilter):
     def __decode_custom_filter(self) -> SOS:
         '''
         Decodes a custom filter name into a filter.
-        :param desc: the filter description.
         :return: the filter.
         '''
         tokens = self.__name.split('/')
@@ -1500,6 +1512,12 @@ class GainFilterOp(FilterOp):
 
     def apply(self, input_signal: Signal) -> Signal:
         return input_signal.offset(self.__gain_db)
+
+
+class ZeroFilterOp(FilterOp):
+
+    def apply(self, input_signal: Signal) -> Signal:
+        return input_signal.zero()
 
 
 class FilterGraph:
@@ -1856,10 +1874,9 @@ class FilterGraph:
         if recalc or self.__sim is None:
             start = time.time()
             signals: Dict[str, Tuple[Signal, Optional[SosFilterOp]]] = {
-                c: (
-                    make_dirac_pulse(c,
+                c: (make_dirac_pulse(c,
                                      analysis_resolution=analysis_resolution) if c in self.input_channels else make_silence(
-                        c), None)
+                    c), None)
                 for c in self.output_channels
             }
             for f in self.all_filters:
@@ -1962,8 +1979,7 @@ class XO:
         self.__in_channel = in_channel
 
     @abc.abstractmethod
-    def calc_filters(self,
-                     apply_output_filters_to_lp: Optional[Callable[[str], List[Filter]]],
+    def calc_filters(self, apply_output_filters_to_lp: Optional[Callable[[str], List[Filter]]],
                      apply_output_filters_to_hp: Optional[Callable[[str], List[Filter]]]) -> List[Filter]:
         raise NotImplementedError()
 
@@ -1977,9 +1993,8 @@ class XO:
 
 class StandardXO(XO):
 
-    def __init__(self, out_channel_lp: List[str], out_channel_hp: List[str],
-                 low_pass: Optional[ComplexLowPass] = None, high_pass: Optional[ComplexHighPass] = None,
-                 fs: int = JRIVER_FS):
+    def __init__(self, out_channel_lp: List[str], out_channel_hp: List[str], low_pass: Optional[ComplexLowPass] = None,
+                 high_pass: Optional[ComplexHighPass] = None, fs: int = JRIVER_FS):
         super().__init__(out_channel_lp, out_channel_hp, fs=fs)
         self.__low_pass = low_pass
         self.__high_pass = high_pass
@@ -2032,7 +2047,8 @@ class StandardXO(XO):
                     'Mode': str(MixType.COPY.value)
                 }))
 
-                if (self.__high_pass or apply_output_filters_to_hp is not None) and self.in_channel in self.out_channel_hp:
+                if (
+                        self.__high_pass or apply_output_filters_to_hp is not None) and self.in_channel in self.out_channel_hp:
                     lp_src_channel = 'U1'
                     filters.append(create_single_filter({
                         **Mix.default_values(),
@@ -2108,20 +2124,18 @@ class StandardXO(XO):
 class MDSXO(XO):
 
     def __init__(self, order: int, target_fc: float, fc_divisor: float = 0.0, lp_channel: List[str] = None,
-                 hp_channel: List[str] = None, fs: int = JRIVER_FS, calc: bool = False):
+                 hp_channel: List[str] = None, fs: int = JRIVER_FS):
         super().__init__(lp_channel, hp_channel, fs=fs)
         self.__order = order
         self.__target_fc = target_fc
         self.__fc_divisor = fc_divisor if fc_divisor != 0.0 else MDS_FREQ_DIVISOR[order]
-        self.__dc_gd_millis = self.__calc_dc_gd(self.__make_low_pass())
+        self.__dc_gd_millis = round(self.__make_low_pass().dc_gd_millis, 6)
         self.__multi_way_delay_filter: Optional[Delay] = None
         self.__graph: Optional[FilterGraph] = None
         self.__output = None
         self.__crossing = None
         self.__lp_slope = None
         self.__hp_slope = None
-        if calc is True:
-            self.__recalc()
 
     def to_json(self) -> dict:
         return {'o': self.__order, 'f': self.__target_fc, 'd': self.__fc_divisor, 'l': self.out_channel_lp,
@@ -2135,11 +2149,11 @@ class MDSXO(XO):
     def in_channel(self, in_channel):
         XO.in_channel.fset(self, in_channel)
 
-    def __recalc(self):
-        if self.__graph is not None:
+    def recalc(self, force=False):
+        if self.__graph is not None or force is True:
             self.__graph = None
             self.__calc_graph()
-        if self.__output is not None:
+        if self.__output is not None or force is True:
             self.__output = None
             self.__calc_output()
 
@@ -2188,18 +2202,15 @@ class MDSXO(XO):
 
     @property
     def lp_output(self) -> Signal:
-        self.__calc_output()
-        return self.__output[self.out_channel_lp]
+        return self.__output[self.out_channel_lp[0]]
 
     def __calc_output(self):
-        self.__recalc()
         if self.__output is None:
             self.__output = self.__graph.simulate(analysis_resolution=0.1)
 
     @property
     def hp_output(self) -> Signal:
-        self.__calc_output()
-        return self.__output[self.out_channel_hp]
+        return self.__output[self.out_channel_hp[0]]
 
     @property
     def order(self) -> int:
@@ -2239,7 +2250,8 @@ class MDSXO(XO):
         :return:
         '''
         assert self.in_channel is not None
-        channels = list({c for c in ([self.in_channel] + self.out_channel_lp + self.out_channel_hp + SHORT_USER_CHANNELS)})
+        channels = list(
+            {c for c in ([self.in_channel] + self.out_channel_lp + self.out_channel_hp + SHORT_USER_CHANNELS)})
         out_lp_ch = self.out_channel_lp[0]
         out_hp_ch = self.out_channel_hp[0]
         graph = FilterGraph(0, channels, channels, [])
@@ -2370,6 +2382,373 @@ class MDSXO(XO):
         return f"MDS {super().__repr__()} {self.order} / {self.target_fc:.2f}"
 
 
+@dataclass
+class MDSPoint:
+    way: int
+    order: int
+    freq: float
+
+    def to_json(self):
+        return [self.way, self.order, self.freq]
+
+    @classmethod
+    def from_json(cls, vals):
+        if vals and len(vals) == 3:
+            return MDSPoint(*vals)
+        else:
+            raise ValueError(f"Must have 3 values to create MDSPoint - {vals}")
+
+
+@dataclass
+class TmpFilterChannel:
+    input_ch: str
+    way: int
+    output_ch: str
+    tmp_ch: str
+
+
+LFE_ADJUST_KEY = 'l'
+ROUTING_KEY = 'r'
+EDITORS_KEY = 'e'
+EDITOR_NAME_KEY = 'n'
+UNDERLYING_KEY = 'u'
+WAYS_KEY = 'w'
+SYM_KEY = 's'
+LFE_IN_KEY = 'x'
+
+
+@dataclass
+class MultiChannelSystem:
+    descriptors: List[CompositeXODescriptor]
+
+    def calculate_filters(self, output_matrix: Matrix, editor_meta: Optional[List[dict]] = None, main_adjust: int = 0,
+                          lfe_adjust: int = 0, lfe_channel_idx: int = 0) -> CompoundRoutingFilter:
+        '''
+        Calculates the filters required to route and bass manage, if necessary, the input channels.
+        :param output_matrix: the routing matrix.
+        :param editor_meta: extra editor metadata.
+        :param main_adjust: the gain adjustment for a main channel when bass management is required.
+        :param lfe_adjust: the gain adjustment for the LFE channel when bass management is required.
+        :param lfe_channel_idx: the lfe channel index.
+        :return: the complete filter.
+        '''
+        tmp_filter_channels, matrix = self.__calculate_tmp_filter_channels(output_matrix)
+        one_to_one_routes, many_to_one_routes = matrix.group_active_routes_by_output()
+        self.__validate_routing(one_to_one_routes, many_to_one_routes, matrix.input_channel_indexes)
+
+        gain_filters = self.__calculate_gain_filters(matrix.input_channel_indexes, main_adjust, lfe_adjust,
+                                                     lfe_channel_idx)
+
+        xo_filters: List[MultiwayFilter] = []
+        xo_induced_delay: Dict[float, Set[str]] = defaultdict(set)
+        for comp_xo_desc in self:
+            for in_ch, xo_desc in comp_xo_desc.xo_descriptors.items():
+                for c in xo_desc.out_channels:
+                    xo_induced_delay[comp_xo_desc.xo_induced_delay].add(c)
+            xo_filters.extend(comp_xo_desc.as_multiway_filters(tmp_filter_channels))
+
+        normalised_delays = self.__normalise_delays(xo_induced_delay)
+        delay_filters = []
+        summed_channels = [get_channel_name(i) for r in many_to_one_routes for i in r[0]]
+        summed_channel_delays: Dict[str, float] = {}
+        for delay, channels in normalised_delays.items():
+            single_route_channels = []
+            for c in sorted(channels, key=get_channel_idx):
+                if c in summed_channels:
+                    summed_channel_delays[c] = delay
+                else:
+                    single_route_channels.append(str(get_channel_idx(c)))
+            delay_filters.append(Delay({
+                **Delay.default_values(),
+                'Channels': ';'.join(single_route_channels),
+                'Delay': f"{delay:.7g}",
+            }))
+        if summed_channel_delays:
+            # TODO do we need to fix something?
+            print('TODO is this broken?')
+        summed_inputs = [y for x in many_to_one_routes for y in x[0]]
+        if xo_filters:
+            for xo in xo_filters:
+                for i, f in enumerate(xo.filters):
+                    if isinstance(f, Mix):
+                        # only change to add if it's not the subtract used by an MDS filter
+                        if f.dst_idx in summed_inputs and f.mix_type != MixType.SUBTRACT:
+                            xo.filters[i] = Mix({**f.get_all_vals()[0], **{'Mode': MixType.ADD.value}})
+        sum_filters = []
+        for tc in tmp_filter_channels:
+            sum_filters.append(Mix({
+                **Mix.default_values(),
+                'Source': str(get_channel_idx(tc.tmp_ch)),
+                'Destination': str(get_channel_idx(tc.output_ch)),
+                'Mode': str(MixType.ADD.value)
+            }))
+            sum_filters.append(Mute({
+                **Mute.default_values(),
+                'Channels': str(get_channel_idx(tc.tmp_ch))
+            }))
+
+        meta = self.__create_routing_metadata(output_matrix, editor_meta, lfe_channel_idx, lfe_adjust)
+        return CompoundRoutingFilter(json.dumps(meta), gain_filters, delay_filters, xo_filters, sum_filters)
+
+    @staticmethod
+    def __calculate_gain_filters(input_channel_indexes: List[int], main_adjust: int, lfe_adjust: int,
+                                 lfe_channel_idx: int) -> List[Gain]:
+        filters: List[Gain] = []
+        if lfe_channel_idx:
+            if lfe_adjust != 0:
+                filters.append(Gain({
+                    'Enabled': '1',
+                    'Type': Gain.TYPE,
+                    'Gain': f"{lfe_adjust:.7g}",
+                    'Channels': str(lfe_channel_idx)
+                }))
+        if main_adjust:
+            for i in input_channel_indexes:
+                if i != lfe_channel_idx:
+                    filters.append(Gain({
+                        'Enabled': '1',
+                        'Type': Gain.TYPE,
+                        'Gain': f"{main_adjust:.7g}",
+                        'Channels': str(i)
+                    }))
+        return filters
+
+    @staticmethod
+    def __validate_routing(one_to_one_routes, many_to_one_routes, input_channel_indexes):
+        illegal_routes = [r for r in one_to_one_routes if r.o in input_channel_indexes and r.i != r.o]
+        if illegal_routes:
+            raise ImpossibleRoutingError(f"Overwriting an input channel is not supported - {illegal_routes}")
+        # detect if a summed route is writing to a channel which is an input for another summed route
+        if len(many_to_one_routes) > 1:
+            for i1, vals1 in enumerate(many_to_one_routes):
+                output_channels1, summed_routes1 = vals1
+                for i2, vals2 in enumerate(many_to_one_routes):
+                    if i1 != i2:
+                        output_channels2, summed_routes2 = vals2
+                        inputs2 = {r.i for r in summed_routes2}
+                        overlap = inputs2.intersection({o for o in output_channels1})
+                        if overlap:
+                            overlapping_channel_names = [get_channel_name(o) for o in overlap]
+                            summed_routes_pp = [r.pp() for r in summed_routes2]
+                            # TODO detect if we have a spare output channel and use it
+                            msg = f"Unable to write summed output to {overlapping_channel_names}, is input channel for {summed_routes_pp}"
+                            msg = f"{msg}... Additional output channels required to provide room for mixing"
+                            raise ImpossibleRoutingError(msg)
+
+    def __calculate_tmp_filter_channels(self, matrix: Matrix) -> Tuple[List[TmpFilterChannel], Matrix]:
+        '''
+        :param many_to_one_routes: summed routes (input channel indexes / summed routes).
+        :param channel_mapping: complete channel mapping (input -> way -> outputs)
+        :param free_output_channels: available output channel names.
+        :return: list of filter channels that need to calculated in a separate channel before being summed into the final (sharded) output channel.
+        '''
+
+        def summed_output_channel_names(m: Matrix):
+            _, s = m.group_active_routes_by_output()
+            return [get_channel_name(o) for r in s for o in r[0]]
+
+        _, many_to_one_routes = matrix.group_active_routes_by_output()
+        free_output_channels = [get_channel_name(o) for o in matrix.free_output_channels]
+
+        mds_enabled_channels = {get_channel_name(c): xo.mds_ways for xo in self for c in xo.input_channel_indexes}
+        remapped_summed_mds_way: List[TmpFilterChannel] = []
+        unallocated_mds_summed_ways: List[Tuple[str, int, str]] = []
+        if mds_enabled_channels and many_to_one_routes:
+            for input_channel_name, mds_enabled_ways in mds_enabled_channels.items():
+                way_to_output_channels = matrix.channel_mapping[input_channel_name]
+                for mds_enabled_way in mds_enabled_ways:
+                    # mds_enabled_way is the xo index so technically this ignores the upper side of the xo but that will never be summed in practice
+                    way_output_channels = way_to_output_channels[mds_enabled_way]
+                    for o in way_output_channels:
+                        if o in summed_output_channel_names(matrix):
+                            if free_output_channels:
+                                tmp_ch = free_output_channels.pop(0)
+                                remapped_summed_mds_way.append(
+                                    TmpFilterChannel(input_channel_name, mds_enabled_way, o, tmp_ch))
+                                matrix = matrix.clone()
+                                matrix.disable(input_channel_name, mds_enabled_way, o)
+                                matrix.enable(input_channel_name, mds_enabled_way, tmp_ch)
+                            else:
+                                unallocated_mds_summed_ways.append((input_channel_name, mds_enabled_way, o))
+        if unallocated_mds_summed_ways:
+            formatted = ', '.join([f"{u[0]}.{u[1]} -> {u[2]}" for u in unallocated_mds_summed_ways])
+            msg = f"{len(unallocated_mds_summed_ways)} unused output channel"
+            msg = f"{msg}s are required" if len(unallocated_mds_summed_ways) > 1 else f"{msg} is required"
+            msg = f"{msg} to support summation of MDS filters used by {formatted}"
+            msg = f"{msg}\nchange output format to increase the number of output channels or remove use of MDS filters"
+            raise UnsupportedRoutingError(msg)
+        return remapped_summed_mds_way, matrix
+
+    @staticmethod
+    def __normalise_delays(channels_by_delay: Dict[float, Set[str]]) -> Dict[float, List[str]]:
+        if channels_by_delay:
+            max_delay = max(channels_by_delay.keys())
+            result: Dict[float, List[str]] = defaultdict(list)
+            for k, v in channels_by_delay.items():
+                normalised_delay = round(max_delay - k, 6)
+                if not math.isclose(normalised_delay, 0.0):
+                    result[normalised_delay].extend(v)
+            return result
+        else:
+            return {}
+
+    @staticmethod
+    def __create_routing_metadata(matrix: Matrix, editor_meta: Optional[List[dict]], lfe_channel: Optional[int],
+                                  lfe_adjust: Optional[int]) -> dict:
+        meta = {
+            EDITORS_KEY: editor_meta if editor_meta else [],
+            ROUTING_KEY: matrix.encode(),
+        }
+        if lfe_channel:
+            meta[LFE_IN_KEY] = lfe_channel
+        if lfe_adjust:
+            meta[LFE_ADJUST_KEY] = lfe_adjust
+        return meta
+
+    def __len__(self):
+        return len(self.descriptors)
+
+    def __iter__(self):
+        return iter(self.descriptors)
+
+
+class CompositeXODescriptor:
+    def __init__(self, descriptors_by_ch: Dict[str, XODescriptor], mds_xos: List[Optional[MDSXO]],
+                 mds_points: List[MDSPoint]):
+        self.__descriptors_by_ch = descriptors_by_ch
+        self.__mds_xos = mds_xos
+        self.__mds_points = mds_points
+        self.__multiway_xos: Dict[str, MultiwayCrossover] = {}
+        self.__meta: dict = {}
+
+    @property
+    def xo_descriptors(self) -> Dict[str, XODescriptor]:
+        return self.__descriptors_by_ch
+
+    @property
+    def input_channel_indexes(self) -> List[int]:
+        return [get_channel_idx(c) for c in self.__descriptors_by_ch.keys()]
+
+    @property
+    def multiway_xos(self):
+        self.__recalc()
+        return self.__multiway_xos
+
+    @property
+    def meta(self):
+        self.__recalc()
+        return self.__meta
+
+    @property
+    def mds_ways(self) -> List[int]:
+        return [w for w, x in enumerate(self.__mds_xos) if x]
+
+    def __recalc(self):
+        if not self.__multiway_xos.keys():
+            meta_wv = None
+            for in_ch, xo_desc in self.__descriptors_by_ch.items():
+                ss_filter: Optional[ComplexHighPass] = None
+                xos: List[XO] = []
+                way_values = [w.values for w in xo_desc.ways]
+                lp_filter: Optional[ComplexLowPass] = None
+                last_way_out_channels = None
+                for desc in xo_desc:
+                    v = desc.values
+                    if v.way == 0:
+                        if v.hp_filter_type:
+                            ss_filter = v.hp_filter
+                        if len(xo_desc) == 1:
+                            xos.append(StandardXO(desc.out_channels, desc.out_channels, low_pass=v.lp_filter))
+                        else:
+                            lp_filter = v.lp_filter
+                    else:
+                        mds_xo = self.__mds_xos[len(xos)]
+                        if mds_xo:
+                            mds_xo.out_channel_lp = last_way_out_channels
+                            mds_xo.out_channel_hp = desc.out_channels
+                            xos.append(mds_xo)
+                        else:
+                            xos.append(StandardXO(last_way_out_channels, desc.out_channels, low_pass=lp_filter,
+                                                  high_pass=v.hp_filter))
+                        lp_filter = v.lp_filter
+                    last_way_out_channels = desc.out_channels
+                self.__multiway_xos[in_ch] = MultiwayCrossover(in_ch, xos, way_values, subsonic_filter=ss_filter)
+                if not meta_wv:
+                    meta_wv = [w.to_json() for w in way_values]
+            self.__meta = {
+                'w': meta_wv,
+                'm': [p.to_json() for p in self.__mds_points],
+            }
+
+    @property
+    def xo_induced_delay(self) -> float:
+        self.__recalc()
+        return next(iter(self.multiway_xos.values())).xo_induced_delay if self.multiway_xos else 0.0
+
+    @property
+    def impulses(self) -> List[Signal]:
+        self.__recalc()
+        if self.multiway_xos:
+            return next(iter(self.multiway_xos.values())).output
+        else:
+            return []
+
+    @property
+    def multiway_filters(self) -> List[MultiwayFilter]:
+        self.__recalc()
+        return [MultiwayFilter(c, xo.all_output_channels, xo.graph.filters, self.meta) for c, xo in
+                self.multiway_xos.items()]
+
+    def as_multiway_filters(self, remapping: List[TmpFilterChannel]) -> List[MultiwayFilter]:
+        if remapping:
+            new_desc = {}
+            for ch, desc in self.__descriptors_by_ch.items():
+                channel_remapping = [r for r in remapping if r.input_ch == ch]
+                new_desc[ch] = self.__remap_xo_desc(desc, channel_remapping) if channel_remapping else desc
+            return CompositeXODescriptor(new_desc, self.__mds_xos, self.__mds_points).multiway_filters
+        else:
+            return self.multiway_filters
+
+    @staticmethod
+    def __remap_xo_desc(desc: XODescriptor, channel_remapping: List[TmpFilterChannel]) -> XODescriptor:
+        ways = []
+        for w in desc.ways:
+            way_remapping = [r for r in channel_remapping if r.way == w.values.way]
+            if way_remapping:
+                out_chs = []
+                for o in w.out_channels:
+                    try:
+                        out_chs.append(next(r.tmp_ch for r in way_remapping if r.output_ch == o))
+                    except StopIteration:
+                        out_chs.append(o)
+                ways.append(WayDescriptor(w.values, out_chs))
+            else:
+                ways.append(w)
+        return XODescriptor(desc.in_channel, ways)
+
+
+@dataclass
+class WayDescriptor:
+    values: WayValues
+    out_channels: List[str]
+
+
+@dataclass
+class XODescriptor:
+    in_channel: str
+    ways: List[WayDescriptor]
+
+    def __len__(self):
+        return len(self.ways)
+
+    def __iter__(self):
+        return iter(self.ways)
+
+    @property
+    def out_channels(self) -> List[str]:
+        return sorted(list({c for w in self.ways for c in w.out_channels}), key=lambda c: get_channel_idx(c))
+
+
 class WayValues:
     def __init__(self, way: int, delay_millis: float = 0.0, gain: float = 0.0, inverted: bool = False,
                  lp: list = None, hp: list = None):
@@ -2379,6 +2758,42 @@ class WayValues:
         self.inverted = inverted
         self.lp = lp
         self.hp = hp
+
+    @property
+    def hp_filter(self) -> Optional[ComplexHighPass]:
+        if self.hp_filter_type:
+            return ComplexHighPass(self.hp_filter_type, self.hp_order, JRIVER_FS, self.hp_freq, q=DEFAULT_Q)
+        return None
+
+    @property
+    def hp_filter_type(self) -> Optional[FilterType]:
+        return FilterType.value_of(self.hp[0]) if self.hp and self.hp[0] else None
+
+    @property
+    def hp_order(self) -> int:
+        return self.hp[1] if self.hp_filter_type else 0
+
+    @property
+    def hp_freq(self) -> float:
+        return self.hp[2] if self.hp_filter_type else 0.0
+
+    @property
+    def lp_filter(self) -> Optional[ComplexLowPass]:
+        if self.lp_filter_type:
+            return ComplexLowPass(self.lp_filter_type, self.lp_order, JRIVER_FS, self.lp_freq, q=DEFAULT_Q)
+        return None
+
+    @property
+    def lp_filter_type(self) -> Optional[FilterType]:
+        return FilterType.value_of(self.lp[0]) if self.lp and self.lp[0] else None
+
+    @property
+    def lp_order(self) -> int:
+        return self.lp[1] if self.lp_filter_type else 0
+
+    @property
+    def lp_freq(self) -> float:
+        return self.lp[2] if self.lp_filter_type else 0.0
 
     def to_json(self) -> str:
         return json.dumps({
@@ -2430,7 +2845,8 @@ class MultiwayCrossover:
 
         def output_way_is_filtered(way: int) -> Optional[WayValues]:
             if len(way_values) > way and way_values[way] is not None:
-                if way_values[way].inverted or not math.isclose(way_values[way].gain, 0.0) or not math.isclose(way_values[way].delay_millis, 0.0):
+                if way_values[way].inverted or not math.isclose(way_values[way].gain, 0.0) or not math.isclose(
+                        way_values[way].delay_millis, 0.0):
                     return way_values[way]
             return None
 
@@ -2463,8 +2879,10 @@ class MultiwayCrossover:
             else:
                 x.in_channel = last_x.out_channel_hp[0]
 
-            x_filters = x.calc_filters((lambda c: apply_output_way_filters(way_values[i], c)) if output_way_is_filtered(i) else None,
-                                       (lambda c: apply_output_way_filters(way_values[i + 1], c)) if output_way_is_filtered(i + 1) and i + 1 == len(self.__xos) else None)
+            x_filters = x.calc_filters(
+                (lambda c: apply_output_way_filters(way_values[i], c)) if output_way_is_filtered(i) else None,
+                (lambda c: apply_output_way_filters(way_values[i + 1], c)) if output_way_is_filtered(
+                    i + 1) and i + 1 == len(self.__xos) else None)
             filters.extend(x_filters)
             last_x = x
             channels_by_way.extend(x.out_channel_lp)

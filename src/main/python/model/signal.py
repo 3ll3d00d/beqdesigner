@@ -1080,6 +1080,20 @@ class Signal:
                       metadata=self.metadata,
                       rescale_x=self.__rescale_x_resolution)
 
+    def zero(self):
+        '''
+        zeroes the signal
+        :return: the zeroed signal
+        '''
+        return Signal(self.name,
+                      np.zeros(self.samples.shape),
+                      analysis_resolution=self.__analysis_resolution,
+                      avg_window=self.__avg_window,
+                      peak_window=self.__peak_window,
+                      fs=self.fs,
+                      metadata=self.metadata,
+                      rescale_x=self.__rescale_x_resolution)
+
     def copy(self, new_name=None):
         '''
         Copies the signal, optionally setting a new name.
@@ -1107,7 +1121,7 @@ class Signal:
             if samples > 0:
                 new_samples = np.insert(self.samples, 0, np.zeros(samples))[:-samples]
             else:
-                new_samples = np.append(self.samples, np.zeros(samples))[samples:]
+                new_samples = np.append(self.samples, np.zeros(-samples))[-samples:]
         else:
             new_samples = np.copy(self.samples)
 
@@ -1306,10 +1320,21 @@ class Signal:
         return window
 
     def step_response(self):
-        t = np.arange(start=0.0, stop=self.samples.size / self.fs, step=1 / self.fs)
+        t = self.sample_times
         from scipy import integrate
         sr = integrate.cumulative_trapezoid(self.samples, t, initial=0)
         return t, sr
+
+    @property
+    def waveform(self):
+        return self.__time_series(), self.raw()
+
+    def __time_series(self):
+        return np.arange(start=0.0, stop=self.samples.size / self.fs, step=1 / self.fs)
+
+    @property
+    def peak_pos(self) -> float:
+        return self.__time_series()[np.argmax(self.samples)]
 
     def __repr__(self):
         return f"Signal {self.name} {{fs: {self.fs}, len: {len(self.samples)}}}"

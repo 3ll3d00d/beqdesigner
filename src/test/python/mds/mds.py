@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
+from model.iir import ComplexLowPass, FilterType
 from model.jriver.filter import optimise_mds
 
 f = plt.figure()
@@ -8,6 +9,7 @@ plt.grid(visible=True)
 
 
 if __name__ == '__main__':
+
     start = 50
     fc_list = [start]
     end = 500

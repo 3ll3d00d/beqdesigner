@@ -212,8 +212,9 @@ def float_to_hex(f, minidsp_style, fixed_point):
 
 class SOS(ABC):
 
-    def __init__(self, f_id=-1):
+    def __init__(self, f_id=-1, fs=48000):
         self.__id = f_id
+        self.fs = fs
 
     @property
     def id(self):
@@ -227,11 +228,29 @@ class SOS(ABC):
     def get_sos(self) -> Optional[List[List[float]]]:
         pass
 
+    @property
+    def dc_gd_millis(self) -> Optional[float]:
+        soses = self.get_sos()
+        if soses:
+            gd = 0.0
+            from scipy.signal import group_delay
+            for i, sos in enumerate(soses):
+                b = sos[:3]
+                a = sos[3:]
+                # w=1 calculates at DC only
+                f_s, gd_c = group_delay((b, a), w=1)
+                gd_c = gd_c[0] / self.fs * 1000.0
+                if i == 0:
+                    gd = gd_c
+                else:
+                    gd = gd + gd_c
+            return gd
+        return None
+
 
 class Biquad(SOS):
     def __init__(self, fs, f_id=-1):
-        super().__init__(f_id=f_id)
-        self.fs = fs
+        super().__init__(f_id=f_id, fs=fs)
         self.a, self.b = self._compute_coeffs()
         self.__transfer_function = None
 
@@ -1002,19 +1021,14 @@ class ComplexFilter(SOS, Sequence):
 
     def __init__(self, fs=1000, filters=None, description='Complex', preset_idx=-1, listener=None, f_id=-1,
                  sort_by_id: bool = False):
-        super().__init__(f_id=f_id)
+        super().__init__(f_id=f_id, fs=fs)
         self.filters = [f for f in filters if f] if filters is not None else []
         self.__sort_by_id = sort_by_id
         self.description = description
-        self.__fs = fs
         self.listener = listener
         self.__on_change()
         self.__cached_transfer = None
         self.preset_idx = preset_idx
-
-    @property
-    def fs(self):
-        return self.__fs
 
     def __getitem__(self, i):
         return self.filters[i]
@@ -1146,7 +1160,7 @@ class ComplexFilter(SOS, Sequence):
         return {
             '_type': self.__class__.__name__,
             'description': self.description,
-            'fs': self.__fs,
+            'fs': self.fs,
             'filters': [x.to_json() for x in self.filters]
         }
 

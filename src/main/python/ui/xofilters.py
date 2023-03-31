@@ -23,18 +23,26 @@ class Ui_xoFiltersDialog(object):
         self.filters = QtWidgets.QListWidget(xoFiltersDialog)
         self.filters.setObjectName("filters")
         self.verticalLayout.addWidget(self.filters)
+        self.horizontalLayout = QtWidgets.QHBoxLayout()
+        self.horizontalLayout.setObjectName("horizontalLayout")
+        self.copyButton = QtWidgets.QToolButton(xoFiltersDialog)
+        self.copyButton.setObjectName("copyButton")
+        self.horizontalLayout.addWidget(self.copyButton)
         self.buttonBox = QtWidgets.QDialogButtonBox(xoFiltersDialog)
         self.buttonBox.setOrientation(QtCore.Qt.Horizontal)
         self.buttonBox.setStandardButtons(QtWidgets.QDialogButtonBox.Close)
         self.buttonBox.setObjectName("buttonBox")
-        self.verticalLayout.addWidget(self.buttonBox)
+        self.horizontalLayout.addWidget(self.buttonBox)
+        self.verticalLayout.addLayout(self.horizontalLayout)
 
         self.retranslateUi(xoFiltersDialog)
+        self.selector.currentTextChanged['QString'].connect(xoFiltersDialog.update_list) # type: ignore
         self.buttonBox.accepted.connect(xoFiltersDialog.accept) # type: ignore
         self.buttonBox.rejected.connect(xoFiltersDialog.reject) # type: ignore
-        self.selector.currentTextChanged['QString'].connect(xoFiltersDialog.update_list) # type: ignore
+        self.copyButton.clicked.connect(xoFiltersDialog.copy_filters) # type: ignore
         QtCore.QMetaObject.connectSlotsByName(xoFiltersDialog)
 
     def retranslateUi(self, xoFiltersDialog):
         _translate = QtCore.QCoreApplication.translate
         xoFiltersDialog.setWindowTitle(_translate("xoFiltersDialog", "Filter List"))
+        self.copyButton.setText(_translate("xoFiltersDialog", "..."))
