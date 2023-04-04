@@ -20,6 +20,7 @@ from qtpy.QtWidgets import QDialog, QFileDialog, QMenu, QAction, QListWidgetItem
 
 from model.filter import FilterModel, FilterDialog
 from model.iir import SOS, CompleteFilter, FilterType, ComplexLowPass, ComplexHighPass, DEFAULT_Q
+from model.impulse import ImpulseDialog
 from model.jriver import JRIVER_FS, flatten, ImpossibleRoutingError, s2f
 from model.jriver.codec import get_element, xpath_to_key_data_value, write_dsp_file, get_peq_key_name
 from model.jriver.common import get_channel_name, get_channel_idx, OutputFormat, SHORT_USER_CHANNELS, make_dirac_pulse, OUTPUT_FORMATS
@@ -76,6 +77,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         self.pipelineView.signal.on_context.connect(self.__show_edit_menu)
         self.showDotButton.clicked.connect(self.__show_dot_dialog)
         self.uploadButton.clicked.connect(self.__upload_dsp)
+        self.showTimingButton.clicked.connect(self.__show_timing_dialog)
         self.direction.toggled.connect(self.__regen)
         self.viewSplitter.setSizes([100000, 100000])
         self.filterList.model().rowsMoved.connect(self.__reorder_filters)
@@ -89,6 +91,11 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
                                                 y_range_calc=DecibelRangeCalculator(60),
                                                 y2_range_calc=PhaseRangeCalculator(), show_y2_in_legend=False)
         self.__restore_geometry()
+
+    def __show_timing_dialog(self):
+        if self.__dsp:
+            selected = [i.text() for i in self.channelList.selectedItems()]
+            ImpulseDialog(self, self.prefs, {s: s.name in selected for s in self.__dsp.signals}).show()
 
     def __show_zone_dialog(self):
         def on_select(zone_name: str, dsp: str, convert_q: bool):
@@ -135,6 +142,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         self.findFilenameButton.setIcon(qta.icon('fa5s.folder-open'))
         self.showDotButton.setIcon(qta.icon('fa5s.info-circle'))
         self.showPhase.setIcon(qta.icon('mdi.cosine-wave'))
+        self.showTimingButton.setIcon(qta.icon('fa5s.clock'))
         self.saveButton.setIcon(qta.icon('fa5s.save'))
         self.saveAsButton.setIcon(qta.icon('fa5s.file-export'))
         self.addFilterButton.setIcon(qta.icon('fa5s.plus'))
@@ -514,12 +522,6 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
             file_name = str(file_name[0]).strip()
             if len(file_name) > 0:
                 self.dsp.write_to_file(file=file_name)
-
-    def show_impulse(self):
-        '''
-        Shows the impulse charts.
-        '''
-        pass
 
     def __refresh_channel_list(self, retain_selected=False):
         ''' Refreshes the output channels with the current channel list. '''
@@ -1592,10 +1594,8 @@ class XODialog(QDialog, Ui_xoDialog):
         self.__magnitude_model = MagnitudeModel('preview', self.previewChart, prefs,
                                                 self.__get_data(), 'Filter', fill_primary=False,
                                                 x_min_pref_key=JRIVER_GRAPH_X_MIN, x_max_pref_key=JRIVER_GRAPH_X_MAX,
-                                                x_scale_pref_key=None, secondary_data_provider=self.__get_data('phase'),
-                                                secondary_name='Phase', secondary_prefix='deg', fill_secondary=False,
-                                                y_range_calc=DecibelRangeCalculator(60),
-                                                y2_range_calc=PhaseRangeCalculator(), show_y2_in_legend=False, **kwargs)
+                                                x_scale_pref_key=None, y_range_calc=DecibelRangeCalculator(60),
+                                                **kwargs)
         self.limitsButton.setIcon(qta.icon('fa5s.arrows-alt'))
         self.limitsButton.setToolTip('Set graph axis limits')
         self.limitsButton.clicked.connect(self.show_limits)
@@ -1605,6 +1605,9 @@ class XODialog(QDialog, Ui_xoDialog):
         self.showFiltersButton.setIcon(qta.icon('fa5s.info-circle'))
         self.showFiltersButton.setToolTip('Show All Filters')
         self.showFiltersButton.clicked.connect(self.__show_filters_dialog)
+        self.showTimingButton.setIcon(qta.icon('fa5s.clock'))
+        self.showTimingButton.clicked.connect(self.__show_timing_dialog)
+        self.showTimingButton.setToolTip('Display impulse/step response')
         if output_format.lfe_channels == 0:
             self.lfeAdjust.setVisible(False)
             self.lfeAdjustLabel.setVisible(False)
@@ -1612,6 +1615,11 @@ class XODialog(QDialog, Ui_xoDialog):
         self.__existing = existing
         self.linkChannelsButton.setFocus()
         self.__restore_geometry()
+
+    def __show_timing_dialog(self):
+        signals = {s: True for s in self.__get_previewed_signals()}
+        if signals:
+            ImpulseDialog(self, self.prefs, signals).exec()
 
     def showEvent(self, event: QShowEvent):
         '''
@@ -1818,36 +1826,31 @@ class XODialog(QDialog, Ui_xoDialog):
     def __get_data(self, mode='mag'):
         return lambda *args, **kwargs: self.get_curve_data(mode, *args, **kwargs)
 
-    def get_curve_data(self, mode, reference=None):
-        ''' preview of the filter to display on the chart '''
+    def __get_previewed_signals(self) -> List[Signal]:
         result = []
-        extra = 0
         for editor in self.__editors:
             if editor.show_response:
                 signals = editor.impulses
-                if mode == 'mag':
+                for c, sigs in signals.items():
+                    tmp = []
                     summed = None
-                    for i in signals:
+                    for i in sigs:
                         if i:
-                            result.append(MagnitudeData(i.name, None, *i.avg, colour=get_filter_colour(len(result)),
-                                                        linestyle='-'))
+                            tmp.append(i)
                             if summed is None:
                                 summed = i
                             else:
                                 summed = summed.add(i)
                     if summed and len(signals) > 1:
-                        result.append(MagnitudeData(f"sum {editor.name}", None, *summed.avg,
-                                                    colour=get_filter_colour(len(result)),
-                                                    linestyle='-' if mode == 'mag' else '--'))
-                elif mode == 'phase' and self.showPhase.isChecked():
-                    pass
-                    # TODO remove?
-                    # for pr_mag in editor.phase_responses:
-                    #     pr_mag.colour = get_filter_colour(len(result) + extra)
-                    #     pr_mag.linestyle = '--'
-                    #     result.append(pr_mag)
-                extra += 1
+                        summed.name = f"sum {c}"
+                        tmp.append(summed)
+                    result.extend(tmp)
         return result
+
+    def get_curve_data(self, mode, reference=None):
+        ''' preview of the filter to display on the chart '''
+        return [MagnitudeData(s.name, None, *s.avg, colour=get_filter_colour(i), linestyle='-') for i, s in
+                enumerate(self.__get_previewed_signals())]
 
     def __restore_geometry(self):
         ''' loads the saved window size '''
@@ -2021,7 +2024,7 @@ class ChannelEditor:
         return self.visible and self.__show_response.isChecked()
 
     @property
-    def impulses(self) -> List[Signal]:
+    def impulses(self) -> Dict[str, List[Signal]]:
         return self.descriptor.impulses
 
     @property

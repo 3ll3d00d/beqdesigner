@@ -381,6 +381,13 @@
           </widget>
          </item>
          <item>
+          <widget class="QToolButton" name="showTimingButton">
+           <property name="text">
+            <string>...</string>
+           </property>
+          </widget>
+         </item>
+         <item>
           <spacer name="chartControlSpacer">
            <property name="orientation">
             <enum>Qt::Vertical</enum>
@@ -497,7 +504,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>1694</x>
-     <y>574</y>
+     <y>540</y>
     </hint>
     <hint type="destinationlabel">
      <x>678</x>
@@ -513,7 +520,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>1694</x>
-     <y>534</y>
+     <y>500</y>
     </hint>
     <hint type="destinationlabel">
      <x>950</x>
@@ -529,7 +536,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>1694</x>
-     <y>494</y>
+     <y>460</y>
     </hint>
     <hint type="destinationlabel">
      <x>1076</x>
@@ -545,7 +552,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>1694</x>
-     <y>454</y>
+     <y>420</y>
     </hint>
     <hint type="destinationlabel">
      <x>1220</x>
@@ -592,8 +599,8 @@
    <slot>save_dsp()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>383</x>
-     <y>34</y>
+     <x>345</x>
+     <y>42</y>
     </hint>
     <hint type="destinationlabel">
      <x>427</x>
@@ -608,8 +615,8 @@
    <slot>save_as_dsp()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>401</x>
-     <y>30</y>
+     <x>384</x>
+     <y>39</y>
     </hint>
     <hint type="destinationlabel">
      <x>429</x>
@@ -832,6 +839,5 @@
   <slot>move_filter_up()</slot>
   <slot>move_filter_to_top()</slot>
   <slot>create_new_config()</slot>
-  <slot>show_impulse()</slot>
  </slots>
 </ui>

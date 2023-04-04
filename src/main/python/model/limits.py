@@ -40,7 +40,7 @@ class PhaseRangeCalculator:
 class ImpulseRangeCalculator:
 
     def calculate(self, y_range):
-        return -1.0, 1.0
+        return -101, 101
 
 
 class DecibelRangeCalculator:
@@ -86,6 +86,22 @@ class DecibelRangeCalculator:
 def configure_freq_axis(axes, x_scale):
     '''
     sets up the freq axis formatters (which you seem to have to call constantly otherwise matplotlib keeps
+    reinstating the default log format)
+    '''
+    axes.set_xscale(x_scale)
+    hzFormatter = EngFormatter(places=0)
+    axes.get_xaxis().set_major_formatter(hzFormatter)
+    axes.set_xlabel('Hz')
+    if x_scale == 'log':
+        axes.get_xaxis().set_minor_formatter(PrintFirstHalfFormatter(hzFormatter))
+    else:
+        axes.get_xaxis().set_major_locator(MaxNLocator(nbins=24, steps=[1, 2, 4, 5, 10], min_n_ticks=8))
+        axes.get_xaxis().set_minor_locator(AutoMinorLocator(2))
+
+
+def configure_time_axis(axes, x_scale):
+    '''
+    sets up the time axis formatters (which you seem to have to call constantly otherwise matplotlib keeps
     reinstating the default log format)
     '''
     axes.set_xscale(x_scale)
@@ -156,7 +172,8 @@ class Limits:
         '''
         Allows external code to update the x axis.
         '''
-        self.__configure_x_axis(self.axes_1, self.x_scale)
+        if self.__configure_x_axis is not None:
+            self.__configure_x_axis(self.axes_1, self.x_scale)
 
     def propagate_to_axes(self, draw=False):
         '''
@@ -166,7 +183,7 @@ class Limits:
         self.axes_1.set_ylim(bottom=self.y1_min, top=self.y1_max)
         if self.axes_2 is not None:
             self.axes_2.set_ylim(bottom=self.y2_min, top=self.y2_max)
-        self.__configure_x_axis(self.axes_1, self.x_scale)
+        self.configure_x_axis()
         if draw:
             logger.debug(f"{self.name} Redrawing axes on limits change")
             self.__redraw_func()
@@ -322,7 +339,9 @@ class LimitsDialog(QDialog, Ui_graphLayoutDialog):
         self.setupUi(self)
         self.__limits = limits
         self.hzLog.setChecked(limits.x_scale == 'log')
+        x_min = min(x_min, limits.x_min)
         self.xMin.setMinimum(x_min)
+        x_max = max(x_max, limits.x_max)
         self.xMin.setMaximum(x_max - 1)
         self.xMin.setValue(self.__limits.x_min)
         self.xMax.setMinimum(x_min + 1)

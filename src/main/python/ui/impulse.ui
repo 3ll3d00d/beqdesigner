@@ -17,7 +17,7 @@
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout">
      <item>
-      <widget class="QGraphicsView" name="previewChart"/>
+      <widget class="MplWidget" name="previewChart"/>
      </item>
      <item>
       <layout class="QVBoxLayout" name="toolbarLayout">
@@ -42,6 +42,20 @@
         </widget>
        </item>
        <item>
+        <widget class="QToolButton" name="zoomInButton">
+         <property name="text">
+          <string>...</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="zoomOutButton">
+         <property name="text">
+          <string>...</string>
+         </property>
+        </widget>
+       </item>
+       <item>
         <spacer name="verticalSpacer">
          <property name="orientation">
           <enum>Qt::Vertical</enum>
@@ -59,17 +73,106 @@
     </layout>
    </item>
    <item>
-    <widget class="QDialogButtonBox" name="buttonBox">
-     <property name="orientation">
-      <enum>Qt::Horizontal</enum>
-     </property>
-     <property name="standardButtons">
-      <set>QDialogButtonBox::Close</set>
-     </property>
-    </widget>
+    <layout class="QHBoxLayout" name="buttonLayout">
+     <item>
+      <widget class="QLabel" name="leftTimeLabel">
+       <property name="text">
+        <string>Left</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QDoubleSpinBox" name="leftTimeValue">
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+       <property name="suffix">
+        <string> ms</string>
+       </property>
+       <property name="decimals">
+        <number>3</number>
+       </property>
+       <property name="minimum">
+        <double>-20.000000000000000</double>
+       </property>
+       <property name="singleStep">
+        <double>0.001000000000000</double>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="rightTimeLabel">
+       <property name="text">
+        <string>Right</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QDoubleSpinBox" name="rightTimeValue">
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+       <property name="suffix">
+        <string> ms</string>
+       </property>
+       <property name="decimals">
+        <number>3</number>
+       </property>
+       <property name="minimum">
+        <double>-20.000000000000000</double>
+       </property>
+       <property name="singleStep">
+        <double>0.001000000000000</double>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLabel" name="diffValueLabel">
+       <property name="text">
+        <string>Diff</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QDoubleSpinBox" name="diffValue">
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+       <property name="suffix">
+        <string> ms</string>
+       </property>
+       <property name="decimals">
+        <number>3</number>
+       </property>
+       <property name="minimum">
+        <double>-20.000000000000000</double>
+       </property>
+       <property name="singleStep">
+        <double>0.001000000000000</double>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QDialogButtonBox" name="buttonBox">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="standardButtons">
+        <set>QDialogButtonBox::Close</set>
+       </property>
+      </widget>
+     </item>
+    </layout>
    </item>
   </layout>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>MplWidget</class>
+   <extends>QGraphicsView</extends>
+   <header>mpl</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections>
   <connection>
@@ -79,8 +182,8 @@
    <slot>accept()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>254</x>
-     <y>631</y>
+     <x>542</x>
+     <y>630</y>
     </hint>
     <hint type="destinationlabel">
      <x>157</x>
@@ -95,8 +198,8 @@
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>322</x>
-     <y>631</y>
+     <x>610</x>
+     <y>630</y>
     </hint>
     <hint type="destinationlabel">
      <x>286</x>
@@ -121,34 +224,66 @@
    </hints>
   </connection>
   <connection>
-   <sender>selectChannelsButton</sender>
+   <sender>chartToggle</sender>
    <signal>toggled(bool)</signal>
    <receiver>impulseDialog</receiver>
    <slot>update_chart()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1051</x>
-     <y>68</y>
+     <x>1040</x>
+     <y>111</y>
     </hint>
     <hint type="destinationlabel">
-     <x>1039</x>
-     <y>140</y>
+     <x>1037</x>
+     <y>194</y>
     </hint>
    </hints>
   </connection>
   <connection>
-   <sender>chartToggle</sender>
+   <sender>selectChannelsButton</sender>
    <signal>clicked()</signal>
    <receiver>impulseDialog</receiver>
    <slot>select_channels()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1043</x>
-     <y>104</y>
+     <x>1055</x>
+     <y>56</y>
     </hint>
     <hint type="destinationlabel">
-     <x>1053</x>
-     <y>212</y>
+     <x>1049</x>
+     <y>275</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>zoomOutButton</sender>
+   <signal>clicked()</signal>
+   <receiver>impulseDialog</receiver>
+   <slot>zoom_out()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1043</x>
+     <y>184</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1037</x>
+     <y>311</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>zoomInButton</sender>
+   <signal>clicked()</signal>
+   <receiver>impulseDialog</receiver>
+   <slot>zoom_in()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1052</x>
+     <y>148</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>1058</x>
+     <y>305</y>
     </hint>
    </hints>
   </connection>
@@ -157,5 +292,7 @@
   <slot>show_limits()</slot>
   <slot>update_chart()</slot>
   <slot>select_channels()</slot>
+  <slot>zoom_out()</slot>
+  <slot>zoom_in()</slot>
  </slots>
 </ui>

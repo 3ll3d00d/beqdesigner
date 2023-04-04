@@ -5,7 +5,7 @@ from typing import Tuple, Optional
 import numpy as np
 from matplotlib.gridspec import GridSpec
 
-from model.limits import Limits, LimitsDialog, ValuesDialog, DecibelRangeCalculator
+from model.limits import Limits, LimitsDialog, ValuesDialog, DecibelRangeCalculator, configure_freq_axis
 from model.preferences import GRAPH_X_AXIS_SCALE, GRAPH_X_MIN, GRAPH_X_MAX, GRAPH_EXPAND_Y
 
 logger = logging.getLogger('magnitude')
@@ -14,11 +14,12 @@ SINGLE_SUBPLOT_SPEC = GridSpec(1, 1).new_subplotspec((0, 0), 1, 1)
 
 
 class AxesManager:
-    def __init__(self, data_provider, axes, fill_curves, fill_alpha, show_in_legend=True):
+    def __init__(self, data_provider, axes, fill_curves, fill_alpha, x_scale, show_in_legend=True):
         self.__provider = data_provider
         self.__axes = axes
         self.__fill_curves = fill_curves
         self.__fill_alpha = fill_alpha
+        self.__x_scale = x_scale
         self.reference_curve = None
         self.__curves = {}
         self.__polygons = {}
@@ -77,7 +78,16 @@ class AxesManager:
             curve.set_linestyle(data.linestyle)
             curve.set_color(data.colour)
         else:
-            self.__curves[data.name] = self.__axes.semilogx(data.x, data.y,
+            if self.__x_scale == 'log':
+                self.__curves[data.name] = self.__axes.semilogx(data.x, data.y,
+                                                                linewidth=2,
+                                                                antialiased=True,
+                                                                linestyle=data.linestyle,
+                                                                color=data.colour,
+                                                                label=data.name,
+                                                                pickradius=2)[0]
+            else:
+                self.__curves[data.name] = self.__axes.plot(data.x, data.y,
                                                             linewidth=2,
                                                             antialiased=True,
                                                             linestyle=data.linestyle,
@@ -151,7 +161,8 @@ class MagnitudeModel:
                  subplot_spec=SINGLE_SUBPLOT_SPEC, redraw_listener=None, grid_alpha=0.5, x_min_pref_key=GRAPH_X_MIN,
                  x_max_pref_key=GRAPH_X_MAX, x_scale_pref_key=GRAPH_X_AXIS_SCALE, fill_curves=False, fill_alpha=0.5,
                  allow_line_resize=False, fill_primary=False, fill_secondary=False, y2_range_calc=None,
-                 show_y2_in_legend=True, x_lim: Optional[Tuple[int, int]] = None):
+                 show_y2_in_legend=True, x_lim: Optional[Tuple[float, float]] = None,
+                 x_axis_configurer=configure_freq_axis, x_scale='log'):
         self.__name = name
         self.__chart = chart
         self.__redraw_listener = redraw_listener
@@ -160,10 +171,11 @@ class MagnitudeModel:
         if allow_line_resize:
             self.__chart.canvas.mpl_connect('pick_event', self.__adjust_line_size)
         primary_axes = self.__chart.canvas.figure.add_subplot(subplot_spec)
-        primary_axes.set_ylabel(f"{primary_prefix} ({primary_name})")
+        primary_axes.set_ylabel(primary_prefix if not primary_name else f"{primary_prefix} ({primary_name})")
         primary_axes.grid(linestyle='-', which='major', linewidth=1, alpha=grid_alpha)
         primary_axes.grid(linestyle='--', which='minor', linewidth=1, alpha=grid_alpha * 0.5)
-        self.__primary = AxesManager(primary_data_provider, primary_axes, fill_curves or fill_primary, fill_alpha)
+        self.__primary = AxesManager(primary_data_provider, primary_axes, fill_curves or fill_primary, fill_alpha,
+                                     x_scale)
         if secondary_data_provider is None:
             secondary_axes = None
         else:
@@ -173,13 +185,13 @@ class MagnitudeModel:
             primary_axes.set_zorder(secondary_axes.get_zorder() + 1)
             primary_axes.patch.set_visible(False)
         self.__secondary = AxesManager(secondary_data_provider, secondary_axes, fill_curves or fill_secondary,
-                                       fill_alpha, show_in_legend=show_y2_in_legend)
+                                       fill_alpha, x_scale, show_in_legend=show_y2_in_legend)
         if isinstance(y_range_calc, DecibelRangeCalculator) and not y_range_calc.expand_range:
             y_range_calc.expand_range = preferences.get(GRAPH_EXPAND_Y)
         if x_lim is None:
             x_lim = (preferences.get(x_min_pref_key), preferences.get(x_max_pref_key))
         x_scale = preferences.get(x_scale_pref_key) if x_scale_pref_key else None
-        self.limits = Limits(self.__repr__(), self.__redraw_func, primary_axes,
+        self.limits = Limits(self.__repr__(), self.__redraw_func, primary_axes, x_axis_configurer=x_axis_configurer,
                              x_lim=x_lim, y1_range_calculator=y_range_calc, axes_2=secondary_axes,
                              x_scale=x_scale, y2_range_calculator=y2_range_calc)
         self.limits.propagate_to_axes(draw=True)

@@ -1874,9 +1874,7 @@ class FilterGraph:
         if recalc or self.__sim is None:
             start = time.time()
             signals: Dict[str, Tuple[Signal, Optional[SosFilterOp]]] = {
-                c: (make_dirac_pulse(c,
-                                     analysis_resolution=analysis_resolution) if c in self.input_channels else make_silence(
-                    c), None)
+                c: (make_dirac_pulse(c, analysis_resolution=analysis_resolution) if c in self.input_channels else make_silence(c), None)
                 for c in self.output_channels
             }
             for f in self.all_filters:
@@ -2686,12 +2684,12 @@ class CompositeXODescriptor:
         return next(iter(self.multiway_xos.values())).xo_induced_delay if self.multiway_xos else 0.0
 
     @property
-    def impulses(self) -> List[Signal]:
+    def impulses(self) -> Dict[str, List[Signal]]:
         self.__recalc()
         if self.multiway_xos:
-            return next(iter(self.multiway_xos.values())).output
+            return {c: v.output for c, v in self.multiway_xos.items()}
         else:
-            return []
+            return {}
 
     @property
     def multiway_filters(self) -> List[MultiwayFilter]:
@@ -2903,7 +2901,7 @@ class MultiwayCrossover:
     def output(self) -> List[Signal]:
         if self.__output is None:
             self.__output = self.__graph.simulate(analysis_resolution=0.1)
-        return [self.__output[c] for c in self.__channels]
+        return [self.__output[c].copy(f"{self.__in_channel}{i}->{c}") for i, c in enumerate(self.__channels)]
 
     @property
     def sum(self) -> Signal:

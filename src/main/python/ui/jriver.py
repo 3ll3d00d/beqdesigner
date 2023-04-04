@@ -178,6 +178,9 @@ class Ui_jriverDspDialog(object):
         self.showPhase.setCheckable(True)
         self.showPhase.setObjectName("showPhase")
         self.chartControlLayout.addWidget(self.showPhase)
+        self.showTimingButton = QtWidgets.QToolButton(self.chartWrapper)
+        self.showTimingButton.setObjectName("showTimingButton")
+        self.chartControlLayout.addWidget(self.showTimingButton)
         spacerItem2 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
         self.chartControlLayout.addItem(spacerItem2)
         self.chartLayout.addLayout(self.chartControlLayout)
@@ -263,5 +266,6 @@ class Ui_jriverDspDialog(object):
         self.fullRangeButton.setText(_translate("jriverDspDialog", "..."))
         self.subOnlyButton.setText(_translate("jriverDspDialog", "..."))
         self.showPhase.setText(_translate("jriverDspDialog", "..."))
+        self.showTimingButton.setText(_translate("jriverDspDialog", "..."))
 from mpl import MplWidget
 from svg import SvgView

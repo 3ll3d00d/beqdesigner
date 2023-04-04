@@ -1319,15 +1319,16 @@ class Signal:
                 window = (window, 0.25)
         return window
 
+    @property
     def step_response(self):
-        t = self.sample_times
+        t = self.__time_series()
         from scipy import integrate
         sr = integrate.cumulative_trapezoid(self.samples, t, initial=0)
         return t, sr
 
     @property
     def waveform(self):
-        return self.__time_series(), self.raw()
+        return self.__time_series(), self.copy().samples
 
     def __time_series(self):
         return np.arange(start=0.0, stop=self.samples.size / self.fs, step=1 / self.fs)
@@ -1899,7 +1900,7 @@ class SignalDialog(QDialog, Ui_addSignalDialog):
 
     def changeLoader(self, idx):
         self.__loader_idx = idx
-        self.__loaderns[self.__loader_idx].enable_ok()
+        self.__loaders[self.__loader_idx].enable_ok()
         self.__magnitudeModel.redraw()
 
     def selectFile(self):
