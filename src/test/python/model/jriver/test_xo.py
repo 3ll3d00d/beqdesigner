@@ -3,9 +3,9 @@ from typing import List
 import pytest
 
 from model.iir import ComplexLowPass, FilterType, ComplexHighPass
-from model.jriver import ImpossibleRoutingError, JRIVER_FS, flatten
+from model.jriver import ImpossibleRoutingError, JRIVER_FS, flatten, UnsupportedRoutingError
 from model.jriver.filter import MultiwayFilter, MultiChannelSystem, CompositeXODescriptor, XODescriptor, \
-    WayDescriptor, WayValues, MDSXO, MDSPoint
+    WayDescriptor, WayValues, MDSXO, MDSPoint, Gain, Delay, Mix, Mute
 from model.jriver.routing import Matrix
 
 
@@ -456,12 +456,15 @@ LP LR4 3kHz  [SR]
 
 @pytest.fixture
 def five_one() -> Matrix:
-    return Matrix({'L': 2, 'R': 2, 'C': 2, 'SW': 1, 'SL': 2, 'SR': 2}, ['L', 'R', 'C', 'SW', 'SL', 'SR'])
+    return Matrix({'SW': 1, 'L': 2, 'R': 2, 'C': 2, 'SL': 2, 'SR': 2}, ['L', 'R', 'C', 'SW', 'SL', 'SR'])
 
 
 def test_bass_managed_five_one_with_lfe_lpf(five_one):
     xo_desc = [
-        CompositeXODescriptor({c: n_way(c, [100.0], ['SW', c]) for c in ['L', 'R', 'C', 'SL', 'SR']}, [None] * 2, [])
+        CompositeXODescriptor({'SW': XODescriptor('SW', [WayDescriptor(WayValues(0, lp=p(120)), ['SW'])])},
+                              [None], []),
+        CompositeXODescriptor({c: n_way(c, [100.0], ['SW', c]) for c in ['L', 'R', 'C', 'SL', 'SR']},
+                              [None] * 2, [])
     ]
 
     for d in xo_desc:
@@ -469,12 +472,13 @@ def test_bass_managed_five_one_with_lfe_lpf(five_one):
 
     mcs = MultiChannelSystem(xo_desc)
 
-    mc_filter = mcs.calculate_filters(five_one)
+    from model.jriver.common import get_channel_idx
+    mc_filter = mcs.calculate_filters(five_one, main_adjust=-15, lfe_adjust=-5, lfe_channel_idx=get_channel_idx('SW'))
 
     assert mc_filter
     mc_filters = mc_filter.filters
     assert mc_filters
-    assert all(isinstance(x, MultiwayFilter) for x in mc_filters)
+    assert all(isinstance(x, (MultiwayFilter, Gain)) for x in mc_filters)
 
     filter_list = '\n' + '\n'.join([str(f) for mc in mc_filters for f in flatten(mc)]) + '\n'
     assert filter_list == """
@@ -521,7 +525,10 @@ Add U1 to SW +0 dB
 def test_bass_managed_five_one_mds_no_spare_channels(five_one):
     mains = ['L', 'R', 'C', 'SL', 'SR']
     xo_desc = [
-        CompositeXODescriptor({c: n_way_mds('SW', c) for c in mains},
+        CompositeXODescriptor({'SW': XODescriptor('SW', [WayDescriptor(WayValues(0, lp=p(120)), ['SW'])])},
+                              [None],
+                              []),
+        CompositeXODescriptor({c: n_way_mds(c, 'SW', c) for c in mains},
                               [MDSXO(4, 100.0, lp_channel=['SW'], hp_channel=[c]) for c in mains],
                               [MDSPoint(0, 4, 100.0)])
     ]
@@ -531,19 +538,22 @@ def test_bass_managed_five_one_mds_no_spare_channels(five_one):
 
     mcs = MultiChannelSystem(xo_desc)
 
-    with pytest.raises(ImpossibleRoutingError):
+    with pytest.raises(UnsupportedRoutingError):
         mcs.calculate_filters(five_one)
 
 
 @pytest.fixture
 def five_one_plus_six() -> Matrix:
-    return Matrix({'L': 2, 'R': 2, 'C': 2, 'SW': 1, 'SL': 2, 'SR': 2}, ['L', 'R', 'C', 'SW', 'SL', 'SR', 'RL', 'RR', 'C9', 'C10', 'C11', 'C12'])
+    return Matrix({'SW': 1, 'L': 2, 'R': 2, 'C': 2, 'RL': 2, 'RR': 2}, ['L', 'R', 'C', 'SW', 'SL', 'SR', 'RL', 'RR', 'C9', 'C10', 'C11', 'C12'])
 
 
 def test_bass_managed_five_one_mds_with_spare_channels(five_one_plus_six):
-    mains = ['L', 'R', 'C', 'SL', 'SR']
+    mains = ['L', 'R', 'C', 'RL', 'RR']
     xo_desc = [
-        CompositeXODescriptor({c: n_way_mds('SW', c) for c in mains},
+        CompositeXODescriptor({'SW': XODescriptor('SW', [WayDescriptor(WayValues(0, lp=p(120)), ['SW'])])},
+                              [None],
+                              []),
+        CompositeXODescriptor({c: n_way_mds(c, 'SW', c) for c in mains},
                               [MDSXO(4, 100.0, lp_channel=['SW'], hp_channel=[c]) for c in mains],
                               [MDSPoint(0, 4, 100.0)])
     ]
@@ -553,33 +563,21 @@ def test_bass_managed_five_one_mds_with_spare_channels(five_one_plus_six):
 
     mcs = MultiChannelSystem(xo_desc)
 
-    mcs.calculate_filters(five_one_plus_six)
+    from model.jriver.common import get_channel_idx
+    mc_filter = mcs.calculate_filters(five_one_plus_six, main_adjust=-15, lfe_adjust=-5, lfe_channel_idx=get_channel_idx('SW'))
+    assert mc_filter
+    mc_filters = mc_filter.filters
+    assert mc_filters
+    assert all(isinstance(x, (MultiwayFilter, Gain, Delay, Mix, Mute)) for x in mc_filters)
 
-
-def test_five_one_swap_main(five_one):
-    for c in ['L', 'R', 'C', 'SW', 'SL', 'SR']:
-        five_one.enable(c, 0, 'SW')
-        if c not in ['SW', 'SL', 'SR']:
-            five_one.enable(c, 1, c)
-    five_one.enable('SL', 1, 'SR')
-    five_one.enable('SR', 1, 'SL')
-    # with pytest.raises(ImpossibleRoutingError):
-    #     calculate_compound_routing_filter(five_one, lfe_channel_idx=5)
-
-
-def test_five_one_swap_sub_to_c(five_one):
-    for c in ['L', 'R', 'C', 'SW', 'SL', 'SR']:
-        five_one.enable(c, 0, 'C')
-        if c not in ['C', 'SW']:
-            five_one.enable(c, 1, c)
-    five_one.enable('C', 1, 'SW')
-    # with pytest.raises(ImpossibleRoutingError):
-    #     calculate_compound_routing_filter(five_one, lfe_channel_idx=5)
+    filter_list = '\n' + '\n'.join([str(f) for mc in mc_filters for f in flatten(mc)]) + '\n'
+    assert filter_list == """
+"""
 
 
 @pytest.fixture
 def multi_bm() -> Matrix:
-    return Matrix({'L': 4, 'R': 4, 'C': 4, 'SW': 1, 'SL': 2, 'SR': 2, 'RL': 2, 'RR': 2},
+    return Matrix({'SW': 1, 'L': 4, 'R': 4, 'C': 4, 'SL': 2, 'SR': 2, 'RL': 2, 'RR': 2},
                   ['L', 'R', 'C', 'SW', 'SL', 'SR', 'RL', 'RR', 'C9', 'C10', 'C11', 'C12', 'C13', 'C14', 'C15', 'C16'])
 
 
@@ -682,7 +680,7 @@ def test_multi_way_mains_simple_bm_with_shared_sub(multi_bm):
 
 @pytest.fixture
 def seven_one() -> Matrix:
-    return Matrix({'L': 2, 'R': 2, 'C': 2, 'SW': 1, 'SL': 2, 'SR': 2},
+    return Matrix({'SW': 1, 'L': 2, 'R': 2, 'C': 2, 'SL': 2, 'SR': 2},
                   ['L', 'R', 'C', 'SW', 'SL', 'SR', 'RL', 'RR'])
 
 
@@ -738,7 +736,7 @@ def test_stereo_subs(seven_one):
 
 
 def test_collapse_surround():
-    five_one = Matrix({'L': 2, 'R': 2, 'C': 2, 'SW': 1, 'SL': 1, 'SR': 1}, ['L', 'R', 'C', 'SW', 'SL', 'SR', 'RL', 'RR'])
+    five_one = Matrix({'SW': 1, 'L': 2, 'R': 2, 'C': 2, 'SL': 1, 'SR': 1}, ['L', 'R', 'C', 'SW', 'SL', 'SR', 'RL', 'RR'])
     for c in ['L', 'R', 'C', 'SW']:
         five_one.enable(c, 0, 'SW')
         if c != 'SW':

@@ -2431,40 +2431,32 @@ class MultiChannelSystem:
         :return: the complete filter.
         '''
         tmp_filter_channels, matrix = self.__calculate_tmp_filter_channels(output_matrix)
-        one_to_one_routes, many_to_one_routes = matrix.group_active_routes_by_output()
-        self.__validate_routing(one_to_one_routes, many_to_one_routes, matrix.input_channel_indexes)
+        tmp_one_to_one_routes, tmp_many_to_one_routes = output_matrix.group_active_routes_by_output()
+        self.__validate_routing(tmp_one_to_one_routes, tmp_many_to_one_routes, matrix.input_channel_indexes)
 
         gain_filters = self.__calculate_gain_filters(matrix.input_channel_indexes, main_adjust, lfe_adjust,
                                                      lfe_channel_idx)
 
-        xo_filters: List[MultiwayFilter] = []
-        xo_induced_delay: Dict[float, Set[str]] = defaultdict(set)
-        for comp_xo_desc in self:
-            for in_ch, xo_desc in comp_xo_desc.xo_descriptors.items():
-                for c in xo_desc.out_channels:
-                    xo_induced_delay[comp_xo_desc.xo_induced_delay].add(c)
-            xo_filters.extend(comp_xo_desc.as_multiway_filters(tmp_filter_channels))
+        xo_filters: List[MultiwayFilter] = [f for comp_xo_desc in self
+                                            for f in comp_xo_desc.as_multiway_filters(tmp_filter_channels)]
 
-        normalised_delays = self.__normalise_delays(xo_induced_delay)
+        mds_delays_ms = self.__find_mds_delays(lfe_channel_idx)
+        if mds_delays_ms:
+            lfe_output_delay_ms, lfe_output_channels = self.__find_lfe_delay(lfe_channel_idx)
+            for c in lfe_output_channels:
+                mds_delays_ms[lfe_output_delay_ms].add(c)
+        normalised_delays = self.__normalise_delays(mds_delays_ms)
+
+        _, output_many_to_one_routes = output_matrix.group_active_routes_by_output()
         delay_filters = []
-        summed_channels = [get_channel_name(i) for r in many_to_one_routes for i in r[0]]
-        summed_channel_delays: Dict[str, float] = {}
         for delay, channels in normalised_delays.items():
-            single_route_channels = []
-            for c in sorted(channels, key=get_channel_idx):
-                if c in summed_channels:
-                    summed_channel_delays[c] = delay
-                else:
-                    single_route_channels.append(str(get_channel_idx(c)))
+            formatted = ';'.join(str(get_channel_idx(c)) for c in sorted(channels, key=get_channel_idx))
             delay_filters.append(Delay({
                 **Delay.default_values(),
-                'Channels': ';'.join(single_route_channels),
+                'Channels': formatted,
                 'Delay': f"{delay:.7g}",
             }))
-        if summed_channel_delays:
-            # TODO do we need to fix something?
-            print('TODO is this broken?')
-        summed_inputs = [y for x in many_to_one_routes for y in x[0]]
+        summed_inputs = [y for x in tmp_many_to_one_routes for y in x[0]]
         if xo_filters:
             for xo in xo_filters:
                 for i, f in enumerate(xo.filters):
@@ -2487,6 +2479,31 @@ class MultiChannelSystem:
 
         meta = self.__create_routing_metadata(output_matrix, editor_meta, lfe_channel_idx, lfe_adjust)
         return CompoundRoutingFilter(json.dumps(meta), gain_filters, delay_filters, xo_filters, sum_filters)
+
+    def __find_lfe_delay(self, lfe_channel_idx: int) -> Tuple[float, List[str]]:
+        lfe_output_delay = 0.0
+        lfe_output_channels: List[str] = []
+        if lfe_channel_idx:
+            for comp_xo_desc in self:
+                for in_ch, xo_desc in comp_xo_desc.xo_descriptors.items():
+                    if in_ch == get_channel_name(lfe_channel_idx):
+                        lfe_lpf: Optional[ComplexLowPass] = xo_desc.ways[0].values.lp_filter
+                        if lfe_lpf:
+                            lfe_ir = lfe_lpf.get_impulse_response()
+                            lfe_output_delay = lfe_ir[0][np.argmax(lfe_ir[1])] * 1000
+                            lfe_output_channels = list(xo_desc.out_channels)
+        return lfe_output_delay, lfe_output_channels
+
+    def __find_mds_delays(self, lfe_channel_idx: int):
+        xo_induced_delay: Dict[float, Set[str]] = defaultdict(set)
+        lfe_channel_name: Optional[str] = get_channel_name(lfe_channel_idx) if lfe_channel_idx else None
+        for comp_xo_desc in self:
+            if comp_xo_desc.mds_ways:
+                for in_ch, xo_desc in comp_xo_desc.xo_descriptors.items():
+                    for c in xo_desc.out_channels:
+                        if not lfe_channel_name or c != lfe_channel_name:
+                            xo_induced_delay[comp_xo_desc.xo_induced_delay].add(c)
+        return xo_induced_delay
 
     @staticmethod
     def __calculate_gain_filters(input_channel_indexes: List[int], main_adjust: int, lfe_adjust: int,

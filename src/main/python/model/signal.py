@@ -101,7 +101,8 @@ class SingleChannelSignalData(SignalData):
     Provides a mechanism for caching the assorted xy data surrounding a signal.
     '''
 
-    def __init__(self, name=None, fs=None, filter=None, xy_data=None, duration_seconds=None, start_seconds=None, signal=None, offset=0.0):
+    def __init__(self, name=None, fs=None, filter=None, xy_data=None, duration_seconds=None, start_seconds=None,
+                 signal=None, offset=0.0):
         super().__init__()
         self.__idx = 0
         self.__offset_db = offset
@@ -301,9 +302,12 @@ class SingleChannelSignalData(SignalData):
             if smooth_type is not None and smooth_type == 0:
                 smooth_type = None
             if smooth_type not in self.__unfiltered:
-                avg = MagnitudeData(self.name, 'avg', self.__signal.avg[0], self.__signal.avg[1], smooth_type=smooth_type)
-                peak = MagnitudeData(self.name, 'peak', self.__signal.peak[0], self.__signal.peak[1], smooth_type=smooth_type)
-                median = MagnitudeData(self.name, 'median', self.__signal.median[0], self.__signal.median[1], smooth_type=smooth_type)
+                avg = MagnitudeData(self.name, 'avg', self.__signal.avg[0], self.__signal.avg[1],
+                                    smooth_type=smooth_type)
+                peak = MagnitudeData(self.name, 'peak', self.__signal.peak[0], self.__signal.peak[1],
+                                     smooth_type=smooth_type)
+                median = MagnitudeData(self.name, 'median', self.__signal.median[0], self.__signal.median[1],
+                                       smooth_type=smooth_type)
                 self.__unfiltered[smooth_type] = [avg, peak, median]
             if set_active is True:
                 self.__smoothing_type = smooth_type
@@ -440,7 +444,7 @@ class BassManagedSignalData(SignalData):
     @property
     def clip_before(self):
         return self.__clip_before
-    
+
     @clip_before.setter
     def clip_before(self, clip_before):
         self.__clip_before = clip_before
@@ -448,7 +452,7 @@ class BassManagedSignalData(SignalData):
     @property
     def clip_after(self):
         return self.__clip_after
-    
+
     @clip_after.setter
     def clip_after(self, clip_after):
         self.__clip_after = clip_after
@@ -507,14 +511,15 @@ class BassManagedSignalData(SignalData):
             main_attenuate = 10 ** (-self.bm_headroom / 20.0)
             # and reduce LFE by 10dB less
             lfe_attenuate = 10 ** ((-self.bm_headroom + 10.0) / 20.0)
-            logger.debug(f"Attenuating {len(self.__channels) - 1} mains by {round(self.bm_headroom,2)} dB (x{main_attenuate:.4})")
+            logger.debug(
+                f"Attenuating {len(self.__channels) - 1} mains by {round(self.bm_headroom, 2)} dB (x{main_attenuate:.4})")
             logger.debug(f"Attenuating LFE by {round(self.bm_headroom - 10, 2)}dB (x{lfe_attenuate:.4})")
             bm_filt = ComplexLowPass(FilterType.LINKWITZ_RILEY, 4, 1000, self.__lpf_fs)
             samples = [x.filter_signal(filt=apply_filter,
                                        pre_filt=bm_filt if self.__lpf_position == BM_LPF_BEFORE else None,
                                        clip=self.__clip_before,
                                        gain=lfe_attenuate if idx == self.__lfe_channel_idx else main_attenuate).samples
-                           for idx, x in enumerate(self.__channels)]
+                       for idx, x in enumerate(self.__channels)]
             samples = np.sum(np.array(samples), axis=0)
             if self.__lpf_position == BM_LPF_AFTER:
                 logger.debug(f"Applying POST BM LPF {bm_filt}")
@@ -840,6 +845,8 @@ class Signal:
             self.__analysis_resolution = analysis_resolution
         self.__rescale_x_resolution = rescale_x
         self.__name = name
+        self.__x = None
+        self.__h = None
         self.samples = samples
         self.fs = fs
         self.duration_seconds = self.samples.size / self.fs
@@ -1262,7 +1269,8 @@ class Signal:
         if self.__avg is None:
             resolution_shift = int(math.log(self.__analysis_resolution, 2))
             avg_wnd = self.__get_window(self.__avg_window)
-            logger.debug(f"Analysing {self.name} at {self.__analysis_resolution} Hz resolution using {avg_wnd if avg_wnd else 'Default'} avg windows")
+            logger.debug(
+                f"Analysing {self.name} at {self.__analysis_resolution} Hz resolution using {avg_wnd if avg_wnd else 'Default'} avg windows")
             self.__avg = self.avg_spectrum(resolution_shift=resolution_shift, window=avg_wnd, average='mean')
 
     def calculate_peak(self):
@@ -1272,7 +1280,8 @@ class Signal:
         if self.__peak is None:
             resolution_shift = int(math.log(self.__analysis_resolution, 2))
             peak_wnd = self.__get_window(self.__peak_window)
-            logger.debug(f"Analysing {self.name} at {self.__analysis_resolution} Hz resolution using {peak_wnd if peak_wnd else 'Default'} peak windows")
+            logger.debug(
+                f"Analysing {self.name} at {self.__analysis_resolution} Hz resolution using {peak_wnd if peak_wnd else 'Default'} peak windows")
             self.__peak = self.peak_spectrum(resolution_shift=resolution_shift, window=peak_wnd)
 
     def calculate_median(self):
@@ -1330,6 +1339,22 @@ class Signal:
     def waveform(self):
         return self.__time_series(), self.copy().samples
 
+    @property
+    def phase_response(self):
+        x, h = self.__freqz()
+        return x, np.angle(h, deg=True)
+
+    @property
+    def mag_response(self):
+        x, h = self.__freqz()
+        return x, 20 * np.log10(abs(h))
+
+    def __freqz(self):
+        if self.__x is None:
+            w, self.__h = signal.freqz(self.samples, worN=1 << (int(self.fs / 2) - 1).bit_length())
+            self.__x = w * self.fs * 1.0 / (2 * np.pi)
+        return self.__x, self.__h
+
     def __time_series(self):
         return np.arange(start=0.0, stop=self.samples.size / self.fs, step=1 / self.fs)
 
@@ -1372,7 +1397,7 @@ def db_to_amplitude(s, ref=1.0):
     :param ref: reference power.
     :return: s_lin : Linear magnitude spectrogram
     '''
-    return db_to_power(s, ref=ref**2)**0.5
+    return db_to_power(s, ref=ref ** 2) ** 0.5
 
 
 def db_to_power(s, ref=1.0):
@@ -1508,7 +1533,7 @@ class AutoWavLoader:
                              channel_count=self.info.channels,
                              decimate=decimate)
             if self.info.channels > 1:
-                signals = [self.get_signal(x, name_provider(x-1, self.info.channels), offset=offset)
+                signals = [self.get_signal(x, name_provider(x - 1, self.info.channels), offset=offset)
                            for x in self.__cache.keys()]
                 lpf_fs = self.__preferences.get(BASS_MANAGEMENT_LPF_FS)
                 lpf_position = self.__preferences.get(BASS_MANAGEMENT_LPF_POSITION)
@@ -1704,7 +1729,8 @@ class DialogWavLoaderBridge:
         return self.__auto_loader.has_signal()
 
     def enable_ok(self):
-        enabled = len(self.__dialog.wavSignalName.text()) > 0 and not self.__dialog.applyTimeRangeButton.isEnabled() and self.can_save()
+        enabled = len(
+            self.__dialog.wavSignalName.text()) > 0 and not self.__dialog.applyTimeRangeButton.isEnabled() and self.can_save()
         self.__dialog.buttonBox.button(QDialogButtonBox.Ok).setEnabled(enabled)
         return enabled
 
@@ -2104,7 +2130,8 @@ def __read_flac_in_chunks(input_file, max_frames, start_frame, end_frame):
     return ys, frame_rate
 
 
-def readWav(name, preferences, input_file=None, input_data=None, channel=1, start=None, end=None, target_fs=1000, offset=0.0) -> Signal:
+def readWav(name, preferences, input_file=None, input_data=None, channel=1, start=None, end=None, target_fs=1000,
+            offset=0.0) -> Signal:
     """ reads a wav file or data from a wav file into Signal, one of input_file or input_data must be provided.
     :param name: the name of the signal.
     :param input_file: a path to the input signal file
@@ -2121,7 +2148,7 @@ def readWav(name, preferences, input_file=None, input_data=None, channel=1, star
         ys, fs, metadata = input_data
     else:
         raise ValueError('must supply one of input_file or input_data')
-    signal = Signal(name, ys[:, channel - 1], preferences, fs=fs, metadata={**metadata,  SIGNAL_CHANNEL: channel})
+    signal = Signal(name, ys[:, channel - 1], preferences, fs=fs, metadata={**metadata, SIGNAL_CHANNEL: channel})
     if target_fs is None or target_fs == 0:
         target_fs = signal.fs
     return signal.resample(target_fs).offset(offset)
@@ -2133,6 +2160,7 @@ class Smoother(QRunnable):
     '''
     Precalculates the fractional octave smoothing.
     '''
+
     def __init__(self, signal_data):
         super().__init__()
         self.__signal_data = signal_data

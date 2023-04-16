@@ -1212,9 +1212,13 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
                 names = [n.text() for n in self.channelList.selectedItems()]
                 for signal in self.dsp.signals:
                     if signal.name in names:
-                        result.append(MagnitudeData(signal.name, None, *signal.avg,
-                                                    colour=get_filter_colour(len(result)),
-                                                    linestyle='-' if mode == 'mag' else '--'))
+                        colour = get_filter_colour(len(result))
+                        if mode == 'mag':
+                            result.append(MagnitudeData(signal.name, None, *signal.avg,
+                                                        colour=colour, linestyle='-'))
+                        else:
+                            result.append(MagnitudeData(signal.name, None, *signal.phase_response,
+                                                        colour=colour, linestyle='--'))
         return result
 
     def show_limits(self):
@@ -1542,9 +1546,13 @@ class ShowFiltersDialog(QDialog, Ui_xoFiltersDialog):
         for f in flatten(self.f.sums):
             if txt == 'Show All':
                 self.filters.addItem(str(f))
-        for f in flatten(self.f.delays):
-            if txt == 'Show All' or txt == 'Delay Normalisation':
-                self.filters.addItem(str(f))
+        if txt == 'Show All' or txt == 'Delay Normalisation':
+            if self.f.delays:
+                if self.filters.count() > 0:
+                    self.filters.addItem('')
+                self.filters.addItem(f'*** Delays ***')
+                for f in self.f.delays:
+                    self.filters.addItem(str(f))
 
     def copy_filters(self):
         QGuiApplication.clipboard().setText('\n' + '\n'.join([str(f) for f in flatten(self.f)]))
