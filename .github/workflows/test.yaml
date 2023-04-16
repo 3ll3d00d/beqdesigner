@@ -5,13 +5,17 @@ on:
       - '*'
     paths:
       - 'src/main/python/**'
+      - 'src/test/**'
       - 'Pipfile.lock'
+      - 'test.yaml'
   pull_request:
     branches:
       - '*'
     paths:
       - 'src/main/python/**'
+      - 'src/test/**'
       - 'Pipfile.lock'
+      - 'test.yaml'
   workflow_dispatch:
     branches:
       - '*'
