@@ -937,15 +937,52 @@ Add U1 to SR +0 dB
 
 
 def test_collapse_surround():
-    five_one = Matrix({'SW': 1, 'L': 2, 'R': 2, 'C': 2, 'SL': 1, 'SR': 1}, ['L', 'R', 'C', 'SW', 'SL', 'SR', 'RL', 'RR'])
-    for c in ['L', 'R', 'C', 'SW']:
-        five_one.enable(c, 0, 'SW')
-        if c != 'SW':
-            five_one.enable(c, 1, c)
-    five_one.enable('SL', 0, 'RL')
-    five_one.enable('SR', 0, 'RL')
+    matrix = Matrix({'SW': 1, 'L': 2, 'R': 2, 'C': 2, 'RL': 1, 'RR': 1}, ['L', 'R', 'C', 'SW', 'SL', 'SR', 'RL', 'RR'])
 
-    # mw_filters = __make_bm_multiway(['L', 'R', 'C'])
-    # mc_filters = calculate_compound_routing_filter(five_one, xo_filters=mw_filters, lfe_channel_idx=5).filters
-    # assert mc_filters
-    # assert all(isinstance(x, MultiwayFilter) for x in mc_filters)
+    xo_desc = [
+        CompositeXODescriptor({'SW': XODescriptor('SW', [WayDescriptor(WayValues(0, lp=p(120)), ['SW'])])},
+                              [None],
+                              []),
+        CompositeXODescriptor({c: n_way(c, [100.0], ['SW', c]) for c in ['L', 'R', 'C']},
+                              [None, None],
+                              []),
+        CompositeXODescriptor({c: XODescriptor(c, [WayDescriptor(WayValues(0), ['SL'])]) for c in ['RL', 'RR']},
+                              [None],
+                              [])
+    ]
+
+    for d in xo_desc:
+        copy_to_matrix(matrix, d)
+
+    mcs = MultiChannelSystem(xo_desc)
+
+    mc_filter = mcs.calculate_filters(matrix)
+    assert mc_filter
+    mc_filters = mc_filter.filters
+    assert mc_filters
+    assert all(isinstance(x, (MultiwayFilter, Gain, Mix)) for x in mc_filters)
+
+    filter_list = '\n' + '\n'.join([str(f) for mc in mc_filters for f in flatten(mc)]) + '\n'
+    assert filter_list == """
+LP LR4 120Hz  [SW]
+Copy L to U2 +0 dB
+Copy L to U1 +0 dB
+HP LR4 100Hz  [U2]
+Copy U2 to L +0 dB
+LP LR4 100Hz  [U1]
+Add U1 to SW +0 dB
+Copy R to U2 +0 dB
+Copy R to U1 +0 dB
+HP LR4 100Hz  [U2]
+Copy U2 to R +0 dB
+LP LR4 100Hz  [U1]
+Add U1 to SW +0 dB
+Copy C to U2 +0 dB
+Copy C to U1 +0 dB
+HP LR4 100Hz  [U2]
+Copy U2 to C +0 dB
+LP LR4 100Hz  [U1]
+Add U1 to SW +0 dB
+Add RL to SL +0 dB
+Add RR to SL +0 dB
+"""
