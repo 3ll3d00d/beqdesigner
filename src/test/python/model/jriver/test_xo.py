@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Union
 
 import pytest
 
@@ -21,19 +21,20 @@ def p(freq: float, order: int = 4, ft: FilterType = FilterType.LINKWITZ_RILEY) -
     return [ft.display_name, order, freq]
 
 
-def n_way(in_ch: str, freq: List[float], channels: List[str], way_args: List[dict] = None, ss: float = 0.0):
+def n_way(in_ch: str, freq: List[float], channels: List[Union[str, List[str]]], way_args: List[dict] = None, ss: float = 0.0):
     ways = []
     if way_args is None:
-        way_args = [{}] * len(channels)
-    assert (len(freq) + 1) == len(channels) == len(way_args)
+        way_args = [{}] * (len(freq) + 1)
+    assert (len(freq) + 1) == len(way_args)
     for i in range(len(freq) + 1):
         args = {} if way_args[i] is None else way_args[i]
+        out_chs = channels[i] if isinstance(channels[i], list) else [channels[i]]
         if i == 0:
-            ways.append(WayDescriptor(WayValues(i, lp=p(freq[i]), hp=p(ss) if ss else None, **args), [channels[i]]))
+            ways.append(WayDescriptor(WayValues(i, lp=p(freq[i]), hp=p(ss) if ss else None, **args), out_chs))
         elif i == len(freq):
-            ways.append(WayDescriptor(WayValues(i, hp=p(freq[i - 1]), **args), [channels[i]]))
+            ways.append(WayDescriptor(WayValues(i, hp=p(freq[i - 1]), **args), out_chs))
         else:
-            ways.append(WayDescriptor(WayValues(i, lp=p(freq[i]), hp=p(freq[i - 1]), **args), [channels[i]]))
+            ways.append(WayDescriptor(WayValues(i, lp=p(freq[i]), hp=p(freq[i - 1]), **args), out_chs))
     return XODescriptor(in_ch, ways)
 
 
@@ -260,7 +261,9 @@ def test_stereo_two_way_mds_sub(two_in_four):
         CompositeXODescriptor({
             'L': n_way_mds('L', 'SW', 'L'),
             'R': n_way_mds('R', 'SW', 'R')
-        }, [MDSXO(4, 100.0, lp_channel=['L'], hp_channel=['C'])], [MDSPoint(0, 4, 100.0)])
+        },
+        [MDSXO(4, 100.0, lp_channel=['SW'], hp_channel=['L']), MDSXO(4, 100.0, lp_channel=['SW'], hp_channel=['R'])],
+        [MDSPoint(0, 4, 100.0)])
     ]
     for d in xo_desc:
         copy_to_matrix(two_in_four, d)
@@ -300,7 +303,7 @@ LP BESM64 77.07Hz  [U1]
 Delay +5.950662 ms [U2]
 Subtract U1 from U2 +0 dB
 Copy U2 to U1 +0 dB
-Copy R to SW +0 dB
+Add R to SW +0 dB
 Delay +5.950662 ms [SW]
 Delay +5.950662 ms [SW]
 Subtract U1 from SW +0 dB
@@ -572,167 +575,365 @@ def test_bass_managed_five_one_mds_with_spare_channels(five_one_plus_six):
 
     filter_list = '\n' + '\n'.join([str(f) for mc in mc_filters for f in flatten(mc)]) + '\n'
     assert filter_list == """
+Gain -5 dB [SW]
+Gain -15 dB [L]
+Gain -15 dB [R]
+Gain -15 dB [C]
+Gain -15 dB [RL]
+Gain -15 dB [RR]
+LP LR4 120Hz  [SW]
+Copy L to U1 +0 dB
+Copy L to U2 +0 dB
+LP BESM64 77.07Hz  [U1]
+Delay +5.950662 ms [U2]
+Subtract U1 from U2 +0 dB
+Copy U2 to U1 +0 dB
+LP BESM64 77.07Hz  [U1]
+Delay +5.950662 ms [U2]
+Subtract U1 from U2 +0 dB
+Copy U2 to U1 +0 dB
+Copy L to SL +0 dB
+Delay +5.950662 ms [SL]
+Delay +5.950662 ms [SL]
+Subtract U1 from SL +0 dB
+Move U1 to L +0 dB
+Copy R to U1 +0 dB
+Copy R to U2 +0 dB
+LP BESM64 77.07Hz  [U1]
+Delay +5.950662 ms [U2]
+Subtract U1 from U2 +0 dB
+Copy U2 to U1 +0 dB
+LP BESM64 77.07Hz  [U1]
+Delay +5.950662 ms [U2]
+Subtract U1 from U2 +0 dB
+Copy U2 to U1 +0 dB
+Copy R to SR +0 dB
+Delay +5.950662 ms [SR]
+Delay +5.950662 ms [SR]
+Subtract U1 from SR +0 dB
+Move U1 to R +0 dB
+Copy C to U1 +0 dB
+Copy C to U2 +0 dB
+LP BESM64 77.07Hz  [U1]
+Delay +5.950662 ms [U2]
+Subtract U1 from U2 +0 dB
+Copy U2 to U1 +0 dB
+LP BESM64 77.07Hz  [U1]
+Delay +5.950662 ms [U2]
+Subtract U1 from U2 +0 dB
+Copy U2 to U1 +0 dB
+Copy C to C9 +0 dB
+Delay +5.950662 ms [C9]
+Delay +5.950662 ms [C9]
+Subtract U1 from C9 +0 dB
+Move U1 to C +0 dB
+Copy RL to U1 +0 dB
+Copy RL to U2 +0 dB
+LP BESM64 77.07Hz  [U1]
+Delay +5.950662 ms [U2]
+Subtract U1 from U2 +0 dB
+Copy U2 to U1 +0 dB
+LP BESM64 77.07Hz  [U1]
+Delay +5.950662 ms [U2]
+Subtract U1 from U2 +0 dB
+Copy U2 to U1 +0 dB
+Copy RL to C10 +0 dB
+Delay +5.950662 ms [C10]
+Delay +5.950662 ms [C10]
+Subtract U1 from C10 +0 dB
+Move U1 to RL +0 dB
+Copy RR to U1 +0 dB
+Copy RR to U2 +0 dB
+LP BESM64 77.07Hz  [U1]
+Delay +5.950662 ms [U2]
+Subtract U1 from U2 +0 dB
+Copy U2 to U1 +0 dB
+LP BESM64 77.07Hz  [U1]
+Delay +5.950662 ms [U2]
+Subtract U1 from U2 +0 dB
+Copy U2 to U1 +0 dB
+Copy RR to C11 +0 dB
+Delay +5.950662 ms [C11]
+Delay +5.950662 ms [C11]
+Subtract U1 from C11 +0 dB
+Move U1 to RR +0 dB
+Delay +6.367991 ms [SW]
+Add SL to SW +0 dB
+Mute [SL]
+Add SR to SW +0 dB
+Mute [SR]
+Add C9 to SW +0 dB
+Mute [C9]
+Add C10 to SW +0 dB
+Mute [C10]
+Add C11 to SW +0 dB
+Mute [C11]
 """
 
 
 @pytest.fixture
 def multi_bm() -> Matrix:
-    return Matrix({'SW': 1, 'L': 4, 'R': 4, 'C': 4, 'SL': 2, 'SR': 2, 'RL': 2, 'RR': 2},
-                  ['L', 'R', 'C', 'SW', 'SL', 'SR', 'RL', 'RR', 'C9', 'C10', 'C11', 'C12', 'C13', 'C14', 'C15', 'C16'])
+    return Matrix({'SW': 1, 'L': 4, 'R': 4, 'C': 4, 'RL': 2, 'RR': 2},
+                  ['L', 'R', 'C', 'SW', 'SL', 'SR', 'RL', 'RR', 'C9', 'C10', 'C11', 'C12', 'C13', 'C14'])
 
 
 def test_multi_way_mains_simple_bm(multi_bm):
-    multiway_channels = [('L', 'C9', 'C10'), ('R', 'C11', 'C12'), ('C', 'C13', 'C14')]
-    other_channels = ['SL', 'SR', 'RL', 'RR']
+    multiway_channels = [('L', 'SL', 'SR'), ('R', 'C9', 'C10'), ('C', 'C11', 'C12')]
+    singleway_channels = ['RL', 'RR']
 
-    for vals in multiway_channels:
-        multi_bm.enable(vals[0], 0, 'SW')
-        for i, v in enumerate(vals):
-            multi_bm.enable(vals[0], i + 1, v)
-    for c in other_channels:
-        multi_bm.enable(c, 0, 'SW')
-        multi_bm.enable(c, 1, c)
-    multi_bm.enable('SW', 0, 'SW')
+    xo_desc = [
+        CompositeXODescriptor({'SW': XODescriptor('SW', [WayDescriptor(WayValues(0, lp=p(120)), ['SW'])])},
+                              [None],
+                              []),
+        CompositeXODescriptor({c[0]: n_way(c[0], [100.0, 350.0, 1250.0], ['SW'] + list(c)) for c in multiway_channels},
+                              [None] * len(multiway_channels[0]),
+                              []),
+        CompositeXODescriptor({c: n_way(c, [100.0], ['SW', c]) for c in singleway_channels},
+                              [None],
+                              [])
+    ]
 
-    mw_filters = []
-    # for vals in multiway_channels:
-    #     mw_filters.append(
-    #         MultiwayFilter(vals[0],
-    #                        ['SW'] + list(vals),
-    #                        MultiwayCrossover(vals[0], [StandardXO(['SW'], [vals[0]]), StandardXO([vals[0]], [vals[1]]), StandardXO([vals[1]], [vals[2]])],
-    #                                          []).graph.filters, {}),
-    #     )
-    #
-    # mw_filters = mw_filters + __make_bm_multiway(other_channels)
-    # mc_filters = calculate_compound_routing_filter(multi_bm, xo_filters=mw_filters, lfe_channel_idx=5).filters
-    #
-    # assert all(isinstance(x, MultiwayFilter) for x in mc_filters)
-    #
-    # for vals in multiway_channels:
-    #     f = mc_filters.pop(0)
-    #     assert f.filters.pop(0).get_all_vals() == [mix(vals[0], MixType.ADD, 'SW')]
-    #     assert f.filters.pop(0).get_all_vals() == [mix(vals[0], MixType.COPY, vals[1])]
-    #     assert f.filters.pop(0).get_all_vals() == [mix(vals[1], MixType.COPY, vals[2])]
-    #     assert not f.filters
-    #
-    # for c in other_channels:
-    #     f = mc_filters.pop(0)
-    #     assert f.filters.pop(0).get_all_vals() == [mix(c, MixType.ADD, 'SW')]
-    #     assert not f.filters
-    #
-    # assert not mc_filters
+    for d in xo_desc:
+        copy_to_matrix(multi_bm, d)
+
+    mcs = MultiChannelSystem(xo_desc)
+
+    from model.jriver.common import get_channel_idx
+    mc_filter = mcs.calculate_filters(multi_bm, main_adjust=-15, lfe_adjust=-5, lfe_channel_idx=get_channel_idx('SW'))
+    assert mc_filter
+    mc_filters = mc_filter.filters
+    assert mc_filters
+    assert all(isinstance(x, (MultiwayFilter, Gain, Delay, Mix, Mute)) for x in mc_filters)
+
+    filter_list = '\n' + '\n'.join([str(f) for mc in mc_filters for f in flatten(mc)]) + '\n'
+    assert filter_list == """
+Gain -5 dB [SW]
+Gain -15 dB [L]
+Gain -15 dB [R]
+Gain -15 dB [C]
+Gain -15 dB [RL]
+Gain -15 dB [RR]
+LP LR4 120Hz  [SW]
+Copy L to U2 +0 dB
+Copy L to U1 +0 dB
+HP LR4 100Hz  [U2]
+Copy U2 to L +0 dB
+LP LR4 100Hz  [U1]
+Add U1 to SW +0 dB
+Copy L to U2 +0 dB
+HP LR4 350Hz  [U2]
+Copy U2 to SL +0 dB
+LP LR4 350Hz  [L]
+Copy SL to U2 +0 dB
+HP LR4 1.25kHz  [U2]
+Copy U2 to SR +0 dB
+LP LR4 1.25kHz  [SL]
+Copy R to U2 +0 dB
+Copy R to U1 +0 dB
+HP LR4 100Hz  [U2]
+Copy U2 to R +0 dB
+LP LR4 100Hz  [U1]
+Add U1 to SW +0 dB
+Copy R to U2 +0 dB
+HP LR4 350Hz  [U2]
+Copy U2 to C9 +0 dB
+LP LR4 350Hz  [R]
+Copy C9 to U2 +0 dB
+HP LR4 1.25kHz  [U2]
+Copy U2 to C10 +0 dB
+LP LR4 1.25kHz  [C9]
+Copy C to U2 +0 dB
+Copy C to U1 +0 dB
+HP LR4 100Hz  [U2]
+Copy U2 to C +0 dB
+LP LR4 100Hz  [U1]
+Add U1 to SW +0 dB
+Copy C to U2 +0 dB
+HP LR4 350Hz  [U2]
+Copy U2 to C11 +0 dB
+LP LR4 350Hz  [C]
+Copy C11 to U2 +0 dB
+HP LR4 1.25kHz  [U2]
+Copy U2 to C12 +0 dB
+LP LR4 1.25kHz  [C11]
+Copy RL to U2 +0 dB
+Copy RL to U1 +0 dB
+HP LR4 100Hz  [U2]
+Copy U2 to RL +0 dB
+LP LR4 100Hz  [U1]
+Add U1 to SW +0 dB
+Copy RR to U2 +0 dB
+Copy RR to U1 +0 dB
+HP LR4 100Hz  [U2]
+Copy U2 to RR +0 dB
+LP LR4 100Hz  [U1]
+Add U1 to SW +0 dB
+"""
 
 
 def test_multi_way_mains_simple_bm_with_shared_sub(multi_bm):
-    multiway_channels = [('L', 'C9', 'C10'), ('R', 'C11', 'C12'), ('C', 'C13', 'C14')]
-    other_channels = ['SL', 'SR', 'RL', 'RR']
+    multiway_channels = [('L', 'SL', 'SR'), ('R', 'C9', 'C10'), ('C', 'C11', 'C12')]
+    singleway_channels = ['RL', 'RR']
 
-    for vals in multiway_channels:
-        multi_bm.enable(vals[0], 0, 'SW')
-        if vals[0] != 'C':
-            multi_bm.enable(vals[0], 0, 'C15')
-        for i, v in enumerate(vals):
-            multi_bm.enable(vals[0], i + 1, v)
-    for c in other_channels:
-        multi_bm.enable(c, 0, 'SW')
-        multi_bm.enable(c, 1, c)
-    multi_bm.enable('SW', 0, 'SW')
+    xo_desc = [
+        CompositeXODescriptor({'SW': XODescriptor('SW', [WayDescriptor(WayValues(0, lp=p(120)), ['SW', 'C13'])])},
+                              [None],
+                              []),
+        CompositeXODescriptor({c[0]: n_way(c[0], [100.0, 350.0, 1250.0], [['SW', 'C13']] + list(c)) for c in multiway_channels},
+                              [None] * len(multiway_channels[0]),
+                              []),
+        CompositeXODescriptor({c: n_way(c, [100.0], [['SW', 'C13'], c]) for c in singleway_channels},
+                              [None],
+                              [])
+    ]
 
-    # mw_filters = []
-    # for vals in multiway_channels:
-    #     if vals[0] != 'C':
-    #         mw_filters.append(
-    #             MultiwayFilter(vals[0],
-    #                            ['SW', 'C15'] + list(vals),
-    #                            MultiwayCrossover(vals[0],
-    #                                              [StandardXO(['SW', 'C15'], [vals[0]]), StandardXO([vals[0]], [vals[1]]), StandardXO([vals[1]], [vals[2]])],
-    #                                              []).graph.filters, {}),
-    #         )
-    #     else:
-    #         mw_filters.append(
-    #             MultiwayFilter(vals[0],
-    #                            ['SW'] + list(vals),
-    #                            MultiwayCrossover(vals[0], [StandardXO(['SW'], [vals[0]]), StandardXO([vals[0]], [vals[1]]), StandardXO([vals[1]], [vals[2]])],
-    #                                              []).graph.filters, {}),
-    #         )
-    #
-    # mw_filters = mw_filters + __make_bm_multiway(other_channels)
-    # mc_filters = calculate_compound_routing_filter(multi_bm, xo_filters=mw_filters, lfe_channel_idx=5).filters
-    #
-    # assert all(isinstance(x, MultiwayFilter) for x in mc_filters)
-    #
-    # for vals in multiway_channels:
-    #     f = mc_filters.pop(0)
-    #     assert f.filters.pop(0).get_all_vals() == [mix(vals[0], MixType.ADD, 'SW')]
-    #     if vals[0] != 'C':
-    #         assert f.filters.pop(0).get_all_vals() == [mix(vals[0], MixType.ADD, 'C15')]
-    #     assert f.filters.pop(0).get_all_vals() == [mix(vals[0], MixType.COPY, vals[1])]
-    #     assert f.filters.pop(0).get_all_vals() == [mix(vals[1], MixType.COPY, vals[2])]
-    #     assert not f.filters
-    #
-    # for c in other_channels:
-    #     f = mc_filters.pop(0)
-    #     assert f.filters.pop(0).get_all_vals() == [mix(c, MixType.ADD, 'SW')]
-    #     assert not f.filters
-    #
-    # assert not mc_filters
+    for d in xo_desc:
+        copy_to_matrix(multi_bm, d)
+
+    mcs = MultiChannelSystem(xo_desc)
+
+    from model.jriver.common import get_channel_idx
+    mc_filter = mcs.calculate_filters(multi_bm, main_adjust=-15, lfe_adjust=-5, lfe_channel_idx=get_channel_idx('SW'))
+    assert mc_filter
+    mc_filters = mc_filter.filters
+    assert mc_filters
+    assert all(isinstance(x, (MultiwayFilter, Gain, Delay, Mix, Mute)) for x in mc_filters)
+
+    filter_list = '\n' + '\n'.join([str(f) for mc in mc_filters for f in flatten(mc)]) + '\n'
+    assert filter_list == """
+Gain -5 dB [SW]
+Gain -15 dB [L]
+Gain -15 dB [R]
+Gain -15 dB [C]
+Gain -15 dB [RL]
+Gain -15 dB [RR]
+LP LR4 120Hz  [SW]
+Add SW to C13 +0 dB
+Copy L to U2 +0 dB
+Copy L to U1 +0 dB
+HP LR4 100Hz  [U2]
+Copy U2 to L +0 dB
+LP LR4 100Hz  [U1]
+Add U1 to SW +0 dB
+Add U1 to C13 +0 dB
+Copy L to U2 +0 dB
+HP LR4 350Hz  [U2]
+Copy U2 to SL +0 dB
+LP LR4 350Hz  [L]
+Copy SL to U2 +0 dB
+HP LR4 1.25kHz  [U2]
+Copy U2 to SR +0 dB
+LP LR4 1.25kHz  [SL]
+Copy R to U2 +0 dB
+Copy R to U1 +0 dB
+HP LR4 100Hz  [U2]
+Copy U2 to R +0 dB
+LP LR4 100Hz  [U1]
+Add U1 to SW +0 dB
+Add U1 to C13 +0 dB
+Copy R to U2 +0 dB
+HP LR4 350Hz  [U2]
+Copy U2 to C9 +0 dB
+LP LR4 350Hz  [R]
+Copy C9 to U2 +0 dB
+HP LR4 1.25kHz  [U2]
+Copy U2 to C10 +0 dB
+LP LR4 1.25kHz  [C9]
+Copy C to U2 +0 dB
+Copy C to U1 +0 dB
+HP LR4 100Hz  [U2]
+Copy U2 to C +0 dB
+LP LR4 100Hz  [U1]
+Add U1 to SW +0 dB
+Add U1 to C13 +0 dB
+Copy C to U2 +0 dB
+HP LR4 350Hz  [U2]
+Copy U2 to C11 +0 dB
+LP LR4 350Hz  [C]
+Copy C11 to U2 +0 dB
+HP LR4 1.25kHz  [U2]
+Copy U2 to C12 +0 dB
+LP LR4 1.25kHz  [C11]
+Copy RL to U2 +0 dB
+Copy RL to U1 +0 dB
+HP LR4 100Hz  [U2]
+Copy U2 to RL +0 dB
+LP LR4 100Hz  [U1]
+Add U1 to SW +0 dB
+Add U1 to C13 +0 dB
+Copy RR to U2 +0 dB
+Copy RR to U1 +0 dB
+HP LR4 100Hz  [U2]
+Copy U2 to RR +0 dB
+LP LR4 100Hz  [U1]
+Add U1 to SW +0 dB
+Add U1 to C13 +0 dB
+"""
 
 
 @pytest.fixture
 def seven_one() -> Matrix:
-    return Matrix({'SW': 1, 'L': 2, 'R': 2, 'C': 2, 'SL': 2, 'SR': 2},
+    return Matrix({'SW': 1, 'L': 2, 'R': 2, 'C': 2, 'RL': 2, 'RR': 2},
                   ['L', 'R', 'C', 'SW', 'SL', 'SR', 'RL', 'RR'])
 
 
-def test_stereo_subs_overwrite(seven_one):
-    __map_stereo_subs_bm(seven_one, 'SW')
-
-    # mw_filters = \
-    #     [MultiwayFilter(c, [c, 'SW'], MultiwayCrossover(c, [StandardXO(['SW'], [c])], []).graph.filters, {}) for c in ['L', 'SL']] + \
-    #     [MultiwayFilter(c, [c, 'RR'], MultiwayCrossover(c, [StandardXO(['RR'], [c])], []).graph.filters, {}) for c in ['R', 'SR']] + \
-    #     [MultiwayFilter('C', ['C', 'SW', 'RR'], MultiwayCrossover('C', [StandardXO(['SW', 'RR'], ['C'])], []).graph.filters, {})]
-    # with pytest.raises(UnsupportedRoutingError):
-    #     calculate_compound_routing_filter(seven_one, xo_filters=mw_filters, lfe_channel_idx=5)
-
-
-def __map_stereo_subs_bm(stereo_subs: Matrix, sub1: str) -> None:
-    for c in ['L', 'C', 'SW', 'SL']:
-        stereo_subs.enable(c, 0, sub1)
-    for c in ['R', 'C', 'SW', 'SR']:
-        stereo_subs.enable(c, 0, 'RR')
-    for c in ['L', 'R', 'C', 'SL', 'SR']:
-        stereo_subs.enable(c, 1, c)
-
-
 def test_stereo_subs(seven_one):
-    __map_stereo_subs_bm(seven_one, 'RL')
+    subs = {'L': 'SW', 'R': 'SR', 'C': ['SW', 'SR'], 'RL': 'SW', 'RR': 'SR'}
+    xo_desc = [
+        CompositeXODescriptor({'SW': XODescriptor('SW', [WayDescriptor(WayValues(0, lp=p(120)), ['SW'])])},
+                              [None],
+                              []),
+        CompositeXODescriptor({c: n_way(c, [100.0], [sw, c]) for c, sw in subs.items()},
+                              [None, None],
+                              [])
+    ]
 
-    # mw_filters = \
-    #     [MultiwayFilter(c, [c, 'RL'], MultiwayCrossover(c, [StandardXO(['RL'], [c])], []).graph.filters, {}) for c in ['L', 'SL']] + \
-    #     [MultiwayFilter(c, [c, 'RR'], MultiwayCrossover(c, [StandardXO(['RR'], [c])], []).graph.filters, {}) for c in ['R', 'SR']] + \
-    #     [MultiwayFilter('C', ['C', 'RL', 'RR'], MultiwayCrossover('C', [StandardXO(['RL', 'RR'], ['C'])], []).graph.filters, {})]
-    # mc_filters = calculate_compound_routing_filter(seven_one, xo_filters=mw_filters, lfe_channel_idx=5).filters
-    # assert mc_filters
-    # assert all(isinstance(x, MultiwayFilter) for x in mc_filters)
-    #
-    # f = mc_filters.pop(0)
-    # assert f.filters.pop(0).get_all_vals() == [mix('L', MixType.ADD, 'RL')]
-    # assert not f.filters
-    # f = mc_filters.pop(0)
-    # assert f.filters.pop(0).get_all_vals() == [mix('SL', MixType.ADD, 'RL')]
-    # assert not f.filters
-    # f = mc_filters.pop(0)
-    # assert f.filters.pop(0).get_all_vals() == [mix('R', MixType.ADD, 'RR')]
-    # assert not f.filters
-    # f = mc_filters.pop(0)
-    # assert f.filters.pop(0).get_all_vals() == [mix('SR', MixType.ADD, 'RR')]
-    # assert not f.filters
-    # f = mc_filters.pop(0)
-    # assert f.filters.pop(0).get_all_vals() == [mix('C', MixType.ADD, 'RL')]
-    # assert f.filters.pop(0).get_all_vals() == [mix('C', MixType.ADD, 'RR')]
-    # assert not f.filters
-    #
-    # assert not mc_filters
+    for d in xo_desc:
+        copy_to_matrix(seven_one, d)
+
+    mcs = MultiChannelSystem(xo_desc)
+
+    mc_filter = mcs.calculate_filters(seven_one)
+    assert mc_filter
+    mc_filters = mc_filter.filters
+    assert mc_filters
+    assert all(isinstance(x, (MultiwayFilter, Gain, Mix)) for x in mc_filters)
+
+    filter_list = '\n' + '\n'.join([str(f) for mc in mc_filters for f in flatten(mc)]) + '\n'
+    assert filter_list == """
+LP LR4 120Hz  [SW]
+Copy L to U2 +0 dB
+Copy L to U1 +0 dB
+HP LR4 100Hz  [U2]
+Copy U2 to L +0 dB
+LP LR4 100Hz  [U1]
+Add U1 to SW +0 dB
+Copy R to U2 +0 dB
+Copy R to U1 +0 dB
+HP LR4 100Hz  [U2]
+Copy U2 to R +0 dB
+LP LR4 100Hz  [U1]
+Add U1 to SR +0 dB
+Copy C to U2 +0 dB
+Copy C to U1 +0 dB
+HP LR4 100Hz  [U2]
+Copy U2 to C +0 dB
+LP LR4 100Hz  [U1]
+Add U1 to SW +0 dB
+Add U1 to SR +0 dB
+Copy RL to U2 +0 dB
+Copy RL to U1 +0 dB
+HP LR4 100Hz  [U2]
+Copy U2 to RL +0 dB
+LP LR4 100Hz  [U1]
+Add U1 to SW +0 dB
+Copy RR to U2 +0 dB
+Copy RR to U1 +0 dB
+HP LR4 100Hz  [U2]
+Copy U2 to RR +0 dB
+LP LR4 100Hz  [U1]
+Add U1 to SR +0 dB
+"""
 
 
 def test_collapse_surround():
