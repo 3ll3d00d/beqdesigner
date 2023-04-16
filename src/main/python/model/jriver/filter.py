@@ -2443,6 +2443,10 @@ class MultiChannelSystem:
         mds_delays_ms = self.__find_mds_delays(lfe_channel_idx)
         if mds_delays_ms:
             lfe_output_delay_ms, lfe_output_channels = self.__find_lfe_delay(lfe_channel_idx)
+            max_delay = max(mds_delays_ms.keys())
+            # TODO replace this hack by actually phase aligning around the crossover
+            if lfe_output_delay_ms < max_delay:
+                lfe_output_delay_ms = lfe_output_delay_ms + 1.7
             for c in lfe_output_channels:
                 mds_delays_ms[lfe_output_delay_ms].add(c)
         normalised_delays = self.__normalise_delays(mds_delays_ms)

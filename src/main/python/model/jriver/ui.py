@@ -1210,11 +1210,14 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         if mode == 'mag' or self.showPhase.isChecked():
             if self.dsp:
                 names = [n.text() for n in self.channelList.selectedItems()]
-                for signal in self.dsp.signals:
+                sigs = [s for s in self.dsp.signals]
+                if mode == 'phase':
+                    sigs = [s.shift(-s.duration_seconds * 1000 / 2) for s in sigs]
+                for signal in sigs:
                     if signal.name in names:
                         colour = get_filter_colour(len(result))
                         if mode == 'mag':
-                            result.append(MagnitudeData(signal.name, None, *signal.avg,
+                            result.append(MagnitudeData(signal.name, None, *signal.mag_response,
                                                         colour=colour, linestyle='-'))
                         else:
                             result.append(MagnitudeData(signal.name, None, *signal.phase_response,
@@ -1602,7 +1605,11 @@ class XODialog(QDialog, Ui_xoDialog):
         self.__magnitude_model = MagnitudeModel('preview', self.previewChart, prefs,
                                                 self.__get_data(), 'Filter', fill_primary=False,
                                                 x_min_pref_key=JRIVER_GRAPH_X_MIN, x_max_pref_key=JRIVER_GRAPH_X_MAX,
-                                                x_scale_pref_key=None, y_range_calc=DecibelRangeCalculator(60),
+                                                x_scale_pref_key=None,
+                                                secondary_data_provider=self.__get_data('phase'),
+                                                secondary_name='Phase', secondary_prefix='deg', fill_secondary=False,
+                                                y_range_calc=DecibelRangeCalculator(60),
+                                                y2_range_calc=PhaseRangeCalculator(), show_y2_in_legend=False,
                                                 **kwargs)
         self.limitsButton.setIcon(qta.icon('fa5s.arrows-alt'))
         self.limitsButton.setToolTip('Set graph axis limits')
@@ -1857,8 +1864,14 @@ class XODialog(QDialog, Ui_xoDialog):
 
     def get_curve_data(self, mode, reference=None):
         ''' preview of the filter to display on the chart '''
-        return [MagnitudeData(s.name, None, *s.avg, colour=get_filter_colour(i), linestyle='-') for i, s in
-                enumerate(self.__get_previewed_signals())]
+        if mode == 'mag' or self.showPhase.isChecked():
+            sigs = self.__get_previewed_signals()
+            if mode == 'phase':
+                sigs = [s.shift(-s.duration_seconds * 1000 / 2) for s in sigs]
+            return [MagnitudeData(s.name, None, *(s.mag_response if mode == 'mag' else s.phase_response),
+                                  colour=get_filter_colour(i), linestyle='-' if mode == 'mag' else '--')
+                    for i, s in enumerate(sigs)]
+        return []
 
     def __restore_geometry(self):
         ''' loads the saved window size '''

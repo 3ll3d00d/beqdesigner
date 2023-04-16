@@ -36,8 +36,8 @@ class ImpulseDialog(QDialog, Ui_impulseDialog):
         self.limitsButton.setToolTip('Set graph axis limits')
         self.limitsButton.setIcon(qta.icon('fa5s.arrows-alt'))
         self.selectChannelsButton.setIcon(qta.icon('fa5s.filter'))
-        self.zoomInButton.setIcon(qta.icon('fa5s.expand'))
-        self.zoomOutButton.setIcon(qta.icon('fa5s.compress'))
+        self.zoomInButton.setIcon(qta.icon('fa5s.compress'))
+        self.zoomOutButton.setIcon(qta.icon('fa5s.expand'))
         self.__left_marker = self.__magnitude_model.limits.axes_1.axvline(x=self.__magnitude_model.limits.x_min,
                                                                           color=get_filter_colour(0), lw=0.8, ls='--')
         self.__right_marker = self.__magnitude_model.limits.axes_1.axvline(x=self.__magnitude_model.limits.x_max,

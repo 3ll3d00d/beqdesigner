@@ -79,13 +79,13 @@ def pop_channels(vals: List[Dict[str, str]]):
 
 def make_dirac_pulse(channel: str, analysis_resolution=1.0):
     fs = JRIVER_FS
-    return Signal(channel, unit_impulse(fs * 4, 'mid') * 23453.66, fs=fs, analysis_resolution=analysis_resolution,
+    return Signal(channel, unit_impulse(int(fs / 8), 'mid'), fs=fs, analysis_resolution=analysis_resolution,
                   rescale_x=False)
 
 
 def make_silence(channel: str):
     fs = JRIVER_FS
-    return Signal(channel, np.zeros(fs * 4), fs=fs)
+    return Signal(channel, np.zeros(int(fs / 8)), fs=fs)
 
 
 @functools.total_ordering
