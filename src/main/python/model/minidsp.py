@@ -426,7 +426,8 @@ class RepoRefresher(QRunnable):
         from dulwich import porcelain, index
         with porcelain.open_repo_closing(local_dir) as local_repo:
             remote_refs = porcelain.fetch(local_repo, repo)
-            local_repo[b"HEAD"] = remote_refs[b"refs/heads/master"]
+            ref_chain, sha = local_repo.refs.follow(b'HEAD')
+            local_repo[b"HEAD"] = remote_refs[ref_chain[1]]
             index_file = local_repo.index_path()
             tree = local_repo[b"HEAD"].tree
             index.build_index_from_tree(local_repo.path, index_file, local_repo.object_store, tree)
