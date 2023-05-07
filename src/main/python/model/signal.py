@@ -1347,6 +1347,7 @@ class Signal:
     @property
     def mag_response(self):
         x, h = self.__freqz()
+        h[h == 0] = 0.000000001
         return x, 20 * np.log10(abs(h))
 
     def __freqz(self):

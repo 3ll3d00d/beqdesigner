@@ -169,6 +169,7 @@ BEQ_MINIDSP_TYPE = 'beq/minidsp_type'
 BEQ_OUTPUT_CHANNELS = 'beq/output_channels'
 BEQ_OUTPUT_MODE = 'beq/output_mode'
 BEQ_REPOS = 'beq/repos'
+BEQ_REPOS_2 = 'beq/repos2'
 
 BEQ_DEFAULT_GH_URL = 'https://github.com/bmiller/miniDSPBEQ'
 BEQ_DEFAULT_REPO = f"{BEQ_DEFAULT_GH_URL}.git"
@@ -542,7 +543,8 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         repos = self.__preferences.get(BEQ_REPOS)
         if repos != 'NONE':
             for repo in repos.split('|'):
-                self.beqRepos.addItem(repo)
+                if repo:
+                    self.beqRepos.addItem(repo)
         self.addRepoButton.setEnabled(False)
         self.addRepoButton.setIcon(qta.icon('fa5s.plus'))
         self.deleteRepoButton.setIcon(qta.icon('fa5s.times'))

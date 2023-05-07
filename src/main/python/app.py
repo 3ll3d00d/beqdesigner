@@ -20,7 +20,7 @@ from model.checker import VersionChecker, ReleaseNotesDialog
 from model.report import SaveReportDialog, block_signals
 from model.preferences import DISPLAY_SHOW_FILTERED_SIGNALS, SYSTEM_CHECK_FOR_UPDATES, BIQUAD_EXPORT_MAX, \
     BIQUAD_EXPORT_FS, BIQUAD_EXPORT_DEVICE, SHOW_NO_FILTERS, SYSTEM_CHECK_FOR_BETA_UPDATES, \
-    BEQ_REPOS, BEQ_DEFAULT_REPO
+    BEQ_REPOS, BEQ_DEFAULT_REPO, BEQ_REPOS_2
 
 from ui.delegates import RegexValidator
 
@@ -272,16 +272,27 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         Allows the user to choose whether to add MOberhardt's BEQ repo.
         This should only ever be displayed once on upgrade beyond 0.9.0
         '''
-        if not self.preferences.has(BEQ_REPOS):
+        if self.preferences.has(BEQ_REPOS):
+            repo_list = self.preferences.get(BEQ_REPOS).split('|')
+        else:
             repo_list = [BEQ_DEFAULT_REPO]
             result = QMessageBox.question(self,
-                                          'Add MOberhardt BEQ Repo?',
-                                          f"Do you want to use MOberhardt's BEQs?",
+                                          'Add halcyon888 BEQ Repo?',
+                                          f"Do you want to use halcyons's BEQs?",
                                           QMessageBox.Yes | QMessageBox.No,
                                           QMessageBox.No)
             if result == QMessageBox.Yes:
-                repo_list.append('https://github.com/Mobe1969/miniDSPBEQ.git')
-            self.preferences.set(BEQ_REPOS, '|'.join(repo_list))
+                repo_list.append('https://github.com/halcyon-888/miniDSPBEQ.git')
+        if not self.preferences.has(BEQ_REPOS_2):
+            result = QMessageBox.question(self,
+                                          'Add halcyon888 BEQ Repo?',
+                                          f"Do you want to use halcyons888's BEQs?",
+                                          QMessageBox.Yes | QMessageBox.No,
+                                          QMessageBox.No)
+            if result == QMessageBox.Yes:
+                repo_list.append('https://github.com/halcyon-888/miniDSPBEQ.git')
+        self.preferences.set(BEQ_REPOS, '|'.join({r: '' for r in repo_list}.keys()))
+        self.preferences.set(BEQ_REPOS_2, 'Upgraded')
 
     def show_release_notes(self):
         ''' Shows the release notes '''

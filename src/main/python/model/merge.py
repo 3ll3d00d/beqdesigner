@@ -58,7 +58,8 @@ class MergeFiltersDialog(QDialog, Ui_mergeDspDialog):
         self.__delete_legacy_dir()
         self.__beq_repos = self.__preferences.get(BEQ_REPOS).split('|')
         for r in self.__beq_repos:
-            self.beqRepos.addItem(r)
+            if r:
+                self.beqRepos.addItem(r)
         self.update_beq_count()
         self.__enable_process()
 
