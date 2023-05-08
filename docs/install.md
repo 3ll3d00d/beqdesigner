@@ -6,9 +6,9 @@ Releases are hosted on github, the latest official release will always be availa
 
 File Name | OS | Description 
 ----------|----|------------
-beqdesigner.exe | Windows | A portable, self contained exe which is built using the python.org python distribution
+beqdesigner_*version*.exe | Windows | A portable, self contained exe which is built using the python.org python distribution. The *version* suffix denotes which version of windows was used to build the exe.
 beqdesigner_*distro*\_*version*\_*name* | Linux | A portable, self contained binary built for the specified distribution
-beqdesigner.app.zip | OSX | An OSX app bundle 
+beqdesigner.app.zip_*version( | OSX | An OSX app bundle, the *version* suffix denotes which version of MacOS was used to build the app bundle.
 
 To use, simply download one of the above binaries and run it.
 
