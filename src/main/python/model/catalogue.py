@@ -54,6 +54,7 @@ class CatalogueDialog(QDialog, Ui_catalogueDialog):
         self.sendToMinidspButton.setMenu(self.__make_minidsp_menu(self.send_filter_to_minidsp))
         self.bypassMinidspButton.setMenu(self.__make_minidsp_menu(self.clear_filter_from_minidsp))
         self.__beq_dir = self.__preferences.get(BEQ_DOWNLOAD_DIR)
+        os.makedirs(self.__beq_dir, exist_ok=True)
         self.__beq_file = os.path.join(self.__beq_dir, 'database.json')
         QThreadPool.globalInstance().start(DatabaseDownloader(self.__on_database_load,
                                                               self.__alert_on_database_load_error,

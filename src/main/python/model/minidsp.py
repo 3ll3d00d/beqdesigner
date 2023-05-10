@@ -462,7 +462,7 @@ def get_commit_url(repo):
     return f"{repo[0:-4]}/commit/"
 
 
-def load_as_filter(parent, preferences, fs, unroll=False) -> Optional[Tuple[Optional[List[Biquad]], str]]:
+def load_as_filter(parent, preferences, fs, unroll=False) -> Tuple[Optional[List[Biquad]], Optional[str]]:
     '''
     allows user to select a minidsp xml file and load it as a filter.
     '''
@@ -471,7 +471,7 @@ def load_as_filter(parent, preferences, fs, unroll=False) -> Optional[Tuple[Opti
     filt_file = selected[0] if selected is not None else None
     if filt_file is not None and len(filt_file) > 0:
         return load_filter_file(filt_file, fs, unroll=unroll), filt_file
-    return None
+    return None, None
 
 
 def load_filter_file(filt_file, fs, unroll=False) -> Optional[List[Biquad]]:
