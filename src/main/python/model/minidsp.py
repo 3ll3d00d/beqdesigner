@@ -377,8 +377,10 @@ class OptimisedFilters(Exception):
 
 
 class RefreshSignals(QObject):
-    on_start = Signal()
-    on_end = Signal()
+    on_start = Signal(name='on_start')
+    on_repo_start = Signal(str, name='on_repo_start')
+    on_repo_end = Signal(str, bool, name='on_repo_end')
+    on_end = Signal(bool, name='on_end')
 
 
 class RepoRefresher(QRunnable):
@@ -391,34 +393,45 @@ class RepoRefresher(QRunnable):
 
     def run(self):
         self.signals.on_start.emit()
+        result = False
         try:
-            self.refresh()
+            result = self.refresh()
         except:
             pass
-        self.signals.on_end.emit()
+        self.signals.on_end.emit(result)
 
     def refresh(self):
         ''' Pulls or clones the named repository '''
-        from app import wait_cursor
+        success = True
         try:
-            with wait_cursor():
-                os.makedirs(self.repo_dir, exist_ok=True)
-                for repo in self.repos:
+            os.makedirs(self.repo_dir, exist_ok=True)
+            for repo in self.repos:
+                logger.info(f'Refreshing {repo}')
+                self.signals.on_repo_start.emit(repo)
+                try:
                     subdir = get_repo_subdir(repo)
                     git_metadata_dir = os.path.abspath(os.path.join(self.repo_dir, subdir, '.git'))
                     local_dir = os.path.join(self.repo_dir, subdir)
                     if os.path.exists(git_metadata_dir):
                         from dulwich.errors import NotGitRepository
                         try:
+                            logger.info(f'Pulling {repo}')
                             self.__pull_beq(repo, local_dir)
+                            logger.info(f'Pulled {repo}')
                         except NotGitRepository as e:
                             logger.exception('.git exists but is not a git repo, attempting to delete .git directory and clone')
                             os.rmdir(git_metadata_dir)
                             self.__clone_beq(repo, local_dir)
                     else:
                         self.__clone_beq(repo, local_dir)
+                    self.signals.on_repo_end.emit(repo, True)
+                except:
+                    self.signals.on_repo_end.emit(repo, False)
+                    success = False
         except:
             logger.exception('fail')
+            success = False
+        return success
 
     @staticmethod
     def __pull_beq(repo, local_dir):
@@ -436,7 +449,9 @@ class RepoRefresher(QRunnable):
     def __clone_beq(repo, local_dir):
         ''' clones the git repo into the local dir. '''
         from dulwich import porcelain
+        logger.info(f'Cloning {repo} into {local_dir}')
         porcelain.clone(repo, local_dir, checkout=True)
+        logger.info(f'Cloned {repo} into {local_dir}')
 
 
 def get_repo_subdir(repo):

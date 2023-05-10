@@ -1,12 +1,13 @@
 import glob
 import os
 import shutil
+from datetime import datetime
 from enum import Enum
 from pathlib import Path
 
 import qtawesome as qta
 from qtpy.QtCore import QThreadPool, QDateTime, Qt, QRunnable, QObject, Signal
-from qtpy.QtGui import QGuiApplication
+from qtpy.QtGui import QGuiApplication, QIcon
 from qtpy.QtWidgets import QDialog, QDialogButtonBox, QMessageBox, QFileDialog, QListWidgetItem
 
 from model.jriver.common import JRIVER_CHANNELS
@@ -14,6 +15,7 @@ from model.minidsp import logger, RepoRefresher, get_repo_subdir, get_commit_url
     xml_to_filt
 from model.preferences import BEQ_CONFIG_FILE, BEQ_MERGE_DIR, BEQ_MINIDSP_TYPE, BEQ_DOWNLOAD_DIR, BEQ_EXTRA_DIR, \
     BEQ_REPOS, BEQ_DEFAULT_REPO, BEQ_OUTPUT_CHANNELS, BEQ_OUTPUT_MODE
+from model.spin import StoppableSpin, stop_spinner
 from model.sync import HTP1Parser
 from ui.merge import Ui_mergeDspDialog
 
@@ -27,7 +29,7 @@ class MergeFiltersDialog(QDialog, Ui_mergeDspDialog):
         super(MergeFiltersDialog, self).__init__(parent)
         self.setupUi(self)
         self.buttonBox.button(QDialogButtonBox.Reset).clicked.connect(self.__force_clone)
-        self.__process_spinner = None
+        self.__spinner = None
         self.configFilePicker.setIcon(qta.icon('fa5s.folder-open'))
         self.outputDirectoryPicker.setIcon(qta.icon('fa5s.folder-open'))
         self.processFiles.setIcon(qta.icon('fa5s.save'))
@@ -102,16 +104,42 @@ class MergeFiltersDialog(QDialog, Ui_mergeDspDialog):
             refresh = result == QMessageBox.Yes
         if refresh is True:
             shutil.rmtree(self.__beq_dir)
-            self.refresh_repo()
+            self.refresh_repo(forced=True)
 
-    def refresh_repo(self):
-        from app import wait_cursor
-        with wait_cursor():
-            refresher = RepoRefresher(self.__beq_dir, self.__beq_repos)
-            refresher.signals.on_end.connect(self.__refresh_complete)
-            QThreadPool.globalInstance().start(refresher)
+    def __control_refresh_buttons(self, enable: bool):
+        reset_button = self.buttonBox.button(QDialogButtonBox.Reset)
+        reset_button.setEnabled(enable)
+        refresh_button = self.refreshGitRepo
+        refresh_button.blockSignals(not enable)
+        if enable:
+            stop_spinner(self.__spinner, reset_button)
+            self.__spinner = None
+            refresh_button.setIcon(qta.icon('fa5s.sync'))
+        else:
+            self.__spinner = StoppableSpin(refresh_button, 'git')
+            refresh_button.setIcon(qta.icon('fa5s.sync', color='green', animation=self.__spinner))
 
-    def __refresh_complete(self):
+    def refresh_repo(self, forced: bool = False):
+        logger.info(f'Triggering {"reset" if forced else "refresh"} of {len(self.__beq_repos)} into {self.__beq_dir}')
+        self.gitStatus.clear()
+        self.gitStatus.addItem(f'{datetime.now().time()}: {"Resett" if forced else "Refresh"}ing')
+        self.__control_refresh_buttons(False)
+        refresher = RepoRefresher(self.__beq_dir, self.__beq_repos)
+        refresher.signals.on_repo_start.connect(self.__on_repo_start)
+        refresher.signals.on_repo_end.connect(self.__on_repo_end)
+        refresher.signals.on_end.connect(lambda success: self.__refresh_complete(success, forced))
+        QThreadPool.globalInstance().start(refresher)
+
+    def __on_repo_start(self, repo_name: str):
+        self.gitStatus.addItem(f'{datetime.now().time()}: Starting {repo_name}')
+
+    def __on_repo_end(self, repo_name: str, success: bool):
+        self.gitStatus.addItem(f'{datetime.now().time()}: Completed {repo_name}, success? {success}')
+
+    def __refresh_complete(self, success: bool, forced: bool):
+        logger.info(f'Completed {"reset" if forced else "refresh"} of {len(self.__beq_repos)} into {self.__beq_dir}, success? {success}')
+        self.gitStatus.addItem(f'{datetime.now().time()}: Job complete, success? {success}')
+        self.__control_refresh_buttons(True)
         self.update_beq_repo_status(self.beqRepos.currentText())
         self.update_beq_count()
         self.filesProcessed.setValue(0)
@@ -280,14 +308,14 @@ class MergeFiltersDialog(QDialog, Ui_mergeDspDialog):
 
     def __stop_spinning(self):
         from model.batch import stop_spinner
-        stop_spinner(self.__process_spinner, self.processFiles)
-        self.__process_spinner = None
+        stop_spinner(self.__spinner, self.processFiles)
+        self.__spinner = None
         self.processFiles.setIcon(qta.icon('fa5s.save'))
         self.processFiles.setEnabled(True)
 
     def __start_spinning(self):
-        self.__process_spinner = qta.Spin(self.processFiles)
-        spin_icon = qta.icon('fa5s.spinner', color='green', animation=self.__process_spinner)
+        self.__spinner = qta.Spin(self.processFiles)
+        spin_icon = qta.icon('fa5s.spinner', color='green', animation=self.__spinner)
         self.processFiles.setIcon(spin_icon)
         self.processFiles.setEnabled(False)
 

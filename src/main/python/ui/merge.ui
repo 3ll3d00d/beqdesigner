@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>639</width>
-    <height>686</height>
+    <height>856</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -25,7 +25,21 @@
     </widget>
    </item>
    <item row="1" column="0">
-    <layout class="QGridLayout" name="innerLayout" rowstretch="0,0,0,0,0,0,0,0,0,0,0,0" columnstretch="0,0,0,0,0,0">
+    <layout class="QGridLayout" name="innerLayout" rowstretch="0,0,0,0,0,0,0,0,0,0,0,0,0" columnstretch="0,0,0,0,0,0">
+     <item row="11" column="5">
+      <widget class="QToolButton" name="copyErrorsButton">
+       <property name="text">
+        <string>...</string>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="1" colspan="3">
+      <widget class="QDateTimeEdit" name="lastCommitDate">
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
      <item row="5" column="0">
       <widget class="QLabel" name="outputDirectoryLabel">
        <property name="text">
@@ -33,11 +47,46 @@
        </property>
       </widget>
      </item>
-     <item row="6" column="1" colspan="4">
-      <widget class="QComboBox" name="dspType"/>
+     <item row="9" column="0">
+      <widget class="QLabel" name="filesProcessedLabel">
+       <property name="text">
+        <string>Files Processed</string>
+       </property>
+      </widget>
      </item>
-     <item row="10" column="5">
-      <widget class="QToolButton" name="copyOptimisedButton">
+     <item row="4" column="1" colspan="4">
+      <widget class="QLineEdit" name="configFile">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item row="4" column="0">
+      <widget class="QLabel" name="configFileLabel">
+       <property name="text">
+        <string>Config File</string>
+       </property>
+      </widget>
+     </item>
+     <item row="8" column="0">
+      <widget class="QLabel" name="outputChannelsLabel">
+       <property name="text">
+        <string>Output Channels</string>
+       </property>
+      </widget>
+     </item>
+     <item row="9" column="2">
+      <widget class="QLabel" name="ofLabel">
+       <property name="text">
+        <string>of</string>
+       </property>
+      </widget>
+     </item>
+     <item row="9" column="5">
+      <widget class="QToolButton" name="processFiles">
        <property name="text">
         <string>...</string>
        </property>
@@ -46,12 +95,46 @@
      <item row="10" column="1" colspan="4">
       <widget class="QListWidget" name="optimised"/>
      </item>
-     <item row="3" column="0">
-      <widget class="QLabel" name="userSourceDirLabel">
+     <item row="5" column="5">
+      <widget class="QToolButton" name="outputDirectoryPicker">
        <property name="text">
-        <string>User Source Directory</string>
+        <string>...</string>
        </property>
       </widget>
+     </item>
+     <item row="3" column="5">
+      <widget class="QToolButton" name="userSourceDirPicker">
+       <property name="text">
+        <string>...</string>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="4">
+      <widget class="QLabel" name="infoLabel">
+       <property name="text">
+        <string/>
+       </property>
+      </widget>
+     </item>
+     <item row="11" column="1" colspan="4">
+      <widget class="QListWidget" name="errors">
+       <property name="enabled">
+        <bool>false</bool>
+       </property>
+      </widget>
+     </item>
+     <item row="9" column="4">
+      <spacer name="horizontalSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
      </item>
      <item row="0" column="0">
       <widget class="QLabel" name="beqReposLabel">
@@ -60,10 +143,38 @@
        </property>
       </widget>
      </item>
-     <item row="9" column="2">
-      <widget class="QLabel" name="ofLabel">
+     <item row="6" column="0">
+      <widget class="QLabel" name="dspTypeLabel">
        <property name="text">
-        <string>of</string>
+        <string>DSP Type</string>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="0">
+      <widget class="QLabel" name="lastUpdateLabel">
+       <property name="text">
+        <string>Last Update</string>
+       </property>
+      </widget>
+     </item>
+     <item row="11" column="0">
+      <widget class="QLabel" name="errorsLabel">
+       <property name="text">
+        <string>Errors</string>
+       </property>
+      </widget>
+     </item>
+     <item row="12" column="0">
+      <widget class="QLabel" name="gitStatusLabel">
+       <property name="text">
+        <string>Git Status</string>
+       </property>
+      </widget>
+     </item>
+     <item row="10" column="0">
+      <widget class="QLabel" name="optimisedLabel">
+       <property name="text">
+        <string>Optimised</string>
        </property>
       </widget>
      </item>
@@ -84,10 +195,27 @@
        </property>
       </widget>
      </item>
-     <item row="11" column="1" colspan="4">
-      <widget class="QListWidget" name="errors">
-       <property name="enabled">
-        <bool>false</bool>
+     <item row="9" column="1">
+      <widget class="QSpinBox" name="filesProcessed">
+       <property name="readOnly">
+        <bool>true</bool>
+       </property>
+       <property name="maximum">
+        <number>100000</number>
+       </property>
+      </widget>
+     </item>
+     <item row="8" column="1" colspan="3">
+      <widget class="QListWidget" name="outputChannels">
+       <property name="selectionMode">
+        <enum>QAbstractItemView::MultiSelection</enum>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="1" colspan="4">
+      <widget class="QPlainTextEdit" name="lastCommitMessage">
+       <property name="readOnly">
+        <bool>true</bool>
        </property>
       </widget>
      </item>
@@ -101,8 +229,8 @@
        </property>
       </widget>
      </item>
-     <item row="9" column="5">
-      <widget class="QToolButton" name="processFiles">
+     <item row="10" column="5">
+      <widget class="QToolButton" name="copyOptimisedButton">
        <property name="text">
         <string>...</string>
        </property>
@@ -110,116 +238,6 @@
      </item>
      <item row="0" column="1" colspan="4">
       <widget class="QComboBox" name="beqRepos"/>
-     </item>
-     <item row="9" column="4">
-      <spacer name="horizontalSpacer">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>40</width>
-         <height>20</height>
-        </size>
-       </property>
-      </spacer>
-     </item>
-     <item row="9" column="0">
-      <widget class="QLabel" name="filesProcessedLabel">
-       <property name="text">
-        <string>Files Processed</string>
-       </property>
-      </widget>
-     </item>
-     <item row="3" column="5">
-      <widget class="QToolButton" name="userSourceDirPicker">
-       <property name="text">
-        <string>...</string>
-       </property>
-      </widget>
-     </item>
-     <item row="4" column="5">
-      <widget class="QToolButton" name="configFilePicker">
-       <property name="text">
-        <string>...</string>
-       </property>
-      </widget>
-     </item>
-     <item row="5" column="5">
-      <widget class="QToolButton" name="outputDirectoryPicker">
-       <property name="text">
-        <string>...</string>
-       </property>
-      </widget>
-     </item>
-     <item row="9" column="1">
-      <widget class="QSpinBox" name="filesProcessed">
-       <property name="readOnly">
-        <bool>true</bool>
-       </property>
-       <property name="maximum">
-        <number>100000</number>
-       </property>
-      </widget>
-     </item>
-     <item row="1" column="1" colspan="3">
-      <widget class="QDateTimeEdit" name="lastCommitDate">
-       <property name="readOnly">
-        <bool>true</bool>
-       </property>
-      </widget>
-     </item>
-     <item row="1" column="4">
-      <widget class="QLabel" name="infoLabel">
-       <property name="text">
-        <string/>
-       </property>
-      </widget>
-     </item>
-     <item row="4" column="1" colspan="4">
-      <widget class="QLineEdit" name="configFile">
-       <property name="enabled">
-        <bool>false</bool>
-       </property>
-       <property name="readOnly">
-        <bool>true</bool>
-       </property>
-      </widget>
-     </item>
-     <item row="10" column="0">
-      <widget class="QLabel" name="optimisedLabel">
-       <property name="text">
-        <string>Optimised</string>
-       </property>
-      </widget>
-     </item>
-     <item row="1" column="0">
-      <widget class="QLabel" name="lastUpdateLabel">
-       <property name="text">
-        <string>Last Update</string>
-       </property>
-      </widget>
-     </item>
-     <item row="2" column="1" colspan="4">
-      <widget class="QPlainTextEdit" name="lastCommitMessage">
-       <property name="readOnly">
-        <bool>true</bool>
-       </property>
-      </widget>
-     </item>
-     <item row="6" column="0">
-      <widget class="QLabel" name="dspTypeLabel">
-       <property name="text">
-        <string>DSP Type</string>
-       </property>
-      </widget>
-     </item>
-     <item row="4" column="0">
-      <widget class="QLabel" name="configFileLabel">
-       <property name="text">
-        <string>Config File</string>
-       </property>
-      </widget>
      </item>
      <item row="3" column="1" colspan="4">
       <layout class="QHBoxLayout" name="userSourceDirLayout">
@@ -239,34 +257,6 @@
        </item>
       </layout>
      </item>
-     <item row="11" column="0">
-      <widget class="QLabel" name="errorsLabel">
-       <property name="text">
-        <string>Errors</string>
-       </property>
-      </widget>
-     </item>
-     <item row="8" column="0">
-      <widget class="QLabel" name="outputChannelsLabel">
-       <property name="text">
-        <string>Output Channels</string>
-       </property>
-      </widget>
-     </item>
-     <item row="8" column="1" colspan="3">
-      <widget class="QListWidget" name="outputChannels">
-       <property name="selectionMode">
-        <enum>QAbstractItemView::MultiSelection</enum>
-       </property>
-      </widget>
-     </item>
-     <item row="11" column="5">
-      <widget class="QToolButton" name="copyErrorsButton">
-       <property name="text">
-        <string>...</string>
-       </property>
-      </widget>
-     </item>
      <item row="7" column="0">
       <widget class="QLabel" name="outputModeLabel">
        <property name="text">
@@ -276,6 +266,26 @@
      </item>
      <item row="7" column="1" colspan="3">
       <widget class="QComboBox" name="outputMode"/>
+     </item>
+     <item row="3" column="0">
+      <widget class="QLabel" name="userSourceDirLabel">
+       <property name="text">
+        <string>User Source Directory</string>
+       </property>
+      </widget>
+     </item>
+     <item row="6" column="1" colspan="4">
+      <widget class="QComboBox" name="dspType"/>
+     </item>
+     <item row="4" column="5">
+      <widget class="QToolButton" name="configFilePicker">
+       <property name="text">
+        <string>...</string>
+       </property>
+      </widget>
+     </item>
+     <item row="12" column="1" colspan="4">
+      <widget class="QListWidget" name="gitStatus"/>
      </item>
     </layout>
    </item>
