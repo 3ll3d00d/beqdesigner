@@ -150,6 +150,8 @@ class CatalogueDialog(QDialog, Ui_catalogueDialog):
             return beq.author == 'aron7awol'
         elif self.mobe1969RepoButton.isChecked():
             return beq.author == 'mobe1969'
+        elif self.halcyon888RepoButton.isChecked():
+            return beq.author == 'halcyon888'
 
     def load_filter(self):
         '''

@@ -89,6 +89,19 @@
              </property>
             </widget>
            </item>
+           <item>
+            <widget class="QRadioButton" name="halcyon888RepoButton">
+             <property name="font">
+              <font>
+               <pointsize>10</pointsize>
+               <italic>false</italic>
+              </font>
+             </property>
+             <property name="text">
+              <string>halcyon888</string>
+             </property>
+            </widget>
+           </item>
           </layout>
          </widget>
         </item>
@@ -495,7 +508,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>548</x>
-     <y>285</y>
+     <y>207</y>
     </hint>
     <hint type="destinationlabel">
      <x>470</x>
@@ -510,8 +523,8 @@
    <slot>filter_min_year()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>138</x>
-     <y>285</y>
+     <x>143</x>
+     <y>207</y>
     </hint>
     <hint type="destinationlabel">
      <x>2</x>
@@ -527,7 +540,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>277</x>
-     <y>285</y>
+     <y>207</y>
     </hint>
     <hint type="destinationlabel">
      <x>-2</x>
@@ -542,7 +555,7 @@
    <slot>apply_filter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>167</x>
+     <x>147</x>
      <y>136</y>
     </hint>
     <hint type="destinationlabel">
@@ -558,7 +571,7 @@
    <slot>apply_filter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>341</x>
+     <x>278</x>
      <y>136</y>
     </hint>
     <hint type="destinationlabel">
@@ -574,7 +587,7 @@
    <slot>apply_filter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>503</x>
+     <x>409</x>
      <y>136</y>
     </hint>
     <hint type="destinationlabel">
