@@ -277,18 +277,18 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         else:
             repo_list = [BEQ_DEFAULT_REPO]
             result = QMessageBox.question(self,
-                                          'Add halcyon888 BEQ Repo?',
-                                          f"Do you want to use halcyons's BEQs?",
+                                          'Add MOberhardt BEQ Repo?',
+                                          f"Do you want to use MOberhardt's BEQs?",
                                           QMessageBox.Yes | QMessageBox.No,
-                                          QMessageBox.No)
+                                          QMessageBox.Yes)
             if result == QMessageBox.Yes:
-                repo_list.append('https://github.com/halcyon-888/miniDSPBEQ.git')
+                repo_list.append('https://github.com/Mobe1969/miniDSPBEQ.git')
         if not self.preferences.has(BEQ_REPOS_2):
             result = QMessageBox.question(self,
                                           'Add halcyon888 BEQ Repo?',
                                           f"Do you want to use halcyons888's BEQs?",
                                           QMessageBox.Yes | QMessageBox.No,
-                                          QMessageBox.No)
+                                          QMessageBox.Yes)
             if result == QMessageBox.Yes:
                 repo_list.append('https://github.com/halcyon-888/miniDSPBEQ.git')
         self.preferences.set(BEQ_REPOS, '|'.join({r: '' for r in repo_list}.keys()))
