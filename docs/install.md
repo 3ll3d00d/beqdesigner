@@ -6,11 +6,19 @@ Releases are hosted on github, the latest official release will always be availa
 
 File Name | OS | Description 
 ----------|----|------------
-beqdesigner_*version*.exe | Windows | A portable, self contained exe which is built using the python.org python distribution. The *version* suffix denotes which version of windows was used to build the exe.
+beqdesigner_*version*.exe | Windows | A portable, self contained exe which is built using the python.org python distribution. 
 beqdesigner_*distro*\_*version*\_*name* | Linux | A portable, self contained binary built for the specified distribution
-beqdesigner.app.zip_*version( | OSX | An OSX app bundle, the *version* suffix denotes which version of MacOS was used to build the app bundle.
+beqdesigner.app.zip_*version* | MacOS | A MacOS app bundle. 
 
-To use, simply download one of the above binaries and run it.
+For each OS, the *version* suffix denotes which version of that OS was used to build the exe. 
+
+To run beqdesigner, take the following steps:
+
+  1. download one of the above binaries. NB: where multiple versions for your OS are available, start by picking the version which corresponds to your own OS. If no such version is available, try each in turn.
+  2. for MacOS only, rename the file to remove the version suffix and extract the contents of the zip file
+  3. run it
+
+It should now open normally. If it doesn't, repeat by running the file from a terminal/command prompt as this should provide more detailed error messages.
 
 ### Checking for Updates
 
