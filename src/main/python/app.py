@@ -1,14 +1,14 @@
 import gzip
 import json
 import logging
+import math
 import os
 import re
+import sys
 from collections import abc
 from contextlib import contextmanager
 
-import math
 import matplotlib
-import sys
 from scipy import signal
 
 matplotlib.use("Qt5Agg")
@@ -19,8 +19,7 @@ from model.waveform import WaveformController
 from model.checker import VersionChecker, ReleaseNotesDialog
 from model.report import SaveReportDialog, block_signals
 from model.preferences import DISPLAY_SHOW_FILTERED_SIGNALS, SYSTEM_CHECK_FOR_UPDATES, BIQUAD_EXPORT_MAX, \
-    BIQUAD_EXPORT_FS, BIQUAD_EXPORT_DEVICE, SHOW_NO_FILTERS, SYSTEM_CHECK_FOR_BETA_UPDATES, \
-    BEQ_REPOS, BEQ_DEFAULT_REPO, BEQ_REPOS_2
+    BIQUAD_EXPORT_FS, BIQUAD_EXPORT_DEVICE, SHOW_NO_FILTERS, SYSTEM_CHECK_FOR_BETA_UPDATES
 
 from ui.delegates import RegexValidator
 
@@ -102,8 +101,6 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.__decorate_splitter()
         self.limitsButton.setIcon(qta.icon('fa5s.arrows-alt'))
         self.showValuesButton.setIcon(qta.icon('ei.eye-open'))
-        # init beq repos for 0.9.0 backwards compatibility
-        self.__ensure_beq_repos_exist()
         # logs
         from model.log import RollingLogger
         self.logViewer = RollingLogger(self.preferences, parent=self)
@@ -128,7 +125,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
             logger.info(f"Ignoring unknown cached preference for {DISPLAY_SHOW_FILTERS} - {selected}")
         self.showFilters.blockSignals(False)
         # filter view/model
-        self.actionShow_Filter_Widget.triggered.connect(lambda:self.editFilter(small=True))
+        self.actionShow_Filter_Widget.triggered.connect(lambda: self.editFilter(small=True))
         self.filterView.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.filterView.doubleClicked.connect(self.editFilter)
         from model.filter import FilterTableModel, FilterModel
@@ -266,33 +263,6 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.actionExport_BEQ_Filter.triggered.connect(self.export_beq_filter)
         self.actionSync_with_HTP_1.triggered.connect(self.sync_htp1)
         self.actionManage_JRiver_MC.triggered.connect(self.__import_jriver_peq)
-
-    def __ensure_beq_repos_exist(self):
-        '''
-        Allows the user to choose whether to add MOberhardt's BEQ repo.
-        This should only ever be displayed once on upgrade beyond 0.9.0
-        '''
-        if self.preferences.has(BEQ_REPOS):
-            repo_list = self.preferences.get(BEQ_REPOS).split('|')
-        else:
-            repo_list = [BEQ_DEFAULT_REPO]
-            result = QMessageBox.question(self,
-                                          'Add MOberhardt BEQ Repo?',
-                                          f"Do you want to use MOberhardt's BEQs?",
-                                          QMessageBox.Yes | QMessageBox.No,
-                                          QMessageBox.Yes)
-            if result == QMessageBox.Yes:
-                repo_list.append('https://github.com/Mobe1969/miniDSPBEQ.git')
-        if not self.preferences.has(BEQ_REPOS_2):
-            result = QMessageBox.question(self,
-                                          'Add halcyon888 BEQ Repo?',
-                                          f"Do you want to use halcyons888's BEQs?",
-                                          QMessageBox.Yes | QMessageBox.No,
-                                          QMessageBox.Yes)
-            if result == QMessageBox.Yes:
-                repo_list.append('https://github.com/halcyon-888/miniDSPBEQ.git')
-        self.preferences.set(BEQ_REPOS, '|'.join({r: '' for r in repo_list}.keys()))
-        self.preferences.set(BEQ_REPOS_2, 'Upgraded')
 
     def show_release_notes(self):
         ''' Shows the release notes '''
@@ -529,6 +499,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         def parser(file_name):
             with gzip.open(file_name, 'r') as infile:
                 return json.loads(infile.read().decode('utf-8'))
+
         input = self.__load('*.signal', 'Load Signal', parser)
         if input is not None:
             with (wait_cursor()):
@@ -839,6 +810,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         def parser(file_name):
             with gzip.open(file_name, 'r') as infile:
                 return json.loads(infile.read().decode('utf-8'))
+
         input = self.__load('*.beq', 'Load Project', parser)
         if input is not None:
             with (wait_cursor()):
@@ -1062,7 +1034,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
 
     def y2_max_plus_5(self):
         self.__magnitude_model.limits.shift(y2_max=5)
-    
+
     def y2_max_minus_5(self):
         self.__magnitude_model.limits.shift(y2_max=-5)
 
@@ -1291,7 +1263,8 @@ class ExportBiquadDialog(QDialog, Ui_exportBiquadDialog):
         has_txt = False
         if self.__filter is not None and len(self.__filter) > 0:
             if 'Equalizer APO' == self.outputFormat.currentText():
-                text = "\n".join([f"Filter {idx+1}: {t}" for idx, t in enumerate(list(flatten([as_equalizer_apo(f) for f in self.__filter])))])
+                text = "\n".join([f"Filter {idx + 1}: {t}" for idx, t in
+                                  enumerate(list(flatten([as_equalizer_apo(f) for f in self.__filter])))])
                 if self.__filter.description != COMBINED:
                     text = f"# {self.__filter.description}\n{text}"
             else:
@@ -1302,9 +1275,11 @@ class ExportBiquadDialog(QDialog, Ui_exportBiquadDialog):
                                                                      **kwargs)]))
                 if len(biquads) < self.maxBiquads.value():
                     passthrough = [Passthrough()] * (self.maxBiquads.value() - len(biquads))
-                    biquads += list(flatten([x.format_biquads(self.outputFormat.currentText() != 'User Selected', **kwargs) for x in passthrough]))
+                    biquads += list(flatten(
+                        [x.format_biquads(self.outputFormat.currentText() != 'User Selected', **kwargs) for x in
+                         passthrough]))
                 prefix = 'hex' if self.showHex.isChecked() else 'biquad'
-                text = ",\n".join([f"{prefix}{idx+1},\n{bq}" for idx, bq in enumerate(biquads)])
+                text = ",\n".join([f"{prefix}{idx + 1},\n{bq}" for idx, bq in enumerate(biquads)])
             has_txt = len(text.strip()) > 0
             self.biquads.setPlainText(text)
         if not has_txt:

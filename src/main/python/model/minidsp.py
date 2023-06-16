@@ -1,5 +1,4 @@
 import logging
-import os
 from abc import abstractmethod, ABC
 from typing import List, Optional, Tuple, Callable
 from uuid import uuid4
@@ -11,9 +10,6 @@ from model.iir import Passthrough, PeakingEQ, Shelf, LowShelf, HighShelf, Biquad
 from model.preferences import BEQ_DOWNLOAD_DIR
 
 logger = logging.getLogger('minidsp')
-
-BMILLER_GITHUB_MINIDSP = 'https://github.com/bmiller/miniDSPBEQ'
-BMILLER_MINI_DSPBEQ_GIT_REPO = f"{BMILLER_GITHUB_MINIDSP}.git"
 
 
 class XmlParser(ABC):
@@ -36,7 +32,7 @@ class XmlParser(ABC):
             if padding < 0:
                 if self.__optimise_filters is True:
                     from model.filter import optimise_filters
-                    filters = pad_with_passthrough(optimise_filters(filt, fs, -padding), fs, filters_required)
+                    padding, filters = pad_with_passthrough(optimise_filters(filt, fs, -padding), fs, filters_required)
                     was_optimised = True
                 else:
                     raise TooManyFilters(f"BEQ has too many filters for device (remove {abs(padding)} biquads)")
@@ -374,107 +370,6 @@ class TooManyFilters(Exception):
 class OptimisedFilters(Exception):
     def __init__(self, flattened_filters):
         self.flattened_filters = flattened_filters
-
-
-class RefreshSignals(QObject):
-    on_start = Signal(name='on_start')
-    on_repo_start = Signal(str, name='on_repo_start')
-    on_repo_end = Signal(str, bool, name='on_repo_end')
-    on_end = Signal(bool, name='on_end')
-
-
-class RepoRefresher(QRunnable):
-
-    def __init__(self, repo_dir, repos):
-        super().__init__()
-        self.repo_dir = repo_dir
-        self.repos = repos
-        self.signals = RefreshSignals()
-
-    def run(self):
-        self.signals.on_start.emit()
-        result = False
-        try:
-            result = self.refresh()
-        except:
-            pass
-        self.signals.on_end.emit(result)
-
-    def refresh(self):
-        ''' Pulls or clones the named repository '''
-        success = True
-        try:
-            os.makedirs(self.repo_dir, exist_ok=True)
-            for repo in self.repos:
-                logger.info(f'Refreshing {repo}')
-                self.signals.on_repo_start.emit(repo)
-                try:
-                    subdir = get_repo_subdir(repo)
-                    git_metadata_dir = os.path.abspath(os.path.join(self.repo_dir, subdir, '.git'))
-                    local_dir = os.path.join(self.repo_dir, subdir)
-                    if os.path.exists(git_metadata_dir):
-                        from dulwich.errors import NotGitRepository
-                        try:
-                            logger.info(f'Pulling {repo}')
-                            self.__pull_beq(repo, local_dir)
-                            logger.info(f'Pulled {repo}')
-                        except NotGitRepository as e:
-                            logger.exception('.git exists but is not a git repo, attempting to delete .git directory and clone')
-                            os.rmdir(git_metadata_dir)
-                            self.__clone_beq(repo, local_dir)
-                    else:
-                        self.__clone_beq(repo, local_dir)
-                    self.signals.on_repo_end.emit(repo, True)
-                except:
-                    self.signals.on_repo_end.emit(repo, False)
-                    success = False
-        except:
-            logger.exception('fail')
-            success = False
-        return success
-
-    @staticmethod
-    def __pull_beq(repo, local_dir):
-        ''' pulls the git repo but does not use dulwich pull as it has file lock issues on windows '''
-        from dulwich import porcelain, index
-        with porcelain.open_repo_closing(local_dir) as local_repo:
-            remote_refs = porcelain.fetch(local_repo, repo)
-            ref_chain, sha = local_repo.refs.follow(b'HEAD')
-            local_repo[b"HEAD"] = remote_refs[ref_chain[1]]
-            index_file = local_repo.index_path()
-            tree = local_repo[b"HEAD"].tree
-            index.build_index_from_tree(local_repo.path, index_file, local_repo.object_store, tree)
-
-    @staticmethod
-    def __clone_beq(repo, local_dir):
-        ''' clones the git repo into the local dir. '''
-        from dulwich import porcelain
-        logger.info(f'Cloning {repo} into {local_dir}')
-        porcelain.clone(repo, local_dir, checkout=True)
-        logger.info(f'Cloned {repo} into {local_dir}')
-
-
-def get_repo_subdir(repo):
-    '''
-    Extracts the local subdir from the repo url
-    :param repo: the repo url.
-    :return the subdir.
-    '''
-    chunks = repo.split('/')
-    if len(chunks) > 1:
-        subdir = f"{chunks[-2]}_{chunks[-1]}"
-    else:
-        subdir = chunks[-1]
-    return subdir[0:-4] if subdir[-4:] == '.git' else subdir
-
-
-def get_commit_url(repo):
-    '''
-    Extracts the commit url from the repo url
-    :param repo: the repo url.
-    :return the commit url.
-    '''
-    return f"{repo[0:-4]}/commit/"
 
 
 def load_as_filter(parent, preferences, fs, unroll=False) -> Tuple[Optional[List[Biquad]], Optional[str]]:

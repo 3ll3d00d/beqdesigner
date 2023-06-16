@@ -102,6 +102,19 @@
              </property>
             </widget>
            </item>
+           <item>
+            <widget class="QRadioButton" name="t1g8rsfanRepoButton">
+             <property name="font">
+              <font>
+               <pointsize>10</pointsize>
+               <italic>false</italic>
+              </font>
+             </property>
+             <property name="text">
+              <string>t1g8rs-fan</string>
+             </property>
+            </widget>
+           </item>
           </layout>
          </widget>
         </item>
@@ -555,7 +568,7 @@
    <slot>apply_filter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>147</x>
+     <x>121</x>
      <y>136</y>
     </hint>
     <hint type="destinationlabel">
@@ -571,7 +584,7 @@
    <slot>apply_filter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>278</x>
+     <x>226</x>
      <y>136</y>
     </hint>
     <hint type="destinationlabel">
@@ -587,7 +600,7 @@
    <slot>apply_filter()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>409</x>
+     <x>330</x>
      <y>136</y>
     </hint>
     <hint type="destinationlabel">

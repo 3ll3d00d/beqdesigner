@@ -302,9 +302,6 @@ class Ui_preferencesDialog(object):
         self.beqPage.setObjectName("beqPage")
         self.beqPane = QtWidgets.QGridLayout(self.beqPage)
         self.beqPane.setObjectName("beqPane")
-        self.beqDirectoryLabel = QtWidgets.QLabel(self.beqPage)
-        self.beqDirectoryLabel.setObjectName("beqDirectoryLabel")
-        self.beqPane.addWidget(self.beqDirectoryLabel, 0, 0, 1, 1)
         self.beqFiltersDir = QtWidgets.QLineEdit(self.beqPage)
         self.beqFiltersDir.setReadOnly(True)
         self.beqFiltersDir.setObjectName("beqFiltersDir")
@@ -312,35 +309,9 @@ class Ui_preferencesDialog(object):
         self.beqDirectoryPicker = QtWidgets.QToolButton(self.beqPage)
         self.beqDirectoryPicker.setObjectName("beqDirectoryPicker")
         self.beqPane.addWidget(self.beqDirectoryPicker, 0, 2, 1, 1)
-        self.repoURLLabel = QtWidgets.QLabel(self.beqPage)
-        self.repoURLLabel.setObjectName("repoURLLabel")
-        self.beqPane.addWidget(self.repoURLLabel, 1, 0, 1, 1)
-        self.repoURL = QtWidgets.QLineEdit(self.beqPage)
-        self.repoURL.setObjectName("repoURL")
-        self.beqPane.addWidget(self.repoURL, 1, 1, 1, 1)
-        self.addRepoButton = QtWidgets.QToolButton(self.beqPage)
-        self.addRepoButton.setObjectName("addRepoButton")
-        self.beqPane.addWidget(self.addRepoButton, 1, 2, 1, 1)
-        self.beqRepos = QtWidgets.QComboBox(self.beqPage)
-        self.beqRepos.setObjectName("beqRepos")
-        self.beqPane.addWidget(self.beqRepos, 2, 1, 1, 1)
-        self.deleteRepoButton = QtWidgets.QToolButton(self.beqPage)
-        self.deleteRepoButton.setObjectName("deleteRepoButton")
-        self.beqPane.addWidget(self.deleteRepoButton, 2, 2, 1, 1)
-        self.filteredLoadedLabel = QtWidgets.QLabel(self.beqPage)
-        self.filteredLoadedLabel.setObjectName("filteredLoadedLabel")
-        self.beqPane.addWidget(self.filteredLoadedLabel, 3, 0, 1, 1)
-        self.beqFiltersCount = QtWidgets.QSpinBox(self.beqPage)
-        self.beqFiltersCount.setEnabled(False)
-        self.beqFiltersCount.setMaximum(100000)
-        self.beqFiltersCount.setObjectName("beqFiltersCount")
-        self.beqPane.addWidget(self.beqFiltersCount, 3, 1, 1, 1)
-        self.refreshBeq = QtWidgets.QToolButton(self.beqPage)
-        self.refreshBeq.setObjectName("refreshBeq")
-        self.beqPane.addWidget(self.refreshBeq, 3, 2, 1, 1)
-        self.beqReposLabel = QtWidgets.QLabel(self.beqPage)
-        self.beqReposLabel.setObjectName("beqReposLabel")
-        self.beqPane.addWidget(self.beqReposLabel, 2, 0, 1, 1)
+        self.beqDirectoryLabel = QtWidgets.QLabel(self.beqPage)
+        self.beqDirectoryLabel.setObjectName("beqDirectoryLabel")
+        self.beqPane.addWidget(self.beqDirectoryLabel, 0, 0, 1, 1)
         self.toolBox.addItem(self.beqPage, "")
         self.panes.addWidget(self.toolBox)
         self.verticalLayout.addLayout(self.panes)
@@ -351,18 +322,13 @@ class Ui_preferencesDialog(object):
         self.verticalLayout.addWidget(self.buttonBox)
 
         self.retranslateUi(preferencesDialog)
-        self.toolBox.setCurrentIndex(0)
+        self.toolBox.setCurrentIndex(7)
         self.buttonBox.accepted.connect(preferencesDialog.accept) # type: ignore
         self.buttonBox.rejected.connect(preferencesDialog.reject) # type: ignore
         self.ffmpegDirectoryPicker.clicked.connect(preferencesDialog.showFfmpegDirectoryPicker) # type: ignore
         self.ffprobeDirectoryPicker.clicked.connect(preferencesDialog.showFfprobeDirectoryPicker) # type: ignore
         self.defaultOutputDirectoryPicker.clicked.connect(preferencesDialog.showDefaultOutputDirectoryPicker) # type: ignore
         self.extractCompleteAudioFilePicker.clicked.connect(preferencesDialog.showExtractCompleteSoundPicker) # type: ignore
-        self.beqDirectoryPicker.clicked.connect(preferencesDialog.showBeqDirectoryPicker) # type: ignore
-        self.refreshBeq.clicked.connect(preferencesDialog.updateBeq) # type: ignore
-        self.addRepoButton.clicked.connect(preferencesDialog.add_beq_repo) # type: ignore
-        self.deleteRepoButton.clicked.connect(preferencesDialog.remove_beq_repo) # type: ignore
-        self.repoURL.textChanged['QString'].connect(preferencesDialog.validate_beq_repo) # type: ignore
         self.minidspRsPathPicker.clicked.connect(preferencesDialog.show_minidsp_rs_picker) # type: ignore
         QtCore.QMetaObject.connectSlotsByName(preferencesDialog)
         preferencesDialog.setTabOrder(self.ffmpegDirectory, self.ffmpegDirectoryPicker)
@@ -400,12 +366,6 @@ class Ui_preferencesDialog(object):
         preferencesDialog.setTabOrder(self.checkForUpdates, self.checkForBetaUpdates)
         preferencesDialog.setTabOrder(self.checkForBetaUpdates, self.beqFiltersDir)
         preferencesDialog.setTabOrder(self.beqFiltersDir, self.beqDirectoryPicker)
-        preferencesDialog.setTabOrder(self.beqDirectoryPicker, self.beqFiltersCount)
-        preferencesDialog.setTabOrder(self.beqFiltersCount, self.refreshBeq)
-        preferencesDialog.setTabOrder(self.refreshBeq, self.repoURL)
-        preferencesDialog.setTabOrder(self.repoURL, self.addRepoButton)
-        preferencesDialog.setTabOrder(self.addRepoButton, self.beqRepos)
-        preferencesDialog.setTabOrder(self.beqRepos, self.deleteRepoButton)
 
     def retranslateUi(self, preferencesDialog):
         _translate = QtCore.QCoreApplication.translate
@@ -467,12 +427,6 @@ class Ui_preferencesDialog(object):
         self.checkForBetaUpdates.setText(_translate("preferencesDialog", "Include Beta Versions?"))
         self.checkForUpdates.setText(_translate("preferencesDialog", "Check for Updates on startup?"))
         self.toolBox.setItemText(self.toolBox.indexOf(self.systemPage), _translate("preferencesDialog", "System"))
-        self.beqDirectoryLabel.setText(_translate("preferencesDialog", "Directory"))
         self.beqDirectoryPicker.setText(_translate("preferencesDialog", "..."))
-        self.repoURLLabel.setText(_translate("preferencesDialog", "New Repo"))
-        self.addRepoButton.setText(_translate("preferencesDialog", "..."))
-        self.deleteRepoButton.setText(_translate("preferencesDialog", "..."))
-        self.filteredLoadedLabel.setText(_translate("preferencesDialog", "Filter Count"))
-        self.refreshBeq.setText(_translate("preferencesDialog", "..."))
-        self.beqReposLabel.setText(_translate("preferencesDialog", "Repos"))
+        self.beqDirectoryLabel.setText(_translate("preferencesDialog", "Directory"))
         self.toolBox.setItemText(self.toolBox.indexOf(self.beqPage), _translate("preferencesDialog", "BEQ"))

@@ -1,5 +1,4 @@
 import json
-import json
 import logging
 import os
 import time
@@ -53,6 +52,7 @@ class CatalogueDialog(QDialog, Ui_catalogueDialog):
         self.setupUi(self)
         self.sendToMinidspButton.setMenu(self.__make_minidsp_menu(self.send_filter_to_minidsp))
         self.bypassMinidspButton.setMenu(self.__make_minidsp_menu(self.clear_filter_from_minidsp))
+
         self.__beq_dir = self.__preferences.get(BEQ_DOWNLOAD_DIR)
         os.makedirs(self.__beq_dir, exist_ok=True)
         self.__beq_file = os.path.join(self.__beq_dir, 'database.json')
@@ -83,9 +83,8 @@ class CatalogueDialog(QDialog, Ui_catalogueDialog):
 
     def __on_database_load(self, database):
         if database is True:
-            with open(self.__beq_file, 'r') as infile:
-                self.__catalogue = [CatalogueEntry(f"{idx}", c) for idx, c in enumerate(json.load(infile))]
-                self.__catalogue_by_idx = {c.idx: c for c in self.__catalogue}
+            self.__catalogue = load_catalogue(self.__beq_file)
+            self.__catalogue_by_idx = {c.idx: c for c in self.__catalogue}
             years = SortedSet({c.year for c in self.__catalogue})
             for y in reversed(years):
                 self.yearFilter.addItem(str(y))
@@ -152,20 +151,22 @@ class CatalogueDialog(QDialog, Ui_catalogueDialog):
             return beq.author == 'mobe1969'
         elif self.halcyon888RepoButton.isChecked():
             return beq.author == 'halcyon888'
+        elif self.t1g8rsfanRepoButton.isChecked():
+            return beq.author == 't1g8rsfan'
 
     def load_filter(self):
         '''
         Loads the currently selected filter into the model.
         '''
         beq = self.__get_entry_from_results()
-        self.__filter_loader(beq.title, beq.iir_filters)
+        self.__filter_loader(beq.title, beq.iir_filters())
 
     def send_filter_to_minidsp(self, slot=None):
         '''
         Sends the currently selected filter to the filter publisher.
         '''
         beq = self.__get_entry_from_results()
-        fp = FilterPublisher(beq.iir_filters, slot, self.__minidsp_rs_exe, self.__minidsp_rs_options,
+        fp = FilterPublisher(beq.iir_filters(), slot, self.__minidsp_rs_exe, self.__minidsp_rs_options,
                              lambda c: self.__on_send_filter_event(c, self.sendToMinidspButton))
         QThreadPool.globalInstance().start(fp)
 
@@ -267,6 +268,7 @@ class CatalogueDialog(QDialog, Ui_catalogueDialog):
                 item: QListWidgetItem = self.contentTypeFilter.item(i)
                 item.setSelected(len(txt.strip()) == 0 or item.text().casefold().find(txt.casefold()) > -1)
         self.apply_filter()
+
 
 class DatabaseDownloadSignals(QObject):
     on_load = Signal(bool, name='on_load')
@@ -576,21 +578,25 @@ class CatalogueEntry:
             return f"{self.title} {self.__format_tv_meta()}"
         return self.title
 
-    @property
-    def iir_filters(self) -> List[BiquadWithQGain]:
-        return [self.__convert(i, f) for i, f in enumerate(self.filters)]
+    def iir_filters(self, fs=96000) -> List[BiquadWithQGain]:
+        return [self.__convert(i, f, fs) for i, f in enumerate(self.filters)]
 
     @staticmethod
-    def __convert(i: int, f: dict) -> BiquadWithQGain:
+    def __convert(i: int, f: dict, fs: int) -> BiquadWithQGain:
         t = f['type']
         freq = f['freq']
         gain = f['gain']
         q = f['q']
         if t == 'PeakingEQ':
-            return PeakingEQ(96000, freq, q, gain, f_id=i)
+            return PeakingEQ(fs, freq, q, gain, f_id=i)
         elif t == 'LowShelf':
-            return LowShelf(96000, freq, q, gain, f_id=i)
+            return LowShelf(fs, freq, q, gain, f_id=i)
         elif t == 'HighShelf':
-            return HighShelf(96000, freq, q, gain, f_id=i)
+            return HighShelf(fs, freq, q, gain, f_id=i)
         else:
             raise ValueError(f"Unknown filt_type {t}")
+
+
+def load_catalogue(beq_file) -> List[CatalogueEntry]:
+    with open(beq_file, 'r') as infile:
+        return [CatalogueEntry(f"{idx}", c) for idx, c in enumerate(json.load(infile))]

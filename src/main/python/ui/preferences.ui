@@ -19,7 +19,7 @@
      <item>
       <widget class="QToolBox" name="toolBox">
        <property name="currentIndex">
-        <number>0</number>
+        <number>7</number>
        </property>
        <widget class="QWidget" name="binariesPage">
         <property name="geometry">
@@ -672,13 +672,6 @@
          <string>BEQ</string>
         </attribute>
         <layout class="QGridLayout" name="beqPane">
-         <item row="0" column="0">
-          <widget class="QLabel" name="beqDirectoryLabel">
-           <property name="text">
-            <string>Directory</string>
-           </property>
-          </widget>
-         </item>
          <item row="0" column="1">
           <widget class="QLineEdit" name="beqFiltersDir">
            <property name="readOnly">
@@ -693,61 +686,10 @@
            </property>
           </widget>
          </item>
-         <item row="1" column="0">
-          <widget class="QLabel" name="repoURLLabel">
+         <item row="0" column="0">
+          <widget class="QLabel" name="beqDirectoryLabel">
            <property name="text">
-            <string>New Repo</string>
-           </property>
-          </widget>
-         </item>
-         <item row="1" column="1">
-          <widget class="QLineEdit" name="repoURL"/>
-         </item>
-         <item row="1" column="2">
-          <widget class="QToolButton" name="addRepoButton">
-           <property name="text">
-            <string>...</string>
-           </property>
-          </widget>
-         </item>
-         <item row="2" column="1">
-          <widget class="QComboBox" name="beqRepos"/>
-         </item>
-         <item row="2" column="2">
-          <widget class="QToolButton" name="deleteRepoButton">
-           <property name="text">
-            <string>...</string>
-           </property>
-          </widget>
-         </item>
-         <item row="3" column="0">
-          <widget class="QLabel" name="filteredLoadedLabel">
-           <property name="text">
-            <string>Filter Count</string>
-           </property>
-          </widget>
-         </item>
-         <item row="3" column="1">
-          <widget class="QSpinBox" name="beqFiltersCount">
-           <property name="enabled">
-            <bool>false</bool>
-           </property>
-           <property name="maximum">
-            <number>100000</number>
-           </property>
-          </widget>
-         </item>
-         <item row="3" column="2">
-          <widget class="QToolButton" name="refreshBeq">
-           <property name="text">
-            <string>...</string>
-           </property>
-          </widget>
-         </item>
-         <item row="2" column="0">
-          <widget class="QLabel" name="beqReposLabel">
-           <property name="text">
-            <string>Repos</string>
+            <string>Directory</string>
            </property>
           </widget>
          </item>
@@ -806,12 +748,6 @@
   <tabstop>checkForBetaUpdates</tabstop>
   <tabstop>beqFiltersDir</tabstop>
   <tabstop>beqDirectoryPicker</tabstop>
-  <tabstop>beqFiltersCount</tabstop>
-  <tabstop>refreshBeq</tabstop>
-  <tabstop>repoURL</tabstop>
-  <tabstop>addRepoButton</tabstop>
-  <tabstop>beqRepos</tabstop>
-  <tabstop>deleteRepoButton</tabstop>
  </tabstops>
  <resources/>
  <connections>
@@ -908,86 +844,6 @@
     <hint type="destinationlabel">
      <x>374</x>
      <y>331</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>beqDirectoryPicker</sender>
-   <signal>clicked()</signal>
-   <receiver>preferencesDialog</receiver>
-   <slot>showBeqDirectoryPicker()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>361</x>
-     <y>303</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>374</x>
-     <y>484</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>refreshBeq</sender>
-   <signal>clicked()</signal>
-   <receiver>preferencesDialog</receiver>
-   <slot>updateBeq()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>361</x>
-     <y>506</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>374</x>
-     <y>484</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>addRepoButton</sender>
-   <signal>clicked()</signal>
-   <receiver>preferencesDialog</receiver>
-   <slot>add_beq_repo()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>346</x>
-     <y>384</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>370</x>
-     <y>327</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>deleteRepoButton</sender>
-   <signal>clicked()</signal>
-   <receiver>preferencesDialog</receiver>
-   <slot>remove_beq_repo()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>352</x>
-     <y>445</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>374</x>
-     <y>373</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>repoURL</sender>
-   <signal>textChanged(QString)</signal>
-   <receiver>preferencesDialog</receiver>
-   <slot>validate_beq_repo()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>188</x>
-     <y>383</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>5</x>
-     <y>358</y>
     </hint>
    </hints>
   </connection>

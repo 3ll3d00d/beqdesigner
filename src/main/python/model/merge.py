@@ -1,21 +1,21 @@
 import glob
 import os
 import shutil
-from datetime import datetime
 from enum import Enum
 from pathlib import Path
+from typing import List
 
 import qtawesome as qta
-from qtpy.QtCore import QThreadPool, QDateTime, Qt, QRunnable, QObject, Signal
-from qtpy.QtGui import QGuiApplication, QIcon
-from qtpy.QtWidgets import QDialog, QDialogButtonBox, QMessageBox, QFileDialog, QListWidgetItem
+from qtpy.QtCore import QThreadPool, QRunnable, QObject, Signal
+from qtpy.QtGui import QGuiApplication
+from qtpy.QtWidgets import QDialog, QMessageBox, QFileDialog, QListWidgetItem
 
+from model.catalogue import DatabaseDownloader, show_alert, load_catalogue, CatalogueEntry
 from model.jriver.common import JRIVER_CHANNELS
-from model.minidsp import logger, RepoRefresher, get_repo_subdir, get_commit_url, TwoByFourXmlParser, HDXmlParser, \
+from model.minidsp import logger, TwoByFourXmlParser, HDXmlParser, \
     xml_to_filt
 from model.preferences import BEQ_CONFIG_FILE, BEQ_MERGE_DIR, BEQ_MINIDSP_TYPE, BEQ_DOWNLOAD_DIR, BEQ_EXTRA_DIR, \
-    BEQ_REPOS, BEQ_DEFAULT_REPO, BEQ_OUTPUT_CHANNELS, BEQ_OUTPUT_MODE
-from model.spin import StoppableSpin, stop_spinner
+    BEQ_OUTPUT_CHANNELS, BEQ_OUTPUT_MODE
 from model.sync import HTP1Parser
 from ui.merge import Ui_mergeDspDialog
 
@@ -28,12 +28,11 @@ class MergeFiltersDialog(QDialog, Ui_mergeDspDialog):
     def __init__(self, parent, prefs, statusbar):
         super(MergeFiltersDialog, self).__init__(parent)
         self.setupUi(self)
-        self.buttonBox.button(QDialogButtonBox.Reset).clicked.connect(self.__force_clone)
         self.__spinner = None
+        self.__catalogue: List[CatalogueEntry] = []
         self.configFilePicker.setIcon(qta.icon('fa5s.folder-open'))
         self.outputDirectoryPicker.setIcon(qta.icon('fa5s.folder-open'))
         self.processFiles.setIcon(qta.icon('fa5s.save'))
-        self.refreshGitRepo.setIcon(qta.icon('fa5s.sync'))
         self.userSourceDirPicker.setIcon(qta.icon('fa5s.folder-open'))
         self.clearUserSourceDir.setIcon(qta.icon('fa5s.times', color='red'))
         self.copyOptimisedButton.setIcon(qta.icon('fa5s.copy'))
@@ -54,165 +53,41 @@ class MergeFiltersDialog(QDialog, Ui_mergeDspDialog):
         if dsp_type is not None and len(dsp_type) > 0:
             self.dspType.setCurrentText(dsp_type)
         self.__beq_dir = self.__preferences.get(BEQ_DOWNLOAD_DIR)
+        os.makedirs(self.__beq_dir, exist_ok=True)
+        self.__beq_file = os.path.join(self.__beq_dir, 'database.json')
+        QThreadPool.globalInstance().start(DatabaseDownloader(self.__on_database_load,
+                                                              self.__alert_on_database_load_error,
+                                                              self.__beq_file))
         extra_dir = self.__preferences.get(BEQ_EXTRA_DIR)
         if extra_dir is not None and len(extra_dir) > 0 and os.path.exists(extra_dir):
             self.userSourceDir.setText(os.path.abspath(extra_dir))
-        self.__delete_legacy_dir()
-        self.__beq_repos = self.__preferences.get(BEQ_REPOS).split('|')
-        for r in self.__beq_repos:
-            if r:
-                self.beqRepos.addItem(r)
-        self.update_beq_count()
-        self.__enable_process()
 
-    def __delete_legacy_dir(self):
-        git_metadata_dir = os.path.abspath(os.path.join(self.__beq_dir, '.git'))
-        move_it = False
-        if os.path.exists(git_metadata_dir):
-            from dulwich import porcelain
-            with porcelain.open_repo_closing(self.__beq_dir) as local_repo:
-                config = local_repo.get_config()
-                remote_url = config.get(('remote', 'origin'), 'url').decode()
-                if remote_url == BEQ_DEFAULT_REPO:
-                    move_it = True
-        if move_it is True:
-            logger.info(f"Migrating legacy repo location from {self.__beq_dir}")
-            target_dir = os.path.abspath(os.path.join(self.__beq_dir, 'bmiller_miniDSPBEQ'))
-            os.mkdir(target_dir)
-            for d in os.listdir(self.__beq_dir):
-                if d != 'bmiller_miniDSPBEQ':
-                    src = os.path.abspath(os.path.join(self.__beq_dir, d))
-                    if os.path.isdir(src):
-                        dst = os.path.abspath(os.path.join(target_dir, d))
-                        logger.info(f"Migrating {src} to {dst}")
-                        shutil.move(src, dst)
-                    else:
-                        logger.info(f"Migrating {src} to {target_dir}")
-                        shutil.move(src, target_dir)
+    def __on_database_load(self, database: bool):
+        if database is True:
+            self.__catalogue = load_catalogue(self.__beq_file)
+            self.update_beq_count()
+            self.__enable_process()
 
-    def __force_clone(self):
-        if not os.path.exists(self.__beq_dir):
-            refresh = True
-        else:
-            result = QMessageBox.question(self,
-                                          'Get Clean Copy?',
-                                          f"Do you want to delete {self.__beq_dir} and download a fresh copy?"
-                                          f"\n\nEverything in {self.__beq_dir} will be deleted. "
-                                          f"\n\nThis action is irreversible!",
-                                          QMessageBox.Yes | QMessageBox.No,
-                                          QMessageBox.No)
-            refresh = result == QMessageBox.Yes
-        if refresh is True:
-            shutil.rmtree(self.__beq_dir)
-            self.refresh_repo(forced=True)
-
-    def __control_refresh_buttons(self, enable: bool):
-        reset_button = self.buttonBox.button(QDialogButtonBox.Reset)
-        reset_button.setEnabled(enable)
-        refresh_button = self.refreshGitRepo
-        refresh_button.blockSignals(not enable)
-        if enable:
-            stop_spinner(self.__spinner, reset_button)
-            self.__spinner = None
-            refresh_button.setIcon(qta.icon('fa5s.sync'))
-        else:
-            self.__spinner = StoppableSpin(refresh_button, 'git')
-            refresh_button.setIcon(qta.icon('fa5s.sync', color='green', animation=self.__spinner))
-
-    def refresh_repo(self, forced: bool = False):
-        logger.info(f'Triggering {"reset" if forced else "refresh"} of {len(self.__beq_repos)} into {self.__beq_dir}')
-        self.gitStatus.clear()
-        self.gitStatus.addItem(f'{datetime.now().time()}: {"Resett" if forced else "Refresh"}ing')
-        self.__control_refresh_buttons(False)
-        refresher = RepoRefresher(self.__beq_dir, self.__beq_repos)
-        refresher.signals.on_repo_start.connect(self.__on_repo_start)
-        refresher.signals.on_repo_end.connect(self.__on_repo_end)
-        refresher.signals.on_end.connect(lambda success: self.__refresh_complete(success, forced))
-        QThreadPool.globalInstance().start(refresher)
-
-    def __on_repo_start(self, repo_name: str):
-        self.gitStatus.addItem(f'{datetime.now().time()}: Starting {repo_name}')
-
-    def __on_repo_end(self, repo_name: str, success: bool):
-        self.gitStatus.addItem(f'{datetime.now().time()}: Completed {repo_name}, success? {success}')
-
-    def __refresh_complete(self, success: bool, forced: bool):
-        logger.info(f'Completed {"reset" if forced else "refresh"} of {len(self.__beq_repos)} into {self.__beq_dir}, success? {success}')
-        self.gitStatus.addItem(f'{datetime.now().time()}: Job complete, success? {success}')
-        self.__control_refresh_buttons(True)
-        self.update_beq_repo_status(self.beqRepos.currentText())
-        self.update_beq_count()
-        self.filesProcessed.setValue(0)
-
-    def update_beq_repo_status(self, repo_url):
-        ''' updates the displayed state of the selected beq repo '''
-        subdir = get_repo_subdir(repo_url)
-        if os.path.exists(self.__beq_dir) and os.path.exists(os.path.join(self.__beq_dir, subdir, '.git')):
-            self.__load_repo_metadata(repo_url)
-        else:
-            self.__beq_dir_not_exists(repo_url)
+    @staticmethod
+    def __alert_on_database_load_error(message):
+        '''
+        Shows an alert if we can't load the database.
+        :param message: the message.
+        '''
+        show_alert('Unable to Load BEQCatalogue Database', message)
 
     def update_beq_count(self):
-        git_files = 0
         user_files = 0
-        for repo_url in self.__beq_repos:
-            subdir = get_repo_subdir(repo_url)
-            if os.path.exists(self.__beq_dir) and os.path.exists(os.path.join(self.__beq_dir, subdir, '.git')):
-                git_files += len(glob.glob(f"{self.__beq_dir}{os.sep}{subdir}{os.sep}**{os.sep}*.xml", recursive=True))
-
         if len(self.userSourceDir.text().strip()) > 0 and os.path.exists(self.userSourceDir.text()):
             user_files = len(glob.glob(f"{self.userSourceDir.text()}{os.sep}**{os.sep}*.xml", recursive=True))
 
-        if user_files > 0 or git_files > 0:
-            self.__show_or_hide(git_files > 0, user_files > 0)
-            self.totalFiles.setValue(user_files + git_files)
+        if user_files > 0 or len(self.__catalogue) > 0:
+            self.__show_or_hide(user_files > 0, len(self.__catalogue) > 0)
+            self.totalFiles.setValue(user_files + len(self.__catalogue))
 
-    def __load_repo_metadata(self, repo_url):
-        from dulwich import porcelain
-        subdir = get_repo_subdir(repo_url)
-        repo_dir = os.path.join(self.__beq_dir, subdir)
-        commit_url = get_commit_url(repo_url)
-        try:
-            with porcelain.open_repo_closing(repo_dir) as local_repo:
-                last_commit = local_repo[local_repo.head()]
-                last_commit_time_utc = last_commit.commit_time
-                last_commit_qdt = QDateTime()
-                last_commit_qdt.setTime_t(last_commit_time_utc)
-                self.lastCommitDate.setDateTime(last_commit_qdt)
-                from datetime import datetime
-                import calendar
-                d = datetime.utcnow()
-                now_utc = calendar.timegm(d.utctimetuple())
-                days_since_commit = (now_utc - last_commit_time_utc) / 60 / 60 / 24
-                warning_msg = ''
-                if days_since_commit > 7.0:
-                    warning_msg = f"&nbsp;was {round(days_since_commit)} days ago, press the button to update -->"
-                commit_link = f"{commit_url}/{last_commit.id.decode('utf-8')}"
-                self.infoLabel.setText(f"<a href=\"{commit_link}\">Last Commit</a>{warning_msg}")
-                self.infoLabel.setTextFormat(Qt.RichText)
-                self.infoLabel.setTextInteractionFlags(Qt.TextBrowserInteraction)
-                self.infoLabel.setOpenExternalLinks(True)
-                self.lastCommitMessage.setPlainText(
-                    f"Author: {last_commit.author.decode('utf-8')}\n\n{last_commit.message.decode('utf-8')}")
-        except:
-            logger.exception(f"Unable to open git repo in {self.__beq_dir}")
-            self.__beq_dir_not_exists(repo_url)
-
-    def __beq_dir_not_exists(self, repo_url):
-        target_path = os.path.abspath(os.path.join(self.__beq_dir, get_repo_subdir(repo_url)))
-        self.infoLabel.setText(
-            f"BEQ repo not found in {target_path}, press the button to clone the repository -->")
-        self.lastCommitMessage.clear()
-        time = QDateTime()
-        time.setMSecsSinceEpoch(0)
-        self.lastCommitDate.setDateTime(time)
-
-    def __show_or_hide(self, has_git_files, has_user_files):
-        self.lastCommitDate.setVisible(has_git_files)
-        has_any_files = has_git_files or has_user_files
+    def __show_or_hide(self, has_user_files, has_catalogue):
+        has_any_files = has_user_files or has_catalogue
         self.totalFiles.setVisible(has_any_files)
-        self.lastCommitMessage.setVisible(has_git_files)
-        self.lastUpdateLabel.setVisible(has_git_files)
         self.filesProcessed.setVisible(has_any_files)
         self.filesProcessedLabel.setVisible(has_any_files)
         self.ofLabel.setVisible(has_any_files)
@@ -277,6 +152,7 @@ class MergeFiltersDialog(QDialog, Ui_mergeDspDialog):
                     if m:
                         in_out_split = (m.group(1), m.group(2))
                 QThreadPool.globalInstance().start(XmlProcessor(self.__beq_dir,
+                                                                self.__catalogue,
                                                                 self.userSourceDir.text(),
                                                                 self.outputDirectory.text(),
                                                                 self.configFile.text(),
@@ -295,7 +171,7 @@ class MergeFiltersDialog(QDialog, Ui_mergeDspDialog):
         self.errors.addItem(f"{dir_name} - {file} - {message}")
 
     def __on_file_ok(self):
-        self.filesProcessed.setValue(self.filesProcessed.value()+1)
+        self.filesProcessed.setValue(self.filesProcessed.value() + 1)
 
     def __on_complete(self):
         self.__stop_spinning()
@@ -304,7 +180,7 @@ class MergeFiltersDialog(QDialog, Ui_mergeDspDialog):
         self.optimised.setEnabled(True)
         self.copyOptimisedButton.setEnabled(True)
         self.optimised.addItem(f"{dir_name} - {file}")
-        self.filesProcessed.setValue(self.filesProcessed.value()+1)
+        self.filesProcessed.setValue(self.filesProcessed.value() + 1)
 
     def __stop_spinning(self):
         from model.batch import stop_spinner
@@ -338,7 +214,8 @@ class MergeFiltersDialog(QDialog, Ui_mergeDspDialog):
                     self.statusbar.showMessage(f"Deleting {file}", 2000)
                     os.remove(file)
                     self.statusbar.showMessage(f"Deleted {file}", 2000)
-                self.statusbar.showMessage(f"Cleared {len(matching_files)} config files from {self.outputDirectory.text()}", 5000)
+                self.statusbar.showMessage(
+                    f"Cleared {len(matching_files)} config files from {self.outputDirectory.text()}", 5000)
                 return True
             else:
                 return False
@@ -455,7 +332,8 @@ class MergeFiltersDialog(QDialog, Ui_mergeDspDialog):
         else:
             self.outputChannels.setVisible(False)
             self.outputChannelsLabel.setVisible(False)
-        saved_channels = self.__preferences.get(BEQ_OUTPUT_CHANNELS) if selected == self.__preferences.get(BEQ_MINIDSP_TYPE) else None
+        saved_channels = self.__preferences.get(BEQ_OUTPUT_CHANNELS) if selected == self.__preferences.get(
+            BEQ_MINIDSP_TYPE) else None
         if saved_channels is not None:
             selected_channels = saved_channels.split('|')
         elif dsp_type in DEFAULT_OUTPUT_CHANNELS_BY_DEVICE:
@@ -550,9 +428,10 @@ class DspType(Enum):
 
 
 OUTPUT_CHANNELS_BY_DEVICE = {
-    DspType.MONOPRICE_HTP1: ['sub1', 'sub2', 'sub3', 'sub4', 'sub5', 'lf', 'rf', 'c', 'ls', 'rs', 'lb', 'rb', 'ltf', 'rtf', 'ltm', 'rtm', 'ltr', 'rtr', 'lw', 'rw', 'lfh', 'rfh', 'lhb', 'rhb'],
+    DspType.MONOPRICE_HTP1: ['sub1', 'sub2', 'sub3', 'sub4', 'sub5', 'lf', 'rf', 'c', 'ls', 'rs', 'lb', 'rb', 'ltf',
+                             'rtf', 'ltm', 'rtm', 'ltr', 'rtr', 'lw', 'rw', 'lfh', 'rfh', 'lhb', 'rhb'],
     DspType.MINIDSP_TWO_BY_FOUR_HD: ['Input 1', 'Input 2', 'Output 1', 'Output 2', 'Output 3', 'Output 4'],
-    DspType.MINIDSP_EIGHTY_EIGHT_BM: [str(i+1) for i in range(8)],
+    DspType.MINIDSP_EIGHTY_EIGHT_BM: [str(i + 1) for i in range(8)],
     DspType.JRIVER_PEQ1: JRIVER_CHANNELS,
     DspType.JRIVER_PEQ2: JRIVER_CHANNELS
 }
@@ -570,10 +449,13 @@ class XmlProcessor(QRunnable):
     '''
     Completes the batch conversion of config files in a separate thread.
     '''
-    def __init__(self, beq_dir, user_source_dir, output_dir, config_file, dsp_type, failure_handler, success_handler,
-                 complete_handler, optimise_handler, optimise_filters, selected_channels, in_out_split):
+
+    def __init__(self, beq_dir, catalogue: List[CatalogueEntry], user_source_dir, output_dir,
+                 config_file, dsp_type, failure_handler, success_handler, complete_handler, optimise_handler,
+                 optimise_filters, selected_channels, in_out_split):
         super().__init__()
         self.__optimise_filters = optimise_filters
+        self.__catalogue = catalogue
         self.__beq_dir = beq_dir
         self.__user_source_dir = user_source_dir
         self.__output_dir = output_dir
@@ -599,8 +481,8 @@ class XmlProcessor(QRunnable):
         self.__signals.on_optimised.connect(optimise_handler)
 
     def run(self):
-        self.__process_dir(self.__beq_dir)
         self.__process_dir(self.__user_source_dir)
+        self.__process_catalogue(self.__catalogue)
         self.__signals.on_complete.emit()
 
     def __process_dir(self, src_dir):
@@ -609,6 +491,31 @@ class XmlProcessor(QRunnable):
             base_parts_idx = len(beq_dir.parts)
             for xml in beq_dir.glob(f"**{os.sep}*.xml"):
                 self.__process_file(base_parts_idx, xml)
+
+    def __process_catalogue(self, catalogue: List[CatalogueEntry]):
+        for entry in catalogue:
+            try:
+                file_output_dir = os.path.join(self.__output_dir, entry.content_type, entry.author,
+                                               entry.sort_title[0].upper())
+                os.makedirs(file_output_dir, exist_ok=True)
+                dst = Path(file_output_dir).joinpath(entry.sort_title.replace('/', '_')).with_suffix(
+                    self.__parser.file_extension())
+                if dst.is_file():
+                    logger.warning(f"Overwriting {self.__config_file} to {dst}")
+                else:
+                    logger.info(f"Copying {self.__config_file} to {dst}")
+                dst = shutil.copy2(self.__config_file, dst.resolve())
+                output_config, was_optimised = self.__parser.convert(str(dst),
+                                                                     entry.iir_filters(self.__dsp_type.target_fs))
+                with dst.open('w', newline=self.__parser.newline()) as dst_file:
+                    dst_file.write(output_config)
+                if was_optimised is False:
+                    self.__signals.on_success.emit()
+                else:
+                    self.__signals.on_optimised.emit(entry.author, entry.sort_title)
+            except Exception as e:
+                logger.exception(f"Unexpected failure during processing of {entry.author}/{entry.sort_title}")
+                self.__signals.on_failure.emit(entry.author, entry.sort_title, str(e))
 
     def __process_file(self, base_parts_idx, xml):
         '''

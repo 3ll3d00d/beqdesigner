@@ -19,21 +19,9 @@ This function is not for you if you do not meet these requirements.
 
 ### Instructions
 
-Hit the `Tools > Merge BEQ` menu item or press `CTRL+X` to open the dialog.
+Hit the `Tools > Merge BEQ` menu item or press `CTRL+X` to open the dialog. It will then downloaded the latest version of the [beqcatalogue](https://beqcatalogue.readthedocs.io/en/latest/).
 
-On first use, the dialog will state that no filter files have been found and instruct you to hit the button.
-
-![First Use](../img/merge_1.png)
-
-Clicking the button will instruct BEQDesigner to connect to github and clone the repository, i.e. you will need network access at this point. Once the repository is cloned, the view will change to show 
-
-* how many filters are available in the repository
-* when it was last updated
-* the last commit message
-
-![On Clone](../img/merge_2.png)
-
-Next
+The next steps are:
 
 * click the button next to the config file and pick your config file
 * change the output directory as necessary
@@ -57,24 +45,19 @@ If you clicked Yes, the following events should now happen:
 
 ![In Progress](../img/merge_4.png)
 
-If the selected minidsp type is either the 2x4 or the 10x10 HD then errors should be expected as the hardware only supports 6 biquads per output channel and some BEQ filters require more than 6  biquads. The error section will specify which files were not processed successfully and how many biquads you'd need to eliminate to use this directly. A suggested workaround is found [below](#working-around-fixed-point-hardware-limitations)
+If the selected minidsp type is either the 2x4 or the 10x10 HD then the following option will be offered as the hardware only supports 6 biquads per output channel and some BEQ filters require more than 6 biquads.
+
+![Merge6](../img/merge_filter_warning.png)
+
+If no is selected then errors should be expected. The error section will specify which files were not processed successfully and how many biquads you'd need to eliminate to use this directly. 
+A suggested workaround is found [below](#working-around-fixed-point-hardware-limitations).
 
 ![NonHD](../img/merge_error.png)
 
 For other DSP device types, all files should be processed successfully
 
-![Done](../img/merge_5.png)
-
 !!! info
     If any other errors are encountered, raise an issue via [github issues](https://github.com/3ll3d00d/beqdesigner/issues) to discuss further
-
-### Keeping the Repository Up to date
-
-The BEQ community cranks out new filters at a rate of knots so the repository is regularly updated. 
-
-If more than 7 days have passed since the last commit found locally then BEQDesigner will prompt you to update your local copy
-
-![Update](../img/merge_6.png)
 
 ### Working around Fixed Point Hardware Limitations
 

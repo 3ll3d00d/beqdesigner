@@ -94,11 +94,7 @@ If the latest release is not the current release, an alert will be shown to noti
 
 Allows configuration of git repos which are store published beq filters. 
 
-* Directory: the location to which to clone the repo
-* New Repo: a git repository to add
-* Repos: a list of git repositories which are used by BEQDesigner when merging config files  
-* Filter Count: shows how many filters are present in the directory
-* Sync button: click to update the repo to the latest commit
+* Directory: the location to which downloaded files should be place
 
 ### Where are preferences stored?
 

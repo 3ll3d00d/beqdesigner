@@ -6,7 +6,7 @@ from typing import Optional, Callable
 import matplotlib
 import matplotlib.style as style
 import qtawesome as qta
-from qtpy.QtCore import QThreadPool, QSettings
+from qtpy.QtCore import QSettings
 from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox, QDialogButtonBox, QLineEdit
 
 from ui.preferences import Ui_preferencesDialog
@@ -168,11 +168,6 @@ BEQ_EXTRA_DIR = 'beq/extra_dir'
 BEQ_MINIDSP_TYPE = 'beq/minidsp_type'
 BEQ_OUTPUT_CHANNELS = 'beq/output_channels'
 BEQ_OUTPUT_MODE = 'beq/output_mode'
-BEQ_REPOS = 'beq/repos'
-BEQ_REPOS_2 = 'beq/repos2'
-
-BEQ_DEFAULT_GH_URL = 'https://github.com/bmiller/miniDSPBEQ'
-BEQ_DEFAULT_REPO = f"{BEQ_DEFAULT_GH_URL}.git"
 
 BIQUAD_EXPORT_FS = 'biquad/fs'
 BIQUAD_EXPORT_MAX = 'biquad/max'
@@ -490,7 +485,6 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         self.ffprobeDirectoryPicker.setIcon(qta.icon('fa5s.folder-open'))
         self.minidspRsPathPicker.setIcon(qta.icon('fa5s.folder-open'))
         self.extractCompleteAudioFilePicker.setIcon(qta.icon('fa5s.folder-open'))
-        self.refreshBeq.setIcon(qta.icon('fa5s.sync'))
 
         self.__init_field(BINARIES_FFMPEG, os.path.isdir, self.ffmpegDirectory)
         self.__init_field(BINARIES_FFPROBE, os.path.isdir, self.ffprobeDirectory)
@@ -540,36 +534,10 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
 
         self.precalcSmoothing.setChecked(self.__preferences.get(DISPLAY_SMOOTH_PRECALC))
 
-        repos = self.__preferences.get(BEQ_REPOS)
-        if repos != 'NONE':
-            for repo in repos.split('|'):
-                if repo:
-                    self.beqRepos.addItem(repo)
-        self.addRepoButton.setEnabled(False)
-        self.addRepoButton.setIcon(qta.icon('fa5s.plus'))
-        self.deleteRepoButton.setIcon(qta.icon('fa5s.times'))
-        self.__count_beq_files()
-
     def __init_field(self, pref_key: str, lookup: Callable[[str], bool], field: QLineEdit):
         loc = self.__preferences.get(pref_key)
         if loc and lookup(loc):
             field.setText(loc)
-
-    def validate_beq_repo(self, repo_url):
-        ''' enables the add button if the url is valid. '''
-        # TODO validate the url properly
-        self.addRepoButton.setEnabled(len(repo_url) > 0 and repo_url[-4:] == '.git')
-
-    def add_beq_repo(self):
-        ''' Adds a new repo to the list. '''
-        self.beqRepos.addItem(self.repoURL.text())
-        self.repoURL.clear()
-
-    def remove_beq_repo(self):
-        '''
-        removes the currently selected repo.
-        '''
-        self.beqRepos.removeItem(self.beqRepos.currentIndex())
 
     def __reset(self):
         '''
@@ -690,7 +658,6 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         self.__preferences.set(BEQ_DOWNLOAD_DIR, self.beqFiltersDir.text())
         self.__preferences.set(BASS_MANAGEMENT_LPF_FS, self.bmlpfFreq.value())
         self.__preferences.set(DISPLAY_SMOOTH_PRECALC, self.precalcSmoothing.isChecked())
-        self.__preferences.set(BEQ_REPOS, '|'.join(self.__get_beq_repos()))
 
         QDialog.accept(self)
 
@@ -768,24 +735,3 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
             selected = dialog.selectedFiles()
             if len(selected) > 0:
                 self.beqFiltersDir.setText(selected[0])
-                self.__count_beq_files()
-
-    def __count_beq_files(self):
-        if os.path.exists(self.beqFiltersDir.text()):
-            match = len(glob.glob(f"{self.beqFiltersDir.text()}{os.sep}**{os.sep}*.xml", recursive=True))
-            self.beqFiltersCount.setValue(match)
-
-    def updateBeq(self):
-        ''' Pulls or clones the named repository '''
-        from model.minidsp import RepoRefresher
-        refresher = RepoRefresher(self.beqFiltersDir.text(), self.__get_beq_repos())
-        refresher.signals.on_end.connect(lambda: self.__count_and_return_cursor())
-        QThreadPool.globalInstance().start(refresher)
-
-    def __count_and_return_cursor(self):
-        from app import wait_cursor
-        with wait_cursor():
-            self.__count_beq_files()
-
-    def __get_beq_repos(self):
-        return [self.beqRepos.itemText(r) for r in range(0, self.beqRepos.count())]

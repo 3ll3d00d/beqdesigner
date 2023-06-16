@@ -75,7 +75,7 @@ class MessageSignals(QObject):
 class RollingLogger(logging.Handler):
     def __init__(self, preferences, size=1000, parent=None):
         super().__init__()
-        self.__buffer = RingBuffer(size, dtype=np.object)
+        self.__buffer = RingBuffer(size, dtype=object)
         self.__signals = MessageSignals()
         self.__visible = False
         self.__window = None
