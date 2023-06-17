@@ -1,6 +1,7 @@
 import glob
 import os
 import shutil
+from collections import defaultdict
 from enum import Enum
 from pathlib import Path
 from typing import List
@@ -493,17 +494,55 @@ class XmlProcessor(QRunnable):
                 self.__process_file(base_parts_idx, xml)
 
     def __process_catalogue(self, catalogue: List[CatalogueEntry]):
+        by_author_by_filename = defaultdict(lambda: defaultdict(list))
         for entry in catalogue:
-            try:
-                file_output_dir = os.path.join(self.__output_dir, entry.content_type, entry.author,
-                                               entry.sort_title[0].upper())
+            year_suffix = f'_{entry.year}' if entry.year else ''
+            edition_suffix = f'_{entry.edition.strip()}' if entry.edition.strip() else ''
+            fn = f"{entry.formatted_title}{edition_suffix}{year_suffix}"
+            if entry.audio_types:
+                fn = f"{fn}_{'_'.join(entry.audio_types)}"
+            by_author_by_filename[entry.author][fn.replace('/', '_').replace('.', '')].append(entry)
+
+        for author, values in by_author_by_filename.items():
+            for filename, entries in values.items():
+                file_output_dir = os.path.join(self.__output_dir, entries[0].content_type, author,
+                                               entries[0].formatted_title[0].upper())
                 os.makedirs(file_output_dir, exist_ok=True)
-                dst = Path(file_output_dir).joinpath(entry.sort_title.replace('/', '_')).with_suffix(
-                    self.__parser.file_extension())
-                if dst.is_file():
-                    logger.warning(f"Overwriting {self.__config_file} to {dst}")
+                val_provider = None
+                if len(entries) > 1:
+                    unique_vals = {e.source for e in entries}
+                    if len(unique_vals) != len(entries):
+                        unique_vals = {e.mv_adjust for e in entries}
+                        if len(unique_vals) != len(entries):
+                            unique_vals = {e.note for e in entries}
+                            if len(unique_vals) != len(entries):
+                                unique_vals = {e.language for e in entries}
+                                if len(unique_vals) != len(entries):
+                                    pass
+                                else:
+                                    val_provider = lambda e: e.language
+                            else:
+                                val_provider = lambda e: e.note
+                        else:
+                            val_provider = lambda e: f'MV {e.mv_adjust}'
+                    else:
+                        val_provider = lambda e: e.source
+                    for i, e in enumerate(entries):
+                        if val_provider:
+                            suffix = val_provider(e)
+                        else:
+                            suffix = i
+                            self.__signals.on_failure.emit(e.author, e.formatted_title, f"Duplicate entry")
+                        self.__write_to(Path(file_output_dir).joinpath(f'{filename}_{suffix}').with_suffix(self.__parser.file_extension()), e)
                 else:
-                    logger.info(f"Copying {self.__config_file} to {dst}")
+                    self.__write_to(Path(file_output_dir).joinpath(filename).with_suffix(self.__parser.file_extension()), entries[0])
+
+    def __write_to(self, dst: Path, entry: CatalogueEntry):
+        try:
+            if dst.is_file():
+                self.__signals.on_failure.emit(entry.author, entry.formatted_title, f"File exists at {dst}")
+            else:
+                logger.info(f"Copying {self.__config_file} to {dst}")
                 dst = shutil.copy2(self.__config_file, dst.resolve())
                 output_config, was_optimised = self.__parser.convert(str(dst),
                                                                      entry.iir_filters(self.__dsp_type.target_fs))
@@ -512,10 +551,10 @@ class XmlProcessor(QRunnable):
                 if was_optimised is False:
                     self.__signals.on_success.emit()
                 else:
-                    self.__signals.on_optimised.emit(entry.author, entry.sort_title)
-            except Exception as e:
-                logger.exception(f"Unexpected failure during processing of {entry.author}/{entry.sort_title}")
-                self.__signals.on_failure.emit(entry.author, entry.sort_title, str(e))
+                    self.__signals.on_optimised.emit(entry.author, entry.formatted_title)
+        except Exception as e:
+            logger.exception(f"Unexpected failure during processing of {entry.author}/{entry.formatted_title}")
+            self.__signals.on_failure.emit(entry.author, entry.formatted_title, str(e))
 
     def __process_file(self, base_parts_idx, xml):
         '''
