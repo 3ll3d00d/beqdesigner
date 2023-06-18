@@ -95,7 +95,7 @@ class CreateAVSPostDialog(QDialog, Ui_postbuilder):
             save_name += f" ({metadata['beq_source']})"
         if self.__selected_signal is not None and not math.isclose(self.__selected_signal.offset, 0.0):
             save_name += f' ({self.__selected_signal.offset:+.1f} gain)'
-            metadata['beq_gain'] = f'{self.__selected_signal.offset:+.1f} gain'
+            metadata['beq_gain'] = f'{self.__selected_signal.offset:.1f}'
         if len(metadata["beq_audioTypes"]) > 0:
             save_name += f' BEQ {metadata["beq_audioTypes"][0]}'
         save_name = save_name.replace(':', '-')
