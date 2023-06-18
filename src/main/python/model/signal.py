@@ -24,7 +24,7 @@ from model.preferences import get_avg_colour, get_peak_colour, get_median_colour
     DISPLAY_SHOW_SIGNALS, DISPLAY_SHOW_FILTERED_SIGNALS, ANALYSIS_TARGET_FS, BASS_MANAGEMENT_LPF_FS, \
     BASS_MANAGEMENT_LPF_POSITION, BM_LPF_BEFORE, BM_LPF_AFTER, DISPLAY_SMOOTH_PRECALC, X_RESOLUTION, \
     SHOWING_AVERAGE, SHOWING_PEAK, SHOWING_MEDIAN, SHOW_UNFILTERED_ONLY, ANALYSIS_WINDOW_DEFAULT, \
-    ANALYSIS_RESOLUTION_DEFAULT
+    ANALYSIS_RESOLUTION_DEFAULT, EXTRACTION_OUTPUT_DIR
 from model.xy import MagnitudeData, interp
 from ui.merge_signals import Ui_MergeSignalDialog
 from ui.signal import Ui_addSignalDialog
@@ -113,7 +113,7 @@ class SingleChannelSignalData(SignalData):
         self.__smoothing_type = None
         self.__filter = None
         self.__name = None
-        self.__signal = signal
+        self.__signal: Signal = signal
         self.slaves = []
         self.master = None
         self.reference_name = None
@@ -207,14 +207,14 @@ class SingleChannelSignalData(SignalData):
         return self.__smoothing_type if self.signal is not None else None
 
     @property
-    def signal(self):
+    def signal(self) -> 'Signal':
         '''
         :return: the underlying sample data (may not exist for signals loaded from txt).
         '''
         return self.__signal
 
     @signal.setter
-    def signal(self, signal):
+    def signal(self, signal: 'Signal'):
         self.__signal = signal
 
     @property
@@ -1478,7 +1478,7 @@ class SignalTableModel(QAbstractTableModel):
         return QVariant()
 
 
-def select_file(owner, file_types):
+def select_file(owner, file_types, dir=None):
     '''
     Presents a file picker for selecting a file that contains a signal.
     '''
@@ -1487,6 +1487,8 @@ def select_file(owner, file_types):
     filt = ' '.join([f"*.{f}" for f in file_types])
     dialog.setNameFilter(f"Audio ({filt})")
     dialog.setWindowTitle(f"Select Signal File")
+    if dir:
+        dialog.setDirectory(dir)
     if dialog.exec():
         selected = dialog.selectedFiles()
         if len(selected) > 0:
@@ -1645,7 +1647,8 @@ class DialogWavLoaderBridge:
         self.prepare_signal(channel_idx)
 
     def select_wav_file(self):
-        file = select_file(self.__dialog, ['wav', 'flac'])
+        out_dir = self.__preferences.get(EXTRACTION_OUTPUT_DIR)
+        file = select_file(self.__dialog, ['wav', 'flac'], dir=out_dir)
         if file is not None:
             self.clear_signal()
             self.__dialog.wavFile.setText(file)
@@ -1683,6 +1686,8 @@ class DialogWavLoaderBridge:
             self.__dialog.wavEndTime.setTime(QtCore.QTime(0, 0, 0).addMSecs(self.__duration))
             self.__dialog.wavEndTime.setEnabled(True)
         self.__dialog.wavSignalName.setEnabled(True)
+        from pathlib import Path
+        self.__dialog.wavSignalName.setText(str(Path(Path(info.name).name).stem))
         self.prepare_signal(int(self.__dialog.wavChannelSelector.currentText()))
         self.__dialog.applyTimeRangeButton.setEnabled(False)
 

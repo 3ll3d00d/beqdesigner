@@ -621,19 +621,30 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Allows the user to save the current filter to a file.
         '''
-        dialog = QFileDialog(parent=self)
-        dialog.setFileMode(QFileDialog.AnyFile)
-        dialog.setNameFilter(f"*.filter")
-        dialog.setWindowTitle(f"Save Filter")
-        dialog.setLabelText(QFileDialog.Accept, 'Save')
-        if dialog.exec():
-            selected = dialog.selectedFiles()
-            if len(selected) > 0:
-                if not selected[0].endswith('.filter'):
-                    selected[0] += '.filter'
-                with open(selected[0], 'w+') as outfile:
-                    json.dump(self.__filter_model.filter.to_json(), outfile)
-                    self.statusbar.showMessage(f"Saved filter to {outfile.name}")
+        signal_name = None
+        filter_path = None
+        selected_signal = self.__get_selected_signal()
+        if selected_signal:
+            from model.signal import SIGNAL_SOURCE_FILE
+            p = selected_signal.metadata.get(SIGNAL_SOURCE_FILE, '')
+            if p:
+                from pathlib import Path
+                filter_path = str((Path(p).absolute().parent / selected_signal.name).with_suffix('.filter'))
+            signal_name = selected_signal.name
+        if filter_path:
+            file_name, _ = QFileDialog.getSaveFileName(self, caption="Save Filter", directory=filter_path,
+                                                       filter="*.filter")
+        elif signal_name:
+            file_name, _ = QFileDialog.getSaveFileName(self, caption="Save Filter", directory=signal_name,
+                                                       filter="*.filter")
+        else:
+            file_name, _ = QFileDialog.getSaveFileName(self, caption="Save Filter", filter="*.filter")
+        if file_name:
+            if not file_name.endswith('.filter'):
+                file_name += '.filter'
+            with open(file_name, 'w+') as outfile:
+                json.dump(self.__filter_model.filter.to_json(), outfile)
+                self.statusbar.showMessage(f"Saved filter to {outfile.name}")
 
     def exportChart(self):
         '''
@@ -1126,12 +1137,13 @@ class SaveChartDialog(QDialog, Ui_saveChartDialog):
     Save Chart dialog
     '''
 
-    def __init__(self, parent, name, figure, processor, statusbar=None):
+    def __init__(self, parent, name, figure, processor, signal_data, statusbar=None):
         super(SaveChartDialog, self).__init__(parent)
         self.setupUi(self)
         self.name = name
         self.figure = figure
         self.processor = processor
+        self.signal_data = signal_data
         self.__x, self.__y = processor.get_dims(self.figure)
         self.__aspectRatio = self.__x / self.__y
         self.widthPixels.setValue(self.__x)
@@ -1141,7 +1153,14 @@ class SaveChartDialog(QDialog, Ui_saveChartDialog):
 
     def accept(self):
         formats = "Portable Network Graphic (*.png)"
-        file_name = self.__dialog.getSaveFileName(self, 'Export Chart', f"{self.name}.png", formats)
+        output = f'{self.name}.png'
+        if self.signal_data:
+            from model.signal import SIGNAL_SOURCE_FILE
+            p = self.signal_data.signal.metadata.get(SIGNAL_SOURCE_FILE, '')
+            if p:
+                from pathlib import Path
+                output = str((Path(p).absolute().parent / self.signal_data.name).with_suffix('.png'))
+        file_name = self.__dialog.getSaveFileName(self, 'Export Chart', output, formats)
         if file_name:
             output_file = str(file_name[0]).strip()
             if len(output_file) == 0:

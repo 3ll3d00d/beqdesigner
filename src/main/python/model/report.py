@@ -442,7 +442,7 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
                 filter_type += f" x{len(filt)}"
             vals.append(filter_type)
             if gain != 0 and len(filt) > 1:
-                vals.append(f"{len(filt)*gain:+g}{g_suffix}")
+                vals.append(f"{len(filt) * gain:+g}{g_suffix}")
             else:
                 vals.append('')
         return vals
@@ -505,7 +505,14 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
     def __save_report(self):
         ''' writes the figure to the specified format '''
         formats = "Report Files (*.png *.jpg *.jpeg)"
-        file_name = QFileDialog.getSaveFileName(parent=self, caption='Export Report', filter=formats)
+        from model.signal import SIGNAL_SOURCE_FILE
+        p = self.__selected_signal.metadata.get(SIGNAL_SOURCE_FILE, '')
+        report_path = None
+        if p:
+            from pathlib import Path
+            report_path = str((Path(p).absolute().parent / self.__selected_signal.name).with_suffix('.png'))
+        file_name = QFileDialog.getSaveFileName(parent=self, caption='Export Report', directory=report_path,
+                                                filter=formats)
         if file_name:
             output_file = str(file_name[0]).strip()
             if len(output_file) == 0:
