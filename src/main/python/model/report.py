@@ -505,15 +505,7 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
 
     def __save_report(self):
         ''' writes the figure to the specified format '''
-        formats = "Report Files (*.png *.jpg *.jpeg)"
-        from model.signal import SIGNAL_SOURCE_FILE
-        p = self.__selected_signal.metadata.get(SIGNAL_SOURCE_FILE, '')
-        report_path = None
-        if p:
-            from pathlib import Path
-            report_path = str((Path(p).absolute().parent / (self.__selected_signal.name + '.png')))
-        file_name = QFileDialog.getSaveFileName(parent=self, caption='Export Report', directory=report_path,
-                                                filter=formats)
+        file_name = self.__get_report_file_name()
         if file_name:
             output_file = str(file_name[0]).strip()
             if len(output_file) == 0:
@@ -535,11 +527,22 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
                     msg_box.setWindowTitle('Unexpected Error')
                     msg_box.exec()
 
+    def __get_report_file_name(self):
+        formats = "Report Files (*.png *.jpg *.jpeg)"
+        from model.signal import SIGNAL_SOURCE_FILE
+        p = self.__selected_signal.metadata.get(SIGNAL_SOURCE_FILE, '')
+        report_path = None
+        if p:
+            from pathlib import Path
+            report_path = str((Path(p).absolute().parent / (self.__selected_signal.name + '.png')))
+        file_name = QFileDialog.getSaveFileName(parent=self, caption='Export Report', directory=report_path,
+                                                filter=formats)
+        return file_name
+
     def __save_pixel_perfect(self):
         ''' saves an image based on passing the image through directly '''
         if len(self.image.text()) > 0:
-            file_name = QFileDialog.getSaveFileName(parent=self, caption='Export Report',
-                                                    filter='Report File (*.jpg *.png *.jpeg)')
+            file_name = self.__get_report_file_name()
             if file_name:
                 output_file = str(file_name[0]).strip()
                 if len(output_file) == 0:
