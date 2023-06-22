@@ -79,6 +79,7 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         else:
             self.curves.selectAll()
         self.preview.canvas.mpl_connect('resize_event', self.__canvas_size_to_xy)
+        self.title.setText(self.__selected_signal.name)
         # init fields
         self.__restore_geometry()
         self.restore_layout(redraw=True)
@@ -510,7 +511,7 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         report_path = None
         if p:
             from pathlib import Path
-            report_path = str((Path(p).absolute().parent / self.__selected_signal.name).with_suffix('.png'))
+            report_path = str((Path(p).absolute().parent / (self.__selected_signal.name + '.png')))
         file_name = QFileDialog.getSaveFileName(parent=self, caption='Export Report', directory=report_path,
                                                 filter=formats)
         if file_name:

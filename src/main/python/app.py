@@ -7,6 +7,7 @@ import re
 import sys
 from collections import abc
 from contextlib import contextmanager
+from typing import Optional
 
 import matplotlib
 from scipy import signal
@@ -621,30 +622,38 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Allows the user to save the current filter to a file.
         '''
-        signal_name = None
-        filter_path = None
-        selected_signal = self.__get_selected_signal()
-        if selected_signal:
-            from model.signal import SIGNAL_SOURCE_FILE
-            p = selected_signal.metadata.get(SIGNAL_SOURCE_FILE, '')
-            if p:
-                from pathlib import Path
-                filter_path = str((Path(p).absolute().parent / selected_signal.name).with_suffix('.filter'))
-            signal_name = selected_signal.name
-        if filter_path:
-            file_name, _ = QFileDialog.getSaveFileName(self, caption="Save Filter", directory=filter_path,
-                                                       filter="*.filter")
-        elif signal_name:
-            file_name, _ = QFileDialog.getSaveFileName(self, caption="Save Filter", directory=signal_name,
-                                                       filter="*.filter")
-        else:
-            file_name, _ = QFileDialog.getSaveFileName(self, caption="Save Filter", filter="*.filter")
+        file_name = self.__get_save_file_name_from_signal_if_possible('filter', 'Filter')
         if file_name:
             if not file_name.endswith('.filter'):
                 file_name += '.filter'
             with open(file_name, 'w+') as outfile:
                 json.dump(self.__filter_model.filter.to_json(), outfile)
                 self.statusbar.showMessage(f"Saved filter to {outfile.name}")
+
+    def __get_save_file_name_from_signal_if_possible(self, suffix: str, caption: str,
+                                                     default_name: Optional[str] = None) -> Optional[str]:
+        signal_name = None
+        filter_path = None
+        selected_signal = self.__get_selected_signal()
+        if selected_signal and selected_signal.metadata:
+            from model.signal import SIGNAL_SOURCE_FILE
+            p = selected_signal.metadata.get(SIGNAL_SOURCE_FILE, '')
+            if p:
+                from pathlib import Path
+                filter_path = str((Path(p).absolute().parent / (selected_signal.name + f'.{suffix}')))
+            signal_name = selected_signal.name
+        if filter_path:
+            file_name, _ = QFileDialog.getSaveFileName(self, caption=f"Save {caption}", directory=filter_path,
+                                                       filter=f"*.{suffix}")
+        elif signal_name:
+            file_name, _ = QFileDialog.getSaveFileName(self, caption=f"Save {caption}", directory=signal_name,
+                                                       filter=f"*.{suffix}")
+        elif default_name:
+            file_name, _ = QFileDialog.getSaveFileName(self, caption=f"Save {caption}",
+                                                       directory=f'{default_name}.{suffix}', filter=f"*.{suffix}")
+        else:
+            file_name, _ = QFileDialog.getSaveFileName(self, caption=f"Save {caption}", filter=f"*.{suffix}")
+        return file_name
 
     def exportChart(self):
         '''
@@ -1113,8 +1122,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.__magnitude_model.limits.shift(y1_min=-10)
 
     def export_beq_filter(self):
-        file_name = QFileDialog(self).getSaveFileName(self, 'Export BEQ Filter', f"beq.xml", "XML (*.xml)")
-        file_name = str(file_name[0]).strip()
+        file_name = self.__get_save_file_name_from_signal_if_possible('xml', 'BEQ Filter', default_name='beq')
         if len(file_name) > 0:
             if getattr(sys, 'frozen', False):
                 file_path = os.path.join(sys._MEIPASS, 'flat24hd.xml')
@@ -1159,7 +1167,7 @@ class SaveChartDialog(QDialog, Ui_saveChartDialog):
             p = self.signal_data.signal.metadata.get(SIGNAL_SOURCE_FILE, '')
             if p:
                 from pathlib import Path
-                output = str((Path(p).absolute().parent / self.signal_data.name).with_suffix('.png'))
+                output = str((Path(p).absolute().parent / (self.signal_data.name + '.png')))
         file_name = self.__dialog.getSaveFileName(self, 'Export Chart', output, formats)
         if file_name:
             output_file = str(file_name[0]).strip()
