@@ -1145,7 +1145,7 @@ class SaveChartDialog(QDialog, Ui_saveChartDialog):
     Save Chart dialog
     '''
 
-    def __init__(self, parent, name, figure, processor, signal_data, statusbar=None):
+    def __init__(self, parent, name, figure, processor, signal_data=None, image_format='png', statusbar=None):
         super(SaveChartDialog, self).__init__(parent)
         self.setupUi(self)
         self.name = name
@@ -1157,18 +1157,18 @@ class SaveChartDialog(QDialog, Ui_saveChartDialog):
         self.widthPixels.setValue(self.__x)
         self.heightPixels.setValue(self.__y)
         self.statusbar = statusbar
+        self.image_format = image_format
         self.__dialog = QFileDialog(parent=self)
 
     def accept(self):
-        formats = "Portable Network Graphic (*.png)"
-        output = f'{self.name}.png'
+        output = f'{self.name}.{self.image_format}'
         if self.signal_data:
             from model.signal import SIGNAL_SOURCE_FILE
             p = self.signal_data.signal.metadata.get(SIGNAL_SOURCE_FILE, '')
             if p:
                 from pathlib import Path
-                output = str((Path(p).absolute().parent / (self.signal_data.name + '.png')))
-        file_name = self.__dialog.getSaveFileName(self, 'Export Chart', output, formats)
+                output = str(Path(p).absolute().parent / f'{self.signal_data.name}.{self.image_format}')
+        file_name = self.__dialog.getSaveFileName(self, 'Export Chart', output, 'Images (*.png *.jpeg *.jpg)')
         if file_name:
             output_file = str(file_name[0]).strip()
             if len(output_file) == 0:

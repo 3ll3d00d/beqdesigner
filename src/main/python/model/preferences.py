@@ -111,6 +111,7 @@ SCREEN_WINDOW_STATE = 'screen/window_state'
 
 STYLE_MATPLOTLIB_THEME_DEFAULT = 'beq_dark'
 STYLE_MATPLOTLIB_THEME = 'style/matplotlib_theme'
+STYLE_IMAGE_FORMAT_DEFAULT = 'style/image_format'
 
 DISPLAY_SHOW_LEGEND = 'display/show_legend'
 DISPLAY_SHOW_FILTERS = 'display/show_filters'
@@ -285,6 +286,7 @@ DEFAULT_PREFS = {
     REPORT_FILTER_FONT_SIZE: matplotlib.rcParams['font.size'],
     REPORT_LAYOUT_HSPACE: matplotlib.rcParams['figure.subplot.hspace'],
     REPORT_LAYOUT_WSPACE: matplotlib.rcParams['figure.subplot.wspace'],
+    STYLE_IMAGE_FORMAT_DEFAULT: 'png',
     SYSTEM_CHECK_FOR_UPDATES: True,
     SYSTEM_CHECK_FOR_BETA_UPDATES: False,
     XO_GRAPH_X_MIN: 10,
@@ -512,6 +514,7 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         self.checkForUpdates.setChecked(self.__preferences.get(SYSTEM_CHECK_FOR_UPDATES))
         self.checkForBetaUpdates.setChecked(self.__preferences.get(SYSTEM_CHECK_FOR_BETA_UPDATES))
         self.smoothGraphs.setChecked(self.__preferences.get(DISPLAY_SMOOTH_GRAPHS))
+        self.imageFormat.setCurrentText(self.__preferences.get(STYLE_IMAGE_FORMAT_DEFAULT))
 
         self.monoMix.setChecked(self.__preferences.get(EXTRACTION_MIX_MONO))
         self.decimate.setChecked(self.__preferences.get(EXTRACTION_DECIMATE))
@@ -658,6 +661,7 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         self.__preferences.set(BEQ_DOWNLOAD_DIR, self.beqFiltersDir.text())
         self.__preferences.set(BASS_MANAGEMENT_LPF_FS, self.bmlpfFreq.value())
         self.__preferences.set(DISPLAY_SMOOTH_PRECALC, self.precalcSmoothing.isChecked())
+        self.__preferences.set(STYLE_IMAGE_FORMAT_DEFAULT, self.imageFormat.currentText())
 
         QDialog.accept(self)
 

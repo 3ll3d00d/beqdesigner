@@ -18,7 +18,7 @@ from model.preferences import GRAPH_X_MIN, GRAPH_X_MAX, POINT, ELLIPSE, SPECTROG
     AUDIO_ANALYSIS_MARKER_SIZE, AUDIO_ANALYSIS_MARKER_TYPE, AUDIO_ANALYSIS_ELLIPSE_WIDTH, AUDIO_ANALYSIS_ELLIPSE_HEIGHT, \
     AUDIO_ANALYIS_MIN_FREQ, AUDIO_ANALYIS_MAX_UNFILTERED_FREQ, AUDIO_ANALYIS_MAX_FILTERED_FREQ, \
     AUDIO_ANALYSIS_COLOUR_MAX, AUDIO_ANALYSIS_COLOUR_MIN, AUDIO_ANALYSIS_SIGNAL_MIN, AUDIO_ANALYSIS_GEOMETRY, \
-    EXTRACTION_OUTPUT_DIR
+    EXTRACTION_OUTPUT_DIR, STYLE_IMAGE_FORMAT_DEFAULT
 from model.signal import select_file, readWav
 from ui.analysis import Ui_analysisDialog
 
@@ -207,12 +207,12 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
         selected_data = self.__get_signal_data(self.leftSignal.currentText())
         if self.analysisTabs.currentIndex() == 0:
             SaveChartDialog(self, 'peak spectrum', self.spectrumChart.canvas.figure,
-                            MatplotlibExportProcessor(self.spectrumChart.canvas.figure),
-                            selected_data).exec()
+                            MatplotlibExportProcessor(self.spectrumChart.canvas.figure), signal_data=selected_data,
+                            image_format=self.__preferences.get(STYLE_IMAGE_FORMAT_DEFAULT)).exec()
         elif self.analysisTabs.currentIndex() == 1:
             SaveChartDialog(self, 'waveform', self.waveformChart.canvas.figure,
-                            MatplotlibExportProcessor(self.waveformChart.canvas.figure),
-                            selected_data).exec()
+                            MatplotlibExportProcessor(self.waveformChart.canvas.figure), signal_data=selected_data,
+                            image_format=self.__preferences.get(STYLE_IMAGE_FORMAT_DEFAULT)).exec()
 
     def select_wav_file(self):
         '''

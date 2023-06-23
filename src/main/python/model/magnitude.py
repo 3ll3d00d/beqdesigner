@@ -6,7 +6,7 @@ import numpy as np
 from matplotlib.gridspec import GridSpec
 
 from model.limits import Limits, LimitsDialog, ValuesDialog, DecibelRangeCalculator, configure_freq_axis
-from model.preferences import GRAPH_X_AXIS_SCALE, GRAPH_X_MIN, GRAPH_X_MAX, GRAPH_EXPAND_Y
+from model.preferences import GRAPH_X_AXIS_SCALE, GRAPH_X_MIN, GRAPH_X_MAX, GRAPH_EXPAND_Y, STYLE_IMAGE_FORMAT_DEFAULT
 
 logger = logging.getLogger('magnitude')
 
@@ -163,6 +163,9 @@ class MagnitudeModel:
                  allow_line_resize=False, fill_primary=False, fill_secondary=False, y2_range_calc=None,
                  show_y2_in_legend=True, x_lim: Optional[Tuple[float, float]] = None,
                  x_axis_configurer=configure_freq_axis, x_scale='log'):
+        def img_format():
+            return preferences.get(STYLE_IMAGE_FORMAT_DEFAULT)
+        self.__img_format_provider = img_format
         self.__name = name
         self.__chart = chart
         self.__redraw_listener = redraw_listener
@@ -338,4 +341,5 @@ class MagnitudeModel:
         ''' Exports the chart. '''
         from app import SaveChartDialog, MatplotlibExportProcessor
         SaveChartDialog(self.__chart, self.__name, self.__chart.canvas.figure,
-                        MatplotlibExportProcessor(self.__chart.canvas.figure), statusbar=status_bar).exec()
+                        MatplotlibExportProcessor(self.__chart.canvas.figure),
+                        image_format=self.__img_format_provider(), statusbar=status_bar).exec()

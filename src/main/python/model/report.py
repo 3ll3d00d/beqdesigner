@@ -22,7 +22,8 @@ from model.preferences import REPORT_TITLE_FONT_SIZE, REPORT_IMAGE_ALPHA, REPORT
     REPORT_LAYOUT_MAJOR_RATIO, REPORT_LAYOUT_MINOR_RATIO, REPORT_CHART_GRID_ALPHA, REPORT_CHART_SHOW_LEGEND, \
     REPORT_GEOMETRY, REPORT_LAYOUT_SPLIT_DIRECTION, REPORT_LAYOUT_TYPE, REPORT_CHART_LIMITS_X0, \
     REPORT_CHART_LIMITS_X_SCALE, REPORT_CHART_LIMITS_X1, REPORT_FILTER_FONT_SIZE, REPORT_FILTER_SHOW_HEADER, \
-    REPORT_GROUP, REPORT_LAYOUT_WSPACE, REPORT_LAYOUT_HSPACE, DISPLAY_SHOW_SIGNALS, DISPLAY_SHOW_FILTERED_SIGNALS
+    REPORT_GROUP, REPORT_LAYOUT_WSPACE, REPORT_LAYOUT_HSPACE, DISPLAY_SHOW_SIGNALS, DISPLAY_SHOW_FILTERED_SIGNALS, \
+    STYLE_IMAGE_FORMAT_DEFAULT
 from model.signal import get_visible_signal_name_filter
 from ui.report import Ui_saveReportDialog
 
@@ -534,7 +535,8 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         report_path = None
         if p:
             from pathlib import Path
-            report_path = str((Path(p).absolute().parent / (self.__selected_signal.name + '.png')))
+            file_name = f'{self.__selected_signal.name}.{self.__preferences.get(STYLE_IMAGE_FORMAT_DEFAULT)}'
+            report_path = str(Path(p).absolute().parent / file_name)
         file_name = QFileDialog.getSaveFileName(parent=self, caption='Export Report', directory=report_path,
                                                 filter=formats)
         return file_name

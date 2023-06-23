@@ -10,7 +10,7 @@ from qtpy.QtGui import QFont
 from qtpy.QtWidgets import QDialog
 
 from model.magnitude import MagnitudeModel
-from model.preferences import BM_LPF_OPTIONS, BASS_MANAGEMENT_LPF_FS
+from model.preferences import BM_LPF_OPTIONS, BASS_MANAGEMENT_LPF_FS, STYLE_IMAGE_FORMAT_DEFAULT
 from model.signal import SignalDialog, SIGNAL_SOURCE_FILE, SIGNAL_CHANNEL, SingleChannelSignalData
 from ui.stats import Ui_signalStatsDialog
 
@@ -50,7 +50,7 @@ class WaveformController:
         self.__source_file = source_file
         self.__selector = signal_selector
         self.__waveform_chart_model = WaveformModel(waveform_chart, crest_factor, rms_level, headroom, start_time,
-                                                    end_time, y_min, y_max, self.__on_x_range_change)
+                                                    end_time, y_min, y_max, self.__on_x_range_change, preferences)
         spectrum_chart.vbl.setContentsMargins(1, 1, 1, 1)
         spectrum_chart.setVisible(False)
         self.__magnitude_model = MagnitudeModel('spectrum', spectrum_chart, preferences, self.get_curve_data,
@@ -383,8 +383,9 @@ class WaveformModel:
     Displays and interacts with a waveform that is linked to the spectrum view.
     '''
 
-    def __init__(self, chart, crest_factor, rms_level, headroom, x_min, x_max, y_min, y_max, on_x_range_change):
+    def __init__(self, chart, crest_factor, rms_level, headroom, x_min, x_max, y_min, y_max, on_x_range_change, prefs):
         self.idx = 0
+        self.__prefs = prefs
         self.__chart = chart
         self.__on_x_range_change = on_x_range_change
         self.__x_min = x_min
@@ -422,7 +423,8 @@ class WaveformModel:
         exports the waveform chart.
         '''
         from app import SaveChartDialog, PyQtGraphExportProcessor
-        SaveChartDialog(self.__chart, 'waveform', self.__chart, PyQtGraphExportProcessor()).exec()
+        SaveChartDialog(self.__chart, 'waveform', self.__chart, PyQtGraphExportProcessor(),
+                        image_format=self.__prefs.get(STYLE_IMAGE_FORMAT_DEFAULT)).exec()
 
     @property
     def rms(self):

@@ -55,6 +55,8 @@ These options influence the look and feel of BEQDesigner.
     * a compatibility mode for speclab users, if checked each peak curve will be rendered in a shade of red while the average will be in a shade of green.
     * if unchecked, peak and average for each signal will be the same colour but colours for each signal will vary accordingly to the theme. 
     * as a rule of thumb, speclab mode is easier to read when viewing a single signal only but becomes unreadable when you have many signals (e.g. a multichannel audio track)
+* Image Format
+    * the default format to use when exporting as a image, choice of png or jpg 
 
 ### Graph
 

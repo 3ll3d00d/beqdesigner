@@ -19,7 +19,7 @@
      <item>
       <widget class="QToolBox" name="toolBox">
        <property name="currentIndex">
-        <number>7</number>
+        <number>0</number>
        </property>
        <widget class="QWidget" name="binariesPage">
         <property name="geometry">
@@ -340,10 +340,10 @@
          <string>Style</string>
         </attribute>
         <layout class="QGridLayout" name="stylePane" columnstretch="0,1">
-         <item row="0" column="0">
-          <widget class="QLabel" name="themeLabel">
+         <item row="2" column="1">
+          <widget class="QCheckBox" name="smoothGraphs">
            <property name="text">
-            <string>Theme</string>
+            <string>Smooth?</string>
            </property>
           </widget>
          </item>
@@ -356,6 +356,13 @@
            </item>
           </widget>
          </item>
+         <item row="0" column="0">
+          <widget class="QLabel" name="themeLabel">
+           <property name="text">
+            <string>Theme</string>
+           </property>
+          </widget>
+         </item>
          <item row="1" column="1">
           <widget class="QCheckBox" name="speclabLineStyle">
            <property name="text">
@@ -363,10 +370,24 @@
            </property>
           </widget>
          </item>
-         <item row="2" column="1">
-          <widget class="QCheckBox" name="smoothGraphs">
+         <item row="3" column="1">
+          <widget class="QComboBox" name="imageFormat">
+           <item>
+            <property name="text">
+             <string>png</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>jpg</string>
+            </property>
+           </item>
+          </widget>
+         </item>
+         <item row="3" column="0">
+          <widget class="QLabel" name="imageFormatLabel">
            <property name="text">
-            <string>Smooth?</string>
+            <string>Image Format</string>
            </property>
           </widget>
          </item>
