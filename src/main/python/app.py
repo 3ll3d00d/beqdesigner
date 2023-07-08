@@ -1005,9 +1005,13 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
 
     def __load_filter(self, description, filters):
         self.clearFilters()
+        signal = self.__get_selected_signal()
         self.__filter_model.filter.description = description
         for f in filters:
-            self.__filter_model.save(f)
+            self.__filter_model.save(f.resample(signal.fs))
+        signal.filter = self.__filter_model.filter
+        self.on_filter_selected()
+        self.__magnitude_model.redraw()
 
     def show_catalogue(self):
         '''
