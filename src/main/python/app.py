@@ -1128,7 +1128,9 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
     def export_beq_filter(self):
         file_name = self.__get_save_file_name_from_signal_if_possible('xml', 'BEQ Filter', default_name='beq')
         if len(file_name) > 0:
-            if getattr(sys, 'frozen', False):
+            if os.path.exists(file_name):
+                file_path = file_name
+            elif getattr(sys, 'frozen', False):
                 file_path = os.path.join(sys._MEIPASS, 'flat24hd.xml')
             else:
                 file_path = os.path.abspath(os.path.join(os.path.dirname('__file__'), '../xml/flat24hd.xml'))

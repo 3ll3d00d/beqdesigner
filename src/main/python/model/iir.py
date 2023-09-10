@@ -1416,6 +1416,8 @@ def from_equalizer_apo(filt: str, fs: int=48000) -> Optional[Biquad]:
                 return HighShelf(fs, fc, float(tokens[9]), float(tokens[6]))
             elif f_type == 'AP':
                 return AllPass(fs, fc, float(tokens[6]))
+        elif tokens[0] == 'Preamp':
+            return Gain(fs, float(tokens[1]))
     return None
 
 
