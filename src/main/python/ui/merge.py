@@ -78,7 +78,7 @@ class Ui_mergeDspDialog(object):
         self.innerLayout.addWidget(self.outputChannels, 5, 1, 1, 3)
         self.totalFiles = QtWidgets.QSpinBox(mergeDspDialog)
         self.totalFiles.setReadOnly(True)
-        self.totalFiles.setMaximum(10000)
+        self.totalFiles.setMaximum(100000)
         self.totalFiles.setObjectName("totalFiles")
         self.innerLayout.addWidget(self.totalFiles, 6, 3, 1, 1)
         self.filesProcessedLabel = QtWidgets.QLabel(mergeDspDialog)

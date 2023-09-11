@@ -23,6 +23,7 @@ dulwich = "*"
 markdown = "*"
 plumbum = "*"
 graphviz = "*"
+sanitize-filename = "*"
 
 [dev-packages]
 pytest = "*"

@@ -10,6 +10,7 @@ import qtawesome as qta
 from qtpy.QtCore import QThreadPool, QRunnable, QObject, Signal
 from qtpy.QtGui import QGuiApplication
 from qtpy.QtWidgets import QDialog, QMessageBox, QFileDialog, QListWidgetItem
+from sanitize_filename import sanitize
 
 from model.catalogue import DatabaseDownloader, show_alert, load_catalogue, CatalogueEntry
 from model.jriver.common import JRIVER_CHANNELS
@@ -533,9 +534,9 @@ class XmlProcessor(QRunnable):
                         else:
                             suffix = i
                             self.__signals.on_failure.emit(e.author, e.formatted_title, f"Duplicate entry")
-                        self.__write_to(Path(file_output_dir).joinpath(f'{filename}_{suffix}').with_suffix(self.__parser.file_extension()), e)
+                        self.__write_to(Path(file_output_dir).joinpath(sanitize(f'{filename}_{suffix}')).with_suffix(self.__parser.file_extension()), e)
                 else:
-                    self.__write_to(Path(file_output_dir).joinpath(filename).with_suffix(self.__parser.file_extension()), entries[0])
+                    self.__write_to(Path(file_output_dir).joinpath(sanitize(filename)).with_suffix(self.__parser.file_extension()), entries[0])
 
     def __write_to(self, dst: Path, entry: CatalogueEntry):
         try:
