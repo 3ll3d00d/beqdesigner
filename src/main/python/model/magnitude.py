@@ -301,6 +301,7 @@ class MagnitudeModel:
                 self.__legend = self.__primary.make_legend(lines, ncol)
                 lined = dict()
                 for legline, origline in zip(self.__legend.get_lines(), lines):
+                    legline.set_picker(True)
                     legline.set_pickradius(5)  # 5 pts tolerance
                     lined[legline] = origline
 
