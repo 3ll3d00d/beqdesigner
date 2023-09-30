@@ -6,14 +6,14 @@ import re
 import time
 from collections.abc import Sequence
 from pathlib import Path
-from typing import List, Optional, Dict, Iterable, Any
+from typing import List, Optional, Dict, Iterable, Any, Callable
 
 import numpy as np
 import qtawesome as qta
 import resampy
 from qtpy import QtCore
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt, QRunnable, QThreadPool
-from qtpy.QtWidgets import QDialog, QFileDialog, QDialogButtonBox, QStatusBar
+from qtpy.QtWidgets import QDialog, QFileDialog, QDialogButtonBox, QStatusBar, QListWidgetItem
 from scipy import signal
 from sortedcontainers import SortedDict
 
@@ -28,6 +28,7 @@ from model.preferences import get_avg_colour, get_peak_colour, get_median_colour
 from model.xy import MagnitudeData, interp
 from ui.merge_signals import Ui_MergeSignalDialog
 from ui.signal import Ui_addSignalDialog
+from ui.signal_viz import Ui_selectSignalsDialog
 
 SIGNAL_END = 'end'
 SIGNAL_START = 'start'
@@ -588,12 +589,21 @@ class SignalModel(Sequence):
 
     def __init__(self, view, default_signal, preferences, on_update=lambda _: True):
         self.__signals = []
+        self.__visible_names = set()
         self.__bass_managed_signals = []
         self.default_signal = default_signal
         self.__view = view
         self.__on_update = on_update
         self.__preferences = preferences
         self.__table = None
+
+    @property
+    def visible_names(self) -> List[str]:
+        return sorted([s for s in self.__visible_names])
+
+    @visible_names.setter
+    def visible_names(self, names: List[str]):
+        self.__visible_names = set(names)
 
     @property
     def table(self):
@@ -682,6 +692,7 @@ class SignalModel(Sequence):
                 self.__table.beginInsertRows(QModelIndex(), before_size, before_size)
             signal.reindex(before_size)
             self.__signals.append(signal)
+            self.__visible_names.add(signal.name)
             self.post_update()
             if self.__table is not None:
                 self.__table.endInsertRows()
@@ -697,6 +708,7 @@ class SignalModel(Sequence):
         for s in signals:
             s.reindex(len(self.__signals))
             self.__signals.append(s)
+            self.__visible_names.add(s.name)
         self.post_update()
         if self.__table is not None:
             self.__table.endInsertRows()
@@ -722,6 +734,7 @@ class SignalModel(Sequence):
         idx = self.__signals.index(signal)
         if self.__table is not None:
             self.__table.beginRemoveRows(QModelIndex(), idx, idx)
+        self.__visible_names.remove(self.__signals[idx].name)
         del self.__signals[idx]
         for idx, s in enumerate(self.__signals):
             s.reindex(idx)
@@ -737,12 +750,13 @@ class SignalModel(Sequence):
         '''
         self.replace([s for idx, s in enumerate(self.__signals) if idx not in indices])
 
-    def get_all_magnitude_data(self):
+    def get_all_magnitude_data(self, visible_filter: bool = False):
         '''
         :return: the raw xy data.
         '''
         from app import flatten
-        results = list(flatten([s.get_all_xy() for s in self.__signals]))
+        results = list(
+            flatten([s.get_all_xy() for s in self.__signals if not visible_filter or s.name in self.__visible_names]))
         return results
 
     def get_curve_data(self, reference=None):
@@ -750,7 +764,7 @@ class SignalModel(Sequence):
         :param reference: the curve against which to normalise.
         :return: the peak,  avg and median spectrum for the signals (if any) + the filter signals.
         '''
-        results = self.get_all_magnitude_data()
+        results = self.get_all_magnitude_data(visible_filter=True)
         show_signals = self.__preferences.get(DISPLAY_SHOW_SIGNALS)
         show_filtered_signals = self.__preferences.get(DISPLAY_SHOW_FILTERED_SIGNALS)
         pattern = get_visible_signal_name_filter(show_filtered_signals, show_signals)
@@ -774,6 +788,7 @@ class SignalModel(Sequence):
         for b in self.__bass_managed_signals:
             sigs += b.channels
         self.__signals = sigs
+        self.visible_names = [s.name for s in sigs]
         for idx, s in enumerate(self.__signals):
             if self.__preferences.get(DISPLAY_SMOOTH_PRECALC):
                 QThreadPool.globalInstance().start(Smoother(s))
@@ -2247,4 +2262,26 @@ class MergeSignalDialog(QDialog, Ui_MergeSignalDialog):
         output_signal = Signal(f"merged{suffix}", samples, self.__prefs, selected_signals[0].fs)
         self.__signal_model.add(SingleChannelSignalData(f"merged{suffix}", signal=output_signal,
                                                         filter=CompleteFilter(fs=output_signal.fs)))
+        super().accept()
+
+
+class SelectSignalsDialog(QDialog, Ui_selectSignalsDialog):
+
+    def __init__(self, parent, signal_model: SignalModel, redraw: Callable[[], None]):
+        super(SelectSignalsDialog, self).__init__(parent)
+        self.setupUi(self)
+        self.__model = signal_model
+        for s in signal_model:
+            self.signals.addItem(s.name)
+        if self.__model.visible_names:
+            for i in range(self.signals.count()):
+                item = self.signals.item(i)
+                if item.text() in self.__model.visible_names:
+                    item.setSelected(True)
+        self.__redraw = redraw
+
+    def accept(self):
+        self.__model.visible_names = [i.text() for i in self.signals.selectedItems()]
+        self.__model.post_update()
+        self.__redraw()
         super().accept()

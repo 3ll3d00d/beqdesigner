@@ -102,6 +102,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.__decorate_splitter()
         self.limitsButton.setIcon(qta.icon('fa5s.arrows-alt'))
         self.showValuesButton.setIcon(qta.icon('ei.eye-open'))
+        self.signalVisibilityButton.setIcon(qta.icon('fa5s.filter'))
         # logs
         from model.log import RollingLogger
         self.logViewer = RollingLogger(self.preferences, parent=self)
@@ -884,6 +885,13 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.__signal_model.post_update()
         self.__magnitude_model.redraw()
 
+    def changeIndividualSignalVisibility(self):
+        '''
+        Show a user dialog to update which signals are visible.
+        '''
+        from model.signal import SelectSignalsDialog
+        SelectSignalsDialog(self, self.__signal_model, self.__magnitude_model.redraw).exec()
+
     def changeSignalFilterVisibility(self, selected):
         '''
         Changes which filtered signals are visible on screen.
@@ -1427,3 +1435,5 @@ class NoFillDoubleSpinBox(QtWidgets.QDoubleSpinBox):
     def textFromValue(self, p_float: float):
         txt = super().textFromValue(p_float).rstrip('0')
         return f"{txt}0" if p_float.is_integer() else txt
+
+
