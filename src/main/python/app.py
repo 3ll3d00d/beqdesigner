@@ -1146,7 +1146,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
             from model.merge import DspType
             parser = HDXmlParser(DspType.MINIDSP_TWO_BY_FOUR_HD, False)
             output_xml, _ = parser.convert(file_path, self.__filter_model.filter)
-            with open(file_name, 'w+') as f:
+            with open(file_name, 'w+', encoding='utf8') as f:
                 f.write(output_xml)
 
     def __open_merge_signal_dialog(self):

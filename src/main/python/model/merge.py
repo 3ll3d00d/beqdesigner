@@ -547,7 +547,7 @@ class XmlProcessor(QRunnable):
                 dst = shutil.copy2(self.__config_file, dst.resolve())
                 output_config, was_optimised = self.__parser.convert(str(dst),
                                                                      entry.iir_filters(self.__dsp_type.target_fs))
-                with dst.open('w', newline=self.__parser.newline()) as dst_file:
+                with dst.open('w', newline=self.__parser.newline(), encoding='utf8') as dst_file:
                     dst_file.write(output_config)
                 if was_optimised is False:
                     self.__signals.on_success.emit()
@@ -573,7 +573,7 @@ class XmlProcessor(QRunnable):
             dst = shutil.copy2(self.__config_file, dst.resolve())
             filt = xml_to_filt(str(xml), fs=self.__dsp_type.target_fs)
             output_config, was_optimised = self.__parser.convert(str(dst), filt)
-            with dst.open('w', newline=self.__parser.newline()) as dst_file:
+            with dst.open('w', newline=self.__parser.newline(), encoding='utf8') as dst_file:
                 dst_file.write(output_config)
             if was_optimised is False:
                 self.__signals.on_success.emit()
