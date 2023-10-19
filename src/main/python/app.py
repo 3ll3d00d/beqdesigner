@@ -1371,12 +1371,7 @@ def make_app():
         icon_path = os.path.abspath(os.path.join(os.path.dirname('__file__'), '../icons/Icon.ico'))
     if os.path.exists(icon_path):
         app.setWindowIcon(QIcon(icon_path))
-    prefs = Preferences(QSettings("3ll3d00d", "beqdesigner"))
-    if prefs.get(STYLE_MATPLOTLIB_THEME) == f"{STYLE_MATPLOTLIB_THEME_DEFAULT}_extra":
-        import qdarkstyle
-        style = qdarkstyle.load_stylesheet_from_environment()
-        app.setStyleSheet(style)
-    return app, prefs
+    return app, Preferences(QSettings("3ll3d00d", "beqdesigner"))
 
 
 if __name__ == '__main__':
