@@ -147,7 +147,7 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         fired when the magnitude chart redraws, basically means the limits have changed so we have to redraw the image
         if we have it in the chart to make sure the extents fit.
         '''
-        if self.__imshow_axes is None and self.__image is not None:
+        if self.__imshow_axes is None and self.__image is not None and not self.__pixel_perfect_mode:
             self.__image.set_extent(self.__make_extent(self.__magnitude_model.limits))
 
     def replace_table(self, *args, draw=True):
@@ -334,8 +334,10 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
     def __prepare_for_pixel_perfect(self):
         ''' puts the report into pixel perfect mode which means honour the image size. '''
         self.__pixel_perfect_mode = True
-        self.widthSpacing.setValue(0.0)
-        self.heightSpacing.setValue(0.0)
+        with block_signals(self.widthSpacing):
+            self.widthSpacing.setValue(0.0)
+        with block_signals(self.heightSpacing):
+            self.heightSpacing.setValue(0.0)
         self.__record_image_size()
 
     def __honour_image_aspect_ratio(self):
