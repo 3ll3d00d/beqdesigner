@@ -14,6 +14,7 @@ from matplotlib.image import imread
 from matplotlib.table import Table
 from matplotlib.ticker import NullLocator
 from qtpy.QtCore import Qt, QSize
+from qtpy.QtGui import QFont
 from qtpy.QtWidgets import QDesktopWidget, QListWidgetItem, QDialog, QFileDialog, QDialogButtonBox, QMessageBox
 
 from model.magnitude import MagnitudeModel
@@ -803,10 +804,23 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=url_file_type)
         with open(tmp_file.name, 'wb') as f:
             try:
-                f.write(requests.get(self.imageURL.text()).content)
+                resp = requests.get(self.imageURL.text())
+                resp.raise_for_status()
+                f.write(resp.content)
                 name = tmp_file.name
-            except:
+            except Exception as e:
+                import traceback
                 logger.exception(f"Unable to download {self.imageURL.text()}")
+                msg_box = QMessageBox()
+                formatted = traceback.format_exception(etype=type(e), value=e, tb=e.__traceback__)
+                font = QFont()
+                font.setFamily("Consolas")
+                font.setPointSize(8)
+                msg_box.setFont(font)
+                msg_box.setText(f"Unable to download {self.imageURL.text()}<p><p>{e}")
+                msg_box.setIcon(QMessageBox.Critical)
+                msg_box.setWindowTitle('Download Error')
+                msg_box.exec()
                 tmp_file.delete = True
                 name = None
         return name
