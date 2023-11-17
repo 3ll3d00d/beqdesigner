@@ -812,7 +812,6 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
                 import traceback
                 logger.exception(f"Unable to download {self.imageURL.text()}")
                 msg_box = QMessageBox()
-                formatted = traceback.format_exception(etype=type(e), value=e, tb=e.__traceback__)
                 font = QFont()
                 font.setFamily("Consolas")
                 font.setPointSize(8)
