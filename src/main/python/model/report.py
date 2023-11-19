@@ -81,7 +81,7 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         else:
             self.curves.selectAll()
         self.preview.canvas.mpl_connect('resize_event', self.__canvas_size_to_xy)
-        self.title.setText(self.__selected_signal.name)
+        self.title.setText(self.__selected_signal.name if self.__selected_signal else 'No Signal Selected')
         # init fields
         self.__restore_geometry()
         self.restore_layout(redraw=True)
@@ -534,7 +534,7 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
     def __get_report_file_name(self):
         formats = "Report Files (*.png *.jpg *.jpeg)"
         from model.signal import SIGNAL_SOURCE_FILE
-        p = self.__selected_signal.metadata.get(SIGNAL_SOURCE_FILE, '')
+        p = self.__selected_signal.metadata.get(SIGNAL_SOURCE_FILE, '') if self.__selected_signal and self.__selected_signal.metadata else None
         report_path = None
         if p:
             from pathlib import Path
