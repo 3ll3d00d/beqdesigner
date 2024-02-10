@@ -55,6 +55,9 @@ def get_output_format(config_txt: str, allow_padding: bool) -> OutputFormat:
         elif output_channels == 3:
             template = OUTPUT_FORMATS['TWO_ONE']
             xml_vals = (template.input_channels, padding)
+        elif output_channels == 0:
+            template = OUTPUT_FORMATS['SOURCE']
+            xml_vals = (template.input_channels, padding, 0)
         else:
             template = OutputFormat.from_output_channels(output_channels)
             xml_vals = (template.output_channels, padding)
