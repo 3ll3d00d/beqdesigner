@@ -23,7 +23,7 @@ jobs:
         id: create_release
         uses: softprops/action-gh-release@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_PAT }}
         with:
           body: ${{ steps.changelog.outputs.changelog }}
           draft: false
@@ -106,7 +106,7 @@ jobs:
       - name: Upload beqdesigner
         uses: actions/upload-release-asset@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_PAT }}
         with:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
           asset_name: ${{ steps.create_dist.outputs.binary_name }}
