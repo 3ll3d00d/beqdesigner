@@ -13,7 +13,7 @@ from scipy import signal
 
 from model.xy import ComplexData
 
-DEFAULT_Q = 1 / np.math.sqrt(2.0)
+DEFAULT_Q = 1 / math.sqrt(2.0)
 
 logger = logging.getLogger('iir')
 
@@ -1301,7 +1301,7 @@ class CompoundPassFilter(ComplexFilter):
         biquads = []
         pairs = order >> 1
         odd_poles = order & 1
-        pole_inc = np.math.pi / order
+        pole_inc = math.pi / order
         first_angle = pole_inc
         if not odd_poles:
             first_angle /= 2
