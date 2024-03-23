@@ -70,7 +70,7 @@ jobs:
             brew install graphviz
             brew ls -v graphviz
           fi
-          pipenv run pip install pyinstaller
+          poetry run pip install pyinstaller
       - name: Get version
         id: get_version
         run: echo "name=sha_short::$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
@@ -82,7 +82,7 @@ jobs:
           export QT_DEBUG_PLUGINS=1
           export DISPLAY=:0
           sudo /usr/bin/Xvfb $DISPLAY -screen 0 1280x1024x24 &
-          pipenv run pyinstaller --clean --log-level=INFO beqdesigner.spec
+          poetry run pyinstaller --clean --log-level=INFO beqdesigner.spec
           if [[ "$RUNNER_OS" == "macOS" ]]
           then
             pushd dist
