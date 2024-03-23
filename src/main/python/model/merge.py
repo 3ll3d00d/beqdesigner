@@ -9,7 +9,7 @@ from typing import List
 import qtawesome as qta
 from qtpy.QtCore import QThreadPool, QRunnable, QObject, Signal
 from qtpy.QtGui import QGuiApplication
-from qtpy.QtWidgets import QDialog, QMessageBox, QFileDialog, QListWidgetItem
+from qtpy.QtWidgets import QDialog, QMessageBox, QFileDialog, QListWidgetItem, QDialogButtonBox
 from sanitize_filename import sanitize
 
 from model.catalogue import DatabaseDownloader, show_alert, load_catalogue, CatalogueEntry
@@ -30,6 +30,7 @@ class MergeFiltersDialog(QDialog, Ui_mergeDspDialog):
     def __init__(self, parent, prefs, statusbar):
         super(MergeFiltersDialog, self).__init__(parent)
         self.setupUi(self)
+        self.buttonBox.button(QDialogButtonBox.Reset).clicked.connect(self.__reset_index)
         self.__spinner = None
         self.__catalogue: List[CatalogueEntry] = []
         self.configFilePicker.setIcon(qta.icon('fa5s.folder-open'))
@@ -69,6 +70,22 @@ class MergeFiltersDialog(QDialog, Ui_mergeDspDialog):
             self.__catalogue = load_catalogue(self.__beq_file)
             self.update_beq_count()
             self.__enable_process()
+
+    def __reset_index(self):
+        index_file = f"{self.outputDirectory.text()}/.index"
+        if os.path.exists(index_file):
+            result = QMessageBox.question(self,
+                                          'Reset Index',
+                                          f"All generated config files will be deleted from "
+                                          f"{self.outputDirectory.text()}\nAre you sure you want to continue?",
+                                          QMessageBox.Yes | QMessageBox.No,
+                                          QMessageBox.No)
+            if result == QMessageBox.Yes:
+                self.statusbar.showMessage(f"Deleting {index_file}", 2000)
+                os.remove(index_file)
+                self.statusbar.showMessage(f"Deleting {self.outputDirectory.text()}", 2000)
+                shutil.rmtree(self.outputDirectory.text())
+                self.statusbar.showMessage(f"Deleted {self.outputDirectory.text()}", 10000)
 
     @staticmethod
     def __alert_on_database_load_error(message):
@@ -111,61 +128,60 @@ class MergeFiltersDialog(QDialog, Ui_mergeDspDialog):
         self.__preferences.set(BEQ_OUTPUT_CHANNELS, "|".join(selected_channels))
         if self.outputMode.isVisible():
             self.__preferences.set(BEQ_OUTPUT_MODE, self.outputMode.currentText())
-        if self.__clear_output_directory():
-            self.filesProcessed.setValue(0)
-            optimise_filters = False
-            dsp_type = DspType.parse(self.dspType.currentText())
-            should_process = True
-            if dsp_type.is_minidsp and dsp_type.is_fixed_point_hardware():
-                result = QMessageBox.question(self,
-                                              'Are you feeling lucky?',
-                                              f"Do you want to automatically optimise filters to fit in the 6 biquad limit? \n\n"
-                                              f"Note this feature is experimental. \n"
-                                              f"You are strongly encouraged to review the generated filters to ensure they are safe to use.\n"
-                                              f"USE AT YOUR OWN RISK!\n\n"
-                                              f"Are you sure you want to continue?",
-                                              QMessageBox.Yes | QMessageBox.No,
-                                              QMessageBox.No)
-                optimise_filters = result == QMessageBox.Yes
-            elif dsp_type.is_experimental:
-                result = QMessageBox.question(self,
-                                              'Generate HTP-1 Config Files?',
-                                              f"Support for HTP-1 config files is experimental and currently untested on an actual device. \n\n"
-                                              f"USE AT YOUR OWN RISK!\n\n"
-                                              f"Are you sure you want to continue?",
-                                              QMessageBox.Yes | QMessageBox.No,
-                                              QMessageBox.No)
-                should_process = result == QMessageBox.Yes
-            if should_process:
-                self.__start_spinning()
-                self.errors.clear()
-                self.errors.setEnabled(False)
-                self.copyErrorsButton.setEnabled(False)
-                self.optimised.clear()
-                self.optimised.setEnabled(False)
-                self.copyOptimisedButton.setEnabled(False)
-                self.optimised.setVisible(optimise_filters)
-                self.copyOptimisedButton.setVisible(optimise_filters)
-                self.optimisedLabel.setVisible(optimise_filters)
-                in_out_split = None
-                if self.outputMode.isVisible() and not self.outputChannels.isVisible():
-                    import re
-                    m = re.search('Input ([1-9]) / Output ([1-9])', self.outputMode.currentText())
-                    if m:
-                        in_out_split = (m.group(1), m.group(2))
-                QThreadPool.globalInstance().start(XmlProcessor(self.__beq_dir,
-                                                                self.__catalogue,
-                                                                self.userSourceDir.text(),
-                                                                self.outputDirectory.text(),
-                                                                self.configFile.text(),
-                                                                dsp_type,
-                                                                self.__on_file_fail,
-                                                                self.__on_file_ok,
-                                                                self.__on_complete,
-                                                                self.__on_optimised,
-                                                                optimise_filters,
-                                                                selected_channels,
-                                                                in_out_split))
+        self.filesProcessed.setValue(0)
+        optimise_filters = False
+        dsp_type = DspType.parse(self.dspType.currentText())
+        should_process = True
+        if dsp_type.is_minidsp and dsp_type.is_fixed_point_hardware():
+            result = QMessageBox.question(self,
+                                          'Are you feeling lucky?',
+                                          f"Do you want to automatically optimise filters to fit in the 6 biquad limit? \n\n"
+                                          f"Note this feature is experimental. \n"
+                                          f"You are strongly encouraged to review the generated filters to ensure they are safe to use.\n"
+                                          f"USE AT YOUR OWN RISK!\n\n"
+                                          f"Are you sure you want to continue?",
+                                          QMessageBox.Yes | QMessageBox.No,
+                                          QMessageBox.No)
+            optimise_filters = result == QMessageBox.Yes
+        elif dsp_type.is_experimental:
+            result = QMessageBox.question(self,
+                                          'Generate HTP-1 Config Files?',
+                                          f"Support for HTP-1 config files is experimental and currently untested on an actual device. \n\n"
+                                          f"USE AT YOUR OWN RISK!\n\n"
+                                          f"Are you sure you want to continue?",
+                                          QMessageBox.Yes | QMessageBox.No,
+                                          QMessageBox.No)
+            should_process = result == QMessageBox.Yes
+        if should_process:
+            self.__start_spinning()
+            self.errors.clear()
+            self.errors.setEnabled(False)
+            self.copyErrorsButton.setEnabled(False)
+            self.optimised.clear()
+            self.optimised.setEnabled(False)
+            self.copyOptimisedButton.setEnabled(False)
+            self.optimised.setVisible(optimise_filters)
+            self.copyOptimisedButton.setVisible(optimise_filters)
+            self.optimisedLabel.setVisible(optimise_filters)
+            in_out_split = None
+            if self.outputMode.isVisible() and not self.outputChannels.isVisible():
+                import re
+                m = re.search('Input ([1-9]) / Output ([1-9])', self.outputMode.currentText())
+                if m:
+                    in_out_split = (m.group(1), m.group(2))
+            QThreadPool.globalInstance().start(XmlProcessor(self.__beq_dir,
+                                                            self.__catalogue,
+                                                            self.userSourceDir.text(),
+                                                            self.outputDirectory.text(),
+                                                            self.configFile.text(),
+                                                            dsp_type,
+                                                            self.__on_file_fail,
+                                                            self.__on_file_ok,
+                                                            self.__on_complete,
+                                                            self.__on_optimised,
+                                                            optimise_filters,
+                                                            selected_channels,
+                                                            in_out_split))
 
     def __on_file_fail(self, dir_name, file, message):
         self.errors.setEnabled(True)
@@ -484,7 +500,20 @@ class XmlProcessor(QRunnable):
 
     def run(self):
         self.__process_dir(self.__user_source_dir)
-        self.__process_catalogue(self.__catalogue)
+        p = Path(self.__output_dir, '.index')
+        if p.is_file():
+            try:
+                last_updated = int(p.read_text())
+            except:
+                last_updated = 0
+                p.unlink()
+            fresh_catalogue = [c for c in self.__catalogue if c.updated_at > last_updated]
+        else:
+            fresh_catalogue = self.__catalogue
+        if fresh_catalogue:
+            last_updated = self.__process_catalogue(fresh_catalogue)
+            if last_updated:
+                p.write_text(str(last_updated))
         self.__signals.on_complete.emit()
 
     def __process_dir(self, src_dir):
@@ -494,8 +523,9 @@ class XmlProcessor(QRunnable):
             for xml in beq_dir.glob(f"**{os.sep}*.xml"):
                 self.__process_file(base_parts_idx, xml)
 
-    def __process_catalogue(self, catalogue: List[CatalogueEntry]):
+    def __process_catalogue(self, catalogue: List[CatalogueEntry]) -> int:
         by_author_by_filename = defaultdict(lambda: defaultdict(list))
+        last_updated = 0
         for entry in catalogue:
             year_suffix = f'_{entry.year}' if entry.year else ''
             edition_suffix = f'_{entry.edition.strip()}' if entry.edition.strip() else ''
@@ -503,6 +533,7 @@ class XmlProcessor(QRunnable):
             if entry.audio_types:
                 fn = f"{fn}_{'_'.join(entry.audio_types)}"
             by_author_by_filename[entry.author][fn.replace('/', '_').replace('.', '')].append(entry)
+            last_updated = max(entry.updated_at, last_updated)
 
         for author, values in by_author_by_filename.items():
             for filename, entries in values.items():
@@ -537,6 +568,7 @@ class XmlProcessor(QRunnable):
                         self.__write_to(Path(file_output_dir).joinpath(sanitize(f'{filename}_{suffix}')).with_suffix(self.__parser.file_extension()), e)
                 else:
                     self.__write_to(Path(file_output_dir).joinpath(sanitize(filename)).with_suffix(self.__parser.file_extension()), entries[0])
+        return last_updated
 
     def __write_to(self, dst: Path, entry: CatalogueEntry):
         try:
