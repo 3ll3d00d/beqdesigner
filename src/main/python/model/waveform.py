@@ -399,7 +399,7 @@ class WaveformModel:
         self.__chart = chart
         label_font = QFont()
         fp = FontProperties()
-        label_font.setPointSize(fp.get_size_in_points() * 0.7)
+        label_font.setPointSize(int(fp.get_size_in_points() * 0.7))
         label_font.setFamily(fp.get_name())
         for name in ['left', 'right', 'bottom', 'top']:
             self.__chart.getPlotItem().getAxis(name).setTickFont(label_font)
