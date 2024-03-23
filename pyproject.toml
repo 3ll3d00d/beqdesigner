@@ -13,8 +13,7 @@ python = "^3.12"
 pyqt5 = "^5.15.10"
 pyqt5-qt5 = [
     { version = "5.15.13", platform = "darwin" },
-    { version = "5.15.2", platform = "linux" },
-    { version = "5.15.2", platform = "windows" }
+    { version = "5.15.2", platform = "!=darwin" }
 ]
 matplotlib = "*"
 ffmpeg-python = "*"
