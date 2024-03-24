@@ -67,7 +67,21 @@ class MergeFiltersDialog(QDialog, Ui_mergeDspDialog):
 
     def __on_database_load(self, database: bool):
         if database is True:
-            self.__catalogue = load_catalogue(self.__beq_file)
+            catalogue = load_catalogue(self.__beq_file)
+            full_size = len(catalogue)
+            p = Path(self.outputDirectory.text(), '.index')
+            if p.is_file():
+                try:
+                    last_updated = int(p.read_text())
+                except:
+                    last_updated = 0
+                    p.unlink()
+                catalogue = [c for c in catalogue if c.updated_at > last_updated]
+                if len(catalogue) == 0:
+                    from datetime import datetime
+                    last_formatted = datetime.fromtimestamp(last_updated).strftime('%c')
+                    show_alert('BEQ Merge', f'Merged files are up to date\n\nCatalogue last updated at {last_formatted} and has {full_size} entries')
+            self.__catalogue = catalogue
             self.update_beq_count()
             self.__enable_process()
 
@@ -191,8 +205,10 @@ class MergeFiltersDialog(QDialog, Ui_mergeDspDialog):
     def __on_file_ok(self):
         self.filesProcessed.setValue(self.filesProcessed.value() + 1)
 
-    def __on_complete(self):
+    def __on_complete(self, last_updated: int):
         self.__stop_spinning()
+        if last_updated:
+            Path(self.outputDirectory.text(), '.index').write_text(str(last_updated))
 
     def __on_optimised(self, dir_name, file):
         self.optimised.setEnabled(True)
@@ -500,21 +516,8 @@ class XmlProcessor(QRunnable):
 
     def run(self):
         self.__process_dir(self.__user_source_dir)
-        p = Path(self.__output_dir, '.index')
-        if p.is_file():
-            try:
-                last_updated = int(p.read_text())
-            except:
-                last_updated = 0
-                p.unlink()
-            fresh_catalogue = [c for c in self.__catalogue if c.updated_at > last_updated]
-        else:
-            fresh_catalogue = self.__catalogue
-        if fresh_catalogue:
-            last_updated = self.__process_catalogue(fresh_catalogue)
-            if last_updated:
-                p.write_text(str(last_updated))
-        self.__signals.on_complete.emit()
+        last_updated = self.__process_catalogue(self.__catalogue)
+        self.__signals.on_complete.emit(last_updated)
 
     def __process_dir(self, src_dir):
         if len(src_dir) > 0:
@@ -619,5 +622,5 @@ class XmlProcessor(QRunnable):
 class ProcessSignals(QObject):
     on_failure = Signal(str, str, str)
     on_success = Signal()
-    on_complete = Signal()
+    on_complete = Signal(int)
     on_optimised = Signal(str, str)
