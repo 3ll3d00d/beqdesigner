@@ -95,11 +95,16 @@ class MergeFiltersDialog(QDialog, Ui_mergeDspDialog):
                                           QMessageBox.Yes | QMessageBox.No,
                                           QMessageBox.No)
             if result == QMessageBox.Yes:
-                self.statusbar.showMessage(f"Deleting {index_file}", 2000)
-                os.remove(index_file)
-                self.statusbar.showMessage(f"Deleting {self.outputDirectory.text()}", 2000)
-                shutil.rmtree(self.outputDirectory.text())
-                self.statusbar.showMessage(f"Deleted {self.outputDirectory.text()}", 10000)
+                from app import wait_cursor
+                with wait_cursor():
+                    self.statusbar.showMessage(f"Deleting {index_file}", 2000)
+                    os.remove(index_file)
+                    self.statusbar.showMessage(f"Deleting {self.outputDirectory.text()}", 2000)
+                    shutil.rmtree(self.outputDirectory.text())
+                    os.makedirs(self.outputDirectory.text(), exist_ok=True)
+                    self.statusbar.showMessage(f"Deleted {self.outputDirectory.text()}", 10000)
+                    self.__on_database_load(True)
+                    self.filesProcessed.setValue(0)
 
     @staticmethod
     def __alert_on_database_load_error(message):
