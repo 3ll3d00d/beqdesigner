@@ -19,6 +19,7 @@ class VersionSignals(QObject):
 
 
 class VersionChecker(QRunnable):
+
     def __init__(self, beta, on_old_handler, on_error_handler, current_version, signal_anyway=False):
         super().__init__()
         self.__check_beta = beta
@@ -56,7 +57,7 @@ class VersionChecker(QRunnable):
             releases = r.json()
             if releases:
                 return sorted([v for v in [self.__convert(r, self.__version) for r in releases if r['draft'] is False]
-                               if self.__check_beta is True or v['version'].prerelease is None],
+                               if self.__check_beta is True or v['version'].modifier_type is None],
                               key=lambda v: v['version'],
                               reverse=True)
         else:
@@ -65,10 +66,10 @@ class VersionChecker(QRunnable):
 
     @staticmethod
     def __convert(release, current_version):
-        import semver
+        from awesomeversion import AwesomeVersion
         return {
             'tag': release['tag_name'],
-            'version': semver.parse_version_info(release['tag_name']),
+            'version': AwesomeVersion(release['tag_name']),
             'url': release['html_url'],
             'description': release['body'],
             'date': release['published_at'],
@@ -94,8 +95,19 @@ class ReleaseNotesDialog(QDialog, Ui_newVersionDialog):
         self.versionTable.resizeColumnsToContents()
         self.versionTable.selectRow(0)
         if self.__versions[0]['current'] is False:
-            self.message.setText(f"{self.__versions[0]['version']} is out, grab it while it is fresh!")
-            self.setWindowTitle(f"New {'Beta' if self.__versions[0]['version'].prerelease is not None else 'Final'} Version Available!")
+            v = self.__versions[0]['version']
+            self.message.setText(f"{v} is out, grab it while it is fresh!")
+            if v.alpha:
+                mod = 'Alpha'
+            elif v.beta:
+                mod = 'Beta'
+            elif v.dev:
+                mod = 'Dev'
+            elif v.rc:
+                mod = 'Release Candidate'
+            else:
+                mod = 'Final'
+            self.setWindowTitle(f"New {mod} Version Available!")
         else:
             self.message.setText('')
             self.setWindowTitle('Release Notes')

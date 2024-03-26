@@ -5,7 +5,7 @@ from collections import OrderedDict
 from pathlib import Path
 
 import qtawesome as qta
-import semver
+from awesomeversion import AwesomeVersion
 from qtpy import QtWebSockets
 from qtpy.QtCore import QUrl, Qt
 from qtpy.QtWidgets import QDialog, QAbstractItemView, QHeaderView, QLineEdit, QToolButton, QListWidgetItem, QMessageBox
@@ -251,7 +251,7 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         version = mso['versions']['swVer']
         version = version[1:] if version[0] == 'v' or version[0] == 'V' else version
         try:
-            self.__supports_shelf = semver.parse_version_info(version) > semver.parse_version_info('1.4.0')
+            self.__supports_shelf = AwesomeVersion(version) > AwesomeVersion('1.4.0')
         except:
             logger.error(f"Unable to parse version {mso['versions']['swVer']}")
             result = QMessageBox.question(self,
