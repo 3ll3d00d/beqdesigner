@@ -103,7 +103,7 @@ class ReleaseNotesDialog(QDialog, Ui_newVersionDialog):
                 mod = 'Beta'
             elif v.dev:
                 mod = 'Dev'
-            elif v.rc:
+            elif v.release_candidate:
                 mod = 'Release Candidate'
             else:
                 mod = 'Final'
