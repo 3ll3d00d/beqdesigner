@@ -92,7 +92,7 @@ jobs:
           then
             pushd dist
             rm beqdesigner
-            zip -r beqdesigner.app.zip_$(sw_vers -productVersion) beqdesigner.app
+            zip -r beqdesigner.app.zip_macos_$(sw_vers -productVersion) beqdesigner.app
             rm -Rf beqdesigner.app
             popd
             MATCHES=( dist/beqdesigner.app.zip_* )

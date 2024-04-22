@@ -1208,11 +1208,11 @@ class MatplotlibExportProcessor:
         self.__x, self.__y = figure.get_size_inches() * figure.dpi
 
     def get_dims(self, plot):
-        return self.__x, self.__y
+        return int(self.__x), int(self.__y)
 
     def export(self, plot, width, output_file):
         scale_factor = width / self.__x
-        plot.savefig(output_file, format='png', dpi=plot.dpi * scale_factor)
+        plot.savefig(output_file, format='png', dpi=int(plot.dpi * scale_factor))
 
 
 class PyQtGraphExportProcessor:
