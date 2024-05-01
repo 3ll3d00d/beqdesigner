@@ -1393,7 +1393,7 @@ if __name__ == '__main__':
         print(exctype, value, tb)
         global e_dialog
         if e_dialog is not None:
-            formatted = traceback.format_exception(etype=exctype, value=value, tb=tb)
+            formatted = traceback.format_exception(value, value=value, tb=tb)
             e_dialog.setWindowTitle('Unexpected Error')
             url = 'https://github.com/3ll3d00d/beqdesigner/issues/new'
             msg = f"Unexpected Error detected, go to {url} to log the issue<p>{'<br>'.join(formatted)}"

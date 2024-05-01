@@ -236,7 +236,7 @@ class WaveformController:
                 self.__bm_clip_after.setEnabled(False)
             self.__current_signal.register_listener(self.on_filter_update)
             self.__start_time.setEnabled(True)
-            duration = QTime(0, 0, 0).addMSecs(self.__current_signal.duration_seconds * 1000.0)
+            duration = QTime(0, 0, 0).addMSecs(int(self.__current_signal.duration_seconds * 1000.0))
             self.__start_time.setMaximumTime(duration)
             self.__end_time.setEnabled(True)
             self.__end_time.setMaximumTime(duration)
@@ -432,8 +432,8 @@ class WaveformModel:
 
     def __propagate_x_range(self, _, range):
         ''' passes the updates range to the fields '''
-        self.__x_min.setTime(QTime(0, 0, 0).addMSecs(range[0] * 1000.0))
-        self.__x_max.setTime(QTime(0, 0, 0).addMSecs(range[1] * 1000.0))
+        self.__x_min.setTime(QTime(0, 0, 0).addMSecs(int(range[0] * 1000.0)))
+        self.__x_max.setTime(QTime(0, 0, 0).addMSecs(int(range[1] * 1000.0)))
         self.__propagate_btn_state_on_xrange_change()
 
     def __propagate_y_range(self, _, range):
