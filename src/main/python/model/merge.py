@@ -414,6 +414,7 @@ class DspType(Enum):
     MINIDSP_TEN_BY_TEN = ('10x10', False, True, False, None, 'xml')
     MINIDSP_SHD = ('SHD', True, True, False, None, 'xml')
     MINIDSP_EIGHTY_EIGHT_BM = ('88BM', True, True, False, None, 'xml')
+    MINIDSP_HTX = ('HTx', True, True, False, None, 'xml')
     MONOPRICE_HTP1 = ('HTP-1', False, False, False, None, 'json')
     JRIVER_PEQ1 = ('JRiver PEQ1', False, False, False, None, 'dsp')
     JRIVER_PEQ2 = ('JRiver PEQ2', False, False, False, None, 'dsp')
@@ -462,6 +463,8 @@ class DspType(Enum):
             return ['1', '2', '3', '4']
         elif self == DspType.MINIDSP_EIGHTY_EIGHT_BM:
             return ['3']
+        elif self == DspType.MINIDSP_HTX:
+            return [str(x) for x in range(1, 9)]
         else:
             return ['1', '2']
 

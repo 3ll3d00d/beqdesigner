@@ -177,8 +177,8 @@ class HDXmlParser(XmlParser):
             if child.tag == 'filter':
                 if 'name' in child.attrib:
                     filter_tokens = child.attrib['name'].split('_')
-                    (filt_type, filt_channel, filt_slot) = filter_tokens
                     if len(filter_tokens) == 3:
+                        (filt_type, filt_channel, filt_slot) = filter_tokens
                         if filt_type == 'PEQ':
                             if self.__should_overwrite(filt_channel, filt_slot):
                                 if int(filt_slot) > len(filters) and self.__in_out_split is None:
