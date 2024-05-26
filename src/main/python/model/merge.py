@@ -80,7 +80,8 @@ class MergeFiltersDialog(QDialog, Ui_mergeDspDialog):
                 if len(catalogue) == 0:
                     from datetime import datetime
                     last_formatted = datetime.fromtimestamp(last_updated).strftime('%c')
-                    show_alert('BEQ Merge', f'Merged files are up to date\n\nCatalogue last updated at {last_formatted} and has {full_size} entries')
+                    show_alert('BEQ Merge',
+                               f'Merged files are up to date\n\nCatalogue last updated at {last_formatted} and has {full_size} entries')
             self.__catalogue = catalogue
             self.update_beq_count()
             self.__enable_process()
@@ -475,7 +476,8 @@ OUTPUT_CHANNELS_BY_DEVICE = {
     DspType.MINIDSP_TWO_BY_FOUR_HD: ['Input 1', 'Input 2', 'Output 1', 'Output 2', 'Output 3', 'Output 4'],
     DspType.MINIDSP_EIGHTY_EIGHT_BM: [str(i + 1) for i in range(8)],
     DspType.JRIVER_PEQ1: JRIVER_CHANNELS,
-    DspType.JRIVER_PEQ2: JRIVER_CHANNELS
+    DspType.JRIVER_PEQ2: JRIVER_CHANNELS,
+    DspType.MINIDSP_HTX: [f'Output {i}' for i in range(1, 9)]
 }
 
 DEFAULT_OUTPUT_CHANNELS_BY_DEVICE = {
@@ -483,7 +485,8 @@ DEFAULT_OUTPUT_CHANNELS_BY_DEVICE = {
     DspType.MINIDSP_TWO_BY_FOUR_HD: ['Input 1', 'Input 2'],
     DspType.MINIDSP_EIGHTY_EIGHT_BM: ['3'],
     DspType.JRIVER_PEQ1: ['Subwoofer'],
-    DspType.JRIVER_PEQ2: ['Subwoofer']
+    DspType.JRIVER_PEQ2: ['Subwoofer'],
+    DspType.MINIDSP_HTX: ['Output 1', 'Output 2']
 }
 
 
@@ -576,9 +579,12 @@ class XmlProcessor(QRunnable):
                         else:
                             suffix = i
                             self.__signals.on_failure.emit(e.author, e.formatted_title, f"Duplicate entry")
-                        self.__write_to(Path(file_output_dir).joinpath(sanitize(f'{filename}_{suffix}')).with_suffix(self.__parser.file_extension()), e)
+                        self.__write_to(Path(file_output_dir).joinpath(sanitize(f'{filename}_{suffix}')).with_suffix(
+                            self.__parser.file_extension()), e)
                 else:
-                    self.__write_to(Path(file_output_dir).joinpath(sanitize(filename)).with_suffix(self.__parser.file_extension()), entries[0])
+                    self.__write_to(
+                        Path(file_output_dir).joinpath(sanitize(filename)).with_suffix(self.__parser.file_extension()),
+                        entries[0])
         return last_updated
 
     def __write_to(self, dst: Path, entry: CatalogueEntry):
