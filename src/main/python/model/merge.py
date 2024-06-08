@@ -469,6 +469,10 @@ class DspType(Enum):
         else:
             return ['1', '2']
 
+    @property
+    def input_channel_count(self):
+        return 0 if self == DspType.MINIDSP_HTX else 2
+
 
 OUTPUT_CHANNELS_BY_DEVICE = {
     DspType.MONOPRICE_HTP1: ['sub1', 'sub2', 'sub3', 'sub4', 'sub5', 'lf', 'rf', 'c', 'ls', 'rs', 'lb', 'rb', 'ltf',

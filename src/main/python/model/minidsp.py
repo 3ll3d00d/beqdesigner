@@ -131,18 +131,18 @@ class HDXmlParser(XmlParser):
         super().__init__(minidsp_type, optimise_filters, pad=in_out_split is None)
         self.__in_out_split = in_out_split
         if selected_channels:
-            self.__selected_channels = [self.__extract_channel(i) for i in selected_channels]
+            self.__selected_channels = [self.__extract_channel(i, minidsp_type) for i in selected_channels]
         else:
             self.__selected_channels = minidsp_type.filter_channels
 
     @staticmethod
-    def __extract_channel(txt):
+    def __extract_channel(txt, minidsp_type):
         if len(txt) == 1:
             return txt[0]
         elif txt[0:5] == 'Input':
             return txt[-1]
         elif txt[0:6] == 'Output':
-            return str(int(txt[-1]) + 2)
+            return str(int(txt[-1]) + minidsp_type.input_channel_count)
         else:
             raise ValueError(f"Unsupported channel {txt}")
 

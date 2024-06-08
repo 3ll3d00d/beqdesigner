@@ -113,6 +113,18 @@ def test_merge_HTx():
             convert_and_compare(f1, f2, filt, parser)
 
 
+def test_merge_HTx_selected():
+    from model.minidsp import xml_to_filt, HDXmlParser
+    from model.merge import DspType
+    suffix = 'HTx'
+    dsp_type = DspType.MINIDSP_HTX
+    parser = HDXmlParser(dsp_type, False, selected_channels=[f'Output {i}' for i in range(1, 9)])
+    filt = xml_to_filt(os.path.join(os.path.dirname(__file__), 'input.xml'))
+    with open(os.path.join(os.path.dirname(__file__), f'MiniDSP-{suffix}.xml'), 'r') as f1:
+        with open(os.path.join(os.path.dirname(__file__), f'expected_output_{suffix}.xml'), 'r') as f2:
+            convert_and_compare(f1, f2, filt, parser)
+
+
 def convert_and_compare(f1, f2, filts, parser):
     dst = io.StringIO(f1.read())
     expected = f2.read()
