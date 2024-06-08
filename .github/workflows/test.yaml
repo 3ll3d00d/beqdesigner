@@ -94,7 +94,7 @@ jobs:
       - name: Archive app binaries
         uses: actions/upload-artifact@v4
         with:
-          name: beqdesigner-apps
+          name: beqdesigner-apps-${{matrix.os}}
           path: |
             dist/beqdesigner.exe
             dist/beqdesigner*.zip
