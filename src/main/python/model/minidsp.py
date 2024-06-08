@@ -71,7 +71,7 @@ class TwoByFourXmlParser(XmlParser):
         import xml.etree.ElementTree as ET
         import re
         logger.info(f"Copying {len(filters)} to {target}")
-        et_tree = ET.parse(str(target))
+        et_tree = ET.parse(target)
         root = et_tree.getroot()
         filter_matcher = re.compile('^EQ_ch([1-2])_1_([1-6])$')
         bq_matcher = re.compile('^EQ_ch([1-2])_1_([1-6])_([A-B][0-2])$')

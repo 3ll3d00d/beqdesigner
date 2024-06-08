@@ -26,7 +26,7 @@ def test_merge_2x4hd():
     dsp_type = DspType.MINIDSP_TWO_BY_FOUR_HD
     parser = HDXmlParser(dsp_type, False)
     filt = xml_to_filt(os.path.join(os.path.dirname(__file__), 'input.xml'))
-    with open(os.path.join(os.path.dirname(__file__), 'MiniDSP-2x4HD-setting.xml'), 'r') as f1:
+    with open(os.path.join(os.path.dirname(__file__), 'MiniDSP-2x4HD.xml'), 'r') as f1:
         with open(os.path.join(os.path.dirname(__file__), 'expected_output_2x4HD.xml'), 'r') as f2:
             convert_and_compare(f1, f2, filt, parser)
 
@@ -37,7 +37,7 @@ def test_merge_2x4hd_output_with_output():
     dsp_type = DspType.MINIDSP_TWO_BY_FOUR_HD
     parser = HDXmlParser(dsp_type, False, selected_channels=[str(i) for i in range(1, 7)])
     filt = xml_to_filt(os.path.join(os.path.dirname(__file__), 'input.xml'))
-    with open(os.path.join(os.path.dirname(__file__), 'MiniDSP-2x4HD-setting.xml'), 'r') as f1:
+    with open(os.path.join(os.path.dirname(__file__), 'MiniDSP-2x4HD.xml'), 'r') as f1:
         with open(os.path.join(os.path.dirname(__file__), 'expected_output_2x4HD_output.xml'), 'r') as f2:
             convert_and_compare(f1, f2, filt, parser)
 
@@ -48,8 +48,68 @@ def test_merge_2x4hd_output_with_split():
     dsp_type = DspType.MINIDSP_TWO_BY_FOUR_HD
     parser = HDXmlParser(dsp_type, False, in_out_split=['4', '6'])
     filt = xml_to_filt(os.path.join(os.path.dirname(__file__), 'input.xml'))
-    with open(os.path.join(os.path.dirname(__file__), 'MiniDSP-2x4HD-setting.xml'), 'r') as f1:
+    with open(os.path.join(os.path.dirname(__file__), 'MiniDSP-2x4HD.xml'), 'r') as f1:
         with open(os.path.join(os.path.dirname(__file__), 'expected_output_2x4HD_split.xml'), 'r') as f2:
+            convert_and_compare(f1, f2, filt, parser)
+
+
+def test_merge_2wayAdv():
+    from model.minidsp import xml_to_filt, TwoByFourXmlParser
+    from model.merge import DspType
+    suffix = '2wayAdv'
+    dsp_type = DspType.MINIDSP_TWO_BY_FOUR
+    parser = TwoByFourXmlParser(dsp_type, False)
+    filt = xml_to_filt(os.path.join(os.path.dirname(__file__), 'input.xml'))
+    with open(os.path.join(os.path.dirname(__file__), f'MiniDSP-{suffix}.xml'), 'r') as f1:
+        with open(os.path.join(os.path.dirname(__file__), f'expected_output_{suffix}.xml'), 'r') as f2:
+            convert_and_compare(f1, f2, filt, parser)
+
+
+def test_merge_10x10():
+    from model.minidsp import xml_to_filt, HDXmlParser
+    from model.merge import DspType
+    suffix = '10x10'
+    dsp_type = DspType.MINIDSP_TEN_BY_TEN
+    parser = HDXmlParser(dsp_type, False)
+    filt = xml_to_filt(os.path.join(os.path.dirname(__file__), 'input.xml'))
+    with open(os.path.join(os.path.dirname(__file__), f'MiniDSP-{suffix}.xml'), 'r') as f1:
+        with open(os.path.join(os.path.dirname(__file__), f'expected_output_{suffix}.xml'), 'r') as f2:
+            convert_and_compare(f1, f2, filt, parser)
+
+
+def test_merge_88BM():
+    from model.minidsp import xml_to_filt, HDXmlParser
+    from model.merge import DspType
+    suffix = '88BM'
+    dsp_type = DspType.MINIDSP_EIGHTY_EIGHT_BM
+    parser = HDXmlParser(dsp_type, False)
+    filt = xml_to_filt(os.path.join(os.path.dirname(__file__), 'input.xml'))
+    with open(os.path.join(os.path.dirname(__file__), f'MiniDSP-{suffix}.xml'), 'r') as f1:
+        with open(os.path.join(os.path.dirname(__file__), f'expected_output_{suffix}.xml'), 'r') as f2:
+            convert_and_compare(f1, f2, filt, parser)
+
+
+def test_merge_SHD():
+    from model.minidsp import xml_to_filt, HDXmlParser
+    from model.merge import DspType
+    suffix = 'SHD'
+    dsp_type = DspType.MINIDSP_SHD
+    parser = HDXmlParser(dsp_type, False)
+    filt = xml_to_filt(os.path.join(os.path.dirname(__file__), 'input.xml'))
+    with open(os.path.join(os.path.dirname(__file__), f'MiniDSP-{suffix}.xml'), 'r') as f1:
+        with open(os.path.join(os.path.dirname(__file__), f'expected_output_{suffix}.xml'), 'r') as f2:
+            convert_and_compare(f1, f2, filt, parser)
+
+
+def test_merge_HTx():
+    from model.minidsp import xml_to_filt, HDXmlParser
+    from model.merge import DspType
+    suffix = 'HTx'
+    dsp_type = DspType.MINIDSP_HTX
+    parser = HDXmlParser(dsp_type, False)
+    filt = xml_to_filt(os.path.join(os.path.dirname(__file__), 'input.xml'))
+    with open(os.path.join(os.path.dirname(__file__), f'MiniDSP-{suffix}.xml'), 'r') as f1:
+        with open(os.path.join(os.path.dirname(__file__), f'expected_output_{suffix}.xml'), 'r') as f2:
             convert_and_compare(f1, f2, filt, parser)
 
 
@@ -58,5 +118,5 @@ def convert_and_compare(f1, f2, filts, parser):
     expected = f2.read()
     actual, optimised = parser.convert(dst, filts)
     assert optimised is False
-    assert len(actual) == len(expected)
+    # assert len(actual) == len(expected)
     assert actual == expected

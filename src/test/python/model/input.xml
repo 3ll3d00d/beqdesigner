@@ -887,7 +887,7 @@
     <q>0.9</q>
     <boost>4</boost>
     <type>SL</type>
-    <bypass>0</bypass>
+    <bypass>1</bypass>
     <dec>1.0000839319876031,-1.9993516344000324,0.9992682415213849,1.9993517338771325,-0.9993520740318875,</dec>
     <hex>3f8002c0,bfffeac1,3f7fd00b,3fffeac2,bf7fd58a,</hex>
   </filter>
@@ -977,7 +977,7 @@
     <q>0.9</q>
     <boost>4</boost>
     <type>SL</type>
-    <bypass>0</bypass>
+    <bypass>1</bypass>
     <dec>1.0000839319876031,-1.9993516344000324,0.9992682415213849,1.9993517338771325,-0.9993520740318875,</dec>
     <hex>3f8002c0,bfffeac1,3f7fd00b,3fffeac2,bf7fd58a,</hex>
   </filter>
