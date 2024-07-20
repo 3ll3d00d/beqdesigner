@@ -2259,7 +2259,7 @@ class MergeSignalDialog(QDialog, Ui_MergeSignalDialog):
         logger.debug(f"Merging {','.join([s.name for s in selected_signals])}")
         samples = np.concatenate([s.samples for s in selected_signals])
         suffix = f"{len([s.name for s in self.__signal_model.non_bm_signals if s.name.startswith('merged')]) + 1}"
-        output_signal = Signal(f"merged{suffix}", samples, self.__prefs, selected_signals[0].fs)
+        output_signal = Signal(f"merged{suffix}", samples, self.__prefs, fs=selected_signals[0].fs)
         self.__signal_model.add(SingleChannelSignalData(f"merged{suffix}", signal=output_signal,
                                                         filter=CompleteFilter(fs=output_signal.fs)))
         super().accept()
