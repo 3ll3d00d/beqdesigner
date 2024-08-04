@@ -1176,7 +1176,7 @@ class SaveChartDialog(QDialog, Ui_saveChartDialog):
 
     def accept(self):
         output = f'{self.name}.{self.image_format}'
-        if self.signal_data:
+        if self.signal_data and self.signal_data.signal.metadata:
             from model.signal import SIGNAL_SOURCE_FILE
             p = self.signal_data.signal.metadata.get(SIGNAL_SOURCE_FILE, '')
             if p:

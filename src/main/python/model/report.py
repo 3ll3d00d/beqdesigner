@@ -851,4 +851,4 @@ def get_ax_size(ax):
     width, height = bbox.width, bbox.height
     width *= ax.figure.dpi
     height *= ax.figure.dpi
-    return width, height
+    return int(width), int(height)
