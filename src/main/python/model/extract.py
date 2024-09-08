@@ -9,7 +9,7 @@ import numpy as np
 import qtawesome as qta
 from qtpy.QtCore import Qt, QTime
 from qtpy.QtGui import QPalette, QColor, QFont
-from qtpy.QtMultimedia import QSound
+from qtpy.QtMultimedia import QSoundEffect
 from qtpy.QtWidgets import QDialog, QFileDialog, QStatusBar, QDialogButtonBox, QMessageBox
 
 from model.ffmpeg import Executor, ViewProbeDialog, SIGNAL_CONNECTED, SIGNAL_ERROR, SIGNAL_COMPLETE, parse_audio_stream, \
@@ -78,7 +78,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             font.setPointSize(8)
             msg_box.setFont(font)
             msg_box.setText(self.__executor.filter_complex_script_content.replace(';', ';\n'))
-            msg_box.setIcon(QMessageBox.Information)
+            msg_box.setIcon(QMessageBox.Icon.Information)
             msg_box.setWindowTitle('Remux Script')
             msg_box.exec()
 
@@ -99,7 +99,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
     def selectFile(self):
         self.__reinit_fields()
         dialog = QFileDialog(parent=self)
-        dialog.setFileMode(QFileDialog.ExistingFile)
+        dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
         dialog.setWindowTitle('Select Audio or Video File')
         if dialog.exec():
             selected = dialog.selectedFiles()
@@ -121,8 +121,8 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         self.__executor = None
         self.__extracted = False
         self.__stream_duration_micros = []
-        self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
-        self.buttonBox.button(QDialogButtonBox.Ok).setText('Remux' if self.__is_remux else 'Extract')
+        self.buttonBox.button(QDialogButtonBox.StandardButton.Ok).setEnabled(False)
+        self.buttonBox.button(QDialogButtonBox.StandardButton.Ok).setText('Remux' if self.__is_remux else 'Extract')
         if self.__is_remux:
             self.signalName.setVisible(False)
             self.signalNameLabel.setVisible(False)
@@ -290,7 +290,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             self.__init_channel_count_fields(self.__executor.channel_count, lfe_index=self.__executor.lfe_idx)
             self.__fit_options_to_selected()
             self.__display_command_info()
-            self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
+            self.buttonBox.button(QDialogButtonBox.StandardButton.Ok).setEnabled(True)
 
     def __fit_options_to_selected(self):
         # if we have no video then the output cannot contain multiple streams
@@ -503,7 +503,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         else:
             msg_box = QMessageBox()
             msg_box.setText(f"Extracted audio file does not exist at: \n\n {output_file}")
-            msg_box.setIcon(QMessageBox.Critical)
+            msg_box.setIcon(QMessageBox.Icon.Critical)
             msg_box.setWindowTitle('Unexpected Error')
             msg_box.exec()
             return False
@@ -569,9 +569,9 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         self.ffmpegOutput.setEnabled(True)
         self.ffmpegProgress.setEnabled(True)
         self.ffmpegProgressLabel.setEnabled(True)
-        self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
+        self.buttonBox.button(QDialogButtonBox.StandardButton.Ok).setEnabled(False)
         palette = QPalette(self.ffmpegProgress.palette())
-        palette.setColor(QPalette.Highlight, QColor(Qt.green))
+        palette.setColor(QPalette.ColorRole.Highlight, QColor(Qt.GlobalColor.green))
         self.ffmpegProgress.setPalette(palette)
 
     def __extract_complete(self, result, success):
@@ -587,20 +587,20 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
                     self.signalName.setEnabled(True)
                     self.signalNameLabel.setEnabled(True)
                     self.signalName.setText(Path(self.outputFilename.text()).resolve().name)
-                    self.buttonBox.button(QDialogButtonBox.Ok).setText('Create Signals')
+                    self.buttonBox.button(QDialogButtonBox.StandardButton.Ok).setText('Create Signals')
             else:
                 logger.error(f"Extraction failed for {self.outputFilename.text()}")
                 palette = QPalette(self.ffmpegProgress.palette())
-                palette.setColor(QPalette.Highlight, QColor(Qt.red))
+                palette.setColor(QPalette.ColorRole.Highlight, QColor(Qt.GlobalColor.red))
                 self.ffmpegProgress.setPalette(palette)
                 self.statusBar.showMessage('Extraction failed', 5000)
 
             self.ffmpegOutput.setPlainText(result)
-            self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
+            self.buttonBox.button(QDialogButtonBox.StandardButton.Ok).setEnabled(True)
             audio = self.__preferences.get(EXTRACTION_NOTIFICATION_SOUND)
             if audio is not None:
                 logger.debug(f"Playing {audio}")
-                self.__sound = QSound(audio)
+                self.__sound = QSoundEffect(audio)
                 self.__sound.play()
 
     def showProbeInDetail(self):
@@ -615,7 +615,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         Sets the target directory based on the user selection.
         '''
         dialog = QFileDialog(parent=self)
-        dialog.setFileMode(QFileDialog.DirectoryOnly)
+        dialog.setFileMode(QFileDialog.FileMode.DirectoryOnly)
         dialog.setWindowTitle(f"Select Output Directory")
         if dialog.exec():
             selected = dialog.selectedFiles()

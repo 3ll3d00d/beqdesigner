@@ -767,7 +767,7 @@
   </connection>
   <connection>
    <sender>magLimitType</sender>
-   <signal>currentIndexChanged(QString)</signal>
+   <signal>currentTextChanged(QString)</signal>
    <receiver>analysisDialog</receiver>
    <slot>set_mag_range_type()</slot>
    <hints>
@@ -799,7 +799,7 @@
   </connection>
   <connection>
    <sender>markerType</sender>
-   <signal>currentIndexChanged(QString)</signal>
+   <signal>currentTextChanged(QString)</signal>
    <receiver>analysisDialog</receiver>
    <slot>update_marker_type()</slot>
    <hints>
@@ -863,7 +863,7 @@
   </connection>
   <connection>
    <sender>leftSignal</sender>
-   <signal>currentIndexChanged(QString)</signal>
+   <signal>currentTextChanged(QString)</signal>
    <receiver>analysisDialog</receiver>
    <slot>enable_compare()</slot>
    <hints>
@@ -879,7 +879,7 @@
   </connection>
   <connection>
    <sender>rightSignal</sender>
-   <signal>currentIndexChanged(QString)</signal>
+   <signal>currentTextChanged(QString)</signal>
    <receiver>analysisDialog</receiver>
    <slot>enable_compare()</slot>
    <hints>

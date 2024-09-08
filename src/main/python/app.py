@@ -9,12 +9,11 @@ from collections import abc
 from contextlib import contextmanager
 from typing import Optional
 
+os.environ['QT_API'] = 'pyqt6'
+os.environ['PYQTGRAPH_QT_LIB'] = 'PyQt6'
+
 import matplotlib
 from scipy import signal
-
-matplotlib.use("Qt5Agg")
-os.environ['QT_API'] = 'pyqt5'
-# os.environ['PYQTGRAPH_QT_LIB'] = 'PyQt5'
 
 from model.waveform import WaveformController
 from model.checker import VersionChecker, ReleaseNotesDialog
@@ -33,13 +32,13 @@ from ui.biquad import Ui_exportBiquadDialog
 from ui.savechart import Ui_saveChartDialog
 
 from qtpy import QtCore, QtWidgets
-from qtpy.QtCore import QSettings, QThreadPool, QUrl
+from qtpy.QtCore import QSettings, QThreadPool, QUrl, Qt
 from qtpy.QtGui import QIcon, QFont, QCursor, QTextCursor, QDesktopServices
 from qtpy.QtWidgets import QMainWindow, QApplication, QErrorMessage, QAbstractItemView, QDialog, QFileDialog, \
     QHeaderView, QMessageBox, QHBoxLayout, QToolButton
 
 from model.preferences import PreferencesDialog, BINARIES_GROUP, ANALYSIS_TARGET_FS, STYLE_MATPLOTLIB_THEME, \
-    Preferences, STYLE_MATPLOTLIB_THEME_DEFAULT, SCREEN_GEOMETRY, SCREEN_WINDOW_STATE, FILTERS_PRESET_x, \
+    Preferences, SCREEN_GEOMETRY, SCREEN_WINDOW_STATE, FILTERS_PRESET_x, \
     DISPLAY_SHOW_LEGEND, DISPLAY_SHOW_FILTERS, SHOW_FILTER_OPTIONS, SHOW_SIGNAL_OPTIONS, DISPLAY_SHOW_SIGNALS, \
     SHOW_FILTERED_SIGNAL_OPTIONS
 from ui.beq import Ui_MainWindow
@@ -55,7 +54,7 @@ def wait_cursor(msg=None):
     :param msg: a message to put in the status bar.
     '''
     try:
-        QApplication.setOverrideCursor(QCursor(QtCore.Qt.WaitCursor))
+        QApplication.setOverrideCursor(QCursor(QtCore.Qt.CursorShape.WaitCursor))
         yield
     finally:
         QApplication.restoreOverrideCursor()
@@ -128,7 +127,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.showFilters.blockSignals(False)
         # filter view/model
         self.actionShow_Filter_Widget.triggered.connect(lambda: self.editFilter(small=True))
-        self.filterView.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.filterView.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.filterView.doubleClicked.connect(self.editFilter)
         from model.filter import FilterTableModel, FilterModel
         self.__filter_model = FilterModel(self.filterView, self.preferences, label=self.filtersLabel,
@@ -136,7 +135,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.__filter_table_model = FilterTableModel(self.__filter_model, parent=parent)
         self.filterView.setModel(self.__filter_table_model)
         self.filterView.selectionModel().selectionChanged.connect(self.on_filter_selected)
-        self.filterView.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.filterView.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         for i in range(1, 4):
             getattr(self, f"action_load_preset_{i}").triggered.connect(self.load_preset(i))
             getattr(self, f"action_clear_preset_{i}").triggered.connect(self.clear_preset(i))
@@ -334,7 +333,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         msg_box = QMessageBox()
         msg_box.setText(message)
-        msg_box.setIcon(QMessageBox.Warning)
+        msg_box.setIcon(QMessageBox.Icon.Warning)
         msg_box.setWindowTitle('Unable to Complete Version Check')
         msg_box.exec()
 
@@ -352,9 +351,9 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         master of the selected signal if the signal is a slave).
         This last point is crucial as otherwise the linked signals won't update at the same time.
         '''
-        self.signalView.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.signalView.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.signalView.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.signalView.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.signalView.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.signalView.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         from model.signal import SignalModel, SignalTableModel
         self.__signal_model = SignalModel(self.signalView, self.__default_signal, self.preferences,
                                           on_update=self.on_signal_change)
@@ -684,7 +683,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         input = None
         dialog = QFileDialog(parent=self)
-        dialog.setFileMode(QFileDialog.ExistingFile)
+        dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
         dialog.setNameFilter(filter)
         dialog.setWindowTitle(title)
         if dialog.exec():
@@ -762,7 +761,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         msg_box = QMessageBox()
         msg_box.setText(
             f"<a href='https://github.com/3ll3d00d/beqdesigner'>BEQ Designer</a> v{self.__version} by 3ll3d00d")
-        msg_box.setIcon(QMessageBox.Information)
+        msg_box.setIcon(QMessageBox.Icon.Information)
         msg_box.setWindowTitle('About')
         msg_box.exec()
 
@@ -1338,7 +1337,7 @@ class ExportBiquadDialog(QDialog, Ui_exportBiquadDialog):
         self.biquads.selectAll()
         self.biquads.copy()
         cursor = self.biquads.textCursor()
-        cursor.movePosition(QTextCursor.End)
+        cursor.movePosition(QTextCursor.MoveOperation.End)
         self.biquads.setTextCursor(cursor)
 
     def export(self):
@@ -1379,7 +1378,7 @@ if __name__ == '__main__':
     form = BeqDesigner(app, prefs)
     # setup the error handler
     e_dialog = QErrorMessage(form)
-    e_dialog.setWindowModality(QtCore.Qt.WindowModal)
+    e_dialog.setWindowModality(Qt.WindowModality.WindowModal)
     font = QFont()
     font.setFamily("Consolas")
     font.setPointSize(8)

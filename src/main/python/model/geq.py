@@ -45,7 +45,7 @@ class GeqDialog(QDialog, Ui_geqDialog):
         self.__mag_update_timer = QTimer(self)
         self.__mag_update_timer.setSingleShot(True)
         self.__peq_editors: List[PeqEditor] = []
-        self.scrollableLayout.addSpacerItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
+        self.scrollableLayout.addSpacerItem(QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum))
         if preset:
             self.presetSelector.setCurrentText(preset)
         if existing_filters:
@@ -166,8 +166,8 @@ class PeqEditor:
         font.setPointSize(10)
         self.__idx = idx
         self.__geq_frame = QFrame(parent)
-        self.__geq_frame.setFrameShape(QFrame.StyledPanel)
-        self.__geq_frame.setFrameShadow(QFrame.Raised)
+        self.__geq_frame.setFrameShape(QFrame.StyleMask.StyledPanel)
+        self.__geq_frame.setFrameShadow(QFrame.StyleMask.Raised)
         self.__grid_layout = QGridLayout(self.__geq_frame)
         title_font = QFont()
         title_font.setPointSize(10)
@@ -176,7 +176,7 @@ class PeqEditor:
         self.__title = QLabel(self.__geq_frame)
         self.__title.setFont(title_font)
         self.__title.setText(f"PEQ {idx + 1}")
-        self.__title.setAlignment(Qt.AlignCenter)
+        self.__title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.__filter_selector_layout = QHBoxLayout()
         self.__peq_button = QToolButton(self.__geq_frame)
         self.__peq_button.setCheckable(True)
@@ -204,8 +204,8 @@ class PeqEditor:
         self.__gain_slider = QSlider(self.__geq_frame)
         self.__gain_slider.setMinimum(-3000)
         self.__gain_slider.setMaximum(3000)
-        self.__gain_slider.setOrientation(Qt.Vertical)
-        self.__gain_slider.setTickPosition(QSlider.TicksBelow)
+        self.__gain_slider.setOrientation(Qt.Orientation.Vertical)
+        self.__gain_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
         self.__gain_slider.setTickInterval(300)
         self.__gain_slider.setToolTip('Gain (dB)')
         self.__gain = QDoubleSpinBox(self.__geq_frame)
@@ -216,8 +216,8 @@ class PeqEditor:
         self.__gain.setDecimals(2)
 
         self.__freq_slider = QSlider(self.__geq_frame)
-        self.__freq_slider.setOrientation(Qt.Vertical)
-        self.__freq_slider.setTickPosition(QSlider.TicksBelow)
+        self.__freq_slider.setOrientation(Qt.Orientation.Vertical)
+        self.__freq_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
         self.__freq_slider.setMinimum(1)
         self.__freq_slider.setMaximum(1500)
         self.__freq_slider.setTickInterval(100)
@@ -230,11 +230,11 @@ class PeqEditor:
         self.__freq.setMinimum(1)
         self.__freq.setMaximum(24000)
         self.__freq.setDecimals(1)
-        self.__freq.setStepType(QAbstractSpinBox.AdaptiveDecimalStepType)
+        self.__freq.setStepType(QAbstractSpinBox.StepType.StepAdaptiveDecimalStepType)
 
         self.__q_slider = QSlider(self.__geq_frame)
-        self.__q_slider.setOrientation(Qt.Vertical)
-        self.__q_slider.setTickPosition(QSlider.TicksBelow)
+        self.__q_slider.setOrientation(Qt.Orientation.Vertical)
+        self.__q_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
         self.__q_slider.setMinimum(1)
         self.__q_slider.setMaximum(20000000)
         self.__q_slider.setTickInterval(1000000)
@@ -247,7 +247,7 @@ class PeqEditor:
         self.__q.setMinimum(0.001)
         self.__q.setMaximum(20)
         self.__q.setDecimals(3)
-        self.__q.setStepType(QAbstractSpinBox.AdaptiveDecimalStepType)
+        self.__q.setStepType(QAbstractSpinBox.StepType.AdaptiveDecimalStepType)
 
         def to_q_slider(v: float) -> float:
             return (math.log((v + 0.15) / 0.15) / math.log(1.28)) * 1000000
@@ -286,7 +286,7 @@ class PeqEditor:
         self.__grid_layout.addWidget(self.__freq, 5, 0, 1, 1)
         self.__grid_layout.addWidget(self.__q_label, 6, 0, 1, 1)
         self.__grid_layout.addWidget(self.__q, 7, 0, 1, 1)
-        self.__grid_layout.addItem(QSpacerItem(20, 40, QSizePolicy.Minimum, QSizePolicy.Expanding), 8, 0, 1, 1)
+        self.__grid_layout.addItem(QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding), 8, 0, 1, 1)
 
     @staticmethod
     def __update_slider(slider: QSlider, v: float, translate: Callable[[float], float] = lambda x: x) -> None:

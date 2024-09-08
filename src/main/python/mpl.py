@@ -8,7 +8,7 @@ class MplCanvas(Canvas):
     def __init__(self):
         self.figure = Figure(tight_layout=True)
         Canvas.__init__(self, self.figure)
-        Canvas.setSizePolicy(self, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
+        Canvas.setSizePolicy(self, QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Expanding)
         Canvas.updateGeometry(self)
 
 

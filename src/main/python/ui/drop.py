@@ -18,7 +18,7 @@ class DropArea(QLabel):
         self.clear()
 
     def dragEnterEvent(self, event):
-        self.setBackgroundRole(QPalette.Highlight)
+        self.setBackgroundRole(QPalette.ColorRole.Highlight)
         event.acceptProposedAction()
         self.changed.emit(event.mimeData())
 
@@ -31,7 +31,7 @@ class DropArea(QLabel):
             if self.callback is not None:
                 self.callback(mime_data.text())
 
-        self.setBackgroundRole(QPalette.Dark)
+        self.setBackgroundRole(QPalette.ColorRole.Dark)
         event.acceptProposedAction()
 
     def dragLeaveEvent(self, event):
@@ -39,5 +39,5 @@ class DropArea(QLabel):
         event.accept()
 
     def clear(self):
-        self.setBackgroundRole(QPalette.Dark)
+        self.setBackgroundRole(QPalette.ColorRole.Dark)
         self.changed.emit(None)

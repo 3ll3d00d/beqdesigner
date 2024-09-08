@@ -42,17 +42,17 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         self.__supports_shelf = False
         self.__channel_to_signal = {}
         self.setupUi(self)
-        self.setWindowFlag(Qt.WindowMinimizeButtonHint)
-        self.setWindowFlag(Qt.WindowMaximizeButtonHint)
+        self.setWindowFlag(Qt.WindowType.WindowMinimizeButtonHint)
+        self.setWindowFlag(Qt.WindowType.WindowMaximizeButtonHint)
         self.syncStatus = qta.IconWidget('fa5s.unlink')
         self.syncLayout.addWidget(self.syncStatus)
         self.ipAddress.setText(self.__preferences.get(HTP1_ADDRESS))
-        self.filterView.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.filterView.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
 
         from model.filter import FilterModel, FilterTableModel
         self.__filters = FilterModel(self.filterView, self.__preferences)
         self.filterView.setModel(FilterTableModel(self.__filters))
-        self.filterView.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.filterView.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.filterView.selectionModel().selectionChanged.connect(self.__on_filter_selected)
         self.__magnitude_model = MagnitudeModel('preview', self.previewChart, self.__preferences,
                                                 self.get_curve_data, 'Filter',
@@ -72,7 +72,7 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         self.autoSyncButton.setIcon(qta.icon('fa5s.magic'))
         self.autoSyncButton.toggled.connect(lambda b: self.__preferences.set(HTP1_AUTOSYNC, b))
         self.autoSyncButton.setChecked(self.__preferences.get(HTP1_AUTOSYNC))
-        self.__ws_client = QtWebSockets.QWebSocket('', QtWebSockets.QWebSocketProtocol.Version13, None)
+        self.__ws_client = QtWebSockets.QWebSocket('', QtWebSockets.QWebSocketProtocol.Version.Version13, None)
         self.__ws_client.error.connect(self.__on_ws_error)
         self.__ws_client.connected.connect(self.__on_ws_connect)
         self.__ws_client.disconnected.connect(self.__on_ws_disconnect)
@@ -168,10 +168,10 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
             self.__on_msoupdate(json.loads(msg[10:]))
         else:
             logger.warning(f"Unknown message {msg}")
-            msg_box = QMessageBox(QMessageBox.Critical, 'Unknown Message',
+            msg_box = QMessageBox(QMessageBox.Icon.Critical, 'Unknown Message',
                                   f"Received unexpected message from {self.ipAddress.text()}")
             msg_box.setDetailedText(f"<code>{msg}</code>")
-            msg_box.setTextFormat(Qt.RichText)
+            msg_box.setTextFormat(Qt.TextFormat.RichText)
             msg_box.exec()
             if self.__spinner is not None:
                 stop_spinner(self.__spinner, self.syncStatus)
@@ -259,9 +259,9 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
                                           f"Reported software version is "
                                           f"\n\n    {version}"
                                           f"\n\nDoes this version support shelf filters?",
-                                          QMessageBox.Yes | QMessageBox.No,
-                                          QMessageBox.No)
-            self.__supports_shelf = result == QMessageBox.Yes
+                                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                          QMessageBox.StandardButton.No)
+            self.__supports_shelf = result == QMessageBox.StandardButton.Yes
 
         speakers = mso['speakers']['groups']
         channels = ['lf', 'rf']
@@ -448,9 +448,9 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
                                               f"synced to the HTP-1."
                                               f"\n\nChannels: {', '.join(sorted([k for k in unsynced_channels]))}"
                                               f"\n\nDo you want to sync all changed channels? ",
-                                              QMessageBox.Yes | QMessageBox.No,
-                                              QMessageBox.No)
-                if result == QMessageBox.Yes:
+                                              QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                              QMessageBox.StandardButton.No)
+                if result == QMessageBox.StandardButton.Yes:
                     for c in unsynced_channels:
                         for i in range(self.filterMapping.count()):
                             item: QListWidgetItem = self.filterMapping.item(i)
@@ -468,9 +468,9 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
                                           f"Unsupported filter types found in the filter set:"
                                           f"\n\n{printed}"
                                           f"\n\nDo you want sync the supported filters only? ",
-                                          QMessageBox.Yes | QMessageBox.No,
-                                          QMessageBox.No)
-            do_send = result == QMessageBox.Yes
+                                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                          QMessageBox.StandardButton.No)
+            do_send = result == QMessageBox.StandardButton.Yes
         if do_send:
             from app import wait_cursor
             with wait_cursor():
@@ -695,7 +695,7 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         for i in range(self.filterMapping.count()):
             item: QListWidgetItem = self.filterMapping.item(i)
             if item.text().endswith('No Filter'):
-                item.setFlags(item.flags() & ~Qt.ItemIsEnabled & ~Qt.ItemIsSelectable)
+                item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEnabled & ~Qt.ItemFlag.ItemIsSelectable)
         self.filtersetLabel.setText('Preview' if show_it else 'Channel')
 
     def __in_complex_mode(self):
@@ -808,7 +808,7 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         if not can_sync:
             msg_box = QMessageBox()
             msg_box.setText(f"Too many filters loaded, remove {len(self.__filters) - 16} to be able to sync")
-            msg_box.setIcon(QMessageBox.Warning)
+            msg_box.setIcon(QMessageBox.Icon.Warning)
             msg_box.setWindowTitle('Too Many Filters')
             msg_box.exec()
         if self.autoSyncButton.isChecked() and can_sync:

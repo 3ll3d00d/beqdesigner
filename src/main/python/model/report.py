@@ -14,8 +14,8 @@ from matplotlib.image import imread
 from matplotlib.table import Table
 from matplotlib.ticker import NullLocator
 from qtpy.QtCore import Qt, QSize
-from qtpy.QtGui import QFont
-from qtpy.QtWidgets import QDesktopWidget, QListWidgetItem, QDialog, QFileDialog, QDialogButtonBox, QMessageBox
+from qtpy.QtGui import QFont, QGuiApplication
+from qtpy.QtWidgets import QListWidgetItem, QDialog, QFileDialog, QDialogButtonBox, QMessageBox
 
 from model.magnitude import MagnitudeModel
 from model.preferences import REPORT_TITLE_FONT_SIZE, REPORT_IMAGE_ALPHA, REPORT_FILTER_ROW_HEIGHT_MULTIPLIER, \
@@ -58,7 +58,7 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         self.__status_bar = status_bar
         self.__xy_data = self.__signal_model.get_all_magnitude_data()
         self.__selected_xy = []
-        self.setWindowFlags(self.windowFlags() | Qt.WindowSystemMenuHint | Qt.WindowMinMaxButtonsHint)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowSystemMenuHint | Qt.WindowType.WindowMinMaxButtonsHint)
         self.setupUi(self)
         self.imagePicker.setIcon(qta.icon('fa5s.folder-open'))
         self.limitsButton.setIcon(qta.icon('fa5s.arrows-alt'))
@@ -67,7 +67,7 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         self.loadURL.setEnabled(False)
         self.snapToImageSize.setIcon(qta.icon('fa5s.expand'))
         self.snapToImageSize.setEnabled(False)
-        self.buttonBox.button(QDialogButtonBox.RestoreDefaults).clicked.connect(self.discard_layout)
+        self.buttonBox.button(QDialogButtonBox.StandardButton.RestoreDefaults).clicked.connect(self.discard_layout)
         for xy in self.__xy_data:
             self.curves.addItem(QListWidgetItem(xy.name, self.curves))
         show_signals = self.__preferences.get(DISPLAY_SHOW_SIGNALS)
@@ -350,9 +350,9 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
             if width_delta != 0 or height_delta != 0:
                 win_size = self.size()
                 target_size = QSize(win_size.width() + width_delta, win_size.height() + height_delta)
-                available_size = QDesktopWidget().availableGeometry()
+                available_size = QGuiApplication.primaryScreen().availableGeometry()
                 if available_size.width() < target_size.width() or available_size.height() < target_size.height():
-                    target_size.scale(available_size.width() - 48, available_size.height() - 48, Qt.KeepAspectRatio)
+                    target_size.scale(available_size.width() - 48, available_size.height() - 48, Qt.AspectRatioMode.KeepAspectRatio)
                 self.resize(target_size)
 
     def __get_one_pane_two_pane_spec(self):
@@ -527,7 +527,7 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
                 else:
                     msg_box = QMessageBox()
                     msg_box.setText(f"Invalid output file format - {output_file} is not one of {VALID_IMG_FORMATS}")
-                    msg_box.setIcon(QMessageBox.Critical)
+                    msg_box.setIcon(QMessageBox.Icon.Critical)
                     msg_box.setWindowTitle('Unexpected Error')
                     msg_box.exec()
 
@@ -564,13 +564,13 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
                     else:
                         msg_box = QMessageBox()
                         msg_box.setText(f"Invalid output file format - {output_file} is not one of {VALID_IMG_FORMATS}")
-                        msg_box.setIcon(QMessageBox.Critical)
+                        msg_box.setIcon(QMessageBox.Icon.Critical)
                         msg_box.setWindowTitle('Unexpected Error')
                         msg_box.exec()
         else:
             msg_box = QMessageBox()
             msg_box.setText('Unable to create report, no image selected')
-            msg_box.setIcon(QMessageBox.Information)
+            msg_box.setIcon(QMessageBox.Icon.Information)
             msg_box.setWindowTitle('No Image')
             msg_box.exec()
 
@@ -587,18 +587,18 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
                 msg_box = QMessageBox()
                 msg_box.setText(
                     f"Image format is {im_image.format}/{im_image.mode} but the desired output format is JPG<p/><p/>The image must be converted to RGB in order to proceed.")
-                msg_box.setIcon(QMessageBox.Warning)
-                msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+                msg_box.setIcon(QMessageBox.Icon.Warning)
+                msg_box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
                 msg_box.setWindowTitle('Do you want to convert?')
                 decision = msg_box.exec()
-                if decision == QMessageBox.Yes:
+                if decision == QMessageBox.StandardButton.Yes:
                     convert_to_rgb = True
                 else:
                     return False
         if im_image.size[0] != mp_image.size[0]:
             new_height = round(im_image.size[1] * (mp_image.size[0] / im_image.size[0]))
             logger.debug(f"Resizing from {im_image.size} to match {mp_image.size}, new height {new_height}")
-            im_image = im_image.resize((mp_image.size[0], new_height), Image.LANCZOS)
+            im_image = im_image.resize((mp_image.size[0], new_height), Image.Resampling.LANCZOS)
         if convert_to_rgb:
             im_image = im_image.convert('RGB')
         final_image = Image.new(im_image.mode, (im_image.size[0], im_image.size[1] + mp_image.size[1]))
@@ -817,7 +817,7 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
                 font.setPointSize(8)
                 msg_box.setFont(font)
                 msg_box.setText(f"Unable to download {self.imageURL.text()}<p><p>{e}")
-                msg_box.setIcon(QMessageBox.Critical)
+                msg_box.setIcon(QMessageBox.Icon.Critical)
                 msg_box.setWindowTitle('Download Error')
                 msg_box.exec()
                 tmp_file.delete = True

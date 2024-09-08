@@ -656,7 +656,7 @@
   </connection>
   <connection>
    <sender>sourcePicker</sender>
-   <signal>currentIndexChanged(QString)</signal>
+   <signal>currentTextChanged(QString)</signal>
    <receiver>postbuilder</receiver>
    <slot>build_avs_post()</slot>
    <hints>
@@ -896,7 +896,7 @@
   </connection>
   <connection>
    <sender>languagePicker</sender>
-   <signal>currentIndexChanged(QString)</signal>
+   <signal>currentTextChanged(QString)</signal>
    <receiver>postbuilder</receiver>
    <slot>build_avs_post()</slot>
    <hints>

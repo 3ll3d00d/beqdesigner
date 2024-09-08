@@ -30,7 +30,7 @@ class MergeFiltersDialog(QDialog, Ui_mergeDspDialog):
     def __init__(self, parent, prefs, statusbar):
         super(MergeFiltersDialog, self).__init__(parent)
         self.setupUi(self)
-        self.buttonBox.button(QDialogButtonBox.Reset).clicked.connect(self.__reset_index)
+        self.buttonBox.button(QDialogButtonBox.StandardButton.Reset).clicked.connect(self.__reset_index)
         self.__spinner = None
         self.__catalogue: List[CatalogueEntry] = []
         self.configFilePicker.setIcon(qta.icon('fa5s.folder-open'))
@@ -93,9 +93,9 @@ class MergeFiltersDialog(QDialog, Ui_mergeDspDialog):
                                           'Reset Index',
                                           f"All generated config files will be deleted from "
                                           f"{self.outputDirectory.text()}\nAre you sure you want to continue?",
-                                          QMessageBox.Yes | QMessageBox.No,
-                                          QMessageBox.No)
-            if result == QMessageBox.Yes:
+                                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                          QMessageBox.StandardButton.No)
+            if result == QMessageBox.StandardButton.Yes:
                 from app import wait_cursor
                 with wait_cursor():
                     self.statusbar.showMessage(f"Deleting {index_file}", 2000)
@@ -160,18 +160,18 @@ class MergeFiltersDialog(QDialog, Ui_mergeDspDialog):
                                           f"You are strongly encouraged to review the generated filters to ensure they are safe to use.\n"
                                           f"USE AT YOUR OWN RISK!\n\n"
                                           f"Are you sure you want to continue?",
-                                          QMessageBox.Yes | QMessageBox.No,
-                                          QMessageBox.No)
-            optimise_filters = result == QMessageBox.Yes
+                                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                          QMessageBox.StandardButton.No)
+            optimise_filters = result == QMessageBox.StandardButton.Yes
         elif dsp_type.is_experimental:
             result = QMessageBox.question(self,
                                           'Generate HTP-1 Config Files?',
                                           f"Support for HTP-1 config files is experimental and currently untested on an actual device. \n\n"
                                           f"USE AT YOUR OWN RISK!\n\n"
                                           f"Are you sure you want to continue?",
-                                          QMessageBox.Yes | QMessageBox.No,
-                                          QMessageBox.No)
-            should_process = result == QMessageBox.Yes
+                                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                          QMessageBox.StandardButton.No)
+            should_process = result == QMessageBox.StandardButton.Yes
         if should_process:
             self.__start_spinning()
             self.errors.clear()
@@ -247,9 +247,9 @@ class MergeFiltersDialog(QDialog, Ui_mergeDspDialog):
                                           'Clear Directory',
                                           f"All generated config files will be deleted from "
                                           f"{self.outputDirectory.text()}\nAre you sure you want to continue?",
-                                          QMessageBox.Yes | QMessageBox.No,
-                                          QMessageBox.No)
-            if result == QMessageBox.Yes:
+                                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                          QMessageBox.StandardButton.No)
+            if result == QMessageBox.StandardButton.Yes:
                 for file in matching_files:
                     self.statusbar.showMessage(f"Deleting {file}", 2000)
                     os.remove(file)
@@ -267,8 +267,8 @@ class MergeFiltersDialog(QDialog, Ui_mergeDspDialog):
         Sets the output directory.
         '''
         dialog = QFileDialog(parent=self)
-        dialog.setFileMode(QFileDialog.DirectoryOnly)
-        dialog.setOption(QFileDialog.ShowDirsOnly)
+        dialog.setFileMode(QFileDialog.FileMode.DirectoryOnly)
+        dialog.setOption(QFileDialog.Option.ShowDirsOnly)
         dialog.setWindowTitle('Select a location to store the generated dsp config files')
         if dialog.exec():
             selected = dialog.selectedFiles()
@@ -297,8 +297,8 @@ class MergeFiltersDialog(QDialog, Ui_mergeDspDialog):
         Sets the user source directory.
         '''
         dialog = QFileDialog(parent=self)
-        dialog.setFileMode(QFileDialog.DirectoryOnly)
-        dialog.setOption(QFileDialog.ShowDirsOnly)
+        dialog.setFileMode(QFileDialog.FileMode.DirectoryOnly)
+        dialog.setOption(QFileDialog.Option.ShowDirsOnly)
         dialog.setWindowTitle('Choose a directory which holds your own BEQ files')
         if dialog.exec():
             selected = dialog.selectedFiles()

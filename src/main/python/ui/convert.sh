@@ -2,5 +2,5 @@
 for ui in $(ls *.ui)
 do
     echo "Compiling ${ui}"
-    /usr/bin/pyuic5 "${ui}" -o "${ui%.ui}.py"
+    /home/matt/.cache/pypoetry/virtualenvs/beqdesigner-IpT5f2Ps-py3.12/bin/pyuic6 "${ui}" -o "${ui%.ui}.py"
 done

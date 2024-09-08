@@ -1,7 +1,7 @@
 import logging
 
-from qtpy.QtGui import QRegExpValidator, QPainter, QDoubleValidator
-from qtpy.QtCore import QEvent, Qt, QRegExp, QModelIndex
+from qtpy.QtGui import QRegularExpressionValidator, QPainter, QDoubleValidator
+from qtpy.QtCore import QEvent, Qt, QRegularExpression, QModelIndex
 from qtpy.QtWidgets import QItemDelegate, QStyledItemDelegate, QLineEdit, QStyleOptionViewItem
 
 logger = logging.getLogger('delegates')
@@ -33,7 +33,7 @@ class CheckBoxDelegate(QItemDelegate):
         if data is None:
             logger.error(f"No data found at {index.row()}, {index.column()}")
             data = 0
-        self.drawCheck(painter, option, option.rect, Qt.Unchecked if int(data) == 0 else Qt.Checked)
+        self.drawCheck(painter, option, option.rect, Qt.CheckState.Unchecked if int(data) == 0 else Qt.CheckState.Checked)
         self.drawFocus(painter, option, option.rect)
 
     def editorEvent(self, event, model, option, index):
@@ -41,10 +41,10 @@ class CheckBoxDelegate(QItemDelegate):
         Change the data in the model and the state of the checkbox
         if the user presses the left mousebutton and this cell is editable. Otherwise do nothing.
         '''
-        if not int(index.flags() & Qt.ItemIsEditable) > 0:
+        if not int(index.flags() & Qt.ItemFlag.ItemIsEditable) > 0:
             return False
 
-        if event.type() == QEvent.MouseButtonPress and event.button() == Qt.LeftButton:
+        if event.type() == Qt.MouseButton.MouseButtonPress and event.button() == Qt.MouseButton.LeftButton:
             model.toggle(index)
             return True
 
@@ -63,7 +63,7 @@ class RegexValidator(QStyledItemDelegate):
             return 0
         if index.column() == 0:  # only on the cells in the first column
             editor = QLineEdit(widget)
-            validator = QRegExpValidator(QRegExp(self.__regex), editor)
+            validator = QRegularExpressionValidator(QRegularExpression(self.__regex), editor)
             editor.setValidator(validator)
             return editor
         return super(RegexValidator, self).createEditor(widget, option, index)

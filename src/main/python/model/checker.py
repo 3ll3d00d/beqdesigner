@@ -153,16 +153,16 @@ class VersionTableModel(QAbstractTableModel):
         self.__headers = ['Version', 'Release Date', 'Win', 'OSX', 'Linux']
         self.__versions = versions
 
-    def rowCount(self, parent: QModelIndex = ...):
+    def rowCount(self, parent: QModelIndex = ...) -> int:
         return len(self.__versions)
 
-    def columnCount(self, parent: QModelIndex = ...):
+    def columnCount(self, parent: QModelIndex = ...) -> int:
         return len(self.__headers)
 
     def data(self, index: QModelIndex, role: int = ...):
         if not index.isValid():
             return QVariant()
-        elif role != Qt.DisplayRole:
+        elif role != Qt.ItemDataRole.DisplayRole:
             return QVariant()
         else:
             at_row = self.__versions[index.row()]
@@ -180,7 +180,7 @@ class VersionTableModel(QAbstractTableModel):
                 return QVariant()
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int = ...):
-        if orientation == Qt.Horizontal and role == Qt.DisplayRole:
+        if orientation == Qt.Orientation.Horizontal and role == Qt.ItemDataRole.DisplayRole:
             return QVariant(self.__headers[section])
         return QVariant()
 

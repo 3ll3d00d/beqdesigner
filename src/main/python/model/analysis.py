@@ -31,7 +31,7 @@ class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
     def __init__(self, preferences, signal_model, allow_load=True):
         super(AnalyseSignalDialog, self).__init__()
         self.setupUi(self)
-        self.setWindowFlags(self.windowFlags() | Qt.WindowSystemMenuHint | Qt.WindowMinMaxButtonsHint)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowSystemMenuHint | Qt.WindowType.WindowMinMaxButtonsHint)
         self.__preferences = preferences
         self.filePicker.setIcon(qta.icon('fa5s.folder-open'))
         self.showLimitsButton.setIcon(qta.icon('fa5s.arrows-alt'))

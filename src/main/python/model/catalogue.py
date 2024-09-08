@@ -25,7 +25,7 @@ from ui.imgviewer import Ui_imgViewerDialog
 logger = logging.getLogger('catalogue')
 
 TWO_WEEKS_AGO_SECONDS = 2 * 7 * 24 * 60 * 60
-ENTRY_ID_ROLE = Qt.UserRole + 1
+ENTRY_ID_ROLE = Qt.ItemDataRole.UserRole + 1
 
 
 class CatalogueDialog(QDialog, Ui_catalogueDialog):
@@ -335,7 +335,7 @@ class ImageViewerDialog(QDialog, Ui_imgViewerDialog):
         self.__pm = None
         self.setupUi(self)
         self.scrollArea.setWidgetResizable(True)
-        self.label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.label.setScaledContents(True)
         QThreadPool.globalInstance().start(ImgDownloader(cache_dir, repo, self.__on_load, self.__on_error, self.__img))
 
@@ -357,7 +357,7 @@ class ImageViewerDialog(QDialog, Ui_imgViewerDialog):
 
     def __update_image(self):
         if self.__pm:
-            scaled_pm = self.__pm.scaled(0.95 * self.scrollArea.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            scaled_pm = self.__pm.scaled(0.95 * self.scrollArea.size(), Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
             self.label.setPixmap(scaled_pm)
             self.label.resize(scaled_pm.size())
 
@@ -407,7 +407,7 @@ def show_alert(title, message):
     '''
     msg_box = QMessageBox()
     msg_box.setText(message)
-    msg_box.setIcon(QMessageBox.Warning)
+    msg_box.setIcon(QMessageBox.Icon.Warning)
     msg_box.setWindowTitle(title)
     msg_box.exec()
 

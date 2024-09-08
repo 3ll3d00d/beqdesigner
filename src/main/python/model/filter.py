@@ -197,7 +197,7 @@ class FilterTableModel(QAbstractTableModel):
     def data(self, index: QModelIndex, role: int = ...) -> Any:
         if not index.isValid():
             return QVariant()
-        elif role != Qt.DisplayRole:
+        elif role != Qt.ItemDataRole.DisplayRole:
             return QVariant()
         else:
             filter_at_row = self.__filter_model[index.row()]
@@ -229,7 +229,7 @@ class FilterTableModel(QAbstractTableModel):
                 return QVariant()
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int = ...) -> Any:
-        if orientation == Qt.Horizontal and role == Qt.DisplayRole:
+        if orientation == Qt.Orientation.Horizontal and role == Qt.ItemDataRole.DisplayRole:
             return QVariant(self.__headers[section])
         return QVariant()
 
@@ -400,10 +400,10 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.snapshotFilterView.setVisible(False)
         self.snapshotViewButtonWidget.setVisible(False)
         self.snapshotFilterView.setModel(FilterTableModel(self.__snapshot))
-        self.snapshotFilterView.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.snapshotFilterView.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.snapshotFilterView.selectionModel().selectionChanged.connect(self.__select_snapshot_filter)
         self.workingFilterView.setModel(FilterTableModel(self.__working))
-        self.workingFilterView.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.workingFilterView.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.workingFilterView.selectionModel().selectionChanged.connect(self.__select_working_filter)
 
     def __set_icons(self):
@@ -632,7 +632,7 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
                 msg_box = QMessageBox()
                 formatted = '\n'.join([f"{k} - Filter{'s' if len(v) > 1 else ''} {','.join(v)}" for k,v in discarded.items()])
                 msg_box.setText(f"Ignored filters\n\n{formatted}")
-                msg_box.setIcon(QMessageBox.Information)
+                msg_box.setIcon(QMessageBox.Icon.Information)
                 msg_box.setWindowTitle('Ignored Unsupported Filter Types')
                 msg_box.exec()
 
@@ -660,9 +660,9 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
                                       'Load Filter or XML?',
                                       f"Do you want to load from a filter or a minidsp beq file?"
                                       f"\n\nClick Yes to load from a filter or No for a beq file",
-                                      QMessageBox.Yes | QMessageBox.No,
-                                      QMessageBox.No)
-        load_xml = result == QMessageBox.No
+                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                      QMessageBox.StandardButton.No)
+        load_xml = result == QMessageBox.StandardButton.No
         loaded_snapshot = None
         if load_xml is True:
             from model.minidsp import load_as_filter
@@ -1135,7 +1135,7 @@ def load_filter(parent, status_bar=None):
     :return: the loaded filter, if any.
     '''
     dialog = QFileDialog(parent=parent)
-    dialog.setFileMode(QFileDialog.ExistingFile)
+    dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
     dialog.setNameFilter(f"*.filter")
     dialog.setWindowTitle(f"Load Filter")
     if dialog.exec():

@@ -105,20 +105,20 @@ class LinkedSignalsTableModel(QAbstractTableModel):
         self.__model = model
         self.__model.table = self
 
-    def rowCount(self, parent=None):
+    def rowCount(self, parent=None) -> int:
         return len(self.__model)
 
-    def columnCount(self, parent=None):
+    def columnCount(self, parent=None) -> int:
         return len(self.__model.columns) + 2
 
     def flags(self, idx):
         flags = super().flags(idx)
         if idx.column() > 1:
-            flags |= Qt.ItemIsEditable
+            flags |= Qt.ItemFlag.ItemIsEditable
         return flags
 
     def data(self, index: QModelIndex, role: int = ...) -> typing.Any:
-        if not index.isValid() or role != Qt.DisplayRole:
+        if not index.isValid() or role != Qt.ItemDataRole.DisplayRole:
             return QVariant()
         else:
             if index.column() == 0:
@@ -129,7 +129,7 @@ class LinkedSignalsTableModel(QAbstractTableModel):
                 return QVariant(self.__model.is_slave(index.row(), index.column() - 2))
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int = ...) -> typing.Any:
-        if orientation == Qt.Horizontal and role == Qt.DisplayRole:
+        if orientation == Qt.Orientation.Horizontal and role == Qt.ItemDataRole.DisplayRole:
             if section == 0:
                 return QVariant('')
             elif section == 1:
@@ -167,7 +167,7 @@ class LinkSignalsDialog(QDialog, Ui_linkSignalDialog):
         self.__signal_model = signal_model
         self.__table_model = LinkedSignalsTableModel(self.__model, parent=parent)
         self.linkSignals.setModel(self.__table_model)
-        self.linkSignals.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.linkSignals.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.masterCandidates.addItem('')
         for x in self.__model.columns:
             self.masterCandidates.addItem(x)

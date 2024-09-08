@@ -5,7 +5,6 @@ import time
 from builtins import isinstance
 from typing import Dict, List, Tuple, Type, Callable
 
-from model.jriver import flatten
 from model.jriver.codec import get_peq_block_order, get_output_format, NoFiltersError, get_peq_key_name, \
     extract_filters, filts_to_xml, include_filters_in_dsp, item_to_dicts
 from model.jriver.common import OutputFormat, get_channel_name, user_channel_indexes

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "beqdesigner"
-version = "1.1.8"
+version = "2.0.0a0"
 description = "A Qt based app for designing BassEQ filters"
 authors = ["3ll3d00d <mattkhan+beqdesigner@gmail.com>"]
 license = "MIT"
@@ -11,12 +11,7 @@ package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.12"
-pyqt5 = "^5.15.10"
-pyqt5-qt5 = [
-    { version = "5.15.13", platform = "darwin" },
-    { version = "5.15.2", platform = "!=darwin" }
-]
-matplotlib = "*"
+pyqt6 = "*"
 ffmpeg-python = "*"
 soundfile = "*"
 resampy = "*"
@@ -33,13 +28,13 @@ markdown = "*"
 plumbum = "*"
 graphviz = "*"
 sanitize-filename = "*"
+matplotlib = "^3.9.2"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "*"
 pytest-cov = "*"
 distro = "*"
 atomicwrites = "*"
-pyqt5-stubs = "*"
 
 [build-system]
 requires = ["poetry-core"]

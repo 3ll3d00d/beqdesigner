@@ -8,6 +8,8 @@ from qtpy.QtWidgets import QMainWindow
 from model.preferences import LOGGING_LEVEL
 from ui.logs import Ui_logsForm
 
+logger = logging.getLogger('log')
+
 
 class LogViewer(QMainWindow, Ui_logsForm):
     change_level = Signal(str)
@@ -33,7 +35,7 @@ class LogViewer(QMainWindow, Ui_logsForm):
     def set_log_size(self, size):
         '''
         Updates the log size.
-        :param level: the new size.
+        :param size: the new size.
         '''
         self.set_size.emit(size)
         self.logViewer.setMaximumBlockCount(size)
@@ -61,7 +63,6 @@ class LogViewer(QMainWindow, Ui_logsForm):
     def append_msg(self, msg):
         '''
         Shows the message.
-        :param idx: the idx.
         :param msg: the msg.
         '''
         self.logViewer.appendPlainText(msg)
@@ -122,7 +123,7 @@ class RollingLogger(logging.Handler):
         self.__excludes = excludes.split(',')
         if len(self.__excludes) > 0:
             old_buf = self.__buffer
-            self.__buffer = RingBuffer(old_buf.maxlen, dtype=np.object)
+            self.__buffer = RingBuffer(old_buf.maxlen, dtype=object)
             for m in old_buf:
                 if any(e in m for e in self.__excludes):
                     pass
@@ -136,7 +137,7 @@ class RollingLogger(logging.Handler):
         Changes the size of the log cache.
         '''
         old_buf = self.__buffer
-        self.__buffer = RingBuffer(size, dtype=np.object)
+        self.__buffer = RingBuffer(size, dtype=object)
         self.__buffer.extend(old_buf)
         if self.__window is not None:
             self.__window.refresh(self.__buffer)

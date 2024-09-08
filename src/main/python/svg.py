@@ -2,7 +2,8 @@ import logging
 
 from qtpy.QtCore import QByteArray, QObject, Signal, QRectF, QPoint, QTimer
 from qtpy.QtGui import QBrush, QColor, QPalette
-from qtpy.QtSvg import QGraphicsSvgItem, QSvgRenderer
+from qtpy.QtSvg import QSvgRenderer
+from qtpy.QtSvgWidgets import QGraphicsSvgItem
 from qtpy.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsItem, QWidget, QGraphicsSceneMouseEvent, \
     QGraphicsSceneContextMenuEvent, QApplication, QGraphicsSceneHoverEvent
 
@@ -82,11 +83,11 @@ class SvgView(QGraphicsView):
         self.__svg_renderer = QSvgRenderer()
 
         self.setScene(QGraphicsScene(self))
-        self.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
-        self.setDragMode(QGraphicsView.ScrollHandDrag)
-        self.setViewportUpdateMode(QGraphicsView.FullViewportUpdate)
+        self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorUnderMouse)
+        self.setDragMode(QGraphicsView.DragMode.ScrollHandDrag)
+        self.setViewportUpdateMode(QGraphicsView.ViewportUpdateMode.FullViewportUpdate)
         self.setViewport(QWidget())
-        self.setBackgroundBrush(QBrush(QColor(QPalette().color(QPalette.Active, QPalette.Window))))
+        self.setBackgroundBrush(QBrush(QColor(QPalette().color(QPalette.ColorGroup.Active, QPalette.ColorRole.Window))))
 
     def render_bytes(self, svg_bytes: bytes):
         s = self.scene()
@@ -110,8 +111,8 @@ class SvgView(QGraphicsView):
                 else:
                     # logger.debug(f"Adding standard item for {i.attrib['id']}")
                     item = SvgItem(i.attrib['id'], self.__svg_renderer)
-            item.setFlags(QGraphicsItem.ItemClipsToShape)
-            item.setCacheMode(QGraphicsItem.NoCache)
+            item.setFlags(QGraphicsItem.GraphicsItemFlag.ItemClipsToShape)
+            item.setCacheMode(QGraphicsItem.CacheMode.NoCache)
             item.setZValue(1)
             s.addItem(item)
         rect: QRectF = s.itemsBoundingRect()

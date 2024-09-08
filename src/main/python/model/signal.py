@@ -13,7 +13,7 @@ import qtawesome as qta
 import resampy
 from qtpy import QtCore
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt, QRunnable, QThreadPool
-from qtpy.QtWidgets import QDialog, QFileDialog, QDialogButtonBox, QStatusBar, QListWidgetItem
+from qtpy.QtWidgets import QDialog, QFileDialog, QDialogButtonBox, QStatusBar
 from scipy import signal
 from sortedcontainers import SortedDict
 
@@ -1443,16 +1443,16 @@ class SignalTableModel(QAbstractTableModel):
         self.__signal_model = model
         self.__signal_model.table = self
 
-    def rowCount(self, parent: QModelIndex = ...):
+    def rowCount(self, parent: QModelIndex = ...) -> int:
         return len(self.__signal_model)
 
-    def columnCount(self, parent: QModelIndex = ...):
+    def columnCount(self, parent: QModelIndex = ...) -> int:
         return len(self.__headers)
 
     def flags(self, idx):
         flags = super().flags(idx)
         if idx.column() == 0:
-            flags |= Qt.ItemIsEditable
+            flags |= Qt.ItemFlag.ItemIsEditable
         return flags
 
     def setData(self, idx, value, role=None):
@@ -1465,7 +1465,7 @@ class SignalTableModel(QAbstractTableModel):
     def data(self, index: QModelIndex, role: int = ...) -> Any:
         if not index.isValid():
             return QVariant()
-        elif role != Qt.DisplayRole:
+        elif role != Qt.ItemDataRole.DisplayRole:
             return QVariant()
         else:
             signal_at_row = self.__signal_model[index.row()]
@@ -1488,7 +1488,7 @@ class SignalTableModel(QAbstractTableModel):
                 return QVariant()
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int = ...) -> Any:
-        if orientation == Qt.Horizontal and role == Qt.DisplayRole:
+        if orientation == Qt.Orientation.Horizontal and role == Qt.ItemDataRole.DisplayRole:
             return QVariant(self.__headers[section])
         return QVariant()
 
@@ -1498,7 +1498,7 @@ def select_file(owner, file_types, dir=None):
     Presents a file picker for selecting a file that contains a signal.
     '''
     dialog = QFileDialog(parent=owner)
-    dialog.setFileMode(QFileDialog.ExistingFile)
+    dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
     filt = ' '.join([f"*.{f}" for f in file_types])
     dialog.setNameFilter(f"Audio ({filt})")
     dialog.setWindowTitle(f"Select Signal File")
@@ -1677,7 +1677,7 @@ class DialogWavLoaderBridge:
         self.__dialog.wavStartTime.setEnabled(False)
         self.__dialog.wavEndTime.setEnabled(False)
         self.__dialog.gainOffset.setEnabled(False)
-        self.__dialog.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
+        self.__dialog.buttonBox.button(QDialogButtonBox.StandardButton.Ok).setEnabled(False)
 
     def __load_info(self):
         '''
@@ -1724,7 +1724,7 @@ class DialogWavLoaderBridge:
         self.__auto_loader.prepare(name=self.__dialog.wavSignalName.text(),
                                    channel=channel_idx,
                                    decimate=self.__dialog.decimate.isChecked())
-        self.__dialog.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
+        self.__dialog.buttonBox.button(QDialogButtonBox.StandardButton.Ok).setEnabled(True)
         self.__dialog.gainOffset.setEnabled(True)
 
     def __get_window(self, key):
@@ -1752,7 +1752,7 @@ class DialogWavLoaderBridge:
     def enable_ok(self):
         enabled = len(
             self.__dialog.wavSignalName.text()) > 0 and not self.__dialog.applyTimeRangeButton.isEnabled() and self.can_save()
-        self.__dialog.buttonBox.button(QDialogButtonBox.Ok).setEnabled(enabled)
+        self.__dialog.buttonBox.button(QDialogButtonBox.StandardButton.Ok).setEnabled(enabled)
         return enabled
 
     def get_signal(self, offset=0.0):
@@ -1840,7 +1840,7 @@ class FrdLoader:
 
     def enable_ok(self):
         enabled = len(self.__dialog.frdSignalName.text()) > 0 and self.can_save()
-        self.__dialog.buttonBox.button(QDialogButtonBox.Ok).setEnabled(enabled)
+        self.__dialog.buttonBox.button(QDialogButtonBox.StandardButton.Ok).setEnabled(enabled)
         return enabled
 
     def clear_signal(self):
@@ -1889,7 +1889,7 @@ class PulseLoader:
 
     def enable_ok(self):
         enabled = self.can_save()
-        self.__dialog.buttonBox.button(QDialogButtonBox.Ok).setEnabled(enabled)
+        self.__dialog.buttonBox.button(QDialogButtonBox.StandardButton.Ok).setEnabled(enabled)
         return enabled
 
     def get_magnitude_data(self):
@@ -2245,7 +2245,7 @@ class MergeSignalDialog(QDialog, Ui_MergeSignalDialog):
         self.__validate()
 
     def __validate(self):
-        self.buttonBox.button(QDialogButtonBox.Save).setEnabled(len(self.signals.selectedItems()) > 0)
+        self.buttonBox.button(QDialogButtonBox.StandardButton.Save).setEnabled(len(self.signals.selectedItems()) > 0)
 
     def calc_duration(self):
         duration = 0

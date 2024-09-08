@@ -35,7 +35,7 @@ class ExportSignalDialog(QDialog, Ui_exportSignalDialog):
         for s in self.__signal_model.non_bm_signals:
             self.signal.addItem(s.name)
         if len(self.__signal_model) == 0:
-            self.buttonBox.button(QDialogButtonBox.Save).setEnabled(False)
+            self.buttonBox.button(QDialogButtonBox.StandardButton.Save).setEnabled(False)
 
     def accept(self):
         signal_name = self.signal.currentText()
@@ -76,7 +76,7 @@ class ExportSignalDialog(QDialog, Ui_exportSignalDialog):
         '''
         dir_name = QFileDialog(self).getExistingDirectory(self, 'Export FRD',
                                                           self.__preferences.get(EXTRACTION_OUTPUT_DIR),
-                                                          QFileDialog.ShowDirsOnly)
+                                                          QFileDialog.Option.ShowDirsOnly)
         if len(dir_name) > 0:
             def __file_name(suffix):
                 return os.path.join(dir_name, f"{signal.name}_{suffix}.frd")

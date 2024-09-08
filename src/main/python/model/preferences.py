@@ -479,7 +479,7 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         self.__init_themes()
         self.__preferences = preferences
         self.__main_chart_limits = main_chart_limits
-        self.buttonBox.button(QDialogButtonBox.RestoreDefaults).clicked.connect(self.__reset)
+        self.buttonBox.button(QDialogButtonBox.StandardButton.RestoreDefaults).clicked.connect(self.__reset)
 
         self.beqDirectoryPicker.setIcon(qta.icon('fa5s.folder-open'))
         self.defaultOutputDirectoryPicker.setIcon(qta.icon('fa5s.folder-open'))
@@ -549,9 +549,9 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         result = QMessageBox.question(self,
                                       'Reset Preferences?',
                                       f"All preferences will be restored to their default values. This action is irreversible.\nAre you sure you want to continue?",
-                                      QMessageBox.Yes | QMessageBox.No,
-                                      QMessageBox.No)
-        if result == QMessageBox.Yes:
+                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                      QMessageBox.StandardButton.No)
+        if result == QMessageBox.StandardButton.Yes:
             self.__preferences.reset()
             self.alert_on_change('Defaults Restored')
             self.reject()
@@ -635,7 +635,7 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
                 self.__preferences.set(GRAPH_X_MAX, self.xmax.value())
         else:
             self.alert_on_change('X Axis Invalid', text='Invalid values: x_min must be less than x_max',
-                                 icon=QMessageBox.Critical)
+                                 icon=QMessageBox.Icon.Critical)
         if self.__preferences.get(GRAPH_EXPAND_Y) != self.expandYLimits.isChecked():
             update_limits = True
             self.__preferences.set(GRAPH_EXPAND_Y, self.expandYLimits.isChecked())
@@ -666,7 +666,7 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         QDialog.accept(self)
 
     def alert_on_change(self, title, text='Change will not take effect until the application is restarted',
-                        icon=QMessageBox.Warning):
+                        icon=QMessageBox.Icon.Warning):
         msg_box = QMessageBox()
         msg_box.setText(text)
         msg_box.setIcon(icon)
@@ -675,7 +675,7 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
 
     def __get_directory(self, name):
         dialog = QFileDialog(parent=self)
-        dialog.setFileMode(QFileDialog.ExistingFile)
+        dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
         dialog.setNameFilter(f"{name} ({name}.exe {name})")
         dialog.setWindowTitle(f"Select {name}")
         if dialog.exec():
@@ -709,7 +709,7 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
 
     def showDefaultOutputDirectoryPicker(self):
         dialog = QFileDialog(parent=self)
-        dialog.setFileMode(QFileDialog.DirectoryOnly)
+        dialog.setFileMode(QFileDialog.FileMode.DirectoryOnly)
         dialog.setWindowTitle(f"Select Extract Audio Output Directory")
         if dialog.exec():
             selected = dialog.selectedFiles()
@@ -718,7 +718,7 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
 
     def showExtractCompleteSoundPicker(self):
         dialog = QFileDialog(parent=self)
-        dialog.setFileMode(QFileDialog.ExistingFile)
+        dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
         dialog.setNameFilter("Audio (*.wav)")
         dialog.setWindowTitle(f"Select Notification Sound")
         if dialog.exec():
@@ -733,7 +733,7 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
     def showBeqDirectoryPicker(self):
         ''' selects an output directory for the beq files '''
         dialog = QFileDialog(parent=self)
-        dialog.setFileMode(QFileDialog.DirectoryOnly)
+        dialog.setFileMode(QFileDialog.FileMode.DirectoryOnly)
         dialog.setWindowTitle(f"Select BEQ Files Download Directory")
         if dialog.exec():
             selected = dialog.selectedFiles()

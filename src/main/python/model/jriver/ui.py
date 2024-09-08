@@ -54,7 +54,7 @@ from ui.pipeline import Ui_jriverGraphDialog
 from ui.xo import Ui_xoDialog
 from ui.xofilters import Ui_xoFiltersDialog
 
-FILTER_ID_ROLE = Qt.UserRole + 1
+FILTER_ID_ROLE = Qt.ItemDataRole.UserRole + 1
 
 logger = logging.getLogger('jriver.ui')
 
@@ -68,7 +68,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         self.__current_dot_txt = None
         self.prefs = prefs
         self.setupUi(self)
-        self.setWindowFlags(self.windowFlags() | Qt.WindowSystemMenuHint | Qt.WindowMinMaxButtonsHint)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowSystemMenuHint | Qt.WindowType.WindowMinMaxButtonsHint)
         self.__decorate_buttons()
         self.loadZoneButton.clicked.connect(self.__show_zone_dialog)
         self.addFilterButton.setMenu(self.__populate_add_filter_menu(QMenu(self)))
@@ -128,11 +128,11 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
     def __decorate_buttons(self):
         self.newConfigButton.setToolTip('Create New Configuration')
         self.newConfigButton.setIcon(qta.icon('fa5s.file'))
-        self.newConfigButton.setShortcut(QKeySequence.New)
+        self.newConfigButton.setShortcut(QKeySequence.StandardKey.New)
         self.addFilterButton.setToolTip('Add New Filter')
         self.editFilterButton.setToolTip('Edit the selected filter')
         self.deleteFilterButton.setToolTip('Delete the selected filter(s)')
-        self.deleteFilterButton.setShortcut(QKeySequence.Delete)
+        self.deleteFilterButton.setShortcut(QKeySequence.StandardKey.Delete)
         self.clearFiltersButton.setToolTip('Delete all filters')
         self.splitFilterButton.setToolTip('Split multi channel filter into separate filters per channel')
         self.mergeFilterButton.setToolTip('Merge individual filters into a single multi channel filter')
@@ -155,10 +155,10 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         self.moveUpButton.setIcon(qta.icon('fa5s.angle-up'))
         self.moveDownButton.setIcon(qta.icon('fa5s.angle-down'))
         self.moveBottomButton.setIcon(qta.icon('fa5s.angle-double-down'))
-        self.findFilenameButton.setShortcut(QKeySequence.Open)
-        self.saveButton.setShortcut(QKeySequence.Save)
+        self.findFilenameButton.setShortcut(QKeySequence.StandardKey.Open)
+        self.saveButton.setShortcut(QKeySequence.StandardKey.Save)
         self.saveButton.setToolTip('Save DSP Config to currently loaded file')
-        self.saveAsButton.setShortcut(QKeySequence.SaveAs)
+        self.saveAsButton.setShortcut(QKeySequence.StandardKey.SaveAs)
         self.saveAsButton.setToolTip('Save DSP Config to a selected file')
         self.findFilenameButton.setToolTip('Load DSP Config')
         self.moveTopButton.setToolTip('Move selected filters to the top')
@@ -171,10 +171,10 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         self.showPhase.setToolTip('Show Phase Response')
         self.forwardButton.setIcon(qta.icon('fa5s.arrow-right'))
         self.forwardButton.setToolTip('Redo')
-        self.forwardButton.setShortcut(QKeySequence.Redo)
+        self.forwardButton.setShortcut(QKeySequence.StandardKey.Redo)
         self.backButton.setIcon(qta.icon('fa5s.arrow-left'))
         self.backButton.setToolTip('Undo')
-        self.backButton.setShortcut(QKeySequence.Undo)
+        self.backButton.setShortcut(QKeySequence.StandardKey.Undo)
         self.backButton.clicked.connect(self.__undo)
         self.forwardButton.clicked.connect(self.__redo)
         self.loadZoneButton.setIcon(qta.icon('fa5s.download'))
@@ -262,8 +262,8 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         :param txt: the dsp config txt.
         '''
         try:
-            main_colour = QColor(QPalette().color(QPalette.Active, QPalette.Text)).name()
-            highlight_colour = QColor(QPalette().color(QPalette.Active, QPalette.Highlight)).name()
+            main_colour = QColor(QPalette().color(QPalette.ColorGroup.Active, QPalette.ColorRole.Text)).name()
+            highlight_colour = QColor(QPalette().color(QPalette.ColorGroup.Active, QPalette.ColorRole.Highlight)).name()
             self.__dsp = JRiverDSP(name, lambda: txt if txt else Path(name).read_text(),
                                    convert_q=convert_q, allow_padding=allow_padding,
                                    colours=(main_colour, highlight_colour),
@@ -296,7 +296,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
             except SimulationFailed as e:
                 msg_box = QMessageBox()
                 msg_box.setText(f"{e}")
-                msg_box.setIcon(QMessageBox.Critical)
+                msg_box.setIcon(QMessageBox.Icon.Critical)
                 msg_box.setWindowTitle('Failed to Simulate Filter Pipeline!')
                 msg_box.exec()
 
@@ -377,9 +377,9 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
                                                   'Split to Separate Filters?',
                                                   f"The selected filter is applied to {len(selected_filter.channels)} channels."
                                                   f"\n\nDo you want to split into a filter per channel in order to edit?",
-                                                  QMessageBox.Yes | QMessageBox.No,
-                                                  QMessageBox.No)
-                    if result == QMessageBox.Yes:
+                                                  QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                                  QMessageBox.StandardButton.No)
+                    if result == QMessageBox.StandardButton.Yes:
                         self.split_filter()
                 else:
                     logger.debug(f"Filter {selected_filter} at node {item.text()} is not editable")
@@ -833,7 +833,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
 
         val = JRiverChannelOnlyFilterDialog(self, self.dsp.channel_names(output=True), __on_save, {}, title='PEQ',
                                             multi=False).exec()
-        if val == QDialog.Accepted and channel is not None:
+        if val == QDialog.DialogCode.Accepted and channel is not None:
             self.__start_peq_edit_session(None, channel, [], idx)
 
     def __insert_geq(self, idx: int) -> None:
@@ -849,7 +849,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
 
         val = JRiverChannelOnlyFilterDialog(self, self.dsp.channel_names(output=True), __on_save, {},
                                             title='GEQ').exec()
-        if val == QDialog.Accepted and channels:
+        if val == QDialog.DialogCode.Accepted and channels:
             self.__start_geq_edit_session(None, channels, idx)
 
     def __start_geq_edit_session(self, geq: Optional[GEQFilter], channels: List[str],
@@ -1103,14 +1103,14 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
                 self.__ignore_gz_not_installed = True
                 msg_box = QMessageBox()
                 msg_box.setText(f"Please install graphviz using your system package manager.")
-                msg_box.setIcon(QMessageBox.Critical)
+                msg_box.setIcon(QMessageBox.Icon.Critical)
                 msg_box.setWindowTitle('Graphviz is not installed')
                 msg_box.exec()
         except Exception as e:
             logger.exception(f"Failed to render {self.__current_dot_txt}")
             msg_box = QMessageBox()
             msg_box.setText(f"Invalid rendering ")
-            msg_box.setIcon(QMessageBox.Critical)
+            msg_box.setIcon(QMessageBox.Icon.Critical)
             msg_box.setWindowTitle('Unable to render graph')
             msg_box.exec()
 
@@ -1285,11 +1285,11 @@ class MSODialog(QDialog, Ui_msoDialog):
         if reason:
             self.status.setText(reason)
             self.filterStatus.setIcon(qta.icon('fa5s.times', color='red'))
-            self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(False)
+            self.buttonBox.button(QDialogButtonBox.StandardButton.Ok).setEnabled(False)
         else:
             self.status.clear()
             self.filterStatus.setIcon(qta.icon('fa5s.check', color='green'))
-            self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(True)
+            self.buttonBox.button(QDialogButtonBox.StandardButton.Ok).setEnabled(True)
 
     def accept(self):
         self.__on_change(self.__mso_filter)
@@ -1350,7 +1350,7 @@ class JRiverGainDialog(QDialog, Ui_jriverGainDialog):
         self.channelList.itemSelectionChanged.connect(lambda: self.__set_val('Channels', __as_channel_indexes()))
 
     def __enable_accept(self):
-        self.buttonBox.button(QDialogButtonBox.Save).setEnabled(all(v() for v in self.__validators))
+        self.buttonBox.button(QDialogButtonBox.StandardButton.Save).setEnabled(all(v() for v in self.__validators))
 
 
 class JRiverDelayDialog(QDialog, Ui_jriverDelayDialog):
@@ -1419,7 +1419,7 @@ class JRiverDelayDialog(QDialog, Ui_jriverDelayDialog):
         self.channelList.itemSelectionChanged.connect(lambda: self.__set_val('Channels', __as_channel_indexes()))
 
     def __enable_accept(self):
-        self.buttonBox.button(QDialogButtonBox.Save).setEnabled(all(v() for v in self.__validators))
+        self.buttonBox.button(QDialogButtonBox.StandardButton.Save).setEnabled(all(v() for v in self.__validators))
 
 
 class JRiverMixFilterDialog(QDialog, Ui_jriverMixDialog):
@@ -1465,7 +1465,7 @@ class JRiverMixFilterDialog(QDialog, Ui_jriverMixDialog):
         self.__validators.append(lambda: self.source.currentText() != self.destination.currentText())
 
     def __enable_accept(self):
-        self.buttonBox.button(QDialogButtonBox.Save).setEnabled(all(v() for v in self.__validators))
+        self.buttonBox.button(QDialogButtonBox.StandardButton.Save).setEnabled(all(v() for v in self.__validators))
 
 
 class JRiverChannelOnlyFilterDialog(QDialog, Ui_channelSelectDialog):
@@ -1477,9 +1477,9 @@ class JRiverChannelOnlyFilterDialog(QDialog, Ui_channelSelectDialog):
         self.lfeChannel.setVisible(False)
         self.lfeChannelLabel.setVisible(False)
         if multi:
-            self.channelList.setSelectionMode(QAbstractItemView.MultiSelection)
+            self.channelList.setSelectionMode(QAbstractItemView.SelectionMode.MultiSelection)
         else:
-            self.channelList.setSelectionMode(QAbstractItemView.SingleSelection)
+            self.channelList.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         self.__validators: List[Callable[[], bool]] = []
         self.__on_save = on_save
         self.__vals = vals if vals else {}
@@ -1502,7 +1502,7 @@ class JRiverChannelOnlyFilterDialog(QDialog, Ui_channelSelectDialog):
             selected = [get_channel_name(int(i)) for i in self.__vals['Channels'].split(';')]
             for c in selected:
                 item: QListWidgetItem
-                for item in self.channelList.findItems(c, Qt.MatchCaseSensitive):
+                for item in self.channelList.findItems(c, Qt.MatchFlag.MatchCaseSensitive):
                     item.setSelected(True)
         self.__validators.append(lambda: len(self.channelList.selectedItems()) > 0)
 
@@ -1512,7 +1512,7 @@ class JRiverChannelOnlyFilterDialog(QDialog, Ui_channelSelectDialog):
         self.channelList.itemSelectionChanged.connect(lambda: self.__set_val('Channels', __as_channel_indexes()))
 
     def __enable_accept(self):
-        self.buttonBox.button(QDialogButtonBox.Save).setEnabled(all(v() for v in self.__validators))
+        self.buttonBox.button(QDialogButtonBox.StandardButton.Save).setEnabled(all(v() for v in self.__validators))
 
 
 class ShowFiltersDialog(QDialog, Ui_xoFiltersDialog):
@@ -1898,8 +1898,8 @@ class ChannelEditor:
         self.__editors: List[WayEditor] = []
         self.__visible = True
         self.__frame = QFrame(channels_frame)
-        self.__frame.setFrameShape(QFrame.StyledPanel)
-        self.__frame.setFrameShadow(QFrame.Raised)
+        self.__frame.setFrameShape(QFrame.StyleMask.StyledPanel)
+        self.__frame.setFrameShadow(QFrame.StyleMask.Raised)
         self.__layout = QVBoxLayout(self.__frame)
         # header
         self.__header_layout = QHBoxLayout()
@@ -1938,11 +1938,11 @@ class ChannelEditor:
         self.__header_layout.addWidget(self.__show_response)
         self.__header_layout.addWidget(self.__symmetric)
         self.__header_layout.addWidget(self.__mds)
-        self.__header_layout.addItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
+        self.__header_layout.addItem(QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum))
         self.__layout.addLayout(self.__header_layout)
         self.__way_frame = QFrame(self.__frame)
         self.__way_layout = QHBoxLayout(self.__way_frame)
-        self.__way_layout.addItem(QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
+        self.__way_layout.addItem(QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum))
         self.__layout.addWidget(self.__way_frame)
         self.__propagate_way_count_change = on_way_count_change
         self.__ways.valueChanged.connect(self.__on_way_count_change)
@@ -2155,13 +2155,13 @@ class WayEditor:
         self.__channel = channel
         self.__notify_parent = on_change
         self.__frame = QFrame(parent)
-        self.__frame.setFrameShape(QFrame.StyledPanel)
-        self.__frame.setFrameShadow(QFrame.Raised)
+        self.__frame.setFrameShape(QFrame.StyleMask.StyledPanel)
+        self.__frame.setFrameShadow(QFrame.StyleMask.Raised)
         self.__layout = QGridLayout(self.__frame)
         self.__bass_managed = False
         # header
         self.__header = QLabel(self.__frame)
-        self.__header.setAlignment(Qt.AlignCenter)
+        self.__header.setAlignment(Qt.AlignmentFlag.AlignCenter)
         font = QFont()
         font.setBold(True)
         font.setItalic(True)
@@ -2179,7 +2179,7 @@ class WayEditor:
         self.__gain.setMaximum(60.0)
         self.__gain.setDecimals(2)
         self.__gain.setSuffix(' dB')
-        self.__gain.setStepType(QAbstractSpinBox.AdaptiveDecimalStepType)
+        self.__gain.setStepType(QAbstractSpinBox.StepType.AdaptiveDecimalStepType)
         self.__gain.valueChanged.connect(self.__on_value_change)
         self.__delay_label = QLabel(self.__frame)
         self.__delay_label.setText('Delay')
@@ -2188,7 +2188,7 @@ class WayEditor:
         self.__delay.setMaximum(2000.0)
         self.__delay.setDecimals(2)
         self.__delay.setSuffix(' ms')
-        self.__delay.setStepType(QAbstractSpinBox.AdaptiveDecimalStepType)
+        self.__delay.setStepType(QAbstractSpinBox.StepType.AdaptiveDecimalStepType)
         self.__delay.valueChanged.connect(self.__on_value_change)
         # low pass
         self.__lp_label = QLabel(self.__frame)
@@ -2217,7 +2217,7 @@ class WayEditor:
         self.__layout.addWidget(self.__lp_freq, row, 2, 1, 1)
         self.__layout.addWidget(self.__lp_order, row, 3, 1, 1)
         row += 1
-        self.__layout.addItem(QSpacerItem(40, 20, QSizePolicy.Minimum, QSizePolicy.Expanding))
+        self.__layout.addItem(QSpacerItem(40, 20, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
         self.__frame.setTabOrder(self.__invert, self.__hp_filter_type)
         self.__frame.setTabOrder(self.__hp_filter_type, self.__hp_freq)
         self.__frame.setTabOrder(self.__hp_freq, self.__hp_order)
@@ -2393,7 +2393,7 @@ class WayEditor:
         widget = QDoubleSpinBox(parent)
         widget.setMinimum(1)
         widget.setDecimals(1)
-        widget.setStepType(QAbstractSpinBox.AdaptiveDecimalStepType)
+        widget.setStepType(QAbstractSpinBox.StepType.AdaptiveDecimalStepType)
         widget.setMaximum(24000)
         widget.setEnabled(False)
         widget.setSuffix(' Hz')
@@ -2489,11 +2489,11 @@ class MatrixTableModel(QAbstractTableModel):
     def flags(self, idx):
         flags = super().flags(idx)
         if idx.column() > 0:
-            flags |= Qt.ItemIsEditable
+            flags |= Qt.ItemFlag.ItemIsEditable
         return flags
 
     def data(self, index: QModelIndex, role: int = ...) -> Any:
-        if not index.isValid() or role != Qt.DisplayRole:
+        if not index.isValid() or role != Qt.ItemDataRole.DisplayRole:
             return QVariant()
         elif index.column() == 0:
             return QVariant(self.__matrix.row_name(index.row()))
@@ -2501,7 +2501,7 @@ class MatrixTableModel(QAbstractTableModel):
             return QVariant(self.__matrix.is_routed(index.row(), index.column() - 1))
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int = ...) -> Any:
-        if orientation == Qt.Horizontal and role == Qt.DisplayRole:
+        if orientation == Qt.Orientation.Horizontal and role == Qt.ItemDataRole.DisplayRole:
             if section == 0:
                 return QVariant()
             else:
@@ -2532,12 +2532,12 @@ class MatrixDialog(QDialog, Ui_channelMatrixDialog):
         self.setupUi(self)
         self.errorMessage.setStyleSheet('color: red')
         self.__re_init = re_init
-        self.buttonBox.button(QDialogButtonBox.Reset).clicked.connect(self.__reinit_propagate)
+        self.buttonBox.button(QDialogButtonBox.StandardButton.Reset).clicked.connect(self.__reinit_propagate)
         self.__on_save = on_save
         self.__matrix = matrix.clone()
         self.__table_model = MatrixTableModel(self.__matrix, self.__on_toggle)
         self.matrix.setModel(self.__table_model)
-        self.matrix.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.matrix.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.__table_model.delegate_to_checkbox(self.matrix)
         self.adjustSize()
 
@@ -2557,7 +2557,7 @@ class MatrixDialog(QDialog, Ui_channelMatrixDialog):
             if not_routed:
                 msg = f"Input{'s' if len(not_routed) > 1 else ''} not routed to any output:{','.join(not_routed)}"
                 enable = False
-        self.buttonBox.button(QDialogButtonBox.Save).setEnabled(enable)
+        self.buttonBox.button(QDialogButtonBox.StandardButton.Save).setEnabled(enable)
         self.__set_err_msg(msg)
 
     def __set_err_msg(self, msg):
@@ -2663,7 +2663,7 @@ class SWChannelSelectorDialog(QDialog, Ui_channelSelectDialog):
                  on_save: Callable[[str, List[str]], None]):
         super(SWChannelSelectorDialog, self).__init__(parent)
         self.setupUi(self)
-        self.channelList.setSelectionMode(QAbstractItemView.MultiSelection)
+        self.channelList.setSelectionMode(QAbstractItemView.SelectionMode.MultiSelection)
         self.__on_save = on_save
         self.setWindowTitle('Set LFE/SW Channels')
         for c in channels:
@@ -2672,7 +2672,7 @@ class SWChannelSelectorDialog(QDialog, Ui_channelSelectDialog):
         self.lfeChannel.setCurrentText(lfe_channel)
         for c in sw_channels:
             item: QListWidgetItem
-            for item in self.channelList.findItems(c, Qt.MatchCaseSensitive):
+            for item in self.channelList.findItems(c, Qt.MatchFlag.MatchCaseSensitive):
                 item.setSelected(True)
 
     def accept(self):
@@ -2681,8 +2681,8 @@ class SWChannelSelectorDialog(QDialog, Ui_channelSelectDialog):
 
 
 class MDSDialog(QDialog, Ui_mdsDialog):
-    ORDER_ROLE = Qt.UserRole + 1
-    FREQ_ROLE = Qt.UserRole + 2
+    ORDER_ROLE = Qt.ItemDataRole.UserRole + 1
+    FREQ_ROLE = Qt.ItemDataRole.UserRole + 2
 
     def __init__(self, parent: QWidget, current: List[MDSPoint], on_update: Callable[[List[MDSPoint]], None], max_ways: int):
         super(MDSDialog, self).__init__(parent)
@@ -2732,7 +2732,7 @@ class MDSDialog(QDialog, Ui_mdsDialog):
         if fail:
             msg_box = QMessageBox()
             msg_box.setText(f"Crossing points must be in ascending order [supplied: {freqs}]")
-            msg_box.setIcon(QMessageBox.Warning)
+            msg_box.setIcon(QMessageBox.Icon.Warning)
             msg_box.setWindowTitle('Invalid MDS Configuration!')
             msg_box.exec()
         else:
@@ -2740,7 +2740,7 @@ class MDSDialog(QDialog, Ui_mdsDialog):
 
 
 class MCWSDialog(QDialog, Ui_loadDspFromZoneDialog):
-    MCWS_ROLE = Qt.UserRole + 1
+    MCWS_ROLE = Qt.ItemDataRole.UserRole + 1
 
     def __init__(self, parent: QDialog, prefs: Preferences, download: bool = True,
                  txt_provider: Callable[[bool], str] = None, on_select: Callable[[str, str, bool], None] = None):

@@ -24,7 +24,7 @@ class ImpulseDialog(QDialog, Ui_impulseDialog):
         self.__in_active_area: bool = False
         self.__dragging: Optional[None] = None
         self.setupUi(self)
-        self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowSystemMenuHint | QtCore.Qt.WindowMinMaxButtonsHint)
+        self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowType.WindowSystemMenuHint | QtCore.Qt.WindowType.WindowMinMaxButtonsHint)
         self.__signals = signals
         self.__magnitude_model = MagnitudeModel('preview', self.previewChart, prefs,
                                                 self.__get_data(), '', primary_prefix='%', fill_primary=False,
@@ -167,7 +167,7 @@ class SignalSelectorDialog(QDialog, Ui_channelSelectDialog):
                  on_save: Callable[[List[str]], None]):
         super(SignalSelectorDialog, self).__init__(parent)
         self.setupUi(self)
-        self.channelList.setSelectionMode(QAbstractItemView.MultiSelection)
+        self.channelList.setSelectionMode(QAbstractItemView.SelectionMode.MultiSelection)
         self.__on_save = on_save
         self.setWindowTitle('Select Signals')
         self.lfeChannel.hide()
@@ -176,7 +176,7 @@ class SignalSelectorDialog(QDialog, Ui_channelSelectDialog):
             self.channelList.addItem(c)
         for c in selected_signals:
             item: QListWidgetItem
-            for item in self.channelList.findItems(c, QtCore.Qt.MatchCaseSensitive):
+            for item in self.channelList.findItems(c, QtCore.Qt.MatchFlag.MatchCaseSensitive):
                 item.setSelected(True)
 
     def accept(self):

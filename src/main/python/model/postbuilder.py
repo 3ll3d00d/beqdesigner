@@ -6,8 +6,8 @@ import sys
 
 import qtawesome as qta
 import requests
-from qtpy.QtCore import QRegExp, Qt, QCoreApplication
-from qtpy.QtGui import QRegExpValidator, QValidator, QIcon
+from qtpy.QtCore import QRegularExpression, Qt, QCoreApplication
+from qtpy.QtGui import QRegularExpressionValidator, QValidator, QIcon
 from qtpy.QtWidgets import QDialog, QFileDialog
 
 from model.iir import Gain
@@ -349,20 +349,20 @@ class CreateAVSPostDialog(QDialog, Ui_postbuilder):
         return valid
 
 
-class UrlValidator(QRegExpValidator):
+class UrlValidator(QRegularExpressionValidator):
     def __init__(self, parent, button):
-        regex = QRegExp(''.join(URL_REGEX_FRAGMENTS))
-        regex.setCaseSensitivity(Qt.CaseInsensitive)
+        regex = QRegularExpression(''.join(URL_REGEX_FRAGMENTS))
+        regex.setPatternOptions(QRegularExpression.PatternOption.CaseInsensitive)
         self.__button = button
         super().__init__(regex, parent)
 
     def validate(self, p_str, p_int):
         validate = super().validate(p_str, p_int)
         if validate:
-            if validate[0] == QValidator.Invalid:
+            if validate[0] == QValidator.State.Invalid:
                 self.__button.setIcon(qta.icon('fa5s.times', color='red'))
-            elif validate[0] == QValidator.Acceptable:
+            elif validate[0] == QValidator.State.Acceptable:
                 self.__button.setIcon(qta.icon('fa5s.check', color='green'))
-            elif validate[0] == QValidator.Intermediate:
+            elif validate[0] == QValidator.State.Intermediate:
                 self.__button.setIcon(QIcon())
         return validate
