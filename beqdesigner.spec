@@ -155,14 +155,14 @@ def get_graphviz_windows():
         gz = [
             (os.path.join(path_to_gz, 'cdt.dll'), '.'),
             (os.path.join(path_to_gz, 'cgraph.dll'), '.'),
-            (os.path.join(path_to_gz, 'config6'), '.'),
             (os.path.join(path_to_gz, 'dot.exe'), '.'),
-            (os.path.join(path_to_gz, 'expat.dll'), '.'),
             (os.path.join(path_to_gz, 'gvc.dll'), '.'),
+            (os.path.join(path_to_gz, 'libexpat.dll'), '.'),
             (os.path.join(path_to_gz, 'gvplugin_core.dll'), '.'),
             (os.path.join(path_to_gz, 'gvplugin_dot_layout.dll'), '.'),
             (os.path.join(path_to_gz, 'pathplan.dll'), '.'),
             (os.path.join(path_to_gz, 'xdot.dll'), '.')
+            (os.path.join(path_to_gz, 'zlib1.dll'), '.')
         ]
         return gz
     else:
