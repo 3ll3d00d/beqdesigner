@@ -615,7 +615,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         Sets the target directory based on the user selection.
         '''
         dialog = QFileDialog(parent=self)
-        dialog.setFileMode(QFileDialog.FileMode.DirectoryOnly)
+        dialog.setFileMode(QFileDialog.FileMode.Directory)
         dialog.setWindowTitle(f"Select Output Directory")
         if dialog.exec():
             selected = dialog.selectedFiles()

@@ -49,6 +49,12 @@ jobs:
         run: poetry install --no-interaction
       - name: Install project
         run: poetry install --no-interaction
+      - name: Install test dependencies
+        run: |
+          if [[ "$RUNNER_OS" == "Linux" ]]
+          then
+            sudo apt install -y libegl1
+          fi
       - name: pytest
         run: |
           PYTHONPATH=./src/main/python poetry run pytest --cov=./src/main/python

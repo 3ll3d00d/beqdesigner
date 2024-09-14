@@ -709,7 +709,7 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
 
     def showDefaultOutputDirectoryPicker(self):
         dialog = QFileDialog(parent=self)
-        dialog.setFileMode(QFileDialog.FileMode.DirectoryOnly)
+        dialog.setFileMode(QFileDialog.FileMode.Directory)
         dialog.setWindowTitle(f"Select Extract Audio Output Directory")
         if dialog.exec():
             selected = dialog.selectedFiles()
@@ -733,7 +733,7 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
     def showBeqDirectoryPicker(self):
         ''' selects an output directory for the beq files '''
         dialog = QFileDialog(parent=self)
-        dialog.setFileMode(QFileDialog.FileMode.DirectoryOnly)
+        dialog.setFileMode(QFileDialog.FileMode.Directory)
         dialog.setWindowTitle(f"Select BEQ Files Download Directory")
         if dialog.exec():
             selected = dialog.selectedFiles()

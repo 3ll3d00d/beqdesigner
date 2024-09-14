@@ -267,7 +267,7 @@ class MergeFiltersDialog(QDialog, Ui_mergeDspDialog):
         Sets the output directory.
         '''
         dialog = QFileDialog(parent=self)
-        dialog.setFileMode(QFileDialog.FileMode.DirectoryOnly)
+        dialog.setFileMode(QFileDialog.FileMode.Directory)
         dialog.setOption(QFileDialog.Option.ShowDirsOnly)
         dialog.setWindowTitle('Select a location to store the generated dsp config files')
         if dialog.exec():
@@ -297,7 +297,7 @@ class MergeFiltersDialog(QDialog, Ui_mergeDspDialog):
         Sets the user source directory.
         '''
         dialog = QFileDialog(parent=self)
-        dialog.setFileMode(QFileDialog.FileMode.DirectoryOnly)
+        dialog.setFileMode(QFileDialog.FileMode.Directory)
         dialog.setOption(QFileDialog.Option.ShowDirsOnly)
         dialog.setWindowTitle('Choose a directory which holds your own BEQ files')
         if dialog.exec():

@@ -188,7 +188,7 @@ def float_to_str(f, to_hex=False, minidsp_style=False, fixed_point=False):
     if to_hex is True:
         return float_to_hex(f, minidsp_style, fixed_point)
     else:
-        d1 = ctx.create_decimal(repr(f))
+        d1 = ctx.create_decimal(str(f))
         return format(d1, 'f')
 
 

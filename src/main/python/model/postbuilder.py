@@ -352,7 +352,7 @@ class CreateAVSPostDialog(QDialog, Ui_postbuilder):
 class UrlValidator(QRegularExpressionValidator):
     def __init__(self, parent, button):
         regex = QRegularExpression(''.join(URL_REGEX_FRAGMENTS))
-        regex.setPatternOptions(QRegularExpression.PatternOption.CaseInsensitive)
+        regex.setPatternOptions(QRegularExpression.PatternOption.CaseInsensitiveOption)
         self.__button = button
         super().__init__(regex, parent)
 
