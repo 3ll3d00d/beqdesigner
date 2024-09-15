@@ -161,7 +161,7 @@ def get_graphviz_windows():
             (os.path.join(path_to_gz, 'gvplugin_core.dll'), '.'),
             (os.path.join(path_to_gz, 'gvplugin_dot_layout.dll'), '.'),
             (os.path.join(path_to_gz, 'pathplan.dll'), '.'),
-            (os.path.join(path_to_gz, 'xdot.dll'), '.')
+            (os.path.join(path_to_gz, 'xdot.dll'), '.'),
             (os.path.join(path_to_gz, 'zlib1.dll'), '.')
         ]
         return gz
