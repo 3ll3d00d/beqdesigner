@@ -72,7 +72,7 @@ class WaveformController:
         self.__show_spectrum_btn.clicked.connect(self.show_spectrum)
         self.__hide_spectrum_btn.clicked.connect(self.hide_spectrum)
         self.__compare_spectrum_btn.clicked.connect(self.compare_spectrum)
-        self.__show_limits_btn.clicked.connect(self.__magnitude_model.show_limits)
+        self.__show_limits_btn.clicked.connect(lambda _: self.__magnitude_model.show_limits())
         self.__show_stats_btn.clicked.connect(self.show_stats)
         self.__is_filtered.stateChanged['int'].connect(self.toggle_filter)
         self.__apply_hard_clip.stateChanged['int'].connect(self.toggle_hard_clip)

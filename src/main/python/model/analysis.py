@@ -429,7 +429,7 @@ class Waveform:
         Shows the graph limits dialog.
         '''
         if self.signal is not None:
-            LimitsDialog(self.__limits, x_min=0, x_max=self.signal.duration_seconds, y1_min=-1, y1_max=1).exec()
+            LimitsDialog(self.__limits, x_min=0, x_max=self.signal.duration_seconds, y1_min=-1, y1_max=1, parent=self.__ui).exec()
 
     def analyse(self):
         '''
