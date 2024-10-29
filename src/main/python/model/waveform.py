@@ -241,7 +241,7 @@ class WaveformController:
             self.__end_time.setEnabled(True)
             self.__end_time.setMaximumTime(duration)
             self.__end_time.setTime(duration)
-            self.toggle_filter(Qt.CheckState.Checked if self.__is_filtered.isChecked() else Qt.CheckState.Unchecked)
+            self.toggle_filter(Qt.CheckState.Checked.value if self.__is_filtered.isChecked() else Qt.CheckState.Unchecked.value)
 
     def __load_signal(self):
         signal_name = self.__selector.currentText()
@@ -275,7 +275,7 @@ class WaveformController:
             signal_data = self.__get_signal_data(signal_name)
             if signal_data is not None:
                 setattr(signal_data, attr_name, attr_value)
-                self.toggle_filter(Qt.CheckState.Checked if self.__is_filtered.isChecked() else Qt.CheckState.Unchecked)
+                self.toggle_filter(Qt.CheckState.Checked.value if self.__is_filtered.isChecked() else Qt.CheckState.Unchecked.value)
 
     def change_bm_headroom(self, headroom):
         ''' Changes the headroom allowed for bass management '''
@@ -287,23 +287,23 @@ class WaveformController:
 
     def toggle_bm_clip_before(self, state):
         ''' Changes whether to clip the signal before summation '''
-        self.__set_bm_signal_attr('clip_before', state == Qt.CheckState.Checked)
+        self.__set_bm_signal_attr('clip_before', state == Qt.CheckState.Checked.value)
 
     def toggle_bm_clip_after(self, state):
         ''' Changes whether to clip the signal after summation '''
-        self.__set_bm_signal_attr('clip_after', state == Qt.CheckState.Checked)
+        self.__set_bm_signal_attr('clip_after', state == Qt.CheckState.Checked.value)
 
     def toggle_hpf(self, state):
         ''' applies or removes the hpf from the visible waveform '''
         signal_name = self.__selector.currentText()
         signal_data = self.__get_signal_data(signal_name)
         if signal_data is not None:
-            signal_data.high_pass = state == Qt.CheckState.Checked
+            signal_data.high_pass = state == Qt.CheckState.Checked.value
             from app import wait_cursor
             with wait_cursor():
                 signal = signal_data.filter_signal(filt=self.__is_filtered.isChecked(),
                                                    clip=self.__apply_hard_clip.isChecked(),
-                                                   post_filt=self.__get_post_filt_hpf(apply=state == Qt.CheckState.Checked))
+                                                   post_filt=self.__get_post_filt_hpf(apply=state == Qt.CheckState.Checked.value))
                 self.__active_signal = signal
                 self.__waveform_chart_model.signal = signal
                 self.__waveform_chart_model.idx = self.__selector.currentIndex() - 1
@@ -328,7 +328,7 @@ class WaveformController:
         if signal_data is not None:
             from app import wait_cursor
             with wait_cursor():
-                signal = signal_data.filter_signal(filt=state == Qt.CheckState.Checked,
+                signal = signal_data.filter_signal(filt=state == Qt.CheckState.Checked.value,
                                                    clip=self.__apply_hard_clip.isChecked(),
                                                    post_filt=self.__get_post_filt_hpf())
                 self.__active_signal = signal
@@ -346,7 +346,7 @@ class WaveformController:
             from app import wait_cursor
             with wait_cursor():
                 signal = signal_data.filter_signal(filt=self.__is_filtered.isChecked(),
-                                                   clip=state == Qt.CheckState.Checked,
+                                                   clip=state == Qt.CheckState.Checked.value,
                                                    post_filt=self.__get_post_filt_hpf())
                 self.__active_signal = signal
                 self.__waveform_chart_model.signal = signal
@@ -358,7 +358,7 @@ class WaveformController:
     def on_filter_update(self):
         ''' if the signal is filtered then updated the chart when the filter changes. '''
         if self.__is_filtered.isChecked():
-            self.toggle_filter(Qt.CheckState.Checked)
+            self.toggle_filter(Qt.CheckState.Checked.value)
 
     def show_spectrum(self):
         ''' Updates the visible spectrum for the selected waveform limits '''
