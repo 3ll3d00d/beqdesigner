@@ -166,8 +166,8 @@ class PeqEditor:
         font.setPointSize(10)
         self.__idx = idx
         self.__geq_frame = QFrame(parent)
-        self.__geq_frame.setFrameShape(QFrame.StyleMask.StyledPanel)
-        self.__geq_frame.setFrameShadow(QFrame.StyleMask.Raised)
+        self.__geq_frame.setFrameShape(QFrame.Shape.StyledPanel)
+        self.__geq_frame.setFrameShadow(QFrame.Shadow.Raised)
         self.__grid_layout = QGridLayout(self.__geq_frame)
         title_font = QFont()
         title_font.setPointSize(10)

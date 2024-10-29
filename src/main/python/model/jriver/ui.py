@@ -1898,8 +1898,8 @@ class ChannelEditor:
         self.__editors: List[WayEditor] = []
         self.__visible = True
         self.__frame = QFrame(channels_frame)
-        self.__frame.setFrameShape(QFrame.StyleMask.StyledPanel)
-        self.__frame.setFrameShadow(QFrame.StyleMask.Raised)
+        self.__frame.setFrameShape(QFrame.Shape.StyledPanel)
+        self.__frame.setFrameShadow(QFrame.Shadow.Raised)
         self.__layout = QVBoxLayout(self.__frame)
         # header
         self.__header_layout = QHBoxLayout()
@@ -2155,8 +2155,8 @@ class WayEditor:
         self.__channel = channel
         self.__notify_parent = on_change
         self.__frame = QFrame(parent)
-        self.__frame.setFrameShape(QFrame.StyleMask.StyledPanel)
-        self.__frame.setFrameShadow(QFrame.StyleMask.Raised)
+        self.__frame.setFrameShape(QFrame.Shape.StyledPanel)
+        self.__frame.setFrameShadow(QFrame.Shadow.Raised)
         self.__layout = QGridLayout(self.__frame)
         self.__bass_managed = False
         # header
