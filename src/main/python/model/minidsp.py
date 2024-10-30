@@ -38,9 +38,9 @@ class XmlParser(ABC):
                     raise TooManyFilters(f"BEQ has too many filters for device (remove {abs(padding)} biquads)")
         return filters, was_optimised
 
-    def convert(self, dst, filt, metadata=None):
+    def convert(self, dst, filt, metadata=None, pretty: bool=False):
         filters, was_optimised = self.__preprocess(filt)
-        output_config = self._overwrite(self.__ensure_fs(filters), dst, metadata)
+        output_config = self._overwrite(self.__ensure_fs(filters), dst, metadata, pretty=pretty)
         return output_config, was_optimised
 
     def __ensure_fs(self, filters):
@@ -56,7 +56,7 @@ class XmlParser(ABC):
         return None
 
     @abstractmethod
-    def _overwrite(self, filters, target, metadata=None):
+    def _overwrite(self, filters, target, metadata=None, pretty=False):
         pass
 
 
@@ -67,7 +67,7 @@ class TwoByFourXmlParser(XmlParser):
     def __init__(self, minidsp_type, optimise_filters):
         super().__init__(minidsp_type, optimise_filters)
 
-    def _overwrite(self, filters, target, metadata=None):
+    def _overwrite(self, filters, target, metadata=None, pretty=False):
         import xml.etree.ElementTree as ET
         import re
         logger.info(f"Copying {len(filters)} to {target}")
@@ -119,7 +119,8 @@ class TwoByFourXmlParser(XmlParser):
                                                           fixed_point=True)[0]
                             hex_val = dict(item.split("=") for item in hex_txt.split(','))[biquad_coeff.lower()]
                             child.find('hex').text = hex_val
-
+        if pretty is True:
+            ET.indent(root)
         return ET.tostring(root, encoding='unicode')
 
 
@@ -161,7 +162,7 @@ class HDXmlParser(XmlParser):
             else:
                 return int(filt_slot) <= int(self.__in_out_split[1])
 
-    def _overwrite(self, filters, target, metadata=None):
+    def _overwrite(self, filters, target, metadata=None, pretty=False):
         '''
         Overwrites the PEQ_1_x and PEQ_2_x filters (or the 1-4 filters for the SHD).
         :param filters: the filters.
@@ -233,7 +234,8 @@ class HDXmlParser(XmlParser):
                 metadata_tag.append(tag)
 
             root.append(metadata_tag)
-        ET.indent(root)
+        if pretty is True:
+            ET.indent(root)
         return ET.tostring(root, encoding='unicode')
 
 
