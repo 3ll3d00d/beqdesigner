@@ -650,11 +650,10 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         Restores the saved layout.
         :param redraw: if true, also redraw the report.
         '''
-        self.filterRowHeightMultiplier.blockSignals(True)
-        self.filterRowHeightMultiplier.setValue(self.__preferences.get(REPORT_FILTER_ROW_HEIGHT_MULTIPLIER))
-        if self.__first_create:
-            self.filterRowHeightMultiplier.setValue(self.filterRowHeightMultiplier.value() * 1.85)
-        self.filterRowHeightMultiplier.blockSignals(False)
+        with block_signals(self.filterRowHeightMultiplier):
+            self.filterRowHeightMultiplier.setValue(self.__preferences.get(REPORT_FILTER_ROW_HEIGHT_MULTIPLIER))
+            if self.__first_create:
+                self.filterRowHeightMultiplier.setValue(self.filterRowHeightMultiplier.value() * 1.85)
         self.titleFontSize.setValue(self.__preferences.get(REPORT_TITLE_FONT_SIZE))
         with block_signals(self.tableFontSize):
             self.tableFontSize.setValue(self.__preferences.get(REPORT_FILTER_FONT_SIZE))
