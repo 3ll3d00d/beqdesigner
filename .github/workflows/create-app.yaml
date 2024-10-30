@@ -77,7 +77,7 @@ jobs:
           poetry run pip install pyinstaller
       - name: Get latest release version number
         id: get_version
-        uses: battila7/get-version-action@v2
+        run: echo "version-without-v=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
       - name: Set version
         run: |
           echo ${{ steps.get_version.outputs.version-without-v }} > src/main/python/VERSION
@@ -111,12 +111,8 @@ jobs:
             echo "binary_name=${MATCHES[0]:5}" >> $GITHUB_OUTPUT
             echo "binary_content_type=application/octet-stream" >> $GITHUB_OUTPUT
           fi
-      - name: Upload beqdesigner
-        uses: actions/upload-release-asset@v1
+      - name: Upload asset
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_name: ${{ steps.create_dist.outputs.binary_name }}
-          asset_path: ${{ steps.create_dist.outputs.binary_path }}
-          asset_content_type: ${{ steps.create_dist.outputs.binary_content_type }}
+        run: |
+          gh release upload ${{ github.ref_name }} ${{ steps.create_dist.outputs.binary_path }}
