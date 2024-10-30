@@ -120,4 +120,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload ${{ github.ref_name }} ${{ steps.create_dist.outputs.binary_path }}
+          gh release upload ${{ github.ref_name }} "${{ steps.create_dist.outputs.binary_path }}"
