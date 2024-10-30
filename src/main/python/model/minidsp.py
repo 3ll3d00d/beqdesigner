@@ -233,7 +233,7 @@ class HDXmlParser(XmlParser):
                 metadata_tag.append(tag)
 
             root.append(metadata_tag)
-
+        ET.indent(root)
         return ET.tostring(root, encoding='unicode')
 
 
