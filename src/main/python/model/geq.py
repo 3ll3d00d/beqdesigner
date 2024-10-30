@@ -230,7 +230,7 @@ class PeqEditor:
         self.__freq.setMinimum(1)
         self.__freq.setMaximum(24000)
         self.__freq.setDecimals(1)
-        self.__freq.setStepType(QAbstractSpinBox.StepType.StepAdaptiveDecimalStepType)
+        self.__freq.setStepType(QAbstractSpinBox.StepType.AdaptiveDecimalStepType)
 
         self.__q_slider = QSlider(self.__geq_frame)
         self.__q_slider.setOrientation(Qt.Orientation.Vertical)
@@ -275,7 +275,7 @@ class PeqEditor:
         self.__peq_button.toggled.connect(on_change)
 
         self.__freq_slider.setValue(1000)
-        self.__q_slider.setValue(to_q_slider(0.707))
+        self.__q_slider.setValue(int(to_q_slider(0.707)))
 
         self.__grid_layout.addWidget(self.__gain_label, 2, 0, 1, 1)
         self.__grid_layout.addWidget(self.__gain_slider, 2, 1, 7, 1)
@@ -292,7 +292,7 @@ class PeqEditor:
     def __update_slider(slider: QSlider, v: float, translate: Callable[[float], float] = lambda x: x) -> None:
         from model.report import block_signals
         with block_signals(slider):
-            slider.setValue(translate(v))
+            slider.setValue(int(translate(v)))
 
     def make_filter(self, include_zero) -> Optional[Union[LowShelf, HighShelf, PeakingEQ, Passthrough]]:
         if math.isclose(self.__gain.value(), 0.0) and not include_zero:
