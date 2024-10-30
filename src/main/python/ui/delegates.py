@@ -39,12 +39,12 @@ class CheckBoxDelegate(QItemDelegate):
     def editorEvent(self, event, model, option, index):
         '''
         Change the data in the model and the state of the checkbox
-        if the user presses the left mousebutton and this cell is editable. Otherwise do nothing.
+        if the user presses the left mouse button and this cell is editable otherwise do nothing.
         '''
-        if not int(index.flags() & Qt.ItemFlag.ItemIsEditable) > 0:
+        if not index.flags() & Qt.ItemFlag.ItemIsEditable:
             return False
 
-        if event.type() == Qt.MouseButton.MouseButtonPress and event.button() == Qt.MouseButton.LeftButton:
+        if event.type() == QEvent.Type.MouseButtonPress and event.button() == Qt.MouseButton.LeftButton:
             model.toggle(index)
             return True
 
