@@ -714,7 +714,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         if geometry is not None:
             self.restoreGeometry(geometry)
         else:
-            screen_geometry = self.app.desktop().availableGeometry()
+            screen_geometry = QApplication.primaryScreen().availableGeometry()
             if screen_geometry.height() < 800:
                 self.showMaximized()
         window_state = self.preferences.get(SCREEN_WINDOW_STATE)

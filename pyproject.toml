@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "beqdesigner"
-version = "2.0.0a1"
+version = "2.0.0a2"
 description = "A Qt based app for designing BassEQ filters"
 authors = ["3ll3d00d <mattkhan+beqdesigner@gmail.com>"]
 license = "MIT"
