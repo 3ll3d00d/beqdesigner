@@ -32,5 +32,5 @@ class UnsupportedRoutingError(RoutingError):
         super().__init__(msg)
 
 
-def s2f(val: str) -> float:
-    return float(val.replace(",", "."))
+def s2f(val: any) -> float:
+    return float(val.replace(",", ".")) if isinstance(val, str) else float(val)
