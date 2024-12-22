@@ -68,7 +68,8 @@ jobs:
             sudo apt-get install -y xvfb libxkbcommon-x11-0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-xinerama0 libxcb-xinput0 libxcb-xfixes0 libxcb-util1 libxcb-xkb1 libxcb-shape0
           elif [[ "$RUNNER_OS" == "Windows" ]]
           then
-            choco install openssl.light graphviz
+            choco install openssl.light 
+            choco install graphviz --version 12.0.0
           elif [[ "$RUNNER_OS" == "macOS" ]]
           then
             brew install graphviz
