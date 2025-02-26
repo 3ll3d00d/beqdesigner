@@ -1,38 +1,40 @@
-[tool.poetry]
+[project]
 name = "beqdesigner"
 version = "1.1.8"
 description = "A Qt based app for designing BassEQ filters"
-authors = ["3ll3d00d <mattkhan+beqdesigner@gmail.com>"]
+authors = [
+    { name = "3ll3d00d", email = "mattkhan+beqdesigner@gmail.com" }
+]
 license = "MIT"
 readme = "README.md"
 homepage = "https://beqdesigner.readthedocs.io/"
 repository = "https://github.com/3ll3d00d/beqdesigner"
-package-mode = false
-
-[tool.poetry.dependencies]
-python = "^3.12"
-pyqt5 = "^5.15.10"
-pyqt5-qt5 = [
-    { version = "5.15.13", platform = "darwin" },
-    { version = "5.15.2", platform = "!=darwin" }
+requires-python = ">=3.12, <3.14"
+dependencies = [
+    "pyqt5 >=5.15.11",
+    "pyqt5-qt5 ==5.15.13;platform_system=='darwin'",
+    "pyqt5-qt5 ==5.15.2;platform_system!='darwin'",
+    "matplotlib",
+    "ffmpeg-python",
+    "soundfile",
+    "resampy",
+    "pyqtgraph",
+    "numpy",
+    "scipy",
+    "qtpy",
+    "qtawesome",
+    "sortedcontainers",
+    "pillow",
+    "requests",
+    "awesomeversion",
+    "markdown",
+    "plumbum",
+    "graphviz",
+    "sanitize-filename"
 ]
-matplotlib = "*"
-ffmpeg-python = "*"
-soundfile = "*"
-resampy = "*"
-pyqtgraph = "*"
-numpy = "*"
-scipy = "*"
-qtpy = "*"
-qtawesome = "*"
-sortedcontainers = "*"
-pillow = "*"
-requests = "*"
-awesomeversion = "*"
-markdown = "*"
-plumbum = "*"
-graphviz = "*"
-sanitize-filename = "*"
+
+[tool.poetry]
+package-mode = false
 
 [tool.poetry.group.dev.dependencies]
 pytest = "*"
