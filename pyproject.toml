@@ -10,11 +10,10 @@ repository = "https://github.com/3ll3d00d/beqdesigner"
 package-mode = false
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = "^3.13"
 pyqt6 = "*"
 ffmpeg-python = "*"
 soundfile = "*"
-resampy = "*"
 pyqtgraph = "*"
 numpy = "*"
 scipy = "*"
@@ -28,13 +27,15 @@ markdown = "*"
 plumbum = "*"
 graphviz = "*"
 sanitize-filename = "*"
-matplotlib = "^3.9.2"
+matplotlib = "*"
+soxr = "^0.5.0.post1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "*"
 pytest-cov = "*"
 distro = "*"
 atomicwrites = "*"
+scipy-stubs = "~=1.14.1"
 
 [build-system]
 requires = ["poetry-core"]

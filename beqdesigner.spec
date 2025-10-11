@@ -43,14 +43,6 @@ linux_excludes = {
 # helper functions
 
 
-def get_resampy_path():
-    '''
-    :return: gets the current path to the resampy module in order to find where the kaiser data files are.
-    '''
-    import resampy as _
-    return _.__path__[0]
-
-
 def get_icon_file():
     '''
     :return: the full path to the icon file for the current platform.
@@ -78,7 +70,6 @@ def get_data_args():
     '''
     vals = [
         ('src/main/icons/Icon.ico', '.'),
-        (os.path.abspath(f"{get_resampy_path()}/data/kaiser_fast.npz"), '_resampy_filters'),
         ('src/main/python/style', 'style'),
         ('src/main/python/VERSION', '.'),
         ('src/main/xml/flat24hd.xml', '.'),

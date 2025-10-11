@@ -2235,7 +2235,7 @@ class MDSXO(XO):
     def __calc_graph(self,
                      apply_output_filters_to_lp: Optional[Callable[[str], List[Filter]]] = None,
                      apply_output_filters_to_hp: Optional[Callable[[str], List[Filter]]] = None):
-        '''
+        """
         Applies filters required to implement the "Matched-Delay Subtractive Crossover Pair With 4th-Order Highpass
         Slope" (copyright Gregory Berchin). This is implemented as:
 
@@ -2246,7 +2246,7 @@ class MDSXO(XO):
                  \                                   \
                   -------- Delay ------- Delay ---- (+) ----- lowpass
         :return:
-        '''
+        """
         assert self.in_channel is not None
         channels = list(
             {c for c in ([self.in_channel] + self.out_channel_lp + self.out_channel_hp + SHORT_USER_CHANNELS)})

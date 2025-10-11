@@ -10,7 +10,7 @@ from typing import List, Optional, Dict, Iterable, Any, Callable
 
 import numpy as np
 import qtawesome as qta
-import resampy
+import soxr
 from qtpy import QtCore
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt, QRunnable, QThreadPool
 from qtpy.QtWidgets import QDialog, QFileDialog, QDialogButtonBox, QStatusBar
@@ -1247,7 +1247,7 @@ class Signal:
         if new_fs != self.fs:
             start = time.time()
             resampled = Signal(self.name,
-                               resampy.resample(self.samples, self.fs, new_fs, filter=self.load_resampy_filter()),
+                               soxr.resample(self.samples, self.fs, new_fs),
                                analysis_resolution=self.__analysis_resolution,
                                avg_window=self.__avg_window,
                                peak_window=self.__peak_window,
@@ -1259,23 +1259,6 @@ class Signal:
             return resampled
         else:
             return self
-
-    def load_resampy_filter(self):
-        '''
-        A replacement for resampy.load_filter that is compatible with pyinstaller.
-        :return: same values as resampy.load_filter
-        '''
-        import sys
-        if getattr(sys, 'frozen', False):
-            def __load_frozen():
-                import os
-                data = np.load(
-                    os.path.join(sys._MEIPASS, '_resampy_filters', os.path.extsep.join(['kaiser_fast', 'npz'])))
-                return data['half_window'], data['precision'], data['rolloff']
-
-            return __load_frozen
-        else:
-            return 'kaiser_fast'
 
     def calculate_average(self):
         '''
