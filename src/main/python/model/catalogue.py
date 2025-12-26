@@ -427,7 +427,7 @@ class CatalogueEntry:
         self.audio_types = vals.get('audioTypes', [])
         self.content_type = vals.get('content_type', 'film')
         self.author = vals.get('author', '')
-        self.beqc_url = vals.get('catalogue_url', '')
+        self.beqc_url = vals.get('catalogue_url', vals.get('beqcUrl', ''))
         self.filters: List[dict] = vals.get('filters', [])
         self.images = vals.get('images', [])
         self.warning = vals.get('warning', [])

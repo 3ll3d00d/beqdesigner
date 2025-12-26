@@ -4,6 +4,7 @@ import time
 from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
+import requests
 from scipy.signal import unit_impulse
 
 from model.catalogue import CatalogueEntry, load_catalogue
@@ -60,7 +61,13 @@ def load() -> list[BEQFilter]:
         with open('database.bin', 'r') as f:
             data: list[dict] = json.load(f, cls=CatalogueDecoder)['data']
     except Exception as e:
-        entries: list[CatalogueEntry] = load_catalogue('/home/matt/.beq/database.json')
+        try:
+            r = requests.get('https://raw.githubusercontent.com/3ll3d00d/beqcatalogue/master/docs/database.json',
+                             allow_redirects=True)
+            r.raise_for_status()
+            entries: list[CatalogueEntry] = load_catalogue(r.content)
+        except requests.exceptions.HTTPError as e:
+            entries: list[CatalogueEntry] = load_catalogue('/home/matt/.beq/database.json')
         with ProcessPoolExecutor() as executor:
             data: list[BEQFilter] = list(executor.map(convert, [e for e in entries if e.filters]))
         with open('database.bin', 'w') as f:
