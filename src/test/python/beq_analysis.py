@@ -3,8 +3,6 @@ import time
 from concurrent.futures import ProcessPoolExecutor
 from itertools import groupby
 
-import numpy as np
-import matplotlib.pyplot as plt
 from scipy.cluster.hierarchy import linkage, fcluster
 import collections
 
@@ -17,6 +15,7 @@ from model.signal import Signal
 min_freq = 8.0
 max_freq = 60.0
 fs = 1000
+max_band_deviation = 5.0
 
 
 def convert(entry: CatalogueEntry) -> dict | None:
@@ -249,215 +248,187 @@ def plot_rms_cdf_core_vs_outlier(rms_core, rms_outlier, author):
 # -----------------------------
 # Main function: build composites
 # -----------------------------
+import numpy as np
+from scipy.cluster.hierarchy import linkage, fcluster
+
+
 def build_beq_composites_pipeline(
         responses_db,
         freq_hz,
         author=None,
-        infra_low_hz=5.0,
-        infra_high_hz=50.0,
+        infra_low_hz=10.0,
+        infra_high_hz=40.0,
         k_core=8,
         k_outlier=4,
         alpha=1.0,
         pca_var=0.98,
-        outlier_rms_thresh=None
+        outlier_rms_thresh=None,
+        max_assign_rms_db=4.0,
+        max_band_dev_db=max_band_deviation,
 ):
     """
-    Integrated BEQ pipeline:
-    - Infra-band selection
-    - Shape/strength separation
-    - PCA
-    - Hierarchical clustering for core
-    - Auto outlier threshold
-    - Outlier reclustering
-    - RMS calculation
-    - CDF plotting
-    - Semantic labeling
-    - Catalogue mapping
-    """
-    # -----------------------------
-    # 1) Infra-band
-    mask = (freq_hz >= infra_low_hz) & (freq_hz <= infra_high_hz)
-    freq_sel = freq_hz[mask]
-    resp = responses_db[:, mask]  # (N,M)
+    Build BEQ composite curves with perceptually-weighted infra-band clustering
+    and bandwise-safe assignment.
 
-    # -----------------------------
-    # 2) Shape / strength
+    Unmapped entries are labelled -1.
+    """
+
+    UNMAPPED = -1
+    N, F = responses_db.shape
+
+    # -------------------------------------------------
+    # 1) Infra-band selection
+    # -------------------------------------------------
+    band_mask = (freq_hz >= infra_low_hz) & (freq_hz <= infra_high_hz)
+    freq_sel = freq_hz[band_mask]
+    resp = responses_db[:, band_mask]
+
+    # -------------------------------------------------
+    # 2) Shape / strength separation
+    # -------------------------------------------------
     strength = resp.mean(axis=1, keepdims=True)
     shape = resp - strength
 
-    # -----------------------------
-    # 3) Perceptual weighting
+    # -------------------------------------------------
+    # 3) Perceptual weighting (low-frequency emphasis)
+    # -------------------------------------------------
     w = (infra_high_hz / freq_sel) ** alpha
-    low_gate = 1.0 / (1.0 + np.exp(-(freq_sel - infra_low_hz * 1.2) / 2.0))
-    w *= low_gate
+    gate = 1.0 / (1.0 + np.exp(-(freq_sel - infra_low_hz * 1.2) / 2.0))
+    w *= gate
     w /= np.sqrt(np.mean(w ** 2))
+
     shape_w = shape * w
 
-    # -----------------------------
-    # 4) PCA
+    # -------------------------------------------------
+    # 4) PCA compression
+    # -------------------------------------------------
     X = shape_w - shape_w.mean(axis=0)
     U, S, _ = np.linalg.svd(X, full_matrices=False)
     var = S ** 2
     n_pca = np.searchsorted(np.cumsum(var) / var.sum(), pca_var) + 1
     Xp = U[:, :n_pca] * S[:n_pca]
 
-    # -----------------------------
-    # 5) Core clustering
+    # -------------------------------------------------
+    # 5) Core clustering (hierarchical / Ward)
+    # -------------------------------------------------
     Z = linkage(Xp, method="ward")
     labels_core = fcluster(Z, k_core, criterion="maxclust") - 1
 
-    # -----------------------------
-    # 6) Auto global outlier threshold
+    # -------------------------------------------------
+    # 6) Automatic outlier threshold (RMS within clusters)
+    # -------------------------------------------------
     if outlier_rms_thresh is None:
         rms_all = []
         for k in range(k_core):
             idx = np.where(labels_core == k)[0]
-            if len(idx) == 0:
+            if len(idx) < 2:
                 continue
-            shape_k = np.median(shape_w[idx], axis=0)
-            rms_k = np.sqrt(np.mean((shape_w[idx] - shape_k) ** 2, axis=1))
-            rms_all.append(rms_k)
+            ref = np.median(shape_w[idx], axis=0)
+            rms_all.append(
+                np.sqrt(np.mean((shape_w[idx] - ref) ** 2, axis=1))
+            )
         rms_all = np.concatenate(rms_all)
-        auto_thresh = auto_outlier_threshold(rms_all, lambda_mad=2.5)
-    else:
-        auto_thresh = outlier_rms_thresh
+        med = np.median(rms_all)
+        mad = np.median(np.abs(rms_all - med)) + 1e-9
+        outlier_rms_thresh = med + 2.5 * mad
 
-    # -----------------------------
-    # 7) Core composite + outlier separation
-    N, M = shape.shape
-    labels = np.full(N, -1, dtype=int)
-    composites_core = []
-    core_members = []
-    outlier_indices = []
+    # -------------------------------------------------
+    # 7) Build core composites + collect outliers
+    # -------------------------------------------------
+    labels = np.full(N, UNMAPPED, dtype=int)
+    composites = []
+    outlier_idx = []
 
     for k in range(k_core):
         idx = np.where(labels_core == k)[0]
         if len(idx) == 0:
-            composites_core.append(np.zeros(M))
-            core_members.append([])
+            composites.append(np.zeros(resp.shape[1]))
             continue
 
-        shape_k = np.median(shape_w[idx], axis=0)
-        rms = np.sqrt(np.mean((shape_w[idx] - shape_k) ** 2, axis=1))
-        is_outlier = rms > auto_thresh
+        ref = np.median(shape_w[idx], axis=0)
+        rms = np.sqrt(np.mean((shape_w[idx] - ref) ** 2, axis=1))
 
-        core_idx = idx[~is_outlier]
-        out_idx = idx[is_outlier]
-        outlier_indices.extend(out_idx.tolist())
+        core = idx[rms <= outlier_rms_thresh]
+        out = idx[rms > outlier_rms_thresh]
+        outlier_idx.extend(out.tolist())
 
-        if len(core_idx) == 0:
-            composites_core.append(np.zeros(M))
-            core_members.append([])
+        if len(core) == 0:
+            composites.append(np.zeros(resp.shape[1]))
             continue
 
-        shape_k = np.median(shape[core_idx], axis=0)
-        strength_k = np.median(strength[core_idx])
-        composites_core.append(shape_k + strength_k)
-        core_members.append(core_idx.tolist())
-        labels[core_idx] = k
+        comp = (
+                np.median(shape[core], axis=0)
+                + np.median(strength[core])
+        )
+        composites.append(comp)
+        labels[core] = k
 
-    # -----------------------------
-    # 8) Outlier reclustering
-    outlier_indices = np.array(outlier_indices, dtype=int)
-    composites_out = []
+    # -------------------------------------------------
+    # 8) Reclustering outliers into dedicated composites
+    # -------------------------------------------------
+    if len(outlier_idx) and k_outlier > 0:
+        outlier_idx = np.array(outlier_idx)
+        Zo = linkage(Xp[outlier_idx], method="ward")
+        k_eff = min(k_outlier, len(outlier_idx))
+        out_labels = fcluster(Zo, k_eff, criterion="maxclust") - 1
 
-    if len(outlier_indices) > 0 and k_outlier > 0:
-        Xo = Xp[outlier_indices]
-        k_eff = min(k_outlier, len(outlier_indices))
-        Zo = linkage(Xo, method="ward")
-        labels_out = fcluster(Zo, k_eff, criterion="maxclust") - 1
         for j in range(k_eff):
-            idx = outlier_indices[labels_out == j]
-            shape_j = np.median(shape[idx], axis=0)
-            strength_j = np.median(strength[idx])
-            composites_out.append(shape_j + strength_j)
+            idx = outlier_idx[out_labels == j]
+            comp = (
+                    np.median(shape[idx], axis=0)
+                    + np.median(strength[idx])
+            )
+            composites.append(comp)
             labels[idx] = k_core + j
 
-    # -----------------------------
-    # 9) Final composite array
-    composites_db = np.vstack([composites_core, composites_out])
+    composites_db = np.vstack(composites)
+    n_comp = composites_db.shape[0]
 
-    # -----------------------------
-    # 10) RMS calculation
-    def rms_for(indices):
-        return np.array([
-            np.sqrt(np.mean((shape_w[i] - (composites_db[labels[i]] - strength[i]) * w) ** 2))
-            for i in indices
-        ])
+    # -------------------------------------------------
+    # 9) BANDWISE-SAFE ASSIGNMENT
+    # -------------------------------------------------
+    # Precompute composite shapes
+    comp_shape = np.zeros((n_comp, shape.shape[1]))
+    for k in range(n_comp):
+        members = np.where(labels == k)[0]
+        if len(members):
+            comp_shape[k] = np.median(shape[members], axis=0)
 
-    core_idx = np.where(labels < k_core)[0]
-    out_idx = np.where(labels >= k_core)[0]
-    rms_core = rms_for(core_idx)
-    rms_outlier = rms_for(out_idx)
+    comp_shape_w = comp_shape * w
 
-    # -----------------------------
-    # 11) Core vs outlier fraction
-    n_total = len(labels)
-    pct_outlier = 100 * len(out_idx) / n_total
-    pct_core = 100 * len(core_idx) / n_total
+    for i in range(N):
+        k = labels[i]
+        if k == UNMAPPED:
+            continue
 
-    print(f"Author: {author}")
-    print('--------------')
-    print(f"Catalogue size: {n_total}")
-    print(f"Core curves:    {len(core_idx)} ({pct_core:.1f}%)")
-    print(f"Outlier curves: {len(out_idx)} ({pct_outlier:.1f}%)")
-    print(f"Auto RMS outlier threshold: {auto_thresh:.2f} dB")
-    print('')
+        delta_shape = shape[i] - comp_shape[k]
+        delta_shape_w = shape_w[i] - comp_shape_w[k]
 
-    # -----------------------------
-    # 12) Plot CDF
-    plot_rms_cdf_core_vs_outlier(rms_core, rms_outlier, author)
-    #
+        rms = np.sqrt(np.mean(delta_shape_w ** 2))
+        band_max = np.max(np.abs(delta_shape))
 
-    # -----------------------
-    # Semantic labelling
-    # -----------------------
-    # Build percentile reference from full catalogue (not just composites)
-    _, full_catalogue_stats = build_semantic_reference(freq_sel, resp)
+        if (rms > max_assign_rms_db) or (band_max > max_band_dev_db):
+            labels[i] = UNMAPPED
 
-    # Composite-level semantics (archetypes)
-    composite_labels = label_composites(freq_sel, composites_db, full_catalogue_stats)
-    n_composites = len(composite_labels)
-    comp_counts = collections.Counter([tag for lbl in composite_labels for tag in lbl])
-    print("\nComposite-level semantic distribution (archetypes):")
-    for k, v in sorted(comp_counts.items(), key=lambda x: -x[1]):
-        print(f"{k:18s}: {v:5d} ({100 * v / n_composites:.1f}%)")
-
-    # Entry-level semantics (true catalogue distribution)
-    catalogue_semantics, entry_counts = label_catalogue_entries(freq_sel, resp, full_catalogue_stats)
-    print("\nCatalogue-level semantic distribution:")
-    for k, v in sorted(entry_counts.items(), key=lambda x: -x[1]):
-        print(f"{k:18s}: {v:5d} ({100 * v / n_total:.1f}%)")
-
-    # -----------------------------
-    # 14) Plot composite frequency responses
-    # -----------------------------
-    plot_composite_responses(freq_sel, composites_db, k_core, author)
-
-    # Composite-level summary
-    print("\nComposite semantic distribution:")
-    n_composites = len(composite_labels)
-    comp_counts = collections.Counter([tag for lbl in composite_labels for tag in lbl])
-    for k, v in sorted(comp_counts.items(), key=lambda x: -x[1]):
-        print(f"{k:18s}: {v:5d} ({100 * v / n_composites:.1f}%)")
-
-    # Entry-level summary
-    print("\nCatalogue semantic distribution:")
-    n_entries = responses_db.shape[0]
-    entry_counts = collections.Counter([tag for lbl in catalogue_semantics for tag in lbl])
-    for k, v in sorted(entry_counts.items(), key=lambda x: -x[1]):
-        print(f"{k:18s}: {v:5d} ({100 * v / n_entries:.1f}%)")
+    # -------------------------------------------------
+    # 10) Reporting
+    # -------------------------------------------------
+    n_unmapped = np.sum(labels == UNMAPPED)
+    print(f"Catalogue size:        {N}")
+    print(f"Mapped entries:        {N - n_unmapped} ({100 * (N - n_unmapped) / N:.1f}%)")
+    print(f"Unmapped entries:      {n_unmapped} ({100 * n_unmapped / N:.1f}%)")
+    print(f"RMS limit:             {max_assign_rms_db:.2f} dB")
+    print(f"Bandwise limit:        {max_band_dev_db:.2f} dB")
 
     return {
         "freq_sel": freq_sel,
         "composites_db": composites_db,
         "labels": labels,
-        "rms_core": rms_core,
-        "rms_outlier": rms_outlier,
-        "composite_labels": composite_labels,
-        "catalogue_semantics": catalogue_semantics,
-        "entry_counts": entry_counts,
-        "pct_outlier": pct_outlier
+        "unmapped_fraction": n_unmapped / N,
+        "limits": {
+            "rms_db": max_assign_rms_db,
+            "band_db": max_band_dev_db,
+        },
     }
 
 
@@ -499,71 +470,199 @@ def plot_composite_responses(freq_sel, composites_db, k_core, author):
 import numpy as np
 import matplotlib.pyplot as plt
 
+import numpy as np
+import matplotlib.pyplot as plt
 
-def plot_composite_responses_fan(freq_sel, composites_db, responses_db, labels,
-                                 lower_percentiles=[50, 25, 20, 5, 0],
-                                 upper_percentiles=[50, 75, 90, 95, 100]):
+
+def plot_composite_responses(
+        freq_hz,
+        responses_db,
+        labels,
+        composites_db,
+        composite_idx,
+        max_band_dev_db=None,
+        percentiles=(0.50, 0.75, 0.90, 1.00),
+        ax=None,
+):
     """
-    Plot each composite as a fan chart with asymmetric shading to handle skewed distributions.
+    Plot a perceptually honest fan chart for a single composite.
 
-    Lower percentiles are shaded from median downwards; upper percentiles are shaded from median upwards.
+    Envelopes are constructed from REAL curves, ordered by
+    curve-wise maximum absolute deviation from the composite.
 
     Parameters
     ----------
-    freq_sel : 1D np.array
-        Frequencies of the responses (infra-band selected).
-    composites_db : 2D np.array
-        Composite curves (num_composites x num_freqs).
-    responses_db : 2D np.array
-        Original catalogue responses (num_entries x num_freqs).
-    labels : 1D np.array of ints
-        Mapping of each catalogue entry to a composite index.
-    lower_percentiles : list
-        Percentiles below median to shade (ascending, last should be median).
-    upper_percentiles : list
-        Percentiles above median to shade (ascending, first should be median).
+    freq_hz : ndarray (F,)
+        Frequency axis (Hz)
+    responses_db : ndarray (N, F)
+        Full catalogue responses (already band-limited if desired)
+    labels : ndarray (N,)
+        Composite assignment labels (-1 for unmapped)
+    composites_db : ndarray (K, F)
+        Composite responses
+    composite_idx : int
+        Which composite to plot
+    max_band_dev_db : float or None
+        Optional visual annotation of bandwise limit
+    percentiles : tuple of floats
+        Fractions of curves to include in fan layers (0–1)
+    ax : matplotlib axis or None
     """
-    n_composites = composites_db.shape[0]
-    cmap_lower = plt.get_cmap("Blues")
-    cmap_upper = plt.get_cmap("Reds")
+
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(8, 4))
+
+    # -------------------------------------------------
+    # 1) Extract assigned responses
+    # -------------------------------------------------
+    idx = np.where(labels == composite_idx)[0]
+    if len(idx) == 0:
+        ax.set_title(f"Composite {composite_idx} (no members)")
+        return ax
+
+    curves = responses_db[idx]
+    comp = composites_db[composite_idx]
+
+    # -------------------------------------------------
+    # 2) Curve-wise distance (bandwise max deviation)
+    # -------------------------------------------------
+    delta = curves - comp
+    d = np.max(np.abs(delta), axis=1)
+
+    order = np.argsort(d)
+    curves = curves[order]
+    d = d[order]
+
+    # -------------------------------------------------
+    # 3) Fan layers (REAL envelopes)
+    # -------------------------------------------------
+    base_color = np.array([0.2, 0.4, 0.8])  # blue
+    n = len(curves)
+
+    for i, p in enumerate(percentiles):
+        k = max(1, int(np.ceil(p * n)))
+        band = curves[:k]
+
+        low = band.min(axis=0)
+        high = band.max(axis=0)
+
+        # darker = tighter core
+        alpha = 0.15 + 0.6 * (1 - i / max(1, len(percentiles) - 1))
+
+        ax.fill_between(
+            freq_hz,
+            low,
+            high,
+            color=base_color,
+            alpha=alpha,
+            linewidth=0,
+            label=f"{int(p * 100)}% curves" if i == 0 else None,
+        )
+
+    # -------------------------------------------------
+    # 4) Plot composite and median member
+    # -------------------------------------------------
+    ax.plot(freq_hz, comp, color="black", lw=2, label="Composite")
+
+    median_curve = curves[len(curves) // 2]
+    ax.plot(
+        freq_hz,
+        median_curve,
+        color="black",
+        lw=1,
+        ls="--",
+        alpha=0.8,
+        label="Median member",
+    )
+
+    # -------------------------------------------------
+    # 5) Optional bandwise limit annotation
+    # -------------------------------------------------
+    if max_band_dev_db is not None:
+        ax.plot(
+            freq_hz,
+            comp + max_band_dev_db,
+            color="red",
+            lw=1,
+            ls=":",
+            alpha=0.6,
+            label="Band limit",
+        )
+        ax.plot(
+            freq_hz,
+            comp - max_band_dev_db,
+            color="red",
+            lw=1,
+            ls=":",
+            alpha=0.6,
+        )
+
+    # -------------------------------------------------
+    # 6) Cosmetics
+    # -------------------------------------------------
+    ax.set_xscale("log")
+    ax.set_xlim(freq_hz[0], freq_hz[-1])
+    ax.set_xlabel("Frequency (Hz)")
+    ax.set_ylabel("Magnitude (dB)")
+    ax.set_title(
+        f"Composite {composite_idx} — {len(idx)} members\n"
+        f"Max deviation range: {d.min():.2f}–{d.max():.2f} dB"
+    )
+    ax.grid(True, which="both", ls=":", lw=0.5)
+    ax.legend(loc="best")
+
+    return ax
 
 
-    for k in range(n_composites):
-        plt.figure(figsize=(10, 6))
-        idx = np.where(labels == k)[0]
-        if len(idx) == 0:
-            continue
+def plot_composite_responses_on_grid(results, responses_db, freq_hz, author):
+    n_comp = results['composites_db'].shape[0]
+    cols = 3
+    rows = int(np.ceil(n_comp / cols))
 
-        entries = responses_db[idx]
-        # --- Upper fan ---
-        for i in range(len(upper_percentiles) - 1):
-            low = np.percentile(entries, upper_percentiles[i], axis=0)
-            high = np.percentile(entries, upper_percentiles[i + 1], axis=0)
-            alpha = 0.1 + 0.05 * i
-            plt.fill_between(freq_sel, low, high, color=cmap_upper(0.6), alpha=alpha, zorder=1)
+    band_mask = (freq_hz >= min_freq) & (freq_hz <= max_freq)
 
-        # --- Lower fan ---
-        for i in range(len(lower_percentiles) - 1):
-            low = np.percentile(entries, lower_percentiles[i], axis=0)
-            high = np.percentile(entries, lower_percentiles[i + 1], axis=0)
-            alpha = 0.1 + 0.05 * i
-            plt.fill_between(freq_sel, low, high, color=cmap_lower(0.6), alpha=alpha, zorder=1)
+    responses_band = responses_db[:, band_mask]
+    freq_band = freq_hz[band_mask]
 
-        # Median
-        median_curve = np.percentile(entries, 50, axis=0)
-        plt.plot(freq_sel, median_curve, color="C0", linewidth=2, label=f"Composite {k}" if k == 0 else None, zorder=2)
+    fig, axes = plt.subplots(rows, cols, figsize=(4 * cols, 3 * rows), sharex=True, sharey=True)
+    axes = axes.flat
 
-        # Nominal composite
-        plt.plot(freq_sel, composites_db[k], color="C1", linestyle="--", linewidth=1.8,
-                 label=f"Composite nominal" if k == 0 else None, zorder=3)
+    legend_handles = None
+    legend_labels = None
 
-        plt.xlabel("Frequency [Hz]")
-        plt.ylabel("Magnitude [dB]")
-        plt.title("Composite BEQ Curves vs Underlying")
-        plt.grid(True, alpha=0.3)
-        plt.legend()
-        plt.tight_layout()
-        plt.show()
+    for k in range(n_comp):
+        ax = axes[k]
+        plot_composite_responses(
+            freq_hz=freq_band,
+            responses_db=responses_band,
+            labels=results['labels'],
+            composites_db=results['composites_db'],
+            composite_idx=k,
+            max_band_dev_db=max_band_deviation,
+            ax=ax,
+        )
+        if legend_handles is None:
+            legend_handles, legend_labels = ax.get_legend_handles_labels()
+        # Remove per-axis legends
+        ax.legend_.remove() if ax.legend_ else None
+
+    for ax in axes[n_comp:]:
+        ax.axis("off")
+
+    # -------------------------------------------------
+    # Single shared legend
+    # -------------------------------------------------
+    fig.legend(
+        legend_handles,
+        legend_labels,
+        loc="lower right",
+        ncol=len(legend_labels),
+        frameon=False,
+        # bbox_to_anchor=(0.5, 1.02),
+    )
+
+    plt.tight_layout()
+    plt.show()
 
 
 if __name__ == '__main__':
@@ -589,7 +688,7 @@ if __name__ == '__main__':
         if author != 'aron7awol':
             continue
         responses_db = np.array([f['y'] - f['y'][-1] for f in data])
-        for i in range(32, 33, 1):
+        for i in range(6, 7, 1):
             results = build_beq_composites_pipeline(
                 responses_db=responses_db,
                 freq_hz=freq_hz,
@@ -602,11 +701,7 @@ if __name__ == '__main__':
                 pca_var=0.98,
                 outlier_rms_thresh=None
             )
-            plot_composite_responses_fan(
-                freq_sel=results["freq_sel"],
-                composites_db=results["composites_db"],
-                responses_db=responses_db[:, (freq_hz >= min_freq) & (freq_hz <= max_freq)],
-                labels=results["labels"]
-            )
+
+            plot_composite_responses_on_grid(results, responses_db, freq_hz, author)
 
     pass
