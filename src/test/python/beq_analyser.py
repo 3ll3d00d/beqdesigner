@@ -1,536 +1,475 @@
-from __future__ import annotations
-
-import csv
-from collections import Counter, defaultdict
-from dataclasses import dataclass
-from enum import Enum, auto
-from itertools import groupby
-from typing import Iterable
-
-import math
-import matplotlib.pyplot as plt
 import numpy as np
-
-from beq_loader import BEQFilter, load
-
-
-# ============================================================
-# Utility functions
-# ============================================================
-
-def weighted_rms(x: np.ndarray, y: np.ndarray, w: np.ndarray) -> float:
-    """Perceptually weighted RMS distance."""
-    d = x - y
-    return np.sqrt(np.sum(w * d * d) / np.sum(w))
+import matplotlib.pyplot as plt
+from dataclasses import dataclass, field
+from enum import Enum
+from scipy.spatial.distance import cdist
+from scipy.cluster.hierarchy import linkage, fcluster
+from scipy.stats import gaussian_kde
+from typing import List, Tuple, Dict
 
 
-# ============================================================
-# Rejection diagnostics
-# ============================================================
-
+# ------------------------------
+# Rejection reasons
+# ------------------------------
 class RejectionReason(Enum):
-    RMS_EXCEEDED = auto()
-    MAX_EXCEEDED = auto()
-    BOTH_EXCEEDED = auto()
+    RMS_EXCEEDED = 1
+    MAX_EXCEEDED = 2
+    BOTH_EXCEEDED = 3
+    COSINE_TOO_LOW = 4
+    DERIVATIVE_TOO_HIGH = 5
 
 
-@dataclass(frozen=True)
-class BEQRejection:
-    index: int
-    rms_value: float
-    max_value: float
-    reason: RejectionReason
-
-
-# ============================================================
-# Composite-level data
-# ============================================================
-
+# ------------------------------
+# Data classes
+# ------------------------------
 @dataclass
 class BEQComposite:
-    id: int
-    median_shape: np.ndarray
-    assignments: list[int]
-
-    # Diagnostics
-    deltas: list[float]  # RMS deviation per assignment
-    max_deltas: list[float]  # Max per-frequency deviation per assignment
-    worst_case_curve: np.ndarray
-    worst_case_dev: float
-
-    # Fan envelopes: n -> (min, max)
-    fan_envelopes: dict[int, tuple[np.ndarray, np.ndarray]]
+    shape: np.ndarray
+    assigned_indices: List[int] = field(default_factory=list)
+    deltas: List[float] = field(default_factory=list)
+    max_deltas: List[float] = field(default_factory=list)
+    derivative_deltas: List[float] = field(default_factory=list)
+    cosine_similarities: List[float] = field(default_factory=list)
+    worst_rms_index: int | None = None
+    worst_max_index: int | None = None
+    fan_envelopes: List[np.ndarray] = field(default_factory=list)
 
 
-# ============================================================
-# Pipeline result wrapper
-# ============================================================
+@dataclass
+class RejectionRecord:
+    reason: RejectionReason
+    rms_value: float
+    max_value: float
+    derivative_value: float
+    cosine_value: float
+
 
 @dataclass
 class BEQCompositePipelineResult:
-    composites: list[BEQComposite]
-
-    # Global / pipeline config
-    freqs: np.ndarray
-    band_limits: tuple[float, float]
-    fan_counts: list[int]
+    composites: List[BEQComposite]
+    rejections: Dict[int, RejectionRecord]
     rms_limit: float
     max_limit: float
-
-    # Catalogue accounting
-    catalogue_size: int
-    mapped_count: int
-    unmapped_count: int
-
-    # Rejection diagnostics
-    rejections: dict[int, BEQRejection]
-
-    # --------------------------------------------------------
-    # Diagnostic summary table
-    # --------------------------------------------------------
-    def diagnostic_table(self) -> str:
-        counts = Counter(r.reason for r in self.rejections.values())
-
-        lines = []
-        lines.append("BEQ COMPOSITE PIPELINE DIAGNOSTICS")
-        lines.append("-" * 44)
-        lines.append(f"Catalogue size        : {self.catalogue_size}")
-        lines.append(f"Mapped entries        : {self.mapped_count}")
-        lines.append(f"Unmapped entries      : {self.unmapped_count}")
-        lines.append("")
-        lines.append("Rejection breakdown:")
-        for reason in RejectionReason:
-            lines.append(
-                f"  {reason.name:<15}: {counts.get(reason, 0)}"
-            )
-        lines.append("")
-        lines.append("Assignment constraints:")
-        lines.append(f"  RMS limit           : {self.rms_limit:.2f} dB")
-        lines.append(f"  Max deviation limit : {self.max_limit:.2f} dB")
-        lines.append(f"  Band                : {self.band_limits[0]}–{self.band_limits[1]} Hz")
-
-        return "\n".join(lines)
+    cosine_limit: float
+    derivative_limit: float
 
 
-# ============================================================
-# Main pipeline
-# ============================================================
+@dataclass
+class AssignmentRecord:
+    entry_index: int
+    assigned_composite: int | None = None
+    rejected: bool = False
+    rejection_reason: RejectionReason | None = None
+    rms_value: float | None = None
+    max_value: float | None = None
+    derivative_value: float | None = None
+    cosine_value: float | None = None
 
+
+# ------------------------------
+# Helper functions
+# ------------------------------
+def rms(a: np.ndarray, weights: np.ndarray | None = None) -> float:
+    if weights is not None:
+        return float(np.sqrt(np.mean((a * weights) ** 2)))
+    return float(np.sqrt(np.mean(a ** 2)))
+
+
+def derivative_rms(a: np.ndarray) -> float:
+    return rms(np.diff(a))
+
+
+def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
+    norm = np.linalg.norm(a) * np.linalg.norm(b)
+    return float(np.dot(a, b) / norm) if norm != 0 else 1.0
+
+
+# ------------------------------
+# Pure NumPy K-medoids
+# ------------------------------
+def k_medoids(X: np.ndarray, n_clusters: int, max_iter: int = 100, random_state: int = 0) -> np.ndarray:
+    rng = np.random.default_rng(random_state)
+    n_samples = X.shape[0]
+    medoid_indices = rng.choice(n_samples, size=n_clusters, replace=False)
+
+    for _ in range(max_iter):
+        dists = np.linalg.norm(X[:, None, :] - X[medoid_indices][None, :, :], axis=2)
+        labels = np.argmin(dists, axis=1)
+
+        new_medoids = np.copy(medoid_indices)
+        for i in range(n_clusters):
+            cluster_points = X[labels == i]
+            if len(cluster_points) == 0:
+                continue
+            total_dists = np.sum(np.linalg.norm(cluster_points[:, None, :] - cluster_points[None, :, :], axis=2),
+                                 axis=1)
+            min_idx = np.argmin(total_dists)
+            new_medoids[i] = np.where((X == cluster_points[min_idx]).all(axis=1))[0][0]
+
+        if np.all(new_medoids == medoid_indices):
+            break
+        medoid_indices = new_medoids
+
+    return medoid_indices
+
+
+# ------------------------------
+# Assignment function
+# ------------------------------
+def assign_to_composites_with_record(
+        entry: np.ndarray,
+        composites: List[BEQComposite],
+        rms_limit: float,
+        max_limit: float,
+        cosine_limit: float,
+        derivative_limit: float,
+        entry_idx: int,
+        weights: np.ndarray | None = None
+) -> AssignmentRecord:
+    best_comp: BEQComposite | None = None
+    best_rms: float = np.inf
+    best_max: float = np.inf
+    best_deriv: float = np.inf
+    best_cos: float = -1.0
+    rejection: RejectionReason | None = None
+
+    for comp_idx, comp in enumerate(composites):
+        delta = entry - comp.shape
+        entry_rms = rms(delta, weights)
+        entry_max = float(np.max(np.abs(delta)))
+        entry_deriv = derivative_rms(delta)
+        entry_cos = cosine_similarity(entry, comp.shape)
+
+        reject: RejectionReason | None = None
+        if entry_rms > rms_limit and entry_max > max_limit:
+            reject = RejectionReason.BOTH_EXCEEDED
+        elif entry_rms > rms_limit:
+            reject = RejectionReason.RMS_EXCEEDED
+        elif entry_max > max_limit:
+            reject = RejectionReason.MAX_EXCEEDED
+        elif entry_cos < cosine_limit:
+            reject = RejectionReason.COSINE_TOO_LOW
+        elif entry_deriv > derivative_limit:
+            reject = RejectionReason.DERIVATIVE_TOO_HIGH
+
+        if reject is None and entry_rms < best_rms:
+            best_comp = comp
+            best_comp_idx = comp_idx
+            best_rms = entry_rms
+            best_max = entry_max
+            best_deriv = entry_deriv
+            best_cos = entry_cos
+            rejection = None
+        elif reject is not None and rejection is None:
+            rejection = reject
+            rms_val, max_val, deriv_val, cos_val = entry_rms, entry_max, entry_deriv, entry_cos
+
+    if best_comp is not None:
+        comp = best_comp
+        comp.assigned_indices.append(entry_idx)
+        comp.deltas.append(best_rms)
+        comp.max_deltas.append(best_max)
+        comp.derivative_deltas.append(best_deriv)
+        comp.cosine_similarities.append(best_cos)
+
+        if comp.worst_rms_index is None or best_rms > comp.deltas[comp.worst_rms_index]:
+            comp.worst_rms_index = len(comp.deltas) - 1
+        if comp.worst_max_index is None or best_max > comp.max_deltas[comp.worst_max_index]:
+            comp.worst_max_index = len(comp.max_deltas) - 1
+
+        return AssignmentRecord(
+            entry_index=entry_idx,
+            assigned_composite=best_comp_idx,
+            rejected=False,
+            rms_value=best_rms,
+            max_value=best_max,
+            derivative_value=best_deriv,
+            cosine_value=best_cos
+        )
+    else:
+        return AssignmentRecord(
+            entry_index=entry_idx,
+            rejected=True,
+            rejection_reason=rejection,
+            rms_value=rms_val,
+            max_value=max_val,
+            derivative_value=deriv_val,
+            cosine_value=cos_val
+        )
+
+
+# ------------------------------
+# Update composites
+# ------------------------------
+def update_composite_shapes(catalogue: np.ndarray, composites: List[BEQComposite]) -> None:
+    for comp in composites:
+        if comp.assigned_indices:
+            assigned = catalogue[comp.assigned_indices, :]
+            comp.shape = np.median(assigned, axis=0)
+
+
+# ------------------------------
+# Compute non-overlapping fan curves
+# ------------------------------
+def compute_fan_curves(catalogue: np.ndarray, composites: List[BEQComposite], fan_counts: Tuple[int, ...] = (5,)) -> None:
+    """
+    For each composite, compute non-overlapping fan levels of assigned curves.
+    Each fan level contains curves not in previous levels.
+    """
+    for comp in composites:
+        comp.fan_envelopes = []
+        if comp.assigned_indices:
+            assigned = catalogue[comp.assigned_indices, :]
+            # Rank by RMS distance to the composite
+            rms_dists = np.array([rms(c - comp.shape) for c in assigned])
+            sorted_idx = np.argsort(rms_dists)
+
+            previous = 0
+            for n in fan_counts:
+                n_curves = min(n, len(sorted_idx))
+                if n_curves > previous:
+                    comp.fan_envelopes.append(assigned[sorted_idx[previous:n_curves], :])
+                    previous = n_curves
+                else:
+                    # If not enough new curves, append empty array
+                    comp.fan_envelopes.append(np.empty((0, assigned.shape[1])))
+        else:
+            for _ in fan_counts:
+                comp.fan_envelopes.append(np.array([comp.shape]))
+
+
+# ------------------------------
+# Full pipeline
+# ------------------------------
 def build_beq_composites_pipeline(
         responses_db: np.ndarray,
         freqs: np.ndarray,
-        weights: np.ndarray,
-        band: tuple[float, float],
-        k: int,
+        weights: np.ndarray | None = None,
+        band: Tuple[float, float] = (5, 50),
+        k: int = 5,
         rms_limit: float = 5.0,
         max_limit: float = 5.0,
-        fan_counts: Iterable[int] = (5, 10, 20),
-        rng: np.random.Generator | None = None,
-) -> BEQCompositePipelineResult:
-    """
-    Build BEQ composites from magnitude responses using bounded assignment.
-    """
+        cosine_limit: float = 0.95,
+        derivative_limit: float = 2.0,
+        fan_counts: Tuple[int, ...] = (5,),
+        n_prototypes: int = 50
+) -> Tuple[BEQCompositePipelineResult, List[AssignmentRecord]]:
+    band_mask: np.ndarray = (freqs >= band[0]) & (freqs <= band[1])
+    catalogue: np.ndarray = responses_db[:, band_mask]
+    band_weights: np.ndarray | None = weights[band_mask] if weights is not None else None
 
-    rng = rng or np.random.default_rng()
+    # Step 1: k-medoids prototypes
+    if catalogue.shape[0] <= n_prototypes:
+        prototypes: np.ndarray = catalogue.copy()
+    else:
+        medoid_indices: np.ndarray = k_medoids(catalogue, n_prototypes, max_iter=100, random_state=0)
+        prototypes = catalogue[medoid_indices]
 
-    responses_db = np.asarray(responses_db, dtype=float)
-    freqs = np.asarray(freqs, dtype=float)
-    weights = np.asarray(weights, dtype=float)
+    # Step 2: Ward clustering
+    linkage_matrix: np.ndarray = linkage(prototypes, method='ward')
+    labels: np.ndarray = fcluster(linkage_matrix, t=k, criterion='maxclust')
 
-    N, n_freqs = responses_db.shape
+    # Step 3: median per cluster → composites
+    composite_shapes: List[np.ndarray] = []
+    for i in range(1, k + 1):
+        cluster_curves: np.ndarray = prototypes[labels == i]
+        median_shape: np.ndarray = np.median(cluster_curves, axis=0)
+        composite_shapes.append(median_shape)
+    composites: List[BEQComposite] = [BEQComposite(shape=c) for c in composite_shapes]
 
-    # --------------------------------------------------------
-    # Band selection
-    # --------------------------------------------------------
-    f_lo, f_hi = band
-    band_mask = (freqs >= f_lo) & (freqs <= f_hi)
+    # Step 4: assign all entries
+    assignment_table: List[AssignmentRecord] = []
+    for i, entry in enumerate(catalogue):
+        record: AssignmentRecord = assign_to_composites_with_record(entry, composites,
+                                                                    rms_limit, max_limit,
+                                                                    cosine_limit, derivative_limit,
+                                                                    i, weights=band_weights)
+        assignment_table.append(record)
 
-    freqs_band = freqs[band_mask]
-    weights_band = weights[band_mask]
+    # Step 5: recompute median composite shapes
+    update_composite_shapes(catalogue, composites)
 
-    # Mean-remove (shape extraction)
-    shapes = responses_db[:, band_mask]
-    shapes = shapes - shapes.mean(axis=1, keepdims=True)
+    # Step 6: compute fans
+    compute_fan_curves(catalogue, composites, fan_counts)
 
-    # --------------------------------------------------------
-    # Initial clustering (simple k-means-like seeding)
-    # --------------------------------------------------------
-    centers = shapes[rng.choice(N, size=k, replace=False)].copy()
-
-    for _ in range(10):
-        dists = np.array([
-            [weighted_rms(s, c, weights_band) for c in centers]
-            for s in shapes
-        ])
-        labels = dists.argmin(axis=1)
-        for j in range(k):
-            if np.any(labels == j):
-                centers[j] = np.median(shapes[labels == j], axis=0)
-
-    # --------------------------------------------------------
-    # Bounded assignment + rejection capture
-    # --------------------------------------------------------
-    assignments: list[list[int]] = [[] for _ in range(k)]
-    rejections: dict[int, BEQRejection] = {}
-
-    for i in range(N):
-        j = labels[i]
-        shape = shapes[i]
-        center = centers[j]
-
-        rms = weighted_rms(shape, center, weights_band)
-        max_dev = np.max(np.abs(shape - center))
-
-        rms_ok = rms <= rms_limit
-        max_ok = max_dev <= max_limit
-
-        if rms_ok and max_ok:
-            assignments[j].append(i)
-        else:
-            if not rms_ok and not max_ok:
-                reason = RejectionReason.BOTH_EXCEEDED
-            elif not rms_ok:
-                reason = RejectionReason.RMS_EXCEEDED
-            else:
-                reason = RejectionReason.MAX_EXCEEDED
-
-            rejections[i] = BEQRejection(
-                index=i,
-                rms_value=rms,
-                max_value=max_dev,
-                reason=reason,
-            )
-
-    # --------------------------------------------------------
-    # Build composites
-    # --------------------------------------------------------
-    fan_counts = sorted(set(int(n) for n in fan_counts))
-    composites: list[BEQComposite] = []
-
-    for cid, idxs in enumerate(assignments):
-        if not idxs:
-            composites.append(
-                BEQComposite(
-                    id=cid,
-                    median_shape=np.zeros_like(freqs_band),
-                    assignments=[],
-                    deltas=[],
-                    max_deltas=[],
-                    worst_case_curve=np.zeros_like(freqs_band),
-                    worst_case_dev=0.0,
-                    fan_envelopes={},
-                )
-            )
-            continue
-
-        curves = shapes[idxs]
-        median = np.median(curves, axis=0)
-
-        deltas = [weighted_rms(shapes[i], median, weights_band) for i in idxs]
-        max_deltas = [np.max(np.abs(shapes[i] - median)) for i in idxs]
-
-        worst_i = idxs[int(np.argmax(deltas))]
-        worst_curve = shapes[worst_i]
-        worst_dev = max(deltas)
-
-        # Fan envelopes based on curve-wise distance ordering
-        ordered = sorted(idxs, key=lambda i: weighted_rms(shapes[i], median, weights_band))
-
-        fan_env = {}
-        for n in fan_counts:
-            if n <= len(ordered):
-                sel = shapes[ordered[:n]]
-                fan_env[n] = (sel.min(axis=0), sel.max(axis=0))
-
-        composites.append(
-            BEQComposite(
-                id=cid,
-                median_shape=median,
-                assignments=idxs,
-                deltas=deltas,
-                max_deltas=max_deltas,
-                worst_case_curve=worst_curve,
-                worst_case_dev=worst_dev,
-                fan_envelopes=fan_env,
-            )
-        )
-
-    mapped_count = sum(len(c.assignments) for c in composites)
-
-    # --------------------------------------------------------
-    # Return result
-    # --------------------------------------------------------
-    return BEQCompositePipelineResult(
+    result: BEQCompositePipelineResult = BEQCompositePipelineResult(
         composites=composites,
-        freqs=freqs_band,
-        band_limits=band,
-        fan_counts=fan_counts,
+        rejections={r.entry_index: r for r in assignment_table if r.rejected},
         rms_limit=rms_limit,
         max_limit=max_limit,
-        catalogue_size=N,
-        mapped_count=mapped_count,
-        unmapped_count=len(rejections),
-        rejections=rejections,
+        cosine_limit=cosine_limit,
+        derivative_limit=derivative_limit
     )
 
+    return result, assignment_table
 
-# ============================================================
-# 3. Plotting function
-# ============================================================
 
-def plot_beq_composites(
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
+
+
+# ------------------------------
+# Assignment summary
+# ------------------------------
+def summarize_assignments(result: BEQCompositePipelineResult) -> None:
+    total_entries: int = sum(len(comp.assigned_indices) for comp in result.composites) + len(result.rejections)
+    print(f"Total catalogue entries: {total_entries}")
+
+    print("\nComposite assignment counts:")
+    for i, comp in enumerate(result.composites):
+        print(f"  Composite {i + 1}: {len(comp.assigned_indices)} assigned")
+
+    print(f"\nTotal assigned: {sum(len(c.assigned_indices) for c in result.composites)}")
+    print(f"Total rejected: {len(result.rejections)}")
+
+    reason_counts: Dict[RejectionReason, int] = {}
+    for rej in result.rejections.values():
+        reason_counts[rej.rejection_reason] = reason_counts.get(rej.rejection_reason, 0) + 1
+
+    print("\nRejection breakdown:")
+    for reason, count in reason_counts.items():
+        print(f"  {reason.name}: {count}")
+
+
+# ------------------------------
+# Plot fan chart with unique curves per level
+# ------------------------------
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
+
+def plot_fan_chart_curves(
+        catalogue: np.ndarray,
         result: BEQCompositePipelineResult,
-        ncols: int = 3,
-        figsize=(16, 10),
-        bins: int = 10
-):
-    """
-    Plot BEQ composites with fan envelopes, worst-case curves,
-    and histograms of RMS and max deviations per assigned curve.
-    """
+        assignment_table: List[AssignmentRecord],
+        freqs: np.ndarray
+) -> None:
+    n_comps: int = len(result.composites)
+    ncols: int = min(3, n_comps)
+    nrows: int = (n_comps + ncols - 1) // ncols
+    fig, axes = plt.subplots(nrows, ncols, figsize=(5*ncols, 3*nrows), sharex=True, sharey=True)
+    axes = np.array(axes).flatten() if n_comps > 1 else np.array([axes])
 
-    composites = result.composites
-    k = len(composites)
-    band_freqs = result.freqs[(result.freqs >= result.band_limits[0]) & (result.freqs <= result.band_limits[1])]
-    total = result.catalogue_size
+    for i, comp in enumerate(result.composites):
+        ax: Axes = axes[i]
 
-    nrows = math.ceil(k / ncols)
-    fig, axes = plt.subplots(nrows, ncols, figsize=figsize, sharex=True, sharey=False)
-    axes = np.atleast_1d(axes).ravel()
+        # -------------------
+        # Plot fan curves
+        # -------------------
+        n_levels = len(comp.fan_envelopes)
+        for idx, fan_curves in enumerate(comp.fan_envelopes):
+            if fan_curves.shape[0] == 0:
+                continue
+            alpha = 0.2 + 0.6 * idx / max(1, n_levels-1)
+            for curve in fan_curves:
+                ax.plot(freqs, curve, color='lightblue', lw=1, alpha=alpha, zorder=1)
 
-    # Fan style
-    fan_counts_sorted = sorted(result.fan_counts)
-    n_fan = len(fan_counts_sorted)
-    alpha_max, alpha_min = 0.35, 0.15
-    alphas = [alpha_max] if n_fan == 1 else np.linspace(alpha_max, alpha_min, n_fan)
-    fan_styles = {c: {"alpha": a, "label": f"Fan ({c})"} for c, a in zip(fan_counts_sorted, alphas)}
+        # -------------------
+        # Plot rejected curves
+        # -------------------
+        rejected_indices = [r.entry_index for r in assignment_table
+                            if r.rejected and r.assigned_composite == i]
+        if rejected_indices:
+            rejected_curves = catalogue[rejected_indices]
+            rms_vals = np.array([rms(c - comp.shape) for c in rejected_curves])
+            sort_idx = np.argsort(rms_vals)
+            cmap = plt.cm.Reds
+            n_rejected = len(sort_idx)
+            for j, idx_r in enumerate(sort_idx):
+                alpha = 0.2 + 0.6 * j / max(1, n_rejected-1)
+                ax.plot(freqs, rejected_curves[idx_r], color=cmap(0.6 + 0.4*j/max(1,n_rejected-1)),
+                        lw=1.5, alpha=alpha, zorder=2)
 
-    composite_kw = dict(color="black", lw=2.0, label="Composite")
-    worst_kw = dict(color="crimson", lw=1.5, ls="--", label="Worst-case curve")
+        # -------------------
+        # Plot composite
+        # -------------------
+        ax.plot(freqs, comp.shape, color='black', lw=2, label='Composite', zorder=3)
 
-    legend_handles, legend_labels = [], []
-
-    for i, ax in enumerate(axes):
-        if i >= k:
-            ax.axis("off")
-            continue
-
-        comp: BEQComposite = composites[i]
-
-        # Plot fan envelopes
-        for n in result.fan_counts:
-            if n in comp.fan_envelopes:
-                lo, hi = comp.fan_envelopes[n]
-                poly = ax.fill_between(band_freqs, lo, hi, **fan_styles[n])
-                if i == 0:
-                    legend_handles.append(poly)
-                    legend_labels.append(f"Fan ({n})")
-
-        # Plot median shape
-        comp_line, = ax.plot(band_freqs, comp.median_shape, **composite_kw)
-        if i == 0:
-            legend_handles.append(comp_line)
-            legend_labels.append("Composite")
-
-        # Plot worst-case curve
-        if comp.assignments:
-            worst_line, = ax.plot(band_freqs, comp.worst_case_curve, **worst_kw)
-            if i == 0:
-                legend_handles.append(worst_line)
-                legend_labels.append("Worst-case curve")
-
-        # --------------------------------------------------------
-        # Subplot title
-        # --------------------------------------------------------
-        n_assigned = len(comp.assignments)
-        pct = n_assigned / total * 100
-        ax.set_title(
-            f"C{comp.id:02d} | n={n_assigned} ({pct:.1f}%)\n"
-            f"worst RMS={comp.worst_case_dev:.2f} dB, "
-            f"band {result.band_limits[0]}–{result.band_limits[1]} Hz",
-            fontsize=9
-        )
+        ax.set_title(f"Composite {i+1} ({len(comp.assigned_indices)} assigned)")
         ax.grid(True, alpha=0.3)
+        if i % ncols == 0:
+            ax.set_ylabel('Magnitude (dB)')
+        if i >= ncols*(nrows-1):
+            ax.set_xlabel('Frequency (Hz)')
 
-        # --------------------------------------------------------
-        # Plot RMS and max deviation histograms in inset axes
-        # --------------------------------------------------------
-        if comp.deltas is not None and comp.max_deltas is not None:
-            # [x0, y0, width, height] in axes fraction coordinates = top right
-            inset_ax = ax.inset_axes([0.65, 0.55, 0.32, 0.35])
-            inset_ax.hist(comp.deltas, bins=bins, alpha=0.6, color='blue', label='RMS', range=(0.0, result.rms_limit), )
-            inset_ax.hist(comp.max_deltas, bins=bins, alpha=0.6, color='orange', label='Max')
-            # Show x and y axis scales
-            inset_ax.tick_params(axis='both', which='major', labelsize=6)
-            inset_ax.set_xlabel("dB", fontsize=6)
-            inset_ax.set_ylabel("Count", fontsize=6)
-            inset_ax.legend(fontsize=6)
-            inset_ax.set_xlim(0.0, max(result.rms_limit, result.max_limit))
+        # -------------------
+        # Inset RMS histogram (assigned vs rejected)
+        # -------------------
+        inset: Axes = ax.inset_axes([0.65, 0.65, 0.32, 0.32])
+        assigned_rms = np.array([rms(c - comp.shape) for idx in comp.assigned_indices
+                                 for c in [catalogue[idx]]])
+        rejected_rms = np.array([rms(c - comp.shape) for idx in rejected_indices
+                                 for c in [catalogue[idx]]])
+        if len(assigned_rms) > 0:
+            inset.hist(assigned_rms, bins=15, color='lightblue', alpha=0.7, label='Assigned')
+        if len(rejected_rms) > 0:
+            inset.hist(rejected_rms, bins=15, color='red', alpha=0.7, label='Rejected')
+        inset.set_title('RMS dist', fontsize=8)
+        inset.tick_params(axis='both', which='major', labelsize=6)
+        inset.legend(fontsize=6)
 
-    fig.supxlabel("Frequency (Hz)")
-    fig.supylabel("Magnitude (dB, mean-removed)")
+    # Remove unused subplots
+    for j in range(i+1, nrows*ncols):
+        fig.delaxes(axes[j])
 
-    # --------------------------------------------------------
-    # Shared legend
-    # --------------------------------------------------------
-    fig.legend(
-        legend_handles,
-        legend_labels,
-        loc="upper center",
-        ncol=len(legend_labels),
-        frameon=False,
-        bbox_to_anchor=(0.5, 0.98),
-    )
-    fig.subplots_adjust(top=0.88, hspace=0.35, wspace=0.25)
+    # Legend once only
+    handles, labels = axes[0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc='upper right', frameon=True)
+    plt.tight_layout()
     plt.show()
 
 
-import numpy as np
-import matplotlib.pyplot as plt
-from collections import defaultdict
-from scipy.stats import gaussian_kde
+# ------------------------------
+# RMS vs Max scatter with density
+# ------------------------------
+def plot_rms_max_scatter(result: BEQCompositePipelineResult) -> None:
+    all_rms: np.ndarray = np.concatenate([np.array(c.deltas) for c in result.composites])
+    all_max: np.ndarray = np.concatenate([np.array(c.max_deltas) for c in result.composites])
 
-def plot_rms_vs_max_scatter_with_rejected_density(result: BEQCompositePipelineResult):
-    """
-    RMS vs max-deviation scatter:
-      - Mapped points: black dots
-      - Mapped KDE contours: solid black
-      - Rejected points: color-coded 'x'
-      - Rejected density: semi-transparent heatmap
-      - Constraint lines
-      - Axes expanded to show all data
-    """
+    xy: np.ndarray = np.vstack([all_rms, all_max])
+    kde: np.ndarray = gaussian_kde(xy)(xy)
 
-    # --------------------------------------------------------
-    # Gather mapped data
-    # --------------------------------------------------------
-    mapped_rms = []
-    mapped_max = []
-    for comp in result.composites:
-        mapped_rms.extend(comp.deltas)
-        mapped_max.extend(comp.max_deltas)
-    mapped_rms = np.asarray(mapped_rms)
-    mapped_max = np.asarray(mapped_max)
+    plt.figure(figsize=(6, 5))
+    plt.scatter(all_rms, all_max, c=kde, s=20, cmap='viridis')
+    plt.xlabel('RMS deviation (dB)')
+    plt.ylabel('Max deviation (dB)')
+    plt.title('RMS vs Max-deviation scatter with density')
+    plt.grid(True, alpha=0.3)
+    plt.show()
 
-    # --------------------------------------------------------
-    # Gather rejected data
-    # --------------------------------------------------------
-    rejected_by_reason = defaultdict(lambda: ([], []))
-    rejected_rms = []
-    rejected_max = []
-    for r in result.rejections.values():
-        rejected_by_reason[r.reason][0].append(r.rms_value)
-        rejected_by_reason[r.reason][1].append(r.max_value)
-        rejected_rms.append(r.rms_value)
-        rejected_max.append(r.max_value)
-    rejected_rms = np.array(rejected_rms)
-    rejected_max = np.array(rejected_max)
 
-    # --------------------------------------------------------
-    # Compute axis limits
-    # --------------------------------------------------------
-    all_rms = np.concatenate([mapped_rms, rejected_rms])
-    all_max = np.concatenate([mapped_max, rejected_max])
-    x_min, x_max = 0, all_rms.max() * 1.05
-    y_min, y_max = 0, all_max.max() * 1.05
+# ------------------------------
+# Histograms from assignment table
+# ------------------------------
+def plot_histograms_from_table(assignment_table: List[AssignmentRecord]) -> None:
+    rms_vals: List[float] = [r.rms_value for r in assignment_table if not r.rejected and r.rms_value is not None]
+    max_vals: List[float] = [r.max_value for r in assignment_table if not r.rejected and r.max_value is not None]
 
-    fig, ax = plt.subplots(figsize=(8, 8))
+    fig: Figure
+    axes: np.ndarray
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
 
-    # --------------------------------------------------------
-    # Rejected density heatmap
-    # --------------------------------------------------------
-    if len(rejected_rms) > 10:
-        xy_rejected = np.vstack([rejected_rms, rejected_max])
-        kde_rejected = gaussian_kde(xy_rejected)
-        xi, yi = np.mgrid[x_min:x_max:300j, y_min:y_max:300j]
-        zi_rejected = kde_rejected(np.vstack([xi.ravel(), yi.ravel()])).reshape(xi.shape)
-        # Overlay as semi-transparent heatmap
-        ax.imshow(
-            zi_rejected.T,
-            origin='lower',
-            extent=[x_min, x_max, y_min, y_max],
-            cmap='Reds',
-            alpha=0.3,
-            aspect='auto',
-            zorder=1
-        )
+    axes[0].hist(rms_vals, bins=30, color='skyblue', edgecolor='black')
+    axes[0].set_xlabel('RMS deviation (dB)')
+    axes[0].set_ylabel('Count')
+    axes[0].set_title('Histogram of RMS deviations')
 
-    # --------------------------------------------------------
-    # KDE contours - mapped population
-    # --------------------------------------------------------
-    if len(mapped_rms) > 10:
-        xy_mapped = np.vstack([mapped_rms, mapped_max])
-        kde_mapped = gaussian_kde(xy_mapped)
-        xi, yi = np.mgrid[x_min:x_max:300j, y_min:y_max:300j]
-        zi_mapped = kde_mapped(np.vstack([xi.ravel(), yi.ravel()])).reshape(xi.shape)
-        levels_mapped = np.quantile(zi_mapped.ravel(), [0.5, 0.7, 0.85, 0.93, 0.97, 0.99])
-        ax.contour(
-            xi, yi, zi_mapped,
-            levels=levels_mapped,
-            colors='black',
-            linewidths=1.2,
-            alpha=0.9,
-            zorder=2
-        )
+    axes[1].hist(max_vals, bins=30, color='salmon', edgecolor='black')
+    axes[1].set_xlabel('Max deviation (dB)')
+    axes[1].set_ylabel('Count')
+    axes[1].set_title('Histogram of Max deviations')
 
-    # --------------------------------------------------------
-    # Scatter - mapped points
-    # --------------------------------------------------------
-    ax.scatter(
-        mapped_rms,
-        mapped_max,
-        s=15,
-        alpha=0.5,
-        color='black',
-        label='Mapped',
-        zorder=3
-    )
-
-    # --------------------------------------------------------
-    # Scatter - rejected points by reason
-    # --------------------------------------------------------
-    styles = {
-        RejectionReason.RMS_EXCEEDED: dict(color='tab:blue', marker='x', label='Rejected (RMS)'),
-        RejectionReason.MAX_EXCEEDED: dict(color='tab:orange', marker='x', label='Rejected (Max)'),
-        RejectionReason.BOTH_EXCEEDED: dict(color='tab:red', marker='x', label='Rejected (Both)'),
-    }
-
-    for reason, (xr, yr) in rejected_by_reason.items():
-        ax.scatter(
-            xr, yr,
-            s=25,
-            alpha=0.85,
-            **styles[reason],
-            zorder=4
-        )
-
-    # --------------------------------------------------------
-    # Constraint boundaries
-    # --------------------------------------------------------
-    ax.axvline(result.rms_limit, color='blue', ls='--', lw=1.2, label='RMS limit', zorder=5)
-    ax.axhline(result.max_limit, color='orange', ls='--', lw=1.2, label='Max limit', zorder=5)
-
-    # --------------------------------------------------------
-    # Formatting
-    # --------------------------------------------------------
-    ax.set_xlabel('RMS deviation (dB)')
-    ax.set_ylabel('Max per-frequency deviation (dB)')
-    ax.set_title('BEQ Assignment Diagnostics: RMS vs Max Deviation')
-    ax.grid(True, alpha=0.3)
-    ax.set_xlim(x_min, x_max)
-    ax.set_ylim(y_min, y_max)
-
-    ax.legend(frameon=False)
     plt.tight_layout()
     plt.show()
 
 
 def print_assignments(result: BEQCompositePipelineResult):
     with open('beq_composites.csv', 'w', newline='') as f:
+        import csv
         writer = csv.writer(f)
         writer.writerow(['composite_id', 'digest', 'content type', 'author', 'title', 'year', 'beqc url'])
         for comp in result.composites:
-            for idx in comp.assignments:
+            for idx in comp.assigned_indices:
+                from beq_loader import BEQFilter
                 underlying: BEQFilter = filters[idx]
                 writer.writerow([
                     comp.id,
@@ -544,6 +483,13 @@ def print_assignments(result: BEQCompositePipelineResult):
 
 
 if __name__ == '__main__':
+    min_freq = 5
+    max_freq = 50
+    fan_counts = (5, 10, 20, 50, 100)
+
+    from beq_loader import BEQFilter, load
+    from itertools import groupby
+
     catalogue: list[BEQFilter] = load()
 
     by_author = groupby(catalogue, lambda x: x.entry.author)
@@ -555,19 +501,25 @@ if __name__ == '__main__':
         responses_db = np.array([f.mag_db - f.mag_db[-1] for f in filters])
         weights = np.ones_like(freqs)
 
-        for i in range(6, 7, 1):
-            result: BEQCompositePipelineResult = build_beq_composites_pipeline(
+        for i in range(7, 8, 1):
+            result, assignment_table = build_beq_composites_pipeline(
                 responses_db=responses_db,
                 freqs=freqs,
                 weights=weights,
-                band=(5, 50),
+                band=(min_freq, max_freq),
                 k=i,
-                rms_limit=3.0,
-                max_limit=8.0,
-                fan_counts=[5, 10, 20, 50, 100],
+                rms_limit=10.0,
+                max_limit=10.0,
+                cosine_limit=0.95,
+                derivative_limit=1.0,
+                fan_counts=fan_counts,
+                n_prototypes=100
             )
 
-            print(result.diagnostic_table())
-            plot_beq_composites(result)
-            print_assignments(result)
-            plot_rms_vs_max_scatter_with_rejected_density(result)
+            # Diagnostics
+            summarize_assignments(result)
+            plot_histograms_from_table(assignment_table)
+            plot_fan_chart_curves(responses_db[:, (freqs >= min_freq) & (freqs <= max_freq)], result,
+                                  assignment_table,
+                                  freqs[(freqs >= min_freq) & (freqs <= max_freq)])
+            plot_rms_max_scatter(result)
