@@ -192,7 +192,7 @@ class MagnitudeModel:
         if isinstance(y_range_calc, DecibelRangeCalculator) and not y_range_calc.expand_range:
             y_range_calc.expand_range = preferences.get(GRAPH_EXPAND_Y)
         if x_lim is None:
-            x_lim = (preferences.get(x_min_pref_key), preferences.get(x_max_pref_key))
+            x_lim = (float(preferences.get(x_min_pref_key)), float(preferences.get(x_max_pref_key)))
         x_scale = preferences.get(x_scale_pref_key) if x_scale_pref_key else None
         self.limits = Limits(self.__repr__(), self.__redraw_func, primary_axes, x_axis_configurer=x_axis_configurer,
                              x_lim=x_lim, y1_range_calculator=y_range_calc, axes_2=secondary_axes,

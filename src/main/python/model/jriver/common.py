@@ -1,5 +1,5 @@
 import functools
-from typing import List, Tuple, Dict, Union
+from typing import List, Tuple, Dict
 
 import numpy as np
 from scipy.signal import unit_impulse
@@ -9,6 +9,9 @@ from model.signal import Signal
 
 USER_CHANNELS = ['User 1', 'User 2']
 SHORT_USER_CHANNELS = ['U1', 'U2']
+ATMOS_CHANNELS = ['Left Height Front', 'Right Height Front', 'Left Height Rear', 'Right Height Rear', 'Left Top Middle',
+                  'Right Top Middle', 'Left Width', 'Right Width']
+SHORT_ATMOS_CHANNELS = ['LHF', 'RHF', 'LHR', 'RHR', 'LTM', 'RTM', 'LW', 'RW']
 JRIVER_NAMED_CHANNELS = [None, None, 'Left', 'Right', 'Centre', 'Subwoofer', 'Surround Left', 'Surround Right',
                          'Rear Left', 'Rear Right', None] + USER_CHANNELS
 JRIVER_SHORT_NAMED_CHANNELS = [None, None, 'L', 'R', 'C', 'SW', 'SL', 'SR', 'RL', 'RR', None] + SHORT_USER_CHANNELS
