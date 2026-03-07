@@ -60,7 +60,14 @@ class CreateAVSPostDialog(QDialog, Ui_postbuilder):
             
     def __build_language_picker(self):
         _translate = QCoreApplication.translate
-        languages = ["Cantonese", "Danish", "English", "French", "German", "Hebrew", "Indonesian", "Italian", "Japanese", "Korean", "Mandarin", "Mayan", "Norwegian", "Portuguese", "Russian", "Spanish", "Swahili", "Vietnamese"]
+        languages = ["Danish", "French", "German", "Italian", "Norwegian", "Portuguese", "Russian", "Spanish",
+                     "Arabic", "Farsi", "Hebrew", "Turkish",
+                     "Hindi", "Tamil", "Telugu", "Bengal",
+                     "Cantonese", "Japanese", "Korean", "Mandarin",
+                     "Indonesian", "Thai", "Vietnamese",
+                     "Swahili",
+                     "Mayan"
+                     ]
         for language in languages:
             self.languagePicker.addItem(_translate("postbuilder", language))
 
