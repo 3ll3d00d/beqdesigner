@@ -65,7 +65,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
     The main UI.
     '''
 
-    def __init__(self, app, prefs, parent=None):
+    def __init__(self, app, prefs: Preferences, parent=None):
         super(BeqDesigner, self).__init__(parent)
         self.logger = logging.getLogger('beqdesigner')
         self.app = app

@@ -71,6 +71,7 @@ EXTRACTION_INCLUDE_ORIGINAL = 'extraction/include_original'
 EXTRACTION_INCLUDE_SUBTITLES = 'extraction/include_subtitles'
 EXTRACTION_COMPRESS = 'extraction/compress'
 EXTRACTION_COMPRESS_FORMAT = 'extraction/compress_format'
+EXTRACTION_GEOMETRY = 'extraction/geometry'
 
 ANALYSIS_RESOLUTION = 'analysis/resolution'
 ANALYSIS_RESOLUTION_DEFAULT = 1.0

@@ -17,7 +17,7 @@ from model.ffmpeg import Executor, ViewProbeDialog, SIGNAL_CONNECTED, SIGNAL_ERR
 from model.preferences import EXTRACTION_OUTPUT_DIR, EXTRACTION_NOTIFICATION_SOUND, ANALYSIS_TARGET_FS, \
     EXTRACTION_MIX_MONO, EXTRACTION_DECIMATE, EXTRACTION_INCLUDE_ORIGINAL, EXTRACTION_INCLUDE_SUBTITLES, \
     EXTRACTION_COMPRESS, COMPRESS_FORMAT_OPTIONS, COMPRESS_FORMAT_FLAC, COMPRESS_FORMAT_NATIVE, COMPRESS_FORMAT_EAC3, \
-    BASS_MANAGEMENT_LPF_FS, COMPRESS_FORMAT_AC3
+    BASS_MANAGEMENT_LPF_FS, COMPRESS_FORMAT_AC3, EXTRACTION_GEOMETRY, Preferences
 from model.signal import AutoWavLoader
 from ui.edit_mapping import Ui_editMappingDialog
 from ui.extract import Ui_extractAudioDialog
@@ -30,7 +30,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
     Allows user to load a signal, processing it if necessary.
     '''
 
-    def __init__(self, parent, preferences, signal_model, default_signal=None, is_remux=False):
+    def __init__(self, parent, preferences: Preferences, signal_model, default_signal=None, is_remux=False):
         super(ExtractAudioDialog, self).__init__(parent)
         self.setupUi(self)
         for f in COMPRESS_FORMAT_OPTIONS:
@@ -55,12 +55,24 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         if self.__is_remux:
             self.setWindowTitle('Remux Audio')
         self.showRemuxCommand.setVisible(self.__is_remux)
-        defaultOutputDir = self.__preferences.get(EXTRACTION_OUTPUT_DIR)
-        if os.path.isdir(defaultOutputDir):
-            self.targetDir.setText(defaultOutputDir)
+        default_output_dir = self.__preferences.get(EXTRACTION_OUTPUT_DIR)
+        if os.path.isdir(default_output_dir):
+            self.targetDir.setText(default_output_dir)
+        self.__restore_geometry()
         self.__reinit_fields()
         self.filterMapping.itemDoubleClicked.connect(self.show_mapping_dialog)
         self.inputDrop.callback = self.__handle_drop
+
+    def __restore_geometry(self):
+        ''' loads the saved window size '''
+        geometry = self.__preferences.get(EXTRACTION_GEOMETRY)
+        if geometry is not None:
+            self.restoreGeometry(geometry)
+
+    def closeEvent(self, QCloseEvent):
+        ''' Stores the window size on close '''
+        self.__preferences.set(EXTRACTION_GEOMETRY, self.saveGeometry())
+        super().closeEvent(QCloseEvent)
 
     def __handle_drop(self, file):
         if file.startswith('file:/'):
