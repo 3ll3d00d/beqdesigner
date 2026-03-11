@@ -80,17 +80,16 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         self.__disable_on_disconnect()
         self.filterMapping.itemDoubleClicked.connect(self.__show_mapping_dialog)
         self.__restore_geometry()
+        self.finished.connect(self.__on_finished)
+
+    def __on_finished(self):
+        self.__preferences.set(HTP1_SYNC_GEOMETRY, self.saveGeometry())
 
     def __restore_geometry(self):
         ''' loads the saved window size '''
         geometry = self.__preferences.get(HTP1_SYNC_GEOMETRY)
         if geometry is not None:
             self.restoreGeometry(geometry)
-
-    def closeEvent(self, QCloseEvent):
-        ''' Stores the window size on close '''
-        self.__preferences.set(HTP1_SYNC_GEOMETRY, self.saveGeometry())
-        super().closeEvent(QCloseEvent)
 
     def __on_ws_error(self, error_code):
         '''

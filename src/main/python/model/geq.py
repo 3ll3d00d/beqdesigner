@@ -73,6 +73,8 @@ class GeqDialog(QDialog, Ui_geqDialog):
             item: QListWidgetItem = self.channelList.item(i)
             item.setSelected(item.text() in selected_channels)
         self.__mag_update_timer.timeout.connect(self.__magnitude_model.redraw)
+        self.__restore_geometry()
+        self.finished.connect(self.__on_finish)
 
     def __load_filters(self, to_load: List[SOS]):
         valid = [f for f in to_load if isinstance(f, (PeakingEQ, LowShelf, HighShelf))]
@@ -145,7 +147,6 @@ class GeqDialog(QDialog, Ui_geqDialog):
 
     def accept(self):
         self.__on_save([c.text() for c in self.channelList.selectedItems()], self.__get_filters(include_zero=True))
-        self.prefs.set(GEQ_GEOMETRY, self.saveGeometry())
         super().accept()
 
     def __restore_geometry(self):
@@ -154,9 +155,8 @@ class GeqDialog(QDialog, Ui_geqDialog):
         if geometry is not None:
             self.restoreGeometry(geometry)
 
-    def reject(self):
+    def __on_finish(self):
         self.prefs.set(GEQ_GEOMETRY, self.saveGeometry())
-        super().reject()
 
 
 class PeqEditor:

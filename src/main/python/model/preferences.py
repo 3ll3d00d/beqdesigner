@@ -448,6 +448,7 @@ class Preferences:
             self.__settings.remove(key)
         else:
             self.__settings.setValue(key, value)
+        self.__settings.sync()
 
     def clear_all(self, prefix):
         ''' clears all under the given group '''

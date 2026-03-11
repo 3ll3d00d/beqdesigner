@@ -24,7 +24,7 @@ from model.preferences import REPORT_TITLE_FONT_SIZE, REPORT_IMAGE_ALPHA, REPORT
     REPORT_GEOMETRY, REPORT_LAYOUT_SPLIT_DIRECTION, REPORT_LAYOUT_TYPE, REPORT_CHART_LIMITS_X0, \
     REPORT_CHART_LIMITS_X_SCALE, REPORT_CHART_LIMITS_X1, REPORT_FILTER_FONT_SIZE, REPORT_FILTER_SHOW_HEADER, \
     REPORT_GROUP, REPORT_LAYOUT_WSPACE, REPORT_LAYOUT_HSPACE, DISPLAY_SHOW_SIGNALS, DISPLAY_SHOW_FILTERED_SIGNALS, \
-    STYLE_IMAGE_FORMAT_DEFAULT
+    STYLE_IMAGE_FORMAT_DEFAULT, Preferences
 from model.signal import get_visible_signal_name_filter
 from ui.report import Ui_saveReportDialog
 
@@ -38,7 +38,7 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
     Save Report dialog
     '''
 
-    def __init__(self, parent, preferences, signal_model, filter_model, status_bar, selected_signal):
+    def __init__(self, parent, preferences: Preferences, signal_model, filter_model, status_bar, selected_signal):
         super(SaveReportDialog, self).__init__(parent)
         self.__table = None
         self.__selected_signal = selected_signal
@@ -82,6 +82,7 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
             self.curves.selectAll()
         self.preview.canvas.mpl_connect('resize_event', self.__canvas_size_to_xy)
         self.title.setText(self.__selected_signal.name if self.__selected_signal else 'No Signal Selected')
+        self.finished.connect(self.__on_finished)
         # init fields
         self.__restore_geometry()
         self.restore_layout(redraw=True)
@@ -607,10 +608,8 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
         final_image.save(output_file, **more_args)
         return True
 
-    def closeEvent(self, QCloseEvent):
-        ''' Stores the window size on close '''
+    def __on_finished(self):
         self.__preferences.set(REPORT_GEOMETRY, self.saveGeometry())
-        super().closeEvent(QCloseEvent)
 
     def save_layout(self):
         '''

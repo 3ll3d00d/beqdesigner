@@ -91,6 +91,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
                                                 y_range_calc=DecibelRangeCalculator(60),
                                                 y2_range_calc=PhaseRangeCalculator(), show_y2_in_legend=False)
         self.__restore_geometry()
+        self.finished.connect(self.__on_finish)
 
     def __show_timing_dialog(self):
         if self.__dsp:
@@ -1239,10 +1240,9 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
     def show_phase_response(self):
         self.redraw()
 
-    def closeEvent(self, event: QCloseEvent):
+    def __on_finish(self):
         ''' Stores the window size on close. '''
         self.prefs.set(JRIVER_GEOMETRY, self.saveGeometry())
-        super().closeEvent(event)
 
 
 class MSODialog(QDialog, Ui_msoDialog):
@@ -1630,6 +1630,7 @@ class XODialog(QDialog, Ui_xoDialog):
         self.__existing = existing
         self.linkChannelsButton.setFocus()
         self.__restore_geometry()
+        self.finished.connect(self.__on_finished)
 
     def __show_timing_dialog(self):
         signals = {s: True for s in self.__get_previewed_signals()}
@@ -1789,14 +1790,12 @@ class XODialog(QDialog, Ui_xoDialog):
         for e in self.__editors:
             e.update_output_channels(self.__matrix.get_output_channels_for(e.underlying_channels))
 
+    def __on_finished(self):
+        self.prefs.set(XO_GEOMETRY, self.saveGeometry())
+
     def accept(self):
         self.__on_save(self.__make_filters())
-        self.prefs.set(XO_GEOMETRY, self.saveGeometry())
         super().accept()
-
-    def reject(self):
-        self.prefs.set(XO_GEOMETRY, self.saveGeometry())
-        super().reject()
 
     def __get_lfe_metadata(self) -> Tuple[int, int, int]:
         '''

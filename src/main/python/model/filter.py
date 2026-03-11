@@ -337,6 +337,11 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.filterType.setFocus()
         self.__enable_add_more_buttons(self.__add_snapshot_buttons, filter_model)
         self.__enable_add_more_buttons(self.__add_working_buttons, filter_model)
+        self.finished.connect(self.__on_finished)
+
+    def __on_finished(self):
+        if self.__small_mode is False:
+            self.__preferences.set(FILTERS_GEOMETRY, self.saveGeometry())
 
     def __restore_geometry(self):
         ''' loads the saved window size '''
@@ -346,12 +351,6 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
             geometry = self.__preferences.get(FILTERS_GEOMETRY)
             if geometry is not None:
                 self.restoreGeometry(geometry)
-
-    def closeEvent(self, QCloseEvent):
-        ''' Stores the window size on close '''
-        if self.__small_mode is False:
-            self.__preferences.set(FILTERS_GEOMETRY, self.saveGeometry())
-        super().closeEvent(QCloseEvent)
 
     def __select_working_filter(self):
         ''' Loads the selected filter into the edit fields. '''

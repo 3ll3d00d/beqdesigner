@@ -62,17 +62,16 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         self.__reinit_fields()
         self.filterMapping.itemDoubleClicked.connect(self.show_mapping_dialog)
         self.inputDrop.callback = self.__handle_drop
+        self.finished.connect(self.__on_finished)
+
+    def __on_finished(self):
+        self.__preferences.set(EXTRACTION_GEOMETRY, self.saveGeometry())
 
     def __restore_geometry(self):
         ''' loads the saved window size '''
         geometry = self.__preferences.get(EXTRACTION_GEOMETRY)
         if geometry is not None:
             self.restoreGeometry(geometry)
-
-    def closeEvent(self, QCloseEvent):
-        ''' Stores the window size on close '''
-        self.__preferences.set(EXTRACTION_GEOMETRY, self.saveGeometry())
-        super().closeEvent(QCloseEvent)
 
     def __handle_drop(self, file):
         if file.startswith('file:/'):
