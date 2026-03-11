@@ -19,7 +19,7 @@ from model.waveform import WaveformController
 from model.checker import VersionChecker, ReleaseNotesDialog
 from model.report import SaveReportDialog, block_signals
 from model.preferences import DISPLAY_SHOW_FILTERED_SIGNALS, SYSTEM_CHECK_FOR_UPDATES, BIQUAD_EXPORT_MAX, \
-    BIQUAD_EXPORT_FS, BIQUAD_EXPORT_DEVICE, SHOW_NO_FILTERS, SYSTEM_CHECK_FOR_BETA_UPDATES
+    BIQUAD_EXPORT_FS, BIQUAD_EXPORT_DEVICE, SHOW_NO_FILTERS, SYSTEM_CHECK_FOR_BETA_UPDATES, APP_FONT_SIZE
 
 from ui.delegates import RegexValidator
 
@@ -1370,7 +1370,13 @@ def make_app():
         icon_path = os.path.abspath(os.path.join(os.path.dirname('__file__'), '../icons/Icon.ico'))
     if os.path.exists(icon_path):
         app.setWindowIcon(QIcon(icon_path))
-    return app, Preferences(QSettings("3ll3d00d", "beqdesigner"))
+    prefs = Preferences(QSettings("3ll3d00d", "beqdesigner"))
+    font_size = prefs.get(APP_FONT_SIZE, default_if_unset=False)
+    if font_size:
+        new_font = app.font()
+        new_font.setPointSizeF(font_size)
+        app.setFont(new_font)
+    return app, prefs
 
 
 if __name__ == '__main__':
