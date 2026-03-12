@@ -94,6 +94,11 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
             else:
                 style.use(matplotlib_theme)
 
+        matplotlib.rc('xtick', labelsize='small')
+        matplotlib.rc('ytick', labelsize='small')
+        matplotlib.rc('axes', labelsize='small')
+        matplotlib.rc('axes', titlesize='medium')
+        matplotlib.rc('legend', fontsize='small')
         pg.setConfigOption('background', matplotlib.colors.to_hex(matplotlib.rcParams['axes.facecolor']))
         pg.setConfigOption('foreground', matplotlib.colors.to_hex(matplotlib.rcParams['axes.edgecolor']))
         pg.setConfigOption('leftButtonPan', False)
