@@ -13,7 +13,7 @@ from qtpy.QtWidgets import QDialog, QFileDialog
 from model.iir import Gain
 from model.merge import DspType
 from model.minidsp import HDXmlParser
-from model.preferences import BEQ_DOWNLOAD_DIR
+from model.preferences import BEQ_DOWNLOAD_DIR, Preferences, POST_GEOMETRY
 from ui.postbuilder import Ui_postbuilder
 
 logger = logging.getLogger('postbuilder')
@@ -33,7 +33,7 @@ class CreateAVSPostDialog(QDialog, Ui_postbuilder):
     Create AVS Post dialog
     '''
 
-    def __init__(self, parent, prefs, filter_model, selected_signal):
+    def __init__(self, parent, prefs: Preferences, filter_model, selected_signal):
         super(CreateAVSPostDialog, self).__init__(parent)
         self.setupUi(self)
         self.__build_source_picker()
@@ -51,6 +51,17 @@ class CreateAVSPostDialog(QDialog, Ui_postbuilder):
         self.genres = None
         self.collection = None
         self.__tmdb_spinner = None
+        self.finished.connect(self.__on_finished)
+        self.__restore_geometry()
+
+    def __on_finished(self):
+        self.__preferences.set(POST_GEOMETRY, self.saveGeometry())
+
+    def __restore_geometry(self):
+        ''' loads the saved window size '''
+        geometry = self.__preferences.get(POST_GEOMETRY)
+        if geometry is not None:
+            self.restoreGeometry(geometry)
 
     def __build_source_picker(self):
         _translate = QCoreApplication.translate

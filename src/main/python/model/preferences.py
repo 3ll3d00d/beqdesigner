@@ -204,6 +204,7 @@ IMPULSE_GEOMETRY = 'impulse/geometry'
 IMPULSE_GRAPH_X_MIN = 'impulse/x_min'
 IMPULSE_GRAPH_X_MAX = 'impulse/x_max'
 
+POST_GEOMETRY = 'post/geometry'
 
 MINIDSP_RS_OPTIONS = 'minidsp/rs_options'
 
