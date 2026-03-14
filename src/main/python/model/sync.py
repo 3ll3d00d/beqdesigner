@@ -1,9 +1,9 @@
 import json
 import logging
-import math
 from collections import OrderedDict
 from pathlib import Path
 
+import math
 import qtawesome as qta
 from awesomeversion import AwesomeVersion
 from qtpy import QtWebSockets
@@ -16,6 +16,7 @@ from model.limits import DecibelRangeCalculator
 from model.magnitude import MagnitudeModel
 from model.preferences import get_filter_colour, HTP1_ADDRESS, HTP1_AUTOSYNC, HTP1_SYNC_GEOMETRY, HTP1_GRAPH_X_MAX, \
     HTP1_GRAPH_X_MIN
+from mpl import NoCaretStyle
 from ui.edit_mapping import Ui_editMappingDialog
 from ui.syncdetails import Ui_syncDetailsDialog
 from ui.synchtp1 import Ui_syncHtp1Dialog
@@ -42,6 +43,7 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         self.__supports_shelf = False
         self.__channel_to_signal = {}
         self.setupUi(self)
+        self.filterView.setStyle(NoCaretStyle())
         self.setWindowFlag(Qt.WindowType.WindowMinimizeButtonHint)
         self.setWindowFlag(Qt.WindowType.WindowMaximizeButtonHint)
         self.syncStatus = qta.IconWidget('fa5s.unlink')

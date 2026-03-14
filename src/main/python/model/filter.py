@@ -1,11 +1,11 @@
 import json
 import logging
-import math
 from collections import defaultdict
 from collections.abc import Sequence
 from typing import Optional, Type, Tuple, Any, List
 from uuid import uuid4
 
+import math
 import qtawesome as qta
 from qtpy import QtCore
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt, QTimer
@@ -21,6 +21,7 @@ from model.preferences import SHOW_ALL_FILTERS, SHOW_NO_FILTERS, FILTER_COLOURS,
     DISPLAY_GAIN_STEP, DISPLAY_S_STEP, DISPLAY_FREQ_STEP, get_filter_colour, FILTERS_DEFAULT_Q, FILTERS_DEFAULT_FREQ, \
     FILTERS_GEOMETRY, FILTERS_DEFAULT_HS_FREQ, FILTERS_DEFAULT_HS_Q, FILTERS_DEFAULT_PEAK_FREQ, FILTERS_DEFAULT_PEAK_Q
 from model.xy import MagnitudeData, ComplexData
+from mpl import NoCaretStyle
 from ui.filter import Ui_editFilterDialog
 
 logger = logging.getLogger('filter')
@@ -264,6 +265,8 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
         self.__freq_step_idx = self.__get_step(self.freq_steps, self.__preferences.get(DISPLAY_FREQ_STEP), 2)
         # init the UI itself
         self.setupUi(self)
+        self.snapshotFilterView.setStyle(NoCaretStyle())
+        self.workingFilterView.setStyle(NoCaretStyle())
         custom_window_title = kwargs.pop('window_title', None)
         if custom_window_title:
             self.setWindowTitle(custom_window_title)

@@ -5,6 +5,7 @@ import requests
 from qtpy.QtCore import Signal, QRunnable, QObject, QAbstractTableModel, QModelIndex, Qt, QVariant
 from qtpy.QtWidgets import QDialog
 
+from mpl import NoCaretStyle
 from ui.newversion import Ui_newVersionDialog
 
 logger = logging.getLogger('checker')
@@ -86,6 +87,7 @@ class ReleaseNotesDialog(QDialog, Ui_newVersionDialog):
     def __init__(self, parent, new_versions, issues):
         super(ReleaseNotesDialog, self).__init__(parent)
         self.setupUi(self)
+        self.versionTable.setStyle(NoCaretStyle())
         self.__versions = new_versions
         for v in self.__versions:
             v['release_notes'] = self.__convert_to_html(self.__format(v), issues)

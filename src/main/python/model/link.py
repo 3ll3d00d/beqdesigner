@@ -5,6 +5,7 @@ from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt
 from qtpy.QtWidgets import QDialog, QPushButton, QHeaderView
 from sortedcontainers import SortedDict, SortedSet
 
+from mpl import NoCaretStyle
 from ui.delegates import CheckBoxDelegate
 from ui.link import Ui_linkSignalDialog
 
@@ -163,6 +164,7 @@ class LinkSignalsDialog(QDialog, Ui_linkSignalDialog):
     def __init__(self, signal_model, parent=None):
         super(LinkSignalsDialog, self).__init__(parent=parent)
         self.setupUi(self)
+        self.linkSignals.setStyle(NoCaretStyle())
         self.__model = LinkedSignalsModel(signal_model)
         self.__signal_model = signal_model
         self.__table_model = LinkedSignalsTableModel(self.__model, parent=parent)

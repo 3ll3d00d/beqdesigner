@@ -3,7 +3,6 @@ from __future__ import annotations
 import itertools
 import json
 import logging
-import math
 import os
 import sys
 import xml.etree.ElementTree as et
@@ -11,11 +10,14 @@ from builtins import isinstance
 from pathlib import Path
 from typing import Dict, Optional, List, Tuple, Callable, Set, Any, Sequence
 
+import math
 import qtawesome as qta
 from qtpy.QtCore import QPoint, QModelIndex, Qt, QTimer, QAbstractTableModel, QVariant, QSize
-from qtpy.QtGui import QColor, QPalette, QKeySequence, QCloseEvent, QShowEvent, QFont, QIcon, QGuiApplication
-from qtpy.QtWidgets import QDialog, QFileDialog, QMenu, QAction, QListWidgetItem, QMessageBox, QInputDialog, QDialogButtonBox, QAbstractItemView, QWidget, \
-    QFrame, QVBoxLayout, QHBoxLayout, QLabel, QSpinBox, QCheckBox, QSpacerItem, QSizePolicy, QGridLayout, QPushButton, QDoubleSpinBox, QAbstractSpinBox, \
+from qtpy.QtGui import QColor, QPalette, QKeySequence, QShowEvent, QFont, QIcon, QGuiApplication
+from qtpy.QtWidgets import QDialog, QFileDialog, QMenu, QAction, QListWidgetItem, QMessageBox, QInputDialog, \
+    QDialogButtonBox, QAbstractItemView, QWidget, \
+    QFrame, QVBoxLayout, QHBoxLayout, QLabel, QSpinBox, QCheckBox, QSpacerItem, QSizePolicy, QGridLayout, QPushButton, \
+    QDoubleSpinBox, QAbstractSpinBox, \
     QComboBox, QHeaderView, QListWidget, QTableWidgetItem
 
 from model.filter import FilterModel, FilterDialog
@@ -23,11 +25,15 @@ from model.iir import SOS, CompleteFilter, FilterType, ComplexLowPass, ComplexHi
 from model.impulse import ImpulseDialog
 from model.jriver import JRIVER_FS, flatten, ImpossibleRoutingError, s2f
 from model.jriver.codec import get_element, xpath_to_key_data_value, write_dsp_file, get_peq_key_name
-from model.jriver.common import get_channel_name, get_channel_idx, OutputFormat, SHORT_USER_CHANNELS, make_dirac_pulse, OUTPUT_FORMATS
+from model.jriver.common import get_channel_name, get_channel_idx, OutputFormat, SHORT_USER_CHANNELS, make_dirac_pulse, \
+    OUTPUT_FORMATS
 from model.jriver.dsp import JRiverDSP
-from model.jriver.filter import Divider, GEQFilter, CompoundRoutingFilter, CustomPassFilter, GainQFilter, Gain, Pass, LinkwitzTransform, Polarity, Mix, Delay, \
-    Filter, create_single_filter, MixType, ChannelFilter, convert_filter_to_mc_dsp, SingleFilter, XOFilter, HighPass, LowPass, SimulationFailed, MSOFilter, \
-    MDSXO, WayValues, MultiwayFilter, WayDescriptor, CompositeXODescriptor, MDSPoint, XODescriptor, MultiChannelSystem, LFE_ADJUST_KEY, EDITORS_KEY, \
+from model.jriver.filter import Divider, GEQFilter, CompoundRoutingFilter, CustomPassFilter, GainQFilter, Gain, Pass, \
+    LinkwitzTransform, Polarity, Mix, Delay, \
+    Filter, create_single_filter, MixType, ChannelFilter, convert_filter_to_mc_dsp, SingleFilter, XOFilter, HighPass, \
+    LowPass, SimulationFailed, MSOFilter, \
+    MDSXO, WayValues, MultiwayFilter, WayDescriptor, CompositeXODescriptor, MDSPoint, XODescriptor, MultiChannelSystem, \
+    LFE_ADJUST_KEY, EDITORS_KEY, \
     EDITOR_NAME_KEY, UNDERLYING_KEY, WAYS_KEY, SYM_KEY, LFE_IN_KEY, ROUTING_KEY
 from model.jriver.mcws import MediaServer, MCWSError, DSPMismatchError
 from model.jriver.parser import from_mso
@@ -35,10 +41,12 @@ from model.jriver.render import render_dot
 from model.jriver.routing import Matrix
 from model.limits import DecibelRangeCalculator, PhaseRangeCalculator
 from model.magnitude import MagnitudeModel
-from model.preferences import JRIVER_GEOMETRY, JRIVER_GRAPH_X_MIN, JRIVER_GRAPH_X_MAX, JRIVER_DSP_DIR, get_filter_colour, Preferences, XO_GEOMETRY, \
+from model.preferences import JRIVER_GEOMETRY, JRIVER_GRAPH_X_MIN, JRIVER_GRAPH_X_MAX, JRIVER_DSP_DIR, \
+    get_filter_colour, Preferences, XO_GEOMETRY, \
     JRIVER_MCWS_CONNECTIONS
 from model.signal import Signal
 from model.xy import MagnitudeData
+from mpl import NoCaretStyle
 from ui.channel_matrix import Ui_channelMatrixDialog
 from ui.channel_select import Ui_channelSelectDialog
 from ui.delegates import CheckBoxDelegate, FreqRangeEditor
@@ -2529,6 +2537,7 @@ class MatrixDialog(QDialog, Ui_channelMatrixDialog):
                  re_init: Callable[[], Matrix]):
         super(MatrixDialog, self).__init__(parent)
         self.setupUi(self)
+        self.matrix.setStyle(NoCaretStyle())
         self.errorMessage.setStyleSheet('color: red')
         self.__re_init = re_init
         self.buttonBox.button(QDialogButtonBox.StandardButton.Reset).clicked.connect(self.__reinit_propagate)

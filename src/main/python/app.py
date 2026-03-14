@@ -1,13 +1,14 @@
 import gzip
 import json
 import logging
-import math
 import os
 import re
 import sys
 from collections import abc
 from contextlib import contextmanager
 from typing import Optional
+
+import math
 
 os.environ['QT_API'] = 'pyqt6'
 os.environ['PYQTGRAPH_QT_LIB'] = 'PyQt6'
@@ -42,6 +43,7 @@ from model.preferences import PreferencesDialog, BINARIES_GROUP, ANALYSIS_TARGET
     DISPLAY_SHOW_LEGEND, DISPLAY_SHOW_FILTERS, SHOW_FILTER_OPTIONS, SHOW_SIGNAL_OPTIONS, DISPLAY_SHOW_SIGNALS, \
     SHOW_FILTERED_SIGNAL_OPTIONS
 from ui.beq import Ui_MainWindow
+from mpl import NoCaretStyle
 
 logger = logging.getLogger('beq')
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
@@ -139,6 +141,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
                                           on_update=self.on_filter_change)
         self.__filter_table_model = FilterTableModel(self.__filter_model, parent=parent)
         self.filterView.setModel(self.__filter_table_model)
+        self.filterView.setStyle(NoCaretStyle())
         self.filterView.selectionModel().selectionChanged.connect(self.on_filter_selected)
         self.filterView.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         for i in range(1, 4):
@@ -725,6 +728,8 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         window_state = self.preferences.get(SCREEN_WINDOW_STATE)
         if window_state is not None:
             self.restoreState(window_state)
+        self.signalView.setStyle(NoCaretStyle())
+        self.filterView.setStyle(NoCaretStyle())
 
     def closeEvent(self, *args, **kwargs):
         '''
@@ -1440,5 +1445,3 @@ class NoFillDoubleSpinBox(QtWidgets.QDoubleSpinBox):
     def textFromValue(self, p_float: float):
         txt = super().textFromValue(p_float).rstrip('0')
         return f"{txt}0" if p_float.is_integer() else txt
-
-
