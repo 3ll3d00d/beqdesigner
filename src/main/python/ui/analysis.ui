@@ -22,16 +22,16 @@
      <item row="0" column="0">
       <widget class="QFrame" name="analysisFrame">
        <property name="frameShape">
-        <enum>QFrame::Box</enum>
+        <enum>QFrame::Shape::Box</enum>
        </property>
        <property name="frameShadow">
-        <enum>QFrame::Sunken</enum>
+        <enum>QFrame::Shadow::Sunken</enum>
        </property>
        <layout class="QGridLayout" name="formLayout">
         <item row="5" column="1" colspan="2">
          <widget class="Line" name="line">
           <property name="orientation">
-           <enum>Qt::Horizontal</enum>
+           <enum>Qt::Orientation::Horizontal</enum>
           </property>
          </widget>
         </item>
@@ -83,7 +83,7 @@
         <item row="10" column="1" colspan="3">
          <spacer name="verticalSpacer">
           <property name="orientation">
-           <enum>Qt::Vertical</enum>
+           <enum>Qt::Orientation::Vertical</enum>
           </property>
           <property name="sizeHint" stdset="0">
            <size>
@@ -138,399 +138,414 @@
         </attribute>
         <layout class="QGridLayout" name="gridLayout_3">
          <item row="0" column="0">
-          <layout class="QGridLayout" name="spectrumControlsLayout" columnstretch="0,0,0,0,0,0,0,0,0,0,0,0">
-           <item row="0" column="11" rowspan="3">
-            <layout class="QVBoxLayout" name="buttonBoxLayout">
-             <item>
-              <widget class="QPushButton" name="saveChart">
+          <widget class="QScrollArea" name="spectrumControlsScrollArea">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="widgetResizable">
+            <bool>true</bool>
+           </property>
+           <widget class="QWidget" name="spectrumControlsScrollAreaWidgetContents">
+            <property name="geometry">
+             <rect>
+              <x>0</x>
+              <y>0</y>
+              <width>1205</width>
+              <height>128</height>
+             </rect>
+            </property>
+            <layout class="QGridLayout" name="spectrumControlsLayout" columnstretch="0,0,0,0,0,0,0,0,0,0,0,0">
+             <item row="0" column="11" rowspan="3">
+              <layout class="QVBoxLayout" name="buttonBoxLayout">
+               <item>
+                <widget class="QPushButton" name="saveChart">
+                 <property name="text">
+                  <string>Save Chart</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QPushButton" name="updateChart">
+                 <property name="text">
+                  <string>Update</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QPushButton" name="saveLayout">
+                 <property name="text">
+                  <string>Save Layout</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </item>
+             <item row="2" column="6">
+              <layout class="QHBoxLayout" name="horizontalLayout">
+               <item>
+                <widget class="QSpinBox" name="maxFilteredFreq">
+                 <property name="minimum">
+                  <number>1</number>
+                 </property>
+                 <property name="maximum">
+                  <number>24000</number>
+                 </property>
+                 <property name="value">
+                  <number>40</number>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QSpinBox" name="maxUnfilteredFreq">
+                 <property name="minimum">
+                  <number>10</number>
+                 </property>
+                 <property name="maximum">
+                  <number>24000</number>
+                 </property>
+                 <property name="value">
+                  <number>80</number>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </item>
+             <item row="2" column="0">
+              <widget class="QLabel" name="magLimitTypeLabel">
                <property name="text">
-                <string>Save Chart</string>
+                <string>Filter Type</string>
                </property>
               </widget>
              </item>
-             <item>
-              <widget class="QPushButton" name="updateChart">
-               <property name="text">
-                <string>Update</string>
+             <item row="2" column="5">
+              <widget class="QTimeEdit" name="maxTime">
+               <property name="displayFormat">
+                <string>HH:mm:ss</string>
                </property>
               </widget>
              </item>
-             <item>
-              <widget class="QPushButton" name="saveLayout">
+             <item row="2" column="2">
+              <widget class="QLabel" name="ellipseHeightLabel">
                <property name="text">
-                <string>Save Layout</string>
+                <string>Ellipse Height</string>
                </property>
               </widget>
              </item>
-            </layout>
-           </item>
-           <item row="2" column="6">
-            <layout class="QHBoxLayout" name="horizontalLayout">
-             <item>
-              <widget class="QSpinBox" name="maxFilteredFreq">
+             <item row="1" column="5">
+              <widget class="QTimeEdit" name="minTime">
+               <property name="displayFormat">
+                <string>HH:mm:ss</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="7">
+              <widget class="QLabel" name="colourRangeLabel">
+               <property name="font">
+                <font>
+                 <bold>false</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string>Colour</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignmentFlag::AlignCenter</set>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="2">
+              <widget class="QLabel" name="markerSizeLabel">
+               <property name="text">
+                <string>Marker Size</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="6">
+              <widget class="QLabel" name="freqRangeLabel">
+               <property name="font">
+                <font>
+                 <bold>false</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string>Freq</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignmentFlag::AlignCenter</set>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="2">
+              <widget class="QLabel" name="ellipseWidthLabel">
+               <property name="text">
+                <string>Ellipse Width</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="3">
+              <widget class="QDoubleSpinBox" name="ellipseWidth">
                <property name="minimum">
-                <number>1</number>
+                <double>0.010000000000000</double>
                </property>
                <property name="maximum">
-                <number>24000</number>
+                <double>100.000000000000000</double>
+               </property>
+               <property name="singleStep">
+                <double>0.010000000000000</double>
                </property>
                <property name="value">
-                <number>40</number>
+                <double>3.000000000000000</double>
                </property>
               </widget>
              </item>
-             <item>
-              <widget class="QSpinBox" name="maxUnfilteredFreq">
+             <item row="2" column="4">
+              <widget class="QLabel" name="maxLabel">
+               <property name="font">
+                <font>
+                 <bold>false</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string>Max</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignmentFlag::AlignCenter</set>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="3">
+              <widget class="QDoubleSpinBox" name="ellipseHeight">
                <property name="minimum">
-                <number>10</number>
+                <double>0.010000000000000</double>
                </property>
                <property name="maximum">
-                <number>24000</number>
+                <double>100.000000000000000</double>
+               </property>
+               <property name="singleStep">
+                <double>0.010000000000000</double>
                </property>
                <property name="value">
-                <number>80</number>
+                <double>1.000000000000000</double>
                </property>
               </widget>
              </item>
-            </layout>
-           </item>
-           <item row="2" column="0">
-            <widget class="QLabel" name="magLimitTypeLabel">
-             <property name="text">
-              <string>Filter Type</string>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="5">
-            <widget class="QTimeEdit" name="maxTime">
-             <property name="displayFormat">
-              <string>HH:mm:ss</string>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="2">
-            <widget class="QLabel" name="ellipseHeightLabel">
-             <property name="text">
-              <string>Ellipse Height</string>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="5">
-            <widget class="QTimeEdit" name="minTime">
-             <property name="displayFormat">
-              <string>HH:mm:ss</string>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="7">
-            <widget class="QLabel" name="colourRangeLabel">
-             <property name="font">
-              <font>
-               <weight>50</weight>
-               <bold>false</bold>
-              </font>
-             </property>
-             <property name="text">
-              <string>Colour</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignCenter</set>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="2">
-            <widget class="QLabel" name="markerSizeLabel">
-             <property name="text">
-              <string>Marker Size</string>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="6">
-            <widget class="QLabel" name="freqRangeLabel">
-             <property name="font">
-              <font>
-               <weight>50</weight>
-               <bold>false</bold>
-              </font>
-             </property>
-             <property name="text">
-              <string>Freq</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignCenter</set>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="2">
-            <widget class="QLabel" name="ellipseWidthLabel">
-             <property name="text">
-              <string>Ellipse Width</string>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="3">
-            <widget class="QDoubleSpinBox" name="ellipseWidth">
-             <property name="minimum">
-              <double>0.010000000000000</double>
-             </property>
-             <property name="maximum">
-              <double>100.000000000000000</double>
-             </property>
-             <property name="singleStep">
-              <double>0.010000000000000</double>
-             </property>
-             <property name="value">
-              <double>3.000000000000000</double>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="4">
-            <widget class="QLabel" name="maxLabel">
-             <property name="font">
-              <font>
-               <weight>50</weight>
-               <bold>false</bold>
-              </font>
-             </property>
-             <property name="text">
-              <string>Max</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignCenter</set>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="3">
-            <widget class="QDoubleSpinBox" name="ellipseHeight">
-             <property name="minimum">
-              <double>0.010000000000000</double>
-             </property>
-             <property name="maximum">
-              <double>100.000000000000000</double>
-             </property>
-             <property name="singleStep">
-              <double>0.010000000000000</double>
-             </property>
-             <property name="value">
-              <double>1.000000000000000</double>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="7">
-            <widget class="QSpinBox" name="colourUpperLimit">
-             <property name="minimum">
-              <number>-99</number>
-             </property>
-             <property name="maximum">
-              <number>0</number>
-             </property>
-             <property name="value">
-              <number>-10</number>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="9" rowspan="3">
-            <spacer name="horizontalSpacer">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-           <item row="1" column="0">
-            <widget class="QLabel" name="analysisResolutionLabel">
-             <property name="text">
-              <string>Resolution</string>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="5">
-            <widget class="QLabel" name="timeRangeLabe">
-             <property name="font">
-              <font>
-               <weight>50</weight>
-               <bold>false</bold>
-              </font>
-             </property>
-             <property name="text">
-              <string>Time</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignCenter</set>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="0">
-            <widget class="QLabel" name="markerTypeLabel">
-             <property name="text">
-              <string>Type</string>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="7">
-            <widget class="QSpinBox" name="colourLowerLimit">
-             <property name="minimum">
-              <number>-120</number>
-             </property>
-             <property name="maximum">
-              <number>0</number>
-             </property>
-             <property name="value">
-              <number>-70</number>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="6">
-            <widget class="QSpinBox" name="minFreq"/>
-           </item>
-           <item row="2" column="8">
-            <widget class="QDoubleSpinBox" name="magLowerLimit">
-             <property name="minimum">
-              <double>-120.000000000000000</double>
-             </property>
-             <property name="maximum">
-              <double>0.000000000000000</double>
-             </property>
-             <property name="singleStep">
-              <double>0.010000000000000</double>
-             </property>
-             <property name="value">
-              <double>-70.000000000000000</double>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="8">
-            <widget class="QDoubleSpinBox" name="magUpperLimit">
-             <property name="enabled">
-              <bool>false</bool>
-             </property>
-             <property name="decimals">
-              <number>2</number>
-             </property>
-             <property name="minimum">
-              <double>-99.000000000000000</double>
-             </property>
-             <property name="maximum">
-              <double>0.000000000000000</double>
-             </property>
-             <property name="singleStep">
-              <double>0.001000000000000</double>
-             </property>
-             <property name="value">
-              <double>-10.000000000000000</double>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="8">
-            <widget class="QLabel" name="signalRangeLabel">
-             <property name="font">
-              <font>
-               <weight>50</weight>
-               <bold>false</bold>
-              </font>
-             </property>
-             <property name="text">
-              <string>Signal</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignCenter</set>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="4">
-            <widget class="QToolButton" name="lockButton">
-             <property name="text">
-              <string>...</string>
-             </property>
-             <property name="checkable">
-              <bool>true</bool>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="1">
-            <widget class="QComboBox" name="markerType"/>
-           </item>
-           <item row="1" column="4">
-            <widget class="QLabel" name="minLabel">
-             <property name="font">
-              <font>
-               <weight>50</weight>
-               <bold>false</bold>
-              </font>
-             </property>
-             <property name="text">
-              <string>Min</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignCenter</set>
-             </property>
-            </widget>
-           </item>
-           <item row="2" column="1">
-            <widget class="QComboBox" name="magLimitType">
-             <item>
-              <property name="text">
-               <string>Constant</string>
-              </property>
+             <item row="1" column="7">
+              <widget class="QSpinBox" name="colourUpperLimit">
+               <property name="minimum">
+                <number>-99</number>
+               </property>
+               <property name="maximum">
+                <number>0</number>
+               </property>
+               <property name="value">
+                <number>-10</number>
+               </property>
+              </widget>
              </item>
-             <item>
-              <property name="text">
-               <string>Peak</string>
-              </property>
+             <item row="0" column="9" rowspan="3">
+              <spacer name="horizontalSpacer">
+               <property name="orientation">
+                <enum>Qt::Orientation::Horizontal</enum>
+               </property>
+               <property name="sizeHint" stdset="0">
+                <size>
+                 <width>40</width>
+                 <height>20</height>
+                </size>
+               </property>
+              </spacer>
              </item>
-             <item>
-              <property name="text">
-               <string>Average</string>
-              </property>
-             </item>
-            </widget>
-           </item>
-           <item row="0" column="3">
-            <widget class="QSpinBox" name="markerSize">
-             <property name="minimum">
-              <number>1</number>
-             </property>
-             <property name="maximum">
-              <number>9</number>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="1">
-            <widget class="QComboBox" name="analysisResolution"/>
-           </item>
-           <item row="0" column="10" rowspan="3">
-            <layout class="QVBoxLayout" name="extraButtonLayout">
-             <item>
-              <widget class="QPushButton" name="hideSidebar">
+             <item row="1" column="0">
+              <widget class="QLabel" name="analysisResolutionLabel">
                <property name="text">
-                <string>Hide Signal Select</string>
+                <string>Resolution</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="5">
+              <widget class="QLabel" name="timeRangeLabe">
+               <property name="font">
+                <font>
+                 <bold>false</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string>Time</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignmentFlag::AlignCenter</set>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="0">
+              <widget class="QLabel" name="markerTypeLabel">
+               <property name="text">
+                <string>Type</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="7">
+              <widget class="QSpinBox" name="colourLowerLimit">
+               <property name="minimum">
+                <number>-120</number>
+               </property>
+               <property name="maximum">
+                <number>0</number>
+               </property>
+               <property name="value">
+                <number>-70</number>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="6">
+              <widget class="QSpinBox" name="minFreq"/>
+             </item>
+             <item row="2" column="8">
+              <widget class="QDoubleSpinBox" name="magLowerLimit">
+               <property name="minimum">
+                <double>-120.000000000000000</double>
+               </property>
+               <property name="maximum">
+                <double>0.000000000000000</double>
+               </property>
+               <property name="singleStep">
+                <double>0.010000000000000</double>
+               </property>
+               <property name="value">
+                <double>-70.000000000000000</double>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="8">
+              <widget class="QDoubleSpinBox" name="magUpperLimit">
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+               <property name="decimals">
+                <number>2</number>
+               </property>
+               <property name="minimum">
+                <double>-99.000000000000000</double>
+               </property>
+               <property name="maximum">
+                <double>0.000000000000000</double>
+               </property>
+               <property name="singleStep">
+                <double>0.001000000000000</double>
+               </property>
+               <property name="value">
+                <double>-10.000000000000000</double>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="8">
+              <widget class="QLabel" name="signalRangeLabel">
+               <property name="font">
+                <font>
+                 <bold>false</bold>
+                </font>
+               </property>
+               <property name="text">
+                <string>Signal</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignmentFlag::AlignCenter</set>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="4">
+              <widget class="QToolButton" name="lockButton">
+               <property name="text">
+                <string>...</string>
                </property>
                <property name="checkable">
                 <bool>true</bool>
                </property>
               </widget>
              </item>
-             <item>
-              <spacer name="verticalSpacer_3">
-               <property name="orientation">
-                <enum>Qt::Vertical</enum>
+             <item row="0" column="1">
+              <widget class="QComboBox" name="markerType"/>
+             </item>
+             <item row="1" column="4">
+              <widget class="QLabel" name="minLabel">
+               <property name="font">
+                <font>
+                 <bold>false</bold>
+                </font>
                </property>
-               <property name="sizeHint" stdset="0">
-                <size>
-                 <width>20</width>
-                 <height>40</height>
-                </size>
+               <property name="text">
+                <string>Min</string>
                </property>
-              </spacer>
+               <property name="alignment">
+                <set>Qt::AlignmentFlag::AlignCenter</set>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="1">
+              <widget class="QComboBox" name="magLimitType">
+               <item>
+                <property name="text">
+                 <string>Constant</string>
+                </property>
+               </item>
+               <item>
+                <property name="text">
+                 <string>Peak</string>
+                </property>
+               </item>
+               <item>
+                <property name="text">
+                 <string>Average</string>
+                </property>
+               </item>
+              </widget>
+             </item>
+             <item row="0" column="3">
+              <widget class="QSpinBox" name="markerSize">
+               <property name="minimum">
+                <number>1</number>
+               </property>
+               <property name="maximum">
+                <number>9</number>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="1">
+              <widget class="QComboBox" name="analysisResolution"/>
+             </item>
+             <item row="0" column="10" rowspan="3">
+              <layout class="QVBoxLayout" name="extraButtonLayout">
+               <item>
+                <widget class="QPushButton" name="hideSidebar">
+                 <property name="text">
+                  <string>Hide Signal Select</string>
+                 </property>
+                 <property name="checkable">
+                  <bool>true</bool>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <spacer name="verticalSpacer_3">
+                 <property name="orientation">
+                  <enum>Qt::Orientation::Vertical</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>20</width>
+                   <height>40</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+              </layout>
              </item>
             </layout>
-           </item>
-          </layout>
+           </widget>
+          </widget>
          </item>
          <item row="3" column="0">
           <widget class="MplWidget" name="spectrumChart"/>
@@ -557,7 +572,7 @@
            <item row="0" column="4">
             <spacer name="horizontalSpacer_2">
              <property name="orientation">
-              <enum>Qt::Horizontal</enum>
+              <enum>Qt::Orientation::Horizontal</enum>
              </property>
              <property name="sizeHint" stdset="0">
               <size>
@@ -609,10 +624,10 @@
      <item row="1" column="0">
       <widget class="QFrame" name="signalFrame">
        <property name="frameShape">
-        <enum>QFrame::StyledPanel</enum>
+        <enum>QFrame::Shape::StyledPanel</enum>
        </property>
        <property name="frameShadow">
-        <enum>QFrame::Raised</enum>
+        <enum>QFrame::Shadow::Raised</enum>
        </property>
        <layout class="QGridLayout" name="signalLayout" columnstretch="0,1,0">
         <item row="0" column="1">
@@ -621,7 +636,7 @@
         <item row="3" column="0" colspan="2">
          <spacer name="verticalSpacer_2">
           <property name="orientation">
-           <enum>Qt::Vertical</enum>
+           <enum>Qt::Orientation::Vertical</enum>
           </property>
           <property name="sizeHint" stdset="0">
            <size>
