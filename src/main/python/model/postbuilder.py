@@ -65,7 +65,8 @@ class CreateAVSPostDialog(QDialog, Ui_postbuilder):
 
     def __build_source_picker(self):
         _translate = QCoreApplication.translate
-        sources = ["Apple TV+", "Amazon", "DC Universe", "Disney+", "HBOMax", "Hulu", "iTunes", "Netflix", "Peacock"]
+        sources = ["Apple TV+", "Amazon", "DC Universe", "Disney+", "HBOMax", "Hulu", "iTunes", "Netflix", "Paramount+",
+                   "Peacock"]
         for source in sources:
             self.sourcePicker.addItem(_translate("postbuilder", source))
             
