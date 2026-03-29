@@ -3,6 +3,7 @@ from typing import Dict, Optional, Tuple, Callable, List
 from xml.etree import ElementTree as ET
 
 import requests
+from requests.models import HTTPError
 
 logger = logging.getLogger('jriver.mcws')
 
@@ -27,20 +28,23 @@ class MediaServer:
     def authenticate(self) -> bool:
         self.__token = None
         url = f"{self.__base_url}/Authenticate"
-        r = requests.get(url, auth=self.__auth, timeout=(1, 5))
-        if r.status_code == 200:
-            response = ET.fromstring(r.content)
-            if response:
-                r_status = response.attrib.get('Status', None)
-                if r_status == 'OK':
-                    for item in response:
-                        if item.attrib['Name'] == 'Token':
-                            self.__token = item.text
-        if self.connected:
-            self.__load_version()
-            return True
-        else:
-            raise MCWSError('Authentication failure', r.url, r.status_code, r.text)
+        try:
+            r = requests.get(url, auth=self.__auth, timeout=(1, 5))
+            if r.status_code == 200:
+                response = ET.fromstring(r.content)
+                if response:
+                    r_status = response.attrib.get('Status', None)
+                    if r_status == 'OK':
+                        for item in response:
+                            if item.attrib['Name'] == 'Token':
+                                self.__token = item.text
+            if self.connected:
+                self.__load_version()
+                return True
+            else:
+                raise MCWSError('Authentication failure', r.url, r.status_code, r.text)
+        except requests.exceptions.RequestException as e:
+            raise MCWSError('Connection failure', url, 0, f'{type(e).__name__}: {e}')
 
     def __load_version(self):
         url = f"{self.__base_url}/Alive"

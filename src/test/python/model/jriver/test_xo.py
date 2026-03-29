@@ -475,7 +475,7 @@ def test_bass_managed_five_one_with_lfe_lpf(five_one):
 
     mcs = MultiChannelSystem(xo_desc)
 
-    from model.jriver.common import get_channel_idx
+    from model.jriver.formats import get_channel_idx
     mc_filter = mcs.calculate_filters(five_one, main_adjust=-15, lfe_adjust=-5, lfe_channel_idx=get_channel_idx('SW'))
 
     assert mc_filter
@@ -566,7 +566,7 @@ def test_bass_managed_five_one_mds_with_spare_channels(five_one_plus_six):
 
     mcs = MultiChannelSystem(xo_desc)
 
-    from model.jriver.common import get_channel_idx
+    from model.jriver.formats import get_channel_idx
     mc_filter = mcs.calculate_filters(five_one_plus_six, main_adjust=-15, lfe_adjust=-5, lfe_channel_idx=get_channel_idx('SW'))
     assert mc_filter
     mc_filters = mc_filter.filters
@@ -698,7 +698,7 @@ def test_multi_way_mains_simple_bm(multi_bm):
 
     mcs = MultiChannelSystem(xo_desc)
 
-    from model.jriver.common import get_channel_idx
+    from model.jriver.formats import get_channel_idx
     mc_filter = mcs.calculate_filters(multi_bm, main_adjust=-15, lfe_adjust=-5, lfe_channel_idx=get_channel_idx('SW'))
     assert mc_filter
     mc_filters = mc_filter.filters
@@ -792,7 +792,7 @@ def test_multi_way_mains_simple_bm_with_shared_sub(multi_bm):
 
     mcs = MultiChannelSystem(xo_desc)
 
-    from model.jriver.common import get_channel_idx
+    from model.jriver.formats import get_channel_idx
     mc_filter = mcs.calculate_filters(multi_bm, main_adjust=-15, lfe_adjust=-5, lfe_channel_idx=get_channel_idx('SW'))
     assert mc_filter
     mc_filters = mc_filter.filters

@@ -13,7 +13,7 @@ from qtpy.QtWidgets import QDialog, QMessageBox, QFileDialog, QListWidgetItem, Q
 from sanitize_filename import sanitize
 
 from model.catalogue import DatabaseDownloader, show_alert, load_catalogue, CatalogueEntry
-from model.jriver.common import JRIVER_CHANNELS
+from model.jriver.formats import JRIVER_CHANNELS
 from model.minidsp import logger, TwoByFourXmlParser, HDXmlParser, \
     xml_to_filt
 from model.preferences import BEQ_CONFIG_FILE, BEQ_MERGE_DIR, BEQ_MINIDSP_TYPE, BEQ_DOWNLOAD_DIR, BEQ_EXTRA_DIR, \

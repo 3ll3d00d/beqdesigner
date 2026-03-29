@@ -23,10 +23,9 @@ from qtpy.QtWidgets import QDialog, QFileDialog, QMenu, QAction, QListWidgetItem
 from model.filter import FilterModel, FilterDialog
 from model.iir import SOS, CompleteFilter, FilterType, ComplexLowPass, ComplexHighPass, DEFAULT_Q
 from model.impulse import ImpulseDialog
-from model.jriver import JRIVER_FS, flatten, ImpossibleRoutingError, s2f
+from model.jriver import JRIVER_FS, flatten, ImpossibleRoutingError, s2f, make_dirac_pulse
 from model.jriver.codec import get_element, xpath_to_key_data_value, write_dsp_file, get_peq_key_name
-from model.jriver.common import get_channel_name, get_channel_idx, OutputFormat, SHORT_USER_CHANNELS, make_dirac_pulse, \
-    OUTPUT_FORMATS
+from model.jriver.formats import get_channel_name, get_channel_idx, OutputFormat, OUTPUT_FORMATS, SHORT_USER_CHANNELS
 from model.jriver.dsp import JRiverDSP
 from model.jriver.filter import Divider, GEQFilter, CompoundRoutingFilter, CustomPassFilter, GainQFilter, Gain, Pass, \
     LinkwitzTransform, Polarity, Mix, Delay, \

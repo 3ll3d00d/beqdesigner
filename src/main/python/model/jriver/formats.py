@@ -1,24 +1,46 @@
+# 2-9
 import functools
-from typing import List, Tuple, Dict
+from typing import List, Dict, Tuple
 
-import numpy as np
-from scipy.signal import unit_impulse
-
-from model.jriver import JRIVER_FS
-from model.signal import Signal
-
+SURROUND_CHANNELS = ['Left', 'Right', 'Centre', 'Subwoofer', 'Surround Left', 'Surround Right', 'Rear Left',
+                     'Rear Right']
+SURROUND_SHORT_CHANNELS = ['L', 'R', 'C', 'SW', 'SL', 'SR', 'RL', 'RR']
+SURROUND_CHANNEL_INDEXES = list(range(2, 10))
+# 11-12
 USER_CHANNELS = ['User 1', 'User 2']
 SHORT_USER_CHANNELS = ['U1', 'U2']
+USER_CHANNEL_INDEXES = list(range(11, 13))
+# 13-35
+NUMBER_CHANNELS = [f"Channel {i + 9}" for i in range(24)]
+SHORT_NUMBER_CHANNELS = [f"C{i + 9}" for i in range(24)]
+NUMBER_CHANNEL_INDEXES = list(range(13, 36))
+# 37-52
+EXTRA_CHANNELS = [f'Extra {i}' for i in range(1, 17)]
+EXTRA_SHORT_CHANNELS = [f'X{i}' for i in range(1, 17)]
+EXTRA_CHANNEL_INDEXES = list(range(37, 53))
+# 54-61
 ATMOS_CHANNELS = ['Left Height Front', 'Right Height Front', 'Left Height Rear', 'Right Height Rear', 'Left Top Middle',
                   'Right Top Middle', 'Left Width', 'Right Width']
 SHORT_ATMOS_CHANNELS = ['LHF', 'RHF', 'LHR', 'RHR', 'LTM', 'RTM', 'LW', 'RW']
+ATMOS_CHANNEL_INDEXES = list(range(54, 62))
+
+# call MCWS/v1/Library/Get?Settings=1
+# get zip file
+# extract User Settings.ini
+# look for
+# New Extra Channels System 2=i:"0" (extra channels is disabled)
+# if MC >= 34 use ATMOS channels
+
 JRIVER_NAMED_CHANNELS = [None, None, 'Left', 'Right', 'Centre', 'Subwoofer', 'Surround Left', 'Surround Right',
                          'Rear Left', 'Rear Right', None] + USER_CHANNELS
 JRIVER_SHORT_NAMED_CHANNELS = [None, None, 'L', 'R', 'C', 'SW', 'SL', 'SR', 'RL', 'RR', None] + SHORT_USER_CHANNELS
+
 JRIVER_HIGHER_CHANNELS = [f"Channel {i + 9}" for i in range(24)]
-JRIVER_CHANNELS = JRIVER_NAMED_CHANNELS + JRIVER_HIGHER_CHANNELS
 JRIVER_SHORT_HIGHER_CHANNELS = [f"C{i + 9}" for i in range(24)]
+
+JRIVER_CHANNELS = JRIVER_NAMED_CHANNELS + JRIVER_HIGHER_CHANNELS
 JRIVER_SHORT_CHANNELS = JRIVER_SHORT_NAMED_CHANNELS + JRIVER_SHORT_HIGHER_CHANNELS
+
 JRIVER_REAL_NAMED_CHANNELS = JRIVER_NAMED_CHANNELS[2:-3] + JRIVER_HIGHER_CHANNELS
 JRIVER_SHORT_REAL_NAMED_CHANNEL = JRIVER_SHORT_NAMED_CHANNELS[2:-3] + JRIVER_SHORT_HIGHER_CHANNELS
 
@@ -78,17 +100,6 @@ def pop_channels(vals: List[Dict[str, str]]):
     :return: the values without the Channel key.
     '''
     return [{k: v for k, v in d.items() if k != 'Channels'} for d in vals]
-
-
-def make_dirac_pulse(channel: str, analysis_resolution=1.0):
-    fs = JRIVER_FS
-    return Signal(channel, unit_impulse(int(fs / 2), 'mid'), fs=fs, analysis_resolution=analysis_resolution,
-                  rescale_x=False)
-
-
-def make_silence(channel: str):
-    fs = JRIVER_FS
-    return Signal(channel, np.zeros(int(fs / 2)), fs=fs)
 
 
 @functools.total_ordering

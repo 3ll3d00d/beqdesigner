@@ -7,7 +7,7 @@ from typing import Dict, List, Tuple, Type, Callable
 
 from model.jriver.codec import get_peq_block_order, get_output_format, NoFiltersError, get_peq_key_name, \
     extract_filters, filts_to_xml, include_filters_in_dsp, item_to_dicts
-from model.jriver.common import OutputFormat, get_channel_name, user_channel_indexes
+from model.jriver.formats import user_channel_indexes, get_channel_name, OutputFormat
 from model.jriver.filter import FilterGraph, create_single_filter, Filter, Divider, complex_filter_classes_by_type, \
     set_filter_ids
 from model.log import to_millis

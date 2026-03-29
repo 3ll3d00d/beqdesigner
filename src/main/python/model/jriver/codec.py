@@ -3,7 +3,7 @@ from __future__ import annotations
 import xml.etree.ElementTree as et
 from typing import Dict, List, Optional
 
-from model.jriver.common import OutputFormat, OUTPUT_FORMATS
+from model.jriver.formats import OutputFormat, OUTPUT_FORMATS
 
 
 def xpath_to_key_data_value(key_name, data_name):

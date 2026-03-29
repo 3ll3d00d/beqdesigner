@@ -6,7 +6,7 @@ from typing import List
 from model.iir import ComplexFilter, SOS, ComplexLowPass, FilterType, ComplexHighPass, LinkwitzTransform
 from model.jriver import JRIVER_FS
 from model.jriver.codec import get_peq_key_name, filts_to_xml, include_filters_in_dsp
-from model.jriver.common import JRIVER_CHANNELS, get_channel_indexes
+from model.jriver.formats import get_channel_indexes, JRIVER_CHANNELS
 from model.jriver.filter import convert_filter_to_mc_dsp, MSOFilter, Filter, Delay, Peak, LowShelf, HighShelf, AllPass, \
     Gain, Polarity, LowPass, HighPass
 

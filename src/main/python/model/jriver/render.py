@@ -5,7 +5,7 @@ import re
 from typing import Dict, Optional, List, Tuple, Iterable, Sequence
 
 from model.jriver import flatten
-from model.jriver.common import SHORT_USER_CHANNELS, get_channel_name
+from model.jriver.formats import get_channel_name, SHORT_USER_CHANNELS
 from model.jriver.filter import FilterGraph, Filter, ChannelFilter, ComplexChannelFilter, Mix, \
     MixType, CompoundRoutingFilter
 
