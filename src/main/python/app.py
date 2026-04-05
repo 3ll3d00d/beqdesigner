@@ -13,6 +13,16 @@ import math
 os.environ['QT_API'] = 'pyqt6'
 os.environ['PYQTGRAPH_QT_LIB'] = 'PyQt6'
 
+# When frozen by PyInstaller, its runtime hook pyi_rth_mplconfig.py sets MPLCONFIGDIR to a
+# fresh temp directory on every launch (a legacy workaround for onefile-mode _MEIxxxxx paths).
+# In our onedir build the matplotlib data paths are stable inside Contents/Frameworks, so we
+# override MPLCONFIGDIR to a persistent per-user location; otherwise matplotlib rebuilds its
+# ~15s font cache on every cold start.
+if getattr(sys, 'frozen', False):
+    _mpl_cachedir = os.path.join(os.path.expanduser('~'), '.matplotlib')
+    os.makedirs(_mpl_cachedir, exist_ok=True)
+    os.environ['MPLCONFIGDIR'] = _mpl_cachedir
+
 import matplotlib
 from scipy import signal
 
