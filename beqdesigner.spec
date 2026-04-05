@@ -59,9 +59,13 @@ def use_nsis():
 
 def get_exe_args():
     '''
-    :return: the *args to pass to EXE, varies according to whether we are in "create an installer" mode or not.
+    :return: the *args to pass to EXE. On macOS (onedir-style .app) and for the NSIS installer, we pass only
+    the scripts so binaries/zipfiles/datas are gathered by a later COLLECT step. On Linux and default Windows
+    we embed everything into a single EXE (onefile mode).
     '''
-    return (a.scripts,) if use_nsis() is True else (a.scripts, a.binaries, a.zipfiles, a.datas)
+    if use_nsis() is True or platform.system() == 'Darwin':
+        return (a.scripts,)
+    return (a.scripts, a.binaries, a.zipfiles, a.datas)
 
 
 def get_data_args():
@@ -205,11 +209,22 @@ exe = EXE(pyz,
           strip=False,
           upx=False,
           console=True,
-          exclude_binaries=use_nsis(),
+          exclude_binaries=use_nsis() or platform.system() == 'Darwin',
           icon=get_icon_file())
 
 if platform.system() == 'Darwin':
-    app = BUNDLE(exe,
+    # Build a onedir .app: COLLECT lays the binaries/datas out at stable paths inside
+    # beqdesigner.app/Contents/Frameworks so dyld can cache them, rather than PyInstaller
+    # extracting everything to /var/folders/_MEIxxxxx on every launch (onefile mode, which is
+    # very slow to cold-start on macOS).
+    coll = COLLECT(exe,
+                   a.binaries,
+                   a.zipfiles,
+                   a.datas,
+                   strip=False,
+                   upx=False,
+                   name='beqdesigner')
+    app = BUNDLE(coll,
                  name='beqdesigner.app',
                  bundle_identifier='com.3ll3d00d.beqdesigner',
                  icon='src/main/icons/icon.icns',
