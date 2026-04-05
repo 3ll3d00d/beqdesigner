@@ -339,9 +339,9 @@ class LimitsDialog(QDialog, Ui_graphLayoutDialog):
         self.setupUi(self)
         self.__limits = limits
         self.hzLog.setChecked(limits.x_scale == 'log')
-        x_min = min(x_min, limits.x_min)
+        x_min = int(min(x_min, limits.x_min))
         self.xMin.setMinimum(x_min)
-        x_max = max(x_max, limits.x_max)
+        x_max = int(max(x_max, limits.x_max))
         self.xMin.setMaximum(x_max - 1)
         self.xMin.setValue(round(self.__limits.x_min))
         self.xMax.setMinimum(x_min + 1)
