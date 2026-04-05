@@ -59,9 +59,48 @@ def use_nsis():
 
 def get_exe_args():
     '''
-    :return: the *args to pass to EXE. On macOS (onedir-style .app) and for the NSIS installer, we pass only
-    the scripts so binaries/zipfiles/datas are gathered by a later COLLECT step. On Linux and default Windows
-    we embed everything into a single EXE (onefile mode).
+    Decide whether EXE embeds all the binaries/data (onefile) or defers them to a later COLLECT
+    step (onedir).
+
+    PyInstaller has two packaging modes:
+
+      * onefile  -- everything (the Python runtime, Qt, every wheel, icons, etc.) is stuffed into
+                    one self-extracting executable. At launch, the bootloader picks a random temp
+                    dir (e.g. $TMPDIR/_MEIxxxxx), extracts everything into it, fork/execs itself
+                    and runs Python there, then deletes the temp dir on exit.
+      * onedir   -- binaries/data sit on disk next to the executable at stable paths. No per-launch
+                    extract step; the launcher just starts Python and lets it import from those
+                    stable paths.
+
+    macOS is forced to onedir because onefile is unusable-slow there:
+
+      1. On onefile each launch unpacks ~200MB of dylibs into a fresh /var/folders/_MEIxxxxx path.
+         dyld (the dynamic linker) cannot use its shared cache for libraries at previously-unseen
+         paths, so it opens, hashes, maps and Gatekeeper-verifies every .so/.dylib from scratch
+         each time. `sample` of such a launch is dominated by
+         dyld4::JustInTimeLoader::makeJustInTimeLoaderDisk -> fcntl -> open.
+      2. PyInstaller also ships a runtime hook (pyi_rth_mplconfig.py) that, in onefile mode,
+         intentionally points MPLCONFIGDIR at a tempdir that is wiped at exit, forcing matplotlib
+         to rebuild its font cache (~14s) on every launch. This was a workaround for matplotlib
+         < 3.0 where font-cache entries embedded the install path; matplotlib fixed that in their
+         PR #12472 (shipped in 3.0, 2018) but PyInstaller still applies the workaround
+         unconditionally as of 6.19.0. Tracked at:
+           https://github.com/pyinstaller/pyinstaller/issues/3959  (open since 2018)
+           https://github.com/matplotlib/matplotlib/issues/13071   (closed: "punt to PyInstaller")
+         We counter-override MPLCONFIGDIR back to ~/.matplotlib in app.py when sys.frozen; that
+         mitigation is independent of the onefile/onedir choice here, but onedir is still the
+         right choice to keep dyld happy.
+
+    Together these made cold-start of the .app take ~16s. Building onedir + overriding
+    MPLCONFIGDIR in app.py drops it to ~1.7s.
+
+    Windows with NSIS also needs onedir -- COLLECT is what the NSIS installer packages into
+    Program Files. Default Windows and Linux keep onefile (they do not suffer from the same dyld
+    caching penalty on unknown paths).
+
+    :return: the *args to pass to EXE. ``(a.scripts,)`` on macOS and NSIS (onedir: binaries get
+             gathered by the later COLLECT step). ``(a.scripts, a.binaries, a.zipfiles, a.datas)``
+             elsewhere (onefile: embed everything into the EXE).
     '''
     if use_nsis() is True or platform.system() == 'Darwin':
         return (a.scripts,)
