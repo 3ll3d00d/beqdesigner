@@ -66,7 +66,7 @@ class MergeFiltersDialog(QDialog, Ui_mergeDspDialog):
             self.userSourceDir.setText(os.path.abspath(extra_dir))
 
     def __on_database_load(self, database: bool):
-        if database is True:
+        if database:
             catalogue = load_catalogue(self.__beq_file)
             full_size = len(catalogue)
             p = Path(self.outputDirectory.text(), '.index')
@@ -119,10 +119,10 @@ class MergeFiltersDialog(QDialog, Ui_mergeDspDialog):
         user_files = 0
         if len(self.userSourceDir.text().strip()) > 0 and os.path.exists(self.userSourceDir.text()):
             user_files = len(glob.glob(f"{self.userSourceDir.text()}{os.sep}**{os.sep}*.xml", recursive=True))
-
-        if user_files > 0 or len(self.__catalogue) > 0:
+        total_count = user_files + len(self.__catalogue)
+        if total_count:
             self.__show_or_hide(user_files > 0, len(self.__catalogue) > 0)
-            self.totalFiles.setValue(user_files + len(self.__catalogue))
+            self.totalFiles.setValue(total_count)
 
     def __show_or_hide(self, has_user_files, has_catalogue):
         has_any_files = has_user_files or has_catalogue
@@ -595,6 +595,8 @@ class XmlProcessor(QRunnable):
         try:
             if dst.is_file():
                 self.__signals.on_failure.emit(entry.author, entry.formatted_title, f"File exists at {dst}")
+                # this is still an actual file so bump the count up anyway
+                self.__signals.on_success.emit()
             else:
                 logger.info(f"Copying {self.__config_file} to {dst}")
                 dst = shutil.copy2(self.__config_file, dst.resolve())

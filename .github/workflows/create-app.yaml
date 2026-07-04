@@ -34,7 +34,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ ubuntu-22.04, ubuntu-24.04, macos-14, macos-15, macos-26, windows-2022, windows-2025 ]
+        os: [ ubuntu-22.04, ubuntu-24.04, macos-15, macos-26, windows-2022, windows-2025 ]
       fail-fast: false
     steps:
       - uses: actions/checkout@v6
@@ -42,29 +42,20 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: 3.13
-      - name: Install Poetry
-        uses: snok/install-poetry@v1
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
         with:
-          virtualenvs-in-project: true
-      - name: Load cached venv
-        id: cached-poetry-dependencies
-        uses: actions/cache@v5
-        with:
-          path: .venv
-          key: venv-${{ runner.os }}-${{ runner.arch }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
+          enable-cache: true
       - name: Install dependencies
-        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
-        run: poetry install --no-interaction
-      - name: Install project
         run: |
-          poetry install --no-interaction
+          uv sync --locked
           if [[ "$RUNNER_OS" == "Linux" ]]
           then
             sudo apt install -y libegl1
           fi
       - name: pytest
         run: |
-          PYTHONPATH=./src/main/python poetry run pytest --cov=./src/main/python
+          PYTHONPATH=./src/main/python uv run pytest --cov=./src/main/python
       - name: Install packaging dependencies
         run: |
           if [[ "$RUNNER_OS" == "Linux" ]]
@@ -79,7 +70,7 @@ jobs:
             brew install graphviz
             brew ls -v graphviz
           fi
-          poetry run pip install pyinstaller
+          uv pip install pyinstaller
       - name: Get latest release version number
         id: get_version
         run: echo "version-without-v=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
@@ -92,7 +83,7 @@ jobs:
           export QT_DEBUG_PLUGINS=1
           export DISPLAY=:0
           sudo /usr/bin/Xvfb $DISPLAY -screen 0 1280x1024x24 &
-          poetry run pyinstaller --clean --log-level=INFO beqdesigner.spec
+          uv run pyinstaller --clean --log-level=INFO beqdesigner.spec
           if [[ "$RUNNER_OS" == "macOS" ]]
           then
             pushd dist

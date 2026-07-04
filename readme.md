@@ -11,13 +11,12 @@ how to use the app. This README is for developers working on the source.
 
 ## Developer quickstart
 
-Requirements: Python 3.13, [Poetry](https://python-poetry.org/), and (optional,
+Requirements: Python 3.13, [uv](https://docs.astral.sh/uv/), and (optional,
 runtime only) `ffmpeg` + `graphviz`.
 
 ```sh
-poetry env use python3.13
-poetry install
-PYTHONPATH=./src/main/python poetry run python src/main/python/app.py
+uv sync
+PYTHONPATH=./src/main/python uv run python src/main/python/app.py
 ```
 
 The `PYTHONPATH` prefix matches how CI invokes the app and tests — the source
@@ -26,7 +25,7 @@ root is `src/main/python`, not the repo root.
 ### Tests
 
 ```sh
-PYTHONPATH=./src/main/python poetry run pytest --cov=./src/main/python
+PYTHONPATH=./src/main/python uv run pytest --cov=./src/main/python
 ```
 
 Tests live in `src/test/python/` and run on every push via
@@ -37,8 +36,8 @@ Tests live in `src/test/python/` and run on every push via
 Release binaries are produced by PyInstaller from `beqdesigner.spec`:
 
 ```sh
-poetry run pip install pyinstaller
-poetry run pyinstaller --clean --log-level=INFO beqdesigner.spec
+uv pip install pyinstaller
+uv run pyinstaller --clean --log-level=INFO beqdesigner.spec
 ```
 
 On macOS this yields `dist/beqdesigner.app`. On Linux a virtual X server is
@@ -66,12 +65,13 @@ Forms are edited as `.ui` files in Qt Designer and compiled to Python with
 
 ```sh
 cd src/main/python/ui
-poetry run pyuic6 foo.ui -o foo.py
+uv run pyuic6 foo.ui -o foo.py
 ```
 
-See `src/main/python/ui/convert.sh` and `convert.bat` for batch scripts (the
-paths in them are hard-coded to a contributor's venv — regenerate the pyuic6
-path from your own `poetry env info --path`).
+See `src/main/python/ui/convert.sh` and `convert.bat` for batch scripts. `uv`
+creates its virtualenv at `.venv` in the repo root by default, so
+`convert.sh` resolves `pyuic6` there; `convert.bat` is still hard-coded to a
+contributor's own environment and will need adjusting to your own venv path.
 
 Generated `.py` files **are** checked in — regenerate them whenever the `.ui`
 changes. Do not hand-edit the generated files.

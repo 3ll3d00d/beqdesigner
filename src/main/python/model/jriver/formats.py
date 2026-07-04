@@ -196,6 +196,7 @@ class OutputFormat:
             if delta == 0:
                 return self.input_channels - other.input_channels
             return delta < 0
+        return -1
 
 
 # order is important otherwise from_output_channels will yield bad results
@@ -221,4 +222,8 @@ OUTPUT_FORMATS: Dict[str, OutputFormat] = {
     'STEREO_IN_FIVE': OutputFormat('Stereo in a 5.1 channel container', 2, 6, 0, (2, 4), 0),
     'STEREO_IN_SEVEN': OutputFormat('Stereo in a 7.1 channel container', 2, 8, 0, (2, 6), 0),
     'FIVE_ONE_IN_SEVEN': OutputFormat('5.1 in a 7.1 container', 6, 8, 1, (6, 2), 0),
+    # MC35
+    'FIVE_ONE_TWO': OutputFormat('5.1.2', 8, 8, 1, (8,), 16),
+    'SEVEN_ONE_FOUR': OutputFormat('7.1.4 (12 channels)', 12, 12, 1, (12,), 16),
+    'NINE_ONE_SIX': OutputFormat('9.1.6 (Dolby Atmos 16 channels)', 16, 16, 1, (16,), 16),
 }

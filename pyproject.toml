@@ -1,42 +1,44 @@
-[tool.poetry]
+[project]
 name = "beqdesigner"
-version = "2.0.11"
+version = "2.1.0"
 description = "A Qt based app for designing BassEQ filters"
-authors = ["3ll3d00d <mattkhan+beqdesigner@gmail.com>"]
+authors = [{ name = "3ll3d00d", email = "mattkhan+beqdesigner@gmail.com" }]
 license = "MIT"
-readme = "README.md"
-homepage = "https://beqdesigner.readthedocs.io/"
-repository = "https://github.com/3ll3d00d/beqdesigner"
-package-mode = false
+readme = "readme.md"
+requires-python = ">=3.13,<4.0"
+dependencies = [
+    "pyqt6",
+    "ffmpeg-python",
+    "soundfile",
+    "pyqtgraph",
+    "numpy",
+    "scipy",
+    "qtpy",
+    "qtawesome",
+    "sortedcontainers",
+    "pillow",
+    "requests",
+    "awesomeversion",
+    "markdown",
+    "plumbum",
+    "graphviz",
+    "sanitize-filename",
+    "matplotlib",
+    "soxr",
+]
 
-[tool.poetry.dependencies]
-python = "^3.13"
-pyqt6 = "*"
-ffmpeg-python = "*"
-soundfile = "*"
-pyqtgraph = "*"
-numpy = "*"
-scipy = "*"
-qtpy = "*"
-qtawesome = "*"
-sortedcontainers = "*"
-pillow = "*"
-requests = "*"
-awesomeversion = "*"
-markdown = "*"
-plumbum = "*"
-graphviz = "*"
-sanitize-filename = "*"
-matplotlib = "*"
-soxr = "*"
+[project.urls]
+Homepage = "https://beqdesigner.readthedocs.io/"
+Repository = "https://github.com/3ll3d00d/beqdesigner"
 
-[tool.poetry.group.dev.dependencies]
-pytest = "*"
-pytest-cov = "*"
-distro = "*"
-atomicwrites = "*"
-scipy-stubs = "*"
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "distro",
+    "atomicwrites",
+    "scipy-stubs",
+]
 
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+[tool.uv]
+package = false
