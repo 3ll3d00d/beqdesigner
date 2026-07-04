@@ -106,8 +106,19 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
             ImpulseDialog(self, self.prefs, {s: s.name in selected for s in self.__dsp.signals}).show()
 
     def __show_zone_dialog(self):
-        def on_select(zone_name: str, dsp: str, convert_q: bool, use_atmos_channels: bool):
+        def on_select(zone_name: str, dsp: str, convert_q: bool, use_atmos_channels: bool,
+                     mc_version: Optional[int]):
             logger.info(f"Received dsp config from {zone_name} len {len(dsp)}")
+            if not use_atmos_channels and mc_version is not None and mc_version < 36:
+                result = QMessageBox.question(self,
+                                              'Convert to MC36 Channel Layout?',
+                                              f"{zone_name} is running MC{mc_version}.\n\n"
+                                              f"Do you want to treat this config as MC36 so newly added/edited "
+                                              f"filters can use the full 9.1.6 immersive and Extra channels?",
+                                              QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                              QMessageBox.StandardButton.No)
+                if result == QMessageBox.StandardButton.Yes:
+                    use_atmos_channels = True
             self.__load_dsp(zone_name, txt=dsp, convert_q=convert_q, allow_padding=not convert_q,
                             use_atmos_channels=use_atmos_channels)
 
@@ -2755,7 +2766,7 @@ class MCWSDialog(QDialog, Ui_loadDspFromZoneDialog):
 
     def __init__(self, parent: QDialog, prefs: Preferences, download: bool = True,
                  txt_provider: Callable[[bool], str] = None,
-                 on_select: Callable[[str, str, bool, bool], None] = None):
+                 on_select: Callable[[str, str, bool, bool, Optional[int]], None] = None):
         super(MCWSDialog, self).__init__(parent)
         self.setupUi(self)
         self.__last_test = None
@@ -2886,7 +2897,8 @@ class MCWSDialog(QDialog, Ui_loadDspFromZoneDialog):
                     try:
                         dsp = media_server.get_dsp(zone.data(self.MCWS_ROLE))
                         self.resultText.setPlainText(f"Downloaded DSP from {zone.text()}\n\n{dsp}")
-                        self.__on_select(zone.text(), dsp, media_server.convert_q, media_server.use_atmos_channels)
+                        self.__on_select(zone.text(), dsp, media_server.convert_q, media_server.use_atmos_channels,
+                                         media_server.mc_version)
                         self.upload.setIcon(qta.icon('fa5s.download', color='green'))
                     except MCWSError as e:
                         self.resultText.setPlainText(f"{e.url} - {e.status_code}\n\n{e.msg}\n\n{e.resp}")

@@ -253,6 +253,18 @@ separate write-time argument to forget to match, because there's no
 parse-vs-write asymmetry in what it controls (which channels a format
 exposes for editing), not a per-filter numeric convention.
 
+When downloading a config over MCWS (`ui.py:__show_zone_dialog`'s `on_select`),
+the real `mc_version` is known directly from the live connection, so there's
+no need to ask the user to pick a version like the file-based flow does —
+except when `mc_version < 36`, where BEQD asks (`QMessageBox.question`)
+whether to opt in to the MC36 layout anyway for editing purposes, since a
+user may be about to route filters onto Atmos/Extra channels ahead of
+upgrading their JRMC install, or managing configs for a mix of zones on
+different versions. Saying yes only changes `use_atmos_channels` for the
+loaded session (i.e. which channels the routing UI offers) — it does not
+rewrite any existing filter's channel index, since (per the table above)
+none of them change meaning between versions.
+
 **Known pre-existing limitation surfaced by this**: `OutputFormat`'s channel
 *index* assignment for a >8-channel format is a heuristic — "take the first
 `output_channels` names from one fixed ordering" — not derived from what a

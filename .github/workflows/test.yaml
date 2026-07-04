@@ -85,7 +85,7 @@ jobs:
           if [[ "$RUNNER_OS" == "macOS" ]]
           then
             pushd dist
-            rm beqdesigner
+            rm -Rf beqdesigner
             zip -r beqdesigner.app.${{ matrix.os }}.zip beqdesigner.app
             rm -Rf beqdesigner.app
             popd

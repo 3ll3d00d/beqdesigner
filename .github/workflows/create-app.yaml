@@ -87,7 +87,7 @@ jobs:
           if [[ "$RUNNER_OS" == "macOS" ]]
           then
             pushd dist
-            rm beqdesigner
+            rm -Rf beqdesigner
             zip -r beqdesigner.app.zip_macos_$(sw_vers -productVersion) beqdesigner.app
             rm -Rf beqdesigner.app
             popd
