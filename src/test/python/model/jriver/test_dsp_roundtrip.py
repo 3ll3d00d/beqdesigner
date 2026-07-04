@@ -304,21 +304,16 @@ def test_native_only_filter_types_roundtrip():
     _assert_filter_list_round_trips(txt, filters)
 
 
-def test_native_divider_outside_complex_filter_is_dropped():
+def test_native_divider_outside_complex_filter_is_preserved():
     '''
-    Documents a known, currently unfixed round-trip gap: a plain divider (e.g. a user's manual "---"
-    separator added directly in JRMC's own PEQ UI) that isn't part of one of BEQD's recognised
-    complex-filter start/end pairs is silently discarded on load. See AGENTS.md.
+    A plain divider (e.g. a user's manual "---" separator added directly in JRMC's own PEQ UI) that
+    isn't part of one of BEQD's recognised complex-filter start/end pairs must survive a round trip
+    unchanged, just like any other native-only filter type.
     '''
     txt = base_config()
     manual_divider = Divider({'Enabled': '1', 'Type': Divider.TYPE, 'Text': '--- my manual separator ---'})
     peak = Peak(vals(Peak, Channels=_l_r(('L',)), Frequency='100', Q='1.0', Gain='3'))
-    seeded = seed(txt, PEQ1, [manual_divider, peak])
-    dsp = load(seeded)
-    parsed = dsp.graph(0).filters
-    # only the Peak survives; the plain divider is lost
-    assert len(parsed) == 1
-    assert isinstance(parsed[0], Peak)
+    _assert_filter_list_round_trips(txt, [manual_divider, peak])
 
 
 # ---------------------------------------------------------------------------------------------------

@@ -106,7 +106,8 @@ class JRiverDSP:
             if buffer:
                 buffer[-1][2].append(f)
             else:
-                logger.debug(f"Ignoring divider outside complex filter parsing - {f.text}")
+                logger.debug(f"Passing through divider outside complex filter parsing - {f.text}")
+                output_filters.append(f)
         else:
             filt_cls, data = match
             is_end = filt_cls.is_end_of_complex_filter_data(f.text)

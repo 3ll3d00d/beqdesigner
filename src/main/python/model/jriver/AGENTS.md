@@ -117,11 +117,12 @@ with a specially-formatted `Text`:
 `MultiwayFilter`, a slash-delimited string for `XOFilter`/`CustomPassFilter`)
 round-trips. Parsing is a single-pass stack machine in
 `dsp.JRiverDSP.__extract_custom_filters`/`__handle_divider`: unrecognised
-divider text is passed through as a plain filter *if* we're already inside a
-recognised complex filter's start/end pair — **but a plain/manual divider
-that sits outside any BEQD complex-filter block (e.g. a user's own "---"
-separator added directly in JRMC) is silently dropped on load.** This is a
-known, currently-untested gap — see `test_native_divider_outside_complex_filter_is_dropped`.
+divider text is passed through as a plain filter, whether it's nested inside
+a recognised complex filter's start/end pair (appended to the current
+buffer) or sitting outside any BEQD complex-filter block entirely (appended
+to the top-level filter list) — e.g. a user's own "---" separator added
+directly in JRMC survives a round trip like any other native-only filter.
+See `test_native_divider_outside_complex_filter_is_preserved`.
 
 `complex_filter_classes_by_type`/`filter_classes_by_type` are built via
 `all_subclasses()` reflection over `ComplexFilter`/`Filter` — **a new
