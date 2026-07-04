@@ -19,11 +19,13 @@ logger = logging.getLogger('jriver.dsp')
 class JRiverDSP:
 
     def __init__(self, name: str, txt_provider: Callable[[], str], colours: Tuple[str, str] = (None,),
-                 on_delta: Callable[[bool, bool], None] = None, convert_q: bool = False, allow_padding: bool = False):
+                 on_delta: Callable[[bool, bool], None] = None, convert_q: bool = False, allow_padding: bool = False,
+                 use_atmos_channels: bool = False):
         self.__active_idx = 0
         self.__on_delta = on_delta
         self.__filename = name
         self.__colours = colours
+        self.__use_atmos_channels = use_atmos_channels
         start = time.time()
         self.__input_config_txt = txt_provider()
         peq_block_order = get_peq_block_order(self.__input_config_txt)
@@ -65,7 +67,8 @@ class JRiverDSP:
         return self.graph(idx).render(colours=self.__colours, vertical=vertical, selected_nodes=selected_nodes)
 
     def channel_names(self, short=True, output=False, exclude_user=False):
-        idxs = self.output_format.output_channel_indexes if output else self.output_format.input_channel_indexes
+        idxs = self.output_format.get_output_channel_indexes(self.__use_atmos_channels) if output \
+            else self.output_format.get_input_channel_indexes(self.__use_atmos_channels)
         return [get_channel_name(i, short=short) for i in idxs if not exclude_user or i not in user_channel_indexes()]
 
     @staticmethod

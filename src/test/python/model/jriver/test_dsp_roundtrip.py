@@ -9,24 +9,27 @@ spec of that format.
 '''
 import math
 import xml.etree.ElementTree as et
+from pathlib import Path
 
 import pytest
 
 from model.iir import ComplexHighPass, ComplexLowPass, FilterType, q_to_s
 from model.jriver import JRIVER_FS
-from model.jriver.codec import get_output_format, get_peq_block_order, include_filters_in_dsp
+from model.jriver.codec import (extract_filters, filts_to_xml, get_output_format, get_peq_block_order,
+                                get_peq_key_name, include_filters_in_dsp, item_to_dicts)
 from model.jriver.dsp import JRiverDSP
 from model.jriver.filter import (AllPass, BitdepthSimulator, CompositeXODescriptor, CustomPassFilter, Delay,
                                   Divider, Gain, GEQFilter, HighPass, HighShelf, LimiterMode, Limiter,
                                   LinkwitzRiley, LowPass, LowShelf, MidSideDecoding, MidSideEncoding, Mix,
                                   MixType, MultiChannelSystem, MultiwayFilter, Mute, Order, Peak, Polarity,
                                   SubwooferLimiter, WayDescriptor, WayValues, XODescriptor,
-                                  convert_filter_to_mc_dsp)
-from model.jriver.formats import OUTPUT_FORMATS, get_channel_idx
+                                  convert_filter_to_mc_dsp, create_single_filter)
+from model.jriver.formats import OUTPUT_FORMATS, get_all_channel_names, get_channel_idx, get_channel_name
 from model.jriver.routing import Matrix
 
 PEQ1 = 'Parametric Equalizer'
 PEQ2 = 'Parametric Equalizer 2'
+RESOURCES = Path(__file__).parent / 'resources'
 
 
 def base_config(output_channels: int = 6, padding: int = 0, layout: int = None, peq2_enabled: bool = False,
@@ -508,3 +511,101 @@ def test_convert_q_second_order_pass_filter_roundtrip():
     round_tripped = dsp.config_txt(convert_q=True)
     dsp2 = load(round_tripped, convert_q=True)
     assert math.isclose(dsp2.graph(0).filters[0].q, expected_q, rel_tol=1e-9)
+
+
+# ---------------------------------------------------------------------------------------------------
+# MC36 channel scheme: completed Atmos channels (54-61) + Extra channels (37-52) - see AGENTS.md
+# ---------------------------------------------------------------------------------------------------
+
+@pytest.mark.parametrize('idx,short_name', [
+    (37, 'X1'), (44, 'X8'), (52, 'X16'),
+    (54, 'LTF'), (55, 'RTF'), (56, 'LTR'), (57, 'RTR'), (58, 'LTM'), (59, 'RTM'), (60, 'LW'), (61, 'RW'),
+])
+def test_atmos_and_extra_channel_names_resolve(idx, short_name):
+    assert get_channel_name(idx) == short_name
+    assert get_channel_idx(short_name) == idx
+
+
+def test_get_all_channel_names_legacy_vs_atmos_ordering():
+    legacy = get_all_channel_names(use_atmos_channels=False)
+    atmos = get_all_channel_names(use_atmos_channels=True)
+    assert legacy[:8] == atmos[:8] == ['L', 'R', 'C', 'SW', 'SL', 'SR', 'RL', 'RR']
+    # legacy: base 8 then the generically numbered channels
+    assert legacy[8:12] == ['C9', 'C10', 'C11', 'C12']
+    # atmos: base 8 then the full 9.1.6 layout, then the Extra channels
+    assert atmos[8:16] == ['LTF', 'RTF', 'LTR', 'RTR', 'LTM', 'RTM', 'LW', 'RW']
+    assert atmos[16:19] == ['X1', 'X2', 'X3']
+    assert 'LTF' not in legacy
+    assert 'C9' not in atmos
+
+
+def test_output_format_channel_indexes_are_version_gated():
+    fmt = OUTPUT_FORMATS['THIRTY_TWO']
+    legacy_indexes = fmt.get_output_channel_indexes(use_atmos_channels=False)
+    modern_indexes = fmt.get_output_channel_indexes(use_atmos_channels=True)
+    assert 13 in legacy_indexes and 54 not in legacy_indexes and 37 not in legacy_indexes
+    assert 54 in modern_indexes and 37 in modern_indexes and 13 not in modern_indexes
+    # the bare property (no args) is unaffected - still legacy, for backwards compatibility
+    assert fmt.output_channel_indexes == legacy_indexes
+    assert fmt.input_channel_indexes == fmt.get_input_channel_indexes(use_atmos_channels=False)
+
+
+# ---------------------------------------------------------------------------------------------------
+# Real captures from MC 35.0.38 and MC 36.0.14 - one PeakingEQ filter per channel, gain used as a
+# per-channel marker, covering every addressable channel range in both versions. See AGENTS.md for
+# the full analysis. Decoded at the codec/filter layer directly (not through JRiverDSP/FilterGraph):
+# these are deliberately exhaustive "every channel at once" diagnostic captures that straddle multiple
+# channel-naming eras within a single PEQ block, which the (pre-existing) OutputFormat channel-index
+# heuristic - a single contiguous "first N channels of one ordering" guess - can't represent all of
+# at once. That's a real, separate, pre-existing limitation (see AGENTS.md); it doesn't affect parsing
+# or round-tripping the filters themselves, which is what's under test here.
+# ---------------------------------------------------------------------------------------------------
+
+def _decode_raw_filters(config_txt: str, block: int):
+    peq_block = get_peq_key_name(block)
+    _, filt_element = extract_filters(config_txt, peq_block)
+    frags = [v + ')' for v in filt_element.text.split(')') if v]
+    return [create_single_filter(d) for d in (item_to_dicts(f) for f in frags[2:]) if d]
+
+
+@pytest.mark.parametrize('fixture,expected', [
+    ('mc35_all_channels.dsp', {
+        1: ['L'], 8: ['RR'], 9: ['LTF'], 10: ['RTF'], 11: ['LTR'], 12: ['RTR'],
+        # 58-61 (LTM/RTM/LW/RW) don't work in 35.0.38 - selecting them re-picks LTR/RTR (56/57)
+        13: ['LTR'], 14: ['RTR'], 15: ['LTR'], 16: ['RTR'],
+        17: ['L', 'R'],  # Extra channels don't work in 35.0.38 - falls back to L,R
+        19: ['U1', 'U2'],
+    }),
+    ('mc36_all_channels.dsp', {
+        1: ['L'], 8: ['RR'], 9: ['LTF'], 10: ['RTF'], 11: ['LTR'], 12: ['RTR'],
+        13: ['LTM'], 14: ['RTM'], 15: ['LW'], 16: ['RW'],
+        17: [f'X{i}' for i in range(1, 17)],
+        19: ['U1', 'U2'],
+    }),
+])
+def test_real_capture_channel_names_resolve(fixture, expected):
+    txt = (RESOURCES / fixture).read_text()
+    block = get_peq_block_order(txt)[0]
+    filters = _decode_raw_filters(txt, block)
+    by_gain = {int(f.gain): f for f in filters}
+    for gain, channel_names in expected.items():
+        assert by_gain[gain].channel_names == channel_names, f"gain={gain}"
+
+
+@pytest.mark.parametrize('fixture', ['mc35_all_channels.dsp', 'mc36_all_channels.dsp'])
+def test_real_capture_filters_roundtrip(fixture):
+    txt = (RESOURCES / fixture).read_text()
+    block = get_peq_block_order(txt)[0]
+    filters = _decode_raw_filters(txt, block)
+    assert len(filters) == 19
+
+    peq_key = get_peq_key_name(block)
+    xml_filts = [filts_to_xml(f.get_all_vals()) for f in filters]
+    round_tripped_txt = include_filters_in_dsp(peq_key, txt, xml_filts, replace=True)
+    filters2 = _decode_raw_filters(round_tripped_txt, block)
+    assert filters2 == filters
+
+    # stable fixed point on a second pass
+    xml_filts2 = [filts_to_xml(f.get_all_vals()) for f in filters2]
+    round_tripped_txt2 = include_filters_in_dsp(peq_key, round_tripped_txt, xml_filts2, replace=True)
+    assert round_tripped_txt2 == round_tripped_txt

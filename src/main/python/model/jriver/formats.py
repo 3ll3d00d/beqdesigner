@@ -1,7 +1,7 @@
-# 2-9
 import functools
 from typing import List, Dict, Tuple
 
+# 2-9
 SURROUND_CHANNELS = ['Left', 'Right', 'Centre', 'Subwoofer', 'Surround Left', 'Surround Right', 'Rear Left',
                      'Rear Right']
 SURROUND_SHORT_CHANNELS = ['L', 'R', 'C', 'SW', 'SL', 'SR', 'RL', 'RR']
@@ -10,10 +10,10 @@ SURROUND_CHANNEL_INDEXES = list(range(2, 10))
 USER_CHANNELS = ['User 1', 'User 2']
 SHORT_USER_CHANNELS = ['U1', 'U2']
 USER_CHANNEL_INDEXES = list(range(11, 13))
-# 13-35
+# 13-36
 NUMBER_CHANNELS = [f"Channel {i + 9}" for i in range(24)]
 SHORT_NUMBER_CHANNELS = [f"C{i + 9}" for i in range(24)]
-NUMBER_CHANNEL_INDEXES = list(range(13, 36))
+NUMBER_CHANNEL_INDEXES = list(range(13, 37))
 # 37-52
 EXTRA_CHANNELS = [f'Extra {i}' for i in range(1, 17)]
 EXTRA_SHORT_CHANNELS = [f'X{i}' for i in range(1, 17)]
@@ -21,7 +21,9 @@ EXTRA_CHANNEL_INDEXES = list(range(37, 53))
 # 54-61
 ATMOS_CHANNELS = ['Left Height Front', 'Right Height Front', 'Left Height Rear', 'Right Height Rear', 'Left Top Middle',
                   'Right Top Middle', 'Left Width', 'Right Width']
-SHORT_ATMOS_CHANNELS = ['LHF', 'RHF', 'LHR', 'RHR', 'LTM', 'RTM', 'LW', 'RW']
+# NB: JRiver's own short codes don't match the long names above (its own inconsistency) - mirror them
+# verbatim rather than deriving "logically correct" ones from the long name.
+SHORT_ATMOS_CHANNELS = ['LTF', 'RTF', 'LTR', 'RTR', 'LTM', 'RTM', 'LW', 'RW']
 ATMOS_CHANNEL_INDEXES = list(range(54, 62))
 
 # call MCWS/v1/Library/Get?Settings=1
@@ -29,26 +31,39 @@ ATMOS_CHANNEL_INDEXES = list(range(54, 62))
 # extract User Settings.ini
 # look for
 # New Extra Channels System 2=i:"0" (extra channels is disabled)
-# if MC >= 34 use ATMOS channels
+# MC36 completes the Atmos channels (54-61) and exposes the Extra channels (37-52) - see
+# use_atmos_channels in JRiverDSP/OutputFormat. Prior to MC36, only 54-57 worked; MC28-33 had
+# neither Atmos nor Extra channels at all (see AGENTS.md for the full MC35 vs MC36 comparison).
 
-JRIVER_NAMED_CHANNELS = [None, None, 'Left', 'Right', 'Centre', 'Subwoofer', 'Surround Left', 'Surround Right',
-                         'Rear Left', 'Rear Right', None] + USER_CHANNELS
-JRIVER_SHORT_NAMED_CHANNELS = [None, None, 'L', 'R', 'C', 'SW', 'SL', 'SR', 'RL', 'RR', None] + SHORT_USER_CHANNELS
+JRIVER_NAMED_CHANNELS = [None, None] + SURROUND_CHANNELS + [None] + USER_CHANNELS
+JRIVER_SHORT_NAMED_CHANNELS = [None, None] + SURROUND_SHORT_CHANNELS + [None] + SHORT_USER_CHANNELS
 
-JRIVER_HIGHER_CHANNELS = [f"Channel {i + 9}" for i in range(24)]
-JRIVER_SHORT_HIGHER_CHANNELS = [f"C{i + 9}" for i in range(24)]
+JRIVER_HIGHER_CHANNELS = NUMBER_CHANNELS
+JRIVER_SHORT_HIGHER_CHANNELS = SHORT_NUMBER_CHANNELS
 
-JRIVER_CHANNELS = JRIVER_NAMED_CHANNELS + JRIVER_HIGHER_CHANNELS
-JRIVER_SHORT_CHANNELS = JRIVER_SHORT_NAMED_CHANNELS + JRIVER_SHORT_HIGHER_CHANNELS
+# index 53 is an unused gap between the Extra channels (37-52) and the Atmos channels (54-61)
+JRIVER_CHANNELS = JRIVER_NAMED_CHANNELS + JRIVER_HIGHER_CHANNELS + EXTRA_CHANNELS + [None] + ATMOS_CHANNELS
+JRIVER_SHORT_CHANNELS = (JRIVER_SHORT_NAMED_CHANNELS + JRIVER_SHORT_HIGHER_CHANNELS + EXTRA_SHORT_CHANNELS + [None] +
+                         SHORT_ATMOS_CHANNELS)
 
 JRIVER_REAL_NAMED_CHANNELS = JRIVER_NAMED_CHANNELS[2:-3] + JRIVER_HIGHER_CHANNELS
 JRIVER_SHORT_REAL_NAMED_CHANNEL = JRIVER_SHORT_NAMED_CHANNELS[2:-3] + JRIVER_SHORT_HIGHER_CHANNELS
 
 
-def get_all_channel_names(short: bool = True) -> List[str]:
-    contents = JRIVER_SHORT_CHANNELS if short else JRIVER_CHANNELS
-    user_c = SHORT_USER_CHANNELS if short else USER_CHANNELS
-    return [c for c in contents if c and c not in user_c]
+def get_all_channel_names(short: bool = True, use_atmos_channels: bool = False) -> List[str]:
+    '''
+    :param short: get short names if true.
+    :param use_atmos_channels: if true, order the channels beyond the base 8 as the full 9.1.6 Atmos
+    layout (MC36+) followed by the Extra channels, instead of the legacy generically numbered channels
+    (MC < 36). See AGENTS.md for why this can't just always be true.
+    :return: the channel names, in output-format assignment order.
+    '''
+    base = SURROUND_SHORT_CHANNELS if short else SURROUND_CHANNELS
+    if use_atmos_channels:
+        extra = (SHORT_ATMOS_CHANNELS + EXTRA_SHORT_CHANNELS) if short else (ATMOS_CHANNELS + EXTRA_CHANNELS)
+    else:
+        extra = SHORT_NUMBER_CHANNELS if short else NUMBER_CHANNELS
+    return base + extra
 
 
 def get_channel_indexes(names: List[str], short: bool = True) -> List[int]:
@@ -116,27 +131,40 @@ class OutputFormat:
             self.__paddings: List[int] = list(range(2, max_padding + 1, 2)) if max_padding > 0 else []
         else:
             self.__paddings: List[int] = [max_padding] if max_padding else []
-        all_names = get_all_channel_names()
+
+    def get_output_channel_indexes(self, use_atmos_channels: bool = False) -> List[int]:
+        '''
+        :param use_atmos_channels: if true, assign channels beyond the base 8 using the MC36+ Atmos +
+        Extra ordering rather than the legacy generically numbered channels.
+        :return: the output channel indexes for this format.
+        '''
+        if self.__lfe_channels > 0 and self.__output_channels < 4:
+            return [2, 3, 5] + user_channel_indexes()
+        all_names = get_all_channel_names(use_atmos_channels=use_atmos_channels)
+        return sorted(get_channel_indexes(all_names[:self.__output_channels]) + user_channel_indexes())
+
+    def get_input_channel_indexes(self, use_atmos_channels: bool = False) -> List[int]:
+        '''
+        :param use_atmos_channels: if true, assign channels beyond the base 8 using the MC36+ Atmos +
+        Extra ordering rather than the legacy generically numbered channels.
+        :return: the input channel indexes for this format.
+        '''
+        all_names = get_all_channel_names(use_atmos_channels=use_atmos_channels)
         # swap SL/SR and RL/RR for the 8 or more channel case
         all_names_8 = all_names[0:4] + all_names[6:8] + all_names[4:6] + all_names[8:]
-        if self.__lfe_channels > 0 and self.__output_channels < 4:
-            self.__output_channel_indexes = [2, 3, 5] + user_channel_indexes()
-        else:
-            self.__output_channel_indexes = sorted(get_channel_indexes(all_names[:output_channels]) +
-                                                   user_channel_indexes())
         # special case for 2.1
         if self.__lfe_channels > 0 and self.__input_channels < 4:
-            self.__input_channel_indexes = [2, 3, 5]
+            return [2, 3, 5]
         elif self.__lfe_channels > 0 and self.__input_channels == 6:
-            if output_channels == 6:
-                self.__input_channel_indexes = get_channel_indexes(all_names[:output_channels])
+            if self.__output_channels == 6:
+                return get_channel_indexes(all_names[:self.__output_channels])
             else:
-                self.__input_channel_indexes = get_channel_indexes(all_names_8[0:6])
+                return get_channel_indexes(all_names_8[0:6])
         else:
-            if output_channels < 7:
-                self.__input_channel_indexes = get_channel_indexes(all_names[:input_channels])
+            if self.__output_channels < 7:
+                return get_channel_indexes(all_names[:self.__input_channels])
             else:
-                self.__input_channel_indexes = get_channel_indexes(all_names_8[:input_channels])
+                return get_channel_indexes(all_names_8[:self.__input_channels])
 
     def __str__(self):
         return self.__display_name
@@ -155,11 +183,11 @@ class OutputFormat:
 
     @property
     def input_channel_indexes(self) -> List[int]:
-        return self.__input_channel_indexes
+        return self.get_input_channel_indexes()
 
     @property
     def output_channel_indexes(self) -> List[int]:
-        return self.__output_channel_indexes
+        return self.get_output_channel_indexes()
 
     @property
     def lfe_channels(self) -> int:

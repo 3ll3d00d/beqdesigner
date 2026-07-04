@@ -106,9 +106,10 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
             ImpulseDialog(self, self.prefs, {s: s.name in selected for s in self.__dsp.signals}).show()
 
     def __show_zone_dialog(self):
-        def on_select(zone_name: str, dsp: str, convert_q: bool):
+        def on_select(zone_name: str, dsp: str, convert_q: bool, use_atmos_channels: bool):
             logger.info(f"Received dsp config from {zone_name} len {len(dsp)}")
-            self.__load_dsp(zone_name, txt=dsp, convert_q=convert_q, allow_padding=not convert_q)
+            self.__load_dsp(zone_name, txt=dsp, convert_q=convert_q, allow_padding=not convert_q,
+                            use_atmos_channels=use_atmos_channels)
 
         MCWSDialog(self, self.prefs, on_select=on_select).exec()
 
@@ -237,11 +238,11 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
             file_name, ok = QInputDialog.getText(self, "Create New DSP Config", "Config Name:", text=default_file_name)
             output_file = os.path.join(self.prefs.get(JRIVER_DSP_DIR), f"{file_name}.dsp")
             write_dsp_file(root, output_file)
-            self.__load_dsp(output_file, allow_padding=selected_padding > 0)
+            self.__load_dsp(output_file, allow_padding=selected_padding > 0, use_atmos_channels=mc_version >= 36)
 
     def __pick_mc_version(self) -> int:
         mc_version = 30
-        item, ok = QInputDialog.getItem(self, 'Choose MC Version', 'Version: ', ['30', '29', '28'], 0, False)
+        item, ok = QInputDialog.getItem(self, 'Choose MC Version', 'Version: ', ['36', '30', '29', '28'], 0, False)
         if ok and item:
             mc_version = int(item)
         return mc_version
@@ -261,9 +262,11 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         selected = QFileDialog.getOpenFileName(parent=self, **kwargs)
         if selected is not None and len(selected[0]) > 0:
             legacy = mc_version < 29
-            self.__load_dsp(selected[0], convert_q=legacy, allow_padding=not legacy)
+            self.__load_dsp(selected[0], convert_q=legacy, allow_padding=not legacy,
+                            use_atmos_channels=mc_version >= 36)
 
-    def __load_dsp(self, name: str, txt: str = None, convert_q: bool = False, allow_padding: bool = False) -> None:
+    def __load_dsp(self, name: str, txt: str = None, convert_q: bool = False, allow_padding: bool = False,
+                   use_atmos_channels: bool = False) -> None:
         '''
         Loads the selected file.
         :param name: the name of the dsp.
@@ -274,6 +277,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
             highlight_colour = QColor(QPalette().color(QPalette.ColorGroup.Active, QPalette.ColorRole.Highlight)).name()
             self.__dsp = JRiverDSP(name, lambda: txt if txt else Path(name).read_text(),
                                    convert_q=convert_q, allow_padding=allow_padding,
+                                   use_atmos_channels=use_atmos_channels,
                                    colours=(main_colour, highlight_colour),
                                    on_delta=self.__enable_history_buttons)
             self.__refresh_channel_list()
@@ -2750,7 +2754,8 @@ class MCWSDialog(QDialog, Ui_loadDspFromZoneDialog):
     MCWS_ROLE = Qt.ItemDataRole.UserRole + 1
 
     def __init__(self, parent: QDialog, prefs: Preferences, download: bool = True,
-                 txt_provider: Callable[[bool], str] = None, on_select: Callable[[str, str, bool], None] = None):
+                 txt_provider: Callable[[bool], str] = None,
+                 on_select: Callable[[str, str, bool, bool], None] = None):
         super(MCWSDialog, self).__init__(parent)
         self.setupUi(self)
         self.__last_test = None
@@ -2881,7 +2886,7 @@ class MCWSDialog(QDialog, Ui_loadDspFromZoneDialog):
                     try:
                         dsp = media_server.get_dsp(zone.data(self.MCWS_ROLE))
                         self.resultText.setPlainText(f"Downloaded DSP from {zone.text()}\n\n{dsp}")
-                        self.__on_select(zone.text(), dsp, media_server.convert_q)
+                        self.__on_select(zone.text(), dsp, media_server.convert_q, media_server.use_atmos_channels)
                         self.upload.setIcon(qta.icon('fa5s.download', color='green'))
                     except MCWSError as e:
                         self.resultText.setPlainText(f"{e.url} - {e.status_code}\n\n{e.msg}\n\n{e.resp}")

@@ -128,3 +128,4 @@ src/test/python/scratch
 
 out/
 *.dsp
+!src/test/python/model/jriver/resources/*.dsp

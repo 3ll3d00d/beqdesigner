@@ -212,6 +212,64 @@ which path/convention is active for a live JRMC connection; `ui.py` derives
 the same booleans from a user-facing "legacy" checkbox when working from a
 file rather than a live connection.
 
+### Channels beyond the base 8: legacy numbered vs MC36 Atmos + Extra
+
+Indexes 2-9 (base 8 surround) and 11-12 (user channels) never change. Beyond
+that, JRMC has had (at least) three eras of naming for the "extra" channels a
+>8-channel format needs, all still present in `formats.py` since raw
+*indexes* never get remapped between JRMC versions — only which ones are
+reachable via JRMC's own UI/picker changes:
+
+| Indexes | Name | Works from | Notes |
+|---|---|---|---|
+| 13-36 | `Channel 9`..`Channel 32` (`NUMBER_CHANNELS`) | always | legacy generic numbering |
+| 54-57 | `LTF`/`RTF`/`LTR`/`RTR` (Atmos, first 4) | ~MC34 | JRiver's own short codes don't match its long names (`'Left Height Front'` etc) — `SHORT_ATMOS_CHANNELS` mirrors the short codes verbatim, not the "logically correct" ones derived from the long name |
+| 58-61 | `LTM`/`RTM`/`LW`/`RW` (Atmos, remaining 4, completing 9.1.6) | **MC36** | broken before 36 — selecting them in the JRMC UI just re-picks 56/57 |
+| 37-52 | `X1`..`X16` (`EXTRA_CHANNELS`) | **MC36** | unreachable before 36 — selecting them falls back to L/R |
+
+Confirmed empirically (2026-07) from two real captures, one PeakingEQ filter
+per channel as a marker, `all_35.dsp` (MC 35.0.38) vs `all_36.dsp` (MC
+36.0.14) — scrubbed copies live at
+`src/test/python/model/jriver/resources/mc{35,36}_all_channels.dsp`. No index
+*remapping* happens between 35 and 36 — everything above just becomes newly
+reachable. This is why reading an MC35 file and writing it back for MC36
+doesn't need any transform step, just complete channel tables.
+
+`formats.get_all_channel_names(use_atmos_channels=...)` /
+`OutputFormat.get_output_channel_indexes(use_atmos_channels=...)` /
+`get_input_channel_indexes(use_atmos_channels=...)` pick which ordering a
+>8-channel format's channel set is built from: legacy numbered (`False`) or
+the full 9.1.6 layout followed by the Extra channels (`True`) — base-8 + 8
+Atmos + 16 Extra = 32, exactly the largest format currently defined, so the
+legacy numbered range is never needed for *constructing* a format once this
+flag is on (it's still needed for *parsing* old files, which is why the
+lookup tables include it unconditionally). This mirrors the `convert_q`/
+`allow_padding` pattern: `mcws.MediaServer.use_atmos_channels` gates it for a
+live connection (`mc_version >= 36`), `ui.py`'s version picker derives it
+from the same combo the user already picks 28/29/30/36 from, and
+`JRiverDSP(use_atmos_channels=...)` threads it to `dsp.py:channel_names()`.
+Unlike `convert_q`, this one *is* remembered consistently — there's no
+separate write-time argument to forget to match, because there's no
+parse-vs-write asymmetry in what it controls (which channels a format
+exposes for editing), not a per-filter numeric convention.
+
+**Known pre-existing limitation surfaced by this**: `OutputFormat`'s channel
+*index* assignment for a >8-channel format is a heuristic — "take the first
+`output_channels` names from one fixed ordering" — not derived from what a
+specific file's filters actually reference. A real file whose filters
+straddle *multiple* channel-naming eras in a single PEQ block (which
+shouldn't happen from normal JRMC use, but the two diagnostic captures above
+deliberately do, to probe every channel at once) can reference channels
+outside whatever set `get_output_channel_indexes()` guesses, which will
+raise a `KeyError` deep in `render.GraphRenderer.generate()` (it assumes a
+filter's channels are always a subset of the graph's declared
+`output_channels`). This predates the MC36 work and isn't fixed here — see
+`test_real_capture_channel_names_resolve`/`test_real_capture_filters_roundtrip`
+in `test_dsp_roundtrip.py`, which test channel name resolution and filter
+round-tripping for these two files directly at the `codec`/`filter` layer
+(bypassing `JRiverDSP`/`FilterGraph`/`render.py` entirely) rather than
+papering over this.
+
 ## When JRiver changes the format again
 
 Likely touch points, roughly in order of how often JRiver has changed them
@@ -233,7 +291,14 @@ historically:
 
 Whatever changes, re-run (and extend) the round-trip tests in
 `src/test/python/model/jriver/test_dsp_roundtrip.py` first — they're the
-closest thing this module has to an executable spec of the file format.
+closest thing this module has to an executable spec of the file format. The
+MC36 Atmos/Extra channel work above is a worked example of touchpoint 1 and
+4 together: a one-off PeakingEQ-per-channel capture from each JRiver version
+(see "Channels beyond the base 8" above) pinned down exactly which raw
+indexes changed reachability, which confirmed no index remapping was
+needed — only completing `formats.py`'s lookup tables and adding a
+`convert_q`-style boolean (`use_atmos_channels`) to gate which ordering BEQD
+itself uses when *constructing* a new format's channel set.
 
 ## Testing
 
@@ -245,6 +310,12 @@ closest thing this module has to an executable spec of the file format.
   `test_xo.py`'s in-memory filter-list assertions, but that never touched
   XML serialization, so a bug in the `Divider`/complex-filter encode/decode
   path could pass all existing tests.
+- `test_dsp_roundtrip.py`'s `resources/` dir holds real, scrubbed (machine
+  paths/timestamps only) JRMC captures — currently the MC35/MC36 "every
+  channel at once" pair described above. Prefer adding real captures here
+  over hand-built XML when investigating a specific JRiver version's actual
+  behaviour; hand-built fixtures are still the right tool for testing the
+  format mechanics in isolation (see the rest of this file).
 - `test_xo.py` — crossover/bass-management filter *synthesis* correctness
   (what filters get generated for a given routing matrix), independent of
   the XML format.

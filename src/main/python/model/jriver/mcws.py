@@ -157,6 +157,10 @@ class MediaServer:
     def convert_q(self) -> bool:
         return not self.__is_29()
 
+    @property
+    def use_atmos_channels(self) -> bool:
+        return True if self.mc_version and self.mc_version >= 36 else False
+
     def __is_29(self) -> bool:
         return True if self.mc_version and self.mc_version >= 29 else False
 
