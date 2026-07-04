@@ -50,7 +50,7 @@ jobs:
         run: |
           PYTHONPATH=./src/main/python uv run pytest --cov=./src/main/python
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v7
         with:
           files: ./coverage.xml
         env:
