@@ -29,7 +29,7 @@ jobs:
       matrix:
         os: [ ubuntu-22.04, ubuntu-24.04, macos-15, macos-26, windows-2022, windows-2025 ]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
