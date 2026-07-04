@@ -13,7 +13,7 @@ jobs:
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Generate changelog
         id: changelog
         uses: metcalfc/changelog-generator@v4.7.0
@@ -37,7 +37,7 @@ jobs:
         os: [ ubuntu-22.04, ubuntu-24.04, macos-15, macos-26, windows-2022, windows-2025 ]
       fail-fast: false
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
