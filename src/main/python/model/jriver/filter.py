@@ -406,7 +406,7 @@ class Pass(ChannelFilter, ABC):
         return self.__order
 
     def get_vals(self, convert_q: bool = False) -> Dict[str, str]:
-        q = self.to_jriver_q(self.jriver_q) if self.order == 2 and convert_q else self.jriver_q
+        q = self.to_jriver_q(self.q) if self.order == 2 and convert_q else self.jriver_q
         return {
             'Gain': '0',
             'Slope': f"{self.order * 6}",
