@@ -299,6 +299,42 @@ One open question left, one now settled:
    and `test_seven_one_four_and_nine_one_six_keep_full_seven_one_bed` in
    `test_dsp_roundtrip.py`.
 
+   **The same bug existed a second time**, independently, in the dynamically
+   padded path: `codec.get_output_format`'s padded branch (a real "N.N + N
+   padding" file, e.g. 5.1+10) builds a `template=False` `OutputFormat` from
+   whichever static template matches the file's pre-padding channel count
+   (`OutputFormat.from_output_channels`), but never passed that template's own
+   bed size through as `base_channels` — so a 5.1+10 file always got the fixed
+   8-channel 7.1 base regardless of the real underlying format being 5.1.
+   Confirmed the same way: a real 5.1+10 capture uses the 6-channel 5.1 bed
+   (`L/R/C/SW/SL/SR`, no `RL`/`RR`) plus 10 Extra channels (`X1`-`X10`), not an
+    8-channel base plus only 8 Extra. Fixed by passing
+   `base_channels=template.output_channels` through in `codec.py` — see
+   `test_five_one_plus_padding_uses_five_one_bed_not_seven_one`. This is a
+   distinct call site from `FIVE_ONE_TWO`'s fix above (one is a static
+   `OUTPUT_FORMATS` entry, the other a dynamically-constructed instance), so
+   fixing one did not fix the other - **grep for other places `OutputFormat(`
+   is constructed with a bed smaller than 8 before assuming this class of bug
+   is fully closed.**
+
+   **`TWO_ONE` (2.1) is a real, unresolved edge case within this same fix,
+   flagged rather than assumed**: it's the one template reachable from
+   `codec.py`'s padded branch where `input_channels` (3) != `output_channels`
+   (6) — the static, unpadded `TWO_ONE` entry already treats 2.1 as living in
+   a 6-channel container (`L/R/C/SW/SL/SR`), not the 3-channel `L/R/SW` its
+   name implies (a pre-existing quirk, not something this session changed).
+   `base_channels=template.output_channels` (6, for internal consistency with
+   that existing static behavior) was chosen over `template.input_channels`
+   (3) with **no real capture backing either choice** for a genuine
+   "2.1 + N padding" file - and 6 has its own latent gap for small `N` (e.g.
+   `padding=2` → 5 total channels, less than the 6-wide base, meaning the 2
+   padding/scratch channels would be silently absorbed into unused base
+   slots instead of ever reaching Atmos/Extra/legacy). BEQD's own
+   `create_new_config` UI flow can produce this file (2.1 base + padding is a
+   real, reachable bass-management config, arguably more common than 5.1+N),
+   so this isn't purely theoretical - get a real "2.1 + N" JRiver capture
+   before trusting either number here.
+
 `formats.get_all_channel_names(use_atmos_channels=...)` /
 `OutputFormat.get_output_channel_indexes(use_atmos_channels=...)` /
 `get_input_channel_indexes(use_atmos_channels=...)` pick which ordering a

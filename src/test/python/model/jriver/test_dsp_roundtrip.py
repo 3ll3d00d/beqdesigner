@@ -147,6 +147,21 @@ def test_padded_output_format_roundtrip(output_channels, padding):
     assert dsp.output_format.output_channels == fmt.output_channels
 
 
+def test_five_one_plus_padding_uses_five_one_bed_not_seven_one():
+    '''
+    Same bug class as FIVE_ONE_TWO (a 5.1 bed has no RL/RR), but in the dynamically-constructed
+    "N.N + N padding" path (codec.get_output_format's padded branch) rather than a static
+    OUTPUT_FORMATS entry: a real 5.1+10 capture uses the 6-channel 5.1 bed (L/R/C/SW/SL/SR) plus
+    10 Extra channels (X1-X10), not a padded-out 8-channel 7.1 bed plus only 8 Extra channels.
+    '''
+    txt = base_config(output_channels=6, padding=10)
+    fmt = get_output_format(txt, allow_padding=True)
+    names = [get_channel_name(i) for i in fmt.get_output_channel_indexes(use_atmos_channels=True)]
+    assert 'RL' not in names and 'RR' not in names
+    assert all(f'X{i}' in names for i in range(1, 11))
+    assert 'X11' not in names
+
+
 def test_mc35_immersive_output_formats_are_registered():
     for key in ['FIVE_ONE_TWO', 'SEVEN_ONE_FOUR', 'NINE_ONE_SIX']:
         fmt = OUTPUT_FORMATS[key]

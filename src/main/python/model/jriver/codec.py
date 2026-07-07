@@ -61,9 +61,15 @@ def get_output_format(config_txt: str, allow_padding: bool) -> OutputFormat:
         else:
             template = OutputFormat.from_output_channels(output_channels)
             xml_vals = (template.output_channels, padding)
+        # base_channels uses template.output_channels, not input_channels: they're equal for every
+        # template here except TWO_ONE (3 in, 6 out) - its own static, unpadded form already treats
+        # 2.1 as living in a 6-channel container (L/R/C/SW/SL/SR), so a padded "2.1 + N" instance
+        # should stay consistent with that rather than shrinking to a 3-channel base. Not
+        # independently real-capture-verified for TWO_ONE specifically - see AGENTS.md.
         return OutputFormat(f"{template.display_name} (+{padding})", template.input_channels,
                             template.input_channels + padding, template.lfe_channels, xml_vals,
-                            template.paddings[-1] if template.paddings else 0, template=False)
+                            template.paddings[-1] if template.paddings else 0, template=False,
+                            base_channels=template.output_channels)
     else:
         return get_legacy_output_format(output_channels, padding, layout)
 
