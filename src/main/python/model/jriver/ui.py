@@ -111,10 +111,13 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
             logger.info(f"Received dsp config from {zone_name} len {len(dsp)}")
             if not use_atmos_channels and mc_version is not None and mc_version < 36:
                 result = QMessageBox.question(self,
-                                              'Convert to MC36 Channel Layout?',
+                                              'Convert to Atmos/Extra Channel Layout?',
                                               f"{zone_name} is running MC{mc_version}.\n\n"
-                                              f"Do you want to treat this config as MC36 so newly added/edited "
-                                              f"filters can use the full 9.1.6 immersive and Extra channels?",
+                                              f"Atmos/Extra channels require JRiver 35.0.39 or later - if this "
+                                              f"zone is actually on 35.0.39+ (not detectable from the major "
+                                              f"version alone), do you want to treat this config as such so "
+                                              f"newly added/edited filters can use the full 9.1.6 immersive and "
+                                              f"Extra channels?",
                                               QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                                               QMessageBox.StandardButton.No)
                 if result == QMessageBox.StandardButton.Yes:
@@ -208,7 +211,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         '''
         Creates a new configuration with a selected output format.
         '''
-        mc_version = self.__pick_mc_version()
+        mc_version, use_atmos_channels = self.__pick_mc_version()
         of: OutputFormat
         all_formats: List[OutputFormat] = sorted([of for of in OUTPUT_FORMATS.values() if of.is_compatible(mc_version)])
         output_formats = [of.display_name for of in all_formats]
@@ -249,20 +252,34 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
             file_name, ok = QInputDialog.getText(self, "Create New DSP Config", "Config Name:", text=default_file_name)
             output_file = os.path.join(self.prefs.get(JRIVER_DSP_DIR), f"{file_name}.dsp")
             write_dsp_file(root, output_file)
-            self.__load_dsp(output_file, allow_padding=selected_padding > 0, use_atmos_channels=mc_version >= 36)
+            self.__load_dsp(output_file, allow_padding=selected_padding > 0, use_atmos_channels=use_atmos_channels)
 
-    def __pick_mc_version(self) -> int:
+    def __pick_mc_version(self) -> Tuple[int, bool]:
+        '''
+        :return: the MC major version (drives which default config template/output formats/padding
+        are offered - these gates never changed at 35.0.39) and whether Atmos/Extra channels should
+        be used (gated on the real 35.0.39 point release, which doesn't align with any major version
+        boundary, so it's asked separately rather than derived from the major version pick).
+        '''
         mc_version = 30
         item, ok = QInputDialog.getItem(self, 'Choose MC Version', 'Version: ', ['36', '30', '29', '28'], 0, False)
         if ok and item:
             mc_version = int(item)
-        return mc_version
+        use_atmos_channels = False
+        default_idx = 1 if mc_version >= 36 else 0
+        item, ok = QInputDialog.getItem(self, 'Atmos/Extra Channels?',
+                                        'Atmos (54-61) and Extra (37-52) channels are only usable from\n'
+                                        'JRiver 35.0.39 onwards, not simply "MC36":',
+                                        ['<=35.0.38', '>=35.0.39'], default_idx, False)
+        if ok and item:
+            use_atmos_channels = item == '>=35.0.39'
+        return mc_version, use_atmos_channels
 
     def find_dsp_file(self):
         '''
         Allows user to select a DSP file and loads it as a set of graphs.
         '''
-        mc_version = self.__pick_mc_version()
+        mc_version, use_atmos_channels = self.__pick_mc_version()
         dsp_dir = self.prefs.get(JRIVER_DSP_DIR)
         kwargs = {
             'caption': 'Select JRiver Media Centre DSP File',
@@ -274,7 +291,7 @@ class JRiverDSPDialog(QDialog, Ui_jriverDspDialog):
         if selected is not None and len(selected[0]) > 0:
             legacy = mc_version < 29
             self.__load_dsp(selected[0], convert_q=legacy, allow_padding=not legacy,
-                            use_atmos_channels=mc_version >= 36)
+                            use_atmos_channels=use_atmos_channels)
 
     def __load_dsp(self, name: str, txt: str = None, convert_q: bool = False, allow_padding: bool = False,
                    use_atmos_channels: bool = False) -> None:

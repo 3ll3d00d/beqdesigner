@@ -1521,6 +1521,21 @@ class ZeroFilterOp(FilterOp):
         return input_signal.zero()
 
 
+class _ScratchChannelSignals(dict):
+    '''
+    A filter can legitimately reference a channel outside the graph's declared output_channels - e.g.
+    a manually-placed Mix onto an otherwise-unused channel, or a bass-management crossover's spare
+    channels landing outside whatever OutputFormat guessed. Rather than raising a KeyError, treat any
+    such channel as silent scratch space, seeded lazily on first access. Mirrors GraphRenderer's
+    defaultdict(list) fix for the equivalent problem in rendering - see AGENTS.md.
+    '''
+
+    def __missing__(self, channel: str):
+        value = (make_silence(channel), None)
+        self[channel] = value
+        return value
+
+
 class FilterGraph:
 
     def __init__(self, stage: int, input_channels: List[str], output_channels: List[str], filts: List[Filter],
@@ -1874,10 +1889,10 @@ class FilterGraph:
         """
         if recalc or self.__sim is None:
             start = time.time()
-            signals: Dict[str, Tuple[Signal, Optional[SosFilterOp]]] = {
+            signals: Dict[str, Tuple[Signal, Optional[SosFilterOp]]] = _ScratchChannelSignals({
                 c: (make_dirac_pulse(c, analysis_resolution=analysis_resolution) if c in self.input_channels else make_silence(c), None)
                 for c in self.output_channels
-            }
+            })
             for f in self.all_filters:
                 self.__simulate_filter(f, signals)
             end = time.time()

@@ -31,9 +31,10 @@ ATMOS_CHANNEL_INDEXES = list(range(54, 62))
 # extract User Settings.ini
 # look for
 # New Extra Channels System 2=i:"0" (extra channels is disabled)
-# MC36 completes the Atmos channels (54-61) and exposes the Extra channels (37-52) - see
-# use_atmos_channels in JRiverDSP/OutputFormat. Prior to MC36, only 54-57 worked; MC28-33 had
-# neither Atmos nor Extra channels at all (see AGENTS.md for the full MC35 vs MC36 comparison).
+# MC 35.0.39 completes the Atmos channels (54-61) and exposes the Extra channels (37-52) - see
+# use_atmos_channels in JRiverDSP/OutputFormat. This is a point release within the 35.x line, not
+# major version 36. Prior to 35.0.39, only 54-57 worked; MC28-33 had neither Atmos nor Extra
+# channels at all (see AGENTS.md for the full pre-/post-35.0.39 comparison).
 
 JRIVER_NAMED_CHANNELS = [None, None] + SURROUND_CHANNELS + [None] + USER_CHANNELS
 JRIVER_SHORT_NAMED_CHANNELS = [None, None] + SURROUND_SHORT_CHANNELS + [None] + SHORT_USER_CHANNELS
@@ -50,17 +51,32 @@ JRIVER_REAL_NAMED_CHANNELS = JRIVER_NAMED_CHANNELS[2:-3] + JRIVER_HIGHER_CHANNEL
 JRIVER_SHORT_REAL_NAMED_CHANNEL = JRIVER_SHORT_NAMED_CHANNELS[2:-3] + JRIVER_SHORT_HIGHER_CHANNELS
 
 
-def get_all_channel_names(short: bool = True, use_atmos_channels: bool = False) -> List[str]:
+def get_all_channel_names(short: bool = True, use_atmos_channels: bool = False,
+                          padding_only: bool = False, base_channel_count: int = 8) -> List[str]:
     '''
     :param short: get short names if true.
-    :param use_atmos_channels: if true, order the channels beyond the base 8 as the full 9.1.6 Atmos
-    layout (MC36+) followed by the Extra channels, instead of the legacy generically numbered channels
-    (MC < 36). See AGENTS.md for why this can't just always be true.
+    :param use_atmos_channels: if true, order the channels beyond the base as the full 9.1.6 Atmos
+    layout (MC 35.0.39+) followed by the Extra channels, instead of the legacy generically numbered
+    channels (< 35.0.39). See AGENTS.md for why this can't just always be true.
+    :param padding_only: if true (and use_atmos_channels is true), use the Extra channels alone rather
+    than Atmos+Extra combined - this is the 35.0.39+ pool a dynamically padded "+N padding channels"
+    instance draws from, as opposed to a deliberately-chosen static immersive layout (5.1.2/7.1.4/
+    9.1.6/32ch) which draws Atmos channels first. Confirmed empirically against a real MC36 7.1+2
+    capture: the 2 padding channels resolved to X1/X2 (Extra), not LTF/RTF (Atmos) or Channel 9/10
+    (legacy numbered) - see AGENTS.md and mc36_seven_one_plus_two_padding.dsp.
+    :param base_channel_count: how many of the 8 surround channels (L,R,C,SW,SL,SR,RL,RR, in that
+    order) this format's bed actually uses - 8 for a 7.1-based bed, 6 for a 5.1-based bed (no rear
+    surrounds, freeing 2 slots for e.g. 5.1.2's height channels). Confirmed empirically: a real
+    5.1.2 capture uses L/R/C/SW/SL/SR/LTF/RTF (8 total), not the 7.1 bed plus 2 extra - see
+    AGENTS.md and OUTPUT_FORMATS['FIVE_ONE_TWO'].
     :return: the channel names, in output-format assignment order.
     '''
-    base = SURROUND_SHORT_CHANNELS if short else SURROUND_CHANNELS
+    base = (SURROUND_SHORT_CHANNELS if short else SURROUND_CHANNELS)[:base_channel_count]
     if use_atmos_channels:
-        extra = (SHORT_ATMOS_CHANNELS + EXTRA_SHORT_CHANNELS) if short else (ATMOS_CHANNELS + EXTRA_CHANNELS)
+        if padding_only:
+            extra = EXTRA_SHORT_CHANNELS if short else EXTRA_CHANNELS
+        else:
+            extra = (SHORT_ATMOS_CHANNELS + EXTRA_SHORT_CHANNELS) if short else (ATMOS_CHANNELS + EXTRA_CHANNELS)
     else:
         extra = SHORT_NUMBER_CHANNELS if short else NUMBER_CHANNELS
     return base + extra
@@ -121,12 +137,29 @@ def pop_channels(vals: List[Dict[str, str]]):
 class OutputFormat:
 
     def __init__(self, display_name: str, input_channels: int, output_channels: int, lfe_channels: int,
-                 xml_vals: Tuple[int, ...], max_padding: int, template: bool = True):
+                 xml_vals: Tuple[int, ...], max_padding: int, template: bool = True, base_channels: int = 8):
         self.__lfe_channels = lfe_channels
         self.__output_channels = output_channels
         self.__display_name = display_name
         self.__input_channels = input_channels
         self.__xml_vals = xml_vals
+        # how many of the 8 surround channels this format's bed actually uses - 8 for a 7.1-based
+        # bed, 6 for a 5.1-based bed (no rear surrounds). Only matters once channels beyond the base
+        # are in play (use_atmos_channels/legacy numbered) - see get_all_channel_names's
+        # base_channel_count. Confirmed empirically for FIVE_ONE_TWO: real 5.1.2 capture uses
+        # L/R/C/SW/SL/SR/LTF/RTF (8 total, RL/RR dropped entirely), not the full 7.1 bed plus 2 more.
+        self.__base_channels = base_channels
+        # a template=False instance is a one-off "+N padding channels" bolt-on dynamically constructed
+        # by codec.get_output_format's padded branch, as opposed to one of the static OUTPUT_FORMATS
+        # entries. Padding has always meant a generic scratch/spare channel pool (that's what BEQD's
+        # own crossover engine has always used it for), but which pool changed at the 35.0.39 point
+        # release (not major version 36 - see mcws.ATMOS_CHANNELS_MIN_VERSION): legacy numbered
+        # (< 35.0.39, confirmed via the real mc35_mixed_channel_eras.dsp capture) vs Extra channels
+        # alone, never Atmos (35.0.39+, confirmed via the real mc36_seven_one_plus_two_padding.dsp
+        # capture) - unlike a deliberately-chosen fully immersive static format (5.1.2/7.1.4/9.1.6/32
+        # channels), which draws Atmos channels first regardless of version - see
+        # get_output_channel_indexes/get_all_channel_names's padding_only.
+        self.__is_padded_instance = not template
         if template:
             self.__paddings: List[int] = list(range(2, max_padding + 1, 2)) if max_padding > 0 else []
         else:
@@ -134,24 +167,37 @@ class OutputFormat:
 
     def get_output_channel_indexes(self, use_atmos_channels: bool = False) -> List[int]:
         '''
-        :param use_atmos_channels: if true, assign channels beyond the base 8 using the MC36+ Atmos +
-        Extra ordering rather than the legacy generically numbered channels.
+        :param use_atmos_channels: if true, assign channels beyond the base 8 using the 35.0.39+ scheme
+        rather than the legacy generically numbered channels - Atmos+Extra ordering for a static,
+        deliberately-immersive format, or Extra alone for a dynamically padded instance (see
+        __init__ and get_all_channel_names's padding_only) - confirmed empirically against a real
+        MC36 7.1+2 capture (mc36_seven_one_plus_two_padding.dsp), whose 2 padding channels resolved
+        to X1/X2, not Channel 9/10.
         :return: the output channel indexes for this format.
         '''
         if self.__lfe_channels > 0 and self.__output_channels < 4:
             return [2, 3, 5] + user_channel_indexes()
-        all_names = get_all_channel_names(use_atmos_channels=use_atmos_channels)
+        all_names = get_all_channel_names(use_atmos_channels=use_atmos_channels,
+                                          padding_only=self.__is_padded_instance,
+                                          base_channel_count=self.__base_channels)
         return sorted(get_channel_indexes(all_names[:self.__output_channels]) + user_channel_indexes())
 
     def get_input_channel_indexes(self, use_atmos_channels: bool = False) -> List[int]:
         '''
-        :param use_atmos_channels: if true, assign channels beyond the base 8 using the MC36+ Atmos +
-        Extra ordering rather than the legacy generically numbered channels.
+        :param use_atmos_channels: if true, assign channels beyond the base 8 using the 35.0.39+ scheme
+        rather than the legacy generically numbered channels - see get_output_channel_indexes.
         :return: the input channel indexes for this format.
         '''
-        all_names = get_all_channel_names(use_atmos_channels=use_atmos_channels)
-        # swap SL/SR and RL/RR for the 8 or more channel case
-        all_names_8 = all_names[0:4] + all_names[6:8] + all_names[4:6] + all_names[8:]
+        all_names = get_all_channel_names(use_atmos_channels=use_atmos_channels,
+                                          padding_only=self.__is_padded_instance,
+                                          base_channel_count=self.__base_channels)
+        # swap SL/SR and RL/RR for the 8 or more channel case - only applies when the bed actually
+        # has RL/RR (a 7.1-based bed); a 5.1-based bed (base_channels=6, e.g. FIVE_ONE_TWO) has
+        # nothing at those positions to swap with, so leave it untouched.
+        if self.__base_channels == 8:
+            all_names_8 = all_names[0:4] + all_names[6:8] + all_names[4:6] + all_names[8:]
+        else:
+            all_names_8 = all_names
         # special case for 2.1
         if self.__lfe_channels > 0 and self.__input_channels < 4:
             return [2, 3, 5]
@@ -251,7 +297,7 @@ OUTPUT_FORMATS: Dict[str, OutputFormat] = {
     'STEREO_IN_SEVEN': OutputFormat('Stereo in a 7.1 channel container', 2, 8, 0, (2, 6), 0),
     'FIVE_ONE_IN_SEVEN': OutputFormat('5.1 in a 7.1 container', 6, 8, 1, (6, 2), 0),
     # MC35
-    'FIVE_ONE_TWO': OutputFormat('5.1.2', 8, 8, 1, (8,), 16),
+    'FIVE_ONE_TWO': OutputFormat('5.1.2', 8, 8, 1, (8,), 16, base_channels=6),
     'SEVEN_ONE_FOUR': OutputFormat('7.1.4 (12 channels)', 12, 12, 1, (12,), 16),
     'NINE_ONE_SIX': OutputFormat('9.1.6 (Dolby Atmos 16 channels)', 16, 16, 1, (16,), 16),
 }

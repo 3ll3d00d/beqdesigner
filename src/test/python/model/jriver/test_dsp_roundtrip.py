@@ -155,6 +155,31 @@ def test_mc35_immersive_output_formats_are_registered():
         assert decoded.output_channels == fmt.output_channels
 
 
+def test_five_one_two_drops_rear_surrounds_for_atmos_height_channels():
+    '''
+    5.1.2 is a 5.1 bed (no rear surrounds) + 2 height channels, confirmed via a real JRiver
+    Analyzer capture: L/R/C/SW/SL/SR/LTF/RTF (8 total), not the full 7.1 bed plus 2 more. Before
+    the base_channels fix, get_all_channel_names always sliced from the fixed 8-channel surround
+    base first, so a padded_instance-free = 8 output channel format like this one exhausted the
+    slice on RL/RR before ever reaching the Atmos pool.
+    '''
+    fmt = OUTPUT_FORMATS['FIVE_ONE_TWO']
+    names = [get_channel_name(i) for i in fmt.get_output_channel_indexes(use_atmos_channels=True)]
+    assert 'LTF' in names and 'RTF' in names
+    assert 'RL' not in names and 'RR' not in names
+    input_names = [get_channel_name(i) for i in fmt.get_input_channel_indexes(use_atmos_channels=True)]
+    assert input_names == ['L', 'R', 'C', 'SW', 'SL', 'SR', 'LTF', 'RTF']
+
+
+def test_seven_one_four_and_nine_one_six_keep_full_seven_one_bed():
+    for key, expected_atmos in [('SEVEN_ONE_FOUR', {'LTF', 'RTF', 'LTR', 'RTR'}),
+                                 ('NINE_ONE_SIX', {'LTF', 'RTF', 'LTR', 'RTR', 'LTM', 'RTM', 'LW', 'RW'})]:
+        fmt = OUTPUT_FORMATS[key]
+        names = [get_channel_name(i) for i in fmt.get_output_channel_indexes(use_atmos_channels=True)]
+        assert {'RL', 'RR'}.issubset(names)
+        assert expected_atmos.issubset(names)
+
+
 # ---------------------------------------------------------------------------------------------------
 # PEQ block enablement & ordering
 # ---------------------------------------------------------------------------------------------------
@@ -609,3 +634,110 @@ def test_real_capture_filters_roundtrip(fixture):
     xml_filts2 = [filts_to_xml(f.get_all_vals()) for f in filters2]
     round_tripped_txt2 = include_filters_in_dsp(peq_key, round_tripped_txt, xml_filts2, replace=True)
     assert round_tripped_txt2 == round_tripped_txt
+
+
+@pytest.mark.parametrize('use_atmos_channels', [False, True])
+def test_real_capture_with_mixed_channel_eras_loads_via_full_jriverdsp(use_atmos_channels):
+    '''
+    A real-world MC35 config (not a synthetic diagnostic file): a 16-channel format (7.1 + 8 padding)
+    whose Parametric Equalizer block includes BEQD's own XOBM/Multiway bass-management routing (using
+    legacy spare channels C9-C13), a GEQ, an MSO import, and one isolated Atmos-channel Mix (a height
+    channel downmix stub, channel 57/RTR) - all in the same PEQ block. This is a completely ordinary
+    real config, not the exhaustive all-channels probe used elsewhere in this file. It's exactly the
+    kind of file that broke end-to-end (JRiverDSP construction, not just decode) regardless of
+    use_atmos_channels, for two separate reasons, both now fixed:
+      1. GraphRenderer assumed every channel a filter touches is a subset of the declared
+         output_channels (fixed: nodes_by_channel is a defaultdict).
+      2. OutputFormat.get_output_channel_indexes(use_atmos_channels=True) used to replace the legacy
+         numbered ordering with atmos+extra entirely for a "+N padding channels" instance, discarding
+         the C9-C13 range this file's own bass management depends on. This file is an MC35 capture, so
+         its filters reference the legacy pool regardless of use_atmos_channels (channel indexes never
+         change meaning between versions - see AGENTS.md); with use_atmos_channels=True (i.e. viewing
+         an older file under the modern MC36 scheme), the *declared* channel set now advertises the
+         Extra pool instead (per the real MC36 7.1+2 capture - see
+         test_padded_instance_uses_extra_channels_not_legacy_on_mc36), so this file's own C9-C13
+         filters fall outside the declared set. That's fine - they become scratch channels, same as
+         the isolated RTR Mix below - handled by the same defaultdict/lazy-signals fixes.
+      3. FilterGraph.simulate() had the exact same "declared channels only" assumption as
+         GraphRenderer, one layer down - its per-channel `signals` dict was built only from
+         output_channels, so activating/simulating the graph (not just rendering it) raised a
+         KeyError for the isolated RTR Mix. Fixed the same way: _ScratchChannelSignals lazily
+         defaults an unlisted channel to silence instead of raising.
+    '''
+    txt = (RESOURCES / 'mc35_mixed_channel_eras.dsp').read_text()
+    dsp = load(txt, allow_padding=True, use_atmos_channels=use_atmos_channels)
+    assert dsp.output_format.output_channels == 16
+    filters = dsp.graph(0).filters
+    assert len(filters) == 10
+    names = dsp.channel_names(output=True)
+    if use_atmos_channels:
+        assert all(c in names for c in ['X1', 'X2', 'X3', 'X4', 'X5'])
+        assert not any(c in names for c in ['C9', 'C10', 'C11', 'C12', 'C13'])
+    else:
+        assert all(c in names for c in ['C9', 'C10', 'C11', 'C12', 'C13'])
+
+    dsp.activate(0)
+    assert dsp.signals
+
+    round_tripped = dsp.config_txt()
+    dsp2 = load(round_tripped, allow_padding=True, use_atmos_channels=use_atmos_channels)
+    assert dsp2.graph(0).filters == filters
+    assert dsp2.config_txt() == round_tripped
+    dsp2.activate(0)
+    assert dsp2.signals
+
+
+def test_padded_instance_uses_extra_channels_not_legacy_on_mc36():
+    '''
+    use_atmos_channels applies differently to a static, deliberately-immersive format (5.1.2/7.1.4/
+    9.1.6/the 32-channel one) than to a dynamically-constructed "+N padding channels" instance:
+      - static format: Atmos channels first, then Extra (unchanged - confirmed via the real
+        mc35/mc36_all_channels.dsp captures).
+      - padded instance: Extra channels only, never Atmos - confirmed empirically against a real MC36
+        7.1+2 capture (mc36_seven_one_plus_two_padding.dsp): the 2 padding channels resolved to X1/X2,
+        not Channel 9/10 (the pre-36 legacy pool) and not LTF/RTF (Atmos, reserved for static
+        immersive layouts - a generic "+N padding channels" pick was never an immersive layout
+        choice). See test_real_capture_with_mixed_channel_eras_loads_via_full_jriverdsp for the
+        MC35 (legacy pool) side of this, and AGENTS.md "Channels beyond the base 8".
+    '''
+    static_fmt = OUTPUT_FORMATS['THIRTY_TWO']
+    assert 54 in static_fmt.get_output_channel_indexes(use_atmos_channels=True)
+    assert 13 not in static_fmt.get_output_channel_indexes(use_atmos_channels=True)
+    assert 13 in static_fmt.get_output_channel_indexes(use_atmos_channels=False)
+
+    txt = base_config(output_channels=8, padding=8)
+    padded_fmt = get_output_format(txt, allow_padding=True)
+    assert 13 in padded_fmt.get_output_channel_indexes(use_atmos_channels=False)
+    assert 37 not in padded_fmt.get_output_channel_indexes(use_atmos_channels=False)
+    assert 37 in padded_fmt.get_output_channel_indexes(use_atmos_channels=True)
+    assert 13 not in padded_fmt.get_output_channel_indexes(use_atmos_channels=True)
+    assert 54 not in padded_fmt.get_output_channel_indexes(use_atmos_channels=True)
+
+
+def test_real_capture_seven_one_plus_two_padding_uses_extra_channels():
+    '''
+    A real MC36 capture: Output Channels=8, Output Padding Channels=2 (i.e. 7.1 + 2, picked via
+    JRiver's own DSP Studio UI), with a single Peak filter deliberately placed on the 2 padding
+    channels to test what they resolve to. JRiver's own Analyzer confirmed (screenshot, not part of
+    this repo) the 2 extra meters for this config are labelled X1/X2 - and this file's Peak filter
+    (in the enabled "Parametric Equalizer 2" block) targets raw indexes 37;38 accordingly, not 13;14
+    (Channel 9/10) or 54;55 (LTF/RTF). This is the capture that grounds
+    test_padded_instance_uses_extra_channels_not_legacy_on_mc36.
+    '''
+    txt = (RESOURCES / 'mc36_seven_one_plus_two_padding.dsp').read_text()
+    dsp = load(txt, allow_padding=True, use_atmos_channels=True)
+    assert dsp.output_format.output_channels == 10
+    filters = dsp.graph(0).filters
+    assert len(filters) == 1
+    assert filters[0].channels == [37, 38]
+    names = dsp.channel_names(output=True)
+    assert 'X1' in names and 'X2' in names
+    assert 'C9' not in names and 'C10' not in names
+
+    dsp.activate(0)
+    assert dsp.signals
+
+    round_tripped = dsp.config_txt()
+    dsp2 = load(round_tripped, allow_padding=True, use_atmos_channels=True)
+    assert dsp2.graph(0).filters == filters
+    assert dsp2.config_txt() == round_tripped

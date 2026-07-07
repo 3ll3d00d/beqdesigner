@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import re
+from collections import defaultdict
 from typing import Dict, Optional, List, Tuple, Iterable, Sequence
 
 from model.jriver import flatten
@@ -29,10 +30,14 @@ class GraphRenderer:
         nodes: Dict[str, str] = {}
         edges: List[str] = []
         ranks: List[List[str]] = []
-        nodes_by_channel: Dict[str, List[str]] = {
-            c: [f'IN:{c}'] if c in self.__graph.input_channels and c not in SHORT_USER_CHANNELS else []
-            for c in self.__graph.output_channels
-        }
+        # a Filter can legitimately reference a channel outside self.__graph.output_channels - e.g. a
+        # bass-management crossover's spare/intermediate channels, or a one-off Mix onto a channel not
+        # otherwise part of this format (a height-channel downmix stub in a non-immersive format). Use
+        # a defaultdict so those don't raise a KeyError; they just don't get an IN: seed node.
+        nodes_by_channel: Dict[str, List[str]] = defaultdict(list)
+        for c in self.__graph.output_channels:
+            if c in self.__graph.input_channels and c not in SHORT_USER_CHANNELS:
+                nodes_by_channel[c] = [f'IN:{c}']
         for f in self.__graph.filters:
             if f.enabled:
                 f.reset()
@@ -59,7 +64,7 @@ class GraphRenderer:
         gz += '\n'
 
         for c, n in nodes_by_channel.items():
-            if n and c not in SHORT_USER_CHANNELS:
+            if n and c not in SHORT_USER_CHANNELS and c in self.__graph.output_channels:
                 gz += f"  {n[-1]} -> OUT:{c};"
                 gz += '\n'
 

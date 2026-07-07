@@ -7,6 +7,19 @@ from requests.models import HTTPError
 
 logger = logging.getLogger('jriver.mcws')
 
+# Extra channels (37-52) and the remaining 4 Atmos channels (58-61) are only reachable from this
+# point release onwards - confirmed via real captures, see jriver/AGENTS.md "Channels beyond the
+# base 8". It is NOT major version 36 - 35.0.39 is a point release within the 35.x line.
+ATMOS_CHANNELS_MIN_VERSION = (35, 0, 39)
+
+
+def parse_version(v: str) -> Tuple[int, ...]:
+    '''
+    :param v: a JRiver ProgramVersion string, e.g. "36.0.14" or "35.0.39".
+    :return: the dot-separated components as a tuple of ints, suitable for lexicographic comparison.
+    '''
+    return tuple(int(t) for t in str(v).split('.'))
+
 
 class MediaServer:
 
@@ -16,6 +29,7 @@ class MediaServer:
         self.__secure = secure
         self.__base_url = f"http{'s' if secure else ''}://{ip}/MCWS/v1"
         self.__token = None
+        self.__version: Optional[Tuple[int, ...]] = None
         self.__major_version = None
 
     def as_dict(self) -> dict:
@@ -56,13 +70,12 @@ class MediaServer:
                 if r_status == 'OK':
                     v = next((item.text for item in response if item.attrib['Name'] == 'ProgramVersion'), None)
                     if v:
-                        tokens = str(v).split('.')
-                        if tokens:
-                            try:
-                                self.__major_version = int(tokens[0])
-                                logger.info(f"MC Version = {self.__major_version} for {self.__base_url}")
-                            except:
-                                raise MCWSError(f"Unknown version format {v}", r.url, r.status_code, r.text)
+                        try:
+                            self.__version = parse_version(v)
+                            self.__major_version = self.__version[0]
+                            logger.info(f"MC Version = {v} for {self.__base_url}")
+                        except (ValueError, IndexError):
+                            raise MCWSError(f"Unknown version format {v}", r.url, r.status_code, r.text)
         if not self.__major_version:
             raise MCWSError('No version', r.url, r.status_code, r.text)
 
@@ -159,7 +172,7 @@ class MediaServer:
 
     @property
     def use_atmos_channels(self) -> bool:
-        return True if self.mc_version and self.mc_version >= 36 else False
+        return bool(self.__version and self.__version >= ATMOS_CHANNELS_MIN_VERSION)
 
     def __is_29(self) -> bool:
         return True if self.mc_version and self.mc_version >= 29 else False

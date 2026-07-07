@@ -212,7 +212,7 @@ which path/convention is active for a live JRMC connection; `ui.py` derives
 the same booleans from a user-facing "legacy" checkbox when working from a
 file rather than a live connection.
 
-### Channels beyond the base 8: legacy numbered vs MC36 Atmos + Extra
+### Channels beyond the base 8: legacy numbered vs MC 35.0.39+ Atmos + Extra
 
 Indexes 2-9 (base 8 surround) and 11-12 (user channels) never change. Beyond
 that, JRMC has had (at least) three eras of naming for the "extra" channels a
@@ -224,63 +224,201 @@ reachable via JRMC's own UI/picker changes:
 |---|---|---|---|
 | 13-36 | `Channel 9`..`Channel 32` (`NUMBER_CHANNELS`) | always | legacy generic numbering |
 | 54-57 | `LTF`/`RTF`/`LTR`/`RTR` (Atmos, first 4) | ~MC34 | JRiver's own short codes don't match its long names (`'Left Height Front'` etc) — `SHORT_ATMOS_CHANNELS` mirrors the short codes verbatim, not the "logically correct" ones derived from the long name |
-| 58-61 | `LTM`/`RTM`/`LW`/`RW` (Atmos, remaining 4, completing 9.1.6) | **MC36** | broken before 36 — selecting them in the JRMC UI just re-picks 56/57 |
-| 37-52 | `X1`..`X16` (`EXTRA_CHANNELS`) | **MC36** | unreachable before 36 — selecting them falls back to L/R |
+| 58-61 | `LTM`/`RTM`/`LW`/`RW` (Atmos, remaining 4, completing 9.1.6) | **MC 35.0.39** | broken before 35.0.39 — selecting them in the JRMC UI just re-picks 56/57 |
+| 37-52 | `X1`..`X16` (`EXTRA_CHANNELS`) | **MC 35.0.39** | unreachable before 35.0.39 — selecting them falls back to L/R |
+
+The true cutover is the **35.0.39 point release**, not major version 36 —
+`mcws.ATMOS_CHANNELS_MIN_VERSION = (35, 0, 39)` is the source of truth,
+compared against the full parsed `ProgramVersion` semver
+(`mcws.parse_version`), not just the major version. A prior pass through this
+doc generalized from the two captures below (which happen to bracket
+35.0.39 but don't pin it down themselves) to "MC36" everywhere; that's now
+corrected throughout this file.
 
 Confirmed empirically (2026-07) from two real captures, one PeakingEQ filter
-per channel as a marker, `all_35.dsp` (MC 35.0.38) vs `all_36.dsp` (MC
-36.0.14) — scrubbed copies live at
-`src/test/python/model/jriver/resources/mc{35,36}_all_channels.dsp`. No index
-*remapping* happens between 35 and 36 — everything above just becomes newly
-reachable. This is why reading an MC35 file and writing it back for MC36
-doesn't need any transform step, just complete channel tables.
+per channel as a marker, `all_35.dsp` (MC 35.0.38 — just *before* the 35.0.39
+cutover) vs `all_36.dsp` (MC 36.0.14 — well after it) — scrubbed copies live
+at `src/test/python/model/jriver/resources/mc{35,36}_all_channels.dsp`. No
+index *remapping* happens between 35 and 36 — everything above just becomes
+newly reachable. This is why reading a pre-35.0.39 file and writing it back
+post-35.0.39 doesn't need any transform step, just complete channel tables.
+
+### What each output format *shape* actually uses, pre- vs post-35.0.39
+
+The table above is by raw index range; this one is by the shape of format a
+user actually picks, since that's what determines which pool(s) apply. "✔
+real capture" means a real `.dsp` (or, for the JRiver-Analyzer row, a live
+JRiver Analyzer screenshot cross-checked against one) backs the row; anything
+else is inferred from `formats.py`'s static tables/`OUTPUT_FORMATS` design
+intent, not independently verified against a real JRiver instance.
+
+| Format shape | ≤ MC33 | MC34 - 35.0.38 | 35.0.39+ | Evidence |
+|---|---|---|---|---|
+| Base 8 (mono..7.1, idx 2-9) | L/R/C/SW/SL/SR/RL/RR | same | same | always true, never version-gated |
+| User channels (idx 11-12) | U1/U2 | same | same | always true, additive to any format |
+| Generic `"N.N + N padding"` (`codec.get_output_format`'s padded branch — e.g. 7.1+2, 7.1+8, 5.1+8) | legacy numbered, `Channel 9`.. (idx 13-36) | same | **Extra only**, `X1`.. (idx 37-52) — legacy pool NOT used, Atmos NOT used | ✔ real capture both sides: `mc35_mixed_channel_eras.dsp` (7.1+8 on MC 35.0.38, `C9`-`C13` used for real bass management) and `mc36_seven_one_plus_two_padding.dsp` (7.1+2 on MC 36.0.14, Peak filter + live Analyzer confirm `X1`/`X2`) — the actual 35.0.39 cutover itself hasn't been captured on either side, see caveat below |
+| Static named immersive layout height/width slots (`FIVE_ONE_TWO`/`SEVEN_ONE_FOUR`/`NINE_ONE_SIX`, and the `THIRTY_TWO` static entry) | n/a (didn't exist) | first 4 Atmos slots only (`LTF`/`RTF`/`LTR`/`RTR`, idx 54-57) reachable from ~MC34; remaining 4 (idx 58-61) broken, re-pick 56/57 | `FIVE_ONE_TWO` (5.1.2): 5.1 bed (no `RL`/`RR`) + `LTF`/`RTF` only, 8 total. `SEVEN_ONE_FOUR`/`NINE_ONE_SIX`/`THIRTY_TWO`: full 7.1 bed + Atmos (then Extra for `THIRTY_TWO`) | ✔ real JRiver Analyzer review, one format at a time (2026-07): 5.1.2=`LTF`/`RTF`; 5.1.4/7.1.4=`LTF`/`RTF`/`LTR`/`RTR`; 9.1.6=`LW`/`RW`/`LTF`/`RTF`/`LTM`/`RTM`/`LTR`/`RTR` (all 8, different *display* order than `SHORT_ATMOS_CHANNELS` but same raw index set); 32ch=9.1.6 set + Extra appended. Settles open question 2 below. |
+| Static MC28-only fixed layouts (`TEN`/`TWELVE`/`FOURTEEN`/`SIXTEEN`/`EIGHTEEN`/`TWENTY`/`TWENTY_TWO`/`TWENTY_FOUR`, and `STEREO_IN_*`/`FIVE_ONE_IN_SEVEN`) | legacy numbered | n/a — `OutputFormat.is_compatible()` only offers these for `version == 28` (`paddings` is empty), so BEQD's own `ui.py` flow never reaches them on 34+ | not offered by BEQD regardless of what real JRiver would do with them | not independently tested post-35.0.39 — moot only because of BEQD's own version gate, not because JRiver itself would necessarily behave this way |
+| Extra channels (idx 37-52) reachability, standalone | unreachable — picking one falls back to L/R | unreachable | reachable | ✔ `mc35_all_channels.dsp` (35.0.38) vs `mc36_all_channels.dsp` (36.0.14) |
+| Atmos remaining 4 (idx 58-61), standalone | broken/unreachable | broken — re-picks 56/57 | reachable | ✔ same two captures |
+
+**Caveat on the "35.0.39" number itself**: the two real captures backing this
+table bracket 35.0.39 (35.0.38 just below it, 36.0.14 well above it) but
+neither one *is* 35.0.39, so they can't independently pin down that exact
+point release as the cutover — that figure comes from the user, not from
+BEQD's own captures. `mcws.ATMOS_CHANNELS_MIN_VERSION` encodes it as the
+source of truth; if a future capture on an actual 35.0.3x install disagrees,
+trust the capture and update the constant.
+
+One open question left, one now settled:
+1. **Open**: whether the "New Extra Channels System" ini/options toggle
+   (mentioned above the `JRIVER_NAMED_CHANNELS` table) gates Extra-channel
+   reachability *independently* of version, or whether it's simply
+   on-by-default from 35.0.39 onward — not yet tested with the toggle
+   deliberately flipped.
+2. **Settled (2026-07)**: picking a real named format from JRiver's own
+   Output Format wizard does *not* always assign Atmos channels via a simple
+   "first N of a fixed 8-slot order" prefix, contrary to the prior assumption.
+   `FIVE_ONE_TWO` in particular *drops `RL`/`RR` entirely* rather than
+   appending its 2 height channels on top of a full 7.1 bed — a real bug, not
+   just an ordering nuance: with the old fixed 8-channel base,
+   `output_channels=8` for 5.1.2 was already exhausted by the base alone, so
+   `get_output_channel_indexes(use_atmos_channels=True)` silently returned
+   zero Atmos channels. Fixed by making the base size format-aware
+   (`OutputFormat.__init__`'s new `base_channels` param, 6 for `FIVE_ONE_TWO`,
+   8 for everything else) — see `get_all_channel_names`'s
+   `base_channel_count`. `SEVEN_ONE_FOUR`/`NINE_ONE_SIX`/`THIRTY_TWO` turned
+   out already correct: they keep the full 7.1 bed, and since they consume
+   Atmos slots in full multiples of what `SHORT_ATMOS_CHANNELS` already
+   provides as a prefix (4 of 8, or all 8), the *display* order JRiver's
+   Analyzer showed (`LW`/`RW`/`LTF`/`RTF`/`LTM`/`RTM`/`LTR`/`RTR` for 9.1.6,
+   vs. code's `LTF`/`RTF`/`LTR`/`RTR`/`LTM`/`RTM`/`LW`/`RW`) doesn't change
+   which raw indices get selected, since `get_output_channel_indexes` sorts
+   its result and 9.1.6/32ch consume the entire 8-slot pool regardless of
+   internal order. See `test_five_one_two_drops_rear_surrounds_for_atmos_height_channels`
+   and `test_seven_one_four_and_nine_one_six_keep_full_seven_one_bed` in
+   `test_dsp_roundtrip.py`.
 
 `formats.get_all_channel_names(use_atmos_channels=...)` /
 `OutputFormat.get_output_channel_indexes(use_atmos_channels=...)` /
 `get_input_channel_indexes(use_atmos_channels=...)` pick which ordering a
 >8-channel format's channel set is built from: legacy numbered (`False`) or
 the full 9.1.6 layout followed by the Extra channels (`True`) — base-8 + 8
-Atmos + 16 Extra = 32, exactly the largest format currently defined, so the
-legacy numbered range is never needed for *constructing* a format once this
-flag is on (it's still needed for *parsing* old files, which is why the
-lookup tables include it unconditionally). This mirrors the `convert_q`/
-`allow_padding` pattern: `mcws.MediaServer.use_atmos_channels` gates it for a
-live connection (`mc_version >= 36`), `ui.py`'s version picker derives it
-from the same combo the user already picks 28/29/30/36 from, and
-`JRiverDSP(use_atmos_channels=...)` threads it to `dsp.py:channel_names()`.
+Atmos + 16 Extra = 32, exactly the largest format currently defined. This
+mirrors the `convert_q`/`allow_padding` pattern: `mcws.MediaServer.use_atmos_channels`
+gates it for a live connection by comparing the full parsed `ProgramVersion`
+semver against `mcws.ATMOS_CHANNELS_MIN_VERSION = (35, 0, 39)` (NOT the major
+version alone — `mc_version` is only an int and can't distinguish 35.0.38
+from 35.0.39). For the file-based flow, `ui.py`'s `__pick_mc_version` asks two
+separate questions: the MC major version (28/29/30/36 — this still only
+drives `is_compatible`/padding/which default config template is loaded, none
+of which changed at 35.0.39) and, independently, `<=35.0.38` vs `>=35.0.39`
+for `use_atmos_channels` — the two are decoupled because the 35.0.39 cutover
+doesn't align with any major-version boundary the rest of the picker cares
+about. `JRiverDSP(use_atmos_channels=...)` threads the result to
+`dsp.py:channel_names()`.
 Unlike `convert_q`, this one *is* remembered consistently — there's no
 separate write-time argument to forget to match, because there's no
 parse-vs-write asymmetry in what it controls (which channels a format
 exposes for editing), not a per-filter numeric convention.
 
+**`use_atmos_channels` picks a different pool for a dynamically padded
+instance than for a static, deliberately-immersive format — it is never
+simply ignored.** `OutputFormat.__init__`'s `template` flag distinguishes the
+two: a static `OUTPUT_FORMATS` entry (`FIVE_ONE_TWO`/`SEVEN_ONE_FOUR`/
+`NINE_ONE_SIX`/`THIRTY_TWO`, or any other, `template=True`) represents a
+deliberately-chosen full layout and draws Atmos channels first, then Extra
+(`get_all_channel_names(use_atmos_channels=True)`); a `"+N padding channels"`
+instance dynamically built by `codec.get_output_format`'s padded branch
+(`template=False`) represents JRiver's generic "N extra scratch channels"
+mechanism, which draws from a *version-dependent* pool: legacy numbered
+(`Channel 9`..) pre-35.0.39, or **Extra channels alone — never Atmos** —
+35.0.39+. `get_output_channel_indexes`/`get_input_channel_indexes` pass
+`padding_only=self.__is_padded_instance` through to `get_all_channel_names`,
+which only changes the `use_atmos_channels=True` branch: Extra-only for a
+padded instance, Atmos+Extra combined otherwise.
+
+This was originally found from a real MC35 production config (a 7.1 +
+8-padding format) whose PEQ block used *both* legacy spare channels (`C9`-`C13`,
+via `XOBM`/`Multiway`) *and* one isolated Atmos-channel `Mix` (a height-channel
+downmix stub, channel 57/`RTR`) at once — proving the padding channels and the
+Atmos/Extra channels are two independent pools, not alternates selected by MC
+version. The first fix drawn from that file went too far, though: it made
+`use_atmos_channels` a no-op for *any* padded instance regardless of version,
+reasoning that padding "has always meant legacy-numbered channels". That was
+never actually tested against a real MC36 padded capture — it was an
+extrapolation from an MC35-only file (where `use_atmos_channels` is `False`
+anyway, so the padded-instance special case was never exercised for `True`).
+A real MC36 capture (`mc36_seven_one_plus_two_padding.dsp` — `Output
+Channels=8`, `Output Padding Channels=2`, i.e. 7.1+2, built via JRiver's own
+DSP Studio UI with a Peak filter deliberately placed on the 2 padding
+channels, cross-checked against JRiver's own Analyzer channel meters)
+disproved it: the 2 padding channels resolved to `X1`/`X2` (raw indexes
+37/38, the Extra pool), not `Channel 9`/`10` (13/14, legacy) and not `LTF`/
+`RTF` (54/55, Atmos). So from 35.0.39 onward, padding *did* change pool — just to Extra,
+not to Atmos+Extra combined the way a static immersive format does. Getting
+either version of this wrong isn't just cosmetic: the original bug (always
+Atmos+Extra) silently discarded `C9`-`C13` from the declared channel set for
+an MC35 file loaded with `use_atmos_channels=True`; the intermediate "always
+legacy for padding" fix would silently mis-declare `X1`/`X2` as `Channel 9`/
+`10` for a real MC36 padded file — both are exactly the kind of file BEQD
+itself produces via `XOBM`/`Multiway` bass management.
+
+That same real file also surfaced a second, independent bug: `OutputFormat`'s
+channel *index* assignment for a >8-channel format is fundamentally a
+heuristic — "take the first `output_channels` names from one fixed
+ordering" — not derived from what a specific file's filters actually
+reference, and no ordering fix removes that limitation, since the isolated
+`RTR` (57) Mix in that same file falls outside *either* ordering's guess for
+a 16-channel format regardless of which one is "correct" here. That file
+failed to even load — a `KeyError` deep in `render.GraphRenderer.generate()`,
+which built `nodes_by_channel` only for channels in the graph's *declared*
+`output_channels`/`input_channels` and crashed on any filter touching
+something outside that guess. Since `FilterGraph.__init__` calls `__regen()`
+(which renders) eagerly, this broke loading the file at all, not just
+visualizing it. Fixed by making `nodes_by_channel` a `defaultdict(list)` (a
+channel outside the declared set just doesn't get an `IN:` seed node, and
+doesn't get a terminal `OUT:` edge either — it's scratch space, not a real
+output) instead of assuming completeness.
+
+**The exact same assumption existed one layer down, in simulation, and wasn't
+covered by the render.py fix**: `FilterGraph.simulate()` builds a per-channel
+`signals` dict, *also* only for `output_channels`, and `__simulate_filter`
+indexes into it directly (`signals[c]`, `signals[dst_channel]`) with no
+fallback — so loading the file was fine, but activating/simulating it (`ui.py`
+calls this via `show_filters()`/`activate()`, needed just to display the
+filter list, not only to view the graph) still raised `KeyError` for the
+isolated `RTR` Mix. Fixed the same way: `_ScratchChannelSignals` (a `dict`
+subclass with `__missing__`) lazily defaults an unlisted channel to a silent
+signal instead of raising. **When you fix one "declared channels is a closed
+set" assumption in this module, grep for the others** — `render.py` and
+`filter.py`'s `simulate()` had the identical bug independently; there may be
+more (e.g. anywhere else that builds a dict/set keyed by
+`output_channels`/`input_channels` and then indexes it with a filter's actual
+`channel_names`).
+
+See `test_padded_instance_uses_extra_channels_not_legacy_on_mc36`,
+`test_real_capture_with_mixed_channel_eras_loads_via_full_jriverdsp` (fixture:
+`mc35_mixed_channel_eras.dsp`) and
+`test_real_capture_seven_one_plus_two_padding_uses_extra_channels` (fixture:
+`mc36_seven_one_plus_two_padding.dsp`) in `test_dsp_roundtrip.py` — the latter
+two deliberately go through the full `JRiverDSP`/`FilterGraph`/`render.py`
+pipeline including `activate()`, unlike the all-channels captures' tests,
+which decode at the `codec`/`filter` layer directly.
+
 When downloading a config over MCWS (`ui.py:__show_zone_dialog`'s `on_select`),
-the real `mc_version` is known directly from the live connection, so there's
-no need to ask the user to pick a version like the file-based flow does —
-except when `mc_version < 36`, where BEQD asks (`QMessageBox.question`)
-whether to opt in to the MC36 layout anyway for editing purposes, since a
-user may be about to route filters onto Atmos/Extra channels ahead of
+the real `mc_version`/`use_atmos_channels` are known directly from the live
+connection's full semver (see `mcws.MediaServer.use_atmos_channels` above), so
+there's no need to ask the user to pick a version like the file-based flow
+does — except when `use_atmos_channels` is `False` and `mc_version < 36`,
+where BEQD asks (`QMessageBox.question`) whether to opt in anyway for editing
+purposes, since a user may be on an untracked 35.0.39+ install (major version
+alone can't tell), about to route filters onto Atmos/Extra channels ahead of
 upgrading their JRMC install, or managing configs for a mix of zones on
 different versions. Saying yes only changes `use_atmos_channels` for the
-loaded session (i.e. which channels the routing UI offers) — it does not
-rewrite any existing filter's channel index, since (per the table above)
-none of them change meaning between versions.
-
-**Known pre-existing limitation surfaced by this**: `OutputFormat`'s channel
-*index* assignment for a >8-channel format is a heuristic — "take the first
-`output_channels` names from one fixed ordering" — not derived from what a
-specific file's filters actually reference. A real file whose filters
-straddle *multiple* channel-naming eras in a single PEQ block (which
-shouldn't happen from normal JRMC use, but the two diagnostic captures above
-deliberately do, to probe every channel at once) can reference channels
-outside whatever set `get_output_channel_indexes()` guesses, which will
-raise a `KeyError` deep in `render.GraphRenderer.generate()` (it assumes a
-filter's channels are always a subset of the graph's declared
-`output_channels`). This predates the MC36 work and isn't fixed here — see
-`test_real_capture_channel_names_resolve`/`test_real_capture_filters_roundtrip`
-in `test_dsp_roundtrip.py`, which test channel name resolution and filter
-round-tripping for these two files directly at the `codec`/`filter` layer
-(bypassing `JRiverDSP`/`FilterGraph`/`render.py` entirely) rather than
-papering over this.
+loaded session (i.e. which channels the routing UI offers for anything newly
+added/edited) — it does not rewrite any existing filter's channel index,
+since (per the table above) none of them change meaning between versions.
 
 ## When JRiver changes the format again
 
