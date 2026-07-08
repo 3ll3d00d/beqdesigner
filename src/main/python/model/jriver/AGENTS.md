@@ -317,23 +317,22 @@ One open question left, one now settled:
    is constructed with a bed smaller than 8 before assuming this class of bug
    is fully closed.**
 
-   **`TWO_ONE` (2.1) is a real, unresolved edge case within this same fix,
-   flagged rather than assumed**: it's the one template reachable from
-   `codec.py`'s padded branch where `input_channels` (3) != `output_channels`
-   (6) — the static, unpadded `TWO_ONE` entry already treats 2.1 as living in
-   a 6-channel container (`L/R/C/SW/SL/SR`), not the 3-channel `L/R/SW` its
-   name implies (a pre-existing quirk, not something this session changed).
-   `base_channels=template.output_channels` (6, for internal consistency with
-   that existing static behavior) was chosen over `template.input_channels`
-   (3) with **no real capture backing either choice** for a genuine
-   "2.1 + N padding" file - and 6 has its own latent gap for small `N` (e.g.
-   `padding=2` → 5 total channels, less than the 6-wide base, meaning the 2
-   padding/scratch channels would be silently absorbed into unused base
-   slots instead of ever reaching Atmos/Extra/legacy). BEQD's own
-   `create_new_config` UI flow can produce this file (2.1 base + padding is a
-   real, reachable bass-management config, arguably more common than 5.1+N),
-   so this isn't purely theoretical - get a real "2.1 + N" JRiver capture
-   before trusting either number here.
+   **`TWO_ONE` (2.1) is the one template reachable from `codec.py`'s padded
+   branch where `input_channels` (3) != `output_channels` (6)** - the static,
+   unpadded `TWO_ONE` entry already treats 2.1 as living in a 6-channel
+   container (`L/R/C/SW/SL/SR`), not the 3-channel `L/R/SW` its name implies
+   (a pre-existing quirk, not something this session changed).
+   `base_channels=template.output_channels` (6) was chosen for consistency
+   with that existing static behavior, which the user then confirmed
+   (2026-07): **JRiver always sends 2.1 as a 6-channel container**, so the
+   first 3 channels of "padding" beyond the 2.1 signal's own 3 real channels
+   are a genuine nop (already accounted for by the container) - only padding
+   beyond that produces a new Extra channel. Since `paddings` steps by 2,
+   this only bites at `padding=2` (nop, stays entirely within the base, no
+   Extra channel at all) vs. `padding=4` (1 new Extra channel, `X1`) - exactly
+   what `base_channels=template.output_channels` already produces, with no
+   further change needed. See
+   `test_two_one_plus_padding_treats_first_3_padding_channels_as_a_nop`.
 
 `formats.get_all_channel_names(use_atmos_channels=...)` /
 `OutputFormat.get_output_channel_indexes(use_atmos_channels=...)` /

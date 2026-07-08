@@ -162,6 +162,24 @@ def test_five_one_plus_padding_uses_five_one_bed_not_seven_one():
     assert 'X11' not in names
 
 
+@pytest.mark.parametrize('padding,expected_extra', [
+    (2, []),
+    (4, ['X1']),
+    (6, ['X1', 'X2', 'X3']),
+])
+def test_two_one_plus_padding_treats_first_3_padding_channels_as_a_nop(padding, expected_extra):
+    '''
+    Confirmed by the user: 2.1 is always sent by JRiver as a 6-channel container (L/R/C/SW/SL/SR),
+    not a bare 3-channel L/R/SW signal - so the first 3 channels of "padding" beyond the 2.1 signal's
+    own 3 channels are a nop (already accounted for by the container), and only padding beyond that
+    (paddings step by 2, so this only ever bites at 4+) produces a genuinely new Extra channel.
+    '''
+    txt = base_config(output_channels=3, padding=padding)
+    fmt = get_output_format(txt, allow_padding=True)
+    names = [get_channel_name(i) for i in fmt.get_output_channel_indexes(use_atmos_channels=True)]
+    assert [n for n in names if n.startswith('X')] == expected_extra
+
+
 def test_mc35_immersive_output_formats_are_registered():
     for key in ['FIVE_ONE_TWO', 'SEVEN_ONE_FOUR', 'NINE_ONE_SIX']:
         fmt = OUTPUT_FORMATS[key]
