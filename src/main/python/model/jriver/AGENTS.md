@@ -238,10 +238,16 @@ corrected throughout this file.
 Confirmed empirically (2026-07) from two real captures, one PeakingEQ filter
 per channel as a marker, `all_35.dsp` (MC 35.0.38 — just *before* the 35.0.39
 cutover) vs `all_36.dsp` (MC 36.0.14 — well after it) — scrubbed copies live
-at `src/test/python/model/jriver/resources/mc{35,36}_all_channels.dsp`. No
-index *remapping* happens between 35 and 36 — everything above just becomes
-newly reachable. This is why reading a pre-35.0.39 file and writing it back
-post-35.0.39 doesn't need any transform step, just complete channel tables.
+at `src/test/python/model/jriver/resources/mc{35,36}_all_channels.dsp`.
+**JRiver itself** never remaps a raw index between versions — everything
+above just becomes newly reachable, and the file format's meaning of any given
+raw index is stable. That's a separate question from whether **BEQD** should
+carry an existing filter's *role* (e.g. "the 3rd scratch/bass-management
+channel") forward onto the new pool when reinterpreting an older config with
+`use_atmos_channels=True` — it should, and does: see
+`OutputFormat.migrate_channel_index` further down. So reading a pre-35.0.39
+file and writing it back with `use_atmos_channels=True` *does* rewrite any
+legacy-pool filter channels it finds, by design.
 
 ### What each output format *shape* actually uses, pre- vs post-35.0.39
 
@@ -450,10 +456,56 @@ where BEQD asks (`QMessageBox.question`) whether to opt in anyway for editing
 purposes, since a user may be on an untracked 35.0.39+ install (major version
 alone can't tell), about to route filters onto Atmos/Extra channels ahead of
 upgrading their JRMC install, or managing configs for a mix of zones on
-different versions. Saying yes only changes `use_atmos_channels` for the
-loaded session (i.e. which channels the routing UI offers for anything newly
-added/edited) — it does not rewrite any existing filter's channel index,
-since (per the table above) none of them change meaning between versions.
+different versions. Saying yes changes `use_atmos_channels` for the loaded
+session (i.e. which channels the routing UI offers for anything newly
+added/edited) **and** migrates any existing filter already sitting on the
+legacy numbered pool onto the new scheme — see
+`OutputFormat.migrate_channel_index`/`JRiverDSP.__migrate_channels` below.
+
+**Existing filters *are* migrated when `use_atmos_channels` flips to `True`
+(2026-07, corrected from an earlier, wrong design decision).** A prior pass
+through this file argued that since JRiver itself never remaps a raw index's
+*meaning* between versions (still true — see the table above), BEQD didn't
+need to either, and a filter recorded against `Channel 9` (idx 13) could just
+be left there once the declared channel set moved on to `X1` (idx 37) —
+becoming an orphaned "scratch channel" (rendered/simulated fine via the
+`defaultdict`/`_ScratchChannelSignals` fixes above, but invisible in the
+channel-list widget and not actually applied to any real output anymore). That
+was wrong: those two facts don't imply each other. JRiver not remapping raw
+indexes is a statement about the *file format*; it says nothing about whether
+a filter that was deliberately placed on "the Nth scratch/extra channel" by an
+older client should keep tracking that *role* once the pool backing it changes.
+For BEQD's own bass-management routing (`XOBM`/`Multiway`, which is exactly
+what generic padding/scratch channels are used for — see `template=False`
+above) the answer is yes: the filter needs to keep landing on a real,
+in-pipeline channel, not silently fall out of the declared set.
+
+`OutputFormat.migrate_channel_index(idx, use_atmos_channels)` (`formats.py`)
+does the actual remap: if `use_atmos_channels` is `True` and `idx` falls in
+the legacy pool (13-36), it's translated by *position* (Channel 9 = position
+0, Channel 10 = position 1, ...) onto the equivalent position in whichever
+pool this format's `use_atmos_channels=True` branch actually draws from —
+Extra-only for a padded instance, Atmos+Extra for a static immersive format
+(the same `padding_only` distinction as `get_all_channel_names`). Indexes
+outside the legacy pool, or `use_atmos_channels=False`, are a no-op.
+`JRiverDSP.__migrate_channels` (`dsp.py`) applies this to every parsed
+filter's raw channel value(s) before constructing the `Filter` object — most
+filter types carry channels in a semicolon-joined `Channels` value, but `Mix`
+uses single-channel `Source`/`Destination` values instead, so both are
+covered. This runs identically whether the config came from a `.dsp` file or
+a live MCWS download (`JRiverDSP.__init__` → `__parse_peq` → this), since both
+paths converge on the same constructor.
+
+Deliberately **not** migrated in the reverse direction (Atmos/Extra idx →
+legacy, when `use_atmos_channels=False`): an index in the Atmos/Extra pool
+found in a file that's being *viewed* under the legacy scheme is far more
+likely to be a real, deliberate Atmos-channel assignment (e.g. a height-channel
+downmix `Mix`, made directly through JRiver's own channel picker, independent
+of BEQD's own scratch-channel numbering) than something that needs migrating
+back — see the isolated `RTR` (57) `Mix` in `mc35_mixed_channel_eras.dsp`,
+which must stay exactly where it is regardless of `use_atmos_channels`. See
+`test_migrate_channel_index_maps_legacy_pool_onto_atmos_or_extra_pool` and the
+updated `test_real_capture_with_mixed_channel_eras_loads_via_full_jriverdsp`.
 
 ## When JRiver changes the format again
 
@@ -480,10 +532,15 @@ closest thing this module has to an executable spec of the file format. The
 MC36 Atmos/Extra channel work above is a worked example of touchpoint 1 and
 4 together: a one-off PeakingEQ-per-channel capture from each JRiver version
 (see "Channels beyond the base 8" above) pinned down exactly which raw
-indexes changed reachability, which confirmed no index remapping was
-needed — only completing `formats.py`'s lookup tables and adding a
-`convert_q`-style boolean (`use_atmos_channels`) to gate which ordering BEQD
-itself uses when *constructing* a new format's channel set.
+indexes changed reachability, which confirmed JRiver's own file format never
+remaps a raw index's meaning between versions — completing `formats.py`'s
+lookup tables and adding a `convert_q`-style boolean (`use_atmos_channels`) to
+gate which ordering BEQD itself uses when *constructing* a new format's
+channel set was enough for that part. It was a separate, later finding
+(2026-07, see the migration paragraph above) that BEQD's *own* existing
+filters still needed an explicit remap step when reinterpreting an older
+config under the new scheme — don't conflate "JRiver doesn't remap" with
+"BEQD doesn't need to either".
 
 ## Testing
 

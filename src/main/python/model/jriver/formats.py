@@ -264,6 +264,29 @@ class OutputFormat:
     def has_channels(self, channels: List[int]):
         return set(self.output_channel_indexes).issuperset(set(channels))
 
+    def migrate_channel_index(self, idx: int, use_atmos_channels: bool) -> int:
+        '''
+        A filter's raw channel index is baked into the config XML - but if it was recorded against
+        the legacy generically-numbered pool (13-36, pre-35.0.39) and this format is now being
+        interpreted with use_atmos_channels=True, the "same" scratch/extra channel is really addressed
+        by a different raw index under the 35.0.39+ scheme (Atmos+Extra for a static immersive format,
+        Extra alone for a padded instance - see get_all_channel_names's padding_only). Without this, a
+        filter parsed from an older capture (or a live pre-35.0.39-authored config now loaded from a
+        35.0.39+ server) silently falls outside the newly-declared channel set and becomes an orphaned
+        scratch filter instead of continuing to control the channel it actually applies to.
+        :param idx: the raw channel index as parsed from the config.
+        :param use_atmos_channels: whether this format is being interpreted under the 35.0.39+ scheme.
+        :return: the index to actually use - migrated if idx is a legacy-pool index and
+        use_atmos_channels is true, otherwise idx unchanged.
+        '''
+        if use_atmos_channels and NUMBER_CHANNEL_INDEXES[0] <= idx <= NUMBER_CHANNEL_INDEXES[-1]:
+            position = idx - NUMBER_CHANNEL_INDEXES[0]
+            new_pool = EXTRA_SHORT_CHANNELS if self.__is_padded_instance \
+                else (SHORT_ATMOS_CHANNELS + EXTRA_SHORT_CHANNELS)
+            if position < len(new_pool):
+                return get_channel_idx(new_pool[position])
+        return idx
+
     def __lt__(self, other):
         if isinstance(other, OutputFormat):
             delta = self.output_channels - other.output_channels

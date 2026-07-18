@@ -674,23 +674,25 @@ def test_real_capture_with_mixed_channel_eras_loads_via_full_jriverdsp(use_atmos
     '''
     A real-world MC35 config (not a synthetic diagnostic file): a 16-channel format (7.1 + 8 padding)
     whose Parametric Equalizer block includes BEQD's own XOBM/Multiway bass-management routing (using
-    legacy spare channels C9-C13), a GEQ, an MSO import, and one isolated Atmos-channel Mix (a height
+    legacy spare channels C9-C12), a GEQ, an MSO import, and one isolated Atmos-channel Mix (a height
     channel downmix stub, channel 57/RTR) - all in the same PEQ block. This is a completely ordinary
     real config, not the exhaustive all-channels probe used elsewhere in this file. It's exactly the
     kind of file that broke end-to-end (JRiverDSP construction, not just decode) regardless of
-    use_atmos_channels, for two separate reasons, both now fixed:
+    use_atmos_channels, for reasons now fixed:
       1. GraphRenderer assumed every channel a filter touches is a subset of the declared
          output_channels (fixed: nodes_by_channel is a defaultdict).
       2. OutputFormat.get_output_channel_indexes(use_atmos_channels=True) used to replace the legacy
          numbered ordering with atmos+extra entirely for a "+N padding channels" instance, discarding
-         the C9-C13 range this file's own bass management depends on. This file is an MC35 capture, so
-         its filters reference the legacy pool regardless of use_atmos_channels (channel indexes never
-         change meaning between versions - see AGENTS.md); with use_atmos_channels=True (i.e. viewing
-         an older file under the modern MC36 scheme), the *declared* channel set now advertises the
-         Extra pool instead (per the real MC36 7.1+2 capture - see
-         test_padded_instance_uses_extra_channels_not_legacy_on_mc36), so this file's own C9-C13
-         filters fall outside the declared set. That's fine - they become scratch channels, same as
-         the isolated RTR Mix below - handled by the same defaultdict/lazy-signals fixes.
+         the C9-C12 range this file's own bass management depends on. This file is an MC35 capture, so
+         its filters were originally recorded against the legacy pool; with use_atmos_channels=True
+         (i.e. this same live/captured config now viewed under the 35.0.39+ scheme, e.g. after
+         importing from a live MC35 instance over MCWS), OutputFormat.migrate_channel_index remaps
+         those legacy indexes (13-16, C9-C12) onto their equivalent position in the newly-declared
+         Extra pool (37-40, X1-X4) - see JRiverDSP._JRiverDSP__migrate_channels - so the filters keep
+         controlling the same real channel instead of silently falling outside the declared set and
+         becoming orphaned. The isolated RTR Mix (idx 57, already an Atmos-pool index) is untouched by
+         migration either way and remains a genuine scratch channel - handled by the
+         defaultdict/lazy-signals fixes below.
       3. FilterGraph.simulate() had the exact same "declared channels only" assumption as
          GraphRenderer, one layer down - its per-channel `signals` dict was built only from
          output_channels, so activating/simulating the graph (not just rendering it) raised a
@@ -703,11 +705,29 @@ def test_real_capture_with_mixed_channel_eras_loads_via_full_jriverdsp(use_atmos
     filters = dsp.graph(0).filters
     assert len(filters) == 10
     names = dsp.channel_names(output=True)
+    def touched_indexes(f):
+        idxs = list(getattr(f, 'channels', None) or [])
+        if type(f).__name__ == 'Mix':
+            idxs = [f.src_idx, f.dst_idx]
+        return idxs
+
+    all_touched = {c for f in filters for c in touched_indexes(f)}
+    legacy_bass_mgmt = all_touched & {13, 14, 15, 16, 17}
+    extra_bass_mgmt = all_touched & {37, 38, 39, 40, 41}
     if use_atmos_channels:
         assert all(c in names for c in ['X1', 'X2', 'X3', 'X4', 'X5'])
         assert not any(c in names for c in ['C9', 'C10', 'C11', 'C12', 'C13'])
+        # migrated: no filter is still sat on the legacy C9-C13 indexes (including the Mix filter's
+        # Destination), and they now show up on the equivalent Extra indexes (X1-X5) instead - not
+        # left as orphaned scratch channels.
+        assert not legacy_bass_mgmt
+        assert extra_bass_mgmt == {37, 38, 39, 40, 41}
     else:
         assert all(c in names for c in ['C9', 'C10', 'C11', 'C12', 'C13'])
+        assert legacy_bass_mgmt == {13, 14, 15, 16, 17}
+        assert not extra_bass_mgmt
+    # the isolated Atmos-channel Mix (idx 57/RTR) is already Atmos-pool and unaffected either way
+    assert any(57 in touched_indexes(f) for f in filters)
 
     dsp.activate(0)
     assert dsp.signals
@@ -718,6 +738,40 @@ def test_real_capture_with_mixed_channel_eras_loads_via_full_jriverdsp(use_atmos
     assert dsp2.config_txt() == round_tripped
     dsp2.activate(0)
     assert dsp2.signals
+
+
+def test_migrate_channel_index_maps_legacy_pool_onto_atmos_or_extra_pool():
+    '''
+    OutputFormat.migrate_channel_index is what lets a filter recorded against the legacy generically-
+    numbered pool (13-36, pre-35.0.39) keep controlling the same real channel once use_atmos_channels
+    flips to True - see JRiverDSP.__migrate_channels and
+    test_real_capture_with_mixed_channel_eras_loads_via_full_jriverdsp for the end-to-end version of
+    this. Position within the legacy pool (Channel 9 = position 0, Channel 10 = position 1, ...) maps
+    onto the same position within whichever pool the target format actually draws from:
+      - a static, deliberately-immersive format (e.g. THIRTY_TWO) draws Atmos channels first, then Extra.
+      - a dynamically-constructed "+N padding channels" instance draws Extra channels only (see
+        test_padded_instance_uses_extra_channels_not_legacy_on_mc36).
+    Indexes outside the legacy pool, or use_atmos_channels=False, are always a no-op - migration never
+    touches base surround/user channels or already-migrated indexes.
+    '''
+    static_fmt = OUTPUT_FORMATS['THIRTY_TWO']
+    # position 0 (Channel 9) -> LTF (Atmos-first pool)
+    assert static_fmt.migrate_channel_index(13, True) == get_channel_idx('LTF')
+    # position 7 (Channel 16) -> RW (last Atmos slot)
+    assert static_fmt.migrate_channel_index(20, True) == get_channel_idx('RW')
+    # position 8 (Channel 17) -> X1 (first Extra slot, after the 8 Atmos slots)
+    assert static_fmt.migrate_channel_index(21, True) == get_channel_idx('X1')
+
+    txt = base_config(output_channels=8, padding=8)
+    padded_fmt = get_output_format(txt, allow_padding=True)
+    # position 0 (Channel 9) -> X1 (Extra-only pool for a padded instance, no Atmos)
+    assert padded_fmt.migrate_channel_index(13, True) == get_channel_idx('X1')
+    assert padded_fmt.migrate_channel_index(20, True) == get_channel_idx('X8')
+
+    # no-ops: use_atmos_channels=False, or an index outside the legacy pool entirely
+    assert padded_fmt.migrate_channel_index(13, False) == 13
+    assert padded_fmt.migrate_channel_index(2, True) == 2
+    assert padded_fmt.migrate_channel_index(37, True) == 37
 
 
 def test_padded_instance_uses_extra_channels_not_legacy_on_mc36():

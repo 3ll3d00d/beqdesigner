@@ -81,8 +81,32 @@ class JRiverDSP:
         filt_fragments = [v + ')' for v in filt_element.text.split(')') if v]
         if len(filt_fragments) < 2:
             raise ValueError('Invalid input file - Unexpected <Value> format')
-        individual_filters = [create_single_filter(d, convert_q) for d in [item_to_dicts(f) for f in filt_fragments[2:]] if d]
+        individual_filters = [create_single_filter(self.__migrate_channels(d), convert_q)
+                              for d in [item_to_dicts(f) for f in filt_fragments[2:]] if d]
         return self.__extract_custom_filters(individual_filters)
+
+    def __migrate_channels(self, vals: Dict[str, str]) -> Dict[str, str]:
+        '''
+        Migrates a parsed filter's raw channel indexes onto the currently active channel scheme (see
+        OutputFormat.migrate_channel_index) - so a filter recorded against the legacy numbered pool by
+        an older config/client keeps controlling the same real channel once use_atmos_channels flips
+        the declared output/input set over to the 35.0.39+ Atmos+Extra scheme. Most filter types carry
+        their channel(s) in a semicolon-joined 'Channels' value; Mix is the one type that instead uses
+        single-channel 'Source'/'Destination' values.
+        '''
+        ch = vals.get('Channels', None)
+        if ch:
+            migrated = ';'.join(str(self.__output_format.migrate_channel_index(int(c), self.__use_atmos_channels))
+                                for c in ch.split(';'))
+            if migrated != ch:
+                vals = {**vals, 'Channels': migrated}
+        for key in ('Source', 'Destination'):
+            val = vals.get(key, None)
+            if val is not None:
+                migrated_val = str(self.__output_format.migrate_channel_index(int(val), self.__use_atmos_channels))
+                if migrated_val != val:
+                    vals = {**vals, key: migrated_val}
+        return vals
 
     @staticmethod
     def __extract_custom_filters(individual_filters: List[Filter]) -> List[Filter]:
