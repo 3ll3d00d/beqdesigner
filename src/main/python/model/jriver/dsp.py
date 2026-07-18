@@ -7,7 +7,7 @@ from typing import Dict, List, Tuple, Type, Callable
 
 from model.jriver.codec import get_peq_block_order, get_output_format, NoFiltersError, get_peq_key_name, \
     extract_filters, filts_to_xml, include_filters_in_dsp, item_to_dicts
-from model.jriver.formats import user_channel_indexes, get_channel_name, OutputFormat
+from model.jriver.formats import user_channel_indexes, get_channel_name, get_channel_idx, OutputFormat
 from model.jriver.filter import FilterGraph, create_single_filter, Filter, Divider, complex_filter_classes_by_type, \
     set_filter_ids
 from model.log import to_millis
@@ -108,8 +108,21 @@ class JRiverDSP:
                     vals = {**vals, key: migrated_val}
         return vals
 
-    @staticmethod
-    def __extract_custom_filters(individual_filters: List[Filter]) -> List[Filter]:
+    def __migrate_channel_name(self, name: str) -> str:
+        '''
+        The name-based counterpart to __migrate_channels - some complex filter types (Multiway/XO/
+        XOBM) cache a channel name directly in their own Divider metadata rather than deriving it
+        purely from their constituent filters' raw indexes (see
+        ComplexFilter.migrate_channel_metadata). Falls back to returning name unchanged for anything
+        that isn't a recognised channel short name.
+        '''
+        try:
+            idx = get_channel_idx(name)
+        except ValueError:
+            return name
+        return get_channel_name(self.__output_format.migrate_channel_index(idx, self.__use_atmos_channels))
+
+    def __extract_custom_filters(self, individual_filters: List[Filter]) -> List[Filter]:
         '''
         Combines individual filters into ComplexFilter instances based on divider text.
         :param individual_filters: the raw filters.
@@ -119,14 +132,14 @@ class JRiverDSP:
         buffer_stack: List[Tuple[Type, str, List[Filter]]] = []
         for f in individual_filters:
             if isinstance(f, Divider):
-                JRiverDSP.__handle_divider(buffer_stack, output_filters, f)
+                self.__handle_divider(buffer_stack, output_filters, f)
             else:
                 store_in = buffer_stack[-1][2] if buffer_stack else output_filters
                 store_in.append(f)
         return set_filter_ids(output_filters)
 
-    @staticmethod
-    def __handle_divider(buffer: List[Tuple[Type, str, List[Filter]]], output_filters: List[Filter], f: Divider):
+    def __handle_divider(self, buffer: List[Tuple[Type, str, List[Filter]]], output_filters: List[Filter],
+                         f: Divider):
         match = next((c.get_complex_filter_data(f.text) for c in complex_filter_classes_by_type.values()
                       if c.get_complex_filter_data(f.text)), None)
         if match is None:
@@ -142,7 +155,8 @@ class JRiverDSP:
                 if buffer:
                     if filt_cls == buffer[-1][0]:
                         _, meta, accumulated = buffer.pop()
-                        complex_filt = filt_cls.create(meta, accumulated)
+                        migrated_meta = filt_cls.migrate_channel_metadata(meta, self.__migrate_channel_name)
+                        complex_filt = filt_cls.create(migrated_meta, accumulated)
                         store_in = buffer[-1][2] if buffer else output_filters
                         store_in.append(complex_filt)
                     else:

@@ -507,6 +507,40 @@ which must stay exactly where it is regardless of `use_atmos_channels`. See
 `test_migrate_channel_index_maps_legacy_pool_onto_atmos_or_extra_pool` and the
 updated `test_real_capture_with_mixed_channel_eras_loads_via_full_jriverdsp`.
 
+**Per-filter migration alone wasn't sufficient — complex filters can cache a
+channel name a second time, in their own Divider metadata.** Reported
+directly by a user testing against a real MC35 instance: after the fix above,
+an `XOBM` filter's own channel list showed a mix of eras at once, e.g.
+`[L, R, C, SW, RL, RR, C11, C12, C15]` where 3 of those 9 should've been
+`X`-named like the rest. Root cause: `MultiwayFilter`/`XOFilter`/
+`CompoundRoutingFilter` (XOBM) don't derive their displayed `channel_names`
+purely from their constituent filters' raw indexes the way `GEQFilter`/
+`MSOFilter` do — they cache a channel *name* directly in the JSON/`/`-joined
+metadata text embedded in the JRiver `Divider` marker that brackets the
+complex filter (`MultiwayFilter`'s `"i"`/`"o"` fields, `XOFilter`'s leading
+`/`-token, `CompoundRoutingFilter`'s `"e"[].u` speaker-group lists and
+`"r"` route strings, e.g. `"R/2/C9"` = input `R`, way `2`, output `C9`).
+`JRiverDSP.__migrate_channels` never touched this text — it only migrates a
+leaf filter's `Channels`/`Source`/`Destination` numeric value(s), so the
+complex filter's own constituent `Gain`/`Mix` filters ended up migrated while
+its cached metadata name(s) didn't, producing exactly this kind of mixed
+result. Fixed via `ComplexFilter.migrate_channel_metadata(data, migrate_name)`
+— a no-op by default, overridden by the three types above to parse their own
+metadata text, migrate whichever tokens are channel names (via a
+`get_channel_idx` → `OutputFormat.migrate_channel_index` → `get_channel_name`
+round trip, wrapped so a non-channel token is left alone), and re-serialize.
+Called from `JRiverDSP.__handle_divider` right before `filt_cls.create(...)`,
+using the same `use_atmos_channels`/`OutputFormat` this `JRiverDSP` was
+constructed with. Because each of these types' own `metadata()` method
+re-serializes fresh from its own fields on save (not the original raw text),
+migrating at parse time is enough — no separate write-time step needed.
+See the `xobm_repr` assertions added to
+`test_real_capture_with_mixed_channel_eras_loads_via_full_jriverdsp`. **If a
+new complex filter type is added that caches a channel name in its own
+metadata rather than deriving it from constituent filters, it needs its own
+`migrate_channel_metadata` override too** — the base class default silently
+does nothing, so this is easy to miss.
+
 ## When JRiver changes the format again
 
 Likely touch points, roughly in order of how often JRiver has changed them

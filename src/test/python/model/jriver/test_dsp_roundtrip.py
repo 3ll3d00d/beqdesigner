@@ -693,6 +693,15 @@ def test_real_capture_with_mixed_channel_eras_loads_via_full_jriverdsp(use_atmos
          becoming orphaned. The isolated RTR Mix (idx 57, already an Atmos-pool index) is untouched by
          migration either way and remains a genuine scratch channel - handled by the
          defaultdict/lazy-signals fixes below.
+      2b. That per-filter migration alone wasn't enough: XOBM/Multiway complex filters additionally
+          cache their own routing description (which channel each "way" is built from/goes to) as
+          channel *names* directly in their Divider metadata JSON (e.g. Multiway's "i"/"o" fields,
+          XOBM's "r" route list) - reported by a real user as a mixed-era result, e.g. an XOBM filter
+          showing `[..., C11, C12, C15]` next to already-migrated `X`-named channels from its own
+          constituent filters. Fixed via `ComplexFilter.migrate_channel_metadata`, overridden by
+          `MultiwayFilter`/`XOFilter`/`CompoundRoutingFilter` to migrate the channel name(s) in their
+          own metadata the same way, called from `JRiverDSP.__handle_divider` right before
+          `filt_cls.create(...)`.
       3. FilterGraph.simulate() had the exact same "declared channels only" assumption as
          GraphRenderer, one layer down - its per-channel `signals` dict was built only from
          output_channels, so activating/simulating the graph (not just rendering it) raised a
@@ -728,6 +737,19 @@ def test_real_capture_with_mixed_channel_eras_loads_via_full_jriverdsp(use_atmos
         assert not extra_bass_mgmt
     # the isolated Atmos-channel Mix (idx 57/RTR) is already Atmos-pool and unaffected either way
     assert any(57 in touched_indexes(f) for f in filters)
+
+    # the XOBM complex filter's own repr (built from its cached Divider-metadata channel names, not
+    # just its constituent filters' raw indexes - see ComplexFilter.migrate_channel_metadata) must be
+    # fully migrated too, not a mix of eras (this was the actual bug: leaf filters migrated correctly
+    # while Multiway/XOBM's own "i"/"o"/"r" metadata stayed on the old names, e.g. "C11" and "X3" both
+    # showing up for what should be the same, single, migrated channel).
+    xobm_repr = next(repr(f) for f in filters if type(f).__name__ == 'CompoundRoutingFilter')
+    if use_atmos_channels:
+        assert 'C11' not in xobm_repr and 'C12' not in xobm_repr and 'C15' not in xobm_repr
+        assert 'X3' in xobm_repr and 'X4' in xobm_repr and 'X7' in xobm_repr
+    else:
+        assert 'C11' in xobm_repr and 'C12' in xobm_repr and 'C15' in xobm_repr
+        assert 'X3' not in xobm_repr and 'X4' not in xobm_repr and 'X7' not in xobm_repr
 
     dsp.activate(0)
     assert dsp.signals

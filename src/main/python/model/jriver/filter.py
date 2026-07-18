@@ -944,6 +944,25 @@ class ComplexFilter(Filter):
     def create(cls, data: str, child_filters: List[Filter]):
         pass
 
+    @classmethod
+    def migrate_channel_metadata(cls, data: str, migrate_name: Callable[[str], str]) -> str:
+        '''
+        Migrates any channel name(s) embedded in this complex filter type's own serialized metadata
+        (the JRiver Divider marker text) onto the currently active channel scheme - analogous to
+        JRiverDSP's per-filter Channels/Source/Destination migration (see
+        OutputFormat.migrate_channel_index), but for complex filter types (Multiway/XO/XOBM) that
+        additionally cache a channel name directly in their own metadata rather than deriving it
+        purely from their constituent filters' raw indexes. Most types don't do this (GEQ/MSO/PASS
+        derive channel_names from constituent filters, which are already migrated), so the default is
+        a no-op; override where metadata carries a channel name directly.
+        :param data: the raw metadata text as parsed from the Divider marker (this type's own, not a
+        child filter's).
+        :param migrate_name: converts a single channel short name to its migrated equivalent (a no-op
+        for names outside the legacy pool, or when use_atmos_channels is false).
+        :return: the (possibly unchanged) metadata text to construct this filter from.
+        '''
+        return data
+
     def metadata(self) -> str:
         return ''
 
@@ -1094,6 +1113,13 @@ class MultiwayFilter(ComplexFilter, Sequence[Filter]):
         return 'Multiway'
 
     @classmethod
+    def migrate_channel_metadata(cls, data: str, migrate_name: Callable[[str], str]) -> str:
+        meta = json.loads(data)
+        meta['i'] = migrate_name(meta['i'])
+        meta['o'] = [migrate_name(c) for c in meta['o']]
+        return json.dumps(meta)
+
+    @classmethod
     def create(cls, data: str, child_filters: List[Filter]):
         meta = json.loads(data)
         return MultiwayFilter(meta['i'], meta['o'], child_filters, meta['m'])
@@ -1124,6 +1150,12 @@ class XOFilter(ComplexChannelFilter):
     @classmethod
     def custom_type(cls) -> str:
         return 'XO'
+
+    @classmethod
+    def migrate_channel_metadata(cls, data: str, migrate_name: Callable[[str], str]) -> str:
+        tokens = data.split('/')
+        tokens[0] = migrate_name(tokens[0])
+        return '/'.join(tokens)
 
     @classmethod
     def create(cls, data: str, child_filters: List[Filter]):
@@ -1189,6 +1221,24 @@ class CompoundRoutingFilter(ComplexFilter, Sequence[Filter]):
     @classmethod
     def custom_type(cls) -> str:
         return 'XOBM'
+
+    @classmethod
+    def migrate_channel_metadata(cls, data: str, migrate_name: Callable[[str], str]) -> str:
+        meta = json.loads(data)
+        for engine in meta.get('e', []):
+            engine['u'] = [migrate_name(c) for c in engine.get('u', [])]
+        meta['r'] = [cls.__migrate_route(r, migrate_name) for r in meta.get('r', [])]
+        return json.dumps(meta)
+
+    @staticmethod
+    def __migrate_route(route: str, migrate_name: Callable[[str], str]) -> str:
+        # each route is "input_channel/way/output_channel" - migrate both channel name tokens.
+        tokens = route.split('/')
+        if len(tokens) == 3:
+            tokens[0] = migrate_name(tokens[0])
+            tokens[2] = migrate_name(tokens[2])
+            return '/'.join(tokens)
+        return route
 
     @classmethod
     def create(cls, data: str, child_filters: List[Filter]):
