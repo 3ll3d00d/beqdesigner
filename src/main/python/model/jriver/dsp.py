@@ -91,8 +91,9 @@ class JRiverDSP:
         OutputFormat.migrate_channel_index) - so a filter recorded against the legacy numbered pool by
         an older config/client keeps controlling the same real channel once use_atmos_channels flips
         the declared output/input set over to the 35.0.39+ Atmos+Extra scheme. Most filter types carry
-        their channel(s) in a semicolon-joined 'Channels' value; Mix is the one type that instead uses
-        single-channel 'Source'/'Destination' values.
+        their channel(s) in a semicolon-joined 'Channels' value; Mix instead uses single-channel
+        'Source'/'Destination' values, and Order (JRiver's native "Channel Order" plugin) uses a
+        comma-joined 'Order' value.
         '''
         ch = vals.get('Channels', None)
         if ch:
@@ -106,6 +107,12 @@ class JRiverDSP:
                 migrated_val = str(self.__output_format.migrate_channel_index(int(val), self.__use_atmos_channels))
                 if migrated_val != val:
                     vals = {**vals, key: migrated_val}
+        order = vals.get('Order', None)
+        if order:
+            migrated_order = ','.join(str(self.__output_format.migrate_channel_index(int(c), self.__use_atmos_channels))
+                                      for c in order.split(','))
+            if migrated_order != order:
+                vals = {**vals, 'Order': migrated_order}
         return vals
 
     def __migrate_channel_name(self, name: str) -> str:

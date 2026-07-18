@@ -490,11 +490,18 @@ Extra-only for a padded instance, Atmos+Extra for a static immersive format
 outside the legacy pool, or `use_atmos_channels=False`, are a no-op.
 `JRiverDSP.__migrate_channels` (`dsp.py`) applies this to every parsed
 filter's raw channel value(s) before constructing the `Filter` object — most
-filter types carry channels in a semicolon-joined `Channels` value, but `Mix`
-uses single-channel `Source`/`Destination` values instead, so both are
-covered. This runs identically whether the config came from a `.dsp` file or
-a live MCWS download (`JRiverDSP.__init__` → `__parse_peq` → this), since both
-paths converge on the same constructor.
+filter types carry channels in a semicolon-joined `Channels` value, `Mix`
+uses single-channel `Source`/`Destination` values instead, and `Order`
+(JRiver's native "Channel Order" plugin) uses a comma-joined `Order` value;
+all three are covered. This runs identically whether the config came from a
+`.dsp` file or a live MCWS download (`JRiverDSP.__init__` → `__parse_peq` →
+this), since both paths converge on the same constructor. Every
+`filter_classes_by_type`/`complex_filter_classes_by_type` entry has explicit
+migration test coverage in `test_dsp_roundtrip.py` (see the "Per-filter-type
+channel migration coverage" section there) — if a new `Filter`/`ComplexFilter`
+subclass is added with its own channel-bearing field, it needs a test there
+too, not just a passing round-trip test (a round trip alone doesn't prove
+migration happened, only that parse→re-encode is stable).
 
 Deliberately **not** migrated in the reverse direction (Atmos/Extra idx →
 legacy, when `use_atmos_channels=False`): an index in the Atmos/Extra pool

@@ -7,6 +7,7 @@ without losing or corrupting information.
 See model/jriver/AGENTS.md for the format itself; these tests are the closest thing to an executable
 spec of that format.
 '''
+import json
 import math
 import xml.etree.ElementTree as et
 from pathlib import Path
@@ -18,12 +19,12 @@ from model.jriver import JRIVER_FS
 from model.jriver.codec import (extract_filters, filts_to_xml, get_output_format, get_peq_block_order,
                                 get_peq_key_name, include_filters_in_dsp, item_to_dicts)
 from model.jriver.dsp import JRiverDSP
-from model.jriver.filter import (AllPass, BitdepthSimulator, CompositeXODescriptor, CustomPassFilter, Delay,
-                                  Divider, Gain, GEQFilter, HighPass, HighShelf, LimiterMode, Limiter,
-                                  LinkwitzRiley, LowPass, LowShelf, MidSideDecoding, MidSideEncoding, Mix,
-                                  MixType, MultiChannelSystem, MultiwayFilter, Mute, Order, Peak, Polarity,
-                                  SubwooferLimiter, WayDescriptor, WayValues, XODescriptor,
-                                  convert_filter_to_mc_dsp, create_single_filter)
+from model.jriver.filter import (AllPass, BitdepthSimulator, CompositeXODescriptor, CompoundRoutingFilter,
+                                  CustomPassFilter, Delay, Divider, Gain, GEQFilter, HighPass, HighShelf,
+                                  LimiterMode, Limiter, LinkwitzRiley, LinkwitzTransform, LowPass, LowShelf,
+                                  MidSideDecoding, MidSideEncoding, Mix, MixType, MSOFilter, MultiChannelSystem,
+                                  MultiwayFilter, Mute, Order, Peak, Polarity, SubwooferLimiter, WayDescriptor,
+                                  WayValues, XODescriptor, XOFilter, convert_filter_to_mc_dsp, create_single_filter)
 from model.jriver.formats import OUTPUT_FORMATS, get_all_channel_names, get_channel_idx, get_channel_name
 from model.jriver.routing import Matrix
 
@@ -794,6 +795,171 @@ def test_migrate_channel_index_maps_legacy_pool_onto_atmos_or_extra_pool():
     assert padded_fmt.migrate_channel_index(13, False) == 13
     assert padded_fmt.migrate_channel_index(2, True) == 2
     assert padded_fmt.migrate_channel_index(37, True) == 37
+
+
+# ---------------------------------------------------------------------------------------------------
+# Per-filter-type channel migration coverage - every Filter/ComplexFilter TYPE that carries a channel
+# identity (whether as a raw index or a cached name) must migrate when use_atmos_channels flips to
+# True. See JRiverDSP.__migrate_channels/__migrate_channel_name (per-filter and per-complex-filter-
+# metadata migration) and ComplexFilter.migrate_channel_metadata (the per-type override hook).
+#
+# Coverage by field/mechanism (every entry in filter_classes_by_type/complex_filter_classes_by_type):
+#   'Channels' (semicolon list)  -> test_channel_filter_types_migrate_channels_field (13 types)
+#   'Source'/'Destination'       -> test_mix_filter_migrates_source_and_destination (Mix)
+#   'Order' (comma list)         -> test_order_filter_migrates_order_field (Order)
+#   no channel field             -> BitdepthSimulator/MidSideEncoding/MidSideDecoding/LinkwitzRiley/
+#                                    Divider - nothing to migrate, already covered by
+#                                    test_native_only_filter_types_roundtrip not raising/corrupting
+#   complex, name-cached metadata -> test_multiway_filter_migrates_input_and_output_channel_names,
+#                                    test_xo_filter_migrates_input_channel_name,
+#                                    test_compound_routing_filter_migrates_metadata_routes_and_speaker_groups
+#   complex, derived from children -> test_geq_and_mso_filters_derive_migrated_channel_names,
+#                                     test_custom_pass_filter_channel_names_migrate_via_constituent
+# ---------------------------------------------------------------------------------------------------
+
+_LEGACY_CHANNEL = 'C11'  # idx 15, position 2 beyond the base 8
+_MIGRATED_CHANNEL = 'X3'  # position 2 in the Extra-only pool of an 8-channel-base padded instance
+
+
+@pytest.mark.parametrize('build', [
+    lambda ch: Peak(vals(Peak, Channels=ch, Frequency='100', Q='1.41', Gain='3.2')),
+    lambda ch: LowShelf(vals(LowShelf, Channels=ch, Frequency='30', Q='0.7', Gain='-4.5')),
+    lambda ch: HighShelf(vals(HighShelf, Channels=ch, Frequency='8000', Q='0.7', Gain='2')),
+    lambda ch: LowPass(vals(LowPass, Channels=ch, Slope='24', Frequency='80', Q='0.707', Gain='0')),
+    lambda ch: HighPass(vals(HighPass, Channels=ch, Slope='12', Frequency='40', Q='0.707', Gain='0')),
+    lambda ch: Gain(vals(Gain, Channels=ch, Gain='-6.5')),
+    lambda ch: Mute(vals(Mute, Channels=ch)),
+    lambda ch: Delay(vals(Delay, Channels=ch, Delay='4.242')),
+    lambda ch: Polarity(vals(Polarity, Channels=ch)),
+    lambda ch: AllPass(vals(AllPass, Channels=ch, Frequency='120', Q='1.2')),
+    lambda ch: LinkwitzTransform({'Enabled': '1', 'Type': LinkwitzTransform.TYPE, 'Channels': ch,
+                                  'Fz': '20', 'Qz': '0.5', 'Fp': '25', 'Qp': '0.707', 'PreventClipping': '0'}),
+    lambda ch: Limiter({'Enabled': '1', 'Type': Limiter.TYPE, 'Channels': ch, 'Hold': '20',
+                        'Mode': str(LimiterMode.ADAPTIVE.value), 'Level': '-1', 'Release': '100', 'Attack': '5'}),
+    lambda ch: SubwooferLimiter({'Enabled': '1', 'Type': SubwooferLimiter.TYPE, 'Channels': ch, 'Level': '-3'}),
+], ids=['peak', 'lowshelf', 'highshelf', 'lowpass', 'highpass', 'gain', 'mute', 'delay', 'polarity', 'allpass',
+        'linkwitztransform', 'limiter', 'subwooferlimiter'])
+def test_channel_filter_types_migrate_channels_field(build):
+    '''Every ChannelFilter TYPE stores its channel(s) in the same semicolon-joined 'Channels' value, so
+    JRiverDSP.__migrate_channels' handling of that key is type-agnostic - this pins down that every
+    registered ChannelFilter subclass actually goes through it, not just the ones exercised elsewhere.'''
+    txt = base_config(output_channels=8, padding=8)
+    f = build(str(get_channel_idx(_LEGACY_CHANNEL)))
+    for use_atmos_channels, expected in [(False, _LEGACY_CHANNEL), (True, _MIGRATED_CHANNEL)]:
+        dsp = load(seed(txt, PEQ1, [f]), allow_padding=True, use_atmos_channels=use_atmos_channels)
+        decoded = dsp.graph(0).filters[0]
+        assert decoded.channel_names == [expected]
+
+
+def test_mix_filter_migrates_source_and_destination():
+    txt = base_config(output_channels=8, padding=8)
+    f = Mix({'Enabled': '1', 'Type': Mix.TYPE, 'Source': str(get_channel_idx('SW')),
+            'Destination': str(get_channel_idx(_LEGACY_CHANNEL)), 'Gain': '-1.5', 'Mode': str(MixType.COPY.value)})
+    for use_atmos_channels, expected_dst in [(False, _LEGACY_CHANNEL), (True, _MIGRATED_CHANNEL)]:
+        dsp = load(seed(txt, PEQ1, [f]), allow_padding=True, use_atmos_channels=use_atmos_channels)
+        decoded = dsp.graph(0).filters[0]
+        assert isinstance(decoded, Mix)
+        assert decoded.channel_names == ['SW', expected_dst]
+
+
+def test_order_filter_migrates_order_field():
+    txt = base_config(output_channels=8, padding=8)
+    f = Order({'Enabled': '1', 'Type': Order.TYPE,
+              'Order': f"{get_channel_idx('L')},{get_channel_idx(_LEGACY_CHANNEL)}"})
+    for use_atmos_channels, expected in [(False, ['L', _LEGACY_CHANNEL]), (True, ['L', _MIGRATED_CHANNEL])]:
+        dsp = load(seed(txt, PEQ1, [f]), allow_padding=True, use_atmos_channels=use_atmos_channels)
+        decoded = dsp.graph(0).filters[0]
+        assert isinstance(decoded, Order)
+        r = repr(decoded)
+        assert all(name in r for name in expected)
+        unexpected = {_LEGACY_CHANNEL, _MIGRATED_CHANNEL} - set(expected)
+        assert not any(name in r for name in unexpected)
+
+
+def test_multiway_filter_migrates_input_and_output_channel_names():
+    txt = base_config(output_channels=8, padding=8)
+    gain = Gain(vals(Gain, Channels=str(get_channel_idx('C12')), Gain='-3'))
+    mf = MultiwayFilter(_LEGACY_CHANNEL, ['C12'], [gain], {'w': [], 'm': []})
+    for use_atmos_channels, expected_i, expected_o in [(False, _LEGACY_CHANNEL, 'C12'), (True, _MIGRATED_CHANNEL, 'X4')]:
+        dsp = load(seed(txt, PEQ1, [mf]), allow_padding=True, use_atmos_channels=use_atmos_channels)
+        decoded = dsp.graph(0).filters[0]
+        assert isinstance(decoded, MultiwayFilter)
+        assert decoded.input_channel == expected_i
+        assert decoded.output_channels == [expected_o]
+
+
+def test_xo_filter_migrates_input_channel_name():
+    txt = base_config(output_channels=8, padding=8)
+    gain = Gain(vals(Gain, Channels=str(get_channel_idx('C12')), Gain='-3'))
+    xof = XOFilter(_LEGACY_CHANNEL, 0, [gain])
+    for use_atmos_channels, expected_input in [(False, _LEGACY_CHANNEL), (True, _MIGRATED_CHANNEL)]:
+        dsp = load(seed(txt, PEQ1, [xof]), allow_padding=True, use_atmos_channels=use_atmos_channels)
+        decoded = dsp.graph(0).filters[0]
+        assert isinstance(decoded, XOFilter)
+        assert decoded.input_channel == expected_input
+
+
+def test_compound_routing_filter_migrates_metadata_routes_and_speaker_groups():
+    '''
+    XOBM's own metadata ("e"[].u speaker-group lists, "r" route strings like "SW/0/C12") is consumed
+    directly by ui.py when re-opening an existing XOBM filter for editing (json.loads(existing.metadata()))
+    - independent of, and not reflected by, the aggregate channel_names/repr used elsewhere in this file
+    (which derive purely from constituent filters and would pass even if this metadata were never
+    migrated). So this asserts against decoded.metadata() directly, not repr().
+    '''
+    txt = base_config(output_channels=8, padding=8)
+    gain = Gain(vals(Gain, Channels=str(get_channel_idx('C12')), Gain='-3'))
+    mix = Mix({'Enabled': '1', 'Type': Mix.TYPE, 'Source': str(get_channel_idx('SW')),
+              'Destination': str(get_channel_idx(_LEGACY_CHANNEL)), 'Gain': '0', 'Mode': str(MixType.COPY.value)})
+    metadata = json.dumps({'e': [{'n': 'SW', 'u': ['SW', 'C12'], 'w': 1, 's': True}],
+                           'r': [f'SW/0/{_LEGACY_CHANNEL}'], 'x': 0, 'l': 0})
+    xobm = CompoundRoutingFilter(metadata, [gain], [], [], [mix])
+    for use_atmos_channels, expected_u, expected_route in [
+        (False, ['SW', 'C12'], f'SW/0/{_LEGACY_CHANNEL}'),
+        (True, ['SW', 'X4'], f'SW/0/{_MIGRATED_CHANNEL}'),
+    ]:
+        dsp = load(seed(txt, PEQ1, [xobm]), allow_padding=True, use_atmos_channels=use_atmos_channels)
+        decoded = dsp.graph(0).filters[0]
+        assert isinstance(decoded, CompoundRoutingFilter)
+        meta = json.loads(decoded.metadata())
+        assert meta['e'][0]['u'] == expected_u
+        assert meta['r'] == [expected_route]
+
+
+def test_geq_and_mso_filters_derive_migrated_channel_names_from_constituents():
+    '''GEQFilter/MSOFilter cache no channel identity of their own (unlike Multiway/XO/XOBM) - they
+    derive channel_names purely from their constituent ChannelFilter objects, so migrating those
+    constituents' 'Channels' value (already covered generically) is sufficient; this pins that down
+    end to end rather than relying on inference.'''
+    txt = base_config(output_channels=8, padding=8)
+    band = Peak(vals(Peak, Channels=str(get_channel_idx(_LEGACY_CHANNEL)), Frequency='100', Q='4.3', Gain='2'))
+    geq = GEQFilter([band])
+    mso_band = Peak(vals(Peak, Channels=str(get_channel_idx(_LEGACY_CHANNEL)), Frequency='200', Q='4.3', Gain='1'))
+    mso = MSOFilter([mso_band])
+    for use_atmos_channels, expected in [(False, _LEGACY_CHANNEL), (True, _MIGRATED_CHANNEL)]:
+        dsp = load(seed(txt, PEQ1, [geq, mso]), allow_padding=True, use_atmos_channels=use_atmos_channels)
+        decoded_geq, decoded_mso = dsp.graph(0).filters
+        assert isinstance(decoded_geq, GEQFilter)
+        assert decoded_geq.channel_names == [expected]
+        assert isinstance(decoded_mso, MSOFilter)
+        assert expected in repr(decoded_mso)
+        assert (_LEGACY_CHANNEL if use_atmos_channels else _MIGRATED_CHANNEL) not in repr(decoded_mso)
+
+
+def test_custom_pass_filter_channel_names_migrate_via_constituent():
+    '''CustomPassFilter (PASS) caches no channel identity in its own metadata either (just the filter
+    design, e.g. "LP/LR/4/2000/0.7071") - like GEQ/MSO, its channel_names come from its constituent
+    filter, so migrating that is sufficient.'''
+    txt = base_config(output_channels=8, padding=8)
+    target = str(get_channel_idx(_LEGACY_CHANNEL))
+    lp = ComplexLowPass(FilterType.LINKWITZ_RILEY, 4, JRIVER_FS, 2000.0)
+    mc_filter = convert_filter_to_mc_dsp(lp, target)
+    assert isinstance(mc_filter, CustomPassFilter)
+    for use_atmos_channels, expected in [(False, _LEGACY_CHANNEL), (True, _MIGRATED_CHANNEL)]:
+        dsp = load(seed(txt, PEQ1, [mc_filter]), allow_padding=True, use_atmos_channels=use_atmos_channels)
+        decoded = dsp.graph(0).filters[0]
+        assert isinstance(decoded, CustomPassFilter)
+        assert decoded.channel_names == [expected]
 
 
 def test_padded_instance_uses_extra_channels_not_legacy_on_mc36():
