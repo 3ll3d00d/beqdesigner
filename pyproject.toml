@@ -1,6 +1,6 @@
 [project]
 name = "beqdesigner"
-version = "2.1.0"
+version = "2.1.1"
 description = "A Qt based app for designing BassEQ filters"
 authors = [{ name = "3ll3d00d", email = "mattkhan+beqdesigner@gmail.com" }]
 license = "MIT"
