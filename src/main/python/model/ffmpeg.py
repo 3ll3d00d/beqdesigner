@@ -726,7 +726,7 @@ class Executor:
             self.__ffmpeg_cmd += [f"-{key}", str(value)]
         self.__ffmpeg_cmd += [
             '-i', filename,
-            '-filter_complex_script', self.__write_filter_complex()
+            '-/filter_complex', self.__write_filter_complex()
         ]
         if self.__selected_video_stream_idx != -1:
             self.__ffmpeg_cmd += ['-map', f"0:v:{self.__selected_video_stream_idx}" , '-c:v', 'copy']
