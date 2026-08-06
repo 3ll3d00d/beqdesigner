@@ -537,6 +537,8 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         if key == SIGNAL_CONNECTED:
             self.__extract_started()
         elif key == 'out_time_ms':
+            if value is None or value == 'N/A':
+                return
             out_time_ms = int(value)
             if self.__executor.start_time_ms > 0 and self.__executor.end_time_ms > 0:
                 total_micros = (self.__executor.end_time_ms - self.__executor.start_time_ms) * 1000
