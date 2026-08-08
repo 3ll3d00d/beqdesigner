@@ -239,10 +239,8 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
                     self.audioFormat.addItem(COMPRESS_FORMAT_AC3)
                 if self.__preferences.get(EXTRACTION_COMPRESS):
                     self.audioFormat.setCurrentText(COMPRESS_FORMAT_EAC3)
-                    self.eacBitRate.setVisible(True)
                 else:
                     self.audioFormat.setCurrentText(COMPRESS_FORMAT_NATIVE)
-                    self.eacBitRate.setVisible(False)
                 self.videoStreams.setCurrentIndex(1)
                 self.adjustRemuxedAudio.setEnabled(True)
                 self.remuxedAudioOffset.setEnabled(True)
@@ -299,6 +297,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
                                         self.monoMix.isChecked())
 
             self.__init_channel_count_fields(self.__executor.channel_count, lfe_index=self.__executor.lfe_idx)
+            self.__update_bitrate_for_format(self.audioFormat.currentText())
             self.__fit_options_to_selected()
             self.__display_command_info()
             self.buttonBox.button(QDialogButtonBox.StandardButton.Ok).setEnabled(True)
@@ -371,17 +370,25 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         '''
         if self.audioStreams.count() > 0 and self.__executor is not None:
             self.__executor.audio_format = audio_format
-            if audio_format == COMPRESS_FORMAT_EAC3:
-                self.eacBitRate.setVisible(True)
-                self.eacBitRate.setValue(1500)
-                self.__executor.audio_bitrate = self.eacBitRate.value()
-            elif audio_format == COMPRESS_FORMAT_AC3:
-                self.eacBitRate.setVisible(True)
-                self.eacBitRate.setValue(640)
-                self.__executor.audio_bitrate = self.eacBitRate.value()
-            else:
-                self.eacBitRate.setVisible(False)
+            self.__update_bitrate_for_format(audio_format)
             self.__display_command_info()
+
+    def __update_bitrate_for_format(self, audio_format):
+        '''
+        Presets the bitrate spinbox to the source stream's bitrate, when ffprobe reports one, otherwise falls
+        back to a sane default for the selected compressed format.
+        '''
+        if audio_format == COMPRESS_FORMAT_EAC3 or audio_format == COMPRESS_FORMAT_AC3:
+            self.eacBitRate.setVisible(True)
+            default_bitrate = 1500 if audio_format == COMPRESS_FORMAT_EAC3 else 640
+            source_bitrate = self.__executor.source_bit_rate_kbps if self.__executor is not None else None
+            bitrate = int(source_bitrate) if source_bitrate else int(default_bitrate)
+            bitrate = min(max(bitrate, self.eacBitRate.minimum()), self.eacBitRate.maximum())
+            self.eacBitRate.setValue(bitrate)
+            if self.__executor is not None:
+                self.__executor.audio_bitrate = self.eacBitRate.value()
+        else:
+            self.eacBitRate.setVisible(False)
 
     def change_audio_bitrate(self, bitrate):
         ''' Allows the bitrate to be updated '''

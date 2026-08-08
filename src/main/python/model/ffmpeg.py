@@ -146,6 +146,7 @@ class Executor:
         self.__extractor = None
         self.__cancel = False
         self.__sample_rate = None
+        self.__source_bit_rate_kbps = None
         self.__filter_complex_filter = None
         self.__is_remux = signal_model is not None
         self.__signal_model = signal_model
@@ -250,6 +251,11 @@ class Executor:
     def audio_format(self, audio_format):
         self.__audio_format = audio_format
         self.__calculate_output()
+
+    @property
+    def source_bit_rate_kbps(self):
+        ''' the bit rate, in kbps, reported by ffprobe for the currently selected audio stream (or None if unknown) '''
+        return self.__source_bit_rate_kbps
 
     @property
     def audio_bitrate(self):
@@ -383,6 +389,8 @@ class Executor:
         selected_audio_stream = self.__audio_stream_data[audio_stream_idx]
         self.__mono_mix = mono_mix
         self.__sample_rate = selected_audio_stream['sample_rate'] if 'sample_rate' in selected_audio_stream else 48000
+        raw_bit_rate = selected_audio_stream.get('bit_rate')
+        self.__source_bit_rate_kbps = int(round(int(raw_bit_rate) / 1000)) if raw_bit_rate else None
         channel_layout = None
         channel_layout_name = None
         mono_mix = None
