@@ -3,6 +3,7 @@ import logging
 import math
 import os
 import platform
+import shutil
 import socketserver
 import subprocess
 import tempfile
@@ -104,6 +105,26 @@ def get_next_port():
     global NEXT_PORT
     NEXT_PORT += 1
     return NEXT_PORT
+
+
+def find_missing_ffmpeg_tools():
+    '''
+    Checks whether the ffmpeg and ffprobe executables are reachable on the PATH.
+    :return: the names of any tools that could not be found (empty if both are available).
+    '''
+    exe = '.exe' if platform.system() == 'Windows' else ''
+    return [t for t in ['ffmpeg', 'ffprobe'] if shutil.which(f"{t}{exe}") is None]
+
+
+def describe_missing_binary(e: FileNotFoundError):
+    '''
+    Formats a FileNotFoundError raised while trying to invoke ffmpeg/ffprobe into a clear, actionable message.
+    :param e: the underlying error.
+    :return: a user friendly message.
+    '''
+    binary = e.filename if e.filename else 'ffmpeg/ffprobe'
+    return (f"Unable to find {binary}. Install ffmpeg (which includes ffprobe) and set the install location "
+            f"via Preferences > Binaries.")
 
 
 class Executor:
@@ -344,7 +365,11 @@ class Executor:
         '''
         logger.info(f"Probing {self.file}")
         start = time.time()
-        self.__probe = ffmpeg.probe(self.file)
+        try:
+            self.__probe = ffmpeg.probe(self.file)
+        except FileNotFoundError as e:
+            logger.error(f"Unable to probe {self.file}, {e.filename} not found")
+            raise FileNotFoundError(describe_missing_binary(e)) from e
         self.__audio_stream_data = [s for s in self.__probe.get('streams', []) if s['codec_type'] == 'audio']
         self.__video_stream_data = [s for s in self.__probe.get('streams', []) if s['codec_type'] == 'video']
         end = time.time()
@@ -884,6 +909,12 @@ class AudioExtractor(QRunnable):
                 logger.info(f"FAILED to execute ffmpeg command in {elapsed}s")
                 result = f"Command FAILED in {elapsed}s" + os.linesep + os.linesep
                 result = self.__append_out_err(e.stderr, e.stdout, result)
+                self.__signals.on_progress.emit(SIGNAL_ERROR, result)
+            except FileNotFoundError as e:
+                end = time.time()
+                elapsed = round(end - start, 3)
+                logger.error(f"FAILED to execute ffmpeg command in {elapsed}s, {e.filename} not found")
+                result = f"Command FAILED in {elapsed}s" + os.linesep + os.linesep + describe_missing_binary(e)
                 self.__signals.on_progress.emit(SIGNAL_ERROR, result)
             finally:
                 self.__stop_socket_server()

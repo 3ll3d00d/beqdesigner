@@ -11,7 +11,7 @@ from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import QDialog, QStatusBar, QFileDialog
 
 from model.ffmpeg import Executor, parse_audio_stream, ViewProbeDialog, SIGNAL_CONNECTED, SIGNAL_ERROR, \
-    SIGNAL_COMPLETE, SIGNAL_CANCELLED, FFMpegDetailsDialog
+    SIGNAL_COMPLETE, SIGNAL_CANCELLED, FFMpegDetailsDialog, describe_missing_binary
 from model.preferences import EXTRACTION_OUTPUT_DIR, EXTRACTION_BATCH_FILTER, ANALYSIS_TARGET_FS
 from model.spin import StoppableSpin, stop_spinner
 from ui.batch import Ui_batchExtractDialog
@@ -561,6 +561,7 @@ class ExtractCandidate:
         elif key == SIGNAL_ERROR:
             self.status = ExtractStatus.FAILED
             self.__result = value
+            self.actionButton.setToolTip(value)
             self.__on_extract_complete(self.__idx)
         elif key == SIGNAL_COMPLETE:
             self.ffmpegProgress.setValue(100)
@@ -580,11 +581,14 @@ class ExtractCandidate:
         '''
         self.status = ExtractStatus.IN_PROGRESS
 
-    def probe_failed(self):
+    def probe_failed(self, msg=''):
         '''
         Updates the UI when an ff cmd fails.
+        :param msg: a description of the failure, if any.
         '''
         self.status = ExtractStatus.FAILED
+        if msg:
+            self.actionButton.setToolTip(msg)
         self.__on_probe_complete(self.__idx)
 
     def probe_complete(self):
@@ -653,7 +657,7 @@ class ExtractCandidate:
 
 class ProbeJobSignals(QObject):
     started = Signal()
-    errored = Signal()
+    errored = Signal(str)
     finished = Signal()
 
 
@@ -680,12 +684,16 @@ class ProbeJob(QRunnable):
         except Error as err:
             errorMsg = err.stderr.decode('utf-8') if err.stderr is not None else 'no stderr available'
             logger.error(f"ffprobe {self.__candidate.executor.file} failed [msg: {errorMsg}]")
-            self.__signals.errored.emit()
+            self.__signals.errored.emit(errorMsg)
+        except FileNotFoundError as e:
+            errorMsg = describe_missing_binary(e)
+            logger.error(f"ffprobe {self.__candidate.executor.file} failed [msg: {errorMsg}]")
+            self.__signals.errored.emit(errorMsg)
         except Exception as e:
             try:
                 logger.exception(f"Probe {self.__candidate.executor.file} failed", e)
             except:
                 logger.exception(f"Probe {self.__candidate.executor.file} failed, unable to format exception")
             finally:
-                self.__signals.errored.emit()
+                self.__signals.errored.emit(str(e))
         logger.info(f"<< ProbeJob.run {self.__candidate.executor.file}")

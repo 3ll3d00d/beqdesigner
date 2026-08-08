@@ -222,9 +222,13 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
                                    bm_fs=self.__preferences.get(BASS_MANAGEMENT_LPF_FS))
         self.__executor.progress_handler = self.__handle_ffmpeg_process
         from app import wait_cursor
-        with wait_cursor(f"Probing {file_name}"):
-            self.__executor.probe_file()
-            self.showProbeButton.setEnabled(True)
+        try:
+            with wait_cursor(f"Probing {file_name}"):
+                self.__executor.probe_file()
+                self.showProbeButton.setEnabled(True)
+        except FileNotFoundError as e:
+            QMessageBox.critical(self, 'ffmpeg not found', str(e))
+            return
         if self.__executor.has_audio():
             for a in self.__executor.audio_stream_data:
                 text, duration_micros = parse_audio_stream(self.__executor.probe, a)

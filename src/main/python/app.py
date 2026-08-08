@@ -789,6 +789,8 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Show the extract audio dialog.
         '''
+        if not self.__check_ffmpeg_available():
+            return
         from model.extract import ExtractAudioDialog
         ExtractAudioDialog(self, self.preferences, self.__signal_model).show()
 
@@ -796,6 +798,8 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Show the remux audio dialog.
         '''
+        if not self.__check_ffmpeg_available():
+            return
         from model.extract import ExtractAudioDialog
         ExtractAudioDialog(self, self.preferences, self.__signal_model,
                            default_signal=self.__default_signal, is_remux=True).show()
@@ -804,8 +808,25 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Show the batch extract dialog.
         '''
+        if not self.__check_ffmpeg_available():
+            return
         from model.batch import BatchExtractDialog
         BatchExtractDialog(self, self.preferences).show()
+
+    def __check_ffmpeg_available(self):
+        '''
+        Verifies that ffmpeg and ffprobe are reachable on the PATH, showing a clear error if not.
+        :return: True if both are available.
+        '''
+        from model.ffmpeg import find_missing_ffmpeg_tools
+        missing = find_missing_ffmpeg_tools()
+        if missing:
+            QMessageBox.critical(self, 'ffmpeg not found',
+                                 f"Unable to find {' and '.join(missing)} on the PATH.<p>"
+                                 f"Install ffmpeg (which includes ffprobe) and set the install location via "
+                                 f"Preferences &gt; Binaries.")
+            return False
+        return True
 
     def showAnalyseAudioDialog(self):
         '''
