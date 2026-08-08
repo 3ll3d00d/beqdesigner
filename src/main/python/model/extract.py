@@ -77,6 +77,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         if file.startswith('file:/'):
             file = url2pathname(urlparse(file).path)
         if os.path.exists(file) and os.path.isfile(file):
+            self.__reinit_fields()
             self.inputFile.setText(file)
             self.__probe_file()
 
