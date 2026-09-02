@@ -1,6 +1,8 @@
 import io
 import os
 
+import pytest
+
 
 def test_codec_minidsp_xml():
     from model.iir import PeakingEQ, LowShelf
@@ -123,6 +125,26 @@ def test_merge_HTx_selected():
     with open(os.path.join(os.path.dirname(__file__), f'MiniDSP-{suffix}.xml'), 'r') as f1:
         with open(os.path.join(os.path.dirname(__file__), f'expected_output_{suffix}.xml'), 'r') as f2:
             convert_and_compare(f1, f2, filt, parser)
+
+
+def test_flatten_filters_rejects_gain():
+    '''
+    Phase 1 (item 7) of design/pipeline-implementation-plan.md, D2 in
+    design/api-headless-pipeline.md: a Gain filter used to vanish silently
+    from the published output (flatten_filters only ever collected
+    PeakingEQ/Shelf instances) with no beq_gain to show for the missing
+    attenuation either. It must now fail loudly instead.
+    '''
+    from model.minidsp import flatten_filters
+    from model.iir import Gain, PeakingEQ
+
+    with pytest.raises(ValueError, match='Gain filters cannot be published'):
+        flatten_filters([Gain(1000, -4.0)])
+
+    # a Gain filter mixed in with otherwise-valid filters still raises,
+    # rather than silently dropping just the Gain and publishing the rest
+    with pytest.raises(ValueError, match='Gain filters cannot be published'):
+        flatten_filters([PeakingEQ(1000, 40.0, 2.0, -3.0), Gain(1000, -4.0)])
 
 
 def convert_and_compare(f1, f2, filts, parser):

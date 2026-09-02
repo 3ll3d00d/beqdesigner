@@ -5,7 +5,6 @@ from pathlib import Path
 from urllib.parse import urlparse
 from urllib.request import url2pathname
 
-import numpy as np
 import qtawesome as qta
 from qtpy.QtCore import Qt, QTime
 from qtpy.QtGui import QPalette, QColor, QFont
@@ -663,13 +662,14 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         if len(filts) > 1 or filts[0] is not None:
             from app import wait_cursor
             with wait_cursor():
-                headroom = min([min(self.__calc_headroom(x.filter_signal(filt=True, clip=False).samples), 0.0)
+                headroom = min([min(self.__calc_headroom(x.filter_signal(filt=True, clip=False)), 0.0)
                                 for x in filts if x is not None])
             self.remuxedAudioOffset.setValue(headroom)
 
     @staticmethod
-    def __calc_headroom(samples):
-        return 20 * math.log(1.0 / np.nanmax(np.abs(samples)), 10)
+    def __calc_headroom(filtered_signal):
+        from pipeline.stats import signal_stats
+        return signal_stats(filtered_signal.samples, filtered_signal.fs).headroom
 
 
 class EditMappingDialog(QDialog, Ui_editMappingDialog):

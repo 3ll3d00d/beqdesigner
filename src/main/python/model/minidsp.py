@@ -6,7 +6,7 @@ from uuid import uuid4
 from qtpy.QtCore import QObject, Signal, QRunnable
 from qtpy.QtWidgets import QFileDialog
 
-from model.iir import Passthrough, PeakingEQ, Shelf, LowShelf, HighShelf, Biquad
+from model.iir import Passthrough, PeakingEQ, Shelf, LowShelf, HighShelf, Biquad, Gain
 from model.preferences import BEQ_DOWNLOAD_DIR
 
 logger = logging.getLogger('minidsp')
@@ -355,10 +355,20 @@ def flatten_filters(filter):
     Flattens the provided filter, i.e. unrolls shelf filters.
     :param filter: the filter.
     :return: the flattened filters as a list.
+    :raises ValueError: if filter contains a Gain filter. beq_gain (the
+        published headroom metadata) is derived from the signal's own dB
+        offset, not from a Gain filter (D2 in design/api-headless-pipeline.md)
+        -- a Gain filter reaching this point silently vanished from the
+        published output before this check existed, with no beq_gain to show
+        for it either. Fail loudly here instead.
     '''
     flattened_filters = []
     for filt in filter:
-        if isinstance(filt, PeakingEQ):
+        if isinstance(filt, Gain):
+            raise ValueError(
+                "Gain filters cannot be published -- express the required attenuation as a "
+                "signal offset (beq_gain) instead")
+        elif isinstance(filt, PeakingEQ):
             flattened_filters.append(filt)
         elif isinstance(filt, Shelf):
             flattened_filters.extend(filt.flatten())

@@ -3,7 +3,6 @@ import math
 import time
 
 import numpy as np
-from qtpy.QtCore import QSettings
 from scipy.interpolate import PchipInterpolator
 
 from model.preferences import DISPLAY_SMOOTH_GRAPHS, Preferences
@@ -12,7 +11,23 @@ SAVGOL_WINDOW_LENGTH = 101
 SAVGOL_POLYORDER = 7
 
 logger = logging.getLogger('xy')
-preferences = Preferences(QSettings("3ll3d00d", "beqdesigner"))
+__preferences = None
+
+
+def _use_smooth_interpolation():
+    '''
+    Lazily reads the user's DISPLAY_SMOOTH_GRAPHS preference on first use rather
+    than at import time -- importing this module (and anything that imports it,
+    e.g. model.iir) must not have the side effect of reading the desktop user's
+    real QSettings. Callers that want to avoid touching QSettings entirely
+    should pass an explicit `smooth` value to interp() instead.
+    :return: the DISPLAY_SMOOTH_GRAPHS preference.
+    '''
+    global __preferences
+    if __preferences is None:
+        from qtpy.QtCore import QSettings
+        __preferences = Preferences(QSettings("3ll3d00d", "beqdesigner"))
+    return __preferences.get(DISPLAY_SMOOTH_GRAPHS)
 
 
 class MagnitudeData:
@@ -258,10 +273,16 @@ def must_interpolate(smooth_type):
             return False
 
 
-def interp(x1, y1, x2):
-    ''' Interpolates xy based on the preferred smoothing style. '''
+def interp(x1, y1, x2, smooth=None):
+    '''
+    Interpolates xy based on the preferred smoothing style.
+    :param smooth: use Pchip (True) or linear (False) interpolation; if not
+        given, falls back to the DISPLAY_SMOOTH_GRAPHS preference, read lazily
+        on first use.
+    '''
     start = time.time()
-    smooth = preferences.get(DISPLAY_SMOOTH_GRAPHS)
+    if smooth is None:
+        smooth = _use_smooth_interpolation()
     if smooth:
         cs = PchipInterpolator(x1, y1)
         y2 = cs(x2)

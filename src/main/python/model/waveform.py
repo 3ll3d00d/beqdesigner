@@ -485,11 +485,11 @@ class WaveformModel:
 
     def __recalc_stats(self, signal):
         if signal is not None:
-            peak_value = np.nanmax(np.abs(signal.samples))
-            rms_level_raw = np.sqrt(np.mean(np.square(np.abs(signal.samples))))
-            crest_factor = 20 * math.log(peak_value / rms_level_raw, 10)
-            rms_level = 20 * math.log(rms_level_raw, 10)
-            headroom = 20 * math.log(1.0 / peak_value, 10)
+            from pipeline.stats import signal_stats
+            stats = signal_stats(signal.samples, signal.fs)
+            crest_factor = stats.crest
+            rms_level = stats.rms
+            headroom = stats.headroom
         else:
             crest_factor = 0.0
             rms_level = 0.0

@@ -173,6 +173,8 @@ BEQ_MINIDSP_TYPE = 'beq/minidsp_type'
 BEQ_OUTPUT_CHANNELS = 'beq/output_channels'
 BEQ_OUTPUT_MODE = 'beq/output_mode'
 
+TMDB_API_KEY = 'tmdb/api_key'
+
 BIQUAD_EXPORT_FS = 'biquad/fs'
 BIQUAD_EXPORT_MAX = 'biquad/max'
 BIQUAD_EXPORT_DEVICE = 'biquad/device'
@@ -227,6 +229,7 @@ DEFAULT_PREFS = {
     BASS_MANAGEMENT_LPF_POSITION: BM_LPF_BEFORE,
     BEQ_DOWNLOAD_DIR: os.path.join(os.path.expanduser('~'), '.beq'),
     BEQ_MERGE_DIR: os.path.join(os.path.expanduser('~'), 'beq_minidsp'),
+    TMDB_API_KEY: os.environ.get('BEQDESIGNER_TMDB_API_KEY', '5e23b4412adb55e7cca19cfb9d0196b6'),
     BIQUAD_EXPORT_FS: '48000',
     BIQUAD_EXPORT_MAX: 10,
     BIQUAD_EXPORT_DEVICE: 'Minidsp 2x4HD',

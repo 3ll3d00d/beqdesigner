@@ -354,6 +354,17 @@ class Executor:
     def ffmpeg_cli(self):
         return self.__ffmpeg_cli
 
+    @property
+    def ffmpeg_cmd(self):
+        '''
+        The built command, ready to run -- either an ffmpeg-python output
+        stream (the extract path) or a raw arg list (the remux path, run via
+        subprocess.Popen). None until the extractor is configured enough to
+        calculate one. Prefer run_sync() unless the caller specifically needs
+        to inspect or hand off the command itself.
+        '''
+        return self.__ffmpeg_cmd
+
     def map_filter_to_channel(self, channel_idx, signal):
         ''' updates the mapping of the given signal to the specified channel idx '''
         self.__channel_to_filter[channel_idx] = signal
@@ -827,6 +838,27 @@ class Executor:
             self.__extractor = AudioExtractor(self.__ffmpeg_cmd, port=self.__progress_port, cancel=self.__cancel,
                                               progress_handler=self.progress_handler, is_remux=self.__is_remux)
             QThreadPool.globalInstance().start(self.__extractor)
+
+    def run_sync(self):
+        '''
+        Runs the built command synchronously, on the calling thread, with no
+        Qt involved -- no QRunnable, no QThreadPool, no progress signal. For
+        headless/API callers; execute() (QThreadPool-backed) remains the GUI
+        path and is unaffected by this.
+        :return: (stdout, stderr) bytes from the ffmpeg process.
+        :raises: ffmpeg.Error, or FileNotFoundError if the binary is missing.
+        '''
+        if self.__ffmpeg_cmd is None:
+            raise ValueError("No command to run -- extractor is not configured yet")
+        if self.__is_remux:
+            p = subprocess.Popen(self.__ffmpeg_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                 stderr=subprocess.PIPE)
+            out, err = p.communicate()
+            if p.poll():
+                raise ffmpeg.Error('ffmpeg', out, err)
+            return out, err
+        else:
+            return self.__ffmpeg_cmd.run(overwrite_output=True, quiet=True)
 
     def cancel(self):
         '''

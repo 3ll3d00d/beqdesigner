@@ -10,10 +10,9 @@ from qtpy.QtCore import QRegularExpression, Qt, QCoreApplication
 from qtpy.QtGui import QRegularExpressionValidator, QValidator, QIcon
 from qtpy.QtWidgets import QDialog, QFileDialog
 
-from model.iir import Gain
 from model.merge import DspType
 from model.minidsp import HDXmlParser
-from model.preferences import BEQ_DOWNLOAD_DIR, Preferences, POST_GEOMETRY
+from model.preferences import BEQ_DOWNLOAD_DIR, Preferences, POST_GEOMETRY, TMDB_API_KEY
 from ui.postbuilder import Ui_postbuilder
 
 logger = logging.getLogger('postbuilder')
@@ -186,14 +185,14 @@ class CreateAVSPostDialog(QDialog, Ui_postbuilder):
         if self.postTypePicker.currentIndex() == 1:
             url = 'https://api.themoviedb.org/3/search/tv'
             params = {
-                "api_key": "5e23b4412adb55e7cca19cfb9d0196b6",
+                "api_key": self.__preferences.get(TMDB_API_KEY),
                 "query": self.titleField.text().strip(),
                 "first_air_date_year": self.yearField.text().strip(),
                 "include_adult": 'false'
             }
         else:
             params = {
-                "api_key": "5e23b4412adb55e7cca19cfb9d0196b6",
+                "api_key": self.__preferences.get(TMDB_API_KEY),
                 "query": self.titleField.text().strip(),
                 "year": self.yearField.text().strip(),
                 "include_adult": 'false'
@@ -220,12 +219,12 @@ class CreateAVSPostDialog(QDialog, Ui_postbuilder):
         if self.postTypePicker.currentIndex() == 1:
             url = f"https://api.themoviedb.org/3/tv/{movieID}"
             params = {
-                "api_key": "5e23b4412adb55e7cca19cfb9d0196b6",
+                "api_key": self.__preferences.get(TMDB_API_KEY),
                 "append_to_response": "content_ratings",
             }
         else:
             params = {
-                "api_key": "5e23b4412adb55e7cca19cfb9d0196b6",
+                "api_key": self.__preferences.get(TMDB_API_KEY),
                 "append_to_response": "release_dates"
             }
 
@@ -338,12 +337,6 @@ class CreateAVSPostDialog(QDialog, Ui_postbuilder):
     def __add_audio(audio_types, audio):
         if audio.isChecked():
             audio_types.append(audio.text())
-
-    @staticmethod
-    def __find_gain(filters):
-        for filt in filters:
-            if isinstance(filt, Gain):
-                return filt
 
     def __validate_metadata(self, metadata):
         valid = True
