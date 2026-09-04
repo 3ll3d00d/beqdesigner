@@ -331,17 +331,51 @@ JPEG output.
 Keep `SaveReportDialog` for interactive use; it becomes a second caller of
 the same renderer.
 
-**Publish — net-new, no existing code.** There is no git integration anywhere
-in the repo; `BEQ_DOWNLOAD_DIR` is only a download destination despite
-`docs/ui/preferences.md` calling it "git repos which store published beq
-filters". The work is: place the XML and images at the paths the beqcatalogue
-repo expects, commit, push, optionally open a PR.
+**Publish — net-new, no existing code, but now fully specified (D3,
+resolved by reading `beqcatalogue`'s own ingestion code, not guessing).**
+There is no git integration anywhere in this repo; `BEQ_DOWNLOAD_DIR` is
+only a download destination despite `docs/ui/preferences.md` calling it
+"git repos which store published beq filters".
 
-**This is the least code and the most unknowns.** None of the required
-knowledge — directory layout, naming, branch/PR conventions, whether
-`database.json` regeneration is triggered by CI — is in this repository. It
-has to come from the beqcatalogue project. **Get that before designing this
-step** (Decision D3).
+`beqcatalogue/beqcatalogue/__init__.py`'s `extract_from_repo()` recursively
+globs `**/*.xml` under a configured subdirectory of each source repo it
+clones — there is no fixed file-naming or directory-layout convention to
+satisfy; any nested path works, since every field it needs comes out of the
+`<beq_metadata>` block, not the path or filename. `git.py` therefore needs
+no beqcatalogue-specific path logic beyond "write the XML somewhere under
+the configured subdirectory."
+
+**Images are the one place beqcatalogue does not read the source repo at
+all.** `generate_film_content_page()` embeds `meta['spectrumURL']`/
+`meta['pvaURL']` directly as markdown image links — those fields must
+already be absolute URLs to hosted images by the time the XML is written,
+or the entry is skipped entirely ("No charts found"). Per-user decision:
+**images go into a second, separate git repo from the XML** (keeps the XML
+repo — the one beqcatalogue actually clones and re-clones on every trigger
+— small), with `beq_spectrumURL`/`beq_pvaURL` populated from that repo's
+GitHub raw-content URL (`raw.githubusercontent.com/<owner>/<images-repo>/
+<branch>/<path>`) once the image is committed and pushed. This is the same
+shape as the one legacy per-author convention already in beqcatalogue
+(Mobe1969's gitlab-raw-URL image links), generalised rather than copied
+verbatim.
+
+**Regeneration is push-triggered, not polled or PR-based.** The XML repo
+gets a copy of beqcatalogue's `.github/workflows/trigger.yaml`, which fires
+a `repository_dispatch` at `3ll3d00d/beqcatalogue` on every push to
+`master`/`main` using a `TRIGGER_BEQCATALOGUE` secret; beqcatalogue's own
+`update.yaml` catches that, re-clones every *configured* input repo, reruns
+`beqcatalogue/__init__.py`, and auto-commits the regenerated
+`docs/database.json`/`docs/database.csv`/`docs/*.md` back into itself.
+There is no PR step anywhere in this flow — both the XML repo and the
+images repo just need a plain commit + push to their default branch.
+
+**What is still a one-time, out-of-band setup, not pipeline code:** which
+repos beqcatalogue clones is a hardcoded list (`repo_configs` in
+`beqcatalogue/__init__.py`'s `__main__` block, duplicated in
+`update_inputs.sh`'s parallel arrays) — adding the new XML repo means
+manually adding a tuple there, once, in the beqcatalogue project itself.
+Not blocked on anyone external — the same account owns both repos — but
+still not something `git.py` does at runtime.
 
 ---
 
@@ -617,10 +651,22 @@ docs; delete `__find_gain`, and reject a `Gain` filter in the publish
 validation so the mismatch fails loudly rather than silently dropping
 `beq_gain`.*
 
-**D3 — beqcatalogue repo conventions.** Directory layout, file naming,
-branch/PR expectations, how `database.json` regeneration is triggered. Not
-knowable from this repo. **Blocks phase 4 and nothing else** — worth
-confirming early precisely so it doesn't block later.
+**D3 — beqcatalogue repo conventions: RESOLVED.** Answered by reading
+`beqcatalogue`'s own ingestion code (`§6`), not by asking the project:
+- No fixed directory layout or file naming — `extract_from_repo()`
+  recursively globs `**/*.xml`; only the `<beq_metadata>` content matters.
+- Two separate git repos, per-user decision: a small XML-only repo
+  beqcatalogue clones, and a second repo for report images, referenced from
+  the XML via that repo's GitHub raw-content URL (`beq_spectrumURL`/
+  `beq_pvaURL` must already be absolute URLs — beqcatalogue never reads an
+  image out of the XML repo itself).
+- No branch/PR step — a plain commit + push to each repo's default branch;
+  regeneration is triggered by a `repository_dispatch` (a copy of
+  beqcatalogue's `trigger.yaml` in the XML repo, firing on push).
+- One remaining out-of-band step, not pipeline code: getting the new XML
+  repo added to beqcatalogue's hardcoded `repo_configs` list — a one-time
+  edit to the beqcatalogue project itself (same owner, not externally
+  blocked).
 
 **D4 — Report: RESOLVED — required.** The screen-rendering in the current
 implementation is an artefact of the GUI showing a preview, not a

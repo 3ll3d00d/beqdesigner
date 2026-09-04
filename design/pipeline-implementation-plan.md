@@ -222,21 +222,38 @@ settled (which this phase itself settles) — write the golden test at the
 
 ## Phase 4 — publish
 
-Item **10**. `pipeline/publish/git.py`: place XML + report + art into the
-target repo layout, commit, push/open a PR.
+Item **10**. `pipeline/publish/git.py`: commit + push the XML and the
+report image into two separate target repos, per D3's resolution (`§14`) —
+no PR step, no beqcatalogue-side layout to guess at:
 
-**Blocked on D3** (`§14`) — beqcatalogue's directory layout, file naming,
-branch/PR conventions, and how `database.json` regeneration is triggered are
-not knowable from this repo. Confirm these before writing this module, not
-during — building against a guessed layout is wasted work. **This is the
-only phase gated on information outside this repo's control**; every other
-phase can proceed without it.
+- **XML repo** (small, the one beqcatalogue actually clones): write the
+  `to_beq_xml()` output somewhere under the configured subdirectory —
+  `extract_from_repo()` globs `**/*.xml` recursively, so path/filename
+  within that subdirectory is this module's own choice, not a beqcatalogue
+  constraint. Commit, push to the default branch.
+- **Images repo** (separate, per-user decision to keep the XML repo small):
+  commit the `render_report()`/`compose_with_poster()` PNG, push, then
+  build the GitHub raw-content URL for the pushed path
+  (`raw.githubusercontent.com/<owner>/<images-repo>/<branch>/<path>`) and
+  set that as `BeqMetadata.spectrum_url`/`.pva_url` *before* `to_beq_xml()`
+  runs — the XML write has to happen after the image push, not before,
+  since it needs the resulting URL.
+- The XML repo (only) needs a copy of beqcatalogue's
+  `.github/workflows/trigger.yaml` (fires a `repository_dispatch` at
+  `3ll3d00d/beqcatalogue` on push) — that's a one-time repo-setup step, not
+  something this module writes per publish.
 
-Also resolve **D5** here (CLI vs service) — it decides whether git
-credentials are the invoking user's or a bot's, which this module needs to
-know before it can commit anything.
+**Still open: D5** (CLI vs service) — decides whether git credentials are
+the invoking user's or a bot's, which this module needs to know before it
+can commit anything. Everything else about this phase no longer depends on
+external information.
 
-**Depends on:** Phase 2 (XML), Phase 3 (report, art), D3, D5. **Blocks:**
+**Also out of scope for this module, one-time and out-of-band:** adding the
+new XML repo to beqcatalogue's hardcoded `repo_configs` list
+(`beqcatalogue/__init__.py`) and `update_inputs.sh`'s parallel arrays — a
+manual edit to the beqcatalogue project itself, not pipeline code.
+
+**Depends on:** Phase 2 (XML), Phase 3 (report, art), D5. **Blocks:**
 nothing downstream except Phase 5's end-to-end acceptance test.
 
 ---
@@ -294,8 +311,7 @@ whole run) stays green throughout.
 
 ## Carried-forward risks
 
-- **D3** (beqcatalogue conventions) gates Phase 4 only — confirm early so it
-  isn't discovered as a blocker mid-phase.
+- **D3** (beqcatalogue conventions) — resolved (`§14`); no longer a risk.
 - **D5** (CLI vs service) should be decided before Phase 4 for the same
   reason; Phases 1-3 are transport-neutral by construction and don't need an
   answer.
