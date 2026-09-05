@@ -102,6 +102,38 @@ def test_tmdb_lookup_movie(monkeypatch):
     assert 'movie/335984' in calls[1][0]
 
 
+def test_tmdb_details_by_id_skips_the_search_step(monkeypatch):
+    from pipeline import metadata as md
+
+    details_response = _FakeResponse({
+        'title': 'Ready Player One',
+        'original_title': 'Ready Player One',
+        'poster_path': '/abc.jpg',
+        'overview': 'A VR adventure.',
+        'genres': [{'id': 28, 'name': 'Action'}],
+        'belongs_to_collection': None,
+        'runtime': 140,
+        'release_date': '2018-03-29',
+        'release_dates': {'results': []},
+    })
+
+    calls = []
+
+    def fake_get(url, params):
+        calls.append((url, params))
+        return details_response
+
+    monkeypatch.setattr('requests.get', fake_get)
+
+    result = md.tmdb_details_by_id(335984, api_key='dummy-key', kind='movie', audio_types=['Atmos'])
+
+    assert result.title == 'Ready Player One'
+    assert result.the_movie_db == '335984'
+    assert result.audio_types == ['Atmos']
+    assert len(calls) == 1  # no search call
+    assert 'movie/335984' in calls[0][0]
+
+
 def test_tmdb_lookup_tv(monkeypatch):
     from pipeline import metadata as md
 

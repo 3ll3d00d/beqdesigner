@@ -1,4 +1,3 @@
-import json
 import logging
 import math
 import os
@@ -13,6 +12,7 @@ from qtpy.QtWidgets import QDialog, QFileDialog
 from model.merge import DspType
 from model.minidsp import HDXmlParser
 from model.preferences import BEQ_DOWNLOAD_DIR, Preferences, POST_GEOMETRY, TMDB_API_KEY
+from pipeline.metadata import BeqMetadata, tmdb_details_by_id, tmdb_lookup
 from ui.postbuilder import Ui_postbuilder
 
 logger = logging.getLogger('postbuilder')
@@ -172,107 +172,39 @@ class CreateAVSPostDialog(QDialog, Ui_postbuilder):
         self.seasonLabel.setVisible(is_hidden)
 
     def load_tmdb_info(self):
-        tmdbID = self.movidDBIDField.text().strip()
-        if tmdbID == '':
-            self.__search_tmdb()
-        else:
-            self.__get_tmdb_details(tmdbID)
-
-    def __search_tmdb(self):
+        tmdb_id = self.movidDBIDField.text().strip()
+        kind = 'tv' if self.postTypePicker.currentIndex() == 1 else 'movie'
+        api_key = self.__preferences.get(TMDB_API_KEY)
         self.__start_spinning()
-        url = 'https://api.themoviedb.org/3/search/movie'
-
-        if self.postTypePicker.currentIndex() == 1:
-            url = 'https://api.themoviedb.org/3/search/tv'
-            params = {
-                "api_key": self.__preferences.get(TMDB_API_KEY),
-                "query": self.titleField.text().strip(),
-                "first_air_date_year": self.yearField.text().strip(),
-                "include_adult": 'false'
-            }
-        else:
-            params = {
-                "api_key": self.__preferences.get(TMDB_API_KEY),
-                "query": self.titleField.text().strip(),
-                "year": self.yearField.text().strip(),
-                "include_adult": 'false'
-            }
-
-        r = requests.get(url=url, params=params)
-        logger.info(r)
-        self.__stop_spinning()
-        if r.status_code == 200:
-            jsonResutls = r.json()
-            logger.info(json.dumps(jsonResutls, indent=4, sort_keys=False))
-            results = jsonResutls.get("results")
-            if results is not None and len(results) > 0:
-                first = results[0]
-                theID = first.get("id")
-                if theID is not None:
-                    self.movidDBIDField.setText(str(theID))
-                    self.__get_tmdb_details(theID)
-
-    def __get_tmdb_details(self, movieID):
-        self.__start_spinning()
-        url = f"https://api.themoviedb.org/3/movie/{movieID}"
-
-        if self.postTypePicker.currentIndex() == 1:
-            url = f"https://api.themoviedb.org/3/tv/{movieID}"
-            params = {
-                "api_key": self.__preferences.get(TMDB_API_KEY),
-                "append_to_response": "content_ratings",
-            }
-        else:
-            params = {
-                "api_key": self.__preferences.get(TMDB_API_KEY),
-                "append_to_response": "release_dates"
-            }
-
-        r = requests.get(url=url, params=params)
-        logger.info(r)
-        self.__stop_spinning()
-        if r.status_code == 200:
-            result = r.json()
-            logger.info(json.dumps(result, indent=4, sort_keys=False))
-            self.posterURL = result["poster_path"]
-            self.overview = result["overview"]
-            self.genres = result["genres"]
-
-            if self.postTypePicker.currentIndex() == 1:
-                title = result["name"]
-                alt = result["original_name"]
-                if alt != title: self.altTitleField.setText(alt)
-                cr = result.get("content_ratings")
-                if cr is not None:
-                    results = cr["results"]
-                    for item in results:
-                        code = item.get("iso_3166_1")
-                        if code == "US":
-                            self.ratingField.setText(item.get("rating"))
-                            break
+        try:
+            if tmdb_id == '':
+                meta = tmdb_lookup(self.titleField.text().strip(), self.yearField.text().strip(), api_key,
+                                   kind=kind)
+                if not meta.the_movie_db:
+                    return
+                self.movidDBIDField.setText(meta.the_movie_db)
             else:
-                title = result["title"]
-                alt = result["original_title"]
-                if alt != title: self.altTitleField.setText(alt)
-                self.collection = result.get("belongs_to_collection")
-                runtime = result["runtime"]
-                if runtime is not None: self.runtimeField.setText(str(runtime))
-                cr = result.get("release_dates")
-                if cr is not None:
-                    results = cr["results"]
-                    for result in results:
-                        code = result.get("iso_3166_1")
-                        if code == "US":
-                            releases = result.get("release_dates")
-                            for release in releases:
-                                type = release.get("type")
-                                if type == 3 or type == 4:
-                                    self.ratingField.setText(release.get("certification"))
-                                    break
-                            break
+                meta = tmdb_details_by_id(tmdb_id, api_key, kind=kind)
+            self.__apply_tmdb_metadata(meta)
+        except requests.HTTPError:
+            logger.exception(f"TMDB lookup failed for title='{self.titleField.text().strip()}' id='{tmdb_id}'")
+        finally:
+            self.__stop_spinning()
 
-            self.titleField.setText(title)
-            self.autofillSortTitle()
+    def __apply_tmdb_metadata(self, meta: BeqMetadata):
+        ''' populates the form fields from a pipeline.metadata.BeqMetadata lookup result. '''
+        self.posterURL = meta.poster
+        self.overview = meta.overview
+        self.genres = meta.genres
+        self.collection = meta.collection
+        if meta.alt_title:
+            self.altTitleField.setText(meta.alt_title)
+        if meta.rating:
+            self.ratingField.setText(meta.rating)
+        if meta.runtime:
+            self.runtimeField.setText(meta.runtime)
+        self.titleField.setText(meta.title)
+        self.autofillSortTitle()
 
     def __stop_spinning(self):
         from model.batch import stop_spinner

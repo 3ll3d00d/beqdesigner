@@ -5,9 +5,12 @@ the actual CreateAVSPostDialog (model/postbuilder.py) under qtbot, offscreen
 a user would (type a title, click the TMDB button), and asserts the widget
 fields populate correctly with requests.get mocked.
 
-This is the safety net that has to exist *before* CreateAVSPostDialog's TMDB
-lookup gets rewired to call pipeline.metadata.tmdb_lookup() -- run this test
-before and after that change to prove behaviour didn't regress.
+This is the safety net for CreateAVSPostDialog's TMDB lookup, which now
+calls pipeline.metadata.tmdb_lookup()/tmdb_details_by_id() instead of its
+own inline requests.get() calls -- this test passed against both the old
+and new implementation (the _FakeResponse shape needed raise_for_status()
+added for the new one, since tmdb_lookup() checks that instead of a bare
+status_code).
 
 Uses a real Preferences object backed by a temp-file QSettings (IniFormat)
 rather than the user's actual QSettings("3ll3d00d", "beqdesigner") store, so
@@ -26,6 +29,11 @@ class _FakeResponse:
 
     def json(self):
         return self._json
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            import requests
+            raise requests.HTTPError(f"{self.status_code}")
 
 
 def _make_preferences(tmp_path):
@@ -77,6 +85,60 @@ def test_load_tmdb_info_populates_fields_from_a_search_result(qtbot, tmp_path, m
     assert calls[0][1]['api_key'] == 'dummy-key'
     assert 'search/movie' in calls[0][0]
     assert 'movie/335984' in calls[1][0]
+
+
+def test_load_tmdb_info_by_known_id_skips_the_search_call(qtbot, tmp_path, monkeypatch):
+    ''' the movidDBIDField-populated path (load_tmdb_info's tmdb_id != '' branch). '''
+    prefs = _make_preferences(tmp_path)
+    dialog = CreateAVSPostDialog(None, prefs, filter_model=None, selected_signal=None)
+    qtbot.addWidget(dialog)
+
+    details_response = _FakeResponse({
+        'title': 'Ready Player One',
+        'original_title': 'Ready Player One',
+        'poster_path': '/abc.jpg',
+        'overview': 'A VR adventure.',
+        'genres': [{'id': 28, 'name': 'Action'}],
+        'belongs_to_collection': None,
+        'runtime': 140,
+        'release_date': '2018-03-29',
+        'release_dates': {'results': []},
+    })
+    calls = []
+
+    def fake_get(url, params):
+        calls.append((url, params))
+        return details_response
+
+    monkeypatch.setattr('requests.get', fake_get)
+
+    dialog.movidDBIDField.setText('335984')
+    qtbot.mouseClick(dialog.tmdbButton, Qt.MouseButton.LeftButton)
+
+    assert dialog.titleField.text() == 'Ready Player One'
+    assert len(calls) == 1  # no search call -- went straight to details
+    assert 'movie/335984' in calls[0][0]
+
+
+def test_load_tmdb_info_swallows_an_http_error_and_stops_the_spinner(qtbot, tmp_path, monkeypatch):
+    '''
+    Mirrors the original behaviour: a non-2xx TMDB response results in no
+    field changes (not a crash, not a stuck spinner) -- the original code
+    checked status_code == 200 and silently did nothing otherwise.
+    '''
+    prefs = _make_preferences(tmp_path)
+    dialog = CreateAVSPostDialog(None, prefs, filter_model=None, selected_signal=None)
+    qtbot.addWidget(dialog)
+
+    monkeypatch.setattr('requests.get', lambda url, params: _FakeResponse({}, status_code=404))
+
+    dialog.titleField.setText('Some Unknown Title')
+    dialog.movidDBIDField.setText('999999999')
+    qtbot.mouseClick(dialog.tmdbButton, Qt.MouseButton.LeftButton)
+
+    assert dialog.titleField.text() == 'Some Unknown Title'  # unchanged
+    assert dialog.tmdbButton.text() == 'Load TMDB Info'  # spinner was stopped, not left spinning
+    assert dialog.tmdbButton.isEnabled()
 
 
 def test_build_metadata_reflects_form_state(qtbot, tmp_path):

@@ -131,6 +131,16 @@ def tmdb_lookup(title: str, year: str, api_key: str, kind: str = 'movie',
         return BeqMetadata(title=title, year=year, audio_types=audio_types or [])
 
     the_movie_db_id = results[0].get('id')
+    return tmdb_details_by_id(the_movie_db_id, api_key, kind, audio_types or [])
+
+
+def tmdb_details_by_id(the_movie_db_id, api_key: str, kind: str = 'movie',
+                       audio_types: Optional[List[str]] = None) -> BeqMetadata:
+    '''
+    Looks up a title's details when its TMDB id is already known, skipping
+    the search step -- the GUI's "paste an ID directly" path.
+    :raises requests.HTTPError: on a non-2xx response from TMDB.
+    '''
     return _tmdb_details(the_movie_db_id, api_key, kind, audio_types or [])
 
 
