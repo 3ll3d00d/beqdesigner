@@ -835,8 +835,8 @@ class Executor:
         Executes the command.
         '''
         if self.__ffmpeg_cmd is not None:
-            self.__extractor = AudioExtractor(self.__ffmpeg_cmd, port=self.__progress_port, cancel=self.__cancel,
-                                              progress_handler=self.progress_handler, is_remux=self.__is_remux)
+            self.__extractor = AudioExtractor(self, port=self.__progress_port, cancel=self.__cancel,
+                                              progress_handler=self.progress_handler)
             QThreadPool.globalInstance().start(self.__extractor)
 
     def run_sync(self):
@@ -886,10 +886,9 @@ class AudioExtractor(QRunnable):
     Allows audio extraction to be performed outside the main UI thread.
     '''
 
-    def __init__(self, ffmpeg_cmd, port=None, progress_handler=None, cancel=False, is_remux=False):
+    def __init__(self, executor, port=None, progress_handler=None, cancel=False):
         super().__init__()
-        self.__ffmpeg_cmd = ffmpeg_cmd
-        self.__is_remux = is_remux
+        self.__executor = executor
         self.__progress_handler = progress_handler
         self.__signals = JobSignals()
         if self.__progress_handler is not None:
@@ -925,10 +924,7 @@ class AudioExtractor(QRunnable):
             start = time.time()
             try:
                 logger.info("Starting ffmpeg command")
-                if self.__is_remux:
-                    out, err = self.__execute_ffmpeg()
-                else:
-                    out, err = self.__ffmpeg_cmd.run(overwrite_output=True, quiet=True)
+                out, err = self.__executor.run_sync()
                 end = time.time()
                 elapsed = round(end - start, 3)
                 logger.info(f"Executed ffmpeg command in {elapsed}s")
@@ -950,14 +946,6 @@ class AudioExtractor(QRunnable):
                 self.__signals.on_progress.emit(SIGNAL_ERROR, result)
             finally:
                 self.__stop_socket_server()
-
-    def __execute_ffmpeg(self):
-        p = subprocess.Popen(self.__ffmpeg_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        out, err = p.communicate()
-        retcode = p.poll()
-        if retcode:
-            raise ffmpeg.Error('ffmpeg', out, err)
-        return out, err
 
     def __append_out_err(self, err, out, result):
         result += 'STDOUT' + os.linesep + '------' + os.linesep + os.linesep
