@@ -70,6 +70,36 @@ def test_gain_filter():
     assert filt.gain == -4.0
 
 
+def test_variable_q_lpf():
+    from pipeline.filters import FilterSpec, create_filter
+    from model.iir import SecondOrder_LowPass
+
+    filt = create_filter(FilterSpec(type='variable_q_lpf', freq=120.0, q=0.9), fs=1000)
+    assert isinstance(filt, SecondOrder_LowPass)
+    assert filt.freq == 120.0
+    assert filt.q == 0.9
+
+
+def test_variable_q_hpf():
+    from pipeline.filters import FilterSpec, create_filter
+    from model.iir import SecondOrder_HighPass
+
+    filt = create_filter(FilterSpec(type='variable_q_hpf', freq=30.0, q=0.6), fs=1000)
+    assert isinstance(filt, SecondOrder_HighPass)
+    assert filt.freq == 30.0
+    assert filt.q == 0.6
+
+
+def test_all_pass():
+    from pipeline.filters import FilterSpec, create_filter
+    from model.iir import AllPass
+
+    filt = create_filter(FilterSpec(type='all_pass', freq=50.0, q=1.5), fs=1000)
+    assert isinstance(filt, AllPass)
+    assert filt.freq == 50.0
+    assert filt.q == 1.5
+
+
 def test_resolved_q_and_s_report_both_regardless_of_which_was_supplied():
     from pipeline.filters import FilterSpec
     from model.iir import q_to_s, s_to_q
@@ -88,6 +118,9 @@ def test_resolved_q_and_s_report_both_regardless_of_which_was_supplied():
     ({'type': 'peaking_eq', 'freq': 40.0, 'gain': -3.0}, 'needs q'),
     ({'type': 'peaking_eq', 'freq': 40.0, 'gain': -3.0, 's': 2.2}, 'no shelf slope'),
     ({'type': 'low_shelf', 'gain': 4.5, 'q': 0.7}, 'needs freq'),
+    ({'type': 'variable_q_lpf', 'freq': 120.0}, 'needs q'),
+    ({'type': 'variable_q_hpf', 'freq': 30.0, 's': 2.2}, 'no shelf slope'),
+    ({'type': 'all_pass', 'freq': 50.0}, 'needs q'),
 ])
 def test_invalid_specs_are_rejected(spec_kwargs, match):
     from pipeline.filters import FilterSpec, create_filter

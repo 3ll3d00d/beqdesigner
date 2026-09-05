@@ -12,9 +12,8 @@ from qtpy.QtCore import QAbstractTableModel, QModelIndex, QVariant, Qt, QTimer
 from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox, QHeaderView, QTableView, QWidget
 
-from model.iir import FilterType, LowShelf, HighShelf, PeakingEQ, SecondOrder_LowPass, \
-    SecondOrder_HighPass, ComplexLowPass, ComplexHighPass, q_to_s, s_to_q, max_permitted_s, CompleteFilter, COMBINED, \
-    Passthrough, Gain, Shelf, LinkwitzTransform, Biquad, AllPass, DEFAULT_Q
+from model.iir import FilterType, LowShelf, HighShelf, PeakingEQ, ComplexLowPass, ComplexHighPass, q_to_s, s_to_q, \
+    max_permitted_s, CompleteFilter, COMBINED, Passthrough, Shelf, LinkwitzTransform, Biquad, DEFAULT_Q
 from model.limits import DecibelRangeCalculator, PhaseRangeCalculator
 from model.magnitude import MagnitudeModel
 from model.preferences import SHOW_ALL_FILTERS, SHOW_NO_FILTERS, FILTER_COLOURS, DISPLAY_SHOW_FILTERS, DISPLAY_Q_STEP, \
@@ -814,38 +813,44 @@ class FilterDialog(QDialog, Ui_editFilterDialog):
                     result.append(data)
         return result
 
+    #: maps a filterType combo display string onto pipeline.filters.FilterSpecType --
+    #: every shaping filter except Linkwitz Transform, which has a fundamentally
+    #: different parameter shape (f0/q0/fp/qp, not freq/gain/q/s/count) and stays
+    #: built directly here.
+    _SHAPING_FILTER_SPEC_TYPES = {
+        'Low Shelf': 'low_shelf',
+        'High Shelf': 'high_shelf',
+        'PEQ': 'peaking_eq',
+        'Gain': 'gain',
+        'Variable Q LPF': 'variable_q_lpf',
+        'Variable Q HPF': 'variable_q_hpf',
+        'All Pass': 'all_pass',
+    }
+
     def create_shaping_filter(self):
         '''
         Creates a filter of the specified type.
         :return: the filter.
         '''
-        filt = None
+        from pipeline.filters import FilterSpec, create_filter
+
+        filter_type = self.filterType.currentText()
         q_value = self.filterQ.value()
         sqrt2 = 1.0/(2.0**0.5)
         if self.filterQ.decimals() >= 3 and math.isclose(q_value, round(sqrt2, self.filterQ.decimals())):
             q_value = sqrt2
-        if self.filterType.currentText() == 'Low Shelf':
-            filt = LowShelf(self.__signal.fs, self.freq.value(), q_value, self.filterGain.value(),
-                            self.filterCount.value())
-        elif self.filterType.currentText() == 'High Shelf':
-            filt = HighShelf(self.__signal.fs, self.freq.value(), q_value, self.filterGain.value(),
-                             self.filterCount.value())
-        elif self.filterType.currentText() == 'PEQ':
-            filt = PeakingEQ(self.__signal.fs, self.freq.value(), q_value, self.filterGain.value())
-        elif self.filterType.currentText() == 'Gain':
-            filt = Gain(self.__signal.fs, self.filterGain.value())
-        elif self.filterType.currentText() == 'Variable Q LPF':
-            filt = SecondOrder_LowPass(self.__signal.fs, self.freq.value(), q_value)
-        elif self.filterType.currentText() == 'Variable Q HPF':
-            filt = SecondOrder_HighPass(self.__signal.fs, self.freq.value(), q_value)
-        elif self.filterType.currentText() == 'Linkwitz Transform':
-            filt = LinkwitzTransform(self.__signal.fs, self.f0.value(), self.q0.value(), self.fp.value(), self.qp.value())
-        elif self.filterType.currentText() == 'All Pass':
-            filt = AllPass(self.__signal.fs, self.freq.value(), q_value)
-        if filt is None:
-            raise ValueError(f"Unknown filter type {self.filterType.currentText()}")
+
+        spec_type = self._SHAPING_FILTER_SPEC_TYPES.get(filter_type)
+        if spec_type is not None:
+            spec = FilterSpec(type=spec_type, freq=self.freq.value(), gain=self.filterGain.value(), q=q_value,
+                              count=self.filterCount.value())
+            filt = create_filter(spec, self.__signal.fs)
+        elif filter_type == 'Linkwitz Transform':
+            filt = LinkwitzTransform(self.__signal.fs, self.f0.value(), self.q0.value(), self.fp.value(),
+                                     self.qp.value())
         else:
-            filt.id = self.__selected_id
+            raise ValueError(f"Unknown filter type {filter_type}")
+        filt.id = self.__selected_id
         return filt
 
     def __create_filter(self):
