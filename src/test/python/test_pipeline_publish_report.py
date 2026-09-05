@@ -1,7 +1,8 @@
 '''
 Phase 3 (item 9) of design/pipeline-implementation-plan.md: the headless
 report renderer. Verifies the filter-table formatting logic against known
-values (same shape as SaveReportDialog.__table_print), that a full render
+values (same shape as SaveReportDialog.__table_print, model/report.py --
+now rewired to call this function directly), that a full render
 produces valid, correctly-sized PNG bytes with no display/QApplication
 involved, and that poster compositing matches the width-matching,
 poster-on-top behaviour of SaveReportDialog.__concat_images.
@@ -14,7 +15,7 @@ from PIL import Image
 
 from model.iir import CompleteFilter, LowShelf, PeakingEQ
 from model.xy import MagnitudeData
-from pipeline.publish.report import ReportSpec, _table_print, compose_with_poster, render_chart_png, render_report
+from pipeline.publish.report import ReportSpec, table_print, compose_with_poster, render_chart_png, render_report
 
 
 def _rp1_filters(fs=96000):
@@ -29,8 +30,8 @@ def _flat_curve(name='Signal'):
 def test_table_print_matches_expected_rp1_row_shape():
     filters = list(_rp1_filters())
     shelf, peak = filters
-    assert _table_print(shelf, show_header=True) == ['18.0', '+4.5', '0.7', 'LS x5', '+22.5']
-    assert _table_print(peak, show_header=True) == ['40.0', '-3', '2.0', 'PEQ', '']
+    assert table_print(shelf, show_header=True) == ['18.0', '+4.5', '0.7', 'LS x5', '+22.5']
+    assert table_print(peak, show_header=True) == ['40.0', '-3', '2.0', 'PEQ', '']
 
 
 def test_render_chart_png_is_the_requested_pixel_size():

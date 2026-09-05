@@ -101,8 +101,16 @@ class _AggChart:
         self.canvas = FigureCanvasAgg(figure)
 
 
-def _table_print(filt, show_header: bool):
-    ''' Qt-free port of SaveReportDialog.__table_print (model/report.py:424). '''
+def table_print(filt, show_header: bool):
+    '''
+    Formats one filter into a table row -- shared with SaveReportDialog
+    (model/report.py), which calls this directly instead of its own
+    inline copy. Fixes a latent bug in that original: when gain == 0 for a
+    filter reaching the "else" branch below, the original did
+    `vals.append(... if gain != 0 else vals.append('N/A'))`, which appended
+    'N/A' *and* the outer append's None return value -- two cells instead
+    of one, misaligning every column after it for that row.
+    '''
     vals = [str(filt.freq) if show_header else f"{filt.freq} Hz"] if hasattr(filt, 'freq') else ['']
     if isinstance(filt, CompoundPassFilter):
         vals.append('N/A')
@@ -150,7 +158,7 @@ def _make_filter_table(axes, figure: Figure, filters: Sequence, spec: ReportSpec
     table.set_zorder(1000)
     cols = TABLE_COLUMNS
     col_width = (1 / len(cols)) * table_loc['bbox'][2]
-    cells = [_table_print(f, spec.show_table_header) for f in filters]
+    cells = [table_print(f, spec.show_table_header) for f in filters]
     if mv_offset is not None and not math.isclose(mv_offset, 0.0):
         cells.append(['', f"{mv_offset:+g}", '', 'MV', ''])
     ec = matplotlib.rcParams['axes.edgecolor']

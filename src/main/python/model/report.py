@@ -423,35 +423,8 @@ class SaveReportDialog(QDialog, Ui_saveReportDialog):
 
     def __table_print(self, filt):
         ''' formats the filter into a format suitable for rendering in the table '''
-        header = self.showTableHeader.isChecked()
-        vals = [str(filt.freq) if header else f"{filt.freq} Hz"] if hasattr(filt, 'freq') else ['']
-        from model.iir import CompoundPassFilter
-        if isinstance(filt, CompoundPassFilter):
-            vals.append('N/A')
-            vals.append(f"{filt.type.value}{filt.order}")
-            from model.iir import ComplexHighPass
-            vals.append('HPF' if isinstance(filt, ComplexHighPass) else 'LPF')
-            vals.append('')
-        elif filt.filter_type.startswith('LPF') or filt.filter_type.startswith('HPF'):
-            vals.append('N/A')
-            vals.append(f"{round(filt.q, 4)}")
-            vals.append(filt.filter_type)
-            vals.append('')
-        else:
-            gain = filt.gain if hasattr(filt, 'gain') else 0
-            g_suffix = ' dB' if gain != 0 and not header else ''
-            vals.append(f"{gain:+g}{g_suffix}" if gain != 0 else vals.append(str('N/A')))
-
-            vals.append(f"{round(filt.q, 4)}") if hasattr(filt, 'q') else vals.append(str('N/A'))
-            filter_type = filt.filter_type
-            if len(filt) > 1:
-                filter_type += f" x{len(filt)}"
-            vals.append(filter_type)
-            if gain != 0 and len(filt) > 1:
-                vals.append(f"{len(filt) * gain:+g}{g_suffix}")
-            else:
-                vals.append('')
-        return vals
+        from pipeline.publish.report import table_print
+        return table_print(filt, self.showTableHeader.isChecked())
 
     def get_curve_data(self, reference=None):
         ''' feeds the magnitude model with data '''
