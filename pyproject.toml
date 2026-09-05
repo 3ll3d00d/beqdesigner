@@ -38,6 +38,7 @@ dev = [
     "distro",
     "atomicwrites",
     "scipy-stubs",
+    "pytest-qt>=4.5.0",
 ]
 
 [tool.uv]

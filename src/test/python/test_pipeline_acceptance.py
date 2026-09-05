@@ -186,22 +186,68 @@ def test_ready_player_one_end_to_end(tmp_path):
     assert xml_on_remote == result['xml']
 
 
-def test_session_headless_run_constructs_no_qapplication(tmp_path):
-    from qtpy.QtWidgets import QApplication
+def test_session_headless_run_constructs_no_qapplication():
+    '''
+    Deliberately a subprocess test (see test_pipeline_qt_boundary.py's
+    docstring): a real Qt widget test elsewhere in the same pytest session
+    (e.g. src/test/python/gui/) legitimately constructs a QApplication via
+    pytest-qt's qapp fixture, which then persists for the rest of that
+    process -- an in-process assert here would fail depending on test
+    order/selection, not on anything Session actually did.
+    '''
+    import subprocess
+    import sys
 
-    session = Session(AnalysisConfig())
-    source_wav = str(tmp_path / 'source.wav')
-    _write_synthetic_5_1_wav(source_wav)
-    extracted = session.extract(source_wav, str(tmp_path / 'extracted'))
-    sig = session.load(extracted)
-    outcome = session.design(sig, RP1_DESIGNER_NAME)
-    session.set_filters(sig, outcome.filters)
-    session.stats(sig, filtered=True)
-    meta = BeqMetadata(title='Ready Player One', year='2018', audio_types=['Atmos'])
-    session.to_beq_xml(outcome.filters, meta)
-    session.report([session.curves(sig)], outcome.filters, meta=meta)
+    script = (
+        "import tempfile, os\n"
+        "tmp_path = tempfile.mkdtemp()\n"
+        "from pipeline.config import AnalysisConfig\n"
+        "from pipeline.designer.contract import BiquadSpec, DesignResponse\n"
+        "from pipeline.designer.registry import register_designer\n"
+        "from pipeline.metadata import BeqMetadata\n"
+        "from pipeline.orchestrate import Session\n"
+        "import numpy as np, wave\n"
+        "def rp1_designer(request):\n"
+        "    return DesignResponse(contract_version='1.0',\n"
+        "        filters=[BiquadSpec(type='low_shelf', freq_hz=18.0, gain_db=4.5, q=0.7) for _ in range(5)]\n"
+        "               + [BiquadSpec(type='peaking_eq', freq_hz=40.0, gain_db=-3.0, q=2.0)],\n"
+        "        confidence=0.9, mv_adjust_db=4.0, method='fitted')\n"
+        "register_designer('acceptance.rp1', rp1_designer)\n"
+        "source_wav = os.path.join(tmp_path, 'source.wav')\n"
+        "fs = 48000\n"
+        "n_frames = fs\n"
+        "frame = np.array([1000, 2000, 3000, 4000, 5000, 6000], dtype=np.int16)\n"
+        "data = np.tile(frame, (n_frames, 1)).astype('<i2').tobytes()\n"
+        "with wave.open(source_wav, 'wb') as w:\n"
+        "    w.setnchannels(6); w.setsampwidth(2); w.setframerate(fs); w.writeframes(data)\n"
+        "session = Session(AnalysisConfig())\n"
+        "extracted = session.extract(source_wav, os.path.join(tmp_path, 'extracted'))\n"
+        "sig = session.load(extracted)\n"
+        "outcome = session.design(sig, 'acceptance.rp1')\n"
+        "session.set_filters(sig, outcome.filters)\n"
+        "session.stats(sig, filtered=True)\n"
+        "meta = BeqMetadata(title='Ready Player One', year='2018', audio_types=['Atmos'])\n"
+        "session.to_beq_xml(outcome.filters, meta)\n"
+        "session.report([session.curves(sig)], outcome.filters, meta=meta)\n"
+        "from qtpy.QtWidgets import QApplication\n"
+        "assert QApplication.instance() is None, 'Session run constructed a QApplication'\n"
+        "print('OK')\n"
+    )
+    env = _env_without_display()
+    result = subprocess.run([sys.executable, '-c', script], capture_output=True, text=True, timeout=30, env=env)
+    assert result.returncode == 0, f'stdout={result.stdout!r} stderr={result.stderr!r}'
+    assert 'OK' in result.stdout
 
-    assert QApplication.instance() is None
+
+def _env_without_display():
+    import os
+    import pathlib
+    env = dict(os.environ)
+    for key in ('DISPLAY', 'WAYLAND_DISPLAY', 'QT_QPA_PLATFORM'):
+        env.pop(key, None)
+    src_main = str((pathlib.Path(__file__).parent / '..' / '..' / 'main' / 'python').resolve())
+    env['PYTHONPATH'] = src_main
+    return env
 
 
 def test_pipeline_orchestrate_module_has_no_qtpy_import():

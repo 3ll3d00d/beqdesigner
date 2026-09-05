@@ -78,11 +78,47 @@ def test_render_report_headless_constructs_no_qapplication():
     Mirrors test_pipeline_qt_boundary.py's guarantee: MagnitudeModel is
     reused (and transitively imports qtpy via model.limits) but must never
     construct a QApplication.
+
+    Deliberately a subprocess test (see test_pipeline_qt_boundary.py's
+    docstring): a real Qt widget test elsewhere in the same pytest session
+    (e.g. src/test/python/gui/) legitimately constructs a QApplication via
+    pytest-qt's qapp fixture, which then persists for the rest of that
+    process -- an in-process assert here would fail depending on test
+    order/selection, not on anything this module actually did.
     '''
-    from qtpy.QtWidgets import QApplication
-    spec = ReportSpec(width_px=200, height_px=120, dpi=80)
-    render_report([_flat_curve()], list(_rp1_filters()), spec=spec)
-    assert QApplication.instance() is None
+    import subprocess
+    import sys
+
+    script = (
+        "from pipeline.publish.report import ReportSpec, render_report\n"
+        "import numpy as np\n"
+        "from model.xy import MagnitudeData\n"
+        "from model.iir import CompleteFilter, LowShelf, PeakingEQ\n"
+        "fs = 96000\n"
+        "filters = list(CompleteFilter(fs=fs, filters=[LowShelf(fs, 18.0, 0.7, 4.5, count=5), "
+        "PeakingEQ(fs, 40.0, 2.0, -3.0)]))\n"
+        "x = np.geomspace(1, 160, 50)\n"
+        "curve = MagnitudeData('Signal', None, x, np.zeros_like(x))\n"
+        "render_report([curve], filters, spec=ReportSpec(width_px=200, height_px=120, dpi=80))\n"
+        "from qtpy.QtWidgets import QApplication\n"
+        "assert QApplication.instance() is None, 'render_report constructed a QApplication'\n"
+        "print('OK')\n"
+    )
+    env = _env_without_display()
+    result = subprocess.run([sys.executable, '-c', script], capture_output=True, text=True, timeout=30, env=env)
+    assert result.returncode == 0, f'stdout={result.stdout!r} stderr={result.stderr!r}'
+    assert 'OK' in result.stdout
+
+
+def _env_without_display():
+    import os
+    import pathlib
+    env = dict(os.environ)
+    for key in ('DISPLAY', 'WAYLAND_DISPLAY', 'QT_QPA_PLATFORM'):
+        env.pop(key, None)
+    src_main = str((pathlib.Path(__file__).parent / '..' / '..' / 'main' / 'python').resolve())
+    env['PYTHONPATH'] = src_main
+    return env
 
 
 def test_pipeline_publish_report_module_has_no_qtpy_import():

@@ -47,6 +47,8 @@ jobs:
             sudo apt install -y libegl1
           fi
       - name: pytest
+        env:
+          QT_QPA_PLATFORM: offscreen
         run: |
           PYTHONPATH=./src/main/python uv run pytest --cov=./src/main/python
       - name: Upload coverage to Codecov
