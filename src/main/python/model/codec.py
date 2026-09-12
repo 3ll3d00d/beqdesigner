@@ -53,8 +53,9 @@ def signaldata_to_json(signal):
     }
     if median is not None:
         out['data']['median'] = xydata_to_json(median)
-    if signal.filter is not None:
-        out['filter'] = signal.filter.to_json()
+    out['filter_presets'] = {name: (f.to_json() if f is not None else None)
+                             for name, f in signal.filter_presets.items()}
+    out['active_filter_preset'] = signal.active_filter_preset
     if signal.master is not None:
         out['master_name'] = signal.master.name
     if len(signal.slaves) > 0:
@@ -124,9 +125,17 @@ def signaldata_from_json(o, preferences):
         bmsd.clip_after = o['clip']['after']
         return bmsd
     elif o['_type'] == SingleChannelSignalData.__name__ or o['_type'] == 'SignalData':
-        filt = o.get('filter', None)
-        if filt is not None:
-            filt = filter_from_json(filt)
+        presets_json = o.get('filter_presets')
+        if presets_json:
+            filter_presets = {name: (filter_from_json(f) if f is not None else None)
+                              for name, f in presets_json.items()}
+            active_filter_preset = o.get('active_filter_preset')
+            if active_filter_preset not in filter_presets:
+                active_filter_preset = next(iter(filter_presets))
+        else:
+            legacy_filt = o.get('filter')
+            filter_presets = {'Default': filter_from_json(legacy_filt) if legacy_filt is not None else None}
+            active_filter_preset = 'Default'
         data = o['data']
         avg = xydata_from_json(data['avg'])
         peak = xydata_from_json(data['peak'])
@@ -144,7 +153,9 @@ def signaldata_from_json(o, preferences):
             except:
                 logger.exception(f"Unable to load signal from {metadata['src']}")
         if 'duration_seconds' in o:
-            signal_data = SingleChannelSignalData(o['name'], o['fs'], xy_data=xy_data, filter=filt,
+            signal_data = SingleChannelSignalData(o['name'], o['fs'], xy_data=xy_data,
+                                                  filter_presets=filter_presets,
+                                                  active_filter_preset=active_filter_preset,
                                                   duration_seconds=o.get('duration_seconds', None),
                                                   start_seconds=o.get('start_seconds', None),
                                                   signal=signal,
@@ -154,13 +165,17 @@ def signaldata_from_json(o, preferences):
             duration_seconds = (int(h) * 3600) + int(m) * (60 + float(s))
             h, m, s = o['start_hhmmss'].split(':')
             start_seconds = (int(h) * 3600) + int(m) * (60 + float(s))
-            signal_data = SingleChannelSignalData(o['name'], o['fs'], xy_data=xy_data, filter=filt,
+            signal_data = SingleChannelSignalData(o['name'], o['fs'], xy_data=xy_data,
+                                                  filter_presets=filter_presets,
+                                                  active_filter_preset=active_filter_preset,
                                                   duration_seconds=duration_seconds,
                                                   start_seconds=start_seconds,
                                                   signal=signal,
                                                   offset=offset)
         else:
-            signal_data = SingleChannelSignalData(o['name'], o['fs'], xy_data=xy_data, filter=filt, signal=signal,
+            signal_data = SingleChannelSignalData(o['name'], o['fs'], xy_data=xy_data,
+                                                  filter_presets=filter_presets,
+                                                  active_filter_preset=active_filter_preset, signal=signal,
                                                   offset=offset)
         return signal_data
     raise ValueError(f"{o._type} is an unknown signal type")

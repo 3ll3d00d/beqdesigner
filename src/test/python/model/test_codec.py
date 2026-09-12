@@ -267,3 +267,45 @@ def test_codec_signal():
     assert decoded.start_hhmmss == data.start_hhmmss
     assert decoded.end_hhmmss == data.end_hhmmss
     assert decoded.offset == data.offset
+
+
+def test_codec_signal_with_multiple_filter_presets():
+    fs = 1000
+    peak = LowShelf(fs, 30, 1, 10, count=2).get_transfer_function().get_magnitude()
+    avg = LowShelf(fs, 30, 1, 10).get_transfer_function().get_magnitude()
+    filt = CompleteFilter()
+    filt.save(HighShelf(fs, 60, 1, 5, count=2))
+    data = SingleChannelSignalData('test', fs, xy_data=[avg, peak], filter=filt)
+    data.add_filter_preset('Movie')
+    data.duplicate_filter_preset('Default', 'Music')
+    data.activate_filter_preset('Movie')
+
+    output = json.dumps(signaldata_to_json(data))
+    decoded = signaldata_from_json(json.loads(output), None)
+
+    assert set(decoded.filter_presets.keys()) == {'Default', 'Movie', 'Music'}
+    assert decoded.active_filter_preset == 'Movie'
+    assert decoded.filter is decoded.filter_presets['Movie']
+    assert len(decoded.filter_presets['Movie']) == 0
+    assert len(decoded.filter_presets['Default'].filters) == len(data.filter_presets['Default'].filters)
+    assert len(decoded.filter_presets['Music'].filters) == len(data.filter_presets['Music'].filters)
+
+
+def test_codec_signal_legacy_single_filter():
+    ''' an old-format project (no filter_presets key) should load into a single Default preset. '''
+    fs = 1000
+    peak = LowShelf(fs, 30, 1, 10, count=2).get_transfer_function().get_magnitude()
+    avg = LowShelf(fs, 30, 1, 10).get_transfer_function().get_magnitude()
+    filt = CompleteFilter()
+    filt.save(HighShelf(fs, 60, 1, 5, count=2))
+    data = SingleChannelSignalData('test', fs, xy_data=[avg, peak], filter=filt)
+    legacy_json = signaldata_to_json(data)
+    del legacy_json['filter_presets']
+    del legacy_json['active_filter_preset']
+    legacy_json['filter'] = filt.to_json()
+
+    decoded = signaldata_from_json(json.loads(json.dumps(legacy_json)), None)
+
+    assert list(decoded.filter_presets.keys()) == ['Default']
+    assert decoded.active_filter_preset == 'Default'
+    assert decoded.filter.filters == filt.filters

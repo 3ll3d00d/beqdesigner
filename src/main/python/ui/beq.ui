@@ -936,6 +936,53 @@
          </widget>
         </item>
         <item>
+         <layout class="QHBoxLayout" name="filterPresetToolbarLayout">
+          <item>
+           <widget class="QComboBox" name="filterPresetCombo"/>
+          </item>
+          <item>
+           <widget class="QToolButton" name="addFilterPresetButton">
+            <property name="toolTip">
+             <string extracomment="New Preset"/>
+            </property>
+            <property name="text">
+             <string>New</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QToolButton" name="duplicateFilterPresetButton">
+            <property name="toolTip">
+             <string extracomment="Duplicate Preset"/>
+            </property>
+            <property name="text">
+             <string>Duplicate</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QToolButton" name="renameFilterPresetButton">
+            <property name="toolTip">
+             <string extracomment="Rename Preset"/>
+            </property>
+            <property name="text">
+             <string>Rename</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QToolButton" name="deleteFilterPresetButton">
+            <property name="toolTip">
+             <string extracomment="Delete Preset"/>
+            </property>
+            <property name="text">
+             <string>Delete</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
          <layout class="QHBoxLayout" name="filterToolbarLayout">
           <item>
            <widget class="QToolButton" name="preset1Button">
@@ -943,10 +990,10 @@
              <bool>false</bool>
             </property>
             <property name="toolTip">
-             <string extracomment="Preset 1"/>
+             <string extracomment="Clipboard 1"/>
             </property>
             <property name="text">
-             <string>P1</string>
+             <string>C1</string>
             </property>
             <property name="shortcut">
              <string>Ctrl+Shift+1</string>
@@ -959,10 +1006,10 @@
              <bool>false</bool>
             </property>
             <property name="toolTip">
-             <string extracomment="Preset 2"/>
+             <string extracomment="Clipboard 2"/>
             </property>
             <property name="text">
-             <string>P2</string>
+             <string>C2</string>
             </property>
             <property name="shortcut">
              <string>Ctrl+Shift+2</string>
@@ -978,10 +1025,10 @@
              <string/>
             </property>
             <property name="statusTip">
-             <string extracomment="Preset 3"/>
+             <string extracomment="Clipboard 3"/>
             </property>
             <property name="text">
-             <string>P3</string>
+             <string>C3</string>
             </property>
             <property name="shortcut">
              <string>Ctrl+Shift+3</string>
@@ -1134,7 +1181,7 @@
     </property>
     <widget class="QMenu" name="menuPresets">
      <property name="title">
-      <string>&amp;Presets</string>
+      <string>&amp;Clipboard</string>
      </property>
      <widget class="QMenu" name="menuLoad">
       <property name="title">
@@ -1243,7 +1290,7 @@
   </action>
   <action name="actionClear_Preset_3">
    <property name="text">
-    <string>Clear Preset 3</string>
+    <string>Clear Clipboard 3</string>
    </property>
   </action>
   <action name="actionSave_Chart">

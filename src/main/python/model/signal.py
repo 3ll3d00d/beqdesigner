@@ -103,7 +103,7 @@ class SingleChannelSignalData(SignalData):
     '''
 
     def __init__(self, name=None, fs=None, filter=None, xy_data=None, duration_seconds=None, start_seconds=None,
-                 signal=None, offset=0.0):
+                 signal=None, offset=0.0, filter_presets=None, active_filter_preset=None):
         super().__init__()
         self.__idx = 0
         self.__offset_db = offset
@@ -113,6 +113,8 @@ class SingleChannelSignalData(SignalData):
         self.__high_pass = False
         self.__smoothing_type = None
         self.__filter = None
+        self.__filter_presets: Dict[str, Optional[CompleteFilter]] = {}
+        self.__active_preset_name = active_filter_preset if active_filter_preset else 'Default'
         self.__name = None
         self.__signal: Signal = signal
         self.slaves = []
@@ -130,7 +132,13 @@ class SingleChannelSignalData(SignalData):
             self.__duration_seconds = duration_seconds
             self.__start_seconds = start_seconds
             self.__unfiltered[None] = xy_data
-        self.filter = filter
+        if filter_presets:
+            self.__filter_presets = dict(filter_presets)
+            if self.__active_preset_name not in self.__filter_presets:
+                self.__active_preset_name = next(iter(self.__filter_presets))
+            self.filter = self.__filter_presets[self.__active_preset_name]
+        else:
+            self.filter = filter
         self.tilt_on = False
 
     @property
@@ -246,7 +254,79 @@ class SingleChannelSignalData(SignalData):
         self.__filter = filt
         if filt is not None:
             self.__filter.listener = self
+        self.__filter_presets[self.__active_preset_name] = filt
         self.on_filter_change(filt)
+
+    @property
+    def filter_presets(self) -> Dict[str, Optional[CompleteFilter]]:
+        ''' :return: a name -> CompleteFilter mapping of all filter presets stored against this signal. '''
+        return dict(self.__filter_presets)
+
+    @property
+    def active_filter_preset(self) -> str:
+        ''' :return: the name of the currently active filter preset. '''
+        return self.__active_preset_name
+
+    def add_filter_preset(self, name, filt=None):
+        '''
+        Adds a new, initially inactive, filter preset.
+        :param name: the preset name.
+        :param filt: the filter to store, defaults to an empty CompleteFilter if not supplied.
+        '''
+        if name in self.__filter_presets:
+            raise ValueError(f"Preset {name} already exists")
+        self.__filter_presets[name] = filt if filt is not None else CompleteFilter(fs=self.fs)
+
+    def duplicate_filter_preset(self, name, new_name):
+        '''
+        Copies an existing preset's filter into a new, initially inactive, preset.
+        :param name: the preset to copy.
+        :param new_name: the name of the new preset.
+        '''
+        if name not in self.__filter_presets:
+            raise ValueError(f"Preset {name} does not exist")
+        if new_name in self.__filter_presets:
+            raise ValueError(f"Preset {new_name} already exists")
+        src = self.__filter_presets[name]
+        self.__filter_presets[new_name] = src.preview(None) if src is not None else None
+
+    def rename_filter_preset(self, old_name, new_name):
+        '''
+        Renames a filter preset, preserving its position.
+        :param old_name: the current name.
+        :param new_name: the new name.
+        '''
+        if old_name not in self.__filter_presets:
+            raise ValueError(f"Preset {old_name} does not exist")
+        if new_name in self.__filter_presets:
+            raise ValueError(f"Preset {new_name} already exists")
+        self.__filter_presets = {(new_name if k == old_name else k): v for k, v in self.__filter_presets.items()}
+        if self.__active_preset_name == old_name:
+            self.__active_preset_name = new_name
+
+    def remove_filter_preset(self, name):
+        '''
+        Removes a filter preset, activating another preset if the removed one was active.
+        :param name: the preset to remove.
+        '''
+        if name not in self.__filter_presets:
+            raise ValueError(f"Preset {name} does not exist")
+        if len(self.__filter_presets) <= 1:
+            raise ValueError("Cannot remove the last remaining preset")
+        was_active = name == self.__active_preset_name
+        del self.__filter_presets[name]
+        if was_active:
+            self.activate_filter_preset(next(iter(self.__filter_presets)))
+
+    def activate_filter_preset(self, name):
+        '''
+        Makes the given preset the active filter.
+        :param name: the preset to activate.
+        '''
+        if name not in self.__filter_presets:
+            raise ValueError(f"Preset {name} does not exist")
+        self.__active_preset_name = name
+        self.filter = self.__filter_presets[name]
 
     def __repr__(self) -> str:
         return f"SignalData {self.name}-{self.fs}"

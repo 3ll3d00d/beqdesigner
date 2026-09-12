@@ -46,7 +46,7 @@ from qtpy import QtCore, QtWidgets
 from qtpy.QtCore import QSettings, QThreadPool, QUrl, Qt
 from qtpy.QtGui import QIcon, QFont, QCursor, QTextCursor, QDesktopServices
 from qtpy.QtWidgets import QMainWindow, QApplication, QErrorMessage, QAbstractItemView, QDialog, QFileDialog, \
-    QHeaderView, QMessageBox, QHBoxLayout, QToolButton
+    QHeaderView, QMessageBox, QHBoxLayout, QToolButton, QInputDialog
 
 from model.preferences import PreferencesDialog, BINARIES_GROUP, ANALYSIS_TARGET_FS, STYLE_MATPLOTLIB_THEME, \
     Preferences, SCREEN_GEOMETRY, SCREEN_WINDOW_STATE, FILTERS_PRESET_x, \
@@ -384,6 +384,15 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.signalView.model().rowsInserted.connect(self.__handle_signals_inserted)
         self.signalView.model().rowsRemoved.connect(self.__handle_signals_removed)
         self.signalView.setItemDelegateForColumn(0, RegexValidator('^.+$'))
+        self.addFilterPresetButton.setIcon(qta.icon('fa5s.plus'))
+        self.duplicateFilterPresetButton.setIcon(qta.icon('fa5s.clone'))
+        self.renameFilterPresetButton.setIcon(qta.icon('fa5s.edit'))
+        self.deleteFilterPresetButton.setIcon(qta.icon('fa5s.trash'))
+        self.filterPresetCombo.currentTextChanged.connect(self.onFilterPresetChanged)
+        self.addFilterPresetButton.clicked.connect(self.newFilterPreset)
+        self.duplicateFilterPresetButton.clicked.connect(self.duplicateFilterPreset)
+        self.renameFilterPresetButton.clicked.connect(self.renameFilterPreset)
+        self.deleteFilterPresetButton.clicked.connect(self.deleteFilterPreset)
 
     def on_signal_data_about_to_reset(self):
         '''
@@ -549,6 +558,86 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
             self.__filter_model.filter = self.__default_signal.filter
             with block_signals(self.octaveSmoothing):
                 self.octaveSmoothing.setCurrentText('None')
+        self.__refresh_filter_preset_combo(self.__get_selected_signal())
+
+    def __refresh_filter_preset_combo(self, signal):
+        '''
+        Repopulates the filter preset combo with the given signal's presets.
+        :param signal: the signal to show presets for.
+        '''
+        with block_signals(self.filterPresetCombo):
+            self.filterPresetCombo.clear()
+            self.filterPresetCombo.addItems(list(signal.filter_presets.keys()))
+            self.filterPresetCombo.setCurrentText(signal.active_filter_preset)
+        self.deleteFilterPresetButton.setEnabled(len(signal.filter_presets) > 1)
+
+    def onFilterPresetChanged(self, name):
+        '''
+        Activates the selected filter preset on the selected signal.
+        :param name: the preset name.
+        '''
+        if not name:
+            return
+        signal = self.__get_selected_signal()
+        if name != signal.active_filter_preset:
+            signal.activate_filter_preset(name)
+            self.__filter_model.filter = signal.filter
+            self.__magnitude_model.redraw()
+
+    def newFilterPreset(self):
+        ''' Creates a new, empty filter preset on the selected signal and activates it. '''
+        signal = self.__get_selected_signal()
+        name, ok = QInputDialog.getText(self, 'New Preset', 'Preset name:')
+        if ok and name:
+            try:
+                signal.add_filter_preset(name)
+                signal.activate_filter_preset(name)
+                self.__filter_model.filter = signal.filter
+                self.__magnitude_model.redraw()
+            except ValueError as e:
+                QMessageBox.warning(self, 'New Preset', str(e))
+            self.__refresh_filter_preset_combo(signal)
+
+    def duplicateFilterPreset(self):
+        ''' Copies the active filter preset on the selected signal into a new preset and activates it. '''
+        signal = self.__get_selected_signal()
+        name, ok = QInputDialog.getText(self, 'Duplicate Preset', 'Preset name:',
+                                        text=f"{signal.active_filter_preset} copy")
+        if ok and name:
+            try:
+                signal.duplicate_filter_preset(signal.active_filter_preset, name)
+                signal.activate_filter_preset(name)
+                self.__filter_model.filter = signal.filter
+                self.__magnitude_model.redraw()
+            except ValueError as e:
+                QMessageBox.warning(self, 'Duplicate Preset', str(e))
+            self.__refresh_filter_preset_combo(signal)
+
+    def renameFilterPreset(self):
+        ''' Renames the active filter preset on the selected signal. '''
+        signal = self.__get_selected_signal()
+        old_name = signal.active_filter_preset
+        name, ok = QInputDialog.getText(self, 'Rename Preset', 'Preset name:', text=old_name)
+        if ok and name and name != old_name:
+            try:
+                signal.rename_filter_preset(old_name, name)
+            except ValueError as e:
+                QMessageBox.warning(self, 'Rename Preset', str(e))
+            self.__refresh_filter_preset_combo(signal)
+
+    def deleteFilterPreset(self):
+        ''' Deletes the active filter preset on the selected signal. '''
+        signal = self.__get_selected_signal()
+        name = signal.active_filter_preset
+        answer = QMessageBox.question(self, 'Delete Preset', f"Delete preset '{name}'?")
+        if answer == QMessageBox.StandardButton.Yes:
+            try:
+                signal.remove_filter_preset(name)
+                self.__filter_model.filter = signal.filter
+                self.__magnitude_model.redraw()
+            except ValueError as e:
+                QMessageBox.warning(self, 'Delete Preset', str(e))
+            self.__refresh_filter_preset_combo(signal)
 
     def on_filter_change(self, names):
         '''
@@ -581,13 +670,20 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         signal.filter = filt
         self.__filter_model.filter = filt
 
+    def __filter_dialog_title(self, signal):
+        if len(signal.filter_presets) > 1:
+            return f"{signal.name} — {signal.active_filter_preset}"
+        return None
+
     def addFilter(self, small=False):
         '''
         Adds a filter via the filter dialog.
         '''
+        signal = self.__get_selected_signal()
         from model.filter import FilterDialog
-        FilterDialog(self.preferences, self.__get_selected_signal(), self.__filter_model,
-                     lambda: self.__magnitude_model.redraw(), parent=self, small=small).show()
+        FilterDialog(self.preferences, signal, self.__filter_model,
+                     lambda: self.__magnitude_model.redraw(), parent=self, small=small,
+                     window_title=self.__filter_dialog_title(signal)).show()
 
     def editFilter(self, small=False):
         '''
@@ -600,7 +696,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
             FilterDialog(self.preferences, signal, self.__filter_model,
                          lambda: self.__magnitude_model.redraw(),
                          selected_filter=signal.filter[selection.selectedRows()[0].row()],
-                         parent=self, small=small).show()
+                         parent=self, small=small, window_title=self.__filter_dialog_title(signal)).show()
         else:
             self.addFilter(small=small)
 
