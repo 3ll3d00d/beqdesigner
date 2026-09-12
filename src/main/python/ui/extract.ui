@@ -79,11 +79,25 @@
       </widget>
      </item>
      <item row="0" column="2">
-      <widget class="QToolButton" name="inputFilePicker">
-       <property name="text">
-        <string>...</string>
-       </property>
-      </widget>
+      <layout class="QHBoxLayout" name="inputPickerLayout">
+       <item>
+        <widget class="QToolButton" name="inputFilePicker">
+         <property name="text">
+          <string>...</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="inputBdFolderPicker">
+         <property name="toolTip">
+          <string>Select a BD disc rip folder (BDMV)</string>
+         </property>
+         <property name="text">
+          <string>...</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
      </item>
      <item row="11" column="2" alignment="Qt::AlignmentFlag::AlignTop">
       <widget class="QToolButton" name="showRemuxCommand">
@@ -554,6 +568,22 @@
    </hints>
   </connection>
   <connection>
+   <sender>inputBdFolderPicker</sender>
+   <signal>clicked()</signal>
+   <receiver>extractAudioDialog</receiver>
+   <slot>selectBdFolder()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>869</x>
+     <y>29</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>711</x>
+     <y>88</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
    <sender>showProbeButton</sender>
    <signal>clicked()</signal>
    <receiver>extractAudioDialog</receiver>
@@ -908,6 +938,7 @@
  </connections>
  <slots>
   <slot>selectFile()</slot>
+  <slot>selectBdFolder()</slot>
   <slot>updateOutputFilename()</slot>
   <slot>showProbeInDetail()</slot>
   <slot>setTargetDirectory()</slot>

@@ -140,7 +140,12 @@ class AxesManager:
         :param ncol: the no of columns to put them in.
         :return the legend.
         '''
-        return self.__axes.legend(lines, [l.get_label() for l in lines], loc=3, ncol=ncol, fancybox=True, shadow=True)
+        legend = self.__axes.legend(lines, [l.get_label() for l in lines], loc=3, ncol=ncol, fancybox=True,
+                                    shadow=True)
+        # exclude the legend from the figure's tight_layout calculation, otherwise long labels cause the axes
+        # to be squeezed down to make room for the (potentially oversized) legend
+        legend.set_in_layout(False)
+        return legend
 
     def hide_axes_if_empty(self):
         '''

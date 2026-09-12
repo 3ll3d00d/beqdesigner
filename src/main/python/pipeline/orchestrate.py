@@ -44,6 +44,7 @@ import os
 from dataclasses import dataclass
 from typing import Optional, Sequence, Union
 
+from model.bdmv import is_bdmv_root, resolve_main_title
 from model.ffmpeg import Executor
 from model.iir import CompleteFilter
 from model.signal import AutoWavLoader, SingleChannelSignalData
@@ -120,15 +121,27 @@ class Session:
         self.__preferences = _ConfigPreferences(config)
 
     def extract(self, src: str, target_dir: str, audio_stream: int = 0, video_stream: int = -1,
-               mono_mix: bool = True, decimate: bool = True) -> str:
+               mono_mix: bool = True, decimate: bool = True, playlist_name: Optional[str] = None) -> str:
         '''
-        Runs ffmpeg synchronously (model.ffmpeg.Executor.run_sync, B2).
+        Runs ffmpeg synchronously (model.ffmpeg.Executor.run_sync, B2). If src is a BD disc rip folder (a BDMV
+        structure) rather than a single container file, it is first resolved to a concrete ffmpeg input -- the
+        main feature (longest playlist) unless playlist_name names a specific one (its BDMV/PLAYLIST/*.mpls
+        basename, e.g. '00800'). There is no interactive title picker here (unlike ui/extract.py's
+        BdmvTitlePickerDialog) since this path is headless/unattended by design.
         :return: the path to the extracted wav.
-        :raises ValueError: if src has no audio stream.
+        :raises ValueError: if src has no audio stream, or (BD input) no matching/parseable title is found.
         '''
         os.makedirs(target_dir, exist_ok=True)
+        display_name = None
+        duration_override_s = None
+        if is_bdmv_root(src):
+            resolved = resolve_main_title(src, playlist_name=playlist_name)
+            src = resolved.ffmpeg_input
+            display_name = resolved.display_name
+            duration_override_s = resolved.playlist.duration_s
         executor = Executor(src, target_dir, mono_mix=mono_mix, decimate_audio=decimate,
-                            decimate_fs=self.__config.target_fs)
+                            decimate_fs=self.__config.target_fs, display_name=display_name,
+                            duration_override_s=duration_override_s)
         executor.probe_file()
         if not executor.has_audio():
             raise ValueError(f"{src} has no audio stream to extract")

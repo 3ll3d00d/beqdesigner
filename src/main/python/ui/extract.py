@@ -46,9 +46,15 @@ class Ui_extractAudioDialog(object):
         self.signalName.setEnabled(True)
         self.signalName.setObjectName("signalName")
         self.gridLayout.addWidget(self.signalName, 14, 1, 1, 1)
+        self.inputPickerLayout = QtWidgets.QHBoxLayout()
+        self.inputPickerLayout.setObjectName("inputPickerLayout")
         self.inputFilePicker = QtWidgets.QToolButton(parent=extractAudioDialog)
         self.inputFilePicker.setObjectName("inputFilePicker")
-        self.gridLayout.addWidget(self.inputFilePicker, 0, 2, 1, 1)
+        self.inputPickerLayout.addWidget(self.inputFilePicker)
+        self.inputBdFolderPicker = QtWidgets.QToolButton(parent=extractAudioDialog)
+        self.inputBdFolderPicker.setObjectName("inputBdFolderPicker")
+        self.inputPickerLayout.addWidget(self.inputBdFolderPicker)
+        self.gridLayout.addLayout(self.inputPickerLayout, 0, 2, 1, 1)
         self.showRemuxCommand = QtWidgets.QToolButton(parent=extractAudioDialog)
         self.showRemuxCommand.setObjectName("showRemuxCommand")
         self.gridLayout.addWidget(self.showRemuxCommand, 11, 2, 1, 1, QtCore.Qt.AlignmentFlag.AlignTop)
@@ -248,6 +254,7 @@ class Ui_extractAudioDialog(object):
         self.buttonBox.accepted.connect(extractAudioDialog.accept) # type: ignore
         self.buttonBox.rejected.connect(extractAudioDialog.reject) # type: ignore
         self.inputFilePicker.clicked.connect(extractAudioDialog.selectFile) # type: ignore
+        self.inputBdFolderPicker.clicked.connect(extractAudioDialog.selectBdFolder) # type: ignore
         self.showProbeButton.clicked.connect(extractAudioDialog.showProbeInDetail) # type: ignore
         self.targetDirPicker.clicked.connect(extractAudioDialog.setTargetDirectory) # type: ignore
         self.outputFilename.editingFinished.connect(extractAudioDialog.updateOutputFilename) # type: ignore
@@ -279,6 +286,8 @@ class Ui_extractAudioDialog(object):
         self.targetDirPicker.setText(_translate("extractAudioDialog", "..."))
         self.showProbeButton.setText(_translate("extractAudioDialog", "..."))
         self.inputFilePicker.setText(_translate("extractAudioDialog", "..."))
+        self.inputBdFolderPicker.setToolTip(_translate("extractAudioDialog", "Select a BD disc rip folder (BDMV)"))
+        self.inputBdFolderPicker.setText(_translate("extractAudioDialog", "..."))
         self.showRemuxCommand.setText(_translate("extractAudioDialog", "..."))
         self.targetDirectoryLabel.setText(_translate("extractAudioDialog", "Target Directory"))
         self.ffmpegCommandLabel.setText(_translate("extractAudioDialog", "ffmpeg command "))

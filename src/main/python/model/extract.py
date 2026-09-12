@@ -1,3 +1,4 @@
+import datetime
 import logging
 import math
 import os
@@ -9,8 +10,10 @@ import qtawesome as qta
 from qtpy.QtCore import Qt, QTime
 from qtpy.QtGui import QPalette, QColor, QFont
 from qtpy.QtMultimedia import QSoundEffect
-from qtpy.QtWidgets import QDialog, QFileDialog, QStatusBar, QDialogButtonBox, QMessageBox
+from qtpy.QtWidgets import QDialog, QFileDialog, QStatusBar, QDialogButtonBox, QMessageBox, QVBoxLayout, \
+    QTableWidget, QTableWidgetItem, QAbstractItemView, QHeaderView
 
+from model.bdmv import is_bdmv_root, list_playlists, resolve_title
 from model.ffmpeg import Executor, ViewProbeDialog, SIGNAL_CONNECTED, SIGNAL_ERROR, SIGNAL_COMPLETE, parse_audio_stream, \
     get_channel_name, parse_video_stream
 from model.preferences import EXTRACTION_OUTPUT_DIR, EXTRACTION_NOTIFICATION_SOUND, ANALYSIS_TARGET_FS, \
@@ -37,6 +40,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         self.showProbeButton.setIcon(qta.icon('fa5s.info'))
         self.showRemuxCommand.setIcon(qta.icon('fa5s.info'))
         self.inputFilePicker.setIcon(qta.icon('fa5s.folder-open'))
+        self.inputBdFolderPicker.setIcon(qta.icon('fa5s.compact-disc'))
         self.targetDirPicker.setIcon(qta.icon('fa5s.folder-open'))
         self.calculateGainAdjustment.setIcon(qta.icon('fa5s.sliders-h'))
         self.limitRange.setIcon(qta.icon('fa5s.cut'))
@@ -117,6 +121,42 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             if len(selected) > 0:
                 self.inputFile.setText(selected[0])
                 self.__probe_file()
+
+    def selectBdFolder(self):
+        '''
+        Lets the user pick a BD disc rip folder (containing a BDMV structure), choose which title (playlist) is
+        the one to extract from and resolves that to a concrete ffmpeg input before probing it as normal.
+        '''
+        self.__reinit_fields()
+        dialog = QFileDialog(parent=self)
+        dialog.setFileMode(QFileDialog.FileMode.Directory)
+        dialog.setWindowTitle('Select BD Disc Folder')
+        if not dialog.exec():
+            return
+        selected = dialog.selectedFiles()
+        if len(selected) == 0:
+            return
+        bdmv_root = selected[0]
+        if not is_bdmv_root(bdmv_root):
+            QMessageBox.warning(self, 'Not a BD disc',
+                               f"{bdmv_root} does not look like a BD disc rip (expected a BDMV folder "
+                               f"containing index.bdmv).")
+            return
+        playlists = list_playlists(bdmv_root)
+        if len(playlists) == 0:
+            QMessageBox.warning(self, 'No titles found', f"No playable titles were found under {bdmv_root}.")
+            return
+        picker = BdmvTitlePickerDialog(self, playlists)
+        if not picker.exec():
+            return
+        try:
+            resolved = resolve_title(bdmv_root, picker.selected_playlist)
+        except FileNotFoundError as e:
+            QMessageBox.critical(self, 'Unable to resolve title', str(e))
+            return
+        self.inputFile.setText(f"{resolved.display_name}  [{bdmv_root}]")
+        self.__probe_file(file_name=resolved.ffmpeg_input, display_name=resolved.display_name,
+                          duration_override_s=resolved.playlist.duration_s)
 
     def __reinit_fields(self):
         '''
@@ -204,11 +244,16 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         self.signalNameLabel.setEnabled(False)
         self.showRemuxCommand.setEnabled(False)
 
-    def __probe_file(self):
+    def __probe_file(self, file_name=None, display_name=None, duration_override_s=None):
         '''
         Probes the specified file using ffprobe in order to discover the audio streams.
+        :param file_name: overrides the ffmpeg input (defaults to the input file field's text), used when the
+        input was resolved from a BD disc rip rather than typed/dropped/picked directly.
+        :param display_name: see Executor.
+        :param duration_override_s: see Executor.
         '''
-        file_name = self.inputFile.text()
+        if file_name is None:
+            file_name = self.inputFile.text()
         self.__executor = Executor(file_name, self.targetDir.text(),
                                    mono_mix=self.monoMix.isChecked(),
                                    decimate_audio=self.decimateAudio.isChecked(),
@@ -218,11 +263,13 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
                                    include_subtitles=self.includeSubtitles.isChecked(),
                                    signal_model=self.__signal_model if self.__is_remux else None,
                                    decimate_fs=self.__preferences.get(ANALYSIS_TARGET_FS),
-                                   bm_fs=self.__preferences.get(BASS_MANAGEMENT_LPF_FS))
+                                   bm_fs=self.__preferences.get(BASS_MANAGEMENT_LPF_FS),
+                                   display_name=display_name,
+                                   duration_override_s=duration_override_s)
         self.__executor.progress_handler = self.__handle_ffmpeg_process
         from app import wait_cursor
         try:
-            with wait_cursor(f"Probing {file_name}"):
+            with wait_cursor(f"Probing {display_name if display_name else file_name}"):
                 self.__executor.probe_file()
                 self.showProbeButton.setEnabled(True)
         except FileNotFoundError as e:
@@ -670,6 +717,47 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
     def __calc_headroom(filtered_signal):
         from pipeline.stats import signal_stats
         return signal_stats(filtered_signal.samples, filtered_signal.fs).headroom
+
+
+class BdmvTitlePickerDialog(QDialog):
+    '''
+    Lets the user choose which BD playlist (title) to extract from, showing each candidate's duration and clip
+    count since the automatic "longest playlist" heuristic can pick a bonus feature or the wrong angle.
+    '''
+
+    def __init__(self, parent, playlists):
+        super(BdmvTitlePickerDialog, self).__init__(parent)
+        self.setWindowTitle('Select BD Title')
+        self.__playlists = playlists
+        layout = QVBoxLayout(self)
+        self.table = QTableWidget(len(playlists), 3, self)
+        self.table.setHorizontalHeaderLabels(['Playlist', 'Duration', 'Clips'])
+        self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        for row, playlist in enumerate(playlists):
+            self.table.setItem(row, 0, QTableWidgetItem(playlist.name))
+            duration_str = str(datetime.timedelta(seconds=round(playlist.duration_s)))
+            self.table.setItem(row, 1, QTableWidgetItem(duration_str))
+            self.table.setItem(row, 2, QTableWidgetItem(str(len(playlist.play_items))))
+        if playlists:
+            self.table.selectRow(0)
+        self.table.doubleClicked.connect(self.accept)
+        layout.addWidget(self.table)
+        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
+                                      parent=self)
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
+        self.resize(480, 320)
+
+    @property
+    def selected_playlist(self):
+        rows = self.table.selectionModel().selectedRows()
+        return self.__playlists[rows[0].row()] if rows else None
 
 
 class EditMappingDialog(QDialog, Ui_editMappingDialog):

@@ -71,7 +71,7 @@
         <item row="0" column="0">
          <widget class="QLabel" name="filterLabel">
           <property name="toolTip">
-           <string/>
+           <string>A folder matching a BD disc rip (a BDMV structure) is added as a single candidate, using its main feature (longest playlist) automatically</string>
           </property>
           <property name="text">
            <string>Search Filter</string>
@@ -123,7 +123,7 @@
            <string/>
           </property>
           <property name="placeholderText">
-           <string>Enter 1 or more search filters, e.g. w:/films/*.mkv;y:/videos/**/*.m2ts</string>
+           <string>Enter 1 or more search filters, e.g. w:/films/*.mkv;y:/videos/**/*.m2ts;d:/bd_rips/*</string>
           </property>
          </widget>
         </item>

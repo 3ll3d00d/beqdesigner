@@ -10,6 +10,7 @@ from qtpy.QtCore import Qt, QObject, QRunnable, QThread, Signal, QThreadPool
 from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import QDialog, QStatusBar, QFileDialog
 
+from model.bdmv import is_bdmv_root, resolve_main_title
 from model.ffmpeg import Executor, parse_audio_stream, ViewProbeDialog, SIGNAL_CONNECTED, SIGNAL_ERROR, \
     SIGNAL_COMPLETE, SIGNAL_CANCELLED, FFMpegDetailsDialog, describe_missing_binary
 from model.preferences import EXTRACTION_OUTPUT_DIR, EXTRACTION_BATCH_FILTER, ANALYSIS_TARGET_FS
@@ -249,16 +250,28 @@ class ExtractCandidates:
 
     def append(self, candidate):
         '''
-        Adds a new candidate to the group and renders it on the dialog.
+        Adds a new candidate to the group and renders it on the dialog. A candidate may be a plain file or a BD
+        disc rip folder (a BDMV structure), in which case its main feature (longest playlist) is resolved
+        automatically -- there is no interactive title picker here since batch runs unattended.
         :param candidate: the candidate.
         '''
+        resolved_title = None
         if os.path.isfile(candidate):
-            extract_candidate = ExtractCandidate(len(self.__candidates), candidate, self.__dialog,
-                                                 self.on_probe_complete, self.on_extract_complete, self.__decimate_fs)
-            self.__candidates.append(extract_candidate)
-            extract_candidate.render()
-            return True
-        return False
+            pass
+        elif is_bdmv_root(candidate):
+            try:
+                resolved_title = resolve_main_title(candidate)
+            except ValueError as e:
+                logger.warning(f"Skipping {candidate}: {e}")
+                return False
+        else:
+            return False
+        extract_candidate = ExtractCandidate(len(self.__candidates), candidate, self.__dialog,
+                                             self.on_probe_complete, self.on_extract_complete, self.__decimate_fs,
+                                             resolved_title=resolved_title)
+        self.__candidates.append(extract_candidate)
+        extract_candidate.render()
+        return True
 
     def reset(self):
         '''
@@ -338,9 +351,19 @@ class ExtractStatus(Enum):
 
 
 class ExtractCandidate:
-    def __init__(self, idx, filename, dialog, on_probe_complete, on_extract_complete, decimate_fs):
+    def __init__(self, idx, filename, dialog, on_probe_complete, on_extract_complete, decimate_fs,
+                resolved_title=None):
         self.__idx = idx
-        self.__filename = filename
+        if resolved_title is not None:
+            self.__filename = f"{resolved_title.display_name}  [{filename}]"
+            executor_input = resolved_title.ffmpeg_input
+            display_name = resolved_title.display_name
+            duration_override_s = resolved_title.playlist.duration_s
+        else:
+            self.__filename = filename
+            executor_input = filename
+            display_name = None
+            duration_override_s = None
         self.__dialog = dialog
         self.__in_progress_icon = None
         self.__stream_duration_micros = []
@@ -348,7 +371,8 @@ class ExtractCandidate:
         self.__on_extract_complete = on_extract_complete
         self.__result = None
         self.__status = ExtractStatus.NEW
-        self.executor = Executor(self.__filename, self.__dialog.outputDir.text(), decimate_fs=decimate_fs)
+        self.executor = Executor(executor_input, self.__dialog.outputDir.text(), decimate_fs=decimate_fs,
+                                 display_name=display_name, duration_override_s=duration_override_s)
         self.executor.progress_handler = self.__handle_ffmpeg_process
         self.actionButton = None
         self.probeButton = None

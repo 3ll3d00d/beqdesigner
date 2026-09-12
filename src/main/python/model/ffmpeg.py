@@ -134,9 +134,19 @@ class Executor:
 
     def __init__(self, file, target_dir, mono_mix=True, decimate_audio=True, audio_format=COMPRESS_FORMAT_NATIVE,
                  audio_bitrate=1500, include_original=False, include_subtitles=False, bass_manage=False,
-                 signal_model=None, decimate_fs=1000, bm_fs=80):
+                 signal_model=None, decimate_fs=1000, bm_fs=80, display_name=None, duration_override_s=None):
+        '''
+        :param display_name: overrides the stem used to derive the default output filename. Required when file
+        is not a plain filesystem path (e.g. a ffmpeg `concat:a|b` spec resolved from a BD disc rip) since
+        Path(file).resolve().stem would otherwise be meaningless or raise on such inputs.
+        :param duration_override_s: overrides the probed format duration. ffprobe reports only the first
+        segment's duration for a `concat:` input, which is wrong once real extraction reads through every
+        segment, so callers that resolve a multi-clip BD title must supply the true duration here.
+        '''
         self.file = file
         self.__target_dir = target_dir
+        self.__display_name = display_name
+        self.__duration_override_s = duration_override_s
         self.__probe = None
         self.__audio_stream_data = []
         self.__video_stream_data = []
@@ -381,6 +391,8 @@ class Executor:
         except FileNotFoundError as e:
             logger.error(f"Unable to probe {self.file}, {e.filename} not found")
             raise FileNotFoundError(describe_missing_binary(e)) from e
+        if self.__duration_override_s is not None:
+            self.__probe.setdefault('format', {})['duration'] = str(self.__duration_override_s)
         self.__audio_stream_data = [s for s in self.__probe.get('streams', []) if s['codec_type'] == 'audio']
         self.__video_stream_data = [s for s in self.__probe.get('streams', []) if s['codec_type'] == 'video']
         end = time.time()
@@ -552,7 +564,8 @@ class Executor:
         if self.__output_file_name_overridden is False:
             stream_idx = str(self.__selected_audio_stream_idx + 1)
             channel_layout = self.__channel_layout_name
-            output_file_name = f"{Path(self.file).resolve().stem}_s{stream_idx}_{channel_layout}"
+            stem = self.__display_name if self.__display_name else Path(self.file).resolve().stem
+            output_file_name = f"{stem}_s{stream_idx}_{channel_layout}"
             if self.__mono_mix is True:
                 output_file_name += '_to_mono'
             self.__output_file_name = output_file_name
