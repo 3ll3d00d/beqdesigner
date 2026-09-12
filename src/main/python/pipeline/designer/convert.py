@@ -13,7 +13,7 @@ below using a fake in-process designer, not a real one.
 import math
 from typing import List
 
-from pipeline.designer.contract import BiquadSpec, DesignResponse
+from pipeline.designer.contract import BiquadSpec, DesignCandidate, DesignResponse
 from pipeline.filters import FilterSpec, create_filter
 
 ALLOWED_BIQUAD_TYPES = {'peaking_eq', 'low_shelf', 'high_shelf'}
@@ -28,64 +28,75 @@ def validate_response(response: DesignResponse) -> None:
     '''
     :raises ContractViolation: if response violates the contract.
     '''
-    success_fields = {
-        'filters': response.filters,
-        'confidence': response.confidence,
-        'mv_adjust_db': response.mv_adjust_db,
-        'method': response.method,
-        'residual_db': response.residual_db,
-        'residual_band_hz': response.residual_band_hz,
-    }
     is_decline = response.decline_reason is not None
-    is_success = response.filters is not None
+    is_success = response.candidates is not None
 
     if is_success and is_decline:
-        raise ContractViolation("DesignResponse populates both filters and decline_reason -- exactly one is allowed")
+        raise ContractViolation("DesignResponse populates both candidates and decline_reason -- exactly one is allowed")
     if not is_success and not is_decline:
-        raise ContractViolation("DesignResponse populates neither filters nor decline_reason")
+        raise ContractViolation("DesignResponse populates neither candidates nor decline_reason")
 
     if is_decline:
         if not isinstance(response.decline_reason, str) or len(response.decline_reason) == 0:
             raise ContractViolation("decline_reason must be a non-empty string")
-        populated = [name for name, value in success_fields.items() if name != 'filters' and value is not None]
-        if populated:
-            raise ContractViolation(
-                f"decline response also populates success-path field(s): {', '.join(populated)}")
         return
 
     # success path
-    if response.confidence is None:
-        raise ContractViolation("success response has no confidence")
-    if not (0.0 <= response.confidence <= 1.0):
-        raise ContractViolation(f"confidence must be in [0.0, 1.0], got {response.confidence}")
-    if response.mv_adjust_db is None or not math.isfinite(response.mv_adjust_db):
-        raise ContractViolation(f"mv_adjust_db must be a finite number, got {response.mv_adjust_db}")
+    if len(response.candidates) == 0:
+        raise ContractViolation("success response has an empty candidates list -- decline instead of an empty list")
 
-    if len(response.filters) == 0:
-        raise ContractViolation("success response has an empty filters list -- decline instead of an empty list")
-    if len(response.filters) > MAX_BIQUAD_SECTIONS:
+    previous_confidence = None
+    for i, candidate in enumerate(response.candidates):
+        _validate_candidate(candidate, i)
+        if previous_confidence is not None and candidate.confidence > previous_confidence:
+            raise ContractViolation(
+                f"candidates[{i}].confidence ({candidate.confidence}) exceeds candidates[{i - 1}]'s "
+                f"({previous_confidence}) -- candidates must be ordered best (most preferred) first")
+        previous_confidence = candidate.confidence
+
+
+def _validate_candidate(candidate: DesignCandidate, index: int) -> None:
+    if candidate.confidence is None:
+        raise ContractViolation(f"candidates[{index}] has no confidence")
+    if not (0.0 <= candidate.confidence <= 1.0):
+        raise ContractViolation(f"candidates[{index}].confidence must be in [0.0, 1.0], got {candidate.confidence}")
+    if candidate.mv_adjust_db is None or not math.isfinite(candidate.mv_adjust_db):
+        raise ContractViolation(f"candidates[{index}].mv_adjust_db must be a finite number, got {candidate.mv_adjust_db}")
+
+    if candidate.filters is None or len(candidate.filters) == 0:
+        raise ContractViolation(f"candidates[{index}] has an empty filters list -- omit the candidate instead")
+    if len(candidate.filters) > MAX_BIQUAD_SECTIONS:
         raise ContractViolation(
-            f"{len(response.filters)} biquad sections exceeds the budget of {MAX_BIQUAD_SECTIONS}")
+            f"candidates[{index}]: {len(candidate.filters)} biquad sections exceeds the budget of {MAX_BIQUAD_SECTIONS}")
 
-    for i, spec in enumerate(response.filters):
-        _validate_biquad_spec(spec, i)
+    for i, spec in enumerate(candidate.filters):
+        _validate_biquad_spec(spec, i, candidate_index=index)
 
-    if response.method == 'non_parametric' and (response.residual_db is not None
-                                                 or response.residual_band_hz is not None):
-        raise ContractViolation("method='non_parametric' has no exact target -- residual_db/residual_band_hz "
-                                "must be None")
+    if candidate.method == 'non_parametric' and (candidate.residual_db is not None
+                                                  or candidate.residual_band_hz is not None):
+        raise ContractViolation(f"candidates[{index}]: method='non_parametric' has no exact target -- "
+                                "residual_db/residual_band_hz must be None")
+
+    if candidate.commentary is not None:
+        if not isinstance(candidate.commentary, dict):
+            raise ContractViolation(f"candidates[{index}].commentary must be a dict[str, str]")
+        for key, value in candidate.commentary.items():
+            if not isinstance(key, str) or not isinstance(value, str):
+                raise ContractViolation(
+                    f"candidates[{index}].commentary must be a dict[str, str], got key={key!r} value={value!r}")
 
 
-def _validate_biquad_spec(spec: BiquadSpec, index: int) -> None:
+def _validate_biquad_spec(spec: BiquadSpec, index: int, candidate_index: int) -> None:
+    prefix = f"candidates[{candidate_index}].filters[{index}]"
     if spec.type not in ALLOWED_BIQUAD_TYPES:
         raise ContractViolation(
-            f"filters[{index}].type '{spec.type}' is not publishable -- must be one of {sorted(ALLOWED_BIQUAD_TYPES)}")
+            f"{prefix}.type '{spec.type}' is not publishable -- must be one of {sorted(ALLOWED_BIQUAD_TYPES)}")
     if not math.isfinite(spec.freq_hz) or spec.freq_hz <= 0:
-        raise ContractViolation(f"filters[{index}].freq_hz must be > 0, got {spec.freq_hz}")
+        raise ContractViolation(f"{prefix}.freq_hz must be > 0, got {spec.freq_hz}")
     if not math.isfinite(spec.gain_db):
-        raise ContractViolation(f"filters[{index}].gain_db must be finite, got {spec.gain_db}")
+        raise ContractViolation(f"{prefix}.gain_db must be finite, got {spec.gain_db}")
     if not math.isfinite(spec.q) or spec.q <= 0:
-        raise ContractViolation(f"filters[{index}].q must be > 0, got {spec.q}")
+        raise ContractViolation(f"{prefix}.q must be > 0, got {spec.q}")
 
 
 _TYPE_MAP = {'peaking_eq': 'peaking_eq', 'low_shelf': 'low_shelf', 'high_shelf': 'high_shelf'}
@@ -93,20 +104,41 @@ _TYPE_MAP = {'peaking_eq': 'peaking_eq', 'low_shelf': 'low_shelf', 'high_shelf':
 
 def to_complete_filter(response: DesignResponse, fs: int):
     '''
-    Validates response, then converts its filters into a CompleteFilter at
-    the given (publish-target) fs. §5: a BiquadSpec carries no fs and no
+    Validates response, then converts its top-ranked candidate
+    (candidates[0]) into a CompleteFilter at the given (publish-target) fs --
+    the only candidate the caller acts on automatically; see
+    alternative_filters() for the rest. §5: a BiquadSpec carries no fs and no
     count -- repeated identical entries are collapsed into a single stacked
     shelf here, since that representation is this repo's concern, not the
     designer's.
     :raises ContractViolation: if response is invalid.
     '''
-    from model.iir import CompleteFilter
-
     validate_response(response)
     if response.decline_reason is not None:
         raise ContractViolation("cannot convert a declined response -- check decline_reason first")
 
-    biquads = [create_filter(spec, fs) for spec in _collapse(response.filters)]
+    return _candidate_to_complete_filter(response.candidates[0], fs)
+
+
+def alternative_filters(response: DesignResponse, fs: int) -> list:
+    '''
+    Validates response, then converts every candidate after the top-ranked
+    one (candidates[1:]) into a CompleteFilter, in the same best-first order
+    -- for a human reviewing the report to compare against; never simulated
+    or published automatically.
+    :raises ContractViolation: if response is invalid.
+    '''
+    validate_response(response)
+    if response.decline_reason is not None:
+        raise ContractViolation("cannot convert a declined response -- check decline_reason first")
+
+    return [_candidate_to_complete_filter(candidate, fs) for candidate in response.candidates[1:]]
+
+
+def _candidate_to_complete_filter(candidate: DesignCandidate, fs: int):
+    from model.iir import CompleteFilter
+
+    biquads = [create_filter(spec, fs) for spec in _collapse(candidate.filters)]
     return CompleteFilter(fs=fs, filters=biquads, description='designer')
 
 

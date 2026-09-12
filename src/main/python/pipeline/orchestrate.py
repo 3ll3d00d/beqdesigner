@@ -13,11 +13,15 @@ Beyond composition, this module owns two things nothing built so far needed:
   (15,208 positives and zero negatives -- a false positive is the expensive
   failure).
 - **D7's provenance threading.** A designer's confidence/method/fc_hz/
-  slope/uncertainties/residual_db travel with an `Applied` outcome so a
-  report can show *why* a filter was accepted -- but `to_beq_xml()` only
-  ever receives `Applied.filters`, never the outcome itself: the catalogue
-  XML format has no field for any of this, and no consumer other than a
-  human reviewing the report needs it.
+  slope/uncertainties/residual_db/commentary travel with an `Applied`
+  outcome so a report can show *why* a filter was accepted -- but
+  `to_beq_xml()` only ever receives `Applied.filters`, never the outcome
+  itself: the catalogue XML format has no field for any of this, and no
+  consumer other than a human reviewing the report needs it. A designer may
+  offer several ranked candidates (design/designer-interface.md §3); only
+  the top-ranked one is reflected in `Applied`'s own fields (and the only
+  one ever simulated/published), the rest travel as `Applied.alternatives`
+  for the same human-reviewing-the-report purpose.
 
 Scope trim: no `Session.fit()`/`optimise_filters()` wrapper -- no phase
 built a Qt-free extraction of that GUI feature, and nothing in this plan's
@@ -52,7 +56,7 @@ from model.xy import MagnitudeData
 
 from pipeline.config import AnalysisConfig
 from pipeline.designer.contract import Coverage, build_request
-from pipeline.designer.convert import to_complete_filter
+from pipeline.designer.convert import alternative_filters, to_complete_filter
 from pipeline.designer.registry import get_designer
 from pipeline.filters import FilterSpec, create_filter
 from pipeline.metadata import BeqMetadata, tmdb_lookup
@@ -62,6 +66,23 @@ from pipeline.publish.xml import to_beq_xml as render_beq_xml
 from pipeline.stats import Stats, signal_stats
 
 _CURVE_INDEX = {'avg': 0, 'peak': 1, 'median': 2}
+
+
+@dataclass(frozen=True)
+class AlternativeDesign:
+    '''
+    A lower-ranked candidate the designer considered but did not lead with --
+    design/designer-interface.md §3's DesignResponse.candidates[1:]. Carried
+    through so a report can show it alongside the applied filter; never
+    simulated or published automatically.
+    '''
+    filters: CompleteFilter
+    confidence: float
+    method: str
+    mv_adjust_db: Optional[float] = None
+    commentary: Optional[dict] = None
+    residual_db: Optional[float] = None
+    residual_band_hz: Optional[tuple] = None
 
 
 @dataclass(frozen=True)
@@ -77,6 +98,8 @@ class Applied:
     slope_uncertainty: Optional[float] = None
     residual_db: Optional[float] = None
     residual_band_hz: Optional[tuple] = None
+    commentary: Optional[dict] = None
+    alternatives: tuple = ()  # tuple[AlternativeDesign, ...], lower-ranked candidates, best-first
 
 
 @dataclass(frozen=True)
@@ -164,18 +187,30 @@ class Session:
         DesignRequest built from sig, validates and converts its response
         (pipeline.designer.convert), and returns the outcome as a value.
         Does not mutate sig -- call set_filters(sig, outcome.filters) on an
-        Applied outcome to actually apply it.
+        Applied outcome to actually apply it. A designer may return several
+        ranked candidates (design/designer-interface.md §3); only the
+        top-ranked one becomes Applied.filters (the only one ever simulated/
+        published automatically) -- the rest travel along as
+        Applied.alternatives, for a human reviewing the report.
         '''
         designer_fn = get_designer(designer)
         request = build_request(mono_mix=sig.signal.samples, fs=sig.signal.fs, coverage=coverage)
         response = designer_fn(request)
         if response.decline_reason is not None:
             return Declined(reason=response.decline_reason, message=response.decline_message)
-        complete_filter = to_complete_filter(response, fs=sig.signal.fs)
-        return Applied(filters=complete_filter, confidence=response.confidence, method=response.method,
-                       mv_adjust_db=response.mv_adjust_db, fc_hz=response.fc_hz, slope=response.slope,
-                       fc_uncertainty_hz=response.fc_uncertainty_hz, slope_uncertainty=response.slope_uncertainty,
-                       residual_db=response.residual_db, residual_band_hz=response.residual_band_hz)
+        fs = sig.signal.fs
+        primary = response.candidates[0]
+        complete_filter = to_complete_filter(response, fs=fs)
+        alternatives = tuple(
+            AlternativeDesign(filters=alt_filter, confidence=candidate.confidence, method=candidate.method,
+                              mv_adjust_db=candidate.mv_adjust_db, commentary=candidate.commentary,
+                              residual_db=candidate.residual_db, residual_band_hz=candidate.residual_band_hz)
+            for candidate, alt_filter in zip(response.candidates[1:], alternative_filters(response, fs=fs)))
+        return Applied(filters=complete_filter, confidence=primary.confidence, method=primary.method,
+                       mv_adjust_db=primary.mv_adjust_db, fc_hz=primary.fc_hz, slope=primary.slope,
+                       fc_uncertainty_hz=primary.fc_uncertainty_hz, slope_uncertainty=primary.slope_uncertainty,
+                       residual_db=primary.residual_db, residual_band_hz=primary.residual_band_hz,
+                       commentary=primary.commentary, alternatives=alternatives)
 
     def set_filters(self, sig: SingleChannelSignalData,
                     filters: Union[CompleteFilter, Sequence[FilterSpec]]) -> CompleteFilter:

@@ -16,11 +16,13 @@ contract changes. `api-headless-pipeline.md §2`/`§15` explain the *why*; this
 explains the *what*, precisely enough to write code against without reading
 the rest.
 
-*Revised twice against external review before either side had written code
-against v1.0 — once on shape (added `coverage`, `method`, `channel_scope`,
-`residual_band_hz`, tightened `confidence`/`residual_db`'s definitions,
-dropped a false provenance guarantee), once on a factual error
-(`mv_adjust_db`'s sign was measured and found inverted — see §3). Still
+*Revised three times against external review before either side had written
+code against v1.0 — once on shape (added `coverage`, `method`,
+`channel_scope`, `residual_band_hz`, tightened `confidence`/`residual_db`'s
+definitions, dropped a false provenance guarantee), once on a factual error
+(`mv_adjust_db`'s sign was measured and found inverted — see §3), once to
+let a single call return several ranked candidates instead of one answer
+(`DesignResponse.candidates`, `DesignCandidate.commentary` — see §3). Still
 `contract_version = "1.0"`; nothing has been implemented against any earlier
 draft.*
 
@@ -35,11 +37,14 @@ def design(request: DesignRequest) -> DesignResponse:
     ...
 ```
 
-One call, one title, one answer. No session, no callback, no streaming, no
-iteration protocol — "iterate until acceptable" (the caller's step 4) is
-resolved by **you returning a confidence and/or declining**, not by being
-called repeatedly with feedback. If you want to try several internal
-candidates before answering, that happens inside this one call.
+One call, one title, one answer — but that answer may itself be a short,
+ranked list of candidates (§3), not just a single filter. No session, no
+callback, no streaming, no iteration protocol — "iterate until acceptable"
+(the caller's step 4) is resolved by **you returning a confidence (per
+candidate) and/or declining**, not by being called repeatedly with feedback.
+If you want to try several internal candidates before answering, return the
+ones worth showing a human, ranked — that no longer has to collapse to a
+single filter before it reaches the caller.
 
 **Must be deterministic given the same input**, or as close as your method
 allows — the caller may re-run it and compare. Any internal randomness
@@ -144,22 +149,18 @@ class BiquadSpec:
     q: float            # > 0
 
 @dataclass(frozen=True)
-class DesignResponse:
-    contract_version: str            # echo the request's value
-
-    # --- success: filters/confidence/mv_adjust_db populated, decline fields left None ---
-    filters: list[BiquadSpec] | None = None
-    confidence: float | None = None      # 0.0-1.0 — P(a real rolloff was applied); see below
-    mv_adjust_db: float | None = None    # implied headroom compensation; see below
-    method: DesignMethod | None = None   # how `filters` was derived; see below
+class DesignCandidate:
+    filters: list[BiquadSpec]
+    confidence: float      # 0.0-1.0 — P(a real rolloff was applied); see below
+    mv_adjust_db: float    # implied headroom compensation; see below
+    method: DesignMethod   # how `filters` was derived; see below
 
     # fit-quality — populated whenever `method` is 'exact' or 'fitted'; see below
     residual_db: float | None = None            # max abs error, dB, over residual_band_hz
     residual_band_hz: tuple[float, float] | None = None
 
-    # decline: these two populated, all success fields above left None
-    decline_reason: str | None = None    # short stable code — see §4
-    decline_message: str | None = None   # optional human-readable detail
+    # structured, human-facing notes about *this* candidate — see below
+    commentary: dict[str, str] | None = None
 
     # optional either way: not published, surfaced to a human reviewer only
     fc_hz: float | None = None
@@ -167,20 +168,64 @@ class DesignResponse:
     fc_uncertainty_hz: float | None = None
     slope_uncertainty: float | None = None
     channel_scope: ChannelScope | None = None    # see below; requires `channels` in the request
+
+@dataclass(frozen=True)
+class DesignResponse:
+    contract_version: str            # echo the request's value
+
+    # success: a non-empty list, best (most preferred) first — see below.
+    # decline fields left None.
+    candidates: list[DesignCandidate] | None = None
+
+    # decline: these two populated, candidates left None
+    decline_reason: str | None = None    # short stable code — see §4
+    decline_message: str | None = None   # optional human-readable detail
 ```
+
+**`candidates`** replaces what earlier drafts of this document expressed as
+a single flat set of `filters`/`confidence`/`mv_adjust_db`/`method` fields on
+`DesignResponse` itself. You may still return exactly one — a list of one
+is the common case and nothing about validation treats it specially — but
+when your method genuinely produces more than one plausible correction (a
+strong "exact" alignment and a weaker "fitted" fallback, say, or two
+`fc`/alignment hypotheses that fit about equally well), return them all
+rather than picking silently. **Order matters: best (most preferred) first,
+by non-increasing `confidence`** — the caller rejects a list that isn't
+sorted that way, since "ranked" only means something if the order is
+load-bearing. `candidates[0]` is the only one the caller ever acts on
+automatically (simulated, written to XML, published); every other entry is
+carried through only as far as a human reviewing the report, for comparison
+— never applied, never published, and the caller does not pick among them
+for you. If you don't have a genuine second opinion worth showing, don't
+manufacture one just to populate the list — a single confident candidate is
+still a complete, valid answer.
 
 **`filters`** — see §5 for exactly what's allowed in a `BiquadSpec`. Order
 in the list is not meaningful (biquad sections in a cascade commute); return
 them in whatever order is natural to you.
 
 **`confidence`** is precisely **P(a real rolloff was applied to this
-programme)** — not "is `fc` right", not "is the inversion right", just
-whether there is something here to correct at all. This is the number that
-maps onto false-positive rate, which `api-headless-pipeline.md §15.4`
-identifies as the metric that matters most
+programme)**, scoped to *this candidate* — not "is `fc` right", not "is the
+inversion right", just whether there is something here to correct at all.
+This is the number that maps onto false-positive rate, which
+`api-headless-pipeline.md §15.4` identifies as the metric that matters most
 (zero negatives in the existing catalogue makes a false positive both
 expensive and undetectable downstream). Keep fit quality out of it —
-that's `residual_db`.
+that's `residual_db`. It is also the field the ranking rule above sorts
+on — since it's the only cross-candidate scalar this contract defines, there
+is no separate "rank" field: position in `candidates` *is* the ranking, and
+it must agree with `confidence` order.
+
+**`commentary`** is free-form but structurally simple: a flat
+`dict[str, str]`, both keys and values plain strings — no nesting, no
+non-string values. It exists so you can explain *this specific candidate* to
+a human reading the report (why it was ranked where it is, what's uncertain
+about it, what would change your mind) in a form a report/GUI can render
+directly (e.g. as a small key/value table) without parsing free text. It is
+never machine-parsed by the caller — treat it exactly like `decline_message`
+in that respect, just attached per-candidate and structured enough to
+tabulate. Optional; omit it (leave `None`) rather than populating it with
+nothing useful.
 
 **`method`** says which of three genuinely different claims `filters`
 represents, because `confidence` and `residual_db` cannot distinguish them
@@ -281,10 +326,11 @@ caller treats it as a first-class, non-error outcome. Populate:
 - **`decline_message`** — optional, free text, for a human reading the
   report. Not machine-parsed.
 
-Leave every success-path field (`filters`, `confidence`, `mv_adjust_db`,
-`method`, `residual_db`, `residual_band_hz`) as `None` on decline. The
-caller runs nothing downstream of a decline — no filter is simulated, no
-XML is written, no report claims a correction was made.
+Leave `candidates` as `None` on decline — not an empty list, `None`; an
+empty list is rejected the same as populating it, since "zero candidates" is
+what a decline already means. The caller runs nothing downstream of a
+decline — no filter is simulated, no XML is written, no report claims a
+correction was made.
 
 ---
 
@@ -333,12 +379,14 @@ in the list twice — don't try to express repetition yourself. Collapsing
 repeated identical entries into a stacked-shelf representation is the
 caller's concern, not yours.
 
-**Budget: 10 biquad sections total.** Every `BiquadSpec` in `filters` counts
-as one section (a `low_shelf`/`high_shelf` counts once per list entry, same
-as `peaking_eq` — there is no multiplier). The cases worked through so far
-land at 2-4 sections, nowhere near the limit; if your method is producing
-close to 10, that's worth a second look on your side before it ever reaches
-the caller.
+**Budget: 10 biquad sections total, per candidate.** Every `BiquadSpec` in a
+candidate's `filters` counts as one section (a `low_shelf`/`high_shelf`
+counts once per list entry, same as `peaking_eq` — there is no multiplier).
+The budget applies independently to each entry in `candidates` — a second
+candidate does not shrink the first one's allowance. The cases worked
+through so far land at 2-4 sections, nowhere near the limit; if your method
+is producing close to 10, that's worth a second look on your side before it
+ever reaches the caller.
 
 **`freq_hz > 0`, `q > 0`.** `gain_db` may be any sign, including `0.0` (a
 no-op section — allowed, though there's no reason to emit one).
@@ -347,26 +395,64 @@ no-op section — allowed, though there's no reason to emit one).
 
 ## 6. Worked examples
 
-**Success**, matching a worked, numerically-verified case — identifying an
-`LR4` rolloff at 25 Hz and inverting it against an `LR4` protective filter at
-10 Hz:
+**Success, single candidate** — matching a worked, numerically-verified case
+— identifying an `LR4` rolloff at 25 Hz and inverting it against an `LR4`
+protective filter at 10 Hz:
 
 ```python
 DesignResponse(
     contract_version="1.0",
-    filters=[
-        BiquadSpec(type='low_shelf', freq_hz=15.810, gain_db=15.918, q=0.7071),
-        BiquadSpec(type='low_shelf', freq_hz=15.810, gain_db=15.918, q=0.7071),
+    candidates=[
+        DesignCandidate(
+            filters=[
+                BiquadSpec(type='low_shelf', freq_hz=15.810, gain_db=15.918, q=0.7071),
+                BiquadSpec(type='low_shelf', freq_hz=15.810, gain_db=15.918, q=0.7071),
+            ],
+            confidence=0.94,
+            mv_adjust_db=15.918,           # positive: master volume should come down 15.918 dB
+            method='exact',                 # matched-alignment closed-form decomposition
+            residual_db=0.0008, residual_band_hz=(5.0, 200.0),
+            commentary={'alignment': 'LR4', 'knee_hz': '25.0'},
+            fc_hz=25.0, slope=24.0,        # e.g. dB/octave, if that's your slope unit — say so
+            fc_uncertainty_hz=0.6, slope_uncertainty=1.1,
+            channel_scope='all_channels',   # rolloff was consistent across the `channels` diagnostic
+        ),
     ],
-    confidence=0.94,
-    mv_adjust_db=15.918,           # positive: master volume should come down 15.918 dB
-    method='exact',                 # matched-alignment closed-form decomposition
-    residual_db=0.0008, residual_band_hz=(5.0, 200.0),
-    fc_hz=25.0, slope=24.0,        # e.g. dB/octave, if that's your slope unit — say so
-    fc_uncertainty_hz=0.6, slope_uncertainty=1.1,
-    channel_scope='all_channels',   # rolloff was consistent across the `channels` diagnostic
 )
 ```
+
+**Success, two ranked candidates** — same title, but the alignment was
+genuinely ambiguous between two plausible knees; both are worth showing a
+human, best first:
+
+```python
+DesignResponse(
+    contract_version="1.0",
+    candidates=[
+        DesignCandidate(
+            filters=[BiquadSpec(type='low_shelf', freq_hz=15.810, gain_db=15.918, q=0.7071)] * 2,
+            confidence=0.72,
+            mv_adjust_db=15.918,
+            method='exact',
+            residual_db=0.0008, residual_band_hz=(5.0, 200.0),
+            commentary={'alignment': 'LR4', 'knee_hz': '25.0',
+                       'note': 'best fit, but a second knee near 32 Hz fits almost as well'},
+        ),
+        DesignCandidate(
+            filters=[BiquadSpec(type='low_shelf', freq_hz=20.199, gain_db=12.304, q=0.7071)] * 2,
+            confidence=0.61,
+            mv_adjust_db=12.304,
+            method='exact',
+            residual_db=0.0011, residual_band_hz=(5.0, 200.0),
+            commentary={'alignment': 'LR4', 'knee_hz': '32.0',
+                       'note': 'alternative alignment; lower confidence, smaller correction'},
+        ),
+    ],
+)
+```
+
+The caller applies/publishes `candidates[0]` only; `candidates[1]` is
+carried through for a human reviewing the report to compare against.
 
 **Decline**, insufficient bandwidth to trust the estimate:
 

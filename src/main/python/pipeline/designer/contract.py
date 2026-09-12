@@ -39,22 +39,19 @@ class BiquadSpec:
 
 
 @dataclass(frozen=True)
-class DesignResponse:
-    contract_version: str
-
-    # success: filters/confidence/mv_adjust_db/method populated, decline fields left None
-    filters: Optional[list] = None  # list[BiquadSpec]
-    confidence: Optional[float] = None
-    mv_adjust_db: Optional[float] = None
-    method: Optional[DesignMethod] = None
+class DesignCandidate:
+    filters: list  # list[BiquadSpec]
+    confidence: float
+    mv_adjust_db: float
+    method: DesignMethod
 
     # fit-quality -- populated whenever method is 'exact' or 'fitted'
     residual_db: Optional[float] = None
     residual_band_hz: Optional[tuple] = None  # (low_hz, high_hz)
 
-    # decline: these two populated, all success fields above left None
-    decline_reason: Optional[str] = None
-    decline_message: Optional[str] = None
+    # structured, human-facing notes about this candidate -- dict[str, str],
+    # rendered as-is by a report/GUI; not machine-parsed by the caller
+    commentary: Optional[dict] = None
 
     # optional either way -- diagnostic only, never published
     fc_hz: Optional[float] = None
@@ -62,6 +59,20 @@ class DesignResponse:
     fc_uncertainty_hz: Optional[float] = None
     slope_uncertainty: Optional[float] = None
     channel_scope: Optional[ChannelScope] = None
+
+
+@dataclass(frozen=True)
+class DesignResponse:
+    contract_version: str
+
+    # success: a non-empty list[DesignCandidate], best (most preferred) first --
+    # candidates[0] is the only one the caller acts on automatically; the rest
+    # are carried through for a human reviewing the report. decline fields left None
+    candidates: Optional[list] = None  # list[DesignCandidate]
+
+    # decline: these two populated, candidates left None
+    decline_reason: Optional[str] = None
+    decline_message: Optional[str] = None
 
 
 def build_request(mono_mix: ndarray, fs: int, coverage: Coverage = 'complete_programme',

@@ -10,7 +10,7 @@ import os
 
 from model.iir import LowShelf, PeakingEQ
 from model.minidsp import xml_to_filt
-from pipeline.designer.contract import BiquadSpec, DesignResponse
+from pipeline.designer.contract import BiquadSpec, DesignCandidate, DesignResponse
 from pipeline.designer.convert import to_complete_filter
 from pipeline.metadata import BeqMetadata
 from pipeline.publish.xml import flat24hd_template_path, to_beq_xml
@@ -30,17 +30,19 @@ def test_to_beq_xml_end_to_end_from_a_fake_designer_response():
     '''
     response = DesignResponse(
         contract_version='1.0',
-        filters=[
-            BiquadSpec(type='low_shelf', freq_hz=18.0, gain_db=4.5, q=0.7),
-            BiquadSpec(type='low_shelf', freq_hz=18.0, gain_db=4.5, q=0.7),
-            BiquadSpec(type='low_shelf', freq_hz=18.0, gain_db=4.5, q=0.7),
-            BiquadSpec(type='low_shelf', freq_hz=18.0, gain_db=4.5, q=0.7),
-            BiquadSpec(type='low_shelf', freq_hz=18.0, gain_db=4.5, q=0.7),
-            BiquadSpec(type='peaking_eq', freq_hz=40.0, gain_db=-3.0, q=2.0),
-        ],
-        confidence=0.9,
-        mv_adjust_db=22.5,
-        method='fitted',
+        candidates=[DesignCandidate(
+            filters=[
+                BiquadSpec(type='low_shelf', freq_hz=18.0, gain_db=4.5, q=0.7),
+                BiquadSpec(type='low_shelf', freq_hz=18.0, gain_db=4.5, q=0.7),
+                BiquadSpec(type='low_shelf', freq_hz=18.0, gain_db=4.5, q=0.7),
+                BiquadSpec(type='low_shelf', freq_hz=18.0, gain_db=4.5, q=0.7),
+                BiquadSpec(type='low_shelf', freq_hz=18.0, gain_db=4.5, q=0.7),
+                BiquadSpec(type='peaking_eq', freq_hz=40.0, gain_db=-3.0, q=2.0),
+            ],
+            confidence=0.9,
+            mv_adjust_db=22.5,
+            method='fitted',
+        )],
     )
     complete_filter = to_complete_filter(response, fs=96000)
 

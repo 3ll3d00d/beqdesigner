@@ -21,7 +21,7 @@ from PIL import Image
 from model.iir import LowShelf, PeakingEQ
 from model.minidsp import xml_to_filt
 from pipeline.config import AnalysisConfig
-from pipeline.designer.contract import BiquadSpec, DesignResponse
+from pipeline.designer.contract import BiquadSpec, DesignCandidate, DesignResponse
 from pipeline.designer.registry import register_designer, unregister_designer
 from pipeline.metadata import BeqMetadata
 from pipeline.orchestrate import Applied, Declined, Session
@@ -35,11 +35,13 @@ def _rp1_design_response() -> DesignResponse:
     ''' docs/workflow/beq.md's Ready Player One values, in DesignResponse/BiquadSpec form. '''
     return DesignResponse(
         contract_version='1.0',
-        filters=[BiquadSpec(type='low_shelf', freq_hz=18.0, gain_db=4.5, q=0.7) for _ in range(5)]
-               + [BiquadSpec(type='peaking_eq', freq_hz=40.0, gain_db=-3.0, q=2.0)],
-        confidence=0.9,
-        mv_adjust_db=4.0,  # docs/workflow/beq.md step 7: "we need to reduce by ~4dB"
-        method='fitted',
+        candidates=[DesignCandidate(
+            filters=[BiquadSpec(type='low_shelf', freq_hz=18.0, gain_db=4.5, q=0.7) for _ in range(5)]
+                   + [BiquadSpec(type='peaking_eq', freq_hz=40.0, gain_db=-3.0, q=2.0)],
+            confidence=0.9,
+            mv_adjust_db=4.0,  # docs/workflow/beq.md step 7: "we need to reduce by ~4dB"
+            method='fitted',
+        )],
     )
 
 
@@ -202,16 +204,16 @@ def test_session_headless_run_constructs_no_qapplication():
         "import tempfile, os\n"
         "tmp_path = tempfile.mkdtemp()\n"
         "from pipeline.config import AnalysisConfig\n"
-        "from pipeline.designer.contract import BiquadSpec, DesignResponse\n"
+        "from pipeline.designer.contract import BiquadSpec, DesignCandidate, DesignResponse\n"
         "from pipeline.designer.registry import register_designer\n"
         "from pipeline.metadata import BeqMetadata\n"
         "from pipeline.orchestrate import Session\n"
         "import numpy as np, wave\n"
         "def rp1_designer(request):\n"
-        "    return DesignResponse(contract_version='1.0',\n"
+        "    return DesignResponse(contract_version='1.0', candidates=[DesignCandidate(\n"
         "        filters=[BiquadSpec(type='low_shelf', freq_hz=18.0, gain_db=4.5, q=0.7) for _ in range(5)]\n"
         "               + [BiquadSpec(type='peaking_eq', freq_hz=40.0, gain_db=-3.0, q=2.0)],\n"
-        "        confidence=0.9, mv_adjust_db=4.0, method='fitted')\n"
+        "        confidence=0.9, mv_adjust_db=4.0, method='fitted')])\n"
         "register_designer('acceptance.rp1', rp1_designer)\n"
         "source_wav = os.path.join(tmp_path, 'source.wav')\n"
         "fs = 48000\n"
