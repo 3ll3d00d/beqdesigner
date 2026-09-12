@@ -967,14 +967,14 @@ wheels = [
 
 [[package]]
 name = "scipy-stubs"
-version = "1.18.0.1"
+version = "1.18.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "optype", extra = ["numpy"] },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a0/c6/c4c80bd13c0eec99121922c50cd1c72600672307b28e4ba67f636d6b298d/scipy_stubs-1.18.0.1.tar.gz", hash = "sha256:761cb35106200c90a37034d3c8120d3899d673de1e5879d3a2ac1d6816c62327", size = 410862, upload-time = "2026-07-12T21:09:29.993Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/fc/99/02c608a58cf99774c577f22e457427f87c8e608652c5de95178daa003e1f/scipy_stubs-1.18.1.0.tar.gz", hash = "sha256:87bec0df883cd9cd6b7dc4c74a33362cf550e9cad679643a29a886ab2b438ddc", size = 448822, upload-time = "2026-08-22T09:22:52.944Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b1/0c/78404528783677077f072288724ff8ef8381bbc219b110e3147e60361b6d/scipy_stubs-1.18.0.1-py3-none-any.whl", hash = "sha256:704408c5f03a33924c9fed6dc9e25926dc331ed508d52f1beece0188525cebad", size = 616217, upload-time = "2026-07-12T21:09:28.45Z" },
+    { url = "https://files.pythonhosted.org/packages/12/11/263ced30149fbede00614a11f01de792842d3636b5a9e3abfee34e764a0e/scipy_stubs-1.18.1.0-py3-none-any.whl", hash = "sha256:fc1f00da3eb6bf1adf2138774b5e6a91dcf7c77039ff199577dc47929c10793e", size = 653731, upload-time = "2026-08-22T09:22:51.43Z" },
 ]
 
 [[package]]
