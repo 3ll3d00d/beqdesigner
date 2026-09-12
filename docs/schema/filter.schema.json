@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/3ll3d00d/beqdesigner/main/docs/schema/filter.schema.json",
+  "title": "BEQDesigner .filter file",
+  "description": "Written by File > Save Filter and read by File > Load Filter. Stored as plain (non-gzipped) UTF-8 JSON, a single CompleteFilter object. Produced by CompleteFilter.to_json / model.codec.filter_from_json in src/main/python/model/iir.py and src/main/python/model/codec.py.",
+  "$ref": "common.schema.json#/$defs/completeFilter"
+}

@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/3ll3d00d/beqdesigner/main/docs/schema/signal.schema.json",
+  "title": "BEQDesigner .signal file",
+  "description": "Written by File > Save Signal and read by File > Load Signal. Stored as gzip-compressed UTF-8 JSON; decompress to get the JSON described here. A single signal (or bass-managed group of channels). Produced by model.codec.signaldata_to_json / bassmanagedsignaldata_to_json and read back by model.codec.signaldata_from_json in src/main/python/model/codec.py.",
+  "$ref": "common.schema.json#/$defs/signalData"
+}

@@ -1,0 +1,338 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/3ll3d00d/beqdesigner/main/docs/schema/common.schema.json",
+  "title": "BEQDesigner common definitions",
+  "description": "Shared type definitions used by the .filter, .signal and .beq file formats. This file is not loaded directly; see filter.schema.json, signal.schema.json and project.schema.json.",
+  "$defs": {
+    "filterNode": {
+      "description": "A single IIR filter stage, or a nested filter chain (CompleteFilter). The concrete shape is selected by _type.",
+      "oneOf": [
+        { "$ref": "#/$defs/passthrough" },
+        { "$ref": "#/$defs/gain" },
+        { "$ref": "#/$defs/peakingEQ" },
+        { "$ref": "#/$defs/lowShelf" },
+        { "$ref": "#/$defs/highShelf" },
+        { "$ref": "#/$defs/firstOrderLowPass" },
+        { "$ref": "#/$defs/firstOrderHighPass" },
+        { "$ref": "#/$defs/secondOrderLowPass" },
+        { "$ref": "#/$defs/secondOrderHighPass" },
+        { "$ref": "#/$defs/allPass" },
+        { "$ref": "#/$defs/linkwitzTransform" },
+        { "$ref": "#/$defs/complexLowPass" },
+        { "$ref": "#/$defs/complexHighPass" },
+        { "$ref": "#/$defs/completeFilter" }
+      ]
+    },
+    "passthrough": {
+      "type": "object",
+      "properties": {
+        "_type": { "const": "Passthrough" },
+        "fs": { "type": "integer", "description": "sample rate (Hz) this filter was designed for" }
+      },
+      "required": ["_type", "fs"],
+      "additionalProperties": true
+    },
+    "gain": {
+      "type": "object",
+      "properties": {
+        "_type": { "const": "Gain" },
+        "fs": { "type": "integer" },
+        "gain": { "type": "number", "description": "gain in dB" }
+      },
+      "required": ["_type", "fs", "gain"],
+      "additionalProperties": true
+    },
+    "peakingEQ": {
+      "type": "object",
+      "properties": {
+        "_type": { "const": "PeakingEQ" },
+        "fs": { "type": "integer" },
+        "fc": { "type": "number", "description": "centre frequency (Hz)" },
+        "q": { "type": "number" },
+        "gain": { "type": "number", "description": "gain in dB" }
+      },
+      "required": ["_type", "fs", "fc", "q", "gain"],
+      "additionalProperties": true
+    },
+    "lowShelf": {
+      "type": "object",
+      "properties": {
+        "_type": { "const": "LowShelf" },
+        "fs": { "type": "integer" },
+        "fc": { "type": "number" },
+        "q": { "type": "number" },
+        "gain": { "type": "number", "description": "gain in dB" },
+        "count": { "type": "integer", "minimum": 1, "description": "number of identical cascaded shelf stages" }
+      },
+      "required": ["_type", "fs", "fc", "q", "gain", "count"],
+      "additionalProperties": true
+    },
+    "highShelf": {
+      "type": "object",
+      "properties": {
+        "_type": { "const": "HighShelf" },
+        "fs": { "type": "integer" },
+        "fc": { "type": "number" },
+        "q": { "type": "number" },
+        "gain": { "type": "number", "description": "gain in dB" },
+        "count": { "type": "integer", "minimum": 1, "description": "number of identical cascaded shelf stages" }
+      },
+      "required": ["_type", "fs", "fc", "q", "gain", "count"],
+      "additionalProperties": true
+    },
+    "firstOrderLowPass": {
+      "type": "object",
+      "properties": {
+        "_type": { "const": "FirstOrder_LowPass" },
+        "fs": { "type": "integer" },
+        "fc": { "type": "number" }
+      },
+      "required": ["_type", "fs", "fc"],
+      "additionalProperties": true
+    },
+    "firstOrderHighPass": {
+      "type": "object",
+      "properties": {
+        "_type": { "const": "FirstOrder_HighPass" },
+        "fs": { "type": "integer" },
+        "fc": { "type": "number" }
+      },
+      "required": ["_type", "fs", "fc"],
+      "additionalProperties": true
+    },
+    "secondOrderLowPass": {
+      "type": "object",
+      "properties": {
+        "_type": { "const": "SecondOrder_LowPass" },
+        "fs": { "type": "integer" },
+        "fc": { "type": "number" },
+        "q": { "type": "number" }
+      },
+      "required": ["_type", "fs", "fc", "q"],
+      "additionalProperties": true
+    },
+    "secondOrderHighPass": {
+      "type": "object",
+      "properties": {
+        "_type": { "const": "SecondOrder_HighPass" },
+        "fs": { "type": "integer" },
+        "fc": { "type": "number" },
+        "q": { "type": "number" }
+      },
+      "required": ["_type", "fs", "fc", "q"],
+      "additionalProperties": true
+    },
+    "allPass": {
+      "type": "object",
+      "properties": {
+        "_type": { "const": "AllPass" },
+        "fs": { "type": "integer" },
+        "fc": { "type": "number" },
+        "q": { "type": "number" }
+      },
+      "required": ["_type", "fs", "fc", "q"],
+      "additionalProperties": true
+    },
+    "linkwitzTransform": {
+      "description": "Re-targets a driver's own resonance (f0/q0) to a new target alignment (fp/qp).",
+      "type": "object",
+      "properties": {
+        "_type": { "const": "LinkwitzTransform" },
+        "fs": { "type": "integer" },
+        "f0": { "type": "number", "description": "driver's actual resonant frequency (Hz)" },
+        "q0": { "type": "number", "description": "driver's actual Q at f0" },
+        "fp": { "type": "number", "description": "target resonant frequency (Hz)" },
+        "qp": { "type": "number", "description": "target Q at fp" }
+      },
+      "required": ["_type", "fs", "f0", "q0", "fp", "qp"],
+      "additionalProperties": true
+    },
+    "complexFilterType": {
+      "description": "the alignment used by a compound (multi order) low/high pass filter",
+      "enum": ["BW", "LR", "BESP", "BESM3", "BESM6"]
+    },
+    "complexLowPass": {
+      "type": "object",
+      "properties": {
+        "_type": { "const": "ComplexLowPass" },
+        "filter_type": { "$ref": "#/$defs/complexFilterType" },
+        "order": { "type": "integer", "minimum": 1 },
+        "fs": { "type": "integer" },
+        "fc": { "type": "number" }
+      },
+      "required": ["_type", "filter_type", "order", "fs", "fc"],
+      "additionalProperties": true
+    },
+    "complexHighPass": {
+      "type": "object",
+      "properties": {
+        "_type": { "const": "ComplexHighPass" },
+        "filter_type": { "$ref": "#/$defs/complexFilterType" },
+        "order": { "type": "integer", "minimum": 1 },
+        "fs": { "type": "integer" },
+        "fc": { "type": "number" }
+      },
+      "required": ["_type", "filter_type", "order", "fs", "fc"],
+      "additionalProperties": true
+    },
+    "completeFilter": {
+      "description": "An ordered chain of filters, e.g. the filter applied to a signal or saved via File > Save Filter.",
+      "type": "object",
+      "properties": {
+        "_type": { "const": "CompleteFilter" },
+        "description": { "type": "string" },
+        "fs": { "type": "integer" },
+        "filters": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/filterNode" }
+        }
+      },
+      "required": ["_type", "description", "fs", "filters"],
+      "additionalProperties": true
+    },
+    "filterPresets": {
+      "description": "Named filter slots for a signal. A preset value of null means an empty/unset filter for that slot.",
+      "type": "object",
+      "propertyNames": { "type": "string" },
+      "additionalProperties": {
+        "oneOf": [
+          { "$ref": "#/$defs/completeFilter" },
+          { "type": "null" }
+        ]
+      }
+    },
+    "xyData": {
+      "description": "A single magnitude response curve.",
+      "type": "object",
+      "properties": {
+        "_type": { "enum": ["MagnitudeData", "XYData"] },
+        "name": { "type": "string" },
+        "description": { "oneOf": [{ "type": "string" }, { "type": "null" }] },
+        "x": {
+          "description": "Either an explicit array of x values (Hz) or, in older files, a {min, max, count} triple describing a linspace.",
+          "oneOf": [
+            { "type": "array", "items": { "type": "number" } },
+            {
+              "type": "object",
+              "properties": {
+                "min": { "type": "number" },
+                "max": { "type": "number" },
+                "count": { "type": "integer" }
+              },
+              "required": ["min", "max", "count"],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "y": {
+          "type": "array",
+          "items": { "type": "number" },
+          "description": "magnitude values (dB), one per x value"
+        },
+        "colour": {
+          "oneOf": [{ "type": "string" }, { "type": "null" }],
+          "description": "matplotlib-compatible colour spec, or null for the default"
+        },
+        "linestyle": { "type": "string", "default": "-" }
+      },
+      "required": ["_type", "x", "y"],
+      "additionalProperties": true
+    },
+    "signalMetadata": {
+      "description": "Provenance of a signal that was extracted from an audio/video file. If the referenced 'src' file is no longer accessible when the .signal/.beq file is reloaded, the signal is still loaded but without audio (no waveform view).",
+      "type": "object",
+      "properties": {
+        "src": { "type": "string", "description": "absolute path to the source audio file at the time of export" },
+        "start": { "type": "number", "description": "start offset (seconds) within the source file" },
+        "end": { "type": "number", "description": "end offset (seconds) within the source file" },
+        "channel": { "type": "integer", "description": "1-based channel index extracted from the source file" }
+      },
+      "additionalProperties": true
+    },
+    "numericOffsetString": {
+      "type": "string",
+      "description": "A gain offset in dB, formatted with Python's 'g' format specifier (e.g. \"0\", \"1.5\", \"-0.25\").",
+      "pattern": "^-?[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?$"
+    },
+    "singleChannelSignalData": {
+      "description": "One channel's worth of measured/extracted audio data plus the filter(s) designed for it.",
+      "type": "object",
+      "properties": {
+        "_type": { "enum": ["SingleChannelSignalData", "SignalData"] },
+        "name": { "type": "string" },
+        "fs": { "type": "integer", "description": "sample rate (Hz)" },
+        "data": {
+          "type": "object",
+          "properties": {
+            "avg": { "$ref": "#/$defs/xyData" },
+            "peak": { "$ref": "#/$defs/xyData" },
+            "median": { "$ref": "#/$defs/xyData" }
+          },
+          "required": ["avg", "peak"],
+          "additionalProperties": true
+        },
+        "offset": { "$ref": "#/$defs/numericOffsetString" },
+        "filter_presets": { "$ref": "#/$defs/filterPresets" },
+        "active_filter_preset": { "type": "string" },
+        "filter": {
+          "description": "Legacy (pre filter-preset) single filter. Only present in older files; read-only, superseded by filter_presets/active_filter_preset.",
+          "deprecated": true,
+          "$ref": "#/$defs/completeFilter"
+        },
+        "master_name": { "type": "string", "description": "name of the signal this one is linked to as a slave, if any" },
+        "slave_names": { "type": "array", "items": { "type": "string" }, "description": "names of signals linked to this one as slaves, if any" },
+        "duration_seconds": { "type": "number" },
+        "start_seconds": { "type": "number" },
+        "duration_hhmmss": { "type": "string", "deprecated": true, "description": "legacy HH:MM:SS.sss form, superseded by duration_seconds" },
+        "start_hhmmss": { "type": "string", "deprecated": true, "description": "legacy HH:MM:SS.sss form, superseded by start_seconds" },
+        "metadata": { "$ref": "#/$defs/signalMetadata" }
+      },
+      "required": ["_type", "name", "fs", "data"],
+      "additionalProperties": true
+    },
+    "bassManagedSignalData": {
+      "description": "A bass-managed group of channels (e.g. LFE + bass-managed mains) that share a crossover.",
+      "type": "object",
+      "properties": {
+        "_type": { "const": "BassManagedSignalData" },
+        "name": { "type": "string" },
+        "channels": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/singleChannelSignalData" }
+        },
+        "bm": {
+          "type": "object",
+          "properties": {
+            "lpf_fs": { "type": "number", "description": "bass management crossover frequency (Hz)" },
+            "lpf_position": { "enum": ["Before", "After"], "description": "whether the LPF is applied before or after the channel's own filter" },
+            "headroom_type": {
+              "type": "string",
+              "description": "\"WCS\" (worst case scenario, computed automatically) or a fixed headroom in dB stored as a numeric string"
+            }
+          },
+          "required": ["lpf_fs", "lpf_position", "headroom_type"],
+          "additionalProperties": true
+        },
+        "clip": {
+          "type": "object",
+          "properties": {
+            "before": { "oneOf": [{ "type": "number" }, { "type": "null" }] },
+            "after": { "oneOf": [{ "type": "number" }, { "type": "null" }] }
+          },
+          "required": ["before", "after"],
+          "additionalProperties": true
+        },
+        "offset": { "$ref": "#/$defs/numericOffsetString" }
+      },
+      "required": ["_type", "name", "channels", "bm", "clip", "offset"],
+      "additionalProperties": true
+    },
+    "signalData": {
+      "description": "Either a single channel signal or a bass-managed group of channels, discriminated by _type.",
+      "oneOf": [
+        { "$ref": "#/$defs/singleChannelSignalData" },
+        { "$ref": "#/$defs/bassManagedSignalData" }
+      ]
+    }
+  }
+}

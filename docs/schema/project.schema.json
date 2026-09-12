@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/3ll3d00d/beqdesigner/main/docs/schema/project.schema.json",
+  "title": "BEQDesigner .beq project file",
+  "description": "Written by File > Save Project and read by File > Load Project. Stored as gzip-compressed UTF-8 JSON; decompress to get the JSON described here. An array of all loaded signals (each a single-channel or bass-managed signal). master_name/slave_names cross-references are resolved by name against other entries in the same array on load. Produced by model.signal.SignalModel.to_json and read back by model.codec.signalmodel_from_json.",
+  "type": "array",
+  "items": { "$ref": "common.schema.json#/$defs/signalData" }
+}

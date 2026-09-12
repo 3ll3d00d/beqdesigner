@@ -390,7 +390,7 @@ class LinkwitzTransform(Biquad):
         :param new_fs: the new fs.
         :return: the new filter.
         '''
-        return LinkwitzTransform(new_fs, self.f0, self.fp, self.q0, self.qp, f_id=self.id)
+        return LinkwitzTransform(new_fs, self.f0, self.q0, self.fp, self.qp, f_id=self.id)
 
     def __eq__(self, o: object) -> bool:
         return super().__eq__(o) and self.f0 == o.f0 and self.fp == o.fp and self.q0 == o.q0 and self.qp == o.qp

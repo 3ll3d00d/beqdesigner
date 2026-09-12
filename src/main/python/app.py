@@ -371,7 +371,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         self.signalView.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.signalView.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self.signalView.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.signalView.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         from model.signal import SignalModel, SignalTableModel
         self.__signal_model = SignalModel(self.signalView, self.__default_signal, self.preferences,
                                           on_update=self.on_signal_change)
@@ -505,13 +505,17 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         selection = self.signalView.selectionModel()
         if selection.hasSelection():
-            self.__signal_model.delete([x.row() for x in selection.selectedRows()])
-        if len(self.__signal_model) > 0:
-            self.signalView.selectRow(0)
-        else:
-            self.signalView.clearSelection()
-            # nothing in qt appears to emit selectionChanged when you clear the selection so have to call it ourselves
-            self.on_signal_selected()
+            rows = sorted(x.row() for x in selection.selectedRows())
+            self.__signal_model.delete(rows)
+            remaining = len(self.__signal_model)
+            if remaining > 0:
+                # select the row that now occupies the position of the topmost deleted row, so repeated
+                # deletes from the bottom of the list walk upwards instead of jumping back to the top
+                self.signalView.selectRow(min(rows[0], remaining - 1))
+            else:
+                self.signalView.clearSelection()
+                # nothing in qt appears to emit selectionChanged when you clear the selection so have to call it ourselves
+                self.on_signal_selected()
 
     def clearSignals(self):
         ''' Deletes all signals '''

@@ -2,7 +2,8 @@ import json
 
 from model.codec import filter_from_json, signaldata_from_json, signaldata_to_json
 from model.iir import ComplexLowPass, FilterType, ComplexHighPass, Passthrough, PeakingEQ, FirstOrder_LowPass, \
-    FirstOrder_HighPass, SecondOrder_LowPass, SecondOrder_HighPass, AllPass, LowShelf, CompleteFilter, HighShelf, Gain
+    FirstOrder_HighPass, SecondOrder_LowPass, SecondOrder_HighPass, AllPass, LowShelf, CompleteFilter, HighShelf, Gain, \
+    LinkwitzTransform
 from model.signal import SingleChannelSignalData
 
 
@@ -172,6 +173,21 @@ def test_codec_AllPass():
     assert filter.fs == decoded.fs
     assert filter.q == decoded.q
     assert filter.freq == decoded.freq
+    assert decoded.get_transfer_function() is not None
+
+
+def test_codec_LinkwitzTransform():
+    filter = LinkwitzTransform(48000, 50.0, 1.0, 35.0, 0.707)
+    output = json.dumps(filter.to_json())
+    assert output == '{"_type": "LinkwitzTransform", "fs": 48000, "f0": 50.0, "fp": 35.0, "q0": 1.0, "qp": 0.707}'
+    decoded = filter_from_json(json.loads(output))
+    assert decoded is not None
+    assert isinstance(decoded, LinkwitzTransform)
+    assert filter.fs == decoded.fs
+    assert filter.f0 == decoded.f0
+    assert filter.q0 == decoded.q0
+    assert filter.fp == decoded.fp
+    assert filter.qp == decoded.qp
     assert decoded.get_transfer_function() is not None
 
 

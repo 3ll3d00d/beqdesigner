@@ -189,7 +189,7 @@ def filter_from_json(o):
     '''
     from model.iir import Passthrough, PeakingEQ, LowShelf, HighShelf, FirstOrder_LowPass, \
         FirstOrder_HighPass, SecondOrder_LowPass, SecondOrder_HighPass, AllPass, CompleteFilter, ComplexLowPass, \
-        FilterType, ComplexHighPass
+        FilterType, ComplexHighPass, LinkwitzTransform
 
     filt = None
     if '_type' not in o:
@@ -217,6 +217,8 @@ def filter_from_json(o):
         filt = SecondOrder_HighPass(o['fs'], o['fc'], o['q'])
     elif o['_type'] == AllPass.__name__:
         filt = AllPass(o['fs'], o['fc'], o['q'])
+    elif o['_type'] == LinkwitzTransform.__name__:
+        filt = LinkwitzTransform(o['fs'], o['f0'], o['q0'], o['fp'], o['qp'])
     elif o['_type'] == CompleteFilter.__name__:
         kwargs = {}
         if 'fs' in o:

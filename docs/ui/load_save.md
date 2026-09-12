@@ -1,8 +1,10 @@
 All load/save options are accessible via the File menu.
 
+JSON Schema definitions for the `.filter`, `.signal` and `.beq` formats described below are published in [docs/schema](../schema/) ([filter](../schema/filter.schema.json), [signal](../schema/signal.schema.json), [project](../schema/project.schema.json), plus shared definitions in [common](../schema/common.schema.json)).
+
 ### Filter
 
-Filters are saved as a file with the `.filt` extension via `File > Save Filter`. This saves the content of the currently selected filter table as a file. `File > Load Filter` can be used to reload this filter at a later date.
+Filters are saved as a file with the `.filter` extension via `File > Save Filter`. This saves the content of the currently selected filter table as a file. `File > Load Filter` can be used to reload this filter at a later date.
 
 The data is stored as [json](https://www.json.org/) so is human readable.
 
