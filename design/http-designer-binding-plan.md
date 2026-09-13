@@ -1,6 +1,6 @@
 # Implementation plan — HTTP designer binding
 
-**Status:** Phases 1-2 done. Answers "how does a random user plug
+**Status:** Phases 1-3 done. Answers "how does a random user plug
 their own filter-design implementation into beqd" — today the answer is
 "they can't": `pipeline.designer.registry.register_designer()` is in-process
 Python only, beqd ships as a frozen PyInstaller binary with no Python
@@ -127,12 +127,29 @@ a `Tools → Designers…` menu action, and a call to
 is usable) so every configured endpoint is registered before anything could
 call `batch_design()`.
 
-A durable list of `{name, url, headers}` entries, stored as one JSON-encoded
-preference value (`json.dumps`/`json.loads` explicitly, not relying on
-`QSettings`'s own variant handling of nested structures) — a simple table
-(add/remove row, name/url/headers-as-json-text columns), Save re-registers
-everything immediately so the list in the upcoming Batch Design dialog
-(Phase 4) is always current without an app restart.
+A durable list of `{name, url, headers}` entries. **Revised while
+implementing:** stored as a plain `list[dict]` preference value (new
+`DESIGNER_HTTP_ENDPOINTS` key, `TYPES[...] = list`), the same pattern
+`JRIVER_MCWS_CONNECTIONS` already uses for a dict-shaped preference in this
+codebase — `QSettings`'s own variant handling round-trips it fine, so no
+manual `json.dumps`/`json.loads` of the whole list was needed after all
+(each row's `headers` cell is still edited as JSON text in the table, since
+that's a free-form object a plain table cell can't structure any other
+way). A simple table (add/remove row, name/url/headers-as-JSON-text
+columns), each registered under a `http:`-prefixed name so re-registering
+(on save, or at every app startup) cleanly replaces rather than
+accumulates. Save validates (name+URL required, headers must parse as a
+JSON object, names unique) before writing/re-registering — the dialog
+stays open with a message box on a validation problem, matching this
+repo's existing modal-validation convention rather than closing and
+silently discarding.
+
+**Tests (`gui/test_designers_dialog.py`, done — 8 tests):** starts empty;
+loads existing configured entries; add+save persists to the preference and
+registers under the `http:` prefix; headers JSON round-trips; invalid
+headers JSON and duplicate names each block the save (preference
+untouched, nothing (re)registered); removing a row; saving a changed list
+unregisters the stale entries and registers the new ones.
 
 ---
 

@@ -1244,6 +1244,7 @@
     <addaction name="actionAnalyse_Audio"/>
     <addaction name="separator"/>
     <addaction name="action_Review_Batch_Designs"/>
+    <addaction name="action_Designers"/>
     <addaction name="separator"/>
     <addaction name="actionBrowse_Catalogue"/>
     <addaction name="actionExport_Biquad"/>
@@ -1451,6 +1452,11 @@
   <action name="action_Review_Batch_Designs">
    <property name="text">
     <string>Re&amp;view Batch Designs</string>
+   </property>
+  </action>
+  <action name="action_Designers">
+   <property name="text">
+    <string>&amp;Designers</string>
    </property>
   </action>
   <action name="actionSave_Report">

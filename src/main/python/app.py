@@ -82,6 +82,8 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.logger = logging.getLogger('beqdesigner')
         self.app = app
         self.preferences = prefs
+        from model.designers import register_configured_designers
+        register_configured_designers(self.preferences)
         if getattr(sys, 'frozen', False):
             self.__style_path_root = sys._MEIPASS
         else:
@@ -261,6 +263,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         # analysis
         self.actionAnalyse_Audio.triggered.connect(self.showAnalyseAudioDialog)
         self.action_Review_Batch_Designs.triggered.connect(self.showReviewQueueDialog)
+        self.action_Designers.triggered.connect(self.showDesignersDialog)
         # import
         self.actionLoad_Filter.triggered.connect(self.importFilter)
         self.actionLoad_Signal.triggered.connect(self.importSignal)
@@ -922,6 +925,15 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         from model.review import ReviewQueueDialog
         ReviewQueueDialog(self, self.preferences).show()
+
+    def showDesignersDialog(self):
+        '''
+        Show the Designers settings dialog (design/http-designer-binding-
+        plan.md phase 3) -- lets a user configure named HTTP designer
+        endpoints without writing any Python.
+        '''
+        from model.designers import DesignersDialog
+        DesignersDialog(self, self.preferences).exec()
 
     def __check_ffmpeg_available(self):
         '''
