@@ -90,6 +90,12 @@ def test_non_parametric_without_residual_is_valid():
     validate_response(_success(method='non_parametric', residual_db=None, residual_band_hz=None))
 
 
+def test_non_parametric_with_residual_against_a_constructed_target_is_valid():
+    ''' designer-interface.md §3: residual_db against a *constructed* (not identified-model) target is allowed. '''
+    from pipeline.designer.convert import validate_response
+    validate_response(_success(method='non_parametric', residual_db=0.5, residual_band_hz=(5.0, 100.0)))
+
+
 def test_multiple_ranked_candidates_is_valid():
     from pipeline.designer.convert import validate_response
     response = DesignResponse(contract_version='1.0', candidates=[
@@ -179,12 +185,6 @@ def test_non_finite_or_invalid_biquad_values_rejected(bad_spec, match):
     from pipeline.designer.convert import validate_response, ContractViolation
     with pytest.raises(ContractViolation, match=match):
         validate_response(_success(filters=[bad_spec]))
-
-
-def test_non_parametric_with_residual_rejected():
-    from pipeline.designer.convert import validate_response, ContractViolation
-    with pytest.raises(ContractViolation, match='non_parametric'):
-        validate_response(_success(method='non_parametric', residual_db=0.5, residual_band_hz=(5.0, 100.0)))
 
 
 def test_confidence_out_of_range_rejected():

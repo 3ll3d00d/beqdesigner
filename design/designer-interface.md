@@ -204,17 +204,24 @@ still a complete, valid answer.
 in the list is not meaningful (biquad sections in a cascade commute); return
 them in whatever order is natural to you.
 
-**`confidence`** is precisely **P(a real rolloff was applied to this
-programme)**, scoped to *this candidate* — not "is `fc` right", not "is the
-inversion right", just whether there is something here to correct at all.
-This is the number that maps onto false-positive rate, which
-`api-headless-pipeline.md §15.4` identifies as the metric that matters most
-(zero negatives in the existing catalogue makes a false positive both
-expensive and undetectable downstream). Keep fit quality out of it —
-that's `residual_db`. It is also the field the ranking rule above sorts
-on — since it's the only cross-candidate scalar this contract defines, there
-is no separate "rank" field: position in `candidates` *is* the ranking, and
-it must agree with `confidence` order.
+**`confidence`, revised: an ordinal in v1, not a calibrated probability.**
+Earlier drafts defined this as precisely P(a real rolloff was applied to
+this programme). That's still the *intent* — whether there is something
+here to correct at all, scoped to *this candidate*, fit quality kept out of
+it (that's `residual_db`) — but there is no labelled corpus to calibrate a
+probability against: `api-headless-pipeline.md §15.4` notes the existing
+catalogue has zero negatives, which is exactly why a false positive is
+expensive and undetectable, and exactly why nothing exists to fit a
+probability to. Demanding calibration you cannot obtain would make the
+field unimplementable honestly. So for v1, `confidence` only has to be
+**monotone in your own evidence** — comparable *within* one `DesignResponse`
+(which is what the ranking rule needs), not across titles or across
+different designer implementations. It is also the field that rule sorts
+on — since it's the only cross-candidate scalar this contract defines,
+there is no separate "rank" field: position in `candidates` *is* the
+ranking, and it must agree with `confidence` order. Calibrating it as a
+true probability is deferred until a labelled corpus exists to calibrate
+against.
 
 **`commentary`** is free-form but structurally simple: a flat
 `dict[str, str]`, both keys and values plain strings — no nesting, no
@@ -244,10 +251,18 @@ on their own:
 - `'non_parametric'` — a correction curve produced without identifying a
   specific high-pass model to invert (no clean `fc`/alignment found, but
   enough signal to justify a correction anyway). This is a materially
-  weaker claim than the other two — there is no "exact target" for
-  `residual_db` to be measured against, so leave `residual_db`/
-  `residual_band_hz` as `None` here and let `confidence` alone carry the
-  caller's trust in the result.
+  weaker claim than the other two — there is no *identified model* for
+  `residual_db` to be measured against the way `'exact'`/`'fitted'` have
+  one. **Revised:** that doesn't mean there's no target at all. If your
+  method builds an explicit target curve (e.g. the measured deficit,
+  clipped to what the evidence supports) and fits `filters` against *that*,
+  populate `residual_db`/`residual_band_hz` the same way `'fitted'` does —
+  just document, via `commentary`, that it's error against a constructed
+  target, not a claim that the target itself is correct. A small residual
+  here says "the fit matched what I built", not "the correction is right" —
+  that distinction is exactly why this is worth reporting: it separates "the
+  fit is bad" from "the evidence only licensed this much". Leave both
+  `None` only when there genuinely is no target curve to measure against.
 
 Do not infer `method` from `fc_hz is None` — leave `fc_hz`/`slope` as
 optional diagnostics either way and populate `method` explicitly.
@@ -282,11 +297,14 @@ current evidence rather than beyond dispute. Get the sign wrong and a
 downstream player turns volume the wrong way.
 
 **`residual_db`** is the **max absolute error, in dB**, of `filters`
-against whatever exact target you fitted it to (a minimax/peak error, not
-RMS — matching how the worked examples below are reported). **`residual_band_hz`** is the `(low_hz, high_hz)` band
-that error was measured over — a residual number with no band is not
-comparable across titles with different knee frequencies. Both `None` when
-`method='non_parametric'` (no exact target exists to measure against).
+against whatever target you fitted it to — an identified model's exact
+target for `'exact'`/`'fitted'`, or a constructed target curve for
+`'non_parametric'` (see above) — not RMS, a minimax/peak error, matching how
+the worked examples below are reported. **`residual_band_hz`** is the
+`(low_hz, high_hz)` band that error was measured over — a residual number
+with no band is not comparable across titles with different knee
+frequencies. Both `None` only when there's genuinely no target to measure
+against.
 
 **`fc_hz` / `slope` / uncertainties** — diagnostic. Optional even on
 success. Populate them if your method produces them; leave them `None` if
@@ -331,6 +349,20 @@ empty list is rejected the same as populating it, since "zero candidates" is
 what a decline already means. The caller runs nothing downstream of a
 decline — no filter is simulated, no XML is written, no report claims a
 correction was made.
+
+**What's yours to decline on, versus what to report and let the caller
+decide.** §2 keeps the input surface small on purpose — no headroom,
+max-boost, or device preference crosses in — but that leaves a gap: what do
+you do when a real decision point turns on exactly one of those things you
+weren't given? Decline only on grounds internal to the evidence itself — no
+rolloff detected, insufficient coherent bandwidth, an unstable estimate,
+your own confidence floor (`confidence_below_internal_threshold` already
+implies this). Whether a correction is *worth* publishing given how much of
+the deficit it recovers, or whether a given amount of gain reduction is
+acceptable, are calls that depend on playback configuration or publication
+policy — the caller's decisions, not yours. Report the measurement (through
+`confidence`, `residual_db`, `commentary`) and return the candidate; let the
+caller decide what to do with it.
 
 ---
 

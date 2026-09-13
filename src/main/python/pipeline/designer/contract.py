@@ -45,7 +45,10 @@ class DesignCandidate:
     mv_adjust_db: float
     method: DesignMethod
 
-    # fit-quality -- populated whenever method is 'exact' or 'fitted'
+    # fit-quality -- error against an identified model's exact target for
+    # 'exact'/'fitted', or against a constructed target curve for
+    # 'non_parametric'; None only when there's genuinely no target to
+    # measure against
     residual_db: Optional[float] = None
     residual_band_hz: Optional[tuple] = None  # (low_hz, high_hz)
 

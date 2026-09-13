@@ -72,11 +72,6 @@ def _validate_candidate(candidate: DesignCandidate, index: int) -> None:
     for i, spec in enumerate(candidate.filters):
         _validate_biquad_spec(spec, i, candidate_index=index)
 
-    if candidate.method == 'non_parametric' and (candidate.residual_db is not None
-                                                  or candidate.residual_band_hz is not None):
-        raise ContractViolation(f"candidates[{index}]: method='non_parametric' has no exact target -- "
-                                "residual_db/residual_band_hz must be None")
-
     if candidate.commentary is not None:
         if not isinstance(candidate.commentary, dict):
             raise ContractViolation(f"candidates[{index}].commentary must be a dict[str, str]")
