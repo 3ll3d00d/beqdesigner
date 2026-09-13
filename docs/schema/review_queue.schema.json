@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/3ll3d00d/beqdesigner/main/docs/schema/review_queue.schema.json",
+  "title": "BEQDesigner review queue entry",
+  "description": "One file in a pipeline.review queue directory (design/candidate-review-plan.md), named '<id>.json'. Written by pipeline.review.batch_design()/write_queue_entry() and read/updated by the same module and by model/review.py's ReviewQueueDialog (Tools > Review Batch Designs). Plain (non-gzipped) UTF-8 JSON.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "stable slug for this title, also the filename (id + '.json')"
+    },
+    "fs": {
+      "type": "integer",
+      "description": "publish-target sample rate (Hz) the candidates' filters were realised at"
+    },
+    "meta": {
+      "type": "object",
+      "description": "pipeline.metadata.BeqMetadata *constructor* kwargs (title/year/audio_types/genres/...), not its beq_-prefixed to_json()/to_dict() XML-ready shape -- BeqMetadata(**meta) must reconstruct it. May be partial/empty if title metadata (e.g. a TMDB lookup) hasn't been resolved yet."
+    },
+    "curve": {
+      "description": "one unfiltered magnitude curve (avg), via model.codec.xydata_to_json -- enough to redraw a live preview without the original audio.",
+      "$ref": "common.schema.json#/$defs/xyData"
+    },
+    "candidates": {
+      "type": "array",
+      "description": "empty when declined (see decline_reason/decline_message). Otherwise non-empty, ordered best (most preferred) first -- candidates[0] is the designer's top pick.",
+      "items": { "$ref": "#/$defs/candidateSummary" }
+    },
+    "decline_reason": {
+      "oneOf": [{ "type": "string" }, { "type": "null" }],
+      "description": "set together with decline_message, candidates left empty, when the designer declined this title -- design/designer-interface.md §4"
+    },
+    "decline_message": {
+      "oneOf": [{ "type": "string" }, { "type": "null" }]
+    },
+    "status": {
+      "enum": ["pending", "accepted", "skipped", "rejected", "published"],
+      "description": "pending: awaiting review. accepted: a human picked candidates[chosen_candidate_index]. skipped: deferred, still pending in spirit -- come back to it later. rejected: a human's permanent no, distinct from skipped. published: an accepted entry that publish_reviewed_queue() has already pushed -- re-running is then a no-op for this entry."
+    },
+    "chosen_candidate_index": {
+      "oneOf": [{ "type": "integer", "minimum": 0 }, { "type": "null" }],
+      "description": "required, and must index into candidates, when status is 'accepted' or 'published'; null/absent otherwise"
+    },
+    "reviewer_note": {
+      "oneOf": [{ "type": "string" }, { "type": "null" }],
+      "description": "free text a human reviewer left on this entry; not used by any pipeline code"
+    }
+  },
+  "required": ["id", "fs", "meta", "curve", "candidates", "status"],
+  "additionalProperties": true,
+  "$defs": {
+    "candidateSummary": {
+      "description": "One candidate's filters (already realised at the entry's fs) plus the provenance a reviewer needs to judge it -- pipeline.review.CandidateSummary.",
+      "type": "object",
+      "properties": {
+        "filters": {
+          "description": "the candidate's filters, already realised at fs -- the same shape as a published .filter file (filter.schema.json).",
+          "$ref": "common.schema.json#/$defs/completeFilter"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "ordinal in v1 (design/designer-interface.md §3) -- comparable within this entry's candidates list, not across titles"
+        },
+        "method": {
+          "enum": ["exact", "fitted", "non_parametric"]
+        },
+        "mv_adjust_db": {
+          "type": "number",
+          "description": "the cascade's implied gain (catalogue mv_adjust compatibility) -- NOT a clipping-cost estimate, see gain_reduction_db"
+        },
+        "gain_reduction_db": {
+          "oneOf": [
+            { "type": "number", "maximum": 0.0 },
+            { "type": "null" }
+          ],
+          "description": "the actual clipping-cost figure: min(20*log10(1/peak), 0) of the filtered sub feed. Always <= 0; null if not computed."
+        },
+        "residual_db": {
+          "oneOf": [{ "type": "number" }, { "type": "null" }]
+        },
+        "residual_band_hz": {
+          "oneOf": [
+            {
+              "type": "array",
+              "items": { "type": "number" },
+              "minItems": 2,
+              "maxItems": 2
+            },
+            { "type": "null" }
+          ]
+        },
+        "commentary": {
+          "description": "structured, human-facing notes about this candidate -- dict[str, str], rendered as-is; not machine-parsed.",
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": { "type": "string" }
+            },
+            { "type": "null" }
+          ]
+        }
+      },
+      "required": ["filters", "confidence", "method", "mv_adjust_db"],
+      "additionalProperties": true
+    }
+  }
+}

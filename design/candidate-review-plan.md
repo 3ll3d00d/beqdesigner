@@ -1,6 +1,6 @@
 # Implementation plan — candidate review workflow
 
-**Status:** Phases 1-3 done. Builds on `designer-interface.md`'s
+**Status:** Phases 1-4 done. Builds on `designer-interface.md`'s
 `DesignResponse.candidates` (a designer may now return several ranked filter
 candidates per title, each with its own confidence/commentary — see that
 document §3). This plan adds the missing piece: a way to run design over
@@ -249,6 +249,11 @@ provider returns the unfiltered + currently-picked-candidate curves.
 
 **Ships:** `docs/schema/review_queue.schema.json` (same JSON-Schema
 treatment `docs/schema/{filter,signal,project}.schema.json` already got for
-the save formats), and a short pointer from `designer-interface.md`'s
-revision history to this plan, so a reader following the contract's history
-lands here too.
+the save formats — `candidates[].filters` `$ref`s `common.schema.json`'s
+existing `completeFilter` def, `curve` its `xyData` def), and a short
+pointer from `designer-interface.md`'s revision history to this plan, so a
+reader following the contract's history lands here too. Validated the same
+way the save-format schemas were: generated real `QueueEntry`/
+`CandidateSummary` instances (one multi-candidate, one declined) through
+the actual dataclasses and checked both against the schema before
+committing it — not hand-guessed.

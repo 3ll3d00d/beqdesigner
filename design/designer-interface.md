@@ -26,6 +26,10 @@ let a single call return several ranked candidates instead of one answer
 `contract_version = "1.0"`; nothing has been implemented against any earlier
 draft.*
 
+*The caller side of `candidates` — running design over many titles
+unattended and letting a human pick one per title before anything
+publishes — is `design/candidate-review-plan.md`.*
+
 ---
 
 ## 1. What you are building
