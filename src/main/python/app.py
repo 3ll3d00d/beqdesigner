@@ -264,6 +264,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.actionAnalyse_Audio.triggered.connect(self.showAnalyseAudioDialog)
         self.action_Review_Batch_Designs.triggered.connect(self.showReviewQueueDialog)
         self.action_Designers.triggered.connect(self.showDesignersDialog)
+        self.action_Batch_Design.triggered.connect(self.showBatchDesignDialog)
         # import
         self.actionLoad_Filter.triggered.connect(self.importFilter)
         self.actionLoad_Signal.triggered.connect(self.importSignal)
@@ -934,6 +935,16 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         from model.designers import DesignersDialog
         DesignersDialog(self, self.preferences).exec()
+
+    def showBatchDesignDialog(self):
+        '''
+        Show the Batch Design dialog (design/http-designer-binding-plan.md
+        phase 4) -- runs pipeline.review.batch_design() over a set of
+        source files against a registered designer, writing pending
+        entries to a queue directory for ReviewQueueDialog.
+        '''
+        from model.batch_design import BatchDesignDialog
+        BatchDesignDialog(self, self.preferences).show()
 
     def __check_ffmpeg_available(self):
         '''

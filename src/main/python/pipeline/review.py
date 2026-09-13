@@ -14,7 +14,7 @@ BiquadSpec/DesignCandidate.
 import json
 import os
 from dataclasses import asdict, dataclass, field, replace
-from typing import List, Optional, Sequence, Tuple
+from typing import Callable, List, Optional, Sequence, Tuple
 
 from pipeline.config import AnalysisConfig
 from pipeline.designer.contract import Coverage
@@ -144,7 +144,8 @@ def _outcome_to_entry(entry_id: str, fs: int, meta: dict, curve: dict, outcome: 
 
 def batch_design(items: Sequence[Tuple[str, str, Optional[dict]]], designer: str, queue_dir: str, work_dir: str,
                  config: AnalysisConfig = AnalysisConfig(), coverage: Coverage = 'complete_programme',
-                 bass_management: Optional[dict] = None) -> List[str]:
+                 bass_management: Optional[dict] = None,
+                 on_item_done: Optional[Callable[[str], None]] = None) -> List[str]:
     '''
     Runs Session.extract/load/design for each item and writes one
     QueueEntry (status 'pending') to queue_dir per title -- never calls
@@ -160,6 +161,10 @@ def batch_design(items: Sequence[Tuple[str, str, Optional[dict]]], designer: str
         subdirectory per item.
     :param bass_management: this batch's bass-management configuration, if
         any -- see Session.design(); the same one is used for every item.
+    :param on_item_done: called with each item's id right after its queue
+        entry is written -- a progress hook for a caller that wants one
+        (e.g. a GUI driving a progress bar); plain callable, not a Qt
+        signal, so this stays Qt-free.
     :return: the ids written, in `items` order.
     '''
     from model.codec import xydata_to_json
@@ -174,6 +179,8 @@ def batch_design(items: Sequence[Tuple[str, str, Optional[dict]]], designer: str
         entry = _outcome_to_entry(entry_id, sig.signal.fs, meta or {}, curve, outcome)
         write_queue_entry(queue_dir, entry)
         written.append(entry_id)
+        if on_item_done is not None:
+            on_item_done(entry_id)
     return written
 
 

@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>batchDesignDialog</class>
+ <widget class="QDialog" name="batchDesignDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>760</width>
+    <height>560</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Batch Design</string>
+  </property>
+  <layout class="QVBoxLayout" name="mainLayout">
+   <item>
+    <layout class="QFormLayout" name="formLayout">
+     <item row="0" column="0">
+      <widget class="QLabel" name="designerLabelText">
+       <property name="text">
+        <string>Designer</string>
+       </property>
+      </widget>
+     </item>
+     <item row="0" column="1">
+      <widget class="QComboBox" name="designerCombo"/>
+     </item>
+     <item row="1" column="0">
+      <widget class="QLabel" name="queueDirLabelText">
+       <property name="text">
+        <string>Queue directory</string>
+       </property>
+      </widget>
+     </item>
+     <item row="1" column="1">
+      <layout class="QHBoxLayout" name="queueDirLayout">
+       <item>
+        <widget class="QLineEdit" name="queueDirEdit">
+         <property name="readOnly">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="browseQueueDirButton">
+         <property name="text">
+          <string>...</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item row="2" column="0">
+      <widget class="QLabel" name="workDirLabelText">
+       <property name="text">
+        <string>Work directory</string>
+       </property>
+      </widget>
+     </item>
+     <item row="2" column="1">
+      <layout class="QHBoxLayout" name="workDirLayout">
+       <item>
+        <widget class="QLineEdit" name="workDirEdit">
+         <property name="readOnly">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QToolButton" name="browseWorkDirButton">
+         <property name="text">
+          <string>...</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="fileButtonsLayout">
+     <item>
+      <widget class="QPushButton" name="addFilesButton">
+       <property name="text">
+        <string>Add Files...</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="removeFileButton">
+       <property name="text">
+        <string>Remove</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="QListWidget" name="filesList"/>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="runLayout">
+     <item>
+      <widget class="QPushButton" name="runButton">
+       <property name="text">
+        <string>Run</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QProgressBar" name="runProgress">
+       <property name="value">
+        <number>0</number>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

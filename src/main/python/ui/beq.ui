@@ -1243,6 +1243,7 @@
     <addaction name="separator"/>
     <addaction name="actionAnalyse_Audio"/>
     <addaction name="separator"/>
+    <addaction name="action_Batch_Design"/>
     <addaction name="action_Review_Batch_Designs"/>
     <addaction name="action_Designers"/>
     <addaction name="separator"/>
@@ -1457,6 +1458,11 @@
   <action name="action_Designers">
    <property name="text">
     <string>&amp;Designers</string>
+   </property>
+  </action>
+  <action name="action_Batch_Design">
+   <property name="text">
+    <string>Batch &amp;Design</string>
    </property>
   </action>
   <action name="actionSave_Report">

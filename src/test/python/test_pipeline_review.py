@@ -165,6 +165,22 @@ def test_batch_design_writes_one_pending_entry_per_title(tmp_path):
     assert entries['title-two'].meta == {}
 
 
+def test_batch_design_calls_on_item_done_after_each_entry_is_written(tmp_path):
+    source_wav = str(tmp_path / 'source.wav')
+    _write_synthetic_wav(source_wav)
+    queue_dir = str(tmp_path / 'queue')
+    work_dir = str(tmp_path / 'work')
+    seen = []
+
+    def on_item_done(entry_id):
+        seen.append((entry_id, read_entry(queue_dir, entry_id).status))
+
+    batch_design([('title-one', source_wav, None), ('title-two', source_wav, None)],
+                 DESIGNER_NAME, queue_dir, work_dir, on_item_done=on_item_done)
+
+    assert seen == [('title-one', 'pending'), ('title-two', 'pending')]
+
+
 def test_batch_design_declined_title_carries_the_reason(tmp_path):
     source_wav = str(tmp_path / 'source.wav')
     _write_synthetic_wav(source_wav)

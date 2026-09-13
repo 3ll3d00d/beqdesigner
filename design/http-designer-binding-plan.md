@@ -1,6 +1,6 @@
 # Implementation plan — HTTP designer binding
 
-**Status:** Phases 1-3 done. Answers "how does a random user plug
+**Status:** all four phases done. Answers "how does a random user plug
 their own filter-design implementation into beqd" — today the answer is
 "they can't": `pipeline.designer.registry.register_designer()` is in-process
 Python only, beqd ships as a frozen PyInstaller binary with no Python
@@ -184,4 +184,17 @@ containers before extraction); here, each selected file becomes one
 `batch_design()` item with an id derived from its filename, and per-title
 metadata is left to be resolved later at review time (already supported --
 `candidate-review-plan.md` Phase 1's `meta=None` case) rather than adding a
-metadata-entry UI to this dialog too.
+metadata-entry UI to this dialog too. Built as sketched, with one added
+guard: duplicate filename stems across selected files are rejected up
+front (queue entry ids collide otherwise) rather than silently
+overwriting one entry with another.
+
+**Tests (`gui/test_batch_design_dialog.py`, done — 7 tests, real
+`QThreadPool` job, no mocking it, same pattern as
+`test_ffmpeg_execute.py`):** the designer combo lists what's registered;
+running with no files, or without both directories, is rejected;
+duplicate filename stems are rejected; removing a selected file; a
+successful run against a real synthetic wav + a fake registered designer
+writes exactly one pending queue entry with the right id and candidate
+data; the progress bar's range matches the item count and reaches it on
+completion.
