@@ -1,17 +1,23 @@
 '''
-Phase 1 of design/candidate-review-plan.md: QueueEntry persistence and the
-batch_design() driver, exercised without any GUI -- the review dialog
-(Phase 3) is just a reader/writer of the same queue.
+Phases 1-2 of design/candidate-review-plan.md: QueueEntry persistence, the
+batch_design() driver, and applying/publishing a human's pick -- exercised
+without any GUI, since the review dialog (Phase 3) is just a reader/writer
+of the same queue.
 '''
+import io
+import subprocess
 import wave
 
 import numpy as np
 import pytest
+from PIL import Image
 
+from model.iir import LowShelf, PeakingEQ
 from pipeline.designer.contract import BiquadSpec, DesignCandidate, DesignResponse
 from pipeline.designer.registry import register_designer, unregister_designer
-from pipeline.review import CandidateSummary, QueueEntry, batch_design, read_entry, read_queue, update_entry, \
-    write_queue_entry
+from pipeline.publish.git import RepoTarget
+from pipeline.review import CandidateSummary, QueueEntry, apply_reviewed_entry, batch_design, publish_reviewed_queue, \
+    read_entry, read_queue, update_entry, write_queue_entry
 
 DESIGNER_NAME = 'test.review'
 DECLINE_DESIGNER_NAME = 'test.review.decline'
@@ -184,3 +190,129 @@ def test_pipeline_review_module_has_no_qtpy_import():
             assert not any(n.name.startswith('qtpy') for n in node.names)
         elif isinstance(node, ast.ImportFrom):
             assert node.module is None or not node.module.startswith('qtpy')
+
+
+# --- Phase 2: apply_reviewed_entry / publish_reviewed_queue ----------------
+
+def _init_repo_with_remote(tmp_path, subdir):
+    bare = tmp_path / f'{subdir}.git'
+    subprocess.run(['git', 'init', '--bare', '-q', str(bare)], check=True, capture_output=True)
+    work = tmp_path / subdir
+    work.mkdir()
+    subprocess.run(['git', 'init', '-q', str(work)], check=True, capture_output=True)
+    subprocess.run(['git', '-C', str(work), 'config', 'user.email', 'test@example.com'], check=True,
+                   capture_output=True)
+    subprocess.run(['git', '-C', str(work), 'config', 'user.name', 'Test'], check=True, capture_output=True)
+    subprocess.run(['git', '-C', str(work), 'remote', 'add', 'origin', str(bare)], check=True, capture_output=True)
+    return RepoTarget(local_path=str(work)), bare
+
+
+def _designed_entry(tmp_path, entry_id='ready-player-one', meta=None):
+    ''' A real, batch_design()-produced entry -- realistic CompleteFilter JSON and curve, not hand-built. '''
+    source_wav = str(tmp_path / 'source.wav')
+    _write_synthetic_wav(source_wav)
+    queue_dir = str(tmp_path / 'queue')
+    batch_design([(entry_id, source_wav, meta)], DESIGNER_NAME, queue_dir, str(tmp_path / 'work'))
+    return queue_dir, entry_id
+
+
+def test_apply_reviewed_entry_uses_the_chosen_candidate_not_the_top_one(tmp_path):
+    queue_dir, entry_id = _designed_entry(tmp_path)
+    update_entry(queue_dir, entry_id, status='accepted', chosen_candidate_index=1)
+
+    complete_filter = apply_reviewed_entry(read_entry(queue_dir, entry_id))
+
+    filters = list(complete_filter)
+    assert not any(isinstance(f, LowShelf) for f in filters)  # candidates[0]'s filter
+    assert any(isinstance(f, PeakingEQ) for f in filters)     # candidates[1]'s filter
+
+
+def test_apply_reviewed_entry_top_candidate(tmp_path):
+    queue_dir, entry_id = _designed_entry(tmp_path)
+    update_entry(queue_dir, entry_id, status='accepted', chosen_candidate_index=0)
+
+    complete_filter = apply_reviewed_entry(read_entry(queue_dir, entry_id))
+
+    assert any(isinstance(f, LowShelf) for f in list(complete_filter))
+
+
+def test_apply_reviewed_entry_requires_accepted_status(tmp_path):
+    queue_dir, entry_id = _designed_entry(tmp_path)
+
+    with pytest.raises(ValueError, match='accepted'):
+        apply_reviewed_entry(read_entry(queue_dir, entry_id))
+
+
+def test_publish_reviewed_queue_xml_only(tmp_path):
+    queue_dir, entry_id = _designed_entry(tmp_path, meta={'title': 'Ready Player One', 'year': '2018',
+                                                          'audio_types': ['Atmos']})
+    update_entry(queue_dir, entry_id, status='accepted', chosen_candidate_index=0)
+    xml_repo, xml_bare = _init_repo_with_remote(tmp_path, 'xml_repo')
+
+    results = publish_reviewed_queue(queue_dir, xml_repo, xml_dir='xml')
+
+    assert len(results) == 1
+    assert results[0]['id'] == entry_id
+    assert '<beq_title>Ready Player One</beq_title>' in results[0]['xml']
+    assert 'image_url' not in results[0]
+    xml_on_remote = subprocess.run(
+        ['git', '-C', str(xml_bare), 'cat-file', '-p', f"{results[0]['xml_commit']}:xml/{entry_id}.xml"],
+        check=True, capture_output=True, text=True).stdout
+    assert xml_on_remote == results[0]['xml']
+    assert read_entry(queue_dir, entry_id).status == 'published'
+
+
+def test_publish_reviewed_queue_defaults_gain_from_chosen_candidates_mv_adjust_db(tmp_path):
+    queue_dir, entry_id = _designed_entry(tmp_path, meta={'title': 'Ready Player One', 'year': '2018',
+                                                          'audio_types': ['Atmos']})
+    update_entry(queue_dir, entry_id, status='accepted', chosen_candidate_index=0)
+    xml_repo, _ = _init_repo_with_remote(tmp_path, 'xml_repo')
+
+    results = publish_reviewed_queue(queue_dir, xml_repo, xml_dir='xml')
+
+    assert '<beq_gain>+4</beq_gain>' in results[0]['xml']  # candidates[0].mv_adjust_db == 4.0
+
+
+def test_publish_reviewed_queue_with_image(tmp_path):
+    queue_dir, entry_id = _designed_entry(tmp_path, meta={'title': 'Ready Player One', 'year': '2018',
+                                                          'audio_types': ['Atmos']})
+    update_entry(queue_dir, entry_id, status='accepted', chosen_candidate_index=0)
+    xml_repo, _ = _init_repo_with_remote(tmp_path, 'xml_repo')
+    images_repo, images_bare = _init_repo_with_remote(tmp_path, 'images_repo')
+
+    results = publish_reviewed_queue(queue_dir, xml_repo, xml_dir='xml', images_repo=images_repo, image_dir='img',
+                                     image_owner='3ll3d00d', image_repo_name='beq-images')
+
+    assert results[0]['image_url'].endswith(f'img/{entry_id}.png')
+    pushed_png = subprocess.run(
+        ['git', '-C', str(images_bare), 'cat-file', '-p', f'HEAD:img/{entry_id}.png'],
+        check=True, capture_output=True).stdout
+    image = Image.open(io.BytesIO(pushed_png))
+    assert image.format == 'PNG'
+
+
+def test_publish_reviewed_queue_skips_non_accepted_entries(tmp_path):
+    queue_dir, accepted_id = _designed_entry(tmp_path, entry_id='accepted-title')
+    update_entry(queue_dir, accepted_id, status='accepted', chosen_candidate_index=0)
+    source_wav = str(tmp_path / 'source.wav')
+    batch_design([('pending-title', source_wav, None)], DESIGNER_NAME, queue_dir, str(tmp_path / 'work2'))
+    xml_repo, _ = _init_repo_with_remote(tmp_path, 'xml_repo')
+
+    results = publish_reviewed_queue(queue_dir, xml_repo,
+                                     meta_defaults={'title': 'T', 'year': '2020', 'audio_types': ['Atmos']})
+
+    assert [r['id'] for r in results] == ['accepted-title']
+    assert read_entry(queue_dir, 'pending-title').status == 'pending'
+
+
+def test_publish_reviewed_queue_is_idempotent(tmp_path):
+    queue_dir, entry_id = _designed_entry(tmp_path, meta={'title': 'Ready Player One', 'year': '2018',
+                                                          'audio_types': ['Atmos']})
+    update_entry(queue_dir, entry_id, status='accepted', chosen_candidate_index=0)
+    xml_repo, _ = _init_repo_with_remote(tmp_path, 'xml_repo')
+
+    first = publish_reviewed_queue(queue_dir, xml_repo, xml_dir='xml')
+    second = publish_reviewed_queue(queue_dir, xml_repo, xml_dir='xml')
+
+    assert len(first) == 1
+    assert second == []

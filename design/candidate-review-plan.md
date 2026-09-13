@@ -1,6 +1,6 @@
 # Implementation plan — candidate review workflow
 
-**Status:** Phase 1 done. Builds on `designer-interface.md`'s
+**Status:** Phases 1-2 done. Builds on `designer-interface.md`'s
 `DesignResponse.candidates` (a designer may now return several ranked filter
 candidates per title, each with its own confidence/commentary — see that
 document §3). This plan adds the missing piece: a way to run design over
@@ -135,30 +135,47 @@ designer-contract conversion.
 ```python
 def apply_reviewed_entry(entry: QueueEntry) -> CompleteFilter:
     '''
-    entry.status must be 'accepted' and chosen_candidate_index must be set
-    (both already enforced by QueueEntry construction/update_entry).
+    entry.status must be 'accepted' (chosen_candidate_index in range is
+    already enforced by QueueEntry construction/update_entry).
     filter_from_json(entry.candidates[entry.chosen_candidate_index].filters)
     -- so nothing downstream (set_filters, to_beq_xml, report, publish) can
     tell a human picked this over the top-ranked candidate.
     '''
 
-def publish_reviewed_queue(queue_dir, xml_repo, meta_defaults=None, **publish_kwargs) -> list[dict]:
+def publish_reviewed_queue(queue_dir, xml_repo, meta_defaults=None, images_repo=None, image_owner=None,
+                           image_repo_name=None, xml_dir='', image_dir='', report_spec=ReportSpec(),
+                           config=AnalysisConfig()) -> list[dict]:
     '''
     For every 'accepted' entry: apply_reviewed_entry(), build BeqMetadata
-    from entry.meta (filling gaps from meta_defaults), call the existing
-    Session.report()/Session.publish() exactly as test_pipeline_acceptance.py
-    does today, then update_entry(..., status='published'). Idempotent --
-    already-'published' entries are skipped, so re-running after a partial
-    failure only retries what didn't make it.
+    from entry.meta (a constructor-kwargs dict -- see the Phase 1 revision
+    below) filling gaps from meta_defaults (defaulting `gain` to the chosen
+    candidate's mv_adjust_db, catalogue-compat), a fresh report image from
+    the entry's stored curve + chosen filter when images_repo is given
+    (MagnitudeData.filter(complete_filter.get_transfer_function().get_magnitude())
+    to get the filtered curve back from the stored unfiltered one), then
+    Session.publish() -- the same sequence test_pipeline_acceptance.py
+    exercises for an automatic top-pick. update_entry(..., status='published')
+    on success. Idempotent -- anything not 'accepted' (including already-
+    'published') is left alone, so re-running after a partial failure only
+    retries what's still 'accepted'.
     '''
 ```
 
-**Tests:** an `accepted` entry with `chosen_candidate_index=1` (not the top
-one) publishes *that* candidate's filters, not `candidates[0]`'s — the one
-behaviour this phase exists to prove. `publish_reviewed_queue` over a queue
-with one `accepted`, one `pending`, one already-`published` entry only
-touches the `accepted` one and marks it `published`; a second run is a
-no-op.
+**Revised while implementing:** `QueueEntry.meta` turned out to need a
+correction from Phase 1's own description -- it must be `BeqMetadata`
+*constructor* kwargs (`{'title': ..., 'year': ..., ...}`), not
+`to_dict()`'s `beq_`-prefixed XML-ready shape, since `BeqMetadata(**meta)`
+has to reconstruct it here. Fixed in both `QueueEntry`'s docstring and
+`batch_design`'s.
+
+**Tests (`test_pipeline_review.py`, done — 8 more, 19 total):**
+`apply_reviewed_entry` picks `candidates[1]`'s filters when that's what was
+chosen, not `candidates[0]`'s, and raises on a non-`'accepted'` entry.
+`publish_reviewed_queue`: XML-only publish against a real local bare+clone
+repo (same pattern as `test_pipeline_acceptance.py`); `gain` defaulting
+from the chosen candidate's `mv_adjust_db`; the image path (report PNG
+pushed, `image_url` returned); a `pending` entry in the same queue is left
+untouched; a second run against an already-`published` entry is a no-op.
 
 ---
 

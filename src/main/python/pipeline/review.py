@@ -19,6 +19,8 @@ from typing import List, Optional, Sequence, Tuple
 from pipeline.config import AnalysisConfig
 from pipeline.designer.contract import Coverage
 from pipeline.orchestrate import Applied, Declined, DesignOutcome, Session
+from pipeline.publish.git import RepoTarget
+from pipeline.publish.report import ReportSpec
 
 VALID_STATUSES = {'pending', 'accepted', 'skipped', 'rejected', 'published'}
 
@@ -50,8 +52,10 @@ class QueueEntry:
     '''
     id: str
     fs: int                          # publish-target fs the candidates were realised at
-    meta: dict                       # BeqMetadata.to_dict()-shaped; may be partial/empty if
-                                     # title metadata hasn't been resolved yet
+    meta: dict                       # pipeline.metadata.BeqMetadata *constructor* kwargs (title/year/
+                                     # audio_types/genres/...), not its beq_-prefixed to_json() shape --
+                                     # BeqMetadata(**meta) must reconstruct it. May be partial/empty if
+                                     # title metadata hasn't been resolved yet (see batch_design)
     curve: dict                      # one MagnitudeData (avg, unfiltered) via model.codec.xydata_to_json
     candidates: List[CandidateSummary] = field(default_factory=list)  # empty on decline
     decline_reason: Optional[str] = None
@@ -148,10 +152,10 @@ def batch_design(items: Sequence[Tuple[str, str, Optional[dict]]], designer: str
     marked 'accepted' (pipeline.review.apply_reviewed_entry/
     publish_reviewed_queue).
     :param items: (id, source_path, meta) triples. `id` is the queue entry's
-        stable id/filename. `meta` is BeqMetadata.to_dict()-shaped, or None
-        if title metadata (e.g. a TMDB lookup) hasn't been resolved yet --
-        resolving it at review time instead of batch time is deliberately
-        supported.
+        stable id/filename. `meta` is BeqMetadata *constructor* kwargs
+        (e.g. {'title': ..., 'year': ...}), or None if title metadata (e.g.
+        a TMDB lookup) hasn't been resolved yet -- resolving it at review
+        time instead of batch time is deliberately supported.
     :param work_dir: scratch directory for extracted audio, one
         subdirectory per item.
     :param bass_management: this batch's bass-management configuration, if
@@ -171,3 +175,82 @@ def batch_design(items: Sequence[Tuple[str, str, Optional[dict]]], designer: str
         write_queue_entry(queue_dir, entry)
         written.append(entry_id)
     return written
+
+
+def _chosen_candidate(entry: QueueEntry) -> CandidateSummary:
+    if entry.status != 'accepted':
+        raise ValueError(f"entry {entry.id!r} is not accepted (status={entry.status!r})")
+    return entry.candidates[entry.chosen_candidate_index]  # QueueEntry.__post_init__ already guarantees this is in range
+
+
+def apply_reviewed_entry(entry: QueueEntry):
+    '''
+    entry.status must be 'accepted'. Converts
+    entry.candidates[entry.chosen_candidate_index].filters (already a
+    realised CompleteFilter.to_json() dict -- see batch_design) back into a
+    CompleteFilter via model.codec.filter_from_json -- so nothing
+    downstream (set_filters, to_beq_xml, report, publish) can tell a human
+    picked this over the top-ranked candidate.
+    :return: the chosen candidate's CompleteFilter.
+    :raises ValueError: if entry.status != 'accepted'.
+    '''
+    from model.codec import filter_from_json
+    return filter_from_json(_chosen_candidate(entry).filters)
+
+
+def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: Optional[dict] = None,
+                           images_repo: Optional[RepoTarget] = None, image_owner: Optional[str] = None,
+                           image_repo_name: Optional[str] = None, xml_dir: str = '', image_dir: str = '',
+                           report_spec: ReportSpec = ReportSpec(),
+                           config: AnalysisConfig = AnalysisConfig()) -> List[dict]:
+    '''
+    Publishes every 'accepted' entry in queue_dir: apply_reviewed_entry()
+    for the filters, a fresh report image built from the entry's stored
+    curve + chosen filter (Session.report(), when images_repo is given),
+    then Session.publish() -- the same image-then-XML sequence
+    test_pipeline_acceptance.py exercises for an automatic top-pick, just
+    sourced from a human's pick instead. Marks each entry 'published' on
+    success. Idempotent -- 'published'/'pending'/'skipped'/'rejected'
+    entries are left alone, so re-running after a partial failure only
+    retries whatever is still 'accepted'.
+    :param meta_defaults: BeqMetadata constructor kwargs used to fill in
+        anything entry.meta doesn't supply (e.g. a shared source='Disc');
+        entry.meta wins on conflict. If neither supplies `gain`, it
+        defaults to the chosen candidate's mv_adjust_db (kept only for this
+        catalogue-compatibility purpose -- see designer-interface.md §3).
+    :param xml_dir/image_dir: relative directory prefix within each repo;
+        each entry publishes to '<xml_dir>/<entry.id>.xml' (and, if
+        images_repo is given, '<image_dir>/<entry.id>.png').
+    :return: one {'id': entry.id, **Session.publish()'s result} per entry
+        actually published this run.
+    '''
+    from model.codec import xydata_from_json
+    from pipeline.metadata import BeqMetadata
+
+    session = Session(config)
+    results = []
+    for entry in read_queue(queue_dir):
+        if entry.status != 'accepted':
+            continue
+        chosen = _chosen_candidate(entry)
+        complete_filter = apply_reviewed_entry(entry)
+        meta = BeqMetadata(**{**(meta_defaults or {}), **entry.meta})
+        if meta.gain is None:
+            meta.gain = f"{chosen.mv_adjust_db:+g}"
+
+        image_png = None
+        image_relative_path = None
+        if images_repo is not None:
+            unfiltered = xydata_from_json(entry.curve)
+            filtered = unfiltered.filter(complete_filter.get_transfer_function().get_magnitude())
+            image_png = session.report([unfiltered, filtered], complete_filter, meta=meta, spec=report_spec,
+                                       mv_offset=chosen.mv_adjust_db)
+            image_relative_path = os.path.join(image_dir, f"{entry.id}.png") if image_dir else f"{entry.id}.png"
+
+        xml_relative_path = os.path.join(xml_dir, f"{entry.id}.xml") if xml_dir else f"{entry.id}.xml"
+        result = session.publish(complete_filter, meta, xml_repo, xml_relative_path, images_repo=images_repo,
+                                 image_relative_path=image_relative_path, image_png=image_png,
+                                 image_owner=image_owner, image_repo_name=image_repo_name)
+        update_entry(queue_dir, entry.id, status='published')
+        results.append({'id': entry.id, **result})
+    return results
