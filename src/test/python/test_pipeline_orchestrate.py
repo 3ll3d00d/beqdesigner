@@ -73,6 +73,63 @@ def test_stats_reflects_filtering(loaded_signal):
     assert unfiltered.peak != filtered.peak
 
 
+def test_design_threads_bass_management_and_gain_reduction_db(loaded_signal):
+    '''
+    designer-interface-feedback.md #2/#1: DesignRequest.bass_management is
+    passed straight through, and a candidate's gain_reduction_db (the
+    actual clipping-cost metric, distinct from mv_adjust_db) survives onto
+    the Applied outcome.
+    '''
+    from pipeline.designer.contract import BiquadSpec, DesignCandidate, DesignResponse
+    from pipeline.designer.registry import register_designer, unregister_designer
+
+    session, sig = loaded_signal
+    bm_config = {'lpf_fs': 80.0, 'lpf_position': 'Before', 'headroom_type': 'WCS',
+                'clip_before': False, 'clip_after': False}
+    seen_requests = []
+
+    def fake_designer(request):
+        seen_requests.append(request)
+        return DesignResponse(contract_version='1.0', candidates=[
+            DesignCandidate(filters=[BiquadSpec(type='low_shelf', freq_hz=18.0, gain_db=4.5, q=0.7)],
+                            confidence=0.9, mv_adjust_db=22.5, gain_reduction_db=-4.37, method='fitted'),
+        ])
+
+    register_designer('test.bm', fake_designer)
+    try:
+        outcome = session.design(sig, 'test.bm', bass_management=bm_config)
+    finally:
+        unregister_designer('test.bm')
+
+    assert seen_requests[0].bass_management == bm_config
+    assert outcome.mv_adjust_db == 22.5
+    assert outcome.gain_reduction_db == -4.37
+
+
+def test_design_bass_management_defaults_to_none(loaded_signal):
+    from pipeline.designer.contract import BiquadSpec, DesignCandidate, DesignResponse
+    from pipeline.designer.registry import register_designer, unregister_designer
+
+    session, sig = loaded_signal
+    seen_requests = []
+
+    def fake_designer(request):
+        seen_requests.append(request)
+        return DesignResponse(contract_version='1.0', candidates=[
+            DesignCandidate(filters=[BiquadSpec(type='low_shelf', freq_hz=18.0, gain_db=4.5, q=0.7)],
+                            confidence=0.9, mv_adjust_db=22.5, method='fitted'),
+        ])
+
+    register_designer('test.bm-none', fake_designer)
+    try:
+        outcome = session.design(sig, 'test.bm-none')
+    finally:
+        unregister_designer('test.bm-none')
+
+    assert seen_requests[0].bass_management is None
+    assert outcome.gain_reduction_db is None
+
+
 def test_tmdb_is_a_thin_wrapper_over_pipeline_metadata(monkeypatch, loaded_signal):
     session, _ = loaded_signal
     calls = []

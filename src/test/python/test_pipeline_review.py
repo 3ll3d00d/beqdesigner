@@ -20,10 +20,10 @@ DECLINE_DESIGNER_NAME = 'test.review.decline'
 def _multi_candidate_designer(request):
     return DesignResponse(contract_version='1.0', candidates=[
         DesignCandidate(filters=[BiquadSpec(type='low_shelf', freq_hz=18.0, gain_db=4.5, q=0.7)],
-                        confidence=0.9, mv_adjust_db=4.0, method='fitted',
+                        confidence=0.9, mv_adjust_db=4.0, gain_reduction_db=-1.5, method='fitted',
                         commentary={'note': 'primary'}),
         DesignCandidate(filters=[BiquadSpec(type='peaking_eq', freq_hz=40.0, gain_db=-3.0, q=2.0)],
-                        confidence=0.4, mv_adjust_db=1.0, method='fitted',
+                        confidence=0.4, mv_adjust_db=1.0, gain_reduction_db=0.0, method='fitted',
                         commentary={'note': 'alternative'}),
     ])
 
@@ -151,7 +151,9 @@ def test_batch_design_writes_one_pending_entry_per_title(tmp_path):
         assert entry.status == 'pending'
         assert len(entry.candidates) == 2
         assert entry.candidates[0].confidence == 0.9  # top-ranked first
+        assert entry.candidates[0].gain_reduction_db == -1.5
         assert entry.candidates[1].confidence == 0.4
+        assert entry.candidates[1].gain_reduction_db == 0.0
         assert entry.curve['_type'] == 'MagnitudeData'
     assert entries['title-one'].meta == {'beq_title': 'Title One'}
     assert entries['title-two'].meta == {}

@@ -63,6 +63,12 @@ def _validate_candidate(candidate: DesignCandidate, index: int) -> None:
     if candidate.mv_adjust_db is None or not math.isfinite(candidate.mv_adjust_db):
         raise ContractViolation(f"candidates[{index}].mv_adjust_db must be a finite number, got {candidate.mv_adjust_db}")
 
+    if candidate.gain_reduction_db is not None:
+        if not math.isfinite(candidate.gain_reduction_db) or candidate.gain_reduction_db > 0:
+            raise ContractViolation(
+                f"candidates[{index}].gain_reduction_db must be a finite number <= 0 (0 = no reduction needed), "
+                f"got {candidate.gain_reduction_db}")
+
     if candidate.filters is None or len(candidate.filters) == 0:
         raise ContractViolation(f"candidates[{index}] has an empty filters list -- omit the candidate instead")
     if len(candidate.filters) > MAX_BIQUAD_SECTIONS:

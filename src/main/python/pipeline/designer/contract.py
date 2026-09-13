@@ -29,6 +29,12 @@ class DesignRequest:
     coverage: Coverage
     channels: Optional[dict] = None  # dict[str, ndarray], kept loose to avoid importing numpy typing extras
 
+    # the caller's bass-management configuration, if it has one to report --
+    # None when there's no bass management (or it hasn't been decided) --
+    # {'lpf_fs': float, 'lpf_position': 'Before'|'After'|'Off',
+    #  'headroom_type': 'WCS' | numeric-string-dB, 'clip_before': bool, 'clip_after': bool}
+    bass_management: Optional[dict] = None
+
 
 @dataclass(frozen=True)
 class BiquadSpec:
@@ -42,8 +48,12 @@ class BiquadSpec:
 class DesignCandidate:
     filters: list  # list[BiquadSpec]
     confidence: float
-    mv_adjust_db: float
+    mv_adjust_db: float  # NOT a clipping-cost estimate -- see gain_reduction_db below
     method: DesignMethod
+
+    # the actual publication-blocking cost: min(20*log10(1/peak), 0) of the filtered
+    # sub feed, i.e. <= 0 always, 0 meaning no reduction needed. None if not computed.
+    gain_reduction_db: Optional[float] = None
 
     # fit-quality -- error against an identified model's exact target for
     # 'exact'/'fitted', or against a constructed target curve for
@@ -79,7 +89,7 @@ class DesignResponse:
 
 
 def build_request(mono_mix: ndarray, fs: int, coverage: Coverage = 'complete_programme',
-                  channels: Optional[dict] = None) -> DesignRequest:
+                  channels: Optional[dict] = None, bass_management: Optional[dict] = None) -> DesignRequest:
     ''' Convenience constructor that fills in contract_version. '''
     return DesignRequest(contract_version=CONTRACT_VERSION, fs=fs, mono_mix=mono_mix, coverage=coverage,
-                         channels=channels)
+                         channels=channels, bass_management=bass_management)

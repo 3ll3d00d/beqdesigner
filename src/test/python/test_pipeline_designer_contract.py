@@ -11,8 +11,8 @@ import pytest
 from pipeline.designer.contract import DesignCandidate, DesignRequest, DesignResponse, BiquadSpec, build_request
 
 _CANDIDATE_FIELDS = {
-    'filters', 'confidence', 'mv_adjust_db', 'method', 'residual_db', 'residual_band_hz', 'commentary',
-    'fc_hz', 'slope', 'fc_uncertainty_hz', 'slope_uncertainty', 'channel_scope',
+    'filters', 'confidence', 'mv_adjust_db', 'gain_reduction_db', 'method', 'residual_db', 'residual_band_hz',
+    'commentary', 'fc_hz', 'slope', 'fc_uncertainty_hz', 'slope_uncertainty', 'channel_scope',
 }
 
 
@@ -203,6 +203,46 @@ def test_non_finite_mv_adjust_rejected():
     from pipeline.designer.convert import validate_response, ContractViolation
     with pytest.raises(ContractViolation, match='mv_adjust_db'):
         validate_response(_success(mv_adjust_db=float('nan')))
+
+
+def test_gain_reduction_db_is_optional():
+    from pipeline.designer.convert import validate_response
+    validate_response(_success(gain_reduction_db=None))
+
+
+def test_negative_gain_reduction_db_is_valid():
+    from pipeline.designer.convert import validate_response
+    validate_response(_success(gain_reduction_db=-4.37))
+
+
+def test_zero_gain_reduction_db_is_valid():
+    ''' 0 means no reduction needed -- the cheap-filter case designer-interface-feedback.md#1 measured. '''
+    from pipeline.designer.convert import validate_response
+    validate_response(_success(gain_reduction_db=0.0))
+
+
+def test_positive_gain_reduction_db_rejected():
+    from pipeline.designer.convert import validate_response, ContractViolation
+    with pytest.raises(ContractViolation, match='gain_reduction_db'):
+        validate_response(_success(gain_reduction_db=4.37))
+
+
+def test_non_finite_gain_reduction_db_rejected():
+    from pipeline.designer.convert import validate_response, ContractViolation
+    with pytest.raises(ContractViolation, match='gain_reduction_db'):
+        validate_response(_success(gain_reduction_db=float('nan')))
+
+
+def test_build_request_carries_bass_management_through():
+    request = build_request(mono_mix=None, fs=1000, bass_management={'lpf_fs': 80.0, 'lpf_position': 'Before',
+                                                                      'headroom_type': 'WCS', 'clip_before': False,
+                                                                      'clip_after': False})
+    assert request.bass_management == {'lpf_fs': 80.0, 'lpf_position': 'Before', 'headroom_type': 'WCS',
+                                       'clip_before': False, 'clip_after': False}
+
+
+def test_build_request_bass_management_defaults_to_none():
+    assert build_request(mono_mix=None, fs=1000).bass_management is None
 
 
 def test_missing_decline_reason_string_rejected():

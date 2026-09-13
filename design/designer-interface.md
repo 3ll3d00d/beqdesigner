@@ -78,6 +78,7 @@ class DesignRequest:
     mono_mix: ndarray              # 1-D float64, the primary signal — see below
     coverage: Literal['complete_programme', 'excerpt']   # see below
     channels: dict[str, ndarray] | None = None   # optional, diagnostic — see below
+    bass_management: dict | None = None          # see below
 ```
 
 **`mono_mix`** is a full-band sum of all channels with the LFE channel
@@ -113,10 +114,42 @@ higher-resolution version available through this call. If your method needs
 more bandwidth than a given `fs` provides, decline (§4) rather than
 guessing — the caller controls `fs` and can be asked to raise it.
 
+**`bass_management`, added after implementation feedback:** the caller's
+bass-management configuration, if it has one — `None` when there is none
+(or it hasn't been decided). When present:
+
+```python
+{
+    'lpf_fs': float,                         # crossover frequency (Hz)
+    'lpf_position': 'Before' | 'After' | 'Off',  # relative to each channel's own filter
+    'headroom_type': 'WCS' | '<numeric dB as a string>',  # see below
+    'clip_before': bool,
+    'clip_after': bool,
+}
+```
+
+This exists because computing `gain_reduction_db` (§3) means building the
+actual sub feed — mains and LFE summed, attenuated, and low-passed the way
+the caller's own playback chain would do it — and guessing that
+configuration is not a fact you can reconstruct from `mono_mix`/`channels`
+alone; it's information the caller already has and you don't. It is not a
+*preference*: the "no headroom/max-boost/device preference" line below
+still holds, and this is a fact about the playback chain, not a knob you're
+being asked to defer to. `headroom_type='WCS'` means the mains and LFE are
+attenuated by the *worst-case-scenario coherent-summation* figure, computed
+from `channels`' keys as `20·log10(n_mains)` combined with LFE at +10 dB:
+`headroom_db = 20·log10(10^(20·log10(n_mains)/20) + 10^(10/20))`, `n_mains`
+= every `channels` key except `"LFE"`. A numeric string instead means a
+fixed headroom of `abs(float(headroom_type)) + 10` dB. Meaningful only
+together with `channels` — without a per-channel decomposition there is no
+sub feed to build regardless of what this says.
+
 **What is deliberately absent, and why:** no headroom/max-boost/device
 preference of any kind. Your answer must not be shaped by what the caller
-intends to do with it — see `mv_adjust_db` in §3 for where headroom
-information flows, and it flows *out*, never in.
+intends to do with it — see `mv_adjust_db`/`gain_reduction_db` in §3 for
+where headroom information flows, and it flows *out*, never in.
+`bass_management` above is the one exception, and it's an exception on
+purpose: it is a fact, not a preference — see why there above.
 
 **No guarantee of provenance.** `mono_mix`/`channels` may be real
 theatrical/consumer audio, a known filter applied to known-clean material for
@@ -151,11 +184,14 @@ class BiquadSpec:
 @dataclass(frozen=True)
 class DesignCandidate:
     filters: list[BiquadSpec]
-    confidence: float      # 0.0-1.0 — P(a real rolloff was applied); see below
-    mv_adjust_db: float    # implied headroom compensation; see below
+    confidence: float      # 0.0-1.0, ordinal in v1 — see below
+    mv_adjust_db: float    # the cascade's implied gain; NOT a clipping-cost estimate — see below
     method: DesignMethod   # how `filters` was derived; see below
 
-    # fit-quality — populated whenever `method` is 'exact' or 'fitted'; see below
+    # the actual clipping-cost figure; see below. None if not computed
+    gain_reduction_db: float | None = None
+
+    # fit-quality — see below for what "no exact target" now means for non_parametric
     residual_db: float | None = None            # max abs error, dB, over residual_band_hz
     residual_band_hz: tuple[float, float] | None = None
 
@@ -267,13 +303,33 @@ on their own:
 Do not infer `method` from `fc_hz is None` — leave `fc_hz`/`slope` as
 optional diagnostics either way and populate `method` explicitly.
 
-**`mv_adjust_db`** — your model's implied headroom compensation ("what
-would master volume need to move by to keep this filter safe" — the same
-quantity as the catalogue's `mv_adjust` field). This is the *only*
-headroom-shaped value that crosses the boundary, and it only goes one
-direction: out. You do not receive a headroom constraint as an input (§2),
-and this field is not read back as a constraint on a later call — there is
-no later call.
+**`mv_adjust_db`, corrected: this is not the clipping-cost figure it
+sounds like.** It is the cascade's implied gain — in practice, its peak
+magnitude — reported so the field lines up with the catalogue's `mv_adjust`
+(same quantity, §7 backward compatibility). Earlier drafts described it as
+"what would master volume need to move by to keep this filter safe", which
+reads as a whole-system attenuation cost. It is not one, for two reasons: a
+BEQ runs post bass-management, on the sub channel only, so it costs no
+master volume at all; and even read as "cost to the sub channel", cascade
+peak magnitude is close to *inverted* against what actually constrains
+publication. A +45 dB boost sitting where the programme has no content
+costs nothing; an +18 dB one landing on real content can cost several dB.
+Gating on this number rejects the cheap corrections and accepts the
+expensive ones. **Use `gain_reduction_db` below for anything that needs the
+actual cost** — this field is kept only for catalogue compatibility.
+
+**`gain_reduction_db`, new.** The actual publication-blocking quantity: the
+gain reduction the *filtered sub feed* needs to avoid clipping —
+`min(20·log10(1/peak), 0)` of that feed, so always `<= 0`, `0` meaning no
+reduction needed. "The filtered sub feed" means mains + LFE summed,
+attenuated and low-passed per `bass_management` (§2) with `filters`
+applied — buildable only when `bass_management` and `channels` were both
+supplied; leave this `None` otherwise rather than approximating it from
+`mono_mix` alone, which is not the same signal. This is the same
+computation the caller already does internally (`pipeline/stats.py`'s
+`signal_stats().headroom`, `min`'d with 0) — reporting it here means the
+caller doesn't have to re-derive it, and a designer without `channels`
+isn't forced to guess at a number it can't actually compute.
 
 **Sign convention, pinned — corrected from an earlier draft, and pinned to
 measured catalogue data rather than an assumption:** `mv_adjust_db` is
@@ -441,7 +497,8 @@ DesignResponse(
                 BiquadSpec(type='low_shelf', freq_hz=15.810, gain_db=15.918, q=0.7071),
             ],
             confidence=0.94,
-            mv_adjust_db=15.918,           # positive: master volume should come down 15.918 dB
+            mv_adjust_db=15.918,           # cascade's implied gain -- catalogue compat only, not a cost figure
+            gain_reduction_db=-1.2,         # illustrative -- the actual sub-feed clipping cost, usually << mv_adjust_db
             method='exact',                 # matched-alignment closed-form decomposition
             residual_db=0.0008, residual_band_hz=(5.0, 200.0),
             commentary={'alignment': 'LR4', 'knee_hz': '25.0'},

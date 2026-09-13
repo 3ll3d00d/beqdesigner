@@ -79,7 +79,8 @@ class AlternativeDesign:
     filters: CompleteFilter
     confidence: float
     method: str
-    mv_adjust_db: Optional[float] = None
+    mv_adjust_db: Optional[float] = None  # NOT a clipping-cost estimate -- see gain_reduction_db
+    gain_reduction_db: Optional[float] = None
     commentary: Optional[dict] = None
     residual_db: Optional[float] = None
     residual_band_hz: Optional[tuple] = None
@@ -91,7 +92,8 @@ class Applied:
     filters: CompleteFilter
     confidence: float
     method: str
-    mv_adjust_db: Optional[float] = None
+    mv_adjust_db: Optional[float] = None  # NOT a clipping-cost estimate -- see gain_reduction_db
+    gain_reduction_db: Optional[float] = None
     fc_hz: Optional[float] = None
     slope: Optional[float] = None
     fc_uncertainty_hz: Optional[float] = None
@@ -181,7 +183,7 @@ class Session:
         return loader.auto_load(lambda idx, count: default_name, decimate=decimate, offset=offset)
 
     def design(self, sig: SingleChannelSignalData, designer: str,
-              coverage: Coverage = 'complete_programme') -> DesignOutcome:
+              coverage: Coverage = 'complete_programme', bass_management: Optional[dict] = None) -> DesignOutcome:
         '''
         Invokes a registered designer (pipeline.designer.registry) with a
         DesignRequest built from sig, validates and converts its response
@@ -192,9 +194,15 @@ class Session:
         top-ranked one becomes Applied.filters (the only one ever simulated/
         published automatically) -- the rest travel along as
         Applied.alternatives, for a human reviewing the report.
+        :param bass_management: this session's bass-management configuration
+            (design/designer-interface.md §2), if any -- passed straight
+            through to the designer as DesignRequest.bass_management. None
+            (the default) if there is none to report; this session does not
+            infer one from sig, which is always single-channel.
         '''
         designer_fn = get_designer(designer)
-        request = build_request(mono_mix=sig.signal.samples, fs=sig.signal.fs, coverage=coverage)
+        request = build_request(mono_mix=sig.signal.samples, fs=sig.signal.fs, coverage=coverage,
+                                bass_management=bass_management)
         response = designer_fn(request)
         if response.decline_reason is not None:
             return Declined(reason=response.decline_reason, message=response.decline_message)
@@ -203,11 +211,13 @@ class Session:
         complete_filter = to_complete_filter(response, fs=fs)
         alternatives = tuple(
             AlternativeDesign(filters=alt_filter, confidence=candidate.confidence, method=candidate.method,
-                              mv_adjust_db=candidate.mv_adjust_db, commentary=candidate.commentary,
+                              mv_adjust_db=candidate.mv_adjust_db, gain_reduction_db=candidate.gain_reduction_db,
+                              commentary=candidate.commentary,
                               residual_db=candidate.residual_db, residual_band_hz=candidate.residual_band_hz)
             for candidate, alt_filter in zip(response.candidates[1:], alternative_filters(response, fs=fs)))
         return Applied(filters=complete_filter, confidence=primary.confidence, method=primary.method,
-                       mv_adjust_db=primary.mv_adjust_db, fc_hz=primary.fc_hz, slope=primary.slope,
+                       mv_adjust_db=primary.mv_adjust_db, gain_reduction_db=primary.gain_reduction_db,
+                       fc_hz=primary.fc_hz, slope=primary.slope,
                        fc_uncertainty_hz=primary.fc_uncertainty_hz, slope_uncertainty=primary.slope_uncertainty,
                        residual_db=primary.residual_db, residual_band_hz=primary.residual_band_hz,
                        commentary=primary.commentary, alternatives=alternatives)

@@ -34,7 +34,8 @@ class CandidateSummary:
     filters: dict
     confidence: float
     method: str
-    mv_adjust_db: float
+    mv_adjust_db: float  # NOT a clipping-cost estimate -- see gain_reduction_db
+    gain_reduction_db: Optional[float] = None
     residual_db: Optional[float] = None
     residual_band_hz: Optional[tuple] = None
     commentary: Optional[dict] = None
@@ -126,17 +127,20 @@ def _outcome_to_entry(entry_id: str, fs: int, meta: dict, curve: dict, outcome: 
     assert isinstance(outcome, Applied)
     candidates = [CandidateSummary(filters=outcome.filters.to_json(), confidence=outcome.confidence,
                                    method=outcome.method, mv_adjust_db=outcome.mv_adjust_db,
+                                   gain_reduction_db=outcome.gain_reduction_db,
                                    residual_db=outcome.residual_db, residual_band_hz=outcome.residual_band_hz,
                                    commentary=outcome.commentary)]
     candidates += [CandidateSummary(filters=alt.filters.to_json(), confidence=alt.confidence, method=alt.method,
-                                    mv_adjust_db=alt.mv_adjust_db, residual_db=alt.residual_db,
+                                    mv_adjust_db=alt.mv_adjust_db, gain_reduction_db=alt.gain_reduction_db,
+                                    residual_db=alt.residual_db,
                                     residual_band_hz=alt.residual_band_hz, commentary=alt.commentary)
                   for alt in outcome.alternatives]
     return QueueEntry(id=entry_id, fs=fs, meta=meta, curve=curve, candidates=candidates)
 
 
 def batch_design(items: Sequence[Tuple[str, str, Optional[dict]]], designer: str, queue_dir: str, work_dir: str,
-                 config: AnalysisConfig = AnalysisConfig(), coverage: Coverage = 'complete_programme') -> List[str]:
+                 config: AnalysisConfig = AnalysisConfig(), coverage: Coverage = 'complete_programme',
+                 bass_management: Optional[dict] = None) -> List[str]:
     '''
     Runs Session.extract/load/design for each item and writes one
     QueueEntry (status 'pending') to queue_dir per title -- never calls
@@ -150,6 +154,8 @@ def batch_design(items: Sequence[Tuple[str, str, Optional[dict]]], designer: str
         supported.
     :param work_dir: scratch directory for extracted audio, one
         subdirectory per item.
+    :param bass_management: this batch's bass-management configuration, if
+        any -- see Session.design(); the same one is used for every item.
     :return: the ids written, in `items` order.
     '''
     from model.codec import xydata_to_json
@@ -159,7 +165,7 @@ def batch_design(items: Sequence[Tuple[str, str, Optional[dict]]], designer: str
     for entry_id, source_path, meta in items:
         extracted = session.extract(source_path, os.path.join(work_dir, entry_id))
         sig = session.load(extracted, name=entry_id)
-        outcome = session.design(sig, designer, coverage=coverage)
+        outcome = session.design(sig, designer, coverage=coverage, bass_management=bass_management)
         curve = xydata_to_json(session.curves(sig, kind='avg', filtered=False))
         entry = _outcome_to_entry(entry_id, sig.signal.fs, meta or {}, curve, outcome)
         write_queue_entry(queue_dir, entry)
