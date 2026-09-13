@@ -1,6 +1,6 @@
 # Implementation plan — candidate review workflow
 
-**Status:** planning → ready to execute. Builds on `designer-interface.md`'s
+**Status:** Phase 1 done. Builds on `designer-interface.md`'s
 `DesignResponse.candidates` (a designer may now return several ranked filter
 candidates per title, each with its own confidence/commentary — see that
 document §3). This plan adds the missing piece: a way to run design over
@@ -57,67 +57,89 @@ docs/schema/
 `read_queue`, `update_entry`, `batch_design`), `test_pipeline_review.py`
 covering all of it. No GUI, no publish.
 
-`QueueEntry` (frozen-ish dataclass, mutated only via `update_entry`, which
-rewrites the file):
+`QueueEntry` (plain dataclass, mutated only via `update_entry`, which
+rewrites the file). **Revised while implementing:** rather than a bespoke
+serializer for the raw `DesignResponse`/`DesignCandidate`/`BiquadSpec`
+shapes, each candidate's filters are realised into a `CompleteFilter` at
+`entry.fs` immediately (`to_complete_filter`/`alternative_filters`, already
+existing) and stored via `CompleteFilter.to_json()` — the same, already
+tested/published format as `docs/schema/filter.schema.json`. This also
+means Phase 2 needs no new public API from `designer/convert.py` (see
+below):
 
 ```python
 @dataclass
+class CandidateSummary:
+    filters: dict              # CompleteFilter.to_json(), already realised at entry.fs
+    confidence: float
+    method: str
+    mv_adjust_db: float
+    residual_db: Optional[float] = None
+    residual_band_hz: Optional[tuple] = None
+    commentary: Optional[dict] = None
+
+@dataclass
 class QueueEntry:
     id: str                       # stable slug, also the filename (id + '.json')
-    fs: int                       # publish-target fs the candidates will be realised at
+    fs: int                       # publish-target fs the candidates were realised at
     meta: dict                    # BeqMetadata.to_dict()-shaped, or a partial dict if
                                   # TMDB lookup hasn't happened yet -- resolving metadata
                                   # at review time (not batch time) is deliberately allowed
     curve: dict                   # one MagnitudeData (avg), via model.codec.xydata_to_json --
                                   # enough to redraw the live preview without the original audio
-    response: dict                # the full DesignResponse (candidates + decline fields), via
-                                  # a small asdict-based (de)serializer in this module -- not
-                                  # model/codec.py, which has no reason to know this shape
+    candidates: List[CandidateSummary] = field(default_factory=list)  # empty on decline
+    decline_reason: Optional[str] = None
+    decline_message: Optional[str] = None
     status: str = 'pending'       # pending | accepted | skipped | rejected | published
     chosen_candidate_index: Optional[int] = None
     reviewer_note: Optional[str] = None
 ```
 
 `write_queue_entry(dir, entry)` / `read_queue(dir) -> list[QueueEntry]` /
-`update_entry(dir, id, **fields) -> QueueEntry` (read-modify-write one file;
-raises if `id` isn't present rather than silently creating one — entries are
-only ever created by `batch_design`).
+`read_entry(dir, id) -> QueueEntry` / `update_entry(dir, id, **fields) ->
+QueueEntry` (read-modify-write one file; raises `FileNotFoundError` if `id`
+isn't present rather than silently creating one — entries are only ever
+created by `batch_design`).
 
-`batch_design(items, designer, queue_dir, config=AnalysisConfig())` where
-`items` is `Sequence[tuple[id, source_path, meta_dict_or_None]]`: for each,
-runs `Session.extract`/`load`/`design` (reusing `Session` exactly as it
-exists today) and writes one `QueueEntry` — status `pending` on an `Applied`
-outcome (whatever `candidates` the designer returned), or a `QueueEntry`
-with `response.decline_reason` set and status `pending` on a `Declined`
-outcome (a decline still needs a human to see *why*, even though there's
-nothing to pick). Never calls `set_filters`/`publish` — that's Phase 2, and
-only for entries a human has since marked `accepted`.
+`batch_design(items, designer, queue_dir, work_dir, config=AnalysisConfig())`
+where `items` is `Sequence[tuple[id, source_path, meta_dict_or_None]]`: for
+each, runs `Session.extract`/`load`/`design` (reusing `Session` exactly as
+it exists today) and writes one `QueueEntry` — status `pending` either way,
+`candidates` populated from an `Applied` outcome (`[primary] +
+alternatives`, in rank order) or empty with `decline_reason`/
+`decline_message` set from a `Declined` outcome (a decline still needs a
+human to see *why*, even though there's nothing to pick). Never calls
+`set_filters`/`publish` — that's Phase 2, and only for entries a human has
+since marked `accepted`.
 
-**Tests:** `QueueEntry` round-trips through `write_queue_entry`/`read_queue`
-with a multi-candidate response (commentary included); `batch_design` over
-2-3 synthetic titles (reusing `test_pipeline_acceptance.py`'s synthetic-wav
-helper) produces one queue file per title with the right status; a declined
-title round-trips its `decline_reason`/`decline_message`.
+**Tests (`test_pipeline_review.py`, done — 11 tests):** `QueueEntry`
+construction validation (accepted-without-index, out-of-range index,
+invalid status); round-trip through `write_queue_entry`/`read_entry` with
+multiple candidates and commentary; `read_queue`'s pending-first ordering;
+`update_entry` rewriting a file and rejecting a missing id;
+`batch_design` over two synthetic titles producing one pending entry each,
+top-ranked-first; a declined title carrying its reason/message; the
+per-module no-`qtpy`-import check every other `pipeline/` module gets.
 
 ---
 
 ## Phase 2 — applying a reviewed decision
 
-**Ships:** `candidate_to_complete_filter` made public in
-`designer/convert.py` (currently the private `_candidate_to_complete_filter`
-helper `to_complete_filter`/`alternative_filters` already share — no new
-logic, just a public name), plus `apply_reviewed_entry` and
-`publish_reviewed_queue` in `pipeline/review.py`.
+**Ships:** `apply_reviewed_entry` and `publish_reviewed_queue` in
+`pipeline/review.py`. No `designer/convert.py` changes needed after all —
+see the Phase 1 revision above: each `CandidateSummary.filters` is already
+a realised `CompleteFilter.to_json()` dict, so applying a pick is just
+`model.codec.filter_from_json(chosen.filters)`, not a re-run of the
+designer-contract conversion.
 
 ```python
-def apply_reviewed_entry(entry: QueueEntry) -> Applied:
+def apply_reviewed_entry(entry: QueueEntry) -> CompleteFilter:
     '''
-    entry.status must be 'accepted' and chosen_candidate_index must be set.
-    Converts response.candidates[chosen_candidate_index] via
-    candidate_to_complete_filter(), returning the same Applied shape
-    Session.design() produces for an automatic top-pick -- so nothing
-    downstream (set_filters, to_beq_xml, report, publish) can tell a human
-    was involved.
+    entry.status must be 'accepted' and chosen_candidate_index must be set
+    (both already enforced by QueueEntry construction/update_entry).
+    filter_from_json(entry.candidates[entry.chosen_candidate_index].filters)
+    -- so nothing downstream (set_filters, to_beq_xml, report, publish) can
+    tell a human picked this over the top-ranked candidate.
     '''
 
 def publish_reviewed_queue(queue_dir, xml_repo, meta_defaults=None, **publish_kwargs) -> list[dict]:
