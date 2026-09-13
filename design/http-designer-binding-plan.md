@@ -1,6 +1,6 @@
 # Implementation plan — HTTP designer binding
 
-**Status:** Phase 1 done. Answers "how does a random user plug
+**Status:** Phases 1-2 done. Answers "how does a random user plug
 their own filter-design implementation into beqd" — today the answer is
 "they can't": `pipeline.designer.registry.register_designer()` is in-process
 Python only, beqd ships as a frozen PyInstaller binary with no Python

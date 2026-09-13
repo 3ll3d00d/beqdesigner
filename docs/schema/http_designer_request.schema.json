@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/3ll3d00d/beqdesigner/main/docs/schema/http_designer_request.schema.json",
+  "title": "HTTP designer request",
+  "description": "The JSON body POSTed to an HTTP-bound filter designer -- design/designer-interface.md §7.1, implemented caller-side by pipeline.designer.http_binding.http_designer(). One POST per DesignRequest (§2). Aimed at implementers in any language, unlike the rest of the Python-dataclass-shaped contract.",
+  "type": "object",
+  "properties": {
+    "contract_version": {
+      "const": "1.0",
+      "description": "echo this back unchanged in the response"
+    },
+    "fs": {
+      "type": "integer",
+      "description": "sample rate (Hz) of mono_mix and every array in channels"
+    },
+    "coverage": {
+      "enum": ["complete_programme", "excerpt"],
+      "description": "design/designer-interface.md §2 -- whether mono_mix spans the entire title or something less"
+    },
+    "mono_mix": {
+      "$ref": "#/$defs/ndarray",
+      "description": "1-D, the primary signal to design against"
+    },
+    "channels": {
+      "description": "optional per-channel decomposition, keyed by channel label (\"L\", \"R\", \"C\", \"LFE\", \"Ls\", \"Rs\", etc.); null when not supplied. Each array is 1-D, the same length as mono_mix, and time-aligned with it.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/ndarray" }
+        },
+        { "type": "null" }
+      ]
+    },
+    "bass_management": {
+      "description": "the caller's bass-management configuration, if it has one; null otherwise. Meaningful only together with channels.",
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "lpf_fs": { "type": "number", "description": "crossover frequency (Hz)" },
+            "lpf_position": { "enum": ["Before", "After", "Off"] },
+            "headroom_type": {
+              "type": "string",
+              "description": "\"WCS\" (worst-case-scenario coherent summation) or a fixed headroom in dB as a numeric string"
+            },
+            "clip_before": { "type": "boolean" },
+            "clip_after": { "type": "boolean" }
+          },
+          "required": ["lpf_fs", "lpf_position", "headroom_type", "clip_before", "clip_after"],
+          "additionalProperties": true
+        },
+        { "type": "null" }
+      ]
+    }
+  },
+  "required": ["contract_version", "fs", "coverage", "mono_mix"],
+  "additionalProperties": true,
+  "$defs": {
+    "ndarray": {
+      "description": "A 1-D float64 array, base64-encoded as raw little-endian bytes -- not a JSON number array (a 2-hour, 1kHz mono_mix is ~58MB as float64; JSON text bloats that 3-5x for no benefit on a same-machine/LAN call).",
+      "type": "object",
+      "properties": {
+        "dtype": {
+          "const": "float64",
+          "description": "travels explicitly rather than being assumed, so a future widening isn't a silent breaking change. \"float64\" is the only value v1 produces or accepts."
+        },
+        "shape": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 0 },
+          "minItems": 1,
+          "maxItems": 1,
+          "description": "1-D only in v1 -- a single-element array of the element count"
+        },
+        "data_base64": {
+          "type": "string",
+          "description": "base64 encoding of the array's raw little-endian float64 bytes (numpy's native '<f8' byte order)"
+        }
+      },
+      "required": ["dtype", "shape", "data_base64"],
+      "additionalProperties": false
+    }
+  }
+}

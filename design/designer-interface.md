@@ -570,13 +570,65 @@ you can ignore fields you don't recognise on the request side, and the
 caller does the same for the response. A breaking change bumps to `2.0` and
 this document gets a new version marker at the top.
 
-**This document specifies data shapes, not a transport.** v1 binds them as
-an in-process Python callable (§1) because that's the cheapest path for both
-sides to start — nothing here stops a subprocess or HTTP binding later that
-serialises the same fields as JSON (numpy arrays becoming nested lists or a
-base64/npy payload — not yet specified, because v1 doesn't need it). If that
-ever becomes necessary, the field names, types and validation rules above
-don't change; only how they cross a process boundary does.
+**This document specifies data shapes, not a transport.** §1's in-process
+Python callable is one binding; §7.1 below specifies a second, over HTTP.
+The field names, types and validation rules above don't change between
+them — only how they cross a process boundary does. Any future binding
+(subprocess, message queue, whatever) follows the same rule: same fields,
+different wire.
+
+### 7.1 HTTP binding
+
+Chosen over the process boundary staying Python-only because it's the more
+deployment-flexible option — the designer can be local, on another
+machine, written in any language, or shared across a team, without the
+caller spawning or managing it (`design/http-designer-binding-plan.md` has
+the fuller reasoning). This repo's caller-side implementation is
+`pipeline.designer.http_binding.http_designer(url)`.
+
+**One POST per `design()` call**, request body:
+
+```json
+{
+  "contract_version": "1.0",
+  "fs": 1000,
+  "coverage": "complete_programme",
+  "mono_mix": {"dtype": "float64", "shape": [N], "data_base64": "..."},
+  "channels": {"L": {"dtype": "float64", "shape": [N], "data_base64": "..."}, "...": "..."},
+  "bass_management": {"lpf_fs": 80.0, "lpf_position": "Before", "headroom_type": "WCS",
+                      "clip_before": false, "clip_after": false}
+}
+```
+
+`channels`/`bass_management` are JSON `null` exactly when the corresponding
+`DesignRequest` field is `None`. **Arrays are base64-encoded raw
+little-endian float64 bytes, not JSON number arrays** — at the common 1 kHz
+decimated rate, a 2-hour `mono_mix` is ~58 MB as float64 (§8's own figure);
+JSON's text encoding of that many floats bloats it 3-5x for no benefit on a
+same-machine/LAN call, where decode simplicity matters more than the
+payload being human-readable. `dtype` travels alongside rather than being
+assumed, so a future widening (e.g. float32) isn't a silent breaking change;
+`"float64"` is the only value v1 produces or accepts.
+
+**Response body is `DesignResponse` as JSON, field-for-field** — success:
+`{"contract_version": "1.0", "candidates": [...]}`, each candidate's
+`filters` as `[{"type": "low_shelf", "freq_hz": ..., "gain_db": ..., "q": ...}, ...]`;
+decline: `{"contract_version": "1.0", "decline_reason": "...", "decline_message": "..."}`.
+No binary encoding on this side at all — a `BiquadSpec` carries no
+sample-rate-bound data by design (§5), so nothing in a response needs it.
+
+**Errors are not declines.** A non-2xx status, a connection failure or
+timeout, or a body that doesn't parse into a `DesignResponse` are all
+implementation failures per §1 — the caller's HTTP binding raises rather
+than inventing a decline on your behalf. A *well-formed* `DesignResponse`
+that fails §3-§5 validation is unaffected by which binding produced it —
+that check happens after either binding hands back a `DesignResponse`, not
+as part of decoding one.
+
+**Formal spec:** `docs/schema/http_designer_request.schema.json` and
+`http_designer_response.schema.json` — the machine-checkable version of the
+shapes above, meant for implementers in any language (unlike the rest of
+this document, which only needs to match this repo's own Python).
 
 ---
 
