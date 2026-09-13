@@ -260,6 +260,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.action_Batch_Extract.triggered.connect(self.showBatchExtractDialog)
         # analysis
         self.actionAnalyse_Audio.triggered.connect(self.showAnalyseAudioDialog)
+        self.action_Review_Batch_Designs.triggered.connect(self.showReviewQueueDialog)
         # import
         self.actionLoad_Filter.triggered.connect(self.importFilter)
         self.actionLoad_Signal.triggered.connect(self.importSignal)
@@ -912,6 +913,15 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
             return
         from model.batch import BatchExtractDialog
         BatchExtractDialog(self, self.preferences).show()
+
+    def showReviewQueueDialog(self):
+        '''
+        Show the review-batch-designs dialog (design/candidate-review-plan.md
+        phase 3) -- independent of whatever's currently loaded in signalView,
+        since it reads/writes its own pipeline.review queue directory.
+        '''
+        from model.review import ReviewQueueDialog
+        ReviewQueueDialog(self, self.preferences).show()
 
     def __check_ffmpeg_available(self):
         '''

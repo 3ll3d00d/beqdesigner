@@ -1243,6 +1243,8 @@
     <addaction name="separator"/>
     <addaction name="actionAnalyse_Audio"/>
     <addaction name="separator"/>
+    <addaction name="action_Review_Batch_Designs"/>
+    <addaction name="separator"/>
     <addaction name="actionBrowse_Catalogue"/>
     <addaction name="actionExport_Biquad"/>
     <addaction name="actionMerge_Minidsp_XML"/>
@@ -1444,6 +1446,11 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+Shift+E</string>
+   </property>
+  </action>
+  <action name="action_Review_Batch_Designs">
+   <property name="text">
+    <string>Re&amp;view Batch Designs</string>
    </property>
   </action>
   <action name="actionSave_Report">

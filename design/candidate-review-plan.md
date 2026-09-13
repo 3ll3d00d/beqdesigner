@@ -1,6 +1,6 @@
 # Implementation plan — candidate review workflow
 
-**Status:** Phases 1-2 done. Builds on `designer-interface.md`'s
+**Status:** Phases 1-3 done. Builds on `designer-interface.md`'s
 `DesignResponse.candidates` (a designer may now return several ranked filter
 candidates per title, each with its own confidence/commentary — see that
 document §3). This plan adds the missing piece: a way to run design over
@@ -211,6 +211,37 @@ directory:
   background thread via the existing `QThreadPool`/worker-signal pattern
   (`model/batch.py`, `model/ffmpeg.py`), with a progress bar and a
   completion summary (published / failed / nothing to do).
+
+**Implementation notes / scope cuts:**
+- `.ui` authored by hand (this session has no Qt Designer GUI access) and
+  compiled with `uv run pyuic6 review.ui -o review.py`, same as
+  `readme.md`'s documented workflow — not hand-edited afterwards. Same for
+  the `action_Review_Batch_Designs` menu entry added to `ui/beq.ui`
+  (Tools menu) and regenerated into `ui/beq.py`.
+- **"Publish accepted" only asks for the XML repo directory** (a
+  `QFileDialog` directory picker, same UX as the queue-dir picker) and
+  calls `publish_reviewed_queue` XML-only (`images_repo=None`) — no
+  images-repo/owner/repo-name UI yet. `publish_reviewed_queue` already
+  supports images; this is a scope cut in the dialog only, not the
+  pipeline, and is additive to fill in later.
+- `ReviewQueueDialog.load_queue_dir(path)` is a small public seam added
+  beyond the original sketch so tests (and `app.py`, if it ever wants to
+  pre-point the dialog at a queue) don't have to reach into private state.
+- Confirmed the `ui.beq`/`app` circular import (documented in the
+  `pytest_qt_gui_testing` memory) is pre-existing and unaffected by this
+  change — a cold `import app` fails identically before and after; the
+  real app (launching `app.py` as `__main__`) and every test file that
+  does `import ui.beq` first are both unaffected.
+
+**Tests (`gui/test_review_dialog.py`, done — 9 tests):** loading a queue
+populates the table; selecting a row populates the candidate list
+(defaulting to `candidates[0]`) and commentary table; a declined entry
+shows its reason and disables Accept; a digit key changes the pick without
+accepting; Accept writes the *chosen* candidate (not necessarily the top
+one) and advances to the next pending row; Skip leaves the entry `pending`
+and advances; Reject is permanent and distinct from Skip; advancing never
+jumps back to row 0 regardless of where the reviewer was; the chart's data
+provider returns the unfiltered + currently-picked-candidate curves.
 
 ---
 
