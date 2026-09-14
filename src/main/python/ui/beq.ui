@@ -1243,9 +1243,7 @@
     <addaction name="separator"/>
     <addaction name="actionAnalyse_Audio"/>
     <addaction name="separator"/>
-    <addaction name="action_Batch_Design"/>
     <addaction name="action_Review_Batch_Designs"/>
-    <addaction name="action_Designers"/>
     <addaction name="separator"/>
     <addaction name="actionBrowse_Catalogue"/>
     <addaction name="actionExport_Biquad"/>
@@ -1444,7 +1442,7 @@
   </action>
   <action name="action_Batch_Extract">
    <property name="text">
-    <string>&amp;Batch Extract</string>
+    <string>&amp;Batch Extract / Design</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+Shift+E</string>
@@ -1453,16 +1451,6 @@
   <action name="action_Review_Batch_Designs">
    <property name="text">
     <string>Re&amp;view Batch Designs</string>
-   </property>
-  </action>
-  <action name="action_Designers">
-   <property name="text">
-    <string>&amp;Designers</string>
-   </property>
-  </action>
-  <action name="action_Batch_Design">
-   <property name="text">
-    <string>Batch &amp;Design</string>
    </property>
   </action>
   <action name="actionSave_Report">

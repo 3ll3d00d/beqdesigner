@@ -146,11 +146,17 @@ socket to drive the progress bar.
 Three entry points share this machinery:
 
 - **Extract Audio** — pull channels out of one movie file as wavs to analyse.
+  Also has an optional "Design filters?" step (reuses `model/batch.py`'s
+  `DesignJob`), for going straight from one file to a queued design without
+  the batch dialog.
 - **Remux Audio** (`ExtractAudioDialog(is_remux=True)`) — same dialog, but
   applies the designed filters and writes a new video file with the BEQ'ed
-  audio track, optionally alongside the original.
-- **Batch Extract** (`model/batch.py`) — glob for files, probe them in the
-  thread pool, extract en masse.
+  audio track, optionally alongside the original. No design step here --
+  remux applies a filter someone already designed/reviewed.
+- **Batch Extract / Design** (`model/batch.py`) — glob for files, probe them
+  in the thread pool, extract en masse; optionally also designs each one
+  (`pipeline.review.design_and_queue()`) and reviews the results on an
+  embedded tab -- see `pipeline/README.md`'s "Batch design + review".
 
 ### Analysis (`model/analysis.py`)
 
@@ -238,8 +244,10 @@ leaving it in the dialog, but a real dialog can now be tested directly too
 
 `src/main/python/pipeline/` (tested by `src/test/python/test_pipeline_*.py`)
 is a separate, Qt-free headless pipeline mirroring parts of the app for
-API/scripted use — see `design/api-headless-pipeline.md` and
-`design/pipeline-implementation-plan.md`.
+API/scripted use — see `src/main/python/pipeline/README.md` for the
+architecture, and `design/api-headless-pipeline.md`/
+`design/pipeline-implementation-plan.md`/`design/designer-interface.md` for
+the design rationale and contract behind it.
 
 **Testing real dialogs — `pytest-qt`.** `src/test/python/gui/` constructs
 actual `QDialog`/`QWidget` subclasses under `pytest-qt`'s `qtbot` fixture

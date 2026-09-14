@@ -25,11 +25,17 @@ Beyond composition, this module owns two things nothing built so far needed:
 
 Scope trim: no `Session.fit()`/`optimise_filters()` wrapper -- no phase
 built a Qt-free extraction of that GUI feature, and nothing in this plan's
-acceptance criteria needs it. `Session.load()` assumes a single-channel
-(mono) signal, matching this pipeline's mono_mix=True scope throughout
-(design/api-headless-pipeline.md: "this pipeline always targets one
-device"); a multi-channel file will load via the same call but nothing
-past that point is designed to handle the multi-channel result.
+acceptance criteria needs it. `Session.load()`/`set_filters()`/`stats()`/
+`curves()` still assume a single-channel (mono) signal, matching this
+pipeline's mono_mix=True scope throughout (design/api-headless-pipeline.md:
+"this pipeline always targets one device") -- a multi-channel file will
+load via `load()` but nothing past that point handles the multi-channel
+result. `design()` is the one exception: `load_channels()` decomposes a
+multichannel wav (pure decomposition, no mixing) into the named per-channel
+arrays `design()`'s optional `channels` param forwards as
+`DesignRequest.channels` (design/designer-interface.md §2) -- a diagnostic
+supplement to `mono_mix`, not a second primary signal, so it doesn't need
+`load()`/`SingleChannelSignalData` to grow multi-channel awareness itself.
 
 Qt-boundary note: `Session.load()` reuses `model.signal.AutoWavLoader`,
 which -- unlike every module built from scratch in phases 0-4 -- imports
@@ -182,8 +188,34 @@ class Session:
         default_name = name or os.path.splitext(os.path.basename(path))[0]
         return loader.auto_load(lambda idx, count: default_name, decimate=decimate, offset=offset)
 
-    def design(self, sig: SingleChannelSignalData, designer: str,
-              coverage: Coverage = 'complete_programme', bass_management: Optional[dict] = None) -> DesignOutcome:
+    def load_channels(self, path: str, channel_layout_name: str = 'unknown', decimate: bool = True) -> dict:
+        '''
+        Decomposes a *multichannel* wav into named per-channel arrays -- design/designer-interface.md
+        §2's DesignRequest.channels input ("a per-channel decomposition of the same underlying audio...
+        the same length as mono_mix and time-aligned with it... a diagnostic input, not a replacement for
+        mono_mix"). Pure decomposition, no downmix/gain-staging math -- that stays load()/extract()'s job
+        (mono_mix must match the ffmpeg mono downmix everywhere else in this app, not be reimplemented
+        here). Labels come from model.ffmpeg.get_channel_name/CHANNEL_LAYOUTS -- the same layout-dependent
+        FL/FR/FC/LFE/... labels the GUI already assigns a multichannel extraction's per-channel signals.
+        :param channel_layout_name: the source's ffmpeg channel layout name (Executor.channel_layout_name,
+            populated once update_spec() has run), e.g. '5.1'.
+        :return: {label: ndarray}, or {} if path is actually mono (nothing to decompose).
+        '''
+        from model.ffmpeg import get_channel_name
+        loader = AutoWavLoader(self.__preferences)
+        loader.load(path)
+        channel_count = loader.info.channels
+        if channel_count <= 1:
+            return {}
+        channels = {}
+        for idx in range(channel_count):
+            label = get_channel_name(None, idx, channel_count, channel_layout_name=channel_layout_name)
+            loader.prepare(channel=idx + 1, name=label, channel_count=channel_count, decimate=decimate)
+            channels[label] = loader.get_signal(idx + 1, label).signal.samples
+        return channels
+
+    def design(self, sig: SingleChannelSignalData, designer: str, coverage: Coverage = 'complete_programme',
+              bass_management: Optional[dict] = None, channels: Optional[dict] = None) -> DesignOutcome:
         '''
         Invokes a registered designer (pipeline.designer.registry) with a
         DesignRequest built from sig, validates and converts its response
@@ -199,10 +231,14 @@ class Session:
             through to the designer as DesignRequest.bass_management. None
             (the default) if there is none to report; this session does not
             infer one from sig, which is always single-channel.
+        :param channels: DesignRequest.channels (design/designer-interface.md §2) -- a per-channel
+            diagnostic decomposition of the same signal sig was mixed down from, if the caller has one
+            (see load_channels()). Optional; None if the source was mono to begin with, or the caller
+            chose not to supply it.
         '''
         designer_fn = get_designer(designer)
         request = build_request(mono_mix=sig.signal.samples, fs=sig.signal.fs, coverage=coverage,
-                                bass_management=bass_management)
+                                channels=channels, bass_management=bass_management)
         response = designer_fn(request)
         if response.decline_reason is not None:
             return Declined(reason=response.decline_reason, message=response.decline_message)

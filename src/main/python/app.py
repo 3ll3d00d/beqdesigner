@@ -82,7 +82,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.logger = logging.getLogger('beqdesigner')
         self.app = app
         self.preferences = prefs
-        from model.designers import register_configured_designers
+        from model.preferences import register_configured_designers
         register_configured_designers(self.preferences)
         if getattr(sys, 'frozen', False):
             self.__style_path_root = sys._MEIPASS
@@ -263,8 +263,6 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         # analysis
         self.actionAnalyse_Audio.triggered.connect(self.showAnalyseAudioDialog)
         self.action_Review_Batch_Designs.triggered.connect(self.showReviewQueueDialog)
-        self.action_Designers.triggered.connect(self.showDesignersDialog)
-        self.action_Batch_Design.triggered.connect(self.showBatchDesignDialog)
         # import
         self.actionLoad_Filter.triggered.connect(self.importFilter)
         self.actionLoad_Signal.triggered.connect(self.importSignal)
@@ -911,7 +909,10 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
 
     def showBatchExtractDialog(self):
         '''
-        Show the batch extract dialog.
+        Show the Batch Extract & Design dialog (model/batch.py), on its Run
+        tab -- search/extract many files, with an optional per-candidate
+        Design step (pipeline.review.design_and_queue()) that writes to a
+        queue directory and hands off to the same dialog's Review tab.
         '''
         if not self.__check_ffmpeg_available():
             return
@@ -920,31 +921,16 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
 
     def showReviewQueueDialog(self):
         '''
-        Show the review-batch-designs dialog (design/candidate-review-plan.md
-        phase 3) -- independent of whatever's currently loaded in signalView,
-        since it reads/writes its own pipeline.review queue directory.
+        Show the Batch Extract & Design dialog (model/batch.py) straight on
+        its Review tab -- independent of whatever's currently loaded in
+        signalView, since that tab reads/writes its own pipeline.review
+        queue directory (including one populated entirely by a headless/
+        scripted pipeline.review.batch_design() run, no GUI involved).
         '''
-        from model.review import ReviewQueueDialog
-        ReviewQueueDialog(self, self.preferences).show()
-
-    def showDesignersDialog(self):
-        '''
-        Show the Designers settings dialog (design/http-designer-binding-
-        plan.md phase 3) -- lets a user configure named HTTP designer
-        endpoints without writing any Python.
-        '''
-        from model.designers import DesignersDialog
-        DesignersDialog(self, self.preferences).exec()
-
-    def showBatchDesignDialog(self):
-        '''
-        Show the Batch Design dialog (design/http-designer-binding-plan.md
-        phase 4) -- runs pipeline.review.batch_design() over a set of
-        source files against a registered designer, writing pending
-        entries to a queue directory for ReviewQueueDialog.
-        '''
-        from model.batch_design import BatchDesignDialog
-        BatchDesignDialog(self, self.preferences).show()
+        from model.batch import BatchExtractDialog
+        dialog = BatchExtractDialog(self, self.preferences)
+        dialog.mainTabs.setCurrentIndex(1)
+        dialog.show()
 
     def __check_ffmpeg_available(self):
         '''

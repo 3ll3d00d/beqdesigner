@@ -196,6 +196,37 @@ def test_batch_design_declined_title_carries_the_reason(tmp_path):
     assert entry.decline_message == 'nothing to correct'
 
 
+def test_design_and_queue_threads_channels_to_the_request(tmp_path):
+    ''' design_and_queue()'s channels param (a caller's own per-channel decomposition, e.g. model/batch.py's
+    ExtractCandidate.design() via Session.load_channels()) reaches the designer as DesignRequest.channels. '''
+    from pipeline.config import AnalysisConfig
+    from pipeline.orchestrate import Session
+    from pipeline.review import design_and_queue
+
+    seen_requests = []
+
+    def recording_designer(request):
+        seen_requests.append(request)
+        return DesignResponse(contract_version='1.0', candidates=[
+            DesignCandidate(filters=[BiquadSpec(type='low_shelf', freq_hz=18.0, gain_db=4.5, q=0.7)],
+                            confidence=0.9, mv_adjust_db=4.0, method='fitted'),
+        ])
+
+    register_designer('test.channels_through_queue', recording_designer)
+    try:
+        wav_path = str(tmp_path / 'mono.wav')
+        _write_synthetic_wav(wav_path, channel_values=(1000,))
+        queue_dir = str(tmp_path / 'queue')
+        channels = {'FL': np.zeros(5), 'FR': np.ones(5)}
+
+        design_and_queue(Session(AnalysisConfig()), 'title-one', wav_path, 'test.channels_through_queue',
+                         queue_dir, channels=channels)
+    finally:
+        unregister_designer('test.channels_through_queue')
+
+    assert seen_requests[0].channels is channels
+
+
 def test_pipeline_review_module_has_no_qtpy_import():
     import ast
     import pathlib

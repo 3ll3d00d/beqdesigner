@@ -7,7 +7,7 @@ test_pipeline_review.py; this only exercises the Qt wiring on top of it.
 '''
 import numpy as np
 import pytest
-from qtpy.QtCore import QSettings
+from qtpy.QtCore import QSettings, Qt
 
 from model.codec import xydata_to_json
 from model.iir import CompleteFilter, LowShelf, PeakingEQ
@@ -174,3 +174,45 @@ def test_chart_shows_unfiltered_and_selected_candidate_curves(tmp_path, dialog):
     assert len(curves) == 2
     assert curves[0].colour == 'grey'
     assert curves[1].colour == 'red'
+
+
+def test_load_queue_dir_remembers_it_as_the_designer_queue_dir_default(tmp_path, dialog):
+    from model.preferences import DESIGNER_QUEUE_DIR
+    queue_dir = str(tmp_path / 'queue')
+    _write_entry(queue_dir, 'title-a')
+
+    dialog.load_queue_dir(queue_dir)
+
+    prefs = dialog._ReviewQueueDialog__preferences
+    assert prefs.get(DESIGNER_QUEUE_DIR) == queue_dir
+
+
+def test_dialog_defaults_to_the_remembered_queue_dir_on_open(qtbot, tmp_path):
+    from model.preferences import DESIGNER_QUEUE_DIR
+    prefs = _make_preferences(tmp_path)
+    queue_dir = str(tmp_path / 'queue')
+    _write_entry(queue_dir, 'title-a')
+    prefs.set(DESIGNER_QUEUE_DIR, queue_dir)
+
+    d = ReviewQueueDialog(None, prefs)
+    qtbot.addWidget(d)
+
+    assert d.queueDirEdit.text() == queue_dir
+    assert d.queueTable.model().rowCount() == 1
+
+
+def test_escape_key_does_not_blank_the_dialog(tmp_path, dialog, qtbot):
+    '''
+    QDialog's default Escape behaviour calls reject(), which would hide() this dialog -- blank when embedded as
+    a tab (model/batch.py), a way to lose review progress even standalone. reject() is overridden to a no-op.
+    '''
+    queue_dir = str(tmp_path / 'queue')
+    _write_entry(queue_dir, 'title-a')
+    dialog.load_queue_dir(queue_dir)
+    dialog.show()
+
+    dialog.reject()
+    qtbot.keyClick(dialog, Qt.Key.Key_Escape)
+
+    assert dialog.isVisible() is True
+    assert dialog.queueTable.model().rowCount() == 1

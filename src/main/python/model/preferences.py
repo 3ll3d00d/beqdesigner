@@ -1,4 +1,5 @@
 import glob
+import json
 import os
 from pathlib import Path
 from typing import Optional, Callable
@@ -7,8 +8,10 @@ import matplotlib
 import matplotlib.style as style
 import qtawesome as qta
 from qtpy.QtCore import QSettings
-from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox, QDialogButtonBox, QLineEdit
+from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox, QDialogButtonBox, QLineEdit, QTableWidgetItem
 
+from pipeline.designer.http_binding import http_designer
+from pipeline.designer.registry import register_designer, registered_designers, unregister_designer
 from ui.preferences import Ui_preferencesDialog
 
 X_RESOLUTION = 32769
@@ -76,6 +79,25 @@ EXTRACTION_COMPRESS_FORMAT = 'extraction/compress_format'
 EXTRACTION_GEOMETRY = 'extraction/geometry'
 
 DESIGNER_HTTP_ENDPOINTS = 'designers/http_endpoints'
+DESIGNER_QUEUE_DIR = 'designers/queue_dir'
+DESIGNER_DEFAULT = 'designers/default'
+
+# distinguishes preference-configured designers from ad-hoc/in-process ones (e.g. registered by a test or a
+# script), so re-registering on every startup or Preferences-save replaces cleanly rather than accumulating
+_REGISTERED_DESIGNER_PREFIX = 'http:'
+
+
+def register_configured_designers(preferences):
+    ''' Registers every endpoint in DESIGNER_HTTP_ENDPOINTS -- call once at app startup. '''
+    for entry in preferences.get(DESIGNER_HTTP_ENDPOINTS):
+        name = f"{_REGISTERED_DESIGNER_PREFIX}{entry['name']}"
+        register_designer(name, http_designer(entry['url'], headers=entry.get('headers') or None))
+
+
+def _unregister_configured_designers():
+    for name in list(registered_designers()):
+        if name.startswith(_REGISTERED_DESIGNER_PREFIX):
+            unregister_designer(name)
 
 ANALYSIS_RESOLUTION = 'analysis/resolution'
 ANALYSIS_RESOLUTION_DEFAULT = 1.0
@@ -214,6 +236,8 @@ MINIDSP_RS_OPTIONS = 'minidsp/rs_options'
 
 DEFAULT_PREFS = {
     DESIGNER_HTTP_ENDPOINTS: [],
+    DESIGNER_QUEUE_DIR: '',
+    DESIGNER_DEFAULT: '',
     ANALYSIS_RESOLUTION: ANALYSIS_RESOLUTION_DEFAULT,
     ANALYSIS_TARGET_FS: 1000,
     ANALYSIS_AVG_WINDOW: ANALYSIS_WINDOW_DEFAULT,
@@ -550,6 +574,47 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
 
         self.precalcSmoothing.setChecked(self.__preferences.get(DISPLAY_SMOOTH_PRECALC))
 
+        self.designQueueDirPicker.setIcon(qta.icon('fa5s.folder-open'))
+        self.__init_field(DESIGNER_QUEUE_DIR, os.path.isdir, self.designQueueDir)
+        self.designersAddButton.clicked.connect(self.add_designer_row)
+        self.designersRemoveButton.clicked.connect(self.remove_selected_designer_row)
+        self.__load_designers()
+        self.defaultDesignerCombo.addItems(registered_designers())
+        self.init_combo(DESIGNER_DEFAULT, self.defaultDesignerCombo)
+
+    def __load_designers(self):
+        self.designersTable.setRowCount(0)
+        for entry in self.__preferences.get(DESIGNER_HTTP_ENDPOINTS):
+            self.__append_designer_row(entry.get('name', ''), entry.get('url', ''), entry.get('headers') or {})
+
+    def __append_designer_row(self, name='', url='', headers=None):
+        row = self.designersTable.rowCount()
+        self.designersTable.insertRow(row)
+        self.designersTable.setItem(row, 0, QTableWidgetItem(name))
+        self.designersTable.setItem(row, 1, QTableWidgetItem(url))
+        self.designersTable.setItem(row, 2, QTableWidgetItem(json.dumps(headers or {})))
+
+    def add_designer_row(self):
+        self.__append_designer_row()
+
+    def remove_selected_designer_row(self):
+        selection = self.designersTable.selectionModel()
+        if selection.hasSelection():
+            self.designersTable.removeRow(selection.selectedRows()[0].row())
+
+    def __designer_cell_text(self, row, col):
+        item = self.designersTable.item(row, col)
+        return item.text().strip() if item is not None else ''
+
+    def showDesignQueueDirPicker(self):
+        dialog = QFileDialog(parent=self)
+        dialog.setFileMode(QFileDialog.FileMode.Directory)
+        dialog.setWindowTitle('Select Review Queue Directory')
+        if dialog.exec():
+            selected = dialog.selectedFiles()
+            if len(selected) > 0:
+                self.designQueueDir.setText(selected[0])
+
     def __init_field(self, pref_key: str, lookup: Callable[[str], bool], field: QLineEdit):
         loc = self.__preferences.get(pref_key)
         if loc and lookup(loc):
@@ -675,8 +740,50 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         self.__preferences.set(BASS_MANAGEMENT_LPF_FS, self.bmlpfFreq.value())
         self.__preferences.set(DISPLAY_SMOOTH_PRECALC, self.precalcSmoothing.isChecked())
         self.__preferences.set(STYLE_IMAGE_FORMAT_DEFAULT, self.imageFormat.currentText())
+        self.__save_loc(self.designQueueDir, os.path.isdir, DESIGNER_QUEUE_DIR)
+        self.__preferences.set(DESIGNER_DEFAULT, self.defaultDesignerCombo.currentText())
+        self.__save_designers()
 
         QDialog.accept(self)
+
+    def __save_designers(self):
+        '''
+        Validates and saves the designer endpoints table -- same rule as the old standalone DesignersDialog. On
+        a problem, alerts and leaves the existing DESIGNER_HTTP_ENDPOINTS preference untouched (same
+        "warn and skip this section, still save everything else" convention as the X Axis Invalid check above)
+        rather than blocking the whole Preferences dialog from closing.
+        '''
+        entries = []
+        problems = []
+        for row in range(self.designersTable.rowCount()):
+            name = self.__designer_cell_text(row, 0)
+            url = self.__designer_cell_text(row, 1)
+            headers_text = self.__designer_cell_text(row, 2)
+            if not name and not url:
+                continue  # a blank row added then left empty -- not an error, just skipped
+            if not name or not url:
+                problems.append(f"row {row + 1}: both name and URL are required")
+                continue
+            try:
+                headers = json.loads(headers_text) if headers_text else {}
+                if not isinstance(headers, dict):
+                    raise ValueError('headers must be a JSON object')
+            except ValueError as e:
+                problems.append(f"row {row + 1} ({name}): invalid headers -- {e}")
+                continue
+            entries.append({'name': name, 'url': url, 'headers': headers})
+
+        names = [e['name'] for e in entries]
+        if len(names) != len(set(names)):
+            problems.append('designer names must be unique')
+
+        if problems:
+            QMessageBox.critical(self, 'Designer endpoints not saved', '\n'.join(problems))
+            return
+
+        self.__preferences.set(DESIGNER_HTTP_ENDPOINTS, entries)
+        _unregister_configured_designers()
+        register_configured_designers(self.__preferences)
 
     def alert_on_change(self, title, text='Change will not take effect until the application is restarted',
                         icon=QMessageBox.Icon.Warning):

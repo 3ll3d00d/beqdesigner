@@ -130,6 +130,69 @@ def test_design_bass_management_defaults_to_none(loaded_signal):
     assert outcome.gain_reduction_db is None
 
 
+def _write_multichannel_wav(path, channel_values, fs=48000, duration_s=0.1):
+    n_frames = int(fs * duration_s)
+    frame = np.array(channel_values, dtype=np.int16)
+    data = np.tile(frame, (n_frames, 1)).astype('<i2').tobytes()
+    with wave.open(path, 'wb') as w:
+        w.setnchannels(len(channel_values))
+        w.setsampwidth(2)
+        w.setframerate(fs)
+        w.writeframes(data)
+
+
+def test_load_channels_decomposes_a_multichannel_wav_with_layout_labels(tmp_path):
+    '''
+    Pure decomposition, no mixing -- design/designer-interface.md §2's DesignRequest.channels input.
+    Labels come from model.ffmpeg's layout tables, same as the GUI already uses for a multichannel
+    extraction's per-channel signal names.
+    '''
+    session = Session(AnalysisConfig())
+    path = str(tmp_path / 'multi.wav')
+    _write_multichannel_wav(path, (1000, 2000, 3000, 4000, 5000, 6000))
+
+    channels = session.load_channels(path, channel_layout_name='5.1', decimate=False)
+
+    assert set(channels.keys()) == {'FL', 'FR', 'FC', 'LFE', 'BL', 'BR'}
+    # constant per-channel amplitude in the source wav -- ordering survives normalisation/resampling
+    ordered = [channels[label][0] for label in ('FL', 'FR', 'FC', 'LFE', 'BL', 'BR')]
+    assert ordered == sorted(ordered)
+    assert all(v > 0 for v in ordered)
+
+
+def test_load_channels_of_a_mono_wav_is_empty(tmp_path):
+    session = Session(AnalysisConfig())
+    path = str(tmp_path / 'mono.wav')
+    _write_mono_wav(path)
+
+    assert session.load_channels(path) == {}
+
+
+def test_design_threads_channels_through_to_the_request(loaded_signal, tmp_path):
+    ''' DesignRequest.channels -- the per-channel diagnostic a designer may use for channel_scope. '''
+    from pipeline.designer.contract import BiquadSpec, DesignCandidate, DesignResponse
+    from pipeline.designer.registry import register_designer, unregister_designer
+
+    session, sig = loaded_signal
+    channels = {'FL': np.zeros(10), 'FR': np.ones(10)}
+    seen_requests = []
+
+    def fake_designer(request):
+        seen_requests.append(request)
+        return DesignResponse(contract_version='1.0', candidates=[
+            DesignCandidate(filters=[BiquadSpec(type='low_shelf', freq_hz=18.0, gain_db=4.5, q=0.7)],
+                            confidence=0.9, mv_adjust_db=22.5, method='fitted'),
+        ])
+
+    register_designer('test.channels', fake_designer)
+    try:
+        session.design(sig, 'test.channels', channels=channels)
+    finally:
+        unregister_designer('test.channels')
+
+    assert seen_requests[0].channels is channels
+
+
 def test_tmdb_is_a_thin_wrapper_over_pipeline_metadata(monkeypatch, loaded_signal):
     session, _ = loaded_signal
     calls = []

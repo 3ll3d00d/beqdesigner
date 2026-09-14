@@ -7,7 +7,7 @@ from urllib.parse import urlparse
 from urllib.request import url2pathname
 
 import qtawesome as qta
-from qtpy.QtCore import Qt, QTime
+from qtpy.QtCore import Qt, QTime, QThreadPool
 from qtpy.QtGui import QPalette, QColor, QFont
 from qtpy.QtMultimedia import QSoundEffect
 from qtpy.QtWidgets import QDialog, QFileDialog, QStatusBar, QDialogButtonBox, QMessageBox, QVBoxLayout, \
@@ -19,11 +19,14 @@ from model.ffmpeg import Executor, ViewProbeDialog, SIGNAL_CONNECTED, SIGNAL_ERR
 from model.preferences import EXTRACTION_OUTPUT_DIR, EXTRACTION_NOTIFICATION_SOUND, ANALYSIS_TARGET_FS, \
     EXTRACTION_MIX_MONO, EXTRACTION_DECIMATE, EXTRACTION_INCLUDE_ORIGINAL, EXTRACTION_INCLUDE_SUBTITLES, \
     EXTRACTION_COMPRESS, COMPRESS_FORMAT_OPTIONS, COMPRESS_FORMAT_FLAC, COMPRESS_FORMAT_NATIVE, COMPRESS_FORMAT_EAC3, \
-    BASS_MANAGEMENT_LPF_FS, COMPRESS_FORMAT_AC3, EXTRACTION_GEOMETRY, Preferences
+    BASS_MANAGEMENT_LPF_FS, COMPRESS_FORMAT_AC3, EXTRACTION_GEOMETRY, DESIGNER_DEFAULT, DESIGNER_QUEUE_DIR, Preferences
 from model.signal import AutoWavLoader
 from ui.edit_mapping import Ui_editMappingDialog
 from ui.extract import Ui_extractAudioDialog
 
+# model.batch/model.review/pipeline.* are imported lazily (inside the functions that need them), matching
+# model/batch.py's own convention -- pipeline.orchestrate transitively imports model.merge -> model.sync ->
+# model.batch, so a module-level import of either here risks the same circularity model/batch.py documents.
 logger = logging.getLogger('extract')
 
 
@@ -55,6 +58,8 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         self.__extracted = False
         self.__stream_duration_micros = []
         self.__is_remux = is_remux
+        self.__session = None
+        self.__design_entry = None
         if self.__is_remux:
             self.setWindowTitle('Remux Audio')
         self.showRemuxCommand.setVisible(self.__is_remux)
@@ -66,6 +71,19 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         self.filterMapping.itemDoubleClicked.connect(self.show_mapping_dialog)
         self.inputDrop.callback = self.__handle_drop
         self.finished.connect(self.__on_finished)
+
+        from pipeline.designer.registry import registered_designers
+        self.designerCombo.addItems(registered_designers())
+        default_designer = self.__preferences.get(DESIGNER_DEFAULT)
+        if default_designer:
+            idx = self.designerCombo.findText(default_designer)
+            if idx != -1:
+                self.designerCombo.setCurrentIndex(idx)
+        default_queue_dir = self.__preferences.get(DESIGNER_QUEUE_DIR)
+        if default_queue_dir and os.path.isdir(default_queue_dir):
+            self.queueDirEdit.setText(default_queue_dir)
+        self.designEnabled.toggled.connect(self.__toggle_design)
+        self.browseQueueDirButton.clicked.connect(self.__select_queue_dir)
 
     def __on_finished(self):
         self.__preferences.set(EXTRACTION_GEOMETRY, self.saveGeometry())
@@ -191,6 +209,12 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             self.remuxedAudioOffset.setVisible(True)
             self.adjustRemuxedAudio.setEnabled(False)
             self.remuxedAudioOffset.setEnabled(False)
+            # remux applies an already-designed filter -- there is nothing to design here
+            self.designEnabled.setVisible(False)
+            self.designerCombo.setVisible(False)
+            self.queueDirLabel.setVisible(False)
+            self.queueDirEdit.setVisible(False)
+            self.browseQueueDirButton.setVisible(False)
         else:
             self.signalName.setText('')
             self.filterMapping.setVisible(False)
@@ -202,7 +226,13 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             self.calculateGainAdjustment.setVisible(False)
             self.adjustRemuxedAudio.setVisible(False)
             self.remuxedAudioOffset.setVisible(False)
+            self.designEnabled.setVisible(True)
+            self.designerCombo.setVisible(True)
+            self.queueDirLabel.setVisible(True)
+            self.queueDirEdit.setVisible(True)
+            self.browseQueueDirButton.setVisible(True)
         self.eacBitRate.setVisible(False)
+        self.designEnabled.setChecked(False)
         self.monoMix.setChecked(self.__preferences.get(EXTRACTION_MIX_MONO))
         self.bassManage.setChecked(False)
         self.decimateAudio.setChecked(self.__preferences.get(EXTRACTION_DECIMATE))
@@ -673,6 +703,93 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
                 logger.debug(f"Playing {audio}")
                 self.__sound = QSoundEffect(audio)
                 self.__sound.play()
+            if success and not self.__is_remux and self.designEnabled.isChecked():
+                self.__design()
+
+    def __toggle_design(self, checked):
+        '''
+        Enables/disables the design-related controls in lockstep with the "Design filters?" checkbox.
+        '''
+        self.designerCombo.setEnabled(checked)
+        self.queueDirEdit.setEnabled(checked)
+        self.browseQueueDirButton.setEnabled(checked)
+
+    def __select_queue_dir(self):
+        '''
+        Selects the queue directory that the design result is written to, and remembers it as the
+        DESIGNER_QUEUE_DIR default for next time.
+        '''
+        dialog = QFileDialog(parent=self)
+        dialog.setFileMode(QFileDialog.FileMode.Directory)
+        dialog.setWindowTitle('Select Queue Directory')
+        if dialog.exec():
+            selected = dialog.selectedFiles()
+            if len(selected) > 0:
+                self.queueDirEdit.setText(selected[0])
+                self.__preferences.set(DESIGNER_QUEUE_DIR, selected[0])
+
+    def __get_session(self):
+        '''
+        Lazily builds the (Qt-free) pipeline Session used for the design step.
+        '''
+        if self.__session is None:
+            from pipeline.config import AnalysisConfig
+            from pipeline.orchestrate import Session
+            self.__session = Session(AnalysisConfig(target_fs=self.__preferences.get(ANALYSIS_TARGET_FS)))
+        return self.__session
+
+    def __design(self):
+        '''
+        Schedules a DesignJob for the just-extracted file, reusing model/batch.py's DesignJob -- same
+        mono-downmix-plus-optional-per-channel-diagnostic behaviour as the batch dialog's "Design filters?"
+        step (see ExtractCandidate.design()'s docstring there): if the kept extraction is already mono
+        (monoMix checked), it's used directly; otherwise a second mono-only extraction is made for design
+        and the kept multichannel file is additionally decomposed into per-channel arrays
+        (Session.load_channels()) and sent alongside as DesignRequest.channels.
+        '''
+        from model.batch import DesignJob
+        self.statusBar.showMessage('Designing...')
+        entry_id = os.path.splitext(os.path.basename(self.__executor.get_output_path()))[0]
+        already_mono_wav_path = self.__executor.get_output_path() if self.monoMix.isChecked() else None
+        multichannel_wav_path = None if already_mono_wav_path is not None else self.__executor.get_output_path()
+        job = DesignJob(self, self.__get_session(), entry_id, already_mono_wav_path, multichannel_wav_path,
+                        self.__executor.channel_layout_name, self.__executor.file,
+                        self.audioStreams.currentIndex(), self.targetDir.text(), self.designerCombo.currentText(),
+                        self.queueDirEdit.text())
+        QThreadPool.globalInstance().start(job)
+
+    def design_started(self):
+        ''' DesignJob callback -- design has started. '''
+        self.statusBar.showMessage('Designing...')
+
+    def design_complete(self, entry):
+        '''
+        DesignJob callback -- design has completed (entry.candidates is empty on a decline). Offers to open
+        the Review tab (model/batch.py's BatchExtractDialog, on its Review tab) the same way the batch
+        dialog's own design step does.
+        '''
+        self.__design_entry = entry
+        if entry.candidates:
+            top = entry.candidates[0]
+            self.statusBar.showMessage(f"Designed: confidence={top.confidence:.2f} method={top.method}", 5000)
+        else:
+            self.statusBar.showMessage(f"Design declined: {entry.decline_reason}", 5000)
+        answer = QMessageBox.question(self, 'Design complete',
+                                      f"Wrote a queue entry to {self.queueDirEdit.text()}.\n\n"
+                                      f"Open it for review now?")
+        if answer == QMessageBox.StandardButton.Yes:
+            # BatchExtractDialog's embedded Review tab (model/review.py's ReviewQueueDialog) auto-loads
+            # DESIGNER_QUEUE_DIR on construction -- already exactly self.queueDirEdit.text(), since that's
+            # either where it was read from or where __select_queue_dir() just persisted it to.
+            from model.batch import BatchExtractDialog
+            dialog = BatchExtractDialog(self.parent(), self.__preferences)
+            dialog.mainTabs.setCurrentIndex(1)
+            dialog.show()
+
+    def design_failed(self, msg):
+        ''' DesignJob callback -- design raised. '''
+        self.statusBar.showMessage(f"Design failed: {msg}", 5000)
+        QMessageBox.critical(self, 'Design failed', msg)
 
     def showProbeInDetail(self):
         '''

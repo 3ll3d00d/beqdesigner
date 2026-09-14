@@ -51,6 +51,7 @@ exact invocation used in CI.
 | `src/main/python/app.py` | Entry point — creates `QApplication` and `BeqDesigner` main window |
 | `src/main/python/ui/` | Qt Designer `.ui` files and their generated `.py` equivalents, plus view code |
 | `src/main/python/model/` | Non-UI logic: filters, signals, IIR, ffmpeg, minidsp, jriver, htp1, checker, preferences, … |
+| `src/main/python/pipeline/` | Qt-free headless BEQ pipeline (extract/design/publish) for API/scripted use — see its own `README.md` |
 | `src/main/python/acoustics/` | DSP helpers (smoothing, weighting, standards) |
 | `src/main/python/mpl.py`, `svg.py`, `style/` | Matplotlib integration, SVG export, mpl styles |
 | `src/test/python/` | pytest suite + fixtures |
@@ -95,5 +96,6 @@ changes. Do not hand-edit the generated files.
 - User guide, workflows and UI reference: <https://beqdesigner.readthedocs.io/>
 - Concepts (what BEQ is, pre- vs post-bass-management): `docs/index.md`,
   `docs/concepts.md`, `docs/workflow/`
+- Headless pipeline / scripted BEQ creation: `src/main/python/pipeline/README.md`
 - Install instructions for release binaries: <https://beqdesigner.readthedocs.io/en/latest/install/>
 - Release/download page: <https://github.com/3ll3d00d/beqdesigner/releases>

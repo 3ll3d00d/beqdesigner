@@ -1,7 +1,12 @@
 # BEQ filter designer interface — v1.0
 
-**Status:** CONTRACT. Ready to implement against. No code exists yet on
-either side; this document is the thing both sides build to.
+**Status:** CONTRACT, fully implemented on this repo's side — both bindings
+(in-process callable and HTTP, `§7.1`) exist; see
+[`src/main/python/pipeline/README.md`](../src/main/python/pipeline/README.md#the-designer-contract)
+for where. This document remains the thing both sides build to and stays
+authoritative for the field-level contract; it is not a plan and has no
+"remaining work" of its own — implementation-side follow-ups live in
+`api-headless-pipeline.md §14` and the pipeline README.
 
 **Audience:** whoever implements a filter designer — beqanalyser first, but
 nothing here is beqanalyser-specific. **Read this document alone; it does

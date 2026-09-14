@@ -1,10 +1,20 @@
 # Headless BEQ filter creation and publishing
 
-**Status:** planning. No code written.
+**Status: done.** This was the original analysis — what already ran
+headless, what didn't, and what had to change — before any of `pipeline/`
+existed. Everything it identified as needing to be built has been; see
+[`src/main/python/pipeline/README.md`](../src/main/python/pipeline/README.md)
+for the shipped architecture and `pipeline-implementation-plan.md` for the
+phase-by-phase build record. This document stays as the domain analysis and
+decision record behind that build — §1-§7 and §9-§11 describe facts about
+the pre-pipeline codebase that code comments still cite by section number;
+§14 tracks the decisions made (only **D6** remains open); §15 is the
+negotiation record with the `beqanalyser` project and is load-bearing for
+`designer-interface.md`.
 
-The goal is to run BEQ filter creation and publishing without a GUI, so it
-can be driven by an API, a script or an agent. This document defines the
-pipeline, records what already exists, and lists what has to be built.
+The goal was to run BEQ filter creation and publishing without a GUI, so it
+can be driven by an API, a script or an agent. This document defined the
+pipeline, recorded what already existed, and listed what had to be built.
 
 Automated filter design is **assumed to exist** (step 2). It does not; the
 assumption is deliberate, so the rest can be planned around it.
@@ -419,23 +429,23 @@ across a `ProcessPoolExecutor`.
 
 ---
 
-## 8. Blockers
+## 8. Blockers — all fixed
 
-| | Blocker | Fix | Size |
-|---|---|---|---|
-| **B1** | `model/xy.py:15` constructs a `Preferences` at *import time*, and `Preferences.__init__` (`model/preferences.py:405`) installs it as a process-global `singleton`. Since `iir.py` imports `xy`, importing the filter maths reads the desktop user's real settings. A latent bug today, not just an API problem. | Make smoothing take config explicitly; drop the import-time construction | S |
-| **B5** | Peak/RMS/crest/headroom computed inline in three UI classes | `signal_stats()` in a model module; call it from all three | XS |
-| **B3** | Filter creation reads widgets, dispatches on display strings | `FilterSpec` + `create_filter(spec, fs)`, shared by dialog and API | M |
-| **B2** | No public accessor for the built ffmpeg command | Add a property + `run_sync()`; keep `execute()` as the GUI wrapper | XS |
+`B1` (`model/xy.py`'s import-time `Preferences` singleton), `B5`
+(`signal_stats()`), `B3` (`FilterSpec`/`create_filter()`), and `B2` (the
+ffmpeg accessor + `run_sync()`) are all resolved — see
+`pipeline-implementation-plan.md` phase 1 and `pipeline/config.py`,
+`stats.py`, `filters.py`. Code still cites `B1`/`B2`/`B3`/`B5` by name as
+shorthand for "the problem this module's existence fixes."
 
-**Two further blockers do not apply to this pipeline**, because it always
-targets one device (minidsp 2x4HD via `flat24hd.xml`): device capabilities
-stated in three places that already disagree — `DspType`
-(`model/merge.py:412`), `ExportBiquadDialog.update_format` (`app.py:1300`,
-which has a DDRC-24 case `DspType` lacks) and `XmlParser.__preprocess`; and
-device→writer dispatch buried in a `QRunnable` (`model/merge.py:513`). Both
-matter if multi-device export is ever wanted from the API. Neither is on this
-path.
+**Two further blockers never applied to this pipeline** and remain
+unaddressed by design, because it always targets one device (minidsp 2x4HD
+via `flat24hd.xml`): device capabilities stated in three places that
+already disagree — `DspType` (`model/merge.py:412`),
+`ExportBiquadDialog.update_format` (`app.py:1300`, which has a DDRC-24 case
+`DspType` lacks) and `XmlParser.__preprocess`; and device→writer dispatch
+buried in a `QRunnable` (`model/merge.py:513`). Both would matter if
+multi-device export were ever wanted from the API. Neither is on this path.
 
 ## 9. The API surface
 
@@ -578,78 +588,32 @@ goldens — the publish test is a natural sibling. The dialogs remain
 untested, which is the argument for pushing behaviour down into `pipeline/`
 rather than leaving it in a dialog.
 
-## 12. What has to be built
+## 12. What had to be built — all built
 
-| | Item | Step | Kind | Size |
-|---|---|---|---|---|
-| 1 | **B1** — remove import-time `Preferences` in `model/xy.py:15` and the global singleton | all | refactor | S |
-| 2 | **B5** — `signal_stats()` extracted from `waveform.py:486` (+2 duplicates) | 3 | refactor | XS |
-| 3 | **B2** — public accessor for the built ffmpeg command + `run_sync()` | 1 | refactor | XS |
-| 4 | **B3** — `FilterSpec` + `create_filter()` | 2 | refactor | M |
-| 5 | `BeqMetadata` dataclass + `tmdb_lookup()` + non-widget validation | 5 | refactor | M |
-| 6 | TMDB key as configuration | 5 | fix | XS |
-| 7 | `beq_gain` derivation decided and implemented once | 3/5 | fix | S |
-| 8 | Poster fetch (TMDB path → image file) | 6 | new | S |
-| 9 | Headless report renderer — Agg canvas shim + filter table params + fixed size/layout | 6 | **new** | S–M |
-| 10 | Publisher — place files, commit, push/PR | 6 | **new** | S–M |
-| 11 | Pipeline orchestrator tying 1–6 together, incl. `Declined` handling (§15.4) | all | new | M |
-| 12 | Designer contract — `DesignRequest`/`DesignResponse` dataclasses, boundary validation, in-process registry (§2) | 2 | **new** | S |
+Items 1–12 of the original table all shipped; see
+`pipeline-implementation-plan.md`'s phase table for what landed where (items
+1–4/6/7 in phase 1, 5/12 in phase 2, 8/9 in phase 3, 10 in phase 4, 11 in
+phase 5) and `src/main/python/pipeline/README.md` for the resulting
+architecture.
 
-Items 1–7 are refactors of existing code with the GUI as the immediate
-beneficiary; 2, 3 and 6 are trivial, and B1/B3 are the real work. Only 8–11
-are new capability, and none of them is large — the plan has no single
-expensive item in it, which is a reasonable sign the seams are in the right
-places.
+**Not required for this pipeline** (contrary to the general survey, and
+still true): B4 (device registry) and B6 (writer dispatch) — this pipeline
+always targets one device (minidsp 2x4HD via `flat24hd.xml`), so the
+multi-device machinery was never on the path.
 
-**Not required for this pipeline** (contrary to the general survey): B4
-(device registry) and B6 (writer dispatch). This pipeline always targets one
-device — minidsp 2x4HD via `flat24hd.xml` — so the multi-device machinery is
-not on the path. That materially shrinks the job.
+## 13. Build order — as executed
 
-## 13. Build order
-
-**Phase 0 — pin the contract.** Write the publish round-trip test (§11.1)
-against the code as it stands. It works today and it is what keeps the
-refactoring honest.
-
-**Phase 1 — make the existing pipeline callable.** Items 1, 2, 3, 4, 6, 7.
-All refactors, all independently testable, GUI still the caller. Ends with
-extract → design → simulate → headroom reachable from a script. Items 2, 3
-and 6 are each an hour's work; the substance of this phase is B1 and B3.
-
-**Phase 2 — metadata and XML.** Item 5, then wire to the existing
-`HDXmlParser` path. Ends with a publishable XML produced headlessly from a
-title + year + filter set. This is the point at which the pipeline produces
-something real, and it is reachable without touching the report.
-
-**Phase 3 — art and report.** Items 8, 9. Independent of phase 2, so it can
-run in parallel; the two meet only at the publisher.
-
-**Phase 4 — publish.** Item 10, once the beqcatalogue conventions are known.
-
-**Phase 5 — orchestration.** Item 11. Deliberately last: the seams are only
-clear once the pieces exist, and a premature orchestrator tends to freeze the
-wrong ones.
+Phases 0–5 ran in the order originally planned (pin the contract; make the
+existing pipeline callable; metadata + XML; art + report in parallel;
+publish; orchestration last, once every seam existed independently). See
+`pipeline-implementation-plan.md` for what shipped in each.
 
 ## 14. Decisions
 
-**D1 — Headroom at which sample rate?** The common case decimates to 1 kHz, so
-simulation measures the peak of a signal with everything above 500 Hz
-discarded. For post-BM BEQ that is arguably right — the sub feed is
-low-passed anyway — but it is not the peak of the delivered audio. Loading at
-native rate instead costs ~2.8 GB for a 2-hour mono 48 kHz track (float64;
-this is the source of the 12 GB warning in `docs/ui/load_signal.md`).
-*Recommendation: measure on the decimated signal, but make the simulation fs
-an explicit field of the result so a published `beq_gain` is never ambiguous
-about what it was measured against.*
-
-**D2 — How is required attenuation expressed?** Signal offset (what
-`beq_gain` reads today) or a `Gain` filter (what the dead `__find_gain`
-anticipated)? An automated designer will pick one and the metadata must
-follow. *Recommendation: signal offset, matching current behaviour and the
-docs; delete `__find_gain`, and reject a `Gain` filter in the publish
-validation so the mismatch fails loudly rather than silently dropping
-`beq_gain`.*
+All resolved as implemented; condensed table in
+`src/main/python/pipeline/README.md#design-decisions-resolved`. Full
+reasoning for **D3** and **D6** kept here since it's not duplicated
+elsewhere:
 
 **D3 — beqcatalogue repo conventions: RESOLVED.** Answered by reading
 `beqcatalogue`'s own ingestion code (`§6`), not by asking the project:
@@ -668,47 +632,13 @@ validation so the mismatch fails loudly rather than silently dropping
   edit to the beqcatalogue project itself (same owner, not externally
   blocked).
 
-**D4 — Report: RESOLVED — required.** The screen-rendering in the current
-implementation is an artefact of the GUI showing a preview, not a
-requirement; the requirement is a readable image at a specific size and
-layout. Item 9 stays in scope but is a spec-driven render rather than a port
-(§6). *Follow-on to pin down before phase 3: the exact target size (fixed
-output width, or driven by the poster's native width?) and whether the
-filter table sits inside the chart axes or below it.*
-
-**D5 — Who runs this?** A local CLI over the user's own files, or a service?
-It changes the answer to D1 (memory budget), the TMDB key handling, whether
-extraction needs to be a job, and whether the git credentials are the user's
-or a bot's. *Recommendation: build phases 1–3 transport-neutral, decide before
-phase 4, since publishing is where identity and credentials first matter.*
-
-**D6 — Catalogue as an input.** `CatalogueEntry.iir_filters()`
-(`model/catalogue.py:581`) already turns a published BEQ into filters
-headlessly. "Fetch a published BEQ and apply it" bypasses steps 1–5 entirely
-and is a much smaller job than this pipeline. Worth confirming whether that is
-also wanted — it may be the more common use case.
-
-**D7 — Does designer provenance travel past the design step?** The designer's
-confirmed return shape (§15.4) carries confidence, `fc`/slope with
-uncertainties, and a fit residual alongside the filter, precisely so a
-result can be audited before publish. `BeqMetadata` (item 5, §12) and the
-report (item 9) were scoped only for TMDB/filter-table data. *Recommendation:
-thread the designer's provenance through the pipeline's design-intake step
-into the report (so a human reviewing before publish sees confidence/residual
-next to the chart) but keep it out of the published XML — the catalogue
-format has no field for it and consumers other than this pipeline have no use
-for it.*
-
-**D8 — How does a designer implementation bind to the pipeline?** The §2
-contract (`DesignRequest`/`DesignResponse`) is plain data; nothing about it
-requires the designer to run in the same process, host or language.
-*Recommendation: start with a single in-process Python callable, registered
-by name, since that's the cheapest path to Phase 1 and matches what
-beqanalyser's result already looks like — a function from a signal to a
-filter set plus diagnostics. Defer a subprocess or HTTP binding until
-cross-repo or cross-language use actually needs it; the schema doesn't change
-when the binding does, so nothing is lost by not building it now. Overlaps
-D5 (CLI vs service) — resolve together, not separately.*
+**D6 — Catalogue as an input: STILL OPEN, not built.**
+`CatalogueEntry.iir_filters()` (`model/catalogue.py:581`) already turns a
+published BEQ into filters headlessly. "Fetch a published BEQ and apply it"
+bypasses steps 1–5 entirely and is a much smaller job than this pipeline.
+Worth confirming whether that is also wanted — it may be the more common use
+case. This is the one item from this whole document with no follow-on plan
+and no code behind it.
 
 ## 15. Integration with beqanalyser
 

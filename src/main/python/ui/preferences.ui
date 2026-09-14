@@ -327,6 +327,106 @@
          </item>
         </layout>
        </widget>
+       <widget class="QWidget" name="designerPage">
+        <property name="geometry">
+         <rect>
+          <x>0</x>
+          <y>0</y>
+          <width>361</width>
+          <height>273</height>
+         </rect>
+        </property>
+        <attribute name="label">
+         <string>Designers</string>
+        </attribute>
+        <layout class="QVBoxLayout" name="designerPane">
+         <item>
+          <widget class="QLabel" name="designersHelpLabel">
+           <property name="text">
+            <string>HTTP designer endpoints, available to Batch Design by name. Headers (optional) is a JSON object, e.g. {"Authorization": "Bearer ..."}.</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QTableWidget" name="designersTable">
+           <property name="columnCount">
+            <number>3</number>
+           </property>
+           <column>
+            <property name="text">
+             <string>Name</string>
+            </property>
+           </column>
+           <column>
+            <property name="text">
+             <string>URL</string>
+            </property>
+           </column>
+           <column>
+            <property name="text">
+             <string>Headers (JSON)</string>
+            </property>
+           </column>
+          </widget>
+         </item>
+         <item>
+          <layout class="QHBoxLayout" name="designerRowButtonsLayout">
+           <item>
+            <widget class="QPushButton" name="designersAddButton">
+             <property name="text">
+              <string>Add</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="designersRemoveButton">
+             <property name="text">
+              <string>Remove</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         <item>
+          <layout class="QGridLayout" name="designQueueDirPane">
+           <item row="0" column="0">
+            <widget class="QLabel" name="designQueueDirLabel">
+             <property name="text">
+              <string>Review Queue Directory</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QLineEdit" name="designQueueDir">
+             <property name="enabled">
+              <bool>false</bool>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="2">
+            <widget class="QToolButton" name="designQueueDirPicker">
+             <property name="text">
+              <string>...</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="0">
+            <widget class="QLabel" name="defaultDesignerLabel">
+             <property name="text">
+              <string>Default Designer</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1" colspan="2">
+            <widget class="QComboBox" name="defaultDesignerCombo"/>
+           </item>
+          </layout>
+         </item>
+        </layout>
+       </widget>
        <widget class="QWidget" name="stylePage">
         <property name="geometry">
          <rect>
@@ -884,6 +984,22 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>designQueueDirPicker</sender>
+   <signal>clicked()</signal>
+   <receiver>preferencesDialog</receiver>
+   <slot>showDesignQueueDirPicker()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>0</x>
+     <y>0</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>0</x>
+     <y>0</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>showFfmpegDirectoryPicker()</slot>
@@ -891,6 +1007,7 @@
   <slot>showFfprobeDirectoryPicker()</slot>
   <slot>showDefaultOutputDirectoryPicker()</slot>
   <slot>showExtractCompleteSoundPicker()</slot>
+  <slot>showDesignQueueDirPicker()</slot>
   <slot>showBeqDirectoryPicker()</slot>
   <slot>updateBeq()</slot>
   <slot>add_beq_repo()</slot>

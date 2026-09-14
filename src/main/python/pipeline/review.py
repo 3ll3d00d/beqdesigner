@@ -93,7 +93,12 @@ def _entry_from_dict(d: dict) -> QueueEntry:
 
 
 def read_queue(queue_dir: str) -> List[QueueEntry]:
-    ''' :return: every entry in queue_dir, sorted pending-first then by id. '''
+    '''
+    :return: every entry in queue_dir, sorted pending-first then by id -- [] if queue_dir does not exist yet
+        (e.g. a remembered-but-not-yet-written default), rather than raising.
+    '''
+    if not os.path.isdir(queue_dir):
+        return []
     entries = []
     for name in sorted(os.listdir(queue_dir)):
         if name.endswith('.json'):
@@ -142,13 +147,40 @@ def _outcome_to_entry(entry_id: str, fs: int, meta: dict, curve: dict, outcome: 
     return QueueEntry(id=entry_id, fs=fs, meta=meta, curve=curve, candidates=candidates)
 
 
+def design_and_queue(session: Session, entry_id: str, wav_path: str, designer: str, queue_dir: str,
+                     meta: Optional[dict] = None, coverage: Coverage = 'complete_programme',
+                     bass_management: Optional[dict] = None, channels: Optional[dict] = None) -> QueueEntry:
+    '''
+    Loads an *already-extracted* wav file, designs it, and writes one
+    QueueEntry to queue_dir -- the load+design+curve+write half of
+    batch_design(), split out so a caller that has already extracted audio
+    itself (e.g. a GUI dialog with its own per-file extraction UI) can
+    design+queue without redoing extraction. `session` may be shared/reused
+    across many calls -- Session holds no mutable per-call state.
+    :param entry_id: the queue entry's stable id/filename (see batch_design).
+    :param wav_path: path to an already-extracted (mono) wav file -- the primary signal design() runs
+        against (DesignRequest.mono_mix). Must be mono; `channels` is a separate, purely additive input.
+    :param meta: BeqMetadata *constructor* kwargs, or None if unresolved yet.
+    :param channels: DesignRequest.channels -- see Session.design()/Session.load_channels(). Optional.
+    :return: the written QueueEntry.
+    '''
+    from model.codec import xydata_to_json
+
+    sig = session.load(wav_path, name=entry_id)
+    outcome = session.design(sig, designer, coverage=coverage, bass_management=bass_management, channels=channels)
+    curve = xydata_to_json(session.curves(sig, kind='avg', filtered=False))
+    entry = _outcome_to_entry(entry_id, sig.signal.fs, meta or {}, curve, outcome)
+    write_queue_entry(queue_dir, entry)
+    return entry
+
+
 def batch_design(items: Sequence[Tuple[str, str, Optional[dict]]], designer: str, queue_dir: str, work_dir: str,
                  config: AnalysisConfig = AnalysisConfig(), coverage: Coverage = 'complete_programme',
                  bass_management: Optional[dict] = None,
                  on_item_done: Optional[Callable[[str], None]] = None) -> List[str]:
     '''
-    Runs Session.extract/load/design for each item and writes one
-    QueueEntry (status 'pending') to queue_dir per title -- never calls
+    Runs Session.extract() then design_and_queue() for each item -- writing
+    one QueueEntry (status 'pending') to queue_dir per title. Never calls
     set_filters/publish; that only happens for an entry a human has since
     marked 'accepted' (pipeline.review.apply_reviewed_entry/
     publish_reviewed_queue).
@@ -167,17 +199,12 @@ def batch_design(items: Sequence[Tuple[str, str, Optional[dict]]], designer: str
         signal, so this stays Qt-free.
     :return: the ids written, in `items` order.
     '''
-    from model.codec import xydata_to_json
-
     session = Session(config)
     written = []
     for entry_id, source_path, meta in items:
         extracted = session.extract(source_path, os.path.join(work_dir, entry_id))
-        sig = session.load(extracted, name=entry_id)
-        outcome = session.design(sig, designer, coverage=coverage, bass_management=bass_management)
-        curve = xydata_to_json(session.curves(sig, kind='avg', filtered=False))
-        entry = _outcome_to_entry(entry_id, sig.signal.fs, meta or {}, curve, outcome)
-        write_queue_entry(queue_dir, entry)
+        design_and_queue(session, entry_id, extracted, designer, queue_dir, meta=meta, coverage=coverage,
+                         bass_management=bass_management)
         written.append(entry_id)
         if on_item_done is not None:
             on_item_done(entry_id)

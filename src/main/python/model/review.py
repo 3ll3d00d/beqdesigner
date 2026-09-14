@@ -10,6 +10,7 @@ pipeline.review, which is Qt-free; this module is the only place that
 wires it to Qt widgets.
 '''
 import logging
+import os
 
 import qtawesome as qta
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, QObject, QRunnable, Qt, QThreadPool, Signal
@@ -18,6 +19,7 @@ from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox, QStatusBar, QTable
 
 from model.codec import filter_from_json, xydata_from_json
 from model.magnitude import MagnitudeModel
+from model.preferences import DESIGNER_QUEUE_DIR
 from pipeline.config import AnalysisConfig
 from pipeline.publish.git import RepoTarget
 from pipeline.review import read_queue, update_entry, publish_reviewed_queue
@@ -123,6 +125,19 @@ class ReviewQueueDialog(QDialog, Ui_reviewQueueDialog):
         self.__install_shortcuts()
         self.__update_action_buttons()
 
+        default_queue_dir = self.__preferences.get(DESIGNER_QUEUE_DIR)
+        if default_queue_dir and os.path.isdir(default_queue_dir):
+            self.load_queue_dir(default_queue_dir)
+
+    def reject(self):
+        '''
+        QDialog's default Escape-key behaviour calls reject(), which hides this dialog -- fine for a modal
+        popup, but this one is a persistent workspace (embedded as model/batch.py's Review tab, or shown
+        non-modally standalone), so hiding it leaves an apparently-blank tab/window rather than closing
+        anything meaningful. No-op; close via the window's own controls instead.
+        '''
+        pass
+
     def __install_shortcuts(self):
         QShortcut(QKeySequence(Qt.Key.Key_Return), self, activated=self.__accept_current)
         QShortcut(QKeySequence(Qt.Key.Key_Enter), self, activated=self.__accept_current)
@@ -145,9 +160,13 @@ class ReviewQueueDialog(QDialog, Ui_reviewQueueDialog):
                 self.load_queue_dir(selected[0])
 
     def load_queue_dir(self, queue_dir):
-        ''' Points this dialog at a queue directory and (re)loads it -- also usable from outside (tests, app.py). '''
+        '''
+        Points this dialog at a queue directory and (re)loads it -- also usable from outside (tests, app.py).
+        Remembers queue_dir as the DESIGNER_QUEUE_DIR default for next time.
+        '''
         self.__queue_dir = queue_dir
         self.queueDirEdit.setText(queue_dir)
+        self.__preferences.set(DESIGNER_QUEUE_DIR, queue_dir)
         self.__reload_queue()
 
     def __reload_queue(self):

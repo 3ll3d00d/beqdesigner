@@ -8,14 +8,19 @@ import qtawesome as qta
 from qtpy import QtWidgets, QtCore
 from qtpy.QtCore import Qt, QObject, QRunnable, QThread, Signal, QThreadPool
 from qtpy.QtGui import QIcon
-from qtpy.QtWidgets import QDialog, QStatusBar, QFileDialog
+from qtpy.QtWidgets import QDialog, QStatusBar, QFileDialog, QMessageBox
 
 from model.bdmv import is_bdmv_root, resolve_main_title
 from model.ffmpeg import Executor, parse_audio_stream, ViewProbeDialog, SIGNAL_CONNECTED, SIGNAL_ERROR, \
     SIGNAL_COMPLETE, SIGNAL_CANCELLED, FFMpegDetailsDialog, describe_missing_binary
-from model.preferences import EXTRACTION_OUTPUT_DIR, EXTRACTION_BATCH_FILTER, ANALYSIS_TARGET_FS
+from model.preferences import EXTRACTION_OUTPUT_DIR, EXTRACTION_BATCH_FILTER, ANALYSIS_TARGET_FS, \
+    DESIGNER_QUEUE_DIR, DESIGNER_DEFAULT
 from model.spin import StoppableSpin, stop_spinner
 from ui.batch import Ui_batchExtractDialog
+
+# model.review and pipeline.* are imported lazily (inside the functions that need them) rather than at module
+# level -- pipeline.orchestrate transitively imports model.merge -> model.sync -> model.batch (StoppableSpin/
+# stop_spinner), so a module-level import here would be circular.
 
 logger = logging.getLogger('batch')
 
@@ -40,12 +45,16 @@ class BatchExtractDialog(QDialog, Ui_batchExtractDialog):
         self.__candidates = None
         self.__preferences = preferences
         self.__search_spinner = None
+        self.__session = None
         default_output_dir = self.__preferences.get(EXTRACTION_OUTPUT_DIR)
         if os.path.isdir(default_output_dir):
             self.outputDir.setText(default_output_dir)
         filt = self.__preferences.get(EXTRACTION_BATCH_FILTER)
         if filt is not None:
             self.filter.setText(filt)
+        default_queue_dir = self.__preferences.get(DESIGNER_QUEUE_DIR)
+        if default_queue_dir and os.path.isdir(default_queue_dir):
+            self.queueDirEdit.setText(default_queue_dir)
         self.outputDirPicker.setIcon(qta.icon('fa5s.folder-open'))
         self.statusBar = QStatusBar()
         self.verticalLayout.addWidget(self.statusBar)
@@ -55,6 +64,56 @@ class BatchExtractDialog(QDialog, Ui_batchExtractDialog):
             self.threads.setValue(core_count)
         except Exception as e:
             logger.warning(f"Unable to get cpu_count()", e)
+
+        from pipeline.designer.registry import registered_designers
+        self.designerCombo.addItems(registered_designers())
+        default_designer = self.__preferences.get(DESIGNER_DEFAULT)
+        if default_designer:
+            idx = self.designerCombo.findText(default_designer)
+            if idx != -1:
+                self.designerCombo.setCurrentIndex(idx)
+        self.designEnabled.toggled.connect(self.__toggle_design)
+        self.browseQueueDirButton.clicked.connect(self.select_queue_dir)
+
+        from model.review import ReviewQueueDialog
+        self.__review = ReviewQueueDialog(self, preferences)
+        self.__review.setWindowFlags(Qt.WindowType.Widget)
+        self.mainTabs.addTab(self.__review, 'Review')
+
+    def __toggle_design(self, checked):
+        '''
+        Enables/disables the design-related controls in lockstep with the "Design filters?" checkbox.
+        '''
+        self.designerCombo.setEnabled(checked)
+        self.queueDirEdit.setEnabled(checked)
+        self.browseQueueDirButton.setEnabled(checked)
+
+    def select_queue_dir(self):
+        '''
+        Selects the queue directory that design results are written to.
+        '''
+        selected = self.__select_dir()
+        if selected:
+            self.queueDirEdit.setText(selected)
+            self.__preferences.set(DESIGNER_QUEUE_DIR, selected)
+
+    def get_session(self):
+        '''
+        Lazily builds the (Qt-free) pipeline Session shared by every candidate's design job -- Session holds no
+        mutable per-call state so it is safe to reuse across the dialog's concurrently-running design jobs.
+        '''
+        if self.__session is None:
+            from pipeline.config import AnalysisConfig
+            from pipeline.orchestrate import Session
+            self.__session = Session(AnalysisConfig(target_fs=self.__preferences.get(ANALYSIS_TARGET_FS)))
+        return self.__session
+
+    def on_all_designs_complete(self):
+        '''
+        Loads the just-written queue entries into the Review tab and switches to it.
+        '''
+        self.__review.load_queue_dir(self.queueDirEdit.text())
+        self.mainTabs.setCurrentIndex(1)
 
     def enable_search(self, search):
         '''
@@ -175,6 +234,16 @@ class BatchExtractDialog(QDialog, Ui_batchExtractDialog):
         '''
         Kicks off the extract.
         '''
+        if self.designEnabled.isChecked():
+            duplicates = self.__candidates.duplicate_stems()
+            if duplicates:
+                QMessageBox.critical(self, 'Cannot extract',
+                                     f"Two or more candidates share the same filename stem "
+                                     f"({', '.join(duplicates)}) -- rename one or remove the duplicate")
+                return
+            if not self.queueDirEdit.text():
+                QMessageBox.critical(self, 'Cannot extract', 'Select a queue directory')
+                return
         self.extractButton.setEnabled(False)
         self.threads.setEnabled(False)
         self.resetButton.setText('Cancel')
@@ -236,11 +305,26 @@ class ExtractCandidates:
         self.__probed = []
         self.__extracting = False
         self.__extracted = []
+        self.__designed = []
         self.__decimate_fs = decimate_fs
 
     @property
     def is_extracting(self):
         return self.__extracting
+
+    def duplicate_stems(self):
+        '''
+        :return: any entry_id shared by two or more candidates, sorted -- design writes one queue entry per
+            entry_id, so these must be unique whenever design is enabled.
+        '''
+        seen = set()
+        duplicates = set()
+        for c in self.__candidates:
+            entry_id = c.entry_id
+            if entry_id in seen:
+                duplicates.add(entry_id)
+            seen.add(entry_id)
+        return sorted(duplicates)
 
     def __len__(self):
         return len(self.__candidates)
@@ -267,7 +351,8 @@ class ExtractCandidates:
         else:
             return False
         extract_candidate = ExtractCandidate(len(self.__candidates), candidate, self.__dialog,
-                                             self.on_probe_complete, self.on_extract_complete, self.__decimate_fs,
+                                             self.on_probe_complete, self.on_extract_complete,
+                                             self.on_design_complete, self.__decimate_fs,
                                              resolved_title=resolved_title)
         self.__candidates.append(extract_candidate)
         extract_candidate.render()
@@ -319,6 +404,17 @@ class ExtractCandidates:
             logger.info('All probes complete')
             self.__dialog.extract_complete()
 
+    def on_design_complete(self, idx):
+        '''
+        Registers the completion of a single candidate's design step (successful, declined, failed or skipped
+        because its extraction did not complete) -- only invoked while design is enabled for this run.
+        :param idx: the idx of the designed candidate.
+        '''
+        self.__designed.append(idx)
+        if len(self.__designed) == len(self):
+            logger.info('All designs complete')
+            self.__dialog.on_all_designs_complete()
+
 
 class ExtractStatus(Enum):
     NEW = 0
@@ -351,9 +447,10 @@ class ExtractStatus(Enum):
 
 
 class ExtractCandidate:
-    def __init__(self, idx, filename, dialog, on_probe_complete, on_extract_complete, decimate_fs,
-                resolved_title=None):
+    def __init__(self, idx, filename, dialog, on_probe_complete, on_extract_complete, on_design_complete,
+                decimate_fs, resolved_title=None):
         self.__idx = idx
+        self.__source_path = filename
         if resolved_title is not None:
             self.__filename = f"{resolved_title.display_name}  [{filename}]"
             executor_input = resolved_title.ffmpeg_input
@@ -366,9 +463,12 @@ class ExtractCandidate:
             duration_override_s = None
         self.__dialog = dialog
         self.__in_progress_icon = None
+        self.__design_icon = None
+        self.__design_entry = None
         self.__stream_duration_micros = []
         self.__on_probe_complete = on_probe_complete
         self.__on_extract_complete = on_extract_complete
+        self.__on_design_complete = on_design_complete
         self.__result = None
         self.__status = ExtractStatus.NEW
         self.executor = Executor(executor_input, self.__dialog.outputDir.text(), decimate_fs=decimate_fs,
@@ -383,6 +483,15 @@ class ExtractCandidate:
         self.ffmpegButton = None
         self.outputFilename = None
         self.ffmpegProgress = None
+        self.designButton = None
+
+    @property
+    def entry_id(self):
+        '''
+        :return: the stable id a design run writes this candidate's queue entry under -- the source file's (or
+            BD folder's) filename stem, independent of any resolved BD title.
+        '''
+        return os.path.splitext(os.path.basename(self.__source_path.rstrip(os.sep)))[0]
 
     def render(self):
         dialog = self.__dialog
@@ -451,6 +560,12 @@ class ExtractCandidate:
         self.ffmpegProgress.setObjectName(f"progress{self.__idx}")
         self.ffmpegProgress.setEnabled(False)
         dialog.resultsLayout.addWidget(self.ffmpegProgress, self.__idx + 1, 8, 1, 1)
+        self.designButton = QtWidgets.QToolButton(dialog.resultsScrollAreaContents)
+        self.designButton.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        self.designButton.setObjectName(f"designButton{self.__idx}")
+        self.designButton.setEnabled(False)
+        self.designButton.clicked.connect(self.show_design_detail)
+        dialog.resultsLayout.addWidget(self.designButton, self.__idx + 1, 9, 1, 1)
 
     def remove(self):
         logger.debug(f"Closing widgets for {self.executor.file}")
@@ -463,6 +578,7 @@ class ExtractCandidate:
         self.ffmpegButton.close()
         self.outputFilename.close()
         self.ffmpegProgress.close()
+        self.designButton.close()
         logger.debug(f"Closed widgets for {self.executor.file}")
 
     @property
@@ -570,6 +686,7 @@ class ExtractCandidate:
             self.status = ExtractStatus.CANCELLED
             self.__result = value
             self.__on_extract_complete(self.__idx)
+            self.__skip_design()
         elif key == 'out_time_ms':
             if self.status != ExtractStatus.IN_PROGRESS:
                 logger.debug(f"Extraction started for {self}")
@@ -587,11 +704,13 @@ class ExtractCandidate:
             self.__result = value
             self.actionButton.setToolTip(value)
             self.__on_extract_complete(self.__idx)
+            self.__skip_design()
         elif key == SIGNAL_COMPLETE:
             self.ffmpegProgress.setValue(100)
             self.status = ExtractStatus.COMPLETE
             self.__result = value
             self.__on_extract_complete(self.__idx)
+            self.__maybe_design()
 
     def extract(self):
         '''
@@ -675,6 +794,98 @@ class ExtractCandidate:
             msg_box.details.setPlainText(self.__result)
         msg_box.show()
 
+    def __maybe_design(self):
+        '''
+        Schedules this candidate's design job if design is enabled for this run, otherwise does nothing (there
+        is then no design counter to advance either -- ExtractCandidates.on_design_complete is only ever invoked
+        for a run that had design enabled).
+        '''
+        if self.__dialog.designEnabled.isChecked():
+            self.design()
+
+    def __skip_design(self):
+        '''
+        Advances the design-completion counter for a candidate whose extraction did not complete (failed or was
+        cancelled), so a run with design enabled still reaches "all designs complete" -- only relevant when
+        design is enabled; a design-disabled run never registers this candidate against that counter at all.
+        '''
+        if self.__dialog.designEnabled.isChecked():
+            self.__on_design_complete(self.__idx)
+
+    def design(self):
+        '''
+        Schedules a DesignJob for this candidate. Design always needs a mono downmix (Session.design()'s
+        mono_mix) -- if the kept extraction is already mono (monoMix checked), reuse its output directly;
+        otherwise the job extracts its own mono downmix into the same output directory rather than forcing
+        the choice of mono-for-design onto the kept file's channel layout (we commonly want both: e.g. a
+        multichannel file to keep and a mono one to design from). When the kept extraction *is*
+        multichannel, it also gets decomposed into per-channel arrays (Session.load_channels()) and sent
+        alongside mono_mix as DesignRequest.channels -- a diagnostic input (design/designer-interface.md
+        §2) that would otherwise be discarded by only ever designing from a downmix.
+        '''
+        self.designButton.setEnabled(False)
+        already_mono_wav_path = self.executor.get_output_path() if self.__dialog.monoMix.isChecked() else None
+        multichannel_wav_path = None if already_mono_wav_path is not None else self.executor.get_output_path()
+        job = DesignJob(self, self.__dialog.get_session(), self.entry_id, already_mono_wav_path,
+                        multichannel_wav_path, self.executor.channel_layout_name, self.executor.file,
+                        self.audioStreams.currentIndex(), self.__dialog.outputDir.text(),
+                        self.__dialog.designerCombo.currentText(), self.__dialog.queueDirEdit.text())
+        QThreadPool.globalInstance().start(job)
+
+    def design_started(self):
+        '''
+        Updates the UI when the design job starts.
+        '''
+        self.__design_icon = StoppableSpin(self.designButton, f"design-{self.__filename}")
+        self.designButton.setIcon(qta.icon('fa5s.spinner', color='blue', animation=self.__design_icon))
+
+    def design_complete(self, entry):
+        '''
+        Updates the UI when the design job completes -- entry.candidates is empty on a decline.
+        :param entry: the written pipeline.review.QueueEntry.
+        '''
+        stop_spinner(self.__design_icon, self.designButton)
+        self.__design_icon = None
+        self.__design_entry = entry
+        if entry.candidates:
+            top = entry.candidates[0]
+            self.designButton.setIcon(qta.icon('fa5s.check', color='green'))
+            self.designButton.setToolTip(f"confidence={top.confidence:.2f} method={top.method}")
+        else:
+            self.designButton.setIcon(qta.icon('fa5s.ban', color='orange'))
+            self.designButton.setToolTip(f"Declined: {entry.decline_reason} -- {entry.decline_message or ''}")
+        self.designButton.setEnabled(True)
+        self.__on_design_complete(self.__idx)
+
+    def design_failed(self, msg):
+        '''
+        Updates the UI when the design job raises.
+        :param msg: a description of the failure.
+        '''
+        stop_spinner(self.__design_icon, self.designButton)
+        self.__design_icon = None
+        self.designButton.setIcon(qta.icon('fa5s.exclamation-triangle', color='red'))
+        self.designButton.setToolTip(msg)
+        self.designButton.setEnabled(True)
+        self.__on_design_complete(self.__idx)
+
+    def show_design_detail(self):
+        '''
+        Pops up a message box containing the design outcome (or decline reason).
+        '''
+        if self.__design_entry is None:
+            return
+        msg_box = QMessageBox(self.__dialog)
+        if self.__design_entry.candidates:
+            top = self.__design_entry.candidates[0]
+            msg_box.setWindowTitle('Design result')
+            msg_box.setText(f"confidence={top.confidence:.2f}\nmethod={top.method}\n"
+                            f"mv_adjust_db={top.mv_adjust_db:+.1f}")
+        else:
+            msg_box.setWindowTitle('Design declined')
+            msg_box.setText(f"{self.__design_entry.decline_reason}: {self.__design_entry.decline_message or ''}")
+        msg_box.show()
+
     def __repr__(self):
         return self.__filename
 
@@ -721,3 +932,60 @@ class ProbeJob(QRunnable):
             finally:
                 self.__signals.errored.emit(str(e))
         logger.info(f"<< ProbeJob.run {self.__candidate.executor.file}")
+
+
+class DesignJobSignals(QObject):
+    started = Signal()
+    finished = Signal(object)  # pipeline.review.QueueEntry
+    errored = Signal(str)
+
+
+class DesignJob(QRunnable):
+    '''
+    Designs a candidate (pipeline.review.design_and_queue) in the global thread pool -- same QThreadPool
+    pattern as ProbeJob. If already_mono_wav_path is None (the kept extraction wasn't mono), first extracts its
+    own mono downmix via Session.extract() -- same ffmpeg input/stream, forced mono_mix=True -- rather than
+    reusing a multichannel file as Session.design()'s primary (mono_mix) signal. If multichannel_wav_path is
+    also given (the kept extraction, when it's multichannel), that file is additionally decomposed into
+    per-channel arrays (Session.load_channels()) and sent alongside the mono downmix as
+    DesignRequest.channels -- see model/batch.py's ExtractCandidate.design().
+    '''
+
+    def __init__(self, candidate, session, entry_id, already_mono_wav_path, multichannel_wav_path,
+                channel_layout_name, executor_input, audio_stream_idx, work_dir, designer, queue_dir):
+        super().__init__()
+        self.__session = session
+        self.__entry_id = entry_id
+        self.__already_mono_wav_path = already_mono_wav_path
+        self.__multichannel_wav_path = multichannel_wav_path
+        self.__channel_layout_name = channel_layout_name
+        self.__executor_input = executor_input
+        self.__audio_stream_idx = audio_stream_idx
+        self.__work_dir = work_dir
+        self.__designer = designer
+        self.__queue_dir = queue_dir
+        self.signals = DesignJobSignals()
+        self.signals.started.connect(candidate.design_started)
+        self.signals.finished.connect(candidate.design_complete)
+        self.signals.errored.connect(candidate.design_failed)
+
+    def run(self):
+        logger.info(f">> DesignJob.run {self.__entry_id}")
+        self.signals.started.emit()
+        try:
+            from pipeline.review import design_and_queue
+            wav_path = self.__already_mono_wav_path
+            channels = None
+            if wav_path is None:
+                wav_path = self.__session.extract(self.__executor_input, self.__work_dir,
+                                                   audio_stream=self.__audio_stream_idx, mono_mix=True)
+                if self.__multichannel_wav_path is not None:
+                    channels = self.__session.load_channels(self.__multichannel_wav_path,
+                                                             channel_layout_name=self.__channel_layout_name)
+            entry = design_and_queue(self.__session, self.__entry_id, wav_path, self.__designer,
+                                     self.__queue_dir, channels=channels)
+            self.signals.finished.emit(entry)
+        except Exception as e:
+            logger.exception(f"Design {self.__entry_id} failed")
+            self.signals.errored.emit(str(e))
+        logger.info(f"<< DesignJob.run {self.__entry_id}")
