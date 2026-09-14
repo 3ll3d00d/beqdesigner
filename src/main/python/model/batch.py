@@ -66,7 +66,11 @@ class BatchExtractDialog(QDialog, Ui_batchExtractDialog):
             logger.warning(f"Unable to get cpu_count()", e)
 
         from pipeline.designer.registry import registered_designers
-        self.designerCombo.addItems(registered_designers())
+        designers = registered_designers()
+        # design/review controls are only meaningful once at least one designer is registered -- which only
+        # happens via Preferences' HTTP endpoints table (register_configured_designers)
+        self.has_designers = len(designers) > 0
+        self.designerCombo.addItems(designers)
         default_designer = self.__preferences.get(DESIGNER_DEFAULT)
         if default_designer:
             idx = self.designerCombo.findText(default_designer)
@@ -75,10 +79,20 @@ class BatchExtractDialog(QDialog, Ui_batchExtractDialog):
         self.designEnabled.toggled.connect(self.__toggle_design)
         self.browseQueueDirButton.clicked.connect(self.select_queue_dir)
 
-        from model.review import ReviewQueueDialog
-        self.__review = ReviewQueueDialog(self, preferences)
-        self.__review.setWindowFlags(Qt.WindowType.Widget)
-        self.mainTabs.addTab(self.__review, 'Review')
+        self.designEnabled.setVisible(self.has_designers)
+        self.designerLabel.setVisible(self.has_designers)
+        self.designerCombo.setVisible(self.has_designers)
+        self.queueDirLabel.setVisible(self.has_designers)
+        self.queueDirEdit.setVisible(self.has_designers)
+        self.browseQueueDirButton.setVisible(self.has_designers)
+        self.designHeaderLabel.setVisible(self.has_designers)
+
+        self.__review = None
+        if self.has_designers:
+            from model.review import ReviewQueueDialog
+            self.__review = ReviewQueueDialog(self, preferences)
+            self.__review.setWindowFlags(Qt.WindowType.Widget)
+            self.mainTabs.addTab(self.__review, 'Review')
 
     def __toggle_design(self, checked):
         '''
@@ -564,6 +578,7 @@ class ExtractCandidate:
         self.designButton.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         self.designButton.setObjectName(f"designButton{self.__idx}")
         self.designButton.setEnabled(False)
+        self.designButton.setVisible(dialog.has_designers)
         self.designButton.clicked.connect(self.show_design_detail)
         dialog.resultsLayout.addWidget(self.designButton, self.__idx + 1, 9, 1, 1)
 

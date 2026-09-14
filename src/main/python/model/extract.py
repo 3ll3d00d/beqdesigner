@@ -66,14 +66,20 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         default_output_dir = self.__preferences.get(EXTRACTION_OUTPUT_DIR)
         if os.path.isdir(default_output_dir):
             self.targetDir.setText(default_output_dir)
+
+        from pipeline.designer.registry import registered_designers
+        designers = registered_designers()
+        # design controls (design/designer-interface.md) are only meaningful once at least one designer is
+        # registered -- which only happens via Preferences' HTTP endpoints table (register_configured_designers)
+        self.has_designers = len(designers) > 0
+        self.designerCombo.addItems(designers)
+
         self.__restore_geometry()
         self.__reinit_fields()
         self.filterMapping.itemDoubleClicked.connect(self.show_mapping_dialog)
         self.inputDrop.callback = self.__handle_drop
         self.finished.connect(self.__on_finished)
 
-        from pipeline.designer.registry import registered_designers
-        self.designerCombo.addItems(registered_designers())
         default_designer = self.__preferences.get(DESIGNER_DEFAULT)
         if default_designer:
             idx = self.designerCombo.findText(default_designer)
@@ -226,11 +232,11 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             self.calculateGainAdjustment.setVisible(False)
             self.adjustRemuxedAudio.setVisible(False)
             self.remuxedAudioOffset.setVisible(False)
-            self.designEnabled.setVisible(True)
-            self.designerCombo.setVisible(True)
-            self.queueDirLabel.setVisible(True)
-            self.queueDirEdit.setVisible(True)
-            self.browseQueueDirButton.setVisible(True)
+            self.designEnabled.setVisible(self.has_designers)
+            self.designerCombo.setVisible(self.has_designers)
+            self.queueDirLabel.setVisible(self.has_designers)
+            self.queueDirEdit.setVisible(self.has_designers)
+            self.browseQueueDirButton.setVisible(self.has_designers)
         self.eacBitRate.setVisible(False)
         self.designEnabled.setChecked(False)
         self.monoMix.setChecked(self.__preferences.get(EXTRACTION_MIX_MONO))

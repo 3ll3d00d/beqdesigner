@@ -85,6 +85,40 @@ def test_main_tabs_has_run_and_review_tabs(dialog):
     assert dialog.mainTabs.currentIndex() == 0
 
 
+def test_design_and_review_controls_hidden_when_no_designers_are_registered(qtbot, tmp_path):
+    ''' The design/review fields only make sense once Preferences has at least one designer configured. '''
+    from pipeline.designer.registry import unregister_designer
+    unregister_designer(DESIGNER_NAME)  # undoes the autouse _designer fixture for this test only
+
+    d = BatchExtractDialog(None, _make_preferences(tmp_path))
+    qtbot.addWidget(d)
+    d.show()
+
+    assert d.has_designers is False
+    assert d.mainTabs.count() == 1
+    assert d.mainTabs.tabText(0) == 'Run'
+    assert d.designEnabled.isVisible() is False
+    assert d.designerLabel.isVisible() is False
+    assert d.designerCombo.isVisible() is False
+    assert d.queueDirLabel.isVisible() is False
+    assert d.queueDirEdit.isVisible() is False
+    assert d.browseQueueDirButton.isVisible() is False
+    assert d.designHeaderLabel.isVisible() is False
+
+
+def test_design_and_review_controls_shown_when_a_designer_is_registered(qtbot, dialog):
+    dialog.show()
+
+    assert dialog.has_designers is True
+    assert dialog.designEnabled.isVisible() is True
+    assert dialog.designerLabel.isVisible() is True
+    assert dialog.designerCombo.isVisible() is True
+    assert dialog.queueDirLabel.isVisible() is True
+    assert dialog.queueDirEdit.isVisible() is True
+    assert dialog.browseQueueDirButton.isVisible() is True
+    assert dialog.designHeaderLabel.isVisible() is True
+
+
 def test_designer_combo_lists_registered_designers(dialog):
     names = [dialog.designerCombo.itemText(i) for i in range(dialog.designerCombo.count())]
     assert DESIGNER_NAME in names
