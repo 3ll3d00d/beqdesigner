@@ -35,6 +35,10 @@ draft.*
 unattended and letting a human pick one per title before anything
 publishes — is `design/candidate-review-plan.md`.*
 
+*A test checklist for whoever implements this contract, extracted from two
+independent implementations' test suites (this repo's caller side and
+beqforge's designer side), is `design/designer-conformance-tests.md`.*
+
 ---
 
 ## 1. What you are building
