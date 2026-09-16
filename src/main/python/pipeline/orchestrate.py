@@ -13,8 +13,8 @@ Beyond composition, this module owns two things nothing built so far needed:
   (15,208 positives and zero negatives -- a false positive is the expensive
   failure).
 - **D7's provenance threading.** A designer's confidence/method/fc_hz/
-  slope/uncertainties/residual_db/commentary travel with an `Applied`
-  outcome so a report can show *why* a filter was accepted -- but
+  slope/uncertainties/residual_db/commentary/channel_scope travel with an
+  `Applied` outcome so a report can show *why* a filter was accepted -- but
   `to_beq_xml()` only ever receives `Applied.filters`, never the outcome
   itself: the catalogue XML format has no field for any of this, and no
   consumer other than a human reviewing the report needs it. A designer may
@@ -61,7 +61,7 @@ from model.signal import AutoWavLoader, SingleChannelSignalData
 from model.xy import MagnitudeData
 
 from pipeline.config import AnalysisConfig
-from pipeline.designer.contract import Coverage, build_request
+from pipeline.designer.contract import ChannelScope, Coverage, build_request
 from pipeline.designer.convert import alternative_filters, to_complete_filter
 from pipeline.designer.registry import get_designer
 from pipeline.filters import FilterSpec, create_filter
@@ -90,6 +90,7 @@ class AlternativeDesign:
     commentary: Optional[dict] = None
     residual_db: Optional[float] = None
     residual_band_hz: Optional[tuple] = None
+    channel_scope: Optional[ChannelScope] = None
 
 
 @dataclass(frozen=True)
@@ -107,6 +108,7 @@ class Applied:
     residual_db: Optional[float] = None
     residual_band_hz: Optional[tuple] = None
     commentary: Optional[dict] = None
+    channel_scope: Optional[ChannelScope] = None
     alternatives: tuple = ()  # tuple[AlternativeDesign, ...], lower-ranked candidates, best-first
 
 
@@ -249,14 +251,16 @@ class Session:
             AlternativeDesign(filters=alt_filter, confidence=candidate.confidence, method=candidate.method,
                               mv_adjust_db=candidate.mv_adjust_db, gain_reduction_db=candidate.gain_reduction_db,
                               commentary=candidate.commentary,
-                              residual_db=candidate.residual_db, residual_band_hz=candidate.residual_band_hz)
+                              residual_db=candidate.residual_db, residual_band_hz=candidate.residual_band_hz,
+                              channel_scope=candidate.channel_scope)
             for candidate, alt_filter in zip(response.candidates[1:], alternative_filters(response, fs=fs)))
         return Applied(filters=complete_filter, confidence=primary.confidence, method=primary.method,
                        mv_adjust_db=primary.mv_adjust_db, gain_reduction_db=primary.gain_reduction_db,
                        fc_hz=primary.fc_hz, slope=primary.slope,
                        fc_uncertainty_hz=primary.fc_uncertainty_hz, slope_uncertainty=primary.slope_uncertainty,
                        residual_db=primary.residual_db, residual_band_hz=primary.residual_band_hz,
-                       commentary=primary.commentary, alternatives=alternatives)
+                       commentary=primary.commentary, channel_scope=primary.channel_scope,
+                       alternatives=alternatives)
 
     def set_filters(self, sig: SingleChannelSignalData,
                     filters: Union[CompleteFilter, Sequence[FilterSpec]]) -> CompleteFilter:

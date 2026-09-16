@@ -14,7 +14,7 @@ from model.iir import CompleteFilter, LowShelf, PeakingEQ
 from pipeline.config import AnalysisConfig
 from pipeline.filters import FilterSpec
 from pipeline.metadata import BeqMetadata
-from pipeline.orchestrate import Session
+from pipeline.orchestrate import Applied, Session
 from pipeline.publish.git import RepoTarget
 
 
@@ -191,6 +191,133 @@ def test_design_threads_channels_through_to_the_request(loaded_signal, tmp_path)
         unregister_designer('test.channels')
 
     assert seen_requests[0].channels is channels
+
+
+def test_design_threads_excerpt_coverage_through_to_the_request(loaded_signal):
+    ''' design/designer-interface.md §2's Coverage -- every other test here only ever exercises
+    the default 'complete_programme'; this confirms 'excerpt' actually reaches the request too. '''
+    from pipeline.designer.contract import BiquadSpec, DesignCandidate, DesignResponse
+    from pipeline.designer.registry import register_designer, unregister_designer
+
+    session, sig = loaded_signal
+    seen_requests = []
+
+    def fake_designer(request):
+        seen_requests.append(request)
+        return DesignResponse(contract_version='1.0', candidates=[
+            DesignCandidate(filters=[BiquadSpec(type='low_shelf', freq_hz=18.0, gain_db=4.5, q=0.7)],
+                            confidence=0.9, mv_adjust_db=22.5, method='fitted'),
+        ])
+
+    register_designer('test.excerpt', fake_designer)
+    try:
+        session.design(sig, 'test.excerpt', coverage='excerpt')
+    finally:
+        unregister_designer('test.excerpt')
+
+    assert seen_requests[0].coverage == 'excerpt'
+
+
+def test_design_builds_alternatives_from_ranked_candidates_best_first(loaded_signal):
+    '''
+    design/designer-interface.md §3: a designer may return several ranked candidates.
+    Session.design() must reflect only candidates[0] in Applied's own fields (the only one ever
+    simulated/published) and carry the rest as Applied.alternatives, in the same best-first
+    order -- pipeline.designer.convert.alternative_filters() is already tested against this rule
+    in isolation (test_pipeline_designer_contract.py); this is the untested wiring one level up,
+    where orchestrate.py zips candidates[1:] against alternative_filters()'s output itself.
+    '''
+    from model.iir import LowShelf, PeakingEQ
+    from pipeline.designer.contract import BiquadSpec, DesignCandidate, DesignResponse
+    from pipeline.designer.registry import register_designer, unregister_designer
+
+    session, sig = loaded_signal
+
+    def fake_designer(request):
+        return DesignResponse(contract_version='1.0', candidates=[
+            DesignCandidate(filters=[BiquadSpec(type='low_shelf', freq_hz=18.0, gain_db=4.5, q=0.7)],
+                            confidence=0.9, mv_adjust_db=18.0, method='exact', commentary={'note': 'best'}),
+            DesignCandidate(filters=[BiquadSpec(type='peaking_eq', freq_hz=40.0, gain_db=-3.0, q=2.0)],
+                            confidence=0.6, mv_adjust_db=3.0, method='fitted', commentary={'note': 'second'}),
+            DesignCandidate(filters=[BiquadSpec(type='low_shelf', freq_hz=20.0, gain_db=2.0, q=0.7)],
+                            confidence=0.3, mv_adjust_db=2.0, method='non_parametric', commentary={'note': 'third'}),
+        ])
+
+    register_designer('test.alternatives', fake_designer)
+    try:
+        outcome = session.design(sig, 'test.alternatives')
+    finally:
+        unregister_designer('test.alternatives')
+
+    assert isinstance(outcome, Applied)
+    assert isinstance(outcome.filters.filters[0], LowShelf) and outcome.confidence == 0.9
+
+    assert len(outcome.alternatives) == 2
+    first, second = outcome.alternatives
+    assert isinstance(first.filters.filters[0], PeakingEQ)
+    assert first.confidence == 0.6 and first.commentary == {'note': 'second'}
+    assert isinstance(second.filters.filters[0], LowShelf)
+    assert second.confidence == 0.3 and second.commentary == {'note': 'third'}
+
+
+def test_design_threads_fc_slope_and_uncertainties_onto_applied(loaded_signal):
+    ''' Diagnostic-only fields (design/designer-interface.md §3) -- never published to the XML,
+    but must still survive from the winning candidate onto Applied for a report to show. '''
+    from pipeline.designer.contract import BiquadSpec, DesignCandidate, DesignResponse
+    from pipeline.designer.registry import register_designer, unregister_designer
+
+    session, sig = loaded_signal
+
+    def fake_designer(request):
+        return DesignResponse(contract_version='1.0', candidates=[
+            DesignCandidate(filters=[BiquadSpec(type='low_shelf', freq_hz=15.81, gain_db=15.918, q=0.7071)],
+                            confidence=0.94, mv_adjust_db=15.918, method='exact',
+                            fc_hz=25.0, slope=24.0, fc_uncertainty_hz=0.6, slope_uncertainty=1.1),
+        ])
+
+    register_designer('test.fc', fake_designer)
+    try:
+        outcome = session.design(sig, 'test.fc')
+    finally:
+        unregister_designer('test.fc')
+
+    assert isinstance(outcome, Applied)
+    assert outcome.fc_hz == 25.0
+    assert outcome.slope == 24.0
+    assert outcome.fc_uncertainty_hz == 0.6
+    assert outcome.slope_uncertainty == 1.1
+
+
+def test_design_threads_channel_scope_onto_applied_and_alternatives(loaded_signal):
+    '''
+    design/designer-interface.md §3's channel_scope -- "worth populating whenever you have an
+    answer, since it's otherwise invisible to the caller". Applied/AlternativeDesign previously
+    had no field for it at all, so a fully conformant designer response populating channel_scope
+    was silently dropped between validate_response() and the outcome a report would show.
+    '''
+    from pipeline.designer.contract import BiquadSpec, DesignCandidate, DesignResponse
+    from pipeline.designer.registry import register_designer, unregister_designer
+
+    session, sig = loaded_signal
+
+    def fake_designer(request):
+        return DesignResponse(contract_version='1.0', candidates=[
+            DesignCandidate(filters=[BiquadSpec(type='low_shelf', freq_hz=18.0, gain_db=4.5, q=0.7)],
+                            confidence=0.9, mv_adjust_db=18.0, method='exact', channel_scope='all_channels'),
+            DesignCandidate(filters=[BiquadSpec(type='peaking_eq', freq_hz=40.0, gain_db=-3.0, q=2.0)],
+                            confidence=0.5, mv_adjust_db=3.0, method='fitted', channel_scope='lfe_only'),
+        ])
+
+    register_designer('test.channel-scope', fake_designer)
+    try:
+        outcome = session.design(sig, 'test.channel-scope')
+    finally:
+        unregister_designer('test.channel-scope')
+
+    assert isinstance(outcome, Applied)
+    assert outcome.channel_scope == 'all_channels'
+    assert len(outcome.alternatives) == 1
+    assert outcome.alternatives[0].channel_scope == 'lfe_only'
 
 
 def test_tmdb_is_a_thin_wrapper_over_pipeline_metadata(monkeypatch, loaded_signal):
