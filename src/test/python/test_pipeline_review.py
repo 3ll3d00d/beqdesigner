@@ -4,7 +4,10 @@ batch_design() driver, and applying/publishing a human's pick -- exercised
 without any GUI, since the review dialog (Phase 3) is just a reader/writer
 of the same queue.
 '''
+import gzip
 import io
+import json
+import os
 import subprocess
 import wave
 
@@ -12,12 +15,14 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from model.iir import LowShelf, PeakingEQ
+from model.iir import CompleteFilter, LowShelf, PeakingEQ
+from pipeline.config import AnalysisConfig
 from pipeline.designer.contract import BiquadSpec, DesignCandidate, DesignResponse
 from pipeline.designer.registry import register_designer, unregister_designer
+from pipeline.orchestrate import Session
 from pipeline.publish.git import RepoTarget
-from pipeline.review import CandidateSummary, QueueEntry, apply_reviewed_entry, batch_design, publish_reviewed_queue, \
-    read_entry, read_queue, update_entry, write_queue_entry
+from pipeline.review import CandidateSummary, QueueEntry, apply_reviewed_entry, batch_design, design_and_queue, \
+    publish_reviewed_queue, read_entry, read_queue, update_entry, write_queue_entry
 
 DESIGNER_NAME = 'test.review'
 DECLINE_DESIGNER_NAME = 'test.review.decline'
@@ -57,6 +62,21 @@ def _write_synthetic_wav(path, fs=48000, duration_s=0.25, channel_values=(1000, 
         w.setsampwidth(2)
         w.setframerate(fs)
         w.writeframes(data)
+
+
+def _hand_edit_project_filter(path, new_filter):
+    '''
+    Simulates a human opening a .beq project in the interactive app and re-exporting via app.py's
+    exportProject() -- which calls the generic model.codec.signaldata_to_json(), so pipeline_filter_hash
+    (an additive key that function knows nothing about) is never re-emitted.
+    '''
+    with gzip.open(path, 'rb') as f:
+        data = json.loads(f.read().decode('utf-8'))
+    master = data[0]
+    master['filter_presets'][master['active_filter_preset']] = new_filter.to_json()
+    master.pop('pipeline_filter_hash', None)
+    with gzip.open(path, 'wb') as f:
+        f.write(json.dumps(data).encode('utf-8'))
 
 
 # --- QueueEntry construction/validation -----------------------------------
@@ -250,6 +270,54 @@ def test_design_and_queue_threads_channels_to_the_request(tmp_path):
     assert seen_requests[0].channels is channels
 
 
+# --- design_and_queue: output 1's .beq project files ------------------------
+
+def test_design_and_queue_writes_a_mono_project_when_project_dir_given(tmp_path):
+    from pipeline.publish.project import read_project_filter
+
+    wav_path = str(tmp_path / 'mono.wav')
+    _write_synthetic_wav(wav_path, channel_values=(1000,))
+    queue_dir = str(tmp_path / 'queue')
+    project_dir = str(tmp_path / 'projects')
+
+    entry = design_and_queue(Session(AnalysisConfig()), 'title-one', wav_path, DESIGNER_NAME, queue_dir,
+                             project_dir=project_dir)
+
+    mono_project = os.path.join(project_dir, 'title-one.mono.beq')
+    assert os.path.isfile(mono_project)
+    filt, is_pure = read_project_filter(mono_project)
+    assert is_pure is True
+    assert filt.to_json() == entry.candidates[0].filters
+
+
+def test_design_and_queue_writes_a_multichannel_project_when_given_one(tmp_path):
+    mono_wav = str(tmp_path / 'mono.wav')
+    _write_synthetic_wav(mono_wav, channel_values=(1000,))
+    mc_wav = str(tmp_path / 'multi.wav')
+    _write_synthetic_wav(mc_wav, channel_values=(1000, 2000, 3000, 4000, 5000, 6000))
+    queue_dir = str(tmp_path / 'queue')
+    project_dir = str(tmp_path / 'projects')
+
+    design_and_queue(Session(AnalysisConfig()), 'title-one', mono_wav, DESIGNER_NAME, queue_dir,
+                     multichannel_wav_path=mc_wav, channel_layout_name='5.1', project_dir=project_dir)
+
+    assert os.path.isfile(os.path.join(project_dir, 'title-one.mono.beq'))
+    assert os.path.isfile(os.path.join(project_dir, 'title-one.multichannel.beq'))
+
+
+def test_design_and_queue_does_not_write_projects_without_project_dir(tmp_path):
+    ''' Backward compatibility: today's call shape (project_dir omitted) writes no .beq files. '''
+    wav_path = str(tmp_path / 'source.wav')
+    _write_synthetic_wav(wav_path)
+    queue_dir = str(tmp_path / 'queue')
+    work_dir = str(tmp_path / 'work')
+
+    batch_design([('title-one', wav_path, None)], DESIGNER_NAME, queue_dir, work_dir)
+
+    beq_files = [f for _, _, files in os.walk(str(tmp_path)) for f in files if f.endswith('.beq')]
+    assert beq_files == []
+
+
 def test_pipeline_review_module_has_no_qtpy_import():
     import ast
     import pathlib
@@ -408,3 +476,90 @@ def test_publish_reviewed_queue_is_idempotent(tmp_path):
 
     assert len(first) == 1
     assert second == []
+
+
+# --- publish_reviewed_queue: reading the filter from a .beq project (work_dir) ---
+
+def test_publish_reviewed_queue_without_work_dir_uses_apply_reviewed_entry_as_before(tmp_path):
+    ''' Backward compatibility: omitting work_dir (today's call shape) publishes exactly what it does
+    today -- protects every existing test_publish_reviewed_queue_* test in this file from regressing. '''
+    from model.minidsp import xml_to_filt
+
+    queue_dir, entry_id = _designed_entry(tmp_path, meta={'title': 'Ready Player One', 'year': '2018',
+                                                          'audio_types': ['Atmos']})
+    update_entry(queue_dir, entry_id, status='accepted', chosen_candidate_index=0)
+    xml_repo, _ = _init_repo_with_remote(tmp_path, 'xml_repo')
+
+    results = publish_reviewed_queue(queue_dir, xml_repo, xml_dir='xml')
+
+    written = str(tmp_path / 'out.xml')
+    with open(written, 'w', encoding='utf-8') as f:
+        f.write(results[0]['xml'])
+    read_back = xml_to_filt(written, fs=1000)
+    assert any(isinstance(f, LowShelf) for f in read_back)  # candidates[0]'s filter, untouched by chunk 2
+    assert read_entry(queue_dir, entry_id).status == 'published'
+
+
+def test_publish_reviewed_queue_reads_the_edited_mono_project_when_work_dir_given(tmp_path):
+    from model.minidsp import xml_to_filt
+
+    entry_id = 'ready-player-one'
+    queue_dir = str(tmp_path / 'queue')
+    work_dir = str(tmp_path / 'work')
+    project_dir = os.path.join(work_dir, entry_id)
+    os.makedirs(project_dir)
+    mono_wav = os.path.join(project_dir, 'mono.wav')
+    _write_synthetic_wav(mono_wav, channel_values=(1000,))
+
+    session = Session(AnalysisConfig())
+    design_and_queue(session, entry_id, mono_wav, DESIGNER_NAME, queue_dir,
+                     meta={'title': 'Ready Player One', 'year': '2018', 'audio_types': ['Atmos']},
+                     project_dir=project_dir)
+    update_entry(queue_dir, entry_id, status='accepted', chosen_candidate_index=0)
+
+    mono_project = os.path.join(project_dir, f'{entry_id}.mono.beq')
+    edited_filter = CompleteFilter(fs=1000, filters=[PeakingEQ(1000, 55.0, 1.4, -6.0)])
+    _hand_edit_project_filter(mono_project, edited_filter)
+
+    xml_repo, _ = _init_repo_with_remote(tmp_path, 'xml_repo')
+
+    results = publish_reviewed_queue(queue_dir, xml_repo, xml_dir='xml', work_dir=work_dir)
+
+    assert 'error' not in results[0]
+    written = str(tmp_path / 'out.xml')
+    with open(written, 'w', encoding='utf-8') as f:
+        f.write(results[0]['xml'])
+    read_back = xml_to_filt(written, fs=1000)
+    assert any(isinstance(f, PeakingEQ) for f in read_back)  # the human edit
+    assert not any(isinstance(f, LowShelf) for f in read_back)  # the designer's original top pick, gone
+    assert read_entry(queue_dir, entry_id).status == 'published'
+
+
+def test_publish_reviewed_queue_reports_a_project_conflict_without_publishing(tmp_path):
+    entry_id = 'ready-player-one'
+    queue_dir = str(tmp_path / 'queue')
+    work_dir = str(tmp_path / 'work')
+    project_dir = os.path.join(work_dir, entry_id)
+    os.makedirs(project_dir)
+    mono_wav = os.path.join(project_dir, 'mono.wav')
+    _write_synthetic_wav(mono_wav, channel_values=(1000,))
+    mc_wav = os.path.join(project_dir, 'multichannel.wav')
+    _write_synthetic_wav(mc_wav, channel_values=(1000, 2000, 3000, 4000, 5000, 6000))
+
+    session = Session(AnalysisConfig())
+    design_and_queue(session, entry_id, mono_wav, DESIGNER_NAME, queue_dir,
+                     meta={'title': 'Ready Player One', 'year': '2018', 'audio_types': ['Atmos']},
+                     multichannel_wav_path=mc_wav, channel_layout_name='5.1', project_dir=project_dir)
+    update_entry(queue_dir, entry_id, status='accepted', chosen_candidate_index=0)
+
+    mono_project = os.path.join(project_dir, f'{entry_id}.mono.beq')
+    mc_project = os.path.join(project_dir, f'{entry_id}.multichannel.beq')
+    _hand_edit_project_filter(mono_project, CompleteFilter(fs=1000, filters=[PeakingEQ(1000, 55.0, 1.4, -6.0)]))
+    _hand_edit_project_filter(mc_project, CompleteFilter(fs=1000, filters=[PeakingEQ(1000, 80.0, 0.9, 3.0)]))
+
+    xml_repo, _ = _init_repo_with_remote(tmp_path, 'xml_repo')
+
+    results = publish_reviewed_queue(queue_dir, xml_repo, xml_dir='xml', work_dir=work_dir)
+
+    assert results == [{'id': entry_id, 'error': 'project_conflict'}]
+    assert read_entry(queue_dir, entry_id).status == 'accepted'  # not marked published -- a rerun will retry it

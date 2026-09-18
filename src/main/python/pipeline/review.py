@@ -152,7 +152,9 @@ def _outcome_to_entry(entry_id: str, fs: int, meta: dict, curve: dict, outcome: 
 
 def design_and_queue(session: Session, entry_id: str, wav_path: str, designer: str, queue_dir: str,
                      meta: Optional[dict] = None, coverage: Coverage = 'complete_programme',
-                     bass_management: Optional[dict] = None, channels: Optional[dict] = None) -> QueueEntry:
+                     bass_management: Optional[dict] = None, channels: Optional[dict] = None,
+                     multichannel_wav_path: Optional[str] = None, channel_layout_name: str = 'unknown',
+                     project_dir: Optional[str] = None) -> QueueEntry:
     '''
     Loads an *already-extracted* wav file, designs it, and writes one
     QueueEntry to queue_dir -- the load+design+curve+write half of
@@ -163,8 +165,19 @@ def design_and_queue(session: Session, entry_id: str, wav_path: str, designer: s
     :param entry_id: the queue entry's stable id/filename (see batch_design).
     :param wav_path: path to an already-extracted (mono) wav file -- the primary signal design() runs
         against (DesignRequest.mono_mix). Must be mono; `channels` is a separate, purely additive input.
+        Also the mono `.beq` project's source, when project_dir is given.
     :param meta: BeqMetadata *constructor* kwargs, or None if unresolved yet.
     :param channels: DesignRequest.channels -- see Session.design()/Session.load_channels(). Optional.
+    :param multichannel_wav_path: the kept extraction, when it's multichannel (design/library-sync-
+        pipeline-plan.md §3.3) -- if given (together with project_dir), a linked multichannel `.beq`
+        project is written alongside the mono one.
+    :param channel_layout_name: the source's ffmpeg channel layout name, forwarded to
+        Session.load_channel_signals() for the multichannel project's channel labels.
+    :param project_dir: if given and the outcome was Applied, writes output 1's `.beq` project file(s)
+        (design/library-sync-pipeline-plan.md §3.3/Appendix B) -- `<project_dir>/<entry_id>.mono.beq`
+        always, plus `<project_dir>/<entry_id>.multichannel.beq` when multichannel_wav_path is also given.
+        A Declined outcome has no filter to write, so nothing is written for it (matches "candidates empty
+        on decline"). Omitted (the default), no project files are written -- backward compatible.
     :return: the written QueueEntry.
     '''
     from model.codec import xydata_to_json
@@ -174,6 +187,13 @@ def design_and_queue(session: Session, entry_id: str, wav_path: str, designer: s
     curve = xydata_to_json(session.curves(sig, kind='avg', filtered=False))
     entry = _outcome_to_entry(entry_id, sig.signal.fs, meta or {}, curve, outcome)
     write_queue_entry(queue_dir, entry)
+    if project_dir is not None and isinstance(outcome, Applied):
+        from pipeline.publish.project import write_title_projects_if_safe
+        mono_out = os.path.join(project_dir, f"{entry_id}.mono.beq")
+        mc_out = os.path.join(project_dir, f"{entry_id}.multichannel.beq") if multichannel_wav_path else None
+        write_title_projects_if_safe(session, wav_path, outcome.filters, mono_out,
+                                     multichannel_wav_path=multichannel_wav_path,
+                                     channel_layout_name=channel_layout_name, multichannel_out_path=mc_out)
     return entry
 
 
@@ -235,11 +255,27 @@ def apply_reviewed_entry(entry: QueueEntry):
     return filter_from_json(_chosen_candidate(entry).filters)
 
 
+def _read_channel_layout_name(project_dir: str) -> str:
+    '''
+    Reads manifest.json's channel_layout_name key, if the file and key exist -- the extract cache's
+    fingerprint record (design/library-sync-pipeline-plan.md §4.1), not yet built (chunk 5) as of this
+    chunk. get_channel_name()'s own fallback already handles an unknown layout sanely by channel count,
+    so 'unknown' is a safe default here.
+    '''
+    manifest_path = os.path.join(project_dir, 'manifest.json')
+    if os.path.isfile(manifest_path):
+        with open(manifest_path, 'r', encoding='utf-8') as f:
+            manifest = json.load(f)
+        return manifest.get('channel_layout_name', 'unknown')
+    return 'unknown'
+
+
 def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: Optional[dict] = None,
                            images_repo: Optional[RepoTarget] = None, image_owner: Optional[str] = None,
                            image_repo_name: Optional[str] = None, xml_dir: str = '', image_dir: str = '',
                            report_spec: ReportSpec = ReportSpec(),
-                           config: AnalysisConfig = AnalysisConfig()) -> List[dict]:
+                           config: AnalysisConfig = AnalysisConfig(),
+                           work_dir: Optional[str] = None) -> List[dict]:
     '''
     Publishes every 'accepted' entry in queue_dir: apply_reviewed_entry()
     for the filters, a fresh report image built from the entry's stored
@@ -258,11 +294,22 @@ def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: 
     :param xml_dir/image_dir: relative directory prefix within each repo;
         each entry publishes to '<xml_dir>/<entry.id>.xml' (and, if
         images_repo is given, '<image_dir>/<entry.id>.png').
+    :param work_dir: if given, the published filter is read from the entry's `.beq` project file(s) under
+        `<work_dir>/<entry.id>/` (design/library-sync-pipeline-plan.md §3.3.1/Appendix B) rather than from
+        apply_reviewed_entry()'s raw chosen candidate -- a human who opened the mono/multichannel project
+        and edited the filter directly has that edit published instead. The project(s) are regenerated
+        (hash-gated -- an existing human edit is never clobbered) from the just-computed candidate filter
+        first, so a never-opened project is created/kept current before being read back. An entry whose
+        mono and multichannel projects were independently edited to disagree is *not* published -- its
+        result carries an 'error': 'project_conflict' key instead, and its status is left alone so a rerun
+        retries it. Omitted (the default), publishing reads apply_reviewed_entry() as before -- backward
+        compatible.
     :return: one {'id': entry.id, **Session.publish()'s result} per entry
         actually published this run.
     '''
     from model.codec import xydata_from_json
     from pipeline.metadata import BeqMetadata
+    from pipeline.publish.project import ProjectFilterConflict, resolve_published_filter, write_title_projects_if_safe
 
     session = Session(config)
     results = []
@@ -270,10 +317,25 @@ def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: 
         if entry.status != 'accepted':
             continue
         chosen = _chosen_candidate(entry)
-        complete_filter = apply_reviewed_entry(entry)
+        complete_filter = apply_reviewed_entry(entry)  # unchanged -- still drives meta.gain's default below
         meta = BeqMetadata(**{**(meta_defaults or {}), **entry.meta})
         if meta.gain is None:
             meta.gain = f"{chosen.mv_adjust_db:+g}"
+
+        if work_dir is not None:
+            project_dir = os.path.join(work_dir, entry.id)
+            mono_path = os.path.join(project_dir, f"{entry.id}.mono.beq")
+            mc_wav = os.path.join(project_dir, 'multichannel.wav')
+            mc_path = os.path.join(project_dir, f"{entry.id}.multichannel.beq") if os.path.isfile(mc_wav) else None
+            layout = _read_channel_layout_name(project_dir)
+            write_title_projects_if_safe(session, os.path.join(project_dir, 'mono.wav'), complete_filter, mono_path,
+                                         multichannel_wav_path=mc_wav if mc_path else None,
+                                         channel_layout_name=layout, multichannel_out_path=mc_path)
+            try:
+                complete_filter, _ = resolve_published_filter(mono_path, mc_path)
+            except ProjectFilterConflict:
+                results.append({'id': entry.id, 'error': 'project_conflict'})
+                continue
 
         image_png = None
         image_relative_path = None

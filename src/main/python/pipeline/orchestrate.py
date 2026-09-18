@@ -52,7 +52,7 @@ model/ module it reuses.
 '''
 import os
 from dataclasses import dataclass
-from typing import Optional, Sequence, Union
+from typing import List, Optional, Sequence, Union
 
 from model.bdmv import is_bdmv_root, resolve_main_title
 from model.ffmpeg import Executor
@@ -215,6 +215,32 @@ class Session:
             loader.prepare(channel=idx + 1, name=label, channel_count=channel_count, decimate=decimate)
             channels[label] = loader.get_signal(idx + 1, label).signal.samples
         return channels
+
+    def load_channel_signals(self, path: str, name: Optional[str] = None,
+                             channel_layout_name: str = 'unknown',
+                             decimate: bool = True) -> List[SingleChannelSignalData]:
+        '''
+        Loads every channel of a (possibly multichannel) wav as its own SingleChannelSignalData, named
+        "<name>_<channel-label>" (model.ffmpeg.get_channel_name -- same labelling load_channels() uses) --
+        ready for set_filters()/enslave(), unlike load_channels()'s raw decomposed arrays. A single-element
+        list if path is actually mono.
+
+        Calls AutoWavLoader.prepare()/get_signal() directly, once per channel, rather than going through
+        auto_load() (what load() uses for the mono case) -- auto_load() wraps a multichannel result in a
+        BassManagedSignalData, which exists for bass-management headroom calculations this method has no
+        use for (§3.3 of design/library-sync-pipeline-plan.md).
+        '''
+        from model.ffmpeg import get_channel_name
+        default_name = name or os.path.splitext(os.path.basename(path))[0]
+        loader = AutoWavLoader(self.__preferences)
+        loader.load(path)
+        channel_count = loader.info.channels
+        signals = []
+        for idx in range(channel_count):
+            channel_name = get_channel_name(default_name, idx, channel_count, channel_layout_name=channel_layout_name)
+            loader.prepare(channel=idx + 1, name=channel_name, channel_count=channel_count, decimate=decimate)
+            signals.append(loader.get_signal(idx + 1, channel_name))
+        return signals
 
     def design(self, sig: SingleChannelSignalData, designer: str, coverage: Coverage = 'complete_programme',
               bass_management: Optional[dict] = None, channels: Optional[dict] = None) -> DesignOutcome:
