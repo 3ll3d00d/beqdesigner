@@ -138,6 +138,29 @@ def test_update_entry_missing_id_raises(tmp_path):
         update_entry(str(tmp_path), 'does-not-exist', status='skipped')
 
 
+def test_queue_entry_round_trips_art_path_and_overridden(tmp_path):
+    entry = QueueEntry(id='t1', fs=1000, meta={}, curve={}, art_path='/tmp/x.jpg', art_overridden=True)
+    write_queue_entry(str(tmp_path), entry)
+
+    read_back = read_entry(str(tmp_path), 't1')
+
+    assert read_back.art_path == '/tmp/x.jpg'
+    assert read_back.art_overridden is True
+
+
+def test_reading_a_pre_existing_entry_without_art_fields_defaults_them(tmp_path):
+    import json
+    path = tmp_path / 't1.json'
+    path.write_text(json.dumps({
+        'id': 't1', 'fs': 1000, 'meta': {}, 'curve': {}, 'candidates': [], 'status': 'pending',
+    }))
+
+    read_back = read_entry(str(tmp_path), 't1')
+
+    assert read_back.art_path is None
+    assert read_back.art_overridden is False
+
+
 # --- batch_design ------------------------------------------------------------
 
 def test_batch_design_writes_one_pending_entry_per_title(tmp_path):
@@ -336,6 +359,28 @@ def test_publish_reviewed_queue_with_image(tmp_path):
         check=True, capture_output=True).stdout
     image = Image.open(io.BytesIO(pushed_png))
     assert image.format == 'PNG'
+
+
+def test_publish_reviewed_queue_passes_entry_art_path_as_poster(tmp_path):
+    queue_dir, entry_id = _designed_entry(tmp_path, meta={'title': 'Ready Player One', 'year': '2018',
+                                                          'audio_types': ['Atmos']})
+    update_entry(queue_dir, entry_id, status='accepted', chosen_candidate_index=0)
+    poster_path = str(tmp_path / 'poster.jpg')
+    Image.new('RGB', (300, 450), color=(10, 20, 30)).save(poster_path, format='JPEG')
+    update_entry(queue_dir, entry_id, art_path=poster_path, art_overridden=True)
+    xml_repo, _ = _init_repo_with_remote(tmp_path, 'xml_repo')
+    images_repo, images_bare = _init_repo_with_remote(tmp_path, 'images_repo')
+
+    publish_reviewed_queue(queue_dir, xml_repo, xml_dir='xml', images_repo=images_repo, image_dir='img',
+                           image_owner='3ll3d00d', image_repo_name='beq-images')
+
+    pushed_png = subprocess.run(
+        ['git', '-C', str(images_bare), 'cat-file', '-p', f'HEAD:img/{entry_id}.png'],
+        check=True, capture_output=True).stdout
+    image = Image.open(io.BytesIO(pushed_png))
+    # top-left pixel of a composed (poster-on-top) image should be the poster's fill colour, not the
+    # chart's white background -- proof poster_path actually reached render_report()/compose_with_poster().
+    assert image.convert('RGB').getpixel((0, 0)) != (255, 255, 255)
 
 
 def test_publish_reviewed_queue_skips_non_accepted_entries(tmp_path):

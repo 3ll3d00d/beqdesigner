@@ -13,8 +13,9 @@ import logging
 import os
 
 import qtawesome as qta
+import requests
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, QObject, QRunnable, Qt, QThreadPool, Signal
-from qtpy.QtGui import QKeySequence, QShortcut
+from qtpy.QtGui import QKeySequence, QPixmap, QShortcut
 from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox, QStatusBar, QTableWidgetItem
 
 from model.codec import filter_from_json, xydata_from_json
@@ -119,6 +120,12 @@ class ReviewQueueDialog(QDialog, Ui_reviewQueueDialog):
         self.skipButton.clicked.connect(self.__skip_current)
         self.rejectButton.clicked.connect(self.__reject_current)
         self.publishButton.clicked.connect(self.__publish_accepted)
+        self.saveMetadataButton.clicked.connect(self.__save_metadata)
+        self.reloadTmdbButton.clicked.connect(self.__reload_tmdb)
+        self.browseArtButton.clicked.connect(self.__browse_art)
+        self.downloadArtButton.clicked.connect(self.__download_art)
+        self.clearArtButton.clicked.connect(self.__clear_art)
+        self.__pending_tmdb_extras = {}
 
         self.__magnitude_model = MagnitudeModel('review', self.previewChart, preferences, self.__get_chart_data,
                                                  'Filter', fill_primary=True)
@@ -216,6 +223,140 @@ class ReviewQueueDialog(QDialog, Ui_reviewQueueDialog):
         self.__refresh_commentary_table()
         self.__update_action_buttons()
         self.__magnitude_model.redraw()
+        self.__load_metadata_form(entry)
+        self.__load_artwork_section(entry)
+
+    def __load_metadata_form(self, entry):
+        self.__pending_tmdb_extras = {}
+        meta = entry.meta if entry is not None else {}
+        self.titleField.setText(meta.get('title', ''))
+        self.altTitleField.setText(meta.get('alt_title', ''))
+        self.sortTitleField.setText(meta.get('sort_title', ''))
+        self.yearField.setText(meta.get('year', ''))
+        self.audioTypesField.setText(', '.join(meta.get('audio_types', [])))
+        self.editionField.setText(meta.get('edition', ''))
+        self.seasonField.setText(meta.get('season', ''))
+        self.noteField.setText(meta.get('note', ''))
+        self.warningField.setText(meta.get('warning', ''))
+        self.languageField.setText(meta.get('language', ''))
+        self.sourceField.setText(meta.get('source', ''))
+        self.ratingField.setText(meta.get('rating', ''))
+        self.authorField.setText(meta.get('author', ''))
+        self.avsField.setText(meta.get('avs', ''))
+        self.runtimeField.setText(meta.get('runtime', ''))
+        self.gainField.setText(meta.get('gain') or '')
+        self.movieDbIdField.setText(meta.get('the_movie_db', ''))
+        genres = meta.get('genres') or []
+        self.genresLabel.setText(', '.join(g.get('name', '') for g in genres))
+        self.metadataStatusLabel.setText('')
+        editable = entry is not None and entry.status in ('pending', 'skipped')
+        self.metadataTab.setEnabled(editable)  # whole tab greyed out once accepted/published
+
+    def __load_artwork_section(self, entry):
+        art_path = entry.art_path if entry is not None else None
+        self.artPathField.setText(art_path or '')
+        if art_path and os.path.isfile(art_path):
+            self.artPreviewLabel.setPixmap(QPixmap(art_path).scaledToWidth(160, Qt.TransformationMode.SmoothTransformation))
+        else:
+            self.artPreviewLabel.clear()
+
+    # --- metadata / artwork editing -----------------------------------------
+
+    def __save_metadata(self):
+        entry = self.__current_entry()
+        if entry is None:
+            return
+        fields = {
+            'title': self.titleField.text().strip(),
+            'year': self.yearField.text().strip(),
+            'audio_types': [t.strip() for t in self.audioTypesField.text().split(',') if t.strip()],
+        }
+        optional = {
+            'alt_title': self.altTitleField.text().strip(),
+            'sort_title': self.sortTitleField.text().strip(),
+            'edition': self.editionField.text().strip(),
+            'season': self.seasonField.text().strip(),
+            'note': self.noteField.text().strip(),
+            'warning': self.warningField.text().strip(),
+            'language': self.languageField.text().strip(),
+            'source': self.sourceField.text().strip(),
+            'rating': self.ratingField.text().strip(),
+            'author': self.authorField.text().strip(),
+            'avs': self.avsField.text().strip(),
+            'runtime': self.runtimeField.text().strip(),
+            'gain': self.gainField.text().strip(),
+            'the_movie_db': self.movieDbIdField.text().strip(),
+            'overview': self.__pending_tmdb_extras.get('overview', ''),
+        }
+        fields.update({k: v for k, v in optional.items() if v})  # blank = leave unset, don't stomp a BeqMetadata default
+        if 'genres' in self.__pending_tmdb_extras:
+            fields['genres'] = self.__pending_tmdb_extras['genres']
+        if 'collection' in self.__pending_tmdb_extras:
+            fields['collection'] = self.__pending_tmdb_extras['collection']
+        merged = {**entry.meta, **fields}
+        update_entry(self.__queue_dir, entry.id, meta=merged)
+        self.metadataStatusLabel.setText('Saved')
+        self.__reload_queue()
+
+    def __reload_tmdb(self):
+        from pipeline.metadata import tmdb_details_by_id, tmdb_lookup
+        from model.preferences import TMDB_API_KEY
+        api_key = self.__preferences.get(TMDB_API_KEY)
+        tmdb_id = self.movieDbIdField.text().strip()
+        try:
+            if tmdb_id:
+                meta = tmdb_details_by_id(tmdb_id, api_key, kind='movie')
+            else:
+                meta = tmdb_lookup(self.titleField.text().strip(), self.yearField.text().strip(), api_key,
+                                   kind='movie')
+            self.titleField.setText(meta.title)
+            self.altTitleField.setText(meta.alt_title)
+            self.yearField.setText(meta.year)
+            self.ratingField.setText(meta.rating)
+            self.runtimeField.setText(meta.runtime)
+            self.movieDbIdField.setText(meta.the_movie_db)
+            self.genresLabel.setText(', '.join(g.get('name', '') for g in meta.genres))
+            self.__pending_tmdb_extras = {'poster': meta.poster, 'overview': meta.overview,
+                                          'genres': meta.genres, 'collection': meta.collection}
+        except requests.HTTPError as e:
+            QMessageBox.critical(self, 'TMDB lookup failed', str(e))
+
+    def __browse_art(self):
+        entry = self.__current_entry()
+        if entry is None:
+            return
+        path, _ = QFileDialog.getOpenFileName(self, 'Choose artwork', filter='Images (*.png *.jpg *.jpeg)')
+        if path:
+            update_entry(self.__queue_dir, entry.id, art_path=path, art_overridden=True)
+            self.__reload_queue()
+
+    def __download_art(self):
+        entry = self.__current_entry()
+        url = self.artUrlField.text().strip()
+        if entry is None or not url:
+            return
+        try:
+            resp = requests.get(url)
+            resp.raise_for_status()
+        except Exception as e:
+            QMessageBox.critical(self, 'Download failed', str(e))
+            return
+        cache_dir = os.path.join(self.__queue_dir, '_art_cache')
+        os.makedirs(cache_dir, exist_ok=True)
+        ext = os.path.splitext(url)[1] or '.jpg'
+        dest = os.path.join(cache_dir, f"{entry.id}{ext}")
+        with open(dest, 'wb') as f:
+            f.write(resp.content)
+        update_entry(self.__queue_dir, entry.id, art_path=dest, art_overridden=True)
+        self.artUrlField.clear()
+        self.__reload_queue()
+
+    def __clear_art(self):
+        entry = self.__current_entry()
+        if entry is None:
+            return
+        update_entry(self.__queue_dir, entry.id, art_path=None, art_overridden=False)
+        self.__reload_queue()
 
     def __on_candidate_picked(self, row):
         if row < 0:

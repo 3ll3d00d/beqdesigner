@@ -44,6 +44,14 @@
     "reviewer_note": {
       "oneOf": [{ "type": "string" }, { "type": "null" }],
       "description": "free text a human reviewer left on this entry; not used by any pipeline code"
+    },
+    "art_path": {
+      "oneOf": [{ "type": "string" }, { "type": "null" }],
+      "description": "local image file path used as this entry's report poster, if any -- set by a human via the review dialog's Artwork section, or (later) auto-resolved from a library source or TMDB. null if none."
+    },
+    "art_overridden": {
+      "type": "boolean",
+      "description": "true once a human has explicitly set or cleared art_path -- auto-resolution must never silently overwrite it."
     }
   },
   "required": ["id", "fs", "meta", "curve", "candidates", "status"],

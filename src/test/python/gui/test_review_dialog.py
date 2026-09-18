@@ -8,12 +8,14 @@ test_pipeline_review.py; this only exercises the Qt wiring on top of it.
 import numpy as np
 import pytest
 from qtpy.QtCore import QSettings, Qt
+from qtpy.QtWidgets import QFileDialog
 
 from model.codec import xydata_to_json
 from model.iir import CompleteFilter, LowShelf, PeakingEQ
 from model.preferences import Preferences
 from model.review import ReviewQueueDialog
 from model.xy import MagnitudeData
+from pipeline.metadata import BeqMetadata
 from pipeline.review import CandidateSummary, QueueEntry, read_entry, write_queue_entry
 
 
@@ -27,10 +29,14 @@ def _curve_json():
     return xydata_to_json(MagnitudeData('avg', '', x, np.zeros_like(x)))
 
 
-def _write_entry(queue_dir, entry_id, status='pending', chosen_candidate_index=None, decline=False):
+def _write_entry(queue_dir, entry_id, status='pending', chosen_candidate_index=None, decline=False, meta=None,
+                 art_path=None, art_overridden=False):
+    if meta is None:
+        meta = {'title': entry_id}
     if decline:
-        entry = QueueEntry(id=entry_id, fs=1000, meta={'title': entry_id}, curve=_curve_json(), candidates=[],
-                          decline_reason='no_rolloff_detected', decline_message='nothing found')
+        entry = QueueEntry(id=entry_id, fs=1000, meta=meta, curve=_curve_json(), candidates=[],
+                          decline_reason='no_rolloff_detected', decline_message='nothing found',
+                          art_path=art_path, art_overridden=art_overridden)
     else:
         low_shelf = CompleteFilter(fs=1000, filters=[LowShelf(1000, 20, 0.7, 4.5)])
         peaking = CompleteFilter(fs=1000, filters=[PeakingEQ(1000, 100, 1, -3.0)])
@@ -40,8 +46,9 @@ def _write_entry(queue_dir, entry_id, status='pending', chosen_candidate_index=N
             CandidateSummary(filters=peaking.to_json(), confidence=0.4, method='fitted', mv_adjust_db=1.0,
                              gain_reduction_db=0.0, commentary={'note': 'alternative'}),
         ]
-        entry = QueueEntry(id=entry_id, fs=1000, meta={'title': entry_id}, curve=_curve_json(),
-                          candidates=candidates, status=status, chosen_candidate_index=chosen_candidate_index)
+        entry = QueueEntry(id=entry_id, fs=1000, meta=meta, curve=_curve_json(),
+                          candidates=candidates, status=status, chosen_candidate_index=chosen_candidate_index,
+                          art_path=art_path, art_overridden=art_overridden)
     write_queue_entry(queue_dir, entry)
     return entry
 
@@ -199,6 +206,130 @@ def test_dialog_defaults_to_the_remembered_queue_dir_on_open(qtbot, tmp_path):
 
     assert d.queueDirEdit.text() == queue_dir
     assert d.queueTable.model().rowCount() == 1
+
+
+def test_selecting_a_row_populates_the_metadata_form(tmp_path, dialog):
+    queue_dir = str(tmp_path / 'queue')
+    meta = {'title': 'Ready Player One', 'alt_title': 'RPO', 'sort_title': 'Ready Player One', 'year': '2018',
+           'audio_types': ['Atmos', 'TrueHD 7.1'], 'edition': 'Extended', 'season': '', 'note': 'a note',
+           'warning': 'flashing lights', 'language': 'French', 'source': 'Bluray', 'rating': 'PG-13',
+           'author': 'someone', 'avs': 'https://example.com/post', 'runtime': '140', 'gain': '-2.0',
+           'the_movie_db': '335984', 'genres': [{'id': 28, 'name': 'Action'}]}
+    _write_entry(queue_dir, 'title-a', meta=meta)
+    dialog.load_queue_dir(queue_dir)
+
+    dialog.queueTable.selectRow(0)
+
+    assert dialog.titleField.text() == 'Ready Player One'
+    assert dialog.altTitleField.text() == 'RPO'
+    assert dialog.sortTitleField.text() == 'Ready Player One'
+    assert dialog.yearField.text() == '2018'
+    assert dialog.audioTypesField.text() == 'Atmos, TrueHD 7.1'
+    assert dialog.editionField.text() == 'Extended'
+    assert dialog.warningField.text() == 'flashing lights'
+    assert dialog.languageField.text() == 'French'
+    assert dialog.sourceField.text() == 'Bluray'
+    assert dialog.ratingField.text() == 'PG-13'
+    assert dialog.authorField.text() == 'someone'
+    assert dialog.avsField.text() == 'https://example.com/post'
+    assert dialog.runtimeField.text() == '140'
+    assert dialog.gainField.text() == '-2.0'
+    assert dialog.movieDbIdField.text() == '335984'
+    assert dialog.genresLabel.text() == 'Action'
+
+
+def test_save_metadata_persists_edited_fields(tmp_path, dialog):
+    queue_dir = str(tmp_path / 'queue')
+    _write_entry(queue_dir, 'title-a')
+    dialog.load_queue_dir(queue_dir)
+    dialog.queueTable.selectRow(0)
+
+    dialog.editionField.setText('Extended Cut')
+    dialog._ReviewQueueDialog__save_metadata()
+
+    assert read_entry(queue_dir, 'title-a').meta['edition'] == 'Extended Cut'
+
+
+def test_save_metadata_does_not_overwrite_defaults_with_blank_fields(tmp_path, dialog):
+    queue_dir = str(tmp_path / 'queue')
+    _write_entry(queue_dir, 'title-a')
+    dialog.load_queue_dir(queue_dir)
+    dialog.queueTable.selectRow(0)
+
+    assert dialog.languageField.text() == ''
+    assert dialog.sourceField.text() == ''
+    dialog._ReviewQueueDialog__save_metadata()
+
+    saved_meta = read_entry(queue_dir, 'title-a').meta
+    assert 'language' not in saved_meta
+    assert 'source' not in saved_meta
+    assert BeqMetadata(**saved_meta).language == 'English'
+    assert BeqMetadata(**saved_meta).source == 'Disc'
+
+
+def test_metadata_tab_is_read_only_once_accepted(tmp_path, dialog):
+    queue_dir = str(tmp_path / 'queue')
+    _write_entry(queue_dir, 'title-a', status='accepted', chosen_candidate_index=0)
+    dialog.load_queue_dir(queue_dir)
+
+    dialog.queueTable.selectRow(0)
+
+    assert dialog.metadataTab.isEnabled() is False
+
+
+def test_browse_art_sets_art_path_and_marks_overridden(tmp_path, dialog, monkeypatch):
+    queue_dir = str(tmp_path / 'queue')
+    _write_entry(queue_dir, 'title-a')
+    dialog.load_queue_dir(queue_dir)
+    dialog.queueTable.selectRow(0)
+
+    chosen_path = str(tmp_path / 'poster.jpg')
+    monkeypatch.setattr(QFileDialog, 'getOpenFileName', lambda *a, **k: (chosen_path, 'Images (*.png *.jpg *.jpeg)'))
+
+    dialog._ReviewQueueDialog__browse_art()
+
+    updated = read_entry(queue_dir, 'title-a')
+    assert updated.art_path == chosen_path
+    assert updated.art_overridden is True
+
+
+def test_clear_art_resets_override(tmp_path, dialog):
+    from pipeline.review import update_entry
+    queue_dir = str(tmp_path / 'queue')
+    _write_entry(queue_dir, 'title-a')
+    dialog.load_queue_dir(queue_dir)
+    dialog.queueTable.selectRow(0)
+    update_entry(queue_dir, 'title-a', art_path=str(tmp_path / 'poster.jpg'), art_overridden=True)
+    dialog._ReviewQueueDialog__reload_queue()
+    dialog.queueTable.selectRow(0)
+
+    dialog._ReviewQueueDialog__clear_art()
+
+    updated = read_entry(queue_dir, 'title-a')
+    assert updated.art_path is None
+    assert updated.art_overridden is False
+
+
+def test_reload_tmdb_by_id_populates_form_without_saving(tmp_path, dialog, monkeypatch):
+    queue_dir = str(tmp_path / 'queue')
+    _write_entry(queue_dir, 'title-a')
+    dialog.load_queue_dir(queue_dir)
+    dialog.queueTable.selectRow(0)
+    dialog.movieDbIdField.setText('335984')
+
+    known_meta = BeqMetadata(title='Ready Player One', year='2018', alt_title='RPO', rating='PG-13',
+                             runtime='140', the_movie_db='335984', genres=[{'id': 28, 'name': 'Action'}])
+    monkeypatch.setattr('pipeline.metadata.tmdb_details_by_id', lambda *a, **k: known_meta)
+
+    dialog._ReviewQueueDialog__reload_tmdb()
+
+    assert dialog.titleField.text() == 'Ready Player One'
+    assert dialog.altTitleField.text() == 'RPO'
+    assert dialog.yearField.text() == '2018'
+    assert dialog.ratingField.text() == 'PG-13'
+    assert dialog.runtimeField.text() == '140'
+    assert dialog.genresLabel.text() == 'Action'
+    assert read_entry(queue_dir, 'title-a').meta == {'title': 'title-a'}  # unchanged -- reload doesn't auto-save
 
 
 def test_escape_key_does_not_blank_the_dialog(tmp_path, dialog, qtbot):

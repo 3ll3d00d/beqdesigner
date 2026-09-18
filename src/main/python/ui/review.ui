@@ -85,34 +85,322 @@
         </widget>
        </item>
        <item>
-        <widget class="QListWidget" name="candidateList">
-         <property name="maximumHeight">
-          <number>120</number>
-         </property>
+        <widget class="QTabWidget" name="detailTabs">
+         <widget class="QWidget" name="candidatesTab">
+          <attribute name="title">
+           <string>Candidates</string>
+          </attribute>
+          <layout class="QVBoxLayout" name="candidatesTabLayout">
+           <item>
+            <widget class="QListWidget" name="candidateList">
+             <property name="maximumHeight">
+              <number>120</number>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QTableWidget" name="commentaryTable">
+             <property name="maximumHeight">
+              <number>100</number>
+             </property>
+             <property name="columnCount">
+              <number>2</number>
+             </property>
+             <column>
+              <property name="text">
+               <string>Key</string>
+              </property>
+             </column>
+             <column>
+              <property name="text">
+               <string>Value</string>
+              </property>
+             </column>
+            </widget>
+           </item>
+           <item>
+            <widget class="MplWidget" name="previewChart"/>
+           </item>
+          </layout>
+         </widget>
+         <widget class="QWidget" name="metadataTab">
+          <attribute name="title">
+           <string>Metadata</string>
+          </attribute>
+          <layout class="QVBoxLayout" name="metadataTabLayout">
+           <item>
+            <layout class="QFormLayout" name="metadataForm">
+             <item row="0" column="0">
+              <widget class="QLabel" name="titleFieldLabel">
+               <property name="text">
+                <string>Title:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="0" column="1">
+              <widget class="QLineEdit" name="titleField"/>
+             </item>
+             <item row="1" column="0">
+              <widget class="QLabel" name="altTitleFieldLabel">
+               <property name="text">
+                <string>Alt title:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="1" column="1">
+              <widget class="QLineEdit" name="altTitleField"/>
+             </item>
+             <item row="2" column="0">
+              <widget class="QLabel" name="sortTitleFieldLabel">
+               <property name="text">
+                <string>Sort title:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="2" column="1">
+              <widget class="QLineEdit" name="sortTitleField"/>
+             </item>
+             <item row="3" column="0">
+              <widget class="QLabel" name="yearFieldLabel">
+               <property name="text">
+                <string>Year:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="3" column="1">
+              <widget class="QLineEdit" name="yearField"/>
+             </item>
+             <item row="4" column="0">
+              <widget class="QLabel" name="audioTypesFieldLabel">
+               <property name="text">
+                <string>Audio types:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="4" column="1">
+              <widget class="QLineEdit" name="audioTypesField"/>
+             </item>
+             <item row="5" column="0">
+              <widget class="QLabel" name="editionFieldLabel">
+               <property name="text">
+                <string>Edition:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="5" column="1">
+              <widget class="QLineEdit" name="editionField"/>
+             </item>
+             <item row="6" column="0">
+              <widget class="QLabel" name="seasonFieldLabel">
+               <property name="text">
+                <string>Season:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="6" column="1">
+              <widget class="QLineEdit" name="seasonField"/>
+             </item>
+             <item row="7" column="0">
+              <widget class="QLabel" name="noteFieldLabel">
+               <property name="text">
+                <string>Note:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="7" column="1">
+              <widget class="QLineEdit" name="noteField"/>
+             </item>
+             <item row="8" column="0">
+              <widget class="QLabel" name="warningFieldLabel">
+               <property name="text">
+                <string>Warning:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="8" column="1">
+              <widget class="QLineEdit" name="warningField"/>
+             </item>
+             <item row="9" column="0">
+              <widget class="QLabel" name="languageFieldLabel">
+               <property name="text">
+                <string>Language:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="9" column="1">
+              <widget class="QLineEdit" name="languageField"/>
+             </item>
+             <item row="10" column="0">
+              <widget class="QLabel" name="sourceFieldLabel">
+               <property name="text">
+                <string>Source:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="10" column="1">
+              <widget class="QLineEdit" name="sourceField"/>
+             </item>
+             <item row="11" column="0">
+              <widget class="QLabel" name="ratingFieldLabel">
+               <property name="text">
+                <string>Rating:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="11" column="1">
+              <widget class="QLineEdit" name="ratingField"/>
+             </item>
+             <item row="12" column="0">
+              <widget class="QLabel" name="authorFieldLabel">
+               <property name="text">
+                <string>Author:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="12" column="1">
+              <widget class="QLineEdit" name="authorField"/>
+             </item>
+             <item row="13" column="0">
+              <widget class="QLabel" name="avsFieldLabel">
+               <property name="text">
+                <string>AVS post URL:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="13" column="1">
+              <widget class="QLineEdit" name="avsField"/>
+             </item>
+             <item row="14" column="0">
+              <widget class="QLabel" name="runtimeFieldLabel">
+               <property name="text">
+                <string>Runtime:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="14" column="1">
+              <widget class="QLineEdit" name="runtimeField"/>
+             </item>
+             <item row="15" column="0">
+              <widget class="QLabel" name="gainFieldLabel">
+               <property name="text">
+                <string>Gain override:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="15" column="1">
+              <widget class="QLineEdit" name="gainField"/>
+             </item>
+             <item row="16" column="0">
+              <widget class="QLabel" name="genresFieldLabel">
+               <property name="text">
+                <string>Genres:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="16" column="1">
+              <widget class="QLabel" name="genresLabel">
+               <property name="text">
+                <string/>
+               </property>
+              </widget>
+             </item>
+             <item row="17" column="0">
+              <widget class="QLabel" name="movieDbIdFieldLabel">
+               <property name="text">
+                <string>TMDB id:</string>
+               </property>
+              </widget>
+             </item>
+             <item row="17" column="1">
+              <layout class="QHBoxLayout" name="movieDbIdLayout">
+               <item>
+                <widget class="QLineEdit" name="movieDbIdField"/>
+               </item>
+               <item>
+                <widget class="QPushButton" name="reloadTmdbButton">
+                 <property name="text">
+                  <string>Reload from TMDB</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <widget class="QPushButton" name="saveMetadataButton">
+             <property name="text">
+              <string>Save Metadata</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="metadataStatusLabel">
+             <property name="text">
+              <string/>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="artworkGroupLabel">
+             <property name="text">
+              <string>Artwork</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="artPathLayout">
+             <item>
+              <widget class="QLineEdit" name="artPathField">
+               <property name="readOnly">
+                <bool>true</bool>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="browseArtButton">
+               <property name="text">
+                <string>Browse...</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <layout class="QHBoxLayout" name="artUrlLayout">
+             <item>
+              <widget class="QLineEdit" name="artUrlField">
+               <property name="placeholderText">
+                <string>Paste an image URL</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="downloadArtButton">
+               <property name="text">
+                <string>Download</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="clearArtButton">
+               <property name="text">
+                <string>Clear</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+           <item>
+            <widget class="QLabel" name="artPreviewLabel">
+             <property name="text">
+              <string/>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
         </widget>
-       </item>
-       <item>
-        <widget class="QTableWidget" name="commentaryTable">
-         <property name="maximumHeight">
-          <number>100</number>
-         </property>
-         <property name="columnCount">
-          <number>2</number>
-         </property>
-         <column>
-          <property name="text">
-           <string>Key</string>
-          </property>
-         </column>
-         <column>
-          <property name="text">
-           <string>Value</string>
-          </property>
-         </column>
-        </widget>
-       </item>
-       <item>
-        <widget class="MplWidget" name="previewChart"/>
        </item>
        <item>
         <layout class="QHBoxLayout" name="actionButtonsLayout">

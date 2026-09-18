@@ -63,6 +63,9 @@ class QueueEntry:
     status: str = 'pending'
     chosen_candidate_index: Optional[int] = None
     reviewer_note: Optional[str] = None
+    art_path: Optional[str] = None   # local image file used as this entry's report poster, if any
+    art_overridden: bool = False     # True once a human has explicitly set/cleared art_path; future
+                                     # auto-resolution must never overwrite it
 
     def __post_init__(self):
         if self.status not in VALID_STATUSES:
@@ -277,8 +280,8 @@ def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: 
         if images_repo is not None:
             unfiltered = xydata_from_json(entry.curve)
             filtered = unfiltered.filter(complete_filter.get_transfer_function().get_magnitude())
-            image_png = session.report([unfiltered, filtered], complete_filter, meta=meta, spec=report_spec,
-                                       mv_offset=chosen.mv_adjust_db)
+            image_png = session.report([unfiltered, filtered], complete_filter, meta=meta, poster_path=entry.art_path,
+                                       spec=report_spec, mv_offset=chosen.mv_adjust_db)
             image_relative_path = os.path.join(image_dir, f"{entry.id}.png") if image_dir else f"{entry.id}.png"
 
         xml_relative_path = os.path.join(xml_dir, f"{entry.id}.xml") if xml_dir else f"{entry.id}.xml"
