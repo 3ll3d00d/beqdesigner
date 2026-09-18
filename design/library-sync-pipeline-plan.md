@@ -846,7 +846,7 @@ fixture -- only chunk 8 is blocked on that mapping.
 | 7 | `pipeline/library/run.py` (`run_library`) + `pipeline/library/sync.py` (`sync_library`) -- composition, per-item failure isolation (§5); threads `work_dir` into `publish_reviewed_queue()` (chunk 2). | 2, 4, 5, 6 | **Implemented** |
 | 8 | `pipeline/library/jriver.py`, built on `hamcws.MediaServer.browse_files()` and the configured browse-node id (§3.1), plus the `hamcws` dependency. If an id field exists, also `pipeline.metadata.tmdb_find_by_imdb_id()` + `pipeline/library/library_metadata.py::resolve_meta()` (§3.1.1). | 3, 4 | **Implemented; chunk 7 will call `resolve_meta()` during a run** |
 | 9 | `pipeline/library/cli.py` -- CLI entry point (§6). | 7, 8 | **Implemented** |
-| 10 | GUI: `model/library_sync.py`/`ui/library_sync.py` + `model/preferences.py` additions (§7), including the library-view filter bar (status + name/year/content-type, exact fields decided at UI design time), with a `pytest-qt` safety-net test before wiring, per this repo's established practice for touching a dialog. | 7, 8, 9 | Not started |
+| 10 | GUI: `model/library_sync.py`/`ui/library_sync.py` + `model/preferences.py` additions (§7), including the library-view filter bar (status + name/year/content-type, exact fields decided at UI design time), with a `pytest-qt` safety-net test before wiring, per this repo's established practice for touching a dialog. | 7, 8, 9 | **Implemented; library-view filtering deferred to a follow-up** |
 
 ---
 

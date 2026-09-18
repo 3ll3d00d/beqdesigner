@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>librarySyncDialog</class>
+ <widget class="QDialog" name="librarySyncDialog">
+  <property name="windowTitle"><string>Library Sync</string></property>
+  <property name="minimumSize"><size><width>900</width><height>650</height></size></property>
+  <layout class="QVBoxLayout" name="mainLayout">
+   <item>
+    <widget class="QTabWidget" name="mainTabs">
+     <widget class="QWidget" name="runTab">
+      <attribute name="title"><string>Run</string></attribute>
+      <layout class="QVBoxLayout" name="runLayout">
+       <item>
+        <widget class="QGroupBox" name="sourceGroup">
+         <property name="title"><string>JRiver browse source</string></property>
+         <layout class="QFormLayout" name="sourceForm">
+          <item row="0" column="0"><widget class="QLabel" name="serverLabel"><property name="text"><string>Server</string></property></widget></item>
+          <item row="0" column="1"><widget class="QLineEdit" name="serverEdit"/></item>
+          <item row="1" column="0"><widget class="QLabel" name="portLabel"><property name="text"><string>Port</string></property></widget></item>
+          <item row="1" column="1"><widget class="QSpinBox" name="portSpin"><property name="maximum"><number>65535</number></property><property name="value"><number>52199</number></property></widget></item>
+          <item row="2" column="0"><widget class="QLabel" name="browseNodeLabel"><property name="text"><string>Browse node ID</string></property></widget></item>
+          <item row="2" column="1"><widget class="QSpinBox" name="browseNodeSpin"><property name="minimum"><number>-1</number></property><property name="maximum"><number>2147483647</number></property></widget></item>
+          <item row="3" column="0"><widget class="QLabel" name="usernameLabel"><property name="text"><string>Username</string></property></widget></item>
+          <item row="3" column="1"><widget class="QLineEdit" name="usernameEdit"/></item>
+          <item row="4" column="0"><widget class="QLabel" name="passwordLabel"><property name="text"><string>Password</string></property></widget></item>
+          <item row="4" column="1"><widget class="QLineEdit" name="passwordEdit"><property name="echoMode"><enum>QLineEdit::Password</enum></property></widget></item>
+          <item row="5" column="1"><widget class="QCheckBox" name="sslCheck"><property name="text"><string>Use HTTPS</string></property></widget></item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="runGroup">
+         <property name="title"><string>Run configuration</string></property>
+         <layout class="QFormLayout" name="runForm">
+          <item row="0" column="0"><widget class="QLabel" name="workLabel"><property name="text"><string>Work directory</string></property></widget></item>
+          <item row="0" column="1"><widget class="QLineEdit" name="workDirEdit"/></item>
+          <item row="1" column="0"><widget class="QLabel" name="queueLabel"><property name="text"><string>Review queue</string></property></widget></item>
+          <item row="1" column="1"><widget class="QLineEdit" name="queueDirEdit"/></item>
+          <item row="2" column="0"><widget class="QLabel" name="designerLabel"><property name="text"><string>Designer</string></property></widget></item>
+          <item row="2" column="1"><widget class="QComboBox" name="designerCombo"/></item>
+          <item row="3" column="1"><widget class="QCheckBox" name="keepMultichannelCheck"><property name="text"><string>Keep multichannel extraction</string></property></widget></item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <widget class="QGroupBox" name="syncGroup">
+         <property name="title"><string>Explicit sync</string></property>
+         <layout class="QFormLayout" name="syncForm">
+          <item row="0" column="0"><widget class="QLabel" name="xmlRepoLabel"><property name="text"><string>XML repository</string></property></widget></item>
+          <item row="0" column="1"><widget class="QLineEdit" name="xmlRepoEdit"/></item>
+          <item row="1" column="0"><widget class="QLabel" name="imagesRepoLabel"><property name="text"><string>Images repository</string></property></widget></item>
+          <item row="1" column="1"><widget class="QLineEdit" name="imagesRepoEdit"/></item>
+         </layout>
+        </widget>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="buttonsLayout">
+         <item><widget class="QPushButton" name="runButton"><property name="text"><string>Run library</string></property></widget></item>
+         <item><widget class="QPushButton" name="syncButton"><property name="text"><string>Sync accepted entries</string></property></widget></item>
+         <item><spacer name="buttonSpacer"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
+        </layout>
+       </item>
+       <item><widget class="QProgressBar" name="progressBar"><property name="value"><number>0</number></property></widget></item>
+       <item><widget class="QLabel" name="statusLabel"><property name="text"><string/></property><property name="wordWrap"><bool>true</bool></property></widget></item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="reviewTab">
+      <attribute name="title"><string>Review</string></attribute>
+      <layout class="QVBoxLayout" name="reviewLayout"/>
+     </widget>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

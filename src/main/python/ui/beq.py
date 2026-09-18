@@ -1,4 +1,4 @@
-# Form implementation generated from reading ui file 'beq.ui'
+# Form implementation generated from reading ui file 'ui/beq.ui'
 #
 # Created by: PyQt6 UI code generator 6.11.0
 #
@@ -609,6 +609,8 @@ class Ui_MainWindow(object):
         self.actionAnalyse_Audio.setObjectName("actionAnalyse_Audio")
         self.action_Batch_Extract = QtGui.QAction(parent=MainWindow)
         self.action_Batch_Extract.setObjectName("action_Batch_Extract")
+        self.action_Library_Sync = QtGui.QAction(parent=MainWindow)
+        self.action_Library_Sync.setObjectName("action_Library_Sync")
         self.action_Review_Batch_Designs = QtGui.QAction(parent=MainWindow)
         self.action_Review_Batch_Designs.setObjectName("action_Review_Batch_Designs")
         self.actionSave_Report = QtGui.QAction(parent=MainWindow)
@@ -698,6 +700,7 @@ class Ui_MainWindow(object):
         self.menuFile.addAction(self.actionSave_Report)
         self.menu_Tools.addAction(self.actionExtract_Audio)
         self.menu_Tools.addAction(self.action_Batch_Extract)
+        self.menu_Tools.addAction(self.action_Library_Sync)
         self.menu_Tools.addAction(self.action_Remux_Audio)
         self.menu_Tools.addAction(self.actionMerge_Signals)
         self.menu_Tools.addSeparator()
@@ -898,6 +901,7 @@ class Ui_MainWindow(object):
         self.actionAnalyse_Audio.setShortcut(_translate("MainWindow", "Ctrl+A"))
         self.action_Batch_Extract.setText(_translate("MainWindow", "&Batch Extract / Design"))
         self.action_Batch_Extract.setShortcut(_translate("MainWindow", "Ctrl+Shift+E"))
+        self.action_Library_Sync.setText(_translate("MainWindow", "Library &Sync"))
         self.action_Review_Batch_Designs.setText(_translate("MainWindow", "Re&view Batch Designs"))
         self.actionSave_Report.setText(_translate("MainWindow", "Save Repor&t"))
         self.actionSave_Report.setShortcut(_translate("MainWindow", "Ctrl+R"))

@@ -260,6 +260,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.actionExtract_Audio.triggered.connect(self.showExtractAudioDialog)
         self.action_Remux_Audio.triggered.connect(self.showRemuxAudioDialog)
         self.action_Batch_Extract.triggered.connect(self.showBatchExtractDialog)
+        self.action_Library_Sync.triggered.connect(self.showLibrarySyncDialog)
         # analysis
         self.actionAnalyse_Audio.triggered.connect(self.showAnalyseAudioDialog)
         self.action_Review_Batch_Designs.triggered.connect(self.showReviewQueueDialog)
@@ -931,6 +932,13 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         dialog = BatchExtractDialog(self, self.preferences)
         dialog.mainTabs.setCurrentIndex(1)
         dialog.show()
+
+    def showLibrarySyncDialog(self):
+        '''Show the library-driven extract/design/review/sync workspace.'''
+        if not self.__check_ffmpeg_available():
+            return
+        from model.library_sync import LibrarySyncDialog
+        LibrarySyncDialog(self, self.preferences).show()
 
     def __check_ffmpeg_available(self):
         '''

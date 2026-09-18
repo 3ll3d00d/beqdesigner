@@ -81,6 +81,12 @@ EXTRACTION_GEOMETRY = 'extraction/geometry'
 DESIGNER_HTTP_ENDPOINTS = 'designers/http_endpoints'
 DESIGNER_QUEUE_DIR = 'designers/queue_dir'
 DESIGNER_DEFAULT = 'designers/default'
+LIBRARY_WORK_DIR = 'library/work_dir'
+LIBRARY_XML_REPO = 'library/xml_repo'
+LIBRARY_IMAGES_REPO = 'library/images_repo'
+LIBRARY_IMAGE_OWNER = 'library/image_owner'
+LIBRARY_IMAGE_REPO_NAME = 'library/image_repo_name'
+LIBRARY_JRIVER_BROWSE_NODE = 'library/jriver_browse_node'
 
 # distinguishes preference-configured designers from ad-hoc/in-process ones (e.g. registered by a test or a
 # script), so re-registering on every startup or Preferences-save replaces cleanly rather than accumulating
@@ -238,6 +244,12 @@ DEFAULT_PREFS = {
     DESIGNER_HTTP_ENDPOINTS: [],
     DESIGNER_QUEUE_DIR: '',
     DESIGNER_DEFAULT: '',
+    LIBRARY_WORK_DIR: '',
+    LIBRARY_XML_REPO: '',
+    LIBRARY_IMAGES_REPO: '',
+    LIBRARY_IMAGE_OWNER: '',
+    LIBRARY_IMAGE_REPO_NAME: '',
+    LIBRARY_JRIVER_BROWSE_NODE: -1,
     ANALYSIS_RESOLUTION: ANALYSIS_RESOLUTION_DEFAULT,
     ANALYSIS_TARGET_FS: 1000,
     ANALYSIS_AVG_WINDOW: ANALYSIS_WINDOW_DEFAULT,
