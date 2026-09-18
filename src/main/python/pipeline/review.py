@@ -66,6 +66,8 @@ class QueueEntry:
     art_path: Optional[str] = None   # local image file used as this entry's report poster, if any
     art_overridden: bool = False     # True once a human has explicitly set/cleared art_path; future
                                      # auto-resolution must never overwrite it
+    design_fingerprint: Optional[str] = None  # library-run inputs that produced this entry; absent on
+                                               # pre-library entries, which must be redesigned once to gain it
 
     def __post_init__(self):
         if self.status not in VALID_STATUSES:

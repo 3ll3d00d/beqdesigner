@@ -52,6 +52,10 @@
     "art_overridden": {
       "type": "boolean",
       "description": "true once a human has explicitly set or cleared art_path -- auto-resolution must never silently overwrite it."
+    },
+    "design_fingerprint": {
+      "oneOf": [{ "type": "string" }, { "type": "null" }],
+      "description": "opaque hash of the source fingerprint, designer, analysis configuration, and coverage that produced this entry. Absent on queues written before library caching; those entries are deliberately treated as stale once."
     }
   },
   "required": ["id", "fs", "meta", "curve", "candidates", "status"],

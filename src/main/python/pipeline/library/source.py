@@ -38,7 +38,7 @@ class LibraryItem:
 
 class LibrarySource(Protocol):
     def list_items(self, **query) -> Iterable[LibraryItem]:
-        ''' `query`'s accepted keyword arguments are entirely source-specific (e.g. a JRiver search-string
-        query) -- there is no fixed cross-source query schema, matching how model/batch.py's existing
-        FileSearch takes source-specific glob patterns today. '''
+        ''' `query`'s accepted keyword arguments are entirely source-specific -- there is no fixed
+        cross-source query schema. A JRiver source, for example, can expose a preconfigured browse node
+        and accept no per-call query at all, while a future source might accept its own filter syntax. '''
         ...

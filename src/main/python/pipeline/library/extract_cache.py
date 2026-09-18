@@ -17,7 +17,7 @@ from pipeline.orchestrate import Session
 _MANIFEST_FILENAME = 'manifest.json'
 
 
-def _source_fingerprint(item: LibraryItem) -> str:
+def source_fingerprint(item: LibraryItem) -> str:
     if item.fingerprint:
         return item.fingerprint
     stat = os.stat(item.source_path)
@@ -61,7 +61,7 @@ def extract_if_needed(session: Session, item: LibraryItem, target_dir: str, conf
     prefix = 'mono' if mono_mix else 'multichannel'
     wav_path = os.path.join(target_dir, f"{prefix}.wav")
     manifest = _read_manifest(target_dir)
-    fingerprint = _source_fingerprint(item)
+    fingerprint = source_fingerprint(item)
     params_hash = _params_hash(item, config, mono_mix)
 
     if not force:

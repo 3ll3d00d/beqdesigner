@@ -144,6 +144,24 @@ def tmdb_details_by_id(the_movie_db_id, api_key: str, kind: str = 'movie',
     return _tmdb_details(the_movie_db_id, api_key, kind, audio_types or [])
 
 
+def tmdb_find_by_imdb_id(imdb_id: str, api_key: str, kind: str = 'movie') -> Optional[str]:
+    '''
+    Resolve an IMDb id through TMDB's external-id endpoint.
+
+    :return: the matching TMDB id, or None when TMDB has no result for this
+        media kind. The caller can then use the normal title/year search.
+    :raises ValueError: if kind is not movie or tv.
+    :raises requests.HTTPError: on a non-2xx TMDB response.
+    '''
+    if kind not in ('movie', 'tv'):
+        raise ValueError(f"kind must be 'movie' or 'tv', got {kind!r}")
+    r = requests.get(url=f'{TMDB_BASE_URL}/find/{imdb_id}',
+                     params={'api_key': api_key, 'external_source': 'imdb_id'})
+    r.raise_for_status()
+    results = r.json().get('movie_results' if kind == 'movie' else 'tv_results') or []
+    return str(results[0]['id']) if results else None
+
+
 def _tmdb_details(the_movie_db_id, api_key: str, kind: str, audio_types: List[str]) -> BeqMetadata:
     params = {'api_key': api_key}
     if kind == 'tv':

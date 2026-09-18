@@ -22,6 +22,7 @@ dependencies = [
     "markdown",
     "plumbum",
     "graphviz",
+    "hamcws>=0.2.7,<0.3.0",
     "sanitize-filename",
     "matplotlib",
     "soxr",
