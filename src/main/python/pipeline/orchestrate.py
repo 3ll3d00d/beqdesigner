@@ -122,6 +122,16 @@ class Declined:
 DesignOutcome = Union[Applied, Declined]
 
 
+@dataclass(frozen=True)
+class ExtractResult:
+    '''
+    Session.extract_with_layout()'s return value -- design/library-sync-pipeline-plan.md Appendix D.3.
+    '''
+    wav_path: str
+    channel_layout_name: str  # model.ffmpeg's CHANNEL_LAYOUTS key, e.g. '5.1', or 'unknown'/a generic
+                              # "<n> channels" string when ffmpeg's probe couldn't name it more precisely
+
+
 class _ConfigPreferences:
     '''
     Maps AnalysisConfig onto the `.get(key)` interface model.signal's
@@ -153,15 +163,18 @@ class Session:
         self.__config = config
         self.__preferences = _ConfigPreferences(config)
 
-    def extract(self, src: str, target_dir: str, audio_stream: int = 0, video_stream: int = -1,
-               mono_mix: bool = True, decimate: bool = True, playlist_name: Optional[str] = None) -> str:
+    def extract_with_layout(self, src: str, target_dir: str, audio_stream: int = 0, video_stream: int = -1,
+                            mono_mix: bool = True, decimate: bool = True, playlist_name: Optional[str] = None,
+                            output_file_name: Optional[str] = None) -> ExtractResult:
         '''
-        Runs ffmpeg synchronously (model.ffmpeg.Executor.run_sync, B2). If src is a BD disc rip folder (a BDMV
-        structure) rather than a single container file, it is first resolved to a concrete ffmpeg input -- the
-        main feature (longest playlist) unless playlist_name names a specific one (its BDMV/PLAYLIST/*.mpls
-        basename, e.g. '00800'). There is no interactive title picker here (unlike ui/extract.py's
-        BdmvTitlePickerDialog) since this path is headless/unattended by design.
-        :return: the path to the extracted wav.
+        Same as extract(), but (a) lets a caller fix the output filename instead of ffmpeg's auto-derived one
+        (output_file_name is given *without* an extension -- Executor appends the format's own extension,
+        '.wav' by default) and (b) also returns the source's detected channel layout name
+        (Executor.channel_layout_name, the same one model/batch.py's ExtractCandidate.design() already reads
+        off its own Executor) -- for a caller (the extract cache, design/library-sync-pipeline-plan.md §4.1)
+        that needs to record it without a second, separate probe. extract() itself keeps returning a bare path
+        unchanged -- every other existing caller has no use for the layout and a changed return type would
+        break them.
         :raises ValueError: if src has no audio stream, or (BD input) no matching/parseable title is found.
         '''
         os.makedirs(target_dir, exist_ok=True)
@@ -175,12 +188,30 @@ class Session:
         executor = Executor(src, target_dir, mono_mix=mono_mix, decimate_audio=decimate,
                             decimate_fs=self.__config.target_fs, display_name=display_name,
                             duration_override_s=duration_override_s)
+        if output_file_name is not None:
+            executor.output_file_name = output_file_name
         executor.probe_file()
         if not executor.has_audio():
             raise ValueError(f"{src} has no audio stream to extract")
         executor.update_spec(audio_stream, video_stream, mono_mix)
         executor.run_sync()
-        return executor.get_output_path()
+        return ExtractResult(wav_path=executor.get_output_path(), channel_layout_name=executor.channel_layout_name)
+
+    def extract(self, src: str, target_dir: str, audio_stream: int = 0, video_stream: int = -1,
+               mono_mix: bool = True, decimate: bool = True, playlist_name: Optional[str] = None) -> str:
+        '''
+        Runs ffmpeg synchronously (model.ffmpeg.Executor.run_sync, B2). If src is a BD disc rip folder (a BDMV
+        structure) rather than a single container file, it is first resolved to a concrete ffmpeg input -- the
+        main feature (longest playlist) unless playlist_name names a specific one (its BDMV/PLAYLIST/*.mpls
+        basename, e.g. '00800'). There is no interactive title picker here (unlike ui/extract.py's
+        BdmvTitlePickerDialog) since this path is headless/unattended by design.
+        Unchanged signature/behaviour/return type -- now a thin wrapper over extract_with_layout(), so this
+        and extract_with_layout() can never behaviourally diverge.
+        :return: the path to the extracted wav.
+        :raises ValueError: if src has no audio stream, or (BD input) no matching/parseable title is found.
+        '''
+        return self.extract_with_layout(src, target_dir, audio_stream, video_stream, mono_mix, decimate,
+                                        playlist_name).wav_path
 
     def load(self, path: str, name: Optional[str] = None, decimate: bool = True,
             offset: float = 0.0) -> SingleChannelSignalData:
