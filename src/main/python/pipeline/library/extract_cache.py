@@ -48,6 +48,11 @@ def _write_manifest(target_dir: str, manifest: dict) -> None:
         json.dump(manifest, f)
 
 
+def read_channel_layout_name(target_dir: str) -> str:
+    '''Return the kept extraction's recorded layout, or the safe fallback.'''
+    return _read_manifest(target_dir).get('channel_layout_name', 'unknown')
+
+
 def extract_if_needed(session: Session, item: LibraryItem, target_dir: str, config: AnalysisConfig,
                       mono_mix: bool, force: bool = False) -> Tuple[str, bool]:
     '''
