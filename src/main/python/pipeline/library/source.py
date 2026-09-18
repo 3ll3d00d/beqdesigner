@@ -1,0 +1,44 @@
+'''
+LibrarySource: the pluggable contract a library-scale extract+design run (pipeline/library/run.py, not yet
+built) iterates over. One implementation ships against JRiver (blocked on a wire-format spike); Kodi/Plex
+are named future implementations of this same interface, not built here (design/library-sync-pipeline-plan.md
+§3.2).
+'''
+from dataclasses import dataclass, field
+from typing import Iterable, Optional, Protocol
+
+
+@dataclass(frozen=True)
+class LibraryItem:
+    '''
+    One title as a library source sees it -- enough for extract+design+metadata resolution to run against
+    without needing to know which concrete source produced it.
+    '''
+    id: str                                  # stable across runs -- also the QueueEntry.id / cache key.
+                                              # Must survive a rename/re-scan; a source should prefer its
+                                              # own persistent key (e.g. JRiver's Media ID) over a
+                                              # filename-derived one.
+    source_path: str                         # ffmpeg input: a container file path, or a BDMV root directory
+    display_name: str
+    title: Optional[str] = None
+    year: Optional[str] = None
+    kind: str = 'movie'                      # 'movie' or 'tv' -- forwarded to TMDB resolution
+    external_ids: dict = field(default_factory=dict)  # {'tmdb': '603', 'imdb': 'tt0133093'} -- whatever
+                                              # identifiers the source can supply; empty if it can't
+                                              # (design/library-sync-pipeline-plan.md §3.1.1)
+    audio_stream: int = 0
+    playlist_name: Optional[str] = None      # BD only, forwarded to Session.extract()
+    art_path: Optional[str] = None           # a local poster/cover file the source already has, if any
+                                              # (§3.1.3)
+    meta: dict = field(default_factory=dict) # extra BeqMetadata ctor kwargs the source can supply directly
+                                              # -- merged in on top of, and losing to nothing from, whatever
+                                              # TMDB resolution produces
+    fingerprint: str = ''                    # source-specific change marker (§4.1) -- opaque to callers
+
+
+class LibrarySource(Protocol):
+    def list_items(self, **query) -> Iterable[LibraryItem]:
+        ''' `query`'s accepted keyword arguments are entirely source-specific (e.g. a JRiver search-string
+        query) -- there is no fixed cross-source query schema, matching how model/batch.py's existing
+        FileSearch takes source-specific glob patterns today. '''
+        ...
