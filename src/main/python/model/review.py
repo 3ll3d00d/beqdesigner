@@ -23,7 +23,8 @@ from model.magnitude import MagnitudeModel
 from model.preferences import DESIGNER_QUEUE_DIR
 from pipeline.config import AnalysisConfig
 from pipeline.publish.git import RepoTarget
-from pipeline.review import read_queue, update_entry, publish_reviewed_queue
+from pipeline.review import describe_publish_error, publish_reviewed_queue, read_queue, split_publish_results, \
+    update_entry
 from ui.review import Ui_reviewQueueDialog
 
 logger = logging.getLogger('review')
@@ -480,8 +481,13 @@ class ReviewQueueDialog(QDialog, Ui_reviewQueueDialog):
         self.publishProgress.setRange(0, 1)
         self.publishProgress.setValue(1)
         self.publishButton.setEnabled(True)
-        self.statusBar.showMessage(f"Published {len(results)} title(s)")
-        self.__reload_queue()
+        published, needs_attention = split_publish_results(results)
+        self.__reload_queue()  # first: it replaces the status message with the queue summary
+        self.statusBar.showMessage(f"Published {len(published)} title(s)"
+                                   + (f", {len(needs_attention)} need attention" if needs_attention else ''))
+        if needs_attention:
+            QMessageBox.warning(self, 'Publish', 'These entries were not published:\n\n'
+                                + '\n'.join(describe_publish_error(r) for r in needs_attention))
 
     def __on_publish_errored(self, message):
         self.publishProgress.setRange(0, 1)

@@ -1,5 +1,6 @@
 '''Safety-net coverage for the Library Sync dialog's real Qt wiring.'''
 from qtpy.QtCore import QSettings
+from qtpy.QtWidgets import QMessageBox
 
 from model.library_sync import LibrarySyncDialog
 from model.preferences import DESIGNER_DEFAULT, DESIGNER_QUEUE_DIR, JRIVER_MCWS_CONNECTIONS, LIBRARY_JRIVER_BROWSE_NODE, \
@@ -36,3 +37,29 @@ def test_library_sync_dialog_reuses_jriver_preferences_and_builds_a_run_config(q
         assert config.designer == 'test.library'
     finally:
         unregister_designer('test.library')
+
+
+def test_sync_finished_does_not_count_a_refused_entry_as_published(qtbot, tmp_path, monkeypatch):
+    warnings = []
+    monkeypatch.setattr(QMessageBox, 'warning', lambda parent, title, text: warnings.append(text))
+    dialog = LibrarySyncDialog(None, _preferences(tmp_path))
+    qtbot.addWidget(dialog)
+
+    dialog._LibrarySyncDialog__sync_finished([{'id': 'ok'}, {'id': 'clash', 'error': 'project_conflict'}])
+
+    assert dialog.statusLabel.text() == 'Published 1 accepted entries, 1 need attention'
+    assert len(warnings) == 1
+    assert 'clash: the mono and multichannel' in warnings[0]
+    assert dialog.runButton.isEnabled()
+
+
+def test_sync_finished_is_quiet_when_everything_published(qtbot, tmp_path, monkeypatch):
+    warnings = []
+    monkeypatch.setattr(QMessageBox, 'warning', lambda parent, title, text: warnings.append(text))
+    dialog = LibrarySyncDialog(None, _preferences(tmp_path))
+    qtbot.addWidget(dialog)
+
+    dialog._LibrarySyncDialog__sync_finished([{'id': 'ok'}])
+
+    assert dialog.statusLabel.text() == 'Published 1 accepted entries'
+    assert warnings == []

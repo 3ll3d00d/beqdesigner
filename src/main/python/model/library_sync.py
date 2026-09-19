@@ -11,6 +11,7 @@ from pipeline.library.jriver import JRiverLibrarySource
 from pipeline.library.run import LibraryRunConfig, run_library
 from pipeline.library.sync import sync_library
 from pipeline.publish.git import RepoTarget
+from pipeline.review import describe_publish_error, split_publish_results
 from ui.library_sync import Ui_librarySyncDialog
 
 logger = logging.getLogger('library_sync')
@@ -172,10 +173,21 @@ class LibrarySyncDialog(QDialog, Ui_librarySyncDialog):
         job = _SyncJob(queue_dir, xml_repo, self.imagesRepoEdit.text().strip(), self.workDirEdit.text().strip())
         self.__active_job = job
         self.__set_busy(True, 'Publishing accepted entries...')
-        job.signals.finished.connect(
-            lambda results: self.__set_busy(False, f'Published {len(results)} accepted entries'))
+        job.signals.finished.connect(self.__sync_finished)
         job.signals.errored.connect(self.__job_failed)
         QThreadPool.globalInstance().start(job)
+
+    def __sync_finished(self, results):
+        published, needs_attention = split_publish_results(results)
+        message = f'Published {len(published)} accepted entries'
+        if needs_attention:
+            message += f', {len(needs_attention)} need attention'
+        self.__set_busy(False, message)
+        if self.__review is not None:
+            self.__review.load_queue_dir(self.queueDirEdit.text())  # show the new 'published' statuses
+        if needs_attention:
+            QMessageBox.warning(self, 'Library Sync', 'These entries were not published:\n\n'
+                                + '\n'.join(describe_publish_error(r) for r in needs_attention))
 
     def __job_failed(self, message):
         self.__set_busy(False, message)

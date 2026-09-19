@@ -272,6 +272,25 @@ def _read_channel_layout_name(project_dir: str) -> str:
     return 'unknown'
 
 
+_PUBLISH_ERRORS = {
+    'project_conflict': 'the mono and multichannel projects were edited independently and now disagree -- '
+                        'keep one edit (or re-save one project from the other) and publish again',
+}
+
+
+def split_publish_results(results: Sequence[dict]) -> Tuple[List[dict], List[dict]]:
+    '''
+    :return: (published, needs_attention) -- publish_reviewed_queue() reports an entry it refused to publish
+        as {'id', 'error'} rather than raising, so a bare len(results) overstates what went out.
+    '''
+    return [r for r in results if 'error' not in r], [r for r in results if 'error' in r]
+
+
+def describe_publish_error(result: dict) -> str:
+    ''' :return: a one-line, reviewer-facing description of an {'id', 'error'} result. '''
+    return f"{result['id']}: {_PUBLISH_ERRORS.get(result['error'], result['error'])}"
+
+
 def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: Optional[dict] = None,
                            images_repo: Optional[RepoTarget] = None, image_owner: Optional[str] = None,
                            image_repo_name: Optional[str] = None, xml_dir: str = '', image_dir: str = '',

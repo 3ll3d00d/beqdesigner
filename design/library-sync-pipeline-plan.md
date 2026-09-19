@@ -892,12 +892,19 @@ New dialog, `model/library_sync.py` / `ui/library_sync.py`
   following the existing `DESIGNER_QUEUE_DIR`/`DESIGNER_DEFAULT`
   pattern in `model/preferences.py`. **As built:** `LIBRARY_WORK_DIR`,
   `LIBRARY_XML_REPO`, `LIBRARY_IMAGES_REPO`, `LIBRARY_JRIVER_BROWSE_NODE`
-  are defined *and* used; `LIBRARY_IMAGE_OWNER`/`LIBRARY_IMAGE_REPO_NAME`
-  are defined but never read or written, so `_SyncJob` never passes
-  `image_owner`/`image_repo_name` to `sync_library()`; there is no
-  `LIBRARY_SOURCE_DEFAULT`. The queue dir reuses `DESIGNER_QUEUE_DIR`.
-  Sync results are only counted in the status label -- `'error'` entries
-  (e.g. `project_conflict`) are not surfaced to the reviewer.
+  are defined and used; there is no `LIBRARY_SOURCE_DEFAULT`; the queue dir
+  reuses `DESIGNER_QUEUE_DIR`. The image `owner`/`repo_name` prefs drafted
+  here were **dropped**: both are optional on `sync_library()` and
+  `push_image()` parses them from the images repo's git remote, so nothing
+  needs them unless a remote is non-GitHub or a fork (then add them back).
+  Sync results are split by `pipeline.review.split_publish_results()`:
+  `'error'` entries (today only `project_conflict`) are excluded from the
+  "Published N" count, listed in a warning dialog with a reviewer-facing
+  explanation (`describe_publish_error()`), and the embedded review queue is
+  refreshed. The standalone `ReviewQueueDialog` publish path reports the same
+  way. Note that path still publishes XML-only and without `work_dir`, i.e.
+  it does not read the `.beq` projects -- only the Library Sync dialog's
+  Sync button does.
 - **Filtering the library view.** The user's note (2026-09-18): once
   `source.list_items()` can return results at library scale (hundreds
   of titles), the Run tab needs a way to filter/narrow that list before
@@ -933,7 +940,7 @@ fixture -- only chunk 8 is blocked on that mapping.
 | 7 | `pipeline/library/run.py` (`run_library`) + `pipeline/library/sync.py` (`sync_library`) -- composition, per-item failure isolation (§5); threads `work_dir` into `publish_reviewed_queue()` (chunk 2). | 2, 4, 5, 6 | **Implemented -- commit `bc8179b`** |
 | 8 | `pipeline/library/jriver.py`, built on `hamcws.MediaServer.browse_files()` and the configured browse-node id (§3.1), plus the `hamcws` dependency. If an id field exists, also `pipeline.metadata.tmdb_find_by_imdb_id()` + `pipeline/library/library_metadata.py::resolve_meta()` (§3.1.1). | 3, 4 | **Implemented -- commit `d870d6d`; `run_library()` calls `resolve_meta()` when `tmdb_api_key` is set. Artwork tiers 2/3 (§3.1.3) wired later, in `pipeline/library/artwork.py`** |
 | 9 | `pipeline/library/cli.py` -- CLI entry point (§6). | 7, 8 | **Implemented -- commit `e23e03d`** |
-| 10 | GUI: `model/library_sync.py`/`ui/library_sync.py` + `model/preferences.py` additions (§7), including the library-view filter bar (status + name/year/content-type, exact fields decided at UI design time), with a `pytest-qt` safety-net test before wiring, per this repo's established practice for touching a dialog. | 7, 8, 9 | **Implemented -- commit `9da7aea`; deferred: library-view filter bar, source picker/query field, browse-node selector, image owner/repo prefs wiring** |
+| 10 | GUI: `model/library_sync.py`/`ui/library_sync.py` + `model/preferences.py` additions (§7), including the library-view filter bar (status + name/year/content-type, exact fields decided at UI design time), with a `pytest-qt` safety-net test before wiring, per this repo's established practice for touching a dialog. | 7, 8, 9 | **Implemented -- commit `9da7aea`; deferred: library-view filter bar, source picker/query field, browse-node selector** |
 
 ---
 
@@ -2317,7 +2324,7 @@ fixture.
 
 Reviewed against the code at `1ebaa4e` (471 tests), then updated after each
 follow-up commit per `AGENTS.md` -- currently current to the library
-artwork commit (493 tests). Everything in §8 marked Implemented is present and tested, except as
+sync-error reporting commit (498 tests). Everything in §8 marked Implemented is present and tested, except as
 listed here. Items are ordered roughly by impact.
 
 **Behaviour gaps -- designed above, not built**
@@ -2329,8 +2336,13 @@ listed here. Items are ordered roughly by impact.
    human-edited project is silent in both `run_library()` and `sync_library()`.
 3. **Write-back of the authoritative project into the other one (§3.3.1).**
    Not implemented; only conflict detection is.
-4. **Sync errors are not shown in the GUI (§7).** `_SyncJob` results with
-   `'error': 'project_conflict'` are counted as "published".
+4. ~~Sync errors were not shown in the GUI (§7)~~ -- fixed: refused
+   entries are no longer counted as published and are listed to the reviewer
+   (Library Sync dialog and review dialog). Also fixed the review dialog's
+   "Published N" message, which was overwritten by the queue summary at once.
+   **New, open:** the review dialog's own Publish button is XML-only and
+   ignores `work_dir`, so publishing from it (including when embedded in the
+   Library Sync dialog) skips the `.beq` project logic of §3.3.1.
 
 **Deviations that changed idempotency/cost -- fixed**
 
@@ -2357,8 +2369,7 @@ listed here. Items are ordered roughly by impact.
    `Browse/Children` shape are unverified; there is no sanitised fixture.
 11. **GUI gaps (§7):** no library-view filter bar (status/name/year/type),
     no source picker or query field, no browse-node selector (raw integer
-    spin box), `LIBRARY_IMAGE_OWNER`/`LIBRARY_IMAGE_REPO_NAME` defined but
-    unwired, no `LIBRARY_SOURCE_DEFAULT`. First saved MCWS connection only.
+    spin box), no `LIBRARY_SOURCE_DEFAULT`. First saved MCWS connection only.
 12. **`pipeline.library.registry` has no production callers** (§3).
 13. **Untested:** `INTERNAL` artwork handling in `jriver.py`; manual
     verification of the review dialog (A.8) is unconfirmed.

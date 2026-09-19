@@ -8,7 +8,7 @@ test_pipeline_review.py; this only exercises the Qt wiring on top of it.
 import numpy as np
 import pytest
 from qtpy.QtCore import QSettings, Qt
-from qtpy.QtWidgets import QFileDialog
+from qtpy.QtWidgets import QFileDialog, QMessageBox
 
 from model.codec import xydata_to_json
 from model.iir import CompleteFilter, LowShelf, PeakingEQ
@@ -347,3 +347,15 @@ def test_escape_key_does_not_blank_the_dialog(tmp_path, dialog, qtbot):
 
     assert dialog.isVisible() is True
     assert dialog.queueTable.model().rowCount() == 1
+
+
+def test_publish_finished_reports_refused_entries_instead_of_counting_them(dialog, tmp_path, monkeypatch):
+    warnings = []
+    monkeypatch.setattr(QMessageBox, 'warning', lambda parent, title, text: warnings.append(text))
+    _write_entry(str(tmp_path / 'queue'), 'one')
+    dialog.load_queue_dir(str(tmp_path / 'queue'))
+
+    dialog._ReviewQueueDialog__on_publish_finished([{'id': 'ok'}, {'id': 'clash', 'error': 'project_conflict'}])
+
+    assert dialog.statusBar.currentMessage() == 'Published 1 title(s), 1 need attention'
+    assert len(warnings) == 1 and 'clash' in warnings[0]

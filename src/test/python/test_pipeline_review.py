@@ -22,7 +22,8 @@ from pipeline.designer.registry import register_designer, unregister_designer
 from pipeline.orchestrate import Session
 from pipeline.publish.git import RepoTarget
 from pipeline.review import CandidateSummary, QueueEntry, apply_reviewed_entry, batch_design, design_and_queue, \
-    publish_reviewed_queue, read_entry, read_queue, update_entry, write_queue_entry
+    describe_publish_error, publish_reviewed_queue, read_entry, read_queue, split_publish_results, update_entry, \
+    write_queue_entry
 
 DESIGNER_NAME = 'test.review'
 DECLINE_DESIGNER_NAME = 'test.review.decline'
@@ -563,3 +564,17 @@ def test_publish_reviewed_queue_reports_a_project_conflict_without_publishing(tm
 
     assert results == [{'id': entry_id, 'error': 'project_conflict'}]
     assert read_entry(queue_dir, entry_id).status == 'accepted'  # not marked published -- a rerun will retry it
+
+
+def test_split_publish_results_separates_published_from_needs_attention():
+    results = [{'id': 'a', 'xml_sha': '1'}, {'id': 'b', 'error': 'project_conflict'}, {'id': 'c'}]
+
+    published, needs_attention = split_publish_results(results)
+
+    assert [r['id'] for r in published] == ['a', 'c']
+    assert needs_attention == [{'id': 'b', 'error': 'project_conflict'}]
+
+
+def test_describe_publish_error_explains_a_project_conflict_and_passes_an_unknown_code_through():
+    assert describe_publish_error({'id': 'b', 'error': 'project_conflict'}).startswith('b: the mono and multichannel')
+    assert describe_publish_error({'id': 'x', 'error': 'something_new'}) == 'x: something_new'
