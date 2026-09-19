@@ -24,6 +24,12 @@ class DesignCacheResult:
     entry: QueueEntry
     designed: bool
     protected: bool = False
+    projects: Optional[dict] = None  # write_title_projects_if_safe()'s result when a design wrote projects
+
+    @property
+    def project_edit_preserved(self) -> bool:
+        ''' True if a human-edited `.beq` project was left in place rather than overwritten by this design. '''
+        return self.projects is not None and any(written is False for written in self.projects.values())
 
 
 def design_fingerprint(item: LibraryItem, designer: str, config: AnalysisConfig, coverage: Coverage,
@@ -94,10 +100,11 @@ def design_if_needed(session: Session, item: LibraryItem, wav_path: str, designe
         meta = meta()
     if existing is not None:
         meta = {**(meta or {}), **existing.meta}
+    projects: dict = {}
     entry = design_and_queue(
         session, item.id, wav_path, designer, queue_dir, meta=meta, coverage=coverage,
         bass_management=bass_management, channels=channels, multichannel_wav_path=multichannel_wav_path,
-        channel_layout_name=channel_layout_name, project_dir=project_dir,
+        channel_layout_name=channel_layout_name, project_dir=project_dir, on_projects=projects.update,
     )
     art_path = existing.art_path if existing is not None else None
     art_overridden = existing.art_overridden if existing is not None else False
@@ -106,4 +113,4 @@ def design_if_needed(session: Session, item: LibraryItem, wav_path: str, designe
     kept = {'reviewer_note': existing.reviewer_note} if existing is not None else {}
     entry = update_entry(queue_dir, entry.id, design_fingerprint=fingerprint, art_path=art_path,
                          art_overridden=art_overridden, **kept)
-    return DesignCacheResult(entry, designed=True)
+    return DesignCacheResult(entry, designed=True, projects=projects or None)

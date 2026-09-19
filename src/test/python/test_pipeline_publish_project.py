@@ -17,8 +17,10 @@ from pipeline.config import AnalysisConfig
 from pipeline.orchestrate import Session
 from pipeline.publish.project import (
     ProjectFilterConflict,
+    align_projects,
     read_project_filter,
     resolve_published_filter,
+    resolve_published_projects,
     write_mono_project,
     write_multichannel_project,
     write_title_projects_if_safe,
@@ -225,6 +227,84 @@ def test_resolve_published_filter_raises_on_disagreeing_edits(tmp_path):
 
     assert exc_info.value.mono_filter.to_json() == _HUMAN_FILTER.to_json()
     assert exc_info.value.multichannel_filter.to_json() == _OTHER_HUMAN_FILTER.to_json()
+
+
+def _both_projects(tmp_path):
+    session = Session(AnalysisConfig())
+    mono_wav = str(tmp_path / 'mono.wav')
+    _write_mono_wav(mono_wav)
+    mc_wav = str(tmp_path / 'multi.wav')
+    _write_multichannel_wav(mc_wav, (1000, 2000, 3000, 4000, 5000, 6000))
+    mono_out = str(tmp_path / 'title.mono.beq')
+    mc_out = str(tmp_path / 'title.multichannel.beq')
+    write_mono_project(session, mono_wav, _PIPELINE_FILTER, mono_out)
+    write_multichannel_project(session, mc_wav, _PIPELINE_FILTER, '5.1', mc_out)
+    return session, mono_wav, mc_wav, mono_out, mc_out
+
+
+def test_resolve_published_projects_says_which_side_carried_the_edit(tmp_path):
+    session, mono_wav, mc_wav, mono_out, mc_out = _both_projects(tmp_path)
+
+    assert resolve_published_projects(mono_out, mc_out).edited_side is None
+    assert resolve_published_projects(mono_out).edited_side is None
+
+    _hand_edit_filter(mono_out, _HUMAN_FILTER)
+    assert resolve_published_projects(mono_out, mc_out).edited_side == 'mono'
+    assert resolve_published_projects(mono_out).edited_side == 'mono'
+
+    _hand_edit_filter(mc_out, _HUMAN_FILTER)  # the same edit on both sides is not a conflict
+    assert resolve_published_projects(mono_out, mc_out).edited_side == 'both'
+
+
+def test_resolve_published_projects_names_the_multichannel_side(tmp_path):
+    session, mono_wav, mc_wav, mono_out, mc_out = _both_projects(tmp_path)
+    _hand_edit_filter(mc_out, _HUMAN_FILTER)
+
+    published = resolve_published_projects(mono_out, mc_out)
+
+    assert published.edited_side == 'multichannel'
+    assert published.filter.to_json() == _HUMAN_FILTER.to_json()
+
+
+def test_align_projects_writes_a_mono_edit_into_the_multichannel_project(tmp_path):
+    session, mono_wav, mc_wav, mono_out, mc_out = _both_projects(tmp_path)
+    _hand_edit_filter(mono_out, _HUMAN_FILTER)
+    published = resolve_published_projects(mono_out, mc_out)
+
+    aligned = align_projects(session, published, mono_out, mono_wav, mc_out, mc_wav, '5.1')
+
+    assert aligned == ['multichannel']
+    mc_filter, mc_pure = read_project_filter(mc_out)
+    assert mc_filter.to_json() == _HUMAN_FILTER.to_json()
+    assert mc_pure is True  # pipeline-written again, so a later regeneration is still allowed
+    mono_filter, mono_pure = read_project_filter(mono_out)
+    assert mono_filter.to_json() == _HUMAN_FILTER.to_json()
+    assert mono_pure is False  # the human's own file is untouched
+    # every channel of the rewritten multichannel project is still linked to its master
+    raw = _read_raw(mc_out)
+    assert raw[0]['slave_names'] and all(r['master_name'] == raw[0]['name'] for r in raw[1:])
+
+
+def test_align_projects_writes_a_multichannel_edit_into_the_mono_project(tmp_path):
+    session, mono_wav, mc_wav, mono_out, mc_out = _both_projects(tmp_path)
+    _hand_edit_filter(mc_out, _HUMAN_FILTER)
+    published = resolve_published_projects(mono_out, mc_out)
+
+    aligned = align_projects(session, published, mono_out, mono_wav, mc_out, mc_wav, '5.1')
+
+    assert aligned == ['mono']
+    assert read_project_filter(mono_out)[0].to_json() == _HUMAN_FILTER.to_json()
+    assert read_project_filter(mc_out)[1] is False  # the human's file is untouched
+
+
+def test_align_projects_does_nothing_when_nothing_was_edited_or_there_is_no_sibling(tmp_path):
+    session, mono_wav, mc_wav, mono_out, mc_out = _both_projects(tmp_path)
+
+    assert align_projects(session, resolve_published_projects(mono_out, mc_out), mono_out, mono_wav,
+                          mc_out, mc_wav, '5.1') == []
+
+    _hand_edit_filter(mono_out, _HUMAN_FILTER)
+    assert align_projects(session, resolve_published_projects(mono_out), mono_out, mono_wav) == []
 
 
 def test_pipeline_publish_project_module_has_no_qtpy_import():

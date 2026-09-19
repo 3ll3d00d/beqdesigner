@@ -40,6 +40,7 @@ class LibraryRunReport:
     design_cached: list[str] = field(default_factory=list)
     failed: list[tuple[str, str]] = field(default_factory=list)
     meta_unresolved: list[tuple[str, str]] = field(default_factory=list)  # designed with item.meta only
+    project_edit_preserved: list[str] = field(default_factory=list)  # a human-edited .beq project was kept
 
 
 def _meta_source(item: LibraryItem, run_config: LibraryRunConfig, report: LibraryRunReport):
@@ -108,6 +109,8 @@ def run_library(source: LibrarySource, run_config: LibraryRunConfig,
             )
             if result.designed:
                 report.designed.append(item.id)
+                if result.project_edit_preserved:
+                    report.project_edit_preserved.append(item.id)
             else:
                 report.design_cached.append(item.id)
         except Exception as error:

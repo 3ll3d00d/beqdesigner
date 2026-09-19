@@ -589,14 +589,16 @@ def read_project_filter(path: str) -> Tuple[CompleteFilter, bool]:
   pure pipeline output, nothing to lose) -- overwrite as planned. A
   mismatch means a human edited it -- **do not overwrite**; the human's
   edit now outranks the designer's top pick and even a reviewer's
-  candidate switch. Intended to be surfaced as a new
-  `LibraryRunReport`/publish-result field (e.g. `project_edit_preserved:
-  List[str]`, item ids) rather than silently swallowed. **Not built:** the
-  hash gate itself works (`write_title_projects_if_safe()` skips an edited
-  file and returns `False` for it), but `design_and_queue()` discards that
-  return value, `publish_reviewed_queue()` ignores it, and `LibraryRunReport`
-  has no such field -- a preserved edit is silent. Only the both-edited
-  *conflict* case is reported (`{'id', 'error': 'project_conflict'}`).
+  candidate switch. **Reporting (as built):**
+  `design_and_queue(on_projects=...)` hands `write_title_projects_if_safe()`'s
+  result to its caller; `design_if_needed()` keeps it as
+  `DesignCacheResult.projects`, and `run_library()` lists the item in
+  `LibraryRunReport.project_edit_preserved` when any project was skipped
+  (`project_edit_preserved` on the result). The Library Sync status line
+  says how many were kept. At publish the equivalent is the result's
+  `edited_project` key (below), since a skipped regeneration there is the
+  normal case, not news. The both-edited *conflict* case is reported as
+  before (`{'id', 'error': 'project_conflict'}`).
 
 **Both projects are legitimate places to design/edit a filter; only
 mono is ever what gets *published*.** The user's correction
@@ -625,9 +627,17 @@ files' hashes, not just mono's:
   it back into the *other* project too (same mechanism as the
   accept-time regeneration above) so both stay consistent with what
   was actually published rather than one silently going stale.
-  **Not built:** `resolve_published_filter()` returns the edited side's
-  filter, but nothing writes it back into the other project, so the two
-  files can stay divergent after a publish.
+  **As built:** `resolve_published_projects()` returns a `PublishedFilter`
+  (the filter plus `edited_side`: `None`/`'mono'`/`'multichannel'`/`'both'`;
+  `resolve_published_filter()` remains as a thin wrapper), and
+  `align_projects()` rewrites the *pure* sibling with that filter -- it can
+  never overwrite an edit, because a sibling of an edited side is pure by
+  construction. `publish_reviewed_queue()` adds `edited_project` (the side)
+  and, when a sibling was rewritten, `projects_aligned` to that entry's
+  result; both keys are absent when nothing was edited. The rewritten
+  sibling is pipeline-written again (hash matches), so a later regeneration
+  from the candidate would overwrite it -- harmless, since an entry is
+  published once and the edited side wins on the next resolve regardless.
 - **Both show edits, and they differ** -- a genuine conflict this plan
   cannot silently resolve by picking one. Publish refuses and surfaces
   it (the same `project_edit_preserved`-style reporting as the
@@ -816,7 +826,8 @@ class LibraryRunReport:
     design_cached: List[str]  # also holds accepted/published entries skipped as protected -- not distinguished
     failed: List[Tuple[str, str]]  # (item id, "ExcType: message") -- one item's failure never aborts the rest
     meta_unresolved: List[Tuple[str, str]]  # designed with item.meta only because TMDB failed (§3.1.1)
-    # (all six default to empty lists; no project_edit_preserved field -- see §3.3.1)
+    project_edit_preserved: List[str]  # item ids designed while a human-edited .beq project was kept (§3.3.1)
+    # (all seven default to empty lists)
 
 def run_library(source: LibrarySource, run_config: LibraryRunConfig,
                 on_item_done: Optional[Callable[[str], None]] = None,
@@ -2324,18 +2335,18 @@ fixture.
 
 Reviewed against the code at `1ebaa4e` (471 tests), then updated after each
 follow-up commit per `AGENTS.md` -- currently current to the library
-sync-error reporting commit (498 tests). Everything in §8 marked Implemented is present and tested, except as
+project-edit reporting/alignment commit (510 tests). Everything in §8 marked Implemented is present and tested, except as
 listed here. Items are ordered roughly by impact.
 
-**Behaviour gaps -- designed above, not built**
+**Behaviour gaps -- designed above (1-4 all now built)**
 
 1. ~~Library artwork tiers 2 and 3 (§3.1.3)~~ -- fixed:
    `pipeline/library/artwork.py`, resolved in `design_if_needed()`. Entries
    designed before this change get a poster only on their next redesign.
-2. **`project_edit_preserved` reporting (§3.3.1).** A hash-gated skip of a
-   human-edited project is silent in both `run_library()` and `sync_library()`.
-3. **Write-back of the authoritative project into the other one (§3.3.1).**
-   Not implemented; only conflict detection is.
+2. ~~`project_edit_preserved` reporting (§3.3.1)~~ -- fixed: see §3.3.1
+   (`LibraryRunReport.project_edit_preserved`, publish `edited_project`).
+3. ~~Write-back of the authoritative project into the other one (§3.3.1)~~ --
+   fixed: `align_projects()`, publish `projects_aligned`.
 4. ~~Sync errors were not shown in the GUI (§7)~~ -- fixed: refused
    entries are no longer counted as published and are listed to the reviewer
    (Library Sync dialog and review dialog). Also fixed the review dialog's

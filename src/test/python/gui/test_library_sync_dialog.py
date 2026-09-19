@@ -63,3 +63,13 @@ def test_sync_finished_is_quiet_when_everything_published(qtbot, tmp_path, monke
 
     assert dialog.statusLabel.text() == 'Published 1 accepted entries'
     assert warnings == []
+
+
+def test_sync_finished_says_how_many_entries_used_a_project_edit(qtbot, tmp_path, monkeypatch):
+    monkeypatch.setattr(QMessageBox, 'warning', lambda *args: None)
+    dialog = LibrarySyncDialog(None, _preferences(tmp_path))
+    qtbot.addWidget(dialog)
+
+    dialog._LibrarySyncDialog__sync_finished([{'id': 'a', 'edited_project': 'mono'}, {'id': 'b'}])
+
+    assert dialog.statusLabel.text() == 'Published 2 accepted entries (1 from your project edits)'

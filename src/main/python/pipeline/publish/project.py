@@ -15,7 +15,8 @@ two-sided (mono vs. multichannel) resolution/conflict logic
 publish_reviewed_queue() needs.
 '''
 import os
-from typing import Optional, Sequence, Tuple
+from dataclasses import dataclass
+from typing import List, Optional, Sequence, Tuple
 
 from model.iir import CompleteFilter
 from model.signal import SingleChannelSignalData
@@ -131,20 +132,56 @@ class ProjectFilterConflict(Exception):
         self.multichannel_filter = multichannel_filter
 
 
-def resolve_published_filter(mono_path: str, multichannel_path: Optional[str] = None) -> Tuple[CompleteFilter, bool]:
+@dataclass(frozen=True)
+class PublishedFilter:
+    filter: CompleteFilter
+    edited_side: Optional[str]  # None: both projects still pipeline-pure. 'mono'/'multichannel': that project
+                                # carries a human edit the other lacks. 'both': edited on both sides, identically.
+
+
+def resolve_published_projects(mono_path: str, multichannel_path: Optional[str] = None) -> PublishedFilter:
     '''
-    §3.3.1's three-way resolution. :return: (the filter to publish, True if it came from a human edit on
-    either side, False if both projects are still pipeline-pure).
+    §3.3.1's three-way resolution, saying *which* project carried the edit.
     :raises ProjectFilterConflict: if both projects were independently edited and disagree.
     '''
     mono_filter, mono_pure = read_project_filter(mono_path)
     if multichannel_path is None or not os.path.isfile(multichannel_path):
-        return mono_filter, not mono_pure
+        return PublishedFilter(mono_filter, None if mono_pure else 'mono')
     mc_filter, mc_pure = read_project_filter(multichannel_path)
     if not mono_pure and not mc_pure:
         if mono_filter.to_json() != mc_filter.to_json():
             raise ProjectFilterConflict(mono_filter, mc_filter)
-        return mono_filter, True
+        return PublishedFilter(mono_filter, 'both')
     if not mc_pure:
-        return mc_filter, True
-    return mono_filter, not mono_pure
+        return PublishedFilter(mc_filter, 'multichannel')
+    return PublishedFilter(mono_filter, None if mono_pure else 'mono')
+
+
+def resolve_published_filter(mono_path: str, multichannel_path: Optional[str] = None) -> Tuple[CompleteFilter, bool]:
+    '''
+    :return: (the filter to publish, True if it came from a human edit on either side, False if both projects
+        are still pipeline-pure). See resolve_published_projects() for which side.
+    :raises ProjectFilterConflict: if both projects were independently edited and disagree.
+    '''
+    published = resolve_published_projects(mono_path, multichannel_path)
+    return published.filter, published.edited_side is not None
+
+
+def align_projects(session: Session, published: PublishedFilter, mono_path: str, mono_wav_path: str,
+                   multichannel_path: Optional[str] = None, multichannel_wav_path: Optional[str] = None,
+                   channel_layout_name: str = 'unknown') -> List[str]:
+    '''
+    Writes a human's edit into the *other* project, so the two files agree with what was published rather than
+    one silently going stale (§3.3.1). Only ever rewrites a pipeline-pure project -- by construction of
+    PublishedFilter.edited_side the sibling of an edited side is pure (or absent), so no edit is lost.
+    :return: which projects were rewritten, e.g. ['multichannel'].
+    '''
+    if published.edited_side == 'mono' and multichannel_path and multichannel_wav_path \
+            and os.path.isfile(multichannel_path):
+        write_multichannel_project(session, multichannel_wav_path, published.filter, channel_layout_name,
+                                   multichannel_path)
+        return ['multichannel']
+    if published.edited_side == 'multichannel':
+        write_mono_project(session, mono_wav_path, published.filter, mono_path)
+        return ['mono']
+    return []

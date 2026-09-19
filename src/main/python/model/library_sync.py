@@ -153,8 +153,11 @@ class LibrarySyncDialog(QDialog, Ui_librarySyncDialog):
         QThreadPool.globalInstance().start(job)
 
     def __run_finished(self, report):
-        self.__set_busy(False, f'Designed {len(report.designed)}, cached {len(report.design_cached)}, '
-                               f'failed {len(report.failed)}')
+        message = (f'Designed {len(report.designed)}, cached {len(report.design_cached)}, '
+                   f'failed {len(report.failed)}')
+        if report.project_edit_preserved:
+            message += f', kept your edits to {len(report.project_edit_preserved)} project(s)'
+        self.__set_busy(False, message)
         from model.review import ReviewQueueDialog
         if self.__review is None:
             self.__review = ReviewQueueDialog(self, self.__preferences)
@@ -180,6 +183,9 @@ class LibrarySyncDialog(QDialog, Ui_librarySyncDialog):
     def __sync_finished(self, results):
         published, needs_attention = split_publish_results(results)
         message = f'Published {len(published)} accepted entries'
+        edited = [r for r in published if 'edited_project' in r]
+        if edited:
+            message += f' ({len(edited)} from your project edits)'
         if needs_attention:
             message += f', {len(needs_attention)} need attention'
         self.__set_busy(False, message)

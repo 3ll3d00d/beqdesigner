@@ -156,7 +156,8 @@ def design_and_queue(session: Session, entry_id: str, wav_path: str, designer: s
                      meta: Optional[dict] = None, coverage: Coverage = 'complete_programme',
                      bass_management: Optional[dict] = None, channels: Optional[dict] = None,
                      multichannel_wav_path: Optional[str] = None, channel_layout_name: str = 'unknown',
-                     project_dir: Optional[str] = None) -> QueueEntry:
+                     project_dir: Optional[str] = None,
+                     on_projects: Optional[Callable[[dict], None]] = None) -> QueueEntry:
     '''
     Loads an *already-extracted* wav file, designs it, and writes one
     QueueEntry to queue_dir -- the load+design+curve+write half of
@@ -180,6 +181,8 @@ def design_and_queue(session: Session, entry_id: str, wav_path: str, designer: s
         always, plus `<project_dir>/<entry_id>.multichannel.beq` when multichannel_wav_path is also given.
         A Declined outcome has no filter to write, so nothing is written for it (matches "candidates empty
         on decline"). Omitted (the default), no project files are written -- backward compatible.
+    :param on_projects: called with write_title_projects_if_safe()'s result ({'mono': bool, 'multichannel':
+        bool|None}; False = an existing human-edited project was left alone) whenever projects were attempted.
     :return: the written QueueEntry.
     '''
     from model.codec import xydata_to_json
@@ -193,9 +196,12 @@ def design_and_queue(session: Session, entry_id: str, wav_path: str, designer: s
         from pipeline.publish.project import write_title_projects_if_safe
         mono_out = os.path.join(project_dir, f"{entry_id}.mono.beq")
         mc_out = os.path.join(project_dir, f"{entry_id}.multichannel.beq") if multichannel_wav_path else None
-        write_title_projects_if_safe(session, wav_path, outcome.filters, mono_out,
-                                     multichannel_wav_path=multichannel_wav_path,
-                                     channel_layout_name=channel_layout_name, multichannel_out_path=mc_out)
+        written = write_title_projects_if_safe(session, wav_path, outcome.filters, mono_out,
+                                               multichannel_wav_path=multichannel_wav_path,
+                                               channel_layout_name=channel_layout_name,
+                                               multichannel_out_path=mc_out)
+        if on_projects is not None:
+            on_projects(written)
     return entry
 
 
@@ -272,6 +278,16 @@ def _read_channel_layout_name(project_dir: str) -> str:
     return 'unknown'
 
 
+def _project_notes(published, aligned: List[str]) -> dict:
+    ''' Result keys saying a human's project edit was what got published; absent when nothing was edited. '''
+    notes = {}
+    if published.edited_side is not None:
+        notes['edited_project'] = published.edited_side
+    if aligned:
+        notes['projects_aligned'] = aligned
+    return notes
+
+
 _PUBLISH_ERRORS = {
     'project_conflict': 'the mono and multichannel projects were edited independently and now disagree -- '
                         'keep one edit (or re-save one project from the other) and publish again',
@@ -326,11 +342,14 @@ def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: 
         retries it. Omitted (the default), publishing reads apply_reviewed_entry() as before -- backward
         compatible.
     :return: one {'id': entry.id, **Session.publish()'s result} per entry
-        actually published this run.
+        actually published this run. With work_dir, an entry published from a human's project edit also carries
+        'edited_project' ('mono'/'multichannel'/'both') and, if the other project was rewritten to match,
+        'projects_aligned' (the names rewritten).
     '''
     from model.codec import xydata_from_json
     from pipeline.metadata import BeqMetadata
-    from pipeline.publish.project import ProjectFilterConflict, resolve_published_filter, write_title_projects_if_safe
+    from pipeline.publish.project import ProjectFilterConflict, align_projects, resolve_published_projects, \
+        write_title_projects_if_safe
 
     session = Session(config)
     results = []
@@ -353,10 +372,13 @@ def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: 
                                          multichannel_wav_path=mc_wav if mc_path else None,
                                          channel_layout_name=layout, multichannel_out_path=mc_path)
             try:
-                complete_filter, _ = resolve_published_filter(mono_path, mc_path)
+                published = resolve_published_projects(mono_path, mc_path)
             except ProjectFilterConflict:
                 results.append({'id': entry.id, 'error': 'project_conflict'})
                 continue
+            complete_filter = published.filter
+            aligned = align_projects(session, published, mono_path, os.path.join(project_dir, 'mono.wav'),
+                                     mc_path, mc_wav if mc_path else None, layout)
 
         image_png = None
         image_relative_path = None
@@ -372,5 +394,5 @@ def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: 
                                  image_relative_path=image_relative_path, image_png=image_png,
                                  image_owner=image_owner, image_repo_name=image_repo_name)
         update_entry(queue_dir, entry.id, status='published')
-        results.append({'id': entry.id, **result})
+        results.append({'id': entry.id, **result, **(_project_notes(published, aligned) if work_dir else {})})
     return results

@@ -275,3 +275,34 @@ def test_a_cache_hit_does_not_resolve_artwork(tmp_path, monkeypatch):
     assert result.designed is False
     assert result.entry.art_path is None
     assert art_calls == []
+
+
+def test_result_flags_a_preserved_project_edit_only_when_a_project_was_skipped(tmp_path, monkeypatch):
+    item = _item(tmp_path)
+
+    def fake_design(session, entry_id, wav_path, designer, queue_dir, on_projects=None, **kwargs):
+        entry = _entry()
+        write_queue_entry(queue_dir, entry)
+        on_projects(projects.pop())
+        return entry
+
+    monkeypatch.setattr('pipeline.library.design_cache.design_and_queue', fake_design)
+    for written, expected in (({'mono': True, 'multichannel': None}, False),
+                              ({'mono': True, 'multichannel': True}, False),
+                              ({'mono': False, 'multichannel': None}, True),
+                              ({'mono': True, 'multichannel': False}, True)):
+        projects = [written]
+        result = design_if_needed(None, item, '/work/mono.wav', 'designer.v1', str(tmp_path / f'q{expected}{written}'),
+                                  AnalysisConfig(), project_dir='/work/title-1')
+        assert result.projects == written
+        assert result.project_edit_preserved is expected
+
+
+def test_result_has_no_projects_without_a_project_dir(tmp_path, monkeypatch):
+    _install_fake_design(monkeypatch, [])
+
+    result = design_if_needed(None, _item(tmp_path), '/work/mono.wav', 'designer.v1', str(tmp_path / 'q'),
+                              AnalysisConfig())
+
+    assert result.projects is None
+    assert result.project_edit_preserved is False

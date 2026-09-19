@@ -566,6 +566,71 @@ def test_publish_reviewed_queue_reports_a_project_conflict_without_publishing(tm
     assert read_entry(queue_dir, entry_id).status == 'accepted'  # not marked published -- a rerun will retry it
 
 
+def _accepted_title_with_projects(tmp_path, multichannel=True):
+    entry_id = 'ready-player-one'
+    queue_dir = str(tmp_path / 'queue')
+    work_dir = str(tmp_path / 'work')
+    project_dir = os.path.join(work_dir, entry_id)
+    os.makedirs(project_dir)
+    mono_wav = os.path.join(project_dir, 'mono.wav')
+    _write_synthetic_wav(mono_wav, channel_values=(1000,))
+    kwargs = {}
+    if multichannel:
+        mc_wav = os.path.join(project_dir, 'multichannel.wav')
+        _write_synthetic_wav(mc_wav, channel_values=(1000, 2000, 3000, 4000, 5000, 6000))
+        kwargs = {'multichannel_wav_path': mc_wav, 'channel_layout_name': '5.1'}
+    design_and_queue(Session(AnalysisConfig()), entry_id, mono_wav, DESIGNER_NAME, queue_dir,
+                     meta={'title': 'Ready Player One', 'year': '2018', 'audio_types': ['Atmos']},
+                     project_dir=project_dir, **kwargs)
+    update_entry(queue_dir, entry_id, status='accepted', chosen_candidate_index=0)
+    return entry_id, queue_dir, work_dir, project_dir
+
+
+def test_design_and_queue_reports_which_projects_it_wrote_and_which_it_left_alone(tmp_path):
+    entry_id, queue_dir, work_dir, project_dir = _accepted_title_with_projects(tmp_path, multichannel=False)
+    mono_project = os.path.join(project_dir, f'{entry_id}.mono.beq')
+    seen = []
+    session = Session(AnalysisConfig())
+    mono_wav = os.path.join(project_dir, 'mono.wav')
+
+    design_and_queue(session, entry_id, mono_wav, DESIGNER_NAME, queue_dir, project_dir=project_dir,
+                     on_projects=seen.append)
+    _hand_edit_project_filter(mono_project, CompleteFilter(fs=1000, filters=[PeakingEQ(1000, 55.0, 1.4, -6.0)]))
+    design_and_queue(session, entry_id, mono_wav, DESIGNER_NAME, queue_dir, project_dir=project_dir,
+                     on_projects=seen.append)
+
+    assert seen == [{'mono': True, 'multichannel': None}, {'mono': False, 'multichannel': None}]
+
+
+def test_publish_reviewed_queue_says_when_it_published_a_human_edit_and_aligns_the_sibling(tmp_path):
+    from pipeline.publish.project import read_project_filter
+
+    entry_id, queue_dir, work_dir, project_dir = _accepted_title_with_projects(tmp_path)
+    mono_project = os.path.join(project_dir, f'{entry_id}.mono.beq')
+    mc_project = os.path.join(project_dir, f'{entry_id}.multichannel.beq')
+    edited = CompleteFilter(fs=1000, filters=[PeakingEQ(1000, 55.0, 1.4, -6.0)])
+    _hand_edit_project_filter(mono_project, edited)
+    xml_repo, _ = _init_repo_with_remote(tmp_path, 'xml_repo')
+
+    results = publish_reviewed_queue(queue_dir, xml_repo, xml_dir='xml', work_dir=work_dir)
+
+    assert results[0]['edited_project'] == 'mono'
+    assert results[0]['projects_aligned'] == ['multichannel']
+    mc_filter, mc_pure = read_project_filter(mc_project)
+    assert mc_filter.to_json() == edited.to_json()
+    assert mc_pure is True
+
+
+def test_publish_reviewed_queue_adds_no_project_notes_when_nothing_was_edited(tmp_path):
+    entry_id, queue_dir, work_dir, project_dir = _accepted_title_with_projects(tmp_path)
+    xml_repo, _ = _init_repo_with_remote(tmp_path, 'xml_repo')
+
+    results = publish_reviewed_queue(queue_dir, xml_repo, xml_dir='xml', work_dir=work_dir)
+
+    assert 'edited_project' not in results[0]
+    assert 'projects_aligned' not in results[0]
+
+
 def test_split_publish_results_separates_published_from_needs_attention():
     results = [{'id': 'a', 'xml_sha': '1'}, {'id': 'b', 'error': 'project_conflict'}, {'id': 'c'}]
 

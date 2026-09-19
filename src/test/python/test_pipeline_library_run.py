@@ -180,6 +180,24 @@ def test_run_library_still_keeps_multichannel_when_the_channel_count_is_unknown_
         assert extract_calls == [True, False]
 
 
+def test_run_library_reports_items_whose_edited_project_was_preserved(tmp_path, monkeypatch):
+    monkeypatch.setattr('pipeline.library.run.Session', lambda config: _Session())
+    monkeypatch.setattr('pipeline.library.run.extract_if_needed',
+                        lambda session, item, item_dir, config, mono_mix, force: (f'{item_dir}/mono.wav', True))
+
+    def design(session, item, *args, **kwargs):
+        projects = {'mono': item.id != 'edited', 'multichannel': None}
+        return DesignCacheResult(QueueEntry(id=item.id, fs=1000, meta={}, curve={}), designed=True, projects=projects)
+
+    monkeypatch.setattr('pipeline.library.run.design_if_needed', design)
+    config = LibraryRunConfig(work_dir=str(tmp_path / 'work'), queue_dir=str(tmp_path / 'queue'), designer='test')
+
+    report = run_library(_Source([_item('plain'), _item('edited')]), config)
+
+    assert report.designed == ['plain', 'edited']
+    assert report.project_edit_preserved == ['edited']
+
+
 def test_sync_library_is_a_parameter_preserving_publish_call_through(monkeypatch):
     calls = []
     monkeypatch.setattr('pipeline.library.sync.publish_reviewed_queue',
