@@ -1,0 +1,187 @@
+# Library sync plan -- open questions and implementation status
+
+> Part of the library sync plan -- **start at the index**: [`../library-sync-pipeline-plan.md`](../library-sync-pipeline-plan.md).
+> Contains §9, §10. Section numbers are global across the plan; the index maps every `§` to its file.
+> Status of what this file describes: reviewed 2026-09-19; **§10 holds the authoritative list of what is still open (T1-T16)**
+
+## 9. Open questions / risks
+
+- **JRiver field configuration remains library-specific** -- the endpoint,
+  JSON response mode, and `hamcws` adapter are established, but chunk 3
+  still needs a real response fixture to confirm the configured names for
+  external IDs, artwork, and browse-node children. Nothing outside chunk 8
+  depends on that mapping.
+- **Whether the library actually carries a TMDB/IMDB id at all is
+  unknown and library-specific** -- depends entirely on which metadata
+  plugin(s) the user has configured in JRiver, if any. The fuzzy
+  `tmdb_lookup(title, year)` fallback (3.1.1) must keep working
+  regardless -- id-based resolution is a quality improvement for
+  whatever fraction of the library has one, not something the design
+  can require.
+- ~~No reviewer-facing way to correct a wrong id-based TMDB match~~ --
+  resolved by 3.1.2's metadata editor (Chunk 1 / Appendix A); flagged
+  here only as a reminder that Chunk 1 is what closes this, not an
+  afterthought.
+- **Whether the library exposes local poster art is unverified and
+  library-specific** (3.1.3) -- same caveat as the TMDB/IMDB id
+  question; the TMDB-fallback tier must work regardless, and now also
+  needs its existing wiring gap (`publish_reviewed_queue()` never
+  passing `poster_path`) actually closed, which Chunk 1 does.
+- ~~**Stable `LibraryItem.id` for JRiver**~~ -- resolved: `jriver-<server
+  hash>-<Key>` (§3.1). Whether JRiver's `Key` survives a library rescan/
+  re-import is still unverified against a real server (chunk 3).
+- **`force_design` on an `accepted`/`published` entry**: deliberately
+  requires an explicit single-item status reset rather than a
+  library-wide flag (see 4.2) -- worth confirming this friction is
+  acceptable rather than surprising once someone actually hits it.
+- **Cross-machine layout**: this assumes beqdesigner runs on a host
+  that can both reach the JRiver server over HTTP *and* read the
+  source files directly (ffmpeg needs local/mounted access to
+  `source_path`) -- same assumption `model/batch.py`'s existing glob
+  search already makes, not a new constraint, but worth stating since
+  a "library source" abstraction might tempt someone to assume
+  network-transparent file access that doesn't exist yet.
+- **Regenerating output 1's project files only on an accept-time
+  mismatch** (§3.3) means a reviewer who merely *previews* a
+  non-top-pick candidate (digit-key picking in `ReviewQueueDialog`,
+  without accepting) never sees that choice reflected in the on-disk
+  `.beq` projects -- only the eventual `accepted` pick triggers a
+  rewrite, and even then only if the project hasn't already been
+  hand-edited (§3.3.1's hash gate). Consistent with "projects reflect a
+  decision, not a preview," but worth confirming that's the expected
+  mental model before chunk 2 ships.
+- **The `pipeline_filter_hash` mechanism (§3.3.1) only inspects the
+  master channel** of a multichannel project -- a human who `free()`s
+  one slave from the master and edits it independently inside the
+  interactive app produces a project this plan cannot detect as edited
+  (the master's hash still matches). Since a multichannel edit can now
+  be publish-authoritative too (§3.3.1's revised, two-sided
+  resolution), this gap is no longer purely a personal-use concern: an
+  independently-edited *slave* channel is invisible to this mechanism
+  either way, but an edit to the *master* channel (the normal case for
+  changing what gets published) is still correctly detected. Accepted
+  as a known, narrow gap rather than solved here.
+- **Project-file-as-published-source is a real behaviour change** once
+  chunk 2 ships, and now a two-sided one (§3.3.1 revised): a title's
+  published filter can diverge from every candidate
+  `QueueEntry.candidates` ever recorded, from either project file, and
+  the two projects can end up in outright conflict if both are
+  independently edited to disagree -- a case this plan deliberately
+  refuses to auto-resolve rather than silently guessing. Worth the user
+  explicitly confirming this is the intended trust model before chunk 2
+  ships; it's a meaningful shift from "the pipeline always publishes
+  what it designed," and the conflict case in particular needs a real
+  UI/CLI answer (deferred to the relevant chunk, not designed here).
+
+## 10. Implementation status vs. this plan (reviewed 2026-09-19)
+
+Reviewed against the code at `1ebaa4e` (471 tests), then updated after each
+follow-up commit per `AGENTS.md` -- currently current to the library
+CLI documentation commit (810 tests); todo list consolidated in §10. Everything in §8 marked Implemented is present and tested, except as
+listed here. Items are ordered roughly by impact.
+
+**Behaviour gaps -- designed above (1-4 all now built)**
+
+1. ~~Library artwork tiers 2 and 3 (§3.1.3)~~ -- fixed:
+   `pipeline/library/artwork.py`, resolved in `design_if_needed()`. Entries
+   designed before this change get a poster only on their next redesign.
+2. ~~`project_edit_preserved` reporting (§3.3.1)~~ -- fixed: see §3.3.1
+   (`LibraryRunReport.project_edit_preserved`, publish `edited_project`).
+3. ~~Write-back of the authoritative project into the other one (§3.3.1)~~ --
+   fixed: `align_projects()`, publish `projects_aligned`.
+4. ~~Sync errors were not shown in the GUI (§7)~~ -- fixed: refused
+   entries are no longer counted as published and are listed to the reviewer
+   (Library Sync dialog and review dialog). Also fixed the review dialog's
+   "Published N" message, which was overwritten by the queue summary at once.
+   **New, open:** the review dialog's own Publish button is XML-only and
+   ignores `work_dir`, so publishing from it (including when embedded in the
+   Library Sync dialog) skips the `.beq` project logic of §3.3.1.
+
+**Deviations that changed idempotency/cost -- fixed**
+
+5. ~~`resolve_meta()` ran before the design cache check~~ -- fixed in
+   `efb300f` (lazy callable; TMDB errors degrade to `item.meta`, reported in
+   `meta_unresolved`).
+6. ~~Design fingerprint omitted `keep_multichannel`/`audio_stream`~~ -- fixed
+   in `e68511f` (metadata excluded on purpose; see §4.2).
+7. ~~Kept multichannel extraction not gated on the source being
+   multichannel~~ -- fixed in `1719151` via `source_channel_count`. Turned
+   out to be masked by a pre-existing bug, also fixed (`dfcb7ff`): every
+   mono-source extraction failed on an invalid `pan` filter.
+8. ~~`kind` ignored `Media Type`/`Media Sub Type`~~ -- fixed, and verified live (below).
+9. ~~Redesigning a `pending` entry discarded a reviewer's metadata and
+   artwork edits~~ -- fixed (see the commit that follows `5c2dfdf`):
+   `design_if_needed()` now keeps the existing entry's `meta` (fresh
+   metadata only fills missing keys), `art_path`/`art_overridden` and
+   `reviewer_note` across a redesign. `status` and the chosen candidate still
+   reset to `pending`, since the candidates they refer to are replaced.
+
+**Still open** (consolidated 2026-09-20 -- the list that used to be here had gone
+stale, and most of what is genuinely open was recorded only in passing inside
+§11's subsections. Each entry says where the detail is. This list supersedes
+the old items 10-14.)
+
+*Documentation*
+
+T1. **User documentation (mkdocs, `docs/`) does not cover any of the library
+    work, and one page is now wrong.** Missing: the Library Sync dialog, the
+    Review Batch Designs dialog and its metadata/artwork/Episodes editor,
+    Preferences -> Designers and -> JRiver (servers, aliases, path mappings,
+    metadata fields), the source picker, TV mode, and DVD/Blu-ray discs in Batch
+    Extract. **Wrong:** `docs/ui/manage_mc.md` ("on first use enter the
+    connection details ... click test connection and then save", with a
+    screenshot, `jriver_add_new_mcws.png`) describes controls this work moved
+    to Preferences -> JRiver; that page and its screenshot need updating, and
+    `preferences.md` needs the new pages. The CLI is documented (README, `--help`);
+    the GUI is not.
+
+*Verification not done*
+
+T2. **The GUI has only been exercised by offscreen pytest-qt, never by a person
+    in the running app**: Preferences -> JRiver (list, edit, async test,
+    aliases, path-mapping table, field editor), Library Sync (source picker,
+    browse-node picker, TV mode), the review dialog's Episodes field, A.8.
+T3. **`tv_mode='season'` has not been run against a real library** (the local
+    server was unreachable); grouping and joining are unit-tested only (§11.9).
+T4. **The CLI's `run` and `sync` have not been run end to end** against a real
+    designer or repositories; the tests stub the run and publish steps (§6).
+T5. **`/Alive`'s `FriendlyName`** is tested against a local fake only; it was
+    outside the live-check permission (§11.1).
+T6. **Chunk 3 (the sanitised real-server fixture) was never captured.** The
+    endpoints and field names were verified live on one library (§11.5), but
+    only the author's; `Browse/Children` keys by name, so two same-named
+    siblings would collapse into one entry (not seen). `INTERNAL` artwork is
+    handled but untested.
+
+*Features not built*
+
+T7. **DVD, multi-episode discs (§11.8).** A JRiver item cannot say which title it
+    is, so every JRiver item on a disc resolves to that disc's main title
+    ("play all" for a multi-episode disc): several items, one audio. Needs a
+    per-item title override or de-duplication by disc. Also: no DVD title picker
+    in the single-file Extract dialog; Batch Extract takes only the main title;
+    no end-to-end DVD test (a disc libdvdread accepts needs real navigation
+    tables).
+T8. **Blu-ray `BDMV\PLAYLIST\index.bluray;N` entries** (4 shows) are passed
+    through unresolved -- which title `N` names is unknown (§11.5).
+T9. **The review dialog's own Publish button is XML-only and ignores `work_dir`**,
+    so publishing from it (including from the copy embedded in Library Sync)
+    skips the `.beq`-project logic; only Library Sync's Sync button uses it (§7).
+    *Planned: retired in chunk 27c (§12.10, §12.13).*
+T10. **Library view filter bar** (status / name / year / type) for the Run tab (§7).
+     *Superseded by the work list (§12.10, chunks 26a-b).*
+T11. **No warning for a path still in Windows form on a non-Windows host** (an
+     unmapped library fails item by item at extraction); no folder picker on the
+     path mapping's local column (§11.6).
+T12. **`tvdb` identifier** -- 1587 of 1657 live shows carry a `TheTVDB Series
+     ID` TMDB can resolve; optional, not started (§11.7).
+T13. **`MCWSDialog`'s zone loading is still synchronous** (§11.1).
+T14. **`pipeline.library.registry` has no production callers** -- an unused seam
+     for Kodi/Plex, which are not built by design (§3, §3.2).
+
+*Known limits (by design, revisit if they bite)*
+
+T15. Season mode does not keep multichannel, joins episodes with no level
+     matching, and is only as complete as the browse node (§11.9).
+T16. Redesigning a `pending` entry resets its status and chosen candidate
+     (metadata, artwork and note are kept) (§4.2).

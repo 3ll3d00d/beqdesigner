@@ -228,8 +228,13 @@ renders the notes.
 
 ## Working from a plan
 
-Multi-commit work is tracked in a plan document under `design/` (for example
-`design/library-sync-pipeline-plan.md`). Keep it accurate as you go:
+Multi-commit work is tracked in a plan under `design/` (for example
+`design/library-sync-pipeline-plan.md`). A large plan is an **index plus topic
+files**: the index (that file) holds the goal, the chunk-status table and a map
+from each `§` to the file that holds it, and the design lives in topic files
+under a same-named folder (`design/library-sync/`). Read the index first, then
+only the one topic file you need; keep every file under ~500 lines and split
+rather than append. Keep the plan accurate as you go:
 
 - **After every commit, update the active plan with the new status** --
   before starting the next piece of work. Mark the chunk or item done with
@@ -241,6 +246,9 @@ Multi-commit work is tracked in a plan document under `design/` (for example
   a commit whose effect the plan still describes as unbuilt.
 - The plan is descriptive of the code at `HEAD`, not aspirational: when the
   code and the plan disagree, verify against the code and correct the plan.
+  Agreed forward design is allowed, but it lives in its own file, is labelled
+  "design, not built", and is marked "Not started" in the chunk table, so the
+  status of built code stays trustworthy.
 - If a task isn't covered by a plan, there is nothing to update -- don't
   create one just for a small fix.
 
