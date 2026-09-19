@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 import qtawesome as qta
-from qtpy.QtCore import Qt, Signal
+from qtpy.QtCore import QObject, QRunnable, Qt, QThreadPool, Signal
 from qtpy.QtWidgets import QCheckBox, QFormLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, \
     QPlainTextEdit, QPushButton, QToolButton, QVBoxLayout, QWidget
 
@@ -82,10 +82,36 @@ def save_connections(prefs, connections: list[SavedConnection]) -> None:
     prefs.set(JRIVER_MCWS_CONNECTIONS, merged)
 
 
+class _TestSignals(QObject):
+    finished = Signal(object)  # None on success, else the text to show
+
+
+class _TestJob(QRunnable):
+    ''' Authenticates against a server off the UI thread -- a dead host takes several seconds to time out. '''
+
+    def __init__(self, connection: SavedConnection):
+        super().__init__()
+        self.signals = _TestSignals()
+        self.__connection = connection
+
+    def run(self):
+        try:
+            self.__connection.to_media_server().authenticate()
+            self.signals.finished.emit(None)
+        except MCWSError as e:
+            self.signals.finished.emit(f"{e.url} - {e.status_code}\n\n{e.msg}\n\n{e.resp}")
+        except Exception as e:
+            logger.exception('Unexpected failure testing %s', self.__connection.endpoint)
+            self.signals.finished.emit(f'{type(e).__name__}: {e}')
+
+
 class JRiverConnectionsWidget(QWidget):
     '''
-    Add, test and delete saved JRiver servers. Changes are written to preferences immediately (as the filter
-    manager's dialog always did), and announced through `changed`.
+    Add, edit, test and delete saved JRiver servers. Selecting a saved server loads it into the form; change it,
+    Test, then Update. With nothing selected the form adds a new server (New clears the selection). Changes are
+    written to preferences immediately (as the filter manager's dialog always did) and announced through
+    `changed`. Testing runs in the background with a spinner, so the dialog stays responsive while a slow or dead
+    host times out.
     '''
     changed = Signal()
     CONNECTION_ROLE = Qt.ItemDataRole.UserRole + 1
@@ -94,11 +120,13 @@ class JRiverConnectionsWidget(QWidget):
         super().__init__(parent)
         self.__prefs = prefs
         self.__tested: Optional[SavedConnection] = None
+        self.__job: Optional[_TestJob] = None  # held so its signals outlive run()
 
         self.savedConnections = QListWidget()
         self.deleteButton = QToolButton()
         self.deleteButton.setIcon(qta.icon('fa5s.trash-alt'))
         self.deleteButton.setToolTip('Delete selected connection')
+        self.formLabel = QLabel('New server')
         self.endpointEdit = QLineEdit()
         self.endpointEdit.setPlaceholderText('host:port, e.g. 192.168.1.10:52199')
         self.httpsCheck = QCheckBox('Use HTTPS')
@@ -106,10 +134,13 @@ class JRiverConnectionsWidget(QWidget):
         self.usernameEdit = QLineEdit()
         self.passwordEdit = QLineEdit()
         self.passwordEdit.setEchoMode(QLineEdit.EchoMode.Password)
+        self.newButton = QPushButton(qta.icon('fa5s.file'), 'New')
+        self.newButton.setToolTip('Clear the selection and enter a new server')
         self.testButton = QPushButton(qta.icon('fa5s.sync'), 'Test')
         self.testButton.setToolTip('Check the connection to Media Center')
         self.addButton = QPushButton(qta.icon('fa5s.plus'), 'Add')
         self.addButton.setToolTip('Save this connection (enabled once a test has passed)')
+        self.statusLabel = QLabel('')
         self.resultText = QPlainTextEdit()
         self.resultText.setReadOnly(True)
         self.resultText.setMaximumHeight(80)
@@ -124,25 +155,29 @@ class JRiverConnectionsWidget(QWidget):
         form.addRow('Username', self.usernameEdit)
         form.addRow('Password', self.passwordEdit)
         buttons = QHBoxLayout()
+        buttons.addWidget(self.newButton)
         buttons.addStretch()
+        buttons.addWidget(self.statusLabel)
         buttons.addWidget(self.testButton)
         buttons.addWidget(self.addButton)
         layout = QVBoxLayout(self)
         layout.addWidget(QLabel('Saved servers'))
         layout.addLayout(saved)
-        layout.addWidget(QLabel('New server'))
+        layout.addWidget(self.formLabel)
         layout.addLayout(form)
         layout.addLayout(buttons)
         layout.addWidget(self.resultText)
 
+        self.__form_fields = (self.endpointEdit, self.httpsCheck, self.authCheck, self.usernameEdit, self.passwordEdit)
         self.endpointEdit.textChanged.connect(self.__inputs_changed)
         self.usernameEdit.textChanged.connect(self.__inputs_changed)
         self.passwordEdit.textChanged.connect(self.__inputs_changed)
         self.httpsCheck.toggled.connect(self.__inputs_changed)
         self.authCheck.toggled.connect(self.__inputs_changed)
-        self.savedConnections.itemSelectionChanged.connect(self.__update_buttons)
+        self.savedConnections.itemSelectionChanged.connect(self.__selection_changed)
+        self.newButton.clicked.connect(self.__new)
         self.testButton.clicked.connect(self.__test)
-        self.addButton.clicked.connect(self.__add)
+        self.addButton.clicked.connect(self.__save)
         self.deleteButton.clicked.connect(self.__delete_selected)
 
         for connection in load_connections(prefs):
@@ -151,6 +186,14 @@ class JRiverConnectionsWidget(QWidget):
 
     def connections(self) -> list[SavedConnection]:
         return [self.savedConnections.item(i).data(self.CONNECTION_ROLE) for i in range(self.savedConnections.count())]
+
+    @property
+    def testing(self) -> bool:
+        return self.__job is not None
+
+    def __selected(self) -> Optional[SavedConnection]:
+        items = self.savedConnections.selectedItems()
+        return items[0].data(self.CONNECTION_ROLE) if items else None
 
     def __add_row(self, connection: SavedConnection):
         item = QListWidgetItem(connection.label)
@@ -164,55 +207,105 @@ class JRiverConnectionsWidget(QWidget):
                                self.passwordEdit.text() if authenticated else None,
                                self.httpsCheck.isChecked())
 
+    def __fill_form(self, connection: Optional[SavedConnection]):
+        ''' Sets every field without each edit invalidating the test, then does that once. '''
+        for field in self.__form_fields:
+            field.blockSignals(True)
+        connection = connection or SavedConnection('')
+        self.endpointEdit.setText(connection.endpoint)
+        self.httpsCheck.setChecked(connection.secure)
+        self.authCheck.setChecked(connection.username is not None)
+        self.usernameEdit.setText(connection.username or '')
+        self.passwordEdit.setText(connection.password or '')
+        for field in self.__form_fields:
+            field.blockSignals(False)
+        self.__inputs_changed()
+
+    def __selection_changed(self):
+        self.__fill_form(self.__selected())
+
+    def __new(self):
+        self.savedConnections.clearSelection()  # its signal empties the form
+        self.__fill_form(None)
+
     def __inputs_changed(self, *_):
         ''' Any edit invalidates the last test. '''
         self.__tested = None
         self.testButton.setIcon(qta.icon('fa5s.sync'))
-        authenticated = self.authCheck.isChecked()
-        self.usernameEdit.setEnabled(authenticated)
-        self.passwordEdit.setEnabled(authenticated)
         self.__update_buttons()
 
     def __update_buttons(self):
+        editing = self.__selected() is not None
+        busy = self.testing
+        authenticated = self.authCheck.isChecked()
         entered = self.__entered()
-        credentials_ok = not self.authCheck.isChecked() or (bool(entered.username) and bool(entered.password))
-        self.testButton.setEnabled(bool(_ENDPOINT.match(entered.endpoint)) and credentials_ok)
-        self.addButton.setEnabled(self.__tested is not None)
-        self.deleteButton.setEnabled(len(self.savedConnections.selectedItems()) > 0)
+        credentials_ok = not authenticated or (bool(entered.username) and bool(entered.password))
+        self.formLabel.setText('Edit server' if editing else 'New server')
+        self.addButton.setText('Update' if editing else 'Add')
+        self.addButton.setIcon(qta.icon('fa5s.save' if editing else 'fa5s.plus'))
+        self.usernameEdit.setEnabled(authenticated and not busy)
+        self.passwordEdit.setEnabled(authenticated and not busy)
+        for field in (self.endpointEdit, self.httpsCheck, self.authCheck):
+            field.setEnabled(not busy)
+        self.testButton.setEnabled(not busy and bool(_ENDPOINT.match(entered.endpoint)) and credentials_ok)
+        self.addButton.setEnabled(not busy and self.__tested is not None)
+        self.deleteButton.setEnabled(not busy and editing)
+        self.newButton.setEnabled(not busy)
+        self.savedConnections.setEnabled(not busy)
 
     def __test(self):
+        if self.testing:
+            return
         entered = self.__entered()
-        try:
-            entered.to_media_server().authenticate()
-        except MCWSError as e:
-            self.__tested = None
-            self.resultText.setPlainText(f"{e.url} - {e.status_code}\n\n{e.msg}\n\n{e.resp}")
-            self.testButton.setIcon(qta.icon('fa5s.times', color='red'))
-        else:
+        self.resultText.clear()
+        self.statusLabel.setText('Testing...')
+        self.testButton.setIcon(qta.icon('fa5s.spinner', animation=qta.Spin(self.testButton)))
+        job = _TestJob(entered)
+        job.signals.finished.connect(lambda error, entered=entered: self.__test_finished(entered, error))
+        self.__job = job
+        self.__update_buttons()
+        QThreadPool.globalInstance().start(job)
+
+    def __test_finished(self, entered: SavedConnection, error: Optional[str]):
+        self.__job = None
+        self.statusLabel.setText('')
+        if error is None:
             self.__tested = entered
             self.resultText.clear()
             self.testButton.setIcon(qta.icon('fa5s.check', color='green'))
+        else:
+            self.__tested = None
+            self.resultText.setPlainText(error)
+            self.testButton.setIcon(qta.icon('fa5s.times', color='red'))
         self.__update_buttons()
 
-    def __add(self):
-        if self.__tested is None:
+    def __save(self):
+        tested = self.__tested
+        if tested is None:
             return
-        connections = [c for c in self.connections() if c.endpoint != self.__tested.endpoint]  # re-adding replaces
-        connections.append(self.__tested)
-        self.__replace_all(connections)
-        self.endpointEdit.clear()
-        self.usernameEdit.clear()
-        self.passwordEdit.clear()
+        original = self.__selected()
+        replaced = {tested.endpoint} | ({original.endpoint} if original else set())  # an edit may rename the server
+        connections = [c for c in self.connections() if c.endpoint not in replaced] + [tested]
+        self.__replace_all(connections, select=tested.endpoint if original else None)
 
     def __delete_selected(self):
         doomed = {item.data(self.CONNECTION_ROLE).endpoint for item in self.savedConnections.selectedItems()}
         if doomed:
             self.__replace_all([c for c in self.connections() if c.endpoint not in doomed])
 
-    def __replace_all(self, connections: list[SavedConnection]):
+    def __replace_all(self, connections: list[SavedConnection], select: Optional[str] = None):
+        '''
+        Persist and redisplay. `select` re-selects an edited server (keeping the form on it); otherwise the
+        selection and form are cleared, ready for the next new server.
+        '''
         save_connections(self.__prefs, connections)
         self.savedConnections.clear()
         for connection in connections:
             self.__add_row(connection)
-        self.__inputs_changed()
+        for row in range(self.savedConnections.count()):
+            if select is not None and self.savedConnections.item(row).data(self.CONNECTION_ROLE).endpoint == select:
+                self.savedConnections.setCurrentRow(row)
+                break
+        else:
+            self.__fill_form(None)
         self.changed.emit()

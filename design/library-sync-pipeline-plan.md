@@ -2340,7 +2340,7 @@ fixture.
 
 Reviewed against the code at `1ebaa4e` (471 tests), then updated after each
 follow-up commit per `AGENTS.md` -- currently current to the library
-browse-node picker commit (551 tests). Everything in §8 marked Implemented is present and tested, except as
+JRiver connection editing/async-test commit (559 tests). Everything in §8 marked Implemented is present and tested, except as
 listed here. Items are ordered roughly by impact.
 
 **Behaviour gaps -- designed above (1-4 all now built)**
@@ -2426,8 +2426,17 @@ Preferences; it lists `load_connections()` and loads zones as before. Library
 Sync now reads the list through `load_connections()` (still "first saved
 server" until chunk 13). Behaviour changes worth knowing: the endpoint check
 is `host:port` -- the old dialog only accepted a dotted-quad IP, which
-rejected hostnames such as `media.local`; and the Test still runs on the UI
-thread (unchanged from the old dialog, ~6 s worst case).
+rejected hostnames such as `media.local`.
+
+**Follow-up (editing and async test):** selecting a saved server loads it
+into the form, so it can be edited: the button becomes **Update**, a change
+must still pass **Test** before it can be saved, changing `host:port` renames
+the server (rather than adding a second), and **New** clears the selection to
+add another. **Test** now runs off the UI thread (`_TestJob` on the global
+`QThreadPool`) with a spinning icon and a "Testing..." label; the form, list
+and buttons are disabled while it runs, and any exception (not only
+`MCWSError`) is shown in the result box. `MCWSDialog`'s zone loading is still
+synchronous.
 
 ### 11.2 Filesystem source (chunk 12)
 
