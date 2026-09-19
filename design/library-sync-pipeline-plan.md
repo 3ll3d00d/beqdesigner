@@ -960,6 +960,7 @@ fixture -- only chunk 8 is blocked on that mapping.
 | 15 | Path mappings (§11.6): a per-server list of server-folder -> local-folder rules, edited in Preferences -> JRiver and applied when a JRiver source reads items (`pipeline/library/pathmap.py`, CLI `--path-map`). | 11, 13 | **Implemented** |
 | 16 | Configurable external-id fields (§11.7): `Library/Fields` listing, per-kind defaults, and a per-server field mapping edited in Preferences -> JRiver. | 15 | **Implemented** -- `model/jriver/field_mappings.py`, per-server storage, Library Sync hand-off |
 | 17 | DVD-Video rips (§11.8): `model/dvd.py` (title table + durations from the IFO files), read through ffmpeg's `dvdvideo` demuxer via new `Executor` input options; wired into `Session.extract`, Batch Extract, the filesystem source and JRiver's `VIDEO_TS.dvd;N` entries. | 15 | **Implemented**; multi-episode discs limited (see §11.8) |
+| 18 | TV seasons (§11.9): metadata that marks the episodes a filter covers (built), TMDB season lookup + season/episodes on library items, and a `tv_mode` option -- one filter per episode, or the whole season as a single track. | 15 | Metadata/XML built; rest planned |
 
 ---
 
@@ -2343,7 +2344,7 @@ fixture.
 
 Reviewed against the code at `1ebaa4e` (471 tests), then updated after each
 follow-up commit per `AGENTS.md` -- currently current to the library
-DVD support commit (706 tests). Everything in §8 marked Implemented is present and tested, except as
+TV season metadata commit (724 tests). Everything in §8 marked Implemented is present and tested, except as
 listed here. Items are ordered roughly by impact.
 
 **Behaviour gaps -- designed above (1-4 all now built)**
@@ -2739,3 +2740,39 @@ translation. Live: films missing locally 14 -> 5.
   navigation tables; the tests build IFO fixtures (`src/test/python/dvd_fixtures.py`)
   for title selection and assert the ffmpeg command, and the real read was
   verified by hand as above.
+
+### 11.9 TV seasons: per episode, or the whole season as one track (chunk 18)
+
+The user's requirement: a config option to treat a **season as a single track**
+or to produce **per-episode filters**, with the output metadata marked with the
+episode or episodes in scope.
+
+**What the catalogue understands** (read from `beqcatalogue/__init__.py`, not
+assumed). *Structured season* --
+`<beq_season id="<TMDB season id>"><number>1</number><episodes count="8">1,2,3</episodes></beq_season>`
+-- where `episodes` lists the episodes the filter covers and `count` is the
+season's total; the site calls the season **complete** when every one of
+`count` is listed, and otherwise shows `S1E1-3`. Omitting `episodes` reads as
+the whole season. The `id` attribute is **required**: `parse_season` throws
+away the season on a missing one. *Legacy* -- plain `<beq_season>1</beq_season>`
+with the episode in the note (`E3`, `E1-8`, `S1-E3`); a contiguous range only.
+
+**Metadata (built, `pipeline/metadata.py`, `model/minidsp.py`).** `BeqMetadata`
+gains `episodes: List[int]`, `season_id`, `season_episode_count`. `to_dict()`'s
+`beq_season` is the structured dict when `season`, `season_id` and a positive
+`season_episode_count` are all known (`structured_season`), else the plain
+season text; in the plain case a *contiguous* episode range is written into the
+note (`E3`, `E1-3`) -- but only into an **empty** note, and never for a gap,
+neither of which the legacy form can express. The XML writer's `beq_season`
+dict branch emits the structured element (`episodes` omitted when none given).
+A show with no season is written exactly as before.
+
+**Still to build** (each its own commit): TMDB `tmdb_season_info()` (season id
+and episode count from `/tv/{id}/season/{n}`); `LibraryItem.season` and
+`.episodes`; the JRiver source using the *Series* as the title (it uses the
+episode's name today) and filling season/episodes; `resolve_meta()` filling the
+season fields; a review-dialog Episodes field; and `tv_mode` -- `episode` (the
+default, today's behaviour) or `season` (group a series' items by season, extract
+each episode as usual, concatenate their audio into one track, design once, and
+mark every member episode as in scope), in `LibraryRunConfig`, the CLI and the
+Library Sync dialog.

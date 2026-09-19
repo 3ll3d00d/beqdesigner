@@ -215,7 +215,15 @@ class HDXmlParser(XmlParser):
             for key, value in metadata.items():
                 tag = ET.Element(key)
 
-                if isinstance(value,list):
+                if key == 'beq_season' and isinstance(value, dict):
+                    # beqcatalogue's structured season: <beq_season id=".."><number/><episodes count="..">1,2</episodes>
+                    tag.set('id', str(value['id']))
+                    ET.SubElement(tag, 'number').text = str(value['number'])
+                    if value.get('episodes'):
+                        episodes = ET.SubElement(tag, 'episodes')
+                        episodes.set('count', str(value['episode_count']))
+                        episodes.text = str(value['episodes'])
+                elif isinstance(value,list):
                     subKey = key[key.startswith("beq_") and len("beq_"):]
                     subKey = subKey[:-1]
                     for item in value:

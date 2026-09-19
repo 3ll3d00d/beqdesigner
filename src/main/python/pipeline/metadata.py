@@ -42,10 +42,53 @@ class BeqMetadata:
     poster: str = ''
     runtime: str = ''
     collection: Optional[dict] = None
+    # Which episodes of `season` this filter covers -- a whole season's worth, or a single episode. Empty means
+    # unspecified. See season_element() for how it reaches the catalogue.
+    episodes: List[int] = field(default_factory=list)
+    season_id: str = ''  # TMDB's id for the season; beqcatalogue's structured season needs it
+    season_episode_count: int = 0  # how many episodes the whole season has (TMDB); 0 if unknown
 
     def __post_init__(self):
         if not self.sort_title:
             self.sort_title = default_sort_title(self.title)
+
+    @property
+    def structured_season(self) -> bool:
+        '''
+        True if the season can be written in beqcatalogue's structured form, which needs TMDB's season id and
+        the season's episode count (the catalogue calls a season complete when every one of `count` is listed).
+        '''
+        return bool(self.season and self.season_id and self.season_episode_count > 0)
+
+    def season_element(self):
+        '''
+        :return: the beq_season value for to_dict(): beqcatalogue's structured season
+            `{'id', 'number', 'episode_count', 'episodes'}` when it can be written (see structured_season), else the
+            plain season text. `episodes` is omitted when none are given, which the catalogue reads as the whole
+            season.
+        '''
+        if not self.structured_season:
+            return self.season
+        element = {'id': self.season_id, 'number': self.season}
+        episodes = sorted(set(self.episodes))
+        if episodes:
+            element['episode_count'] = self.season_episode_count
+            element['episodes'] = ','.join(str(e) for e in episodes)
+        return element
+
+    def note_with_episodes(self) -> str:
+        '''
+        :return: the beq_note. Where the structured season is not available the catalogue can still read a
+            contiguous episode range from the note (`E3`, `E1-8`), so that is written -- but only into an empty
+            note, since a note somebody wrote must not be replaced. Non-contiguous episodes cannot be expressed
+            that way and are left out.
+        '''
+        if self.note or self.structured_season or not self.season or not self.episodes:
+            return self.note
+        episodes = sorted(set(self.episodes))
+        if episodes[-1] - episodes[0] + 1 != len(episodes):
+            return self.note
+        return f"E{episodes[0]}" if len(episodes) == 1 else f"E{episodes[0]}-{episodes[-1]}"
 
     def to_dict(self) -> dict:
         '''
@@ -60,8 +103,8 @@ class BeqMetadata:
             'beq_spectrumURL': self.spectrum_url,
             'beq_pvaURL': self.pva_url,
             'beq_edition': self.edition,
-            'beq_season': self.season,
-            'beq_note': self.note,
+            'beq_season': self.season_element(),
+            'beq_note': self.note_with_episodes(),
             'beq_warning': self.warning,
             'beq_gain': self.gain,
             'beq_language': self.language,
