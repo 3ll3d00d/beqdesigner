@@ -8,6 +8,8 @@ from typing import Any
 import yaml
 
 from pipeline.config import AnalysisConfig
+from pipeline.designer.http_binding import http_designer
+from pipeline.designer.registry import register_designer, registered_designers
 from pipeline.library.filesystem import FilesystemLibrarySource
 from pipeline.library.jriver import JRiverLibrarySource
 from pipeline.library.pathmap import mappings_from_config
@@ -72,11 +74,41 @@ def _analysis_config(values: dict[str, Any]) -> AnalysisConfig:
     return AnalysisConfig(**{name: value for name, value in fields.items() if value is not None})
 
 
+def _register_designers(values: dict[str, Any], config: dict[str, Any]) -> None:
+    '''
+    A library run needs the designer registered in this process, and unlike the GUI (which registers the endpoints
+    saved in Preferences at startup) the CLI has nothing else to do it. Designers come from the config file's
+    `designers` mapping (name -> URL, or name -> {url, timeout, headers}) and `--designer-url NAME=URL`; the flag
+    wins for a name in both. A `--designer` that is itself an http(s) URL is registered under that URL.
+    '''
+    declared: dict[str, Any] = dict(config.get('designers') or {})
+    for entry in values.get('designer_urls') or []:
+        name, separator, url = entry.partition('=')
+        if not separator or not name or not url:
+            raise ValueError(f'--designer-url {entry!r} must be NAME=URL')
+        declared[name] = url
+    designer = values.get('designer')
+    if designer and designer.lower().startswith(('http://', 'https://')) and designer not in declared:
+        declared[designer] = designer
+    for name, spec in declared.items():
+        if isinstance(spec, str):
+            spec = {'url': spec}
+        if not isinstance(spec, dict) or not spec.get('url'):
+            raise ValueError(f"designer {name!r} needs a url")
+        register_designer(name, http_designer(spec['url'], timeout=float(spec.get('timeout', 300.0)),
+                                              headers=spec.get('headers') or None))
+
+
 def _run(args: argparse.Namespace, config: dict[str, Any]) -> int:
     values = _configured_values(args, config, 'run')
+    _register_designers(values, config)
+    designer = _required(values, 'designer')
+    if designer not in registered_designers():
+        raise ValueError(f"designer {designer!r} is not registered; declare it under `designers` in the config "
+                         f"file or with --designer-url {designer}=URL (registered: {', '.join(registered_designers()) or 'none'})")
     run_config = LibraryRunConfig(
         work_dir=_required(values, 'work_dir'), queue_dir=_required(values, 'queue_dir'),
-        designer=_required(values, 'designer'), config=_analysis_config(values),
+        designer=designer, config=_analysis_config(values),
         coverage=values.get('coverage', 'complete_programme'),
         keep_multichannel=bool(values.get('keep_multichannel', False)),
         force_extract=bool(values.get('force_extract', False)),
@@ -125,6 +157,7 @@ def _add_run_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('--work-dir')
     parser.add_argument('--queue-dir')
     parser.add_argument('--designer')
+    parser.add_argument('--designer-url', dest='designer_urls', action='append', metavar='NAME=URL')
     parser.add_argument('--coverage', choices=('complete_programme', 'representative_segment'))
     parser.add_argument('--keep-multichannel', action=argparse.BooleanOptionalAction, default=None)
     parser.add_argument('--force-extract', action=argparse.BooleanOptionalAction, default=None)

@@ -3,7 +3,21 @@ import json
 
 import pytest
 
+from pipeline.designer.registry import register_designer, registered_designers, unregister_designer
 from pipeline.library.run import LibraryRunReport
+
+_FAKE_DESIGNERS = ('x', 'old', 'test.designer', 'new')
+
+
+@pytest.fixture(autouse=True)
+def _designers():
+    ''' The CLI refuses a designer that is not registered, so the names these tests use must be. '''
+    before = set(registered_designers())
+    for name in _FAKE_DESIGNERS:
+        register_designer(name, lambda request: None)
+    yield
+    for name in set(registered_designers()) - before:
+        unregister_designer(name)
 
 
 def test_run_uses_yaml_config_and_writes_a_machine_readable_report(tmp_path, monkeypatch, capsys):
@@ -194,3 +208,99 @@ def test_an_unknown_tv_mode_flag_is_a_cli_error(tmp_path):
     with pytest.raises(SystemExit):
         cli.main(['run', '--source', 'filesystem', '--glob', str(tmp_path), '--work-dir', '/w', '--queue-dir', '/q',
                   '--designer', 'x', '--tv-mode', 'series'])
+
+
+# --- registering designers (the CLI has no GUI preferences to do it) ---------------------------------------------
+
+def _run_args(designer, *extra, tmp_path=None):
+    return ['run', '--source', 'filesystem', '--glob', '/films', '--work-dir', '/w', '--queue-dir', '/q',
+            '--designer', designer, *extra]
+
+
+def test_a_designer_declared_in_the_config_file_is_registered_before_the_run(tmp_path, monkeypatch):
+    from pipeline.library import cli
+    seen = []
+    monkeypatch.setattr(cli, 'run_library', lambda source, run_config: seen.append(registered_designers())
+                        or LibraryRunReport())
+    config = tmp_path / 'library.json'
+    config.write_text(json.dumps({'designers': {
+        'rolloff': 'http://designer.local:8080/design',
+        'bearer': {'url': 'http://other.local/design', 'timeout': 30, 'headers': {'Authorization': 'Bearer t'}},
+    }}))
+
+    assert cli.main(['--config', str(config)] + _run_args('rolloff')) == 0
+
+    assert 'rolloff' in seen[0] and 'bearer' in seen[0]
+
+
+def test_a_declared_designer_is_built_with_its_url_timeout_and_headers(tmp_path, monkeypatch):
+    from pipeline.library import cli
+    from pipeline.designer.registry import get_designer
+    made = []
+    monkeypatch.setattr(cli, 'http_designer', lambda url, timeout, headers: made.append((url, timeout, headers)) or (
+        lambda request: None))
+    monkeypatch.setattr(cli, 'run_library', lambda source, run_config: LibraryRunReport())
+    config = tmp_path / 'library.json'
+    config.write_text(json.dumps({'designers': {'a': 'http://a/d', 'b': {'url': 'http://b/d', 'timeout': 30,
+                                                                         'headers': {'X': 'y'}}}}))
+
+    cli.main(['--config', str(config)] + _run_args('a'))
+
+    assert made == [('http://a/d', 300.0, None), ('http://b/d', 30.0, {'X': 'y'})]
+    assert get_designer('a') is not None
+
+
+def test_designer_url_flags_register_a_designer_and_win_over_the_file(tmp_path, monkeypatch):
+    from pipeline.library import cli
+    made = []
+    monkeypatch.setattr(cli, 'http_designer', lambda url, timeout, headers: made.append(url) or (lambda r: None))
+    monkeypatch.setattr(cli, 'run_library', lambda source, run_config: LibraryRunReport())
+    config = tmp_path / 'library.json'
+    config.write_text(json.dumps({'designers': {'mine': 'http://from-file/d'}}))
+
+    assert cli.main(['--config', str(config)] + _run_args('mine', '--designer-url', 'mine=http://from-flag/d')) == 0
+    assert cli.main(_run_args('other', '--designer-url', 'other=http://other/d')) == 0
+
+    assert made == ['http://from-flag/d', 'http://other/d']
+
+
+def test_a_url_given_as_the_designer_is_registered_under_that_url(monkeypatch):
+    from pipeline.library import cli
+    seen = []
+    monkeypatch.setattr(cli, 'run_library', lambda source, run_config: seen.append(run_config.designer)
+                        or LibraryRunReport())
+
+    assert cli.main(_run_args('http://designer.local/design')) == 0
+
+    assert seen == ['http://designer.local/design']
+    assert 'http://designer.local/design' in registered_designers()
+
+
+def test_an_unregistered_designer_stops_the_run_with_a_clear_message(monkeypatch, capsys):
+    from pipeline.library import cli
+    monkeypatch.setattr(cli, 'run_library', lambda *args: pytest.fail('must not run'))
+
+    with pytest.raises(SystemExit):
+        cli.main(_run_args('nobody'))
+
+    error = capsys.readouterr().err
+    assert "designer 'nobody' is not registered" in error and '--designer-url nobody=URL' in error
+
+
+@pytest.mark.parametrize('bad_flag', ['no-equals', '=http://x', 'name='])
+def test_a_malformed_designer_url_flag_is_a_cli_error(bad_flag, monkeypatch):
+    from pipeline.library import cli
+    monkeypatch.setattr(cli, 'run_library', lambda *args: pytest.fail('must not run'))
+
+    with pytest.raises(SystemExit):
+        cli.main(_run_args('x', '--designer-url', bad_flag))
+
+
+def test_a_declared_designer_without_a_url_is_a_cli_error(tmp_path, monkeypatch):
+    from pipeline.library import cli
+    monkeypatch.setattr(cli, 'run_library', lambda *args: pytest.fail('must not run'))
+    config = tmp_path / 'library.json'
+    config.write_text(json.dumps({'designers': {'broken': {'timeout': 5}}}))
+
+    with pytest.raises(SystemExit):
+        cli.main(['--config', str(config)] + _run_args('broken'))

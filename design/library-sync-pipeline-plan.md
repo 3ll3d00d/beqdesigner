@@ -865,12 +865,23 @@ QSettings/Preferences dependency -- consistent with `AnalysisConfig`'s
 override the file). This is what makes the workflow cron-able.
 
 As built: the config file has `run:`, `sync:`, `sources.<name>:` and
-`analysis:` sections (`pyyaml` added as a dependency); `run` prints
+`designers:` sections (`analysis:` is a key *inside* `run:`/`sync:`, not a top-level
+section, and `designers` is new -- see below) (`pyyaml` added as a dependency); `run` prints
 `LibraryRunReport` as JSON and exits 1 if any item failed; `sync` prints
 the publish results and exits 1 if any carries an `'error'`; only
 `--source jriver` is accepted; `--tmdb-api-key`/`--audio-type` exist for
 metadata resolution. `sync` has no way to pass `meta_defaults` except via
 the config file's `sync.meta_defaults`.
+
+**Designers (gap found and fixed).** The CLI originally had no way to
+register a designer, so `run --designer X` could never resolve `X` outside the
+GUI (which registers its Preferences endpoints at startup): every item failed
+with `KeyError: No designer registered`. Designers are now declared in the
+config file's `designers:` mapping (`name: URL` or `name: {url, timeout,
+headers}`), with `--designer-url NAME=URL` (repeatable; wins over the file), or
+by passing an `http(s)://` URL as `--designer`. `run` checks the name is
+registered *before* extracting anything and stops with a message saying how to
+declare it.
 
 ## 7. GUI integration
 
@@ -2344,7 +2355,7 @@ fixture.
 
 Reviewed against the code at `1ebaa4e` (471 tests), then updated after each
 follow-up commit per `AGENTS.md` -- currently current to the library
-TV season mode commit (794 tests). Everything in §8 marked Implemented is present and tested, except as
+CLI designer registration commit (803 tests). Everything in §8 marked Implemented is present and tested, except as
 listed here. Items are ordered roughly by impact.
 
 **Behaviour gaps -- designed above (1-4 all now built)**
