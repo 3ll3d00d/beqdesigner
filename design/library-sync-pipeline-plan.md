@@ -233,10 +233,11 @@ This resolution (`pipeline/library/library_metadata.py::resolve_meta(item,
 api_key, audio_types)`, returning `BeqMetadata` ctor kwargs) runs from
 `run_library()` (not from `design_if_needed()`, as originally drafted) **only
 when `LibraryRunConfig.tmdb_api_key` is set** -- otherwise `meta` is just
-`item.meta`. Two behaviours worth knowing (both open, see §10): it runs
-*before* the design-cache check, so a fully cached item still costs a TMDB
-round-trip on every rerun, and a TMDB failure (`HTTPError`, no search hit)
-fails the whole item -- no extract-only fallback. So `QueueEntry.meta` arrives
+`item.meta`. It is resolved **lazily** (commit `efb300f`):
+`design_if_needed()` takes a callable for `meta` and invokes it only when it
+actually designs, so a cached or protected item costs no TMDB round-trip. A
+`requests.RequestException` degrades to `item.meta` and is recorded in
+`LibraryRunReport.meta_unresolved` rather than failing the item. So `QueueEntry.meta` arrives
 at the review queue already populated for anything the library could
 identify -- closing the metadata gap `model/batch.py` leaves manual today,
 not just avoiding a second network round-trip. TMDB stays the source of
@@ -664,11 +665,14 @@ New `pipeline/library/extract_cache.py`.
   cached path; otherwise runs `session.extract()` (existing, unchanged)
   and rewrites the manifest. `force=True` always re-extracts.
 - Called **twice per item** whenever `LibraryRunConfig.keep_multichannel`
-  is set (**as built, the second call is not gated on the source actually
-  being multichannel** -- `run_library()` extracts the kept file first and
-  only then discovers via `load_channels()` that it is mono, at which point
-  it is discarded from the design inputs but the redundant
-  `multichannel.wav` and manifest entry remain) -- once with
+  is set **and the source isn't known to be mono** -- either extraction
+  records the source's channel count as the manifest's flat
+  `source_channel_count` key (`ExtractResult.channel_count`), and
+  `run_library()` skips the kept pass when it is `1`; an unrecorded count
+  still extracts and lets `load_channels()` decide (commit `1719151`). This
+  only became reachable once mono-source extraction stopped failing
+  (`dfcb7ff`: `Executor` built an invalid `pan=mono|c0=pan=mono|c0=c0`
+  filter for a mono source) -- once with
   `mono_mix=True` into `<work_dir>/<item.id>/mono.wav` (design always
   needs this one -- `Session.design()`'s `mono_mix`) and once with
   `mono_mix=False` into `.../multichannel.wav` (the "kept" file, and
@@ -720,12 +724,15 @@ New `pipeline/library/extract_cache.py`.
   the caller to explicitly reset its status first (a deliberate,
   single-item action, not something a library-wide `--force` flag does
   by accident).
-- **Fingerprint scope (as built):** `design_fingerprint()` hashes exactly the
-  four inputs above. It does *not* cover `keep_multichannel`, the resolved
-  metadata, or `item.audio_stream`, so toggling "keep multichannel" or
-  correcting a library tag does not trigger a redesign of a `pending`
-  entry, and an existing entry never gains the multichannel project it
-  would now get on a fresh design. `force_design` is the only way through.
+- **Fingerprint scope (as built, commit `e68511f`):** the four inputs
+  above plus `item.audio_stream`, `item.playlist_name`, and whether a
+  multichannel extraction feeds the design -- the optional three are only
+  hashed when set, so fingerprints recorded before they existed still match
+  an unchanged default run. Metadata is **deliberately excluded**: a design
+  does not depend on it, and a redesign would replace the entry a reviewer
+  may have edited. Toggling `keep_multichannel` on a source that really is
+  multichannel therefore redesigns a `pending` entry (and writes its
+  multichannel project).
 - Whenever this actually (re)designs (not on a skip), output 1's local
   `.beq` project file(s) get written for the top-pick candidate too.
   This lives in core `pipeline.review.design_and_queue()` itself, not
@@ -795,7 +802,8 @@ class LibraryRunReport:
     designed: List[str]    # item ids that ran a designer this run
     design_cached: List[str]  # also holds accepted/published entries skipped as protected -- not distinguished
     failed: List[Tuple[str, str]]  # (item id, "ExcType: message") -- one item's failure never aborts the rest
-    # (all five default to empty lists; no project_edit_preserved field -- see §3.3.1)
+    meta_unresolved: List[Tuple[str, str]]  # designed with item.meta only because TMDB failed (§3.1.1)
+    # (all six default to empty lists; no project_edit_preserved field -- see §3.3.1)
 
 def run_library(source: LibrarySource, run_config: LibraryRunConfig,
                 on_item_done: Optional[Callable[[str], None]] = None,
@@ -2004,6 +2012,7 @@ class ExtractResult:
     wav_path: str
     channel_layout_name: str  # model.ffmpeg's CHANNEL_LAYOUTS key, e.g. '5.1', or 'unknown'/a generic
                               # "<n> channels" string when ffmpeg's probe couldn't name it more precisely
+    channel_count: int = 0    # added with fix 7 -- the source stream's channel count; 0 if unknown
 ```
 
 Add to `Session`:
@@ -2156,7 +2165,8 @@ run once then the multichannel one force-redone:
   "multichannel_source_fingerprint": "1737000000000000000:483821",
   "multichannel_params_hash": "9ac1...",
   "multichannel_extracted_at": 1737000512.1,
-  "channel_layout_name": "5.1"
+  "channel_layout_name": "5.1",
+  "source_channel_count": 6
 }
 ```
 
@@ -2292,9 +2302,10 @@ fixture.
 
 ## 10. Implementation status vs. this plan (reviewed 2026-09-19)
 
-Verified against the code at `1ebaa4e`; the full suite passes (471 tests).
-Everything in §8 marked Implemented is present and tested, except as listed
-here. Items are ordered roughly by impact.
+Reviewed against the code at `1ebaa4e` (471 tests), then updated after each
+follow-up commit per `AGENTS.md` -- currently current to `dfcb7ff` (482
+tests). Everything in §8 marked Implemented is present and tested, except as
+listed here. Items are ordered roughly by impact.
 
 **Behaviour gaps -- designed above, not built**
 
@@ -2309,30 +2320,34 @@ here. Items are ordered roughly by impact.
 4. **Sync errors are not shown in the GUI (§7).** `_SyncJob` results with
    `'error': 'project_conflict'` are counted as "published".
 
-**Deviations that change idempotency/cost**
+**Deviations that changed idempotency/cost -- fixed**
 
-5. **`resolve_meta()` runs before the design cache check** (§3.1.1), so every
-   rerun re-queries TMDB for every already-designed item, and a TMDB failure
-   fails the item outright. Fix: resolve only when `design_if_needed()` will
-   actually design (or when the entry has no `meta`), and degrade to
-   `item.meta` on TMDB errors.
-6. **Design fingerprint omits `keep_multichannel`, metadata and
-   `audio_stream`** (§4.2) -- see there.
-7. **Kept multichannel extraction is not gated on the source being
-   multichannel** (§4.1); a mono source gets a redundant extraction.
-8. **`kind` ignores `Media Type`/`Media Sub Type`** (§3.1).
+5. ~~`resolve_meta()` ran before the design cache check~~ -- fixed in
+   `efb300f` (lazy callable; TMDB errors degrade to `item.meta`, reported in
+   `meta_unresolved`).
+6. ~~Design fingerprint omitted `keep_multichannel`/`audio_stream`~~ -- fixed
+   in `e68511f` (metadata excluded on purpose; see §4.2).
+7. ~~Kept multichannel extraction not gated on the source being
+   multichannel~~ -- fixed in `1719151` via `source_channel_count`. Turned
+   out to be masked by a pre-existing bug, also fixed (`dfcb7ff`): every
+   mono-source extraction failed on an invalid `pan` filter.
+8. **`kind` ignores `Media Type`/`Media Sub Type`** (§3.1) -- still open.
+9. **Redesigning a `pending` entry discards a reviewer's metadata and
+   artwork edits** (`design_and_queue()` rewrites the whole entry; already
+   true of `force_design`, now also reachable via the fingerprint changes in
+   #6) -- still open.
 
 **Still open / unverified**
 
-9. **Chunk 3, the real-server spike, was never done** -- field aliases and
+10. **Chunk 3, the real-server spike, was never done** -- field aliases and
    `Browse/Children` shape are unverified; there is no sanitised fixture.
-10. **GUI gaps (§7):** no library-view filter bar (status/name/year/type),
+11. **GUI gaps (§7):** no library-view filter bar (status/name/year/type),
     no source picker or query field, no browse-node selector (raw integer
     spin box), `LIBRARY_IMAGE_OWNER`/`LIBRARY_IMAGE_REPO_NAME` defined but
     unwired, no `LIBRARY_SOURCE_DEFAULT`. First saved MCWS connection only.
-11. **`pipeline.library.registry` has no production callers** (§3).
-12. **Untested:** `INTERNAL` artwork handling in `jriver.py`; manual
+12. **`pipeline.library.registry` has no production callers** (§3).
+13. **Untested:** `INTERNAL` artwork handling in `jriver.py`; manual
     verification of the review dialog (A.8) is unconfirmed.
-13. **Document hygiene (fixed in this review):** the header said "plan only,
+14. **Document hygiene (fixed in this review):** the header said "plan only,
     not started"; the manifest shape in §4.1 disagreed with Appendix D.4; the
     chunk table and every appendix checklist were stale.
