@@ -63,6 +63,10 @@ def design_if_needed(session: Session, item: LibraryItem, wav_path: str, designe
     including force. A caller must explicitly reset their status before a
     library-wide rerun can replace them.
 
+    Redesigning a pending/skipped/rejected entry replaces its candidates but keeps everything a human may have
+    set on it: its metadata (the freshly resolved `meta` only fills keys the entry lacks), its artwork and its
+    reviewer note. A design does not depend on any of those, so nothing about them is stale.
+
     :param meta: the entry's metadata, or a zero-argument callable returning it, called only if this call
         actually designs.
     '''
@@ -81,10 +85,14 @@ def design_if_needed(session: Session, item: LibraryItem, wav_path: str, designe
 
     if callable(meta):
         meta = meta()
+    if existing is not None:
+        meta = {**(meta or {}), **existing.meta}
     entry = design_and_queue(
         session, item.id, wav_path, designer, queue_dir, meta=meta, coverage=coverage,
         bass_management=bass_management, channels=channels, multichannel_wav_path=multichannel_wav_path,
         channel_layout_name=channel_layout_name, project_dir=project_dir,
     )
-    entry = update_entry(queue_dir, entry.id, design_fingerprint=fingerprint)
+    kept = {'art_path': existing.art_path, 'art_overridden': existing.art_overridden,
+            'reviewer_note': existing.reviewer_note} if existing is not None else {}
+    entry = update_entry(queue_dir, entry.id, design_fingerprint=fingerprint, **kept)
     return DesignCacheResult(entry, designed=True)

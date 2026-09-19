@@ -732,7 +732,9 @@ New `pipeline/library/extract_cache.py`.
   does not depend on it, and a redesign would replace the entry a reviewer
   may have edited. Toggling `keep_multichannel` on a source that really is
   multichannel therefore redesigns a `pending` entry (and writes its
-  multichannel project).
+  multichannel project). A redesign keeps the entry's metadata, artwork and
+  reviewer note (the new metadata only fills keys the entry lacks); only the
+  candidates, fingerprint and status are replaced.
 - Whenever this actually (re)designs (not on a skip), output 1's local
   `.beq` project file(s) get written for the top-pick candidate too.
   This lives in core `pipeline.review.design_and_queue()` itself, not
@@ -2303,8 +2305,8 @@ fixture.
 ## 10. Implementation status vs. this plan (reviewed 2026-09-19)
 
 Reviewed against the code at `1ebaa4e` (471 tests), then updated after each
-follow-up commit per `AGENTS.md` -- currently current to `dfcb7ff` (482
-tests). Everything in §8 marked Implemented is present and tested, except as
+follow-up commit per `AGENTS.md` -- currently current to the
+redesign-preserves-edits fix (484 tests). Everything in §8 marked Implemented is present and tested, except as
 listed here. Items are ordered roughly by impact.
 
 **Behaviour gaps -- designed above, not built**
@@ -2332,10 +2334,12 @@ listed here. Items are ordered roughly by impact.
    out to be masked by a pre-existing bug, also fixed (`dfcb7ff`): every
    mono-source extraction failed on an invalid `pan` filter.
 8. **`kind` ignores `Media Type`/`Media Sub Type`** (§3.1) -- still open.
-9. **Redesigning a `pending` entry discards a reviewer's metadata and
-   artwork edits** (`design_and_queue()` rewrites the whole entry; already
-   true of `force_design`, now also reachable via the fingerprint changes in
-   #6) -- still open.
+9. ~~Redesigning a `pending` entry discarded a reviewer's metadata and
+   artwork edits~~ -- fixed (see the commit that follows `5c2dfdf`):
+   `design_if_needed()` now keeps the existing entry's `meta` (fresh
+   metadata only fills missing keys), `art_path`/`art_overridden` and
+   `reviewer_note` across a redesign. `status` and the chosen candidate still
+   reset to `pending`, since the candidates they refer to are replaced.
 
 **Still open / unverified**
 

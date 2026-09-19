@@ -21,7 +21,7 @@ def _entry(fingerprint=None, status='pending'):
 def _install_fake_design(monkeypatch, calls):
     def fake_design(session, entry_id, wav_path, designer, queue_dir, **kwargs):
         calls.append((entry_id, wav_path, designer, kwargs))
-        entry = _entry()
+        entry = replace(_entry(), meta=kwargs.get('meta') or {})  # like the real design_and_queue()
         write_queue_entry(queue_dir, entry)
         return entry
 
@@ -169,3 +169,40 @@ def test_enabling_multichannel_redesigns_a_pending_entry_and_writes_its_projects
     assert result.designed is True
     assert len(calls) == 2
     assert calls[1][3]['multichannel_wav_path'] == '/work/multichannel.wav'
+
+
+def test_redesigning_a_pending_entry_keeps_a_reviewers_metadata_artwork_and_note(tmp_path, monkeypatch):
+    calls = []
+    _install_fake_design(monkeypatch, calls)
+    item = _item(tmp_path)
+    queue_dir = str(tmp_path / 'queue')
+    write_queue_entry(queue_dir, replace(_entry('stale'), meta={'title': 'Reviewer Title', 'edition': 'Extended'},
+                                         art_path='/art/poster.jpg', art_overridden=True,
+                                         reviewer_note='check the LFE'))
+
+    result = design_if_needed(None, item, '/work/mono.wav', 'designer.v2', queue_dir, AnalysisConfig(),
+                              meta={'title': 'Library Title', 'year': '1999'})
+
+    assert result.designed is True
+    stored = read_entry(queue_dir, item.id)
+    assert stored.meta == {'title': 'Reviewer Title', 'year': '1999', 'edition': 'Extended'}
+    assert stored.art_path == '/art/poster.jpg'
+    assert stored.art_overridden is True
+    assert stored.reviewer_note == 'check the LFE'
+    assert stored.design_fingerprint == result.entry.design_fingerprint
+    assert stored.design_fingerprint != 'stale'
+    assert calls[0][3]['meta'] == {'title': 'Reviewer Title', 'year': '1999', 'edition': 'Extended'}
+
+
+def test_a_first_design_has_nothing_to_preserve(tmp_path, monkeypatch):
+    calls = []
+    _install_fake_design(monkeypatch, calls)
+    item = _item(tmp_path)
+
+    result = design_if_needed(None, item, '/work/mono.wav', 'designer.v1', str(tmp_path / 'queue'),
+                              AnalysisConfig(), meta={'title': 'Title One'})
+
+    assert calls[0][3]['meta'] == {'title': 'Title One'}
+    assert result.entry.art_path is None
+    assert result.entry.art_overridden is False
+    assert result.entry.reviewer_note is None
