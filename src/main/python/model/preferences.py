@@ -533,6 +533,9 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         self.minidspRsPathPicker.setIcon(qta.icon('fa5s.folder-open'))
         self.extractCompleteAudioFilePicker.setIcon(qta.icon('fa5s.folder-open'))
 
+        from model.jriver.connections import JRiverConnectionsWidget
+        self.jriverPane.addWidget(JRiverConnectionsWidget(self.__preferences))
+
         self.__init_field(BINARIES_FFMPEG, os.path.isdir, self.ffmpegDirectory)
         self.__init_field(BINARIES_FFPROBE, os.path.isdir, self.ffprobeDirectory)
         self.__init_field(BINARIES_MINIDSP_RS, os.path.isdir, self.minidspRsPath)

@@ -4,7 +4,8 @@ import logging
 from qtpy.QtCore import QObject, QRunnable, Qt, QThreadPool, Signal
 from qtpy.QtWidgets import QDialog, QMessageBox
 
-from model.preferences import DESIGNER_DEFAULT, DESIGNER_QUEUE_DIR, JRIVER_MCWS_CONNECTIONS, LIBRARY_IMAGES_REPO, \
+from model.jriver.connections import load_connections
+from model.preferences import DESIGNER_DEFAULT, DESIGNER_QUEUE_DIR, LIBRARY_IMAGES_REPO, \
     LIBRARY_JRIVER_BROWSE_NODE, LIBRARY_WORK_DIR, LIBRARY_XML_REPO, TMDB_API_KEY
 from pipeline.config import AnalysisConfig
 from pipeline.library.jriver import JRiverLibrarySource
@@ -85,18 +86,15 @@ class LibrarySyncDialog(QDialog, Ui_librarySyncDialog):
         self.xmlRepoEdit.setText(self.__preferences.get(LIBRARY_XML_REPO))
         self.imagesRepoEdit.setText(self.__preferences.get(LIBRARY_IMAGES_REPO))
         self.browseNodeSpin.setValue(self.__preferences.get(LIBRARY_JRIVER_BROWSE_NODE))
-        connections = self.__preferences.get(JRIVER_MCWS_CONNECTIONS)
+        connections = load_connections(self.__preferences)
         if connections:
-            endpoint, saved = next(iter(connections.items()))
-            host, separator, port = endpoint.rpartition(':')
-            self.serverEdit.setText(host if separator else endpoint)
-            if separator and port.isdigit():
-                self.portSpin.setValue(int(port))
-            auth, secure = saved if len(saved) == 2 else (None, False)
-            if auth:
-                self.usernameEdit.setText(auth[0])
-                self.passwordEdit.setText(auth[1])
-            self.sslCheck.setChecked(bool(secure))
+            connection = connections[0]
+            self.serverEdit.setText(connection.host)
+            if connection.port is not None:
+                self.portSpin.setValue(connection.port)
+            self.usernameEdit.setText(connection.username or '')
+            self.passwordEdit.setText(connection.password or '')
+            self.sslCheck.setChecked(connection.secure)
 
     def __load_designers(self):
         from pipeline.designer.registry import registered_designers

@@ -952,7 +952,7 @@ fixture -- only chunk 8 is blocked on that mapping.
 | 8 | `pipeline/library/jriver.py`, built on `hamcws.MediaServer.browse_files()` and the configured browse-node id (§3.1), plus the `hamcws` dependency. If an id field exists, also `pipeline.metadata.tmdb_find_by_imdb_id()` + `pipeline/library/library_metadata.py::resolve_meta()` (§3.1.1). | 3, 4 | **Implemented -- commit `d870d6d`; `run_library()` calls `resolve_meta()` when `tmdb_api_key` is set. Artwork tiers 2/3 (§3.1.3) wired later, in `pipeline/library/artwork.py`** |
 | 9 | `pipeline/library/cli.py` -- CLI entry point (§6). | 7, 8 | **Implemented -- commit `e23e03d`** |
 | 10 | GUI: `model/library_sync.py`/`ui/library_sync.py` + `model/preferences.py` additions (§7), including the library-view filter bar (status + name/year/content-type, exact fields decided at UI design time), with a `pytest-qt` safety-net test before wiring, per this repo's established practice for touching a dialog. | 7, 8, 9 | **Implemented -- commit `9da7aea`; deferred: library-view filter bar, source picker/query field, browse-node selector** |
-| 11 | Shared JRiver connections (§11.1): a `Preferences -> JRiver` pane owns add/test/delete of MCWS servers (`JRIVER_MCWS_CONNECTIONS`, unchanged storage); the JRiver filter manager's `MCWSDialog` and Library Sync both *pick from* that list instead of each managing their own. | 10 | Planned |
+| 11 | Shared JRiver connections (§11.1): a `Preferences -> JRiver` pane owns add/test/delete of MCWS servers (`JRIVER_MCWS_CONNECTIONS`, unchanged storage); the JRiver filter manager's `MCWSDialog` and Library Sync both *pick from* that list instead of each managing their own. | 10 | **Implemented** -- `model/jriver/connections.py`, Preferences -> JRiver page, `MCWSDialog` trimmed to pick-only |
 | 12 | `pipeline/library/filesystem.py` -- a Qt-free `FilesystemLibrarySource` (globs, BDMV roots) so "raw filesystem, as batch extract does" is a `LibrarySource` too (§11.2). CLI gains `--source filesystem`. | 4 | Planned |
 | 13 | Library Sync **source picker** (§11.3): a Source combo (Filesystem / JRiver servers / future kinds) over a per-kind settings page, via a small registry of source *kinds*; replaces the "first saved connection" logic and the hard-wired JRiver group. | 11, 12 | Planned |
 | 14 | JRiver **browse-node picker** (§11.4): a tree dialog over `Browse/Children` so the root node is chosen, not typed; the numeric field stays as a fallback. | 13 | Planned |
@@ -2339,7 +2339,7 @@ fixture.
 
 Reviewed against the code at `1ebaa4e` (471 tests), then updated after each
 follow-up commit per `AGENTS.md` -- currently current to the library
-project-edit reporting/alignment commit (510 tests). Everything in §8 marked Implemented is present and tested, except as
+shared-connections commit (518 tests). Everything in §8 marked Implemented is present and tested, except as
 listed here. Items are ordered roughly by impact.
 
 **Behaviour gaps -- designed above (1-4 all now built)**
@@ -2412,6 +2412,19 @@ small parser giving the rest of the app typed connections. `MCWSDialog` (the
 filter manager's zone dialog) keeps only the saved-server list and zones, and
 points at Preferences for adding/removing servers. Library Sync's JRiver
 settings choose a server from the same list.
+
+**As built (chunk 11):** `model/jriver/connections.py` holds
+`SavedConnection`, `parse_connections()`/`load_connections()`/`save_connections()`
+and `JRiverConnectionsWidget` (list, add form, Test, Add, Delete; Add is only
+enabled after a passing Test, and any edit invalidates that pass). It is the
+content of a new `jriverPage` in the Preferences tool box. `MCWSDialog` lost
+its add/test/delete controls (`load_zone.ui`) and shows a pointer to
+Preferences; it lists `load_connections()` and loads zones as before. Library
+Sync now reads the list through `load_connections()` (still "first saved
+server" until chunk 13). Behaviour changes worth knowing: the endpoint check
+is `host:port` -- the old dialog only accepted a dotted-quad IP, which
+rejected hostnames such as `media.local`; and the Test still runs on the UI
+thread (unchanged from the old dialog, ~6 s worst case).
 
 ### 11.2 Filesystem source (chunk 12)
 

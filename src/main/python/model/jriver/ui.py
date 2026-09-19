@@ -34,6 +34,7 @@ from model.jriver.filter import Divider, GEQFilter, CompoundRoutingFilter, Custo
     MDSXO, WayValues, MultiwayFilter, WayDescriptor, CompositeXODescriptor, MDSPoint, XODescriptor, MultiChannelSystem, \
     LFE_ADJUST_KEY, EDITORS_KEY, \
     EDITOR_NAME_KEY, UNDERLYING_KEY, WAYS_KEY, SYM_KEY, LFE_IN_KEY, ROUTING_KEY
+from model.jriver.connections import load_connections
 from model.jriver.mcws import MediaServer, MCWSError, DSPMismatchError
 from model.jriver.parser import from_mso
 from model.jriver.render import render_dot
@@ -41,8 +42,7 @@ from model.jriver.routing import Matrix
 from model.limits import DecibelRangeCalculator, PhaseRangeCalculator
 from model.magnitude import MagnitudeModel
 from model.preferences import JRIVER_GEOMETRY, JRIVER_GRAPH_X_MIN, JRIVER_GRAPH_X_MAX, JRIVER_DSP_DIR, \
-    get_filter_colour, Preferences, XO_GEOMETRY, \
-    JRIVER_MCWS_CONNECTIONS
+    get_filter_colour, Preferences, XO_GEOMETRY
 from model.signal import Signal
 from model.xy import MagnitudeData
 from mpl import NoCaretStyle
@@ -2786,16 +2786,9 @@ class MCWSDialog(QDialog, Ui_loadDspFromZoneDialog):
                  on_select: Callable[[str, str, bool, bool, Optional[int]], None] = None):
         super(MCWSDialog, self).__init__(parent)
         self.setupUi(self)
-        self.__last_test = None
         self.prefs = prefs
         self.__download = download
         self.__txt_provider = txt_provider
-        self.addNewButton.setIcon(qta.icon('fa5s.plus'))
-        self.addNewButton.setToolTip('Add New MC Connection')
-        self.deleteSaved.setIcon(qta.icon('fa5s.trash-alt'))
-        self.deleteSaved.setToolTip('Delete selected connection')
-        self.testConnectionButton.setIcon(qta.icon('fa5s.sync'))
-        self.testConnectionButton.setToolTip('Check connection to MC')
         if download:
             self.upload.setIcon(qta.icon('fa5s.download'))
             self.upload.setToolTip('Download DSP Configuration to selected zone')
@@ -2803,33 +2796,23 @@ class MCWSDialog(QDialog, Ui_loadDspFromZoneDialog):
             self.upload.setIcon(qta.icon('fa5s.upload'))
             self.upload.setToolTip('Upload DSP Configuration to selected zone')
         self.__on_select = on_select
-        import re
-        self.__ip_pattern = re.compile(r'[0-9]+(?:\.[0-9]+){3}:[0-9]+')
-        mcws_connections = self.prefs.get(JRIVER_MCWS_CONNECTIONS)
-        for ip, auth in mcws_connections.items():
-            self.__add_media_server(ip, auth)
+        # servers are added, tested and deleted in Preferences -> JRiver (model.jriver.connections); this dialog
+        # only picks one of them
+        for connection in load_connections(self.prefs):
+            item = QListWidgetItem(connection.label)
+            item.setData(self.MCWS_ROLE, connection.to_media_server())
+            self.savedConnections.addItem(item)
         self.__media_server: Optional[MediaServer] = None
-        self.mcIP.textChanged.connect(self.__enable_buttons)
-        self.username.textChanged.connect(self.__enable_buttons)
-        self.password.textChanged.connect(self.__enable_buttons)
-        self.testConnectionButton.clicked.connect(self.__attempt_connect)
-        self.addNewButton.clicked.connect(self.__add_pending)
-        self.auth.clicked.connect(self.__check_auth)
-        self.deleteSaved.clicked.connect(self.__delete_selected)
-        self.savedConnections.selectionModel().selectionChanged.connect(self.__enable_buttons)
-        self.savedConnections.selectionModel().selectionChanged.connect(self.__load_zones)
         self.upload.clicked.connect(self.__handle_config)
-        self.__enable_buttons()
+        self.savedConnections.selectionModel().selectionChanged.connect(self.__load_zones)
+        self.upload.setEnabled(False)
         self.__load_zones()
-
-    def __check_auth(self, required: bool):
-        self.username.setEnabled(required)
-        self.password.setEnabled(required)
-        self.__enable_buttons()
 
     def __load_zones(self):
         selection = self.savedConnections.selectionModel()
         self.zones.clear()
+        self.__media_server = None
+        self.upload.setEnabled(False)
         if selection.hasSelection():
             self.__media_server = self.savedConnections.selectedItems()[0].data(self.MCWS_ROLE)
             try:
@@ -2838,72 +2821,10 @@ class MCWSDialog(QDialog, Ui_loadDspFromZoneDialog):
                     item = QListWidgetItem(zone_name)
                     item.setData(self.MCWS_ROLE, zone_id)
                     self.zones.addItem(item)
-                if zones:
-                    self.upload.setEnabled(True)
-                else:
-                    self.upload.setEnabled(False)
+                self.upload.setEnabled(bool(zones))
             except MCWSError as e:
                 self.resultText.setPlainText(f"{e.url} - {e.status_code}\n\n{e.msg}\n\n{e.resp}")
                 self.zones.clear()
-
-    def __enable_buttons(self):
-        if self.__last_test is not None:
-            self.__last_test = None
-            self.testConnectionButton.setIcon(qta.icon('fa5s.sync'))
-        self.__media_server = None
-        can_test = len(self.username.text()) > 0 and len(self.password.text()) > 0 if self.auth.isChecked() else True
-        can_test = can_test and self.__ip_pattern.match(self.mcIP.text()) is not None
-        self.testConnectionButton.setEnabled(can_test)
-        self.addNewButton.setEnabled(False)
-        self.deleteSaved.setEnabled(len(self.savedConnections.selectedItems()) > 0)
-
-    def __attempt_connect(self):
-        auth = (self.username.text(), self.password.text()) if self.auth.isChecked() else None
-        self.__media_server = MediaServer(self.mcIP.text(), auth=auth, secure=self.https.isChecked())
-        try:
-            self.__media_server.authenticate()
-            self.addNewButton.setEnabled(True)
-            self.testConnectionButton.setIcon(qta.icon('fa5s.check', color='green'))
-            self.__last_test = True
-            self.resultText.clear()
-        except MCWSError as e:
-            self.__media_server = None
-            self.resultText.setPlainText(f"{e.url} - {e.status_code}\n\n{e.msg}\n\n{e.resp}")
-            self.testConnectionButton.setIcon(qta.icon('fa5s.times', color='red'))
-            self.__last_test = False
-
-    def __add_pending(self):
-        if self.__media_server:
-            item = QListWidgetItem(f"{self.__media_server}")
-            item.setData(self.MCWS_ROLE, self.__media_server)
-            self.savedConnections.addItem(item)
-            self.prefs.set(JRIVER_MCWS_CONNECTIONS, {
-                **self.prefs.get(JRIVER_MCWS_CONNECTIONS),
-                **self.__media_server.as_dict()
-            })
-            self.mcIP.clear()
-            self.username.clear()
-            self.password.clear()
-            self.__media_server = None
-
-    def __add_media_server(self, ip, auth):
-        if len(auth) == 3:
-            auth = ((auth[0], auth[1]), auth[2])
-        item = QListWidgetItem(f"{ip} [{auth[0][0]}]" if auth[0] else f"{ip} [Unauthenticated]")
-        item.setData(self.MCWS_ROLE, MediaServer(ip, *auth))
-        self.savedConnections.addItem(item)
-
-    def __delete_selected(self):
-        to_delete = self.savedConnections.selectedItems()
-        if to_delete:
-            for d in to_delete:
-                self.savedConnections.takeItem(self.savedConnections.indexFromItem(d).row())
-            to_save = [self.savedConnections.item(i).data(self.MCWS_ROLE).as_dict()
-                       for i in range(self.savedConnections.count())]
-            output = {}
-            for t in to_save:
-                output = {**output, **t}
-            self.prefs.set(JRIVER_MCWS_CONNECTIONS, output)
 
     def __handle_config(self):
         if self.__media_server:

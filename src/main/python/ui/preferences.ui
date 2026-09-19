@@ -427,6 +427,31 @@
          </item>
         </layout>
        </widget>
+       <widget class="QWidget" name="jriverPage">
+        <property name="geometry">
+         <rect>
+          <x>0</x>
+          <y>0</y>
+          <width>361</width>
+          <height>273</height>
+         </rect>
+        </property>
+        <attribute name="label">
+         <string>JRiver</string>
+        </attribute>
+        <layout class="QVBoxLayout" name="jriverPane">
+         <item>
+          <widget class="QLabel" name="jriverHelpLabel">
+           <property name="text">
+            <string>Media Center servers, shared by the JRiver filter manager and Library Sync.</string>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
        <widget class="QWidget" name="stylePage">
         <property name="geometry">
          <rect>
