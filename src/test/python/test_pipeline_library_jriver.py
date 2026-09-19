@@ -8,7 +8,8 @@ from urllib.parse import parse_qs, urlparse
 
 import pytest
 
-from pipeline.library.jriver import BrowseNode, JRiverLibrarySource, list_browse_children
+from pipeline.library.jriver import BrowseNode, JRiverLibrarySource, LibraryField, list_browse_children, \
+    list_library_fields, normalise_external_id_fields
 from pipeline.library.pathmap import PathMapping
 
 
@@ -25,8 +26,8 @@ def _row(**overrides):
         'Media Type': 'Video',
         'Date Modified': 1720000000,
         'File Size': 123456,
-        'IMDB': 'tt1234567',
-        'TheMovieDB': '123',
+        'IMDb ID': 'tt1234567',
+        'TheMovieDB Movie ID': '123',
         'Image File': 'INTERNAL',
     }
     row.update(overrides)
@@ -34,7 +35,7 @@ def _row(**overrides):
 
 
 @contextmanager
-def _browse_server(rows, children=None):
+def _browse_server(rows, children=None, fields_xml=None):
     ''' children: {parent node id: {name: child id}} served as MCWS's XML for Browse/Children. '''
     requests = []
 
@@ -45,6 +46,13 @@ def _browse_server(rows, children=None):
                 body = json.dumps(rows).encode('utf-8')
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')
+                self.send_header('Content-Length', str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+            elif self.path.startswith('/MCWS/v1/Library/Fields') and fields_xml is not None:
+                body = fields_xml.encode('utf-8')
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/xml')
                 self.send_header('Content-Length', str(len(body)))
                 self.end_headers()
                 self.wfile.write(body)
@@ -102,6 +110,7 @@ def test_lists_files_from_the_configured_browse_node():
     assert query['Action'] == ['JSON']
     fields = query['Fields'][0].split(',')
     assert set(JRiverLibrarySource.FIELDS).issubset(fields)
+    assert {'IMDb ID', 'TheMovieDB Movie ID', 'TMDb ID', 'IMDb Series ID', 'TheMovieDB Series ID'}.issubset(fields)
     assert {'Key', 'Name', 'Media Type', 'Series', 'Season', 'Episode'}.issubset(fields)
 
 
@@ -111,7 +120,7 @@ def test_maps_optional_fields_and_tv_metadata(tmp_path):
 
     item = _source()._map_rows([_row(Name='', Year=None, **{
         'Series': 'Example Show', 'Season': '2', 'Episode': '3', 'Image File': str(artwork),
-        'Date Modified': None, 'File Size': None, 'IMDB': '', 'TheMovieDB': '',
+        'Date Modified': None, 'File Size': None, 'IMDb ID': '', 'TheMovieDB Movie ID': '',
     })])[0]
 
     assert item.display_name == 'Example.mkv'
@@ -287,3 +296,85 @@ def test_an_internal_image_is_never_a_file(tmp_path):
     source = _source(path_mappings=[PathMapping('W:\\Films', str(tmp_path))])
 
     assert source._map_row(_row(**{**WINDOWS_ROW, 'Image File': 'INTERNAL'})).art_path is None
+
+
+# --- which fields hold the external ids (they differ between libraries) ----------------------------------------
+
+def test_the_defaults_are_the_field_names_a_real_library_uses():
+    ids = normalise_external_id_fields(None)
+
+    assert ids['movie'] == {'imdb': ('IMDb ID',), 'tmdb': ('TheMovieDB Movie ID', 'TMDb ID')}
+    assert ids['tv'] == {'imdb': ('IMDb Series ID',), 'tmdb': ('TheMovieDB Series ID',)}
+
+
+def test_a_tv_title_reads_its_series_ids_not_the_episodes_own():
+    row = _row(**{'Media Sub Type': 'TV Show', 'IMDb ID': 'tt-episode', 'IMDb Series ID': 'tt-series',
+                  'TheMovieDB Series ID': '66292'})
+
+    assert _source()._map_row(row).external_ids == {'imdb': 'tt-series', 'tmdb': '66292'}
+
+
+def test_the_first_field_with_a_value_wins_and_an_unset_numeric_id_does_not_count():
+    row = _row(**{'TheMovieDB Movie ID': '0', 'TMDb ID': '702'})
+
+    assert _source()._map_row(row).external_ids['tmdb'] == '702'
+    assert 'tmdb' not in _source()._map_row(_row(**{'TheMovieDB Movie ID': '0'})).external_ids
+
+
+def test_fields_can_be_overridden_per_kind_keeping_the_other_defaults():
+    source = _source(external_id_fields={'movie': {'imdb': ['My IMDb'], 'tmdb': 'My TMDb'}})
+    row = _row(**{'My IMDb': 'tt9', 'My TMDb': '9', 'IMDb ID': 'tt-default'})
+
+    assert source._map_row(row).external_ids == {'imdb': 'tt9', 'tmdb': '9'}
+    assert source.external_id_fields['tv'] == normalise_external_id_fields(None)['tv']
+
+
+def test_a_flat_mapping_applies_to_both_kinds():
+    source = _source(external_id_fields={'imdb': ['Custom IMDb']})
+    film = source._map_row(_row(**{'Media Sub Type': 'Movie', 'Custom IMDb': 'tt1'}))
+    show = source._map_row(_row(**{'Media Sub Type': 'TV Show', 'Custom IMDb': 'tt2'}))
+
+    assert film.external_ids['imdb'] == 'tt1'
+    assert show.external_ids['imdb'] == 'tt2'
+
+
+def test_an_empty_list_switches_an_identifier_off():
+    source = _source(external_id_fields={'movie': {'tmdb': []}})
+
+    assert 'tmdb' not in source._map_row(_row(**{'TheMovieDB Movie ID': '123'})).external_ids
+    assert 'imdb' in source._map_row(_row()).external_ids
+
+
+def test_an_unknown_identifier_is_rejected():
+    with pytest.raises(ValueError, match="unknown external id 'tvdb'"):
+        normalise_external_id_fields({'movie': {'tvdb': ['TheTVDB Series ID']}})
+
+
+def test_the_configured_fields_are_what_gets_requested_without_repeats():
+    source = _source(external_id_fields={'movie': {'imdb': ['My IMDb', 'IMDb ID']}})
+
+    fields = source.requested_fields
+
+    assert 'My IMDb' in fields
+    assert len(fields) == len(set(fields))
+    assert set(JRiverLibrarySource.FIELDS).issubset(fields)
+
+
+def test_lists_the_library_fields_the_server_defines():
+    xml = ('<Response Status="OK"><Fields>'
+           '<Field Name="IMDb ID" DataType="String" EditType="Standard" DisplayName="IMDb ID"/>'
+           '<Field Name="Date (year)" DataType="Integer" EditType="Standard" DisplayName="Year"/>'
+           '</Fields></Response>')
+    with _browse_server([], fields_xml=xml) as (port, requests):
+        fields = list_library_fields('127.0.0.1', port)
+
+    assert fields == [LibraryField('IMDb ID', 'IMDb ID', 'String'), LibraryField('Date (year)', 'Year', 'Integer')]
+    assert requests[0].path == '/MCWS/v1/Library/Fields'
+
+
+def test_listing_library_fields_rejects_a_running_event_loop():
+    async def call_from_loop():
+        with pytest.raises(RuntimeError, match='active event loop'):
+            list_library_fields('127.0.0.1', 1)
+
+    asyncio.run(call_from_loop())

@@ -178,7 +178,7 @@ a clear error instead of nesting `asyncio.run()`.
 | `Year` | `year` | Optional string; fuzzy TMDB resolution remains the fallback. **Live-verified:** JRiver answers a request for `Year` with the key `Date (year)`, so both are read (the requested name wins). |
 | `Media Sub Type`, `Series`, `Season`, `Episode` | `kind`, `meta` | **As built (live-verified):** `Media Sub Type` decides when set -- `TV Show` is `tv`, anything else `movie`. Without one, `tv` only if `Series`, `Season` *and* `Episode` are all set. (The first version treated any of the three as TV, which classed every film franchise -- a `Series` value -- as television.) `meta['season']` is kept only for `tv` items. |
 | `Date Modified`, `File Size` | `fingerprint` | Stable serialisation of the values actually supplied. Leave it empty when both are absent, allowing the extract cache's filesystem-stat fallback. |
-| `IMDB`, `TheMovieDB` | `external_ids` | Normalise non-empty values to `imdb` and `tmdb`. Use configurable field aliases because metadata plugins vary. |
+| id fields (default `IMDb ID`, `TheMovieDB Movie ID`/`TMDb ID`; TV: `IMDb Series ID`, `TheMovieDB Series ID`) | `external_ids` | Non-empty values (an unset numeric id reads `0`, which is ignored) normalised to `imdb` and `tmdb`. **Configurable per kind** (§11.7): the names above are only defaults, verified against a live library; the first draft's `IMDB`/`TheMovieDB` do not exist there. |
 | `Image File` | `art_path` | Only accept a locally readable path. `INTERNAL` means JRiver-managed art, not a file path; downloading `File/GetImage` is a later enhancement if needed. |
 
 Deduplicate exact repeated `Key` rows before yielding; fail the run when
@@ -958,6 +958,7 @@ fixture -- only chunk 8 is blocked on that mapping.
 | 13 | Library Sync **source picker** (§11.3): a Source combo (Filesystem / JRiver servers / future kinds) over a per-kind settings page, via a small registry of source *kinds*; replaces the "first saved connection" logic and the hard-wired JRiver group. | 11, 12 | **Implemented** -- `model/library_sources.py`, `LibrarySyncDialog` source combo + stacked pages |
 | 14 | JRiver **browse-node picker** (§11.4): a tree dialog over `Browse/Children` so the root node is chosen, not typed; the numeric field stays as a fallback. | 13 | **Implemented** -- `model/browse_node_picker.py`, `list_browse_children()`; response shape still unverified against a real server |
 | 15 | Path mappings (§11.6): a per-server list of server-folder -> local-folder rules, edited in Preferences -> JRiver and applied when a JRiver source reads items (`pipeline/library/pathmap.py`, CLI `--path-map`). | 11, 13 | **Implemented** |
+| 16 | Configurable external-id fields (§11.7): `Library/Fields` listing, per-kind defaults, and a per-server field mapping edited in Preferences -> JRiver. | 15 | Backend implemented; Preferences UI planned |
 
 ---
 
@@ -2341,7 +2342,7 @@ fixture.
 
 Reviewed against the code at `1ebaa4e` (471 tests), then updated after each
 follow-up commit per `AGENTS.md` -- currently current to the library
-path-mapping commit (624 tests). Everything in §8 marked Implemented is present and tested, except as
+external-id fields backend commit (634 tests). Everything in §8 marked Implemented is present and tested, except as
 listed here. Items are ordered roughly by impact.
 
 **Behaviour gaps -- designed above (1-4 all now built)**
@@ -2561,11 +2562,18 @@ What that established, and what it changed:
 - **`Image File` is a bare file name** (1162 of 1283 films, 1533 of 1657
   shows), not an absolute path and never `INTERNAL` here, so it can only be
   found relative to the media file's folder (§11.6).
-- **`IMDB`/`TheMovieDB` were absent** from every row of both nodes: either
-  unset library-wide or held under other field names. This could not be
-  told apart without `Library/Fields` (out of scope), so the fuzzy
-  title/year TMDB fallback is what will run for this library, and the alias
-  list may need the user's actual field names.
+- **`IMDB`/`TheMovieDB` were absent** from every row of both nodes. With
+  `Library/Fields` (later permitted) the cause is clear: they are not fields
+  in this library at all. It defines 296 fields; the id-like ones are `IMDb ID`,
+  `TMDb ID`, `TheMovieDB Movie ID`, `IMDb Series ID`, `TheMovieDB Series ID`
+  and `TheTVDB Series ID`. Populated counts: films -- `IMDb ID` 1239 / 1283,
+  `TheMovieDB Movie ID` 277, `TMDb ID` 5; shows -- `TheTVDB Series ID` 1587 /
+  1657, `TheMovieDB Series ID` 896, `IMDb ID` 559 (episode level), `IMDb
+  Series ID` 242. After the defaults changed (§11.7): 1241 films and 896
+  shows get an id from the library; 42 and 761 fall back to the fuzzy search.
+  Library/Fields also confirms `Date (year)` is the internal name of the field
+  displayed as `Year`, and that a user's own fields differ from a default --
+  hence the customisation.
 - **`Date Modified` and `File Size`** are present on every row, so the extract
   cache uses JRiver's fingerprint rather than a local stat.
 - **Path mapping, checked live:** with a single rule `W:\` -> `/mnt/w`, all
@@ -2604,3 +2612,36 @@ a mapping in our preferences rather than depend on a JRiver fix.
 - **Not built.** No warning when a path is still Windows-style on a non-Windows
   host (an unmapped library fails per item at extraction); no folder picker on
   the local column; no UI for mappings on the filesystem source (not needed).
+
+### 11.7 Configurable external-id fields (chunk 16)
+
+Users keep the IMDb/TMDb ids in different fields (a plugin's, JRiver's own, a
+custom one), so which JRiver field feeds each identifier is configuration.
+
+**Backend (built).** `pipeline/library/jriver.py`:
+- `DEFAULT_EXTERNAL_ID_FIELDS`, **per kind** -- films: `imdb` <- `IMDb ID`,
+  `tmdb` <- `TheMovieDB Movie ID` then `TMDb ID`; TV: `imdb` <- `IMDb Series
+  ID`, `tmdb` <- `TheMovieDB Series ID`. TV uses the *series* fields because a
+  TV row's plain `IMDb ID` is the episode's, which TMDB's tv lookup cannot
+  resolve. Several names per identifier are tried in order, first value wins;
+  an unset numeric id (`0`) is ignored.
+- `normalise_external_id_fields(config)` accepts `None` (defaults), a nested
+  `{movie: {imdb: [...], tmdb: [...]}, tv: {...}}` (per-kind override; anything
+  unmentioned keeps its default; `[]` switches an identifier off) or the flat
+  `{imdb: [...], tmdb: [...]}` (both kinds). A field may be a name or a list.
+  Unknown identifiers raise `ValueError`.
+- `JRiverLibrarySource.requested_fields` = the fixed fields plus every
+  configured id field, so a custom field is actually requested.
+- `list_library_fields(host, port, ...)` (Qt-free, running-loop guard) returns
+  `LibraryField(name, display_name, data_type)` from `Library/Fields`; `name`
+  is the internal name a request and a reply use.
+- The CLI's existing `sources.jriver.external_id_fields` takes either form.
+
+**Not yet built:** storage per server and the Preferences -> JRiver editor
+(combos filled from `Library/Fields`), and handing the mapping to Library
+Sync's source.
+
+**Possible extension, not done:** 1587 of 1657 shows carry `TheTVDB Series ID`,
+which TMDB's `/find` can resolve (`external_source=tvdb_id`). A `tvdb`
+identifier would identify most of the shows that currently fall back to the
+fuzzy search.
