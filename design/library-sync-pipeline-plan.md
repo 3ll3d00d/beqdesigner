@@ -958,7 +958,7 @@ fixture -- only chunk 8 is blocked on that mapping.
 | 13 | Library Sync **source picker** (§11.3): a Source combo (Filesystem / JRiver servers / future kinds) over a per-kind settings page, via a small registry of source *kinds*; replaces the "first saved connection" logic and the hard-wired JRiver group. | 11, 12 | **Implemented** -- `model/library_sources.py`, `LibrarySyncDialog` source combo + stacked pages |
 | 14 | JRiver **browse-node picker** (§11.4): a tree dialog over `Browse/Children` so the root node is chosen, not typed; the numeric field stays as a fallback. | 13 | **Implemented** -- `model/browse_node_picker.py`, `list_browse_children()`; response shape still unverified against a real server |
 | 15 | Path mappings (§11.6): a per-server list of server-folder -> local-folder rules, edited in Preferences -> JRiver and applied when a JRiver source reads items (`pipeline/library/pathmap.py`, CLI `--path-map`). | 11, 13 | **Implemented** |
-| 16 | Configurable external-id fields (§11.7): `Library/Fields` listing, per-kind defaults, and a per-server field mapping edited in Preferences -> JRiver. | 15 | Backend implemented; Preferences UI planned |
+| 16 | Configurable external-id fields (§11.7): `Library/Fields` listing, per-kind defaults, and a per-server field mapping edited in Preferences -> JRiver. | 15 | **Implemented** -- `model/jriver/field_mappings.py`, per-server storage, Library Sync hand-off |
 
 ---
 
@@ -2342,7 +2342,7 @@ fixture.
 
 Reviewed against the code at `1ebaa4e` (471 tests), then updated after each
 follow-up commit per `AGENTS.md` -- currently current to the library
-external-id fields backend commit (634 tests). Everything in §8 marked Implemented is present and tested, except as
+external-id fields UI commit (663 tests). Everything in §8 marked Implemented is present and tested, except as
 listed here. Items are ordered roughly by impact.
 
 **Behaviour gaps -- designed above (1-4 all now built)**
@@ -2649,9 +2649,30 @@ custom one), so which JRiver field feeds each identifier is configuration.
   is the internal name a request and a reply use.
 - The CLI's existing `sources.jriver.external_id_fields` takes either form.
 
-**Not yet built:** storage per server and the Preferences -> JRiver editor
-(combos filled from `Library/Fields`), and handing the mapping to Library
-Sync's source.
+**Editor and storage (built).**
+- `SavedConnection.field_mappings` holds a server's **overrides only** (the
+  nested form above), stored per server in `JRIVER_MCWS_FIELD_MAPPINGS`
+  (`{endpoint: {kind: {identifier: [names]}}}`), so a default that improves
+  later reaches everyone who never customised it. Updating or renaming a
+  server carries it across; deleting the server drops it.
+- Preferences -> JRiver has a **Metadata fields for the selected server**
+  group (`JRiverFieldMappingsWidget`): a 2x2 grid of editable combos --
+  films/TV by IMDb/TMDb -- each holding one or more field names, comma
+  separated, first with a value wins. Edits **save at once**; an empty box
+  switches that id off; typing a default back removes the override; a
+  **Defaults** button clears them all.
+- **Load fields from server** fetches `Library/Fields` on the thread pool
+  (spinner, form disabled meanwhile, failure shown inline) and offers the
+  `String`/`Integer` fields as choices (paths, dates, images and so on cannot
+  hold an id): 230 of the live server's 296. Once loaded, any configured name
+  the server does not define is flagged ("Not a field on this server: ...").
+  Nothing is fetched until asked, so opening Preferences makes no request.
+- The page is now inside a scroll area (it holds a list, a form and three
+  editors).
+- Library Sync's JRiver source is built with the chosen server's overrides
+  (`external_id_fields`) and so requests exactly those fields.
+- Live check (Library/Fields only): every default name exists on the real
+  server and none would be flagged.
 
 **Possible extension, not done:** 1587 of 1657 shows carry `TheTVDB Series ID`,
 which TMDB's `/find` can resolve (`external_source=tvdb_id`). A `tvdb`

@@ -8,7 +8,8 @@ import matplotlib
 import matplotlib.style as style
 import qtawesome as qta
 from qtpy.QtCore import QSettings
-from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox, QDialogButtonBox, QLineEdit, QTableWidgetItem
+from qtpy.QtWidgets import QDialog, QFileDialog, QFrame, QMessageBox, QDialogButtonBox, QLineEdit, QScrollArea, \
+    QTableWidgetItem
 
 from pipeline.designer.http_binding import http_designer
 from pipeline.designer.registry import register_designer, registered_designers, unregister_designer
@@ -227,6 +228,7 @@ JRIVER_DSP_DIR = 'jriver/dsp_dir'
 JRIVER_MCWS_CONNECTIONS = 'jriver/mcws'
 JRIVER_MCWS_ALIASES = 'jriver/mcws_aliases'
 JRIVER_MCWS_PATH_MAPPINGS = 'jriver/mcws_path_mappings'
+JRIVER_MCWS_FIELD_MAPPINGS = 'jriver/mcws_field_mappings'
 
 GEQ_GEOMETRY = 'geq/geometry'
 GEQ_GRAPH_X_MIN = 'geq/x_min'
@@ -320,6 +322,7 @@ DEFAULT_PREFS = {
     JRIVER_MCWS_CONNECTIONS: {},
     JRIVER_MCWS_ALIASES: {},
     JRIVER_MCWS_PATH_MAPPINGS: {},
+    JRIVER_MCWS_FIELD_MAPPINGS: {},
     REPORT_FILTER_ROW_HEIGHT_MULTIPLIER: 1.2,
     REPORT_TITLE_FONT_SIZE: 36,
     REPORT_IMAGE_ALPHA: 1.0,
@@ -390,6 +393,7 @@ TYPES = {
     JRIVER_MCWS_CONNECTIONS: dict,
     JRIVER_MCWS_ALIASES: dict,
     JRIVER_MCWS_PATH_MAPPINGS: dict,
+    JRIVER_MCWS_FIELD_MAPPINGS: dict,
     REPORT_FILTER_ROW_HEIGHT_MULTIPLIER: float,
     REPORT_TITLE_FONT_SIZE: int,
     REPORT_IMAGE_ALPHA: float,
@@ -550,7 +554,11 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
 
         from model.jriver.connections import JRiverConnectionsWidget
         jriver_connections = JRiverConnectionsWidget(self.__preferences)
-        self.jriverPane.addWidget(jriver_connections)
+        jriver_scroll = QScrollArea()  # the page holds a list, a form and two editors: more than a tool box page shows
+        jriver_scroll.setWidgetResizable(True)
+        jriver_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        jriver_scroll.setWidget(jriver_connections)
+        self.jriverPane.addWidget(jriver_scroll)
         jriver_connections.refresh_aliases()
 
         self.__init_field(BINARIES_FFMPEG, os.path.isdir, self.ffmpegDirectory)

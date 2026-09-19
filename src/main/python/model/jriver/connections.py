@@ -11,7 +11,7 @@ this machine, see pipeline.library.pathmap) live in `JRIVER_MCWS_PATH_MAPPINGS`,
 '''
 import logging
 import re
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from typing import Optional
 
 import qtawesome as qta
@@ -21,7 +21,9 @@ from qtpy.QtWidgets import QAbstractItemView, QCheckBox, QFormLayout, QGroupBox,
     QVBoxLayout, QWidget
 
 from model.jriver.mcws import MCWSError, MediaServer
-from model.preferences import JRIVER_MCWS_ALIASES, JRIVER_MCWS_CONNECTIONS, JRIVER_MCWS_PATH_MAPPINGS
+from model.jriver.field_mappings import JRiverFieldMappingsWidget
+from model.preferences import JRIVER_MCWS_ALIASES, JRIVER_MCWS_CONNECTIONS, JRIVER_MCWS_FIELD_MAPPINGS, \
+    JRIVER_MCWS_PATH_MAPPINGS
 from pipeline.library.pathmap import PathMapping
 
 logger = logging.getLogger('jriver.connections')
@@ -37,6 +39,9 @@ class SavedConnection:
     secure: bool = False
     alias: Optional[str] = None  # the server's own FriendlyName, once known
     path_mappings: tuple[PathMapping, ...] = ()  # the server's folders as folders on this machine
+    # which library fields hold the IMDb/TMDb ids, only where they differ from the defaults:
+    # {'movie': {'imdb': ['My field']}} (pipeline.library.jriver.normalise_external_id_fields)
+    field_mappings: dict = field(default_factory=dict)
 
     @property
     def host(self) -> str:
@@ -91,7 +96,9 @@ def _parse_mappings(raw) -> tuple[PathMapping, ...]:
 def load_connections(prefs) -> list[SavedConnection]:
     aliases = prefs.get(JRIVER_MCWS_ALIASES) or {}
     mappings = prefs.get(JRIVER_MCWS_PATH_MAPPINGS) or {}
-    return [replace(c, alias=aliases.get(c.endpoint) or None, path_mappings=_parse_mappings(mappings.get(c.endpoint)))
+    fields = prefs.get(JRIVER_MCWS_FIELD_MAPPINGS) or {}
+    return [replace(c, alias=aliases.get(c.endpoint) or None, path_mappings=_parse_mappings(mappings.get(c.endpoint)),
+                    field_mappings=dict(fields.get(c.endpoint) or {}))
             for c in parse_connections(prefs.get(JRIVER_MCWS_CONNECTIONS))]
 
 
@@ -104,6 +111,17 @@ def save_connections(prefs, connections: list[SavedConnection]) -> None:
     prefs.set(JRIVER_MCWS_ALIASES, {c.endpoint: c.alias for c in connections if c.alias})
     prefs.set(JRIVER_MCWS_PATH_MAPPINGS,
               {c.endpoint: [[m.source, m.target] for m in c.path_mappings] for c in connections if c.path_mappings})
+    prefs.set(JRIVER_MCWS_FIELD_MAPPINGS, {c.endpoint: c.field_mappings for c in connections if c.field_mappings})
+
+
+def set_field_mappings(prefs, endpoint: str, overrides: dict) -> None:
+    ''' Replaces the id-field overrides of an already-saved server; empty means back to the defaults. '''
+    stored = dict(prefs.get(JRIVER_MCWS_FIELD_MAPPINGS) or {})
+    if overrides:
+        stored[endpoint] = overrides
+    else:
+        stored.pop(endpoint, None)
+    prefs.set(JRIVER_MCWS_FIELD_MAPPINGS, stored)
 
 
 def set_path_mappings(prefs, endpoint: str, mappings) -> None:
@@ -238,6 +256,9 @@ class JRiverConnectionsWidget(QWidget):
         mappings_layout.addWidget(mappings_help)
         mappings_layout.addWidget(self.mappingsTable)
         mappings_layout.addLayout(mapping_buttons)
+        self.fieldsGroup = QGroupBox('Metadata fields for the selected server')
+        self.fieldMappings = JRiverFieldMappingsWidget()
+        QVBoxLayout(self.fieldsGroup).addWidget(self.fieldMappings)
 
         saved = QHBoxLayout()
         saved.addWidget(self.savedConnections)
@@ -262,6 +283,7 @@ class JRiverConnectionsWidget(QWidget):
         layout.addLayout(buttons)
         layout.addWidget(self.resultText)
         layout.addWidget(self.mappingsGroup)
+        layout.addWidget(self.fieldsGroup)
 
         self.__form_fields = (self.endpointEdit, self.httpsCheck, self.authCheck, self.usernameEdit, self.passwordEdit)
         self.endpointEdit.textChanged.connect(self.__inputs_changed)
@@ -278,6 +300,7 @@ class JRiverConnectionsWidget(QWidget):
         self.removeMappingButton.clicked.connect(self.__remove_mapping)
         self.mappingsTable.itemChanged.connect(self.__mappings_edited)
         self.mappingsTable.itemSelectionChanged.connect(self.__update_buttons)
+        self.fieldMappings.edited.connect(self.__field_mappings_edited)
 
         for connection in load_connections(prefs):
             self.__add_row(connection)
@@ -308,22 +331,23 @@ class JRiverConnectionsWidget(QWidget):
 
     def __fill_form(self, connection: Optional[SavedConnection]):
         ''' Sets every field without each edit invalidating the test, then does that once. '''
-        for field in self.__form_fields:
-            field.blockSignals(True)
+        for control in self.__form_fields:
+            control.blockSignals(True)
         connection = connection or SavedConnection('')
         self.endpointEdit.setText(connection.endpoint)
         self.httpsCheck.setChecked(connection.secure)
         self.authCheck.setChecked(connection.username is not None)
         self.usernameEdit.setText(connection.username or '')
         self.passwordEdit.setText(connection.password or '')
-        for field in self.__form_fields:
-            field.blockSignals(False)
+        for control in self.__form_fields:
+            control.blockSignals(False)
         self.__inputs_changed()
 
     def __selection_changed(self):
         selected = self.__selected()
         self.__fill_form(selected)
         self.__load_mappings(selected)
+        self.fieldMappings.set_connection(selected)
 
     def __load_mappings(self, connection: Optional[SavedConnection]):
         self.mappingsTable.blockSignals(True)
@@ -364,6 +388,16 @@ class JRiverConnectionsWidget(QWidget):
                 mappings.append(PathMapping(source, target))
         return tuple(mappings)
 
+    def __field_mappings_edited(self, endpoint: str, overrides: dict):
+        for row in range(self.savedConnections.count()):
+            item = self.savedConnections.item(row)
+            connection = item.data(self.CONNECTION_ROLE)
+            if connection.endpoint == endpoint:
+                set_field_mappings(self.__prefs, endpoint, overrides)
+                item.setData(self.CONNECTION_ROLE, replace(connection, field_mappings=overrides))
+                self.changed.emit()
+                return
+
     def __mappings_edited(self, *_):
         items = self.savedConnections.selectedItems()
         if not items:
@@ -397,14 +431,15 @@ class JRiverConnectionsWidget(QWidget):
         self.addButton.setIcon(qta.icon('fa5s.save' if editing else 'fa5s.plus'))
         self.usernameEdit.setEnabled(authenticated and not busy)
         self.passwordEdit.setEnabled(authenticated and not busy)
-        for field in (self.endpointEdit, self.httpsCheck, self.authCheck):
-            field.setEnabled(not busy)
+        for control in (self.endpointEdit, self.httpsCheck, self.authCheck):
+            control.setEnabled(not busy)
         self.testButton.setEnabled(not busy and bool(_ENDPOINT.match(entered.endpoint)) and credentials_ok)
         self.addButton.setEnabled(not busy and self.__tested is not None)
         self.deleteButton.setEnabled(not busy and editing)
         self.newButton.setEnabled(not busy)
         self.savedConnections.setEnabled(not busy)
         self.mappingsGroup.setEnabled(editing and not busy)
+        self.fieldsGroup.setEnabled(editing and not busy)
         self.removeMappingButton.setEnabled(bool(self.mappingsTable.selectedIndexes()))
 
     def __test(self):
@@ -444,7 +479,8 @@ class JRiverConnectionsWidget(QWidget):
         replaced = {tested.endpoint} | ({original.endpoint} if original else set())  # an edit may rename the server
         base = original or next((c for c in self.connections() if c.endpoint == tested.endpoint), None)
         if base is not None:
-            tested = replace(tested, path_mappings=base.path_mappings)  # the form does not edit these
+            # the form edits neither of these
+            tested = replace(tested, path_mappings=base.path_mappings, field_mappings=base.field_mappings)
         connections = [c for c in self.connections() if c.endpoint not in replaced] + [tested]
         self.__replace_all(connections, select=tested.endpoint if original else None)
 
