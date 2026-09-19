@@ -378,3 +378,33 @@ def test_listing_library_fields_rejects_a_running_event_loop():
             list_library_fields('127.0.0.1', 1)
 
     asyncio.run(call_from_loop())
+
+
+# --- optical discs: JRiver reports a pseudo-file, not the disc folder --------------------------------------------
+
+@pytest.mark.parametrize('filename, root', [
+    ('W:\\28_Years_Later\\BDMV\\index.bluray;1', 'W:\\28_Years_Later'),
+    ('W:\\Films\\48 Hrs. (Remastered)\\BDMV\\index.bluray;2', 'W:\\Films\\48 Hrs. (Remastered)'),
+    ('/mnt/films/Disc/BDMV/INDEX.BLURAY;1', '/mnt/films/Disc'),
+    ('W:\\BDMV\\index.bluray;1', 'W:\\'),  # a disc at the drive's top level
+])
+def test_a_bluray_pseudo_file_becomes_the_disc_folder(filename, root):
+    assert _source()._map_row(_row(Filename=filename)).source_path == root
+
+
+def test_the_disc_folder_is_then_translated_like_any_other_path(tmp_path):
+    source = _source(path_mappings=[PathMapping('W:\\', str(tmp_path))])
+
+    item = source._map_row(_row(Filename='W:\\28_Years_Later\\BDMV\\index.bluray;1'))
+
+    assert item.source_path == str(tmp_path / '28_Years_Later')
+
+
+@pytest.mark.parametrize('filename', [
+    'W:\\Films\\a.mkv',
+    'W:\\Eastbound\\VIDEO_TS\\VIDEO_TS.dvd;1',  # a DVD: unsupported, so left as reported
+    '\\BDMV\\index.bluray;1',  # nothing above BDMV to be the disc
+    'W:\\Disc\\BDMV\\STREAM\\00000.m2ts',
+])
+def test_anything_else_is_left_as_reported(filename):
+    assert _source()._map_row(_row(Filename=filename)).source_path == filename

@@ -9,6 +9,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Optional
@@ -230,7 +231,7 @@ class JRiverLibrarySource:
         fingerprint = json.dumps({'date_modified': modified, 'file_size': size}, sort_keys=True) \
             if modified or size else ''
 
-        source_path = translate_path(filename, self.path_mappings)
+        source_path = translate_path(_disc_root(filename), self.path_mappings)
         return LibraryItem(
             id=f'jriver-{self._server_id}-{key}',
             source_path=source_path,
@@ -285,6 +286,23 @@ def _id_value(row: Mapping[str, Any], field: str) -> str:
 def _value(row: Mapping[str, Any], field: str) -> str:
     value = row.get(field)
     return str(value).strip() if value is not None else ''
+
+
+_BLURAY_PSEUDO_FILE = re.compile(r'^(?P<root>.+?)[\\/]BDMV[\\/]index\.bluray;\d+$', re.IGNORECASE)
+
+
+def _disc_root(filename: str) -> str:
+    '''
+    JRiver names a Blu-ray disc rip by a pseudo-file, `<disc>\\BDMV\\index.bluray;1`, which is not a file. The disc
+    folder is what the pipeline can open (a BDMV root; it picks the main title itself), so report that.
+    (A DVD's `VIDEO_TS.dvd;1` is left alone: the pipeline has no DVD support.)
+    '''
+    match = _BLURAY_PSEUDO_FILE.match(filename)
+    if not match:
+        return filename
+    root = match.group('root')
+    # a disc at a drive's top level: `W:` alone means "the current folder on W:", so keep the separator
+    return root + filename[len(root)] if root.endswith(':') else root
 
 
 def _base_name(path: str) -> str:

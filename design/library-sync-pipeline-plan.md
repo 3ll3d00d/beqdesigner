@@ -2576,9 +2576,21 @@ What that established, and what it changed:
   hence the customisation.
 - **`Date Modified` and `File Size`** are present on every row, so the extract
   cache uses JRiver's fingerprint rather than a local stat.
-- **Path mapping, checked live:** with a single rule `W:\` -> `/mnt/w`, all
-  1283 films in the Movies node translated and none were left in Windows
-  form. Nothing was opened or probed on disk.
+- **Path mapping, checked live** (then the share was mounted at `/media/films`
+  with the one rule `W:\` -> `/media/films`): 933 of 1283 films and 1647 of
+  1657 shows existed locally, and artwork resolved beside the media for 1159
+  films and 1492 shows. That confirms the translation and the bare-`Image
+  File` handling. Only `stat` and Browse/Files were used; nothing was opened.
+- **Discs are reported as pseudo-files, not folders.** 346 of the missing
+  films were `<disc>\BDMV\index.bluray;1`, which is not a file; the disc
+  folder two levels up is a real BDMV root in all 346. `_disc_root()` now
+  reports that folder (before path translation), which the pipeline already
+  handles (it resolves the main title). After this, 1279 of 1283 films exist
+  locally. **Not handled:** `BDMV\PLAYLIST\index.bluray;N` (4 shows -- names a
+  playlist on a multi-episode disc and the mapping from `N` to a title is
+  unknown, so guessing the main title would pick the wrong episode) and a
+  DVD's `VIDEO_TS\VIDEO_TS.dvd;N` (6 shows -- the pipeline has no DVD
+  support). Both are passed through as reported and fail at extraction.
 
 ### 11.6 Path mappings (chunk 15)
 
