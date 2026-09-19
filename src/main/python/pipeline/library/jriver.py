@@ -15,6 +15,7 @@ from typing import Any, Optional
 
 from hamcws import MediaServer, get_mcws_connection
 
+from pipeline.library.pathmap import PathMapping, translate_path
 from pipeline.library.source import LibraryItem
 
 logger = logging.getLogger('library_jriver')
@@ -79,7 +80,14 @@ class JRiverLibrarySource:
 
     def __init__(self, host: str, port: int, browse_node_id: int, *, username: Optional[str] = None,
                  password: Optional[str] = None, ssl: bool = False, timeout: int = 5,
-                 external_id_fields: Optional[Mapping[str, Sequence[str]]] = None):
+                 external_id_fields: Optional[Mapping[str, Sequence[str]]] = None,
+                 path_mappings: Sequence[PathMapping] = ()):
+        '''
+        :param path_mappings: server folder -> local folder rules. JRiver reports paths as its own host sees them
+            (Windows form), which this machine usually can't open; every path is translated through these, and one
+            no rule contains is passed through unchanged (design/library-sync-pipeline-plan.md §11.6).
+        '''
+        self.path_mappings = tuple(path_mappings)
         self.host = host
         self.port = port
         self.browse_node_id = browse_node_id
@@ -147,18 +155,30 @@ class JRiverLibrarySource:
         fingerprint = json.dumps({'date_modified': modified, 'file_size': size}, sort_keys=True) \
             if modified or size else ''
 
+        source_path = translate_path(filename, self.path_mappings)
         return LibraryItem(
             id=f'jriver-{self._server_id}-{key}',
-            source_path=filename,
-            display_name=name or os.path.basename(filename),
+            source_path=source_path,
+            display_name=name or _base_name(filename),
             title=title,
             year=_value(row, 'Year') or _value(row, 'Date (year)') or None,
             kind=kind,
             external_ids=self._external_ids(row),
-            art_path=_local_art_path(_value(row, 'Image File')),
+            art_path=self._local_art_path(_value(row, 'Image File'), source_path),
             meta=meta,
             fingerprint=fingerprint,
         )
+
+    def _local_art_path(self, value: str, media_path: str) -> Optional[str]:
+        '''
+        `Image File` is INTERNAL (JRiver-managed, not a file), an absolute path on the server, or -- as seen on a
+        live server for most titles -- a bare file name that lives beside the media file.
+        '''
+        if not value or value.upper() == 'INTERNAL':
+            return None
+        translated = translate_path(value, self.path_mappings)
+        candidates = [translated, os.path.join(os.path.dirname(media_path), value)]
+        return next((c for c in candidates if os.path.isabs(c) and os.path.isfile(c)), None)
 
     def _external_ids(self, row: Mapping[str, Any]) -> dict[str, str]:
         ids = {}
@@ -186,5 +206,6 @@ def _value(row: Mapping[str, Any], field: str) -> str:
     return str(value).strip() if value is not None else ''
 
 
-def _local_art_path(value: str) -> Optional[str]:
-    return value if value and value.upper() != 'INTERNAL' and os.path.isfile(value) else None
+def _base_name(path: str) -> str:
+    ''' The last component of a path in either separator style (the server's paths are often Windows ones). '''
+    return path.replace('\\', '/').rstrip('/').rpartition('/')[2]

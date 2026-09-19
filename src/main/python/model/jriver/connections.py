@@ -5,7 +5,8 @@ manager's zone dialog, and Library Sync's JRiver source.
 Storage is the existing `JRIVER_MCWS_CONNECTIONS` preference, `{'host:port': (auth, secure)}` where `auth` is None
 or `(username, password)` -- unchanged, so connections saved before this module existed are still there. A server's
 alias (the FriendlyName its /Alive reports) lives in a separate `JRIVER_MCWS_ALIASES` preference, `{'host:port':
-name}`, so that format stays compatible.
+name}`, so that format stays compatible. Likewise a server's path mappings (its reported Windows folders -> folders on
+this machine, see pipeline.library.pathmap) live in `JRIVER_MCWS_PATH_MAPPINGS`, `{'host:port': [[server, local], ...]}`.
 `JRiverConnectionsWidget` is the one place they are added, tested and deleted (Preferences -> JRiver).
 '''
 import logging
@@ -15,11 +16,13 @@ from typing import Optional
 
 import qtawesome as qta
 from qtpy.QtCore import QObject, QRunnable, Qt, QThreadPool, Signal
-from qtpy.QtWidgets import QCheckBox, QFormLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, \
-    QPlainTextEdit, QPushButton, QToolButton, QVBoxLayout, QWidget
+from qtpy.QtWidgets import QAbstractItemView, QCheckBox, QFormLayout, QGroupBox, QHBoxLayout, QHeaderView, QLabel, \
+    QLineEdit, QListWidget, QListWidgetItem, QPlainTextEdit, QPushButton, QTableWidget, QTableWidgetItem, QToolButton, \
+    QVBoxLayout, QWidget
 
 from model.jriver.mcws import MCWSError, MediaServer
-from model.preferences import JRIVER_MCWS_ALIASES, JRIVER_MCWS_CONNECTIONS
+from model.preferences import JRIVER_MCWS_ALIASES, JRIVER_MCWS_CONNECTIONS, JRIVER_MCWS_PATH_MAPPINGS
+from pipeline.library.pathmap import PathMapping
 
 logger = logging.getLogger('jriver.connections')
 
@@ -33,6 +36,7 @@ class SavedConnection:
     password: Optional[str] = None
     secure: bool = False
     alias: Optional[str] = None  # the server's own FriendlyName, once known
+    path_mappings: tuple[PathMapping, ...] = ()  # the server's folders as folders on this machine
 
     @property
     def host(self) -> str:
@@ -79,9 +83,15 @@ def parse_connections(raw: Optional[dict]) -> list[SavedConnection]:
     return connections
 
 
+def _parse_mappings(raw) -> tuple[PathMapping, ...]:
+    pairs = (list(pair) for pair in (raw or []))
+    return tuple(PathMapping(str(pair[0]), str(pair[1])) for pair in pairs if len(pair) == 2 and pair[0])
+
+
 def load_connections(prefs) -> list[SavedConnection]:
     aliases = prefs.get(JRIVER_MCWS_ALIASES) or {}
-    return [replace(c, alias=aliases.get(c.endpoint) or None)
+    mappings = prefs.get(JRIVER_MCWS_PATH_MAPPINGS) or {}
+    return [replace(c, alias=aliases.get(c.endpoint) or None, path_mappings=_parse_mappings(mappings.get(c.endpoint)))
             for c in parse_connections(prefs.get(JRIVER_MCWS_CONNECTIONS))]
 
 
@@ -92,6 +102,18 @@ def save_connections(prefs, connections: list[SavedConnection]) -> None:
     prefs.set(JRIVER_MCWS_CONNECTIONS, merged)
     # only for servers still saved, so deleting one drops its alias too
     prefs.set(JRIVER_MCWS_ALIASES, {c.endpoint: c.alias for c in connections if c.alias})
+    prefs.set(JRIVER_MCWS_PATH_MAPPINGS,
+              {c.endpoint: [[m.source, m.target] for m in c.path_mappings] for c in connections if c.path_mappings})
+
+
+def set_path_mappings(prefs, endpoint: str, mappings) -> None:
+    ''' Replaces the mappings of an already-saved server (they are edited without re-testing the connection). '''
+    stored = dict(prefs.get(JRIVER_MCWS_PATH_MAPPINGS) or {})
+    if mappings:
+        stored[endpoint] = [[m.source, m.target] for m in mappings]
+    else:
+        stored.pop(endpoint, None)
+    prefs.set(JRIVER_MCWS_PATH_MAPPINGS, stored)
 
 
 def remember_alias(prefs, endpoint: str, alias: Optional[str]) -> bool:
@@ -196,6 +218,26 @@ class JRiverConnectionsWidget(QWidget):
         self.resultText = QPlainTextEdit()
         self.resultText.setReadOnly(True)
         self.resultText.setMaximumHeight(80)
+        self.mappingsGroup = QGroupBox('Path mappings for the selected server')
+        self.mappingsTable = QTableWidget(0, 2)
+        self.mappingsTable.setHorizontalHeaderLabels(['Path as JRiver reports it', 'Same folder on this machine'])
+        self.mappingsTable.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.mappingsTable.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.mappingsTable.setMaximumHeight(110)
+        self.addMappingButton = QPushButton(qta.icon('fa5s.plus'), 'Add')
+        self.removeMappingButton = QPushButton(qta.icon('fa5s.minus'), 'Remove')
+        mappings_help = QLabel('JRiver reports paths as its own machine sees them, e.g. W:\\Films\\x.mkv. Map each such '
+                               'folder to where it is on this machine, e.g. /mnt/films. The longest match wins; a '
+                               'path no rule covers is used as reported.')
+        mappings_help.setWordWrap(True)
+        mapping_buttons = QHBoxLayout()
+        mapping_buttons.addStretch()
+        mapping_buttons.addWidget(self.addMappingButton)
+        mapping_buttons.addWidget(self.removeMappingButton)
+        mappings_layout = QVBoxLayout(self.mappingsGroup)
+        mappings_layout.addWidget(mappings_help)
+        mappings_layout.addWidget(self.mappingsTable)
+        mappings_layout.addLayout(mapping_buttons)
 
         saved = QHBoxLayout()
         saved.addWidget(self.savedConnections)
@@ -219,6 +261,7 @@ class JRiverConnectionsWidget(QWidget):
         layout.addLayout(form)
         layout.addLayout(buttons)
         layout.addWidget(self.resultText)
+        layout.addWidget(self.mappingsGroup)
 
         self.__form_fields = (self.endpointEdit, self.httpsCheck, self.authCheck, self.usernameEdit, self.passwordEdit)
         self.endpointEdit.textChanged.connect(self.__inputs_changed)
@@ -231,6 +274,10 @@ class JRiverConnectionsWidget(QWidget):
         self.testButton.clicked.connect(self.__test)
         self.addButton.clicked.connect(self.__save)
         self.deleteButton.clicked.connect(self.__delete_selected)
+        self.addMappingButton.clicked.connect(self.__add_mapping)
+        self.removeMappingButton.clicked.connect(self.__remove_mapping)
+        self.mappingsTable.itemChanged.connect(self.__mappings_edited)
+        self.mappingsTable.itemSelectionChanged.connect(self.__update_buttons)
 
         for connection in load_connections(prefs):
             self.__add_row(connection)
@@ -274,7 +321,60 @@ class JRiverConnectionsWidget(QWidget):
         self.__inputs_changed()
 
     def __selection_changed(self):
-        self.__fill_form(self.__selected())
+        selected = self.__selected()
+        self.__fill_form(selected)
+        self.__load_mappings(selected)
+
+    def __load_mappings(self, connection: Optional[SavedConnection]):
+        self.mappingsTable.blockSignals(True)
+        self.mappingsTable.setRowCount(0)
+        for mapping in (connection.path_mappings if connection else ()):
+            self.__append_mapping_row(mapping.source, mapping.target)
+        self.mappingsTable.blockSignals(False)
+        self.__update_buttons()
+
+    def __append_mapping_row(self, source: str = '', target: str = '') -> int:
+        row = self.mappingsTable.rowCount()
+        self.mappingsTable.insertRow(row)
+        self.mappingsTable.setItem(row, 0, QTableWidgetItem(source))
+        self.mappingsTable.setItem(row, 1, QTableWidgetItem(target))
+        return row
+
+    def __add_mapping(self):
+        self.mappingsTable.blockSignals(True)
+        row = self.__append_mapping_row()
+        self.mappingsTable.blockSignals(False)
+        self.mappingsTable.setCurrentCell(row, 0)
+        self.mappingsTable.editItem(self.mappingsTable.item(row, 0))
+
+    def __remove_mapping(self):
+        rows = sorted({index.row() for index in self.mappingsTable.selectedIndexes()}, reverse=True)
+        for row in rows:
+            self.mappingsTable.removeRow(row)
+        if rows:
+            self.__mappings_edited()
+
+    def __table_mappings(self) -> tuple[PathMapping, ...]:
+        ''' Rows with both cells filled; a half-typed row is kept on screen but not saved until it is complete. '''
+        mappings = []
+        for row in range(self.mappingsTable.rowCount()):
+            source = (self.mappingsTable.item(row, 0).text() if self.mappingsTable.item(row, 0) else '').strip()
+            target = (self.mappingsTable.item(row, 1).text() if self.mappingsTable.item(row, 1) else '').strip()
+            if source and target:
+                mappings.append(PathMapping(source, target))
+        return tuple(mappings)
+
+    def __mappings_edited(self, *_):
+        items = self.savedConnections.selectedItems()
+        if not items:
+            return
+        connection = items[0].data(self.CONNECTION_ROLE)
+        mappings = self.__table_mappings()
+        if mappings == connection.path_mappings:
+            return
+        set_path_mappings(self.__prefs, connection.endpoint, mappings)
+        items[0].setData(self.CONNECTION_ROLE, replace(connection, path_mappings=mappings))
+        self.changed.emit()
 
     def __new(self):
         self.savedConnections.clearSelection()  # its signal empties the form
@@ -304,6 +404,8 @@ class JRiverConnectionsWidget(QWidget):
         self.deleteButton.setEnabled(not busy and editing)
         self.newButton.setEnabled(not busy)
         self.savedConnections.setEnabled(not busy)
+        self.mappingsGroup.setEnabled(editing and not busy)
+        self.removeMappingButton.setEnabled(bool(self.mappingsTable.selectedIndexes()))
 
     def __test(self):
         if self.testing:
@@ -340,6 +442,9 @@ class JRiverConnectionsWidget(QWidget):
             return
         original = self.__selected()
         replaced = {tested.endpoint} | ({original.endpoint} if original else set())  # an edit may rename the server
+        base = original or next((c for c in self.connections() if c.endpoint == tested.endpoint), None)
+        if base is not None:
+            tested = replace(tested, path_mappings=base.path_mappings)  # the form does not edit these
         connections = [c for c in self.connections() if c.endpoint not in replaced] + [tested]
         self.__replace_all(connections, select=tested.endpoint if original else None)
 

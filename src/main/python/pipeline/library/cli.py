@@ -10,6 +10,7 @@ import yaml
 from pipeline.config import AnalysisConfig
 from pipeline.library.filesystem import FilesystemLibrarySource
 from pipeline.library.jriver import JRiverLibrarySource
+from pipeline.library.pathmap import mappings_from_config
 from pipeline.library.run import LibraryRunConfig, run_library
 from pipeline.library.sync import sync_library
 from pipeline.publish.git import RepoTarget
@@ -58,6 +59,8 @@ def _source(values: dict[str, Any], config: dict[str, Any]):
         password=source_values.get('password'), ssl=bool(source_values.get('ssl', False)),
         timeout=int(source_values.get('timeout', 5)),
         external_id_fields=source_values.get('external_id_fields'),
+        # flags replace the config file's rules rather than adding to them, like every other option
+        path_mappings=mappings_from_config(values.get('path_maps') or source_values.get('path_mappings')),
     )
 
 
@@ -110,6 +113,8 @@ def _add_run_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('--host')
     parser.add_argument('--port', type=int)
     parser.add_argument('--browse-node-id', type=int)
+    parser.add_argument('--path-map', dest='path_maps', action='append', metavar='SERVER=LOCAL',
+                        help=r'jriver source: translate a server folder to a local one, e.g. W:\Films=/mnt/films')
     parser.add_argument('--glob', dest='globs', action='append', help='filesystem source: a glob or directory')
     parser.add_argument('--username')
     parser.add_argument('--password')

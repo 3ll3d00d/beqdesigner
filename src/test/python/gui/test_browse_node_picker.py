@@ -222,3 +222,15 @@ def test_choosing_needs_a_server(qtbot, tmp_path):
     page.load(_preferences(tmp_path))  # no servers saved
 
     assert not page.pickNodeButton.isEnabled()
+
+
+def test_the_source_carries_the_servers_path_mappings(qtbot, tmp_path):
+    from model.jriver.connections import SavedConnection, save_connections
+    from pipeline.library.pathmap import PathMapping
+    prefs = _preferences(tmp_path)
+    save_connections(prefs, [SavedConnection('media.local:52199', path_mappings=(PathMapping('W:\\Films', '/mnt/films'),))])
+    page = JRiverSourcePage()
+    qtbot.addWidget(page)
+    page.load(prefs)
+
+    assert page.build_source().path_mappings == (PathMapping('W:\\Films', '/mnt/films'),)

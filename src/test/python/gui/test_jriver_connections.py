@@ -10,9 +10,10 @@ from unittest.mock import MagicMock
 from qtpy.QtCore import QSettings
 
 from model.jriver.connections import JRiverConnectionsWidget, SavedConnection, load_connections, parse_connections, \
-    remember_alias, save_connections
+    remember_alias, save_connections, set_path_mappings
 from model.jriver.mcws import MCWSError
-from model.preferences import JRIVER_MCWS_ALIASES, JRIVER_MCWS_CONNECTIONS, Preferences
+from model.preferences import JRIVER_MCWS_ALIASES, JRIVER_MCWS_CONNECTIONS, JRIVER_MCWS_PATH_MAPPINGS, Preferences
+from pipeline.library.pathmap import PathMapping
 
 
 def _prefs(tmp_path):
@@ -452,3 +453,132 @@ def test_the_filter_manager_dialog_shows_and_remembers_the_name_once_it_has_conn
 
     assert dialog.savedConnections.item(0).text() == 'Cinema PC (a.local:1) [Unauthenticated]'
     assert load_connections(prefs)[0].alias == 'Cinema PC'
+
+
+# --- path mappings ------------------------------------------------------------------------------------------
+
+FILMS = PathMapping('W:\\Films', '/mnt/films')
+TV = PathMapping('W:\\TV', '/mnt/tv')
+
+
+def _table(widget):
+    t = widget.mappingsTable
+    return [(t.item(r, 0).text(), t.item(r, 1).text()) for r in range(t.rowCount())]
+
+
+def _type_row(widget, source, target):
+    widget.addMappingButton.click()
+    row = widget.mappingsTable.rowCount() - 1
+    widget.mappingsTable.item(row, 0).setText(source)
+    widget.mappingsTable.item(row, 1).setText(target)
+
+
+def test_mappings_are_stored_per_server_and_survive_a_reload(tmp_path):
+    prefs = _prefs(tmp_path)
+    save_connections(prefs, [SavedConnection('a.local:1', path_mappings=(FILMS, TV)), SavedConnection('b.local:2')])
+
+    loaded = {c.endpoint: c.path_mappings for c in load_connections(prefs)}
+
+    assert loaded == {'a.local:1': (FILMS, TV), 'b.local:2': ()}
+    assert prefs.get(JRIVER_MCWS_PATH_MAPPINGS) == {'a.local:1': [['W:\\Films', '/mnt/films'], ['W:\\TV', '/mnt/tv']]}
+    save_connections(prefs, [SavedConnection('b.local:2')])  # deleting a server drops its mappings
+    assert prefs.get(JRIVER_MCWS_PATH_MAPPINGS) == {}
+
+
+def test_set_path_mappings_replaces_or_clears_one_servers_rules(tmp_path):
+    prefs = _prefs(tmp_path)
+    save_connections(prefs, [SavedConnection('a.local:1', path_mappings=(FILMS,)),
+                             SavedConnection('b.local:2', path_mappings=(TV,))])
+
+    set_path_mappings(prefs, 'a.local:1', [TV])
+    assert {c.endpoint: c.path_mappings for c in load_connections(prefs)} == {'a.local:1': (TV,), 'b.local:2': (TV,)}
+    set_path_mappings(prefs, 'a.local:1', [])
+    assert {c.endpoint: c.path_mappings for c in load_connections(prefs)} == {'a.local:1': (), 'b.local:2': (TV,)}
+
+
+def test_the_mapping_table_needs_a_selected_server_and_shows_its_rules(qtbot, tmp_path):
+    prefs = _prefs(tmp_path)
+    save_connections(prefs, [SavedConnection('a.local:1', path_mappings=(FILMS, TV)), SavedConnection('b.local:2')])
+    widget = JRiverConnectionsWidget(prefs)
+    qtbot.addWidget(widget)
+    assert not widget.mappingsGroup.isEnabled()
+
+    _select(widget, 'a.local:1')
+    assert widget.mappingsGroup.isEnabled()
+    assert _table(widget) == [('W:\\Films', '/mnt/films'), ('W:\\TV', '/mnt/tv')]
+
+    _select(widget, 'b.local:2')
+    assert _table(widget) == []
+
+    widget.newButton.click()
+    assert not widget.mappingsGroup.isEnabled()
+    assert _table(widget) == []
+
+
+def test_editing_the_table_saves_at_once_without_a_connection_test(qtbot, tmp_path):
+    widget, prefs = _widget_with(qtbot, tmp_path, {'a.local:1': (None, False)})
+    _select(widget, 'a.local:1')
+
+    with qtbot.waitSignal(widget.changed):
+        _type_row(widget, 'W:\\Films', '/mnt/films')
+
+    assert load_connections(prefs)[0].path_mappings == (FILMS,)
+    assert not widget.addButton.isEnabled()  # nothing about the connection itself changed
+
+
+def test_a_half_typed_row_stays_on_screen_but_is_not_saved(qtbot, tmp_path):
+    widget, prefs = _widget_with(qtbot, tmp_path, {'a.local:1': (None, False)})
+    _select(widget, 'a.local:1')
+
+    _type_row(widget, 'W:\\Films', '   ')
+
+    assert _table(widget) == [('W:\\Films', '   ')]
+    assert load_connections(prefs)[0].path_mappings == ()
+    widget.mappingsTable.item(0, 1).setText('/mnt/films')
+    assert load_connections(prefs)[0].path_mappings == (FILMS,)
+
+
+def test_removing_a_row_removes_that_rule(qtbot, tmp_path):
+    prefs = _prefs(tmp_path)
+    save_connections(prefs, [SavedConnection('a.local:1', path_mappings=(FILMS, TV))])
+    widget = JRiverConnectionsWidget(prefs)
+    qtbot.addWidget(widget)
+    _select(widget, 'a.local:1')
+
+    widget.mappingsTable.selectRow(0)
+    widget.removeMappingButton.click()
+
+    assert load_connections(prefs)[0].path_mappings == (TV,)
+    assert _table(widget) == [('W:\\TV', '/mnt/tv')]
+
+
+def test_reselecting_a_server_shows_its_saved_rules_not_stale_ones(qtbot, tmp_path):
+    widget, prefs = _widget_with(qtbot, tmp_path, {'a.local:1': (None, False), 'b.local:2': (None, False)})
+    _select(widget, 'a.local:1')
+    _type_row(widget, 'W:\\Films', '/mnt/films')
+    _select(widget, 'b.local:2')
+
+    _select(widget, 'a.local:1')
+
+    assert _table(widget) == [('W:\\Films', '/mnt/films')]
+
+
+def test_updating_a_server_keeps_its_mappings_including_when_it_is_renamed(qtbot, tmp_path, monkeypatch):
+    prefs = _prefs(tmp_path)
+    save_connections(prefs, [SavedConnection('a.local:1', path_mappings=(FILMS,))])
+    widget = JRiverConnectionsWidget(prefs)
+    qtbot.addWidget(widget)
+    monkeypatch.setattr('model.jriver.mcws.MediaServer.authenticate', MagicMock(return_value=True))
+    _select(widget, 'a.local:1')
+
+    widget.httpsCheck.setChecked(True)
+    _test_and_wait(qtbot, widget)
+    widget.addButton.click()
+    assert load_connections(prefs) == [SavedConnection('a.local:1', secure=True, path_mappings=(FILMS,))]
+
+    widget.endpointEdit.setText('renamed.local:2')
+    _test_and_wait(qtbot, widget)
+    widget.addButton.click()
+
+    assert load_connections(prefs) == [SavedConnection('renamed.local:2', secure=True, path_mappings=(FILMS,))]
+    assert list(prefs.get(JRIVER_MCWS_PATH_MAPPINGS)) == ['renamed.local:2']

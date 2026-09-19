@@ -117,7 +117,7 @@ class JRiverSourcePage(SourcePage):
         self.pickNodeButton.setToolTip('Pick the node from the server\'s browse tree')
         self.nodePathLabel = QLabel('')
         self.nodePathLabel.setWordWrap(True)
-        self.helpLabel = QLabel('Servers are managed in Preferences > JRiver.')
+        self.helpLabel = QLabel('Servers and their path mappings are managed in Preferences > JRiver.')
         self.helpLabel.setWordWrap(True)
         form = QFormLayout(self)
         form.setContentsMargins(0, 0, 0, 0)
@@ -181,7 +181,7 @@ class JRiverSourcePage(SourcePage):
             raise ValueError(f'{connection.endpoint} is not a host:port address')
         return JRiverLibrarySource(connection.host, connection.port, self.browseNodeSpin.value(),
                                    username=connection.username, password=connection.password,
-                                   ssl=connection.secure)
+                                   ssl=connection.secure, path_mappings=connection.path_mappings)
 
 
 register_source_kind(LibrarySourceKind('filesystem', 'Filesystem', FilesystemSourcePage))

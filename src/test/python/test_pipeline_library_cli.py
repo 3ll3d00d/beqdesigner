@@ -42,7 +42,7 @@ run:
     assert cli.main(['--config', str(config), 'run']) == 0
     assert seen['source'] == ('media.local', 52199, 42,
                               {'username': None, 'password': None, 'ssl': False, 'timeout': 5,
-                               'external_id_fields': None})
+                               'external_id_fields': None, 'path_mappings': []})
     assert seen['config'].work_dir == '/work'
     assert seen['config'].keep_multichannel is True
     assert seen['config'].audio_types == ('Atmos',)
@@ -125,3 +125,46 @@ def test_filesystem_source_without_a_glob_is_a_cli_error(monkeypatch):
     with pytest.raises(SystemExit):
         cli.main(['run', '--source', 'filesystem', '--work-dir', '/work', '--queue-dir', '/queue',
                   '--designer', 'x'])
+
+
+def _jriver_paths_seen(monkeypatch, argv, config=None, tmp_path=None):
+    from pipeline.library import cli
+    from pipeline.library.jriver import JRiverLibrarySource
+    seen = []
+    monkeypatch.setattr(cli, 'run_library', lambda source, run_config: seen.append(source) or LibraryRunReport())
+    base = ['run', '--source', 'jriver', '--host', 'media.local', '--port', '52199', '--browse-node-id', '7',
+            '--work-dir', '/work', '--queue-dir', '/queue', '--designer', 'x']
+    prefix = []
+    if config is not None:
+        path = tmp_path / 'library.json'
+        path.write_text(json.dumps(config))
+        prefix = ['--config', str(path)]
+    assert cli.main(prefix + base + argv) == 0
+    assert isinstance(seen[0], JRiverLibrarySource)
+    return seen[0].path_mappings
+
+
+def test_path_map_flags_build_server_to_local_mappings(monkeypatch):
+    from pipeline.library.pathmap import PathMapping
+
+    mappings = _jriver_paths_seen(monkeypatch, ['--path-map', 'W:\\Films=/mnt/films', '--path-map', 'W:\\TV=/mnt/tv'])
+
+    assert mappings == (PathMapping('W:\\Films', '/mnt/films'), PathMapping('W:\\TV', '/mnt/tv'))
+
+
+def test_path_mappings_can_come_from_the_config_file_and_flags_replace_them(monkeypatch, tmp_path):
+    from pipeline.library.pathmap import PathMapping
+    config = {'sources': {'jriver': {'path_mappings': [{'from': 'W:\\Films', 'to': '/mnt/films'}]}}}
+
+    assert _jriver_paths_seen(monkeypatch, [], config, tmp_path) == (PathMapping('W:\\Films', '/mnt/films'),)
+    assert _jriver_paths_seen(monkeypatch, ['--path-map', 'X:\\=/mnt/x'], config, tmp_path) \
+        == (PathMapping('X:\\', '/mnt/x'),)
+
+
+def test_a_malformed_path_map_is_a_cli_error(monkeypatch):
+    from pipeline.library import cli
+    monkeypatch.setattr(cli, 'run_library', lambda *args: LibraryRunReport())
+
+    with pytest.raises(SystemExit):
+        cli.main(['run', '--source', 'jriver', '--host', 'h', '--port', '1', '--browse-node-id', '1',
+                  '--work-dir', '/w', '--queue-dir', '/q', '--designer', 'x', '--path-map', 'no-equals'])

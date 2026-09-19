@@ -9,6 +9,7 @@ from urllib.parse import parse_qs, urlparse
 import pytest
 
 from pipeline.library.jriver import BrowseNode, JRiverLibrarySource, list_browse_children
+from pipeline.library.pathmap import PathMapping
 
 
 def _source(**kwargs):
@@ -219,3 +220,70 @@ def test_season_is_only_kept_for_tv():
 
     assert tv.meta == {'season': '2'}
     assert film.meta == {}
+
+
+# --- path mapping: JRiver reports the *server's* (Windows) paths ---------------------------------------------
+
+WINDOWS_ROW = {'Filename': 'W:\\Films\\Action\\Die Hard (1988).mkv', 'Name': 'Die Hard', 'Image File': 'Die_Hard.jpg'}
+
+
+def test_a_windows_path_is_translated_to_the_local_one(tmp_path):
+    source = _source(path_mappings=[PathMapping('W:\\Films', str(tmp_path))])
+
+    item = source._map_row(_row(**WINDOWS_ROW))
+
+    assert item.source_path == str(tmp_path / 'Action' / 'Die Hard (1988).mkv')
+
+
+def test_paths_are_passed_through_when_no_mapping_applies():
+    item = _source(path_mappings=[PathMapping('X:\\Other', '/mnt/other')])._map_row(_row(**WINDOWS_ROW))
+
+    assert item.source_path == WINDOWS_ROW['Filename']
+    assert _source()._map_row(_row(**WINDOWS_ROW)).source_path == WINDOWS_ROW['Filename']
+
+
+def test_the_display_name_comes_from_a_windows_path_too():
+    item = _source()._map_row(_row(**{**WINDOWS_ROW, 'Name': ''}))
+
+    assert item.display_name == 'Die Hard (1988).mkv'
+
+
+def test_the_id_does_not_depend_on_the_mapping():
+    mapped = _source(path_mappings=[PathMapping('W:\\Films', '/mnt/films')])._map_row(_row(**WINDOWS_ROW))
+    unmapped = _source()._map_row(_row(**WINDOWS_ROW))
+
+    assert mapped.id == unmapped.id
+    assert mapped.source_path != unmapped.source_path
+
+
+def test_a_bare_image_file_name_is_found_beside_the_translated_media_file(tmp_path):
+    (tmp_path / 'Action').mkdir()
+    cover = tmp_path / 'Action' / 'Die_Hard.jpg'
+    cover.write_bytes(b'image')
+    source = _source(path_mappings=[PathMapping('W:\\Films', str(tmp_path))])
+
+    assert source._map_row(_row(**WINDOWS_ROW)).art_path == str(cover)
+    assert source._map_row(_row(**{**WINDOWS_ROW, 'Image File': 'missing.jpg'})).art_path is None
+
+
+def test_a_bare_image_file_name_is_not_found_without_a_mapping():
+    assert _source()._map_row(_row(**WINDOWS_ROW)).art_path is None
+
+
+def test_an_absolute_windows_image_path_is_mapped_too(tmp_path):
+    (tmp_path / 'art').mkdir()
+    cover = tmp_path / 'art' / 'cover.jpg'
+    cover.write_bytes(b'image')
+    source = _source(path_mappings=[PathMapping('W:\\Films', str(tmp_path))])
+
+    item = source._map_row(_row(**{**WINDOWS_ROW, 'Image File': 'W:\\Films\\art\\cover.jpg'}))
+
+    assert item.art_path == str(cover)
+
+
+def test_an_internal_image_is_never_a_file(tmp_path):
+    (tmp_path / 'Action').mkdir()
+    (tmp_path / 'Action' / 'INTERNAL').write_bytes(b'x')  # even a file that happens to share the marker's name
+    source = _source(path_mappings=[PathMapping('W:\\Films', str(tmp_path))])
+
+    assert source._map_row(_row(**{**WINDOWS_ROW, 'Image File': 'INTERNAL'})).art_path is None

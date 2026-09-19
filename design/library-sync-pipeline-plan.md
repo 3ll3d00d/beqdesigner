@@ -957,6 +957,7 @@ fixture -- only chunk 8 is blocked on that mapping.
 | 12 | `pipeline/library/filesystem.py` -- a Qt-free `FilesystemLibrarySource` (globs, BDMV roots) so "raw filesystem, as batch extract does" is a `LibrarySource` too (§11.2). CLI gains `--source filesystem`. | 4 | **Implemented** -- `pipeline/library/filesystem.py`; CLI `--source filesystem --glob ...` |
 | 13 | Library Sync **source picker** (§11.3): a Source combo (Filesystem / JRiver servers / future kinds) over a per-kind settings page, via a small registry of source *kinds*; replaces the "first saved connection" logic and the hard-wired JRiver group. | 11, 12 | **Implemented** -- `model/library_sources.py`, `LibrarySyncDialog` source combo + stacked pages |
 | 14 | JRiver **browse-node picker** (§11.4): a tree dialog over `Browse/Children` so the root node is chosen, not typed; the numeric field stays as a fallback. | 13 | **Implemented** -- `model/browse_node_picker.py`, `list_browse_children()`; response shape still unverified against a real server |
+| 15 | Path mappings (§11.6): a per-server list of server-folder -> local-folder rules, edited in Preferences -> JRiver and applied when a JRiver source reads items (`pipeline/library/pathmap.py`, CLI `--path-map`). | 11, 13 | **Implemented** |
 
 ---
 
@@ -2340,7 +2341,7 @@ fixture.
 
 Reviewed against the code at `1ebaa4e` (471 tests), then updated after each
 follow-up commit per `AGENTS.md` -- currently current to the library
-JRiver mapping-fix commit (585 tests). Everything in §8 marked Implemented is present and tested, except as
+path-mapping commit (624 tests). Everything in §8 marked Implemented is present and tested, except as
 listed here. Items are ordered roughly by impact.
 
 **Behaviour gaps -- designed above (1-4 all now built)**
@@ -2555,8 +2556,8 @@ What that established, and what it changed:
   called them TV. Verified after the fix: 1283 movies / 1657 TV shows in the
   two nodes.
 - **Paths are Windows paths** (`W:\...`) although the client is Linux: the
-  server is a Windows host. JRiver reports this as a server-side bug, so the
-  app needs a configurable **path mapping** (next commit, §11.6).
+  server is a Windows host. JRiver treats this as a server-side bug, so the
+  app carries a configurable **path mapping** instead (§11.6, built).
 - **`Image File` is a bare file name** (1162 of 1283 films, 1533 of 1657
   shows), not an absolute path and never `INTERNAL` here, so it can only be
   found relative to the media file's folder (§11.6).
@@ -2567,3 +2568,39 @@ What that established, and what it changed:
   list may need the user's actual field names.
 - **`Date Modified` and `File Size`** are present on every row, so the extract
   cache uses JRiver's fingerprint rather than a local stat.
+- **Path mapping, checked live:** with a single rule `W:\` -> `/mnt/w`, all
+  1283 films in the Movies node translated and none were left in Windows
+  form. Nothing was opened or probed on disk.
+
+### 11.6 Path mappings (chunk 15)
+
+JRiver reports paths as its own host sees them, in Windows form (`W:\Films\x.mkv`,
+or UNC), which ffmpeg on another machine cannot open. The user's decision: add
+a mapping in our preferences rather than depend on a JRiver fix.
+
+- **Rules.** `PathMapping(source, target)` in `pipeline/library/pathmap.py`
+  (Qt-free). `translate_path()` picks the rule with the **longest source prefix**
+  that contains the path; matching ignores case and treats `\` and `/` alike;
+  a prefix only matches whole components (`W:\Film` does not claim
+  `W:\Films\x.mkv`); a trailing separator on either side is irrelevant; a
+  drive root (`W:\` or `W:`) and UNC prefixes work; a path no rule contains
+  passes through unchanged, so a Windows host needs no rules at all.
+- **Where they apply.** `JRiverLibrarySource(path_mappings=...)` translates
+  `Filename` into `LibraryItem.source_path`. The id and fingerprint do not
+  depend on it, so adding or changing a mapping never invalidates a cache.
+  `Image File` -- a **bare file name** on most live titles -- is looked for
+  beside the *translated* media file; an absolute one is translated too.
+- **Storage and UI.** Per server, in `JRIVER_MCWS_PATH_MAPPINGS`
+  (`{'host:port': [[server, local], ...]}`), loaded into
+  `SavedConnection.path_mappings`. Preferences -> JRiver has a table for the
+  selected server (Add/Remove); edits **save at once** and do not require a
+  connection test. A half-typed row is shown but not saved until both cells are
+  filled. Updating or renaming a server carries its mappings across; deleting
+  it drops them. Library Sync's JRiver source is built with the chosen
+  server's rules.
+- **CLI.** `sources.jriver.path_mappings` in the config file
+  (`[{from, to}, ...]`) or repeatable `--path-map SERVER=LOCAL`; flags replace
+  the file's rules.
+- **Not built.** No warning when a path is still Windows-style on a non-Windows
+  host (an unmapped library fails per item at extraction); no folder picker on
+  the local column; no UI for mappings on the filesystem source (not needed).
