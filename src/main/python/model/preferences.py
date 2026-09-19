@@ -225,6 +225,7 @@ JRIVER_GRAPH_X_MIN = 'jriver/x_min'
 JRIVER_GRAPH_X_MAX = 'jriver/x_max'
 JRIVER_DSP_DIR = 'jriver/dsp_dir'
 JRIVER_MCWS_CONNECTIONS = 'jriver/mcws'
+JRIVER_MCWS_ALIASES = 'jriver/mcws_aliases'
 
 GEQ_GEOMETRY = 'geq/geometry'
 GEQ_GRAPH_X_MIN = 'geq/x_min'
@@ -316,6 +317,7 @@ DEFAULT_PREFS = {
     JRIVER_GRAPH_X_MAX: 20000,
     JRIVER_DSP_DIR: str(Path.home()),
     JRIVER_MCWS_CONNECTIONS: {},
+    JRIVER_MCWS_ALIASES: {},
     REPORT_FILTER_ROW_HEIGHT_MULTIPLIER: 1.2,
     REPORT_TITLE_FONT_SIZE: 36,
     REPORT_IMAGE_ALPHA: 1.0,
@@ -384,6 +386,7 @@ TYPES = {
     JRIVER_GRAPH_X_MIN: int,
     JRIVER_GRAPH_X_MAX: int,
     JRIVER_MCWS_CONNECTIONS: dict,
+    JRIVER_MCWS_ALIASES: dict,
     REPORT_FILTER_ROW_HEIGHT_MULTIPLIER: float,
     REPORT_TITLE_FONT_SIZE: int,
     REPORT_IMAGE_ALPHA: float,
@@ -543,7 +546,9 @@ class PreferencesDialog(QDialog, Ui_preferencesDialog):
         self.extractCompleteAudioFilePicker.setIcon(qta.icon('fa5s.folder-open'))
 
         from model.jriver.connections import JRiverConnectionsWidget
-        self.jriverPane.addWidget(JRiverConnectionsWidget(self.__preferences))
+        jriver_connections = JRiverConnectionsWidget(self.__preferences)
+        self.jriverPane.addWidget(jriver_connections)
+        jriver_connections.refresh_aliases()
 
         self.__init_field(BINARIES_FFMPEG, os.path.isdir, self.ffmpegDirectory)
         self.__init_field(BINARIES_FFPROBE, os.path.isdir, self.ffprobeDirectory)

@@ -3,12 +3,14 @@ The list of saved JRiver Media Center (MCWS) servers, shared by everything that 
 manager's zone dialog, and Library Sync's JRiver source.
 
 Storage is the existing `JRIVER_MCWS_CONNECTIONS` preference, `{'host:port': (auth, secure)}` where `auth` is None
-or `(username, password)` -- unchanged, so connections saved before this module existed are still there.
+or `(username, password)` -- unchanged, so connections saved before this module existed are still there. A server's
+alias (the FriendlyName its /Alive reports) lives in a separate `JRIVER_MCWS_ALIASES` preference, `{'host:port':
+name}`, so that format stays compatible.
 `JRiverConnectionsWidget` is the one place they are added, tested and deleted (Preferences -> JRiver).
 '''
 import logging
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Optional
 
 import qtawesome as qta
@@ -17,7 +19,7 @@ from qtpy.QtWidgets import QCheckBox, QFormLayout, QHBoxLayout, QLabel, QLineEdi
     QPlainTextEdit, QPushButton, QToolButton, QVBoxLayout, QWidget
 
 from model.jriver.mcws import MCWSError, MediaServer
-from model.preferences import JRIVER_MCWS_CONNECTIONS
+from model.preferences import JRIVER_MCWS_ALIASES, JRIVER_MCWS_CONNECTIONS
 
 logger = logging.getLogger('jriver.connections')
 
@@ -30,6 +32,7 @@ class SavedConnection:
     username: Optional[str] = None
     password: Optional[str] = None
     secure: bool = False
+    alias: Optional[str] = None  # the server's own FriendlyName, once known
 
     @property
     def host(self) -> str:
@@ -41,8 +44,13 @@ class SavedConnection:
         return int(port) if port.isdigit() else None
 
     @property
+    def display_name(self) -> str:
+        ''' What identifies the server to a person: its own name, with the address, else just the address. '''
+        return f"{self.alias} ({self.endpoint})" if self.alias else self.endpoint
+
+    @property
     def label(self) -> str:
-        return f"{self.endpoint} [{self.username}]" if self.username else f"{self.endpoint} [Unauthenticated]"
+        return f"{self.display_name} [{self.username}]" if self.username else f"{self.display_name} [Unauthenticated]"
 
     def to_media_server(self) -> MediaServer:
         return MediaServer(self.endpoint, (self.username, self.password) if self.username else None, self.secure)
@@ -72,7 +80,9 @@ def parse_connections(raw: Optional[dict]) -> list[SavedConnection]:
 
 
 def load_connections(prefs) -> list[SavedConnection]:
-    return parse_connections(prefs.get(JRIVER_MCWS_CONNECTIONS))
+    aliases = prefs.get(JRIVER_MCWS_ALIASES) or {}
+    return [replace(c, alias=aliases.get(c.endpoint) or None)
+            for c in parse_connections(prefs.get(JRIVER_MCWS_CONNECTIONS))]
 
 
 def save_connections(prefs, connections: list[SavedConnection]) -> None:
@@ -80,10 +90,27 @@ def save_connections(prefs, connections: list[SavedConnection]) -> None:
     for connection in connections:
         merged.update(connection.to_preference())
     prefs.set(JRIVER_MCWS_CONNECTIONS, merged)
+    # only for servers still saved, so deleting one drops its alias too
+    prefs.set(JRIVER_MCWS_ALIASES, {c.endpoint: c.alias for c in connections if c.alias})
+
+
+def remember_alias(prefs, endpoint: str, alias: Optional[str]) -> bool:
+    '''
+    Records the FriendlyName learned for an already-saved server.
+    :return: True if that changed what is stored.
+    '''
+    if not alias:
+        return False
+    aliases = dict(prefs.get(JRIVER_MCWS_ALIASES) or {})
+    if aliases.get(endpoint) == alias or endpoint not in (prefs.get(JRIVER_MCWS_CONNECTIONS) or {}):
+        return False
+    aliases[endpoint] = alias
+    prefs.set(JRIVER_MCWS_ALIASES, aliases)
+    return True
 
 
 class _TestSignals(QObject):
-    finished = Signal(object)  # None on success, else the text to show
+    finished = Signal(object, object)  # (None on success else the text to show, the server's FriendlyName or None)
 
 
 class _TestJob(QRunnable):
@@ -96,13 +123,37 @@ class _TestJob(QRunnable):
 
     def run(self):
         try:
-            self.__connection.to_media_server().authenticate()
-            self.signals.finished.emit(None)
+            server = self.__connection.to_media_server()
+            server.authenticate()
+            self.signals.finished.emit(None, server.friendly_name)
         except MCWSError as e:
-            self.signals.finished.emit(f"{e.url} - {e.status_code}\n\n{e.msg}\n\n{e.resp}")
+            self.signals.finished.emit(f"{e.url} - {e.status_code}\n\n{e.msg}\n\n{e.resp}", None)
         except Exception as e:
             logger.exception('Unexpected failure testing %s', self.__connection.endpoint)
-            self.signals.finished.emit(f'{type(e).__name__}: {e}')
+            self.signals.finished.emit(f'{type(e).__name__}: {e}', None)
+
+
+class _AliasSignals(QObject):
+    found = Signal(str, str)  # endpoint, FriendlyName
+
+
+class _AliasJob(QRunnable):
+    ''' Asks each server for its FriendlyName, quietly: an unreachable one just keeps showing its address. '''
+
+    def __init__(self, connections: list[SavedConnection]):
+        super().__init__()
+        self.signals = _AliasSignals()
+        self.__connections = connections
+
+    def run(self):
+        for connection in self.__connections:
+            try:
+                server = connection.to_media_server()
+                server.authenticate()
+                if server.friendly_name:
+                    self.signals.found.emit(connection.endpoint, server.friendly_name)
+            except Exception as e:
+                logger.info('No FriendlyName from %s: %s', connection.endpoint, e)
 
 
 class JRiverConnectionsWidget(QWidget):
@@ -121,6 +172,7 @@ class JRiverConnectionsWidget(QWidget):
         self.__prefs = prefs
         self.__tested: Optional[SavedConnection] = None
         self.__job: Optional[_TestJob] = None  # held so its signals outlive run()
+        self.__alias_job: Optional[_AliasJob] = None
 
         self.savedConnections = QListWidget()
         self.deleteButton = QToolButton()
@@ -261,16 +313,19 @@ class JRiverConnectionsWidget(QWidget):
         self.statusLabel.setText('Testing...')
         self.testButton.setIcon(qta.icon('fa5s.spinner', animation=qta.Spin(self.testButton)))
         job = _TestJob(entered)
-        job.signals.finished.connect(lambda error, entered=entered: self.__test_finished(entered, error))
+        job.signals.finished.connect(lambda error, name, entered=entered: self.__test_finished(entered, error, name))
         self.__job = job
         self.__update_buttons()
         QThreadPool.globalInstance().start(job)
 
-    def __test_finished(self, entered: SavedConnection, error: Optional[str]):
+    def __test_finished(self, entered: SavedConnection, error: Optional[str], friendly_name: Optional[str] = None):
         self.__job = None
         self.statusLabel.setText('')
         if error is None:
-            self.__tested = entered
+            known = next((c.alias for c in self.connections() if c.endpoint == entered.endpoint), None)
+            self.__tested = replace(entered, alias=friendly_name or known)
+            if friendly_name:
+                self.statusLabel.setText(f'Connected to {friendly_name}')
             self.resultText.clear()
             self.testButton.setIcon(qta.icon('fa5s.check', color='green'))
         else:
@@ -308,4 +363,29 @@ class JRiverConnectionsWidget(QWidget):
                 break
         else:
             self.__fill_form(None)
+        self.changed.emit()
+
+    def refresh_aliases(self) -> None:
+        '''
+        Fills in the FriendlyName of every saved server that has none yet, in the background -- for servers
+        saved before names were recorded. Servers that don't answer are left showing their address.
+        '''
+        unnamed = [c for c in self.connections() if not c.alias]
+        if not unnamed or self.__alias_job is not None:
+            return
+        job = _AliasJob(unnamed)
+        job.signals.found.connect(self.__alias_found)
+        self.__alias_job = job
+        QThreadPool.globalInstance().start(job)
+
+    def __alias_found(self, endpoint: str, alias: str):
+        if not remember_alias(self.__prefs, endpoint, alias):
+            return
+        for row in range(self.savedConnections.count()):
+            item = self.savedConnections.item(row)
+            connection = item.data(self.CONNECTION_ROLE)
+            if connection.endpoint == endpoint:
+                named = replace(connection, alias=alias)
+                item.setData(self.CONNECTION_ROLE, named)
+                item.setText(named.label)
         self.changed.emit()

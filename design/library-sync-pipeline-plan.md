@@ -2340,7 +2340,7 @@ fixture.
 
 Reviewed against the code at `1ebaa4e` (471 tests), then updated after each
 follow-up commit per `AGENTS.md` -- currently current to the library
-JRiver connection editing/async-test commit (559 tests). Everything in §8 marked Implemented is present and tested, except as
+JRiver server alias commit (573 tests). Everything in §8 marked Implemented is present and tested, except as
 listed here. Items are ordered roughly by impact.
 
 **Behaviour gaps -- designed above (1-4 all now built)**
@@ -2437,6 +2437,25 @@ add another. **Test** now runs off the UI thread (`_TestJob` on the global
 and buttons are disabled while it runs, and any exception (not only
 `MCWSError`) is shown in the result box. `MCWSDialog`'s zone loading is still
 synchronous.
+
+**Follow-up (server aliases):** `/Alive` reports a `FriendlyName`, which
+`MediaServer.friendly_name` now exposes (`None` until authenticated or if
+blank). It is the server's visible name everywhere a server is listed --
+`SavedConnection.label` is `Name (host:port) [user]`, or the old
+`host:port [user]` while unnamed -- in the Preferences list, the filter
+manager's dialog and Library Sync's server combo. Aliases are stored in their
+own preference (`JRIVER_MCWS_ALIASES`, `{endpoint: name}`) rather than in
+`JRIVER_MCWS_CONNECTIONS`, whose tuple shape is shared with older code and
+already has a legacy 3-tuple form; deleting a server drops its alias. A name
+is learned three ways: **Test** (shown as "Connected to X" and saved with
+Add/Update; a re-test that reports no name keeps the old one),
+`JRiverConnectionsWidget.refresh_aliases()` (called when the Preferences
+dialog opens; a background job that asks only servers with no name yet and
+silently skips unreachable ones), and the filter manager's dialog once
+`get_zones()` has authenticated. A server renamed on its host keeps its old
+alias until it is re-tested. Not live-tested: only Browse endpoints were
+permitted against the real server, so `/Alive` parsing is covered by a local
+fake.
 
 ### 11.2 Filesystem source (chunk 12)
 

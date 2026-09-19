@@ -31,6 +31,7 @@ class MediaServer:
         self.__token = None
         self.__version: Optional[Tuple[int, ...]] = None
         self.__major_version = None
+        self.__friendly_name: Optional[str] = None
 
     def as_dict(self) -> dict:
         return {self.__ip: (self.__auth, self.__secure)}
@@ -68,6 +69,9 @@ class MediaServer:
             if response:
                 r_status = response.attrib.get('Status', None)
                 if r_status == 'OK':
+                    self.__friendly_name = next((item.text.strip() for item in response
+                                                 if item.attrib.get('Name') == 'FriendlyName' and item.text
+                                                 and item.text.strip()), None)
                     v = next((item.text for item in response if item.attrib['Name'] == 'ProgramVersion'), None)
                     if v:
                         try:
@@ -78,6 +82,11 @@ class MediaServer:
                             raise MCWSError(f"Unknown version format {v}", r.url, r.status_code, r.text)
         if not self.__major_version:
             raise MCWSError('No version', r.url, r.status_code, r.text)
+
+    @property
+    def friendly_name(self) -> Optional[str]:
+        ''' The name the server calls itself (Alive's FriendlyName); None until authenticated, or if it has none. '''
+        return self.__friendly_name
 
     @property
     def connected(self) -> bool:

@@ -9,9 +9,10 @@ from unittest.mock import MagicMock
 
 from qtpy.QtCore import QSettings
 
-from model.jriver.connections import JRiverConnectionsWidget, SavedConnection, load_connections, parse_connections
+from model.jriver.connections import JRiverConnectionsWidget, SavedConnection, load_connections, parse_connections, \
+    remember_alias, save_connections
 from model.jriver.mcws import MCWSError
-from model.preferences import JRIVER_MCWS_CONNECTIONS, Preferences
+from model.preferences import JRIVER_MCWS_ALIASES, JRIVER_MCWS_CONNECTIONS, Preferences
 
 
 def _prefs(tmp_path):
@@ -296,10 +297,11 @@ def test_filter_manager_dialog_picks_from_the_shared_list(qtbot, tmp_path, monke
     assert not hasattr(dialog, 'addNewButton')  # management lives in Preferences now
 
 
-def test_preferences_dialog_has_a_jriver_page_managing_the_same_list(qtbot, tmp_path):
+def test_preferences_dialog_has_a_jriver_page_managing_the_same_list(qtbot, tmp_path, monkeypatch):
     from model.preferences import PreferencesDialog
     prefs = _prefs(tmp_path)
     prefs.set(JRIVER_MCWS_CONNECTIONS, {'a.local:1': (None, False)})
+    monkeypatch.setattr('model.jriver.mcws.MediaServer.authenticate', MagicMock(return_value=True))  # alias refresh
 
     dialog = PreferencesDialog(prefs, str(tmp_path), MagicMock())
     qtbot.addWidget(dialog)
@@ -307,3 +309,146 @@ def test_preferences_dialog_has_a_jriver_page_managing_the_same_list(qtbot, tmp_
     widget = dialog.jriverPage.findChild(JRiverConnectionsWidget)
     assert widget is not None
     assert [c.endpoint for c in widget.connections()] == ['a.local:1']
+
+
+# --- aliases (the FriendlyName /Alive reports) ---------------------------------------------------------------
+
+def _friendly(monkeypatch, names):
+    ''' Makes authenticate() succeed and friendly_name answer per server (a missing endpoint means unreachable). '''
+    current = {}
+
+    def authenticate(self):
+        endpoint = self._MediaServer__ip
+        if endpoint not in names:
+            raise MCWSError('Connection failure', f'http://{endpoint}', 0, 'refused')
+        current[id(self)] = names[endpoint]
+        return True
+
+    monkeypatch.setattr('model.jriver.mcws.MediaServer.authenticate', authenticate)
+    monkeypatch.setattr('model.jriver.mcws.MediaServer.friendly_name', property(lambda self: current.get(id(self))))
+
+
+def test_a_named_server_is_shown_by_its_name_with_the_address():
+    named = SavedConnection('10.0.0.1:52199', 'user', 'pw', False, alias='Living Room')
+
+    assert named.display_name == 'Living Room (10.0.0.1:52199)'
+    assert named.label == 'Living Room (10.0.0.1:52199) [user]'
+    assert SavedConnection('10.0.0.1:52199', alias='Den').label == 'Den (10.0.0.1:52199) [Unauthenticated]'
+    assert SavedConnection('10.0.0.1:52199').display_name == '10.0.0.1:52199'  # unnamed: unchanged
+
+
+def test_aliases_are_stored_apart_from_the_connections_and_dropped_with_them(tmp_path):
+    prefs = _prefs(tmp_path)
+    keep = SavedConnection('a.local:1', 'u', 'p', True, alias='Keep')
+    drop = SavedConnection('b.local:2', alias='Drop')
+
+    save_connections(prefs, [keep, drop])
+
+    assert prefs.get(JRIVER_MCWS_CONNECTIONS) == {'a.local:1': (('u', 'p'), True), 'b.local:2': (None, False)}
+    assert prefs.get(JRIVER_MCWS_ALIASES) == {'a.local:1': 'Keep', 'b.local:2': 'Drop'}
+    assert {c.endpoint: c.alias for c in load_connections(prefs)} == {'a.local:1': 'Keep', 'b.local:2': 'Drop'}
+
+    save_connections(prefs, [keep])
+    assert prefs.get(JRIVER_MCWS_ALIASES) == {'a.local:1': 'Keep'}
+
+
+def test_connections_saved_before_aliases_existed_load_without_one(tmp_path):
+    prefs = _prefs(tmp_path)
+    prefs.set(JRIVER_MCWS_CONNECTIONS, {'a.local:1': (None, False)})
+
+    assert load_connections(prefs) == [SavedConnection('a.local:1')]
+
+
+def test_remember_alias_only_records_a_change_for_a_saved_server(tmp_path):
+    prefs = _prefs(tmp_path)
+    prefs.set(JRIVER_MCWS_CONNECTIONS, {'a.local:1': (None, False)})
+
+    assert remember_alias(prefs, 'a.local:1', 'Den') is True
+    assert remember_alias(prefs, 'a.local:1', 'Den') is False  # unchanged
+    assert remember_alias(prefs, 'a.local:1', 'Renamed') is True
+    assert remember_alias(prefs, 'a.local:1', None) is False
+    assert remember_alias(prefs, 'a.local:1', '') is False
+    assert remember_alias(prefs, 'gone.local:9', 'Ghost') is False  # not saved, so nothing to name
+    assert prefs.get(JRIVER_MCWS_ALIASES) == {'a.local:1': 'Renamed'}
+
+
+def test_a_passing_test_reports_and_saves_the_servers_own_name(qtbot, tmp_path, monkeypatch):
+    widget, prefs = _widget_with(qtbot, tmp_path, {})
+    _friendly(monkeypatch, {'media.local:52199': 'Cinema PC'})
+    widget.endpointEdit.setText('media.local:52199')
+
+    _test_and_wait(qtbot, widget)
+
+    assert widget.statusLabel.text() == 'Connected to Cinema PC'
+    widget.addButton.click()
+    assert load_connections(prefs) == [SavedConnection('media.local:52199', alias='Cinema PC')]
+    assert widget.savedConnections.item(0).text() == 'Cinema PC (media.local:52199) [Unauthenticated]'
+
+
+def test_retesting_a_server_that_reports_no_name_keeps_the_name_it_had(qtbot, tmp_path, monkeypatch):
+    prefs = _prefs(tmp_path)
+    prefs.set(JRIVER_MCWS_CONNECTIONS, {'a.local:1': (None, False)})
+    prefs.set(JRIVER_MCWS_ALIASES, {'a.local:1': 'Den'})
+    widget = JRiverConnectionsWidget(prefs)
+    qtbot.addWidget(widget)
+    _friendly(monkeypatch, {'a.local:1': None})  # reachable, but reports no FriendlyName
+    _select(widget, 'a.local:1')
+    widget.httpsCheck.setChecked(True)
+
+    _test_and_wait(qtbot, widget)
+    widget.addButton.click()
+
+    assert load_connections(prefs) == [SavedConnection('a.local:1', secure=True, alias='Den')]
+
+
+def test_refresh_fills_in_names_for_unnamed_servers_only_and_skips_unreachable_ones(qtbot, tmp_path, monkeypatch):
+    prefs = _prefs(tmp_path)
+    prefs.set(JRIVER_MCWS_CONNECTIONS, {'old.local:1': (None, False), 'named.local:2': (None, False),
+                                        'dead.local:3': (None, False)})
+    prefs.set(JRIVER_MCWS_ALIASES, {'named.local:2': 'Already'})
+    widget = JRiverConnectionsWidget(prefs)
+    qtbot.addWidget(widget)
+    _friendly(monkeypatch, {'old.local:1': 'Basement', 'named.local:2': 'Should not be asked'})
+
+    with qtbot.waitSignal(widget.changed, timeout=5000):
+        widget.refresh_aliases()
+
+    names = {c.endpoint: c.alias for c in load_connections(prefs)}
+    assert names == {'old.local:1': 'Basement', 'named.local:2': 'Already', 'dead.local:3': None}
+    labels = {widget.savedConnections.item(i).data(widget.CONNECTION_ROLE).endpoint:
+              widget.savedConnections.item(i).text() for i in range(widget.savedConnections.count())}
+    assert labels['old.local:1'] == 'Basement (old.local:1) [Unauthenticated]'
+    assert labels['named.local:2'] == 'Already (named.local:2) [Unauthenticated]'
+    assert labels['dead.local:3'] == 'dead.local:3 [Unauthenticated]'
+
+
+def test_refresh_does_nothing_when_every_server_is_already_named(qtbot, tmp_path, monkeypatch):
+    prefs = _prefs(tmp_path)
+    prefs.set(JRIVER_MCWS_CONNECTIONS, {'a.local:1': (None, False)})
+    prefs.set(JRIVER_MCWS_ALIASES, {'a.local:1': 'Den'})
+    widget = JRiverConnectionsWidget(prefs)
+    qtbot.addWidget(widget)
+    authenticate = MagicMock(return_value=True)
+    monkeypatch.setattr('model.jriver.mcws.MediaServer.authenticate', authenticate)
+
+    widget.refresh_aliases()
+    qtbot.wait(100)
+
+    authenticate.assert_not_called()
+
+
+def test_the_filter_manager_dialog_shows_and_remembers_the_name_once_it_has_connected(qtbot, tmp_path, monkeypatch):
+    from model.jriver.ui import MCWSDialog
+    prefs = _prefs(tmp_path)
+    prefs.set(JRIVER_MCWS_CONNECTIONS, {'a.local:1': (None, False)})
+    _friendly(monkeypatch, {'a.local:1': 'Cinema PC'})
+    monkeypatch.setattr('model.jriver.mcws.MediaServer.get_zones',
+                        lambda self: (self.authenticate(), {'Main': 0})[1])
+    dialog = MCWSDialog(None, prefs)
+    qtbot.addWidget(dialog)
+    assert dialog.savedConnections.item(0).text() == 'a.local:1 [Unauthenticated]'
+
+    dialog.savedConnections.setCurrentRow(0)
+
+    assert dialog.savedConnections.item(0).text() == 'Cinema PC (a.local:1) [Unauthenticated]'
+    assert load_connections(prefs)[0].alias == 'Cinema PC'

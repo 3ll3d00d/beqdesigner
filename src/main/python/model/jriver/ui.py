@@ -3,6 +3,7 @@ from __future__ import annotations
 import itertools
 import json
 import logging
+from dataclasses import replace
 import os
 import sys
 import xml.etree.ElementTree as et
@@ -34,7 +35,7 @@ from model.jriver.filter import Divider, GEQFilter, CompoundRoutingFilter, Custo
     MDSXO, WayValues, MultiwayFilter, WayDescriptor, CompositeXODescriptor, MDSPoint, XODescriptor, MultiChannelSystem, \
     LFE_ADJUST_KEY, EDITORS_KEY, \
     EDITOR_NAME_KEY, UNDERLYING_KEY, WAYS_KEY, SYM_KEY, LFE_IN_KEY, ROUTING_KEY
-from model.jriver.connections import load_connections
+from model.jriver.connections import load_connections, remember_alias
 from model.jriver.mcws import MediaServer, MCWSError, DSPMismatchError
 from model.jriver.parser import from_mso
 from model.jriver.render import render_dot
@@ -2780,6 +2781,7 @@ class MDSDialog(QDialog, Ui_mdsDialog):
 
 class MCWSDialog(QDialog, Ui_loadDspFromZoneDialog):
     MCWS_ROLE = Qt.ItemDataRole.UserRole + 1
+    CONNECTION_ROLE = Qt.ItemDataRole.UserRole + 2
 
     def __init__(self, parent: QDialog, prefs: Preferences, download: bool = True,
                  txt_provider: Callable[[bool], str] = None,
@@ -2801,6 +2803,7 @@ class MCWSDialog(QDialog, Ui_loadDspFromZoneDialog):
         for connection in load_connections(self.prefs):
             item = QListWidgetItem(connection.label)
             item.setData(self.MCWS_ROLE, connection.to_media_server())
+            item.setData(self.CONNECTION_ROLE, connection)
             self.savedConnections.addItem(item)
         self.__media_server: Optional[MediaServer] = None
         self.upload.clicked.connect(self.__handle_config)
@@ -2814,9 +2817,11 @@ class MCWSDialog(QDialog, Ui_loadDspFromZoneDialog):
         self.__media_server = None
         self.upload.setEnabled(False)
         if selection.hasSelection():
-            self.__media_server = self.savedConnections.selectedItems()[0].data(self.MCWS_ROLE)
+            selected = self.savedConnections.selectedItems()[0]
+            self.__media_server = selected.data(self.MCWS_ROLE)
             try:
                 zones = self.__media_server.get_zones()
+                self.__remember_name(selected)
                 for zone_name, zone_id in zones.items():
                     item = QListWidgetItem(zone_name)
                     item.setData(self.MCWS_ROLE, zone_id)
@@ -2825,6 +2830,15 @@ class MCWSDialog(QDialog, Ui_loadDspFromZoneDialog):
             except MCWSError as e:
                 self.resultText.setPlainText(f"{e.url} - {e.status_code}\n\n{e.msg}\n\n{e.resp}")
                 self.zones.clear()
+
+    def __remember_name(self, item: QListWidgetItem):
+        ''' get_zones() authenticated, so the server has told us its FriendlyName: keep it, and show it. '''
+        connection = item.data(self.CONNECTION_ROLE)
+        name = self.__media_server.friendly_name
+        if connection is not None and remember_alias(self.prefs, connection.endpoint, name):
+            named = replace(connection, alias=name)
+            item.setData(self.CONNECTION_ROLE, named)
+            item.setText(named.label)
 
     def __handle_config(self):
         if self.__media_server:
