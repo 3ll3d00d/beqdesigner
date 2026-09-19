@@ -46,6 +46,14 @@ pipeline/
         art.py                  # TMDB poster fetch
         report.py                # headless report renderer (Agg canvas, no Qt)
         git.py                    # commit + push XML/images to their target repos
+        project.py                 # per-title .beq project files; a hand edit of one is what gets published
+    library/                       # library-scale runs -- see "Library sync (CLI)" below
+        source.py, registry.py      # LibraryItem / LibrarySource, an in-process registry of sources
+        jriver.py, filesystem.py     # the JRiver (MCWS browse node) and plain-filesystem sources
+        pathmap.py                    # translate a server's (Windows) paths to local ones
+        extract_cache.py, design_cache.py   # idempotent extract and design
+        season.py                      # TV: join a season's episodes into one track
+        run.py, sync.py, cli.py         # run_library(), sync_library(), the command line
 
 model/preferences.py          # GUI: durable list of configured HTTP designer endpoints + the review queue
                               #   directory default, both on the Preferences dialog's "Designers" page
@@ -195,6 +203,118 @@ Each candidate's filters are stored as `CompleteFilter.to_json()` — the same
 already-published `docs/schema/filter.schema.json` shape — so applying a
 reviewer's pick is a plain `filter_from_json()`, not a second conversion
 path.
+
+## Library sync (CLI)
+
+`pipeline.library.cli` runs the whole workflow over a library with no GUI, so it can be scheduled:
+
+```
+PYTHONPATH=src/main/python python -m pipeline.library.cli [--config FILE] run  [options]
+PYTHONPATH=src/main/python python -m pipeline.library.cli [--config FILE] sync [options]
+```
+
+`--config` goes *before* the command. `-h` after a command lists every option with its meaning.
+
+- **`run`** reads a library, extracts the audio of each title that is new or changed (idempotent -- a title whose
+  source and settings are unchanged is skipped), designs it, and writes an entry to the **review queue**. It never
+  publishes, so an unattended `run` has nothing to auto-publish.
+- A person then reviews the queue in the app (Tools > Library Sync, or Review Batch Designs) and accepts entries.
+- **`sync`** publishes only the *accepted* entries: XML to one repository and, optionally, a report image to
+  another. Each is marked published, so a re-run only retries what is still accepted. It runs as the invoking user's
+  own git/SSH configuration.
+
+**Libraries.** `--source jriver` reads the files under one Media Center *browse node*; `--source filesystem` reads
+folders or globs. A DVD or Blu-ray rip folder is one title. TV can be run as a filter per episode (the default) or a
+whole season joined into one track (`--tv-mode season`); the published metadata lists the episodes covered.
+
+**Needs.** `ffmpeg`/`ffprobe` (DVDs also need a build with the `dvdvideo` demuxer), a designer (below), `pyyaml` to
+read a `.yaml` config, and a TMDB API key if you want TMDB metadata (optional).
+
+### Designers
+
+`run --designer NAME` needs the designer registered in the process. The GUI does this from Preferences; the CLI
+declares them itself, in the config file's `designers:` or with `--designer-url NAME=URL` (repeatable, wins over
+the file), or you can pass an `http(s)://` URL as `--designer`. A designer is an HTTP endpoint speaking the
+contract in `design/designer-interface.md`; the config form also takes a `timeout` (seconds, default 300) and
+`headers` (e.g. a bearer token). An unknown name stops the run before anything is extracted.
+
+### Config file
+
+JSON or YAML. Every command-line option can be given in the file, under the same name with underscores, in the
+section for its command; **a flag overrides the file**. Repeatable flags replace the file's list.
+
+```yaml
+sources:                         # a source's own settings; the run section may also hold them
+  jriver:
+    host: media.local
+    port: 52199
+    browse_node_id: 1007         # -1 is the root of the browse tree
+    username: me                 # optional
+    password: secret
+    ssl: false
+    timeout: 5
+    path_mappings:               # JRiver reports the *server's* paths (Windows form); map them to local ones
+      - {from: 'W:\', to: /media/films}
+    external_id_fields:          # config only: which JRiver fields hold each id; omitted ones keep the defaults
+      movie: {imdb: [IMDb ID], tmdb: [TheMovieDB Movie ID, TMDb ID]}   # first field with a value wins
+      tv:    {imdb: [IMDb Series ID], tmdb: [TheMovieDB Series ID]}    # [] switches an id off
+  filesystem:
+    globs: [/media/films, '/media/tv/**/*.mkv']
+
+designers:                       # config only for timeout/headers; see Designers above
+  rolloff: http://designer.local:8080/design
+  private: {url: 'https://designer.example/design', timeout: 600, headers: {Authorization: 'Bearer TOKEN'}}
+
+run:
+  source: jriver                 # or filesystem
+  work_dir: /var/lib/beq/work    # extracted audio, caches, .beq projects
+  queue_dir: /var/lib/beq/queue  # the review queue
+  designer: rolloff
+  tmdb_api_key: XXXX             # optional
+  tv_mode: season                # episode (default) | season
+  keep_multichannel: false
+  audio_types: [DTS-HD MA 5.1]
+  analysis: {target_fs: 1000, resolution: 1.0}   # analysis settings nest under run/sync, not top level
+
+sync:
+  queue_dir: /var/lib/beq/queue
+  work_dir: /var/lib/beq/work    # publish from each title's .beq project, so a hand edit is what ships
+  xml_repo: /home/me/beq-filters # a local clone
+  xml_dir: filters
+  images_repo: /home/me/beq-images
+  image_dir: images
+  meta_defaults: {source: Disc, author: me}   # config only: BeqMetadata fields for anything an entry lacks
+```
+
+Settings with **no flag**: `sources.jriver.external_id_fields`, `designers` timeouts/headers, and
+`sync.meta_defaults`. Everything else has one.
+
+### Options
+
+Not repeated here: `python -m pipeline.library.cli run -h` and `sync -h` are the reference (a test keeps every
+option documented). In outline, `run` takes the library source (`--source --glob --host --port --browse-node-id
+--username --password --ssl --timeout --path-map`), where things go (`--work-dir --queue-dir`), design
+(`--designer --designer-url --coverage --keep-multichannel --tv-mode`), redoing work (`--force-extract
+--force-design`), metadata (`--tmdb-api-key --audio-type`) and analysis (`--target-fs --resolution --avg-window
+--peak-window`); `sync` takes what to publish (`--queue-dir --work-dir`), the repositories (`--xml-repo --xml-dir
+--images-repo --image-dir --image-owner --image-repo-name`) and the same analysis options. The boolean flags come in
+pairs (`--keep-multichannel` / `--no-keep-multichannel`) so a flag can turn something off that the file turned on.
+
+### Output and exit status
+
+Both commands print JSON to stdout.
+
+- `run` prints the report: `extracted` and `cached` (item ids whose audio was, or was not, re-extracted),
+  `designed` and `design_cached`, `failed` (`[id, "ErrorType: message"]` -- one bad title never stops the rest),
+  `meta_unresolved` (designed without TMDB metadata because TMDB failed), `project_edit_preserved` (a hand-edited
+  `.beq` project was left alone) and, with `--tv-mode season`, `seasons` (season id -> its episodes). Exit status 1
+  if anything is in `failed`.
+- `sync` prints one object per entry it published (`id` plus the publish result; `edited_project` and
+  `projects_aligned` say a hand edit was what shipped) or refused (`id` and `error`, e.g. `project_conflict` when the
+  mono and multichannel projects were edited to disagree). Exit status 1 if any entry was refused.
+- Exit status 2 is a bad option or config file (a message on stderr).
+
+A typical schedule: `run` nightly from cron, review in the app, `sync` when the queue has accepted entries.
 
 ## Design decisions (resolved)
 

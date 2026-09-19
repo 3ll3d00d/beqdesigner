@@ -136,58 +136,117 @@ def _sync(args: argparse.Namespace, config: dict[str, Any]) -> int:
 
 
 def _add_analysis_options(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument('--target-fs', type=int)
-    parser.add_argument('--resolution', type=float)
-    parser.add_argument('--avg-window')
-    parser.add_argument('--peak-window')
+    group = parser.add_argument_group('analysis', 'How audio is analysed. The defaults are the app\'s own; in a config '
+                                                  'file these go under an `analysis:` key inside `run:`/`sync:`.')
+    group.add_argument('--target-fs', type=int, help='analysis sample rate in Hz (default 1000)')
+    group.add_argument('--resolution', type=float, help='analysis frequency resolution in Hz (default 1.0)')
+    group.add_argument('--avg-window', help="window used for the average spectrum (default 'Default')")
+    group.add_argument('--peak-window', help="window used for the peak spectrum (default 'Default')")
+
+
+_RUN_EPILOG = """\
+Every option can also be set in the config file's `run:` section, under the same name with underscores
+(--work-dir is `work_dir`); a flag overrides the file. A source's own settings may be under `sources.<name>:`
+instead. Repeatable flags (--glob, --path-map, --designer-url, --audio-type) replace, rather than add to, the file's
+list. Exit status: 0, 1 if any item failed, 2 for a bad option or config. Prints the run report as JSON.
+"""
+
+_SYNC_EPILOG = """\
+Every option can also be set in the config file's `sync:` section, under the same name with underscores
+(--xml-repo is `xml_repo`); a flag overrides the file. `sync.meta_defaults` (a mapping of BeqMetadata fields, such as
+`source: Disc`) has no flag. Exit status: 0, 1 if any entry could not be published, 2 for a bad option or config.
+Prints one JSON result per published or refused entry. Never extracts or designs.
+"""
 
 
 def _add_run_options(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument('--source')
-    parser.add_argument('--host')
-    parser.add_argument('--port', type=int)
-    parser.add_argument('--browse-node-id', type=int)
-    parser.add_argument('--path-map', dest='path_maps', action='append', metavar='SERVER=LOCAL',
-                        help=r'jriver source: translate a server folder to a local one, e.g. W:\Films=/mnt/films')
-    parser.add_argument('--glob', dest='globs', action='append', help='filesystem source: a glob or directory')
-    parser.add_argument('--username')
-    parser.add_argument('--password')
-    parser.add_argument('--ssl', action=argparse.BooleanOptionalAction, default=None)
-    parser.add_argument('--timeout', type=int)
-    parser.add_argument('--work-dir')
-    parser.add_argument('--queue-dir')
-    parser.add_argument('--designer')
-    parser.add_argument('--designer-url', dest='designer_urls', action='append', metavar='NAME=URL')
-    parser.add_argument('--coverage', choices=('complete_programme', 'representative_segment'))
-    parser.add_argument('--keep-multichannel', action=argparse.BooleanOptionalAction, default=None)
-    parser.add_argument('--force-extract', action=argparse.BooleanOptionalAction, default=None)
-    parser.add_argument('--force-design', action=argparse.BooleanOptionalAction, default=None)
-    parser.add_argument('--tmdb-api-key')
-    parser.add_argument('--tv-mode', choices=TV_MODES,
-                        help='episode: a filter per TV episode (default); season: join each season into one track '
-                             'and design it once')
-    parser.add_argument('--audio-type', dest='audio_types', action='append')
+    source = parser.add_argument_group('library source')
+    source.add_argument('--source', help="which library to read: 'jriver' or 'filesystem' (required)")
+    source.add_argument('--glob', dest='globs', action='append', metavar='GLOB',
+                        help='filesystem source: a folder (its direct contents) or a glob such as /films/**/*.mkv; '
+                             'repeatable. DVD and Blu-ray rip folders are each one title')
+    source.add_argument('--host', help='jriver source: the Media Center server host or IP')
+    source.add_argument('--port', type=int, help='jriver source: the Media Center web service port (usually 52199)')
+    source.add_argument('--browse-node-id', type=int,
+                        help="jriver source: the browse node whose files are the library (-1 is the root)")
+    source.add_argument('--username', help='jriver source: username, if the server requires authentication')
+    source.add_argument('--password', help='jriver source: password (prefer the config file to the command line)')
+    source.add_argument('--ssl', action=argparse.BooleanOptionalAction, default=None,
+                        help='jriver source: use HTTPS (default: no)')
+    source.add_argument('--timeout', type=int, help='jriver source: request timeout in seconds (default 5)')
+    source.add_argument('--path-map', dest='path_maps', action='append', metavar='SERVER=LOCAL',
+                        help=r'jriver source: translate a folder as the server reports it to the same folder on '
+                             r'this machine, e.g. W:\Films=/mnt/films; repeatable, longest match wins')
+
+    output = parser.add_argument_group('where things go')
+    output.add_argument('--work-dir', help='directory for extracted audio, caches and .beq project files (required)')
+    output.add_argument('--queue-dir', help='review queue directory the designed entries are written to (required)')
+
+    design = parser.add_argument_group('design')
+    design.add_argument('--designer',
+                        help='name of the designer to run (required); it must be declared with --designer-url or '
+                             'the config file\'s `designers:`, or be an http(s) URL itself')
+    design.add_argument('--designer-url', dest='designer_urls', action='append', metavar='NAME=URL',
+                        help='declare an HTTP designer; repeatable. The config file\'s `designers:` mapping '
+                             '(name: URL, or name: {url, timeout, headers}) does the same and also sets a timeout '
+                             'and headers')
+    design.add_argument('--coverage', choices=('complete_programme', 'representative_segment'),
+                        help='how much of the programme the designer analyses (default complete_programme)')
+    design.add_argument('--keep-multichannel', action=argparse.BooleanOptionalAction, default=None,
+                        help='also keep the full-quality multichannel extraction, give the designer the per-channel '
+                             'audio and write a multichannel .beq project (default: no; ignored for TV seasons)')
+    design.add_argument('--tv-mode', choices=TV_MODES,
+                        help='episode: a filter per TV episode (default); season: join each season into one track, '
+                             'design it once and mark every episode in scope')
+
+    redo = parser.add_argument_group('redoing work')
+    redo.add_argument('--force-extract', action=argparse.BooleanOptionalAction, default=None,
+                      help='extract again even if the cached audio is up to date')
+    redo.add_argument('--force-design', action=argparse.BooleanOptionalAction, default=None,
+                      help='design again even if unchanged; entries a reviewer has accepted or published are '
+                           'never redesigned')
+
+    metadata = parser.add_argument_group('metadata')
+    metadata.add_argument('--tmdb-api-key',
+                          help='TMDB API key, to fill in title, genres, poster and (for TV) season details; '
+                               'without one only what the library itself says is recorded')
+    metadata.add_argument('--audio-type', dest='audio_types', action='append', metavar='TYPE',
+                          help='audio format to record, e.g. "DTS-HD MA 5.1"; repeatable')
     _add_analysis_options(parser)
 
 
 def _add_sync_options(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument('--queue-dir')
-    parser.add_argument('--work-dir')
-    parser.add_argument('--xml-repo')
-    parser.add_argument('--images-repo')
-    parser.add_argument('--image-owner')
-    parser.add_argument('--image-repo-name')
-    parser.add_argument('--xml-dir')
-    parser.add_argument('--image-dir')
+    where = parser.add_argument_group('what to publish')
+    where.add_argument('--queue-dir', help='review queue directory to publish from (required)')
+    where.add_argument('--work-dir',
+                       help='the run\'s work directory: publish the filter from each title\'s .beq project, so a '
+                            'hand edit is what ships, rather than the designer\'s original pick')
+    repos = parser.add_argument_group('repositories')
+    repos.add_argument('--xml-repo', help='local clone of the repository the filter XML is pushed to (required)')
+    repos.add_argument('--xml-dir', help='folder within the XML repository to put the files in (default: its root)')
+    repos.add_argument('--images-repo', help='local clone of the repository report images are pushed to; without '
+                                              'one no image is made')
+    repos.add_argument('--image-dir', help='folder within the images repository to put images in (default: its root)')
+    repos.add_argument('--image-owner', help="GitHub owner used to build image URLs (default: read from the images "
+                                             "repository's remote)")
+    repos.add_argument('--image-repo-name', help="GitHub repository name used to build image URLs (default: read "
+                                                 "from the images repository's remote)")
     _add_analysis_options(parser)
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description='Run or publish a BEQDesigner library source')
-    parser.add_argument('--config', help='JSON or YAML configuration file')
+    parser = argparse.ArgumentParser(
+        description='Run or publish a BEQDesigner library source: `run` extracts audio and designs filters into a '
+                    'review queue; `sync` publishes the entries a person has accepted. They are separate on '
+                    'purpose, so an unattended `run` never publishes.')
+    parser.add_argument('--config', help='JSON or YAML configuration file (give it before the command)')
     commands = parser.add_subparsers(dest='command', required=True)
-    _add_run_options(commands.add_parser('run', help='extract and design, without publishing'))
-    _add_sync_options(commands.add_parser('sync', help='publish accepted review entries'))
+    commands.add_parser('run', help='extract and design, without publishing', epilog=_RUN_EPILOG,
+                        formatter_class=argparse.RawDescriptionHelpFormatter)
+    _add_run_options(commands.choices['run'])
+    commands.add_parser('sync', help='publish accepted review entries', epilog=_SYNC_EPILOG,
+                        formatter_class=argparse.RawDescriptionHelpFormatter)
+    _add_sync_options(commands.choices['sync'])
     return parser
 
 

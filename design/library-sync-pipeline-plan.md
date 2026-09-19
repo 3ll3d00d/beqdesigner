@@ -873,6 +873,15 @@ the publish results and exits 1 if any carries an `'error'`; only
 metadata resolution. `sync` has no way to pass `meta_defaults` except via
 the config file's `sync.meta_defaults`.
 
+**Documentation.** Only 3 of ~40 options had help text and nothing but this
+plan described the CLI. Now every option has `--help` text (grouped by purpose,
+with an epilog saying how the config file maps to flags, the exit status and
+the output), `pipeline/README.md` has a "Library sync (CLI)" section (workflow,
+designers, a full annotated config file, the settings that have no flag, the
+JSON output and exit codes), and `test_pipeline_library_cli_docs.py` fails if
+an option lacks help or is missing from the README, and checks that the
+README's example config actually drives the CLI.
+
 **Designers (gap found and fixed).** The CLI originally had no way to
 register a designer, so `run --designer X` could never resolve `X` outside the
 GUI (which registers its Preferences endpoints at startup): every item failed
@@ -2355,7 +2364,7 @@ fixture.
 
 Reviewed against the code at `1ebaa4e` (471 tests), then updated after each
 follow-up commit per `AGENTS.md` -- currently current to the library
-CLI designer registration commit (803 tests). Everything in §8 marked Implemented is present and tested, except as
+CLI documentation commit (810 tests). Everything in §8 marked Implemented is present and tested, except as
 listed here. Items are ordered roughly by impact.
 
 **Behaviour gaps -- designed above (1-4 all now built)**
