@@ -85,6 +85,9 @@ LIBRARY_WORK_DIR = 'library/work_dir'
 LIBRARY_XML_REPO = 'library/xml_repo'
 LIBRARY_IMAGES_REPO = 'library/images_repo'
 LIBRARY_JRIVER_BROWSE_NODE = 'library/jriver_browse_node'
+LIBRARY_SOURCE_DEFAULT = 'library/source'
+LIBRARY_FILESYSTEM_GLOBS = 'library/filesystem_globs'
+LIBRARY_JRIVER_CONNECTION = 'library/jriver_connection'
 
 # distinguishes preference-configured designers from ad-hoc/in-process ones (e.g. registered by a test or a
 # script), so re-registering on every startup or Preferences-save replaces cleanly rather than accumulating
@@ -246,6 +249,9 @@ DEFAULT_PREFS = {
     LIBRARY_XML_REPO: '',
     LIBRARY_IMAGES_REPO: '',
     LIBRARY_JRIVER_BROWSE_NODE: -1,
+    LIBRARY_SOURCE_DEFAULT: 'filesystem',
+    LIBRARY_FILESYSTEM_GLOBS: [],
+    LIBRARY_JRIVER_CONNECTION: '',
     ANALYSIS_RESOLUTION: ANALYSIS_RESOLUTION_DEFAULT,
     ANALYSIS_TARGET_FS: 1000,
     ANALYSIS_AVG_WINDOW: ANALYSIS_WINDOW_DEFAULT,
@@ -337,6 +343,7 @@ DEFAULT_PREFS = {
 
 TYPES = {
     DESIGNER_HTTP_ENDPOINTS: list,
+    LIBRARY_FILESYSTEM_GLOBS: list,
     ANALYSIS_RESOLUTION: float,
     ANALYSIS_TARGET_FS: int,
     APP_FONT_SIZE: float,

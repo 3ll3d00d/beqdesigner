@@ -4,11 +4,10 @@ import logging
 from qtpy.QtCore import QObject, QRunnable, Qt, QThreadPool, Signal
 from qtpy.QtWidgets import QDialog, QMessageBox
 
-from model.jriver.connections import load_connections
-from model.preferences import DESIGNER_DEFAULT, DESIGNER_QUEUE_DIR, LIBRARY_IMAGES_REPO, \
-    LIBRARY_JRIVER_BROWSE_NODE, LIBRARY_WORK_DIR, LIBRARY_XML_REPO, TMDB_API_KEY
+from model.library_sources import registered_source_kinds
+from model.preferences import DESIGNER_DEFAULT, DESIGNER_QUEUE_DIR, LIBRARY_IMAGES_REPO, LIBRARY_SOURCE_DEFAULT, \
+    LIBRARY_WORK_DIR, LIBRARY_XML_REPO, TMDB_API_KEY
 from pipeline.config import AnalysisConfig
-from pipeline.library.jriver import JRiverLibrarySource
 from pipeline.library.run import LibraryRunConfig, run_library
 from pipeline.library.sync import sync_library
 from pipeline.publish.git import RepoTarget
@@ -66,7 +65,7 @@ class _SyncJob(QRunnable):
 
 
 class LibrarySyncDialog(QDialog, Ui_librarySyncDialog):
-    '''Configure a JRiver browse source, run it in the thread pool, then review or explicitly sync.'''
+    '''Pick a library source, run it in the thread pool, then review or explicitly sync.'''
 
     def __init__(self, parent, preferences):
         super().__init__(parent)
@@ -74,27 +73,32 @@ class LibrarySyncDialog(QDialog, Ui_librarySyncDialog):
         self.__preferences = preferences
         self.__review = None
         self.__active_job = None
+        self.__source_pages = {}
+        self.__load_sources()
         self.__load_preferences()
         self.__load_designers()
+        self.sourceCombo.currentIndexChanged.connect(self.sourceStack.setCurrentIndex)
         self.runButton.clicked.connect(self.__run)
         self.syncButton.clicked.connect(self.__sync)
         self.progressBar.setVisible(False)
+
+    def __load_sources(self):
+        ''' One page per registered kind, in registration order; the last-used kind is preselected. '''
+        for kind in registered_source_kinds():
+            page = kind.create_page()
+            page.load(self.__preferences)
+            self.__source_pages[kind.name] = page
+            self.sourceCombo.addItem(kind.label, kind.name)
+            self.sourceStack.addWidget(page)
+        index = self.sourceCombo.findData(self.__preferences.get(LIBRARY_SOURCE_DEFAULT))
+        self.sourceCombo.setCurrentIndex(max(index, 0))
+        self.sourceStack.setCurrentIndex(self.sourceCombo.currentIndex())
 
     def __load_preferences(self):
         self.workDirEdit.setText(self.__preferences.get(LIBRARY_WORK_DIR))
         self.queueDirEdit.setText(self.__preferences.get(DESIGNER_QUEUE_DIR))
         self.xmlRepoEdit.setText(self.__preferences.get(LIBRARY_XML_REPO))
         self.imagesRepoEdit.setText(self.__preferences.get(LIBRARY_IMAGES_REPO))
-        self.browseNodeSpin.setValue(self.__preferences.get(LIBRARY_JRIVER_BROWSE_NODE))
-        connections = load_connections(self.__preferences)
-        if connections:
-            connection = connections[0]
-            self.serverEdit.setText(connection.host)
-            if connection.port is not None:
-                self.portSpin.setValue(connection.port)
-            self.usernameEdit.setText(connection.username or '')
-            self.passwordEdit.setText(connection.password or '')
-            self.sslCheck.setChecked(connection.secure)
 
     def __load_designers(self):
         from pipeline.designer.registry import registered_designers
@@ -109,20 +113,17 @@ class LibrarySyncDialog(QDialog, Ui_librarySyncDialog):
         self.__preferences.set(DESIGNER_QUEUE_DIR, self.queueDirEdit.text())
         self.__preferences.set(LIBRARY_XML_REPO, self.xmlRepoEdit.text())
         self.__preferences.set(LIBRARY_IMAGES_REPO, self.imagesRepoEdit.text())
-        self.__preferences.set(LIBRARY_JRIVER_BROWSE_NODE, self.browseNodeSpin.value())
+        self.__preferences.set(LIBRARY_SOURCE_DEFAULT, self.sourceCombo.currentData())
+        for page in self.__source_pages.values():
+            page.save(self.__preferences)
 
     def __source_and_config(self):
-        host = self.serverEdit.text().strip()
         queue_dir = self.queueDirEdit.text().strip()
         work_dir = self.workDirEdit.text().strip()
         designer = self.designerCombo.currentText()
-        if not host or not queue_dir or not work_dir or not designer:
-            raise ValueError('Server, work directory, review queue, and designer are required')
-        source = JRiverLibrarySource(
-            host, self.portSpin.value(), self.browseNodeSpin.value(),
-            username=self.usernameEdit.text().strip() or None,
-            password=self.passwordEdit.text() or None, ssl=self.sslCheck.isChecked(),
-        )
+        if not queue_dir or not work_dir or not designer:
+            raise ValueError('Work directory, review queue, and designer are required')
+        source = self.__source_pages[self.sourceCombo.currentData()].build_source()
         config = LibraryRunConfig(work_dir=work_dir, queue_dir=queue_dir, designer=designer,
                                   keep_multichannel=self.keepMultichannelCheck.isChecked(),
                                   tmdb_api_key=self.__preferences.get(TMDB_API_KEY) or None)

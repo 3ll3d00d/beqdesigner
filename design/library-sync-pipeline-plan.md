@@ -881,10 +881,11 @@ New dialog, `model/library_sync.py` / `ui/library_sync.py`
 - A source picker (registered `LibrarySource`s; JRiver connection
   reuses the existing `JRIVER_MCWS_CONNECTIONS` preference, same one
   the DSP-push feature already maintains) and a query/filter field.
-  **As built:** no picker and no query field -- the dialog is JRiver-only,
-  takes the *first* saved MCWS connection, and selects the browse node
-  with a plain integer spin box (`browseNodeSpin`, default `-1`); the
-  `browse_children()` node selector described in §3.1 is not built.
+  **As built (chunk 13, §11.3):** a **Source** combo over a per-kind
+  settings page (Filesystem, JRiver); the JRiver page picks a server from
+  the shared list. There is still no query field (neither built-in source
+  takes a query) and the browse node is still a plain integer spin box until
+  chunk 14. The old hard-wired server/port/credentials fields are gone.
 - **Run** tab: calls `run_library()` on a background `QRunnable` (same
   `QThreadPool` pattern as `ProbeJob`/`DesignJob`), streams
   `on_item_done` progress into the UI, switches to the **Review** tab
@@ -954,7 +955,7 @@ fixture -- only chunk 8 is blocked on that mapping.
 | 10 | GUI: `model/library_sync.py`/`ui/library_sync.py` + `model/preferences.py` additions (§7), including the library-view filter bar (status + name/year/content-type, exact fields decided at UI design time), with a `pytest-qt` safety-net test before wiring, per this repo's established practice for touching a dialog. | 7, 8, 9 | **Implemented -- commit `9da7aea`; deferred: library-view filter bar, source picker/query field, browse-node selector** |
 | 11 | Shared JRiver connections (§11.1): a `Preferences -> JRiver` pane owns add/test/delete of MCWS servers (`JRIVER_MCWS_CONNECTIONS`, unchanged storage); the JRiver filter manager's `MCWSDialog` and Library Sync both *pick from* that list instead of each managing their own. | 10 | **Implemented** -- `model/jriver/connections.py`, Preferences -> JRiver page, `MCWSDialog` trimmed to pick-only |
 | 12 | `pipeline/library/filesystem.py` -- a Qt-free `FilesystemLibrarySource` (globs, BDMV roots) so "raw filesystem, as batch extract does" is a `LibrarySource` too (§11.2). CLI gains `--source filesystem`. | 4 | **Implemented** -- `pipeline/library/filesystem.py`; CLI `--source filesystem --glob ...` |
-| 13 | Library Sync **source picker** (§11.3): a Source combo (Filesystem / JRiver servers / future kinds) over a per-kind settings page, via a small registry of source *kinds*; replaces the "first saved connection" logic and the hard-wired JRiver group. | 11, 12 | Planned |
+| 13 | Library Sync **source picker** (§11.3): a Source combo (Filesystem / JRiver servers / future kinds) over a per-kind settings page, via a small registry of source *kinds*; replaces the "first saved connection" logic and the hard-wired JRiver group. | 11, 12 | **Implemented** -- `model/library_sources.py`, `LibrarySyncDialog` source combo + stacked pages |
 | 14 | JRiver **browse-node picker** (§11.4): a tree dialog over `Browse/Children` so the root node is chosen, not typed; the numeric field stays as a fallback. | 13 | Planned |
 
 ---
@@ -2339,7 +2340,7 @@ fixture.
 
 Reviewed against the code at `1ebaa4e` (471 tests), then updated after each
 follow-up commit per `AGENTS.md` -- currently current to the library
-filesystem-source commit (529 tests). Everything in §8 marked Implemented is present and tested, except as
+source-picker commit (535 tests). Everything in §8 marked Implemented is present and tested, except as
 listed here. Items are ordered roughly by impact.
 
 **Behaviour gaps -- designed above (1-4 all now built)**
@@ -2382,10 +2383,13 @@ listed here. Items are ordered roughly by impact.
 
 10. **Chunk 3, the real-server spike, was never done** -- field aliases and
    `Browse/Children` shape are unverified; there is no sanitised fixture.
-11. **GUI gaps (§7):** no library-view filter bar (status/name/year/type),
-    no source picker or query field, no browse-node selector (raw integer
-    spin box), no `LIBRARY_SOURCE_DEFAULT`. First saved MCWS connection only.
-12. **`pipeline.library.registry` has no production callers** (§3).
+11. **GUI gaps (§7):** no library-view filter bar (status/name/year/type);
+    no browse-node selector (raw integer spin box -- chunk 14). The source
+    picker, `LIBRARY_SOURCE_DEFAULT` and choosing among saved servers are
+    done (chunk 13).
+12. **`pipeline.library.registry` has no production callers** (§3). The GUI
+    has its own kind registry (`model/library_sources.py`) because kinds also
+    carry widgets; the headless one remains an unused seam.
 13. **Untested:** `INTERNAL` artwork handling in `jriver.py`; manual
     verification of the review dialog (A.8) is unconfirmed.
 14. **Document hygiene (fixed in this review):** the header said "plan only,
@@ -2460,6 +2464,19 @@ The chosen kind and its settings persist in preferences
 (`LIBRARY_SOURCE_DEFAULT`, ...). `pipeline.library.registry` remains the
 headless registry; the GUI kind registry is separate because it also carries
 widgets.
+
+**As built (chunk 13):** `model/library_sources.py` --
+`LibrarySourceKind(name, label, create_page)`, `register_source_kind()` /
+`registered_source_kinds()`, an abstract `SourcePage` (`load(prefs)`,
+`save(prefs)`, `build_source()` raising `ValueError` with a user-facing
+message), and the two built-in pages. `LibrarySyncDialog` builds one page per
+registered kind into a `QStackedWidget`, preselects `LIBRARY_SOURCE_DEFAULT`
+(default `filesystem`), and on Run/Sync persists the kind and every page's
+settings. New preferences: `LIBRARY_SOURCE_DEFAULT`, `LIBRARY_FILESYSTEM_GLOBS`
+(a list), `LIBRARY_JRIVER_CONNECTION` (the chosen server's `host:port`);
+`LIBRARY_JRIVER_BROWSE_NODE` is unchanged. The filesystem page takes globs
+one per line with an Add folder button. Pages are built when the dialog
+opens, so servers added in Preferences while it is open appear next time.
 
 ### 11.4 Browse-node picker (chunk 14)
 

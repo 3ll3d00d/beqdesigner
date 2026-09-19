@@ -12,19 +12,10 @@
       <layout class="QVBoxLayout" name="runLayout">
        <item>
         <widget class="QGroupBox" name="sourceGroup">
-         <property name="title"><string>JRiver browse source</string></property>
-         <layout class="QFormLayout" name="sourceForm">
-          <item row="0" column="0"><widget class="QLabel" name="serverLabel"><property name="text"><string>Server</string></property></widget></item>
-          <item row="0" column="1"><widget class="QLineEdit" name="serverEdit"/></item>
-          <item row="1" column="0"><widget class="QLabel" name="portLabel"><property name="text"><string>Port</string></property></widget></item>
-          <item row="1" column="1"><widget class="QSpinBox" name="portSpin"><property name="maximum"><number>65535</number></property><property name="value"><number>52199</number></property></widget></item>
-          <item row="2" column="0"><widget class="QLabel" name="browseNodeLabel"><property name="text"><string>Browse node ID</string></property></widget></item>
-          <item row="2" column="1"><widget class="QSpinBox" name="browseNodeSpin"><property name="minimum"><number>-1</number></property><property name="maximum"><number>2147483647</number></property></widget></item>
-          <item row="3" column="0"><widget class="QLabel" name="usernameLabel"><property name="text"><string>Username</string></property></widget></item>
-          <item row="3" column="1"><widget class="QLineEdit" name="usernameEdit"/></item>
-          <item row="4" column="0"><widget class="QLabel" name="passwordLabel"><property name="text"><string>Password</string></property></widget></item>
-          <item row="4" column="1"><widget class="QLineEdit" name="passwordEdit"><property name="echoMode"><enum>QLineEdit::Password</enum></property></widget></item>
-          <item row="5" column="1"><widget class="QCheckBox" name="sslCheck"><property name="text"><string>Use HTTPS</string></property></widget></item>
+         <property name="title"><string>Library source</string></property>
+         <layout class="QVBoxLayout" name="sourceLayout">
+          <item><widget class="QComboBox" name="sourceCombo"/></item>
+          <item><widget class="QStackedWidget" name="sourceStack"/></item>
          </layout>
         </widget>
        </item>
