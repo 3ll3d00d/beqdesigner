@@ -123,11 +123,12 @@ def test_maps_optional_fields_and_tv_metadata(tmp_path):
         'Date Modified': None, 'File Size': None, 'IMDb ID': '', 'TheMovieDB Movie ID': '',
     })])[0]
 
-    assert item.display_name == 'Example.mkv'
-    assert item.title is None
+    assert item.display_name == 'Example Show S02E03'
+    assert item.title == 'Example Show'  # the series, not the episode
     assert item.year is None
     assert item.kind == 'tv'
-    assert item.meta == {'season': '2'}
+    assert (item.season, item.episodes) == ('2', (3,))
+    assert item.meta == {}
     assert item.art_path == str(artwork)
     assert item.external_ids == {}
     assert item.fingerprint == ''
@@ -223,12 +224,36 @@ def test_kind_follows_the_media_sub_type_before_the_episodic_fields(sub_type, ex
     assert _source()._map_row(row).kind == expected
 
 
-def test_season_is_only_kept_for_tv():
+def test_season_and_episode_are_only_kept_for_tv():
     tv = _source()._map_row(_row(**{'Media Sub Type': 'TV Show', 'Series': 'S', 'Season': '2', 'Episode': '3'}))
     film = _source()._map_row(_row(**{'Media Sub Type': 'Movie', 'Series': 'Film Clips', 'Season': 'Bass'}))
 
-    assert tv.meta == {'season': '2'}
-    assert film.meta == {}
+    assert (tv.season, tv.episodes) == ('2', (3,))
+    assert (film.season, film.episodes) == (None, ())
+    assert film.title == 'Example'  # a film keeps its own name, not its Series
+
+
+@pytest.mark.parametrize('extra, expected_title, season, episodes', [
+    ({'Series': 'Show', 'Name': 'The Sofa'}, 'Show', '1', (2,)),
+    ({'Series': '', 'Name': 'The Sofa'}, 'The Sofa', '1', (2,)),  # no series: fall back to the name
+    ({'Series': 'Show', 'Season': 'Bass'}, 'Show', None, ()),  # a non-numeric season is not a season
+    ({'Series': 'Show', 'Episode': 'Pilot'}, 'Show', '1', ()),  # nor an episode
+    ({'Series': 'Show', 'Season': ''}, 'Show', None, ()),
+])
+def test_tv_title_season_and_episodes_come_from_the_series_and_numeric_fields(extra, expected_title, season, episodes):
+    row = _row(**{'Media Sub Type': 'TV Show', 'Season': '1', 'Episode': '2', **extra})
+
+    item = _source()._map_row(row)
+
+    assert item.title == expected_title
+    assert item.season == season
+    assert item.episodes == episodes
+
+
+def test_an_episode_is_displayed_with_its_series_season_and_number():
+    row = _row(**{'Media Sub Type': 'TV Show', 'Series': 'Eastbound', 'Season': '1', 'Episode': '11', 'Name': 'Chapter 11'})
+
+    assert _source()._map_row(row).display_name == 'Eastbound S01E11 Chapter 11'
 
 
 # --- path mapping: JRiver reports the *server's* (Windows) paths ---------------------------------------------

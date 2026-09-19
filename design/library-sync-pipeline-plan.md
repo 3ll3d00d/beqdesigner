@@ -960,7 +960,7 @@ fixture -- only chunk 8 is blocked on that mapping.
 | 15 | Path mappings (§11.6): a per-server list of server-folder -> local-folder rules, edited in Preferences -> JRiver and applied when a JRiver source reads items (`pipeline/library/pathmap.py`, CLI `--path-map`). | 11, 13 | **Implemented** |
 | 16 | Configurable external-id fields (§11.7): `Library/Fields` listing, per-kind defaults, and a per-server field mapping edited in Preferences -> JRiver. | 15 | **Implemented** -- `model/jriver/field_mappings.py`, per-server storage, Library Sync hand-off |
 | 17 | DVD-Video rips (§11.8): `model/dvd.py` (title table + durations from the IFO files), read through ffmpeg's `dvdvideo` demuxer via new `Executor` input options; wired into `Session.extract`, Batch Extract, the filesystem source and JRiver's `VIDEO_TS.dvd;N` entries. | 15 | **Implemented**; multi-episode discs limited (see §11.8) |
-| 18 | TV seasons (§11.9): metadata that marks the episodes a filter covers (built), TMDB season lookup + season/episodes on library items, and a `tv_mode` option -- one filter per episode, or the whole season as a single track. | 15 | Metadata/XML built; rest planned |
+| 18 | TV seasons (§11.9): metadata that marks the episodes a filter covers (built), TMDB season lookup + season/episodes on library items, and a `tv_mode` option -- one filter per episode, or the whole season as a single track. | 15 | Metadata, TMDB season, library items built; `tv_mode` planned |
 
 ---
 
@@ -2344,7 +2344,7 @@ fixture.
 
 Reviewed against the code at `1ebaa4e` (471 tests), then updated after each
 follow-up commit per `AGENTS.md` -- currently current to the library
-TV season metadata commit (724 tests). Everything in §8 marked Implemented is present and tested, except as
+TV season library-items commit (759 tests). Everything in §8 marked Implemented is present and tested, except as
 listed here. Items are ordered roughly by impact.
 
 **Behaviour gaps -- designed above (1-4 all now built)**
@@ -2767,12 +2767,31 @@ neither of which the legacy form can express. The XML writer's `beq_season`
 dict branch emits the structured element (`episodes` omitted when none given).
 A show with no season is written exactly as before.
 
-**Still to build** (each its own commit): TMDB `tmdb_season_info()` (season id
-and episode count from `/tv/{id}/season/{n}`); `LibraryItem.season` and
-`.episodes`; the JRiver source using the *Series* as the title (it uses the
-episode's name today) and filling season/episodes; `resolve_meta()` filling the
-season fields; a review-dialog Episodes field; and `tv_mode` -- `episode` (the
-default, today's behaviour) or `season` (group a series' items by season, extract
-each episode as usual, concatenate their audio into one track, design once, and
-mark every member episode as in scope), in `LibraryRunConfig`, the CLI and the
-Library Sync dialog.
+**Library items and TMDB (built).**
+- `pipeline.metadata.tmdb_season_info(series_id, season, api_key)` reads
+  `/tv/{id}/season/{n}`: the season's TMDB id and its episode count (`None`
+  on a 404). `parse_episodes()` / `format_episodes()` convert `"1-3, 5"` <->
+  `[1, 2, 3, 5]`.
+- `LibraryItem` gains `season: Optional[str]` and `episodes: tuple[int, ...]`
+  (one for an episode; several once a season is grouped into a single track).
+- JRiver TV items are now **titled by their `Series`** (falling back to the
+  name), where before the title was the episode's name -- which would have sent
+  "Chapter 3" to TMDB as the show. `season`/`episodes` are set only from
+  *numeric* `Season`/`Episode`. `display_name` is `Series S01E03 name`.
+  `meta['season']` is no longer used. Live (Shows node): 84 series, 182
+  series/season groups, season and episode on 1646 of 1657 items.
+- `resolve_meta()` puts `season` and `episodes` (from the library; also what an
+  item gets with no TMDB key, or when TMDB fails) in the metadata and, for a TV
+  item with a season, asks TMDB for the season id/count. A failed or empty
+  lookup keeps just the season and episodes, so the plain-season/note fallback
+  applies. `item.meta` still wins over everything.
+- The review dialog's metadata tab has an **Episodes** field (`1-3, 5`).
+  Unlike the text fields a blank box is a real answer -- no episodes in scope --
+  so it is written as `[]`; an unparseable entry is reported and nothing is
+  saved.
+
+**Still to build:** `tv_mode` -- `episode` (the default, today's behaviour) or
+`season` (group a series' items by season, extract each episode as usual,
+concatenate their audio into one track, design once, and mark every member
+episode as in scope) -- in `LibraryRunConfig`, the CLI and the Library Sync
+dialog.

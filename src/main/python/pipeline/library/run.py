@@ -11,7 +11,7 @@ from pipeline.designer.contract import Coverage
 from pipeline.library.design_cache import design_if_needed
 from pipeline.library.extract_cache import extract_if_needed, read_channel_layout_name, \
     read_source_channel_count
-from pipeline.library.library_metadata import resolve_meta
+from pipeline.library.library_metadata import resolve_meta, season_meta
 from pipeline.library.source import LibraryItem, LibrarySource
 from pipeline.orchestrate import Session
 
@@ -50,7 +50,7 @@ def _meta_source(item: LibraryItem, run_config: LibraryRunConfig, report: Librar
     whatever the library itself supplied and is recorded in report.meta_unresolved for a reviewer to fix.
     '''
     if not run_config.tmdb_api_key:
-        return dict(item.meta)
+        return {**season_meta(item), **item.meta}
 
     def resolve() -> dict:
         try:
@@ -58,7 +58,7 @@ def _meta_source(item: LibraryItem, run_config: LibraryRunConfig, report: Librar
         except requests.RequestException as error:
             logger.warning('Unable to resolve TMDB metadata for %s: %s', item.id, error)
             report.meta_unresolved.append((item.id, f'{type(error).__name__}: {error}'))
-            return dict(item.meta)
+            return {**season_meta(item), **item.meta}
 
     return resolve
 

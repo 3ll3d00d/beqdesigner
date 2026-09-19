@@ -199,3 +199,72 @@ def test_pipeline_metadata_module_has_no_qtpy_import():
             assert not any(n.name.startswith('qtpy') for n in node.names)
         elif isinstance(node, ast.ImportFrom):
             assert node.module is None or not node.module.startswith('qtpy')
+
+
+# --- TV seasons (plan §11.9) --------------------------------------------------------------------------------
+
+def test_season_info_reads_the_season_id_and_counts_its_episodes(monkeypatch):
+    import pipeline.metadata as metadata
+
+    class _Response:
+        status_code = 200
+        def raise_for_status(self): pass
+        def json(self): return {'id': 92137, 'season_number': 1, 'episodes': [{'episode_number': n} for n in range(1, 9)]}
+
+    seen = {}
+    monkeypatch.setattr(metadata.requests, 'get', lambda url, params: seen.update(url=url) or _Response())
+
+    info = metadata.tmdb_season_info(66292, 1, 'key')
+
+    assert info == metadata.SeasonInfo(id='92137', episode_count=8)
+    assert seen['url'].endswith('/tv/66292/season/1')
+
+
+def test_season_info_is_none_for_an_unknown_season(monkeypatch):
+    import pipeline.metadata as metadata
+
+    class _Missing:
+        status_code = 404
+        def raise_for_status(self): raise AssertionError('a 404 is an answer, not an error')
+
+    monkeypatch.setattr(metadata.requests, 'get', lambda url, params: _Missing())
+
+    assert metadata.tmdb_season_info(1, 99, 'key') is None
+
+
+def test_season_info_raises_on_a_server_error(monkeypatch):
+    import pipeline.metadata as metadata
+    import requests
+
+    class _Broken:
+        status_code = 500
+        def raise_for_status(self): raise requests.HTTPError('500')
+
+    monkeypatch.setattr(metadata.requests, 'get', lambda url, params: _Broken())
+
+    with pytest.raises(requests.HTTPError):
+        metadata.tmdb_season_info(1, 1, 'key')
+
+
+@pytest.mark.parametrize('text, episodes', [
+    ('', []), ('  ', []), ('3', [3]), ('1-3', [1, 2, 3]), ('1-3, 5', [1, 2, 3, 5]), ('5, 1 ,3-4', [1, 3, 4, 5]),
+    ('2, 2, 1-2', [1, 2]), ('1,,2', [1, 2]),
+])
+def test_parse_episodes(text, episodes):
+    from pipeline.metadata import parse_episodes
+    assert parse_episodes(text) == episodes
+
+
+@pytest.mark.parametrize('text', ['x', '0', '3-1', '1-', '-2', '1.5', 'E3'])
+def test_parse_episodes_rejects_junk(text):
+    from pipeline.metadata import parse_episodes
+    with pytest.raises(ValueError):
+        parse_episodes(text)
+
+
+def test_format_episodes_compresses_runs_and_round_trips():
+    from pipeline.metadata import format_episodes, parse_episodes
+    assert format_episodes([1, 2, 3, 5]) == '1-3, 5'
+    assert format_episodes([5, 3, 4, 1]) == '1, 3-5'
+    assert format_episodes([]) == ''
+    assert parse_episodes(format_episodes([2, 3, 7, 8, 9])) == [2, 3, 7, 8, 9]

@@ -34,6 +34,10 @@ class LibraryItem:
                                               # -- merged in on top of, and losing to nothing from, whatever
                                               # TMDB resolution produces
     fingerprint: str = ''                    # source-specific change marker (§4.1) -- opaque to callers
+    season: Optional[str] = None             # TV: the season number, when the source knows it
+    episodes: tuple = ()                     # TV: the episode numbers (ints) this item covers -- one for an
+                                              # episode, several for a season grouped into a single track
+                                              # (design/library-sync-pipeline-plan.md §11.9)
 
 
 class LibrarySource(Protocol):

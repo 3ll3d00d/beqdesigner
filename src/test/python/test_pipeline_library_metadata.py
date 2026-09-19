@@ -1,5 +1,9 @@
 '''Tests for metadata resolution from a library item's external identifiers.'''
-from pipeline.library.library_metadata import resolve_meta
+import pytest
+import requests
+
+from pipeline.library.library_metadata import resolve_meta, season_meta
+from pipeline.metadata import BeqMetadata, SeasonInfo
 from pipeline.library.source import LibraryItem
 
 
@@ -88,3 +92,86 @@ def test_tmdb_find_by_imdb_id_selects_the_requested_media_kind(monkeypatch):
     assert metadata.tmdb_find_by_imdb_id('tt123', 'key', 'tv') == '2'
     assert calls[0][0].endswith('/find/tt123')
     assert calls[0][1] == {'api_key': 'key', 'external_source': 'imdb_id'}
+
+
+# --- TV seasons (plan §11.9) --------------------------------------------------------------------------------
+
+def _tv(**overrides):
+    values = {'kind': 'tv', 'title': 'Some Show', 'season': '2', 'episodes': (3,), 'meta': {},
+              'external_ids': {'tmdb': '66292'}}
+    values.update(overrides)
+    return _item(**values)
+
+
+def _patch_show(monkeypatch, season_info=SeasonInfo('92137', 8), season_calls=None):
+    monkeypatch.setattr('pipeline.library.library_metadata.tmdb_details_by_id',
+                        lambda tmdb_id, api_key, kind, audio_types: BeqMetadata(
+                            title='Some Show', year='2015', audio_types=audio_types, the_movie_db=str(tmdb_id)))
+
+    def info(series_id, season, api_key):
+        if season_calls is not None:
+            season_calls.append((series_id, season, api_key))
+        if isinstance(season_info, Exception):
+            raise season_info
+        return season_info
+
+    monkeypatch.setattr('pipeline.library.library_metadata.tmdb_season_info', info)
+
+
+def test_a_tv_items_season_episodes_and_tmdb_season_details_are_resolved(monkeypatch):
+    calls = []
+    _patch_show(monkeypatch, season_calls=calls)
+
+    meta = resolve_meta(_tv(), 'key')
+
+    assert calls == [('66292', '2', 'key')]
+    assert (meta['season'], meta['episodes']) == ('2', [3])
+    assert (meta['season_id'], meta['season_episode_count']) == ('92137', 8)
+    assert BeqMetadata(**meta).structured_season
+
+
+def test_a_whole_seasons_episodes_are_all_in_scope(monkeypatch):
+    _patch_show(monkeypatch)
+
+    assert resolve_meta(_tv(episodes=(1, 2, 3, 4)), 'key')['episodes'] == [1, 2, 3, 4]
+
+
+def test_a_failed_season_lookup_keeps_the_library_season_and_episodes(monkeypatch):
+    _patch_show(monkeypatch, season_info=requests.HTTPError('500'))
+
+    meta = resolve_meta(_tv(), 'key')
+
+    assert (meta['season'], meta['episodes']) == ('2', [3])
+    assert not meta['season_id']
+    assert not BeqMetadata(**meta).structured_season  # so it is written as a plain season and an episode note
+
+
+def test_a_season_tmdb_does_not_know_keeps_the_library_values(monkeypatch):
+    _patch_show(monkeypatch, season_info=None)
+
+    assert not resolve_meta(_tv(), 'key')['season_id']
+
+
+def test_no_season_lookup_for_a_film_or_a_show_without_a_season(monkeypatch):
+    calls = []
+    _patch_show(monkeypatch, season_calls=calls)
+
+    film = resolve_meta(_item(kind='movie', external_ids={'tmdb': '603'}), 'key')
+    show = resolve_meta(_tv(season=None, episodes=()), 'key')
+
+    assert calls == []
+    assert not film['season_id'] and not show['season'] and not show['episodes']
+
+
+def test_item_meta_still_wins_over_everything_resolved(monkeypatch):
+    _patch_show(monkeypatch)
+
+    meta = resolve_meta(_tv(meta={'season': '9', 'season_id': 'mine'}), 'key')
+
+    assert meta['season'] == '9' and meta['season_id'] == 'mine'
+
+
+def test_season_meta_is_just_what_the_library_says():
+    assert season_meta(_tv()) == {'season': '2', 'episodes': [3]}
+    assert season_meta(_item()) == {}
+    assert season_meta(_tv(episodes=())) == {'season': '2'}

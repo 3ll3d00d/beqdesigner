@@ -223,10 +223,13 @@ class JRiverLibrarySource:
             raise ValueError(f'JRiver Browse/Files row {key!r} has no Filename')
 
         name = _value(row, 'Name')
-        title = name or None
-        season = _value(row, 'Season')
         kind = _kind(row)
-        meta = {'season': season} if season and kind == 'tv' else {}
+        # a TV item is titled by its series, not by the episode's name ('Chapter 3', 'The Sofa')
+        series = _value(row, 'Series') if kind == 'tv' else ''
+        title = series or name or None
+        season = _value(row, 'Season') if kind == 'tv' and _value(row, 'Season').isdigit() else None
+        episode = _value(row, 'Episode')
+        episodes = (int(episode),) if kind == 'tv' and season and episode.isdigit() else ()
         modified = _value(row, 'Date Modified')
         size = _value(row, 'File Size')
         fingerprint = json.dumps({'date_modified': modified, 'file_size': size}, sort_keys=True) \
@@ -236,14 +239,15 @@ class JRiverLibrarySource:
         return LibraryItem(
             id=f'jriver-{self._server_id}-{key}',
             source_path=source_path,
-            display_name=name or _base_name(filename),
+            display_name=_display_name(name, series, season, episodes) or _base_name(filename),
             title=title,
             year=_value(row, 'Year') or _value(row, 'Date (year)') or None,
             kind=kind,
             external_ids=self._external_ids(row, kind),
             art_path=self._local_art_path(_value(row, 'Image File'), source_path),
-            meta=meta,
             fingerprint=fingerprint,
+            season=season,
+            episodes=episodes,
         )
 
     def _local_art_path(self, value: str, media_path: str) -> Optional[str]:
@@ -276,6 +280,13 @@ def _kind(row: Mapping[str, Any]) -> str:
     if sub_type:
         return 'tv' if 'tv' in sub_type else 'movie'
     return 'tv' if _value(row, 'Series') and _value(row, 'Season') and _value(row, 'Episode') else 'movie'
+
+
+def _display_name(name: str, series: str, season: Optional[str], episodes: tuple) -> str:
+    ''' 'Series S01E03 name' for an episode, else just the item's own name. '''
+    if series and season and episodes:
+        return f"{series} S{int(season):02d}E{episodes[0]:02d}" + (f" {name}" if name else '')
+    return name
 
 
 def _id_value(row: Mapping[str, Any], field: str) -> str:

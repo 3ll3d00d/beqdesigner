@@ -22,6 +22,7 @@ from model.codec import filter_from_json, xydata_from_json
 from model.magnitude import MagnitudeModel
 from model.preferences import DESIGNER_QUEUE_DIR
 from pipeline.config import AnalysisConfig
+from pipeline.metadata import format_episodes, parse_episodes
 from pipeline.publish.git import RepoTarget
 from pipeline.review import describe_publish_error, publish_reviewed_queue, read_queue, split_publish_results, \
     update_entry
@@ -237,6 +238,7 @@ class ReviewQueueDialog(QDialog, Ui_reviewQueueDialog):
         self.audioTypesField.setText(', '.join(meta.get('audio_types', [])))
         self.editionField.setText(meta.get('edition', ''))
         self.seasonField.setText(meta.get('season', ''))
+        self.episodesField.setText(format_episodes(meta.get('episodes') or []))
         self.noteField.setText(meta.get('note', ''))
         self.warningField.setText(meta.get('warning', ''))
         self.languageField.setText(meta.get('language', ''))
@@ -290,6 +292,12 @@ class ReviewQueueDialog(QDialog, Ui_reviewQueueDialog):
             'overview': self.__pending_tmdb_extras.get('overview', ''),
         }
         fields.update({k: v for k, v in optional.items() if v})  # blank = leave unset, don't stomp a BeqMetadata default
+        try:
+            # unlike the text fields a blank box is a real answer here (no episodes in scope), so it is written
+            fields['episodes'] = parse_episodes(self.episodesField.text())
+        except ValueError as error:
+            self.metadataStatusLabel.setText(f"Episodes: {error} (use numbers and ranges such as 1-3, 5)")
+            return
         if 'genres' in self.__pending_tmdb_extras:
             fields['genres'] = self.__pending_tmdb_extras['genres']
         if 'collection' in self.__pending_tmdb_extras:

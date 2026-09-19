@@ -205,6 +205,65 @@ def tmdb_find_by_imdb_id(imdb_id: str, api_key: str, kind: str = 'movie') -> Opt
     return str(results[0]['id']) if results else None
 
 
+@dataclass(frozen=True)
+class SeasonInfo:
+    id: str  # TMDB's id for the season (beqcatalogue's <beq_season id>)
+    episode_count: int
+
+
+def tmdb_season_info(series_id, season_number, api_key: str) -> Optional[SeasonInfo]:
+    '''
+    A TV season's TMDB id and how many episodes it has, which beqcatalogue's structured season needs.
+    :param series_id: TMDB's id for the series (BeqMetadata.the_movie_db).
+    :return: None if TMDB has no such season.
+    :raises requests.HTTPError: on any other non-2xx response.
+    '''
+    r = requests.get(url=f'{TMDB_BASE_URL}/tv/{series_id}/season/{season_number}', params={'api_key': api_key})
+    if r.status_code == 404:
+        return None
+    r.raise_for_status()
+    result = r.json()
+    if result.get('id') is None:
+        return None
+    return SeasonInfo(id=str(result['id']), episode_count=len(result.get('episodes') or []))
+
+
+def parse_episodes(text: str) -> List[int]:
+    '''
+    :param text: episode numbers and ranges, e.g. "1-3, 5".
+    :return: the distinct episode numbers, ascending; [] for blank text.
+    :raises ValueError: for anything that is not positive numbers and ascending ranges.
+    '''
+    episodes = set()
+    for part in (p.strip() for p in text.split(',')):
+        if not part:
+            continue
+        low, dash, high = part.partition('-')
+        try:
+            first, last = int(low), int(high) if dash else int(low)
+        except ValueError:
+            raise ValueError(f"'{part}' is not an episode number or range") from None
+        if first < 1 or last < first:
+            raise ValueError(f"'{part}' is not a valid episode number or range")
+        episodes.update(range(first, last + 1))
+    return sorted(episodes)
+
+
+def format_episodes(episodes) -> str:
+    ''' The inverse of parse_episodes(): [1, 2, 3, 5] -> "1-3, 5". '''
+    ranges, run = [], []
+    for episode in sorted(set(episodes)):
+        if run and episode == run[-1] + 1:
+            run.append(episode)
+        else:
+            if run:
+                ranges.append(run)
+            run = [episode]
+    if run:
+        ranges.append(run)
+    return ', '.join(str(r[0]) if len(r) == 1 else f"{r[0]}-{r[-1]}" for r in ranges)
+
+
 def _tmdb_details(the_movie_db_id, api_key: str, kind: str, audio_types: List[str]) -> BeqMetadata:
     params = {'api_key': api_key}
     if kind == 'tv':

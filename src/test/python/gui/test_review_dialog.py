@@ -359,3 +359,45 @@ def test_publish_finished_reports_refused_entries_instead_of_counting_them(dialo
 
     assert dialog.statusBar.currentMessage() == 'Published 1 title(s), 1 need attention'
     assert len(warnings) == 1 and 'clash' in warnings[0]
+
+
+def test_the_episodes_in_scope_are_shown_saved_and_can_be_cleared(tmp_path, dialog):
+    queue_dir = str(tmp_path / 'queue')
+    _write_entry(queue_dir, 'show', meta={'title': 'Show', 'season': '1', 'episodes': [1, 2, 3, 5]})
+    dialog.load_queue_dir(queue_dir)
+    dialog.queueTable.selectRow(0)
+
+    assert dialog.episodesField.text() == '1-3, 5'
+
+    dialog.episodesField.setText('2-4, 7')
+    dialog._ReviewQueueDialog__save_metadata()
+    assert read_entry(queue_dir, 'show').meta['episodes'] == [2, 3, 4, 7]
+    assert read_entry(queue_dir, 'show').meta['season'] == '1'  # untouched
+
+    dialog.episodesField.setText('')
+    dialog._ReviewQueueDialog__save_metadata()
+    assert read_entry(queue_dir, 'show').meta['episodes'] == []
+
+
+def test_an_unparseable_episodes_entry_is_reported_and_nothing_is_saved(tmp_path, dialog):
+    queue_dir = str(tmp_path / 'queue')
+    _write_entry(queue_dir, 'show', meta={'title': 'Show', 'episodes': [1, 2]})
+    dialog.load_queue_dir(queue_dir)
+    dialog.queueTable.selectRow(0)
+
+    dialog.editionField.setText('Extended')
+    dialog.episodesField.setText('one to three')
+    dialog._ReviewQueueDialog__save_metadata()
+
+    assert 'Episodes:' in dialog.metadataStatusLabel.text()
+    stored = read_entry(queue_dir, 'show').meta
+    assert stored['episodes'] == [1, 2] and 'edition' not in stored
+
+
+def test_a_film_with_no_episodes_shows_a_blank_field(tmp_path, dialog):
+    queue_dir = str(tmp_path / 'queue')
+    _write_entry(queue_dir, 'film')
+    dialog.load_queue_dir(queue_dir)
+    dialog.queueTable.selectRow(0)
+
+    assert dialog.episodesField.text() == ''
