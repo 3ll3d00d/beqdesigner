@@ -18,6 +18,9 @@ from pipeline.review import QueueEntry, design_and_queue, read_entry, update_ent
 # runs, so an expensive resolution (a TMDB round-trip) is skipped for every cache hit and protected entry.
 MetaSource = Union[dict, Callable[[], dict], None]
 
+# accepted and published entries are a human's decision and are never redesigned, whatever asks
+PROTECTED_STATUSES = frozenset({'accepted', 'published'})
+
 
 @dataclass(frozen=True)
 class DesignCacheResult:
@@ -33,7 +36,7 @@ class DesignCacheResult:
 
 
 def design_fingerprint(item: LibraryItem, designer: str, config: AnalysisConfig, coverage: Coverage,
-                       multichannel: bool = False) -> str:
+                       multichannel: bool = False, *, source: Optional[str] = None) -> str:
     '''
     Stable hash of every library-run input that can change a design result.
 
@@ -45,7 +48,7 @@ def design_fingerprint(item: LibraryItem, designer: str, config: AnalysisConfig,
         multichannel project), as opposed to a mono-only design.
     '''
     payload = {
-        'source_fingerprint': source_fingerprint(item),
+        'source_fingerprint': source_fingerprint(item) if source is None else source,
         'designer': designer,
         'config': asdict(config),
         'coverage': coverage,
@@ -59,13 +62,51 @@ def design_fingerprint(item: LibraryItem, designer: str, config: AnalysisConfig,
     return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(',', ':')).encode('utf-8')).hexdigest()
 
 
+@dataclass(frozen=True)
+class DesignStatus:
+    '''
+    Whether a title's design is up to date -- what design_if_needed() decides before it runs the designer.
+    :param state: `none` (no queue entry), `protected` (accepted or published: never redesigned), `current` (the
+        entry was designed against exactly these inputs) or `stale` (against something else, or it predates
+        the fingerprint).
+    '''
+    state: str
+    fingerprint: str
+    entry: Optional[QueueEntry] = None
+
+    @property
+    def protected(self) -> bool:
+        return self.state == 'protected'
+
+    @property
+    def current(self) -> bool:
+        return self.state == 'current'
+
+
+def design_status(item: LibraryItem, existing: Optional[QueueEntry], designer: str, config: AnalysisConfig,
+                  coverage: Coverage = 'complete_programme', *, multichannel: bool = False,
+                  source: Optional[str] = None) -> DesignStatus:
+    '''
+    The pure half of design_if_needed(): compares `existing` (the title's queue entry, or None) with the fingerprint
+    a design run now would record. Reads and changes nothing.
+    :param multichannel: as design_fingerprint().
+    :param source: the item's source fingerprint if the caller already has it, as design_fingerprint().
+    '''
+    fingerprint = design_fingerprint(item, designer, config, coverage, multichannel=multichannel, source=source)
+    if existing is None:
+        return DesignStatus('none', fingerprint)
+    if existing.status in PROTECTED_STATUSES:
+        return DesignStatus('protected', fingerprint, existing)
+    return DesignStatus('current' if existing.design_fingerprint == fingerprint else 'stale', fingerprint, existing)
+
+
 def design_if_needed(session: Session, item: LibraryItem, wav_path: str, designer: str, queue_dir: str,
                      config: AnalysisConfig, coverage: Coverage = 'complete_programme', *, force: bool = False,
                      meta: MetaSource = None, bass_management: Optional[dict] = None,
                      channels: Optional[dict] = None, multichannel_wav_path: Optional[str] = None,
                      channel_layout_name: str = 'unknown', project_dir: Optional[str] = None) -> DesignCacheResult:
     '''
-    Design only when no compatible queue entry already exists.
+    Design only when no compatible queue entry already exists (see design_status()).
 
     Accepted and published entries are protected from every redesign path,
     including force. A caller must explicitly reset their status before a
@@ -83,18 +124,17 @@ def design_if_needed(session: Session, item: LibraryItem, wav_path: str, designe
     :param meta: the entry's metadata, or a zero-argument callable returning it, called only if this call
         actually designs.
     '''
-    fingerprint = design_fingerprint(item, designer, config, coverage,
-                                     multichannel=multichannel_wav_path is not None)
     try:
         existing = read_entry(queue_dir, item.id)
     except FileNotFoundError:
         existing = None
+    status = design_status(item, existing, designer, config, coverage, multichannel=multichannel_wav_path is not None)
+    fingerprint = status.fingerprint
 
-    if existing is not None:
-        if existing.status in {'accepted', 'published'}:
-            return DesignCacheResult(existing, designed=False, protected=True)
-        if not force and existing.design_fingerprint == fingerprint:
-            return DesignCacheResult(existing, designed=False)
+    if status.protected:
+        return DesignCacheResult(existing, designed=False, protected=True)
+    if not force and status.current:
+        return DesignCacheResult(existing, designed=False)
 
     if callable(meta):
         meta = meta()
@@ -111,6 +151,7 @@ def design_if_needed(session: Session, item: LibraryItem, wav_path: str, designe
     if not (art_overridden or (art_path and os.path.isfile(art_path))):
         art_path = resolve_art(item, meta or {}, project_dir)
     kept = {'reviewer_note': existing.reviewer_note, 'revision': existing.revision} if existing is not None else {}
-    entry = update_entry(queue_dir, entry.id, design_fingerprint=fingerprint, art_path=art_path,
+    entry = update_entry(queue_dir, entry.id, design_fingerprint=fingerprint, source_fingerprint=source_fingerprint(item),
+                         art_path=art_path,
                          art_overridden=art_overridden, **kept)
     return DesignCacheResult(entry, designed=True, projects=projects or None)

@@ -4,6 +4,7 @@ import json
 import pytest
 
 from pipeline.designer.registry import register_designer, registered_designers, unregister_designer
+from pipeline.library import cli
 from pipeline.library.run import LibraryRunReport
 
 _FAKE_DESIGNERS = ('x', 'old', 'test.designer', 'new')
@@ -46,7 +47,7 @@ run:
         def __init__(self, host, port, browse_node_id, **kwargs):
             seen['source'] = (host, port, browse_node_id, kwargs)
 
-    def run(source, run_config):
+    def run(source, run_config, **_):
         seen['config'] = run_config
         return LibraryRunReport(extracted=['one'], designed=['one'])
 
@@ -81,7 +82,7 @@ def test_run_flags_override_json_config_and_failure_exits_nonzero(tmp_path, monk
             seen['host'] = host
 
     monkeypatch.setattr('pipeline.library.profile.JRiverLibrarySource', Source)
-    def run(source, run_config):
+    def run(source, run_config, **_):
         seen['designer'] = run_config.designer
         return LibraryRunReport(failed=[('one', 'bad input')])
 
@@ -121,7 +122,7 @@ def test_filesystem_source_takes_globs_from_flags_or_config(tmp_path, monkeypatc
     (tmp_path / 'films').mkdir()
     (tmp_path / 'films' / 'a.mkv').write_bytes(b'x')
     seen = []
-    monkeypatch.setattr(cli, 'run_library', lambda source, run_config: seen.append(list(source.list_items()))
+    monkeypatch.setattr(cli, 'run_library', lambda source, run_config, **_: seen.append(list(source.list_items()))
                         or LibraryRunReport())
     base = ['run', '--source', 'filesystem', '--work-dir', '/work', '--queue-dir', '/queue', '--designer', 'x']
 
@@ -145,7 +146,7 @@ def _jriver_paths_seen(monkeypatch, argv, config=None, tmp_path=None):
     from pipeline.library import cli
     from pipeline.library.jriver import JRiverLibrarySource
     seen = []
-    monkeypatch.setattr(cli, 'run_library', lambda source, run_config: seen.append(source) or LibraryRunReport())
+    monkeypatch.setattr(cli, 'run_library', lambda source, run_config, **_: seen.append(source) or LibraryRunReport())
     base = ['run', '--source', 'jriver', '--host', 'media.local', '--port', '52199', '--browse-node-id', '7',
             '--work-dir', '/work', '--queue-dir', '/queue', '--designer', 'x']
     prefix = []
@@ -177,7 +178,7 @@ def test_path_mappings_can_come_from_the_config_file_and_flags_replace_them(monk
 
 def test_a_malformed_path_map_is_a_cli_error(monkeypatch):
     from pipeline.library import cli
-    monkeypatch.setattr(cli, 'run_library', lambda *args: LibraryRunReport())
+    monkeypatch.setattr(cli, 'run_library', lambda *args, **_: LibraryRunReport())
 
     with pytest.raises(SystemExit):
         cli.main(['run', '--source', 'jriver', '--host', 'h', '--port', '1', '--browse-node-id', '1',
@@ -187,7 +188,7 @@ def test_a_malformed_path_map_is_a_cli_error(monkeypatch):
 def test_tv_mode_defaults_to_episode_and_can_be_set_by_flag_or_config(monkeypatch, tmp_path):
     from pipeline.library import cli
     seen = []
-    monkeypatch.setattr(cli, 'run_library', lambda source, run_config: seen.append(run_config.tv_mode)
+    monkeypatch.setattr(cli, 'run_library', lambda source, run_config, **_: seen.append(run_config.tv_mode)
                         or LibraryRunReport())
     base = ['run', '--source', 'filesystem', '--glob', str(tmp_path), '--work-dir', '/w', '--queue-dir', '/q',
             '--designer', 'x']
@@ -220,7 +221,7 @@ def _run_args(designer, *extra, tmp_path=None):
 def test_a_designer_declared_in_the_config_file_is_registered_before_the_run(tmp_path, monkeypatch):
     from pipeline.library import cli
     seen = []
-    monkeypatch.setattr(cli, 'run_library', lambda source, run_config: seen.append(registered_designers())
+    monkeypatch.setattr(cli, 'run_library', lambda source, run_config, **_: seen.append(registered_designers())
                         or LibraryRunReport())
     config = tmp_path / 'library.json'
     config.write_text(json.dumps({'designers': {
@@ -239,7 +240,7 @@ def test_a_declared_designer_is_built_with_its_url_timeout_and_headers(tmp_path,
     made = []
     monkeypatch.setattr(cli, 'http_designer', lambda url, timeout, headers: made.append((url, timeout, headers)) or (
         lambda request: None))
-    monkeypatch.setattr(cli, 'run_library', lambda source, run_config: LibraryRunReport())
+    monkeypatch.setattr(cli, 'run_library', lambda source, run_config, **_: LibraryRunReport())
     config = tmp_path / 'library.json'
     config.write_text(json.dumps({'designers': {'a': 'http://a/d', 'b': {'url': 'http://b/d', 'timeout': 30,
                                                                          'headers': {'X': 'y'}}}}))
@@ -254,7 +255,7 @@ def test_designer_url_flags_register_a_designer_and_win_over_the_file(tmp_path, 
     from pipeline.library import cli
     made = []
     monkeypatch.setattr(cli, 'http_designer', lambda url, timeout, headers: made.append(url) or (lambda r: None))
-    monkeypatch.setattr(cli, 'run_library', lambda source, run_config: LibraryRunReport())
+    monkeypatch.setattr(cli, 'run_library', lambda source, run_config, **_: LibraryRunReport())
     config = tmp_path / 'library.json'
     config.write_text(json.dumps({'designers': {'mine': 'http://from-file/d'}}))
 
@@ -267,7 +268,7 @@ def test_designer_url_flags_register_a_designer_and_win_over_the_file(tmp_path, 
 def test_a_url_given_as_the_designer_is_registered_under_that_url(monkeypatch):
     from pipeline.library import cli
     seen = []
-    monkeypatch.setattr(cli, 'run_library', lambda source, run_config: seen.append(run_config.designer)
+    monkeypatch.setattr(cli, 'run_library', lambda source, run_config, **_: seen.append(run_config.designer)
                         or LibraryRunReport())
 
     assert cli.main(_run_args('http://designer.local/design')) == 0
@@ -432,7 +433,7 @@ def test_run_with_a_profile_runs_the_union_of_its_sources(tmp_path, monkeypatch,
     from pipeline.library import cli
     from pipeline.library.union import UnionLibrarySource
     seen = {}
-    monkeypatch.setattr(cli, 'run_library', lambda source, run_config: seen.update(source=source, config=run_config)
+    monkeypatch.setattr(cli, 'run_library', lambda source, run_config, **_: seen.update(source=source, config=run_config)
                         or LibraryRunReport())
 
     assert cli.main(['run', '--profile', _profile_file(tmp_path)]) == 0
@@ -447,7 +448,7 @@ def test_run_with_a_profile_runs_the_union_of_its_sources(tmp_path, monkeypatch,
 def test_run_flags_still_override_a_profile(tmp_path, monkeypatch):
     from pipeline.library import cli
     seen = {}
-    monkeypatch.setattr(cli, 'run_library', lambda source, run_config: seen.update(config=run_config)
+    monkeypatch.setattr(cli, 'run_library', lambda source, run_config, **_: seen.update(config=run_config)
                         or LibraryRunReport())
 
     cli.main(['run', '--profile', _profile_file(tmp_path), '--designer', 'old', '--tv-mode', 'season'])
@@ -482,10 +483,127 @@ def test_the_old_config_still_runs_through_the_single_source_path(tmp_path, monk
     from pipeline.library import cli
     from pipeline.library.filesystem import FilesystemLibrarySource
     seen = {}
-    monkeypatch.setattr(cli, 'run_library', lambda source, run_config: seen.update(source=source)
+    monkeypatch.setattr(cli, 'run_library', lambda source, run_config, **_: seen.update(source=source)
                         or LibraryRunReport())
 
     cli.main(['run', '--source', 'filesystem', '--glob', str(tmp_path), '--work-dir', '/w', '--queue-dir', '/q',
               '--designer', 'x'])
 
     assert isinstance(seen['source'], FilesystemLibrarySource)
+
+
+# --- scan and status (discovery) ---------------------------------------------------------------------------------
+
+def _discovery_config(tmp_path, films=2):
+    import yaml
+    media = tmp_path / 'films'
+    media.mkdir()
+    for n in range(films):
+        (media / f'film-{n}.mkv').write_bytes(b'x' * (n + 1))
+    config = tmp_path / 'library.yaml'
+    config.write_text(yaml.safe_dump({
+        'sources': [{'name': 'disk', 'kind': 'filesystem', 'globs': [str(media)]}],
+        'run': {'work_dir': str(tmp_path / 'work'), 'queue_dir': str(tmp_path / 'queue'), 'designer': 'rolloff'}}))
+    return config
+
+
+def test_scan_writes_the_index_and_status_counts_what_it_found(tmp_path, capsys):
+    config = _discovery_config(tmp_path, films=3)
+
+    assert cli.main(['--config', str(config), 'scan']) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result['titles'] == 3 and result['counts']['extract'] == 3 and result['errors'] == {}
+    assert (tmp_path / 'work' / 'library-index.sqlite').is_file()
+
+    assert cli.main(['--config', str(config), 'status', '--json']) == 0
+    summary = json.loads(capsys.readouterr().out)
+    assert summary['counts']['extract'] == 3 and summary['titles'] == 3 and summary['new'] == 3
+    assert [s['name'] for s in summary['sources']] == ['disk']
+
+    assert cli.main(['--config', str(config), 'status']) == 0
+    text = capsys.readouterr().out
+    assert '3 titles' in text and 'extract' in text and 'source disk: ok, 3 items' in text
+
+
+def test_scan_takes_a_profile_and_flags_that_override_it(tmp_path, capsys):
+    config = _discovery_config(tmp_path)
+    other_work = tmp_path / 'elsewhere'
+
+    assert cli.main(['scan', '--profile', str(config), '--work-dir', str(other_work)]) == 0
+    capsys.readouterr()
+
+    assert (other_work / 'library-index.sqlite').is_file() and not (tmp_path / 'work').exists()
+    assert cli.main(['status', '--profile', str(config), '--work-dir', str(other_work), '--json']) == 0
+
+
+def test_status_before_any_scan_says_so_and_exits_nonzero(tmp_path, capsys):
+    config = _discovery_config(tmp_path)
+
+    assert cli.main(['--config', str(config), 'status']) == 1
+
+    assert 'run `scan` first' in capsys.readouterr().out
+    assert not (tmp_path / 'work').exists()  # status never creates the index
+
+
+def test_scan_reports_a_source_that_cannot_be_listed_and_exits_nonzero(tmp_path, capsys, monkeypatch):
+    config = _discovery_config(tmp_path)
+    assert cli.main(['--config', str(config), 'scan']) == 0
+    capsys.readouterr()
+
+    def down(self, **query):
+        raise ConnectionError('server down')
+
+    monkeypatch.setattr('pipeline.library.filesystem.FilesystemLibrarySource.list_items', down)
+    assert cli.main(['--config', str(config), 'scan']) == 1
+
+    result = json.loads(capsys.readouterr().out)
+    assert 'server down' in result['errors']['disk'] and result['titles'] == 2  # the titles are still there
+    assert cli.main(['--config', str(config), 'status']) == 0
+    assert 'FAILED' in capsys.readouterr().out
+
+
+def test_scan_of_an_unknown_source_name_is_a_cli_error(tmp_path):
+    config = _discovery_config(tmp_path)
+
+    with pytest.raises(SystemExit) as exit_info:
+        cli.main(['--config', str(config), 'scan', '--source', 'nope'])
+
+    assert exit_info.value.code == 2
+
+
+def test_scan_needs_a_profile_with_sources_and_a_work_dir(tmp_path):
+    empty = tmp_path / 'empty.json'
+    empty.write_text('{"run": {"work_dir": "/w"}}')
+    no_dir = tmp_path / 'nodir.json'
+    no_dir.write_text('{"sources": [{"name": "d", "kind": "filesystem", "globs": ["/x"]}]}')
+
+    for config in (empty, no_dir):
+        with pytest.raises(SystemExit) as exit_info:
+            cli.main(['--config', str(config), 'scan'])
+        assert exit_info.value.code == 2
+
+
+def test_scan_from_outputs_rebuilds_without_listing(tmp_path, capsys, monkeypatch):
+    config = _discovery_config(tmp_path)
+    monkeypatch.setattr('pipeline.library.filesystem.FilesystemLibrarySource.list_items',
+                        lambda self, **q: pytest.fail('a rebuild must not list the sources'))
+
+    assert cli.main(['--config', str(config), 'scan', '--from-outputs']) == 0
+
+    assert json.loads(capsys.readouterr().out) == {'rebuilt': 0}
+
+
+def test_run_leaves_a_failure_for_status_to_report(tmp_path, capsys, monkeypatch):
+    from pipeline.designer.registry import register_designer, unregister_designer
+    config = _discovery_config(tmp_path, films=1)
+    register_designer('rolloff', lambda request: None)
+    monkeypatch.setattr('pipeline.library.run.extract_if_needed',
+                        lambda *a, **k: (_ for _ in ()).throw(FileNotFoundError('no such file')))
+    try:
+        assert cli.main(['run', '--profile', str(config)]) == 1
+    finally:
+        unregister_designer('rolloff')
+    capsys.readouterr()
+
+    assert cli.main(['--config', str(config), 'scan']) == 0
+    assert json.loads(capsys.readouterr().out)['counts']['attention'] == 1

@@ -244,22 +244,24 @@ class JRiverLibrarySource:
             year=_value(row, 'Year') or _value(row, 'Date (year)') or None,
             kind=kind,
             external_ids=self._external_ids(row, kind),
-            art_path=self._local_art_path(_value(row, 'Image File'), source_path),
+            art_candidates=self._art_candidates(_value(row, 'Image File'), source_path),
             fingerprint=fingerprint,
             season=season,
             episodes=episodes,
         )
 
-    def _local_art_path(self, value: str, media_path: str) -> Optional[str]:
+    def _art_candidates(self, value: str, media_path: str) -> tuple[str, ...]:
         '''
-        `Image File` is INTERNAL (JRiver-managed, not a file), an absolute path on the server, or -- as seen on a
-        live server for most titles -- a bare file name that lives beside the media file.
+        Where the poster might be. `Image File` is INTERNAL (JRiver-managed, not a file), an absolute path on the
+        server, or -- as seen on a live server for most titles -- a bare file name that lives beside the media file.
+        Nothing here touches the disk: listing a whole library must cost one request and no `stat` per title
+        (design.md §12.5), so which candidate exists is decided at design time, by artwork.resolve_art().
         '''
         if not value or value.upper() == 'INTERNAL':
-            return None
+            return ()
         translated = translate_path(value, self.path_mappings)
         candidates = [translated, os.path.join(os.path.dirname(media_path), value)]
-        return next((c for c in candidates if os.path.isabs(c) and os.path.isfile(c)), None)
+        return tuple(dict.fromkeys(c for c in candidates if os.path.isabs(c)))
 
     def _external_ids(self, row: Mapping[str, Any], kind: str) -> dict[str, str]:
         ids = {}

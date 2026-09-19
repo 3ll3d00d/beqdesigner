@@ -4,7 +4,8 @@ Automatic report-poster resolution for a library run -- design/library-sync-pipe
 Tiers 2 and 3 of the plan's resolution order (tier 1, a reviewer's explicit choice, is stored as
 QueueEntry.art_overridden and is never replaced by anything here):
 
-  2. a local image the library source already has (LibraryItem.art_path), used in place;
+  2. a local image the library source already has (LibraryItem.art_path, or the first of its art_candidates that is a
+     file -- a source that lists without touching the disk leaves that check to here), used in place;
   3. TMDB's poster, downloaded once into the item's work directory.
 
 Returns None when neither is available, which renders a chart-only report.
@@ -29,8 +30,9 @@ def resolve_art(item: LibraryItem, meta: dict, art_dir: Optional[str]) -> Option
     :return: a local image path, or None. A failed download is logged and treated as "no artwork" -- it must
         never cost an item its extraction and design.
     '''
-    if item.art_path and os.path.isfile(item.art_path):
-        return item.art_path
+    local = next((c for c in (item.art_path, *item.art_candidates) if c and os.path.isfile(c)), None)
+    if local:
+        return local
     poster = meta.get('poster')
     if not poster or art_dir is None:
         return None

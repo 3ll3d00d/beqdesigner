@@ -33,7 +33,7 @@ from pipeline.library.ignore import IgnoreRule, evaluate, explain
 from pipeline.library.profile import Profile, build_source
 from pipeline.library.season import is_season_id
 from pipeline.library.source import LibraryItem, LibrarySource
-from pipeline.review import read_queue
+from pipeline.review import read_entry
 
 _DISC_FOLDERS = ('bdmv', 'video_ts')
 
@@ -84,10 +84,19 @@ def reconstruct_claims(work_dir: Optional[str], queue_dir: Optional[str]) -> Cla
         ids.update(name for name in os.listdir(work_dir)
                    if not name.startswith('.') and os.path.isdir(os.path.join(work_dir, name)))
     if queue_dir and os.path.isdir(queue_dir):
-        for entry in read_queue(queue_dir):
-            ids.add(entry.id)
+        for name in sorted(os.listdir(queue_dir)):
+            if not name.endswith('.json'):
+                continue
+            entry_id = name[:-len('.json')]  # an entry's file is named by its id, so most need not be opened at all
+            ids.add(entry_id)
+            if not is_season_id(entry_id):
+                continue
+            try:
+                entry = read_entry(queue_dir, entry_id)
+            except (OSError, ValueError, TypeError):
+                continue
             season = str(entry.meta.get('season') or '')
-            if is_season_id(entry.id) and season.isdigit():
+            if season.isdigit():
                 for key in _series_keys(entry.meta.get('the_movie_db'), entry.meta.get('title')):
                     seasons.setdefault((key, str(int(season))), entry.id)
     return Claims(frozenset(ids), seasons)

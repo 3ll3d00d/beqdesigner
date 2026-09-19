@@ -1,10 +1,12 @@
 '''Tests for library-stage idempotent design caching.'''
 from dataclasses import replace
 
+import pytest
+
 from pipeline.config import AnalysisConfig
 from pipeline.library.design_cache import design_fingerprint, design_if_needed
 from pipeline.library.source import LibraryItem
-from pipeline.review import QueueEntry, read_entry, update_entry, write_queue_entry
+from pipeline.review import CandidateSummary, QueueEntry, read_entry, update_entry, write_queue_entry
 
 
 def _item(tmp_path, fingerprint='source-1'):
@@ -16,6 +18,10 @@ def _item(tmp_path, fingerprint='source-1'):
 def _entry(fingerprint=None, status='pending'):
     return QueueEntry(id='title-1', fs=1000, meta={}, curve={}, status=status,
                       design_fingerprint=fingerprint)
+
+
+def _candidate():
+    return CandidateSummary(filters={}, confidence=0.9, method='fitted', mv_adjust_db=0.0)
 
 
 def _install_fake_design(monkeypatch, calls):
@@ -306,3 +312,65 @@ def test_result_has_no_projects_without_a_project_dir(tmp_path, monkeypatch):
 
     assert result.projects is None
     assert result.project_edit_preserved is False
+
+
+# --- design_status(): the pure half of design_if_needed() (design.md §12.5) ----------------------------------------
+
+def test_design_status_agrees_with_design_if_needed_for_every_entry_state(tmp_path, monkeypatch):
+    from pipeline.library.design_cache import design_status
+    calls = []
+    _install_fake_design(monkeypatch, calls)
+    item = _item(tmp_path)
+    config = AnalysisConfig()
+    right = design_fingerprint(item, 'designer.v1', config, 'complete_programme')
+    cases = [
+        (None, 'none', True), (_entry(right), 'current', False), (_entry('another'), 'stale', True),
+        (_entry(None), 'stale', True), (_entry(right, status='skipped'), 'current', False),
+        (_entry('another', status='rejected'), 'stale', True),
+    ]
+    for existing, state, designs in cases:
+        queue_dir = str(tmp_path / f'queue-{state}-{designs}-{len(calls)}')
+        if existing is not None:
+            existing = replace(existing, chosen_candidate_index=None)
+            write_queue_entry(queue_dir, existing)
+        calls.clear()
+
+        status = design_status(item, existing, 'designer.v1', config)
+        result = design_if_needed(None, item, '/work/mono.wav', 'designer.v1', queue_dir, config)
+
+        assert status.state == state, existing
+        assert result.designed == designs and len(calls) == int(designs)
+
+
+@pytest.mark.parametrize('status', ['accepted', 'published'])
+def test_design_status_reports_accepted_and_published_as_protected_whatever_the_fingerprint(tmp_path, status):
+    from pipeline.library.design_cache import design_status
+    item = _item(tmp_path)
+    entry = QueueEntry(id='title-1', fs=1000, meta={}, curve={}, status=status, chosen_candidate_index=0,
+                       candidates=[_candidate()], design_fingerprint='another')
+
+    assert design_status(item, entry, 'designer.v1', AnalysisConfig()).protected
+
+
+def test_design_status_treats_force_as_the_wrappers_business_and_takes_the_multichannel_and_source_inputs(tmp_path):
+    from pipeline.library.design_cache import design_status
+    item = _item(tmp_path)
+    config = AnalysisConfig()
+    mono = design_fingerprint(item, 'd', config, 'complete_programme')
+    entry = _entry(mono)
+
+    assert design_status(item, entry, 'd', config).current
+    assert design_status(item, entry, 'd', config, multichannel=True).state == 'stale'
+    assert design_status(item, entry, 'd', config, source='source-2').state == 'stale'
+    assert design_status(item, entry, 'd', config, source='source-1').current  # the same as the item's own
+    assert design_status(item, entry, 'd', config).fingerprint == mono
+
+
+def test_a_design_records_the_source_fingerprint_it_was_made_against(tmp_path, monkeypatch):
+    _install_fake_design(monkeypatch, [])
+    item = _item(tmp_path, fingerprint='source-7')
+    queue_dir = str(tmp_path / 'queue')
+
+    design_if_needed(None, item, '/work/mono.wav', 'designer.v1', queue_dir, AnalysisConfig())
+
+    assert read_entry(queue_dir, item.id).source_fingerprint == 'source-7'

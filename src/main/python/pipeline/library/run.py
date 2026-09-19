@@ -1,6 +1,7 @@
 '''Composition of a library source with the extract and design caches.'''
 import logging
 import os
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Callable, Optional, Sequence
 
@@ -11,9 +12,11 @@ from pipeline.designer.contract import Coverage
 from pipeline.library.design_cache import design_if_needed
 from pipeline.library.extract_cache import extract_if_needed, read_channel_layout_name, \
     read_source_channel_count
+from pipeline.library.index import LibraryIndex
 from pipeline.library.library_metadata import library_meta, resolve_meta
 from pipeline.library.season import DEFAULT_TV_MODE, SeasonGroup, plan_units, season_track_if_needed, with_extracted
 from pipeline.library.source import LibraryItem, LibrarySource
+from pipeline.library.status import failure_key, unit_fingerprint
 from pipeline.library.union import reconstruct_claims
 from pipeline.orchestrate import Session
 
@@ -72,26 +75,54 @@ def _meta_source(item: LibraryItem, run_config: LibraryRunConfig, report: Librar
     return resolve
 
 
+@contextmanager
+def _stage(name: str):
+    ''' Tags an exception with the stage it came from, so run_library() can remember what failed and where. '''
+    try:
+        yield
+    except Exception as error:
+        if not hasattr(error, 'library_stage'):
+            error.library_stage = name
+        raise
+
+
+def _remember_failure(index: LibraryIndex, unit, run_config: 'LibraryRunConfig', error: Exception) -> None:
+    '''
+    Records a failure against the source fingerprint and settings it happened with (design.md §12.5), so discovery
+    can say "failed" and stop suggesting a retry until one of them changes. Never lets the index sink the run.
+    '''
+    item = unit.item if isinstance(unit, SeasonGroup) else unit
+    stage = getattr(error, 'library_stage', 'extract')
+    try:
+        index.record_failure(
+            item.id, stage, f'{type(error).__name__}: {error}', unit_fingerprint(unit),
+            failure_key(stage, item, config=run_config.config, designer=run_config.designer,
+                        coverage=run_config.coverage, keep_multichannel=run_config.keep_multichannel))
+    except Exception as index_error:
+        logger.warning('could not record the failure of %s in the index: %s', item.id, index_error)
+
+
 def _run_item(session: Session, item: LibraryItem, run_config: LibraryRunConfig, report: LibraryRunReport) -> None:
     item_dir = os.path.join(run_config.work_dir, item.id)
-    mono_path, mono_cached = extract_if_needed(
-        session, item, item_dir, run_config.config, mono_mix=True, force=run_config.force_extract)
-    multichannel_path = None
-    channel_layout_name = 'unknown'
-    channels = None
-    extraction_cached = mono_cached
+    with _stage('extract'):
+        mono_path, mono_cached = extract_if_needed(
+            session, item, item_dir, run_config.config, mono_mix=True, force=run_config.force_extract)
+        multichannel_path = None
+        channel_layout_name = 'unknown'
+        channels = None
+        extraction_cached = mono_cached
 
-    # a source known to be mono has nothing to keep, so skip the second (full-length) ffmpeg pass; an
-    # unknown channel count still extracts, and load_channels() below decides
-    if run_config.keep_multichannel and read_source_channel_count(item_dir) != 1:
-        kept_path, kept_cached = extract_if_needed(
-            session, item, item_dir, run_config.config, mono_mix=False, force=run_config.force_extract)
-        extraction_cached = mono_cached and kept_cached
-        channel_layout_name = read_channel_layout_name(item_dir)
-        kept_channels = session.load_channels(kept_path, channel_layout_name)
-        if kept_channels:
-            multichannel_path = kept_path
-            channels = kept_channels
+        # a source known to be mono has nothing to keep, so skip the second (full-length) ffmpeg pass; an
+        # unknown channel count still extracts, and load_channels() below decides
+        if run_config.keep_multichannel and read_source_channel_count(item_dir) != 1:
+            kept_path, kept_cached = extract_if_needed(
+                session, item, item_dir, run_config.config, mono_mix=False, force=run_config.force_extract)
+            extraction_cached = mono_cached and kept_cached
+            channel_layout_name = read_channel_layout_name(item_dir)
+            kept_channels = session.load_channels(kept_path, channel_layout_name)
+            if kept_channels:
+                multichannel_path = kept_path
+                channels = kept_channels
 
     if extraction_cached:
         report.cached.append(item.id)
@@ -109,6 +140,12 @@ def _run_season(session: Session, group: SeasonGroup, run_config: LibraryRunConf
     one track and design that. An episode that will not extract is reported and left out -- the season is then
     marked with the episodes that really went into it -- rather than sinking the whole season.
     '''
+    with _stage('extract'):
+        track_path, fingerprint, item, group_dir = _extract_season(session, group, run_config, report)
+    _design(session, item, track_path, run_config, report, group_dir)
+
+
+def _extract_season(session: Session, group: SeasonGroup, run_config: LibraryRunConfig, report: LibraryRunReport):
     member_wavs = []
     for member in group.members:
         try:
@@ -127,19 +164,20 @@ def _run_season(session: Session, group: SeasonGroup, run_config: LibraryRunConf
     track_path, fingerprint, _ = season_track_if_needed(member_wavs, group_dir, force=run_config.force_extract)
     item = with_extracted(group, [episode for episode, _ in sorted(member_wavs)], fingerprint)
     report.seasons[item.id] = [m.id for m in group.members if m.episodes[0] in item.episodes]
-    _design(session, item, track_path, run_config, report, group_dir)
+    return track_path, fingerprint, item, group_dir
 
 
 def _design(session: Session, item: LibraryItem, wav_path: str, run_config: LibraryRunConfig,
             report: LibraryRunReport, project_dir: str, channels=None, multichannel_path=None,
             channel_layout_name: str = 'unknown') -> None:
-    result = design_if_needed(
-        session, item, wav_path, run_config.designer, run_config.queue_dir, run_config.config,
-        coverage=run_config.coverage, force=run_config.force_design,
-        meta=_meta_source(item, run_config, report), channels=channels,
-        multichannel_wav_path=multichannel_path, channel_layout_name=channel_layout_name,
-        project_dir=project_dir,
-    )
+    with _stage('design'):
+        result = design_if_needed(
+            session, item, wav_path, run_config.designer, run_config.queue_dir, run_config.config,
+            coverage=run_config.coverage, force=run_config.force_design,
+            meta=_meta_source(item, run_config, report), channels=channels,
+            multichannel_wav_path=multichannel_path, channel_layout_name=channel_layout_name,
+            project_dir=project_dir,
+        )
     if result.designed:
         report.designed.append(item.id)
         if result.project_edit_preserved:
@@ -149,12 +187,16 @@ def _design(session: Session, item: LibraryItem, wav_path: str, run_config: Libr
 
 
 def run_library(source: LibrarySource, run_config: LibraryRunConfig,
-                on_item_done: Optional[Callable[[str], None]] = None,
+                on_item_done: Optional[Callable[[str], None]] = None, index: Optional[LibraryIndex] = None,
                 **source_query) -> LibraryRunReport:
     '''Run source -> cached extraction -> cached design without publishing.
 
     Each item has an independent failure boundary so one bad input cannot
     prevent other titles in a large library from being designed.
+
+    :param index: the discovery index. If given, a title that fails is remembered there against the source
+        fingerprint and settings it failed with (so discovery can call it *failed*), and a title that works has any
+        earlier failure forgotten. Nothing here reads it yet: a failed title is still retried on every run.
     '''
     session = Session(run_config.config)
     report = LibraryRunReport()
@@ -166,8 +208,12 @@ def run_library(source: LibrarySource, run_config: LibraryRunConfig,
                 _run_season(session, unit, run_config, report)
             else:
                 _run_item(session, unit, run_config, report)
+            if index is not None:
+                index.clear_failure(item.id)
         except Exception as error:
             report.failed.append((item.id, f'{type(error).__name__}: {error}'))
+            if index is not None:
+                _remember_failure(index, unit, run_config, error)
         finally:
             if on_item_done is not None:
                 on_item_done(item.id)

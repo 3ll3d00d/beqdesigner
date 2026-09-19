@@ -30,6 +30,9 @@ class LibraryItem:
     playlist_name: Optional[str] = None      # BD only, forwarded to Session.extract()
     art_path: Optional[str] = None           # a local poster/cover file the source already has, if any
                                               # (§3.1.3)
+    art_candidates: tuple = ()               # where such a file might be, in order of preference, for a source
+                                              # that must not touch the disk while listing (JRiver's):
+                                              # artwork.resolve_art() checks them at design time
     meta: dict = field(default_factory=dict) # extra BeqMetadata ctor kwargs the source can supply directly
                                               # -- merged in on top of, and losing to nothing from, whatever
                                               # TMDB resolution produces

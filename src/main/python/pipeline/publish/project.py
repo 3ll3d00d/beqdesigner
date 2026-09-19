@@ -157,6 +157,36 @@ def resolve_published_projects(mono_path: str, multichannel_path: Optional[str] 
     return PublishedFilter(mono_filter, None if mono_pure else 'mono')
 
 
+def preview_published_projects(mono_path: str, multichannel_path: Optional[str], candidate: CompleteFilter
+                               ) -> PublishedFilter:
+    '''
+    What resolve_published_projects() will return once publishing has run write_title_projects_if_safe() with
+    `candidate`, worked out without writing anything: a project that is missing, or still pipeline-pure, is one
+    publishing would (re)write from the candidate, so it counts as holding `candidate`; a hand-edited one holds its
+    edit. Lets discovery ask "would publishing change the catalogue?" without touching the working directory.
+    :param multichannel_path: the multichannel project's path if the title has a multichannel extraction (whether or
+        not the project has been written yet), else None.
+    :raises ProjectFilterConflict: as resolve_published_projects().
+    '''
+    def read(path: Optional[str]) -> Tuple[CompleteFilter, bool]:
+        if path is None or not os.path.isfile(path):
+            return candidate, True
+        current, pure = read_project_filter(path)
+        return (candidate if pure else current), pure
+
+    mono_filter, mono_pure = read(mono_path)
+    if multichannel_path is None:
+        return PublishedFilter(mono_filter, None if mono_pure else 'mono')
+    mc_filter, mc_pure = read(multichannel_path)
+    if not mono_pure and not mc_pure:
+        if mono_filter.to_json() != mc_filter.to_json():
+            raise ProjectFilterConflict(mono_filter, mc_filter)
+        return PublishedFilter(mono_filter, 'both')
+    if not mc_pure:
+        return PublishedFilter(mc_filter, 'multichannel')
+    return PublishedFilter(mono_filter, None if mono_pure else 'mono')
+
+
 def resolve_published_filter(mono_path: str, multichannel_path: Optional[str] = None) -> Tuple[CompleteFilter, bool]:
     '''
     :return: (the filter to publish, True if it came from a human edit on either side, False if both projects

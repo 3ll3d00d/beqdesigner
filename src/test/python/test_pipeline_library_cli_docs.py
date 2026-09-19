@@ -30,7 +30,7 @@ def _readme():
         return f.read()
 
 
-@pytest.mark.parametrize('command', ['run', 'publish', 'commit', 'sync', 'revise'])
+@pytest.mark.parametrize('command', ['run', 'publish', 'commit', 'sync', 'revise', 'scan', 'status'])
 def test_every_option_has_help_text(command):
     undocumented = [a.option_strings[0] for a in _options(_subparsers()[command]) if not (a.help or '').strip()]
 
@@ -46,7 +46,7 @@ def test_the_top_level_options_and_commands_are_described():
                                     if isinstance(a, argparse._SubParsersAction))._choices_actions)
 
 
-@pytest.mark.parametrize('command', ['run', 'publish', 'commit', 'sync', 'revise'])
+@pytest.mark.parametrize('command', ['run', 'publish', 'commit', 'sync', 'revise', 'scan', 'status'])
 def test_every_option_is_named_in_the_readme(command):
     readme = _readme()
     missing = [flag for a in _options(_subparsers()[command]) for flag in a.option_strings
@@ -57,7 +57,7 @@ def test_every_option_is_named_in_the_readme(command):
 
 def test_each_command_says_how_the_config_file_maps_to_its_flags():
     for command, section in (('run', '`run:`'), ('publish', '`sync:`'), ('commit', '`sync:`'), ('sync', '`sync:`'),
-                             ('revise', '`sync:`')):
+                             ('revise', '`sync:`'), ('scan', '`run:`')):
         text = _subparsers()[command].format_help()
         assert section in text and 'flag overrides the file' in text
 
@@ -78,7 +78,7 @@ def test_the_readmes_example_config_is_valid_for_the_cli(tmp_path, monkeypatch):
             seen['source'] = (host, port, browse_node_id, kwargs)
 
     monkeypatch.setattr('pipeline.library.profile.JRiverLibrarySource', Source)
-    monkeypatch.setattr(cli, 'run_library', lambda source, run_config: seen.update(config=run_config)
+    monkeypatch.setattr(cli, 'run_library', lambda source, run_config, **_: seen.update(config=run_config)
                         or LibraryRunReport())
     monkeypatch.setattr(cli, 'sync_library', lambda *args, **kwargs: seen.update(sync=(args, kwargs)) or [])
     try:

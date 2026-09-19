@@ -1,17 +1,24 @@
 '''Command-line entry point for library runs and explicit publishing.'''
 import argparse
 import json
+import logging
+import os
+import sqlite3
 from dataclasses import asdict
+from datetime import datetime
 from typing import Any
 
 
 from pipeline.config import AnalysisConfig
 from pipeline.designer.http_binding import http_designer
 from pipeline.designer.registry import register_designer, registered_designers
+from pipeline.library.index import LibraryIndex, index_path
 from pipeline.library.profile import build_source, profile_from_config, read_config_file
 from pipeline.library.revise import REVISE_TARGETS, revise_entry
 from pipeline.library.run import LibraryRunConfig, run_library
 from pipeline.library.season import DEFAULT_TV_MODE, TV_MODES
+from pipeline.library.state import NEEDS
+from pipeline.library.status import ScanSettings, analysis_from_values
 from pipeline.library.sync import commit_library, publish_library, sync_library
 from pipeline.library.union import UnionLibrarySource
 from pipeline.publish.git import RepoTarget
@@ -50,10 +57,7 @@ def _source(values: dict[str, Any], config: dict[str, Any]):
 
 
 def _analysis_config(values: dict[str, Any]) -> AnalysisConfig:
-    configured = values.get('analysis', {})
-    fields = {name: values.get(name, configured.get(name))
-              for name in ('target_fs', 'resolution', 'avg_window', 'peak_window')}
-    return AnalysisConfig(**{name: value for name, value in fields.items() if value is not None})
+    return analysis_from_values(values)
 
 
 def _register_designers(values: dict[str, Any], config: dict[str, Any]) -> None:
@@ -81,6 +85,15 @@ def _register_designers(values: dict[str, Any], config: dict[str, Any]) -> None:
                                               headers=spec.get('headers') or None))
 
 
+def _open_index(work_dir: str) -> LibraryIndex | None:
+    ''' The work directory's index, or None if it cannot be opened: remembering failures must never stop a run. '''
+    try:
+        return LibraryIndex(index_path(work_dir))
+    except (OSError, sqlite3.Error) as error:
+        logging.getLogger('library_cli').warning('not remembering failures, the index cannot be opened: %s', error)
+        return None
+
+
 def _run(args: argparse.Namespace, config: dict[str, Any]) -> int:
     values = _configured_values(args, config, 'run')
     profile = profile_from_config(config) if args.profile else None
@@ -106,7 +119,13 @@ def _run(args: argparse.Namespace, config: dict[str, Any]) -> int:
         audio_types=tuple(values.get('audio_types', ())),
         tv_mode=values.get('tv_mode', DEFAULT_TV_MODE),
     )
-    report = run_library(UnionLibrarySource(profile) if profile is not None else _source(values, config), run_config)
+    index = _open_index(run_config.work_dir)  # remembers what failed, for `status`
+    try:
+        report = run_library(UnionLibrarySource(profile) if profile is not None else _source(values, config),
+                             run_config, index=index)
+    finally:
+        if index is not None:
+            index.close()
     print(json.dumps(asdict(report), sort_keys=True))
     return 1 if report.failed else 0
 
@@ -171,7 +190,69 @@ def _revise(args: argparse.Namespace, config: dict[str, Any]) -> int:
     return 1 if failed else 0
 
 
-_COMMANDS = {'run': _run, 'publish': _publish, 'commit': _commit, 'sync': _sync, 'revise': _revise}
+def _scan_values(args: argparse.Namespace, config: dict[str, Any]) -> dict[str, Any]:
+    ''' `run:` over `sync:` (each with the flags on top): a scan needs the settings of both. '''
+    return {**_configured_values(args, config, 'sync'), **_configured_values(args, config, 'run')}
+
+
+def _scan(args: argparse.Namespace, config: dict[str, Any]) -> int:
+    profile = profile_from_config(config)
+    if not profile.sources:
+        raise ValueError('the profile lists no sources')
+    values = _scan_values(args, config)
+    settings = ScanSettings.from_values({**values, 'work_dir': values.get('work_dir') or profile.work_dir,
+                                         'queue_dir': values.get('queue_dir') or profile.queue_dir})
+    if not settings.work_dir:
+        raise ValueError('work-dir is required')
+    with LibraryIndex(index_path(settings.work_dir)) as index:
+        if args.from_outputs:
+            print(json.dumps({'rebuilt': index.rebuild_from_outputs(settings)}, sort_keys=True))
+            return 0
+        unknown = set(args.only_sources or ()) - {spec.name for spec in profile.sources}
+        if unknown:
+            raise ValueError(f"no such source: {', '.join(sorted(unknown))} "
+                             f"(the profile has: {', '.join(spec.name for spec in profile.sources)})")
+        result = index.scan(profile, settings, only=args.only_sources)
+    print(json.dumps(asdict(result), sort_keys=True))
+    return 1 if result.errors else 0
+
+
+def _when(timestamp: float | None) -> str:
+    return datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S') if timestamp else 'never'
+
+
+def _status(args: argparse.Namespace, config: dict[str, Any]) -> int:
+    values = _scan_values(args, config)
+    work_dir = values.get('work_dir') or profile_from_config(config).work_dir
+    if not work_dir:
+        raise ValueError('work-dir is required')
+    path = index_path(work_dir)
+    if not os.path.isfile(path):
+        print(f'no index at {path}: run `scan` first')
+        return 1
+    with LibraryIndex(path) as index:
+        summary = index.summary()
+    if args.json:
+        print(json.dumps(asdict(summary), sort_keys=True))
+        return 0
+    if not summary.generation:
+        print(f'{path} has never been scanned: run `scan`')
+        return 1
+    width = max(len(needs) for needs in NEEDS)
+    print(f'{summary.titles} titles, last scanned {_when(summary.last_scan_at)}')
+    for needs in NEEDS:
+        print(f'  {needs:<{width}}  {summary.counts[needs]}')
+    print(f'new since the previous scan: {summary.new}')
+    flags = ', '.join(f'{name} {count}' for name, count in summary.flags.items() if count)
+    print(f'flags: {flags or "none"}')
+    for source in summary.sources:
+        state = f'FAILED ({source.last_error})' if source.last_error else 'ok'
+        print(f'source {source.name}: {state}, {source.item_count} items, last scanned {_when(source.last_scanned)}')
+    return 0
+
+
+_COMMANDS = {'run': _run, 'publish': _publish, 'commit': _commit, 'sync': _sync, 'revise': _revise,
+             'scan': _scan, 'status': _status}
 
 
 def _add_analysis_options(parser: argparse.ArgumentParser) -> None:
@@ -211,6 +292,23 @@ has them if they were never committed, and left alone (the title becomes a revis
 the next `publish`) if they were, so give it the repositories. It only changes state: run `run`, or `publish` and
 `commit`, afterwards to do the work. Exit status: 0, 1 if any id could not be revised, 2 for a bad option or config.
 Prints one JSON result per id.
+"""
+
+_SCAN_EPILOG = """\
+Reads each source's listing and the outputs (extract manifests, review queue, .beq projects, the two repositories) and
+records, for every title, what it needs next -- without extracting, designing or publishing anything and without
+reading a media file. The result is a disposable SQLite index in the work directory (`library-index.sqlite`); deleting
+it costs only a rescan. Reads the same config or profile file as `run` (`--config FILE` before the command, or
+`--profile FILE`): `sources:`, `ignore:`, `run:` and `sync:`. Every option can also be set in those sections under the
+same name with underscores; a flag overrides the file. A source that cannot be listed keeps the titles it had and is
+reported. Exit status: 0, 1 if a source could not be listed, 2 for a bad option or config. Prints the result as JSON.
+"""
+
+_STATUS_EPILOG = """\
+Prints how many titles need each thing -- attention, review, extract, design, publish, commit -- and how many are done,
+from the index the last `scan` wrote (`scan` first; `status` never lists a source). Suitable for a scheduled job to say
+what is waiting for a person. Reads the work directory from `--work-dir`, or from the same config or profile file as
+`scan`. Exit status: 0, 1 if there is no scanned index, 2 for a bad option or config.
 """
 
 _SYNC_EPILOG = _SHARED_SECTION + """ `sync.meta_defaults` (a mapping of BeqMetadata fields, such as
@@ -334,6 +432,43 @@ def _add_revise_options(parser: argparse.ArgumentParser) -> None:
     _add_repo_options(parser, with_image_url_options=False, xml_repo_required=False)
 
 
+def _add_scan_options(parser: argparse.ArgumentParser) -> None:
+    what = parser.add_argument_group('what to scan')
+    what.add_argument('--profile', metavar='FILE',
+                      help='read a catalogue profile (JSON or YAML) instead of --config; not combined with --config')
+    what.add_argument('--source', dest='only_sources', action='append', metavar='NAME',
+                      help='rescan only this source, by the name the profile gives it (repeatable); the others keep '
+                           'what the last scan found')
+    what.add_argument('--from-outputs', action='store_true',
+                      help='instead of listing any source, rebuild the index from the outputs alone (the review '
+                           'queue, extract manifests, projects and repositories); what has no queue entry reappears '
+                           'at the next scan')
+    where = parser.add_argument_group('where things are')
+    where.add_argument('--work-dir', help='directory for extracted audio, caches and the index (required)')
+    where.add_argument('--queue-dir', help='review queue directory')
+    settings = parser.add_argument_group('settings that decide what is up to date',
+                                         'Give the same values as `run` and `publish`, or the index describes work '
+                                         'they would not do.')
+    settings.add_argument('--designer', help='the designer `run` uses; a title designed with another is stale')
+    settings.add_argument('--coverage', choices=('complete_programme', 'representative_segment'),
+                          help='how much of the programme the designer analyses (default complete_programme)')
+    settings.add_argument('--keep-multichannel', action=argparse.BooleanOptionalAction, default=None,
+                          help='whether `run` also keeps the multichannel extraction (default: no)')
+    settings.add_argument('--tv-mode', choices=TV_MODES,
+                          help='episode: a title per TV episode (default); season: one per season')
+    _add_repo_options(parser, with_image_url_options=False, xml_repo_required=False)
+    _add_analysis_options(parser)
+
+
+def _add_status_options(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument('--profile', metavar='FILE',
+                        help='read a catalogue profile (JSON or YAML) instead of --config, to find the work directory')
+    parser.add_argument('--work-dir', help='the work directory whose index to read')
+    parser.add_argument('--json', action='store_true',
+                        help='print the summary as JSON: generation, last_scan_at, titles, counts per needs, new, '
+                             'flags and each source\'s last scan and error')
+
+
 def _add_sync_options(parser: argparse.ArgumentParser) -> None:
     _add_publish_options(parser)
     _add_push_option(parser)
@@ -356,7 +491,10 @@ def build_parser() -> argparse.ArgumentParser:
             ('sync', 'publish accepted review entries, then commit and push them', _SYNC_EPILOG,
              _add_sync_options),
             ('revise', 'send entries back for another review, design or extraction', _REVISE_EPILOG,
-             _add_revise_options)):
+             _add_revise_options),
+            ('scan', 'discover what each title needs, without doing any of it', _SCAN_EPILOG, _add_scan_options),
+            ('status', 'count the titles that need each thing, from the last scan', _STATUS_EPILOG,
+             _add_status_options)):
         add_options(commands.add_parser(name, help=help_text, epilog=epilog,
                                         formatter_class=argparse.RawDescriptionHelpFormatter))
     return parser

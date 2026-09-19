@@ -10,11 +10,17 @@ import pytest
 
 from pipeline.library.jriver import BrowseNode, JRiverLibrarySource, LibraryField, list_browse_children, \
     list_library_fields, normalise_external_id_fields
+from pipeline.library.artwork import resolve_art
 from pipeline.library.pathmap import PathMapping
 
 
 def _source(**kwargs):
     return JRiverLibrarySource('JRiver.local', 52199, 42, **kwargs)
+
+
+def _art(source, row):
+    ''' The poster the item would get at design time (a listing only names candidates; it touches no file). '''
+    return resolve_art(source._map_row(_row(**row)), {}, None)
 
 
 def _row(**overrides):
@@ -129,7 +135,7 @@ def test_maps_optional_fields_and_tv_metadata(tmp_path):
     assert item.kind == 'tv'
     assert (item.season, item.episodes) == ('2', (3,))
     assert item.meta == {}
-    assert item.art_path == str(artwork)
+    assert resolve_art(item, {}, None) == str(artwork)
     assert item.external_ids == {}
     assert item.fingerprint == ''
 
@@ -296,12 +302,12 @@ def test_a_bare_image_file_name_is_found_beside_the_translated_media_file(tmp_pa
     cover.write_bytes(b'image')
     source = _source(path_mappings=[PathMapping('W:\\Films', str(tmp_path))])
 
-    assert source._map_row(_row(**WINDOWS_ROW)).art_path == str(cover)
-    assert source._map_row(_row(**{**WINDOWS_ROW, 'Image File': 'missing.jpg'})).art_path is None
+    assert _art(source, WINDOWS_ROW) == str(cover)
+    assert _art(source, {**WINDOWS_ROW, 'Image File': 'missing.jpg'}) is None
 
 
 def test_a_bare_image_file_name_is_not_found_without_a_mapping():
-    assert _source()._map_row(_row(**WINDOWS_ROW)).art_path is None
+    assert _art(_source(), WINDOWS_ROW) is None
 
 
 def test_an_absolute_windows_image_path_is_mapped_too(tmp_path):
@@ -310,9 +316,7 @@ def test_an_absolute_windows_image_path_is_mapped_too(tmp_path):
     cover.write_bytes(b'image')
     source = _source(path_mappings=[PathMapping('W:\\Films', str(tmp_path))])
 
-    item = source._map_row(_row(**{**WINDOWS_ROW, 'Image File': 'W:\\Films\\art\\cover.jpg'}))
-
-    assert item.art_path == str(cover)
+    assert _art(source, {**WINDOWS_ROW, 'Image File': 'W:\\Films\\art\\cover.jpg'}) == str(cover)
 
 
 def test_an_internal_image_is_never_a_file(tmp_path):
@@ -320,7 +324,7 @@ def test_an_internal_image_is_never_a_file(tmp_path):
     (tmp_path / 'Action' / 'INTERNAL').write_bytes(b'x')  # even a file that happens to share the marker's name
     source = _source(path_mappings=[PathMapping('W:\\Films', str(tmp_path))])
 
-    assert source._map_row(_row(**{**WINDOWS_ROW, 'Image File': 'INTERNAL'})).art_path is None
+    assert _art(source, {**WINDOWS_ROW, 'Image File': 'INTERNAL'}) is None
 
 
 # --- which fields hold the external ids (they differ between libraries) ----------------------------------------
@@ -433,3 +437,55 @@ def test_the_disc_folder_is_then_translated_like_any_other_path(tmp_path):
 ])
 def test_anything_else_is_left_as_reported(filename):
     assert _source()._map_row(_row(Filename=filename)).source_path == filename
+
+
+# --- a listing never touches the media (design.md §12.5) ---------------------------------------------------------
+
+def _fail_on_disk(monkeypatch, only_under=None):
+    import os
+    real_stat, real_isfile = os.stat, os.path.isfile
+
+    def guard(real):
+        def checked(path, *args, **kwargs):
+            if only_under is None or str(path).startswith(only_under):
+                raise AssertionError(f'a JRiver listing touched the disk: {path!r}')
+            return real(path, *args, **kwargs)
+        return checked
+
+    monkeypatch.setattr(os, 'stat', guard(real_stat))
+    monkeypatch.setattr(os.path, 'isfile', guard(real_isfile))
+    monkeypatch.setattr(os.path, 'isdir', guard(os.path.isdir))
+    monkeypatch.setattr(os.path, 'exists', guard(os.path.exists))
+
+
+def test_mapping_rows_performs_no_stat_or_isfile_on_media_or_artwork(monkeypatch):
+    rows = [_row(Key=i, Filename=f'W:\\Films\\{i}.mkv', **{'Image File': f'{i}.jpg'}) for i in range(50)]
+    rows.append(_row(Key=99, Filename='W:\\Films\\x\\BDMV\\index.bluray;1', **{'Image File': 'W:\\Films\\art.jpg'}))
+    source = _source(path_mappings=[PathMapping('W:\\Films', '/mnt/films')])
+    _fail_on_disk(monkeypatch)
+
+    items = source._map_rows(rows)
+
+    assert len(items) == 51
+    assert items[0].art_path is None
+    assert items[0].art_candidates == ('/mnt/films/0.jpg',)
+
+
+def test_listing_a_library_over_http_touches_no_media_file(monkeypatch):
+    rows = [_row(Key=i, Filename=f'/mnt/films/{i}.mkv', **{'Image File': f'{i}.jpg'}) for i in range(5)]
+    with _browse_server(rows) as (port, _):
+        _fail_on_disk(monkeypatch, only_under='/mnt/films')
+        items = list(JRiverLibrarySource('127.0.0.1', port, 42).list_items())
+
+    assert len(items) == 5
+
+
+def test_artwork_is_resolved_at_design_time_from_the_candidates(tmp_path):
+    cover = tmp_path / 'a.jpg'
+    cover.write_bytes(b'image')
+    item = _source()._map_row(_row(Filename=str(tmp_path / 'a.mkv'), **{'Image File': 'a.jpg'}))
+
+    assert item.art_path is None and item.art_candidates == (str(cover),)
+    assert resolve_art(item, {}, None) == str(cover)
+    cover.unlink()
+    assert resolve_art(item, {}, None) is None

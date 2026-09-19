@@ -99,8 +99,9 @@ Discovery is its own operation. It reads and diffs, writes an index, and **never
 **Trust rules.**
 
 - **Library sources (JRiver):** one bulk `Browse/Files` call; **no media file is read or stat'd**. The fingerprint
-  (`Date Modified` + `File Size`) is the library's. The one disk touch today is `_local_art_path`
-  (`os.path.isfile` per item); it moves to design time, where artwork is actually resolved.
+  (`Date Modified` + `File Size`) is the library's. The one disk touch there was `_local_art_path`
+  (`os.path.isfile` per item); **built in chunk 24**: a listing now only names `LibraryItem.art_candidates` and `artwork.resolve_art()` checks
+  them at design time, where artwork is actually resolved.
 - **Filesystem source:** one `stat` per file (`BDMV/index.bdmv` / `VIDEO_TS.IFO` for discs). No file contents are read.
 - Whether a JRiver file exists locally is **not** checked at discovery. A wrong path mapping surfaces as an
   extract failure with its reason (below) rather than costing a stat per title on every scan.
@@ -110,11 +111,12 @@ existing `*_if_needed()` wrappers -- `extract_status()` (manifest vs `source_fin
 `extract_cache.py`) and `design_status()` (`design_fingerprint()` vs `QueueEntry.design_fingerprint`,
 `design_cache.py`) -- which the wrappers then also call.
 
-**Index (proposed: SQLite in `<work_dir>/`, stdlib `sqlite3`).** One row per title: catalogue id, owning source
-and item id, path, source fingerprint, metadata snapshot (title/year/kind/external ids), `last_seen`,
+**Index (built, chunk 24: SQLite in `<work_dir>/library-index.sqlite`, stdlib `sqlite3`; `pipeline/library/index.py`).** One row per
+title: catalogue id, owning source and item id, path, source fingerprint, metadata snapshot (title/year/kind/external ids), `last_seen`,
 shadowed duplicates, per-stage state, `needs`/`tier`, **`state_since`** (when the title entered its current
 state -- the queue JSON's mtime is not usable, since every edit changes it), and failure memory. The index is
-a **cache**: deleting it costs a rescan, nothing else (claims are reconstructed, ignores live in the profile).
+a **cache**: deleting it costs a rescan, nothing else (claims are reconstructed, ignores live in the profile). The frozen schema is
+in "Index schema" below.
 
 **Refresh.** The GUI shows the cached index immediately (stale-while-revalidate) and rescans **per source, on
 demand**, showing each source's "last scanned". A rescan highlights what is **new since last scan**. Cron
@@ -135,6 +137,124 @@ this profile did not publish is labelled **Already in catalogue** -- information
 (and can be ignored). Matching must use the XML's TMDB id, not the filename (ours are entry ids; others' are not).
 The element is `<beq_metadata><beq_theMovieDB>`, and the XML has no movie/tv kind, so match on it together with
 `<beq_season>` being non-empty (§12.14).
+
+#### Index schema (FROZEN at chunk 24, `SCHEMA_VERSION = 1`)
+
+Versioned by `PRAGMA user_version`. **Rule for any other version** (older, newer, or a file that is not a database): drop every
+table and recreate -- the index is a cache, the next `scan` refills it, and `generation = 0` tells the caller it has never been
+scanned. Nothing is ever migrated. A later chunk that needs a column bumps `SCHEMA_VERSION`; the cost is one rescan, but every
+consumer of the columns below must then be revisited, which is why the list is meant to be complete. `test_the_frozen_schema_in_the_design_doc_is_the_one_in_the_code`
+keeps this block identical to `index.SCHEMA`.
+
+```sql
+CREATE TABLE meta (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+CREATE TABLE sources (
+    name         TEXT PRIMARY KEY,
+    position     INTEGER NOT NULL,
+    kind         TEXT NOT NULL,
+    last_scanned REAL,
+    last_ok      REAL,
+    last_error   TEXT NOT NULL DEFAULT '',
+    item_count   INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE titles (
+    id                    TEXT PRIMARY KEY,
+    unit                  TEXT NOT NULL DEFAULT 'item',
+    source                TEXT NOT NULL DEFAULT '',
+    item_id               TEXT NOT NULL DEFAULT '',
+    members               TEXT NOT NULL DEFAULT '[]',
+    path                  TEXT NOT NULL DEFAULT '',
+    display_name          TEXT NOT NULL DEFAULT '',
+    title                 TEXT NOT NULL DEFAULT '',
+    year                  TEXT NOT NULL DEFAULT '',
+    kind                  TEXT NOT NULL DEFAULT 'movie',
+    season                TEXT NOT NULL DEFAULT '',
+    episodes              TEXT NOT NULL DEFAULT '[]',
+    external_ids          TEXT NOT NULL DEFAULT '{}',
+    items                 TEXT NOT NULL DEFAULT '[]',
+    fingerprint           TEXT NOT NULL DEFAULT '',
+    first_seen_generation INTEGER NOT NULL DEFAULT 0,
+    last_seen             REAL NOT NULL DEFAULT 0,
+    also_in               TEXT NOT NULL DEFAULT '[]',
+    shadowed_by           TEXT NOT NULL DEFAULT '',
+    ignored               TEXT NOT NULL DEFAULT '',
+    gone                  INTEGER NOT NULL DEFAULT 0,
+    duplicates            TEXT NOT NULL DEFAULT '[]',
+    in_catalogue          INTEGER NOT NULL DEFAULT 0,
+    extract_state         TEXT NOT NULL DEFAULT 'none',
+    design_state          TEXT NOT NULL DEFAULT 'none',
+    review_state          TEXT NOT NULL DEFAULT 'none',
+    publish_state         TEXT NOT NULL DEFAULT 'none',
+    commit_state          TEXT NOT NULL DEFAULT 'none',
+    needs                 TEXT NOT NULL,
+    tier                  TEXT NOT NULL,
+    detail                TEXT NOT NULL DEFAULT '',
+    state_since           REAL NOT NULL,
+    confidence            REAL,
+    candidate_count       INTEGER NOT NULL DEFAULT 0,
+    failure               TEXT NOT NULL DEFAULT '',
+    entry_summary         TEXT NOT NULL DEFAULT '',
+    digest_key            TEXT NOT NULL DEFAULT '',
+    current_digest        TEXT NOT NULL DEFAULT '',
+    conflict              INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX titles_by_needs  ON titles (needs);
+CREATE INDEX titles_by_tier   ON titles (tier, state_since);
+CREATE INDEX titles_by_source ON titles (source);
+CREATE TABLE failures (
+    id          TEXT PRIMARY KEY,
+    stage       TEXT NOT NULL,
+    message     TEXT NOT NULL,
+    fingerprint TEXT NOT NULL,
+    key         TEXT NOT NULL,
+    at          REAL NOT NULL
+);
+CREATE TABLE repo_xml (
+    path     TEXT PRIMARY KEY,
+    mtime_ns INTEGER NOT NULL,
+    size     INTEGER NOT NULL,
+    tmdb     TEXT NOT NULL,
+    is_tv    INTEGER NOT NULL
+);
+```
+
+What a work list needs, and where it is (chunks 26-27 read these; they never recompute them):
+
+| A work list shows (§12.6, §12.10) | Column |
+|---|---|
+| title, year | `title`, `year` (the queue entry's metadata once it has one, else the library's) |
+| source | `source` (the owning source's name in the profile); `also_in` lists the sources whose copy of the file was shadowed |
+| Needs, and the strip's counts | `needs` (`attention` `review` `extract` `design` `publish` `commit` `done`), `tier` (`attention` `human` `machine` `done`); `LibraryIndex.summary().counts` |
+| detail / reason text | `detail` (one line, e.g. `conf 0.62 - 3 candidates`, `extract failed: ...`, `gone from source`); `failure` is the remembered message |
+| confidence of the top candidate, candidate count | `confidence`, `candidate_count` |
+| Waiting (and the sort: tier, then oldest first) | `state_since` (epoch seconds); `LibraryIndex.titles()` orders by tier then `state_since` |
+| new-since-scan marker | `first_seen_generation = meta.generation` (`TitleRow.is_new`, `summary().new`); the generation is bumped by every `scan()` and is 0 after a rebuild |
+| flags | `ignored` (the rule or "ignored by you", empty if not), `shadowed_by` (the owner's id), `gone`, `duplicates` (JSON list of ids), `in_catalogue`; `TitleRow.flags` names them |
+| per-stage state (title page, filters) | `extract_state`, `design_state`, `review_state`, `publish_state`, `commit_state` (vocabularies in `state.py`) |
+| last scanned, per source | `sources.last_scanned` (last attempt), `last_ok`, `last_error`, `item_count` |
+| what a row is | `unit` (`item` or `season`), `item_id`, `members` (a season's episode ids), `path`, `display_name`, `kind`, `season`, `episodes`, `external_ids` |
+
+Notes on the columns that are not self-explanatory:
+
+- **`id`** is the catalogue id -- the queue entry's, the work directory's, the XML's file name. For a source item it is `LibraryItem.id`;
+  for a TV season in `tv_mode='season'` it is the season id, and the episodes are in `members` (they are not rows of their own).
+- **`items`** is the JSON of every source `LibraryItem` the row consumed (one, or a season's episodes). It is what lets a source that is down,
+  or one skipped by `scan(only=...)`, still take part in the merge: its last listing is re-read from here, so **one source being down
+  never makes its titles vanish**. A `gone` row is not re-read.
+- **Shadowed** items are rows too (`shadowed_by` set, `needs = done`), so the work list can show and count them; the owner's `also_in` names
+  their source. **Ignored** titles are rows with `ignored` set, evaluated like any other, and `needs = done`.
+- **`gone`** rows are kept only if the id still has outputs (a queue entry or a work directory); one with none is dropped and reported in
+  `ScanResult.dropped`. Its other columns are as they were.
+- **`entry_summary`, `digest_key`, `current_digest`, `conflict`** are caches keyed on the queue entry's mtime and size and on the artwork's
+  and projects' stats, so a rescan re-reads only what changed (an entry carries the whole average curve). They are not for display.
+- **`failures`** is separate from `titles` so a failure recorded by `run_library` survives a rescan and a title that was never scanned. A failure
+  applies while the source fingerprint **and** `status.failure_key()` (the extract parameters, or the designer, analysis and coverage) are
+  unchanged; a scan deletes one that no longer applies, and `clear_failure()` is *Retry failed*.
+- **`repo_xml`** caches the XML repo's TMDB ids by relative path, mtime and size, so an unchanged file is not parsed again.
+- **`state_since`** moves only when `needs` changes. A rebuild sets it to the rebuild time for every title (accepted, documented).
 
 ### 12.6 The stage state machine
 

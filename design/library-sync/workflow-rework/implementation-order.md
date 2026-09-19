@@ -2,7 +2,7 @@
 
 > Part of the library sync plan -- **start at the index**: [`../../library-sync-pipeline-plan.md`](../../library-sync-pipeline-plan.md).
 > Contains §12.13. Section numbers are global across the plan; the index maps every `§` to its file.
-> Status of what this file describes: **not started**; the status of each chunk lives in the index
+> Status of what this file describes: chunks 19-24 built, 25-28 not started; the status of each chunk lives in the index
 
 ### 12.13 Implementation order (proposed)
 
@@ -187,7 +187,7 @@ Steps 2-5 can be reordered freely (they are independent); steps 6 onwards cannot
   - **Season ids** (§12.14): `Claims.season_id()` matches an existing season-shaped queue entry by (series TMDB id, season) then (title, season); `plan_units(..., season_id_for=)` uses it and **`run_library()` now always
     passes it**, so a corrected series title no longer re-keys a season. `season.is_season_id()` distinguishes season ids from source ids (an episode's own entry also carries a season in its metadata).
   - CLI: `run --profile FILE` (replaces `--config` and the source options; refused with `--config` or with no sources). README has a "One catalogue from several libraries" section.
-  - **Not done:** a per-source timeout/partial-failure policy (24), GUI editing of the profile (26c), and adopting a dangling claim (above).
+  - **Not done:** a per-source timeout policy (a source that raises is handled in 24; a slow one is not), GUI editing of the profile (26c), and adopting a dangling claim (above).
 
 **24 -- Discovery index and states** (new `pipeline/library/status.py`, `index.py`, `state.py`)
 - Split `extract_status()` / `design_status()` out of the `*_if_needed()` wrappers (which then call them): a refactor with **no behaviour change**,
@@ -198,10 +198,54 @@ Steps 2-5 can be reordered freely (they are independent); steps 6 onwards cannot
 - **Tests:** one case per row of the needs table and per flag; index deletion -> rebuild yields the same states (`state_since` resets to the rebuild time --
   accepted and documented); a 5,000-item synthetic scan stays within a budget; a JRiver listing performs **no** `os.stat`/`isfile` on media (monkeypatched to fail).
 - **Done when:** the schema is **frozen** and written into §12.5.
+- **Done (2026-09-19); how it differs from the list above:**
+  - Modules: `state.py` (pure: `StageStates`, `derive_needs()`, the vocabularies), `status.py` (the read half: `ScanSettings`, `Evaluator`, `EntryFacts`, `failure_key()`, `FailureMemory`), `index.py` (`LibraryIndex`,
+    `SCHEMA`, `TitleRow`, `ScanResult`, `IndexSummary`) and a new `catalogue_scan.py` (the XML repo scan). **`extract_status()` and `design_status()` live in `extract_cache.py` / `design_cache.py`** beside the wrappers
+    that now call them, not in `status.py`; each returns a small dataclass (`ExtractStatus`, `DesignStatus`) and both wrappers keep their behaviour (existing suite plus equivalence tests that walk every state
+    through both). `design_fingerprint()`/`extract_status()` take the source fingerprint as an optional argument, so a scan that already has it does not `stat` twice; an **empty fingerprint means "unknown" and is not compared**
+    (a filesystem item that cannot be stat'd keeps a recorded extraction as current rather than stale for ever).
+  - **The schema is frozen in design.md §12.5** (`SCHEMA_VERSION = 1`, `PRAGMA user_version`; any other version, or a file that is not a database, is dropped and rescanned). A test keeps the doc's DDL identical to
+    `index.SCHEMA`. It is complete for §12.10: title, year, source (`also_in`), needs/tier, `detail`, `confidence`, `candidate_count`, `state_since`, `first_seen_generation` (the new-since-scan marker),
+    the five flag columns, the five stage states, `sources.last_scanned`/`last_ok`/`last_error`. Failure memory is its own table (`failures`), so a failure recorded by `run` survives a rescan.
+  - **`QueueEntry.source_fingerprint`** (new, optional; schema doc updated) is the "fingerprint recorded at accept time": `design_if_needed()` records it when it designs, and a protected (accepted or published) entry is never
+    redesigned, so it is the fingerprint the human accepted. An entry designed before this chunk has none, so a change to its source **cannot be detected** (no false alarms; the next redesign records it).
+  - **The digest** is factored into `review.current_publish_digest(entry, meta_defaults=, work_dir=, has_image=)` (plus `publication_meta()` and `project_paths()`, now shared with `publish_reviewed_queue()`) and
+    `project.preview_published_projects()` (what publishing would resolve, without writing: a missing or pipeline-pure project counts as holding the chosen candidate). Equivalence with what publish records is tested with
+    real publishes, with and without projects and edits. The digest depends on `meta_defaults`, on whether an image repo is given and on `work_dir`, so **`ScanSettings` must be given what `publish` is given**; the CLI `scan` reads
+    them from the config's `run:`/`sync:`. An entry published before digests were recorded has none and is treated as `written`, not out of date. A published title whose XML is missing from the repo is `out_of_date` ("its file is
+    missing"), which is also how a later chunk republishes it.
+  - **JRiver listing does no `stat`/`isfile`**: `_local_art_path` became `_art_candidates()`; a listing sets `LibraryItem.art_candidates` (new, default empty; absolute candidates only) and `artwork.resolve_art()` picks the first that
+    exists at design time. The jriver tests that asserted `item.art_path` now assert `resolve_art(item, {}, None)`; new tests monkeypatch `os.stat`/`isfile`/`isdir`/`exists` to fail during a listing (one over real HTTP).
+  - **Failure memory:** `run_library(..., index=)` records a failure (stage `extract` or `design`, message, the unit's source fingerprint, `failure_key()` of the settings) and forgets it on success; the CLI `run` opens the work
+    directory's index for it (and carries on without one if it cannot be opened). A failure applies while both fingerprint and key are unchanged; a scan deletes one that no longer applies. **Nothing reads it to skip a retry yet**:
+    `run` still retries a failed title every time; chunk 25's "retry-failed only on request" is where `run` consults `index.failures()` and `clear_failure()` becomes *Retry failed*. A season's failure is recorded against the season id;
+    an episode that fails inside a season is reported in `report.failed` as before but not remembered.
+  - **`scan(profile, settings=None, only=, sources=, now=)`** lists each source itself and calls `union.union_of` (a source that raises keeps its last listing, from the `items` column, and is reported; `only` rescans named sources
+    and merges against the others' last listings), then `plan_units()` (so the units the index shows are the units a `tv_mode='season'` run works on -- `run_library` still calls `plan_units` itself; chunk 25 makes it use the index's
+    units), then reads outputs. A **season** is one row; its extract state aggregates its episodes (an episode never extracted is tolerated once some were, since a run leaves out one that will not extract); its design status compares
+    the joined track's fingerprint. Shadowed and ignored items are rows (`done`). A `gone` row needs outputs (a queue entry or work directory) or it is dropped and reported. `reconstruct_claims()` now opens only season-shaped queue
+    entries (an entry's file name is its id), which a 5,000-title scan needed. **5,000 items scan in about 0.25 s** (and a rescan the same) on the dev machine; the test's budget is 6 s.
+  - **`rebuild_from_outputs(settings)`** recreates rows for every queue entry from the outputs alone, assuming sources unchanged; `state_since` restarts at the rebuild time, `source` is empty until the next scan, nothing is marked
+    new, and a **title with no queue entry is not rebuilt** (extracted but undesigned, or new) -- it reappears at the next scan. Tested: scan, delete the file, rebuild -> identical states; a scan after a rebuild agrees and attaches sources.
+  - **Repo awareness** parses `<beq_theMovieDB>` and `<beq_season>` from every `*.xml` in the local XML repo outside `.git` (cached by relative path, mtime and size in `repo_xml`); "Already in catalogue" is set when a
+    matching `(tmdb, is-tv)` exists under a file stem that is not one of this profile's ids (queue entries, work dirs, titles). A title with no TMDB id (item or entry) can never match.
+  - **Commit state** is from `repo_state()`, one call per repo, for the XML and the image path (the worse of the two). A repo with **no upstream** gives `unknown`, which is `needs = commit` ("cannot tell whether it is pushed"),
+    exactly as `commit` itself behaves: such a title never reaches Done. A clone with an upstream (every real one) is fine; a fallback to `<remote>/<branch>` in `repo_state()` would remove the wrinkle and is left for later.
+  - **CLI:** `scan` (`--profile --source NAME --from-outputs --work-dir --queue-dir --designer --coverage --keep-multichannel --tv-mode`, the repos, the analysis options; reads `run:` over `sync:`) and `status`
+    (`--profile --work-dir --json`); README and help tests cover both. `scan --source NAME` names a *profile source* (the `--source` of chunk 25's selectors), unlike `run --source jriver|filesystem`, which names a kind.
+    Exit 1 from `scan` if a source could not be listed, from `status` if there is no scanned index.
+  - **Not done, for later chunks:** `Selection`/`--needs`/`--new-since-scan` (25; the index already answers `titles(needs=, source=, match=, ids=, new_only=)`), an "edited project" fact for bulk accept's exclusions (25; the digest code
+    already reads the projects), adopting a dangling claim by path (the index has the path, but nothing uses it yet), a per-source timeout policy (a failure is recorded, a slow source still blocks the scan), and republishing a
+    `published` entry (`publish_reviewed_queue()` still takes only `accepted`; the index reports `publish_state = out_of_date` to select on, but chunk 25 must add the way to republish them).
+  - **For chunks 25-27:** open with `LibraryIndex(index_path(work_dir))` (thread-safe: one connection, an `RLock`); a scan's `ScanSettings` must match `run`/`publish` (see above); `titles()` is already in work-list order;
+    `TitleRow.flags`, `is_new` and `summary()` are what the strip needs; `record_failure`/`clear_failure`/`failures()` are the failure API; `state.py`'s `NEEDS`/`TIER_OF_NEEDS` are the `--needs` vocabulary.
+  - Tests: `test_pipeline_library_state.py` (one case per row of the table and per flag, pure), `test_pipeline_library_index.py` (each row and flag from real outputs and real temp git repos; source down, `only`, `state_since`, new marker,
+    ordering, queries, rebuild equivalence, schema versioning, failure memory through `run_library`, seasons, the 5,000-item budget), `test_pipeline_review_digest.py`, `test_pipeline_library_catalogue_scan.py`, the extract/design
+    equivalence tests, the jriver no-stat tests, and CLI tests. The new tests were mutation-checked (state_since, source-down, gone, failure clearing, digest cache, TV/film id, own ids, source-changed, fingerprint compare, rebuild, new marker).
 
 **25 -- Stage entry points and selectors** (`pipeline/library/run.py`, new `selection.py`)
 - `Selection` (needs, source, match, ids, new-since-scan) and `run_stages(profile, selection, through, should_cancel, on_progress)`; `Progress(done, total, title, stage)`;
-  `plan_units()` moves into discovery; artwork lookup moves from listing to design; failures persisted through the index.
+  `plan_units()` moves into discovery (the index already calls it; `run_library` still does too); failures are read back through the index (chunk 24 records them; the artwork move to design time is done).
 - `accept_top_pick(selection, threshold)` with an exclusion report (incomplete metadata, decline reason, edited project) and the reviewer note.
 - CLI: `run --needs ... --source ... --match ... --through ...`; a `run` with no selector behaves as today.
 - **Tests:** `through` semantics (design extracts first; a protected entry is never redesigned); cancel mid-run leaves consistent state; retry-failed only on an explicit request

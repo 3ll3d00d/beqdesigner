@@ -277,3 +277,46 @@ def test_a_mono_source_extracts_in_both_modes_and_records_one_channel(tmp_path):
         with wave.open(path) as w:
             assert w.getnchannels() == 1
     assert read_source_channel_count(target_dir) == 1
+
+
+# --- extract_status(): the pure half of extract_if_needed() (design.md §12.5) --------------------------------------
+
+def test_extract_status_agrees_with_extract_if_needed_through_every_state(tmp_path):
+    from pipeline.library.extract_cache import extract_status
+    source = str(tmp_path / 'source.wav')
+    _write_synthetic_wav(source)
+    target_dir = str(tmp_path / 'work')
+    session = Session(AnalysisConfig())
+    item = _mono_item(source)
+    config = AnalysisConfig()
+
+    def check(expected_state, item=item, config=config, force=False):
+        status = extract_status(item, target_dir, config, mono_mix=True)
+        _, cached = extract_if_needed(session, item, target_dir, config, mono_mix=True, force=force)
+        assert status.state == expected_state
+        assert cached == (status.current and not force)  # what would run is what runs
+
+    check('none')                                                      # never extracted
+    check('current')                                                   # recorded, wav present
+    check('current', force=True)                                       # still current; force just ignores it
+    check('stale', item=_mono_item(source, fingerprint='fp2'))         # the source changed
+    check('stale', item=_mono_item(source, fingerprint='fp2'), config=AnalysisConfig(target_fs=500))  # and so did the settings
+    os.remove(os.path.join(target_dir, 'mono.wav'))
+    check('none', item=_mono_item(source, fingerprint='fp2'), config=AnalysisConfig(target_fs=500))  # the wav is gone
+
+
+def test_extract_status_changes_nothing_and_an_unknown_fingerprint_is_not_compared(tmp_path):
+    from pipeline.library.extract_cache import extract_status
+    source = str(tmp_path / 'source.wav')
+    _write_synthetic_wav(source)
+    target_dir = str(tmp_path / 'work')
+    item = _mono_item(source)
+    extract_if_needed(Session(AnalysisConfig()), item, target_dir, AnalysisConfig(), mono_mix=True)
+    listing = sorted(os.listdir(target_dir))
+    manifest = open(os.path.join(target_dir, 'manifest.json')).read()
+
+    assert extract_status(item, target_dir, AnalysisConfig(), True, fingerprint='').current  # cannot tell: not stale
+    assert extract_status(item, target_dir, AnalysisConfig(target_fs=500), True, fingerprint='').state == 'stale'
+    assert extract_status(item, target_dir, AnalysisConfig(), True, fingerprint='other').state == 'stale'
+    assert extract_status(item, target_dir, AnalysisConfig(), mono_mix=False).state == 'none'  # no multichannel yet
+    assert sorted(os.listdir(target_dir)) == listing and open(os.path.join(target_dir, 'manifest.json')).read() == manifest

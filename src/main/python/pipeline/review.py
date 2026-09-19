@@ -70,6 +70,8 @@ class QueueEntry:
                                      # auto-resolution must never overwrite it
     design_fingerprint: Optional[str] = None  # library-run inputs that produced this entry; absent on
                                                # pre-library entries, which must be redesigned once to gain it
+    source_fingerprint: Optional[str] = None  # the source's own change marker when this was designed (library
+                                               # run only); what discovery compares to spot a re-ripped title
     published_digest: Optional[str] = None    # pipeline.publish.catalogue.publish_digest() of what was written to the
                                                # catalogue repos; a different digest now means "out of date"
     published_at: Optional[str] = None        # UTC ISO-8601, when status became 'published'
@@ -314,6 +316,54 @@ def describe_publish_error(result: dict) -> str:
     return f"{result['id']}: {_PUBLISH_ERRORS.get(result['error'], result['error'])}"
 
 
+def publication_meta(entry: QueueEntry, meta_defaults: Optional[dict] = None):
+    '''
+    :return: the BeqMetadata an accepted or published entry publishes with: `meta_defaults` under the entry's own
+        metadata, and -- if neither says -- `gain` defaulting to the chosen candidate's mv_adjust_db. Before the image
+        URLs are filled in, which derive from the repos rather than from the title.
+    '''
+    from pipeline.metadata import BeqMetadata
+    meta = BeqMetadata(**{**(meta_defaults or {}), **entry.meta})
+    if meta.gain is None:
+        meta.gain = f"{entry.candidates[entry.chosen_candidate_index].mv_adjust_db:+g}"
+    return meta
+
+
+def project_paths(work_dir: str, entry_id: str) -> Tuple[str, str, Optional[str], str]:
+    ''':return: (project_dir, mono project path, multichannel project path or None, multichannel wav path); the
+        multichannel project exists only where a multichannel extraction does.'''
+    project_dir = os.path.join(work_dir, entry_id)
+    mc_wav = os.path.join(project_dir, 'multichannel.wav')
+    return (project_dir, os.path.join(project_dir, f"{entry_id}.mono.beq"),
+            os.path.join(project_dir, f"{entry_id}.multichannel.beq") if os.path.isfile(mc_wav) else None, mc_wav)
+
+
+def current_publish_digest(entry: QueueEntry, *, meta_defaults: Optional[dict] = None,
+                           work_dir: Optional[str] = None, has_image: bool = False) -> str:
+    '''
+    The digest publish_reviewed_queue() would record for an accepted or published entry *now*, without publishing:
+    compare it with `entry.published_digest` to see whether the catalogue's copy is out of date. It writes
+    nothing (not the projects, nor the repos); a pipeline-pure project counts as holding the chosen candidate, as
+    publishing would rewrite it to, and a hand-edited one as holding its edit.
+    :param meta_defaults/work_dir: as publish_reviewed_queue(); the digest depends on them, so pass what publish is
+        given.
+    :param has_image: whether publish is given an images repo.
+    :raises ValueError: if the entry has no chosen candidate (it is not accepted or published).
+    :raises ProjectFilterConflict: if the mono and multichannel projects were edited independently and disagree.
+    '''
+    from model.codec import filter_from_json
+    from pipeline.publish.project import preview_published_projects
+    if entry.status not in ('accepted', 'published') or entry.chosen_candidate_index is None:
+        raise ValueError(f"entry {entry.id!r} is not accepted or published (status={entry.status!r})")
+    chosen = entry.candidates[entry.chosen_candidate_index]
+    complete_filter = filter_from_json(chosen.filters)
+    if work_dir is not None:
+        _, mono_path, mc_path, _ = project_paths(work_dir, entry.id)
+        complete_filter = preview_published_projects(mono_path, mc_path, complete_filter).filter
+    return publish_digest(complete_filter.to_json(), publication_meta(entry, meta_defaults), entry.art_path,
+                          has_image, chosen.mv_adjust_db)
+
+
 def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: Optional[dict] = None,
                            images_repo: Optional[RepoTarget] = None, image_owner: Optional[str] = None,
                            image_repo_name: Optional[str] = None, xml_dir: str = '', image_dir: str = '',
@@ -358,7 +408,6 @@ def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: 
         'projects_aligned' (the names rewritten).
     '''
     from model.codec import xydata_from_json
-    from pipeline.metadata import BeqMetadata
     from pipeline.publish.project import ProjectFilterConflict, align_projects, resolve_published_projects, \
         write_title_projects_if_safe
 
@@ -369,15 +418,10 @@ def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: 
             continue
         chosen = _chosen_candidate(entry)
         complete_filter = apply_reviewed_entry(entry)  # unchanged -- still drives meta.gain's default below
-        meta = BeqMetadata(**{**(meta_defaults or {}), **entry.meta})
-        if meta.gain is None:
-            meta.gain = f"{chosen.mv_adjust_db:+g}"
+        meta = publication_meta(entry, meta_defaults)
 
         if work_dir is not None:
-            project_dir = os.path.join(work_dir, entry.id)
-            mono_path = os.path.join(project_dir, f"{entry.id}.mono.beq")
-            mc_wav = os.path.join(project_dir, 'multichannel.wav')
-            mc_path = os.path.join(project_dir, f"{entry.id}.multichannel.beq") if os.path.isfile(mc_wav) else None
+            project_dir, mono_path, mc_path, mc_wav = project_paths(work_dir, entry.id)
             layout = _read_channel_layout_name(project_dir)
             write_title_projects_if_safe(session, os.path.join(project_dir, 'mono.wav'), complete_filter, mono_path,
                                          multichannel_wav_path=mc_wav if mc_path else None,

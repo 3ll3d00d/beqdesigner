@@ -56,6 +56,7 @@ pipeline/
         season.py                      # TV: join a season's episodes into one track
         profile.py, ignore.py, union.py   # the catalogue profile, its ignore rules, and merging several sources
         run.py, sync.py, commit.py, revise.py, cli.py   # run_library(), publish/commit/sync_library(), revise_entry(), the command line
+        state.py, status.py, index.py, catalogue_scan.py   # discovery: what each title needs next, and the SQLite index of it
 
 model/preferences.py          # GUI: durable list of configured HTTP designer endpoints + the review queue
                               #   directory default, both on the Preferences dialog's "Designers" page
@@ -216,6 +217,8 @@ PYTHONPATH=src/main/python python -m pipeline.library.cli [--config FILE] publis
 PYTHONPATH=src/main/python python -m pipeline.library.cli [--config FILE] commit  [options]
 PYTHONPATH=src/main/python python -m pipeline.library.cli [--config FILE] sync    [options]   # publish, then commit
 PYTHONPATH=src/main/python python -m pipeline.library.cli [--config FILE] revise  [options]   # send titles back
+PYTHONPATH=src/main/python python -m pipeline.library.cli [--config FILE] scan    [options]   # what does each title need?
+PYTHONPATH=src/main/python python -m pipeline.library.cli [--config FILE] status  [options]   # counts, from the last scan
 ```
 
 `--config` goes *before* the command. `-h` after a command lists every option with its meaning.
@@ -241,6 +244,30 @@ PYTHONPATH=src/main/python python -m pipeline.library.cli [--config FILE] revise
   committed** has them put back as git has them (deleted, or restored to the previous revision); one already
   **committed** keeps them, becomes a *revision* (`revision` on the entry counts these) and is rewritten at the same
   path when published again. Each records a line in the entry's reviewer note (`--reason` adds why).
+
+- **`scan`** is *discovery*: it lists each source of a profile, merges them, reads the outputs (extract manifests, the
+  review queue, `.beq` projects, both repositories) and records what every title **needs next**, without extracting,
+  designing or publishing anything and without reading a media file (a JRiver listing is one request; a filesystem
+  source costs one `stat` per file). The result is a disposable SQLite index in the work directory
+  (`library-index.sqlite`, schema in `design/library-sync/workflow-rework/design.md` §12.5); deleting it costs a rescan
+  and nothing else. A source that cannot be listed keeps the titles it had and is reported (exit status 1), so one
+  library being down never makes its titles vanish; `--source NAME` rescans just one. `--from-outputs` rebuilds a lost
+  index from the outputs alone.
+- **`status`** prints, from that index, how many titles need each thing -- `attention`, `review`, `extract`, `design`,
+  `publish`, `commit` -- and how many are `done`, plus what is new since the previous scan, the flags and each source's
+  last scan. It never lists a source, so it is instant and suits a scheduled job that reports what is waiting for a
+  person. `--json` is the machine-readable form.
+
+**What a title needs** (`pipeline/library/state.py`, the first row that applies): *attention* if extract or design
+failed (remembered against the source fingerprint and settings it failed with, and retried only when either changes),
+the mono and multichannel projects disagree, or the source changed after the title was accepted; *review* if its
+design is current and it is waiting for a person (a designer's decline included) or an accepted title's metadata is
+incomplete; *extract*, *design*, *publish* (accepted and not written, or written and out of date -- a metadata typo
+reaches the catalogue without a second review) and *commit* (written but not committed, or committed but not pushed)
+are machine work; everything else -- pushed, skipped, rejected, and the flags **Ignored**, **Shadowed**, **Gone** -- is
+*done*. **Possible duplicate** and **Already in catalogue** (its TMDB id is in the local XML repo under a file this
+profile did not publish) are labels only. A title decided by a person is never made stale by a settings change, only by
+its source.
 
 **Libraries.** `--source jriver` reads the files under one Media Center *browse node*; `--source filesystem` reads
 folders or globs. A DVD or Blu-ray rip folder is one title. TV can be run as a filter per episode (the default) or a
@@ -356,12 +383,15 @@ option documented). In outline, `run` takes the library source (`--source --glob
 --peak-window`); `publish` takes what to publish (`--queue-dir --work-dir`), the repositories (`--xml-repo --xml-dir
 --images-repo --image-dir --image-owner --image-repo-name`) and the same analysis options; `commit` takes `--queue-dir`, the same
 repositories (without the image-URL options) and `--push`/`--no-push`; `sync` takes everything `publish` does plus `--push`; `revise` takes `--queue-dir --id --to --reason --work-dir` and the repositories. `publish`,
-`commit`, `sync` and `revise` read the one `sync:` section of the config file. The boolean flags come in
+`commit`, `sync` and `revise` read the one `sync:` section of the config file. `scan` takes `--profile --source
+--from-outputs`, where things are (`--work-dir --queue-dir`), the settings that decide what is up to date (`--designer
+--coverage --keep-multichannel --tv-mode`, the repositories and the analysis options: give the values `run` and `publish`
+get) and reads both `run:` and `sync:`; `status` takes `--profile --work-dir --json`. The boolean flags come in
 pairs (`--keep-multichannel` / `--no-keep-multichannel`) so a flag can turn something off that the file turned on.
 
 ### Output and exit status
 
-Both commands print JSON to stdout.
+The commands print JSON to stdout (`status` prints text unless given `--json`).
 
 - `run` prints the report: `extracted` and `cached` (item ids whose audio was, or was not, re-extracted),
   `designed` and `design_cached`, `failed` (`[id, "ErrorType: message"]` -- one bad title never stops the rest),
@@ -377,6 +407,10 @@ Both commands print JSON to stdout.
 - `commit` prints `{"xml": {...}, "images": {...}, "missing": [...]}`; each repository reports its `paths` handled,
   the new `commit` sha (null if everything was already committed) and whether it was `pushed`. `missing` lists
   published entries with no file in their repository (run `publish` again); exit status 1 if there are any.
+- `scan` prints `{generation, titles, new, gone, dropped, errors, counts}` (`counts` is titles per needs; `errors` maps a
+  source that could not be listed to why). Exit status 1 if any source could not be listed.
+- `status` prints text by default or, with `--json`, `{generation, last_scan_at, titles, counts, new, flags, sources}`.
+  Exit status 1 if there is no scanned index.
 - Exit status 2 is a bad option or config file (a message on stderr).
 
 A typical schedule: `run` nightly from cron, review in the app, `sync` (or `publish`, a look at the clones, then `commit`)

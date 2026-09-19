@@ -57,6 +57,10 @@
       "oneOf": [{ "type": "string" }, { "type": "null" }],
       "description": "opaque hash of the source fingerprint, designer, analysis configuration, and coverage that produced this entry. Absent on queues written before library caching; those entries are deliberately treated as stale once."
     },
+    "source_fingerprint": {
+      "oneOf": [{ "type": "string" }, { "type": "null" }],
+      "description": "the source's own change marker (a library's date modified and size, or a file's mtime and size) at the time this entry was designed. A protected (accepted or published) entry is never redesigned, so a source whose fingerprint now differs is what discovery reports as 'source changed since accepted'. Absent on entries designed before this field existed; for those a change cannot be detected."
+    },
     "published_digest": {
       "oneOf": [{ "type": "string" }, { "type": "null" }],
       "description": "opaque hash of everything the catalogue entry was built from when this entry became 'published': the published filter (a hand-edited .beq project's, else the chosen candidate's), the metadata, the artwork file's content, whether an image was made, and the master-volume offset. A different hash computed now means what was published is out of date. Absent on entries published before this field existed."

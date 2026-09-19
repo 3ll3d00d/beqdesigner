@@ -76,6 +76,7 @@ def _build_item(members: Sequence[LibraryItem], season_id_for: Optional[Callable
         kind='tv',
         external_ids=external_ids,
         art_path=next((m.art_path for m in members if m.art_path), None),
+        art_candidates=next((m.art_candidates for m in members if m.art_candidates), ()),
         season=first.season,
         episodes=tuple(m.episodes[0] for m in members),
     )
@@ -122,7 +123,7 @@ def plan_units(items: Sequence[LibraryItem], tv_mode: str = DEFAULT_TV_MODE,
     return units
 
 
-def _track_fingerprint(member_wavs: Sequence[Tuple[int, str]]) -> str:
+def track_fingerprint(member_wavs: Sequence[Tuple[int, str]]) -> str:
     ''' Changes whenever an episode is added, dropped or re-extracted (its wav's stat moves). '''
     parts = []
     for episode, path in member_wavs:
@@ -162,7 +163,7 @@ def season_track_if_needed(member_wavs: Sequence[Tuple[int, str]], target_dir: s
     if not member_wavs:
         raise ValueError('a season track needs at least one episode')
     ordered = sorted(member_wavs)
-    fingerprint = _track_fingerprint(ordered)
+    fingerprint = track_fingerprint(ordered)
     os.makedirs(target_dir, exist_ok=True)
     track = os.path.join(target_dir, 'mono.wav')
     manifest_path = os.path.join(target_dir, _TRACK_MANIFEST)

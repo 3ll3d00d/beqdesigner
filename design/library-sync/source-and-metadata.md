@@ -111,8 +111,8 @@ Tests (`test_pipeline_library_jriver.py`) use hand-written row dicts and a
 stubbed `hamcws` `MediaServer`, covering the selected node and field list,
 normal mapping, optional fields/TV metadata, id stability across a rename,
 distinct server identities, duplicate/conflicting keys, and rejection of a
-`query`/running event loop. **Not covered:** `INTERNAL` artwork is handled in
-code (`_local_art_path`) but has no dedicated test. **Still outstanding:** the
+`query`/running event loop. `Image File` is now turned into `LibraryItem.art_candidates` without touching the disk (chunk 24;
+`artwork.resolve_art()` checks them at design time), and `INTERNAL` artwork and the listing's no-`stat` guarantee are tested. **Still outstanding:** the
 sanitised *real-server* response fixture -- external-ID aliases
 (`IMDB`/`TheMovieDB` and the `IMDb`/`TMDB`/`TMDb` fallbacks in
 `DEFAULT_EXTERNAL_ID_FIELDS`) and the `Browse/Children` shape are still
