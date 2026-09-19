@@ -24,14 +24,30 @@ class DesignCacheResult:
     protected: bool = False
 
 
-def design_fingerprint(item: LibraryItem, designer: str, config: AnalysisConfig, coverage: Coverage) -> str:
-    '''Stable hash of every library-run input that can change a design result.'''
+def design_fingerprint(item: LibraryItem, designer: str, config: AnalysisConfig, coverage: Coverage,
+                       multichannel: bool = False) -> str:
+    '''
+    Stable hash of every library-run input that can change a design result.
+
+    Metadata (title, TMDB id, artwork) is deliberately absent: a design does not depend on it, and a redesign
+    would replace the entry a reviewer may already have edited. The optional inputs are only hashed when set,
+    so a fingerprint recorded before they existed still matches an unchanged default run.
+
+    :param multichannel: True when a multichannel extraction feeds this design (DesignRequest.channels and the
+        multichannel project), as opposed to a mono-only design.
+    '''
     payload = {
         'source_fingerprint': source_fingerprint(item),
         'designer': designer,
         'config': asdict(config),
         'coverage': coverage,
     }
+    if item.audio_stream:
+        payload['audio_stream'] = item.audio_stream
+    if item.playlist_name:
+        payload['playlist_name'] = item.playlist_name
+    if multichannel:
+        payload['multichannel'] = True
     return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(',', ':')).encode('utf-8')).hexdigest()
 
 
@@ -50,7 +66,8 @@ def design_if_needed(session: Session, item: LibraryItem, wav_path: str, designe
     :param meta: the entry's metadata, or a zero-argument callable returning it, called only if this call
         actually designs.
     '''
-    fingerprint = design_fingerprint(item, designer, config, coverage)
+    fingerprint = design_fingerprint(item, designer, config, coverage,
+                                     multichannel=multichannel_wav_path is not None)
     try:
         existing = read_entry(queue_dir, item.id)
     except FileNotFoundError:

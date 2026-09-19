@@ -131,3 +131,41 @@ def test_meta_callable_is_only_resolved_when_a_design_runs(tmp_path, monkeypatch
     result = design_if_needed(None, item, '/work/mono.wav', 'designer.v1', queue_dir, AnalysisConfig(), meta=resolve)
     assert result.designed is False
     assert resolved == [item.id]
+
+
+def test_fingerprint_changes_for_every_input_that_alters_the_design(tmp_path):
+    item = _item(tmp_path)
+    base = design_fingerprint(item, 'designer.v1', AnalysisConfig(), 'complete_programme')
+
+    assert design_fingerprint(item, 'designer.v1', AnalysisConfig(), 'complete_programme', multichannel=True) != base
+    assert design_fingerprint(replace(item, audio_stream=1), 'designer.v1', AnalysisConfig(),
+                              'complete_programme') != base
+    assert design_fingerprint(replace(item, playlist_name='00800'), 'designer.v1', AnalysisConfig(),
+                              'complete_programme') != base
+
+
+def test_fingerprint_ignores_metadata_and_keeps_the_pre_existing_default_value(tmp_path):
+    item = _item(tmp_path)
+    base = design_fingerprint(item, 'designer.v1', AnalysisConfig(), 'complete_programme')
+
+    retagged = replace(item, title='Corrected', year='1999', external_ids={'tmdb': '1'}, meta={'edition': 'x'})
+    assert design_fingerprint(retagged, 'designer.v1', AnalysisConfig(), 'complete_programme') == base
+    # the payload for a default run is unchanged from before these inputs were added, so existing pending
+    # entries are not redesigned (and a reviewer's edits not lost) by upgrading
+    # (value computed by the implementation as it stood before those inputs were added)
+    assert base == '234311ea0f896eb96cd4536999e4c74099930ee06fdaaec005d5b343b7240300'
+
+
+def test_enabling_multichannel_redesigns_a_pending_entry_and_writes_its_projects(tmp_path, monkeypatch):
+    calls = []
+    _install_fake_design(monkeypatch, calls)
+    item = _item(tmp_path)
+    queue_dir = str(tmp_path / 'queue')
+
+    design_if_needed(None, item, '/work/mono.wav', 'designer.v1', queue_dir, AnalysisConfig())
+    result = design_if_needed(None, item, '/work/mono.wav', 'designer.v1', queue_dir, AnalysisConfig(),
+                              multichannel_wav_path='/work/multichannel.wav')
+
+    assert result.designed is True
+    assert len(calls) == 2
+    assert calls[1][3]['multichannel_wav_path'] == '/work/multichannel.wav'
