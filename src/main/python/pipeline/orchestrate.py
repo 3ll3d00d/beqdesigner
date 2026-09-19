@@ -67,7 +67,7 @@ from pipeline.designer.convert import alternative_filters, to_complete_filter
 from pipeline.designer.registry import get_designer
 from pipeline.filters import FilterSpec, create_filter
 from pipeline.metadata import BeqMetadata, tmdb_lookup
-from pipeline.publish.git import RepoTarget, push_image, push_xml
+from pipeline.publish.git import RepoTarget, image_url as git_image_url, push_image, push_xml, write_files
 from pipeline.publish.report import ReportSpec, render_report
 from pipeline.publish.xml import to_beq_xml as render_beq_xml
 from pipeline.stats import Stats, signal_stats
@@ -376,27 +376,37 @@ class Session:
     def publish(self, filters, meta: BeqMetadata, xml_repo: RepoTarget, xml_relative_path: str,
                images_repo: Optional[RepoTarget] = None, image_relative_path: Optional[str] = None,
                image_png: Optional[bytes] = None, image_owner: Optional[str] = None,
-               image_repo_name: Optional[str] = None) -> dict:
+               image_repo_name: Optional[str] = None, push: bool = True) -> dict:
         '''
         Sequences the image-then-XML publish order pipeline.publish.git
-        requires: pushes the report image first (if given) so its raw URL
+        requires: the report image goes in first (if given) so its raw URL
         can be written into meta.spectrum_url/.pva_url *before* the XML is
         rendered -- beqcatalogue never reads an image out of the XML repo
         itself (design/api-headless-pipeline.md §6, D3).
-        :return: {'xml': the rendered XML, 'xml_commit': its commit sha,
-            'image_url': the pushed image's raw URL, if an image was pushed}.
+        :param push: True (the default) commits and pushes each file as it is written. False only **writes** the
+            image and XML into the repos' working trees -- the image URL needs no push (it is built from the
+            remote's owner, repo and branch) -- leaving pipeline.library.commit to commit and push a whole batch.
+        :return: {'xml': the rendered XML, 'xml_commit': its commit sha (push only),
+            'image_url': the image's raw URL, if an image was published}.
         '''
         result = {}
         if image_png is not None:
             if images_repo is None or image_relative_path is None:
                 raise ValueError("image_png given without images_repo/image_relative_path")
-            image_url = push_image(image_png, images_repo, image_relative_path, owner=image_owner,
-                                   repo_name=image_repo_name)
+            if push:
+                image_url = push_image(image_png, images_repo, image_relative_path, owner=image_owner,
+                                       repo_name=image_repo_name)
+            else:
+                write_files(images_repo, {image_relative_path: image_png})
+                image_url = git_image_url(images_repo, image_relative_path, image_owner, image_repo_name)
             meta.spectrum_url = image_url
             meta.pva_url = image_url
             result['image_url'] = image_url
 
         xml = self.to_beq_xml(filters, meta)
         result['xml'] = xml
-        result['xml_commit'] = push_xml(xml, xml_repo, xml_relative_path)
+        if push:
+            result['xml_commit'] = push_xml(xml, xml_repo, xml_relative_path)
+        else:
+            write_files(xml_repo, {xml_relative_path: xml.encode('utf-8')})
         return result

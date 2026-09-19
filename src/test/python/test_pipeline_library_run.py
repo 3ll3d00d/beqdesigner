@@ -198,10 +198,14 @@ def test_run_library_reports_items_whose_edited_project_was_preserved(tmp_path, 
     assert report.project_edit_preserved == ['edited']
 
 
-def test_sync_library_is_a_parameter_preserving_publish_call_through(monkeypatch):
+def test_sync_library_publishes_without_pushing_then_commits_the_batch(monkeypatch):
+    from pipeline.library.commit import CatalogueCommit, RepoCommit
     calls = []
+    commits = []
     monkeypatch.setattr('pipeline.library.sync.publish_reviewed_queue',
                         lambda *args, **kwargs: calls.append((args, kwargs)) or [{'id': 'one'}])
+    monkeypatch.setattr('pipeline.library.sync.commit_catalogue', lambda *args, **kwargs: commits.append((args, kwargs))
+                        or CatalogueCommit(xml=RepoCommit('xml', ['xml/one.xml'], 'abc', True)))
     xml_repo = object()
     images_repo = object()
 
@@ -209,11 +213,14 @@ def test_sync_library_is_a_parameter_preserving_publish_call_through(monkeypatch
                           image_owner='owner', image_repo_name='images', xml_dir='xml', image_dir='img',
                           work_dir='work')
 
-    assert result == [{'id': 'one'}]
+    assert result == [{'id': 'one', 'xml_commit': 'abc'}]
     assert calls[0][0] == ('queue', xml_repo)
     assert calls[0][1]['meta_defaults'] == {'source': 'Disc'}
     assert calls[0][1]['images_repo'] is images_repo
     assert calls[0][1]['work_dir'] == 'work'
+    assert calls[0][1]['push'] is False  # written only; the batch commit below does the git work
+    assert commits[0][0] == ('queue', xml_repo, images_repo)
+    assert commits[0][1] == {'xml_dir': 'xml', 'image_dir': 'img', 'push': True}
 
 
 # --- TV seasons (plan §11.9) --------------------------------------------------------------------------------

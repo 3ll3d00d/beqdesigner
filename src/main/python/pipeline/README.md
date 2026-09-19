@@ -45,7 +45,8 @@ pipeline/
         xml.py                 # to_beq_xml() -- wraps the existing HDXmlParser path
         art.py                  # TMDB poster fetch
         report.py                # headless report renderer (Agg canvas, no Qt)
-        git.py                    # commit + push XML/images to their target repos
+        git.py                    # write / commit exactly named paths / push, and repo_state() read back from git
+        catalogue.py              # where a title lives in the repos, and the digest that says it is out of date
         project.py                 # per-title .beq project files; a hand edit of one is what gets published
     library/                       # library-scale runs -- see "Library sync (CLI)" below
         source.py, registry.py      # LibraryItem / LibrarySource, an in-process registry of sources
@@ -53,7 +54,7 @@ pipeline/
         pathmap.py                    # translate a server's (Windows) paths to local ones
         extract_cache.py, design_cache.py   # idempotent extract and design
         season.py                      # TV: join a season's episodes into one track
-        run.py, sync.py, cli.py         # run_library(), sync_library(), the command line
+        run.py, sync.py, commit.py, cli.py   # run_library(), publish/commit/sync_library(), the command line
 
 model/preferences.py          # GUI: durable list of configured HTTP designer endpoints + the review queue
                               #   directory default, both on the Preferences dialog's "Designers" page
@@ -210,7 +211,9 @@ path.
 
 ```
 PYTHONPATH=src/main/python python -m pipeline.library.cli [--config FILE] run  [options]
-PYTHONPATH=src/main/python python -m pipeline.library.cli [--config FILE] sync [options]
+PYTHONPATH=src/main/python python -m pipeline.library.cli [--config FILE] publish [options]
+PYTHONPATH=src/main/python python -m pipeline.library.cli [--config FILE] commit  [options]
+PYTHONPATH=src/main/python python -m pipeline.library.cli [--config FILE] sync    [options]   # publish, then commit
 ```
 
 `--config` goes *before* the command. `-h` after a command lists every option with its meaning.
@@ -219,9 +222,15 @@ PYTHONPATH=src/main/python python -m pipeline.library.cli [--config FILE] sync [
   source and settings are unchanged is skipped), designs it, and writes an entry to the **review queue**. It never
   publishes, so an unattended `run` has nothing to auto-publish.
 - A person then reviews the queue in the app (Tools > Library Sync, or Review Batch Designs) and accepts entries.
-- **`sync`** publishes only the *accepted* entries: XML to one repository and, optionally, a report image to
-  another. Each is marked published, so a re-run only retries what is still accepted. It runs as the invoking user's
-  own git/SSH configuration.
+- **`publish`** writes only the *accepted* entries into the catalogue repositories' working trees: the XML in one
+  and, optionally, a report image in another. Each entry is marked published (meaning *written*), so a re-run only
+  publishes what is still accepted. It commits and pushes nothing, so the result can be looked at first.
+- **`commit`** commits what `publish` wrote and pushes it: **one commit per repository** containing exactly those
+  files (anything else staged in the clone is left alone), then one push per repository, **images first** so a pushed
+  XML never points at an image that is not there. Whether a file is committed or pushed is read from git, not
+  remembered, so running it again does only what is left (a rejected push is retried; an unchanged file is not an
+  error) and a commit you made by hand is respected. `--no-push` commits locally only.
+- **`sync`** is `publish` then `commit`. It runs as the invoking user's own git/SSH configuration.
 
 **Libraries.** `--source jriver` reads the files under one Media Center *browse node*; `--source filesystem` reads
 folders or globs. A DVD or Blu-ray rip folder is one title. TV can be run as a filter per episode (the default) or a
@@ -296,8 +305,10 @@ option documented). In outline, `run` takes the library source (`--source --glob
 --username --password --ssl --timeout --path-map`), where things go (`--work-dir --queue-dir`), design
 (`--designer --designer-url --coverage --keep-multichannel --tv-mode`), redoing work (`--force-extract
 --force-design`), metadata (`--tmdb-api-key --audio-type`) and analysis (`--target-fs --resolution --avg-window
---peak-window`); `sync` takes what to publish (`--queue-dir --work-dir`), the repositories (`--xml-repo --xml-dir
---images-repo --image-dir --image-owner --image-repo-name`) and the same analysis options. The boolean flags come in
+--peak-window`); `publish` takes what to publish (`--queue-dir --work-dir`), the repositories (`--xml-repo --xml-dir
+--images-repo --image-dir --image-owner --image-repo-name`) and the same analysis options; `commit` takes `--queue-dir`, the same
+repositories (without the image-URL options) and `--push`/`--no-push`; `sync` takes everything `publish` does plus `--push`. `publish`,
+`commit` and `sync` read the one `sync:` section of the config file. The boolean flags come in
 pairs (`--keep-multichannel` / `--no-keep-multichannel`) so a flag can turn something off that the file turned on.
 
 ### Output and exit status
@@ -309,12 +320,17 @@ Both commands print JSON to stdout.
   `meta_unresolved` (designed without TMDB metadata because TMDB failed), `project_edit_preserved` (a hand-edited
   `.beq` project was left alone) and, with `--tv-mode season`, `seasons` (season id -> its episodes). Exit status 1
   if anything is in `failed`.
-- `sync` prints one object per entry it published (`id` plus the publish result; `edited_project` and
+- `publish` and `sync` print one object per entry they published (`id` plus the publish result; `edited_project` and
   `projects_aligned` say a hand edit was what shipped) or refused (`id` and `error`, e.g. `project_conflict` when the
-  mono and multichannel projects were edited to disagree). Exit status 1 if any entry was refused.
+  mono and multichannel projects were edited to disagree). Exit status 1 if any entry was refused. With `sync` each
+  published entry also carries the batch's `xml_commit` (and `image_commit`) sha, where a commit was made.
+- `commit` prints `{"xml": {...}, "images": {...}, "missing": [...]}`; each repository reports its `paths` handled,
+  the new `commit` sha (null if everything was already committed) and whether it was `pushed`. `missing` lists
+  published entries with no file in their repository (run `publish` again); exit status 1 if there are any.
 - Exit status 2 is a bad option or config file (a message on stderr).
 
-A typical schedule: `run` nightly from cron, review in the app, `sync` when the queue has accepted entries.
+A typical schedule: `run` nightly from cron, review in the app, `sync` (or `publish`, a look at the clones, then `commit`)
+when the queue has accepted entries.
 
 ## Design decisions (resolved)
 

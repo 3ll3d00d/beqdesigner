@@ -28,7 +28,7 @@ import os
 import re
 import subprocess
 from dataclasses import dataclass
-from typing import Optional, Tuple
+from typing import FrozenSet, Mapping, Optional, Sequence, Tuple
 
 RAW_CONTENT_TEMPLATE = 'https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{path}'
 
@@ -43,13 +43,21 @@ class RepoTarget:
     remote: str = 'origin'
 
 
-def _git(target: RepoTarget, *args: str) -> str:
+def _git_raw(target: RepoTarget, *args: str) -> str:
     result = subprocess.run(['git', '-C', target.local_path, *args], check=True, capture_output=True, text=True)
-    return result.stdout.strip()
+    return result.stdout
+
+
+def _git(target: RepoTarget, *args: str) -> str:
+    return _git_raw(target, *args).strip()
 
 
 def current_branch(target: RepoTarget) -> str:
-    return _git(target, 'rev-parse', '--abbrev-ref', 'HEAD')
+    ''' The checked-out branch's name -- also on a repo with no commits yet, where `rev-parse` has nothing to read. '''
+    try:
+        return _git(target, 'symbolic-ref', '--short', 'HEAD')
+    except subprocess.CalledProcessError:  # detached HEAD
+        return _git(target, 'rev-parse', '--abbrev-ref', 'HEAD')
 
 
 def parse_github_remote(target: RepoTarget) -> Tuple[str, str]:
@@ -67,21 +75,100 @@ def parse_github_remote(target: RepoTarget) -> Tuple[str, str]:
     raise ValueError(f"Unrecognised GitHub remote URL: {url!r}")
 
 
+def write_files(target: RepoTarget, files: Mapping[str, bytes]) -> None:
+    ''' Writes each {relative_path: content} into the repo's working tree. Touches nothing in git. '''
+    for relative_path, content in files.items():
+        file_path = os.path.join(target.local_path, relative_path)
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        with open(file_path, 'wb') as f:
+            f.write(content)
+
+
+def commit_paths(target: RepoTarget, relative_paths: Sequence[str], commit_message: str) -> Optional[str]:
+    '''
+    Commits exactly `relative_paths` -- not whatever else happens to be staged in the working tree (a pathspec
+    commit) -- and nothing more.
+    :return: the new commit's sha, or None if those paths already match HEAD ("nothing to commit" is a success:
+        re-publishing an unchanged file must not be an error).
+    '''
+    paths = list(relative_paths)
+    if not paths:
+        return None
+    _git(target, 'add', '--', *paths)
+    if not _git(target, 'status', '--porcelain', '--', *paths):
+        return None
+    _git(target, 'commit', '-m', commit_message, '--', *paths)
+    return _git(target, 'rev-parse', 'HEAD')
+
+
+def push(target: RepoTarget) -> None:
+    ''' Pushes the checked-out branch to the remote, without touching the repo's upstream configuration. '''
+    _git(target, 'push', target.remote, f"HEAD:{current_branch(target)}")
+
+
 def commit_and_push(target: RepoTarget, relative_path: str, content: bytes, commit_message: str) -> str:
     '''
-    Writes content to relative_path within the repo, commits, and pushes
-    the current branch.
-    :return: the pushed commit's sha.
+    Writes content to relative_path within the repo, commits just that path, and pushes the current branch.
+    :return: the sha of the commit at the branch's tip -- this one, or the existing tip if the content was unchanged.
     '''
-    file_path = os.path.join(target.local_path, relative_path)
-    os.makedirs(os.path.dirname(file_path), exist_ok=True)
-    with open(file_path, 'wb') as f:
-        f.write(content)
-    _git(target, 'add', relative_path)
-    _git(target, 'commit', '-m', commit_message)
-    branch = current_branch(target)
-    _git(target, 'push', target.remote, f"HEAD:{branch}")
+    write_files(target, {relative_path: content})
+    commit_paths(target, [relative_path], commit_message)
+    push(target)
     return _git(target, 'rev-parse', 'HEAD')
+
+
+def image_url(target: RepoTarget, relative_path: str, owner: Optional[str] = None,
+              repo_name: Optional[str] = None) -> str:
+    '''
+    :return: the GitHub raw-content URL `relative_path` will have once pushed. It needs only the owner, repo and
+        branch, so it is known before anything is committed or pushed -- which is what lets the XML be written
+        (with the image's URL in it) ahead of the push.
+    :param owner/repo_name: parsed from the remote if not given.
+    '''
+    if owner is None or repo_name is None:
+        parsed_owner, parsed_repo_name = parse_github_remote(target)
+        owner = owner or parsed_owner
+        repo_name = repo_name or parsed_repo_name
+    return RAW_CONTENT_TEMPLATE.format(owner=owner, repo=repo_name, branch=current_branch(target),
+                                       path=relative_path.replace(os.sep, '/'))
+
+
+@dataclass(frozen=True)
+class RepoState:
+    '''
+    Where a repo's files stand relative to git, read from git itself so a commit made by hand is respected.
+    Paths are relative to the repo root. Either set is None when it could not be determined (not a repo, or --
+    for `unpushed` -- the branch has no upstream to compare with); callers must treat None as "unknown", never as
+    "nothing".
+    '''
+    uncommitted: Optional[FrozenSet[str]]  # changed, staged or untracked in the working tree
+    unpushed: Optional[FrozenSet[str]]     # differing between the upstream branch and HEAD
+
+
+def _porcelain_paths(status: str) -> FrozenSet[str]:
+    ''' Paths from `git status --porcelain=v1 -z`: `XY path\\0`, and for a rename/copy a second `orig\\0`. '''
+    paths, fields = set(), iter(status.split('\0'))
+    for field in fields:
+        if len(field) < 4:
+            continue
+        paths.add(field[3:])
+        if field[0] in 'RC' or field[1] in 'RC':
+            next(fields, None)  # the rename's source path
+    return frozenset(paths)
+
+
+def repo_state(target: RepoTarget) -> RepoState:
+    ''' One `git status` and one `git diff` for the whole repo, however many titles it holds. Never raises. '''
+    try:
+        uncommitted = _porcelain_paths(_git_raw(target, 'status', '--porcelain=v1', '-z', '--untracked-files=all'))
+    except (subprocess.CalledProcessError, OSError):
+        uncommitted = None
+    try:
+        diff = _git_raw(target, 'diff', '--name-only', '-z', '@{upstream}..HEAD')
+        unpushed = frozenset(p for p in diff.split('\0') if p)
+    except (subprocess.CalledProcessError, OSError):
+        unpushed = None
+    return RepoState(uncommitted, unpushed)
 
 
 def push_image(png_bytes: bytes, target: RepoTarget, relative_path: str,
@@ -98,12 +185,7 @@ def push_image(png_bytes: bytes, target: RepoTarget, relative_path: str,
         pipeline.publish.xml.to_beq_xml() runs.
     '''
     commit_and_push(target, relative_path, png_bytes, commit_message)
-    if owner is None or repo_name is None:
-        parsed_owner, parsed_repo_name = parse_github_remote(target)
-        owner = owner or parsed_owner
-        repo_name = repo_name or parsed_repo_name
-    branch = current_branch(target)
-    return RAW_CONTENT_TEMPLATE.format(owner=owner, repo=repo_name, branch=branch, path=relative_path)
+    return image_url(target, relative_path, owner, repo_name)
 
 
 def push_xml(xml: str, target: RepoTarget, relative_path: str, commit_message: str = 'Add BEQ filter') -> str:

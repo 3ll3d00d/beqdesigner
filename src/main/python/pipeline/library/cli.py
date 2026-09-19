@@ -15,7 +15,7 @@ from pipeline.library.jriver import JRiverLibrarySource
 from pipeline.library.pathmap import mappings_from_config
 from pipeline.library.run import LibraryRunConfig, run_library
 from pipeline.library.season import DEFAULT_TV_MODE, TV_MODES
-from pipeline.library.sync import sync_library
+from pipeline.library.sync import commit_library, publish_library, sync_library
 from pipeline.publish.git import RepoTarget
 
 
@@ -122,17 +122,45 @@ def _run(args: argparse.Namespace, config: dict[str, Any]) -> int:
     return 1 if report.failed else 0
 
 
-def _sync(args: argparse.Namespace, config: dict[str, Any]) -> int:
+def _repo(values: dict[str, Any], name: str) -> RepoTarget | None:
+    return RepoTarget(values[name]) if values.get(name) else None
+
+
+def _publish_kwargs(values: dict[str, Any]) -> dict[str, Any]:
+    return dict(
+        meta_defaults=values.get('meta_defaults'), images_repo=_repo(values, 'images_repo'),
+        image_owner=values.get('image_owner'), image_repo_name=values.get('image_repo_name'),
+        xml_dir=values.get('xml_dir', ''), image_dir=values.get('image_dir', ''), config=_analysis_config(values),
+        work_dir=values.get('work_dir'))
+
+
+def _publish(args: argparse.Namespace, config: dict[str, Any]) -> int:
     values = _configured_values(args, config, 'sync')
-    result = sync_library(
-        _required(values, 'queue_dir'), RepoTarget(_required(values, 'xml_repo')),
-        meta_defaults=values.get('meta_defaults'), images_repo=RepoTarget(values['images_repo'])
-        if values.get('images_repo') else None, image_owner=values.get('image_owner'),
-        image_repo_name=values.get('image_repo_name'), xml_dir=values.get('xml_dir', ''),
-        image_dir=values.get('image_dir', ''), config=_analysis_config(values), work_dir=values.get('work_dir'),
-    )
+    result = publish_library(_required(values, 'queue_dir'), RepoTarget(_required(values, 'xml_repo')),
+                             **_publish_kwargs(values))
     print(json.dumps(result, sort_keys=True))
     return 1 if any('error' in item for item in result) else 0
+
+
+def _commit(args: argparse.Namespace, config: dict[str, Any]) -> int:
+    values = _configured_values(args, config, 'sync')
+    result = commit_library(
+        _required(values, 'queue_dir'), RepoTarget(_required(values, 'xml_repo')),
+        images_repo=_repo(values, 'images_repo'), xml_dir=values.get('xml_dir', ''),
+        image_dir=values.get('image_dir', ''), push=bool(values.get('push', True)))
+    print(json.dumps(asdict(result), sort_keys=True))
+    return 1 if result.missing else 0
+
+
+def _sync(args: argparse.Namespace, config: dict[str, Any]) -> int:
+    values = _configured_values(args, config, 'sync')
+    result = sync_library(_required(values, 'queue_dir'), RepoTarget(_required(values, 'xml_repo')),
+                          push=bool(values.get('push', True)), **_publish_kwargs(values))
+    print(json.dumps(result, sort_keys=True))
+    return 1 if any('error' in item for item in result) else 0
+
+
+_COMMANDS = {'run': _run, 'publish': _publish, 'commit': _commit, 'sync': _sync}
 
 
 def _add_analysis_options(parser: argparse.ArgumentParser) -> None:
@@ -151,11 +179,26 @@ instead. Repeatable flags (--glob, --path-map, --designer-url, --audio-type) rep
 list. Exit status: 0, 1 if any item failed, 2 for a bad option or config. Prints the run report as JSON.
 """
 
-_SYNC_EPILOG = """\
+_SHARED_SECTION = """\
 Every option can also be set in the config file's `sync:` section, under the same name with underscores
-(--xml-repo is `xml_repo`); a flag overrides the file. `sync.meta_defaults` (a mapping of BeqMetadata fields, such as
+(--xml-repo is `xml_repo`); a flag overrides the file. `publish`, `commit` and `sync` share that one section, so a
+single set of repositories serves all three."""
+
+_PUBLISH_EPILOG = _SHARED_SECTION + """ `sync.meta_defaults` (a mapping of BeqMetadata fields, such as
 `source: Disc`) has no flag. Exit status: 0, 1 if any entry could not be published, 2 for a bad option or config.
-Prints one JSON result per published or refused entry. Never extracts or designs.
+Prints one JSON result per published or refused entry. Writes files only -- run `commit` to commit and push them.
+Never extracts or designs.
+"""
+
+_COMMIT_EPILOG = _SHARED_SECTION + """ Exit status: 0, 1 if a published entry has no file in its repository
+(run `publish` again), 2 for a bad option or config. Prints what was committed and pushed per repository. What is
+already committed or pushed is read from git, so running it again only does what is left.
+"""
+
+_SYNC_EPILOG = _SHARED_SECTION + """ `sync.meta_defaults` (a mapping of BeqMetadata fields, such as
+`source: Disc`) has no flag. `sync` is `publish` followed by `commit`. Exit status: 0, 1 if any entry could not be
+published, 2 for a bad option or config. Prints one JSON result per published or refused entry. Never extracts or
+designs.
 """
 
 
@@ -215,38 +258,66 @@ def _add_run_options(parser: argparse.ArgumentParser) -> None:
     _add_analysis_options(parser)
 
 
-def _add_sync_options(parser: argparse.ArgumentParser) -> None:
+def _add_repo_options(parser: argparse.ArgumentParser, with_image_url_options: bool) -> None:
+    repos = parser.add_argument_group('repositories')
+    repos.add_argument('--xml-repo', help='local clone of the repository the filter XML goes to (required)')
+    repos.add_argument('--xml-dir', help='folder within the XML repository to put the files in (default: its root)')
+    repos.add_argument('--images-repo', help='local clone of the repository report images go to; without one no '
+                                              f"image is {'made' if with_image_url_options else 'committed'}")
+    repos.add_argument('--image-dir', help='folder within the images repository to put images in (default: its root)')
+    if with_image_url_options:
+        repos.add_argument('--image-owner', help="GitHub owner used to build image URLs (default: read from the images "
+                                                 "repository's remote)")
+        repos.add_argument('--image-repo-name', help="GitHub repository name used to build image URLs (default: read "
+                                                     "from the images repository's remote)")
+
+
+def _add_push_option(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument('--push', action=argparse.BooleanOptionalAction, default=None,
+                        help='push the commits to the remotes, images repository first (default: yes); --no-push '
+                             'commits locally only, to look before anything leaves this machine')
+
+
+def _add_publish_options(parser: argparse.ArgumentParser) -> None:
     where = parser.add_argument_group('what to publish')
     where.add_argument('--queue-dir', help='review queue directory to publish from (required)')
     where.add_argument('--work-dir',
                        help='the run\'s work directory: publish the filter from each title\'s .beq project, so a '
                             'hand edit is what ships, rather than the designer\'s original pick')
-    repos = parser.add_argument_group('repositories')
-    repos.add_argument('--xml-repo', help='local clone of the repository the filter XML is pushed to (required)')
-    repos.add_argument('--xml-dir', help='folder within the XML repository to put the files in (default: its root)')
-    repos.add_argument('--images-repo', help='local clone of the repository report images are pushed to; without '
-                                              'one no image is made')
-    repos.add_argument('--image-dir', help='folder within the images repository to put images in (default: its root)')
-    repos.add_argument('--image-owner', help="GitHub owner used to build image URLs (default: read from the images "
-                                             "repository's remote)")
-    repos.add_argument('--image-repo-name', help="GitHub repository name used to build image URLs (default: read "
-                                                 "from the images repository's remote)")
+    _add_repo_options(parser, with_image_url_options=True)
     _add_analysis_options(parser)
+
+
+def _add_commit_options(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument_group('what to commit').add_argument(
+        '--queue-dir', help='review queue directory whose published entries are committed (required)')
+    _add_repo_options(parser, with_image_url_options=False)
+    _add_push_option(parser)
+
+
+def _add_sync_options(parser: argparse.ArgumentParser) -> None:
+    _add_publish_options(parser)
+    _add_push_option(parser)
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description='Run or publish a BEQDesigner library source: `run` extracts audio and designs filters into a '
-                    'review queue; `sync` publishes the entries a person has accepted. They are separate on '
+                    'review queue; `publish` writes the entries a person has accepted into the catalogue '
+                    'repositories and `commit` commits and pushes them (`sync` does both). They are separate on '
                     'purpose, so an unattended `run` never publishes.')
     parser.add_argument('--config', help='JSON or YAML configuration file (give it before the command)')
     commands = parser.add_subparsers(dest='command', required=True)
-    commands.add_parser('run', help='extract and design, without publishing', epilog=_RUN_EPILOG,
-                        formatter_class=argparse.RawDescriptionHelpFormatter)
-    _add_run_options(commands.choices['run'])
-    commands.add_parser('sync', help='publish accepted review entries', epilog=_SYNC_EPILOG,
-                        formatter_class=argparse.RawDescriptionHelpFormatter)
-    _add_sync_options(commands.choices['sync'])
+    for name, help_text, epilog, add_options in (
+            ('run', 'extract and design, without publishing', _RUN_EPILOG, _add_run_options),
+            ('publish', 'write accepted review entries into the repositories, without committing', _PUBLISH_EPILOG,
+             _add_publish_options),
+            ('commit', 'commit and push what publish wrote, one commit and one push per repository', _COMMIT_EPILOG,
+             _add_commit_options),
+            ('sync', 'publish accepted review entries, then commit and push them', _SYNC_EPILOG,
+             _add_sync_options)):
+        add_options(commands.add_parser(name, help=help_text, epilog=epilog,
+                                        formatter_class=argparse.RawDescriptionHelpFormatter))
     return parser
 
 
@@ -254,7 +325,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     config = _load_config(args.config)
     try:
-        return _run(args, config) if args.command == 'run' else _sync(args, config)
+        return _COMMANDS[args.command](args, config)
     except ValueError as error:
         build_parser().error(str(error))
     return 2

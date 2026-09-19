@@ -5,12 +5,13 @@ mechanics for the XML and images repos. Exercises real local git repos
 add/commit/push sequence is genuinely verified -- no network access
 required, everything stays on the local filesystem.
 '''
+import os
 import subprocess
 
 import pytest
 
-from pipeline.publish.git import (RepoTarget, commit_and_push, current_branch, parse_github_remote, push_image,
-                                  push_xml)
+from pipeline.publish.git import (RepoState, RepoTarget, commit_and_push, commit_paths, current_branch, image_url,
+                                  parse_github_remote, push, push_image, push_xml, repo_state, write_files)
 
 
 def _run(*args):
@@ -100,9 +101,6 @@ def test_rewriting_a_published_path_with_changed_content_is_a_new_commit_at_the_
     assert _content_on_remote(bare, first, 'xml/rp1.xml') == b'v1'
 
 
-@pytest.mark.xfail(strict=True, raises=subprocess.CalledProcessError,
-                   reason="`git commit` exits 1 ('nothing to commit') when the content is unchanged, so re-publishing "
-                          "an identical file raises -- design/library-sync/workflow-rework §12.14, fixed by chunk 21")
 def test_committing_unchanged_content_is_a_no_op_not_an_error(tmp_path):
     target, bare = _init_repo_with_remote(tmp_path)
     first = commit_and_push(target, 'xml/rp1.xml', b'same', 'Add RP1')
@@ -112,8 +110,6 @@ def test_committing_unchanged_content_is_a_no_op_not_an_error(tmp_path):
     assert again == first
 
 
-@pytest.mark.xfail(strict=True, reason="`git commit` without a pathspec commits the whole index, so a file someone "
-                                       "else staged in the working tree is swept into our commit -- fixed by chunk 21")
 def test_a_commit_contains_only_the_published_path(tmp_path):
     target, bare = _init_repo_with_remote(tmp_path)
     (tmp_path / 'work' / 'foreign.txt').write_text('not ours')
@@ -124,6 +120,150 @@ def test_a_commit_contains_only_the_published_path(tmp_path):
     changed = subprocess.run(['git', '-C', target.local_path, 'show', '--name-only', '--format=', sha],
                              check=True, capture_output=True, text=True).stdout.split()
     assert changed == ['xml/rp1.xml']
+
+
+def _head(target):
+    return subprocess.run(['git', '-C', target.local_path, 'rev-parse', 'HEAD'], check=True, capture_output=True,
+                          text=True).stdout.strip()
+
+
+def _files_in(target, sha):
+    return subprocess.run(['git', '-C', target.local_path, 'show', '--name-only', '--format=', sha], check=True,
+                          capture_output=True, text=True).stdout.split()
+
+
+def _remote_head(bare, branch):
+    return subprocess.run(['git', '-C', str(bare), 'rev-parse', branch], check=True, capture_output=True,
+                          text=True).stdout.strip()
+
+
+def test_write_files_only_touches_the_working_tree(tmp_path):
+    target, bare = _init_repo_with_remote(tmp_path)
+
+    write_files(target, {'xml/a.xml': b'a', 'img/deep/b.png': b'b'})
+
+    assert (tmp_path / 'work' / 'xml' / 'a.xml').read_bytes() == b'a'
+    assert (tmp_path / 'work' / 'img' / 'deep' / 'b.png').read_bytes() == b'b'
+    assert repo_state(target).uncommitted == {'xml/a.xml', 'img/deep/b.png'}
+    assert subprocess.run(['git', '-C', target.local_path, 'log'], capture_output=True).returncode != 0  # no commits
+
+
+def test_commit_paths_commits_the_first_commit_of_an_empty_repo_and_returns_its_sha(tmp_path):
+    target, bare = _init_repo_with_remote(tmp_path)
+    write_files(target, {'xml/a.xml': b'a'})
+
+    sha = commit_paths(target, ['xml/a.xml'], 'Add a')
+
+    assert sha == _head(target)
+    assert _files_in(target, sha) == ['xml/a.xml']
+
+
+def test_commit_paths_commits_several_paths_as_one_commit_and_leaves_other_changes_alone(tmp_path):
+    target, bare = _init_repo_with_remote(tmp_path)
+    write_files(target, {'keep.txt': b'k'})
+    commit_paths(target, ['keep.txt'], 'Add keep')
+    write_files(target, {'xml/a.xml': b'a', 'xml/b.xml': b'b', 'keep.txt': b'edited by someone', 'new.txt': b'n'})
+
+    sha = commit_paths(target, ['xml/a.xml', 'xml/b.xml'], 'Add two')
+
+    assert sorted(_files_in(target, sha)) == ['xml/a.xml', 'xml/b.xml']
+    assert repo_state(target).uncommitted == {'keep.txt', 'new.txt'}  # not swept in, not lost
+
+
+def test_commit_paths_returns_none_when_the_paths_already_match_head(tmp_path):
+    target, bare = _init_repo_with_remote(tmp_path)
+    write_files(target, {'a.xml': b'a'})
+    first = commit_paths(target, ['a.xml'], 'Add a')
+
+    assert commit_paths(target, ['a.xml'], 'again') is None
+    assert commit_paths(target, [], 'nothing') is None
+    assert _head(target) == first
+
+
+def test_push_publishes_the_branch_without_setting_an_upstream(tmp_path):
+    target, bare = _init_repo_with_remote(tmp_path)
+    write_files(target, {'a.xml': b'a'})
+    sha = commit_paths(target, ['a.xml'], 'Add a')
+
+    push(target)
+
+    assert _remote_head(bare, current_branch(target)) == sha
+    assert repo_state(target).unpushed is None  # still no upstream configured: unknown, not "nothing"
+
+
+def test_current_branch_works_before_the_first_commit(tmp_path):
+    target, bare = _init_repo_with_remote(tmp_path)
+
+    assert current_branch(target) in ('main', 'master')
+
+
+def test_image_url_is_known_before_anything_is_committed(tmp_path):
+    target, bare = _init_repo_with_remote(tmp_path)
+
+    url = image_url(target, os.path.join('img', 'rp1.png'), owner='3ll3d00d', repo_name='beq-images')
+
+    assert url == f"https://raw.githubusercontent.com/3ll3d00d/beq-images/{current_branch(target)}/img/rp1.png"
+    assert not (tmp_path / 'work' / 'img').exists()
+
+
+def _track_remote(target):
+    _run('git', '-C', target.local_path, 'branch', f'--set-upstream-to=origin/{current_branch(target)}')
+
+
+def test_repo_state_classifies_uncommitted_unpushed_and_pushed_paths(tmp_path):
+    target, bare = _init_repo_with_remote(tmp_path)
+    commit_and_push(target, 'pushed.xml', b'p', 'Add pushed')
+    _track_remote(target)
+    write_files(target, {'committed.xml': b'c'})
+    commit_paths(target, ['committed.xml'], 'Add committed')
+    write_files(target, {'dir/untracked.xml': b'u'})
+    write_files(target, {'pushed.xml': b'edited'})
+
+    state = repo_state(target)
+
+    assert state == RepoState(uncommitted=frozenset({'dir/untracked.xml', 'pushed.xml'}),
+                              unpushed=frozenset({'committed.xml'}))
+
+
+def test_repo_state_is_clean_after_everything_is_pushed(tmp_path):
+    target, bare = _init_repo_with_remote(tmp_path)
+    commit_and_push(target, 'a.xml', b'a', 'Add a')
+    _track_remote(target)
+
+    assert repo_state(target) == RepoState(frozenset(), frozenset())
+
+
+def test_repo_state_follows_a_hand_made_commit(tmp_path):
+    target, bare = _init_repo_with_remote(tmp_path)
+    commit_and_push(target, 'a.xml', b'a', 'Add a')
+    _track_remote(target)
+    write_files(target, {'b.xml': b'b'})
+    _run('git', '-C', target.local_path, 'add', 'b.xml')
+    _run('git', '-C', target.local_path, 'commit', '-q', '-m', 'by hand')
+
+    assert repo_state(target) == RepoState(frozenset(), frozenset({'b.xml'}))
+
+
+def test_repo_state_reports_a_rename_by_its_new_path_only(tmp_path):
+    target, bare = _init_repo_with_remote(tmp_path)
+    commit_and_push(target, 'old.xml', b'a long enough body to be detected as a rename', 'Add old')
+    _run('git', '-C', target.local_path, 'mv', 'old.xml', 'new.xml')
+
+    assert repo_state(target).uncommitted == {'new.xml'}
+
+
+def test_repo_state_degrades_to_unknown_outside_a_repo_instead_of_raising(tmp_path):
+    state = repo_state(RepoTarget(local_path=str(tmp_path / 'not-a-repo')))
+
+    assert state == RepoState(None, None)
+
+
+def test_repo_state_survives_a_detached_head_and_a_repo_with_no_upstream(tmp_path):
+    target, bare = _init_repo_with_remote(tmp_path)
+    commit_and_push(target, 'a.xml', b'a', 'Add a')
+    _run('git', '-C', target.local_path, 'checkout', '-q', '--detach')
+
+    assert repo_state(target) == RepoState(frozenset(), None)
 
 
 def test_parse_github_remote_handles_https_and_ssh_forms(tmp_path):

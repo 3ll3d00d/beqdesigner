@@ -122,6 +122,25 @@ Steps 2-5 can be reordered freely (they are independent); steps 6 onwards cannot
 - **Tests** (temp bare remotes): image-then-XML order; a foreign staged file is not swept into our commit; no-diff commit is a no-op; `repo_state`
   classification; the digest changes on a metadata/artwork/filter edit and is otherwise stable; the resulting repo content equals today's `sync` output.
 - **Risk:** git edge cases (detached HEAD, no upstream). `repo_state()` must degrade to "unknown", not raise.
+- **Done (2026-09-19); how it differs from the list above:**
+  - `git.py` also gained `write_files()`, `push()` and a `current_branch()` that works before the first commit (`symbolic-ref`, not `rev-parse`, which fails on an unborn branch).
+    `commit_and_push()` is now those three, so `push_image`/`push_xml` and the standalone review dialog are unchanged. Both of chunk 19's strict xfails now pass, markers removed.
+  - `commit_paths()` returns `None` for "nothing to commit". `repo_state()` returns `RepoState(uncommitted, unpushed)`, **each `None` when unknown** (not a repo; no upstream; detached HEAD),
+    and `commit_catalogue()` treats unknown as "cannot tell": every present file is a candidate (recommitting an unchanged one is a no-op) and the repo is pushed.
+  - New `pipeline/publish/catalogue.py` (`catalogue_paths()`, `publish_digest()`), shared by publish and commit. The digest covers the published filter, the metadata as published (before
+    the image URLs are filled in), the artwork file's **content**, whether an image is made, and the mv offset. It does **not** include the designer name (the entry does not store it, and
+    the filter it produced is in there) or the repo paths.
+  - `QueueEntry.published_digest`/`published_at` (schema doc updated). They are recorded on **every** publish, including the default push path, but nothing reads them yet.
+  - `pipeline/library/commit.py` `commit_catalogue()` and, in `sync.py`, `publish_library()`/`commit_library()`; `sync_library()` is both and still returns the publish results (now also `xml_commit`/`image_commit`).
+  - CLI: `publish`, `commit` (with `--push/--no-push`), `sync` (which also takes `--push`). All three read the one `sync:` config section, and the docs tests now cover all four commands.
+  - **Not done here, for 24/25:** republishing a title that is already `published` and out of date. `publish_reviewed_queue()` still only takes `accepted` entries, so the "typo on a published title flows
+    straight to Publish" path needs a way to select published entries whose *current* digest differs -- 24 computes the current digest, 25 selects and republishes. The digest computation lives inside
+    `publish_reviewed_queue()` today and needs factoring into a function 24 can call without publishing.
+  - **Found, not fixed:** a queue entry with invalid metadata (no title, say) makes `publish_reviewed_queue()` *raise* `ValueError` mid-batch, aborting the rest, unlike `project_conflict`, which is returned as
+    a per-entry `error`. Chunk 25 (per-title isolation) should report it the same way.
+  - Tests: `test_pipeline_library_commit.py` (temp bare remotes: one commit and one push per repo, images first, foreign staged and untracked files untouched, a failed push retried, a failed images push leaves the
+    XML repo alone, a revision recommits the same path, the remote content equals the old per-file publish), plus the git and CLI test files. Writing them found a real bug: `commit` with nothing published
+    and no upstream tried to push a repo with no commits.
 
 **22 -- Revise backend** (`pipeline/review.py`, `pipeline/library/design_cache.py`, `extract_cache.py`)
 - `reopen_entry()`: written-but-uncommitted -> delete or `git checkout` the working-tree files and set pending; committed/pushed -> pending with a

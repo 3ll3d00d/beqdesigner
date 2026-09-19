@@ -56,6 +56,14 @@
     "design_fingerprint": {
       "oneOf": [{ "type": "string" }, { "type": "null" }],
       "description": "opaque hash of the source fingerprint, designer, analysis configuration, and coverage that produced this entry. Absent on queues written before library caching; those entries are deliberately treated as stale once."
+    },
+    "published_digest": {
+      "oneOf": [{ "type": "string" }, { "type": "null" }],
+      "description": "opaque hash of everything the catalogue entry was built from when this entry became 'published': the published filter (a hand-edited .beq project's, else the chosen candidate's), the metadata, the artwork file's content, whether an image was made, and the master-volume offset. A different hash computed now means what was published is out of date. Absent on entries published before this field existed."
+    },
+    "published_at": {
+      "oneOf": [{ "type": "string" }, { "type": "null" }],
+      "description": "UTC ISO-8601 time the entry became 'published'. 'published' means the XML (and image) were written into the catalogue repos' working trees; whether they are committed or pushed is read from git and is not stored here (the one-step publish, pipeline.review.publish_reviewed_queue() with push=True, does commit and push each file as it writes it)."
     }
   },
   "required": ["id", "fs", "meta", "curve", "candidates", "status"],

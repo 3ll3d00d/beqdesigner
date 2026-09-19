@@ -14,11 +14,13 @@ BiquadSpec/DesignCandidate.
 import json
 import os
 from dataclasses import asdict, dataclass, field, replace
+from datetime import datetime, timezone
 from typing import Callable, List, Optional, Sequence, Tuple
 
 from pipeline.config import AnalysisConfig
 from pipeline.designer.contract import Coverage
 from pipeline.orchestrate import Applied, Declined, DesignOutcome, Session
+from pipeline.publish.catalogue import catalogue_paths, publish_digest
 from pipeline.publish.git import RepoTarget
 from pipeline.publish.report import ReportSpec
 
@@ -68,6 +70,9 @@ class QueueEntry:
                                      # auto-resolution must never overwrite it
     design_fingerprint: Optional[str] = None  # library-run inputs that produced this entry; absent on
                                                # pre-library entries, which must be redesigned once to gain it
+    published_digest: Optional[str] = None    # pipeline.publish.catalogue.publish_digest() of what was written to the
+                                               # catalogue repos; a different digest now means "out of date"
+    published_at: Optional[str] = None        # UTC ISO-8601, when status became 'published'
 
     def __post_init__(self):
         if self.status not in VALID_STATUSES:
@@ -312,7 +317,7 @@ def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: 
                            image_repo_name: Optional[str] = None, xml_dir: str = '', image_dir: str = '',
                            report_spec: ReportSpec = ReportSpec(),
                            config: AnalysisConfig = AnalysisConfig(),
-                           work_dir: Optional[str] = None) -> List[dict]:
+                           work_dir: Optional[str] = None, push: bool = True) -> List[dict]:
     '''
     Publishes every 'accepted' entry in queue_dir: apply_reviewed_entry()
     for the filters, a fresh report image built from the entry's stored
@@ -341,6 +346,10 @@ def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: 
         result carries an 'error': 'project_conflict' key instead, and its status is left alone so a rerun
         retries it. Omitted (the default), publishing reads apply_reviewed_entry() as before -- backward
         compatible.
+    :param push: True (the default) commits and pushes each file as it is written, as this always has. False only
+        writes the files into the repos' working trees and marks the entry 'published' (meaning *written*), for
+        pipeline.library.commit.commit_catalogue() to commit and push the batch -- one commit and one push per repo
+        instead of two pushes per title.
     :return: one {'id': entry.id, **Session.publish()'s result} per entry
         actually published this run. With work_dir, an entry published from a human's project edit also carries
         'edited_project' ('mono'/'multichannel'/'both') and, if the other project was rewritten to match,
@@ -380,19 +389,19 @@ def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: 
             aligned = align_projects(session, published, mono_path, os.path.join(project_dir, 'mono.wav'),
                                      mc_path, mc_wav if mc_path else None, layout)
 
+        xml_relative_path, image_relative_path = catalogue_paths(entry.id, xml_dir, image_dir)
         image_png = None
-        image_relative_path = None
         if images_repo is not None:
             unfiltered = xydata_from_json(entry.curve)
             filtered = unfiltered.filter(complete_filter.get_transfer_function().get_magnitude())
             image_png = session.report([unfiltered, filtered], complete_filter, meta=meta, poster_path=entry.art_path,
                                        spec=report_spec, mv_offset=chosen.mv_adjust_db)
-            image_relative_path = os.path.join(image_dir, f"{entry.id}.png") if image_dir else f"{entry.id}.png"
-
-        xml_relative_path = os.path.join(xml_dir, f"{entry.id}.xml") if xml_dir else f"{entry.id}.xml"
+        digest = publish_digest(complete_filter.to_json(), meta, entry.art_path, images_repo is not None,
+                                chosen.mv_adjust_db)  # before publish(), which fills the image URLs into meta
         result = session.publish(complete_filter, meta, xml_repo, xml_relative_path, images_repo=images_repo,
-                                 image_relative_path=image_relative_path, image_png=image_png,
-                                 image_owner=image_owner, image_repo_name=image_repo_name)
-        update_entry(queue_dir, entry.id, status='published')
+                                 image_relative_path=image_relative_path if images_repo is not None else None,
+                                 image_png=image_png, image_owner=image_owner, image_repo_name=image_repo_name, push=push)
+        update_entry(queue_dir, entry.id, status='published', published_digest=digest,
+                     published_at=datetime.now(timezone.utc).isoformat(timespec='seconds'))
         results.append({'id': entry.id, **result, **(_project_notes(published, aligned) if work_dir else {})})
     return results

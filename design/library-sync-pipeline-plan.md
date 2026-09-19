@@ -6,7 +6,7 @@ and a small set of design items in §3.1.3, §3.3.1 and §4 remain unbuilt --
 see §10 "Implementation status vs. this plan" for the authoritative list.**
 **§12 (added 2026-09-19) is an agreed *design only* for a reworked workflow and
 work-list UI (multi-source catalogue profile, discovery index, per-stage state,
-publish/commit split, revise); only chunks 19 (a tests-only spike) and 20 (fixes to the current dialog) are built, and it supersedes §7's GUI.
+publish/commit split, revise); only chunks 19 (a tests-only spike), 20 (fixes to the current dialog) and 21 (publish/commit split) are built, and it supersedes §7's GUI.
 Its build order is §12.13.**
 Written 2026-09-17. Builds on the
 headless pipeline in `pipeline/` (see `pipeline/README.md` and
@@ -161,4 +161,5 @@ fixture -- only chunk 8 is blocked on that mapping.
 | 18 | TV seasons (§11.9): metadata that marks the episodes a filter covers (built), TMDB season lookup + season/episodes on library items, and a `tv_mode` option -- one filter per episode, or the whole season as a single track. | 15 **Implemented** -- `tv_mode` `episode` \| `season` |
 | 19 | Workflow rework verification spike (§12.14): Enter-accepts confirmed, TMDB XML element, no-diff commit and foreign-staged-file findings, `QueueEntry` fields, season id shape. Tests only, no product code. | 18 | **Done -- commit `d4a33ce`** |
 | 20 | Workflow rework: fixes to the current dialog that need no redesign (M0) -- review preloaded, entries named from the library, Enter scoped, failure details, unsaved-edit prompt, Reopen. | 19 | **Done -- commit `7197994`** |
-| 21-28 | Workflow rework (§12): publish/commit split (21), revise backend (22), profile + union + ignore rules (23), discovery index (24), stage entry points + selectors (25), work-list UI (26a-c), title page (27a-c), documentation (28). Detail, dependencies, milestones and risks in [`library-sync/workflow-rework/implementation-order.md`](library-sync/workflow-rework/implementation-order.md) (§12.13); design in [`workflow-rework/design.md`](library-sync/workflow-rework/design.md). | 18 | **Not started** (design agreed 2026-09-19) |
+| 21 | Workflow rework: publish/commit split -- `write_files`/`commit_paths`/`push`/`repo_state`, `commit_catalogue()`, `QueueEntry.published_digest`/`published_at`, CLI `publish`/`commit`/`sync`. (M1 needs 22 as well.) | 19 | **Done -- commit `PENDING`** |
+| 22-28 | Workflow rework (§12): revise backend (22), profile + union + ignore rules (23), discovery index (24), stage entry points + selectors (25), work-list UI (26a-c), title page (27a-c), documentation (28). Detail, dependencies, milestones and risks in [`library-sync/workflow-rework/implementation-order.md`](library-sync/workflow-rework/implementation-order.md) (§12.13); design in [`workflow-rework/design.md`](library-sync/workflow-rework/design.md). | 18 | **Not started** (design agreed 2026-09-19) |

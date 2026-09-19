@@ -304,3 +304,67 @@ def test_a_declared_designer_without_a_url_is_a_cli_error(tmp_path, monkeypatch)
 
     with pytest.raises(SystemExit):
         cli.main(['--config', str(config)] + _run_args('broken'))
+
+
+def test_publish_only_writes_and_reads_the_shared_sync_section(tmp_path, monkeypatch, capsys):
+    from pipeline.library import cli
+    config = tmp_path / 'c.json'
+    config.write_text(json.dumps({'sync': {'queue_dir': '/queue', 'xml_repo': '/xml', 'xml_dir': 'filters'}}))
+    calls = []
+    monkeypatch.setattr(cli, 'publish_library', lambda *args, **kwargs: calls.append((args, kwargs)) or [{'id': 'one'}])
+    monkeypatch.setattr(cli, 'commit_library', lambda *args, **kwargs: pytest.fail('publish must not commit'))
+    monkeypatch.setattr(cli, 'sync_library', lambda *args, **kwargs: pytest.fail('publish is not sync'))
+
+    assert cli.main(['--config', str(config), 'publish', '--images-repo', '/images']) == 0
+
+    (args, kwargs), = calls
+    assert (args[0], args[1].local_path, kwargs['images_repo'].local_path, kwargs['xml_dir']) == \
+        ('/queue', '/xml', '/images', 'filters')
+    assert json.loads(capsys.readouterr().out) == [{'id': 'one'}]
+
+
+def test_commit_pushes_by_default_and_can_be_told_not_to(monkeypatch, capsys):
+    from pipeline.library import cli
+    from pipeline.library.commit import CatalogueCommit, RepoCommit
+    calls = []
+    monkeypatch.setattr(cli, 'commit_library', lambda *args, **kwargs: calls.append((args, kwargs)) or CatalogueCommit(
+        xml=RepoCommit('/xml', ['a.xml'], 'abc', True), images=RepoCommit('/images', ['a.png'], 'def', True)))
+
+    assert cli.main(['commit', '--queue-dir', '/queue', '--xml-repo', '/xml', '--images-repo', '/images']) == 0
+    assert cli.main(['commit', '--queue-dir', '/queue', '--xml-repo', '/xml', '--no-push']) == 0
+
+    assert [kwargs['push'] for _, kwargs in calls] == [True, False]
+    assert calls[0][0][1].local_path == '/xml' and calls[0][1]['images_repo'].local_path == '/images'
+    assert calls[1][1]['images_repo'] is None
+    first = json.loads(capsys.readouterr().out.splitlines()[0])
+    assert first['xml'] == {'repo': '/xml', 'paths': ['a.xml'], 'commit': 'abc', 'pushed': True}
+    assert first['missing'] == []
+
+
+def test_commit_exits_nonzero_when_a_published_entry_has_no_file(monkeypatch, capsys):
+    from pipeline.library import cli
+    from pipeline.library.commit import CatalogueCommit, RepoCommit
+    monkeypatch.setattr(cli, 'commit_library', lambda *args, **kwargs: CatalogueCommit(
+        xml=RepoCommit('/xml', []), missing=['gone.xml']))
+
+    assert cli.main(['commit', '--queue-dir', '/queue', '--xml-repo', '/xml']) == 1
+
+
+def test_sync_passes_push_through(monkeypatch, capsys):
+    from pipeline.library import cli
+    calls = []
+    monkeypatch.setattr(cli, 'sync_library', lambda *args, **kwargs: calls.append(kwargs) or [])
+
+    cli.main(['sync', '--queue-dir', '/queue', '--xml-repo', '/xml'])
+    cli.main(['sync', '--queue-dir', '/queue', '--xml-repo', '/xml', '--no-push'])
+
+    assert [kwargs['push'] for kwargs in calls] == [True, False]
+
+
+def test_commit_without_a_repository_is_a_cli_error(capsys):
+    from pipeline.library import cli
+    with pytest.raises(SystemExit) as raised:
+        cli.main(['commit', '--queue-dir', '/queue'])
+
+    assert raised.value.code == 2
+    assert 'xml-repo is required' in capsys.readouterr().err
