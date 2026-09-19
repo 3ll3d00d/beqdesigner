@@ -16,7 +16,7 @@ import qtawesome as qta
 import requests
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, QObject, QRunnable, Qt, QThreadPool, Signal
 from qtpy.QtGui import QKeySequence, QPixmap, QShortcut
-from qtpy.QtWidgets import QDialog, QFileDialog, QLineEdit, QMessageBox, QStatusBar, QTableWidgetItem
+from qtpy.QtWidgets import QDialog, QFileDialog, QLineEdit, QMessageBox, QPushButton, QStatusBar, QTableWidgetItem
 
 from model.codec import filter_from_json, xydata_from_json
 from model.magnitude import MagnitudeModel
@@ -108,10 +108,17 @@ class ReviewQueueDialog(QDialog, Ui_reviewQueueDialog):
         self.__preferences = preferences
         self.__queue_dir = None
         self.__selected_candidate_index = 0
+        self.__keep_candidate = None  # (entry id, candidate index) to restore when that entry is re-selected
         self.__table_model = _QueueTableModel(self)
         self.queueTable.setModel(self.__table_model)
         self.statusBar = QStatusBar()
         self.mainLayout.addWidget(self.statusBar)
+
+        # Enter in a QLineEdit clicks a QDialog's default button, and every QPushButton is autoDefault: none of these
+        # may fire from the keyboard (Enter on the table/candidate list is handled by the shortcuts below).
+        for button in self.findChildren(QPushButton):
+            button.setAutoDefault(False)
+            button.setDefault(False)
 
         self.browseQueueDirButton.setIcon(qta.icon('fa5s.folder-open'))
         self.browseQueueDirButton.clicked.connect(self.__browse_queue_dir)
@@ -195,6 +202,8 @@ class ReviewQueueDialog(QDialog, Ui_reviewQueueDialog):
         if self.__queue_dir is None:
             return
         current = self.__current_entry() if keep_current else None
+        if current is not None:
+            self.__keep_candidate = (current.id, self.__selected_candidate_index)
         entries = read_queue(self.__queue_dir)
         self.__table_model.set_entries(entries)
         row = next((i for i, e in enumerate(entries) if current is not None and e.id == current.id), 0)
@@ -202,6 +211,7 @@ class ReviewQueueDialog(QDialog, Ui_reviewQueueDialog):
             self.queueTable.selectRow(row)
         else:
             self.__on_row_selected()
+        self.__keep_candidate = None
         self.statusBar.showMessage(
             f"{len(entries)} entries, {sum(1 for e in entries if e.status == 'pending')} pending")
 
@@ -229,8 +239,12 @@ class ReviewQueueDialog(QDialog, Ui_reviewQueueDialog):
                     f"{i}: confidence={candidate.confidence:.2f} method={candidate.method} "
                     f"mv_adjust_db={candidate.mv_adjust_db:+.1f} gain_reduction_db="
                     f"{candidate.gain_reduction_db if candidate.gain_reduction_db is not None else 'n/a'}")
+            if self.__keep_candidate is not None and self.__keep_candidate[0] == entry.id:
+                self.__selected_candidate_index = self.__keep_candidate[1]  # same entry after an edit: keep the pick
             if entry.status == 'accepted' and entry.chosen_candidate_index is not None:
                 self.__selected_candidate_index = entry.chosen_candidate_index
+            if not 0 <= self.__selected_candidate_index < len(entry.candidates):
+                self.__selected_candidate_index = 0
             if entry.candidates:
                 self.candidateList.setCurrentRow(self.__selected_candidate_index)
         else:
@@ -331,12 +345,13 @@ class ReviewQueueDialog(QDialog, Ui_reviewQueueDialog):
         from model.preferences import TMDB_API_KEY
         api_key = self.__preferences.get(TMDB_API_KEY)
         tmdb_id = self.movieDbIdField.text().strip()
+        kind = 'tv' if self.seasonField.text().strip() else 'movie'
         try:
             if tmdb_id:
-                meta = tmdb_details_by_id(tmdb_id, api_key, kind='movie')
+                meta = tmdb_details_by_id(tmdb_id, api_key, kind=kind)
             else:
                 meta = tmdb_lookup(self.titleField.text().strip(), self.yearField.text().strip(), api_key,
-                                   kind='movie')
+                                   kind=kind)
             self.titleField.setText(meta.title)
             self.altTitleField.setText(meta.alt_title)
             self.yearField.setText(meta.year)
@@ -347,7 +362,7 @@ class ReviewQueueDialog(QDialog, Ui_reviewQueueDialog):
             self.__pending_tmdb_extras = {'poster': meta.poster, 'overview': meta.overview,
                                           'genres': meta.genres, 'collection': meta.collection}
             self.__metadata_dirty = True
-        except requests.HTTPError as e:
+        except requests.RequestException as e:  # HTTPError, ConnectionError, Timeout...
             QMessageBox.critical(self, 'TMDB lookup failed', str(e))
 
     def __browse_art(self):
@@ -440,9 +455,10 @@ class ReviewQueueDialog(QDialog, Ui_reviewQueueDialog):
             return
         if entry.status in ('accepted', 'published'):
             return  # nothing to decide; also stops Enter re-accepting (or, worse, un-publishing) a decided entry
+        picked = self.__selected_candidate_index  # before the prompt: saving reloads the queue and reselects the row
         if self.__metadata_dirty and not self.__resolve_unsaved_metadata():
             return
-        self.__apply_decision(entry.id, status='accepted', chosen_candidate_index=self.__selected_candidate_index)
+        self.__apply_decision(entry.id, status='accepted', chosen_candidate_index=picked)
 
     def __resolve_unsaved_metadata(self):
         '''

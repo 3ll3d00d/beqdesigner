@@ -8,7 +8,7 @@ test_pipeline_review.py; this only exercises the Qt wiring on top of it.
 import numpy as np
 import pytest
 from qtpy.QtCore import QSettings, Qt
-from qtpy.QtWidgets import QFileDialog, QMessageBox
+from qtpy.QtWidgets import QFileDialog, QMessageBox, QPushButton
 
 from model.codec import xydata_to_json
 from model.iir import CompleteFilter, LowShelf, PeakingEQ
@@ -430,6 +430,57 @@ def test_enter_in_a_metadata_field_does_not_accept_the_entry(tmp_path, dialog, q
     assert read_entry(queue_dir, 'title-a').status == 'pending'
 
 
+def test_enter_in_a_metadata_field_clicks_no_button(tmp_path, dialog, qtbot, monkeypatch):
+    ''' QDialog clicks its default button on Enter in a QLineEdit; no button here may be default (Reload TMDB was). '''
+    queue_dir = str(tmp_path / 'queue')
+    field = _show_focused(qtbot, dialog, queue_dir, 'editionField')
+    clicked = []
+    for button in dialog.findChildren(QPushButton):
+        button.clicked.connect(lambda *_, b=button: clicked.append(b.objectName()))
+    monkeypatch.setattr('pipeline.metadata.tmdb_lookup', lambda *a, **k: clicked.append('tmdb') or None)
+
+    qtbot.keyClick(field, Qt.Key.Key_Return)
+    qtbot.keyClick(field, Qt.Key.Key_Enter)
+
+    assert clicked == []
+    assert read_entry(queue_dir, 'title-a').status == 'pending'
+    assert all(not b.autoDefault() and not b.isDefault() for b in dialog.findChildren(QPushButton))
+
+
+def test_reload_tmdb_reports_a_connection_failure_instead_of_raising(tmp_path, dialog, monkeypatch):
+    import requests
+    queue_dir = str(tmp_path / 'queue')
+    _write_entry(queue_dir, 'title-a')
+    dialog.load_queue_dir(queue_dir)
+    dialog.queueTable.selectRow(0)
+    shown = []
+
+    def offline(*args, **kwargs):
+        raise requests.ConnectionError('no route')
+
+    monkeypatch.setattr('pipeline.metadata.tmdb_lookup', offline)
+    monkeypatch.setattr(QMessageBox, 'critical', lambda *args: shown.append(args[1]))
+
+    dialog._ReviewQueueDialog__reload_tmdb()
+
+    assert shown == ['TMDB lookup failed']
+    assert dialog.titleField.text() == 'title-a'
+
+
+def test_reload_tmdb_looks_up_a_tv_entry_as_tv(tmp_path, dialog, monkeypatch):
+    queue_dir = str(tmp_path / 'queue')
+    _write_entry(queue_dir, 'title-a', meta={'title': 'title-a', 'season': '2'})
+    dialog.load_queue_dir(queue_dir)
+    dialog.queueTable.selectRow(0)
+    kinds = []
+    monkeypatch.setattr('pipeline.metadata.tmdb_lookup',
+                        lambda *a, **k: kinds.append(k.get('kind')) or BeqMetadata(title='x', year='2000'))
+
+    dialog._ReviewQueueDialog__reload_tmdb()
+
+    assert kinds == ['tv']
+
+
 def test_letter_and_digit_keys_typed_in_a_metadata_field_are_text_not_shortcuts(tmp_path, dialog, qtbot):
     ''' QLineEdit claims printable keys via ShortcutOverride, so the A/S/R/1-9 shortcuts never fire while typing. '''
     queue_dir = str(tmp_path / 'queue')
@@ -524,6 +575,80 @@ def test_cancelling_the_unsaved_metadata_prompt_leaves_the_entry_pending_and_the
 
     assert read_entry(queue_dir, 'title-a').status == 'pending'
     assert dialog.editionField.text() == 'Extended Cut'
+
+
+def _pick_second_candidate_and_type(qtbot, dialog, queue_dir):
+    _type_into(qtbot, dialog, queue_dir)
+    dialog._ReviewQueueDialog__pick_candidate(1)
+    assert dialog.candidateList.currentRow() == 1
+
+
+def test_accepting_after_save_keeps_the_candidate_the_reviewer_picked(tmp_path, dialog, qtbot, monkeypatch):
+    queue_dir = str(tmp_path / 'queue')
+    _pick_second_candidate_and_type(qtbot, dialog, queue_dir)
+    _answer(monkeypatch, QMessageBox.StandardButton.Save)
+
+    dialog._ReviewQueueDialog__accept_current()
+
+    entry = read_entry(queue_dir, 'title-a')
+    assert (entry.status, entry.chosen_candidate_index, entry.meta['edition']) == ('accepted', 1, 'Extended Cut')
+
+
+def test_accepting_after_discard_keeps_the_candidate_the_reviewer_picked(tmp_path, dialog, qtbot, monkeypatch):
+    queue_dir = str(tmp_path / 'queue')
+    _pick_second_candidate_and_type(qtbot, dialog, queue_dir)
+    _answer(monkeypatch, QMessageBox.StandardButton.Discard)
+
+    dialog._ReviewQueueDialog__accept_current()
+
+    entry = read_entry(queue_dir, 'title-a')
+    assert (entry.status, entry.chosen_candidate_index) == ('accepted', 1)
+    assert 'edition' not in entry.meta
+
+
+def test_cancelling_the_prompt_keeps_the_picked_candidate_highlighted(tmp_path, dialog, qtbot, monkeypatch):
+    queue_dir = str(tmp_path / 'queue')
+    _pick_second_candidate_and_type(qtbot, dialog, queue_dir)
+    _answer(monkeypatch, QMessageBox.StandardButton.Cancel)
+
+    dialog._ReviewQueueDialog__accept_current()
+
+    assert read_entry(queue_dir, 'title-a').status == 'pending'
+    assert dialog.candidateList.currentRow() == 1
+
+
+def test_saving_metadata_keeps_the_picked_candidate_highlighted(tmp_path, dialog, qtbot):
+    queue_dir = str(tmp_path / 'queue')
+    _pick_second_candidate_and_type(qtbot, dialog, queue_dir)
+
+    dialog.saveMetadataButton.click()
+
+    assert dialog.metadataStatusLabel.text() == 'Saved'
+    assert dialog.candidateList.currentRow() == 1
+    assert dialog.commentaryTable.item(0, 1).text() == 'alternative'
+
+
+def test_setting_and_clearing_artwork_keeps_the_picked_candidate_highlighted(tmp_path, dialog, qtbot, monkeypatch):
+    queue_dir = str(tmp_path / 'queue')
+    _pick_second_candidate_and_type(qtbot, dialog, queue_dir)
+    monkeypatch.setattr(QFileDialog, 'getOpenFileName', lambda *a, **k: (str(tmp_path / 'poster.jpg'), ''))
+
+    dialog.browseArtButton.click()
+    assert read_entry(queue_dir, 'title-a').art_overridden is True
+    assert dialog.candidateList.currentRow() == 1
+
+    dialog.clearArtButton.click()
+    assert read_entry(queue_dir, 'title-a').art_overridden is False
+    assert dialog.candidateList.currentRow() == 1
+
+
+def test_selecting_another_entry_resets_the_candidate_to_the_first(tmp_path, dialog, qtbot):
+    queue_dir = str(tmp_path / 'queue')
+    _pick_second_candidate_and_type(qtbot, dialog, queue_dir)
+
+    dialog.queueTable.selectRow(1)
+
+    assert dialog.candidateList.currentRow() == 0
 
 
 def test_a_failed_save_does_not_go_on_to_accept(tmp_path, dialog, qtbot, monkeypatch):
