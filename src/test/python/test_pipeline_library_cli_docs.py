@@ -30,7 +30,7 @@ def _readme():
         return f.read()
 
 
-@pytest.mark.parametrize('command', ['run', 'publish', 'commit', 'sync'])
+@pytest.mark.parametrize('command', ['run', 'publish', 'commit', 'sync', 'revise'])
 def test_every_option_has_help_text(command):
     undocumented = [a.option_strings[0] for a in _options(_subparsers()[command]) if not (a.help or '').strip()]
 
@@ -46,7 +46,7 @@ def test_the_top_level_options_and_commands_are_described():
                                     if isinstance(a, argparse._SubParsersAction))._choices_actions)
 
 
-@pytest.mark.parametrize('command', ['run', 'publish', 'commit', 'sync'])
+@pytest.mark.parametrize('command', ['run', 'publish', 'commit', 'sync', 'revise'])
 def test_every_option_is_named_in_the_readme(command):
     readme = _readme()
     missing = [flag for a in _options(_subparsers()[command]) for flag in a.option_strings
@@ -56,7 +56,8 @@ def test_every_option_is_named_in_the_readme(command):
 
 
 def test_each_command_says_how_the_config_file_maps_to_its_flags():
-    for command, section in (('run', '`run:`'), ('publish', '`sync:`'), ('commit', '`sync:`'), ('sync', '`sync:`')):
+    for command, section in (('run', '`run:`'), ('publish', '`sync:`'), ('commit', '`sync:`'), ('sync', '`sync:`'),
+                             ('revise', '`sync:`')):
         text = _subparsers()[command].format_help()
         assert section in text and 'flag overrides the file' in text
 

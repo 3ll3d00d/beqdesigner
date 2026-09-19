@@ -368,3 +368,46 @@ def test_commit_without_a_repository_is_a_cli_error(capsys):
 
     assert raised.value.code == 2
     assert 'xml-repo is required' in capsys.readouterr().err
+
+
+def test_revise_sends_each_id_back_and_reports_the_ones_it_could_not(tmp_path, capsys):
+    from pipeline.library import cli
+    from pipeline.review import CandidateSummary, QueueEntry, read_entry, write_queue_entry
+    queue_dir = str(tmp_path / 'queue')
+    candidate = CandidateSummary(filters={}, confidence=0.9, method='fitted', mv_adjust_db=1.0, gain_reduction_db=0.0,
+                                 commentary={})
+    for entry_id in ('one', 'two'):
+        write_queue_entry(queue_dir, QueueEntry(id=entry_id, fs=1000, meta={}, curve={}, candidates=[candidate],
+                                                status='accepted', chosen_candidate_index=0))
+
+    code = cli.main(['revise', '--queue-dir', queue_dir, '--to', 'review', '--reason', 'check the poster',
+                     '--id', 'one', '--id', 'missing', '--id', 'two'])
+
+    out = json.loads(capsys.readouterr().out)
+    assert code == 1
+    assert [(r['id'], r.get('status')) for r in out] == [('one', 'pending'), ('missing', None), ('two', 'pending')]
+    assert 'missing' in out[1]['error']
+    assert read_entry(queue_dir, 'two').reviewer_note == 'Reopened for review: check the poster'
+
+
+def test_revise_reads_the_shared_sync_section_and_needs_an_id_and_a_target(tmp_path, capsys):
+    from pipeline.library import cli
+    config = tmp_path / 'c.json'
+    config.write_text(json.dumps({'sync': {'queue_dir': str(tmp_path / 'queue'), 'work_dir': str(tmp_path / 'work')}}))
+
+    for argv, message in ((['revise', '--to', 'review'], 'ids is required'), (['revise', '--id', 'one'], 'to is required')):
+        with pytest.raises(SystemExit) as raised:
+            cli.main(['--config', str(config), *argv])
+        assert raised.value.code == 2
+        assert message in capsys.readouterr().err
+
+
+def test_revise_to_extract_without_a_work_dir_is_reported_per_id(tmp_path, capsys):
+    from pipeline.library import cli
+    from pipeline.review import QueueEntry, write_queue_entry
+    queue_dir = str(tmp_path / 'queue')
+    write_queue_entry(queue_dir, QueueEntry(id='one', fs=1000, meta={}, curve={}))
+
+    assert cli.main(['revise', '--queue-dir', queue_dir, '--to', 'extract', '--id', 'one']) == 1
+
+    assert 'work_dir is required' in json.loads(capsys.readouterr().out)[0]['error']

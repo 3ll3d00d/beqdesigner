@@ -61,6 +61,21 @@ def read_source_channel_count(target_dir: str) -> Optional[int]:
     return _read_manifest(target_dir).get('source_channel_count') or None
 
 
+def invalidate_extract(target_dir: str) -> bool:
+    '''
+    Forgets what was extracted into `target_dir`, so the next extract_if_needed() runs ffmpeg again even though the
+    source and settings look unchanged. The wav files stay (a failed re-extract leaves the old audio in place); what is
+    dropped is the manifest's record of them. What describes the *source* (its channel count) is kept.
+    :return: True if there was anything recorded to forget.
+    '''
+    manifest = _read_manifest(target_dir)
+    kept = {k: v for k, v in manifest.items() if not k.startswith(('mono_', 'multichannel_'))}
+    if kept == manifest:
+        return False
+    _write_manifest(target_dir, kept)
+    return True
+
+
 def extract_if_needed(session: Session, item: LibraryItem, target_dir: str, config: AnalysisConfig,
                       mono_mix: bool, force: bool = False) -> Tuple[str, bool]:
     '''

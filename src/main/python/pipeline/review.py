@@ -73,6 +73,8 @@ class QueueEntry:
     published_digest: Optional[str] = None    # pipeline.publish.catalogue.publish_digest() of what was written to the
                                                # catalogue repos; a different digest now means "out of date"
     published_at: Optional[str] = None        # UTC ISO-8601, when status became 'published'
+    revision: int = 0                         # times a title already committed to the catalogue was reopened for
+                                               # revision; the same catalogue path is rewritten each time
 
     def __post_init__(self):
         if self.status not in VALID_STATUSES:

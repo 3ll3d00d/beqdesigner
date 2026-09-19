@@ -64,6 +64,11 @@
     "published_at": {
       "oneOf": [{ "type": "string" }, { "type": "null" }],
       "description": "UTC ISO-8601 time the entry became 'published'. 'published' means the XML (and image) were written into the catalogue repos' working trees; whether they are committed or pushed is read from git and is not stored here (the one-step publish, pipeline.review.publish_reviewed_queue() with push=True, does commit and push each file as it writes it)."
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "how many times an entry already committed to the catalogue was reopened for revision. Absent means 0. The same catalogue path is rewritten each time, so this counts history rather than naming a file."
     }
   },
   "required": ["id", "fs", "meta", "curve", "candidates", "status"],

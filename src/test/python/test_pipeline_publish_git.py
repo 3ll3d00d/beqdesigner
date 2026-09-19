@@ -10,8 +10,8 @@ import subprocess
 
 import pytest
 
-from pipeline.publish.git import (RepoState, RepoTarget, commit_and_push, commit_paths, current_branch, image_url,
-                                  parse_github_remote, push, push_image, push_xml, repo_state, write_files)
+from pipeline.publish.git import (RepoState, RepoTarget, commit_and_push, commit_paths, current_branch, discard_changes,
+                                  image_url, is_committed, parse_github_remote, push, push_image, push_xml, repo_state, write_files)
 
 
 def _run(*args):
@@ -264,6 +264,42 @@ def test_repo_state_survives_a_detached_head_and_a_repo_with_no_upstream(tmp_pat
     _run('git', '-C', target.local_path, 'checkout', '-q', '--detach')
 
     assert repo_state(target) == RepoState(frozenset(), None)
+
+
+def test_is_committed_reads_head_not_the_working_tree(tmp_path):
+    target, bare = _init_repo_with_remote(tmp_path)
+    assert not is_committed(target, 'a.xml')  # no commits at all yet
+    write_files(target, {'a.xml': b'a', 'b.xml': b'b'})
+    commit_paths(target, ['a.xml'], 'Add a')
+
+    assert is_committed(target, 'a.xml') and not is_committed(target, 'b.xml')
+    (tmp_path / 'work' / 'a.xml').unlink()
+    assert is_committed(target, 'a.xml')  # deleted in the tree, still in HEAD
+
+
+def test_discard_changes_restores_committed_files_deletes_uncommitted_ones_and_ignores_the_rest(tmp_path):
+    target, bare = _init_repo_with_remote(tmp_path)
+    write_files(target, {'tracked.xml': b'v1', 'clean.xml': b'c', 'other.txt': b'o'})
+    commit_paths(target, ['tracked.xml', 'clean.xml', 'other.txt'], 'Add')
+    write_files(target, {'tracked.xml': b'v2', 'other.txt': b'edited', 'new.xml': b'n'})
+
+    discarded = discard_changes(target, ['tracked.xml', 'clean.xml', 'new.xml', 'never-existed.xml'])
+
+    assert sorted(discarded) == ['new.xml', 'tracked.xml']
+    assert (tmp_path / 'work' / 'tracked.xml').read_bytes() == b'v1'
+    assert not (tmp_path / 'work' / 'new.xml').exists()
+    assert (tmp_path / 'work' / 'other.txt').read_bytes() == b'edited'  # not named, so not touched
+    assert repo_state(target).uncommitted == {'other.txt'}
+
+
+def test_discard_changes_removes_a_staged_new_file_from_the_index_too(tmp_path):
+    target, bare = _init_repo_with_remote(tmp_path)
+    write_files(target, {'new.xml': b'n'})
+    _run('git', '-C', target.local_path, 'add', 'new.xml')
+
+    assert discard_changes(target, ['new.xml']) == ['new.xml']
+
+    assert repo_state(target).uncommitted == frozenset()
 
 
 def test_parse_github_remote_handles_https_and_ssh_forms(tmp_path):

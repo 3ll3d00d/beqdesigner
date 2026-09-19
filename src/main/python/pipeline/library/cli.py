@@ -13,6 +13,7 @@ from pipeline.designer.registry import register_designer, registered_designers
 from pipeline.library.filesystem import FilesystemLibrarySource
 from pipeline.library.jriver import JRiverLibrarySource
 from pipeline.library.pathmap import mappings_from_config
+from pipeline.library.revise import REVISE_TARGETS, revise_entry
 from pipeline.library.run import LibraryRunConfig, run_library
 from pipeline.library.season import DEFAULT_TV_MODE, TV_MODES
 from pipeline.library.sync import commit_library, publish_library, sync_library
@@ -160,7 +161,29 @@ def _sync(args: argparse.Namespace, config: dict[str, Any]) -> int:
     return 1 if any('error' in item for item in result) else 0
 
 
-_COMMANDS = {'run': _run, 'publish': _publish, 'commit': _commit, 'sync': _sync}
+def _revise(args: argparse.Namespace, config: dict[str, Any]) -> int:
+    values = _configured_values(args, config, 'sync')
+    queue_dir = _required(values, 'queue_dir')
+    ids = _required(values, 'ids')
+    to = _required(values, 'to')
+    results, failed = [], False
+    for entry_id in ids:
+        try:
+            done = revise_entry(
+                queue_dir, entry_id, to, values.get('reason') or '', work_dir=values.get('work_dir'),
+                xml_repo=_repo(values, 'xml_repo'), images_repo=_repo(values, 'images_repo'),
+                xml_dir=values.get('xml_dir', ''), image_dir=values.get('image_dir', ''))
+        except (FileNotFoundError, ValueError) as error:  # one bad id must not stop the others
+            results.append({'id': entry_id, 'error': str(error)})
+            failed = True
+        else:
+            results.append({'id': entry_id, 'status': done.entry.status, 'revision': done.entry.revision,
+                            'reverted': done.reverted, 'extract_invalidated': done.extract_invalidated})
+    print(json.dumps(results, sort_keys=True))
+    return 1 if failed else 0
+
+
+_COMMANDS = {'run': _run, 'publish': _publish, 'commit': _commit, 'sync': _sync, 'revise': _revise}
 
 
 def _add_analysis_options(parser: argparse.ArgumentParser) -> None:
@@ -181,8 +204,8 @@ list. Exit status: 0, 1 if any item failed, 2 for a bad option or config. Prints
 
 _SHARED_SECTION = """\
 Every option can also be set in the config file's `sync:` section, under the same name with underscores
-(--xml-repo is `xml_repo`); a flag overrides the file. `publish`, `commit` and `sync` share that one section, so a
-single set of repositories serves all three."""
+(--xml-repo is `xml_repo`); a flag overrides the file. `publish`, `commit`, `sync` and `revise` share that one
+section, so a single set of repositories serves them all."""
 
 _PUBLISH_EPILOG = _SHARED_SECTION + """ `sync.meta_defaults` (a mapping of BeqMetadata fields, such as
 `source: Disc`) has no flag. Exit status: 0, 1 if any entry could not be published, 2 for a bad option or config.
@@ -193,6 +216,13 @@ Never extracts or designs.
 _COMMIT_EPILOG = _SHARED_SECTION + """ Exit status: 0, 1 if a published entry has no file in its repository
 (run `publish` again), 2 for a bad option or config. Prints what was committed and pushed per repository. What is
 already committed or pushed is read from git, so running it again only does what is left.
+"""
+
+_REVISE_EPILOG = _SHARED_SECTION + """ A published entry's files are put back as git
+has them if they were never committed, and left alone (the title becomes a revision, rewritten at the same path on
+the next `publish`) if they were, so give it the repositories. It only changes state: run `run`, or `publish` and
+`commit`, afterwards to do the work. Exit status: 0, 1 if any id could not be revised, 2 for a bad option or config.
+Prints one JSON result per id.
 """
 
 _SYNC_EPILOG = _SHARED_SECTION + """ `sync.meta_defaults` (a mapping of BeqMetadata fields, such as
@@ -258,12 +288,14 @@ def _add_run_options(parser: argparse.ArgumentParser) -> None:
     _add_analysis_options(parser)
 
 
-def _add_repo_options(parser: argparse.ArgumentParser, with_image_url_options: bool) -> None:
+def _add_repo_options(parser: argparse.ArgumentParser, with_image_url_options: bool,
+                      xml_repo_required: bool = True) -> None:
     repos = parser.add_argument_group('repositories')
-    repos.add_argument('--xml-repo', help='local clone of the repository the filter XML goes to (required)')
+    repos.add_argument('--xml-repo', help='local clone of the repository the filter XML goes to'
+                                          + (' (required)' if xml_repo_required else ' (needed only for a published entry)'))
     repos.add_argument('--xml-dir', help='folder within the XML repository to put the files in (default: its root)')
     repos.add_argument('--images-repo', help='local clone of the repository report images go to; without one no '
-                                              f"image is {'made' if with_image_url_options else 'committed'}")
+                                              f"image is {'made' if with_image_url_options else 'touched'}")
     repos.add_argument('--image-dir', help='folder within the images repository to put images in (default: its root)')
     if with_image_url_options:
         repos.add_argument('--image-owner', help="GitHub owner used to build image URLs (default: read from the images "
@@ -295,6 +327,19 @@ def _add_commit_options(parser: argparse.ArgumentParser) -> None:
     _add_push_option(parser)
 
 
+def _add_revise_options(parser: argparse.ArgumentParser) -> None:
+    what = parser.add_argument_group('what to send back')
+    what.add_argument('--queue-dir', help='review queue directory the entries are in (required)')
+    what.add_argument('--id', dest='ids', action='append', metavar='ID',
+                      help='an entry id (the file name in the queue, without .json); repeatable (required)')
+    what.add_argument('--to', choices=REVISE_TARGETS,
+                      help='how far back: review = pick again; design = also design again on the next run; extract = '
+                           'also extract the audio again (required)')
+    what.add_argument('--reason', help='recorded in the entry\'s reviewer note')
+    what.add_argument('--work-dir', help='the run\'s work directory (required for --to extract)')
+    _add_repo_options(parser, with_image_url_options=False, xml_repo_required=False)
+
+
 def _add_sync_options(parser: argparse.ArgumentParser) -> None:
     _add_publish_options(parser)
     _add_push_option(parser)
@@ -315,7 +360,9 @@ def build_parser() -> argparse.ArgumentParser:
             ('commit', 'commit and push what publish wrote, one commit and one push per repository', _COMMIT_EPILOG,
              _add_commit_options),
             ('sync', 'publish accepted review entries, then commit and push them', _SYNC_EPILOG,
-             _add_sync_options)):
+             _add_sync_options),
+            ('revise', 'send entries back for another review, design or extraction', _REVISE_EPILOG,
+             _add_revise_options)):
         add_options(commands.add_parser(name, help=help_text, epilog=epilog,
                                         formatter_class=argparse.RawDescriptionHelpFormatter))
     return parser

@@ -164,6 +164,15 @@ def season_track_if_needed(member_wavs: Sequence[Tuple[int, str]], target_dir: s
     return track, fingerprint, False
 
 
+def invalidate_season_track(target_dir: str) -> bool:
+    ''' Forgets the joined track's fingerprint, so the next season_track_if_needed() joins the episodes again. '''
+    manifest_path = os.path.join(target_dir, _TRACK_MANIFEST)
+    if not os.path.isfile(manifest_path):
+        return False
+    os.remove(manifest_path)
+    return True
+
+
 def with_extracted(group: SeasonGroup, episodes: Sequence[int], fingerprint: str) -> LibraryItem:
     ''' The group's item narrowed to the episodes that actually made it into the track. '''
     return replace(group.item, episodes=tuple(episodes), fingerprint=fingerprint)

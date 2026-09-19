@@ -110,7 +110,7 @@ def design_if_needed(session: Session, item: LibraryItem, wav_path: str, designe
     art_overridden = existing.art_overridden if existing is not None else False
     if not (art_overridden or (art_path and os.path.isfile(art_path))):
         art_path = resolve_art(item, meta or {}, project_dir)
-    kept = {'reviewer_note': existing.reviewer_note} if existing is not None else {}
+    kept = {'reviewer_note': existing.reviewer_note, 'revision': existing.revision} if existing is not None else {}
     entry = update_entry(queue_dir, entry.id, design_fingerprint=fingerprint, art_path=art_path,
                          art_overridden=art_overridden, **kept)
     return DesignCacheResult(entry, designed=True, projects=projects or None)

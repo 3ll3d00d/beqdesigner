@@ -54,7 +54,7 @@ pipeline/
         pathmap.py                    # translate a server's (Windows) paths to local ones
         extract_cache.py, design_cache.py   # idempotent extract and design
         season.py                      # TV: join a season's episodes into one track
-        run.py, sync.py, commit.py, cli.py   # run_library(), publish/commit/sync_library(), the command line
+        run.py, sync.py, commit.py, revise.py, cli.py   # run_library(), publish/commit/sync_library(), revise_entry(), the command line
 
 model/preferences.py          # GUI: durable list of configured HTTP designer endpoints + the review queue
                               #   directory default, both on the Preferences dialog's "Designers" page
@@ -214,6 +214,7 @@ PYTHONPATH=src/main/python python -m pipeline.library.cli [--config FILE] run  [
 PYTHONPATH=src/main/python python -m pipeline.library.cli [--config FILE] publish [options]
 PYTHONPATH=src/main/python python -m pipeline.library.cli [--config FILE] commit  [options]
 PYTHONPATH=src/main/python python -m pipeline.library.cli [--config FILE] sync    [options]   # publish, then commit
+PYTHONPATH=src/main/python python -m pipeline.library.cli [--config FILE] revise  [options]   # send titles back
 ```
 
 `--config` goes *before* the command. `-h` after a command lists every option with its meaning.
@@ -231,6 +232,14 @@ PYTHONPATH=src/main/python python -m pipeline.library.cli [--config FILE] sync  
   remembered, so running it again does only what is left (a rejected push is retried; an unchanged file is not an
   error) and a commit you made by hand is respected. `--no-push` commits locally only.
 - **`sync`** is `publish` then `commit`. It runs as the invoking user's own git/SSH configuration.
+- **`revise`** sends titles back: `--to review` reopens them for another pick (from accepted, skipped, rejected or
+  published); `--to design` also drops the protection an accepted or published entry has, so the next `run`
+  designs it again (metadata, artwork, the reviewer note and any hand-edited `.beq` project carry over);
+  `--to extract` also forgets the recorded extraction, so the next `run` runs ffmpeg again. It changes state only;
+  the work happens in the next `run` and `publish`/`commit`. A title whose files were **written but never
+  committed** has them put back as git has them (deleted, or restored to the previous revision); one already
+  **committed** keeps them, becomes a *revision* (`revision` on the entry counts these) and is rewritten at the same
+  path when published again. Each records a line in the entry's reviewer note (`--reason` adds why).
 
 **Libraries.** `--source jriver` reads the files under one Media Center *browse node*; `--source filesystem` reads
 folders or globs. A DVD or Blu-ray rip folder is one title. TV can be run as a filter per episode (the default) or a
@@ -307,8 +316,8 @@ option documented). In outline, `run` takes the library source (`--source --glob
 --force-design`), metadata (`--tmdb-api-key --audio-type`) and analysis (`--target-fs --resolution --avg-window
 --peak-window`); `publish` takes what to publish (`--queue-dir --work-dir`), the repositories (`--xml-repo --xml-dir
 --images-repo --image-dir --image-owner --image-repo-name`) and the same analysis options; `commit` takes `--queue-dir`, the same
-repositories (without the image-URL options) and `--push`/`--no-push`; `sync` takes everything `publish` does plus `--push`. `publish`,
-`commit` and `sync` read the one `sync:` section of the config file. The boolean flags come in
+repositories (without the image-URL options) and `--push`/`--no-push`; `sync` takes everything `publish` does plus `--push`; `revise` takes `--queue-dir --id --to --reason --work-dir` and the repositories. `publish`,
+`commit`, `sync` and `revise` read the one `sync:` section of the config file. The boolean flags come in
 pairs (`--keep-multichannel` / `--no-keep-multichannel`) so a flag can turn something off that the file turned on.
 
 ### Output and exit status
@@ -324,6 +333,8 @@ Both commands print JSON to stdout.
   `projects_aligned` say a hand edit was what shipped) or refused (`id` and `error`, e.g. `project_conflict` when the
   mono and multichannel projects were edited to disagree). Exit status 1 if any entry was refused. With `sync` each
   published entry also carries the batch's `xml_commit` (and `image_commit`) sha, where a commit was made.
+- `revise` prints one object per `--id`: `id`, `status`, `revision`, `reverted` (catalogue files put back as git has them) and
+  `extract_invalidated`, or `id` and `error` (no such entry, already pending, published with no `--xml-repo`). Exit status 1 if any failed.
 - `commit` prints `{"xml": {...}, "images": {...}, "missing": [...]}`; each repository reports its `paths` handled,
   the new `commit` sha (null if everything was already committed) and whether it was `pushed`. `missing` lists
   published entries with no file in their repository (run `publish` again); exit status 1 if there are any.

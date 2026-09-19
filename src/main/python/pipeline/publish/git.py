@@ -28,7 +28,7 @@ import os
 import re
 import subprocess
 from dataclasses import dataclass
-from typing import FrozenSet, Mapping, Optional, Sequence, Tuple
+from typing import FrozenSet, List, Mapping, Optional, Sequence, Tuple
 
 RAW_CONTENT_TEMPLATE = 'https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{path}'
 
@@ -169,6 +169,34 @@ def repo_state(target: RepoTarget) -> RepoState:
     except (subprocess.CalledProcessError, OSError):
         unpushed = None
     return RepoState(uncommitted, unpushed)
+
+
+def is_committed(target: RepoTarget, relative_path: str) -> bool:
+    ''' True if HEAD contains `relative_path` -- whatever the working tree says about it now. '''
+    return subprocess.run(['git', '-C', target.local_path, 'cat-file', '-e', f'HEAD:{relative_path}'],
+                          capture_output=True).returncode == 0
+
+
+def discard_changes(target: RepoTarget, relative_paths: Sequence[str]) -> List[str]:
+    '''
+    Puts each path back as HEAD has it: a committed file is restored to its committed content, one that was never
+    committed (written by a publish and not yet committed) is deleted. Paths that already match HEAD are left
+    alone, and nothing outside `relative_paths` is touched.
+    :return: the paths that had changes to discard.
+    '''
+    discarded = []
+    for path in relative_paths:
+        if not _git_raw(target, 'status', '--porcelain=v1', '-z', '--untracked-files=all', '--', path):
+            continue
+        if is_committed(target, path):
+            _git(target, 'checkout', 'HEAD', '--', path)
+        else:
+            _git(target, 'rm', '-q', '-f', '--cached', '--ignore-unmatch', '--', path)  # in case it was staged
+            full_path = os.path.join(target.local_path, path)
+            if os.path.isfile(full_path):
+                os.remove(full_path)
+        discarded.append(path)
+    return discarded
 
 
 def push_image(png_bytes: bytes, target: RepoTarget, relative_path: str,

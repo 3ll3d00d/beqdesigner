@@ -150,6 +150,20 @@ Steps 2-5 can be reordered freely (they are independent); steps 6 onwards cannot
 - CLI: `revise --id ID --to {review,design,extract}`.
 - **Tests:** each path and each starting state, including that project edits survive a redesign and that a reopened, pushed entry publishes to the same path.
 - **Done when:** M1.
+- **Done (2026-09-19); how it differs from the list above:**
+  - The functions live in a new **`pipeline/library/revise.py`** (`reopen_entry`, `redesign_entry`, `revise_entry`, `ReviseResult`), not in `pipeline/review.py`, which is already ~415 lines. `invalidate_extract()` is in
+    `extract_cache.py` as planned; `invalidate_season_track()` is in `season.py`. `git.py` gained `is_committed()` and `discard_changes()`.
+  - **State only.** None of these redesign, re-extract or republish; they leave the title needing that work, and the next `run` / `publish` + `commit` does it. `redesign_entry()` clears the design fingerprint
+    (so the pending entry is stale) and `design_if_needed()` now carries `revision` across the redesign as well as the reviewer note.
+  - **Revision rule.** `revision` increments only when a *published* entry whose XML is committed and **clean** is reopened. Reopening a revision that is written but not committed restores the committed version and
+    does not count again; a never-committed entry has its files deleted and does not count. `published_digest`/`published_at` are cleared on every reopen (the digest of what the catalogue holds is not known
+    once a revision was written over it).
+  - A *published* entry needs `xml_repo` (and `images_repo` for its image) to be reopened, else `ValueError` before anything changes. Reopening a pending entry is a `ValueError`; skipped and rejected can be
+    reopened at the backend (the dialog's Reopen button, chunk 20, still offers only accepted -- 27c moves it onto this).
+  - `--to extract` forgets `mono_*`/`multichannel_*` manifest keys, not the wav files, and keeps `source_channel_count`/`channel_layout_name`. **A TV season's member episodes are not forgotten** (their directories are
+    named by ids the season entry does not record); the joined season track is. A re-extract of a season therefore rebuilds the join from the members' existing audio unless a member's source also changed.
+  - CLI: `revise --queue-dir --id ID [--id ...] --to {review,design,extract} [--reason] [--work-dir] [repos]`, in the shared `sync:` config section; one bad id is reported and does not stop the others.
+  - Tests: `test_pipeline_library_revise.py` (real temp git repos; each rule mutation-checked) plus git and CLI tests.
 
 **23 -- Profile, union, ignore rules** (new `pipeline/library/profile.py`, `union.py`, `ignore.py`)
 - The profile schema over the existing config shape: ordered `sources`, `ignore`, repos, work/queue dirs. The old CLI config still loads unchanged.
