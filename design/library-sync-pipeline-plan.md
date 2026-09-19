@@ -952,6 +952,10 @@ fixture -- only chunk 8 is blocked on that mapping.
 | 8 | `pipeline/library/jriver.py`, built on `hamcws.MediaServer.browse_files()` and the configured browse-node id (§3.1), plus the `hamcws` dependency. If an id field exists, also `pipeline.metadata.tmdb_find_by_imdb_id()` + `pipeline/library/library_metadata.py::resolve_meta()` (§3.1.1). | 3, 4 | **Implemented -- commit `d870d6d`; `run_library()` calls `resolve_meta()` when `tmdb_api_key` is set. Artwork tiers 2/3 (§3.1.3) wired later, in `pipeline/library/artwork.py`** |
 | 9 | `pipeline/library/cli.py` -- CLI entry point (§6). | 7, 8 | **Implemented -- commit `e23e03d`** |
 | 10 | GUI: `model/library_sync.py`/`ui/library_sync.py` + `model/preferences.py` additions (§7), including the library-view filter bar (status + name/year/content-type, exact fields decided at UI design time), with a `pytest-qt` safety-net test before wiring, per this repo's established practice for touching a dialog. | 7, 8, 9 | **Implemented -- commit `9da7aea`; deferred: library-view filter bar, source picker/query field, browse-node selector** |
+| 11 | Shared JRiver connections (§11.1): a `Preferences -> JRiver` pane owns add/test/delete of MCWS servers (`JRIVER_MCWS_CONNECTIONS`, unchanged storage); the JRiver filter manager's `MCWSDialog` and Library Sync both *pick from* that list instead of each managing their own. | 10 | Planned |
+| 12 | `pipeline/library/filesystem.py` -- a Qt-free `FilesystemLibrarySource` (globs, BDMV roots) so "raw filesystem, as batch extract does" is a `LibrarySource` too (§11.2). CLI gains `--source filesystem`. | 4 | Planned |
+| 13 | Library Sync **source picker** (§11.3): a Source combo (Filesystem / JRiver servers / future kinds) over a per-kind settings page, via a small registry of source *kinds*; replaces the "first saved connection" logic and the hard-wired JRiver group. | 11, 12 | Planned |
+| 14 | JRiver **browse-node picker** (§11.4): a tree dialog over `Browse/Children` so the root node is chosen, not typed; the numeric field stays as a fallback. | 13 | Planned |
 
 ---
 
@@ -2387,3 +2391,56 @@ listed here. Items are ordered roughly by impact.
 14. **Document hygiene (fixed in this review):** the header said "plan only,
     not started"; the manifest shape in §4.1 disagreed with Appendix D.4; the
     chunk table and every appendix checklist were stale.
+
+## 11. Source selection and shared JRiver connections (added 2026-09-19)
+
+The user's request: the JRiver server configuration should be **shared** with
+the JRiver filter manager rather than owned by Library Sync; it moves to its
+own Preferences pane; and Library Sync then *picks* a library source -- the
+raw filesystem (as Batch Extract does today), a configured JRiver server, or
+future sources (Plex, ...) -- with the JRiver root node *chosen* from the
+server's browse tree rather than typed. The root-node setting stays on the
+Library Sync screen, not in Preferences.
+
+### 11.1 Shared connections (chunk 11)
+
+Storage is unchanged: `JRIVER_MCWS_CONNECTIONS = {'host:port': (auth,
+secure)}` (`auth` is `None` or `(user, password)`; legacy 3-tuples are still
+read). New: a Qt widget for managing that list (add, test, delete -- lifted
+out of `MCWSDialog`) hosted on a new `Preferences -> JRiver` page, and a
+small parser giving the rest of the app typed connections. `MCWSDialog` (the
+filter manager's zone dialog) keeps only the saved-server list and zones, and
+points at Preferences for adding/removing servers. Library Sync's JRiver
+settings choose a server from the same list.
+
+### 11.2 Filesystem source (chunk 12)
+
+`FilesystemLibrarySource(globs)` yields one `LibraryItem` per matching file or
+BDMV root, using `FileSearch`'s glob semantics (a directory means `dir/*`,
+`recursive=True`). Identity: `fs-<hash of the resolved path>` -- a filesystem
+has no key that survives a rename, so a moved file is a new title (documented
+limitation, unlike JRiver's `Key`). Fingerprint: left empty so the extract
+cache's mtime/size fallback applies. `title`/`year` are not guessed from the
+filename; metadata is for the reviewer (or a later resolver) to supply.
+
+### 11.3 Source picker (chunk 13)
+
+A source *kind* is a name, a label and a settings page that can build a
+`LibrarySource` from what the user entered. The dialog holds a registry of
+kinds and a `QStackedWidget`; adding Plex later means registering one more
+kind, not editing the dialog. Built-in kinds: **Filesystem** (globs + a
+folder picker) and **JRiver** (server chosen from the shared list, browse node).
+The chosen kind and its settings persist in preferences
+(`LIBRARY_SOURCE_DEFAULT`, ...). `pipeline.library.registry` remains the
+headless registry; the GUI kind registry is separate because it also carries
+widgets.
+
+### 11.4 Browse-node picker (chunk 14)
+
+A dialog with a lazily-expanding tree over `hamcws.MediaServer.browse_children()`
+run off the UI thread; selecting a node fills the node id and shows its path
+(`Video > Movies > Needs BEQ`). **Caveat -- unverified:** `browse_children()`
+returns a `{Item name: Item text}` dict, and the exact response shape (which
+is the display name, which the id, how a leaf is marked) has not been checked
+against a real server (chunk 3). The parser is written defensively, and the
+numeric field remains so a wrong guess never blocks a run.
