@@ -1,11 +1,13 @@
 '''Idempotent wrapper around pipeline.review.design_and_queue().'''
 import hashlib
 import json
+import os
 from dataclasses import asdict, dataclass
 from typing import Callable, Optional, Union
 
 from pipeline.config import AnalysisConfig
 from pipeline.designer.contract import Coverage
+from pipeline.library.artwork import resolve_art
 from pipeline.library.extract_cache import source_fingerprint
 from pipeline.library.source import LibraryItem
 from pipeline.orchestrate import Session
@@ -67,6 +69,11 @@ def design_if_needed(session: Session, item: LibraryItem, wav_path: str, designe
     set on it: its metadata (the freshly resolved `meta` only fills keys the entry lacks), its artwork and its
     reviewer note. A design does not depend on any of those, so nothing about them is stale.
 
+    Artwork is resolved here, once, when a design runs (library art, then TMDB's poster -- see
+    pipeline.library.artwork), and only if the entry has none: a reviewer's choice, or an automatic one whose
+    file still exists, is kept. A cache hit never touches artwork, so a reviewer's Clear stays cleared until
+    the entry is next redesigned.
+
     :param meta: the entry's metadata, or a zero-argument callable returning it, called only if this call
         actually designs.
     '''
@@ -92,7 +99,11 @@ def design_if_needed(session: Session, item: LibraryItem, wav_path: str, designe
         bass_management=bass_management, channels=channels, multichannel_wav_path=multichannel_wav_path,
         channel_layout_name=channel_layout_name, project_dir=project_dir,
     )
-    kept = {'art_path': existing.art_path, 'art_overridden': existing.art_overridden,
-            'reviewer_note': existing.reviewer_note} if existing is not None else {}
-    entry = update_entry(queue_dir, entry.id, design_fingerprint=fingerprint, **kept)
+    art_path = existing.art_path if existing is not None else None
+    art_overridden = existing.art_overridden if existing is not None else False
+    if not (art_overridden or (art_path and os.path.isfile(art_path))):
+        art_path = resolve_art(item, meta or {}, project_dir)
+    kept = {'reviewer_note': existing.reviewer_note} if existing is not None else {}
+    entry = update_entry(queue_dir, entry.id, design_fingerprint=fingerprint, art_path=art_path,
+                         art_overridden=art_overridden, **kept)
     return DesignCacheResult(entry, designed=True)

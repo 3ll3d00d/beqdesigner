@@ -47,11 +47,11 @@
     },
     "art_path": {
       "oneOf": [{ "type": "string" }, { "type": "null" }],
-      "description": "local image file path used as this entry's report poster, if any -- set by a human via the review dialog's Artwork section, or (later) auto-resolved from a library source or TMDB. null if none."
+      "description": "local image file path used as this entry's report poster, if any -- set by a human via the review dialog's Artwork section, or auto-resolved by a library run (the library source's own image, else TMDB's poster downloaded into the item's work directory). null if none."
     },
     "art_overridden": {
       "type": "boolean",
-      "description": "true once a human has explicitly set or cleared art_path -- auto-resolution must never silently overwrite it."
+      "description": "true once a human has explicitly set art_path -- auto-resolution must never silently overwrite it. The review dialog's Clear resets this to false, returning the entry to automatic resolution the next time it is redesigned."
     },
     "design_fingerprint": {
       "oneOf": [{ "type": "string" }, { "type": "null" }],

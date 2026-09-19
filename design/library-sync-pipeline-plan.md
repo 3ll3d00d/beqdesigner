@@ -342,15 +342,26 @@ item -- stored as the additive `QueueEntry` fields `art_path` and
 (tiers 2/3) never overwrites a tier-1 human choice. `publish_reviewed_queue()`
 passes `poster_path=entry.art_path` (shipped, chunk 1).
 
-**Implementation status -- only tiers 1 and 4 exist.** Tier 1 (the reviewer's
-Browse/Download/Clear controls) and the publish wiring are built. **Tiers 2
-and 3 are not**: `LibraryItem.art_path` is populated by
-`JRiverLibrarySource` but nothing reads it; `run_library()`/`design_if_needed()`
-never write `QueueEntry.art_path`; and `resolve_meta()`'s `poster` fragment is
-never passed to `pipeline.publish.art.fetch_poster()`. A library-driven entry
-therefore still publishes chart-only unless a human sets artwork by hand --
-the very gap §3.1.3 set out to close, for the library path. (The existing
-manual-batch path is no worse than before.)
+**Implementation status -- all four tiers now exist.** Tier 1 (the reviewer's
+Browse/Download/Clear controls) and the publish wiring shipped in chunk 1.
+Tiers 2 and 3 live in `pipeline/library/artwork.py::resolve_art()`, called
+from `design_if_needed()` **only when a design runs**:
+
+- an entry whose `art_overridden` is set, or whose automatic `art_path` still
+  exists on disk, is left alone (so a reviewer's choice is never replaced and
+  a poster is downloaded once);
+- otherwise `LibraryItem.art_path` is used in place if the file is readable
+  (tier 2), else TMDB's `poster` fragment is downloaded by `fetch_poster()`
+  to `<work_dir>/<item.id>/poster.<ext>` (tier 3; needs the durable
+  `project_dir`, so it is skipped without one);
+- a failed download is logged and means "no artwork" -- it never fails the
+  item.
+
+A cache hit (fingerprint match) does not touch artwork, so an entry designed
+before this existed only gains a poster when it is next redesigned. The
+dialog's **Clear** sets `art_overridden` back to `False` (it means "return to
+automatic", not "no artwork"), so a redesign after a Clear re-resolves; the
+schema description was corrected to say so.
 
 ### 3.2 Kodi / Plex
 
@@ -920,7 +931,7 @@ fixture -- only chunk 8 is blocked on that mapping.
 | 5 | `pipeline/library/extract_cache.py` -- idempotent extract (§4.1): manifest keyed on source fingerprint + params hash, skip ffmpeg on a hit; handles the mono + optional multichannel pair per item, at the fixed filenames chunk 2 already depends on. Small, backward-compatible addition to `Session` (`extract_with_layout()`) to get a fixed output filename + the channel layout in one call. | 4 | **Implemented -- commit `dd5dd56`** |
 | 6 | `pipeline/library/design_cache.py` + additive `QueueEntry.design_fingerprint` field -- idempotent design (§4.2), never clobbers `accepted`/`published`; threads `project_dir` into `design_and_queue()` (chunk 2). | 2, 4 | **Implemented -- commit `d870d6d`** |
 | 7 | `pipeline/library/run.py` (`run_library`) + `pipeline/library/sync.py` (`sync_library`) -- composition, per-item failure isolation (§5); threads `work_dir` into `publish_reviewed_queue()` (chunk 2). | 2, 4, 5, 6 | **Implemented -- commit `bc8179b`** |
-| 8 | `pipeline/library/jriver.py`, built on `hamcws.MediaServer.browse_files()` and the configured browse-node id (§3.1), plus the `hamcws` dependency. If an id field exists, also `pipeline.metadata.tmdb_find_by_imdb_id()` + `pipeline/library/library_metadata.py::resolve_meta()` (§3.1.1). | 3, 4 | **Implemented -- commit `d870d6d`; `run_library()` calls `resolve_meta()` when `tmdb_api_key` is set. Artwork tiers 2/3 (§3.1.3) not wired** |
+| 8 | `pipeline/library/jriver.py`, built on `hamcws.MediaServer.browse_files()` and the configured browse-node id (§3.1), plus the `hamcws` dependency. If an id field exists, also `pipeline.metadata.tmdb_find_by_imdb_id()` + `pipeline/library/library_metadata.py::resolve_meta()` (§3.1.1). | 3, 4 | **Implemented -- commit `d870d6d`; `run_library()` calls `resolve_meta()` when `tmdb_api_key` is set. Artwork tiers 2/3 (§3.1.3) wired later, in `pipeline/library/artwork.py`** |
 | 9 | `pipeline/library/cli.py` -- CLI entry point (§6). | 7, 8 | **Implemented -- commit `e23e03d`** |
 | 10 | GUI: `model/library_sync.py`/`ui/library_sync.py` + `model/preferences.py` additions (§7), including the library-view filter bar (status + name/year/content-type, exact fields decided at UI design time), with a `pytest-qt` safety-net test before wiring, per this repo's established practice for touching a dialog. | 7, 8, 9 | **Implemented -- commit `9da7aea`; deferred: library-view filter bar, source picker/query field, browse-node selector, image owner/repo prefs wiring** |
 
@@ -2305,16 +2316,15 @@ fixture.
 ## 10. Implementation status vs. this plan (reviewed 2026-09-19)
 
 Reviewed against the code at `1ebaa4e` (471 tests), then updated after each
-follow-up commit per `AGENTS.md` -- currently current to the
-redesign-preserves-edits fix (484 tests). Everything in §8 marked Implemented is present and tested, except as
+follow-up commit per `AGENTS.md` -- currently current to the library
+artwork commit (493 tests). Everything in §8 marked Implemented is present and tested, except as
 listed here. Items are ordered roughly by impact.
 
 **Behaviour gaps -- designed above, not built**
 
-1. **Library artwork tiers 2 and 3 (§3.1.3).** Nothing writes
-   `QueueEntry.art_path` from `LibraryItem.art_path` or from TMDB's `poster`
-   via `fetch_poster()`; library-driven entries publish chart-only unless a
-   human sets artwork in the review dialog.
+1. ~~Library artwork tiers 2 and 3 (§3.1.3)~~ -- fixed:
+   `pipeline/library/artwork.py`, resolved in `design_if_needed()`. Entries
+   designed before this change get a poster only on their next redesign.
 2. **`project_edit_preserved` reporting (§3.3.1).** A hash-gated skip of a
    human-edited project is silent in both `run_library()` and `sync_library()`.
 3. **Write-back of the authoritative project into the other one (§3.3.1).**

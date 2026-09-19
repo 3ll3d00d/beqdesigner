@@ -206,3 +206,72 @@ def test_a_first_design_has_nothing_to_preserve(tmp_path, monkeypatch):
     assert result.entry.art_path is None
     assert result.entry.art_overridden is False
     assert result.entry.reviewer_note is None
+
+
+def _stub_art(monkeypatch, result):
+    calls = []
+    monkeypatch.setattr('pipeline.library.design_cache.resolve_art',
+                        lambda item, meta, art_dir: calls.append((item.id, dict(meta), art_dir)) or result)
+    return calls
+
+
+def test_a_design_stores_the_resolved_artwork_on_the_entry(tmp_path, monkeypatch):
+    _install_fake_design(monkeypatch, [])
+    art_calls = _stub_art(monkeypatch, '/work/title-1/poster.jpg')
+    queue_dir = str(tmp_path / 'queue')
+
+    result = design_if_needed(None, _item(tmp_path), '/work/mono.wav', 'designer.v1', queue_dir, AnalysisConfig(),
+                              meta={'title': 'T', 'poster': '/p.jpg'}, project_dir='/work/title-1')
+
+    assert result.entry.art_path == '/work/title-1/poster.jpg'
+    assert result.entry.art_overridden is False
+    assert read_entry(queue_dir, 'title-1').art_path == '/work/title-1/poster.jpg'
+    assert art_calls == [('title-1', {'title': 'T', 'poster': '/p.jpg'}, '/work/title-1')]
+
+
+def test_a_reviewers_artwork_is_never_replaced_by_a_redesign(tmp_path, monkeypatch):
+    _install_fake_design(monkeypatch, [])
+    art_calls = _stub_art(monkeypatch, '/auto.jpg')
+    queue_dir = str(tmp_path / 'queue')
+    # the file is deliberately absent: a human's choice is kept even if it has since gone missing
+    write_queue_entry(queue_dir, replace(_entry('stale'), art_path='/mine/poster.jpg', art_overridden=True))
+
+    result = design_if_needed(None, _item(tmp_path), '/work/mono.wav', 'designer.v2', queue_dir, AnalysisConfig())
+
+    assert result.entry.art_path == '/mine/poster.jpg'
+    assert result.entry.art_overridden is True
+    assert art_calls == []
+
+
+def test_existing_automatic_artwork_is_kept_while_its_file_exists_and_replaced_when_it_does_not(tmp_path,
+                                                                                                monkeypatch):
+    _install_fake_design(monkeypatch, [])
+    art_calls = _stub_art(monkeypatch, '/fresh.jpg')
+    queue_dir = str(tmp_path / 'queue')
+    existing = tmp_path / 'poster.jpg'
+    existing.write_bytes(b'x')
+    write_queue_entry(queue_dir, replace(_entry('stale'), art_path=str(existing)))
+
+    kept = design_if_needed(None, _item(tmp_path), '/work/mono.wav', 'designer.v2', queue_dir, AnalysisConfig())
+    assert kept.entry.art_path == str(existing)
+    assert art_calls == []
+
+    existing.unlink()
+    write_queue_entry(queue_dir, replace(_entry('stale'), art_path=str(existing)))
+    replaced = design_if_needed(None, _item(tmp_path), '/work/mono.wav', 'designer.v2', queue_dir, AnalysisConfig())
+    assert replaced.entry.art_path == '/fresh.jpg'
+
+
+def test_a_cache_hit_does_not_resolve_artwork(tmp_path, monkeypatch):
+    _install_fake_design(monkeypatch, [])
+    art_calls = _stub_art(monkeypatch, '/auto.jpg')
+    item = _item(tmp_path)
+    queue_dir = str(tmp_path / 'queue')
+    write_queue_entry(queue_dir, _entry(design_fingerprint(item, 'designer.v1', AnalysisConfig(),
+                                                           'complete_programme')))
+
+    result = design_if_needed(None, item, '/work/mono.wav', 'designer.v1', queue_dir, AnalysisConfig())
+
+    assert result.designed is False
+    assert result.entry.art_path is None
+    assert art_calls == []
