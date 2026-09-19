@@ -1,6 +1,10 @@
 # Library sync pipeline -- plan
 
-Status: **plan only, not started**. Written 2026-09-17. Builds on the
+Status: **chunks 1-2 and 4-10 implemented (2026-09-18); full suite green
+(471 passed, 2026-09-19 review). Chunk 3 (real-server spike) is not done,
+and a small set of design items in §3.1.3, §3.3.1 and §4 remain unbuilt --
+see §10 "Implementation status vs. this plan" for the authoritative list.**
+Written 2026-09-17. Builds on the
 headless pipeline in `pipeline/` (see `pipeline/README.md` and
 `design/api-headless-pipeline.md`/`pipeline-implementation-plan.md`,
 all shipped) and the existing GUI Batch Extract & Design workflow
@@ -113,9 +117,12 @@ class LibrarySource(Protocol):
 ```
 
 Registry mirrors `pipeline.designer.registry` exactly
-(`register_source(name, factory)` / `get_source(name)`) -- same
-in-process-callable pattern, same reason (GUI registers configured
-instances at startup, CLI registers from config at process start).
+(`register_source(name, source)` / `get_source(name)`) -- same
+in-process-callable pattern. **As built, nothing calls it**: the CLI
+(`cli._source()`) and `LibrarySyncDialog` both construct a
+`JRiverLibrarySource` directly, and only `test_pipeline_library_source.py`
+exercises the registry. It is kept as the seam for a second source
+(Kodi/Plex) but is currently unused production code.
 
 ### 3.1 JRiver implementation (`pipeline/library/jriver.py`)
 
@@ -169,7 +176,7 @@ a clear error instead of nesting `asyncio.run()`.
 | `Filename` | `source_path` | Required. Pass through to ffmpeg, recognising BDMV roots with `is_bdmv_root()`. The path still has to be locally mounted on the BEQDesigner host. |
 | `Name` | `display_name`, `title` | Display fallback; leave `title` unset if empty. |
 | `Year` | `year` | Optional string; fuzzy TMDB resolution remains the fallback. |
-| `Media Type`, `Media Sub Type`, `Series`, `Season`, `Episode` | `kind`, `meta` | Map film material to `movie` and episodic material to `tv`; retain raw values only where they satisfy the existing `BeqMetadata` contract. |
+| `Series`, `Season`, `Episode` | `kind`, `meta` | **As built:** `kind='tv'` if any of the three is non-empty, else `'movie'`; only `Season` is retained (as `meta['season']`). `Media Type`/`Media Sub Type` are fetched by `hamcws` but **not consulted** -- a non-film, non-episodic item (music video, concert) is treated as a movie. |
 | `Date Modified`, `File Size` | `fingerprint` | Stable serialisation of the values actually supplied. Leave it empty when both are absent, allowing the extract cache's filesystem-stat fallback. |
 | `IMDB`, `TheMovieDB` | `external_ids` | Normalise non-empty values to `imdb` and `tmdb`. Use configurable field aliases because metadata plugins vary. |
 | `Image File` | `art_path` | Only accept a locally readable path. `INTERNAL` means JRiver-managed art, not a file path; downloading `File/GetImage` is a later enhancement if needed. |
@@ -178,12 +185,16 @@ Deduplicate exact repeated `Key` rows before yielding; fail the run when
 one key has conflicting filenames. A browse node is a source selection, so
 every valid unique file reaches the normal extract/design stages.
 
-Tests use a `hamcws`/`aiohttp` stub for the exact `Browse/Files`
-request and JSON response. Cover the selected node and field list, normal
-mapping, missing optional fields, `INTERNAL` artwork, id stability across
-a rename, distinct server identities, and duplicate/conflicting keys.
-Capture a sanitised real-server response fixture before landing the adapter,
-especially to verify external-ID aliases and browse-child response shape.
+Tests (`test_pipeline_library_jriver.py`) use hand-written row dicts and a
+stubbed `hamcws` `MediaServer`, covering the selected node and field list,
+normal mapping, optional fields/TV metadata, id stability across a rename,
+distinct server identities, duplicate/conflicting keys, and rejection of a
+`query`/running event loop. **Not covered:** `INTERNAL` artwork is handled in
+code (`_local_art_path`) but has no dedicated test. **Still outstanding:** the
+sanitised *real-server* response fixture -- external-ID aliases
+(`IMDB`/`TheMovieDB` and the `IMDb`/`TMDB`/`TMDb` fallbacks in
+`DEFAULT_EXTERNAL_ID_FIELDS`) and the `Browse/Children` shape are still
+educated guesses, not verified against a live library (chunk 3).
 
 ### 3.1.1 Metadata resolution -- pull identity from the library, not a fuzzy search
 
@@ -219,8 +230,13 @@ resolution becomes:
    plugin that only writes some fields).
 
 This resolution (`pipeline/library/library_metadata.py::resolve_meta(item,
-api_key, ...)`, returning `BeqMetadata` ctor kwargs) runs automatically as
-part of `design_if_needed()`/`run_library()`, so `QueueEntry.meta` arrives
+api_key, audio_types)`, returning `BeqMetadata` ctor kwargs) runs from
+`run_library()` (not from `design_if_needed()`, as originally drafted) **only
+when `LibraryRunConfig.tmdb_api_key` is set** -- otherwise `meta` is just
+`item.meta`. Two behaviours worth knowing (both open, see §10): it runs
+*before* the design-cache check, so a fully cached item still costs a TMDB
+round-trip on every rerun, and a TMDB failure (`HTTPError`, no search hit)
+fails the whole item -- no extract-only fallback. So `QueueEntry.meta` arrives
 at the review queue already populated for anything the library could
 identify -- closing the metadata gap `model/batch.py` leaves manual today,
 not just avoiding a second network round-trip. TMDB stays the source of
@@ -318,15 +334,22 @@ human's choice" shape as the extract cache in 4.1):
 4. **None** -- `render_report(poster_path=None)` already renders chart-only;
    an acceptable outcome when nothing above produced anything.
 
-Resolved once at design time (alongside metadata resolution, same
-`design_if_needed()`/`run_library()` step) rather than at publish time, so
-a TMDB download only ever happens once per item -- stored as a new,
-additive `QueueEntry` field, `art_path: Optional[str] = None` (a local
-file path by the time it's stored, whichever tier produced it) plus
-`art_overridden: bool = False` so a rerun's auto-resolution (tiers 2/3)
-knows never to overwrite a tier-1 human choice. `publish_reviewed_queue()`
-then simply passes `poster_path=entry.art_path` -- fixing the existing gap
-above as a side effect of adding this at all.
+Intended: resolved once at design time (alongside metadata resolution)
+rather than at publish time, so a TMDB download only ever happens once per
+item -- stored as the additive `QueueEntry` fields `art_path` and
+`art_overridden` (shipped in chunk 1), so a rerun's auto-resolution
+(tiers 2/3) never overwrites a tier-1 human choice. `publish_reviewed_queue()`
+passes `poster_path=entry.art_path` (shipped, chunk 1).
+
+**Implementation status -- only tiers 1 and 4 exist.** Tier 1 (the reviewer's
+Browse/Download/Clear controls) and the publish wiring are built. **Tiers 2
+and 3 are not**: `LibraryItem.art_path` is populated by
+`JRiverLibrarySource` but nothing reads it; `run_library()`/`design_if_needed()`
+never write `QueueEntry.art_path`; and `resolve_meta()`'s `poster` fragment is
+never passed to `pipeline.publish.art.fetch_poster()`. A library-driven entry
+therefore still publishes chart-only unless a human sets artwork by hand --
+the very gap §3.1.3 set out to close, for the library path. (The existing
+manual-batch path is no worse than before.)
 
 ### 3.2 Kodi / Plex
 
@@ -443,6 +466,8 @@ def write_project(path: str, signals: Sequence[SingleChannelSignalData]) -> None
 def write_title_projects(session: Session, mono_wav_path: str, filters: CompleteFilter,
                          multichannel_wav_path: Optional[str], channel_layout_name: str,
                          mono_out_path: str, multichannel_out_path: Optional[str]) -> None:
+    # NB: as built this is `write_title_projects_if_safe()` (hash-gated, returns a per-target
+    # written/skipped dict) plus `write_mono_project()`/`write_multichannel_project()` -- see Appendix B.3.
     '''
     Writes the mono project unconditionally (session.load(mono_wav_path), set_filters(), write_project()).
     If multichannel_wav_path is given, also loads every channel via load_channel_signals(),
@@ -552,10 +577,14 @@ def read_project_filter(path: str) -> Tuple[CompleteFilter, bool]:
   pure pipeline output, nothing to lose) -- overwrite as planned. A
   mismatch means a human edited it -- **do not overwrite**; the human's
   edit now outranks the designer's top pick and even a reviewer's
-  candidate switch. Surfaced as a new `LibraryRunReport`/publish-result
-  field (e.g. `project_edit_preserved: List[str]`, item ids) rather than
-  silently swallowed, so a human running an unattended job can see where
-  their earlier edits were respected.
+  candidate switch. Intended to be surfaced as a new
+  `LibraryRunReport`/publish-result field (e.g. `project_edit_preserved:
+  List[str]`, item ids) rather than silently swallowed. **Not built:** the
+  hash gate itself works (`write_title_projects_if_safe()` skips an edited
+  file and returns `False` for it), but `design_and_queue()` discards that
+  return value, `publish_reviewed_queue()` ignores it, and `LibraryRunReport`
+  has no such field -- a preserved edit is silent. Only the both-edited
+  *conflict* case is reported (`{'id', 'error': 'project_conflict'}`).
 
 **Both projects are legitimate places to design/edit a filter; only
 mono is ever what gets *published*.** The user's correction
@@ -584,6 +613,9 @@ files' hashes, not just mono's:
   it back into the *other* project too (same mechanism as the
   accept-time regeneration above) so both stay consistent with what
   was actually published rather than one silently going stale.
+  **Not built:** `resolve_published_filter()` returns the edited side's
+  filter, but nothing writes it back into the other project, so the two
+  files can stay divergent after a publish.
 - **Both show edits, and they differ** -- a genuine conflict this plan
   cannot silently resolve by picking one. Publish refuses and surfaces
   it (the same `project_edit_preserved`-style reporting as the
@@ -604,17 +636,19 @@ underneath a reviewer.
 
 New `pipeline/library/extract_cache.py`.
 
-- One manifest file per item, `<work_dir>/<item.id>/manifest.json`:
-  `{source_fingerprint, params_hash, wav_path, extracted_at,
-  channel_layout_name}` -- the last field is reserved for chunk 2
-  (Appendix B), whose `publish_reviewed_queue()` regeneration step
-  needs the source's channel layout to correctly label a multichannel
-  project's channels (`model.ffmpeg.get_channel_name()`) when
-  rewriting it in a process/run that didn't itself just extract the
-  file. Only present on the manifest entry for a multichannel ("kept")
-  extraction, per §4.1's mono-mix-True/False split below; absent (or
-  the whole manifest missing) degrades to `'unknown'`, which
-  `get_channel_name()` already handles sanely by channel count.
+- One manifest file per item, `<work_dir>/<item.id>/manifest.json`, with
+  **flat, prefixed keys** (this replaces the single-record shape drafted
+  earlier; Appendix D.4 has the exact shape): `mono_source_fingerprint`,
+  `mono_params_hash`, `mono_extracted_at`, the same three with a
+  `multichannel_` prefix, and a top-level `channel_layout_name`. That last
+  key is read by chunk 2's `publish_reviewed_queue()` regeneration step (and
+  by `run_library()` via `extract_cache.read_channel_layout_name()`) to
+  correctly label a multichannel project's channels
+  (`model.ffmpeg.get_channel_name()`). It is only written by the multichannel
+  ("kept") extraction; absent (or the whole manifest missing) degrades to
+  `'unknown'`, which `get_channel_name()` already handles sanely by channel
+  count. There is no stored `wav_path` -- it is always
+  `<target_dir>/{mono,multichannel}.wav`.
 - `params_hash` = hash of everything that changes ffmpeg's output for
   this item (audio_stream, mono_mix, decimate/target_fs,
   playlist_name) -- a config change must invalidate the cache even if
@@ -630,7 +664,11 @@ New `pipeline/library/extract_cache.py`.
   cached path; otherwise runs `session.extract()` (existing, unchanged)
   and rewrites the manifest. `force=True` always re-extracts.
 - Called **twice per item** whenever `LibraryRunConfig.keep_multichannel`
-  is set and the item's source is actually multichannel -- once with
+  is set (**as built, the second call is not gated on the source actually
+  being multichannel** -- `run_library()` extracts the kept file first and
+  only then discovers via `load_channels()` that it is mono, at which point
+  it is discarded from the design inputs but the redundant
+  `multichannel.wav` and manifest entry remain) -- once with
   `mono_mix=True` into `<work_dir>/<item.id>/mono.wav` (design always
   needs this one -- `Session.design()`'s `mono_mix`) and once with
   `mono_mix=False` into `.../multichannel.wav` (the "kept" file, and
@@ -682,6 +720,12 @@ New `pipeline/library/extract_cache.py`.
   the caller to explicitly reset its status first (a deliberate,
   single-item action, not something a library-wide `--force` flag does
   by accident).
+- **Fingerprint scope (as built):** `design_fingerprint()` hashes exactly the
+  four inputs above. It does *not* cover `keep_multichannel`, the resolved
+  metadata, or `item.audio_stream`, so toggling "keep multichannel" or
+  correcting a library tag does not trigger a redesign of a `pending`
+  entry, and an existing entry never gains the multichannel project it
+  would now get on a fresh design. `force_design` is the only way through.
 - Whenever this actually (re)designs (not on a skip), output 1's local
   `.beq` project file(s) get written for the top-pick candidate too.
   This lives in core `pipeline.review.design_and_queue()` itself, not
@@ -736,19 +780,22 @@ class LibraryRunConfig:
     work_dir: str
     queue_dir: str
     designer: str
-    config: AnalysisConfig = AnalysisConfig()
+    config: AnalysisConfig = field(default_factory=AnalysisConfig)
     coverage: Coverage = 'complete_programme'
     keep_multichannel: bool = False  # mirrors model/batch.py's "Mix to Mono?" -- see §4.1
     force_extract: bool = False
     force_design: bool = False
+    tmdb_api_key: Optional[str] = None   # added: resolve_meta() (§3.1.1) only runs when set
+    audio_types: Sequence[str] = ()      # added: forwarded to resolve_meta() as BeqMetadata.audio_types
 
 @dataclass(frozen=True)
 class LibraryRunReport:
-    extracted: List[str]   # item ids that ran ffmpeg this run
-    cached: List[str]      # item ids that reused a cached extraction
+    extracted: List[str]   # item ids that ran ffmpeg this run (either extraction)
+    cached: List[str]      # item ids whose extraction(s) were all cached
     designed: List[str]    # item ids that ran a designer this run
-    design_cached: List[str]
-    failed: List[Tuple[str, str]]  # (item id, error message) -- one item's failure never aborts the rest
+    design_cached: List[str]  # also holds accepted/published entries skipped as protected -- not distinguished
+    failed: List[Tuple[str, str]]  # (item id, "ExcType: message") -- one item's failure never aborts the rest
+    # (all five default to empty lists; no project_edit_preserved field -- see §3.3.1)
 
 def run_library(source: LibrarySource, run_config: LibraryRunConfig,
                 on_item_done: Optional[Callable[[str], None]] = None,
@@ -782,8 +829,16 @@ regeneration (backward compatible).
 Source connection details (JRiver ip/auth) and repo targets come from
 a config file (YAML/JSON, a plain dict-to-dataclass load, no
 QSettings/Preferences dependency -- consistent with `AnalysisConfig`'s
-"explicit input, not a process-wide singleton" rule) or CLI flags.
-This is what makes the workflow cron-able.
+"explicit input, not a process-wide singleton" rule) or CLI flags (flags
+override the file). This is what makes the workflow cron-able.
+
+As built: the config file has `run:`, `sync:`, `sources.<name>:` and
+`analysis:` sections (`pyyaml` added as a dependency); `run` prints
+`LibraryRunReport` as JSON and exits 1 if any item failed; `sync` prints
+the publish results and exits 1 if any carries an `'error'`; only
+`--source jriver` is accepted; `--tmdb-api-key`/`--audio-type` exist for
+metadata resolution. `sync` has no way to pass `meta_defaults` except via
+the config file's `sync.meta_defaults`.
 
 ## 7. GUI integration
 
@@ -794,6 +849,10 @@ New dialog, `model/library_sync.py` / `ui/library_sync.py`
 - A source picker (registered `LibrarySource`s; JRiver connection
   reuses the existing `JRIVER_MCWS_CONNECTIONS` preference, same one
   the DSP-push feature already maintains) and a query/filter field.
+  **As built:** no picker and no query field -- the dialog is JRiver-only,
+  takes the *first* saved MCWS connection, and selects the browse node
+  with a plain integer spin box (`browseNodeSpin`, default `-1`); the
+  `browse_children()` node selector described in §3.1 is not built.
 - **Run** tab: calls `run_library()` on a background `QRunnable` (same
   `QThreadPool` pattern as `ProbeJob`/`DesignJob`), streams
   `on_item_done` progress into the UI, switches to the **Review** tab
@@ -810,7 +869,14 @@ New dialog, `model/library_sync.py` / `ui/library_sync.py`
   names (nothing persists these today -- `ReviewQueueDialog` asks via
   a file picker each time) and a `LIBRARY_SOURCE_DEFAULT` combo,
   following the existing `DESIGNER_QUEUE_DIR`/`DESIGNER_DEFAULT`
-  pattern in `model/preferences.py`.
+  pattern in `model/preferences.py`. **As built:** `LIBRARY_WORK_DIR`,
+  `LIBRARY_XML_REPO`, `LIBRARY_IMAGES_REPO`, `LIBRARY_JRIVER_BROWSE_NODE`
+  are defined *and* used; `LIBRARY_IMAGE_OWNER`/`LIBRARY_IMAGE_REPO_NAME`
+  are defined but never read or written, so `_SyncJob` never passes
+  `image_owner`/`image_repo_name` to `sync_library()`; there is no
+  `LIBRARY_SOURCE_DEFAULT`. The queue dir reuses `DESIGNER_QUEUE_DIR`.
+  Sync results are only counted in the status label -- `'error'` entries
+  (e.g. `project_conflict`) are not surfaced to the reviewer.
 - **Filtering the library view.** The user's note (2026-09-18): once
   `source.list_items()` can return results at library scale (hundreds
   of titles), the Run tab needs a way to filter/narrow that list before
@@ -839,14 +905,14 @@ fixture -- only chunk 8 is blocked on that mapping.
 |---|---|---|---|
 | 1 | Review queue metadata + artwork editor (3.1.2, 3.1.3) -- `ReviewQueueDialog` gets editable metadata fields, a "reload from TMDB" control, an artwork browse/download/override section, and `publish_reviewed_queue()` actually wires `poster_path` through. Fixes two pre-existing gaps in the *current* manual `model/batch.py` flow, independent of everything else here. | nothing | **Implemented -- commit `964f36e`** |
 | 2 | Output 1 -- local `.beq` project files, and making them the actual published source (§3.3, §3.3.1): `Session.load_channel_signals()`, new `pipeline/publish/project.py` (`write_project`/`write_title_projects_if_safe`/`read_project_filter`/`resolve_published_filter`, with the `pipeline_filter_hash` edit-detection mechanism and `ProjectFilterConflict`), optional new parameters on core `pipeline.review.design_and_queue()` (writes the mono + multichannel projects when designing, hash-gated against overwriting a human edit) and on `publish_reviewed_queue()` (reads whichever project's *current* filter is authoritative to publish instead of the raw candidate, falling back to today's behaviour when no project exists). Fixes gaps in the *current* manual flow too, independent of everything else here. | nothing | **Implemented -- commit `407bd91`** |
-| 3 | Spike: capture a sanitised real-server `Browse/Files` response for a selected browse node, verify `hamcws`'s `browse_files()` mapping and the configured external-ID/artwork field aliases, and record the `Browse/Children` shape needed for node selection (§3.1). Write-up + fixture only, no product code. | nothing | **Ready for handoff -- endpoint and adapter established; real-library field mapping remains to capture** |
+| 3 | Spike: capture a sanitised real-server `Browse/Files` response for a selected browse node, verify `hamcws`'s `browse_files()` mapping and the configured external-ID/artwork field aliases, and record the `Browse/Children` shape needed for node selection (§3.1). Write-up + fixture only, no product code. | nothing | **Not done** -- no real-server fixture exists; the adapter was built and tested against hand-written rows, so the external-ID/artwork field aliases and `Browse/Children` shape remain unverified |
 | 4 | `pipeline/library/source.py`/`registry.py` -- `LibraryItem`, `LibrarySource` protocol, registry (mirrors `pipeline.designer.registry`). Pure interface, no implementation yet. | nothing | **Implemented -- commit `7d0bac5`** |
 | 5 | `pipeline/library/extract_cache.py` -- idempotent extract (§4.1): manifest keyed on source fingerprint + params hash, skip ffmpeg on a hit; handles the mono + optional multichannel pair per item, at the fixed filenames chunk 2 already depends on. Small, backward-compatible addition to `Session` (`extract_with_layout()`) to get a fixed output filename + the channel layout in one call. | 4 | **Implemented -- commit `dd5dd56`** |
-| 6 | `pipeline/library/design_cache.py` + additive `QueueEntry.design_fingerprint` field -- idempotent design (§4.2), never clobbers `accepted`/`published`; threads `project_dir` into `design_and_queue()` (chunk 2). | 2, 4 | **Implemented** |
-| 7 | `pipeline/library/run.py` (`run_library`) + `pipeline/library/sync.py` (`sync_library`) -- composition, per-item failure isolation (§5); threads `work_dir` into `publish_reviewed_queue()` (chunk 2). | 2, 4, 5, 6 | **Implemented** |
-| 8 | `pipeline/library/jriver.py`, built on `hamcws.MediaServer.browse_files()` and the configured browse-node id (§3.1), plus the `hamcws` dependency. If an id field exists, also `pipeline.metadata.tmdb_find_by_imdb_id()` + `pipeline/library/library_metadata.py::resolve_meta()` (§3.1.1). | 3, 4 | **Implemented; chunk 7 will call `resolve_meta()` during a run** |
-| 9 | `pipeline/library/cli.py` -- CLI entry point (§6). | 7, 8 | **Implemented** |
-| 10 | GUI: `model/library_sync.py`/`ui/library_sync.py` + `model/preferences.py` additions (§7), including the library-view filter bar (status + name/year/content-type, exact fields decided at UI design time), with a `pytest-qt` safety-net test before wiring, per this repo's established practice for touching a dialog. | 7, 8, 9 | **Implemented; library-view filtering deferred to a follow-up** |
+| 6 | `pipeline/library/design_cache.py` + additive `QueueEntry.design_fingerprint` field -- idempotent design (§4.2), never clobbers `accepted`/`published`; threads `project_dir` into `design_and_queue()` (chunk 2). | 2, 4 | **Implemented -- commit `d870d6d`** |
+| 7 | `pipeline/library/run.py` (`run_library`) + `pipeline/library/sync.py` (`sync_library`) -- composition, per-item failure isolation (§5); threads `work_dir` into `publish_reviewed_queue()` (chunk 2). | 2, 4, 5, 6 | **Implemented -- commit `bc8179b`** |
+| 8 | `pipeline/library/jriver.py`, built on `hamcws.MediaServer.browse_files()` and the configured browse-node id (§3.1), plus the `hamcws` dependency. If an id field exists, also `pipeline.metadata.tmdb_find_by_imdb_id()` + `pipeline/library/library_metadata.py::resolve_meta()` (§3.1.1). | 3, 4 | **Implemented -- commit `d870d6d`; `run_library()` calls `resolve_meta()` when `tmdb_api_key` is set. Artwork tiers 2/3 (§3.1.3) not wired** |
+| 9 | `pipeline/library/cli.py` -- CLI entry point (§6). | 7, 8 | **Implemented -- commit `e23e03d`** |
+| 10 | GUI: `model/library_sync.py`/`ui/library_sync.py` + `model/preferences.py` additions (§7), including the library-view filter bar (status + name/year/content-type, exact fields decided at UI design time), with a `pytest-qt` safety-net test before wiring, per this repo's established practice for touching a dialog. | 7, 8, 9 | **Implemented -- commit `9da7aea`; deferred: library-view filter bar, source picker/query field, browse-node selector, image owner/repo prefs wiring** |
 
 ---
 
@@ -1329,15 +1395,15 @@ entry is Accepted.
 
 ### A.9 Acceptance checklist
 
-- [ ] `QueueEntry.art_path`/`art_overridden` added, schema doc updated.
-- [ ] `publish_reviewed_queue()` passes `poster_path=entry.art_path`.
-- [ ] `review.ui` has the new `detailTabs`/`metadataTab` structure,
+- [x] `QueueEntry.art_path`/`art_overridden` added, schema doc updated.
+- [x] `publish_reviewed_queue()` passes `poster_path=entry.art_path`.
+- [x] `review.ui` has the new `detailTabs`/`metadataTab` structure,
       recompiled to `review.py`.
-- [ ] `ReviewQueueDialog` wires save/reload/browse/download/clear and
+- [x] `ReviewQueueDialog` wires save/reload/browse/download/clear and
       locks the tab on `accepted`/`published`.
-- [ ] All new tests pass; full suite still green
+- [x] All new tests pass; full suite still green
       (`PYTHONPATH=./src/main/python QT_QPA_PLATFORM=offscreen uv run pytest src/test/python -q`).
-- [ ] Manual verification (A.8) done in the real app.
+- [ ] Manual verification (A.8) done in the real app. (not verifiable from code/tests -- unconfirmed)
 
 ---
 
@@ -1684,13 +1750,13 @@ to the existing `test_pipeline_review.py`:
 
 ### B.7 Acceptance checklist
 
-- [ ] `pipeline/publish/project.py` created with all of B.3's functions.
-- [ ] `Session.load_channel_signals()` added (B.4).
-- [ ] `design_and_queue()`/`publish_reviewed_queue()` updated per B.5,
+- [x] `pipeline/publish/project.py` created with all of B.3's functions.
+- [x] `Session.load_channel_signals()` added (B.4).
+- [x] `design_and_queue()`/`publish_reviewed_queue()` updated per B.5,
       both fully backward compatible when their new parameters are omitted.
-- [ ] All new tests (B.6) pass; full suite still green
+- [x] All new tests (B.6) pass; full suite still green
       (`PYTHONPATH=./src/main/python QT_QPA_PLATFORM=offscreen uv run pytest src/test/python -q`).
-- [ ] `pipeline_qt_boundary` test (this package's AST scan for stray
+- [x] `pipeline_qt_boundary` test (this package's AST scan for stray
       `qtpy` imports) still passes -- `pipeline/publish/project.py` must
       not import qtpy, same rule as every other module in `pipeline/`.
 
@@ -1873,9 +1939,9 @@ class _FakeSource:
 
 ### C.5 Acceptance checklist
 
-- [ ] `pipeline/library/__init__.py`, `source.py`, `registry.py` created.
-- [ ] All of C.4's tests pass; full suite still green.
-- [ ] No `qtpy` import in either new module.
+- [x] `pipeline/library/__init__.py`, `source.py`, `registry.py` created.
+- [x] All of C.4's tests pass; full suite still green.
+- [x] No `qtpy` import in either new module.
 
 ---
 
@@ -2143,16 +2209,16 @@ fixture.
 
 ### D.6 Acceptance checklist
 
-- [ ] `Session.extract_with_layout()` added; `Session.extract()`
+- [x] `Session.extract_with_layout()` added; `Session.extract()`
       refactored to call it, same signature/return type/behaviour.
-- [ ] `pipeline/library/extract_cache.py` created with
+- [x] `pipeline/library/extract_cache.py` created with
       `extract_if_needed()` and its manifest helpers.
-- [ ] Manifest uses the exact flat key names in D.4 (`channel_layout_name`
+- [x] Manifest uses the exact flat key names in D.4 (`channel_layout_name`
       at top level, not nested) -- confirmed compatible with the
       already-shipped `pipeline.review._read_channel_layout_name()`.
-- [ ] All new tests (D.5) pass; full suite still green, including
+- [x] All new tests (D.5) pass; full suite still green, including
       every pre-existing `extract()` caller's tests unmodified.
-- [ ] `pipeline_qt_boundary`-style AST scan confirms
+- [x] `pipeline_qt_boundary`-style AST scan confirms
       `pipeline/library/extract_cache.py` imports no `qtpy`.
 
 ## 9. Open questions / risks
@@ -2178,11 +2244,9 @@ fixture.
   question; the TMDB-fallback tier must work regardless, and now also
   needs its existing wiring gap (`publish_reviewed_queue()` never
   passing `poster_path`) actually closed, which Chunk 1 does.
-- **Stable `LibraryItem.id` for JRiver**: filename is fragile (a
-  re-rip/rename resets every cache); JRiver's internal Media ID is
-  more stable but ties the id to one library/server -- needs a design
-  call once the spike shows what's actually available and how stable
-  it is across a library rescan.
+- ~~**Stable `LibraryItem.id` for JRiver**~~ -- resolved: `jriver-<server
+  hash>-<Key>` (§3.1). Whether JRiver's `Key` survives a library rescan/
+  re-import is still unverified against a real server (chunk 3).
 - **`force_design` on an `accepted`/`published` entry**: deliberately
   requires an explicit single-item status reset rather than a
   library-wide flag (see 4.2) -- worth confirming this friction is
@@ -2225,3 +2289,50 @@ fixture.
   ships; it's a meaningful shift from "the pipeline always publishes
   what it designed," and the conflict case in particular needs a real
   UI/CLI answer (deferred to the relevant chunk, not designed here).
+
+## 10. Implementation status vs. this plan (reviewed 2026-09-19)
+
+Verified against the code at `1ebaa4e`; the full suite passes (471 tests).
+Everything in §8 marked Implemented is present and tested, except as listed
+here. Items are ordered roughly by impact.
+
+**Behaviour gaps -- designed above, not built**
+
+1. **Library artwork tiers 2 and 3 (§3.1.3).** Nothing writes
+   `QueueEntry.art_path` from `LibraryItem.art_path` or from TMDB's `poster`
+   via `fetch_poster()`; library-driven entries publish chart-only unless a
+   human sets artwork in the review dialog.
+2. **`project_edit_preserved` reporting (§3.3.1).** A hash-gated skip of a
+   human-edited project is silent in both `run_library()` and `sync_library()`.
+3. **Write-back of the authoritative project into the other one (§3.3.1).**
+   Not implemented; only conflict detection is.
+4. **Sync errors are not shown in the GUI (§7).** `_SyncJob` results with
+   `'error': 'project_conflict'` are counted as "published".
+
+**Deviations that change idempotency/cost**
+
+5. **`resolve_meta()` runs before the design cache check** (§3.1.1), so every
+   rerun re-queries TMDB for every already-designed item, and a TMDB failure
+   fails the item outright. Fix: resolve only when `design_if_needed()` will
+   actually design (or when the entry has no `meta`), and degrade to
+   `item.meta` on TMDB errors.
+6. **Design fingerprint omits `keep_multichannel`, metadata and
+   `audio_stream`** (§4.2) -- see there.
+7. **Kept multichannel extraction is not gated on the source being
+   multichannel** (§4.1); a mono source gets a redundant extraction.
+8. **`kind` ignores `Media Type`/`Media Sub Type`** (§3.1).
+
+**Still open / unverified**
+
+9. **Chunk 3, the real-server spike, was never done** -- field aliases and
+   `Browse/Children` shape are unverified; there is no sanitised fixture.
+10. **GUI gaps (§7):** no library-view filter bar (status/name/year/type),
+    no source picker or query field, no browse-node selector (raw integer
+    spin box), `LIBRARY_IMAGE_OWNER`/`LIBRARY_IMAGE_REPO_NAME` defined but
+    unwired, no `LIBRARY_SOURCE_DEFAULT`. First saved MCWS connection only.
+11. **`pipeline.library.registry` has no production callers** (§3).
+12. **Untested:** `INTERNAL` artwork handling in `jriver.py`; manual
+    verification of the review dialog (A.8) is unconfirmed.
+13. **Document hygiene (fixed in this review):** the header said "plan only,
+    not started"; the manifest shape in §4.1 disagreed with Appendix D.4; the
+    chunk table and every appendix checklist were stale.
