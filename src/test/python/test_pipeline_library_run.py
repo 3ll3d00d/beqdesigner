@@ -214,3 +214,145 @@ def test_sync_library_is_a_parameter_preserving_publish_call_through(monkeypatch
     assert calls[0][1]['meta_defaults'] == {'source': 'Disc'}
     assert calls[0][1]['images_repo'] is images_repo
     assert calls[0][1]['work_dir'] == 'work'
+
+
+# --- TV seasons (plan §11.9) --------------------------------------------------------------------------------
+
+import os
+
+import numpy as np
+import pytest
+import soundfile as sf
+
+
+def _episode(series, season, episode):
+    return LibraryItem(id=f'{series}-{season}-{episode}', source_path=f'/tv/{series}/{episode}.mkv',
+                       display_name=f'{series} S{season}E{episode}', title=series, kind='tv', season=str(season),
+                       episodes=(episode,), fingerprint=f'fp-{series}-{season}-{episode}')
+
+
+def _resolved(meta):
+    return meta() if callable(meta) else meta
+
+
+def _season_run(tmp_path, monkeypatch, items, tv_mode='season', fail=(), **config):
+    ''' run_library() with real audio for the extract stage, so the season track really is joined. '''
+    monkeypatch.setattr('pipeline.library.run.Session', lambda cfg: _Session())
+    extracted, designs = [], []
+
+    def extract(session, item, item_dir, cfg, mono_mix, force):
+        if item.id in fail:
+            raise FileNotFoundError(f'{item.id} is missing')
+        extracted.append(item.id)
+        path = os.path.join(item_dir, 'mono.wav')
+        os.makedirs(item_dir, exist_ok=True)
+        length = (item.episodes or (1,))[0]  # a film has no episode number
+        sf.write(path, np.full((1000 * length, 1), length / 10), 1000, subtype='PCM_24')
+        return path, False
+
+    def design(session, item, wav_path, designer, queue_dir, cfg, **kwargs):
+        designs.append({'item': item, 'wav': wav_path, 'meta': kwargs['meta'], 'kwargs': kwargs})
+        return DesignCacheResult(QueueEntry(id=item.id, fs=1000, meta={}, curve={}), designed=True)
+
+    monkeypatch.setattr('pipeline.library.run.extract_if_needed', extract)
+    monkeypatch.setattr('pipeline.library.run.design_if_needed', design)
+    run_config = LibraryRunConfig(work_dir=str(tmp_path / 'work'), queue_dir=str(tmp_path / 'queue'), designer='test',
+                                  tv_mode=tv_mode, **config)
+    done = []
+    report = run_library(_Source(items), run_config, done.append)
+    return report, extracted, designs, done
+
+
+def test_episode_mode_designs_each_episode_separately_with_its_own_metadata(tmp_path, monkeypatch):
+    items = [_episode('Show', 1, e) for e in (1, 2)]
+
+    report, extracted, designs, done = _season_run(tmp_path, monkeypatch, items, tv_mode='episode')
+
+    assert [d['item'].id for d in designs] == ['Show-1-1', 'Show-1-2']
+    assert [_resolved(d['meta'])['episodes'] for d in designs] == [[1], [2]]
+    assert report.seasons == {} and done == ['Show-1-1', 'Show-1-2']
+
+
+def test_season_mode_extracts_every_episode_joins_them_and_designs_once(tmp_path, monkeypatch):
+    items = [_episode('Show', 1, e) for e in (3, 1, 2)]
+
+    report, extracted, designs, done = _season_run(tmp_path, monkeypatch, items)
+
+    assert sorted(extracted) == ['Show-1-1', 'Show-1-2', 'Show-1-3']
+    assert len(designs) == 1
+    design = designs[0]
+    assert design['item'].display_name == 'Show Season 1'
+    assert design['item'].episodes == (1, 2, 3)
+    assert design['wav'] == str(tmp_path / 'work' / design['item'].id / 'mono.wav')
+    assert len(sf.read(design['wav'])[0]) == 6000  # 1 + 2 + 3 seconds at 1 kHz
+    assert design['kwargs']['project_dir'] == str(tmp_path / 'work' / design['item'].id)
+    assert report.designed == [design['item'].id]
+    assert report.seasons == {design['item'].id: ['Show-1-1', 'Show-1-2', 'Show-1-3']}
+    assert report.extracted == extracted and report.failed == []
+    assert done == [design['item'].id]  # one progress tick per season, not per episode
+
+
+def test_season_mode_marks_the_episodes_in_scope_in_the_metadata(tmp_path, monkeypatch):
+    _, _, designs, _ = _season_run(tmp_path, monkeypatch, [_episode('Show', 1, e) for e in (1, 2)])
+
+    meta = _resolved(designs[0]['meta'])
+
+    assert meta['season'] == '1' and meta['episodes'] == [1, 2]
+
+
+def test_season_mode_keeps_films_and_other_series_as_they_were(tmp_path, monkeypatch):
+    film = LibraryItem(id='film', source_path='/f.mkv', display_name='Film', title='Film', fingerprint='fp')
+    items = [_episode('Show', 1, 1), film, _episode('Other', 2, 1)]
+
+    report, _, designs, _ = _season_run(tmp_path, monkeypatch, items)
+
+    assert [d['item'].display_name for d in designs] == ['Show Season 1', 'Film', 'Other Season 2']
+    assert set(report.seasons) == {designs[0]['item'].id, designs[2]['item'].id}
+
+
+def test_an_episode_that_will_not_extract_is_reported_and_left_out_of_scope(tmp_path, monkeypatch):
+    items = [_episode('Show', 1, e) for e in (1, 2, 3)]
+
+    report, _, designs, _ = _season_run(tmp_path, monkeypatch, items, fail={'Show-1-2'})
+
+    assert report.failed == [('Show-1-2', 'FileNotFoundError: Show-1-2 is missing')]
+    assert designs[0]['item'].episodes == (1, 3)  # the season is marked with what really went into it
+    assert _resolved(designs[0]['meta'])['episodes'] == [1, 3]
+    assert list(report.seasons.values()) == [['Show-1-1', 'Show-1-3']]
+    assert len(sf.read(designs[0]['wav'])[0]) == 4000
+
+
+def test_a_season_none_of_whose_episodes_extract_fails_as_one_item(tmp_path, monkeypatch):
+    items = [_episode('Show', 1, e) for e in (1, 2)]
+
+    report, _, designs, done = _season_run(tmp_path, monkeypatch, items, fail={'Show-1-1', 'Show-1-2'})
+
+    assert designs == []
+    assert (done[0], 'ValueError: none of the 2 episodes could be extracted') in report.failed
+    assert len(report.failed) == 3  # each episode, and the season
+
+
+def test_season_mode_does_not_keep_multichannel(tmp_path, monkeypatch):
+    _, _, designs, _ = _season_run(tmp_path, monkeypatch, [_episode('Show', 1, 1)], keep_multichannel=True)
+
+    assert designs[0]['kwargs']['multichannel_wav_path'] is None
+    assert designs[0]['kwargs']['channels'] is None
+
+
+def test_season_mode_needs_no_tmdb_key_to_mark_the_episodes(tmp_path, monkeypatch):
+    _, _, designs, _ = _season_run(tmp_path, monkeypatch, [_episode('Show', 1, e) for e in (2, 3)])
+
+    assert _resolved(designs[0]['meta']) == {'season': '1', 'episodes': [2, 3]}
+
+
+def test_the_season_keeps_one_stable_id_across_runs(tmp_path, monkeypatch):
+    items = [_episode('Show', 1, e) for e in (1, 2)]
+    _, _, first, _ = _season_run(tmp_path, monkeypatch, items)
+    _, _, second, _ = _season_run(tmp_path, monkeypatch, items[:1])
+
+    assert second[0]['item'].id == first[0]['item'].id  # so the same review-queue entry and cache are reused
+
+
+def test_an_unknown_tv_mode_is_rejected_up_front():
+    with pytest.raises(ValueError, match='tv_mode'):
+        LibraryRunConfig(work_dir='/w', queue_dir='/q', designer='x', tv_mode='series')

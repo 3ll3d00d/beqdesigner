@@ -88,6 +88,7 @@ LIBRARY_IMAGES_REPO = 'library/images_repo'
 LIBRARY_JRIVER_BROWSE_NODE = 'library/jriver_browse_node'
 LIBRARY_JRIVER_BROWSE_PATH = 'library/jriver_browse_path'
 LIBRARY_SOURCE_DEFAULT = 'library/source'
+LIBRARY_TV_MODE = 'library/tv_mode'
 LIBRARY_FILESYSTEM_GLOBS = 'library/filesystem_globs'
 LIBRARY_JRIVER_CONNECTION = 'library/jriver_connection'
 
@@ -256,6 +257,7 @@ DEFAULT_PREFS = {
     LIBRARY_JRIVER_BROWSE_NODE: -1,
     LIBRARY_JRIVER_BROWSE_PATH: '',
     LIBRARY_SOURCE_DEFAULT: 'filesystem',
+    LIBRARY_TV_MODE: 'episode',
     LIBRARY_FILESYSTEM_GLOBS: [],
     LIBRARY_JRIVER_CONNECTION: '',
     ANALYSIS_RESOLUTION: ANALYSIS_RESOLUTION_DEFAULT,

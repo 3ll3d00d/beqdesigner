@@ -48,7 +48,7 @@ run:
     assert seen['config'].audio_types == ('Atmos',)
     assert seen['config'].config.target_fs == 500
     assert json.loads(capsys.readouterr().out) == {
-        'cached': [], 'design_cached': [], 'designed': ['one'], 'extracted': ['one'], 'failed': [], 'meta_unresolved': [], 'project_edit_preserved': [],
+        'cached': [], 'design_cached': [], 'designed': ['one'], 'extracted': ['one'], 'failed': [], 'meta_unresolved': [], 'project_edit_preserved': [], 'seasons': {},
     }
 
 
@@ -168,3 +168,29 @@ def test_a_malformed_path_map_is_a_cli_error(monkeypatch):
     with pytest.raises(SystemExit):
         cli.main(['run', '--source', 'jriver', '--host', 'h', '--port', '1', '--browse-node-id', '1',
                   '--work-dir', '/w', '--queue-dir', '/q', '--designer', 'x', '--path-map', 'no-equals'])
+
+
+def test_tv_mode_defaults_to_episode_and_can_be_set_by_flag_or_config(monkeypatch, tmp_path):
+    from pipeline.library import cli
+    seen = []
+    monkeypatch.setattr(cli, 'run_library', lambda source, run_config: seen.append(run_config.tv_mode)
+                        or LibraryRunReport())
+    base = ['run', '--source', 'filesystem', '--glob', str(tmp_path), '--work-dir', '/w', '--queue-dir', '/q',
+            '--designer', 'x']
+    config = tmp_path / 'library.json'
+    config.write_text(json.dumps({'run': {'tv_mode': 'season'}}))
+
+    cli.main(base)
+    cli.main(base + ['--tv-mode', 'season'])
+    cli.main(['--config', str(config)] + base)
+    cli.main(['--config', str(config)] + base + ['--tv-mode', 'episode'])  # a flag overrides the file
+
+    assert seen == ['episode', 'season', 'season', 'episode']
+
+
+def test_an_unknown_tv_mode_flag_is_a_cli_error(tmp_path):
+    from pipeline.library import cli
+
+    with pytest.raises(SystemExit):
+        cli.main(['run', '--source', 'filesystem', '--glob', str(tmp_path), '--work-dir', '/w', '--queue-dir', '/q',
+                  '--designer', 'x', '--tv-mode', 'series'])

@@ -12,6 +12,7 @@ from pipeline.library.filesystem import FilesystemLibrarySource
 from pipeline.library.jriver import JRiverLibrarySource
 from pipeline.library.pathmap import mappings_from_config
 from pipeline.library.run import LibraryRunConfig, run_library
+from pipeline.library.season import DEFAULT_TV_MODE, TV_MODES
 from pipeline.library.sync import sync_library
 from pipeline.publish.git import RepoTarget
 
@@ -82,6 +83,7 @@ def _run(args: argparse.Namespace, config: dict[str, Any]) -> int:
         force_design=bool(values.get('force_design', False)),
         tmdb_api_key=values.get('tmdb_api_key'),
         audio_types=tuple(values.get('audio_types', ())),
+        tv_mode=values.get('tv_mode', DEFAULT_TV_MODE),
     )
     report = run_library(_source(values, config), run_config)
     print(json.dumps(asdict(report), sort_keys=True))
@@ -128,6 +130,9 @@ def _add_run_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('--force-extract', action=argparse.BooleanOptionalAction, default=None)
     parser.add_argument('--force-design', action=argparse.BooleanOptionalAction, default=None)
     parser.add_argument('--tmdb-api-key')
+    parser.add_argument('--tv-mode', choices=TV_MODES,
+                        help='episode: a filter per TV episode (default); season: join each season into one track '
+                             'and design it once')
     parser.add_argument('--audio-type', dest='audio_types', action='append')
     _add_analysis_options(parser)
 

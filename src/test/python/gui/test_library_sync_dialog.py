@@ -175,3 +175,29 @@ def test_sync_finished_says_how_many_entries_used_a_project_edit(qtbot, tmp_path
     dialog._LibrarySyncDialog__sync_finished([{'id': 'a', 'edited_project': 'mono'}, {'id': 'b'}])
 
     assert dialog.statusLabel.text() == 'Published 2 accepted entries (1 from your project edits)'
+
+
+def test_the_tv_mode_defaults_to_per_episode_persists_and_reaches_the_run_config(qtbot, tmp_path):
+    from model.preferences import LIBRARY_TV_MODE
+    dialog, prefs = _dialog(qtbot, tmp_path, **{LIBRARY_SOURCE_DEFAULT: 'filesystem'})
+    dialog.sourceStack.widget(0).globsEdit.setPlainText(str(tmp_path))
+    assert dialog.tvModeCombo.currentData() == 'episode'
+    assert dialog._LibrarySyncDialog__source_and_config()[1].tv_mode == 'episode'
+
+    dialog.tvModeCombo.setCurrentIndex(dialog.tvModeCombo.findData('season'))
+    assert dialog._LibrarySyncDialog__source_and_config()[1].tv_mode == 'season'
+    dialog._LibrarySyncDialog__persist_preferences()
+
+    assert prefs.get(LIBRARY_TV_MODE) == 'season'
+    reopened = LibrarySyncDialog(None, prefs)
+    qtbot.addWidget(reopened)
+    assert reopened.tvModeCombo.currentData() == 'season'
+
+
+def test_the_run_summary_counts_seasons_that_were_joined(qtbot, tmp_path):
+    from pipeline.library.run import LibraryRunReport
+    dialog, _ = _dialog(qtbot, tmp_path)
+
+    dialog._LibrarySyncDialog__run_finished(LibraryRunReport(designed=['a'], seasons={'show-s01': ['e1', 'e2']}))
+
+    assert dialog.statusLabel.text() == 'Designed 1, cached 0, failed 0, 1 season(s) joined'

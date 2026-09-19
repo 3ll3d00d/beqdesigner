@@ -960,7 +960,7 @@ fixture -- only chunk 8 is blocked on that mapping.
 | 15 | Path mappings (§11.6): a per-server list of server-folder -> local-folder rules, edited in Preferences -> JRiver and applied when a JRiver source reads items (`pipeline/library/pathmap.py`, CLI `--path-map`). | 11, 13 | **Implemented** |
 | 16 | Configurable external-id fields (§11.7): `Library/Fields` listing, per-kind defaults, and a per-server field mapping edited in Preferences -> JRiver. | 15 | **Implemented** -- `model/jriver/field_mappings.py`, per-server storage, Library Sync hand-off |
 | 17 | DVD-Video rips (§11.8): `model/dvd.py` (title table + durations from the IFO files), read through ffmpeg's `dvdvideo` demuxer via new `Executor` input options; wired into `Session.extract`, Batch Extract, the filesystem source and JRiver's `VIDEO_TS.dvd;N` entries. | 15 | **Implemented**; multi-episode discs limited (see §11.8) |
-| 18 | TV seasons (§11.9): metadata that marks the episodes a filter covers (built), TMDB season lookup + season/episodes on library items, and a `tv_mode` option -- one filter per episode, or the whole season as a single track. | 15 | Metadata, TMDB season, library items built; `tv_mode` planned |
+| 18 | TV seasons (§11.9): metadata that marks the episodes a filter covers (built), TMDB season lookup + season/episodes on library items, and a `tv_mode` option -- one filter per episode, or the whole season as a single track. | 15 **Implemented** -- `tv_mode` `episode` \| `season` |
 
 ---
 
@@ -2344,7 +2344,7 @@ fixture.
 
 Reviewed against the code at `1ebaa4e` (471 tests), then updated after each
 follow-up commit per `AGENTS.md` -- currently current to the library
-TV season library-items commit (759 tests). Everything in §8 marked Implemented is present and tested, except as
+TV season mode commit (794 tests). Everything in §8 marked Implemented is present and tested, except as
 listed here. Items are ordered roughly by impact.
 
 **Behaviour gaps -- designed above (1-4 all now built)**
@@ -2790,8 +2790,52 @@ A show with no season is written exactly as before.
   so it is written as `[]`; an unparseable entry is reported and nothing is
   saved.
 
-**Still to build:** `tv_mode` -- `episode` (the default, today's behaviour) or
-`season` (group a series' items by season, extract each episode as usual,
-concatenate their audio into one track, design once, and mark every member
-episode as in scope) -- in `LibraryRunConfig`, the CLI and the Library Sync
-dialog.
+**`tv_mode` (built; `pipeline/library/season.py`, `pipeline/library/run.py`).**
+`LibraryRunConfig.tv_mode` is `episode` (the default; a filter per episode,
+each with its own season/episode metadata) or `season`. Set by the Library
+Sync dialog's **TV shows** combo (`LIBRARY_TV_MODE`), the CLI's `--tv-mode`, or
+`run.tv_mode` in the config file; an unknown mode is rejected when the config
+is built.
+
+In `season` mode `plan_units()` replaces the numbered episodes of one series
+and season with a single `SeasonGroup`, placed where its first episode was
+(films, other items and anything without a series, season or a single
+episode number pass through untouched; a second item for an episode already
+present is ignored, first wins). `_run_season()` then:
+1. extracts every episode as in episode mode -- each into its own work
+   directory and cache, so **switching mode re-extracts nothing**;
+2. joins their mono, decimated wavs in episode order into one
+   `<work_dir>/<season id>/mono.wav` (`season_track_if_needed()`; streamed in
+   blocks with `soundfile`, 24-bit kept; skipped when every episode wav is
+   unchanged, rebuilt when one is added, dropped or re-extracted; episodes that
+   disagree on rate or channel count are rejected);
+3. designs that track **once** (`project_dir` is the season directory, so the
+   `.beq` project is made from it) and queues one entry.
+
+- **Season id** `some-show-s01-1a2b3c`: series slug, season number and a short
+  hash of the title and season, so it is filesystem-safe and **independent of
+  which episodes are present** -- the review entry and caches survive a season
+  gaining an episode. (Two copies of a series with different capitalisation
+  are one season.)
+- **What is marked in scope.** The season item's `episodes` are the ones that
+  **actually made it into the track**: an episode that will not extract is
+  reported in `failed` and left out, rather than sinking the season, and the
+  metadata then lists only the rest (so a later run that finds it re-designs,
+  since the track fingerprint changed). A season with no extractable episode
+  fails as one item.
+- **Metadata** follows §11.9's rules: with a TMDB key, the structured season
+  with all in-scope episodes (the catalogue then shows the season as
+  complete only if they cover TMDB's count, else `S1E1-3`); without one, the
+  library's season and episodes still go in, written as the plain season and an
+  `E1-8` note where the range is contiguous.
+- **Reporting.** `LibraryRunReport.seasons` maps a season id to its episode
+  item ids; `on_item_done` ticks once per season; the dialog's summary says
+  "N season(s) joined".
+- **Limits.** Multichannel is not kept for a season (`keep_multichannel` is
+  ignored -- there is no single multichannel file to link). A season is only as
+  complete as the browse node: episodes elsewhere in the library are not
+  found. The joined track is a plain concatenation with no gap or level match
+  between episodes, which is fine for the long-term spectral average the
+  design uses. Not run against the real library: the local JRiver server was not
+  reachable when this was written, so the grouping was checked with unit tests
+  (real audio for the joining), not live.

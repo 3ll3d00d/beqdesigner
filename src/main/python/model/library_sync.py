@@ -6,9 +6,10 @@ from qtpy.QtWidgets import QDialog, QMessageBox
 
 from model.library_sources import registered_source_kinds
 from model.preferences import DESIGNER_DEFAULT, DESIGNER_QUEUE_DIR, LIBRARY_IMAGES_REPO, LIBRARY_SOURCE_DEFAULT, \
-    LIBRARY_WORK_DIR, LIBRARY_XML_REPO, TMDB_API_KEY
+    LIBRARY_TV_MODE, LIBRARY_WORK_DIR, LIBRARY_XML_REPO, TMDB_API_KEY
 from pipeline.config import AnalysisConfig
 from pipeline.library.run import LibraryRunConfig, run_library
+from pipeline.library.season import TV_MODES
 from pipeline.library.sync import sync_library
 from pipeline.publish.git import RepoTarget
 from pipeline.review import describe_publish_error, split_publish_results
@@ -75,6 +76,7 @@ class LibrarySyncDialog(QDialog, Ui_librarySyncDialog):
         self.__active_job = None
         self.__source_pages = {}
         self.__load_sources()
+        self.__load_tv_modes()
         self.__load_preferences()
         self.__load_designers()
         self.sourceCombo.currentIndexChanged.connect(self.sourceStack.setCurrentIndex)
@@ -93,6 +95,12 @@ class LibrarySyncDialog(QDialog, Ui_librarySyncDialog):
         index = self.sourceCombo.findData(self.__preferences.get(LIBRARY_SOURCE_DEFAULT))
         self.sourceCombo.setCurrentIndex(max(index, 0))
         self.sourceStack.setCurrentIndex(self.sourceCombo.currentIndex())
+
+    def __load_tv_modes(self):
+        for mode, label in (('episode', 'One filter per episode'), ('season', 'Whole season as a single track')):
+            assert mode in TV_MODES
+            self.tvModeCombo.addItem(label, mode)
+        self.tvModeCombo.setCurrentIndex(max(self.tvModeCombo.findData(self.__preferences.get(LIBRARY_TV_MODE)), 0))
 
     def __load_preferences(self):
         self.workDirEdit.setText(self.__preferences.get(LIBRARY_WORK_DIR))
@@ -114,6 +122,7 @@ class LibrarySyncDialog(QDialog, Ui_librarySyncDialog):
         self.__preferences.set(LIBRARY_XML_REPO, self.xmlRepoEdit.text())
         self.__preferences.set(LIBRARY_IMAGES_REPO, self.imagesRepoEdit.text())
         self.__preferences.set(LIBRARY_SOURCE_DEFAULT, self.sourceCombo.currentData())
+        self.__preferences.set(LIBRARY_TV_MODE, self.tvModeCombo.currentData())
         for page in self.__source_pages.values():
             page.save(self.__preferences)
 
@@ -126,6 +135,7 @@ class LibrarySyncDialog(QDialog, Ui_librarySyncDialog):
         source = self.__source_pages[self.sourceCombo.currentData()].build_source()
         config = LibraryRunConfig(work_dir=work_dir, queue_dir=queue_dir, designer=designer,
                                   keep_multichannel=self.keepMultichannelCheck.isChecked(),
+                                  tv_mode=self.tvModeCombo.currentData(),
                                   tmdb_api_key=self.__preferences.get(TMDB_API_KEY) or None)
         return source, config
 
@@ -156,6 +166,8 @@ class LibrarySyncDialog(QDialog, Ui_librarySyncDialog):
                    f'failed {len(report.failed)}')
         if report.project_edit_preserved:
             message += f', kept your edits to {len(report.project_edit_preserved)} project(s)'
+        if report.seasons:
+            message += f', {len(report.seasons)} season(s) joined'
         self.__set_busy(False, message)
         from model.review import ReviewQueueDialog
         if self.__review is None:
