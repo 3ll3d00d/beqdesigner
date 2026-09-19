@@ -175,8 +175,8 @@ a clear error instead of nesting `asyncio.run()`.
 | `Key` | `id` | `jriver-<stable hash of server identity>-<Key>`. This is filesystem-safe on Windows as well as POSIX. The raw `Key` is the stable JRiver media identifier; never derive an id from `Filename`. The server identity prevents two servers sharing numeric keys and a cache directory. |
 | `Filename` | `source_path` | Required. Pass through to ffmpeg, recognising BDMV roots with `is_bdmv_root()`. The path still has to be locally mounted on the BEQDesigner host. |
 | `Name` | `display_name`, `title` | Display fallback; leave `title` unset if empty. |
-| `Year` | `year` | Optional string; fuzzy TMDB resolution remains the fallback. |
-| `Series`, `Season`, `Episode` | `kind`, `meta` | **As built:** `kind='tv'` if any of the three is non-empty, else `'movie'`; only `Season` is retained (as `meta['season']`). `Media Type`/`Media Sub Type` are fetched by `hamcws` but **not consulted** -- a non-film, non-episodic item (music video, concert) is treated as a movie. |
+| `Year` | `year` | Optional string; fuzzy TMDB resolution remains the fallback. **Live-verified:** JRiver answers a request for `Year` with the key `Date (year)`, so both are read (the requested name wins). |
+| `Media Sub Type`, `Series`, `Season`, `Episode` | `kind`, `meta` | **As built (live-verified):** `Media Sub Type` decides when set -- `TV Show` is `tv`, anything else `movie`. Without one, `tv` only if `Series`, `Season` *and* `Episode` are all set. (The first version treated any of the three as TV, which classed every film franchise -- a `Series` value -- as television.) `meta['season']` is kept only for `tv` items. |
 | `Date Modified`, `File Size` | `fingerprint` | Stable serialisation of the values actually supplied. Leave it empty when both are absent, allowing the extract cache's filesystem-stat fallback. |
 | `IMDB`, `TheMovieDB` | `external_ids` | Normalise non-empty values to `imdb` and `tmdb`. Use configurable field aliases because metadata plugins vary. |
 | `Image File` | `art_path` | Only accept a locally readable path. `INTERNAL` means JRiver-managed art, not a file path; downloading `File/GetImage` is a later enhancement if needed. |
@@ -2340,7 +2340,7 @@ fixture.
 
 Reviewed against the code at `1ebaa4e` (471 tests), then updated after each
 follow-up commit per `AGENTS.md` -- currently current to the library
-JRiver server alias commit (573 tests). Everything in §8 marked Implemented is present and tested, except as
+JRiver mapping-fix commit (585 tests). Everything in §8 marked Implemented is present and tested, except as
 listed here. Items are ordered roughly by impact.
 
 **Behaviour gaps -- designed above (1-4 all now built)**
@@ -2371,7 +2371,7 @@ listed here. Items are ordered roughly by impact.
    multichannel~~ -- fixed in `1719151` via `source_channel_count`. Turned
    out to be masked by a pre-existing bug, also fixed (`dfcb7ff`): every
    mono-source extraction failed on an invalid `pan` filter.
-8. **`kind` ignores `Media Type`/`Media Sub Type`** (§3.1) -- still open.
+8. ~~`kind` ignored `Media Type`/`Media Sub Type`~~ -- fixed, and verified live (below).
 9. ~~Redesigning a `pending` entry discarded a reviewer's metadata and
    artwork edits~~ -- fixed (see the commit that follows `5c2dfdf`):
    `design_if_needed()` now keeps the existing entry's `meta` (fresh
@@ -2535,3 +2535,35 @@ local fake serving `<Item Name="Movies">21</Item>`-style XML; if a real
 server returns something else the picker will show an empty or partial tree,
 and the fix is confined to `_map_children()`. Capturing a real
 `Browse/Children` response is now part of the chunk 3 spike.
+
+### 11.5 Live findings against a real JRiver server (2026-09-19)
+
+With the user's permission, a local server was queried with **Browse/Children
+and Browse/Files only** (nothing else: no playback, no `/Alive`, no
+`Library/Fields`); credentials and file paths were not printed or recorded.
+What that established, and what it changed:
+
+- **`Browse/Children` shape confirmed** for the root and two deeper levels:
+  hamcws returns `{display name: node id (string)}` (e.g. `Video -> '3'`),
+  and a leaf node returns `{}`. The picker's reading (§11.4) is right. One
+  structural limit: the dict is keyed by name, so two *siblings with the same
+  name* would collapse into one entry -- not seen, but not detectable.
+- **Year:** requested as `Year`, returned as `Date (year)`. Every title had
+  no year until fixed (commit following `cc53ffa`).
+- **Kind:** `Media Sub Type` is `Movie` / `TV Show`. Twelve films in a 1283-title
+  Movies node carry a `Series` value and one a stray `Season`; the old rule
+  called them TV. Verified after the fix: 1283 movies / 1657 TV shows in the
+  two nodes.
+- **Paths are Windows paths** (`W:\...`) although the client is Linux: the
+  server is a Windows host. JRiver reports this as a server-side bug, so the
+  app needs a configurable **path mapping** (next commit, §11.6).
+- **`Image File` is a bare file name** (1162 of 1283 films, 1533 of 1657
+  shows), not an absolute path and never `INTERNAL` here, so it can only be
+  found relative to the media file's folder (§11.6).
+- **`IMDB`/`TheMovieDB` were absent** from every row of both nodes: either
+  unset library-wide or held under other field names. This could not be
+  told apart without `Library/Fields` (out of scope), so the fuzzy
+  title/year TMDB fallback is what will run for this library, and the alias
+  list may need the user's actual field names.
+- **`Date Modified` and `File Size`** are present on every row, so the extract
+  cache uses JRiver's fingerprint rather than a local stat.

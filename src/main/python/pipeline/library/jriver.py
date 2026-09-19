@@ -67,6 +67,8 @@ def _map_children(response: Mapping[str, Any]) -> list[BrowseNode]:
 class JRiverLibrarySource:
     '''Maps the files below one configured MCWS browse node into library items.'''
 
+    # Requested by JRiver's field names. The reply keys some by *display* name instead -- the year comes back
+    # as 'Date (year)' -- so _map_row() reads both.
     FIELDS = (
         'Filename', 'Year', 'Date Modified', 'File Size', 'Image File', 'IMDB', 'TheMovieDB',
     )
@@ -137,11 +139,9 @@ class JRiverLibrarySource:
 
         name = _value(row, 'Name')
         title = name or None
-        series = _value(row, 'Series')
         season = _value(row, 'Season')
-        episode = _value(row, 'Episode')
-        kind = 'tv' if series or season or episode else 'movie'
-        meta = {'season': season} if season else {}
+        kind = _kind(row)
+        meta = {'season': season} if season and kind == 'tv' else {}
         modified = _value(row, 'Date Modified')
         size = _value(row, 'File Size')
         fingerprint = json.dumps({'date_modified': modified, 'file_size': size}, sort_keys=True) \
@@ -152,7 +152,7 @@ class JRiverLibrarySource:
             source_path=filename,
             display_name=name or os.path.basename(filename),
             title=title,
-            year=_value(row, 'Year') or None,
+            year=_value(row, 'Year') or _value(row, 'Date (year)') or None,
             kind=kind,
             external_ids=self._external_ids(row),
             art_path=_local_art_path(_value(row, 'Image File')),
@@ -167,6 +167,18 @@ class JRiverLibrarySource:
             if value:
                 ids[identifier] = value
         return ids
+
+
+def _kind(row: Mapping[str, Any]) -> str:
+    '''
+    'tv' or 'movie'. JRiver's Media Sub Type is authoritative when it is set ('Movie', 'TV Show', ...).
+    A film franchise carries a Series value (and occasionally a stray Season/Episode) without being episodic,
+    so those fields only decide when there is no sub type, and then only together.
+    '''
+    sub_type = _value(row, 'Media Sub Type').lower()
+    if sub_type:
+        return 'tv' if 'tv' in sub_type else 'movie'
+    return 'tv' if _value(row, 'Series') and _value(row, 'Season') and _value(row, 'Episode') else 'movie'
 
 
 def _value(row: Mapping[str, Any], field: str) -> str:

@@ -181,3 +181,41 @@ def test_listing_children_rejects_a_running_event_loop():
             list_browse_children('127.0.0.1', 1)
 
     asyncio.run(call_from_loop())
+
+
+def test_the_year_is_read_from_the_display_name_jriver_actually_returns():
+    # a live server answers a request for 'Year' with the key 'Date (year)'
+    live_style = _row(**{'Date (year)': '2019'})
+    del live_style['Year']
+
+    assert _source()._map_row(live_style).year == '2019'
+    assert _source()._map_row(_row(Year='2001', **{'Date (year)': '2019'})).year == '2001'  # requested name wins
+    without = _row()
+    del without['Year']
+    assert _source()._map_row(without).year is None
+
+
+@pytest.mark.parametrize('sub_type, extra, expected', [
+    ('Movie', {}, 'movie'),
+    ('TV Show', {'Series': 'S', 'Season': '1', 'Episode': '2'}, 'tv'),
+    ('TV Show', {}, 'tv'),  # the sub type is authoritative even if the episode fields are blank
+    ('Movie', {'Series': 'Lord of the Rings'}, 'movie'),  # a film franchise
+    ('Movie', {'Series': 'Film Clips', 'Season': 'Bass', 'Episode': '1'}, 'movie'),  # stray episodic values
+    ('Home Video', {}, 'movie'),
+    ('', {'Series': 'S', 'Season': '1', 'Episode': '2'}, 'tv'),  # no sub type: fall back, needing all three
+    ('', {'Series': 'S'}, 'movie'),
+    ('', {'Season': '1', 'Episode': '2'}, 'movie'),
+    ('', {}, 'movie'),
+])
+def test_kind_follows_the_media_sub_type_before_the_episodic_fields(sub_type, extra, expected):
+    row = _row(**{'Media Sub Type': sub_type, **extra})
+
+    assert _source()._map_row(row).kind == expected
+
+
+def test_season_is_only_kept_for_tv():
+    tv = _source()._map_row(_row(**{'Media Sub Type': 'TV Show', 'Series': 'S', 'Season': '2', 'Episode': '3'}))
+    film = _source()._map_row(_row(**{'Media Sub Type': 'Movie', 'Series': 'Film Clips', 'Season': 'Bass'}))
+
+    assert tv.meta == {'season': '2'}
+    assert film.meta == {}
