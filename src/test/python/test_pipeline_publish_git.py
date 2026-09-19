@@ -88,6 +88,44 @@ def test_push_image_falls_back_to_parsing_the_remote_when_owner_not_given(tmp_pa
     assert _content_on_remote(bare, sha, 'img/rp1.png') == b'\x89PNG...'
 
 
+def test_rewriting_a_published_path_with_changed_content_is_a_new_commit_at_the_same_path(tmp_path):
+    ''' A revision (design/library-sync/workflow-rework §12.7): same catalogue path, new commit -- works today. '''
+    target, bare = _init_repo_with_remote(tmp_path)
+    first = commit_and_push(target, 'xml/rp1.xml', b'v1', 'Add RP1')
+
+    second = commit_and_push(target, 'xml/rp1.xml', b'v2', 'Revise RP1')
+
+    assert second != first
+    assert _content_on_remote(bare, second, 'xml/rp1.xml') == b'v2'
+    assert _content_on_remote(bare, first, 'xml/rp1.xml') == b'v1'
+
+
+@pytest.mark.xfail(strict=True, raises=subprocess.CalledProcessError,
+                   reason="`git commit` exits 1 ('nothing to commit') when the content is unchanged, so re-publishing "
+                          "an identical file raises -- design/library-sync/workflow-rework §12.14, fixed by chunk 21")
+def test_committing_unchanged_content_is_a_no_op_not_an_error(tmp_path):
+    target, bare = _init_repo_with_remote(tmp_path)
+    first = commit_and_push(target, 'xml/rp1.xml', b'same', 'Add RP1')
+
+    again = commit_and_push(target, 'xml/rp1.xml', b'same', 'Add RP1 again')
+
+    assert again == first
+
+
+@pytest.mark.xfail(strict=True, reason="`git commit` without a pathspec commits the whole index, so a file someone "
+                                       "else staged in the working tree is swept into our commit -- fixed by chunk 21")
+def test_a_commit_contains_only_the_published_path(tmp_path):
+    target, bare = _init_repo_with_remote(tmp_path)
+    (tmp_path / 'work' / 'foreign.txt').write_text('not ours')
+    _run('git', '-C', target.local_path, 'add', 'foreign.txt')
+
+    sha = commit_and_push(target, 'xml/rp1.xml', b'<beq/>', 'Add RP1')
+
+    changed = subprocess.run(['git', '-C', target.local_path, 'show', '--name-only', '--format=', sha],
+                             check=True, capture_output=True, text=True).stdout.split()
+    assert changed == ['xml/rp1.xml']
+
+
 def test_parse_github_remote_handles_https_and_ssh_forms(tmp_path):
     work = tmp_path / 'work'
     work.mkdir()

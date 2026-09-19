@@ -401,3 +401,53 @@ def test_a_film_with_no_episodes_shows_a_blank_field(tmp_path, dialog):
     dialog.queueTable.selectRow(0)
 
     assert dialog.episodesField.text() == ''
+
+
+def _show_focused(qtbot, dialog, queue_dir, widget_name, on_metadata_tab=True):
+    ''' Loads a two-entry queue, selects the first row and gives `widget_name` real keyboard focus. '''
+    _write_entry(queue_dir, 'title-a')
+    _write_entry(queue_dir, 'title-b')
+    dialog.load_queue_dir(queue_dir)
+    dialog.show()
+    qtbot.waitExposed(dialog)
+    dialog.activateWindow()  # offscreen: key events only reach a widget once its window is active
+    qtbot.waitActive(dialog)
+    dialog.queueTable.selectRow(0)
+    if on_metadata_tab:
+        dialog.detailTabs.setCurrentWidget(dialog.metadataTab)
+    widget = getattr(dialog, widget_name)
+    widget.setFocus()
+    qtbot.waitUntil(widget.hasFocus)
+    return widget
+
+
+@pytest.mark.xfail(strict=True, reason="Enter is a window-wide Accept shortcut, so Enter in a metadata field "
+                                       "accepts the entry -- design/library-sync/workflow-rework §12.1, fixed by chunk 20")
+def test_enter_in_a_metadata_field_does_not_accept_the_entry(tmp_path, dialog, qtbot):
+    queue_dir = str(tmp_path / 'queue')
+    field = _show_focused(qtbot, dialog, queue_dir, 'editionField')
+
+    qtbot.keyClick(field, Qt.Key.Key_Return)
+
+    assert read_entry(queue_dir, 'title-a').status == 'pending'
+
+
+def test_letter_and_digit_keys_typed_in_a_metadata_field_are_text_not_shortcuts(tmp_path, dialog, qtbot):
+    ''' QLineEdit claims printable keys via ShortcutOverride, so the A/S/R/1-9 shortcuts never fire while typing. '''
+    queue_dir = str(tmp_path / 'queue')
+    field = _show_focused(qtbot, dialog, queue_dir, 'editionField')
+
+    qtbot.keyClicks(field, 'asr12')
+
+    assert field.text() == 'asr12'
+    assert read_entry(queue_dir, 'title-a').status == 'pending'
+
+
+def test_enter_on_the_queue_table_accepts_the_selected_entry(tmp_path, dialog, qtbot):
+    ''' The behaviour chunk 20 must keep: Enter still accepts when focus is on the table (or candidate list). '''
+    queue_dir = str(tmp_path / 'queue')
+    table = _show_focused(qtbot, dialog, queue_dir, 'queueTable', on_metadata_tab=False)
+
+    qtbot.keyClick(table, Qt.Key.Key_Return)
+
+    assert read_entry(queue_dir, 'title-a').status == 'accepted'

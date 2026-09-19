@@ -23,8 +23,8 @@ Review tab. Reading the code and rendering the dialog offscreen (2026-09-19) fou
 - When TMDB does not resolve (no key, or an error), `meta` holds only season fields, so the queue table
   shows the raw id (`jriver-3fa9c2-1234`); the library's own title/year are dropped.
 - Two publish paths exist (the embedded review dialog's XML-only button, and Sync), and only one reads projects (T9).
-- `Enter` is bound window-wide to Accept, so Enter in a metadata field very probably accepts the entry
-  (**unverified at runtime**); an unsaved metadata edit is lost on Accept; an accepted entry cannot be reopened.
+- `Enter` is bound window-wide to Accept, so Enter in a metadata field accepts the entry
+  (**verified at runtime, §12.14**); an unsaved metadata edit is lost on Accept; an accepted entry cannot be reopened.
 - `report.failed` (`(id, "ExcType: message")`) is reduced to a count; progress is an indeterminate bar and an
   opaque id; no cancel. Failures are not remembered, so a bad item retries on every run.
 - Nothing can say what work exists without doing it: `run_library()` lists, extracts and designs in one pass.
@@ -133,7 +133,8 @@ with a "gone from source" badge. Outputs are never deleted automatically.
 **Repo awareness.** Discovery reads the local XML repo. A title whose TMDB id already appears there but which
 this profile did not publish is labelled **Already in catalogue** -- informational only; it stays in the list
 (and can be ignored). Matching must use the XML's TMDB id, not the filename (ours are entry ids; others' are not).
-*To verify before building:* the exact XML element that carries the TMDB id.
+The element is `<beq_metadata><beq_theMovieDB>`, and the XML has no movie/tv kind, so match on it together with
+`<beq_season>` being non-empty (§12.14).
 
 ### 12.6 The stage state machine
 
@@ -302,15 +303,20 @@ prints the counts per needs, so a scheduled job can report what is waiting for a
 
 Moved to [`implementation-order.md`](implementation-order.md) (chunks 19-28, dependencies, milestones, risks).
 
-### 12.14 To verify before or during the build
+### 12.14 Verified facts (chunk 19 spike, 2026-09-19)
 
-- `QueueEntry` has no "entered this state at" field (verify against the current fields); `state_since` lives in the index.
-- The XML element that carries the TMDB id (for **Already in catalogue**).
-- Behaviour of a second `publish` of an unchanged or changed file through the new commit step (no diff must not error).
-- The Enter-in-a-line-edit accept behaviour (§12.1), with a `pytest-qt` test that fails first.
-- Catalogue filenames are opaque, source-derived ids (`jriver-<hash>-<Key>.xml`). Acceptable (beqcatalogue globs `**/*.xml`); a human-readable
-  name would need its own stable-name rule and is out of scope here.
-- Season titles (§11.9) through discovery, revise and commit: the season id is the title id.
+Each item was checked against the code at `HEAD` and, where it is behaviour, run. Tests that pin a finding a later chunk
+must fix are `xfail(strict=True)`, so the chunk that fixes it cannot forget to remove the marker.
+
+| Item | Finding | Consequence |
+|---|---|---|
+| Enter in a metadata field | **Confirmed.** `model/review.py` binds `Key_Return`/`Key_Enter` to Accept as window-context `QShortcut`s; a `QLineEdit` does not claim Return via `ShortcutOverride`, so Enter in `editionField` accepted `title-a`. Printable keys are safe: `A`/`S`/`R`/`1-9` typed into a field are text (`QLineEdit` claims them). Enter with focus on the queue table accepts, and must keep doing so. | Chunk 20 scopes only Return/Enter (and keeps the letter shortcuts, which need no change). Tests: `gui/test_review_dialog.py::test_enter_in_a_metadata_field_does_not_accept_the_entry` (strict xfail), `test_letter_and_digit_keys_typed_in_a_metadata_field_are_text_not_shortcuts` and `test_enter_on_the_queue_table_accepts_the_selected_entry` (both pass today). Key events reach a widget offscreen only after `activateWindow()` + `qtbot.waitActive()`. |
+| TMDB id in the XML | `<beq_metadata><beq_theMovieDB>` (`BeqMetadata.to_dict()` key `beq_theMovieDB`), emitted by `to_beq_xml()`; empty (`<beq_theMovieDB />`) when unresolved. **The XML carries no movie/tv kind**, and TMDB numbers movies and series separately, so a film and a series can share an id. `<beq_season>` is non-empty for TV entries and is the only discriminator. | Chunk 24's "Already in catalogue" match is on `(theMovieDB, is-tv)` with `is-tv` = `beq_season` non-empty, never the bare id; an XML with no id can never match. |
+| `git commit` with unchanged content | **Errors.** `commit_and_push()` -> `git commit` exits 1 ("nothing to commit, working tree clean", on *stdout*, so `CalledProcessError.stderr` is empty) and `subprocess.run(check=True)` raises. Changed content at the same path commits normally, so a revision (§12.7) works today. | Chunk 21's `commit_paths()` must treat "nothing to commit" as success. `test_pipeline_publish_git.py::test_committing_unchanged_content_is_a_no_op_not_an_error` (strict xfail). |
+| Foreign staged files | **Swept in.** `commit_and_push()` runs `git add <path>` then `git commit -m` with no pathspec, so anything already staged in the working tree (`other.txt` in the probe) lands in our commit. | Chunk 21 commits with an explicit pathspec (`git commit -- <paths>`). `test_a_commit_contains_only_the_published_path` (strict xfail). |
+| `QueueEntry` fields | `id, fs, meta, curve, candidates, decline_reason, decline_message, status, chosen_candidate_index, reviewer_note, art_path, art_overridden, design_fingerprint`. **No timestamp of any kind**; `status` is `pending`/`accepted`/`skipped`/`rejected`/`published`. Entries are `<queue_dir>/<id>.json`. | Confirms `state_since` cannot come from the entry and lives in the index (chunk 24). Chunks 21-22 add `published_digest`, `published_at`, `revision` (all optional). |
+| Season title id | A season is one title with its own id, `season_item_id(title, season)` = `<slug>-sNN-<sha256(casefolded title|season)[:6]>` (`some-show-s01-60ad24`); members keep their own work dirs under their item ids, and only the season id gets a queue entry, project files and XML (`<xml_dir>/<season-id>.xml`). Unlike other ids it has **no source component**, and it depends on the **series title text**: `' some show '` / `'01'` give the same id, `'Some Show (2019)'` a different one. | Chunk 23's claim reconstruction must recognise season ids as a second id shape; two sources offering the same season already collapse to one id, which is wanted. A library title correction re-keys the season (orphaning its cache and entry) -- the sticky-claim rule (§12.4) must cover it, not just source-derived ids. |
+| Catalogue filenames | `<xml_dir>/<entry.id>.xml` and `<image_dir>/<entry.id>.png` (`pipeline/review.py`), so `jriver-<hash>-<Key>.xml`, `fs-<hash>.xml` or the season id above. beqcatalogue globs `**/*.xml`, so opaque names are acceptable. A human-readable name would need its own stable-name rule and is out of scope. | -- |
 
 ### 12.15 Documentation outline (for chunk 28 / T1)
 

@@ -78,26 +78,27 @@ Steps 2-5 can be reordered freely (they are independent); steps 6 onwards cannot
 
 **19 -- Verification spike** (no product code; write-up + tests). Settles the §12.14 items that later chunks depend on.
 - A `pytest-qt` test showing Enter in a metadata `QLineEdit` triggers Accept (`xfail(strict=True)` until chunk 20 fixes it).
-- Read the XML writer/sample XML for the element carrying the TMDB id (chunk 24's repo awareness) and record its name.
+- Read the XML writer/sample XML for the element carrying the TMDB id (chunk 24's repo awareness) and record its name (`beq_theMovieDB`; no kind element).
 - Run `commit_and_push` with unchanged content against a temp repo; record whether `git commit` errors (chunk 21).
 - List every `QueueEntry` field (timestamps?), and check how a season title's id flows through publish naming.
-- **Done when:** §12.14 is rewritten as verified facts, and the strict-xfail test is committed.
+- **Done when:** §12.14 is rewritten as verified facts, and the strict-xfail test is committed. **Done 2026-09-19** -- the spike also found that `commit_and_push` sweeps in
+  foreign staged files (a second strict xfail, `test_pipeline_publish_git.py`), and that the season id has no source component (§12.14); chunks 21, 23 and 24 carry both.
 
 **20 -- Fixes that need no redesign** (`model/library_sync.py`, `model/review.py`, `pipeline/library/run.py`, `ui/review.ui`)
 1. The Review tab is created on open and loads `DESIGNER_QUEUE_DIR`.
 2. `_meta_source()` seeds `meta` with `title`/`year` from the item (`item.title or item.display_name`) on every path, including no-TMDB and
    TMDB-failure, so `QueueEntry.meta` always has a title; existing entries with none keep showing the id.
-3. Shortcuts scoped to the table/candidate list, not text fields (turns 19's xfail into a pass).
+3. Return/Enter scoped to the table/candidate list, not text fields (turns 19's xfail into a pass; delete the marker). Letter/digit shortcuts already yield to text fields (§12.14).
 4. A details view for `report.failed` and `report.meta_unresolved` (id, message), replacing the bare counts.
 5. Accept with unsaved metadata edits prompts to save (or saves them).
 6. **Reopen** on an *accepted* (not yet published) entry: status back to pending. This is only the trivial case, a status change in the dialog;
    chunk 22's `reopen_entry()` generalises it (written, committed and pushed entries, working-tree revert, revision counter) and 27c moves the dialog onto it.
-- **Tests:** `gui/test_review_dialog.py`, `gui/test_library_sync_dialog.py` (new): open with an existing queue; a run with no TMDB key names
+- **Tests:** `gui/test_review_dialog.py` and `gui/test_library_sync_dialog.py` (both exist; extend them): open with an existing queue; a run with no TMDB key names
   its rows; Enter in a field does not accept.
 - **Done when:** M0. Ships alone; nothing depends on it.
 
 **21 -- Publish/commit split** (`pipeline/publish/git.py`, `pipeline/orchestrate.py`, `pipeline/review.py`, new `pipeline/library/commit.py`)
-- `git.py`: `write_files()` (working tree only), `commit_paths()` (only the named paths; "nothing to commit" is success),
+- `git.py`: `write_files()` (working tree only), `commit_paths()` (an explicit pathspec, so foreign staged files stay out; "nothing to commit" is success -- both are 19's strict xfails, remove the markers),
   `push()`, `image_url()` (owner/repo/branch without pushing), `repo_state()` (one `git status --porcelain` and one
   `git diff --name-only @{u}..HEAD` per repo -> uncommitted/unpushed path sets).
 - `Session.publish()` gains a write-only mode; `publish_reviewed_queue(..., push=True)` keeps today's behaviour by default so the standalone review
