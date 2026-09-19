@@ -237,14 +237,16 @@ def test_committing_again_is_a_no_op_once_everything_is_pushed(tmp_path, repos):
     assert len(_commits(xml)) == 1
 
 
-def test_without_an_upstream_commit_cannot_tell_so_it_pushes_but_never_recommits(tmp_path, repos):
+def test_without_an_upstream_a_never_pushed_repo_is_pushed_and_then_known_to_be_pushed(tmp_path, repos):
     xml, _, images, _ = repos
     queue_dir, _ = _publish(tmp_path, repos, ('one', 'Heat'))
-    commit_catalogue(queue_dir, xml, images, xml_dir='xml', image_dir='img')
+    first = commit_catalogue(queue_dir, xml, images, xml_dir='xml', image_dir='img')
+    assert first.xml.pushed is True  # nothing to compare with yet: cannot tell, so it pushes
 
     again = commit_catalogue(queue_dir, xml, images, xml_dir='xml', image_dir='img')
 
-    assert again.xml.commit is None and again.xml.pushed is True
+    # no @{upstream} is configured, but the push updated origin/<branch>, which is what "pushed" is measured against
+    assert again.xml.commit is None and again.xml.pushed is False and again.xml.paths == []
     assert len(_commits(xml)) == 1
 
 

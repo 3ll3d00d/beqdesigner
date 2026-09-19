@@ -18,6 +18,7 @@ from pipeline.orchestrate import Session
 from pipeline.publish.project import (
     ProjectFilterConflict,
     align_projects,
+    edited_projects,
     read_project_filter,
     resolve_published_filter,
     resolve_published_projects,
@@ -254,6 +255,31 @@ def test_resolve_published_projects_says_which_side_carried_the_edit(tmp_path):
 
     _hand_edit_filter(mc_out, _HUMAN_FILTER)  # the same edit on both sides is not a conflict
     assert resolve_published_projects(mono_out, mc_out).edited_side == 'both'
+
+
+def test_edited_projects_says_which_project_a_person_changed_and_none_when_pure_or_absent(tmp_path):
+    session, mono_wav, mc_wav, mono_out, mc_out = _both_projects(tmp_path)
+    missing = str(tmp_path / 'never-written.beq')
+
+    assert edited_projects(mono_out, mc_out) is None
+    assert edited_projects(missing, None) is None and edited_projects(None, None) is None  # nothing to have edited
+
+    _hand_edit_filter(mono_out, _HUMAN_FILTER)
+    assert edited_projects(mono_out, mc_out) == 'mono'
+    assert edited_projects(missing, mc_out) is None
+
+    _hand_edit_filter(mc_out, _OTHER_HUMAN_FILTER)
+    assert edited_projects(mono_out, mc_out) == 'both'  # whether or not they agree: both were touched
+    assert edited_projects(None, mc_out) == 'multichannel'
+
+
+def test_a_project_that_predates_the_edit_marker_counts_as_edited(tmp_path):
+    session, mono_wav, mc_wav, mono_out, mc_out = _both_projects(tmp_path)
+    data = _read_raw(mono_out)
+    data[0].pop('pipeline_filter_hash')
+    _write_raw(mono_out, data)
+
+    assert edited_projects(mono_out) == 'mono'  # read_project_filter()'s rule: no hash, so it cannot be shown pure
 
 
 def test_resolve_published_projects_names_the_multichannel_side(tmp_path):

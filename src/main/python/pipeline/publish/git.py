@@ -138,8 +138,8 @@ class RepoState:
     '''
     Where a repo's files stand relative to git, read from git itself so a commit made by hand is respected.
     Paths are relative to the repo root. Either set is None when it could not be determined (not a repo, or --
-    for `unpushed` -- the branch has no upstream to compare with); callers must treat None as "unknown", never as
-    "nothing".
+    for `unpushed` -- the branch has neither an upstream nor a remote-tracking ref of its own name to compare with);
+    callers must treat None as "unknown", never as "nothing".
     '''
     uncommitted: Optional[FrozenSet[str]]  # changed, staged or untracked in the working tree
     unpushed: Optional[FrozenSet[str]]     # differing between the upstream branch and HEAD
@@ -157,17 +157,44 @@ def _porcelain_paths(status: str) -> FrozenSet[str]:
     return frozenset(paths)
 
 
+def _remote_tracking_ref(target: RepoTarget) -> Optional[str]:
+    '''
+    `<remote>/<branch>` for the checked-out branch, if that remote-tracking ref exists -- what `push()` updates, and so
+    what "pushed" means for a clone whose branch has no `@{upstream}` configured. None on a detached HEAD (there is no
+    branch to compare) or when the branch was never pushed.
+    '''
+    try:
+        branch = _git(target, 'symbolic-ref', '--short', '-q', 'HEAD')
+        ref = f'refs/remotes/{target.remote}/{branch}'
+        _git(target, 'rev-parse', '--verify', '--quiet', ref)
+    except (subprocess.CalledProcessError, OSError):
+        return None
+    return ref
+
+
 def repo_state(target: RepoTarget) -> RepoState:
-    ''' One `git status` and one `git diff` for the whole repo, however many titles it holds. Never raises. '''
+    '''
+    One `git status` and one `git diff` for the whole repo, however many titles it holds. Never raises. What is
+    unpushed is measured against the branch's upstream, or -- where none is configured (a repo made with `git init`
+    and `git remote add`, pushed with `push()`, which sets none) -- against the remote-tracking ref of the same name,
+    if there is one; only a branch that was never pushed, or a detached HEAD, is unknown.
+    '''
     try:
         uncommitted = _porcelain_paths(_git_raw(target, 'status', '--porcelain=v1', '-z', '--untracked-files=all'))
     except (subprocess.CalledProcessError, OSError):
         uncommitted = None
+    unpushed = None
     try:
-        diff = _git_raw(target, 'diff', '--name-only', '-z', '@{upstream}..HEAD')
-        unpushed = frozenset(p for p in diff.split('\0') if p)
+        unpushed = frozenset(p for p in _git_raw(target, 'diff', '--name-only', '-z', '@{upstream}..HEAD').split('\0')
+                             if p)
     except (subprocess.CalledProcessError, OSError):
-        unpushed = None
+        fallback = _remote_tracking_ref(target)
+        if fallback is not None:
+            try:
+                unpushed = frozenset(p for p in _git_raw(target, 'diff', '--name-only', '-z',
+                                                         f'{fallback}..HEAD').split('\0') if p)
+            except (subprocess.CalledProcessError, OSError):
+                unpushed = None
     return RepoState(uncommitted, unpushed)
 
 

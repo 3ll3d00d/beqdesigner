@@ -4,7 +4,7 @@ import json
 import logging
 import os
 import sqlite3
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from datetime import datetime
 from typing import Any
 
@@ -12,11 +12,14 @@ from typing import Any
 from pipeline.config import AnalysisConfig
 from pipeline.designer.http_binding import http_designer
 from pipeline.designer.registry import register_designer, registered_designers
+from pipeline.library.bulk import DEFAULT_ACCEPT_THRESHOLD, accept_top_pick, plan_accept
 from pipeline.library.index import LibraryIndex, index_path
-from pipeline.library.profile import build_source, profile_from_config, read_config_file
+from pipeline.library.profile import Profile, SourceSpec, build_source, profile_from_config, read_config_file
 from pipeline.library.revise import REVISE_TARGETS, revise_entry
 from pipeline.library.run import LibraryRunConfig, run_library
 from pipeline.library.season import DEFAULT_TV_MODE, TV_MODES
+from pipeline.library.selection import THROUGH, Selection
+from pipeline.library.stages import PublishSettings, run_stages
 from pipeline.library.state import NEEDS
 from pipeline.library.status import ScanSettings, analysis_from_values
 from pipeline.library.sync import commit_library, publish_library, sync_library
@@ -42,7 +45,8 @@ def _required(values: dict[str, Any], name: str) -> Any:
     return value
 
 
-def _source(values: dict[str, Any], config: dict[str, Any]):
+def _source_settings(values: dict[str, Any], config: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+    ''' (the source's kind, its settings) from the flags over the config file's `sources.<kind>:` mapping. '''
     source_name = _required(values, 'source')
     settings = dict(config.get('sources', {}).get(source_name, {}))
     if source_name == 'filesystem':
@@ -53,7 +57,12 @@ def _source(values: dict[str, Any], config: dict[str, Any]):
                           'external_id_fields') if values.get(key) is not None})
         # flags replace the config file's rules rather than adding to them, like every other option
         settings['path_mappings'] = values.get('path_maps') or settings.get('path_mappings')
-    return build_source(source_name, settings)
+    return source_name, settings
+
+
+def _source(values: dict[str, Any], config: dict[str, Any]):
+    kind, settings = _source_settings(values, config)
+    return build_source(kind, settings)
 
 
 def _analysis_config(values: dict[str, Any]) -> AnalysisConfig:
@@ -94,6 +103,55 @@ def _open_index(work_dir: str) -> LibraryIndex | None:
         return None
 
 
+_SELECTOR_FLAGS = ('needs', 'match', 'ids', 'new_since_scan', 'through')
+
+
+def _selection(args: argparse.Namespace, source: str | None) -> Selection:
+    ''' The shared selector flags as a Selection (see pipeline.library.selection). '''
+    return Selection(needs=tuple(getattr(args, 'needs', None) or ()), source=source, match=args.match,
+                     ids=tuple(args.ids or ()),
+                     new_since_scan=bool(args.new_since_scan))
+
+
+def _run_profile(args: argparse.Namespace, config: dict[str, Any], values: dict[str, Any]) -> Profile:
+    '''
+    The profile a selector `run` works on: the one given (`--profile`, or a config file whose `sources:` is a list), or
+    else the one source the older flags and config describe, named by its kind.
+    '''
+    if args.profile or isinstance(config.get('sources'), list):
+        return profile_from_config(config)
+    kind, settings = _source_settings(values, config)
+    profile = profile_from_config(config)
+    return replace(profile, sources=(SourceSpec(kind, kind, settings),))
+
+
+def _run_stages(args: argparse.Namespace, config: dict[str, Any], values: dict[str, Any],
+                run_config: LibraryRunConfig) -> int:
+    '''`run` with a selector or `--through`: the titles come from the discovery index, not from a fresh listing.'''
+    profile = _run_profile(args, config, values)
+    if not profile.sources:
+        raise ValueError('the profile lists no sources')
+    everything = {**dict(config.get('sync') or {}), **values}   # publish and commit take the `sync:` options
+    for name in ('xml_repo', 'xml_dir', 'images_repo', 'image_dir'):
+        if not everything.get(name) and getattr(profile, name):
+            everything[name] = getattr(profile, name)
+    settings = ScanSettings.from_values(everything)
+    through = args.through or 'design'
+    publish = None
+    if through in ('publish', 'commit'):
+        publish = PublishSettings.from_scan_settings(
+            settings, image_owner=everything.get('image_owner'), image_repo_name=everything.get('image_repo_name'),
+            push=bool(everything.get('push', True)))
+    selection = _selection(args, args.source)
+    with LibraryIndex(index_path(run_config.work_dir)) as index:
+        if not index.generation:  # never scanned: there is nothing to select from
+            index.scan(profile, settings)
+        report = run_stages(profile, selection, through, run_config=run_config, index=index, publish=publish,
+                            settings=settings, retry_failed=bool(args.retry_failed))
+    print(json.dumps(asdict(report), sort_keys=True))
+    return 1 if report.failed else 0
+
+
 def _run(args: argparse.Namespace, config: dict[str, Any]) -> int:
     values = _configured_values(args, config, 'run')
     profile = profile_from_config(config) if args.profile else None
@@ -119,10 +177,12 @@ def _run(args: argparse.Namespace, config: dict[str, Any]) -> int:
         audio_types=tuple(values.get('audio_types', ())),
         tv_mode=values.get('tv_mode', DEFAULT_TV_MODE),
     )
+    if any(getattr(args, name) for name in _SELECTOR_FLAGS) or (profile is not None and args.source):
+        return _run_stages(args, config, values, run_config)
     index = _open_index(run_config.work_dir)  # remembers what failed, for `status`
     try:
         report = run_library(UnionLibrarySource(profile) if profile is not None else _source(values, config),
-                             run_config, index=index)
+                             run_config, index=index, retry_failed=bool(args.retry_failed))
     finally:
         if index is not None:
             index.close()
@@ -139,7 +199,7 @@ def _publish_kwargs(values: dict[str, Any]) -> dict[str, Any]:
         meta_defaults=values.get('meta_defaults'), images_repo=_repo(values, 'images_repo'),
         image_owner=values.get('image_owner'), image_repo_name=values.get('image_repo_name'),
         xml_dir=values.get('xml_dir', ''), image_dir=values.get('image_dir', ''), config=_analysis_config(values),
-        work_dir=values.get('work_dir'))
+        work_dir=values.get('work_dir'), ids=values.get('ids') or None, republish=bool(values.get('republish', False)))
 
 
 def _publish(args: argparse.Namespace, config: dict[str, Any]) -> int:
@@ -155,7 +215,7 @@ def _commit(args: argparse.Namespace, config: dict[str, Any]) -> int:
     result = commit_library(
         _required(values, 'queue_dir'), RepoTarget(_required(values, 'xml_repo')),
         images_repo=_repo(values, 'images_repo'), xml_dir=values.get('xml_dir', ''),
-        image_dir=values.get('image_dir', ''), push=bool(values.get('push', True)))
+        image_dir=values.get('image_dir', ''), push=bool(values.get('push', True)), ids=values.get('ids') or None)
     print(json.dumps(asdict(result), sort_keys=True))
     return 1 if result.missing else 0
 
@@ -217,6 +277,33 @@ def _scan(args: argparse.Namespace, config: dict[str, Any]) -> int:
     return 1 if result.errors else 0
 
 
+def _accept(args: argparse.Namespace, config: dict[str, Any]) -> int:
+    values = _scan_values(args, config)
+    profile = profile_from_config(config)
+    if not profile.sources:
+        raise ValueError('the profile lists no sources')
+    settings = ScanSettings.from_values({**values, 'work_dir': values.get('work_dir') or profile.work_dir,
+                                         'queue_dir': values.get('queue_dir') or profile.queue_dir})
+    if not settings.work_dir or not settings.queue_dir:
+        raise ValueError('work-dir and queue-dir are required')
+    path = index_path(settings.work_dir)
+    if not os.path.isfile(path):
+        raise ValueError(f'no index at {path}: run `scan` first')
+    threshold = float(values.get('threshold', DEFAULT_ACCEPT_THRESHOLD))
+    if not 0 <= threshold <= 1:
+        raise ValueError('threshold must be between 0 and 1')
+    selection = _selection(args, args.source)
+    with LibraryIndex(path) as index:
+        options = dict(queue_dir=settings.queue_dir, meta_defaults=settings.meta_defaults, work_dir=settings.work_dir)
+        if args.dry_run:
+            print(json.dumps(asdict(plan_accept(index, selection, threshold, **options)), sort_keys=True))
+            return 0
+        report = accept_top_pick(index, selection, threshold, **options)
+        index.refresh(profile, settings)
+    print(json.dumps(asdict(report), sort_keys=True))
+    return 0
+
+
 def _when(timestamp: float | None) -> str:
     return datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S') if timestamp else 'never'
 
@@ -252,7 +339,7 @@ def _status(args: argparse.Namespace, config: dict[str, Any]) -> int:
 
 
 _COMMANDS = {'run': _run, 'publish': _publish, 'commit': _commit, 'sync': _sync, 'revise': _revise,
-             'scan': _scan, 'status': _status}
+             'scan': _scan, 'status': _status, 'accept': _accept}
 
 
 def _add_analysis_options(parser: argparse.ArgumentParser) -> None:
@@ -269,6 +356,12 @@ Every option can also be set in the config file's `run:` section, under the same
 (--work-dir is `work_dir`); a flag overrides the file. A source's own settings may be under `sources.<name>:`
 instead. Repeatable flags (--glob, --path-map, --designer-url, --audio-type) replace, rather than add to, the file's
 list. Exit status: 0, 1 if any item failed, 2 for a bad option or config. Prints the run report as JSON.
+
+With none of the selector flags (--needs --match --id --new-since-scan --through, or --source with --profile) it lists
+the source and extracts and designs every title, as it always has. With any of them it works from the last `scan`
+(taking one first if there has never been one) on just the titles selected, runs every stage up to --through that each
+one still needs, and prints a report of what it did and what it skipped and why. A title whose extraction or design
+failed is not tried again while its source and settings are unchanged; --retry-failed tries it again.
 """
 
 _SHARED_SECTION = """\
@@ -311,6 +404,17 @@ what is waiting for a person. Reads the work directory from `--work-dir`, or fro
 `scan`. Exit status: 0, 1 if there is no scanned index, 2 for a bad option or config.
 """
 
+_ACCEPT_EPILOG = """\
+Accepts the designer's top pick for the titles that are waiting for review and whose top pick is at least --threshold
+confident, then updates the index. It leaves out, and reports, any that a person should still look at: incomplete
+metadata, a designer decline, or a `.beq` project someone has edited since it was designed. Each title accepted gets a
+reviewer note ("bulk accepted, confidence >= 0.90"). It does not publish: run `run --needs publish --through publish`
+(or `publish`) afterwards. Works from the last `scan` and reads the same config or profile file as `scan`; every option
+can also be set in `run:`/`sync:` under the same name with underscores, and a flag overrides the file. `--dry-run`
+prints what would be accepted and what would be left out, and changes nothing. Exit status: 0, 2 for a bad option,
+config or missing index. Prints the result as JSON.
+"""
+
 _SYNC_EPILOG = _SHARED_SECTION + """ `sync.meta_defaults` (a mapping of BeqMetadata fields, such as
 `source: Disc`) has no flag. `sync` is `publish` followed by `commit`. Exit status: 0, 1 if any entry could not be
 published, 2 for a bad option or config. Prints one JSON result per published or refused entry. Never extracts or
@@ -326,7 +430,9 @@ def _add_run_options(parser: argparse.ArgumentParser) -> None:
                              'rules and `ignore_titles:` are honoured. Its `run:` section supplies every other option; '
                              'flags still override. Not combined with --config, and replaces --source and the '
                              'source options below')
-    source.add_argument('--source', help="which library to read: 'jriver' or 'filesystem' (required unless --profile)")
+    source.add_argument('--source', help="which library to read: 'jriver' or 'filesystem' (required unless --profile); "
+                                         "with --profile it is the name of one of the profile's sources, to run only "
+                                         "the titles it owns")
     source.add_argument('--glob', dest='globs', action='append', metavar='GLOB',
                         help='filesystem source: a folder (its direct contents) or a glob such as /films/**/*.mkv; '
                              'repeatable. DVD and Blu-ray rip folders are each one title')
@@ -371,6 +477,10 @@ def _add_run_options(parser: argparse.ArgumentParser) -> None:
                       help='design again even if unchanged; entries a reviewer has accepted or published are '
                            'never redesigned')
 
+    _add_selector_options(parser)
+    _add_repo_options(parser, with_image_url_options=True, xml_repo_required=False)   # for --through publish or commit
+    _add_push_option(parser)
+
     metadata = parser.add_argument_group('metadata')
     metadata.add_argument('--tmdb-api-key',
                           help='TMDB API key, to fill in title, genres, poster and (for TV) season details; '
@@ -378,6 +488,31 @@ def _add_run_options(parser: argparse.ArgumentParser) -> None:
     metadata.add_argument('--audio-type', dest='audio_types', action='append', metavar='TYPE',
                           help='audio format to record, e.g. "DTS-HD MA 5.1"; repeatable')
     _add_analysis_options(parser)
+
+
+def _add_selector_options(parser: argparse.ArgumentParser, *, needs: bool = True) -> None:
+    group = parser.add_argument_group(
+        'which titles', 'The selector vocabulary shared with the work list: every one given must hold. They read the '
+                        'index the last `scan` wrote.')
+    if needs:
+        group.add_argument('--needs', action='append', choices=NEEDS, metavar='NEEDS',
+                           help='only titles whose next need is this (one of ' + ', '.join(NEEDS) + '); repeatable')
+    group.add_argument('--match', help='only titles whose title, name, id or path contains this text (ignoring case)')
+    group.add_argument('--id', dest='ids', action='append', metavar='ID',
+                       help='only this title, by its catalogue id; repeatable')
+    group.add_argument('--new-since-scan', action='store_true', default=None,
+                       help='only titles first seen by the latest scan')
+    if needs:
+        group.add_argument('--through', choices=THROUGH,
+                           help='run every stage up to and including this one that each title still needs (default '
+                                'design): extract; design (extracts first); publish (writes the accepted titles, and '
+                                'published ones that are out of date, into the repositories); commit (also commits '
+                                'and pushes them). A person reviews between design and publish, so a title never '
+                                'goes past design on its own')
+        group.add_argument('--retry-failed', action='store_true', default=None,
+                           help='also run titles whose extraction or design failed earlier and whose source and '
+                                'settings have not changed since (normally skipped, so a failure is not repeated '
+                                'every night)')
 
 
 def _add_repo_options(parser: argparse.ArgumentParser, with_image_url_options: bool,
@@ -404,6 +539,13 @@ def _add_push_option(parser: argparse.ArgumentParser) -> None:
 
 def _add_publish_options(parser: argparse.ArgumentParser) -> None:
     where = parser.add_argument_group('what to publish')
+    where.add_argument('--id', dest='ids', action='append', metavar='ID',
+                       help='publish only this entry, by its id (the file name in the queue, without .json); '
+                            'repeatable; default: every accepted entry')
+    where.add_argument('--republish', action='store_true', default=None,
+                       help='also write again each published entry whose catalogue copy is out of date -- its metadata, '
+                            'poster or filter changed since it was published, or its XML is missing from the '
+                            'repository -- at the same path, without a second review')
     where.add_argument('--queue-dir', help='review queue directory to publish from (required)')
     where.add_argument('--work-dir',
                        help='the run\'s work directory: publish the filter from each title\'s .beq project, so a '
@@ -413,8 +555,11 @@ def _add_publish_options(parser: argparse.ArgumentParser) -> None:
 
 
 def _add_commit_options(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument_group('what to commit').add_argument(
-        '--queue-dir', help='review queue directory whose published entries are committed (required)')
+    what = parser.add_argument_group('what to commit')
+    what.add_argument('--queue-dir', help='review queue directory whose published entries are committed (required)')
+    what.add_argument('--id', dest='ids', action='append', metavar='ID',
+                      help='commit only this published entry\'s files, by its id; repeatable; default: every '
+                           'published entry')
     _add_repo_options(parser, with_image_url_options=False)
     _add_push_option(parser)
 
@@ -446,6 +591,10 @@ def _add_scan_options(parser: argparse.ArgumentParser) -> None:
     where = parser.add_argument_group('where things are')
     where.add_argument('--work-dir', help='directory for extracted audio, caches and the index (required)')
     where.add_argument('--queue-dir', help='review queue directory')
+    _add_settings_options(parser)
+
+
+def _add_settings_options(parser: argparse.ArgumentParser) -> None:
     settings = parser.add_argument_group('settings that decide what is up to date',
                                          'Give the same values as `run` and `publish`, or the index describes work '
                                          'they would not do.')
@@ -458,6 +607,23 @@ def _add_scan_options(parser: argparse.ArgumentParser) -> None:
                           help='episode: a title per TV episode (default); season: one per season')
     _add_repo_options(parser, with_image_url_options=False, xml_repo_required=False)
     _add_analysis_options(parser)
+
+
+def _add_accept_options(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument('--profile', metavar='FILE',
+                        help='read a catalogue profile (JSON or YAML) instead of --config; not combined with --config')
+    what = parser.add_argument_group('what to accept')
+    what.add_argument('--source', help='only titles owned by this source of the profile, by name')
+    _add_selector_options(parser, needs=False)
+    what.add_argument('--threshold', type=float,
+                      help=f'the smallest confidence of the designer\'s top pick to accept, 0 to 1 (default '
+                           f'{DEFAULT_ACCEPT_THRESHOLD:.2f})')
+    what.add_argument('--dry-run', action='store_true',
+                      help='change nothing: print the titles that would be accepted, the ones left out and why')
+    where = parser.add_argument_group('where things are')
+    where.add_argument('--work-dir', help='the work directory: its index and the .beq projects (required)')
+    where.add_argument('--queue-dir', help='review queue directory (required)')
+    _add_settings_options(parser)
 
 
 def _add_status_options(parser: argparse.ArgumentParser) -> None:
@@ -493,6 +659,8 @@ def build_parser() -> argparse.ArgumentParser:
             ('revise', 'send entries back for another review, design or extraction', _REVISE_EPILOG,
              _add_revise_options),
             ('scan', 'discover what each title needs, without doing any of it', _SCAN_EPILOG, _add_scan_options),
+            ('accept', "accept the designer's top pick for confident titles waiting for review", _ACCEPT_EPILOG,
+             _add_accept_options),
             ('status', 'count the titles that need each thing, from the last scan', _STATUS_EPILOG,
              _add_status_options)):
         add_options(commands.add_parser(name, help=help_text, epilog=epilog,

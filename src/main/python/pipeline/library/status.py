@@ -133,6 +133,18 @@ class FailureMemory:
     key: str            # failure_key() -- the settings it failed against
 
 
+def failure_applies(memory: FailureMemory, item: LibraryItem, fingerprint: str, *, config: AnalysisConfig,
+                    designer: str, coverage: str, keep_multichannel: bool) -> bool:
+    '''
+    True while a remembered failure is still what would happen again: the source (its fingerprint) and the settings
+    (failure_key()) are exactly those it failed with. The one rule for "do not retry this" -- discovery (which shows
+    the title as *failed*) and `run` (which skips it unless asked to retry) both use it, so they cannot disagree.
+    '''
+    key = failure_key(memory.stage, item, config=config, designer=designer, coverage=coverage,
+                      keep_multichannel=keep_multichannel)
+    return memory.fingerprint == fingerprint and memory.key == key
+
+
 # --- queue entries -----------------------------------------------------------------------------------------------
 
 @dataclass(frozen=True)
@@ -202,7 +214,7 @@ def metadata_problems(meta: Mapping[str, Any], meta_defaults: Optional[Mapping[s
     from pipeline.metadata import BeqMetadata, validate
     try:
         return tuple(validate(BeqMetadata(**{'title': '', 'year': '', **(meta_defaults or {}), **meta})))
-    except TypeError as error:
+    except (TypeError, AttributeError, ValueError) as error:  # a null title, an unknown field: for a person to fix
         return (f'metadata is not valid: {error}',)
 
 
@@ -314,7 +326,7 @@ class Evaluator:
             elif path in state.uncommitted:
                 found, why = 'uncommitted', ''
             elif state.unpushed is None:
-                found, why = 'unknown', 'cannot tell whether it is pushed (the branch has no upstream)'
+                found, why = 'unknown', 'cannot tell whether it is pushed (the branch has no upstream and was never pushed)'
             else:
                 found, why = ('committed' if path in state.unpushed else 'pushed'), ''
             if _COMMIT_RANK[found] > _COMMIT_RANK[worst]:
@@ -415,9 +427,8 @@ class Evaluator:
 
         failed_message, clear = '', False
         if failure is not None:
-            key = failure_key(failure.stage, item, config=settings.config, designer=settings.designer,
-                              coverage=settings.coverage, keep_multichannel=settings.keep_multichannel)
-            if failure.fingerprint == fingerprint and failure.key == key:
+            if failure_applies(failure, item, fingerprint, config=settings.config, designer=settings.designer,
+                               coverage=settings.coverage, keep_multichannel=settings.keep_multichannel):
                 failed_message = failure.message
                 if failure.stage == 'extract':
                     extract = 'failed'

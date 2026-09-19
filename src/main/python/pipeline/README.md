@@ -57,6 +57,7 @@ pipeline/
         profile.py, ignore.py, union.py   # the catalogue profile, its ignore rules, and merging several sources
         run.py, sync.py, commit.py, revise.py, cli.py   # run_library(), publish/commit/sync_library(), revise_entry(), the command line
         state.py, status.py, index.py, catalogue_scan.py   # discovery: what each title needs next, and the SQLite index of it
+        selection.py, stages.py, bulk.py   # doing work for a selection: Selection, run_stages(--through), accept_top_pick()
 
 model/preferences.py          # GUI: durable list of configured HTTP designer endpoints + the review queue
                               #   directory default, both on the Preferences dialog's "Designers" page
@@ -219,17 +220,25 @@ PYTHONPATH=src/main/python python -m pipeline.library.cli [--config FILE] sync  
 PYTHONPATH=src/main/python python -m pipeline.library.cli [--config FILE] revise  [options]   # send titles back
 PYTHONPATH=src/main/python python -m pipeline.library.cli [--config FILE] scan    [options]   # what does each title need?
 PYTHONPATH=src/main/python python -m pipeline.library.cli [--config FILE] status  [options]   # counts, from the last scan
+PYTHONPATH=src/main/python python -m pipeline.library.cli [--config FILE] accept  [options]   # bulk accept confident titles
 ```
 
 `--config` goes *before* the command. `-h` after a command lists every option with its meaning.
 
 - **`run`** reads a library, extracts the audio of each title that is new or changed (idempotent -- a title whose
   source and settings are unchanged is skipped), designs it, and writes an entry to the **review queue**. It never
-  publishes, so an unattended `run` has nothing to auto-publish.
+  publishes, so an unattended `run` has nothing to auto-publish. A title whose extraction or design **failed** is not
+  tried again while its source and the settings are unchanged (`--retry-failed` tries it again), so a nightly job does
+  not repeat a failure every night. With a *selector* it does much more -- see "Doing the work for a selection" below.
 - A person then reviews the queue in the app (Tools > Library Sync, or Review Batch Designs) and accepts entries.
 - **`publish`** writes only the *accepted* entries into the catalogue repositories' working trees: the XML in one
   and, optionally, a report image in another. Each entry is marked published (meaning *written*), so a re-run only
-  publishes what is still accepted. It commits and pushes nothing, so the result can be looked at first.
+  publishes what is still accepted. It commits and pushes nothing, so the result can be looked at first. An entry
+  whose metadata is incomplete is **refused on its own** (`invalid_metadata`, listing the problems) and the rest are
+  still published. `--republish` also writes again each *published* entry whose catalogue copy is **out of date** --
+  a metadata typo fixed, a new poster, an edited project, or an XML missing from the repository -- at the same path,
+  keeping it published, without a second review; `commit` then commits it as a revision. `--id` restricts it to
+  named entries.
 - **`commit`** commits what `publish` wrote and pushes it: **one commit per repository** containing exactly those
   files (anything else staged in the clone is left alone), then one push per repository, **images first** so a pushed
   XML never points at an image that is not there. Whether a file is committed or pushed is read from git, not
@@ -244,6 +253,11 @@ PYTHONPATH=src/main/python python -m pipeline.library.cli [--config FILE] status
   committed** has them put back as git has them (deleted, or restored to the previous revision); one already
   **committed** keeps them, becomes a *revision* (`revision` on the entry counts these) and is rewritten at the same
   path when published again. Each records a line in the entry's reviewer note (`--reason` adds why).
+- **`accept`** is *bulk accept*: it accepts the designer's top pick for the titles waiting for review whose top pick is
+  at least `--threshold` confident (default 0.90), and **leaves out, and reports,** any that a person should still look
+  at -- incomplete metadata, a designer decline, or a `.beq` project someone has edited since it was designed. Each
+  accepted title gets the reviewer note "bulk accepted, confidence >= 0.90". `--dry-run` shows what it would do.
+  It works from the last `scan` and does not publish.
 
 - **`scan`** is *discovery*: it lists each source of a profile, merges them, reads the outputs (extract manifests, the
   review queue, `.beq` projects, both repositories) and records what every title **needs next**, without extracting,
@@ -275,6 +289,46 @@ whole season joined into one track (`--tv-mode season`); the published metadata 
 
 **Needs.** `ffmpeg`/`ffprobe` (DVDs also need a build with the `dvdvideo` demuxer), a designer (below), `pyyaml` to
 read a `.yaml` config, and a TMDB API key if you want TMDB metadata (optional).
+
+### Doing the work for a selection
+
+`run` normally lists the library and works through everything. Give it any *selector* and it instead works from the
+**index** (`scan` first; `run` takes one itself if there has never been one) on just the titles you select, and runs
+every stage up to `--through` that each still needs:
+
+```
+--needs {attention,extract,design,review,publish,commit,done}   what the title needs next (repeatable)
+--source NAME     --match TEXT     --id ID     --new-since-scan
+--through {extract,design,publish,commit}                       how far to go (default design)
+--retry-failed                                                   also try titles that failed before
+```
+
+The same vocabulary is what the work list's strip chips (**Attention, New, Extract, Design, Review, Publish, Commit,
+Done**) and action button mean in the app; every selector given must hold. `--source NAME` is the name of one of the
+*profile's* sources (with `--profile`), unlike `run --source jriver|filesystem` without one, which says which kind of
+library to read.
+
+- **`--through extract`** extracts; **`design`** extracts first if the title has not been, then designs; the user never
+  picks prerequisites. Both are machine work.
+- **`--through publish`** additionally writes the titles a person has **accepted**, and *published* titles whose
+  catalogue copy is out of date (`--needs publish` selects them), into the repositories' working trees; **`commit`**
+  also commits and pushes what was published (one commit and one push per repository, images first). Both need
+  `--xml-repo` (from the `sync:` section as usual). A title waiting for **review** is never taken past design: review
+  is a person's.
+- A title that needs something the chosen `--through` does not reach, or cannot be helped by a run (waiting for review, a
+  project conflict, a source changed since it was accepted, done), is **skipped and reported with the reason**.
+- A failed title is remembered against its source and the settings and skipped until either changes, or
+  `--retry-failed`. A TV episode that fails inside a season is remembered the same way.
+- Work is done one title at a time, so a cancelled run (from Python: `run_stages(..., should_cancel=)`) leaves only
+  whole titles done; the report says what was `attempted` and what was `not_run`. The index is refreshed at the end.
+
+A scheduled job is `scan`, then `run --through design`; it never accepts, publishes or commits. Publishing and committing
+what a person accepted is `run --needs publish --through commit` (or `sync`).
+
+From Python the same is `pipeline.library.selection.Selection`, `selection_from_chip()`, `plan_stages()` (what would run, and what
+would be skipped and why), `pipeline.library.stages.run_stages(profile, selection, through, run_config=, index=,
+publish=, retry_failed=, should_cancel=, on_progress=)` (`Progress(done, total, title, stage)`), and
+`pipeline.library.bulk.plan_accept()`/`accept_top_pick()`.
 
 ### Designers
 
@@ -379,14 +433,16 @@ Not repeated here: `python -m pipeline.library.cli run -h` and `sync -h` are the
 option documented). In outline, `run` takes the library source (`--source --glob --host --port --browse-node-id
 --username --password --ssl --timeout --path-map`), where things go (`--work-dir --queue-dir`), design
 (`--designer --designer-url --coverage --keep-multichannel --tv-mode`), redoing work (`--force-extract
---force-design`), metadata (`--tmdb-api-key --audio-type`) and analysis (`--target-fs --resolution --avg-window
---peak-window`); `publish` takes what to publish (`--queue-dir --work-dir`), the repositories (`--xml-repo --xml-dir
+--force-design`), which titles (`--needs --match --id --new-since-scan --through --retry-failed`), the repositories and `--push`
+(only for `--through publish` or `commit`), metadata (`--tmdb-api-key --audio-type`) and analysis (`--target-fs --resolution --avg-window
+--peak-window`); `publish` takes what to publish (`--queue-dir --work-dir --id --republish`), the repositories (`--xml-repo --xml-dir
 --images-repo --image-dir --image-owner --image-repo-name`) and the same analysis options; `commit` takes `--queue-dir`, the same
-repositories (without the image-URL options) and `--push`/`--no-push`; `sync` takes everything `publish` does plus `--push`; `revise` takes `--queue-dir --id --to --reason --work-dir` and the repositories. `publish`,
+repositories (without the image-URL options), `--id` and `--push`/`--no-push`; `sync` takes everything `publish` does plus `--push`; `revise` takes `--queue-dir --id --to --reason --work-dir` and the repositories. `publish`,
 `commit`, `sync` and `revise` read the one `sync:` section of the config file. `scan` takes `--profile --source
 --from-outputs`, where things are (`--work-dir --queue-dir`), the settings that decide what is up to date (`--designer
 --coverage --keep-multichannel --tv-mode`, the repositories and the analysis options: give the values `run` and `publish`
-get) and reads both `run:` and `sync:`; `status` takes `--profile --work-dir --json`. The boolean flags come in
+get) and reads both `run:` and `sync:`; `status` takes `--profile --work-dir --json`; `accept` takes `--profile --source
+--match --id --new-since-scan --threshold --dry-run`, where things are (`--work-dir --queue-dir`) and the same settings as `scan`. The boolean flags come in
 pairs (`--keep-multichannel` / `--no-keep-multichannel`) so a flag can turn something off that the file turned on.
 
 ### Output and exit status
@@ -396,11 +452,19 @@ The commands print JSON to stdout (`status` prints text unless given `--json`).
 - `run` prints the report: `extracted` and `cached` (item ids whose audio was, or was not, re-extracted),
   `designed` and `design_cached`, `failed` (`[id, "ErrorType: message"]` -- one bad title never stops the rest),
   `meta_unresolved` (designed without TMDB metadata because TMDB failed), `project_edit_preserved` (a hand-edited
-  `.beq` project was left alone) and, with `--tv-mode season`, `seasons` (season id -> its episodes). Exit status 1
-  if anything is in `failed`.
+  `.beq` project was left alone), `failed_earlier` (`[id, message]`: not tried, because it failed before with the same
+  source and settings -- `--retry-failed`) and, with `--tv-mode season`, `seasons` (season id -> its episodes). Exit status 1
+  if anything is in `failed`. With a selector it prints `{through, selected, run, published, publish_errors, committed,
+  commit_error, skipped, cancelled, attempted, not_run, counts}`: `run` is the report above, `published` and `committed` are
+  what `publish` and `commit` print, `skipped` is `{id, title, reason}` per title left out, and `counts` is titles per needs
+  afterwards. Exit status 1 if anything failed, was refused or could not be committed.
+- `accept` prints `{threshold, note, accepted, excluded, below_threshold, not_for_review}` -- `excluded` is `{id, title,
+  reason}` for a confident title left for a person, `below_threshold` counts the titles waiting for review whose top pick is
+  less confident, and `not_for_review` those in the selection that were not waiting for review. `--dry-run` prints the
+  same as `{eligible, ...}` and changes nothing.
 - `publish` and `sync` print one object per entry they published (`id` plus the publish result; `edited_project` and
   `projects_aligned` say a hand edit was what shipped) or refused (`id` and `error`, e.g. `project_conflict` when the
-  mono and multichannel projects were edited to disagree). Exit status 1 if any entry was refused. With `sync` each
+  mono and multichannel projects were edited to disagree, or `invalid_metadata` with the `problems`). Exit status 1 if any entry was refused. With `sync` each
   published entry also carries the batch's `xml_commit` (and `image_commit`) sha, where a commit was made.
 - `revise` prints one object per `--id`: `id`, `status`, `revision`, `reverted` (catalogue files put back as git has them) and
   `extract_invalidated`, or `id` and `error` (no such entry, already pending, published with no `--xml-repo`). Exit status 1 if any failed.

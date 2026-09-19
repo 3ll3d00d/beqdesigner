@@ -15,7 +15,7 @@ import json
 import os
 from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime, timezone
-from typing import Callable, List, Optional, Sequence, Tuple
+from typing import Callable, Collection, List, Optional, Sequence, Tuple
 
 from pipeline.config import AnalysisConfig
 from pipeline.designer.contract import Coverage
@@ -300,6 +300,7 @@ def _project_notes(published, aligned: List[str]) -> dict:
 _PUBLISH_ERRORS = {
     'project_conflict': 'the mono and multichannel projects were edited independently and now disagree -- '
                         'keep one edit (or re-save one project from the other) and publish again',
+    'invalid_metadata': 'the metadata is not complete enough to publish',
 }
 
 
@@ -313,7 +314,10 @@ def split_publish_results(results: Sequence[dict]) -> Tuple[List[dict], List[dic
 
 def describe_publish_error(result: dict) -> str:
     ''' :return: a one-line, reviewer-facing description of an {'id', 'error'} result. '''
-    return f"{result['id']}: {_PUBLISH_ERRORS.get(result['error'], result['error'])}"
+    text = _PUBLISH_ERRORS.get(result['error'], result['error'])
+    if result.get('problems'):
+        text += ': ' + '; '.join(result['problems'])
+    return f"{result['id']}: {text}"
 
 
 def publication_meta(entry: QueueEntry, meta_defaults: Optional[dict] = None):
@@ -364,12 +368,33 @@ def current_publish_digest(entry: QueueEntry, *, meta_defaults: Optional[dict] =
                           has_image, chosen.mv_adjust_db)
 
 
+def _needs_republish(entry: QueueEntry, xml_repo: RepoTarget, xml_dir: str, image_dir: str,
+                     meta_defaults: Optional[dict], work_dir: Optional[str], has_image: bool) -> bool:
+    '''
+    True if a *published* entry's catalogue copy is out of date: its XML is missing from the repo, or the digest of what
+    would be published now differs from the one recorded (an entry published before digests were recorded has none,
+    and is left alone). A project conflict counts as out of date, so that publishing reports it.
+    '''
+    from pipeline.publish.project import ProjectFilterConflict
+    if not os.path.isfile(os.path.join(xml_repo.local_path, catalogue_paths(entry.id, xml_dir, image_dir)[0])):
+        return True
+    if not entry.published_digest:
+        return False
+    try:
+        return current_publish_digest(entry, meta_defaults=meta_defaults, work_dir=work_dir,
+                                      has_image=has_image) != entry.published_digest
+    except ProjectFilterConflict:
+        return True
+
+
 def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: Optional[dict] = None,
                            images_repo: Optional[RepoTarget] = None, image_owner: Optional[str] = None,
                            image_repo_name: Optional[str] = None, xml_dir: str = '', image_dir: str = '',
                            report_spec: ReportSpec = ReportSpec(),
                            config: AnalysisConfig = AnalysisConfig(),
-                           work_dir: Optional[str] = None, push: bool = True) -> List[dict]:
+                           work_dir: Optional[str] = None, push: bool = True, ids: Optional[Collection[str]] = None,
+                           republish: bool = False, on_entry: Optional[Callable[[str], None]] = None,
+                           should_cancel: Optional[Callable[[], bool]] = None) -> List[dict]:
     '''
     Publishes every 'accepted' entry in queue_dir: apply_reviewed_entry()
     for the filters, a fresh report image built from the entry's stored
@@ -402,6 +427,14 @@ def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: 
         writes the files into the repos' working trees and marks the entry 'published' (meaning *written*), for
         pipeline.library.commit.commit_catalogue() to commit and push the batch -- one commit and one push per repo
         instead of two pushes per title.
+    :param ids: only these entries (an id that has no entry is ignored); None is every entry.
+    :param republish: also takes each 'published' entry whose catalogue copy is out of date (see _needs_republish():
+        a changed metadata field, poster or filter, or a missing XML) and writes it again, **at the same path**, with
+        the fresh digest. It stays 'published' and needs no second review, so a typo fixed on a published title
+        reaches the catalogue; commit_catalogue() then commits it as a revision. The result carries 'republished': True.
+    :param on_entry: called with an entry's id just before it is published (not for one that is skipped).
+    :param should_cancel: checked before each entry; True stops the loop, leaving every entry as it is (each already
+        published one is complete).
     :return: one {'id': entry.id, **Session.publish()'s result} per entry
         actually published this run. With work_dir, an entry published from a human's project edit also carries
         'edited_project' ('mono'/'multichannel'/'both') and, if the other project was rewritten to match,
@@ -411,14 +444,33 @@ def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: 
     from pipeline.publish.project import ProjectFilterConflict, align_projects, resolve_published_projects, \
         write_title_projects_if_safe
 
+    from model.codec import filter_from_json
+    from pipeline.metadata import validate
+
     session = Session(config)
     results = []
-    for entry in read_queue(queue_dir):
-        if entry.status != 'accepted':
+    if ids is None:
+        entries = read_queue(queue_dir)
+    else:
+        entries = [read_entry(queue_dir, i) for i in dict.fromkeys(ids) if os.path.isfile(_entry_path(queue_dir, i))]
+    for entry in entries:
+        republished = False
+        if entry.status == 'published' and republish:
+            republished = _needs_republish(entry, xml_repo, xml_dir, image_dir, meta_defaults, work_dir,
+                                           images_repo is not None)
+        if entry.status != 'accepted' and not republished:
             continue
-        chosen = _chosen_candidate(entry)
-        complete_filter = apply_reviewed_entry(entry)  # unchanged -- still drives meta.gain's default below
+        if should_cancel is not None and should_cancel():
+            break
+        if on_entry is not None:
+            on_entry(entry.id)
+        chosen = entry.candidates[entry.chosen_candidate_index]  # accepted and published entries always have one
+        complete_filter = filter_from_json(chosen.filters)  # still drives meta.gain's default below
         meta = publication_meta(entry, meta_defaults)
+        problems = validate(meta)
+        if problems:  # one incomplete title must not stop the batch, any more than a project conflict does
+            results.append({'id': entry.id, 'error': 'invalid_metadata', 'problems': problems})
+            continue
 
         if work_dir is not None:
             project_dir, mono_path, mc_path, mc_wav = project_paths(work_dir, entry.id)
@@ -449,5 +501,6 @@ def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: 
                                  image_png=image_png, image_owner=image_owner, image_repo_name=image_repo_name, push=push)
         update_entry(queue_dir, entry.id, status='published', published_digest=digest,
                      published_at=datetime.now(timezone.utc).isoformat(timespec='seconds'))
-        results.append({'id': entry.id, **result, **(_project_notes(published, aligned) if work_dir else {})})
+        results.append({'id': entry.id, **result, **({'republished': True} if republished else {}),
+                        **(_project_notes(published, aligned) if work_dir else {})})
     return results

@@ -10,11 +10,11 @@ retried by running this again.
 import logging
 import os
 from dataclasses import dataclass, field
-from typing import List, Optional, Sequence
+from typing import Collection, List, Optional, Sequence
 
 from pipeline.publish.catalogue import catalogue_paths
 from pipeline.publish.git import RepoState, RepoTarget, commit_paths, push, repo_state
-from pipeline.review import QueueEntry, read_queue
+from pipeline.review import QueueEntry, read_entry, read_queue
 
 logger = logging.getLogger('library_commit')
 
@@ -65,7 +65,8 @@ def _commit_repo(target: RepoTarget, what: str, wanted: dict, push_changes: bool
 
 
 def commit_catalogue(queue_dir: str, xml_repo: RepoTarget, images_repo: Optional[RepoTarget] = None, *,
-                     xml_dir: str = '', image_dir: str = '', push: bool = True) -> CatalogueCommit:
+                     xml_dir: str = '', image_dir: str = '', push: bool = True,
+                     ids: Optional[Collection[str]] = None) -> CatalogueCommit:
     '''
     Commits every 'published' entry's files that git does not already have, one commit per repo containing exactly
     those paths (nothing else staged or changed in the tree is touched), then pushes each repo once. **The images
@@ -75,9 +76,15 @@ def commit_catalogue(queue_dir: str, xml_repo: RepoTarget, images_repo: Optional
     is simply retried. If the images push fails the XML repo is not touched, so the next run resumes in order.
 
     :param push: False commits locally only, to inspect before anything leaves the machine.
+    :param ids: commit only these titles' files (a selection); None is every published entry. What else is
+        uncommitted in the repos is left for a later commit, and a push still sends whatever the branch has ahead.
     :raises subprocess.CalledProcessError: if git refuses (a rejected push, say) -- what was committed stays committed.
     '''
-    published = [e for e in read_queue(queue_dir) if e.status == 'published']
+    if ids is None:
+        published = [e for e in read_queue(queue_dir) if e.status == 'published']
+    else:
+        found = [read_entry(queue_dir, i) for i in dict.fromkeys(ids) if os.path.isfile(os.path.join(queue_dir, f'{i}.json'))]
+        published = [e for e in found if e.status == 'published']
     missing: List[str] = []
     images = None
     if images_repo is not None:

@@ -184,11 +184,34 @@ def test_push_publishes_the_branch_without_setting_an_upstream(tmp_path):
     target, bare = _init_repo_with_remote(tmp_path)
     write_files(target, {'a.xml': b'a'})
     sha = commit_paths(target, ['a.xml'], 'Add a')
+    assert repo_state(target).unpushed is None  # never pushed, no upstream: unknown, not "nothing"
 
     push(target)
 
     assert _remote_head(bare, current_branch(target)) == sha
-    assert repo_state(target).unpushed is None  # still no upstream configured: unknown, not "nothing"
+    assert subprocess.run(['git', '-C', target.local_path, 'rev-parse', '--abbrev-ref', '@{upstream}'],
+                          capture_output=True).returncode != 0  # still no upstream configured
+    assert repo_state(target).unpushed == frozenset()  # ... but the remote-tracking ref says everything is pushed
+
+
+def test_without_an_upstream_unpushed_is_measured_against_the_remote_tracking_branch(tmp_path):
+    target, bare = _init_repo_with_remote(tmp_path)
+    commit_and_push(target, 'pushed.xml', b'p', 'Add pushed')
+    write_files(target, {'later.xml': b'l'})
+    commit_paths(target, ['later.xml'], 'Add later')
+
+    state = repo_state(target)
+
+    assert state.unpushed == {'later.xml'}  # no @{upstream} is set: the fallback is origin/<branch>
+    assert state.uncommitted == frozenset()
+
+
+def test_a_detached_head_has_unknown_unpushed(tmp_path):
+    target, bare = _init_repo_with_remote(tmp_path)
+    sha = commit_and_push(target, 'a.xml', b'a', 'Add a')
+    _run('git', '-C', target.local_path, 'checkout', '-q', '--detach', sha)
+
+    assert repo_state(target).unpushed is None  # origin/HEAD-like refs must not make it look pushed
 
 
 def test_current_branch_works_before_the_first_commit(tmp_path):

@@ -29,7 +29,8 @@ from pipeline.library.season import SeasonGroup, Unit, plan_units
 from pipeline.library.source import LibraryItem, LibrarySource
 from pipeline.library.state import FLAG_DUPLICATE, FLAG_GONE, FLAG_IGNORED, FLAG_IN_CATALOGUE, FLAG_SHADOWED, NEEDS, \
     TIER_ORDER, TIER_OF_NEEDS, StageStates, derive_needs
-from pipeline.library.status import Evaluation, Evaluator, FailureMemory, ScanSettings, safe_fingerprint
+from pipeline.library.status import Evaluation, Evaluator, FailureMemory, ScanSettings, failure_applies, \
+    safe_fingerprint
 from pipeline.library.union import UnionResult, UnionTitle, reconstruct_claims, union_of
 
 logger = logging.getLogger('library_index')
@@ -352,6 +353,33 @@ class LibraryIndex:
         found = self.titles(ids=[title_id])
         return found[0] if found else None
 
+    def units(self, ids: Iterable[str]) -> Dict[str, Unit]:
+        '''
+        The work units the given titles stand for, rebuilt from what the last scan listed (the `items` column): a
+        LibraryItem for an `item` row and a SeasonGroup for a `season` row, exactly what a run of that scan's listing
+        would have worked on. This is what lets `run_stages` do its work without listing any source again. A title
+        the index does not hold, or one with no items (a row rebuilt from outputs alone), is left out.
+        '''
+        wanted = list(dict.fromkeys(ids))
+        found: Dict[str, Unit] = {}
+        for start in range(0, len(wanted), 500):
+            batch = wanted[start:start + 500]
+            with self.__lock:
+                rows = self.__db.execute(
+                    f'SELECT id, unit, items FROM titles WHERE id IN ({",".join("?" * len(batch))})', batch).fetchall()
+            for row in rows:
+                items = [item_from_json(data) for data in json.loads(row['items'])]
+                if not items:
+                    continue
+                if row['unit'] == 'season':
+                    (group,) = plan_units(items, 'season', lambda _first, season_id=row['id']: season_id)
+                    if not isinstance(group, SeasonGroup):
+                        raise ValueError(f"{row['id']} is a season row whose episodes do not form a season")
+                    found[row['id']] = group
+                else:
+                    found[row['id']] = items[0]
+        return found
+
     def sources(self) -> List[SourceRow]:
         with self.__lock:
             return [SourceRow(**dict(row)) for row in
@@ -396,6 +424,11 @@ class LibraryIndex:
             else:
                 self.__db.execute('DELETE FROM failures')
 
+    def failure(self, title_id: str) -> Optional[FailureMemory]:
+        with self.__lock:
+            row = self.__db.execute('SELECT * FROM failures WHERE id = ?', (title_id,)).fetchone()
+        return FailureMemory(row['stage'], row['message'], row['fingerprint'], row['key']) if row else None
+
     def failures(self) -> Dict[str, FailureMemory]:
         with self.__lock:
             return {r['id']: FailureMemory(r['stage'], r['message'], r['fingerprint'], r['key'])
@@ -415,9 +448,18 @@ class LibraryIndex:
                 items += [item_from_json(data) for data in json.loads(row['items'])]
         return items
 
+    def refresh(self, profile: Profile, settings: Optional[ScanSettings] = None, *, now: Optional[float] = None
+                ) -> ScanResult:
+        '''
+        Re-reads the outputs of every title from the *last listing* of each source, without listing any source again:
+        the cheap update after a run, a publish or an accept has changed what the titles need. It is not a scan --
+        nothing new can appear, the generation (so the new-since-scan marker) and "last scanned" do not move.
+        '''
+        return self.scan(profile, settings, only=(), now=now, refresh=True)
+
     def scan(self, profile: Profile, settings: Optional[ScanSettings] = None, *,
              only: Optional[Iterable[str]] = None, sources: Optional[Mapping[str, LibrarySource]] = None,
-             now: Optional[float] = None) -> ScanResult:
+             now: Optional[float] = None, refresh: bool = False) -> ScanResult:
         '''
         Lists the sources, merges them, reads the outputs and rewrites the index. Never extracts, designs, publishes or
         commits, and never reads a media file (design.md §12.5).
@@ -428,6 +470,7 @@ class LibraryIndex:
         :param settings: default ScanSettings.from_profile(profile); it must match what `run`/`publish` are given.
         :param sources: already-built sources by name (tests, or a caller that has them); any the profile names that
             are not here are built from their settings.
+        :param refresh: see refresh(): keep the generation and the "last scan" time.
         '''
         settings = settings or ScanSettings.from_profile(profile)
         now = time.time() if now is None else now
@@ -435,7 +478,7 @@ class LibraryIndex:
         built = dict(sources or {})
         with self.__lock:
             previous = self.__previous()
-            generation = self.generation + 1
+            generation = self.generation + (0 if refresh else 1)
             failures = self.failures()
             errors: Dict[str, str] = {}
             source_state: Dict[str, Tuple[Optional[float], Optional[float], str, int]] = {
@@ -480,6 +523,10 @@ class LibraryIndex:
                 evaluation = evaluator.evaluate(unit, before, failures.get(item.id))
                 if evaluation.clear_failure:
                     cleared.append(item.id)
+                if isinstance(unit, SeasonGroup):  # an episode's own failure (it is not a row) lapses like any other
+                    cleared += [m.id for m in unit.members if m.id in failures and not failure_applies(
+                        failures[m.id], m, safe_fingerprint(m), config=settings.config, designer=settings.designer,
+                        coverage=settings.coverage, keep_multichannel=settings.keep_multichannel)]
                 rows[item.id] = self.__unit_row(unit, item, evaluation, ignored_title, by_id, before, generation, now)
                 if before is None:
                     new_ids.append(item.id)
@@ -517,8 +564,9 @@ class LibraryIndex:
                 self.__db.executemany('INSERT INTO sources VALUES (?, ?, ?, ?, ?, ?, ?)', [
                     (spec.name, position, spec.kind, *source_state[spec.name])
                     for position, spec in enumerate(profile.sources)])
-                self.__set_meta('generation', generation)
-                self.__set_meta('last_scan_at', now)
+                if not refresh:
+                    self.__set_meta('generation', generation)
+                    self.__set_meta('last_scan_at', now)
             counts = {needs: 0 for needs in NEEDS}
             for row in rows.values():
                 counts[row['needs']] += 1

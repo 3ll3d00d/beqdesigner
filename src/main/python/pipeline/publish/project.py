@@ -187,6 +187,21 @@ def preview_published_projects(mono_path: str, multichannel_path: Optional[str],
     return PublishedFilter(mono_filter, None if mono_pure else 'mono')
 
 
+def edited_projects(mono_path: Optional[str], multichannel_path: Optional[str] = None) -> Optional[str]:
+    '''
+    Whether a person has changed a title's filter in its `.beq` project since the pipeline wrote it -- the "edited
+    project" fact bulk accept must not override (design.md §12.9). Reads only what exists: a project that has not
+    been written yet is not edited.
+    :return: None if every project is still exactly what the pipeline wrote; else `mono`, `multichannel` or `both`.
+    :raises OSError/ValueError/KeyError: if a project exists but cannot be read.
+    '''
+    edited = [name for name, path in (('mono', mono_path), ('multichannel', multichannel_path))
+              if path and os.path.isfile(path) and not read_project_filter(path)[1]]
+    if not edited:
+        return None
+    return edited[0] if len(edited) == 1 else 'both'
+
+
 def resolve_published_filter(mono_path: str, multichannel_path: Optional[str] = None) -> Tuple[CompleteFilter, bool]:
     '''
     :return: (the filter to publish, True if it came from a human edit on either side, False if both projects

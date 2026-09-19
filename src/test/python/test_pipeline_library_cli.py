@@ -1,11 +1,14 @@
 '''Tests for the JSON/YAML, Qt-free library command-line entry point.'''
 import json
+import os
 
 import pytest
 
 from pipeline.designer.registry import register_designer, registered_designers, unregister_designer
 from pipeline.library import cli
+from pipeline.library.design_cache import DesignCacheResult
 from pipeline.library.run import LibraryRunReport
+from pipeline.review import QueueEntry
 
 _FAKE_DESIGNERS = ('x', 'old', 'test.designer', 'new')
 
@@ -63,7 +66,7 @@ run:
     assert seen['config'].audio_types == ('Atmos',)
     assert seen['config'].config.target_fs == 500
     assert json.loads(capsys.readouterr().out) == {
-        'cached': [], 'design_cached': [], 'designed': ['one'], 'extracted': ['one'], 'failed': [], 'meta_unresolved': [], 'project_edit_preserved': [], 'seasons': {},
+        'cached': [], 'design_cached': [], 'designed': ['one'], 'extracted': ['one'], 'failed': [], 'failed_earlier': [], 'meta_unresolved': [], 'project_edit_preserved': [], 'seasons': {},
     }
 
 
@@ -607,3 +610,235 @@ def test_run_leaves_a_failure_for_status_to_report(tmp_path, capsys, monkeypatch
 
     assert cli.main(['--config', str(config), 'scan']) == 0
     assert json.loads(capsys.readouterr().out)['counts']['attention'] == 1
+
+
+# --- selectors, --through, --retry-failed, publish --republish, accept (chunk 25) -------------------------------------
+
+def test_run_without_a_selector_still_lists_and_runs_everything(tmp_path, monkeypatch, capsys):
+    config = _discovery_config(tmp_path)
+    seen = {}
+    monkeypatch.setattr(cli, 'run_library', lambda source, run_config, **kw: seen.update(kw) or LibraryRunReport())
+    monkeypatch.setattr(cli, 'run_stages', lambda *a, **k: pytest.fail('no selector: the old path'))
+
+    assert cli.main(['run', '--profile', str(config), '--designer', 'test.designer']) == 0
+
+    assert seen['retry_failed'] is False
+
+
+def test_retry_failed_reaches_the_unselected_run_too(tmp_path, monkeypatch, capsys):
+    config = _discovery_config(tmp_path)
+    seen = {}
+    monkeypatch.setattr(cli, 'run_library', lambda source, run_config, **kw: seen.update(kw) or LibraryRunReport())
+
+    cli.main(['run', '--profile', str(config), '--designer', 'test.designer', '--retry-failed'])
+
+    assert seen['retry_failed'] is True
+
+
+@pytest.mark.parametrize('flags, expected', [
+    (['--needs', 'extract', '--needs', 'design'], dict(needs=('extract', 'design'))),
+    (['--match', 'film-1'], dict(match='film-1')),
+    (['--id', 'x', '--id', 'y'], dict(ids=('x', 'y'))),
+    (['--new-since-scan'], dict(new_since_scan=True)),
+    (['--source', 'disk'], dict(source='disk')),
+    (['--through', 'extract'], {}),
+])
+def test_a_selector_hands_the_index_and_a_selection_to_run_stages(tmp_path, monkeypatch, capsys, flags, expected):
+    from pipeline.library.selection import Selection
+    from pipeline.library.stages import StagesReport
+    config = _discovery_config(tmp_path)
+    seen = {}
+
+    def run_stages(profile, selection, through, **kwargs):
+        seen.update(profile=profile, selection=selection, through=through, generation=kwargs['index'].generation,
+                    retry=kwargs['retry_failed'], publish=kwargs['publish'])
+        return StagesReport(through, 0)
+
+    monkeypatch.setattr(cli, 'run_stages', run_stages)
+
+    assert cli.main(['run', '--profile', str(config), '--designer', 'test.designer', *flags]) == 0
+
+    assert seen['selection'] == Selection(**expected)
+    assert seen['through'] == (flags[1] if flags[0] == '--through' else 'design')
+    assert seen['generation'] == 1  # nothing had been scanned, so it scanned first
+    assert [s.name for s in seen['profile'].sources] == ['disk'] and seen['publish'] is None and seen['retry'] is False
+    assert json.loads(capsys.readouterr().out)['through'] == seen['through']
+
+
+def test_through_publish_needs_a_repository(tmp_path, monkeypatch):
+    config = _discovery_config(tmp_path)
+    monkeypatch.setattr(cli, 'run_stages', lambda *a, **k: pytest.fail('refused before running'))
+
+    with pytest.raises(SystemExit) as raised:
+        cli.main(['run', '--profile', str(config), '--designer', 'test.designer', '--through', 'publish'])
+
+    assert raised.value.code == 2
+
+
+def test_through_publish_takes_the_repositories_from_the_sync_section_and_flags(tmp_path, monkeypatch, capsys):
+    import yaml
+    from pipeline.library.stages import StagesReport
+    config = _discovery_config(tmp_path)
+    data = yaml.safe_load(config.read_text())
+    data['sync'] = {'xml_repo': '/xml', 'xml_dir': 'filters', 'meta_defaults': {'source': 'Disc'}}
+    config.write_text(yaml.safe_dump(data))
+    seen = {}
+    monkeypatch.setattr(cli, 'run_stages', lambda profile, selection, through, **kw: seen.update(kw) or StagesReport(through, 0))
+
+    cli.main(['run', '--profile', str(config), '--designer', 'test.designer', '--through', 'commit',
+              '--images-repo', '/images', '--no-push', '--image-owner', 'me'])
+
+    publish = seen['publish']
+    assert (publish.xml_repo.local_path, publish.images_repo.local_path, publish.xml_dir, publish.image_owner,
+            publish.push, publish.meta_defaults) == ('/xml', '/images', 'filters', 'me', False, {'source': 'Disc'})
+    assert seen['settings'].meta_defaults == {'source': 'Disc'}  # the index is refreshed with what publish is given
+
+
+def test_a_selector_run_without_a_profile_uses_the_one_source_the_flags_describe(tmp_path, monkeypatch, capsys):
+    from pipeline.library.stages import StagesReport
+    seen = {}
+    monkeypatch.setattr(cli, 'run_stages', lambda profile, selection, through, **kw: seen.update(
+        profile=profile, index=kw['index']) or StagesReport(through, 0))
+    (tmp_path / 'films').mkdir()
+
+    cli.main(['run', '--source', 'filesystem', '--glob', str(tmp_path / 'films'), '--work-dir', str(tmp_path / 'w'),
+              '--queue-dir', str(tmp_path / 'q'), '--designer', 'test.designer', '--needs', 'extract'])
+
+    (spec,) = seen['profile'].sources
+    assert (spec.name, spec.kind, spec.settings['globs']) == ('filesystem', 'filesystem', [str(tmp_path / 'films')])
+
+
+def test_publish_and_commit_pass_id_and_republish_through(monkeypatch, capsys):
+    published, committed = [], []
+    monkeypatch.setattr(cli, 'publish_library', lambda *a, **k: published.append(k) or [])
+    monkeypatch.setattr(cli, 'sync_library', lambda *a, **k: published.append(k) or [])
+    monkeypatch.setattr(cli, 'commit_library', lambda *a, **k: committed.append(k) or __import__(
+        'pipeline.library.commit', fromlist=['x']).CatalogueCommit(xml=__import__(
+            'pipeline.library.commit', fromlist=['x']).RepoCommit('/xml', [])))
+
+    cli.main(['publish', '--queue-dir', '/q', '--xml-repo', '/xml', '--id', 'a', '--id', 'b', '--republish'])
+    cli.main(['sync', '--queue-dir', '/q', '--xml-repo', '/xml', '--republish'])
+    cli.main(['publish', '--queue-dir', '/q', '--xml-repo', '/xml'])
+    cli.main(['commit', '--queue-dir', '/q', '--xml-repo', '/xml', '--id', 'a'])
+
+    assert [(k['ids'], k['republish']) for k in published] == [(['a', 'b'], True), (None, True), (None, False)]
+    assert committed[0]['ids'] == ['a']
+
+
+def test_the_options_are_documented_by_the_help(capsys):
+    with pytest.raises(SystemExit):
+        cli.main(['accept', '-h'])
+    text = capsys.readouterr().out
+    assert '--threshold' in text and 'bulk accepted' in text and '--dry-run' in text
+
+
+# --- the whole workflow, headless (milestone M2) ----------------------------------------------------------------------
+
+@pytest.fixture
+def workflow(tmp_path, monkeypatch):
+    ''' A profile over three films, temp git repos, and fake extraction and design that leave real outputs. '''
+    import subprocess
+    from dataclasses import replace
+    from types import SimpleNamespace
+
+    import numpy as np
+    import soundfile as sf
+    import yaml
+    from pipeline.library.extract_cache import source_fingerprint
+    from test_pipeline_library_commit import _repo
+    from test_pipeline_library_index import _entry, _extracted
+
+    config = _discovery_config(tmp_path, films=3)
+    xml, xml_bare = _repo(tmp_path, 'xml')
+    images, images_bare = _repo(tmp_path, 'images')
+    for repo in (xml, images):
+        (tmp_path / repo.local_path.rsplit('/', 1)[1] / 'README').write_text('catalogue')
+        subprocess.run(['git', '-C', repo.local_path, 'add', 'README'], check=True, capture_output=True)
+        subprocess.run(['git', '-C', repo.local_path, 'commit', '-q', '-m', 'first'], check=True, capture_output=True)
+        subprocess.run(['git', '-C', repo.local_path, 'push', '-q', '-u', 'origin', 'HEAD'], check=True,
+                       capture_output=True)
+    data = yaml.safe_load(config.read_text())
+    data['run']['designer'] = 'test.designer'
+    data['sync'] = {'xml_repo': xml.local_path, 'xml_dir': 'xml', 'images_repo': images.local_path, 'image_dir': 'img',
+                    'image_owner': 'me', 'image_repo_name': 'images'}
+    config.write_text(yaml.safe_dump(data))
+    env = SimpleNamespace(work=str(tmp_path / 'work'), queue=str(tmp_path / 'queue'))
+    confidence = {'film-0': 0.95, 'film-1': 0.6, 'film-2': 0.99}
+
+    def extract(session, item, item_dir, cfg, mono_mix=True, force=False):
+        _extracted(env, item, fingerprint=source_fingerprint(item))
+        sf.write(os.path.join(item_dir, 'mono.wav'), np.random.default_rng(1).normal(0, 0.1, 4000), 1000)
+        return os.path.join(item_dir, 'mono.wav'), False
+
+    def design(session, item, wav_path, designer, queue_dir, cfg, **kwargs):
+        name = os.path.basename(item.source_path)[:-4]
+        _entry(env, replace(item, title=name), fingerprint=source_fingerprint(item), confidence=confidence[name])
+        return DesignCacheResult(QueueEntry(id=item.id, fs=1000, meta={}, curve={}), designed=True)
+
+    monkeypatch.setattr('pipeline.library.run.extract_if_needed', extract)
+    monkeypatch.setattr('pipeline.library.run.design_if_needed', design)
+    return SimpleNamespace(config=config, tmp=tmp_path, xml=xml, xml_bare=xml_bare, images=images, queue=env.queue,
+                           work=env.work)
+
+
+def _cli(capsys, *argv):
+    code = cli.main(list(argv))
+    out = capsys.readouterr().out
+    try:
+        return code, json.loads(out)
+    except ValueError:
+        return code, out
+
+
+def test_the_whole_workflow_runs_headless_scan_design_accept_publish_commit(workflow, capsys):
+    from pipeline.review import read_queue
+    profile = ['--profile', str(workflow.config)]
+
+    code, scanned = _cli(capsys, 'scan', *profile)
+    assert code == 0 and scanned['counts']['extract'] == 3
+
+    code, run = _cli(capsys, 'run', *profile, '--through', 'design')  # what cron does: machine work only
+    assert code == 0, run['run']['failed']
+    assert len(run['run']['designed']) == 3 and run['counts']['review'] == 3
+    assert all(e.status == 'pending' for e in read_queue(workflow.queue))  # it never accepts
+    assert not os.path.isdir(os.path.join(workflow.xml.local_path, 'xml'))  # ... nor publishes
+
+    code, again = _cli(capsys, 'run', *profile, '--through', 'design')  # and is idempotent
+    assert again['run']['designed'] == [] and again['attempted'] == [] and len(again['skipped']) == 3
+
+    code, dry = _cli(capsys, 'accept', *profile, '--dry-run')
+    assert len(dry['eligible']) == 2 and dry['below_threshold'] == 1
+    assert {e.status for e in read_queue(workflow.queue)} == {'pending'}
+
+    code, accepted = _cli(capsys, 'accept', *profile)
+    assert code == 0 and sorted(accepted['accepted']) == sorted(dry['eligible'])
+    assert accepted['note'] == 'bulk accepted, confidence >= 0.90'
+
+    code, status = _cli(capsys, 'status', *profile, '--json')
+    assert (status['counts']['publish'], status['counts']['review']) == (2, 1)
+
+    code, published = _cli(capsys, 'run', *profile, '--needs', 'publish', '--through', 'publish')
+    assert code == 0 and len(published['published']) == 2 and published['counts']['commit'] == 2
+
+    code, committed = _cli(capsys, 'run', *profile, '--needs', 'commit', '--through', 'commit')
+    assert code == 0 and len(committed['committed']['xml']['paths']) == 2 and committed['counts']['done'] == 2
+    code, final = _cli(capsys, 'status', *profile, '--json')
+    assert final['counts']['done'] == 2 and final['counts']['review'] == 1  # the unconfident title still waits
+
+
+def test_a_failed_title_is_reported_once_then_skipped_until_retry_failed(workflow, capsys, monkeypatch):
+    profile = ['--profile', str(workflow.config)]
+
+    def broken(session, item, *args, **kwargs):
+        raise FileNotFoundError('no such file (path mapping?)')
+
+    monkeypatch.setattr('pipeline.library.run.extract_if_needed', broken)
+
+    code, first = _cli(capsys, 'run', *profile, '--through', 'design')
+    assert code == 1 and len(first['run']['failed']) == 3 and first['counts']['attention'] == 3
+
+    code, second = _cli(capsys, 'run', *profile, '--through', 'design')  # the nightly job does not fail again
+    assert code == 0 and second['run']['failed'] == [] and 'retry failed' in second['skipped'][0]['reason']
+
+    code, third = _cli(capsys, 'run', *profile, '--through', 'design', '--retry-failed')
+    assert code == 1 and len(third['run']['failed']) == 3

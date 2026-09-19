@@ -2,11 +2,11 @@
 
 > Part of the library sync plan -- **start at the index**: [`../../library-sync-pipeline-plan.md`](../../library-sync-pipeline-plan.md).
 > Contains §12 (§12.1-§12.12, §12.14-§12.15). Section numbers are global across the plan; the index maps every `§` to its file.
-> Status of what this file describes: **design agreed 2026-09-19, not built**; supersedes §7
+> Status of what this file describes: **design agreed 2026-09-19**; the backend (§12.4-§12.9 and §12.11: profile, discovery, states, publish/commit, revise, stage entry points, bulk accept) is **built through chunk 25**, the work list and title page (§12.10) are **not built**; supersedes §7
 
-## 12. Workflow, discovery and a work-list UI (designed 2026-09-19, **not built**)
+## 12. Workflow, discovery and a work-list UI (designed 2026-09-19; backend built, UI **not built**)
 
-Status: **design only. Nothing in this section exists yet**; §12.13 is the build order.
+Status: **the backend is built (chunks 19-25, see the chunk table in the index); §12.10's window and title page are design only**; §12.13 is the build order.
 Every open decision raised while designing it was settled with the user on 2026-09-19 and is
 recorded in §12.12. This section **supersedes §7's "as built" GUI** (Run tab + Review tab) and
 absorbs T9 and T10 of §10.
@@ -330,7 +330,9 @@ Committed or pushed: it is a **revision** -- the same catalogue path is rewritte
 --through {extract,design,publish,commit}                       the action button in the GUI
 ```
 
-CLI subcommands: `scan`, `status` (counts per needs), `run`, `publish`, `commit`, `sync` (= publish + commit).
+CLI subcommands: `scan`, `status` (counts per needs), `run`, `publish`, `commit`, `sync` (= publish + commit), plus `revise` (§12.8) and `accept` (§12.9). As built (chunk 25): a `run` with any
+selector works from the index; `--retry-failed` is the way to try a failed title again; `publish`/`sync --republish` writes published titles that are out of date. The Python entry points are `selection.Selection`,
+`stages.run_stages()` and `bulk.accept_top_pick()`; see the chunk 25 notes in `implementation-order.md`.
 
 ### 12.8 Revising done titles
 

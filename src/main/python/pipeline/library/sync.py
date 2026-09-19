@@ -1,5 +1,5 @@
 '''Explicit library-sync publishing entry points: publish (write), commit (commit + push), and both.'''
-from typing import Optional
+from typing import Callable, Collection, Optional
 
 from pipeline.config import AnalysisConfig
 from pipeline.library.commit import CatalogueCommit, commit_catalogue
@@ -12,29 +12,39 @@ def publish_library(queue_dir: str, xml_repo: RepoTarget, *, meta_defaults: Opti
                     images_repo: Optional[RepoTarget] = None, image_owner: Optional[str] = None,
                     image_repo_name: Optional[str] = None, xml_dir: str = '', image_dir: str = '',
                     report_spec: ReportSpec = ReportSpec(), config: AnalysisConfig = AnalysisConfig(),
-                    work_dir: Optional[str] = None) -> list[dict]:
+                    work_dir: Optional[str] = None, ids: Optional[Collection[str]] = None, republish: bool = False,
+                    on_entry: Optional[Callable[[str], None]] = None,
+                    should_cancel: Optional[Callable[[], bool]] = None) -> list[dict]:
     '''
     Writes every accepted entry's XML (and report image) into the repos' working trees and marks it 'published'.
     Nothing is committed or pushed -- that is commit_library(). Never invokes extraction or design.
+
+    :param ids: only these entries (default: all).
+    :param republish: also write again each already-published entry whose catalogue copy is out of date, at the same
+        path (see pipeline.review.publish_reviewed_queue()).
     '''
     return publish_reviewed_queue(
         queue_dir, xml_repo, meta_defaults=meta_defaults, images_repo=images_repo,
         image_owner=image_owner, image_repo_name=image_repo_name, xml_dir=xml_dir, image_dir=image_dir,
-        report_spec=report_spec, config=config, work_dir=work_dir, push=False,
+        report_spec=report_spec, config=config, work_dir=work_dir, push=False, ids=ids, republish=republish,
+        on_entry=on_entry, should_cancel=should_cancel,
     )
 
 
 def commit_library(queue_dir: str, xml_repo: RepoTarget, *, images_repo: Optional[RepoTarget] = None,
-                   xml_dir: str = '', image_dir: str = '', push: bool = True) -> CatalogueCommit:
+                   xml_dir: str = '', image_dir: str = '', push: bool = True,
+                   ids: Optional[Collection[str]] = None) -> CatalogueCommit:
     ''' Commits and pushes what publish_library() wrote: one commit and one push per repo, images first. '''
-    return commit_catalogue(queue_dir, xml_repo, images_repo, xml_dir=xml_dir, image_dir=image_dir, push=push)
+    return commit_catalogue(queue_dir, xml_repo, images_repo, xml_dir=xml_dir, image_dir=image_dir, push=push,
+                            **({} if ids is None else {'ids': ids}))
 
 
 def sync_library(queue_dir: str, xml_repo: RepoTarget, *, meta_defaults: Optional[dict] = None,
                  images_repo: Optional[RepoTarget] = None, image_owner: Optional[str] = None,
                  image_repo_name: Optional[str] = None, xml_dir: str = '', image_dir: str = '',
                  report_spec: ReportSpec = ReportSpec(), config: AnalysisConfig = AnalysisConfig(),
-                 work_dir: Optional[str] = None, push: bool = True) -> list[dict]:
+                 work_dir: Optional[str] = None, push: bool = True, ids: Optional[Collection[str]] = None,
+                 republish: bool = False) -> list[dict]:
     '''
     publish_library() followed by commit_library(), so a batch is one commit and one push per repo.
 
@@ -44,9 +54,9 @@ def sync_library(queue_dir: str, xml_repo: RepoTarget, *, meta_defaults: Optiona
     results = publish_library(
         queue_dir, xml_repo, meta_defaults=meta_defaults, images_repo=images_repo, image_owner=image_owner,
         image_repo_name=image_repo_name, xml_dir=xml_dir, image_dir=image_dir, report_spec=report_spec,
-        config=config, work_dir=work_dir)
+        config=config, work_dir=work_dir, ids=ids, republish=republish)
     committed = commit_library(queue_dir, xml_repo, images_repo=images_repo, xml_dir=xml_dir, image_dir=image_dir,
-                               push=push)
+                               push=push, ids=ids)
     published, _ = split_publish_results(results)
     for result in published:
         if committed.xml.commit:

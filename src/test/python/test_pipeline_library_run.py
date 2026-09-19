@@ -392,3 +392,179 @@ def test_library_meta_carries_the_title_year_season_and_episodes():
                        episodes=(2,))
 
     assert library_meta(item) == {'title': 'Show', 'year': '2019', 'season': '1', 'episodes': [2]}
+
+
+# --- a failure is remembered, and not retried unasked (design.md §12.5 "Failure memory", chunk 25) ----------------------
+
+class _Works:
+    ''' Fakes extract and design with a switch to make one item's stage fail, recording each call. '''
+
+    def __init__(self, tmp_path, monkeypatch):
+        from pipeline.library.index import LibraryIndex
+        self.calls, self.fail = [], {}
+        self.index = LibraryIndex(str(tmp_path / 'index.sqlite'))
+        self.run_config = LibraryRunConfig(work_dir=str(tmp_path / 'work'), queue_dir=str(tmp_path / 'queue'),
+                                           designer='test')
+        monkeypatch.setattr('pipeline.library.run.Session', lambda cfg: _Session())
+
+        def extract(session, item, item_dir, cfg, mono_mix, force):
+            self.calls.append(('extract', item.id))
+            if ('extract', item.id) in self.fail:
+                raise FileNotFoundError(f'{item.id} is missing')
+            os.makedirs(item_dir, exist_ok=True)
+            path = os.path.join(item_dir, 'mono.wav')
+            length = (item.episodes or (1,))[0]
+            sf.write(path, np.full((1000 * length, 1), length / 10), 1000, subtype='PCM_24')
+            return path, False
+
+        def design(session, item, wav_path, designer, queue_dir, cfg, **kwargs):
+            self.calls.append(('design', item.id))
+            if ('design', item.id) in self.fail:
+                raise RuntimeError('designer said no')
+            return DesignCacheResult(QueueEntry(id=item.id, fs=1000, meta={}, curve={}), designed=True)
+
+        monkeypatch.setattr('pipeline.library.run.extract_if_needed', extract)
+        monkeypatch.setattr('pipeline.library.run.design_if_needed', design)
+
+    def run(self, items, **kwargs):
+        config = kwargs.pop('run_config', self.run_config)
+        self.calls.clear()
+        return run_library(_Source(items), config, index=self.index, **kwargs)
+
+
+@pytest.fixture
+def works(tmp_path, monkeypatch):
+    fake = _Works(tmp_path, monkeypatch)
+    yield fake
+    fake.index.close()
+
+
+def test_a_failed_title_is_not_tried_again_on_the_next_run(works):
+    works.fail[('extract', 'one')] = True
+    first = works.run([_item('one'), _item('two')])
+    assert [f[0] for f in first.failed] == ['one'] and first.designed == ['two']
+
+    second = works.run([_item('one'), _item('two')])
+
+    assert ('extract', 'one') not in works.calls and ('extract', 'two') in works.calls
+    assert second.failed == [] and [f[0] for f in second.failed_earlier] == ['one']
+    assert 'one is missing' in second.failed_earlier[0][1]
+
+
+def test_retry_failed_tries_it_again_and_success_forgets_the_failure(works):
+    works.fail[('extract', 'one')] = True
+    works.run([_item('one')])
+    works.fail.clear()
+
+    report = works.run([_item('one')], retry_failed=True)
+
+    assert ('extract', 'one') in works.calls and report.designed == ['one'] and report.failed_earlier == []
+    assert works.index.failures() == {}
+    assert works.run([_item('one')]).failed_earlier == []  # and nothing is remembered against it any more
+
+
+def test_a_retry_that_fails_again_is_remembered_again(works):
+    works.fail[('design', 'one')] = True
+    works.run([_item('one')])
+
+    report = works.run([_item('one')], retry_failed=True)
+
+    assert [f[0] for f in report.failed] == ['one']
+    assert works.index.failures()['one'].stage == 'design'
+
+
+def test_a_changed_source_is_tried_again_without_asking(works):
+    works.fail[('extract', 'one')] = True
+    works.run([_item('one')])
+    works.fail.clear()
+
+    changed = LibraryItem(id='one', source_path='/media/one.mkv', display_name='one', fingerprint='re-ripped',
+                          meta={'season': '2'})
+    report = works.run([changed])
+
+    assert report.designed == ['one'] and report.failed_earlier == []
+
+
+def test_changed_settings_are_tried_again_without_asking(works):
+    from dataclasses import replace
+    from pipeline.config import AnalysisConfig
+    works.fail[('extract', 'one')] = True
+    works.run([_item('one')])
+    works.fail.clear()
+
+    other_analysis = replace(works.run_config, config=AnalysisConfig(target_fs=500))
+    assert works.run([_item('one')], run_config=other_analysis).designed == ['one']
+
+    works.fail[('design', 'one')] = True
+    works.run([_item('one')])  # now a design failure at designer 'test'
+    works.fail.clear()
+    other_designer = replace(works.run_config, designer='another')
+    assert works.run([_item('one')], run_config=other_designer).designed == ['one']
+
+
+def test_on_item_done_still_ticks_for_a_title_not_tried_again(works):
+    works.fail[('extract', 'one')] = True
+    works.run([_item('one')])
+    done = []
+
+    works.run([_item('one')], on_item_done=done.append)
+
+    assert done == ['one']
+
+
+def test_without_an_index_nothing_is_remembered_and_everything_is_tried(tmp_path, monkeypatch):
+    fake = _Works(tmp_path, monkeypatch)
+    fake.fail[('extract', 'one')] = True
+    run_library(_Source([_item('one')]), fake.run_config)
+    fake.calls.clear()
+
+    report = run_library(_Source([_item('one')]), fake.run_config)
+
+    assert ('extract', 'one') in fake.calls and [f[0] for f in report.failed] == ['one'] and report.failed_earlier == []
+    fake.index.close()
+
+
+def test_through_extract_stops_before_design(works):
+    report = works.run([_item('one')], through='extract')
+
+    assert works.calls == [('extract', 'one')] and report.designed == []
+    with pytest.raises(ValueError, match='through'):
+        works.run([_item('one')], through='publish')
+
+
+def test_an_episode_that_fails_inside_a_season_is_remembered_and_not_retried_unasked(works):
+    from dataclasses import replace
+    config = replace(works.run_config, tv_mode='season')
+    episodes = [_episode('Show', 1, e) for e in (1, 2, 3)]
+    works.fail[('extract', 'Show-1-2')] = True
+
+    first = works.run(episodes, run_config=config)
+    assert first.failed == [('Show-1-2', 'FileNotFoundError: Show-1-2 is missing')] and len(first.designed) == 1
+    memory = works.index.failures()['Show-1-2']
+    assert (memory.stage, memory.fingerprint) == ('extract', 'fp-Show-1-2')
+
+    second = works.run(episodes, run_config=config)  # the same episode, the same settings
+    assert ('extract', 'Show-1-2') not in works.calls
+    assert second.failed == [] and second.failed_earlier == [('Show-1-2', 'FileNotFoundError: Show-1-2 is missing')]
+    assert len(second.designed) == 1  # the rest of the season is designed as before
+
+    works.fail.clear()
+    third = works.run(episodes, run_config=config, retry_failed=True)
+    assert ('extract', 'Show-1-2') in works.calls and third.failed_earlier == []
+    assert 'Show-1-2' not in works.index.failures()
+    assert list(third.seasons.values()) == [['Show-1-1', 'Show-1-2', 'Show-1-3']]
+
+
+def test_a_season_episode_failure_lapses_when_that_episodes_source_changes(works):
+    from dataclasses import replace
+    config = replace(works.run_config, tv_mode='season')
+    works.fail[('extract', 'Show-1-2')] = True
+    works.run([_episode('Show', 1, e) for e in (1, 2)], run_config=config)
+    works.fail.clear()
+
+    reripped = LibraryItem(id='Show-1-2', source_path='/tv/Show/2.mkv', display_name='Show S1E2', title='Show',
+                           kind='tv', season='1', episodes=(2,), fingerprint='re-ripped')
+    report = works.run([_episode('Show', 1, 1), reripped], run_config=config)
+
+    assert ('extract', 'Show-1-2') in works.calls and report.failed_earlier == []
+    assert list(report.seasons.values()) == [['Show-1-1', 'Show-1-2']]

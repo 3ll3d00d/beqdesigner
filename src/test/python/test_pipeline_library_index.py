@@ -937,7 +937,11 @@ def test_run_library_remembers_a_failure_against_the_source_and_settings_and_for
     monkeypatch.setattr('pipeline.library.run.extract_if_needed', lambda *a, **k: ('/w/mono.wav', True))
     monkeypatch.setattr('pipeline.library.run.design_if_needed',
                         lambda *a, **k: type('R', (), {'designed': True, 'project_edit_preserved': False})())
-    assert run_library(FakeSource([item]), run_config, index=env.index).failed == []
+    skipped = run_library(FakeSource([item]), run_config, index=env.index)  # chunk 25: not tried again unasked
+    assert skipped.failed == [] and skipped.failed_earlier == [('fs-a', "FileNotFoundError: W:\\films\\a.mkv")]
+    assert 'fs-a' in env.index.failures()
+
+    assert run_library(FakeSource([item]), run_config, index=env.index, retry_failed=True).failed == []
     assert env.index.failures() == {}
 
 
@@ -1031,3 +1035,74 @@ def test_the_frozen_schema_in_the_design_doc_is_the_one_in_the_code():
 
     assert [b.strip() for b in blocks] == [index_module.SCHEMA.strip()]
     assert f'SCHEMA_VERSION = {SCHEMA_VERSION}' in text
+
+
+# --- what run_stages needs of the index (chunk 25) ----------------------------------------------------------------------
+
+def test_units_rebuilds_what_the_scan_listed_without_listing_again(env):
+    source = FakeSource([_item('a'), _item('b')])
+    _scan(env, sources={'films': source})
+    listed = source.listed
+
+    units = env.index.units(['fs-a', 'fs-b', 'fs-nope'])
+
+    assert sorted(units) == ['fs-a', 'fs-b'] and units['fs-a'] == _item('a')
+    assert source.listed == listed  # nothing was listed for it
+
+
+def _ep(number, **overrides):
+    fields = dict(id=f'tv-{number}', source_path=f'/tv/show/{number}.mkv', display_name=f'Show S1E{number}',
+                  title='Show', kind='tv', season='1', episodes=(number,), fingerprint=f'fp-tv-{number}')
+    fields.update(overrides)
+    return LibraryItem(**fields)
+
+
+def test_units_rebuilds_a_season_as_the_group_a_run_of_that_scan_would_work_on(env):
+    from pipeline.library.season import SeasonGroup, plan_units
+    settings = ScanSettings(work_dir=env.work, queue_dir=env.queue, designer=DESIGNER, tv_mode='season')
+    _scan(env, _ep(1), _ep(2), settings=settings)
+    (row,) = env.index.titles()
+
+    (group,) = env.index.units([row.id]).values()
+
+    assert isinstance(group, SeasonGroup) and group.item.id == row.id
+    assert [m.id for m in group.members] == ['tv-1', 'tv-2'] and group.item.episodes == (1, 2)
+    assert group == plan_units([_ep(1), _ep(2)], 'season', lambda first: row.id)[0]
+
+
+def test_refresh_rereads_the_outputs_without_listing_a_source_or_counting_as_a_scan(env):
+    source = FakeSource([_item('a'), _item('b')])
+    _scan(env, sources={'films': source})
+    _scan(env, sources={'films': FakeSource([_item('a'), _item('b'), _item('c')])})
+    summary = env.index.summary()
+    listed = source.listed
+    _extracted(env, _item('a'))
+
+    result = env.index.refresh(_profile(env), env.settings)
+
+    assert source.listed == listed and _needs(env, 'fs-a')[0] == 'design'  # the extraction was seen
+    after = env.index.summary()
+    assert (after.generation, after.last_scan_at, after.new) == (summary.generation, summary.last_scan_at, 1)
+    assert env.index.title('fs-c').is_new and result.new == []
+    assert sorted(r.id for r in env.index.titles()) == ['fs-a', 'fs-b', 'fs-c']  # nothing vanished
+
+
+def test_failure_reads_one_remembered_failure(env):
+    env.index.record_failure('fs-a', 'design', 'boom', 'fp', 'key')
+
+    assert env.index.failure('fs-a').message == 'boom' and env.index.failure('fs-b') is None
+
+
+def test_a_season_episodes_failure_is_dropped_by_a_scan_once_it_no_longer_applies(env):
+    from pipeline.library.status import failure_key
+    settings = ScanSettings(work_dir=env.work, queue_dir=env.queue, designer=DESIGNER, tv_mode='season')
+    episode = _ep(2)
+    key = failure_key('extract', episode, config=CONFIG, designer=DESIGNER, coverage='complete_programme',
+                      keep_multichannel=False)
+    env.index.record_failure('tv-2', 'extract', 'boom', 'fp-tv-2', key)
+
+    _scan(env, _ep(1), episode, settings=settings)
+    assert 'tv-2' in env.index.failures()  # still the same file and settings: it applies
+
+    _scan(env, _ep(1), _ep(2, fingerprint='re-ripped'), settings=settings)
+    assert 'tv-2' not in env.index.failures()

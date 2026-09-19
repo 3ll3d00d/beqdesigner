@@ -1,12 +1,12 @@
 # Library sync pipeline -- plan
 
 Status: **chunks 1-2 and 4-10 implemented (2026-09-18); full suite green
-(471 passed, 2026-09-19 review). Chunk 3 (real-server spike) is not done,
+(471 passed, 2026-09-19 review; 1292 after chunk 25). Chunk 3 (real-server spike) is not done,
 and a small set of design items in §3.1.3, §3.3.1 and §4 remain unbuilt --
 see §10 "Implementation status vs. this plan" for the authoritative list.**
 **§12 (added 2026-09-19) is an agreed *design only* for a reworked workflow and
 work-list UI (multi-source catalogue profile, discovery index, per-stage state,
-publish/commit split, revise); only chunks 19 (a tests-only spike), 20 (fixes to the current dialog) 21 (publish/commit split), 22 (revise backend), 23 (profile, union, ignore rules) and 24 (discovery index and states; the index schema is frozen in §12.5) are built, and it supersedes §7's GUI.
+publish/commit split, revise); only chunks 19 (a tests-only spike), 20 (fixes to the current dialog), 21 (publish/commit split), 22 (revise backend), 23 (profile, union, ignore rules), 24 (discovery index and states; the index schema is frozen in §12.5) and 25 (stage entry points and selectors, which completes milestone M2: the whole workflow headless) are built, and it supersedes §7's GUI.
 Its build order is §12.13.**
 Written 2026-09-17. Builds on the
 headless pipeline in `pipeline/` (see `pipeline/README.md` and
@@ -40,8 +40,8 @@ the design lives. It is usually all you need to decide what to do next. The desi
 | §5, §6, §7 | [`library-sync/orchestration-cli-gui.md`](library-sync/orchestration-cli-gui.md) | `run_library`, the CLI, and the **current** GUI (§7 superseded by §12.10) | built |
 | §9, §10 | [`library-sync/status-and-open-items.md`](library-sync/status-and-open-items.md) | risks, and the authoritative list of what is still open (T1-T16) | current |
 | §11 | [`library-sync/jriver-and-sources.md`](library-sync/jriver-and-sources.md) | shared JRiver connections, filesystem source, source/node pickers, live findings, path mappings, id fields, DVD, TV seasons | built |
-| §12 (except §12.13) | [`library-sync/workflow-rework/design.md`](library-sync/workflow-rework/design.md) | the agreed workflow, discovery, state machine, revise, screen; **the frozen index schema (§12.5)** | discovery built (chunk 24); the rest **design, not built** |
-| §12.13 | [`library-sync/workflow-rework/implementation-order.md`](library-sync/workflow-rework/implementation-order.md) | chunks 19-28: order, dependencies, milestones, risks | chunks 19-24 built; 25-28 not started |
+| §12 (except §12.13) | [`library-sync/workflow-rework/design.md`](library-sync/workflow-rework/design.md) | the agreed workflow, discovery, state machine, revise, screen; **the frozen index schema (§12.5)** | discovery (chunk 24) and the stage entry points, selectors and bulk accept (chunk 25) built; the work list and title page (§12.10) **design, not built** |
+| §12.13 | [`library-sync/workflow-rework/implementation-order.md`](library-sync/workflow-rework/implementation-order.md) | chunks 19-28: order, dependencies, milestones, risks | chunks 19-25 built; 26-28 not started |
 | Appendix A-D | [`library-sync/archive/`](library-sync/archive/) | handoff specs for chunks 1, 2, 4, 5 | built, archival |
 
 **Which file for which task**
@@ -165,4 +165,5 @@ fixture -- only chunk 8 is blocked on that mapping.
 | 22 | Workflow rework: revise backend -- `reopen_entry`/`redesign_entry`/`revise_entry`, `invalidate_extract`, `QueueEntry.revision`, CLI `revise`. **Completes M1** (publish/commit + revision from the CLI). | 21 | **Done -- commit `58d318b`** |
 | 23 | Workflow rework: profile (`profile.py`), ignore rules (`ignore.py`), the union of sources with hard/soft clashes and sticky ownership (`union.py`), season-id claims, CLI `run --profile`. | 19 | **Done -- commit `a05d20e`** |
 | 24 | Workflow rework: discovery -- `state.derive_needs()` (the §12.6 table, pure), `status.py` (reads the outputs), `index.py` (SQLite index, **schema frozen in §12.5**, `scan`, `rebuild_from_outputs`, failure memory), `catalogue_scan.py` (XML repo awareness), `extract_status`/`design_status` split out of the wrappers, `current_publish_digest()`, `QueueEntry.source_fingerprint`, no `stat` in a JRiver listing, CLI `scan`/`status`. | 21, 23, 19 | **Done -- commit `5ce9de6`** |
-| 25-28 | Workflow rework (§12): stage entry points + selectors (25), work-list UI (26a-c), title page (27a-c), documentation (28). Detail, dependencies, milestones and risks in [`library-sync/workflow-rework/implementation-order.md`](library-sync/workflow-rework/implementation-order.md) (§12.13); design in [`workflow-rework/design.md`](library-sync/workflow-rework/design.md). | 24 | **Not started** (design agreed 2026-09-19) |
+| 25 | Workflow rework: stage entry points and selectors -- `selection.py` (`Selection`, the chips, `plan_stages()`), `stages.py` (`run_stages(... through ...)`, `Progress`, cooperative cancel), `bulk.py` (`plan_accept()`/`accept_top_pick()`), retry-failed (a remembered failure is no longer retried unasked, seasons' episodes included), republish of out-of-date published titles, per-title refusal of incomplete metadata in publish, `repo_state()` falling back to `<remote>/<branch>`, `LibraryIndex.units()`/`refresh()`, CLI `run --needs/--match/--id/--new-since-scan/--through/--retry-failed`, `accept`, `publish/sync --republish --id`, `commit --id`. **Completes M2** (the whole workflow headless). | 24 | **Done -- commit `(pending)`** |
+| 26-28 | Workflow rework (§12): work-list UI (26a-c), title page (27a-c), documentation (28). Detail, dependencies, milestones and risks in [`library-sync/workflow-rework/implementation-order.md`](library-sync/workflow-rework/implementation-order.md) (§12.13); design in [`workflow-rework/design.md`](library-sync/workflow-rework/design.md). | 25 (26a needs only 24) | **Not started** (design agreed 2026-09-19) |
