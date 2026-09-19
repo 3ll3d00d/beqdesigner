@@ -1,6 +1,8 @@
 '''Tests for library-source orchestration and explicit sync delegation.'''
 from dataclasses import dataclass
 
+import requests
+
 from pipeline.library.design_cache import DesignCacheResult
 from pipeline.library.run import LibraryRunConfig, run_library
 from pipeline.library.source import LibraryItem
@@ -71,7 +73,7 @@ def test_run_library_composes_caches_resolves_metadata_and_threads_multichannel(
     assert report.failed == []
     assert completed == ['one']
     assert session.channel_calls == [(f'{tmp_path}/work/one/multichannel.wav', '5.1')]
-    assert design_calls[0][5]['meta'] == {'title': 'one', 'audio_types': ['Atmos'], 'season': '2'}
+    assert design_calls[0][5]['meta']() == {'title': 'one', 'audio_types': ['Atmos'], 'season': '2'}
     assert design_calls[0][5]['channels'] == {'LFE': [1, 2]}
     assert design_calls[0][5]['multichannel_wav_path'].endswith('multichannel.wav')
     assert design_calls[0][5]['project_dir'] == f'{tmp_path}/work/one'
@@ -102,6 +104,45 @@ def test_run_library_marks_a_fully_cached_item_and_isolates_a_failure(tmp_path, 
     assert report.designed == []
     assert report.failed == [('broken', 'ValueError: unreadable audio')]
     assert completed == ['cached', 'broken']
+
+
+def _run_with_meta(tmp_path, monkeypatch, resolver, **config_kwargs):
+    ''' Runs one item whose design_if_needed() invokes (or not) whatever meta it was handed. '''
+    monkeypatch.setattr('pipeline.library.run.Session', lambda config: _Session())
+    monkeypatch.setattr('pipeline.library.run.extract_if_needed',
+                        lambda session, item, item_dir, config, mono_mix, force: (f'{item_dir}/mono.wav', True))
+    monkeypatch.setattr('pipeline.library.run.resolve_meta', resolver)
+    seen = []
+
+    def design(session, item, wav_path, designer, queue_dir, config, meta=None, **kwargs):
+        if config_kwargs.pop('designs', True):
+            seen.append(meta() if callable(meta) else meta)
+        return DesignCacheResult(QueueEntry(id=item.id, fs=1000, meta={}, curve={}), designed=bool(seen))
+
+    monkeypatch.setattr('pipeline.library.run.design_if_needed', design)
+    config = LibraryRunConfig(work_dir=str(tmp_path / 'work'), queue_dir=str(tmp_path / 'queue'), designer='test',
+                              tmdb_api_key='key')
+    return run_library(_Source([_item('one')]), config), seen
+
+
+def test_run_library_does_not_resolve_metadata_for_an_item_that_is_not_designed(tmp_path, monkeypatch):
+    lookups = []
+    report, seen = _run_with_meta(tmp_path, monkeypatch, lambda *args: lookups.append(args) or {}, designs=False)
+
+    assert lookups == []
+    assert seen == []
+    assert report.failed == []
+
+
+def test_run_library_degrades_to_library_metadata_when_tmdb_fails(tmp_path, monkeypatch):
+    def failing(item, key, audio_types):
+        raise requests.HTTPError('401 Unauthorized')
+
+    report, seen = _run_with_meta(tmp_path, monkeypatch, failing)
+
+    assert seen == [{'season': '2'}]
+    assert report.failed == []
+    assert report.meta_unresolved == [('one', 'HTTPError: 401 Unauthorized')]
 
 
 def test_sync_library_is_a_parameter_preserving_publish_call_through(monkeypatch):

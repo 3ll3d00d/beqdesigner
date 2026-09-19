@@ -110,3 +110,24 @@ def test_design_if_needed_threads_project_arguments_on_a_real_run(tmp_path, monk
     assert calls[0][3]['multichannel_wav_path'] == '/work/multichannel.wav'
     assert calls[0][3]['channel_layout_name'] == '5.1'
     assert calls[0][3]['project_dir'] == '/work/title-1'
+
+
+def test_meta_callable_is_only_resolved_when_a_design_runs(tmp_path, monkeypatch):
+    calls = []
+    _install_fake_design(monkeypatch, calls)
+    item = _item(tmp_path)
+    queue_dir = str(tmp_path / 'queue')
+    resolved = []
+
+    def resolve():
+        resolved.append(item.id)
+        return {'title': 'Title One'}
+
+    design_if_needed(None, item, '/work/mono.wav', 'designer.v1', queue_dir, AnalysisConfig(), meta=resolve)
+    assert resolved == [item.id]
+    assert calls[0][3]['meta'] == {'title': 'Title One'}
+
+    # second run is a cache hit: the callable must not be invoked
+    result = design_if_needed(None, item, '/work/mono.wav', 'designer.v1', queue_dir, AnalysisConfig(), meta=resolve)
+    assert result.designed is False
+    assert resolved == [item.id]

@@ -1,15 +1,20 @@
 '''Composition of a library source with the extract and design caches.'''
+import logging
 import os
 from dataclasses import dataclass, field
 from typing import Callable, Optional, Sequence
+
+import requests
 
 from pipeline.config import AnalysisConfig
 from pipeline.designer.contract import Coverage
 from pipeline.library.design_cache import design_if_needed
 from pipeline.library.extract_cache import extract_if_needed, read_channel_layout_name
 from pipeline.library.library_metadata import resolve_meta
-from pipeline.library.source import LibrarySource
+from pipeline.library.source import LibraryItem, LibrarySource
 from pipeline.orchestrate import Session
+
+logger = logging.getLogger('library_run')
 
 
 @dataclass(frozen=True)
@@ -33,6 +38,27 @@ class LibraryRunReport:
     designed: list[str] = field(default_factory=list)
     design_cached: list[str] = field(default_factory=list)
     failed: list[tuple[str, str]] = field(default_factory=list)
+    meta_unresolved: list[tuple[str, str]] = field(default_factory=list)  # designed with item.meta only
+
+
+def _meta_source(item: LibraryItem, run_config: LibraryRunConfig, report: LibraryRunReport):
+    '''
+    Metadata for design_if_needed(): resolved lazily, so only an item that is actually designed pays for the
+    TMDB lookup. A TMDB failure must not lose the (expensive) extraction and design, so it degrades to
+    whatever the library itself supplied and is recorded in report.meta_unresolved for a reviewer to fix.
+    '''
+    if not run_config.tmdb_api_key:
+        return dict(item.meta)
+
+    def resolve() -> dict:
+        try:
+            return resolve_meta(item, run_config.tmdb_api_key, run_config.audio_types)
+        except requests.RequestException as error:
+            logger.warning('Unable to resolve TMDB metadata for %s: %s', item.id, error)
+            report.meta_unresolved.append((item.id, f'{type(error).__name__}: {error}'))
+            return dict(item.meta)
+
+    return resolve
 
 
 def run_library(source: LibrarySource, run_config: LibraryRunConfig,
@@ -70,12 +96,10 @@ def run_library(source: LibrarySource, run_config: LibraryRunConfig,
             else:
                 report.extracted.append(item.id)
 
-            meta = dict(item.meta)
-            if run_config.tmdb_api_key:
-                meta = resolve_meta(item, run_config.tmdb_api_key, run_config.audio_types)
             result = design_if_needed(
                 session, item, mono_path, run_config.designer, run_config.queue_dir, run_config.config,
-                coverage=run_config.coverage, force=run_config.force_design, meta=meta, channels=channels,
+                coverage=run_config.coverage, force=run_config.force_design,
+                meta=_meta_source(item, run_config, report), channels=channels,
                 multichannel_wav_path=multichannel_path, channel_layout_name=channel_layout_name,
                 project_dir=item_dir,
             )

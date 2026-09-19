@@ -2,7 +2,7 @@
 import hashlib
 import json
 from dataclasses import asdict, dataclass
-from typing import Optional
+from typing import Callable, Optional, Union
 
 from pipeline.config import AnalysisConfig
 from pipeline.designer.contract import Coverage
@@ -10,6 +10,11 @@ from pipeline.library.extract_cache import source_fingerprint
 from pipeline.library.source import LibraryItem
 from pipeline.orchestrate import Session
 from pipeline.review import QueueEntry, design_and_queue, read_entry, update_entry
+
+
+# Either the metadata itself, or a callable producing it. A callable is only invoked when a design actually
+# runs, so an expensive resolution (a TMDB round-trip) is skipped for every cache hit and protected entry.
+MetaSource = Union[dict, Callable[[], dict], None]
 
 
 @dataclass(frozen=True)
@@ -32,7 +37,7 @@ def design_fingerprint(item: LibraryItem, designer: str, config: AnalysisConfig,
 
 def design_if_needed(session: Session, item: LibraryItem, wav_path: str, designer: str, queue_dir: str,
                      config: AnalysisConfig, coverage: Coverage = 'complete_programme', *, force: bool = False,
-                     meta: Optional[dict] = None, bass_management: Optional[dict] = None,
+                     meta: MetaSource = None, bass_management: Optional[dict] = None,
                      channels: Optional[dict] = None, multichannel_wav_path: Optional[str] = None,
                      channel_layout_name: str = 'unknown', project_dir: Optional[str] = None) -> DesignCacheResult:
     '''
@@ -41,6 +46,9 @@ def design_if_needed(session: Session, item: LibraryItem, wav_path: str, designe
     Accepted and published entries are protected from every redesign path,
     including force. A caller must explicitly reset their status before a
     library-wide rerun can replace them.
+
+    :param meta: the entry's metadata, or a zero-argument callable returning it, called only if this call
+        actually designs.
     '''
     fingerprint = design_fingerprint(item, designer, config, coverage)
     try:
@@ -54,6 +62,8 @@ def design_if_needed(session: Session, item: LibraryItem, wav_path: str, designe
         if not force and existing.design_fingerprint == fingerprint:
             return DesignCacheResult(existing, designed=False)
 
+    if callable(meta):
+        meta = meta()
     entry = design_and_queue(
         session, item.id, wav_path, designer, queue_dir, meta=meta, coverage=coverage,
         bass_management=bass_management, channels=channels, multichannel_wav_path=multichannel_wav_path,
