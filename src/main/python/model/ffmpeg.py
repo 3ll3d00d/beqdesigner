@@ -467,8 +467,9 @@ class Executor:
                 mono_mix = self.__get_no_lfe_mono_mix(channel_count)
         if channel_layout is not None:
             if channel_layout == 'mono':
-                # TODO is this necessary?
-                mono_mix = 'pan=mono|c0=c0'
+                # a bare channel expression, like every other spec here -- it is spliced in after "c0=", so a
+                # full 'pan=mono|c0=c0' produced an invalid filter and failed every mono-source extraction
+                mono_mix = 'c0'
                 channel_count = 1
             elif channel_layout == 'stereo':
                 mono_mix = self.__get_no_lfe_mono_mix(2)

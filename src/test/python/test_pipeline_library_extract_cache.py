@@ -19,11 +19,7 @@ from pipeline.orchestrate import Session
 
 
 def _write_synthetic_wav(path, fs=48000, duration_s=0.25, channel_values=(1000, 2000, 3000, 4000, 5000, 6000)):
-    ''' Defaults to a 6-channel (5.1) source, matching test_pipeline_review.py's _write_synthetic_wav() --
-    a genuinely mono (1-channel) source hits a pre-existing, unrelated ffmpeg pan-filter bug in
-    model.ffmpeg.Executor's mono_mix path (Session.extract()/extract_with_layout() with mono_mix=True),
-    which nothing in the existing suite exercises either since every existing extract() caller's fixture
-    is multi-channel too. Out of scope for this chunk. '''
+    ''' Defaults to a 6-channel (5.1) source, matching test_pipeline_review.py's _write_synthetic_wav(). '''
     n_frames = int(fs * duration_s)
     frame = np.array(channel_values, dtype=np.int16)
     data = np.tile(frame, (n_frames, 1)).astype('<i2').tobytes()
@@ -265,3 +261,19 @@ def test_extract_if_needed_records_the_source_channel_count_from_either_extracti
 
 def test_read_source_channel_count_is_none_when_never_recorded(tmp_path):
     assert read_source_channel_count(str(tmp_path / 'missing')) is None
+
+
+def test_a_mono_source_extracts_in_both_modes_and_records_one_channel(tmp_path):
+    source = str(tmp_path / 'mono_source.wav')
+    _write_synthetic_wav(source, channel_values=(1000,))
+    target_dir = str(tmp_path / 'work')
+    session = Session(AnalysisConfig())
+    config = AnalysisConfig()
+
+    mono_path, _ = extract_if_needed(session, _mono_item(source), target_dir, config, mono_mix=True)
+    kept_path, _ = extract_if_needed(session, _mono_item(source), target_dir, config, mono_mix=False)
+
+    for path in (mono_path, kept_path):
+        with wave.open(path) as w:
+            assert w.getnchannels() == 1
+    assert read_source_channel_count(target_dir) == 1
