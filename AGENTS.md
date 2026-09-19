@@ -158,17 +158,22 @@ Three entry points share this machinery:
   (`pipeline.review.design_and_queue()`) and reviews the results on an
   embedded tab -- see `pipeline/README.md`'s "Batch design + review".
 
-### Library work list (`model/worklist.py`, `model/worklist_model.py`, `model/worklist_profile.py`)
+### Library work list (`model/worklist*.py`)
 
-Tools > **Library Work List**: a top-level `QMainWindow` over the library-sync discovery index
-(`pipeline/library/index.py`) -- the pipeline strip with a count per kind of work, a searchable table of every title and
-what it needs next, a Rescan that lists the sources again on a `QRunnable`. It is the **intended replacement for
-`LibrarySyncDialog`** (`model/library_sync.py`, still there and working until chunk 27c) and is **read-only for now**:
-it runs, accepts, publishes and commits nothing until chunk 26b. Everything it shows is read from the index rows, not
-derived again. Until the settings editor (26c) it builds its profile from the Library Sync preferences
-(`worklist_profile.load_setup`), or reads the file named by `LIBRARY_PROFILE_PATH`. The plan is
-`design/library-sync-pipeline-plan.md` (chunk table, §8) and `design/library-sync/workflow-rework/`. Tests:
-`src/test/python/gui/test_worklist_*.py`, over a fixture index (`gui/worklist_fixture.py`).
+Tools > **Library Work List** (the primary library entry; the old dialog is "Library Sync (classic dialog)" until
+chunk 27c deletes it): a top-level `QMainWindow` over the library-sync discovery index (`pipeline/library/index.py`) --
+the pipeline strip with a count per kind of work, a searchable table of every title and what it needs next, a Rescan
+that lists the sources again on a `QRunnable`, and (chunk 26b) the actions. Everything it shows is read from the index
+rows, not derived again. Files: `worklist.py` (`WorkListWindow`: widgets, filters, scan), `worklist_actions.py`
+(`WorkListActions` mixin: selection, the action/Publish/Commit/Retry buttons, following a run, the failures panel and the
+*Last run* tab), `worklist_run.py` (`RunJob`, a `QRunnable` around `pipeline.library.stages.run_stages` with its own index
+connection and a cooperative cancel; the words a run is described in), `worklist_confirm.py` (the confirmations that name
+the repositories), `worklist_model.py` (table model/proxy; `set_running()` is the running-row marker),
+`worklist_profile.py`. The buttons work on the selected rows, or on everything the filters list if none is selected;
+nothing is ever accepted here (reviewing is the title page, chunk 27). Until the settings editor (26c) the profile is built
+from the Library Sync preferences (`worklist_profile.load_setup`), or read from the file named by `LIBRARY_PROFILE_PATH`.
+The plan is `design/library-sync-pipeline-plan.md` (chunk table, §8) and `design/library-sync/workflow-rework/`. Tests:
+`src/test/python/gui/test_worklist_*.py`, over a fixture index (`gui/worklist_fixture.py`) and a fake `run_stages`.
 
 ### Analysis (`model/analysis.py`)
 

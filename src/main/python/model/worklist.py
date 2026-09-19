@@ -4,7 +4,8 @@ The library work list -- design/library-sync/workflow-rework/design.md §12.10, 
 A top-level window over the discovery index (`pipeline.library.index.LibraryIndex`): the pipeline strip with a count per
 kind of work, a searchable, filterable table of every title in the library and what it needs next, and a Rescan that
 lists the sources again. It is the intended replacement for `model.library_sync.LibrarySyncDialog`, which stays
-untouched and working until chunk 27c; **this window does not run, accept, publish or commit anything yet** (chunk 26b).
+untouched and working until chunk 27c. Chunk 26a made it read-only; chunk 26b (below) gives it actions, but **it accepts
+nothing**: reviewing is a person's job (the title page, chunk 27).
 
 What the window reads and where it does not think for itself:
 
@@ -15,6 +16,19 @@ What the window reads and where it does not think for itself:
 * the strip's chips are `pipeline.library.selection.CHIPS`, and `current_selection()` is the `Selection` the filters
   amount to, which chunk 26b's action button hands to `plan_stages()`/`run_stages()`.
 
+Actions (chunk 26b; `model.worklist_run` and `model.worklist_confirm` hold what is not a widget):
+
+* the rows selected (or, with none selected, everything the filters list) are what the buttons work on;
+* **the action button** is "run through design": `plan_stages()` says what it would do and its label says how many
+  titles and what it leaves out; **Publish** and **Commit** are their own buttons, each behind a confirmation that names
+  the repositories; **Retry failed** (the failures panel) runs the titles whose remembered failure would otherwise not be
+  tried again;
+* a run is a `RunJob` on the global thread pool, with a connection of its own to the index, that calls
+  `pipeline.library.stages.run_stages()`: progress is determinate, a row shows its stage while it is worked on, **Cancel**
+  is cooperative (the title in hand finishes; a cancelled run never commits), the pipeline refreshes the index when it
+  ends -- after a cancel or a failure too -- and the window then reads the index again (`refresh_from_index()`), keeping
+  the selection, and lists what happened to each title on the *Last run* tab.
+
 The cached index is shown at once (stale-while-revalidate). A rescan runs on a QRunnable in the global thread pool with its
 own index connection, so the UI thread never waits for a slow source; the window rescans by itself only when the
 index has never been scanned.
@@ -22,20 +36,23 @@ index has never been scanned.
 import html
 import logging
 import time
-from typing import Dict, List, Mapping, Optional
+from typing import Callable, Dict, List, Mapping, Optional
 
 from qtpy.QtCore import QItemSelectionModel, QObject, QRunnable, Qt, QThreadPool, Signal
 from qtpy.QtGui import QKeySequence, QShortcut
 from qtpy.QtWidgets import QAbstractItemView, QButtonGroup, QHeaderView, QMainWindow, QProgressBar
 
 from model.preferences import WORKLIST_GEOMETRY
+from model.worklist_actions import WorkListActions
 from model.worklist_model import ALL_CHIPS, CHIP_ALL, CHIP_DONE, COL_DETAIL, COL_NEEDS, COL_SOURCE, COL_TITLE, \
     COL_WAITING, COL_YEAR, ID_ROLE, WorkListModel, WorkListProxy, warning_colour
 from model.worklist_profile import ORIGIN_FILE, WorkListSetup, load_setup
+from model.worklist_run import FailedTitle, ResultLine, RunJob, failed_titles
 from pipeline.library.index import LibraryIndex, ScanResult, SourceRow, TitleRow
 from pipeline.library.profile import Profile
 from pipeline.library.selection import CHIP_NEW, Selection, selection_from_chip
 from pipeline.library.source import LibrarySource
+from pipeline.library.stages import run_stages
 from pipeline.library.state import NEEDS
 from pipeline.library.status import ScanSettings
 from ui.worklist import Ui_workListWindow
@@ -107,20 +124,20 @@ class _ScanJob(QRunnable):
                  sources: Optional[Mapping[str, LibrarySource]]):
         super().__init__()
         self.signals = _ScanSignals()
-        self.__path, self.__profile, self.__settings = path, profile, settings
-        self.__only, self.__sources = only, sources
+        self._path, self._profile, self._settings = path, profile, settings
+        self._only, self._sources = only, sources
 
     def run(self):
         try:
-            with LibraryIndex(self.__path) as index:
-                result = index.scan(self.__profile, self.__settings, only=self.__only, sources=self.__sources)
+            with LibraryIndex(self._path) as index:
+                result = index.scan(self._profile, self._settings, only=self._only, sources=self._sources)
             self.signals.finished.emit(result)
         except Exception as error:
             logger.exception('Library scan failed')
             self.signals.errored.emit(f'{type(error).__name__}: {error}')
 
 
-class WorkListWindow(QMainWindow, Ui_workListWindow):
+class WorkListWindow(WorkListActions, QMainWindow, Ui_workListWindow):
     '''
     :param parent: the main window, or None.
     :param preferences: `model.preferences.Preferences`; read again by reload().
@@ -128,43 +145,56 @@ class WorkListWindow(QMainWindow, Ui_workListWindow):
     :param sources: already-built sources by profile name, handed to the scan (tests); by default they are built from the
         profile's settings.
     :param clock: the time source, for "waiting" and "last scan" (tests).
+    :param run_stages_fn: what a run calls -- `run_stages` (tests hand in a fake with the same signature).
+    :param precheck: called with the `through` of an extract/design run before it starts; False refuses it (the app checks
+        that ffmpeg is installed).
     '''
     settings_requested = Signal()      # the empty state's button: the app opens Library Sync, where the setup lives for now
     scan_finished = Signal(object)     # a ScanResult, once the list shows it
     scan_failed = Signal(str)
+    run_started = Signal(object)       # the RunRequest
+    run_finished = Signal(object)      # the StagesReport, once the list shows the result (also after a cancel)
+    run_failed = Signal(str)           # the run raised
 
     def __init__(self, parent, preferences, *, auto_scan: bool = True,
-                 sources: Optional[Mapping[str, LibrarySource]] = None, clock=time.time):
+                 sources: Optional[Mapping[str, LibrarySource]] = None, clock=time.time,
+                 run_stages_fn: Callable = run_stages, precheck: Optional[Callable[[str], bool]] = None):
         super().__init__(parent)
         self.setupUi(self)
-        self.__preferences = preferences
-        self.__auto_scan = auto_scan
-        self.__sources = sources
-        self.__clock = clock
-        self.__setup: WorkListSetup = WorkListSetup(None, None, 'preferences')
-        self.__index: Optional[LibraryIndex] = None
-        self.__index_file: Optional[str] = None
-        self.__sources_seen: List[SourceRow] = []
-        self.__last_scan_at: Optional[float] = None
-        self.__generation = 0
-        self.__scanning = False
-        self.__active_job: Optional[_ScanJob] = None
-        self.__sort_column = -1
-        self.__sort_order = Qt.SortOrder.AscendingOrder
+        self._preferences = preferences
+        self._auto_scan = auto_scan
+        self._sources = sources
+        self._clock = clock
+        self._run_stages, self._precheck = run_stages_fn, precheck
+        self._job: Optional[RunJob] = None
+        self._run_context = None   # the run in flight (worklist_actions._RunContext)
+        self._failed: List[FailedTitle] = []
+        self._results: List[ResultLine] = []
+        self._setup: WorkListSetup = WorkListSetup(None, None, 'preferences')
+        self._index: Optional[LibraryIndex] = None
+        self._index_file: Optional[str] = None
+        self._sources_seen: List[SourceRow] = []
+        self._last_scan_at: Optional[float] = None
+        self._generation = 0
+        self._scanning = False
+        self._active_job: Optional[_ScanJob] = None
+        self._sort_column = -1
+        self._sort_order = Qt.SortOrder.AscendingOrder
 
-        self.__model = WorkListModel(self, clock)
-        self.__proxy = WorkListProxy(self)
-        self.__proxy.setSourceModel(self.__model)
-        self.__configure_table()
-        self.__configure_chips()
-        self.__progress = QProgressBar()
-        self.__progress.setRange(0, 0)
-        self.__progress.setMaximumWidth(140)
-        self.__progress.setVisible(False)
-        self.statusBar.addPermanentWidget(self.__progress)
+        self._model = WorkListModel(self, clock)
+        self._proxy = WorkListProxy(self)
+        self._proxy.setSourceModel(self._model)
+        self._configure_table()
+        self._configure_chips()
+        self._progress = QProgressBar()
+        self._progress.setRange(0, 0)
+        self._progress.setMaximumWidth(140)
+        self._progress.setVisible(False)
+        self.statusBar.addPermanentWidget(self._progress)
 
-        self.searchEdit.textChanged.connect(self.__on_search)
-        self.sourceCombo.currentIndexChanged.connect(self.__on_source)
+        self._configure_actions()
+        self.searchEdit.textChanged.connect(self._on_search)
+        self.sourceCombo.currentIndexChanged.connect(self._on_source)
         self.rescanButton.clicked.connect(lambda: self.rescan())
         self.openSettingsButton.clicked.connect(self.settings_requested.emit)
         QShortcut(QKeySequence('Ctrl+F'), self, activated=self.searchEdit.setFocus)
@@ -175,9 +205,9 @@ class WorkListWindow(QMainWindow, Ui_workListWindow):
 
     # --- construction ---------------------------------------------------------------------------------------------
 
-    def __configure_table(self):
+    def _configure_table(self):
         table = self.workTable
-        table.setModel(self.__proxy)
+        table.setModel(self._proxy)
         table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -199,20 +229,20 @@ class WorkListWindow(QMainWindow, Ui_workListWindow):
         header.setSectionsClickable(True)
         header.setSortIndicatorShown(True)
         header.setSortIndicator(-1, Qt.SortOrder.AscendingOrder)
-        header.sectionClicked.connect(self.__on_header_clicked)
-        self.__proxy.modelReset.connect(self.__refresh_view)
-        self.__proxy.layoutChanged.connect(self.__refresh_view)
+        header.sectionClicked.connect(self._on_header_clicked)
+        self._proxy.modelReset.connect(self._refresh_view)
+        self._proxy.layoutChanged.connect(self._refresh_view)
 
-    def __configure_chips(self):
-        self.__chip_buttons = {
+    def _configure_chips(self):
+        self._chip_buttons = {
             CHIP_ALL: self.allChip, 'Attention': self.attentionChip, CHIP_NEW: self.newChip,
             'Extract': self.extractChip, 'Design': self.designChip, 'Review': self.reviewChip,
             'Publish': self.publishChip, 'Commit': self.commitChip, CHIP_DONE: self.doneChip}
-        assert tuple(self.__chip_buttons) == ALL_CHIPS
-        self.__chip_group = QButtonGroup(self)
-        self.__chip_group.setExclusive(True)
-        for chip, button in self.__chip_buttons.items():
-            self.__chip_group.addButton(button)
+        assert tuple(self._chip_buttons) == ALL_CHIPS
+        self._chip_group = QButtonGroup(self)
+        self._chip_group.setExclusive(True)
+        for chip, button in self._chip_buttons.items():
+            self._chip_group.addButton(button)
             button.setToolTip(_CHIP_TIPS[chip])
             button.setStyleSheet(_CHIP_STYLE)
             sample = f'{chip} 0,000' + (' (hidden)' if chip == CHIP_DONE else '')
@@ -223,46 +253,46 @@ class WorkListWindow(QMainWindow, Ui_workListWindow):
 
     @property
     def setup(self) -> WorkListSetup:
-        return self.__setup
+        return self._setup
 
     @property
     def is_scanning(self) -> bool:
-        return self.__scanning
+        return self._scanning
 
     @property
     def chip(self) -> str:
-        return self.__proxy.chip
+        return self._proxy.chip
 
     @property
     def proxy(self) -> WorkListProxy:
-        return self.__proxy
+        return self._proxy
 
     @property
     def model(self) -> WorkListModel:
-        return self.__model
+        return self._model
 
     def chip_counts(self) -> Dict[str, int]:
         ''' The number on each chip, under the current source and search. '''
-        return self.__proxy.counts()
+        return self._proxy.counts()
 
     def listed_ids(self) -> List[str]:
         ''' The titles listed now, in the order shown. '''
-        return self.__proxy.ids()
+        return self._proxy.ids()
 
     def selected_ids(self) -> List[str]:
         ''' The selected rows' catalogue ids, in the order shown (chunk 26b's actions work on these). '''
         model = self.workTable.selectionModel()
         rows = sorted(index.row() for index in model.selectedRows()) if model else []
-        return [self.__proxy.id_at(row) for row in rows]
+        return [self._proxy.id_at(row) for row in rows]
 
     def select_ids(self, ids) -> None:
         ''' Selects the listed rows with these ids (those not listed are ignored). '''
         wanted = set(ids)
         selection = self.workTable.selectionModel()
         selection.clearSelection()
-        for row in range(self.__proxy.rowCount()):
-            if self.__proxy.index(row, 0).data(ID_ROLE) in wanted:
-                index = self.__proxy.index(row, 0)
+        for row in range(self._proxy.rowCount()):
+            if self._proxy.index(row, 0).data(ID_ROLE) in wanted:
+                index = self._proxy.index(row, 0)
                 selection.select(index, QItemSelectionModel.SelectionFlag.Select | QItemSelectionModel.SelectionFlag.Rows)
 
     def current_selection(self) -> Selection:
@@ -271,9 +301,9 @@ class WorkListWindow(QMainWindow, Ui_workListWindow):
         *All* (and *New*) leave Done out, as the table does; a chunk 26b action over "everything in the filter"
         passes this to `plan_stages()`.
         '''
-        source, match = self.__proxy.source_filter, self.__proxy.text or None
+        source, match = self._proxy.source_filter, self._proxy.text or None
         not_done = tuple(n for n in NEEDS if n != 'done')
-        chip = self.__proxy.chip
+        chip = self._proxy.chip
         if chip == CHIP_ALL:
             return Selection(needs=not_done, source=source, match=match)
         if chip == CHIP_NEW:
@@ -287,53 +317,63 @@ class WorkListWindow(QMainWindow, Ui_workListWindow):
         Reads the setup again and shows the cached index (no scan, unless it has never been scanned). Called on opening and
         whenever the window is shown again, since the preferences may have changed.
         '''
-        self.__setup = load_setup(self.__preferences)
-        self.__open_index(self.__setup.index_file)
-        self.__populate()
-        if self.__auto_scan and self.__setup.ready and self.__index is not None and self.__generation == 0:
+        self._setup = load_setup(self._preferences)
+        self._open_index(self._setup.index_file)
+        self.refresh_from_index()
+        if self._auto_scan and self._setup.ready and self._index is not None and self._generation == 0 \
+                and not self.is_running:
             self.rescan()
 
-    def __open_index(self, path: Optional[str]) -> None:
-        if path == self.__index_file and self.__index is not None:
+    def _open_index(self, path: Optional[str]) -> None:
+        if path == self._index_file and self._index is not None:
             return
-        self.__close_index()
-        self.__index_file = path
+        self._close_index()
+        self._index_file = path
         if path is None:
             return
         try:
-            self.__index = LibraryIndex(path)
+            self._index = LibraryIndex(path)
         except Exception:
             logger.exception('Could not open the index %s', path)
-            self.__index = None
+            self._index = None
 
-    def __close_index(self) -> None:
-        if self.__index is not None:
-            self.__index.close()
-        self.__index, self.__index_file = None, None
+    def _close_index(self) -> None:
+        if self._index is not None:
+            self._index.close()
+        self._index, self._index_file = None, None
 
-    def __populate(self) -> None:
-        ''' Replaces the rows with the index's, keeping the selection, the scroll position and the filters. '''
-        self.__open_index(self.__setup.index_file)  # closed by closeEvent, and a scan can finish after that
+    def refresh_from_index(self) -> None:
+        '''
+        Replaces the rows with what the index holds now, keeping the selection, the scroll position and the filters,
+        and updates the failures panel and the buttons. It reads the index; it does not scan a source or re-read any
+        title's outputs (a run does that itself when it ends, `LibraryIndex.refresh()`).
+        '''
+        self._open_index(self._setup.index_file)  # closed by closeEvent, and a scan can finish after that
         selected = self.selected_ids()
         scroll = self.workTable.verticalScrollBar().value()
         rows: List[TitleRow] = []
         sources: List[SourceRow] = []
+        failures: Mapping = {}
         last_scan, generation = None, 0
-        if self.__index is not None:
+        if self._index is not None:
             try:
-                summary = self.__index.summary()
-                rows, sources = self.__index.titles(), summary.sources
+                summary = self._index.summary()
+                rows, sources = self._index.titles(), summary.sources
                 last_scan, generation = summary.last_scan_at, summary.generation
+                failures = self._index.failures()
             except Exception:
-                logger.exception('Could not read the index %s', self.__index_file)
-        self.__sources_seen, self.__last_scan_at, self.__generation = sources, last_scan, generation
-        self.__populate_sources(sources)
-        self.__model.set_rows(rows)  # the proxy's modelReset refreshes the strip and the empty state
+                logger.exception('Could not read the index %s', self._index_file)
+        self._sources_seen, self._last_scan_at, self._generation = sources, last_scan, generation
+        self._populate_sources(sources)
+        self._model.set_rows(rows)  # the proxy's modelReset refreshes the strip and the empty state
         if selected:
             self.select_ids(selected)
         self.workTable.verticalScrollBar().setValue(scroll)
+        self._failed = failed_titles(rows, failures)
+        self._refresh_failures()
+        self._refresh_actions()
 
-    def __populate_sources(self, sources: List[SourceRow]) -> None:
+    def _populate_sources(self, sources: List[SourceRow]) -> None:
         wanted = self.sourceCombo.currentData()
         self.sourceCombo.blockSignals(True)
         self.sourceCombo.clear()
@@ -343,45 +383,45 @@ class WorkListWindow(QMainWindow, Ui_workListWindow):
         index = self.sourceCombo.findData(wanted)
         self.sourceCombo.setCurrentIndex(max(index, 0))
         self.sourceCombo.blockSignals(False)
-        self.__proxy.set_source(self.sourceCombo.currentData())
+        self._proxy.set_source(self.sourceCombo.currentData())
 
     # --- filters ----------------------------------------------------------------------------------------------------
 
     def set_chip(self, chip: str) -> None:
-        self.__chip_buttons[chip].setChecked(True)
-        self.__proxy.set_chip(chip)
-        self.__refresh_view()
+        self._chip_buttons[chip].setChecked(True)
+        self._proxy.set_chip(chip)
+        self._refresh_view()
 
-    def __on_search(self, text: str) -> None:
-        self.__proxy.set_text(text)
-        self.__refresh_view()
+    def _on_search(self, text: str) -> None:
+        self._proxy.set_text(text)
+        self._refresh_view()
 
-    def __on_source(self, _index: int) -> None:
-        self.__proxy.set_source(self.sourceCombo.currentData())
-        self.__refresh_view()
+    def _on_source(self, _index: int) -> None:
+        self._proxy.set_source(self.sourceCombo.currentData())
+        self._refresh_view()
 
-    def __on_header_clicked(self, column: int) -> None:
+    def _on_header_clicked(self, column: int) -> None:
         ''' Ascending, then descending, then back to the index's order (tier, oldest first). '''
-        if self.__sort_column != column:
-            self.__sort_column, self.__sort_order = column, Qt.SortOrder.AscendingOrder
-        elif self.__sort_order == Qt.SortOrder.AscendingOrder:
-            self.__sort_order = Qt.SortOrder.DescendingOrder
+        if self._sort_column != column:
+            self._sort_column, self._sort_order = column, Qt.SortOrder.AscendingOrder
+        elif self._sort_order == Qt.SortOrder.AscendingOrder:
+            self._sort_order = Qt.SortOrder.DescendingOrder
         else:
-            self.__sort_column, self.__sort_order = -1, Qt.SortOrder.AscendingOrder
-        self.workTable.horizontalHeader().setSortIndicator(self.__sort_column, self.__sort_order)
-        self.__proxy.sort_by(self.__sort_column, self.__sort_order)
+            self._sort_column, self._sort_order = -1, Qt.SortOrder.AscendingOrder
+        self.workTable.horizontalHeader().setSortIndicator(self._sort_column, self._sort_order)
+        self._proxy.sort_by(self._sort_column, self._sort_order)
 
     @property
     def sort_column(self) -> int:
         ''' The column the table is sorted by, or -1 for the index's order. '''
-        return self.__sort_column
+        return self._sort_column
 
     # --- what is shown ----------------------------------------------------------------------------------------------
 
-    def __refresh_view(self, *_) -> None:
+    def _refresh_view(self, *_) -> None:
         ''' The strip's numbers, the scan text, the source lines, the Rescan button and the empty state. '''
-        counts = self.__proxy.counts()
-        for chip, button in self.__chip_buttons.items():
+        counts = self._proxy.counts()
+        for chip, button in self._chip_buttons.items():
             text = f'{chip} {counts[chip]:,}'
             if chip == CHIP_DONE and not button.isChecked():
                 text += ' (hidden)'
@@ -389,29 +429,30 @@ class WorkListWindow(QMainWindow, Ui_workListWindow):
             font = button.font()
             font.setBold(chip == 'Attention' and counts[chip] > 0)
             button.setFont(font)
-        self.__refresh_scan_text()
-        self.__refresh_source_status()
-        self.__refresh_empty_state(counts)
+        self._refresh_scan_text()
+        self._refresh_source_status()
+        self._refresh_empty_state(counts)
+        self._refresh_actions()
 
-    def __refresh_scan_text(self) -> None:
-        if self.__scanning:
+    def _refresh_scan_text(self) -> None:
+        if self._scanning:
             self.lastScanLabel.setText('scanning...')
-        elif self.__last_scan_at:
-            self.lastScanLabel.setText(f'last scan {format_time(self.__last_scan_at, self.__clock())}')
+        elif self._last_scan_at:
+            self.lastScanLabel.setText(f'last scan {format_time(self._last_scan_at, self._clock())}')
         else:
             self.lastScanLabel.setText('never scanned')
-        problems = self.__setup.problems
-        self.rescanButton.setEnabled(self.__setup.ready and not self.__scanning)
-        self.rescanButton.setText('Scanning...' if self.__scanning else 'Rescan')
+        problems = self._setup.problems
+        self.rescanButton.setEnabled(self._setup.ready and not self._scanning and not self.is_running)
+        self.rescanButton.setText('Scanning...' if self._scanning else 'Rescan')
         self.rescanButton.setToolTip(
             'Cannot scan yet:\n' + '\n'.join(problems) if problems else
-            'The profile could not be read.' if self.__setup.error else
+            'The profile could not be read.' if self._setup.error else
             'List every library source again and update what each title needs. '
             'Nothing is extracted, designed or published.')
 
-    def __refresh_source_status(self) -> None:
-        lines = describe_sources(self.__sources_seen, self.__clock())
-        problems = list(self.__setup.problems) if self.__model.rowCount() else []  # else the empty state says it
+    def _refresh_source_status(self) -> None:
+        lines = describe_sources(self._sources_seen, self._clock())
+        problems = list(self._setup.problems) if self._model.rowCount() else []  # else the empty state says it
         if not (any(bad for _, bad in lines) or len(lines) > 1 or problems):
             self.sourceStatusLabel.setVisible(False)
             return
@@ -422,8 +463,8 @@ class WorkListWindow(QMainWindow, Ui_workListWindow):
         self.sourceStatusLabel.setText('<br>'.join(parts))
         self.sourceStatusLabel.setVisible(True)
 
-    def __refresh_empty_state(self, counts: Dict[str, int]) -> None:
-        setup, listed = self.__setup, self.__proxy.rowCount()
+    def _refresh_empty_state(self, counts: Dict[str, int]) -> None:
+        setup, listed = self._setup, self._proxy.rowCount()
         title, detail, settings = '', '', False
         if listed:
             self.contentStack.setCurrentWidget(self.tablePage)
@@ -431,24 +472,24 @@ class WorkListWindow(QMainWindow, Ui_workListWindow):
         if setup.error:
             title = 'The library profile could not be read'
             detail = f'{setup.path}\n{setup.error}'
-        elif setup.problems and not self.__model.rowCount():
+        elif setup.problems and not self._model.rowCount():
             title = 'The library is not set up yet'
             detail = '\n'.join(setup.problems) + '\n\nThe work list uses the same settings as Library Sync ' \
-                                                  '(Tools > Library Sync). Set them there, then reopen this window.'
+                                                  '(Tools > Library Sync (classic dialog)). Set them there, then reopen this window.'
             settings = setup.origin != ORIGIN_FILE
-        elif self.__scanning and not self.__model.rowCount():
+        elif self._scanning and not self._model.rowCount():
             title, detail = 'Scanning the library...', 'The titles appear when the scan finishes.'
-        elif self.__generation == 0 and not self.__model.rowCount():
+        elif self._generation == 0 and not self._model.rowCount():
             title, detail = 'The library has not been scanned yet', 'Press Rescan to list the library sources.'
-        elif not self.__model.rowCount():
+        elif not self._model.rowCount():
             title = 'The last scan found no titles'
             detail = 'Check the library source in Library Sync, or the folders or JRiver browse node it points to.'
-        elif self.__proxy.text or self.__proxy.source_filter:
+        elif self._proxy.text or self._proxy.source_filter:
             title, detail = 'Nothing matches', 'Clear the search box or choose All sources to see more.'
-        elif self.__proxy.chip == 'Attention':
+        elif self._proxy.chip == 'Attention':
             title = 'Nothing needs attention'
         else:
-            title = f'No titles in {self.__proxy.chip}'
+            title = f'No titles in {self._proxy.chip}'
         self.emptyTitleLabel.setText(f'<b>{html.escape(title)}</b>')
         self.emptyDetailLabel.setText(html.escape(detail).replace('\n', '<br>'))
         self.openSettingsButton.setVisible(settings)
@@ -462,41 +503,41 @@ class WorkListWindow(QMainWindow, Ui_workListWindow):
         :param only: rescan just these sources (by profile name).
         :return: False if nothing was started (a scan is running, or the setup is incomplete).
         '''
-        setup = self.__setup
-        if self.__scanning or not setup.ready or setup.index_file is None:
+        setup = self._setup
+        if self._scanning or self.is_running or not setup.ready or setup.index_file is None:
             return False
-        job = _ScanJob(setup.index_file, setup.profile, setup.settings, only, self.__sources)
-        job.signals.finished.connect(self.__on_scan_finished)
-        job.signals.errored.connect(self.__on_scan_failed)
-        self.__active_job = job
-        self.__set_scanning(True)
+        job = _ScanJob(setup.index_file, setup.profile, setup.settings, only, self._sources)
+        job.signals.finished.connect(self._on_scan_finished)
+        job.signals.errored.connect(self._on_scan_failed)
+        self._active_job = job
+        self._set_scanning(True)
         self.statusBar.showMessage('Scanning the library sources...')
         QThreadPool.globalInstance().start(job)
         return True
 
-    def __set_scanning(self, scanning: bool) -> None:
-        self.__scanning = scanning
-        self.__progress.setVisible(scanning)
-        self.__refresh_view()
+    def _set_scanning(self, scanning: bool) -> None:
+        self._scanning = scanning
+        self._progress.setVisible(scanning)
+        self._refresh_view()
 
-    def __on_scan_finished(self, result: ScanResult) -> None:
-        self.__active_job = None
-        self.__scanning = False
-        self.__progress.setVisible(False)
-        self.__populate()
+    def _on_scan_finished(self, result: ScanResult) -> None:
+        self._active_job = None
+        self._scanning = False
+        self._progress.setVisible(False)
+        self.refresh_from_index()
         message = f'Scan finished: {result.titles:,} titles, {len(result.new):,} new'
         if result.errors:
             message += f'; {len(result.errors)} source(s) could not be listed'
         self.statusBar.showMessage(message)
         self.scan_finished.emit(result)
 
-    def __on_scan_failed(self, message: str) -> None:
-        self.__active_job = None
-        self.__set_scanning(False)
+    def _on_scan_failed(self, message: str) -> None:
+        self._active_job = None
+        self._set_scanning(False)
         self.statusBar.showMessage(f'The scan failed: {message}')
         self.scan_failed.emit(message)
 
     def closeEvent(self, event) -> None:
-        self.__preferences.set(WORKLIST_GEOMETRY, self.saveGeometry())
-        self.__close_index()  # a scan in flight has its own connection; reload() reopens this one
+        self._preferences.set(WORKLIST_GEOMETRY, self.saveGeometry())
+        self._close_index()  # a scan in flight has its own connection; reload() reopens this one
         super().closeEvent(event)

@@ -944,12 +944,15 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
 
     def showWorkListWindow(self):
         '''
-        Show the library work list (model/worklist.py): what every title in the library needs next. Read-only for now,
-        so Library Sync stays the way to do the work. The one window is kept and shown again, re-reading the settings.
+        Show the library work list (model/worklist.py): what every title in the library needs next, and the actions that
+        extract, design, publish and commit them. This is the Tools menu's primary library entry; the original dialog is
+        the secondary "Library Sync (classic dialog)" entry until it is retired. The one window is kept and shown
+        again, re-reading the settings. Extracting needs ffmpeg, so a run that extracts checks for it first.
         '''
         from model.worklist import WorkListWindow
         if self.__work_list is None:
-            self.__work_list = WorkListWindow(self, self.preferences)
+            self.__work_list = WorkListWindow(self, self.preferences,
+                                              precheck=lambda _through: self.__check_ffmpeg_available())
             self.__work_list.settings_requested.connect(self.showLibrarySyncDialog)
         else:
             self.__work_list.reload()

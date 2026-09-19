@@ -31,9 +31,18 @@ ID_ROLE = Qt.ItemDataRole.UserRole + 2       # the catalogue id
 NEW_ROLE = Qt.ItemDataRole.UserRole + 3      # True for a title first seen by the latest scan
 TIER_ROLE = Qt.ItemDataRole.UserRole + 4
 SORT_ROLE = Qt.ItemDataRole.UserRole + 5     # what a column sorts by
+RUNNING_ROLE = Qt.ItemDataRole.UserRole + 6  # the stage being run for this title now (extract...), else ''
 
 _NEEDS_LABEL = {'attention': '! Attention', 'review': 'Review', 'extract': 'Extract', 'design': 'Design',
                 'publish': 'Publish', 'commit': 'Commit', 'done': 'Done'}
+
+
+_RUNNING_WORD = {'extract': 'Extracting', 'design': 'Designing', 'publish': 'Publishing', 'commit': 'Committing'}
+
+
+def running_text(stage: str) -> str:
+    ''' What the Needs column says of a title that is being worked on: "\u25b6 Designing...". '''
+    return f'\u25b6 {_RUNNING_WORD.get(stage, stage.capitalize())}...'
 
 
 def is_dark_palette() -> bool:
@@ -95,16 +104,36 @@ class WorkListModel(QAbstractTableModel):
         self.__rows: List[TitleRow] = []
         self.__clock = clock
         self.__now = clock()
+        self.__running: Dict[str, str] = {}   # title id -> the stage being run for it
+        self.__row_of: Dict[str, int] = {}
 
     def set_rows(self, rows: List[TitleRow]) -> None:
         self.beginResetModel()
         self.__rows = list(rows)
+        self.__row_of = {row.id: i for i, row in enumerate(self.__rows)}
         self.__now = self.__clock()
         self.endResetModel()
 
     @property
     def rows(self) -> List[TitleRow]:
         return self.__rows
+
+    def set_running(self, stages: Optional[Dict[str, str]] = None) -> None:
+        '''
+        Marks the titles being worked on right now ({title id: stage}), replacing the last marks: their Needs cell reads
+        "\u25b6 Designing..." and the row is tinted, until a later call clears them. An id that is not listed is ignored.
+        '''
+        stages = dict(stages or {})
+        changed = set(self.__running) | set(stages)
+        self.__running = stages
+        for title_id in changed:
+            row = self.__row_of.get(title_id)
+            if row is not None:
+                self.dataChanged.emit(self.index(row, 0), self.index(row, len(COLUMNS) - 1))
+
+    @property
+    def running(self) -> Dict[str, str]:
+        return dict(self.__running)
 
     def row_at(self, row: int) -> TitleRow:
         return self.__rows[row]
@@ -137,7 +166,10 @@ class WorkListModel(QAbstractTableModel):
         if not index.isValid():
             return None
         row, column = self.__rows[index.row()], index.column()
+        running = self.__running.get(row.id, '')
         if role == Qt.ItemDataRole.DisplayRole:
+            if column == COL_NEEDS and running:
+                return running_text(running)
             if column == COL_TITLE:
                 return title_text(row)
             if column == COL_YEAR:
@@ -160,20 +192,24 @@ class WorkListModel(QAbstractTableModel):
             return row.is_new
         if role == TIER_ROLE:
             return row.tier
+        if role == RUNNING_ROLE:
+            return running
         if role == SORT_ROLE:
             return self.__sort_key(row, column)
-        if role == Qt.ItemDataRole.BackgroundRole and row.is_new:
+        if role == Qt.ItemDataRole.BackgroundRole and (running or row.is_new):
             colour = QGuiApplication.palette().color(QPalette.ColorRole.Highlight)
-            colour.setAlpha(55)
+            colour.setAlpha(110 if running else 55)   # a title being worked on is the stronger of the two
             return QBrush(colour)
         if role == Qt.ItemDataRole.ForegroundRole:
+            if running:
+                return QBrush(QGuiApplication.palette().color(QPalette.ColorRole.Text))
             if row.tier == 'attention' and column in (COL_NEEDS, COL_DETAIL):
                 return QBrush(warning_colour())
             if row.tier == 'done':
                 dimmed = QGuiApplication.palette().color(QPalette.ColorRole.Text)
                 dimmed.setAlpha(150)  # the text colour, softened: legible on a light or a dark theme
                 return QBrush(dimmed)
-        if role == Qt.ItemDataRole.FontRole and column == COL_NEEDS and row.tier == 'attention':
+        if role == Qt.ItemDataRole.FontRole and column == COL_NEEDS and (running or row.tier == 'attention'):
             font = QGuiApplication.font()
             font.setBold(True)
             return font

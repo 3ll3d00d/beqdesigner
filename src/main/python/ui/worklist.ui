@@ -33,6 +33,9 @@
     </item>
     <item><widget class="QLabel" name="sourceStatusLabel"><property name="wordWrap"><bool>true</bool></property><property name="textFormat"><enum>Qt::RichText</enum></property><property name="text"><string/></property></widget></item>
     <item>
+     <widget class="QSplitter" name="bodySplitter">
+      <property name="orientation"><enum>Qt::Vertical</enum></property>
+      <property name="childrenCollapsible"><bool>false</bool></property>
      <widget class="QStackedWidget" name="contentStack">
       <widget class="QWidget" name="tablePage">
        <layout class="QVBoxLayout" name="tableLayout">
@@ -59,7 +62,56 @@
        </layout>
       </widget>
      </widget>
+      <widget class="QTabWidget" name="detailsTabs">
+      <property name="minimumSize"><size><width>0</width><height>110</height></size></property>
+      <property name="currentIndex"><number>0</number></property>
+      <widget class="QWidget" name="failuresTab">
+       <attribute name="title"><string>Failures</string></attribute>
+       <layout class="QVBoxLayout" name="failuresLayout">
+        <item><widget class="QTableWidget" name="failuresTable"/></item>
+        <item>
+         <layout class="QHBoxLayout" name="failuresButtonLayout">
+          <item><widget class="QLabel" name="failuresHintLabel"><property name="wordWrap"><bool>true</bool></property><property name="text"><string>Not tried again until its source or the settings change. Retry failed runs it anyway.</string></property></widget></item>
+          <item><spacer name="failuresSpacer"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
+          <item><widget class="QPushButton" name="retryButton"><property name="text"><string>Retry failed</string></property></widget></item>
+         </layout>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="resultsTab">
+       <attribute name="title"><string>Last run</string></attribute>
+       <layout class="QVBoxLayout" name="resultsLayout">
+        <item><widget class="QTableWidget" name="resultsTable"/></item>
+       </layout>
+      </widget>
+     </widget>
+     </widget>
     </item>
+    <item>
+     <widget class="QWidget" name="runPanel">
+      <layout class="QHBoxLayout" name="runLayout">
+       <property name="leftMargin"><number>0</number></property>
+       <property name="topMargin"><number>0</number></property>
+       <property name="rightMargin"><number>0</number></property>
+       <property name="bottomMargin"><number>0</number></property>
+       <item><widget class="QProgressBar" name="runProgress"><property name="minimumSize"><size><width>220</width><height>0</height></size></property><property name="maximumSize"><size><width>320</width><height>16777215</height></size></property><property name="value"><number>0</number></property></widget></item>
+       <item><widget class="QLabel" name="runStatusLabel"><property name="wordWrap"><bool>true</bool></property><property name="textFormat"><enum>Qt::PlainText</enum></property><property name="text"><string/></property></widget></item>
+       <item><widget class="QPushButton" name="cancelButton"><property name="toolTip"><string>Stop after the title being worked on. Nothing is committed by a cancelled run.</string></property><property name="text"><string>Cancel</string></property></widget></item>
+      </layout>
+     </widget>
+    </item>
+    <item>
+     <layout class="QHBoxLayout" name="actionLayout">
+      <item><widget class="QLabel" name="selectionLabel"><property name="text"><string/></property></widget></item>
+      <item><widget class="QPushButton" name="selectAllButton"><property name="toolTip"><string>Select every title the current view lists (pick a strip chip first to select one kind of work)</string></property><property name="text"><string>Select all</string></property></widget></item>
+      <item><widget class="QPushButton" name="clearSelectionButton"><property name="text"><string>Clear</string></property></widget></item>
+      <item><spacer name="actionSpacer"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
+      <item><widget class="QPushButton" name="publishButton"><property name="text"><string>Publish</string></property></widget></item>
+      <item><widget class="QPushButton" name="commitButton"><property name="text"><string>Commit</string></property></widget></item>
+      <item><widget class="QPushButton" name="runButton"><property name="default"><bool>false</bool></property><property name="text"><string>Extract &amp; design</string></property></widget></item>
+     </layout>
+    </item>
+    <item><widget class="QLabel" name="skippedLabel"><property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property><property name="wordWrap"><bool>true</bool></property><property name="text"><string/></property></widget></item>
    </layout>
   </widget>
   <widget class="QStatusBar" name="statusBar"/>
