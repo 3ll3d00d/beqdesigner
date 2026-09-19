@@ -226,6 +226,24 @@ renders the notes.
   `graphviz` (JRiver filter pipeline rendering), `minidsp-rs` (pushing to a
   connected minidsp). All are degraded-gracefully, not hard dependencies.
 
+## Working from a plan
+
+Multi-commit work is tracked in a plan document under `design/` (for example
+`design/library-sync-pipeline-plan.md`). Keep it accurate as you go:
+
+- **After every commit, update the active plan with the new status** --
+  before starting the next piece of work. Mark the chunk or item done with
+  the commit hash, and record anything the commit changed about the design
+  (a deviation, a newly found gap, a follow-up). If the plan lists the item
+  as an open gap, remove or reword it.
+- Put the plan update **in the same commit** when you can (amend before
+  pushing); otherwise make it a separate commit straight after. Never leave
+  a commit whose effect the plan still describes as unbuilt.
+- The plan is descriptive of the code at `HEAD`, not aspirational: when the
+  code and the plan disagree, verify against the code and correct the plan.
+- If a task isn't covered by a plan, there is nothing to update -- don't
+  create one just for a small fix.
+
 ## Testing
 
 ```sh
