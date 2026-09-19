@@ -8,7 +8,7 @@ import hashlib
 import json
 import os
 import time
-from typing import Tuple
+from typing import Optional, Tuple
 
 from pipeline.config import AnalysisConfig
 from pipeline.library.source import LibraryItem
@@ -53,6 +53,14 @@ def read_channel_layout_name(target_dir: str) -> str:
     return _read_manifest(target_dir).get('channel_layout_name', 'unknown')
 
 
+def read_source_channel_count(target_dir: str) -> Optional[int]:
+    '''
+    Return the source's channel count as recorded by the last extraction, or None if it was never recorded
+    (an extraction that predates this key, or a probe that couldn't tell). None means "unknown", not "mono".
+    '''
+    return _read_manifest(target_dir).get('source_channel_count') or None
+
+
 def extract_if_needed(session: Session, item: LibraryItem, target_dir: str, config: AnalysisConfig,
                       mono_mix: bool, force: bool = False) -> Tuple[str, bool]:
     '''
@@ -81,6 +89,8 @@ def extract_if_needed(session: Session, item: LibraryItem, target_dir: str, conf
     manifest[f"{prefix}_source_fingerprint"] = fingerprint
     manifest[f"{prefix}_params_hash"] = params_hash
     manifest[f"{prefix}_extracted_at"] = time.time()
+    if result.channel_count:
+        manifest['source_channel_count'] = result.channel_count  # describes the source, whichever mode ran
     if not mono_mix:
         # flat top-level key -- pipeline.review._read_channel_layout_name() (chunk 2, already shipped)
         # reads exactly this key, not a nested one; do not change this without also revisiting that code.

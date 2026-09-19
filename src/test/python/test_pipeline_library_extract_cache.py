@@ -13,7 +13,7 @@ import numpy as np
 import pytest
 
 from pipeline.config import AnalysisConfig
-from pipeline.library.extract_cache import extract_if_needed
+from pipeline.library.extract_cache import extract_if_needed, read_source_channel_count
 from pipeline.library.source import LibraryItem
 from pipeline.orchestrate import Session
 
@@ -246,3 +246,22 @@ def test_pipeline_library_extract_cache_module_has_no_qtpy_import():
             assert not any(n.name.startswith('qtpy') for n in node.names)
         elif isinstance(node, ast.ImportFrom):
             assert node.module is None or not node.module.startswith('qtpy')
+
+
+def test_extract_if_needed_records_the_source_channel_count_from_either_extraction(tmp_path):
+    source = str(tmp_path / 'source.wav')
+    _write_synthetic_wav(source, channel_values=(1000, 2000, 3000, 4000, 5000, 6000))
+    session = Session(AnalysisConfig())
+    config = AnalysisConfig()
+
+    mono_dir = str(tmp_path / 'mono_only')
+    extract_if_needed(session, _mono_item(source), mono_dir, config, mono_mix=True)
+    assert read_source_channel_count(mono_dir) == 6
+
+    kept_dir = str(tmp_path / 'kept_only')
+    extract_if_needed(session, _mono_item(source), kept_dir, config, mono_mix=False)
+    assert read_source_channel_count(kept_dir) == 6
+
+
+def test_read_source_channel_count_is_none_when_never_recorded(tmp_path):
+    assert read_source_channel_count(str(tmp_path / 'missing')) is None

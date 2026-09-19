@@ -9,7 +9,8 @@ import requests
 from pipeline.config import AnalysisConfig
 from pipeline.designer.contract import Coverage
 from pipeline.library.design_cache import design_if_needed
-from pipeline.library.extract_cache import extract_if_needed, read_channel_layout_name
+from pipeline.library.extract_cache import extract_if_needed, read_channel_layout_name, \
+    read_source_channel_count
 from pipeline.library.library_metadata import resolve_meta
 from pipeline.library.source import LibraryItem, LibrarySource
 from pipeline.orchestrate import Session
@@ -81,7 +82,9 @@ def run_library(source: LibrarySource, run_config: LibraryRunConfig,
             channels = None
             extraction_cached = mono_cached
 
-            if run_config.keep_multichannel:
+            # a source known to be mono has nothing to keep, so skip the second (full-length) ffmpeg pass; an
+            # unknown channel count still extracts, and load_channels() below decides
+            if run_config.keep_multichannel and read_source_channel_count(item_dir) != 1:
                 kept_path, kept_cached = extract_if_needed(
                     session, item, item_dir, run_config.config, mono_mix=False, force=run_config.force_extract)
                 extraction_cached = mono_cached and kept_cached

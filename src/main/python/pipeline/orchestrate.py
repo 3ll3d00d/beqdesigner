@@ -130,6 +130,7 @@ class ExtractResult:
     wav_path: str
     channel_layout_name: str  # model.ffmpeg's CHANNEL_LAYOUTS key, e.g. '5.1', or 'unknown'/a generic
                               # "<n> channels" string when ffmpeg's probe couldn't name it more precisely
+    channel_count: int = 0    # the source stream's channel count; 0 if the probe couldn't determine it
 
 
 class _ConfigPreferences:
@@ -195,7 +196,8 @@ class Session:
             raise ValueError(f"{src} has no audio stream to extract")
         executor.update_spec(audio_stream, video_stream, mono_mix)
         executor.run_sync()
-        return ExtractResult(wav_path=executor.get_output_path(), channel_layout_name=executor.channel_layout_name)
+        return ExtractResult(wav_path=executor.get_output_path(), channel_layout_name=executor.channel_layout_name,
+                             channel_count=executor.channel_count)
 
     def extract(self, src: str, target_dir: str, audio_stream: int = 0, video_stream: int = -1,
                mono_mix: bool = True, decimate: bool = True, playlist_name: Optional[str] = None) -> str:

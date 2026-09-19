@@ -145,6 +145,41 @@ def test_run_library_degrades_to_library_metadata_when_tmdb_fails(tmp_path, monk
     assert report.meta_unresolved == [('one', 'HTTPError: 401 Unauthorized')]
 
 
+def _keep_multichannel_run(tmp_path, monkeypatch, channel_count):
+    monkeypatch.setattr('pipeline.library.run.Session', lambda config: _Session())
+    extract_calls = []
+
+    def extract(session, item, item_dir, config, mono_mix, force):
+        extract_calls.append(mono_mix)
+        return f'{item_dir}/{"mono" if mono_mix else "multichannel"}.wav', False
+
+    monkeypatch.setattr('pipeline.library.run.extract_if_needed', extract)
+    monkeypatch.setattr('pipeline.library.run.read_source_channel_count', lambda item_dir: channel_count)
+    monkeypatch.setattr('pipeline.library.run.read_channel_layout_name', lambda item_dir: '5.1')
+    monkeypatch.setattr('pipeline.library.run.design_if_needed',
+                        lambda *args, **kwargs: DesignCacheResult(
+                            QueueEntry(id='one', fs=1000, meta={}, curve={}), designed=True))
+    config = LibraryRunConfig(work_dir=str(tmp_path / 'work'), queue_dir=str(tmp_path / 'queue'), designer='test',
+                              keep_multichannel=True)
+    report = run_library(_Source([_item('one')]), config)
+    return extract_calls, report
+
+
+def test_run_library_skips_the_kept_extraction_for_a_known_mono_source(tmp_path, monkeypatch):
+    extract_calls, report = _keep_multichannel_run(tmp_path, monkeypatch, channel_count=1)
+
+    assert extract_calls == [True]
+    assert report.failed == []
+    assert report.designed == ['one']
+
+
+def test_run_library_still_keeps_multichannel_when_the_channel_count_is_unknown_or_greater_than_one(
+        tmp_path, monkeypatch):
+    for channel_count in (None, 2, 6):
+        extract_calls, _ = _keep_multichannel_run(tmp_path, monkeypatch, channel_count=channel_count)
+        assert extract_calls == [True, False]
+
+
 def test_sync_library_is_a_parameter_preserving_publish_call_through(monkeypatch):
     calls = []
     monkeypatch.setattr('pipeline.library.sync.publish_reviewed_queue',
