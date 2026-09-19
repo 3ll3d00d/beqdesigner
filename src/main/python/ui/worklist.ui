@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>workListWindow</class>
+ <widget class="QMainWindow" name="workListWindow">
+  <property name="windowTitle"><string>Library Work List</string></property>
+  <property name="minimumSize"><size><width>860</width><height>520</height></size></property>
+  <property name="geometry"><rect><x>0</x><y>0</y><width>1100</width><height>680</height></rect></property>
+  <widget class="QWidget" name="centralWidget">
+   <layout class="QVBoxLayout" name="mainLayout">
+    <item>
+     <layout class="QHBoxLayout" name="stripLayout">
+      <property name="spacing"><number>4</number></property>
+      <item><widget class="QPushButton" name="allChip"><property name="text"><string>All</string></property><property name="checkable"><bool>true</bool></property><property name="checked"><bool>true</bool></property></widget></item>
+      <item><widget class="QPushButton" name="attentionChip"><property name="text"><string>Attention</string></property><property name="checkable"><bool>true</bool></property></widget></item>
+      <item><widget class="QPushButton" name="newChip"><property name="text"><string>New</string></property><property name="checkable"><bool>true</bool></property></widget></item>
+      <item><widget class="QPushButton" name="extractChip"><property name="text"><string>Extract</string></property><property name="checkable"><bool>true</bool></property></widget></item>
+      <item><widget class="QPushButton" name="designChip"><property name="text"><string>Design</string></property><property name="checkable"><bool>true</bool></property></widget></item>
+      <item><widget class="QPushButton" name="reviewChip"><property name="text"><string>Review</string></property><property name="checkable"><bool>true</bool></property></widget></item>
+      <item><widget class="QPushButton" name="publishChip"><property name="text"><string>Publish</string></property><property name="checkable"><bool>true</bool></property></widget></item>
+      <item><widget class="QPushButton" name="commitChip"><property name="text"><string>Commit</string></property><property name="checkable"><bool>true</bool></property></widget></item>
+      <item><widget class="QPushButton" name="doneChip"><property name="text"><string>Done</string></property><property name="checkable"><bool>true</bool></property></widget></item>
+      <item><spacer name="stripSpacer"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
+     </layout>
+    </item>
+    <item>
+     <layout class="QHBoxLayout" name="filterLayout">
+      <item><widget class="QLineEdit" name="searchEdit"><property name="placeholderText"><string>Search title, id or path...</string></property><property name="clearButtonEnabled"><bool>true</bool></property><property name="minimumSize"><size><width>240</width><height>0</height></size></property></widget></item>
+      <item><widget class="QComboBox" name="sourceCombo"><property name="toolTip"><string>Show only the titles one library source owns</string></property><property name="minimumContentsLength"><number>14</number></property></widget></item>
+      <item><spacer name="filterSpacer"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
+      <item><widget class="QLabel" name="lastScanLabel"><property name="text"><string>never scanned</string></property></widget></item>
+      <item><widget class="QPushButton" name="rescanButton"><property name="toolTip"><string>List every library source again and update what each title needs. Nothing is extracted, designed or published.</string></property><property name="text"><string>Rescan</string></property></widget></item>
+     </layout>
+    </item>
+    <item><widget class="QLabel" name="sourceStatusLabel"><property name="wordWrap"><bool>true</bool></property><property name="textFormat"><enum>Qt::RichText</enum></property><property name="text"><string/></property></widget></item>
+    <item>
+     <widget class="QStackedWidget" name="contentStack">
+      <widget class="QWidget" name="tablePage">
+       <layout class="QVBoxLayout" name="tableLayout">
+        <property name="leftMargin"><number>0</number></property>
+        <property name="topMargin"><number>0</number></property>
+        <property name="rightMargin"><number>0</number></property>
+        <property name="bottomMargin"><number>0</number></property>
+        <item><widget class="QTableView" name="workTable"/></item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="emptyPage">
+       <layout class="QVBoxLayout" name="emptyLayout">
+        <item><spacer name="emptySpacerTop"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property></spacer></item>
+        <item><widget class="QLabel" name="emptyTitleLabel"><property name="alignment"><set>Qt::AlignCenter</set></property><property name="text"><string/></property></widget></item>
+        <item><widget class="QLabel" name="emptyDetailLabel"><property name="alignment"><set>Qt::AlignCenter</set></property><property name="wordWrap"><bool>true</bool></property><property name="text"><string/></property></widget></item>
+        <item>
+         <layout class="QHBoxLayout" name="emptyButtonLayout">
+          <item><spacer name="emptyButtonSpacerLeft"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
+          <item><widget class="QPushButton" name="openSettingsButton"><property name="text"><string>Open Library Sync settings...</string></property></widget></item>
+          <item><spacer name="emptyButtonSpacerRight"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
+         </layout>
+        </item>
+        <item><spacer name="emptySpacerBottom"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>40</height></size></property></spacer></item>
+       </layout>
+      </widget>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+  <widget class="QStatusBar" name="statusBar"/>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

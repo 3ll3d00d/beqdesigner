@@ -158,6 +158,18 @@ Three entry points share this machinery:
   (`pipeline.review.design_and_queue()`) and reviews the results on an
   embedded tab -- see `pipeline/README.md`'s "Batch design + review".
 
+### Library work list (`model/worklist.py`, `model/worklist_model.py`, `model/worklist_profile.py`)
+
+Tools > **Library Work List**: a top-level `QMainWindow` over the library-sync discovery index
+(`pipeline/library/index.py`) -- the pipeline strip with a count per kind of work, a searchable table of every title and
+what it needs next, a Rescan that lists the sources again on a `QRunnable`. It is the **intended replacement for
+`LibrarySyncDialog`** (`model/library_sync.py`, still there and working until chunk 27c) and is **read-only for now**:
+it runs, accepts, publishes and commits nothing until chunk 26b. Everything it shows is read from the index rows, not
+derived again. Until the settings editor (26c) it builds its profile from the Library Sync preferences
+(`worklist_profile.load_setup`), or reads the file named by `LIBRARY_PROFILE_PATH`. The plan is
+`design/library-sync-pipeline-plan.md` (chunk table, §8) and `design/library-sync/workflow-rework/`. Tests:
+`src/test/python/gui/test_worklist_*.py`, over a fixture index (`gui/worklist_fixture.py`).
+
 ### Analysis (`model/analysis.py`)
 
 Standalone spectrum/waveform analyser over a wav: `MaxSpectrumByTime`

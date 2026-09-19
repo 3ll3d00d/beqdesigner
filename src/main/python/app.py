@@ -82,6 +82,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.logger = logging.getLogger('beqdesigner')
         self.app = app
         self.preferences = prefs
+        self.__work_list = None
         from model.preferences import register_configured_designers
         register_configured_designers(self.preferences)
         if getattr(sys, 'frozen', False):
@@ -261,6 +262,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.action_Remux_Audio.triggered.connect(self.showRemuxAudioDialog)
         self.action_Batch_Extract.triggered.connect(self.showBatchExtractDialog)
         self.action_Library_Sync.triggered.connect(self.showLibrarySyncDialog)
+        self.action_Work_List.triggered.connect(self.showWorkListWindow)
         # analysis
         self.actionAnalyse_Audio.triggered.connect(self.showAnalyseAudioDialog)
         self.action_Review_Batch_Designs.triggered.connect(self.showReviewQueueDialog)
@@ -939,6 +941,21 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
             return
         from model.library_sync import LibrarySyncDialog
         LibrarySyncDialog(self, self.preferences).show()
+
+    def showWorkListWindow(self):
+        '''
+        Show the library work list (model/worklist.py): what every title in the library needs next. Read-only for now,
+        so Library Sync stays the way to do the work. The one window is kept and shown again, re-reading the settings.
+        '''
+        from model.worklist import WorkListWindow
+        if self.__work_list is None:
+            self.__work_list = WorkListWindow(self, self.preferences)
+            self.__work_list.settings_requested.connect(self.showLibrarySyncDialog)
+        else:
+            self.__work_list.reload()
+        self.__work_list.show()
+        self.__work_list.raise_()
+        self.__work_list.activateWindow()
 
     def __check_ffmpeg_available(self):
         '''

@@ -91,6 +91,8 @@ LIBRARY_SOURCE_DEFAULT = 'library/source'
 LIBRARY_TV_MODE = 'library/tv_mode'
 LIBRARY_FILESYSTEM_GLOBS = 'library/filesystem_globs'
 LIBRARY_JRIVER_CONNECTION = 'library/jriver_connection'
+LIBRARY_PROFILE_PATH = 'library/profile_path'
+WORKLIST_GEOMETRY = 'library/worklist_geometry'
 
 # distinguishes preference-configured designers from ad-hoc/in-process ones (e.g. registered by a test or a
 # script), so re-registering on every startup or Preferences-save replaces cleanly rather than accumulating
@@ -260,6 +262,7 @@ DEFAULT_PREFS = {
     LIBRARY_TV_MODE: 'episode',
     LIBRARY_FILESYSTEM_GLOBS: [],
     LIBRARY_JRIVER_CONNECTION: '',
+    LIBRARY_PROFILE_PATH: '',
     ANALYSIS_RESOLUTION: ANALYSIS_RESOLUTION_DEFAULT,
     ANALYSIS_TARGET_FS: 1000,
     ANALYSIS_AVG_WINDOW: ANALYSIS_WINDOW_DEFAULT,

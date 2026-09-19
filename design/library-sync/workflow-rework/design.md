@@ -2,11 +2,11 @@
 
 > Part of the library sync plan -- **start at the index**: [`../../library-sync-pipeline-plan.md`](../../library-sync-pipeline-plan.md).
 > Contains §12 (§12.1-§12.12, §12.14-§12.15). Section numbers are global across the plan; the index maps every `§` to its file.
-> Status of what this file describes: **design agreed 2026-09-19**; the backend (§12.4-§12.9 and §12.11: profile, discovery, states, publish/commit, revise, stage entry points, bulk accept) is **built through chunk 25**, the work list and title page (§12.10) are **not built**; supersedes §7
+> Status of what this file describes: **design agreed 2026-09-19**; the backend (§12.4-§12.9 and §12.11: profile, discovery, states, publish/commit, revise, stage entry points, bulk accept) is **built through chunk 25**, the read-only work list window (§12.10, chunk 26a) is built; its actions, settings and the title page are **not built**; supersedes §7
 
 ## 12. Workflow, discovery and a work-list UI (designed 2026-09-19; backend built, UI **not built**)
 
-Status: **the backend is built (chunks 19-25, see the chunk table in the index); §12.10's window and title page are design only**; §12.13 is the build order.
+Status: **the backend is built (chunks 19-25, see the chunk table in the index); §12.10's work list is built read-only (26a), the rest of §12.10 (actions, settings, title page) is design only**; §12.13 is the build order.
 Every open decision raised while designing it was settled with the user on 2026-09-19 and is
 recorded in §12.12. This section **supersedes §7's "as built" GUI** (Run tab + Review tab) and
 absorbs T9 and T10 of §10.
