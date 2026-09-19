@@ -255,6 +255,9 @@ class Ui_reviewQueueDialog(object):
         self.rejectButton = QtWidgets.QPushButton(parent=self.detailPane)
         self.rejectButton.setObjectName("rejectButton")
         self.actionButtonsLayout.addWidget(self.rejectButton)
+        self.reopenButton = QtWidgets.QPushButton(parent=self.detailPane)
+        self.reopenButton.setObjectName("reopenButton")
+        self.actionButtonsLayout.addWidget(self.reopenButton)
         self.detailLayout.addLayout(self.actionButtonsLayout)
         self.mainLayout.addWidget(self.mainSplitter)
         self.publishBarLayout = QtWidgets.QHBoxLayout()
@@ -313,5 +316,7 @@ class Ui_reviewQueueDialog(object):
         self.acceptButton.setText(_translate("reviewQueueDialog", "Accept (Enter)"))
         self.skipButton.setText(_translate("reviewQueueDialog", "Skip (S)"))
         self.rejectButton.setText(_translate("reviewQueueDialog", "Reject (R)"))
+        self.reopenButton.setToolTip(_translate("reviewQueueDialog", "Move an accepted entry back to pending so it can be edited or decided again"))
+        self.reopenButton.setText(_translate("reviewQueueDialog", "Reopen"))
         self.publishButton.setText(_translate("reviewQueueDialog", "Publish accepted"))
 from mpl import MplWidget

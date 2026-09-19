@@ -140,7 +140,7 @@ def test_run_library_degrades_to_library_metadata_when_tmdb_fails(tmp_path, monk
 
     report, seen = _run_with_meta(tmp_path, monkeypatch, failing)
 
-    assert seen == [{'season': '2'}]
+    assert seen == [{'title': 'one', 'season': '2'}]
     assert report.failed == []
     assert report.meta_unresolved == [('one', 'HTTPError: 401 Unauthorized')]
 
@@ -342,7 +342,7 @@ def test_season_mode_does_not_keep_multichannel(tmp_path, monkeypatch):
 def test_season_mode_needs_no_tmdb_key_to_mark_the_episodes(tmp_path, monkeypatch):
     _, _, designs, _ = _season_run(tmp_path, monkeypatch, [_episode('Show', 1, e) for e in (2, 3)])
 
-    assert _resolved(designs[0]['meta']) == {'season': '1', 'episodes': [2, 3]}
+    assert _resolved(designs[0]['meta']) == {'title': 'Show', 'season': '1', 'episodes': [2, 3]}
 
 
 def test_the_season_keeps_one_stable_id_across_runs(tmp_path, monkeypatch):
@@ -356,3 +356,32 @@ def test_the_season_keeps_one_stable_id_across_runs(tmp_path, monkeypatch):
 def test_an_unknown_tv_mode_is_rejected_up_front():
     with pytest.raises(ValueError, match='tv_mode'):
         LibraryRunConfig(work_dir='/w', queue_dir='/q', designer='x', tv_mode='series')
+
+
+def test_run_library_names_the_entry_from_the_library_when_no_tmdb_key_is_configured(tmp_path, monkeypatch):
+    monkeypatch.setattr('pipeline.library.run.Session', lambda config: _Session())
+    monkeypatch.setattr('pipeline.library.run.extract_if_needed',
+                        lambda session, item, item_dir, config, mono_mix, force: (f'{item_dir}/mono.wav', True))
+    seen = []
+
+    def design(session, item, wav_path, designer, queue_dir, config, meta=None, **kwargs):
+        seen.append(meta() if callable(meta) else meta)
+        return DesignCacheResult(QueueEntry(id=item.id, fs=1000, meta={}, curve={}), designed=True)
+
+    monkeypatch.setattr('pipeline.library.run.design_if_needed', design)
+    titled = LibraryItem(id='jriver-3fa9c2-1234', source_path='/media/heat.mkv', display_name='Heat (1995)',
+                         title='Heat', year='1995', fingerprint='f1')
+    untitled = LibraryItem(id='jriver-3fa9c2-5678', source_path='/media/x.mkv', display_name='x.mkv', fingerprint='f2')
+    config = LibraryRunConfig(work_dir=str(tmp_path / 'work'), queue_dir=str(tmp_path / 'queue'), designer='test')
+
+    run_library(_Source([titled, untitled]), config)
+
+    assert seen == [{'title': 'Heat', 'year': '1995'}, {'title': 'x.mkv'}]
+
+
+def test_library_meta_carries_the_title_year_season_and_episodes():
+    from pipeline.library.library_metadata import library_meta
+    item = LibraryItem(id='a', source_path='/a.mkv', display_name='a', title='Show', year='2019', season='1',
+                       episodes=(2,))
+
+    assert library_meta(item) == {'title': 'Show', 'year': '2019', 'season': '1', 'episodes': [2]}

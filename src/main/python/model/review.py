@@ -16,7 +16,7 @@ import qtawesome as qta
 import requests
 from qtpy.QtCore import QAbstractTableModel, QModelIndex, QObject, QRunnable, Qt, QThreadPool, Signal
 from qtpy.QtGui import QKeySequence, QPixmap, QShortcut
-from qtpy.QtWidgets import QDialog, QFileDialog, QMessageBox, QStatusBar, QTableWidgetItem
+from qtpy.QtWidgets import QDialog, QFileDialog, QLineEdit, QMessageBox, QStatusBar, QTableWidgetItem
 
 from model.codec import filter_from_json, xydata_from_json
 from model.magnitude import MagnitudeModel
@@ -115,12 +115,13 @@ class ReviewQueueDialog(QDialog, Ui_reviewQueueDialog):
 
         self.browseQueueDirButton.setIcon(qta.icon('fa5s.folder-open'))
         self.browseQueueDirButton.clicked.connect(self.__browse_queue_dir)
-        self.refreshButton.clicked.connect(self.__reload_queue)
+        self.refreshButton.clicked.connect(lambda: self.__reload_queue(keep_current=True))
         self.queueTable.selectionModel().selectionChanged.connect(self.__on_row_selected)
         self.candidateList.currentRowChanged.connect(self.__on_candidate_picked)
         self.acceptButton.clicked.connect(self.__accept_current)
         self.skipButton.clicked.connect(self.__skip_current)
         self.rejectButton.clicked.connect(self.__reject_current)
+        self.reopenButton.clicked.connect(self.__reopen_current)
         self.publishButton.clicked.connect(self.__publish_accepted)
         self.saveMetadataButton.clicked.connect(self.__save_metadata)
         self.reloadTmdbButton.clicked.connect(self.__reload_tmdb)
@@ -128,6 +129,9 @@ class ReviewQueueDialog(QDialog, Ui_reviewQueueDialog):
         self.downloadArtButton.clicked.connect(self.__download_art)
         self.clearArtButton.clicked.connect(self.__clear_art)
         self.__pending_tmdb_extras = {}
+        self.__metadata_dirty = False
+        for field in self.metadataTab.findChildren(QLineEdit):
+            field.textEdited.connect(self.__mark_metadata_dirty)  # textEdited: a person typing, not setText()
 
         self.__magnitude_model = MagnitudeModel('review', self.previewChart, preferences, self.__get_chart_data,
                                                  'Filter', fill_primary=True)
@@ -148,8 +152,13 @@ class ReviewQueueDialog(QDialog, Ui_reviewQueueDialog):
         pass
 
     def __install_shortcuts(self):
-        QShortcut(QKeySequence(Qt.Key.Key_Return), self, activated=self.__accept_current)
-        QShortcut(QKeySequence(Qt.Key.Key_Enter), self, activated=self.__accept_current)
+        # Enter accepts only while the queue table or candidate list has focus. As a window-wide shortcut it also
+        # fired from inside a metadata text field, accepting the entry (design/library-sync-pipeline-plan.md §12.1).
+        # The letter and digit shortcuts below need no such scoping: a QLineEdit claims printable keys itself.
+        for widget in (self.queueTable, self.candidateList):
+            for key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                QShortcut(QKeySequence(key), widget, activated=self.__accept_current,
+                          context=Qt.ShortcutContext.WidgetShortcut)
         QShortcut(QKeySequence('A'), self, activated=self.__accept_current)
         QShortcut(QKeySequence('S'), self, activated=self.__skip_current)
         QShortcut(QKeySequence('R'), self, activated=self.__reject_current)
@@ -178,13 +187,19 @@ class ReviewQueueDialog(QDialog, Ui_reviewQueueDialog):
         self.__preferences.set(DESIGNER_QUEUE_DIR, queue_dir)
         self.__reload_queue()
 
-    def __reload_queue(self):
+    def __reload_queue(self, keep_current=False):
+        '''
+        :param keep_current: stay on the entry that is selected now if it is still in the queue, rather than jumping to
+            the first row -- what an edit to that entry (metadata, artwork, reopen) needs.
+        '''
         if self.__queue_dir is None:
             return
+        current = self.__current_entry() if keep_current else None
         entries = read_queue(self.__queue_dir)
         self.__table_model.set_entries(entries)
+        row = next((i for i, e in enumerate(entries) if current is not None and e.id == current.id), 0)
         if entries:
-            self.queueTable.selectRow(0)
+            self.queueTable.selectRow(row)
         else:
             self.__on_row_selected()
         self.statusBar.showMessage(
@@ -230,6 +245,7 @@ class ReviewQueueDialog(QDialog, Ui_reviewQueueDialog):
 
     def __load_metadata_form(self, entry):
         self.__pending_tmdb_extras = {}
+        self.__metadata_dirty = False
         meta = entry.meta if entry is not None else {}
         self.titleField.setText(meta.get('title', ''))
         self.altTitleField.setText(meta.get('alt_title', ''))
@@ -264,6 +280,9 @@ class ReviewQueueDialog(QDialog, Ui_reviewQueueDialog):
             self.artPreviewLabel.clear()
 
     # --- metadata / artwork editing -----------------------------------------
+
+    def __mark_metadata_dirty(self, *_):
+        self.__metadata_dirty = True
 
     def __save_metadata(self):
         entry = self.__current_entry()
@@ -304,8 +323,8 @@ class ReviewQueueDialog(QDialog, Ui_reviewQueueDialog):
             fields['collection'] = self.__pending_tmdb_extras['collection']
         merged = {**entry.meta, **fields}
         update_entry(self.__queue_dir, entry.id, meta=merged)
+        self.__reload_queue(keep_current=True)
         self.metadataStatusLabel.setText('Saved')
-        self.__reload_queue()
 
     def __reload_tmdb(self):
         from pipeline.metadata import tmdb_details_by_id, tmdb_lookup
@@ -327,6 +346,7 @@ class ReviewQueueDialog(QDialog, Ui_reviewQueueDialog):
             self.genresLabel.setText(', '.join(g.get('name', '') for g in meta.genres))
             self.__pending_tmdb_extras = {'poster': meta.poster, 'overview': meta.overview,
                                           'genres': meta.genres, 'collection': meta.collection}
+            self.__metadata_dirty = True
         except requests.HTTPError as e:
             QMessageBox.critical(self, 'TMDB lookup failed', str(e))
 
@@ -337,7 +357,7 @@ class ReviewQueueDialog(QDialog, Ui_reviewQueueDialog):
         path, _ = QFileDialog.getOpenFileName(self, 'Choose artwork', filter='Images (*.png *.jpg *.jpeg)')
         if path:
             update_entry(self.__queue_dir, entry.id, art_path=path, art_overridden=True)
-            self.__reload_queue()
+            self.__reload_queue(keep_current=True)
 
     def __download_art(self):
         entry = self.__current_entry()
@@ -358,14 +378,14 @@ class ReviewQueueDialog(QDialog, Ui_reviewQueueDialog):
             f.write(resp.content)
         update_entry(self.__queue_dir, entry.id, art_path=dest, art_overridden=True)
         self.artUrlField.clear()
-        self.__reload_queue()
+        self.__reload_queue(keep_current=True)
 
     def __clear_art(self):
         entry = self.__current_entry()
         if entry is None:
             return
         update_entry(self.__queue_dir, entry.id, art_path=None, art_overridden=False)
-        self.__reload_queue()
+        self.__reload_queue(keep_current=True)
 
     def __on_candidate_picked(self, row):
         if row < 0:
@@ -407,9 +427,10 @@ class ReviewQueueDialog(QDialog, Ui_reviewQueueDialog):
     def __update_action_buttons(self):
         entry = self.__current_entry()
         has_candidates = entry is not None and len(entry.candidates) > 0
-        self.acceptButton.setEnabled(has_candidates)
+        self.acceptButton.setEnabled(has_candidates and entry.status in ('pending', 'skipped'))
         self.skipButton.setEnabled(entry is not None)
         self.rejectButton.setEnabled(entry is not None)
+        self.reopenButton.setEnabled(entry is not None and entry.status == 'accepted')
 
     # --- triage actions ------------------------------------------------------
 
@@ -417,7 +438,36 @@ class ReviewQueueDialog(QDialog, Ui_reviewQueueDialog):
         entry = self.__current_entry()
         if entry is None or not entry.candidates:
             return
+        if entry.status in ('accepted', 'published'):
+            return  # nothing to decide; also stops Enter re-accepting (or, worse, un-publishing) a decided entry
+        if self.__metadata_dirty and not self.__resolve_unsaved_metadata():
+            return
         self.__apply_decision(entry.id, status='accepted', chosen_candidate_index=self.__selected_candidate_index)
+
+    def __resolve_unsaved_metadata(self):
+        '''
+        Accepting with edits still in the metadata form would publish the entry without them, silently. Ask instead.
+        :return: True if accepting should go ahead (edits saved, or knowingly discarded), False to stay put.
+        '''
+        answer = QMessageBox.question(
+            self, 'Unsaved metadata', 'The metadata for this entry has been edited but not saved. Save it before accepting?',
+            QMessageBox.StandardButton.Save | QMessageBox.StandardButton.Discard | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Save)
+        if answer == QMessageBox.StandardButton.Cancel:
+            return False
+        if answer == QMessageBox.StandardButton.Save:
+            self.__save_metadata()
+            if self.metadataStatusLabel.text() != 'Saved':
+                return False  # e.g. an unparseable episodes list: the reason is on screen, so don't accept
+        return True
+
+    def __reopen_current(self):
+        ''' Undoes an Accept that has not been published: the entry goes back to pending, on the same row. '''
+        entry = self.__current_entry()
+        if entry is None or entry.status != 'accepted':
+            return
+        update_entry(self.__queue_dir, entry.id, status='pending', chosen_candidate_index=None)
+        self.__reload_queue(keep_current=True)
 
     def __skip_current(self):
         entry = self.__current_entry()

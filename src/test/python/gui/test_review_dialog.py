@@ -421,8 +421,6 @@ def _show_focused(qtbot, dialog, queue_dir, widget_name, on_metadata_tab=True):
     return widget
 
 
-@pytest.mark.xfail(strict=True, reason="Enter is a window-wide Accept shortcut, so Enter in a metadata field "
-                                       "accepts the entry -- design/library-sync/workflow-rework §12.1, fixed by chunk 20")
 def test_enter_in_a_metadata_field_does_not_accept_the_entry(tmp_path, dialog, qtbot):
     queue_dir = str(tmp_path / 'queue')
     field = _show_focused(qtbot, dialog, queue_dir, 'editionField')
@@ -451,3 +449,163 @@ def test_enter_on_the_queue_table_accepts_the_selected_entry(tmp_path, dialog, q
     qtbot.keyClick(table, Qt.Key.Key_Return)
 
     assert read_entry(queue_dir, 'title-a').status == 'accepted'
+
+
+def test_enter_on_the_candidate_list_accepts_the_picked_candidate(tmp_path, dialog, qtbot):
+    queue_dir = str(tmp_path / 'queue')
+    candidates = _show_focused(qtbot, dialog, queue_dir, 'candidateList', on_metadata_tab=False)
+    dialog._ReviewQueueDialog__pick_candidate(1)
+
+    qtbot.keyClick(candidates, Qt.Key.Key_Enter)
+
+    accepted = read_entry(queue_dir, 'title-a')
+    assert (accepted.status, accepted.chosen_candidate_index) == ('accepted', 1)
+
+
+def test_accepting_an_entry_that_is_already_decided_is_a_no_op(tmp_path, dialog):
+    queue_dir = str(tmp_path / 'queue')
+    _write_entry(queue_dir, 'title-a', status='accepted', chosen_candidate_index=0)
+    _write_entry(queue_dir, 'title-b', status='published', chosen_candidate_index=1)
+    dialog.load_queue_dir(queue_dir)
+    dialog.queueTable.selectRow(1)  # title-b
+
+    dialog._ReviewQueueDialog__accept_current()
+
+    assert read_entry(queue_dir, 'title-b').status == 'published'
+    assert read_entry(queue_dir, 'title-b').chosen_candidate_index == 1
+
+
+def _type_into(qtbot, dialog, queue_dir, text='Extended Cut'):
+    _write_entry(queue_dir, 'title-a')
+    _write_entry(queue_dir, 'title-b')
+    dialog.load_queue_dir(queue_dir)
+    dialog.queueTable.selectRow(0)
+    dialog.editionField.clear()
+    qtbot.keyClicks(dialog.editionField, text)
+
+
+def _answer(monkeypatch, button):
+    asked = []
+    monkeypatch.setattr(QMessageBox, 'question', lambda *args: asked.append(args[1]) or button)
+    return asked
+
+
+def test_accepting_with_unsaved_metadata_saves_it_when_asked(tmp_path, dialog, qtbot, monkeypatch):
+    queue_dir = str(tmp_path / 'queue')
+    _type_into(qtbot, dialog, queue_dir)
+    asked = _answer(monkeypatch, QMessageBox.StandardButton.Save)
+
+    dialog._ReviewQueueDialog__accept_current()
+
+    entry = read_entry(queue_dir, 'title-a')
+    assert asked == ['Unsaved metadata']
+    assert (entry.status, entry.meta['edition']) == ('accepted', 'Extended Cut')
+
+
+def test_accepting_with_unsaved_metadata_can_discard_the_edits(tmp_path, dialog, qtbot, monkeypatch):
+    queue_dir = str(tmp_path / 'queue')
+    _type_into(qtbot, dialog, queue_dir)
+    _answer(monkeypatch, QMessageBox.StandardButton.Discard)
+
+    dialog._ReviewQueueDialog__accept_current()
+
+    entry = read_entry(queue_dir, 'title-a')
+    assert entry.status == 'accepted'
+    assert 'edition' not in entry.meta
+
+
+def test_cancelling_the_unsaved_metadata_prompt_leaves_the_entry_pending_and_the_edit_in_place(
+        tmp_path, dialog, qtbot, monkeypatch):
+    queue_dir = str(tmp_path / 'queue')
+    _type_into(qtbot, dialog, queue_dir)
+    _answer(monkeypatch, QMessageBox.StandardButton.Cancel)
+
+    dialog._ReviewQueueDialog__accept_current()
+
+    assert read_entry(queue_dir, 'title-a').status == 'pending'
+    assert dialog.editionField.text() == 'Extended Cut'
+
+
+def test_a_failed_save_does_not_go_on_to_accept(tmp_path, dialog, qtbot, monkeypatch):
+    queue_dir = str(tmp_path / 'queue')
+    _type_into(qtbot, dialog, queue_dir)
+    dialog.episodesField.setText('not numbers')
+    _answer(monkeypatch, QMessageBox.StandardButton.Save)
+
+    dialog._ReviewQueueDialog__accept_current()
+
+    assert read_entry(queue_dir, 'title-a').status == 'pending'
+    assert 'Episodes' in dialog.metadataStatusLabel.text()
+
+
+def test_accepting_without_edits_does_not_prompt(tmp_path, dialog, monkeypatch):
+    queue_dir = str(tmp_path / 'queue')
+    _write_entry(queue_dir, 'title-a')
+    dialog.load_queue_dir(queue_dir)
+    dialog.queueTable.selectRow(0)
+    asked = _answer(monkeypatch, QMessageBox.StandardButton.Cancel)
+
+    dialog._ReviewQueueDialog__accept_current()
+
+    assert asked == []
+    assert read_entry(queue_dir, 'title-a').status == 'accepted'
+
+
+def test_saving_metadata_keeps_the_same_entry_selected_and_says_so(tmp_path, dialog, qtbot):
+    queue_dir = str(tmp_path / 'queue')
+    _write_entry(queue_dir, 'title-a')
+    _write_entry(queue_dir, 'title-b')
+    dialog.load_queue_dir(queue_dir)
+    dialog.queueTable.selectRow(1)
+
+    dialog.editionField.setText('Extended Cut')
+    dialog._ReviewQueueDialog__save_metadata()
+
+    assert dialog._ReviewQueueDialog__current_entry().id == 'title-b'
+    assert dialog.metadataStatusLabel.text() == 'Saved'
+
+
+def test_reopen_returns_an_accepted_entry_to_pending_on_the_same_row(tmp_path, dialog):
+    queue_dir = str(tmp_path / 'queue')
+    _write_entry(queue_dir, 'title-a')
+    _write_entry(queue_dir, 'title-b', status='accepted', chosen_candidate_index=1)
+    dialog.load_queue_dir(queue_dir)
+    dialog.queueTable.selectRow(1)  # accepted entries sort after pending ones
+    assert dialog._ReviewQueueDialog__current_entry().id == 'title-b'
+    assert dialog.reopenButton.isEnabled()
+    assert not dialog.metadataTab.isEnabled()
+
+    dialog.reopenButton.click()
+
+    reopened = read_entry(queue_dir, 'title-b')
+    assert (reopened.status, reopened.chosen_candidate_index) == ('pending', None)
+    assert dialog._ReviewQueueDialog__current_entry().id == 'title-b'
+    assert dialog.metadataTab.isEnabled()
+    assert not dialog.reopenButton.isEnabled()
+
+
+def test_reopen_is_only_offered_for_an_accepted_entry(tmp_path, dialog):
+    queue_dir = str(tmp_path / 'queue')
+    for entry_id, status, chosen in (('a-pending', 'pending', None), ('b-published', 'published', 0),
+                                     ('c-rejected', 'rejected', None)):
+        _write_entry(queue_dir, entry_id, status=status, chosen_candidate_index=chosen)
+    dialog.load_queue_dir(queue_dir)
+
+    for row in range(dialog.queueTable.model().rowCount()):
+        dialog.queueTable.selectRow(row)
+        assert not dialog.reopenButton.isEnabled()
+
+
+def test_accept_is_only_offered_while_an_entry_is_undecided(tmp_path, dialog):
+    queue_dir = str(tmp_path / 'queue')
+    for entry_id, status, chosen in (('a-pending', 'pending', None), ('b-skipped', 'skipped', None),
+                                     ('c-accepted', 'accepted', 0), ('d-published', 'published', 0)):
+        _write_entry(queue_dir, entry_id, status=status, chosen_candidate_index=chosen)
+    dialog.load_queue_dir(queue_dir)
+
+    offered = {}
+    for row in range(dialog.queueTable.model().rowCount()):
+        dialog.queueTable.selectRow(row)
+        offered[dialog._ReviewQueueDialog__current_entry().status] = dialog.acceptButton.isEnabled()
+
+    assert offered == {'pending': True, 'skipped': True, 'accepted': False, 'published': False}

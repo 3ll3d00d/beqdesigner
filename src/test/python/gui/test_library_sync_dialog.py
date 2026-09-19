@@ -11,6 +11,8 @@ from model.preferences import DESIGNER_DEFAULT, DESIGNER_QUEUE_DIR, JRIVER_MCWS_
 from pipeline.designer.registry import register_designer, unregister_designer
 from pipeline.library.filesystem import FilesystemLibrarySource
 from pipeline.library.jriver import JRiverLibrarySource
+from pipeline.library.run import LibraryRunReport
+from pipeline.review import QueueEntry, write_queue_entry
 
 
 def _preferences(tmp_path):
@@ -201,3 +203,75 @@ def test_the_run_summary_counts_seasons_that_were_joined(qtbot, tmp_path):
     dialog._LibrarySyncDialog__run_finished(LibraryRunReport(designed=['a'], seasons={'show-s01': ['e1', 'e2']}))
 
     assert dialog.statusLabel.text() == 'Designed 1, cached 0, failed 0, 1 season(s) joined'
+
+
+def _queue_with(tmp_path, *titles):
+    queue_dir = str(tmp_path / 'queue')
+    for i, title in enumerate(titles):
+        write_queue_entry(queue_dir, QueueEntry(id=f'entry-{i}', fs=1000, meta={'title': title}, curve={},
+                                                 decline_reason='no_rolloff_detected'))
+    return queue_dir
+
+
+def test_the_review_tab_shows_an_existing_queue_without_running_anything(qtbot, tmp_path):
+    queue_dir = _queue_with(tmp_path, 'Heat', 'Alien')
+
+    dialog, _ = _dialog(qtbot, tmp_path, **{DESIGNER_QUEUE_DIR: queue_dir})
+
+    review = dialog.reviewLayout.itemAt(0).widget()
+    assert review.queueTable.model().rowCount() == 2
+    assert dialog.queueDirEdit.text() == queue_dir
+
+
+def test_the_review_tab_is_empty_but_present_when_there_is_no_queue_yet(qtbot, tmp_path):
+    dialog, _ = _dialog(qtbot, tmp_path)  # DESIGNER_QUEUE_DIR is '/queue', which does not exist
+
+    review = dialog.reviewLayout.itemAt(0).widget()
+    assert review.queueTable.model().rowCount() == 0
+
+
+def test_pointing_the_queue_directory_at_another_queue_reloads_the_review_tab(qtbot, tmp_path):
+    dialog, _ = _dialog(qtbot, tmp_path)
+    review = dialog.reviewLayout.itemAt(0).widget()
+
+    dialog.queueDirEdit.setText(_queue_with(tmp_path, 'Heat'))
+    dialog.queueDirEdit.editingFinished.emit()
+
+    assert review.queueTable.model().rowCount() == 1
+
+
+def test_the_run_summary_offers_the_failures_and_unresolved_titles_with_their_reasons(qtbot, tmp_path, monkeypatch):
+    shown = []
+    monkeypatch.setattr(QMessageBox, 'exec', lambda box: shown.append(box.detailedText()))
+    dialog, _ = _dialog(qtbot, tmp_path)
+    dialog.show()
+    assert not dialog.detailsButton.isVisible()
+
+    dialog._LibrarySyncDialog__run_finished(LibraryRunReport(
+        designed=['a'], failed=[('jriver-3fa9c2-1234', 'FileNotFoundError: no such file')],
+        meta_unresolved=[('jriver-3fa9c2-5678', 'HTTPError: 401 Unauthorized')]))
+
+    assert dialog.statusLabel.text() == 'Designed 1, cached 0, failed 1, 1 without TMDB metadata'
+    assert dialog.detailsButton.isVisible()
+    dialog.detailsButton.click()
+    assert shown == ['Failed (1):\n  jriver-3fa9c2-1234: FileNotFoundError: no such file\n\n'
+                     'Designed without TMDB metadata (1):\n  jriver-3fa9c2-5678: HTTPError: 401 Unauthorized']
+
+
+def test_a_clean_run_has_nothing_to_show_details_for(qtbot, tmp_path):
+    dialog, _ = _dialog(qtbot, tmp_path)
+    dialog.show()
+
+    dialog._LibrarySyncDialog__run_finished(LibraryRunReport(designed=['a']))
+
+    assert not dialog.detailsButton.isVisible()
+
+
+def test_a_clean_run_moves_on_to_review_but_a_run_with_problems_stays_to_show_them(qtbot, tmp_path):
+    dialog, _ = _dialog(qtbot, tmp_path)
+
+    dialog._LibrarySyncDialog__run_finished(LibraryRunReport(designed=['a'], failed=[('b', 'ValueError: x')]))
+    assert dialog.mainTabs.currentWidget() is dialog.runTab
+
+    dialog._LibrarySyncDialog__run_finished(LibraryRunReport(designed=['a']))
+    assert dialog.mainTabs.currentWidget() is dialog.reviewTab

@@ -439,6 +439,16 @@
            </property>
           </widget>
          </item>
+         <item>
+          <widget class="QPushButton" name="reopenButton">
+           <property name="toolTip">
+            <string>Move an accepted entry back to pending so it can be edited or decided again</string>
+           </property>
+           <property name="text">
+            <string>Reopen</string>
+           </property>
+          </widget>
+         </item>
         </layout>
        </item>
       </layout>

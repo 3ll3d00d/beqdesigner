@@ -96,6 +96,19 @@ Steps 2-5 can be reordered freely (they are independent); steps 6 onwards cannot
 - **Tests:** `gui/test_review_dialog.py` and `gui/test_library_sync_dialog.py` (both exist; extend them): open with an existing queue; a run with no TMDB key names
   its rows; Enter in a field does not accept.
 - **Done when:** M0. Ships alone; nothing depends on it.
+- **Done (2026-09-19); how it differs from the list above:**
+  - (1) `LibrarySyncDialog` builds the `ReviewQueueDialog` in `__init__`, loads the queue directory if it exists, and reloads on `queueDirEdit.editingFinished`.
+  - (2) `library_meta(item)` in `pipeline/library/library_metadata.py`, used by `run.py`'s no-key and TMDB-failure paths. The TMDB-success path already had a title.
+  - (3) Only Return/Enter needed scoping: they are now `WidgetShortcut`s on the queue table and candidate list. Letter and digit shortcuts already yield to text fields (§12.14).
+    Enter now does nothing on an already accepted or published entry, and Accept is disabled there (before, it would have set a published entry back to accepted).
+  - (4) A **Details...** button (`detailsButton`, shown after a run that failed or had unresolved titles) opens a `QMessageBox` with the per-item reasons. **A run with
+    problems now stays on the Run tab**: it used to jump to Review, which hid the status line, so the failure count was never seen.
+  - (5) Accept with unsaved edits asks Save / Discard / Cancel; a failed save (unparseable episodes) does not go on to accept.
+  - (6) `reopenButton`, enabled for `accepted` only; status back to `pending`, `chosen_candidate_index` cleared, same row kept.
+  - Found and fixed on the way: saving metadata, artwork changes and Refresh jumped the selection to row 0 (`__reload_queue(keep_current=True)`), and the "Saved" label was
+    cleared by the reload it preceded.
+  - **Still open, for 27b:** editing metadata and then selecting another row, or pressing Skip/Reject, still discards the edits without asking (only Accept prompts).
+  - Tests: the two dialog test files and `test_pipeline_library_run.py` (`library_meta`, and the no-TMDB-key run names its entry).
 
 **21 -- Publish/commit split** (`pipeline/publish/git.py`, `pipeline/orchestrate.py`, `pipeline/review.py`, new `pipeline/library/commit.py`)
 - `git.py`: `write_files()` (working tree only), `commit_paths()` (an explicit pathspec, so foreign staged files stay out; "nothing to commit" is success -- both are 19's strict xfails, remove the markers),

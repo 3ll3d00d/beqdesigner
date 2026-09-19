@@ -11,6 +11,18 @@ from pipeline.metadata import tmdb_details_by_id, tmdb_find_by_imdb_id, tmdb_loo
 logger = logging.getLogger('library_metadata')
 
 
+def library_meta(item: LibraryItem) -> dict:
+    '''
+    What the library itself says about an item, needing no TMDB: its title (falling back to the display name, so
+    an entry is never anonymous) and year, plus the season and episodes. This is what an item is designed with
+    when TMDB is not configured or cannot be reached; `item.meta` is layered over it by the caller.
+    '''
+    meta = {'title': item.title or item.display_name}
+    if item.year:
+        meta['year'] = item.year
+    return {**meta, **season_meta(item)}
+
+
 def season_meta(item: LibraryItem) -> dict:
     '''
     What the library itself says about a TV item's season and the episodes in scope (BeqMetadata's `season` and

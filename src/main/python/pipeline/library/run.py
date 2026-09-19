@@ -11,7 +11,7 @@ from pipeline.designer.contract import Coverage
 from pipeline.library.design_cache import design_if_needed
 from pipeline.library.extract_cache import extract_if_needed, read_channel_layout_name, \
     read_source_channel_count
-from pipeline.library.library_metadata import resolve_meta, season_meta
+from pipeline.library.library_metadata import library_meta, resolve_meta
 from pipeline.library.season import DEFAULT_TV_MODE, SeasonGroup, plan_units, season_track_if_needed, with_extracted
 from pipeline.library.source import LibraryItem, LibrarySource
 from pipeline.orchestrate import Session
@@ -55,10 +55,10 @@ def _meta_source(item: LibraryItem, run_config: LibraryRunConfig, report: Librar
     '''
     Metadata for design_if_needed(): resolved lazily, so only an item that is actually designed pays for the
     TMDB lookup. A TMDB failure must not lose the (expensive) extraction and design, so it degrades to
-    whatever the library itself supplied and is recorded in report.meta_unresolved for a reviewer to fix.
+    whatever the library itself supplied (always including a title, so a queue row is never just an id) and is recorded in report.meta_unresolved for a reviewer to fix.
     '''
     if not run_config.tmdb_api_key:
-        return {**season_meta(item), **item.meta}
+        return {**library_meta(item), **item.meta}
 
     def resolve() -> dict:
         try:
@@ -66,7 +66,7 @@ def _meta_source(item: LibraryItem, run_config: LibraryRunConfig, report: Librar
         except requests.RequestException as error:
             logger.warning('Unable to resolve TMDB metadata for %s: %s', item.id, error)
             report.meta_unresolved.append((item.id, f'{type(error).__name__}: {error}'))
-            return {**season_meta(item), **item.meta}
+            return {**library_meta(item), **item.meta}
 
     return resolve
 

@@ -1,5 +1,6 @@
 '''Qt wrapper for the headless library-run and explicit-sync functions.'''
 import logging
+import os
 
 from qtpy.QtCore import QObject, QRunnable, Qt, QThreadPool, Signal
 from qtpy.QtWidgets import QDialog, QMessageBox
@@ -16,6 +17,19 @@ from pipeline.review import describe_publish_error, split_publish_results
 from ui.library_sync import Ui_librarySyncDialog
 
 logger = logging.getLogger('library_sync')
+
+
+def describe_run_problems(report) -> str:
+    '''
+    :return: the items a run could not process, or processed without TMDB metadata, each with the reason -- what the
+        status line reduces to counts. Empty if there was nothing to report.
+    '''
+    sections = []
+    for heading, problems in (('Failed', report.failed), ('Designed without TMDB metadata', report.meta_unresolved)):
+        if problems:
+            sections.append(f'{heading} ({len(problems)}):\n' + '\n'.join(f'  {item_id}: {reason}'
+                                                                          for item_id, reason in problems))
+    return '\n\n'.join(sections)
 
 
 class _RunSignals(QObject):
@@ -73,6 +87,7 @@ class LibrarySyncDialog(QDialog, Ui_librarySyncDialog):
         self.setupUi(self)
         self.__preferences = preferences
         self.__review = None
+        self.__last_report = None
         self.__active_job = None
         self.__source_pages = {}
         self.__load_sources()
@@ -82,7 +97,27 @@ class LibrarySyncDialog(QDialog, Ui_librarySyncDialog):
         self.sourceCombo.currentIndexChanged.connect(self.sourceStack.setCurrentIndex)
         self.runButton.clicked.connect(self.__run)
         self.syncButton.clicked.connect(self.__sync)
+        self.detailsButton.clicked.connect(self.__show_run_problems)
+        self.detailsButton.setVisible(False)
         self.progressBar.setVisible(False)
+        self.__create_review()
+
+    def __create_review(self):
+        '''
+        The Review tab exists from the moment the dialog opens and shows whatever queue is already on disk, so an
+        earlier run can be reviewed, and accepted entries synced, without running anything first.
+        '''
+        from model.review import ReviewQueueDialog
+        self.__review = ReviewQueueDialog(self, self.__preferences)
+        self.__review.setWindowFlags(Qt.WindowType.Widget)
+        self.reviewLayout.addWidget(self.__review)
+        self.queueDirEdit.editingFinished.connect(self.__load_review_queue)
+        self.__load_review_queue()
+
+    def __load_review_queue(self):
+        queue_dir = self.queueDirEdit.text().strip()
+        if queue_dir and os.path.isdir(queue_dir):
+            self.__review.load_queue_dir(queue_dir)
 
     def __load_sources(self):
         ''' One page per registered kind, in registration order; the last-used kind is preselected. '''
@@ -152,6 +187,7 @@ class LibrarySyncDialog(QDialog, Ui_librarySyncDialog):
         except ValueError as error:
             QMessageBox.warning(self, 'Library Sync', str(error))
             return
+        self.detailsButton.setVisible(False)
         self.__persist_preferences()
         job = _RunJob(source, config)
         self.__active_job = job
@@ -168,14 +204,22 @@ class LibrarySyncDialog(QDialog, Ui_librarySyncDialog):
             message += f', kept your edits to {len(report.project_edit_preserved)} project(s)'
         if report.seasons:
             message += f', {len(report.seasons)} season(s) joined'
+        if report.meta_unresolved:
+            message += f', {len(report.meta_unresolved)} without TMDB metadata'
+        self.__last_report = report
+        self.detailsButton.setVisible(bool(describe_run_problems(report)))
         self.__set_busy(False, message)
-        from model.review import ReviewQueueDialog
-        if self.__review is None:
-            self.__review = ReviewQueueDialog(self, self.__preferences)
-            self.__review.setWindowFlags(Qt.WindowType.Widget)
-            self.reviewLayout.addWidget(self.__review)
         self.__review.load_queue_dir(self.queueDirEdit.text())
-        self.mainTabs.setCurrentWidget(self.reviewTab)
+        if not describe_run_problems(report):
+            self.mainTabs.setCurrentWidget(self.reviewTab)  # else stay: the summary and Details live on the Run tab
+
+    def __show_run_problems(self):
+        if self.__last_report is None:
+            return
+        box = QMessageBox(QMessageBox.Icon.Warning, 'Library Sync', 'Some items need attention. See the details.',
+                          QMessageBox.StandardButton.Ok, self)
+        box.setDetailedText(describe_run_problems(self.__last_report))
+        box.exec()
 
     def __sync(self):
         queue_dir = self.queueDirEdit.text().strip()
@@ -200,8 +244,7 @@ class LibrarySyncDialog(QDialog, Ui_librarySyncDialog):
         if needs_attention:
             message += f', {len(needs_attention)} need attention'
         self.__set_busy(False, message)
-        if self.__review is not None:
-            self.__review.load_queue_dir(self.queueDirEdit.text())  # show the new 'published' statuses
+        self.__review.load_queue_dir(self.queueDirEdit.text())  # show the new 'published' statuses
         if needs_attention:
             QMessageBox.warning(self, 'Library Sync', 'These entries were not published:\n\n'
                                 + '\n'.join(describe_publish_error(r) for r in needs_attention))
