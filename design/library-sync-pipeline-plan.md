@@ -2364,7 +2364,7 @@ fixture.
 
 Reviewed against the code at `1ebaa4e` (471 tests), then updated after each
 follow-up commit per `AGENTS.md` -- currently current to the library
-CLI documentation commit (810 tests). Everything in §8 marked Implemented is present and tested, except as
+CLI documentation commit (810 tests); todo list consolidated in §10. Everything in §8 marked Implemented is present and tested, except as
 listed here. Items are ordered roughly by impact.
 
 **Behaviour gaps -- designed above (1-4 all now built)**
@@ -2403,21 +2403,73 @@ listed here. Items are ordered roughly by impact.
    `reviewer_note` across a redesign. `status` and the chosen candidate still
    reset to `pending`, since the candidates they refer to are replaced.
 
-**Still open / unverified**
+**Still open** (consolidated 2026-09-20 -- the list that used to be here had gone
+stale, and most of what is genuinely open was recorded only in passing inside
+§11's subsections. Each entry says where the detail is. This list supersedes
+the old items 10-14.)
 
-10. **Chunk 3, the real-server spike, was never done** -- field aliases and
-   `Browse/Children` shape are unverified; there is no sanitised fixture.
-11. **GUI gaps (§7):** no library-view filter bar (status/name/year/type);
-    The source picker, `LIBRARY_SOURCE_DEFAULT`, choosing among saved
-    servers (chunk 13) and the browse-node picker (chunk 14) are done.
-12. **`pipeline.library.registry` has no production callers** (§3). The GUI
-    has its own kind registry (`model/library_sources.py`) because kinds also
-    carry widgets; the headless one remains an unused seam.
-13. **Untested:** `INTERNAL` artwork handling in `jriver.py`; manual
-    verification of the review dialog (A.8) is unconfirmed.
-14. **Document hygiene (fixed in this review):** the header said "plan only,
-    not started"; the manifest shape in §4.1 disagreed with Appendix D.4; the
-    chunk table and every appendix checklist were stale.
+*Documentation*
+
+T1. **User documentation (mkdocs, `docs/`) does not cover any of the library
+    work, and one page is now wrong.** Missing: the Library Sync dialog, the
+    Review Batch Designs dialog and its metadata/artwork/Episodes editor,
+    Preferences -> Designers and -> JRiver (servers, aliases, path mappings,
+    metadata fields), the source picker, TV mode, and DVD/Blu-ray discs in Batch
+    Extract. **Wrong:** `docs/ui/manage_mc.md` ("on first use enter the
+    connection details ... click test connection and then save", with a
+    screenshot, `jriver_add_new_mcws.png`) describes controls this work moved
+    to Preferences -> JRiver; that page and its screenshot need updating, and
+    `preferences.md` needs the new pages. The CLI is documented (README, `--help`);
+    the GUI is not.
+
+*Verification not done*
+
+T2. **The GUI has only been exercised by offscreen pytest-qt, never by a person
+    in the running app**: Preferences -> JRiver (list, edit, async test,
+    aliases, path-mapping table, field editor), Library Sync (source picker,
+    browse-node picker, TV mode), the review dialog's Episodes field, A.8.
+T3. **`tv_mode='season'` has not been run against a real library** (the local
+    server was unreachable); grouping and joining are unit-tested only (§11.9).
+T4. **The CLI's `run` and `sync` have not been run end to end** against a real
+    designer or repositories; the tests stub the run and publish steps (§6).
+T5. **`/Alive`'s `FriendlyName`** is tested against a local fake only; it was
+    outside the live-check permission (§11.1).
+T6. **Chunk 3 (the sanitised real-server fixture) was never captured.** The
+    endpoints and field names were verified live on one library (§11.5), but
+    only the author's; `Browse/Children` keys by name, so two same-named
+    siblings would collapse into one entry (not seen). `INTERNAL` artwork is
+    handled but untested.
+
+*Features not built*
+
+T7. **DVD, multi-episode discs (§11.8).** A JRiver item cannot say which title it
+    is, so every JRiver item on a disc resolves to that disc's main title
+    ("play all" for a multi-episode disc): several items, one audio. Needs a
+    per-item title override or de-duplication by disc. Also: no DVD title picker
+    in the single-file Extract dialog; Batch Extract takes only the main title;
+    no end-to-end DVD test (a disc libdvdread accepts needs real navigation
+    tables).
+T8. **Blu-ray `BDMV\PLAYLIST\index.bluray;N` entries** (4 shows) are passed
+    through unresolved -- which title `N` names is unknown (§11.5).
+T9. **The review dialog's own Publish button is XML-only and ignores `work_dir`**,
+    so publishing from it (including from the copy embedded in Library Sync)
+    skips the `.beq`-project logic; only Library Sync's Sync button uses it (§7).
+T10. **Library view filter bar** (status / name / year / type) for the Run tab (§7).
+T11. **No warning for a path still in Windows form on a non-Windows host** (an
+     unmapped library fails item by item at extraction); no folder picker on the
+     path mapping's local column (§11.6).
+T12. **`tvdb` identifier** -- 1587 of 1657 live shows carry a `TheTVDB Series
+     ID` TMDB can resolve; optional, not started (§11.7).
+T13. **`MCWSDialog`'s zone loading is still synchronous** (§11.1).
+T14. **`pipeline.library.registry` has no production callers** -- an unused seam
+     for Kodi/Plex, which are not built by design (§3, §3.2).
+
+*Known limits (by design, revisit if they bite)*
+
+T15. Season mode does not keep multichannel, joins episodes with no level
+     matching, and is only as complete as the browse node (§11.9).
+T16. Redesigning a `pending` entry resets its status and chosen candidate
+     (metadata, artwork and note are kept) (§4.2).
 
 ## 11. Source selection and shared JRiver connections (added 2026-09-19)
 
