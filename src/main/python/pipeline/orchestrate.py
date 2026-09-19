@@ -55,6 +55,7 @@ from dataclasses import dataclass
 from typing import List, Optional, Sequence, Union
 
 from model.bdmv import is_bdmv_root, resolve_main_title
+from model.dvd import dvd_root, resolve_main_title as resolve_main_dvd_title
 from model.ffmpeg import Executor
 from model.iir import CompleteFilter
 from model.signal import AutoWavLoader, SingleChannelSignalData
@@ -181,14 +182,21 @@ class Session:
         os.makedirs(target_dir, exist_ok=True)
         display_name = None
         duration_override_s = None
+        input_options = None
         if is_bdmv_root(src):
             resolved = resolve_main_title(src, playlist_name=playlist_name)
             src = resolved.ffmpeg_input
             display_name = resolved.display_name
             duration_override_s = resolved.playlist.duration_s
+        elif dvd_root(src) is not None:
+            resolved = resolve_main_dvd_title(src, title_name=playlist_name)
+            src = resolved.ffmpeg_input
+            display_name = resolved.display_name
+            duration_override_s = resolved.playlist.duration_s
+            input_options = resolved.input_options
         executor = Executor(src, target_dir, mono_mix=mono_mix, decimate_audio=decimate,
                             decimate_fs=self.__config.target_fs, display_name=display_name,
-                            duration_override_s=duration_override_s)
+                            duration_override_s=duration_override_s, input_options=input_options)
         if output_file_name is not None:
             executor.output_file_name = output_file_name
         executor.probe_file()
@@ -205,7 +213,10 @@ class Session:
         Runs ffmpeg synchronously (model.ffmpeg.Executor.run_sync, B2). If src is a BD disc rip folder (a BDMV
         structure) rather than a single container file, it is first resolved to a concrete ffmpeg input -- the
         main feature (longest playlist) unless playlist_name names a specific one (its BDMV/PLAYLIST/*.mpls
-        basename, e.g. '00800'). There is no interactive title picker here (unlike ui/extract.py's
+        basename, e.g. '00800'). A DVD rip (a VIDEO_TS folder, or the folder holding one) is resolved the same
+        way from its own title table, read through ffmpeg's dvdvideo demuxer; playlist_name is then a title
+        number such as '3'. Note that a multi-episode DVD's longest title is usually "play all", so name the
+        title to extract one episode. There is no interactive title picker here (unlike ui/extract.py's
         BdmvTitlePickerDialog) since this path is headless/unattended by design.
         Unchanged signature/behaviour/return type -- now a thin wrapper over extract_with_layout(), so this
         and extract_with_layout() can never behaviourally diverge.

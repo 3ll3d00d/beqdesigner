@@ -16,6 +16,7 @@ from typing import Any, Optional
 
 from hamcws import MediaServer, get_mcws_connection
 
+from model.dvd import pseudo_file_root as dvd_pseudo_file_root
 from pipeline.library.pathmap import PathMapping, translate_path
 from pipeline.library.source import LibraryItem
 
@@ -288,21 +289,22 @@ def _value(row: Mapping[str, Any], field: str) -> str:
     return str(value).strip() if value is not None else ''
 
 
-_BLURAY_PSEUDO_FILE = re.compile(r'^(?P<root>.+?)[\\/]BDMV[\\/]index\.bluray;\d+$', re.IGNORECASE)
+_BLURAY_PSEUDO_FILE = re.compile(r'^(?P<root>.+?)[\\/]BDMV[\\/]index\.bluray(?:3d)?;\d+$', re.IGNORECASE)
 
 
 def _disc_root(filename: str) -> str:
     '''
-    JRiver names a Blu-ray disc rip by a pseudo-file, `<disc>\\BDMV\\index.bluray;1`, which is not a file. The disc
-    folder is what the pipeline can open (a BDMV root; it picks the main title itself), so report that.
-    (A DVD's `VIDEO_TS.dvd;1` is left alone: the pipeline has no DVD support.)
+    JRiver names a disc rip by a pseudo-file rather than a file: `<disc>\\BDMV\\index.bluray;1` (or `index.bluray3d`)
+    for a Blu-ray, `<disc>\\VIDEO_TS\\VIDEO_TS.dvd;1` for a DVD. The disc folder is what the pipeline can open (it
+    picks the main title itself), so report that. A `BDMV\\PLAYLIST\\index.bluray;N` entry, which names a playlist
+    on the disc, is left as reported: which title `N` selects is unknown.
     '''
     match = _BLURAY_PSEUDO_FILE.match(filename)
-    if not match:
-        return filename
-    root = match.group('root')
-    # a disc at a drive's top level: `W:` alone means "the current folder on W:", so keep the separator
-    return root + filename[len(root)] if root.endswith(':') else root
+    if match:
+        root = match.group('root')
+        # a disc at a drive's top level: `W:` alone means "the current folder on W:", so keep the separator
+        return root + filename[len(root)] if root.endswith(':') else root
+    return dvd_pseudo_file_root(filename) or filename
 
 
 def _base_name(path: str) -> str:

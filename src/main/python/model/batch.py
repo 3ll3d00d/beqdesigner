@@ -11,6 +11,7 @@ from qtpy.QtGui import QIcon
 from qtpy.QtWidgets import QDialog, QStatusBar, QFileDialog, QMessageBox
 
 from model.bdmv import is_bdmv_root, resolve_main_title
+from model.dvd import dvd_root, resolve_main_title as resolve_main_dvd_title
 from model.ffmpeg import Executor, parse_audio_stream, ViewProbeDialog, SIGNAL_CONNECTED, SIGNAL_ERROR, \
     SIGNAL_COMPLETE, SIGNAL_CANCELLED, FFMpegDetailsDialog, describe_missing_binary
 from model.preferences import EXTRACTION_OUTPUT_DIR, EXTRACTION_BATCH_FILTER, ANALYSIS_TARGET_FS, \
@@ -348,9 +349,11 @@ class ExtractCandidates:
 
     def append(self, candidate):
         '''
-        Adds a new candidate to the group and renders it on the dialog. A candidate may be a plain file or a BD
-        disc rip folder (a BDMV structure), in which case its main feature (longest playlist) is resolved
-        automatically -- there is no interactive title picker here since batch runs unattended.
+        Adds a new candidate to the group and renders it on the dialog. A candidate may be a plain file, a BD
+        disc rip folder (a BDMV structure) or a DVD rip (a VIDEO_TS folder, or the folder holding one), in which
+        case its main feature (the longest playlist/title) is resolved automatically -- there is no interactive
+        title picker here since batch runs unattended. (A multi-episode DVD's longest title is usually "play
+        all"; extract a single episode from the single-file dialog or the pipeline, which take a title.)
         :param candidate: the candidate.
         '''
         resolved_title = None
@@ -359,6 +362,13 @@ class ExtractCandidates:
         elif is_bdmv_root(candidate):
             try:
                 resolved_title = resolve_main_title(candidate)
+            except ValueError as e:
+                logger.warning(f"Skipping {candidate}: {e}")
+                return False
+        elif dvd_root(candidate) is not None:
+            candidate = dvd_root(candidate)  # the disc folder, even if the VIDEO_TS folder itself was matched
+            try:
+                resolved_title = resolve_main_dvd_title(candidate)
             except ValueError as e:
                 logger.warning(f"Skipping {candidate}: {e}")
                 return False
@@ -470,11 +480,13 @@ class ExtractCandidate:
             executor_input = resolved_title.ffmpeg_input
             display_name = resolved_title.display_name
             duration_override_s = resolved_title.playlist.duration_s
+            input_options = resolved_title.input_options
         else:
             self.__filename = filename
             executor_input = filename
             display_name = None
             duration_override_s = None
+            input_options = None
         self.__dialog = dialog
         self.__in_progress_icon = None
         self.__design_icon = None
@@ -486,7 +498,8 @@ class ExtractCandidate:
         self.__result = None
         self.__status = ExtractStatus.NEW
         self.executor = Executor(executor_input, self.__dialog.outputDir.text(), decimate_fs=decimate_fs,
-                                 display_name=display_name, duration_override_s=duration_override_s)
+                                 display_name=display_name, duration_override_s=duration_override_s,
+                                 input_options=input_options)
         self.executor.progress_handler = self.__handle_ffmpeg_process
         self.actionButton = None
         self.probeButton = None

@@ -55,6 +55,7 @@ class ResolvedTitle:
     ffmpeg_input: str
     display_name: str
     clip_paths: List[str]
+    input_options: dict = field(default_factory=dict)  # none for a BD; see model.dvd.ResolvedDvdTitle
 
 
 def is_bdmv_root(path: str) -> bool:

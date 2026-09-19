@@ -402,7 +402,7 @@ def test_the_disc_folder_is_then_translated_like_any_other_path(tmp_path):
 
 @pytest.mark.parametrize('filename', [
     'W:\\Films\\a.mkv',
-    'W:\\Eastbound\\VIDEO_TS\\VIDEO_TS.dvd;1',  # a DVD: unsupported, so left as reported
+    'W:\\Disc\\BDMV\\PLAYLIST\\index.bluray;1',  # names a playlist on the disc: which title is unknown
     '\\BDMV\\index.bluray;1',  # nothing above BDMV to be the disc
     'W:\\Disc\\BDMV\\STREAM\\00000.m2ts',
 ])

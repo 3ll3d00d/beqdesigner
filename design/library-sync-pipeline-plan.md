@@ -959,6 +959,7 @@ fixture -- only chunk 8 is blocked on that mapping.
 | 14 | JRiver **browse-node picker** (§11.4): a tree dialog over `Browse/Children` so the root node is chosen, not typed; the numeric field stays as a fallback. | 13 | **Implemented** -- `model/browse_node_picker.py`, `list_browse_children()`; response shape still unverified against a real server |
 | 15 | Path mappings (§11.6): a per-server list of server-folder -> local-folder rules, edited in Preferences -> JRiver and applied when a JRiver source reads items (`pipeline/library/pathmap.py`, CLI `--path-map`). | 11, 13 | **Implemented** |
 | 16 | Configurable external-id fields (§11.7): `Library/Fields` listing, per-kind defaults, and a per-server field mapping edited in Preferences -> JRiver. | 15 | **Implemented** -- `model/jriver/field_mappings.py`, per-server storage, Library Sync hand-off |
+| 17 | DVD-Video rips (§11.8): `model/dvd.py` (title table + durations from the IFO files), read through ffmpeg's `dvdvideo` demuxer via new `Executor` input options; wired into `Session.extract`, Batch Extract, the filesystem source and JRiver's `VIDEO_TS.dvd;N` entries. | 15 | **Implemented**; multi-episode discs limited (see §11.8) |
 
 ---
 
@@ -2342,7 +2343,7 @@ fixture.
 
 Reviewed against the code at `1ebaa4e` (471 tests), then updated after each
 follow-up commit per `AGENTS.md` -- currently current to the library
-external-id fields UI commit (663 tests). Everything in §8 marked Implemented is present and tested, except as
+DVD support commit (706 tests). Everything in §8 marked Implemented is present and tested, except as
 listed here. Items are ordered roughly by impact.
 
 **Behaviour gaps -- designed above (1-4 all now built)**
@@ -2588,9 +2589,10 @@ What that established, and what it changed:
   handles (it resolves the main title). After this, 1279 of 1283 films exist
   locally. **Not handled:** `BDMV\PLAYLIST\index.bluray;N` (4 shows -- names a
   playlist on a multi-episode disc and the mapping from `N` to a title is
-  unknown, so guessing the main title would pick the wrong episode) and a
-  DVD's `VIDEO_TS\VIDEO_TS.dvd;N` (6 shows -- the pipeline has no DVD
-  support). Both are passed through as reported and fail at extraction.
+  unknown, so guessing the main title would pick the wrong episode), which is
+  passed through as reported and fails at extraction. A DVD's
+  `VIDEO_TS\VIDEO_TS.dvd;N` (6 shows) and `index.bluray3d;N` were handled
+  afterwards -- see §11.8.
 
 ### 11.6 Path mappings (chunk 15)
 
@@ -2678,3 +2680,62 @@ custom one), so which JRiver field feeds each identifier is configuration.
 which TMDB's `/find` can resolve (`external_source=tvdb_id`). A `tvdb`
 identifier would identify most of the shows that currently fall back to the
 fuzzy search.
+
+### 11.8 DVD-Video support (chunk 17)
+
+Blu-ray rips were supported; DVD rips (a `VIDEO_TS` folder) were not, and JRiver
+reports a DVD as `<disc>\VIDEO_TS\VIDEO_TS.dvd;N`.
+
+**Reading the disc.** ffmpeg's `dvdvideo` demuxer (libdvdread/libdvdnav)
+understands DVD titles, which are *program chains* that may play cells out of
+order, so concatenating `VTS_nn_m.VOB` files (the Blu-ray approach) would not
+reproduce a title and would mix a multi-episode disc together. So the pipeline
+reads `-f dvdvideo -title N` against the **disc folder**. That needs an ffmpeg
+built with libdvdread; without it the probe fails with a clear message ("This
+ffmpeg cannot read DVDs..."). Encrypted (CSS) discs need a CSS library;
+decrypted rips are unaffected. Checked live: the local ffmpeg 8.1 has the
+demuxer.
+
+**Choosing a title (`model/dvd.py`, pure Python).** `list_titles()` reads
+`VIDEO_TS.IFO`'s title table (`TT_SRPT`) and, for each title, its title set's
+`VTS_nn_0.IFO` (`VTS_PTT_SRPT` -> first program chain -> `VTS_PGCIT` playback
+time, BCD h/m/s/frames at 25 or 29.97 fps). Titles are returned longest first;
+`resolve_main_title(root, title_name=None)` takes the longest, or a title by
+number, and returns a `ResolvedDvdTitle` shaped like the Blu-ray
+`ResolvedTitle` (`playlist.duration_s`, `display_name`, plus `input_options`
+`{'f': 'dvdvideo', 'title': N}`). Offsets follow libdvdread's `ifo_types.h`.
+The parser was checked against a real disc: a 10.00 s stub title matched
+ffprobe, and title 3 extracted through the whole pipeline to a wav of
+1569.4 s, exactly the IFO's 1569.4 s, with 5.1 detected. Titles in a missing
+or unreadable title set are skipped; case of `VIDEO_TS`/file names is ignored.
+
+**Wiring.** `Executor(input_options=...)` applies the options to the probe and
+both commands (they must precede `-i`). `Session.extract_with_layout()`
+resolves a DVD root (or its `VIDEO_TS` folder) as it does a BDMV root, with
+`playlist_name` as the **title number** (`'3'`). Batch Extract's
+`ExtractCandidates.append()` accepts a DVD (using the disc folder for the
+entry id even if `VIDEO_TS` itself matched). `FilesystemLibrarySource` yields
+a DVD root once (fingerprint: stat of `VIDEO_TS.IFO`) and skips anything under
+`VIDEO_TS`/`BDMV` (now case-insensitive). JRiver's `VIDEO_TS.dvd;N` and
+`index.bluray3d;N` pseudo-files are reported as the disc folder before path
+translation. Live: films missing locally 14 -> 5.
+
+**Limits.**
+- **Multi-episode discs.** The longest title is normally "play all" (the sample
+  disc's title 1 is 4953.52 s = the three episodes, 1569.4 + 1597.0 + 1787.1
+  s, summed). Extract one episode by naming its title, via
+  `Session.extract(..., playlist_name='3')` or `LibraryItem.playlist_name`.
+  Batch Extract only takes the main title.
+- **JRiver cannot say which title an item is.** Its DVD entries are named
+  "Chapter 1..6", share one path, and the fields inspected (`Duration`,
+  `Playback Info`, `DVD Video Info`, `Playback Range`) do not identify a title
+  or chapter. So every JRiver item on a disc resolves to that disc's *main*
+  title: several items, one audio. Fixing that needs a way to map an item to a
+  title (a per-item override, or de-duplicating by disc).
+- **No interactive title picker** for DVD in the single-file Extract dialog
+  (Blu-ray has `BdmvTitlePickerDialog`); `list_titles()` provides what one would
+  need.
+- **No end-to-end DVD test in the suite.** A disc libdvdread accepts needs full
+  navigation tables; the tests build IFO fixtures (`src/test/python/dvd_fixtures.py`)
+  for title selection and assert the ffmpeg command, and the real read was
+  verified by hand as above.

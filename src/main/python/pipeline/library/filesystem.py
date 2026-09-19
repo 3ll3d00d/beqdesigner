@@ -4,8 +4,9 @@ pipeline (extract cache, design cache, review queue, sync) can run against. desi
 §11.2.
 
 Matching follows model/batch.py's FileSearch: each entry is a glob (recursive, so `**` works); an entry that is a
-directory means "everything directly in it". A match is a media file, or a Blu-ray disc rip root (a folder holding
-BDMV/index.bdmv), whose main feature the pipeline resolves at extract time.
+directory means "everything directly in it". A match is a media file, a Blu-ray disc rip root (a folder holding
+BDMV/index.bdmv) or a DVD rip root (a folder holding VIDEO_TS/VIDEO_TS.IFO), whose main feature the pipeline
+resolves at extract time.
 '''
 import glob
 import hashlib
@@ -14,6 +15,7 @@ from collections.abc import Collection, Iterable, Sequence
 from typing import Any, Optional
 
 from model.bdmv import is_bdmv_root
+from model.dvd import dvd_root
 from pipeline.library.source import LibraryItem
 
 # what a directory glob is narrowed to by default: a folder of films usually holds artwork, subtitles and nfo
@@ -57,13 +59,17 @@ class FilesystemLibrarySource:
             yield from glob.iglob(pattern, recursive=True)
 
     def _to_item(self, path: str) -> Optional[LibraryItem]:
-        if 'BDMV' in path.replace('\\', '/').split('/'):
-            return None  # a file inside a disc rip: the disc root is the item, not its clips
+        components = {c.upper() for c in path.replace('\\', '/').split('/')}
+        if 'BDMV' in components or 'VIDEO_TS' in components:
+            return None  # inside a disc rip: the disc root is the item, not its clips
         if os.path.isdir(path):
-            if not is_bdmv_root(path):
+            if is_bdmv_root(path):
+                fingerprint = _stat_fingerprint(os.path.join(path, 'BDMV', 'index.bdmv'))
+            elif dvd_root(path) == os.path.normpath(path):
+                fingerprint = _stat_fingerprint(_dvd_manager_file(path))
+            else:
                 return None
             display_name = os.path.basename(os.path.normpath(path))
-            fingerprint = _stat_fingerprint(os.path.join(path, 'BDMV', 'index.bdmv'))
         elif os.path.isfile(path):
             if self.extensions is not None and os.path.splitext(path)[1].lower() not in self.extensions:
                 return None
@@ -77,6 +83,16 @@ class FilesystemLibrarySource:
 def _item_id(path: str) -> str:
     resolved = os.path.normcase(os.path.realpath(path))
     return f"fs-{hashlib.sha256(resolved.encode('utf-8')).hexdigest()[:16]}"
+
+
+def _dvd_manager_file(root: str) -> str:
+    ''' VIDEO_TS.IFO under `root`, whatever the case of the folder and file names. '''
+    for folder in os.listdir(root):
+        if folder.upper() == 'VIDEO_TS':
+            for name in os.listdir(os.path.join(root, folder)):
+                if name.upper() == 'VIDEO_TS.IFO':
+                    return os.path.join(root, folder, name)
+    return ''
 
 
 def _stat_fingerprint(path: str) -> str:

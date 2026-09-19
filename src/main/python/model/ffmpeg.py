@@ -134,7 +134,8 @@ class Executor:
 
     def __init__(self, file, target_dir, mono_mix=True, decimate_audio=True, audio_format=COMPRESS_FORMAT_NATIVE,
                  audio_bitrate=1500, include_original=False, include_subtitles=False, bass_manage=False,
-                 signal_model=None, decimate_fs=1000, bm_fs=80, display_name=None, duration_override_s=None):
+                 signal_model=None, decimate_fs=1000, bm_fs=80, display_name=None, duration_override_s=None,
+                 input_options=None):
         '''
         :param display_name: overrides the stem used to derive the default output filename. Required when file
         is not a plain filesystem path (e.g. a ffmpeg `concat:a|b` spec resolved from a BD disc rip) since
@@ -142,8 +143,11 @@ class Executor:
         :param duration_override_s: overrides the probed format duration. ffprobe reports only the first
         segment's duration for a `concat:` input, which is wrong once real extraction reads through every
         segment, so callers that resolve a multi-clip BD title must supply the true duration here.
+        :param input_options: ffmpeg options that go before `-i` for the probe and every command, for an input a
+        plain path cannot describe -- a DVD title is `{'f': 'dvdvideo', 'title': 3}` against the disc folder.
         '''
         self.file = file
+        self.__input_options = dict(input_options or {})
         self.__target_dir = target_dir
         self.__display_name = display_name
         self.__duration_override_s = duration_override_s
@@ -387,10 +391,15 @@ class Executor:
         logger.info(f"Probing {self.file}")
         start = time.time()
         try:
-            self.__probe = ffmpeg.probe(self.file)
+            self.__probe = ffmpeg.probe(self.file, **self.__input_options)
         except FileNotFoundError as e:
             logger.error(f"Unable to probe {self.file}, {e.filename} not found")
             raise FileNotFoundError(describe_missing_binary(e)) from e
+        except ffmpeg.Error as e:
+            if self.__input_options.get('f') == 'dvdvideo' and b'Unknown input format' in (e.stderr or b''):
+                raise ValueError('This ffmpeg cannot read DVDs: it was built without the dvdvideo demuxer '
+                                 '(libdvdread/libdvdnav). Install an ffmpeg build that includes it.') from e
+            raise
         if self.__duration_override_s is not None:
             self.__probe.setdefault('format', {})['duration'] = str(self.__duration_override_s)
         self.__audio_stream_data = [s for s in self.__probe.get('streams', []) if s['codec_type'] == 'audio']
@@ -714,7 +723,7 @@ class Executor:
 
     def __calculate_extract_command(self, output_file):
         ''' calculates the command required to extract the audio to the specified output file '''
-        input_stream = ffmpeg.input(self.file, **self.__calculate_input_kwargs())
+        input_stream = ffmpeg.input(self.file, **{**self.__input_options, **self.__calculate_input_kwargs()})
         acodec = self.__get_acodec()
         if self.__mono_mix:
             self.__ffmpeg_cmd = self.__calculate_extract_mono_cmd(acodec, input_stream, output_file)
@@ -780,7 +789,7 @@ class Executor:
         # TODO only write the filter file when it actually changes
         exe = ".exe" if platform.system() == 'Windows' else ""
         self.__ffmpeg_cmd = [f"ffmpeg{exe}"]
-        for key, value in self.__calculate_input_kwargs().items():
+        for key, value in {**self.__input_options, **self.__calculate_input_kwargs()}.items():
             self.__ffmpeg_cmd += [f"-{key}", str(value)]
         self.__ffmpeg_cmd += [
             '-i', filename,
