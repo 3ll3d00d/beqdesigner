@@ -12,7 +12,7 @@ import logging
 import os
 import re
 from dataclasses import dataclass, replace
-from typing import Dict, List, Optional, Sequence, Tuple, Union
+from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 from pipeline.library.source import LibraryItem
 
@@ -52,14 +52,23 @@ def season_item_id(title: str, season: str) -> str:
     return f"{slug}-s{int(season):02d}-{digest}"
 
 
-def _build_item(members: Sequence[LibraryItem]) -> LibraryItem:
+_SEASON_ID = re.compile(r'^.+-s\d{2}-[0-9a-f]{6}$')
+
+
+def is_season_id(identifier: str) -> bool:
+    ''' True for an id shaped like season_item_id()'s (`some-show-s01-60ad24`); source-derived ids are not. '''
+    return bool(_SEASON_ID.match(identifier))
+
+
+def _build_item(members: Sequence[LibraryItem], season_id_for: Optional[Callable[[LibraryItem], Optional[str]]] = None
+                ) -> LibraryItem:
     first = members[0]
     external_ids = {}
     for member in members:
         for identifier, value in member.external_ids.items():
             external_ids.setdefault(identifier, value)
     return LibraryItem(
-        id=season_item_id(first.title, first.season),
+        id=(season_id_for(first) if season_id_for else None) or season_item_id(first.title, first.season),
         source_path=first.source_path,
         display_name=f"{first.title} Season {int(first.season)}",
         title=first.title,
@@ -72,12 +81,15 @@ def _build_item(members: Sequence[LibraryItem]) -> LibraryItem:
     )
 
 
-def plan_units(items: Sequence[LibraryItem], tv_mode: str = DEFAULT_TV_MODE) -> List[Unit]:
+def plan_units(items: Sequence[LibraryItem], tv_mode: str = DEFAULT_TV_MODE,
+               season_id_for: Optional[Callable[[LibraryItem], Optional[str]]] = None) -> List[Unit]:
     '''
     :return: what to process, in the order the items came. In 'season' mode the episodes of one series and season
         are replaced by a single SeasonGroup, placed where its first episode was; items that are not a numbered
         episode of a titled series pass through untouched. Two items for the same episode (say, two copies) count
         once -- the first wins -- since joining both would double it.
+    :param season_id_for: given a season's first episode, the id that season already has, if any; otherwise
+        season_item_id() names it. This is what keeps a season's id when its series' title is corrected.
     :raises ValueError: for an unknown mode.
     '''
     if tv_mode not in TV_MODES:
@@ -106,7 +118,7 @@ def plan_units(items: Sequence[LibraryItem], tv_mode: str = DEFAULT_TV_MODE) -> 
             units.append(entry)
         else:
             members = tuple(seasons[entry][episode] for episode in sorted(seasons[entry]))
-            units.append(SeasonGroup(_build_item(members), members))
+            units.append(SeasonGroup(_build_item(members, season_id_for), members))
     return units
 
 

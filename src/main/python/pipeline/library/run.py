@@ -14,6 +14,7 @@ from pipeline.library.extract_cache import extract_if_needed, read_channel_layou
 from pipeline.library.library_metadata import library_meta, resolve_meta
 from pipeline.library.season import DEFAULT_TV_MODE, SeasonGroup, plan_units, season_track_if_needed, with_extracted
 from pipeline.library.source import LibraryItem, LibrarySource
+from pipeline.library.union import reconstruct_claims
 from pipeline.orchestrate import Session
 
 logger = logging.getLogger('library_run')
@@ -157,7 +158,8 @@ def run_library(source: LibrarySource, run_config: LibraryRunConfig,
     '''
     session = Session(run_config.config)
     report = LibraryRunReport()
-    for unit in plan_units(list(source.list_items(**source_query)), run_config.tv_mode):
+    claims = reconstruct_claims(run_config.work_dir, run_config.queue_dir)  # a season keeps the id it already has
+    for unit in plan_units(list(source.list_items(**source_query)), run_config.tv_mode, claims.season_id):
         item = unit.item if isinstance(unit, SeasonGroup) else unit
         try:
             if isinstance(unit, SeasonGroup):

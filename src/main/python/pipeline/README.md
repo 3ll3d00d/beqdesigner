@@ -54,6 +54,7 @@ pipeline/
         pathmap.py                    # translate a server's (Windows) paths to local ones
         extract_cache.py, design_cache.py   # idempotent extract and design
         season.py                      # TV: join a season's episodes into one track
+        profile.py, ignore.py, union.py   # the catalogue profile, its ignore rules, and merging several sources
         run.py, sync.py, commit.py, revise.py, cli.py   # run_library(), publish/commit/sync_library(), revise_entry(), the command line
 
 model/preferences.py          # GUI: durable list of configured HTTP designer endpoints + the review queue
@@ -306,6 +307,44 @@ sync:
 
 Settings with **no flag**: `sources.jriver.external_id_fields`, `designers` timeouts/headers, and
 `sync.meta_defaults`. Everything else has one.
+
+### One catalogue from several libraries (a profile)
+
+`run --profile FILE` reads a **catalogue profile** instead of `--config`: the same file format, plus an *ordered* list of
+sources, ignore rules and per-title ignores. `--source`, `--glob` and the other source options are not used with it (every
+other option still comes from its `run:` section, and flags still override).
+
+```yaml
+sources:                       # earlier wins when two sources have the same file
+  - {name: films, kind: jriver, host: media.local, port: 52199, browse_node_id: 1007,
+     path_mappings: [{from: 'W:\\', to: /media/films}]}
+  - {name: disk, kind: filesystem, globs: [/mnt/extra/**/*.mkv]}
+ignore:                        # a rule lists the fields it constrains; all must match
+  - {path: /media/films/Kids/**}                  # a folder prefix or a glob
+  - {kind: tv, reason: not doing TV}
+  - {year: "<1960"}                               # 1960, <1960, >=1999 or 1990-1999
+  - {title: "^Trailer"}                           # a regular expression
+  - {source: disk, external_ids: {imdb: tt0113277}}
+ignore_titles:                 # one title, by id
+  jriver-3fa9c2-1234: the rip is broken
+run: {work_dir: /var/lib/beq/work, queue_dir: /var/lib/beq/queue, designer: rolloff}
+```
+
+- **The same file in two sources is one title.** "Same file" means the same path after the source's own `path_mappings`,
+  ignoring case and `\` versus `/`, with a disc rip's clips folded into the disc folder. The first source wins; the other is
+  *shadowed* (no separate title, no second XML). Nothing is read from disk to decide this.
+- **The same title in different files is not merged**, since it may be a real second entry (an edition, another audio track):
+  both stay titles and each is flagged as a possible duplicate (same TMDB id, else IMDb id, else title and year).
+- **A title keeps the id it already has**, so reordering `sources:` never orphans an extraction or publishes a second XML:
+  the source whose item already has a queue entry or work directory keeps the file whatever the order. If that item leaves its
+  source, the other one takes over *under its own id* (its old outputs are left behind, not reused). A TV season keeps its
+  id too, if the series' title is corrected in the library.
+- **Ignored titles stay in the list, labelled with the rule**, and are not run. Deleting the rule brings them back.
+  A malformed rule (an unknown key, a bad regular expression) is an error, so a typo cannot silently ignore nothing.
+- A source that cannot be read (the media server is down) fails the run: it is never treated as an empty library.
+
+The old shape (`sources:` as a mapping, `run.source` naming the one in use) still loads; `pipeline.library.profile` reads
+either into one `Profile`.
 
 ### Options
 

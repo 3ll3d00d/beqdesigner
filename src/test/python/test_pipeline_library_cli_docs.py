@@ -77,7 +77,7 @@ def test_the_readmes_example_config_is_valid_for_the_cli(tmp_path, monkeypatch):
         def __init__(self, host, port, browse_node_id, **kwargs):
             seen['source'] = (host, port, browse_node_id, kwargs)
 
-    monkeypatch.setattr(cli, 'JRiverLibrarySource', Source)
+    monkeypatch.setattr('pipeline.library.profile.JRiverLibrarySource', Source)
     monkeypatch.setattr(cli, 'run_library', lambda source, run_config: seen.update(config=run_config)
                         or LibraryRunReport())
     monkeypatch.setattr(cli, 'sync_library', lambda *args, **kwargs: seen.update(sync=(args, kwargs)) or [])

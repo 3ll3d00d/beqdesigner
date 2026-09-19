@@ -174,6 +174,20 @@ Steps 2-5 can be reordered freely (they are independent); steps 6 onwards cannot
 - CLI: `run --profile PATH`.
 - **Tests:** JRiver-mapped path == filesystem path; BDMV root vs its clip; case/separator variants; soft clash by tmdb, imdb and title+year; reordering priority keeps
   ids; an owner that vanishes hands over; each rule field; deleting a rule un-ignores; profile round-trip; the old config loads.
+- **Done (2026-09-19); how it differs from the list above:**
+  - Modules: `profile.py` (`Profile`, `SourceSpec`, `build_source`, `load_profile`/`save_profile`, `profile_from_config`, `Profile.to_config()` which keeps everything it does not manage), `ignore.py`
+    (`IgnoreRule`, `evaluate`, `explain`), `union.py` (`union_of`, `union_items`, `UnionLibrarySource`, `Claims`, `reconstruct_claims`, `clash_key`). `union_of(listings, ignore=, ignored_titles=, claims=)` is **pure**
+    over already-listed items, so chunk 24's scan can list each source itself (per-source errors, last-scanned) and then merge; `union_items(profile)` lists and merges and lets a listing error propagate.
+  - The per-title ignore is the profile key `ignore_titles` (id -> reason, or a list of ids / `{id, reason}`). Ignore rules are evaluated *after* clash resolution, so a `source:` rule that ignores the owner
+    ignores the file. Ignored titles are not reported as duplicates.
+  - The profile is the CLI config file's shape: `sources:` is now a list, or (older) a mapping with `run.source` naming the one in use (a filesystem source may keep its globs in `run:`). `work_dir`/`queue_dir` come
+    from `run:` then `sync:`; the four repo settings from `sync:`. `cli._source` and `_load_config` now delegate to `profile.py` (`build_source`, `read_config_file`).
+  - **Sticky ownership as built:** the item whose id has a queue entry or work directory owns a clashing file whatever the order; unclaimed clashes go to the earlier source. **When the owner's item disappears the
+    other item takes over under its own id** -- a dangling claim records no path, so it cannot be adopted; its old outputs are left behind. Chunk 24's index, which keeps a path per title, is where to improve that.
+  - **Season ids** (§12.14): `Claims.season_id()` matches an existing season-shaped queue entry by (series TMDB id, season) then (title, season); `plan_units(..., season_id_for=)` uses it and **`run_library()` now always
+    passes it**, so a corrected series title no longer re-keys a season. `season.is_season_id()` distinguishes season ids from source ids (an episode's own entry also carries a season in its metadata).
+  - CLI: `run --profile FILE` (replaces `--config` and the source options; refused with `--config` or with no sources). README has a "One catalogue from several libraries" section.
+  - **Not done:** a per-source timeout/partial-failure policy (24), GUI editing of the profile (26c), and adopting a dangling claim (above).
 
 **24 -- Discovery index and states** (new `pipeline/library/status.py`, `index.py`, `state.py`)
 - Split `extract_status()` / `design_status()` out of the `*_if_needed()` wrappers (which then call them): a refactor with **no behaviour change**,

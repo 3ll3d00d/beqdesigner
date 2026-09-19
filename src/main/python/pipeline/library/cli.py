@@ -2,32 +2,23 @@
 import argparse
 import json
 from dataclasses import asdict
-from pathlib import Path
 from typing import Any
 
-import yaml
 
 from pipeline.config import AnalysisConfig
 from pipeline.designer.http_binding import http_designer
 from pipeline.designer.registry import register_designer, registered_designers
-from pipeline.library.filesystem import FilesystemLibrarySource
-from pipeline.library.jriver import JRiverLibrarySource
-from pipeline.library.pathmap import mappings_from_config
+from pipeline.library.profile import build_source, profile_from_config, read_config_file
 from pipeline.library.revise import REVISE_TARGETS, revise_entry
 from pipeline.library.run import LibraryRunConfig, run_library
 from pipeline.library.season import DEFAULT_TV_MODE, TV_MODES
 from pipeline.library.sync import commit_library, publish_library, sync_library
+from pipeline.library.union import UnionLibrarySource
 from pipeline.publish.git import RepoTarget
 
 
 def _load_config(path: str | None) -> dict[str, Any]:
-    if path is None:
-        return {}
-    content = Path(path).read_text(encoding='utf-8')
-    loaded = yaml.safe_load(content) if Path(path).suffix.lower() in {'.yaml', '.yml'} else json.loads(content)
-    if not isinstance(loaded, dict):
-        raise ValueError('configuration root must be an object')
-    return loaded
+    return {} if path is None else read_config_file(path)
 
 
 def _configured_values(args: argparse.Namespace, config: dict[str, Any], section: str) -> dict[str, Any]:
@@ -46,26 +37,16 @@ def _required(values: dict[str, Any], name: str) -> Any:
 
 def _source(values: dict[str, Any], config: dict[str, Any]):
     source_name = _required(values, 'source')
-    source_values = dict(config.get('sources', {}).get(source_name, {}))
+    settings = dict(config.get('sources', {}).get(source_name, {}))
     if source_name == 'filesystem':
-        globs = values.get('globs') or source_values.get('globs')
-        if not globs:
-            raise ValueError('glob is required for the filesystem source')
-        return FilesystemLibrarySource(list(globs))
-    source_values.update({key: values[key] for key in
-                          ('host', 'port', 'browse_node_id', 'username', 'password', 'ssl', 'timeout',
-                           'external_id_fields') if values.get(key) is not None})
-    if source_name != 'jriver':
-        raise ValueError(f'unsupported source {source_name!r}; available: filesystem, jriver')
-    return JRiverLibrarySource(
-        _required(source_values, 'host'), int(_required(source_values, 'port')),
-        int(_required(source_values, 'browse_node_id')), username=source_values.get('username'),
-        password=source_values.get('password'), ssl=bool(source_values.get('ssl', False)),
-        timeout=int(source_values.get('timeout', 5)),
-        external_id_fields=source_values.get('external_id_fields'),
+        settings['globs'] = values.get('globs') or settings.get('globs')
+    else:
+        settings.update({key: values[key] for key in
+                         ('host', 'port', 'browse_node_id', 'username', 'password', 'ssl', 'timeout',
+                          'external_id_fields') if values.get(key) is not None})
         # flags replace the config file's rules rather than adding to them, like every other option
-        path_mappings=mappings_from_config(values.get('path_maps') or source_values.get('path_mappings')),
-    )
+        settings['path_mappings'] = values.get('path_maps') or settings.get('path_mappings')
+    return build_source(source_name, settings)
 
 
 def _analysis_config(values: dict[str, Any]) -> AnalysisConfig:
@@ -102,6 +83,13 @@ def _register_designers(values: dict[str, Any], config: dict[str, Any]) -> None:
 
 def _run(args: argparse.Namespace, config: dict[str, Any]) -> int:
     values = _configured_values(args, config, 'run')
+    profile = profile_from_config(config) if args.profile else None
+    if profile is not None:
+        if not profile.sources:
+            raise ValueError('the profile lists no sources')
+        for name in ('work_dir', 'queue_dir'):  # the profile may keep them under `sync:` instead of `run:`
+            if not values.get(name) and getattr(profile, name):
+                values[name] = getattr(profile, name)
     _register_designers(values, config)
     designer = _required(values, 'designer')
     if designer not in registered_designers():
@@ -118,7 +106,7 @@ def _run(args: argparse.Namespace, config: dict[str, Any]) -> int:
         audio_types=tuple(values.get('audio_types', ())),
         tv_mode=values.get('tv_mode', DEFAULT_TV_MODE),
     )
-    report = run_library(_source(values, config), run_config)
+    report = run_library(UnionLibrarySource(profile) if profile is not None else _source(values, config), run_config)
     print(json.dumps(asdict(report), sort_keys=True))
     return 1 if report.failed else 0
 
@@ -234,7 +222,13 @@ designs.
 
 def _add_run_options(parser: argparse.ArgumentParser) -> None:
     source = parser.add_argument_group('library source')
-    source.add_argument('--source', help="which library to read: 'jriver' or 'filesystem' (required)")
+    source.add_argument('--profile', metavar='FILE',
+                        help='read a catalogue profile (JSON or YAML) instead of --config: its ordered list of `sources:` '
+                             'is merged into one catalogue, a title in two sources is designed once, and its `ignore:` '
+                             'rules and `ignore_titles:` are honoured. Its `run:` section supplies every other option; '
+                             'flags still override. Not combined with --config, and replaces --source and the '
+                             'source options below')
+    source.add_argument('--source', help="which library to read: 'jriver' or 'filesystem' (required unless --profile)")
     source.add_argument('--glob', dest='globs', action='append', metavar='GLOB',
                         help='filesystem source: a folder (its direct contents) or a glob such as /films/**/*.mkv; '
                              'repeatable. DVD and Blu-ray rip folders are each one title')
@@ -370,7 +364,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    config = _load_config(args.config)
+    if getattr(args, 'profile', None):
+        if args.config:
+            build_parser().error('--profile replaces --config; give one')
+        config = read_config_file(args.profile)
+    else:
+        config = _load_config(args.config)
     try:
         return _COMMANDS[args.command](args, config)
     except ValueError as error:

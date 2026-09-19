@@ -50,7 +50,7 @@ run:
         seen['config'] = run_config
         return LibraryRunReport(extracted=['one'], designed=['one'])
 
-    monkeypatch.setattr(cli, 'JRiverLibrarySource', Source)
+    monkeypatch.setattr('pipeline.library.profile.JRiverLibrarySource', Source)
     monkeypatch.setattr(cli, 'run_library', run)
 
     assert cli.main(['--config', str(config), 'run']) == 0
@@ -80,7 +80,7 @@ def test_run_flags_override_json_config_and_failure_exits_nonzero(tmp_path, monk
         def __init__(self, host, port, browse_node_id, **kwargs):
             seen['host'] = host
 
-    monkeypatch.setattr(cli, 'JRiverLibrarySource', Source)
+    monkeypatch.setattr('pipeline.library.profile.JRiverLibrarySource', Source)
     def run(source, run_config):
         seen['designer'] = run_config.designer
         return LibraryRunReport(failed=[('one', 'bad input')])
@@ -411,3 +411,81 @@ def test_revise_to_extract_without_a_work_dir_is_reported_per_id(tmp_path, capsy
     assert cli.main(['revise', '--queue-dir', queue_dir, '--to', 'extract', '--id', 'one']) == 1
 
     assert 'work_dir is required' in json.loads(capsys.readouterr().out)[0]['error']
+
+
+def _profile_file(tmp_path, **extra):
+    import yaml
+    config = {
+        'sources': [{'name': 'films', 'kind': 'filesystem', 'globs': [str(tmp_path / 'films')]},
+                    {'name': 'more', 'kind': 'filesystem', 'globs': [str(tmp_path / 'more')]}],
+        'ignore': [{'kind': 'tv'}],
+        'run': {'work_dir': str(tmp_path / 'work'), 'designer': 'x'},
+        'sync': {'queue_dir': str(tmp_path / 'queue')},  # the profile may keep the queue under `sync:`
+        **extra,
+    }
+    path = tmp_path / 'catalogue.yaml'
+    path.write_text(yaml.safe_dump(config))
+    return str(path)
+
+
+def test_run_with_a_profile_runs_the_union_of_its_sources(tmp_path, monkeypatch, capsys):
+    from pipeline.library import cli
+    from pipeline.library.union import UnionLibrarySource
+    seen = {}
+    monkeypatch.setattr(cli, 'run_library', lambda source, run_config: seen.update(source=source, config=run_config)
+                        or LibraryRunReport())
+
+    assert cli.main(['run', '--profile', _profile_file(tmp_path)]) == 0
+
+    assert isinstance(seen['source'], UnionLibrarySource)
+    assert [s.name for s in seen['source'].profile.sources] == ['films', 'more']
+    assert [r.kind for r in seen['source'].profile.ignore] == ['tv']
+    assert (seen['config'].work_dir, seen['config'].queue_dir) == (str(tmp_path / 'work'), str(tmp_path / 'queue'))
+    assert seen['config'].designer == 'x'
+
+
+def test_run_flags_still_override_a_profile(tmp_path, monkeypatch):
+    from pipeline.library import cli
+    seen = {}
+    monkeypatch.setattr(cli, 'run_library', lambda source, run_config: seen.update(config=run_config)
+                        or LibraryRunReport())
+
+    cli.main(['run', '--profile', _profile_file(tmp_path), '--designer', 'old', '--tv-mode', 'season'])
+
+    assert (seen['config'].designer, seen['config'].tv_mode) == ('old', 'season')
+
+
+def test_a_profile_with_no_sources_is_refused_and_so_is_combining_it_with_config(tmp_path, capsys):
+    import yaml
+    from pipeline.library import cli
+    empty = tmp_path / 'empty.yaml'
+    empty.write_text(yaml.safe_dump({'run': {'work_dir': '/w', 'queue_dir': '/q', 'designer': 'x'}}))
+
+    for argv, message in ((['run', '--profile', str(empty)], 'lists no sources'),
+                          (['--config', str(empty), 'run', '--profile', str(empty)], 'replaces --config')):
+        with pytest.raises(SystemExit) as raised:
+            cli.main(argv)
+        assert raised.value.code == 2 and message in capsys.readouterr().err
+
+
+def test_a_malformed_ignore_rule_in_a_profile_is_a_cli_error_not_a_silent_no_op(tmp_path, capsys):
+    from pipeline.library import cli
+    path = _profile_file(tmp_path, ignore=[{'colour': 'red'}])
+
+    with pytest.raises(SystemExit) as raised:
+        cli.main(['run', '--profile', path])
+
+    assert raised.value.code == 2 and 'unknown ignore rule key' in capsys.readouterr().err
+
+
+def test_the_old_config_still_runs_through_the_single_source_path(tmp_path, monkeypatch):
+    from pipeline.library import cli
+    from pipeline.library.filesystem import FilesystemLibrarySource
+    seen = {}
+    monkeypatch.setattr(cli, 'run_library', lambda source, run_config: seen.update(source=source)
+                        or LibraryRunReport())
+
+    cli.main(['run', '--source', 'filesystem', '--glob', str(tmp_path), '--work-dir', '/w', '--queue-dir', '/q',
+              '--designer', 'x'])
+
+    assert isinstance(seen['source'], FilesystemLibrarySource)
