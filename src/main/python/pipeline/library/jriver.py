@@ -7,13 +7,61 @@ returns ordinary ``LibraryItem`` values to the synchronous pipeline.
 import asyncio
 import hashlib
 import json
+import logging
 import os
 from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import dataclass
 from typing import Any, Optional
 
 from hamcws import MediaServer, get_mcws_connection
 
 from pipeline.library.source import LibraryItem
+
+logger = logging.getLogger('library_jriver')
+
+
+@dataclass(frozen=True)
+class BrowseNode:
+    id: int
+    name: str
+
+
+def list_browse_children(host: str, port: int, node_id: int = -1, *, username: Optional[str] = None,
+                         password: Optional[str] = None, ssl: bool = False, timeout: int = 5) -> list[BrowseNode]:
+    '''
+    The nodes directly below a browse node (-1 is the root), for choosing the node a JRiverLibrarySource reads.
+
+    hamcws parses the Browse/Children response as {Item name: Item text}; each entry is taken to be
+    (display name, node id) and an entry whose text isn't an integer is skipped. That reading is unverified
+    against a real server (design/library-sync-pipeline-plan.md chunk 3), so callers must keep a way to enter an
+    id by hand.
+    :raises RuntimeError: when called from a running event loop, as JRiverLibrarySource.list_items() does.
+    '''
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(_browse_children(host, port, node_id, username, password, ssl, timeout))
+    raise RuntimeError('list_browse_children() cannot run inside an active event loop')
+
+
+async def _browse_children(host, port, node_id, username, password, ssl, timeout) -> list[BrowseNode]:
+    connection = get_mcws_connection(host, port, username=username, password=password, ssl=ssl, timeout=timeout)
+    server = MediaServer(connection)
+    try:
+        response = await server.browse_children(node_id)
+    finally:
+        await server.close()
+    return _map_children(response)
+
+
+def _map_children(response: Mapping[str, Any]) -> list[BrowseNode]:
+    nodes = []
+    for name, value in response.items():
+        try:
+            nodes.append(BrowseNode(int(str(value).strip()), name))
+        except ValueError:
+            logger.warning('Ignoring Browse/Children entry %r: %r is not a node id', name, value)
+    return nodes
 
 
 class JRiverLibrarySource:

@@ -15,9 +15,11 @@ from qtpy.QtWidgets import QComboBox, QFileDialog, QFormLayout, QHBoxLayout, QLa
     QSpinBox, QVBoxLayout, QWidget
 
 from model.jriver.connections import SavedConnection, load_connections
-from model.preferences import LIBRARY_FILESYSTEM_GLOBS, LIBRARY_JRIVER_BROWSE_NODE, LIBRARY_JRIVER_CONNECTION
+from model.browse_node_picker import JRiverBrowseNodePicker
+from model.preferences import LIBRARY_FILESYSTEM_GLOBS, LIBRARY_JRIVER_BROWSE_NODE, LIBRARY_JRIVER_BROWSE_PATH, \
+    LIBRARY_JRIVER_CONNECTION
 from pipeline.library.filesystem import FilesystemLibrarySource
-from pipeline.library.jriver import JRiverLibrarySource
+from pipeline.library.jriver import JRiverLibrarySource, list_browse_children
 from pipeline.library.source import LibrarySource
 
 
@@ -111,13 +113,26 @@ class JRiverSourcePage(SourcePage):
         self.browseNodeSpin = QSpinBox()
         self.browseNodeSpin.setRange(-1, 2147483647)
         self.browseNodeSpin.setToolTip('-1 is the root of the browse tree')
+        self.pickNodeButton = QPushButton('Choose...')
+        self.pickNodeButton.setToolTip('Pick the node from the server\'s browse tree')
+        self.nodePathLabel = QLabel('')
+        self.nodePathLabel.setWordWrap(True)
         self.helpLabel = QLabel('Servers are managed in Preferences > JRiver.')
         self.helpLabel.setWordWrap(True)
         form = QFormLayout(self)
         form.setContentsMargins(0, 0, 0, 0)
         form.addRow('Server', self.serverCombo)
-        form.addRow('Browse node ID', self.browseNodeSpin)
+        node_row = QHBoxLayout()
+        node_row.addWidget(self.browseNodeSpin)
+        node_row.addWidget(self.pickNodeButton)
+        form.addRow('Browse node ID', node_row)
+        form.addRow('', self.nodePathLabel)
         form.addRow(self.helpLabel)
+        self.pickNodeButton.clicked.connect(self.__pick_node)
+        self.serverCombo.currentIndexChanged.connect(self.__update_pick_enabled)
+        # typing an id by hand makes any remembered path stale
+        self.browseNodeSpin.valueChanged.connect(lambda _: self.nodePathLabel.setText(''))
+        self.__update_pick_enabled()
 
     def selected_connection(self) -> Optional[SavedConnection]:
         return self.serverCombo.currentData(Qt.ItemDataRole.UserRole)
@@ -131,12 +146,32 @@ class JRiverSourcePage(SourcePage):
             if self.serverCombo.itemData(i).endpoint == wanted:
                 self.serverCombo.setCurrentIndex(i)
         self.browseNodeSpin.setValue(prefs.get(LIBRARY_JRIVER_BROWSE_NODE))
+        self.nodePathLabel.setText(prefs.get(LIBRARY_JRIVER_BROWSE_PATH))  # after the spin, which clears it
+        self.__update_pick_enabled()
 
     def save(self, prefs) -> None:
         connection = self.selected_connection()
         if connection is not None:
             prefs.set(LIBRARY_JRIVER_CONNECTION, connection.endpoint)
         prefs.set(LIBRARY_JRIVER_BROWSE_NODE, self.browseNodeSpin.value())
+        prefs.set(LIBRARY_JRIVER_BROWSE_PATH, self.nodePathLabel.text())
+
+    def __update_pick_enabled(self, *_):
+        self.pickNodeButton.setEnabled(self.selected_connection() is not None)
+
+    def __pick_node(self):
+        connection = self.selected_connection()
+        if connection is None or connection.port is None:
+            return
+
+        def fetch(node_id: int):
+            return list_browse_children(connection.host, connection.port, node_id, username=connection.username,
+                                        password=connection.password, ssl=connection.secure)
+
+        picker = JRiverBrowseNodePicker(self, fetch, self.browseNodeSpin.value())
+        if picker.exec():
+            self.browseNodeSpin.setValue(picker.selected_node_id)  # clears the label...
+            self.nodePathLabel.setText(picker.selected_path)  # ...so set the path afterwards
 
     def build_source(self) -> LibrarySource:
         connection = self.selected_connection()

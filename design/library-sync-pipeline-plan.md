@@ -884,8 +884,8 @@ New dialog, `model/library_sync.py` / `ui/library_sync.py`
   **As built (chunk 13, §11.3):** a **Source** combo over a per-kind
   settings page (Filesystem, JRiver); the JRiver page picks a server from
   the shared list. There is still no query field (neither built-in source
-  takes a query) and the browse node is still a plain integer spin box until
-  chunk 14. The old hard-wired server/port/credentials fields are gone.
+  takes a query); the browse node is chosen with a tree picker (chunk 14) or
+  typed. The old hard-wired server/port/credentials fields are gone.
 - **Run** tab: calls `run_library()` on a background `QRunnable` (same
   `QThreadPool` pattern as `ProbeJob`/`DesignJob`), streams
   `on_item_done` progress into the UI, switches to the **Review** tab
@@ -956,7 +956,7 @@ fixture -- only chunk 8 is blocked on that mapping.
 | 11 | Shared JRiver connections (§11.1): a `Preferences -> JRiver` pane owns add/test/delete of MCWS servers (`JRIVER_MCWS_CONNECTIONS`, unchanged storage); the JRiver filter manager's `MCWSDialog` and Library Sync both *pick from* that list instead of each managing their own. | 10 | **Implemented** -- `model/jriver/connections.py`, Preferences -> JRiver page, `MCWSDialog` trimmed to pick-only |
 | 12 | `pipeline/library/filesystem.py` -- a Qt-free `FilesystemLibrarySource` (globs, BDMV roots) so "raw filesystem, as batch extract does" is a `LibrarySource` too (§11.2). CLI gains `--source filesystem`. | 4 | **Implemented** -- `pipeline/library/filesystem.py`; CLI `--source filesystem --glob ...` |
 | 13 | Library Sync **source picker** (§11.3): a Source combo (Filesystem / JRiver servers / future kinds) over a per-kind settings page, via a small registry of source *kinds*; replaces the "first saved connection" logic and the hard-wired JRiver group. | 11, 12 | **Implemented** -- `model/library_sources.py`, `LibrarySyncDialog` source combo + stacked pages |
-| 14 | JRiver **browse-node picker** (§11.4): a tree dialog over `Browse/Children` so the root node is chosen, not typed; the numeric field stays as a fallback. | 13 | Planned |
+| 14 | JRiver **browse-node picker** (§11.4): a tree dialog over `Browse/Children` so the root node is chosen, not typed; the numeric field stays as a fallback. | 13 | **Implemented** -- `model/browse_node_picker.py`, `list_browse_children()`; response shape still unverified against a real server |
 
 ---
 
@@ -2340,7 +2340,7 @@ fixture.
 
 Reviewed against the code at `1ebaa4e` (471 tests), then updated after each
 follow-up commit per `AGENTS.md` -- currently current to the library
-source-picker commit (535 tests). Everything in §8 marked Implemented is present and tested, except as
+browse-node picker commit (551 tests). Everything in §8 marked Implemented is present and tested, except as
 listed here. Items are ordered roughly by impact.
 
 **Behaviour gaps -- designed above (1-4 all now built)**
@@ -2384,9 +2384,8 @@ listed here. Items are ordered roughly by impact.
 10. **Chunk 3, the real-server spike, was never done** -- field aliases and
    `Browse/Children` shape are unverified; there is no sanitised fixture.
 11. **GUI gaps (§7):** no library-view filter bar (status/name/year/type);
-    no browse-node selector (raw integer spin box -- chunk 14). The source
-    picker, `LIBRARY_SOURCE_DEFAULT` and choosing among saved servers are
-    done (chunk 13).
+    The source picker, `LIBRARY_SOURCE_DEFAULT`, choosing among saved
+    servers (chunk 13) and the browse-node picker (chunk 14) are done.
 12. **`pipeline.library.registry` has no production callers** (§3). The GUI
     has its own kind registry (`model/library_sources.py`) because kinds also
     carry widgets; the headless one remains an unused seam.
@@ -2487,3 +2486,24 @@ returns a `{Item name: Item text}` dict, and the exact response shape (which
 is the display name, which the id, how a leaf is marked) has not been checked
 against a real server (chunk 3). The parser is written defensively, and the
 numeric field remains so a wrong guess never blocks a run.
+
+**As built (chunk 14):** `pipeline/library/jriver.py::list_browse_children()`
+(Qt-free; same running-loop guard as `list_items()`) returns
+`BrowseNode(id, name)` values, reading hamcws's `{Item name: Item text}` dict
+as `{display name: node id}` and skipping any entry whose text isn't an
+integer. `model/browse_node_picker.py::JRiverBrowseNodePicker(parent, fetch,
+current_id)` is a tree with a "Whole library (root)" node (id `-1`) at the
+top; children load off the UI thread only when a node is first expanded
+(a failed load is shown inline and retried on the next expand; a node found
+to have no children loses its expander). `fetch` is injected, so the dialog
+knows nothing about MCWS. The JRiver source page gets a **Choose...** button
+(enabled once a server is selected) that opens the picker on the current id;
+the choice fills the id spin box and a path label (`Video > Needs BEQ`),
+persisted as `LIBRARY_JRIVER_BROWSE_PATH` and cleared if the id is then typed
+by hand. The spin box stays as the fallback the caveat above requires.
+
+**Still unverified:** the response shape. It is exercised only against a
+local fake serving `<Item Name="Movies">21</Item>`-style XML; if a real
+server returns something else the picker will show an empty or partial tree,
+and the fix is confined to `_map_children()`. Capturing a real
+`Browse/Children` response is now part of the chunk 3 spike.

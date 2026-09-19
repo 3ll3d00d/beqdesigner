@@ -8,7 +8,7 @@ from urllib.parse import parse_qs, urlparse
 
 import pytest
 
-from pipeline.library.jriver import JRiverLibrarySource
+from pipeline.library.jriver import BrowseNode, JRiverLibrarySource, list_browse_children
 
 
 def _source(**kwargs):
@@ -33,7 +33,8 @@ def _row(**overrides):
 
 
 @contextmanager
-def _browse_server(rows):
+def _browse_server(rows, children=None):
+    ''' children: {parent node id: {name: child id}} served as MCWS's XML for Browse/Children. '''
     requests = []
 
     class Handler(BaseHTTPRequestHandler):
@@ -43,6 +44,15 @@ def _browse_server(rows):
                 body = json.dumps(rows).encode('utf-8')
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/json')
+                self.send_header('Content-Length', str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+            elif self.path.startswith('/MCWS/v1/Browse/Children') and children is not None:
+                node = int(parse_qs(urlparse(self.path).query)['ID'][0])
+                items = ''.join(f'<Item Name="{name}">{child}</Item>' for name, child in children.get(node, {}).items())
+                body = f'<Response Status="OK">{items}</Response>'.encode('utf-8')
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/xml')
                 self.send_header('Content-Length', str(len(body)))
                 self.end_headers()
                 self.wfile.write(body)
@@ -138,5 +148,36 @@ def test_rejects_source_query_and_active_event_loop():
     async def call_from_loop():
         with pytest.raises(RuntimeError, match='active event loop'):
             source.list_items()
+
+    asyncio.run(call_from_loop())
+
+
+def test_lists_the_children_of_a_browse_node():
+    children = {-1: {'Video': '2', 'Audio': '1'}, 2: {'Movies': '21', 'Needs BEQ': '22'}}
+    with _browse_server([], children) as (port, requests):
+        root = list_browse_children('127.0.0.1', port)
+        below_video = list_browse_children('127.0.0.1', port, 2)
+
+    assert root == [BrowseNode(2, 'Video'), BrowseNode(1, 'Audio')]
+    assert below_video == [BrowseNode(21, 'Movies'), BrowseNode(22, 'Needs BEQ')]
+    assert requests[0].path == '/MCWS/v1/Browse/Children'
+    assert parse_qs(requests[0].query)['ID'] == ['-1']
+    assert parse_qs(requests[1].query)['ID'] == ['2']
+
+
+def test_a_node_with_no_children_is_an_empty_list():
+    with _browse_server([], {}) as (port, _):
+        assert list_browse_children('127.0.0.1', port, 99) == []
+
+
+def test_children_that_are_not_integer_ids_are_skipped_rather_than_failing():
+    with _browse_server([], {-1: {'Video': '2', 'Odd': 'not-an-id', 'Empty': ''}}) as (port, _):
+        assert list_browse_children('127.0.0.1', port) == [BrowseNode(2, 'Video')]
+
+
+def test_listing_children_rejects_a_running_event_loop():
+    async def call_from_loop():
+        with pytest.raises(RuntimeError, match='active event loop'):
+            list_browse_children('127.0.0.1', 1)
 
     asyncio.run(call_from_loop())
