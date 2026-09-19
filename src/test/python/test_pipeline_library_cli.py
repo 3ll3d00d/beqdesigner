@@ -100,3 +100,28 @@ def test_unknown_source_is_a_cli_error(tmp_path, monkeypatch):
     with pytest.raises(SystemExit) as error:
         cli.main(['run', '--source', 'plex', '--work-dir', '/work', '--queue-dir', '/queue', '--designer', 'x'])
     assert error.value.code == 2
+
+
+def test_filesystem_source_takes_globs_from_flags_or_config(tmp_path, monkeypatch, capsys):
+    from pipeline.library import cli
+    (tmp_path / 'films').mkdir()
+    (tmp_path / 'films' / 'a.mkv').write_bytes(b'x')
+    seen = []
+    monkeypatch.setattr(cli, 'run_library', lambda source, run_config: seen.append(list(source.list_items()))
+                        or LibraryRunReport())
+    base = ['run', '--source', 'filesystem', '--work-dir', '/work', '--queue-dir', '/queue', '--designer', 'x']
+
+    assert cli.main(base + ['--glob', str(tmp_path / 'films')]) == 0
+    config = tmp_path / 'library.json'
+    config.write_text(json.dumps({'sources': {'filesystem': {'globs': [str(tmp_path / 'films')]}}}))
+    assert cli.main(['--config', str(config)] + base) == 0
+
+    assert [[i.display_name for i in items] for items in seen] == [['a'], ['a']]
+
+
+def test_filesystem_source_without_a_glob_is_a_cli_error(monkeypatch):
+    from pipeline.library import cli
+
+    with pytest.raises(SystemExit):
+        cli.main(['run', '--source', 'filesystem', '--work-dir', '/work', '--queue-dir', '/queue',
+                  '--designer', 'x'])

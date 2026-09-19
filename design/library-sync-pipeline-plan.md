@@ -953,7 +953,7 @@ fixture -- only chunk 8 is blocked on that mapping.
 | 9 | `pipeline/library/cli.py` -- CLI entry point (§6). | 7, 8 | **Implemented -- commit `e23e03d`** |
 | 10 | GUI: `model/library_sync.py`/`ui/library_sync.py` + `model/preferences.py` additions (§7), including the library-view filter bar (status + name/year/content-type, exact fields decided at UI design time), with a `pytest-qt` safety-net test before wiring, per this repo's established practice for touching a dialog. | 7, 8, 9 | **Implemented -- commit `9da7aea`; deferred: library-view filter bar, source picker/query field, browse-node selector** |
 | 11 | Shared JRiver connections (§11.1): a `Preferences -> JRiver` pane owns add/test/delete of MCWS servers (`JRIVER_MCWS_CONNECTIONS`, unchanged storage); the JRiver filter manager's `MCWSDialog` and Library Sync both *pick from* that list instead of each managing their own. | 10 | **Implemented** -- `model/jriver/connections.py`, Preferences -> JRiver page, `MCWSDialog` trimmed to pick-only |
-| 12 | `pipeline/library/filesystem.py` -- a Qt-free `FilesystemLibrarySource` (globs, BDMV roots) so "raw filesystem, as batch extract does" is a `LibrarySource` too (§11.2). CLI gains `--source filesystem`. | 4 | Planned |
+| 12 | `pipeline/library/filesystem.py` -- a Qt-free `FilesystemLibrarySource` (globs, BDMV roots) so "raw filesystem, as batch extract does" is a `LibrarySource` too (§11.2). CLI gains `--source filesystem`. | 4 | **Implemented** -- `pipeline/library/filesystem.py`; CLI `--source filesystem --glob ...` |
 | 13 | Library Sync **source picker** (§11.3): a Source combo (Filesystem / JRiver servers / future kinds) over a per-kind settings page, via a small registry of source *kinds*; replaces the "first saved connection" logic and the hard-wired JRiver group. | 11, 12 | Planned |
 | 14 | JRiver **browse-node picker** (§11.4): a tree dialog over `Browse/Children` so the root node is chosen, not typed; the numeric field stays as a fallback. | 13 | Planned |
 
@@ -2339,7 +2339,7 @@ fixture.
 
 Reviewed against the code at `1ebaa4e` (471 tests), then updated after each
 follow-up commit per `AGENTS.md` -- currently current to the library
-shared-connections commit (518 tests). Everything in §8 marked Implemented is present and tested, except as
+filesystem-source commit (529 tests). Everything in §8 marked Implemented is present and tested, except as
 listed here. Items are ordered roughly by impact.
 
 **Behaviour gaps -- designed above (1-4 all now built)**
@@ -2435,6 +2435,19 @@ has no key that survives a rename, so a moved file is a new title (documented
 limitation, unlike JRiver's `Key`). Fingerprint: left empty so the extract
 cache's mtime/size fallback applies. `title`/`year` are not guessed from the
 filename; metadata is for the reviewer (or a later resolver) to supply.
+
+**As built (chunk 12):** `pipeline/library/filesystem.py::FilesystemLibrarySource(globs,
+extensions=DEFAULT_MEDIA_EXTENSIONS)`. Two additions to `FileSearch`'s
+semantics, both for unattended runs: (1) a matched *file* must have a media
+extension (`extensions=None` disables this) -- Batch Extract accepts anything
+and lets the probe reject it, but here every non-media file in a film folder
+would be a failed item; (2) anything under a `BDMV` path component is skipped,
+so a recursive glob yields the disc root once rather than the root plus its
+clips. Results are sorted, deduplicated by id (so overlapping globs and
+symlinks give one title), and a BD root's fingerprint is the stat of
+`BDMV/index.bdmv` (a directory's own stat isn't meaningful). Nothing matching
+is an empty library, not an error. CLI: `--source filesystem` with repeatable
+`--glob`, or `sources.filesystem.globs` in the config file.
 
 ### 11.3 Source picker (chunk 13)
 

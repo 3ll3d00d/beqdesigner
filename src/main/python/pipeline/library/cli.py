@@ -8,6 +8,7 @@ from typing import Any
 import yaml
 
 from pipeline.config import AnalysisConfig
+from pipeline.library.filesystem import FilesystemLibrarySource
 from pipeline.library.jriver import JRiverLibrarySource
 from pipeline.library.run import LibraryRunConfig, run_library
 from pipeline.library.sync import sync_library
@@ -41,11 +42,16 @@ def _required(values: dict[str, Any], name: str) -> Any:
 def _source(values: dict[str, Any], config: dict[str, Any]):
     source_name = _required(values, 'source')
     source_values = dict(config.get('sources', {}).get(source_name, {}))
+    if source_name == 'filesystem':
+        globs = values.get('globs') or source_values.get('globs')
+        if not globs:
+            raise ValueError('glob is required for the filesystem source')
+        return FilesystemLibrarySource(list(globs))
     source_values.update({key: values[key] for key in
                           ('host', 'port', 'browse_node_id', 'username', 'password', 'ssl', 'timeout',
                            'external_id_fields') if values.get(key) is not None})
     if source_name != 'jriver':
-        raise ValueError(f'unsupported source {source_name!r}; only jriver is currently available')
+        raise ValueError(f'unsupported source {source_name!r}; available: filesystem, jriver')
     return JRiverLibrarySource(
         _required(source_values, 'host'), int(_required(source_values, 'port')),
         int(_required(source_values, 'browse_node_id')), username=source_values.get('username'),
@@ -104,6 +110,7 @@ def _add_run_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('--host')
     parser.add_argument('--port', type=int)
     parser.add_argument('--browse-node-id', type=int)
+    parser.add_argument('--glob', dest='globs', action='append', help='filesystem source: a glob or directory')
     parser.add_argument('--username')
     parser.add_argument('--password')
     parser.add_argument('--ssl', action=argparse.BooleanOptionalAction, default=None)
