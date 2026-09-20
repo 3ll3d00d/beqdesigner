@@ -176,8 +176,15 @@ def test_a_profile_that_would_not_read_back_is_not_written(qtbot, tmp_path):
     assert drawer.sourcesTab.add_source()
 
     assert 'jriver' in drawer.error and drawer.statusLabel.text().startswith('Not saved: ')   # said as soon as it is edited
-    assert not drawer.flush()
+    assert drawer.flush()                                                     # nothing is waiting: the edit was not applied
     assert _bytes(path) == before
+    assert 'extra' not in [s.name for s in drawer.profile.sources]
+    assert [s.name for s in drawer.sourcesTab.sources] == [s.name for s in drawer.profile.sources]   # the list took it back
+
+    drawer.keepMultichannel.setChecked(True)                                  # so a later edit does not fail the same way
+    drawer.keepMultichannel.clicked.emit(True)
+    assert drawer.error == '' and drawer.flush()
+    assert load_profile(path).config['run']['keep_multichannel'] is True
 
 
 # --- sources: priority and the reused pages ------------------------------------------------------------------------------------
@@ -712,3 +719,23 @@ def test_a_profile_sources_own_mappings_can_be_replaced_by_those_in_preferences(
 
     assert seen == {'note': True, 'gone': False}
     assert load_profile(path).source('nas').settings['path_mappings'] == [{'from': 'W:\\Films', 'to': '/mnt/films'}]
+
+
+def test_choosing_the_not_available_entry_keeps_the_name_not_the_label(qtbot, tmp_path):
+    config = profile_config(tmp_path)
+    config['run']['designer'] = 'nobody.registered'
+    path = str(tmp_path / 'p.yaml')
+    from pipeline.library.profile import write_config_file
+    write_config_file(path, config)
+    window = open_window(qtbot, tmp_path, make_prefs(tmp_path, path))
+    drawer = window.open_settings()
+
+    index = drawer.designerCombo.findData('nobody.registered')
+    assert index >= 0
+    drawer.designerCombo.setCurrentIndex(index)
+    drawer.designerCombo.activated.emit(index)
+    drawer.tvModeCombo.setCurrentIndex(drawer.tvModeCombo.findData('season'))   # so the profile differs and is written
+    drawer.tvModeCombo.activated.emit(drawer.tvModeCombo.currentIndex())
+    assert drawer.flush()
+
+    assert load_profile(path).config['run']['designer'] == 'nobody.registered'

@@ -261,7 +261,7 @@ class SettingsDrawer(QWidget):
             lambda: self.__set_sync('image_owner', self.imageOwner.text().strip()))
         self.imageRepoName.editingFinished.connect(
             lambda: self.__set_sync('image_repo_name', self.imageRepoName.text().strip()))
-        self.designerCombo.activated.connect(lambda _i: self.__set_run('designer', self.designerCombo.currentText()))
+        self.designerCombo.activated.connect(lambda _i: self.__set_run('designer', self.__chosen_designer()))
         self.tvModeCombo.activated.connect(lambda _i: self.__set_run('tv_mode', self.tvModeCombo.currentData()))
         self.keepMultichannel.clicked.connect(lambda checked: self.__set_run('keep_multichannel', bool(checked)))
         self.acceptThreshold.valueChanged.connect(self.__threshold_changed)
@@ -456,19 +456,38 @@ class SettingsDrawer(QWidget):
 
     def __edit(self, profile: Profile) -> None:
         ''' An edit was made: validate the whole profile, and write it shortly (or say why it cannot be). '''
-        if self._loading:
+        if self._loading or self._profile is None:
+            return
+        error = self._problem(profile)
+        if error:
+            # refused: the edit is not applied (so later edits do not build on a profile that cannot be written) and the
+            # lists are put back to what the profile holds; an earlier edit still waiting is still written
+            self._error = error
+            self.__show_error(error)
+            self.__restore_lists()
             return
         self._profile = profile
         self._pending = True
-        self._error = self._problem(profile)
-        if self._error:
-            self._timer.stop()
-            self.__show_error(self._error)
-        else:
-            self.statusLabel.setStyleSheet('')
-            self.statusLabel.setText('Saving...')
-            self._timer.start()
+        self._error = ''
+        self.statusLabel.setStyleSheet('')
+        self.statusLabel.setText('Saving...')
+        self._timer.start()
         self.edited.emit()
+
+    def __restore_lists(self) -> None:
+        ''' Shows the sources and ignore rules of the profile as it stands (an edit to them was refused). '''
+        profile = self._profile
+        self._loading = True
+        try:
+            self.sourcesTab.set_sources(profile.sources)
+            self.ignoreTab.set_state(profile.ignore, profile.ignored_titles, list(self._rows_provider()),
+                                     [s.name for s in profile.sources])
+        finally:
+            self._loading = False
+
+    def __chosen_designer(self) -> str:
+        ''' The designer picked in the combo: its data if it has some (an unregistered name is listed as "name (not available)"). '''
+        return str(self.designerCombo.currentData() or self.designerCombo.currentText())
 
     @staticmethod
     def _problem(profile: Profile) -> str:
