@@ -17,7 +17,7 @@ from pipeline.orchestrate import Session
 from pipeline.publish.report import ReportSpec
 from pipeline.review import (current_publish_digest, publish_reviewed_queue, read_entry, read_queue, split_publish_results,
                              update_entry, write_queue_entry)
-from test_pipeline_library_commit import _publish, _queue_entry, repos  # noqa: F401 (a fixture)
+from test_pipeline_library_commit import IMAGES_NAME, OWNER, _publish, _queue_entry, repos  # noqa: F401 (a fixture)
 from test_pipeline_library_index import DESIGNER, _entry, _extracted, _item, _needs, _scan, env  # noqa: F401
 from test_pipeline_library_stages import (_accepted, _go, _publish_settings, _run_config, work)  # noqa: F401
 
@@ -165,7 +165,8 @@ def test_a_changed_report_style_changes_the_digest_only_when_an_image_is_publish
 def test_republish_takes_a_title_whose_report_style_changed(tmp_path, repos):
     xml, _, images, _ = repos
     queue_dir, _ = _publish(tmp_path, repos, ('a', 'Alien'))
-    kwargs = dict(images_repo=images, xml_dir='xml', image_dir='img', image_owner='o', image_repo_name='r', push=False)
+    kwargs = dict(images_repo=images, xml_dir='xml', image_dir='img', image_owner=OWNER, image_repo_name=IMAGES_NAME,
+                  push=False)
 
     assert publish_reviewed_queue(queue_dir, xml, republish=True, **kwargs) == []
     results = publish_reviewed_queue(queue_dir, xml, republish=True, report_spec=ReportSpec(width_px=1200), **kwargs)

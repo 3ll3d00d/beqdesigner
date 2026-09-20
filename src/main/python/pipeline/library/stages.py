@@ -73,8 +73,9 @@ class PublishSettings:
         if not settings.xml_repo:
             raise ValueError('xml-repo is required to publish or commit')
         return cls(RepoTarget(settings.xml_repo), RepoTarget(settings.images_repo) if settings.images_repo else None,
-                   image_owner, image_repo_name, settings.xml_dir, settings.image_dir, settings.meta_defaults,
-                   push=push)
+                   image_owner or settings.image_owner or None, image_repo_name or settings.image_repo_name or None,
+                   settings.xml_dir, settings.image_dir, settings.meta_defaults,
+                   report_spec=settings.report_spec or ReportSpec(), push=push)
 
 
 @dataclass

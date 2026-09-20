@@ -41,7 +41,8 @@ def _file_sha256(path: Optional[str]) -> Optional[str]:
 
 
 def publish_digest(filter_json: dict, meta: BeqMetadata, art_path: Optional[str], has_image: bool,
-                   mv_offset: float, report_spec: Optional[ReportSpec] = None) -> str:
+                   mv_offset: float, report_spec: Optional[ReportSpec] = None, image_owner: Optional[str] = None,
+                   image_repo_name: Optional[str] = None) -> str:
     '''
     Hash of everything a publish is built from. Two publishes with the same digest write the same catalogue entry,
     so a title whose current digest differs from the one recorded when it was published is *out of date* -- which
@@ -59,11 +60,16 @@ def publish_digest(filter_json: dict, meta: BeqMetadata, art_path: Optional[str]
         Only counted when an image is published and it is not the default, so a digest recorded before this existed
         (which had no report spec) is still the digest of a default-styled publish.
 
-    Deliberately **not** in it: the image's GitHub owner/repo (`image_owner`/`image_repo_name`) -- the discovery index
-    computes this digest too, from settings that do not carry them, so counting them would make every title look out
-    of date there; a repo that moves needs a republish by hand -- and `xml_dir` and `image_dir`. A different directory is a different *location*, not a
-    different content; a title published to a new `xml_dir` is written there by the next publish, and the file at the
-    old location is left behind for a person to remove.
+    :param image_owner/image_repo_name: the GitHub owner and repository the report image's URL is built from, **as given
+        to publish** (None when publish works them out from the images repo's remote). They are in the XML (the URL),
+        so a change is a change of content; only counted when an image is published and one is given, so a digest
+        recorded before they were counted -- or with neither set -- is unchanged. The discovery index is given them by
+        `ScanSettings` (`image_owner`, `image_repo_name`, from `sync:`), which must match what publish is given.
+
+    Deliberately **not** in it: the designer that produced the filter (the filter itself is), and `xml_dir` and
+    `image_dir`. A different directory is a different *location*, not a different content; a title published to a new
+    `xml_dir` is written there by the next publish, and the file at the old location is left behind for a person to
+    remove.
     '''
     payload = {
         'filter': filter_json,
@@ -74,5 +80,8 @@ def publish_digest(filter_json: dict, meta: BeqMetadata, art_path: Optional[str]
     }
     if has_image and report_spec is not None and report_spec != ReportSpec():
         payload['report_spec'] = asdict(report_spec)
+    if has_image and (image_owner or image_repo_name):
+        payload['image_owner'] = image_owner or ''
+        payload['image_repo_name'] = image_repo_name or ''
     return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(',', ':'), default=str).encode('utf-8')
                           ).hexdigest()

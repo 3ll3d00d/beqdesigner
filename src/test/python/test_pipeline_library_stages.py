@@ -15,7 +15,7 @@ from pipeline.library.stages import Progress, PublishSettings, run_stages
 from pipeline.library.status import ScanSettings, failure_key
 from pipeline.review import read_entry, update_entry
 from pipeline.publish.git import RepoTarget
-from test_pipeline_library_commit import _commits, _on_remote, repos  # noqa: F401 (a fixture)
+from test_pipeline_library_commit import IMAGES_NAME, OWNER, _commits, _on_remote, repos  # noqa: F401 (a fixture)
 from test_pipeline_library_index import (CONFIG, DESIGNER, FakeSource, _entry, _extracted, _item,  # noqa: F401
                                          _needs, _profile, _published, _ready, _row, _scan, env)
 
@@ -302,7 +302,8 @@ def _accepted(env, repos, *names):
         _real_wav(env, item)
         _entry(env, item, status='accepted')
     settings = ScanSettings(work_dir=env.work, queue_dir=env.queue, designer=DESIGNER, xml_repo=xml.local_path,
-                            xml_dir='xml', images_repo=images.local_path, image_dir='img')
+                            xml_dir='xml', images_repo=images.local_path, image_dir='img', image_owner=OWNER,
+                            image_repo_name=IMAGES_NAME)   # what publish is given: they are in the digest
     return items, settings
 
 

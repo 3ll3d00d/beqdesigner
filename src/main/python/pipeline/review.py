@@ -391,7 +391,8 @@ def project_paths(work_dir: str, entry_id: str) -> Tuple[str, str, Optional[str]
 
 def current_publish_digest(entry: QueueEntry, *, meta_defaults: Optional[dict] = None,
                            work_dir: Optional[str] = None, has_image: bool = False,
-                           report_spec: Optional[ReportSpec] = None) -> str:
+                           report_spec: Optional[ReportSpec] = None, image_owner: Optional[str] = None,
+                           image_repo_name: Optional[str] = None) -> str:
     '''
     The digest publish_reviewed_queue() would record for an accepted or published entry *now*, without publishing:
     compare it with `entry.published_digest` to see whether the catalogue's copy is out of date. It writes
@@ -402,6 +403,7 @@ def current_publish_digest(entry: QueueEntry, *, meta_defaults: Optional[dict] =
     :param has_image: whether publish is given an images repo.
     :param report_spec: as publish_reviewed_queue() -- in the digest when it is not the default (see publish_digest()),
         so pass what publish is given.
+    :param image_owner/image_repo_name: as publish_reviewed_queue() -- in the digest when given (None: unset).
     :raises ValueError: if the entry has no chosen candidate (it is not accepted or published); InvalidMetadata (one)
         if its metadata cannot be built.
     :raises ProjectFilterConflict: if the mono and multichannel projects were edited independently and disagree.
@@ -416,12 +418,13 @@ def current_publish_digest(entry: QueueEntry, *, meta_defaults: Optional[dict] =
         _, mono_path, mc_path, _ = project_paths(work_dir, entry.id)
         complete_filter = preview_published_projects(mono_path, mc_path, complete_filter).filter
     return publish_digest(complete_filter.to_json(), publication_meta(entry, meta_defaults), entry.art_path,
-                          has_image, chosen.mv_adjust_db, report_spec)
+                          has_image, chosen.mv_adjust_db, report_spec, image_owner, image_repo_name)
 
 
 def _needs_republish(entry: QueueEntry, xml_repo: RepoTarget, xml_dir: str, image_dir: str,
                      meta_defaults: Optional[dict], work_dir: Optional[str], has_image: bool,
-                     report_spec: Optional[ReportSpec] = None) -> bool:
+                     report_spec: Optional[ReportSpec] = None, image_owner: Optional[str] = None,
+                     image_repo_name: Optional[str] = None) -> bool:
     '''
     True if a *published* entry's catalogue copy is out of date: its XML is missing from the repo, or the digest of what
     would be published now differs from the one recorded (an entry published before digests were recorded has none,
@@ -435,7 +438,8 @@ def _needs_republish(entry: QueueEntry, xml_repo: RepoTarget, xml_dir: str, imag
         return False
     try:
         return current_publish_digest(entry, meta_defaults=meta_defaults, work_dir=work_dir, has_image=has_image,
-                                      report_spec=report_spec) != entry.published_digest
+                                      report_spec=report_spec, image_owner=image_owner,
+                                      image_repo_name=image_repo_name) != entry.published_digest
     except (ProjectFilterConflict, InvalidMetadata):
         return True
 
@@ -490,7 +494,7 @@ def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: 
         `xml_dir` is not part of what makes a title out of date: a changed one is a new location, and the file at
         the old one is left behind.
     :param report_spec: what the report image is drawn with; a change of it (from the default) makes the title out of
-        date. (The image's GitHub owner/repo is not: see publish_digest().)
+        date. So does the image's GitHub owner/repo when they are given (`image_owner`/`image_repo_name`).
     :param on_entry: called with an entry's id just before it is published (not for one that is skipped).
     :param should_cancel: checked before each entry; True stops the loop, leaving every entry as it is (each already
         published one is complete).
@@ -553,8 +557,8 @@ def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: 
             image_png = session.report([unfiltered, filtered], complete_filter, meta=meta, poster_path=entry.art_path,
                                        spec=report_spec, mv_offset=chosen.mv_adjust_db)
         digest = publish_digest(complete_filter.to_json(), meta, entry.art_path, images_repo is not None,
-                                chosen.mv_adjust_db,
-                                report_spec)  # before publish(), which fills the image URLs into meta
+                                chosen.mv_adjust_db, report_spec, image_owner,
+                                image_repo_name)  # before publish(), which fills the image URLs into meta
         # A republish over an XML the catalogue holds, and that has not been touched since, begins a revision: the
         # same thing a reopen of it counts (see pipeline.library.revise). Over one already rewritten and not
         # committed it does not, since that revision has been counted -- by the reopen, or by the republish, that
@@ -584,7 +588,7 @@ def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: 
         if entry.status == 'published' and republish:
             try:
                 republished = _needs_republish(entry, xml_repo, xml_dir, image_dir, meta_defaults, work_dir,
-                                               images_repo is not None, report_spec)
+                                               images_repo is not None, report_spec, image_owner, image_repo_name)
             except Exception as error:
                 results.append(failure(entry, error))
                 continue
