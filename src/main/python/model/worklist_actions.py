@@ -364,7 +364,7 @@ class WorkListActions:
         self._refresh_view()
         try:
             QThreadPool.globalInstance().start(job)
-        except ZeroDivisionError as error:   # the run never began: do not leave the window "running" for ever
+        except Exception as error:   # the run never began: do not leave the window "running" for ever
             logger.exception('Could not start the run')
             self._end_run()
             self._say(f'Cannot start: {type(error).__name__}: {error}', LEVEL_ERROR)
