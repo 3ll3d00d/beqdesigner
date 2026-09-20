@@ -9,7 +9,7 @@ import pytest
 
 from model.worklist_confirm import commit_text, machine_text, publish_text
 from model.worklist_run import ResultLine, RunRequest, build_publish_settings, describe_results, failed_titles, \
-    plan_label, publish_problem, skip_reason, summarise_report, summarise_skipped
+    headline, plan_label, publish_problem, skip_reason, summarise_report, summarise_skipped
 from pipeline.library.commit import CatalogueCommit, RepoCommit
 from pipeline.library.index import LibraryIndex
 from pipeline.library.run import LibraryRunReport
@@ -27,7 +27,8 @@ def rows(tmp_path):
     fixtures = [
         title_row('x1', 'Gravity', 'extract'), title_row('x2', 'Tenet', 'extract'),
         title_row('d1', 'Speed', 'design'), title_row('r1', 'Alien', 'review'),
-        title_row('p1', 'Sicario', 'publish'), title_row('c1', 'Jaws', 'commit'), title_row('z1', 'Old', 'done'),
+        title_row('p1', 'Sicario', 'publish'), title_row('c1', 'Jaws', 'commit', commit_state='uncommitted'),
+        title_row('c2', 'Ronin', 'commit', commit_state='committed'), title_row('z1', 'Old', 'done'),
         title_row('f1', 'Dune', 'attention', extract_state='failed', failure='no audio'),
         title_row('a1', 'Heat', 'attention', detail='source changed'),
     ]
@@ -145,6 +146,139 @@ def test_commit_results_say_committed_pushed_or_nothing_new_per_title_and_reposi
     assert by_key['Published files missing'].level == 'warn'
 
 
+SETTINGS = ScanSettings('/w', '/q', xml_dir='xml', image_dir='img')
+REJECTED = ("git failed: To /srv/beq-xml.git\n ! [rejected]        main -> main (fetch first)\n"
+            "error: failed to push some refs to '/srv/beq-xml.git'\nhint: Updates were rejected because the remote "
+            "contains work that you do not have locally.")
+
+
+def test_a_multi_line_git_failure_is_one_line_in_each_row_and_whole_once_in_the_repository_line(rows):
+    plan = _plan(rows, 'commit', 'c1', 'c2')
+    report = StagesReport('commit', 2, commit_error=REJECTED)
+
+    lines = {l.id or l.title: l for l in describe_results(report, plan, SETTINGS, rows)}
+
+    for title_id in ('c1', 'c2'):
+        assert lines[title_id].outcome == 'Not committed' and lines[title_id].level == 'error'
+        assert '\n' not in lines[title_id].detail
+        assert lines[title_id].detail == 'git failed: ! [rejected] main -> main (fetch first) ...'   # the useful line
+        assert lines[title_id].full == ''       # not repeated on every title
+    assert lines['Commit'].full == REJECTED.strip() and '\n' not in lines['Commit'].detail
+    assert sum(1 for l in lines.values() if l.full) == 1
+
+
+def test_the_headline_of_a_failure_is_its_first_line_unless_that_is_only_where_git_pushed_to():
+    assert headline('one line') == 'one line'
+    assert headline('first\nsecond') == 'first ...'
+    assert headline('git failed: To /x\n ! [rejected] a -> a\nerror: failed') == 'git failed: ! [rejected] a -> a ...'
+    assert headline('') == ''
+
+
+def test_a_commit_that_only_pushes_says_pushed_not_committed_and_the_summary_says_so(rows):
+    plan = _plan(rows, 'commit', 'c2')
+    committed = CatalogueCommit(xml=RepoCommit('/repo/xml', ['xml/c2.xml'], None, True))
+    report = StagesReport('commit', 1, committed=committed, attempted=['c2'])
+
+    lines = {l.id or l.title: l for l in describe_results(report, plan, SETTINGS, rows)}
+
+    assert lines['c2'].outcome == 'Pushed' and lines['c2'].level == 'ok'
+    assert summarise_report(report, plan, SETTINGS) == ('Commit finished: 1 pushed', 'ok')
+
+
+def test_a_commit_and_push_over_a_mix_counts_each_kind_separately(rows):
+    plan = _plan(rows, 'commit', 'c1', 'c2')
+    committed = CatalogueCommit(xml=RepoCommit('/repo/xml', ['xml/c1.xml', 'xml/c2.xml'], 'abc12345', True))
+    report = StagesReport('commit', 2, committed=committed, attempted=['c1', 'c2'])
+
+    lines = {l.id: l for l in describe_results(report, plan, SETTINGS, rows) if l.id}
+
+    assert lines['c1'].outcome == 'Committed, pushed' and lines['c2'].outcome == 'Pushed'
+    assert summarise_report(report, plan, SETTINGS)[0] == 'Commit finished: 1 committed, 2 pushed'
+
+
+def test_a_commit_with_push_unticked_over_already_committed_titles_does_nothing_and_says_so(rows):
+    plan = _plan(rows, 'commit', 'c2')
+    committed = CatalogueCommit(xml=RepoCommit('/repo/xml', ['xml/c2.xml'], None, False))
+    report = StagesReport('commit', 1, committed=committed, attempted=['c2'])
+
+    line = next(l for l in describe_results(report, plan, SETTINGS, rows) if l.id == 'c2')
+
+    assert line.outcome == 'Already committed' and line.level == 'warn' and 'not pushed' in line.detail
+    assert summarise_report(report, plan, SETTINGS)[0] == 'Commit finished: nothing new to commit'
+
+
+def test_a_published_file_git_ignores_is_an_error_against_its_title_and_turns_the_summary_red(rows):
+    plan = _plan(rows, 'commit', 'c1', 'c2')
+    committed = CatalogueCommit(xml=RepoCommit('/repo/xml', ['xml/c2.xml'], 'abc12345', True),
+                                images=RepoCommit('/repo/img', [], None, False), not_committed=['img/c1.png'])
+    report = StagesReport('commit', 2, committed=committed, attempted=['c1', 'c2'])
+
+    lines = {l.id: l for l in describe_results(report, plan, SETTINGS, rows) if l.id}
+    text, level = summarise_report(report, plan, SETTINGS)
+
+    assert lines['c1'].outcome == 'Not committed' and lines['c1'].level == 'error'
+    assert 'img/c1.png' in lines['c1'].detail and '.gitignore' in lines['c1'].detail
+    assert lines['c2'].outcome == 'Pushed'      # committed earlier, pushed now
+    assert level == 'error' and '1 not committed (git ignores them)' in text
+
+
+def test_a_warning_about_an_image_url_is_a_notice_that_blocks_nothing(rows):
+    plan = _plan(rows, 'commit', 'c1')
+    warning = 'xml/c1.xml names a report image (beq_spectrumURL) but no images repository was given'
+    committed = CatalogueCommit(xml=RepoCommit('/repo/xml', ['xml/c1.xml'], 'abc12345', True), warnings=[warning])
+    report = StagesReport('commit', 1, committed=committed, attempted=['c1'])
+
+    lines = describe_results(report, plan, SETTINGS, rows)
+    text, level = summarise_report(report, plan, SETTINGS)
+
+    notice = next(l for l in lines if l.title == 'Notice')
+    assert notice.level == 'warn' and notice.detail == warning and not notice.id
+    assert next(l for l in lines if l.id == 'c1').outcome == 'Committed, pushed'    # nothing was blocked
+    assert level == 'warn' and text == 'Commit finished: 1 committed, 1 pushed, 1 warning (see Last run)'
+
+
+def test_each_kind_of_publish_error_is_shown_against_its_title_in_the_words_of_the_pipeline(rows):
+    plan = _plan(rows, 'publish', 'p1')
+    report = StagesReport('publish', 3, publish_errors=[
+        {'id': 'p1', 'error': 'git_failed', 'message': 'git add x failed (exit 128): fatal: unable to write'},
+        {'id': 'q2', 'error': 'publish_failed', 'message': 'FileNotFoundError: poster.jpg'},
+        {'id': 'q3', 'error': 'invalid_metadata', 'problems': ['unknown field \'x\'']}])
+
+    lines = {l.id: l for l in describe_results(report, plan, SETTINGS, rows)}
+
+    assert (lines['p1'].outcome, lines['p1'].level) == ('Git failed', 'error')
+    assert lines['p1'].detail == 'git refused: git add x failed (exit 128): fatal: unable to write'
+    assert lines['q2'].outcome == 'Publish failed' and lines['q2'].detail == 'publishing failed: FileNotFoundError: poster.jpg'
+    assert lines['q3'].outcome == 'Refused' and "unknown field 'x'" in lines['q3'].detail
+    assert summarise_report(report, plan, SETTINGS) == ('Publish finished: 1 refused, 2 failed', 'error')
+
+
+def test_a_whole_publish_failure_is_one_line_and_every_title_that_was_not_published_says_so(rows):
+    plan = _plan(rows, 'publish', 'p1')
+    report = StagesReport('publish', 1, publish_errors=[
+        {'id': '', 'error': 'publish_failed', 'message': 'OSError: the queue folder is unreadable'}])
+
+    lines = describe_results(report, plan, SETTINGS, rows)
+    by_key = {l.id or l.title: l for l in lines}
+
+    assert by_key['Publish'].level == 'error' and 'the queue folder is unreadable' in by_key['Publish'].detail
+    assert by_key['p1'].outcome == 'Not published' and by_key['p1'].level == 'error'
+    assert not any(l.title == '' for l in lines)     # no nameless title row
+    assert summarise_report(report, plan, SETTINGS) == ('Publish finished: 1 failed', 'error')
+
+
+def test_a_remote_that_is_not_github_is_explained_once_per_title_as_what_to_set(rows):
+    plan = _plan(rows, 'publish', 'p1')
+    report = StagesReport('publish', 1, publish_errors=[
+        {'id': 'p1', 'error': 'publish_failed',
+         'message': "ValueError: Unrecognised GitHub remote URL: '/srv/beq-images.git'"}])
+
+    line = next(l for l in describe_results(report, plan, SETTINGS, rows) if l.id == 'p1')
+
+    assert 'Unrecognised' not in line.detail
+    assert line.detail.startswith('Set image_owner and image_repo_name') and '/srv/beq-images.git' in line.detail
+
+
 # --- the settings ---------------------------------------------------------------------------------------------------------
 
 class _Setup:
@@ -198,3 +332,13 @@ def test_the_machine_run_confirmation_says_it_is_everything_in_the_view():
 
     assert heading == 'Extract and design 120 titles?'
     assert 'every title that needs it in the current view' in body and 'Extract, source films' in body
+
+
+def test_the_commit_confirmation_for_titles_that_are_only_waiting_to_be_pushed_says_nothing_is_committed():
+    heading, body = commit_text(2, _settings(), uncommitted=0)
+
+    assert heading == 'Push 2 titles?'
+    assert 'Makes one commit' not in body and 'already committed' in body and 'Nothing new is committed' in body
+    heading, body = commit_text(3, _settings(), uncommitted=1)
+    assert heading == 'Commit 3 titles?' and 'Makes one commit per repository' in body
+    assert '2 titles of these are already committed and only need pushing' in body

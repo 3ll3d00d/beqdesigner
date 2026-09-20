@@ -15,8 +15,8 @@ import time
 from typing import Dict, List, Optional
 
 import pytest
-from qtpy.QtCore import QSettings, Qt, QTimer
-from qtpy.QtWidgets import QApplication
+from qtpy.QtCore import QSettings, Qt, QThreadPool, QTimer
+from qtpy.QtWidgets import QApplication, QMessageBox
 
 from model.preferences import DESIGNER_DEFAULT, DESIGNER_QUEUE_DIR, LIBRARY_FILESYSTEM_GLOBS, LIBRARY_IMAGES_REPO, \
     LIBRARY_WORK_DIR, LIBRARY_XML_REPO, Preferences, SYSTEM_CHECK_FOR_UPDATES, WORKLIST_PUSH
@@ -428,6 +428,7 @@ def test_retry_failed_runs_the_failed_titles_again_and_nothing_else(qtbot, tmp_p
     window.select_ids(['x-gravity'])
 
     # an ordinary run does not retry a failure (it is "failed before"); Retry failed does, by ids, with the flag
+    _answer(True, [])   # retrying every failure in the library is as big as a whole view: it asks first
     with qtbot.waitSignal(window.run_finished, timeout=10000):
         _click(qtbot, window.retryButton)
 
@@ -634,7 +635,7 @@ def test_commit_results_are_listed_per_title_and_per_repository(qtbot, tmp_path)
     assert lines['XML repository'].detail.startswith('commit abcdef12, pushed (1 file)') and xml in \
            lines['XML repository'].detail
     assert window.results.index(lines['Images repository']) < window.results.index(lines['XML repository'])
-    assert window.runStatusLabel.text().startswith('Commit finished: committed and pushed')
+    assert window.runStatusLabel.text() == 'Commit finished: 1 committed, 1 pushed'
 
 
 def test_a_git_failure_while_committing_is_shown_as_an_error_against_the_titles(qtbot, tmp_path):
@@ -652,6 +653,256 @@ def test_a_git_failure_while_committing_is_shown_as_an_error_against_the_titles(
     assert lines['c-one'].outcome == 'Not committed' and lines['c-one'].level == 'error'
     assert 'rejected' in lines['Commit'].detail
     assert 'the commit failed' in window.runStatusLabel.text()
+
+
+# --- review fixes: closing, ordering, prechecks, wording ---------------------------------------------------------------------
+
+def _answer_box(yes: bool, seen: List[str]) -> None:
+    ''' Answers the QMessageBox a close during a run opens, as a person would (reads it, clicks Yes or No). '''
+    def respond():
+        box = QApplication.activeModalWidget()
+        seen.append(box.text() if isinstance(box, QMessageBox) else f'unexpected: {box!r}')
+        if isinstance(box, QMessageBox):
+            box.button(QMessageBox.StandardButton.Yes if yes else QMessageBox.StandardButton.No).click()
+
+    QTimer.singleShot(0, respond)
+
+
+def _held_run(qtbot, tmp_path, ids=('x-gravity', 'x-tenet')):
+    index_file = make_index(tmp_path / 'work', _rows(), SOURCES, generation=2, last_scan_at=NOW - 900)
+    pipeline = FakePipeline(index_file, hold_at=0)
+    window, _ = _window(qtbot, tmp_path, pipeline=pipeline, prefs=_prefs(tmp_path))
+    window.select_ids(list(ids))
+    window.run_selected()
+    qtbot.waitUntil(pipeline.entered.is_set, timeout=5000)
+    return window, pipeline
+
+
+def test_closing_during_a_run_asks_and_no_leaves_the_window_and_the_run_alone(qtbot, tmp_path):
+    window, pipeline = _held_run(qtbot, tmp_path)
+    seen: List[str] = []
+    _answer_box(False, seen)
+
+    window.close()
+
+    assert seen == ['A run is in progress. Cancel it and close?']
+    assert window.isVisible() and window.is_running and window.has_open_index
+    assert window.cancelButton.isEnabled()      # the run was not cancelled
+    with qtbot.waitSignal(window.run_finished, timeout=10000) as run:
+        pipeline.release.set()
+    assert not run.args[0].cancelled and pipeline.cancel_seen == []
+
+
+def test_closing_during_a_run_and_saying_yes_cancels_it_hides_the_window_and_releases_the_index(qtbot, tmp_path):
+    window, pipeline = _held_run(qtbot, tmp_path)
+    _answer_box(True, [])
+
+    window.close()
+
+    assert not window.isVisible() and not window.has_open_index
+    with qtbot.waitSignal(window.run_finished, timeout=10000) as run:
+        pipeline.release.set()          # the title in hand finishes; the other is never started
+    assert run.args[0].cancelled and pipeline.cancel_seen == [True]
+    assert not window.is_running
+    assert not window.has_open_index    # the run's end did not reopen a connection in a closed window
+    window.show()                       # and showing it again reads the index it now has
+    assert window.has_open_index and not window.is_running
+
+
+def test_closing_with_no_run_going_does_not_ask(qtbot, tmp_path, monkeypatch):
+    window, _ = _window(qtbot, tmp_path)
+    monkeypatch.setattr(QMessageBox, 'question', lambda *a, **k: pytest.fail('asked with nothing running'))
+
+    window.close()
+
+    assert not window.isVisible() and not window.has_open_index
+
+
+def test_the_ffmpeg_precheck_is_only_for_runs_that_have_something_to_extract(qtbot, tmp_path):
+    asked = []
+    window, pipeline = _window(qtbot, tmp_path, precheck=lambda through: asked.append(through) or False)
+    window.select_ids(['d-speed', 'd-twister'])       # extracted already: they only need designing
+
+    with qtbot.waitSignal(window.run_finished, timeout=10000):
+        assert window.run_selected() is True
+
+    assert asked == [] and pipeline.calls[0]['ids'] == ['d-speed', 'd-twister']
+    window.select_ids(['d-speed', 'x-gravity'])        # one still needs extracting: ffmpeg is needed
+    assert window.run_selected() is False
+    assert asked == ['design']
+
+
+def test_the_run_is_started_before_run_started_is_announced(qtbot, tmp_path, monkeypatch):
+    order = []
+    original = QThreadPool.start
+
+    def start(pool, job, *args):
+        order.append('started')
+        return original(pool, job, *args)
+
+    monkeypatch.setattr(QThreadPool, 'start', start)
+    window, _ = _window(qtbot, tmp_path)
+    window.run_started.connect(lambda request: order.append('announced'))
+    window.select_ids(['x-gravity'])
+
+    with qtbot.waitSignal(window.run_finished, timeout=10000):
+        window.run_selected()
+
+    assert order == ['started', 'announced']
+
+
+def test_a_run_that_cannot_be_started_does_not_leave_the_window_running_for_ever(qtbot, tmp_path, monkeypatch):
+    window, pipeline = _window(qtbot, tmp_path)
+    window.select_ids(['x-gravity'])
+
+    def refuse(pool, job, *args):
+        raise RuntimeError('no threads')
+
+    monkeypatch.setattr(QThreadPool, 'start', refuse)
+
+    assert window.run_selected() is False
+
+    assert not window.is_running and window.model.running == {}
+    assert 'Cannot start: RuntimeError: no threads' in window.runStatusLabel.text()
+    assert window.runButton.isEnabled() and not window.cancelButton.isVisibleTo(window)
+    assert pipeline.calls == []
+
+
+def test_retrying_every_failure_asks_first_naming_the_whole_library_and_retrying_the_selected_ones_does_not(qtbot,
+                                                                                                          tmp_path):
+    window, pipeline = _window(qtbot, tmp_path)
+    assert 'every failed title in the library' in window.retryButton.toolTip()
+    seen: List = []
+    _answer(False, seen)
+
+    assert window.retry_failed() is False
+
+    assert seen[0].startswith('Retry 2 failed titles?') and 'wherever it is in the library' in seen[0]
+    assert pipeline.calls == []
+    window.failuresTable.selectRow(0)         # a choice made in the panel is explicit: no question
+    with qtbot.waitSignal(window.run_finished, timeout=10000):
+        assert window.retry_failed() is True
+    assert pipeline.calls[0]['ids'] == ['a-failed-x']
+
+
+class _HeldCommit:
+    ''' A pipeline that is mid-commit (it says so, as run_stages does) until released. '''
+
+    def __init__(self):
+        self.entered, self.release = threading.Event(), threading.Event()
+
+    def __call__(self, profile, selection, through, *, on_progress, should_cancel, **rest):
+        ids = list(selection.ids)
+        on_progress(Progress(0, len(ids), f'{len(ids)} titles', 'commit', ''))
+        self.entered.set()
+        assert self.release.wait(20)
+        return StagesReport('commit', len(ids), attempted=ids, committed=CatalogueCommit(
+            xml=RepoCommit('/x', [f'{i}.xml' for i in ids], 'abcdef1234', True)))
+
+
+def test_cancelling_during_a_commit_says_a_commit_cannot_be_stopped_and_a_late_cancel_says_so(qtbot, tmp_path):
+    pipeline = _HeldCommit()
+    window, _ = _window(qtbot, tmp_path, pipeline=pipeline)
+    window.select_ids(['c-one', 'c-two'])
+    _answer(True, [])
+    window.commit_selected()
+    qtbot.waitUntil(pipeline.entered.is_set, timeout=5000)
+    qtbot.waitUntil(lambda: 'Committing' in window.runStatusLabel.text(), timeout=5000)
+
+    _click(qtbot, window.cancelButton)
+
+    assert 'cannot be stopped' in window.runStatusLabel.text()
+    assert 'Cancelling: the title being worked on' not in window.runStatusLabel.text()
+    with qtbot.waitSignal(window.run_finished, timeout=10000):
+        pipeline.release.set()
+    text = window.runStatusLabel.text()      # it was not cancelled: the commit finished, and the window says so
+    assert text.startswith('Cancel requested too late') and 'Commit finished' in text
+
+
+def test_a_push_only_commit_says_push_in_its_button_its_confirmation_and_its_outcome(qtbot, tmp_path):
+    rows = [r for r in _rows() if r['id'] not in ('c-one', 'c-two')] + [
+        _row('c-one', 'Jaws', 'commit', 2, publish_state='written', commit_state='committed'),
+        _row('c-two', 'Ronin 2', 'commit', 1, publish_state='written', commit_state='committed')]
+    seen: List = []
+
+    def report(profile, selection, through, **kw):
+        return StagesReport('commit', 2, attempted=['c-one', 'c-two'], committed=CatalogueCommit(
+            xml=RepoCommit(str(tmp_path / 'catalogue-xml'), ['c-one.xml', 'c-two.xml'], None, True)))
+
+    window, _ = _window(qtbot, tmp_path, pipeline=report, rows=rows)
+    window.select_ids(['c-one', 'c-two'])
+    assert window.commitButton.text() == 'Push 2'
+    _answer(True, seen)
+
+    with qtbot.waitSignal(window.run_finished, timeout=10000):
+        window.commit_selected()
+
+    assert seen[0].startswith('Push 2 titles?') and 'Makes one commit' not in seen[0]
+    assert 'Nothing new is committed' in seen[0]
+    assert window.runStatusLabel.text() == 'Commit finished: 2 pushed'
+    assert {line.id: line.outcome for line in window.results if line.id} == {'c-one': 'Pushed', 'c-two': 'Pushed'}
+
+
+def test_a_multi_line_git_failure_is_one_line_in_the_row_whole_in_the_tooltip_and_once_in_the_details_area(qtbot,
+                                                                                                         tmp_path):
+    error = ("git failed: To /srv/beq-xml.git\n ! [rejected]        main -> main (fetch first)\n"
+             "error: failed to push some refs to '/srv/beq-xml.git'")
+
+    def report(profile, selection, through, **kw):
+        return StagesReport('commit', 2, commit_error=error)
+
+    window, _ = _window(qtbot, tmp_path, pipeline=report)
+    window.select_ids(['c-one', 'c-two'])
+    _answer(True, [])
+
+    with qtbot.waitSignal(window.run_finished, timeout=10000):
+        window.commit_selected()
+
+    table = window.resultsTable
+    texts = [[table.item(r, c).text() for c in range(3)] for r in range(table.rowCount())]
+    assert all('\n' not in cell for row in texts for cell in row)
+    assert ['Jaws', 'Not committed', 'git failed: ! [rejected] main -> main (fetch first) ...'] in texts
+    commit_row = next(r for r in range(table.rowCount()) if table.item(r, 0).text() == 'Commit')
+    assert 'failed to push some refs' in table.item(commit_row, 2).toolTip()
+    # with nothing selected the Details area shows the failure once, whole
+    assert window.resultDetails.isVisibleTo(window)
+    assert window.resultDetails.toPlainText().count('failed to push some refs') == 1
+    assert 'main -> main (fetch first)' in window.resultDetails.toPlainText()
+    table.selectRow(0)                       # a title's own line has no more to say than its row: nothing is shown
+    assert not window.resultDetails.isVisibleTo(window)
+    table.selectRow(commit_row)
+    assert 'failed to push some refs' in window.resultDetails.toPlainText()
+
+
+def test_the_results_show_each_new_publish_and_commit_result_shape(qtbot, tmp_path):
+    def report(profile, selection, through, **kw):
+        return StagesReport(
+            'commit', 3, published=[{'id': 'p-one'}],
+            publish_errors=[{'id': 'p-two', 'error': 'git_failed', 'message': 'git add x failed (exit 128)'},
+                            {'id': 'p-old', 'error': 'publish_failed', 'message': "ValueError: Unrecognised GitHub "
+                                                                              "remote URL: '/srv/img.git'"}],
+            committed=CatalogueCommit(xml=RepoCommit('/x', ['c-two.xml'], 'abcdef12', True), images=None,
+                                      not_committed=['c-one.xml'],
+                                      warnings=['c-two.xml names a report image (beq_spectrumURL) but no images '
+                                                'repository was given']),
+            attempted=['p-one', 'c-one', 'c-two'])
+
+    window, _ = _window(qtbot, tmp_path, pipeline=report)
+    window.select_ids(['p-one', 'p-two', 'p-old', 'c-one', 'c-two'])
+    lines = {}
+    for through in ('publish', 'commit'):
+        _answer(True, [])
+        with qtbot.waitSignal(window.run_finished, timeout=10000):
+            window._begin(through)
+        lines[through] = {line.id or line.title: line for line in window.results}
+
+    both = lines['commit']
+    assert both['p-two'].outcome == 'Git failed' and both['p-old'].outcome == 'Publish failed'
+    assert both['p-old'].detail.startswith('Set image_owner and image_repo_name')
+    assert both['c-one'].outcome == 'Not committed' and both['c-one'].level == 'error'
+    assert both['Notice'].level == 'warn'
+    assert window.runStatusLabel.text().startswith('Commit finished:')
+    assert 'not committed (git ignores them)' in window.runStatusLabel.text()
 
 
 # --- the real pipeline ------------------------------------------------------------------------------------------------------

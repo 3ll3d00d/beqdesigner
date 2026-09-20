@@ -14,6 +14,7 @@ Everything the window's actions need that is not a widget:
 None of this decides what a title needs -- that is the index's, and what a run does to each is `plan_stages()`'s.
 '''
 import logging
+import re
 import threading
 from dataclasses import dataclass
 from typing import Callable, Dict, List, Mapping, Optional, Sequence, Tuple
@@ -207,17 +208,83 @@ def failed_titles(rows: Sequence[TitleRow], failures: Mapping[str, object]) -> L
 
 @dataclass(frozen=True)
 class ResultLine:
+    '''
+    :param detail: one line, fit for a single-line table cell.
+    :param full: the whole text when `detail` is only its headline (a multi-line git failure): the tooltip and the
+        results *Details* area show it. Empty when `detail` says it all.
+    '''
     id: str
     title: str
     outcome: str
     detail: str = ''
     level: str = LEVEL_OK
+    full: str = ''
+
+
+_PROBLEM_LINE = ('fatal:', 'error:', '[rejected]', '[remote rejected]')
+
+
+def headline(text: str) -> str:
+    '''
+    The line of a (possibly multi-line) failure worth showing in a one-line cell: its first line, unless that is just
+    git's "To <url>" and a later line says what went wrong ("! [rejected] main -> main"), which is then the one shown.
+    A multi-line text always ends " ..." so a cut-off cell says there is more.
+    '''
+    lines = [' '.join(line.split()) for line in text.strip().splitlines() if line.strip()]
+    if len(lines) <= 1:
+        return lines[0] if lines else ''
+    first = lines[0]
+    if not any(marker in first for marker in _PROBLEM_LINE):
+        found = next((line for line in lines[1:] if any(marker in line for marker in _PROBLEM_LINE)), None)
+        if found:
+            first = f'git failed: {found}' if first.startswith('git failed:') else found
+    return first + ' ...'
+
+
+def _shown(text: str) -> Tuple[str, str]:
+    ''' :return: (what a one-line cell shows, the whole text if that is not all of it, else '') '''
+    text = text.strip()
+    shown = headline(text)
+    return shown, (text if shown != text else '')
+
+
+_NOT_GITHUB = re.compile(r"Unrecognised GitHub remote URL: (?P<url>.+)$")
 
 
 def _refusal(result: dict) -> str:
     text = describe_publish_error(result)
     prefix = f"{result['id']}: "
-    return text[len(prefix):] if text.startswith(prefix) else text
+    text = text[len(prefix):] if text.startswith(prefix) else text
+    found = _NOT_GITHUB.search(text)
+    if found:   # every title would say the same cryptic thing: say what to set
+        return (f"Set image_owner and image_repo_name: the images repository's remote ({found.group('url')}) is not a "
+                f"github.com address, so the report image's URL cannot be worked out. Add them under sync: in the "
+                f"library profile file (the LIBRARY_PROFILE_PATH setting).")
+    return text
+
+
+# what to call each kind of `publish_reviewed_queue()` error result
+_PUBLISH_OUTCOME = {'project_conflict': 'refused', 'invalid_metadata': 'refused', 'git_failed': 'git failed',
+                    'publish_failed': 'publish failed'}
+
+
+def commit_effects(report: StagesReport, plan: StagePlan, settings) -> Dict[str, Tuple[bool, bool]]:
+    '''
+    What a commit did to each title it took: {id: (committed this time, pushed this time)}. A title that an earlier
+    commit (made with push unticked) already committed and that this one only pushed is (False, True). Titles the commit
+    did not handle are absent.
+    '''
+    committed = report.committed
+    if committed is None:
+        return {}
+    handled = set(committed.xml.paths)
+    effects = {}
+    for planned in plan.with_stage('commit'):
+        xml_path = catalogue_paths(planned.row.id, settings.xml_dir, settings.image_dir)[0]
+        if xml_path in handled:
+            earlier = planned.row.commit_state == 'committed'   # committed, not pushed, before this run
+            effects[planned.row.id] = (committed.xml.commit is not None and not earlier, committed.xml.pushed)
+    return effects
 
 
 def describe_results(report: StagesReport, plan: StagePlan, settings, rows: Optional[Mapping[str, TitleRow]] = None
@@ -263,22 +330,45 @@ def describe_results(report: StagesReport, plan: StagePlan, settings, rows: Opti
         detail = 'from your project edits' if 'edited_project' in result else ''
         note(result['id'], 'republished' if result.get('republished') else 'published', LEVEL_OK, detail)
         titles.setdefault(result['id'], result['id'])
-    for result in report.publish_errors:
-        note(result['id'], 'refused', LEVEL_ERROR, _refusal(result))
-        titles.setdefault(result['id'], result['id'])
-
     repo_lines: List[ResultLine] = []
+    whole_publish = [r for r in report.publish_errors if not r.get('id')]
+    for result in report.publish_errors:
+        if result.get('id'):
+            note(result['id'], _PUBLISH_OUTCOME.get(result['error'], 'refused'), LEVEL_ERROR, _refusal(result))
+            titles.setdefault(result['id'], result['id'])
+    if whole_publish:   # the publish call itself failed (an unreadable queue): no title got an answer of its own
+        text = _refusal(whole_publish[0])
+        shown, full = _shown(text)
+        repo_lines.append(ResultLine('', 'Publish', 'failed', shown, LEVEL_ERROR, full))
+        answered = {r['id'] for r in report.published} | {r['id'] for r in report.publish_errors}
+        for planned in plan.with_stage('publish'):
+            if planned.row.id not in answered:
+                note(planned.row.id, 'not published', LEVEL_ERROR, shown)
+
     committed: Optional[CatalogueCommit] = report.committed
     commit_ids = [p.row.id for p in plan.with_stage('commit')]
     published_ids = {r['id'] for r in report.published}
     if committed is not None:
-        handled_paths = set(committed.xml.paths)
+        effects = commit_effects(report, plan, settings)
+        blocked = {}   # title id -> the paths git would not take
         for title_id in commit_ids:
-            xml_path = catalogue_paths(title_id, settings.xml_dir, settings.image_dir)[0]
-            if xml_path in handled_paths:
-                note(title_id, 'committed')
-                if committed.xml.pushed:
+            xml_path, image_path = catalogue_paths(title_id, settings.xml_dir, settings.image_dir)
+            found = [path for path in (xml_path, image_path) if path in committed.not_committed]
+            if found:
+                blocked[title_id] = found
+        for title_id in commit_ids:
+            did_commit, did_push = effects.get(title_id, (False, False))
+            if title_id in blocked:
+                note(title_id, 'not committed', LEVEL_ERROR,
+                     f"git will not commit {', '.join(blocked[title_id])} (a .gitignore rule?), so it will never "
+                     f"reach the catalogue")
+            elif title_id in effects:
+                if did_commit:
+                    note(title_id, 'committed')
+                if did_push:
                     note(title_id, 'pushed')
+                if not did_commit and not did_push:
+                    note(title_id, 'already committed', LEVEL_WARN, 'not pushed: push was not ticked')
             elif 'refused' in outcomes.get(title_id, ()):
                 pass
             elif title_id in published_ids:
@@ -296,10 +386,19 @@ def describe_results(report: StagesReport, plan: StagePlan, settings, rows: Opti
         if committed.missing:
             repo_lines.append(ResultLine('', 'Published files missing', 'warning',
                                          ', '.join(committed.missing), LEVEL_WARN))
+        mapped = {path for paths in blocked.values() for path in paths}
+        stray = [path for path in committed.not_committed if path not in mapped]
+        if stray:
+            repo_lines.append(ResultLine('', 'Not committed', 'failed', ', '.join(stray) +
+                                         ': git will not commit these (a .gitignore rule?)', LEVEL_ERROR))
+        for warning in committed.warnings:   # nothing was blocked: a notice, not an error
+            shown, full = _shown(warning)
+            repo_lines.append(ResultLine('', 'Notice', 'warning', shown, LEVEL_WARN, full))
     if report.commit_error:
-        repo_lines.append(ResultLine('', 'Commit', 'failed', report.commit_error, LEVEL_ERROR))
+        shown, full = _shown(report.commit_error)
+        repo_lines.append(ResultLine('', 'Commit', 'failed', shown, LEVEL_ERROR, full))   # the whole text, once
         for title_id in commit_ids:
-            note(title_id, 'not committed', LEVEL_ERROR, report.commit_error)
+            note(title_id, 'not committed', LEVEL_ERROR, shown)                          # a headline per title
 
     for title_id in report.not_run:
         note(title_id, 'not run', LEVEL_WARN, 'the run was cancelled before it got here')
@@ -316,39 +415,66 @@ def describe_results(report: StagesReport, plan: StagePlan, settings, rows: Opti
     lines = []
     for title_id, phrases in outcomes.items():
         text = ', '.join(phrases)
-        lines.append(ResultLine(title_id, titles.get(title_id, title_id), text[:1].upper() + text[1:],
-                                '; '.join(details.get(title_id, ())), levels.get(title_id, LEVEL_OK)))
+        detail, full = _shown('; '.join(details.get(title_id, ())))
+        lines.append(ResultLine(title_id, titles.get(title_id, title_id), text[:1].upper() + text[1:], detail,
+                                levels.get(title_id, LEVEL_OK), full))
     lines.sort(key=lambda line: _LEVEL_ORDER[line.level])   # stable: the work list's order within a level
     problems = [line for line in repo_lines if line.level != LEVEL_OK]
     return lines + [line for line in repo_lines if line.level == LEVEL_OK] + problems
 
 
-def summarise_report(report: StagesReport, plan: StagePlan) -> Tuple[str, str]:
+def summarise_report(report: StagesReport, plan: StagePlan, settings=None) -> Tuple[str, str]:
     '''
     The one-line outcome of a run and its level: "Extract & design finished: 38 designed, 2 failed, 4 skipped" or, after a
     cancel, "Stopped after 2 of 5 titles (3 not run): 2 designed".
+
+    :param settings: the `ScanSettings`, to say how many titles a commit committed and how many it pushed (they differ
+        when an earlier commit was made with push unticked); without it the commit is described as a whole.
     '''
     run = report.run
+    errors = [r for r in report.publish_errors if r.get('id')]
+    refused = [r for r in errors if _PUBLISH_OUTCOME.get(r['error'], 'refused') == 'refused']
+    publish_failed = len(errors) - len(refused) + (1 if len(errors) != len(report.publish_errors) else 0)
     parts = []
     for count, word in ((len(run.designed), 'designed'), (len(run.design_cached), 'already designed'),
                         (len([i for i in run.extracted if i not in run.designed]) if plan.through == 'extract'
                          else 0, 'extracted'),
-                        (len(report.published), 'published'), (len(report.publish_errors), 'refused'),
-                        (len(run.failed), 'failed'), (len(run.failed_earlier), 'not retried')):
+                        (len(report.published), 'published'), (len(refused), 'refused'),
+                        (len(run.failed) + publish_failed, 'failed'), (len(run.failed_earlier), 'not retried')):
         if count:
             parts.append(f'{count:,} {word}')
     committed = report.committed
-    if committed is not None and (committed.xml.commit or (committed.images and committed.images.commit)):
-        parts.append('committed' + (' and pushed' if committed.xml.pushed else ' (not pushed)'))
+    blocked = len(committed.not_committed) if committed is not None else 0
+    if committed is not None:
+        if settings is not None:
+            effects = commit_effects(report, plan, settings).values()
+            made, pushed = sum(1 for did, _ in effects if did), sum(1 for _, did in effects if did)
+            if made:
+                parts.append(f'{made:,} committed')
+            if pushed:
+                parts.append(f'{pushed:,} pushed')
+            elif made:
+                parts.append('not pushed')
+            if not made and not pushed and not blocked:
+                parts.append('nothing new to commit')
+        elif committed.xml.commit or (committed.images and committed.images.commit):
+            parts.append('committed' + (' and pushed' if committed.xml.pushed else ' (not pushed)'))
+        elif committed.xml.pushed:
+            parts.append('pushed')
+    if blocked:
+        parts.append(f'{blocked:,} not committed (git ignores them)')
     if report.commit_error:
         parts.append('the commit failed')
+    if committed is not None and committed.warnings:
+        parts.append(f'{len(committed.warnings):,} warning{"" if len(committed.warnings) == 1 else "s"} (see Last run)')
     if report.skipped:
         parts.append(f'{len(report.skipped):,} skipped')
     detail = ', '.join(parts) or 'nothing to do'
-    level = LEVEL_ERROR if report.failed else LEVEL_OK
+    level = LEVEL_ERROR if report.failed or blocked else LEVEL_WARN if committed is not None and committed.warnings \
+        else LEVEL_OK
     if report.cancelled:
         done, planned = len(report.attempted), len(plan.planned)
         return (f'Stopped after {done:,} of {planned:,} title{"" if planned == 1 else "s"} '
-                f'({len(report.not_run):,} not run): {detail}', LEVEL_ERROR if report.failed else LEVEL_WARN)
+                f'({len(report.not_run):,} not run): {detail}', LEVEL_ERROR if report.failed or blocked else LEVEL_WARN)
     verb = {'extract': 'Extract', 'design': 'Extract & design', 'publish': 'Publish', 'commit': 'Commit'}[plan.through]
     return f'{verb} finished: {detail}', level

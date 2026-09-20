@@ -5,6 +5,7 @@ discovery index (worklist_fixture.py inserts the rows) under pytest-qt. `import 
 import ui.beq  # noqa: F401 (must come first)
 
 import json
+import os
 import logging
 import threading
 import time
@@ -529,3 +530,61 @@ def test_the_tools_menu_has_the_work_list_as_its_primary_library_entry_and_it_op
         for handler in list(root.handlers):
             if handler not in handlers:  # the main window's log viewer must not outlive it
                 root.removeHandler(handler)
+
+
+# --- the index file: never created just to look, failures shown, released on close ---------------------------------------------
+
+def test_opening_on_a_work_directory_with_no_index_creates_nothing_and_says_it_was_never_scanned(qtbot, tmp_path):
+    window = _window(qtbot, tmp_path)     # a work directory that exists, and no index in it
+
+    assert not os.path.exists(index_path(str(tmp_path / 'work')))
+    assert os.listdir(tmp_path / 'work') == []
+    assert not window.has_open_index
+    assert 'has not been scanned' in window.emptyTitleLabel.text()
+    assert window.rescanButton.isEnabled()
+
+
+def test_a_scan_creates_the_index_and_the_window_then_reads_it_and_a_never_scanned_window_still_scans_by_itself(
+        qtbot, tmp_path):
+    source = _Source(['Alpha'])
+    window = _scan_window(qtbot, tmp_path, source)      # auto-scan: there is no index file, which is "never scanned"
+
+    qtbot.waitUntil(lambda: source.calls == 1 and not window.is_scanning, timeout=10000)
+
+    assert os.path.isfile(index_path(str(tmp_path / 'work')))
+    assert window.listed_ids() == ['fs-Alpha'] and window.has_open_index
+
+
+def test_an_index_that_exists_but_cannot_be_opened_is_shown_as_that_not_as_never_scanned(qtbot, tmp_path, monkeypatch):
+    make_index(tmp_path / 'work', [], SOURCES, generation=2, last_scan_at=NOW)
+    import model.worklist as worklist_module
+
+    def refuse(path):
+        raise PermissionError(13, 'Permission denied', path)
+
+    monkeypatch.setattr(worklist_module, 'LibraryIndex', refuse)
+
+    window = _window(qtbot, tmp_path, prefs=_prefs(tmp_path))
+
+    title = window.emptyTitleLabel.text()
+    assert 'could not be read' in title and 'not been scanned' not in title
+    assert 'PermissionError' in window.emptyDetailLabel.text() and 'library-index' in window.emptyDetailLabel.text()
+    assert not window.has_open_index
+
+
+def test_closing_releases_the_index_and_a_scan_that_finishes_after_it_does_not_open_it_again(qtbot, tmp_path):
+    source = _Source(['Alpha'], hold=True)
+    window = _scan_window(qtbot, tmp_path, source, auto_scan=False)
+    window.rescan()
+    qtbot.waitUntil(source.entered.is_set, timeout=5000)
+
+    window.close()
+    assert not window.has_open_index
+
+    with qtbot.waitSignal(window.scan_finished, timeout=10000):
+        source.release.set()
+
+    assert not window.has_open_index          # the finished scan did not reopen a connection in a closed window
+    assert os.path.isfile(index_path(str(tmp_path / 'work')))    # the scan itself did its job
+    window.show()                             # shown again: it reads the index it now has
+    assert window.has_open_index and window.listed_ids() == ['fs-Alpha']

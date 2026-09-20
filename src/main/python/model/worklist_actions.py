@@ -20,7 +20,7 @@ from qtpy.QtGui import QBrush
 from qtpy.QtWidgets import QAbstractItemView, QDialog, QTableWidgetItem
 
 from model.preferences import WORKLIST_PUSH
-from model.worklist_confirm import ConfirmDialog, commit_text, machine_text, publish_text
+from model.worklist_confirm import ConfirmDialog, commit_text, machine_text, publish_text, retry_text
 from model.worklist_model import warning_colour
 from model.worklist_run import LEVEL_ERROR, LEVEL_OK, FailedTitle, ResultLine, RunJob, RunRequest, \
     build_publish_settings, build_run_config, describe_results, plan_label, publish_problem, summarise_report, \
@@ -30,6 +30,13 @@ from pipeline.library.selection import StagePlan, plan_stages
 from pipeline.library.stages import Progress, StagesReport
 
 logger = logging.getLogger('worklist')
+
+
+def _result_tooltip(line: ResultLine) -> str:
+    ''' A results row's tooltip: the title, the outcome and the whole detail (a cell shows one line of it). '''
+    detail = line.full or line.detail
+    heading = line.title or line.outcome
+    return f'{heading}\n{line.outcome}: {detail}' if detail else f'{heading}\n{line.outcome}'
 
 
 def _button_text(text: str) -> str:
@@ -46,6 +53,7 @@ class _RunContext:
     rows: Dict[str, TitleRow]
     skipped_text: str
     commit_ids: List[str]
+    stage: str = ''   # what the pipeline last said it was starting
 
 
 class WorkListActions:
@@ -75,6 +83,8 @@ class WorkListActions:
         self.resultsTable.horizontalHeader().resizeSection(1, 200)
         self.workTable.selectionModel().selectionChanged.connect(self._refresh_actions)
         self.failuresTable.itemSelectionChanged.connect(self._refresh_actions)
+        self.resultsTable.itemSelectionChanged.connect(self._refresh_result_details)
+        self.resultDetails.setVisible(False)
         self.runLayout.setStretchFactor(self.runStatusLabel, 1)
         self.runButton.clicked.connect(lambda: self.run_selected())
         self.publishButton.clicked.connect(lambda: self.publish_selected())
@@ -145,7 +155,10 @@ class WorkListActions:
         problem = publish_problem(self._setup)
         for button, through in ((self.publishButton, 'publish'), (self.commitButton, 'commit')):
             step = self.plan_for(through)
-            button.setText(_button_text(plan_label(step)))
+            text = plan_label(step)
+            if through == 'commit' and step.planned and not self._uncommitted(step):
+                text = 'Push' + text[len('Commit'):]   # every one is committed already: all that is left is pushing
+            button.setText(_button_text(text))
             button.setEnabled(ready and bool(step.planned) and not problem)
             if problem:
                 button.setToolTip(problem)
@@ -153,12 +166,20 @@ class WorkListActions:
                 button.setToolTip('Write the accepted titles (and those published but out of date) into the repositories\' '
                                   'working trees. Nothing is committed or pushed.')
             else:
-                button.setToolTip('Commit the written titles: one commit per repository, images first, then push.')
+                button.setToolTip('Commit the written titles: one commit per repository, images first, then push. '
+                                  'Titles committed earlier without a push are only pushed.')
         failed = self._selected_failed_ids() or [f.id for f in self._failed]
         self.retryButton.setText(f'Retry {len(failed):,} selected' if self._selected_failed_ids()
                                  else f'Retry {len(failed):,} failed')
         self.retryButton.setEnabled(ready and bool(failed))
+        self.retryButton.setToolTip('Run the titles in the failures panel again, even though nothing changed. The panel '
+                                    'lists every failed title in the library, not only those in the current view.')
         self.rescanButton.setEnabled(self._setup.ready and not self._busy())
+
+    @staticmethod
+    def _uncommitted(plan: StagePlan) -> int:
+        ''' How many of a commit plan's titles still have to be committed (the others only need pushing). '''
+        return sum(1 for p in plan.planned if p.row.commit_state != 'committed')
 
     def _selected_failed_ids(self) -> List[str]:
         rows = sorted({index.row() for index in self.failuresTable.selectionModel().selectedRows()})
@@ -183,7 +204,7 @@ class WorkListActions:
         for row, line in enumerate(self._results):
             for column, text in enumerate((line.title, line.outcome, line.detail)):
                 item = QTableWidgetItem(text)
-                item.setToolTip(f'{line.title}\n{line.outcome}: {line.detail}' if line.detail else f'{line.title}\n{line.outcome}')
+                item.setToolTip(_result_tooltip(line))
                 if line.level != LEVEL_OK and column >= 1:
                     item.setForeground(QBrush(warning_colour()))
                     if line.level == LEVEL_ERROR and column == 1:
@@ -192,7 +213,21 @@ class WorkListActions:
                         item.setFont(font)
                 table.setItem(row, column, item)
         self.detailsTabs.setTabText(1, f'Last run ({len(self._results):,})')
+        self._refresh_result_details()
         self._refresh_details()
+
+    def _refresh_result_details(self) -> None:
+        '''
+        The *Details* area under the results: the whole text of the selected line if it was shortened for its cell, else
+        -- with nothing selected -- the whole text of every repository-level problem, each once.
+        '''
+        selected = sorted({index.row() for index in self.resultsTable.selectionModel().selectedRows()})
+        lines = [self._results[r] for r in selected if r < len(self._results)]
+        if not lines:
+            lines = [line for line in self._results if not line.id and line.full]
+        text = '\n\n'.join(f'{line.title or line.outcome}: {line.full}' for line in lines if line.full)
+        self.resultDetails.setPlainText(text)
+        self.resultDetails.setVisible(bool(text))
 
     def _refresh_details(self) -> None:
         self.detailsTabs.setTabVisible(0, bool(self._failed))
@@ -201,7 +236,7 @@ class WorkListActions:
         if show and not self.detailsTabs.isVisibleTo(self):
             self.detailsTabs.setVisible(True)
             total = self.bodySplitter.height()
-            self.bodySplitter.setSizes([max(total - 190, 200), 190])
+            self.bodySplitter.setSizes([max(total - 280, 200), 280])
         elif not show:
             self.detailsTabs.setVisible(False)
 
@@ -225,22 +260,28 @@ class WorkListActions:
 
     def retry_failed(self, ids: Optional[List[str]] = None) -> bool:
         ''' Runs the failed titles again (those selected in the failures panel, else every one) even though nothing changed. '''
-        wanted = ids if ids is not None else (self._selected_failed_ids() or [f.id for f in self._failed])
-        return self._begin('design', retry_failed=True, ids=list(wanted))
+        chosen = ids if ids is not None else self._selected_failed_ids()
+        wanted = chosen or [f.id for f in self._failed]
+        # the failures panel is the whole library's: retrying all of it is as big as running a whole view, so it asks
+        return self._begin('design', retry_failed=True, ids=list(wanted), confirm=not chosen)
 
     def _say(self, text: str, level: str = LEVEL_OK) -> None:
         self.runPanel.setVisible(bool(text) or self.is_running)
         self.runStatusLabel.setText(text)
         self.runStatusLabel.setStyleSheet(f'color: {warning_colour().name()}' if level != LEVEL_OK else '')
 
-    def _begin(self, through: str, retry_failed: bool = False, ids: Optional[List[str]] = None) -> bool:
+    def _begin(self, through: str, retry_failed: bool = False, ids: Optional[List[str]] = None,
+               confirm: Optional[bool] = None) -> bool:
         '''
         Confirms where that is called for and starts the run. :return: False if nothing was started (a run or a scan is in
         progress, the setup is incomplete, there is nothing to do, or the person declined).
+
+        :param confirm: whether an extract/design run over more than one title asks first; by default it does unless
+            the person selected the titles.
         '''
         if self._busy() or not self._setup.ready or self._index is None or self._setup.index_file is None:
             return False
-        explicit = ids is not None or bool(self.selected_ids())
+        ask = (not (ids is not None or bool(self.selected_ids()))) if confirm is None else confirm
         rows = self._rows_by_id()
         plan = self.plan_for(through, ids, retry_failed)
         if not plan.planned:
@@ -259,8 +300,10 @@ class WorkListActions:
                                                                   if p.row.publish_state == 'out_of_date'))
                 dialog = ConfirmDialog(self, heading, body, f'Publish {count:,} title{"" if count == 1 else "s"}')
             else:
-                heading, body = commit_text(count, settings)
-                dialog = ConfirmDialog(self, heading, body, f'Commit {count:,} title{"" if count == 1 else "s"}',
+                uncommitted = self._uncommitted(plan)
+                heading, body = commit_text(count, settings, uncommitted)
+                verb = 'Commit' if uncommitted else 'Push'
+                dialog = ConfirmDialog(self, heading, body, f'{verb} {count:,} title{"" if count == 1 else "s"}',
                                        'Push each repository after committing (untick to commit locally only)',
                                        bool(self._preferences.get(WORKLIST_PUSH)))
             if dialog.exec() != QDialog.DialogCode.Accepted:
@@ -271,11 +314,15 @@ class WorkListActions:
                 push = dialog.checked
                 self._preferences.set(WORKLIST_PUSH, push)
         else:
-            if self._precheck is not None and not self._precheck(through):
+            # ffmpeg is only needed to extract: a title that is extracted already is only designed
+            extracts = any('extract' in p.stages for p in plan.planned)
+            if extracts and self._precheck is not None and not self._precheck(through):
                 return False
-            if not explicit and len(plan.planned) > 1:
-                heading, body = machine_text(len(plan.planned), True, self._view_description())
-                dialog = ConfirmDialog(self, heading, body, f'Extract & design {len(plan.planned):,}')
+            if ask and len(plan.planned) > 1:
+                heading, body = (retry_text(len(plan.planned)) if retry_failed else
+                                 machine_text(len(plan.planned), True, self._view_description()))
+                dialog = ConfirmDialog(self, heading, body, f'{"Retry" if retry_failed else "Extract & design"} '
+                                                            f'{len(plan.planned):,}')
                 if dialog.exec() != QDialog.DialogCode.Accepted:
                     self._say('Cancelled: nothing was extracted or designed.')
                     return False
@@ -315,8 +362,16 @@ class WorkListActions:
         self._say(f'Starting: {plan_label(plan)}...')
         self._refresh_actions()
         self._refresh_view()
-        self.run_started.emit(request)
-        QThreadPool.globalInstance().start(job)
+        try:
+            QThreadPool.globalInstance().start(job)
+        except ZeroDivisionError as error:   # the run never began: do not leave the window "running" for ever
+            logger.exception('Could not start the run')
+            self._end_run()
+            self._say(f'Cannot start: {type(error).__name__}: {error}', LEVEL_ERROR)
+            self._refresh_actions()
+            self._refresh_view()
+            return False
+        self.run_started.emit(request)   # after the job is under way, so nothing a listener does can strand it
         return True
 
     # --- while it runs --------------------------------------------------------------------------------------------------
@@ -330,7 +385,10 @@ class WorkListActions:
             return False
         self._job.cancel()
         self.cancelButton.setEnabled(False)
-        self._say('Cancelling: the title being worked on finishes first...')
+        if self._run_context is not None and self._run_context.stage == 'commit':
+            self._say('Cancel requested, but a commit cannot be stopped part way: it finishes, and the run ends after it.')
+        else:
+            self._say('Cancelling: the title being worked on finishes first...')
         return True
 
     def _on_run_progress(self, progress: Progress) -> None:
@@ -342,6 +400,7 @@ class WorkListActions:
         if not progress.stage:
             self._model.set_running({})
             return
+        context.stage = progress.stage
         if progress.stage == 'commit':
             self._model.set_running({i: 'commit' for i in context.commit_ids})
             text = f'Committing {progress.title}'
@@ -352,7 +411,8 @@ class WorkListActions:
             text = f'{word} {progress.title}'
         text += f'  ({min(progress.done + 1, progress.total):,} of {progress.total:,})'
         if self._job is not None and self._job.cancel_requested:
-            text += ' -- cancelling after this one'
+            text += ' -- a commit cannot be stopped, it finishes' if progress.stage == 'commit' \
+                else ' -- cancelling after this one'
         self._say(text)
 
     def _end_run(self) -> Optional[_RunContext]:
@@ -363,11 +423,14 @@ class WorkListActions:
         return context
 
     def _on_run_finished(self, report: StagesReport) -> None:
+        cancel_asked = self._job is not None and self._job.cancel_requested
         context = self._end_run()
         self.refresh_from_index()
         if context is not None:
             self._results = describe_results(report, context.plan, self._setup.settings, context.rows)
-            text, level = summarise_report(report, context.plan)
+            text, level = summarise_report(report, context.plan, self._setup.settings)
+            if cancel_asked and not report.cancelled:   # the last title was already in hand, or a commit had begun
+                text = f'Cancel requested too late: nothing was left to stop. {text}'
             if context.skipped_text:
                 text += f'. {context.skipped_text}'
             self._refresh_results()

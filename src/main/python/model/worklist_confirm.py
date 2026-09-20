@@ -45,16 +45,37 @@ def publish_text(count: int, settings: PublishSettings, republishing: int = 0) -
     return f'Publish {_plural(count, "title")}?', '<br>'.join(lines)
 
 
-def commit_text(count: int, settings: PublishSettings) -> Tuple[str, str]:
-    whose = "this title's files" if count == 1 else "these titles' files"
-    lines = [f'Makes one commit per repository containing just {whose}:']
+def commit_text(count: int, settings: PublishSettings, uncommitted: Optional[int] = None) -> Tuple[str, str]:
+    '''
+    :param uncommitted: how many of the `count` still have to be committed (the rest were committed earlier, with push
+        unticked, and only need pushing); None if not known, which says what a commit does.
+    '''
+    push_only = uncommitted == 0
+    lines = []
+    if push_only:
+        lines.append(f'{"This title is" if count == 1 else "These titles are"} already committed and only '
+                     f'{"needs" if count == 1 else "need"} pushing. Nothing new is committed; each repository is pushed '
+                     f'(if you leave the box below ticked):')
+    else:
+        whose = "this title's files" if count == 1 else "these titles' files"
+        lines.append(f'Makes one commit per repository containing just {whose}:')
     if settings.images_repo is not None:
         lines.append('1. ' + _repo('Images repository', settings.images_repo.local_path, settings.image_dir))
         lines.append('2. ' + _repo('XML repository', settings.xml_repo.local_path, settings.xml_dir))
         lines.append('<br>The images repository goes first, so a pushed XML never points at a missing image.')
     else:
         lines.append(_repo('XML repository', settings.xml_repo.local_path, settings.xml_dir))
-    return f'Commit {_plural(count, "title")}?', '<br>'.join(lines)
+    if uncommitted and uncommitted < count:
+        lines.append(f'<br>{_plural(count - uncommitted, "title")} of these {"is" if count - uncommitted == 1 else "are"} '
+                     f'already committed and only {"needs" if count - uncommitted == 1 else "need"} pushing.')
+    heading = f'Push {_plural(count, "title")}?' if push_only else f'Commit {_plural(count, "title")}?'
+    return heading, '<br>'.join(lines)
+
+
+def retry_text(count: int) -> Tuple[str, str]:
+    lines = [f'Runs every title that failed before ({count:,}) again, <b>wherever it is in the library</b> -- not only '
+             f'in the current view. This can take a long time; you can cancel, and the title in hand finishes first.']
+    return f'Retry {_plural(count, "failed title")}?', '<br>'.join(lines)
 
 
 def machine_text(count: int, everything_in_view: bool, view: str) -> Tuple[str, str]:

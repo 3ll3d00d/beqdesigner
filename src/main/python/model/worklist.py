@@ -35,12 +35,13 @@ index has never been scanned.
 '''
 import html
 import logging
+import os
 import time
 from typing import Callable, Dict, List, Mapping, Optional
 
 from qtpy.QtCore import QItemSelectionModel, QObject, QRunnable, Qt, QThreadPool, Signal
 from qtpy.QtGui import QKeySequence, QShortcut
-from qtpy.QtWidgets import QAbstractItemView, QButtonGroup, QHeaderView, QMainWindow, QProgressBar
+from qtpy.QtWidgets import QAbstractItemView, QButtonGroup, QHeaderView, QMainWindow, QMessageBox, QProgressBar
 
 from model.preferences import WORKLIST_GEOMETRY
 from model.worklist_actions import WorkListActions
@@ -173,6 +174,8 @@ class WorkListWindow(WorkListActions, QMainWindow, Ui_workListWindow):
         self._setup: WorkListSetup = WorkListSetup(None, None, 'preferences')
         self._index: Optional[LibraryIndex] = None
         self._index_file: Optional[str] = None
+        self._index_error = ''      # why an index file that exists could not be opened or read
+        self._closed = False        # closed (hidden) by the person: nothing may reopen the index until it is shown again
         self._sources_seen: List[SourceRow] = []
         self._last_scan_at: Optional[float] = None
         self._generation = 0
@@ -317,25 +320,38 @@ class WorkListWindow(WorkListActions, QMainWindow, Ui_workListWindow):
         Reads the setup again and shows the cached index (no scan, unless it has never been scanned). Called on opening and
         whenever the window is shown again, since the preferences may have changed.
         '''
+        self._closed = False
         self._setup = load_setup(self._preferences)
         self._open_index(self._setup.index_file)
         self.refresh_from_index()
-        if self._auto_scan and self._setup.ready and self._index is not None and self._generation == 0 \
+        # no index file yet is "never scanned" too: the scan creates it
+        if self._auto_scan and self._setup.ready and self._index_error == '' and self._generation == 0 \
                 and not self.is_running:
             self.rescan()
 
+    @property
+    def has_open_index(self) -> bool:
+        ''' Whether the window holds a connection to the index (it does not while closed). '''
+        return self._index is not None
+
     def _open_index(self, path: Optional[str]) -> None:
+        '''
+        Opens the index for reading. **It never creates the file**: a window that only shows what a scan found has nothing
+        to show before the first scan, and opening a `LibraryIndex` creates the file and its schema; the scan does that.
+        '''
         if path == self._index_file and self._index is not None:
             return
         self._close_index()
         self._index_file = path
-        if path is None:
+        self._index_error = ''
+        if path is None or not os.path.isfile(path):
             return
         try:
             self._index = LibraryIndex(path)
-        except Exception:
+        except Exception as error:
             logger.exception('Could not open the index %s', path)
             self._index = None
+            self._index_error = f'{type(error).__name__}: {error}'
 
     def _close_index(self) -> None:
         if self._index is not None:
@@ -348,7 +364,9 @@ class WorkListWindow(WorkListActions, QMainWindow, Ui_workListWindow):
         and updates the failures panel and the buttons. It reads the index; it does not scan a source or re-read any
         title's outputs (a run does that itself when it ends, `LibraryIndex.refresh()`).
         '''
-        self._open_index(self._setup.index_file)  # closed by closeEvent, and a scan can finish after that
+        if self._closed:   # a scan or a run that ends after the window was closed must not open the index again
+            return
+        self._open_index(self._setup.index_file)  # a scan may have just created it
         selected = self.selected_ids()
         scroll = self.workTable.verticalScrollBar().value()
         rows: List[TitleRow] = []
@@ -356,13 +374,15 @@ class WorkListWindow(WorkListActions, QMainWindow, Ui_workListWindow):
         failures: Mapping = {}
         last_scan, generation = None, 0
         if self._index is not None:
+            self._index_error = ''
             try:
                 summary = self._index.summary()
                 rows, sources = self._index.titles(), summary.sources
                 last_scan, generation = summary.last_scan_at, summary.generation
                 failures = self._index.failures()
-            except Exception:
+            except Exception as error:
                 logger.exception('Could not read the index %s', self._index_file)
+                self._index_error = f'{type(error).__name__}: {error}'
         self._sources_seen, self._last_scan_at, self._generation = sources, last_scan, generation
         self._populate_sources(sources)
         self._model.set_rows(rows)  # the proxy's modelReset refreshes the strip and the empty state
@@ -477,6 +497,9 @@ class WorkListWindow(WorkListActions, QMainWindow, Ui_workListWindow):
             detail = '\n'.join(setup.problems) + '\n\nThe work list uses the same settings as Library Sync ' \
                                                   '(Tools > Library Sync (classic dialog)). Set them there, then reopen this window.'
             settings = setup.origin != ORIGIN_FILE
+        elif self._index_error and not self._model.rowCount():
+            title = 'The library index could not be read'
+            detail = f'{self._index_file}\n{self._index_error}\n\nIt may be damaged: delete it, and Rescan builds it again.'
         elif self._scanning and not self._model.rowCount():
             title, detail = 'Scanning the library...', 'The titles appear when the scan finishes.'
         elif self._generation == 0 and not self._model.rowCount():
@@ -537,7 +560,26 @@ class WorkListWindow(WorkListActions, QMainWindow, Ui_workListWindow):
         self.statusBar.showMessage(f'The scan failed: {message}')
         self.scan_failed.emit(message)
 
+    def showEvent(self, event) -> None:
+        if self._closed:   # shown again without the app's reload(): read the settings and the index again
+            self.reload()
+        super().showEvent(event)
+
     def closeEvent(self, event) -> None:
+        '''
+        A run in progress is not left going against a hidden window: the person is asked, and *Yes* cancels it (the title in
+        hand finishes) and closes. Closing releases the index connection, and a scan or run that ends afterwards does not
+        open it again (`reload()` does, when the window is shown again).
+        '''
+        if self.is_running:
+            answer = QMessageBox.question(
+                self, 'Run in progress', 'A run is in progress. Cancel it and close?',
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
+            if answer != QMessageBox.StandardButton.Yes:
+                event.ignore()
+                return
+            self.cancel_run()
         self._preferences.set(WORKLIST_GEOMETRY, self.saveGeometry())
-        self._close_index()  # a scan in flight has its own connection; reload() reopens this one
+        self._closed = True
+        self._close_index()  # a scan or run in flight has its own connection
         super().closeEvent(event)
