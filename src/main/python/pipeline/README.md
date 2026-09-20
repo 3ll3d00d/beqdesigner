@@ -238,12 +238,23 @@ PYTHONPATH=src/main/python python -m pipeline.library.cli [--config FILE] accept
   still published. `--republish` also writes again each *published* entry whose catalogue copy is **out of date** --
   a metadata typo fixed, a new poster, an edited project, or an XML missing from the repository -- at the same path,
   keeping it published, without a second review; `commit` then commits it as a revision. `--id` restricts it to
-  named entries.
+  named entries. The filter is published from each title's `.beq` project, so a hand edit is what ships, when the work
+  directory is known: `--work-dir`, else `work_dir` in the `sync:` section, else in the `run:` section; without one the
+  designer's own pick is published, which would write over a hand-edited filter. A changed report style (`ReportSpec`)
+  or `--xml-dir` is not the same: the style makes titles out of date, a new `xml_dir` is a new *location* -- the file
+  at the old one is left behind for a person to remove (and the image's GitHub owner/repo is not in the digest either).
+  One bad entry never stops the batch: anything that goes wrong for it (incomplete or unbuildable metadata -- a missing
+  or null title, an unknown field -- a project conflict, git refusing, a poster file that is gone) is that entry's
+  `{"id", "error", ...}` result and it keeps its status, so a rerun retries it.
 - **`commit`** commits what `publish` wrote and pushes it: **one commit per repository** containing exactly those
   files (anything else staged in the clone is left alone), then one push per repository, **images first** so a pushed
   XML never points at an image that is not there. Whether a file is committed or pushed is read from git, not
   remembered, so running it again does only what is left (a rejected push is retried; an unchanged file is not an
-  error) and a commit you made by hand is respected. `--no-push` commits locally only.
+  error) and a commit you made by hand is respected. `--no-push` commits locally only. Paths within a repository
+  are always `/`-separated (git's spelling, on Windows too), and the clone may be a subdirectory of a repository. A
+  published file that is still not committed afterwards (a `.gitignore` rule matches it) is reported as
+  `not_committed` and is an error, never silently skipped; an XML naming a report image, committed without an
+  `--images-repo`, is warned about (`warnings`, also on stderr) because the image is not committed with it.
 - **`sync`** is `publish` then `commit`. It runs as the invoking user's own git/SSH configuration.
 - **`revise`** sends titles back: `--to review` reopens them for another pick (from accepted, skipped, rejected or
   published); `--to design` also drops the protection an accepted or published entry has, so the next `run`
@@ -252,12 +263,18 @@ PYTHONPATH=src/main/python python -m pipeline.library.cli [--config FILE] accept
   the work happens in the next `run` and `publish`/`commit`. A title whose files were **written but never
   committed** has them put back as git has them (deleted, or restored to the previous revision); one already
   **committed** keeps them, becomes a *revision* (`revision` on the entry counts these) and is rewritten at the same
-  path when published again. Each records a line in the entry's reviewer note (`--reason` adds why).
+  path when published again. Each records a line in the entry's reviewer note (`--reason` adds why). Both repositories
+  are checked to be git repositories *before* anything changes (a `ValueError` otherwise), the images repository is put
+  back before the XML repository, and the entry is written last, so a failure part-way leaves it `published` and
+  running it again finishes the job. **Revision rule:** `revision` goes up when a committed XML that is unchanged in
+  the working tree is superseded -- by a reopen, or by a `--republish` that rewrites it -- and not when it is
+  already rewritten and uncommitted (that revision was counted); a never-committed file has nothing to count.
 - **`accept`** is *bulk accept*: it accepts the designer's top pick for the titles waiting for review whose top pick is
   at least `--threshold` confident (default 0.90), and **leaves out, and reports,** any that a person should still look
   at -- incomplete metadata, a designer decline, or a `.beq` project someone has edited since it was designed. Each
   accepted title gets the reviewer note "bulk accepted, confidence >= 0.90". `--dry-run` shows what it would do.
-  It works from the last `scan` and does not publish.
+  It works from the last `scan` and does not publish. Each entry is re-read as it is written: one a person changed since the
+  plan (edited, accepted or skipped in the app) is left alone and reported as "changed while accepting".
 
 - **`scan`** is *discovery*: it lists each source of a profile, merges them, reads the outputs (extract manifests, the
   review queue, `.beq` projects, both repositories) and records what every title **needs next**, without extracting,
@@ -462,20 +479,27 @@ The commands print JSON to stdout (`status` prints text unless given `--json`).
   reason}` for a confident title left for a person, `below_threshold` counts the titles waiting for review whose top pick is
   less confident, and `not_for_review` those in the selection that were not waiting for review. `--dry-run` prints the
   same as `{eligible, ...}` and changes nothing.
-- `publish` and `sync` print one object per entry they published (`id` plus the publish result; `edited_project` and
-  `projects_aligned` say a hand edit was what shipped) or refused (`id` and `error`, e.g. `project_conflict` when the
-  mono and multichannel projects were edited to disagree, or `invalid_metadata` with the `problems`). Exit status 1 if any entry was refused. With `sync` each
-  published entry also carries the batch's `xml_commit` (and `image_commit`) sha, where a commit was made.
+- `publish` and `sync` print one object per entry they published (`id` plus the publish result -- `image_url`,
+  and `republished`; not the XML itself, which is in the repository; `edited_project` and `projects_aligned` say a hand edit
+  was what shipped) or refused (`id` and `error`, e.g. `project_conflict` when the mono and multichannel projects were
+  edited to disagree, `invalid_metadata` with the `problems`, `git_failed` or `publish_failed` with a `message`). Exit
+  status 1 if any entry was refused, 3 if git refused (see below). With `sync` each published entry also carries the
+  batch's `xml_commit` (and `image_commit`) sha, where a commit was made -- also when a later push failed.
 - `revise` prints one object per `--id`: `id`, `status`, `revision`, `reverted` (catalogue files put back as git has them) and
   `extract_invalidated`, or `id` and `error` (no such entry, already pending, published with no `--xml-repo`). Exit status 1 if any failed.
-- `commit` prints `{"xml": {...}, "images": {...}, "missing": [...]}`; each repository reports its `paths` handled,
-  the new `commit` sha (null if everything was already committed) and whether it was `pushed`. `missing` lists
-  published entries with no file in their repository (run `publish` again); exit status 1 if there are any.
+- `commit` prints `{"xml": {...}, "images": {...}, "missing": [...], "not_committed": [...], "warnings": [...]}`; each
+  repository reports its `paths` handled, the new `commit` sha (null if everything was already committed) and whether it
+  was `pushed`. `missing` lists published entries with no file in their repository (run `publish` again; exit status 1);
+  `not_committed` lists published files git will not commit (exit status 3). If git refuses (a rejected push), it prints
+  what was done before the failure with an `error` key, and git's message on stderr in one line.
 - `scan` prints `{generation, titles, new, gone, dropped, errors, counts}` (`counts` is titles per needs; `errors` maps a
   source that could not be listed to why). Exit status 1 if any source could not be listed.
 - `status` prints text by default or, with `--json`, `{generation, last_scan_at, titles, counts, new, flags, sources}`.
   Exit status 1 if there is no scanned index.
 - Exit status 2 is a bad option or config file (a message on stderr).
+- Exit status 3 is git: `publish`, `commit`, `sync` and `run --through commit` exit 3 when git refused (a rejected or
+  failed push, an images repository that is not a git repository) or will not commit a published file. It is distinct
+  from 1 ("an entry could not be published, or a published entry has no file"), so a wrapper can tell them apart.
 
 A typical schedule: `run` nightly from cron, review in the app, `sync` (or `publish`, a look at the clones, then `commit`)
 when the queue has accepted entries.
