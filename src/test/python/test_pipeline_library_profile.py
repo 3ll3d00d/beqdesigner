@@ -237,3 +237,59 @@ def test_a_malformed_yaml_file_is_a_value_error(tmp_path):
     path.write_text('sources: [unclosed\n')
     with pytest.raises(ValueError, match='not valid YAML'):
         load_profile(str(path))
+
+
+# --- saving is atomic and never leaves a half-valid file (chunk 26c) ----------------------------------------------------------
+
+def test_a_failed_save_leaves_the_earlier_file_untouched_and_no_temporary_file(tmp_path, monkeypatch):
+    path = tmp_path / 'catalogue.yaml'
+    save_profile(profile_from_config(_PROFILE), str(path))
+    before = path.read_bytes()
+
+    def broken(*args, **kwargs):
+        raise OSError('disk full')
+
+    monkeypatch.setattr(profile_module.os, 'replace', broken)
+    with pytest.raises(OSError, match='disk full'):
+        save_profile(Profile(sources=(SourceSpec('x', 'filesystem', {'globs': ['/x']}),)), str(path))
+
+    assert path.read_bytes() == before
+    assert [p.name for p in tmp_path.iterdir()] == ['catalogue.yaml']
+
+
+def test_a_profile_that_would_not_read_back_is_refused_before_anything_is_written(tmp_path):
+    older = {'sources': {'jriver': {'host': 'h', 'port': 1, 'browse_node_id': 2}, 'filesystem': {'globs': ['/a']}},
+             'run': {'source': 'filesystem'}}
+    path = tmp_path / 'old.yaml'
+    profile = profile_from_config(older)
+    save_profile(profile, str(path))
+    before = path.read_bytes()
+    grown = Profile(sources=profile.sources + (SourceSpec('extra', 'filesystem', {'globs': ['/b']}),),
+                    config=profile.config)
+
+    with pytest.raises(ValueError, match='jriver'):    # a list cannot hold the source the file has but does not use
+        save_profile(grown, str(path))
+
+    assert path.read_bytes() == before
+
+
+def test_saving_over_a_file_keeps_its_permissions(tmp_path):
+    path = tmp_path / 'p.yaml'
+    save_profile(Profile(), str(path))
+    path.chmod(0o640)
+
+    save_profile(profile_from_config(_PROFILE), str(path))
+
+    assert (path.stat().st_mode & 0o777) == 0o640
+
+
+def test_what_would_be_written_is_read_back_before_anything_is_written(tmp_path, monkeypatch):
+    path = tmp_path / 'p.yaml'
+    save_profile(Profile(), str(path))
+    before = path.read_bytes()
+    monkeypatch.setattr(profile_module, 'profile_from_config', lambda config: (_ for _ in ()).throw(ValueError('unreadable')))
+
+    with pytest.raises(ValueError, match='unreadable'):
+        save_profile(Profile(sources=(SourceSpec('x', 'filesystem', {'globs': ['/x']}),)), str(path))
+
+    assert path.read_bytes() == before

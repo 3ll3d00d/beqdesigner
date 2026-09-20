@@ -8,6 +8,24 @@
   <widget class="QWidget" name="centralWidget">
    <layout class="QVBoxLayout" name="mainLayout">
     <item>
+     <widget class="QFrame" name="setupBanner">
+      <property name="frameShape"><enum>QFrame::StyledPanel</enum></property>
+      <layout class="QHBoxLayout" name="setupBannerLayout">
+       <item><widget class="QLabel" name="setupBannerLabel"><property name="wordWrap"><bool>true</bool></property><property name="textFormat"><enum>Qt::RichText</enum></property><property name="text"><string/></property></widget></item>
+       <item><widget class="QPushButton" name="setupBannerButton"><property name="text"><string>Settings...</string></property></widget></item>
+      </layout>
+     </widget>
+    </item>
+    <item>
+     <widget class="QFrame" name="staleBanner">
+      <property name="frameShape"><enum>QFrame::StyledPanel</enum></property>
+      <layout class="QHBoxLayout" name="staleBannerLayout">
+       <item><widget class="QLabel" name="staleBannerLabel"><property name="wordWrap"><bool>true</bool></property><property name="text"><string>The settings changed since the last scan, so this list may be out of date.</string></property></widget></item>
+       <item><widget class="QPushButton" name="staleBannerButton"><property name="text"><string>Rescan now</string></property></widget></item>
+      </layout>
+     </widget>
+    </item>
+    <item>
      <layout class="QHBoxLayout" name="stripLayout">
       <property name="spacing"><number>4</number></property>
       <item><widget class="QPushButton" name="allChip"><property name="text"><string>All</string></property><property name="checkable"><bool>true</bool></property><property name="checked"><bool>true</bool></property></widget></item>
@@ -28,6 +46,7 @@
       <item><widget class="QComboBox" name="sourceCombo"><property name="toolTip"><string>Show only the titles one library source owns</string></property><property name="minimumContentsLength"><number>14</number></property></widget></item>
       <item><spacer name="filterSpacer"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
       <item><widget class="QLabel" name="lastScanLabel"><property name="text"><string>never scanned</string></property></widget></item>
+      <item><widget class="QPushButton" name="settingsButton"><property name="toolTip"><string>Open the settings drawer: folders and repositories, sources and their priority, and what to ignore</string></property><property name="text"><string>Settings...</string></property></widget></item>
       <item><widget class="QPushButton" name="rescanButton"><property name="toolTip"><string>List every library source again and update what each title needs. Nothing is extracted, designed or published.</string></property><property name="text"><string>Rescan</string></property></widget></item>
      </layout>
     </item>
@@ -54,7 +73,7 @@
         <item>
          <layout class="QHBoxLayout" name="emptyButtonLayout">
           <item><spacer name="emptyButtonSpacerLeft"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
-          <item><widget class="QPushButton" name="openSettingsButton"><property name="text"><string>Open Library Sync settings...</string></property></widget></item>
+          <item><widget class="QPushButton" name="openSettingsButton"><property name="text"><string>Settings...</string></property></widget></item>
           <item><spacer name="emptyButtonSpacerRight"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
          </layout>
         </item>
@@ -107,6 +126,7 @@
       <item><widget class="QPushButton" name="selectAllButton"><property name="toolTip"><string>Select every title the current view lists (pick a strip chip first to select one kind of work)</string></property><property name="text"><string>Select all</string></property></widget></item>
       <item><widget class="QPushButton" name="clearSelectionButton"><property name="text"><string>Clear</string></property></widget></item>
       <item><spacer name="actionSpacer"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
+      <item><widget class="QPushButton" name="ignoreButton"><property name="toolTip"><string>Ignore titles like the selected one, or just the selected titles</string></property><property name="text"><string>Ignore</string></property></widget></item>
       <item><widget class="QPushButton" name="publishButton"><property name="text"><string>Publish</string></property></widget></item>
       <item><widget class="QPushButton" name="commitButton"><property name="text"><string>Commit</string></property></widget></item>
       <item><widget class="QPushButton" name="runButton"><property name="default"><bool>false</bool></property><property name="text"><string>Extract &amp; design</string></property></widget></item>

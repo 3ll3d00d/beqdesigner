@@ -11,8 +11,9 @@ What the window reads and where it does not think for itself:
 
 * what each title needs, its detail, how long it has waited, whether it is new, its flags -- all straight from the
   index's rows (`TitleRow`), in the index's order (tier, then oldest first); see `model.worklist_model`;
-* the profile -- from the `LIBRARY_PROFILE_PATH` file if there is one, else built from the Library Sync preferences
-  (`model.worklist_profile`, the one function chunk 26c replaces);
+* the profile -- from the `LIBRARY_PROFILE_PATH` file if there is one, else (until the first change is saved) built from
+  the Library Sync preferences (`model.worklist_profile`); chunk 26c's **settings drawer** (`model.worklist_settings`, a
+  dock on the right: *Settings...*) edits that file, and a banner at the top says what is missing until it is complete;
 * the strip's chips are `pipeline.library.selection.CHIPS`, and `current_selection()` is the `Selection` the filters
   amount to, which chunk 26b's action button hands to `plan_stages()`/`run_stages()`.
 
@@ -39,16 +40,19 @@ import os
 import time
 from typing import Callable, Dict, List, Mapping, Optional
 
-from qtpy.QtCore import QItemSelectionModel, QObject, QRunnable, Qt, QThreadPool, Signal
+from qtpy.QtCore import QItemSelectionModel, QObject, QPoint, QRunnable, Qt, QThreadPool, Signal
 from qtpy.QtGui import QKeySequence, QShortcut
-from qtpy.QtWidgets import QAbstractItemView, QButtonGroup, QHeaderView, QMainWindow, QMessageBox, QProgressBar
+from qtpy.QtWidgets import QAbstractItemView, QButtonGroup, QDockWidget, QHeaderView, QInputDialog, QMainWindow, QMenu, \
+    QMessageBox, QProgressBar, QSizePolicy
 
 from model.preferences import WORKLIST_GEOMETRY
 from model.worklist_actions import WorkListActions
 from model.worklist_model import ALL_CHIPS, CHIP_ALL, CHIP_DONE, COL_DETAIL, COL_NEEDS, COL_SOURCE, COL_TITLE, \
     COL_WAITING, COL_YEAR, ID_ROLE, WorkListModel, WorkListProxy, warning_colour
-from model.worklist_profile import ORIGIN_FILE, WorkListSetup, load_setup
+from model.worklist_edit import discovery_changed
+from model.worklist_profile import WorkListSetup, load_setup
 from model.worklist_run import FailedTitle, ResultLine, RunJob, failed_titles
+from model.worklist_settings import SettingsDrawer
 from pipeline.library.index import LibraryIndex, ScanResult, SourceRow, TitleRow
 from pipeline.library.profile import Profile
 from pipeline.library.selection import CHIP_NEW, Selection, selection_from_chip
@@ -59,6 +63,8 @@ from pipeline.library.status import ScanSettings
 from ui.worklist import Ui_workListWindow
 
 logger = logging.getLogger('worklist')
+
+DRAWER_WIDTH = 520   # the settings drawer's width, in pixels
 
 # palette() roles, so the strip follows a light or a dark platform theme
 _CHIP_STYLE = '''
@@ -149,8 +155,13 @@ class WorkListWindow(WorkListActions, QMainWindow, Ui_workListWindow):
     :param run_stages_fn: what a run calls -- `run_stages` (tests hand in a fake with the same signature).
     :param precheck: called with the `through` of an extract/design run before it starts; False refuses it (the app checks
         that ffmpeg is installed).
+    :param choose_profile_path: `(default, overwrite_ok) -> path`, asks where the profile file goes (a file dialog by default).
+    :param run_dialog: how the drawer runs its source and ignore-rule dialogs (tests fill them in and accept them).
+    :param settings_debounce_ms: how long after an edit the drawer writes the profile file.
     '''
-    settings_requested = Signal()      # the empty state's button: the app opens Library Sync, where the setup lives for now
+    settings_requested = Signal()      # a Settings... button: the window opens the drawer (open_settings); also emitted, for the app
+    preferences_requested = Signal()   # the drawer's link to Preferences (the TMDB key): the app opens them
+    settings_saved = Signal(str)       # the drawer wrote the profile file (its path), and the window has read it
     scan_finished = Signal(object)     # a ScanResult, once the list shows it
     scan_failed = Signal(str)
     run_started = Signal(object)       # the RunRequest
@@ -159,8 +170,13 @@ class WorkListWindow(WorkListActions, QMainWindow, Ui_workListWindow):
 
     def __init__(self, parent, preferences, *, auto_scan: bool = True,
                  sources: Optional[Mapping[str, LibrarySource]] = None, clock=time.time,
-                 run_stages_fn: Callable = run_stages, precheck: Optional[Callable[[str], bool]] = None):
+                 run_stages_fn: Callable = run_stages, precheck: Optional[Callable[[str], bool]] = None,
+                 choose_profile_path: Optional[Callable[[str, bool], str]] = None, run_dialog=None,
+                 settings_debounce_ms: int = 400):
         super().__init__(parent)
+        self._drawer: Optional[SettingsDrawer] = None
+        self._dock: Optional[QDockWidget] = None
+        self._stale = False         # the settings changed what a scan says, and none has run since
         self.setupUi(self)
         self._preferences = preferences
         self._auto_scan = auto_scan
@@ -196,10 +212,14 @@ class WorkListWindow(WorkListActions, QMainWindow, Ui_workListWindow):
         self.statusBar.addPermanentWidget(self._progress)
 
         self._configure_actions()
+        self._configure_settings(choose_profile_path, run_dialog, settings_debounce_ms)
         self.searchEdit.textChanged.connect(self._on_search)
         self.sourceCombo.currentIndexChanged.connect(self._on_source)
         self.rescanButton.clicked.connect(lambda: self.rescan())
-        self.openSettingsButton.clicked.connect(self.settings_requested.emit)
+        for button in (self.openSettingsButton, self.setupBannerButton, self.settingsButton):
+            button.clicked.connect(self.settings_requested.emit)
+        self.settings_requested.connect(lambda: self.open_settings())
+        self.staleBannerButton.clicked.connect(lambda: self.rescan())
         QShortcut(QKeySequence('Ctrl+F'), self, activated=self.searchEdit.setFocus)
         geometry = preferences.get(WORKLIST_GEOMETRY)
         if geometry is not None:
@@ -251,6 +271,166 @@ class WorkListWindow(WorkListActions, QMainWindow, Ui_workListWindow):
             sample = f'{chip} 0,000' + (' (hidden)' if chip == CHIP_DONE else '')
             button.setMinimumWidth(button.fontMetrics().horizontalAdvance(sample) + 30)
             button.toggled.connect(lambda checked, name=chip: checked and self.set_chip(name))
+
+    # --- settings ---------------------------------------------------------------------------------------------------
+
+    def _configure_settings(self, choose_profile_path, run_dialog, debounce_ms: int) -> None:
+        '''
+        The drawer is a dock on the right, closed until asked for, so it never blocks the list. It edits the profile file;
+        `_on_settings_saved` reads the file again once it is written.
+        '''
+        self._drawer = SettingsDrawer(self, self._preferences, rows_provider=lambda: self._model.rows,
+                                      choose_path=choose_profile_path, run_dialog=run_dialog, debounce_ms=debounce_ms)
+        self._dock = QDockWidget('Settings', self)
+        self._dock.setObjectName('settingsDock')
+        self._dock.setWidget(self._drawer)
+        self._dock.setMinimumWidth(380)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self._dock)
+        self._dock.setVisible(False)
+        self._drawer.saved.connect(self._on_settings_saved)
+        self._drawer.profile_file_changed.connect(self._on_profile_file_changed)
+        self._drawer.preferences_requested.connect(self.preferences_requested)
+        self.setupBanner.setObjectName('setupBanner')
+        colour = warning_colour().name()
+        self.setupBanner.setStyleSheet(f'QFrame#setupBanner {{ border: 1px solid {colour}; border-radius: 4px; }}')
+        self.staleBanner.setObjectName('staleBanner')
+        self.staleBanner.setStyleSheet('QFrame#staleBanner { border: 1px solid palette(highlight); border-radius: 4px; }')
+        for button in (self.setupBannerButton, self.staleBannerButton):
+            button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        self.setupBanner.setVisible(False)
+        self.staleBanner.setVisible(False)
+        self.ignoreButton.setMenu(self._build_ignore_menu())
+        self.workTable.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.workTable.customContextMenuRequested.connect(self._on_table_menu)
+
+    @property
+    def drawer(self) -> SettingsDrawer:
+        ''' The settings editor (chunk 27 reads the current profile from `drawer.profile`, or `setup.profile`). '''
+        return self._drawer
+
+    @property
+    def settings_dock(self) -> QDockWidget:
+        return self._dock
+
+    @property
+    def settings_stale(self) -> bool:
+        ''' True if the settings changed what a scan says and none has run since (the banner offers a Rescan). '''
+        return self._stale
+
+    def open_settings(self, tab: Optional[str] = None) -> SettingsDrawer:
+        '''
+        Shows the settings drawer (beside the list: it does not block it). The list needs about 860 pixels to read (the
+        strip's chips and the buttons), so where the screen has room the window **grows by the drawer's width** and the
+        drawer docks on its right; where it does not (a 1000-pixel window on a small screen) the drawer floats, over the
+        window's right edge, and can be moved.
+        :param tab: `locations`, `sources` or `ignore`.
+        '''
+        if not self._dock.isVisible():
+            self._place_dock()
+        self._dock.show()
+        self._dock.raise_()
+        if tab:
+            self._drawer.select_tab(tab)
+        return self._drawer
+
+    def _available_width(self) -> int:
+        screen = self.screen()
+        return screen.availableGeometry().width() if screen is not None else 0
+
+    def _place_dock(self) -> None:
+        if self.width() + DRAWER_WIDTH <= self._available_width():
+            self._dock.setFloating(False)
+            self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self._dock)
+            self.resize(self.width() + DRAWER_WIDTH, self.height())
+            self.resizeDocks([self._dock], [DRAWER_WIDTH], Qt.Orientation.Horizontal)
+        else:
+            self._dock.setFloating(True)
+            self._dock.resize(DRAWER_WIDTH, min(max(self.height() - 40, 560), 720))
+            self._dock.move(self.mapToGlobal(QPoint(max(self.width() - DRAWER_WIDTH, 0), 30)))
+
+    def _flush_settings(self) -> None:
+        ''' Writes a setting edited a moment ago now, before something that reads it (a scan, a run, closing). '''
+        if self._drawer is not None:
+            self._drawer.flush()
+
+    def _on_settings_saved(self, path: str) -> None:
+        '''
+        The profile file was written: read it back (so what runs is what is on disk), and say when the index no longer
+        describes it. **The list is not rescanned by itself**: a JRiver listing can be slow and a person often makes several
+        changes in a row, so a banner offers *Rescan now* whenever a source, an ignore rule, an ignored title or a scan
+        setting changed (rules and ignores take effect on titles only at a scan; the index is a cache of the last one).
+        A new work directory has no index yet, so it is scanned once, as for any library never scanned.
+        '''
+        before = self._setup
+        self._apply_setup(load_drawer=False)
+        if discovery_changed(before, self._setup):
+            self._stale = True
+            self._refresh_banners()
+        self.statusBar.showMessage(f'Settings saved to {path}')
+        self.settings_saved.emit(path)
+
+    def _on_profile_file_changed(self, path: str) -> None:
+        self._stale = False
+        self.reload()
+        self._stale = self._generation > 0
+        self._refresh_banners()
+
+    def _refresh_settings_state(self) -> None:
+        ''' Called whenever the buttons refresh: the drawer waits for a run, and the ignore actions follow the selection. '''
+        if self._drawer is None:
+            return
+        self._drawer.set_busy(self._busy())
+        selected = self.selected_ids()
+        usable = self._setup.profile is not None and not self._busy()
+        self.ignoreButton.setEnabled(bool(selected) and usable)
+        for action in self.ignoreButton.menu().actions():
+            action.setEnabled(usable and (len(selected) == 1 if action is self._ignore_like_action else bool(selected)))
+
+    def _build_ignore_menu(self) -> QMenu:
+        menu = QMenu(self)
+        self._ignore_like_action = menu.addAction('Ignore titles like this...', lambda: self.ignore_like_selected())
+        self._ignore_title_action = menu.addAction('Ignore this title...', lambda: self.ignore_selected_titles())
+        self._ignore_like_action.setToolTip('Open the ignore-rule editor filled from this title (its folder, kind, year '
+                                            'and title)')
+        return menu
+
+    def _on_table_menu(self, position) -> None:
+        index = self.workTable.indexAt(position)
+        if not index.isValid():
+            return
+        if index.row() not in {i.row() for i in self.workTable.selectionModel().selectedRows()}:
+            self.workTable.selectRow(index.row())
+        self._refresh_settings_state()
+        self.ignoreButton.menu().exec(self.workTable.viewport().mapToGlobal(position))
+
+    def ignore_like_selected(self) -> bool:
+        '''
+        "Ignore titles like this...": the rule editor, filled from the one selected row (its folder, kind, year, title and
+        source), with "Ignore just this title" as the other choice. Either is written to the profile file.
+        :return: False if not exactly one title is selected, or the editor was cancelled.
+        '''
+        selected = self.selected_ids()
+        row = self._rows_by_id().get(selected[0]) if len(selected) == 1 else None
+        if row is None or self._drawer.profile is None:
+            return False
+        self.open_settings('ignore')
+        return self._drawer.ignore_like(row)
+
+    def ignore_selected_titles(self, reason: Optional[str] = None) -> bool:
+        '''
+        Ignores the selected titles one by one (the profile's `ignore_titles`: id -> reason).
+        :param reason: why; asked for when None.
+        '''
+        ids = self.selected_ids()
+        if not ids or self._drawer.profile is None:
+            return False
+        if reason is None:
+            reason, accepted = QInputDialog.getText(
+                self, 'Ignore titles', f'Why ignore {len(ids):,} title{"" if len(ids) == 1 else "s"}? (optional)')
+            if not accepted:
+                return False
+        self._drawer.ignore_titles(ids, reason.strip())
+        return True
 
     # --- state ------------------------------------------------------------------------------------------------------
 
@@ -321,7 +501,18 @@ class WorkListWindow(WorkListActions, QMainWindow, Ui_workListWindow):
         whenever the window is shown again, since the preferences may have changed.
         '''
         self._closed = False
+        self._apply_setup(load_drawer=True)
+
+    def _apply_setup(self, load_drawer: bool) -> None:
+        '''
+        :param load_drawer: show the setup in the drawer too. Not after the drawer itself wrote the file: it already shows
+            what it wrote, and reloading would replace a field the person has started typing in.
+        '''
         self._setup = load_setup(self._preferences)
+        if load_drawer:
+            self._drawer.load(self._setup)
+        else:
+            self._drawer.refresh_designers()
         self._open_index(self._setup.index_file)
         self.refresh_from_index()
         # no index file yet is "never scanned" too: the scan creates it
@@ -390,6 +581,7 @@ class WorkListWindow(WorkListActions, QMainWindow, Ui_workListWindow):
             self.select_ids(selected)
         self.workTable.verticalScrollBar().setValue(scroll)
         self._failed = failed_titles(rows, failures)
+        self._drawer.set_rows(rows)
         self._refresh_failures()
         self._refresh_actions()
 
@@ -452,7 +644,25 @@ class WorkListWindow(WorkListActions, QMainWindow, Ui_workListWindow):
         self._refresh_scan_text()
         self._refresh_source_status()
         self._refresh_empty_state(counts)
+        self._refresh_banners()
         self._refresh_actions()
+
+    def _refresh_banners(self) -> None:
+        '''
+        The banner at the top: what is missing from the setup (or why the profile file cannot be read), with a Settings...
+        button; and, once the settings changed what a scan says, one offering Rescan now.
+        '''
+        setup = self._setup
+        if setup.error:
+            text = f'<b>The profile file could not be read.</b> {html.escape(setup.error)}'
+        elif setup.problems:
+            text = '<b>The setup is incomplete.</b> ' + ' '.join(html.escape(p) for p in setup.problems)
+        else:
+            text = ''
+        self.setupBannerLabel.setText(text)
+        self.setupBanner.setVisible(bool(text))
+        self.staleBanner.setVisible(self._stale and not self._scanning)
+        self.staleBannerButton.setEnabled(setup.ready and not self._busy())
 
     def _refresh_scan_text(self) -> None:
         if self._scanning:
@@ -472,14 +682,12 @@ class WorkListWindow(WorkListActions, QMainWindow, Ui_workListWindow):
 
     def _refresh_source_status(self) -> None:
         lines = describe_sources(self._sources_seen, self._clock())
-        problems = list(self._setup.problems) if self._model.rowCount() else []  # else the empty state says it
-        if not (any(bad for _, bad in lines) or len(lines) > 1 or problems):
+        if not (any(bad for _, bad in lines) or len(lines) > 1):
             self.sourceStatusLabel.setVisible(False)
             return
         colour = warning_colour().name()
         parts = [f'<span style="color:{colour}">{html.escape(text)}</span>' if bad else html.escape(text)
                  for text, bad in lines]
-        parts += [f'<span style="color:{colour}">{html.escape(text)}</span>' for text in problems]
         self.sourceStatusLabel.setText('<br>'.join(parts))
         self.sourceStatusLabel.setVisible(True)
 
@@ -494,9 +702,9 @@ class WorkListWindow(WorkListActions, QMainWindow, Ui_workListWindow):
             detail = f'{setup.path}\n{setup.error}'
         elif setup.problems and not self._model.rowCount():
             title = 'The library is not set up yet'
-            detail = '\n'.join(setup.problems) + '\n\nThe work list uses the same settings as Library Sync ' \
-                                                  '(Tools > Library Sync (classic dialog)). Set them there, then reopen this window.'
-            settings = setup.origin != ORIGIN_FILE
+            detail = '\n'.join(setup.problems) + '\n\nOpen Settings to choose the folders, the library sources and the ' \
+                                                  'designer.'
+            settings = True
         elif self._index_error and not self._model.rowCount():
             title = 'The library index could not be read'
             detail = f'{self._index_file}\n{self._index_error}\n\nIt may be damaged: delete it, and Rescan builds it again.'
@@ -506,7 +714,7 @@ class WorkListWindow(WorkListActions, QMainWindow, Ui_workListWindow):
             title, detail = 'The library has not been scanned yet', 'Press Rescan to list the library sources.'
         elif not self._model.rowCount():
             title = 'The last scan found no titles'
-            detail = 'Check the library source in Library Sync, or the folders or JRiver browse node it points to.'
+            detail = 'Check the library sources in Settings: the folders they search, or the JRiver browse node.'
         elif self._proxy.text or self._proxy.source_filter:
             title, detail = 'Nothing matches', 'Clear the search box or choose All sources to see more.'
         elif self._proxy.chip == 'Attention':
@@ -526,6 +734,7 @@ class WorkListWindow(WorkListActions, QMainWindow, Ui_workListWindow):
         :param only: rescan just these sources (by profile name).
         :return: False if nothing was started (a scan is running, or the setup is incomplete).
         '''
+        self._flush_settings()   # a setting edited a moment ago is what this scan must use
         setup = self._setup
         if self._scanning or self.is_running or not setup.ready or setup.index_file is None:
             return False
@@ -546,6 +755,7 @@ class WorkListWindow(WorkListActions, QMainWindow, Ui_workListWindow):
     def _on_scan_finished(self, result: ScanResult) -> None:
         self._active_job = None
         self._scanning = False
+        self._stale = False   # the index describes the current settings again
         self._progress.setVisible(False)
         self.refresh_from_index()
         message = f'Scan finished: {result.titles:,} titles, {len(result.new):,} new'
@@ -579,6 +789,7 @@ class WorkListWindow(WorkListActions, QMainWindow, Ui_workListWindow):
                 event.ignore()
                 return
             self.cancel_run()
+        self._flush_settings()
         self._preferences.set(WORKLIST_GEOMETRY, self.saveGeometry())
         self._closed = True
         self._close_index()  # a scan or run in flight has its own connection

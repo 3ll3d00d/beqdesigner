@@ -170,8 +170,14 @@ rows, not derived again. Files: `worklist.py` (`WorkListWindow`: widgets, filter
 connection and a cooperative cancel; the words a run is described in), `worklist_confirm.py` (the confirmations that name
 the repositories), `worklist_model.py` (table model/proxy; `set_running()` is the running-row marker),
 `worklist_profile.py`. The buttons work on the selected rows, or on everything the filters list if none is selected;
-nothing is ever accepted here (reviewing is the title page, chunk 27). Until the settings editor (26c) the profile is built
-from the Library Sync preferences (`worklist_profile.load_setup`), or read from the file named by `LIBRARY_PROFILE_PATH`.
+nothing is ever accepted here (reviewing is the title page, chunk 27). The profile is the file named by `LIBRARY_PROFILE_PATH`
+(`worklist_profile.load_setup`), built from the Library Sync preferences only until the first setting is saved. **Settings**
+(chunk 26c) is a drawer (a dock on the right, *Settings...* or the incomplete-setup banner) that edits that file:
+`worklist_settings.py` (`SettingsDrawer`: locations, options, the debounced atomic write, first-save), `worklist_sources.py`
+(sources in priority order, drag to reorder; the dialog reuses `library_sources.SourcePage`), `worklist_ignore.py` (ignore rules
+with a live "would ignore N titles" count, per-title ignores), `worklist_edit.py` (the no-widget logic: config edits, folder
+and repository checks, the preview). Tests: `gui/test_worklist_settings.py`, `gui/test_worklist_ignore.py` (dialogs are driven
+through the `run_dialog` hook), `test_worklist_edit.py`.
 The plan is `design/library-sync-pipeline-plan.md` (chunk table, §8) and `design/library-sync/workflow-rework/`. Tests:
 `src/test/python/gui/test_worklist_*.py`, over a fixture index (`gui/worklist_fixture.py`) and a fake `run_stages`; `test_worklist_real_pipeline.py` drives
 Publish then Commit through the real `run_stages`, index and temp git repos.

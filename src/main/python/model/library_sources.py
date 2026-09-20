@@ -8,7 +8,7 @@ This is separate from pipeline.library.registry, which is the headless name -> s
 carries widgets.
 '''
 from dataclasses import dataclass
-from typing import Callable, Optional
+from typing import Any, Callable, Dict, Mapping, Optional
 
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import QComboBox, QFileDialog, QFormLayout, QHBoxLayout, QLabel, QPlainTextEdit, QPushButton, \
@@ -20,6 +20,7 @@ from model.preferences import LIBRARY_FILESYSTEM_GLOBS, LIBRARY_JRIVER_BROWSE_NO
     LIBRARY_JRIVER_CONNECTION
 from pipeline.library.filesystem import FilesystemLibrarySource
 from pipeline.library.jriver import JRiverLibrarySource, list_browse_children
+from pipeline.library.pathmap import mappings_from_config
 from pipeline.library.source import LibrarySource
 
 
@@ -38,6 +39,24 @@ class SourcePage(QWidget):
         '''
         :raises ValueError: with a message fit to show the user, if the settings can't make a source yet.
         '''
+        raise NotImplementedError
+
+    # A page also edits one source of a catalogue *profile* (the work list's settings drawer): the settings of a
+    # profile source (pipeline.library.profile.SourceSpec.settings), not the Library Sync preferences.
+
+    def load_settings(self, settings: Mapping[str, Any], prefs) -> None:
+        ''' Fill the widgets from a profile source's settings. '''
+        raise NotImplementedError
+
+    def settings(self) -> Dict[str, Any]:
+        '''
+        The settings of a profile source these widgets describe.
+        :raises ValueError: with a message fit to show the user, if they cannot make a source yet.
+        '''
+        raise NotImplementedError
+
+    def load_defaults(self, prefs) -> None:
+        ''' Fill the widgets for a new profile source: what Library Sync last used, where that is useful. '''
         raise NotImplementedError
 
 
@@ -98,10 +117,54 @@ class FilesystemSourcePage(SourcePage):
             raise ValueError('Add at least one folder or glob to search')
         return FilesystemLibrarySource(globs)
 
+    def load_settings(self, settings: Mapping[str, Any], prefs) -> None:
+        self._loaded = dict(settings)
+        self.globsEdit.setPlainText('\n'.join(str(g) for g in settings.get('globs') or []))
+
+    def load_defaults(self, prefs) -> None:
+        self._loaded = {}
+        self.globsEdit.setPlainText('')
+
+    def settings(self) -> Dict[str, Any]:
+        globs = self.globs()
+        if not globs:
+            raise ValueError('Add at least one folder or glob to search')
+        return {**getattr(self, '_loaded', {}), 'globs': globs}   # anything else the file holds for it is kept
+
     def __add_folder(self):
         folder = QFileDialog.getExistingDirectory(self, 'Choose a folder to search')
         if folder:
             self.globsEdit.setPlainText('\n'.join(self.globs() + [folder]))
+
+
+def jriver_source_settings(connection: SavedConnection, browse_node_id: int, browse_path: str = '') -> Dict[str, Any]:
+    '''
+    A saved server and a browse node, as the settings of a JRiver source in a catalogue profile (what
+    `pipeline.library.profile.build_source` reads): its login, ssl, path mappings and id-field overrides are copied in,
+    so the profile file is complete without Preferences. `browse_path` is only a label, for showing the node.
+    '''
+    settings: Dict[str, Any] = {'host': connection.host, 'port': connection.port, 'browse_node_id': int(browse_node_id),
+                                'ssl': connection.secure}
+    if browse_path:
+        settings['browse_path'] = browse_path
+    if connection.username:
+        settings.update(username=connection.username, password=connection.password)
+    if connection.path_mappings:
+        settings['path_mappings'] = [{'from': m.source, 'to': m.target} for m in connection.path_mappings]
+    if connection.field_mappings:
+        settings['external_id_fields'] = connection.field_mappings
+    return settings
+
+
+def connection_from_settings(settings: Mapping[str, Any]) -> SavedConnection:
+    ''' The server a profile's JRiver source names, as a connection (for a server that is not in Preferences). '''
+    try:
+        mappings = tuple(mappings_from_config(settings.get('path_mappings')))
+    except ValueError:
+        mappings = ()
+    return SavedConnection(f"{settings.get('host', '')}:{settings.get('port', '')}", settings.get('username') or None,
+                           settings.get('password') or None, bool(settings.get('ssl', False)),
+                           path_mappings=mappings, field_mappings=dict(settings.get('external_id_fields') or {}))
 
 
 class JRiverSourcePage(SourcePage):
@@ -119,6 +182,13 @@ class JRiverSourcePage(SourcePage):
         self.nodePathLabel.setWordWrap(True)
         self.helpLabel = QLabel('Servers, path mappings and metadata fields are managed in Preferences > JRiver.')
         self.helpLabel.setWordWrap(True)
+        self._loaded: Dict[str, Any] = {}   # the profile source being edited, so what this page does not show is kept
+        self.mappingsNote = QLabel('')
+        self.mappingsNote.setWordWrap(True)
+        self.mappingsNote.setVisible(False)
+        self.useSavedButton = QPushButton('Use the login and mappings from Preferences')
+        self.useSavedButton.setVisible(False)
+        self.useSavedButton.clicked.connect(self.__use_saved)
         form = QFormLayout(self)
         form.setContentsMargins(0, 0, 0, 0)
         form.addRow('Server', self.serverCombo)
@@ -128,8 +198,11 @@ class JRiverSourcePage(SourcePage):
         form.addRow('Browse node ID', node_row)
         form.addRow('', self.nodePathLabel)
         form.addRow(self.helpLabel)
+        form.addRow(self.mappingsNote)
+        form.addRow(self.useSavedButton)
         self.pickNodeButton.clicked.connect(self.__pick_node)
         self.serverCombo.currentIndexChanged.connect(self.__update_pick_enabled)
+        self.serverCombo.currentIndexChanged.connect(self.__update_mappings_note)
         # typing an id by hand makes any remembered path stale
         self.browseNodeSpin.valueChanged.connect(lambda _: self.nodePathLabel.setText(''))
         self.__update_pick_enabled()
@@ -172,6 +245,83 @@ class JRiverSourcePage(SourcePage):
         if picker.exec():
             self.browseNodeSpin.setValue(picker.selected_node_id)  # clears the label...
             self.nodePathLabel.setText(picker.selected_path)  # ...so set the path afterwards
+
+    def load_defaults(self, prefs) -> None:
+        self._loaded = {}
+        self.load(prefs)
+        self.nodePathLabel.setText('')
+        self.browseNodeSpin.setValue(-1)
+        self.__update_mappings_note()
+
+    def load_settings(self, settings: Mapping[str, Any], prefs) -> None:
+        '''
+        The server is the saved one at the same host:port; a server that is not saved (a hand-written profile) is
+        listed too, as it is written, so the source can still be looked at and its node changed.
+        '''
+        self._loaded = dict(settings)
+        self.serverCombo.blockSignals(True)
+        self.serverCombo.clear()
+        for connection in load_connections(prefs):
+            self.serverCombo.addItem(connection.label, connection)
+        named = connection_from_settings(settings)
+        index = next((i for i in range(self.serverCombo.count())
+                      if self.serverCombo.itemData(i).endpoint == named.endpoint), -1)
+        if index < 0 and settings.get('host'):
+            self.serverCombo.addItem(f'{named.endpoint} (not in Preferences)', named)
+            index = self.serverCombo.count() - 1
+        self.serverCombo.setCurrentIndex(max(index, 0))
+        self.serverCombo.blockSignals(False)
+        self.browseNodeSpin.setValue(int(settings.get('browse_node_id', -1) or -1))
+        self.nodePathLabel.setText(str(settings.get('browse_path') or ''))   # after the spin, which clears it
+        self.__update_pick_enabled()
+        self.__update_mappings_note()
+
+    def settings(self) -> Dict[str, Any]:
+        '''
+        The chosen server and node. Where the profile already had this server, everything it held for it (login, mappings,
+        timeout...) is kept as it was, and only the node changes; a different server gets what Preferences holds for it.
+        '''
+        connection = self.selected_connection()
+        if connection is None:
+            raise ValueError('Add a JRiver server in Preferences > JRiver first')
+        if connection.port is None:
+            raise ValueError(f'{connection.endpoint} is not a host:port address')
+        fresh = jriver_source_settings(connection, self.browseNodeSpin.value(), self.nodePathLabel.text())
+        if self._loaded and (self._loaded.get('host'), self._loaded.get('port')) == (connection.host, connection.port):
+            kept = {k: v for k, v in self._loaded.items() if k not in ('browse_node_id', 'browse_path')}
+            kept['browse_node_id'] = fresh['browse_node_id']
+            if 'browse_path' in fresh:
+                kept['browse_path'] = fresh['browse_path']
+            return kept
+        return fresh
+
+    def __differs_from_saved(self) -> bool:
+        ''' True if the profile's copy of this server's login and mappings is not what Preferences holds. '''
+        connection = self.selected_connection()
+        if not self._loaded or connection is None or self._loaded.get('host') != connection.host:
+            return False
+        saved = jriver_source_settings(connection, 0)
+        keys = ('username', 'password', 'ssl', 'path_mappings', 'external_id_fields')
+        return any(saved.get(k) != self._loaded.get(k) and (saved.get(k) or self._loaded.get(k)) for k in keys)
+
+    def __update_mappings_note(self, *_):
+        differs = self.__differs_from_saved()
+        self.mappingsNote.setVisible(differs)
+        self.useSavedButton.setVisible(differs)
+        if differs:
+            self.mappingsNote.setText('The profile keeps its own copy of this server\'s login, path mappings and '
+                                      'metadata fields, and it differs from Preferences > JRiver. It is kept as it is '
+                                      'unless you replace it.')
+
+    def __use_saved(self):
+        connection = self.selected_connection()
+        if connection is None:
+            return
+        fresh = jriver_source_settings(connection, self.browseNodeSpin.value(), self.nodePathLabel.text())
+        for key in ('username', 'password', 'ssl', 'path_mappings', 'external_id_fields'):
+            self._loaded.pop(key, None)
+        self._loaded.update({k: v for k, v in fresh.items() if k not in ('browse_node_id', 'browse_path')})
+        self.__update_mappings_note()
 
     def build_source(self) -> LibrarySource:
         connection = self.selected_connection()

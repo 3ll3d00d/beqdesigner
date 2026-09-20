@@ -175,6 +175,7 @@ class WorkListActions:
         self.retryButton.setToolTip('Run the titles in the failures panel again, even though nothing changed. The panel '
                                     'lists every failed title in the library, not only those in the current view.')
         self.rescanButton.setEnabled(self._setup.ready and not self._busy())
+        self._refresh_settings_state()
 
     @staticmethod
     def _uncommitted(plan: StagePlan) -> int:
@@ -279,6 +280,7 @@ class WorkListActions:
         :param confirm: whether an extract/design run over more than one title asks first; by default it does unless
             the person selected the titles.
         '''
+        self._flush_settings()   # a setting edited a moment ago is what this run must use
         if self._busy() or not self._setup.ready or self._index is None or self._setup.index_file is None:
             return False
         ask = (not (ids is not None or bool(self.selected_ids()))) if confirm is None else confirm

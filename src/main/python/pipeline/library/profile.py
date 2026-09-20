@@ -21,6 +21,8 @@ of at most one source.
 import datetime
 import json
 import os
+import shutil
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Tuple
@@ -52,13 +54,35 @@ def read_config_file(path: str) -> Dict[str, Any]:
     return loaded
 
 
-def write_config_file(path: str, config: Mapping[str, Any]) -> None:
+def render_config(path: str, config: Mapping[str, Any]) -> str:
+    ''' The file's text: YAML if the suffix says so, else JSON. '''
     if Path(path).suffix.lower() in {'.yaml', '.yml'}:
         import yaml
-        text = yaml.safe_dump(dict(config), sort_keys=False)
-    else:
-        text = json.dumps(config, indent=2)
-    Path(path).write_text(text, encoding='utf-8')
+        return yaml.safe_dump(dict(config), sort_keys=False)
+    return json.dumps(config, indent=2)
+
+
+def write_config_file(path: str, config: Mapping[str, Any]) -> None:
+    '''
+    Writes the file **atomically**: the text goes to a temporary file in the same folder and replaces the file in one step,
+    so a failure part way (a full disk, a crash) leaves the earlier file exactly as it was, never a half-written one.
+    :raises OSError: if it cannot be written (the earlier file is untouched).
+    '''
+    text = render_config(path, config)
+    directory = os.path.dirname(os.path.abspath(path))
+    handle, temporary = tempfile.mkstemp(dir=directory, prefix=f'.{os.path.basename(path)}.', suffix='.tmp')
+    try:
+        with os.fdopen(handle, 'w', encoding='utf-8') as out:
+            out.write(text)
+        if os.path.exists(path):
+            shutil.copymode(path, temporary)   # a replaced file keeps its permissions
+        os.replace(temporary, path)
+    except BaseException:
+        try:
+            os.unlink(temporary)
+        except OSError:
+            pass
+        raise
 
 
 @dataclass(frozen=True)
@@ -287,4 +311,13 @@ def load_profile(path: str) -> Profile:
 
 
 def save_profile(profile: Profile, path: str) -> None:
-    write_config_file(path, profile.to_config())
+    '''
+    Writes the profile's file (`Profile.to_config()`, so what the profile does not manage is kept) -- but only if what
+    would be written reads back as a valid profile, and atomically (`write_config_file`), so the file is never left
+    half-valid.
+    :raises ValueError: if the profile would not read back (nothing is written).
+    :raises OSError: if the file cannot be written (the earlier file is untouched).
+    '''
+    config = profile.to_config()
+    profile_from_config(config)   # the round trip: what is written must load
+    write_config_file(path, config)

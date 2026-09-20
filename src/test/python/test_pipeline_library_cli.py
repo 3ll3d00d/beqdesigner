@@ -241,7 +241,8 @@ def test_a_declared_designer_is_built_with_its_url_timeout_and_headers(tmp_path,
     from pipeline.library import cli
     from pipeline.designer.registry import get_designer
     made = []
-    monkeypatch.setattr(cli, 'http_designer', lambda url, timeout, headers: made.append((url, timeout, headers)) or (
+    from pipeline.designer import http_binding
+    monkeypatch.setattr(http_binding, 'http_designer', lambda url, timeout, headers: made.append((url, timeout, headers)) or (
         lambda request: None))
     monkeypatch.setattr(cli, 'run_library', lambda source, run_config, **_: LibraryRunReport())
     config = tmp_path / 'library.json'
@@ -257,7 +258,8 @@ def test_a_declared_designer_is_built_with_its_url_timeout_and_headers(tmp_path,
 def test_designer_url_flags_register_a_designer_and_win_over_the_file(tmp_path, monkeypatch):
     from pipeline.library import cli
     made = []
-    monkeypatch.setattr(cli, 'http_designer', lambda url, timeout, headers: made.append(url) or (lambda r: None))
+    from pipeline.designer import http_binding
+    monkeypatch.setattr(http_binding, 'http_designer', lambda url, timeout, headers: made.append(url) or (lambda r: None))
     monkeypatch.setattr(cli, 'run_library', lambda source, run_config, **_: LibraryRunReport())
     config = tmp_path / 'library.json'
     config.write_text(json.dumps({'designers': {'mine': 'http://from-file/d'}}))

@@ -953,7 +953,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         if self.__work_list is None:
             self.__work_list = WorkListWindow(self, self.preferences,
                                               precheck=lambda _through: self.__check_ffmpeg_available())
-            self.__work_list.settings_requested.connect(self.showLibrarySyncDialog)
+            self.__work_list.preferences_requested.connect(self.showPreferences)   # the drawer's TMDB key link
         else:
             self.__work_list.reload()
         self.__work_list.show()

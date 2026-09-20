@@ -12,8 +12,8 @@ from typing import Any
 
 
 from pipeline.config import AnalysisConfig
-from pipeline.designer.http_binding import http_designer
-from pipeline.designer.registry import register_designer, registered_designers
+from pipeline.designer.http_binding import register_declared_designers
+from pipeline.designer.registry import registered_designers
 from pipeline.library.bulk import DEFAULT_ACCEPT_THRESHOLD, accept_top_pick, plan_accept
 from pipeline.library.index import IndexFileError, LibraryIndex, index_path
 from pipeline.library.profile import Profile, SourceSpec, build_source, profile_from_config, read_config_file
@@ -92,13 +92,7 @@ def _register_designers(values: dict[str, Any], config: dict[str, Any]) -> None:
     designer = values.get('designer')
     if designer and designer.lower().startswith(('http://', 'https://')) and designer not in declared:
         declared[designer] = designer
-    for name, spec in declared.items():
-        if isinstance(spec, str):
-            spec = {'url': spec}
-        if not isinstance(spec, dict) or not spec.get('url'):
-            raise ValueError(f"designer {name!r} needs a url")
-        register_designer(name, http_designer(spec['url'], timeout=float(spec.get('timeout', 300.0)),
-                                              headers=spec.get('headers') or None))
+    register_declared_designers(declared)
 
 
 def _open_index(work_dir: str) -> LibraryIndex | None:

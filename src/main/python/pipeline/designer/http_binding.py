@@ -16,11 +16,12 @@ plan doc): the designer can be local, on another machine, written in any
 language, or shared across a team, without beqd spawning or managing it.
 '''
 import base64
-from typing import Optional
+from typing import Any, Mapping, Optional
 
 import numpy as np
 import requests
 
+from pipeline.designer.registry import register_designer
 from pipeline.designer.contract import BiquadSpec, CONTRACT_VERSION, DesignCandidate, DesignRequest, DesignResponse
 
 _ARRAY_DTYPE = 'float64'
@@ -111,3 +112,22 @@ def http_designer(url: str, timeout: float = 300.0, headers: Optional[dict] = No
         return _response_from_json(body)
 
     return _call
+
+
+def register_declared_designers(declared: Optional[Mapping[str, Any]]) -> list:
+    '''
+    Registers the HTTP designers a configuration file declares under `designers:` -- name -> URL, or name -> {url, timeout,
+    headers} -- so that a run can find them. The CLI does it for its config file, and the work list for its profile.
+    :return: the names registered.
+    :raises ValueError: if an entry has no URL (nothing after it is registered).
+    '''
+    names = []
+    for name, spec in (declared or {}).items():
+        if isinstance(spec, str):
+            spec = {'url': spec}
+        if not isinstance(spec, Mapping) or not spec.get('url'):
+            raise ValueError(f"designer {name!r} needs a url")
+        register_designer(name, http_designer(spec['url'], timeout=float(spec.get('timeout', 300.0)),
+                                              headers=spec.get('headers') or None))
+        names.append(name)
+    return names

@@ -18,6 +18,7 @@ from dataclasses import dataclass, replace
 from typing import Any, Dict, List, Optional, Tuple
 
 from model.jriver.connections import load_connections
+from model.library_sources import jriver_source_settings
 from model.preferences import DESIGNER_DEFAULT, DESIGNER_QUEUE_DIR, LIBRARY_FILESYSTEM_GLOBS, LIBRARY_IMAGES_REPO, \
     LIBRARY_JRIVER_BROWSE_NODE, LIBRARY_JRIVER_CONNECTION, LIBRARY_PROFILE_PATH, LIBRARY_SOURCE_DEFAULT, \
     LIBRARY_TV_MODE, LIBRARY_WORK_DIR, LIBRARY_XML_REPO
@@ -40,15 +41,8 @@ def _bootstrap_source(prefs) -> Optional[Dict[str, Any]]:
         connection = next((c for c in load_connections(prefs) if c.endpoint == wanted), None)
         if connection is None or connection.port is None:
             return None
-        source: Dict[str, Any] = {
-            'name': 'jriver', 'kind': 'jriver', 'host': connection.host, 'port': connection.port,
-            'browse_node_id': int(prefs.get(LIBRARY_JRIVER_BROWSE_NODE)), 'ssl': connection.secure}
-        if connection.username:
-            source.update(username=connection.username, password=connection.password)
-        if connection.path_mappings:
-            source['path_mappings'] = [{'from': m.source, 'to': m.target} for m in connection.path_mappings]
-        if connection.field_mappings:
-            source['external_id_fields'] = connection.field_mappings
+        source: Dict[str, Any] = {'name': 'jriver', 'kind': 'jriver',
+                                  **jriver_source_settings(connection, int(prefs.get(LIBRARY_JRIVER_BROWSE_NODE)))}
         return source
     return None
 
@@ -90,6 +84,11 @@ def setup_problems(profile: Profile, settings: ScanSettings) -> List[str]:
         problems.append('No review queue directory is chosen.')
     if not settings.designer:
         problems.append('No designer is available.')
+    else:
+        from pipeline.designer.registry import registered_designers
+        if settings.designer not in registered_designers():
+            problems.append(f'The designer {settings.designer!r} is not available: declare it under `designers:` in the '
+                            f'profile file, or add it in Preferences.')
     return problems
 
 
@@ -131,16 +130,33 @@ def load_setup(prefs) -> WorkListSetup:
     '''
     designer = default_designer(prefs)
     path = (prefs.get(LIBRARY_PROFILE_PATH) or '').strip()
+    extra: List[str] = []
     if path:
         try:
             profile = load_profile(path)
         except Exception as failure:  # missing file, bad JSON, a YAML library's own errors, a malformed source
             return WorkListSetup(None, None, ORIGIN_FILE, path, (), f'{type(failure).__name__}: {failure}')
         origin = ORIGIN_FILE
+        extra = register_profile_designers(profile)
     else:
         profile = bootstrap_profile(prefs, designer)
         origin = ORIGIN_PREFERENCES
     settings = ScanSettings.from_profile(profile)
     if not settings.designer and designer:
         settings = replace(settings, designer=designer)
-    return WorkListSetup(profile, settings, origin, path, tuple(setup_problems(profile, settings)))
+    return WorkListSetup(profile, settings, origin, path, tuple(extra + setup_problems(profile, settings)))
+
+
+def register_profile_designers(profile: Profile) -> List[str]:
+    '''
+    Registers the HTTP designers the profile's `designers:` section declares (name -> URL, or name -> {url, timeout,
+    headers}), the way the CLI does for its config file: a run finds its designer in the registry, and the GUI registers
+    only the endpoints saved in Preferences. Called whenever the profile is read.
+    :return: what is wrong with the section, each as a sentence fit to show (empty if it is fine).
+    '''
+    from pipeline.designer.http_binding import register_declared_designers
+    try:
+        register_declared_designers(profile.config.get('designers'))
+    except (ValueError, TypeError, AttributeError) as error:
+        return [f"The profile's `designers:` section is not usable: {error}"]
+    return []

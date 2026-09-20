@@ -178,3 +178,28 @@ def test_pipeline_designer_http_binding_has_no_qtpy_import():
             assert not any(n.name.startswith('qtpy') for n in node.names)
         elif isinstance(node, ast.ImportFrom):
             assert node.module is None or not node.module.startswith('qtpy')
+
+
+def test_declared_designers_are_registered_from_a_configs_designers_section(monkeypatch):
+    from pipeline.designer import http_binding
+    from pipeline.designer.registry import get_designer, unregister_designer
+    made = []
+    monkeypatch.setattr(http_binding, 'http_designer',
+                        lambda url, timeout, headers: made.append((url, timeout, headers)) or (lambda request: None))
+
+    names = http_binding.register_declared_designers({'plain.d': 'http://a/d', 'full.d': {
+        'url': 'http://b/d', 'timeout': 30, 'headers': {'X': 'y'}}})
+    try:
+        assert names == ['plain.d', 'full.d']
+        assert made == [('http://a/d', 300.0, None), ('http://b/d', 30.0, {'X': 'y'})]
+        assert get_designer('plain.d') is not None and get_designer('full.d') is not None
+    finally:
+        unregister_designer('plain.d')
+        unregister_designer('full.d')
+    assert http_binding.register_declared_designers(None) == []
+
+
+def test_a_declared_designer_without_a_url_is_refused():
+    from pipeline.designer import http_binding
+    with pytest.raises(ValueError, match="designer 'bad' needs a url"):
+        http_binding.register_declared_designers({'bad': {'timeout': 3}})

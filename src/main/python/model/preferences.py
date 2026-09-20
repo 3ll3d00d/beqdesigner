@@ -93,6 +93,7 @@ LIBRARY_FILESYSTEM_GLOBS = 'library/filesystem_globs'
 LIBRARY_JRIVER_CONNECTION = 'library/jriver_connection'
 LIBRARY_PROFILE_PATH = 'library/profile_path'
 WORKLIST_GEOMETRY = 'library/worklist_geometry'
+WORKLIST_ACCEPT_THRESHOLD = 'library/accept_threshold'   # bulk accept takes the top pick at or above this confidence (27c)
 WORKLIST_PUSH = 'library/worklist_push'   # the work list's Commit pushes each repository (the confirmation's checkbox)
 
 # distinguishes preference-configured designers from ad-hoc/in-process ones (e.g. registered by a test or a
@@ -265,6 +266,7 @@ DEFAULT_PREFS = {
     LIBRARY_JRIVER_CONNECTION: '',
     LIBRARY_PROFILE_PATH: '',
     WORKLIST_PUSH: True,
+    WORKLIST_ACCEPT_THRESHOLD: 0.90,   # pipeline.library.bulk.DEFAULT_ACCEPT_THRESHOLD (a test keeps them equal)
     ANALYSIS_RESOLUTION: ANALYSIS_RESOLUTION_DEFAULT,
     ANALYSIS_TARGET_FS: 1000,
     ANALYSIS_AVG_WINDOW: ANALYSIS_WINDOW_DEFAULT,
@@ -361,6 +363,7 @@ TYPES = {
     DESIGNER_HTTP_ENDPOINTS: list,
     LIBRARY_FILESYSTEM_GLOBS: list,
     WORKLIST_PUSH: bool,
+    WORKLIST_ACCEPT_THRESHOLD: float,
     ANALYSIS_RESOLUTION: float,
     ANALYSIS_TARGET_FS: int,
     APP_FONT_SIZE: float,

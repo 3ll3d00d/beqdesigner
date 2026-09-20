@@ -119,7 +119,7 @@ def build_run_config(setup, preferences) -> LibraryRunConfig:
 def publish_problem(setup) -> str:
     ''' Why publish and commit cannot run, or '' if they can. '''
     if setup.settings is None or not setup.settings.xml_repo:
-        return 'No XML repository is set. Set one in Library Sync, then reopen this window.'
+        return 'No XML repository is set. Set one in Settings (Locations).'
     return ''
 
 
