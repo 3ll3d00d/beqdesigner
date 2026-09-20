@@ -18,6 +18,7 @@ The old shape still loads: `sources` may be the mapping `{jriver: {...}}`, in wh
 source in use. Nothing in the file is required to be a profile -- a config with no list of sources loads as a profile
 of at most one source.
 '''
+import datetime
 import json
 import os
 from dataclasses import dataclass, field
@@ -36,13 +37,16 @@ _JRIVER_KEYS = ('host', 'port', 'browse_node_id', 'username', 'password', 'ssl',
 
 
 def read_config_file(path: str) -> Dict[str, Any]:
-    ''' JSON, or YAML if the suffix says so. :raises ValueError: if the root is not a mapping. '''
+    ''' JSON, or YAML if the suffix says so. :raises ValueError: if it is not valid or its root is not a mapping. '''
     content = Path(path).read_text(encoding='utf-8')
     if Path(path).suffix.lower() in {'.yaml', '.yml'}:
         import yaml
-        loaded = yaml.safe_load(content)
+        try:
+            loaded = yaml.safe_load(content)
+        except yaml.YAMLError as error:
+            raise ValueError(f'not valid YAML: {error}')
     else:
-        loaded = json.loads(content)
+        loaded = json.loads(content)  # a JSONDecodeError is a ValueError
     if not isinstance(loaded, dict):
         raise ValueError('configuration root must be an object')
     return loaded
@@ -114,6 +118,10 @@ class Profile:
     config: Dict[str, Any] = field(default_factory=dict, compare=False, hash=False)  # the whole file, as loaded
 
     def __post_init__(self):
+        # a profile built by hand (or read from a key left empty in YAML) may hold None for what it has none of
+        object.__setattr__(self, 'sources', tuple(self.sources or ()))
+        object.__setattr__(self, 'ignore', tuple(self.ignore or ()))
+        object.__setattr__(self, 'ignored_titles', dict(self.ignored_titles or {}))
         names = [spec.name for spec in self.sources]
         if len(set(names)) != len(names):
             raise ValueError(f'source names must be unique, got {names}')
@@ -124,24 +132,88 @@ class Profile:
     def to_config(self) -> Dict[str, Any]:
         '''
         The file's content: everything this profile does not manage (`designers`, the rest of `run:`/`sync:`) is kept as
-        loaded, and the parts it does manage are written from the profile's own fields.
+        loaded, and the parts it does manage are written from the profile's own fields. A directory or repository the
+        profile still has as it was loaded is left exactly as the file had it (`run.work_dir` and `sync.work_dir` may
+        differ: the profile holds only the one that wins); one that changed is written where the file already had it.
+
+        :raises ValueError: if the config holds a value that is not plain data (YAML reads an unquoted date as a date;
+            those are written back as ISO text), or if converting a file in the older mapping shape to a list of sources
+            would lose sources the profile does not use (see below).
         '''
-        config = json.loads(json.dumps(self.config))  # a deep copy, and proof it is plain data
-        config['sources'] = [spec.to_config() for spec in self.sources]
+        config = _plain(self.config)
+        config['sources'] = self._sources_to_config(config)
         _set_or_drop(config, 'ignore', [rule.to_config() for rule in self.ignore])
         _set_or_drop(config, 'ignore_titles', dict(self.ignored_titles))
-        for section, names in (('run', ('work_dir', 'queue_dir')),
-                               ('sync', ('work_dir', 'queue_dir', 'xml_repo', 'xml_dir', 'images_repo', 'image_dir'))):
-            for name in names:
-                value = getattr(self, name)
+        for name, sections in _MANAGED_PATHS:
+            value = getattr(self, name)
+            if value == _first_path(config, name, *sections):
+                continue   # unchanged: the file's own (possibly differing) values stay
+            present = [section for section in sections if (config.get(section) or {}).get(name)]
+            for section in (present or sections[:1]) if value else sections:
                 block = config.setdefault(section, {})
                 if value:
                     block[name] = value
                 else:
                     block.pop(name, None)
-            if not config[section]:
+        for section in ('run', 'sync'):
+            if section in config and not config[section]:
                 del config[section]
         return config
+
+    def _sources_to_config(self, config: Dict[str, Any]):
+        '''
+        The `sources:` value to write. A file in the older shape (`sources: {jriver: {...}}` plus `run.source`) stays in
+        it while the profile still fits it (at most one source, named by its kind), so the settings of the sources it
+        does not use are kept; otherwise it becomes a list, which cannot hold an unused source, so that is refused when it
+        would drop one rather than done silently.
+        '''
+        declared = config.get('sources')
+        if not isinstance(declared, Mapping):
+            return [spec.to_config() for spec in self.sources]
+        if len(self.sources) <= 1 and all(spec.name == spec.kind for spec in self.sources):
+            merged = {name: dict(settings or {}) for name, settings in declared.items()}
+            run = config.setdefault('run', {})
+            if self.sources:
+                (spec,) = self.sources
+                merged[spec.name] = dict(spec.settings)
+                run['source'] = spec.name
+            else:
+                run.pop('source', None)
+            return merged
+        used = {spec.name for spec in self.sources} | {(config.get('run') or {}).get('source')}
+        lost = sorted(name for name, settings in declared.items() if settings and name not in used)
+        if lost:
+            raise ValueError(f"this profile's sources cannot be written in the older `sources:` mapping shape, and a list "
+                             f"cannot hold the unused source(s) {', '.join(lost)}; remove them from the file, or "
+                             f"convert the file to a list of sources by hand")
+        return [spec.to_config() for spec in self.sources]
+
+
+# where each managed path lives in the file, the winner first: (name, the sections it is read from)
+_MANAGED_PATHS = (('work_dir', ('run', 'sync')), ('queue_dir', ('run', 'sync')), ('xml_repo', ('sync',)),
+                  ('xml_dir', ('sync',)), ('images_repo', ('sync',)), ('image_dir', ('sync',)))
+
+
+def _first_path(config: Mapping[str, Any], name: str, *sections: str) -> str:
+    ''' What the file says `name` is: the first of the sections that has it. '''
+    for section in sections:
+        block = config.get(section) or {}
+        if block.get(name):
+            return str(block[name])
+    return ''
+
+
+def _plain(value: Any) -> Any:
+    ''' A deep copy that is proof the value is plain data. YAML reads an unquoted date as one: it becomes ISO text. '''
+    def default(obj):
+        if isinstance(obj, (datetime.date, datetime.datetime)):
+            return obj.isoformat()
+        raise ValueError(f'the configuration holds {obj!r} ({type(obj).__name__}), which cannot be saved; quote it or '
+                         f'use plain text, numbers, lists and mappings')
+    try:
+        return json.loads(json.dumps(value, default=default))
+    except TypeError as error:   # a key that is not text, say a date used as a key
+        raise ValueError(f'the configuration cannot be saved: {error}')
 
 
 def _set_or_drop(config: Dict[str, Any], key: str, value) -> None:
@@ -203,18 +275,11 @@ def profile_from_config(config: Mapping[str, Any]) -> Profile:
     '''
     :raises ValueError: for a malformed source, ignore rule or duplicate source name.
     '''
-    run, sync = config.get('run') or {}, config.get('sync') or {}
-
-    def path(name: str, *sections: Mapping[str, Any]) -> str:
-        return next((str(s[name]) for s in sections if s.get(name)), '')
-
     return Profile(
         sources=tuple(_sources_from_config(config)), ignore=tuple(rules_from_config(config.get('ignore'))),
         ignored_titles=_ignored_titles_from_config(config.get('ignore_titles')),
-        work_dir=path('work_dir', run, sync), queue_dir=path('queue_dir', run, sync),
-        xml_repo=path('xml_repo', sync), xml_dir=path('xml_dir', sync),
-        images_repo=path('images_repo', sync), image_dir=path('image_dir', sync),
-        config=json.loads(json.dumps(dict(config))))
+        **{name: _first_path(config, name, *sections) for name, sections in _MANAGED_PATHS},
+        config=_plain(dict(config)))
 
 
 def load_profile(path: str) -> Profile:

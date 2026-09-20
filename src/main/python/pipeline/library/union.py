@@ -36,6 +36,7 @@ from pipeline.library.source import LibraryItem, LibrarySource
 from pipeline.review import read_entry
 
 _DISC_FOLDERS = ('bdmv', 'video_ts')
+_PLAYLIST_PSEUDO_FILE = re.compile(r'^index\.bluray(?:3d)?;\d+$')  # casefolded
 
 
 # --- claims ------------------------------------------------------------------------------------------------------
@@ -107,11 +108,16 @@ def reconstruct_claims(work_dir: Optional[str], queue_dir: Optional[str]) -> Cla
 def clash_key(path: str) -> str:
     r'''
     What "the same media file" means: the path lower-cased, with one separator style and no trailing or doubled
-    separators, and cut back to the disc folder if it runs into a `BDMV` or `VIDEO_TS` folder.
+    separators, and cut back to the disc folder if it runs into a `BDMV` or `VIDEO_TS` folder -- except a Blu-ray
+    *playlist entry* (`BDMV/PLAYLIST/index.bluray;N`, which JRiver reports for a title on the disc it cannot identify
+    further): that is not the disc's main title, so two playlists of one disc are two titles, and neither is the disc
+    itself. (A playlist *file*, `BDMV/PLAYLIST/00000.mpls`, is still part of the disc.)
     '''
     parts = re.sub(r'/+', '/', path.replace('\\', '/')).rstrip('/').casefold().split('/')
     for i, part in enumerate(parts):
         if i and part in _DISC_FOLDERS:
+            if part == 'bdmv' and parts[i + 1:i + 2] == ['playlist'] and _PLAYLIST_PSEUDO_FILE.match(parts[-1]):
+                break  # JRiver's `BDMV\PLAYLIST\index.bluray;N` names one playlist of the disc: its own title, not the disc
             parts = parts[:i]
             break
     return '/'.join(parts)
@@ -147,6 +153,7 @@ class Shadowed:
     item: LibraryItem
     source: str
     owner: str                            # the id of the title that owns this file
+    claimed: bool = False                 # the shadowed item has outputs of its own (a queue entry or work directory)
 
 
 @dataclass(frozen=True)
@@ -168,22 +175,41 @@ def union_of(listings: Sequence[Tuple[str, Sequence[LibraryItem]]], *, ignore: I
     rules = list(ignore)
     ignored_titles = ignored_titles or {}
     order = [(source, item) for source, items in listings for item in items]
-    by_file: Dict[str, List[Tuple[str, LibraryItem]]] = {}
-    for source, item in order:
-        by_file.setdefault(clash_key(item.source_path), []).append((source, item))
-
-    owners: Dict[str, Tuple[str, LibraryItem]] = {}
     shadowed: List[Shadowed] = []
     also_in: Dict[str, List[str]] = {}
+    claimed_losers: Dict[str, List[str]] = {}
+
+    # One id is one title: an id names a work directory, a queue entry and a catalogue file, so two items with the
+    # same id (two spellings of a path, from `realpath`, say) cannot both be titles. The first in priority order wins
+    # whatever the file, and the later one is shadowed by it, so the clash is reported rather than left to the last
+    # group to be processed.
+    seen: Dict[str, Tuple[str, LibraryItem]] = {}
+    unique: List[Tuple[str, LibraryItem]] = []
+    for source, item in order:
+        if item.id in seen:
+            shadowed.append(Shadowed(item, source, item.id))
+            also_in.setdefault(item.id, []).append(source)
+        else:
+            seen[item.id] = (source, item)
+            unique.append((source, item))
+
+    by_file: Dict[str, List[Tuple[str, LibraryItem]]] = {}
+    for source, item in unique:
+        # an item with no path says nothing about a file, so it can never be "the same file" as another
+        by_file.setdefault(clash_key(item.source_path) or f'\0{item.id}', []).append((source, item))
+
+    owners: Dict[str, Tuple[str, LibraryItem]] = {}
     for group in by_file.values():
         owner = next((entry for entry in group if entry[1].id in claims.ids), group[0])
         owners[owner[1].id] = owner
         for source, item in group:
             if item is not owner[1]:
-                shadowed.append(Shadowed(item, source, owner[1].id))
+                shadowed.append(Shadowed(item, source, owner[1].id, item.id in claims.ids))
                 also_in.setdefault(owner[1].id, []).append(source)
+                if item.id in claims.ids:  # a loser with outputs of its own: the owner says so, it is not hidden silently
+                    claimed_losers.setdefault(owner[1].id, []).append(item.id)
 
-    kept = [(source, item) for source, item in order if owners.get(item.id) == (source, item)]
+    kept = [(source, item) for source, item in order if (owners.get(item.id) or (None, None))[1] is item]
     titles: List[UnionTitle] = []
     for source, item in kept:
         ignored = ''
@@ -191,7 +217,8 @@ def union_of(listings: Sequence[Tuple[str, Sequence[LibraryItem]]], *, ignore: I
             ignored = 'ignored by you' + (f': {ignored_titles[item.id]}' if ignored_titles[item.id] else '')
         elif (rule := evaluate(rules, item, source)) is not None:
             ignored = explain(rule)
-        titles.append(UnionTitle(item, source, tuple(also_in.get(item.id, ())), ignored))
+        titles.append(UnionTitle(item, source, tuple(also_in.get(item.id, ())), ignored,
+                                 tuple(claimed_losers.get(item.id, ()))))
 
     groups: Dict[Tuple, List[str]] = {}
     for title in titles:
@@ -199,9 +226,11 @@ def union_of(listings: Sequence[Tuple[str, Sequence[LibraryItem]]], *, ignore: I
         if key is not None:
             groups.setdefault(key, []).append(title.id)
     duplicate_groups = [tuple(ids) for ids in groups.values() if len(ids) > 1]
+    duplicate_groups += [(owner, *losers) for owner, losers in claimed_losers.items()]
     flagged = {title_id: tuple(other for other in group if other != title_id)
                for group in duplicate_groups for title_id in group}
-    titles = [UnionTitle(t.item, t.source, t.also_in, t.ignored, flagged.get(t.id, ())) for t in titles]
+    titles = [UnionTitle(t.item, t.source, t.also_in, t.ignored,
+                         tuple(dict.fromkeys(t.duplicates + flagged.get(t.id, ())))) for t in titles]
     return UnionResult(titles, shadowed, duplicate_groups)
 
 

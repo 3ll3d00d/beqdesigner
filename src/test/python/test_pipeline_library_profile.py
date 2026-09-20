@@ -168,3 +168,72 @@ def test_build_source_builds_each_kind_and_says_what_is_missing(monkeypatch):
         build_source('jriver', {'port': 1, 'browse_node_id': 1})
     with pytest.raises(ValueError, match='unsupported source'):
         build_source('plex', {})
+
+
+# --- review fixes -------------------------------------------------------------------------------------------------------
+
+def test_saving_a_profile_keeps_a_sync_work_dir_that_differs_from_the_run_one():
+    config = {'sources': [], 'run': {'work_dir': '/w1'}, 'sync': {'work_dir': '/w2', 'queue_dir': '/q'}}
+
+    written = profile_from_config(config).to_config()
+
+    assert written['run']['work_dir'] == '/w1' and written['sync']['work_dir'] == '/w2'
+
+
+def test_a_changed_work_dir_is_written_where_the_file_had_it():
+    profile = profile_from_config({'sync': {'work_dir': '/w', 'xml_repo': '/x'}})
+
+    written = Profile(work_dir='/new', xml_repo='/x', config=profile.config).to_config()
+
+    assert written['sync']['work_dir'] == '/new' and 'run' not in written
+
+
+def test_a_file_in_the_older_mapping_shape_keeps_the_settings_of_the_sources_it_does_not_use():
+    old = {'run': {'source': 'jriver'},
+           'sources': {'jriver': {'host': 'h', 'port': 1, 'browse_node_id': 2}, 'filesystem': {'globs': ['/films']}}}
+    profile = profile_from_config(old)
+
+    written = profile.to_config()
+
+    assert written['sources']['filesystem'] == {'globs': ['/films']}          # not lost
+    assert written['sources']['jriver'] == {'host': 'h', 'port': 1, 'browse_node_id': 2}
+    assert profile_from_config(written) == profile
+
+
+def test_converting_an_older_file_to_a_list_that_would_drop_a_source_is_refused_not_done_silently():
+    old = {'run': {'source': 'jriver'},
+           'sources': {'jriver': {'host': 'h', 'port': 1, 'browse_node_id': 2}, 'filesystem': {'globs': ['/films']}}}
+    profile = profile_from_config(old)
+    two = Profile(sources=(profile.sources[0], SourceSpec('disk', 'filesystem', {'globs': ['/x']})), config=profile.config)
+
+    with pytest.raises(ValueError, match='cannot hold the unused source.*filesystem'):
+        two.to_config()
+
+
+def test_a_yaml_date_in_the_config_is_written_back_as_text_not_a_traceback(tmp_path):
+    path = tmp_path / 'p.yaml'
+    path.write_text('sync:\n  meta_defaults: {released: 2024-01-05}\nsources: []\n')
+
+    profile = load_profile(str(path))
+
+    assert profile.to_config()['sync']['meta_defaults'] == {'released': '2024-01-05'}
+
+
+def test_a_value_that_is_not_plain_data_is_a_clear_value_error():
+    with pytest.raises(ValueError, match='cannot be saved'):
+        profile_module._plain({'a': {1, 2}})
+
+
+def test_none_for_the_lists_a_profile_holds_is_no_entries():
+    profile = Profile(sources=None, ignore=None, ignored_titles=None)
+
+    assert (profile.sources, profile.ignore, profile.ignored_titles) == ((), (), {})
+    assert profile.to_config() == {'sources': []}
+    assert profile_from_config({'ignore_titles': None, 'ignore': None}).ignored_titles == {}
+
+
+def test_a_malformed_yaml_file_is_a_value_error(tmp_path):
+    path = tmp_path / 'bad.yaml'
+    path.write_text('sources: [unclosed\n')
+    with pytest.raises(ValueError, match='not valid YAML'):
+        load_profile(str(path))

@@ -348,3 +348,48 @@ def test_the_union_source_gives_run_library_the_titles_that_are_not_ignored(tmp_
     assert [i.id for i in items] == ['j1']
     with pytest.raises(TypeError, match='accepts no query'):
         UnionLibrarySource(profile, {}).list_items(content_type='movie')
+
+
+# --- review fixes: id collisions, claimed losers, empty paths, playlists --------------------------------------------------
+
+def test_two_items_with_one_id_and_different_paths_are_one_title_and_the_clash_is_reported():
+    # filesystem ids come from realpath, so two spellings of a path can collide: first source wins, the other is shadowed
+    first, second = _item('fs-1', '/media/heat.mkv'), _item('fs-1', '/mnt/nas/heat.mkv')
+
+    result = union_of([('one', [first]), ('two', [second])])
+
+    assert _ids(result) == ['fs-1'] and result.titles[0].source == 'one'
+    assert result.titles[0].also_in == ('two',)
+    assert [(s.item, s.source, s.owner) for s in result.shadowed] == [(second, 'two', 'fs-1')]
+
+
+def test_two_claimed_copies_of_a_file_keep_the_loser_visible_on_the_owner_and_in_the_shadow():
+    a, b = _item('a', '/m/heat.mkv'), _item('b', '/m/heat.mkv')
+
+    result = union_of([('one', [a]), ('two', [b])], claims=Claims(ids=frozenset({'a', 'b'})))
+
+    assert _ids(result) == ['a']
+    assert result.titles[0].duplicates == ('b',)          # flagged "possible duplicate", not silently hidden
+    assert [(s.item.id, s.claimed) for s in result.shadowed] == [('b', True)]
+    assert ('a', 'b') in result.duplicates
+
+
+def test_an_unclaimed_loser_is_not_reported_as_claimed():
+    result = union_of([('one', [_item('a', '/m/heat.mkv')]), ('two', [_item('b', '/m/heat.mkv')])])
+    assert result.titles[0].duplicates == () and [s.claimed for s in result.shadowed] == [False]
+
+
+def test_items_with_no_path_never_clash_on_the_path():
+    result = union_of([('one', [_item('a', ''), _item('b', '')]), ('two', [_item('c', '/')])])
+    assert _ids(result) == ['a', 'b', 'c'] and result.shadowed == []
+
+
+def test_jriver_bluray_playlist_entries_are_their_own_titles_and_not_the_disc():
+    disc = _item('disc', 'W:/Discs/Film')
+    one = _item('pl1', 'W:\\Discs\\Film\\BDMV\\PLAYLIST\\index.bluray;1')
+    two = _item('pl2', 'W:\\Discs\\Film\\BDMV\\PLAYLIST\\index.bluray;2')
+
+    result = union_of([('films', [disc, one, two])])
+
+    assert _ids(result) == ['disc', 'pl1', 'pl2'] and result.shadowed == []
+    assert clash_key('W:/Discs/Film/BDMV/STREAM/00001.m2ts') == clash_key('W:/Discs/Film')   # a clip still folds

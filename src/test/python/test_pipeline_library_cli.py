@@ -842,3 +842,91 @@ def test_a_failed_title_is_reported_once_then_skipped_until_retry_failed(workflo
 
     code, third = _cli(capsys, 'run', *profile, '--through', 'design', '--retry-failed')
     assert code == 1 and len(third['run']['failed']) == 3
+
+
+# --- review fixes (chunk 23/24 review) -------------------------------------------------------------------------------------
+
+@pytest.mark.parametrize('argv', [['run', '--profile', '{missing}'], ['--config', '{missing}', 'run'],
+                                  ['scan', '--profile', '{missing}'], ['status', '--profile', '{missing}']])
+def test_a_missing_config_or_profile_file_is_exit_2_with_a_message_not_a_traceback(tmp_path, capsys, argv):
+    missing = str(tmp_path / 'nope.yaml')
+    with pytest.raises(SystemExit) as exit_info:
+        cli.main([a.format(missing=missing) for a in argv])
+    assert exit_info.value.code == 2
+    assert 'cannot read' in capsys.readouterr().err
+
+
+def test_a_malformed_config_file_is_exit_2(tmp_path, capsys):
+    bad = tmp_path / 'bad.json'
+    bad.write_text('{not json')
+    with pytest.raises(SystemExit) as exit_info:
+        cli.main(['--config', str(bad), 'status'])
+    assert exit_info.value.code == 2
+    assert 'cannot read' in capsys.readouterr().err
+
+
+class _Listing:
+    def __init__(self, *items):
+        self.items = items
+
+    def list_items(self, **query):
+        return list(self.items)
+
+
+def _two_sources_one_file(tmp_path, monkeypatch, **run):
+    ''' Two sources with the same file under different ids, the second (lower priority) already having a work dir. '''
+    import yaml
+    from pipeline.library.source import LibraryItem
+    sources = {'one': _Listing(LibraryItem(id='a', source_path='/m/heat.mkv', display_name='Heat')),
+               'two': _Listing(LibraryItem(id='b', source_path='/m/heat.mkv', display_name='Heat'))}
+    monkeypatch.setattr('pipeline.library.union.build_source', lambda kind, settings: sources[settings['which']])
+    (tmp_path / 'work' / 'b').mkdir(parents=True)  # the lower priority id has the extraction: it owns the file
+    path = tmp_path / 'p.yaml'
+    path.write_text(yaml.safe_dump({
+        'sources': [{'name': 'one', 'kind': 'filesystem', 'which': 'one'},
+                    {'name': 'two', 'kind': 'filesystem', 'which': 'two'}], 'run': {'designer': 'x', **run}}))
+    return str(path)
+
+
+def test_run_with_a_profile_reads_sticky_claims_from_the_directories_given_by_flags(tmp_path, monkeypatch):
+    profile = _two_sources_one_file(tmp_path, monkeypatch)   # the file has no directories at all: flags only
+    seen = {}
+    monkeypatch.setattr(cli, 'run_library', lambda source, run_config, **_: seen.update(source=source)
+                        or LibraryRunReport())
+
+    assert cli.main(['run', '--profile', profile, '--work-dir', str(tmp_path / 'work'),
+                     '--queue-dir', str(tmp_path / 'queue')]) == 0
+
+    assert [item.id for item in seen['source'].list_items()] == ['b']   # b owns it: the flag's directory was read
+
+
+def test_a_selector_run_hands_the_flags_directories_to_the_profile_too(tmp_path, monkeypatch):
+    from pipeline.library.stages import StagesReport
+    profile = _two_sources_one_file(tmp_path, monkeypatch)
+    seen = {}
+    monkeypatch.setattr(cli, 'run_stages', lambda p, selection, through, **kw: seen.update(profile=p)
+                        or StagesReport(through, 0))
+    monkeypatch.setattr(cli.LibraryIndex, 'scan', lambda self, *a, **k: None)
+
+    cli.main(['run', '--profile', profile, '--work-dir', str(tmp_path / 'work'), '--queue-dir', str(tmp_path / 'queue'),
+              '--needs', 'design'])
+
+    assert (seen['profile'].work_dir, seen['profile'].queue_dir) == (str(tmp_path / 'work'), str(tmp_path / 'queue'))
+
+
+def test_run_says_on_stderr_how_many_titles_were_skipped_because_they_failed_earlier(tmp_path, monkeypatch, capsys):
+    config = _discovery_config(tmp_path)
+    monkeypatch.setattr(cli, 'run_library', lambda source, run_config, **kw: LibraryRunReport(
+        failed_earlier=[('a', 'boom'), ('b', 'boom')]))
+
+    assert cli.main(['run', '--profile', str(config), '--designer', 'test.designer']) == 0
+
+    err = capsys.readouterr().err
+    assert '2 titles skipped: failed earlier' in err and '--retry-failed' in err
+
+
+def test_run_is_silent_about_failures_when_nothing_was_skipped(tmp_path, monkeypatch, capsys):
+    config = _discovery_config(tmp_path)
+    monkeypatch.setattr(cli, 'run_library', lambda source, run_config, **kw: LibraryRunReport())
+    cli.main(['run', '--profile', str(config), '--designer', 'test.designer'])
+    assert 'failed earlier' not in capsys.readouterr().err

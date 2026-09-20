@@ -119,15 +119,34 @@ def _selection(args: argparse.Namespace, source: str | None) -> Selection:
                      new_since_scan=bool(args.new_since_scan))
 
 
+_PROFILE_PATHS = ('work_dir', 'queue_dir', 'xml_repo', 'xml_dir', 'images_repo', 'image_dir')
+
+
+def _effective_profile(profile: Profile, values: dict[str, Any]) -> Profile:
+    '''
+    The profile with the directories and repositories the run is actually using -- the flags, else `run:`/`sync:` --
+    so that what reads them off the profile (the union's sticky claims come from `profile.work_dir` and `queue_dir`)
+    sees what the rest of the command sees, and does not lose a claim because a cron job gave its directories by flag.
+    '''
+    changes = {name: str(values[name]) for name in _PROFILE_PATHS if values.get(name)}
+    return replace(profile, **changes) if changes else profile
+
+
+def _warn_failed_earlier(failed_earlier: list) -> None:
+    if failed_earlier:
+        _say(f'warning: {len(failed_earlier)} title{"" if len(failed_earlier) == 1 else "s"} skipped: failed earlier '
+             f'(same source and settings); use --retry-failed to try again')
+
+
 def _run_profile(args: argparse.Namespace, config: dict[str, Any], values: dict[str, Any]) -> Profile:
     '''
     The profile a selector `run` works on: the one given (`--profile`, or a config file whose `sources:` is a list), or
     else the one source the older flags and config describe, named by its kind.
     '''
+    profile = _effective_profile(profile_from_config(config), values)
     if args.profile or isinstance(config.get('sources'), list):
-        return profile_from_config(config)
+        return profile
     kind, settings = _source_settings(values, config)
-    profile = profile_from_config(config)
     return replace(profile, sources=(SourceSpec(kind, kind, settings),))
 
 
@@ -155,6 +174,7 @@ def _run_stages(args: argparse.Namespace, config: dict[str, Any], values: dict[s
         report = run_stages(profile, selection, through, run_config=run_config, index=index, publish=publish,
                             settings=settings, retry_failed=bool(args.retry_failed))
     print(json.dumps(asdict(report), sort_keys=True))
+    _warn_failed_earlier(report.run.failed_earlier)
     if report.commit_error:
         _say(f'error: {report.commit_error}')
         return GIT_FAILED
@@ -170,6 +190,7 @@ def _run(args: argparse.Namespace, config: dict[str, Any]) -> int:
         for name in ('work_dir', 'queue_dir'):  # the profile may keep them under `sync:` instead of `run:`
             if not values.get(name) and getattr(profile, name):
                 values[name] = getattr(profile, name)
+        profile = _effective_profile(profile, values)  # the flags' directories, not only the file's
     _register_designers(values, config)
     designer = _required(values, 'designer')
     if designer not in registered_designers():
@@ -196,6 +217,7 @@ def _run(args: argparse.Namespace, config: dict[str, Any]) -> int:
         if index is not None:
             index.close()
     print(json.dumps(asdict(report), sort_keys=True))
+    _warn_failed_earlier(report.failed_earlier)
     return 1 if report.failed else 0
 
 
@@ -333,6 +355,7 @@ def _scan(args: argparse.Namespace, config: dict[str, Any]) -> int:
                                          'queue_dir': values.get('queue_dir') or profile.queue_dir})
     if not settings.work_dir:
         raise ValueError('work-dir is required')
+    profile = _effective_profile(profile, values)
     with LibraryIndex(index_path(settings.work_dir)) as index:
         if args.from_outputs:
             print(json.dumps({'rebuilt': index.rebuild_from_outputs(settings)}, sort_keys=True))
@@ -355,6 +378,7 @@ def _accept(args: argparse.Namespace, config: dict[str, Any]) -> int:
                                          'queue_dir': values.get('queue_dir') or profile.queue_dir})
     if not settings.work_dir or not settings.queue_dir:
         raise ValueError('work-dir and queue-dir are required')
+    profile = _effective_profile(profile, values)
     path = index_path(settings.work_dir)
     if not os.path.isfile(path):
         raise ValueError(f'no index at {path}: run `scan` first')
@@ -754,12 +778,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    if getattr(args, 'profile', None):
-        if args.config:
-            build_parser().error('--profile replaces --config; give one')
-        config = read_config_file(args.profile)
-    else:
-        config = _load_config(args.config)
+    if getattr(args, 'profile', None) and args.config:
+        build_parser().error('--profile replaces --config; give one')
+    try:
+        config = read_config_file(args.profile) if getattr(args, 'profile', None) else _load_config(args.config)
+    except (OSError, ValueError) as error:   # a missing or malformed file is a bad option: exit 2, not a traceback
+        build_parser().error(f'cannot read {args.profile or args.config}: {error}')
     try:
         return _COMMANDS[args.command](args, config)
     except ValueError as error:
