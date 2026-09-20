@@ -25,6 +25,7 @@ Sequencing note: the image push has to happen *before* to_beq_xml() runs
 the caller's job (pipeline.orchestrate, phase 5), not this module's.
 '''
 import os
+import posixpath
 import re
 import subprocess
 from dataclasses import dataclass
@@ -43,8 +44,48 @@ class RepoTarget:
     remote: str = 'origin'
 
 
+class GitError(subprocess.CalledProcessError):
+    '''
+    A git command that failed. A subclass of CalledProcessError, so existing `except CalledProcessError` code still
+    catches it, but its message carries what git said (its stderr), which CalledProcessError's own never does.
+    '''
+
+    def __str__(self) -> str:
+        said = ' '.join((self.stderr or self.stdout or '').split())   # one line, however many git wrote
+        cmd = list(self.cmd) if isinstance(self.cmd, (list, tuple)) else [str(self.cmd)]
+        where = ''
+        if '-C' in cmd:   # `git --literal-pathspecs -C <path> <args>`: say it as "git <args> (in <path>)"
+            at = cmd.index('-C')
+            where, cmd = f' (in {cmd[at + 1]})', cmd[at + 2:]
+        return f"git {' '.join(str(a) for a in cmd)}{where} failed (exit {self.returncode})" + (f": {said}" if said else '')
+
+
+def posix_path(path: str) -> str:
+    '''
+    A path within a repo, the way git spells it: always `/`-separated, whatever the platform's separator is (git
+    reports `xml/one.xml` on Windows too, and `HEAD:xml\\one.xml` does not name a file). Backslashes are taken as
+    separators on every platform, so a path built with os.path.join on Windows means the same as on Linux.
+    '''
+    normal = posixpath.normpath(path.replace('\\', '/'))
+    return '' if normal == '.' else normal
+
+
+def join_posix(*parts: str) -> str:
+    ''' The `/`-separated path of `parts` within a repo (empty parts are dropped). '''
+    return posix_path('/'.join(p for p in (posix_path(part) for part in parts) if p))
+
+
+def fs_path(target: RepoTarget, relative_path: str) -> str:
+    ''' The file-system path of a repo-relative, `/`-separated path. '''
+    return os.path.join(target.local_path, *posix_path(relative_path).split('/'))
+
+
 def _git_raw(target: RepoTarget, *args: str) -> str:
-    result = subprocess.run(['git', '-C', target.local_path, *args], check=True, capture_output=True, text=True)
+    # literal pathspecs: a file named `st*r.xml` means that file, not a glob that also takes `stXr.xml`
+    cmd = ['git', '--literal-pathspecs', '-C', target.local_path, *args]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise GitError(result.returncode, cmd, output=result.stdout, stderr=result.stderr)
     return result.stdout
 
 
@@ -78,7 +119,7 @@ def parse_github_remote(target: RepoTarget) -> Tuple[str, str]:
 def write_files(target: RepoTarget, files: Mapping[str, bytes]) -> None:
     ''' Writes each {relative_path: content} into the repo's working tree. Touches nothing in git. '''
     for relative_path, content in files.items():
-        file_path = os.path.join(target.local_path, relative_path)
+        file_path = fs_path(target, relative_path)
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
         with open(file_path, 'wb') as f:
             f.write(content)
@@ -91,7 +132,7 @@ def commit_paths(target: RepoTarget, relative_paths: Sequence[str], commit_messa
     :return: the new commit's sha, or None if those paths already match HEAD ("nothing to commit" is a success:
         re-publishing an unchanged file must not be an error).
     '''
-    paths = list(relative_paths)
+    paths = [posix_path(p) for p in relative_paths]
     if not paths:
         return None
     _git(target, 'add', '--', *paths)
@@ -111,6 +152,7 @@ def commit_and_push(target: RepoTarget, relative_path: str, content: bytes, comm
     Writes content to relative_path within the repo, commits just that path, and pushes the current branch.
     :return: the sha of the commit at the branch's tip -- this one, or the existing tip if the content was unchanged.
     '''
+    relative_path = posix_path(relative_path)
     write_files(target, {relative_path: content})
     commit_paths(target, [relative_path], commit_message)
     push(target)
@@ -129,15 +171,17 @@ def image_url(target: RepoTarget, relative_path: str, owner: Optional[str] = Non
         parsed_owner, parsed_repo_name = parse_github_remote(target)
         owner = owner or parsed_owner
         repo_name = repo_name or parsed_repo_name
+    # the URL's path is relative to the repo's root, which `local_path` may be a subdirectory of
     return RAW_CONTENT_TEMPLATE.format(owner=owner, repo=repo_name, branch=current_branch(target),
-                                       path=relative_path.replace(os.sep, '/'))
+                                       path=join_posix(_prefix(target), relative_path))
 
 
 @dataclass(frozen=True)
 class RepoState:
     '''
     Where a repo's files stand relative to git, read from git itself so a commit made by hand is respected.
-    Paths are relative to the repo root. Either set is None when it could not be determined (not a repo, or --
+    Paths are `/`-separated and relative to the target's `local_path` (the repo's root, unless it is a subdirectory
+    of one). Either set is None when it could not be determined (not a repo, or --
     for `unpushed` -- the branch has neither an upstream nor a remote-tracking ref of its own name to compare with);
     callers must treat None as "unknown", never as "nothing".
     '''
@@ -145,13 +189,23 @@ class RepoState:
     unpushed: Optional[FrozenSet[str]]     # differing between the upstream branch and HEAD
 
 
-def _porcelain_paths(status: str) -> FrozenSet[str]:
-    ''' Paths from `git status --porcelain=v1 -z`: `XY path\\0`, and for a rename/copy a second `orig\\0`. '''
+def _prefix(target: RepoTarget) -> str:
+    ''' `local_path`'s own path within its repo, `cat/` for a subdirectory and empty at the root. '''
+    return _git_raw(target, 'rev-parse', '--show-prefix').strip()
+
+
+def _porcelain_paths(status: str, prefix: str = '') -> FrozenSet[str]:
+    '''
+    Paths from `git status --porcelain=v1 -z`: `XY path\\0`, and for a rename/copy a second `orig\\0`. Git reports them
+    relative to the repo's root; those under `prefix` (where the target is, if it is a subdirectory) are returned
+    relative to the target, the way its callers name them, and the others are left out.
+    '''
     paths, fields = set(), iter(status.split('\0'))
     for field in fields:
         if len(field) < 4:
             continue
-        paths.add(field[3:])
+        if field[3:].startswith(prefix):
+            paths.add(field[3 + len(prefix):])
         if field[0] in 'RC' or field[1] in 'RC':
             next(fields, None)  # the rename's source path
     return frozenset(paths)
@@ -180,18 +234,20 @@ def repo_state(target: RepoTarget) -> RepoState:
     if there is one; only a branch that was never pushed, or a detached HEAD, is unknown.
     '''
     try:
-        uncommitted = _porcelain_paths(_git_raw(target, 'status', '--porcelain=v1', '-z', '--untracked-files=all'))
+        uncommitted = _porcelain_paths(_git_raw(target, 'status', '--porcelain=v1', '-z', '--untracked-files=all'),
+                                       _prefix(target))
     except (subprocess.CalledProcessError, OSError):
         uncommitted = None
     unpushed = None
     try:
-        unpushed = frozenset(p for p in _git_raw(target, 'diff', '--name-only', '-z', '@{upstream}..HEAD').split('\0')
+        unpushed = frozenset(p for p in _git_raw(target, 'diff', '--name-only', '--relative', '-z',
+                                                    '@{upstream}..HEAD').split('\0')
                              if p)
     except (subprocess.CalledProcessError, OSError):
         fallback = _remote_tracking_ref(target)
         if fallback is not None:
             try:
-                unpushed = frozenset(p for p in _git_raw(target, 'diff', '--name-only', '-z',
+                unpushed = frozenset(p for p in _git_raw(target, 'diff', '--name-only', '--relative', '-z',
                                                          f'{fallback}..HEAD').split('\0') if p)
             except (subprocess.CalledProcessError, OSError):
                 unpushed = None
@@ -200,8 +256,36 @@ def repo_state(target: RepoTarget) -> RepoState:
 
 def is_committed(target: RepoTarget, relative_path: str) -> bool:
     ''' True if HEAD contains `relative_path` -- whatever the working tree says about it now. '''
-    return subprocess.run(['git', '-C', target.local_path, 'cat-file', '-e', f'HEAD:{relative_path}'],
-                          capture_output=True).returncode == 0
+    # `./` makes the path relative to local_path rather than to the repo's root
+    return subprocess.run(['git', '--literal-pathspecs', '-C', target.local_path, 'cat-file', '-e',
+                           f'HEAD:./{posix_path(relative_path)}'], capture_output=True).returncode == 0
+
+
+def committed_paths(target: RepoTarget, relative_paths: Sequence[str]) -> FrozenSet[str]:
+    ''' The given paths that HEAD contains (one `git ls-tree` per 200 paths, not one git call each). '''
+    paths = [posix_path(p) for p in relative_paths]
+    found = set()
+    for start in range(0, len(paths), 200):
+        try:
+            out = _git_raw(target, 'ls-tree', '-r', '--name-only', '-z', 'HEAD', '--', *paths[start:start + 200])
+        except subprocess.CalledProcessError:  # no HEAD yet: nothing is committed
+            return frozenset(found)
+        found.update(p for p in out.split('\0') if p)
+    return frozenset(found)
+
+
+def is_repo(target: RepoTarget) -> bool:
+    ''' True if `local_path` is a directory inside a git working tree. '''
+    try:
+        return os.path.isdir(target.local_path) and _git_raw(target, 'rev-parse', '--is-inside-work-tree').strip() == 'true'
+    except (subprocess.CalledProcessError, OSError):
+        return False
+
+
+def has_changes(target: RepoTarget, relative_path: str) -> bool:
+    ''' True if the working tree differs from git for `relative_path`: changed, staged, deleted or untracked. '''
+    return bool(_git_raw(target, 'status', '--porcelain=v1', '-z', '--untracked-files=all', '--',
+                         posix_path(relative_path)))
 
 
 def discard_changes(target: RepoTarget, relative_paths: Sequence[str]) -> List[str]:
@@ -212,14 +296,14 @@ def discard_changes(target: RepoTarget, relative_paths: Sequence[str]) -> List[s
     :return: the paths that had changes to discard.
     '''
     discarded = []
-    for path in relative_paths:
-        if not _git_raw(target, 'status', '--porcelain=v1', '-z', '--untracked-files=all', '--', path):
+    for path in map(posix_path, relative_paths):
+        if not has_changes(target, path):
             continue
         if is_committed(target, path):
             _git(target, 'checkout', 'HEAD', '--', path)
         else:
             _git(target, 'rm', '-q', '-f', '--cached', '--ignore-unmatch', '--', path)  # in case it was staged
-            full_path = os.path.join(target.local_path, path)
+            full_path = fs_path(target, path)
             if os.path.isfile(full_path):
                 os.remove(full_path)
         discarded.append(path)

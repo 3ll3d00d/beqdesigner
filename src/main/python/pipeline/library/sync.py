@@ -1,4 +1,5 @@
 '''Explicit library-sync publishing entry points: publish (write), commit (commit + push), and both.'''
+import subprocess
 from typing import Callable, Collection, Optional
 
 from pipeline.config import AnalysisConfig
@@ -44,23 +45,43 @@ def sync_library(queue_dir: str, xml_repo: RepoTarget, *, meta_defaults: Optiona
                  image_repo_name: Optional[str] = None, xml_dir: str = '', image_dir: str = '',
                  report_spec: ReportSpec = ReportSpec(), config: AnalysisConfig = AnalysisConfig(),
                  work_dir: Optional[str] = None, push: bool = True, ids: Optional[Collection[str]] = None,
-                 republish: bool = False) -> list[dict]:
+                 republish: bool = False, on_committed: Optional[Callable[[CatalogueCommit], None]] = None
+                 ) -> list[dict]:
     '''
     publish_library() followed by commit_library(), so a batch is one commit and one push per repo.
 
+    :param on_committed: called with the CatalogueCommit (which has the `not_committed` and `warnings` a caller may
+        want to show) once the commit is done.
     :return: publish_library()'s results, each published one also carrying the batch's `xml_commit` (and
         `image_commit`) sha where a commit was made. A file already committed by an earlier, interrupted run gets none.
+    :raises subprocess.CalledProcessError: if git refuses while committing or pushing. The publish half is not undone;
+        the error carries `results` (publish_library()'s, annotated with whatever was committed before the failure) and
+        `partial` (the CatalogueCommit of that), for a caller that wants to say what did get done.
     '''
     results = publish_library(
         queue_dir, xml_repo, meta_defaults=meta_defaults, images_repo=images_repo, image_owner=image_owner,
         image_repo_name=image_repo_name, xml_dir=xml_dir, image_dir=image_dir, report_spec=report_spec,
         config=config, work_dir=work_dir, ids=ids, republish=republish)
-    committed = commit_library(queue_dir, xml_repo, images_repo=images_repo, xml_dir=xml_dir, image_dir=image_dir,
-                               push=push, ids=ids)
+    try:
+        committed = commit_library(queue_dir, xml_repo, images_repo=images_repo, xml_dir=xml_dir,
+                                   image_dir=image_dir, push=push, ids=ids)
+    except subprocess.CalledProcessError as error:
+        _annotate(results, getattr(error, 'partial', None))
+        error.results = results
+        raise
+    _annotate(results, committed)
+    if on_committed is not None:
+        on_committed(committed)
+    return results
+
+
+def _annotate(results: list[dict], committed: Optional[CatalogueCommit]) -> None:
+    ''' Puts the commit shas of `committed` on each published result. '''
+    if committed is None:
+        return
     published, _ = split_publish_results(results)
     for result in published:
         if committed.xml.commit:
             result['xml_commit'] = committed.xml.commit
         if committed.images is not None and committed.images.commit:
             result['image_commit'] = committed.images.commit
-    return results

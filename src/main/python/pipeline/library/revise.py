@@ -25,7 +25,7 @@ from typing import List, Optional
 from pipeline.library.extract_cache import invalidate_extract
 from pipeline.library.season import invalidate_season_track
 from pipeline.publish.catalogue import catalogue_paths
-from pipeline.publish.git import RepoTarget, discard_changes, is_committed
+from pipeline.publish.git import RepoTarget, discard_changes, is_committed, is_repo
 from pipeline.review import QueueEntry, read_entry, update_entry
 
 REVISE_TARGETS = ('review', 'design', 'extract')
@@ -44,6 +44,11 @@ def _with_note(existing: Optional[str], text: str) -> str:
     return f'{existing}\n{text}' if existing else text
 
 
+def _check_repo(target: RepoTarget, name: str) -> None:
+    if not is_repo(target):
+        raise ValueError(f"{name} {target.local_path!r} is not a git repository (or does not exist)")
+
+
 def _send_back(queue_dir: str, entry_id: str, to: str, reason: str, *, xml_repo: Optional[RepoTarget],
                images_repo: Optional[RepoTarget], xml_dir: str, image_dir: str, **fields) -> ReviseResult:
     entry = read_entry(queue_dir, entry_id)
@@ -53,13 +58,23 @@ def _send_back(queue_dir: str, entry_id: str, to: str, reason: str, *, xml_repo:
         if xml_repo is None:
             raise ValueError(f"{entry_id!r} is published, so its files are in the catalogue repos: give xml_repo "
                              f"(and images_repo) to say where")
+        # Everything that can be checked is checked before anything changes ("ValueError before anything changes")
+        _check_repo(xml_repo, 'xml_repo')
+        if images_repo is not None:
+            _check_repo(images_repo, 'images_repo')
         xml_path, image_path = catalogue_paths(entry_id, xml_dir, image_dir)
         committed = is_committed(xml_repo, xml_path)
-        reverted = discard_changes(xml_repo, [xml_path])
-        if images_repo is not None:
-            reverted += discard_changes(images_repo, [image_path])
+        # The order makes a failure part-way retryable: the image goes first and the XML -- whose state decides the
+        # revision count -- last, and the entry is written after both, so until it is written it is still 'published'
+        # and running this again does the rest (a discard of a file that already matches HEAD does nothing).
+        # The one window left is a failure writing the entry itself after the XML was restored: the retry then
+        # finds the XML clean and counts a revision that the first attempt would not have.
+        reverted_images = discard_changes(images_repo, [image_path]) if images_repo is not None else []
+        reverted = discard_changes(xml_repo, [xml_path]) + reverted_images
         if committed and xml_path not in reverted:
-            revision += 1  # the catalogue holds this version; this is the start of a new one
+            revision += 1  # the catalogue holds this version, and nothing was written over it: a new revision begins
+        # (a dirty committed XML is a revision already begun -- by an earlier reopen, or by a republish, which counts
+        # it -- so it is not counted again)
     note = _NOTES[to] + (f': {reason}' if reason else '')
     updated = update_entry(queue_dir, entry_id, status='pending', chosen_candidate_index=None,
                            published_digest=None, published_at=None, revision=revision,

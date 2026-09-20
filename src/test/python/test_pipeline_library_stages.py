@@ -398,7 +398,7 @@ def test_a_metadata_typo_on_a_published_title_is_republished_at_the_same_path_wi
     assert [(r['id'], r['republished']) for r in report.published] == [('fs-a', True)]
     entry = read_entry(env.queue, 'fs-a')
     assert entry.status == 'published' and entry.published_digest != published.published_digest
-    assert entry.revision == published.revision and entry.status == 'published'
+    assert entry.revision == published.revision + 1  # a republish over a committed, clean XML begins a revision
     with open(os.path.join(xml.local_path, 'xml', 'fs-a.xml'), encoding='utf-8') as f:
         assert 'Film a (fixed)' in f.read()
     assert _needs(env, 'fs-a') == ('commit', 'written, not committed')
@@ -432,7 +432,7 @@ def test_an_accepted_title_with_incomplete_metadata_waits_for_a_person_and_the_r
                  publish=_publish_settings(repos))
 
     assert [r['id'] for r in report.published] == ['fs-b'] and not report.failed
-    assert [s.id for s in report.skipped] == ['fs-a'] and 'review' in report.skipped[0].reason
+    assert [s.id for s in report.skipped] == ['fs-a'] and 'metadata incomplete' in report.skipped[0].reason
     assert read_entry(env.queue, 'fs-a').status == 'accepted'
 
 

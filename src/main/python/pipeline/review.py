@@ -12,8 +12,11 @@ candidate's filters, rather than inventing a parallel format for
 BiquadSpec/DesignCandidate.
 '''
 import json
+import logging
 import os
-from dataclasses import asdict, dataclass, field, replace
+import subprocess
+import tempfile
+from dataclasses import asdict, dataclass, field, fields, replace
 from datetime import datetime, timezone
 from typing import Callable, Collection, List, Optional, Sequence, Tuple
 
@@ -21,8 +24,10 @@ from pipeline.config import AnalysisConfig
 from pipeline.designer.contract import Coverage
 from pipeline.orchestrate import Applied, Declined, DesignOutcome, Session
 from pipeline.publish.catalogue import catalogue_paths, publish_digest
-from pipeline.publish.git import RepoTarget
+from pipeline.publish.git import RepoTarget, fs_path, has_changes, is_committed
 from pipeline.publish.report import ReportSpec
+
+logger = logging.getLogger('review_queue')
 
 VALID_STATUSES = {'pending', 'accepted', 'skipped', 'rejected', 'published'}
 
@@ -95,9 +100,23 @@ def _entry_path(queue_dir: str, entry_id: str) -> str:
 
 
 def write_queue_entry(queue_dir: str, entry: QueueEntry) -> None:
+    '''
+    Written to a temporary file in the same directory and renamed over the entry, so a reader (the GUI, a concurrent
+    `run`) sees the old file or the new one, never a half-written one -- and a crash mid-write cannot lose the entry.
+    (The temporary name does not end in `.json`, so read_queue() never mistakes it for an entry.)
+    '''
     os.makedirs(queue_dir, exist_ok=True)
-    with open(_entry_path(queue_dir, entry.id), 'w', encoding='utf-8') as f:
-        json.dump(asdict(entry), f)
+    handle, temporary = tempfile.mkstemp(prefix=f'.{entry.id}.', suffix='.tmp', dir=queue_dir)
+    try:
+        with os.fdopen(handle, 'w', encoding='utf-8') as f:
+            json.dump(asdict(entry), f)
+        os.replace(temporary, _entry_path(queue_dir, entry.id))
+    except BaseException:
+        try:
+            os.remove(temporary)
+        except OSError:
+            pass
+        raise
 
 
 def _entry_from_dict(d: dict) -> QueueEntry:
@@ -301,6 +320,8 @@ _PUBLISH_ERRORS = {
     'project_conflict': 'the mono and multichannel projects were edited independently and now disagree -- '
                         'keep one edit (or re-save one project from the other) and publish again',
     'invalid_metadata': 'the metadata is not complete enough to publish',
+    'git_failed': 'git refused',
+    'publish_failed': 'publishing failed',
 }
 
 
@@ -317,7 +338,17 @@ def describe_publish_error(result: dict) -> str:
     text = _PUBLISH_ERRORS.get(result['error'], result['error'])
     if result.get('problems'):
         text += ': ' + '; '.join(result['problems'])
+    if result.get('message'):
+        text += ': ' + result['message']
     return f"{result['id']}: {text}"
+
+
+class InvalidMetadata(ValueError):
+    ''' An entry's metadata cannot even be built into a BeqMetadata; `problems` says why, one line each. '''
+
+    def __init__(self, problems: Sequence[str]):
+        super().__init__('; '.join(problems))
+        self.problems = list(problems)
 
 
 def publication_meta(entry: QueueEntry, meta_defaults: Optional[dict] = None):
@@ -325,9 +356,25 @@ def publication_meta(entry: QueueEntry, meta_defaults: Optional[dict] = None):
     :return: the BeqMetadata an accepted or published entry publishes with: `meta_defaults` under the entry's own
         metadata, and -- if neither says -- `gain` defaulting to the chosen candidate's mv_adjust_db. Before the image
         URLs are filled in, which derive from the repos rather than from the title.
+    :raises InvalidMetadata: (a ValueError) if the metadata cannot be built: a field BeqMetadata does not have, or a
+        null where a value is needed. A missing or null `title`/`year` is not raised -- it becomes '' so that
+        validate() reports it, as the discovery index (status.metadata_problems()) does.
     '''
     from pipeline.metadata import BeqMetadata
-    meta = BeqMetadata(**{**(meta_defaults or {}), **entry.meta})
+    merged = {'title': '', 'year': '', **(meta_defaults or {}), **entry.meta}
+    known = {f.name: f for f in fields(BeqMetadata)}
+    problems = [f'unknown field {name!r}' for name in merged if name not in known]
+    for name in ('title', 'year'):
+        if merged.get(name) is None:
+            merged[name] = ''
+    problems += [f'{name} must not be null' for name, value in merged.items()
+                 if value is None and name in known and known[name].default is not None]
+    if problems:
+        raise InvalidMetadata(problems)
+    try:
+        meta = BeqMetadata(**merged)
+    except (TypeError, AttributeError, ValueError) as error:
+        raise InvalidMetadata([f'metadata is not valid: {error}']) from error
     if meta.gain is None:
         meta.gain = f"{entry.candidates[entry.chosen_candidate_index].mv_adjust_db:+g}"
     return meta
@@ -343,7 +390,8 @@ def project_paths(work_dir: str, entry_id: str) -> Tuple[str, str, Optional[str]
 
 
 def current_publish_digest(entry: QueueEntry, *, meta_defaults: Optional[dict] = None,
-                           work_dir: Optional[str] = None, has_image: bool = False) -> str:
+                           work_dir: Optional[str] = None, has_image: bool = False,
+                           report_spec: Optional[ReportSpec] = None) -> str:
     '''
     The digest publish_reviewed_queue() would record for an accepted or published entry *now*, without publishing:
     compare it with `entry.published_digest` to see whether the catalogue's copy is out of date. It writes
@@ -352,7 +400,10 @@ def current_publish_digest(entry: QueueEntry, *, meta_defaults: Optional[dict] =
     :param meta_defaults/work_dir: as publish_reviewed_queue(); the digest depends on them, so pass what publish is
         given.
     :param has_image: whether publish is given an images repo.
-    :raises ValueError: if the entry has no chosen candidate (it is not accepted or published).
+    :param report_spec: as publish_reviewed_queue() -- in the digest when it is not the default (see publish_digest()),
+        so pass what publish is given.
+    :raises ValueError: if the entry has no chosen candidate (it is not accepted or published); InvalidMetadata (one)
+        if its metadata cannot be built.
     :raises ProjectFilterConflict: if the mono and multichannel projects were edited independently and disagree.
     '''
     from model.codec import filter_from_json
@@ -365,25 +416,27 @@ def current_publish_digest(entry: QueueEntry, *, meta_defaults: Optional[dict] =
         _, mono_path, mc_path, _ = project_paths(work_dir, entry.id)
         complete_filter = preview_published_projects(mono_path, mc_path, complete_filter).filter
     return publish_digest(complete_filter.to_json(), publication_meta(entry, meta_defaults), entry.art_path,
-                          has_image, chosen.mv_adjust_db)
+                          has_image, chosen.mv_adjust_db, report_spec)
 
 
 def _needs_republish(entry: QueueEntry, xml_repo: RepoTarget, xml_dir: str, image_dir: str,
-                     meta_defaults: Optional[dict], work_dir: Optional[str], has_image: bool) -> bool:
+                     meta_defaults: Optional[dict], work_dir: Optional[str], has_image: bool,
+                     report_spec: Optional[ReportSpec] = None) -> bool:
     '''
     True if a *published* entry's catalogue copy is out of date: its XML is missing from the repo, or the digest of what
     would be published now differs from the one recorded (an entry published before digests were recorded has none,
-    and is left alone). A project conflict counts as out of date, so that publishing reports it.
+    and is left alone). A project conflict, or metadata that cannot be built, counts as out of date, so that
+    publishing reports it (per entry) rather than the check aborting the batch.
     '''
     from pipeline.publish.project import ProjectFilterConflict
-    if not os.path.isfile(os.path.join(xml_repo.local_path, catalogue_paths(entry.id, xml_dir, image_dir)[0])):
+    if not os.path.isfile(fs_path(xml_repo, catalogue_paths(entry.id, xml_dir, image_dir)[0])):
         return True
     if not entry.published_digest:
         return False
     try:
-        return current_publish_digest(entry, meta_defaults=meta_defaults, work_dir=work_dir,
-                                      has_image=has_image) != entry.published_digest
-    except ProjectFilterConflict:
+        return current_publish_digest(entry, meta_defaults=meta_defaults, work_dir=work_dir, has_image=has_image,
+                                      report_spec=report_spec) != entry.published_digest
+    except (ProjectFilterConflict, InvalidMetadata):
         return True
 
 
@@ -432,20 +485,28 @@ def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: 
         a changed metadata field, poster or filter, or a missing XML) and writes it again, **at the same path**, with
         the fresh digest. It stays 'published' and needs no second review, so a typo fixed on a published title
         reaches the catalogue; commit_catalogue() then commits it as a revision. The result carries 'republished': True.
+        A republish that rewrites an XML the catalogue holds and that is unchanged in the tree begins a new revision
+        (`revision` + 1); over one already rewritten and not yet committed it does not (already counted).
+        `xml_dir` is not part of what makes a title out of date: a changed one is a new location, and the file at
+        the old one is left behind.
+    :param report_spec: what the report image is drawn with; a change of it (from the default) makes the title out of
+        date. (The image's GitHub owner/repo is not: see publish_digest().)
     :param on_entry: called with an entry's id just before it is published (not for one that is skipped).
     :param should_cancel: checked before each entry; True stops the loop, leaving every entry as it is (each already
         published one is complete).
     :return: one {'id': entry.id, **Session.publish()'s result} per entry
-        actually published this run. With work_dir, an entry published from a human's project edit also carries
+        actually published this run, and one {'id', 'error', ...} per entry that was refused or failed -- one bad
+        entry never stops the batch or loses the results before it: 'invalid_metadata' (with 'problems': also a
+        field BeqMetadata does not have, or a null), 'project_conflict', 'git_failed' (git refused; 'message' has
+        what it said) and 'publish_failed' (anything else, e.g. a poster file that is gone; 'message'). A failed
+        entry keeps its status, so a rerun retries it. With work_dir, an entry published from a human's project edit also carries
         'edited_project' ('mono'/'multichannel'/'both') and, if the other project was rewritten to match,
         'projects_aligned' (the names rewritten).
     '''
-    from model.codec import xydata_from_json
+    from model.codec import filter_from_json, xydata_from_json
+    from pipeline.metadata import validate
     from pipeline.publish.project import ProjectFilterConflict, align_projects, resolve_published_projects, \
         write_title_projects_if_safe
-
-    from model.codec import filter_from_json
-    from pipeline.metadata import validate
 
     session = Session(config)
     results = []
@@ -453,24 +514,22 @@ def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: 
         entries = read_queue(queue_dir)
     else:
         entries = [read_entry(queue_dir, i) for i in dict.fromkeys(ids) if os.path.isfile(_entry_path(queue_dir, i))]
-    for entry in entries:
-        republished = False
-        if entry.status == 'published' and republish:
-            republished = _needs_republish(entry, xml_repo, xml_dir, image_dir, meta_defaults, work_dir,
-                                           images_repo is not None)
-        if entry.status != 'accepted' and not republished:
-            continue
-        if should_cancel is not None and should_cancel():
-            break
-        if on_entry is not None:
-            on_entry(entry.id)
+
+    def metadata_result(entry: QueueEntry, problems: Sequence[str]) -> dict:
+        return {'id': entry.id, 'error': 'invalid_metadata', 'problems': list(problems)}
+
+    def publish_one(entry: QueueEntry, republished: bool) -> dict:
         chosen = entry.candidates[entry.chosen_candidate_index]  # accepted and published entries always have one
         complete_filter = filter_from_json(chosen.filters)  # still drives meta.gain's default below
-        meta = publication_meta(entry, meta_defaults)
-        problems = validate(meta)
+        try:
+            meta = publication_meta(entry, meta_defaults)
+            problems = validate(meta)
+        except InvalidMetadata as error:
+            return metadata_result(entry, error.problems)
+        except (TypeError, AttributeError, ValueError) as error:  # a value of the wrong kind, e.g. a number for audio_types
+            return metadata_result(entry, [f'metadata is not valid: {error}'])
         if problems:  # one incomplete title must not stop the batch, any more than a project conflict does
-            results.append({'id': entry.id, 'error': 'invalid_metadata', 'problems': problems})
-            continue
+            return metadata_result(entry, problems)
 
         if work_dir is not None:
             project_dir, mono_path, mc_path, mc_wav = project_paths(work_dir, entry.id)
@@ -481,8 +540,7 @@ def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: 
             try:
                 published = resolve_published_projects(mono_path, mc_path)
             except ProjectFilterConflict:
-                results.append({'id': entry.id, 'error': 'project_conflict'})
-                continue
+                return {'id': entry.id, 'error': 'project_conflict'}
             complete_filter = published.filter
             aligned = align_projects(session, published, mono_path, os.path.join(project_dir, 'mono.wav'),
                                      mc_path, mc_wav if mc_path else None, layout)
@@ -495,12 +553,50 @@ def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: 
             image_png = session.report([unfiltered, filtered], complete_filter, meta=meta, poster_path=entry.art_path,
                                        spec=report_spec, mv_offset=chosen.mv_adjust_db)
         digest = publish_digest(complete_filter.to_json(), meta, entry.art_path, images_repo is not None,
-                                chosen.mv_adjust_db)  # before publish(), which fills the image URLs into meta
+                                chosen.mv_adjust_db,
+                                report_spec)  # before publish(), which fills the image URLs into meta
+        # A republish over an XML the catalogue holds, and that has not been touched since, begins a revision: the
+        # same thing a reopen of it counts (see pipeline.library.revise). Over one already rewritten and not
+        # committed it does not, since that revision has been counted -- by the reopen, or by the republish, that
+        # wrote it. A republish is a rewrite of a *published* entry, so an accepted one (a first publish, or one
+        # after a reopen, which counted) never counts here.
+        revision = entry.revision
+        if republished and is_committed(xml_repo, xml_relative_path) and not has_changes(xml_repo, xml_relative_path):
+            revision += 1
         result = session.publish(complete_filter, meta, xml_repo, xml_relative_path, images_repo=images_repo,
                                  image_relative_path=image_relative_path if images_repo is not None else None,
                                  image_png=image_png, image_owner=image_owner, image_repo_name=image_repo_name, push=push)
-        update_entry(queue_dir, entry.id, status='published', published_digest=digest,
+        update_entry(queue_dir, entry.id, status='published', published_digest=digest, revision=revision,
                      published_at=datetime.now(timezone.utc).isoformat(timespec='seconds'))
-        results.append({'id': entry.id, **result, **({'republished': True} if republished else {}),
-                        **(_project_notes(published, aligned) if work_dir else {})})
+        return {'id': entry.id, **result, **({'republished': True} if republished else {}),
+                **(_project_notes(published, aligned) if work_dir else {})}
+
+    def failure(entry: QueueEntry, error: Exception) -> dict:
+        ''' What one entry's unexpected failure looks like: it is reported and the rest of the batch goes on. '''
+        if isinstance(error, InvalidMetadata):
+            return metadata_result(entry, error.problems)
+        if isinstance(error, subprocess.CalledProcessError):
+            return {'id': entry.id, 'error': 'git_failed', 'message': str(error)}
+        return {'id': entry.id, 'error': 'publish_failed', 'message': f'{type(error).__name__}: {error}'}
+
+    for entry in entries:
+        republished = False
+        if entry.status == 'published' and republish:
+            try:
+                republished = _needs_republish(entry, xml_repo, xml_dir, image_dir, meta_defaults, work_dir,
+                                               images_repo is not None, report_spec)
+            except Exception as error:
+                results.append(failure(entry, error))
+                continue
+        if entry.status != 'accepted' and not republished:
+            continue
+        if should_cancel is not None and should_cancel():
+            break
+        if on_entry is not None:
+            on_entry(entry.id)
+        try:
+            results.append(publish_one(entry, republished))
+        except Exception as error:  # a poster that is gone, a project that will not write, git refusing: this entry only
+            logger.warning('could not publish %s: %s', entry.id, error, exc_info=True)
+            results.append(failure(entry, error))
     return results

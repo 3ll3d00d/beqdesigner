@@ -41,7 +41,8 @@ class Progress:
     '''
     Where a run is. `done` and `total` count title-stages of work -- a title that is extracted and designed counts once,
     one that is published counts once and one that is committed counts once -- so the bar is determinate from the
-    start. `title` and `stage` name what is starting; a final report has `done == total` and an empty stage.
+    start. `title` and `stage` name what is starting; the final report has an empty stage and `done == total` unless the run
+    was cancelled, when `done` is how far it got.
     '''
     done: int
     total: int
@@ -100,6 +101,24 @@ def _title(row) -> str:
     return row.title or row.display_name or row.id
 
 
+def _units_by_title(index: LibraryIndex, ids: List[str]):
+    '''
+    :return: ({id: unit}, {id: why it could not be rebuilt}). One query for the lot, and only if that fails
+        (a malformed `items` column, a season row that does not plan to one group) one per title, so a single bad
+        row fails that title and not the run.
+    '''
+    try:
+        return index.units(ids), {}
+    except Exception:
+        units, errors = {}, {}
+        for title_id in ids:
+            try:
+                units.update(index.units([title_id]))
+            except Exception as error:
+                errors[title_id] = f'{type(error).__name__}: {error}'
+        return units, errors
+
+
 def run_stages(profile: Profile, selection: Selection, through: str, *, run_config: LibraryRunConfig,
                index: LibraryIndex, publish: Optional[PublishSettings] = None,
                settings: Optional[ScanSettings] = None, retry_failed: bool = False,
@@ -145,13 +164,18 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
         return should_cancel is not None and bool(should_cancel())
 
     try:
-        units = index.units([p.row.id for p in machine])
+        units, unit_errors = _units_by_title(index, [p.row.id for p in machine])
         session = Session(run_config.config)
         for planned in machine:
             row = planned.row
             if cancelled():
                 report.cancelled = True
                 break
+            if row.id in unit_errors:  # this title's listing cannot be rebuilt: it fails, the others go on
+                report.run.failed.append((row.id, unit_errors[row.id]))
+                report.attempted.append(row.id)
+                state['done'] += 1
+                continue
             unit = units.get(row.id)
             if unit is None:  # a row rebuilt from outputs alone has no listing to work from
                 report.skipped.append(Skipped(row.id, _title(row), 'not in the last scan: scan again'))
@@ -179,14 +203,19 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
                     cancel_seen.append(True)
                 return bool(cancel_seen)
 
-            results = publish_library(
-                run_config.queue_dir, publish.xml_repo, meta_defaults=publish.meta_defaults,
-                images_repo=publish.images_repo, image_owner=publish.image_owner,
-                image_repo_name=publish.image_repo_name, xml_dir=publish.xml_dir, image_dir=publish.image_dir,
-                report_spec=publish.report_spec, config=run_config.config, work_dir=run_config.work_dir or None,
-                ids=wanted, republish=True, on_entry=before_entry, should_cancel=stop)
+            try:
+                # each entry has its own failure boundary inside, so what was published before a failure is kept
+                results = publish_library(
+                    run_config.queue_dir, publish.xml_repo, meta_defaults=publish.meta_defaults,
+                    images_repo=publish.images_repo, image_owner=publish.image_owner,
+                    image_repo_name=publish.image_repo_name, xml_dir=publish.xml_dir, image_dir=publish.image_dir,
+                    report_spec=publish.report_spec, config=run_config.config, work_dir=run_config.work_dir or None,
+                    ids=wanted, republish=True, on_entry=before_entry, should_cancel=stop)
+            except Exception as error:  # not one entry's fault (an unreadable queue): report it, do not lose the run
+                logger.warning('publish failed: %s', error, exc_info=True)
+                results = [{'id': '', 'error': 'publish_failed', 'message': f'{type(error).__name__}: {error}'}]
             report.published, report.publish_errors = split_publish_results(results)
-            report.attempted += [r['id'] for r in results]
+            report.attempted += [r['id'] for r in results if r['id']]
             report.cancelled = bool(cancel_seen)
             # a title publish had nothing to do for (no longer accepted since the scan) is over as well
             state['done'] = base + (len(begun) if report.cancelled else len(wanted))
@@ -211,7 +240,7 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
     finally:
         planned_ids = {p.row.id for p in plan.planned}
         report.attempted = list(dict.fromkeys(report.attempted))
-        report.not_run = [i for i in planned_ids if i not in report.attempted] if report.cancelled else []
+        report.not_run = sorted(i for i in planned_ids if i not in report.attempted) if report.cancelled else []
         if refresh:
             try:
                 index.refresh(profile, settings or ScanSettings.from_profile(profile))

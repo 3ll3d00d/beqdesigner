@@ -19,8 +19,9 @@ reported as an exclusion). `plan_accept()` is the confirmation's content -- how 
 Each title is judged from its queue entry, not from the index row, so a stale index cannot accept what is no longer
 pending.
 '''
-from dataclasses import dataclass, field
-from typing import List, Optional
+import json
+from dataclasses import asdict, dataclass, field
+from typing import Dict, List, Optional, Tuple
 
 from pipeline.library.index import LibraryIndex
 from pipeline.library.selection import Selection
@@ -60,6 +61,11 @@ def accept_note(threshold: float) -> str:
     return f'bulk accepted, confidence >= {threshold:.2f}'
 
 
+def _snapshot(entry: QueueEntry) -> str:
+    ''' The entry as a string, to tell whether anyone changed it (a GUI edit, a rerun) between judging and writing. '''
+    return json.dumps(asdict(entry), sort_keys=True, default=str)
+
+
 def _reasons(entry: QueueEntry, meta_defaults: Optional[dict], work_dir: Optional[str]) -> List[str]:
     from pipeline.publish.project import edited_projects
     reasons = []
@@ -93,6 +99,7 @@ def plan_accept(index: LibraryIndex, selection: Selection, threshold: float = DE
     eligible: List[str] = []
     excluded: List[Exclusion] = []
     below = not_review = 0
+    seen: Dict[str, Tuple[str, str]] = {}
     for row in selection.rows(index):
         if row.needs != 'review':
             not_review += 1
@@ -111,7 +118,12 @@ def plan_accept(index: LibraryIndex, selection: Selection, threshold: float = DE
             excluded.append(Exclusion(row.id, title, '; '.join(reasons)))
         else:
             eligible.append(row.id)
-    return AcceptPlan(threshold, eligible, excluded, below, not_review)
+            seen[row.id] = (title, _snapshot(entry))
+    plan = AcceptPlan(threshold, eligible, excluded, below, not_review)
+    # id -> (title, the entry as it was judged): what accept_top_pick() checks is still true when it writes. Not a
+    # field, so it stays out of asdict() (the CLI's JSON) and the plan's equality.
+    object.__setattr__(plan, '_seen', seen)
+    return plan
 
 
 def accept_top_pick(index: LibraryIndex, selection: Selection, threshold: float = DEFAULT_ACCEPT_THRESHOLD, *,
@@ -122,13 +134,24 @@ def accept_top_pick(index: LibraryIndex, selection: Selection, threshold: float 
     a reviewer note (added to any note already there). It does not publish; the titles now need *publish*, which
     `run --through publish` or `publish` does. The index is not refreshed: call `index.refresh(profile, settings)` afterwards.
     :param threshold: the smallest top-pick confidence accepted (compared with >=), default 0.90.
+    An entry is judged again as it is written: one that changed since plan_accept() read it (a GUI edit, a skip) is not
+    accepted and is reported in `excluded` as 'changed while accepting'. The queue file is written atomically.
     '''
     plan = plan_accept(index, selection, threshold, queue_dir=queue_dir, meta_defaults=meta_defaults, work_dir=work_dir)
     note = accept_note(threshold)
     accepted: List[str] = []
+    excluded = list(plan.excluded)
     for entry_id in plan.eligible:
-        entry = read_entry(queue_dir, entry_id)
+        title, judged = getattr(plan, '_seen', {}).get(entry_id, (entry_id, ''))
+        try:
+            entry = read_entry(queue_dir, entry_id)
+        except FileNotFoundError:
+            entry = None
+        # judged from the entry as it is *now*: a person may have edited, accepted or skipped it since the plan read it
+        if entry is None or (judged and _snapshot(entry) != judged) or entry.status != 'pending':
+            excluded.append(Exclusion(entry_id, title, 'changed while accepting: look at it again'))
+            continue
         update_entry(queue_dir, entry_id, status='accepted', chosen_candidate_index=0,
                      reviewer_note=f'{entry.reviewer_note}\n{note}' if entry.reviewer_note else note)
         accepted.append(entry_id)
-    return AcceptReport(threshold, note, accepted, plan.excluded, plan.below_threshold, plan.not_for_review)
+    return AcceptReport(threshold, note, accepted, excluded, plan.below_threshold, plan.not_for_review)

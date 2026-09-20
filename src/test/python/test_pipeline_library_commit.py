@@ -432,5 +432,5 @@ def test_republishing_an_edited_title_records_a_new_digest(tmp_path, repos):
 
 def test_catalogue_paths_are_the_entry_id_under_each_directory():
     assert catalogue_paths('jriver-3fa9c2-1234', 'filters', 'images') == (
-        os.path.join('filters', 'jriver-3fa9c2-1234.xml'), os.path.join('images', 'jriver-3fa9c2-1234.png'))
+        'filters/jriver-3fa9c2-1234.xml', 'images/jriver-3fa9c2-1234.png')
     assert catalogue_paths('x') == ('x.xml', 'x.png')

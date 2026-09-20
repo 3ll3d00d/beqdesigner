@@ -189,7 +189,8 @@ def plan_stages(rows: Iterable[TitleRow], through: str, *, retry_failed: bool = 
             else:
                 reason = f'{row.detail} -- unchanged since; retry failed to try again'
         elif row.needs == 'review':
-            reason = 'waiting for a person to review it'
+            # an *accepted* title sent back to review has a reason of its own: its metadata is incomplete
+            reason = row.detail if row.review_state == 'accepted' and row.detail else 'waiting for a person to review it'
         else:
             reason = row.detail or 'done'
         if stages:

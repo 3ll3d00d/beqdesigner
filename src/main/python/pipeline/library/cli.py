@@ -4,6 +4,8 @@ import json
 import logging
 import os
 import sqlite3
+import subprocess
+import sys
 from dataclasses import asdict, replace
 from datetime import datetime
 from typing import Any
@@ -24,7 +26,11 @@ from pipeline.library.state import NEEDS
 from pipeline.library.status import ScanSettings, analysis_from_values
 from pipeline.library.sync import commit_library, publish_library, sync_library
 from pipeline.library.union import UnionLibrarySource
+from pipeline.review import describe_publish_error
 from pipeline.publish.git import RepoTarget
+
+
+GIT_FAILED = 3   # exit status: git refused (a rejected push, a repository that is not one), or a file it will not commit
 
 
 def _load_config(path: str | None) -> dict[str, Any]:
@@ -149,6 +155,9 @@ def _run_stages(args: argparse.Namespace, config: dict[str, Any], values: dict[s
         report = run_stages(profile, selection, through, run_config=run_config, index=index, publish=publish,
                             settings=settings, retry_failed=bool(args.retry_failed))
     print(json.dumps(asdict(report), sort_keys=True))
+    if report.commit_error:
+        _say(f'error: {report.commit_error}')
+        return GIT_FAILED
     return 1 if report.failed else 0
 
 
@@ -194,6 +203,21 @@ def _repo(values: dict[str, Any], name: str) -> RepoTarget | None:
     return RepoTarget(values[name]) if values.get(name) else None
 
 
+def _publish_values(args: argparse.Namespace, config: dict[str, Any]) -> dict[str, Any]:
+    '''
+    The `sync:` options, over which the flags. `work_dir` is also taken from the config's `run:` section if `sync:` has
+    none: publishing from the .beq projects (so a hand edit is what ships, and what is compared with what was
+    published) needs it, and `run:` is where a config that also runs keeps it. Without it a republish would write
+    the designer's own pick over an edited project.
+    '''
+    values = _configured_values(args, config, 'sync')
+    if not values.get('work_dir'):
+        from_run = (config.get('run') or {}).get('work_dir')
+        if from_run:
+            values['work_dir'] = from_run
+    return values
+
+
 def _publish_kwargs(values: dict[str, Any]) -> dict[str, Any]:
     return dict(
         meta_defaults=values.get('meta_defaults'), images_repo=_repo(values, 'images_repo'),
@@ -202,30 +226,75 @@ def _publish_kwargs(values: dict[str, Any]) -> dict[str, Any]:
         work_dir=values.get('work_dir'), ids=values.get('ids') or None, republish=bool(values.get('republish', False)))
 
 
+def _print_results(results: list[dict]) -> None:
+    ''' The publish results as JSON, without each entry's whole XML (it is in the repository, and in the return value). '''
+    print(json.dumps([{k: v for k, v in result.items() if k != 'xml'} for result in results], sort_keys=True))
+
+
+def _publish_status(results: list[dict]) -> int:
+    if any(item.get('error') == 'git_failed' for item in results):
+        return GIT_FAILED
+    return 1 if any('error' in item for item in results) else 0
+
+
+def _say(message: str) -> None:
+    print(message, file=sys.stderr)
+
+
 def _publish(args: argparse.Namespace, config: dict[str, Any]) -> int:
-    values = _configured_values(args, config, 'sync')
+    values = _publish_values(args, config)
     result = publish_library(_required(values, 'queue_dir'), RepoTarget(_required(values, 'xml_repo')),
                              **_publish_kwargs(values))
-    print(json.dumps(result, sort_keys=True))
-    return 1 if any('error' in item for item in result) else 0
+    _print_results(result)
+    for item in result:
+        if 'error' in item:
+            _say(describe_publish_error(item))
+    return _publish_status(result)
+
+
+def _commit_status(result) -> int:
+    '''0; 3 if a published file is in the tree but git will not commit it; 1 if a published entry has no file.'''
+    for problem in result.not_committed:
+        _say(f'error: {problem} is published but git will not commit it (ignored by a .gitignore rule?)')
+    for warning in result.warnings:
+        _say(f'warning: {warning}')
+    if result.not_committed:
+        return GIT_FAILED
+    return 1 if result.missing else 0
 
 
 def _commit(args: argparse.Namespace, config: dict[str, Any]) -> int:
     values = _configured_values(args, config, 'sync')
-    result = commit_library(
-        _required(values, 'queue_dir'), RepoTarget(_required(values, 'xml_repo')),
-        images_repo=_repo(values, 'images_repo'), xml_dir=values.get('xml_dir', ''),
-        image_dir=values.get('image_dir', ''), push=bool(values.get('push', True)), ids=values.get('ids') or None)
+    try:
+        result = commit_library(
+            _required(values, 'queue_dir'), RepoTarget(_required(values, 'xml_repo')),
+            images_repo=_repo(values, 'images_repo'), xml_dir=values.get('xml_dir', ''),
+            image_dir=values.get('image_dir', ''), push=bool(values.get('push', True)), ids=values.get('ids') or None)
+    except (subprocess.CalledProcessError, OSError) as error:
+        _say(f'error: {error}')
+        partial = getattr(error, 'partial', None)   # what was committed before git refused stays committed
+        print(json.dumps({**(asdict(partial) if partial is not None else {}), 'error': str(error)}, sort_keys=True))
+        return GIT_FAILED
     print(json.dumps(asdict(result), sort_keys=True))
-    return 1 if result.missing else 0
+    return _commit_status(result)
 
 
 def _sync(args: argparse.Namespace, config: dict[str, Any]) -> int:
-    values = _configured_values(args, config, 'sync')
-    result = sync_library(_required(values, 'queue_dir'), RepoTarget(_required(values, 'xml_repo')),
-                          push=bool(values.get('push', True)), **_publish_kwargs(values))
-    print(json.dumps(result, sort_keys=True))
-    return 1 if any('error' in item for item in result) else 0
+    values = _publish_values(args, config)
+    committed = []
+    try:
+        results = sync_library(_required(values, 'queue_dir'), RepoTarget(_required(values, 'xml_repo')),
+                               push=bool(values.get('push', True)), on_committed=committed.append,
+                               **_publish_kwargs(values))
+    except (subprocess.CalledProcessError, OSError) as error:
+        _say(f'error: {error}')
+        _print_results(getattr(error, 'results', []))   # published, and committed as far as git got
+        return GIT_FAILED
+    _print_results(results)
+    for item in results:
+        if 'error' in item:
+            _say(describe_publish_error(item))
+    return max(_publish_status(results), _commit_status(committed[0]) if committed else 0)
 
 
 def _revise(args: argparse.Namespace, config: dict[str, Any]) -> int:
@@ -240,7 +309,7 @@ def _revise(args: argparse.Namespace, config: dict[str, Any]) -> int:
                 queue_dir, entry_id, to, values.get('reason') or '', work_dir=values.get('work_dir'),
                 xml_repo=_repo(values, 'xml_repo'), images_repo=_repo(values, 'images_repo'),
                 xml_dir=values.get('xml_dir', ''), image_dir=values.get('image_dir', ''))
-        except (FileNotFoundError, ValueError) as error:  # one bad id must not stop the others
+        except (ValueError, subprocess.CalledProcessError, OSError) as error:  # one bad id must not stop the others
             results.append({'id': entry_id, 'error': str(error)})
             failed = True
         else:
@@ -355,7 +424,8 @@ _RUN_EPILOG = """\
 Every option can also be set in the config file's `run:` section, under the same name with underscores
 (--work-dir is `work_dir`); a flag overrides the file. A source's own settings may be under `sources.<name>:`
 instead. Repeatable flags (--glob, --path-map, --designer-url, --audio-type) replace, rather than add to, the file's
-list. Exit status: 0, 1 if any item failed, 2 for a bad option or config. Prints the run report as JSON.
+list. Exit status: 0, 1 if any item failed, 2 for a bad option or config, 3 if git refused while committing (`--through
+commit`). Prints the run report as JSON.
 
 With none of the selector flags (--needs --match --id --new-since-scan --through, or --source with --profile) it lists
 the source and extracts and designs every title, as it always has. With any of them it works from the last `scan`
@@ -370,14 +440,23 @@ Every option can also be set in the config file's `sync:` section, under the sam
 section, so a single set of repositories serves them all."""
 
 _PUBLISH_EPILOG = _SHARED_SECTION + """ `sync.meta_defaults` (a mapping of BeqMetadata fields, such as
-`source: Disc`) has no flag. Exit status: 0, 1 if any entry could not be published, 2 for a bad option or config.
-Prints one JSON result per published or refused entry. Writes files only -- run `commit` to commit and push them.
-Never extracts or designs.
+`source: Disc`) has no flag. Exit status: 0, 1 if any entry could not be published, 2 for a bad option or config,
+3 if git refused (an images repository that is not a git repository, say). Prints one JSON result per published or
+refused entry (without its XML, which is in the repository); the reason for each refusal is on stderr. Writes files
+only -- run `commit` to commit and push them. Never extracts or designs.
+
+The filter is published from each title's .beq project, so a hand edit is what ships, when the work directory is known:
+`--work-dir`, or `work_dir` in the `sync:` section, or failing that in the `run:` section. Without one the designer's
+own pick is published, which would write over a hand-edited filter, so give it whenever titles have been reviewed by editing their projects. A changed `xml_dir` is a new
+location, not a change to a published title: the file at the old one is left behind, for a person to remove.
 """
 
 _COMMIT_EPILOG = _SHARED_SECTION + """ Exit status: 0, 1 if a published entry has no file in its repository
-(run `publish` again), 2 for a bad option or config. Prints what was committed and pushed per repository. What is
-already committed or pushed is read from git, so running it again only does what is left.
+(run `publish` again), 2 for a bad option or config, 3 if git refused (a rejected push, say) or will not commit a
+published file (a .gitignore rule matches it). Prints what was committed and pushed per repository -- after a git
+failure too, with an `error` key, and what was committed before it stays committed; git's own message is on stderr.
+What is already committed or pushed is read from git, so running it again only does what is left. Warns on stderr
+when an XML that names a report image is committed without --images-repo (the image is not committed with it).
 """
 
 _REVISE_EPILOG = _SHARED_SECTION + """ A published entry's files are put back as git
@@ -417,8 +496,9 @@ config or missing index. Prints the result as JSON.
 
 _SYNC_EPILOG = _SHARED_SECTION + """ `sync.meta_defaults` (a mapping of BeqMetadata fields, such as
 `source: Disc`) has no flag. `sync` is `publish` followed by `commit`. Exit status: 0, 1 if any entry could not be
-published, 2 for a bad option or config. Prints one JSON result per published or refused entry. Never extracts or
-designs.
+published or has no file to commit, 2 for a bad option or config, 3 if git refused or will not commit a published file
+(what `commit` says). Prints one JSON result per published or refused entry (without its XML), with the commit
+shas of what was committed even if a later push failed. Never extracts or designs. `--work-dir` as for `publish`.
 """
 
 
@@ -544,12 +624,16 @@ def _add_publish_options(parser: argparse.ArgumentParser) -> None:
                             'repeatable; default: every accepted entry')
     where.add_argument('--republish', action='store_true', default=None,
                        help='also write again each published entry whose catalogue copy is out of date -- its metadata, '
-                            'poster or filter changed since it was published, or its XML is missing from the '
-                            'repository -- at the same path, without a second review')
+                            'poster, report style or filter changed since it was published, or its XML is missing '
+                            'from the repository -- at the same path, without a second review. Needs the work '
+                            'directory (--work-dir, or `work_dir` in the config) to see a hand-edited filter, else '
+                            'it reverts it; a changed --xml-dir is a new location, so the old file is left behind')
     where.add_argument('--queue-dir', help='review queue directory to publish from (required)')
     where.add_argument('--work-dir',
-                       help='the run\'s work directory: publish the filter from each title\'s .beq project, so a '
-                            'hand edit is what ships, rather than the designer\'s original pick')
+                       help='the run\'s work directory (default: `work_dir` in the config file\'s `sync:`, else `run:` '
+                            'section): publish the filter from each title\'s .beq project, so a hand edit is what '
+                            'ships. Without a work directory the designer\'s original pick is published, which '
+                            'writes over a hand-edited filter')
     _add_repo_options(parser, with_image_url_options=True)
     _add_analysis_options(parser)
 
@@ -680,6 +764,9 @@ def main(argv: list[str] | None = None) -> int:
         return _COMMANDS[args.command](args, config)
     except ValueError as error:
         build_parser().error(str(error))
+    except subprocess.CalledProcessError as error:   # git, where a command has not already handled it
+        _say(f'error: {error}')
+        return GIT_FAILED
     return 2
 
 
