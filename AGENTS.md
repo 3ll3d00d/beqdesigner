@@ -173,7 +173,8 @@ the repositories), `worklist_model.py` (table model/proxy; `set_running()` is th
 nothing is ever accepted here (reviewing is the title page, chunk 27). Until the settings editor (26c) the profile is built
 from the Library Sync preferences (`worklist_profile.load_setup`), or read from the file named by `LIBRARY_PROFILE_PATH`.
 The plan is `design/library-sync-pipeline-plan.md` (chunk table, §8) and `design/library-sync/workflow-rework/`. Tests:
-`src/test/python/gui/test_worklist_*.py`, over a fixture index (`gui/worklist_fixture.py`) and a fake `run_stages`.
+`src/test/python/gui/test_worklist_*.py`, over a fixture index (`gui/worklist_fixture.py`) and a fake `run_stages`; `test_worklist_real_pipeline.py` drives
+Publish then Commit through the real `run_stages`, index and temp git repos.
 
 ### Analysis (`model/analysis.py`)
 
