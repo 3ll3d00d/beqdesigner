@@ -120,10 +120,17 @@ in "Index schema" below.
 
 **Refresh.** The GUI shows the cached index immediately (stale-while-revalidate) and rescans **per source, on
 demand**, showing each source's "last scanned". A rescan highlights what is **new since last scan**. Cron
-scans first.
+scans first. As built, `scan()` lists the sources **without holding the index's lock**, so readers (`titles()`, `summary()`,
+`sources()`, `record_failure()`) see the last scan until the new one is written; two scans do not overlap. A source that lists
+**nothing** when it listed some at the last scan (an unmounted share matches no files and raises nothing) is treated like a failed
+listing -- its previous listing is kept and the scan reports it -- unless `scan(allow_empty=True)` / `scan --allow-empty`.
+`refresh()` (after a run) takes the sources from the index's own `sources` table, not from the profile passed in, so an ad-hoc
+profile with other source names cannot make every title look gone; an index with no recorded sources is left alone.
 
 **Failure memory.** An extract/design failure is recorded with the fingerprint and params it failed against.
-It is retried only on an explicit **Retry failed**, or when either changes. (Today `LibraryRunReport.failed`
+It is retried only on an explicit **Retry failed**, or when either changes. A transient failure (a NAS offline, a designer down) is therefore
+sticky until then, so `run` prints a stderr warning ("N titles skipped: failed earlier ... use --retry-failed", exit status unchanged) whenever it
+skipped any. (Today `LibraryRunReport.failed`
 is not persisted.)
 
 **Units.** `plan_units()` (tv_mode season grouping, `pipeline/library/season.py`) moves out of `run_library()`
@@ -131,6 +138,11 @@ into discovery, so the units the user sees are the units that get worked on.
 
 **Gone.** An item that has left its source: if it has no outputs it is dropped; otherwise it is kept as **Done**
 with a "gone from source" badge. Outputs are never deleted automatically.
+
+**Superseded (tv_mode changed).** A row whose items are *still listed* but are now grouped under another row (episode rows after
+`tv_mode` became `season`, or a season row after it went back) is not gone. With no queue entry it is dropped (its extraction serves the
+new row); with one it is kept, re-read from its outputs so it still needs what it needs (a pending review stays in the human tier),
+with `superseded by <new id>` appended to its detail (`ScanResult.superseded`; no schema change).
 
 **Repo awareness.** Discovery reads the local XML repo. A title whose TMDB id already appears there but which
 this profile did not publish is labelled **Already in catalogue** -- informational only; it stays in the list
@@ -140,9 +152,11 @@ The element is `<beq_metadata><beq_theMovieDB>`, and the XML has no movie/tv kin
 
 #### Index schema (FROZEN at chunk 24, `SCHEMA_VERSION = 1`)
 
-Versioned by `PRAGMA user_version`. **Rule for any other version** (older, newer, or a file that is not a database): drop every
-table and recreate -- the index is a cache, the next `scan` refills it, and `generation = 0` tells the caller it has never been
-scanned. Nothing is ever migrated. A later chunk that needs a column bumps `SCHEMA_VERSION`; the cost is one rescan, but every
+Versioned by `PRAGMA user_version`. **Rule for any other version** (older, newer, or a file that is not a database): drop *our* tables (`meta`, `sources`,
+`titles`, `failures`, `repo_xml`) and recreate -- the index is a cache, the next `scan` refills it, and `generation = 0` tells the caller
+it has never been scanned. Nothing is ever migrated. A SQLite file that has none of our tables is somebody else's and is **refused**
+(`IndexFileError`), never dropped; and `status` opens the index **read-only** (`LibraryIndex(path, readonly=True)`), so it never
+creates, migrates or drops anything. A later chunk that needs a column bumps `SCHEMA_VERSION`; the cost is one rescan, but every
 consumer of the columns below must then be revisited, which is why the list is meant to be complete. `test_the_frozen_schema_in_the_design_doc_is_the_one_in_the_code`
 keeps this block identical to `index.SCHEMA`.
 
@@ -255,6 +269,10 @@ Notes on the columns that are not self-explanatory:
   unchanged; a scan deletes one that no longer applies, and `clear_failure()` is *Retry failed*.
 - **`repo_xml`** caches the XML repo's TMDB ids by relative path, mtime and size, so an unchanged file is not parsed again.
 - **`state_since`** moves only when `needs` changes. A rebuild sets it to the rebuild time for every title (accepted, documented).
+  A rebuild also sets `generation` to 0 and forgets the recorded `sources` and `last_scan_at` (even on a live index), so the next
+  command that works from the index scans first.
+- **`last_seen`** is bumped only for titles whose source was actually listed by that scan (not for a source that was down, one skipped
+  by `only`, or a `refresh`).
 
 ### 12.6 The stage state machine
 
@@ -269,7 +287,8 @@ Notes on the columns that are not self-explanatory:
 Orthogonal flags: **Ignored** (rule or per-title), **Shadowed**, **Gone**, **Possible duplicate**,
 **Already in catalogue**.
 
-**Needs and tier.** The first matching row, top down:
+**Needs and tier.** The first matching row, top down -- with one deliberate exception: `derive_needs` evaluates **Ignored, Shadowed and
+Gone first** (a title that is not for this catalogue is `done` whatever its stages say), although the table lists them last:
 
 | Tier | Needs | When |
 |---|---|---|
@@ -283,7 +302,9 @@ Orthogonal flags: **Ignored** (rule or per-title), **Shadowed**, **Gone**, **Pos
 
 **Published digest.** `publish_reviewed_queue()` records on the entry (additive fields) a hash of the publish
 inputs -- the published filter (project filter hash, else chosen candidate), the metadata dict, the artwork
-file's hash, the designer -- plus `published_at`. "Out of date" means the current inputs hash differently. This
+file's hash, the report spec and image owner/repo when they are set (not the default/unset, so older digests stay valid) -- plus
+`published_at`. The designer is *not* in it (the filter it produced is). `ScanSettings` carries `image_owner`, `image_repo_name`
+and `report_spec` (from `sync:`) and must be given what `publish` is given. "Out of date" means the current inputs hash differently. This
 is what lets a metadata typo on a published title flow straight to Publish without a re-review.
 
 **Done titles and staleness (deliberate).** A done title re-enters the list on its own **only** when its

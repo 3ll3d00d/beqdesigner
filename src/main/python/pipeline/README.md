@@ -229,7 +229,9 @@ PYTHONPATH=src/main/python python -m pipeline.library.cli [--config FILE] accept
   source and settings are unchanged is skipped), designs it, and writes an entry to the **review queue**. It never
   publishes, so an unattended `run` has nothing to auto-publish. A title whose extraction or design **failed** is not
   tried again while its source and the settings are unchanged (`--retry-failed` tries it again), so a nightly job does
-  not repeat a failure every night. With a *selector* it does much more -- see "Doing the work for a selection" below.
+  not repeat a failure every night (a transient failure -- a NAS offline, a designer down -- stays skipped until then, so `run`
+  prints `warning: N titles skipped: failed earlier ... use --retry-failed` on stderr whenever it skipped any; the exit status
+  is unchanged). With a *selector* it does much more -- see "Doing the work for a selection" below.
 - A person then reviews the queue in the app (Tools > Library Sync, or Review Batch Designs) and accepts entries.
 - **`publish`** writes only the *accepted* entries into the catalogue repositories' working trees: the XML in one
   and, optionally, a report image in another. Each entry is marked published (meaning *written*), so a re-run only
@@ -282,12 +284,15 @@ PYTHONPATH=src/main/python python -m pipeline.library.cli [--config FILE] accept
   source costs one `stat` per file). The result is a disposable SQLite index in the work directory
   (`library-index.sqlite`, schema in `design/library-sync/workflow-rework/design.md` §12.5); deleting it costs a rescan
   and nothing else. A source that cannot be listed keeps the titles it had and is reported (exit status 1), so one
-  library being down never makes its titles vanish; `--source NAME` rescans just one. `--from-outputs` rebuilds a lost
-  index from the outputs alone.
+  library being down never makes its titles vanish -- and neither does one that lists *nothing* when it listed some at the last
+  scan (an unmounted share): its previous listing is kept and it is reported, unless `--allow-empty`. `--source NAME` rescans just
+  one. `--from-outputs` rebuilds a lost (or live) index from the outputs alone; the generation goes back to 0, so the next selector
+  `run` scans first. Changing `--tv-mode` keeps a row that has a review pending, marked `superseded by <id>` in its detail, rather
+  than calling it gone. An index file this did not write (a SQLite file with none of its tables) is refused, never overwritten.
 - **`status`** prints, from that index, how many titles need each thing -- `attention`, `review`, `extract`, `design`,
   `publish`, `commit` -- and how many are `done`, plus what is new since the previous scan, the flags and each source's
   last scan. It never lists a source, so it is instant and suits a scheduled job that reports what is waiting for a
-  person. `--json` is the machine-readable form.
+  person. `--json` is the machine-readable form. It opens the index read-only: it never creates, migrates or drops one.
 
 **What a title needs** (`pipeline/library/state.py`, the first row that applies): *attention* if extract or design
 failed (remembered against the source fingerprint and settings it failed with, and retried only when either changes),
@@ -430,14 +435,25 @@ run: {work_dir: /var/lib/beq/work, queue_dir: /var/lib/beq/queue, designer: roll
 
 - **The same file in two sources is one title.** "Same file" means the same path after the source's own `path_mappings`,
   ignoring case and `\` versus `/`, with a disc rip's clips folded into the disc folder. The first source wins; the other is
-  *shadowed* (no separate title, no second XML). Nothing is read from disk to decide this.
+  *shadowed* (no separate title, no second XML). Nothing is read from disk to decide this. Two items with the *same id* are one
+  title (first wins); a shadowed copy that already has outputs of its own is flagged on the owner and says so; an item with no
+  path never clashes on it; and a JRiver Blu-ray *playlist* entry (`BDMV\PLAYLIST\index.bluray;N`) is its own title, not the disc.
 - **The same title in different files is not merged**, since it may be a real second entry (an edition, another audio track):
   both stay titles and each is flagged as a possible duplicate (same TMDB id, else IMDb id, else title and year).
 - **A title keeps the id it already has**, so reordering `sources:` never orphans an extraction or publishes a second XML:
   the source whose item already has a queue entry or work directory keeps the file whatever the order. If that item leaves its
   source, the other one takes over *under its own id* (its old outputs are left behind, not reused). A TV season keeps its
   id too, if the series' title is corrected in the library.
-- **Ignored titles stay in the list, labelled with the rule**, and are not run. Deleting the rule brings them back.
+- **Ignored titles stay in the list, labelled with the rule**, and are not run. Deleting the rule brings them back. A `path` rule
+  matches an item whose path, or any folder above it, matches, so a glob that names a folder (`/films/*/extras`, `/films/Kids*`)
+  ignores everything under it. `*`, `**` and `?` are globs; **`[` and `]` are literal** (a folder called `Movie [1080p]`), not a
+  character class. A `title` rule is matched against the first 300 characters of the title; a pattern that backtracks
+  catastrophically (`(a+)+$`) is the rule author's responsibility. `ignore_titles` also works on a TV *season* id in `tv_mode: season`.
+- **Directories from flags count.** The sticky claims are read from the work and queue directories the run actually uses, whether
+  the file or `--work-dir`/`--queue-dir` gave them.
+- **Saving a profile** leaves alone a `run:`/`sync:` directory that differs and was not changed, keeps a file in the older
+  `sources:` mapping shape in that shape (and refuses to convert it to a list if that would drop an unused source), and writes an
+  unquoted YAML date back as text. A missing or malformed `--profile`/`--config` file is exit status 2.
   A malformed rule (an unknown key, a bad regular expression) is an error, so a typo cannot silently ignore nothing.
 - A source that cannot be read (the media server is down) fails the run: it is never treated as an empty library.
 
@@ -456,9 +472,10 @@ option documented). In outline, `run` takes the library source (`--source --glob
 --images-repo --image-dir --image-owner --image-repo-name`) and the same analysis options; `commit` takes `--queue-dir`, the same
 repositories (without the image-URL options), `--id` and `--push`/`--no-push`; `sync` takes everything `publish` does plus `--push`; `revise` takes `--queue-dir --id --to --reason --work-dir` and the repositories. `publish`,
 `commit`, `sync` and `revise` read the one `sync:` section of the config file. `scan` takes `--profile --source
---from-outputs`, where things are (`--work-dir --queue-dir`), the settings that decide what is up to date (`--designer
+--from-outputs --allow-empty`, where things are (`--work-dir --queue-dir`), the settings that decide what is up to date (`--designer
 --coverage --keep-multichannel --tv-mode`, the repositories and the analysis options: give the values `run` and `publish`
-get) and reads both `run:` and `sync:`; `status` takes `--profile --work-dir --json`; `accept` takes `--profile --source
+get, including `--image-owner`/`--image-repo-name`, and `sync.report_spec` from the file: all three are in the published digest) and
+reads both `run:` and `sync:`; `status` takes `--profile --work-dir --json`; `accept` takes `--profile --source
 --match --id --new-since-scan --threshold --dry-run`, where things are (`--work-dir --queue-dir`) and the same settings as `scan`. The boolean flags come in
 pairs (`--keep-multichannel` / `--no-keep-multichannel`) so a flag can turn something off that the file turned on.
 
