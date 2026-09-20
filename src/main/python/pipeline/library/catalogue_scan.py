@@ -7,7 +7,7 @@ separately (a film and a series can share an id), so the match is on the id **to
 has anything in it (§12.14). Matching is never on the file name: ours are entry ids, other people's are not.
 
 A large catalogue has thousands of files, so a scan parses only those whose mtime or size changed since the last
-one (the index keeps what was read, keyed by relative path).
+one (the index keeps what was read, keyed by relative path -- an unreadable one too, as a file with no id).
 '''
 import os
 import xml.etree.ElementTree as ET
@@ -39,7 +39,8 @@ def scan_xml_repo(repo_path: str, known: Optional[Mapping[str, XmlRecord]] = Non
     '''
     :param known: what the last scan read, by path relative to the repo; a file whose mtime and size are unchanged
         is not opened again.
-    :return: every readable `*.xml` in the repo (outside `.git`), by relative path. Empty if the repo is missing.
+    :return: every `*.xml` in the repo (outside `.git`), by relative path; one that is not readable XML has no id.
+        Empty if the repo is missing.
     '''
     known = known or {}
     found: Dict[str, XmlRecord] = {}
@@ -60,9 +61,9 @@ def scan_xml_repo(repo_path: str, known: Optional[Mapping[str, XmlRecord]] = Non
             if before is not None and before.mtime_ns == stat.st_mtime_ns and before.size == stat.st_size:
                 found[relative] = before
                 continue
-            parsed = parse_xml(path)
-            if parsed is not None:
-                found[relative] = XmlRecord(stat.st_mtime_ns, stat.st_size, *parsed)
+            # a file that will not parse is remembered too, as one with no id (which can never match), so it is not
+            # opened again at every scan until it changes
+            found[relative] = XmlRecord(stat.st_mtime_ns, stat.st_size, *(parse_xml(path) or ('', False)))
     return found
 
 

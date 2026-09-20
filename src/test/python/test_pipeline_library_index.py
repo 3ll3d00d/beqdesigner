@@ -24,7 +24,8 @@ from pipeline.library.state import NEEDS
 from pipeline.library.status import ScanSettings, failure_key, unit_fingerprint
 from pipeline.publish.git import commit_paths
 from pipeline.review import read_entry, update_entry, write_queue_entry
-from test_pipeline_library_commit import _publish, _queue_entry, _repo, _track, repos  # noqa: F401 (a fixture)
+from test_pipeline_library_commit import IMAGES_NAME, OWNER, _publish, _queue_entry, _repo, _track, \
+    repos  # noqa: F401 (a fixture)
 
 CONFIG = AnalysisConfig()
 DESIGNER = 'test.designer'
@@ -230,7 +231,8 @@ def _published(env, repos, *names, **extra):
     for item in items:
         update_entry(env.queue, item.id, source_fingerprint=item.fingerprint)
     settings = ScanSettings(work_dir=env.work, queue_dir=env.queue, designer=DESIGNER, xml_repo=xml.local_path,
-                            xml_dir='xml', images_repo=images.local_path, image_dir='img')
+                            xml_dir='xml', images_repo=images.local_path, image_dir='img', image_owner=OWNER,
+                            image_repo_name=IMAGES_NAME)   # what `_publish` is given: they are in the digest
     return items, settings
 
 
@@ -301,9 +303,12 @@ def test_the_current_digest_matches_what_publish_recorded_even_with_a_project_an
     (item,), settings = _published(env, repos, 'a', meta_defaults={'source': 'Blu-ray'})
     entry = read_entry(env.queue, 'fs-a')
 
-    assert current_publish_digest(entry, meta_defaults={'source': 'Blu-ray'}, has_image=True) == entry.published_digest
-    assert current_publish_digest(entry, meta_defaults={'source': 'Disc'}, has_image=True) != entry.published_digest
-    assert current_publish_digest(entry, meta_defaults={'source': 'Blu-ray'}, has_image=False) != entry.published_digest
+    owner = dict(image_owner=OWNER, image_repo_name=IMAGES_NAME)   # what `_publish` is given
+    assert current_publish_digest(entry, meta_defaults={'source': 'Blu-ray'}, has_image=True,
+                                  **owner) == entry.published_digest
+    assert current_publish_digest(entry, meta_defaults={'source': 'Disc'}, has_image=True, **owner) != entry.published_digest
+    assert current_publish_digest(entry, meta_defaults={'source': 'Blu-ray'}, has_image=False,
+                                  **owner) != entry.published_digest
 
 
 def test_a_published_title_whose_file_left_the_repository_needs_publish(env, repos):
@@ -509,13 +514,13 @@ def test_a_title_that_left_its_source_with_outputs_is_kept_as_done_and_gone(env)
     _scan(env, item)
     assert _needs(env, 'fs-a')[0] == 'review'
 
-    result = _scan(env)  # the library no longer has it
+    result = _scan(env, allow_empty=True)  # the library no longer has it (and really is empty: see the empty-listing test)
 
     row = _row(env, 'fs-a')
     assert (row.needs, row.flags, row.detail) == ('done', ['Gone'], 'gone from source')
     assert result.gone == ['fs-a']
     assert row.review_state == 'pending'  # its state is as it was; it is just no longer this catalogue's work
-    assert _scan(env).gone == []  # already reported once
+    assert _scan(env, allow_empty=True).gone == []  # already reported once
 
 
 def test_a_title_that_left_its_source_with_no_outputs_is_dropped(env):

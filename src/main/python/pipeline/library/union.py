@@ -166,6 +166,11 @@ class UnionResult:
         return [t for t in self.titles if not t.ignored]
 
 
+def ignore_label(reason: str = '') -> str:
+    ''' The label of a title ignored by id (the profile's `ignore_titles`), with the reason if it has one. '''
+    return 'ignored by you' + (f': {reason}' if reason else '')
+
+
 def union_of(listings: Sequence[Tuple[str, Sequence[LibraryItem]]], *, ignore: Iterable[IgnoreRule] = (),
              ignored_titles: Optional[Mapping[str, str]] = None, claims: Claims = Claims()) -> UnionResult:
     '''
@@ -214,7 +219,7 @@ def union_of(listings: Sequence[Tuple[str, Sequence[LibraryItem]]], *, ignore: I
     for source, item in kept:
         ignored = ''
         if item.id in ignored_titles:
-            ignored = 'ignored by you' + (f': {ignored_titles[item.id]}' if ignored_titles[item.id] else '')
+            ignored = ignore_label(ignored_titles[item.id])
         elif (rule := evaluate(rules, item, source)) is not None:
             ignored = explain(rule)
         titles.append(UnionTitle(item, source, tuple(also_in.get(item.id, ())), ignored,

@@ -33,6 +33,7 @@ from pipeline.library.source import LibraryItem
 from pipeline.library.state import StageStates
 from pipeline.publish.catalogue import catalogue_paths
 from pipeline.publish.git import RepoState, RepoTarget, repo_state
+from pipeline.publish.report import ReportSpec
 from pipeline.review import QueueEntry, read_entry
 
 _ANALYSIS_FIELDS = ('target_fs', 'resolution', 'avg_window', 'peak_window')
@@ -43,6 +44,23 @@ def analysis_from_values(values: Mapping[str, Any]) -> AnalysisConfig:
     configured = values.get('analysis') or {}
     fields = {name: values.get(name, configured.get(name)) for name in _ANALYSIS_FIELDS}
     return AnalysisConfig(**{name: value for name, value in fields.items() if value is not None})
+
+
+def report_spec_from_values(values: Mapping[str, Any]) -> Optional[ReportSpec]:
+    '''
+    The report image's layout from a `report_spec:` mapping of `ReportSpec` fields (in `run:`/`sync:`), or None -- the
+    default -- if there is none. Publish and discovery must be given the same one: it is in the published digest.
+    :raises ValueError: for a field ReportSpec does not have or a value of the wrong kind.
+    '''
+    given = values.get('report_spec')
+    if not given:
+        return None
+    if not isinstance(given, Mapping):
+        raise ValueError(f'report_spec must be a mapping of report layout fields, got {given!r}')
+    try:
+        return ReportSpec(**given)
+    except TypeError as error:
+        raise ValueError(f'report_spec is not valid: {error}')
 
 
 @dataclass(frozen=True)
@@ -63,6 +81,11 @@ class ScanSettings:
     images_repo: str = ''
     image_dir: str = ''
     meta_defaults: Optional[dict] = None
+    # what `publish` is given besides the above, because each is in the published digest (publish_digest()). Unset --
+    # the default -- keeps a digest recorded before they were counted valid, so give them exactly as `publish` gets them.
+    image_owner: str = ''
+    image_repo_name: str = ''
+    report_spec: Optional[ReportSpec] = None    # None: the default ReportSpec()
 
     @classmethod
     def from_values(cls, values: Mapping[str, Any]) -> 'ScanSettings':
@@ -76,7 +99,8 @@ class ScanSettings:
             keep_multichannel=bool(values.get('keep_multichannel', False)),
             tv_mode=values.get('tv_mode') or DEFAULT_TV_MODE, xml_repo=text('xml_repo'), xml_dir=text('xml_dir'),
             images_repo=text('images_repo'), image_dir=text('image_dir'),
-            meta_defaults=values.get('meta_defaults') or None)
+            meta_defaults=values.get('meta_defaults') or None, image_owner=text('image_owner'),
+            image_repo_name=text('image_repo_name'), report_spec=report_spec_from_values(values))
 
     @classmethod
     def from_profile(cls, profile) -> 'ScanSettings':
@@ -109,6 +133,23 @@ def unit_fingerprint(unit: Unit) -> str:
         parts = [[m.episodes[0], safe_fingerprint(m)] for m in unit.members]
         return hashlib.sha256(json.dumps(parts).encode('utf-8')).hexdigest()[:32]
     return safe_fingerprint(unit)
+
+
+SEASON_FINGERPRINT_PREFIX = 'season:'
+
+
+def season_source_fingerprint(group: SeasonGroup) -> str:
+    '''
+    What a season's source is, cheaply, from its members' own fingerprints (an item listing's, or one `stat` each) and
+    which episodes they are; the same computation at design time (recorded as the entry's `source_fingerprint`) and at
+    scan time, so a re-ripped episode is seen as "source changed since accepted" without the season being extracted
+    again. Prefixed, so it cannot be mistaken for the joined track's fingerprint an older entry recorded.
+    :return: '' -- unknown -- if any member's fingerprint is unknown (an offline source): nothing is compared then.
+    '''
+    parts = [[m.episodes[0], safe_fingerprint(m)] for m in group.members]
+    if any(not fingerprint for _, fingerprint in parts):
+        return ''
+    return SEASON_FINGERPRINT_PREFIX + hashlib.sha256(json.dumps(parts).encode('utf-8')).hexdigest()[:32]
 
 
 def failure_key(stage: str, item: LibraryItem, *, config: AnalysisConfig, designer: str, coverage: str,
@@ -166,42 +207,53 @@ class EntryFacts:
     meta: Dict[str, Any]
     mtime_ns: int
     size: int
+    inode: int = 0      # with the change time, so an entry rewritten in place with a same-length value, within a
+    ctime_ns: int = 0   # coarse filesystem's one mtime tick, is still noticed (write_queue_entry replaces the file)
 
     @classmethod
-    def of(cls, entry: QueueEntry, mtime_ns: int, size: int) -> 'EntryFacts':
+    def of(cls, entry: QueueEntry, mtime_ns: int, size: int, inode: int = 0, ctime_ns: int = 0) -> 'EntryFacts':
         return cls(entry.status, entry.chosen_candidate_index,
                    entry.candidates[0].confidence if entry.candidates else None, len(entry.candidates),
                    (entry.decline_message or entry.decline_reason or '') if not entry.candidates else '',
                    entry.design_fingerprint, entry.source_fingerprint, entry.published_digest, entry.art_path,
-                   dict(entry.meta), mtime_ns, size)
+                   dict(entry.meta), mtime_ns, size, inode, ctime_ns)
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), sort_keys=True)
 
     @classmethod
-    def from_json(cls, text: str) -> 'EntryFacts':
-        return cls(**json.loads(text))
+    def from_json(cls, text: str) -> Optional['EntryFacts']:
+        '''
+        :return: None if the text is not a summary this version wrote (stale, corrupt): a cache miss, so the entry is
+            read again, and never an error that would stop a scan.
+        '''
+        try:
+            return cls(**json.loads(text))
+        except (TypeError, ValueError, KeyError):
+            return None
 
 
-def _stat_signature(path: Optional[str]) -> Optional[Tuple[int, int]]:
+def _stat_signature(path: Optional[str]) -> Optional[Tuple[int, int, int, int]]:
+    ''' (mtime_ns, size, inode, ctime_ns): what says a file is the one seen last time. '''
     if not path:
         return None
     try:
         stat = os.stat(path)
     except OSError:
         return None
-    return stat.st_mtime_ns, stat.st_size
+    return stat.st_mtime_ns, stat.st_size, stat.st_ino, stat.st_ctime_ns
 
 
 def read_entry_facts(queue_dir: str, entry_id: str, cached: Optional[EntryFacts] = None) -> Optional[EntryFacts]:
     '''
-    :param cached: what was read last time; used as it is if the entry's file has the same mtime and size.
+    :param cached: what was read last time; used as it is if the entry's file has the same mtime, size, inode and
+        change time.
     :return: None if the title has no queue entry (or an unreadable one -- which is not this function's to report).
     '''
     signature = _stat_signature(os.path.join(queue_dir, f'{entry_id}.json')) if queue_dir else None
     if signature is None:
         return None
-    if cached is not None and (cached.mtime_ns, cached.size) == signature:
+    if cached is not None and (cached.mtime_ns, cached.size, cached.inode, cached.ctime_ns) == signature:
         return cached
     try:
         return EntryFacts.of(read_entry(queue_dir, entry_id), *signature)
@@ -310,10 +362,13 @@ class Evaluator:
         return self.__repo_states[path]
 
     def _commit_state(self, entry_id: str) -> Tuple[str, str]:
-        ''' :return: (commit state, why, if it is not obvious) of a published title, worst of its XML and image. '''
+        '''
+        :return: (commit state, why, if it is not obvious) of a published title, worst of its XML and image. With no XML
+            repository configured there is nothing to commit to: `none`, which `derive_needs` does not ask to commit.
+        '''
         settings = self.settings
         if not settings.xml_repo:
-            return 'unknown', 'no XML repository is configured'
+            return 'none', ''   # nothing to commit to: not applicable, so a published title is not "commit" for ever
         xml_path, image_path = catalogue_paths(entry_id, settings.xml_dir, settings.image_dir)
         worst, detail = 'pushed', ''
         for repo, path in ((settings.xml_repo, xml_path), (settings.images_repo, image_path)):
@@ -343,16 +398,20 @@ class Evaluator:
         if settings.work_dir:
             _, mono, mc, mc_wav = project_paths(settings.work_dir, entry_id)
         key = hashlib.sha256(json.dumps([
-            facts.mtime_ns, facts.size, _stat_signature(facts.art_path), _stat_signature(mono), _stat_signature(mc),
-            bool(mc_wav and os.path.isfile(mc_wav)), settings.meta_defaults, settings.has_image,
-            bool(settings.work_dir)], sort_keys=True, default=str).encode('utf-8')).hexdigest()
+            facts.mtime_ns, facts.size, facts.inode, facts.ctime_ns, _stat_signature(facts.art_path),
+            _stat_signature(mono), _stat_signature(mc), bool(mc_wav and os.path.isfile(mc_wav)),
+            settings.meta_defaults, settings.has_image, bool(settings.work_dir), settings.image_owner,
+            settings.image_repo_name, asdict(settings.report_spec) if settings.report_spec else None],
+            sort_keys=True, default=str).encode('utf-8')).hexdigest()
         if previous_key == key:
             return key, previous_digest, previous_conflict
         try:
             entry = read_entry(settings.queue_dir, entry_id)
             return key, current_publish_digest(entry, meta_defaults=settings.meta_defaults,
-                                               work_dir=settings.work_dir or None,
-                                               has_image=settings.has_image), False
+                                               work_dir=settings.work_dir or None, has_image=settings.has_image,
+                                               report_spec=settings.report_spec,
+                                               image_owner=settings.image_owner or None,
+                                               image_repo_name=settings.image_repo_name or None), False
         except ProjectFilterConflict:
             return key, '', True
         except Exception:  # a digest that cannot be worked out must not stop discovery: it just cannot compare
@@ -405,11 +464,13 @@ class Evaluator:
         item = unit.item if season else unit
         fingerprint = unit_fingerprint(unit)
         cached = EntryFacts.from_json(previous['entry_summary']) if previous and previous.get('entry_summary') else None
+        # (a summary this version cannot read is a cache miss)
         facts = read_entry_facts(settings.queue_dir, item.id, cached)
 
         if season:
             extract, track, extracted = self._extract_season(unit)
-            design_source, changed_source = track, track
+            design_source = track
+            changed_source = season_source_fingerprint(unit)   # from the members' own fingerprints: no need to extract
             multichannel = [False]
         else:
             extract, manifest = self._extract_item(item, fingerprint)
@@ -443,8 +504,10 @@ class Evaluator:
         meta = facts.meta if facts is not None else {}
         problems = metadata_problems(meta, settings.meta_defaults) \
             if facts is not None and facts.status in ('pending', 'accepted', 'published') else ()
-        source_changed = bool(facts is not None and facts.status in _PUBLISHED and facts.source_fingerprint
-                              and changed_source and changed_source != facts.source_fingerprint)
+        recorded = facts.source_fingerprint if facts is not None and facts.status in _PUBLISHED else None
+        if season and recorded and not recorded.startswith(SEASON_FINGERPRINT_PREFIX):
+            changed_source = design_source   # recorded before seasons had their own: the joined track's, if it is known
+        source_changed = bool(recorded and changed_source and changed_source != recorded)
         states = StageStates(
             extract=extract, design=design, review='none' if facts is None else
             ('accepted' if facts.status == 'published' else facts.status), publish=publish['publish'],

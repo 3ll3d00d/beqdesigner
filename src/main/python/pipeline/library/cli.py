@@ -15,7 +15,7 @@ from pipeline.config import AnalysisConfig
 from pipeline.designer.http_binding import http_designer
 from pipeline.designer.registry import register_designer, registered_designers
 from pipeline.library.bulk import DEFAULT_ACCEPT_THRESHOLD, accept_top_pick, plan_accept
-from pipeline.library.index import LibraryIndex, index_path
+from pipeline.library.index import IndexFileError, LibraryIndex, index_path
 from pipeline.library.profile import Profile, SourceSpec, build_source, profile_from_config, read_config_file
 from pipeline.library.revise import REVISE_TARGETS, revise_entry
 from pipeline.library.run import LibraryRunConfig, run_library
@@ -23,11 +23,12 @@ from pipeline.library.season import DEFAULT_TV_MODE, TV_MODES
 from pipeline.library.selection import THROUGH, Selection
 from pipeline.library.stages import PublishSettings, run_stages
 from pipeline.library.state import NEEDS
-from pipeline.library.status import ScanSettings, analysis_from_values
+from pipeline.library.status import ScanSettings, analysis_from_values, report_spec_from_values
 from pipeline.library.sync import commit_library, publish_library, sync_library
 from pipeline.library.union import UnionLibrarySource
 from pipeline.review import describe_publish_error
 from pipeline.publish.git import RepoTarget
+from pipeline.publish.report import ReportSpec
 
 
 GIT_FAILED = 3   # exit status: git refused (a rejected push, a repository that is not one), or a file it will not commit
@@ -245,7 +246,8 @@ def _publish_kwargs(values: dict[str, Any]) -> dict[str, Any]:
         meta_defaults=values.get('meta_defaults'), images_repo=_repo(values, 'images_repo'),
         image_owner=values.get('image_owner'), image_repo_name=values.get('image_repo_name'),
         xml_dir=values.get('xml_dir', ''), image_dir=values.get('image_dir', ''), config=_analysis_config(values),
-        work_dir=values.get('work_dir'), ids=values.get('ids') or None, republish=bool(values.get('republish', False)))
+        work_dir=values.get('work_dir'), ids=values.get('ids') or None, republish=bool(values.get('republish', False)),
+        report_spec=report_spec_from_values(values) or ReportSpec())
 
 
 def _print_results(results: list[dict]) -> None:
@@ -364,7 +366,7 @@ def _scan(args: argparse.Namespace, config: dict[str, Any]) -> int:
         if unknown:
             raise ValueError(f"no such source: {', '.join(sorted(unknown))} "
                              f"(the profile has: {', '.join(spec.name for spec in profile.sources)})")
-        result = index.scan(profile, settings, only=args.only_sources)
+        result = index.scan(profile, settings, only=args.only_sources, allow_empty=bool(args.allow_empty))
     print(json.dumps(asdict(result), sort_keys=True))
     return 1 if result.errors else 0
 
@@ -410,8 +412,12 @@ def _status(args: argparse.Namespace, config: dict[str, Any]) -> int:
     if not os.path.isfile(path):
         print(f'no index at {path}: run `scan` first')
         return 1
-    with LibraryIndex(path) as index:
-        summary = index.summary()
+    try:
+        with LibraryIndex(path, readonly=True) as index:   # status never creates, migrates or drops an index
+            summary = index.summary()
+    except IndexFileError as error:
+        print(f'{error}')
+        return 1
     if args.json:
         print(json.dumps(asdict(summary), sort_keys=True))
         return 0
@@ -497,7 +503,7 @@ reading a media file. The result is a disposable SQLite index in the work direct
 it costs only a rescan. Reads the same config or profile file as `run` (`--config FILE` before the command, or
 `--profile FILE`): `sources:`, `ignore:`, `run:` and `sync:`. Every option can also be set in those sections under the
 same name with underscores; a flag overrides the file. A source that cannot be listed keeps the titles it had and is
-reported. Exit status: 0, 1 if a source could not be listed, 2 for a bad option or config. Prints the result as JSON.
+reported; so does one that lists nothing when it listed some last time (an unmounted share), unless `--allow-empty`. Exit status: 0, 1 if a source could not be listed, 2 for a bad option or config. Prints the result as JSON.
 """
 
 _STATUS_EPILOG = """\
@@ -696,6 +702,10 @@ def _add_scan_options(parser: argparse.ArgumentParser) -> None:
                       help='instead of listing any source, rebuild the index from the outputs alone (the review '
                            'queue, extract manifests, projects and repositories); what has no queue entry reappears '
                            'at the next scan')
+    what.add_argument('--allow-empty', action='store_true',
+                      help='accept a source that lists no items at all even though it listed some at the last scan '
+                           '(normally that is taken to be an unmounted share or a failed query, so the previous listing '
+                           'is kept and the source reported as failed)')
     where = parser.add_argument_group('where things are')
     where.add_argument('--work-dir', help='directory for extracted audio, caches and the index (required)')
     where.add_argument('--queue-dir', help='review queue directory')
@@ -713,7 +723,7 @@ def _add_settings_options(parser: argparse.ArgumentParser) -> None:
                           help='whether `run` also keeps the multichannel extraction (default: no)')
     settings.add_argument('--tv-mode', choices=TV_MODES,
                           help='episode: a title per TV episode (default); season: one per season')
-    _add_repo_options(parser, with_image_url_options=False, xml_repo_required=False)
+    _add_repo_options(parser, with_image_url_options=True, xml_repo_required=False)   # the image owner/repo are in the digest
     _add_analysis_options(parser)
 
 
@@ -786,7 +796,7 @@ def main(argv: list[str] | None = None) -> int:
         build_parser().error(f'cannot read {args.profile or args.config}: {error}')
     try:
         return _COMMANDS[args.command](args, config)
-    except ValueError as error:
+    except (ValueError, IndexFileError) as error:   # the latter: the index file is not one this may overwrite
         build_parser().error(str(error))
     except subprocess.CalledProcessError as error:   # git, where a command has not already handled it
         _say(f'error: {error}')

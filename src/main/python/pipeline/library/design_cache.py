@@ -90,8 +90,18 @@ def design_status(item: LibraryItem, existing: Optional[QueueEntry], designer: s
     The pure half of design_if_needed(): compares `existing` (the title's queue entry, or None) with the fingerprint
     a design run now would record. Reads and changes nothing.
     :param multichannel: as design_fingerprint().
-    :param source: the item's source fingerprint if the caller already has it, as design_fingerprint().
+    :param source: the item's source fingerprint if the caller already has it, as design_fingerprint(). An **empty**
+        one means *unknown* (a source that cannot be read, an offline share) and is **not compared**, exactly as
+        extract_status() does: the entry's own recorded source fingerprint stands in for it, so only a change of settings
+        makes the design stale; an entry that recorded none (designed before it was) is taken as current.
     '''
+    if source == '' and existing is not None and existing.status not in PROTECTED_STATUSES:
+        recorded = getattr(existing, 'source_fingerprint', None)
+        if recorded:
+            source = recorded
+        else:
+            fingerprint = design_fingerprint(item, designer, config, coverage, multichannel=multichannel, source='')
+            return DesignStatus('current' if existing.design_fingerprint else 'stale', fingerprint, existing)
     fingerprint = design_fingerprint(item, designer, config, coverage, multichannel=multichannel, source=source)
     if existing is None:
         return DesignStatus('none', fingerprint)
@@ -104,7 +114,8 @@ def design_if_needed(session: Session, item: LibraryItem, wav_path: str, designe
                      config: AnalysisConfig, coverage: Coverage = 'complete_programme', *, force: bool = False,
                      meta: MetaSource = None, bass_management: Optional[dict] = None,
                      channels: Optional[dict] = None, multichannel_wav_path: Optional[str] = None,
-                     channel_layout_name: str = 'unknown', project_dir: Optional[str] = None) -> DesignCacheResult:
+                     channel_layout_name: str = 'unknown', project_dir: Optional[str] = None,
+                     recorded_source: Optional[str] = None) -> DesignCacheResult:
     '''
     Design only when no compatible queue entry already exists (see design_status()).
 
@@ -123,6 +134,8 @@ def design_if_needed(session: Session, item: LibraryItem, wav_path: str, designe
 
     :param meta: the entry's metadata, or a zero-argument callable returning it, called only if this call
         actually designs.
+    :param recorded_source: what to record as the entry's `source_fingerprint` (the fingerprint "accepted" is later
+        compared with); default the item's own. A season records its members' (status.season_source_fingerprint()).
     '''
     try:
         existing = read_entry(queue_dir, item.id)
@@ -151,7 +164,7 @@ def design_if_needed(session: Session, item: LibraryItem, wav_path: str, designe
     if not (art_overridden or (art_path and os.path.isfile(art_path))):
         art_path = resolve_art(item, meta or {}, project_dir)
     kept = {'reviewer_note': existing.reviewer_note, 'revision': existing.revision} if existing is not None else {}
-    entry = update_entry(queue_dir, entry.id, design_fingerprint=fingerprint, source_fingerprint=source_fingerprint(item),
+    entry = update_entry(queue_dir, entry.id, design_fingerprint=fingerprint, source_fingerprint=recorded_source or source_fingerprint(item),
                          art_path=art_path,
                          art_overridden=art_overridden, **kept)
     return DesignCacheResult(entry, designed=True, projects=projects or None)

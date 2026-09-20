@@ -16,7 +16,8 @@ from pipeline.library.index import LibraryIndex
 from pipeline.library.library_metadata import library_meta, resolve_meta
 from pipeline.library.season import DEFAULT_TV_MODE, SeasonGroup, plan_units, season_track_if_needed, with_extracted
 from pipeline.library.source import LibraryItem, LibrarySource
-from pipeline.library.status import failure_applies, failure_key, safe_fingerprint, unit_fingerprint
+from pipeline.library.status import failure_applies, failure_key, safe_fingerprint, season_source_fingerprint, \
+    unit_fingerprint
 from pipeline.library.union import reconstruct_claims
 from pipeline.orchestrate import Session
 
@@ -183,7 +184,8 @@ def _run_season(session: Session, group: SeasonGroup, run_config: LibraryRunConf
         return
     if on_stage is not None:
         on_stage(group.item.id, 'design')
-    _design(session, item, track_path, run_config, report, group_dir)
+    _design(session, item, track_path, run_config, report, group_dir,
+            recorded_source=season_source_fingerprint(group) or None)
 
 
 def _extract_season(session: Session, group: SeasonGroup, run_config: LibraryRunConfig, report: LibraryRunReport,
@@ -221,14 +223,14 @@ def _extract_season(session: Session, group: SeasonGroup, run_config: LibraryRun
 
 def _design(session: Session, item: LibraryItem, wav_path: str, run_config: LibraryRunConfig,
             report: LibraryRunReport, project_dir: str, channels=None, multichannel_path=None,
-            channel_layout_name: str = 'unknown') -> None:
+            channel_layout_name: str = 'unknown', recorded_source=None) -> None:
     with _stage('design'):
         result = design_if_needed(
             session, item, wav_path, run_config.designer, run_config.queue_dir, run_config.config,
             coverage=run_config.coverage, force=run_config.force_design,
             meta=_meta_source(item, run_config, report), channels=channels,
             multichannel_wav_path=multichannel_path, channel_layout_name=channel_layout_name,
-            project_dir=project_dir,
+            project_dir=project_dir, recorded_source=recorded_source,
         )
     if result.designed:
         report.designed.append(item.id)
