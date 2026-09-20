@@ -117,3 +117,48 @@ def test_a_rule_round_trips_through_its_config_form():
     assert rule_from_config(config).to_config() == config
     assert rule_from_config(rule_from_config(config).to_config()) == rule_from_config(config)
     assert isinstance(rule_from_config(config), IgnoreRule)
+
+
+# --- review fixes: a glob naming a folder ignores what is under it; brackets are literal; bounded and safe --------------
+
+@pytest.mark.parametrize('pattern, path, expected', [
+    ('/films/Kids [HD]', '/films/Kids [HD]/x.mkv', True),      # brackets are literal, so this folder is found
+    ('/films/Kids [HD]', '/films/Kids H/x.mkv', False),         # ... and are not a character class
+    ('/films/Kids [HD]/**', '/films/Kids [HD]/a/x.mkv', True),
+    ('/films/*/extras', '/films/A/extras/x.mkv', True),         # the documented glob, naming a folder
+    ('/films/*/extras', '/films/A/extras', True),
+    ('/films/*/extras', '/films/A/other/x.mkv', False),
+    ('/films/Kids*', '/films/Kids/x.mkv', True),
+    ('/films/Kids*', '/films/Kids Corner/x.mkv', True),
+    ('/films/Kids*', '/films/Adult/x.mkv', False),
+    ('/films/[abc]*', '/films/[abc]1/x.mkv', True),
+    ('/films/[abc]*', '/films/a1/x.mkv', False),
+    ('/films/Kids/**', '/films/Kids', True),                    # the folder itself, e.g. a disc rip's root
+    ('**/extras', '/films/A/extras/x.mkv', True),
+])
+def test_a_path_pattern_matches_the_item_or_any_folder_above_it(pattern, path, expected):
+    assert _matches({'path': pattern}, _item(path)) is expected
+
+
+def test_an_item_with_no_path_is_matched_only_by_a_rule_that_matches_the_empty_path():
+    assert _matches({'path': '/films/Kids'}, _item('')) is False
+
+
+def test_a_year_of_superscript_digits_does_not_abort_the_scan():
+    # str.isdigit() is True for '²', and int('²') raises: one odd year in a library must not stop discovery
+    assert _matches({'year': '<1960'}, _item(year='²')) is False
+    assert _matches({'year': '<1960'}, _item(year='١٩٥٥')) is False    # non-ASCII decimal digits are not a year either
+
+
+def test_a_title_rule_reads_only_the_first_300_characters_of_a_title():
+    rule = {'title': 'needle'}
+    assert _matches(rule, _item(title='needle' + 'x' * 10000)) is True
+    assert _matches(rule, _item(title='x' * 10000 + 'needle')) is False
+
+
+def test_a_title_rule_with_a_backtracking_pattern_never_sees_the_part_of_the_title_that_would_blow_it_up():
+    import time
+    started = time.perf_counter()
+    # uncapped, `(a+)+$` on 40 'a' and a '!' is ~2**40 steps (minutes); the cap keeps it off this title's tail
+    assert _matches({'title': '(a+)+$'}, _item(title='x' * 300 + 'a' * 40 + '!')) is False
+    assert time.perf_counter() - started < 5

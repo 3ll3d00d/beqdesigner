@@ -52,7 +52,7 @@ def season_item_id(title: str, season: str) -> str:
     return f"{slug}-s{int(season):02d}-{digest}"
 
 
-_SEASON_ID = re.compile(r'^.+-s\d{2}-[0-9a-f]{6}$')
+_SEASON_ID = re.compile(r'^.+-s\d{2,}-[0-9a-f]{6}$')  # two digits, or more for a show numbered by year (s2024)
 
 
 def is_season_id(identifier: str) -> bool:
@@ -67,6 +67,12 @@ def _build_item(members: Sequence[LibraryItem], season_id_for: Optional[Callable
     for member in members:
         for identifier, value in member.external_ids.items():
             external_ids.setdefault(identifier, value)
+    art_path = next((m.art_path for m in members if m.art_path), None)
+    # every member's candidates, in episode order: resolve_art() checks them at design time and the first that exists
+    # wins, as it did when one episode after another was tried (a source that lists without touching the disk cannot
+    # say which member has artwork)
+    offered = [c for m in members for c in (m.art_path, *m.art_candidates)]
+    art_candidates = tuple(dict.fromkeys(c for c in offered if c and c != art_path))
     return LibraryItem(
         id=(season_id_for(first) if season_id_for else None) or season_item_id(first.title, first.season),
         source_path=first.source_path,
@@ -75,8 +81,8 @@ def _build_item(members: Sequence[LibraryItem], season_id_for: Optional[Callable
         year=next((m.year for m in members if m.year), None),
         kind='tv',
         external_ids=external_ids,
-        art_path=next((m.art_path for m in members if m.art_path), None),
-        art_candidates=next((m.art_candidates for m in members if m.art_candidates), ()),
+        art_path=art_path,
+        art_candidates=art_candidates,
         season=first.season,
         episodes=tuple(m.episodes[0] for m in members),
     )

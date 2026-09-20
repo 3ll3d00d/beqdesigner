@@ -194,3 +194,24 @@ def test_episodes_that_disagree_on_rate_or_channels_are_rejected(tmp_path):
 def test_a_track_needs_an_episode(tmp_path):
     with pytest.raises(ValueError, match='at least one episode'):
         season_track_if_needed([], str(tmp_path / 'season'))
+
+
+# --- review fixes -------------------------------------------------------------------------------------------------------
+
+def test_a_show_numbered_by_year_has_a_season_shaped_id():
+    from pipeline.library.season import is_season_id
+    sid = season_item_id('Some Show', '2024')
+    assert sid.startswith('some-show-s2024-') and is_season_id(sid)
+    assert is_season_id(season_item_id('Some Show', '1'))
+    assert not is_season_id('jriver-3fa9c2-1234')
+
+
+def test_a_seasons_artwork_candidates_come_from_every_episode_so_the_first_file_that_exists_wins(tmp_path):
+    from pipeline.library.artwork import resolve_art
+    poster = tmp_path / 'poster.jpg'
+    poster.write_bytes(b'x')
+    first = _ep('Show', 1, 1, art_candidates=('/nowhere/e1.jpg',))
+    second = _ep('Show', 1, 2, art_candidates=(str(poster),))   # only the second episode's artwork exists
+    (group,) = plan_units([first, second], 'season')
+    assert group.item.art_candidates == ('/nowhere/e1.jpg', str(poster))
+    assert resolve_art(group.item, {}, None) == str(poster)

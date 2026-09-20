@@ -9,8 +9,14 @@ A rule lists the fields it constrains, and matches when **all** of them match:
 
     source        the name of the source the item came from
     path          a folder prefix (`/films/Kids`) or a glob (`/films/Kids/**`, `/films/*/extras`), case-insensitive
-                  and indifferent to `\` versus `/`; a prefix matches the folder and everything under it
-    title         a regular expression, searched (not anchored), case-insensitive, against the item's title
+                  and indifferent to `\` versus `/`. It matches an item whose path, or any folder above it, matches:
+                  a pattern that names a folder ignores everything under it, glob or not. `*` is any run of
+                  characters within one folder, `**` any number of folders, `?` one character. **`[` and `]` are
+                  literal**, not a character class: a folder called `Movie [1080p]` is far commoner than a need to
+                  say "one of these letters", so `/films/Kids [HD]` just works
+    title         a regular expression, searched (not anchored), case-insensitive, against the first 300 characters of
+                  the item's title (a bound on how long a rule can take; a pattern that backtracks catastrophically,
+                  such as `(a+)+$`, is the rule author's responsibility)
     year          `1960` (equal), `<1960`, `<=1960`, `>1999`, `>=1999`, or `1990-1999` (inclusive); an item with no
                   numeric year never matches
     kind          `movie` or `tv`
@@ -29,7 +35,7 @@ from pipeline.library.source import LibraryItem
 _FIELDS = ('source', 'path', 'title', 'year', 'kind', 'external_ids')
 _KINDS = ('movie', 'tv')
 _YEAR = re.compile(r'^\s*(?:(?P<op><=|>=|<|>|==|=)?\s*(?P<a>\d{4})|(?P<lo>\d{4})\s*-\s*(?P<hi>\d{4}))\s*$')
-_GLOB_CHARS = '*?['
+_TITLE_LIMIT = 300  # characters of a title a rule looks at
 
 
 @dataclass(frozen=True)
@@ -65,9 +71,10 @@ class IgnoreRule:
             return False
         if self.kind is not None and self.kind != item.kind:
             return False
-        if self._path_re is not None and not self._path_re.match(_normal(item.source_path)):
+        if self._path_re is not None and not _path_matches(self._path_re, item.source_path):
             return False
-        if self._title_re is not None and not self._title_re.search(item.title or item.display_name or ''):
+        if self._title_re is not None and not self._title_re.search(
+                (item.title or item.display_name or '')[:_TITLE_LIMIT]):
             return False
         if self.year is not None and not _year_matches(str(self.year), item.year):
             return False
@@ -100,11 +107,12 @@ def _normal(path: str) -> str:
 
 def _path_pattern(pattern: str):
     normal = _normal(pattern)
-    if not any(c in normal for c in _GLOB_CHARS):
-        return re.compile(re.escape(normal) + r'(?:/.*)?$')  # the folder itself, or anything under it
     out, i = [], 0
     while i < len(normal):
-        if normal.startswith('**/', i):
+        if normal.startswith('/**', i) and i + 3 == len(normal):
+            out.append('(?:/.*)?')  # `/films/Kids/**` is the folder itself as well as what is under it
+            i += 3
+        elif normal.startswith('**/', i):
             out.append('(?:.*/)?')
             i += 3
         elif normal.startswith('**', i):
@@ -117,13 +125,25 @@ def _path_pattern(pattern: str):
             out.append('[^/]')
             i += 1
         else:
-            out.append(re.escape(normal[i]))
+            out.append(re.escape(normal[i]))  # including `[` and `]`: literal
             i += 1
-    return re.compile(''.join(out) + '$')
+    return re.compile(''.join(out))
+
+
+def _path_matches(compiled, path: str) -> bool:
+    ''' True if the pattern matches the path or any folder above it, so naming a folder ignores what is under it. '''
+    normal = _normal(path)
+    while True:
+        if compiled.fullmatch(normal):
+            return True
+        parent, separator, _ = normal.rpartition('/')
+        if not separator:
+            return False
+        normal = parent
 
 
 def _year_matches(expression: str, year: Optional[str]) -> bool:
-    if not year or not str(year).strip().isdigit():
+    if not year or not re.fullmatch(r'[0-9]+', str(year).strip()):  # ASCII digits: '²'.isdigit() is True
         return False
     value = int(str(year).strip())
     m = _YEAR.match(expression)
