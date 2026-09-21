@@ -311,6 +311,19 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         except FileNotFoundError as e:
             QMessageBox.critical(self, 'ffmpeg not found', str(e))
             return
+        except Exception as error:
+            # ffmpeg-python's Error.__str__ only says "see stdout/stderr";
+            # this desktop app owns neither stream, so surface the diagnostic
+            # where the person can actually act on it.
+            stderr = getattr(error, 'stderr', None)
+            stdout = getattr(error, 'stdout', None)
+            detail = stderr or stdout
+            if isinstance(detail, bytes):
+                detail = detail.decode('utf-8', errors='replace')
+            detail = (detail or str(error)).strip()
+            QMessageBox.critical(self, 'ffprobe failed', detail)
+            logger.error('ffprobe failed for %s: %s', file_name, detail)
+            return
         if self.__executor.has_audio():
             for a in self.__executor.audio_stream_data:
                 text, duration_micros = parse_audio_stream(self.__executor.probe, a)
