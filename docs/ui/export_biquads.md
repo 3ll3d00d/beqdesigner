@@ -14,7 +14,7 @@ A number of buttons across the top do the following, from left to right:
 
 * save the currently selected options as the default
 * Device selector: this allows you to choose from a preconfigured minidsp product (with values exported in the right format for that device) or to output the raw coefficients 
-* Show hex value? : this value is largely for debugging purposes with respect to certain minidsp devices and the [merge xml](./merge_minidsp_xml.md) function
+* Show hex value? : this value is largely for debugging purposes with respect to certain minidsp devices and the [merge xml](./merge_beq.md) function
 * save to file: saves the displayed text to a file
 * copy to clipboard: copies the displayed text to the system clipboard
 

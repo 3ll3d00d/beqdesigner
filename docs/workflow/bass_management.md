@@ -97,7 +97,7 @@ The *LPF* option controls when the LPF is applied, the options are:
 
 The low pass filter itself is a 4th order Linkwitz-Riley filter. This is not configurable.
 
-The corner frequency for this filter is configurable and is specified via the *BM LPF* option in [Preferences](../ui/preferences.md#filter).
+The corner frequency for this filter is configurable and is specified via the *BM LPF* option in [Preferences](../ui/preferences.md#filter-defaults).
 
 ##### Simulating Headroom
 

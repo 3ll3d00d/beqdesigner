@@ -16,6 +16,7 @@ BEQDesigner is a application which provides the means to:
 * analyse the effect of the BEQ filters on the audio track
 * remux movie tracks to include the BEQ'ed audio track
 * apply freely distributed BEQ filters to your own personal minidsp configuration
+* keep a whole library of films up to date with the [Library Work List](library/index.md): find what needs a BEQ, design filters for it in bulk, review them and publish them to your own catalogue
 
 ### When is BEQ applied?
 

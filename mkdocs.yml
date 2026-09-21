@@ -39,6 +39,16 @@ nav:
         - 'Manage HTP-1 Filters': ui/manage_htp1.md
         - 'Manage JRiver MC Filters': ui/manage_mc.md
       - 'Preferences': ui/preferences.md
+  - 'Library Work List':
+      - 'Overview': library/index.md
+      - 'Concepts': library/concepts.md
+      - 'Set up a Catalogue': library/setup.md
+      - 'Discover': library/discover.md
+      - 'Do the Work': library/work.md
+      - 'Review': library/review.md
+      - 'Publish and Commit': library/publish.md
+      - 'Revise': library/revise.md
+      - 'Unattended Runs': library/unattended.md
   - Workflow:
       - 'A Worked Example': workflow/beq.md
       - 'Remuxing': workflow/remux.md

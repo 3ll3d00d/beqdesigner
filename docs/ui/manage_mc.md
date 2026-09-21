@@ -54,17 +54,14 @@ DSP configuration can be loaded from a running Media Server if:
 
 To load such a config
 
-* click Download 
-* (on first use) enter the connection details for the Media Server, click test connection and then save assuming the test was successful
-
-![MCWSNew](../img/jriver_add_new_mcws.png)
-
+* click Download, a dialog lists the Media Center servers you have saved
+* (on first use the list is empty) add the server in [Preferences > JRiver](preferences.md#jriver), which is where servers are added, tested and removed, and click Download again. The dialog only lets you pick one of the saved servers.
 * select the Media server instance and the zones list should be updated
 * select a zone and click the download button
 
-The downloaded config should be now be shown in the result text field and the configuration loaded into the editor.
-
 ![MCWSDownload](../img/jriver_mcws_download.png)
+
+The downloaded config should be now be shown in the result text field and the configuration loaded into the editor.
 
 If the selected zone has no active Parametric Equalizer sections, an error dialog will be displayed
 
@@ -242,7 +239,7 @@ The configuration can be loaded into a zone in a running Media Server if
 * Media Center v28 is installed
 * [Media Network](https://wiki.jriver.com/index.php/Media_Network) is activated
 
-To do so, click the upload button and select a server & zone then click the upload button. The button should turn green if the configuration is uploaded successfully.
+To do so, click the upload button and select a server (one saved in [Preferences > JRiver](preferences.md#jriver)) & zone then click the upload button. The button should turn green if the configuration is uploaded successfully.
 
 ![MCWSUp](../img/jriver_mcws_upload.png)
 

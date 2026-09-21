@@ -123,17 +123,20 @@ the old items 10-14.)
 
 *Documentation*
 
-T1. **User documentation (mkdocs, `docs/`) does not cover any of the library
-    work, and one page is now wrong.** Missing: the Library Sync dialog (now the Library Work List),
-    the Review Batch Designs dialog (now the title page and the Review Folder window) and its metadata/artwork/Episodes editor,
-    Preferences -> Designers and -> JRiver (servers, aliases, path mappings,
-    metadata fields), the source picker, TV mode, and DVD/Blu-ray discs in Batch
-    Extract. **Wrong:** `docs/ui/manage_mc.md` ("on first use enter the
-    connection details ... click test connection and then save", with a
-    screenshot, `jriver_add_new_mcws.png`) describes controls this work moved
-    to Preferences -> JRiver; that page and its screenshot need updating, and
-    `preferences.md` needs the new pages. The CLI is documented (README, `--help`);
-    the GUI is not.
+T1. ~~**User documentation (mkdocs, `docs/`) does not cover any of the library
+    work, and one page is now wrong.**~~ **Closed 2026-09-21 (chunk 28, not yet committed).**
+    `docs/library/` (overview, concepts, set up a catalogue, discover, do the work, review, publish and commit,
+    revise, unattended) is the user guide, linked from `mkdocs.yml` and `docs/index.md`; `manage_mc.md` and its
+    screenshots describe the server picker that moved to Preferences -> JRiver; `preferences.md` has the Designers and
+    JRiver pages; `extract_audio.md` and `batch_extract.md` cover the design step, the Review Folder hand-over and
+    DVD/Blu-ray discs. The CLI stays documented in `pipeline/README.md`, which `unattended.md` links to.
+    `mkdocs build --strict` passes. **What the user docs still lack:** anything a person has checked in the running
+    app (T2); a screenshot of a run in progress or of a dark palette; the older 2020 pages' dark screenshots; the
+    `revise`/`accept`/`publish` commands beyond "not for a schedule"; and the profile keys the drawer does not edit
+    (`meta_defaults`, `audio_types`, `commit_message`), which are left to the pipeline README. Found while writing
+    them, left as they are (the list is in `implementation-order.md`, chunk 28): a stray progress bar and *Cancel*
+    after a status message that is not a run, a TMDB key row that points at Preferences where there is no field, and
+    the design/build differences in §12.4 and §12.10.
 
 *Verification not done*
 

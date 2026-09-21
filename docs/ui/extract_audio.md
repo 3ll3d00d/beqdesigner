@@ -15,7 +15,7 @@ Commonly used formats (mkv, BD folder rips) are supported.
 
 ### Selecting the Content
 
-To get started, click the button on the top row to select a file. 
+To get started, click the button on the top row to select a file. To use a Blu-ray disc rip instead, click the disc button next to it and choose the folder that contains the `BDMV` folder, then pick which title (playlist) to extract.
 BEQDesigner uses `ffprobe` to determine what content is present in the file and makes this information available on screen.
 
 ![Probed](../img/extract_audio_2.png)
@@ -43,6 +43,19 @@ Click extract to execute that command, the progress bar will update as the extra
 * written back over the network to the file server
 
 Alternatively if the file is on a local SSD and you write back to that SSD, processing should be pretty quick.
+
+### Designing Filters
+
+If at least one designer has been added in [Preferences > Designers](./preferences.md#designers), the dialog also has a *Design filters?* checkbox, a drop-down to choose the designer and a *Queue Directory*. Tick it to have a designer propose filters for the file as soon as it has been extracted:
+
+![Design](../img/extract_audio_design.png)
+
+* Designer: which designer to ask, the default is set in Preferences.
+* Queue Directory: the folder that the result is written to, the default is set in Preferences and a folder you choose here is remembered.
+
+When the extraction finishes, BEQDesigner extracts a mono mix of the audio for the designer if the file you kept is not already mono, asks the designer, and writes one *review entry* to the queue directory, named after the output file. It then asks *Open it for review now?*. Answer yes to open the [Review Folder](../library/review.md#review-folder) window on that folder, where you can look at the candidates, complete the metadata (a designed file does not know its title, year or audio type yet, so these have to be filled in before it can be accepted), and accept it.
+
+The checkbox is cleared each time you choose a file and is not available in [Remux Audio](./remux_audio.md), which applies a filter that has already been designed. For many files at once, use [Batch Extract](./batch_extract.md#designing-filters).
 
 ### Creating Signal(s)
 

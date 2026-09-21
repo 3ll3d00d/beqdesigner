@@ -61,7 +61,7 @@ If the update was unsuccessful for any reason, the icon will turn into a red x.
 
 This mode allows an existing BEQ filter to be added to the currently selected channel. 
 
-This relies on the presence of the BEQ filters shared in minidsp xml format, download these using [the Preferences dialog](preferences.md#BEQ-Files)   
+This relies on the presence of the BEQ filters shared in minidsp xml format, download these using [the Preferences dialog](preferences.md#beq)
 
 !!! info
     The HTP-1 has supported shelf filters since v1.4.1 of its firmware. 
@@ -104,10 +104,9 @@ This does the following:
 
 You can now close the dialog and continue editing in BEQDesigner as normal, this enables access to features like
 
-  1. [Sharing filters across signals](ui/main_window.md#linking-signals)
-  2. [Simulating Bass Management](workflow/bass_management.md)
-  3. [Loading and Saving Filter Configurations](ui/load_save.md)
-  
+  1. [Sharing filters across signals](./main_window.md#linking-signals)
+  2. [Simulating Bass Management](../workflow/bass_management.md)
+  3. [Loading and Saving Filter Configurations](./load_save.md)
 #### Updating Filters in Signal Mode
 
 Filter operations (add/remove BEQ, sync to HTP-1) in signal mode operate on all selected channels in the `Signal Mapping` box.
@@ -118,7 +117,7 @@ This allows you to update **all** channels with one click or add a BEQ filter to
 
 An alternative to downloading all channels from the device is as follows
 
-  1. Follow the usual [beq workflow](workflow/beq.md) 
+  1. Follow the usual [beq workflow](../workflow/beq.md)
   2. Connect to the HTP-1
   3. Double click a sub channel in the signal mapping dialog
   4. Select all sub channels and the named signal, click `Save`
