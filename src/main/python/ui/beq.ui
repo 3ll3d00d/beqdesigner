@@ -1453,6 +1453,9 @@
    <property name="text">
     <string>Library &amp;Work List</string>
    </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+W</string>
+   </property>
    <property name="toolTip">
     <string>What each title in the library needs next, with actions to extract, design, publish and commit</string>
    </property>

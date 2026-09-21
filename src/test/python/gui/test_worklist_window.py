@@ -518,6 +518,7 @@ def test_the_tools_menu_has_the_work_list_as_its_only_library_entry_and_it_opens
         actions = main.menu_Tools.actions()
         assert main.action_Work_List in actions and not hasattr(main, 'action_Library_Sync')   # the classic dialog is gone (27c)
         assert main.action_Work_List.text() == 'Library &Work List'
+        assert main.action_Work_List.shortcut().toString() == 'Ctrl+Shift+W'
 
         main.action_Work_List.trigger()
 

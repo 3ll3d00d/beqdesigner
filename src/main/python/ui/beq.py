@@ -902,6 +902,7 @@ class Ui_MainWindow(object):
         self.action_Batch_Extract.setText(_translate("MainWindow", "&Batch Extract / Design"))
         self.action_Batch_Extract.setShortcut(_translate("MainWindow", "Ctrl+Shift+E"))
         self.action_Work_List.setText(_translate("MainWindow", "Library &Work List"))
+        self.action_Work_List.setShortcut(_translate("MainWindow", "Ctrl+Shift+W"))
         self.action_Work_List.setToolTip(_translate("MainWindow", "What each title in the library needs next, with actions to extract, design, publish and commit"))
         self.action_Review_Folder.setText(_translate("MainWindow", "Re&view Folder..."))
         self.action_Review_Folder.setToolTip(_translate("MainWindow", "Review the designs in a queue directory (for example the one Batch Extract and Design wrote): choose a candidate for each title, edit its metadata and artwork, then publish and commit the accepted ones"))
