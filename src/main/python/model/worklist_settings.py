@@ -9,8 +9,8 @@ sections, the rest of `run:` and `sync:` -- is kept, because every edit is a new
   `rule_from_config` accepts, sources with unique names), then the *whole* profile is checked to read back
   (`profile_from_config(profile.to_config())`), and a short moment later written atomically (`save_profile`: a temporary
   file, then `os.replace`). A profile that would not read back is not written: the reason is shown instead. The first save,
-  when no profile file exists yet (the work list was running from the saved library preferences), asks where to put one
-  (the app's configuration folder is offered), and stores the path in `LIBRARY_PROFILE_PATH`.
+  when no profile file exists yet (the work list was running from the saved library preferences), writes to the app's
+  configuration folder and stores the path in `LIBRARY_PROFILE_PATH`; **Change...** is the explicit way to choose another.
 * **What the window does with it.** `saved(path)` says the file was written: the window reads the setup again, and says the
   list is out of date (Rescan) if what a scan describes changed. The drawer disables itself while a run or scan is going.
 
@@ -125,8 +125,8 @@ class SettingsDrawer(QWidget):
     '''
     The settings editor, meant to sit in a dock beside the work list.
     :param rows_provider: the index's rows as the window shows them, for the live "would ignore N titles" count.
-    :param choose_path: `(default, overwrite_ok) -> path` asks where the profile file goes ('' = cancelled); a dialog by
-        default (tests hand in a function).
+    :param choose_path: `(default, overwrite_ok) -> path` asks where an explicitly changed profile file goes ('' =
+        cancelled); a dialog by default (tests hand in a function).
     :param run_dialog: how the source and rule dialogs are run (tests fill them in and accept them).
     :param debounce_ms: how long after the last edit the file is written.
     '''
@@ -325,8 +325,8 @@ class SettingsDrawer(QWidget):
         self.__show_path()
         self._error = ''
         self.statusLabel.setText('' if self._path else
-                                 'These settings come from the saved library preferences. The first change you make here '
-                                 'creates a profile file for them.')
+                                 'These settings come from the saved library preferences. The first change creates a '
+                                 'profile in the app configuration folder; use Change... to choose another location.')
 
     def _show_unreadable(self, setup: WorkListSetup) -> None:
         self.pathLabel.setText(setup.path)
@@ -378,7 +378,7 @@ class SettingsDrawer(QWidget):
             self.__fill_designers(str(config_value(self._profile, 'run', 'designer')))
 
     def __show_path(self) -> None:
-        self.pathLabel.setText(self._path or 'None yet: created when you first change something')
+        self.pathLabel.setText(self._path or f'Will be created at {self._default_path()}')
         self.pathLabel.setToolTip('Comments in a hand-written profile file are not kept when this saves it; '
                                   'everything else in it is.')
 
@@ -528,16 +528,9 @@ class SettingsDrawer(QWidget):
             return False
         path = self._path
         if not path:
-            path = self._choose_path(self._default_path(), True)
-            if not path:
-                self._pending = False
-                message = 'No profile file was chosen, so the change was not saved.'
-                if self._setup is not None:
-                    self._reset_to_setup()   # back to what the window has: the edit is dropped
-                self._error = message
-                self.__show_error(message)
-                return False
+            path = self._default_path()
         try:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
             save_profile(self._profile, path)
         except (ValueError, OSError) as failure:
             self._error = f'{type(failure).__name__}: {failure}' if not isinstance(failure, ValueError) else str(failure)

@@ -407,25 +407,18 @@ def test_renaming_a_source_updates_the_ignore_rules_that_name_it(qtbot, tmp_path
 
 # --- the first save, and the fallback until then -------------------------------------------------------------------------------
 
-def test_the_first_change_with_no_profile_file_asks_where_creates_it_and_remembers_the_path(qtbot, tmp_path):
+def test_the_first_change_with_no_profile_file_creates_the_default_profile_and_remembers_the_path(qtbot, tmp_path):
     prefs = make_prefs(tmp_path, configured=True)                 # the bootstrap: no profile file yet
-    asked = []
     target = tmp_path / 'cfg' / 'library-profile.yaml'
-
-    def choose(default, overwrite_ok):
-        asked.append((default, overwrite_ok))
-        target.parent.mkdir(exist_ok=True)
-        return str(target)
-
-    window = open_window(qtbot, tmp_path, prefs, choose_path=choose)
+    window = open_window(qtbot, tmp_path, prefs)
     drawer = window.open_settings()
+    drawer._default_path = lambda: str(target)
     assert window.setup.origin == 'preferences' and drawer.path == ''
-    assert 'None yet' in drawer.pathLabel.text() and 'saved library preferences' in drawer.statusLabel.text()
+    assert 'Will be created at' in drawer.pathLabel.text() and 'saved library preferences' in drawer.statusLabel.text()
 
     drawer.keepMultichannel.click()
     assert drawer.flush()
 
-    assert len(asked) == 1 and os.path.basename(asked[0][0]) == 'library-profile.yaml' and asked[0][1] is True
     assert target.is_file() and prefs.get(LIBRARY_PROFILE_PATH) == str(target)
     saved = load_profile(str(target))
     assert [(s.name, s.settings) for s in saved.sources] == [('filesystem', {'globs': ['/films/**/*.mkv']})]
@@ -435,7 +428,7 @@ def test_the_first_change_with_no_profile_file_asks_where_creates_it_and_remembe
 
     prefs.set(LIBRARY_PROFILE_PATH, str(target))
     drawer.keepMultichannel.click()
-    assert drawer.flush() and len(asked) == 1                                     # not asked again
+    assert drawer.flush()                                                          # not asked again
 
 
 def test_the_default_place_for_a_new_profile_is_the_apps_configuration_folder_not_the_work_directory(tmp_path):
@@ -444,17 +437,16 @@ def test_the_default_place_for_a_new_profile_is_the_apps_configuration_folder_no
     assert os.path.basename(default) == PROFILE_FILE_NAME and str(tmp_path / 'work') not in default
 
 
-def test_cancelling_the_where_dialog_saves_nothing_and_takes_the_edit_back(qtbot, tmp_path):
+def test_the_first_save_never_opens_a_profile_file_dialog(qtbot, tmp_path):
     prefs = make_prefs(tmp_path, configured=True)
-    window = open_window(qtbot, tmp_path, prefs, choose_path=lambda default, overwrite_ok: '')
+    target = tmp_path / 'cfg' / 'library-profile.yaml'
+    asked = []
+    window = open_window(qtbot, tmp_path, prefs, choose_path=lambda *args: asked.append(args) or '')
     drawer = window.open_settings()
+    drawer._default_path = lambda: str(target)
 
     drawer.keepMultichannel.click()
-    assert drawer.flush() is False
-
-    assert prefs.get(LIBRARY_PROFILE_PATH) == '' and 'No profile file was chosen' in drawer.statusLabel.text()
-    assert not drawer.keepMultichannel.isChecked()                                # shows what the window has again
-    assert not any(p.suffix in ('.yaml', '.json') for p in tmp_path.iterdir())
+    assert drawer.flush() and target.is_file() and asked == []
 
 
 def test_the_bootstrap_stays_the_fallback_and_a_file_is_authoritative_once_it_exists(qtbot, tmp_path):
@@ -487,6 +479,7 @@ def test_the_incomplete_setup_banner_lists_what_is_missing_opens_the_drawer_and_
     assert window.settings_dock.isVisible()
 
     drawer = window.drawer
+    drawer._default_path = lambda: str(target)
     dialogs.next = accepting(lambda d: d.page.globsEdit.setPlainText('/films'))
     assert drawer.sourcesTab.add_source()
     (tmp_path / 'work').mkdir()
