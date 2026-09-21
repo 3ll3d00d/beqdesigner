@@ -15,6 +15,7 @@ from typing import List, Optional
 import requests
 
 TMDB_BASE_URL = 'https://api.themoviedb.org/3'
+TMDB_TIMEOUT_SECONDS = 20   # a hung connection must end in an error rather than wait for ever (search and details requests)
 
 
 @dataclass
@@ -167,7 +168,8 @@ def tmdb_lookup(title: str, year: str, api_key: str, kind: str = 'movie',
     else:
         search_params['year'] = year
 
-    r = requests.get(url=f'{TMDB_BASE_URL}/search/{"tv" if kind == "tv" else "movie"}', params=search_params)
+    r = requests.get(url=f'{TMDB_BASE_URL}/search/{"tv" if kind == "tv" else "movie"}', params=search_params,
+                     timeout=TMDB_TIMEOUT_SECONDS)
     r.raise_for_status()
     results = r.json().get('results')
     if not results:
@@ -273,7 +275,7 @@ def _tmdb_details(the_movie_db_id, api_key: str, kind: str, audio_types: List[st
         url = f'{TMDB_BASE_URL}/movie/{the_movie_db_id}'
         params['append_to_response'] = 'release_dates'
 
-    r = requests.get(url=url, params=params)
+    r = requests.get(url=url, params=params, timeout=TMDB_TIMEOUT_SECONDS)
     r.raise_for_status()
     result = r.json()
 

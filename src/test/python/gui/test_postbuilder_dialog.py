@@ -64,7 +64,7 @@ def test_load_tmdb_info_populates_fields_from_a_search_result(qtbot, tmp_path, m
     })
     calls = []
 
-    def fake_get(url, params):
+    def fake_get(url, params, timeout=None):
         calls.append((url, params))
         return search_response if 'search' in url else details_response
 
@@ -106,7 +106,7 @@ def test_load_tmdb_info_by_known_id_skips_the_search_call(qtbot, tmp_path, monke
     })
     calls = []
 
-    def fake_get(url, params):
+    def fake_get(url, params, timeout=None):
         calls.append((url, params))
         return details_response
 
@@ -130,7 +130,7 @@ def test_load_tmdb_info_swallows_an_http_error_and_stops_the_spinner(qtbot, tmp_
     dialog = CreateAVSPostDialog(None, prefs, filter_model=None, selected_signal=None)
     qtbot.addWidget(dialog)
 
-    monkeypatch.setattr('requests.get', lambda url, params: _FakeResponse({}, status_code=404))
+    monkeypatch.setattr('requests.get', lambda url, params, timeout=None: _FakeResponse({}, status_code=404))
 
     dialog.titleField.setText('Some Unknown Title')
     dialog.movidDBIDField.setText('999999999')

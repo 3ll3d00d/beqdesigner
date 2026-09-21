@@ -77,7 +77,7 @@ def test_tmdb_lookup_movie(monkeypatch):
 
     calls = []
 
-    def fake_get(url, params):
+    def fake_get(url, params, timeout=None):
         calls.append((url, params))
         return search_response if 'search' in url else details_response
 
@@ -119,7 +119,7 @@ def test_tmdb_details_by_id_skips_the_search_step(monkeypatch):
 
     calls = []
 
-    def fake_get(url, params):
+    def fake_get(url, params, timeout=None):
         calls.append((url, params))
         return details_response
 
@@ -148,7 +148,7 @@ def test_tmdb_lookup_tv(monkeypatch):
         'content_ratings': {'results': [{'iso_3166_1': 'US', 'rating': 'TV-14'}]},
     })
 
-    def fake_get(url, params):
+    def fake_get(url, params, timeout=None):
         return search_response if 'search' in url else details_response
 
     monkeypatch.setattr('requests.get', fake_get)
@@ -164,7 +164,7 @@ def test_tmdb_lookup_tv(monkeypatch):
 def test_tmdb_lookup_no_results_returns_minimal_metadata(monkeypatch):
     from pipeline import metadata as md
 
-    monkeypatch.setattr('requests.get', lambda url, params: _FakeResponse({'results': []}))
+    monkeypatch.setattr('requests.get', lambda url, params, timeout=None: _FakeResponse({'results': []}))
 
     result = md.tmdb_lookup('Nonexistent Title', '2099', api_key='dummy-key', audio_types=['DTS-X'])
     assert result.title == 'Nonexistent Title'
@@ -182,11 +182,32 @@ def test_tmdb_lookup_invalid_kind_raises():
 def test_tmdb_lookup_raises_on_http_error(monkeypatch):
     from pipeline import metadata as md
 
-    monkeypatch.setattr('requests.get', lambda url, params: _FakeResponse({}, status_code=500))
+    monkeypatch.setattr('requests.get', lambda url, params, timeout=None: _FakeResponse({}, status_code=500))
 
     import requests
     with pytest.raises(requests.HTTPError):
         md.tmdb_lookup('X', '2020', api_key='k')
+
+
+@pytest.mark.parametrize('kind', ['movie', 'tv'])
+def test_the_tmdb_search_and_details_requests_have_a_timeout(monkeypatch, kind):
+    ''' A hung connection must end in an error: the title page's Reload waits on it, and is disabled meanwhile. '''
+    from pipeline import metadata as md
+
+    seen = []
+
+    def fake_get(url, params, timeout=None):
+        seen.append((url, timeout))
+        body = {'results': [{'id': 7}]} if '/search/' in url else {'name': 'A', 'title': 'A', 'release_dates': {'results': []}}
+        return _FakeResponse(body)
+
+    monkeypatch.setattr('requests.get', fake_get)
+
+    md.tmdb_lookup('A', '2020', api_key='k', kind=kind)
+    md.tmdb_details_by_id(7, api_key='k', kind=kind)
+
+    assert len(seen) == 3 and [t for _, t in seen] == [md.TMDB_TIMEOUT_SECONDS] * 3
+    assert 0 < md.TMDB_TIMEOUT_SECONDS <= 30
 
 
 def test_pipeline_metadata_module_has_no_qtpy_import():
