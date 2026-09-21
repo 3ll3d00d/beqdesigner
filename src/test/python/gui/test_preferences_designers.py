@@ -1,8 +1,8 @@
 '''
 Safety net for model/preferences.py's PreferencesDialog "Designers" page and DESIGNER_QUEUE_DIR default --
 folded in from the old standalone model/designers.py's DesignersDialog (Tools > Designers) and the previously
-unpersisted queue-directory fields on model/batch.py's BatchExtractDialog and model/review.py's
-ReviewQueueDialog. pipeline.designer.http_binding's own wire format is already covered by
+unpersisted queue-directory fields on model/batch.py's BatchExtractDialog and the review dialog
+(model/review.py's ReviewQueueDialog, deleted at chunk 27c; the queue directory is now remembered by model/worklist_review.py's window). pipeline.designer.http_binding's own wire format is already covered by
 test_pipeline_designer_http_binding.py; this only exercises the Qt wiring + preference persistence +
 registration on top.
 

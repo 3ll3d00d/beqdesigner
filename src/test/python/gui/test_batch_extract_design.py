@@ -1,7 +1,8 @@
 '''
 Safety net for model/batch.py's BatchExtractDialog -- specifically the merged Batch Extract & Design dialog
 (the old, separate model/batch_design.py's BatchDesignDialog was retired and folded into this dialog as an
-optional per-candidate design step + an embedded Review tab; see pipeline/README.md's "Batch design + review").
+optional per-candidate design step, whose results are reviewed in the Review folder window (model/worklist_review.py, chunk 27c: the
+embedded Review tab was retired); see pipeline/README.md's "Batch design + review").
 Drives the real search->extract->design flow like a user would, with the real QThreadPool (same pattern as
 test_ffmpeg_execute.py/the old test_batch_design_dialog.py: no mocking the thread pool, qtbot.waitUntil() pumps
 the event loop for cross-thread signals).
@@ -78,11 +79,13 @@ def dialog(qtbot, tmp_path):
     return d
 
 
-def test_main_tabs_has_run_and_review_tabs(dialog):
-    assert dialog.mainTabs.count() == 2
+def test_the_dialog_has_only_the_run_tab_and_no_embedded_review(dialog):
+    ''' The embedded review dialog (and its own XML-only Publish button) is retired: reviewing is the Review folder window. '''
+    assert dialog.mainTabs.count() == 1
     assert dialog.mainTabs.tabText(0) == 'Run'
-    assert dialog.mainTabs.tabText(1) == 'Review'
     assert dialog.mainTabs.currentIndex() == 0
+    assert not hasattr(dialog, '_BatchExtractDialog__review')
+    assert dialog.review_window is None
 
 
 def test_design_and_review_controls_hidden_when_no_designers_are_registered(qtbot, tmp_path):
@@ -179,7 +182,7 @@ def test_extract_with_design_disabled_does_not_require_a_queue_dir(qtbot, dialog
     dialog.extract()
 
     qtbot.waitUntil(lambda: not dialog.resetButton.isEnabled(), timeout=15000)
-    assert dialog.mainTabs.currentIndex() == 0
+    assert dialog.review_window is None   # nothing was designed, so no review window opens
     candidate = dialog._BatchExtractDialog__candidates[0]
     assert candidate.status.name == 'COMPLETE'
     assert os.path.isfile(candidate.executor.get_output_path())
@@ -228,7 +231,7 @@ def test_duplicate_filename_stems_rejected_when_design_enabled(qtbot, dialog, mo
     assert 'stem' in calls[0][2]
 
 
-def test_extract_with_design_writes_a_pending_queue_entry_and_switches_to_the_review_tab(qtbot, dialog, tmp_path):
+def test_extract_with_design_writes_a_pending_queue_entry_and_opens_the_review_folder_window(qtbot, dialog, tmp_path):
     source = str(tmp_path / 'in' / 'ready-player-one.wav')
     os.makedirs(os.path.dirname(source), exist_ok=True)
     _write_synthetic_wav(source)
@@ -246,7 +249,7 @@ def test_extract_with_design_writes_a_pending_queue_entry_and_switches_to_the_re
 
     dialog.extract()
 
-    qtbot.waitUntil(lambda: dialog.mainTabs.currentIndex() == 1, timeout=30000)
+    qtbot.waitUntil(lambda: dialog.review_window is not None, timeout=30000)
 
     entries = read_queue(queue_dir)
     assert len(entries) == 1
@@ -254,10 +257,11 @@ def test_extract_with_design_writes_a_pending_queue_entry_and_switches_to_the_re
     assert entries[0].status == 'pending'
     assert entries[0].candidates[0].confidence == 0.9
 
-    # the Review tab is the same embedded ReviewQueueDialog, already pointed at queue_dir
-    review = dialog._BatchExtractDialog__review
-    assert review.queueDirEdit.text() == queue_dir
-    assert review._ReviewQueueDialog__table_model.rowCount() == 1
+    # the Review folder window is open on the queue directory, listing the entry and showing it on the title page
+    review = dialog.review_window
+    qtbot.addWidget(review)
+    assert review.isVisible() and review.queue_dir == queue_dir
+    assert review.entry_ids == ['ready-player-one'] and review.page.current_id == 'ready-player-one'
 
 
 def test_designer_combo_preselects_the_default_designer_preference(qtbot, tmp_path):
@@ -294,7 +298,8 @@ def test_design_uses_a_mono_downmix_even_when_the_kept_file_is_multichannel(qtbo
 
     dialog.extract()
 
-    qtbot.waitUntil(lambda: dialog.mainTabs.currentIndex() == 1, timeout=30000)
+    qtbot.waitUntil(lambda: dialog.review_window is not None, timeout=30000)
+    qtbot.addWidget(dialog.review_window)      # closed by the test, not by the parent's deletion at some later point
 
     candidate = dialog._BatchExtractDialog__candidates[0]
     with wave.open(candidate.executor.get_output_path(), 'rb') as w:
@@ -335,7 +340,8 @@ def test_design_sends_per_channel_data_when_the_kept_file_is_multichannel(qtbot,
 
     d.extract()
 
-    qtbot.waitUntil(lambda: d.mainTabs.currentIndex() == 1, timeout=30000)
+    qtbot.waitUntil(lambda: d.review_window is not None, timeout=30000)
+    qtbot.addWidget(d.review_window)      # closed by the test, not by the parent's deletion at some later point
 
     assert len(recording_designer) == 1
     channels = recording_designer[0].channels
@@ -366,7 +372,8 @@ def test_design_sends_no_channels_when_the_kept_file_is_mono(qtbot, recording_de
 
     d.extract()
 
-    qtbot.waitUntil(lambda: d.mainTabs.currentIndex() == 1, timeout=30000)
+    qtbot.waitUntil(lambda: d.review_window is not None, timeout=30000)
+    qtbot.addWidget(d.review_window)      # closed by the test, not by the parent's deletion at some later point
 
     assert len(recording_designer) == 1
     assert recording_designer[0].channels is None

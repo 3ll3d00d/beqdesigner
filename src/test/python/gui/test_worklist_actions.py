@@ -944,20 +944,10 @@ def test_the_real_pipeline_runs_off_the_ui_thread_and_a_title_that_fails_is_reme
 
 # --- the menu ---------------------------------------------------------------------------------------------------------------
 
-def test_the_tools_menu_opens_the_work_list_first_and_keeps_the_classic_dialog_as_a_labelled_secondary_entry(
+def test_the_tools_menu_opens_the_work_list_and_the_review_folder_and_the_classic_dialog_is_gone(
         qtbot, tmp_path, monkeypatch):
     import app as app_module
-    import model.library_sync as library_sync
-    opened = []
-
-    class _ClassicDialog:
-        def __init__(self, parent, preferences):
-            opened.append(parent)
-
-        def show(self):
-            opened.append('shown')
-
-    monkeypatch.setattr(library_sync, 'LibrarySyncDialog', _ClassicDialog)
+    from model.worklist_review import ReviewFolderWindow
     root = logging.getLogger()
     handlers = list(root.handlers)
     prefs = _prefs(tmp_path, **{SYSTEM_CHECK_FOR_UPDATES: False})
@@ -966,16 +956,22 @@ def test_the_tools_menu_opens_the_work_list_first_and_keeps_the_classic_dialog_a
     try:
         monkeypatch.setattr(main, '_BeqDesigner__check_ffmpeg_available', lambda: True)
         actions = main.menu_Tools.actions()
-        assert actions.index(main.action_Work_List) + 1 == actions.index(main.action_Library_Sync)
+        assert main.action_Work_List in actions and main.action_Review_Folder in actions
         assert main.action_Work_List.text() == 'Library &Work List'
-        assert main.action_Library_Sync.text() == 'Library Sync (classic dialog)'
+        assert main.action_Review_Folder.text() == 'Re&view Folder...'
+        # the retired entries: the classic Library Sync dialog and "Review Batch Designs" are gone from the menu and the window
+        assert not hasattr(main, 'action_Library_Sync') and not hasattr(main, 'action_Review_Batch_Designs')
+        assert not hasattr(main, 'showLibrarySyncDialog') and not hasattr(main, 'showReviewQueueDialog')
+        assert sorted(a.text() for a in actions if 'Sync' in a.text() and 'HTP' not in a.text()) == []
 
         main.action_Work_List.trigger()
         window = main._BeqDesigner__work_list
-        assert isinstance(window, WorkListWindow) and window.isVisible() and opened == []
+        assert isinstance(window, WorkListWindow) and window.isVisible()
 
-        main.action_Library_Sync.trigger()
-        assert opened == [main, 'shown']    # the old dialog, still reachable
+        main.action_Review_Folder.trigger()
+        folder = main._BeqDesigner__review_folder
+        assert isinstance(folder, ReviewFolderWindow) and folder.isVisible()
+        qtbot.addWidget(folder)
 
         # the work list's extract runs check for ffmpeg first, through the app
         checked = []

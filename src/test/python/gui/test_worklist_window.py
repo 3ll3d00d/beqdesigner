@@ -507,7 +507,7 @@ def test_the_window_reads_the_settings_again_when_reloaded(qtbot, tmp_path):
 
 # --- the menu ------------------------------------------------------------------------------------------------------------
 
-def test_the_tools_menu_has_the_work_list_as_its_primary_library_entry_and_it_opens_the_window(qtbot, tmp_path):
+def test_the_tools_menu_has_the_work_list_as_its_only_library_entry_and_it_opens_the_window(qtbot, tmp_path):
     import app as app_module
     root = logging.getLogger()
     handlers = list(root.handlers)
@@ -516,7 +516,7 @@ def test_the_tools_menu_has_the_work_list_as_its_primary_library_entry_and_it_op
     qtbot.addWidget(main)
     try:
         actions = main.menu_Tools.actions()
-        assert actions.index(main.action_Work_List) + 1 == actions.index(main.action_Library_Sync)   # first, then the classic one
+        assert main.action_Work_List in actions and not hasattr(main, 'action_Library_Sync')   # the classic dialog is gone (27c)
         assert main.action_Work_List.text() == 'Library &Work List'
 
         main.action_Work_List.trigger()

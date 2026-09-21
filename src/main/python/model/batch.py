@@ -19,7 +19,7 @@ from model.preferences import EXTRACTION_OUTPUT_DIR, EXTRACTION_BATCH_FILTER, AN
 from model.spin import StoppableSpin, stop_spinner
 from ui.batch import Ui_batchExtractDialog
 
-# model.review and pipeline.* are imported lazily (inside the functions that need them) rather than at module
+# model.worklist_review and pipeline.* are imported lazily (inside the functions that need them) rather than at module
 # level -- pipeline.orchestrate transitively imports model.merge -> model.sync -> model.batch (StoppableSpin/
 # stop_spinner), so a module-level import here would be circular.
 
@@ -88,12 +88,10 @@ class BatchExtractDialog(QDialog, Ui_batchExtractDialog):
         self.browseQueueDirButton.setVisible(self.has_designers)
         self.designHeaderLabel.setVisible(self.has_designers)
 
-        self.__review = None
-        if self.has_designers:
-            from model.review import ReviewQueueDialog
-            self.__review = ReviewQueueDialog(self, preferences)
-            self.__review.setWindowFlags(Qt.WindowType.Widget)
-            self.mainTabs.addTab(self.__review, 'Review')
+        # Reviewing is the Review folder window (model/worklist_review.py), opened when the designs are done and from
+        # Tools > Review Folder...; this dialog has nothing but the Run tab, so it shows no tab bar.
+        self.__review_window = None
+        self.mainTabs.tabBar().setVisible(False)
 
     def __toggle_design(self, checked):
         '''
@@ -125,10 +123,15 @@ class BatchExtractDialog(QDialog, Ui_batchExtractDialog):
 
     def on_all_designs_complete(self):
         '''
-        Loads the just-written queue entries into the Review tab and switches to it.
+        Opens the Review folder window on the just-written queue entries.
         '''
-        self.__review.load_queue_dir(self.queueDirEdit.text())
-        self.mainTabs.setCurrentIndex(1)
+        from model.worklist_review import open_review_folder
+        self.__review_window = open_review_folder(self, self.__preferences, self.queueDirEdit.text())
+
+    @property
+    def review_window(self):
+        ''' The Review folder window opened when the designs finished, or None. '''
+        return self.__review_window
 
     def enable_search(self, search):
         '''

@@ -1239,13 +1239,12 @@
     <addaction name="actionExtract_Audio"/>
     <addaction name="action_Batch_Extract"/>
     <addaction name="action_Work_List"/>
-    <addaction name="action_Library_Sync"/>
     <addaction name="action_Remux_Audio"/>
     <addaction name="actionMerge_Signals"/>
     <addaction name="separator"/>
     <addaction name="actionAnalyse_Audio"/>
     <addaction name="separator"/>
-    <addaction name="action_Review_Batch_Designs"/>
+    <addaction name="action_Review_Folder"/>
     <addaction name="separator"/>
     <addaction name="actionBrowse_Catalogue"/>
     <addaction name="actionExport_Biquad"/>
@@ -1450,14 +1449,6 @@
     <string>Ctrl+Shift+E</string>
    </property>
   </action>
-  <action name="action_Library_Sync">
-   <property name="text">
-    <string>Library Sync (classic dialog)</string>
-   </property>
-   <property name="toolTip">
-    <string>The original Library Sync dialog. It is being replaced by the Library Work List above and will be removed.</string>
-   </property>
-  </action>
   <action name="action_Work_List">
    <property name="text">
     <string>Library &amp;Work List</string>
@@ -1466,9 +1457,12 @@
     <string>What each title in the library needs next, with actions to extract, design, publish and commit</string>
    </property>
   </action>
-  <action name="action_Review_Batch_Designs">
+  <action name="action_Review_Folder">
    <property name="text">
-    <string>Re&amp;view Batch Designs</string>
+    <string>Re&amp;view Folder...</string>
+   </property>
+   <property name="toolTip">
+    <string>Review the designs in a queue directory (for example the one Batch Extract and Design wrote): choose a candidate for each title, edit its metadata and artwork, then publish and commit the accepted ones</string>
    </property>
   </action>
   <action name="actionSave_Report">

@@ -83,6 +83,9 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.app = app
         self.preferences = prefs
         self.__work_list = None
+        self.__review_folder = None
+        self.__project_path = None   # a project opened from the work list: the file Save Project offers ...
+        self.__project_signals = None  # ... while the signals are the ones it loaded (see __project_file_to_offer)
         from model.preferences import register_configured_designers
         register_configured_designers(self.preferences)
         if getattr(sys, 'frozen', False):
@@ -261,11 +264,10 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.actionExtract_Audio.triggered.connect(self.showExtractAudioDialog)
         self.action_Remux_Audio.triggered.connect(self.showRemuxAudioDialog)
         self.action_Batch_Extract.triggered.connect(self.showBatchExtractDialog)
-        self.action_Library_Sync.triggered.connect(self.showLibrarySyncDialog)
         self.action_Work_List.triggered.connect(self.showWorkListWindow)
         # analysis
         self.actionAnalyse_Audio.triggered.connect(self.showAnalyseAudioDialog)
-        self.action_Review_Batch_Designs.triggered.connect(self.showReviewQueueDialog)
+        self.action_Review_Folder.triggered.connect(self.showReviewFolderWindow)
         # import
         self.actionLoad_Filter.triggered.connect(self.importFilter)
         self.actionLoad_Signal.triggered.connect(self.importSignal)
@@ -922,37 +924,37 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         from model.batch import BatchExtractDialog
         BatchExtractDialog(self, self.preferences).show()
 
-    def showReviewQueueDialog(self):
+    def showReviewFolderWindow(self, queue_dir=None):
         '''
-        Show the Batch Extract & Design dialog (model/batch.py) straight on
-        its Review tab -- independent of whatever's currently loaded in
-        signalView, since that tab reads/writes its own pipeline.review
-        queue directory (including one populated entirely by a headless/
-        scripted pipeline.review.batch_design() run, no GUI involved).
+        Show the Review folder window (model/worklist_review.py): the work list's title page over a queue directory, for
+        working through the entries of a directory that a Batch Extract & Design run (or a scripted
+        pipeline.review.batch_design()) wrote, independently of the library and of whatever is loaded here. The one window is
+        kept and shown again.
+        :param queue_dir: the directory to open; default the remembered queue directory.
+        :return: the window.
         '''
-        from model.batch import BatchExtractDialog
-        dialog = BatchExtractDialog(self, self.preferences)
-        dialog.mainTabs.setCurrentIndex(1)
-        dialog.show()
-
-    def showLibrarySyncDialog(self):
-        '''Show the library-driven extract/design/review/sync workspace.'''
-        if not self.__check_ffmpeg_available():
-            return
-        from model.library_sync import LibrarySyncDialog
-        LibrarySyncDialog(self, self.preferences).show()
+        from model.worklist_review import ReviewFolderWindow
+        if self.__review_folder is None:
+            self.__review_folder = ReviewFolderWindow(self, self.preferences, open_project=self.open_project_file)
+        if queue_dir:
+            self.__review_folder.load_queue_dir(queue_dir)
+        self.__review_folder.show()
+        self.__review_folder.raise_()
+        self.__review_folder.activateWindow()
+        return self.__review_folder
 
     def showWorkListWindow(self):
         '''
         Show the library work list (model/worklist.py): what every title in the library needs next, and the actions that
-        extract, design, publish and commit them. This is the Tools menu's primary library entry; the original dialog is
-        the secondary "Library Sync (classic dialog)" entry until it is retired. The one window is kept and shown
-        again, re-reading the settings. Extracting needs ffmpeg, so a run that extracts checks for it first.
+        extract, design, publish and commit them. The one window is kept and shown again, re-reading the settings.
+        Extracting needs ffmpeg, so a run that extracts checks for it first. Its title page opens a project in this window
+        through open_project_file(), which is handed in because the work list may not import this module.
         '''
         from model.worklist import WorkListWindow
         if self.__work_list is None:
             self.__work_list = WorkListWindow(self, self.preferences,
-                                              precheck=lambda _through: self.__check_ffmpeg_available())
+                                              precheck=lambda _through: self.__check_ffmpeg_available(),
+                                              open_project=self.open_project_file)
             self.__work_list.preferences_requested.connect(self.showPreferences)   # the drawer's TMDB key link
         else:
             self.__work_list.reload()
@@ -998,9 +1000,11 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
 
     def exportProject(self):
         '''
-        Exports the project to a file.
+        Exports the project to a file. A project opened from the work list is offered under its own name, so saving it over
+        that file is one click: what is saved there is what the library work flow publishes.
         '''
-        file_name = QFileDialog(self).getSaveFileName(self, 'Export Project', f"project.beq", "BEQ Project (*.beq)")
+        suggested = self.__project_file_to_offer() or "project.beq"
+        file_name = QFileDialog(self).getSaveFileName(self, 'Export Project', suggested, "BEQ Project (*.beq)")
         file_name = str(file_name[0]).strip()
         if len(file_name) > 0:
             output = self.__signal_model.to_json()
@@ -1009,6 +1013,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
             with gzip.open(file_name, 'wb+') as outfile:
                 outfile.write(json.dumps(output).encode('utf-8'))
             self.statusbar.showMessage(f"Saved project to {file_name}")
+            self.__project_path = self.__project_signals = None
 
     def importProject(self):
         '''
@@ -1021,10 +1026,60 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
 
         input = self.__load('*.beq', 'Load Project', parser)
         if input is not None:
+            self.__project_path = self.__project_signals = None
             with (wait_cursor()):
                 from model.codec import signalmodel_from_json
                 self.__signal_model.replace(signalmodel_from_json(input, self.preferences))
                 self.__magnitude_model.redraw()
+
+    def __signals_layout(self):
+        '''
+        Which signals are loaded and how they are linked, without their filters or curves: what has to stay the same for Save Project
+        to go on offering the project file that was opened. (Editing the filters is what a person opened it to do, so a change of
+        filter is not a change of layout; adding, removing or replacing signals is.)
+        '''
+        model = self.__signal_model
+        signals = [model[i] for i in range(len(model))]
+        return (tuple((s.name, s.master.name if s.master is not None else None) for s in signals),
+                tuple(b.name for b in model.bass_managed_signals))
+
+    def __project_file_to_offer(self):
+        '''
+        The project opened from the work list, while what is loaded is still that project's signals. Once other signals were loaded,
+        added or deleted the file is no longer offered: one careless click on Save Project would overwrite the title's project with
+        something else, and what is saved there is what gets published.
+        '''
+        if self.__project_path is not None and self.__project_signals != self.__signals_layout():
+            self.__project_path = self.__project_signals = None
+        return self.__project_path
+
+    def open_project_file(self, file_name):
+        '''
+        Loads the .beq project at this path, as Load Project does with a file the user chose -- the route the library work
+        list's title page uses to open a title's mono or multichannel project. It replaces the signals loaded here, so the
+        user is asked first when there are some. The window is brought to the front and Save Project then offers this file.
+        :return: True if loaded; False if the user declined to replace what is loaded.
+        :raises: OSError/ValueError if the file cannot be read as a project; nothing is replaced then.
+        '''
+        with gzip.open(file_name, 'r') as infile:
+            data = json.loads(infile.read().decode('utf-8'))
+        if len(self.__signal_model) > 0:
+            answer = QMessageBox.question(
+                self, 'Open project',
+                f"Opening {os.path.basename(file_name)} replaces the signals and filters loaded here. Continue?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
+            if answer != QMessageBox.StandardButton.Yes:
+                return False
+        with wait_cursor():
+            from model.codec import signalmodel_from_json
+            self.__signal_model.replace(signalmodel_from_json(data, self.preferences))
+            self.__magnitude_model.redraw()
+        self.__project_path, self.__project_signals = file_name, self.__signals_layout()
+        self.statusbar.showMessage(f"Loaded {file_name}: edit the filter, then Save Project to keep the change")
+        self.show()
+        self.raise_()
+        self.activateWindow()
+        return True
 
     def normaliseSignalMagnitude(self):
         '''

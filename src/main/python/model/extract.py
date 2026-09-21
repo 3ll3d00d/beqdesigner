@@ -24,7 +24,7 @@ from model.signal import AutoWavLoader
 from ui.edit_mapping import Ui_editMappingDialog
 from ui.extract import Ui_extractAudioDialog
 
-# model.batch/model.review/pipeline.* are imported lazily (inside the functions that need them), matching
+# model.batch/model.worklist_review/pipeline.* are imported lazily (inside the functions that need them), matching
 # model/batch.py's own convention -- pipeline.orchestrate transitively imports model.merge -> model.sync ->
 # model.batch, so a module-level import of either here risks the same circularity model/batch.py documents.
 logger = logging.getLogger('extract')
@@ -771,8 +771,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
     def design_complete(self, entry):
         '''
         DesignJob callback -- design has completed (entry.candidates is empty on a decline). Offers to open
-        the Review tab (model/batch.py's BatchExtractDialog, on its Review tab) the same way the batch
-        dialog's own design step does.
+        the Review folder window (model/worklist_review.py) on the queue directory.
         '''
         self.__design_entry = entry
         if entry.candidates:
@@ -784,13 +783,9 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
                                       f"Wrote a queue entry to {self.queueDirEdit.text()}.\n\n"
                                       f"Open it for review now?")
         if answer == QMessageBox.StandardButton.Yes:
-            # BatchExtractDialog's embedded Review tab (model/review.py's ReviewQueueDialog) auto-loads
-            # DESIGNER_QUEUE_DIR on construction -- already exactly self.queueDirEdit.text(), since that's
-            # either where it was read from or where __select_queue_dir() just persisted it to.
-            from model.batch import BatchExtractDialog
-            dialog = BatchExtractDialog(self.parent(), self.__preferences)
-            dialog.mainTabs.setCurrentIndex(1)
-            dialog.show()
+            # the Review folder window (model/worklist_review.py) on the directory the entry was just written to
+            from model.worklist_review import open_review_folder
+            open_review_folder(self, self.__preferences, self.queueDirEdit.text())
 
     def design_failed(self, msg):
         ''' DesignJob callback -- design raised. '''
