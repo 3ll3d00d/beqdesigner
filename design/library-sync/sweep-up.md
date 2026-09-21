@@ -2,7 +2,7 @@
 
 > Part of the library sync plan -- **start at the index**:
 > [`../library-sync-pipeline-plan.md`](../library-sync-pipeline-plan.md).
-> Contains §13. Status: chunk 29 is **built** in `791af5b`; chunks 30-38 turn
+> Contains §13. Status: chunk 29 is **built** in `791af5b`; chunks 30-39 turn
 > the post-M5 audit into small, independently reviewable pieces.
 
 ## 13. Sweep-up after M5
@@ -53,6 +53,7 @@ origin and sanitisation in the fixture’s adjacent test/docstring.
 36 async zones                <- 29
 37 season fidelity decision   <- 31, representative media
 38 boundary disposition       <- 29
+39 JSON-output completion      <- d8f4219, be708773b
 ```
 
 Chunks 34-36 and 38 can proceed in parallel. Chunks 30 and 31 have no safe
@@ -180,6 +181,21 @@ shape that a real server returns.
   candidate because candidates have been replaced. If this is no longer wanted,
   design candidate identity/provenance before changing the behaviour.
 - **Done when:** neither item remains presented as unfinished product work.
+
+**39 -- BEQCatalogue JSON-output completion**
+
+- Rename the remaining `xml_repo`/`xml_dir` configuration fields, CLI flags,
+  UI labels and documentation to filter-record terminology, with a documented
+  profile migration/legacy-key policy.
+- Replace legacy XML-specific review, commit and discovery-index assertions
+  with source-record and aggregate assertions; run their full focused suites.
+- Add an end-to-end fixture proving BEQDesigner emits a record that
+  BEQCatalogue reads, generates into its public `database.json`, and that
+  `model.catalogue.CatalogueEntry` accepts.
+- Onboard the actual filter repository in BEQCatalogue's record-repository
+  configuration, rather than leaving the reader as an unused extension point.
+- **Done when:** no library-sync publishing path claims XML output, the full
+  suite passes, and one configured source record reaches the public catalogue.
 
 ### 13.5 Completion reporting
 
