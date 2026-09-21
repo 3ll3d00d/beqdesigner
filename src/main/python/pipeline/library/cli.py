@@ -14,6 +14,7 @@ from typing import Any
 from pipeline.config import AnalysisConfig
 from pipeline.designer.http_binding import register_declared_designers
 from pipeline.designer.registry import registered_designers
+from pipeline.designer.manual import MANUAL_DESIGNER
 from pipeline.library.bulk import DEFAULT_ACCEPT_THRESHOLD, accept_top_pick, plan_accept
 from pipeline.library.index import IndexFileError, LibraryIndex, index_path
 from pipeline.library.profile import Profile, SourceSpec, build_source, profile_from_config, read_config_file
@@ -188,7 +189,7 @@ def _run(args: argparse.Namespace, config: dict[str, Any]) -> int:
         profile = _effective_profile(profile, values)  # the flags' directories, not only the file's
     _register_designers(values, config)
     designer = _required(values, 'designer')
-    if designer not in registered_designers():
+    if designer != MANUAL_DESIGNER and designer not in registered_designers():
         raise ValueError(f"designer {designer!r} is not registered; declare it under `designers` in the config "
                          f"file or with --designer-url {designer}=URL (registered: {', '.join(registered_designers()) or 'none'})")
     run_config = LibraryRunConfig(

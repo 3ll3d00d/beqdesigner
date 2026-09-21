@@ -37,6 +37,7 @@ from model.worklist_sources import SourcesTab
 from pipeline.library.index import TitleRow
 from pipeline.library.profile import Profile, profile_from_config, save_profile
 from pipeline.library.season import TV_MODES
+from pipeline.designer.manual import MANUAL_DESIGNER
 
 logger = logging.getLogger('worklist.settings')
 
@@ -364,8 +365,10 @@ class SettingsDrawer(QWidget):
         from pipeline.designer.registry import registered_designers
         self.designerCombo.clear()
         names = registered_designers()
-        self.designerCombo.addItems(names)
-        if wanted and wanted not in names:
+        self.designerCombo.addItem('Manual — edit filter yourself', MANUAL_DESIGNER)
+        for name in names:
+            self.designerCombo.addItem(name, name)
+        if wanted and wanted != MANUAL_DESIGNER and wanted not in names:
             self.designerCombo.addItem(f'{wanted} (not available)', wanted)   # the profile names one nobody registered
         index = self.designerCombo.findText(wanted) if wanted in names else self.designerCombo.findData(wanted)
         self.designerCombo.setCurrentIndex(max(index, 0))
@@ -382,8 +385,8 @@ class SettingsDrawer(QWidget):
 
     def __refresh_tmdb(self) -> None:
         key = (self._prefs.get(TMDB_API_KEY) or '').strip()
-        self.tmdbLabel.setText('Set (kept in Preferences, never in the profile file).' if key else
-                               'Not set: titles are designed without TMDB metadata. Set it in Preferences.')
+        self.tmdbLabel.setText('Using the built-in key (optional; a custom key can be set in Preferences).' if key else
+                               'TMDB lookup is off. It is optional; set a key in Preferences to enable it.')
 
     def __refresh_image_note(self) -> None:
         text = ('Only needed when the images repository is not on github.com under a plain git@github.com: or '

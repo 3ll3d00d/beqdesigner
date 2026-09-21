@@ -25,6 +25,7 @@ from model.preferences import DESIGNER_DEFAULT, DESIGNER_QUEUE_DIR, LIBRARY_FILE
 from pipeline.library.index import index_path
 from pipeline.library.profile import Profile, load_profile, profile_from_config
 from pipeline.library.status import ScanSettings
+from pipeline.designer.manual import MANUAL_DESIGNER
 
 ORIGIN_FILE = 'file'
 ORIGIN_PREFERENCES = 'preferences'
@@ -52,7 +53,7 @@ def default_designer(prefs) -> str:
     from pipeline.designer.registry import registered_designers
     available = registered_designers()
     wanted = prefs.get(DESIGNER_DEFAULT)
-    return wanted if wanted in available else (available[0] if available else '')
+    return wanted if wanted in available else (available[0] if available else MANUAL_DESIGNER)
 
 
 def bootstrap_profile(prefs, designer: str = '') -> Profile:
@@ -86,7 +87,7 @@ def setup_problems(profile: Profile, settings: ScanSettings) -> List[str]:
         problems.append('No designer is available.')
     else:
         from pipeline.designer.registry import registered_designers
-        if settings.designer not in registered_designers():
+        if settings.designer != MANUAL_DESIGNER and settings.designer not in registered_designers():
             problems.append(f'The designer {settings.designer!r} is not available: declare it under `designers:` in the '
                             f'profile file, or add it in Preferences.')
     return problems

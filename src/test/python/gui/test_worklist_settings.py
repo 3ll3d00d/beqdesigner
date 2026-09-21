@@ -631,13 +631,13 @@ def test_the_tmdb_key_stays_in_preferences_and_the_drawer_says_whether_it_is_set
     prefs.set(TMDB_API_KEY, '')
     window = open_window(qtbot, tmp_path, prefs)
     drawer = window.open_settings()
-    assert 'Not set' in drawer.tmdbLabel.text()
+    assert 'optional' in drawer.tmdbLabel.text()
     with qtbot.waitSignal(window.preferences_requested, timeout=1000):
         qtbot.mouseClick(drawer.tmdbButton, Qt.MouseButton.LeftButton)
 
     prefs.set(TMDB_API_KEY, 'secret-key-123')
     window.reload()
-    assert drawer.tmdbLabel.text().startswith('Set')
+    assert drawer.tmdbLabel.text().startswith('Using the built-in key')
     drawer.keepMultichannel.click()
     assert drawer.flush()
     text = _bytes(path).decode()

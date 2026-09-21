@@ -66,6 +66,7 @@ from pipeline.config import AnalysisConfig
 from pipeline.designer.contract import ChannelScope, Coverage, build_request
 from pipeline.designer.convert import alternative_filters, to_complete_filter
 from pipeline.designer.registry import get_designer
+from pipeline.designer.manual import MANUAL_DESIGNER, manual_response
 from pipeline.filters import FilterSpec, create_filter
 from pipeline.metadata import BeqMetadata, tmdb_lookup
 from pipeline.publish.catalogue import aggregate_path
@@ -311,10 +312,9 @@ class Session:
             (see load_channels()). Optional; None if the source was mono to begin with, or the caller
             chose not to supply it.
         '''
-        designer_fn = get_designer(designer)
         request = build_request(mono_mix=sig.signal.samples, fs=sig.signal.fs, coverage=coverage,
                                 channels=channels, bass_management=bass_management)
-        response = designer_fn(request)
+        response = manual_response() if designer == MANUAL_DESIGNER else get_designer(designer)(request)
         if response.decline_reason is not None:
             return Declined(reason=response.decline_reason, message=response.decline_message)
         fs = sig.signal.fs

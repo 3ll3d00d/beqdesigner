@@ -130,6 +130,16 @@ def test_design_bass_management_defaults_to_none(loaded_signal):
     assert outcome.gain_reduction_db is None
 
 
+def test_manual_designer_returns_an_editable_flat_filter(loaded_signal):
+    from pipeline.designer.manual import MANUAL_DESIGNER
+
+    session, sig = loaded_signal
+    outcome = session.design(sig, MANUAL_DESIGNER)
+
+    assert outcome.confidence == 0.0 and outcome.commentary['Manual filter'].startswith('No automatic')
+    assert len(outcome.filters.filters) == 1 and outcome.filters.filters[0].gain == 0.0
+
+
 def _write_multichannel_wav(path, channel_values, fs=48000, duration_s=0.1):
     n_frames = int(fs * duration_s)
     frame = np.array(channel_values, dtype=np.int16)
