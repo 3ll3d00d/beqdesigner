@@ -41,7 +41,7 @@ def test_empty_work_and_queue_pickers_start_in_the_users_video_location(qtbot, t
     drawer.workDir.browseButton.click()
     drawer.queueDir.browseButton.click()
 
-    assert starts == [('Work directory', '/users/me/Videos'), ('Review queue directory', '/users/me/Videos')]
+    assert starts == [('Library workspace', '/users/me/Videos'), ('Review queue directory', '/users/me/Videos')]
 
 
 # --- persistence: each setting, unknown sections, refusal, atomic write ------------------------------------------------------
@@ -88,6 +88,30 @@ def test_editing_each_setting_persists_to_the_profile_file_and_a_new_window_show
     assert other.designerCombo.currentText() == 'remote.one' and other.tvModeCombo.currentData() == 'season'
     assert other.keepMultichannel.isChecked()
     assert [s.name for s in other.sourcesTab.sources] == ['films', 'disk']
+
+
+def test_workspace_initialises_its_review_queue_and_carries_that_default_when_moved(qtbot, tmp_path):
+    path = write_profile(tmp_path)
+    drawer = open_window(qtbot, tmp_path, make_prefs(tmp_path, path)).open_settings()
+    commit(drawer.queueDir, '')
+    commit(drawer.workDir, str(tmp_path / 'workspace'))
+
+    assert drawer.profile.work_dir == str(tmp_path / 'workspace')
+    assert drawer.profile.queue_dir == str(tmp_path / 'workspace' / 'review-queue')
+    assert (tmp_path / 'workspace' / 'review-queue').is_dir()
+
+    commit(drawer.workDir, str(tmp_path / 'moved-workspace'))
+    assert drawer.profile.queue_dir == str(tmp_path / 'moved-workspace' / 'review-queue')
+
+
+def test_a_custom_review_queue_is_not_moved_with_the_workspace(qtbot, tmp_path):
+    path = write_profile(tmp_path)
+    drawer = open_window(qtbot, tmp_path, make_prefs(tmp_path, path)).open_settings()
+    custom = str(tmp_path / 'shared-review')
+    commit(drawer.queueDir, custom)
+    commit(drawer.workDir, str(tmp_path / 'workspace'))
+
+    assert drawer.profile.queue_dir == custom
 
 
 def test_what_the_drawer_does_not_manage_survives_every_edit(qtbot, tmp_path):

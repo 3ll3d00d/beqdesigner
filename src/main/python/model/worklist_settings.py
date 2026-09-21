@@ -41,6 +41,7 @@ from pipeline.library.season import TV_MODES
 logger = logging.getLogger('worklist.settings')
 
 PROFILE_FILE_NAME = 'library-profile.yaml'
+REVIEW_QUEUE_FOLDER = 'review-queue'
 DEBOUNCE_MS = 400
 TV_MODE_LABELS = {'episode': 'One filter per episode', 'season': 'Whole season as a single track'}
 _PROFILE_FILTER = 'Library profile (*.yaml *.yml *.json);;All files (*)'
@@ -61,6 +62,11 @@ def default_library_folder() -> str:
     return (QStandardPaths.writableLocation(QStandardPaths.StandardLocation.MoviesLocation)
             or QStandardPaths.writableLocation(QStandardPaths.StandardLocation.HomeLocation)
             or os.path.expanduser('~'))
+
+
+def default_review_queue(work_dir: str) -> str:
+    '''The queue location inside a library workspace, or empty without one.'''
+    return os.path.join(work_dir, REVIEW_QUEUE_FOLDER) if work_dir else ''
 
 
 def choose_profile_file(parent, default: str, overwrite_ok: bool) -> str:
@@ -176,11 +182,11 @@ class SettingsDrawer(QWidget):
         header.addWidget(self.changeFileButton)
 
         self.workDir = _PathRow(lambda start: QFileDialog.getExistingDirectory(
-            self, 'Work directory', start or default_library_folder()),
-                                'Where extracted audio and projects go')
+            self, 'Library workspace', start or default_library_folder()),
+                                'Contains extracted audio, projects and the library index')
         self.queueDir = _PathRow(lambda start: QFileDialog.getExistingDirectory(
-            self, 'Review queue directory', start or default_library_folder()),
-                                 'Where designed titles wait for review')
+            self, 'Review queue directory', start or self.workDir.edit.text().strip() or default_library_folder()),
+                                 'Defaults to review-queue inside the workspace; choose another folder only to share a queue')
         self.xmlRepo = _PathRow(lambda start: QFileDialog.getExistingDirectory(self, 'XML repository', start),
                                 'A clone of the BEQ filter (XML) repository')
         self.xmlDir = _PathRow(None, "A folder inside the repository (empty: its top folder)")
@@ -209,11 +215,11 @@ class SettingsDrawer(QWidget):
         self.tmdbButton = QPushButton('Preferences...')
         self.tmdbButton.clicked.connect(self.preferences_requested.emit)
 
-        where = QGroupBox('Where things go')
+        where = QGroupBox('Library workspace')
         form = QFormLayout(where)
         form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapAllRows)   # labels above the fields: a narrow drawer
-        form.addRow('Work directory', self.workDir)
-        form.addRow('Review queue', self.queueDir)
+        form.addRow('Workspace folder', self.workDir)
+        form.addRow('Review queue folder', self.queueDir)
         repos = QGroupBox('Catalogue repositories (publish and commit)')
         form = QFormLayout(repos)
         form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapAllRows)   # labels above the fields: a narrow drawer
@@ -428,7 +434,30 @@ class SettingsDrawer(QWidget):
                 row.show_check(PathCheck(LEVEL_ERROR, f'Could not create this folder: {error}'))
                 return
             row.show_check(PathCheck(LEVEL_OK, 'Folder created'))
-        self.__edit(replace(self._profile, **{name: text}))
+        profile = replace(self._profile, **{name: text})
+        # A queue is normally part of the workspace.  Preserve an explicit
+        # queue elsewhere, but initialise (and carry forward) the conventional
+        # ``<workspace>/review-queue`` location.
+        if name == 'work_dir':
+            old_default = default_review_queue(self._profile.work_dir)
+            if not self._profile.queue_dir or os.path.normpath(self._profile.queue_dir) == os.path.normpath(old_default):
+                queue_dir = default_review_queue(text)
+                if queue_dir:
+                    queue_check = check_directory(queue_dir)
+                    if not queue_check.usable:
+                        self.queueDir.show_check(queue_check)
+                        return
+                    if queue_check.level == LEVEL_INFO:
+                        try:
+                            os.makedirs(queue_dir, exist_ok=True)
+                        except OSError as error:
+                            row.show_check(PathCheck(LEVEL_ERROR, f'Could not create review queue: {error}'))
+                            return
+                    profile = replace(profile, queue_dir=queue_dir)
+                    self.queueDir.set_text(queue_dir)
+                    self.queueDir.show_check(PathCheck(LEVEL_OK, 'Folder created' if queue_check.level == LEVEL_INFO
+                                                       else queue_check.message))
+        self.__edit(profile)
 
     def __set_repo(self, name: str, row: _PathRow, text: str) -> None:
         if self._loading or self._profile is None or text == getattr(self._profile, name):
