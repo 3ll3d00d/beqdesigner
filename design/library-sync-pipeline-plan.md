@@ -1,13 +1,14 @@
 # Library sync pipeline -- plan
 
-Status: **chunks 1-2 and 4-10 implemented (2026-09-18); full suite green
-(471 passed at the 2026-09-19 review; 1900 after chunk 27c, and each chunk's row below has its own count). Chunk 3 (real-server spike) is not done,
-and a small set of design items in §3.1.3, §3.3.1 and §4 remain unbuilt --
-see §10 "Implementation status vs. this plan" for the authoritative list.**
-**§12 (added 2026-09-19) is the agreed design for a reworked workflow and
-work-list UI (multi-source catalogue profile, discovery index, per-stage state,
-publish/commit split, revise); only chunks 19 (a tests-only spike), 20 (fixes to the dialog of the time), 21 (publish/commit split), 22 (revise backend), 23 (profile, union, ignore rules), 24 (discovery index and states; the index schema is frozen in §12.5) and 25 (stage entry points and selectors, which completes milestone M2: the whole workflow headless) are built, as are 26a-26c (the work list window, its actions and its settings drawer), 27a-27b (the title page) and 27c (its projects, Reopen / Revise, bulk accept, the "settings changed" banner, and the retirement of the old Library Sync and review dialogs), which completes milestone M4; and chunk 28 (the user documentation, `docs/library/`, milestone M5) is built in `ecd8cef`. It supersedes §7's GUI.
-Its build order is §12.13.**
+Status: **chunks 1-2 and 4-28 are built; 1,902 tests passed in the 2026-09-21
+repository sweep. Chunk 3 remains an external-evidence spike. The remaining
+verification, product work and deliberate limits are classified in §10 and
+scheduled in §13; do not infer that every historic T-item is unfinished.**
+**§12 (added 2026-09-19) is the agreed design for the reworked workflow and
+work-list UI: multi-source profiles, discovery, per-stage state,
+publish/commit, revision and review. Chunks 19-28 are built through M5;
+chunk 28’s documentation is commit `ecd8cef`. It supersedes §7's GUI. Its
+implementation order is §12.13.**
 Written 2026-09-17. Builds on the
 headless pipeline in `pipeline/` (see `pipeline/README.md` and
 `design/api-headless-pipeline.md`/`pipeline-implementation-plan.md`,
@@ -38,10 +39,11 @@ the design lives. It is usually all you need to decide what to do next. The desi
 | §3.3, §3.3.1 | [`library-sync/local-artifacts-and-projects.md`](library-sync/local-artifacts-and-projects.md) | per-title `.beq` projects and why the project is what gets published | built |
 | §4 | [`library-sync/idempotency.md`](library-sync/idempotency.md) | extract cache, design cache, sync | built |
 | §5, §6, §7 | [`library-sync/orchestration-cli-gui.md`](library-sync/orchestration-cli-gui.md) | `run_library`, the CLI, and the GUI as first built (§7: superseded by §12.10, and its code deleted in chunk 27c) | built; §7 is history |
-| §9, §10 | [`library-sync/status-and-open-items.md`](library-sync/status-and-open-items.md) | risks, and the authoritative list of what is still open (T1-T16) | current |
+| §9, §10 | [`library-sync/status-and-open-items.md`](library-sync/status-and-open-items.md) | risks and the authoritative classification of historic T-items | current |
 | §11 | [`library-sync/jriver-and-sources.md`](library-sync/jriver-and-sources.md) | shared JRiver connections, filesystem source, source/node pickers, live findings, path mappings, id fields, DVD, TV seasons | built |
 | §12 (except §12.13) | [`library-sync/workflow-rework/design.md`](library-sync/workflow-rework/design.md) | the agreed workflow, discovery, state machine, revise, screen; **the frozen index schema (§12.5)** | discovery (chunk 24) and the stage entry points, selectors and bulk accept (chunk 25) built; the work list window (§12.10, chunk 26a, read-only), its actions (26b) and its settings drawer (26c) are built; the title page core (27a: candidates, chart, accept/skip/reject, prev/next) and its metadata and artwork (27b) are built (committed); the title page's projects, Reopen / Revise, bulk accept and the retirement of the old dialogs (27c) are built (committed); the user documentation (28, `docs/library/`) is built in `ecd8cef` |
 | §12.13 | [`library-sync/workflow-rework/implementation-order.md`](library-sync/workflow-rework/implementation-order.md) | chunks 19-28: order, dependencies, milestones, risks | chunks 19-25 and 26a-27c built (M4: the title page with its metadata, projects, revise and bulk accept, the old dialogs retired); 28 (M5, the documentation) built in `ecd8cef` |
+| §13 | [`library-sync/sweep-up.md`](library-sync/sweep-up.md) | follow-on completion plan: live verification, JRiver and disc gaps, path UX, TVDB, season fidelity | planned; chunks 29-38 |
 | Appendix A-D | [`library-sync/archive/`](library-sync/archive/) | handoff specs for chunks 1, 2, 4, 5 | built, archival |
 
 **Which file for which task**
@@ -54,6 +56,7 @@ the design lives. It is usually all you need to decide what to do next. The desi
 | touching publish, projects or the review queue | `local-artifacts-and-projects.md` (and `workflow-rework/design.md` §12.6-§12.8 if it is chunk 21-22) |
 | touching the GUI | `workflow-rework/design.md` §12.10 (target), `orchestration-cli-gui.md` §7 (the dialog the work list replaced: history) |
 | looking for what is still unfinished | `status-and-open-items.md` §10 |
+| working on a remaining item | `sweep-up.md`, then the topic file it names |
 
 
 ## 1. Goal
@@ -158,7 +161,7 @@ fixture -- only chunk 8 is blocked on that mapping.
 | 15 | Path mappings (§11.6): a per-server list of server-folder -> local-folder rules, edited in Preferences -> JRiver and applied when a JRiver source reads items (`pipeline/library/pathmap.py`, CLI `--path-map`). | 11, 13 | **Implemented** |
 | 16 | Configurable external-id fields (§11.7): `Library/Fields` listing, per-kind defaults, and a per-server field mapping edited in Preferences -> JRiver. | 15 | **Implemented** -- `model/jriver/field_mappings.py`, per-server storage, Library Sync hand-off |
 | 17 | DVD-Video rips (§11.8): `model/dvd.py` (title table + durations from the IFO files), read through ffmpeg's `dvdvideo` demuxer via new `Executor` input options; wired into `Session.extract`, Batch Extract, the filesystem source and JRiver's `VIDEO_TS.dvd;N` entries. | 15 | **Implemented**; multi-episode discs limited (see §11.8) |
-| 18 | TV seasons (§11.9): metadata that marks the episodes a filter covers (built), TMDB season lookup + season/episodes on library items, and a `tv_mode` option -- one filter per episode, or the whole season as a single track. | 15 **Implemented** -- `tv_mode` `episode` \| `season` |
+| 18 | TV seasons (§11.9): metadata that marks the episodes a filter covers (built), TMDB season lookup + season/episodes on library items, and a `tv_mode` option -- one filter per episode, or the whole season as a single track. | 15 | **Implemented** -- `tv_mode` `episode` \| `season` |
 | 19 | Workflow rework verification spike (§12.14): Enter-accepts confirmed, TMDB XML element, no-diff commit and foreign-staged-file findings, `QueueEntry` fields, season id shape. Tests only, no product code. | 18 | **Done -- commit `d4a33ce`** |
 | 20 | Workflow rework: fixes to the current dialog that need no redesign (M0) -- review preloaded, entries named from the library, Enter scoped, failure details, unsaved-edit prompt, Reopen. | 19 | **Done -- commit `7197994`** |
 | 21 | Workflow rework: publish/commit split -- `write_files`/`commit_paths`/`push`/`repo_state`, `commit_catalogue()`, `QueueEntry.published_digest`/`published_at`, CLI `publish`/`commit`/`sync`. (M1 needs 22 as well.) | 19 | **Done -- commit `d5a1708`** |
@@ -173,3 +176,13 @@ fixture -- only chunk 8 is blocked on that mapping.
 | 27b | Workflow rework: title page metadata and artwork -- `model/worklist_metadata.py` (`MetadataPanel`: Essentials / More, the validity badge from `validate()` through the index's own `metadata_problems`, autosave on focus-out and a `flush()` before the page moves, TMDB Reload and artwork download on the thread pool), `worklist_artwork.py`, `ui/worklistmetadata.ui`, a *Metadata* tab on `ui/worklisttitle.ui`; Accept is not offered while the metadata is incomplete; edits are allowed on every status and reach the index as `changed` (a published title becomes Publish: out of date). An independent review's 13 findings are fixed (a late TMDB answer, the API key in error text, a refused Accept not moving the keyboard, Skip/Reject behind an unsaveable edit, a blank field unsetting its key, the layout, the close order, ...; see the 27b block in `implementation-order.md`). Suite: 1821 passed. | 27a | **Done -- commit `b88ac1f`** (27a-27c share one commit) |
 | 27c | Workflow rework: project, revise, retire -- *Open project* on the title page (through a callable `BeqDesigner` hands the window) with the "modified since design" badge (`worklist_projects.py`, `worklist_title_actions.py`), Reopen / Revise on the page and on the selected rows (`worklist_revise.py`), bulk accept over `WORKLIST_ACCEPT_THRESHOLD` and the "settings changed" banner (`worklist_bulk.py`, `pipeline/library/drift.py`), and the **Review folder** window (`worklist_review.py`, Tools > Review Folder...) which publishes through the work list's own `publish_library`/`commit_library`. **Deleted:** `LibrarySyncDialog`, `ReviewQueueDialog` (and its XML-only Publish button), their UI files and tests. **Completes M4; closes T9 and T10.** Suite: 1871 passed; **1900 after the independent review's fixes** (the folder window's interlocks, the redesign hold, truthful commit state, a re-read profile, Publish as the work list's path, bulk accept's account of what was not accepted, cheaper drift, `worklist_title_decide.py`; see `implementation-order.md`). | 27b, 26b, 22 | **Done -- commits `b88ac1f` (the title page, revise, bulk accept, banner) and `cf9561f` (the Review Folder window, the old dialogs retired)** |
 | 28 | Workflow rework: documentation (§12.15) -- the user guide, `manage_mc.md` and `preferences.md`, new screenshots (T1). Detail in [`library-sync/workflow-rework/implementation-order.md`](library-sync/workflow-rework/implementation-order.md) (§12.13). | 27c | **Done (2026-09-21) -- commit `ecd8cef`**. `docs/library/` (9 pages), the updated `manage_mc.md`, `preferences.md`, `extract_audio.md`, `batch_extract.md`, the `mkdocs.yml` nav, 20 new or replaced screenshots; closes T1; **completes M5**. Docs only, so the suite is unchanged (1902 passed). |
+| 29 | Sweep-up baseline -- make §10’s status current, move closed items out of the open list, and add the follow-on execution plan (§13). | 28 | **In progress** |
+| 30 | Live JRiver evidence -- capture sanitised `Browse/Files`/`Browse/Children` and `/Alive` fixtures; reproduce duplicate child names and `INTERNAL` artwork (T5-T6, chunk 3). | 29; access to a real JRiver server | **Not started — externally blocked** |
+| 31 | Manual acceptance runbook and evidence -- exercise the GUI, a real JRiver source and season mode; record an end-to-end CLI run and sync (T2-T4). | 30; real designer, repositories and media | **Not started — externally blocked** |
+| 32 | Disc title selection -- resolve or explicitly choose JRiver DVD titles and expose a single-file DVD picker; add fixture-backed coverage (T7). | 30 for JRiver shape; DVD fixture | **Not started** |
+| 33 | Resolve JRiver Blu-ray playlist pseudo-paths, preserving a safe fallback for unknown playlist numbers (T8). | 30; playlist evidence | **Not started — evidence dependent** |
+| 34 | Path-mapping guardrails -- flag unmapped Windows paths on non-Windows hosts and add a local-folder picker (T11). | 29 | **Not started** |
+| 35 | TVDB IDs -- add optional `tvdb` external-ID mapping and TMDB lookup, retaining title/year fallback (T12). | 29 | **Not started** |
+| 36 | Asynchronous MCWS zone loading (T13). | 29 | **Not started** |
+| 37 | Season fidelity spike and implementation decision: measure joined-season levels and multichannel feasibility, then either add a documented policy or retain the boundary (T15). | 31; representative media | **Not started — evidence dependent** |
+| 38 | Close or promote intentional boundaries: confirm `registry` remains an extension seam (T14) and candidate reset on redesign remains correct (T16); remove them from the open-work list or create a separately approved feature plan. | 29 | **Not started** |

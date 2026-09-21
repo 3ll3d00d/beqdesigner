@@ -2,7 +2,7 @@
 
 > Part of the library sync plan -- **start at the index**: [`../library-sync-pipeline-plan.md`](../library-sync-pipeline-plan.md).
 > Contains §9, §10. Section numbers are global across the plan; the index maps every `§` to its file.
-> Status of what this file describes: reviewed 2026-09-19; **§10 holds the authoritative list of what is still open (T1-T16)**
+> Status of what this file describes: swept against `HEAD` on 2026-09-21 (1,902 tests passed); **§10 classifies every historic T-item and §13 schedules the remaining work**
 
 ## 9. Open questions / risks
 
@@ -73,12 +73,14 @@
   what it designed," and the conflict case in particular needs a real
   UI/CLI answer (deferred to the relevant chunk, not designed here).
 
-## 10. Implementation status vs. this plan (reviewed 2026-09-19)
+## 10. Implementation status vs. this plan
 
-Reviewed against the code at `1ebaa4e` (471 tests), then updated after each
-follow-up commit per `AGENTS.md` -- currently current to the library
-CLI documentation commit (810 tests); todo list consolidated in §10. Everything in §8 marked Implemented is present and tested, except as
-listed here. Items are ordered roughly by impact.
+The 2026-09-21 repository sweep verified that every implementation commit named
+in §8 except chunk 3 is reachable from `HEAD`, that its claimed modules and
+focused tests remain present, and that the complete offscreen suite passes
+(**1,902 passed**). The follow-on order, ownership and external prerequisites
+are in [`sweep-up.md`](sweep-up.md) §13. Historic T identifiers remain below so
+links and commit notes stay meaningful.
 
 **Behaviour gaps -- designed above (1-4 all now built)**
 
@@ -93,9 +95,8 @@ listed here. Items are ordered roughly by impact.
    entries are no longer counted as published and are listed to the reviewer
    (Library Sync dialog and review dialog). Also fixed the review dialog's
    "Published N" message, which was overwritten by the queue summary at once.
-   **New, open:** the review dialog's own Publish button is XML-only and
-   ignores `work_dir`, so publishing from it (including when embedded in the
-   Library Sync dialog) skips the `.beq` project logic of §3.3.1.
+   The later XML-only review-dialog Publish gap was T9; it closed when the
+   dialog was retired in chunk 27c.
 
 **Deviations that changed idempotency/cost -- fixed**
 
@@ -116,10 +117,7 @@ listed here. Items are ordered roughly by impact.
    `reviewer_note` across a redesign. `status` and the chosen candidate still
    reset to `pending`, since the candidates they refer to are replaced.
 
-**Still open** (consolidated 2026-09-20 -- the list that used to be here had gone
-stale, and most of what is genuinely open was recorded only in passing inside
-§11's subsections. Each entry says where the detail is. This list supersedes
-the old items 10-14.)
+### Closed
 
 *Documentation*
 
@@ -138,7 +136,13 @@ T1. ~~**User documentation (mkdocs, `docs/`) does not cover any of the library
     after a status message that is not a run, a TMDB key row that points at Preferences where there is no field, and
     the design/build differences in §12.4 and §12.10.
 
-*Verification not done*
+T9. ~~**The review dialog's own Publish button is XML-only and ignores `work_dir`**~~
+    **Closed in chunk 27c (2026-09-21, commits `b88ac1f` and `cf9561f`):** the dialog and its button are deleted; the Review Folder window publishes through `publish_library()`/`commit_library()`, so it writes images, reads projects and refuses incomplete metadata per title (§12.10).
+
+T10. ~~**Library view filter bar** (status / name / year / type) for the Run tab (§7).~~
+    **Closed:** superseded by the work list (§12.10, chunks 26a-b); the Run tab it was for is deleted (27c).
+
+### External verification required
 
 T2. **The GUI has only been exercised by offscreen pytest-qt, never by a person
     in the running app**: Preferences -> JRiver (list, edit, async test,
@@ -160,7 +164,7 @@ T6. **Chunk 3 (the sanitised real-server fixture) was never captured.** The
     siblings would collapse into one entry (not seen). `INTERNAL` artwork is
     handled but untested.
 
-*Features not built*
+### Product work scheduled in §13
 
 T7. **DVD, multi-episode discs (§11.8).** A JRiver item cannot say which title it
     is, so every JRiver item on a disc resolves to that disc's main title
@@ -171,25 +175,17 @@ T7. **DVD, multi-episode discs (§11.8).** A JRiver item cannot say which title 
     tables).
 T8. **Blu-ray `BDMV\PLAYLIST\index.bluray;N` entries** (4 shows) are passed
     through unresolved -- which title `N` names is unknown (§11.5).
-T9. **The review dialog's own Publish button is XML-only and ignores `work_dir`**,
-    so publishing from it (including from the copy embedded in Library Sync)
-    skips the `.beq`-project logic; only Library Sync's Sync button uses it (§7).
-    **Closed in chunk 27c (2026-09-21, commits `b88ac1f` and `cf9561f`):** the dialog and its button are deleted; the Review folder window publishes
-    through `publish_library()`/`commit_library()`, the functions the work list runs, so it also writes images, reads projects and
-    refuses incomplete metadata per title (§12.10).
-T10. **Library view filter bar** (status / name / year / type) for the Run tab (§7).
-     **Closed:** superseded by the work list (§12.10, chunks 26a-b); the Run tab it was for is deleted (27c).
 T11. **No warning for a path still in Windows form on a non-Windows host** (an
      unmapped library fails item by item at extraction); no folder picker on the
      path mapping's local column (§11.6).
 T12. **`tvdb` identifier** -- 1587 of 1657 live shows carry a `TheTVDB Series
      ID` TMDB can resolve; optional, not started (§11.7).
 T13. **`MCWSDialog`'s zone loading is still synchronous** (§11.1).
+
+### Intentional boundaries pending disposition
+
 T14. **`pipeline.library.registry` has no production callers** -- an unused seam
      for Kodi/Plex, which are not built by design (§3, §3.2).
-
-*Known limits (by design, revisit if they bite)*
-
 T15. Season mode does not keep multichannel, joins episodes with no level
      matching, and is only as complete as the browse node (§11.9).
 T16. Redesigning a `pending` entry resets its status and chosen candidate
