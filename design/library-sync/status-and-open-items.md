@@ -124,7 +124,7 @@ the old items 10-14.)
 *Documentation*
 
 T1. ~~**User documentation (mkdocs, `docs/`) does not cover any of the library
-    work, and one page is now wrong.**~~ **Closed 2026-09-21 (chunk 28, not yet committed).**
+    work, and one page is now wrong.**~~ **Closed 2026-09-21 (chunk 28, commit `ecd8cef`).**
     `docs/library/` (overview, concepts, set up a catalogue, discover, do the work, review, publish and commit,
     revise, unattended) is the user guide, linked from `mkdocs.yml` and `docs/index.md`; `manage_mc.md` and its
     screenshots describe the server picker that moved to Preferences -> JRiver; `preferences.md` has the Designers and
