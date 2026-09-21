@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>metadataPanel</class>
+ <widget class="QWidget" name="metadataPanel">
+  <layout class="QVBoxLayout" name="metadataRootLayout">
+   <property name="leftMargin"><number>0</number></property>
+   <property name="topMargin"><number>0</number></property>
+   <property name="rightMargin"><number>0</number></property>
+   <property name="bottomMargin"><number>0</number></property>
+   <item>
+    <layout class="QHBoxLayout" name="metadataBodyLayout">
+     <item>
+      <widget class="QScrollArea" name="metadataScroll">
+       <property name="frameShape"><enum>QFrame::NoFrame</enum></property>
+       <property name="horizontalScrollBarPolicy"><enum>Qt::ScrollBarAlwaysOff</enum></property>
+       <property name="widgetResizable"><bool>true</bool></property>
+       <widget class="QWidget" name="metadataFormHost">
+        <layout class="QVBoxLayout" name="metadataFormLayout">
+         <item>
+          <widget class="QLabel" name="essentialsHeading"><property name="text"><string>Essentials</string></property></widget>
+         </item>
+         <item>
+          <layout class="QFormLayout" name="essentialsForm">
+           <property name="fieldGrowthPolicy"><enum>QFormLayout::ExpandingFieldsGrow</enum></property>
+           <item row="0" column="0"><widget class="QLabel" name="titleLabel"><property name="text"><string>Title:</string></property></widget></item>
+           <item row="0" column="1"><widget class="QLineEdit" name="titleField"><property name="toolTip"><string>The title as the catalogue shows it. Required.</string></property></widget></item>
+           <item row="1" column="0"><widget class="QLabel" name="yearLabel"><property name="text"><string>Year:</string></property></widget></item>
+           <item row="1" column="1"><widget class="QLineEdit" name="yearField"><property name="toolTip"><string>Release year (first air year for a series). Required.</string></property></widget></item>
+           <item row="2" column="0"><widget class="QLabel" name="audioTypesLabel"><property name="text"><string>Audio types:</string></property></widget></item>
+           <item row="2" column="1"><widget class="QLineEdit" name="audioTypesField"><property name="toolTip"><string>The audio formats this filter is for, separated by commas, e.g. Atmos, DTS-HD MA 5.1. At least one is required.</string></property></widget></item>
+           <item row="3" column="0"><widget class="QLabel" name="editionLabel"><property name="text"><string>Edition:</string></property></widget></item>
+           <item row="3" column="1"><widget class="QLineEdit" name="editionField"><property name="toolTip"><string>e.g. Director's Cut</string></property></widget></item>
+           <item row="4" column="0"><widget class="QLabel" name="seasonLabel"><property name="text"><string>Season:</string></property></widget></item>
+           <item row="4" column="1"><widget class="QLineEdit" name="seasonField"><property name="toolTip"><string>The season number, for a TV series. Blank if not a TV show. Changing it drops the TMDB season id a run looked up.</string></property></widget></item>
+           <item row="5" column="0"><widget class="QLabel" name="episodesLabel"><property name="text"><string>Episodes:</string></property></widget></item>
+           <item row="5" column="1"><widget class="QLineEdit" name="episodesField"><property name="toolTip"><string>The episodes of that season this filter covers, e.g. 1-8 or 1-3, 5. Blank if not a TV show.</string></property></widget></item>
+           <item row="6" column="0"><widget class="QLabel" name="noteLabel"><property name="text"><string>Note:</string></property></widget></item>
+           <item row="6" column="1"><widget class="QLineEdit" name="noteField"><property name="toolTip"><string>A note shown with the filter in the catalogue.</string></property></widget></item>
+           <item row="7" column="0"><widget class="QLabel" name="warningLabel"><property name="text"><string>Warning:</string></property></widget></item>
+           <item row="7" column="1"><widget class="QLineEdit" name="warningField"><property name="toolTip"><string>A warning shown with the filter in the catalogue.</string></property></widget></item>
+           <item row="8" column="0"><widget class="QLabel" name="tmdbLabel"><property name="text"><string>TMDB id:</string></property></widget></item>
+           <item row="8" column="1"><layout class="QHBoxLayout" name="tmdbLayout"><item><widget class="QLineEdit" name="movieDbIdField"><property name="toolTip"><string>The TMDB id. With one, Reload fetches that title; without, it searches by title and year.</string></property></widget></item><item><widget class="QPushButton" name="reloadTmdbButton"><property name="toolTip"><string>Look the title up on TMDB and fill in what it knows: title, year, ratings, runtime, genres. Audio types are not on TMDB. Nothing is saved until you leave the field or press Save.</string></property><property name="text"><string>Reload</string></property></widget></item></layout></item>
+          </layout>
+         </item>
+         <item>
+          <widget class="QGroupBox" name="artworkBox">
+           <property name="title"><string>Artwork</string></property>
+           <layout class="QHBoxLayout" name="artworkLayout">
+            <item><widget class="QLabel" name="artPreviewLabel"><property name="minimumSize"><size><width>96</width><height>136</height></size></property><property name="maximumSize"><size><width>96</width><height>136</height></size></property><property name="alignment"><set>Qt::AlignCenter</set></property><property name="wordWrap"><bool>true</bool></property><property name="textFormat"><enum>Qt::PlainText</enum></property><property name="text"><string/></property></widget></item>
+            <item>
+             <layout class="QVBoxLayout" name="artControlsLayout">
+              <item><widget class="QLineEdit" name="artPathField"><property name="readOnly"><bool>true</bool></property><property name="placeholderText"><string>No artwork chosen</string></property></widget></item>
+              <item>
+               <layout class="QHBoxLayout" name="artButtonsLayout">
+                <item><widget class="QPushButton" name="browseArtButton"><property name="toolTip"><string>Choose an image file (png or jpeg) from this computer</string></property><property name="text"><string>Browse...</string></property></widget></item>
+                <item><widget class="QPushButton" name="clearArtButton"><property name="toolTip"><string>Forget the chosen artwork; a later run may pick one again</string></property><property name="text"><string>Clear</string></property></widget></item>
+                <item><spacer name="artButtonsSpacer"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>20</height></size></property></spacer></item>
+               </layout>
+              </item>
+              <item>
+               <layout class="QHBoxLayout" name="artUrlLayout">
+                <item><widget class="QLineEdit" name="artUrlField"><property name="placeholderText"><string>Paste an image URL</string></property></widget></item>
+                <item><widget class="QPushButton" name="downloadArtButton"><property name="toolTip"><string>Download the image at that address and use it</string></property><property name="text"><string>Download</string></property></widget></item>
+               </layout>
+              </item>
+              <item><spacer name="artControlsSpacer"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>0</height></size></property></spacer></item>
+             </layout>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="QToolButton" name="moreButton">
+           <property name="toolTip"><string>The rest of the metadata: none of it is needed to publish</string></property>
+           <property name="text"><string>More</string></property>
+           <property name="checkable"><bool>true</bool></property>
+           <property name="toolButtonStyle"><enum>Qt::ToolButtonTextBesideIcon</enum></property>
+           <property name="arrowType"><enum>Qt::RightArrow</enum></property>
+           <property name="autoRaise"><bool>true</bool></property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QWidget" name="moreBox">
+           <property name="visible"><bool>false</bool></property>
+           <layout class="QVBoxLayout" name="moreBoxLayout">
+            <property name="leftMargin"><number>0</number></property>
+            <property name="topMargin"><number>0</number></property>
+            <property name="rightMargin"><number>0</number></property>
+            <property name="bottomMargin"><number>0</number></property>
+            <item>
+              <layout class="QFormLayout" name="moreForm">
+               <property name="fieldGrowthPolicy"><enum>QFormLayout::ExpandingFieldsGrow</enum></property>
+               <item row="0" column="0"><widget class="QLabel" name="altTitleLabel"><property name="text"><string>Alt title:</string></property></widget></item>
+               <item row="0" column="1"><widget class="QLineEdit" name="altTitleField"><property name="toolTip"><string>The original or alternative title.</string></property></widget></item>
+               <item row="1" column="0"><widget class="QLabel" name="sortTitleLabel"><property name="text"><string>Sort title:</string></property></widget></item>
+               <item row="1" column="1"><widget class="QLineEdit" name="sortTitleField"><property name="toolTip"><string>How the title sorts. Blank: the title, lower case, without a leading "the".</string></property></widget></item>
+               <item row="2" column="0"><widget class="QLabel" name="languageLabel"><property name="text"><string>Language:</string></property></widget></item>
+               <item row="2" column="1"><widget class="QLineEdit" name="languageField"><property name="toolTip"><string>Blank: the default from the sync settings, else English.</string></property></widget></item>
+               <item row="3" column="0"><widget class="QLabel" name="sourceLabel"><property name="text"><string>Source:</string></property></widget></item>
+               <item row="3" column="1"><widget class="QLineEdit" name="sourceField"><property name="toolTip"><string>Blank: the default from the sync settings, else Disc.</string></property></widget></item>
+               <item row="4" column="0"><widget class="QLabel" name="ratingLabel"><property name="text"><string>Rating:</string></property></widget></item>
+               <item row="4" column="1"><widget class="QLineEdit" name="ratingField"></widget></item>
+               <item row="5" column="0"><widget class="QLabel" name="authorLabel"><property name="text"><string>Author:</string></property></widget></item>
+               <item row="5" column="1"><widget class="QLineEdit" name="authorField"></widget></item>
+               <item row="6" column="0"><widget class="QLabel" name="avsLabel"><property name="text"><string>AVS post:</string></property></widget></item>
+               <item row="6" column="1"><widget class="QLineEdit" name="avsField"><property name="toolTip"><string>The AVS Forum post URL.</string></property></widget></item>
+               <item row="7" column="0"><widget class="QLabel" name="runtimeLabel"><property name="text"><string>Runtime:</string></property></widget></item>
+               <item row="7" column="1"><widget class="QLineEdit" name="runtimeField"><property name="toolTip"><string>Minutes.</string></property></widget></item>
+               <item row="8" column="0"><widget class="QLabel" name="gainLabel"><property name="text"><string>Gain:</string></property></widget></item>
+               <item row="8" column="1"><widget class="QLineEdit" name="gainField"><property name="toolTip"><string>The master volume adjustment published with the filter. Blank: the chosen candidate's.</string></property></widget></item>
+               <item row="9" column="0"><widget class="QLabel" name="genresCaption"><property name="text"><string>Genres:</string></property></widget></item>
+               <item row="9" column="1"><widget class="QLabel" name="genresLabel"><property name="wordWrap"><bool>true</bool></property><property name="textFormat"><enum>Qt::PlainText</enum></property><property name="text"><string/></property></widget></item>
+              </layout>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item><spacer name="formSpacer"><property name="orientation"><enum>Qt::Vertical</enum></property><property name="sizeHint" stdset="0"><size><width>20</width><height>20</height></size></property></spacer></item>
+        </layout>
+       </widget>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="metadataStatusLayout">
+     <item><widget class="QLabel" name="metadataStatusLabel"><property name="wordWrap"><bool>true</bool></property><property name="textFormat"><enum>Qt::PlainText</enum></property><property name="text"><string/></property></widget></item>
+     <item><widget class="QPushButton" name="revertButton"><property name="toolTip"><string>Throw away what you have typed and show what is saved</string></property><property name="text"><string>Revert</string></property></widget></item>
+     <item><widget class="QPushButton" name="saveMetadataButton"><property name="toolTip"><string>Save the edits now (they are saved anyway when you leave a field or move to another title)</string></property><property name="text"><string>Save</string></property></widget></item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

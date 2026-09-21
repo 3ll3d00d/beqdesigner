@@ -3,9 +3,9 @@ The library work list -- design/library-sync/workflow-rework/design.md §12.10, 
 
 A top-level window over the discovery index (`pipeline.library.index.LibraryIndex`): the pipeline strip with a count per
 kind of work, a searchable, filterable table of every title in the library and what it needs next, and a Rescan that
-lists the sources again. It is the intended replacement for `model.library_sync.LibrarySyncDialog`, which stays
-untouched and working until chunk 27c. Chunk 26a made it read-only; chunk 26b (below) gives it actions, but **it accepts
-nothing**: reviewing is a person's job (the title page, chunk 27).
+lists the sources again. It replaced the old Library Sync dialog (`LibrarySyncDialog`, deleted in chunk 27c). Chunk 26a made it
+read-only; chunk 26b (below) gives it actions, but **the table itself accepts nothing**: reviewing is a person's job, on the title
+page (chunk 27), and the one bulk shortcut (chunk 27c, `model.worklist_bulk`) asks first.
 
 What the window reads and where it does not think for itself:
 
@@ -30,6 +30,13 @@ Actions (chunk 26b; `model.worklist_run` and `model.worklist_confirm` hold what 
   ends -- after a cancel or a failure too -- and the window then reads the index again (`refresh_from_index()`), keeping
   the selection, and lists what happened to each title on the *Last run* tab.
 
+The title page (chunk 27a; `model.worklist_title`, opened by `model.worklist_titles`): double-click, Enter or *Open* shows one
+title in place of the table -- its candidates, commentary and chart, with Accept & next / Skip / Reject and Previous / Next --
+and Esc returns to the table as it was. It is where a person **decides**; the index is read again once, when the page is left.
+Chunk 27c gives it the title's projects (*Open project* in the main window, through the callable the app hands in as
+`open_project`), Reopen / Revise, and -- on the table -- *Accept top pick* (bulk accept, behind a confirmation), *Revise...* and
+the "settings changed since N titles were designed" banner (`model.worklist_bulk`).
+
 The cached index is shown at once (stale-while-revalidate). A rescan runs on a QRunnable in the global thread pool with its
 own index connection, so the UI thread never waits for a slow source; the window rescans by itself only when the
 index has never been scanned.
@@ -40,19 +47,21 @@ import os
 import time
 from typing import Callable, Dict, List, Mapping, Optional
 
-from qtpy.QtCore import QItemSelectionModel, QObject, QPoint, QRunnable, Qt, QThreadPool, Signal
+from qtpy.QtCore import QEvent, QItemSelectionModel, QObject, QPoint, QRunnable, Qt, QThreadPool, Signal
 from qtpy.QtGui import QKeySequence, QShortcut
 from qtpy.QtWidgets import QAbstractItemView, QButtonGroup, QDockWidget, QHeaderView, QInputDialog, QMainWindow, QMenu, \
     QMessageBox, QProgressBar, QSizePolicy
 
 from model.preferences import WORKLIST_GEOMETRY
 from model.worklist_actions import WorkListActions
+from model.worklist_bulk import WorkListBulk
 from model.worklist_model import ALL_CHIPS, CHIP_ALL, CHIP_DONE, COL_DETAIL, COL_NEEDS, COL_SOURCE, COL_TITLE, \
     COL_WAITING, COL_YEAR, ID_ROLE, WorkListModel, WorkListProxy, warning_colour
 from model.worklist_edit import discovery_changed
 from model.worklist_profile import WorkListSetup, load_setup
 from model.worklist_run import FailedTitle, ResultLine, RunJob, failed_titles
 from model.worklist_settings import SettingsDrawer
+from model.worklist_titles import WorkListTitles
 from pipeline.library.index import LibraryIndex, ScanResult, SourceRow, TitleRow
 from pipeline.library.profile import Profile
 from pipeline.library.selection import CHIP_NEW, Selection, selection_from_chip
@@ -144,7 +153,7 @@ class _ScanJob(QRunnable):
             self.signals.errored.emit(f'{type(error).__name__}: {error}')
 
 
-class WorkListWindow(WorkListActions, QMainWindow, Ui_workListWindow):
+class WorkListWindow(WorkListActions, WorkListTitles, WorkListBulk, QMainWindow, Ui_workListWindow):
     '''
     :param parent: the main window, or None.
     :param preferences: `model.preferences.Preferences`; read again by reload().
@@ -158,6 +167,10 @@ class WorkListWindow(WorkListActions, QMainWindow, Ui_workListWindow):
     :param choose_profile_path: `(default, overwrite_ok) -> path`, asks where the profile file goes (a file dialog by default).
     :param run_dialog: how the drawer runs its source and ignore-rule dialogs (tests fill them in and accept them).
     :param settings_debounce_ms: how long after an edit the drawer writes the profile file.
+    :param open_project: opens a `.beq` project file in the main window and returns False if the person declined
+        (`BeqDesigner.open_project_file`); the title page's *Open project* buttons call it. This window does not import `app`
+        (a top-level circular import, AGENTS.md gotcha 3), so the parent hands the route in. None: the buttons are disabled.
+    :param ask_revise: `(summary, context, default) -> (choice, reason) | None`, what *Revise...* asks with (the dialog by default).
     '''
     settings_requested = Signal()      # a Settings... button: the window opens the drawer (open_settings); also emitted, for the app
     preferences_requested = Signal()   # the drawer's link to Preferences (the TMDB key): the app opens them
@@ -167,16 +180,24 @@ class WorkListWindow(WorkListActions, QMainWindow, Ui_workListWindow):
     run_started = Signal(object)       # the RunRequest
     run_finished = Signal(object)      # the StagesReport, once the list shows the result (also after a cancel)
     run_failed = Signal(str)           # the run raised
+    index_synced = Signal()            # the index has read the decisions made on the title page (worklist_titles)
 
     def __init__(self, parent, preferences, *, auto_scan: bool = True,
                  sources: Optional[Mapping[str, LibrarySource]] = None, clock=time.time,
                  run_stages_fn: Callable = run_stages, precheck: Optional[Callable[[str], bool]] = None,
                  choose_profile_path: Optional[Callable[[str, bool], str]] = None, run_dialog=None,
-                 settings_debounce_ms: int = 400):
+                 settings_debounce_ms: int = 400, open_project: Optional[Callable[[str], Optional[bool]]] = None,
+                 ask_revise: Optional[Callable] = None):
         super().__init__(parent)
+        self._init_bulk(ask_revise)
+        self._open_project = open_project
         self._drawer: Optional[SettingsDrawer] = None
         self._dock: Optional[QDockWidget] = None
         self._stale = False         # the settings changed what a scan says, and none has run since
+        self._title_page = None     # the title page, built the first time a title is opened (worklist_titles)
+        self._title_open = False
+        self._index_dirty = False   # a decision was made on the title page and the index has not read it yet
+        self._syncing = False       # ... and it is being read now
         self.setupUi(self)
         self._preferences = preferences
         self._auto_scan = auto_scan
@@ -212,6 +233,8 @@ class WorkListWindow(WorkListActions, QMainWindow, Ui_workListWindow):
         self.statusBar.addPermanentWidget(self._progress)
 
         self._configure_actions()
+        self._configure_titles()
+        self._configure_bulk()
         self._configure_settings(choose_profile_path, run_dialog, settings_debounce_ms)
         self.searchEdit.textChanged.connect(self._on_search)
         self.sourceCombo.currentIndexChanged.connect(self._on_source)
@@ -584,6 +607,11 @@ class WorkListWindow(WorkListActions, QMainWindow, Ui_workListWindow):
         self._drawer.set_rows(rows)
         self._refresh_failures()
         self._refresh_actions()
+        if self._title_page is not None and not self._index_dirty and not self._syncing:
+            self._title_page.forget_decisions()   # the rows now say what was decided
+        if self._title_open:
+            self._title_page.reload()   # the rows behind its header, and the entry, may have changed
+        self._refresh_drift()           # (asks a worker; the banner follows the answer)
 
     def _populate_sources(self, sources: List[SourceRow]) -> None:
         wanted = self.sourceCombo.currentData()
@@ -692,6 +720,8 @@ class WorkListWindow(WorkListActions, QMainWindow, Ui_workListWindow):
         self.sourceStatusLabel.setVisible(True)
 
     def _refresh_empty_state(self, counts: Dict[str, int]) -> None:
+        if self._title_open:   # the title page has the stack: leaving it shows the table (or this) again
+            return
         setup, listed = self._setup, self._proxy.rowCount()
         title, detail, settings = '', '', False
         if listed:
@@ -736,7 +766,7 @@ class WorkListWindow(WorkListActions, QMainWindow, Ui_workListWindow):
         '''
         self._flush_settings()   # a setting edited a moment ago is what this scan must use
         setup = self._setup
-        if self._scanning or self.is_running or not setup.ready or setup.index_file is None:
+        if self._scanning or self._syncing or self.is_running or not setup.ready or setup.index_file is None:
             return False
         job = _ScanJob(setup.index_file, setup.profile, setup.settings, only, self._sources)
         job.signals.finished.connect(self._on_scan_finished)
@@ -758,6 +788,7 @@ class WorkListWindow(WorkListActions, QMainWindow, Ui_workListWindow):
         self._stale = False   # the index describes the current settings again
         self._progress.setVisible(False)
         self.refresh_from_index()
+        self._sync_index_if_dirty()   # decisions made while it was listing may be newer than what it read
         message = f'Scan finished: {result.titles:,} titles, {len(result.new):,} new'
         if result.errors:
             message += f'; {len(result.errors)} source(s) could not be listed'
@@ -770,6 +801,15 @@ class WorkListWindow(WorkListActions, QMainWindow, Ui_workListWindow):
         self.statusBar.showMessage(f'The scan failed: {message}')
         self.scan_failed.emit(message)
 
+    def changeEvent(self, event) -> None:
+        '''
+        The window becoming active again: a person opened a project in the main window, edited it and saved it, and comes
+        back -- the title page reads the projects' state again, so the "modified since design" badge is right.
+        '''
+        if event.type() == QEvent.Type.ActivationChange and self.isActiveWindow() and self._title_open:
+            self._title_page.refresh_projects()
+        super().changeEvent(event)
+
     def showEvent(self, event) -> None:
         if self._closed:   # shown again without the app's reload(): read the settings and the index again
             self.reload()
@@ -781,6 +821,8 @@ class WorkListWindow(WorkListActions, QMainWindow, Ui_workListWindow):
         hand finishes) and closes. Closing releases the index connection, and a scan or run that ends afterwards does not
         open it again (`reload()` does, when the window is shown again).
         '''
+        # the question about a run comes first: an edit that cannot be saved is only put to the person (Discard / Cancel) once the
+        # window is really going to close, and Cancel there keeps everything, the run included
         if self.is_running:
             answer = QMessageBox.question(
                 self, 'Run in progress', 'A run is in progress. Cancel it and close?',
@@ -788,8 +830,14 @@ class WorkListWindow(WorkListActions, QMainWindow, Ui_workListWindow):
             if answer != QMessageBox.StandardButton.Yes:
                 event.ignore()
                 return
+        if self._title_open and not self._title_page.leave():   # an edit that could not be saved, and was not discarded
+            event.ignore()
+            return
+        if self.is_running:
             self.cancel_run()
         self._flush_settings()
+        self.close_title(sync=False)
+        self._sync_index_now()   # a decision not yet in the index is read now: nothing is left to wait for a worker
         self._preferences.set(WORKLIST_GEOMETRY, self.saveGeometry())
         self._closed = True
         self._close_index()  # a scan or run in flight has its own connection

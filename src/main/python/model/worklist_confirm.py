@@ -12,8 +12,9 @@ from typing import Optional, Tuple
 
 from qtpy.QtCore import Qt
 from qtpy.QtGui import QTextDocument
-from qtpy.QtWidgets import QCheckBox, QDialog, QDialogButtonBox, QLabel, QVBoxLayout
+from qtpy.QtWidgets import QCheckBox, QDialog, QDialogButtonBox, QLabel, QPlainTextEdit, QVBoxLayout
 
+from pipeline.library.bulk import AcceptPlan
 from pipeline.library.stages import PublishSettings
 
 
@@ -87,14 +88,45 @@ def machine_text(count: int, everything_in_view: bool, view: str) -> Tuple[str, 
     return f'Extract and design {_plural(count, "title")}?', '<br>'.join(lines)
 
 
+def accept_text(plan: AcceptPlan) -> Tuple[str, str, str]:
+    '''
+    Bulk accept's confirmation (design.md §12.9): how many titles, at what confidence, and -- as the details -- every title that
+    was left out and why, so nothing is accepted that a person was not told about.
+    :return: (heading, body html, details plain text -- one line per left-out title, '' if none)
+    '''
+    count = len(plan.eligible)
+    lines = [f'Chooses the designer\'s <b>top pick</b> for {_plural(count, "title")} whose confidence is '
+             f'<b>{plan.threshold:.2f} or more</b> (the threshold is in Settings &gt; Locations), and marks '
+             f'{"it" if count == 1 else "them"} accepted with the note "bulk accepted, confidence &gt;= {plan.threshold:.2f}".',
+             'Nothing is published: Publish is the next step, and separate. You can still reopen any of them.']
+    if plan.excluded:
+        lines.append(f'<br>{_plural(len(plan.excluded), "title")} at or above the threshold {"is" if len(plan.excluded) == 1 else "are"} '
+                     f'<b>left out</b> because {"it needs" if len(plan.excluded) == 1 else "they need"} a person to look (listed below).')
+    if plan.below_threshold:
+        lines.append(f'<br>{_plural(plan.below_threshold, "title")} waiting for review {"is" if plan.below_threshold == 1 else "are"} '
+                     f'below the threshold and left for you.')
+    if plan.not_for_review:
+        lines.append(f'{_plural(plan.not_for_review, "title")} in the selection {"is" if plan.not_for_review == 1 else "are"} '
+                     f'not waiting for review and {"is" if plan.not_for_review == 1 else "are"} not touched.')
+    details = '\n'.join(f'{e.title}: {e.reason}' for e in plan.excluded)
+    return f'Accept the top pick for {_plural(count, "title")}?', '<br>'.join(lines), details
+
+
+def drift_text(count: int) -> str:
+    ''' The banner: accepted or published titles that were designed under other settings (`pipeline.library.drift`). '''
+    return (f'The settings changed since {_plural(count, "accepted or published title")} {"was" if count == 1 else "were"} designed. '
+            f'{"It keeps" if count == 1 else "They keep"} the old design until you revise {"it" if count == 1 else "them"}.')
+
+
 class ConfirmDialog(QDialog):
     '''
     :param ok_text: the accept button, named for what it does ("Publish 12 titles").
     :param checkbox: text of an optional checkbox (checked by `checkbox_checked`); its state is `checked` afterwards.
+    :param details: plain text shown below the body in a scrolling box (the titles a bulk accept leaves out, and why).
     '''
 
     def __init__(self, parent, heading: str, body: str, ok_text: str, checkbox: Optional[str] = None,
-                 checkbox_checked: bool = True):
+                 checkbox_checked: bool = True, details: str = ''):
         super().__init__(parent)
         self.setWindowTitle(heading)
         self.setModal(True)
@@ -106,6 +138,13 @@ class ConfirmDialog(QDialog):
         self.body.setWordWrap(True)
         self.body.setMinimumWidth(460)
         layout.addWidget(self.body)
+        self.details = None
+        if details:
+            self.details = QPlainTextEdit(details)
+            self.details.setReadOnly(True)
+            self.details.setMaximumHeight(170)
+            self.details.setMinimumHeight(90)
+            layout.addWidget(self.details)
         self.checkbox = None
         if checkbox:
             self.checkbox = QCheckBox(checkbox)
@@ -130,4 +169,5 @@ class ConfirmDialog(QDialog):
         ''' Everything the dialog says, as plain text (the tests and the log read this). '''
         document = QTextDocument()
         document.setHtml(self.body.text())
-        return f'{self.windowTitle()}\n{document.toPlainText()}'
+        extra = f'\n{self.details.toPlainText()}' if self.details is not None else ''
+        return f'{self.windowTitle()}\n{document.toPlainText()}{extra}'

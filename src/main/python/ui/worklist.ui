@@ -26,6 +26,23 @@
      </widget>
     </item>
     <item>
+     <widget class="QFrame" name="driftBanner">
+      <property name="frameShape"><enum>QFrame::StyledPanel</enum></property>
+      <layout class="QHBoxLayout" name="driftBannerLayout">
+       <item><widget class="QLabel" name="driftBannerLabel"><property name="wordWrap"><bool>true</bool></property><property name="text"><string/></property></widget></item>
+       <item><widget class="QPushButton" name="driftBannerButton"><property name="toolTip"><string>Choose what to do with these titles: reopen them for review, redesign them or extract them again. You are told what will happen before anything changes.</string></property><property name="text"><string>Revise...</string></property></widget></item>
+       <item><widget class="QPushButton" name="driftDismissButton"><property name="toolTip"><string>Hide this until the set of titles changes</string></property><property name="text"><string>Dismiss</string></property></widget></item>
+      </layout>
+     </widget>
+    </item>
+    <item>
+     <widget class="QWidget" name="listHeader">
+      <layout class="QVBoxLayout" name="listHeaderLayout">
+       <property name="leftMargin"><number>0</number></property>
+       <property name="topMargin"><number>0</number></property>
+       <property name="rightMargin"><number>0</number></property>
+       <property name="bottomMargin"><number>0</number></property>
+    <item>
      <layout class="QHBoxLayout" name="stripLayout">
       <property name="spacing"><number>4</number></property>
       <item><widget class="QPushButton" name="allChip"><property name="text"><string>All</string></property><property name="checkable"><bool>true</bool></property><property name="checked"><bool>true</bool></property></widget></item>
@@ -51,6 +68,9 @@
      </layout>
     </item>
     <item><widget class="QLabel" name="sourceStatusLabel"><property name="wordWrap"><bool>true</bool></property><property name="textFormat"><enum>Qt::RichText</enum></property><property name="text"><string/></property></widget></item>
+      </layout>
+     </widget>
+    </item>
     <item>
      <widget class="QSplitter" name="bodySplitter">
       <property name="orientation"><enum>Qt::Vertical</enum></property>
@@ -121,18 +141,36 @@
      </widget>
     </item>
     <item>
+     <widget class="QWidget" name="listFooter">
+      <layout class="QVBoxLayout" name="listFooterLayout">
+       <property name="leftMargin"><number>0</number></property>
+       <property name="topMargin"><number>0</number></property>
+       <property name="rightMargin"><number>0</number></property>
+       <property name="bottomMargin"><number>0</number></property>
+    <item>
      <layout class="QHBoxLayout" name="actionLayout">
       <item><widget class="QLabel" name="selectionLabel"><property name="text"><string/></property></widget></item>
       <item><widget class="QPushButton" name="selectAllButton"><property name="toolTip"><string>Select every title the current view lists (pick a strip chip first to select one kind of work)</string></property><property name="text"><string>Select all</string></property></widget></item>
       <item><widget class="QPushButton" name="clearSelectionButton"><property name="text"><string>Clear</string></property></widget></item>
       <item><spacer name="actionSpacer"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
+      <item><widget class="QPushButton" name="openButton"><property name="toolTip"><string>Open a title to review its candidates, one after another: the selected title, or the first listed (Enter, or double-click a row)</string></property><property name="text"><string>Open</string></property></widget></item>
       <item><widget class="QPushButton" name="ignoreButton"><property name="toolTip"><string>Ignore titles like the selected one, or just the selected titles</string></property><property name="text"><string>Ignore</string></property></widget></item>
       <item><widget class="QPushButton" name="publishButton"><property name="text"><string>Publish</string></property></widget></item>
       <item><widget class="QPushButton" name="commitButton"><property name="text"><string>Commit</string></property></widget></item>
       <item><widget class="QPushButton" name="runButton"><property name="default"><bool>false</bool></property><property name="text"><string>Extract &amp; design</string></property></widget></item>
      </layout>
     </item>
+    <item>
+     <layout class="QHBoxLayout" name="bulkLayout">
+      <item><spacer name="bulkSpacer"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
+      <item><widget class="QPushButton" name="reviseButton"><property name="toolTip"><string>Send the selected titles back: reopen them for review, redesign them or extract them again. Works only on the rows you selected.</string></property><property name="text"><string>Revise...</string></property></widget></item>
+      <item><widget class="QPushButton" name="acceptButton"><property name="toolTip"><string>Accept the designer's top pick for the titles waiting for review whose confidence is at or above the threshold</string></property><property name="text"><string>Accept top pick</string></property></widget></item>
+     </layout>
+    </item>
     <item><widget class="QLabel" name="skippedLabel"><property name="alignment"><set>Qt::AlignRight|Qt::AlignVCenter</set></property><property name="wordWrap"><bool>true</bool></property><property name="text"><string/></property></widget></item>
+      </layout>
+     </widget>
+    </item>
    </layout>
   </widget>
   <widget class="QStatusBar" name="statusBar"/>

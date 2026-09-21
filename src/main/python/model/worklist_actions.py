@@ -135,7 +135,7 @@ class WorkListActions:
         return plan_stages(targets, through, retry_failed=retry_failed)
 
     def _busy(self) -> bool:
-        return self.is_running or self._scanning
+        return self.is_running or self._scanning or self._syncing or self._bulk_job is not None
 
     def _refresh_actions(self, *_) -> None:
         ''' The selection text and the four buttons: their labels say how many titles each will work on. '''
@@ -175,6 +175,8 @@ class WorkListActions:
         self.retryButton.setToolTip('Run the titles in the failures panel again, even though nothing changed. The panel '
                                     'lists every failed title in the library, not only those in the current view.')
         self.rescanButton.setEnabled(self._setup.ready and not self._busy())
+        self._refresh_open_button()
+        self._refresh_bulk_actions()
         self._refresh_settings_state()
 
     @staticmethod
@@ -231,6 +233,8 @@ class WorkListActions:
         self.resultDetails.setVisible(bool(text))
 
     def _refresh_details(self) -> None:
+        if self._title_open:   # the title page has the window: leaving it shows the panel again
+            return
         self.detailsTabs.setTabVisible(0, bool(self._failed))
         self.detailsTabs.setTabVisible(1, bool(self._results))
         show = bool(self._failed or self._results)
@@ -428,6 +432,7 @@ class WorkListActions:
         cancel_asked = self._job is not None and self._job.cancel_requested
         context = self._end_run()
         self.refresh_from_index()
+        self._sync_index_if_dirty()   # decisions made while it ran may be newer than what it read
         if context is not None:
             self._results = describe_results(report, context.plan, self._setup.settings, context.rows)
             text, level = summarise_report(report, context.plan, self._setup.settings)
@@ -444,6 +449,7 @@ class WorkListActions:
     def _on_run_failed(self, message: str) -> None:
         self._end_run()
         self.refresh_from_index()   # the pipeline refreshes the index whatever happened, so show what it now says
+        self._sync_index_if_dirty()
         self._say(f'The run failed: {message}. Titles finished before it are kept; see Help > Logs for the details.',
                    LEVEL_ERROR)
         self._refresh_view()
