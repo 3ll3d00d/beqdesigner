@@ -118,6 +118,32 @@ def check_repository(path: str) -> PathCheck:
     return PathCheck(LEVEL_OK, 'Git repository')
 
 
+def repository_location(path: str) -> Tuple[Optional[str], Optional[str], PathCheck]:
+    '''Resolve a chosen publish location to ``(git root, relative folder, check)``.
+
+    A person chooses where records/images belong, which may be anywhere below
+    a clone.  The profile still stores root and relative path separately for
+    the publisher, but never makes the person identify that implementation
+    detail.
+    '''
+    path = path.strip()
+    if not path:
+        return '', '', PathCheck(LEVEL_EMPTY, 'Not set')
+    if not os.path.isdir(path):
+        return None, None, PathCheck(LEVEL_ERROR, 'This folder does not exist')
+    selected = os.path.abspath(path)
+    current = selected
+    while True:
+        dot_git = os.path.join(current, '.git')
+        if os.path.isdir(dot_git) or os.path.isfile(dot_git):  # ordinary clone or a linked worktree
+            relative = os.path.relpath(selected, current).replace(os.sep, '/')
+            return current, '' if relative == '.' else relative, PathCheck(LEVEL_OK, 'Inside git repository')
+        parent = os.path.dirname(current)
+        if parent == current:
+            return None, None, PathCheck(LEVEL_ERROR, 'This folder is not inside a git repository')
+        current = parent
+
+
 def check_relative_dir(text: str) -> PathCheck:
     ''' A folder inside a repository, written relative to its root (`beq/xml`); empty means the root itself. '''
     text = text.strip()

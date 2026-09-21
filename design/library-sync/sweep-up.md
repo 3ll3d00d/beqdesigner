@@ -197,6 +197,11 @@ shape that a real server returns.
 - **Done when:** no library-sync publishing path claims XML output, the full
   suite passes, and one configured source record reaches the public catalogue.
 
+The Settings drawer is already simplified: it asks for a filter-record
+location and optional image location, then derives the containing git root and
+relative destination. The persistent keys remain compatibility plumbing until
+the wider rename lands.
+
 ### 13.5 Completion reporting
 
 After each chunk, update its §8 row with the commit hash and update the mapped

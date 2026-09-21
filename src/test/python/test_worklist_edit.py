@@ -14,7 +14,7 @@ import pytest
 
 from model.worklist_edit import LEVEL_ERROR, LEVEL_INFO, LEVEL_OK, check_directory, check_relative_dir, check_repository, \
     config_value, discovery_changed, folder_of, move_item, parse_external_ids, preview_rules, remote_owner_and_name, \
-    unique_name, with_config
+    repository_location, unique_name, with_config
 from model.worklist_profile import WorkListSetup
 from pipeline.library.ignore import rule_from_config
 from pipeline.library.index import LibraryIndex, index_path
@@ -49,6 +49,18 @@ def test_a_directory_is_ok_creatable_or_refused(tmp_path):
     (tmp_path / 'f').write_text('x')
     assert check_directory(str(tmp_path / 'f')).level == LEVEL_ERROR
     assert check_directory(str(tmp_path / 'f' / 'sub')).level == LEVEL_ERROR
+
+
+def test_repository_location_finds_a_containing_git_root_and_relative_folder(tmp_path):
+    root = tmp_path / 'catalogue'
+    root.mkdir()
+    subprocess.run(['git', '-C', str(root), 'init'], check=True, capture_output=True)
+    nested = root / 'records' / 'films'
+    nested.mkdir(parents=True)
+
+    assert repository_location(str(nested))[:2] == (str(root), 'records/films')
+    assert repository_location(str(root))[:2] == (str(root), '')
+    assert repository_location(str(tmp_path / 'outside'))[2].level == LEVEL_ERROR
 
 
 @pytest.mark.skipif(os.name == 'nt' or os.geteuid() == 0, reason='permissions are not enforced for root or on Windows')

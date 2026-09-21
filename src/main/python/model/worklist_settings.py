@@ -28,8 +28,8 @@ from qtpy.QtWidgets import QCheckBox, QComboBox, QDoubleSpinBox, QFileDialog, QF
     QLineEdit, QPushButton, QScrollArea, QTabWidget, QVBoxLayout, QWidget
 
 from model.preferences import LIBRARY_PROFILE_PATH, TMDB_API_KEY, WORKLIST_ACCEPT_THRESHOLD
-from model.worklist_edit import LEVEL_ERROR, LEVEL_INFO, LEVEL_OK, PathCheck, check_directory, check_relative_dir, \
-    check_repository, config_value, remote_owner_and_name, with_config
+from model.worklist_edit import LEVEL_ERROR, LEVEL_INFO, LEVEL_OK, PathCheck, check_directory, config_value, \
+    remote_owner_and_name, repository_location, with_config
 from model.worklist_ignore import IgnoreTab
 from model.worklist_model import warning_colour
 from model.worklist_profile import WorkListSetup
@@ -187,12 +187,10 @@ class SettingsDrawer(QWidget):
         self.queueDir = _PathRow(lambda start: QFileDialog.getExistingDirectory(
             self, 'Review queue directory', start or self.workDir.edit.text().strip() or default_library_folder()),
                                  'Defaults to review-queue inside the workspace; choose another folder only to share a queue')
-        self.xmlRepo = _PathRow(lambda start: QFileDialog.getExistingDirectory(self, 'XML repository', start),
-                                'A clone of the BEQ filter (XML) repository')
-        self.xmlDir = _PathRow(None, "A folder inside the repository (empty: its top folder)")
-        self.imagesRepo = _PathRow(lambda start: QFileDialog.getExistingDirectory(self, 'Images repository', start),
-                                   'A clone of the image repository (optional)')
-        self.imageDir = _PathRow(None, "A folder inside the repository (empty: its top folder)")
+        self.filterLocation = _PathRow(lambda start: QFileDialog.getExistingDirectory(
+            self, 'Filter records location', start), 'Choose the folder inside the filter-record repository')
+        self.imagesLocation = _PathRow(lambda start: QFileDialog.getExistingDirectory(
+            self, 'Images location', start), 'Choose the folder inside the image repository (optional)')
         self.imageOwner = QLineEdit()
         self.imageOwner.setPlaceholderText('Optional: the GitHub owner of the images repository')
         self.imageRepoName = QLineEdit()
@@ -223,10 +221,8 @@ class SettingsDrawer(QWidget):
         repos = QGroupBox('Catalogue repositories (publish and commit)')
         form = QFormLayout(repos)
         form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapAllRows)   # labels above the fields: a narrow drawer
-        form.addRow('XML repository', self.xmlRepo)
-        form.addRow('XML folder', self.xmlDir)
-        form.addRow('Images repository', self.imagesRepo)
-        form.addRow('Images folder', self.imageDir)
+        form.addRow('Filter records location', self.filterLocation)
+        form.addRow('Images location', self.imagesLocation)
         form.addRow('Image owner', self.imageOwner)
         form.addRow('Image repository', self.imageRepoName)
         form.addRow('', self.imageNote)
@@ -268,10 +264,10 @@ class SettingsDrawer(QWidget):
 
         self.workDir.committed.connect(lambda text: self.__set_directory('work_dir', self.workDir, text))
         self.queueDir.committed.connect(lambda text: self.__set_directory('queue_dir', self.queueDir, text))
-        self.xmlRepo.committed.connect(lambda text: self.__set_repo('xml_repo', self.xmlRepo, text))
-        self.imagesRepo.committed.connect(lambda text: self.__set_repo('images_repo', self.imagesRepo, text))
-        self.xmlDir.committed.connect(lambda text: self.__set_folder('xml_dir', self.xmlDir, text))
-        self.imageDir.committed.connect(lambda text: self.__set_folder('image_dir', self.imageDir, text))
+        self.filterLocation.committed.connect(
+            lambda text: self.__set_repo_location('xml_repo', 'xml_dir', self.filterLocation, text))
+        self.imagesLocation.committed.connect(
+            lambda text: self.__set_repo_location('images_repo', 'image_dir', self.imagesLocation, text))
         self.imageOwner.editingFinished.connect(
             lambda: self.__set_sync('image_owner', self.imageOwner.text().strip()))
         self.imageRepoName.editingFinished.connect(
@@ -346,16 +342,12 @@ class SettingsDrawer(QWidget):
         self.statusLabel.setStyleSheet('')
         self.workDir.set_text(profile.work_dir)
         self.queueDir.set_text(profile.queue_dir)
-        self.xmlRepo.set_text(profile.xml_repo)
-        self.xmlDir.set_text(profile.xml_dir)
-        self.imagesRepo.set_text(profile.images_repo)
-        self.imageDir.set_text(profile.image_dir)
+        self.filterLocation.set_text(os.path.join(profile.xml_repo, profile.xml_dir) if profile.xml_repo else '')
+        self.imagesLocation.set_text(os.path.join(profile.images_repo, profile.image_dir) if profile.images_repo else '')
         self.workDir.show_check(check_directory(profile.work_dir) if profile.work_dir else None)
         self.queueDir.show_check(check_directory(profile.queue_dir) if profile.queue_dir else None)
-        self.xmlRepo.show_check(check_repository(profile.xml_repo) if profile.xml_repo else None)
-        self.imagesRepo.show_check(check_repository(profile.images_repo) if profile.images_repo else None)
-        self.xmlDir.show_check(None)
-        self.imageDir.show_check(None)
+        self.filterLocation.show_check(repository_location(self.filterLocation.edit.text())[2] if profile.xml_repo else None)
+        self.imagesLocation.show_check(repository_location(self.imagesLocation.edit.text())[2] if profile.images_repo else None)
         self.imageOwner.setText(str(config_value(profile, 'sync', 'image_owner')))
         self.imageRepoName.setText(str(config_value(profile, 'sync', 'image_repo_name')))
         self.__refresh_image_note()
@@ -397,7 +389,7 @@ class SettingsDrawer(QWidget):
         text = ('Only needed when the images repository is not on github.com under a plain git@github.com: or '
                 'https://github.com/ URL (an SSH host alias, a mirror). Leave both empty otherwise: they are read from the '
                 'repository\'s remote.')
-        repo = self.imagesRepo.edit.text().strip()
+        repo = self._profile.images_repo if self._profile is not None else ''
         if repo and os.path.isdir(repo):
             parsed = remote_owner_and_name(repo)
             text += (f'\nThis repository\'s remote is github.com/{parsed[0]}/{parsed[1]}: nothing to set.' if parsed else
@@ -459,24 +451,18 @@ class SettingsDrawer(QWidget):
                                                        else queue_check.message))
         self.__edit(profile)
 
-    def __set_repo(self, name: str, row: _PathRow, text: str) -> None:
-        if self._loading or self._profile is None or text == getattr(self._profile, name):
+    def __set_repo_location(self, repo_name: str, dir_name: str, row: _PathRow, text: str) -> None:
+        if self._loading or self._profile is None:
             return
-        check = check_repository(text) if text else None
+        root, relative, check = repository_location(text)
         row.show_check(check)
-        if check is not None and not check.usable:
+        if not check.usable:
             return
-        self.__edit(replace(self._profile, **{name: text}))
-        if name == 'images_repo':
+        if root == getattr(self._profile, repo_name) and relative == getattr(self._profile, dir_name):
+            return
+        self.__edit(replace(self._profile, **{repo_name: root, dir_name: relative}))
+        if repo_name == 'images_repo':
             self.__refresh_image_note()
-
-    def __set_folder(self, name: str, row: _PathRow, text: str) -> None:
-        if self._loading or self._profile is None or text == getattr(self._profile, name):
-            return
-        check = check_relative_dir(text)
-        row.show_check(check if check.level == LEVEL_ERROR else None)
-        if check.usable:
-            self.__edit(replace(self._profile, **{name: text.strip().replace('\\', '/').strip('/')}))
 
     def __set_sync(self, key: str, value: str) -> None:
         if self._loading or self._profile is None or value == str(config_value(self._profile, 'sync', key)):

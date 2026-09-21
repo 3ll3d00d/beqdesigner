@@ -52,13 +52,13 @@ def test_editing_each_setting_persists_to_the_profile_file_and_a_new_window_show
     window = open_window(qtbot, tmp_path, prefs)
     drawer = window.open_settings()
     xml2, images = git_repo(tmp_path / 'xml2'), git_repo(tmp_path / 'images')
+    os.makedirs(os.path.join(xml2, 'beq', 'xml'))
+    os.makedirs(os.path.join(images, 'img'))
 
     commit(drawer.workDir, str(tmp_path / 'work2'))         # does not exist: created
     commit(drawer.queueDir, str(tmp_path / 'queue2'))
-    commit(drawer.xmlRepo, xml2)
-    commit(drawer.xmlDir, 'beq/xml')
-    commit(drawer.imagesRepo, images)
-    commit(drawer.imageDir, 'img')
+    commit(drawer.filterLocation, os.path.join(xml2, 'beq', 'xml'))
+    commit(drawer.imagesLocation, os.path.join(images, 'img'))
     commit_line(drawer.imageOwner, 'me')
     commit_line(drawer.imageRepoName, 'beq-images')
     assert 'remote.one' in registered_designers()           # the profile's own `designers:` are in the combo
@@ -81,9 +81,9 @@ def test_editing_each_setting_persists_to_the_profile_file_and_a_new_window_show
 
     again = open_window(qtbot, tmp_path, prefs)              # nothing but the file: every widget reads back the same
     other = again.open_settings()
-    assert [w.edit.text() for w in (other.workDir, other.queueDir, other.xmlRepo, other.xmlDir, other.imagesRepo,
-                                    other.imageDir)] == \
-           [str(tmp_path / 'work2'), str(tmp_path / 'queue2'), xml2, 'beq/xml', images, 'img']
+    assert [w.edit.text() for w in (other.workDir, other.queueDir, other.filterLocation, other.imagesLocation)] == \
+           [str(tmp_path / 'work2'), str(tmp_path / 'queue2'), os.path.join(xml2, 'beq', 'xml'),
+            os.path.join(images, 'img')]
     assert (other.imageOwner.text(), other.imageRepoName.text()) == ('me', 'beq-images')
     assert other.designerCombo.currentText() == 'remote.one' and other.tvModeCombo.currentData() == 'season'
     assert other.keepMultichannel.isChecked()
@@ -163,14 +163,10 @@ def test_input_that_cannot_be_used_is_refused_with_the_reason_and_nothing_is_wri
     assert 'file, not a folder' in drawer.workDir.status.text()
     commit(drawer.queueDir, str(a_file / 'sub'))
     assert 'cannot be created' in drawer.queueDir.status.text()
-    commit(drawer.xmlRepo, str(plain_dir))
-    assert 'not a git repository' in drawer.xmlRepo.status.text()
-    commit(drawer.imagesRepo, str(tmp_path / 'nowhere'))
-    assert 'does not exist' in drawer.imagesRepo.status.text()
-    commit(drawer.xmlDir, '../outside')
-    assert "no '..'" in drawer.xmlDir.status.text()
-    commit(drawer.imageDir, '/abs/olute')
-    assert 'relative' in drawer.imageDir.status.text()
+    commit(drawer.filterLocation, str(plain_dir))
+    assert 'not inside a git repository' in drawer.filterLocation.status.text()
+    commit(drawer.imagesLocation, str(tmp_path / 'nowhere'))
+    assert 'does not exist' in drawer.imagesLocation.status.text()
 
     assert not drawer.has_pending_edit and drawer.profile == profile
     assert drawer.flush() and _bytes(path) == before      # nothing was pending, nothing was written
@@ -657,8 +653,8 @@ def test_the_image_owner_note_says_whether_the_remote_needs_it(qtbot, tmp_path):
     assert 'not a plain github.com URL' in drawer.imageNote.text()
 
     subprocess.run(['git', '-C', images, 'remote', 'set-url', 'origin', 'git@github.com:me/images.git'], check=True)
-    drawer.imagesRepo.edit.setText(images + '/')
-    commit(drawer.imagesRepo, images)
+    drawer.imagesLocation.edit.setText(images + '/')
+    commit(drawer.imagesLocation, images)
     window.reload()
     assert 'github.com/me/images' in drawer.imageNote.text()
 
