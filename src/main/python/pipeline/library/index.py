@@ -427,6 +427,23 @@ class LibraryIndex:
                     found[row['id']] = items[0]
         return found
 
+    def entry_summaries(self, ids: Iterable[str]) -> Dict[str, str]:
+        '''
+        What the last scan read of each title's queue entry (`status.EntryFacts.to_json()`), the cache `read_entry_facts()`
+        takes so that an entry whose file has not changed is not parsed again. A title with no entry, or none the index holds,
+        is left out. Callers that only need the facts of many entries (`drift`) use this rather than reading every entry file.
+        '''
+        wanted = list(dict.fromkeys(ids))
+        found: Dict[str, str] = {}
+        for start in range(0, len(wanted), 500):
+            batch = wanted[start:start + 500]
+            with self.__lock:
+                rows = self.__db.execute(
+                    f"SELECT id, entry_summary FROM titles WHERE entry_summary != '' AND id IN ({','.join('?' * len(batch))})",
+                    batch).fetchall()
+            found.update((row['id'], row['entry_summary']) for row in rows)
+        return found
+
     def sources(self) -> List[SourceRow]:
         with self.__lock:
             return [SourceRow(**dict(row)) for row in
