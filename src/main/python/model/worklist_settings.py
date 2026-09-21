@@ -20,6 +20,7 @@ The TMDB API key is not here (a secret does not belong in a file that gets share
 '''
 import logging
 import os
+import subprocess
 import time
 from dataclasses import replace
 from typing import Callable, Dict, List, Optional, Sequence
@@ -198,13 +199,20 @@ class SettingsDrawer(QWidget):
             self, 'Filter records location', start), 'Choose the folder inside the filter-record repository')
         self.imagesLocation = _PathRow(lambda start: QFileDialog.getExistingDirectory(
             self, 'Images location', start), 'Choose the folder inside the image repository (optional)')
-        self.imageOwner = QLineEdit()
-        self.imageOwner.setPlaceholderText('Optional: the GitHub owner of the images repository')
-        self.imageRepoName = QLineEdit()
-        self.imageRepoName.setPlaceholderText('Optional: the images repository\'s GitHub name')
+        self.initFilterRepoButton = QPushButton('Initialize Git repository here')
+        self.initImagesRepoButton = QPushButton('Initialize Git repository here')
+        self.initFilterRepoButton.setVisible(False)
+        self.initImagesRepoButton.setVisible(False)
+        self.initFilterRepoButton.clicked.connect(
+            lambda: self.__initialize_repository(self.filterLocation, self.initFilterRepoButton))
+        self.initImagesRepoButton.clicked.connect(
+            lambda: self.__initialize_repository(self.imagesLocation, self.initImagesRepoButton))
         self.imageNote = QLabel('')
         self.imageNote.setWordWrap(True)
         self.imageNote.setStyleSheet('color: palette(mid)')
+        self.nextSourcesButton = QPushButton('Next: add library sources')
+        self.nextSourcesButton.setToolTip('Choose where titles come from before scanning the library')
+        self.nextSourcesButton.clicked.connect(lambda: self.select_tab('sources'))
         self.designerCombo = QComboBox()
         self.tvModeCombo = QComboBox()
         for mode in TV_MODES:
@@ -229,10 +237,11 @@ class SettingsDrawer(QWidget):
         form = QFormLayout(repos)
         form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapAllRows)   # labels above the fields: a narrow drawer
         form.addRow('Filter records location', self.filterLocation)
+        form.addRow('', self.initFilterRepoButton)
         form.addRow('Images location', self.imagesLocation)
-        form.addRow('Image owner', self.imageOwner)
-        form.addRow('Image repository', self.imageRepoName)
+        form.addRow('', self.initImagesRepoButton)
         form.addRow('', self.imageNote)
+        form.addRow('', self.nextSourcesButton)
         options = QGroupBox('Designer and options')
         form = QFormLayout(options)
         form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapAllRows)   # labels above the fields: a narrow drawer
@@ -275,10 +284,6 @@ class SettingsDrawer(QWidget):
             lambda text: self.__set_repo_location('xml_repo', 'xml_dir', self.filterLocation, text))
         self.imagesLocation.committed.connect(
             lambda text: self.__set_repo_location('images_repo', 'image_dir', self.imagesLocation, text))
-        self.imageOwner.editingFinished.connect(
-            lambda: self.__set_sync('image_owner', self.imageOwner.text().strip()))
-        self.imageRepoName.editingFinished.connect(
-            lambda: self.__set_sync('image_repo_name', self.imageRepoName.text().strip()))
         self.designerCombo.activated.connect(lambda _i: self.__set_run('designer', self.__chosen_designer()))
         self.tvModeCombo.activated.connect(lambda _i: self.__set_run('tv_mode', self.tvModeCombo.currentData()))
         self.keepMultichannel.clicked.connect(lambda checked: self.__set_run('keep_multichannel', bool(checked)))
@@ -356,8 +361,8 @@ class SettingsDrawer(QWidget):
         self.queueDir.show_check(check_directory(profile.queue_dir) if profile.queue_dir else None)
         self.filterLocation.show_check(repository_location(self.filterLocation.edit.text())[2] if profile.xml_repo else None)
         self.imagesLocation.show_check(repository_location(self.imagesLocation.edit.text())[2] if profile.images_repo else None)
-        self.imageOwner.setText(str(config_value(profile, 'sync', 'image_owner')))
-        self.imageRepoName.setText(str(config_value(profile, 'sync', 'image_repo_name')))
+        self.initFilterRepoButton.setVisible(False)
+        self.initImagesRepoButton.setVisible(False)
         self.__refresh_image_note()
         self.__fill_designers(str(config_value(profile, 'run', 'designer')))
         self.tvModeCombo.setCurrentIndex(max(self.tvModeCombo.findData(config_value(profile, 'run', 'tv_mode', 'episode')), 0))
@@ -396,14 +401,12 @@ class SettingsDrawer(QWidget):
                                'TMDB lookup is off. It is optional; set a key in Preferences to enable it.')
 
     def __refresh_image_note(self) -> None:
-        text = ('Only needed when the images repository is not on github.com under a plain git@github.com: or '
-                'https://github.com/ URL (an SSH host alias, a mirror). Leave both empty otherwise: they are read from the '
-                'repository\'s remote.')
+        text = 'The image URL is derived from this repository\'s GitHub origin remote.'
         repo = self._profile.images_repo if self._profile is not None else ''
         if repo and os.path.isdir(repo):
             parsed = remote_owner_and_name(repo)
             text += (f'\nThis repository\'s remote is github.com/{parsed[0]}/{parsed[1]}: nothing to set.' if parsed else
-                     '\nThis repository\'s remote is not a plain github.com URL: set both, or images cannot be published.')
+                     '\nThis repository\'s remote is not a recognised github.com URL: set its origin to GitHub before publishing.')
         self.imageNote.setText(text)
 
     def set_rows(self, rows: Sequence[TitleRow]) -> None:
@@ -467,6 +470,8 @@ class SettingsDrawer(QWidget):
             return
         root, relative, check = repository_location(text)
         row.show_check(check)
+        init_button = self.initFilterRepoButton if repo_name == 'xml_repo' else self.initImagesRepoButton
+        init_button.setVisible(not check.usable and os.path.isdir(text))
         if not check.usable:
             return
         if root == getattr(self._profile, repo_name) and relative == getattr(self._profile, dir_name):
@@ -474,6 +479,23 @@ class SettingsDrawer(QWidget):
         self.__edit(replace(self._profile, **{repo_name: root, dir_name: relative}))
         if repo_name == 'images_repo':
             self.__refresh_image_note()
+
+    def __initialize_repository(self, row: _PathRow, button: QPushButton) -> None:
+        '''Make the selected existing folder a local git repository, only on an explicit click.'''
+        location = row.edit.text().strip()
+        if not os.path.isdir(location):
+            row.show_check(PathCheck(LEVEL_ERROR, 'Choose an existing folder before initializing a Git repository'))
+            return
+        result = subprocess.run(['git', '-C', location, 'init'], capture_output=True, text=True)
+        if result.returncode:
+            detail = ' '.join((result.stderr or result.stdout).split())
+            row.show_check(PathCheck(LEVEL_ERROR, f'Could not initialize Git repository: {detail or "git init failed"}'))
+            return
+        button.setVisible(False)
+        if row is self.filterLocation:
+            self.__set_repo_location('xml_repo', 'xml_dir', row, location)
+        else:
+            self.__set_repo_location('images_repo', 'image_dir', row, location)
 
     def __set_sync(self, key: str, value: str) -> None:
         if self._loading or self._profile is None or value == str(config_value(self._profile, 'sync', key)):

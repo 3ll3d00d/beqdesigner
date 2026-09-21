@@ -140,7 +140,7 @@ def repository_location(path: str) -> Tuple[Optional[str], Optional[str], PathCh
             return current, '' if relative == '.' else relative, PathCheck(LEVEL_OK, 'Inside git repository')
         parent = os.path.dirname(current)
         if parent == current:
-            return None, None, PathCheck(LEVEL_ERROR, 'This folder is not inside a git repository')
+            return None, None, PathCheck(LEVEL_ERROR, 'This folder must be inside a Git repository; initialize it here or choose one')
         current = parent
 
 

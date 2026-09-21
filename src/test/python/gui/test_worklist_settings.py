@@ -59,8 +59,6 @@ def test_editing_each_setting_persists_to_the_profile_file_and_a_new_window_show
     commit(drawer.queueDir, str(tmp_path / 'queue2'))
     commit(drawer.filterLocation, os.path.join(xml2, 'beq', 'xml'))
     commit(drawer.imagesLocation, os.path.join(images, 'img'))
-    commit_line(drawer.imageOwner, 'me')
-    commit_line(drawer.imageRepoName, 'beq-images')
     assert 'remote.one' in registered_designers()           # the profile's own `designers:` are in the combo
     index = drawer.designerCombo.findText('remote.one')
     assert index >= 0
@@ -75,7 +73,6 @@ def test_editing_each_setting_persists_to_the_profile_file_and_a_new_window_show
     assert (saved.work_dir, saved.queue_dir) == (str(tmp_path / 'work2'), str(tmp_path / 'queue2'))
     assert (saved.xml_repo, saved.xml_dir, saved.images_repo, saved.image_dir) == (xml2, 'beq/xml', images, 'img')
     assert os.path.isdir(tmp_path / 'work2')                # a folder that can be created is created
-    assert saved.config['sync']['image_owner'] == 'me' and saved.config['sync']['image_repo_name'] == 'beq-images'
     assert saved.config['run']['designer'] == 'remote.one'
     assert saved.config['run']['tv_mode'] == 'season' and saved.config['run']['keep_multichannel'] is True
 
@@ -84,7 +81,6 @@ def test_editing_each_setting_persists_to_the_profile_file_and_a_new_window_show
     assert [w.edit.text() for w in (other.workDir, other.queueDir, other.filterLocation, other.imagesLocation)] == \
            [str(tmp_path / 'work2'), str(tmp_path / 'queue2'), os.path.join(xml2, 'beq', 'xml'),
             os.path.join(images, 'img')]
-    assert (other.imageOwner.text(), other.imageRepoName.text()) == ('me', 'beq-images')
     assert other.designerCombo.currentText() == 'remote.one' and other.tvModeCombo.currentData() == 'season'
     assert other.keepMultichannel.isChecked()
     assert [s.name for s in other.sourcesTab.sources] == ['films', 'disk']
@@ -102,6 +98,14 @@ def test_workspace_initialises_its_review_queue_and_carries_that_default_when_mo
 
     commit(drawer.workDir, str(tmp_path / 'moved-workspace'))
     assert drawer.profile.queue_dir == str(tmp_path / 'moved-workspace' / 'review-queue')
+
+
+def test_locations_tab_points_to_sources_as_the_next_setup_step(qtbot, tmp_path):
+    drawer = open_window(qtbot, tmp_path, make_prefs(tmp_path, write_profile(tmp_path))).open_settings()
+
+    drawer.nextSourcesButton.click()
+
+    assert drawer.tabs.tabText(drawer.tabs.currentIndex()) == 'Sources'
 
 
 def test_a_custom_review_queue_is_not_moved_with_the_workspace(qtbot, tmp_path):
@@ -164,12 +168,15 @@ def test_input_that_cannot_be_used_is_refused_with_the_reason_and_nothing_is_wri
     commit(drawer.queueDir, str(a_file / 'sub'))
     assert 'cannot be created' in drawer.queueDir.status.text()
     commit(drawer.filterLocation, str(plain_dir))
-    assert 'not inside a git repository' in drawer.filterLocation.status.text()
+    assert 'must be inside a Git repository' in drawer.filterLocation.status.text()
+    assert drawer.initFilterRepoButton.isVisible()
+    drawer.initFilterRepoButton.click()
+    assert (plain_dir / '.git').is_dir() and drawer.profile.xml_repo == str(plain_dir)
     commit(drawer.imagesLocation, str(tmp_path / 'nowhere'))
     assert 'does not exist' in drawer.imagesLocation.status.text()
 
-    assert not drawer.has_pending_edit and drawer.profile == profile
-    assert drawer.flush() and _bytes(path) == before      # nothing was pending, nothing was written
+    assert drawer.has_pending_edit and drawer.profile != profile
+    assert drawer.flush() and _bytes(path) != before      # explicit repository initialization is persisted
 
 
 def test_a_write_that_fails_leaves_the_old_file_and_no_temporary_file_and_works_when_it_can(qtbot, tmp_path, monkeypatch):
@@ -644,13 +651,13 @@ def test_the_tmdb_key_stays_in_preferences_and_the_drawer_says_whether_it_is_set
     assert 'secret-key-123' not in text and 'tmdb_api_key' not in text and 'api_key' not in text
 
 
-def test_the_image_owner_note_says_whether_the_remote_needs_it(qtbot, tmp_path):
+def test_the_image_location_note_requires_a_recognised_github_remote(qtbot, tmp_path):
     images = git_repo(tmp_path / 'images')
     subprocess.run(['git', '-C', images, 'remote', 'add', 'origin', 'ssh://gitea.lan/me/images.git'], check=True)
     path = write_profile(tmp_path, sync={'xml_repo': git_repo(tmp_path / 'xml'), 'images_repo': images})
     window = open_window(qtbot, tmp_path, make_prefs(tmp_path, path))
     drawer = window.open_settings()
-    assert 'not a plain github.com URL' in drawer.imageNote.text()
+    assert 'not a recognised github.com URL' in drawer.imageNote.text()
 
     subprocess.run(['git', '-C', images, 'remote', 'set-url', 'origin', 'git@github.com:me/images.git'], check=True)
     drawer.imagesLocation.edit.setText(images + '/')
