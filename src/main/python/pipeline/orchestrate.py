@@ -50,6 +50,7 @@ imports qtpy" is enforced by AST-scanning this package's own literal
 imports (none of which are qtpy), not the transitive closure of every
 model/ module it reuses.
 '''
+import json
 import os
 from dataclasses import dataclass
 from typing import List, Optional, Sequence, Union
@@ -67,7 +68,9 @@ from pipeline.designer.convert import alternative_filters, to_complete_filter
 from pipeline.designer.registry import get_designer
 from pipeline.filters import FilterSpec, create_filter
 from pipeline.metadata import BeqMetadata, tmdb_lookup
-from pipeline.publish.git import RepoTarget, image_url as git_image_url, push_image, push_xml, write_files
+from pipeline.publish.catalogue import aggregate_path
+from pipeline.publish.catalogue_json import aggregate, filter_record
+from pipeline.publish.git import RepoTarget, commit_paths, fs_path, image_url as git_image_url, push as push_repo, push_image, write_files
 from pipeline.publish.report import ReportSpec, render_report
 from pipeline.publish.xml import to_beq_xml as render_beq_xml
 from pipeline.stats import Stats, signal_stats
@@ -366,6 +369,10 @@ class Session:
     def to_beq_xml(self, filters, meta: BeqMetadata) -> str:
         return render_beq_xml(filters, meta)
 
+    def to_catalogue_record(self, filters, meta: BeqMetadata, existing: Optional[dict] = None) -> dict:
+        '''Render the version-1 BEQCatalogue source record, not a project file.'''
+        return filter_record(filters, meta, existing=existing)
+
     def report(self, curves: Sequence[MagnitudeData], filters, meta: Optional[BeqMetadata] = None,
               poster_path: Optional[str] = None, spec: ReportSpec = ReportSpec(),
               mv_offset: Optional[float] = None) -> bytes:
@@ -378,15 +385,15 @@ class Session:
                image_png: Optional[bytes] = None, image_owner: Optional[str] = None,
                image_repo_name: Optional[str] = None, push: bool = True) -> dict:
         '''
-        Sequences the image-then-XML publish order pipeline.publish.git
+        Sequences the image-then-record publish order pipeline.publish.git
         requires: the report image goes in first (if given) so its raw URL
         can be written into meta.spectrum_url/.pva_url *before* the XML is
-        rendered -- beqcatalogue never reads an image out of the XML repo
+        rendered -- beqcatalogue never reads an image out of the filter repo
         itself (design/api-headless-pipeline.md §6, D3).
         :param push: True (the default) commits and pushes each file as it is written. False only **writes** the
-            image and XML into the repos' working trees -- the image URL needs no push (it is built from the
+            image and JSON record into the repos' working trees -- the image URL needs no push (it is built from the
             remote's owner, repo and branch) -- leaving pipeline.library.commit to commit and push a whole batch.
-        :return: {'xml': the rendered XML, 'xml_commit': its commit sha (push only),
+        :return: {'record': the rendered object, 'filter_commit': its commit sha (push only),
             'image_url': the image's raw URL, if an image was published}.
         '''
         result = {}
@@ -403,10 +410,39 @@ class Session:
             meta.pva_url = image_url
             result['image_url'] = image_url
 
-        xml = self.to_beq_xml(filters, meta)
-        result['xml'] = xml
+        existing = None
+        try:
+            with open(fs_path(xml_repo, xml_relative_path), encoding='utf-8') as handle:
+                existing = json.load(handle)
+        except (OSError, ValueError):
+            pass
+        record = self.to_catalogue_record(filters, meta, existing)
+        record_bytes = (json.dumps(record, indent=2, ensure_ascii=False) + '\n').encode('utf-8')
+        records = {}
+        root = xml_repo.local_path
+        if os.path.isdir(root):
+            for folder, dirs, names in os.walk(root):
+                dirs[:] = [name for name in dirs if name != '.git']
+                for name in names:
+                    if not name.endswith('.json') or name == 'database.json':
+                        continue
+                    path = os.path.join(folder, name)
+                    relative = os.path.relpath(path, root).replace(os.sep, '/')
+                    try:
+                        with open(path, encoding='utf-8') as handle:
+                            candidate = json.load(handle)
+                        if isinstance(candidate, dict):
+                            records[relative] = candidate
+                    except (OSError, ValueError):
+                        continue
+        records[xml_relative_path] = record
+        database_relative_path = aggregate_path(os.path.dirname(xml_relative_path).replace(os.sep, '/'))
+        result['record'] = record
+        files = {xml_relative_path: record_bytes, database_relative_path: aggregate(records)}
         if push:
-            result['xml_commit'] = push_xml(xml, xml_repo, xml_relative_path)
+            write_files(xml_repo, files)
+            result['filter_commit'] = commit_paths(xml_repo, list(files), f'Publish BEQ filter: {meta.title}')
+            push_repo(xml_repo)
         else:
-            write_files(xml_repo, {xml_relative_path: xml.encode('utf-8')})
+            write_files(xml_repo, files)
         return result

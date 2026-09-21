@@ -9,6 +9,7 @@ has anything in it (§12.14). Matching is never on the file name: ours are entry
 A large catalogue has thousands of files, so a scan parses only those whose mtime or size changed since the last
 one (the index keeps what was read, keyed by relative path -- an unreadable one too, as a file with no id).
 '''
+import json
 import os
 import xml.etree.ElementTree as ET
 from typing import Dict, Mapping, NamedTuple, Optional, Set, Tuple
@@ -35,11 +36,24 @@ def parse_xml(path: str) -> Optional[Tuple[str, bool]]:
     return tmdb, is_tv
 
 
+def parse_record(path: str) -> Optional[Tuple[str, bool]]:
+    '''Read the identity fields from one version-1 BEQCatalogue source record.'''
+    try:
+        with open(path, encoding='utf-8') as handle:
+            record = json.load(handle)
+    except (OSError, ValueError):
+        return None
+    if not isinstance(record, dict):
+        return None
+    return str(record.get('theMovieDB') or '').strip(), record.get('content_type') == 'TV'
+
+
 def scan_xml_repo(repo_path: str, known: Optional[Mapping[str, XmlRecord]] = None) -> Dict[str, XmlRecord]:
     '''
     :param known: what the last scan read, by path relative to the repo; a file whose mtime and size are unchanged
         is not opened again.
-    :return: every `*.xml` in the repo (outside `.git`), by relative path; one that is not readable XML has no id.
+    :return: every individual `*.json` record in the repo (outside `.git`), by relative path; the derived
+        ``database.json`` is deliberately ignored. One that is not readable JSON has no id.
         Empty if the repo is missing.
     '''
     known = known or {}
@@ -49,7 +63,7 @@ def scan_xml_repo(repo_path: str, known: Optional[Mapping[str, XmlRecord]] = Non
     for folder, subfolders, names in os.walk(repo_path):
         subfolders[:] = [name for name in subfolders if name != '.git']
         for name in names:
-            if not name.lower().endswith('.xml'):
+            if not name.lower().endswith('.json') or name == 'database.json':
                 continue
             path = os.path.join(folder, name)
             relative = os.path.relpath(path, repo_path).replace(os.sep, '/')
@@ -63,15 +77,15 @@ def scan_xml_repo(repo_path: str, known: Optional[Mapping[str, XmlRecord]] = Non
                 continue
             # a file that will not parse is remembered too, as one with no id (which can never match), so it is not
             # opened again at every scan until it changes
-            found[relative] = XmlRecord(stat.st_mtime_ns, stat.st_size, *(parse_xml(path) or ('', False)))
+            found[relative] = XmlRecord(stat.st_mtime_ns, stat.st_size, *(parse_record(path) or ('', False)))
     return found
 
 
 def tmdb_index(records: Mapping[str, XmlRecord]) -> Dict[Tuple[str, bool], Set[str]]:
-    ''' :return: (TMDB id, is tv) -> the file stems (name without `.xml`) that carry it. '''
+    ''' :return: (TMDB id, is tv) -> the file stems (name without `.json`) that carry it. '''
     index: Dict[Tuple[str, bool], Set[str]] = {}
     for relative, record in records.items():
         if record.tmdb:
-            stem = relative.rsplit('/', 1)[-1][:-len('.xml')]
+            stem = relative.rsplit('/', 1)[-1][:-len('.json')]
             index.setdefault((record.tmdb, record.is_tv), set()).add(stem)
     return index

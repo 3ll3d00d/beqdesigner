@@ -8,12 +8,13 @@ stored: it is read back from git (`repo_state()`), so a commit made by hand is r
 retried by running this again.
 '''
 import logging
+import json
 import os
 import subprocess
 from dataclasses import dataclass, field
 from typing import Collection, List, Optional, Sequence
 
-from pipeline.publish.catalogue import catalogue_paths
+from pipeline.publish.catalogue import aggregate_path, catalogue_paths
 from pipeline.publish.git import RepoState, RepoTarget, fs_path, commit_paths, committed_paths, push, repo_state
 from pipeline.review import QueueEntry, read_entry, read_queue
 
@@ -81,22 +82,20 @@ def _commit_repo(target: RepoTarget, what: str, wanted: dict, push_changes: bool
 
 def _image_url_warnings(xml_repo: RepoTarget, xml_paths: Sequence[str]) -> List[str]:
     '''
-    A committed XML that names an image URL, committed without an images repo: the image is not committed or pushed
+    A committed record that names an image URL, committed without an images repo: the image is not committed or pushed
     here, so if it is not on the remote yet the XML will point at nothing.
     '''
     warnings = []
     for path in xml_paths:
         try:
             with open(fs_path(xml_repo, path), 'r', encoding='utf-8') as f:
-                text = f.read()
-        except OSError:
+                record = json.load(f)
+        except (OSError, ValueError):
             continue
-        for tag in ('beq_spectrumURL', 'beq_pvaURL'):
-            if f'<{tag}>' in text and f'<{tag}></{tag}>' not in text and f'<{tag}/>' not in text:
-                warnings.append(f"{path} names a report image ({tag}) but no images repository was given, so the "
-                                f"image is not committed or pushed with it: give --images-repo, or push the image "
-                                f"first, or the XML will point at nothing")
-                break
+        if record.get('images'):
+            warnings.append(f"{path} names a report image but no images repository was given, so the image is not "
+                            f"committed or pushed with it: give --images-repo, or push the image first, or the "
+                            f"record will point at nothing")
     return warnings
 
 
@@ -106,7 +105,7 @@ def commit_catalogue(queue_dir: str, xml_repo: RepoTarget, images_repo: Optional
     '''
     Commits every 'published' entry's files that git does not already have, one commit per repo containing exactly
     those paths (nothing else staged or changed in the tree is touched), then pushes each repo once. **The images
-    repo goes first**: an XML must never reach the remote before the image its URL points at.
+    repo goes first**: a filter record must never reach the remote before the image its URL points at.
 
     Safe to repeat: a file already committed is skipped, one already pushed is not pushed again, and a failed push
     is simply retried. If the images push fails the XML repo is not touched, so the next run resumes in order.
@@ -136,8 +135,13 @@ def commit_catalogue(queue_dir: str, xml_repo: RepoTarget, images_repo: Optional
             images = _commit_repo(images_repo, 'report image',
                                   {catalogue_paths(e.id, xml_dir, image_dir)[1]: e for e in published}, push, missing,
                                   not_committed)
-        xml = _commit_repo(xml_repo, 'BEQ filter',
-                           {catalogue_paths(e.id, xml_dir, image_dir)[0]: e for e in published}, push, missing,
+        filter_files = {catalogue_paths(e.id, xml_dir, image_dir)[0]: e for e in published}
+        # Every publish regenerates this derived file.  Commit it with the
+        # individual records so a consumer never sees a fresh record with a
+        # stale repository aggregate.
+        if published:
+            filter_files[aggregate_path(xml_dir)] = published[0]
+        xml = _commit_repo(xml_repo, 'BEQ filter', filter_files, push, missing,
                            not_committed)
     except subprocess.CalledProcessError as error:
         failed = getattr(error, 'repo_commit', None)   # a commit made, whose push was refused

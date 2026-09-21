@@ -15,9 +15,9 @@ from test_pipeline_publish_git import _init_repo_with_remote, _run
 
 
 def test_catalogue_paths_are_posix_whatever_the_separator_used():
-    assert catalogue_paths('x', 'a/b', 'c') == ('a/b/x.xml', 'c/x.png')
-    assert catalogue_paths('x', 'a\\b', 'c\\') == ('a/b/x.xml', 'c/x.png')  # what os.path.join builds on Windows
-    assert catalogue_paths('x') == ('x.xml', 'x.png')
+    assert catalogue_paths('x', 'a/b', 'c') == ('a/b/x.json', 'c/x.png')
+    assert catalogue_paths('x', 'a\\b', 'c\\') == ('a/b/x.json', 'c/x.png')  # what os.path.join builds on Windows
+    assert catalogue_paths('x') == ('x.json', 'x.png')
     assert join_posix('', 'a\\b', 'c.xml') == 'a/b/c.xml' and posix_path('.') == ''
 
 

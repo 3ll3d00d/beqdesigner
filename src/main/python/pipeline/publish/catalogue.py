@@ -18,16 +18,21 @@ from pipeline.publish.report import ReportSpec
 
 def catalogue_paths(entry_id: str, xml_dir: str = '', image_dir: str = '') -> Tuple[str, str]:
     '''
-    :return: (xml_relative_path, image_relative_path) of an entry within its repos: `<xml_dir>/<entry_id>.xml` and
+    :return: (filter_relative_path, image_relative_path) of an entry within its repos: `<xml_dir>/<entry_id>.json` and
         `<image_dir>/<entry_id>.png`. The entry id is stable across reorderings and re-runs, so a revision rewrites
         the same path. beqcatalogue globs **/*.xml, so the naming is ours to choose.
 
-        Always `/`-separated, on Windows too, because that is how git spells a path (`git status` says `xml/one.xml`);
+        Always `/`-separated, on Windows too, because that is how git spells a path (`git status` says `filters/one.json`);
         a path with the platform's separator would never match what git reports. The file system is reached by
         splitting the path on `/` (see pipeline.publish.git.write_files()). Backslashes in a directory are read as
         separators.
     '''
-    return join_posix(xml_dir, f"{entry_id}.xml"), join_posix(image_dir, f"{entry_id}.png")
+    return join_posix(xml_dir, f"{entry_id}.json"), join_posix(image_dir, f"{entry_id}.png")
+
+
+def aggregate_path(xml_dir: str = '') -> str:
+    '''The filter repo's derived aggregate, beside its individual records.'''
+    return join_posix(xml_dir, 'database.json')
 
 
 def _file_sha256(path: Optional[str]) -> Optional[str]:
