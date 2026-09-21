@@ -182,9 +182,10 @@ def test_a_profile_file_that_cannot_be_read_is_reported_not_raised(prefs, tmp_pa
     assert setup.profile is None and setup.error and not setup.ready and setup.origin == ORIGIN_FILE
 
 
-def test_a_missing_profile_file_is_reported(prefs, tmp_path):
+def test_a_missing_profile_file_returns_to_preferences_and_clears_its_stale_path(prefs, tmp_path):
     prefs.set(LIBRARY_PROFILE_PATH, str(tmp_path / 'nope.yaml'))
 
     setup = load_setup(prefs)
 
-    assert setup.profile is None and 'nope.yaml' in setup.error
+    assert setup.profile is not None and setup.origin == ORIGIN_PREFERENCES and not setup.error
+    assert prefs.get(LIBRARY_PROFILE_PATH) == ''

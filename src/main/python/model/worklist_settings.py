@@ -10,7 +10,8 @@ sections, the rest of `run:` and `sync:` -- is kept, because every edit is a new
   (`profile_from_config(profile.to_config())`), and a short moment later written atomically (`save_profile`: a temporary
   file, then `os.replace`). A profile that would not read back is not written: the reason is shown instead. The first save,
   when no profile file exists yet (the work list was running from the saved library preferences), writes to the app's
-  configuration folder and stores the path in `LIBRARY_PROFILE_PATH`; **Change...** is the explicit way to choose another.
+  configuration folder and stores the path in `LIBRARY_PROFILE_PATH`; **Change...** is the explicit way to choose another,
+  and **Reset** returns to the Preferences-backed setup without deleting the profile file.
 * **What the window does with it.** `saved(path)` says the file was written: the window reads the setup again, and says the
   list is out of date (Rescan) if what a scan describes changed. The drawer disables itself while a run or scan is going.
 
@@ -172,6 +173,10 @@ class SettingsDrawer(QWidget):
         self.changeFileButton.setToolTip('Use another profile file (an existing one is read; a new name starts a new file '
                                          'from these settings)')
         self.changeFileButton.clicked.connect(lambda: self.change_profile_file())
+        self.resetProfileButton = QPushButton('Reset')
+        self.resetProfileButton.setToolTip('Stop using this profile and return to the Library settings saved in Preferences. '
+                                           'The profile file is left on disk.')
+        self.resetProfileButton.clicked.connect(self.reset_profile)
         self.statusLabel = QLabel('')
         self.statusLabel.setWordWrap(True)
         self.statusLabel.setTextFormat(Qt.TextFormat.PlainText)
@@ -181,6 +186,7 @@ class SettingsDrawer(QWidget):
         header = QHBoxLayout()
         header.addWidget(self.pathLabel, 1)
         header.addWidget(self.changeFileButton)
+        header.addWidget(self.resetProfileButton)
 
         self.workDir = _PathRow(lambda start: QFileDialog.getExistingDirectory(
             self, 'Library workspace', start or default_library_folder()),
@@ -312,6 +318,7 @@ class SettingsDrawer(QWidget):
             return
         self._setup = setup
         self._path = setup.path if setup.origin == 'file' else ''
+        self.resetProfileButton.setEnabled(bool(self._path))
         if setup.profile is None:
             self._profile = None
             self._show_unreadable(setup)
@@ -409,6 +416,7 @@ class SettingsDrawer(QWidget):
         self.busyLabel.setVisible(busy)
         self.tabs.setEnabled(not busy and self._profile is not None)
         self.changeFileButton.setEnabled(not busy)
+        self.resetProfileButton.setEnabled(not busy and bool(self._path))
 
     def select_tab(self, name: str) -> None:
         self.tabs.setCurrentIndex({'locations': 0, 'sources': 1, 'ignore': 2}[name])
@@ -594,6 +602,16 @@ class SettingsDrawer(QWidget):
         self.__show_path()
         self.statusLabel.setText(f'Saved {time.strftime("%H:%M:%S")}')
         self.profile_file_changed.emit(path)
+        return True
+
+    def reset_profile(self) -> bool:
+        '''Return to Preferences-backed setup, retaining the profile file for a later Change... selection.'''
+        if not self._path:
+            return False
+        self._timer.stop()
+        self._pending = False
+        self._prefs.set(LIBRARY_PROFILE_PATH, '')
+        self.profile_file_changed.emit('')
         return True
 
     # --- what the window asks of it ---------------------------------------------------------------------------------

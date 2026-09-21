@@ -135,10 +135,18 @@ def load_setup(prefs) -> WorkListSetup:
     if path:
         try:
             profile = load_profile(path)
+        except FileNotFoundError:
+            # A profile is a convenient durable override, not a lock-in.  If
+            # it was deliberately removed outside the app, discard only the
+            # stale pointer and resume from Preferences on this same open.
+            prefs.set(LIBRARY_PROFILE_PATH, '')
+            profile = bootstrap_profile(prefs, designer)
+            origin = ORIGIN_PREFERENCES
         except Exception as failure:  # missing file, bad JSON, a YAML library's own errors, a malformed source
             return WorkListSetup(None, None, ORIGIN_FILE, path, (), f'{type(failure).__name__}: {failure}')
-        origin = ORIGIN_FILE
-        extra = register_profile_designers(profile)
+        else:
+            origin = ORIGIN_FILE
+            extra = register_profile_designers(profile)
     else:
         profile = bootstrap_profile(prefs, designer)
         origin = ORIGIN_PREFERENCES

@@ -709,6 +709,17 @@ def test_a_profile_file_that_cannot_be_read_disables_the_editor_and_another_file
     assert not window.setupBanner.isVisibleTo(window)
 
 
+def test_a_deleted_profile_file_reenables_settings_from_preferences(qtbot, tmp_path):
+    path = write_profile(tmp_path)
+    prefs = make_prefs(tmp_path, path, configured=True)
+    os.remove(path)
+    window = open_window(qtbot, tmp_path, prefs)
+    drawer = window.open_settings()
+
+    assert prefs.get(LIBRARY_PROFILE_PATH) == '' and drawer.tabs.isEnabled()
+    assert window.setup.origin == 'preferences' and drawer.profile is not None
+
+
 def test_a_new_profile_file_name_starts_a_file_from_the_current_settings(qtbot, tmp_path):
     path = write_profile(tmp_path)
     prefs = make_prefs(tmp_path, path)
@@ -721,6 +732,19 @@ def test_a_new_profile_file_name_starts_a_file_from_the_current_settings(qtbot, 
     assert prefs.get(LIBRARY_PROFILE_PATH) == fresh and os.path.isfile(fresh)
     assert load_profile(fresh).sources == load_profile(path).sources
     assert read_config_file(fresh)['custom_section'] == read_config_file(path)['custom_section']
+
+
+def test_reset_returns_to_preferences_without_deleting_the_profile_file(qtbot, tmp_path):
+    path = write_profile(tmp_path)
+    prefs = make_prefs(tmp_path, path, configured=True)
+    window = open_window(qtbot, tmp_path, prefs)
+    drawer = window.open_settings()
+
+    assert drawer.resetProfileButton.isEnabled() and drawer.reset_profile()
+
+    assert prefs.get(LIBRARY_PROFILE_PATH) == '' and path and os.path.isfile(path)
+    assert window.setup.origin == 'preferences' and drawer.path == ''
+    assert not drawer.resetProfileButton.isEnabled()
 
 
 def test_a_profile_sources_own_mappings_can_be_replaced_by_those_in_preferences(qtbot, tmp_path):
