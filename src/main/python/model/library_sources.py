@@ -178,6 +178,8 @@ class JRiverSourcePage(SourcePage):
         self.browseNodeSpin.setToolTip('-1 is the root of the browse tree')
         self.pickNodeButton = QPushButton('Choose...')
         self.pickNodeButton.setToolTip('Pick the node from the server\'s browse tree')
+        self.rootNodeButton = QPushButton('Use library root')
+        self.rootNodeButton.setToolTip('Use the root of this server\'s browse tree')
         self.nodePathLabel = QLabel('')
         self.nodePathLabel.setWordWrap(True)
         self.helpLabel = QLabel('Servers, path mappings and metadata fields are managed in Preferences > JRiver.')
@@ -193,14 +195,15 @@ class JRiverSourcePage(SourcePage):
         form.setContentsMargins(0, 0, 0, 0)
         form.addRow('Server', self.serverCombo)
         node_row = QHBoxLayout()
-        node_row.addWidget(self.browseNodeSpin)
         node_row.addWidget(self.pickNodeButton)
-        form.addRow('Browse node ID', node_row)
+        node_row.addWidget(self.rootNodeButton)
+        form.addRow('Browse location', node_row)
         form.addRow('', self.nodePathLabel)
         form.addRow(self.helpLabel)
         form.addRow(self.mappingsNote)
         form.addRow(self.useSavedButton)
         self.pickNodeButton.clicked.connect(self.__pick_node)
+        self.rootNodeButton.clicked.connect(self.__use_root_node)
         self.serverCombo.currentIndexChanged.connect(self.__update_pick_enabled)
         self.serverCombo.currentIndexChanged.connect(self.__update_mappings_note)
         # typing an id by hand makes any remembered path stale
@@ -245,6 +248,10 @@ class JRiverSourcePage(SourcePage):
         if picker.exec():
             self.browseNodeSpin.setValue(picker.selected_node_id)  # clears the label...
             self.nodePathLabel.setText(picker.selected_path)  # ...so set the path afterwards
+
+    def __use_root_node(self):
+        self.browseNodeSpin.setValue(-1)
+        self.nodePathLabel.setText('Library root')
 
     def load_defaults(self, prefs) -> None:
         self._loaded = {}
