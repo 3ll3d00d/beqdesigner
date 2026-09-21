@@ -42,10 +42,8 @@ Reload fills only what TMDB knows (it has no audio types) and leaves the form di
 '''
 import logging
 import os
-import re
 import traceback
 from typing import Any, Callable, Dict, List, Mapping, Optional, Set, Tuple
-from urllib.parse import quote, quote_plus
 
 import requests
 from qtpy.QtCore import QObject, QRunnable, Qt, QThreadPool, Signal
@@ -56,7 +54,7 @@ from model.preferences import TMDB_API_KEY
 from model.worklist_artwork import ArtworkError, DownloadJob, check_local_image
 from model.worklist_model import is_dark_palette, warning_colour
 from pipeline.library.status import metadata_problems
-from pipeline.metadata import BeqMetadata, format_episodes, parse_episodes, tmdb_details_by_id, tmdb_lookup
+from pipeline.metadata import BeqMetadata, format_episodes, parse_episodes, redact, tmdb_details_by_id, tmdb_lookup  # noqa: F401 (redact: the page's own tests and callers)
 from pipeline.review import QueueEntry, read_entry, update_entry
 from ui.worklistmetadata import Ui_metadataPanel
 
@@ -165,22 +163,6 @@ def badge_text(problems: List[str], status: str, unsaved: bool) -> str:
 
 def ok_colour() -> str:
     return '#7ee787' if is_dark_palette() else '#1a7f37'
-
-
-_API_KEY_PARAMETER = re.compile(r"(api_key=)[^&\s'\")\]]*", re.IGNORECASE)
-
-
-def redact(text: str, secret: str = '') -> str:
-    '''
-    `text` with the TMDB API key taken out. `requests` puts the whole URL -- `?api_key=...` -- in the text of an HTTPError or a
-    ConnectionError, and that text goes to the status line, the status bar and the log. Any `api_key=` parameter is masked,
-    and so is `secret` itself, plain or URL-encoded, wherever it appears (from 8 characters: a real key is 32; a shorter
-    "secret" would mask ordinary words).
-    '''
-    if len(secret) >= 8:
-        for form in {secret, quote(secret, safe=''), quote(secret), quote_plus(secret)}:
-            text = text.replace(form, '***')
-    return _API_KEY_PARAMETER.sub(r'\1***', text)
 
 
 # --- TMDB, off the UI thread ------------------------------------------------------------------------------------------------

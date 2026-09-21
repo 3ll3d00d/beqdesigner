@@ -145,6 +145,21 @@ def test_run_library_degrades_to_library_metadata_when_tmdb_fails(tmp_path, monk
     assert report.meta_unresolved == [('one', 'HTTPError: 401 Unauthorized')]
 
 
+def test_a_tmdb_error_that_carries_the_api_key_in_its_url_is_recorded_and_logged_without_it(tmp_path, monkeypatch, caplog):
+    secret = 'SECRETKEY0123456789abcdef'
+
+    def failing(item, key, audio_types):
+        raise requests.HTTPError(f'401 Client Error: Unauthorized for url: https://api.themoviedb.org/3/search/movie'
+                                 f'?api_key={secret}&query=One&year=2001')
+
+    with caplog.at_level('WARNING'):
+        report, _ = _run_with_meta(tmp_path, monkeypatch, failing)
+
+    assert report.meta_unresolved == [('one', 'HTTPError: 401 Client Error: Unauthorized for url: '
+                                              'https://api.themoviedb.org/3/search/movie?api_key=***&query=One&year=2001')]
+    assert secret not in caplog.text and 'api_key=***' in caplog.text
+
+
 def _keep_multichannel_run(tmp_path, monkeypatch, channel_count):
     monkeypatch.setattr('pipeline.library.run.Session', lambda config: _Session())
     extract_calls = []

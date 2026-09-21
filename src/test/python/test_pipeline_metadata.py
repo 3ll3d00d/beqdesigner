@@ -289,3 +289,16 @@ def test_format_episodes_compresses_runs_and_round_trips():
     assert format_episodes([5, 3, 4, 1]) == '1, 3-5'
     assert format_episodes([]) == ''
     assert parse_episodes(format_episodes([2, 3, 7, 8, 9])) == [2, 3, 7, 8, 9]
+
+
+def test_redact_masks_an_api_key_parameter_and_the_key_itself_in_any_encoding():
+    from pipeline.metadata import redact
+    key = 'a/b+c d&e=SECRET1234'
+    url_text = 'url: https://x/3/movie/1?api_key=abc123DEF&append=x'
+
+    assert redact(url_text) == 'url: https://x/3/movie/1?api_key=***&append=x'
+    assert redact('API_KEY=abc "next"') == 'API_KEY=*** "next"'
+    for form in (key, 'a%2Fb%2Bc%20d%26e%3DSECRET1234', 'a/b%2Bc%20d%26e%3DSECRET1234', 'a%2Fb%2Bc+d%26e%3DSECRET1234'):
+        assert 'SECRET1234' not in redact(f'failed for {form} twice', key)
+    assert redact('a short secret shows', 'short') == 'a short secret shows'     # under 8 characters: not masked
+    assert redact('nothing to hide') == 'nothing to hide'

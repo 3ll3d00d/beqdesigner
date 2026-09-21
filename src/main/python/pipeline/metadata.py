@@ -9,12 +9,15 @@ callers supply the TMDB api_key explicitly, the same pattern
 pipeline/config.py's AnalysisConfig establishes for other GUI-preference-
 backed values.
 '''
+import re
 from dataclasses import dataclass, field
 from typing import List, Optional
+from urllib.parse import quote, quote_plus
 
 import requests
 
 TMDB_BASE_URL = 'https://api.themoviedb.org/3'
+_API_KEY_PARAMETER = re.compile(r"(api_key=)[^&\s'\")\]]*", re.IGNORECASE)
 TMDB_TIMEOUT_SECONDS = 20   # a hung connection must end in an error rather than wait for ever (search and details requests)
 
 
@@ -328,3 +331,16 @@ def _find_us_certification(release_dates: List[dict]) -> str:
             if release.get('type') in (3, 4):
                 return release.get('certification', '')
     return ''
+
+
+def redact(text: str, secret: str = '') -> str:
+    '''
+    `text` with the TMDB API key taken out. `requests` puts the whole URL -- `?api_key=...` -- in the text of an HTTPError or a
+    ConnectionError, and that text goes to a status line, a report and the log. Any `api_key=` parameter is masked, and so is
+    `secret` itself, plain or URL-encoded, wherever it appears (from 8 characters: a real key is 32; a shorter "secret" would
+    mask ordinary words).
+    '''
+    if len(secret) >= 8:
+        for form in {secret, quote(secret, safe=''), quote(secret), quote_plus(secret)}:
+            text = text.replace(form, '***')
+    return _API_KEY_PARAMETER.sub(r'\1***', text)

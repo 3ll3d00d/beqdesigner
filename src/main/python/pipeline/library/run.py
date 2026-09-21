@@ -19,6 +19,7 @@ from pipeline.library.source import LibraryItem, LibrarySource
 from pipeline.library.status import failure_applies, failure_key, safe_fingerprint, season_source_fingerprint, \
     unit_fingerprint
 from pipeline.library.union import reconstruct_claims
+from pipeline.metadata import redact
 from pipeline.orchestrate import Session
 
 logger = logging.getLogger('library_run')
@@ -71,8 +72,10 @@ def _meta_source(item: LibraryItem, run_config: LibraryRunConfig, report: Librar
         try:
             return resolve_meta(item, run_config.tmdb_api_key, run_config.audio_types)
         except requests.RequestException as error:
-            logger.warning('Unable to resolve TMDB metadata for %s: %s', item.id, error)
-            report.meta_unresolved.append((item.id, f'{type(error).__name__}: {error}'))
+            # requests puts the whole URL, `?api_key=...`, in the text of an HTTPError or a ConnectionError
+            reason = redact(str(error), run_config.tmdb_api_key)
+            logger.warning('Unable to resolve TMDB metadata for %s: %s', item.id, reason)
+            report.meta_unresolved.append((item.id, f'{type(error).__name__}: {reason}'))
             return {**library_meta(item), **item.meta}
 
     return resolve
