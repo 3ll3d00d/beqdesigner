@@ -56,6 +56,13 @@ def default_profile_path() -> str:
     return os.path.join(root, PROFILE_FILE_NAME)
 
 
+def default_library_folder() -> str:
+    '''A human media location for an empty directory picker, never the process CWD.'''
+    return (QStandardPaths.writableLocation(QStandardPaths.StandardLocation.MoviesLocation)
+            or QStandardPaths.writableLocation(QStandardPaths.StandardLocation.HomeLocation)
+            or os.path.expanduser('~'))
+
+
 def choose_profile_file(parent, default: str, overwrite_ok: bool) -> str:
     ''' The file dialog for the profile file. :return: the chosen path, or '' if cancelled. '''
     if default and not os.path.isdir(os.path.dirname(default)):
@@ -168,9 +175,11 @@ class SettingsDrawer(QWidget):
         header.addWidget(self.pathLabel, 1)
         header.addWidget(self.changeFileButton)
 
-        self.workDir = _PathRow(lambda start: QFileDialog.getExistingDirectory(self, 'Work directory', start),
+        self.workDir = _PathRow(lambda start: QFileDialog.getExistingDirectory(
+            self, 'Work directory', start or default_library_folder()),
                                 'Where extracted audio and projects go')
-        self.queueDir = _PathRow(lambda start: QFileDialog.getExistingDirectory(self, 'Review queue directory', start),
+        self.queueDir = _PathRow(lambda start: QFileDialog.getExistingDirectory(
+            self, 'Review queue directory', start or default_library_folder()),
                                  'Where designed titles wait for review')
         self.xmlRepo = _PathRow(lambda start: QFileDialog.getExistingDirectory(self, 'XML repository', start),
                                 'A clone of the BEQ filter (XML) repository')

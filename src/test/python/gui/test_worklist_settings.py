@@ -11,6 +11,7 @@ import subprocess
 import pytest
 from qtpy.QtCore import QModelIndex, Qt
 
+import model.worklist_settings as settings_module
 from model.jriver.connections import SavedConnection, save_connections
 from model.library_sources import FilesystemSourcePage, JRiverSourcePage
 from model.preferences import LIBRARY_PROFILE_PATH, TMDB_API_KEY, WORKLIST_ACCEPT_THRESHOLD, DEFAULT_PREFS
@@ -26,6 +27,21 @@ from worklist_settings_fixture import DESIGNER, NOW, Dialogs, _designer, accepti
 def _bytes(path) -> bytes:
     with open(path, 'rb') as f:
         return f.read()
+
+
+def test_empty_work_and_queue_pickers_start_in_the_users_video_location(qtbot, tmp_path, monkeypatch):
+    drawer = open_window(qtbot, tmp_path, make_prefs(tmp_path, write_profile(tmp_path))).open_settings()
+    drawer.workDir.set_text('')
+    drawer.queueDir.set_text('')
+    starts = []
+    monkeypatch.setattr(settings_module, 'default_library_folder', lambda: '/users/me/Videos')
+    monkeypatch.setattr(settings_module.QFileDialog, 'getExistingDirectory',
+                        lambda _parent, title, start: starts.append((title, start)) or '')
+
+    drawer.workDir.browseButton.click()
+    drawer.queueDir.browseButton.click()
+
+    assert starts == [('Work directory', '/users/me/Videos'), ('Review queue directory', '/users/me/Videos')]
 
 
 # --- persistence: each setting, unknown sections, refusal, atomic write ------------------------------------------------------
