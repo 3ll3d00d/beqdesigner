@@ -2,8 +2,8 @@
 
 > Part of the library sync plan -- **start at the index**:
 > [`../library-sync-pipeline-plan.md`](../library-sync-pipeline-plan.md).
-> Contains §13. Status: **planned**; chunks 29-38 turn the post-M5 audit into
-> small, independently reviewable pieces.
+> Contains §13. Status: chunk 29 is **built** in `791af5b`; chunks 30-38 turn
+> the post-M5 audit into small, independently reviewable pieces.
 
 ## 13. Sweep-up after M5
 
