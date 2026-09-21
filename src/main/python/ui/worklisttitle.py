@@ -18,7 +18,6 @@ class Ui_titlePage(object):
         self.navLayout = QtWidgets.QHBoxLayout()
         self.navLayout.setObjectName("navLayout")
         self.backButton = QtWidgets.QPushButton(parent=titlePage)
-        self.backButton.setFlat(True)
         self.backButton.setObjectName("backButton")
         self.navLayout.addWidget(self.backButton)
         self.crumbLabel = QtWidgets.QLabel(parent=titlePage)
@@ -138,7 +137,7 @@ class Ui_titlePage(object):
     def retranslateUi(self, titlePage):
         _translate = QtCore.QCoreApplication.translate
         self.backButton.setToolTip(_translate("titlePage", "Back to the work list (Esc)"))
-        self.backButton.setText(_translate("titlePage", "Work list"))
+        self.backButton.setText(_translate("titlePage", "← Back to work list"))
         self.previousButton.setToolTip(_translate("titlePage", "The previous title in the list (Alt+Left)"))
         self.previousButton.setText(_translate("titlePage", "Previous"))
         self.nextButton.setToolTip(_translate("titlePage", "The next title in the list (Alt+Right)"))

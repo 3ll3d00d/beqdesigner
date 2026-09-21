@@ -9,7 +9,7 @@
    <property name="bottomMargin"><number>0</number></property>
    <item>
     <layout class="QHBoxLayout" name="navLayout">
-     <item><widget class="QPushButton" name="backButton"><property name="toolTip"><string>Back to the work list (Esc)</string></property><property name="text"><string>Work list</string></property><property name="flat"><bool>true</bool></property></widget></item>
+     <item><widget class="QPushButton" name="backButton"><property name="toolTip"><string>Back to the work list (Esc)</string></property><property name="text"><string>← Back to work list</string></property></widget></item>
      <item><widget class="QLabel" name="crumbLabel"><property name="textFormat"><enum>Qt::PlainText</enum></property><property name="text"><string/></property></widget></item>
      <item><spacer name="navSpacer"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
      <item><widget class="QPushButton" name="previousButton"><property name="toolTip"><string>The previous title in the list (Alt+Left)</string></property><property name="text"><string>Previous</string></property></widget></item>
