@@ -155,13 +155,19 @@ Three entry points share this machinery:
   remux applies a filter someone already designed/reviewed.
 - **Batch Extract / Design** (`model/batch.py`) — glob for files, probe them
   in the thread pool, extract en masse; optionally also designs each one
-  (`pipeline.review.design_and_queue()`) and reviews the results on an
-  embedded tab -- see `pipeline/README.md`'s "Batch design + review".
+  (`pipeline.review.design_and_queue()`), then opens the **Review folder**
+  window (`model/worklist_review.py`, below) on the queue directory -- see
+  `pipeline/README.md`'s "Batch design + review". The old embedded Review tab
+  and its own XML-only Publish button are gone (chunk 27c).
+- **Review Folder** (Tools > *Review Folder...*, `model/worklist_review.py`
+  `ReviewFolderWindow`) — the work list's title page over a chosen queue
+  directory (no discovery index): a list of the entries, the same page, and
+  *Publish accepted* / *Commit published*, which call the work list's own
+  `publish_library`/`commit_library` with the library profile's repositories.
 
 ### Library work list (`model/worklist*.py`)
 
-Tools > **Library Work List** (the primary library entry; the old dialog is "Library Sync (classic dialog)" until
-chunk 27c deletes it): a top-level `QMainWindow` over the library-sync discovery index (`pipeline/library/index.py`) --
+Tools > **Library Work List** (the only library entry; the old Library Sync dialog was deleted in chunk 27c): a top-level `QMainWindow` over the library-sync discovery index (`pipeline/library/index.py`) --
 the pipeline strip with a count per kind of work, a searchable table of every title and what it needs next, a Rescan
 that lists the sources again on a `QRunnable`, and (chunk 26b) the actions. Everything it shows is read from the index
 rows, not derived again. Files: `worklist.py` (`WorkListWindow`: widgets, filters, scan), `worklist_actions.py`
@@ -170,14 +176,28 @@ rows, not derived again. Files: `worklist.py` (`WorkListWindow`: widgets, filter
 connection and a cooperative cancel; the words a run is described in), `worklist_confirm.py` (the confirmations that name
 the repositories), `worklist_model.py` (table model/proxy; `set_running()` is the running-row marker),
 `worklist_profile.py`. The buttons work on the selected rows, or on everything the filters list if none is selected;
-nothing is ever accepted here (reviewing is the title page, chunk 27). The profile is the file named by `LIBRARY_PROFILE_PATH`
+nothing is accepted without a person (deciding is the title page, chunk 27; the one bulk shortcut, *Accept top pick*, asks first,
+chunk 27c). The profile is the file named by `LIBRARY_PROFILE_PATH`
 (`worklist_profile.load_setup`), built from the Library Sync preferences only until the first setting is saved. **Settings**
 (chunk 26c) is a drawer (a dock on the right, *Settings...* or the incomplete-setup banner) that edits that file:
 `worklist_settings.py` (`SettingsDrawer`: locations, options, the debounced atomic write, first-save), `worklist_sources.py`
 (sources in priority order, drag to reorder; the dialog reuses `library_sources.SourcePage`), `worklist_ignore.py` (ignore rules
 with a live "would ignore N titles" count, per-title ignores), `worklist_edit.py` (the no-widget logic: config edits, folder
 and repository checks, the preview). Tests: `gui/test_worklist_settings.py`, `gui/test_worklist_ignore.py` (dialogs are driven
-through the `run_dialog` hook), `test_worklist_edit.py`.
+through the `run_dialog` hook), `test_worklist_edit.py`. **Title page** (chunk 27a): double-click, Enter or *Open* on a row
+stacks `worklist_title.py`'s `TitlePage` (candidates, commentary, chart, Accept & next / Skip / Reject over the queue entry, Previous / Next)
+in place of the table, via the `worklist_titles.py` mixin; the index is read again once, on a worker, when the page is left
+(`ui/worklisttitle.ui`; tests `gui/test_worklist_title.py`). **Metadata and artwork** (chunk 27b, a *Metadata* tab beside the chart): `worklist_metadata.py`
+(`MetadataPanel`: Essentials / More, TMDB Reload and an artwork download on the thread pool, autosave on focus-out and `flush()` before the page moves;
+the header badge and Accept being held back while `validate()` fails), `worklist_artwork.py` (image checks, the `_art_cache`, the download job), `worklist_title_text.py` (the title page's pure words and chart data),
+`ui/worklistmetadata.ui`; tests `gui/test_worklist_metadata.py` and `gui/test_worklist_metadata_fixes.py` (the independent review's fixes: a late TMDB
+answer dropped after Back, the API key redacted from error text, a refused Accept not moving the keyboard, a blank field unsetting its key). **Project, revise, bulk** (chunk 27c): `worklist_projects.py` (a title's mono/multichannel `.beq` projects and whether each was
+*modified since design*, read with `read_project_filter()`), `worklist_title_actions.py` (the page's *Open project* buttons and badge -- opened through the
+`open_project` callable `BeqDesigner` hands the window, since `model/` may not import `app` -- and *Reopen / Revise...*), `worklist_revise.py` (the question
+and the work, over `pipeline.library.revise`), `worklist_bulk.py` (the `WorkListBulk` mixin: *Accept top pick* over `pipeline.library.bulk` with the
+`WORKLIST_ACCEPT_THRESHOLD` preference, *Revise...* on the selected rows, and the "settings changed since N titles were designed" banner over
+`pipeline/library/drift.py`), `worklist_review.py` (the Review folder window: it holds the work list's interlocks while its own Publish or Commit runs, and reads the library profile again on activation and at each decision), `worklist_folder_state.py` (what it works out with no widgets: the made-up row, where a published title's files stand in git, and which accepted entries can be published from their projects), `worklist_title_decide.py` (Accept / Skip / Reject and "next", a mixin of the page). Tests `gui/test_worklist_projects.py`, `test_worklist_revise.py`,
+`test_worklist_bulk.py`, `test_worklist_review.py`, `test_worklist_review_fixes.py`, `test_pipeline_library_drift.py`. `gui/conftest.py` answers the title page's "Discard what you typed?" question without a dialog in every gui test (a stray modal at teardown hangs the suite); a test about the question takes `real_ask_discard`.
 The plan is `design/library-sync-pipeline-plan.md` (chunk table, §8) and `design/library-sync/workflow-rework/`. Tests:
 `src/test/python/gui/test_worklist_*.py`, over a fixture index (`gui/worklist_fixture.py`) and a fake `run_stages`; `test_worklist_real_pipeline.py` drives
 Publish then Commit through the real `run_stages`, index and temp git repos.

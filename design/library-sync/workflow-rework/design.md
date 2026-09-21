@@ -2,11 +2,11 @@
 
 > Part of the library sync plan -- **start at the index**: [`../../library-sync-pipeline-plan.md`](../../library-sync-pipeline-plan.md).
 > Contains §12 (§12.1-§12.12, §12.14-§12.15). Section numbers are global across the plan; the index maps every `§` to its file.
-> Status of what this file describes: **design agreed 2026-09-19**; the backend (§12.4-§12.9 and §12.11: profile, discovery, states, publish/commit, revise, stage entry points, bulk accept) is **built through chunk 25**, the work list window with its actions and its settings drawer (§12.10, chunks 26a-26c) is built; the title page is **not built**; supersedes §7
+> Status of what this file describes: **design agreed 2026-09-19**; the backend (§12.4-§12.9 and §12.11: profile, discovery, states, publish/commit, revise, stage entry points, bulk accept) is **built through chunk 25**, the work list window with its actions and its settings drawer (§12.10, chunks 26a-26c), the title page (27a core, 27b metadata and artwork, 27c projects, Reopen/Revise, the bulk-accept UI and the "settings changed" banner) are built, and the old Library Sync dialog and the review dialog are retired (27c, committed in `b88ac1f` and `cf9561f`): **only the documentation (chunk 28) remains**; supersedes §7
 
-## 12. Workflow, discovery and a work-list UI (designed 2026-09-19; backend built, UI **not built**)
+## 12. Workflow, discovery and a work-list UI (designed 2026-09-19; built through chunk 27c)
 
-Status: **the backend is built (chunks 19-25, see the chunk table in the index); §12.10's work list, its actions and its settings drawer are built (26a-26c), the rest of §12.10 (the title page) is design only**; §12.13 is the build order.
+Status: **everything in §12.4-§12.11 is built (chunks 19-27c, see the chunk table in the index); only the user documentation (chunk 28) remains**. §12.10's work list, its actions and its settings drawer (26a-26c), the title page's core -- candidates, commentary, chart, Accept & next / Skip / Reject, prev/next (27a) -- its metadata and artwork (27b) and, in 27c, Open project with the "modified since design" badge, Reopen / Revise, bulk accept, the "settings changed" banner and the retirement of `LibrarySyncDialog` and `ReviewQueueDialog` (the standalone entry point is the **Review folder** window, `model/worklist_review.py`; the independent review's fixes to it, 2026-09-21, are in `implementation-order.md`'s 27c block). §12.13 is the build order.
 Every open decision raised while designing it was settled with the user on 2026-09-19 and is
 recorded in §12.12. This section **supersedes §7's "as built" GUI** (Run tab + Review tab) and
 absorbs T9 and T10 of §10.
@@ -310,7 +310,11 @@ is what lets a metadata typo on a published title flow straight to Publish witho
 **Done titles and staleness (deliberate).** A done title re-enters the list on its own **only** when its
 *source* changed (attention). A **config** change (designer, analysis) must not: it would put every done title
 in the list at once. Instead the UI shows one banner, "Settings changed since N titles were designed --
-Revise...", which opens a bulk revise on that selection (§12.8).
+Revise...", which opens a bulk revise on that selection (§12.8). **As built (27c):** N counts the *accepted or published* titles
+whose entry's design fingerprint differs from what a design run would record now under the current designer, analysis and coverage
+(`pipeline/library/drift.py`, with the source taken from the entry so a re-ripped source is not counted: that is `attention`); it
+needs no index column, so the frozen schema is untouched. Seasons and entries designed before the fingerprints were recorded are not
+counted. *Revise...* starts on Redesign and says what will happen before anything changes; *Dismiss* hides the banner until the set changes.
 
 ### 12.7 Phase 3 -- doing work
 

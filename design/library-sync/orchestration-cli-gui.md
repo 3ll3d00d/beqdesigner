@@ -2,7 +2,7 @@
 
 > Part of the library sync plan -- **start at the index**: [`../library-sync-pipeline-plan.md`](../library-sync-pipeline-plan.md).
 > Contains §5, §6, §7. Section numbers are global across the plan; the index maps every `§` to its file.
-> Status of what this file describes: **built** (see `status-and-open-items.md` §10 for the exceptions); **§7 (the GUI) is superseded by `workflow-rework/design.md` §12.10** and is deleted at chunk 27c
+> Status of what this file describes: **built** (see `status-and-open-items.md` §10 for the exceptions); **§7 (the GUI) is superseded by `workflow-rework/design.md` §12.10** and its code was deleted in chunk 27c (`LibrarySyncDialog`, `ReviewQueueDialog`); the text below is kept as history
 
 ## 5. Orchestration
 
@@ -98,9 +98,9 @@ declare it.
 
 ## 7. GUI integration
 
-> **Superseded (design, 2026-09-19):** the Run/Review-tab dialog described here is what
-> is built today. §12.10 replaces it with a single-window work list and title page; the
-> current dialog stays until chunk 27c (§12.13).
+> **Superseded (2026-09-19; deleted in chunk 27c, 2026-09-21):** the Run/Review-tab dialog described here is what
+> was built first. §12.10 replaced it with a single-window work list and title page
+> (`model/worklist*.py`); this section is kept as history.
 
 New dialog, `model/library_sync.py` / `ui/library_sync.py`
 (`LibrarySyncDialog`, reachable via a new Tools menu entry), following

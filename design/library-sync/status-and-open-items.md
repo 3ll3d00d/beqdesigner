@@ -124,8 +124,8 @@ the old items 10-14.)
 *Documentation*
 
 T1. **User documentation (mkdocs, `docs/`) does not cover any of the library
-    work, and one page is now wrong.** Missing: the Library Sync dialog, the
-    Review Batch Designs dialog and its metadata/artwork/Episodes editor,
+    work, and one page is now wrong.** Missing: the Library Sync dialog (now the Library Work List),
+    the Review Batch Designs dialog (now the title page and the Review Folder window) and its metadata/artwork/Episodes editor,
     Preferences -> Designers and -> JRiver (servers, aliases, path mappings,
     metadata fields), the source picker, TV mode, and DVD/Blu-ray discs in Batch
     Extract. **Wrong:** `docs/ui/manage_mc.md` ("on first use enter the
@@ -139,8 +139,12 @@ T1. **User documentation (mkdocs, `docs/`) does not cover any of the library
 
 T2. **The GUI has only been exercised by offscreen pytest-qt, never by a person
     in the running app**: Preferences -> JRiver (list, edit, async test,
-    aliases, path-mapping table, field editor), Library Sync (source picker,
-    browse-node picker, TV mode), the review dialog's Episodes field, A.8.
+    aliases, path-mapping table, field editor), and -- since the dialogs were
+    replaced (chunks 26-27c) -- the Library Work List (strip, actions, settings
+    drawer with its source picker, browse-node picker and ignore rules), the
+    title page (candidates, metadata and artwork, Open project into the real main
+    window, Reopen / Revise, bulk accept), the Review Folder window and its
+    Publish / Commit against real repositories, and a real JRiver source, A.8.
 T3. **`tv_mode='season'` has not been run against a real library** (the local
     server was unreachable); grouping and joining are unit-tested only (§11.9).
 T4. **The CLI's `run` and `sync` have not been run end to end** against a real
@@ -167,9 +171,11 @@ T8. **Blu-ray `BDMV\PLAYLIST\index.bluray;N` entries** (4 shows) are passed
 T9. **The review dialog's own Publish button is XML-only and ignores `work_dir`**,
     so publishing from it (including from the copy embedded in Library Sync)
     skips the `.beq`-project logic; only Library Sync's Sync button uses it (§7).
-    *Planned: retired in chunk 27c (§12.10, §12.13).*
+    **Closed in chunk 27c (2026-09-21, commits `b88ac1f` and `cf9561f`):** the dialog and its button are deleted; the Review folder window publishes
+    through `publish_library()`/`commit_library()`, the functions the work list runs, so it also writes images, reads projects and
+    refuses incomplete metadata per title (§12.10).
 T10. **Library view filter bar** (status / name / year / type) for the Run tab (§7).
-     *Superseded by the work list (§12.10, chunks 26a-b).*
+     **Closed:** superseded by the work list (§12.10, chunks 26a-b); the Run tab it was for is deleted (27c).
 T11. **No warning for a path still in Windows form on a non-Windows host** (an
      unmapped library fails item by item at extraction); no folder picker on the
      path mapping's local column (§11.6).

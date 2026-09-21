@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/3ll3d00d/beqdesigner/main/docs/schema/review_queue.schema.json",
   "title": "BEQDesigner review queue entry",
-  "description": "One file in a pipeline.review queue directory (design/candidate-review-plan.md), named '<id>.json'. Written by pipeline.review.batch_design()/write_queue_entry() and read/updated by the same module and by model/review.py's ReviewQueueDialog (Tools > Review Batch Designs). Plain (non-gzipped) UTF-8 JSON.",
+  "description": "One file in a pipeline.review queue directory (design/candidate-review-plan.md), named '<id>.json'. Written by pipeline.review.batch_design()/write_queue_entry() and read/updated by the same module and by the Library Work List's title page (model/worklist_title.py: Tools > Library Work List, and Tools > Review Folder... over a chosen queue directory, model/worklist_review.py). Plain (non-gzipped) UTF-8 JSON.",
   "type": "object",
   "properties": {
     "id": {

@@ -3,6 +3,7 @@
 > Part of the library sync plan -- **start at the index**: [`../library-sync-pipeline-plan.md`](../library-sync-pipeline-plan.md).
 > Contains §11 (§11.1-§11.9). Section numbers are global across the plan; the index maps every `§` to its file.
 > Status of what this file describes: **built** (see `status-and-open-items.md` §10 for the exceptions)
+> Note (chunk 27c, 2026-09-21): this file names `LibrarySyncDialog` and `ReviewQueueDialog` in the present tense, as built at the time. Both were replaced by the Library Work List (`model/worklist*.py`) and its title page and deleted; the workflow they implemented is described by `workflow-rework/design.md` §12.10 and `implementation-order.md`.
 
 ## 11. Source selection and shared JRiver connections (added 2026-09-19)
 

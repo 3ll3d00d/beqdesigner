@@ -58,14 +58,18 @@ pipeline/
         run.py, sync.py, commit.py, revise.py, cli.py   # run_library(), publish/commit/sync_library(), revise_entry(), the command line
         state.py, status.py, index.py, catalogue_scan.py   # discovery: what each title needs next, and the SQLite index of it
         selection.py, stages.py, bulk.py   # doing work for a selection: Selection, run_stages(--through), accept_top_pick()
+        drift.py                           # accepted/published titles designed under other settings (the work list's banner)
 
 model/preferences.py          # GUI: durable list of configured HTTP designer endpoints + the review queue
                               #   directory default, both on the Preferences dialog's "Designers" page
 model/batch.py                # GUI: Batch Extract & Design dialog -- search/extract many files, with an
-                              #   optional per-candidate design_and_queue() step and an embedded Review tab
-model/review.py               # GUI: ReviewQueueDialog, embedded as model/batch.py's Review tab and also
-                              #   reachable standalone via Tools > Review Batch Designs...
-ui/preferences.py, ui/batch.py, ui/review.py   # the corresponding dialogs
+                              #   optional per-candidate design_and_queue() step; opens the Review folder window
+model/worklist_review.py      # GUI: the Review folder window (Tools > Review Folder...) -- the work list's title page
+                              #   over a queue directory; publishes through publish_library()/commit_library()
+model/worklist_title.py       # GUI: the title page it (and the Library Work List) review with (+ worklist_title_actions.py,
+                              #   worklist_title_decide.py: its projects/revise and its Accept/Skip/Reject)
+model/worklist_folder_state.py  # GUI-free: the folder window's rows, git state of published titles, publish split
+ui/preferences.py, ui/batch.py   # the corresponding dialogs
 ```
 
 ## Workflow stages
@@ -141,7 +145,7 @@ In the GUI, **Preferences → Designers** (`model/preferences.py`) maintains
 a durable list of `{name, url, headers}` HTTP endpoints, registered under a
 `http:`-prefixed name on every app startup. The same page also holds the
 `DESIGNER_QUEUE_DIR` default -- the review queue directory `model/batch.py`'s
-Run tab and `model/review.py`'s Review tab both remember and default to --
+Run tab and `model/worklist_review.py`'s Review folder window both remember and default to --
 and `DESIGNER_DEFAULT`, the designer name `model/batch.py`'s Run tab
 preselects in its designer combo.
 
@@ -176,31 +180,30 @@ through the queue via one dialog, `model/batch.py`'s `BatchExtractDialog`
   multichannel kept file is also decomposed (`Session.load_channels()`,
   no extra ffmpeg run) and sent alongside as `DesignRequest.channels`, so
   a candidate's per-channel picture isn't just thrown away by only ever
-  designing from a downmix. Finishing a design run switches to the Review
-  tab with the new entries loaded.
+  designing from a downmix. Finishing a design run opens the Review folder
+  window (below) on the queue directory with the new entries loaded.
 - `model/extract.py`'s `ExtractAudioDialog` (Tools → Extract Audio) has
   the same optional "Design filters?" step for the single-file case --
   same `DesignJob` (reused directly, not reimplemented), same mono-
   downmix/`channels` behaviour, same `DESIGNER_DEFAULT`/`DESIGNER_QUEUE_DIR`
   preferences. Not offered in Remux mode, which applies a filter someone
   already designed/reviewed rather than designing a new one.
-- **Review** (`model/review.py`/`ui/review.py`'s `ReviewQueueDialog`,
-  embedded as a tab — `setWindowFlags(Qt.WindowType.Widget)` on an
-  otherwise-unmodified `QDialog` instance) — one row per queue entry, a
-  detail pane with every candidate's confidence/method/commentary and a
-  **live** filtered-curve chart (redraws as the reviewer changes the
-  pick), and keyboard-first triage: Enter/A accepts and advances, digit
-  keys change the pick, S skips, R rejects (permanent, unlike skip).
-  "Publish accepted" drives `pipeline.review.publish_reviewed_queue()` —
-  XML-only from the dialog today; the underlying function also supports an
-  images repo. `reject()` (QDialog's Escape-key handler) is overridden to
-  a no-op -- the default behaviour hides the dialog, which would blank
-  this tab when embedded rather than closing anything.
+- **Review folder** (`model/worklist_review.py`'s `ReviewFolderWindow`; **Tools → Review Folder…**, and opened by
+  Batch Extract & Design and Extract Audio when their designs are done) — the Library Work List's **title page**
+  (`model/worklist_title.py`) over a chosen queue directory, with no discovery index: a list of the entries on the left
+  and, for the one picked, every candidate's confidence/method/commentary, a **live** filtered-curve chart, the metadata
+  and artwork, the mono/multichannel projects (opened in the main window) and Reopen / Revise. Keyboard-first triage as in
+  the work list: A (or Enter on the candidates) accepts and goes to the next title waiting, digits pick a candidate, S skips,
+  R rejects. **One publish path:** *Publish accepted* and *Commit published* call `pipeline.library.sync.publish_library()` /
+  `commit_library()` -- what the work list's Publish and Commit run -- with the library profile's repositories and work
+  directory (Library Work List > Settings), behind the same confirmations naming them. This replaced the old
+  `ReviewQueueDialog` and its XML-only Publish button (T9): publishing from here now also writes the images repository,
+  reads the `.beq` projects (a person's edit is what is published; an entry with an edited project whose audio is gone is refused, not
+  published without the edit) and refuses incomplete metadata per title. While one of them runs, the window holds the work list's
+  interlocks (nothing is revised, decided or edited for the titles it works on).
 
-**Tools → Batch Extract / Design…** opens on the Run tab; **Tools → Review
-Batch Designs…** opens the same dialog straight on the Review tab (e.g. to
-review a queue directory a headless job populated, with no extraction of
-its own to run).
+**Tools → Batch Extract / Design…** opens the Run tab (there is no Review tab any more); **Tools → Review Folder…**
+opens the review window on a queue directory a headless job populated, with no extraction of its own to run.
 
 `QueueEntry`'s format is published at `docs/schema/review_queue.schema.json`.
 Each candidate's filters are stored as `CompleteFilter.to_json()` — the same
@@ -232,7 +235,7 @@ PYTHONPATH=src/main/python python -m pipeline.library.cli [--config FILE] accept
   not repeat a failure every night (a transient failure -- a NAS offline, a designer down -- stays skipped until then, so `run`
   prints `warning: N titles skipped: failed earlier ... use --retry-failed` on stderr whenever it skipped any; the exit status
   is unchanged). With a *selector* it does much more -- see "Doing the work for a selection" below.
-- A person then reviews the queue in the app (Tools > Library Sync, or Review Batch Designs) and accepts entries.
+- A person then reviews the titles in the app (Tools > Library Work List's title page, or Review Folder for a queue directory) and accepts entries.
 - **`publish`** writes only the *accepted* entries into the catalogue repositories' working trees: the XML in one
   and, optionally, a report image in another. Each entry is marked published (meaning *written*), so a re-run only
   publishes what is still accepted. It commits and pushes nothing, so the result can be looked at first. An entry
@@ -541,8 +544,8 @@ Kept here as a short index; each was worked through in more detail in
 
 See `AGENTS.md`'s "Testing" section for the Qt-boundary subprocess gotcha
 and the pytest-qt conventions the GUI dialogs (`gui/test_preferences_designers.py`,
-`gui/test_batch_extract_design.py`, `gui/test_extract_design.py`,
-`gui/test_review_dialog.py`) follow.
+`gui/test_batch_extract_design.py`, `gui/test_extract_design.py`, and the work list's `gui/test_worklist_*.py`, which drive the title page, the metadata
+form and the Review Folder window) follow.
 
 ## Open / not built
 

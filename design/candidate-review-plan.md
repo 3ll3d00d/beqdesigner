@@ -10,7 +10,7 @@ stays only as a phase index for code comments that cite it by phase number.
 |---|---|
 | 1 | `pipeline/review.py` — `QueueEntry`, `write_queue_entry`/`read_queue`/`read_entry`/`update_entry`, `batch_design()` |
 | 2 | `apply_reviewed_entry()`, `publish_reviewed_queue()` in `pipeline/review.py` |
-| 3 | `model/review.py` + `ui/review.py` — the `ReviewQueueDialog` (table, live chart, keyboard triage, "Publish accepted") |
+| 3 | `model/review.py` + `ui/review.py` — the `ReviewQueueDialog` (table, live chart, keyboard triage, "Publish accepted"); **replaced at chunk 27c by the work list's title page (`model/worklist_title.py`) and the Review Folder window, and deleted** |
 | 4 | `docs/schema/review_queue.schema.json` |
 
 Decisions made while planning, still true of the shipped code:
