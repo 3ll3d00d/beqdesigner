@@ -4,7 +4,7 @@ Where the work list gets its catalogue profile -- design/library-sync/workflow-r
 The settings editor is chunk 26c. Until then nobody should have to hand-write a profile file, so:
 
 * if the `LIBRARY_PROFILE_PATH` preference names a file, that file is the profile (`pipeline.library.profile.load_profile`);
-* otherwise the profile is **built from the preferences Library Sync already keeps** -- one source (the kind in
+* otherwise the profile is **built from the library preferences saved before profile files existed** -- one source (the kind in
   `LIBRARY_SOURCE_DEFAULT` with that kind's saved settings), the work and queue directories, the two repositories, the
   designer and the TV mode; no ignore rules.
 
@@ -57,7 +57,7 @@ def default_designer(prefs) -> str:
 
 def bootstrap_profile(prefs, designer: str = '') -> Profile:
     '''
-    The profile Library Sync's saved preferences amount to: a single source, no ignore rules.
+    The profile the saved library preferences amount to: a single source, no ignore rules.
     :param designer: the designer to record; empty means none is chosen (setup_problems() says so).
     '''
     run: Dict[str, Any] = {'work_dir': prefs.get(LIBRARY_WORK_DIR), 'queue_dir': prefs.get(DESIGNER_QUEUE_DIR),

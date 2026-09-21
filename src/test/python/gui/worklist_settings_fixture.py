@@ -36,7 +36,7 @@ def make_prefs(tmp_path, profile: Optional[str] = None, configured: bool = False
     prefs = Preferences(QSettings(str(tmp_path / 'settings.ini'), QSettings.Format.IniFormat))
     if profile:
         prefs.set(LIBRARY_PROFILE_PATH, profile)
-    if configured:   # the Library Sync preferences the work list falls back on until a profile file exists
+    if configured:   # the saved library preferences the work list falls back on until a profile file exists
         (tmp_path / 'work').mkdir(exist_ok=True)
         prefs.set(LIBRARY_WORK_DIR, str(tmp_path / 'work'))
         prefs.set(DESIGNER_QUEUE_DIR, str(tmp_path / 'queue'))

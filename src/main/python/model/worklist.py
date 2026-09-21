@@ -12,7 +12,7 @@ What the window reads and where it does not think for itself:
 * what each title needs, its detail, how long it has waited, whether it is new, its flags -- all straight from the
   index's rows (`TitleRow`), in the index's order (tier, then oldest first); see `model.worklist_model`;
 * the profile -- from the `LIBRARY_PROFILE_PATH` file if there is one, else (until the first change is saved) built from
-  the Library Sync preferences (`model.worklist_profile`); chunk 26c's **settings drawer** (`model.worklist_settings`, a
+  the library preferences saved before profile files existed (`model.worklist_profile`); chunk 26c's **settings drawer** (`model.worklist_settings`, a
   dock on the right: *Settings...*) edits that file, and a banner at the top says what is missing until it is complete;
 * the strip's chips are `pipeline.library.selection.CHIPS`, and `current_selection()` is the `Selection` the filters
   amount to, which chunk 26b's action button hands to `plan_stages()`/`run_stages()`.

@@ -1,8 +1,8 @@
 '''
-The library sources Library Sync can run against, as the GUI sees them -- design/library-sync-pipeline-plan.md §11.3.
+The library sources the work list can run against, as the GUI sees them -- design/library-sync-pipeline-plan.md §11.3.
 
 A *kind* is a name, a label and a settings page. The page loads/saves its own preferences and builds a headless
-`LibrarySource` (pipeline.library) from what the user entered. Library Sync holds a registry of kinds and shows the
+`LibrarySource` (pipeline.library) from what the user entered. The work list's sources tab holds a registry of kinds and shows the
 chosen kind's page, so adding Plex or Kodi later means registering one more kind here, not editing the dialog.
 This is separate from pipeline.library.registry, which is the headless name -> source-instance registry: a kind also
 carries widgets.
@@ -42,7 +42,7 @@ class SourcePage(QWidget):
         raise NotImplementedError
 
     # A page also edits one source of a catalogue *profile* (the work list's settings drawer): the settings of a
-    # profile source (pipeline.library.profile.SourceSpec.settings), not the Library Sync preferences.
+    # profile source (pipeline.library.profile.SourceSpec.settings), not the library preferences.
 
     def load_settings(self, settings: Mapping[str, Any], prefs) -> None:
         ''' Fill the widgets from a profile source's settings. '''
@@ -56,7 +56,7 @@ class SourcePage(QWidget):
         raise NotImplementedError
 
     def load_defaults(self, prefs) -> None:
-        ''' Fill the widgets for a new profile source: what Library Sync last used, where that is useful. '''
+        ''' Fill the widgets for a new profile source: what was last used, where that is useful. '''
         raise NotImplementedError
 
 

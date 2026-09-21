@@ -443,7 +443,7 @@
          <item>
           <widget class="QLabel" name="jriverHelpLabel">
            <property name="text">
-            <string>Media Center servers, shared by the JRiver filter manager and Library Sync.</string>
+            <string>Media Center servers, shared by the JRiver filter manager and the Library Work List.</string>
            </property>
            <property name="wordWrap">
             <bool>true</bool>

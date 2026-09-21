@@ -1,6 +1,6 @@
 '''
 model/worklist_profile.py: where the work list's profile comes from until chunk 26c (a settings editor) exists -- a
-profile file if the LIBRARY_PROFILE_PATH preference names one, else one built from the Library Sync preferences.
+profile file if the LIBRARY_PROFILE_PATH preference names one, else one built from the saved library preferences.
 Pure functions over a real temp-file Preferences. `import ui.beq` first: see AGENTS.md gotcha 3.
 '''
 import ui.beq  # noqa: F401 (must come first)

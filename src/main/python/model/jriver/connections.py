@@ -1,6 +1,6 @@
 '''
 The list of saved JRiver Media Center (MCWS) servers, shared by everything that talks to one: the DSP filter
-manager's zone dialog, and Library Sync's JRiver source.
+manager's zone dialog, and the work list's JRiver sources.
 
 Storage is the existing `JRIVER_MCWS_CONNECTIONS` preference, `{'host:port': (auth, secure)}` where `auth` is None
 or `(username, password)` -- unchanged, so connections saved before this module existed are still there. A server's

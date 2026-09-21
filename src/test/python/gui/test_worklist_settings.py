@@ -404,7 +404,7 @@ def test_the_first_change_with_no_profile_file_asks_where_creates_it_and_remembe
     window = open_window(qtbot, tmp_path, prefs, choose_path=choose)
     drawer = window.open_settings()
     assert window.setup.origin == 'preferences' and drawer.path == ''
-    assert 'None yet' in drawer.pathLabel.text() and 'Library Sync preferences' in drawer.statusLabel.text()
+    assert 'None yet' in drawer.pathLabel.text() and 'saved library preferences' in drawer.statusLabel.text()
 
     drawer.keepMultichannel.click()
     assert drawer.flush()

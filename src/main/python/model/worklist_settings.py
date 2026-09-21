@@ -9,7 +9,7 @@ sections, the rest of `run:` and `sync:` -- is kept, because every edit is a new
   `rule_from_config` accepts, sources with unique names), then the *whole* profile is checked to read back
   (`profile_from_config(profile.to_config())`), and a short moment later written atomically (`save_profile`: a temporary
   file, then `os.replace`). A profile that would not read back is not written: the reason is shown instead. The first save,
-  when no profile file exists yet (the work list was running from the Library Sync preferences), asks where to put one
+  when no profile file exists yet (the work list was running from the saved library preferences), asks where to put one
   (the app's configuration folder is offered), and stores the path in `LIBRARY_PROFILE_PATH`.
 * **What the window does with it.** `saved(path)` says the file was written: the window reads the setup again, and says the
   list is out of date (Rescan) if what a scan describes changed. The drawer disables itself while a run or scan is going.
@@ -316,7 +316,7 @@ class SettingsDrawer(QWidget):
         self.__show_path()
         self._error = ''
         self.statusLabel.setText('' if self._path else
-                                 'These settings come from the Library Sync preferences. The first change you make here '
+                                 'These settings come from the saved library preferences. The first change you make here '
                                  'creates a profile file for them.')
 
     def _show_unreadable(self, setup: WorkListSetup) -> None:

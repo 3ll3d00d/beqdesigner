@@ -484,7 +484,7 @@ class Ui_preferencesDialog(object):
         self.designQueueDirPicker.setText(_translate("preferencesDialog", "..."))
         self.defaultDesignerLabel.setText(_translate("preferencesDialog", "Default Designer"))
         self.toolBox.setItemText(self.toolBox.indexOf(self.designerPage), _translate("preferencesDialog", "Designers"))
-        self.jriverHelpLabel.setText(_translate("preferencesDialog", "Media Center servers, shared by the JRiver filter manager and Library Sync."))
+        self.jriverHelpLabel.setText(_translate("preferencesDialog", "Media Center servers, shared by the JRiver filter manager and the Library Work List."))
         self.toolBox.setItemText(self.toolBox.indexOf(self.jriverPage), _translate("preferencesDialog", "JRiver"))
         self.smoothGraphs.setText(_translate("preferencesDialog", "Smooth?"))
         self.themePicker.setItemText(0, _translate("preferencesDialog", "default"))

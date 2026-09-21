@@ -2,9 +2,9 @@
 The sources half of the work list's settings drawer (chunk 26c): the profile's sources in priority order, and the dialog
 that edits one of them.
 
-A source is edited with the same `model.library_sources.SourcePage` kinds Library Sync uses (folders and globs; a JRiver
+A source is edited with the `model.library_sources.SourcePage` kinds (folders and globs; a JRiver
 server, browse node, path mappings and id fields), not a copy of them: the dialog adds only what a profile source has and
-a Library Sync preference does not -- a **name**, unique in the profile.
+a saved preference does not -- a **name**, unique in the profile.
 '''
 from typing import Callable, Collection, Dict, List, Optional, Sequence
 
@@ -100,7 +100,7 @@ class SourceDialog(QDialog):
 
     @property
     def page(self) -> SourcePage:
-        ''' The settings page of the chosen kind -- the same class Library Sync shows. '''
+        ''' The settings page of the chosen kind -- the class the drawer uses. '''
         return self.pages[self.kindCombo.currentData()]
 
     @property
