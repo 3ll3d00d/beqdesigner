@@ -178,6 +178,10 @@ class SettingsDrawer(QWidget):
         self.resetProfileButton.setToolTip('Stop using this profile and return to the Library settings saved in Preferences. '
                                            'The profile file is left on disk.')
         self.resetProfileButton.clicked.connect(self.reset_profile)
+        self.saveButton = QPushButton('Save')
+        self.discardButton = QPushButton('Discard')
+        self.saveButton.clicked.connect(self.flush)
+        self.discardButton.clicked.connect(self.discard_changes)
         self.statusLabel = QLabel('')
         self.statusLabel.setWordWrap(True)
         self.statusLabel.setTextFormat(Qt.TextFormat.PlainText)
@@ -188,6 +192,8 @@ class SettingsDrawer(QWidget):
         header.addWidget(self.pathLabel, 1)
         header.addWidget(self.changeFileButton)
         header.addWidget(self.resetProfileButton)
+        header.addWidget(self.discardButton)
+        header.addWidget(self.saveButton)
 
         self.workDir = _PathRow(lambda start: QFileDialog.getExistingDirectory(
             self, 'Library workspace', start or default_library_folder()),
@@ -324,6 +330,8 @@ class SettingsDrawer(QWidget):
         self._setup = setup
         self._path = setup.path if setup.origin == 'file' else ''
         self.resetProfileButton.setEnabled(bool(self._path))
+        self.saveButton.setEnabled(False)
+        self.discardButton.setEnabled(False)
         if setup.profile is None:
             self._profile = None
             self._show_unreadable(setup)
@@ -420,6 +428,8 @@ class SettingsDrawer(QWidget):
         self.tabs.setEnabled(not busy and self._profile is not None)
         self.changeFileButton.setEnabled(not busy)
         self.resetProfileButton.setEnabled(not busy and bool(self._path))
+        self.saveButton.setEnabled(not busy and self._pending)
+        self.discardButton.setEnabled(not busy and self._pending)
 
     def select_tab(self, name: str) -> None:
         self.tabs.setCurrentIndex({'locations': 0, 'sources': 1, 'ignore': 2}[name])
@@ -527,8 +537,9 @@ class SettingsDrawer(QWidget):
         self._pending = True
         self._error = ''
         self.statusLabel.setStyleSheet('')
-        self.statusLabel.setText('Saving...')
-        self._timer.start()
+        self.statusLabel.setText('Unsaved changes')
+        self.saveButton.setEnabled(True)
+        self.discardButton.setEnabled(True)
         self.edited.emit()
 
     def __restore_lists(self) -> None:
@@ -586,6 +597,8 @@ class SettingsDrawer(QWidget):
             self.__show_error(self._error)
             return False
         self._error, self._pending, self._path = '', False, path
+        self.saveButton.setEnabled(False)
+        self.discardButton.setEnabled(False)
         self._prefs.set(LIBRARY_PROFILE_PATH, path)
         self.__show_path()
         self.statusLabel.setStyleSheet('')
@@ -624,6 +637,18 @@ class SettingsDrawer(QWidget):
         self.__show_path()
         self.statusLabel.setText(f'Saved {time.strftime("%H:%M:%S")}')
         self.profile_file_changed.emit(path)
+        return True
+
+    def discard_changes(self) -> bool:
+        '''Drop staged edits and show the profile/preferences state last saved to disk.'''
+        if not self._pending:
+            return False
+        self._timer.stop()
+        self._pending = False
+        self.saveButton.setEnabled(False)
+        self.discardButton.setEnabled(False)
+        if self._setup is not None:
+            self.load(self._setup)
         return True
 
     def reset_profile(self) -> bool:

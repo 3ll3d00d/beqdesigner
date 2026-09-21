@@ -139,7 +139,7 @@ def test_what_the_drawer_does_not_manage_survives_every_edit(qtbot, tmp_path):
     assert [s['name'] for s in after['sources']] == ['disk', 'films']
 
 
-def test_a_change_is_written_by_itself_shortly_after_the_edit(qtbot, tmp_path):
+def test_a_change_stays_staged_until_save_is_clicked(qtbot, tmp_path):
     path = write_profile(tmp_path)
     window = open_window(qtbot, tmp_path, make_prefs(tmp_path, path))
     drawer = window.open_settings()
@@ -147,7 +147,8 @@ def test_a_change_is_written_by_itself_shortly_after_the_edit(qtbot, tmp_path):
 
     drawer.keepMultichannel.click()
     assert drawer.has_pending_edit and _bytes(path) == before      # not yet
-    wait_saved(qtbot, drawer)
+    assert drawer.saveButton.isEnabled() and drawer.discardButton.isEnabled()
+    drawer.saveButton.click()
 
     assert _bytes(path) != before and load_profile(path).config['run']['keep_multichannel'] is True
     assert drawer.statusLabel.text().startswith('Saved')
