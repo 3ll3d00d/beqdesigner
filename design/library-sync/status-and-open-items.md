@@ -148,6 +148,11 @@ T11. ~~**No warning for a path still in Windows form on a non-Windows host**~~
     Preferences > JRiver, and that page's path-mapping table has a local-folder chooser. Local POSIX paths and native
     Windows behaviour are unchanged.
 
+T12. ~~**`tvdb` identifier**~~ **Closed in chunk 35:** Preferences > JRiver now optionally maps a TVDB series-id
+    field (empty by default). For TV titles a valid configured value resolves through TMDB's `tvdb_id` external-id
+    lookup after the existing direct-TMDB and IMDb paths, before title/year search; missing or invalid values retain
+    the existing fallback.
+
 ### External verification required
 
 T2. **The GUI has only been exercised by offscreen pytest-qt, never by a person
@@ -181,8 +186,6 @@ T7. **DVD, multi-episode discs (§11.8).** A JRiver item cannot say which title 
     tables).
 T8. **Blu-ray `BDMV\PLAYLIST\index.bluray;N` entries** (4 shows) are passed
     through unresolved -- which title `N` names is unknown (§11.5).
-T12. **`tvdb` identifier** -- 1587 of 1657 live shows carry a `TheTVDB Series
-     ID` TMDB can resolve; optional, not started (§11.7).
 T13. **`MCWSDialog`'s zone loading is still synchronous** (§11.1).
 
 ### Intentional boundaries pending disposition

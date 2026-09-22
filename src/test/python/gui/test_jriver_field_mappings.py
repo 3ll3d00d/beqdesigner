@@ -317,7 +317,7 @@ def test_the_source_is_built_with_the_servers_field_overrides(qtbot, tmp_path):
 
     assert source.external_id_fields['movie']['imdb'] == ('My IMDb',)
     assert 'My IMDb' in source.requested_fields
-    assert source.external_id_fields['tv'] == {'imdb': ('IMDb Series ID',), 'tmdb': ('TheMovieDB Series ID',)}
+    assert source.external_id_fields['tv'] == {'imdb': ('IMDb Series ID',), 'tmdb': ('TheMovieDB Series ID',), 'tvdb': ()}
 
 
 def test_a_server_with_no_overrides_gets_the_defaults(qtbot, tmp_path):

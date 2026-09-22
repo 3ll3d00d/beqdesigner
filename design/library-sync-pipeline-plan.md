@@ -183,7 +183,7 @@ fixture -- only chunk 8 is blocked on that mapping.
 | 32 | Disc title selection -- resolve or explicitly choose JRiver DVD titles and expose a single-file DVD picker; add fixture-backed coverage (T7). | 30 for JRiver shape; DVD fixture | **Not started** |
 | 33 | Resolve JRiver Blu-ray playlist pseudo-paths, preserving a safe fallback for unknown playlist numbers (T8). | 30; playlist evidence | **Not started — evidence dependent** |
 | 34 | Path-mapping guardrails -- flag unmapped Windows paths on non-Windows hosts and add a local-folder picker (T11). | 29 | **Implemented -- this commit** |
-| 35 | TVDB IDs -- add optional `tvdb` external-ID mapping and TMDB lookup, retaining title/year fallback (T12). | 29 | **Not started** |
+| 35 | TVDB IDs -- add optional `tvdb` external-ID mapping and TMDB lookup, retaining title/year fallback (T12). | 29 | **Implemented -- this commit** |
 | 36 | Asynchronous MCWS zone loading (T13). | 29 | **Not started** |
 | 37 | Season fidelity spike and implementation decision: measure joined-season levels and multichannel feasibility, then either add a documented policy or retain the boundary (T15). | 31; representative media | **Not started — evidence dependent** |
 | 38 | Close or promote intentional boundaries: confirm `registry` remains an extension seam (T14) and candidate reset on redesign remains correct (T16); remove them from the open-work list or create a separately approved feature plan. | 29 | **Not started** |

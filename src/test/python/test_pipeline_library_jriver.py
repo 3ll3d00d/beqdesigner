@@ -338,8 +338,8 @@ def test_an_internal_image_is_never_a_file(tmp_path):
 def test_the_defaults_are_the_field_names_a_real_library_uses():
     ids = normalise_external_id_fields(None)
 
-    assert ids['movie'] == {'imdb': ('IMDb ID',), 'tmdb': ('TheMovieDB Movie ID', 'TMDb ID')}
-    assert ids['tv'] == {'imdb': ('IMDb Series ID',), 'tmdb': ('TheMovieDB Series ID',)}
+    assert ids['movie'] == {'imdb': ('IMDb ID',), 'tmdb': ('TheMovieDB Movie ID', 'TMDb ID'), 'tvdb': ()}
+    assert ids['tv'] == {'imdb': ('IMDb Series ID',), 'tmdb': ('TheMovieDB Series ID',), 'tvdb': ()}
 
 
 def test_a_tv_title_reads_its_series_ids_not_the_episodes_own():
@@ -381,8 +381,8 @@ def test_an_empty_list_switches_an_identifier_off():
 
 
 def test_an_unknown_identifier_is_rejected():
-    with pytest.raises(ValueError, match="unknown external id 'tvdb'"):
-        normalise_external_id_fields({'movie': {'tvdb': ['TheTVDB Series ID']}})
+    with pytest.raises(ValueError, match="unknown external id 'other'"):
+        normalise_external_id_fields({'movie': {'other': ['Some ID']}})
 
 
 def test_the_configured_fields_are_what_gets_requested_without_repeats():

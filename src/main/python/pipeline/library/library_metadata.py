@@ -6,7 +6,7 @@ from typing import Optional, Sequence
 import requests
 
 from pipeline.library.source import LibraryItem
-from pipeline.metadata import tmdb_details_by_id, tmdb_find_by_imdb_id, tmdb_lookup, tmdb_season_info
+from pipeline.metadata import tmdb_details_by_id, tmdb_find_by_external_id, tmdb_find_by_imdb_id, tmdb_lookup, tmdb_season_info
 
 logger = logging.getLogger('library_metadata')
 
@@ -40,9 +40,9 @@ def resolve_meta(item: LibraryItem, api_key: str, audio_types: Optional[Sequence
     '''
     Return BeqMetadata constructor kwargs for one library item.
 
-    A library-provided TMDB id takes precedence, followed by an IMDb id
-    resolved through TMDB. If neither produces an id, retain the existing
-    title/year TMDB search. item.meta then supplies BEQ-specific fields
+    A library-provided TMDB id takes precedence, followed by an IMDb id and,
+    for TV, an opted-in numeric TVDB series id resolved through TMDB. If none
+    produces an id, retain the existing title/year TMDB search. item.meta then supplies BEQ-specific fields
     such as edition, which TMDB does not own.
 
     For a TV item with a season, the season and the episodes in scope come from the library, and TMDB is asked
@@ -56,6 +56,10 @@ def resolve_meta(item: LibraryItem, api_key: str, audio_types: Optional[Sequence
         imdb_id = item.external_ids.get('imdb')
         if imdb_id:
             tmdb_id = tmdb_find_by_imdb_id(imdb_id, api_key, item.kind)
+    if not tmdb_id and item.kind == 'tv':
+        tvdb_id = str(item.external_ids.get('tvdb') or '').strip()
+        if tvdb_id.isdecimal():
+            tmdb_id = tmdb_find_by_external_id(tvdb_id, api_key, 'tvdb_id', item.kind)
 
     if tmdb_id:
         metadata = tmdb_details_by_id(tmdb_id, api_key, item.kind, audio_types)

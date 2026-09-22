@@ -41,10 +41,10 @@ class LibraryField:
 # films, `TheMovieDB Series ID` on 896 of 1657 shows). A TV episode's own `IMDb ID` is *not* its series' id, hence
 # separate series fields. Several names for one identifier are tried in order; the first with a value wins.
 DEFAULT_EXTERNAL_ID_FIELDS: dict[str, dict[str, tuple[str, ...]]] = {
-    'movie': {'imdb': ('IMDb ID',), 'tmdb': ('TheMovieDB Movie ID', 'TMDb ID')},
-    'tv': {'imdb': ('IMDb Series ID',), 'tmdb': ('TheMovieDB Series ID',)},
+    'movie': {'imdb': ('IMDb ID',), 'tmdb': ('TheMovieDB Movie ID', 'TMDb ID'), 'tvdb': ()},
+    'tv': {'imdb': ('IMDb Series ID',), 'tmdb': ('TheMovieDB Series ID',), 'tvdb': ()},
 }
-IDENTIFIERS = ('imdb', 'tmdb')
+IDENTIFIERS = ('imdb', 'tmdb', 'tvdb')
 
 
 def normalise_external_id_fields(config: Optional[Mapping[str, Any]]) -> dict[str, dict[str, tuple[str, ...]]]:

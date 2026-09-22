@@ -1,5 +1,5 @@
 '''
-Which of a JRiver library's fields hold the IMDb / TMDb ids -- design/library-sync-pipeline-plan.md §11.7.
+Which of a JRiver library's fields hold the IMDb / TMDb / optional TVDB ids -- design/library-sync-pipeline-plan.md §11.7.
 
 Users keep these in different fields, so the choice is theirs. The box for each is editable text (one or more field
 names, comma separated, first with a value wins), with the server's own fields offered from Library/Fields, which is
@@ -20,7 +20,7 @@ from pipeline.library.jriver import DEFAULT_EXTERNAL_ID_FIELDS, IDENTIFIERS, lis
 logger = logging.getLogger('jriver.field_mappings')
 
 KIND_LABELS = {'movie': 'Films', 'tv': 'TV shows'}
-IDENTIFIER_LABELS = {'imdb': 'IMDb id field(s)', 'tmdb': 'TMDb id field(s)'}
+IDENTIFIER_LABELS = {'imdb': 'IMDb id field(s)', 'tmdb': 'TMDb id field(s)', 'tvdb': 'TVDB id field(s)'}
 # what an id can plausibly live in; dates, paths, images and the like are not offered
 ID_DATA_TYPES = {'String', 'Integer'}
 
@@ -97,8 +97,8 @@ class JRiverFieldMappingsWidget(QWidget):
         self.resetButton.setToolTip('Go back to the default fields')
         self.statusLabel = QLabel('')
         self.statusLabel.setWordWrap(True)
-        help_label = QLabel("Which library fields hold each title's IMDb and TMDb id. TV shows need the series id, "
-                            "not the episode's.")
+        help_label = QLabel("Which library fields hold each title's IMDb and TMDb id, plus an optional TVDB series id. "
+                            "TV shows need series ids, not episode ids.")
         help_label.setWordWrap(True)
         buttons = QGridLayout()
         buttons.addWidget(self.loadButton, 0, 0)

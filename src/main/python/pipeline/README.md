@@ -382,7 +382,8 @@ sources:                         # a source's own settings; the run section may 
       - {from: 'W:\', to: /media/films}
     external_id_fields:          # config only: which JRiver fields hold each id; omitted ones keep the defaults
       movie: {imdb: [IMDb ID], tmdb: [TheMovieDB Movie ID, TMDb ID]}   # first field with a value wins
-      tv:    {imdb: [IMDb Series ID], tmdb: [TheMovieDB Series ID]}    # [] switches an id off
+      tv:    {imdb: [IMDb Series ID], tmdb: [TheMovieDB Series ID], tvdb: [TheTVDB Series ID]}
+                                                                         # tvdb is optional; [] switches an id off
   filesystem:
     globs: [/media/films, '/media/tv/**/*.mkv']
 

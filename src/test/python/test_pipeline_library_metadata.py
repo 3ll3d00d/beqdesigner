@@ -75,6 +75,29 @@ def test_resolve_meta_falls_back_to_title_year_search(monkeypatch):
     assert meta['title'] == 'Example'
 
 
+def test_a_tvdb_series_id_is_used_after_imdb_and_before_title_search(monkeypatch):
+    calls = []
+    monkeypatch.setattr('pipeline.library.library_metadata.tmdb_find_by_imdb_id', lambda *args: None)
+    monkeypatch.setattr('pipeline.library.library_metadata.tmdb_find_by_external_id',
+                        lambda *args: calls.append(args) or '42')
+    monkeypatch.setattr('pipeline.library.library_metadata.tmdb_details_by_id',
+                        lambda tmdb_id, *args: BeqMetadata(title='Canonical', year='2024', the_movie_db=tmdb_id))
+
+    meta = resolve_meta(_item(kind='tv', external_ids={'imdb': 'tt-no-match', 'tvdb': '121361'}), 'key')
+
+    assert calls == [('121361', 'key', 'tvdb_id', 'tv')]
+    assert meta['title'] == 'Canonical'
+
+
+def test_an_invalid_or_missing_tvdb_id_keeps_the_title_year_fallback(monkeypatch):
+    monkeypatch.setattr('pipeline.library.library_metadata.tmdb_find_by_external_id',
+                        lambda *args: pytest.fail('invalid TVDB id must not be requested'))
+    monkeypatch.setattr('pipeline.library.library_metadata.tmdb_lookup',
+                        lambda title, year, *args: BeqMetadata(title=title, year=year))
+
+    assert resolve_meta(_item(kind='tv', external_ids={'tvdb': 'not-an-id'}), 'key')['title'] == 'Example'
+
+
 def test_tmdb_find_by_imdb_id_selects_the_requested_media_kind(monkeypatch):
     from pipeline import metadata
 
@@ -92,6 +115,23 @@ def test_tmdb_find_by_imdb_id_selects_the_requested_media_kind(monkeypatch):
     assert metadata.tmdb_find_by_imdb_id('tt123', 'key', 'tv') == '2'
     assert calls[0][0].endswith('/find/tt123')
     assert calls[0][1] == {'api_key': 'key', 'external_source': 'imdb_id'}
+
+
+def test_tmdb_find_by_tvdb_id_binds_the_external_source(monkeypatch):
+    from pipeline import metadata
+
+    class Response:
+        def json(self):
+            return {'tv_results': [{'id': 2}]}
+
+        def raise_for_status(self):
+            pass
+
+    calls = []
+    monkeypatch.setattr('requests.get', lambda url, params: calls.append((url, params)) or Response())
+
+    assert metadata.tmdb_find_by_external_id('121361', 'key', 'tvdb_id', 'tv') == '2'
+    assert calls == [(f'{metadata.TMDB_BASE_URL}/find/121361', {'api_key': 'key', 'external_source': 'tvdb_id'})]
 
 
 # --- TV seasons (plan §11.9) --------------------------------------------------------------------------------
