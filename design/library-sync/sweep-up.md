@@ -40,7 +40,23 @@ paths, artwork bytes and title metadata that is not needed for the shape under
 test. Store only the smallest response that proves the mapping; explain its
 origin and sanitisation in the fixture’s adjacent test/docstring.
 
-### 13.3 Work order
+### 13.3 Delivery status
+
+**Done:** 29 (baseline, `791af5b`), 34 (path guardrails, `f6d466d`), 35
+(TVDB, `4036bd5`), 36 (async zones, `e87f4bb`), and 38 (boundary
+dispositions, `323ac81`). The follow-up review fixes are `5a7545a`.
+
+**To do:** 39, the JSON-output migration. It still needs terminology and
+profile migration, the remaining source-record/aggregate test migration, the
+BEQDesigner → BEQCatalogue → `CatalogueEntry` round trip, and record-repo
+onboarding.
+
+**Blocked by external evidence:** 30 (authorised JRiver capture), 31 (manual
+acceptance against a real designer, repositories and media), 32 and 33 (the
+capture plus disc/playlist fixtures), and 37 (representative season media and
+the acceptance run). These must not be closed from fake-server tests.
+
+### 13.4 Work order
 
 ```
 29 plan/status baseline       <- nothing
@@ -60,7 +76,7 @@ Chunks 34-36 and 38 can proceed in parallel. Chunks 30 and 31 have no safe
 substitute: a fake server can test the resulting code, not prove the MCWS
 shape that a real server returns.
 
-### 13.4 Chunks
+### 13.5 Chunks
 
 **29 -- Audit baseline and plan hygiene**
 
@@ -202,7 +218,7 @@ location and optional image location, then derives the containing git root and
 relative destination. The persistent keys remain compatibility plumbing until
 the wider rename lands.
 
-### 13.5 Completion reporting
+### 13.6 Completion reporting
 
 After each chunk, update its §8 row with the commit hash and update the mapped
 T-item in §10. A blocked external-evidence chunk stays **externally blocked**;

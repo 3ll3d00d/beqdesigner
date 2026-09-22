@@ -166,7 +166,7 @@ T16. ~~**Redesigning a `pending` entry resets its status and chosen candidate**~
     candidate selection is a decision about the old candidate list, which redesign replaces. Resetting to `pending`
     with no selection is therefore required; reviewer metadata, artwork and note remain preserved.
 
-### External verification required
+### Blocked — external verification required
 
 T2. **The GUI has only been exercised by offscreen pytest-qt, never by a person
     in the running app**: Preferences -> JRiver (list, edit, async test,
@@ -188,18 +188,24 @@ T6. **Chunk 3 (the sanitised real-server fixture) was never captured.** The
     siblings would collapse into one entry (not seen). `INTERNAL` artwork is
     handled but untested.
 
-### Product work scheduled in §13
+### Blocked — dependent product work
 
-T7. **DVD, multi-episode discs (§11.8).** A JRiver item cannot say which title it
+T7. **DVD, multi-episode discs (§11.8; chunk 32, blocked on chunk 30).** A JRiver item cannot say which title it
     is, so every JRiver item on a disc resolves to that disc's main title
     ("play all" for a multi-episode disc): several items, one audio. Needs a
     per-item title override or de-duplication by disc. Also: no DVD title picker
     in the single-file Extract dialog; Batch Extract takes only the main title;
     no end-to-end DVD test (a disc libdvdread accepts needs real navigation
     tables).
-T8. **Blu-ray `BDMV\PLAYLIST\index.bluray;N` entries** (4 shows) are passed
+T8. **Blu-ray `BDMV\PLAYLIST\index.bluray;N` entries (chunk 33, blocked on chunk 30)** (4 shows) are passed
     through unresolved -- which title `N` names is unknown (§11.5).
-### Intentional boundary pending evidence
+### Blocked — evidence-based boundary decision
 
-T15. Season mode does not keep multichannel, joins episodes with no level
-     matching, and is only as complete as the browse node (§11.9).
+T15. **Season fidelity (chunk 37, blocked on chunk 31 and representative media).** Season mode does not keep
+     multichannel, joins episodes with no level matching, and is only as complete as the browse node (§11.9).
+
+### To do
+
+Chunk 39 remains in progress: complete the JSON-output terminology/profile migration, source-record and aggregate
+assertions, BEQDesigner → BEQCatalogue → `CatalogueEntry` fixture, and production record-repository onboarding. See
+[`sweep-up.md`](sweep-up.md) §13.3 and `catalogue-json-output.md`.
