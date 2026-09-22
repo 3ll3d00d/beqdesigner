@@ -180,7 +180,7 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
             return
         self.inputFile.setText(f"{resolved.display_name}  [{bdmv_root}]")
         self.__probe_file(file_name=resolved.ffmpeg_input, display_name=resolved.display_name,
-                          duration_override_s=resolved.playlist.duration_s)
+                          duration_override_s=resolved.playlist.extraction_duration_s)
 
     def __reinit_fields(self):
         '''

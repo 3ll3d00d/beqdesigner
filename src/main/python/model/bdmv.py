@@ -45,6 +45,33 @@ class Playlist:
     def clip_ids(self) -> List[str]:
         return [pi.clip_id for pi in self.play_items]
 
+    @property
+    def extraction_play_items(self) -> List[PlayItem]:
+        '''
+        The play items that can safely be represented by this module's whole-clip extraction.
+
+        This resolver does not yet trim a clip to an item's IN/OUT points.  Consequently, feeding two
+        consecutive references to the same clip to ffmpeg would append the *entire* m2ts twice.  Some discs
+        (and particularly their protection/decoy playlists) contain very long runs of those references, which
+        creates an enormous ``concat:`` URL and is never the intended whole-clip input.  Retain the first
+        reference in each run; a later occurrence after another clip is retained because it may be a genuine
+        branch back to that clip.
+        '''
+        items = []
+        for item in self.play_items:
+            if not items or items[-1].clip_id != item.clip_id:
+                items.append(item)
+        return items
+
+    @property
+    def extraction_duration_s(self) -> float:
+        '''Duration represented by :attr:`extraction_play_items`, used for ffmpeg progress reporting.'''
+        return sum(pi.duration_s for pi in self.extraction_play_items)
+
+    @property
+    def extraction_clip_ids(self) -> List[str]:
+        return [pi.clip_id for pi in self.extraction_play_items]
+
 
 @dataclass
 class ResolvedTitle:
@@ -102,7 +129,8 @@ def parse_mpls(mpls_path: str) -> Playlist:
 def list_playlists(bdmv_root: str) -> List[Playlist]:
     '''
     :param bdmv_root: the disc root directory (containing a BDMV subfolder).
-    :return: every playlist found under BDMV/PLAYLIST that references at least one clip, longest duration first.
+    :return: every playlist found under BDMV/PLAYLIST that references at least one clip, longest usable
+    whole-clip extraction first.
     '''
     playlists = []
     for mpls_path in sorted(glob.glob(os.path.join(bdmv_root, 'BDMV', 'PLAYLIST', '*.mpls'))):
@@ -113,7 +141,7 @@ def list_playlists(bdmv_root: str) -> List[Playlist]:
             continue
         if playlist.play_items:
             playlists.append(playlist)
-    return sorted(playlists, key=lambda p: p.duration_s, reverse=True)
+    return sorted(playlists, key=lambda p: p.extraction_duration_s, reverse=True)
 
 
 def resolve_title(bdmv_root: str, playlist: Playlist) -> ResolvedTitle:
@@ -121,18 +149,20 @@ def resolve_title(bdmv_root: str, playlist: Playlist) -> ResolvedTitle:
     Resolves a playlist to a concrete ffmpeg input spec, concatenating clips via the concat protocol when the
     title spans more than one .m2ts clip.
 
-    Each PlayItem's IN_time/OUT_time is used only to compute the reported duration (ResolvedTitle.playlist.
-    duration_s) -- the whole of each referenced clip is used for extraction, not just the [IN_time, OUT_time)
-    slice. This matches the overwhelmingly common case (a main feature's PlayItems reference whole, dedicated
-    clips) but is not correct for a title that only plays a sub-range of a clip (e.g. a menu, an excerpt, or a
-    seamless-branching angle segment): trimming that correctly would require translating IN_time/OUT_time
-    (PTS on the clip's own timeline, which does not necessarily start at 0) into stream-relative offsets, which
-    needs data (e.g. the clip's first PTS, found in its .clpi) this module does not parse.
+    Each PlayItem's IN_time/OUT_time is used only to compute the reported duration (``extraction_duration_s``)
+    -- the whole of each referenced clip is used for extraction, not just the [IN_time, OUT_time) slice. This
+    matches the overwhelmingly common case (a main feature's PlayItems reference whole, dedicated clips) but is
+    not correct for a title that only plays a sub-range of a clip (e.g. a menu, an excerpt, or a seamless-
+    branching angle segment): trimming that correctly would require translating IN_time/OUT_time (PTS on the
+    clip's own timeline, which does not necessarily start at 0) into stream-relative offsets, which needs data
+    (e.g. the clip's first PTS, found in its .clpi) this module does not parse. Consecutive references to the
+    same clip are collapsed for this same whole-clip limitation.
     :param bdmv_root: the disc root directory.
     :param playlist: the playlist to resolve.
     :return: the resolved title.
     '''
-    clip_paths = [os.path.join(bdmv_root, 'BDMV', 'STREAM', f"{clip_id}.m2ts") for clip_id in playlist.clip_ids]
+    clip_paths = [os.path.join(bdmv_root, 'BDMV', 'STREAM', f"{clip_id}.m2ts")
+                  for clip_id in playlist.extraction_clip_ids]
     missing = [p for p in clip_paths if not os.path.isfile(p)]
     if missing:
         raise FileNotFoundError(f"Clip(s) referenced by {playlist.mpls_path} not found: {', '.join(missing)}")

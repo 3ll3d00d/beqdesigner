@@ -482,7 +482,7 @@ class ExtractCandidate:
             self.__filename = f"{resolved_title.display_name}  [{filename}]"
             executor_input = resolved_title.ffmpeg_input
             display_name = resolved_title.display_name
-            duration_override_s = resolved_title.playlist.duration_s
+            duration_override_s = resolved_title.playlist.extraction_duration_s
             input_options = resolved_title.input_options
         else:
             self.__filename = filename

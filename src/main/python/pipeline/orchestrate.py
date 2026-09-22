@@ -192,7 +192,7 @@ class Session:
             resolved = resolve_main_title(src, playlist_name=playlist_name)
             src = resolved.ffmpeg_input
             display_name = resolved.display_name
-            duration_override_s = resolved.playlist.duration_s
+            duration_override_s = resolved.playlist.extraction_duration_s
         elif dvd_root(src) is not None:
             resolved = resolve_main_dvd_title(src, title_name=playlist_name)
             src = resolved.ffmpeg_input

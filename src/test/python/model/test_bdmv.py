@@ -134,6 +134,28 @@ def test_resolve_title_multi_clip_uses_concat_protocol(tmp_path):
     assert resolved.ffmpeg_input == f"concat:{clip1}|{clip2}"
 
 
+def test_repeated_clip_run_is_collapsed_for_extraction_and_title_selection(tmp_path):
+    root = _make_disc(tmp_path, clip_ids=('00001', '00002', '00173'))
+    playlist_dir = root / 'BDMV' / 'PLAYLIST'
+    # A decoy playlist can make the same stream look much longer than the feature by repeating it.
+    _write_mpls(str(playlist_dir / '00001.mpls'), [('00173', 0, 45000 * 60)] * 200)
+    _write_mpls(str(playlist_dir / '00800.mpls'), [
+        ('00001', 0, 45000 * 90),
+        ('00002', 0, 45000 * 90),
+    ])
+
+    playlists = list_playlists(str(root))
+
+    assert [p.name for p in playlists] == ['00800', '00001']
+    repeated = playlists[1]
+    assert repeated.duration_s == pytest.approx(12000.0)
+    assert repeated.extraction_duration_s == pytest.approx(60.0)
+    resolved = resolve_title(str(root), repeated)
+    expected_clip = os.path.join(str(root), 'BDMV', 'STREAM', '00173.m2ts')
+    assert resolved.clip_paths == [expected_clip]
+    assert resolved.ffmpeg_input == expected_clip
+
+
 def test_resolve_title_raises_when_clip_missing(tmp_path):
     root = _make_disc(tmp_path, clip_ids=('00001',))
     _write_mpls(str(root / 'BDMV' / 'PLAYLIST' / '00800.mpls'), [('00099', 0, 45000 * 100)])
