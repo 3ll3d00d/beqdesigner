@@ -53,7 +53,7 @@ model/ module it reuses.
 import json
 import os
 from dataclasses import dataclass
-from typing import List, Optional, Sequence, Union
+from typing import Callable, List, Optional, Sequence, Union
 
 from model.bdmv import is_bdmv_root, resolve_main_title
 from model.dvd import dvd_root, resolve_main_title as resolve_main_dvd_title
@@ -171,7 +171,8 @@ class Session:
 
     def extract_with_layout(self, src: str, target_dir: str, audio_stream: int = 0, video_stream: int = -1,
                             mono_mix: bool = True, decimate: bool = True, playlist_name: Optional[str] = None,
-                            output_file_name: Optional[str] = None) -> ExtractResult:
+                            output_file_name: Optional[str] = None,
+                            on_progress: Optional[Callable[[int, int], None]] = None) -> ExtractResult:
         '''
         Same as extract(), but (a) lets a caller fix the output filename instead of ffmpeg's auto-derived one
         (output_file_name is given *without* an extension -- Executor appends the format's own extension,
@@ -201,6 +202,15 @@ class Session:
         executor = Executor(src, target_dir, mono_mix=mono_mix, decimate_audio=decimate,
                             decimate_fs=self.__config.target_fs, display_name=display_name,
                             duration_override_s=duration_override_s, input_options=input_options)
+        if on_progress is not None:
+            def report_ffmpeg_progress(key, value):
+                if key != 'out_time_ms' or value in (None, 'N/A'):
+                    return
+                try:
+                    on_progress(int(value), executor.duration_micros)
+                except ValueError:
+                    return
+            executor.progress_handler = report_ffmpeg_progress
         if output_file_name is not None:
             executor.output_file_name = output_file_name
         executor.probe_file()

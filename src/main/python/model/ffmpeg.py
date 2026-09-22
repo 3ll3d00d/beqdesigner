@@ -261,6 +261,13 @@ class Executor:
         return self.__channel_layout_name
 
     @property
+    def duration_micros(self):
+        '''The selected audio stream's duration in ffmpeg's ``out_time_ms`` units, or zero when it is unknown.'''
+        if self.__probe is None or not (0 <= self.__selected_audio_stream_idx < len(self.__audio_stream_data)):
+            return 0
+        return int(get_duration(self.__probe, self.__audio_stream_data[self.__selected_audio_stream_idx])[1] or 0)
+
+    @property
     def decimate_audio(self):
         return self.__decimate_audio
 
@@ -873,15 +880,20 @@ class Executor:
         '''
         if self.__ffmpeg_cmd is None:
             raise ValueError("No command to run -- extractor is not configured yet")
-        if self.__is_remux:
-            p = subprocess.Popen(self.__ffmpeg_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                 stderr=subprocess.PIPE)
-            out, err = p.communicate()
-            if p.poll():
-                raise ffmpeg.Error('ffmpeg', out, err)
-            return out, err
-        else:
+        bridge = FfmpegProgressBridge(self.progress_handler, port=self.__progress_port, auto=True) \
+            if self.progress_handler is not None else None
+        try:
+            if self.__is_remux:
+                p = subprocess.Popen(self.__ffmpeg_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                     stderr=subprocess.PIPE)
+                out, err = p.communicate()
+                if p.poll():
+                    raise ffmpeg.Error('ffmpeg', out, err)
+                return out, err
             return self.__ffmpeg_cmd.run(overwrite_output=True, quiet=True)
+        finally:
+            if bridge is not None:
+                bridge.stop()
 
     def cancel(self):
         '''

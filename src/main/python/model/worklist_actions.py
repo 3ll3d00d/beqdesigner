@@ -12,6 +12,7 @@ The run itself is `model.worklist_run.RunJob`; the words are in `model.worklist_
 `model.worklist_confirm`.
 '''
 import logging
+import math
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
@@ -27,7 +28,7 @@ from model.worklist_run import LEVEL_ERROR, LEVEL_OK, FailedTitle, ResultLine, R
     summarise_skipped
 from pipeline.library.index import TitleRow
 from pipeline.library.selection import StagePlan, plan_stages
-from pipeline.library.stages import Progress, StagesReport
+from pipeline.library.stages import FfmpegProgress, Progress, StagesReport
 
 logger = logging.getLogger('worklist')
 
@@ -369,7 +370,7 @@ class WorkListActions:
         self.cancelButton.setVisible(True)
         self.cancelButton.setEnabled(True)
         self.runProgress.setVisible(True)
-        self.runProgress.setRange(0, max(1, len(plan.planned)))
+        self.runProgress.setRange(0, max(1, len(plan.planned)) + 1)
         self.runProgress.setValue(0)
         self._say(f'Starting: {plan_label(plan)}...')
         self._refresh_actions()
@@ -407,12 +408,21 @@ class WorkListActions:
         context = self._run_context
         if context is None:
             return
+        if isinstance(progress, FfmpegProgress):
+            self._on_ffmpeg_progress(progress)
+            return
         total = max(1, progress.total)
-        self.runProgress.setRange(0, total)
-        # A progress message arrives when a title-stage *starts*.  Count that title in the visual progress so a
-        # single, long extraction/design does not sit at 0% until its final completion message arrives.
-        in_flight = 1 if progress.stage else 0
-        self.runProgress.setValue(min(progress.done + in_flight, total))
+        # A progress message arrives when a title-stage *starts*, and one final message arrives once the run is over.
+        # Reserve that final step for the latter: an in-flight single extraction is visibly underway (50%), not 100%.
+        if progress.stage == 'extract':
+            # ffmpeg follows with real `out_time_ms` updates. Until its first packet, use Qt's busy state rather than
+            # claiming a title is complete.
+            self.runProgress.setRange(0, 0)
+            self.runProgress.setFormat('Extracting…')
+        else:
+            self.runProgress.setRange(0, total + 1)
+            self.runProgress.setValue(min(progress.done + 1, total + 1))
+            self.runProgress.setFormat('%p%')
         if not progress.stage:
             self._model.set_running({})
             return
@@ -430,6 +440,15 @@ class WorkListActions:
             text += ' -- a commit cannot be stopped, it finishes' if progress.stage == 'commit' \
                 else ' -- cancelling after this one'
         self._say(text)
+
+    def _on_ffmpeg_progress(self, progress: FfmpegProgress) -> None:
+        '''Render the same ffmpeg ``out_time_ms`` fraction as the Extract Audio dialog.'''
+        if progress.total_micros <= 0:
+            return
+        percent = min(100.0, (progress.out_time_micros / progress.total_micros) * 100.0)
+        self.runProgress.setRange(0, 100)
+        self.runProgress.setValue(math.ceil(percent))
+        self.runProgress.setFormat(f'{percent:.2f}%')
 
     def _end_run(self) -> Optional[_RunContext]:
         context, self._job, self._run_context = self._run_context, None, None

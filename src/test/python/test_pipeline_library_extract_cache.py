@@ -55,6 +55,19 @@ def test_extract_if_needed_runs_ffmpeg_on_first_call(tmp_path):
     assert 'mono_params_hash' in manifest
 
 
+def test_extract_if_needed_forwards_ffmpegs_time_progress(tmp_path):
+    source = str(tmp_path / 'source.wav')
+    _write_synthetic_wav(source, duration_s=1.0)
+    updates = []
+
+    extract_if_needed(Session(AnalysisConfig()), _mono_item(source), str(tmp_path / 'work'), AnalysisConfig(),
+                      mono_mix=True, on_progress=lambda out_time, total_time: updates.append((out_time, total_time)))
+
+    assert updates
+    assert all(out_time >= 0 and total_time > 0 for out_time, total_time in updates)
+    assert max(out_time for out_time, _ in updates) > 0
+
+
 def test_extract_if_needed_skips_ffmpeg_on_a_repeat_call(tmp_path, monkeypatch):
     source = str(tmp_path / 'source.wav')
     _write_synthetic_wav(source)

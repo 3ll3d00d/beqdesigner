@@ -287,7 +287,7 @@ def test_a_run_happens_off_the_ui_thread_with_determinate_progress_and_a_running
     assert pipeline.thread is not threading.current_thread()
     QApplication.processEvents()
     # determinate progress, and the status names the title and the stage
-    assert window.runProgress.maximum() == 3 and window.runProgress.value() == 1
+    assert window.runProgress.maximum() == 4 and window.runProgress.value() == 1
     assert window.runStatusLabel.text() == 'Designing Gravity  (1 of 3)'
     # the row shows its stage while it is worked on, and only that row
     assert window.model.running == {'x-gravity': 'design'}
@@ -316,6 +316,21 @@ def test_a_run_happens_off_the_ui_thread_with_determinate_progress_and_a_running
     assert window.runButton.isEnabled() is False   # nothing selected is still listed as extractable
     assert pipeline.calls[0]['ids'] == ['x-gravity', 'x-tenet', 'x-fury'] and pipeline.calls[0]['through'] == 'design'
     assert pipeline.calls[0]['retry_failed'] is False
+
+
+def test_a_single_in_flight_title_never_looks_complete(qtbot, tmp_path):
+    index_file = make_index(tmp_path / 'work', _rows(), SOURCES, generation=2, last_scan_at=NOW - 900)
+    pipeline = FakePipeline(index_file, hold_at=0)
+    window, _ = _window(qtbot, tmp_path, pipeline=pipeline, prefs=_prefs(tmp_path))
+    window.select_ids(['x-gravity'])
+
+    window.run_selected()
+
+    qtbot.waitUntil(pipeline.entered.is_set, timeout=5000)
+    qtbot.waitUntil(lambda: window.runProgress.value() == 1, timeout=5000)
+    assert window.runProgress.maximum() == 2  # 1/2 while the only title is still extracting/designing
+    with qtbot.waitSignal(window.run_finished, timeout=10000):
+        pipeline.release.set()
 
 
 def test_the_run_is_handed_the_settings_a_scan_is_given_and_only_the_titles_it_will_work_on(qtbot, tmp_path):

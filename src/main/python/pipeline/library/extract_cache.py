@@ -9,7 +9,7 @@ import json
 import os
 import time
 from dataclasses import dataclass
-from typing import Optional, Tuple
+from typing import Callable, Optional, Tuple
 
 from pipeline.config import AnalysisConfig
 from pipeline.library.source import LibraryItem
@@ -123,7 +123,8 @@ def extract_status(item: LibraryItem, target_dir: str, config: AnalysisConfig, m
 
 
 def extract_if_needed(session: Session, item: LibraryItem, target_dir: str, config: AnalysisConfig,
-                      mono_mix: bool, force: bool = False) -> Tuple[str, bool]:
+                      mono_mix: bool, force: bool = False,
+                      on_progress: Optional[Callable[[int, int], None]] = None) -> Tuple[str, bool]:
     '''
     :param mono_mix: True for the mono-for-design extraction (decimated to config.target_fs, written to
         <target_dir>/mono.wav), False for the full-quality multichannel "kept" extraction (never decimated
@@ -142,7 +143,7 @@ def extract_if_needed(session: Session, item: LibraryItem, target_dir: str, conf
 
     result = session.extract_with_layout(item.source_path, target_dir, audio_stream=item.audio_stream,
                                          mono_mix=mono_mix, decimate=mono_mix, playlist_name=item.playlist_name,
-                                         output_file_name=prefix)
+                                         output_file_name=prefix, on_progress=on_progress)
     manifest[f"{prefix}_source_fingerprint"] = fingerprint
     manifest[f"{prefix}_params_hash"] = params_hash
     manifest[f"{prefix}_extracted_at"] = time.time()

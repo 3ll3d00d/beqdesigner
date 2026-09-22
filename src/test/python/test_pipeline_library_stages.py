@@ -28,7 +28,7 @@ def work(env, monkeypatch):
         calls = []
         fail = {}          # (stage, item id) -> exception
 
-    def extract(session, item, item_dir, config, mono_mix=True, force=False):
+    def extract(session, item, item_dir, config, mono_mix=True, force=False, on_progress=None):
         Work.calls.append(('extract', item.id))
         if ('extract', item.id) in Work.fail:
             raise Work.fail[('extract', item.id)]

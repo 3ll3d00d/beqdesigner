@@ -130,15 +130,18 @@ def _failed_before(index: Optional[LibraryIndex], item: LibraryItem, fingerprint
 
 
 def _run_item(session: Session, item: LibraryItem, run_config: LibraryRunConfig, report: LibraryRunReport,
-              through: str = 'design', on_stage: Optional[Callable[[str, str], None]] = None) -> None:
+              through: str = 'design', on_stage: Optional[Callable[[str, str], None]] = None,
+              on_extract_progress: Optional[Callable[[str, int, int], None]] = None) -> None:
     if item.source_path_problem:
         raise ValueError(item.source_path_problem)
     item_dir = os.path.join(run_config.work_dir, item.id)
     if on_stage is not None:
         on_stage(item.id, 'extract')
     with _stage('extract'):
+        progress = ({'on_progress': lambda position, total: on_extract_progress(item.id, position, total)}
+                    if on_extract_progress is not None else {})
         mono_path, mono_cached = extract_if_needed(
-            session, item, item_dir, run_config.config, mono_mix=True, force=run_config.force_extract)
+            session, item, item_dir, run_config.config, mono_mix=True, force=run_config.force_extract, **progress)
         multichannel_path = None
         channel_layout_name = 'unknown'
         channels = None
@@ -148,7 +151,7 @@ def _run_item(session: Session, item: LibraryItem, run_config: LibraryRunConfig,
         # unknown channel count still extracts, and load_channels() below decides
         if run_config.keep_multichannel and read_source_channel_count(item_dir) != 1:
             kept_path, kept_cached = extract_if_needed(
-                session, item, item_dir, run_config.config, mono_mix=False, force=run_config.force_extract)
+                session, item, item_dir, run_config.config, mono_mix=False, force=run_config.force_extract, **progress)
             extraction_cached = mono_cached and kept_cached
             channel_layout_name = read_channel_layout_name(item_dir)
             kept_channels = session.load_channels(kept_path, channel_layout_name)
@@ -171,7 +174,8 @@ def _run_item(session: Session, item: LibraryItem, run_config: LibraryRunConfig,
 
 def _run_season(session: Session, group: SeasonGroup, run_config: LibraryRunConfig, report: LibraryRunReport,
                 through: str = 'design', on_stage: Optional[Callable[[str, str], None]] = None,
-                index: Optional[LibraryIndex] = None, retry_failed: bool = False) -> None:
+                index: Optional[LibraryIndex] = None, retry_failed: bool = False,
+                on_extract_progress: Optional[Callable[[str, int, int], None]] = None) -> None:
     '''
     Extract every episode (each cached as in episode mode, so switching mode re-extracts nothing), join them into
     one track and design that. An episode that will not extract is reported and left out -- the season is then
@@ -184,7 +188,7 @@ def _run_season(session: Session, group: SeasonGroup, run_config: LibraryRunConf
         on_stage(group.item.id, 'extract')
     with _stage('extract'):
         track_path, fingerprint, item, group_dir = _extract_season(session, group, run_config, report, index,
-                                                                   retry_failed)
+                                                                   retry_failed, on_extract_progress)
     if through == 'extract':
         return
     if on_stage is not None:
@@ -194,7 +198,8 @@ def _run_season(session: Session, group: SeasonGroup, run_config: LibraryRunConf
 
 
 def _extract_season(session: Session, group: SeasonGroup, run_config: LibraryRunConfig, report: LibraryRunReport,
-                    index: Optional[LibraryIndex] = None, retry_failed: bool = False):
+                    index: Optional[LibraryIndex] = None, retry_failed: bool = False,
+                    on_extract_progress: Optional[Callable[[str, int, int], None]] = None):
     member_wavs = []
     for member in group.members:
         fingerprint = safe_fingerprint(member)
@@ -204,9 +209,11 @@ def _extract_season(session: Session, group: SeasonGroup, run_config: LibraryRun
                 report.failed_earlier.append((member.id, remembered))
                 continue
         try:
+            progress = ({'on_progress': lambda position, total: on_extract_progress(group.item.id, position, total)}
+                        if on_extract_progress is not None else {})
             wav_path, cached = extract_if_needed(
                 session, member, os.path.join(run_config.work_dir, member.id), run_config.config, mono_mix=True,
-                force=run_config.force_extract)
+                force=run_config.force_extract, **progress)
         except Exception as error:
             report.failed.append((member.id, f'{type(error).__name__}: {error}'))
             if index is not None:
@@ -247,7 +254,8 @@ def _design(session: Session, item: LibraryItem, wav_path: str, run_config: Libr
 
 def run_unit(session: Session, unit, run_config: LibraryRunConfig, report: LibraryRunReport,
              index: Optional[LibraryIndex] = None, *, retry_failed: bool = False, through: str = 'design',
-             on_stage: Optional[Callable[[str, str], None]] = None) -> None:
+             on_stage: Optional[Callable[[str, str], None]] = None,
+             on_extract_progress: Optional[Callable[[str, int, int], None]] = None) -> None:
     '''
     Extract and design one title (an item, or a TV season as a SeasonGroup) with its own failure boundary: an error is
     reported in `report.failed` and remembered in `index`, never raised. With an `index`, a title that failed before
@@ -266,9 +274,9 @@ def run_unit(session: Session, unit, run_config: LibraryRunConfig, report: Libra
             return
     try:
         if isinstance(unit, SeasonGroup):
-            _run_season(session, unit, run_config, report, through, on_stage, index, retry_failed)
+            _run_season(session, unit, run_config, report, through, on_stage, index, retry_failed, on_extract_progress)
         else:
-            _run_item(session, unit, run_config, report, through, on_stage)
+            _run_item(session, unit, run_config, report, through, on_stage, on_extract_progress)
         if index is not None:
             index.clear_failure(item.id)
     except Exception as error:

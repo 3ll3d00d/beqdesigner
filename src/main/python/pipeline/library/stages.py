@@ -52,6 +52,15 @@ class Progress:
 
 
 @dataclass(frozen=True)
+class FfmpegProgress:
+    '''One of ffmpeg's real-time extraction updates, in microseconds, for the title currently being extracted.'''
+    title: str
+    id: str
+    out_time_micros: int
+    total_micros: int
+
+
+@dataclass(frozen=True)
 class PublishSettings:
     ''' What `publish` and `commit` are given (a scan's ScanSettings must agree with these, see ScanSettings). '''
     xml_repo: RepoTarget
@@ -182,9 +191,13 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
                 report.skipped.append(Skipped(row.id, _title(row), 'not in the last scan: scan again'))
                 state['done'] += 1
                 continue
+            extract_progress = None if on_progress is None else \
+                lambda title_id, out_time, total_time: on_progress(
+                    FfmpegProgress(titles.get(title_id, title_id), title_id, out_time, total_time))
             run_unit(session, unit, run_config, report.run, index, retry_failed=retry_failed,
                      through='extract' if planned.stages[-1] == 'extract' else 'design',
-                     on_stage=lambda title_id, stage: emit(stage, title_id, titles.get(title_id, title_id)))
+                     on_stage=lambda title_id, stage: emit(stage, title_id, titles.get(title_id, title_id)),
+                     on_extract_progress=extract_progress)
             report.attempted.append(row.id)
             state['done'] += 1
 
