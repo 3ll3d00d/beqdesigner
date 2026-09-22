@@ -1014,7 +1014,7 @@ class DesignJob(QRunnable):
                     channels = self.__session.load_channels(self.__multichannel_wav_path,
                                                              channel_layout_name=self.__channel_layout_name)
             entry = design_and_queue(self.__session, self.__entry_id, wav_path, self.__designer,
-                                     self.__queue_dir, channels=channels)
+                                     self.__queue_dir, channels=channels, audio_stream=self.__audio_stream_idx)
             self.signals.finished.emit(entry)
         except Exception as e:
             logger.exception(f"Design {self.__entry_id} failed")

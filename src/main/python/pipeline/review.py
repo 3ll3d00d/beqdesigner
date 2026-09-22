@@ -64,6 +64,7 @@ class QueueEntry:
                                      # BeqMetadata(**meta) must reconstruct it. May be partial/empty if
                                      # title metadata hasn't been resolved yet (see batch_design)
     curve: dict                      # one MagnitudeData (avg, unfiltered) via model.codec.xydata_to_json
+    audio_stream: Optional[int] = None  # zero-based source audio stream; None in queue entries written before this field
     candidates: List[CandidateSummary] = field(default_factory=list)  # empty on decline
     decline_reason: Optional[str] = None
     decline_message: Optional[str] = None
@@ -183,6 +184,7 @@ def _outcome_to_entry(entry_id: str, fs: int, meta: dict, curve: dict, outcome: 
 def design_and_queue(session: Session, entry_id: str, wav_path: str, designer: str, queue_dir: str,
                      meta: Optional[dict] = None, coverage: Coverage = 'complete_programme',
                      bass_management: Optional[dict] = None, channels: Optional[dict] = None,
+                     audio_stream: Optional[int] = None,
                      multichannel_wav_path: Optional[str] = None, channel_layout_name: str = 'unknown',
                      project_dir: Optional[str] = None,
                      on_projects: Optional[Callable[[dict], None]] = None) -> QueueEntry:
@@ -199,6 +201,8 @@ def design_and_queue(session: Session, entry_id: str, wav_path: str, designer: s
         Also the mono `.beq` project's source, when project_dir is given.
     :param meta: BeqMetadata *constructor* kwargs, or None if unresolved yet.
     :param channels: DesignRequest.channels -- see Session.design()/Session.load_channels(). Optional.
+    :param audio_stream: zero-based source audio stream used for this mono mix, retained for the review chart's
+    human-facing legend. None keeps compatibility with callers that cannot know it.
     :param multichannel_wav_path: the kept extraction, when it's multichannel (design/library-sync-
         pipeline-plan.md §3.3) -- if given (together with project_dir), a linked multichannel `.beq`
         project is written alongside the mono one.
@@ -219,6 +223,7 @@ def design_and_queue(session: Session, entry_id: str, wav_path: str, designer: s
     outcome = session.design(sig, designer, coverage=coverage, bass_management=bass_management, channels=channels)
     curve = xydata_to_json(session.curves(sig, kind='avg', filtered=False))
     entry = _outcome_to_entry(entry_id, sig.signal.fs, meta or {}, curve, outcome)
+    entry.audio_stream = audio_stream
     write_queue_entry(queue_dir, entry)
     if project_dir is not None and isinstance(outcome, Applied):
         from pipeline.publish.project import write_title_projects_if_safe

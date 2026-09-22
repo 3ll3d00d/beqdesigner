@@ -156,7 +156,8 @@ def design_if_needed(session: Session, item: LibraryItem, wav_path: str, designe
     projects: dict = {}
     entry = design_and_queue(
         session, item.id, wav_path, designer, queue_dir, meta=meta, coverage=coverage,
-        bass_management=bass_management, channels=channels, multichannel_wav_path=multichannel_wav_path,
+        bass_management=bass_management, channels=channels, audio_stream=item.audio_stream,
+        multichannel_wav_path=multichannel_wav_path,
         channel_layout_name=channel_layout_name, project_dir=project_dir, on_projects=projects.update,
     )
     art_path = existing.art_path if existing is not None else None

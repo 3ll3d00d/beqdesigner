@@ -10,6 +10,7 @@ import ui.beq  # noqa: F401 (must come first)
 import os
 import threading
 import time
+from dataclasses import replace
 from types import SimpleNamespace
 
 import pytest
@@ -140,6 +141,11 @@ def test_chart_data_is_the_signal_and_the_filtered_signal(tmp_path):
     curves = chart_data(entry, 1)
 
     assert [c.colour for c in curves] == ['grey', 'red']
+    assert [c.name for c in curves] == ['Audio track (all channels mixed)',
+                                        'Filtered audio track (all channels mixed)']
+    numbered = chart_data(replace(entry, audio_stream=2), 1)
+    assert [c.name for c in numbered] == ['Audio track 3 (all channels mixed)',
+                                          'Filtered audio track 3 (all channels mixed)']
     assert (curves[0].y == 0).all() and curves[1].y.any()    # a flat signal, and what the filter makes of it
     assert len(chart_data(entry, 7)) == 1             # a pick out of range still shows the signal
     assert chart_data(None, 0) == []

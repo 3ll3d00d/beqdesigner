@@ -112,6 +112,7 @@ def test_queue_entry_round_trips_multiple_candidates_and_commentary(tmp_path):
         id='ready-player-one', fs=48000, meta={'beq_title': 'Ready Player One'},
         curve={'_type': 'MagnitudeData', 'name': 'avg', 'description': '', 'x': [1.0, 2.0], 'y': [0.1, 0.2],
               'colour': None, 'linestyle': '-'},
+        audio_stream=2,
         candidates=[
             _candidate(confidence=0.9, commentary={'alignment': 'LR4', 'knee_hz': '25.0'}),
             _candidate(confidence=0.4, commentary={'note': 'alternative'}),
@@ -122,6 +123,7 @@ def test_queue_entry_round_trips_multiple_candidates_and_commentary(tmp_path):
     read_back = read_entry(str(tmp_path), 'ready-player-one')
 
     assert read_back == entry
+    assert read_back.audio_stream == 2
     assert [c.confidence for c in read_back.candidates] == [0.9, 0.4]
     assert read_back.candidates[0].commentary == {'alignment': 'LR4', 'knee_hz': '25.0'}
 

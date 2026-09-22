@@ -103,17 +103,22 @@ def notice_text(entry: Optional[QueueEntry], row: Optional[TitleRow], queue_dir:
 
 def chart_data(entry: Optional[QueueEntry], picked: int) -> list:
     '''
-    The curves for the chart: the signal as it is (grey) and, over it, the signal with the picked candidate's filter
-    applied (red). Nothing for a title with no candidates.
+    The curves for the chart: the selected audio track's mono mix (grey) and, over it, that mix with the picked
+    candidate's filter applied (red). Nothing for a title with no candidates. Queue entries keep the source's audio
+    stream separately, rather than exposing the pipeline's transient signal name in the legend.
     '''
     if entry is None or not entry.candidates:
         return []
     unfiltered = xydata_from_json(entry.curve)
+    track = 'Audio track (all channels mixed)' if entry.audio_stream is None \
+        else f'Audio track {entry.audio_stream + 1} (all channels mixed)'
+    unfiltered.override_name(track)
     unfiltered.colour = 'grey'
     result = [unfiltered]
     if 0 <= picked < len(entry.candidates):
         complete_filter = filter_from_json(entry.candidates[picked].filters)
         filtered = unfiltered.filter(complete_filter.get_transfer_function().get_magnitude())
+        filtered.override_name(f'Filtered {track[0].lower() + track[1:]}')
         filtered.colour = 'red'
         result.append(filtered)
     return result
