@@ -116,6 +116,7 @@ class WorkListTitles:
         if self._title_page is None:
             hooks = TitleHooks(open_project=self._open_project, work_dir=self._title_work_dir,
                                revise_context=lambda: revise_context(self._setup), revise_blocked=self._revise_blocked,
+                               run_design=self._run_redesigned_title,
                                retry_failed=lambda title_id: self.retry_failed([title_id]),
                                open_jriver_preferences=self.preferences_requested.emit,
                                choose_audio_stream=self._choose_audio_stream)
@@ -259,6 +260,17 @@ class WorkListTitles:
         if not self._title_open:
             self._sync_index_if_dirty()
 
+    def _run_redesigned_title(self, title_id: str) -> bool:
+        '''Return from the title page, refresh its revised row, then start the promised Extract & design run.'''
+        if title_id in self._redesign_after_sync:
+            return False
+        self._redesign_after_sync.append(title_id)
+        # The run panel is on the list page and planning must use the newly refreshed row, not the stale title-page row.
+        if self.close_title():
+            return True
+        self._redesign_after_sync.remove(title_id)
+        return False
+
     def _on_title_changed(self, title_id: str) -> None:
         '''
         A title's metadata or artwork was written: what the index says of it (metadata incomplete, Publish: out of date) is
@@ -296,6 +308,9 @@ class WorkListTitles:
         self._syncing = False
         self.refresh_from_index()    # also refreshes the buttons, which were disabled while the read went on
         self.index_synced.emit()
+        redesigned, self._redesign_after_sync = self._redesign_after_sync, []
+        if redesigned:
+            self._begin('design', ids=redesigned, confirm=False)
         self._sync_index_if_dirty()  # decisions made while it was going
 
     def _on_index_sync_failed(self, message: str) -> None:

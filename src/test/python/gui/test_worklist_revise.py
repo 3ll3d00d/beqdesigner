@@ -21,6 +21,8 @@ from model.worklist import WorkListWindow
 from model.worklist_revise import CHOICES, ReviseContext, ReviseDialog, ReviseOutcome, ReviseSummary, describe_outcome, \
     revise_context, revise_problem, revise_text, revise_titles, summarise_outcome
 from pipeline.library.sync import commit_library, publish_library
+from pipeline.library.stages import StagesReport
+from pipeline.library.run import LibraryRunReport
 from pipeline.publish.git import RepoTarget
 from pipeline.review import read_entry, update_entry
 from test_pipeline_library_commit import IMAGES_NAME, OWNER, _queue_entry, _track, repos  # noqa: F401 (a fixture)
@@ -92,7 +94,9 @@ def test_the_question_says_what_will_happen_before_anything_does():
     assert '1 title is already waiting for review' in body
     assert 'reviewer note' in body
     _, redesign = revise_text('design', summary)
-    assert 'designs it again' in redesign and 'edit you made to a project' in redesign
+    assert 'design it again' in redesign and 'edit you made to a project' in redesign
+    _, immediate = revise_text('design', summary, run_now=True)
+    assert 'starts for these titles straight away' in immediate
     _, extract = revise_text('extract', summary)
     assert 'extracted audio is forgotten' in extract
     assert revise_text('review', ReviseSummary.of([('accepted', '')], 'Heat'))[0] == 'Reopen for review: Heat?'
@@ -223,6 +227,7 @@ def test_a_pending_title_offers_redesign_first_and_reopening_it_is_refused_with_
 def test_redesigning_marks_the_design_stale_and_holds_accept_back_until_it_has_been_designed_again(qtbot, tmp_path):
     window = _window(qtbot, tmp_path)
     page = _open(qtbot, window, 'r-alien')
+    page._hooks.run_design = None       # this test exercises the title page's hold, not the work-list hand-off
     assert page.acceptButton.isEnabled()
 
     assert page.revise('design', 'new designer') is True
@@ -247,6 +252,7 @@ def test_re_extracting_needs_a_work_directory_and_forgets_the_recorded_extractio
     (directory / 'manifest.json').write_text(json.dumps({'mono_source_fingerprint': 'x', 'mono_params_hash': 'y'}))
     window = _window(qtbot, tmp_path)
     page = _open(qtbot, window, 'r-alien')
+    page._hooks.run_design = None
     assert page.revise('extract') is True
     assert json.loads((directory / 'manifest.json').read_text()) == {}
     assert read_entry(_queue(tmp_path), 'r-alien').design_fingerprint is None
@@ -390,12 +396,21 @@ def test_reopening_on_the_page_moves_the_title_from_publish_to_review_once_the_p
     assert window.publishButton.text() == 'Publish 1'
 
 
-def test_redesigning_on_the_page_moves_the_title_to_design_in_a_real_scan(qtbot, tmp_path):
-    window = _scanned(qtbot, tmp_path, 'a')
+def test_redesigning_on_the_page_starts_extract_and_design_after_its_row_is_refreshed(qtbot, tmp_path):
+    seen = []
+
+    def runner(profile, selection, through, **kwargs):
+        seen.append((tuple(selection.ids), through))
+        return StagesReport(through, len(selection.ids), run=LibraryRunReport())
+
+    window = _scanned(qtbot, tmp_path, 'a', run_stages_fn=runner)
     page = _open(qtbot, window, 'fs-a')
-    assert page.revise('design')
-    with qtbot.waitSignal(window.index_synced, timeout=30000):
-        _click(qtbot, page.backButton)
+    with qtbot.waitSignal(window.run_started, timeout=30000) as started:
+        assert page.revise('design')
+    assert started.args[0].ids == ('fs-a',)
+    assert started.args[0].through == 'design'
+    qtbot.waitUntil(lambda: not window.is_running, timeout=30000)
+    assert seen == [(('fs-a',), 'design')]
     assert _needs(window) == {'fs-a': 'design'}
 
 
@@ -426,11 +441,15 @@ def test_revising_the_selected_rows_asks_then_sends_them_back_and_the_list_follo
 
 
 def test_a_title_that_cannot_be_sent_back_is_a_line_in_the_last_run_tab_not_an_exception(qtbot, tmp_path):
-    window = _scanned(qtbot, tmp_path, 'a', 'b', status='pending')
+    def runner(profile, selection, through, **kwargs):
+        return StagesReport(through, len(selection.ids), run=LibraryRunReport())
+
+    window = _scanned(qtbot, tmp_path, 'a', 'b', status='pending', run_stages_fn=runner)
     assert window.revise_ids(['fs-b'], to='review') is False           # refused up front, with the reason, nothing raised
     assert 'already waiting for review' in window.runStatusLabel.text() and window.runStatusLabel.text().startswith('Not changed')
     assert window.revise_ids(['fs-a'], to='design') is True             # a pending title can be redesigned
     qtbot.waitUntil(lambda: not window.bulk_running, timeout=30000)
+    qtbot.waitUntil(lambda: not window.is_running, timeout=30000)
     assert _needs(window)['fs-a'] == 'design'
 
 

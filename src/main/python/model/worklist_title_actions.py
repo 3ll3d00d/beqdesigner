@@ -46,6 +46,8 @@ class TitleHooks:
     :param ask_revise: `(summary, context, default choice) -> (choice, reason)` or None if the person cancelled; the
         `ReviseDialog` unless given.
     :param redo: how a title sent back for redesign gets designed again, where the page is (`worklist_title_text.REDO_IN_*`).
+    :param run_design: starts the Library Work List's Extract & design after a redesign or re-extraction.  The Review
+        Folder deliberately leaves this unset because it has no library runner.
     :param commit_state: `title id -> the index's commit state` (`committed`, `uncommitted`, `unknown`, ...), asked when the
         revise question is put, for a page with no index row that could say (the review folder); None to use the row's.
     '''
@@ -55,6 +57,7 @@ class TitleHooks:
     revise_blocked: Callable[[str, str], str] = lambda title_id, status: ''
     ask_revise: Optional[AskRevise] = None
     redo: str = REDO_IN_WORK_LIST
+    run_design: Optional[Callable[[str], bool]] = None
     commit_state: Optional[Callable[[str], str]] = None
     retry_failed: Optional[Callable[[str], bool]] = None
     open_jriver_preferences: Optional[Callable[[], None]] = None
@@ -293,7 +296,7 @@ class TitleActions:
 
     def _ask_revise(self, summary: ReviseSummary, context: Optional[ReviseContext], default: str
                     ) -> Optional[Tuple[str, str]]:
-        dialog = ReviseDialog(self, summary, context, default)
+        dialog = ReviseDialog(self, summary, context, default, run_now=self._hooks.run_design is not None)
         return (dialog.choice, dialog.reason) if dialog.exec() else None
 
     def revise(self, to: Optional[str] = None, reason: str = '') -> bool:
@@ -335,7 +338,8 @@ class TitleActions:
         except Exception:      # unreadable now: nothing to tell a redesign from, so the hold stays until the rows are read
             self._revised_stamp.pop(self._title_id, None)
         self.revised.emit(self._title_id, to)
+        started = to in ('design', 'extract') and self._hooks.run_design is not None and self._hooks.run_design(self._title_id)
         self.reload()
         text, _ = summarise_outcome(outcome)
-        self._say(text)
+        self._say('Extract & design is starting now.' if started else text)
         return True

@@ -117,20 +117,16 @@ links and commit notes stay meaningful.
    `reviewer_note` across a redesign. `status` and the chosen candidate still
    reset to `pending`, since the candidates they refer to are replaced.
 
-### TODO
-
-T17. **JRiver's selected audio stream is not carried into BEQ metadata** --
-the current library path selects its default first ffprobe audio stream, while
-the metadata comes from broad JRiver fields rather than the selected stream.
-Chunk 40 now requests `Playback Info` and has a deliberately first-stream
-resolver stub; its remaining work is parsing and matching the container stream
-id to ffprobe's global stream index. Chunk 41 is the separate **todo** for
-resyncing the matched codec/channel type into `QueueEntry.meta['audio_types']`,
-reviewer-safe preservation of edits, a visible per-title override and explicit
-re-extraction/redesign. The real `Playback Info` shape has been observed, but
-the parser and all metadata/override behaviour remain unbuilt.
-
 ### Closed
+
+T17. ~~**JRiver's selected audio stream is not carried into BEQ metadata.**~~
+**Closed in chunk 41, commit `13e1519`:** JRiver codec/channel descriptions
+now populate automatic BEQ audio types, and the title page can persist a
+different stream while preserving a reviewer-set audio type and invalidating
+the extract/design cache. Choosing **Redesign** or **Re-extract and redesign**
+now starts the matching Extract & design run after the index refreshes. The
+remaining `Playback Info` parsing and ffprobe reconciliation is chunk 40, not
+an open metadata/override gap.
 
 *Documentation*
 

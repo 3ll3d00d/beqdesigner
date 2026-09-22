@@ -338,7 +338,7 @@ class WorkListBulk:
 
     def _show_revise_dialog(self, summary: ReviseSummary, context: Optional[ReviseContext], default: str
                             ) -> Optional[Tuple[str, str]]:
-        dialog = ReviseDialog(self, summary, context, default)
+        dialog = ReviseDialog(self, summary, context, default, run_now=True)
         return (dialog.choice, dialog.reason) if dialog.exec() else None
 
     def _show_revised(self, result, titles: Dict[str, str]) -> None:
@@ -352,6 +352,10 @@ class WorkListBulk:
             text += f' The list could not be brought up to date ({error}): Rescan.'
             level = LEVEL_WARN if level == LEVEL_OK else level
         self._say(text, level)
+        if outcome.to in ('design', 'extract') and outcome.revised:
+            # The revise job has already refreshed the index, so the stage plan sees the newly stale entries.  The
+            # Revise dialog promised this hand-off; no second confirmation is needed for the same selected titles.
+            self._begin('design', ids=outcome.revised, confirm=False)
 
     # --- the "settings changed" banner ---------------------------------------------------------------------------------------
 

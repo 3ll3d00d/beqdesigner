@@ -6,12 +6,12 @@ title page, and on the selected rows) and the "settings changed" banner all come
 Three depths, each including the one before (the words are `CHOICES`):
 
 * **Reopen for review** -- back to *Waiting for review*; the candidates, metadata, artwork and projects are kept.
-* **Redesign** -- as that, and the design is marked out of date so the next *Extract & design* designs it again. What a
+* **Redesign** -- as that, and the design is marked out of date so *Extract & design* designs it again. What a
   person set (metadata, artwork, their note, an edit to a `.beq` project) is kept.
 * **Re-extract** -- as that, and the extracted audio is forgotten so the next run runs ffmpeg again.
 
-**Nothing is redesigned, extracted or published now**: these change state only, and the titles then need that work like any
-other. What happens to a title's catalogue files depends on how far it got (`ReviseSummary` counts the cases and the dialog
+The pipeline work starts straight away in the Library Work List.  The Review Folder has no pipeline runner, so there these
+only change state. What happens to a title's catalogue files depends on how far it got (`ReviseSummary` counts the cases and the dialog
 says so *before* anything changes): a published title needs the XML repository (and the images repository, for its image),
 because reopening one written but not committed puts its files back as git has them, and reopening one already committed
 starts a *revision*, which publishing again writes to the same path.
@@ -43,7 +43,7 @@ CHOICES: Dict[str, Tuple[str, str]] = {
                'Back to "Waiting for review". Its candidates, metadata, artwork and projects are kept and nothing is '
                'redesigned; you pick again.'),
     'design': ('Redesign',
-               'As reopening, and the design is marked out of date, so the next Extract & design run designs it again. '
+               'As reopening, and the design is marked out of date so Extract & design can design it again. '
                'What you set is kept: metadata, artwork, your note and any edit you made to a project.'),
     'extract': ('Re-extract and redesign',
                 'As redesigning, and the extracted audio is forgotten, so the next run extracts it again with ffmpeg '
@@ -139,12 +139,16 @@ def revise_problem(to: str, summary: ReviseSummary, context: Optional[ReviseCont
     return ''
 
 
-def revise_text(to: str, summary: ReviseSummary) -> Tuple[str, str]:
+def revise_text(to: str, summary: ReviseSummary, run_now: bool = False) -> Tuple[str, str]:
     ''' :return: (heading, body html) saying exactly what `to` will do to these titles. '''
     label, what = CHOICES[to]
     noun = summary.first if summary.count == 1 and summary.first else _plural(summary.count, 'title')
-    lines = [what, '<br>Nothing is redesigned, extracted or published now: this only changes what each title needs next. '
-                   'Run Extract &amp; design, then Publish and Commit, as usual.']
+    if to in ('design', 'extract') and run_now:
+        lines = [what, '<br>After this change, Extract &amp; design starts for these titles straight away. Review the new '
+                       'candidates when it finishes; Publish and Commit remain separate.']
+    else:
+        lines = [what, '<br>Nothing is redesigned, extracted or published now: this only changes what each title needs next. '
+                       'Run Extract &amp; design, then Publish and Commit, as usual.']
     if summary.accepted:
         lines.append(f'<br>{_plural(summary.accepted, "title")} {"is" if summary.accepted == 1 else "are"} accepted: '
                      f'the accept is undone and you decide again.')
@@ -257,9 +261,10 @@ class ReviseDialog(QDialog):
     the chosen depth cannot be carried out.
     '''
 
-    def __init__(self, parent, summary: ReviseSummary, context: Optional[ReviseContext], default: str = 'review'):
+    def __init__(self, parent, summary: ReviseSummary, context: Optional[ReviseContext], default: str = 'review',
+                 run_now: bool = False):
         super().__init__(parent)
-        self._summary, self._context = summary, context
+        self._summary, self._context, self._run_now = summary, context, run_now
         self.setModal(True)
         layout = QVBoxLayout(self)
         self.heading = QLabel()
@@ -312,7 +317,7 @@ class ReviseDialog(QDialog):
 
     def _changed(self) -> None:
         to = self.choice
-        heading, body = revise_text(to, self._summary)
+        heading, body = revise_text(to, self._summary, self._run_now)
         self.heading.setText(f'<b>{heading}</b>')
         self.setWindowTitle(heading)
         self.body.setText(body)
