@@ -407,8 +407,12 @@ class WorkListActions:
         context = self._run_context
         if context is None:
             return
-        self.runProgress.setRange(0, max(1, progress.total))
-        self.runProgress.setValue(min(progress.done, max(1, progress.total)))
+        total = max(1, progress.total)
+        self.runProgress.setRange(0, total)
+        # A progress message arrives when a title-stage *starts*.  Count that title in the visual progress so a
+        # single, long extraction/design does not sit at 0% until its final completion message arrives.
+        in_flight = 1 if progress.stage else 0
+        self.runProgress.setValue(min(progress.done + in_flight, total))
         if not progress.stage:
             self._model.set_running({})
             return

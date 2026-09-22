@@ -273,7 +273,7 @@ def test_the_selection_survives_a_reload_from_the_index(qtbot, tmp_path):
 
 def test_a_run_happens_off_the_ui_thread_with_determinate_progress_and_a_running_row_marker(qtbot, tmp_path):
     index_file = make_index(tmp_path / 'work', _rows(), SOURCES, generation=2, last_scan_at=NOW - 900)
-    pipeline = FakePipeline(index_file, hold_at=1,
+    pipeline = FakePipeline(index_file, hold_at=0,
                             after=lambda path, report: _update(path, report.run.designed, needs='review', tier='human'))
     window, _ = _window(qtbot, tmp_path, pipeline=pipeline, prefs=_prefs(tmp_path))
     window.select_ids(['x-gravity', 'x-tenet', 'x-fury'])
@@ -281,19 +281,19 @@ def test_a_run_happens_off_the_ui_thread_with_determinate_progress_and_a_running
     _click(qtbot, window.runButton)
 
     qtbot.waitUntil(pipeline.entered.is_set, timeout=5000)
-    qtbot.waitUntil(lambda: window.runProgress.value() == 1, timeout=5000)   # title 2 of 3 is in hand
+    qtbot.waitUntil(lambda: window.runProgress.value() == 1, timeout=5000)   # title 1 of 3 is in hand
     # the click returned while the pipeline is mid-title: it is not on the UI thread, and the UI still turns
     assert window.is_running
     assert pipeline.thread is not threading.current_thread()
     QApplication.processEvents()
     # determinate progress, and the status names the title and the stage
     assert window.runProgress.maximum() == 3 and window.runProgress.value() == 1
-    assert window.runStatusLabel.text() == 'Designing Tenet  (2 of 3)'
+    assert window.runStatusLabel.text() == 'Designing Gravity  (1 of 3)'
     # the row shows its stage while it is worked on, and only that row
-    assert window.model.running == {'x-tenet': 'design'}
-    assert _cell(window, 'x-tenet', COL_NEEDS) == '▶ Designing...'
-    assert _cell(window, 'x-tenet', COL_NEEDS, RUNNING_ROLE) == 'design'
-    assert _cell(window, 'x-gravity', COL_NEEDS) == 'Extract'
+    assert window.model.running == {'x-gravity': 'design'}
+    assert _cell(window, 'x-gravity', COL_NEEDS) == '▶ Designing...'
+    assert _cell(window, 'x-gravity', COL_NEEDS, RUNNING_ROLE) == 'design'
+    assert _cell(window, 'x-tenet', COL_NEEDS) == 'Extract'
     # what would conflict is disabled, and Cancel is offered
     for button in (window.runButton, window.publishButton, window.commitButton, window.retryButton,
                    window.rescanButton):
@@ -341,7 +341,7 @@ def test_cancel_stops_after_the_current_title_and_reports_what_completed(qtbot, 
     window, _ = _window(qtbot, tmp_path, pipeline=pipeline, prefs=_prefs(tmp_path))
     window.select_ids(['x-gravity', 'x-tenet', 'x-fury', 'd-speed'])
     window.run_selected()
-    qtbot.waitUntil(lambda: window.runProgress.value() == 1, timeout=5000)
+    qtbot.waitUntil(lambda: window.runProgress.value() == 2, timeout=5000)
 
     _click(qtbot, window.cancelButton)
 
