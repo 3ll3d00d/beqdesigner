@@ -20,6 +20,7 @@ def test_a_windows_path_under_a_mapping_becomes_a_local_one():
 def test_matching_ignores_case_and_treats_both_separators_alike():
     assert _t('w:/films/a.mkv', FILMS) == os.path.join('/mnt/films', 'a.mkv')
     assert _t('W:\\FILMS\\a.mkv', PathMapping('w:/films', '/mnt/films')) == os.path.join('/mnt/films', 'a.mkv')
+    assert _t('W:\\\\Films\\\\a.mkv', FILMS) == os.path.join('/mnt/films', 'a.mkv')
 
 
 def test_a_prefix_only_matches_whole_path_components():

@@ -32,12 +32,12 @@ def unmapped_path_problem(path: str, mappings: Sequence[PathMapping]) -> str | N
         return None
     if translate_path(path, mappings) != path:
         return None
-    return f'JRiver reported {path!r}, but no local path mapping matches it; fix it in Preferences > JRiver.'
+    return f'JRiver reported {path}, but no local path mapping matches it; fix it in Preferences > JRiver.'
 
 
 def _normal(path: str) -> str:
     ''' Windows and POSIX separators are the same thing for matching; a trailing one is not significant. '''
-    return path.replace('\\', '/').rstrip('/')
+    return re.sub(r'/+', '/', path.replace('\\', '/')).rstrip('/')
 
 
 def translate_path(path: str, mappings: Sequence[PathMapping]) -> str:
@@ -46,7 +46,7 @@ def translate_path(path: str, mappings: Sequence[PathMapping]) -> str:
     (Windows paths) and treats `\` and `/` alike, and a prefix only matches whole path components: `W:\Film`
     does not claim `W:\Films\x.mkv`. A path no mapping contains is returned unchanged.
     '''
-    normal = path.replace('\\', '/')
+    normal = _normal(path)
     best = None
     for mapping in mappings:
         prefix = _normal(mapping.source)
