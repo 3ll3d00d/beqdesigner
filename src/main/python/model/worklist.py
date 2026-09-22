@@ -49,13 +49,13 @@ from typing import Callable, Dict, List, Mapping, Optional
 
 from qtpy.QtCore import QEvent, QItemSelectionModel, QObject, QPoint, QRunnable, Qt, QThreadPool, Signal
 from qtpy.QtGui import QKeySequence, QShortcut
-from qtpy.QtWidgets import QAbstractItemView, QButtonGroup, QDockWidget, QHeaderView, QInputDialog, QMainWindow, QMenu, \
-    QMessageBox, QProgressBar, QSizePolicy
+from qtpy.QtWidgets import QAbstractItemView, QButtonGroup, QDockWidget, QHeaderView, QHBoxLayout, QInputDialog, \
+    QLineEdit, QMainWindow, QMenu, QMessageBox, QProgressBar, QPushButton, QSizePolicy, QWidget
 
 from model.preferences import WORKLIST_GEOMETRY
 from model.worklist_actions import WorkListActions
 from model.worklist_bulk import WorkListBulk
-from model.worklist_model import ALL_CHIPS, CHIP_ALL, CHIP_DONE, COL_DETAIL, COL_NEEDS, COL_SOURCE, COL_TITLE, \
+from model.worklist_model import ALL_CHIPS, CHIP_ALL, CHIP_DONE, COLUMNS, COL_DETAIL, COL_NEEDS, COL_SOURCE, COL_TITLE, \
     COL_WAITING, COL_YEAR, ID_ROLE, WorkListModel, WorkListProxy, warning_colour
 from model.worklist_edit import discovery_changed
 from model.worklist_profile import WorkListSetup, load_setup
@@ -278,6 +278,33 @@ class WorkListWindow(WorkListActions, WorkListTitles, WorkListBulk, QMainWindow,
         header.sectionClicked.connect(self._on_header_clicked)
         self._proxy.modelReset.connect(self._refresh_view)
         self._proxy.layoutChanged.connect(self._refresh_view)
+        self._configure_column_filters()
+
+    def _configure_column_filters(self) -> None:
+        '''A compact filter row: every field matches the column above it, and all non-empty fields are ANDed.'''
+        self.columnFilterBar = QWidget(self.tablePage)
+        layout = QHBoxLayout(self.columnFilterBar)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
+        self.columnFilters: Dict[int, QLineEdit] = {}
+        widths = (150, 65, 95, 95, 180, 75)
+        for column, (name, width) in enumerate(zip(COLUMNS, widths)):
+            edit = QLineEdit(self.columnFilterBar)
+            edit.setObjectName(f'{name.lower()}ColumnFilter')
+            edit.setPlaceholderText(name)
+            edit.setClearButtonEnabled(True)
+            edit.setMaximumWidth(width)
+            edit.setToolTip(f'Match text in the {name} column. Column filters combine with each other and Search.')
+            edit.textChanged.connect(lambda text, number=column: self._on_column_filter(number, text))
+            self.columnFilters[column] = edit
+            layout.addWidget(edit)
+        self.clearColumnFiltersButton = QPushButton('Clear filters', self.columnFilterBar)
+        self.clearColumnFiltersButton.setToolTip('Clear every per-column filter')
+        self.clearColumnFiltersButton.setEnabled(False)
+        self.clearColumnFiltersButton.clicked.connect(self._clear_column_filters)
+        layout.addWidget(self.clearColumnFiltersButton)
+        layout.addStretch()
+        self.tableLayout.insertWidget(0, self.columnFilterBar)
 
     def _configure_chips(self):
         self._chip_buttons = {
@@ -508,13 +535,16 @@ class WorkListWindow(WorkListActions, WorkListTitles, WorkListBulk, QMainWindow,
         passes this to `plan_stages()`.
         '''
         source, match = self._proxy.source_filter, self._proxy.text or None
+        # `Selection` has no per-column vocabulary (the CLI deliberately only has --match), so carry the displayed
+        # ids when column filters are active. This keeps its rows exactly aligned with the table for callers that use it.
+        ids = tuple(self.listed_ids()) if self._proxy.column_filters else ()
         not_done = tuple(n for n in NEEDS if n != 'done')
         chip = self._proxy.chip
         if chip == CHIP_ALL:
-            return Selection(needs=not_done, source=source, match=match)
+            return Selection(needs=not_done, source=source, match=match, ids=ids)
         if chip == CHIP_NEW:
-            return Selection(needs=not_done, source=source, match=match, new_since_scan=True)
-        return selection_from_chip(chip, source=source, match=match)
+            return Selection(needs=not_done, source=source, match=match, ids=ids, new_since_scan=True)
+        return selection_from_chip(chip, source=source, match=match, ids=ids)
 
     # --- loading ----------------------------------------------------------------------------------------------------
 
@@ -639,6 +669,15 @@ class WorkListWindow(WorkListActions, WorkListTitles, WorkListBulk, QMainWindow,
     def _on_source(self, _index: int) -> None:
         self._proxy.set_source(self.sourceCombo.currentData())
         self._refresh_view()
+
+    def _on_column_filter(self, column: int, text: str) -> None:
+        self._proxy.set_column_text(column, text)
+        self.clearColumnFiltersButton.setEnabled(bool(self._proxy.column_filters))
+        self._refresh_view()
+
+    def _clear_column_filters(self) -> None:
+        for edit in self.columnFilters.values():
+            edit.clear()
 
     def _on_header_clicked(self, column: int) -> None:
         ''' Ascending, then descending, then back to the index's order (tier, oldest first). '''

@@ -239,8 +239,9 @@ def matches_text(row: TitleRow, text: str) -> bool:
 
 class WorkListProxy(QSortFilterProxyModel):
     '''
-    Filters the model by chip, source and search text, and sorts it. With no column chosen (`sort_by(-1)`) the rows are
-    in the index's order: attention, human, machine, then done, each oldest first.
+    Filters the model by chip, source, search text and independently matchable displayed columns, and sorts it. With no
+    column chosen (`sort_by(-1)`) the rows are in the index's order: attention, human, machine, then done, each oldest
+    first.
     '''
 
     def __init__(self, parent=None):
@@ -248,6 +249,7 @@ class WorkListProxy(QSortFilterProxyModel):
         self.__chip = CHIP_ALL
         self.__source: Optional[str] = None
         self.__text = ''
+        self.__column_text: Dict[int, str] = {}
         self.setSortRole(SORT_ROLE)
         self.setSortCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
 
@@ -263,6 +265,11 @@ class WorkListProxy(QSortFilterProxyModel):
     def text(self) -> str:
         return self.__text
 
+    @property
+    def column_filters(self) -> Dict[int, str]:
+        '''The non-empty per-column text filters, keyed by a `COL_*` constant.'''
+        return dict(self.__column_text)
+
     def set_chip(self, chip: str) -> None:
         if chip not in ALL_CHIPS:
             raise ValueError(f'unknown chip {chip!r}; the chips are {", ".join(ALL_CHIPS)}')
@@ -277,17 +284,32 @@ class WorkListProxy(QSortFilterProxyModel):
         self.__text = text.strip()
         self.invalidateFilter()
 
+    def set_column_text(self, column: int, text: str) -> None:
+        if column not in range(len(COLUMNS)):
+            raise ValueError(f'unknown column {column}')
+        text = text.strip()
+        if text:
+            self.__column_text[column] = text
+        else:
+            self.__column_text.pop(column, None)
+        self.invalidateFilter()
+
     def sort_by(self, column: int, order=Qt.SortOrder.AscendingOrder) -> None:
         ''' Sorts by a column, or -1 for the index's own order. '''
         self.sort(column, order)
 
     def filterAcceptsRow(self, source_row, source_parent):
         rows = self.sourceModel().rows
-        return self.__accepts(rows[source_row], self.__chip)
+        return self.__accepts(rows[source_row], self.__chip, source_row)
 
-    def __accepts(self, row: TitleRow, chip: str) -> bool:
+    def __accepts(self, row: TitleRow, chip: str, source_row: int) -> bool:
         return (chip_accepts(chip, row) and (self.__source is None or row.source == self.__source)
-                and (not self.__text or matches_text(row, self.__text)))
+                and (not self.__text or matches_text(row, self.__text)) and self.__column_matches(source_row))
+
+    def __column_matches(self, source_row: int) -> bool:
+        source = self.sourceModel()
+        return all(text.casefold() in str(source.index(source_row, column).data(Qt.ItemDataRole.DisplayRole) or '').casefold()
+                   for column, text in self.__column_text.items())
 
     def lessThan(self, left, right):
         a, b = left.data(SORT_ROLE), right.data(SORT_ROLE)
@@ -300,7 +322,8 @@ class WorkListProxy(QSortFilterProxyModel):
         '''
         source = self.sourceModel()
         rows = source.rows if source is not None else []
-        return {chip: sum(1 for row in rows if self.__accepts(row, chip)) for chip in ALL_CHIPS}
+        return {chip: sum(1 for number, row in enumerate(rows) if self.__accepts(row, chip, number))
+                for chip in ALL_CHIPS}
 
     def id_at(self, row: int) -> str:
         return self.index(row, 0).data(ID_ROLE)

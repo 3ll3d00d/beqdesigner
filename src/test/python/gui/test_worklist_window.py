@@ -17,7 +17,7 @@ from qtpy.QtWidgets import QApplication
 from model.preferences import DESIGNER_DEFAULT, DESIGNER_QUEUE_DIR, LIBRARY_FILESYSTEM_GLOBS, LIBRARY_PROFILE_PATH, \
     LIBRARY_WORK_DIR, Preferences, SYSTEM_CHECK_FOR_UPDATES
 from model.worklist import WorkListWindow, describe_sources, format_time
-from model.worklist_model import COL_TITLE, COL_WAITING, NEW_ROLE, ROW_ROLE, format_waiting
+from model.worklist_model import COL_DETAIL, COL_NEEDS, COL_TITLE, COL_WAITING, NEW_ROLE, ROW_ROLE, format_waiting
 from pipeline.designer.registry import register_designer, unregister_designer
 from pipeline.library.index import LibraryIndex, index_path
 from pipeline.library.selection import CHIPS, Selection
@@ -215,6 +215,22 @@ def test_the_source_combo_shows_one_sources_titles(qtbot, tmp_path):
     assert window.chip_counts()['All'] == 4
     _click(qtbot, window.reviewChip)
     assert window.listed_ids() == ['t-sicario']  # the chip and the source both narrow it
+
+
+def test_column_filters_match_only_their_own_column_and_combine(qtbot, tmp_path):
+    window = _window(qtbot, tmp_path, _rows())
+
+    window.columnFilters[COL_NEEDS].setText('review')
+    assert window.listed_ids() == ['t-alien', 't-arrival', 't-sicario']
+    assert window.chip_counts()['Review'] == 3 and window.chip_counts()['All'] == 3
+
+    window.columnFilters[COL_DETAIL].setText('0.75')
+    assert window.listed_ids() == ['t-arrival']
+    with LibraryIndex(index_path(str(tmp_path / 'work'))) as index:
+        assert [row.id for row in window.current_selection().rows(index)] == ['t-arrival']
+
+    window.clearColumnFiltersButton.click()
+    assert not window.proxy.column_filters and len(window.listed_ids()) == 9
 
 
 @pytest.mark.parametrize('chip', ['All', *CHIPS])
