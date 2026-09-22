@@ -317,7 +317,7 @@ def test_through_publish_writes_accepted_titles_and_not_commits(env, work, repos
     report = _go(env, Selection(needs=('publish',)), 'publish', settings=settings, publish=_publish_settings(repos))
 
     assert sorted(r['id'] for r in report.published) == ['fs-a', 'fs-b'] and not report.failed
-    assert (xml.local_path and os.path.isfile(os.path.join(xml.local_path, 'xml', 'fs-a.xml')))
+    assert (xml.local_path and os.path.isfile(os.path.join(xml.local_path, 'xml', 'fs-a.json')))
     assert read_entry(env.queue, 'fs-a').status == 'published' and read_entry(env.queue, 'fs-c').status == 'pending'
     assert _commits(xml) == []  # written, not committed
     assert _needs(env, 'fs-a') == ('commit', 'written, not committed')
@@ -332,7 +332,7 @@ def test_through_commit_publishes_then_commits_one_commit_per_repo_images_first(
 
     assert len(report.published) == 2 and report.committed is not None and not report.commit_error
     assert len(_commits(xml)) == 1 and len(_commits(images)) == 1  # one commit per repo for the whole selection
-    assert b'Film a' in _on_remote(xml_bare, 'xml/fs-a.xml') and b'Film b' in _on_remote(xml_bare, 'xml/fs-b.xml')
+    assert b'Film a' in _on_remote(xml_bare, 'xml/fs-a.json') and b'Film b' in _on_remote(xml_bare, 'xml/fs-b.json')
     assert _needs(env, 'fs-a') == ('done', 'pushed')
 
 
@@ -344,7 +344,7 @@ def test_through_commit_commits_only_the_selection(env, work, repos):
 
     report = _go(env, Selection(ids=('fs-a',)), 'commit', settings=settings, publish=_publish_settings(repos))
 
-    assert report.committed.xml.paths == ['xml/fs-a.xml']
+    assert report.committed.xml.paths == ['xml/fs-a.json', 'xml/database.json']
     assert _needs(env, 'fs-a')[0] == 'done' and _needs(env, 'fs-b')[0] == 'commit'
 
 
@@ -357,7 +357,7 @@ def test_a_title_needing_commit_is_committed_by_a_run_through_commit(env, work, 
 
     report = _go(env, Selection(needs=('commit',)), 'commit', settings=settings, publish=_publish_settings(repos))
 
-    assert report.published == [] and report.committed.xml.paths == ['xml/fs-a.xml']
+    assert report.published == [] and report.committed.xml.paths == ['xml/fs-a.json', 'xml/database.json']
     assert _needs(env, 'fs-a')[0] == 'done'
 
 
@@ -368,7 +368,7 @@ def test_a_run_through_design_does_not_touch_accepted_or_written_titles(env, wor
     _go(env, Selection(), 'design', settings=settings)
 
     assert read_entry(env.queue, 'fs-a').status == 'accepted'
-    assert not os.path.exists(os.path.join(repos[0].local_path, 'xml', 'fs-a.xml'))
+    assert not os.path.exists(os.path.join(repos[0].local_path, 'xml', 'fs-a.json'))
 
 
 def test_publishing_without_repository_settings_is_refused_before_anything_runs(env, work, repos):
@@ -400,14 +400,14 @@ def test_a_metadata_typo_on_a_published_title_is_republished_at_the_same_path_wi
     entry = read_entry(env.queue, 'fs-a')
     assert entry.status == 'published' and entry.published_digest != published.published_digest
     assert entry.revision == published.revision + 1  # a republish over a committed, clean XML begins a revision
-    with open(os.path.join(xml.local_path, 'xml', 'fs-a.xml'), encoding='utf-8') as f:
+    with open(os.path.join(xml.local_path, 'xml', 'fs-a.json'), encoding='utf-8') as f:
         assert 'Film a (fixed)' in f.read()
     assert _needs(env, 'fs-a') == ('commit', 'written, not committed')
 
     committed = _go(env, Selection(needs=('commit',)), 'commit', settings=settings, publish=_publish_settings(repos))
 
-    assert committed.committed.xml.paths == ['xml/fs-a.xml'] and len(_commits(xml)) == 3  # README, the first publish, and this revision of the same path
-    assert b'Film a (fixed)' in _on_remote(xml_bare, 'xml/fs-a.xml')
+    assert committed.committed.xml.paths == ['xml/fs-a.json', 'xml/database.json'] and len(_commits(xml)) == 3  # README, the first publish, and this revision of the same path
+    assert b'Film a (fixed)' in _on_remote(xml_bare, 'xml/fs-a.json')
     assert _needs(env, 'fs-a') == ('done', 'pushed')
 
 
