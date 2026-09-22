@@ -157,6 +157,15 @@ T13. ~~**`MCWSDialog`'s zone loading is still synchronous**~~ **Closed in chunk 
     QRunnable. The current connection and zone controls indicate loading without blocking the UI; errors remain inline,
     and a response arriving after the dialog closes is discarded.
 
+T14. ~~**`pipeline.library.registry` has no production callers**~~ **Accepted boundary in chunk 38:** it remains the
+    deliberately uncalled, Qt-free in-process extension seam for a future Kodi/Plex source. Sources used by the CLI
+    and work-list profile are constructed from persisted configuration; wiring the registry into those paths would add
+    global mutable state without a second source to consume it.
+
+T16. ~~**Redesigning a `pending` entry resets its status and chosen candidate**~~ **Accepted boundary in chunk 38:** a
+    candidate selection is a decision about the old candidate list, which redesign replaces. Resetting to `pending`
+    with no selection is therefore required; reviewer metadata, artwork and note remain preserved.
+
 ### External verification required
 
 T2. **The GUI has only been exercised by offscreen pytest-qt, never by a person
@@ -190,11 +199,7 @@ T7. **DVD, multi-episode discs (§11.8).** A JRiver item cannot say which title 
     tables).
 T8. **Blu-ray `BDMV\PLAYLIST\index.bluray;N` entries** (4 shows) are passed
     through unresolved -- which title `N` names is unknown (§11.5).
-### Intentional boundaries pending disposition
+### Intentional boundary pending evidence
 
-T14. **`pipeline.library.registry` has no production callers** -- an unused seam
-     for Kodi/Plex, which are not built by design (§3, §3.2).
 T15. Season mode does not keep multichannel, joins episodes with no level
      matching, and is only as complete as the browse node (§11.9).
-T16. Redesigning a `pending` entry resets its status and chosen candidate
-     (metadata, artwork and note are kept) (§4.2).

@@ -41,11 +41,11 @@ class LibrarySource(Protocol):
 
 Registry mirrors `pipeline.designer.registry` exactly
 (`register_source(name, source)` / `get_source(name)`) -- same
-in-process-callable pattern. **As built, nothing calls it**: the CLI
-(`cli._source()`) and `LibrarySyncDialog` both construct a
-`JRiverLibrarySource` directly, and only `test_pipeline_library_source.py`
-exercises the registry. It is kept as the seam for a second source
-(Kodi/Plex) but is currently unused production code.
+in-process-callable pattern. **As built, nothing calls it:** the CLI and the
+work-list profile construct a source directly from persisted configuration.
+It is deliberately retained, and tested, as the in-process extension seam
+for a future Kodi/Plex source; those integrations are not current product
+work (chunk 38 / T14).
 
 ### 3.1 JRiver implementation (`pipeline/library/jriver.py`)
 

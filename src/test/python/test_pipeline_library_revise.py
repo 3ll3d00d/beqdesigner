@@ -218,7 +218,7 @@ def test_redesigning_drops_protection_and_marks_the_design_stale(tmp_path):
     redesign_entry(queue_dir, 'one', 'new designer')
 
     entry = read_entry(queue_dir, 'one')
-    assert (entry.status, entry.design_fingerprint) == ('pending', None)
+    assert (entry.status, entry.chosen_candidate_index, entry.design_fingerprint) == ('pending', None, None)
     assert entry.reviewer_note == 'Sent back for redesign: new designer'
 
 
