@@ -2849,7 +2849,6 @@ class MCWSDialog(QDialog, Ui_loadDspFromZoneDialog):
             selected = self.savedConnections.selectedItems()[0]
             media_server = selected.data(self.MCWS_ROLE)
             self.zones.setEnabled(False)
-            self.savedConnections.setEnabled(False)
             self.resultText.setPlainText('Loading zones...')
             job = _ZonesJob(media_server)
             job.signals.finished.connect(
@@ -2863,7 +2862,6 @@ class MCWSDialog(QDialog, Ui_loadDspFromZoneDialog):
             return  # server changed or dialog was closed while the request was in flight
         self.__zone_job = None
         self.zones.setEnabled(True)
-        self.savedConnections.setEnabled(True)
         if error is not None:
             self.resultText.setPlainText(error)
             return

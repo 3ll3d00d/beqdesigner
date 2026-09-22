@@ -113,7 +113,7 @@ def test_a_published_entry_cannot_be_reopened_without_saying_where_its_files_are
         reopen_entry(queue_dir, 'one')
 
     assert read_entry(queue_dir, 'one').status == 'published'  # untouched
-    assert (tmp_path / 'xml' / 'xml' / 'one.xml').exists()
+    assert (tmp_path / 'xml' / 'xml' / 'one.json').exists()
 
 
 # --- reopen a published entry: written but not committed ---------------------------------------------------
@@ -121,14 +121,14 @@ def test_a_published_entry_cannot_be_reopened_without_saying_where_its_files_are
 def test_reopening_a_published_but_uncommitted_entry_takes_its_files_back_out_of_the_repos(tmp_path, repos):
     xml, _, images, _ = repos
     queue_dir, _ = _publish(tmp_path, repos, ('one', 'Heat'))
-    assert repo_state(xml).uncommitted == {'xml/one.xml'}
+    assert repo_state(xml).uncommitted == {'xml/one.json', 'xml/database.json'}
 
     result = reopen_entry(queue_dir, 'one', **_where(repos))
 
-    assert sorted(result.reverted) == ['img/one.png', 'xml/one.xml']
-    assert not (tmp_path / 'xml' / 'xml' / 'one.xml').exists()
+    assert sorted(result.reverted) == ['img/one.png', 'xml/one.json']
+    assert not (tmp_path / 'xml' / 'xml' / 'one.json').exists()
     assert not (tmp_path / 'images' / 'img' / 'one.png').exists()
-    assert repo_state(xml).uncommitted == frozenset() and repo_state(images).uncommitted == frozenset()
+    assert repo_state(xml).uncommitted == {'xml/database.json'} and repo_state(images).uncommitted == frozenset()
     entry = read_entry(queue_dir, 'one')
     assert (entry.status, entry.revision) == ('pending', 0)  # nothing was ever in the catalogue
     assert (entry.published_digest, entry.published_at) == (None, None)
@@ -137,12 +137,12 @@ def test_reopening_a_published_but_uncommitted_entry_takes_its_files_back_out_of
 def test_reopening_removes_a_file_that_was_staged_but_not_committed(tmp_path, repos):
     xml, _, _, _ = repos
     queue_dir, _ = _publish(tmp_path, repos, ('one', 'Heat'), with_images=False)
-    subprocess.run(['git', '-C', xml.local_path, 'add', 'xml/one.xml'], check=True)
+    subprocess.run(['git', '-C', xml.local_path, 'add', 'xml/one.json'], check=True)
 
     reopen_entry(queue_dir, 'one', xml_repo=xml, xml_dir='xml')
 
-    assert not (tmp_path / 'xml' / 'xml' / 'one.xml').exists()
-    assert repo_state(xml).uncommitted == frozenset()
+    assert not (tmp_path / 'xml' / 'xml' / 'one.json').exists()
+    assert repo_state(xml).uncommitted == {'xml/database.json'}
 
 
 def test_reopening_leaves_other_uncommitted_files_in_the_repos_alone(tmp_path, repos):
@@ -152,7 +152,7 @@ def test_reopening_leaves_other_uncommitted_files_in_the_repos_alone(tmp_path, r
 
     reopen_entry(queue_dir, 'one', xml_repo=xml, xml_dir='xml')
 
-    assert repo_state(xml).uncommitted == {'xml/two.xml', 'notes.txt'}
+    assert repo_state(xml).uncommitted == {'xml/two.json', 'xml/database.json', 'notes.txt'}
 
 
 # --- reopen a published entry: committed and pushed = a revision -----------------------------------------------
@@ -164,7 +164,7 @@ def test_reopening_a_committed_entry_leaves_the_catalogue_alone_and_starts_a_rev
     result = reopen_entry(queue_dir, 'one', 'edition was wrong', **_where(repos))
 
     assert result.reverted == []
-    assert (tmp_path / 'xml' / 'xml' / 'one.xml').exists() and (tmp_path / 'images' / 'img' / 'one.png').exists()
+    assert (tmp_path / 'xml' / 'xml' / 'one.json').exists() and (tmp_path / 'images' / 'img' / 'one.png').exists()
     assert len(_commits(xml)) == 1
     entry = read_entry(queue_dir, 'one')
     assert (entry.status, entry.revision, entry.published_digest) == ('pending', 1, None)
@@ -183,28 +183,28 @@ def test_a_reopened_pushed_entry_publishes_to_the_same_path_as_a_new_commit(tmp_
     committed = commit_library(queue_dir, xml, images_repo=images, xml_dir='xml', image_dir='img')
 
     assert [r['id'] for r in results] == ['one']
-    assert committed.xml.paths == ['xml/one.xml'] and committed.xml.commit not in (None, first_commit)
-    assert b'Heat (1995)' in _on_remote(xml_bare, 'xml/one.xml')
-    assert _on_remote(xml_bare, 'xml/two.xml') == b''  # one title, one path, however many revisions
+    assert committed.xml.paths == ['xml/one.json', 'xml/database.json'] and committed.xml.commit not in (None, first_commit)
+    assert b'Heat (1995)' in _on_remote(xml_bare, 'xml/one.json')
+    assert _on_remote(xml_bare, 'xml/two.json') == b''  # one title, one path, however many revisions
     assert read_entry(queue_dir, 'one').revision == 1
 
 
 def test_reopening_a_revision_that_is_written_but_not_committed_restores_the_committed_version(tmp_path, repos):
     xml, xml_bare, images, _ = repos
     queue_dir = _published_and_committed(tmp_path, repos)
-    committed_xml = (tmp_path / 'xml' / 'xml' / 'one.xml').read_text()
+    committed_xml = (tmp_path / 'xml' / 'xml' / 'one.json').read_text()
     reopen_entry(queue_dir, 'one', **_where(repos))
     update_entry(queue_dir, 'one', status='accepted', chosen_candidate_index=0,
                  meta={'title': 'Heat (1995)', 'year': '1995', 'audio_types': ['Atmos']})
     publish_library(queue_dir, xml, images_repo=images, xml_dir='xml', image_dir='img', image_owner=OWNER,
                     image_repo_name=IMAGES_NAME)
-    assert (tmp_path / 'xml' / 'xml' / 'one.xml').read_text() != committed_xml
+    assert (tmp_path / 'xml' / 'xml' / 'one.json').read_text() != committed_xml
 
     result = reopen_entry(queue_dir, 'one', 'changed my mind', **_where(repos))
 
-    assert 'xml/one.xml' in result.reverted
-    assert (tmp_path / 'xml' / 'xml' / 'one.xml').read_text() == committed_xml  # the catalogue's own version again
-    assert repo_state(xml).uncommitted == frozenset()
+    assert 'xml/one.json' in result.reverted
+    assert (tmp_path / 'xml' / 'xml' / 'one.json').read_text() == committed_xml  # the catalogue's own version again
+    assert repo_state(xml).uncommitted == {'xml/database.json'}
     assert read_entry(queue_dir, 'one').revision == 1  # already counted when the revision began; not twice
 
 
