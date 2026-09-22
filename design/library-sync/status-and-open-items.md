@@ -117,6 +117,17 @@ links and commit notes stay meaningful.
    `reviewer_note` across a redesign. `status` and the chosen candidate still
    reset to `pending`, since the candidates they refer to are replaced.
 
+### TODO
+
+T17. **JRiver's selected audio stream is not carried into BEQ metadata** --
+the current library path selects its default first ffprobe audio stream, while
+the metadata comes from broad JRiver fields rather than the selected stream.
+Chunk 40 records the required work: parse JRiver `Playback Info`, match its
+container stream id to ffprobe's global stream index, then persist the matched
+codec/channel type as `QueueEntry.meta['audio_types']` without overwriting a
+reviewer edit. The real `Playback Info` shape has now been observed; parsing,
+sanitised fixture coverage and propagation are still **todo**.
+
 ### Closed
 
 *Documentation*
