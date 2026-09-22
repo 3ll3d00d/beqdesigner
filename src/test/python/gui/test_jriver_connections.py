@@ -293,6 +293,7 @@ def test_filter_manager_dialog_picks_from_the_shared_list(qtbot, tmp_path, monke
         == ['a.local:1 [Unauthenticated]', 'b.local:2 [u]']
     assert not dialog.upload.isEnabled()
     dialog.savedConnections.setCurrentRow(1)
+    qtbot.waitUntil(lambda: dialog.zones.count() == 1)
     assert [dialog.zones.item(i).text() for i in range(dialog.zones.count())] == ['Main']
     assert dialog.upload.isEnabled()
     assert not hasattr(dialog, 'addNewButton')  # management lives in Preferences now
@@ -450,9 +451,50 @@ def test_the_filter_manager_dialog_shows_and_remembers_the_name_once_it_has_conn
     assert dialog.savedConnections.item(0).text() == 'a.local:1 [Unauthenticated]'
 
     dialog.savedConnections.setCurrentRow(0)
+    qtbot.waitUntil(lambda: dialog.zones.count() == 1)
 
     assert dialog.savedConnections.item(0).text() == 'Cinema PC (a.local:1) [Unauthenticated]'
     assert load_connections(prefs)[0].alias == 'Cinema PC'
+
+
+def test_filter_manager_zone_loading_does_not_block_and_ignores_a_late_result_after_close(qtbot, tmp_path, monkeypatch):
+    from model.jriver.ui import MCWSDialog
+    prefs = _prefs(tmp_path)
+    prefs.set(JRIVER_MCWS_CONNECTIONS, {'a.local:1': (None, False)})
+    started, release = threading.Event(), threading.Event()
+
+    def held(_server):
+        started.set()
+        release.wait(5)
+        return {'Late zone': 1}
+
+    monkeypatch.setattr('model.jriver.mcws.MediaServer.get_zones', held)
+    dialog = MCWSDialog(None, prefs)
+    qtbot.addWidget(dialog)
+    dialog.savedConnections.setCurrentRow(0)
+
+    assert started.wait(5)
+    assert not dialog.upload.isEnabled()
+    assert dialog.resultText.toPlainText() == 'Loading zones...'
+    dialog.reject()
+    release.set()
+    qtbot.wait(100)
+
+    assert dialog.zones.count() == 0
+
+
+def test_filter_manager_zone_loading_shows_a_failure_inline(qtbot, tmp_path, monkeypatch):
+    from model.jriver.ui import MCWSDialog
+    prefs = _prefs(tmp_path)
+    prefs.set(JRIVER_MCWS_CONNECTIONS, {'a.local:1': (None, False)})
+    monkeypatch.setattr('model.jriver.mcws.MediaServer.get_zones', lambda _server: (_ for _ in ()).throw(ValueError('down')))
+    dialog = MCWSDialog(None, prefs)
+    qtbot.addWidget(dialog)
+    dialog.savedConnections.setCurrentRow(0)
+
+    qtbot.waitUntil(lambda: 'ValueError: down' in dialog.resultText.toPlainText())
+
+    assert dialog.zones.isEnabled() and dialog.savedConnections.isEnabled()
 
 
 # --- path mappings ------------------------------------------------------------------------------------------

@@ -13,7 +13,8 @@ from typing import Dict, Optional, List, Tuple, Callable, Set, Any, Sequence
 
 import math
 import qtawesome as qta
-from qtpy.QtCore import QPoint, QModelIndex, Qt, QTimer, QAbstractTableModel, QVariant, QSize
+from qtpy.QtCore import QPoint, QModelIndex, Qt, QTimer, QAbstractTableModel, QVariant, QSize, QObject, QRunnable, \
+    QThreadPool, Signal as QtSignal
 from qtpy.QtGui import QColor, QPalette, QKeySequence, QShowEvent, QFont, QIcon, QGuiApplication
 from qtpy.QtWidgets import QDialog, QFileDialog, QMenu, QAction, QListWidgetItem, QMessageBox, QInputDialog, \
     QDialogButtonBox, QAbstractItemView, QWidget, \
@@ -2779,6 +2780,28 @@ class MDSDialog(QDialog, Ui_mdsDialog):
             self.__on_update(vals)
 
 
+class _ZonesSignals(QObject):
+    finished = QtSignal(object, object)  # zones, error text
+
+
+class _ZonesJob(QRunnable):
+    '''MCWS zone discovery off the UI thread; a dead server must not freeze the filter manager.'''
+
+    def __init__(self, media_server: MediaServer):
+        super().__init__()
+        self.signals = _ZonesSignals()
+        self.__media_server = media_server
+
+    def run(self):
+        try:
+            self.signals.finished.emit(self.__media_server.get_zones(), None)
+        except MCWSError as error:
+            self.signals.finished.emit(None, f"{error.url} - {error.status_code}\n\n{error.msg}\n\n{error.resp}")
+        except Exception as error:
+            logger.exception('Unable to load MCWS zones')
+            self.signals.finished.emit(None, f'{type(error).__name__}: {error}')
+
+
 class MCWSDialog(QDialog, Ui_loadDspFromZoneDialog):
     MCWS_ROLE = Qt.ItemDataRole.UserRole + 1
     CONNECTION_ROLE = Qt.ItemDataRole.UserRole + 2
@@ -2806,30 +2829,57 @@ class MCWSDialog(QDialog, Ui_loadDspFromZoneDialog):
             item.setData(self.CONNECTION_ROLE, connection)
             self.savedConnections.addItem(item)
         self.__media_server: Optional[MediaServer] = None
+        self.__zone_job: Optional[_ZonesJob] = None
+        self.__zone_generation = 0
+        self.__closed = False
         self.upload.clicked.connect(self.__handle_config)
         self.savedConnections.selectionModel().selectionChanged.connect(self.__load_zones)
         self.upload.setEnabled(False)
         self.__load_zones()
 
     def __load_zones(self):
+        self.__zone_generation += 1
+        generation = self.__zone_generation
         selection = self.savedConnections.selectionModel()
         self.zones.clear()
         self.__media_server = None
         self.upload.setEnabled(False)
+        self.resultText.clear()
         if selection.hasSelection():
             selected = self.savedConnections.selectedItems()[0]
-            self.__media_server = selected.data(self.MCWS_ROLE)
-            try:
-                zones = self.__media_server.get_zones()
-                self.__remember_name(selected)
-                for zone_name, zone_id in zones.items():
-                    item = QListWidgetItem(zone_name)
-                    item.setData(self.MCWS_ROLE, zone_id)
-                    self.zones.addItem(item)
-                self.upload.setEnabled(bool(zones))
-            except MCWSError as e:
-                self.resultText.setPlainText(f"{e.url} - {e.status_code}\n\n{e.msg}\n\n{e.resp}")
-                self.zones.clear()
+            media_server = selected.data(self.MCWS_ROLE)
+            self.zones.setEnabled(False)
+            self.savedConnections.setEnabled(False)
+            self.resultText.setPlainText('Loading zones...')
+            job = _ZonesJob(media_server)
+            job.signals.finished.connect(
+                lambda zones, error, job=job, selected=selected, media_server=media_server, generation=generation:
+                self.__zones_loaded(job, selected, media_server, generation, zones, error))
+            self.__zone_job = job
+            QThreadPool.globalInstance().start(job)
+
+    def __zones_loaded(self, job, selected, media_server, generation, zones, error):
+        if job is not self.__zone_job or generation != self.__zone_generation or self.__closed:
+            return  # server changed or dialog was closed while the request was in flight
+        self.__zone_job = None
+        self.zones.setEnabled(True)
+        self.savedConnections.setEnabled(True)
+        if error is not None:
+            self.resultText.setPlainText(error)
+            return
+        self.__media_server = media_server
+        self.__remember_name(selected)
+        for zone_name, zone_id in zones.items():
+            item = QListWidgetItem(zone_name)
+            item.setData(self.MCWS_ROLE, zone_id)
+            self.zones.addItem(item)
+        self.upload.setEnabled(bool(zones))
+        self.resultText.clear()
+
+    def reject(self):
+        self.__closed = True
+        self.__zone_generation += 1
+        super().reject()
 
     def __remember_name(self, item: QListWidgetItem):
         ''' get_zones() authenticated, so the server has told us its FriendlyName: keep it, and show it. '''

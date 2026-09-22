@@ -153,6 +153,10 @@ T12. ~~**`tvdb` identifier**~~ **Closed in chunk 35:** Preferences > JRiver now 
     lookup after the existing direct-TMDB and IMDb paths, before title/year search; missing or invalid values retain
     the existing fallback.
 
+T13. ~~**`MCWSDialog`'s zone loading is still synchronous**~~ **Closed in chunk 36:** zone discovery now runs on a
+    QRunnable. The current connection and zone controls indicate loading without blocking the UI; errors remain inline,
+    and a response arriving after the dialog closes is discarded.
+
 ### External verification required
 
 T2. **The GUI has only been exercised by offscreen pytest-qt, never by a person
@@ -186,8 +190,6 @@ T7. **DVD, multi-episode discs (§11.8).** A JRiver item cannot say which title 
     tables).
 T8. **Blu-ray `BDMV\PLAYLIST\index.bluray;N` entries** (4 shows) are passed
     through unresolved -- which title `N` names is unknown (§11.5).
-T13. **`MCWSDialog`'s zone loading is still synchronous** (§11.1).
-
 ### Intentional boundaries pending disposition
 
 T14. **`pipeline.library.registry` has no production callers** -- an unused seam
