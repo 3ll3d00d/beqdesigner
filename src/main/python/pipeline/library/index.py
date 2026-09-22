@@ -136,6 +136,7 @@ def item_from_json(data: Mapping[str, Any]) -> LibraryItem:
     data = dict(data)
     data['episodes'] = tuple(data.get('episodes') or ())
     data['art_candidates'] = tuple(data.get('art_candidates') or ())
+    data['audio_stream_details'] = tuple(data.get('audio_stream_details') or ())
     return LibraryItem(**data)
 
 
@@ -426,6 +427,33 @@ class LibraryIndex:
                 else:
                     found[row['id']] = items[0]
         return found
+
+    def select_audio_stream(self, title_id: str, audio_stream: int) -> LibraryItem:
+        '''Persist a title's chosen zero-based audio stream without re-listing its source.
+
+        The caller is responsible for invalidating the matching extraction/design after this write.  A season has
+        several independent source items, so one title-page choice would be ambiguous and is refused.
+        '''
+        with self.__lock, self.__db:
+            row = self.__db.execute('SELECT unit, items FROM titles WHERE id = ?', (title_id,)).fetchone()
+            if row is None:
+                raise KeyError(f'no indexed title {title_id!r}')
+            items = [item_from_json(data) for data in json.loads(row['items'])]
+            if row['unit'] == 'season' or len(items) != 1:
+                raise ValueError('choose an audio stream for each episode, not for a grouped season')
+            item = items[0]
+            if audio_stream < 0 or audio_stream >= len(item.audio_stream_details):
+                raise ValueError(f'audio stream {audio_stream + 1} is not available for {title_id!r}')
+            detail = item.audio_stream_details[audio_stream]
+            meta = dict(item.meta)
+            if detail.get('audio_types'):
+                meta['audio_types'] = list(detail['audio_types'])
+            else:
+                meta.pop('audio_types', None)
+            chosen = replace(item, audio_stream=audio_stream, meta=meta)
+            self.__db.execute('UPDATE titles SET items = ? WHERE id = ?',
+                              (json.dumps([item_to_json(chosen)]), title_id))
+        return chosen
 
     def entry_summaries(self, ids: Iterable[str]) -> Dict[str, str]:
         '''

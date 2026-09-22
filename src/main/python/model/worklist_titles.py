@@ -24,7 +24,7 @@ from typing import Optional
 
 from qtpy.QtCore import QItemSelectionModel, QObject, QRunnable, Qt, QThreadPool, Signal
 from qtpy.QtGui import QKeySequence, QShortcut
-from qtpy.QtWidgets import QAbstractItemView
+from qtpy.QtWidgets import QAbstractItemView, QInputDialog, QMessageBox
 
 from model.worklist_model import ID_ROLE
 from model.worklist_revise import revise_context
@@ -33,6 +33,8 @@ from model.worklist_title_actions import TitleHooks
 from pipeline.library.index import LibraryIndex
 from pipeline.library.profile import Profile
 from pipeline.library.status import ScanSettings
+from pipeline.library.revise import revise_entry
+from pipeline.review import read_entry, update_entry
 
 logger = logging.getLogger('worklist')
 
@@ -115,7 +117,8 @@ class WorkListTitles:
             hooks = TitleHooks(open_project=self._open_project, work_dir=self._title_work_dir,
                                revise_context=lambda: revise_context(self._setup), revise_blocked=self._revise_blocked,
                                retry_failed=lambda title_id: self.retry_failed([title_id]),
-                               open_jriver_preferences=self.preferences_requested.emit)
+                               open_jriver_preferences=self.preferences_requested.emit,
+                               choose_audio_stream=self._choose_audio_stream)
             self._title_page = TitlePage(self, self._preferences, self._title_queue_dir, self._rows_by_id,
                                          lambda: self._model.running, self._title_meta_defaults, hooks=hooks)
             self._title_page.back_requested.connect(self.close_title)
@@ -139,6 +142,64 @@ class WorkListTitles:
     def _title_work_dir(self) -> str:
         settings = self._setup.settings
         return settings.work_dir if settings is not None else ''
+
+    def _choose_audio_stream(self, title_id: str) -> bool:
+        '''Persist a one-based UI choice, sync its automatic JRiver metadata, and send existing work back to extract.'''
+        if self._index is None or title_id in self._model.running:
+            return False
+        try:
+            old = self._index.units([title_id]).get(title_id)
+            if old is None or not hasattr(old, 'audio_stream_details') or not old.audio_stream_details:
+                raise ValueError('this source did not provide an audio-stream list; rescan the library first')
+            labels = []
+            for i, detail in enumerate(old.audio_stream_details):
+                bits = [detail.get('codec', ''), detail.get('channels', '') + ' channels' if detail.get('channels') else '']
+                labels.append(f'{i + 1}: ' + ' '.join(bit for bit in bits if bit).strip())
+            value, accepted = QInputDialog.getInt(self, 'Choose audio stream',
+                                                   'Audio stream (see the list below):\n' + '\n'.join(labels),
+                                                   old.audio_stream + 1, 1, len(labels))
+            if not accepted:
+                return False
+            if value - 1 == old.audio_stream:
+                return False
+            answer = QMessageBox.question(self, 'Re-extract selected stream',
+                                           f'Use audio stream {value}? This invalidates the cached extraction and design; '
+                                           'the next run will extract and design this stream.')
+            if answer != QMessageBox.StandardButton.Yes:
+                return False
+            try:
+                entry = read_entry(self._title_queue_dir(), title_id)
+            except FileNotFoundError:
+                entry = None
+            if entry is not None:
+                context = revise_context(self._setup)
+                if context is None:
+                    raise ValueError('library settings need a queue and work directory before re-extracting')
+            if entry is not None:
+                # Do the potentially fallible published-repository checks before persisting either half of the new
+                # choice.  A refusal therefore leaves both the entry and indexed source selection untouched.
+                revise_entry(self._title_queue_dir(), title_id, 'extract',
+                             f'Audio stream {value} selected', work_dir=context.work_dir,
+                             xml_repo=context.xml_repo, images_repo=context.images_repo,
+                             xml_dir=context.xml_dir, image_dir=context.image_dir)
+            chosen = self._index.select_audio_stream(title_id, value - 1)
+            if entry is not None:
+                # If the saved value is still the source-generated one, it is safe to refresh it.  Any different
+                # value was explicitly edited by the reviewer and remains authoritative.
+                meta = dict(entry.meta)
+                if 'audio_types' not in meta or meta.get('audio_types') == old.meta.get('audio_types'):
+                    if chosen.meta.get('audio_types'):
+                        meta['audio_types'] = chosen.meta['audio_types']
+                    else:
+                        meta.pop('audio_types', None)
+                update_entry(self._title_queue_dir(), title_id, audio_stream=value - 1, meta=meta)
+            self._index_dirty = True
+            self._on_title_revised(title_id, 'extract')
+            return True
+        except Exception as error:
+            logger.exception('Could not change audio stream for %s', title_id)
+            QMessageBox.warning(self, 'Audio stream not changed', f'{type(error).__name__}: {error}')
+            return False
 
     def _revise_blocked(self, title_id: str, status: str) -> str:
         '''

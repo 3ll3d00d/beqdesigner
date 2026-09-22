@@ -243,6 +243,11 @@ the wider rename lands.
 
 **41 -- Selected-stream metadata resync and override**
 
+**Implemented against chunk 40's current first-stream stub (`0b7f0b5`).** JRiver's per-stream codec/channel
+descriptions are retained as operational source data, not published metadata. The work-list title page can select one,
+confirms re-extraction, preserves an edited `audio_types` value, and sends existing work back to extraction. The missing
+Playback Info/ffprobe reconciliation remains chunk 40 work; the selection UI will automatically use its resolved ordinal.
+
 - Resolve the selected stream's codec/channel details against JRiver's
   `Audio Codec`/`Audio Channels` lists and ffprobe data, then resync the
   verified BEQ audio type into `QueueEntry.meta['audio_types']`. It must reach

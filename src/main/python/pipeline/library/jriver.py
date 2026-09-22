@@ -247,8 +247,9 @@ class JRiverLibrarySource:
             year=_value(row, 'Year') or _value(row, 'Date (year)') or None,
             kind=kind,
             external_ids=self._external_ids(row, kind),
-            meta=_metadata(row),
+            meta=_metadata(row, _selected_audio_stream(row)),
             audio_stream=_selected_audio_stream(row),
+            audio_stream_details=_audio_stream_details(row),
             art_candidates=self._art_candidates(_value(row, 'Image File'), source_path),
             fingerprint=fingerprint,
             season=season,
@@ -277,18 +278,59 @@ class JRiverLibrarySource:
         return ids
 
 
-def _metadata(row: Mapping[str, Any]) -> dict:
+def _metadata(row: Mapping[str, Any], audio_stream: int = 0) -> dict:
     '''The catalogue metadata JRiver already knows; TMDB may enrich it later, but never has to replace it.'''
     values = {'edition': _value(row, 'Edition'), 'overview': _value(row, 'Description'),
               'rating': _value(row, 'Rating'), 'runtime': _value(row, 'Length'),
               'language': _value(row, 'Audio Language')}
-    audio = _value(row, 'Audio Format')
-    if audio:
-        values['audio_types'] = [part.strip() for part in audio.replace(';', ',').split(',') if part.strip()]
+    # Older JRiver configurations expose only ``Audio Format``.  That is one aggregate display field, not one value
+    # per stream, so preserve its established comma/semicolon list rather than pretending it is selectable.
+    legacy_audio = _value(row, 'Audio Format') if not _value(row, 'Audio Codec') else ''
+    details = _audio_stream_details(row)
+    if legacy_audio:
+        values['audio_types'] = [part.strip() for part in legacy_audio.replace(';', ',').split(',') if part.strip()]
+    elif 0 <= audio_stream < len(details) and details[audio_stream]['audio_types']:
+        values['audio_types'] = list(details[audio_stream]['audio_types'])
     genres = [name.strip() for name in _value(row, 'Genre').replace(';', ',').split(',') if name.strip()]
     if genres:
         values['genres'] = [{'name': name} for name in genres]
     return {key: value for key, value in values.items() if value not in ('', [], None)}
+
+
+def _audio_stream_details(row: Mapping[str, Any]) -> tuple[dict, ...]:
+    '''JRiver's semicolon-delimited stream fields, made selectable without leaking them into published metadata.'''
+    codecs = _split_streams(_value(row, 'Audio Codec') or _value(row, 'Audio Format'))
+    channels = _split_streams(_value(row, 'Audio Channels'))
+    count = max(len(codecs), len(channels), int(_value(row, 'Audio Streams') or 0))
+    return tuple({'codec': codecs[i] if i < len(codecs) else '',
+                  'channels': channels[i] if i < len(channels) else '',
+                  'audio_types': _audio_types(codecs[i] if i < len(codecs) else '',
+                                               channels[i] if i < len(channels) else '')}
+                 for i in range(count))
+
+
+def _split_streams(value: str) -> list[str]:
+    return [part.strip() for part in value.split(';')] if value else []
+
+
+def _audio_types(codec: str, channels: str) -> tuple[str, ...]:
+    '''Translate the JRiver names into the same controlled choices as the metadata panel.'''
+    text, count = codec.lower(), str(channels).strip()
+    if 'atmos' in text and 'truehd' in text:
+        return ('Atmos',)
+    if 'dts:x' in text:
+        return ('DTS:X',)
+    if 'truehd' in text:
+        return (f'TrueHD {"7.1" if count in ("8", "7") else "5.1"}',)
+    if 'dts-hd' in text or 'dts hd' in text:
+        return (f'DTS-HD MA {"7.1" if count in ("8", "7") else "6.1" if count == "7" else "5.1"}',)
+    if 'e-ac3' in text or 'eac3' in text:
+        return ('DD+ Atmos' if 'atmos' in text else 'DD+',)
+    if 'ac-3' in text or 'ac3' in text:
+        return ('DD 5.1',) if count == '6' else ()
+    if 'pcm' in text:
+        return (f'LPCM {"7.1" if count in ("8", "7") else "5.1"}',) if count in ('6', '7', '8') else ()
+    return ()
 
 
 def _selected_audio_stream(row: Mapping[str, Any]) -> int:

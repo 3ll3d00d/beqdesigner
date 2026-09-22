@@ -27,6 +27,9 @@ class LibraryItem:
                                               # identifiers the source can supply; empty if it can't
                                               # (design/library-sync-pipeline-plan.md §3.1.1)
     audio_stream: int = 0
+    # Source-provided descriptions, in ffmpeg audio-stream order.  This is deliberately separate from ``meta``:
+    # it is operational data used when a reviewer selects another stream, not BEQ metadata to publish.
+    audio_stream_details: tuple = ()
     playlist_name: Optional[str] = None      # BD only, forwarded to Session.extract()
     art_path: Optional[str] = None           # a local poster/cover file the source already has, if any
                                               # (§3.1.3)

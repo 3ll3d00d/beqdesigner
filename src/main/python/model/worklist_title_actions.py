@@ -58,6 +58,7 @@ class TitleHooks:
     commit_state: Optional[Callable[[str], str]] = None
     retry_failed: Optional[Callable[[str], bool]] = None
     open_jriver_preferences: Optional[Callable[[], None]] = None
+    choose_audio_stream: Optional[Callable[[str], bool]] = None
 
 
 class TitleActionsBar(QWidget):
@@ -66,6 +67,7 @@ class TitleActionsBar(QWidget):
     revise_requested = Signal()
     retry_requested = Signal()
     jriver_preferences_requested = Signal()
+    audio_stream_requested = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -81,20 +83,23 @@ class TitleActionsBar(QWidget):
         self.reviseButton = QPushButton('Reopen / Revise...')
         self.retryButton = QPushButton('Retry failed extraction')
         self.jriverPreferencesButton = QPushButton('Open JRiver path mappings')
+        self.audioStreamButton = QPushButton('Choose audio stream...')
         for button in (self.monoButton, self.multichannelButton, self.reviseButton, self.retryButton,
-                       self.jriverPreferencesButton):
+                       self.jriverPreferencesButton, self.audioStreamButton):
             button.setAutoDefault(False)   # Enter in a field must never press one (design.md §12.1)
         self.monoButton.clicked.connect(lambda: self.open_requested.emit(MONO))
         self.multichannelButton.clicked.connect(lambda: self.open_requested.emit(MULTICHANNEL))
         self.reviseButton.clicked.connect(lambda: self.revise_requested.emit())
         self.retryButton.clicked.connect(self.retry_requested.emit)
         self.jriverPreferencesButton.clicked.connect(self.jriver_preferences_requested.emit)
+        self.audioStreamButton.clicked.connect(self.audio_stream_requested.emit)
         for widget in (self.projectsLabel, self.monoButton, self.multichannelButton):
             row.addWidget(widget)
         row.addWidget(self.projectBadge, 1)
         row.addWidget(self.reviseButton)
         row.addWidget(self.retryButton)
         row.addWidget(self.jriverPreferencesButton)
+        row.addWidget(self.audioStreamButton)
         outer.addLayout(row)
         self.messageLabel = QLabel()
         self.messageLabel.setWordWrap(True)
@@ -146,6 +151,7 @@ class TitleActions:
         self._bar.revise_requested.connect(lambda: self.revise())
         self._bar.retry_requested.connect(self.retry_failed)
         self._bar.jriver_preferences_requested.connect(self.open_jriver_preferences)
+        self._bar.audio_stream_requested.connect(self.choose_audio_stream)
 
     @property
     def actions_bar(self) -> TitleActionsBar:
@@ -256,6 +262,11 @@ class TitleActions:
         mapping_problem = row is not None and 'Preferences > JRiver' in row.detail
         self._bar.jriverPreferencesButton.setVisible(mapping_problem)
         self._bar.jriverPreferencesButton.setEnabled(mapping_problem and self._hooks.open_jriver_preferences is not None)
+        can_choose_stream = self._hooks.choose_audio_stream is not None and self._title_id not in self._running()
+        self._bar.audioStreamButton.setVisible(self._hooks.choose_audio_stream is not None)
+        self._bar.audioStreamButton.setEnabled(can_choose_stream)
+        self._bar.audioStreamButton.setToolTip('Choose the source audio stream, then re-extract and redesign this title.'
+                                               if can_choose_stream else 'Wait for the current run to finish before changing stream.')
 
     def open_jriver_preferences(self) -> None:
         opener = self._hooks.open_jriver_preferences
@@ -267,6 +278,10 @@ class TitleActions:
         if retry is None:
             return False
         return retry(self._title_id)
+
+    def choose_audio_stream(self) -> bool:
+        chooser = self._hooks.choose_audio_stream
+        return bool(chooser and chooser(self._title_id))
 
     def _summary(self) -> ReviseSummary:
         row = self._rows().get(self._title_id)
