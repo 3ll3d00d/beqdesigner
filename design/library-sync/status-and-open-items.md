@@ -122,11 +122,13 @@ links and commit notes stay meaningful.
 T17. **JRiver's selected audio stream is not carried into BEQ metadata** --
 the current library path selects its default first ffprobe audio stream, while
 the metadata comes from broad JRiver fields rather than the selected stream.
-Chunk 40 records the required work: parse JRiver `Playback Info`, match its
-container stream id to ffprobe's global stream index, then persist the matched
-codec/channel type as `QueueEntry.meta['audio_types']` without overwriting a
-reviewer edit. The real `Playback Info` shape has now been observed; parsing,
-sanitised fixture coverage and propagation are still **todo**.
+Chunk 40 now requests `Playback Info` and has a deliberately first-stream
+resolver stub; its remaining work is parsing and matching the container stream
+id to ffprobe's global stream index. Chunk 41 is the separate **todo** for
+resyncing the matched codec/channel type into `QueueEntry.meta['audio_types']`,
+reviewer-safe preservation of edits, a visible per-title override and explicit
+re-extraction/redesign. The real `Playback Info` shape has been observed, but
+the parser and all metadata/override behaviour remain unbuilt.
 
 ### Closed
 

@@ -2,7 +2,7 @@
 
 > Part of the library sync plan -- **start at the index**:
 > [`../library-sync-pipeline-plan.md`](../library-sync-pipeline-plan.md).
-> Contains §13. Status: chunk 29 is **built** in `791af5b`; chunks 30-40 turn
+> Contains §13. Status: chunk 29 is **built** in `791af5b`; chunks 30-41 turn
 > the post-M5 audit into small, independently reviewable pieces.
 
 ## 13. Sweep-up after M5
@@ -46,9 +46,10 @@ origin and sanitisation in the fixture’s adjacent test/docstring.
 (TVDB, `4036bd5`), 36 (async zones, `e87f4bb`), and 38 (boundary
 dispositions, `323ac81`). The follow-up review fixes are `5a7545a`.
 
-**To do:** 39, the JSON-output migration, and 40, carrying JRiver's selected
-audio stream into BEQ metadata. Chunk 39 still needs terminology and profile
-migration, the remaining source-record/aggregate test migration, the
+**In progress:** 39, the JSON-output migration, and 40, the JRiver Playback
+Info stream resolver. **To do:** 41, selected-stream metadata resync and a
+safe per-title override/re-extract path. Chunk 39 still needs terminology and
+profile migration, the remaining source-record/aggregate test migration, the
 BEQDesigner → BEQCatalogue → `CatalogueEntry` round trip, and record-repo
 onboarding.
 
@@ -72,6 +73,7 @@ the acceptance run). These must not be closed from fake-server tests.
 38 boundary disposition       <- 29
 39 JSON-output completion      <- d8f4219, be708773b
 40 JRiver selected audio meta  <- sanitised Playback Info fixture
+41 selected-stream metadata    <- 40
 ```
 
 Chunks 34-36 and 38 can proceed in parallel. Chunks 30 and 31 have no safe
@@ -220,7 +222,7 @@ location and optional image location, then derives the containing git root and
 relative destination. The persistent keys remain compatibility plumbing until
 the wider rename lands.
 
-**40 -- Selected JRiver audio stream in BEQ metadata**
+**40 -- JRiver Playback Info stream resolver**
 
 - Request JRiver's `Playback Info` beside the browse metadata and parse its
   length-prefixed structure to obtain the selected container stream. A live
@@ -230,18 +232,33 @@ the wider rename lands.
 - Probe the same file with ffprobe and match the selected JRiver value to the
   global `streams[].index` list. Select the matched **audio** stream; only an
   absent/unparseable Playback Info value uses the existing first-audio-stream
-  default, with a truthful diagnostic rather than a silent guess.
+  default, with a truthful diagnostic rather than a silent guess. The initial
+  implementation is intentionally a stub that returns the established first
+  audio stream while keeping `Playback Info` at this boundary; parsing remains
+  the open part of this chunk.
+- Add a sanitised fixture of the observed Playback Info shape and focused
+  parser, ffprobe-matching and malformed/missing/non-audio tests.
+- **Done when:** the selected JRiver track and the extracted ffprobe track are
+  demonstrably the same.
+
+**41 -- Selected-stream metadata resync and override**
+
 - Resolve the selected stream's codec/channel details against JRiver's
-  `Audio Codec`/`Audio Channels` lists and ffprobe data, then carry the
+  `Audio Codec`/`Audio Channels` lists and ffprobe data, then resync the
   verified BEQ audio type into `QueueEntry.meta['audio_types']`. It must reach
   publication as `beq_audioTypes` and must never overwrite a reviewer's
   explicit metadata edit.
-- Add a sanitised fixture of the observed Playback Info shape and focused
-  parser, ffprobe-matching, extraction and queue/publication metadata tests,
-  including malformed, missing and non-audio selections.
-- **Done when:** the selected JRiver track and the extracted ffprobe track are
-  demonstrably the same, and the accepted catalogue record names that track's
-  audio type.
+- Show the resolved stream on the title page, allow a reviewer to select an
+  alternate audio stream, and record the choice explicitly rather than only
+  inside an extraction fingerprint.
+- A changed selection invalidates the cached extract and dependent design,
+  confirms what will be re-extracted/redesigned, and leaves accepted/published
+  work protected until the reviewer explicitly reopens it.
+- Add metadata-resync, stream-selection, cache invalidation/re-extraction and
+  reviewer-edit-preservation tests.
+- **Done when:** a reviewer can see and change the selected track, the required
+  re-extraction is explicit, and the accepted catalogue record names the
+  selected track's audio type.
 
 ### 13.6 Completion reporting
 

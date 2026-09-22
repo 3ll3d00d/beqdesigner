@@ -143,6 +143,7 @@ class JRiverLibrarySource:
     FIELDS = (
         'Filename', 'Name', 'Year', 'Date Modified', 'File Size', 'Image File', 'Media Sub Type', 'Series',
         'Season', 'Episode', 'Genre', 'Description', 'Rating', 'Length', 'Audio Format', 'Audio Language', 'Edition',
+        'Playback Info',
     )
     DEFAULT_EXTERNAL_ID_FIELDS = DEFAULT_EXTERNAL_ID_FIELDS
 
@@ -247,6 +248,7 @@ class JRiverLibrarySource:
             kind=kind,
             external_ids=self._external_ids(row, kind),
             meta=_metadata(row),
+            audio_stream=_selected_audio_stream(row),
             art_candidates=self._art_candidates(_value(row, 'Image File'), source_path),
             fingerprint=fingerprint,
             season=season,
@@ -287,6 +289,19 @@ def _metadata(row: Mapping[str, Any]) -> dict:
     if genres:
         values['genres'] = [{'name': name} for name in genres]
     return {key: value for key, value in values.items() if value not in ('', [], None)}
+
+
+def _selected_audio_stream(row: Mapping[str, Any]) -> int:
+    '''
+    The audio-stream ordinal for extraction.
+
+    JRiver's Playback Info contains a length-prefixed ``Streams`` record, but its values are container stream ids
+    (not audio-list offsets) and need reconciling with ffprobe's global stream indices.  The resolver is deliberately
+    a stable seam while chunk 40 adds that parser; until then it retains the established first-audio-stream behaviour.
+    Reading the field now lets a later parser be introduced without changing the browse boundary again.
+    '''
+    _ = _value(row, 'Playback Info')
+    return 0
 
 
 def _kind(row: Mapping[str, Any]) -> str:

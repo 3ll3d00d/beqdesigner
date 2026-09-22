@@ -98,6 +98,12 @@ def test_maps_a_browse_file_row():
     assert item.year == '2024'
     assert item.kind == 'movie'
     assert item.external_ids == {'imdb': 'tt1234567', 'tmdb': '123'}
+    assert item.audio_stream == 0  # Playback Info resolver is intentionally stubbed to the first audio stream.
+
+
+def test_requests_playback_info_before_it_can_select_a_nondefault_stream():
+    assert 'Playback Info' in JRiverLibrarySource.FIELDS
+    assert _source()._map_row(_row(**{'Playback Info': '(1:2)(7:Streams)(6:0,2,13)(2:CC)(1:0)'})).audio_stream == 0
 
 
 def test_maps_jriver_metadata_for_the_review_form():
