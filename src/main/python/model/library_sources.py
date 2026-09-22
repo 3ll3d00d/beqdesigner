@@ -188,8 +188,8 @@ class JRiverSourcePage(SourcePage):
         self.mappingsNote = QLabel('')
         self.mappingsNote.setWordWrap(True)
         self.mappingsNote.setVisible(False)
-        self.useSavedButton = QPushButton('Use the login and mappings from Preferences')
-        self.useSavedButton.setVisible(False)
+        self.useSavedButton = QPushButton('Replace profile copy with current Preferences')
+        self.useSavedButton.setToolTip('Copies the current login, path mappings and metadata fields from Preferences into this profile source.')
         self.useSavedButton.clicked.connect(self.__use_saved)
         form = QFormLayout(self)
         form.setContentsMargins(0, 0, 0, 0)
@@ -285,8 +285,8 @@ class JRiverSourcePage(SourcePage):
 
     def settings(self) -> Dict[str, Any]:
         '''
-        The chosen server and node. Where the profile already had this server, everything it held for it (login, mappings,
-        timeout...) is kept as it was, and only the node changes; a different server gets what Preferences holds for it.
+        The chosen server and node. A profile deliberately stores a copy of its connection settings so command-line and
+        scheduled runs do not depend on desktop preferences; use “Replace profile copy...” to refresh that copy.
         '''
         connection = self.selected_connection()
         if connection is None:
@@ -314,11 +314,10 @@ class JRiverSourcePage(SourcePage):
     def __update_mappings_note(self, *_):
         differs = self.__differs_from_saved()
         self.mappingsNote.setVisible(differs)
-        self.useSavedButton.setVisible(differs)
+        self.useSavedButton.setVisible(self.selected_connection() is not None)
         if differs:
-            self.mappingsNote.setText('The profile keeps its own copy of this server\'s login, path mappings and '
-                                      'metadata fields, and it differs from Preferences > JRiver. It is kept as it is '
-                                      'unless you replace it.')
+            self.mappingsNote.setText('This profile has its own copied JRiver login, path mappings and metadata fields; '
+                                      'they differ from Preferences > JRiver. Replace the profile copy to update them.')
 
     def __use_saved(self):
         connection = self.selected_connection()

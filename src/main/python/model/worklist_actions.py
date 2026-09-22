@@ -17,7 +17,7 @@ from typing import Dict, List, Optional
 
 from qtpy.QtCore import Qt, QThreadPool
 from qtpy.QtGui import QBrush
-from qtpy.QtWidgets import QAbstractItemView, QDialog, QTableWidgetItem
+from qtpy.QtWidgets import QAbstractItemView, QDialog, QPushButton, QTableWidgetItem
 
 from model.preferences import WORKLIST_PUSH
 from model.worklist_confirm import ConfirmDialog, commit_text, machine_text, publish_text, retry_text
@@ -90,6 +90,10 @@ class WorkListActions:
         self.publishButton.clicked.connect(lambda: self.publish_selected())
         self.commitButton.clicked.connect(lambda: self.commit_selected())
         self.retryButton.clicked.connect(lambda: self.retry_failed())
+        self.retryFromResultsButton = QPushButton('Retry failed titles')
+        self.retryFromResultsButton.setToolTip('Retry titles that failed in this run.')
+        self.retryFromResultsButton.clicked.connect(lambda: self.retry_failed())
+        self.resultsLayout.addWidget(self.retryFromResultsButton)
         self.cancelButton.clicked.connect(self.cancel_run)
         self.selectAllButton.clicked.connect(self.workTable.selectAll)
         self.clearSelectionButton.clicked.connect(self.workTable.clearSelection)
@@ -174,6 +178,8 @@ class WorkListActions:
         self.retryButton.setEnabled(ready and bool(failed))
         self.retryButton.setToolTip('Run the titles in the failures panel again, even though nothing changed. The panel '
                                     'lists every failed title in the library, not only those in the current view.')
+        self.retryFromResultsButton.setVisible(bool(self._failed))
+        self.retryFromResultsButton.setEnabled(ready and bool(self._failed))
         self.rescanButton.setEnabled(self._setup.ready and not self._busy())
         self._refresh_open_button()
         self._refresh_bulk_actions()

@@ -778,7 +778,7 @@ def test_a_profile_sources_own_mappings_can_be_replaced_by_those_in_preferences(
     dialogs.next = accepting(edit)
     assert drawer.sourcesTab.edit_selected() and drawer.flush()
 
-    assert seen == {'note': True, 'gone': False}
+    assert seen == {'note': True, 'gone': True}
     assert load_profile(path).source('nas').settings['path_mappings'] == [{'from': 'W:\\Films', 'to': '/mnt/films'}]
 
 
