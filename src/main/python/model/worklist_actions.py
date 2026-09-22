@@ -415,9 +415,10 @@ class WorkListActions:
         # A progress message arrives when a title-stage *starts*, and one final message arrives once the run is over.
         # Reserve that final step for the latter: an in-flight single extraction is visibly underway (50%), not 100%.
         if progress.stage == 'extract':
-            # ffmpeg follows with real `out_time_ms` updates. Until its first packet, use Qt's busy state rather than
-            # claiming a title is complete.
-            self.runProgress.setRange(0, 0)
+            # ffmpeg follows with real `out_time_ms` updates. Keep the bar empty until its first packet: Qt's busy
+            # indicator paints as a full animated bar on several styles, which reads as completed work.
+            self.runProgress.setRange(0, 100)
+            self.runProgress.setValue(0)
             self.runProgress.setFormat('Extracting…')
         else:
             self.runProgress.setRange(0, total + 1)
