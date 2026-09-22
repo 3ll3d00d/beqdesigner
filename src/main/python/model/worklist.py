@@ -451,7 +451,19 @@ class WorkListWindow(WorkListActions, WorkListTitles, WorkListBulk, QMainWindow,
         if index.row() not in {i.row() for i in self.workTable.selectionModel().selectedRows()}:
             self.workTable.selectRow(index.row())
         self._refresh_settings_state()
-        self.ignoreButton.menu().exec(self.workTable.viewport().mapToGlobal(position))
+        title_id = index.data(ID_ROLE)
+        row = self._rows_by_id().get(title_id)
+        menu = QMenu(self)
+        if row is not None and row.needs in ('extract', 'design'):
+            action = menu.addAction('Extract & design' if row.needs == 'extract' else 'Design')
+            action.triggered.connect(lambda: self._begin('design', ids=[title_id], confirm=False))
+        menu.addAction('Open review page', lambda: self.open_title(title_id))
+        menu.addSeparator()
+        menu.addAction('Ignore titles like this...', self.ignore_like_selected).setEnabled(
+            self._ignore_like_action.isEnabled())
+        menu.addAction('Ignore this title...', self.ignore_selected_titles).setEnabled(
+            self._ignore_title_action.isEnabled())
+        menu.exec(self.workTable.viewport().mapToGlobal(position))
 
     def ignore_like_selected(self) -> bool:
         '''

@@ -69,7 +69,7 @@ class WorkListTitles:
     '''
 
     def _configure_titles(self) -> None:
-        self.workTable.doubleClicked.connect(lambda index: self.open_title(index.data(ID_ROLE)))
+        self.workTable.doubleClicked.connect(lambda index: self.activate_title(index.data(ID_ROLE)))
         for key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
             # scoped to the table: a window-wide Enter would also fire from the search box
             QShortcut(QKeySequence(key), self.workTable, activated=lambda: self.open_title(),
@@ -77,6 +77,13 @@ class WorkListTitles:
         self.openButton.clicked.connect(lambda: self.open_title())
         # a run starting or leaving a title changes which decisions the page may offer for it
         self._model.dataChanged.connect(lambda *_: self._title_open and self._title_page.refresh_decisions())
+
+    def activate_title(self, title_id: str) -> bool:
+        '''Double-click does the next useful thing: machine work first, otherwise the human review page.'''
+        row = self._rows_by_id().get(title_id)
+        if row is not None and row.needs in ('extract', 'design'):
+            return self._begin('design', ids=[title_id], confirm=False)
+        return self.open_title(title_id)
 
     @property
     def title_page(self) -> Optional[TitlePage]:
