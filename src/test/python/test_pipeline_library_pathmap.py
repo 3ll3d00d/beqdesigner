@@ -3,7 +3,7 @@ import os
 
 import pytest
 
-from pipeline.library.pathmap import PathMapping, mappings_from_config, translate_path
+from pipeline.library.pathmap import PathMapping, mappings_from_config, translate_path, unmapped_path_problem
 
 FILMS = PathMapping('W:\\Films', '/mnt/films')
 
@@ -62,6 +62,14 @@ def test_an_unmapped_path_is_returned_untouched():
     assert _t('D:\\Other\\a.mkv', FILMS) == 'D:\\Other\\a.mkv'
     assert _t('/already/local/a.mkv', FILMS) == '/already/local/a.mkv'
     assert _t('W:\\Films\\a.mkv') == 'W:\\Films\\a.mkv'  # no mappings at all
+
+
+def test_unmapped_windows_paths_on_a_posix_host_have_a_safe_mapping_hint(monkeypatch):
+    monkeypatch.setattr('pipeline.library.pathmap.os.name', 'posix')
+    assert 'Preferences > JRiver' in unmapped_path_problem('W:\\Films\\a.mkv', [])
+    assert 'Preferences > JRiver' in unmapped_path_problem('\\\\nas\\media\\a.mkv', [])
+    assert unmapped_path_problem('/already/local/a.mkv', []) is None
+    assert unmapped_path_problem('W:\\Films\\a.mkv', [FILMS]) is None
 
 
 def test_a_blank_source_never_matches():

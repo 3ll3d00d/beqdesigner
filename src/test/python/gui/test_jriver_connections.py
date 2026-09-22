@@ -526,6 +526,17 @@ def test_editing_the_table_saves_at_once_without_a_connection_test(qtbot, tmp_pa
     assert not widget.addButton.isEnabled()  # nothing about the connection itself changed
 
 
+def test_local_mapping_folder_chooser_fills_the_selected_row(qtbot, tmp_path, monkeypatch):
+    widget, prefs = _widget_with(qtbot, tmp_path, {'a.local:1': (None, False)})
+    _select(widget, 'a.local:1')
+    _type_row(widget, 'W:\\Films', '')
+    monkeypatch.setattr('model.jriver.connections.QFileDialog.getExistingDirectory', lambda *args: '/mnt/films')
+
+    widget.chooseMappingFolderButton.click()
+
+    assert load_connections(prefs)[0].path_mappings == (FILMS,)
+
+
 def test_a_half_typed_row_stays_on_screen_but_is_not_saved(qtbot, tmp_path):
     widget, prefs = _widget_with(qtbot, tmp_path, {'a.local:1': (None, False)})
     _select(widget, 'a.local:1')

@@ -1,6 +1,7 @@
 '''Tests for library-source orchestration and explicit sync delegation.'''
 from dataclasses import dataclass
 
+import pytest
 import requests
 
 from pipeline.library.design_cache import DesignCacheResult
@@ -104,6 +105,18 @@ def test_run_library_marks_a_fully_cached_item_and_isolates_a_failure(tmp_path, 
     assert report.designed == []
     assert report.failed == [('broken', 'ValueError: unreadable audio')]
     assert completed == ['cached', 'broken']
+
+
+def test_an_unmapped_source_path_is_reported_with_the_mapping_hint_before_ffmpeg(tmp_path, monkeypatch):
+    item = LibraryItem(id='unmapped', source_path='W:\\Films\\Example.mkv', display_name='Example',
+                       source_path_problem='JRiver reported a Windows path with no local mapping; add one in Preferences > JRiver.')
+    monkeypatch.setattr('pipeline.library.run.Session', lambda config: _Session())
+    monkeypatch.setattr('pipeline.library.run.extract_if_needed', lambda *args: pytest.fail('must not run ffmpeg'))
+
+    report = run_library(_Source([item]), LibraryRunConfig(work_dir=str(tmp_path / 'work'),
+                                                            queue_dir=str(tmp_path / 'queue'), designer='test'))
+
+    assert report.failed == [('unmapped', 'ValueError: JRiver reported a Windows path with no local mapping; add one in Preferences > JRiver.')]
 
 
 def _run_with_meta(tmp_path, monkeypatch, resolver, **config_kwargs):

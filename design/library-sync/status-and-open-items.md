@@ -142,6 +142,12 @@ T9. ~~**The review dialog's own Publish button is XML-only and ignores `work_dir
 T10. ~~**Library view filter bar** (status / name / year / type) for the Run tab (§7).~~
     **Closed:** superseded by the work list (§12.10, chunks 26a-b); the Run tab it was for is deleted (27c).
 
+T11. ~~**No warning for a path still in Windows form on a non-Windows host**~~
+    **Closed in chunk 34:** JRiver items now carry a safe diagnostic before ffmpeg is called when a
+    drive-letter or UNC path has no local mapping on a non-Windows host. The run result tells the person to add it in
+    Preferences > JRiver, and that page's path-mapping table has a local-folder chooser. Local POSIX paths and native
+    Windows behaviour are unchanged.
+
 ### External verification required
 
 T2. **The GUI has only been exercised by offscreen pytest-qt, never by a person
@@ -175,9 +181,6 @@ T7. **DVD, multi-episode discs (§11.8).** A JRiver item cannot say which title 
     tables).
 T8. **Blu-ray `BDMV\PLAYLIST\index.bluray;N` entries** (4 shows) are passed
     through unresolved -- which title `N` names is unknown (§11.5).
-T11. **No warning for a path still in Windows form on a non-Windows host** (an
-     unmapped library fails item by item at extraction); no folder picker on the
-     path mapping's local column (§11.6).
 T12. **`tvdb` identifier** -- 1587 of 1657 live shows carry a `TheTVDB Series
      ID` TMDB can resolve; optional, not started (§11.7).
 T13. **`MCWSDialog`'s zone loading is still synchronous** (§11.1).

@@ -7,6 +7,7 @@ JRiver reports the paths as its host sees them, and does so in Windows form (`W:
 calls X is folder Y on this machine".
 '''
 import os
+import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 
@@ -15,6 +16,23 @@ from dataclasses import dataclass
 class PathMapping:
     source: str  # a folder as the server names it, e.g. 'W:\\Films' or '\\\\nas\\media'
     target: str  # the same folder on this machine, e.g. '/mnt/films'
+
+
+_WINDOWS_DRIVE_PATH = re.compile(r'^[A-Za-z]:[\\/]')
+
+
+def unmapped_path_problem(path: str, mappings: Sequence[PathMapping]) -> str | None:
+    '''
+    Explain a Windows path that this non-Windows process cannot open because no mapping claimed it.
+
+    A normal POSIX path is deliberately never diagnosed, and Windows itself leaves its native paths alone.  The
+    message contains the next useful action but not the server path: it is safe to put in an index/failure result.
+    '''
+    if os.name == 'nt' or not (_WINDOWS_DRIVE_PATH.match(path) or path.startswith('\\\\')):
+        return None
+    if translate_path(path, mappings) != path:
+        return None
+    return 'JRiver reported a Windows path with no local mapping; add one in Preferences > JRiver.'
 
 
 def _normal(path: str) -> str:

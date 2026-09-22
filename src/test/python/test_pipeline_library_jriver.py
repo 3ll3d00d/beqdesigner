@@ -102,6 +102,12 @@ def test_maps_a_browse_file_row():
     assert item.fingerprint == '{"date_modified": "1720000000", "file_size": "123456"}'
 
 
+def test_an_unmapped_windows_path_carries_a_non_sensitive_mapping_diagnostic(monkeypatch):
+    monkeypatch.setattr('pipeline.library.pathmap.os.name', 'posix')
+    item = _source()._map_row(_row(Filename='W:\\Films\\Example.mkv'))
+    assert item.source_path_problem == 'JRiver reported a Windows path with no local mapping; add one in Preferences > JRiver.'
+
+
 def test_lists_files_from_the_configured_browse_node():
     with _browse_server([_row()]) as (port, requests):
         items = list(JRiverLibrarySource('127.0.0.1', port, 42).list_items())

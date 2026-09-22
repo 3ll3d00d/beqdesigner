@@ -41,6 +41,8 @@ class LibraryItem:
     episodes: tuple = ()                     # TV: the episode numbers (ints) this item covers -- one for an
                                               # episode, several for a season grouped into a single track
                                               # (design/library-sync-pipeline-plan.md §11.9)
+    source_path_problem: Optional[str] = None  # non-sensitive source-path diagnostic, if a source knows it cannot
+                                                # be opened on this host (e.g. an unmapped JRiver Windows path)
 
 
 class LibrarySource(Protocol):

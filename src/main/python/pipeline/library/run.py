@@ -131,6 +131,8 @@ def _failed_before(index: Optional[LibraryIndex], item: LibraryItem, fingerprint
 
 def _run_item(session: Session, item: LibraryItem, run_config: LibraryRunConfig, report: LibraryRunReport,
               through: str = 'design', on_stage: Optional[Callable[[str, str], None]] = None) -> None:
+    if item.source_path_problem:
+        raise ValueError(item.source_path_problem)
     item_dir = os.path.join(run_config.work_dir, item.id)
     if on_stage is not None:
         on_stage(item.id, 'extract')

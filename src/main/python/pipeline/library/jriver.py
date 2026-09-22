@@ -17,7 +17,7 @@ from typing import Any, Optional
 from hamcws import MediaServer, get_mcws_connection
 
 from model.dvd import pseudo_file_root as dvd_pseudo_file_root
-from pipeline.library.pathmap import PathMapping, translate_path
+from pipeline.library.pathmap import PathMapping, translate_path, unmapped_path_problem
 from pipeline.library.source import LibraryItem
 
 logger = logging.getLogger('library_jriver')
@@ -235,7 +235,8 @@ class JRiverLibrarySource:
         fingerprint = json.dumps({'date_modified': modified, 'file_size': size}, sort_keys=True) \
             if modified or size else ''
 
-        source_path = translate_path(_disc_root(filename), self.path_mappings)
+        disc_path = _disc_root(filename)
+        source_path = translate_path(disc_path, self.path_mappings)
         return LibraryItem(
             id=f'jriver-{self._server_id}-{key}',
             source_path=source_path,
@@ -248,6 +249,7 @@ class JRiverLibrarySource:
             fingerprint=fingerprint,
             season=season,
             episodes=episodes,
+            source_path_problem=unmapped_path_problem(disc_path, self.path_mappings),
         )
 
     def _art_candidates(self, value: str, media_path: str) -> tuple[str, ...]:

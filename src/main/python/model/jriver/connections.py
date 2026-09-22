@@ -17,7 +17,7 @@ from typing import Optional
 import qtawesome as qta
 from qtpy.QtCore import QObject, QRunnable, Qt, QThreadPool, Signal
 from qtpy.QtWidgets import QAbstractItemView, QCheckBox, QFormLayout, QGroupBox, QHBoxLayout, QHeaderView, QLabel, \
-    QLineEdit, QListWidget, QListWidgetItem, QPlainTextEdit, QPushButton, QTableWidget, QTableWidgetItem, QToolButton, \
+    QFileDialog, QLineEdit, QListWidget, QListWidgetItem, QPlainTextEdit, QPushButton, QTableWidget, QTableWidgetItem, QToolButton, \
     QVBoxLayout, QWidget
 
 from model.jriver.mcws import MCWSError, MediaServer
@@ -243,6 +243,7 @@ class JRiverConnectionsWidget(QWidget):
         self.mappingsTable.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.mappingsTable.setMaximumHeight(110)
         self.addMappingButton = QPushButton(qta.icon('fa5s.plus'), 'Add')
+        self.chooseMappingFolderButton = QPushButton(qta.icon('fa5s.folder-open'), 'Choose local folder')
         self.removeMappingButton = QPushButton(qta.icon('fa5s.minus'), 'Remove')
         mappings_help = QLabel('JRiver reports paths as its own machine sees them, e.g. W:\\Films\\x.mkv. Map each such '
                                'folder to where it is on this machine, e.g. /mnt/films. The longest match wins; a '
@@ -251,6 +252,7 @@ class JRiverConnectionsWidget(QWidget):
         mapping_buttons = QHBoxLayout()
         mapping_buttons.addStretch()
         mapping_buttons.addWidget(self.addMappingButton)
+        mapping_buttons.addWidget(self.chooseMappingFolderButton)
         mapping_buttons.addWidget(self.removeMappingButton)
         mappings_layout = QVBoxLayout(self.mappingsGroup)
         mappings_layout.addWidget(mappings_help)
@@ -297,6 +299,7 @@ class JRiverConnectionsWidget(QWidget):
         self.addButton.clicked.connect(self.__save)
         self.deleteButton.clicked.connect(self.__delete_selected)
         self.addMappingButton.clicked.connect(self.__add_mapping)
+        self.chooseMappingFolderButton.clicked.connect(self.__choose_mapping_folder)
         self.removeMappingButton.clicked.connect(self.__remove_mapping)
         self.mappingsTable.itemChanged.connect(self.__mappings_edited)
         self.mappingsTable.itemSelectionChanged.connect(self.__update_buttons)
@@ -378,6 +381,20 @@ class JRiverConnectionsWidget(QWidget):
         if rows:
             self.__mappings_edited()
 
+    def __choose_mapping_folder(self):
+        '''Fill the selected mapping's local side without requiring that mount to exist while it is edited.'''
+        rows = sorted({index.row() for index in self.mappingsTable.selectedIndexes()})
+        if not rows:
+            return
+        row = rows[0]
+        current = self.mappingsTable.item(row, 1)
+        folder = QFileDialog.getExistingDirectory(self, 'Choose local folder', current.text() if current else '')
+        if folder:
+            if current is None:
+                current = QTableWidgetItem()
+                self.mappingsTable.setItem(row, 1, current)
+            current.setText(folder)
+
     def __table_mappings(self) -> tuple[PathMapping, ...]:
         ''' Rows with both cells filled; a half-typed row is kept on screen but not saved until it is complete. '''
         mappings = []
@@ -441,6 +458,7 @@ class JRiverConnectionsWidget(QWidget):
         self.mappingsGroup.setEnabled(editing and not busy)
         self.fieldsGroup.setEnabled(editing and not busy)
         self.removeMappingButton.setEnabled(bool(self.mappingsTable.selectedIndexes()))
+        self.chooseMappingFolderButton.setEnabled(editing and not busy and bool(self.mappingsTable.selectedIndexes()))
 
     def __test(self):
         if self.testing:
