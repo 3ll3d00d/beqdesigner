@@ -32,7 +32,7 @@ def unmapped_path_problem(path: str, mappings: Sequence[PathMapping]) -> str | N
         return None
     if translate_path(path, mappings) != path:
         return None
-    return 'JRiver reported a Windows path with no local mapping; add one in Preferences > JRiver.'
+    return f'JRiver reported {path!r}, but no local path mapping matches it; fix it in Preferences > JRiver.'
 
 
 def _normal(path: str) -> str:

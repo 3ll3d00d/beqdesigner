@@ -56,12 +56,16 @@ class TitleHooks:
     ask_revise: Optional[AskRevise] = None
     redo: str = REDO_IN_WORK_LIST
     commit_state: Optional[Callable[[str], str]] = None
+    retry_failed: Optional[Callable[[str], bool]] = None
+    open_jriver_preferences: Optional[Callable[[], None]] = None
 
 
 class TitleActionsBar(QWidget):
     ''' The row of buttons and the badge: no logic, it reports clicks. '''
     open_requested = Signal(str)     # `mono` or `multichannel`
     revise_requested = Signal()
+    retry_requested = Signal()
+    jriver_preferences_requested = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -75,15 +79,22 @@ class TitleActionsBar(QWidget):
         self.projectBadge = QLabel()
         self.projectBadge.setWordWrap(True)
         self.reviseButton = QPushButton('Reopen / Revise...')
-        for button in (self.monoButton, self.multichannelButton, self.reviseButton):
+        self.retryButton = QPushButton('Retry failed extraction')
+        self.jriverPreferencesButton = QPushButton('Open JRiver path mappings')
+        for button in (self.monoButton, self.multichannelButton, self.reviseButton, self.retryButton,
+                       self.jriverPreferencesButton):
             button.setAutoDefault(False)   # Enter in a field must never press one (design.md §12.1)
         self.monoButton.clicked.connect(lambda: self.open_requested.emit(MONO))
         self.multichannelButton.clicked.connect(lambda: self.open_requested.emit(MULTICHANNEL))
         self.reviseButton.clicked.connect(lambda: self.revise_requested.emit())
+        self.retryButton.clicked.connect(self.retry_requested.emit)
+        self.jriverPreferencesButton.clicked.connect(self.jriver_preferences_requested.emit)
         for widget in (self.projectsLabel, self.monoButton, self.multichannelButton):
             row.addWidget(widget)
         row.addWidget(self.projectBadge, 1)
         row.addWidget(self.reviseButton)
+        row.addWidget(self.retryButton)
+        row.addWidget(self.jriverPreferencesButton)
         outer.addLayout(row)
         self.messageLabel = QLabel()
         self.messageLabel.setWordWrap(True)
@@ -133,6 +144,8 @@ class TitleActions:
         self.titleRootLayout.insertWidget(self.titleRootLayout.indexOf(self.noticeLabel) + 1, self._bar)
         self._bar.open_requested.connect(lambda kind: self.open_project(kind))
         self._bar.revise_requested.connect(lambda: self.revise())
+        self._bar.retry_requested.connect(self.retry_failed)
+        self._bar.jriver_preferences_requested.connect(self.open_jriver_preferences)
 
     @property
     def actions_bar(self) -> TitleActionsBar:
@@ -233,6 +246,27 @@ class TitleActions:
         self._bar.reviseButton.setEnabled(not blocked)
         self._bar.reviseButton.setToolTip(blocked or 'Send this title back: reopen it for review, redesign it or extract '
                                                        'its audio again. You are asked what will happen first.')
+        row = self._rows().get(self._title_id)
+        failed = row is not None and (row.extract_state == 'failed' or row.design_state == 'failed')
+        can_retry = failed and self._hooks.retry_failed is not None and self._title_id not in self._running()
+        self._bar.retryButton.setVisible(failed)
+        self._bar.retryButton.setEnabled(can_retry)
+        self._bar.retryButton.setToolTip('Run this failed title again.' if can_retry else
+                                         'Wait for the current run to finish before retrying.')
+        mapping_problem = row is not None and 'Preferences > JRiver' in row.detail
+        self._bar.jriverPreferencesButton.setVisible(mapping_problem)
+        self._bar.jriverPreferencesButton.setEnabled(mapping_problem and self._hooks.open_jriver_preferences is not None)
+
+    def open_jriver_preferences(self) -> None:
+        opener = self._hooks.open_jriver_preferences
+        if opener is not None:
+            opener()
+
+    def retry_failed(self) -> bool:
+        retry = self._hooks.retry_failed
+        if retry is None:
+            return False
+        return retry(self._title_id)
 
     def _summary(self) -> ReviseSummary:
         row = self._rows().get(self._title_id)

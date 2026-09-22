@@ -106,7 +106,9 @@ class WorkListTitles:
             return False
         if self._title_page is None:
             hooks = TitleHooks(open_project=self._open_project, work_dir=self._title_work_dir,
-                               revise_context=lambda: revise_context(self._setup), revise_blocked=self._revise_blocked)
+                               revise_context=lambda: revise_context(self._setup), revise_blocked=self._revise_blocked,
+                               retry_failed=lambda title_id: self.retry_failed([title_id]),
+                               open_jriver_preferences=self.preferences_requested.emit)
             self._title_page = TitlePage(self, self._preferences, self._title_queue_dir, self._rows_by_id,
                                          lambda: self._model.running, self._title_meta_defaults, hooks=hooks)
             self._title_page.back_requested.connect(self.close_title)
