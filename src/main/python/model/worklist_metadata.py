@@ -48,7 +48,7 @@ from typing import Any, Callable, Dict, List, Mapping, Optional, Set, Tuple
 import requests
 from qtpy.QtCore import QObject, QRunnable, Qt, QThreadPool, Signal
 from qtpy.QtGui import QPixmap
-from qtpy.QtWidgets import QFileDialog, QLineEdit, QPushButton, QWidget
+from qtpy.QtWidgets import QCheckBox, QComboBox, QFileDialog, QHBoxLayout, QLineEdit, QPushButton, QWidget
 
 from model.preferences import TMDB_API_KEY
 from model.worklist_artwork import ArtworkError, DownloadJob, check_local_image
@@ -77,6 +77,13 @@ _TMDB_EXTRAS = ('overview', 'genres', 'collection')   # from a TMDB reload: kept
 _FILL_FROM_TMDB = ('title', 'alt_title', 'year', 'rating', 'runtime', 'the_movie_db')
 _PROBLEM_FIELD = (('title', 'titleField'), ('year', 'yearField'), ('audio type', 'audioTypesField'),
                   ('episodes', 'episodesField'))
+_AUDIO_TYPES = ('Atmos', 'TrueHD 7.1', 'TrueHD 5.1', 'DTS:X', 'DTS-HD MA 7.1', 'DTS-HD MA 6.1',
+                'DTS-HD MA 5.1', 'DD+ Atmos', 'DD+', 'DD 5.1', 'LPCM 7.1', 'LPCM 5.1')
+_SOURCES = ('Disc', 'Apple TV+', 'Amazon', 'DC Universe', 'Disney+', 'HBOMax', 'Hulu', 'iTunes', 'Netflix',
+            'Paramount+', 'Peacock')
+_LANGUAGES = ('English', 'Danish', 'French', 'German', 'Italian', 'Norwegian', 'Portuguese', 'Russian', 'Spanish',
+              'Arabic', 'Farsi', 'Hebrew', 'Turkish', 'Hindi', 'Tamil', 'Telugu', 'Bengal', 'Cantonese', 'Japanese',
+              'Korean', 'Mandarin', 'Indonesian', 'Thai', 'Vietnamese', 'Swahili', 'Mayan')
 
 
 # --- what is said and what is written (no widgets) ---------------------------------------------------------------------------
@@ -226,6 +233,7 @@ class MetadataPanel(QWidget, Ui_metadataPanel):
         self._error = ''                # why the entry could not be read, if that is why there is none
         self._highlighted: Optional[QLineEdit] = None
         self._boxes = {key: getattr(self, attr) for key, attr in _FIELDS.items()}
+        self._build_typed_choices()
         # A box that is being destroyed while it has the keyboard says `editingFinished`: by then the panel is half gone and
         # saving into it (or writing its status line) crashes the process. Once Qt has begun deleting the panel nothing is saved.
         self._going = going = [False]
@@ -246,6 +254,61 @@ class MetadataPanel(QWidget, Ui_metadataPanel):
         self.clearArtButton.clicked.connect(lambda: self.clear_art())
         self.artUrlField.returnPressed.connect(lambda: self.download_art())
         self._refresh_enabled()
+
+    def _build_typed_choices(self) -> None:
+        '''Use the AVS Post Builder's fixed audio/source/language vocabulary while retaining unknown JRiver values.'''
+        self.essentialsForm.removeWidget(self.audioTypesField)
+        # Compatibility bridge for saved projects and keyboard automation: the real editor is the checkbox group.
+        self.audioTypesField.setFixedSize(1, 1)
+        self.audioTypesField.move(-100, -100)
+        self.audioTypesField.textChanged.connect(lambda *_: self._sync_typed_choices())
+        audio_host = QWidget(self)
+        audio_layout = QHBoxLayout(audio_host)
+        audio_layout.setContentsMargins(0, 0, 0, 0)
+        self.audioTypeChecks = []
+        for name in _AUDIO_TYPES:
+            box = QCheckBox(name, audio_host)
+            box.toggled.connect(self._audio_types_changed)
+            self.audioTypeChecks.append(box)
+            audio_layout.addWidget(box)
+        self.essentialsForm.setWidget(2, self.essentialsForm.ItemRole.FieldRole, audio_host)
+        self.languagePicker = self._choice_picker(self.languageField, _LANGUAGES)
+        self.sourcePicker = self._choice_picker(self.sourceField, _SOURCES)
+        self.moreForm.removeWidget(self.languageField)
+        self.moreForm.removeWidget(self.sourceField)
+        self.moreForm.setWidget(2, self.moreForm.ItemRole.FieldRole, self.languagePicker)
+        self.moreForm.setWidget(3, self.moreForm.ItemRole.FieldRole, self.sourcePicker)
+
+    def _choice_picker(self, field: QLineEdit, choices) -> QComboBox:
+        field.setFixedSize(1, 1)
+        field.move(-100, -100)
+        picker = QComboBox(self)
+        picker.setEditable(True)
+        picker.addItems(choices)
+        picker.currentTextChanged.connect(lambda value, box=field: self._choice_changed(box, value))
+        return picker
+
+    def _choice_changed(self, field: QLineEdit, value: str) -> None:
+        if field.text() != value:
+            field.setText(value)
+            self._on_typed(next(key for key, box in self._boxes.items() if box is field))
+
+    def _audio_types_changed(self) -> None:
+        value = ', '.join(box.text() for box in self.audioTypeChecks if box.isChecked())
+        if self.audioTypesField.text() != value:
+            self.audioTypesField.setText(value)
+            self._on_typed('audio_types')
+
+    def _sync_typed_choices(self) -> None:
+        selected = set(parse_audio_types(self.audioTypesField.text()))
+        for box in self.audioTypeChecks:
+            box.blockSignals(True)
+            box.setChecked(box.text() in selected)
+            box.blockSignals(False)
+        for field, picker in ((self.languageField, self.languagePicker), (self.sourceField, self.sourcePicker)):
+            picker.blockSignals(True)
+            picker.setCurrentText(field.text())
+            picker.blockSignals(False)
 
     # --- showing an entry ---------------------------------------------------------------------------------------------------
 
@@ -277,6 +340,7 @@ class MetadataPanel(QWidget, Ui_metadataPanel):
         for key, text in field_texts(meta).items():
             if key not in self._dirty and self._boxes[key].text() != text:
                 self._boxes[key].setText(text)
+        self._sync_typed_choices()
         genres = meta.get('genres') or []
         self.genresLabel.setText(', '.join(g.get('name', '') for g in genres if isinstance(g, dict)))
         self._render_art()
@@ -293,6 +357,10 @@ class MetadataPanel(QWidget, Ui_metadataPanel):
         editable = self._editable()
         for box in self._boxes.values():
             box.setReadOnly(not editable)
+        for box in self.audioTypeChecks:
+            box.setEnabled(editable)
+        for picker in (self.languagePicker, self.sourcePicker):
+            picker.setEnabled(editable)
         for widget in (self.artUrlField, self.browseArtButton, self.clearArtButton):
             widget.setEnabled(editable)
         self.reloadTmdbButton.setEnabled(editable and not self._tmdb_busy)

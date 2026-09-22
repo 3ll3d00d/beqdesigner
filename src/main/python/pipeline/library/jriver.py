@@ -141,7 +141,8 @@ class JRiverLibrarySource:
     # 'Year' comes back as 'Date (year)' -- so _map_row() reads both. The external id fields are added to these
     # from external_id_fields (see requested_fields).
     FIELDS = (
-        'Filename', 'Year', 'Date Modified', 'File Size', 'Image File',
+        'Filename', 'Name', 'Year', 'Date Modified', 'File Size', 'Image File', 'Media Sub Type', 'Series',
+        'Season', 'Episode', 'Genre', 'Description', 'Rating', 'Length', 'Audio Format', 'Audio Language', 'Edition',
     )
     DEFAULT_EXTERNAL_ID_FIELDS = DEFAULT_EXTERNAL_ID_FIELDS
 
@@ -245,13 +246,13 @@ class JRiverLibrarySource:
             year=_value(row, 'Year') or _value(row, 'Date (year)') or None,
             kind=kind,
             external_ids=self._external_ids(row, kind),
+            meta=_metadata(row),
             art_candidates=self._art_candidates(_value(row, 'Image File'), source_path),
             fingerprint=fingerprint,
             season=season,
             episodes=episodes,
             source_path_problem=unmapped_path_problem(disc_path, self.path_mappings),
         )
-
     def _art_candidates(self, value: str, media_path: str) -> tuple[str, ...]:
         '''
         Where the poster might be. `Image File` is INTERNAL (JRiver-managed, not a file), an absolute path on the
@@ -272,6 +273,20 @@ class JRiverLibrarySource:
             if value:
                 ids[identifier] = value
         return ids
+
+
+def _metadata(row: Mapping[str, Any]) -> dict:
+    '''The catalogue metadata JRiver already knows; TMDB may enrich it later, but never has to replace it.'''
+    values = {'edition': _value(row, 'Edition'), 'overview': _value(row, 'Description'),
+              'rating': _value(row, 'Rating'), 'runtime': _value(row, 'Length'),
+              'language': _value(row, 'Audio Language')}
+    audio = _value(row, 'Audio Format')
+    if audio:
+        values['audio_types'] = [part.strip() for part in audio.replace(';', ',').split(',') if part.strip()]
+    genres = [name.strip() for name in _value(row, 'Genre').replace(';', ',').split(',') if name.strip()]
+    if genres:
+        values['genres'] = [{'name': name} for name in genres]
+    return {key: value for key, value in values.items() if value not in ('', [], None)}
 
 
 def _kind(row: Mapping[str, Any]) -> str:

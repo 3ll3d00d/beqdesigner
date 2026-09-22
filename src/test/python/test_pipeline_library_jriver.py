@@ -98,6 +98,16 @@ def test_maps_a_browse_file_row():
     assert item.year == '2024'
     assert item.kind == 'movie'
     assert item.external_ids == {'imdb': 'tt1234567', 'tmdb': '123'}
+
+
+def test_maps_jriver_metadata_for_the_review_form():
+    item = _source()._map_row(_row(Genre='Action; Thriller', Description='A description', Rating='PG-13',
+                                    Length='148', **{'Audio Format': 'Atmos, TrueHD 7.1',
+                                                       'Audio Language': 'English', 'Edition': 'Director\'s Cut'}))
+
+    assert item.meta == {'genres': [{'name': 'Action'}, {'name': 'Thriller'}], 'overview': 'A description',
+                         'rating': 'PG-13', 'runtime': '148', 'audio_types': ['Atmos', 'TrueHD 7.1'],
+                         'language': 'English', 'edition': "Director's Cut"}
     assert item.art_path is None
     assert item.fingerprint == '{"date_modified": "1720000000", "file_size": "123456"}'
 

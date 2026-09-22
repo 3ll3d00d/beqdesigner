@@ -463,7 +463,7 @@ def test_the_form_is_usable_at_the_minimum_window_size(qtbot, tmp_path, size):
     qtbot.wait(100)
 
     panel = page.metadata
-    assert panel.titleField.width() >= 200 and panel.audioTypesField.width() >= 200      # 40px before
+    assert panel.titleField.width() >= 200 and panel.audioTypeChecks[0].width() >= 40
     assert not panel.metadataScroll.horizontalScrollBar().isVisible()                    # never a sideways scroll
     assert panel.artworkBox.isVisible() and panel.browseArtButton.isVisible()            # the artwork is in the same column
     form = panel.metadataFormHost
