@@ -17,6 +17,8 @@ affected title, and redact common authentication headers. Publish and commit
 stay serialized because they update shared catalogue files and repository state.
 The follow-up review also found and fixed stale partial progress after failure
 in `86045b9`; regression coverage is in `e608ca0`.**
+**§15 is a forward remediation design for the remaining parallel-run UI and
+runtime-state findings. Chunk 43 is not started.**
 Written 2026-09-17. Builds on the
 headless pipeline in `pipeline/` (see `pipeline/README.md` and
 `design/api-headless-pipeline.md`/`pipeline-implementation-plan.md`,
@@ -53,6 +55,7 @@ the design lives. It is usually all you need to decide what to do next. The desi
 | §12.13 | [`library-sync/workflow-rework/implementation-order.md`](library-sync/workflow-rework/implementation-order.md) | chunks 19-28: order, dependencies, milestones, risks | chunks 19-25 and 26a-27c built (M4: the title page with its metadata, projects, revise and bulk accept, the old dialogs retired); 28 (M5, the documentation) built in `ecd8cef` |
 | §13 | [`library-sync/sweep-up.md`](library-sync/sweep-up.md) | follow-on completion plan: live verification, JRiver and disc gaps, path UX, TVDB, season fidelity, JSON-output completion, selected-audio metadata | done: 29, 34-36, 38, 41; in progress: 39-40; externally blocked: 30-33, 37 |
 | §14 | [`library-sync/worklist-parallel-runs.md`](library-sync/worklist-parallel-runs.md) | stage-specific concurrency, per-row progress and details controls, and explicit action buttons | 42a (`817569c`), 42b (`0f62322`), 42c (`5599089`) and 42d (`7e84203`) built |
+| §15 | [`library-sync/worklist-parallel-runs-remediation.md`](library-sync/worklist-parallel-runs-remediation.md) | forward design for aggregate progress, Details behavior, run-history lifetime and cancellation wording | design, not built; chunk 43 not started |
 | JSON output migration | [`library-sync/catalogue-json-output.md`](library-sync/catalogue-json-output.md) | BEQCatalogue filter-record output contract and migration scope | chunk 39 in progress |
 | Appendix A-D | [`library-sync/archive/`](library-sync/archive/) | handoff specs for chunks 1, 2, 4, 5 | built, archival |
 
@@ -68,6 +71,7 @@ the design lives. It is usually all you need to decide what to do next. The desi
 | looking for what is still unfinished | `status-and-open-items.md` §10 |
 | working on a remaining item | `sweep-up.md`, then the topic file it names |
 | implementing parallel work-list runs | `worklist-parallel-runs.md` (§14), then the existing §12.10 UI design |
+| remediating parallel-run UI behavior | `worklist-parallel-runs-remediation.md` (§15), then `worklist-parallel-runs.md` (§14) |
 
 
 ## 1. Goal
@@ -200,4 +204,5 @@ fixture -- only chunk 8 is blocked on that mapping.
 | 39 | Complete the BEQCatalogue JSON-output migration: replace remaining `xml_*` settings, CLI flags and UI/docs terminology with filter-record names; migrate the legacy XML-specific review/commit/index tests; add an end-to-end BEQDesigner → BEQCatalogue → `CatalogueEntry` round trip; configure the production record repository in BEQCatalogue. | JSON publisher commit `d8f4219`; BEQCatalogue contract/reader `be708773b` | **In progress — core publisher landed; Settings now exposes two destination locations and derives git roots/subfolders; terminology, CLI, full round trip and onboarding remain** |
 | 40 | JRiver Playback Info resolver: request the field and turn its selected container-stream data into an ffprobe-matched audio-stream ordinal. | sanitised Playback Info fixture | **In progress — `Playback Info` is requested and the resolver seam explicitly returns the established first audio stream; parsing and ffprobe reconciliation remain** |
 | 41 | Selected-stream metadata and override: resync BEQ audio metadata from the resolved stream; let a reviewer choose a stream and safely re-extract/redesign when it changes. | 40 | **Implemented against chunk 40's first-stream resolver — commit `13e1519`: JRiver stream codec/channel descriptions drive automatic BEQ audio types; the title page persists an alternate stream, preserves a differing reviewer edit and invalidates extraction/design. A Revise > Redesign/Re-extract now hands straight into Extract & design after its row refreshes, so its label matches the outcome. ffprobe reconciliation remains part of chunk 40.** |
-| 42 | Bounded parallel work-list runs with independent extract, design and publish limits; progress in each work-list row; and a live per-title details window showing execution steps and commands. | 25, 26a-26b | **42a (`817569c`), 42b (`0f62322`), 42c (`5599089`) and 42d (`7e84203`) implemented; review fixes committed as `8edb12d` and `86045b9`; regression coverage `e608ca0`.** |
+| 42 | Bounded parallel work-list runs with independent extract and design limits; serialized publish and commit; progress in each work-list row; and a live per-title details window showing execution steps and commands. | 25, 26a-26b | **42a (`817569c`), 42b (`0f62322`), 42c (`5599089`) and 42d (`7e84203`) implemented; review fixes committed as `8edb12d` and `86045b9`; regression coverage `e608ca0`.** |
+| 43 | Remediate parallel-run UI behavior and lifecycle; clarify and cover title-level cancellation. See §15. | 42 | **In progress — 43a implemented: run-scoped event delivery, one-generation detail history and Needs/run-column notifications. Focused Qt regressions pass; 43b-43c remain.** |

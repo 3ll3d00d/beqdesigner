@@ -742,8 +742,10 @@ class WorkListWindow(WorkListActions, WorkListTitles, WorkListBulk, QMainWindow,
         self._refresh_banners()
         self._refresh_actions()
 
-    def _on_execution_event(self, event: ExecutionEvent) -> None:
-        if self._job is None:
+    def _on_execution_event(self, source_job, event: ExecutionEvent) -> None:
+        # Qt may deliver a queued signal after its worker finished. Identity
+        # ties it to the run that emitted it, even before run_id is known.
+        if self._job is None or source_job is not self._job:
             return
         if not self._active_run_id:
             self._active_run_id = event.run_id

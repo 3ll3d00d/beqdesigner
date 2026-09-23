@@ -405,6 +405,59 @@ def test_open_run_details_appends_events_while_the_title_runs(qtbot, tmp_path):
     assert 'Command: designer --version' in dialog.output.toPlainText()
 
 
+def test_a_new_run_expires_all_previous_details_and_ignores_late_events_from_the_old_job(qtbot, tmp_path):
+    index_file = make_index(tmp_path / 'work', _rows(), SOURCES, generation=2, last_scan_at=NOW - 900)
+    second_entered, release_second = threading.Event(), threading.Event()
+
+    def pipeline(profile, selection, through, *, on_event, **kwargs):
+        title_id = selection.ids[0]
+        run_id = 'first-run' if title_id == 'x-gravity' else 'second-run'
+        on_event(ExecutionEvent(run_id, title_id, 'design', 'stage_started', NOW, 'Designing'))
+        if run_id == 'second-run':
+            second_entered.set()
+            assert release_second.wait(5)
+        on_event(ExecutionEvent(run_id, title_id, '', 'title_completed', NOW + 1, title_id))
+        return StagesReport(through, 1, run=LibraryRunReport(designed=[title_id]), attempted=[title_id])
+
+    window, _ = _window(qtbot, tmp_path, pipeline=pipeline, prefs=_prefs(tmp_path))
+    window.select_ids(['x-gravity'])
+    window.run_selected()
+    old_job = window._job
+    qtbot.waitUntil(lambda: not window.is_running, timeout=10000)
+    old_event = ExecutionEvent('first-run', 'x-gravity', 'design', 'output', NOW + 2, 'late old output')
+    assert window.model.run_state('x-gravity')['has_details']
+    window._open_run_details('x-gravity')
+    old_dialog = window._detail_dialogs['x-gravity']
+    assert old_dialog.isVisible()
+
+    window.select_ids(['d-speed'])
+    window.run_selected()
+    qtbot.waitUntil(second_entered.is_set, timeout=5000)
+    assert not old_dialog.isVisible()
+    assert 'x-gravity' not in window._event_buffers
+    assert not window.model.run_state('x-gravity')['has_details']
+    window._on_execution_event(old_job, old_event)
+    assert 'x-gravity' not in window._event_buffers
+    assert 'late old output' not in window._detail_dialogs.get('x-gravity', old_dialog).output.toPlainText()
+
+    release_second.set()
+    qtbot.waitUntil(lambda: not window.is_running, timeout=5000)
+    assert window.model.run_state('d-speed')['has_details']
+    assert not window.model.run_state('x-gravity')['has_details']
+
+
+def test_needs_cell_is_notified_when_run_stage_starts_and_finishes(qtbot, tmp_path):
+    window, _ = _window(qtbot, tmp_path)
+    changed = []
+    window.model.dataChanged.connect(lambda first, last, *_: changed.append((first.column(), last.column())))
+
+    window.model.set_run_state('x-gravity', active=True, queued=False, stage='extract', text='Extracting')
+    assert _cell(window, 'x-gravity', COL_NEEDS) == '▶ Extracting...'
+    window.model.set_run_state('x-gravity', active=False, queued=False, stage='', text='')
+    assert _cell(window, 'x-gravity', COL_NEEDS) == 'Extract'
+    assert (COL_NEEDS, COL_RUN_DETAILS) in changed
+
+
 def test_run_event_buffer_is_bounded_and_reports_trimmed_output():
     from model.worklist_run_details import EventBuffer, MAX_EVENTS
 

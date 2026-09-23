@@ -369,14 +369,24 @@ class WorkListActions:
             return False
         job = RunJob(setup.index_file, setup.profile, setup.settings, run_config, publish, request, self._run_stages)
         job.signals.progress.connect(self._on_run_progress)
-        job.signals.event.connect(self._on_execution_event)
+        job.signals.event.connect(lambda event, source=job: self._on_execution_event(source, event))
         job.signals.finished.connect(self._on_run_finished)
         job.signals.errored.connect(self._on_run_failed)
         self._job = job
+        # Details is one in-memory generation for the whole window. A new run
+        # expires every title's prior history, including titles outside this
+        # run's selection.
+        for dialog in list(self._detail_dialogs.values()):
+            dialog.close()
+        self._detail_dialogs.clear()
+        self._event_buffers.clear()
         self._active_run_id = ''
         self._run_outcomes = {title_id: 'queued' for title_id in request.ids}
+        for row in self._model.rows:
+            state = self._model.run_state(row.id)
+            if state.get('has_details'):
+                self._model.set_run_state(row.id, has_details=False)
         for title_id in request.ids:
-            self._event_buffers.pop(title_id, None)
             self._model.set_run_state(title_id, active=False, queued=True, stage='', text='Queued', current=None,
                                       total=None, has_details=False)
         self._run_context = _RunContext(request, plan, rows, skipped_text,

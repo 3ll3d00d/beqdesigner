@@ -155,7 +155,9 @@ class WorkListModel(QAbstractTableModel):
             self.__running.pop(title_id, None)
         row = self.__row_of.get(title_id)
         if row is not None:
-            self.dataChanged.emit(self.index(row, COL_RUN_PROGRESS), self.index(row, COL_RUN_DETAILS))
+            # Needs displays the stage marker from __running; include it with
+            # both run columns so views and proxies repaint the whole state.
+            self.dataChanged.emit(self.index(row, COL_NEEDS), self.index(row, COL_RUN_DETAILS))
 
     def clear_active_run_states(self) -> None:
         for title_id, state in list(self.__run_state.items()):
