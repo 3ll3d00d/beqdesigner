@@ -441,7 +441,7 @@ def test_a_new_run_expires_all_previous_details_and_ignores_late_events_from_the
     release_second.set()
     assert not old_dialog.isVisible()
     assert 'x-gravity' not in window._event_buffers
-    assert not window.model.run_state('x-gravity')['has_details']
+    assert not window.model.run_state('x-gravity').get('has_details', False)
     window._on_execution_event(old_job, old_event)
     assert 'x-gravity' not in window._event_buffers
     assert 'late old output' not in window._detail_dialogs.get('x-gravity', old_dialog).output.toPlainText()
@@ -452,7 +452,7 @@ def test_a_new_run_expires_all_previous_details_and_ignores_late_events_from_the
 
     qtbot.waitUntil(lambda: not window.is_running, timeout=5000)
     assert window.model.run_state('d-speed')['has_details']
-    assert not window.model.run_state('x-gravity')['has_details']
+    assert not window.model.run_state('x-gravity').get('has_details', False)
 
 
 def test_needs_cell_is_notified_when_run_stage_starts_and_finishes(qtbot, tmp_path):
@@ -1354,3 +1354,61 @@ def test_the_tools_menu_opens_the_work_list_and_the_review_folder_and_the_classi
         for handler in list(root.handlers):
             if handler not in handlers:
                 root.removeHandler(handler)
+
+
+def test_cancelled_row_state_is_fully_expired_across_disjoint_runs_and_index_removal(qtbot, tmp_path):
+    index_file = make_index(tmp_path / 'work', _rows(), SOURCES, generation=2, last_scan_at=NOW - 900)
+    first_entered, release_first = threading.Event(), threading.Event()
+    second_entered, release_second = threading.Event(), threading.Event()
+
+    def pipeline(profile, selection, through, *, on_event, should_cancel, **kwargs):
+        ids = list(selection.ids)
+        if len(ids) > 1:
+            for title_id in ids:
+                on_event(ExecutionEvent('cancel-first', title_id, '', 'queued', NOW, 'Queued'))
+            current = ids[0]
+            on_event(ExecutionEvent('cancel-first', current, 'extract', 'progress', NOW + 1,
+                                    current=30, total=100))
+            first_entered.set()
+            assert release_first.wait(5)
+            on_event(ExecutionEvent('cancel-first', current, '', 'title_completed', NOW + 2, current))
+            not_run = ids[1:] if should_cancel() else []
+            return StagesReport(through, len(ids), run=LibraryRunReport(designed=[current]), attempted=[current],
+                                cancelled=bool(not_run), not_run=not_run)
+        title_id = ids[0]
+        on_event(ExecutionEvent('second-run', title_id, '', 'queued', NOW + 3, 'Queued'))
+        on_event(ExecutionEvent('second-run', title_id, 'design', 'stage_started', NOW + 4, 'Designing'))
+        second_entered.set()
+        assert release_second.wait(2)
+        on_event(ExecutionEvent('second-run', title_id, '', 'title_completed', NOW + 5, title_id))
+        return StagesReport(through, 1, run=LibraryRunReport(designed=[title_id]),
+                            attempted=[title_id, 'unexpected-id'])
+
+    window, _ = _window(qtbot, tmp_path, pipeline=pipeline, prefs=_prefs(tmp_path))
+    window.select_ids(['x-gravity', 'x-tenet'])
+    window.run_selected()
+    qtbot.waitUntil(first_entered.is_set, timeout=5000)
+    window.cancel_run()
+    release_first.set()
+    qtbot.waitUntil(lambda: not window.is_running, timeout=5000)
+    assert window.model.run_state('x-tenet')['text'] == 'Cancelled'
+    assert window.model.run_state('x-tenet')['has_details']
+    window.model.set_run_state('x-tenet', stage='extract', current=30, total=100, text='Cancelled')
+
+    all_rows = list(window.model.rows)
+    window.model.set_rows([row for row in all_rows if row.id != 'x-tenet'])
+    assert window.model.run_state('x-tenet') == {}
+    window.select_ids(['d-speed'])
+    window.run_selected()
+    qtbot.waitUntil(second_entered.is_set, timeout=5000)
+    try:
+        assert window.model.run_state('x-gravity') == {}
+        assert window.model.run_state('x-tenet') == {}
+        assert 'x-tenet' not in window._event_buffers
+        assert not window.model.run_state('x-gravity').get('has_details', False)
+
+        window.model.set_rows(all_rows)  # an index refresh may make the absent id visible again mid-run
+        assert window.model.run_state('x-tenet') == {}
+    finally:
+        release_second.set()
+    qtbot.waitUntil(lambda: not window.is_running, timeout=5000)

@@ -1,7 +1,6 @@
 # Work-list run state follow-up
 
-> **In progress.** Fix 44a is committed as `9761873`; fix 44b remains. This is
-> §16 of the library sync plan, scheduled as chunk 44. Chunk 43 and its acceptance coverage are recorded in
+> **Implemented.** Fix 44a is committed as `9761873`; fix 44b clears the full row-state generation at run start and discards removed ids. This is §16 of the library sync plan, scheduled as chunk 44. Chunk 43 and its acceptance coverage are recorded in
 > [§15](worklist-parallel-runs-remediation.md); this file records two defects
 > found after that implementation.
 
@@ -53,5 +52,8 @@
   commit-result assertion failures belong to the JSON-output migration;
   report them separately rather than treating a deselected run as clean.
 
-Mark chunk 44 complete in the plan index with its commit hash only after the
-regression tests and behavior changes are in the same commit.
+Verification for chunk 44:
+
+- `UV_CACHE_DIR=/tmp/beqdesigner-uv-cache PYTHONPATH=./src/main/python QT_QPA_PLATFORM=offscreen uv run pytest src/test/python/gui/test_worklist_actions.py -k 'cancelled_row_state_is_fully_expired or new_run_expires' -q` — 2 passed.
+- `UV_CACHE_DIR=/tmp/beqdesigner-uv-cache PYTHONPATH=./src/main/python uv run pytest src/test/python/test_pipeline_library_stages.py -q` — 36 passed.
+- `UV_CACHE_DIR=/tmp/beqdesigner-uv-cache PYTHONPATH=./src/main/python QT_QPA_PLATFORM=offscreen uv run pytest src/test/python/gui/test_worklist_actions.py src/test/python/gui/test_worklist_real_pipeline.py -q` — 52 passed, 3 existing JSON-output migration assertions failed (`test_commit_results_are_listed_per_title_and_per_repository`, `test_a_push_only_commit_says_push_in_its_button_its_confirmation_and_its_outcome`, `test_the_results_show_each_new_publish_and_commit_result_shape`).

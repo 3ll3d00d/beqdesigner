@@ -381,10 +381,7 @@ class WorkListActions:
         self._event_buffers.clear()
         self._active_run_id = ''
         self._run_outcomes = {title_id: 'queued' for title_id in request.ids}
-        for row in self._model.rows:
-            state = self._model.run_state(row.id)
-            if state.get('has_details'):
-                self._model.set_run_state(row.id, has_details=False)
+        self._model.clear_run_states()
         for title_id in request.ids:
             self._model.set_run_state(title_id, active=False, queued=True, stage='', text='Queued', current=None,
                                       total=None, has_details=False)

@@ -114,6 +114,9 @@ class WorkListModel(QAbstractTableModel):
         self.beginResetModel()
         self.__rows = list(rows)
         self.__row_of = {row.id: i for i, row in enumerate(self.__rows)}
+        present = set(self.__row_of)
+        self.__run_state = {title_id: state for title_id, state in self.__run_state.items() if title_id in present}
+        self.__running = {title_id: stage for title_id, stage in self.__running.items() if title_id in present}
         self.__now = self.__clock()
         self.endResetModel()
 
@@ -164,6 +167,16 @@ class WorkListModel(QAbstractTableModel):
             if state.get('active') or state.get('queued'):
                 state.update(active=False, queued=False, text='')
                 self.set_run_state(title_id, **state)
+
+    def clear_run_states(self) -> None:
+        '''Drops the whole transient run generation, including ids absent from the current index rows.'''
+        changed = set(self.__run_state) | set(self.__running)
+        self.__run_state.clear()
+        self.__running.clear()
+        for title_id in changed:
+            row = self.__row_of.get(title_id)
+            if row is not None:
+                self.dataChanged.emit(self.index(row, COL_NEEDS), self.index(row, COL_RUN_DETAILS))
 
     def run_state(self, title_id: str) -> dict:
         return dict(self.__run_state.get(title_id, {}))
