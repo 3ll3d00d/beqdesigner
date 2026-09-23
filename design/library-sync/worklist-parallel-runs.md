@@ -222,6 +222,15 @@ output before sending them to the UI. Preserve useful paths and error text.
   behavior in `docs/library/`.
 - Done when focused pipeline and GUI tests pass, the full suite passes, and
   the docs describe the shipped behavior.
+  **Done -- commit `7e84203`; integration, scheduler, settings and GUI
+  checks passed (59 pipeline/season, 45 run-config, 2 settings, and 148
+  work-list GUI tests with three known commit-result assertions excluded).
+  The broader acceptance command is not clean in this checkout: 14
+  extraction-cache tests cannot run here because ffmpeg-python rejects the
+  existing `quiet=` compile argument and the sandbox denies the UDP progress
+  socket; two real-catalogue GUI tests still expect XML record paths while
+  the in-progress JSON migration writes JSON. These failures are outside
+  chunk 42.**
 
 ### 14.7 Dependencies and limits
 
