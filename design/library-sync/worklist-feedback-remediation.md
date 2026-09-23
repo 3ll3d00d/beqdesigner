@@ -1,7 +1,8 @@
 # Work-list feedback remediation
 
 > **Partly built.** This is §17 of the library sync plan. Chunk 45a has a
-> partial implementation in `8abfa83`; 45b–45c are not started. It consolidates
+> partial implementation in `8abfa83`; 45b is not started; 45c is implemented in
+> `0a0ee37`. It consolidates
 > the reported work-list, stream-selection and project findings into three
 > independently reviewable changes. §16/chunk 44 landed first.
 
@@ -16,7 +17,7 @@
 | JRiver stream choice asks for a rescan that cannot help | `JRiverLibrarySource._audio_stream_details()` parses `Audio Streams`, `Audio Codec`, and `Audio Channels`, but `FIELDS` requests none of them. `Audio Format` is an aggregate fallback, not a reliable choice list. `_audio_types()` already recognizes `TrueHD Atmos` when given the codec. `_choose_audio_stream()` raises before probing and logs an opaque id. | Request the JRiver per-stream fields, including language/title for readable choices. When a source still omits a usable list, lazily ffprobe that title's mapped local file on the worker pool and persist normalized audio-list ordinals through the existing index selection path. Show the title/path and actionable probe error in UI/logs. Keep the separate chunk 40 Playback Info selected-stream resolver distinct. |
 | Extracted audio has one channel | `keep_multichannel` defaults to false. The pipeline intentionally always writes a mono design mix; it makes a second per-channel extraction only when that setting is on and the probed source has multiple channels. This report alone does not establish which setting or source stream was used. | Make the selected source stream, its channel count, and whether a multichannel copy will be kept visible before running and in Run Details. Verify the selected-stream path with a fixture. Fix a channel-count/extraction defect only if that test reproduces one; keep mono-only output when the setting is off. |
 | No visible ffmpeg command history | `Executor.probe_file()` and `run_sync()` already emit command, output and exit events. The per-title `RunDetailsDialog` already shows them with selection and **Copy all**. Opening a title hides the list/footer/Details controls, making the view undiscoverable there. | Add an **Extraction / run details** action on the title page that opens the same dialog for that title. Show “cache hit; no ffmpeg command” where appropriate. Retain the current bounded, one-run event lifetime and credential redaction; do not build another command log. |
-| Multichannel project lacks BM sum | `write_multichannel_project()` writes flat `SingleChannelSignalData` entries. The app's `BassManagedSignalData` and codec already support a composite with a summed track, but `read_project_filter()` assumes the first JSON item is a flat channel. | Write the existing bass-managed wrapper around the same linked channels and use app-equivalent LPF defaults/settings. Read the master filter/hash from the nested channel, preserving edit detection, project overwrite safety and publication of human edits. Continue to read old flat projects. |
+| Multichannel project lacks BM sum | Before 45c, `write_multichannel_project()` wrote flat `SingleChannelSignalData` entries and `read_project_filter()` assumed the first JSON item was a flat channel. | Done in `0a0ee37`: new projects use the app's bass-managed wrapper and LPF settings. The nested master holds the filter/hash; old flat projects remain readable. |
 
 ## 17.2 Chunks
 
@@ -40,6 +41,13 @@ command preparation fails. The following work remains:
 
 ### 45c — Bass-managed multichannel project
 
+**Implemented in `0a0ee37`.** New multichannel projects serialize one
+`BassManagedSignalData` with linked channels and the app's LPF defaults or
+the interactive caller's saved LPF settings. `read_project_filter()` reads
+the nested master or an old flat master. A saved human edit is not overwritten;
+publishing uses that edit and aligns the other project. The real main window
+loads the composite and exposes its summed signal.
+
 - Serialize a `BassManagedSignalData` composite for newly generated multichannel projects, using the same LPF frequency/position and channel naming conventions as the interactive loader. Keep the linked channel filters, including LFE, and make the composite sum visible when opened in the app.
 - Update project filter/hash lookup for nested master channels and legacy flat files, including the existing “human edited since design” and publish conflict behavior. Do not rewrite human-edited projects as part of this migration.
 - Add project round-trip tests through `signalmodel_from_json()`, filter-link and summed-track checks, pure/edited hash tests, and a publish test showing that a saved human edit still wins. Include a small real-widget open-project assertion if the model round trip alone does not establish chart/table visibility.
@@ -47,3 +55,11 @@ command preparation fails. The following work remains:
 ## 17.3 Completion rule
 
 Each chunk needs its focused automated tests and the broader relevant suite when practical, with exact commands/results recorded. Update the plan index with its commit hash after each implementation commit. Do not mark a report fixed solely from a changed label: the audio fixture, retry lifecycle and project round trip above are the acceptance evidence.
+
+45c verification (`UV_CACHE_DIR=/tmp/beqdesigner-uv-cache`,
+`PYTHONPATH=./src/main/python`, `QT_QPA_PLATFORM=offscreen` for all commands):
+
+- `uv run pytest src/test/python/test_pipeline_publish_project.py::test_write_multichannel_project_round_trips_the_sum_links_and_filter src/test/python/test_pipeline_publish_project.py::test_read_project_filter_still_reads_legacy_flat_multichannel_projects src/test/python/test_pipeline_publish_project.py::test_app_resave_of_bass_managed_project_keeps_the_edit_and_blocks_overwrite src/test/python/test_pipeline_review.py::test_publish_reviewed_queue_uses_a_saved_bass_managed_project_edit src/test/python/gui/test_worklist_projects.py::test_the_real_main_window_opens_a_bass_managed_multichannel_project -q` — 5 passed.
+- `uv run pytest src/test/python/test_pipeline_publish_project.py src/test/python/test_pipeline_review.py src/test/python/gui/test_worklist_projects.py src/test/python/test_pipeline_library_stages.py -q -k 'not test_design_and_queue_threads_channels_to_the_request and not test_publish_reviewed_queue_xml_only and not test_publish_reviewed_queue_defaults_gain_from_chosen_candidates_mv_adjust_db and not test_publish_reviewed_queue_without_work_dir_uses_apply_reviewed_entry_as_before and not test_publish_reviewed_queue_reads_the_edited_mono_project_when_work_dir_given'` — 109 passed, 5 existing failures from the JSON-output migration or mismatched channel fixture deselected.
+- `uv run pytest src/test/python/gui/test_batch_extract_design.py::test_design_session_uses_the_current_bass_management_settings src/test/python/gui/test_extract_design.py::test_design_session_uses_the_current_bass_management_settings -q` — 2 passed.
+- `uv run pytest src/test/python/test_pipeline_orchestrate.py -q` — 17 passed; one existing XML-output assertion failed (`test_publish_without_an_image_only_pushes_xml`). A broader GUI extraction run could not complete: `AudioExtractor` and `Executor.run_sync()` both bind ffmpeg progress port 12001, causing `Address already in use` and a timeout in `test_extract_with_design_disabled_does_not_require_a_queue_dir`, even with local socket access. This path is outside 45c.
