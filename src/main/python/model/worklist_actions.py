@@ -384,7 +384,7 @@ class WorkListActions:
         self._model.clear_run_states()
         for title_id in request.ids:
             self._model.set_run_state(title_id, active=False, queued=True, stage='', text='Queued', current=None,
-                                      total=None, has_details=False)
+                                      total=None, has_details=False, attempting=True, attempt_detail='')
         self._run_context = _RunContext(request, plan, rows, skipped_text,
                                          [p.row.id for p in plan.with_stage('commit')])
         self.cancelButton.setVisible(True)
@@ -402,6 +402,7 @@ class WorkListActions:
         except Exception as error:   # the run never began: do not leave the window "running" for ever
             logger.exception('Could not start the run')
             self._end_run()
+            self._model.clear_run_states()
             self._say(f'Cannot start: {type(error).__name__}: {error}', LEVEL_ERROR)
             self._refresh_actions()
             self._refresh_view()
@@ -432,6 +433,11 @@ class WorkListActions:
         context = self._run_context
         if context is None:
             return
+        title_scoped = isinstance(progress, FfmpegProgress) or bool(progress.id)
+        if title_scoped and progress.id not in context.request.ids:
+            # Stage progress may be shared (empty id), but title-scoped
+            # updates must belong to this run, just as execution events must.
+            return
         if isinstance(progress, FfmpegProgress):
             self._on_ffmpeg_progress(progress)
             return
@@ -446,10 +452,10 @@ class WorkListActions:
                 self._model.set_run_state(title_id, active=True, queued=False, stage='commit', text='Committing')
             text = f'Committing {progress.title}'
         else:
-            if progress.id:
-                self._model.set_run_state(progress.id, active=True, queued=False, stage=progress.stage, text=progress.stage)
             word = {'extract': 'Extracting', 'design': 'Designing', 'publish': 'Publishing'}.get(progress.stage,
                                                                                                  progress.stage)
+            if progress.id:
+                self._model.set_run_state(progress.id, active=True, queued=False, stage=progress.stage, text=word)
             text = f'{word} {progress.title}'
         text += f'  ({min(progress.done + 1, progress.total):,} of {progress.total:,})'
         if self._job is not None and self._job.cancel_requested:
@@ -483,6 +489,12 @@ class WorkListActions:
         self.cancelButton.setVisible(False)
         self.runProgress.setVisible(False)
         return context
+
+    def _finish_attempts(self, context: Optional[_RunContext]) -> None:
+        '''Reveal refreshed index details only after this run's result has been read.'''
+        if context is not None:
+            for title_id in context.request.ids:
+                self._model.set_run_state(title_id, attempting=False, attempt_detail='')
 
     def _on_run_finished(self, source_job, report: StagesReport) -> None:
         if self._job is None or source_job is not self._job:
@@ -529,6 +541,7 @@ class WorkListActions:
         self._update_run_progress(context)
         self._update_run_summary()
         self.refresh_from_index()
+        self._finish_attempts(context)
         self._sync_index_if_dirty()   # decisions made while it ran may be newer than what it read
         if context is not None:
             self._results = describe_results(report, context.plan, self._setup.settings, context.rows)
@@ -546,8 +559,9 @@ class WorkListActions:
     def _on_run_failed(self, source_job, message: str) -> None:
         if self._job is None or source_job is not self._job:
             return
-        self._end_run()
+        context = self._end_run()
         self.refresh_from_index()   # the pipeline refreshes the index whatever happened, so show what it now says
+        self._finish_attempts(context)
         self._sync_index_if_dirty()
         self._say(f'The run failed: {message}. Titles finished before it are kept; see Help > Logs for the details.',
                    LEVEL_ERROR)

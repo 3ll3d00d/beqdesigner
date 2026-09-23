@@ -403,14 +403,19 @@ def test_cancel_while_a_dispatched_title_waits_for_design_finishes_dispatched_ti
 
 # --- failures and retry --------------------------------------------------------------------------------------------
 
-def test_a_failed_title_is_not_retried_until_asked_or_until_its_source_changes(env, work):
+def test_a_failed_title_is_not_retried_until_asked_or_until_its_source_changes(env, work, caplog):
     item = _item('a')
     _scan(env, item)
     work.fail[('extract', 'fs-a')] = RuntimeError('ffmpeg exploded')
 
-    first = _go(env, Selection(), 'design')
+    events = []
+    first = _go(env, Selection(), 'design', on_event=events.append)
     assert first.run.failed == [('fs-a', 'RuntimeError: ffmpeg exploded')] and first.failed
     assert _needs(env, 'fs-a')[0] == 'attention'
+    assert any(e.title_id == 'fs-a' and e.stage == 'extract' and e.kind == 'failed' and
+               e.message == 'RuntimeError: ffmpeg exploded' for e in events)
+    assert any(r.name == 'library_run' and r.exc_info and 'Library extraction failed for Film a' in r.getMessage()
+               for r in caplog.records)
 
     work.calls.clear()
     again = _go(env, Selection(), 'design')  # the same source and settings: not tried again
@@ -435,11 +440,17 @@ def test_a_failed_title_whose_source_changed_is_retried_without_asking(env, work
     assert report.run.designed == ['fs-a']
 
 
-def test_retry_failed_reruns_a_design_failure_from_its_own_stage(env, work):
+def test_retry_failed_reruns_a_design_failure_from_its_own_stage(env, work, caplog):
     _scan(env, _item('a'))
     work.fail[('design', 'fs-a')] = RuntimeError('designer said no')
-    _go(env, Selection(), 'design')
+    events = []
+    first = _go(env, Selection(), 'design', on_event=events.append)
+    assert first.run.failed == [('fs-a', 'RuntimeError: designer said no')]
     assert _row(env, 'fs-a').design_state == 'failed'
+    assert any(e.title_id == 'fs-a' and e.stage == 'design' and e.kind == 'failed' and
+               e.message == 'RuntimeError: designer said no' for e in events)
+    assert any(r.name == 'library_run' and r.exc_info and 'Library design failed for Film a' in r.getMessage()
+               for r in caplog.records)
 
     work.fail.clear()
     work.calls.clear()

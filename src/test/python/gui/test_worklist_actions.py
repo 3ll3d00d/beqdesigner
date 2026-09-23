@@ -25,7 +25,7 @@ from model.preferences import DESIGNER_DEFAULT, DESIGNER_QUEUE_DIR, LIBRARY_FILE
 from model.execution_events import ExecutionEvent
 from model.worklist import WorkListWindow
 from model.worklist_confirm import ConfirmDialog
-from model.worklist_model import COL_NEEDS, COL_RUN_DETAILS, COL_RUN_PROGRESS, RUNNING_ROLE, RUN_STATE_ROLE
+from model.worklist_model import COL_DETAIL, COL_NEEDS, COL_RUN_DETAILS, COL_RUN_PROGRESS, RUNNING_ROLE, RUN_STATE_ROLE
 from pipeline.designer.registry import register_designer, unregister_designer
 from pipeline.library.commit import CatalogueCommit, RepoCommit
 from pipeline.library.index import LibraryIndex, index_path
@@ -410,7 +410,7 @@ def test_open_run_details_appends_events_while_the_title_runs(qtbot, tmp_path):
     assert 'Command: designer --version' in dialog.output.toPlainText()
 
 
-def test_a_new_run_expires_all_previous_details_and_ignores_late_events_from_the_old_job(qtbot, tmp_path):
+def test_a_new_run_expires_previous_details_and_ignores_late_events_and_unplanned_progress(qtbot, tmp_path):
     index_file = make_index(tmp_path / 'work', _rows(), SOURCES, generation=2, last_scan_at=NOW - 900)
     second_entered, release_second = threading.Event(), threading.Event()
 
@@ -438,17 +438,33 @@ def test_a_new_run_expires_all_previous_details_and_ignores_late_events_from_the
     window.select_ids(['d-speed'])
     window.run_selected()
     qtbot.waitUntil(second_entered.is_set, timeout=5000)
-    release_second.set()
-    assert not old_dialog.isVisible()
-    assert 'x-gravity' not in window._event_buffers
-    assert not window.model.run_state('x-gravity').get('has_details', False)
-    window._on_execution_event(old_job, old_event)
-    assert 'x-gravity' not in window._event_buffers
-    assert 'late old output' not in window._detail_dialogs.get('x-gravity', old_dialog).output.toPlainText()
-    window._on_execution_event(window._job,
-                               ExecutionEvent('second-run', 'unexpected-id', 'design', 'stage_started', NOW, 'Invalid'))
-    assert set(window._run_outcomes) == {'d-speed'}
-    assert 'unexpected-id' not in window._event_buffers
+    try:
+        assert not old_dialog.isVisible()
+        assert 'x-gravity' not in window._event_buffers
+        assert not window.model.run_state('x-gravity').get('has_details', False)
+        window._on_execution_event(old_job, old_event)
+        assert 'x-gravity' not in window._event_buffers
+        assert 'late old output' not in window._detail_dialogs.get('x-gravity', old_dialog).output.toPlainText()
+        window._on_execution_event(window._job,
+                                   ExecutionEvent('second-run', 'unexpected-id', 'design', 'stage_started', NOW,
+                                                  'Invalid'))
+        assert set(window._run_outcomes) == {'d-speed'}
+        assert 'unexpected-id' not in window._event_buffers
+
+        # Both progress routes must reject unplanned titles, including a title
+        # that is still visible in the table from the previous run.
+        status = window.runStatusLabel.text()
+        window._on_run_progress(window._job, Progress(0, 1, 'Gravity', 'design', 'x-gravity'))
+        window._on_run_progress(window._job, FfmpegProgress('Gravity', 'x-gravity', 50, 100))
+        window._on_run_progress(window._job, FfmpegProgress('Unknown', 'unexpected-id', 50, 100))
+        window._on_run_progress(window._job, FfmpegProgress('Unknown', '', 50, 100))
+        assert window.model.run_state('x-gravity') == {}
+        assert window.model.run_state('unexpected-id') == {}
+        assert window.model.run_state('') == {}
+        assert set(window._run_outcomes) == {'d-speed'}
+        assert window.runStatusLabel.text() == status
+    finally:
+        release_second.set()
 
     qtbot.waitUntil(lambda: not window.is_running, timeout=5000)
     assert window.model.run_state('d-speed')['has_details']
@@ -802,6 +818,42 @@ def test_retry_failed_runs_the_failed_titles_again_and_nothing_else(qtbot, tmp_p
     call = pipeline.calls[0]
     assert call['ids'] == ['a-failed-x', 'a-failed-d'] and call['retry_failed'] is True and call['through'] == 'design'
     assert window.selected_ids() == ['x-gravity']   # the selection in the table was not disturbed
+
+
+def test_retry_detail_shows_the_current_attempt_until_the_index_has_its_result(qtbot, tmp_path):
+    entered, release = threading.Event(), threading.Event()
+
+    def pipeline(profile, selection, through, *, index, on_progress, on_event, **kwargs):
+        title_id = selection.ids[0]
+        on_event(ExecutionEvent('retry', title_id, '', 'queued', NOW, 'Queued'))
+        on_progress(Progress(0, 1, 'Dune', 'extract', title_id))
+        entered.set()
+        assert release.wait(5)
+        index.clear_failure(title_id)
+        _update(index_path(str(tmp_path / 'work')), [title_id], needs='review', tier='review',
+                extract_state='current', design_state='current', detail='ready for review')
+        return StagesReport(through, 1, run=LibraryRunReport(designed=[title_id]), attempted=[title_id])
+
+    window, _ = _window(qtbot, tmp_path, pipeline=pipeline)
+    title_id = 'a-failed-x'
+    assert 'file not found' in _cell(window, title_id, COL_DETAIL)
+    assert window.retry_failed([title_id])
+    qtbot.waitUntil(entered.is_set, timeout=5000)
+    try:
+        qtbot.waitUntil(lambda: _cell(window, title_id, COL_DETAIL) == 'Extracting', timeout=5000)
+        assert 'file not found' not in _cell(window, title_id, COL_DETAIL, Qt.ItemDataRole.ToolTipRole)
+        assert window.model.run_state(title_id)['attempting']
+        window._on_execution_event(window._job,
+                                   ExecutionEvent('retry', title_id, 'extract', 'stage_completed', NOW + 1))
+        assert _cell(window, title_id, COL_DETAIL) == 'Updating result...'
+        window._on_execution_event(window._job,
+                                   ExecutionEvent('retry', title_id, 'design', 'stage_queued', NOW + 2))
+        assert _cell(window, title_id, COL_DETAIL) == 'Queued for design'
+    finally:
+        release.set()
+    qtbot.waitUntil(lambda: not window.is_running, timeout=5000)
+    assert _cell(window, title_id, COL_DETAIL) == 'ready for review'
+    assert not window.model.run_state(title_id)['attempting']
 
 
 def test_retry_failed_can_be_limited_to_the_failures_selected_in_the_panel(qtbot, tmp_path):

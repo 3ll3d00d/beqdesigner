@@ -345,6 +345,7 @@ def run_unit(session: Session, unit, run_config: LibraryRunConfig, report: Libra
             index.clear_failure(item.id)
         return work
     except Exception as error:
+        logger.exception('Library extraction failed for %s (%s)', item.display_name, item.id)
         report.failed.append((item.id, f'{type(error).__name__}: {error}'))
         emit_execution_event('failed', message=f'{type(error).__name__}: {error}')
         if index is not None:
@@ -367,6 +368,7 @@ def design_unit_work(work: UnitWork, run_config: LibraryRunConfig,
             _design_work(Session(run_config.config), work, run_config, report)
             emit_execution_event('stage_completed', message='Design complete')
     except Exception as error:
+        logger.exception('Library design failed for %s (%s)', item.display_name, item.id)
         report.failed.append((item.id, f'{type(error).__name__}: {error}'))
         with event_scope(title_id=item.id, stage='design'):
             emit_execution_event('failed', message=f'{type(error).__name__}: {error}')

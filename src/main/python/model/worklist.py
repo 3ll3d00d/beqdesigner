@@ -785,13 +785,16 @@ class WorkListWindow(WorkListActions, WorkListTitles, WorkListBulk, QMainWindow,
                          current=current, total=total)
             self._run_outcomes[event.title_id] = 'active'
         elif event.kind in ('failed',):
-            state.update(active=False, queued=False, stage='', text='', current=None, total=None)
+            state.update(active=False, queued=False, stage='', text='', current=None, total=None,
+                         attempt_detail=event.message or 'Failed; updating result...')
             self._run_outcomes[event.title_id] = 'failed'
         elif event.kind in ('title_completed', 'stage_completed', 'skipped'):
             state.update(active=False, queued=False, stage='', text='', current=None, total=None)
             if event.kind == 'title_completed':
+                state['attempt_detail'] = 'Completed; updating result...'
                 self._run_outcomes[event.title_id] = 'succeeded'
             elif event.kind == 'skipped':
+                state['attempt_detail'] = event.message or 'Skipped; updating result...'
                 self._run_outcomes[event.title_id] = 'failed' if 'failed' in event.message.lower() else 'succeeded'
         self._model.set_run_state(event.title_id, **state)
         dialog = self._detail_dialogs.get(event.title_id)

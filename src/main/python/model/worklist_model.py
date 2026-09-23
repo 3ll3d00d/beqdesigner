@@ -83,6 +83,13 @@ def detail_text(row: TitleRow) -> str:
     return ' · '.join(part for part in [row.detail, *row.flags] if part)
 
 
+def current_detail(row: TitleRow, run_state: dict) -> str:
+    '''Show this attempt while it runs; the indexed detail becomes current again after refresh.'''
+    if run_state.get('attempting'):
+        return run_state.get('attempt_detail') or run_state.get('text') or 'Updating result...'
+    return detail_text(row)
+
+
 def _tooltip(row: TitleRow, column: int) -> Optional[str]:
     if column == COL_TITLE:
         lines = [title_text(row), row.path or row.id]
@@ -205,7 +212,8 @@ class WorkListModel(QAbstractTableModel):
         if column == COL_NEEDS:
             return _NEEDS_LABEL.get(row.needs, row.needs)
         if column == COL_DETAIL:
-            return row.detail.casefold()
+            state = self.__run_state.get(row.id, {})
+            return (current_detail(row, state) if state.get('attempting') else row.detail).casefold()
         return row.state_since  # Waiting: oldest first is ascending
 
     def data(self, index, role=Qt.ItemDataRole.DisplayRole):
@@ -213,6 +221,7 @@ class WorkListModel(QAbstractTableModel):
             return None
         row, column = self.__rows[index.row()], index.column()
         running = self.__running.get(row.id, '')
+        run_state = self.__run_state.get(row.id, {})
         if role == Qt.ItemDataRole.DisplayRole:
             if column == COL_NEEDS and running:
                 return running_text(running)
@@ -225,10 +234,12 @@ class WorkListModel(QAbstractTableModel):
             if column == COL_NEEDS:
                 return _NEEDS_LABEL.get(row.needs, row.needs)
             if column == COL_DETAIL:
-                return detail_text(row)
+                return current_detail(row, run_state)
             waiting = format_waiting(row.state_since, self.__now)
             return f'new \u00b7 {waiting}' if row.is_new else waiting
         if role == Qt.ItemDataRole.ToolTipRole:
+            if column == COL_DETAIL and run_state.get('attempting'):
+                return current_detail(row, run_state)
             return _tooltip(row, column)
         if role == ROW_ROLE:
             return row
@@ -251,7 +262,8 @@ class WorkListModel(QAbstractTableModel):
         if role == Qt.ItemDataRole.ForegroundRole:
             if running:
                 return QBrush(QGuiApplication.palette().color(QPalette.ColorRole.Text))
-            if row.tier == 'attention' and column in (COL_NEEDS, COL_DETAIL):
+            if row.tier == 'attention' and (column == COL_NEEDS or
+                                            (column == COL_DETAIL and not run_state.get('attempting'))):
                 return QBrush(warning_colour())
             if row.tier == 'done':
                 dimmed = QGuiApplication.palette().color(QPalette.ColorRole.Text)

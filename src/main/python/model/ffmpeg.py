@@ -899,10 +899,16 @@ class Executor:
             raise ValueError("No command to run -- extractor is not configured yet")
         bridge = FfmpegProgressBridge(self.progress_handler, port=self.__progress_port, auto=True) \
             if self.progress_handler is not None else None
-        command = self.__ffmpeg_cmd if self.__is_remux else \
-            self.__ffmpeg_cmd.compile(overwrite_output=True, quiet=True)
-        emit_execution_event('command_started', message='ffmpeg', command=command)
+        command = None
         try:
+            try:
+                command = self.__ffmpeg_cmd if self.__is_remux else \
+                    self.__ffmpeg_cmd.compile(overwrite_output=True)
+            except Exception as error:
+                emit_execution_event('command_preparation_failed',
+                                     message=f'Could not prepare ffmpeg command: {type(error).__name__}: {error}')
+                raise
+            emit_execution_event('command_started', message='ffmpeg', command=command)
             if self.__is_remux:
                 p = subprocess.Popen(self.__ffmpeg_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                      stderr=subprocess.PIPE)
@@ -919,11 +925,15 @@ class Executor:
                                  stderr=(err or b'').decode('utf-8', errors='replace'), exit_code=0)
             return out, err
         except ffmpeg.Error as error:
+            if command is None:
+                raise
             emit_execution_event('command_finished', message='ffmpeg failed', command=command,
                                  stdout=(error.stdout or b'').decode('utf-8', errors='replace'),
                                  stderr=(error.stderr or b'').decode('utf-8', errors='replace'))
             raise
         except OSError as error:
+            if command is None:
+                raise
             emit_execution_event('command_finished', message='ffmpeg could not start', command=command,
                                  stderr=str(error))
             raise
