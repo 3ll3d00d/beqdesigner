@@ -2,8 +2,8 @@
 
 > Part of the library sync plan -- start at
 > [`../library-sync-pipeline-plan.md`](../library-sync-pipeline-plan.md).
-> Contains §14. This is the agreed design for chunk 42; implementation has
-> not started. The existing workflow and work-list contract are in
+> Contains §14. This is the agreed design for chunk 42. Chunks 42a and 42b
+> are built; 42c and 42d remain. The existing workflow and work-list contract are in
 > [`workflow-rework/design.md`](workflow-rework/design.md) §12.7 and §12.10.
 
 ## 14. Bounded parallel work-list runs
@@ -47,13 +47,14 @@ remain in force.
 
 ### 14.3 User-facing behavior
 
-1. Add independent **Maximum concurrent** settings for **Extract**,
-   **Design**, and **Publish** to the Library Work List Settings drawer. Each
-   defaults to `1` and allows values from `1` through `4`. Persist them under
-   `run.parallelism.extract`, `run.parallelism.design`, and
-   `run.parallelism.publish`; older profiles without these keys continue to
-   mean `1` for each stage. Validate values on load and edit. Commit/push is
-   always serialized at one repository operation at a time.
+1. Add independent **Maximum concurrent** settings for **Extract** and
+   **Design** to the Library Work List Settings drawer. Each defaults to `1`
+   and allows values from `1` through `4`. Persist them under
+   `run.parallelism.extract` and `run.parallelism.design`; older profiles
+   without these keys continue to mean `1` for each stage. Validate values
+   on load and edit. Publish and commit/push remain serialized: publishing
+   regenerates shared catalogue aggregates and commits mutate shared working
+   trees, so per-title publish concurrency is not a safe independent stage.
 2. Give each work-list row exactly two run-status controls: a progress bar
    for its in-flight stage, and a **Details** button. The bar shows the
    current stage and a determinate percentage when available (ffmpeg), or a
@@ -82,10 +83,8 @@ remain in force.
    queued titles, lets each already-started title reach its current safe
    boundary, and retains the existing rule that a begun commit finishes.
    The user can still start only one work-list run at a time.
-6. Publish is parallel only at the independent per-title write boundary.
-   Repository-wide commit/push remains serialized and runs only after all
-   requested title publish work is complete. A failure for one title does
-   not discard successful results for other titles.
+6. Publish and repository-wide commit/push remain serialized. A failure for
+   one published title does not discard successful results for other titles.
 
 ### 14.4 Execution and state model
 
@@ -118,8 +117,10 @@ Before allowing `parallelism > 1`, establish and test these invariants:
   failure is recorded against the same fingerprint/settings key as the
   serial implementation, and one title's exception cannot terminate the
   coordinator or prevent other independent titles from finishing.
-- Do not parallelize repository commit/push. They operate on shared git
-  working trees and retain the current one-commit-per-repository semantics.
+- Do not parallelize publish or repository commit/push. Publishing updates
+  shared derived catalogue files as well as per-title records; git operations
+  use shared working trees and retain the current one-commit-per-repository
+  semantics.
 - Cancellation stops new dispatch immediately, signals active jobs at their
   established safe boundaries, and reports queued/not-run titles distinctly
   from failed ones.
@@ -178,15 +179,20 @@ output before sending them to the UI. Preserve useful paths and error text.
 - Implement the coordinator, per-stage queues and permits, cancellation and
   aggregate `StagesReport` construction. A title's stage dependencies remain
   serial while independent titles can occupy different stages concurrently.
-- Add `run.parallelism.extract`, `.design`, and `.publish` to profile
-  editing/loading and validation; each defaults to `1`, with a maximum of
-  `4`. The run snapshots all limits at launch.
-- Keep publish title writes parallel only where the safety analysis allows;
-  serialize commit/push after all requested title writes complete.
+- Add `run.parallelism.extract` and `.design` to profile editing/loading and
+  validation; each defaults to `1`, with a maximum of `4`. The run snapshots
+  both limits at launch.
+- Keep publish and commit/push serial. The current publisher regenerates a
+  shared catalogue aggregate for each title, so a per-title publish limit
+  would introduce competing writes without an isolated write boundary.
 - Done when controlled tests demonstrate maximum active work never exceeds
-  each stage's setting, all limits at `1` match serial outcomes, stage
-  overlap respects per-title dependencies, cancellation leaves queued work
-  untouched, and independent failures do not stop other titles.
+  each extract/design setting, profiles default and persist both limits,
+  stage overlap respects per-title dependencies, cancellation leaves queued
+  work untouched, and independent failures do not stop other titles.
+  **Done -- commit `0f62322`; focused scheduler and settings checks passed.
+  Existing unrelated failures: the CLI commit assertion expects two paths
+  while the current JSON publisher also writes `xml/database.json`; one
+  settings assertion expects older path-validation wording.**
 
 **42c -- Row progress and live title details**
 
@@ -208,8 +214,8 @@ output before sending them to the UI. Preserve useful paths and error text.
 - Exercise extraction/design with several synthetic independent titles and
   a conflicting season/member selection; prove outputs and index states
   match a serial run.
-- Exercise publish failures alongside successful titles and verify commit
-  and push remain once-per-repository and ordered after title writes.
+- Exercise publish failures alongside successful titles and verify publish
+  and commit remain serialized, with commit/push once per repository.
 - Document the setting, progress states, details view and cancellation
   behavior in `docs/library/`.
 - Done when focused pipeline and GUI tests pass, the full suite passes, and

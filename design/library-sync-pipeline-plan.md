@@ -10,8 +10,9 @@ publish/commit, revision and review. Chunks 19-28 are built through M5;
 chunk 28’s documentation is commit `ecd8cef`. It supersedes §7's GUI. Its
 implementation order is §12.13.**
 **§14 is the follow-on for bounded parallel work-list runs, live per-row
-progress and per-title run details. Chunk 42a's event seams and output
-resource checks are implemented in `817569c`; 42b-42d remain.**
+progress and per-title run details. Chunks 42a (`817569c`) and 42b
+(`0f62322`) are implemented; 42c-42d remain. Publish and commit stay
+serialized because they update shared catalogue files and repository state.**
 Written 2026-09-17. Builds on the
 headless pipeline in `pipeline/` (see `pipeline/README.md` and
 `design/api-headless-pipeline.md`/`pipeline-implementation-plan.md`,
@@ -47,7 +48,7 @@ the design lives. It is usually all you need to decide what to do next. The desi
 | §12 (except §12.13) | [`library-sync/workflow-rework/design.md`](library-sync/workflow-rework/design.md) | the agreed workflow, discovery, state machine, revise, screen; **the frozen index schema (§12.5)** | discovery (chunk 24) and the stage entry points, selectors and bulk accept (chunk 25) built; the work list window (§12.10, chunk 26a, read-only), its actions (26b) and its settings drawer (26c) are built; the title page core (27a: candidates, chart, accept/skip/reject, prev/next) and its metadata and artwork (27b) are built (committed); the title page's projects, Reopen / Revise, bulk accept and the retirement of the old dialogs (27c) are built (committed); the user documentation (28, `docs/library/`) is built in `ecd8cef` |
 | §12.13 | [`library-sync/workflow-rework/implementation-order.md`](library-sync/workflow-rework/implementation-order.md) | chunks 19-28: order, dependencies, milestones, risks | chunks 19-25 and 26a-27c built (M4: the title page with its metadata, projects, revise and bulk accept, the old dialogs retired); 28 (M5, the documentation) built in `ecd8cef` |
 | §13 | [`library-sync/sweep-up.md`](library-sync/sweep-up.md) | follow-on completion plan: live verification, JRiver and disc gaps, path UX, TVDB, season fidelity, JSON-output completion, selected-audio metadata | done: 29, 34-36, 38, 41; in progress: 39-40; externally blocked: 30-33, 37 |
-| §14 | [`library-sync/worklist-parallel-runs.md`](library-sync/worklist-parallel-runs.md) | stage-specific concurrency, per-row progress and details controls, and explicit action buttons | 42a built (`817569c`); 42b-42d not started |
+| §14 | [`library-sync/worklist-parallel-runs.md`](library-sync/worklist-parallel-runs.md) | stage-specific concurrency, per-row progress and details controls, and explicit action buttons | 42a (`817569c`) and 42b (`0f62322`) built; 42c-42d not started |
 | JSON output migration | [`library-sync/catalogue-json-output.md`](library-sync/catalogue-json-output.md) | BEQCatalogue filter-record output contract and migration scope | chunk 39 in progress |
 | Appendix A-D | [`library-sync/archive/`](library-sync/archive/) | handoff specs for chunks 1, 2, 4, 5 | built, archival |
 
