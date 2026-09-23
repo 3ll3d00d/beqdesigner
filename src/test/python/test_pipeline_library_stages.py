@@ -185,6 +185,20 @@ def test_progress_is_determinate_and_names_the_title_and_stage(env, work):
     assert (seen[-1].done, seen[-1].stage) == (2, '')
 
 
+def test_run_stages_emits_structured_title_and_stage_events(env, work):
+    _scan(env, _item('a'))
+    seen = []
+
+    _go(env, Selection(), 'design', on_event=seen.append)
+
+    assert [event.kind for event in seen] == [
+        'queued', 'stage_started', 'stage_completed', 'stage_started', 'stage_completed', 'title_completed']
+    assert {event.run_id for event in seen} and len({event.run_id for event in seen}) == 1
+    assert {event.title_id for event in seen} == {'fs-a'}
+    assert [event.stage for event in seen if event.kind.startswith('stage_')] == [
+        'extract', 'extract', 'design', 'design']
+
+
 def test_cancel_between_titles_leaves_only_whole_titles_done_and_says_what_was_not(env, work):
     _scan(env, _item('a'), _item('b'), _item('c'))
     def cancel():

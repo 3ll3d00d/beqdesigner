@@ -31,6 +31,8 @@ import subprocess
 from dataclasses import dataclass
 from typing import FrozenSet, List, Mapping, Optional, Sequence, Tuple
 
+from model.execution_events import emit_execution_event
+
 RAW_CONTENT_TEMPLATE = 'https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{path}'
 
 _SSH_REMOTE = re.compile(r'^git@github\.com:(?P<owner>[^/]+)/(?P<repo>[^/]+?)(?:\.git)?$')
@@ -83,7 +85,15 @@ def fs_path(target: RepoTarget, relative_path: str) -> str:
 def _git_raw(target: RepoTarget, *args: str) -> str:
     # literal pathspecs: a file named `st*r.xml` means that file, not a glob that also takes `stXr.xml`
     cmd = ['git', '--literal-pathspecs', '-C', target.local_path, *args]
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    emit_execution_event('command_started', message='git', command=cmd)
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True)
+    except OSError as error:
+        emit_execution_event('command_finished', message='git could not start', command=cmd, stderr=str(error))
+        raise
+    emit_execution_event('command_finished', message='git completed' if result.returncode == 0 else 'git failed',
+                         command=cmd, stdout=result.stdout or '', stderr=result.stderr or '',
+                         exit_code=result.returncode)
     if result.returncode != 0:
         raise GitError(result.returncode, cmd, output=result.stdout, stderr=result.stderr)
     return result.stdout

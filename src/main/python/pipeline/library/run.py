@@ -10,6 +10,7 @@ import requests
 from pipeline.config import AnalysisConfig
 from pipeline.designer.contract import Coverage
 from pipeline.library.design_cache import design_if_needed
+from model.execution_events import emit_execution_event, event_scope
 from pipeline.library.extract_cache import extract_if_needed, read_channel_layout_name, \
     read_source_channel_count
 from pipeline.library.index import LibraryIndex
@@ -137,27 +138,32 @@ def _run_item(session: Session, item: LibraryItem, run_config: LibraryRunConfig,
     item_dir = os.path.join(run_config.work_dir, item.id)
     if on_stage is not None:
         on_stage(item.id, 'extract')
-    with _stage('extract'):
-        progress = ({'on_progress': lambda position, total: on_extract_progress(item.id, position, total)}
-                    if on_extract_progress is not None else {})
-        mono_path, mono_cached = extract_if_needed(
-            session, item, item_dir, run_config.config, mono_mix=True, force=run_config.force_extract, **progress)
-        multichannel_path = None
-        channel_layout_name = 'unknown'
-        channels = None
-        extraction_cached = mono_cached
+    with event_scope(title_id=item.id, stage='extract'):
+        emit_execution_event('stage_started', message='Extracting audio')
+        with _stage('extract'):
+            progress = ({'on_progress': lambda position, total: on_extract_progress(item.id, position, total)}
+                        if on_extract_progress is not None else {})
+            mono_path, mono_cached = extract_if_needed(
+                session, item, item_dir, run_config.config, mono_mix=True, force=run_config.force_extract, **progress)
+            multichannel_path = None
+            channel_layout_name = 'unknown'
+            channels = None
+            extraction_cached = mono_cached
 
-        # a source known to be mono has nothing to keep, so skip the second (full-length) ffmpeg pass; an
-        # unknown channel count still extracts, and load_channels() below decides
-        if run_config.keep_multichannel and read_source_channel_count(item_dir) != 1:
-            kept_path, kept_cached = extract_if_needed(
-                session, item, item_dir, run_config.config, mono_mix=False, force=run_config.force_extract, **progress)
-            extraction_cached = mono_cached and kept_cached
-            channel_layout_name = read_channel_layout_name(item_dir)
-            kept_channels = session.load_channels(kept_path, channel_layout_name)
-            if kept_channels:
-                multichannel_path = kept_path
-                channels = kept_channels
+            # a source known to be mono has nothing to keep, so skip the second (full-length) ffmpeg pass; an
+            # unknown channel count still extracts, and load_channels() below decides
+            if run_config.keep_multichannel and read_source_channel_count(item_dir) != 1:
+                kept_path, kept_cached = extract_if_needed(
+                    session, item, item_dir, run_config.config, mono_mix=False, force=run_config.force_extract,
+                    **progress)
+                extraction_cached = mono_cached and kept_cached
+                channel_layout_name = read_channel_layout_name(item_dir)
+                kept_channels = session.load_channels(kept_path, channel_layout_name)
+                if kept_channels:
+                    multichannel_path = kept_path
+                    channels = kept_channels
+        emit_execution_event('stage_completed', message='Extraction complete' if not extraction_cached else
+                             'Extraction cache hit')
 
     if extraction_cached:
         report.cached.append(item.id)
@@ -168,8 +174,11 @@ def _run_item(session: Session, item: LibraryItem, run_config: LibraryRunConfig,
 
     if on_stage is not None:
         on_stage(item.id, 'design')
-    _design(session, item, mono_path, run_config, report, item_dir, channels=channels,
-            multichannel_path=multichannel_path, channel_layout_name=channel_layout_name)
+    with event_scope(title_id=item.id, stage='design'):
+        emit_execution_event('stage_started', message='Designing filter')
+        _design(session, item, mono_path, run_config, report, item_dir, channels=channels,
+                multichannel_path=multichannel_path, channel_layout_name=channel_layout_name)
+        emit_execution_event('stage_completed', message='Design complete')
 
 
 def _run_season(session: Session, group: SeasonGroup, run_config: LibraryRunConfig, report: LibraryRunReport,
@@ -186,15 +195,21 @@ def _run_season(session: Session, group: SeasonGroup, run_config: LibraryRunConf
     '''
     if on_stage is not None:
         on_stage(group.item.id, 'extract')
-    with _stage('extract'):
-        track_path, fingerprint, item, group_dir = _extract_season(session, group, run_config, report, index,
-                                                                   retry_failed, on_extract_progress)
+    with event_scope(title_id=group.item.id, stage='extract'):
+        emit_execution_event('stage_started', message='Extracting season episodes')
+        with _stage('extract'):
+            track_path, fingerprint, item, group_dir = _extract_season(session, group, run_config, report, index,
+                                                                       retry_failed, on_extract_progress)
+        emit_execution_event('stage_completed', message='Season extraction complete')
     if through == 'extract':
         return
     if on_stage is not None:
         on_stage(group.item.id, 'design')
-    _design(session, item, track_path, run_config, report, group_dir,
-            recorded_source=season_source_fingerprint(group) or None)
+    with event_scope(title_id=group.item.id, stage='design'):
+        emit_execution_event('stage_started', message='Designing season filter')
+        _design(session, item, track_path, run_config, report, group_dir,
+                recorded_source=season_source_fingerprint(group) or None)
+        emit_execution_event('stage_completed', message='Season design complete')
 
 
 def _extract_season(session: Session, group: SeasonGroup, run_config: LibraryRunConfig, report: LibraryRunReport,
@@ -281,6 +296,7 @@ def run_unit(session: Session, unit, run_config: LibraryRunConfig, report: Libra
             index.clear_failure(item.id)
     except Exception as error:
         report.failed.append((item.id, f'{type(error).__name__}: {error}'))
+        emit_execution_event('failed', message=f'{type(error).__name__}: {error}')
         if index is not None:
             _remember_failure(index, unit, run_config, error)
 

@@ -1,4 +1,5 @@
 import datetime
+import json
 import logging
 import math
 import os
@@ -18,6 +19,7 @@ from qtpy.QtWidgets import QDialog, QTreeWidget, QTreeWidgetItem
 
 import ffmpeg
 from model.iir import Passthrough, FilterType, ComplexHighPass, ComplexLowPass
+from model.execution_events import emit_execution_event
 from model.preferences import COMPRESS_FORMAT_NATIVE, COMPRESS_FORMAT_FLAC, COMPRESS_FORMAT_EAC3, COMPRESS_FORMAT_AC3
 from ui.ffmpeg import Ui_ffmpegReportDialog
 
@@ -397,16 +399,31 @@ class Executor:
         '''
         logger.info(f"Probing {self.file}")
         start = time.time()
+        probe_args = ['ffprobe', '-show_format', '-show_streams', '-of', 'json']
+        for key in sorted(self.__input_options):
+            value = self.__input_options[key]
+            values = value if isinstance(value, (list, tuple)) else [value]
+            for option_value in values:
+                probe_args.extend((f'-{key}', str(option_value)))
+        probe_args.append(str(self.file))
+        emit_execution_event('command_started', message='ffprobe', command=probe_args)
         try:
             self.__probe = ffmpeg.probe(self.file, **self.__input_options)
         except FileNotFoundError as e:
+            emit_execution_event('command_finished', message='ffprobe could not start', command=probe_args,
+                                 stderr=str(e))
             logger.error(f"Unable to probe {self.file}, {e.filename} not found")
             raise FileNotFoundError(describe_missing_binary(e)) from e
         except ffmpeg.Error as e:
+            emit_execution_event('command_finished', message='ffprobe failed', command=probe_args,
+                                 stdout=(e.stdout or b'').decode('utf-8', errors='replace'),
+                                 stderr=(e.stderr or b'').decode('utf-8', errors='replace'))
             if self.__input_options.get('f') == 'dvdvideo' and b'Unknown input format' in (e.stderr or b''):
                 raise ValueError('This ffmpeg cannot read DVDs: it was built without the dvdvideo demuxer '
                                  '(libdvdread/libdvdnav). Install an ffmpeg build that includes it.') from e
             raise
+        emit_execution_event('command_finished', message='ffprobe completed', command=probe_args,
+                             stdout=json.dumps(self.__probe, ensure_ascii=False), exit_code=0)
         if self.__duration_override_s is not None:
             self.__probe.setdefault('format', {})['duration'] = str(self.__duration_override_s)
         self.__audio_stream_data = [s for s in self.__probe.get('streams', []) if s['codec_type'] == 'audio']
@@ -882,6 +899,9 @@ class Executor:
             raise ValueError("No command to run -- extractor is not configured yet")
         bridge = FfmpegProgressBridge(self.progress_handler, port=self.__progress_port, auto=True) \
             if self.progress_handler is not None else None
+        command = self.__ffmpeg_cmd if self.__is_remux else \
+            self.__ffmpeg_cmd.compile(overwrite_output=True, quiet=True)
+        emit_execution_event('command_started', message='ffmpeg', command=command)
         try:
             if self.__is_remux:
                 p = subprocess.Popen(self.__ffmpeg_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
@@ -889,8 +909,24 @@ class Executor:
                 out, err = p.communicate()
                 if p.poll():
                     raise ffmpeg.Error('ffmpeg', out, err)
+                emit_execution_event('command_finished', message='ffmpeg completed', command=command,
+                                     stdout=(out or b'').decode('utf-8', errors='replace'),
+                                     stderr=(err or b'').decode('utf-8', errors='replace'), exit_code=0)
                 return out, err
-            return self.__ffmpeg_cmd.run(overwrite_output=True, quiet=True)
+            out, err = self.__ffmpeg_cmd.run(overwrite_output=True, quiet=True)
+            emit_execution_event('command_finished', message='ffmpeg completed', command=command,
+                                 stdout=(out or b'').decode('utf-8', errors='replace'),
+                                 stderr=(err or b'').decode('utf-8', errors='replace'), exit_code=0)
+            return out, err
+        except ffmpeg.Error as error:
+            emit_execution_event('command_finished', message='ffmpeg failed', command=command,
+                                 stdout=(error.stdout or b'').decode('utf-8', errors='replace'),
+                                 stderr=(error.stderr or b'').decode('utf-8', errors='replace'))
+            raise
+        except OSError as error:
+            emit_execution_event('command_finished', message='ffmpeg could not start', command=command,
+                                 stderr=str(error))
+            raise
         finally:
             if bridge is not None:
                 bridge.stop()

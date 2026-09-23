@@ -5,7 +5,8 @@ import numpy as np
 import pytest
 import soundfile as sf
 
-from pipeline.library.season import SeasonGroup, plan_units, season_item_id, season_track_if_needed, with_extracted
+from pipeline.library.season import SeasonGroup, conflicting_units, plan_units, season_item_id, season_track_if_needed, \
+    unit_output_ids, with_extracted
 from pipeline.library.source import LibraryItem
 
 
@@ -46,6 +47,15 @@ def test_season_mode_joins_one_series_and_season_in_episode_order():
     assert (group.item.title, group.item.season, group.item.kind) == ('Show', '1', 'tv')
     assert group.item.display_name == 'Show Season 1'
     assert group.item.id.startswith('show-s01-')
+
+
+def test_output_resources_include_season_member_caches_and_detect_overlap():
+    episodes = [_ep('Show', 1, 1), _ep('Show', 1, 2)]
+    season = plan_units(episodes, 'season')[0]
+
+    assert unit_output_ids(season) == (season.item.id, 'sho-1-1', 'sho-1-2')
+    assert conflicting_units([season, episodes[0]]) == {'sho-1-1': (season.item.id, 'sho-1-1')}
+    assert conflicting_units([season]) == {}
 
 
 def test_different_seasons_and_series_are_separate_units_in_the_order_first_seen():

@@ -26,6 +26,7 @@ from pipeline.orchestrate import Applied, Declined, DesignOutcome, Session
 from pipeline.publish.catalogue import catalogue_paths, publish_digest
 from pipeline.publish.git import RepoTarget, fs_path, has_changes, is_committed
 from pipeline.publish.report import ReportSpec
+from model.execution_events import emit_execution_event, event_scope
 
 logger = logging.getLogger('review_queue')
 
@@ -589,23 +590,27 @@ def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: 
         return {'id': entry.id, 'error': 'publish_failed', 'message': f'{type(error).__name__}: {error}'}
 
     for entry in entries:
-        republished = False
-        if entry.status == 'published' and republish:
-            try:
-                republished = _needs_republish(entry, xml_repo, xml_dir, image_dir, meta_defaults, work_dir,
-                                               images_repo is not None, report_spec, image_owner, image_repo_name)
-            except Exception as error:
-                results.append(failure(entry, error))
+        with event_scope(title_id=entry.id, stage='publish'):
+            republished = False
+            if entry.status == 'published' and republish:
+                try:
+                    republished = _needs_republish(entry, xml_repo, xml_dir, image_dir, meta_defaults, work_dir,
+                                                   images_repo is not None, report_spec, image_owner, image_repo_name)
+                except Exception as error:
+                    results.append(failure(entry, error))
+                    emit_execution_event('failed', message=f'{type(error).__name__}: {error}')
+                    continue
+            if entry.status != 'accepted' and not republished:
                 continue
-        if entry.status != 'accepted' and not republished:
-            continue
-        if should_cancel is not None and should_cancel():
-            break
-        if on_entry is not None:
-            on_entry(entry.id)
-        try:
-            results.append(publish_one(entry, republished))
-        except Exception as error:  # a poster that is gone, a project that will not write, git refusing: this entry only
-            logger.warning('could not publish %s: %s', entry.id, error, exc_info=True)
-            results.append(failure(entry, error))
+            if should_cancel is not None and should_cancel():
+                break
+            if on_entry is not None:
+                on_entry(entry.id)
+            try:
+                results.append(publish_one(entry, republished))
+                emit_execution_event('stage_completed', message='Publish complete')
+            except Exception as error:  # a poster that is gone, a project that will not write, git refusing: this entry only
+                logger.warning('could not publish %s: %s', entry.id, error, exc_info=True)
+                results.append(failure(entry, error))
+                emit_execution_event('failed', message=f'{type(error).__name__}: {error}')
     return results

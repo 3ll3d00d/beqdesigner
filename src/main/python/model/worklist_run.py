@@ -62,6 +62,7 @@ class RunRequest:
 
 class RunSignals(QObject):
     progress = Signal(object)    # pipeline.library.stages.Progress, from the worker thread
+    event = Signal(object)       # model.execution_events.ExecutionEvent, from the worker thread
     finished = Signal(object)    # StagesReport (also after a cancel)
     errored = Signal(str)
 
@@ -96,7 +97,7 @@ class RunJob(QRunnable):
                     self.__profile, Selection(ids=self.request.ids), self.request.through,
                     run_config=self.__run_config, index=index, publish=self.__publish, settings=self.__settings,
                     retry_failed=self.request.retry_failed, should_cancel=self.__cancel.is_set,
-                    on_progress=self.signals.progress.emit)
+                    on_progress=self.signals.progress.emit, on_event=self.signals.event.emit)
         except Exception as error:
             logger.exception('Library run failed')
             self.signals.errored.emit(f'{type(error).__name__}: {error}')

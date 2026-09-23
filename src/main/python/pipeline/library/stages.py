@@ -18,6 +18,7 @@ in hand finishes, so a cancelled run leaves only whole titles done, and its repo
 '''
 import logging
 import subprocess
+import uuid
 from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Optional
 
@@ -32,6 +33,7 @@ from pipeline.orchestrate import Session
 from pipeline.publish.git import RepoTarget
 from pipeline.publish.report import ReportSpec
 from pipeline.review import split_publish_results
+from model.execution_events import emit_execution_event, event_scope, execution_event_context
 
 logger = logging.getLogger('library_stages')
 
@@ -133,7 +135,8 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
                index: LibraryIndex, publish: Optional[PublishSettings] = None,
                settings: Optional[ScanSettings] = None, retry_failed: bool = False,
                should_cancel: Optional[Callable[[], bool]] = None,
-               on_progress: Optional[Callable[[Progress], None]] = None, refresh: bool = True) -> StagesReport:
+               on_progress: Optional[Callable[[Progress], None]] = None,
+               on_event: Optional[Callable[[object], None]] = None, refresh: bool = True) -> StagesReport:
     '''
     Runs every stage up to and including `through` that each selected title still needs. Never lists a source, never
     reviews (a person's job) and, unless `through` says so, never publishes or commits.
@@ -150,6 +153,7 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
         the settings change); their failures are forgotten as they succeed.
     :param should_cancel: polled between titles; True stops before the next one. Titles already done stay done.
     :param on_progress: called from the running thread with a Progress as each title-stage starts, and once at the end.
+    :param on_event: structured execution events, including external process commands and responses.
     :param refresh: re-read every title's outputs into the index afterwards (Selection-free and cheap: no source is
         listed), so `needs` is current when this returns -- also after a cancel or a failure.
     :raises ValueError: for an unknown `through`, or publish/commit without `publish` settings.
@@ -173,6 +177,13 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
     def cancelled() -> bool:
         return should_cancel is not None and bool(should_cancel())
 
+    run_id = uuid.uuid4().hex
+    event_context = execution_event_context(run_id, on_event)
+    event_context.__enter__()
+    for planned in plan.planned:
+        with event_scope(title_id=planned.row.id):
+            emit_execution_event('queued', message=titles.get(planned.row.id, planned.row.id))
+
     try:
         units, unit_errors = _units_by_title(index, [p.row.id for p in machine])
         session = Session(run_config.config)
@@ -184,20 +195,34 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
             if row.id in unit_errors:  # this title's listing cannot be rebuilt: it fails, the others go on
                 report.run.failed.append((row.id, unit_errors[row.id]))
                 report.attempted.append(row.id)
+                with event_scope(title_id=row.id):
+                    emit_execution_event('failed', message=unit_errors[row.id])
                 state['done'] += 1
                 continue
             unit = units.get(row.id)
             if unit is None:  # a row rebuilt from outputs alone has no listing to work from
                 report.skipped.append(Skipped(row.id, _title(row), 'not in the last scan: scan again'))
+                with event_scope(title_id=row.id):
+                    emit_execution_event('skipped', message='Not in the last scan: scan again')
                 state['done'] += 1
                 continue
-            extract_progress = None if on_progress is None else \
-                lambda title_id, out_time, total_time: on_progress(
-                    FfmpegProgress(titles.get(title_id, title_id), title_id, out_time, total_time))
-            run_unit(session, unit, run_config, report.run, index, retry_failed=retry_failed,
-                     through='extract' if planned.stages[-1] == 'extract' else 'design',
-                     on_stage=lambda title_id, stage: emit(stage, title_id, titles.get(title_id, title_id)),
-                     on_extract_progress=extract_progress)
+            def extract_progress(title_id, out_time, total_time):
+                with event_scope(title_id=title_id, stage='extract'):
+                    emit_execution_event('progress', message='ffmpeg extraction progress', current=out_time,
+                                         total=total_time)
+                    if on_progress is not None:
+                        on_progress(FfmpegProgress(titles.get(title_id, title_id), title_id, out_time, total_time))
+            failed_before = len(report.run.failed)
+            remembered_before = len(report.run.failed_earlier)
+            with event_scope(title_id=row.id):
+                run_unit(session, unit, run_config, report.run, index, retry_failed=retry_failed,
+                         through='extract' if planned.stages[-1] == 'extract' else 'design',
+                         on_stage=lambda title_id, stage: emit(stage, title_id, titles.get(title_id, title_id)),
+                         on_extract_progress=extract_progress)
+                if len(report.run.failed_earlier) > remembered_before:
+                    emit_execution_event('skipped', message=report.run.failed_earlier[-1][1])
+                elif len(report.run.failed) == failed_before:
+                    emit_execution_event('title_completed', message=titles.get(row.id, row.id))
             report.attempted.append(row.id)
             state['done'] += 1
 
@@ -210,6 +235,8 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
             def before_entry(entry_id: str) -> None:
                 state['done'] = base + len(begun)
                 begun.append(entry_id)
+                with event_scope(title_id=entry_id, stage='publish'):
+                    emit_execution_event('stage_started', message='Publishing accepted title')
                 emit('publish', entry_id, titles.get(entry_id, entry_id))
 
             def stop() -> bool:
@@ -237,16 +264,23 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
             report.cancelled = True
 
         if commit_ids and not report.cancelled and not cancelled():
+            with event_scope(stage='commit'):
+                emit_execution_event('stage_started', message=f'Committing {len(commit_ids)} titles')
             emit('commit', '', f'{len(commit_ids)} titles')
             try:
                 # what the commit takes: the titles that were waiting to be committed and the ones published just now
-                report.committed = commit_library(
-                    run_config.queue_dir, publish.xml_repo, images_repo=publish.images_repo, xml_dir=publish.xml_dir,
-                    image_dir=publish.image_dir, push=publish.push, ids=commit_ids)
+                with event_scope(stage='commit'):
+                    report.committed = commit_library(
+                        run_config.queue_dir, publish.xml_repo, images_repo=publish.images_repo,
+                        xml_dir=publish.xml_dir, image_dir=publish.image_dir, push=publish.push, ids=commit_ids)
             except subprocess.CalledProcessError as error:
                 report.commit_error = f'git failed: {(error.stderr or error.stdout or str(error)).strip()}'
+                with event_scope(stage='commit'):
+                    emit_execution_event('failed', message=report.commit_error)
                 logger.warning('commit failed: %s', report.commit_error)
             else:
+                with event_scope(stage='commit'):
+                    emit_execution_event('stage_completed', message='Commit/push complete')
                 report.attempted += [i for i in commit_ids if i not in report.attempted]
                 state['done'] += len(commit_ids)
         elif commit_ids:
@@ -261,5 +295,6 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
                 report.counts = index.summary().counts
             except Exception as error:  # the work is done and recorded in the outputs; the next scan catches up
                 logger.warning('could not refresh the index after the run: %s', error, exc_info=True)
+        event_context.__exit__(None, None, None)
     emit('')
     return report

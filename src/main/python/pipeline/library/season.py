@@ -37,6 +37,23 @@ class SeasonGroup:
 Unit = Union[LibraryItem, SeasonGroup]
 
 
+def unit_output_ids(unit: Unit) -> Tuple[str, ...]:
+    """IDs whose work/queue artifacts a unit can write, including season member caches."""
+    if isinstance(unit, SeasonGroup):
+        return tuple(dict.fromkeys((unit.item.id, *(member.id for member in unit.members))))
+    return (unit.id,)
+
+
+def conflicting_units(units: Sequence[Unit]) -> Dict[str, Tuple[str, ...]]:
+    """Return output IDs claimed by more than one unit, mapped to the conflicting unit IDs."""
+    owners: Dict[str, List[str]] = {}
+    for unit in units:
+        unit_id = unit.item.id if isinstance(unit, SeasonGroup) else unit.id
+        for output_id in unit_output_ids(unit):
+            owners.setdefault(output_id, []).append(unit_id)
+    return {output_id: tuple(unit_ids) for output_id, unit_ids in owners.items() if len(unit_ids) > 1}
+
+
 def _groupable(item: LibraryItem) -> bool:
     return item.kind == 'tv' and bool(item.title and item.season) and len(item.episodes) == 1
 
