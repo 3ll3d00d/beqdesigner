@@ -15,7 +15,7 @@ from model.dvd import dvd_root, resolve_main_title as resolve_main_dvd_title
 from model.ffmpeg import Executor, parse_audio_stream, ViewProbeDialog, SIGNAL_CONNECTED, SIGNAL_ERROR, \
     SIGNAL_COMPLETE, SIGNAL_CANCELLED, FFMpegDetailsDialog, describe_missing_binary
 from model.preferences import EXTRACTION_OUTPUT_DIR, EXTRACTION_BATCH_FILTER, ANALYSIS_TARGET_FS, \
-    DESIGNER_QUEUE_DIR, DESIGNER_DEFAULT
+    BASS_MANAGEMENT_LPF_FS, BASS_MANAGEMENT_LPF_POSITION, DESIGNER_QUEUE_DIR, DESIGNER_DEFAULT
 from model.spin import StoppableSpin, stop_spinner
 from ui.batch import Ui_batchExtractDialog
 
@@ -118,7 +118,9 @@ class BatchExtractDialog(QDialog, Ui_batchExtractDialog):
         if self.__session is None:
             from pipeline.config import AnalysisConfig
             from pipeline.orchestrate import Session
-            self.__session = Session(AnalysisConfig(target_fs=self.__preferences.get(ANALYSIS_TARGET_FS)))
+            self.__session = Session(AnalysisConfig(target_fs=self.__preferences.get(ANALYSIS_TARGET_FS)),
+                                     bm_lpf_fs=self.__preferences.get(BASS_MANAGEMENT_LPF_FS),
+                                     bm_lpf_position=self.__preferences.get(BASS_MANAGEMENT_LPF_POSITION))
         return self.__session
 
     def on_all_designs_complete(self):

@@ -46,7 +46,8 @@ def edit_project(path: str) -> None:
 def resave_unchanged(path: str) -> None:
     ''' Opened and saved again without changing anything: the main window's save carries no pipeline stamp. '''
     data = _read_raw(path)
-    data[0].pop('pipeline_filter_hash', None)
+    (data[0]['channels'][0] if data[0]['_type'] == 'BassManagedSignalData' else data[0]).pop(
+        'pipeline_filter_hash', None)
     _write_raw(path, data)
 
 

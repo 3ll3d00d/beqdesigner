@@ -19,7 +19,8 @@ from model.ffmpeg import Executor, ViewProbeDialog, SIGNAL_CONNECTED, SIGNAL_ERR
 from model.preferences import EXTRACTION_OUTPUT_DIR, EXTRACTION_NOTIFICATION_SOUND, ANALYSIS_TARGET_FS, \
     EXTRACTION_MIX_MONO, EXTRACTION_DECIMATE, EXTRACTION_INCLUDE_ORIGINAL, EXTRACTION_INCLUDE_SUBTITLES, \
     EXTRACTION_COMPRESS, COMPRESS_FORMAT_OPTIONS, COMPRESS_FORMAT_FLAC, COMPRESS_FORMAT_NATIVE, COMPRESS_FORMAT_EAC3, \
-    BASS_MANAGEMENT_LPF_FS, COMPRESS_FORMAT_AC3, EXTRACTION_GEOMETRY, DESIGNER_DEFAULT, DESIGNER_QUEUE_DIR, Preferences
+    BASS_MANAGEMENT_LPF_FS, BASS_MANAGEMENT_LPF_POSITION, COMPRESS_FORMAT_AC3, EXTRACTION_GEOMETRY, DESIGNER_DEFAULT, \
+    DESIGNER_QUEUE_DIR, Preferences
 from model.signal import AutoWavLoader
 from ui.edit_mapping import Ui_editMappingDialog
 from ui.extract import Ui_extractAudioDialog
@@ -754,7 +755,9 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
         if self.__session is None:
             from pipeline.config import AnalysisConfig
             from pipeline.orchestrate import Session
-            self.__session = Session(AnalysisConfig(target_fs=self.__preferences.get(ANALYSIS_TARGET_FS)))
+            self.__session = Session(AnalysisConfig(target_fs=self.__preferences.get(ANALYSIS_TARGET_FS)),
+                                     bm_lpf_fs=self.__preferences.get(BASS_MANAGEMENT_LPF_FS),
+                                     bm_lpf_position=self.__preferences.get(BASS_MANAGEMENT_LPF_POSITION))
         return self.__session
 
     def __design(self):

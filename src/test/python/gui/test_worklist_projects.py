@@ -297,6 +297,26 @@ def test_the_real_main_window_loads_the_project_the_page_opens_and_save_project_
     assert offered[-1] == 'project.beq'                           # a project that did not come from the work list: as before
 
 
+def test_the_real_main_window_opens_a_bass_managed_multichannel_project(
+        qtbot, tmp_path, monkeypatch, root_logging):
+    import numpy as np
+
+    _, multichannel = write_projects(_work(tmp_path), 'r-alien', multichannel=True)
+    main, window = _main_window(qtbot, tmp_path, monkeypatch, REVIEWABLE)
+    page = _open(qtbot, window, 'r-alien')
+
+    assert page.open_project('multichannel') is True
+
+    model = main._BeqDesigner__signal_model
+    composite, = model.bass_managed_signals
+    assert len(model) == 6
+    assert len(composite.channels) == 6
+    assert composite.name == 'multichannel'
+    assert np.isfinite(composite.signal.samples).all()
+    assert composite.signal.samples.size == model[0].signal.samples.size
+    assert _offered(main, monkeypatch) == multichannel
+
+
 def _offered(main, monkeypatch):
     ''' What Save Project would suggest as the file name (the dialog is answered "cancel"). '''
     offered = []

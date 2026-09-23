@@ -11,8 +11,9 @@ import wave
 import numpy as np
 import pytest
 
-from model.codec import signalmodel_from_json
+from model.codec import bassmanagedsignaldata_to_json, signalmodel_from_json
 from model.iir import CompleteFilter, LowShelf, PeakingEQ
+from model.signal import BassManagedSignalData
 from pipeline.config import AnalysisConfig
 from pipeline.orchestrate import Session
 from pipeline.publish.project import (
@@ -70,7 +71,7 @@ def _hand_edit_filter(path, new_filter):
     (an additive key that function knows nothing about) is never re-emitted.
     '''
     data = _read_raw(path)
-    master = data[0]
+    master = data[0]['channels'][0] if data[0]['_type'] == 'BassManagedSignalData' else data[0]
     master['filter_presets'][master['active_filter_preset']] = new_filter.to_json()
     master.pop('pipeline_filter_hash', None)
     _write_raw(path, data)
@@ -105,8 +106,8 @@ def test_read_project_filter_detects_a_human_edit(tmp_path):
     assert read_filter.to_json() == _HUMAN_FILTER.to_json()
 
 
-def test_write_multichannel_project_enslaves_every_channel_to_the_master(tmp_path):
-    session = Session(AnalysisConfig())
+def test_write_multichannel_project_round_trips_the_sum_links_and_filter(tmp_path):
+    session = Session(AnalysisConfig(), bm_lpf_fs=90, bm_lpf_position='After')
     wav_path = str(tmp_path / 'multi.wav')
     _write_multichannel_wav(wav_path, (1000, 2000, 3000, 4000, 5000, 6000))
     out_path = str(tmp_path / 'title.multichannel.beq')
@@ -114,13 +115,67 @@ def test_write_multichannel_project_enslaves_every_channel_to_the_master(tmp_pat
     write_multichannel_project(session, wav_path, _PIPELINE_FILTER, '5.1', out_path)
 
     raw = _read_raw(out_path)
-    signals = signalmodel_from_json(raw, None)
-    master = signals[0]
-    others = signals[1:]
+    signals = signalmodel_from_json(raw, session.preferences)
+    assert len(signals) == 1
+    composite = signals[0]
+    assert isinstance(composite, BassManagedSignalData)
+    assert composite.bm_lpf_fs == 90
+    assert composite.bm_lpf_position == 'After'
+    master, *others = composite.channels
     assert len(others) == 5
     assert all(s.master is master for s in others)
     assert {s.name for s in master.slaves} == {s.name for s in others}
     assert any(s.name.endswith('_LFE') for s in others)
+    assert composite.name == 'multi'
+    assert composite.signal.samples.shape == master.signal.samples.shape
+    assert np.isfinite(composite.signal.samples).all()
+    assert read_project_filter(out_path)[1] is True
+    assert read_project_filter(out_path)[0].to_json() == _PIPELINE_FILTER.to_json()
+
+
+def test_read_project_filter_still_reads_legacy_flat_multichannel_projects(tmp_path):
+    from pipeline.publish.project import _filter_hash, write_project
+    session = Session(AnalysisConfig())
+    wav_path = str(tmp_path / 'multi.wav')
+    _write_multichannel_wav(wav_path, (1000, 2000, 3000, 4000, 5000, 6000))
+    channels = session.load_channel_signals(wav_path, channel_layout_name='5.1')
+    session.set_filters(channels[0], _PIPELINE_FILTER)
+    for channel in channels[1:]:
+        channels[0].enslave(channel)
+    out_path = str(tmp_path / 'legacy.multichannel.beq')
+    write_project(out_path, channels, filter_hash=_filter_hash(_PIPELINE_FILTER))
+
+    assert len(signalmodel_from_json(_read_raw(out_path), session.preferences)) == 6
+    assert read_project_filter(out_path)[1] is True
+    _hand_edit_filter(out_path, _HUMAN_FILTER)
+    assert read_project_filter(out_path)[0].to_json() == _HUMAN_FILTER.to_json()
+    assert read_project_filter(out_path)[1] is False
+
+
+def test_app_resave_of_bass_managed_project_keeps_the_edit_and_blocks_overwrite(tmp_path):
+    session = Session(AnalysisConfig())
+    mono_wav = str(tmp_path / 'mono.wav')
+    _write_mono_wav(mono_wav)
+    mc_wav = str(tmp_path / 'multi.wav')
+    _write_multichannel_wav(mc_wav, (1000, 2000, 3000, 4000, 5000, 6000))
+    mono_out = str(tmp_path / 'title.mono.beq')
+    mc_out = str(tmp_path / 'title.multichannel.beq')
+    write_mono_project(session, mono_wav, _PIPELINE_FILTER, mono_out)
+    write_multichannel_project(session, mc_wav, _PIPELINE_FILTER, '5.1', mc_out)
+
+    composite = signalmodel_from_json(_read_raw(mc_out), session.preferences)[0]
+    composite.channels[0].filter = _HUMAN_FILTER
+    _write_raw(mc_out, [bassmanagedsignaldata_to_json(composite)])  # the app's project serializer
+    saved = open(mc_out, 'rb').read()
+
+    filt, pure = read_project_filter(mc_out)
+    assert filt.to_json() == _HUMAN_FILTER.to_json()
+    assert pure is False
+    result = write_title_projects_if_safe(session, mono_wav, _OTHER_HUMAN_FILTER, mono_out,
+                                          multichannel_wav_path=mc_wav, channel_layout_name='5.1',
+                                          multichannel_out_path=mc_out)
+    assert result == {'mono': True, 'multichannel': False}
+    assert open(mc_out, 'rb').read() == saved
 
 
 # --- write_title_projects_if_safe --------------------------------------------
@@ -308,7 +363,8 @@ def test_align_projects_writes_a_mono_edit_into_the_multichannel_project(tmp_pat
     assert mono_pure is False  # the human's own file is untouched
     # every channel of the rewritten multichannel project is still linked to its master
     raw = _read_raw(mc_out)
-    assert raw[0]['slave_names'] and all(r['master_name'] == raw[0]['name'] for r in raw[1:])
+    master, *others = raw[0]['channels']
+    assert master['slave_names'] and all(r['master_name'] == master['name'] for r in others)
 
 
 def test_align_projects_writes_a_multichannel_edit_into_the_mono_project(tmp_path):

@@ -19,7 +19,7 @@ from qtpy.QtCore import QSettings
 from qtpy.QtWidgets import QMessageBox
 
 from model.extract import ExtractAudioDialog
-from model.preferences import Preferences
+from model.preferences import BASS_MANAGEMENT_LPF_FS, BASS_MANAGEMENT_LPF_POSITION, Preferences
 from pipeline.designer.contract import BiquadSpec, DesignCandidate, DesignResponse
 from pipeline.designer.registry import register_designer, unregister_designer
 from pipeline.review import read_queue
@@ -81,6 +81,15 @@ def test_design_controls_start_disabled_and_toggle_with_the_checkbox(dialog):
     assert dialog.designerCombo.isEnabled() is True
     assert dialog.queueDirEdit.isEnabled() is True
     assert dialog.browseQueueDirButton.isEnabled() is True
+
+
+def test_design_session_uses_the_current_bass_management_settings(dialog):
+    prefs = dialog._ExtractAudioDialog__preferences
+    prefs.set(BASS_MANAGEMENT_LPF_FS, 90)
+    prefs.set(BASS_MANAGEMENT_LPF_POSITION, 'After')
+    session = dialog._ExtractAudioDialog__get_session()
+    assert session.preferences.get(BASS_MANAGEMENT_LPF_FS) == 90
+    assert session.preferences.get(BASS_MANAGEMENT_LPF_POSITION) == 'After'
 
 
 def test_design_controls_are_hidden_in_remux_mode(qtbot, tmp_path):

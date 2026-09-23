@@ -59,6 +59,7 @@ from model.bdmv import is_bdmv_root, resolve_main_title
 from model.dvd import dvd_root, resolve_main_title as resolve_main_dvd_title
 from model.ffmpeg import Executor
 from model.iir import CompleteFilter
+from model.preferences import BASS_MANAGEMENT_LPF_FS, BASS_MANAGEMENT_LPF_POSITION, DEFAULT_PREFS
 from model.signal import AutoWavLoader, SingleChannelSignalData
 from model.xy import MagnitudeData
 
@@ -145,12 +146,14 @@ class _ConfigPreferences:
     QSettings object (same pattern as pipeline/publish/report.py's
     _SpecPreferences).
     '''
-    def __init__(self, config: AnalysisConfig):
+    def __init__(self, config: AnalysisConfig, bm_lpf_fs: int, bm_lpf_position: str):
         self.__values = {
             'analysis/target_fs': config.target_fs,
             'analysis/resolution': config.resolution,
             'analysis/avg_window': config.avg_window,
             'analysis/peak_window': config.peak_window,
+            'bm/fs': bm_lpf_fs,
+            'bm/type': bm_lpf_position,
         }
 
     def get(self, key, default_if_unset=True):
@@ -165,9 +168,16 @@ class Session:
     rather than re-extracting or re-analysing on every step
     (design/api-headless-pipeline.md §9).
     '''
-    def __init__(self, config: AnalysisConfig = AnalysisConfig()):
+    def __init__(self, config: AnalysisConfig = AnalysisConfig(), *,
+                 bm_lpf_fs: int = DEFAULT_PREFS[BASS_MANAGEMENT_LPF_FS],
+                 bm_lpf_position: str = DEFAULT_PREFS[BASS_MANAGEMENT_LPF_POSITION]):
         self.__config = config
-        self.__preferences = _ConfigPreferences(config)
+        self.__preferences = _ConfigPreferences(config, bm_lpf_fs, bm_lpf_position)
+
+    @property
+    def preferences(self):
+        '''The session's analysis and bass-management settings for model signal objects.'''
+        return self.__preferences
 
     def extract_with_layout(self, src: str, target_dir: str, audio_stream: int = 0, video_stream: int = -1,
                             mono_mix: bool = True, decimate: bool = True, playlist_name: Optional[str] = None,
@@ -283,10 +293,8 @@ class Session:
         ready for set_filters()/enslave(), unlike load_channels()'s raw decomposed arrays. A single-element
         list if path is actually mono.
 
-        Calls AutoWavLoader.prepare()/get_signal() directly, once per channel, rather than going through
-        auto_load() (what load() uses for the mono case) -- auto_load() wraps a multichannel result in a
-        BassManagedSignalData, which exists for bass-management headroom calculations this method has no
-        use for (§3.3 of design/library-sync-pipeline-plan.md).
+        Calls AutoWavLoader.prepare()/get_signal() directly, once per channel, so callers can
+        link the filter before wrapping the channels in a bass-managed project.
         '''
         from model.ffmpeg import get_channel_name
         default_name = name or os.path.splitext(os.path.basename(path))[0]

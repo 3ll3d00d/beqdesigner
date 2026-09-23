@@ -70,6 +70,8 @@ Things worth knowing:
 
 Designing a title writes a **mono project** (and a **multichannel project**, if you [keep the multichannel extraction](setup.md#locations)) into the title's folder in the work directory, as `<id>.mono.beq` and `<id>.multichannel.beq`. They are ordinary [project files](../ui/load_save.md), the same as *File > Save Project* writes, and the filter in them is the designer's top pick.
 
+New multichannel projects group the linked channels in a bass-managed track, so the main window can calculate their sum. The project uses the bass-management low-pass settings in Preferences (or the app defaults for a headless library run). Older multichannel projects still open and publish.
+
 **What you save in the project is what is published.** So if you want to change a candidate by ear or by eye, open the project, change the filter in the main window, and save it over the same file.
 
 * **Open mono project** and **Open multichannel project** (the second only for a title that has one) load the file into the main window, as *File > Load Project* would. If the main window already holds signals, you are asked first, because they are replaced. The button is disabled if the file does not exist yet or cannot be read.

@@ -16,7 +16,7 @@ from qtpy.QtCore import QSettings
 from qtpy.QtWidgets import QMessageBox
 
 from model.batch import BatchExtractDialog
-from model.preferences import Preferences
+from model.preferences import BASS_MANAGEMENT_LPF_FS, BASS_MANAGEMENT_LPF_POSITION, Preferences
 from pipeline.designer.contract import BiquadSpec, DesignCandidate, DesignResponse
 from pipeline.designer.registry import register_designer, unregister_designer
 from pipeline.review import read_queue
@@ -86,6 +86,15 @@ def test_the_dialog_has_only_the_run_tab_and_no_embedded_review(dialog):
     assert dialog.mainTabs.currentIndex() == 0
     assert not hasattr(dialog, '_BatchExtractDialog__review')
     assert dialog.review_window is None
+
+
+def test_design_session_uses_the_current_bass_management_settings(dialog):
+    prefs = dialog._BatchExtractDialog__preferences
+    prefs.set(BASS_MANAGEMENT_LPF_FS, 90)
+    prefs.set(BASS_MANAGEMENT_LPF_POSITION, 'After')
+    session = dialog.get_session()
+    assert session.preferences.get(BASS_MANAGEMENT_LPF_FS) == 90
+    assert session.preferences.get(BASS_MANAGEMENT_LPF_POSITION) == 'After'
 
 
 def test_design_and_review_controls_hidden_when_no_designers_are_registered(qtbot, tmp_path):

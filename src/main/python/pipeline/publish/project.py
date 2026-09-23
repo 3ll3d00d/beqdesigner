@@ -18,8 +18,10 @@ import os
 from dataclasses import dataclass
 from typing import List, Optional, Sequence, Tuple
 
+from model.codec import bassmanagedsignaldata_to_json, signaldata_to_json
 from model.iir import CompleteFilter
-from model.signal import SingleChannelSignalData
+from model.preferences import BASS_MANAGEMENT_LPF_FS, BASS_MANAGEMENT_LPF_POSITION
+from model.signal import BassManagedSignalData, SingleChannelSignalData
 
 from pipeline.orchestrate import Session
 
@@ -31,11 +33,17 @@ def _filter_hash(filters: CompleteFilter) -> str:
     return hashlib.sha256(json.dumps(filters.to_json(), sort_keys=True).encode('utf-8')).hexdigest()
 
 
-def write_project(path: str, signals: Sequence[SingleChannelSignalData], filter_hash: Optional[str] = None) -> None:
+def _master_json(project: dict) -> dict:
+    '''The filter-bearing channel in a mono, legacy flat, or bass-managed project.'''
+    return project['channels'][0] if project['_type'] == 'BassManagedSignalData' else project
+
+
+def write_project(path: str, signals: Sequence[SingleChannelSignalData | BassManagedSignalData],
+                  filter_hash: Optional[str] = None) -> None:
     '''
     Writes a .beq project -- the same gzip+JSON shape app.py's exportProject()/importProject() use
-    (model.codec.signaldata_to_json() per signal, no BassManagedSignalData wrapper). If filter_hash is
-    given, stamps it as an extra 'pipeline_filter_hash' key on signals[0]'s dict -- an additive key
+    (model.codec's signal serializers). If filter_hash is given, stamps it as an extra
+    'pipeline_filter_hash' key on the first filter-bearing channel's dict -- an additive key
     signaldata_from_json()/signalmodel_from_json() simply don't look for, so it round-trips fine through
     the interactive app's own load path but is never re-emitted by a human's re-export (app.py's
     exportProject() only ever calls the generic signaldata_to_json(), which has no concept of this key) --
@@ -43,10 +51,10 @@ def write_project(path: str, signals: Sequence[SingleChannelSignalData], filter_
     '''
     import gzip
     import json
-    from model.codec import signaldata_to_json
-    output = [signaldata_to_json(s) for s in signals]
+    output = [bassmanagedsignaldata_to_json(s) if isinstance(s, BassManagedSignalData) else signaldata_to_json(s)
+              for s in signals]
     if filter_hash is not None and output:
-        output[0]['pipeline_filter_hash'] = filter_hash
+        _master_json(output[0])['pipeline_filter_hash'] = filter_hash
     os.makedirs(os.path.dirname(path) or '.', exist_ok=True)
     with gzip.open(path, 'wb') as f:
         f.write(json.dumps(output).encode('utf-8'))
@@ -70,7 +78,10 @@ def write_multichannel_project(session: Session, multichannel_wav_path: str, fil
     session.set_filters(master, filters)
     for slave in channels[1:]:
         master.enslave(slave)
-    write_project(out_path, channels, filter_hash=_filter_hash(filters))
+    preferences = session.preferences
+    composite = BassManagedSignalData(channels, preferences.get(BASS_MANAGEMENT_LPF_FS),
+                                      preferences.get(BASS_MANAGEMENT_LPF_POSITION), preferences)
+    write_project(out_path, [composite], filter_hash=_filter_hash(filters))
 
 
 def read_project_filter(path: str) -> Tuple[CompleteFilter, bool]:
@@ -84,7 +95,7 @@ def read_project_filter(path: str) -> Tuple[CompleteFilter, bool]:
     from model.codec import filter_from_json
     with gzip.open(path, 'rb') as f:
         data = json.loads(f.read().decode('utf-8'))
-    master = data[0]
+    master = _master_json(data[0])
     filt = filter_from_json(master['filter_presets'][master['active_filter_preset']])
     stored = master.get('pipeline_filter_hash')
     return filt, stored is not None and stored == _filter_hash(filt)

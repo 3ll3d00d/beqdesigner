@@ -73,7 +73,7 @@ def _hand_edit_project_filter(path, new_filter):
     '''
     with gzip.open(path, 'rb') as f:
         data = json.loads(f.read().decode('utf-8'))
-    master = data[0]
+    master = data[0]['channels'][0] if data[0]['_type'] == 'BassManagedSignalData' else data[0]
     master['filter_presets'][master['active_filter_preset']] = new_filter.to_json()
     master.pop('pipeline_filter_hash', None)
     with gzip.open(path, 'wb') as f:
@@ -627,6 +627,32 @@ def test_publish_reviewed_queue_says_when_it_published_a_human_edit_and_aligns_t
     mc_filter, mc_pure = read_project_filter(mc_project)
     assert mc_filter.to_json() == edited.to_json()
     assert mc_pure is True
+
+
+def test_publish_reviewed_queue_uses_a_saved_bass_managed_project_edit(tmp_path):
+    from model.codec import bassmanagedsignaldata_to_json, signalmodel_from_json
+    from pipeline.publish.project import read_project_filter
+
+    entry_id, queue_dir, work_dir, project_dir = _accepted_title_with_projects(tmp_path)
+    mc_project = os.path.join(project_dir, f'{entry_id}.multichannel.beq')
+    mono_project = os.path.join(project_dir, f'{entry_id}.mono.beq')
+    with gzip.open(mc_project, 'rb') as f:
+        composite = signalmodel_from_json(json.loads(f.read()), Session(AnalysisConfig()).preferences)[0]
+    edited = CompleteFilter(fs=1000, filters=[PeakingEQ(1000, 55.0, 1.4, -6.0)])
+    composite.channels[0].filter = edited
+    with gzip.open(mc_project, 'wb') as f:
+        f.write(json.dumps([bassmanagedsignaldata_to_json(composite)]).encode('utf-8'))
+    saved = open(mc_project, 'rb').read()
+    xml_repo, _ = _init_repo_with_remote(tmp_path, 'xml_repo')
+
+    results = publish_reviewed_queue(queue_dir, xml_repo, xml_dir='xml', work_dir=work_dir)
+
+    assert 'error' not in results[0]
+    assert results[0]['edited_project'] == 'multichannel'
+    assert results[0]['projects_aligned'] == ['mono']
+    assert open(mc_project, 'rb').read() == saved
+    assert read_project_filter(mono_project)[0].to_json() == edited.to_json()
+    assert read_project_filter(mono_project)[1] is True
 
 
 def test_publish_reviewed_queue_adds_no_project_notes_when_nothing_was_edited(tmp_path):
