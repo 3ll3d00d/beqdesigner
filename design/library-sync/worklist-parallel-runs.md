@@ -3,7 +3,7 @@
 > Part of the library sync plan -- start at
 > [`../library-sync-pipeline-plan.md`](../library-sync-pipeline-plan.md).
 > Contains §14. This is the agreed design for chunk 42. Chunks 42a and 42b
-> are built; 42c and 42d remain. The existing workflow and work-list contract are in
+> are built; 42d remains. The existing workflow and work-list contract are in
 > [`workflow-rework/design.md`](workflow-rework/design.md) §12.7 and §12.10.
 
 ## 14. Bounded parallel work-list runs
@@ -208,6 +208,8 @@ output before sending them to the UI. Preserve useful paths and error text.
 - Done when GUI tests cover multiple rows updating independently, opening
   details after events have arrived, live append, close/reopen, errors,
   cancellation, and UI cleanup after completion.
+  **Done -- commit `5599089`; focused GUI/scheduler checks passed (148, with
+  three existing commit-result assertion mismatches deselected).**
 
 **42d -- Integration and acceptance**
 
