@@ -517,6 +517,93 @@ def test_details_cell_renders_and_activates_only_when_history_exists(qtbot, tmp_
     assert opened == ['x-gravity']
 
 
+def test_enter_opens_details_when_the_details_cell_has_focus(qtbot, tmp_path):
+    window, _ = _window(qtbot, tmp_path)
+    row = next(i for i in range(window.proxy.rowCount())
+               if window.proxy.index(i, 0).data(Qt.ItemDataRole.UserRole + 2) == 'x-gravity')
+    index = window.proxy.index(row, COL_RUN_DETAILS)
+    window.model.set_run_state('x-gravity', has_details=True)
+    window.workTable.setCurrentIndex(index)
+    window.workTable.setFocus()
+
+    qtbot.keyClick(window.workTable, Qt.Key.Key_Return)
+
+    assert 'x-gravity' in window._detail_dialogs
+    assert window._detail_dialogs['x-gravity'].isVisible()
+
+
+def test_details_dialog_preserves_reading_position_selection_follow_and_trim(qtbot):
+    from model.worklist_run_details import EventBuffer, RunDetailsDialog
+
+    buffer = EventBuffer()
+    for number in range(500):
+        buffer.append(ExecutionEvent('r', 't', 'extract', 'output', number,
+                                     f'event {number:03d} ' + ('x' * 350)))
+    dialog = RunDetailsDialog('Title', 't')
+    qtbot.addWidget(dialog)
+    dialog.show()
+    dialog.set_text(buffer.text())
+    output, scrollbar = dialog.output, dialog.output.verticalScrollBar()
+    cursor = output.document().find('event 400')
+    output.setTextCursor(cursor)
+    scrollbar.setValue(max(1, scrollbar.maximum() // 2))
+    old_scroll = scrollbar.value()
+
+    buffer.append(ExecutionEvent('r', 't', 'design', 'output', 501, 'a live event'))
+    dialog.set_text(buffer.text())
+    assert output.textCursor().selectedText() == 'event 400'
+    assert scrollbar.value() == old_scroll
+
+    scrollbar.setValue(scrollbar.maximum())
+    buffer.append(ExecutionEvent('r', 't', 'design', 'output', 502, 'follow this output'))
+    dialog.set_text(buffer.text())
+    assert scrollbar.value() == scrollbar.maximum()
+
+    cursor = output.document().find('event 400')
+    output.setTextCursor(cursor)
+    scrollbar.setValue(max(1, scrollbar.maximum() // 2))
+    for number in range(503, 523):
+        buffer.append(ExecutionEvent('r', 't', 'design', 'output', number, f'new event {number}'))
+    dialog.set_text(buffer.text())
+    assert buffer.trimmed > 0
+    assert '[Earlier events trimmed:' in output.toPlainText()
+    assert output.textCursor().selectedText() == 'event 400'
+    dialog.copy_all()
+    assert QApplication.clipboard().text() == output.toPlainText()
+
+
+def test_cancel_during_extraction_finishes_that_title_and_reports_ui_counts(qtbot, tmp_path):
+    index_file = make_index(tmp_path / 'work', _rows(), SOURCES, generation=2, last_scan_at=NOW - 900)
+    entered, release = threading.Event(), threading.Event()
+
+    def pipeline(profile, selection, through, *, on_event, should_cancel, **kwargs):
+        ids = list(selection.ids)
+        for title_id in ids:
+            on_event(ExecutionEvent('cancel-run', title_id, '', 'queued', NOW, 'Queued'))
+        current = ids[0]
+        on_event(ExecutionEvent('cancel-run', current, 'extract', 'stage_started', NOW, 'Extracting'))
+        entered.set()
+        assert release.wait(5)
+        on_event(ExecutionEvent('cancel-run', current, 'design', 'stage_started', NOW + 1, 'Designing'))
+        on_event(ExecutionEvent('cancel-run', current, '', 'title_completed', NOW + 2, current))
+        attempted = [current]
+        not_run = ids[1:] if should_cancel() else []
+        return StagesReport(through, len(ids), run=LibraryRunReport(designed=attempted), attempted=attempted,
+                            cancelled=bool(not_run), not_run=not_run)
+
+    window, _ = _window(qtbot, tmp_path, pipeline=pipeline, prefs=_prefs(tmp_path))
+    window.select_ids(['x-gravity', 'x-tenet'])
+    window.run_selected()
+    qtbot.waitUntil(entered.is_set, timeout=5000)
+    window.cancel_run()
+    release.set()
+    qtbot.waitUntil(lambda: not window.is_running, timeout=5000)
+
+    assert window.runProgress.maximum() == 2 and window.runProgress.value() == 2
+    assert window.runCountsLabel.text() == '1 succeeded · 1 cancelled'
+    assert window.model.run_state('x-tenet')['has_details']
+
+
 def test_run_event_buffer_is_bounded_and_reports_trimmed_output():
     from model.worklist_run_details import EventBuffer, MAX_EVENTS
 
@@ -927,6 +1014,8 @@ def test_a_git_failure_while_committing_is_shown_as_an_error_against_the_titles(
 
     lines = {line.id or line.title: line for line in window.results}
     assert lines['c-one'].outcome == 'Not committed' and lines['c-one'].level == 'error'
+    assert window.runProgress.maximum() == 1 and window.runProgress.value() == 1
+    assert window.runCountsLabel.text() == '1 failed'
     assert 'rejected' in lines['Commit'].detail
     assert 'the commit failed' in window.runStatusLabel.text()
 

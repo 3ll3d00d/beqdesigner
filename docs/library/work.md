@@ -38,7 +38,7 @@ There is no *extract only* button, and you do not choose stages: *Extract & desi
 
 ### While it runs
 
-Each title row has two run controls. **Run progress** shows its current stage, with a percentage while ffmpeg reports extraction progress; stages such as design show the stage name. A title waiting for a stage slot says *Queued*. **Details** opens that title's event history. It is available while the title runs and after it finishes, until a later run replaces that title's history.
+Each title row has two run controls. **Run progress** shows its current stage, with a percentage while ffmpeg reports extraction progress; stages such as design show the stage name. A title waiting for a stage slot says *Queued*. **Details** opens that title's event history. It is available when the first event is retained and stays available while the title runs and after it finishes. Starting any later run expires the previous run's histories, including histories for titles that are not selected in that run.
 
 The details window updates while it is open. It includes timestamps, stage changes, external commands as shell-quoted arguments, output and errors, and exit codes where available. Use **Copy all** to share the text. The event history is held in memory and bounded; if older output is trimmed, the dialog says how many events were removed. Known credential forms are redacted before display.
 
@@ -46,10 +46,12 @@ The run status area shows aggregate queued, active, succeeded, failed and cancel
 
 Extraction and design have separate concurrency limits. They are each set to one by default, and can be raised independently to four in **Settings... > Locations > Concurrent extractions / Concurrent designs**. This lets one title move into design while another is still extracting, without exceeding either limit. Each title still extracts before it is designed. Publish and Commit remain serialized because they update shared catalogue files and repository state.
 
+The shared progress bar counts terminal title outcomes out of the titles planned for the run. A title counts once when it succeeds, fails or is cancelled before dispatch; starting another stage does not advance the count. The status line names the latest activity and the count label summarizes queued, active, succeeded, failed and cancelled titles. ffmpeg percentages appear only in their title rows.
+
 The work list keeps the existing separate **Extract & design**, **Publish**, **Commit**, and **Retry failed** buttons. Their counts and eligibility continue to follow the current selection, or the listed rows when none are selected.
 
 * While a run is going, *Rescan*, the buttons and the [settings drawer](setup.md#the-settings-drawer) are disabled. You can still look around, open a title and review others. A title that the run is working on is read-only until it is done. Closing the window asks *A run is in progress. Cancel it and close?*.
-* **Cancel** stops dispatching queued titles. Titles already dispatched finish their requested stages; a publish already in progress finishes its title, and a begun repository commit finishes. Completed work is kept, and queued titles are reported as cancelled rather than failed.
+* **Cancel** prevents further extraction dispatch. Every title dispatched before Cancel takes effect finishes its requested stages, including design if it is waiting for a design slot. A publish entry already in progress finishes, and a begun repository commit finishes. This applies if you cancel before dispatch (no title starts), during extraction (dispatched titles finish), or while an extracted title waits for a design slot (that dispatched title still finishes). Work already handed to an extraction slot may finish too. Completed work is kept, and undispatched titles are reported as cancelled rather than failed.
 
 What a run produces for each title: the audio in the work directory, a `.beq` project with the designer's top pick (see [Projects](review.md#projects)), and a **review entry** in the review queue directory holding the candidates. Its metadata comes from the library (title and year) and, if there is a TMDB key, from [TMDB](https://www.themoviedb.org/). If the designer declines a title ("no rolloff detected", say), it still goes to review with no candidates, where you can skip or reject it.
 

@@ -123,10 +123,67 @@ class RunDetailsDialog(QDialog):
         layout.addWidget(buttons)
 
     def set_text(self, text: str) -> None:
+        old_text = self.output.toPlainText()
+        if old_text == text:
+            return
+        scrollbar = self.output.verticalScrollBar()
+        old_scroll = scrollbar.value()
+        follow = old_scroll >= scrollbar.maximum()
+        cursor = self.output.textCursor()
+        old_position, old_anchor = cursor.position(), cursor.anchor()
+        old_selection = cursor.selectedText().replace('\u2029', '\n')
+
+        if text.startswith(old_text):
+            # Appended output is inserted at the end so the reader's cursor,
+            # selection and scroll position remain stable.
+            suffix = text[len(old_text):]
+            cursor.movePosition(cursor.MoveOperation.End)
+            cursor.insertText(suffix)
+            if follow:
+                cursor.movePosition(cursor.MoveOperation.End)
+                self.output.setTextCursor(cursor)
+                scrollbar.setValue(scrollbar.maximum())
+            else:
+                cursor = self.output.textCursor()
+                cursor.setPosition(old_anchor)
+                cursor.setPosition(old_position, cursor.MoveMode.KeepAnchor)
+                self.output.setTextCursor(cursor)
+                scrollbar.setValue(old_scroll)
+            return
+
+        # The bounded event buffer dropped its prefix. Rebuild, then anchor
+        # the reader at the nearest line that survived the trim.
+        old_lines = old_text.splitlines(keepends=True)
+        line_start = old_text.rfind('\n', 0, old_position) + 1
+        line_number = old_text.count('\n', 0, line_start)
+        candidates = old_lines[line_number:] + list(reversed(old_lines[:line_number]))
         self.output.setPlainText(text)
         cursor = self.output.textCursor()
-        cursor.movePosition(cursor.MoveOperation.End)
+        restored = False
+        if old_selection and (selection_start := text.find(old_selection)) >= 0:
+            cursor.setPosition(selection_start)
+            cursor.setPosition(selection_start + len(old_selection), cursor.MoveMode.KeepAnchor)
+            restored = True
+        else:
+            for line in candidates:
+                anchor = line.strip()
+                if len(anchor) < 8:
+                    continue
+                position = text.find(anchor)
+                if position >= 0:
+                    offset = min(max(0, old_position - line_start), len(anchor))
+                    cursor.setPosition(position + offset)
+                    restored = True
+                    break
+        if not restored:
+            cursor.setPosition(min(old_position, len(text)))
         self.output.setTextCursor(cursor)
+        if follow:
+            cursor.movePosition(cursor.MoveOperation.End)
+            self.output.setTextCursor(cursor)
+            scrollbar.setValue(scrollbar.maximum())
+        else:
+            scrollbar.setValue(min(old_scroll, scrollbar.maximum()))
 
     def copy_all(self) -> None:
         QGuiApplication.clipboard().setText(self.output.toPlainText())

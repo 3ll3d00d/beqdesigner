@@ -520,7 +520,8 @@ class WorkListActions:
         for title_id in self._run_outcomes:
             if title_id in cancelled_ids:
                 self._run_outcomes[title_id] = 'cancelled'
-            elif title_id in failed_ids or any(item.get('id') == title_id for item in report.publish_errors):
+            elif title_id in failed_ids or any(item.get('id') == title_id for item in report.publish_errors) or \
+                    (report.commit_error and context is not None and title_id in context.commit_ids):
                 self._run_outcomes[title_id] = 'failed'
             elif title_id in report.attempted or any(item.get('id') == title_id for item in report.published):
                 self._run_outcomes[title_id] = 'succeeded'

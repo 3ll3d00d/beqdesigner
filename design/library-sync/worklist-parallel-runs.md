@@ -121,13 +121,22 @@ Before allowing `parallelism > 1`, establish and test these invariants:
   shared derived catalogue files as well as per-title records; git operations
   use shared working trees and retain the current one-commit-per-repository
   semantics.
-- Cancellation stops new dispatch immediately, signals active jobs at their
-  established safe boundaries, and reports queued/not-run titles distinctly
-  from failed ones.
+- Cancellation prevents further extraction dispatch. Every title dispatched
+  before Cancel takes effect finishes its requested stages, including design
+  if it is waiting for a design slot; active publish entries finish, and a
+  begun repository commit finishes. Titles not dispatched are reported as not
+  run, separately from failures. Cancellation before dispatch starts no title;
+  cancellation during extraction lets already-dispatched titles finish;
+  cancellation while one waits for a design slot still lets that dispatched
+  title finish. Work already handed to an extraction slot before Cancel may
+  also finish; titles still undispatched do not start.
 
 Progress and detail events carry the run id and title id. UI slots discard
-events from a finished or superseded run. Events are delivered to the UI
-through Qt signals; workers do not mutate widgets or the table model.
+signals from a finished or superseded run. Events are delivered to the UI
+through Qt signals; workers do not mutate widgets or the table model. The
+shared progress bar counts titles with terminal outcomes (including failures
+and cancellations); ffmpeg percentages stay in each title's row. Details stay
+available until any later run starts, when the previous run's histories expire.
 
 ### 14.5 Per-title progress and details contract
 

@@ -347,6 +347,60 @@ def test_cancelled_before_anything_runs_does_nothing(env, work):
     assert report.cancelled and work.calls == [] and report.not_run == ['fs-a']
 
 
+def test_cancel_while_a_dispatched_title_waits_for_design_finishes_dispatched_titles_only(env, monkeypatch):
+    from pipeline.library import stages
+
+    _scan(env, *[_item(letter) for letter in 'abcd'])
+    first_design_started, release_design = threading.Event(), threading.Event()
+    two_waiting_for_design = threading.Event()
+    extracted, designed, queued_design = [], [], []
+    lock = threading.Lock()
+
+    def extract(session, unit, config, local_report, index, **kwargs):
+        item = unit.item if hasattr(unit, 'item') else unit
+        with lock:
+            extracted.append(item.id)
+        return UnitWork(unit, item, 'mono.wav', item.id)
+
+    def design(work, config, index, on_stage=None):
+        if on_stage:
+            on_stage(work.item.id, 'design')
+        if not first_design_started.is_set():
+            first_design_started.set()
+            assert release_design.wait(5), 'the test never released the active design'
+        designed.append(work.item.id)
+        return LibraryRunReport(designed=[work.item.id])
+
+    def event(event):
+        if event.kind == 'stage_queued' and event.stage == 'design':
+            queued_design.append(event.title_id)
+            if len(queued_design) == 2:
+                two_waiting_for_design.set()
+
+    monkeypatch.setattr(stages, 'run_unit', extract)
+    monkeypatch.setattr(stages, 'design_unit_work', design)
+    config = _run_config(env, extract_parallelism=2, design_parallelism=1)
+    result = {}
+
+    def run():
+        result['report'] = run_stages(_profile(env), Selection(ids=('fs-a', 'fs-b', 'fs-c', 'fs-d')), 'design',
+                                      run_config=config, index=env.index, settings=env.settings,
+                                      should_cancel=two_waiting_for_design.is_set, on_event=event)
+
+    worker = threading.Thread(target=run)
+    worker.start()
+    assert two_waiting_for_design.wait(5), 'two extracted titles never reached the design queue'
+    release_design.set()
+    worker.join(5)
+    assert not worker.is_alive()
+
+    report = result['report']
+    assert report.cancelled
+    assert len(extracted) == 3 and len(designed) == 3
+    assert set(report.attempted) == set(extracted) == set(designed)
+    assert report.not_run == ['fs-d']
+
+
 # --- failures and retry --------------------------------------------------------------------------------------------
 
 def test_a_failed_title_is_not_retried_until_asked_or_until_its_source_changes(env, work):

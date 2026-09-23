@@ -17,10 +17,10 @@ affected title, and redact common authentication headers. Publish and commit
 stay serialized because they update shared catalogue files and repository state.
 The follow-up review also found and fixed stale partial progress after failure
 in `86045b9`; regression coverage is in `e608ca0`.**
-**§15 remediates the parallel-run UI and runtime-state findings. Chunk 43a
-(`51d3595`) fixes run-scoped event history and row notifications; 43b fixes
-aggregate progress and Details behavior. Cancellation wording and Details
-reading-position behavior remain in 43c.**
+**§15 remediation is complete in chunk 43: 43a (`51d3595`) fixes run-scoped
+event history and row notifications; 43b (`39f8b32`) fixes aggregate progress
+and Details behavior; 43c completes Details reading position, cancellation
+coverage and documentation.**
 Written 2026-09-17. Builds on the
 headless pipeline in `pipeline/` (see `pipeline/README.md` and
 `design/api-headless-pipeline.md`/`pipeline-implementation-plan.md`,
@@ -57,7 +57,7 @@ the design lives. It is usually all you need to decide what to do next. The desi
 | §12.13 | [`library-sync/workflow-rework/implementation-order.md`](library-sync/workflow-rework/implementation-order.md) | chunks 19-28: order, dependencies, milestones, risks | chunks 19-25 and 26a-27c built (M4: the title page with its metadata, projects, revise and bulk accept, the old dialogs retired); 28 (M5, the documentation) built in `ecd8cef` |
 | §13 | [`library-sync/sweep-up.md`](library-sync/sweep-up.md) | follow-on completion plan: live verification, JRiver and disc gaps, path UX, TVDB, season fidelity, JSON-output completion, selected-audio metadata | done: 29, 34-36, 38, 41; in progress: 39-40; externally blocked: 30-33, 37 |
 | §14 | [`library-sync/worklist-parallel-runs.md`](library-sync/worklist-parallel-runs.md) | stage-specific concurrency, per-row progress and details controls, and explicit action buttons | 42a (`817569c`), 42b (`0f62322`), 42c (`5599089`) and 42d (`7e84203`) built |
-| §15 | [`library-sync/worklist-parallel-runs-remediation.md`](library-sync/worklist-parallel-runs-remediation.md) | aggregate progress, Details behavior, run-history lifetime and cancellation wording | 43a (`51d3595`) and 43b implemented; 43c remains |
+| §15 | [`library-sync/worklist-parallel-runs-remediation.md`](library-sync/worklist-parallel-runs-remediation.md) | aggregate progress, Details behavior, run-history lifetime and cancellation wording | 43a (`51d3595`), 43b (`39f8b32`) and 43c implemented |
 | JSON output migration | [`library-sync/catalogue-json-output.md`](library-sync/catalogue-json-output.md) | BEQCatalogue filter-record output contract and migration scope | chunk 39 in progress |
 | Appendix A-D | [`library-sync/archive/`](library-sync/archive/) | handoff specs for chunks 1, 2, 4, 5 | built, archival |
 
@@ -207,4 +207,4 @@ fixture -- only chunk 8 is blocked on that mapping.
 | 40 | JRiver Playback Info resolver: request the field and turn its selected container-stream data into an ffprobe-matched audio-stream ordinal. | sanitised Playback Info fixture | **In progress — `Playback Info` is requested and the resolver seam explicitly returns the established first audio stream; parsing and ffprobe reconciliation remain** |
 | 41 | Selected-stream metadata and override: resync BEQ audio metadata from the resolved stream; let a reviewer choose a stream and safely re-extract/redesign when it changes. | 40 | **Implemented against chunk 40's first-stream resolver — commit `13e1519`: JRiver stream codec/channel descriptions drive automatic BEQ audio types; the title page persists an alternate stream, preserves a differing reviewer edit and invalidates extraction/design. A Revise > Redesign/Re-extract now hands straight into Extract & design after its row refreshes, so its label matches the outcome. ffprobe reconciliation remains part of chunk 40.** |
 | 42 | Bounded parallel work-list runs with independent extract and design limits; serialized publish and commit; progress in each work-list row; and a live per-title details window showing execution steps and commands. | 25, 26a-26b | **42a (`817569c`), 42b (`0f62322`), 42c (`5599089`) and 42d (`7e84203`) implemented; review fixes committed as `8edb12d` and `86045b9`; regression coverage `e608ca0`.** |
-| 43 | Remediate parallel-run UI behavior and lifecycle; clarify and cover title-level cancellation. See §15. | 42 | **In progress — 43a (`51d3595`) and 43b implemented: run-scoped state and events, one-generation detail history, Needs/run-column notifications, aggregate title progress and Details behavior. Focused Qt regressions pass; three pre-existing JSON-output migration assertions fail in the full action module; 43c remains.** |
+| 43 | Remediate parallel-run UI behavior and lifecycle; clarify and cover title-level cancellation. See §15. | 42 | **Implemented — 43a (`51d3595`), 43b (`39f8b32`) and 43c: run-scoped events and state, one-generation detail history, Needs/run-column notifications, aggregate title progress, Details behavior and reading position, title-level cancellation coverage and updated user docs. Pipeline stage suite passes; the work-list action module retains three pre-existing JSON-output migration assertion failures.** |

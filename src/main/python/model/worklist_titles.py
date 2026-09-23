@@ -26,7 +26,7 @@ from qtpy.QtCore import QItemSelectionModel, QObject, QRunnable, Qt, QThreadPool
 from qtpy.QtGui import QKeySequence, QShortcut
 from qtpy.QtWidgets import QAbstractItemView, QInputDialog, QMessageBox
 
-from model.worklist_model import ID_ROLE
+from model.worklist_model import COL_RUN_DETAILS, ID_ROLE
 from model.worklist_revise import revise_context
 from model.worklist_title import TitlePage
 from model.worklist_title_actions import TitleHooks
@@ -72,13 +72,27 @@ class WorkListTitles:
 
     def _configure_titles(self) -> None:
         self.workTable.doubleClicked.connect(lambda index: self.activate_title(index.data(ID_ROLE)))
+        self.workTable.activated.connect(self._activate_table_index)
         for key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
             # scoped to the table: a window-wide Enter would also fire from the search box
-            QShortcut(QKeySequence(key), self.workTable, activated=lambda: self.open_title(),
+            QShortcut(QKeySequence(key), self.workTable, activated=self._activate_table_keyboard,
                       context=Qt.ShortcutContext.WidgetShortcut)
         self.openButton.clicked.connect(lambda: self.open_title())
         # a run starting or leaving a title changes which decisions the page may offer for it
         self._model.dataChanged.connect(lambda *_: self._title_open and self._title_page.refresh_decisions())
+
+    def _activate_table_keyboard(self) -> None:
+        '''Enter opens the focused Details cell when available, otherwise the current title page.'''
+        self._activate_table_index(self.workTable.currentIndex())
+
+    def _activate_table_index(self, index) -> None:
+        '''The view's activated cell follows the same Details/title behavior as the keyboard shortcut.'''
+        if index.isValid() and index.column() == COL_RUN_DETAILS:
+            title_id = index.data(ID_ROLE)
+            if self._model.run_state(title_id).get('has_details'):
+                self._open_run_details(title_id)
+            return
+        self.open_title()
 
     def activate_title(self, title_id: str) -> bool:
         '''Double-click does the next useful thing: machine work first, otherwise the human review page.'''
