@@ -1,9 +1,9 @@
 # Work-list feedback remediation
 
-> **Design, not built.** This is §17 of the library sync plan. Chunks 45a–45c
-> are not started. It consolidates the reported work-list, stream-selection and
-> project findings into three independently reviewable changes. The existing
-> §16/chunk 44 run-state follow-up remains separate and should land first.
+> **Partly built.** This is §17 of the library sync plan. Chunk 45a has a
+> partial implementation in `8abfa83`; 45b–45c are not started. It consolidates
+> the reported work-list, stream-selection and project findings into three
+> independently reviewable changes. §16/chunk 44 landed first.
 
 ## 17.1 Findings and scope
 
@@ -21,6 +21,11 @@
 ## 17.2 Chunks
 
 ### 45a — Retry, failure and title-page visibility
+
+`8abfa83` shows the current attempt in the work-list Detail column until the
+index refresh completes, rejects progress from titles outside the run, logs
+extract/design exceptions with tracebacks, and emits an event when ffmpeg
+command preparation fails. The following work remains:
 
 - Make retry wording reflect extract versus design failure and show the prior failure separately from the active attempt on both table and title page. Use the existing run generation and index refresh; align with chunk 44's expiry of old runtime rows.
 - Put a full, selectable, copyable failure view in the Failures tab/title page. Format the stage, title and multiline message without truncating the persisted reason or relying on a tooltip. Keep event output in the existing Run Details dialog and expose that dialog from the open title page, during and after the run. Say when a cache hit invoked no ffmpeg command.

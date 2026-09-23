@@ -4,6 +4,9 @@
 > [§15](worklist-parallel-runs-remediation.md); this file records two defects
 > found after that implementation.
 
+`8abfa83` also rejects title-scoped stage and ffmpeg progress for ids outside
+the current run, matching the event boundary established in 44a.
+
 ## 16.1 Findings
 
 1. `run_stages()` emits commit-wide `stage_started`, `stage_completed` and
