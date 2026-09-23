@@ -541,7 +541,10 @@ class SettingsDrawer(QWidget):
     def __set_parallelism(self, stage: str, value: int) -> None:
         if self._loading or self._profile is None:
             return
-        parallelism = dict(config_value(self._profile, 'run', 'parallelism') or {})
+        try:
+            parallelism = stage_parallelism(config_value(self._profile, 'run', 'parallelism'))
+        except ValueError:
+            parallelism = stage_parallelism()
         parallelism[stage] = int(value)
         self.__set_run('parallelism', parallelism)
 

@@ -399,6 +399,7 @@ run:
   tmdb_api_key: XXXX             # optional
   tv_mode: season                # episode (default) | season
   keep_multichannel: false
+  parallelism: {extract: 2, design: 1}  # work-list machine-stage limits (each 1..4)
   audio_types: [DTS-HD MA 5.1]
   analysis: {target_fs: 1000, resolution: 1.0}   # analysis settings nest under run/sync, not top level
 
@@ -411,6 +412,11 @@ sync:
   image_dir: images
   meta_defaults: {source: Disc, author: me}   # config only: BeqMetadata fields for anything an entry lacks
 ```
+
+The Library Work List applies `run.parallelism.extract` and
+`run.parallelism.design` independently to extraction and design (each from 1
+to 4; absent keys mean 1). Publish and commit remain serialized because they
+write shared catalogue aggregates and repository state.
 
 Settings with **no flag**: `sources.jriver.external_id_fields`, `designers` timeouts/headers, and
 `sync.meta_defaults`. Everything else has one.

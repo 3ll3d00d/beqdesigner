@@ -18,6 +18,7 @@ The profile is a YAML (or JSON) file. The work list knows which file it is using
 Things to know about the file:
 
 * **Only what the drawer manages is changed on save.** Anything else in the file, for example a `designers:` section, other keys under `run:` or `sync:`, or settings the drawer does not offer (`meta_defaults`, `audio_types`, `commit_message`) is kept exactly.
+* The concurrency controls are stored as `run.parallelism.extract` and `run.parallelism.design`. If either is absent, that stage uses one worker.
 * **Comments in a hand-written YAML file are lost** the first time the drawer saves it, because it is rewritten from the settings. Everything else is kept.
 * **The JRiver password ends up in the profile file.** When you add a JRiver source, the server's login, path mappings and metadata fields are copied from Preferences into the source, so the file is complete on its own (and can be used by [the command line](unattended.md)). Treat the file like any other place a password is stored. The TMDB key is *not* in the file.
 * If you edit the file by hand, choose `Tools > Library Work List` again (or *Change...*) and it is read again. A file that cannot be read is reported by the window with the reason, and the drawer is disabled until you fix it or choose another file.
@@ -55,6 +56,7 @@ See [the two repositories](#the-two-repositories) below.
 * **Designer**: the designer to ask for candidate filters. The list is the designers from [Preferences > Designers](../ui/preferences.md#designers) (shown as `http:<name>`) plus any declared in the profile. A name the profile uses that is not available is shown as *name (not available)*.
 * **TV shows**: *One filter per episode* or *Whole season as a single track*. See [Concepts](concepts.md#titles).
 * **Keep the multichannel extraction (and write a multichannel project)**: also keep a multichannel WAV at the analysis sample rate, matching Batch Extract / Design, and write a second project in which the filter is linked across every channel. This is enough for the project's BEQ curves and avoids reloading and downsampling a full-rate soundtrack when the project opens. Off by default.
+* **Concurrent extractions** and **Concurrent designs**: the maximum number of titles allowed in each machine stage, from 1 to 4. Both default to 1. The limits are independent, so design can use its own capacity while other titles are extracting. Publish and Commit stay serialized because they update shared catalogue files and repository state.
 * **Accept threshold**: the confidence at or above which [bulk accept](review.md#bulk-accept) will take a title's top pick. Default 0.90. This is a preference of this installation, not part of the profile.
 * **TMDB key**: whether a [TMDB](https://www.themoviedb.org/) key is set. It is used to fill in titles, years and other metadata, and is kept in Preferences and never in the profile. The button opens Preferences, but note that the Preferences dialog has no field for it: BEQDesigner has a built-in key, which you can override by setting the `BEQDESIGNER_TMDB_API_KEY` environment variable before starting the application.
 

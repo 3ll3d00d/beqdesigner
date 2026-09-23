@@ -38,11 +38,18 @@ There is no *extract only* button, and you do not choose stages: *Extract & desi
 
 ### While it runs
 
-* The bar under the list counts titles, and the line beside it names the title and stage: *Designing Tenet (2 of 3)*.
-* The title being worked on shows *▶ Designing...* in its *Needs* column, tinted, so you can see where the run is.
-* It works on **one title at a time**.
+Each title row has two run controls. **Run progress** shows its current stage, with a percentage while ffmpeg reports extraction progress; stages such as design show the stage name. A title waiting for a stage slot says *Queued*. **Details** opens that title's event history. It is available while the title runs and after it finishes, until a later run replaces that title's history.
+
+The details window updates while it is open. It includes timestamps, stage changes, external commands as shell-quoted arguments, output and errors, and exit codes where available. Use **Copy all** to share the text. The event history is held in memory and bounded; if older output is trimmed, the dialog says how many events were removed. Known credential forms are redacted before display.
+
+The run status area shows aggregate queued, active, succeeded, failed and cancelled counts, alongside the overall run progress and the title and stage currently reporting progress.
+
+Extraction and design have separate concurrency limits. They are each set to one by default, and can be raised independently to four in **Settings... > Locations > Concurrent extractions / Concurrent designs**. This lets one title move into design while another is still extracting, without exceeding either limit. Each title still extracts before it is designed. Publish and Commit remain serialized because they update shared catalogue files and repository state.
+
+The work list keeps the existing separate **Extract & design**, **Publish**, **Commit**, and **Retry failed** buttons. Their counts and eligibility continue to follow the current selection, or the listed rows when none are selected.
+
 * While a run is going, *Rescan*, the buttons and the [settings drawer](setup.md#the-settings-drawer) are disabled. You can still look around, open a title and review others. A title that the run is working on is read-only until it is done. Closing the window asks *A run is in progress. Cancel it and close?*.
-* **Cancel** stops after the title in hand. It says *Cancelling: the title being worked on finishes first...* and when the run ends, for example *Stopped after 2 of 4 titles (2 not run): 2 designed*. Titles finished before you cancelled are kept.
+* **Cancel** stops dispatching queued titles. Titles already dispatched finish their requested stages; a publish already in progress finishes its title, and a begun repository commit finishes. Completed work is kept, and queued titles are reported as cancelled rather than failed.
 
 What a run produces for each title: the audio in the work directory, a `.beq` project with the designer's top pick (see [Projects](review.md#projects)), and a **review entry** in the review queue directory holding the candidates. Its metadata comes from the library (title and year) and, if there is a TMDB key, from [TMDB](https://www.themoviedb.org/). If the designer declines a title ("no rolloff detected", say), it still goes to review with no candidates, where you can skip or reject it.
 

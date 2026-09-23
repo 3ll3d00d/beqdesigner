@@ -18,7 +18,7 @@ from model.preferences import LIBRARY_PROFILE_PATH, TMDB_API_KEY, WORKLIST_ACCEP
 from pipeline.designer.registry import registered_designers, unregister_designer
 from pipeline.library.bulk import DEFAULT_ACCEPT_THRESHOLD
 from pipeline.library.pathmap import PathMapping
-from pipeline.library.profile import load_profile, read_config_file
+from pipeline.library.profile import load_profile, read_config_file, write_config_file
 from pipeline.library.source import LibraryItem
 from worklist_settings_fixture import DESIGNER, NOW, Dialogs, _designer, accepting, commit, commit_line, git_repo, \
     make_prefs, open_window, profile_config, wait_saved, write_profile  # noqa: F401 (the autouse fixture)
@@ -100,6 +100,19 @@ def test_stage_parallelism_settings_persist_and_default_to_one(qtbot, tmp_path):
     assert load_profile(path).config['run']['parallelism'] == {'extract': 3, 'design': 2}
     reopened = open_window(qtbot, tmp_path, prefs).open_settings()
     assert (reopened.extractParallelism.value(), reopened.designParallelism.value()) == (3, 2)
+
+
+def test_invalid_parallelism_profile_can_be_repaired_through_the_drawer(qtbot, tmp_path):
+    path = write_profile(tmp_path)
+    config = read_config_file(path)
+    config['run']['parallelism'] = {'publish': 2}
+    write_config_file(path, config)
+    drawer = open_window(qtbot, tmp_path, make_prefs(tmp_path, path)).open_settings()
+
+    assert (drawer.extractParallelism.value(), drawer.designParallelism.value()) == (1, 1)
+    drawer.extractParallelism.setValue(2)
+    assert drawer.flush()
+    assert load_profile(path).config['run']['parallelism'] == {'extract': 2, 'design': 1}
 
 
 def test_workspace_initialises_its_review_queue_and_carries_that_default_when_moved(qtbot, tmp_path):

@@ -274,6 +274,49 @@ def test_extract_and_design_worker_counts_obey_separate_limits(env, monkeypatch)
     assert active['max_design'] == 1
 
 
+def test_real_run_units_produce_the_same_outputs_with_independent_stage_pools(env, work):
+    serial = [_item(f'serial-{n}') for n in range(3)]
+    parallel = [_item(f'parallel-{n}') for n in range(3)]
+    _scan(env, *(serial + parallel))
+
+    serial_report = run_stages(_profile(env), Selection(ids=tuple(item.id for item in serial)), 'design',
+                               run_config=_run_config(env, extract_parallelism=1, design_parallelism=1),
+                               index=env.index, settings=env.settings)
+    parallel_report = run_stages(_profile(env), Selection(ids=tuple(item.id for item in parallel)), 'design',
+                                 run_config=_run_config(env, extract_parallelism=2, design_parallelism=2),
+                                 index=env.index, settings=env.settings)
+
+    assert sorted(serial_report.run.designed) == [item.id for item in serial]
+    assert sorted(parallel_report.run.designed) == [item.id for item in parallel]
+    for serial_item, parallel_item in zip(serial, parallel):
+        assert _needs(env, serial_item.id)[0] == _needs(env, parallel_item.id)[0] == 'review'
+        serial_entry = read_entry(env.queue, serial_item.id)
+        parallel_entry = read_entry(env.queue, parallel_item.id)
+        assert [c.filters for c in serial_entry.candidates] == [c.filters for c in parallel_entry.candidates]
+        assert os.path.isfile(os.path.join(env.work, serial_item.id, 'mono.wav'))
+        assert os.path.isfile(os.path.join(env.work, parallel_item.id, 'mono.wav'))
+
+
+def test_a_selected_season_and_its_member_are_rejected_before_either_runs(env, monkeypatch):
+    from pipeline.library.season import SeasonGroup
+
+    season_row, member = _item('season'), _item('member')
+    _scan(env, season_row, member)
+    other_member = _item('other-episode')
+    group = SeasonGroup(season_row, (member, other_member))
+    monkeypatch.setattr('pipeline.library.stages._units_by_title',
+                        lambda index, ids: ({season_row.id: group, member.id: member}, {}))
+    calls = []
+    monkeypatch.setattr('pipeline.library.stages.run_unit', lambda *args, **kwargs: calls.append(args))
+
+    report = run_stages(_profile(env), Selection(ids=(season_row.id, member.id)), 'design',
+                        run_config=_run_config(env), index=env.index, settings=env.settings)
+
+    assert calls == []
+    assert {title_id for title_id, _ in report.run.failed} == {season_row.id, member.id}
+    assert all('shared by selected titles' in reason for _, reason in report.run.failed)
+
+
 def test_cancel_between_titles_leaves_only_whole_titles_done_and_says_what_was_not(env, work):
     _scan(env, _item('a'), _item('b'), _item('c'))
     def cancel():
@@ -524,6 +567,24 @@ def test_an_accepted_title_with_incomplete_metadata_waits_for_a_person_and_the_r
     assert [r['id'] for r in report.published] == ['fs-b'] and not report.failed
     assert [s.id for s in report.skipped] == ['fs-a'] and 'metadata incomplete' in report.skipped[0].reason
     assert read_entry(env.queue, 'fs-a').status == 'accepted'
+
+
+def test_publish_refusal_for_one_title_does_not_discard_another_titles_write(env, work, repos):
+    (a, b), settings = _accepted(env, repos, 'a', 'b')
+    _scan(env, a, b, settings=settings)
+    # The index still says both are ready, but the first entry changed after the scan.
+    update_entry(env.queue, 'fs-a', meta={'title': '', 'year': '2018', 'audio_types': ['Atmos']})
+    events = []
+
+    report = _go(env, Selection(ids=('fs-a', 'fs-b')), 'publish', settings=settings,
+                 publish=_publish_settings(repos), on_event=events.append)
+
+    assert [result['id'] for result in report.published] == ['fs-b']
+    assert [result['id'] for result in report.publish_errors] == ['fs-a']
+    assert read_entry(env.queue, 'fs-a').status == 'accepted'
+    assert read_entry(env.queue, 'fs-b').status == 'published'
+    assert ('fs-a', 'failed') in [(event.title_id, event.kind) for event in events]
+    assert ('fs-b', 'title_completed') in [(event.title_id, event.kind) for event in events]
 
 
 def test_cancel_between_published_entries_stops_cleanly_and_leaves_no_commit(env, work, repos):
