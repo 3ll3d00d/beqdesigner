@@ -6,10 +6,12 @@ so what is asserted is the index afterwards, as a user would see it.
 '''
 import os
 import subprocess
+import threading
+import time
 
 import pytest
 
-from pipeline.library.run import LibraryRunConfig
+from pipeline.library.run import LibraryRunConfig, LibraryRunReport, UnitWork
 from pipeline.library.selection import Selection
 from pipeline.library.stages import Progress, PublishSettings, run_stages
 from pipeline.library.status import ScanSettings, failure_key
@@ -179,9 +181,9 @@ def test_progress_is_determinate_and_names_the_title_and_stage(env, work):
     _go(env, Selection(), 'design', on_progress=seen.append)
 
     assert all(isinstance(p, Progress) and p.total == 2 for p in seen)
-    assert [(p.done, p.stage, p.id) for p in seen[:-1]] == [
-        (0, 'extract', 'fs-a'), (0, 'design', 'fs-a'), (1, 'extract', 'fs-b'), (1, 'design', 'fs-b')]
-    assert seen[0].title == 'Film a'
+    assert {(p.stage, p.id) for p in seen[:-1]} == {
+        ('extract', 'fs-a'), ('design', 'fs-a'), ('extract', 'fs-b'), ('design', 'fs-b')}
+    assert all(0 <= p.done <= p.total for p in seen)
     assert (seen[-1].done, seen[-1].stage) == (2, '')
 
 
@@ -197,6 +199,79 @@ def test_run_stages_emits_structured_title_and_stage_events(env, work):
     assert {event.title_id for event in seen} == {'fs-a'}
     assert [event.stage for event in seen if event.kind.startswith('stage_')] == [
         'extract', 'extract', 'design', 'design']
+
+
+def test_extract_and_design_stages_overlap_without_holding_each_others_capacity(env, monkeypatch):
+    from pipeline.library import stages
+
+    _scan(env, _item('a'), _item('b'))
+    design_started = threading.Event()
+    extraction_overlapped_design = threading.Event()
+
+    def extract(session, unit, config, local_report, index, **kwargs):
+        item = unit.item if hasattr(unit, 'item') else unit
+        if item.id == 'fs-b':
+            assert design_started.wait(5), 'design stage did not start while extraction capacity was free'
+            extraction_overlapped_design.set()
+        return UnitWork(unit, item, 'mono.wav', item.id)
+
+    def design(work, config, index, on_stage=None):
+        if on_stage:
+            on_stage(work.item.id, 'design')
+        if work.item.id == 'fs-a':
+            design_started.set()
+            assert extraction_overlapped_design.wait(5), 'extraction did not overlap the running design'
+        return LibraryRunReport(designed=[work.item.id])
+
+    monkeypatch.setattr(stages, 'run_unit', extract)
+    monkeypatch.setattr(stages, 'design_unit_work', design)
+    config = _run_config(env, extract_parallelism=1, design_parallelism=1)
+
+    report = run_stages(_profile(env), Selection(ids=('fs-a', 'fs-b')), 'design', run_config=config,
+                        index=env.index, settings=env.settings)
+
+    assert extraction_overlapped_design.is_set()
+    assert sorted(report.run.designed) == ['fs-a', 'fs-b']
+
+
+def test_extract_and_design_worker_counts_obey_separate_limits(env, monkeypatch):
+    from pipeline.library import stages
+
+    _scan(env, *[_item(letter) for letter in 'abcd'])
+    lock = threading.Lock()
+    active = {'extract': 0, 'design': 0, 'max_extract': 0, 'max_design': 0}
+    pair = threading.Barrier(2)
+
+    def extract(session, unit, config, local_report, index, **kwargs):
+        item = unit.item if hasattr(unit, 'item') else unit
+        with lock:
+            active['extract'] += 1
+            active['max_extract'] = max(active['max_extract'], active['extract'])
+        pair.wait(timeout=5)
+        time.sleep(0.005)
+        with lock:
+            active['extract'] -= 1
+        return UnitWork(unit, item, 'mono.wav', item.id)
+
+    def design(work, config, index, on_stage=None):
+        with lock:
+            active['design'] += 1
+            active['max_design'] = max(active['max_design'], active['design'])
+        time.sleep(0.005)
+        with lock:
+            active['design'] -= 1
+        return LibraryRunReport(designed=[work.item.id])
+
+    monkeypatch.setattr(stages, 'run_unit', extract)
+    monkeypatch.setattr(stages, 'design_unit_work', design)
+    config = _run_config(env, extract_parallelism=2, design_parallelism=1)
+
+    report = run_stages(_profile(env), Selection(ids=tuple(f'fs-{letter}' for letter in 'abcd')), 'design',
+                        run_config=config, index=env.index, settings=env.settings)
+
+    assert report.run.designed == [f'fs-{letter}' for letter in 'abcd']
+    assert active['max_extract'] == 2
+    assert active['max_design'] == 1
 
 
 def test_cancel_between_titles_leaves_only_whole_titles_done_and_says_what_was_not(env, work):

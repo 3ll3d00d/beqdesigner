@@ -19,15 +19,18 @@ in hand finishes, so a cancelled run leaves only whole titles done, and its repo
 import logging
 import subprocess
 import uuid
+from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
+from contextvars import copy_context
 from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Optional
 
 from pipeline.library.commit import CatalogueCommit
 from pipeline.library.index import LibraryIndex
 from pipeline.library.profile import Profile
-from pipeline.library.run import LibraryRunConfig, LibraryRunReport, run_unit
+from pipeline.library.run import LibraryRunConfig, LibraryRunReport, design_unit_work, run_unit
 from pipeline.library.selection import Selection, Skipped, plan_stages
 from pipeline.library.status import ScanSettings
+from pipeline.library.season import conflicting_units
 from pipeline.library.sync import commit_library, publish_library
 from pipeline.orchestrate import Session
 from pipeline.publish.git import RepoTarget
@@ -131,6 +134,18 @@ def _units_by_title(index: LibraryIndex, ids: List[str]):
         return units, errors
 
 
+def _merge_run_report(target: LibraryRunReport, source: LibraryRunReport, *, include_extract: bool) -> None:
+    """Merge one worker's isolated result into the coordinator-owned run report."""
+    fields = ('extracted', 'cached', 'seasons') if include_extract else ()
+    fields += ('designed', 'design_cached', 'failed', 'failed_earlier', 'meta_unresolved', 'project_edit_preserved')
+    for name in fields:
+        current, incoming = getattr(target, name), getattr(source, name)
+        if isinstance(current, dict):
+            current.update(incoming)
+        else:
+            current.extend(incoming)
+
+
 def run_stages(profile: Profile, selection: Selection, through: str, *, run_config: LibraryRunConfig,
                index: LibraryIndex, publish: Optional[PublishSettings] = None,
                settings: Optional[ScanSettings] = None, retry_failed: bool = False,
@@ -186,45 +201,128 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
 
     try:
         units, unit_errors = _units_by_title(index, [p.row.id for p in machine])
-        session = Session(run_config.config)
+        machine_ids = {p.row.id for p in machine}
+        for resource, owners in conflicting_units([units[i] for i in units if i in machine_ids]).items():
+            message = f'Work output {resource} is shared by selected titles: {", ".join(owners)}'
+            for owner in owners:
+                if owner in machine_ids:
+                    unit_errors[owner] = message
+
+        eligible = []
         for planned in machine:
             row = planned.row
-            if cancelled():
-                report.cancelled = True
-                break
-            if row.id in unit_errors:  # this title's listing cannot be rebuilt: it fails, the others go on
+            if row.id in unit_errors:
                 report.run.failed.append((row.id, unit_errors[row.id]))
                 report.attempted.append(row.id)
                 with event_scope(title_id=row.id):
                     emit_execution_event('failed', message=unit_errors[row.id])
                 state['done'] += 1
-                continue
-            unit = units.get(row.id)
-            if unit is None:  # a row rebuilt from outputs alone has no listing to work from
+            elif units.get(row.id) is None:
                 report.skipped.append(Skipped(row.id, _title(row), 'not in the last scan: scan again'))
                 with event_scope(title_id=row.id):
                     emit_execution_event('skipped', message='Not in the last scan: scan again')
                 state['done'] += 1
-                continue
-            def extract_progress(title_id, out_time, total_time):
-                with event_scope(title_id=title_id, stage='extract'):
-                    emit_execution_event('progress', message='ffmpeg extraction progress', current=out_time,
-                                         total=total_time)
-                    if on_progress is not None:
-                        on_progress(FfmpegProgress(titles.get(title_id, title_id), title_id, out_time, total_time))
-            failed_before = len(report.run.failed)
-            remembered_before = len(report.run.failed_earlier)
-            with event_scope(title_id=row.id):
-                run_unit(session, unit, run_config, report.run, index, retry_failed=retry_failed,
-                         through='extract' if planned.stages[-1] == 'extract' else 'design',
-                         on_stage=lambda title_id, stage: emit(stage, title_id, titles.get(title_id, title_id)),
-                         on_extract_progress=extract_progress)
-                if len(report.run.failed_earlier) > remembered_before:
-                    emit_execution_event('skipped', message=report.run.failed_earlier[-1][1])
-                elif len(report.run.failed) == failed_before:
-                    emit_execution_event('title_completed', message=titles.get(row.id, row.id))
-            report.attempted.append(row.id)
-            state['done'] += 1
+            else:
+                eligible.append((planned, units[row.id]))
+
+        def extract_task(planned, unit):
+            local = LibraryRunReport()
+            title_id = planned.row.id
+
+            extract_progress = None
+            if on_progress is not None or on_event is not None:
+                def report_extract_progress(progress_id, out_time, total_time):
+                    with event_scope(title_id=progress_id, stage='extract'):
+                        emit_execution_event('progress', message='ffmpeg extraction progress', current=out_time,
+                                             total=total_time)
+                        if on_progress is not None:
+                            on_progress(FfmpegProgress(titles.get(progress_id, progress_id), progress_id,
+                                                       out_time, total_time))
+                extract_progress = report_extract_progress
+
+            with event_scope(title_id=title_id, stage='extract'):
+                work = run_unit(Session(run_config.config), unit, run_config, local, index,
+                                retry_failed=retry_failed, through='extract',
+                                on_stage=lambda progress_id, stage: emit(
+                                    stage, progress_id, titles.get(progress_id, progress_id)),
+                                on_extract_progress=extract_progress)
+            return work, local
+
+        def design_task(planned, work):
+            title_id = planned.row.id
+            with event_scope(title_id=title_id, stage='design'):
+                return design_unit_work(work, run_config, index,
+                                        on_stage=lambda progress_id, stage: emit(
+                                            stage, progress_id, titles.get(progress_id, progress_id)))
+
+        pending = list(eligible)
+        extracting: Dict[Future, object] = {}
+        designing: Dict[Future, object] = {}
+        with ThreadPoolExecutor(max_workers=run_config.extract_parallelism,
+                                thread_name_prefix='library-extract') as extract_pool, \
+                ThreadPoolExecutor(max_workers=run_config.design_parallelism,
+                                   thread_name_prefix='library-design') as design_pool:
+            while pending or extracting or designing:
+                cancel_requested = cancelled()
+                if not cancel_requested:
+                    while pending and len(extracting) < run_config.extract_parallelism:
+                        planned, unit = pending.pop(0)
+                        future = extract_pool.submit(copy_context().run, extract_task, planned, unit)
+                        extracting[future] = planned
+                else:
+                    report.cancelled = True
+                if not extracting and not designing and (not pending or cancelled()):
+                    break
+                active = set(extracting) | set(designing)
+                if not active:
+                    break
+                completed, _ = wait(active, return_when=FIRST_COMPLETED)
+                for future in completed:
+                    planned = extracting.pop(future, None)
+                    if planned is not None:
+                        row_id = planned.row.id
+                        try:
+                            work, local = future.result()
+                        except Exception as error:
+                            report.run.failed.append((row_id, f'{type(error).__name__}: {error}'))
+                            report.attempted.append(row_id)
+                            with event_scope(title_id=row_id):
+                                emit_execution_event('failed', message=f'{type(error).__name__}: {error}')
+                            state['done'] += 1
+                            continue
+                        _merge_run_report(report.run, local, include_extract=True)
+                        if work is None:
+                            if local.failed_earlier:
+                                with event_scope(title_id=row_id):
+                                    emit_execution_event('skipped', message=local.failed_earlier[-1][1])
+                            report.attempted.append(row_id)
+                            state['done'] += 1
+                            continue
+                        if planned.stages[-1] == 'design':
+                            design_future = design_pool.submit(copy_context().run, design_task, planned, work)
+                            designing[design_future] = planned
+                        else:
+                            report.attempted.append(row_id)
+                            state['done'] += 1
+                            with event_scope(title_id=row_id):
+                                emit_execution_event('title_completed', message=titles.get(row_id, row_id))
+                    else:
+                        planned = designing.pop(future)
+                        row_id = planned.row.id
+                        try:
+                            local = future.result()
+                        except Exception as error:
+                            local = LibraryRunReport(failed=[(row_id, f'{type(error).__name__}: {error}')])
+                            with event_scope(title_id=row_id, stage='design'):
+                                emit_execution_event('failed', message=f'{type(error).__name__}: {error}')
+                        _merge_run_report(report.run, local, include_extract=False)
+                        report.attempted.append(row_id)
+                        state['done'] += 1
+                        if not local.failed:
+                            with event_scope(title_id=row_id):
+                                emit_execution_event('title_completed', message=titles.get(row_id, row_id))
+            if cancelled():
+                report.cancelled = True
 
         if to_publish and not report.cancelled and not cancelled():
             base = state['done']

@@ -24,7 +24,7 @@ from qtpy.QtCore import QObject, QRunnable, Signal
 from model.preferences import TMDB_API_KEY
 from pipeline.library.commit import CatalogueCommit
 from pipeline.library.index import LibraryIndex, TitleRow
-from pipeline.library.run import LibraryRunConfig
+from pipeline.library.run import LibraryRunConfig, stage_parallelism
 from pipeline.library.selection import Selection, StagePlan
 from pipeline.library.stages import PublishSettings, StagesReport, run_stages
 from pipeline.publish.catalogue import catalogue_paths
@@ -111,10 +111,12 @@ def build_run_config(setup, preferences) -> LibraryRunConfig:
     ''' What `run_stages` is given for extract and design: the scan's settings (they must agree) and the TMDB key. '''
     settings = setup.settings
     run = (setup.profile.config.get('run') or {}) if setup.profile else {}
+    parallelism = stage_parallelism(run.get('parallelism'))
     return LibraryRunConfig(
         work_dir=settings.work_dir, queue_dir=settings.queue_dir, designer=settings.designer, config=settings.config,
         coverage=settings.coverage, keep_multichannel=settings.keep_multichannel, tv_mode=settings.tv_mode,
-        tmdb_api_key=preferences.get(TMDB_API_KEY) or None, audio_types=tuple(run.get('audio_types') or ()))
+        tmdb_api_key=preferences.get(TMDB_API_KEY) or None, audio_types=tuple(run.get('audio_types') or ()),
+        extract_parallelism=parallelism['extract'], design_parallelism=parallelism['design'])
 
 
 def publish_problem(setup) -> str:

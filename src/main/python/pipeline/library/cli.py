@@ -19,7 +19,7 @@ from pipeline.library.bulk import DEFAULT_ACCEPT_THRESHOLD, accept_top_pick, pla
 from pipeline.library.index import IndexFileError, LibraryIndex, index_path
 from pipeline.library.profile import Profile, SourceSpec, build_source, profile_from_config, read_config_file
 from pipeline.library.revise import REVISE_TARGETS, revise_entry
-from pipeline.library.run import LibraryRunConfig, run_library
+from pipeline.library.run import LibraryRunConfig, run_library, stage_parallelism
 from pipeline.library.season import DEFAULT_TV_MODE, TV_MODES
 from pipeline.library.selection import THROUGH, Selection
 from pipeline.library.stages import PublishSettings, run_stages
@@ -192,6 +192,7 @@ def _run(args: argparse.Namespace, config: dict[str, Any]) -> int:
     if designer != MANUAL_DESIGNER and designer not in registered_designers():
         raise ValueError(f"designer {designer!r} is not registered; declare it under `designers` in the config "
                          f"file or with --designer-url {designer}=URL (registered: {', '.join(registered_designers()) or 'none'})")
+    parallelism = stage_parallelism(values.get('parallelism'))
     run_config = LibraryRunConfig(
         work_dir=_required(values, 'work_dir'), queue_dir=_required(values, 'queue_dir'),
         designer=designer, config=_analysis_config(values),
@@ -202,6 +203,7 @@ def _run(args: argparse.Namespace, config: dict[str, Any]) -> int:
         tmdb_api_key=values.get('tmdb_api_key'),
         audio_types=tuple(values.get('audio_types', ())),
         tv_mode=values.get('tv_mode', DEFAULT_TV_MODE),
+        extract_parallelism=parallelism['extract'], design_parallelism=parallelism['design'],
     )
     if any(getattr(args, name) for name in _SELECTOR_FLAGS) or (profile is not None and args.source):
         return _run_stages(args, config, values, run_config)

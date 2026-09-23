@@ -86,6 +86,22 @@ def test_editing_each_setting_persists_to_the_profile_file_and_a_new_window_show
     assert [s.name for s in other.sourcesTab.sources] == ['films', 'disk']
 
 
+def test_stage_parallelism_settings_persist_and_default_to_one(qtbot, tmp_path):
+    path = write_profile(tmp_path)
+    prefs = make_prefs(tmp_path, path)
+    drawer = open_window(qtbot, tmp_path, prefs).open_settings()
+
+    assert (drawer.extractParallelism.value(), drawer.designParallelism.value()) == (1, 1)
+    assert (drawer.extractParallelism.minimum(), drawer.extractParallelism.maximum()) == (1, 4)
+    drawer.extractParallelism.setValue(3)
+    drawer.designParallelism.setValue(2)
+    assert drawer.flush()
+
+    assert load_profile(path).config['run']['parallelism'] == {'extract': 3, 'design': 2}
+    reopened = open_window(qtbot, tmp_path, prefs).open_settings()
+    assert (reopened.extractParallelism.value(), reopened.designParallelism.value()) == (3, 2)
+
+
 def test_workspace_initialises_its_review_queue_and_carries_that_default_when_moved(qtbot, tmp_path):
     path = write_profile(tmp_path)
     drawer = open_window(qtbot, tmp_path, make_prefs(tmp_path, path)).open_settings()

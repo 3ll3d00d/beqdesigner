@@ -3,7 +3,7 @@ import logging
 import os
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Callable, Optional, Sequence
+from typing import Callable, Mapping, Optional, Sequence
 
 import requests
 
@@ -25,6 +25,27 @@ from pipeline.orchestrate import Session
 
 logger = logging.getLogger('library_run')
 
+MAX_STAGE_PARALLELISM = 4
+_RUN_STAGES = ('extract', 'design')
+
+
+def stage_parallelism(value=None) -> dict[str, int]:
+    """Validate the optional ``run.parallelism`` profile mapping; older profiles mean one per stage."""
+    if value is None:
+        value = {}
+    if not isinstance(value, Mapping):
+        raise ValueError('run.parallelism must be a mapping of stage names to integers')
+    unknown = set(value) - set(_RUN_STAGES)
+    if unknown:
+        raise ValueError(f'unknown run.parallelism stage(s): {", ".join(sorted(map(str, unknown)))}')
+    result = {}
+    for stage in _RUN_STAGES:
+        count = value.get(stage, 1)
+        if isinstance(count, bool) or not isinstance(count, int) or not 1 <= count <= MAX_STAGE_PARALLELISM:
+            raise ValueError(f'run.parallelism.{stage} must be an integer from 1 to {MAX_STAGE_PARALLELISM}')
+        result[stage] = count
+    return result
+
 
 @dataclass(frozen=True)
 class LibraryRunConfig:
@@ -41,9 +62,12 @@ class LibraryRunConfig:
     # 'episode': a filter per TV episode. 'season': each series' season is joined into one track, designed once and
     # published for the whole season (see pipeline.library.season). Multichannel is not kept for a season.
     tv_mode: str = DEFAULT_TV_MODE
+    extract_parallelism: int = 1
+    design_parallelism: int = 1
 
     def __post_init__(self):
         plan_units([], self.tv_mode)  # rejects an unknown mode up front, not on the first TV item
+        stage_parallelism({'extract': self.extract_parallelism, 'design': self.design_parallelism})
 
 
 @dataclass(frozen=True)
@@ -58,6 +82,19 @@ class LibraryRunReport:
     meta_unresolved: list[tuple[str, str]] = field(default_factory=list)  # designed with item.meta only
     project_edit_preserved: list[str] = field(default_factory=list)  # a human-edited .beq project was kept
     seasons: dict[str, list[str]] = field(default_factory=dict)  # tv_mode='season': season id -> its episodes' ids
+
+
+@dataclass(frozen=True)
+class UnitWork:
+    """The extraction outputs a design stage needs; safe to hand between stage workers."""
+
+    unit: object
+    item: LibraryItem
+    wav_path: str
+    project_dir: str
+    multichannel_wav_path: Optional[str] = None
+    channel_layout_name: str = 'unknown'
+    recorded_source: Optional[str] = None
 
 
 def _meta_source(item: LibraryItem, run_config: LibraryRunConfig, report: LibraryRunReport):
@@ -132,7 +169,7 @@ def _failed_before(index: Optional[LibraryIndex], item: LibraryItem, fingerprint
 
 def _run_item(session: Session, item: LibraryItem, run_config: LibraryRunConfig, report: LibraryRunReport,
               through: str = 'design', on_stage: Optional[Callable[[str, str], None]] = None,
-              on_extract_progress: Optional[Callable[[str, int, int], None]] = None) -> None:
+              on_extract_progress: Optional[Callable[[str, int, int], None]] = None) -> UnitWork:
     if item.source_path_problem:
         raise ValueError(item.source_path_problem)
     item_dir = os.path.join(run_config.work_dir, item.id)
@@ -147,7 +184,6 @@ def _run_item(session: Session, item: LibraryItem, run_config: LibraryRunConfig,
                 session, item, item_dir, run_config.config, mono_mix=True, force=run_config.force_extract, **progress)
             multichannel_path = None
             channel_layout_name = 'unknown'
-            channels = None
             extraction_cached = mono_cached
 
             # a source known to be mono has nothing to keep, so skip the second (full-length) ffmpeg pass; an
@@ -158,10 +194,7 @@ def _run_item(session: Session, item: LibraryItem, run_config: LibraryRunConfig,
                     **progress)
                 extraction_cached = mono_cached and kept_cached
                 channel_layout_name = read_channel_layout_name(item_dir)
-                kept_channels = session.load_channels(kept_path, channel_layout_name)
-                if kept_channels:
-                    multichannel_path = kept_path
-                    channels = kept_channels
+                multichannel_path = kept_path
         emit_execution_event('stage_completed', message='Extraction complete' if not extraction_cached else
                              'Extraction cache hit')
 
@@ -169,22 +202,23 @@ def _run_item(session: Session, item: LibraryItem, run_config: LibraryRunConfig,
         report.cached.append(item.id)
     else:
         report.extracted.append(item.id)
+    work = UnitWork(item, item, mono_path, item_dir, multichannel_path, channel_layout_name)
     if through == 'extract':
-        return
+        return work
 
     if on_stage is not None:
         on_stage(item.id, 'design')
     with event_scope(title_id=item.id, stage='design'):
         emit_execution_event('stage_started', message='Designing filter')
-        _design(session, item, mono_path, run_config, report, item_dir, channels=channels,
-                multichannel_path=multichannel_path, channel_layout_name=channel_layout_name)
+        _design_work(session, work, run_config, report)
         emit_execution_event('stage_completed', message='Design complete')
+    return work
 
 
 def _run_season(session: Session, group: SeasonGroup, run_config: LibraryRunConfig, report: LibraryRunReport,
                 through: str = 'design', on_stage: Optional[Callable[[str, str], None]] = None,
                 index: Optional[LibraryIndex] = None, retry_failed: bool = False,
-                on_extract_progress: Optional[Callable[[str, int, int], None]] = None) -> None:
+                on_extract_progress: Optional[Callable[[str, int, int], None]] = None) -> UnitWork:
     '''
     Extract every episode (each cached as in episode mode, so switching mode re-extracts nothing), join them into
     one track and design that. An episode that will not extract is reported and left out -- the season is then
@@ -201,15 +235,16 @@ def _run_season(session: Session, group: SeasonGroup, run_config: LibraryRunConf
             track_path, fingerprint, item, group_dir = _extract_season(session, group, run_config, report, index,
                                                                        retry_failed, on_extract_progress)
         emit_execution_event('stage_completed', message='Season extraction complete')
+    work = UnitWork(group, item, track_path, group_dir, recorded_source=season_source_fingerprint(group) or None)
     if through == 'extract':
-        return
+        return work
     if on_stage is not None:
         on_stage(group.item.id, 'design')
     with event_scope(title_id=group.item.id, stage='design'):
         emit_execution_event('stage_started', message='Designing season filter')
-        _design(session, item, track_path, run_config, report, group_dir,
-                recorded_source=season_source_fingerprint(group) or None)
+        _design_work(session, work, run_config, report)
         emit_execution_event('stage_completed', message='Season design complete')
+    return work
 
 
 def _extract_season(session: Session, group: SeasonGroup, run_config: LibraryRunConfig, report: LibraryRunReport,
@@ -248,6 +283,19 @@ def _extract_season(session: Session, group: SeasonGroup, run_config: LibraryRun
     return track_path, fingerprint, item, group_dir
 
 
+def _design_work(session: Session, work: UnitWork, run_config: LibraryRunConfig,
+                 report: LibraryRunReport) -> None:
+    channels = None
+    multichannel_path = work.multichannel_wav_path
+    if multichannel_path:
+        channels = session.load_channels(multichannel_path, work.channel_layout_name)
+        if not channels:
+            multichannel_path = None
+    _design(session, work.item, work.wav_path, run_config, report, work.project_dir, channels=channels,
+            multichannel_path=multichannel_path, channel_layout_name=work.channel_layout_name,
+            recorded_source=work.recorded_source)
+
+
 def _design(session: Session, item: LibraryItem, wav_path: str, run_config: LibraryRunConfig,
             report: LibraryRunReport, project_dir: str, channels=None, multichannel_path=None,
             channel_layout_name: str = 'unknown', recorded_source=None) -> None:
@@ -270,7 +318,7 @@ def _design(session: Session, item: LibraryItem, wav_path: str, run_config: Libr
 def run_unit(session: Session, unit, run_config: LibraryRunConfig, report: LibraryRunReport,
              index: Optional[LibraryIndex] = None, *, retry_failed: bool = False, through: str = 'design',
              on_stage: Optional[Callable[[str, str], None]] = None,
-             on_extract_progress: Optional[Callable[[str, int, int], None]] = None) -> None:
+             on_extract_progress: Optional[Callable[[str, int, int], None]] = None) -> Optional[UnitWork]:
     '''
     Extract and design one title (an item, or a TV season as a SeasonGroup) with its own failure boundary: an error is
     reported in `report.failed` and remembered in `index`, never raised. With an `index`, a title that failed before
@@ -289,16 +337,45 @@ def run_unit(session: Session, unit, run_config: LibraryRunConfig, report: Libra
             return
     try:
         if isinstance(unit, SeasonGroup):
-            _run_season(session, unit, run_config, report, through, on_stage, index, retry_failed, on_extract_progress)
+            work = _run_season(session, unit, run_config, report, through, on_stage, index, retry_failed,
+                               on_extract_progress)
         else:
-            _run_item(session, unit, run_config, report, through, on_stage, on_extract_progress)
+            work = _run_item(session, unit, run_config, report, through, on_stage, on_extract_progress)
         if index is not None:
             index.clear_failure(item.id)
+        return work
     except Exception as error:
         report.failed.append((item.id, f'{type(error).__name__}: {error}'))
         emit_execution_event('failed', message=f'{type(error).__name__}: {error}')
         if index is not None:
             _remember_failure(index, unit, run_config, error)
+        return None
+
+
+def design_unit_work(work: UnitWork, run_config: LibraryRunConfig,
+                     index: Optional[LibraryIndex] = None,
+                     on_stage: Optional[Callable[[str, str], None]] = None) -> LibraryRunReport:
+    """Run only the design stage for an extraction already completed by ``run_unit(..., through='extract')``."""
+    report = LibraryRunReport()
+    unit = work.unit
+    item = work.item
+    try:
+        with event_scope(title_id=item.id, stage='design'):
+            if on_stage is not None:
+                on_stage(item.id, 'design')
+            emit_execution_event('stage_started', message='Designing filter')
+            _design_work(Session(run_config.config), work, run_config, report)
+            emit_execution_event('stage_completed', message='Design complete')
+    except Exception as error:
+        report.failed.append((item.id, f'{type(error).__name__}: {error}'))
+        with event_scope(title_id=item.id, stage='design'):
+            emit_execution_event('failed', message=f'{type(error).__name__}: {error}')
+        if index is not None:
+            _remember_failure(index, unit, run_config, error)
+    else:
+        if index is not None:
+            index.clear_failure(item.id)
+    return report
 
 
 def run_library(source: LibrarySource, run_config: LibraryRunConfig,

@@ -27,7 +27,7 @@ from typing import Callable, Dict, List, Optional, Sequence
 
 from qtpy.QtCore import QStandardPaths, QTimer, Qt, Signal
 from qtpy.QtWidgets import QCheckBox, QComboBox, QDoubleSpinBox, QFileDialog, QFormLayout, QGroupBox, QHBoxLayout, QLabel, \
-    QLineEdit, QPushButton, QScrollArea, QTabWidget, QVBoxLayout, QWidget
+    QLineEdit, QPushButton, QScrollArea, QSpinBox, QTabWidget, QVBoxLayout, QWidget
 
 from model.preferences import LIBRARY_PROFILE_PATH, TMDB_API_KEY, WORKLIST_ACCEPT_THRESHOLD
 from model.worklist_edit import LEVEL_ERROR, LEVEL_INFO, LEVEL_OK, PathCheck, check_directory, config_value, \
@@ -38,6 +38,7 @@ from model.worklist_profile import WorkListSetup
 from model.worklist_sources import SourcesTab
 from pipeline.library.index import TitleRow
 from pipeline.library.profile import Profile, profile_from_config, save_profile
+from pipeline.library.run import stage_parallelism
 from pipeline.library.season import TV_MODES
 from pipeline.designer.manual import MANUAL_DESIGNER
 
@@ -166,6 +167,14 @@ class SettingsDrawer(QWidget):
 
     # --- construction -----------------------------------------------------------------------------------------------
 
+    @staticmethod
+    def __parallelism_spin() -> QSpinBox:
+        spin = QSpinBox()
+        spin.setRange(1, 4)
+        spin.setValue(1)
+        spin.setToolTip('Maximum number of this stage running at once (1–4).')
+        return spin
+
     def __build(self, run_dialog) -> None:
         self.pathLabel = QLabel('')
         self.pathLabel.setWordWrap(True)
@@ -224,6 +233,8 @@ class SettingsDrawer(QWidget):
         for mode in TV_MODES:
             self.tvModeCombo.addItem(TV_MODE_LABELS.get(mode, mode), mode)
         self.keepMultichannel = QCheckBox('Keep the multichannel extraction (and write a multichannel project)')
+        self.extractParallelism = self.__parallelism_spin()
+        self.designParallelism = self.__parallelism_spin()
         self.acceptThreshold = QDoubleSpinBox()
         self.acceptThreshold.setRange(0.0, 1.0)
         self.acceptThreshold.setSingleStep(0.05)
@@ -254,6 +265,8 @@ class SettingsDrawer(QWidget):
         form.addRow('Designer', self.designerCombo)
         form.addRow('TV shows', self.tvModeCombo)
         form.addRow('', self.keepMultichannel)
+        form.addRow('Concurrent extractions', self.extractParallelism)
+        form.addRow('Concurrent designs', self.designParallelism)
         form.addRow('Accept threshold', self.acceptThreshold)
         tmdb = QHBoxLayout()
         tmdb.addWidget(self.tmdbLabel, 1)
@@ -293,6 +306,8 @@ class SettingsDrawer(QWidget):
         self.designerCombo.activated.connect(lambda _i: self.__set_run('designer', self.__chosen_designer()))
         self.tvModeCombo.activated.connect(lambda _i: self.__set_run('tv_mode', self.tvModeCombo.currentData()))
         self.keepMultichannel.clicked.connect(lambda checked: self.__set_run('keep_multichannel', bool(checked)))
+        self.extractParallelism.valueChanged.connect(lambda value: self.__set_parallelism('extract', value))
+        self.designParallelism.valueChanged.connect(lambda value: self.__set_parallelism('design', value))
         self.acceptThreshold.valueChanged.connect(self.__threshold_changed)
         self.sourcesTab.changed.connect(lambda sources: self.__edit(replace(self._profile, sources=tuple(sources))))
         self.sourcesTab.renamed.connect(self.ignoreTab.rename_source)
@@ -375,6 +390,12 @@ class SettingsDrawer(QWidget):
         self.__fill_designers(str(config_value(profile, 'run', 'designer')))
         self.tvModeCombo.setCurrentIndex(max(self.tvModeCombo.findData(config_value(profile, 'run', 'tv_mode', 'episode')), 0))
         self.keepMultichannel.setChecked(bool(config_value(profile, 'run', 'keep_multichannel', False)))
+        try:
+            parallelism = stage_parallelism(config_value(profile, 'run', 'parallelism'))
+        except ValueError:
+            parallelism = stage_parallelism()
+        self.extractParallelism.setValue(parallelism['extract'])
+        self.designParallelism.setValue(parallelism['design'])
         self.acceptThreshold.setValue(float(self._prefs.get(WORKLIST_ACCEPT_THRESHOLD)))
         self.__refresh_tmdb()
         rows = list(self._rows_provider())
@@ -516,6 +537,13 @@ class SettingsDrawer(QWidget):
         if self._loading or self._profile is None:
             return
         self.__edit(with_config(self._profile, 'run', key, value))
+
+    def __set_parallelism(self, stage: str, value: int) -> None:
+        if self._loading or self._profile is None:
+            return
+        parallelism = dict(config_value(self._profile, 'run', 'parallelism') or {})
+        parallelism[stage] = int(value)
+        self.__set_run('parallelism', parallelism)
 
     def __threshold_changed(self, value: float) -> None:
         if not self._loading:
