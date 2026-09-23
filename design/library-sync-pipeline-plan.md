@@ -9,9 +9,9 @@ work-list UI: multi-source profiles, discovery, per-stage state,
 publish/commit, revision and review. Chunks 19-28 are built through M5;
 chunk 28’s documentation is commit `ecd8cef`. It supersedes §7's GUI. Its
 implementation order is §12.13.**
-**§14 is the planned follow-on for bounded parallel work-list runs, live
-per-row progress and per-title run details. It is design only; no code has
-been changed for it.**
+**§14 is the follow-on for bounded parallel work-list runs, live per-row
+progress and per-title run details. Chunk 42a's event seams and output
+resource checks are implemented in `817569c`; 42b-42d remain.**
 Written 2026-09-17. Builds on the
 headless pipeline in `pipeline/` (see `pipeline/README.md` and
 `design/api-headless-pipeline.md`/`pipeline-implementation-plan.md`,
@@ -47,7 +47,7 @@ the design lives. It is usually all you need to decide what to do next. The desi
 | §12 (except §12.13) | [`library-sync/workflow-rework/design.md`](library-sync/workflow-rework/design.md) | the agreed workflow, discovery, state machine, revise, screen; **the frozen index schema (§12.5)** | discovery (chunk 24) and the stage entry points, selectors and bulk accept (chunk 25) built; the work list window (§12.10, chunk 26a, read-only), its actions (26b) and its settings drawer (26c) are built; the title page core (27a: candidates, chart, accept/skip/reject, prev/next) and its metadata and artwork (27b) are built (committed); the title page's projects, Reopen / Revise, bulk accept and the retirement of the old dialogs (27c) are built (committed); the user documentation (28, `docs/library/`) is built in `ecd8cef` |
 | §12.13 | [`library-sync/workflow-rework/implementation-order.md`](library-sync/workflow-rework/implementation-order.md) | chunks 19-28: order, dependencies, milestones, risks | chunks 19-25 and 26a-27c built (M4: the title page with its metadata, projects, revise and bulk accept, the old dialogs retired); 28 (M5, the documentation) built in `ecd8cef` |
 | §13 | [`library-sync/sweep-up.md`](library-sync/sweep-up.md) | follow-on completion plan: live verification, JRiver and disc gaps, path UX, TVDB, season fidelity, JSON-output completion, selected-audio metadata | done: 29, 34-36, 38, 41; in progress: 39-40; externally blocked: 30-33, 37 |
-| §14 | [`library-sync/worklist-parallel-runs.md`](library-sync/worklist-parallel-runs.md) | stage-specific concurrency, per-row progress and details controls, and explicit action buttons | design agreed; implementation not started (chunk 42) |
+| §14 | [`library-sync/worklist-parallel-runs.md`](library-sync/worklist-parallel-runs.md) | stage-specific concurrency, per-row progress and details controls, and explicit action buttons | 42a built (`817569c`); 42b-42d not started |
 | JSON output migration | [`library-sync/catalogue-json-output.md`](library-sync/catalogue-json-output.md) | BEQCatalogue filter-record output contract and migration scope | chunk 39 in progress |
 | Appendix A-D | [`library-sync/archive/`](library-sync/archive/) | handoff specs for chunks 1, 2, 4, 5 | built, archival |
 
@@ -195,4 +195,4 @@ fixture -- only chunk 8 is blocked on that mapping.
 | 39 | Complete the BEQCatalogue JSON-output migration: replace remaining `xml_*` settings, CLI flags and UI/docs terminology with filter-record names; migrate the legacy XML-specific review/commit/index tests; add an end-to-end BEQDesigner → BEQCatalogue → `CatalogueEntry` round trip; configure the production record repository in BEQCatalogue. | JSON publisher commit `d8f4219`; BEQCatalogue contract/reader `be708773b` | **In progress — core publisher landed; Settings now exposes two destination locations and derives git roots/subfolders; terminology, CLI, full round trip and onboarding remain** |
 | 40 | JRiver Playback Info resolver: request the field and turn its selected container-stream data into an ffprobe-matched audio-stream ordinal. | sanitised Playback Info fixture | **In progress — `Playback Info` is requested and the resolver seam explicitly returns the established first audio stream; parsing and ffprobe reconciliation remain** |
 | 41 | Selected-stream metadata and override: resync BEQ audio metadata from the resolved stream; let a reviewer choose a stream and safely re-extract/redesign when it changes. | 40 | **Implemented against chunk 40's first-stream resolver — commit `13e1519`: JRiver stream codec/channel descriptions drive automatic BEQ audio types; the title page persists an alternate stream, preserves a differing reviewer edit and invalidates extraction/design. A Revise > Redesign/Re-extract now hands straight into Extract & design after its row refreshes, so its label matches the outcome. ffprobe reconciliation remains part of chunk 40.** |
-| 42 | Bounded parallel work-list runs with independent extract, design and publish limits; progress in each work-list row; and a live per-title details window showing execution steps and commands. | 25, 26a-26b | **Planned in §14 — design only; implementation not started** |
+| 42 | Bounded parallel work-list runs with independent extract, design and publish limits; progress in each work-list row; and a live per-title details window showing execution steps and commands. | 25, 26a-26b | **42a implemented -- commit `817569c` (event seams and output-resource checks); 42b-42d remain** |

@@ -102,13 +102,13 @@ unbounded nested fan-out; stage permits are the actual concurrency bounds.
 
 Before allowing `parallelism > 1`, establish and test these invariants:
 
-- Every worker uses a safe index access pattern. Prefer one short-lived
-  `LibraryIndex` connection per worker for reads and writes, or marshal
-  index mutations through one coordinator-owned writer. Do not share a
-  SQLite connection across worker threads. Refresh once after the run, not
-  concurrently from every worker. Stage transitions and index updates must
-  be ordered so a downstream stage never sees stale status from an upstream
-  stage.
+- `LibraryIndex` uses one SQLite connection with `check_same_thread=False`
+  and serializes its public database operations with an `RLock`. Workers may
+  share the `LibraryIndex` object only through those methods; never pass its
+  raw connection to a worker. Keep `refresh()` on the coordinator after all
+  workers join, not concurrent with title work. Stage transitions and index
+  updates must be ordered so a downstream stage never sees stale status from
+  an upstream stage.
 - A title's outputs have one writer. Detect overlapping work units, including
   season entries and member episode extracts, before dispatch. Either group
   conflicting titles into one serial lane or reject the run with an
@@ -160,13 +160,18 @@ output before sending them to the UI. Preserve useful paths and error text.
 
 - Trace shared writes and index operations for extraction, design, publish,
   season/member work, failure recording and refresh.
-- Add the per-title runtime/event value objects and callbacks at external
-  process boundaries. Prove current parallelism `1` behavior and event order
-  before enabling fan-out.
-- Define conflict detection/grouping for overlapping output paths and a
-  worker-safe index write strategy.
-- Done when tests prove no shared output is scheduled concurrently and
-  failures remain isolated per title.
+- Add Qt-free per-title run events and callbacks. Capture ffprobe/ffmpeg and
+  git argv, command output, exit status and title/stage context; expose the
+  event signal from `RunJob`. Extraction progress remains a separate,
+  structured event. Existing `LibraryIndex` methods serialize their access;
+  refresh stays on the run thread after title work.
+- Add output-resource discovery: a season unit claims its own work/queue id
+  and every member episode work id. The scheduler must reject or serialize
+  any pair of units with an intersecting resource set.
+- Done when tests cover event identity/payload, season/member resource
+  overlap and existing per-title failure boundaries. This chunk adds no
+  fan-out, so it cannot schedule conflicting outputs concurrently.
+  **Done -- commit `817569c`; focused pipeline tests passed (57).**
 
 **42b -- Stage scheduler and independent concurrency settings**
 
