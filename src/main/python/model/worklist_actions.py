@@ -492,14 +492,18 @@ class WorkListActions:
             return
         cancel_asked = self._job is not None and self._job.cancel_requested
         context = self._end_run()
-        cancelled_ids = set(report.not_run)
+        planned_ids = set(self._run_outcomes)
+        cancelled_ids = set(report.not_run) & planned_ids
         failed_ids = set(dict(report.run.failed)) | set(dict(report.run.failed_earlier))
         for title_id in report.attempted:
+            if title_id not in planned_ids:
+                continue
             self._run_outcomes[title_id] = 'failed' if title_id in failed_ids else 'succeeded'
         for result in report.published:
-            self._run_outcomes[result['id']] = 'succeeded'
+            if result.get('id') in planned_ids:
+                self._run_outcomes[result['id']] = 'succeeded'
         for result in report.publish_errors:
-            if result.get('id'):
+            if result.get('id') in planned_ids:
                 self._run_outcomes[result['id']] = 'failed'
         if report.commit_error:
             for title_id in context.commit_ids if context is not None else ():

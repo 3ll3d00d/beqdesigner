@@ -747,6 +747,11 @@ class WorkListWindow(WorkListActions, WorkListTitles, WorkListBulk, QMainWindow,
         # ties it to the run that emitted it, even before run_id is known.
         if self._job is None or source_job is not self._job:
             return
+        context = self._run_context
+        if context is None or event.title_id not in context.request.ids:
+            # Commit-wide events have an empty id; malformed or unexpected ids
+            # must not create phantom rows or inflate title-level counts.
+            return
         if not self._active_run_id:
             self._active_run_id = event.run_id
         if event.run_id != self._active_run_id:

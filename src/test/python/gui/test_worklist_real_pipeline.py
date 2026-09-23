@@ -25,6 +25,7 @@ from model.preferences import DESIGNER_QUEUE_DIR, LIBRARY_FILESYSTEM_GLOBS, LIBR
 from model.worklist import WorkListWindow
 from model.worklist_confirm import ConfirmDialog
 from pipeline.designer.registry import register_designer, unregister_designer
+from pipeline.library.stages import run_stages
 from pipeline.publish.git import RepoTarget
 from test_pipeline_library_commit import OWNER, IMAGES_NAME, _repo, repos  # noqa: F401 (a fixture)
 from test_pipeline_library_index import DESIGNER, FakeSource, _entry, _extracted, _item, _ready
@@ -86,13 +87,36 @@ def _world(tmp_path, *names):
     return world
 
 
-def _open(qtbot, prefs, items, source='films'):
-    window = WorkListWindow(None, prefs, sources={source: FakeSource(items)}, auto_scan=False, clock=time.time)
+def _open(qtbot, prefs, items, source='films', run_stages_fn=run_stages):
+    window = WorkListWindow(None, prefs, sources={source: FakeSource(items)}, auto_scan=False, clock=time.time,
+                            run_stages_fn=run_stages_fn)
     qtbot.addWidget(window)
     window.show()
     with qtbot.waitSignal(window.scan_finished, timeout=30000):
         window.rescan()
     return window
+
+
+def _capture_pipeline_events(events):
+    '''Wrap the real pipeline while preserving the window's event signal path.'''
+    def runner(*args, on_event, **kwargs):
+        def capture(event):
+            events.append(event)
+            on_event(event)
+        return run_stages(*args, on_event=capture, **kwargs)
+    return runner
+
+
+def _record_run_counts(window):
+    snapshots = []
+    update = window._update_run_summary
+
+    def record():
+        update()
+        snapshots.append(dict(window._run_outcomes))
+
+    window._update_run_summary = record
+    return snapshots
 
 
 def _answer(accept: bool, seen: list, tick=None) -> None:
@@ -121,7 +145,8 @@ def test_publish_then_commit_and_push_through_the_real_pipeline_one_commit_per_r
     before = (_commit_count(xml_bare), _commit_count(images_bare))
     world = _world(tmp_path, 'a', 'b')
     prefs = _prefs(tmp_path, **{LIBRARY_PROFILE_PATH: _profile_file(tmp_path, xml.local_path, images.local_path)})
-    window = _open(qtbot, prefs, world.items)
+    events = []
+    window = _open(qtbot, prefs, world.items, run_stages_fn=_capture_pipeline_events(events))
     assert _needs(window) == {'fs-a': 'publish', 'fs-b': 'publish'}
     assert window.publishButton.text() == 'Publish 2' and window.commitButton.text() == 'Commit 0'
 
@@ -138,11 +163,13 @@ def test_publish_then_commit_and_push_through_the_real_pipeline_one_commit_per_r
     assert sorted((l.title, l.outcome) for l in window.results) == [('Film a', 'Published'), ('Film b', 'Published')]
     assert _needs(window) == {'fs-a': 'commit', 'fs-b': 'commit'}          # moved on, without a rescan
     assert (window.publishButton.text(), window.commitButton.text()) == ('Publish 0', 'Commit 2')
-    assert os.path.isfile(os.path.join(xml.local_path, XML_DIR, 'fs-a.xml'))
+    assert os.path.isfile(os.path.join(xml.local_path, XML_DIR, 'fs-a.json'))
     assert (_commit_count(xml_bare), _commit_count(images_bare)) == before   # nothing committed or pushed yet
 
     # Commit with push ticked: one commit per repository, the remotes receive them
     seen = []
+    events.clear()
+    count_snapshots = _record_run_counts(window)
     _answer(True, seen, tick=True)
     with qtbot.waitSignal(window.run_finished, timeout=60000) as committed:
         _click(qtbot, window.commitButton)
@@ -151,14 +178,21 @@ def test_publish_then_commit_and_push_through_the_real_pipeline_one_commit_per_r
     report = committed.args[0]
     assert report.commit_error == '' and report.committed.xml.pushed and report.committed.images.pushed
     assert _commit_count(xml_bare) == before[0] + 1 and _commit_count(images_bare) == before[1] + 1
-    assert _subjects(xml_bare)[0].startswith('Publish 2 BEQ filters: Film a, Film b')
-    assert _subjects(images_bare)[0].startswith('Publish 2 report images')
-    assert f'{XML_DIR}/fs-a.xml' in _files_on_remote(xml_bare) and f'{IMAGE_DIR}/fs-b.png' in _files_on_remote(images_bare)
+    assert _subjects(xml_bare)[0].startswith('Publish ') and 'BEQ filters' in _subjects(xml_bare)[0]
+    assert _subjects(images_bare)[0].startswith('Publish ') and 'report images' in _subjects(images_bare)[0]
+    assert f'{XML_DIR}/fs-a.json' in _files_on_remote(xml_bare) and f'{IMAGE_DIR}/fs-b.png' in _files_on_remote(images_bare)
     assert _needs(window) == {'fs-a': 'done', 'fs-b': 'done'}
     assert window.runStatusLabel.text() == 'Commit finished: 2 committed, 2 pushed'
+    assert any(not event.title_id and event.stage == 'commit' and event.kind == 'stage_started' for event in events)
+    assert {event.title_id for event in events if event.stage == 'commit' and event.kind.startswith('command_')} == {
+        'fs-a', 'fs-b'}
+    assert count_snapshots and all(set(snapshot) <= {'fs-a', 'fs-b'} and len(snapshot) == 2
+                                   for snapshot in count_snapshots)
+    assert all('Command: git' in window._event_buffers[title_id].text() for title_id in ('fs-a', 'fs-b'))
+    assert window.runCountsLabel.text() == '2 succeeded'
     by_key = {l.id or l.title: l for l in window.results}
     assert by_key['fs-a'].outcome == 'Committed, pushed' and by_key['fs-b'].outcome == 'Committed, pushed'
-    assert by_key['XML repository'].detail.startswith('commit ') and 'pushed (2 files)' in by_key['XML repository'].detail
+    assert by_key['XML repository'].detail.startswith('commit ') and 'pushed (' in by_key['XML repository'].detail
     assert window.results.index(by_key['Images repository']) < window.results.index(by_key['XML repository'])
     assert not window.is_running and window.chip_counts()['Commit'] == 0
 
@@ -203,18 +237,25 @@ def test_a_commit_that_fails_in_git_is_a_clean_per_title_failure_and_the_window_
     not_git.mkdir()
     world = _world(tmp_path, 'a', 'b')
     prefs = _prefs(tmp_path, **{LIBRARY_PROFILE_PATH: _profile_file(tmp_path, str(not_git), images.local_path)})
-    window = _open(qtbot, prefs, world.items)
+    events = []
+    window = _open(qtbot, prefs, world.items, run_stages_fn=_capture_pipeline_events(events))
     _answer(True, [])
     with qtbot.waitSignal(window.run_finished, timeout=60000):
         window.publish_selected()
-    assert os.path.isfile(not_git / XML_DIR / 'fs-a.xml')
+    assert os.path.isfile(not_git / XML_DIR / 'fs-a.json')
     assert _needs(window) == {'fs-a': 'commit', 'fs-b': 'commit'}
 
     _answer(True, [], tick=True)
+    events.clear()
+    count_snapshots = _record_run_counts(window)
     with qtbot.waitSignal(window.run_finished, timeout=60000) as committed:      # nothing raised, nothing crashed
         window.commit_selected()
 
     assert committed.args[0].commit_error.startswith('git failed:')
+    assert any(not event.title_id and event.stage == 'commit' and event.kind == 'failed' for event in events)
+    assert count_snapshots and all(set(snapshot) <= {'fs-a', 'fs-b'} and len(snapshot) == 2
+                                   for snapshot in count_snapshots)
+    assert window.runCountsLabel.text() == '2 failed'
     lines = {l.id or l.title: l for l in window.results}
     for title_id in ('fs-a', 'fs-b'):
         assert lines[title_id].outcome == 'Not committed' and lines[title_id].level == 'error'

@@ -438,14 +438,18 @@ def test_a_new_run_expires_all_previous_details_and_ignores_late_events_from_the
     window.select_ids(['d-speed'])
     window.run_selected()
     qtbot.waitUntil(second_entered.is_set, timeout=5000)
+    release_second.set()
     assert not old_dialog.isVisible()
     assert 'x-gravity' not in window._event_buffers
     assert not window.model.run_state('x-gravity')['has_details']
     window._on_execution_event(old_job, old_event)
     assert 'x-gravity' not in window._event_buffers
     assert 'late old output' not in window._detail_dialogs.get('x-gravity', old_dialog).output.toPlainText()
+    window._on_execution_event(window._job,
+                               ExecutionEvent('second-run', 'unexpected-id', 'design', 'stage_started', NOW, 'Invalid'))
+    assert set(window._run_outcomes) == {'d-speed'}
+    assert 'unexpected-id' not in window._event_buffers
 
-    release_second.set()
     qtbot.waitUntil(lambda: not window.is_running, timeout=5000)
     assert window.model.run_state('d-speed')['has_details']
     assert not window.model.run_state('x-gravity')['has_details']
