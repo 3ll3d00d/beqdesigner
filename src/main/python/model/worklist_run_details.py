@@ -19,6 +19,8 @@ MAX_BUFFER_CHARS = 256 * 1024
 
 _SECRET = re.compile(r'(?i)(api[_-]?key|access[_-]?token|password|secret)([=: ]+)([^\s&]+)')
 _URL_CREDENTIALS = re.compile(r'(https?://)[^/@\s]+:[^/@\s]+@', re.IGNORECASE)
+_AUTH_HEADER = re.compile(r'(?i)(authorization\s*[:=]\s*(?:bearer|basic)\s+)[^\s,;]+')
+_COOKIE_HEADER = re.compile(r'(?i)((?:set-)?cookie\s*[:=]\s*)[^\r\n]+')
 _SECRET_ARG = re.compile(r'^--?(?:api[_-]?key|access[_-]?token|password|secret)$', re.IGNORECASE)
 MAX_COMMAND_ARGS = 256
 MAX_COMMAND_CHARS = 32 * 1024
@@ -26,6 +28,8 @@ MAX_COMMAND_CHARS = 32 * 1024
 
 def _redact(text: str) -> str:
     text = _URL_CREDENTIALS.sub(r'\1[REDACTED]@', text)
+    text = _AUTH_HEADER.sub(r'\1[REDACTED]', text)
+    text = _COOKIE_HEADER.sub(r'\1[REDACTED]', text)
     return _SECRET.sub(r'\1\2[REDACTED]', text)
 
 

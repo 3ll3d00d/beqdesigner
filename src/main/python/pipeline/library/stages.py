@@ -18,10 +18,11 @@ in hand finishes, so a cancelled run leaves only whole titles done, and its repo
 '''
 import logging
 import subprocess
+import threading
 import uuid
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from contextvars import copy_context
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Callable, Dict, List, Optional
 
 from pipeline.library.commit import CatalogueCommit
@@ -193,7 +194,21 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
         return should_cancel is not None and bool(should_cancel())
 
     run_id = uuid.uuid4().hex
-    event_context = execution_event_context(run_id, on_event)
+    # Keep event delivery ordered across workers and attach shared git commands to every
+    # title whose accepted/published work is included in the single catalogue commit.
+    event_lock = threading.Lock()
+
+    def deliver_event(event):
+        if on_event is None:
+            return
+        with event_lock:
+            if event.stage == 'commit' and not event.title_id and event.kind.startswith('command_'):
+                for title_id in commit_ids:
+                    on_event(replace(event, title_id=title_id))
+            else:
+                on_event(event)
+
+    event_context = execution_event_context(run_id, deliver_event if on_event is not None else None)
     event_context.__enter__()
     for planned in plan.planned:
         with event_scope(title_id=planned.row.id):
@@ -258,11 +273,12 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
         pending = list(eligible)
         extracting: Dict[Future, object] = {}
         designing: Dict[Future, object] = {}
+        design_pending = []
         with ThreadPoolExecutor(max_workers=run_config.extract_parallelism,
                                 thread_name_prefix='library-extract') as extract_pool, \
                 ThreadPoolExecutor(max_workers=run_config.design_parallelism,
                                    thread_name_prefix='library-design') as design_pool:
-            while pending or extracting or designing:
+            while pending or extracting or designing or design_pending:
                 cancel_requested = cancelled()
                 if not cancel_requested:
                     while pending and len(extracting) < run_config.extract_parallelism:
@@ -271,7 +287,11 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
                         extracting[future] = planned
                 else:
                     report.cancelled = True
-                if not extracting and not designing and (not pending or cancelled()):
+                while design_pending and len(designing) < run_config.design_parallelism:
+                    planned, work = design_pending.pop(0)
+                    design_future = design_pool.submit(copy_context().run, design_task, planned, work)
+                    designing[design_future] = planned
+                if not extracting and not designing and not design_pending and (not pending or cancelled()):
                     break
                 active = set(extracting) | set(designing)
                 if not active:
@@ -299,8 +319,10 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
                             state['done'] += 1
                             continue
                         if planned.stages[-1] == 'design':
-                            design_future = design_pool.submit(copy_context().run, design_task, planned, work)
-                            designing[design_future] = planned
+                            row_id = planned.row.id
+                            with event_scope(title_id=row_id, stage='design'):
+                                emit_execution_event('stage_queued', message='Waiting for design slot')
+                            design_pending.append((planned, work))
                         else:
                             report.attempted.append(row_id)
                             state['done'] += 1

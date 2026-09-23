@@ -759,6 +759,12 @@ class WorkListWindow(WorkListActions, WorkListTitles, WorkListBulk, QMainWindow,
         if event.kind == 'queued':
             state.update(active=False, queued=True, stage='', text='Queued', current=None, total=None)
             self._run_outcomes[event.title_id] = 'queued'
+        elif event.kind == 'stage_queued':
+            label = {'extract': 'Queued for extraction', 'design': 'Queued for design',
+                     'publish': 'Queued for publishing', 'commit': 'Queued for commit'}.get(
+                         event.stage, f'Queued for {event.stage}')
+            state.update(active=False, queued=True, stage=event.stage, text=label, current=None, total=None)
+            self._run_outcomes[event.title_id] = 'queued'
         elif event.kind == 'stage_started':
             label = {'extract': 'Extracting', 'design': 'Designing', 'publish': 'Publishing',
                      'commit': 'Committing'}.get(event.stage, event.stage.capitalize())
