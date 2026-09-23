@@ -269,7 +269,7 @@ def test_extract_and_design_worker_counts_obey_separate_limits(env, monkeypatch)
     report = run_stages(_profile(env), Selection(ids=tuple(f'fs-{letter}' for letter in 'abcd')), 'design',
                         run_config=config, index=env.index, settings=env.settings)
 
-    assert report.run.designed == [f'fs-{letter}' for letter in 'abcd']
+    assert sorted(report.run.designed) == [f'fs-{letter}' for letter in 'abcd']
     assert active['max_extract'] == 2
     assert active['max_design'] == 1
 

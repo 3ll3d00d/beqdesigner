@@ -23,8 +23,9 @@ CHIP_ALL = 'All'
 CHIP_DONE = 'Done'
 ALL_CHIPS = (CHIP_ALL,) + CHIPS   # the strip, left to right
 
-COLUMNS = ('Title', 'Year', 'Source', 'Needs', 'Detail', 'Waiting')
-COL_TITLE, COL_YEAR, COL_SOURCE, COL_NEEDS, COL_DETAIL, COL_WAITING = range(len(COLUMNS))
+COLUMNS = ('Title', 'Year', 'Source', 'Needs', 'Detail', 'Waiting', 'Run progress', 'Run details')
+COL_TITLE, COL_YEAR, COL_SOURCE, COL_NEEDS, COL_DETAIL, COL_WAITING, COL_RUN_PROGRESS, COL_RUN_DETAILS = \
+    range(len(COLUMNS))
 
 ROW_ROLE = Qt.ItemDataRole.UserRole + 1      # the TitleRow
 ID_ROLE = Qt.ItemDataRole.UserRole + 2       # the catalogue id
@@ -32,6 +33,7 @@ NEW_ROLE = Qt.ItemDataRole.UserRole + 3      # True for a title first seen by th
 TIER_ROLE = Qt.ItemDataRole.UserRole + 4
 SORT_ROLE = Qt.ItemDataRole.UserRole + 5     # what a column sorts by
 RUNNING_ROLE = Qt.ItemDataRole.UserRole + 6  # the stage being run for this title now (extract...), else ''
+RUN_STATE_ROLE = Qt.ItemDataRole.UserRole + 20  # transient run UI state; never part of the discovery index
 
 _NEEDS_LABEL = {'attention': '! Attention', 'review': 'Review', 'extract': 'Extract', 'design': 'Design',
                 'publish': 'Publish', 'commit': 'Commit', 'done': 'Done'}
@@ -105,6 +107,7 @@ class WorkListModel(QAbstractTableModel):
         self.__clock = clock
         self.__now = clock()
         self.__running: Dict[str, str] = {}   # title id -> the stage being run for it
+        self.__run_state: Dict[str, dict] = {}
         self.__row_of: Dict[str, int] = {}
 
     def set_rows(self, rows: List[TitleRow]) -> None:
@@ -127,6 +130,13 @@ class WorkListModel(QAbstractTableModel):
         changed = set(self.__running) | set(stages)
         self.__running = stages
         for title_id in changed:
+            state = dict(self.__run_state.get(title_id, {}))
+            if title_id in stages:
+                state.update(active=True, queued=False, stage=stages[title_id], text=running_text(stages[title_id]))
+            else:
+                state.update(active=False, queued=False, text='')
+            self.__run_state[title_id] = state
+        for title_id in changed:
             row = self.__row_of.get(title_id)
             if row is not None:
                 self.dataChanged.emit(self.index(row, 0), self.index(row, len(COLUMNS) - 1))
@@ -134,6 +144,27 @@ class WorkListModel(QAbstractTableModel):
     @property
     def running(self) -> Dict[str, str]:
         return dict(self.__running)
+
+    def set_run_state(self, title_id: str, **state) -> None:
+        current = dict(self.__run_state.get(title_id, {}))
+        current.update(state)
+        self.__run_state[title_id] = current
+        if current.get('active'):
+            self.__running[title_id] = current.get('stage', '')
+        else:
+            self.__running.pop(title_id, None)
+        row = self.__row_of.get(title_id)
+        if row is not None:
+            self.dataChanged.emit(self.index(row, COL_RUN_PROGRESS), self.index(row, COL_RUN_DETAILS))
+
+    def clear_active_run_states(self) -> None:
+        for title_id, state in list(self.__run_state.items()):
+            if state.get('active') or state.get('queued'):
+                state.update(active=False, queued=False, text='')
+                self.set_run_state(title_id, **state)
+
+    def run_state(self, title_id: str) -> dict:
+        return dict(self.__run_state.get(title_id, {}))
 
     def row_at(self, row: int) -> TitleRow:
         return self.__rows[row]
@@ -194,6 +225,8 @@ class WorkListModel(QAbstractTableModel):
             return row.tier
         if role == RUNNING_ROLE:
             return running
+        if role == RUN_STATE_ROLE:
+            return self.__run_state.get(row.id, {})
         if role == SORT_ROLE:
             return self.__sort_key(row, column)
         if role == Qt.ItemDataRole.BackgroundRole and (running or row.is_new):

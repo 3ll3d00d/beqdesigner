@@ -13,19 +13,22 @@ The run itself is `model.worklist_run.RunJob`; the words are in `model.worklist_
 '''
 import logging
 import math
+import time
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
 from qtpy.QtCore import Qt, QThreadPool
 from qtpy.QtGui import QBrush
-from qtpy.QtWidgets import QAbstractItemView, QDialog, QPushButton, QTableWidgetItem
+from qtpy.QtWidgets import QAbstractItemView, QDialog, QLabel, QPushButton, QTableWidgetItem
 
 from model.preferences import WORKLIST_PUSH
+from model.execution_events import ExecutionEvent
 from model.worklist_confirm import ConfirmDialog, commit_text, machine_text, publish_text, retry_text
 from model.worklist_model import warning_colour
 from model.worklist_run import LEVEL_ERROR, LEVEL_OK, FailedTitle, ResultLine, RunJob, RunRequest, \
     build_publish_settings, build_run_config, describe_results, plan_label, publish_problem, summarise_report, \
     summarise_skipped
+from model.worklist_run_details import EventBuffer
 from pipeline.library.index import TitleRow
 from pipeline.library.selection import StagePlan, plan_stages
 from pipeline.library.stages import FfmpegProgress, Progress, StagesReport
@@ -87,6 +90,10 @@ class WorkListActions:
         self.resultsTable.itemSelectionChanged.connect(self._refresh_result_details)
         self.resultDetails.setVisible(False)
         self.runLayout.setStretchFactor(self.runStatusLabel, 1)
+        self.runCountsLabel = QLabel(self.runPanel)
+        self.runCountsLabel.setObjectName('runCountsLabel')
+        self.runCountsLabel.setTextFormat(Qt.TextFormat.PlainText)
+        self.runLayout.insertWidget(1, self.runCountsLabel)
         self.runButton.clicked.connect(lambda: self.run_selected())
         self.publishButton.clicked.connect(lambda: self.publish_selected())
         self.commitButton.clicked.connect(lambda: self.commit_selected())
@@ -362,9 +369,16 @@ class WorkListActions:
             return False
         job = RunJob(setup.index_file, setup.profile, setup.settings, run_config, publish, request, self._run_stages)
         job.signals.progress.connect(self._on_run_progress)
+        job.signals.event.connect(self._on_execution_event)
         job.signals.finished.connect(self._on_run_finished)
         job.signals.errored.connect(self._on_run_failed)
         self._job = job
+        self._active_run_id = ''
+        self._run_outcomes = {title_id: 'queued' for title_id in request.ids}
+        for title_id in request.ids:
+            self._event_buffers.pop(title_id, None)
+            self._model.set_run_state(title_id, active=False, queued=True, stage='', text='Queued', current=None,
+                                      total=None, has_details=False)
         self._run_context = _RunContext(request, plan, rows, skipped_text,
                                          [p.row.id for p in plan.with_stage('commit')])
         self.cancelButton.setVisible(True)
@@ -373,6 +387,7 @@ class WorkListActions:
         self.runProgress.setRange(0, max(1, len(plan.planned)) + 1)
         self.runProgress.setValue(0)
         self._say(f'Starting: {plan_label(plan)}...')
+        self._update_run_summary()
         self._refresh_actions()
         self._refresh_view()
         try:
@@ -425,14 +440,16 @@ class WorkListActions:
             self.runProgress.setValue(min(progress.done + 1, total + 1))
             self.runProgress.setFormat('%p%')
         if not progress.stage:
-            self._model.set_running({})
+            self._model.clear_active_run_states()
             return
         context.stage = progress.stage
         if progress.stage == 'commit':
-            self._model.set_running({i: 'commit' for i in context.commit_ids})
+            for title_id in context.commit_ids:
+                self._model.set_run_state(title_id, active=True, queued=False, stage='commit', text='Committing')
             text = f'Committing {progress.title}'
         else:
-            self._model.set_running({progress.id: progress.stage})
+            if progress.id:
+                self._model.set_run_state(progress.id, active=True, queued=False, stage=progress.stage, text=progress.stage)
             word = {'extract': 'Extracting', 'design': 'Designing', 'publish': 'Publishing'}.get(progress.stage,
                                                                                                  progress.stage)
             text = f'{word} {progress.title}'
@@ -453,7 +470,7 @@ class WorkListActions:
 
     def _end_run(self) -> Optional[_RunContext]:
         context, self._job, self._run_context = self._run_context, None, None
-        self._model.set_running({})
+        self._model.clear_active_run_states()
         self.cancelButton.setVisible(False)
         self.runProgress.setVisible(False)
         return context
@@ -461,6 +478,30 @@ class WorkListActions:
     def _on_run_finished(self, report: StagesReport) -> None:
         cancel_asked = self._job is not None and self._job.cancel_requested
         context = self._end_run()
+        cancelled_ids = set(report.not_run)
+        failed_ids = set(dict(report.run.failed)) | set(dict(report.run.failed_earlier))
+        for title_id in report.attempted:
+            self._run_outcomes[title_id] = 'failed' if title_id in failed_ids else 'succeeded'
+        for result in report.published:
+            self._run_outcomes[result['id']] = 'succeeded'
+        for result in report.publish_errors:
+            if result.get('id'):
+                self._run_outcomes[result['id']] = 'failed'
+        if report.commit_error:
+            for title_id in context.commit_ids if context is not None else ():
+                self._run_outcomes[title_id] = 'failed'
+        for title_id in cancelled_ids:
+            buffer = self._event_buffers.setdefault(title_id, EventBuffer())
+            cancelled_event = ExecutionEvent(self._active_run_id, title_id, '', 'cancelled', time.time(),
+                                             'Cancelled before dispatch')
+            buffer.append(cancelled_event)
+            self._run_outcomes[title_id] = 'cancelled'
+            self._model.set_run_state(title_id, active=False, queued=False, stage='', text='Cancelled',
+                                      has_details=True)
+            dialog = self._detail_dialogs.get(title_id)
+            if dialog is not None:
+                dialog.set_text(buffer.text())
+        self._update_run_summary(cancelled=len(cancelled_ids))
         self.refresh_from_index()
         self._sync_index_if_dirty()   # decisions made while it ran may be newer than what it read
         if context is not None:

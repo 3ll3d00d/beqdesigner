@@ -20,9 +20,10 @@ from qtpy.QtWidgets import QApplication, QMessageBox
 
 from model.preferences import DESIGNER_DEFAULT, DESIGNER_QUEUE_DIR, LIBRARY_FILESYSTEM_GLOBS, LIBRARY_IMAGES_REPO, \
     LIBRARY_WORK_DIR, LIBRARY_XML_REPO, Preferences, SYSTEM_CHECK_FOR_UPDATES, WORKLIST_PUSH
+from model.execution_events import ExecutionEvent
 from model.worklist import WorkListWindow
 from model.worklist_confirm import ConfirmDialog
-from model.worklist_model import COL_NEEDS, RUNNING_ROLE
+from model.worklist_model import COL_NEEDS, COL_RUN_DETAILS, COL_RUN_PROGRESS, RUNNING_ROLE, RUN_STATE_ROLE
 from pipeline.designer.registry import register_designer, unregister_designer
 from pipeline.library.commit import CatalogueCommit, RepoCommit
 from pipeline.library.index import LibraryIndex, index_path
@@ -316,6 +317,135 @@ def test_a_run_happens_off_the_ui_thread_with_determinate_progress_and_a_running
     assert window.runButton.isEnabled() is False   # nothing selected is still listed as extractable
     assert pipeline.calls[0]['ids'] == ['x-gravity', 'x-tenet', 'x-fury'] and pipeline.calls[0]['through'] == 'design'
     assert pipeline.calls[0]['retry_failed'] is False
+
+
+def test_run_row_progress_and_details_keep_copyable_events_after_completion(qtbot, tmp_path):
+    index_file = make_index(tmp_path / 'work', _rows(), SOURCES, generation=2, last_scan_at=NOW - 900)
+
+    def pipeline(profile, selection, through, *, on_event, **kwargs):
+        title_id = selection.ids[0]
+        events = [
+            ExecutionEvent('run-1', title_id, '', 'queued', NOW, 'Queued'),
+            ExecutionEvent('run-1', title_id, 'extract', 'stage_started', NOW + 1, 'Extracting'),
+            ExecutionEvent('run-1', title_id, 'extract', 'command_started', NOW + 2, 'ffmpeg',
+                           ('ffmpeg', '-i', '/films/a b.mkv', '--api-key=verysecret')),
+            ExecutionEvent('run-1', title_id, 'extract', 'progress', NOW + 3, current=50, total=100),
+            ExecutionEvent('run-1', title_id, 'extract', 'command_finished', NOW + 4, stdout='done', exit_code=0),
+            ExecutionEvent('run-1', title_id, 'extract', 'stage_completed', NOW + 5, 'Extraction complete'),
+            ExecutionEvent('run-1', title_id, '', 'title_completed', NOW + 6, 'Gravity'),
+        ]
+        for event in events:
+            on_event(event)
+        return StagesReport(through, 1, run=LibraryRunReport(designed=[title_id]), attempted=[title_id])
+
+    window, _ = _window(qtbot, tmp_path, pipeline=pipeline, prefs=_prefs(tmp_path))
+    window.select_ids(['x-gravity'])
+    with qtbot.waitSignal(window.run_finished, timeout=10000):
+        window.run_selected()
+
+    proxy_row = next(i for i in range(window.proxy.rowCount())
+                     if window.proxy.index(i, 0).data(Qt.ItemDataRole.UserRole + 2) == 'x-gravity')
+    progress_state = window.proxy.index(proxy_row, COL_RUN_PROGRESS).data(RUN_STATE_ROLE)
+    details_state = window.proxy.index(proxy_row, COL_RUN_DETAILS).data(RUN_STATE_ROLE)
+    assert not progress_state.get('active') and details_state['has_details']
+    assert window.model.running == {}
+
+    details_index = window.proxy.index(proxy_row, COL_RUN_DETAILS)
+    qtbot.mouseClick(window.workTable.viewport(), Qt.MouseButton.LeftButton,
+                     pos=window.workTable.visualRect(details_index).center())
+    qtbot.waitUntil(lambda: 'x-gravity' in window._detail_dialogs, timeout=3000)
+    dialog = window._detail_dialogs['x-gravity']
+    text = dialog.output.toPlainText()
+    assert 'Command: ffmpeg -i \'/films/a b.mkv\' \'--api-key=[REDACTED]\'' in text
+    assert 'verysecret' not in text and 'stdout:\ndone' in text
+    dialog.copy_all()
+    assert QApplication.clipboard().text() == text
+    dialog.close()
+    window._open_run_details('x-gravity')
+    assert window._detail_dialogs['x-gravity'].output.toPlainText() == text
+
+
+def test_open_run_details_appends_events_while_the_title_runs(qtbot, tmp_path):
+    index_file = make_index(tmp_path / 'work', _rows(), SOURCES, generation=2, last_scan_at=NOW - 900)
+    reached = threading.Event()
+    release = threading.Event()
+
+    def pipeline(profile, selection, through, *, on_event, **kwargs):
+        title_id = selection.ids[0]
+        on_event(ExecutionEvent('run-2', title_id, 'extract', 'stage_started', NOW, 'Extracting'))
+        reached.set()
+        assert release.wait(5)
+        on_event(ExecutionEvent('run-2', title_id, 'extract', 'command_finished', NOW + 1, 'ffmpeg',
+                                ('ffmpeg', '-version'), stdout='version output', exit_code=0))
+        on_event(ExecutionEvent('run-2', title_id, '', 'title_completed', NOW + 2, 'Gravity'))
+        return StagesReport(through, 1, run=LibraryRunReport(designed=[title_id]), attempted=[title_id])
+
+    window, _ = _window(qtbot, tmp_path, pipeline=pipeline, prefs=_prefs(tmp_path))
+    window.select_ids(['x-gravity'])
+    window.run_selected()
+    qtbot.waitUntil(reached.is_set, timeout=5000)
+    active_row = next(i for i in range(window.proxy.rowCount())
+                      if window.proxy.index(i, 0).data(Qt.ItemDataRole.UserRole + 2) == 'x-gravity')
+    assert window.proxy.index(active_row, COL_RUN_PROGRESS).data(RUN_STATE_ROLE)['active']
+    window._open_run_details('x-gravity')
+    dialog = window._detail_dialogs['x-gravity']
+    assert 'stage_started' in dialog.output.toPlainText()
+    release.set()
+    qtbot.waitUntil(lambda: 'version output' in dialog.output.toPlainText(), timeout=5000)
+    assert 'Command: ffmpeg -version' in dialog.output.toPlainText()
+
+
+def test_run_event_buffer_is_bounded_and_reports_trimmed_output():
+    from model.worklist_run_details import EventBuffer, MAX_EVENTS
+
+    events = EventBuffer()
+    for number in range(MAX_EVENTS + 10):
+        events.append(ExecutionEvent('r', 't', 'extract', 'output', number, str(number)))
+
+    assert len(events.events()) == MAX_EVENTS
+    assert events.trimmed == 10
+    assert events.text().startswith('[Earlier events trimmed: 10]')
+
+
+def test_failure_details_and_cancelled_queued_rows_are_retained(qtbot, tmp_path):
+    index_file = make_index(tmp_path / 'work', _rows(), SOURCES, generation=2, last_scan_at=NOW - 900)
+
+    def failing(profile, selection, through, *, on_event, **kwargs):
+        title_id = selection.ids[0]
+        on_event(ExecutionEvent('run-fail', title_id, 'extract', 'stage_started', NOW, 'Extracting'))
+        on_event(ExecutionEvent('run-fail', title_id, 'extract', 'failed', NOW + 1, 'ffmpeg exited 1',
+                                stderr='invalid input'))
+        return StagesReport(through, 1, run=LibraryRunReport(failed=[(title_id, 'ffmpeg exited 1')]),
+                            attempted=[title_id])
+
+    failed_window, _ = _window(qtbot, tmp_path, pipeline=failing, prefs=_prefs(tmp_path))
+    failed_window.select_ids(['x-gravity'])
+    with qtbot.waitSignal(failed_window.run_finished, timeout=10000):
+        failed_window.run_selected()
+    failed_window._open_run_details('x-gravity')
+    assert 'ffmpeg exited 1' in failed_window._detail_dialogs['x-gravity'].output.toPlainText()
+    assert 'invalid input' in failed_window._detail_dialogs['x-gravity'].output.toPlainText()
+
+    reached, release = threading.Event(), threading.Event()
+
+    def cancellable(profile, selection, through, *, on_event, should_cancel, **kwargs):
+        ids = list(selection.ids)
+        for title_id in ids:
+            on_event(ExecutionEvent('run-cancel', title_id, '', 'queued', NOW, 'Queued'))
+        reached.set()
+        assert release.wait(5)
+        return StagesReport(through, len(ids), cancelled=should_cancel(), not_run=ids)
+
+    cancel_window, _ = _window(qtbot, tmp_path, pipeline=cancellable, prefs=_prefs(tmp_path))
+    cancel_window.select_ids(['x-gravity', 'x-tenet'])
+    cancel_window.run_selected()
+    qtbot.waitUntil(reached.is_set, timeout=5000)
+    cancel_window.cancel_run()
+    release.set()
+    qtbot.waitUntil(lambda: not cancel_window.is_running, timeout=5000)
+    assert '2 cancelled' in cancel_window.runCountsLabel.text()
+    cancel_window._open_run_details('x-gravity')
+    assert 'Cancelled before dispatch' in cancel_window._detail_dialogs['x-gravity'].output.toPlainText()
 
 
 def test_a_single_in_flight_title_never_looks_complete(qtbot, tmp_path):

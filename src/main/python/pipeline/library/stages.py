@@ -353,6 +353,14 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
             except Exception as error:  # not one entry's fault (an unreadable queue): report it, do not lose the run
                 logger.warning('publish failed: %s', error, exc_info=True)
                 results = [{'id': '', 'error': 'publish_failed', 'message': f'{type(error).__name__}: {error}'}]
+            for result in results:
+                title_id = result.get('id')
+                if title_id:
+                    with event_scope(title_id=title_id, stage='publish'):
+                        if result.get('error'):
+                            emit_execution_event('failed', message=result.get('message') or result['error'])
+                        else:
+                            emit_execution_event('title_completed', message='Published title')
             report.published, report.publish_errors = split_publish_results(results)
             report.attempted += [r['id'] for r in results if r['id']]
             report.cancelled = bool(cancel_seen)
@@ -364,6 +372,9 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
         if commit_ids and not report.cancelled and not cancelled():
             with event_scope(stage='commit'):
                 emit_execution_event('stage_started', message=f'Committing {len(commit_ids)} titles')
+            for title_id in commit_ids:
+                with event_scope(title_id=title_id, stage='commit'):
+                    emit_execution_event('stage_started', message='Committing title')
             emit('commit', '', f'{len(commit_ids)} titles')
             try:
                 # what the commit takes: the titles that were waiting to be committed and the ones published just now
@@ -375,10 +386,16 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
                 report.commit_error = f'git failed: {(error.stderr or error.stdout or str(error)).strip()}'
                 with event_scope(stage='commit'):
                     emit_execution_event('failed', message=report.commit_error)
+                for title_id in commit_ids:
+                    with event_scope(title_id=title_id, stage='commit'):
+                        emit_execution_event('failed', message=report.commit_error)
                 logger.warning('commit failed: %s', report.commit_error)
             else:
                 with event_scope(stage='commit'):
                     emit_execution_event('stage_completed', message='Commit/push complete')
+                for title_id in commit_ids:
+                    with event_scope(title_id=title_id, stage='commit'):
+                        emit_execution_event('title_completed', message='Commit/push complete')
                 report.attempted += [i for i in commit_ids if i not in report.attempted]
                 state['done'] += len(commit_ids)
         elif commit_ids:

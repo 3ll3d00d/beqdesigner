@@ -55,11 +55,14 @@ from qtpy.QtWidgets import QAbstractItemView, QButtonGroup, QDockWidget, QHeader
 from model.preferences import WORKLIST_GEOMETRY
 from model.worklist_actions import WorkListActions
 from model.worklist_bulk import WorkListBulk
-from model.worklist_model import ALL_CHIPS, CHIP_ALL, CHIP_DONE, COLUMNS, COL_DETAIL, COL_NEEDS, COL_SOURCE, COL_TITLE, \
-    COL_WAITING, COL_YEAR, ID_ROLE, WorkListModel, WorkListProxy, warning_colour
+from model.worklist_model import ALL_CHIPS, CHIP_ALL, CHIP_DONE, COLUMNS, COL_DETAIL, COL_NEEDS, COL_RUN_DETAILS, \
+    COL_RUN_PROGRESS, COL_SOURCE, COL_TITLE, COL_WAITING, COL_YEAR, ID_ROLE, WorkListModel, WorkListProxy, \
+    warning_colour
 from model.worklist_edit import discovery_changed
 from model.worklist_profile import WorkListSetup, load_setup
+from model.execution_events import ExecutionEvent
 from model.worklist_run import FailedTitle, ResultLine, RunJob, failed_titles
+from model.worklist_run_details import EventBuffer, RunDetailsDialog, RunStatusDelegate
 from model.worklist_settings import SettingsDrawer
 from model.worklist_titles import WorkListTitles
 from pipeline.library.index import LibraryIndex, ScanResult, SourceRow, TitleRow
@@ -207,6 +210,10 @@ class WorkListWindow(WorkListActions, WorkListTitles, WorkListBulk, QMainWindow,
         self._run_stages, self._precheck = run_stages_fn, precheck
         self._job: Optional[RunJob] = None
         self._run_context = None   # the run in flight (worklist_actions._RunContext)
+        self._event_buffers = {}
+        self._detail_dialogs = {}
+        self._active_run_id = ''
+        self._run_outcomes = {}
         self._failed: List[FailedTitle] = []
         self._results: List[ResultLine] = []
         self._setup: WorkListSetup = WorkListSetup(None, None, 'preferences')
@@ -226,6 +233,10 @@ class WorkListWindow(WorkListActions, WorkListTitles, WorkListBulk, QMainWindow,
         self._proxy = WorkListProxy(self)
         self._proxy.setSourceModel(self._model)
         self._configure_table()
+        status_delegate = RunStatusDelegate(COL_RUN_PROGRESS, COL_RUN_DETAILS, self._open_run_details,
+                                            self.workTable)
+        self.workTable.setItemDelegateForColumn(COL_RUN_PROGRESS, status_delegate)
+        self.workTable.setItemDelegateForColumn(COL_RUN_DETAILS, status_delegate)
         self._configure_chips()
         self._progress = QProgressBar()
         self._progress.setRange(0, 0)
@@ -270,7 +281,9 @@ class WorkListWindow(WorkListActions, WorkListTitles, WorkListBulk, QMainWindow,
                              (COL_SOURCE, QHeaderView.ResizeMode.ResizeToContents),
                              (COL_NEEDS, QHeaderView.ResizeMode.ResizeToContents),
                              (COL_DETAIL, QHeaderView.ResizeMode.Stretch),
-                             (COL_WAITING, QHeaderView.ResizeMode.ResizeToContents)):
+                             (COL_WAITING, QHeaderView.ResizeMode.ResizeToContents),
+                             (COL_RUN_PROGRESS, QHeaderView.ResizeMode.ResizeToContents),
+                             (COL_RUN_DETAILS, QHeaderView.ResizeMode.ResizeToContents)):
             header.setSectionResizeMode(column, mode)
         header.resizeSection(COL_TITLE, 300)
         header.setSectionsClickable(True)
@@ -289,7 +302,7 @@ class WorkListWindow(WorkListActions, WorkListTitles, WorkListBulk, QMainWindow,
         layout.setSpacing(4)
         self.columnFilters: Dict[int, QLineEdit] = {}
         widths = (150, 65, 95, 95, 180, 75)
-        for column, (name, width) in enumerate(zip(COLUMNS, widths)):
+        for column, (name, width) in enumerate(zip(COLUMNS[:6], widths)):
             edit = QLineEdit(self.columnFilterBar)
             edit.setObjectName(f'{name.lower()}ColumnFilter')
             edit.setPlaceholderText(name)
@@ -694,6 +707,8 @@ class WorkListWindow(WorkListActions, WorkListTitles, WorkListBulk, QMainWindow,
 
     def _on_header_clicked(self, column: int) -> None:
         ''' Ascending, then descending, then back to the index's order (tier, oldest first). '''
+        if column >= 6:  # run controls are not discovery data and cannot be sorted
+            return
         if self._sort_column != column:
             self._sort_column, self._sort_order = column, Qt.SortOrder.AscendingOrder
         elif self._sort_order == Qt.SortOrder.AscendingOrder:
@@ -726,6 +741,74 @@ class WorkListWindow(WorkListActions, WorkListTitles, WorkListBulk, QMainWindow,
         self._refresh_empty_state(counts)
         self._refresh_banners()
         self._refresh_actions()
+
+    def _on_execution_event(self, event: ExecutionEvent) -> None:
+        if self._job is None:
+            return
+        if not self._active_run_id:
+            self._active_run_id = event.run_id
+        if event.run_id != self._active_run_id:
+            return
+        if event.kind == 'queued':
+            self._event_buffers[event.title_id] = EventBuffer()
+            self._run_outcomes[event.title_id] = 'queued'
+        buffer = self._event_buffers.setdefault(event.title_id, EventBuffer())
+        buffer.append(event)
+        state = self._model.run_state(event.title_id)
+        state['has_details'] = True
+        if event.kind == 'queued':
+            state.update(active=False, queued=True, stage='', text='Queued', current=None, total=None)
+            self._run_outcomes[event.title_id] = 'queued'
+        elif event.kind == 'stage_started':
+            label = {'extract': 'Extracting', 'design': 'Designing', 'publish': 'Publishing',
+                     'commit': 'Committing'}.get(event.stage, event.stage.capitalize())
+            state.update(active=True, queued=False, stage=event.stage, text=label, current=None, total=None)
+            self._run_outcomes[event.title_id] = 'active'
+        elif event.kind == 'progress':
+            current, total = event.current, event.total
+            label = {'extract': 'Extracting', 'design': 'Designing'}.get(event.stage, event.stage.capitalize())
+            progress_text = f'{label} {current / total:.0%}' if current is not None and total else label
+            state.update(active=True, queued=False, stage=event.stage, text=progress_text,
+                         current=current, total=total)
+            self._run_outcomes[event.title_id] = 'active'
+        elif event.kind in ('failed',):
+            state.update(active=False, queued=False, stage='', text='')
+            self._run_outcomes[event.title_id] = 'failed'
+        elif event.kind in ('title_completed', 'stage_completed', 'skipped'):
+            state.update(active=False, queued=False, stage='', text='', current=None, total=None)
+            if event.kind == 'title_completed':
+                self._run_outcomes[event.title_id] = 'succeeded'
+            elif event.kind == 'skipped':
+                self._run_outcomes[event.title_id] = 'failed' if 'failed' in event.message.lower() else 'succeeded'
+        self._model.set_run_state(event.title_id, **state)
+        dialog = self._detail_dialogs.get(event.title_id)
+        if dialog is not None:
+            dialog.set_text(buffer.text())
+        self._update_run_summary()
+
+    def _update_run_summary(self, *, cancelled: int = 0) -> None:
+        if not self._run_outcomes:
+            return
+        counts = {name: sum(value == name for value in self._run_outcomes.values()) for name in
+                  ('queued', 'active', 'succeeded', 'failed')}
+        parts = [f'{counts[name]} {name}' for name in ('queued', 'active', 'succeeded', 'failed') if counts[name]]
+        if cancelled:
+            parts.append(f'{cancelled} cancelled')
+        self.runCountsLabel.setText(' · '.join(parts) or 'Run complete')
+
+    def _open_run_details(self, title_id: str) -> None:
+        row = next((r for r in self._model.rows if r.id == title_id), None)
+        title = row.title or row.display_name or title_id if row else title_id
+        dialog = self._detail_dialogs.get(title_id)
+        if dialog is None:
+            dialog = RunDetailsDialog(title, title_id, self)
+            self._detail_dialogs[title_id] = dialog
+            dialog.finished.connect(lambda _result, key=title_id: self._detail_dialogs.pop(key, None))
+        buffer = self._event_buffers.get(title_id)
+        dialog.set_text(buffer.text() if buffer else '')
+        dialog.show()
+        dialog.raise_()
+        dialog.activateWindow()
 
     def _refresh_banners(self) -> None:
         '''
@@ -887,6 +970,8 @@ class WorkListWindow(WorkListActions, WorkListTitles, WorkListBulk, QMainWindow,
             return
         if self.is_running:
             self.cancel_run()
+        for dialog in list(self._detail_dialogs.values()):
+            dialog.close()
         self._flush_settings()
         self.close_title(sync=False)
         self._sync_index_now()   # a decision not yet in the index is read now: nothing is left to wait for a worker
