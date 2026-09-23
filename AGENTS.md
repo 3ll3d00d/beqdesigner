@@ -202,6 +202,17 @@ The plan is `design/library-sync-pipeline-plan.md` (chunk table, §8) and `desig
 `src/test/python/gui/test_worklist_*.py`, over a fixture index (`gui/worklist_fixture.py`) and a fake `run_stages`; `test_worklist_real_pipeline.py` drives
 Publish then Commit through the real `run_stages`, index and temp git repos.
 
+**Extraction/design parity is a contract.** The Library Work List is an
+end-to-end route through the same extraction and design behavior as Batch
+Extract / Design. Keep their selected stream, mono downmix, analysis sample
+rate, multichannel channel arrays, and request validation consistent. In
+particular, both mono and diagnostic multichannel extractions use the analysis
+sample rate; do not restore a full-rate multichannel intermediate on the
+assumption that the project needs it. When changing either path, add or update
+a regression test that extracts a short synthetic multichannel source through
+the library path and verifies the mono and per-channel arrays have the same
+sample rate and frame count. Keep that check lightweight and fixture-based.
+
 ### Analysis (`model/analysis.py`)
 
 Standalone spectrum/waveform analyser over a wav: `MaxSpectrumByTime`

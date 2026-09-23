@@ -6,6 +6,7 @@ boundary, and none should be waited on to test it.
 '''
 import math
 
+import numpy as np
 import pytest
 
 from pipeline.designer.contract import DesignCandidate, DesignRequest, DesignResponse, BiquadSpec, build_request
@@ -60,7 +61,7 @@ def test_registry_round_trip():
     try:
         assert 'test.fake' in registered_designers()
         assert get_designer('test.fake') is fake
-        request = build_request(mono_mix=None, fs=1000)
+        request = build_request(mono_mix=np.empty(0), fs=1000)
         assert get_designer('test.fake')(request).decline_reason == 'no_rolloff_detected'
     finally:
         unregister_designer('test.fake')
@@ -234,7 +235,7 @@ def test_non_finite_gain_reduction_db_rejected():
 
 
 def test_build_request_carries_bass_management_through():
-    request = build_request(mono_mix=None, fs=1000, bass_management={'lpf_fs': 80.0, 'lpf_position': 'Before',
+    request = build_request(mono_mix=np.empty(0), fs=1000, bass_management={'lpf_fs': 80.0, 'lpf_position': 'Before',
                                                                       'headroom_type': 'WCS', 'clip_before': False,
                                                                       'clip_after': False})
     assert request.bass_management == {'lpf_fs': 80.0, 'lpf_position': 'Before', 'headroom_type': 'WCS',
@@ -242,7 +243,7 @@ def test_build_request_carries_bass_management_through():
 
 
 def test_build_request_bass_management_defaults_to_none():
-    assert build_request(mono_mix=None, fs=1000).bass_management is None
+    assert build_request(mono_mix=np.empty(0), fs=1000).bass_management is None
 
 
 def test_missing_decline_reason_string_rejected():

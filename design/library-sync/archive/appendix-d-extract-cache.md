@@ -150,7 +150,8 @@ def _params_hash(item: LibraryItem, config: AnalysisConfig, mono_mix: bool) -> s
         'audio_stream': item.audio_stream,
         'playlist_name': item.playlist_name,
         'mono_mix': mono_mix,
-        'target_fs': config.target_fs,  # only actually varies the output when mono_mix is True -- see D.1
+        'target_fs': config.target_fs,
+        'decimate': True,
     }, sort_keys=True)
     return hashlib.sha256(payload.encode('utf-8')).hexdigest()
 
@@ -172,10 +173,9 @@ def _write_manifest(target_dir: str, manifest: dict) -> None:
 def extract_if_needed(session: Session, item: LibraryItem, target_dir: str, config: AnalysisConfig,
                       mono_mix: bool, force: bool = False) -> Tuple[str, bool]:
     '''
-    :param mono_mix: True for the mono-for-design extraction (decimated to config.target_fs, written to
-        <target_dir>/mono.wav), False for the full-quality multichannel "kept" extraction (never decimated
-        -- see §4.1 -- written to <target_dir>/multichannel.wav). A caller wanting both calls this twice,
-        once with each value -- this function only ever handles one at a time.
+    :param mono_mix: True for the mono-for-design extraction, False for the kept multichannel extraction.
+        Both are decimated to config.target_fs, matching Batch Extract / Design. A caller wanting both calls
+        this twice, once with each value -- this function only ever handles one at a time.
     :return: (wav_path, cached) -- cached=True if ffmpeg was skipped because the manifest already recorded
         a matching (source_fingerprint, params_hash) and the wav file still exists on disk.
     '''
@@ -192,7 +192,7 @@ def extract_if_needed(session: Session, item: LibraryItem, target_dir: str, conf
             return wav_path, True
 
     result = session.extract_with_layout(item.source_path, target_dir, audio_stream=item.audio_stream,
-                                         mono_mix=mono_mix, decimate=mono_mix, playlist_name=item.playlist_name,
+                                         mono_mix=mono_mix, decimate=True, playlist_name=item.playlist_name,
                                          output_file_name=prefix)
     manifest[f"{prefix}_source_fingerprint"] = fingerprint
     manifest[f"{prefix}_params_hash"] = params_hash
@@ -256,9 +256,9 @@ fixture.
   a multichannel fixture, assert `manifest.json`'s `channel_layout_name`
   matches the fixture's actual layout (e.g. `'5.1'`), and that a mono
   call never writes that key at all.
-- `test_extract_if_needed_multichannel_does_not_decimate` -- compare
-  the multichannel output's sample rate against the source's original
-  rate (unchanged), vs. the mono output's rate (`config.target_fs`).
+- `test_extract_if_needed_multichannel_matches_analysis_sample_rate` --
+  compare the multichannel and mono output sample rates against
+  `config.target_fs`.
 - `test_extract_with_layout_is_behaviourally_identical_to_extract` --
   call both on the same input (different `target_dir`s), assert the
   returned wav paths' contents are byte-identical and

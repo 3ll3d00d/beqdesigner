@@ -203,7 +203,7 @@ def test_extract_if_needed_multichannel_records_channel_layout_name(tmp_path):
     assert 'channel_layout_name' not in mono_manifest
 
 
-def test_extract_if_needed_multichannel_does_not_decimate(tmp_path):
+def test_mono_and_multichannel_extractions_align_on_the_analysis_sample_grid(tmp_path):
     source = str(tmp_path / 'source.wav')
     _write_synthetic_wav(source, fs=48000, channel_values=(1000, 2000, 3000, 4000, 5000, 6000))
     target_dir = str(tmp_path / 'work')
@@ -220,7 +220,12 @@ def test_extract_if_needed_multichannel_does_not_decimate(tmp_path):
         mc_rate = w.getframerate()
 
     assert mono_rate == 1000
-    assert mc_rate == 48000
+    assert mc_rate == 1000
+
+    mono = session.load(mono_path)
+    channels = session.load_channels(mc_path, channel_layout_name='5.1')
+    assert channels
+    assert all(len(samples) == len(mono.signal.samples) for samples in channels.values())
 
 
 def test_extract_with_layout_is_behaviourally_identical_to_extract(tmp_path):

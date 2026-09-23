@@ -184,7 +184,7 @@ def test_design_threads_channels_through_to_the_request(loaded_signal, tmp_path)
     from pipeline.designer.registry import register_designer, unregister_designer
 
     session, sig = loaded_signal
-    channels = {'FL': np.zeros(10), 'FR': np.ones(10)}
+    channels = {'FL': np.zeros(len(sig.signal.samples)), 'FR': np.ones(len(sig.signal.samples))}
     seen_requests = []
 
     def fake_designer(request):
@@ -201,6 +201,28 @@ def test_design_threads_channels_through_to_the_request(loaded_signal, tmp_path)
         unregister_designer('test.channels')
 
     assert seen_requests[0].channels is channels
+
+
+def test_design_rejects_misaligned_channel_diagnostics_before_calling_designer(loaded_signal):
+    '''Mismatched extraction outputs are an error to fix, not optional diagnostics to silently discard.'''
+    import pytest
+    from pipeline.designer.registry import register_designer, unregister_designer
+
+    session, sig = loaded_signal
+    seen_requests = []
+
+    def fake_designer(request):
+        seen_requests.append(request)
+        return None
+
+    register_designer('test.misaligned-channels', fake_designer)
+    try:
+        with pytest.raises(ValueError, match='channels must be one-dimensional and match mono_mix length'):
+            session.design(sig, 'test.misaligned-channels', channels={'FL': np.zeros(10), 'FR': np.ones(10)})
+    finally:
+        unregister_designer('test.misaligned-channels')
+
+    assert seen_requests == []
 
 
 def test_design_threads_excerpt_coverage_through_to_the_request(loaded_signal):

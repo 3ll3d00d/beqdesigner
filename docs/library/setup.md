@@ -54,7 +54,7 @@ See [the two repositories](#the-two-repositories) below.
 
 * **Designer**: the designer to ask for candidate filters. The list is the designers from [Preferences > Designers](../ui/preferences.md#designers) (shown as `http:<name>`) plus any declared in the profile. A name the profile uses that is not available is shown as *name (not available)*.
 * **TV shows**: *One filter per episode* or *Whole season as a single track*. See [Concepts](concepts.md#titles).
-* **Keep the multichannel extraction (and write a multichannel project)**: also keep the full multichannel audio, and write a second project in which the filter is linked across every channel. Off by default.
+* **Keep the multichannel extraction (and write a multichannel project)**: also keep a multichannel WAV at the analysis sample rate, matching Batch Extract / Design, and write a second project in which the filter is linked across every channel. This is enough for the project's BEQ curves and avoids reloading and downsampling a full-rate soundtrack when the project opens. Off by default.
 * **Accept threshold**: the confidence at or above which [bulk accept](review.md#bulk-accept) will take a title's top pick. Default 0.90. This is a preference of this installation, not part of the profile.
 * **TMDB key**: whether a [TMDB](https://www.themoviedb.org/) key is set. It is used to fill in titles, years and other metadata, and is kept in Preferences and never in the profile. The button opens Preferences, but note that the Preferences dialog has no field for it: BEQDesigner has a built-in key, which you can override by setting the `BEQDESIGNER_TMDB_API_KEY` environment variable before starting the application.
 

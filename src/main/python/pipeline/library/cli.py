@@ -569,7 +569,7 @@ def _add_run_options(parser: argparse.ArgumentParser) -> None:
     design.add_argument('--coverage', choices=('complete_programme', 'representative_segment'),
                         help='how much of the programme the designer analyses (default complete_programme)')
     design.add_argument('--keep-multichannel', action=argparse.BooleanOptionalAction, default=None,
-                        help='also keep the full-quality multichannel extraction, give the designer the per-channel '
+                        help='also keep the multichannel extraction, give the designer the per-channel '
                              'audio and write a multichannel .beq project (default: no; ignored for TV seasons)')
     design.add_argument('--tv-mode', choices=TV_MODES,
                         help='episode: a filter per TV episode (default); season: join each season into one track, '

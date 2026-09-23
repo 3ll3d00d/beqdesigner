@@ -90,6 +90,19 @@ class DesignResponse:
 
 def build_request(mono_mix: ndarray, fs: int, coverage: Coverage = 'complete_programme',
                   channels: Optional[dict] = None, bass_management: Optional[dict] = None) -> DesignRequest:
-    ''' Convenience constructor that fills in contract_version. '''
+    '''Convenience constructor that enforces the sample-array part of the designer contract.'''
+    if getattr(mono_mix, 'ndim', None) != 1:
+        raise ValueError('mono_mix must be a one-dimensional sample array')
+    if channels is not None:
+        expected = len(mono_mix)
+        invalid = []
+        for name, samples in channels.items():
+            dimensions = getattr(samples, 'ndim', None)
+            if dimensions != 1:
+                invalid.append(f'{name}: expected a one-dimensional array, got {dimensions}-D')
+            elif len(samples) != expected:
+                invalid.append(f'{name}: {len(samples):,} samples (mono_mix has {expected:,})')
+        if invalid:
+            raise ValueError('channels must be one-dimensional and match mono_mix length: ' + '; '.join(invalid))
     return DesignRequest(contract_version=CONTRACT_VERSION, fs=fs, mono_mix=mono_mix, coverage=coverage,
                          channels=channels, bass_management=bass_management)

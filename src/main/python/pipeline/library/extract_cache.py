@@ -30,7 +30,10 @@ def extract_params_hash(item: LibraryItem, config: AnalysisConfig, mono_mix: boo
         'audio_stream': item.audio_stream,
         'playlist_name': item.playlist_name,
         'mono_mix': mono_mix,
-        'target_fs': config.target_fs,  # only actually varies the output when mono_mix is True -- see D.1
+        # Both the design downmix and kept multichannel extraction are
+        # decimated to this rate, matching model/batch.py's extraction path.
+        'target_fs': config.target_fs,
+        'decimate': True,
     }, sort_keys=True)
     return hashlib.sha256(payload.encode('utf-8')).hexdigest()
 
@@ -126,10 +129,9 @@ def extract_if_needed(session: Session, item: LibraryItem, target_dir: str, conf
                       mono_mix: bool, force: bool = False,
                       on_progress: Optional[Callable[[int, int], None]] = None) -> Tuple[str, bool]:
     '''
-    :param mono_mix: True for the mono-for-design extraction (decimated to config.target_fs, written to
-        <target_dir>/mono.wav), False for the full-quality multichannel "kept" extraction (never decimated
-        -- see §4.1 -- written to <target_dir>/multichannel.wav). A caller wanting both calls this twice,
-        once with each value -- this function only ever handles one at a time.
+    :param mono_mix: True for the mono-for-design extraction, False for the kept multichannel extraction.
+        Both are decimated to config.target_fs, matching Batch Extract / Design. A caller wanting both calls
+        this twice, once with each value -- this function only ever handles one at a time.
     :return: (wav_path, cached) -- cached=True if ffmpeg was skipped because the manifest already recorded
         a matching (source_fingerprint, params_hash) and the wav file still exists on disk (see extract_status()).
     '''
@@ -142,7 +144,7 @@ def extract_if_needed(session: Session, item: LibraryItem, target_dir: str, conf
         return status.wav_path, True
 
     result = session.extract_with_layout(item.source_path, target_dir, audio_stream=item.audio_stream,
-                                         mono_mix=mono_mix, decimate=mono_mix, playlist_name=item.playlist_name,
+                                         mono_mix=mono_mix, decimate=True, playlist_name=item.playlist_name,
                                          output_file_name=prefix, on_progress=on_progress)
     manifest[f"{prefix}_source_fingerprint"] = fingerprint
     manifest[f"{prefix}_params_hash"] = params_hash

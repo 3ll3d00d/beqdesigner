@@ -61,17 +61,12 @@ New `pipeline/library/extract_cache.py`.
   for the design step"). Each call gets its own manifest entry (keyed
   by `mono_mix` as part of `params_hash`), so the two are independently
   cacheable -- redoing one doesn't force redoing the other.
-- **Decimation only ever applies to the mono extraction.** `decimate`
-  is not a separate, caller-chosen setting -- it's `mono_mix` itself
-  (`decimate=mono_mix`): the mono extraction is decimated to
-  `AnalysisConfig.target_fs` (1 kHz by default) because that's what
-  `Session.design()`'s analysis needs to run fast, but the
-  multichannel "kept" file must stay full quality (it's what a human
-  actually links into output 1's multichannel `.beq` project and would
-  use for real) -- resampling it to 1 kHz would silently wreck it.
-  Same rule `model/batch.py`'s existing dual-extraction already
-  follows, just made explicit here since chunk 5 has to encode it in
-  code rather than a human choosing sensibly by hand.
+- **Both extractions use the analysis sample rate.** Mono and kept
+  multichannel outputs are decimated to `AnalysisConfig.target_fs`, as
+  in Batch Extract / Design. This keeps channel diagnostics on the same
+  sample grid as the mono design input. The kept multichannel WAV is an
+  internal work artifact; multichannel `.beq` projects are built from
+  analysis signals at this same rate.
 - **Fixed output filenames, not ffmpeg's auto-derived ones.**
   `pipeline.review.publish_reviewed_queue()` (chunk 2, already shipped
   -- commit `407bd91`) hardcodes `<project_dir>/mono.wav` and
