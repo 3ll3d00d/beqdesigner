@@ -3,7 +3,7 @@
 > Part of the library sync plan -- start at
 > [`../library-sync-pipeline-plan.md`](../library-sync-pipeline-plan.md).
 > Contains §14. This is the agreed design for chunk 42. Chunks 42a and 42b
-> are built; 42d remains. The existing workflow and work-list contract are in
+> through 42d are built. The existing workflow and work-list contract are in
 > [`workflow-rework/design.md`](workflow-rework/design.md) §12.7 and §12.10.
 
 ## 14. Bounded parallel work-list runs
@@ -231,6 +231,16 @@ output before sending them to the UI. Preserve useful paths and error text.
   socket; two real-catalogue GUI tests still expect XML record paths while
   the in-progress JSON migration writes JSON. These failures are outside
   chunk 42.**
+
+**Review follow-up:** commits `8edb12d` and `86045b9` fixed queued-design
+visibility, shared commit command attribution, authentication-header
+redaction, stale failure progress, and the stale §8 status row. Regression
+coverage landed in `e608ca0`: the pipeline stage suite passed (35 tests); the
+work-list action GUI suite passed (40 tests) with three existing commit-result
+assertion mismatches deselected. The focused commit-event attribution test
+also passed after extending its assertion to include command responses. The
+standard `uv run` command could not open the read-only uv cache, so these runs
+used the repository's `.venv` directly.
 
 ### 14.7 Dependencies and limits
 
