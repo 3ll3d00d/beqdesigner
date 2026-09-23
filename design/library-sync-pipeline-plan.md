@@ -21,7 +21,7 @@ in `86045b9`; regression coverage is in `e608ca0`.**
 event history and row notifications; 43b (`39f8b32`) fixes aggregate progress
 and Details behavior; 43c completes Details reading position, cancellation
 coverage and documentation in `a5376ec`.**
-**§16 is implemented in chunk 44: 44a (`9761873`) bounds event outcomes to planned titles; 44b expires all transient row state and drops removed ids.**
+**§16 is implemented in chunk 44: 44a (`9761873`) bounds event outcomes to planned titles; 44b (`c790f19`) expires all transient row state and drops removed ids.**
 Written 2026-09-17. Builds on the
 headless pipeline in `pipeline/` (see `pipeline/README.md` and
 `design/api-headless-pipeline.md`/`pipeline-implementation-plan.md`,
@@ -59,7 +59,7 @@ the design lives. It is usually all you need to decide what to do next. The desi
 | §13 | [`library-sync/sweep-up.md`](library-sync/sweep-up.md) | follow-on completion plan: live verification, JRiver and disc gaps, path UX, TVDB, season fidelity, JSON-output completion, selected-audio metadata | done: 29, 34-36, 38, 41; in progress: 39-40; externally blocked: 30-33, 37 |
 | §14 | [`library-sync/worklist-parallel-runs.md`](library-sync/worklist-parallel-runs.md) | stage-specific concurrency, per-row progress and details controls, and explicit action buttons | 42a (`817569c`), 42b (`0f62322`), 42c (`5599089`) and 42d (`7e84203`) built |
 | §15 | [`library-sync/worklist-parallel-runs-remediation.md`](library-sync/worklist-parallel-runs-remediation.md) | aggregate progress, Details behavior, run-history lifetime and cancellation wording | 43a (`51d3595`), 43b (`39f8b32`) and 43c (`a5376ec`) implemented |
-| §16 | [`library-sync/worklist-run-followup.md`](library-sync/worklist-run-followup.md) | commit-wide event accounting and complete runtime-row expiry | implemented: 44a (`9761873`) and 44b |
+| §16 | [`library-sync/worklist-run-followup.md`](library-sync/worklist-run-followup.md) | commit-wide event accounting and complete runtime-row expiry | implemented: 44a (`9761873`), 44b (`c790f19`) |
 | JSON output migration | [`library-sync/catalogue-json-output.md`](library-sync/catalogue-json-output.md) | BEQCatalogue filter-record output contract and migration scope | chunk 39 in progress |
 | Appendix A-D | [`library-sync/archive/`](library-sync/archive/) | handoff specs for chunks 1, 2, 4, 5 | built, archival |
 
@@ -210,4 +210,4 @@ fixture -- only chunk 8 is blocked on that mapping.
 | 41 | Selected-stream metadata and override: resync BEQ audio metadata from the resolved stream; let a reviewer choose a stream and safely re-extract/redesign when it changes. | 40 | **Implemented against chunk 40's first-stream resolver — commit `13e1519`: JRiver stream codec/channel descriptions drive automatic BEQ audio types; the title page persists an alternate stream, preserves a differing reviewer edit and invalidates extraction/design. A Revise > Redesign/Re-extract now hands straight into Extract & design after its row refreshes, so its label matches the outcome. ffprobe reconciliation remains part of chunk 40.** |
 | 42 | Bounded parallel work-list runs with independent extract and design limits; serialized publish and commit; progress in each work-list row; and a live per-title details window showing execution steps and commands. | 25, 26a-26b | **42a (`817569c`), 42b (`0f62322`), 42c (`5599089`) and 42d (`7e84203`) implemented; review fixes committed as `8edb12d` and `86045b9`; regression coverage `e608ca0`.** |
 | 43 | Remediate parallel-run UI behavior and lifecycle; clarify and cover title-level cancellation. See §15. | 42 | **Implemented — 43a (`51d3595`), 43b (`39f8b32`) and 43c (`a5376ec`): run-scoped events and state, one-generation detail history, Needs/run-column notifications, aggregate title progress, Details behavior and reading position, title-level cancellation coverage and updated user docs. Pipeline stage suite passes; the work-list action module retains three pre-existing JSON-output migration assertion failures.** |
-| 44 | Fix work-list run identity and expire prior runtime row state. See §16. | 43 | **Implemented — 44a (`9761873`) bounds outcomes to planned titles; 44b clears every transient row state at run start and prunes ids removed from the index.** |
+| 44 | Fix work-list run identity and expire prior runtime row state. See §16. | 43 | **Implemented — 44a (`9761873`) bounds outcomes to planned titles; 44b (`c790f19`) clears every transient row state at run start and prunes ids removed from the index.** |
