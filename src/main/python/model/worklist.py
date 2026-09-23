@@ -778,7 +778,7 @@ class WorkListWindow(WorkListActions, WorkListTitles, WorkListBulk, QMainWindow,
                          current=current, total=total)
             self._run_outcomes[event.title_id] = 'active'
         elif event.kind in ('failed',):
-            state.update(active=False, queued=False, stage='', text='')
+            state.update(active=False, queued=False, stage='', text='', current=None, total=None)
             self._run_outcomes[event.title_id] = 'failed'
         elif event.kind in ('title_completed', 'stage_completed', 'skipped'):
             state.update(active=False, queued=False, stage='', text='', current=None, total=None)
