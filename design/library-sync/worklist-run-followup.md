@@ -9,18 +9,18 @@
 1. `run_stages()` emits commit-wide `stage_started`, `stage_completed` and
    `failed` events with an empty title id. It separately emits title-scoped
    events for each committed title and duplicates shared git command events
-   to those titles. `WorkListWindow._on_execution_event()` currently creates
-   a row outcome for the empty id, so a two-title commit can show
-   "2 queued · 1 active" before either title has started. A failed commit
-   can also add a phantom failure to the aggregate count. The empty id has
+   to those titles. Before 44a, `WorkListWindow._on_execution_event()` created
+   a row outcome for the empty id, so a two-title commit could show
+   "2 queued · 1 active" before either title had started. A failed commit
+   could also add a phantom failure to the aggregate count. The empty id had
    no visible table row or Details control.
 2. Cancelling a run gives an undispatched title the row text "Cancelled".
-   Starting a later run clears its Details history and `has_details` flag,
-   but leaves that text in runtime row state. A title outside the new
-   selection therefore still shows old progress with no corresponding
-   details. `WorkListModel.set_rows()` also retains state for ids temporarily
-   absent from the index, so clearing only currently listed rows can revive
-   an older status when an id appears again.
+   Before 44b, starting a later run cleared its Details history and
+   `has_details` flag, but left that text in runtime row state. A title
+   outside the new selection therefore still showed old progress with no
+   corresponding details. `WorkListModel.set_rows()` also retained state for
+   ids temporarily absent from the index, so clearing only currently listed
+   rows could revive an older status when an id appeared again.
 
 ## 16.2 Chunk 44 — Correct event identity and expire row state
 
