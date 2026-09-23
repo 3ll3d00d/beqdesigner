@@ -792,16 +792,16 @@ class WorkListWindow(WorkListActions, WorkListTitles, WorkListBulk, QMainWindow,
         dialog = self._detail_dialogs.get(event.title_id)
         if dialog is not None:
             dialog.set_text(buffer.text())
+        self._update_run_progress()
         self._update_run_summary()
 
-    def _update_run_summary(self, *, cancelled: int = 0) -> None:
+    def _update_run_summary(self) -> None:
         if not self._run_outcomes:
             return
         counts = {name: sum(value == name for value in self._run_outcomes.values()) for name in
-                  ('queued', 'active', 'succeeded', 'failed')}
-        parts = [f'{counts[name]} {name}' for name in ('queued', 'active', 'succeeded', 'failed') if counts[name]]
-        if cancelled:
-            parts.append(f'{cancelled} cancelled')
+                  ('queued', 'active', 'succeeded', 'failed', 'cancelled')}
+        parts = [f'{counts[name]} {name}' for name in
+                 ('queued', 'active', 'succeeded', 'failed', 'cancelled') if counts[name]]
         self.runCountsLabel.setText(' · '.join(parts) or 'Run complete')
 
     def _open_run_details(self, title_id: str) -> None:

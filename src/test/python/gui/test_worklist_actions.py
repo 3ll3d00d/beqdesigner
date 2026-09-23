@@ -15,7 +15,9 @@ import time
 from typing import Dict, List, Optional
 
 import pytest
-from qtpy.QtCore import QSettings, Qt, QThreadPool, QTimer
+from qtpy.QtCore import QEvent, QSettings, Qt, QThreadPool, QTimer
+from qtpy.QtGui import QKeyEvent, QPainter, QImage
+from qtpy.QtWidgets import QStyleOptionViewItem
 from qtpy.QtWidgets import QApplication, QMessageBox
 
 from model.preferences import DESIGNER_DEFAULT, DESIGNER_QUEUE_DIR, LIBRARY_FILESYSTEM_GLOBS, LIBRARY_IMAGES_REPO, \
@@ -29,7 +31,7 @@ from pipeline.library.commit import CatalogueCommit, RepoCommit
 from pipeline.library.index import LibraryIndex, index_path
 from pipeline.library.run import LibraryRunReport
 from pipeline.library.source import LibraryItem
-from pipeline.library.stages import Progress, StagesReport
+from pipeline.library.stages import FfmpegProgress, Progress, StagesReport
 from worklist_fixture import make_index, title_row
 
 NOW = 1_800_000_000.0
@@ -98,6 +100,7 @@ class FakePipeline:
         self.index_file = index_file
         self.hold_at, self.raises, self.fail, self.after = hold_at, raises, list(fail or ()), after
         self.calls: List[dict] = []
+        self.progress: List[Progress] = []
         self.thread = None
         self.entered = threading.Event()
         self.release = threading.Event()
@@ -119,10 +122,12 @@ class FakePipeline:
                 report.cancelled = True
                 self.cancel_seen.append(True)
                 break
-            on_progress(Progress(n, len(ids), titles.get(title_id, title_id), stage, title_id))
+            progress = Progress(n, len(ids), titles.get(title_id, title_id), stage, title_id)
+            self.progress.append(progress)
+            on_progress(progress)
             self.entered.set()
             if self.hold_at == n:
-                assert self.release.wait(20), 'the test never released the pipeline'
+                assert self.release.wait(5), 'the test never released the pipeline'
             (report.run.failed if title_id in self.fail else report.run.designed).append(
                 (title_id, 'RuntimeError: designer returned 503') if title_id in self.fail else title_id)
             report.attempted.append(title_id)
@@ -282,13 +287,13 @@ def test_a_run_happens_off_the_ui_thread_with_determinate_progress_and_a_running
     _click(qtbot, window.runButton)
 
     qtbot.waitUntil(pipeline.entered.is_set, timeout=5000)
-    qtbot.waitUntil(lambda: window.runProgress.value() == 1, timeout=5000)   # title 1 of 3 is in hand
+    qtbot.waitUntil(lambda: bool(window.model.running), timeout=5000)
     # the click returned while the pipeline is mid-title: it is not on the UI thread, and the UI still turns
     assert window.is_running
     assert pipeline.thread is not threading.current_thread()
     QApplication.processEvents()
     # determinate progress, and the status names the title and the stage
-    assert window.runProgress.maximum() == 4 and window.runProgress.value() == 1
+    assert window.runProgress.maximum() == 3 and window.runProgress.value() == 0
     assert window.runStatusLabel.text() == 'Designing Gravity  (1 of 3)'
     # the row shows its stage while it is worked on, and only that row
     assert window.model.running == {'x-gravity': 'design'}
@@ -458,6 +463,60 @@ def test_needs_cell_is_notified_when_run_stage_starts_and_finishes(qtbot, tmp_pa
     assert (COL_NEEDS, COL_RUN_DETAILS) in changed
 
 
+def test_ffmpeg_progress_stays_in_each_title_row_while_shared_progress_counts_titles(qtbot, tmp_path):
+    index_file = make_index(tmp_path / 'work', _rows(), SOURCES, generation=2, last_scan_at=NOW - 900)
+    reached, release = threading.Event(), threading.Event()
+
+    def pipeline(profile, selection, through, *, on_progress, on_event, **kwargs):
+        ids = list(selection.ids)
+        for title_id, title, percent in ((ids[0], 'Gravity', 80), (ids[1], 'Tenet', 15)):
+            on_progress(Progress(0, 2, title, 'extract', title_id))
+            on_progress(FfmpegProgress(title, title_id, percent, 100))
+        reached.set()
+        assert release.wait(5)
+        for title_id in ids:
+            on_event(ExecutionEvent('aggregate-run', title_id, '', 'title_completed', NOW, title_id))
+        return StagesReport(through, 2, run=LibraryRunReport(designed=ids), attempted=ids)
+
+    window, _ = _window(qtbot, tmp_path, pipeline=pipeline, prefs=_prefs(tmp_path))
+    window.select_ids(['x-gravity', 'x-tenet'])
+    window.run_selected()
+    qtbot.waitUntil(reached.is_set, timeout=5000)
+    assert window.runProgress.maximum() == 2 and window.runProgress.value() == 0
+    assert window.model.run_state('x-gravity')['current'] == 80
+    assert window.model.run_state('x-tenet')['current'] == 15
+    assert window.model.run_state('x-gravity')['total'] == window.model.run_state('x-tenet')['total'] == 100
+    release.set()
+    qtbot.waitUntil(lambda: not window.is_running, timeout=5000)
+    assert window.runProgress.maximum() == 2 and window.runProgress.value() == 2
+
+
+def test_details_cell_renders_and_activates_only_when_history_exists(qtbot, tmp_path):
+    window, _ = _window(qtbot, tmp_path)
+    row = next(i for i in range(window.proxy.rowCount())
+               if window.proxy.index(i, 0).data(Qt.ItemDataRole.UserRole + 2) == 'x-gravity')
+    index = window.proxy.index(row, COL_RUN_DETAILS)
+    delegate = window.workTable.itemDelegateForColumn(COL_RUN_DETAILS)
+    option = QStyleOptionViewItem()
+    option.rect.setRect(0, 0, 100, 30)
+    option.widget = window.workTable
+    image = QImage(100, 30, QImage.Format.Format_ARGB32)
+    painter = QPainter(image)
+    delegate.paint(painter, option, index)
+    painter.end()
+
+    activation = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_Return, Qt.KeyboardModifier.NoModifier)
+    assert not delegate.editorEvent(activation, window.proxy, option, index)
+    assert 'x-gravity' not in window._detail_dialogs
+
+    window.model.set_run_state('x-gravity', has_details=True)
+    opened = []
+    delegate.open_details = opened.append
+    activation = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_Return, Qt.KeyboardModifier.NoModifier)
+    assert delegate.editorEvent(activation, window.proxy, option, index)
+    assert opened == ['x-gravity']
+
+
 def test_run_event_buffer_is_bounded_and_reports_trimmed_output():
     from model.worklist_run_details import EventBuffer, MAX_EVENTS
 
@@ -526,8 +585,8 @@ def test_a_single_in_flight_title_never_looks_complete(qtbot, tmp_path):
     window.run_selected()
 
     qtbot.waitUntil(pipeline.entered.is_set, timeout=5000)
-    qtbot.waitUntil(lambda: window.runProgress.value() == 1, timeout=5000)
-    assert window.runProgress.maximum() == 2  # 1/2 while the only title is still extracting/designing
+    qtbot.waitUntil(lambda: bool(window.model.running), timeout=5000)
+    assert window.runProgress.maximum() == 1 and window.runProgress.value() == 0
     with qtbot.waitSignal(window.run_finished, timeout=10000):
         pipeline.release.set()
 
@@ -555,7 +614,8 @@ def test_cancel_stops_after_the_current_title_and_reports_what_completed(qtbot, 
     window, _ = _window(qtbot, tmp_path, pipeline=pipeline, prefs=_prefs(tmp_path))
     window.select_ids(['x-gravity', 'x-tenet', 'x-fury', 'd-speed'])
     window.run_selected()
-    qtbot.waitUntil(lambda: window.runProgress.value() == 2, timeout=5000)
+    # The fake pipeline's second title is held after its start progress.
+    qtbot.waitUntil(lambda: len(pipeline.progress) >= 2, timeout=5000)
 
     _click(qtbot, window.cancelButton)
 
@@ -569,6 +629,8 @@ def test_cancel_stops_after_the_current_title_and_reports_what_completed(qtbot, 
     assert report.attempted == pipeline.calls[0]['ids'][:2]      # the first two, in order; the title in hand finished
     assert pipeline.cancel_seen == [True]
     assert len(report.not_run) == 2
+    assert window.runProgress.maximum() == 4 and window.runProgress.value() == 4
+    assert '2 cancelled' in window.runCountsLabel.text()
     assert window.runStatusLabel.text() == 'Stopped after 2 of 4 titles (2 not run): 2 designed'
     lines = {line.id: line for line in window.results}
     assert [line.outcome for line in lines.values() if line.id in report.not_run] == ['Not run', 'Not run']

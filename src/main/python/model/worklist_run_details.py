@@ -169,7 +169,9 @@ class RunStatusDelegate(QStyledItemDelegate):
         button = QStyleOptionButton()
         button.rect = option.rect.adjusted(5, 3, -5, -3)
         button.text = 'Details'
-        button.state = QStyle.StateFlag.State_Enabled if state.get('has_details') else QStyle.StateFlag.State_None
+        button.state = QStyle.StateFlag.State_Raised
+        if state.get('has_details'):
+            button.state |= QStyle.StateFlag.State_Enabled
         style = option.widget.style() if option.widget else None
         if style:
             style.drawControl(QStyle.ControlElement.CE_PushButton, button, painter, option.widget)
@@ -179,6 +181,10 @@ class RunStatusDelegate(QStyledItemDelegate):
         if index.column() != self.details_column or not state.get('has_details'):
             return False
         if event.type() == QEvent.Type.MouseButtonRelease and event.button() == Qt.MouseButton.LeftButton:
+            self.open_details(index.data(Qt.ItemDataRole.UserRole + 2))
+            return True
+        if event.type() == QEvent.Type.KeyPress and event.key() in (Qt.Key.Key_Space, Qt.Key.Key_Return,
+                                                                    Qt.Key.Key_Enter):
             self.open_details(index.data(Qt.ItemDataRole.UserRole + 2))
             return True
         return False

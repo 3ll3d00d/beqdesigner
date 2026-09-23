@@ -12,7 +12,6 @@ The run itself is `model.worklist_run.RunJob`; the words are in `model.worklist_
 `model.worklist_confirm`.
 '''
 import logging
-import math
 import time
 from dataclasses import dataclass
 from typing import Dict, List, Optional
@@ -368,10 +367,10 @@ class WorkListActions:
             self._say(f'Cannot start: {error}', LEVEL_ERROR)
             return False
         job = RunJob(setup.index_file, setup.profile, setup.settings, run_config, publish, request, self._run_stages)
-        job.signals.progress.connect(self._on_run_progress)
+        job.signals.progress.connect(lambda progress, source=job: self._on_run_progress(source, progress))
         job.signals.event.connect(lambda event, source=job: self._on_execution_event(source, event))
-        job.signals.finished.connect(self._on_run_finished)
-        job.signals.errored.connect(self._on_run_failed)
+        job.signals.finished.connect(lambda report, source=job: self._on_run_finished(source, report))
+        job.signals.errored.connect(lambda message, source=job: self._on_run_failed(source, message))
         self._job = job
         # Details is one in-memory generation for the whole window. A new run
         # expires every title's prior history, including titles outside this
@@ -394,8 +393,9 @@ class WorkListActions:
         self.cancelButton.setVisible(True)
         self.cancelButton.setEnabled(True)
         self.runProgress.setVisible(True)
-        self.runProgress.setRange(0, max(1, len(plan.planned)) + 1)
+        self.runProgress.setRange(0, max(1, len(plan.planned)))
         self.runProgress.setValue(0)
+        self.runProgress.setFormat(f'0 / {len(plan.planned)} titles')
         self._say(f'Starting: {plan_label(plan)}...')
         self._update_run_summary()
         self._refresh_actions()
@@ -429,26 +429,17 @@ class WorkListActions:
             self._say('Cancelling: the title being worked on finishes first...')
         return True
 
-    def _on_run_progress(self, progress: Progress) -> None:
+    def _on_run_progress(self, source_job, progress: Progress) -> None:
+        if self._job is None or source_job is not self._job:
+            return
         context = self._run_context
         if context is None:
             return
         if isinstance(progress, FfmpegProgress):
             self._on_ffmpeg_progress(progress)
             return
-        total = max(1, progress.total)
-        # A progress message arrives when a title-stage *starts*, and one final message arrives once the run is over.
-        # Reserve that final step for the latter: an in-flight single extraction is visibly underway (50%), not 100%.
-        if progress.stage == 'extract':
-            # ffmpeg follows with real `out_time_ms` updates. Keep the bar empty until its first packet: Qt's busy
-            # indicator paints as a full animated bar on several styles, which reads as completed work.
-            self.runProgress.setRange(0, 100)
-            self.runProgress.setValue(0)
-            self.runProgress.setFormat('Extracting…')
-        else:
-            self.runProgress.setRange(0, total + 1)
-            self.runProgress.setValue(min(progress.done + 1, total + 1))
-            self.runProgress.setFormat('%p%')
+        # Stage starts are activity, not completed titles. The shared bar is
+        # driven only by terminal per-title outcomes below.
         if not progress.stage:
             self._model.clear_active_run_states()
             return
@@ -470,13 +461,24 @@ class WorkListActions:
         self._say(text)
 
     def _on_ffmpeg_progress(self, progress: FfmpegProgress) -> None:
-        '''Render the same ffmpeg ``out_time_ms`` fraction as the Extract Audio dialog.'''
+        '''Keep ffmpeg's ``out_time_ms`` percentage in the title's own row.'''
         if progress.total_micros <= 0:
             return
-        percent = min(100.0, (progress.out_time_micros / progress.total_micros) * 100.0)
-        self.runProgress.setRange(0, 100)
-        self.runProgress.setValue(math.ceil(percent))
-        self.runProgress.setFormat(f'{percent:.2f}%')
+        percent = min(100, max(0, int(progress.out_time_micros * 100 / progress.total_micros)))
+        self._model.set_run_state(progress.id, active=True, queued=False, stage='extract',
+                                  text=f'Extracting {percent}%', current=percent, total=100)
+        self._say(f'Extracting {progress.title}  ({percent}%)')
+
+    def _update_run_progress(self, context: Optional[_RunContext] = None) -> None:
+        '''Count unique titles with terminal outcomes; stages and ffmpeg packets do not advance this bar.'''
+        context = context or self._run_context
+        if context is None:
+            return
+        total = max(1, len(context.request.ids))
+        completed = sum(outcome in ('succeeded', 'failed', 'cancelled') for outcome in self._run_outcomes.values())
+        self.runProgress.setRange(0, total)
+        self.runProgress.setValue(min(completed, total))
+        self.runProgress.setFormat(f'{min(completed, total)} / {len(context.request.ids)} titles')
 
     def _end_run(self) -> Optional[_RunContext]:
         context, self._job, self._run_context = self._run_context, None, None
@@ -485,7 +487,9 @@ class WorkListActions:
         self.runProgress.setVisible(False)
         return context
 
-    def _on_run_finished(self, report: StagesReport) -> None:
+    def _on_run_finished(self, source_job, report: StagesReport) -> None:
+        if self._job is None or source_job is not self._job:
+            return
         cancel_asked = self._job is not None and self._job.cancel_requested
         context = self._end_run()
         cancelled_ids = set(report.not_run)
@@ -511,7 +515,17 @@ class WorkListActions:
             dialog = self._detail_dialogs.get(title_id)
             if dialog is not None:
                 dialog.set_text(buffer.text())
-        self._update_run_summary(cancelled=len(cancelled_ids))
+        # The report is authoritative for the final aggregate, including
+        # failures and titles cancelled before dispatch.
+        for title_id in self._run_outcomes:
+            if title_id in cancelled_ids:
+                self._run_outcomes[title_id] = 'cancelled'
+            elif title_id in failed_ids or any(item.get('id') == title_id for item in report.publish_errors):
+                self._run_outcomes[title_id] = 'failed'
+            elif title_id in report.attempted or any(item.get('id') == title_id for item in report.published):
+                self._run_outcomes[title_id] = 'succeeded'
+        self._update_run_progress(context)
+        self._update_run_summary()
         self.refresh_from_index()
         self._sync_index_if_dirty()   # decisions made while it ran may be newer than what it read
         if context is not None:
@@ -527,7 +541,9 @@ class WorkListActions:
         self._refresh_view()
         self.run_finished.emit(report)
 
-    def _on_run_failed(self, message: str) -> None:
+    def _on_run_failed(self, source_job, message: str) -> None:
+        if self._job is None or source_job is not self._job:
+            return
         self._end_run()
         self.refresh_from_index()   # the pipeline refreshes the index whatever happened, so show what it now says
         self._sync_index_if_dirty()
