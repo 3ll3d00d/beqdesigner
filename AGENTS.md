@@ -309,6 +309,23 @@ rather than append. Keep the plan accurate as you go:
 
 ## Testing
 
+### Hard rule: every change has test coverage
+
+Every change to application code, UI, configuration, or build behavior **must
+include or update automated tests** that exercise the changed behavior or
+contract. This applies to features, bug fixes, refactors, and small changes;
+there are no scope-based exceptions. A bug fix must include a regression test
+that would fail without the fix. Do not consider an implementation complete
+or commit it until its tests are written and the relevant tests have been run.
+
+Run the focused tests for the changed behavior, then the broader relevant
+suite when practical. Report the exact commands and results. If the environment
+prevents running tests, still write the tests, state the blocker and exact
+failure, and do not describe the change as verified. A test may be omitted only
+when the change is strictly non-behavioral documentation or policy text; validate
+such changes with the appropriate documentation or formatting check where one
+exists.
+
 ```sh
 PYTHONPATH=./src/main/python uv run pytest --cov=./src/main/python
 ```
