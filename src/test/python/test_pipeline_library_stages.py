@@ -194,11 +194,12 @@ def test_run_stages_emits_structured_title_and_stage_events(env, work):
     _go(env, Selection(), 'design', on_event=seen.append)
 
     assert [event.kind for event in seen] == [
-        'queued', 'stage_started', 'stage_completed', 'stage_started', 'stage_completed', 'title_completed']
+        'queued', 'stage_started', 'stage_completed', 'stage_queued', 'stage_started', 'stage_completed',
+        'title_completed']
     assert {event.run_id for event in seen} and len({event.run_id for event in seen}) == 1
     assert {event.title_id for event in seen} == {'fs-a'}
     assert [event.stage for event in seen if event.kind.startswith('stage_')] == [
-        'extract', 'extract', 'design', 'design']
+        'extract', 'extract', 'design', 'design', 'design']
 
 
 def test_extract_and_design_stages_overlap_without_holding_each_others_capacity(env, monkeypatch):
@@ -265,13 +266,17 @@ def test_extract_and_design_worker_counts_obey_separate_limits(env, monkeypatch)
     monkeypatch.setattr(stages, 'run_unit', extract)
     monkeypatch.setattr(stages, 'design_unit_work', design)
     config = _run_config(env, extract_parallelism=2, design_parallelism=1)
+    events = []
 
     report = run_stages(_profile(env), Selection(ids=tuple(f'fs-{letter}' for letter in 'abcd')), 'design',
-                        run_config=config, index=env.index, settings=env.settings)
+                        run_config=config, index=env.index, settings=env.settings, on_event=events.append)
 
     assert sorted(report.run.designed) == [f'fs-{letter}' for letter in 'abcd']
     assert active['max_extract'] == 2
     assert active['max_design'] == 1
+    queued_design_ids = {event.title_id for event in events
+                         if event.kind == 'stage_queued' and event.stage == 'design'}
+    assert queued_design_ids == {f'fs-{letter}' for letter in 'abcd'}
 
 
 def test_real_run_units_produce_the_same_outputs_with_independent_stage_pools(env, work):
@@ -460,12 +465,17 @@ def test_through_commit_publishes_then_commits_one_commit_per_repo_images_first(
     (a, b), settings = _accepted(env, repos, 'a', 'b')
     _scan(env, a, b, settings=settings)
 
-    report = _go(env, Selection(needs=('publish',)), 'commit', settings=settings, publish=_publish_settings(repos))
+    events = []
+    report = _go(env, Selection(needs=('publish',)), 'commit', settings=settings, publish=_publish_settings(repos),
+                 on_event=events.append)
 
     assert len(report.published) == 2 and report.committed is not None and not report.commit_error
     assert len(_commits(xml)) == 1 and len(_commits(images)) == 1  # one commit per repo for the whole selection
     assert b'Film a' in _on_remote(xml_bare, 'xml/fs-a.json') and b'Film b' in _on_remote(xml_bare, 'xml/fs-b.json')
     assert _needs(env, 'fs-a') == ('done', 'pushed')
+    for kind in ('command_started', 'command_finished'):
+        commit_events = [event for event in events if event.stage == 'commit' and event.kind == kind]
+        assert {'fs-a', 'fs-b'} <= {event.title_id for event in commit_events}
 
 
 def test_through_commit_commits_only_the_selection(env, work, repos):

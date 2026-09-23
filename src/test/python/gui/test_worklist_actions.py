@@ -328,9 +328,12 @@ def test_run_row_progress_and_details_keep_copyable_events_after_completion(qtbo
             ExecutionEvent('run-1', title_id, '', 'queued', NOW, 'Queued'),
             ExecutionEvent('run-1', title_id, 'extract', 'stage_started', NOW + 1, 'Extracting'),
             ExecutionEvent('run-1', title_id, 'extract', 'command_started', NOW + 2, 'ffmpeg',
-                           ('ffmpeg', '-i', '/films/a b.mkv', '--api-key=verysecret')),
+                           ('ffmpeg', '-i', '/films/a b.mkv', '--api-key=verysecret',
+                            '-H', 'Authorization: Bearer header-secret', '-H', 'Cookie: session=cookie-secret')),
             ExecutionEvent('run-1', title_id, 'extract', 'progress', NOW + 3, current=50, total=100),
-            ExecutionEvent('run-1', title_id, 'extract', 'command_finished', NOW + 4, stdout='done', exit_code=0),
+            ExecutionEvent('run-1', title_id, 'extract', 'command_finished', NOW + 4,
+                           stdout='done\nAuthorization: Basic stdout-secret\nCookie: stdout-cookie',
+                           stderr='Set-Cookie: stderr-cookie', exit_code=0),
             ExecutionEvent('run-1', title_id, 'extract', 'stage_completed', NOW + 5, 'Extraction complete'),
             ExecutionEvent('run-1', title_id, '', 'title_completed', NOW + 6, 'Gravity'),
         ]
@@ -358,6 +361,10 @@ def test_run_row_progress_and_details_keep_copyable_events_after_completion(qtbo
     text = dialog.output.toPlainText()
     assert 'Command: ffmpeg -i \'/films/a b.mkv\' \'--api-key=[REDACTED]\'' in text
     assert 'verysecret' not in text and 'stdout:\ndone' in text
+    assert 'Authorization: Bearer [REDACTED]' in text and 'Authorization: Basic [REDACTED]' in text
+    assert 'Cookie: [REDACTED]' in text and 'Set-Cookie: [REDACTED]' in text
+    assert all(secret not in text for secret in ('header-secret', 'cookie-secret', 'stdout-secret',
+                                                  'stdout-cookie', 'stderr-cookie'))
     dialog.copy_all()
     assert QApplication.clipboard().text() == text
     dialog.close()
@@ -372,12 +379,13 @@ def test_open_run_details_appends_events_while_the_title_runs(qtbot, tmp_path):
 
     def pipeline(profile, selection, through, *, on_event, **kwargs):
         title_id = selection.ids[0]
-        on_event(ExecutionEvent('run-2', title_id, 'extract', 'stage_started', NOW, 'Extracting'))
+        on_event(ExecutionEvent('run-2', title_id, 'design', 'stage_queued', NOW, 'Waiting for design slot'))
         reached.set()
         assert release.wait(5)
-        on_event(ExecutionEvent('run-2', title_id, 'extract', 'command_finished', NOW + 1, 'ffmpeg',
-                                ('ffmpeg', '-version'), stdout='version output', exit_code=0))
-        on_event(ExecutionEvent('run-2', title_id, '', 'title_completed', NOW + 2, 'Gravity'))
+        on_event(ExecutionEvent('run-2', title_id, 'design', 'stage_started', NOW + 1, 'Designing'))
+        on_event(ExecutionEvent('run-2', title_id, 'design', 'command_finished', NOW + 2, 'designer',
+                                ('designer', '--version'), stdout='version output', exit_code=0))
+        on_event(ExecutionEvent('run-2', title_id, '', 'title_completed', NOW + 3, 'Gravity'))
         return StagesReport(through, 1, run=LibraryRunReport(designed=[title_id]), attempted=[title_id])
 
     window, _ = _window(qtbot, tmp_path, pipeline=pipeline, prefs=_prefs(tmp_path))
@@ -386,13 +394,15 @@ def test_open_run_details_appends_events_while_the_title_runs(qtbot, tmp_path):
     qtbot.waitUntil(reached.is_set, timeout=5000)
     active_row = next(i for i in range(window.proxy.rowCount())
                       if window.proxy.index(i, 0).data(Qt.ItemDataRole.UserRole + 2) == 'x-gravity')
-    assert window.proxy.index(active_row, COL_RUN_PROGRESS).data(RUN_STATE_ROLE)['active']
+    queued_state = window.proxy.index(active_row, COL_RUN_PROGRESS).data(RUN_STATE_ROLE)
+    assert queued_state['queued'] and queued_state['stage'] == 'design'
+    assert queued_state['text'] == 'Queued for design'
     window._open_run_details('x-gravity')
     dialog = window._detail_dialogs['x-gravity']
-    assert 'stage_started' in dialog.output.toPlainText()
+    assert 'stage_queued' in dialog.output.toPlainText()
     release.set()
     qtbot.waitUntil(lambda: 'version output' in dialog.output.toPlainText(), timeout=5000)
-    assert 'Command: ffmpeg -version' in dialog.output.toPlainText()
+    assert 'Command: designer --version' in dialog.output.toPlainText()
 
 
 def test_run_event_buffer_is_bounded_and_reports_trimmed_output():
@@ -413,6 +423,8 @@ def test_failure_details_and_cancelled_queued_rows_are_retained(qtbot, tmp_path)
     def failing(profile, selection, through, *, on_event, **kwargs):
         title_id = selection.ids[0]
         on_event(ExecutionEvent('run-fail', title_id, 'extract', 'stage_started', NOW, 'Extracting'))
+        on_event(ExecutionEvent('run-fail', title_id, 'extract', 'progress', NOW + 0.5,
+                                current=50, total=100))
         on_event(ExecutionEvent('run-fail', title_id, 'extract', 'failed', NOW + 1, 'ffmpeg exited 1',
                                 stderr='invalid input'))
         return StagesReport(through, 1, run=LibraryRunReport(failed=[(title_id, 'ffmpeg exited 1')]),
@@ -422,6 +434,10 @@ def test_failure_details_and_cancelled_queued_rows_are_retained(qtbot, tmp_path)
     failed_window.select_ids(['x-gravity'])
     with qtbot.waitSignal(failed_window.run_finished, timeout=10000):
         failed_window.run_selected()
+    failed_row = next(i for i in range(failed_window.proxy.rowCount())
+                      if failed_window.proxy.index(i, 0).data(Qt.ItemDataRole.UserRole + 2) == 'x-gravity')
+    failed_state = failed_window.proxy.index(failed_row, COL_RUN_PROGRESS).data(RUN_STATE_ROLE)
+    assert failed_state['current'] is None and failed_state['total'] is None
     failed_window._open_run_details('x-gravity')
     assert 'ffmpeg exited 1' in failed_window._detail_dialogs['x-gravity'].output.toPlainText()
     assert 'invalid input' in failed_window._detail_dialogs['x-gravity'].output.toPlainText()
