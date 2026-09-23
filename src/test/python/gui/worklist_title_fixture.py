@@ -10,9 +10,9 @@ from model.xy import MagnitudeData
 from pipeline.review import CandidateSummary, QueueEntry, write_queue_entry
 
 
-def curve_json() -> dict:
+def curve_json(kind: str = 'avg') -> dict:
     x = np.linspace(1.0, 500.0, 50)
-    return xydata_to_json(MagnitudeData('avg', '', x, np.zeros_like(x)))
+    return xydata_to_json(MagnitudeData(kind, '', x, np.full_like(x, 10.0 if kind == 'peak' else 0.0)))
 
 
 def candidates(count: int = 2):
@@ -41,12 +41,12 @@ def write_entry(queue_dir, entry_id: str, status: str = 'pending', count: int = 
     '''
     meta = complete_meta(entry_id) if meta is None else meta
     if decline:
-        entry = QueueEntry(id=entry_id, fs=1000, meta=meta, curve=curve_json(), candidates=[],
+        entry = QueueEntry(id=entry_id, fs=1000, meta=meta, curve=curve_json(), peak_curve=curve_json('peak'), candidates=[],
                            decline_reason='no_rolloff_detected', decline_message='nothing found', status=status)
     else:
         if status in ('accepted', 'published') and chosen is None:
             chosen = 0
-        entry = QueueEntry(id=entry_id, fs=1000, meta=meta, curve=curve_json(),
+        entry = QueueEntry(id=entry_id, fs=1000, meta=meta, curve=curve_json(), peak_curve=curve_json('peak'),
                            candidates=candidates(count)[::-1] if reverse else candidates(count), status=status,
                            chosen_candidate_index=chosen if status in ('accepted', 'published') else None)
     write_queue_entry(queue_dir, entry)

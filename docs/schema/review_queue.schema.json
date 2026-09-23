@@ -21,6 +21,10 @@
       "description": "one unfiltered magnitude curve (avg), via model.codec.xydata_to_json -- enough to redraw a live preview without the original audio.",
       "$ref": "common.schema.json#/$defs/xyData"
     },
+    "peak_curve": {
+      "description": "optional unfiltered peak magnitude curve via model.codec.xydata_to_json; older entries omit it, and the review chart then shows average only.",
+      "oneOf": [{ "$ref": "common.schema.json#/$defs/xyData" }, { "type": "null" }]
+    },
     "candidates": {
       "type": "array",
       "description": "empty when declined (see decline_reason/decline_message). Otherwise non-empty, ordered best (most preferred) first -- candidates[0] is the designer's top pick.",

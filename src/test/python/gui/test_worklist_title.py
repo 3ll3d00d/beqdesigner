@@ -25,7 +25,7 @@ from model.worklist_model import ID_ROLE
 from model.worklist_title import chart_data, next_waiting_id, notice_text, position_text, state_text
 from pipeline.designer.registry import register_designer, unregister_designer
 from pipeline.library.index import LibraryIndex
-from pipeline.review import read_entry
+from pipeline.review import read_entry, update_entry
 from test_pipeline_library_index import DESIGNER, FakeSource, _entry as _real_entry, _extracted, _item
 from worklist_fixture import make_index, title_row
 from worklist_title_fixture import write_entry
@@ -134,23 +134,47 @@ def test_the_next_waiting_title_is_after_this_one_and_wraps_round():
     assert next_waiting_id(ids, 'gone', lambda i: i == 'c') == 'c'     # not in the list: from the top
 
 
-def test_chart_data_is_the_signal_and_the_filtered_signal(tmp_path):
+def test_chart_data_shows_average_and_peak_before_and_after_the_filter(tmp_path):
     write_entry(str(tmp_path), 'a')
     entry = read_entry(str(tmp_path), 'a')
 
     curves = chart_data(entry, 1)
 
-    assert [c.colour for c in curves] == ['grey', 'red']
-    assert [c.name for c in curves] == ['Audio track (all channels mixed)',
-                                        'Filtered audio track (all channels mixed)']
+    assert [c.colour for c in curves] == ['grey', 'grey', 'red', 'red']
+    assert [c.linestyle for c in curves] == ['-', '--', '-', '--']
+    assert [c.name for c in curves] == ['Average audio track (all channels mixed)',
+                                        'Peak audio track (all channels mixed)',
+                                        'Filtered average audio track (all channels mixed)',
+                                        'Filtered peak audio track (all channels mixed)']
     numbered = chart_data(replace(entry, audio_stream=2), 1)
-    assert [c.name for c in numbered] == ['Audio track 3 (all channels mixed)',
-                                          'Filtered audio track 3 (all channels mixed)']
-    assert (curves[0].y == 0).all() and curves[1].y.any()    # a flat signal, and what the filter makes of it
-    assert len(chart_data(entry, 7)) == 1             # a pick out of range still shows the signal
+    assert [c.name for c in numbered] == ['Average audio track 3 (all channels mixed)',
+                                          'Peak audio track 3 (all channels mixed)',
+                                          'Filtered average audio track 3 (all channels mixed)',
+                                          'Filtered peak audio track 3 (all channels mixed)']
+    assert (curves[0].y == 0).all() and (curves[1].y == 10).all()
+    assert curves[2].y.any()
+    assert curves[3].y - curves[2].y == pytest.approx(10.0)
+    assert len(chart_data(entry, 7)) == 2             # a pick out of range still shows both source curves
+    legacy = replace(entry, peak_curve=None)
+    assert [c.name for c in chart_data(legacy, 1)] == ['Average audio track (all channels mixed)',
+                                                       'Filtered average audio track (all channels mixed)']
     assert chart_data(None, 0) == []
     write_entry(str(tmp_path), 'declined', decline=True)
     assert chart_data(read_entry(str(tmp_path), 'declined'), 0) == []
+
+
+def test_title_chart_draws_both_curves_and_legacy_entries_still_open(qtbot, tmp_path):
+    window = _window(qtbot, tmp_path, entries=[('r-alien', {})])
+    page = _open(qtbot, window, 'r-alien')
+
+    assert set(page._magnitude.get_curve_names()) == {
+        'Average audio track (all channels mixed)', 'Peak audio track (all channels mixed)',
+        'Filtered average audio track (all channels mixed)', 'Filtered peak audio track (all channels mixed)'}
+
+    update_entry(_queue(tmp_path), 'r-alien', peak_curve=None)
+    page.reload()
+    assert set(page._magnitude.get_curve_names()) == {
+        'Average audio track (all channels mixed)', 'Filtered average audio track (all channels mixed)'}
 
 
 def test_the_state_and_notice_say_what_the_title_is_waiting_for(tmp_path):

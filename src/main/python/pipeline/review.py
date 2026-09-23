@@ -65,6 +65,7 @@ class QueueEntry:
                                      # BeqMetadata(**meta) must reconstruct it. May be partial/empty if
                                      # title metadata hasn't been resolved yet (see batch_design)
     curve: dict                      # one MagnitudeData (avg, unfiltered) via model.codec.xydata_to_json
+    peak_curve: Optional[dict] = None  # unfiltered peak; absent in older queue entries
     audio_stream: Optional[int] = None  # zero-based source audio stream; None in queue entries written before this field
     candidates: List[CandidateSummary] = field(default_factory=list)  # empty on decline
     decline_reason: Optional[str] = None
@@ -164,9 +165,10 @@ def update_entry(queue_dir: str, entry_id: str, **fields) -> QueueEntry:
     return updated
 
 
-def _outcome_to_entry(entry_id: str, fs: int, meta: dict, curve: dict, outcome: DesignOutcome) -> QueueEntry:
+def _outcome_to_entry(entry_id: str, fs: int, meta: dict, curve: dict, outcome: DesignOutcome,
+                      peak_curve: Optional[dict] = None) -> QueueEntry:
     if isinstance(outcome, Declined):
-        return QueueEntry(id=entry_id, fs=fs, meta=meta, curve=curve, candidates=[],
+        return QueueEntry(id=entry_id, fs=fs, meta=meta, curve=curve, peak_curve=peak_curve, candidates=[],
                           decline_reason=outcome.reason, decline_message=outcome.message)
     assert isinstance(outcome, Applied)
     candidates = [CandidateSummary(filters=outcome.filters.to_json(), confidence=outcome.confidence,
@@ -179,7 +181,7 @@ def _outcome_to_entry(entry_id: str, fs: int, meta: dict, curve: dict, outcome: 
                                     residual_db=alt.residual_db,
                                     residual_band_hz=alt.residual_band_hz, commentary=alt.commentary)
                   for alt in outcome.alternatives]
-    return QueueEntry(id=entry_id, fs=fs, meta=meta, curve=curve, candidates=candidates)
+    return QueueEntry(id=entry_id, fs=fs, meta=meta, curve=curve, peak_curve=peak_curve, candidates=candidates)
 
 
 def design_and_queue(session: Session, entry_id: str, wav_path: str, designer: str, queue_dir: str,
@@ -223,7 +225,8 @@ def design_and_queue(session: Session, entry_id: str, wav_path: str, designer: s
     sig = session.load(wav_path, name=entry_id)
     outcome = session.design(sig, designer, coverage=coverage, bass_management=bass_management, channels=channels)
     curve = xydata_to_json(session.curves(sig, kind='avg', filtered=False))
-    entry = _outcome_to_entry(entry_id, sig.signal.fs, meta or {}, curve, outcome)
+    peak_curve = xydata_to_json(session.curves(sig, kind='peak', filtered=False))
+    entry = _outcome_to_entry(entry_id, sig.signal.fs, meta or {}, curve, outcome, peak_curve=peak_curve)
     entry.audio_stream = audio_stream
     write_queue_entry(queue_dir, entry)
     if project_dir is not None and isinstance(outcome, Applied):

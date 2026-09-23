@@ -112,6 +112,8 @@ def test_queue_entry_round_trips_multiple_candidates_and_commentary(tmp_path):
         id='ready-player-one', fs=48000, meta={'beq_title': 'Ready Player One'},
         curve={'_type': 'MagnitudeData', 'name': 'avg', 'description': '', 'x': [1.0, 2.0], 'y': [0.1, 0.2],
               'colour': None, 'linestyle': '-'},
+        peak_curve={'_type': 'MagnitudeData', 'name': 'peak', 'description': '', 'x': [1.0, 2.0], 'y': [1.1, 1.2],
+                    'colour': None, 'linestyle': '-'},
         audio_stream=2,
         candidates=[
             _candidate(confidence=0.9, commentary={'alignment': 'LR4', 'knee_hz': '25.0'}),
@@ -124,6 +126,7 @@ def test_queue_entry_round_trips_multiple_candidates_and_commentary(tmp_path):
 
     assert read_back == entry
     assert read_back.audio_stream == 2
+    assert read_back.peak_curve == entry.peak_curve
     assert [c.confidence for c in read_back.candidates] == [0.9, 0.4]
     assert read_back.candidates[0].commentary == {'alignment': 'LR4', 'knee_hz': '25.0'}
 
@@ -182,6 +185,7 @@ def test_reading_a_pre_existing_entry_without_art_fields_defaults_them(tmp_path)
 
     assert read_back.art_path is None
     assert read_back.art_overridden is False
+    assert read_back.peak_curve is None
 
 
 # --- batch_design ------------------------------------------------------------
@@ -207,6 +211,8 @@ def test_batch_design_writes_one_pending_entry_per_title(tmp_path):
         assert entry.candidates[1].confidence == 0.4
         assert entry.candidates[1].gain_reduction_db == 0.0
         assert entry.curve['_type'] == 'MagnitudeData'
+        assert entry.peak_curve['_type'] == 'MagnitudeData'
+        assert entry.peak_curve['description'] == 'peak'
     assert entries['title-one'].meta == {'beq_title': 'Title One'}
     assert entries['title-two'].meta == {}
 

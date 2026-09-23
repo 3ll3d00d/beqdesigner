@@ -21,7 +21,7 @@ At the top is the title and year, its source, and a line saying where it is (*Wa
 * **Candidates**: the filters the designer proposed, best first, each with its confidence, method and the gain change it implies. The highlighted one is the one that will be accepted. Press `1` to `9` to pick one, or click.
 * **Commentary**: what the designer said about the highlighted candidate.
 
-On the right, the **Filter** tab draws the signal in grey and the same signal with the highlighted candidate's filter applied in red, so you can see what the filter does. The **Metadata** tab is [described below](#metadata-and-artwork).
+On the right, the **Filter** tab draws the audio track's average (solid) and peak (dashed) curves in grey, and both with the highlighted candidate's filter applied in red. Older review entries that saved only the average curve show that curve alone until the title is designed again. The **Metadata** tab is [described below](#metadata-and-artwork).
 
 *Previous* and *Next* (`Alt`+`Left`, `Alt`+`Right`) step through the titles the list was showing when you opened the page, and *8 of 23* says where you are. The list is a snapshot: a title that changes while you look is still reached by *Next*.
 
