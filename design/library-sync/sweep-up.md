@@ -43,12 +43,12 @@ origin and sanitisation in the fixture’s adjacent test/docstring.
 ### 13.3 Delivery status
 
 **Done:** 29 (baseline, `791af5b`), 34 (path guardrails, `f6d466d`), 35
-(TVDB, `4036bd5`), 36 (async zones, `e87f4bb`), and 38 (boundary
-dispositions, `323ac81`). The follow-up review fixes are `5a7545a`.
+(TVDB, `4036bd5`), 36 (async zones, `e87f4bb`), 38 (boundary
+dispositions, `323ac81`) and 41 (selected-stream metadata and override,
+`13e1519`). The follow-up review fixes are `5a7545a`.
 
 **In progress:** 39, the JSON-output migration, and 40, the JRiver Playback
-Info stream resolver. **To do:** 41, selected-stream metadata resync and a
-safe per-title override/re-extract path. Chunk 39 still needs terminology and
+Info stream resolver. Chunk 39 still needs terminology and
 profile migration, the remaining source-record/aggregate test migration, the
 BEQDesigner → BEQCatalogue → `CatalogueEntry` round trip, and record-repo
 onboarding.
