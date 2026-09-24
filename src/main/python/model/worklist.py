@@ -62,7 +62,7 @@ from model.worklist_edit import discovery_changed
 from model.worklist_profile import WorkListSetup, load_setup
 from model.execution_events import ExecutionEvent
 from model.worklist_run import FailedTitle, ResultLine, RunJob, failed_titles
-from model.worklist_run_details import EventBuffer, RunDetailsDialog, RunStatusDelegate
+from model.worklist_run_details import EventBuffer, RunDetailsDialog, RunStatusDelegate, load_run_details
 from model.worklist_settings import SettingsDrawer
 from model.worklist_titles import WorkListTitles
 from pipeline.library.index import LibraryIndex, ScanResult, SourceRow, TitleRow
@@ -211,6 +211,7 @@ class WorkListWindow(WorkListActions, WorkListTitles, WorkListBulk, QMainWindow,
         self._job: Optional[RunJob] = None
         self._run_context = None   # the run in flight (worklist_actions._RunContext)
         self._event_buffers = {}
+        self._saved_details = {}
         self._detail_dialogs = {}
         self._active_run_id = ''
         self._run_outcomes = {}
@@ -588,6 +589,8 @@ class WorkListWindow(WorkListActions, WorkListTitles, WorkListBulk, QMainWindow,
             what it wrote, and reloading would replace a field the person has started typing in.
         '''
         self._setup = load_setup(self._preferences)
+        if not self.is_running:
+            self._saved_details = load_run_details(self._setup.profile.work_dir if self._setup.profile else None)
         if load_drawer:
             self._drawer.load(self._setup)
         else:
@@ -656,6 +659,9 @@ class WorkListWindow(WorkListActions, WorkListTitles, WorkListBulk, QMainWindow,
         self._sources_seen, self._last_scan_at, self._generation = sources, last_scan, generation
         self._populate_sources(sources)
         self._model.set_rows(rows)  # the proxy's modelReset refreshes the strip and the empty state
+        for row in rows:
+            if row.id in self._saved_details and not self._model.run_state(row.id).get('has_details'):
+                self._model.set_run_state(row.id, has_details=True)
         if selected:
             self.select_ids(selected)
         self.workTable.verticalScrollBar().setValue(scroll)
@@ -821,7 +827,7 @@ class WorkListWindow(WorkListActions, WorkListTitles, WorkListBulk, QMainWindow,
             self._detail_dialogs[title_id] = dialog
             dialog.finished.connect(lambda _result, key=title_id: self._detail_dialogs.pop(key, None))
         buffer = self._event_buffers.get(title_id)
-        dialog.set_text(buffer.text() if buffer else '')
+        dialog.set_text(buffer.text() if buffer else self._saved_details.get(title_id, ''))
         dialog.show()
         dialog.raise_()
         dialog.activateWindow()

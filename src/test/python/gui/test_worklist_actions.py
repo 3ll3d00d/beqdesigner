@@ -376,6 +376,18 @@ def test_run_row_progress_and_details_keep_copyable_events_after_completion(qtbo
     window._open_run_details('x-gravity')
     assert window._detail_dialogs['x-gravity'].output.toPlainText() == text
 
+    # A new window has no in-memory event buffers: the Details button and its
+    # redacted text must come back from the work directory after restart.
+    window.close()
+    reopened, _ = _window(qtbot, tmp_path, prefs=_prefs(tmp_path))
+    assert reopened.model.run_state('x-gravity')['has_details']
+    assert reopened._event_buffers == {}
+    reopened._open_run_details('x-gravity')
+    assert reopened._detail_dialogs['x-gravity'].output.toPlainText() == text
+    stored = (tmp_path / 'work' / '.worklist-run-details.json').read_text()
+    assert all(secret not in stored for secret in ('verysecret', 'header-secret', 'cookie-secret',
+                                                    'stdout-secret', 'stdout-cookie', 'stderr-cookie'))
+
 
 def test_open_run_details_appends_events_while_the_title_runs(qtbot, tmp_path):
     index_file = make_index(tmp_path / 'work', _rows(), SOURCES, generation=2, last_scan_at=NOW - 900)
@@ -439,6 +451,7 @@ def test_a_new_run_expires_previous_details_and_ignores_late_events_and_unplanne
     window.run_selected()
     qtbot.waitUntil(second_entered.is_set, timeout=5000)
     try:
+        assert (tmp_path / 'work' / '.worklist-run-details.json').read_text() == '{}'
         assert not old_dialog.isVisible()
         assert 'x-gravity' not in window._event_buffers
         assert not window.model.run_state('x-gravity').get('has_details', False)
@@ -762,6 +775,26 @@ def test_a_run_that_raises_shows_the_error_reloads_and_leaves_the_window_usable(
     assert window.runButton.isEnabled() and window.rescanButton.isEnabled()
     assert sorted(window.selected_ids()) == ['x-gravity', 'x-tenet']    # never lose the selection
     assert not window.cancelButton.isVisibleTo(window)
+
+
+def test_failed_run_details_survive_window_restart(qtbot, tmp_path):
+    make_index(tmp_path / 'work', _rows(), SOURCES, generation=2, last_scan_at=NOW - 900)
+
+    def pipeline(profile, selection, through, *, on_event, **kwargs):
+        on_event(ExecutionEvent('failed-run', selection.ids[0], 'extract', 'command_failed', NOW,
+                                'ffmpeg failed', stderr='decoder error'))
+        raise RuntimeError('the run stopped')
+
+    window, _ = _window(qtbot, tmp_path, pipeline=pipeline, prefs=_prefs(tmp_path))
+    window.select_ids(['x-gravity'])
+    with qtbot.waitSignal(window.run_failed, timeout=10000):
+        window.run_selected()
+    window.close()
+
+    reopened, _ = _window(qtbot, tmp_path, prefs=_prefs(tmp_path))
+    assert reopened.model.run_state('x-gravity')['has_details']
+    reopened._open_run_details('x-gravity')
+    assert 'decoder error' in reopened._detail_dialogs['x-gravity'].output.toPlainText()
 
 
 def test_titles_that_fail_are_listed_in_the_failures_panel_with_the_reason_and_the_stage(qtbot, tmp_path):

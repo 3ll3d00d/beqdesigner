@@ -141,6 +141,9 @@ retired.
 Extraction and design workers have separate limits. Publish/commit remain
 serialized. Work list rows show bounded, run-scoped progress; Details shows
 per-title execution events and ffmpeg commands with selection and Copy all.
+The bounded, redacted Details text of the last run is stored in the work
+directory and restored with its button when the work list reopens. Starting a
+new run clears that history; a completed or failed run replaces it.
 New runs clear transient row state and limit outcome/progress updates to their
 planned titles. The UI reports aggregate progress, cancellation, and the
 result of titles that were omitted after a bulk confirmation. Some retry,

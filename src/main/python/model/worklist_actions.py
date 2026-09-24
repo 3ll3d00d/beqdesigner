@@ -27,7 +27,7 @@ from model.worklist_model import warning_colour
 from model.worklist_run import LEVEL_ERROR, LEVEL_OK, FailedTitle, ResultLine, RunJob, RunRequest, \
     build_publish_settings, build_run_config, describe_results, plan_label, publish_problem, summarise_report, \
     summarise_skipped
-from model.worklist_run_details import EventBuffer
+from model.worklist_run_details import EventBuffer, save_run_details
 from pipeline.library.index import TitleRow
 from pipeline.library.selection import StagePlan, plan_stages
 from pipeline.library.stages import FfmpegProgress, Progress, StagesReport
@@ -379,6 +379,8 @@ class WorkListActions:
             dialog.close()
         self._detail_dialogs.clear()
         self._event_buffers.clear()
+        self._saved_details.clear()
+        self._save_run_details()
         self._active_run_id = ''
         self._run_outcomes = {title_id: 'queued' for title_id in request.ids}
         self._model.clear_run_states()
@@ -538,6 +540,7 @@ class WorkListActions:
                 self._run_outcomes[title_id] = 'failed'
             elif title_id in report.attempted or any(item.get('id') == title_id for item in report.published):
                 self._run_outcomes[title_id] = 'succeeded'
+        self._remember_run_details()
         self._update_run_progress(context)
         self._update_run_summary()
         self.refresh_from_index()
@@ -560,6 +563,7 @@ class WorkListActions:
         if self._job is None or source_job is not self._job:
             return
         context = self._end_run()
+        self._remember_run_details()
         self.refresh_from_index()   # the pipeline refreshes the index whatever happened, so show what it now says
         self._finish_attempts(context)
         self._sync_index_if_dirty()
@@ -567,3 +571,13 @@ class WorkListActions:
                    LEVEL_ERROR)
         self._refresh_view()
         self.run_failed.emit(message)
+
+    def _save_run_details(self) -> None:
+        try:
+            save_run_details(self._setup.profile.work_dir if self._setup.profile else None, self._saved_details)
+        except OSError:
+            logger.exception('Could not save the last run Details')
+
+    def _remember_run_details(self) -> None:
+        self._saved_details = {title_id: buffer.text() for title_id, buffer in self._event_buffers.items()}
+        self._save_run_details()

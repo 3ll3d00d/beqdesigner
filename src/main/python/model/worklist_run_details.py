@@ -1,8 +1,11 @@
 """The per-title Details view and run-status table delegate for the library work list."""
 from collections import deque
 from dataclasses import dataclass
+import json
+import os
 import re
 import shlex
+import tempfile
 import time
 from typing import Optional
 
@@ -24,6 +27,36 @@ _COOKIE_HEADER = re.compile(r'(?i)((?:set-)?cookie\s*[:=]\s*)[^\r\n]+')
 _SECRET_ARG = re.compile(r'^--?(?:api[_-]?key|access[_-]?token|password|secret)$', re.IGNORECASE)
 MAX_COMMAND_ARGS = 256
 MAX_COMMAND_CHARS = 32 * 1024
+DETAILS_FILE = '.worklist-run-details.json'
+
+
+def load_run_details(work_dir: Optional[str]) -> dict[str, str]:
+    '''Read the last run's already-redacted Details text; a damaged cache is simply ignored.'''
+    if not work_dir:
+        return {}
+    try:
+        with open(os.path.join(work_dir, DETAILS_FILE), encoding='utf-8') as source:
+            data = json.load(source)
+    except (OSError, ValueError):
+        return {}
+    return {key: value for key, value in data.items() if isinstance(key, str) and isinstance(value, str)} \
+        if isinstance(data, dict) else {}
+
+
+def save_run_details(work_dir: Optional[str], details: dict[str, str]) -> None:
+    '''Atomically replace the last run's Details cache (including an empty new-run reset).'''
+    if not work_dir:
+        return
+    os.makedirs(work_dir, exist_ok=True)
+    handle, temporary = tempfile.mkstemp(prefix='.run-details-', suffix='.tmp', dir=work_dir)
+    try:
+        with os.fdopen(handle, 'w', encoding='utf-8') as target:
+            json.dump(details, target)
+        os.replace(temporary, os.path.join(work_dir, DETAILS_FILE))
+    except BaseException:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+        raise
 
 
 def _redact(text: str) -> str:
@@ -73,7 +106,7 @@ def _event_text(event: ExecutionEvent) -> str:
 
 
 class EventBuffer:
-    """Bounded, title-scoped in-memory event history for the current/most recent run."""
+    """Bounded, title-scoped event history; its redacted text is saved when a run ends."""
 
     def __init__(self):
         self._events = deque()
