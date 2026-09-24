@@ -88,6 +88,12 @@ and Blu-ray roots can be resolved for extraction; precise JRiver disc title
 mapping and live server evidence remain open. TV can be processed by episode
 or as a season whose mono episode tracks are joined in order.
 
+A fresh JRiver scan updates an existing single-title queue entry's audio type
+when it is missing or still matches the previous automatic value. A different
+value entered during review is retained. This also covers entries made before
+codec fields were requested when the discovery index has been rebuilt; the
+updated entry is evaluated in the same scan.
+
 `pipeline/library/index.py` is a disposable SQLite discovery index. A scan
 lists sources, reads existing work and repository outputs, then stores each
 title's next need and reason. The needs state comes from `state.derive_needs()`;

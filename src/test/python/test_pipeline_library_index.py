@@ -209,6 +209,60 @@ def test_an_accepted_title_with_incomplete_metadata_goes_back_to_a_human(env):
     assert _needs(env, 'fs-a') == ('review', 'metadata incomplete: at least one audio type is required')
 
 
+def test_rescan_backfills_jriver_codec_into_existing_entry(env):
+    old = _item('a', id='jriver-a', meta={})
+    _extracted(env, old)
+    _entry(env, old, status='accepted', meta={'title': 'Film a', 'year': '2001'})
+    source = FakeSource([old])
+    _scan(env, sources={'jriver': source})
+
+    source.items = [_item('a', id='jriver-a', meta={'audio_types': ['TrueHD 7.1']})]
+    _scan(env, sources={'jriver': source})
+
+    assert read_entry(env.queue, 'jriver-a').meta['audio_types'] == ['TrueHD 7.1']
+    assert _row(env, 'jriver-a').review_state == 'accepted'
+
+
+def test_rescan_replaces_old_automatic_codec_but_preserves_reviewer_edit(env):
+    old = _item('a', id='jriver-a', meta={'audio_types': ['Dolby TrueHD']})
+    _extracted(env, old)
+    _entry(env, old, meta={'title': 'Film a', 'year': '2001', 'audio_types': ['Dolby TrueHD']})
+    source = FakeSource([old])
+    _scan(env, sources={'jriver': source})
+
+    source.items = [_item('a', id='jriver-a', meta={'audio_types': ['TrueHD 7.1']})]
+    _scan(env, sources={'jriver': source})
+    assert read_entry(env.queue, 'jriver-a').meta['audio_types'] == ['TrueHD 7.1']
+
+    entry = read_entry(env.queue, 'jriver-a')
+    update_entry(env.queue, 'jriver-a', meta={**entry.meta, 'audio_types': ['Atmos']})
+    source.items = [_item('a', id='jriver-a', meta={'audio_types': ['TrueHD 5.1']})]
+    _scan(env, sources={'jriver': source})
+    assert read_entry(env.queue, 'jriver-a').meta['audio_types'] == ['Atmos']
+
+
+def test_scan_backfills_existing_jriver_entry_after_index_rebuild_without_overwriting_edit(env):
+    item = _item('a', id='jriver-a', meta={'audio_types': ['TrueHD 7.1']})
+    _entry(env, item, meta={'title': 'Film a', 'year': '2001'})
+    _scan(env, sources={'jriver': FakeSource([item])})
+    assert read_entry(env.queue, 'jriver-a').meta['audio_types'] == ['TrueHD 7.1']
+
+    entry = read_entry(env.queue, 'jriver-a')
+    update_entry(env.queue, 'jriver-a', meta={**entry.meta, 'audio_types': ['Atmos']})
+    _scan(env, sources={'jriver': FakeSource([_item('a', id='jriver-a', meta={'audio_types': ['TrueHD 5.1']})])})
+    assert read_entry(env.queue, 'jriver-a').meta['audio_types'] == ['Atmos']
+
+
+def test_rescan_backfills_entry_when_index_already_has_codec(env):
+    item = _item('a', id='jriver-a', meta={'audio_types': ['TrueHD 7.1']})
+    _scan(env, sources={'jriver': FakeSource([item])})
+    _entry(env, item, meta={'title': 'Film a', 'year': '2001'})
+
+    _scan(env, sources={'jriver': FakeSource([item])})
+
+    assert read_entry(env.queue, 'jriver-a').meta['audio_types'] == ['TrueHD 7.1']
+
+
 def test_an_accepted_title_needs_publish(env):
     item = _item('a')
     _extracted(env, item)

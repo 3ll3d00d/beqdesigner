@@ -33,6 +33,7 @@ from pipeline.library.state import FLAG_DUPLICATE, FLAG_GONE, FLAG_IGNORED, FLAG
 from pipeline.library.status import Evaluation, Evaluator, FailureMemory, ScanSettings, failure_applies, \
     safe_fingerprint
 from pipeline.library.union import UnionTitle, ignore_label, reconstruct_claims, union_of
+from pipeline.review import read_entry, update_entry
 
 logger = logging.getLogger('library_index')
 
@@ -558,8 +559,9 @@ class LibraryIndex:
              only: Optional[Iterable[str]] = None, sources: Optional[Mapping[str, LibrarySource]] = None,
              now: Optional[float] = None, refresh: bool = False, allow_empty: bool = False) -> ScanResult:
         '''
-        Lists the sources, merges them, reads the outputs and rewrites the index. Never extracts, designs, publishes or
-        commits, and never reads a media file (design.md §12.5).
+        Lists the sources, merges them, reads the outputs and rewrites the index. A new source audio type is copied
+        into an existing queue entry only when its value is still the previous automatic value (or missing). Never
+        extracts, designs, publishes or commits, and never reads a media file (design.md §12.5).
 
         A source that cannot be listed keeps the titles it had, and its `last_error` says why -- one source being down
         must not make its titles vanish. So does a source that lists **nothing** when it listed some last time (an
@@ -650,6 +652,9 @@ class LibraryIndex:
             for unit, ignored in order:
                 item = unit.item if isinstance(unit, SeasonGroup) else unit
                 before = previous.get(item.id)
+                if not refresh and not isinstance(unit, SeasonGroup) and item.id.startswith('jriver-') \
+                        and (before is None or before['source'] in listed_ok):
+                    self.__sync_audio_type(settings.queue_dir, item, before)
                 evaluation = evaluator.evaluate(unit, before, failures.get(item.id))
                 if evaluation.clear_failure:
                     cleared.append(item.id)
@@ -718,6 +723,25 @@ class LibraryIndex:
                 counts[row['needs']] += 1
         return ScanResult(generation, len(rows), new_ids, gone, dropped, errors=errors, counts=counts,
                           superseded=superseded)
+
+    @staticmethod
+    def __sync_audio_type(queue_dir: str, item: LibraryItem, before: Optional[Mapping[str, Any]]) -> None:
+        '''Refresh the automatic JRiver codec without replacing a reviewer's different audio type.'''
+        new = item.meta.get('audio_types')
+        if not new:
+            return
+        old_items = [data for data in json.loads(before['items']) if data['id'] == item.id] if before else []
+        old = old_items[0].get('meta', {}).get('audio_types') if old_items else None
+        try:
+            entry = read_entry(queue_dir, item.id)
+        except FileNotFoundError:
+            return
+        current = entry.meta.get('audio_types')
+        if current == new:
+            return
+        if current and current != old:
+            return
+        update_entry(queue_dir, item.id, meta={**entry.meta, 'audio_types': list(new)})
 
     def __unchanged(self) -> ScanResult:
         ''' What a scan that did nothing reports: the index as it is. '''
