@@ -86,7 +86,8 @@ def test_round_trip_against_a_real_server(echo_server):
 
 
 def test_channels_and_bass_management_are_sent(echo_server):
-    request = _request(channels={'L': np.array([1.0, 2.0]), 'LFE': np.array([3.0, 4.0])},
+    request = _request(channels={'L': np.array([1.0, 2.0, 3.0, 4.0]),
+                                 'LFE': np.array([3.0, 4.0, 5.0, 6.0])},
                        bass_management={'lpf_fs': 80.0, 'lpf_position': 'Before', 'headroom_type': 'WCS',
                                        'clip_before': False, 'clip_after': False})
 

@@ -233,7 +233,7 @@ def test_sync_library_publishes_without_pushing_then_commits_the_batch(monkeypat
     monkeypatch.setattr('pipeline.library.sync.publish_reviewed_queue',
                         lambda *args, **kwargs: calls.append((args, kwargs)) or [{'id': 'one'}])
     monkeypatch.setattr('pipeline.library.sync.commit_catalogue', lambda *args, **kwargs: commits.append((args, kwargs))
-                        or CatalogueCommit(xml=RepoCommit('xml', ['xml/one.xml'], 'abc', True)))
+                        or CatalogueCommit(xml=RepoCommit('xml', ['xml/one.json'], 'abc', True)))
     xml_repo = object()
     images_repo = object()
 

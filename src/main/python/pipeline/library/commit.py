@@ -43,7 +43,7 @@ class CatalogueCommit:
 
 
 def _message(what: str, entries: Sequence[QueueEntry]) -> str:
-    titles = [e.meta.get('title') or e.id for e in entries]
+    titles = [e.meta.get('title') or e.id for e in dict((e.id, e) for e in entries).values()]
     shown = ', '.join(titles[:_TITLES_IN_MESSAGE])
     if len(titles) > _TITLES_IN_MESSAGE:
         shown += f' and {len(titles) - _TITLES_IN_MESSAGE} more'
@@ -92,7 +92,7 @@ def _image_url_warnings(xml_repo: RepoTarget, xml_paths: Sequence[str]) -> List[
                 record = json.load(f)
         except (OSError, ValueError):
             continue
-        if record.get('images'):
+        if isinstance(record, dict) and record.get('images'):
             warnings.append(f"{path} names a report image but no images repository was given, so the image is not "
                             f"committed or pushed with it: give --images-repo, or push the image first, or the "
                             f"record will point at nothing")

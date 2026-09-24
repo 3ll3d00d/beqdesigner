@@ -261,7 +261,7 @@ def test_an_image_that_is_not_committed_holds_the_title_at_commit(env, repos):
     xml, _, images, _ = repos
     _ready(repos)
     (item,), settings = _published(env, repos, 'a')
-    commit_paths(xml, ['xml/fs-a.xml'], 'xml only')
+    commit_paths(xml, ['xml/fs-a.json'], 'xml only')
     push(xml)
 
     _scan(env, item, settings=settings)
@@ -273,7 +273,7 @@ def test_a_repo_with_no_upstream_leaves_the_push_state_unknown(env, repos):
     from pipeline.publish.git import commit_paths
     xml, _, images, _ = repos
     (item,), settings = _published(env, repos, 'a')
-    commit_paths(xml, ['xml/fs-a.xml'], 'x'), commit_paths(images, ['img/fs-a.png'], 'x')
+    commit_paths(xml, ['xml/fs-a.json'], 'x'), commit_paths(images, ['img/fs-a.png'], 'x')
 
     _scan(env, item, settings=settings)
 
@@ -314,7 +314,7 @@ def test_the_current_digest_matches_what_publish_recorded_even_with_a_project_an
 def test_a_published_title_whose_file_left_the_repository_needs_publish(env, repos):
     xml, _, images, _ = repos
     (item,), settings = _published(env, repos, 'a')
-    os.remove(os.path.join(xml.local_path, 'xml', 'fs-a.xml'))
+    os.remove(os.path.join(xml.local_path, 'xml', 'fs-a.json'))
 
     _scan(env, item, settings=settings)
 
@@ -533,14 +533,14 @@ def test_a_title_that_left_its_source_with_no_outputs_is_dropped(env):
 
 def _catalogue_xml(repo, name, tmdb, season=None):
     os.makedirs(repo, exist_ok=True)
-    body = f'<beq_metadata><beq_theMovieDB>{tmdb}</beq_theMovieDB><beq_season>{season or ""}</beq_season></beq_metadata>'
+    body = {'theMovieDB': tmdb, 'content_type': 'TV' if season else 'film'}
     with open(os.path.join(repo, name), 'w') as f:
-        f.write(f'<?xml version="1.0"?><filter>{body}</filter>')
+        json.dump(body, f)
 
 
 def test_a_title_whose_tmdb_id_someone_else_published_is_already_in_the_catalogue(env):
     repo = str(env.tmp / 'xmlrepo')
-    _catalogue_xml(repo, 'Heat (1995).xml', '949')
+    _catalogue_xml(repo, 'Heat (1995).json', '949')
     settings = ScanSettings(work_dir=env.work, queue_dir=env.queue, designer=DESIGNER, xml_repo=repo)
 
     _scan(env, _item('heat', external_ids={'tmdb': '949'}), _item('other', external_ids={'tmdb': '1'}),
@@ -553,7 +553,7 @@ def test_a_title_whose_tmdb_id_someone_else_published_is_already_in_the_catalogu
 
 def test_a_film_and_a_series_sharing_a_tmdb_id_are_not_confused(env):
     repo = str(env.tmp / 'xmlrepo')
-    _catalogue_xml(repo, 'series.xml', '2316', season='1')  # a TV entry
+    _catalogue_xml(repo, 'series.json', '2316', season='1')  # a TV entry
     settings = ScanSettings(work_dir=env.work, queue_dir=env.queue, designer=DESIGNER, xml_repo=repo)
 
     _scan(env, _item('film', external_ids={'tmdb': '2316'}), _item('show', kind='tv', season='1', episodes=(1,),
@@ -566,7 +566,7 @@ def test_a_film_and_a_series_sharing_a_tmdb_id_are_not_confused(env):
 
 def test_what_this_profile_published_is_not_already_in_the_catalogue(env):
     repo = str(env.tmp / 'xmlrepo')
-    _catalogue_xml(repo, 'fs-mine.xml', '949')  # our own entry id
+    _catalogue_xml(repo, 'fs-mine.json', '949')  # our own entry id
     settings = ScanSettings(work_dir=env.work, queue_dir=env.queue, designer=DESIGNER, xml_repo=repo)
 
     _scan(env, _item('mine', external_ids={'tmdb': '949'}), settings=settings)
@@ -576,10 +576,10 @@ def test_what_this_profile_published_is_not_already_in_the_catalogue(env):
 
 def test_an_xml_with_no_tmdb_id_can_never_match_and_a_bad_xml_is_skipped(env):
     repo = str(env.tmp / 'xmlrepo')
-    _catalogue_xml(repo, 'blank.xml', '')
+    _catalogue_xml(repo, 'blank.json', '')
     os.makedirs(repo, exist_ok=True)
-    with open(os.path.join(repo, 'broken.xml'), 'w') as f:
-        f.write('<not closed')
+    with open(os.path.join(repo, 'broken.json'), 'w') as f:
+        f.write('{not closed')
     settings = ScanSettings(work_dir=env.work, queue_dir=env.queue, designer=DESIGNER, xml_repo=repo)
 
     _scan(env, _item('a', external_ids={'tmdb': ''}), settings=settings)
@@ -591,16 +591,16 @@ def test_an_unchanged_catalogue_xml_is_not_parsed_again(env, monkeypatch):
     from pipeline import library
     from pipeline.library import catalogue_scan
     repo = str(env.tmp / 'xmlrepo')
-    _catalogue_xml(repo, 'a.xml', '1')
+    _catalogue_xml(repo, 'a.json', '1')
     settings = ScanSettings(work_dir=env.work, queue_dir=env.queue, designer=DESIGNER, xml_repo=repo)
     _scan(env, _item('a'), settings=settings)
     parsed = []
-    real = catalogue_scan.parse_xml
-    monkeypatch.setattr(catalogue_scan, 'parse_xml', lambda path: parsed.append(path) or real(path))
+    real = catalogue_scan.parse_record
+    monkeypatch.setattr(catalogue_scan, 'parse_record', lambda path: parsed.append(path) or real(path))
 
     _scan(env, _item('a'), settings=settings)
     assert parsed == []
-    _catalogue_xml(repo, 'a.xml', '22222')  # a different size
+    _catalogue_xml(repo, 'a.json', '22222')  # a different size
     _scan(env, _item('a'), settings=settings)
     assert len(parsed) == 1
 

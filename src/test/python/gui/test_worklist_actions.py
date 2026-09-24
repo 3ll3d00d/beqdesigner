@@ -1037,7 +1037,7 @@ def test_commit_results_are_listed_per_title_and_per_repository(qtbot, tmp_path)
 
     def report(profile, selection, through, **kw):
         return StagesReport('commit', 2, committed=CatalogueCommit(
-            xml=RepoCommit(xml, ['c-one.xml'], 'abcdef1234567', True),
+            xml=RepoCommit(xml, ['c-one.json'], 'abcdef1234567', True),
             images=RepoCommit(images, ['c-one.png'], '1234567abcdef', True)), attempted=['c-one', 'c-two'])
 
     window, _ = _window(qtbot, tmp_path, pipeline=report)
@@ -1218,7 +1218,7 @@ class _HeldCommit:
         self.entered.set()
         assert self.release.wait(20)
         return StagesReport('commit', len(ids), attempted=ids, committed=CatalogueCommit(
-            xml=RepoCommit('/x', [f'{i}.xml' for i in ids], 'abcdef1234', True)))
+            xml=RepoCommit('/x', [f'{i}.json' for i in ids], 'abcdef1234', True)))
 
 
 def test_cancelling_during_a_commit_says_a_commit_cannot_be_stopped_and_a_late_cancel_says_so(qtbot, tmp_path):
@@ -1248,7 +1248,7 @@ def test_a_push_only_commit_says_push_in_its_button_its_confirmation_and_its_out
 
     def report(profile, selection, through, **kw):
         return StagesReport('commit', 2, attempted=['c-one', 'c-two'], committed=CatalogueCommit(
-            xml=RepoCommit(str(tmp_path / 'catalogue-xml'), ['c-one.xml', 'c-two.xml'], None, True)))
+            xml=RepoCommit(str(tmp_path / 'catalogue-xml'), ['c-one.json', 'c-two.json'], None, True)))
 
     window, _ = _window(qtbot, tmp_path, pipeline=report, rows=rows)
     window.select_ids(['c-one', 'c-two'])
@@ -1302,9 +1302,9 @@ def test_the_results_show_each_new_publish_and_commit_result_shape(qtbot, tmp_pa
             publish_errors=[{'id': 'p-two', 'error': 'git_failed', 'message': 'git add x failed (exit 128)'},
                             {'id': 'p-old', 'error': 'publish_failed', 'message': "ValueError: Unrecognised GitHub "
                                                                               "remote URL: '/srv/img.git'"}],
-            committed=CatalogueCommit(xml=RepoCommit('/x', ['c-two.xml'], 'abcdef12', True), images=None,
-                                      not_committed=['c-one.xml'],
-                                      warnings=['c-two.xml names a report image (beq_spectrumURL) but no images '
+            committed=CatalogueCommit(xml=RepoCommit('/x', ['c-two.json'], 'abcdef12', True), images=None,
+                                      not_committed=['c-one.json'],
+                                      warnings=['c-two.json names a report image (beq_spectrumURL) but no images '
                                                 'repository was given']),
             attempted=['p-one', 'c-one', 'c-two'])
 

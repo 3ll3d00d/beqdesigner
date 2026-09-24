@@ -375,18 +375,19 @@ def test_an_entry_rewritten_with_the_same_size_and_mtime_is_still_noticed(env):
     assert _row(env, 'fs-a').review_state == 'pending'
 
 
-def test_a_catalogue_xml_that_will_not_parse_is_read_once_not_every_scan(tmp_path, monkeypatch):
+def test_a_catalogue_record_that_will_not_parse_is_read_once_not_every_scan(tmp_path, monkeypatch):
     from pipeline.library import catalogue_scan
     repo = tmp_path / 'xml'
     repo.mkdir()
-    (repo / 'bad.xml').write_text('<not-closed')
+    (repo / 'bad.json').write_text('{not-valid-json')
     first = catalogue_scan.scan_xml_repo(str(repo))
     calls = []
-    real = catalogue_scan.parse_xml
-    monkeypatch.setattr(catalogue_scan, 'parse_xml', lambda path: calls.append(path) or real(path))
+    real = catalogue_scan.parse_record
+    monkeypatch.setattr(catalogue_scan, 'parse_record', lambda path: calls.append(path) or real(path))
 
     again = catalogue_scan.scan_xml_repo(str(repo), first)
 
+    assert set(first) == {'bad.json'}
     assert calls == [] and again == first and catalogue_scan.tmdb_index(again) == {}
 
 

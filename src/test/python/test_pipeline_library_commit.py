@@ -4,6 +4,7 @@ commit makes one commit and one push per repo, images first. Real local git repo
 clone), so the git behaviour is genuinely exercised -- no mocking of subprocess.
 '''
 import io
+import json
 import os
 import subprocess
 
@@ -104,12 +105,12 @@ def test_publish_writes_the_files_but_commits_and_pushes_nothing(tmp_path, repos
     queue_dir, results = _publish(tmp_path, repos, ('one', 'Heat'))
 
     assert [r['id'] for r in results] == ['one']
-    assert '<beq_title>Heat</beq_title>' in results[0]['xml']
-    assert 'xml_commit' not in results[0]
-    assert (tmp_path / 'xml' / 'xml' / 'one.xml').read_text() == results[0]['xml']
+    assert results[0]['record']['title'] == 'Heat'
+    assert 'filter_commit' not in results[0]
+    assert json.loads((tmp_path / 'xml' / 'xml' / 'one.json').read_text()) == results[0]['record']
     assert Image.open(io.BytesIO((tmp_path / 'images' / 'img' / 'one.png').read_bytes())).format == 'PNG'
     assert _commits(xml) == [] and _commits(images) == []
-    assert repo_state(xml).uncommitted == {'xml/one.xml'}
+    assert repo_state(xml).uncommitted == {'xml/one.json', 'xml/database.json'}
     assert read_entry(queue_dir, 'one').status == 'published'
 
 
@@ -120,7 +121,7 @@ def test_the_image_url_in_the_xml_is_known_without_pushing(tmp_path, repos):
 
     expected = f'https://raw.githubusercontent.com/{OWNER}/{IMAGES_NAME}/{current_branch(images)}/img/one.png'
     assert results[0]['image_url'] == expected
-    assert f'<beq_spectrumURL>{expected}</beq_spectrumURL>' in results[0]['xml']
+    assert expected in results[0]['record']['images']
 
 
 def test_publishing_records_a_digest_and_when(tmp_path, repos):
@@ -136,8 +137,8 @@ def test_the_default_publish_still_commits_and_pushes_each_file_and_records_the_
 
     queue_dir, results = _publish(tmp_path, repos, ('one', 'Heat'), push=True)
 
-    assert results[0]['xml_commit'] in _commits(xml)
-    assert _on_remote(xml_bare, 'xml/one.xml').decode() == results[0]['xml']
+    assert results[0]['filter_commit'] in _commits(xml)
+    assert json.loads(_on_remote(xml_bare, 'xml/one.json')) == results[0]['record']
     assert _on_remote(images_bare, 'img/one.png')
     assert read_entry(queue_dir, 'one').published_digest
 
@@ -151,7 +152,7 @@ def test_commit_makes_one_commit_and_one_push_per_repo_for_the_whole_batch(tmp_p
     result = commit_catalogue(queue_dir, xml, images, xml_dir='xml', image_dir='img')
 
     assert len(_commits(xml)) == 1 and len(_commits(images)) == 1
-    assert _files_in(xml, result.xml.commit) == ['xml/one.xml', 'xml/three.xml', 'xml/two.xml']
+    assert _files_in(xml, result.xml.commit) == ['xml/database.json', 'xml/one.json', 'xml/three.json', 'xml/two.json']
     assert _files_in(images, result.images.commit) == ['img/one.png', 'img/three.png', 'img/two.png']
     assert (result.xml.pushed, result.images.pushed) == (True, True)
     assert _out('git', '-C', str(xml_bare), 'rev-parse', current_branch(xml)).strip() == result.xml.commit
@@ -202,7 +203,7 @@ def test_a_failed_images_push_leaves_the_xml_repo_untouched(tmp_path, repos):
 
     assert len(_commits(images)) == 1  # committed locally, not lost
     assert _commits(xml) == []  # the XML never reached even a local commit, so nothing can reference a missing image
-    assert _on_remote(xml_bare, 'xml/one.xml') == b''
+    assert _on_remote(xml_bare, 'xml/one.json') == b''
 
 
 def test_a_rejected_push_is_retried_by_running_commit_again(tmp_path, repos):
@@ -220,7 +221,7 @@ def test_a_rejected_push_is_retried_by_running_commit_again(tmp_path, repos):
     assert result.xml.commit is None  # already committed by the failed run
     assert result.xml.pushed is True
     assert _commits(xml) == [first_commit]
-    assert _on_remote(xml_bare, 'xml/one.xml')
+    assert _on_remote(xml_bare, 'xml/one.json')
 
 
 def test_committing_again_is_a_no_op_once_everything_is_pushed(tmp_path, repos):
@@ -262,8 +263,8 @@ def test_a_revision_is_a_second_commit_at_the_same_path(tmp_path, repos):
     second = commit_catalogue(queue_dir, xml, xml_dir='xml')
 
     assert second.xml.commit not in (None, first.xml.commit)
-    assert second.xml.paths == ['xml/one.xml']
-    assert b'Heat (1995)' in _on_remote(xml_bare, 'xml/one.xml')
+    assert second.xml.paths == ['xml/one.json', 'xml/database.json']
+    assert b'Heat (1995)' in _on_remote(xml_bare, 'xml/one.json')
 
 
 def test_a_commit_leaves_other_staged_and_untracked_files_alone(tmp_path, repos):
@@ -275,7 +276,7 @@ def test_a_commit_leaves_other_staged_and_untracked_files_alone(tmp_path, repos)
 
     result = commit_catalogue(queue_dir, xml, xml_dir='xml')
 
-    assert _files_in(xml, result.xml.commit) == ['xml/one.xml']
+    assert _files_in(xml, result.xml.commit) == ['xml/database.json', 'xml/one.json']
     assert repo_state(xml).uncommitted == {'notes.txt', 'scratch.txt'}
 
 
@@ -283,22 +284,22 @@ def test_only_published_entries_are_committed(tmp_path, repos):
     xml, _, _, _ = repos
     queue_dir, _ = _publish(tmp_path, repos, ('one', 'Heat'), with_images=False)
     _queue_entry(queue_dir, 'pending-one', 'Alien', status='pending')
-    (tmp_path / 'xml' / 'xml' / 'pending-one.xml').write_text('a stray file for an unpublished entry')
+    (tmp_path / 'xml' / 'xml' / 'pending-one.json').write_text('a stray file for an unpublished entry')
 
     result = commit_catalogue(queue_dir, xml, xml_dir='xml')
 
-    assert result.xml.paths == ['xml/one.xml']
+    assert result.xml.paths == ['xml/one.json', 'xml/database.json']
 
 
 def test_a_published_entry_whose_file_is_gone_is_reported_not_fatal(tmp_path, repos):
     xml, _, _, _ = repos
     queue_dir, _ = _publish(tmp_path, repos, ('one', 'Heat'), ('two', 'Alien'), with_images=False)
-    os.remove(tmp_path / 'xml' / 'xml' / 'two.xml')
+    os.remove(tmp_path / 'xml' / 'xml' / 'two.json')
 
     result = commit_catalogue(queue_dir, xml, xml_dir='xml')
 
-    assert result.missing == [os.path.join('xml', 'two.xml')]
-    assert result.xml.paths == ['xml/one.xml']
+    assert result.missing == [os.path.join('xml', 'two.json')]
+    assert result.xml.paths == ['xml/one.json', 'xml/database.json']
 
 
 def test_no_push_commits_locally_only(tmp_path, repos):
@@ -308,7 +309,7 @@ def test_no_push_commits_locally_only(tmp_path, repos):
     result = commit_catalogue(queue_dir, xml, xml_dir='xml', push=False)
 
     assert result.xml.commit and result.xml.pushed is False
-    assert _on_remote(xml_bare, 'xml/one.xml') == b''
+    assert _on_remote(xml_bare, 'xml/one.json') == b''
 
 
 def test_nothing_published_means_nothing_to_do(tmp_path, repos):
@@ -326,7 +327,16 @@ def _tree(bare, prefix):
     return {name: _on_remote(bare, name) for name in names}
 
 
-def test_sync_puts_the_same_content_on_the_remotes_as_the_old_per_file_publish(tmp_path):
+def _records_without_generated_timestamps(bare):
+    records = {name: json.loads(content) for name, content in _tree(bare, 'xml').items()}
+    for record in records.values():
+        for item in record if isinstance(record, list) else [record]:
+            item.pop('created_at', None)
+            item.pop('updated_at', None)
+    return records
+
+
+def test_sync_puts_the_same_records_on_the_remotes_as_per_file_publish(tmp_path):
     old = tmp_path / 'old'
     new = tmp_path / 'new'
     old.mkdir(), new.mkdir()
@@ -339,7 +349,8 @@ def test_sync_puts_the_same_content_on_the_remotes_as_the_old_per_file_publish(t
     sync_library(new_queue, new_repos[0], images_repo=new_repos[2], xml_dir='xml', image_dir='img',
                  image_owner=OWNER, image_repo_name=IMAGES_NAME)
 
-    assert _tree(new_repos[1], 'xml') == _tree(old_repos[1], 'xml') != {}
+    assert _records_without_generated_timestamps(new_repos[1]) == \
+        _records_without_generated_timestamps(old_repos[1]) != {}
     assert _tree(new_repos[3], 'img').keys() == _tree(old_repos[3], 'img').keys()
     assert {n: Image.open(io.BytesIO(b)).size for n, b in _tree(new_repos[3], 'img').items()} == \
         {n: Image.open(io.BytesIO(b)).size for n, b in _tree(old_repos[3], 'img').items()}
@@ -368,7 +379,7 @@ def test_sync_can_be_told_not_to_push(tmp_path, repos):
     results = sync_library(queue_dir, xml, xml_dir='xml', push=False)
 
     assert results[0]['xml_commit'] in _commits(xml)
-    assert _on_remote(xml_bare, 'xml/one.xml') == b''
+    assert _on_remote(xml_bare, 'xml/one.json') == b''
 
 
 # --- the publish digest --------------------------------------------------------------------------------------
@@ -432,5 +443,5 @@ def test_republishing_an_edited_title_records_a_new_digest(tmp_path, repos):
 
 def test_catalogue_paths_are_the_entry_id_under_each_directory():
     assert catalogue_paths('jriver-3fa9c2-1234', 'filters', 'images') == (
-        'filters/jriver-3fa9c2-1234.xml', 'images/jriver-3fa9c2-1234.png')
-    assert catalogue_paths('x') == ('x.xml', 'x.png')
+        'filters/jriver-3fa9c2-1234.json', 'images/jriver-3fa9c2-1234.png')
+    assert catalogue_paths('x') == ('x.json', 'x.png')

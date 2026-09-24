@@ -13,7 +13,7 @@ import wave
 
 import numpy as np
 
-from model.ffmpeg import SIGNAL_COMPLETE, SIGNAL_ERROR, Executor
+from model.ffmpeg import SIGNAL_COMPLETE, SIGNAL_CONNECTED, SIGNAL_ERROR, Executor
 
 
 def _write_synthetic_5_1_wav(path, fs=48000, duration_s=1.0, channel_values=(1000, 2000, 3000, 4000, 5000, 6000)):
@@ -45,6 +45,7 @@ def test_execute_runs_ffmpeg_on_a_background_thread_and_reports_completion(qtbot
     qtbot.waitUntil(lambda: any(key in (SIGNAL_COMPLETE, SIGNAL_ERROR) for key, _ in events), timeout=15000)
 
     assert events[-1][0] == SIGNAL_COMPLETE, events
+    assert any(key == SIGNAL_CONNECTED for key, _ in events)
     assert os.path.isfile(ex.get_output_path())
 
     with wave.open(ex.get_output_path(), 'rb') as w:

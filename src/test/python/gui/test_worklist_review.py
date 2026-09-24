@@ -291,7 +291,7 @@ def test_publish_and_commit_use_the_profiles_repositories_and_the_work_lists_fun
     assert kwargs['images_repo'].local_path == images.local_path
     assert kwargs['work_dir'] is None and sorted(kwargs['ids']) == ['one', 'two']       # no project directories: from the candidates
     assert window.resultsBox.toPlainText() == ''
-    assert os.path.isfile(os.path.join(xml.local_path, 'xml', 'one.xml')) and os.path.isfile(os.path.join(images.local_path, 'img', 'two.png'))
+    assert os.path.isfile(os.path.join(xml.local_path, 'xml', 'one.json')) and os.path.isfile(os.path.join(images.local_path, 'img', 'two.png'))
     assert _statuses(window) == {'one': 'published', 'two': 'published'}
     assert window.statusLabel.text().startswith('Published 2 titles: written into the repositories, not committed yet.')
     assert window.commitButton.text() == 'Commit published (2)' and window.publishButton.text() == 'Publish accepted (0)'
@@ -331,7 +331,7 @@ def test_a_declined_publish_writes_nothing(qtbot, tmp_path, repos):
     answer = _Answer(False)
     window.publish_accepted()
     assert answer.seen and 'Publish cancelled' in window.statusLabel.text()
-    assert not os.path.exists(os.path.join(xml.local_path, 'xml', 'one.xml'))
+    assert not os.path.exists(os.path.join(xml.local_path, 'xml', 'one.json'))
     assert read_entry(_queue(tmp_path), 'one').status == 'accepted'
 
 
@@ -373,7 +373,7 @@ def test_a_failing_publish_is_shown_not_raised_and_the_window_carries_on(qtbot, 
 def test_the_words_for_a_publish_and_a_commit():
     assert describe_publish([{'id': 'a'}, {'id': 'b', 'error': 'invalid_metadata'}]).endswith('1 could not be published (see below).')
     from pipeline.library.commit import CatalogueCommit, RepoCommit
-    text = describe_commit(CatalogueCommit(RepoCommit('/x', ['a.xml'], 'abcdef123456', True), RepoCommit('/i', [], None, False)))
+    text = describe_commit(CatalogueCommit(RepoCommit('/x', ['a.json'], 'abcdef123456', True), RepoCommit('/i', [], None, False)))
     assert text == 'Committed. images: already committed, not pushed; XML: commit abcdef12, pushed.'
 
 

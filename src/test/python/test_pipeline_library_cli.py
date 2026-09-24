@@ -334,7 +334,7 @@ def test_commit_pushes_by_default_and_can_be_told_not_to(monkeypatch, capsys):
     from pipeline.library.commit import CatalogueCommit, RepoCommit
     calls = []
     monkeypatch.setattr(cli, 'commit_library', lambda *args, **kwargs: calls.append((args, kwargs)) or CatalogueCommit(
-        xml=RepoCommit('/xml', ['a.xml'], 'abc', True), images=RepoCommit('/images', ['a.png'], 'def', True)))
+        xml=RepoCommit('/xml', ['a.json'], 'abc', True), images=RepoCommit('/images', ['a.png'], 'def', True)))
 
     assert cli.main(['commit', '--queue-dir', '/queue', '--xml-repo', '/xml', '--images-repo', '/images']) == 0
     assert cli.main(['commit', '--queue-dir', '/queue', '--xml-repo', '/xml', '--no-push']) == 0
@@ -343,7 +343,7 @@ def test_commit_pushes_by_default_and_can_be_told_not_to(monkeypatch, capsys):
     assert calls[0][0][1].local_path == '/xml' and calls[0][1]['images_repo'].local_path == '/images'
     assert calls[1][1]['images_repo'] is None
     first = json.loads(capsys.readouterr().out.splitlines()[0])
-    assert first['xml'] == {'repo': '/xml', 'paths': ['a.xml'], 'commit': 'abc', 'pushed': True}
+    assert first['xml'] == {'repo': '/xml', 'paths': ['a.json'], 'commit': 'abc', 'pushed': True}
     assert first['missing'] == []
 
 
@@ -351,7 +351,7 @@ def test_commit_exits_nonzero_when_a_published_entry_has_no_file(monkeypatch, ca
     from pipeline.library import cli
     from pipeline.library.commit import CatalogueCommit, RepoCommit
     monkeypatch.setattr(cli, 'commit_library', lambda *args, **kwargs: CatalogueCommit(
-        xml=RepoCommit('/xml', []), missing=['gone.xml']))
+        xml=RepoCommit('/xml', []), missing=['gone.json']))
 
     assert cli.main(['commit', '--queue-dir', '/queue', '--xml-repo', '/xml']) == 1
 
@@ -823,7 +823,7 @@ def test_the_whole_workflow_runs_headless_scan_design_accept_publish_commit(work
     assert code == 0 and len(published['published']) == 2 and published['counts']['commit'] == 2
 
     code, committed = _cli(capsys, 'run', *profile, '--needs', 'commit', '--through', 'commit')
-    assert code == 0 and len(committed['committed']['xml']['paths']) == 2 and committed['counts']['done'] == 2
+    assert code == 0 and len(committed['committed']['xml']['paths']) == 3 and committed['counts']['done'] == 2
     code, final = _cli(capsys, 'status', *profile, '--json')
     assert final['counts']['done'] == 2 and final['counts']['review'] == 1  # the unconfident title still waits
 

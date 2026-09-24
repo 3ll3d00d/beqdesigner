@@ -11,6 +11,7 @@ every phase 0-4 module through Session rather than re-testing any one of
 them in isolation (each already has its own dedicated test file).
 '''
 import io
+import json
 import subprocess
 import wave
 
@@ -172,7 +173,7 @@ def test_ready_player_one_end_to_end(tmp_path):
     xml_repo, xml_bare = _init_repo_with_remote(tmp_path, 'xml_repo')
     images_repo, images_bare = _init_repo_with_remote(tmp_path, 'images_repo')
 
-    result = session.publish(outcome.filters, meta, xml_repo, 'xml/ready-player-one.xml',
+    result = session.publish(outcome.filters, meta, xml_repo, 'xml/ready-player-one.json',
                              images_repo=images_repo, image_relative_path='img/ready-player-one.png',
                              image_png=report_png, image_owner='3ll3d00d', image_repo_name='beq-images')
 
@@ -180,12 +181,12 @@ def test_ready_player_one_end_to_end(tmp_path):
     assert result['image_url'] == f'https://raw.githubusercontent.com/3ll3d00d/beq-images/{branch}/img/ready-player-one.png'
     assert meta.spectrum_url == result['image_url']
     assert meta.pva_url == result['image_url']
-    assert '<beq_spectrumURL>' in result['xml']
+    assert result['image_url'] in result['record']['images']
 
     xml_on_remote = subprocess.run(
-        ['git', '-C', str(xml_bare), 'cat-file', '-p', f"{result['xml_commit']}:xml/ready-player-one.xml"],
+        ['git', '-C', str(xml_bare), 'cat-file', '-p', f"{result['filter_commit']}:xml/ready-player-one.json"],
         check=True, capture_output=True, text=True).stdout
-    assert xml_on_remote == result['xml']
+    assert json.loads(xml_on_remote) == result['record']
 
 
 def test_session_headless_run_constructs_no_qapplication():

@@ -269,7 +269,7 @@ def test_design_and_queue_threads_channels_to_the_request(tmp_path):
         wav_path = str(tmp_path / 'mono.wav')
         _write_synthetic_wav(wav_path, channel_values=(1000,))
         queue_dir = str(tmp_path / 'queue')
-        channels = {'FL': np.zeros(5), 'FR': np.ones(5)}
+        channels = {'FL': np.zeros(250), 'FR': np.ones(250)}
 
         design_and_queue(Session(AnalysisConfig()), 'title-one', wav_path, 'test.channels_through_queue',
                          queue_dir, channels=channels)
@@ -400,12 +400,12 @@ def test_publish_reviewed_queue_xml_only(tmp_path):
 
     assert len(results) == 1
     assert results[0]['id'] == entry_id
-    assert '<beq_title>Ready Player One</beq_title>' in results[0]['xml']
+    assert results[0]['record']['title'] == 'Ready Player One'
     assert 'image_url' not in results[0]
     xml_on_remote = subprocess.run(
-        ['git', '-C', str(xml_bare), 'cat-file', '-p', f"{results[0]['xml_commit']}:xml/{entry_id}.xml"],
+        ['git', '-C', str(xml_bare), 'cat-file', '-p', f"{results[0]['filter_commit']}:xml/{entry_id}.json"],
         check=True, capture_output=True, text=True).stdout
-    assert xml_on_remote == results[0]['xml']
+    assert json.loads(xml_on_remote) == results[0]['record']
     assert read_entry(queue_dir, entry_id).status == 'published'
 
 
@@ -417,7 +417,7 @@ def test_publish_reviewed_queue_defaults_gain_from_chosen_candidates_mv_adjust_d
 
     results = publish_reviewed_queue(queue_dir, xml_repo, xml_dir='xml')
 
-    assert '<beq_gain>+4</beq_gain>' in results[0]['xml']  # candidates[0].mv_adjust_db == 4.0
+    assert results[0]['record']['mv'] == '+4'  # candidates[0].mv_adjust_db == 4.0
 
 
 def test_publish_reviewed_queue_with_image(tmp_path):
@@ -492,8 +492,6 @@ def test_publish_reviewed_queue_is_idempotent(tmp_path):
 def test_publish_reviewed_queue_without_work_dir_uses_apply_reviewed_entry_as_before(tmp_path):
     ''' Backward compatibility: omitting work_dir (today's call shape) publishes exactly what it does
     today -- protects every existing test_publish_reviewed_queue_* test in this file from regressing. '''
-    from model.minidsp import xml_to_filt
-
     queue_dir, entry_id = _designed_entry(tmp_path, meta={'title': 'Ready Player One', 'year': '2018',
                                                           'audio_types': ['Atmos']})
     update_entry(queue_dir, entry_id, status='accepted', chosen_candidate_index=0)
@@ -501,17 +499,11 @@ def test_publish_reviewed_queue_without_work_dir_uses_apply_reviewed_entry_as_be
 
     results = publish_reviewed_queue(queue_dir, xml_repo, xml_dir='xml')
 
-    written = str(tmp_path / 'out.xml')
-    with open(written, 'w', encoding='utf-8') as f:
-        f.write(results[0]['xml'])
-    read_back = xml_to_filt(written, fs=1000)
-    assert any(isinstance(f, LowShelf) for f in read_back)  # candidates[0]'s filter, untouched by chunk 2
+    assert any(f['type'] == 'LowShelf' for f in results[0]['record']['filters'])
     assert read_entry(queue_dir, entry_id).status == 'published'
 
 
 def test_publish_reviewed_queue_reads_the_edited_mono_project_when_work_dir_given(tmp_path):
-    from model.minidsp import xml_to_filt
-
     entry_id = 'ready-player-one'
     queue_dir = str(tmp_path / 'queue')
     work_dir = str(tmp_path / 'work')
@@ -535,12 +527,9 @@ def test_publish_reviewed_queue_reads_the_edited_mono_project_when_work_dir_give
     results = publish_reviewed_queue(queue_dir, xml_repo, xml_dir='xml', work_dir=work_dir)
 
     assert 'error' not in results[0]
-    written = str(tmp_path / 'out.xml')
-    with open(written, 'w', encoding='utf-8') as f:
-        f.write(results[0]['xml'])
-    read_back = xml_to_filt(written, fs=1000)
-    assert any(isinstance(f, PeakingEQ) for f in read_back)  # the human edit
-    assert not any(isinstance(f, LowShelf) for f in read_back)  # the designer's original top pick, gone
+    filter_types = [f['type'] for f in results[0]['record']['filters']]
+    assert 'PeakingEQ' in filter_types  # the human edit
+    assert 'LowShelf' not in filter_types  # the designer's original top pick, gone
     assert read_entry(queue_dir, entry_id).status == 'published'
 
 

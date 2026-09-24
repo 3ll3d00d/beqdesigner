@@ -31,7 +31,7 @@ def test_a_failed_push_carries_git_s_message_and_what_was_committed_before_it(tm
     partial = error.value.partial
     assert partial.images.pushed and partial.images.commit           # the images repo got all the way
     assert partial.xml.commit and partial.xml.pushed is False          # the XML was committed, not pushed
-    assert partial.xml.paths == ['xml/one.xml']
+    assert partial.xml.paths == ['xml/one.json', 'xml/database.json']
 
 
 # --- 4: ignored files, subdirectory repos ----------------------------------------------------------------------------
@@ -39,36 +39,36 @@ def test_a_failed_push_carries_git_s_message_and_what_was_committed_before_it(tm
 def test_a_published_file_that_git_ignores_is_reported_not_silently_skipped(tmp_path, repos):
     xml, _, images, _ = repos
     queue_dir, _ = _publish(tmp_path, repos, ('one', 'Heat'), ('two', 'Ronin'))
-    (tmp_path / 'xml' / '.gitignore').write_text('xml/two.xml\n')
+    (tmp_path / 'xml' / '.gitignore').write_text('xml/two.json\n')
 
     result = commit_catalogue(queue_dir, xml, images, xml_dir='xml', image_dir='img', push=False)
 
-    assert result.xml.paths == ['xml/one.xml']   # `two` never got in: it is published but not in the catalogue
-    assert result.not_committed == ['xml/two.xml']
+    assert result.xml.paths == ['xml/one.json', 'xml/database.json']   # `two` never got in
+    assert result.not_committed == ['xml/two.json']
 
 
 def test_a_gitignored_xml_is_the_cli_s_git_failure_exit(tmp_path, repos, capsys):
     from pipeline.library import cli
     xml, _, images, _ = repos
     queue_dir, _ = _publish(tmp_path, repos, ('one', 'Heat'))
-    (tmp_path / 'xml' / '.gitignore').write_text('xml/one.xml\n')
+    (tmp_path / 'xml' / '.gitignore').write_text('xml/one.json\n')
 
     code = cli.main(['commit', '--queue-dir', queue_dir, '--xml-repo', xml.local_path, '--xml-dir', 'xml',
                      '--images-repo', images.local_path, '--image-dir', 'img', '--no-push'])
 
     assert code == cli.GIT_FAILED == 3
-    assert 'xml/one.xml' in capsys.readouterr().err
+    assert 'xml/one.json' in capsys.readouterr().err
 
 
 def test_a_repo_that_is_a_subdirectory_of_a_clone_commits_its_files(tmp_path, repos):
     root, root_bare, images, _ = repos
     sub = RepoTarget(str(tmp_path / 'xml' / 'cat'), root.remote)
     queue_dir, _ = _publish(tmp_path, (sub, root_bare, images, None), ('one', 'Heat'))
-    assert repo_state(sub).uncommitted == {'xml/one.xml'}
+    assert repo_state(sub).uncommitted == {'xml/one.json', 'xml/database.json'}
 
     result = commit_catalogue(queue_dir, sub, images, xml_dir='xml', image_dir='img', push=False)
 
-    assert result.xml.paths == ['xml/one.xml'] and result.xml.commit and result.not_committed == []
+    assert result.xml.paths == ['xml/one.json', 'xml/database.json'] and result.xml.commit and result.not_committed == []
     assert repo_state(sub).uncommitted == frozenset()
 
 
@@ -81,7 +81,7 @@ def test_committing_an_xml_that_names_an_image_without_an_images_repo_warns(tmp_
     result = commit_library(queue_dir, xml, xml_dir='xml', image_dir='img', push=False)  # no images_repo
 
     assert result.xml.commit  # not blocked
-    assert len(result.warnings) == 1 and 'xml/one.xml' in result.warnings[0] and 'images' in result.warnings[0]
+    assert len(result.warnings) == 1 and 'xml/one.json' in result.warnings[0] and 'images' in result.warnings[0]
 
 
 def test_no_warning_when_the_images_repo_is_given_or_the_xml_has_no_image(tmp_path, repos):
@@ -115,7 +115,7 @@ def test_reopen_with_a_bad_images_repo_changes_nothing(tmp_path, repos):
         reopen_entry(queue_dir, 'one', xml_repo=xml, images_repo=RepoTarget(str(not_a_repo)), xml_dir='xml',
                      image_dir='img')
 
-    assert (tmp_path / 'xml' / 'xml' / 'one.xml').exists()   # not deleted
+    assert (tmp_path / 'xml' / 'xml' / 'one.json').exists()   # not deleted
     assert read_entry(queue_dir, 'one').status == 'published'
 
     with pytest.raises(ValueError, match='xml_repo'):
@@ -162,7 +162,7 @@ def test_a_reopen_that_fails_after_the_image_discard_can_simply_be_run_again(tmp
 
     monkeypatch.setattr(revise, 'discard_changes', real)
     result = reopen_entry(queue_dir, 'one', **_where(repos))
-    assert result.reverted == ['xml/one.xml']   # the image was put back by the first attempt
+    assert result.reverted == ['xml/one.json']   # the image was put back by the first attempt
     assert read_entry(queue_dir, 'one').status == 'pending'
 
 
@@ -184,5 +184,5 @@ def test_republishing_a_committed_entry_begins_a_revision_and_reopening_it_then_
     assert read_entry(queue_dir, 'one').revision == 1          # still the same uncommitted revision
 
     result = reopen_entry(queue_dir, 'one', **_where(repos))
-    assert 'xml/one.xml' in result.reverted
+    assert 'xml/one.json' in result.reverted
     assert read_entry(queue_dir, 'one').revision == 1          # counted already, by the republish

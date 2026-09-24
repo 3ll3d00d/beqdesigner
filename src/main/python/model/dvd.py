@@ -46,6 +46,11 @@ class DvdTitle:
         ''' The selector callers pass to resolve_main_title(), as a BD playlist's basename is. '''
         return str(self.number)
 
+    @property
+    def extraction_duration_s(self) -> float:
+        ''' The duration used by the shared disc extraction UI. '''
+        return self.duration_s
+
 
 @dataclass
 class ResolvedDvdTitle:

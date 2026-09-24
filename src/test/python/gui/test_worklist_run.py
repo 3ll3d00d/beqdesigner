@@ -132,8 +132,8 @@ def test_an_episode_that_failed_inside_a_season_is_listed_under_its_own_id(rows)
 def test_commit_results_say_committed_pushed_or_nothing_new_per_title_and_repository(rows):
     settings = ScanSettings('/w', '/q', xml_dir='xml', image_dir='img')
     plan = _plan(rows, 'commit', 'c1')
-    committed = CatalogueCommit(xml=RepoCommit('/repo/xml', ['xml/c1.xml'], 'abcdef0123456789', False),
-                                images=RepoCommit('/repo/img', [], None, False), missing=['xml/gone.xml'])
+    committed = CatalogueCommit(xml=RepoCommit('/repo/xml', ['xml/c1.json'], 'abcdef0123456789', False),
+                                images=RepoCommit('/repo/img', [], None, False), missing=['xml/gone.json'])
     report = StagesReport('commit', 1, committed=committed, attempted=['c1'])
 
     lines = describe_results(report, plan, settings, rows)
@@ -176,7 +176,7 @@ def test_the_headline_of_a_failure_is_its_first_line_unless_that_is_only_where_g
 
 def test_a_commit_that_only_pushes_says_pushed_not_committed_and_the_summary_says_so(rows):
     plan = _plan(rows, 'commit', 'c2')
-    committed = CatalogueCommit(xml=RepoCommit('/repo/xml', ['xml/c2.xml'], None, True))
+    committed = CatalogueCommit(xml=RepoCommit('/repo/xml', ['xml/c2.json'], None, True))
     report = StagesReport('commit', 1, committed=committed, attempted=['c2'])
 
     lines = {l.id or l.title: l for l in describe_results(report, plan, SETTINGS, rows)}
@@ -187,7 +187,7 @@ def test_a_commit_that_only_pushes_says_pushed_not_committed_and_the_summary_say
 
 def test_a_commit_and_push_over_a_mix_counts_each_kind_separately(rows):
     plan = _plan(rows, 'commit', 'c1', 'c2')
-    committed = CatalogueCommit(xml=RepoCommit('/repo/xml', ['xml/c1.xml', 'xml/c2.xml'], 'abc12345', True))
+    committed = CatalogueCommit(xml=RepoCommit('/repo/xml', ['xml/c1.json', 'xml/c2.json'], 'abc12345', True))
     report = StagesReport('commit', 2, committed=committed, attempted=['c1', 'c2'])
 
     lines = {l.id: l for l in describe_results(report, plan, SETTINGS, rows) if l.id}
@@ -198,7 +198,7 @@ def test_a_commit_and_push_over_a_mix_counts_each_kind_separately(rows):
 
 def test_a_commit_with_push_unticked_over_already_committed_titles_does_nothing_and_says_so(rows):
     plan = _plan(rows, 'commit', 'c2')
-    committed = CatalogueCommit(xml=RepoCommit('/repo/xml', ['xml/c2.xml'], None, False))
+    committed = CatalogueCommit(xml=RepoCommit('/repo/xml', ['xml/c2.json'], None, False))
     report = StagesReport('commit', 1, committed=committed, attempted=['c2'])
 
     line = next(l for l in describe_results(report, plan, SETTINGS, rows) if l.id == 'c2')
@@ -209,7 +209,7 @@ def test_a_commit_with_push_unticked_over_already_committed_titles_does_nothing_
 
 def test_a_published_file_git_ignores_is_an_error_against_its_title_and_turns_the_summary_red(rows):
     plan = _plan(rows, 'commit', 'c1', 'c2')
-    committed = CatalogueCommit(xml=RepoCommit('/repo/xml', ['xml/c2.xml'], 'abc12345', True),
+    committed = CatalogueCommit(xml=RepoCommit('/repo/xml', ['xml/c2.json'], 'abc12345', True),
                                 images=RepoCommit('/repo/img', [], None, False), not_committed=['img/c1.png'])
     report = StagesReport('commit', 2, committed=committed, attempted=['c1', 'c2'])
 
@@ -224,8 +224,8 @@ def test_a_published_file_git_ignores_is_an_error_against_its_title_and_turns_th
 
 def test_a_warning_about_an_image_url_is_a_notice_that_blocks_nothing(rows):
     plan = _plan(rows, 'commit', 'c1')
-    warning = 'xml/c1.xml names a report image (beq_spectrumURL) but no images repository was given'
-    committed = CatalogueCommit(xml=RepoCommit('/repo/xml', ['xml/c1.xml'], 'abc12345', True), warnings=[warning])
+    warning = 'xml/c1.json names a report image (beq_spectrumURL) but no images repository was given'
+    committed = CatalogueCommit(xml=RepoCommit('/repo/xml', ['xml/c1.json'], 'abc12345', True), warnings=[warning])
     report = StagesReport('commit', 1, committed=committed, attempted=['c1'])
 
     lines = describe_results(report, plan, SETTINGS, rows)

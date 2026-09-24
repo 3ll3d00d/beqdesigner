@@ -144,13 +144,13 @@ def test_a_published_title_without_its_repository_is_reported_and_left_as_it_was
 
 
 def test_the_outcome_is_worded_as_one_line_and_one_line_per_title():
-    outcome = ReviseOutcome('design', revised=['a'], failed=[('b', 'because')], reverted={'a': ['x.xml']}, revisions={'a': 2})
+    outcome = ReviseOutcome('design', revised=['a'], failed=[('b', 'because')], reverted={'a': ['x.json']}, revisions={'a': 2})
     text, level = summarise_outcome(outcome)
     assert text == '1 title sent back for redesign; 1 could not be changed (see the Last run tab).'
     assert level == 'warn'
     lines = describe_outcome(outcome, {'a': 'Heat'})
     assert [(l.title, l.outcome) for l in lines] == [('b', 'Not changed'), ('Heat', 'Sent back for redesign')]
-    assert 'x.xml' in lines[1].detail and 'revision 2' in lines[1].detail
+    assert 'x.json' in lines[1].detail and 'revision 2' in lines[1].detail
     assert summarise_outcome(ReviseOutcome('review'))[0] == 'Nothing to do.'
     only_failed = summarise_outcome(ReviseOutcome('review', failed=[('b', 'nope')]))
     assert only_failed[1] == 'error'
@@ -328,7 +328,7 @@ def test_a_published_title_is_reopened_from_the_page_with_the_repositories_of_th
     window = _window(qtbot, tmp_path, entries=[], rows=rows, repos_set=repos)
     _open(qtbot, window, 'p-pub')
     page = window.title_page
-    assert os.path.isfile(os.path.join(xml.local_path, 'p-pub.xml'))
+    assert os.path.isfile(os.path.join(xml.local_path, 'p-pub.json'))
     ask = _Ask('review', 'typo')
     page._hooks.ask_revise = ask
 
@@ -336,7 +336,7 @@ def test_a_published_title_is_reopened_from_the_page_with_the_repositories_of_th
 
     assert ask.asked[0][0].published == 1 and ask.asked[0][1].xml_repo == RepoTarget(xml.local_path)
     assert read_entry(queue, 'p-pub').status == 'pending'
-    assert not os.path.exists(os.path.join(xml.local_path, 'p-pub.xml'))       # written, never committed: taken out again
+    assert not os.path.exists(os.path.join(xml.local_path, 'p-pub.json'))      # written, never committed: taken out again
     assert not os.path.exists(os.path.join(images.local_path, 'p-pub.png'))
 
 

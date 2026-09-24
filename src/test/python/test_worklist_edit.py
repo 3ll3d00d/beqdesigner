@@ -63,6 +63,14 @@ def test_repository_location_finds_a_containing_git_root_and_relative_folder(tmp
     assert repository_location(str(tmp_path / 'outside'))[2].level == LEVEL_ERROR
 
 
+def test_repository_location_ignores_a_directory_merely_named_dot_git(tmp_path):
+    (tmp_path / '.git').mkdir()
+    location = tmp_path / 'records'
+    location.mkdir()
+
+    assert repository_location(str(location))[2].level == LEVEL_ERROR
+
+
 @pytest.mark.skipif(os.name == 'nt' or os.geteuid() == 0, reason='permissions are not enforced for root or on Windows')
 def test_a_directory_that_cannot_be_written_is_refused(tmp_path):
     locked = tmp_path / 'locked'

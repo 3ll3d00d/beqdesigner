@@ -468,6 +468,7 @@ def test_the_form_is_usable_at_the_minimum_window_size(qtbot, tmp_path, size):
     assert panel.artworkBox.isVisible() and panel.browseArtButton.isVisible()            # the artwork is in the same column
     form = panel.metadataFormHost
     assert form.width() <= panel.metadataScroll.viewport().width()
+    assert max(box.geometry().right() for box in panel.audioTypeChecks) <= form.width()
     page.rightTabs.setCurrentIndex(0)
     qtbot.wait(50)
     assert page.previewChart.isVisible() and page.previewChart.width() >= 250

@@ -48,7 +48,7 @@ from typing import Any, Callable, Dict, List, Mapping, Optional, Set, Tuple
 import requests
 from qtpy.QtCore import QObject, QRunnable, Qt, QThreadPool, Signal
 from qtpy.QtGui import QPixmap
-from qtpy.QtWidgets import QCheckBox, QComboBox, QFileDialog, QHBoxLayout, QLineEdit, QPushButton, QWidget
+from qtpy.QtWidgets import QCheckBox, QComboBox, QFileDialog, QGridLayout, QHBoxLayout, QLineEdit, QPushButton, QWidget
 
 from model.preferences import TMDB_API_KEY
 from model.worklist_artwork import ArtworkError, DownloadJob, check_local_image
@@ -263,14 +263,14 @@ class MetadataPanel(QWidget, Ui_metadataPanel):
         self.audioTypesField.move(-100, -100)
         self.audioTypesField.textChanged.connect(lambda *_: self._sync_typed_choices())
         audio_host = QWidget(self)
-        audio_layout = QHBoxLayout(audio_host)
+        audio_layout = QGridLayout(audio_host)
         audio_layout.setContentsMargins(0, 0, 0, 0)
         self.audioTypeChecks = []
-        for name in _AUDIO_TYPES:
+        for idx, name in enumerate(_AUDIO_TYPES):
             box = QCheckBox(name, audio_host)
             box.toggled.connect(self._audio_types_changed)
             self.audioTypeChecks.append(box)
-            audio_layout.addWidget(box)
+            audio_layout.addWidget(box, idx // 2, idx % 2)
         self.essentialsForm.setWidget(2, self.essentialsForm.ItemRole.FieldRole, audio_host)
         self.languagePicker = self._choice_picker(self.languageField, _LANGUAGES)
         self.sourcePicker = self._choice_picker(self.sourceField, _SOURCES)

@@ -384,11 +384,11 @@ def test_publish_without_an_image_only_pushes_xml(tmp_path, loaded_signal):
     subprocess.run(['git', '-C', str(work), 'remote', 'add', 'origin', str(bare)], check=True, capture_output=True)
     xml_repo = RepoTarget(local_path=str(work))
 
-    result = session.publish(sig.filter, meta, xml_repo, 'xml/some-film.xml')
+    result = session.publish(sig.filter, meta, xml_repo, 'xml/some-film.json')
 
     assert 'image_url' not in result
     assert meta.spectrum_url == ''
-    assert '<beq_title>Some Film</beq_title>' in result['xml']
+    assert result['record']['title'] == 'Some Film'
 
 
 def test_publish_raises_when_image_png_given_without_a_repo(loaded_signal):
@@ -398,7 +398,7 @@ def test_publish_raises_when_image_png_given_without_a_repo(loaded_signal):
     xml_repo = RepoTarget(local_path='/nonexistent')
 
     with pytest.raises(ValueError, match='image_png given without'):
-        session.publish(sig.filter, meta, xml_repo, 'xml/some-film.xml', image_png=b'data')
+        session.publish(sig.filter, meta, xml_repo, 'xml/some-film.json', image_png=b'data')
 
 
 def test_pipeline_orchestrate_module_has_no_qtpy_import():

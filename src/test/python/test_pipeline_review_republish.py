@@ -3,6 +3,7 @@ publish_reviewed_queue() beyond "publish what is accepted" (design.md §12.6/§1
 incomplete metadata instead of aborting the batch, an `ids` restriction, and `republish` -- writing a *published* title
 whose catalogue copy is out of date again, at the same path, without a second review.
 '''
+import json
 import os
 
 import pytest
@@ -14,9 +15,9 @@ from pipeline.review import describe_publish_error, publish_reviewed_queue, read
 from test_pipeline_library_commit import _commits, _on_remote, _publish, _queue_entry, repos  # noqa: F401 (a fixture)
 
 
-def _xml(repos, entry_id):
-    with open(os.path.join(repos[0].local_path, 'xml', f'{entry_id}.xml'), encoding='utf-8') as f:
-        return f.read()
+def _record(repos, entry_id):
+    with open(os.path.join(repos[0].local_path, 'xml', f'{entry_id}.json'), encoding='utf-8') as f:
+        return json.load(f)
 
 
 def _edit_title(queue_dir, entry_id, title):
@@ -38,7 +39,7 @@ def test_an_entry_with_incomplete_metadata_is_refused_on_its_own_and_the_others_
     assert [r['id'] for r in published] == ['a', 'c']  # the batch ran to the end
     assert refused == [{'id': 'b', 'error': 'invalid_metadata', 'problems': ['title is required']}]
     assert read_entry(queue_dir, 'b').status == 'accepted'  # untouched: it can be fixed and published later
-    assert not os.path.exists(os.path.join(xml.local_path, 'xml', 'b.xml'))
+    assert not os.path.exists(os.path.join(xml.local_path, 'xml', 'b.json'))
 
 
 def test_the_refusal_describes_itself_for_a_reviewer(tmp_path, repos):
@@ -100,7 +101,7 @@ def test_a_published_title_is_left_alone_unless_asked_to_republish(tmp_path, rep
     _edit_title(queue_dir, 'a', 'Aliens')
 
     assert publish_reviewed_queue(queue_dir, xml, xml_dir='xml', push=False) == []
-    assert '<beq_title>Alien</beq_title>' in _xml(repos, 'a')
+    assert _record(repos, 'a')['title'] == 'Alien'
 
 
 def test_republish_writes_a_changed_published_title_again_at_the_same_path_and_keeps_it_published(tmp_path, repos):
@@ -113,11 +114,11 @@ def test_republish_writes_a_changed_published_title_again_at_the_same_path_and_k
 
     after = read_entry(queue_dir, 'a')
     assert result['id'] == 'a' and result['republished'] is True
-    assert '<beq_title>Aliens</beq_title>' in _xml(repos, 'a')  # the same file, rewritten
+    assert _record(repos, 'a')['title'] == 'Aliens'  # the same file, rewritten
     assert after.status == 'published' and after.revision == before.revision
     assert after.published_digest and after.published_digest != before.published_digest
     assert after.published_at
-    assert sorted(os.listdir(os.path.join(xml.local_path, 'xml'))) == ['a.xml']  # no second file
+    assert sorted(os.listdir(os.path.join(xml.local_path, 'xml'))) == ['a.json', 'database.json']
 
 
 def test_republish_then_commit_records_a_revision_at_the_same_path(tmp_path, repos):
@@ -129,8 +130,8 @@ def test_republish_then_commit_records_a_revision_at_the_same_path(tmp_path, rep
     publish_reviewed_queue(queue_dir, xml, xml_dir='xml', push=False, republish=True)
     committed = commit_catalogue(queue_dir, xml, xml_dir='xml', push=True)
 
-    assert committed.xml.paths == ['xml/a.xml'] and len(_commits(xml)) == 2
-    assert b'Aliens' in _on_remote(xml_bare, 'xml/a.xml')
+    assert committed.xml.paths == ['xml/a.json', 'xml/database.json'] and len(_commits(xml)) == 2
+    assert b'Aliens' in _on_remote(xml_bare, 'xml/a.json')
 
 
 def test_republish_does_nothing_for_a_published_title_that_is_not_out_of_date(tmp_path, repos):
@@ -149,7 +150,7 @@ def test_republish_writes_a_title_whose_file_left_the_repository(tmp_path, repos
 
     (result,) = publish_reviewed_queue(queue_dir, xml, xml_dir='xml', push=False, republish=True)
 
-    assert result['republished'] and os.path.isfile(os.path.join(xml.local_path, 'xml', 'a.xml'))
+    assert result['republished'] and os.path.isfile(os.path.join(xml.local_path, 'xml', 'a.json'))
 
 
 def test_republish_leaves_alone_a_title_published_before_digests_were_recorded(tmp_path, repos):
@@ -169,7 +170,7 @@ def test_republish_of_a_title_whose_metadata_became_incomplete_is_refused_and_le
     (result,) = publish_reviewed_queue(queue_dir, xml, xml_dir='xml', push=False, republish=True)
 
     assert result['error'] == 'invalid_metadata'
-    assert read_entry(queue_dir, 'a').status == 'published' and '<beq_title>Alien</beq_title>' in _xml(repos, 'a')
+    assert read_entry(queue_dir, 'a').status == 'published' and _record(repos, 'a')['title'] == 'Alien'
 
 
 def test_republish_takes_an_accepted_and_a_changed_published_title_in_one_batch(tmp_path, repos):
@@ -210,7 +211,7 @@ def test_should_cancel_stops_before_the_next_entry_and_leaves_each_published_one
 
     assert [r['id'] for r in results] == ['a', 'b']
     assert [read_entry(queue_dir, i).status for i in 'abc'] == ['published', 'published', 'accepted']
-    assert not os.path.exists(os.path.join(xml.local_path, 'xml', 'c.xml'))
+    assert not os.path.exists(os.path.join(xml.local_path, 'xml', 'c.json'))
 
 
 # --- commit_catalogue(ids=) -----------------------------------------------------------------------------------------
@@ -224,9 +225,9 @@ def test_commit_ids_commits_only_the_named_titles_files(tmp_path, repos):
 
     committed = commit_catalogue(queue_dir, xml, xml_dir='xml', push=False, ids=['a', 'nope'])
 
-    assert committed.xml.paths == ['xml/a.xml'] and len(_commits(xml)) == 1
+    assert committed.xml.paths == ['xml/a.json', 'xml/database.json'] and len(_commits(xml)) == 1
     rest = commit_catalogue(queue_dir, xml, xml_dir='xml', push=False)
-    assert rest.xml.paths == ['xml/b.xml'] and len(_commits(xml)) == 2
+    assert rest.xml.paths == ['xml/b.json'] and len(_commits(xml)) == 2
 
 
 @pytest.mark.parametrize('ids', [[], ['nope']])

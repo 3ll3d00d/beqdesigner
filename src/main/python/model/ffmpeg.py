@@ -886,7 +886,7 @@ class Executor:
                                               progress_handler=self.progress_handler)
             QThreadPool.globalInstance().start(self.__extractor)
 
-    def run_sync(self):
+    def run_sync(self, start_progress_bridge=True):
         '''
         Runs the built command synchronously, on the calling thread, with no
         Qt involved -- no QRunnable, no QThreadPool, no progress signal. For
@@ -898,7 +898,7 @@ class Executor:
         if self.__ffmpeg_cmd is None:
             raise ValueError("No command to run -- extractor is not configured yet")
         bridge = FfmpegProgressBridge(self.progress_handler, port=self.__progress_port, auto=True) \
-            if self.progress_handler is not None else None
+            if start_progress_bridge and self.progress_handler is not None else None
         command = None
         try:
             try:
@@ -1005,7 +1005,7 @@ class AudioExtractor(QRunnable):
             start = time.time()
             try:
                 logger.info("Starting ffmpeg command")
-                out, err = self.__executor.run_sync()
+                out, err = self.__executor.run_sync(start_progress_bridge=False)
                 end = time.time()
                 elapsed = round(end - start, 3)
                 logger.info(f"Executed ffmpeg command in {elapsed}s")
@@ -1113,6 +1113,8 @@ class FfmpegProgressBridge:
         if self.__server is not None:
             logger.info(f"Stopping progress bridge on {self.__host}:{self.__port}")
             self.__server.shutdown()
+            self.__server.server_close()
+            self.__server = None
             logger.info(f"Stopped progress bridge on {self.__host}:{self.__port}")
 
 

@@ -221,7 +221,7 @@ def test_the_revise_dialog_says_what_will_happen_to_the_files_and_that_is_what_h
     assert (summary.published, summary.in_catalogue) == (1, 1)
     body = revise_text('review', summary)[1]
     assert 'already committed to the catalogue' in body and 'files stay' in body and 'taken out' not in body
-    assert os.path.isfile(os.path.join(xml.local_path, 'xml', 'one.xml'))               # they stayed
+    assert os.path.isfile(os.path.join(xml.local_path, 'xml', 'one.json'))              # they stayed
     assert read_entry(_queue(tmp_path), 'one').revision == 1                           # ... and a revision began
 
     page.show_title('two')
@@ -230,7 +230,7 @@ def test_the_revise_dialog_says_what_will_happen_to_the_files_and_that_is_what_h
     assert (summary.published, summary.in_catalogue) == (1, 0)
     body = revise_text('review', summary)[1]
     assert 'published but not committed' in body and 'taken out of the repositories' in body
-    assert not os.path.exists(os.path.join(xml.local_path, 'xml', 'two.xml'))           # ... and they were
+    assert not os.path.exists(os.path.join(xml.local_path, 'xml', 'two.json'))          # ... and they were
     assert read_entry(_queue(tmp_path), 'two').revision == 0
 
 
@@ -334,7 +334,7 @@ def test_an_edited_project_whose_audio_is_gone_is_refused_not_published_from_the
         window.publish_accepted()
 
     assert _statuses(window) == {'one': 'accepted', 'two': 'published'}               # only `two`
-    assert not os.path.exists(os.path.join(xml.local_path, 'xml', 'one.xml'))
+    assert not os.path.exists(os.path.join(xml.local_path, 'xml', 'one.json'))
     assert '1 could not be published' in window.statusLabel.text()
     shown = window.resultsBox.toPlainText()
     assert window.resultsBox.isVisibleTo(window) and shown.startswith('one:')

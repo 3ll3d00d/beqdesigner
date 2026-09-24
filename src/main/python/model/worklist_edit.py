@@ -135,7 +135,7 @@ def repository_location(path: str) -> Tuple[Optional[str], Optional[str], PathCh
     current = selected
     while True:
         dot_git = os.path.join(current, '.git')
-        if os.path.isdir(dot_git) or os.path.isfile(dot_git):  # ordinary clone or a linked worktree
+        if (os.path.isdir(dot_git) or os.path.isfile(dot_git)) and is_repo(RepoTarget(current)):
             relative = os.path.relpath(selected, current).replace(os.sep, '/')
             return current, '' if relative == '.' else relative, PathCheck(LEVEL_OK, 'Inside git repository')
         parent = os.path.dirname(current)

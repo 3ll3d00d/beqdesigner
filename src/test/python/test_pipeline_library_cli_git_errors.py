@@ -80,7 +80,7 @@ def test_publish_and_sync_json_omits_the_whole_xml(tmp_path, repos, capsys):
 
     (result,) = json.loads(capsys.readouterr().out)
     assert result['id'] == 'one' and 'xml' not in result
-    assert (tmp_path / 'xml' / 'xml' / 'one.xml').read_text().startswith('<')   # it is in the repository
+    assert (tmp_path / 'xml' / 'xml' / 'one.json').read_text().startswith('{')   # it is in the repository
 
 
 @pytest.mark.parametrize('command', ['publish', 'sync'])

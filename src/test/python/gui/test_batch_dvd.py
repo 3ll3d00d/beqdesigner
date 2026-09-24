@@ -30,6 +30,7 @@ def test_append_resolves_a_dvd_folder_to_its_main_title(dialog, tmp_path):
     assert len(candidates) == 1
     executor = candidates[0].executor
     assert executor.file == str(tmp_path / 'Some Film')  # read through dvdvideo, so the disc folder itself
+    assert executor._Executor__duration_override_s == 6000.0
     assert 'Some Film_t01' in candidates[0].input.text()
     assert candidates[0].entry_id == 'Some Film'
 
