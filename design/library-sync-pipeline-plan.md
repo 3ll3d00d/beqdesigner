@@ -23,6 +23,7 @@ coefficients; the focused library/orchestration suite passed 175 tests.
 | 40 | Selected-stream resolver in progress | [J2](outstanding.md#j2-resolve-jrivers-selected-audio-stream) |
 | 45a | Partial | [W1](outstanding.md#w1-retry-failures-and-title-page-details) |
 | 45b | Partially built in `62270b4` and `cb9456f`: codec/channel requests, automatic first-stream audio type and existing-entry backfill on rescan | [W2](outstanding.md#w2-stream-evidence-and-truthful-stages) |
+| Extraction folders | Implemented in `ffdcf1a`: readable track and stream names with stable ID lookup and legacy cache support | [Implemented design](implemented.md) |
 
 Chunk 3 became the live-fixture work in chunk 30. The remaining optional
 catalogue-as-input idea is [O1](outstanding.md#o1-catalogue-as-input);
