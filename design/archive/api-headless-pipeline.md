@@ -1,9 +1,12 @@
 # Headless BEQ filter creation and publishing
 
+> **Historical archive:** original path `design/api-headless-pipeline.md`. This is the pre-sweep design record, not the current status. See [implemented](../implemented.md) and [outstanding](../outstanding.md) for the maintained account.
+
+
 **Status: done.** This was the original analysis — what already ran
 headless, what didn't, and what had to change — before any of `pipeline/`
 existed. Everything it identified as needing to be built has been; see
-[`src/main/python/pipeline/README.md`](../src/main/python/pipeline/README.md)
+[`src/main/python/pipeline/README.md`](../../src/main/python/pipeline/README.md)
 for the shipped architecture and `pipeline-implementation-plan.md` for the
 phase-by-phase build record. This document stays as the domain analysis and
 decision record behind that build — §1-§7 and §9-§11 describe facts about
@@ -131,7 +134,7 @@ must be supplyable per-request. Blocked by **[B1]**.
 No designer ships with this repo. The contract a designer must satisfy —
 exact `DesignRequest`/`DesignResponse` field shapes, units, validation
 rules, worked examples — is specified formally in
-**[`designer-interface.md`](designer-interface.md)**, v1.0, written to be
+**[`designer-interface.md`](../designer-interface.md)**, v1.0, written to be
 implementable without reading this repo at all. That document is the source
 of truth for the contract; this section covers only what it means for
 *this* repo. `§15` shows the beqanalyser designer's confirmed answers mapped
@@ -643,7 +646,7 @@ and no code behind it.
 ## 15. Integration with beqanalyser
 
 The designer is being built separately in
-[`../beqanalyser`](../../beqanalyser/AUTOMATED_DESIGN.md), which identifies the
+the separate `beqanalyser/AUTOMATED_DESIGN.md` document, which identifies the
 mastering rolloff from the audio alone and inverts it. A challenge/response
 exchange between the two planning sessions resolved the two things that
 looked like conflicts — both turned out to be non-issues once actually

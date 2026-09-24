@@ -1,5 +1,8 @@
 # Library sync plan -- workflow rework: implementation order
 
+> **Historical archive:** original path `design/library-sync/workflow-rework/implementation-order.md`. This is the pre-sweep design record, not the current status. See [implemented](../../../implemented.md) and [outstanding](../../../outstanding.md) for the maintained account.
+
+
 > Part of the library sync plan -- **start at the index**: [`../../library-sync-pipeline-plan.md`](../../library-sync-pipeline-plan.md).
 > Contains §12.13. Section numbers are global across the plan; the index maps every `§` to its file.
 > Status of what this file describes: chunks 19-25, 26a-26c and 27a-27c built (M0-M4: the settings drawer, the title page with its metadata, projects, revise and bulk accept, and the old dialogs retired; commits `b88ac1f` and `cf9561f`), and 28 (the user documentation, M5) built in `ecd8cef`; the status of each chunk lives in the index

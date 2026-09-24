@@ -1,4 +1,4 @@
-'''The catalogue profile (design/library-sync/workflow-rework §12.4): the ordered sources, the old shape, round trips.'''
+'''The catalogue profile (design/archive/library-sync/workflow-rework/design.md §12.4): the ordered sources, the old shape, round trips.'''
 import json
 
 import pytest

@@ -2,7 +2,7 @@
 FilterSpec + create_filter(): a plain, Qt-free replacement for the GUI's
 widget-bound filter creation (model/filter.py's create_shaping_filter /
 create_pass_filter, which read Qt widgets and dispatch on display strings
-like 'Low Shelf') -- design/pipeline-implementation-plan.md phase 1 (B3).
+like 'Low Shelf') -- design/archive/pipeline-implementation-plan.md phase 1 (B3).
 model/filter.py's create_shaping_filter() was rewired onto this module
 directly (its GUI-rewiring follow-up); the FilterSpecType set below is
 exactly the set that dialog needs for its shaping-filter branches.

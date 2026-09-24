@@ -1,5 +1,5 @@
 '''
-Sending a title back into the work list (design/library-sync/workflow-rework §12.8): reopen for review, redesign,
+Sending a title back into the work list (design/archive/library-sync/workflow-rework/design.md §12.8): reopen for review, redesign,
 re-extract -- from each starting state, against real temp git repos where the catalogue files matter.
 '''
 import json

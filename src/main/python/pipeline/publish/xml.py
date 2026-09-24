@@ -1,8 +1,8 @@
 '''
 to_beq_xml(): a thin, Qt-free wrapper over the existing HDXmlParser/
-flat24hd.xml path (model/minidsp.py) -- design/pipeline-implementation-plan.md
+flat24hd.xml path (model/minidsp.py) -- design/archive/pipeline-implementation-plan.md
 phase 2 (item 2c). This side of the publish contract already worked
-headlessly before this pipeline existed (design/api-headless-pipeline.md
+headlessly before this pipeline existed (design/archive/api-headless-pipeline.md
 headline finding 1); this module exists to fix the template-path resolution
 and to give it a stable, non-GUI entry point.
 
@@ -34,7 +34,7 @@ def to_beq_xml(filters, meta: BeqMetadata, dsp_type=DspType.MINIDSP_TWO_BY_FOUR_
         pipeline.designer.convert.to_complete_filter or pipeline.filters.create_filter).
     :param meta: the metadata to embed.
     :param dsp_type: the target device type -- defaults to the 2x4HD this
-        pipeline is scoped to (design/api-headless-pipeline.md's out-of-scope note).
+        pipeline is scoped to (design/archive/api-headless-pipeline.md's out-of-scope note).
     :param pretty: pretty-print the XML.
     :return: the beqcatalogue-format XML.
     :raises ValueError: if meta fails pipeline.metadata.validate(), or if

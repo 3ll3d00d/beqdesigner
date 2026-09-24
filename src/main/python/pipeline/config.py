@@ -1,7 +1,7 @@
 '''
 Plain, Qt-free workflow configuration for the headless pipeline.
 
-design/api-headless-pipeline.md §1 ("Configuration") identifies
+design/archive/api-headless-pipeline.md §1 ("Configuration") identifies
 ANALYSIS_TARGET_FS/ANALYSIS_RESOLUTION/avg-peak windows as workflow inputs
 that must be supplyable per request, not read from a process-wide
 Preferences singleton -- see B1 (model/xy.py's import-time Preferences

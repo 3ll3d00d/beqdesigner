@@ -1,5 +1,8 @@
 # Library sync plan -- workflow rework: design
 
+> **Historical archive:** original path `design/library-sync/workflow-rework/design.md`. This is the pre-sweep design record, not the current status. See [implemented](../../../implemented.md) and [outstanding](../../../outstanding.md) for the maintained account.
+
+
 > Part of the library sync plan -- **start at the index**: [`../../library-sync-pipeline-plan.md`](../../library-sync-pipeline-plan.md).
 > Contains §12 (§12.1-§12.12, §12.14-§12.15). Section numbers are global across the plan; the index maps every `§` to its file.
 > Status of what this file describes: **design agreed 2026-09-19**; the backend (§12.4-§12.9 and §12.11: profile, discovery, states, publish/commit, revise, stage entry points, bulk accept) is **built through chunk 25**, the work list window with its actions and its settings drawer (§12.10, chunks 26a-26c), the title page (27a core, 27b metadata and artwork, 27c projects, Reopen/Revise, the bulk-accept UI and the "settings changed" banner) are built, and the old Library Sync dialog and the review dialog are retired (27c, committed in `b88ac1f` and `cf9561f`): **the documentation (chunk 28, `docs/library/`) is built in `ecd8cef`**; supersedes §7

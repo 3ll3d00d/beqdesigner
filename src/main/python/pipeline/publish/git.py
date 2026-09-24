@@ -1,9 +1,9 @@
 '''
 pipeline/publish/git.py: commit + push the report image and the beqcatalogue
-XML into their target repos -- design/pipeline-implementation-plan.md phase
+XML into their target repos -- design/archive/pipeline-implementation-plan.md phase
 4 (item 10).
 
-Per D3's resolution (design/api-headless-pipeline.md §6/§14): two separate
+Per D3's resolution (design/archive/api-headless-pipeline.md §6/§14): two separate
 repos -- a small XML-only repo beqcatalogue itself clones, and a second
 repo for report images referenced by GitHub raw-content URL. No PR step;
 beqcatalogue is triggered by a push (via a repository_dispatch fired by a

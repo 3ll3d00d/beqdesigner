@@ -1,5 +1,5 @@
 '''
-Doing the work for a selection of titles -- design/library-sync/workflow-rework/design.md §12.7.
+Doing the work for a selection of titles -- design/archive/library-sync/workflow-rework/design.md §12.7.
 
     with LibraryIndex(index_path(work_dir)) as index:
         index.scan(profile, settings)

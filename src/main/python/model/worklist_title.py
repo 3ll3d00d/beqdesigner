@@ -1,5 +1,5 @@
 '''
-The title page -- design/library-sync/workflow-rework/design.md §12.10, chunk 27a (core).
+The title page -- design/archive/library-sync/workflow-rework/design.md §12.10, chunk 27a (core).
 
 One title of the work list, in the window itself (it replaces the table; `model.worklist_titles` is how the window opens
 and closes it): what the index says about the title, and -- for one that has been designed -- its candidates, the

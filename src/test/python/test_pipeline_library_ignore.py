@@ -1,4 +1,4 @@
-'''Ignore rules (design/library-sync/workflow-rework §12.4): each field, combinations, and bad rules.'''
+'''Ignore rules (design/archive/library-sync/workflow-rework/design.md §12.4): each field, combinations, and bad rules.'''
 import pytest
 
 from pipeline.library.ignore import IgnoreRule, evaluate, explain, rule_from_config, rules_from_config

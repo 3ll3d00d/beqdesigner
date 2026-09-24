@@ -1,5 +1,5 @@
 '''
-Phase 2 (item 12) of design/pipeline-implementation-plan.md: the designer
+Phase 2 (item 12) of design/archive/pipeline-implementation-plan.md: the designer
 contract (design/designer-interface.md v1.0) exercised via a fake in-process
 designer -- no real designer implementation is needed to validate this
 boundary, and none should be waited on to test it.
@@ -265,7 +265,7 @@ def test_to_complete_filter_matches_rp1_worked_example():
     The exact example from designer-interface.md §6 -- 2x the same low_shelf,
     which must collapse into a single stacked shelf (count=2) rather than
     two separate LowShelf filters, matching this repo's own beq_gain/count
-    fidelity concern (design/api-headless-pipeline.md §11.1).
+    fidelity concern (design/archive/api-headless-pipeline.md §11.1).
     '''
     from model.iir import LowShelf
     from pipeline.designer.convert import to_complete_filter

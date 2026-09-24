@@ -1,5 +1,5 @@
 '''
-The work list's settings drawer -- design/library-sync/workflow-rework/design.md §12.4 and §12.10, chunk 26c.
+The work list's settings drawer -- design/archive/library-sync/workflow-rework/design.md §12.4 and §12.10, chunk 26c.
 
 It edits the **profile file** (the `LIBRARY_PROFILE_PATH` preference names it) and nothing else that matters: the file is the
 durable state, the index a disposable cache. Everything the drawer does not manage -- the `designers:` section, unknown

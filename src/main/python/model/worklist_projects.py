@@ -1,5 +1,5 @@
 '''
-A title's `.beq` projects, as the title page shows them -- design/library-sync/workflow-rework/design.md §12.10, chunk 27c.
+A title's `.beq` projects, as the title page shows them -- design/archive/library-sync/workflow-rework/design.md §12.10, chunk 27c.
 
 Designing a title writes a **mono** project (`<work_dir>/<id>/<id>.mono.beq`) and, where the extraction was multichannel, a
 **multichannel** one (`<id>.multichannel.beq`, the designed filter linked across every channel): the same files

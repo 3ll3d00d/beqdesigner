@@ -1,5 +1,5 @@
 '''
-The work list's actions -- design/library-sync/workflow-rework/design.md §12.7 and §12.10, chunk 26b. A mixin of
+The work list's actions -- design/archive/library-sync/workflow-rework/design.md §12.7 and §12.10, chunk 26b. A mixin of
 `model.worklist.WorkListWindow` (which owns the widgets, the model, the index and the setup, and declares the signals):
 
 * what the buttons work on (`target_ids()`, `plan_for()`) and their labels (`_refresh_actions()`);

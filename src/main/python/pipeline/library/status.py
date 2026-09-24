@@ -1,5 +1,5 @@
 '''
-Reading a title's stage states off its outputs -- design/library-sync/workflow-rework/design.md §12.5/§12.6.
+Reading a title's stage states off its outputs -- design/archive/library-sync/workflow-rework/design.md §12.5/§12.6.
 
 Discovery's "read" half. Given a title (a LibraryItem, or a TV SeasonGroup) this looks at what is on disk -- the
 extract manifest, the queue entry, the `.beq` projects, the two catalogue repos -- and fills in a state.StageStates for

@@ -1,5 +1,5 @@
 '''
-design/library-sync-pipeline-plan.md Appendix C (chunk 4): the `LibrarySource` abstraction --
+design/archive/library-sync-pipeline-plan.md Appendix C (chunk 4): the `LibrarySource` abstraction --
 `pipeline.library.source`'s `LibraryItem`/`LibrarySource` shapes and `pipeline.library.registry`'s
 in-process binding, mirroring `pipeline.designer.registry`'s exact pattern. Nothing else in the codebase
 exercises this yet (chunks 5-7 will), so this chunk's own tests use a small fake source to prove the shape

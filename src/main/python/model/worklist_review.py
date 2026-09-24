@@ -1,5 +1,5 @@
 '''
-The Review folder window -- design/library-sync/workflow-rework/design.md §12.10, chunk 27c. **Tools > Review Folder...** (it was
+The Review folder window -- design/archive/library-sync/workflow-rework/design.md §12.10, chunk 27c. **Tools > Review Folder...** (it was
 "Review Batch Designs", a tab of the Batch Extract dialog) is the work list's *title page* over a queue directory: the
 entries a Batch Extract & Design run (or a scripted `pipeline.review.batch_design()`) wrote, worked through one by one with the
 same page -- candidates, commentary and chart, Accept & next / Skip / Reject, the metadata and artwork, opening the projects,

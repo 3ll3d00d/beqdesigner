@@ -1,5 +1,5 @@
 '''
-TV seasons treated as a single track -- design/library-sync-pipeline-plan.md §11.9.
+TV seasons treated as a single track -- design/archive/library-sync-pipeline-plan.md §11.9.
 
 With `tv_mode='season'` the TV items of one series and season become one unit: each episode is extracted as usual,
 their (mono, decimated) audio is joined into one track, that track is designed once, and the result is published as

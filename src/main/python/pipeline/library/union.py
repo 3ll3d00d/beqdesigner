@@ -1,5 +1,5 @@
 r'''
-One catalogue from several sources -- design/library-sync/workflow-rework/design.md §12.4.
+One catalogue from several sources -- design/archive/library-sync/workflow-rework/design.md §12.4.
 
 Given each source's items, in the profile's priority order, decide which are *titles*:
 

@@ -1,5 +1,5 @@
 '''
-Where the work list gets its catalogue profile -- design/library-sync/workflow-rework/implementation-order.md, chunk 26a.
+Where the work list gets its catalogue profile -- design/archive/library-sync/workflow-rework/implementation-order.md, chunk 26a.
 
 The settings editor is chunk 26c. Until then nobody should have to hand-write a profile file, so:
 

@@ -1,6 +1,6 @@
 '''
 A small in-process registry binding a library source name to an already-configured instance --
-pipeline.designer.registry's exact pattern (design/api-headless-pipeline.md D8): the cheapest binding
+pipeline.designer.registry's exact pattern (design/archive/api-headless-pipeline.md D8): the cheapest binding
 first, no HTTP binding needed unless something actually requires one.
 '''
 from typing import Dict, List

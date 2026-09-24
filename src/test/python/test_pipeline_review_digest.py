@@ -1,6 +1,6 @@
 '''
 current_publish_digest() is publish_reviewed_queue()'s digest computation factored out so discovery can ask "would
-publishing change the catalogue?" without publishing (design/library-sync/workflow-rework §12.5/§12.6). If it ever
+publishing change the catalogue?" without publishing (design/archive/library-sync/workflow-rework/design.md §12.5/§12.6). If it ever
 drifted from what publish records, every published title would look out of date -- so each case publishes for real
 and compares.
 '''

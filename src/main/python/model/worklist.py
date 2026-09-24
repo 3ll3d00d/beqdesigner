@@ -1,5 +1,5 @@
 '''
-The library work list -- design/library-sync/workflow-rework/design.md §12.10, chunk 26a (read-only).
+The library work list -- design/archive/library-sync/workflow-rework/design.md §12.10, chunk 26a (read-only).
 
 A top-level window over the discovery index (`pipeline.library.index.LibraryIndex`): the pipeline strip with a count per
 kind of work, a searchable, filterable table of every title in the library and what it needs next, and a Rescan that

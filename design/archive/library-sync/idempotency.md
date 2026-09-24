@@ -1,5 +1,8 @@
 # Library sync plan -- idempotency (extract cache, design cache, sync)
 
+> **Historical archive:** original path `design/library-sync/idempotency.md`. This is the pre-sweep design record, not the current status. See [implemented](../../implemented.md) and [outstanding](../../outstanding.md) for the maintained account.
+
+
 > Part of the library sync plan -- **start at the index**: [`../library-sync-pipeline-plan.md`](../library-sync-pipeline-plan.md).
 > Contains §4. Section numbers are global across the plan; the index maps every `§` to its file.
 > Status of what this file describes: **built** (see `status-and-open-items.md` §10 for the exceptions)

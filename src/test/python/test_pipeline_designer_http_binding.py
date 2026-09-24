@@ -1,5 +1,5 @@
 '''
-Phase 1 of design/http-designer-binding-plan.md: http_designer()'s wire
+Phase 1 of design/archive/http-designer-binding-plan.md: http_designer()'s wire
 format and error handling. One real round trip against an actual HTTP
 server (proves the JSON+base64 encode/decode genuinely works, not just
 mocked); the rest of the error paths are exercised via a monkeypatched

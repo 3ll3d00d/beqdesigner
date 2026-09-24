@@ -1,5 +1,5 @@
 '''
-The union of several sources (design/library-sync/workflow-rework §12.4): hard and soft clashes, priority, sticky
+The union of several sources (design/archive/library-sync/workflow-rework/design.md §12.4): hard and soft clashes, priority, sticky
 ownership, ignore rules, claims read back from disk, and the LibrarySource wrapper run_library() uses.
 '''
 import os

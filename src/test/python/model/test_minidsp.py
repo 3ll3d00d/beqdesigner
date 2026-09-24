@@ -129,8 +129,8 @@ def test_merge_HTx_selected():
 
 def test_flatten_filters_rejects_gain():
     '''
-    Phase 1 (item 7) of design/pipeline-implementation-plan.md, D2 in
-    design/api-headless-pipeline.md: a Gain filter used to vanish silently
+    Phase 1 (item 7) of design/archive/pipeline-implementation-plan.md, D2 in
+    design/archive/api-headless-pipeline.md: a Gain filter used to vanish silently
     from the published output (flatten_filters only ever collected
     PeakingEQ/Shelf instances) with no beq_gain to show for the missing
     attenuation either. It must now fail loudly instead.

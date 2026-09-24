@@ -2,7 +2,7 @@
 BeqMetadata + tmdb_lookup(): a plain, Qt-free replacement for the GUI's
 widget-bound TMDB lookup and metadata dict (model/postbuilder.py's
 __search_tmdb/__get_tmdb_details/__build_metadata/__validate_metadata) --
-design/pipeline-implementation-plan.md phase 2 (item 5).
+design/archive/pipeline-implementation-plan.md phase 2 (item 5).
 
 Does not read model.preferences (which imports qtpy at module level) --
 callers supply the TMDB api_key explicitly, the same pattern

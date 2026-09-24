@@ -1,5 +1,5 @@
 '''
-The metadata and artwork of a title, on the title page -- design/library-sync/workflow-rework/design.md §12.10, chunk 27b.
+The metadata and artwork of a title, on the title page -- design/archive/library-sync/workflow-rework/design.md §12.10, chunk 27b.
 
 `MetadataPanel` is the form: **Essentials** (title, year, audio types, edition, season and episodes, note, warning, TMDB id
 and *Reload*) and a collapsed **More** (the other `BeqMetadata` fields), the artwork (browse, download, clear, a preview)

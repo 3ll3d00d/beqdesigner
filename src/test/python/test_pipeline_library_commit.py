@@ -1,5 +1,5 @@
 '''
-The publish/commit split (design/library-sync/workflow-rework §12.7): publish writes into the repos' working trees,
+The publish/commit split (design/archive/library-sync/workflow-rework/design.md §12.7): publish writes into the repos' working trees,
 commit makes one commit and one push per repo, images first. Real local git repos (a bare "remote" plus a working
 clone), so the git behaviour is genuinely exercised -- no mocking of subprocess.
 '''

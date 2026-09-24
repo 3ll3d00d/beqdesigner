@@ -1,5 +1,5 @@
 '''
-What a title needs next -- design/library-sync/workflow-rework/design.md §12.6.
+What a title needs next -- design/archive/library-sync/workflow-rework/design.md §12.6.
 
 A title has a state per stage (extract, design, review, publish, commit) and some orthogonal flags. What the work
 list shows -- and what `--needs` selects -- is the single next thing the title needs, derived from those by

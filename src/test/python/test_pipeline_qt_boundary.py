@@ -1,5 +1,5 @@
 '''
-Phase 1 (B1) of design/pipeline-implementation-plan.md: importing model.iir
+Phase 1 (B1) of design/archive/pipeline-implementation-plan.md: importing model.iir
 (the filter maths every pipeline step depends on) must not have the side
 effect of reading the desktop user's real QSettings. Before the fix,
 model/xy.py:15 constructed a `Preferences(QSettings(...))` at import time and

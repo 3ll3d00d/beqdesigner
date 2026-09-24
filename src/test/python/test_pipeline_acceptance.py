@@ -1,6 +1,6 @@
 '''
-Phase 5's acceptance test (design/pipeline-implementation-plan.md, §11.2 of
-design/api-headless-pipeline.md): the Ready Player One worked example from
+Phase 5's acceptance test (design/archive/pipeline-implementation-plan.md, §11.2 of
+design/archive/api-headless-pipeline.md): the Ready Player One worked example from
 docs/workflow/beq.md, scripted end to end through pipeline.orchestrate.Session
 -- extract -> load -> design -> set_filters -> stats -> to_beq_xml -> report
 -> publish -- using a fake in-process designer that returns the documented

@@ -1,8 +1,11 @@
 # Implementation plan — headless BEQ pipeline
 
+> **Historical archive:** original path `design/pipeline-implementation-plan.md`. This is the pre-sweep design record, not the current status. See [implemented](../implemented.md) and [outstanding](../outstanding.md) for the maintained account.
+
+
 **Status: done.** All six phases below shipped. For the current architecture,
 package layout, and workflow, see
-[`src/main/python/pipeline/README.md`](../src/main/python/pipeline/README.md).
+[`src/main/python/pipeline/README.md`](../../src/main/python/pipeline/README.md).
 This file stays only as a phase index for code comments that cite it by
 phase/item number (`design/pipeline-implementation-plan.md phase 4 (item 10)`,
 etc.) — the design rationale itself lives in the README and in

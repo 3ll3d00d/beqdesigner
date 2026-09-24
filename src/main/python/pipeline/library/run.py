@@ -11,8 +11,8 @@ from pipeline.config import AnalysisConfig
 from pipeline.designer.contract import Coverage
 from pipeline.library.design_cache import design_if_needed
 from model.execution_events import emit_execution_event, event_scope
-from pipeline.library.extract_cache import extract_if_needed, read_channel_layout_name, \
-    read_source_channel_count
+from pipeline.library.extract_cache import extract_if_needed, extract_status, mono_from_multichannel_if_needed, \
+    read_channel_layout_name, read_source_channel_count
 from pipeline.library.index import LibraryIndex
 from pipeline.library.library_metadata import library_meta, resolve_meta
 from pipeline.library.season import DEFAULT_TV_MODE, SeasonGroup, plan_units, season_track_if_needed, with_extracted
@@ -180,21 +180,24 @@ def _run_item(session: Session, item: LibraryItem, run_config: LibraryRunConfig,
         with _stage('extract'):
             progress = ({'on_progress': lambda position, total: on_extract_progress(item.id, position, total)}
                         if on_extract_progress is not None else {})
-            mono_path, mono_cached = extract_if_needed(
-                session, item, item_dir, run_config.config, mono_mix=True, force=run_config.force_extract, **progress)
             multichannel_path = None
             channel_layout_name = 'unknown'
-            extraction_cached = mono_cached
-
-            # a source known to be mono has nothing to keep, so skip the second (full-length) ffmpeg pass; an
-            # unknown channel count still extracts, and load_channels() below decides
-            if run_config.keep_multichannel and read_source_channel_count(item_dir) != 1:
+            known_mono = (run_config.keep_multichannel and read_source_channel_count(item_dir) == 1 and
+                          extract_status(item, item_dir, run_config.config, True).current)
+            if run_config.keep_multichannel and not known_mono:
                 kept_path, kept_cached = extract_if_needed(
                     session, item, item_dir, run_config.config, mono_mix=False, force=run_config.force_extract,
                     **progress)
+                mono_path, mono_cached = mono_from_multichannel_if_needed(
+                    session, item, item_dir, run_config.config, force=run_config.force_extract)
                 extraction_cached = mono_cached and kept_cached
                 channel_layout_name = read_channel_layout_name(item_dir)
-                multichannel_path = kept_path
+                if read_source_channel_count(item_dir) != 1:
+                    multichannel_path = kept_path
+            else:
+                mono_path, extraction_cached = extract_if_needed(
+                    session, item, item_dir, run_config.config, mono_mix=True, force=run_config.force_extract,
+                    **progress)
         emit_execution_event('stage_completed', message='Extraction complete' if not extraction_cached else
                              'Extraction cache hit')
 

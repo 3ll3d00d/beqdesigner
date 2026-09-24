@@ -1,5 +1,5 @@
 '''
-The library sources the work list can run against, as the GUI sees them -- design/library-sync-pipeline-plan.md §11.3.
+The library sources the work list can run against, as the GUI sees them -- design/archive/library-sync-pipeline-plan.md §11.3.
 
 A *kind* is a name, a label and a settings page. The page loads/saves its own preferences and builds a headless
 `LibrarySource` (pipeline.library) from what the user entered. The work list's sources tab holds a registry of kinds and shows the

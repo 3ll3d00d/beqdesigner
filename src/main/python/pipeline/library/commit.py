@@ -1,6 +1,6 @@
 '''
 Commits and pushes what pipeline.review.publish_reviewed_queue(push=False) wrote into the catalogue repos --
-design/library-sync/workflow-rework/design.md §12.7.
+design/archive/library-sync/workflow-rework/design.md §12.7.
 
 Publishing and committing are separate so a batch costs one commit and one push per repo rather than two pushes per
 title, and so the human can look at the working trees in between. Whether a title is committed or pushed is never

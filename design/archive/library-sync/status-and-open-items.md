@@ -1,5 +1,8 @@
 # Library sync plan -- open questions and implementation status
 
+> **Historical archive:** original path `design/library-sync/status-and-open-items.md`. This is the pre-sweep design record, not the current status. See [implemented](../../implemented.md) and [outstanding](../../outstanding.md) for the maintained account.
+
+
 > Part of the library sync plan -- **start at the index**: [`../library-sync-pipeline-plan.md`](../library-sync-pipeline-plan.md).
 > Contains §9, §10. Section numbers are global across the plan; the index maps every `§` to its file.
 > Status of what this file describes: swept against `HEAD` on 2026-09-21 (1,902 tests passed); **§10 classifies every historic T-item and §13 schedules the remaining work**

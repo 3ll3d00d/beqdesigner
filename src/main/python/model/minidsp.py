@@ -365,7 +365,7 @@ def flatten_filters(filter):
     :return: the flattened filters as a list.
     :raises ValueError: if filter contains a Gain filter. beq_gain (the
         published headroom metadata) is derived from the signal's own dB
-        offset, not from a Gain filter (D2 in design/api-headless-pipeline.md)
+        offset, not from a Gain filter (D2 in design/archive/api-headless-pipeline.md)
         -- a Gain filter reaching this point silently vanished from the
         published output before this check existed, with no beq_gain to show
         for it either. Fail loudly here instead.

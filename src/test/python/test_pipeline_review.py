@@ -1,5 +1,5 @@
 '''
-Phases 1-2 of design/candidate-review-plan.md: QueueEntry persistence, the
+Phases 1-2 of design/archive/candidate-review-plan.md: QueueEntry persistence, the
 batch_design() driver, and applying/publishing a human's pick -- exercised
 without any GUI, since the review dialog (Phase 3) is just a reader/writer
 of the same queue.

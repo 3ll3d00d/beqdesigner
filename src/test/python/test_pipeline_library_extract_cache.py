@@ -1,5 +1,5 @@
 '''
-Coverage for pipeline.library.extract_cache.extract_if_needed() -- design/library-sync-pipeline-plan.md
+Coverage for pipeline.library.extract_cache.extract_if_needed() -- design/archive/library-sync-pipeline-plan.md
 §4.1 / Appendix D. Uses the same synthetic-wav-fixture pattern test_pipeline_review.py's
 _write_synthetic_wav() already uses for real ffmpeg extraction: a plain wav file with N channels of
 constant-per-channel amplitude, which ffmpeg can probe/extract without needing a real video/audio codec
@@ -226,6 +226,113 @@ def test_mono_and_multichannel_extractions_align_on_the_analysis_sample_grid(tmp
     channels = session.load_channels(mc_path, channel_layout_name='5.1')
     assert channels
     assert all(len(samples) == len(mono.signal.samples) for samples in channels.values())
+
+
+def test_library_kept_extraction_builds_mono_from_one_source_decode(tmp_path, monkeypatch):
+    from pipeline.library.run import LibraryRunConfig, run_library
+    source_path = str(tmp_path / 'source.wav')
+    _write_synthetic_wav(source_path, fs=48000, channel_values=(1000, 2000, 3000, 4000, 5000, 6000))
+    item = _mono_item(source_path)
+
+    class Source:
+        def list_items(self, **query):
+            return [item]
+
+    calls = []
+    original = Session.extract_with_layout
+
+    def spy(self, *args, **kwargs):
+        calls.append(kwargs['mono_mix'])
+        return original(self, *args, **kwargs)
+
+    monkeypatch.setattr(Session, 'extract_with_layout', spy)
+    config = LibraryRunConfig(work_dir=str(tmp_path / 'work'), queue_dir=str(tmp_path / 'queue'),
+                              designer='test', config=AnalysisConfig(target_fs=1000), keep_multichannel=True)
+
+    first = run_library(Source(), config, through='extract')
+    second = run_library(Source(), config, through='extract')
+
+    assert first.extracted == ['title-1'] and first.failed == []
+    assert second.cached == ['title-1'] and second.failed == []
+    assert calls == [False]
+    directory = tmp_path / 'work' / item.id
+    with wave.open(str(directory / 'mono.wav')) as mono, wave.open(str(directory / 'multichannel.wav')) as kept:
+        assert mono.getframerate() == kept.getframerate() == 1000
+        assert mono.getnframes() == kept.getnframes()
+        assert mono.getnchannels() == 1 and kept.getnchannels() == 6
+
+    import soundfile as sf
+    mono, _ = sf.read(str(directory / 'mono.wav'))
+    channels, _ = sf.read(str(directory / 'multichannel.wav'), always_2d=True)
+    main = 10 ** (-20.2 / 20.0)
+    lfe = 10 ** (-10.2 / 20.0)
+    expected = channels @ np.array([main, main, main, lfe, main, main])
+    np.testing.assert_allclose(mono, expected, atol=2 / 2 ** 23)
+
+
+def test_older_kept_cache_without_mix_coefficients_uses_direct_mono_extraction(tmp_path, monkeypatch):
+    import json
+    from pipeline.library.extract_cache import mono_from_multichannel_if_needed
+    source_path = str(tmp_path / 'source.wav')
+    _write_synthetic_wav(source_path)
+    target_dir = str(tmp_path / 'work')
+    session = Session(AnalysisConfig(target_fs=1000))
+    item = _mono_item(source_path)
+    config = AnalysisConfig(target_fs=1000)
+    extract_if_needed(session, item, target_dir, config, mono_mix=False)
+    manifest_path = os.path.join(target_dir, 'manifest.json')
+    with open(manifest_path) as source:
+        manifest = json.load(source)
+    manifest.pop('multichannel_mono_mix_spec')
+    with open(manifest_path, 'w') as target:
+        json.dump(manifest, target)
+
+    calls = []
+    original = Session.extract_with_layout
+
+    def spy(self, *args, **kwargs):
+        calls.append(kwargs['mono_mix'])
+        return original(self, *args, **kwargs)
+
+    monkeypatch.setattr(Session, 'extract_with_layout', spy)
+    mono_path, cached = mono_from_multichannel_if_needed(session, item, target_dir, config)
+
+    assert not cached and calls == [True]
+    assert os.path.isfile(mono_path)
+
+
+def test_library_rechecks_channel_count_when_source_changes_from_mono_to_multichannel(tmp_path, monkeypatch):
+    from pipeline.library.run import LibraryRunConfig, run_library
+    source_path = str(tmp_path / 'source.wav')
+
+    class Source:
+        fingerprint = 'first'
+
+        def list_items(self, **query):
+            return [_mono_item(source_path, self.fingerprint)]
+
+    source = Source()
+    config = LibraryRunConfig(work_dir=str(tmp_path / 'work'), queue_dir=str(tmp_path / 'queue'),
+                              designer='test', config=AnalysisConfig(target_fs=1000), keep_multichannel=True)
+    _write_synthetic_wav(source_path, channel_values=(1000,))
+    assert run_library(source, config, through='extract').failed == []
+
+    _write_synthetic_wav(source_path, channel_values=(1000, 2000, 3000, 4000, 5000, 6000))
+    source.fingerprint = 'second'
+    calls = []
+    original = Session.extract_with_layout
+
+    def spy(self, *args, **kwargs):
+        calls.append(kwargs['mono_mix'])
+        return original(self, *args, **kwargs)
+
+    monkeypatch.setattr(Session, 'extract_with_layout', spy)
+    report = run_library(source, config, through='extract')
+
+    assert report.failed == [] and report.extracted == ['title-1']
+    assert calls == [False]
+    with wave.open(str(tmp_path / 'work' / 'title-1' / 'multichannel.wav')) as kept:
+        assert kept.getnchannels() == 6
 
 
 def test_extract_with_layout_is_behaviourally_identical_to_extract(tmp_path):

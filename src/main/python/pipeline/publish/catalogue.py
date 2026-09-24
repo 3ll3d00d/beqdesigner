@@ -1,6 +1,6 @@
 '''
 pipeline/publish/catalogue.py: where a title lives in the two catalogue repos, and the digest that says whether what
-was written there is still what would be written now -- design/library-sync/workflow-rework/design.md §12.6/§12.7.
+was written there is still what would be written now -- design/archive/library-sync/workflow-rework/design.md §12.6/§12.7.
 
 Qt-free, and running no git: naming and hashing only, shared by publishing (writes the files) and committing (needs to
 know which files those were).

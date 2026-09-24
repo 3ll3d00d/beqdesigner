@@ -1,5 +1,8 @@
 # Library sync plan -- sweep-up
 
+> **Historical archive:** original path `design/library-sync/sweep-up.md`. This is the pre-sweep design record, not the current status. See [implemented](../../implemented.md) and [outstanding](../../outstanding.md) for the maintained account.
+
+
 > Part of the library sync plan -- **start at the index**:
 > [`../library-sync-pipeline-plan.md`](../library-sync-pipeline-plan.md).
 > Contains §13. Status: chunk 29 is **built** in `791af5b`; chunks 30-41 turn

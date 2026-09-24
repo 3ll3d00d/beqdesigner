@@ -1,5 +1,5 @@
 r'''
-Ignore rules -- design/library-sync/workflow-rework/design.md §12.4.
+Ignore rules -- design/archive/library-sync/workflow-rework/design.md §12.4.
 
 A rule says "this kind of title is not for this catalogue" -- a Kids folder, all TV, anything before 1960 -- so it need
 not be skipped by hand, title by title. It is evaluated at discovery against a `LibraryItem`; a title it matches is

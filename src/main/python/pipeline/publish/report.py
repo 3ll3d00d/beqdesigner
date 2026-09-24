@@ -6,7 +6,7 @@ A spec-driven render of the "Pixel Perfect Image | Chart" layout -- the only
 layout docs/ui/report.md says matters for publishing ("All reports shared on
 avsforum use the Pixel Perfect Image | Chart layout"). This is not a port of
 SaveReportDialog (model/report.py); it is built against that layout's output
-shape, per design/api-headless-pipeline.md §6's "spec, not a port" framing.
+shape, per design/archive/api-headless-pipeline.md §6's "spec, not a port" framing.
 
 D4's follow-on (§14) -- fixed output width vs poster-driven, and whether the
 filter table sits inside the chart axes or below it -- is answered by that

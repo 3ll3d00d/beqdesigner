@@ -1,5 +1,5 @@
 '''
-Reading the local XML catalogue repo for the TMDB ids it already holds -- design/library-sync/workflow-rework/design.md
+Reading the local XML catalogue repo for the TMDB ids it already holds -- design/archive/library-sync/workflow-rework/design.md
 §12.5 ("Repo awareness"), so a title someone else already published can be labelled *Already in catalogue*.
 
 The id is `<beq_metadata><beq_theMovieDB>`. The XML carries no movie/tv marker, and TMDB numbers films and series

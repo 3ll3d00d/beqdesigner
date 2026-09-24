@@ -4,22 +4,19 @@
 (in-process callable and HTTP, `§7.1`) exist; see
 [`src/main/python/pipeline/README.md`](../src/main/python/pipeline/README.md#the-designer-contract)
 for where. This document remains the thing both sides build to and stays
-authoritative for the field-level contract; it is not a plan and has no
-"remaining work" of its own — implementation-side follow-ups live in
-`api-headless-pipeline.md §14` and the pipeline README.
+authoritative for the field-level contract; it is not a plan. Delivered
+caller behavior is in [`implemented.md`](implemented.md); open work is in
+[`outstanding.md`](outstanding.md).
 
 **Audience:** whoever implements a filter designer — beqanalyser first, but
 nothing here is beqanalyser-specific. **Read this document alone; it does
 not assume you have access to the beqdesigner repo.**
 
-This is the formal version of the contract sketched in
-[`api-headless-pipeline.md §2`](api-headless-pipeline.md) and negotiated with
-the beqanalyser project (`api-headless-pipeline.md §15` has the negotiation
-summary). Where the two documents disagree, **this document wins** — it is
-the one meant to be implemented against, and will be kept in sync if the
-contract changes. `api-headless-pipeline.md §2`/`§15` explain the *why*; this
-explains the *what*, precisely enough to write code against without reading
-the rest.
+This is the formal caller/designer contract negotiated with the beqanalyser
+project. It is the document to implement against and is kept in sync when
+the contract changes. The delivered caller behavior is summarized in
+[`implemented.md`](implemented.md); this document defines the fields precisely
+enough to write a designer without reading the rest of the repository.
 
 *Revised three times against external review before either side had written
 code against v1.0 — once on shape (added `coverage`, `method`,
@@ -33,7 +30,7 @@ draft.*
 
 *The caller side of `candidates` — running design over many titles
 unattended and letting a human pick one per title before anything
-publishes — is `design/candidate-review-plan.md`.*
+publishes — is described in [`implemented.md`](implemented.md).*
 
 *A test checklist for whoever implements this contract, extracted from two
 independent implementations' test suites (this repo's caller side and
@@ -591,8 +588,7 @@ different wire.
 Chosen over the process boundary staying Python-only because it's the more
 deployment-flexible option — the designer can be local, on another
 machine, written in any language, or shared across a team, without the
-caller spawning or managing it (`design/http-designer-binding-plan.md` has
-the fuller reasoning). This repo's caller-side implementation is
+caller spawning or managing it. This repo's caller-side implementation is
 `pipeline.designer.http_binding.http_designer(url)`.
 
 **One POST per `design()` call**, request body:

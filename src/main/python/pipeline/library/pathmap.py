@@ -1,6 +1,6 @@
 r'''
 Translating the paths a library server reports into paths this machine can open --
-design/library-sync-pipeline-plan.md §11.6.
+design/archive/library-sync-pipeline-plan.md §11.6.
 
 JRiver reports the paths as its host sees them, and does so in Windows form (`W:\Films\x.mkv`, or a UNC
 `\\nas\media\x.mkv`) whatever the client is; ffmpeg here needs a local path. A mapping says "the folder the server

@@ -1,5 +1,5 @@
 '''
-Phase 1 (B2) of design/pipeline-implementation-plan.md: Executor.run_sync()
+Phase 1 (B2) of design/archive/pipeline-implementation-plan.md: Executor.run_sync()
 runs the built ffmpeg command synchronously, with no QThreadPool/QRunnable
 involved, so a headless caller doesn't need `ex._Executor__ffmpeg_cmd.run(...)`
 via name mangling any more.
@@ -7,7 +7,7 @@ via name mangling any more.
 Builds a real synthetic 6-channel (5.1) wav, extracts+downmixes+decimates it
 via run_sync(), and checks the result against the LFE-weighted downmix
 formula (MAIN=10**(-20.2/20)=0.0977, LFE=10**(-10.2/20)=0.3090) that
-design/api-headless-pipeline.md §1 verified manually.
+design/archive/api-headless-pipeline.md §1 verified manually.
 '''
 import math
 import os

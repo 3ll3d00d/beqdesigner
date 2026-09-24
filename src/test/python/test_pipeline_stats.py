@@ -1,5 +1,5 @@
 '''
-Phase 1 (B5) of design/pipeline-implementation-plan.md: signal_stats(),
+Phase 1 (B5) of design/archive/pipeline-implementation-plan.md: signal_stats(),
 extracted from model/waveform.py's __recalc_stats (+ the model/analysis.py
 and model/extract.py duplicates).
 '''

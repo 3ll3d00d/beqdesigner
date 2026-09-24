@@ -1,5 +1,5 @@
 '''
-Which of a JRiver library's fields hold the IMDb / TMDb / optional TVDB ids -- design/library-sync-pipeline-plan.md §11.7.
+Which of a JRiver library's fields hold the IMDb / TMDb / optional TVDB ids -- design/archive/library-sync-pipeline-plan.md §11.7.
 
 Users keep these in different fields, so the choice is theirs. The box for each is editable text (one or more field
 names, comma separated, first with a value wins), with the server's own fields offered from Library/Fields, which is

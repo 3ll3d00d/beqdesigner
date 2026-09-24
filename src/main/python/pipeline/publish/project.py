@@ -1,6 +1,6 @@
 '''
 pipeline/publish/project.py: `.beq` project files as the published source --
-design/library-sync-pipeline-plan.md §3.3/§3.3.1, Appendix B (chunk 2).
+design/archive/library-sync-pipeline-plan.md §3.3/§3.3.1, Appendix B (chunk 2).
 
 Output 1 (§3.3) is a mono `.beq` project file per title, and (optionally) a
 linked multichannel one -- the same gzip+JSON shape app.py's

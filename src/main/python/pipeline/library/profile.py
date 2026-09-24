@@ -1,5 +1,5 @@
 '''
-The catalogue profile -- design/library-sync/workflow-rework/design.md §12.4: everything one catalogue needs, in one
+The catalogue profile -- design/archive/library-sync/workflow-rework/design.md §12.4: everything one catalogue needs, in one
 file the GUI and the CLI both read and write.
 
 It is the CLI's existing config file (`run:`, `sync:`, `designers:`, `sources.<name>:`) with three additions:

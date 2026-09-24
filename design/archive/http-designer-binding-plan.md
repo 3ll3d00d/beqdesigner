@@ -1,8 +1,11 @@
 # Implementation plan — HTTP designer binding
 
+> **Historical archive:** original path `design/http-designer-binding-plan.md`. This is the pre-sweep design record, not the current status. See [implemented](../implemented.md) and [outstanding](../outstanding.md) for the maintained account.
+
+
 **Status: done.** All four phases below shipped. For the current wire
 format, GUI workflow, and how it fits the rest of the pipeline, see
-[`src/main/python/pipeline/README.md`](../src/main/python/pipeline/README.md#the-designer-contract)
+[`src/main/python/pipeline/README.md`](../../src/main/python/pipeline/README.md#the-designer-contract)
 and `designer-interface.md §7.1` (the formal wire spec). This file stays
 only as a phase index for code comments that cite it by phase number.
 

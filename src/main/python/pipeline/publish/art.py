@@ -1,9 +1,9 @@
 '''
-pipeline/publish/art.py: poster fetch -- design/pipeline-implementation-plan.md
+pipeline/publish/art.py: poster fetch -- design/archive/pipeline-implementation-plan.md
 phase 3 (item 8).
 
 TMDB's poster_path (pipeline.metadata.BeqMetadata.poster) is a path
-fragment, not a URL (design/api-headless-pipeline.md §6) -- the image base
+fragment, not a URL (design/archive/api-headless-pipeline.md §6) -- the image base
 URL and a size have to be supplied. The GUI today has the user paste a full
 URL themselves (SaveReportDialog.imageURL); this is that step done
 headlessly, combining TMDB's documented image base URL with the fragment.

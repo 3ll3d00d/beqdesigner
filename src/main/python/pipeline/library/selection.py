@@ -1,6 +1,5 @@
 '''
-Which titles an action applies to, and what "run through stage X" does to each -- design/library-sync/workflow-rework/
-design.md §12.7.
+Which titles an action applies to, and what "run through stage X" does to each -- design/archive/library-sync/workflow-rework/design.md §12.7.
 
 There is one selection vocabulary, shared by the CLI and the work list (and the documentation):
 

@@ -1,5 +1,5 @@
 '''
-The HTTP designer binding -- design/http-designer-binding-plan.md phase 1,
+The HTTP designer binding -- design/archive/http-designer-binding-plan.md phase 1,
 design/designer-interface.md §7 ("nothing here stops a subprocess or HTTP
 binding later that serialises the same fields as JSON... only how they
 cross a process boundary does [change]").

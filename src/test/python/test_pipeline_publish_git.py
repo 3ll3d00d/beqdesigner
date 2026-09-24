@@ -1,5 +1,5 @@
 '''
-Phase 4 (item 10) of design/pipeline-implementation-plan.md: commit + push
+Phase 4 (item 10) of design/archive/pipeline-implementation-plan.md: commit + push
 mechanics for the XML and images repos. Exercises real local git repos
 (a bare "remote" + a working clone) rather than mocking subprocess, so the
 add/commit/push sequence is genuinely verified -- no network access
@@ -90,7 +90,7 @@ def test_push_image_falls_back_to_parsing_the_remote_when_owner_not_given(tmp_pa
 
 
 def test_rewriting_a_published_path_with_changed_content_is_a_new_commit_at_the_same_path(tmp_path):
-    ''' A revision (design/library-sync/workflow-rework §12.7): same catalogue path, new commit -- works today. '''
+    ''' A revision (design/archive/library-sync/workflow-rework/design.md §12.7): same catalogue path, new commit -- works today. '''
     target, bare = _init_repo_with_remote(tmp_path)
     first = commit_and_push(target, 'xml/rp1.xml', b'v1', 'Add RP1')
 

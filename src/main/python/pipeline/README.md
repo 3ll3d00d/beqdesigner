@@ -2,16 +2,16 @@
 
 `pipeline/` runs BEQ filter creation and publishing without a GUI — extract
 audio, get a filter from a pluggable designer, simulate headroom, and publish
-beqcatalogue-format XML + a report image to git — so it can be driven by a
+BEQCatalogue JSON records + report images to git — so it can be driven by a
 script, a batch job, or (via `pipeline/designer/http_binding.py`) a designer
 implementation in another process or language entirely.
 
-This package, `designer-interface.md`'s contract, and everything built on
-top of it (HTTP binding, batch design, review queue) shipped in full — see
-"What shipped" below. The design docs in `design/` now record *why* things
-are shaped the way they are and what remains genuinely open, not a build
-plan; start here for the current state, and follow the links below into
-`design/` for the reasoning behind a specific decision.
+The current delivered design is in
+[`design/implemented.md`](../../../../design/implemented.md); the deduplicated
+backlog is [`design/outstanding.md`](../../../../design/outstanding.md).
+The formal designer contract remains in `design/designer-interface.md`.
+Some legacy XML names and examples below await the terminology migration
+tracked as J1 in the backlog; the library publisher already writes JSON.
 
 ## Architecture rules
 
@@ -86,25 +86,24 @@ ui/preferences.py, ui/batch.py   # the corresponding dialogs
 3. **Simulate** — `Session.stats(sig)` → `signal_stats()`: peak, RMS, crest,
    headroom, and the fs it was measured at (so a published `beq_gain` is
    never ambiguous about what it measured).
-4. **Metadata + XML** — `Session.tmdb(title, year, kind)` → `BeqMetadata`;
-   `Session.to_beq_xml(sig, meta)` wraps the existing `HDXmlParser`/
-   `flat24hd.xml` path. Validates filter types/budget and fails loudly
-   rather than writing an unpublishable entry.
+4. **Metadata + filter record** — `Session.tmdb(title, year, kind)` →
+   `BeqMetadata`; the library publisher uses
+   `pipeline.publish.catalogue_json.filter_record()` for version-1 JSON.
+   `Session.to_beq_xml()` remains available for the older XML export path.
 5. **Art + report** — `pipeline/publish/art.py` fetches the TMDB poster;
    `pipeline/publish/report.py` renders the same "pixel perfect" layout the
    interactive `SaveReportDialog` produces, headlessly (an Agg canvas, no
    Qt-embedded figure), at a fixed size/DPI passed in rather than measured
    from a window.
-6. **Publish** — `pipeline/publish/git.py` commits the XML to one repo and
-   the report image to a second, builds the image's GitHub raw-content URL,
-   and sets it as `BeqMetadata.spectrum_url`/`.pva_url` *before* the XML is
-   written (the XML needs that URL). Runs as the invoking user's own git
-   identity — no credential of its own.
+6. **Publish** — `pipeline/publish/git.py` writes named filter-record and
+   image files into their repositories; Publish and Commit are separate
+   library stages. The record carries the image's GitHub raw-content URL.
+   Git uses the invoking user's identity and credentials.
 
 `Session` (`pipeline/orchestrate.py`) composes all of the above; see its
 module docstring for `Applied`/`Declined` handling and how a designer's
 provenance (confidence, method, residual, alternatives) travels as far as
-the report but never into the published XML.
+the report.
 
 ## The designer contract
 
@@ -121,9 +120,9 @@ optional per-channel diagnostic (channel_scope, bass-management
 reconstruction) `Session.design()` forwards but never derives on its own --
 a caller that wants it supplies it explicitly via `Session.load_channels()`
 (pure decomposition of a multichannel wav into named arrays, no
-mixing/gain-staging -- `mono_mix` itself is still only ever produced by the
-ffmpeg downmix path, `Session.extract(mono_mix=True)`, so it stays
-bit-consistent with every other mono downmix in the app). Both `model/
+mixing/gain-staging -- the library path with a kept multichannel WAV uses
+the same `Executor` pan coefficients to mix it in blocks; other paths use
+`Session.extract(mono_mix=True)`). Both `model/
 batch.py` and `model/extract.py`'s design steps supply `channels` whenever
 their kept extraction is multichannel, at no extra ffmpeg cost -- decomposed
 straight from the file already on disk.
@@ -285,7 +284,7 @@ PYTHONPATH=src/main/python python -m pipeline.library.cli [--config FILE] accept
   review queue, `.beq` projects, both repositories) and records what every title **needs next**, without extracting,
   designing or publishing anything and without reading a media file (a JRiver listing is one request; a filesystem
   source costs one `stat` per file). The result is a disposable SQLite index in the work directory
-  (`library-index.sqlite`, schema in `design/library-sync/workflow-rework/design.md` §12.5); deleting it costs a rescan
+  (`library-index.sqlite`, schema in `pipeline/library/index.py`); deleting it costs a rescan
   and nothing else. A source that cannot be listed keeps the titles it had and is reported (exit status 1), so one
   library being down never makes its titles vanish -- and neither does one that lists *nothing* when it listed some at the last
   scan (an unmounted share): its previous listing is kept and it is reported, unless `--allow-empty`. `--source NAME` rescans just
@@ -533,8 +532,8 @@ when the queue has accepted entries.
 
 ## Design decisions (resolved)
 
-Kept here as a short index; each was worked through in more detail in
-`design/api-headless-pipeline.md §14` before being implemented.
+Kept here as a short historical index; delivered behavior is summarized in
+`design/implemented.md` and unfinished work in `design/outstanding.md`.
 
 | | Decision | Resolution |
 |---|---|---|
@@ -543,9 +542,9 @@ Kept here as a short index; each was worked through in more detail in
 | D3 | beqcatalogue repo conventions | No fixed layout — `extract_from_repo()` globs `**/*.xml`. Two repos (XML, images); images referenced by GitHub raw-content URL; plain commit + push, no PR, triggered by `repository_dispatch`. |
 | D4 | Does the report need to be pixel-identical to the GUI's? | No — a spec-driven render (fixed size/layout) of the existing "pixel perfect" mode, not a port of the dialog's layout code. |
 | D5 | CLI vs service (whose git credentials?) | Runs as the invoking user's own git/SSH config — see `pipeline/publish/git.py`'s module docstring. |
-| D6 | Catalogue-as-input (`CatalogueEntry.iir_filters()` → apply an existing published BEQ) | **Still open** — smaller, separate job, not built; worth confirming whether it's wanted. |
+| D6 | Catalogue-as-input (`CatalogueEntry.iir_filters()` → apply an existing published BEQ) | Tracked as O1 in `design/outstanding.md`. |
 | D7 | Does designer provenance reach the report? | Yes, as far as the report (a human can see *why* a filter was accepted); never into the published XML, which has no field for it. |
-| D8 | How does a designer bind to the pipeline? | In-process callable first, HTTP binding added later (`design/http-designer-binding-plan.md`) once cross-process/cross-language use actually needed it. |
+| D8 | How does a designer bind to the pipeline? | In-process callable first, HTTP binding added later (`design/archive/http-designer-binding-plan.md`) once cross-process/cross-language use actually needed it. |
 
 ## Testing
 
@@ -556,6 +555,5 @@ form and the Review Folder window) follow.
 
 ## Open / not built
 
-- **D6** (above) — fetching an already-published BEQ and applying it,
-  bypassing extract/design/metadata entirely. Confirmed smaller than this
-  pipeline; not started.
+See [`design/outstanding.md`](../../../../design/outstanding.md) for the
+deduplicated backlog and completion criteria.

@@ -1,8 +1,11 @@
 # Implementation plan — candidate review workflow
 
+> **Historical archive:** original path `design/candidate-review-plan.md`. This is the pre-sweep design record, not the current status. See [implemented](../implemented.md) and [outstanding](../outstanding.md) for the maintained account.
+
+
 **Status: done.** All four phases below shipped. For the current
 `QueueEntry` workflow and GUI, see
-[`src/main/python/pipeline/README.md`](../src/main/python/pipeline/README.md#batch-design--review)
+[`src/main/python/pipeline/README.md`](../../src/main/python/pipeline/README.md#batch-design-review)
 and `docs/schema/review_queue.schema.json` (the published format). This file
 stays only as a phase index for code comments that cite it by phase number.
 

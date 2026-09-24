@@ -1,5 +1,5 @@
 '''
-Deciding a title on the title page -- design/library-sync/workflow-rework/design.md §12.10, chunks 27a and 27b: **Accept**, **Skip** and
+Deciding a title on the title page -- design/archive/library-sync/workflow-rework/design.md §12.10, chunks 27a and 27b: **Accept**, **Skip** and
 **Reject**, the rule for which title is "next", and what is checked before a decision is written. A mixin of
 `model.worklist_title.TitlePage` (which owns the widgets, the entry and the signals), split out of it so each file stays readable.
 

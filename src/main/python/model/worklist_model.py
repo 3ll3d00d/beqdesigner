@@ -1,5 +1,5 @@
 '''
-The work list's table model and its sort/filter proxy -- design/library-sync/workflow-rework/design.md §12.10.
+The work list's table model and its sort/filter proxy -- design/archive/library-sync/workflow-rework/design.md §12.10.
 
 Both are read-only views over the discovery index: a row is a `pipeline.library.index.TitleRow`, and everything shown
 (needs, detail, waiting, new-since-scan, the flags) is read from it, never derived again. The index hands the rows over

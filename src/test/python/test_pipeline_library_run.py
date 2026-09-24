@@ -48,6 +48,8 @@ def test_run_library_composes_caches_resolves_metadata_and_threads_multichannel(
         return f'{item_dir}/{"mono" if mono_mix else "multichannel"}.wav', mono_mix
 
     monkeypatch.setattr('pipeline.library.run.extract_if_needed', extract)
+    monkeypatch.setattr('pipeline.library.run.mono_from_multichannel_if_needed',
+                        lambda session, item, item_dir, config, force: (f'{item_dir}/mono.wav', False))
     monkeypatch.setattr('pipeline.library.run.read_channel_layout_name', lambda path: '5.1')
     monkeypatch.setattr('pipeline.library.run.resolve_meta',
                         lambda item, key, audio_types: {'title': item.title or item.display_name,
@@ -66,7 +68,7 @@ def test_run_library_composes_caches_resolves_metadata_and_threads_multichannel(
     report = run_library(source, config, lambda item_id: completed.append(item_id), content_type='movie')
 
     assert source.query == {'content_type': 'movie'}
-    assert extract_calls == [('one', True, False), ('one', False, False)]
+    assert extract_calls == [('one', False, False)]
     assert report.extracted == ['one']
     assert report.cached == []
     assert report.designed == ['one']
@@ -182,7 +184,11 @@ def _keep_multichannel_run(tmp_path, monkeypatch, channel_count):
         return f'{item_dir}/{"mono" if mono_mix else "multichannel"}.wav', False
 
     monkeypatch.setattr('pipeline.library.run.extract_if_needed', extract)
+    monkeypatch.setattr('pipeline.library.run.mono_from_multichannel_if_needed',
+                        lambda session, item, item_dir, config, force: (f'{item_dir}/mono.wav', False))
     monkeypatch.setattr('pipeline.library.run.read_source_channel_count', lambda item_dir: channel_count)
+    monkeypatch.setattr('pipeline.library.run.extract_status',
+                        lambda *args, **kwargs: type('Status', (), {'current': True})())
     monkeypatch.setattr('pipeline.library.run.read_channel_layout_name', lambda item_dir: '5.1')
     monkeypatch.setattr('pipeline.library.run.design_if_needed',
                         lambda *args, **kwargs: DesignCacheResult(
@@ -205,7 +211,7 @@ def test_run_library_still_keeps_multichannel_when_the_channel_count_is_unknown_
         tmp_path, monkeypatch):
     for channel_count in (None, 2, 6):
         extract_calls, _ = _keep_multichannel_run(tmp_path, monkeypatch, channel_count=channel_count)
-        assert extract_calls == [True, False]
+        assert extract_calls == [False]
 
 
 def test_run_library_reports_items_whose_edited_project_was_preserved(tmp_path, monkeypatch):

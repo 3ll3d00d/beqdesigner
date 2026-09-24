@@ -1,6 +1,6 @@
 '''
 Which accepted or published titles were designed under other settings than the ones in force now --
-design/library-sync/workflow-rework/design.md §12.6 ("Done titles and staleness") and §12.8.
+design/archive/library-sync/workflow-rework/design.md §12.6 ("Done titles and staleness") and §12.8.
 
 An accepted or published title is *protected*: a run never redesigns it, and a change to the designer, the analysis or the
 coverage deliberately does not put it back in the work list (it would put every done title there at once). The work list

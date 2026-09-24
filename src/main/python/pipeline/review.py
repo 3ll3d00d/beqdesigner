@@ -1,5 +1,5 @@
 '''
-Batch-design driver + on-disk review queue -- design/candidate-review-plan.md
+Batch-design driver + on-disk review queue -- design/archive/candidate-review-plan.md
 phase 1. A designer's DesignResponse.candidates (design/designer-interface.md
 §3) can carry several ranked filters per title; this module is what lets
 Session.design() run over many titles unattended and hands the results to a
@@ -212,7 +212,7 @@ def design_and_queue(session: Session, entry_id: str, wav_path: str, designer: s
     :param channel_layout_name: the source's ffmpeg channel layout name, forwarded to
         Session.load_channel_signals() for the multichannel project's channel labels.
     :param project_dir: if given and the outcome was Applied, writes output 1's `.beq` project file(s)
-        (design/library-sync-pipeline-plan.md §3.3/Appendix B) -- `<project_dir>/<entry_id>.mono.beq`
+        (design/archive/library-sync-pipeline-plan.md §3.3/Appendix B) -- `<project_dir>/<entry_id>.mono.beq`
         always, plus `<project_dir>/<entry_id>.multichannel.beq` when multichannel_wav_path is also given.
         A Declined outcome has no filter to write, so nothing is written for it (matches "candidates empty
         on decline"). Omitted (the default), no project files are written -- backward compatible.
@@ -303,8 +303,7 @@ def apply_reviewed_entry(entry: QueueEntry):
 def _read_channel_layout_name(project_dir: str) -> str:
     '''
     Reads manifest.json's channel_layout_name key, if the file and key exist -- the extract cache's
-    fingerprint record (design/library-sync-pipeline-plan.md §4.1), not yet built (chunk 5) as of this
-    chunk. get_channel_name()'s own fallback already handles an unknown layout sanely by channel count,
+    fingerprint record. get_channel_name()'s own fallback handles an unknown layout by channel count,
     so 'unknown' is a safe default here.
     '''
     manifest_path = os.path.join(project_dir, 'manifest.json')
@@ -480,7 +479,7 @@ def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: 
         each entry publishes to '<xml_dir>/<entry.id>.xml' (and, if
         images_repo is given, '<image_dir>/<entry.id>.png').
     :param work_dir: if given, the published filter is read from the entry's `.beq` project file(s) under
-        `<work_dir>/<entry.id>/` (design/library-sync-pipeline-plan.md §3.3.1/Appendix B) rather than from
+        `<work_dir>/<entry.id>/` (design/archive/library-sync-pipeline-plan.md §3.3.1/Appendix B) rather than from
         apply_reviewed_entry()'s raw chosen candidate -- a human who opened the mono/multichannel project
         and edited the filter directly has that edit published instead. The project(s) are regenerated
         (hash-gated -- an existing human edit is never clobbered) from the just-computed candidate filter

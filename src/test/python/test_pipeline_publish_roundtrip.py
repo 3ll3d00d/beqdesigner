@@ -1,12 +1,12 @@
 '''
-Phase 0 of design/pipeline-implementation-plan.md: pin the beqcatalogue
+Phase 0 of design/archive/pipeline-implementation-plan.md: pin the beqcatalogue
 publish contract against the code as it stands today, before any of the
 pipeline/ refactoring starts. No production code is exercised here beyond
 what already exists — model.minidsp/model.iir/model.merge.
 
 Uses the Ready Player One filter values from docs/workflow/beq.md (a
 LowShelf stacked 5x plus a PeakingEQ) as the worked example, matching
-design/api-headless-pipeline.md §11.1.
+design/archive/api-headless-pipeline.md §11.1.
 '''
 import os
 

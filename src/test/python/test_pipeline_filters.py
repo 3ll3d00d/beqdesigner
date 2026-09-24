@@ -1,5 +1,5 @@
 '''
-Phase 1 (B3) of design/pipeline-implementation-plan.md: FilterSpec + create_filter().
+Phase 1 (B3) of design/archive/pipeline-implementation-plan.md: FilterSpec + create_filter().
 '''
 import math
 

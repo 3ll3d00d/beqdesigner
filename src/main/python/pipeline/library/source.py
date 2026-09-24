@@ -1,7 +1,7 @@
 '''
 LibrarySource: the pluggable contract a library-scale extract+design run (pipeline/library/run.py, not yet
 built) iterates over. One implementation ships against JRiver (blocked on a wire-format spike); Kodi/Plex
-are named future implementations of this same interface, not built here (design/library-sync-pipeline-plan.md
+are named future implementations of this same interface, not built here (design/archive/library-sync-pipeline-plan.md
 §3.2).
 '''
 from dataclasses import dataclass, field
@@ -25,7 +25,7 @@ class LibraryItem:
     kind: str = 'movie'                      # 'movie' or 'tv' -- forwarded to TMDB resolution
     external_ids: dict = field(default_factory=dict)  # {'tmdb': '603', 'imdb': 'tt0133093'} -- whatever
                                               # identifiers the source can supply; empty if it can't
-                                              # (design/library-sync-pipeline-plan.md §3.1.1)
+                                              # (design/archive/library-sync-pipeline-plan.md §3.1.1)
     audio_stream: int = 0
     # Source-provided descriptions, in ffmpeg audio-stream order.  This is deliberately separate from ``meta``:
     # it is operational data used when a reviewer selects another stream, not BEQ metadata to publish.
@@ -43,7 +43,7 @@ class LibraryItem:
     season: Optional[str] = None             # TV: the season number, when the source knows it
     episodes: tuple = ()                     # TV: the episode numbers (ints) this item covers -- one for an
                                               # episode, several for a season grouped into a single track
-                                              # (design/library-sync-pipeline-plan.md §11.9)
+                                              # (design/archive/library-sync-pipeline-plan.md §11.9)
     source_path_problem: Optional[str] = None  # non-sensitive source-path diagnostic, if a source knows it cannot
                                                 # be opened on this host (e.g. an unmapped JRiver Windows path)
 

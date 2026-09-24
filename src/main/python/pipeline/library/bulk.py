@@ -1,5 +1,5 @@
 '''
-Bulk accept -- design/library-sync/workflow-rework/design.md §12.9.
+Bulk accept -- design/archive/library-sync/workflow-rework/design.md §12.9.
 
 Accepting is the human gate, so bulk accept is deliberately narrow: from a selection it takes only the titles that are
 *waiting for review*, whose designer's top pick is at least `threshold` confident, and leaves out -- and reports --

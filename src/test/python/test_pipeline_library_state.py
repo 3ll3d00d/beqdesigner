@@ -1,5 +1,5 @@
 '''
-The needs/tier table of design/library-sync/workflow-rework §12.6 as a pure function: one case per row, in table order,
+The needs/tier table of design/archive/library-sync/workflow-rework/design.md §12.6 as a pure function: one case per row, in table order,
 and the flags that take a title out of the work. No disk, no index -- derive_needs() is a function of StageStates.
 '''
 import pytest

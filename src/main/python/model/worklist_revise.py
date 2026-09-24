@@ -1,5 +1,5 @@
 '''
-Sending titles back -- design/library-sync/workflow-rework/design.md §12.8, chunk 27c. The work list's *Revise...* (on the
+Sending titles back -- design/archive/library-sync/workflow-rework/design.md §12.8, chunk 27c. The work list's *Revise...* (on the
 title page, and on the selected rows) and the "settings changed" banner all come here; the work itself is
 `pipeline.library.revise`.
 

@@ -1,5 +1,5 @@
 '''
-Phase 3 (item 9) of design/pipeline-implementation-plan.md: the headless
+Phase 3 (item 9) of design/archive/pipeline-implementation-plan.md: the headless
 report renderer. Verifies the filter-table formatting logic against known
 values (same shape as SaveReportDialog.__table_print, model/report.py --
 now rewired to call this function directly), that a full render

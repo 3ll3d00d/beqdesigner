@@ -1,5 +1,5 @@
 '''
-Phase 3 (item 8) of design/pipeline-implementation-plan.md: poster fetch.
+Phase 3 (item 8) of design/archive/pipeline-implementation-plan.md: poster fetch.
 The TMDB HTTP call is mocked -- no network access required.
 '''
 import os

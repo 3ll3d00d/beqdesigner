@@ -1,5 +1,5 @@
 '''
-Discovery (design/library-sync/workflow-rework §12.5/§12.6): scan() reads sources and outputs into the SQLite index
+Discovery (design/archive/library-sync/workflow-rework/design.md §12.5/§12.6): scan() reads sources and outputs into the SQLite index
 and says what every title needs next, without extracting or designing anything. Each case builds the outputs the
 state describes on disk (a manifest, a queue entry, a real temp git repo) and scans, so what is tested is what
 `run`/`publish`/`commit` would leave behind, not a hand-made row.
@@ -1027,19 +1027,6 @@ def test_a_5000_item_scan_and_a_rescan_stay_within_a_budget(env):
     env.index.titles(needs='extract')
     env.index.summary()
     assert time.perf_counter() - started < 3
-
-
-def test_the_frozen_schema_in_the_design_doc_is_the_one_in_the_code():
-    ''' design.md §12.5 is where the schema is frozen for the UI chunks; it must not drift from index.SCHEMA. '''
-    import re
-    doc = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'design', 'library-sync', 'workflow-rework',
-                       'design.md')
-    with open(doc, encoding='utf-8') as f:
-        text = f.read()
-    blocks = re.findall(r'```sql\n(.*?)```', text, re.S)
-
-    assert [b.strip() for b in blocks] == [index_module.SCHEMA.strip()]
-    assert f'SCHEMA_VERSION = {SCHEMA_VERSION}' in text
 
 
 # --- what run_stages needs of the index (chunk 25) ----------------------------------------------------------------------

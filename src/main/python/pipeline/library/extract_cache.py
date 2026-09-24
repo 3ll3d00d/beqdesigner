@@ -1,5 +1,5 @@
 '''
-Idempotent wrapper around Session.extract_with_layout() -- design/library-sync-pipeline-plan.md §4.1.
+Idempotent wrapper around Session.extract_with_layout() -- design/archive/library-sync-pipeline-plan.md §4.1.
 Skips ffmpeg entirely when the source hasn't changed (per LibraryItem.fingerprint, or a local mtime/size
 fallback) and neither the analysis config nor the extraction mode (mono_mix) has changed since the last
 run recorded in <target_dir>/manifest.json.
@@ -7,9 +7,14 @@ run recorded in <target_dir>/manifest.json.
 import hashlib
 import json
 import os
+import re
+import tempfile
 import time
 from dataclasses import dataclass
 from typing import Callable, Optional, Tuple
+
+import numpy as np
+import soundfile as sf
 
 from pipeline.config import AnalysisConfig
 from pipeline.library.source import LibraryItem
@@ -129,9 +134,9 @@ def extract_if_needed(session: Session, item: LibraryItem, target_dir: str, conf
                       mono_mix: bool, force: bool = False,
                       on_progress: Optional[Callable[[int, int], None]] = None) -> Tuple[str, bool]:
     '''
-    :param mono_mix: True for the mono-for-design extraction, False for the kept multichannel extraction.
-        Both are decimated to config.target_fs, matching Batch Extract / Design. A caller wanting both calls
-        this twice, once with each value -- this function only ever handles one at a time.
+    :param mono_mix: True for a direct mono-for-design extraction, False for the kept multichannel extraction.
+        Both are decimated to config.target_fs, matching Batch Extract / Design. The library run derives mono
+        from a kept multichannel WAV when possible; this function handles one source extraction at a time.
     :return: (wav_path, cached) -- cached=True if ffmpeg was skipped because the manifest already recorded
         a matching (source_fingerprint, params_hash) and the wav file still exists on disk (see extract_status()).
     '''
@@ -155,5 +160,66 @@ def extract_if_needed(session: Session, item: LibraryItem, target_dir: str, conf
         # flat top-level key -- pipeline.review._read_channel_layout_name() (chunk 2, already shipped)
         # reads exactly this key, not a nested one; do not change this without also revisiting that code.
         manifest['channel_layout_name'] = result.channel_layout_name
+        manifest['multichannel_mono_mix_spec'] = result.mono_mix_spec
     _write_manifest(target_dir, manifest)
     return result.wav_path, False
+
+
+def _mix_weights(spec: str, channel_count: int) -> np.ndarray:
+    '''Parse the pan expression produced by Executor for the selected stream.'''
+    if spec == 'c0' and channel_count == 1:
+        return np.ones(1, dtype=np.float64)
+    weights = np.zeros(channel_count, dtype=np.float64)
+    parts = spec.split('+')
+    if len(parts) != channel_count:
+        raise ValueError(f'expected {channel_count} mono mix terms, got {len(parts)}')
+    seen = set()
+    for part in parts:
+        match = re.fullmatch(r'([0-9.eE+-]+)\*c(\d+)', part)
+        if match is None:
+            raise ValueError(f'unsupported mono mix term: {part}')
+        index = int(match.group(2))
+        if index >= channel_count or index in seen:
+            raise ValueError(f'invalid mono mix channel: {index}')
+        seen.add(index)
+        weights[index] = float(match.group(1))
+    return weights
+
+
+def mono_from_multichannel_if_needed(session: Session, item: LibraryItem, target_dir: str,
+                                     config: AnalysisConfig, force: bool = False) -> Tuple[str, bool]:
+    '''Build the design mix from the kept analysis-rate WAV, without decoding the source again.'''
+    manifest = read_manifest(target_dir)
+    mono = extract_status(item, target_dir, config, True, manifest=manifest)
+    if mono.current and not force:
+        return mono.wav_path, True
+    kept = extract_status(item, target_dir, config, False, fingerprint=mono.fingerprint, manifest=manifest)
+    if not kept.current:
+        raise ValueError('multichannel extraction must be current before making a mono mix')
+    spec = manifest.get('multichannel_mono_mix_spec')
+    if not spec:  # an older cached extraction has no recorded pan coefficients
+        return extract_if_needed(session, item, target_dir, config, mono_mix=True, force=force)
+
+    temporary = None
+    try:
+        with sf.SoundFile(kept.wav_path) as source:
+            weights = _mix_weights(spec, source.channels)
+            if source.samplerate != config.target_fs:
+                raise ValueError('multichannel extraction has the wrong analysis sample rate')
+            fd, temporary = tempfile.mkstemp(prefix='.mono-', suffix='.wav', dir=target_dir)
+            os.close(fd)
+            with sf.SoundFile(temporary, mode='w', samplerate=source.samplerate, channels=1,
+                              subtype=source.subtype, format='WAV') as output:
+                for block in source.blocks(blocksize=65536, dtype='float64', always_2d=True):
+                    output.write(block @ weights)
+        os.replace(temporary, mono.wav_path)
+        temporary = None
+    finally:
+        if temporary is not None and os.path.exists(temporary):
+            os.unlink(temporary)
+
+    manifest['mono_source_fingerprint'] = mono.fingerprint
+    manifest['mono_params_hash'] = mono.params_hash
+    manifest['mono_extracted_at'] = time.time()
+    _write_manifest(target_dir, manifest)
+    return mono.wav_path, False

@@ -103,7 +103,7 @@ def list_browse_children(host: str, port: int, node_id: int = -1, *, username: O
 
     hamcws parses the Browse/Children response as {Item name: Item text}; each entry is taken to be
     (display name, node id) and an entry whose text isn't an integer is skipped. That reading is unverified
-    against a real server (design/library-sync-pipeline-plan.md chunk 3), so callers must keep a way to enter an
+    against a real server (design/archive/library-sync-pipeline-plan.md chunk 3), so callers must keep a way to enter an
     id by hand.
     :raises RuntimeError: when called from a running event loop, as JRiverLibrarySource.list_items() does.
     '''
@@ -155,7 +155,7 @@ class JRiverLibrarySource:
         :param external_id_fields: which fields hold the IMDb / TMDb ids, see normalise_external_id_fields().
         :param path_mappings: server folder -> local folder rules. JRiver reports paths as its own host sees them
             (Windows form), which this machine usually can't open; every path is translated through these, and one
-            no rule contains is passed through unchanged (design/library-sync-pipeline-plan.md §11.6).
+            no rule contains is passed through unchanged (design/archive/library-sync-pipeline-plan.md §11.6).
         '''
         self.path_mappings = tuple(path_mappings)
         self.host = host

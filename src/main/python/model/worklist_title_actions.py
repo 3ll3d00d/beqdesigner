@@ -1,5 +1,5 @@
 '''
-What the title page can do to a title besides decide it -- design/library-sync/workflow-rework/design.md §12.10, chunk 27c:
+What the title page can do to a title besides decide it -- design/archive/library-sync/workflow-rework/design.md §12.10, chunk 27c:
 
 * **Open project** (mono, multichannel): the title's `.beq` projects, opened in the main window through a callable the work
   list is given by `BeqDesigner` (this page does not import `app`: the two import each other at the top level, AGENTS.md

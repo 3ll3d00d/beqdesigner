@@ -1,5 +1,5 @@
 '''
-Opening the title page from the work list -- design/library-sync/workflow-rework/design.md §12.10, chunks 27a and 27b. A mixin of
+Opening the title page from the work list -- design/archive/library-sync/workflow-rework/design.md §12.10, chunks 27a and 27b. A mixin of
 `model.worklist.WorkListWindow` (which owns the widgets, the index and the setup):
 
 * **Drill in** -- double-click, Enter on the table, or the *Open* button -- stacks `model.worklist_title.TitlePage` on

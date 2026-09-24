@@ -1,5 +1,5 @@
 '''
-Artwork for the title page (design/library-sync/workflow-rework/design.md §12.10, chunk 27b): the poster a title's report
+Artwork for the title page (design/archive/library-sync/workflow-rework/design.md §12.10, chunk 27b): the poster a title's report
 image is drawn with (`QueueEntry.art_path`), chosen by a person -- a file from disk, or an image downloaded from a URL.
 
 What is here is everything about *getting* an image that needs no widget: checking that a file or a download really is an

@@ -1,5 +1,8 @@
 # Library sync plan -- archived handoff spec
 
+> **Historical archive:** original path `design/library-sync/archive/appendix-c-library-source-abstraction.md`. This is the pre-sweep design record, not the current status. See [implemented](../../../implemented.md) and [outstanding](../../../outstanding.md) for the maintained account.
+
+
 > Part of the library sync plan -- **start at the index**: [`../../library-sync-pipeline-plan.md`](../../library-sync-pipeline-plan.md).
 > Contains Appendix C (chunk 4). Section numbers are global across the plan; the index maps every `§` to its file.
 > Status of what this file describes: **built and shipped** -- kept as the record of the original spec; read only if you need the detail

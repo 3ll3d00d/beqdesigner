@@ -1,5 +1,5 @@
 '''
-Running work from the library work list -- design/library-sync/workflow-rework/design.md §12.7 and §12.10, chunk 26b.
+Running work from the library work list -- design/archive/library-sync/workflow-rework/design.md §12.7 and §12.10, chunk 26b.
 
 Everything the window's actions need that is not a widget:
 

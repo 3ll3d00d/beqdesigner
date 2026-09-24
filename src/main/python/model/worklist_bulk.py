@@ -1,5 +1,5 @@
 '''
-The work list's bulk actions -- design/library-sync/workflow-rework/design.md §12.6, §12.8, §12.9, chunk 27c. A mixin of
+The work list's bulk actions -- design/archive/library-sync/workflow-rework/design.md §12.6, §12.8, §12.9, chunk 27c. A mixin of
 `model.worklist.WorkListWindow`:
 
 * **Accept top pick** -- `pipeline.library.bulk`: the titles waiting for review whose top pick is at or above the threshold

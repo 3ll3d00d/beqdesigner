@@ -1,7 +1,7 @@
 '''
 pipeline/orchestrate.py: the Session facade -- design/pipeline-implementation-
 plan.md phase 5 (item 11), composing every piece built in phases 0-4 per
-design/api-headless-pipeline.md §9.
+design/archive/api-headless-pipeline.md §9.
 
 Beyond composition, this module owns two things nothing built so far needed:
 
@@ -27,7 +27,7 @@ Scope trim: no `Session.fit()`/`optimise_filters()` wrapper -- no phase
 built a Qt-free extraction of that GUI feature, and nothing in this plan's
 acceptance criteria needs it. `Session.load()`/`set_filters()`/`stats()`/
 `curves()` still assume a single-channel (mono) signal, matching this
-pipeline's mono_mix=True scope throughout (design/api-headless-pipeline.md:
+pipeline's mono_mix=True scope throughout (design/archive/api-headless-pipeline.md:
 "this pipeline always targets one device") -- a multi-channel file will
 load via `load()` but nothing past that point handles the multi-channel
 result. `design()` is the one exception: `load_channels()` decomposes a
@@ -101,7 +101,7 @@ class AlternativeDesign:
 
 @dataclass(frozen=True)
 class Applied:
-    ''' A designer produced a publishable filter -- design/api-headless-pipeline.md §15.4. '''
+    ''' A designer produced a publishable filter -- design/archive/api-headless-pipeline.md §15.4. '''
     filters: CompleteFilter
     confidence: float
     method: str
@@ -131,12 +131,13 @@ DesignOutcome = Union[Applied, Declined]
 @dataclass(frozen=True)
 class ExtractResult:
     '''
-    Session.extract_with_layout()'s return value -- design/library-sync-pipeline-plan.md Appendix D.3.
+    Session.extract_with_layout()'s return value -- design/archive/library-sync-pipeline-plan.md Appendix D.3.
     '''
     wav_path: str
     channel_layout_name: str  # model.ffmpeg's CHANNEL_LAYOUTS key, e.g. '5.1', or 'unknown'/a generic
                               # "<n> channels" string when ffmpeg's probe couldn't name it more precisely
     channel_count: int = 0    # the source stream's channel count; 0 if the probe couldn't determine it
+    mono_mix_spec: Optional[str] = None  # the same pan coefficients Executor uses for a mono extraction
 
 
 class _ConfigPreferences:
@@ -166,7 +167,7 @@ class Session:
     expensive to load/analyse, filters are cheap to iterate, so this holds
     the loaded signal steady across design/set_filters/curves/stats calls
     rather than re-extracting or re-analysing on every step
-    (design/api-headless-pipeline.md §9).
+    (design/archive/api-headless-pipeline.md §9).
     '''
     def __init__(self, config: AnalysisConfig = AnalysisConfig(), *,
                  bm_lpf_fs: int = DEFAULT_PREFS[BASS_MANAGEMENT_LPF_FS],
@@ -188,7 +189,7 @@ class Session:
         (output_file_name is given *without* an extension -- Executor appends the format's own extension,
         '.wav' by default) and (b) also returns the source's detected channel layout name
         (Executor.channel_layout_name, the same one model/batch.py's ExtractCandidate.design() already reads
-        off its own Executor) -- for a caller (the extract cache, design/library-sync-pipeline-plan.md §4.1)
+        off its own Executor) -- for a caller (the extract cache, design/archive/library-sync-pipeline-plan.md §4.1)
         that needs to record it without a second, separate probe. extract() itself keeps returning a bare path
         unchanged -- every other existing caller has no use for the layout and a changed return type would
         break them.
@@ -229,7 +230,7 @@ class Session:
         executor.update_spec(audio_stream, video_stream, mono_mix)
         executor.run_sync()
         return ExtractResult(wav_path=executor.get_output_path(), channel_layout_name=executor.channel_layout_name,
-                             channel_count=executor.channel_count)
+                             channel_count=executor.channel_count, mono_mix_spec=executor.mono_mix_spec)
 
     def extract(self, src: str, target_dir: str, audio_stream: int = 0, video_stream: int = -1,
                mono_mix: bool = True, decimate: bool = True, playlist_name: Optional[str] = None) -> str:
@@ -407,7 +408,7 @@ class Session:
         requires: the report image goes in first (if given) so its raw URL
         can be written into meta.spectrum_url/.pva_url *before* the XML is
         rendered -- beqcatalogue never reads an image out of the filter repo
-        itself (design/api-headless-pipeline.md §6, D3).
+        itself (design/archive/api-headless-pipeline.md §6, D3).
         :param push: True (the default) commits and pushes each file as it is written. False only **writes** the
             image and JSON record into the repos' working trees -- the image URL needs no push (it is built from the
             remote's owner, repo and branch) -- leaving pipeline.library.commit to commit and push a whole batch.

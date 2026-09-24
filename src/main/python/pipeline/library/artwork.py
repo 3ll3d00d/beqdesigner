@@ -1,5 +1,5 @@
 '''
-Automatic report-poster resolution for a library run -- design/library-sync-pipeline-plan.md §3.1.3.
+Automatic report-poster resolution for a library run -- design/archive/library-sync-pipeline-plan.md §3.1.3.
 
 Tiers 2 and 3 of the plan's resolution order (tier 1, a reviewer's explicit choice, is stored as
 QueueEntry.art_overridden and is never replaced by anything here):

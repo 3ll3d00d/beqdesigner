@@ -1,5 +1,5 @@
 '''
-Phase 2 (item 2c) of design/pipeline-implementation-plan.md: to_beq_xml()
+Phase 2 (item 2c) of design/archive/pipeline-implementation-plan.md: to_beq_xml()
 wraps the existing HDXmlParser path. Re-runs test_pipeline_publish_roundtrip.py's
 RP1 check end to end through the new pipeline code -- from a fake designer's
 DesignResponse, through the contract boundary (pipeline.designer.convert),

@@ -1,5 +1,5 @@
 '''
-A tree dialog for choosing the JRiver browse node a library source reads -- design/library-sync-pipeline-plan.md
+A tree dialog for choosing the JRiver browse node a library source reads -- design/archive/library-sync-pipeline-plan.md
 §11.4. Children are fetched only when a node is expanded, off the UI thread, so a large library costs nothing until
 the user opens it.
 

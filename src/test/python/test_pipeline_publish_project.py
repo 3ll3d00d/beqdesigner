@@ -1,5 +1,5 @@
 '''
-design/library-sync-pipeline-plan.md Appendix B (chunk 2): `.beq` project
+design/archive/library-sync-pipeline-plan.md Appendix B (chunk 2): `.beq` project
 files as the published source. Covers pipeline.publish.project's write/read/
 resolve functions in isolation -- pipeline.review's design_and_queue()/
 publish_reviewed_queue() wiring is covered in test_pipeline_review.py.

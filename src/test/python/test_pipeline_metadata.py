@@ -1,5 +1,5 @@
 '''
-Phase 2 (item 5) of design/pipeline-implementation-plan.md: BeqMetadata +
+Phase 2 (item 5) of design/archive/pipeline-implementation-plan.md: BeqMetadata +
 tmdb_lookup(), with the TMDB HTTP call mocked -- no network access required.
 '''
 import pytest

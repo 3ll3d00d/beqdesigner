@@ -1,6 +1,6 @@
 '''
 A LibrarySource over plain files on disk -- what Batch Extract's file search does, made a source the library
-pipeline (extract cache, design cache, review queue, sync) can run against. design/library-sync-pipeline-plan.md
+pipeline (extract cache, design cache, review queue, sync) can run against. design/archive/library-sync-pipeline-plan.md
 §11.2.
 
 Matching follows model/batch.py's FileSearch: each entry is a glob (recursive, so `**` works); an entry that is a

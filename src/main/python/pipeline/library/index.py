@@ -1,5 +1,5 @@
 '''
-The discovery index -- design/library-sync/workflow-rework/design.md §12.5 (schema frozen there, at `SCHEMA_VERSION`).
+The discovery index. `SCHEMA` and `SCHEMA_VERSION` below define its disposable cache format.
 
 A disposable SQLite cache, one row per title, of what `scan()` found and what each title needs next. It answers "what
 work exists?" without doing any of it: a scan lists each source, merges them (union.union_of), reads the outputs (status.py)

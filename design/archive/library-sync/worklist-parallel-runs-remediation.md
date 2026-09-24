@@ -1,5 +1,8 @@
 # Parallel work-list run remediation
 
+> **Historical archive:** original path `design/library-sync/worklist-parallel-runs-remediation.md`. This is the pre-sweep design record, not the current status. See [implemented](../../implemented.md) and [outstanding](../../outstanding.md) for the maintained account.
+
+
 > **Implemented in chunk 43.** This is §15 of the library sync plan. Fixes
 > landed in `51d3595` (43a), `39f8b32` (43b), and `a5376ec` (43c). The
 > shipped behavior and original contract are in
