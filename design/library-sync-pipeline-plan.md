@@ -9,6 +9,11 @@ protocol remains a separate, active
 
 ## Status at the 2026-09-24 sweep
 
+The consolidation and the library extraction change landed in `e256b18`.
+With Keep multichannel enabled, the library now derives the mono design WAV
+from the analysis-rate multichannel extraction using the extractor's pan
+coefficients; the focused library/orchestration suite passed 175 tests.
+
 | Former chunks | Current status | Where to read |
 |---|---|---|
 | 1-2, 4-29, 34-36, 38, 41-44, 45c | Implemented | [Implemented design](implemented.md) |
