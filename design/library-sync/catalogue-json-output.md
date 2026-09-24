@@ -21,6 +21,8 @@ record through BEQCatalogue and `model.catalogue.CatalogueEntry`.
 The publisher, filter-repo path naming, derived aggregate and local catalogue
 identity scan now use JSON records. The serializer is tested against the
 BEQCatalogue 96 kHz coefficient convention, including shelf unrolling.
+The legacy review, commit, index and work-list assertions now use JSON records
+and the derived `database.json` (`0ee678d`).
 Compatibility names such as `xml_repo` and `xml_dir` remain internal plumbing
 for this first landing; their settings, CLI and UI wording still need the
 separate migration described above. The BEQCatalogue reader is available for
