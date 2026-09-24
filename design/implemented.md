@@ -50,7 +50,8 @@ plumbing for now.
 preserves decisions and reviewer edits where applicable. Candidates contain
 filters and human-readable diagnostics; Skip leaves an entry pending, Reject
 excludes it, and a decline needs no publication. The interactive title page
-shows candidates, average/peak before-and-after curves, commentary, metadata,
+shows candidates, average/peak before-and-after curves using the main chart's
+measure colours and before/after line styles, commentary, metadata,
 and artwork. It lets a reviewer Accept & next, Skip, Reject, reopen or revise,
 or open the title's project in the main app. Batch Extract & Design can queue
 its results, and Review Folder presents the same page over a queue directory.

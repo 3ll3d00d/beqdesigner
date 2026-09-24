@@ -7,6 +7,7 @@ also holds Accept back while the metadata is incomplete).
 from typing import Callable, Optional, Sequence
 
 from model.codec import filter_from_json, xydata_from_json
+from model.preferences import get_avg_colour, get_peak_colour
 from pipeline.library.index import TitleRow
 from pipeline.review import QueueEntry
 
@@ -103,7 +104,8 @@ def notice_text(entry: Optional[QueueEntry], row: Optional[TitleRow], queue_dir:
 
 def chart_data(entry: Optional[QueueEntry], picked: int) -> list:
     '''
-    The selected track's average and peak mono mix, before (grey) and after (red) the picked filter. Old queue entries
+    The selected track's average and peak mono mix, in the main chart's measure colours and before/after line styles.
+    Old queue entries
     have only the average curve. Nothing for a title with no candidates. The legend names the source audio stream,
     rather than exposing the pipeline's transient signal name.
     '''
@@ -111,23 +113,24 @@ def chart_data(entry: Optional[QueueEntry], picked: int) -> list:
         return []
     track = 'audio track (all channels mixed)' if entry.audio_stream is None \
         else f'audio track {entry.audio_stream + 1} (all channels mixed)'
-    source_curves = [('Average', xydata_from_json(entry.curve), '-')]
+    source_curves = [('Average', xydata_from_json(entry.curve), get_avg_colour(0))]
     if entry.peak_curve:
-        source_curves.append(('Peak', xydata_from_json(entry.peak_curve), '--'))
+        source_curves.append(('Peak', xydata_from_json(entry.peak_curve), get_peak_colour(0)))
+    has_filter = 0 <= picked < len(entry.candidates)
     result = []
-    for kind, source, line_style in source_curves:
+    for kind, source, colour in source_curves:
         source.override_name(f'{kind} {track}')
-        source.colour = 'grey'
-        source.linestyle = line_style
+        source.colour = colour
+        source.linestyle = '--' if has_filter else '-'
         result.append(source)
-    if 0 <= picked < len(entry.candidates):
+    if has_filter:
         complete_filter = filter_from_json(entry.candidates[picked].filters)
         response = complete_filter.get_transfer_function().get_magnitude()
-        for kind, source, line_style in source_curves:
+        for kind, source, colour in source_curves:
             filtered = source.filter(response)
             filtered.override_name(f'Filtered {kind.lower()} {track}')
-            filtered.colour = 'red'
-            filtered.linestyle = line_style
+            filtered.colour = colour
+            filtered.linestyle = '-'
             result.append(filtered)
     return result
 

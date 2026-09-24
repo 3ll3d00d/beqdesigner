@@ -134,14 +134,18 @@ def test_the_next_waiting_title_is_after_this_one_and_wraps_round():
     assert next_waiting_id(ids, 'gone', lambda i: i == 'c') == 'c'     # not in the list: from the top
 
 
-def test_chart_data_shows_average_and_peak_before_and_after_the_filter(tmp_path):
+def test_chart_data_shows_average_and_peak_before_and_after_the_filter(tmp_path, monkeypatch):
+    from model import worklist_title_text
     write_entry(str(tmp_path), 'a')
     entry = read_entry(str(tmp_path), 'a')
+    avg_colour, peak_colour = (0.2, 0.1, 0.0), (0.0, 0.2, 0.1)
+    monkeypatch.setattr(worklist_title_text, 'get_avg_colour', lambda index: avg_colour)
+    monkeypatch.setattr(worklist_title_text, 'get_peak_colour', lambda index: peak_colour)
 
     curves = chart_data(entry, 1)
 
-    assert [c.colour for c in curves] == ['grey', 'grey', 'red', 'red']
-    assert [c.linestyle for c in curves] == ['-', '--', '-', '--']
+    assert [c.colour for c in curves] == [avg_colour, peak_colour] * 2
+    assert [c.linestyle for c in curves] == ['--', '--', '-', '-']
     assert [c.name for c in curves] == ['Average audio track (all channels mixed)',
                                         'Peak audio track (all channels mixed)',
                                         'Filtered average audio track (all channels mixed)',
@@ -154,7 +158,7 @@ def test_chart_data_shows_average_and_peak_before_and_after_the_filter(tmp_path)
     assert (curves[0].y == 0).all() and (curves[1].y == 10).all()
     assert curves[2].y.any()
     assert curves[3].y - curves[2].y == pytest.approx(10.0)
-    assert len(chart_data(entry, 7)) == 2             # a pick out of range still shows both source curves
+    assert [c.linestyle for c in chart_data(entry, 7)] == ['-', '-']  # no applied candidate
     legacy = replace(entry, peak_curve=None)
     assert [c.name for c in chart_data(legacy, 1)] == ['Average audio track (all channels mixed)',
                                                        'Filtered average audio track (all channels mixed)']
