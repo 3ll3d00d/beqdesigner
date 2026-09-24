@@ -142,7 +142,9 @@ failure remains distinct from one-run event history.
 ### W2 — Stream evidence and truthful stages
 
 JRiver now requests per-stream codec, channel count and stream count, using
-the first selected codec to fill automatic audio metadata. Still request
+the first selected codec to fill automatic audio metadata. A rescan fills an
+existing queue entry when its audio type is absent or still the prior automatic
+value; a different reviewer value is kept. Still request
 per-stream sample rate, bitrate, language and title fields and normalize
 them into readable audio-list choices, retaining ordinals. If a source does
 not supply a useful list, ffprobe only that title's
