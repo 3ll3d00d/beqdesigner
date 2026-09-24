@@ -143,7 +143,7 @@ class JRiverLibrarySource:
     FIELDS = (
         'Filename', 'Name', 'Year', 'Date Modified', 'File Size', 'Image File', 'Media Sub Type', 'Series',
         'Season', 'Episode', 'Genre', 'Description', 'Rating', 'Length', 'Audio Format', 'Audio Language', 'Edition',
-        'Playback Info',
+        'Audio Streams', 'Audio Codec', 'Audio Channels', 'Playback Info',
     )
     DEFAULT_EXTERNAL_ID_FIELDS = DEFAULT_EXTERNAL_ID_FIELDS
 

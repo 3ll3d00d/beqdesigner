@@ -79,7 +79,8 @@ location checks, ignore previews, and a first-save path preference.
 
 JRiver connections are managed in Preferences and shared with the filter
 manager. Source setup includes a browse-node picker, local path mappings,
-configurable external-ID fields, and optional TVDB lookup after direct TMDB
+configurable external-ID fields, per-stream codec/channel requests that fill
+the selected track's automatic audio type, and optional TVDB lookup after direct TMDB
 and IMDb resolution. Unmapped Windows paths on non-Windows hosts produce a
 safe, actionable diagnostic. The MCWS zone picker loads on a `QRunnable` and
 discards a response that arrives after close or connection change. DVD roots

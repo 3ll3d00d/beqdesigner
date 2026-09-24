@@ -142,6 +142,21 @@ def test_lists_files_from_the_configured_browse_node():
     assert {'Key', 'Name', 'Media Type', 'Series', 'Season', 'Episode'}.issubset(fields)
 
 
+def test_browse_requests_stream_codecs_and_uses_them_for_audio_metadata():
+    row = _row(**{'Audio Streams': '2', 'Audio Codec': 'TrueHD Atmos;DTS-HD MA',
+                  'Audio Channels': '8;6', 'Audio Format': 'unrelated aggregate'})
+    with _browse_server([row]) as (port, requests):
+        item = list(JRiverLibrarySource('127.0.0.1', port, 42).list_items())[0]
+
+    fields = set(parse_qs(requests[0].query)['Fields'][0].split(','))
+    assert {'Audio Streams', 'Audio Codec', 'Audio Channels'} <= fields
+    assert item.meta['audio_types'] == ['Atmos']
+    assert item.audio_stream_details == (
+        {'codec': 'TrueHD Atmos', 'channels': '8', 'audio_types': ('Atmos',)},
+        {'codec': 'DTS-HD MA', 'channels': '6', 'audio_types': ('DTS-HD MA 5.1',)},
+    )
+
+
 def test_maps_optional_fields_and_tv_metadata(tmp_path):
     artwork = tmp_path / 'poster.jpg'
     artwork.write_bytes(b'image')

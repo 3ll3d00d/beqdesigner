@@ -16,7 +16,7 @@ item that requires evidence from a real one.
 | J1 | chunk 39 | In progress | BEQCatalogue record repository access |
 | J2 | chunk 40 | In progress; resolver is a first-stream stub | Sanitised Playback Info and ffprobe evidence |
 | W1 | chunk 45a | Partially implemented | None |
-| W2 | chunk 45b | Not started | J2 for automatic stream selection; manual override already exists |
+| W2 | chunk 45b | Partial: codec, channels and stream count are requested | J2 for automatic stream selection; manual override already exists |
 | O1 | D6 | Optional idea; no implementation decision | Product decision |
 | O2 | former §9 reviewer questions | Behavior exists; acceptance decision missing | Real reviewer feedback |
 
@@ -141,9 +141,11 @@ failure remains distinct from one-run event history.
 
 ### W2 — Stream evidence and truthful stages
 
-Request JRiver per-stream codec, channels, sample rate, bitrate, language
-and title fields. Normalize them into readable audio-list choices, retaining
-ordinals. If a source does not supply a useful list, ffprobe only that title's
+JRiver now requests per-stream codec, channel count and stream count, using
+the first selected codec to fill automatic audio metadata. Still request
+per-stream sample rate, bitrate, language and title fields and normalize
+them into readable audio-list choices, retaining ordinals. If a source does
+not supply a useful list, ffprobe only that title's
 mapped local source on a worker; explain a missing/unplayable file with the
 title and path. Show the chosen stream, actual channel count and Keep
 multichannel setting before work and in Details. A true design-only cache hit

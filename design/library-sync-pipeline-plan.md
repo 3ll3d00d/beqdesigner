@@ -22,7 +22,7 @@ coefficients; the focused library/orchestration suite passed 175 tests.
 | 39 | JSON migration in progress | [J1](outstanding.md#j1-complete-the-beqcatalogue-json-migration) |
 | 40 | Selected-stream resolver in progress | [J2](outstanding.md#j2-resolve-jrivers-selected-audio-stream) |
 | 45a | Partial | [W1](outstanding.md#w1-retry-failures-and-title-page-details) |
-| 45b | Not started | [W2](outstanding.md#w2-stream-evidence-and-truthful-stages) |
+| 45b | Partially built: codec/channel requests and automatic first-stream audio type | [W2](outstanding.md#w2-stream-evidence-and-truthful-stages) |
 
 Chunk 3 became the live-fixture work in chunk 30. The remaining optional
 catalogue-as-input idea is [O1](outstanding.md#o1-catalogue-as-input);
