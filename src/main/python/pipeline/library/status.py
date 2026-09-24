@@ -31,6 +31,7 @@ from pipeline.library.extract_cache import extract_params_hash, extract_status, 
 from pipeline.library.season import DEFAULT_TV_MODE, SeasonGroup, Unit, track_fingerprint
 from pipeline.library.source import LibraryItem
 from pipeline.library.state import StageStates
+from pipeline.library.workdir import entry_directory, work_ids
 from pipeline.publish.catalogue import catalogue_paths
 from pipeline.publish.git import RepoState, RepoTarget, repo_state
 from pipeline.publish.report import ReportSpec
@@ -307,9 +308,7 @@ class Evaluator:
         :param own_ids: ids this profile publishes under; an XML with one of those names is ours, not someone else's.
         '''
         self.settings = settings
-        self.__dirs: FrozenSet[str] = frozenset(
-            name for name in os.listdir(settings.work_dir) if not name.startswith('.')
-        ) if settings.work_dir and os.path.isdir(settings.work_dir) else frozenset()
+        self.__dirs: FrozenSet[str] = frozenset(work_ids(settings.work_dir))
         self.__xml_index = xml_index or {}
         self.__own_ids = own_ids
         self.__repo_states: Dict[str, RepoState] = {}
@@ -320,7 +319,7 @@ class Evaluator:
         ''' :return: (extract state, the manifest read) '''
         if item.id not in self.__dirs:
             return 'none', {}
-        item_dir = os.path.join(self.settings.work_dir, item.id)
+        item_dir = entry_directory(self.settings.work_dir, item.id)
         manifest = read_manifest(item_dir)
         config = self.settings.config
         mono = extract_status(item, item_dir, config, True, fingerprint=fingerprint, manifest=manifest)
@@ -530,7 +529,7 @@ class Evaluator:
         facts = read_entry_facts(self.settings.queue_dir, entry_id)
         if facts is None:
             return None
-        item_dir = os.path.join(self.settings.work_dir, entry_id)
+        item_dir = entry_directory(self.settings.work_dir, entry_id)
         manifest = read_manifest(item_dir) if entry_id in self.__dirs else {}
         extract = 'current' if (manifest.get('mono_source_fingerprint') is not None
                                 and os.path.isfile(os.path.join(item_dir, 'mono.wav'))) else 'none'

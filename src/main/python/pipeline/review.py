@@ -22,6 +22,7 @@ from typing import Callable, Collection, List, Optional, Sequence, Tuple
 
 from pipeline.config import AnalysisConfig
 from pipeline.designer.contract import Coverage
+from pipeline.library.workdir import entry_directory
 from pipeline.orchestrate import Applied, Declined, DesignOutcome, Session
 from pipeline.publish.catalogue import catalogue_paths, publish_digest
 from pipeline.publish.git import RepoTarget, fs_path, has_changes, is_committed
@@ -391,7 +392,7 @@ def publication_meta(entry: QueueEntry, meta_defaults: Optional[dict] = None):
 def project_paths(work_dir: str, entry_id: str) -> Tuple[str, str, Optional[str], str]:
     ''':return: (project_dir, mono project path, multichannel project path or None, multichannel wav path); the
         multichannel project exists only where a multichannel extraction does.'''
-    project_dir = os.path.join(work_dir, entry_id)
+    project_dir = entry_directory(work_dir, entry_id)
     mc_wav = os.path.join(project_dir, 'multichannel.wav')
     return (project_dir, os.path.join(project_dir, f"{entry_id}.mono.beq"),
             os.path.join(project_dir, f"{entry_id}.multichannel.beq") if os.path.isfile(mc_wav) else None, mc_wav)

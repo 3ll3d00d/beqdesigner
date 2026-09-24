@@ -109,6 +109,11 @@ multichannel files without recorded coefficients fall back to a direct mono
 extraction once. The selected stream, channel count, and fingerprint govern
 whether cached audio can be reused.
 
+New JRiver and filesystem extractions use a readable folder named after the
+track and selected audio stream. A hidden marker records the stable library ID
+so discovery, review projects and publishing still find the same outputs after
+restart; older ID-named folders remain usable as cached extractions.
+
 `pipeline/library/stages.py` runs selected titles through extract and design
 with separate bounded capacities and cooperative cancellation. A run can
 continue from a chosen stage, retry failures, and preserve per-title failure

@@ -24,6 +24,7 @@ from typing import List, Optional
 
 from pipeline.library.extract_cache import invalidate_extract
 from pipeline.library.season import invalidate_season_track
+from pipeline.library.workdir import entry_directory
 from pipeline.publish.catalogue import catalogue_paths
 from pipeline.publish.git import RepoTarget, discard_changes, is_committed, is_repo
 from pipeline.review import QueueEntry, read_entry, update_entry
@@ -127,6 +128,6 @@ def revise_entry(queue_dir: str, entry_id: str, to: str, reason: str = '', *, wo
     if to == 'design':
         return redesign_entry(queue_dir, entry_id, reason, **where)
     result = _send_back(queue_dir, entry_id, 'extract', reason, design_fingerprint=None, **where)  # raises before we forget anything
-    item_dir = os.path.join(work_dir, entry_id)
+    item_dir = entry_directory(work_dir, entry_id)
     invalidated = invalidate_extract(item_dir) | invalidate_season_track(item_dir)
     return ReviseResult(result.entry, result.reverted, extract_invalidated=invalidated)

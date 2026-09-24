@@ -12,7 +12,7 @@ Given each source's items, in the profile's priority order, decide which are *ti
 - **Ignored.** A title matching an ignore rule (or ignored by id) stays in the list, labelled with why; it is a state
   derived from the profile, so deleting the rule brings it back.
 
-**Ownership is sticky.** A title's id is its work directory, its queue entry and its catalogue file name, so reordering
+**Ownership is sticky.** A title's id identifies its work directory, queue entry and catalogue file, so reordering
 the sources must not change it -- that would orphan an expensive extraction and publish a second XML for one film. When
 two items are the same file, the one whose id already has a work directory or queue entry (a *claim*) owns it whatever the
 priority; only unclaimed clashes go to the higher-priority source. Claims are read back from those directories every
@@ -34,6 +34,7 @@ from pipeline.library.profile import Profile, build_source
 from pipeline.library.season import is_season_id
 from pipeline.library.source import LibraryItem, LibrarySource
 from pipeline.review import read_entry
+from pipeline.library.workdir import work_ids
 
 _DISC_FOLDERS = ('bdmv', 'video_ts')
 _PLAYLIST_PSEUDO_FILE = re.compile(r'^index\.bluray(?:3d)?;\d+$')  # casefolded
@@ -82,8 +83,7 @@ def reconstruct_claims(work_dir: Optional[str], queue_dir: Optional[str]) -> Cla
     ids = set()
     seasons: Dict[Tuple[str, str], str] = {}
     if work_dir and os.path.isdir(work_dir):
-        ids.update(name for name in os.listdir(work_dir)
-                   if not name.startswith('.') and os.path.isdir(os.path.join(work_dir, name)))
+        ids.update(work_ids(work_dir))
     if queue_dir and os.path.isdir(queue_dir):
         for name in sorted(os.listdir(queue_dir)):
             if not name.endswith('.json'):

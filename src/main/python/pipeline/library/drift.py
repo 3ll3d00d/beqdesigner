@@ -27,6 +27,7 @@ from pipeline.library.design_cache import PROTECTED_STATUSES, design_fingerprint
 from pipeline.library.extract_cache import read_manifest
 from pipeline.library.index import LibraryIndex, TitleRow
 from pipeline.library.status import EntryFacts, ScanSettings, read_entry_facts
+from pipeline.library.workdir import entry_directory
 
 
 def _multichannel_variants(settings: ScanSettings, item_dir: str) -> List[bool]:
@@ -71,7 +72,7 @@ def designed_under_other_settings(index: LibraryIndex, settings: ScanSettings,
         if item is None or facts is None or facts.status not in PROTECTED_STATUSES \
                 or not facts.design_fingerprint or not facts.source_fingerprint:
             continue
-        variants = _multichannel_variants(settings, os.path.join(settings.work_dir, row.id) if settings.work_dir else '')
+        variants = _multichannel_variants(settings, entry_directory(settings.work_dir, row.id) if settings.work_dir else '')
         now = {design_fingerprint(item, settings.designer, settings.config, settings.coverage, multichannel=mc,
                                   source=facts.source_fingerprint) for mc in variants}
         if facts.design_fingerprint not in now:

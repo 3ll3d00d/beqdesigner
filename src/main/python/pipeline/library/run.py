@@ -20,6 +20,7 @@ from pipeline.library.source import LibraryItem, LibrarySource
 from pipeline.library.status import failure_applies, failure_key, safe_fingerprint, season_source_fingerprint, \
     unit_fingerprint
 from pipeline.library.union import reconstruct_claims
+from pipeline.library.workdir import item_directory
 from pipeline.metadata import redact
 from pipeline.orchestrate import Session
 
@@ -172,7 +173,7 @@ def _run_item(session: Session, item: LibraryItem, run_config: LibraryRunConfig,
               on_extract_progress: Optional[Callable[[str, int, int], None]] = None) -> UnitWork:
     if item.source_path_problem:
         raise ValueError(item.source_path_problem)
-    item_dir = os.path.join(run_config.work_dir, item.id)
+    item_dir = item_directory(run_config.work_dir, item, create=True)
     if on_stage is not None:
         on_stage(item.id, 'extract')
     with event_scope(title_id=item.id, stage='extract'):
@@ -265,7 +266,7 @@ def _extract_season(session: Session, group: SeasonGroup, run_config: LibraryRun
             progress = ({'on_progress': lambda position, total: on_extract_progress(group.item.id, position, total)}
                         if on_extract_progress is not None else {})
             wav_path, cached = extract_if_needed(
-                session, member, os.path.join(run_config.work_dir, member.id), run_config.config, mono_mix=True,
+                session, member, item_directory(run_config.work_dir, member, create=True), run_config.config, mono_mix=True,
                 force=run_config.force_extract, **progress)
         except Exception as error:
             report.failed.append((member.id, f'{type(error).__name__}: {error}'))
@@ -279,7 +280,7 @@ def _extract_season(session: Session, group: SeasonGroup, run_config: LibraryRun
     if not member_wavs:
         raise ValueError(f'none of the {len(group.members)} episodes could be extracted')
 
-    group_dir = os.path.join(run_config.work_dir, group.item.id)
+    group_dir = item_directory(run_config.work_dir, group.item, create=True)
     track_path, fingerprint, _ = season_track_if_needed(member_wavs, group_dir, force=run_config.force_extract)
     item = with_extracted(group, [episode for episode, _ in sorted(member_wavs)], fingerprint)
     report.seasons[item.id] = [m.id for m in group.members if m.episodes[0] in item.episodes]

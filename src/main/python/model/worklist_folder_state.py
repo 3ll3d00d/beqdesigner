@@ -8,6 +8,7 @@ import subprocess
 from typing import Dict, Iterable, List, Optional, Tuple
 
 from pipeline.library.index import TitleRow
+from pipeline.library.workdir import entry_directory
 from pipeline.publish.catalogue import catalogue_paths
 from pipeline.publish.git import RepoTarget, committed_paths, posix_path, repo_state
 from pipeline.review import QueueEntry, project_paths
@@ -68,7 +69,7 @@ def commit_states(ids: Iterable[str], xml_repo: str = '', xml_dir: str = '', ima
 
 def _project_files(work_dir: str, entry_id: str) -> List[str]:
     ''' The `.beq` projects of a title that are there (the mono one, and the multichannel one if it was written). '''
-    directory = os.path.join(work_dir, entry_id)
+    directory = entry_directory(work_dir, entry_id)
     return [path for path in (os.path.join(directory, f'{entry_id}.mono.beq'),
                               os.path.join(directory, f'{entry_id}.multichannel.beq')) if os.path.isfile(path)]
 
@@ -77,7 +78,7 @@ def split_for_publish(work_dir: Optional[str], ids: Iterable[str]) -> Tuple[List
     '''
     How each accepted entry can be published from a folder, given the library's work directory:
 
-    * **with projects** -- `<work_dir>/<id>/mono.wav` is there: publish reads the title's `.beq` projects (writing them first if
+    * **with projects** -- the title's work folder has `mono.wav`: publish reads its `.beq` projects (writing them first if
       they are missing), so a person's edit to one is what is published;
     * **without** -- nothing of the title is under the work directory (an entry Batch Extract & Design designed): published
       from its candidates, as there is no project to read;
@@ -91,7 +92,7 @@ def split_for_publish(work_dir: Optional[str], ids: Iterable[str]) -> Tuple[List
     without: List[str] = []
     refused: List[dict] = []
     for entry_id in ids:
-        if work_dir and os.path.isfile(os.path.join(work_dir, entry_id, 'mono.wav')):
+        if work_dir and os.path.isfile(os.path.join(entry_directory(work_dir, entry_id), 'mono.wav')):
             with_projects.append(entry_id)
             continue
         found = _project_files(work_dir, entry_id) if work_dir else []

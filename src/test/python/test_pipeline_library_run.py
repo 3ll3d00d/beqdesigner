@@ -82,6 +82,28 @@ def test_run_library_composes_caches_resolves_metadata_and_threads_multichannel(
     assert design_calls[0][5]['project_dir'] == f'{tmp_path}/work/one'
 
 
+def test_jriver_run_extracts_selected_stream_to_readable_folder(tmp_path, monkeypatch):
+    item = LibraryItem(id='jriver-123456789abc-42', source_path='/media/film.mkv',
+                       display_name='Film', audio_stream=2, fingerprint='source')
+    calls = []
+    monkeypatch.setattr('pipeline.library.run.Session', lambda config: _Session())
+
+    def extract(session, selected, item_dir, config, mono_mix, force):
+        calls.append((selected.audio_stream, item_dir))
+        return f'{item_dir}/mono.wav', False
+
+    monkeypatch.setattr('pipeline.library.run.extract_if_needed', extract)
+    monkeypatch.setattr('pipeline.library.run.design_if_needed',
+                        lambda *args, **kwargs: DesignCacheResult(
+                            QueueEntry(id=item.id, fs=1000, meta={}, curve={}), designed=True))
+    config = LibraryRunConfig(work_dir=str(tmp_path / 'work'), queue_dir=str(tmp_path / 'queue'), designer='test')
+
+    report = run_library(_Source([item]), config)
+
+    assert report.extracted == [item.id]
+    assert calls == [(2, str(tmp_path / 'work' / 'Film - audio 3'))]
+
+
 def test_run_library_marks_a_fully_cached_item_and_isolates_a_failure(tmp_path, monkeypatch):
     source = _Source([_item('cached'), _item('broken')])
     monkeypatch.setattr('pipeline.library.run.Session', lambda config: _Session())
