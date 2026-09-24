@@ -16,7 +16,7 @@ item that requires evidence from a real one.
 | J1 | chunk 39 | In progress | BEQCatalogue record repository access |
 | J2 | chunk 40 | In progress; resolver is a first-stream stub | Sanitised Playback Info and ffprobe evidence |
 | W1 | chunk 45a | Partially implemented | None |
-| W2 | chunk 45b | Partial: codec, channels and stream count are requested | J2 for automatic stream selection; manual override already exists |
+| W2 | chunk 45b | Partial in `62270b4`: codec, channels and stream count are requested | J2 for automatic stream selection; manual override already exists |
 | O1 | D6 | Optional idea; no implementation decision | Product decision |
 | O2 | former §9 reviewer questions | Behavior exists; acceptance decision missing | Real reviewer feedback |
 
