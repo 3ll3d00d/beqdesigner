@@ -25,6 +25,7 @@ coefficients; the focused library/orchestration suite passed 175 tests.
 | 45b | Partially built in `62270b4` and `cb9456f`: codec/channel requests, automatic first-stream audio type and existing-entry backfill on rescan | [W2](outstanding.md#w2-stream-evidence-and-truthful-stages) |
 | Extraction folders | Implemented in `ffdcf1a`: readable track and stream names with stable ID lookup and legacy cache support | [Implemented design](implemented.md) |
 | Run Details persistence | Implemented in `48c2fc9`: redacted last-run details restored after restart | [Implemented design](implemented.md) |
+| Title-page progress | Implemented in `92d8881`: viewed track progress on its page, completed-title count on the list | [Implemented design](implemented.md) |
 
 Chunk 3 became the live-fixture work in chunk 30. The remaining optional
 catalogue-as-input idea is [O1](outstanding.md#o1-catalogue-as-input);
