@@ -9,30 +9,57 @@ import hashlib
 import json
 import os
 from dataclasses import asdict
-from typing import Optional, Tuple
+from typing import Mapping, Optional, Tuple
 
 from pipeline.metadata import BeqMetadata
 from pipeline.publish.git import join_posix
 from pipeline.publish.report import ReportSpec
 
 
-def catalogue_paths(entry_id: str, xml_dir: str = '', image_dir: str = '') -> Tuple[str, str]:
+def category_folder(season) -> str:
+    '''The repository subfolder for a published title with (or without) season metadata.'''
+    return 'tv' if season else 'movies'
+
+
+def category_for_season(season, enabled: bool) -> Optional[str]:
+    '''The path category, or the existing flat layout when the setting is off.'''
+    return ('TV' if season else 'film') if enabled else None
+
+
+def category_for_metadata(meta: Mapping, defaults: Optional[Mapping], enabled: bool) -> Optional[str]:
+    '''Use the same season value as publication metadata, including profile defaults.'''
+    return category_for_season(meta.get('season', (defaults or {}).get('season')), enabled)
+
+
+def _folder(category: Optional[str]) -> str:
+    if category is None:
+        return ''
+    if category not in ('film', 'TV'):
+        raise ValueError(f'unknown catalogue content type {category!r}')
+    return category_folder(category == 'TV')
+
+
+def catalogue_paths(entry_id: str, xml_dir: str = '', image_dir: str = '', *,
+                    category: Optional[str] = None) -> Tuple[str, str]:
     '''
     :return: (filter_relative_path, image_relative_path) of an entry within its repos: `<xml_dir>/<entry_id>.json` and
         `<image_dir>/<entry_id>.png`. The entry id is stable across reorderings and re-runs, so a revision rewrites
-        the same path. beqcatalogue globs **/*.xml, so the naming is ours to choose.
+        the same path. With a category, movies and TV go under `movies/` and `tv/` beneath the configured prefix.
+        BEQCatalogue reads individual JSON records recursively.
 
         Always `/`-separated, on Windows too, because that is how git spells a path (`git status` says `filters/one.json`);
         a path with the platform's separator would never match what git reports. The file system is reached by
         splitting the path on `/` (see pipeline.publish.git.write_files()). Backslashes in a directory are read as
         separators.
     '''
-    return join_posix(xml_dir, f"{entry_id}.json"), join_posix(image_dir, f"{entry_id}.png")
+    folder = _folder(category)
+    return join_posix(xml_dir, folder, f"{entry_id}.json"), join_posix(image_dir, folder, f"{entry_id}.png")
 
 
-def aggregate_path(xml_dir: str = '') -> str:
+def aggregate_path(xml_dir: str = '', *, category: Optional[str] = None) -> str:
     '''The filter repo's derived aggregate, beside its individual records.'''
-    return join_posix(xml_dir, 'database.json')
+    folder = _folder(category)
+    return join_posix(xml_dir, folder, 'database.json')
 
 
 def _file_sha256(path: Optional[str]) -> Optional[str]:

@@ -18,7 +18,7 @@ from model.xy import MagnitudeData
 from pipeline.library import commit as commit_module
 from pipeline.library.commit import commit_catalogue
 from pipeline.library.sync import commit_library, publish_library, sync_library
-from pipeline.publish.catalogue import catalogue_paths, publish_digest
+from pipeline.publish.catalogue import aggregate_path, catalogue_paths, publish_digest
 from pipeline.publish.git import RepoTarget, current_branch, repo_state
 from pipeline.metadata import BeqMetadata
 from pipeline.review import CandidateSummary, QueueEntry, publish_reviewed_queue, read_entry, update_entry, \
@@ -112,6 +112,50 @@ def test_publish_writes_the_files_but_commits_and_pushes_nothing(tmp_path, repos
     assert _commits(xml) == [] and _commits(images) == []
     assert repo_state(xml).uncommitted == {'xml/one.json', 'xml/database.json'}
     assert read_entry(queue_dir, 'one').status == 'published'
+
+
+def test_category_folders_publish_and_commit_film_and_tv_with_separate_aggregates(tmp_path, repos):
+    xml, _, images, _ = repos
+    queue_dir = str(tmp_path / 'queue')
+    _queue_entry(queue_dir, 'film', 'Film')
+    _queue_entry(queue_dir, 'show', 'Show')
+    show = read_entry(queue_dir, 'show')
+    update_entry(queue_dir, 'show', meta={**show.meta, 'season': '1'})
+
+    results = publish_library(queue_dir, xml, images_repo=images, image_owner=OWNER,
+                              image_repo_name=IMAGES_NAME, category_folders=True)
+
+    assert {result['id'] for result in results} == {'film', 'show'}
+    assert sorted(path.relative_to(tmp_path / 'xml').as_posix() for path in (tmp_path / 'xml').rglob('*.json')) == [
+        'movies/database.json', 'movies/film.json', 'tv/database.json', 'tv/show.json']
+    assert sorted(path.relative_to(tmp_path / 'images').as_posix() for path in (tmp_path / 'images').rglob('*.png')) == [
+        'movies/film.png', 'tv/show.png']
+    assert {record['title'] for record in json.loads((tmp_path / 'xml' / 'movies' / 'database.json').read_text())} == {'Film'}
+    assert {record['title'] for record in json.loads((tmp_path / 'xml' / 'tv' / 'database.json').read_text())} == {'Show'}
+    assert all('/movies/' in result['image_url'] or '/tv/' in result['image_url'] for result in results)
+
+    committed = commit_library(queue_dir, xml, images_repo=images, category_folders=True, push=False)
+    assert set(committed.xml.paths) == {'movies/film.json', 'movies/database.json',
+                                       'tv/show.json', 'tv/database.json'}
+    assert set(committed.images.paths) == {'movies/film.png', 'tv/show.png'}
+
+
+def test_category_folder_commit_uses_publication_metadata_defaults(tmp_path, repos):
+    xml, _, images, _ = repos
+    queue_dir = str(tmp_path / 'queue')
+    _queue_entry(queue_dir, 'show', 'Show')
+    defaults = {'season': '1'}
+
+    published = publish_library(queue_dir, xml, images_repo=images, image_owner=OWNER,
+                                image_repo_name=IMAGES_NAME, category_folders=True, meta_defaults=defaults)
+    assert [result['id'] for result in published] == ['show']
+    assert (tmp_path / 'xml' / 'tv' / 'show.json').is_file()
+
+    committed = commit_library(queue_dir, xml, images_repo=images, category_folders=True,
+                               meta_defaults=defaults, push=False)
+    assert set(committed.xml.paths) == {'tv/show.json', 'tv/database.json'}
+    assert committed.images.paths == ['tv/show.png']
+    assert committed.missing == []
 
 
 def test_the_image_url_in_the_xml_is_known_without_pushing(tmp_path, repos):
@@ -445,3 +489,8 @@ def test_catalogue_paths_are_the_entry_id_under_each_directory():
     assert catalogue_paths('jriver-3fa9c2-1234', 'filters', 'images') == (
         'filters/jriver-3fa9c2-1234.json', 'images/jriver-3fa9c2-1234.png')
     assert catalogue_paths('x') == ('x.json', 'x.png')
+    assert catalogue_paths('film', 'filters', 'images', category='film') == \
+           ('filters/movies/film.json', 'images/movies/film.png')
+    assert catalogue_paths('show', 'filters', 'images', category='TV') == \
+           ('filters/tv/show.json', 'images/tv/show.png')
+    assert aggregate_path('filters', category='TV') == 'filters/tv/database.json'

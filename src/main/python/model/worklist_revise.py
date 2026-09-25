@@ -64,6 +64,8 @@ class ReviseContext:
     images_repo: Optional[RepoTarget] = None
     xml_dir: str = ''
     image_dir: str = ''
+    category_folders: bool = False
+    meta_defaults: Optional[dict] = None
 
 
 def revise_context(setup) -> Optional[ReviseContext]:
@@ -73,7 +75,7 @@ def revise_context(setup) -> Optional[ReviseContext]:
         return None
     return ReviseContext(settings.queue_dir, settings.work_dir, RepoTarget(settings.xml_repo) if settings.xml_repo else None,
                          RepoTarget(settings.images_repo) if settings.images_repo else None, settings.xml_dir,
-                         settings.image_dir)
+                         settings.image_dir, settings.category_folders, settings.meta_defaults)
 
 
 @dataclass(frozen=True)
@@ -205,7 +207,8 @@ def revise_titles(context: ReviseContext, ids: Sequence[str], to: str, reason: s
         try:
             result = revise_entry(context.queue_dir, title_id, to, reason.strip(), work_dir=context.work_dir or None,
                                   xml_repo=context.xml_repo, images_repo=context.images_repo, xml_dir=context.xml_dir,
-                                  image_dir=context.image_dir)
+                                  image_dir=context.image_dir, category_folders=context.category_folders,
+                                  meta_defaults=context.meta_defaults)
         except Exception as error:   # per title: a bad one does not stop the rest, and nothing is raised into the window
             if not isinstance(error, (FileNotFoundError, ValueError)):
                 logger.exception('Could not revise %s', title_id)

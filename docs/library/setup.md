@@ -48,6 +48,7 @@ Press *Settings...* in the work list (or *Settings...* in the banner that appear
 
 * **Filter-record repository** and **Filter-record folder**: a local git clone, and the folder inside it that filters are written to (empty means the top folder). Each is checked when you enter it: *Git repository* is shown in green when it is one. This is the only repository you must set to publish.
 * **Images repository** and **Images folder**: optional. If set, a report image is written for each title and the filter record refers to it.
+* **Separate movies and TV into `movies/` and `tv/`**: when checked, BEQDesigner puts each record, its `database.json` aggregate and its report image in the matching subfolder beneath the chosen repository location. It is off for existing profiles. Turn it on for repositories that use these two folders; files already written at the old location are left for you to move or remove.
 * **Image owner** and **Image repository**: usually leave these empty. They are needed only when the images repository is not on github.com under a plain `git@github.com:` or `https://github.com/` address (an SSH host alias or a mirror), because the address of the image is worked out from the remote. The note under the fields says whether your repository's remote was recognised.
 
 See [the two repositories](#the-two-repositories) below.
@@ -125,7 +126,7 @@ Publishing writes into the local clones of up to two git repositories. You publi
 
 | Repository | What is written | Required? |
 |---|---|---|
-| Filter-record repository | `<filter-record folder>/<id>.json`, the filter and its metadata | yes, to publish |
-| Images repository | `<Images folder>/<id>.png`, the report image | no |
+| Filter-record repository | `<filter-record folder>/<id>.json`, or `<filter-record folder>/movies/<id>.json` and `.../tv/<id>.json` when separated | yes, to publish |
+| Images repository | `<Images folder>/<id>.png`, or the matching `movies/` or `tv/` subfolder when separated | no |
 
 Images belong in a **separate repository** from the filter record, and the filter record refers to each image by its address on github.com, which is why the images are committed and pushed first. See [Publish and commit](publish.md) for what happens.

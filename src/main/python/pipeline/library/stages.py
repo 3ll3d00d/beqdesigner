@@ -78,6 +78,7 @@ class PublishSettings:
     meta_defaults: Optional[dict] = None
     report_spec: ReportSpec = ReportSpec()
     push: bool = True    # False commits locally only
+    category_folders: bool = False
 
     @classmethod
     def from_scan_settings(cls, settings: ScanSettings, *, image_owner: Optional[str] = None,
@@ -90,7 +91,8 @@ class PublishSettings:
         return cls(RepoTarget(settings.xml_repo), RepoTarget(settings.images_repo) if settings.images_repo else None,
                    image_owner or settings.image_owner or None, image_repo_name or settings.image_repo_name or None,
                    settings.xml_dir, settings.image_dir, settings.meta_defaults,
-                   report_spec=settings.report_spec or ReportSpec(), push=push)
+                   report_spec=settings.report_spec or ReportSpec(), push=push,
+                   category_folders=settings.category_folders)
 
 
 @dataclass
@@ -370,6 +372,7 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
                     run_config.queue_dir, publish.xml_repo, meta_defaults=publish.meta_defaults,
                     images_repo=publish.images_repo, image_owner=publish.image_owner,
                     image_repo_name=publish.image_repo_name, xml_dir=publish.xml_dir, image_dir=publish.image_dir,
+                    category_folders=publish.category_folders,
                     report_spec=publish.report_spec, config=run_config.config, work_dir=run_config.work_dir or None,
                     ids=wanted, republish=True, on_entry=before_entry, should_cancel=stop)
             except Exception as error:  # not one entry's fault (an unreadable queue): report it, do not lose the run
@@ -403,7 +406,8 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
                 with event_scope(stage='commit'):
                     report.committed = commit_library(
                         run_config.queue_dir, publish.xml_repo, images_repo=publish.images_repo,
-                        xml_dir=publish.xml_dir, image_dir=publish.image_dir, push=publish.push, ids=commit_ids)
+                        xml_dir=publish.xml_dir, image_dir=publish.image_dir, push=publish.push, ids=commit_ids,
+                        category_folders=publish.category_folders, meta_defaults=publish.meta_defaults)
             except subprocess.CalledProcessError as error:
                 report.commit_error = f'git failed: {(error.stderr or error.stdout or str(error)).strip()}'
                 with event_scope(stage='commit'):

@@ -6,9 +6,10 @@ and what it leaves out, what a run did to each title, the one-line outcome, and 
 import ui.beq  # noqa: F401 (must come first)
 
 import pytest
+from types import SimpleNamespace
 
 from model.worklist_confirm import commit_text, machine_text, publish_text
-from model.worklist_run import ResultLine, RunRequest, build_publish_settings, describe_results, failed_titles, \
+from model.worklist_run import ResultLine, RunRequest, build_publish_settings, commit_effects, describe_results, failed_titles, \
     headline, plan_label, publish_problem, skip_reason, summarise_report, summarise_skipped
 from pipeline.library.commit import CatalogueCommit, RepoCommit
 from pipeline.library.index import LibraryIndex
@@ -83,6 +84,16 @@ def test_the_failures_panel_lists_failed_titles_with_the_index_memory_of_why(row
 def test_a_run_needs_titles():
     with pytest.raises(ValueError):
         RunRequest('design', ())
+
+
+def test_commit_results_use_reviewed_metadata_for_category_folder(rows, monkeypatch):
+    monkeypatch.setattr('model.worklist_run.read_entry', lambda queue_dir, title_id:
+                        SimpleNamespace(meta={'season': '1'}))
+    plan = _plan(rows, 'commit', 'c1')  # the source row is a movie; the reviewed metadata makes it TV
+    settings = ScanSettings('/w', '/q', category_folders=True)
+    report = StagesReport('commit', 1, committed=CatalogueCommit(RepoCommit('/filters', ['tv/c1.json'], 'abc')))
+
+    assert commit_effects(report, plan, settings) == {'c1': (True, False)}
 
 
 def test_results_put_problems_first_and_say_what_happened_to_every_title(rows):

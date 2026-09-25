@@ -198,7 +198,8 @@ class WorkListTitles:
                 revise_entry(self._title_queue_dir(), title_id, 'extract',
                              f'Audio stream {value} selected', work_dir=context.work_dir,
                              xml_repo=context.xml_repo, images_repo=context.images_repo,
-                             xml_dir=context.xml_dir, image_dir=context.image_dir)
+                             xml_dir=context.xml_dir, image_dir=context.image_dir,
+                             category_folders=context.category_folders, meta_defaults=context.meta_defaults)
             chosen = self._index.select_audio_stream(title_id, value - 1)
             if entry is not None:
                 # If the saved value is still the source-generated one, it is safe to refresh it.  Any different

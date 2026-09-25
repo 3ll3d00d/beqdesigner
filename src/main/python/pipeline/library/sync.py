@@ -12,6 +12,7 @@ from pipeline.review import publish_reviewed_queue, split_publish_results
 def publish_library(queue_dir: str, xml_repo: RepoTarget, *, meta_defaults: Optional[dict] = None,
                     images_repo: Optional[RepoTarget] = None, image_owner: Optional[str] = None,
                     image_repo_name: Optional[str] = None, xml_dir: str = '', image_dir: str = '',
+                    category_folders: bool = False,
                     report_spec: ReportSpec = ReportSpec(), config: AnalysisConfig = AnalysisConfig(),
                     work_dir: Optional[str] = None, ids: Optional[Collection[str]] = None, republish: bool = False,
                     on_entry: Optional[Callable[[str], None]] = None,
@@ -27,22 +28,25 @@ def publish_library(queue_dir: str, xml_repo: RepoTarget, *, meta_defaults: Opti
     return publish_reviewed_queue(
         queue_dir, xml_repo, meta_defaults=meta_defaults, images_repo=images_repo,
         image_owner=image_owner, image_repo_name=image_repo_name, xml_dir=xml_dir, image_dir=image_dir,
+        category_folders=category_folders,
         report_spec=report_spec, config=config, work_dir=work_dir, push=False, ids=ids, republish=republish,
         on_entry=on_entry, should_cancel=should_cancel,
     )
 
 
 def commit_library(queue_dir: str, xml_repo: RepoTarget, *, images_repo: Optional[RepoTarget] = None,
-                   xml_dir: str = '', image_dir: str = '', push: bool = True,
-                   ids: Optional[Collection[str]] = None) -> CatalogueCommit:
+                   xml_dir: str = '', image_dir: str = '', push: bool = True, category_folders: bool = False,
+                   ids: Optional[Collection[str]] = None, meta_defaults: Optional[dict] = None) -> CatalogueCommit:
     ''' Commits and pushes what publish_library() wrote: one commit and one push per repo, images first. '''
     return commit_catalogue(queue_dir, xml_repo, images_repo, xml_dir=xml_dir, image_dir=image_dir, push=push,
+                            category_folders=category_folders, meta_defaults=meta_defaults,
                             **({} if ids is None else {'ids': ids}))
 
 
 def sync_library(queue_dir: str, xml_repo: RepoTarget, *, meta_defaults: Optional[dict] = None,
                  images_repo: Optional[RepoTarget] = None, image_owner: Optional[str] = None,
                  image_repo_name: Optional[str] = None, xml_dir: str = '', image_dir: str = '',
+                 category_folders: bool = False,
                  report_spec: ReportSpec = ReportSpec(), config: AnalysisConfig = AnalysisConfig(),
                  work_dir: Optional[str] = None, push: bool = True, ids: Optional[Collection[str]] = None,
                  republish: bool = False, on_committed: Optional[Callable[[CatalogueCommit], None]] = None
@@ -61,10 +65,12 @@ def sync_library(queue_dir: str, xml_repo: RepoTarget, *, meta_defaults: Optiona
     results = publish_library(
         queue_dir, xml_repo, meta_defaults=meta_defaults, images_repo=images_repo, image_owner=image_owner,
         image_repo_name=image_repo_name, xml_dir=xml_dir, image_dir=image_dir, report_spec=report_spec,
+        category_folders=category_folders,
         config=config, work_dir=work_dir, ids=ids, republish=republish)
     try:
         committed = commit_library(queue_dir, xml_repo, images_repo=images_repo, xml_dir=xml_dir,
-                                   image_dir=image_dir, push=push, ids=ids)
+                                   image_dir=image_dir, push=push, ids=ids, category_folders=category_folders,
+                                   meta_defaults=meta_defaults)
     except subprocess.CalledProcessError as error:
         _annotate(results, getattr(error, 'partial', None))
         error.results = results

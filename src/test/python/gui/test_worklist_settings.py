@@ -67,6 +67,8 @@ def test_editing_each_setting_persists_to_the_profile_file_and_a_new_window_show
     drawer.tvModeCombo.setCurrentIndex(drawer.tvModeCombo.findData('season'))
     drawer.tvModeCombo.activated.emit(drawer.tvModeCombo.currentIndex())
     drawer.keepMultichannel.click()
+    assert not drawer.categoryFolders.isChecked()
+    drawer.categoryFolders.click()
     assert drawer.flush()
 
     saved = load_profile(path)
@@ -75,6 +77,7 @@ def test_editing_each_setting_persists_to_the_profile_file_and_a_new_window_show
     assert os.path.isdir(tmp_path / 'work2')                # a folder that can be created is created
     assert saved.config['run']['designer'] == 'remote.one'
     assert saved.config['run']['tv_mode'] == 'season' and saved.config['run']['keep_multichannel'] is True
+    assert saved.config['sync']['category_folders'] is True
 
     again = open_window(qtbot, tmp_path, prefs)              # nothing but the file: every widget reads back the same
     other = again.open_settings()
@@ -83,6 +86,7 @@ def test_editing_each_setting_persists_to_the_profile_file_and_a_new_window_show
             os.path.join(images, 'img')]
     assert other.designerCombo.currentText() == 'remote.one' and other.tvModeCombo.currentData() == 'season'
     assert other.keepMultichannel.isChecked()
+    assert other.categoryFolders.isChecked()
     assert [s.name for s in other.sourcesTab.sources] == ['films', 'disk']
 
 

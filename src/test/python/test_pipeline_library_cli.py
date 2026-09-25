@@ -315,7 +315,8 @@ def test_a_declared_designer_without_a_url_is_a_cli_error(tmp_path, monkeypatch)
 def test_publish_only_writes_and_reads_the_shared_sync_section(tmp_path, monkeypatch, capsys):
     from pipeline.library import cli
     config = tmp_path / 'c.json'
-    config.write_text(json.dumps({'sync': {'queue_dir': '/queue', 'filter_repo': '/xml', 'filter_dir': 'filters'}}))
+    config.write_text(json.dumps({'sync': {'queue_dir': '/queue', 'filter_repo': '/xml', 'filter_dir': 'filters',
+                                           'category_folders': True}}))
     calls = []
     monkeypatch.setattr(cli, 'publish_library', lambda *args, **kwargs: calls.append((args, kwargs)) or [{'id': 'one'}])
     monkeypatch.setattr(cli, 'commit_library', lambda *args, **kwargs: pytest.fail('publish must not commit'))
@@ -326,7 +327,11 @@ def test_publish_only_writes_and_reads_the_shared_sync_section(tmp_path, monkeyp
     (args, kwargs), = calls
     assert (args[0], args[1].local_path, kwargs['images_repo'].local_path, kwargs['xml_dir']) == \
         ('/queue', '/xml', '/images', 'filters')
+    assert kwargs['category_folders'] is True
     assert json.loads(capsys.readouterr().out) == [{'id': 'one'}]
+
+    assert cli.main(['--config', str(config), 'publish', '--no-category-folders']) == 0
+    assert calls[-1][1]['category_folders'] is False
 
 
 def test_filter_repo_flags_and_legacy_aliases_are_accepted(monkeypatch, capsys):

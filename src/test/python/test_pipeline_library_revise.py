@@ -57,6 +57,25 @@ def _published_and_committed(tmp_path, repos):
     return queue_dir
 
 
+def test_reopening_tv_in_category_folder_discards_the_published_record_and_image(tmp_path, repos):
+    queue_dir = str(tmp_path / 'queue')
+    _queue_entry(queue_dir, 'show', 'Show')
+    entry = read_entry(queue_dir, 'show')
+    update_entry(queue_dir, 'show', meta={**entry.meta, 'season': '1'})
+    publish_library(queue_dir, repos[0], images_repo=repos[2], image_owner=OWNER, image_repo_name=IMAGES_NAME,
+                    xml_dir='filters', image_dir='art',
+                    category_folders=True)
+    record = tmp_path / 'xml' / 'filters' / 'tv' / 'show.json'
+    image = tmp_path / 'images' / 'art' / 'tv' / 'show.png'
+    assert record.exists() and image.exists()
+
+    result = reopen_entry(queue_dir, 'show', xml_repo=repos[0], images_repo=repos[2],
+                          xml_dir='filters', image_dir='art', category_folders=True)
+
+    assert result.entry.status == 'pending'
+    assert not record.exists() and not image.exists()
+
+
 # --- reopen: from every starting state -----------------------------------------------------------------------
 
 def test_reopening_an_accepted_entry_puts_it_back_to_pending_with_a_note(tmp_path):

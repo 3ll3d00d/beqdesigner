@@ -248,7 +248,8 @@ def _publish_kwargs(values: dict[str, Any]) -> dict[str, Any]:
     return dict(
         meta_defaults=values.get('meta_defaults'), images_repo=_repo(values, 'images_repo'),
         image_owner=values.get('image_owner'), image_repo_name=values.get('image_repo_name'),
-        xml_dir=values.get('xml_dir', ''), image_dir=values.get('image_dir', ''), config=_analysis_config(values),
+        xml_dir=values.get('xml_dir', ''), image_dir=values.get('image_dir', ''),
+        category_folders=bool(values.get('category_folders', False)), config=_analysis_config(values),
         work_dir=values.get('work_dir'), ids=values.get('ids') or None, republish=bool(values.get('republish', False)),
         report_spec=report_spec_from_values(values) or ReportSpec())
 
@@ -296,7 +297,8 @@ def _commit(args: argparse.Namespace, config: dict[str, Any]) -> int:
         result = commit_library(
             _required(values, 'queue_dir'), RepoTarget(_required(values, 'xml_repo')),
             images_repo=_repo(values, 'images_repo'), xml_dir=values.get('xml_dir', ''),
-            image_dir=values.get('image_dir', ''), push=bool(values.get('push', True)), ids=values.get('ids') or None)
+            image_dir=values.get('image_dir', ''), push=bool(values.get('push', True)), ids=values.get('ids') or None,
+            category_folders=bool(values.get('category_folders', False)), meta_defaults=values.get('meta_defaults'))
     except (subprocess.CalledProcessError, OSError) as error:
         _say(f'error: {error}')
         partial = getattr(error, 'partial', None)   # what was committed before git refused stays committed
@@ -335,7 +337,9 @@ def _revise(args: argparse.Namespace, config: dict[str, Any]) -> int:
             done = revise_entry(
                 queue_dir, entry_id, to, values.get('reason') or '', work_dir=values.get('work_dir'),
                 xml_repo=_repo(values, 'xml_repo'), images_repo=_repo(values, 'images_repo'),
-                xml_dir=values.get('xml_dir', ''), image_dir=values.get('image_dir', ''))
+                xml_dir=values.get('xml_dir', ''), image_dir=values.get('image_dir', ''),
+                category_folders=bool(values.get('category_folders', False)),
+                meta_defaults=values.get('meta_defaults'))
         except (ValueError, subprocess.CalledProcessError, OSError) as error:  # one bad id must not stop the others
             results.append({'id': entry_id, 'error': str(error)})
             failed = True
@@ -639,6 +643,8 @@ def _add_repo_options(parser: argparse.ArgumentParser, with_image_url_options: b
     repos.add_argument('--images-repo', help='local clone of the repository report images go to; without one no '
                                               f"image is {'made' if with_image_url_options else 'touched'}")
     repos.add_argument('--image-dir', help='folder within the images repository to put images in (default: its root)')
+    repos.add_argument('--category-folders', action=argparse.BooleanOptionalAction, default=None,
+                       help='put films in movies/ and TV in tv/ beneath each repository location')
     if with_image_url_options:
         repos.add_argument('--image-owner', help="GitHub owner used to build image URLs (default: read from the images "
                                                  "repository's remote)")

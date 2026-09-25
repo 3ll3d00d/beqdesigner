@@ -24,7 +24,7 @@ from pipeline.config import AnalysisConfig
 from pipeline.designer.contract import Coverage
 from pipeline.library.workdir import entry_directory
 from pipeline.orchestrate import Applied, Declined, DesignOutcome, Session
-from pipeline.publish.catalogue import catalogue_paths, publish_digest
+from pipeline.publish.catalogue import catalogue_paths, category_for_metadata, publish_digest
 from pipeline.publish.git import RepoTarget, fs_path, has_changes, is_committed
 from pipeline.publish.report import ReportSpec
 from model.execution_events import emit_execution_event, event_scope
@@ -433,7 +433,7 @@ def current_publish_digest(entry: QueueEntry, *, meta_defaults: Optional[dict] =
 def _needs_republish(entry: QueueEntry, xml_repo: RepoTarget, xml_dir: str, image_dir: str,
                      meta_defaults: Optional[dict], work_dir: Optional[str], has_image: bool,
                      report_spec: Optional[ReportSpec] = None, image_owner: Optional[str] = None,
-                     image_repo_name: Optional[str] = None) -> bool:
+                     image_repo_name: Optional[str] = None, category_folders: bool = False) -> bool:
     '''
     True if a *published* entry's catalogue copy is out of date: its XML is missing from the repo, or the digest of what
     would be published now differs from the one recorded (an entry published before digests were recorded has none,
@@ -441,7 +441,8 @@ def _needs_republish(entry: QueueEntry, xml_repo: RepoTarget, xml_dir: str, imag
     publishing reports it (per entry) rather than the check aborting the batch.
     '''
     from pipeline.publish.project import ProjectFilterConflict
-    if not os.path.isfile(fs_path(xml_repo, catalogue_paths(entry.id, xml_dir, image_dir)[0])):
+    category = category_for_metadata(entry.meta, meta_defaults, category_folders)
+    if not os.path.isfile(fs_path(xml_repo, catalogue_paths(entry.id, xml_dir, image_dir, category=category)[0])):
         return True
     if not entry.published_digest:
         return False
@@ -456,6 +457,7 @@ def _needs_republish(entry: QueueEntry, xml_repo: RepoTarget, xml_dir: str, imag
 def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: Optional[dict] = None,
                            images_repo: Optional[RepoTarget] = None, image_owner: Optional[str] = None,
                            image_repo_name: Optional[str] = None, xml_dir: str = '', image_dir: str = '',
+                           category_folders: bool = False,
                            report_spec: ReportSpec = ReportSpec(),
                            config: AnalysisConfig = AnalysisConfig(),
                            work_dir: Optional[str] = None, push: bool = True, ids: Optional[Collection[str]] = None,
@@ -558,7 +560,8 @@ def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: 
             aligned = align_projects(session, published, mono_path, os.path.join(project_dir, 'mono.wav'),
                                      mc_path, mc_wav if mc_path else None, layout)
 
-        xml_relative_path, image_relative_path = catalogue_paths(entry.id, xml_dir, image_dir)
+        category = ('TV' if meta.season else 'film') if category_folders else None
+        xml_relative_path, image_relative_path = catalogue_paths(entry.id, xml_dir, image_dir, category=category)
         image_png = None
         if images_repo is not None:
             unfiltered = xydata_from_json(entry.curve)
@@ -598,7 +601,8 @@ def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: 
             if entry.status == 'published' and republish:
                 try:
                     republished = _needs_republish(entry, xml_repo, xml_dir, image_dir, meta_defaults, work_dir,
-                                                   images_repo is not None, report_spec, image_owner, image_repo_name)
+                                                   images_repo is not None, report_spec, image_owner, image_repo_name,
+                                                   category_folders)
                 except Exception as error:
                     results.append(failure(entry, error))
                     emit_execution_event('failed', message=f'{type(error).__name__}: {error}')

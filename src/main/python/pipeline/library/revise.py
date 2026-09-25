@@ -25,7 +25,7 @@ from typing import List, Optional
 from pipeline.library.extract_cache import invalidate_extract
 from pipeline.library.season import invalidate_season_track
 from pipeline.library.workdir import entry_directory
-from pipeline.publish.catalogue import catalogue_paths
+from pipeline.publish.catalogue import catalogue_paths, category_for_metadata
 from pipeline.publish.git import RepoTarget, discard_changes, is_committed, is_repo
 from pipeline.review import QueueEntry, read_entry, update_entry
 
@@ -51,7 +51,8 @@ def _check_repo(target: RepoTarget, name: str) -> None:
 
 
 def _send_back(queue_dir: str, entry_id: str, to: str, reason: str, *, xml_repo: Optional[RepoTarget],
-               images_repo: Optional[RepoTarget], xml_dir: str, image_dir: str, **fields) -> ReviseResult:
+               images_repo: Optional[RepoTarget], xml_dir: str, image_dir: str,
+               category_folders: bool = False, meta_defaults: Optional[dict] = None, **fields) -> ReviseResult:
     entry = read_entry(queue_dir, entry_id)
     reverted: List[str] = []
     revision = entry.revision
@@ -63,7 +64,8 @@ def _send_back(queue_dir: str, entry_id: str, to: str, reason: str, *, xml_repo:
         _check_repo(xml_repo, 'xml_repo')
         if images_repo is not None:
             _check_repo(images_repo, 'images_repo')
-        xml_path, image_path = catalogue_paths(entry_id, xml_dir, image_dir)
+        category = category_for_metadata(entry.meta, meta_defaults, category_folders)
+        xml_path, image_path = catalogue_paths(entry_id, xml_dir, image_dir, category=category)
         committed = is_committed(xml_repo, xml_path)
         # The order makes a failure part-way retryable: the image goes first and the filter record -- whose state decides the
         # revision count -- last, and the entry is written after both, so until it is written it is still 'published'
@@ -84,7 +86,8 @@ def _send_back(queue_dir: str, entry_id: str, to: str, reason: str, *, xml_repo:
 
 
 def reopen_entry(queue_dir: str, entry_id: str, reason: str = '', *, xml_repo: Optional[RepoTarget] = None,
-                 images_repo: Optional[RepoTarget] = None, xml_dir: str = '', image_dir: str = '') -> ReviseResult:
+                 images_repo: Optional[RepoTarget] = None, xml_dir: str = '', image_dir: str = '',
+                 category_folders: bool = False, meta_defaults: Optional[dict] = None) -> ReviseResult:
     '''
     Back to pending for a person to decide again: an accepted, skipped, rejected or published entry. Nothing is
     redesigned.
@@ -95,23 +98,28 @@ def reopen_entry(queue_dir: str, entry_id: str, reason: str = '', *, xml_repo: O
     if read_entry(queue_dir, entry_id).status == 'pending':
         raise ValueError(f'{entry_id!r} is already pending review')
     return _send_back(queue_dir, entry_id, 'review', reason, xml_repo=xml_repo, images_repo=images_repo,
-                      xml_dir=xml_dir, image_dir=image_dir)
+                      xml_dir=xml_dir, image_dir=image_dir, category_folders=category_folders,
+                      meta_defaults=meta_defaults)
 
 
 def redesign_entry(queue_dir: str, entry_id: str, reason: str = '', *, xml_repo: Optional[RepoTarget] = None,
-                   images_repo: Optional[RepoTarget] = None, xml_dir: str = '', image_dir: str = '') -> ReviseResult:
+                   images_repo: Optional[RepoTarget] = None, xml_dir: str = '', image_dir: str = '',
+                   category_folders: bool = False, meta_defaults: Optional[dict] = None) -> ReviseResult:
     '''
     As reopen_entry(), and the design is marked stale so the next `run` designs it again -- which it never does for
     an accepted or published entry. Metadata, artwork and the reviewer note carry over to the new design, and a
     hand-edited .beq project is kept.
     '''
     return _send_back(queue_dir, entry_id, 'design', reason, xml_repo=xml_repo, images_repo=images_repo,
-                      xml_dir=xml_dir, image_dir=image_dir, design_fingerprint=None)
+                      xml_dir=xml_dir, image_dir=image_dir, category_folders=category_folders,
+                      meta_defaults=meta_defaults,
+                      design_fingerprint=None)
 
 
 def revise_entry(queue_dir: str, entry_id: str, to: str, reason: str = '', *, work_dir: Optional[str] = None,
                  xml_repo: Optional[RepoTarget] = None, images_repo: Optional[RepoTarget] = None, xml_dir: str = '',
-                 image_dir: str = '') -> ReviseResult:
+                 image_dir: str = '', category_folders: bool = False,
+                 meta_defaults: Optional[dict] = None) -> ReviseResult:
     '''
     :param to: how far back to send it -- one of REVISE_TARGETS.
     :param work_dir: the run's work directory; required for `extract`, whose recorded extraction lives there. (A TV
@@ -122,7 +130,8 @@ def revise_entry(queue_dir: str, entry_id: str, to: str, reason: str = '', *, wo
         raise ValueError(f"to must be one of {REVISE_TARGETS}, got {to!r}")
     if to == 'extract' and not work_dir:
         raise ValueError('work_dir is required to re-extract')
-    where = dict(xml_repo=xml_repo, images_repo=images_repo, xml_dir=xml_dir, image_dir=image_dir)
+    where = dict(xml_repo=xml_repo, images_repo=images_repo, xml_dir=xml_dir, image_dir=image_dir,
+                 category_folders=category_folders, meta_defaults=meta_defaults)
     if to == 'review':
         return reopen_entry(queue_dir, entry_id, reason, **where)
     if to == 'design':

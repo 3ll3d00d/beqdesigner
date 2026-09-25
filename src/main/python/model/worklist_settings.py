@@ -225,6 +225,8 @@ class SettingsDrawer(QWidget):
         self.imageNote = QLabel('')
         self.imageNote.setWordWrap(True)
         self.imageNote.setStyleSheet('color: palette(mid)')
+        self.categoryFolders = QCheckBox('Separate movies and TV into movies/ and tv/')
+        self.categoryFolders.setToolTip('Creates these folders beneath each repository location. Existing files stay where they are.')
         self.nextSourcesButton = QPushButton('Next: add library sources')
         self.nextSourcesButton.setToolTip('Choose where titles come from before scanning the library')
         self.nextSourcesButton.clicked.connect(lambda: self.select_tab('sources'))
@@ -257,6 +259,7 @@ class SettingsDrawer(QWidget):
         form.addRow('', self.initFilterRepoButton)
         form.addRow('Images location', self.imagesLocation)
         form.addRow('', self.initImagesRepoButton)
+        form.addRow('', self.categoryFolders)
         form.addRow('', self.imageNote)
         form.addRow('', self.nextSourcesButton)
         options = QGroupBox('Designer and options')
@@ -303,6 +306,7 @@ class SettingsDrawer(QWidget):
             lambda text: self.__set_repo_location('xml_repo', 'xml_dir', self.filterLocation, text))
         self.imagesLocation.committed.connect(
             lambda text: self.__set_repo_location('images_repo', 'image_dir', self.imagesLocation, text))
+        self.categoryFolders.clicked.connect(lambda checked: self.__set_sync('category_folders', bool(checked)))
         self.designerCombo.activated.connect(lambda _i: self.__set_run('designer', self.__chosen_designer()))
         self.tvModeCombo.activated.connect(lambda _i: self.__set_run('tv_mode', self.tvModeCombo.currentData()))
         self.keepMultichannel.clicked.connect(lambda checked: self.__set_run('keep_multichannel', bool(checked)))
@@ -380,6 +384,7 @@ class SettingsDrawer(QWidget):
         self.queueDir.set_text(profile.queue_dir)
         self.filterLocation.set_text(os.path.join(profile.xml_repo, profile.xml_dir) if profile.xml_repo else '')
         self.imagesLocation.set_text(os.path.join(profile.images_repo, profile.image_dir) if profile.images_repo else '')
+        self.categoryFolders.setChecked(bool(config_value(profile, 'sync', 'category_folders', False)))
         self.workDir.show_check(check_directory(profile.work_dir) if profile.work_dir else None)
         self.queueDir.show_check(check_directory(profile.queue_dir) if profile.queue_dir else None)
         self.filterLocation.show_check(repository_location(self.filterLocation.edit.text())[2] if profile.xml_repo else None)
@@ -528,8 +533,8 @@ class SettingsDrawer(QWidget):
         else:
             self.__set_repo_location('images_repo', 'image_dir', row, location)
 
-    def __set_sync(self, key: str, value: str) -> None:
-        if self._loading or self._profile is None or value == str(config_value(self._profile, 'sync', key)):
+    def __set_sync(self, key: str, value) -> None:
+        if self._loading or self._profile is None or value == config_value(self._profile, 'sync', key, False):
             return
         self.__edit(with_config(self._profile, 'sync', key, value))
 

@@ -5,7 +5,7 @@ their projects. Split out of the window so each is tested on its own, and so the
 '''
 import os
 import subprocess
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Mapping, Optional, Tuple
 
 from pipeline.library.index import TitleRow
 from pipeline.library.workdir import entry_directory
@@ -39,7 +39,8 @@ def entry_row(entry: QueueEntry, commit_state: str = 'none') -> TitleRow:
         candidate_count=len(entry.candidates), failure='')
 
 
-def commit_states(ids: Iterable[str], xml_repo: str = '', xml_dir: str = '', image_dir: str = '') -> Dict[str, str]:
+def commit_states(ids: Iterable[str], xml_repo: str = '', xml_dir: str = '', image_dir: str = '', *,
+                  categories: Optional[Mapping[str, str]] = None) -> Dict[str, str]:
     '''
     Where each published entry's filter record stands in the filter-record repository, in the words the index uses for `commit_state` -- and, for
     the two that matter to a revise, in the terms `pipeline.library.revise` decides by: `committed` is a file HEAD holds and the
@@ -55,7 +56,8 @@ def commit_states(ids: Iterable[str], xml_repo: str = '', xml_dir: str = '', ima
     if not xml_repo:
         return {i: 'none' for i in ids}
     target = RepoTarget(xml_repo)
-    paths = {i: posix_path(catalogue_paths(i, xml_dir, image_dir)[0]) for i in ids}
+    paths = {i: posix_path(catalogue_paths(i, xml_dir, image_dir,
+                                           category=(categories or {}).get(i))[0]) for i in ids}
     try:
         state = repo_state(target)
         if state.uncommitted is None:

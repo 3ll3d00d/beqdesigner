@@ -276,7 +276,8 @@ def test_sync_library_publishes_without_pushing_then_commits_the_batch(monkeypat
     assert calls[0][1]['work_dir'] == 'work'
     assert calls[0][1]['push'] is False  # written only; the batch commit below does the git work
     assert commits[0][0] == ('queue', xml_repo, images_repo)
-    assert commits[0][1] == {'xml_dir': 'xml', 'image_dir': 'img', 'push': True}
+    assert commits[0][1] == {'xml_dir': 'xml', 'image_dir': 'img', 'push': True, 'category_folders': False,
+                             'meta_defaults': {'source': 'Disc'}}
 
 
 # --- TV seasons (plan §11.9) --------------------------------------------------------------------------------

@@ -50,6 +50,12 @@ through `CatalogueEntry` (`a72c673`, BEQCatalogue `dc56c20d7`). The internal
 `3ll3d00d/beqfilters` into `.input/3ll3d00d/beqfilters` and includes it as
 the `3ll3d00d` JSON record source (`f398ffd38`). Its image URLs point to the
 separate `3ll3d00d/beqimgs` repository; the catalogue need not clone it.
+Publication can place film records and images under `movies/` and TV records
+and images under `tv/` in their respective repositories. The optional
+`sync.category_folders` setting is exposed in Library Work List Settings and
+as `--category-folders` in the CLI. Each filter directory has its own
+`database.json`; the flat layout remains the default for existing profiles.
+Publish, commit, index status and revision use the same metadata classification.
 The configured-source fixture reaches the public `database.json` and returns
 to `CatalogueEntry` (`01d9ec5`). The producer repository presently contains only its
 licence, so this is a fixture-backed integration check, not a claim that a

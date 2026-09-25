@@ -14,7 +14,7 @@ import subprocess
 from dataclasses import dataclass, field
 from typing import Collection, List, Optional, Sequence
 
-from pipeline.publish.catalogue import aggregate_path, catalogue_paths
+from pipeline.publish.catalogue import aggregate_path, catalogue_paths, category_for_metadata
 from pipeline.publish.git import RepoState, RepoTarget, fs_path, commit_paths, committed_paths, push, repo_state
 from pipeline.review import QueueEntry, read_entry, read_queue
 
@@ -101,7 +101,8 @@ def _image_url_warnings(xml_repo: RepoTarget, xml_paths: Sequence[str]) -> List[
 
 def commit_catalogue(queue_dir: str, xml_repo: RepoTarget, images_repo: Optional[RepoTarget] = None, *,
                      xml_dir: str = '', image_dir: str = '', push: bool = True,
-                     ids: Optional[Collection[str]] = None) -> CatalogueCommit:
+                     ids: Optional[Collection[str]] = None, category_folders: bool = False,
+                     meta_defaults: Optional[dict] = None) -> CatalogueCommit:
     '''
     Commits every 'published' entry's files that git does not already have, one commit per repo containing exactly
     those paths (nothing else staged or changed in the tree is touched), then pushes each repo once. **The images
@@ -130,17 +131,22 @@ def commit_catalogue(queue_dir: str, xml_repo: RepoTarget, images_repo: Optional
     not_committed: List[str] = []
     images: Optional[RepoCommit] = None
     xml: Optional[RepoCommit] = None
+    def category(entry: QueueEntry) -> Optional[str]:
+        return category_for_metadata(entry.meta, meta_defaults, category_folders)
+
     try:
         if images_repo is not None:
             images = _commit_repo(images_repo, 'report image',
-                                  {catalogue_paths(e.id, xml_dir, image_dir)[1]: e for e in published}, push, missing,
+                                  {catalogue_paths(e.id, xml_dir, image_dir, category=category(e))[1]: e
+                                   for e in published}, push, missing,
                                   not_committed)
-        filter_files = {catalogue_paths(e.id, xml_dir, image_dir)[0]: e for e in published}
+        filter_files = {catalogue_paths(e.id, xml_dir, image_dir, category=category(e))[0]: e
+                        for e in published}
         # Every publish regenerates this derived file.  Commit it with the
         # individual records so a consumer never sees a fresh record with a
         # stale repository aggregate.
-        if published:
-            filter_files[aggregate_path(xml_dir)] = published[0]
+        for entry in published:
+            filter_files.setdefault(aggregate_path(xml_dir, category=category(entry)), entry)
         xml = _commit_repo(xml_repo, 'BEQ filter', filter_files, push, missing,
                            not_committed)
     except subprocess.CalledProcessError as error:

@@ -439,8 +439,10 @@ class Session:
         record_bytes = (json.dumps(record, indent=2, ensure_ascii=False) + '\n').encode('utf-8')
         records = {}
         root = xml_repo.local_path
-        if os.path.isdir(root):
-            for folder, dirs, names in os.walk(root):
+        record_dir = os.path.dirname(xml_relative_path).replace(os.sep, '/')
+        scan_root = fs_path(xml_repo, record_dir) if record_dir else root
+        if os.path.isdir(scan_root):
+            for folder, dirs, names in os.walk(scan_root):
                 dirs[:] = [name for name in dirs if name != '.git']
                 for name in names:
                     if not name.endswith('.json') or name == 'database.json':
@@ -455,7 +457,7 @@ class Session:
                     except (OSError, ValueError):
                         continue
         records[xml_relative_path] = record
-        database_relative_path = aggregate_path(os.path.dirname(xml_relative_path).replace(os.sep, '/'))
+        database_relative_path = aggregate_path(record_dir)
         result['record'] = record
         files = {xml_relative_path: record_bytes, database_relative_path: aggregate(records)}
         if push:

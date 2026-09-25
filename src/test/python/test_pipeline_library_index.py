@@ -310,6 +310,19 @@ def test_a_written_title_needs_commit_until_it_is_committed_and_then_pushed(env,
     assert _row(env, 'fs-a').tier == 'done'
 
 
+def test_index_uses_category_folder_for_published_title(env, repos):
+    from dataclasses import replace
+    (item,), settings = _published(env, repos, 'a', category_folders=True)
+    settings = replace(settings, category_folders=True)
+
+    _scan(env, item, settings=settings)
+    assert _needs(env, 'fs-a') == ('commit', 'written, not committed')
+    assert _row(env, 'fs-a').publish_state == 'written'
+
+    _scan(env, item, settings=replace(settings, category_folders=False))
+    assert _row(env, 'fs-a').publish_state == 'out_of_date'
+
+
 def test_an_image_that_is_not_committed_holds_the_title_at_commit(env, repos):
     from pipeline.publish.git import commit_paths, push
     xml, _, images, _ = repos

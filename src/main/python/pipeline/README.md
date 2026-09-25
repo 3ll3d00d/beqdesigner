@@ -409,6 +409,7 @@ sync:
   filter_dir: filters
   images_repo: /home/me/beq-images
   image_dir: images
+  category_folders: true  # optional: movies/ and tv/ beneath each repository location
   meta_defaults: {source: Disc, author: me}   # config only: BeqMetadata fields for anything an entry lacks
 ```
 

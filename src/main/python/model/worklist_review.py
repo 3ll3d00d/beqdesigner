@@ -50,6 +50,7 @@ from model.worklist_title_text import REDO_IN_FOLDER
 from pipeline.library.commit import CatalogueCommit
 from pipeline.library.index import TitleRow
 from pipeline.library.sync import commit_library, publish_library
+from pipeline.publish.catalogue import category_for_metadata
 from pipeline.review import QueueEntry, describe_publish_error, read_entry, read_queue, split_publish_results
 
 logger = logging.getLogger('worklist')
@@ -252,7 +253,7 @@ class ReviewFolderWindow(QMainWindow):
         from pipeline.publish.git import RepoTarget
         return ReviseContext(self._queue_dir, settings.work_dir, RepoTarget(settings.xml_repo) if settings.xml_repo else None,
                              RepoTarget(settings.images_repo) if settings.images_repo else None, settings.xml_dir,
-                             settings.image_dir)
+                             settings.image_dir, settings.category_folders, settings.meta_defaults)
 
     def _revise_blocked(self, title_id: str, status: str) -> str:
         '''
@@ -268,7 +269,10 @@ class ReviewFolderWindow(QMainWindow):
         settings = self._setup_now().settings
         if settings is None:
             return 'none'
-        return commit_states([title_id], settings.xml_repo or '', settings.xml_dir, settings.image_dir).get(title_id, 'none')
+        entry = read_entry(self._queue_dir, title_id) if settings.category_folders else None
+        categories = {title_id: category_for_metadata(entry.meta, settings.meta_defaults, True)} if entry else None
+        return commit_states([title_id], settings.xml_repo or '', settings.xml_dir, settings.image_dir,
+                             categories=categories).get(title_id, 'none')
 
     @property
     def page(self) -> TitlePage:
@@ -340,7 +344,8 @@ class ReviewFolderWindow(QMainWindow):
             logger.exception('Could not read the queue folder %s', self._queue_dir)
             self._say(f'The folder could not be read: {type(error).__name__}: {error}', True)
             entries = self._read_each()
-        states = self._commit_states([e.id for e in entries if e.status == 'published'])
+        states = self._commit_states([e.id for e in entries if e.status == 'published'],
+                                     {e.id: e for e in entries})
         self._entries = {e.id: e for e in entries}
         self._rows = {e.id: entry_row(e, states.get(e.id, 'none')) for e in entries}
         self._order = [e.id for e in entries]
@@ -410,11 +415,15 @@ class ReviewFolderWindow(QMainWindow):
         if title_id != self._page.current_id and not self._page.show_title(title_id):
             self._on_page_moved(self._page.current_id)   # an edit could not be saved: stay, and show where we are
 
-    def _commit_states(self, published: List[str]) -> Dict[str, str]:
+    def _commit_states(self, published: List[str], entries: Optional[Dict[str, QueueEntry]] = None) -> Dict[str, str]:
         settings = self._setup_now(1.0).settings
         if settings is None:
             return {i: 'none' for i in published}
-        return commit_states(published, settings.xml_repo or '', settings.xml_dir, settings.image_dir)
+        categories = ({i: category_for_metadata(e.meta, settings.meta_defaults, True)
+                       for i, e in (entries or {}).items()}
+                      if settings.category_folders else None)
+        return commit_states(published, settings.xml_repo or '', settings.xml_dir, settings.image_dir,
+                             categories=categories)
 
     def _reload_entries(self, ids: List[str]) -> None:
         ''' What is on disk for these entries is their row now (one look at git for all the published ones). '''
@@ -424,7 +433,7 @@ class ReviewFolderWindow(QMainWindow):
                 fresh[title_id] = read_entry(self._queue_dir, title_id)
             except Exception:
                 continue
-        states = self._commit_states([i for i, e in fresh.items() if e.status == 'published'])
+        states = self._commit_states([i for i, e in fresh.items() if e.status == 'published'], fresh)
         for title_id, entry in fresh.items():
             self._entries[title_id], self._rows[title_id] = entry, entry_row(entry, states.get(title_id, 'none'))
             row = self._row_of(title_id)
@@ -517,6 +526,7 @@ class ReviewFolderWindow(QMainWindow):
                         queue_dir, settings.xml_repo, meta_defaults=settings.meta_defaults,
                         images_repo=settings.images_repo, image_owner=settings.image_owner,
                         image_repo_name=settings.image_repo_name, xml_dir=settings.xml_dir, image_dir=settings.image_dir,
+                        category_folders=settings.category_folders,
                         report_spec=settings.report_spec, config=config, work_dir=where, ids=chosen)
             return results
 
@@ -550,7 +560,8 @@ class ReviewFolderWindow(QMainWindow):
 
         def commit():
             return commit_library(queue_dir, settings.xml_repo, images_repo=settings.images_repo, xml_dir=settings.xml_dir,
-                                  image_dir=settings.image_dir, push=push, ids=ids)
+                                  image_dir=settings.image_dir, push=push, ids=ids,
+                                  category_folders=settings.category_folders, meta_defaults=settings.meta_defaults)
 
         return self._start(commit, 'Commit', f'Committing {len(ids):,} title{"" if len(ids) == 1 else "s"}...',
                            self._on_committed, {i: 'commit' for i in ids})

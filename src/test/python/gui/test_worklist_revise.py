@@ -116,9 +116,10 @@ def test_what_cannot_be_done_is_said_before_anything_changes():
 
 
 def test_the_context_is_the_setups_queue_work_and_repositories(tmp_path):
-    settings = SimpleNamespace(queue_dir='/q', work_dir='/w', xml_repo='/x', images_repo='', xml_dir='xml', image_dir='img')
+    settings = SimpleNamespace(queue_dir='/q', work_dir='/w', xml_repo='/x', images_repo='', xml_dir='xml',
+                               image_dir='img', category_folders=False, meta_defaults={})
     context = revise_context(SimpleNamespace(settings=settings))
-    assert context == ReviseContext('/q', '/w', RepoTarget('/x'), None, 'xml', 'img')
+    assert context == ReviseContext('/q', '/w', RepoTarget('/x'), None, 'xml', 'img', False, {})
     assert revise_context(SimpleNamespace(settings=None)) is None
     assert revise_context(SimpleNamespace(settings=SimpleNamespace(queue_dir='', work_dir='', xml_repo='', images_repo='',
                                                                    xml_dir='', image_dir=''))) is None

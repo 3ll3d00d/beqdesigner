@@ -32,7 +32,7 @@ from pipeline.library.season import DEFAULT_TV_MODE, SeasonGroup, Unit, track_fi
 from pipeline.library.source import LibraryItem
 from pipeline.library.state import StageStates
 from pipeline.library.workdir import entry_directory, work_ids
-from pipeline.publish.catalogue import catalogue_paths
+from pipeline.publish.catalogue import catalogue_paths, category_for_metadata
 from pipeline.publish.git import RepoState, RepoTarget, repo_state
 from pipeline.publish.report import ReportSpec
 from pipeline.review import QueueEntry, read_entry
@@ -81,6 +81,7 @@ class ScanSettings:
     xml_dir: str = ''
     images_repo: str = ''
     image_dir: str = ''
+    category_folders: bool = False
     meta_defaults: Optional[dict] = None
     # what `publish` is given besides the above, because each is in the published digest (publish_digest()). Unset --
     # the default -- keeps a digest recorded before they were counted valid, so give them exactly as `publish` gets them.
@@ -107,6 +108,7 @@ class ScanSettings:
             tv_mode=values.get('tv_mode') or DEFAULT_TV_MODE,
             xml_repo=filter_path('filter_repo', 'xml_repo'), xml_dir=filter_path('filter_dir', 'xml_dir'),
             images_repo=text('images_repo'), image_dir=text('image_dir'),
+            category_folders=bool(values.get('category_folders', False)),
             meta_defaults=values.get('meta_defaults') or None, image_owner=text('image_owner'),
             image_repo_name=text('image_repo_name'), report_spec=report_spec_from_values(values))
 
@@ -367,7 +369,7 @@ class Evaluator:
             self.__repo_states[path] = repo_state(RepoTarget(path))
         return self.__repo_states[path]
 
-    def _commit_state(self, entry_id: str) -> Tuple[str, str]:
+    def _commit_state(self, entry_id: str, category: Optional[str] = None) -> Tuple[str, str]:
         '''
         :return: (commit state, why, if it is not obvious) of a published title, worst of its filter record and image. With no filter record
             repository configured there is nothing to commit to: `none`, which `derive_needs` does not ask to commit.
@@ -375,7 +377,7 @@ class Evaluator:
         settings = self.settings
         if not settings.xml_repo:
             return 'none', ''   # nothing to commit to: not applicable, so a published title is not "commit" for ever
-        xml_path, image_path = catalogue_paths(entry_id, settings.xml_dir, settings.image_dir)
+        xml_path, image_path = catalogue_paths(entry_id, settings.xml_dir, settings.image_dir, category=category)
         worst, detail = 'pushed', ''
         for repo, path in ((settings.xml_repo, xml_path), (settings.images_repo, image_path)):
             if not repo:
@@ -437,13 +439,15 @@ class Evaluator:
             return out
         out['publish'] = 'written'
         settings = self.settings
+        category = category_for_metadata(facts.meta, settings.meta_defaults, settings.category_folders)
         if settings.xml_repo and not os.path.isfile(
-                os.path.join(settings.xml_repo, catalogue_paths(entry_id, settings.xml_dir, settings.image_dir)[0])):
+                os.path.join(settings.xml_repo, catalogue_paths(entry_id, settings.xml_dir, settings.image_dir,
+                                                                category=category)[0])):
             out.update(publish='out_of_date', out_of_date='its file is missing from the repository')
         elif facts.published_digest and digest and facts.published_digest != digest:
             out.update(publish='out_of_date', out_of_date='changed since it was published')
         if out['publish'] == 'written':
-            out['commit'], out['commit_detail'] = self._commit_state(entry_id)
+            out['commit'], out['commit_detail'] = self._commit_state(entry_id, category)
         return out
 
     # the title --------------------------------------------------------------------------------------------------

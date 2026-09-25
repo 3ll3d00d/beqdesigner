@@ -21,6 +21,8 @@ For each accepted title it writes:
 
 The filter is the one in the title's [`.beq` project](review.md#projects), so a hand edit is what ships, not the designer's candidate. The file name comes from the title's id, which does not change, so publishing again always writes the same file.
 
+If **Separate movies and TV** is enabled in Settings, each record and image goes under `movies/` or `tv/` beneath its repository location. Each filter subfolder gets its own `database.json`. The same choice is available to the CLI as `--category-folders` (or `sync.category_folders: true` in a profile). Without it, the existing flat paths remain in use.
+
 Publishing changes nothing but files in the working trees. The title moves from *Publish* to *Commit*.
 
 **Each title stands alone.** If one cannot be published, it is refused with a reason (incomplete metadata, the mono and multichannel projects disagree, git refused) and the others carry on. Refused titles keep their status, so they can be published later once fixed. The reasons are on the *Last run* tab.
