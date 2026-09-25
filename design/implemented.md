@@ -40,9 +40,14 @@ The published filter format is now a BEQCatalogue version-1 JSON record per
 title plus a derived `database.json` in the filter repository. The publisher,
 path naming, aggregate generation, local catalogue identity scan, and the
 former XML-specific review/commit/index assertions have moved to this format.
-The remaining terminology, cross-repository round trip, and repository
-onboarding are open item **J1** in `outstanding.md`; the old `xml_*` keys are compatibility
-plumbing for now.
+Saved profiles use `sync.filter_repo` and `sync.filter_dir`; old `xml_*` keys
+load and are rewritten on save, and conflicting values fail. The CLI exposes
+`--filter-repo` and `--filter-dir` while accepting hidden old aliases. Library
+GUI copy and the user guide describe JSON records. A fixture exercises the
+BEQDesigner record through BEQCatalogue page/database generation and back
+through `CatalogueEntry` (`a72c673`, BEQCatalogue `dc56c20d7`). The internal
+`xml_*` names remain compatibility plumbing. Actual producer repository
+onboarding remains J1 in `outstanding.md`.
 
 ## Design and review
 
