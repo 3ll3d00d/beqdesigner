@@ -3,7 +3,7 @@
 This is the only design backlog. Completed behavior is in
 [`implemented.md`](implemented.md); the library plan's old chunk and T numbers
 are retained here solely as traceable identifiers. Status reflects the
-2026-09-24 design sweep. A test using a fake JRiver server does not close an
+2026-09-25 design sweep. A test using a fake JRiver server does not close an
 item that requires evidence from a real one.
 
 | ID | Previous IDs | Status | Depends on |
@@ -13,7 +13,6 @@ item that requires evidence from a real one.
 | E3 | chunk 32, T7 | Not started; evidence dependent | E1; DVD fixture |
 | E4 | chunk 33, T8 | Not started; evidence dependent | E1; Blu-ray playlist fixture |
 | E5 | chunk 37, T15 | Waiting for a product decision | E2; representative season media |
-| J1 | chunk 39 | Source onboarding pending | Filter repository path and catalogue author |
 | J2 | chunk 40 | In progress; resolver is a first-stream stub | Sanitised Playback Info and ffprobe evidence |
 | W1 | chunk 45a | Partially implemented | None |
 | W2 | chunk 45b | Partial in `62270b4`: codec, channels and stream count are requested | J2 for automatic stream selection; manual override already exists |
@@ -85,23 +84,7 @@ user guide and close it as an accepted boundary.
 **Done when:** the evidence and decision are recorded; an approved new
 behavior is complete only after its implementation and tests land.
 
-## Format and selected-stream work
-
-### J1 — Complete the BEQCatalogue JSON migration
-
-The JSON publisher, path naming, aggregate, local identity scan, terminology
-migration, legacy profile policy, and fixture-backed BEQCatalogue →
-`model.catalogue.CatalogueEntry` round trip are built. BEQCatalogue's reader
-and public database normalisation are covered in `dc56c20d7`; BEQDesigner's
-settings, CLI, GUI, documentation and bridge test are in `a72c673`.
-
-Remaining: identify the actual filter-record repository and its catalogue
-author, make BEQCatalogue fetch it and list it in `record_repo_configs`, then
-run one of its records through the public catalogue build. The local
-`beqfilters` folder is empty and is not a git repository.
-
-**Done when:** no library publishing surface claims XML output and one
-configured source record reaches the public catalogue and round-trips back.
+## Selected-stream work
 
 ### J2 — Resolve JRiver's selected audio stream
 

@@ -2,7 +2,7 @@
 
 This is the consolidated account of the features delivered by the headless
 pipeline, candidate review, and library work list. It describes the code in
-this repository as of the 2026-09-24 design sweep. The authoritative API
+this repository as of the 2026-09-25 design sweep. The authoritative API
 and user instructions are in [`pipeline/README.md`](../src/main/python/pipeline/README.md)
 and [`docs/library/`](../docs/library/). The designer's external protocol
 remains in [`designer-interface.md`](designer-interface.md); its conformance
@@ -46,8 +46,14 @@ load and are rewritten on save, and conflicting values fail. The CLI exposes
 GUI copy and the user guide describe JSON records. A fixture exercises the
 BEQDesigner record through BEQCatalogue page/database generation and back
 through `CatalogueEntry` (`a72c673`, BEQCatalogue `dc56c20d7`). The internal
-`xml_*` names remain compatibility plumbing. Actual producer repository
-onboarding remains J1 in `outstanding.md`.
+`xml_*` names remain compatibility plumbing. BEQCatalogue now fetches
+`3ll3d00d/beqfilters` into `.input/3ll3d00d/beqfilters` and includes it as
+the `3ll3d00d` JSON record source (`f398ffd38`). Its image URLs point to the
+separate `3ll3d00d/beqimgs` repository; the catalogue need not clone it.
+The configured-source fixture reaches the public `database.json` and returns
+to `CatalogueEntry` (`01d9ec5`). The producer repository presently contains only its
+licence, so this is a fixture-backed integration check, not a claim that a
+live filter has already been published.
 
 ## Design and review
 

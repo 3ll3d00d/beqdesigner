@@ -19,7 +19,7 @@ coefficients; the focused library/orchestration suite passed 175 tests.
 | 1-2, 4-29, 34-36, 38, 41-44, 45c | Implemented | [Implemented design](implemented.md) |
 | 3/30, 31 | Waiting for live JRiver and acceptance evidence | [E1-E2](outstanding.md#external-evidence-and-disc-behavior) |
 | 32-33, 37 | Unfinished; evidence dependent | [E3-E5](outstanding.md#external-evidence-and-disc-behavior) |
-| 39 | JSON migration: terminology and bridge built in `a72c673`; BEQCatalogue reader in `dc56c20d7`; producer repository onboarding pending | [J1](outstanding.md#j1-complete-the-beqcatalogue-json-migration) |
+| 39 | Implemented: BEQDesigner terminology in `a72c673`, configured-source bridge in `01d9ec5`; BEQCatalogue JSON reader in `dc56c20d7` and producer repository onboarding in `f398ffd38` | [Implemented design](implemented.md#headless-pipeline) |
 | 40 | Selected-stream resolver in progress | [J2](outstanding.md#j2-resolve-jrivers-selected-audio-stream) |
 | 45a | Partial | [W1](outstanding.md#w1-retry-failures-and-title-page-details) |
 | 45b | Partially built in `62270b4` and `cb9456f`: codec/channel requests, automatic first-stream audio type and existing-entry backfill on rescan | [W2](outstanding.md#w2-stream-evidence-and-truthful-stages) |
