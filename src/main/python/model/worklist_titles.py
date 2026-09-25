@@ -80,6 +80,7 @@ class WorkListTitles:
         self.openButton.clicked.connect(lambda: self.open_title())
         # a run starting or leaving a title changes which decisions the page may offer for it
         self._model.dataChanged.connect(lambda *_: self._title_open and self._title_page.refresh_decisions())
+        self._model.dataChanged.connect(lambda *_: self._title_open and self._update_run_progress())
 
     def _activate_table_keyboard(self) -> None:
         '''Enter opens the focused Details cell when available, otherwise the current title page.'''
@@ -137,6 +138,7 @@ class WorkListTitles:
             self._title_page = TitlePage(self, self._preferences, self._title_queue_dir, self._rows_by_id,
                                          lambda: self._model.running, self._title_meta_defaults, hooks=hooks)
             self._title_page.back_requested.connect(self.close_title)
+            self._title_page.title_shown.connect(lambda _title_id: self._update_run_progress())
             self._title_page.decided.connect(self._on_title_decided)
             self._title_page.revised.connect(self._on_title_revised)
             self._title_page.changed.connect(self._on_title_changed)
@@ -248,6 +250,7 @@ class WorkListTitles:
             return False
         viewed = self._title_page.current_id
         self._title_open = False
+        self._update_run_progress()
         self.listHeader.setVisible(True)
         self.listFooter.setVisible(True)
         self._refresh_view()        # puts the table (or the reason there is none) back on the stack

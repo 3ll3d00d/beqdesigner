@@ -524,6 +524,41 @@ def test_ffmpeg_progress_stays_in_each_title_row_while_shared_progress_counts_ti
     assert window.runProgress.maximum() == 2 and window.runProgress.value() == 2
 
 
+def test_title_detail_page_progress_follows_the_viewed_track(qtbot, tmp_path):
+    make_index(tmp_path / 'work', _rows(), SOURCES, generation=2, last_scan_at=NOW - 900)
+    reached, advance, release = threading.Event(), threading.Event(), threading.Event()
+
+    def pipeline(profile, selection, through, *, on_progress, **kwargs):
+        ids = list(selection.ids)
+        on_progress(FfmpegProgress('Gravity', ids[0], 80, 100))
+        on_progress(FfmpegProgress('Tenet', ids[1], 15, 100))
+        reached.set()
+        assert advance.wait(5)
+        on_progress(FfmpegProgress('Gravity', ids[0], 95, 100))
+        assert release.wait(5)
+        return StagesReport(through, 2, run=LibraryRunReport(designed=ids), attempted=ids)
+
+    window, _ = _window(qtbot, tmp_path, pipeline=pipeline, prefs=_prefs(tmp_path))
+    window.select_ids(['x-gravity', 'x-tenet'])
+    window.run_selected()
+    qtbot.waitUntil(lambda: reached.is_set() and window.model.run_state('x-tenet').get('current') == 15,
+                    timeout=5000)
+    try:
+        assert window.runProgress.maximum() == 2 and window.runProgress.value() == 0
+        assert window.open_title('x-gravity')
+        assert window.runProgress.maximum() == 100 and window.runProgress.value() == 80
+        advance.set()
+        qtbot.waitUntil(lambda: window.runProgress.value() == 95, timeout=5000)
+        assert window.title_page.show_title('x-tenet')
+        assert window.runProgress.maximum() == 100 and window.runProgress.value() == 15
+        assert window.close_title()
+        assert window.runProgress.maximum() == 2 and window.runProgress.value() == 0
+    finally:
+        advance.set()
+        release.set()
+    qtbot.waitUntil(lambda: not window.is_running, timeout=5000)
+
+
 def test_details_cell_renders_and_activates_only_when_history_exists(qtbot, tmp_path):
     window, _ = _window(qtbot, tmp_path)
     row = next(i for i in range(window.proxy.rowCount())

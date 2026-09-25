@@ -395,6 +395,7 @@ class WorkListActions:
         self.runProgress.setRange(0, max(1, len(plan.planned)))
         self.runProgress.setValue(0)
         self.runProgress.setFormat(f'0 / {len(plan.planned)} titles')
+        self._update_run_progress()
         self._say(f'Starting: {plan_label(plan)}...')
         self._update_run_summary()
         self._refresh_actions()
@@ -475,9 +476,26 @@ class WorkListActions:
         self._say(f'Extracting {progress.title}  ({percent}%)')
 
     def _update_run_progress(self, context: Optional[_RunContext] = None) -> None:
-        '''Count unique titles with terminal outcomes; stages and ffmpeg packets do not advance this bar.'''
+        '''Show the viewed track on its title page, or completed-title count on the list.'''
         context = context or self._run_context
         if context is None:
+            return
+        if self._title_open and self._title_page is not None:
+            title_id = self._title_page.current_id
+            state = self._model.run_state(title_id)
+            outcome = self._run_outcomes.get(title_id)
+            self.runProgress.setRange(0, 100)
+            if outcome in ('succeeded', 'failed', 'cancelled'):
+                self.runProgress.setValue(100)
+                self.runProgress.setFormat({'succeeded': 'Complete', 'failed': 'Failed',
+                                            'cancelled': 'Cancelled'}[outcome])
+            elif state.get('current') is not None and state.get('total'):
+                percent = min(100, max(0, int(state['current'] * 100 / state['total'])))
+                self.runProgress.setValue(percent)
+                self.runProgress.setFormat(f'{percent}% of this track')
+            else:
+                self.runProgress.setValue(0)
+                self.runProgress.setFormat(state.get('text') or ('Queued' if outcome == 'queued' else 'This track'))
             return
         total = max(1, len(context.request.ids))
         completed = sum(outcome in ('succeeded', 'failed', 'cancelled') for outcome in self._run_outcomes.values())

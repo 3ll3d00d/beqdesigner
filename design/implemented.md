@@ -144,6 +144,9 @@ per-title execution events and ffmpeg commands with selection and Copy all.
 The bounded, redacted Details text of the last run is stored in the work
 directory and restored with its button when the work list reopens. Starting a
 new run clears that history; a completed or failed run replaces it.
+The list's run bar counts completed titles; while a title page is open, that
+bar follows the viewed track's measured progress and changes when the page
+moves to another track.
 New runs clear transient row state and limit outcome/progress updates to their
 planned titles. The UI reports aggregate progress, cancellation, and the
 result of titles that were omitted after a bulk confirmation. Some retry,
