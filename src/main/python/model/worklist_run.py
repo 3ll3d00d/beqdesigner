@@ -122,13 +122,13 @@ def build_run_config(setup, preferences) -> LibraryRunConfig:
 def publish_problem(setup) -> str:
     ''' Why publish and commit cannot run, or '' if they can. '''
     if setup.settings is None or not setup.settings.xml_repo:
-        return 'No XML repository is set. Set one in Settings (Locations).'
+        return 'No filter-record repository is set. Set one in Settings (Locations).'
     return ''
 
 
 def build_publish_settings(setup, push: bool = True) -> PublishSettings:
     '''
-    :raises ValueError: if no XML repository is set (see publish_problem()).
+    :raises ValueError: if no filter-record repository is set (see publish_problem()).
     '''
     sync = (setup.profile.config.get('sync') or {}) if setup.profile else {}
     return PublishSettings.from_scan_settings(setup.settings, image_owner=sync.get('image_owner'),
@@ -378,7 +378,7 @@ def describe_results(report: StagesReport, plan: StagePlan, settings, rows: Opti
                 note(title_id, 'nothing new to commit')
             else:
                 note(title_id, 'nothing to commit', LEVEL_WARN, 'its file is not in the repository')
-        for name, repo in (('Images repository', committed.images), ('XML repository', committed.xml)):
+        for name, repo in (('Images repository', committed.images), ('filter-record repository', committed.xml)):
             if repo is None:
                 continue
             what = (f'commit {repo.commit[:8]}' if repo.commit else 'nothing new to commit') + \

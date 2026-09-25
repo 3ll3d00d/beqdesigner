@@ -10,8 +10,8 @@ The current delivered design is in
 [`design/implemented.md`](../../../../design/implemented.md); the deduplicated
 backlog is [`design/outstanding.md`](../../../../design/outstanding.md).
 The formal designer contract remains in `design/designer-interface.md`.
-Some legacy XML names and examples below await the terminology migration
-tracked as J1 in the backlog; the library publisher already writes JSON.
+Library publishing writes version-1 JSON filter records. The separate XML export API remains available.
+Profiles use `sync.filter_repo` and `sync.filter_dir`; the legacy `sync.xml_repo` and `sync.xml_dir` keys still load, but a save rewrites them to the current keys. Conflicting old and new values are refused. The old CLI flags remain hidden aliases.
 
 ## Architecture rules
 
@@ -235,29 +235,29 @@ PYTHONPATH=src/main/python python -m pipeline.library.cli [--config FILE] accept
   prints `warning: N titles skipped: failed earlier ... use --retry-failed` on stderr whenever it skipped any; the exit status
   is unchanged). With a *selector* it does much more -- see "Doing the work for a selection" below.
 - A person then reviews the titles in the app (Tools > Library Work List's title page, or Review Folder for a queue directory) and accepts entries.
-- **`publish`** writes only the *accepted* entries into the catalogue repositories' working trees: the XML in one
+- **`publish`** writes only the *accepted* entries into the catalogue repositories' working trees: a JSON filter record in one
   and, optionally, a report image in another. Each entry is marked published (meaning *written*), so a re-run only
   publishes what is still accepted. It commits and pushes nothing, so the result can be looked at first. An entry
   whose metadata is incomplete is **refused on its own** (`invalid_metadata`, listing the problems) and the rest are
   still published. `--republish` also writes again each *published* entry whose catalogue copy is **out of date** --
-  a metadata typo fixed, a new poster, an edited project, or an XML missing from the repository -- at the same path,
+  a metadata typo fixed, a new poster, an edited project, or a filter record missing from the repository -- at the same path,
   keeping it published, without a second review; `commit` then commits it as a revision. `--id` restricts it to
   named entries. The filter is published from each title's `.beq` project, so a hand edit is what ships, when the work
   directory is known: `--work-dir`, else `work_dir` in the `sync:` section, else in the `run:` section; without one the
   designer's own pick is published, which would write over a hand-edited filter. A changed report style (`ReportSpec`)
-  or `--xml-dir` is not the same: the style makes titles out of date, a new `xml_dir` is a new *location* -- the file
+  or `--filter-dir` is not the same: the style makes titles out of date, a new `filter_dir` is a new *location* -- the file
   at the old one is left behind for a person to remove (and the image's GitHub owner/repo is not in the digest either).
   One bad entry never stops the batch: anything that goes wrong for it (incomplete or unbuildable metadata -- a missing
   or null title, an unknown field -- a project conflict, git refusing, a poster file that is gone) is that entry's
   `{"id", "error", ...}` result and it keeps its status, so a rerun retries it.
 - **`commit`** commits what `publish` wrote and pushes it: **one commit per repository** containing exactly those
   files (anything else staged in the clone is left alone), then one push per repository, **images first** so a pushed
-  XML never points at an image that is not there. Whether a file is committed or pushed is read from git, not
+  filter record never points at an image that is not there. Whether a file is committed or pushed is read from git, not
   remembered, so running it again does only what is left (a rejected push is retried; an unchanged file is not an
   error) and a commit you made by hand is respected. `--no-push` commits locally only. Paths within a repository
   are always `/`-separated (git's spelling, on Windows too), and the clone may be a subdirectory of a repository. A
   published file that is still not committed afterwards (a `.gitignore` rule matches it) is reported as
-  `not_committed` and is an error, never silently skipped; an XML naming a report image, committed without an
+  `not_committed` and is an error, never silently skipped; a filter record naming a report image, committed without an
   `--images-repo`, is warned about (`warnings`, also on stderr) because the image is not committed with it.
 - **`sync`** is `publish` then `commit`. It runs as the invoking user's own git/SSH configuration.
 - **`revise`** sends titles back: `--to review` reopens them for another pick (from accepted, skipped, rejected or
@@ -269,8 +269,8 @@ PYTHONPATH=src/main/python python -m pipeline.library.cli [--config FILE] accept
   **committed** keeps them, becomes a *revision* (`revision` on the entry counts these) and is rewritten at the same
   path when published again. Each records a line in the entry's reviewer note (`--reason` adds why). Both repositories
   are checked to be git repositories *before* anything changes (a `ValueError` otherwise), the images repository is put
-  back before the XML repository, and the entry is written last, so a failure part-way leaves it `published` and
-  running it again finishes the job. **Revision rule:** `revision` goes up when a committed XML that is unchanged in
+  back before the filter-record repository, and the entry is written last, so a failure part-way leaves it `published` and
+  running it again finishes the job. **Revision rule:** `revision` goes up when a committed filter record that is unchanged in
   the working tree is superseded -- by a reopen, or by a `--republish` that rewrites it -- and not when it is
   already rewritten and uncommitted (that revision was counted); a never-committed file has nothing to count.
 - **`accept`** is *bulk accept*: it accepts the designer's top pick for the titles waiting for review whose top pick is
@@ -303,7 +303,7 @@ design is current and it is waiting for a person (a designer's decline included)
 incomplete; *extract*, *design*, *publish* (accepted and not written, or written and out of date -- a metadata typo
 reaches the catalogue without a second review) and *commit* (written but not committed, or committed but not pushed)
 are machine work; everything else -- pushed, skipped, rejected, and the flags **Ignored**, **Shadowed**, **Gone** -- is
-*done*. **Possible duplicate** and **Already in catalogue** (its TMDB id is in the local XML repo under a file this
+*done*. **Possible duplicate** and **Already in catalogue** (its TMDB id is in the local filter-record repository under a file this
 profile did not publish) are labels only. A title decided by a person is never made stale by a settings change, only by
 its source.
 
@@ -337,7 +337,7 @@ library to read.
 - **`--through publish`** additionally writes the titles a person has **accepted**, and *published* titles whose
   catalogue copy is out of date (`--needs publish` selects them), into the repositories' working trees; **`commit`**
   also commits and pushes what was published (one commit and one push per repository, images first). Both need
-  `--xml-repo` (from the `sync:` section as usual). A title waiting for **review** is never taken past design: review
+  `--filter-repo` (from the `sync:` section as usual). A title waiting for **review** is never taken past design: review
   is a person's.
 - A title that needs something the chosen `--through` does not reach, or cannot be helped by a run (waiting for review, a
   project conflict, a source changed since it was accepted, done), is **skipped and reported with the reason**.
@@ -405,8 +405,8 @@ run:
 sync:
   queue_dir: /var/lib/beq/queue
   work_dir: /var/lib/beq/work    # publish from each title's .beq project, so a hand edit is what ships
-  xml_repo: /home/me/beq-filters # a local clone
-  xml_dir: filters
+  filter_repo: /home/me/beq-filters # a local clone
+  filter_dir: filters
   images_repo: /home/me/beq-images
   image_dir: images
   meta_defaults: {source: Disc, author: me}   # config only: BeqMetadata fields for anything an entry lacks
@@ -444,12 +444,12 @@ run: {work_dir: /var/lib/beq/work, queue_dir: /var/lib/beq/queue, designer: roll
 
 - **The same file in two sources is one title.** "Same file" means the same path after the source's own `path_mappings`,
   ignoring case and `\` versus `/`, with a disc rip's clips folded into the disc folder. The first source wins; the other is
-  *shadowed* (no separate title, no second XML). Nothing is read from disk to decide this. Two items with the *same id* are one
+  *shadowed* (no separate title, no second filter record). Nothing is read from disk to decide this. Two items with the *same id* are one
   title (first wins); a shadowed copy that already has outputs of its own is flagged on the owner and says so; an item with no
   path never clashes on it; and a JRiver Blu-ray *playlist* entry (`BDMV\PLAYLIST\index.bluray;N`) is its own title, not the disc.
 - **The same title in different files is not merged**, since it may be a real second entry (an edition, another audio track):
   both stay titles and each is flagged as a possible duplicate (same TMDB id, else IMDb id, else title and year).
-- **A title keeps the id it already has**, so reordering `sources:` never orphans an extraction or publishes a second XML:
+- **A title keeps the id it already has**, so reordering `sources:` never orphans an extraction or publishes a second filter record:
   the source whose item already has a queue entry or work directory keeps the file whatever the order. If that item leaves its
   source, the other one takes over *under its own id* (its old outputs are left behind, not reused). A TV season keeps its
   id too, if the series' title is corrected in the library.
@@ -477,7 +477,7 @@ option documented). In outline, `run` takes the library source (`--source --glob
 (`--designer --designer-url --coverage --keep-multichannel --tv-mode`), redoing work (`--force-extract
 --force-design`), which titles (`--needs --match --id --new-since-scan --through --retry-failed`), the repositories and `--push`
 (only for `--through publish` or `commit`), metadata (`--tmdb-api-key --audio-type`) and analysis (`--target-fs --resolution --avg-window
---peak-window`); `publish` takes what to publish (`--queue-dir --work-dir --id --republish`), the repositories (`--xml-repo --xml-dir
+--peak-window`); `publish` takes what to publish (`--queue-dir --work-dir --id --republish`), the repositories (`--filter-repo --filter-dir
 --images-repo --image-dir --image-owner --image-repo-name`) and the same analysis options; `commit` takes `--queue-dir`, the same
 repositories (without the image-URL options), `--id` and `--push`/`--no-push`; `sync` takes everything `publish` does plus `--push`; `revise` takes `--queue-dir --id --to --reason --work-dir` and the repositories. `publish`,
 `commit`, `sync` and `revise` read the one `sync:` section of the config file. `scan` takes `--profile --source
@@ -506,13 +506,13 @@ The commands print JSON to stdout (`status` prints text unless given `--json`).
   less confident, and `not_for_review` those in the selection that were not waiting for review. `--dry-run` prints the
   same as `{eligible, ...}` and changes nothing.
 - `publish` and `sync` print one object per entry they published (`id` plus the publish result -- `image_url`,
-  and `republished`; not the XML itself, which is in the repository; `edited_project` and `projects_aligned` say a hand edit
+  and `republished`; not the filter record itself, which is in the repository; `edited_project` and `projects_aligned` say a hand edit
   was what shipped) or refused (`id` and `error`, e.g. `project_conflict` when the mono and multichannel projects were
   edited to disagree, `invalid_metadata` with the `problems`, `git_failed` or `publish_failed` with a `message`). Exit
   status 1 if any entry was refused, 3 if git refused (see below). With `sync` each published entry also carries the
   batch's `xml_commit` (and `image_commit`) sha, where a commit was made -- also when a later push failed.
 - `revise` prints one object per `--id`: `id`, `status`, `revision`, `reverted` (catalogue files put back as git has them) and
-  `extract_invalidated`, or `id` and `error` (no such entry, already pending, published with no `--xml-repo`). Exit status 1 if any failed.
+  `extract_invalidated`, or `id` and `error` (no such entry, already pending, published with no `--filter-repo`). Exit status 1 if any failed.
 - `commit` prints `{"xml": {...}, "images": {...}, "missing": [...], "not_committed": [...], "warnings": [...]}`; each
   repository reports its `paths` handled, the new `commit` sha (null if everything was already committed) and whether it
   was `pushed`. `missing` lists published entries with no file in their repository (run `publish` again; exit status 1);
@@ -539,11 +539,11 @@ Kept here as a short historical index; delivered behavior is summarized in
 |---|---|---|
 | D1 | Headroom measured at which sample rate? | The decimated analysis fs; `signal_stats()`/`Stats` carries that fs alongside the numbers so a published `beq_gain` is never ambiguous. |
 | D2 | How is required attenuation expressed? | Signal offset, matching existing behaviour. The dead `__find_gain` (would-be `Gain`-filter path) was deleted; a `Gain` filter reaching `to_beq_xml()` fails loudly instead of silently omitting `beq_gain`. |
-| D3 | beqcatalogue repo conventions | No fixed layout — `extract_from_repo()` globs `**/*.xml`. Two repos (XML, images); images referenced by GitHub raw-content URL; plain commit + push, no PR, triggered by `repository_dispatch`. |
+| D3 | beqcatalogue repo conventions | The JSON reader globs individual `**/*.json` records and skips the derived `database.json`. Filter records and images use separate repositories; images use GitHub raw-content URLs. |
 | D4 | Does the report need to be pixel-identical to the GUI's? | No — a spec-driven render (fixed size/layout) of the existing "pixel perfect" mode, not a port of the dialog's layout code. |
 | D5 | CLI vs service (whose git credentials?) | Runs as the invoking user's own git/SSH config — see `pipeline/publish/git.py`'s module docstring. |
 | D6 | Catalogue-as-input (`CatalogueEntry.iir_filters()` → apply an existing published BEQ) | Tracked as O1 in `design/outstanding.md`. |
-| D7 | Does designer provenance reach the report? | Yes, as far as the report (a human can see *why* a filter was accepted); never into the published XML, which has no field for it. |
+| D7 | Does designer provenance reach the report? | Yes. The published JSON record carries the review note; BEQCatalogue derives `filterAuthor` for the public database. |
 | D8 | How does a designer bind to the pipeline? | In-process callable first, HTTP binding added later (`design/archive/http-designer-binding-plan.md`) once cross-process/cross-language use actually needed it. |
 
 ## Testing

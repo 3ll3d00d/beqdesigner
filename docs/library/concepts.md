@@ -8,7 +8,7 @@ A **title** is one unit of work in the catalogue: a film, or a TV episode, or (i
 * TV shows can be handled either as **one filter per episode** (the default, each episode is a title) or as a **whole season as a single track**, where the episodes are joined into one track and the season is one title. This is the *TV shows* option in [Settings > Locations](setup.md#locations). Changing it later is safe: a row that already has a review entry but whose episodes are now grouped differently is kept and labelled *superseded* (see [Discover](discover.md#flags)); one with no entry is simply replaced by the new row.
 * A disc rip (a folder containing `BDMV` for Blu-ray or `VIDEO_TS` for DVD) is one title, and its main feature (the longest playlist or title) is what is used.
 
-Every title has a stable **id** such as `jriver-3fa9c2-1234` or `fs-8d1c04a2b9e7f310`. The id names the title's work folder, its review entry and its file in the catalogue (`<id>.xml`). It does not change when you reorder sources, rename the title or fix its metadata, so nothing is ever orphaned or published twice. You will see it in a row's tooltip and in the search box, which matches ids.
+Every title has a stable **id** such as `jriver-3fa9c2-1234` or `fs-8d1c04a2b9e7f310`. The id names the title's work folder, its review entry and its file in the catalogue (`<id>.json`). It does not change when you reorder sources, rename the title or fix its metadata, so nothing is ever orphaned or published twice. You will see it in a row's tooltip and in the search box, which matches ids.
 
 ### Stages
 
@@ -19,7 +19,7 @@ Every title moves through five stages. Extract and design are done by the machin
 | Extract | the audio has been extracted from the movie file (a mono mixdown, plus the multichannel audio if you keep it) | none, current, stale (the file or the settings changed), failed |
 | Design | the designer has proposed candidate filters | none, current, stale, failed, protected (accepted or published: never redesigned by a run) |
 | Review | a person has decided | pending, accepted, skipped, rejected |
-| Publish | the accepted filter has been written into the local XML (and images) repository | not written, written, out of date |
+| Publish | the accepted filter has been written into the local filter-record (and images) repository | not written, written, out of date |
 | Commit | the written files have been committed, and pushed | uncommitted, committed, pushed |
 
 You do not normally think about states. The work list turns them into a single answer per title, called **needs**.
@@ -63,6 +63,6 @@ Extraction and design can run unattended. Review cannot. **A title is never publ
 | extracted audio and `.beq` projects | the **work directory**, one folder per title | the audio can be large, but the folder also holds the `.beq` projects that carry [any hand edits you made to a filter](review.md#projects), so do not clear it casually |
 | the discovery index | `library-index.sqlite` in the work directory | a cache of the last scan. Deleting it costs a [rescan](discover.md) and nothing else |
 | designed titles waiting for a decision (and their decisions) | the **review queue directory**, one `<id>.json` per title | this is where your accept, skip and reject decisions and metadata edits live |
-| published files | your local clones of the XML and images repositories | `<id>.xml` and `<id>.png` |
+| published files | your local clones of the filter record and images repositories | `<id>.json` and `<id>.png` |
 
 The discovery index is disposable. The profile, the review queue and the repositories are not: back those up.

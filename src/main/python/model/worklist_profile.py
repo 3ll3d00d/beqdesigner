@@ -21,7 +21,7 @@ from model.jriver.connections import load_connections
 from model.library_sources import jriver_source_settings
 from model.preferences import DESIGNER_DEFAULT, DESIGNER_QUEUE_DIR, LIBRARY_FILESYSTEM_GLOBS, LIBRARY_IMAGES_REPO, \
     LIBRARY_JRIVER_BROWSE_NODE, LIBRARY_JRIVER_CONNECTION, LIBRARY_PROFILE_PATH, LIBRARY_SOURCE_DEFAULT, \
-    LIBRARY_TV_MODE, LIBRARY_WORK_DIR, LIBRARY_XML_REPO
+    LIBRARY_TV_MODE, LIBRARY_WORK_DIR, LIBRARY_XML_REPO, LIBRARY_FILTER_REPO
 from pipeline.library.index import index_path
 from pipeline.library.profile import Profile, load_profile, profile_from_config
 from pipeline.library.status import ScanSettings
@@ -63,7 +63,8 @@ def bootstrap_profile(prefs, designer: str = '') -> Profile:
     '''
     run: Dict[str, Any] = {'work_dir': prefs.get(LIBRARY_WORK_DIR), 'queue_dir': prefs.get(DESIGNER_QUEUE_DIR),
                            'designer': designer, 'tv_mode': prefs.get(LIBRARY_TV_MODE)}
-    sync = {'xml_repo': prefs.get(LIBRARY_XML_REPO), 'images_repo': prefs.get(LIBRARY_IMAGES_REPO)}
+    sync = {'filter_repo': prefs.get(LIBRARY_FILTER_REPO) or prefs.get(LIBRARY_XML_REPO),
+            'images_repo': prefs.get(LIBRARY_IMAGES_REPO)}
     source = _bootstrap_source(prefs)
     config: Dict[str, Any] = {'sources': [source] if source else [],
                               'run': {k: v for k, v in run.items() if v},

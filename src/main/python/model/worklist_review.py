@@ -15,7 +15,7 @@ repositories and the work directory of the library profile (Library Work List > 
 list reads), so the standalone entry point now writes the images repository too, reads the `.beq` projects of an entry that has
 them under the work directory (a person's edit is what is published; an entry designed by Batch Extract has none and is published
 from its candidates; one whose project is there but whose audio is gone is refused, not published without the edit) and refuses
-incomplete metadata per title, which the old XML-only Publish button did not (T9). Publish only
+incomplete metadata per title, which the old filter-only Publish button did not (T9). Publish only
 writes into the repositories' working trees; Commit is the separate, confirmed step that commits and pushes (one commit per
 repository, images first). Both name the repositories and the count before doing anything, and run on the thread pool -- and
 while one runs the window holds the interlocks the work list holds: the titles it is working on are "running" for the page
@@ -68,7 +68,7 @@ def describe_publish(results: List[dict]) -> str:
 
 def describe_commit(commit: CatalogueCommit) -> str:
     parts = []
-    for name, repo in (('images', commit.images), ('XML', commit.xml)):
+    for name, repo in (('images', commit.images), ('filter records', commit.xml)):
         if repo is None:
             continue
         what = f'commit {repo.commit[:8]}' if repo.commit else 'already committed'

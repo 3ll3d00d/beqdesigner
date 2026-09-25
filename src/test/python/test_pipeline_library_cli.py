@@ -315,7 +315,7 @@ def test_a_declared_designer_without_a_url_is_a_cli_error(tmp_path, monkeypatch)
 def test_publish_only_writes_and_reads_the_shared_sync_section(tmp_path, monkeypatch, capsys):
     from pipeline.library import cli
     config = tmp_path / 'c.json'
-    config.write_text(json.dumps({'sync': {'queue_dir': '/queue', 'xml_repo': '/xml', 'xml_dir': 'filters'}}))
+    config.write_text(json.dumps({'sync': {'queue_dir': '/queue', 'filter_repo': '/xml', 'filter_dir': 'filters'}}))
     calls = []
     monkeypatch.setattr(cli, 'publish_library', lambda *args, **kwargs: calls.append((args, kwargs)) or [{'id': 'one'}])
     monkeypatch.setattr(cli, 'commit_library', lambda *args, **kwargs: pytest.fail('publish must not commit'))
@@ -327,6 +327,15 @@ def test_publish_only_writes_and_reads_the_shared_sync_section(tmp_path, monkeyp
     assert (args[0], args[1].local_path, kwargs['images_repo'].local_path, kwargs['xml_dir']) == \
         ('/queue', '/xml', '/images', 'filters')
     assert json.loads(capsys.readouterr().out) == [{'id': 'one'}]
+
+
+def test_filter_repo_flags_and_legacy_aliases_are_accepted(monkeypatch, capsys):
+    calls = []
+    monkeypatch.setattr(cli, 'publish_library', lambda *args, **kwargs: calls.append((args, kwargs)) or [])
+    for repo_flag, dir_flag in (('--filter-repo', '--filter-dir'), ('--xml-repo', '--xml-dir')):
+        assert cli.main(['publish', '--queue-dir', '/queue', repo_flag, '/records', dir_flag, 'titles']) == 0
+    assert [(args[1].local_path, kwargs['xml_dir']) for args, kwargs in calls] == \
+        [('/records', 'titles'), ('/records', 'titles')]
 
 
 def test_commit_pushes_by_default_and_can_be_told_not_to(monkeypatch, capsys):
@@ -769,8 +778,9 @@ def workflow(tmp_path, monkeypatch):
 
     def extract(session, item, item_dir, cfg, mono_mix=True, force=False):
         _extracted(env, item, fingerprint=source_fingerprint(item))
-        sf.write(os.path.join(item_dir, 'mono.wav'), np.random.default_rng(1).normal(0, 0.1, 4000), 1000)
-        return os.path.join(item_dir, 'mono.wav'), False
+        wav_path = os.path.join(env.work, item.id, 'mono.wav')
+        sf.write(wav_path, np.random.default_rng(1).normal(0, 0.1, 4000), 1000)
+        return wav_path, False
 
     def design(session, item, wav_path, designer, queue_dir, cfg, **kwargs):
         name = os.path.basename(item.source_path)[:-4]

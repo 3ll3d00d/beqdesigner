@@ -6,7 +6,7 @@ A scan (the **Rescan** button) does four things:
 
 1. It lists every [source](setup.md#sources) in the profile.
 2. It merges the lists: the same file in two sources becomes one title, and titles you have chosen to [ignore](setup.md#ignore) are marked.
-3. It reads what already exists for each title: the extraction in the work directory, the review entry, the `.beq` projects, and the state of your XML and images repositories.
+3. It reads what already exists for each title: the extraction in the work directory, the review entry, the `.beq` projects, and the state of your filter-record and images repositories.
 4. From those it works out what each title needs next, and stores the answer in the discovery index in the work directory.
 
 A scan **never extracts audio, never designs and never publishes**, and it **never reads a movie file**. A JRiver source is listed with a single request to the server, which is why it does not matter how large the library is. A filesystem source costs, at most, a look at the size and date of each file. Whether a JRiver file exists on this computer is not checked during a scan either: if a path mapping is wrong you find out when extraction fails, with the reason.
@@ -48,7 +48,7 @@ Some titles carry a label. It is shown at the end of the *Detail* column.
 | **Gone** | the title has left its source (the file was removed from the library) but it has outputs, so it is kept rather than deleted. Nothing is ever deleted automatically | Done |
 | **Superseded** | the detail says *superseded by ...*: the title's files are still listed but are now grouped under another title, which happens when you change the [TV mode](setup.md#locations). A row that already has a review entry is kept, so you can finish it | as it was |
 | **Possible duplicate** | another title has the same TMDB id, IMDb id or title and year, in a different file. Both stay in the list | as it was |
-| **Already in catalogue** | the title's TMDB id already appears in the XML repository under a file that *this* profile did not publish (someone else's, or an older filter). It is a label only: the title stays in the list, and you can ignore it if you want | as it was |
+| **Already in catalogue** | the title's TMDB id already appears in the filter-record repository under a file that *this* profile did not publish (someone else's, or an older filter). It is a label only: the title stays in the list, and you can ignore it if you want | as it was |
 
 !!! note
     There is no filter for *Possible duplicate*, *Already in catalogue* or any other flag. To find them, look at the *Detail* column, or in the *Done* view for the ones that are Done.

@@ -33,7 +33,7 @@ What it means depends on how far the title had got, and the question says so for
 | published, but not committed | the files written for it are taken out of the repositories' working trees again (deleted, or put back as last committed) |
 | already committed (or pushed) | its files stay where they are until you publish again, which writes **the same path**: a [revision](publish.md#revisions), which you then commit |
 
-Published titles need the **XML repository** to be set (and the images repository, for the image) so that their files can be dealt with. If a choice cannot be carried out, the reason is shown in the dialog and the OK button is disabled: no review queue directory is set, nothing has been designed, the titles are already waiting (for *Reopen*), a published title has no XML repository, or there is no work directory for a re-extract.
+Published titles need the **filter-record repository** to be set (and the images repository, for the image) so that their files can be dealt with. If a choice cannot be carried out, the reason is shown in the dialog and the OK button is disabled: no review queue directory is set, nothing has been designed, the titles are already waiting (for *Reopen*), a published title has no filter-record repository, or there is no work directory for a re-extract.
 
 A few more rules:
 

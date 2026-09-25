@@ -140,7 +140,7 @@ def test_commit_results_say_committed_pushed_or_nothing_new_per_title_and_reposi
 
     by_key = {l.id or l.title: l for l in lines}
     assert by_key['c1'].outcome == 'Committed'   # not pushed: no "pushed"
-    assert by_key['XML repository'].detail == 'commit abcdef01, not pushed (1 file) -- /repo/xml'
+    assert by_key['filter-record repository'].detail == 'commit abcdef01, not pushed (1 file) -- /repo/xml'
     assert by_key['Images repository'].outcome == 'unchanged' and by_key['Images repository'].detail.startswith(
         'nothing new to commit, not pushed (0 files)')
     assert by_key['Published files missing'].level == 'warn'
@@ -296,7 +296,7 @@ def test_publish_settings_come_from_the_scan_settings_and_the_profile_and_say_wh
     assert settings == PublishSettings(RepoTarget('/r/xml'), RepoTarget('/r/img'), 'me', 'imgs', 'x', 'i', None,
                                        push=False)
     assert publish_problem(setup) == ''
-    assert 'No XML repository' in publish_problem(_Setup(ScanSettings('/w', '/q')))
+    assert 'No filter-record repository' in publish_problem(_Setup(ScanSettings('/w', '/q')))
     with pytest.raises(ValueError):
         build_publish_settings(_Setup(ScanSettings('/w', '/q')))
 

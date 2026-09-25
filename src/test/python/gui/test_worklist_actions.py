@@ -261,7 +261,7 @@ def test_publish_and_commit_are_disabled_with_a_reason_when_no_xml_repository_is
     window.select_ids(['p-one', 'c-one'])
 
     assert not window.publishButton.isEnabled() and not window.commitButton.isEnabled()
-    assert 'No XML repository is set' in window.publishButton.toolTip()
+    assert 'No filter-record repository is set' in window.publishButton.toolTip()
 
 
 def test_the_selection_survives_a_reload_from_the_index(qtbot, tmp_path):
@@ -1005,7 +1005,7 @@ def test_publish_names_the_repositories_and_the_count_and_runs_nothing_if_declin
     text = seen[0]
     assert text.startswith('Publish 3 titles?')
     assert str(tmp_path / 'catalogue-xml') in text and str(tmp_path / 'catalogue-images') in text
-    assert 'XML repository' in text and 'Images repository' in text
+    assert 'filter-record repository' in text and 'Images repository' in text
     assert '1 title of these is already published and out of date' in text      # the republish is named
     assert 'Nothing is committed or pushed' in text
     assert pipeline.calls == [] and not window.is_running
@@ -1037,7 +1037,7 @@ def test_commit_confirmation_names_the_repositories_images_first_and_offers_a_pu
 
     text = seen[0]
     assert text.startswith('Commit 2 titles?')
-    assert text.index('Images repository') < text.index('XML repository')      # images first
+    assert text.index('Images repository') < text.index('filter-record repository')      # images first
     assert str(tmp_path / 'catalogue-images') in text and str(tmp_path / 'catalogue-xml') in text
     assert 'one commit per repository' in text
     assert seen[1] == ('checkbox', True)     # push is on unless the person unticks it
@@ -1119,9 +1119,9 @@ def test_commit_results_are_listed_per_title_and_per_repository(qtbot, tmp_path)
     assert lines['c-one'].outcome == 'Committed, pushed'
     assert lines['c-two'].outcome == 'Nothing to commit' and lines['c-two'].level == 'warn'
     assert lines['Images repository'].detail.startswith('commit 1234567a, pushed (1 file)')
-    assert lines['XML repository'].detail.startswith('commit abcdef12, pushed (1 file)') and xml in \
-           lines['XML repository'].detail
-    assert window.results.index(lines['Images repository']) < window.results.index(lines['XML repository'])
+    assert lines['filter-record repository'].detail.startswith('commit abcdef12, pushed (1 file)') and xml in \
+           lines['filter-record repository'].detail
+    assert window.results.index(lines['Images repository']) < window.results.index(lines['filter-record repository'])
     assert window.runStatusLabel.text() == 'Commit finished: 1 committed, 1 pushed'
 
 

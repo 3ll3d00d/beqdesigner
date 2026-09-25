@@ -65,16 +65,16 @@ def _send_back(queue_dir: str, entry_id: str, to: str, reason: str, *, xml_repo:
             _check_repo(images_repo, 'images_repo')
         xml_path, image_path = catalogue_paths(entry_id, xml_dir, image_dir)
         committed = is_committed(xml_repo, xml_path)
-        # The order makes a failure part-way retryable: the image goes first and the XML -- whose state decides the
+        # The order makes a failure part-way retryable: the image goes first and the filter record -- whose state decides the
         # revision count -- last, and the entry is written after both, so until it is written it is still 'published'
         # and running this again does the rest (a discard of a file that already matches HEAD does nothing).
-        # The one window left is a failure writing the entry itself after the XML was restored: the retry then
+        # The one window left is a failure writing the entry itself after the filter record was restored: the retry then
         # finds the XML clean and counts a revision that the first attempt would not have.
         reverted_images = discard_changes(images_repo, [image_path]) if images_repo is not None else []
         reverted = discard_changes(xml_repo, [xml_path]) + reverted_images
         if committed and xml_path not in reverted:
             revision += 1  # the catalogue holds this version, and nothing was written over it: a new revision begins
-        # (a dirty committed XML is a revision already begun -- by an earlier reopen, or by a republish, which counts
+        # (a dirty committed filter record is a revision already begun -- by an earlier reopen, or by a republish, which counts
         # it -- so it is not counted again)
     note = _NOTES[to] + (f': {reason}' if reason else '')
     updated = update_entry(queue_dir, entry_id, status='pending', chosen_candidate_index=None,

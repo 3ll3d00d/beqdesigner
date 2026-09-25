@@ -94,11 +94,18 @@ class ScanSettings:
         def text(name: str) -> str:
             return str(values.get(name) or '')
 
+        def filter_path(current: str, old: str) -> str:
+            new_value, old_value = text(current), text(old)
+            if new_value and old_value and new_value != old_value:
+                raise ValueError(f'{current} and legacy {old} disagree; keep one value')
+            return new_value or old_value
+
         return cls(
             work_dir=text('work_dir'), queue_dir=text('queue_dir'), designer=text('designer'),
             config=analysis_from_values(values), coverage=values.get('coverage') or 'complete_programme',
             keep_multichannel=bool(values.get('keep_multichannel', False)),
-            tv_mode=values.get('tv_mode') or DEFAULT_TV_MODE, xml_repo=text('xml_repo'), xml_dir=text('xml_dir'),
+            tv_mode=values.get('tv_mode') or DEFAULT_TV_MODE,
+            xml_repo=filter_path('filter_repo', 'xml_repo'), xml_dir=filter_path('filter_dir', 'xml_dir'),
             images_repo=text('images_repo'), image_dir=text('image_dir'),
             meta_defaults=values.get('meta_defaults') or None, image_owner=text('image_owner'),
             image_repo_name=text('image_repo_name'), report_spec=report_spec_from_values(values))
@@ -304,8 +311,8 @@ class Evaluator:
     def __init__(self, settings: ScanSettings, *, xml_index: Optional[Mapping[Tuple[str, bool], Set[str]]] = None,
                  own_ids: FrozenSet[str] = frozenset()):
         '''
-        :param xml_index: (TMDB id, is tv) -> the XML file stems that have it, from the local XML repo.
-        :param own_ids: ids this profile publishes under; an XML with one of those names is ours, not someone else's.
+        :param xml_index: (TMDB id, is tv) -> the filter-record stems that have it, from the local filter-record repository.
+        :param own_ids: ids this profile publishes under; a filter record with one of those names is ours, not someone else's.
         '''
         self.settings = settings
         self.__dirs: FrozenSet[str] = frozenset(work_ids(settings.work_dir))
@@ -362,7 +369,7 @@ class Evaluator:
 
     def _commit_state(self, entry_id: str) -> Tuple[str, str]:
         '''
-        :return: (commit state, why, if it is not obvious) of a published title, worst of its XML and image. With no XML
+        :return: (commit state, why, if it is not obvious) of a published title, worst of its filter record and image. With no filter record
             repository configured there is nothing to commit to: `none`, which `derive_needs` does not ask to commit.
         '''
         settings = self.settings
@@ -443,7 +450,7 @@ class Evaluator:
 
     def in_catalogue(self, item: Optional[LibraryItem], meta: Mapping[str, Any]) -> bool:
         '''
-        True if the XML repo already holds this title's TMDB id under a file this profile did not publish. The XML has
+        True if the filter-record repository already holds this title's TMDB id under a file this profile did not publish. The filter record has
         no movie/tv marker, so the match is on the id together with whether a season is set (design.md §12.14).
         '''
         tmdb = str(((item.external_ids.get('tmdb') if item else None) or meta.get('the_movie_db') or '')).strip()

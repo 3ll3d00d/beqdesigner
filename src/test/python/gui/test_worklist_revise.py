@@ -105,7 +105,7 @@ def test_the_question_says_what_will_happen_before_anything_does():
 def test_what_cannot_be_done_is_said_before_anything_changes():
     context = ReviseContext('/q', '/w')
     published = ReviseSummary.of([('published', 'pushed')])
-    assert 'XML repository' in revise_problem('review', published, context)
+    assert 'filter-record repository' in revise_problem('review', published, context)
     assert revise_problem('review', published, ReviseContext('/q', '/w', RepoTarget('/x'))) == ''
     assert 'queue directory' in revise_problem('review', published, None)
     assert revise_problem('review', ReviseSummary.of([]), context) == 'No title is selected.'
@@ -160,7 +160,7 @@ def test_the_dialog_starts_where_asked_disables_ok_with_the_reason_and_reads_the
     summary = ReviseSummary.of([('published', 'pushed')], 'Heat')
     dialog = ReviseDialog(None, summary, ReviseContext('/q'), 'design')
     qtbot.addWidget(dialog)
-    assert dialog.choice == 'design' and not dialog.ok_button.isEnabled() and 'XML repository' in dialog.problemLabel.text()
+    assert dialog.choice == 'design' and not dialog.ok_button.isEnabled() and 'filter-record repository' in dialog.problemLabel.text()
     assert dialog.cancel_button.isDefault() and not dialog.ok_button.autoDefault()
     assert list(dialog.radios) == list(CHOICES)
     ok = ReviseDialog(None, summary, ReviseContext('/q', '/w', RepoTarget('/x')), 'extract')
@@ -346,7 +346,7 @@ def test_a_published_title_with_no_xml_repository_set_is_not_reopened_and_says_w
     window = _window(qtbot, tmp_path, entries=[], rows=rows)          # no repositories in the preferences
     page = _open(qtbot, window, 'p-pub')
     assert page.revise('review') is False
-    assert 'XML repository' in page.decisionLabel.text()
+    assert 'filter-record repository' in page.decisionLabel.text()
     assert read_entry(queue, 'p-pub').status == 'published'
 
 
@@ -500,4 +500,4 @@ def test_a_published_title_in_a_selection_needs_the_repository_and_is_not_touche
     rows = _rows() + [_row('p-pub', 'Pub', 'commit', 4, review_state='accepted', publish_state='written')]
     window = _window(qtbot, tmp_path, entries=[], rows=rows)
     assert window.revise_ids(['p-pub'], to='review') is False
-    assert 'XML repository' in window.runStatusLabel.text() and read_entry(queue, 'p-pub').status == 'published'
+    assert 'filter-record repository' in window.runStatusLabel.text() and read_entry(queue, 'p-pub').status == 'published'

@@ -4,7 +4,7 @@ Everything one catalogue needs is kept in a single file, the **profile**: where 
 
 * Add a designer in [Preferences > Designers](../ui/preferences.md#designers). It is chosen in the profile, and a scan cannot run without one.
 * If your library is in JRiver Media Center, add the server in [Preferences > JRiver](../ui/preferences.md#jriver) first, together with its path mappings.
-* If you want to publish, have a local clone of your XML repository (and, optionally, of an images repository). BEQDesigner writes into and commits to them, it does not clone them for you.
+* If you want to publish, have a local clone of your filter-record repository (and, optionally, of an images repository). BEQDesigner writes into and commits to them, it does not clone them for you.
 * Make sure [ffmpeg is installed](../ui/preferences.md#binaries). The *Extract & design* button checks for it and tells you if it is missing.
 
 ### The profile file
@@ -23,6 +23,7 @@ Things to know about the file:
 * **The JRiver password ends up in the profile file.** When you add a JRiver source, the server's login, path mappings and metadata fields are copied from Preferences into the source, so the file is complete on its own (and can be used by [the command line](unattended.md)). Treat the file like any other place a password is stored. The TMDB key is *not* in the file.
 * If you edit the file by hand, choose `Tools > Library Work List` again (or *Change...*) and it is read again. A file that cannot be read is reported by the window with the reason, and the drawer is disabled until you fix it or choose another file.
 * The file format is described for developers in the [pipeline README](https://github.com/3ll3d00d/beqdesigner/blob/main/src/main/python/pipeline/README.md#one-catalogue-from-several-libraries-a-profile).
+* Use `sync.filter_repo` for the local filter-record clone and `sync.filter_dir` for its folder. Older profiles with `sync.xml_repo` or `sync.xml_dir` still load. Saving a profile writes the new keys and removes the old ones; if both names are present with different values, loading stops with an error so the destination is unambiguous. The old `--xml-repo` and `--xml-dir` flags remain accepted as hidden aliases of `--filter-repo` and `--filter-dir`.
 
 ### The settings drawer
 
@@ -45,8 +46,8 @@ Press *Settings...* in the work list (or *Settings...* in the banner that appear
 
 **Catalogue repositories (publish and commit)**
 
-* **XML repository** and **XML folder**: a local git clone, and the folder inside it that filters are written to (empty means the top folder). Each is checked when you enter it: *Git repository* is shown in green when it is one. This is the only repository you must set to publish.
-* **Images repository** and **Images folder**: optional. If set, a report image is written for each title and the XML refers to it.
+* **Filter-record repository** and **Filter-record folder**: a local git clone, and the folder inside it that filters are written to (empty means the top folder). Each is checked when you enter it: *Git repository* is shown in green when it is one. This is the only repository you must set to publish.
+* **Images repository** and **Images folder**: optional. If set, a report image is written for each title and the filter record refers to it.
 * **Image owner** and **Image repository**: usually leave these empty. They are needed only when the images repository is not on github.com under a plain `git@github.com:` or `https://github.com/` address (an SSH host alias or a mirror), because the address of the image is worked out from the remote. The note under the fields says whether your repository's remote was recognised.
 
 See [the two repositories](#the-two-repositories) below.
@@ -89,7 +90,7 @@ Two kinds of overlap are handled differently.
 * **The same file in two sources is one title.** "Same file" means the same path after the JRiver path mappings are applied, ignoring upper and lower case and `/` against `\`, and with a disc's clips counted as the disc folder. The higher-priority source owns the title. The other copy is *shadowed*: it appears under *Done*, labelled *Shadowed*, with the id of the title that owns it, and the owner's row records that the file is also in the other source (see its tooltip). Nothing is read from the disk to decide this.
 * **The same film in two different files is not merged.** It might be a real second entry (another edition, another audio track), so both stay titles and both are flagged **Possible duplicate**. Same means the same TMDB id, else the same IMDb id, else the same title and year. You decide what to do with them, for example by [ignoring one](#ignore).
 
-**A title keeps its owner.** Reordering the sources does not move titles between them: once a title exists (it has a review entry or a work folder), the source it came from keeps it whatever the order, so an expensive extraction is never orphaned and a second XML is never published for the same film. If the owning source stops listing the file, the other source takes over under its own id, and the old title's outputs are left behind.
+**A title keeps its owner.** Reordering the sources does not move titles between them: once a title exists (it has a review entry or a work folder), the source it came from keeps it whatever the order, so an expensive extraction is never orphaned and a second filter record is never published for the same film. If the owning source stops listing the file, the other source takes over under its own id, and the old title's outputs are left behind.
 
 ### Ignore
 
@@ -120,11 +121,11 @@ Titles ignored one by one are listed at the bottom of the *Ignore* tab, where *S
 
 ### The two repositories
 
-Publishing writes into the local clones of two git repositories. You publish to the same layout as the community BEQ catalogues, and they are ingested by [BEQCatalogue](https://beqcatalogue.readthedocs.io/en/latest/), which finds every `.xml` file in the XML repository.
+Publishing writes into the local clones of up to two git repositories. You publish to the same layout as the community BEQ catalogues, and they are ingested by [BEQCatalogue](https://beqcatalogue.readthedocs.io/en/latest/), which finds every individual `.json` record in the filter-record repository.
 
 | Repository | What is written | Required? |
 |---|---|---|
-| XML repository | `<XML folder>/<id>.xml`, the filter and its metadata | yes, to publish |
+| Filter-record repository | `<filter-record folder>/<id>.json`, the filter and its metadata | yes, to publish |
 | Images repository | `<Images folder>/<id>.png`, the report image | no |
 
-Images belong in a **separate repository** from the XML, and the XML refers to each image by its address on github.com, which is why the images are committed and pushed first. See [Publish and commit](publish.md) for what happens.
+Images belong in a **separate repository** from the filter record, and the filter record refers to each image by its address on github.com, which is why the images are committed and pushed first. See [Publish and commit](publish.md) for what happens.

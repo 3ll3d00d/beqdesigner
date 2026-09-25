@@ -1,10 +1,9 @@
 '''
-Reading the local XML catalogue repo for the TMDB ids it already holds -- design/archive/library-sync/workflow-rework/design.md
+Reading the local filter-record repository for the TMDB ids it already holds -- design/archive/library-sync/workflow-rework/design.md
 §12.5 ("Repo awareness"), so a title someone else already published can be labelled *Already in catalogue*.
 
-The id is `<beq_metadata><beq_theMovieDB>`. The XML carries no movie/tv marker, and TMDB numbers films and series
-separately (a film and a series can share an id), so the match is on the id **together with** whether `<beq_season>`
-has anything in it (§12.14). Matching is never on the file name: ours are entry ids, other people's are not.
+The record's `theMovieDB` and `content_type` identify a title. TMDB numbers films and series separately, so the
+match uses both fields. Matching is never on the file name: ours are entry ids, other people's are not.
 
 A large catalogue has thousands of files, so a scan parses only those whose mtime or size changed since the last
 one (the index keeps what was read, keyed by relative path -- an unreadable one too, as a file with no id).
@@ -18,7 +17,7 @@ from typing import Dict, Mapping, NamedTuple, Optional, Set, Tuple
 class XmlRecord(NamedTuple):
     mtime_ns: int
     size: int
-    tmdb: str       # '' if the XML has no id (it can never match)
+    tmdb: str       # '' if the record has no id (it can never match)
     is_tv: bool
 
 

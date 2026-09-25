@@ -14,7 +14,7 @@ from model.jriver.connections import SavedConnection, save_connections
 from model.library_sources import JRiverSourcePage
 from model.preferences import DESIGNER_DEFAULT, DESIGNER_QUEUE_DIR, LIBRARY_FILESYSTEM_GLOBS, LIBRARY_IMAGES_REPO, \
     LIBRARY_JRIVER_BROWSE_NODE, LIBRARY_JRIVER_CONNECTION, LIBRARY_PROFILE_PATH, LIBRARY_SOURCE_DEFAULT, \
-    LIBRARY_TV_MODE, LIBRARY_WORK_DIR, LIBRARY_XML_REPO, Preferences
+    LIBRARY_TV_MODE, LIBRARY_WORK_DIR, LIBRARY_XML_REPO, LIBRARY_FILTER_REPO, Preferences
 from model.worklist_profile import ORIGIN_FILE, ORIGIN_PREFERENCES, bootstrap_profile, default_designer, load_setup
 from pipeline.designer.registry import register_designer, unregister_designer
 from pipeline.library.filesystem import FilesystemLibrarySource
@@ -60,6 +60,14 @@ def test_a_filesystem_profile_is_built_from_the_preferences(prefs, tmp_path):
     settings = ScanSettings.from_profile(profile)
     assert settings.designer == DESIGNER and settings.tv_mode == 'season'
     assert isinstance(build_source(profile.sources[0].kind, profile.sources[0].settings), FilesystemLibrarySource)
+
+
+def test_new_filter_repository_preference_takes_priority_over_legacy_one(prefs):
+    prefs.set(LIBRARY_XML_REPO, '/repos/old')
+    prefs.set(LIBRARY_FILTER_REPO, '/repos/records')
+    profile = bootstrap_profile(prefs, DESIGNER)
+    assert profile.xml_repo == '/repos/records'
+    assert profile.to_config()['sync']['filter_repo'] == '/repos/records'
 
 
 def test_a_jriver_profile_carries_the_saved_server_node_and_mappings_and_builds_what_the_page_builds(qtbot, prefs):

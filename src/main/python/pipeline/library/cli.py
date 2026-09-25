@@ -41,6 +41,10 @@ def _load_config(path: str | None) -> dict[str, Any]:
 
 def _configured_values(args: argparse.Namespace, config: dict[str, Any], section: str) -> dict[str, Any]:
     values = dict(config.get(section, {}))
+    for current, old in (('filter_repo', 'xml_repo'), ('filter_dir', 'xml_dir')):
+        if values.get(current) and values.get(old) and values[current] != values[old]:
+            raise ValueError(f'{section}.{current} and legacy {section}.{old} disagree; keep one value')
+        values[old] = values.pop(current, None) or values.get(old)
     values.update({key: value for key, value in vars(args).items()
                    if key not in {'command', 'config'} and value is not None})
     return values
@@ -153,6 +157,8 @@ def _run_stages(args: argparse.Namespace, config: dict[str, Any], values: dict[s
     if not profile.sources:
         raise ValueError('the profile lists no sources')
     everything = {**dict(config.get('sync') or {}), **values}   # publish and commit take the `sync:` options
+    for current, old in (('filter_repo', 'xml_repo'), ('filter_dir', 'xml_dir')):
+        everything.pop(current, None)  # profile_from_config already checked and resolved the file's aliases
     for name in ('xml_repo', 'xml_dir', 'images_repo', 'image_dir'):
         if not everything.get(name) and getattr(profile, name):
             everything[name] = getattr(profile, name)
@@ -248,7 +254,7 @@ def _publish_kwargs(values: dict[str, Any]) -> dict[str, Any]:
 
 
 def _print_results(results: list[dict]) -> None:
-    ''' The publish results as JSON, without each entry's whole XML (it is in the repository, and in the return value). '''
+    ''' The publish results as JSON, without each entry's whole filter record (it is in the repository, and in the return value). '''
     print(json.dumps([{k: v for k, v in result.items() if k != 'xml'} for result in results], sort_keys=True))
 
 
@@ -463,18 +469,18 @@ failed is not tried again while its source and settings are unchanged; --retry-f
 
 _SHARED_SECTION = """\
 Every option can also be set in the config file's `sync:` section, under the same name with underscores
-(--xml-repo is `xml_repo`); a flag overrides the file. `publish`, `commit`, `sync` and `revise` share that one
+(--filter-repo is `sync.filter_repo`); a flag overrides the file. `publish`, `commit`, `sync` and `revise` share that one
 section, so a single set of repositories serves them all."""
 
 _PUBLISH_EPILOG = _SHARED_SECTION + """ `sync.meta_defaults` (a mapping of BeqMetadata fields, such as
 `source: Disc`) has no flag. Exit status: 0, 1 if any entry could not be published, 2 for a bad option or config,
 3 if git refused (an images repository that is not a git repository, say). Prints one JSON result per published or
-refused entry (without its XML, which is in the repository); the reason for each refusal is on stderr. Writes files
+refused entry (without its filter record, which is in the repository); the reason for each refusal is on stderr. Writes files
 only -- run `commit` to commit and push them. Never extracts or designs.
 
 The filter is published from each title's .beq project, so a hand edit is what ships, when the work directory is known:
 `--work-dir`, or `work_dir` in the `sync:` section, or failing that in the `run:` section. Without one the designer's
-own pick is published, which would write over a hand-edited filter, so give it whenever titles have been reviewed by editing their projects. A changed `xml_dir` is a new
+own pick is published, which would write over a hand-edited filter, so give it whenever titles have been reviewed by editing their projects. A changed `filter_dir` is a new
 location, not a change to a published title: the file at the old one is left behind, for a person to remove.
 """
 
@@ -483,7 +489,7 @@ _COMMIT_EPILOG = _SHARED_SECTION + """ Exit status: 0, 1 if a published entry ha
 published file (a .gitignore rule matches it). Prints what was committed and pushed per repository -- after a git
 failure too, with an `error` key, and what was committed before it stays committed; git's own message is on stderr.
 What is already committed or pushed is read from git, so running it again only does what is left. Warns on stderr
-when an XML that names a report image is committed without --images-repo (the image is not committed with it).
+when a filter record that names a report image is committed without --images-repo (the image is not committed with it).
 """
 
 _REVISE_EPILOG = _SHARED_SECTION + """ A published entry's files are put back as git
@@ -524,7 +530,7 @@ config or missing index. Prints the result as JSON.
 _SYNC_EPILOG = _SHARED_SECTION + """ `sync.meta_defaults` (a mapping of BeqMetadata fields, such as
 `source: Disc`) has no flag. `sync` is `publish` followed by `commit`. Exit status: 0, 1 if any entry could not be
 published or has no file to commit, 2 for a bad option or config, 3 if git refused or will not commit a published file
-(what `commit` says). Prints one JSON result per published or refused entry (without its XML), with the commit
+(what `commit` says). Prints one JSON result per published or refused entry (without its filter record), with the commit
 shas of what was committed even if a later push failed. Never extracts or designs. `--work-dir` as for `publish`.
 """
 
@@ -625,9 +631,11 @@ def _add_selector_options(parser: argparse.ArgumentParser, *, needs: bool = True
 def _add_repo_options(parser: argparse.ArgumentParser, with_image_url_options: bool,
                       xml_repo_required: bool = True) -> None:
     repos = parser.add_argument_group('repositories')
-    repos.add_argument('--xml-repo', help='local clone of the repository the filter XML goes to'
+    repos.add_argument('--filter-repo', dest='xml_repo', help='local clone of the repository filter records go to'
                                           + (' (required)' if xml_repo_required else ' (needed only for a published entry)'))
-    repos.add_argument('--xml-dir', help='folder within the XML repository to put the files in (default: its root)')
+    repos.add_argument('--filter-dir', dest='xml_dir', help='folder within the filter-record repository (default: its root)')
+    repos.add_argument('--xml-repo', dest='xml_repo', help=argparse.SUPPRESS)
+    repos.add_argument('--xml-dir', dest='xml_dir', help=argparse.SUPPRESS)
     repos.add_argument('--images-repo', help='local clone of the repository report images go to; without one no '
                                               f"image is {'made' if with_image_url_options else 'touched'}")
     repos.add_argument('--image-dir', help='folder within the images repository to put images in (default: its root)')
@@ -651,10 +659,10 @@ def _add_publish_options(parser: argparse.ArgumentParser) -> None:
                             'repeatable; default: every accepted entry')
     where.add_argument('--republish', action='store_true', default=None,
                        help='also write again each published entry whose catalogue copy is out of date -- its metadata, '
-                            'poster, report style or filter changed since it was published, or its XML is missing '
+                            'poster, report style or filter changed since it was published, or its filter record is missing '
                             'from the repository -- at the same path, without a second review. Needs the work '
                             'directory (--work-dir, or `work_dir` in the config) to see a hand-edited filter, else '
-                            'it reverts it; a changed --xml-dir is a new location, so the old file is left behind')
+                            'it reverts it; a changed --filter-dir is a new location, so the old file is left behind')
     where.add_argument('--queue-dir', help='review queue directory to publish from (required)')
     where.add_argument('--work-dir',
                        help='the run\'s work directory (default: `work_dir` in the config file\'s `sync:`, else `run:` '

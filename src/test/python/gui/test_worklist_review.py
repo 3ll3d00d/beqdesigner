@@ -352,8 +352,8 @@ def test_an_entry_with_incomplete_metadata_is_refused_on_its_own_and_listed(qtbo
 
 def test_without_an_xml_repository_publish_and_commit_say_why_and_do_nothing(qtbot, tmp_path):
     window = _folder(qtbot, tmp_path, entries=(('a', {'status': 'accepted'}),))
-    assert not window.publishButton.isEnabled() and 'XML repository' in window.publishButton.toolTip()
-    assert window.publish_accepted() is False and 'XML repository' in window.statusLabel.text()
+    assert not window.publishButton.isEnabled() and 'filter-record repository' in window.publishButton.toolTip()
+    assert window.publish_accepted() is False and 'filter-record repository' in window.statusLabel.text()
     assert window.commit_published() is False
 
 
@@ -374,7 +374,7 @@ def test_the_words_for_a_publish_and_a_commit():
     assert describe_publish([{'id': 'a'}, {'id': 'b', 'error': 'invalid_metadata'}]).endswith('1 could not be published (see below).')
     from pipeline.library.commit import CatalogueCommit, RepoCommit
     text = describe_commit(CatalogueCommit(RepoCommit('/x', ['a.json'], 'abcdef123456', True), RepoCommit('/i', [], None, False)))
-    assert text == 'Committed. images: already committed, not pushed; XML: commit abcdef12, pushed.'
+    assert text == 'Committed. images: already committed, not pushed; filter records: commit abcdef12, pushed.'
 
 
 # --- opening it from the dialogs ---------------------------------------------------------------------------------------------------

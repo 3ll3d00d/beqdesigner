@@ -84,6 +84,7 @@ DESIGNER_QUEUE_DIR = 'designers/queue_dir'
 DESIGNER_DEFAULT = 'designers/default'
 LIBRARY_WORK_DIR = 'library/work_dir'
 LIBRARY_XML_REPO = 'library/xml_repo'
+LIBRARY_FILTER_REPO = 'library/filter_repo'
 LIBRARY_IMAGES_REPO = 'library/images_repo'
 LIBRARY_JRIVER_BROWSE_NODE = 'library/jriver_browse_node'
 LIBRARY_JRIVER_BROWSE_PATH = 'library/jriver_browse_path'
@@ -257,6 +258,7 @@ DEFAULT_PREFS = {
     DESIGNER_DEFAULT: '',
     LIBRARY_WORK_DIR: '',
     LIBRARY_XML_REPO: '',
+    LIBRARY_FILTER_REPO: '',
     LIBRARY_IMAGES_REPO: '',
     LIBRARY_JRIVER_BROWSE_NODE: -1,
     LIBRARY_JRIVER_BROWSE_PATH: '',

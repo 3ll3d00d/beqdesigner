@@ -32,8 +32,8 @@ def publish_text(count: int, settings: PublishSettings, republishing: int = 0) -
     :param republishing: how many of the `count` are already published and out of date in the repository (rewritten in place).
     :return: (heading, body html)
     '''
-    lines = ["Writes each title's filter XML into the XML repository:",
-             _repo('XML repository', settings.xml_repo.local_path, settings.xml_dir)]
+    lines = ["Writes each title's filter record into the filter-record repository:",
+             _repo('filter-record repository', settings.xml_repo.local_path, settings.xml_dir)]
     if settings.images_repo is not None:
         lines += ["and its report image into the images repository:",
                   _repo('Images repository', settings.images_repo.local_path, settings.image_dir)]
@@ -62,10 +62,10 @@ def commit_text(count: int, settings: PublishSettings, uncommitted: Optional[int
         lines.append(f'Makes one commit per repository containing just {whose}:')
     if settings.images_repo is not None:
         lines.append('1. ' + _repo('Images repository', settings.images_repo.local_path, settings.image_dir))
-        lines.append('2. ' + _repo('XML repository', settings.xml_repo.local_path, settings.xml_dir))
-        lines.append('<br>The images repository goes first, so a pushed XML never points at a missing image.')
+        lines.append('2. ' + _repo('filter-record repository', settings.xml_repo.local_path, settings.xml_dir))
+        lines.append('<br>The images repository goes first, so a pushed filter record never points at a missing image.')
     else:
-        lines.append(_repo('XML repository', settings.xml_repo.local_path, settings.xml_dir))
+        lines.append(_repo('filter-record repository', settings.xml_repo.local_path, settings.xml_dir))
     if uncommitted and uncommitted < count:
         lines.append(f'<br>{_plural(count - uncommitted, "title")} of these {"is" if count - uncommitted == 1 else "are"} '
                      f'already committed and only {"needs" if count - uncommitted == 1 else "need"} pushing.')

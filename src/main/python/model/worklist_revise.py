@@ -12,7 +12,7 @@ Three depths, each including the one before (the words are `CHOICES`):
 
 The pipeline work starts straight away in the Library Work List.  The Review Folder has no pipeline runner, so there these
 only change state. What happens to a title's catalogue files depends on how far it got (`ReviseSummary` counts the cases and the dialog
-says so *before* anything changes): a published title needs the XML repository (and the images repository, for its image),
+says so *before* anything changes): a published title needs the filter-record repository (and the images repository, for its image),
 because reopening one written but not committed puts its files back as git has them, and reopening one already committed
 starts a *revision*, which publishing again writes to the same path.
 
@@ -133,7 +133,7 @@ def revise_problem(to: str, summary: ReviseSummary, context: Optional[ReviseCont
     if summary.published and context.xml_repo is None:
         return (f'{_plural(summary.published, "title")} {"is" if summary.published == 1 else "are"} published, so '
                 f'{"its files are" if summary.published == 1 else "their files are"} in the catalogue repositories: set '
-                f'the XML repository in Settings > Locations first.')
+                f'the filter-record repository in Settings > Locations first.')
     if to == 'extract' and not context.work_dir:
         return 'No work directory is set (Settings > Locations), so there is no extraction to forget.'
     return ''

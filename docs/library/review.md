@@ -47,7 +47,7 @@ On the right, the **Filter** tab draws the audio track's average (solid) and pea
 
 ![Metadata](../img/library_title_metadata.png)
 
-The **Metadata** tab is the same information as appears in the published XML. **Essentials** are:
+The **Metadata** tab is the same information as appears in the published filter record. **Essentials** are:
 
 * **Title**, **Year** and **Audio types** (separated by commas, for example `Dolby Atmos, DTS-HD MA 5.1`) are required. At least one audio type must be given.
 * **Edition**, for example *Director's Cut*.

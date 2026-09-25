@@ -108,7 +108,7 @@ def commit_catalogue(queue_dir: str, xml_repo: RepoTarget, images_repo: Optional
     repo goes first**: a filter record must never reach the remote before the image its URL points at.
 
     Safe to repeat: a file already committed is skipped, one already pushed is not pushed again, and a failed push
-    is simply retried. If the images push fails the XML repo is not touched, so the next run resumes in order.
+    is simply retried. If the images push fails the filter-record repository is not touched, so the next run resumes in order.
 
     :param push: False commits locally only, to inspect before anything leaves the machine.
     :param ids: commit only these titles' files (a selection); None is every published entry. What else is
@@ -118,7 +118,7 @@ def commit_catalogue(queue_dir: str, xml_repo: RepoTarget, images_repo: Optional
         CatalogueCommit of what was done before the failure (a repo not reached is an empty RepoCommit).
 
     Two things are reported rather than left silent: `not_committed` (a published file that git ignores never gets
-    committed, whatever this does) and `warnings` (an XML committed with an image URL but no images repo to commit
+    committed, whatever this does) and `warnings` (a filter record committed with an image URL but no images repo to commit
     the image to). Neither stops the commit.
     '''
     if ids is None:

@@ -174,7 +174,7 @@ def test_publish_then_commit_and_push_through_the_real_pipeline_one_commit_per_r
     with qtbot.waitSignal(window.run_finished, timeout=60000) as committed:
         _click(qtbot, window.commitButton)
 
-    assert seen[0].startswith('Commit 2 titles?') and seen[0].index('Images repository') < seen[0].index('XML repository')
+    assert seen[0].startswith('Commit 2 titles?') and seen[0].index('Images repository') < seen[0].index('filter-record repository')
     report = committed.args[0]
     assert report.commit_error == '' and report.committed.xml.pushed and report.committed.images.pushed
     assert _commit_count(xml_bare) == before[0] + 1 and _commit_count(images_bare) == before[1] + 1
@@ -192,8 +192,8 @@ def test_publish_then_commit_and_push_through_the_real_pipeline_one_commit_per_r
     assert window.runCountsLabel.text() == '2 succeeded'
     by_key = {l.id or l.title: l for l in window.results}
     assert by_key['fs-a'].outcome == 'Committed, pushed' and by_key['fs-b'].outcome == 'Committed, pushed'
-    assert by_key['XML repository'].detail.startswith('commit ') and 'pushed (' in by_key['XML repository'].detail
-    assert window.results.index(by_key['Images repository']) < window.results.index(by_key['XML repository'])
+    assert by_key['filter-record repository'].detail.startswith('commit ') and 'pushed (' in by_key['filter-record repository'].detail
+    assert window.results.index(by_key['Images repository']) < window.results.index(by_key['filter-record repository'])
     assert not window.is_running and window.chip_counts()['Commit'] == 0
 
 

@@ -13,7 +13,7 @@ Given each source's items, in the profile's priority order, decide which are *ti
   derived from the profile, so deleting the rule brings it back.
 
 **Ownership is sticky.** A title's id identifies its work directory, queue entry and catalogue file, so reordering
-the sources must not change it -- that would orphan an expensive extraction and publish a second XML for one film. When
+the sources must not change it -- that would orphan an expensive extraction and publish a second filter record for one film. When
 two items are the same file, the one whose id already has a work directory or queue entry (a *claim*) owns it whatever the
 priority; only unclaimed clashes go to the higher-priority source. Claims are read back from those directories every
 time, so they are never a second copy of the truth. If the owner's item disappears the other one takes over, **under its

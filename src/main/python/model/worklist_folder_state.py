@@ -41,7 +41,7 @@ def entry_row(entry: QueueEntry, commit_state: str = 'none') -> TitleRow:
 
 def commit_states(ids: Iterable[str], xml_repo: str = '', xml_dir: str = '', image_dir: str = '') -> Dict[str, str]:
     '''
-    Where each published entry's XML stands in the XML repository, in the words the index uses for `commit_state` -- and, for
+    Where each published entry's filter record stands in the filter-record repository, in the words the index uses for `commit_state` -- and, for
     the two that matter to a revise, in the terms `pipeline.library.revise` decides by: `committed` is a file HEAD holds and the
     working tree has not touched (reopening it **keeps** the files and starts a revision); `uncommitted` is one written and
     not committed, or committed and since rewritten (reopening it **takes the files out of the working tree**, deleting them or

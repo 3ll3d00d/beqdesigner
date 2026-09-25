@@ -179,6 +179,11 @@ class Profile:
                     block[name] = value
                 else:
                     block.pop(name, None)
+        sync = config.get('sync') or {}
+        config['sync'] = sync
+        for name, value in (('filter_repo', self.xml_repo), ('filter_dir', self.xml_dir)):
+            sync.pop('xml_' + name.split('_', 1)[1], None)
+            _set_or_drop(sync, name, value)
         for section in ('run', 'sync'):
             if section in config and not config[section]:
                 del config[section]
@@ -214,8 +219,17 @@ class Profile:
 
 
 # where each managed path lives in the file, the winner first: (name, the sections it is read from)
-_MANAGED_PATHS = (('work_dir', ('run', 'sync')), ('queue_dir', ('run', 'sync')), ('xml_repo', ('sync',)),
-                  ('xml_dir', ('sync',)), ('images_repo', ('sync',)), ('image_dir', ('sync',)))
+_MANAGED_PATHS = (('work_dir', ('run', 'sync')), ('queue_dir', ('run', 'sync')),
+                  ('images_repo', ('sync',)), ('image_dir', ('sync',)))
+
+
+def _filter_path(config: Mapping[str, Any], canonical: str, legacy: str) -> str:
+    '''Read the current key or its pre-JSON name; conflicting values are refused.'''
+    sync = config.get('sync') or {}
+    current, old = sync.get(canonical), sync.get(legacy)
+    if current and old and str(current) != str(old):
+        raise ValueError(f'sync.{canonical} and legacy sync.{legacy} disagree; keep one value')
+    return str(current or old or '')
 
 
 def _first_path(config: Mapping[str, Any], name: str, *sections: str) -> str:
@@ -302,6 +316,8 @@ def profile_from_config(config: Mapping[str, Any]) -> Profile:
     return Profile(
         sources=tuple(_sources_from_config(config)), ignore=tuple(rules_from_config(config.get('ignore'))),
         ignored_titles=_ignored_titles_from_config(config.get('ignore_titles')),
+        xml_repo=_filter_path(config, 'filter_repo', 'xml_repo'),
+        xml_dir=_filter_path(config, 'filter_dir', 'xml_dir'),
         **{name: _first_path(config, name, *sections) for name, sections in _MANAGED_PATHS},
         config=_plain(dict(config)))
 

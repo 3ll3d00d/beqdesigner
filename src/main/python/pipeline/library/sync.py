@@ -17,7 +17,7 @@ def publish_library(queue_dir: str, xml_repo: RepoTarget, *, meta_defaults: Opti
                     on_entry: Optional[Callable[[str], None]] = None,
                     should_cancel: Optional[Callable[[], bool]] = None) -> list[dict]:
     '''
-    Writes every accepted entry's XML (and report image) into the repos' working trees and marks it 'published'.
+    Writes every accepted entry's filter record (and report image) into the repos' working trees and marks it 'published'.
     Nothing is committed or pushed -- that is commit_library(). Never invokes extraction or design.
 
     :param ids: only these entries (default: all).

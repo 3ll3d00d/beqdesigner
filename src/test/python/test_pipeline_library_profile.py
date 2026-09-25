@@ -25,6 +25,17 @@ _PROFILE = {
 }
 
 
+def test_filter_record_profile_keys_migrate_on_save_and_conflicts_fail():
+    legacy = profile_from_config({'sync': {'xml_repo': '/records', 'xml_dir': 'titles'}})
+    assert legacy.xml_repo == '/records' and legacy.xml_dir == 'titles'
+    assert legacy.to_config()['sync'] == {'filter_repo': '/records', 'filter_dir': 'titles'}
+    current = profile_from_config({'sync': {'filter_repo': '/records', 'filter_dir': 'titles'}})
+    assert current.xml_repo == '/records' and current.xml_dir == 'titles'
+    with pytest.raises(ValueError, match='disagree'):
+        profile_from_config({'sync': {'filter_repo': '/new', 'xml_repo': '/old'}})
+    assert 'sync' not in profile_from_config({'sync': None}).to_config()
+
+
 def test_an_ordered_list_of_sources_keeps_its_order_and_settings():
     profile = profile_from_config(_PROFILE)
 
@@ -121,7 +132,8 @@ def test_editing_a_profile_rewrites_only_the_parts_it_manages():
     assert written['ignore'] == [{'path': '/media/films/Kids/**'}]
     assert 'ignore_titles' not in written
     assert written['run']['work_dir'] == '/elsewhere' and written['run']['designer'] == 'rolloff'
-    assert 'images_repo' not in written['sync'] and written['sync']['xml_repo'] == '/xml'
+    assert 'images_repo' not in written['sync'] and written['sync']['filter_repo'] == '/xml'
+    assert 'xml_repo' not in written['sync'] and written['sync']['filter_dir'] == 'filters'
     assert profile_from_config(written) == edited
 
 

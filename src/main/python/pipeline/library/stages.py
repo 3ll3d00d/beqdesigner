@@ -83,7 +83,7 @@ class PublishSettings:
     def from_scan_settings(cls, settings: ScanSettings, *, image_owner: Optional[str] = None,
                            image_repo_name: Optional[str] = None, push: bool = True) -> 'PublishSettings':
         '''
-        :raises ValueError: if settings names no XML repository.
+        :raises ValueError: if settings names no filter-record repository.
         '''
         if not settings.xml_repo:
             raise ValueError('xml-repo is required to publish or commit')
