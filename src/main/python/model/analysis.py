@@ -1,4 +1,3 @@
-import datetime
 import logging
 import math
 import time
@@ -6,13 +5,13 @@ import time
 import matplotlib
 import numpy as np
 import qtawesome as qta
-from matplotlib.gridspec import GridSpec
-from matplotlib.ticker import FuncFormatter, MaxNLocator
-from mpl_toolkits.axes_grid1 import make_axes_locatable
+from matplotlib.ticker import FuncFormatter
 from qtpy import QtCore
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import QDialog
 
+from model.heatmap import HeatmapSpec, MAG_CONSTANT, MAG_PEAK, MULTIPLIERS, add_colour_bar, add_grid, default_signal_min, \
+    draw_pane, hide_y_axis, resolution_shift, seconds_to_hhmmss, set_limits, spectrogram_data, two_pane_axes, width_ratios
 from model.limits import Limits, LimitsDialog
 from model.preferences import GRAPH_X_MIN, GRAPH_X_MAX, POINT, ELLIPSE, SPECTROGRAM_CONTOURED, SPECTROGRAM_FLAT, \
     AUDIO_ANALYSIS_MARKER_SIZE, AUDIO_ANALYSIS_MARKER_TYPE, AUDIO_ANALYSIS_ELLIPSE_WIDTH, AUDIO_ANALYSIS_ELLIPSE_HEIGHT, \
@@ -23,9 +22,6 @@ from model.signal import select_file, readWav
 from ui.analysis import Ui_analysisDialog
 
 logger = logging.getLogger('analysis')
-
-MULTIPLIERS = [0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0]
-
 
 class AnalyseSignalDialog(QDialog, Ui_analysisDialog):
     def __init__(self, preferences, signal_model, allow_load=True):
@@ -468,7 +464,9 @@ class OnePlusRange:
 
 class MaxSpectrumByTime:
     '''
-    An analyser that highlights where the heavy hits are in time by frequency
+    An analyser that highlights where the heavy hits are in time by frequency. What is drawn is `model.heatmap`'s (which the
+    published heatmap image is drawn by too); this holds what belongs to a window: the caches, updating a plot in place and
+    starting again when the layout changes.
     '''
 
     def __init__(self, chart, preferences, ui):
@@ -523,6 +521,20 @@ class MaxSpectrumByTime:
         self.__left_signal = left
         self.__clear_scatter(self.__left_scatter)
 
+    def spec(self) -> HeatmapSpec:
+        ''' The chart settings as the controls have them now. '''
+        ui = self.__ui
+        return HeatmapSpec(
+            marker_type=ui.markerType.currentText(), marker_size=ui.markerSize.value(),
+            ellipse_width=ui.ellipseWidth.value(), ellipse_height=ui.ellipseHeight.value(),
+            min_freq=ui.minFreq.value(), max_filtered_freq=ui.maxFilteredFreq.value(),
+            max_unfiltered_freq=ui.maxUnfilteredFreq.value(), colour_min=ui.colourLowerLimit.value(),
+            colour_max=ui.colourUpperLimit.value(), mag_limit_type=ui.magLimitType.currentText(),
+            signal_min=ui.magLowerLimit.value(),
+            resolution_multiplier=MULTIPLIERS[max(ui.analysisResolution.currentIndex(), 0)],
+            min_time=ui.minTime.time().msecsSinceStartOfDay() / 1000.0,
+            max_time=ui.maxTime.time().msecsSinceStartOfDay() / 1000.0)
+
     def set_mag_range_type(self, type):
         ''' updates the chart controls '''
         mag_max = None
@@ -536,11 +548,11 @@ class MaxSpectrumByTime:
             self.__ui.signalRangeLabel.setVisible(True)
             if mag_max:
                 self.__ui.magUpperLimit.setValue(mag_max)
-                self.__ui.magLowerLimit.setValue(mag_max - 60.0)
+                self.__ui.magLowerLimit.setValue(default_signal_min(MAG_CONSTANT, mag_max))
         elif type == 'Peak':
             self.__ui.magUpperLimit.setVisible(False)
             self.__ui.magLowerLimit.setVisible(True)
-            self.__ui.magLowerLimit.setValue(-60.0)
+            self.__ui.magLowerLimit.setValue(default_signal_min(MAG_PEAK, 0.0))
             self.__ui.signalRangeLabel.setVisible(True)
         else:
             self.__ui.magUpperLimit.setVisible(False)
@@ -567,9 +579,7 @@ class MaxSpectrumByTime:
             else:
                 times = self.__render_both()
             if self.__cb is None:
-                divider = make_axes_locatable(self.__right_axes)
-                cax = divider.append_axes("right", size="5%", pad=0.05)
-                self.__cb = self.__right_axes.figure.colorbar(self.__right_scatter, cax=cax)
+                self.__cb = add_colour_bar(self.__right_axes, self.__right_scatter)
                 times['cb'] = time.time()
             self.__log_times(times)
             self.__redraw()
@@ -588,79 +598,58 @@ class MaxSpectrumByTime:
     def __render_both(self):
         ''' renders two plots, one with the filtered and one without. '''
         times = {'start': time.time()}
+        spec = self.spec()
         if self.__left_axes is None:
-            self.__width_ratio = self.__make_width_ratio()
-            gs = GridSpec(1, 2, width_ratios=self.__make_width_ratio(adjusted=True), wspace=0.00)
-            gs.tight_layout(self.__chart.canvas.figure)
-            self.__left_axes = self.__chart.canvas.figure.add_subplot(gs.new_subplotspec((0, 0)))
-            self.__add_grid(self.__left_axes)
-            self.__right_axes = self.__chart.canvas.figure.add_subplot(gs.new_subplotspec((0, 1)))
-            self.__add_grid(self.__right_axes)
+            self.__width_ratio = width_ratios(spec)
+            self.__left_axes, self.__right_axes = two_pane_axes(self.__chart.canvas.figure, spec)
             times['l_axes_init'] = time.time()
 
-        self.__left_scatter = self.__render_scatter(self.__left_cache, self.__left_axes,
-                                                    self.__left_scatter,
-                                                    self.__ui.maxFilteredFreq.value(), self.left, 'l', times)
-        self.__set_limits(self.__left_axes, self.__ui.minFreq, self.__ui.maxFilteredFreq,
-                          self.__ui.minTime, self.__ui.maxTime)
+        self.__left_scatter = self.__render_scatter(self.__left_cache, self.__left_axes, self.__left_scatter,
+                                                    spec.max_filtered_freq, self.left, 'l', times, spec)
+        self.__set_limits(self.__left_axes, spec.max_filtered_freq, spec)
         times['l_limits'] = time.time()
         self.__right_scatter = self.__render_scatter(self.__right_cache, self.__right_axes, self.__right_scatter,
-                                                    self.__ui.maxUnfilteredFreq.value(), self.right, 'r', times)
-        self.__right_axes.set_yticklabels([])
-        self.__right_axes.get_yaxis().set_tick_params(length=0)
-        self.__set_limits(self.__right_axes, self.__ui.minFreq, self.__ui.maxUnfilteredFreq,
-                          self.__ui.minTime, self.__ui.maxTime)
+                                                     spec.max_unfiltered_freq, self.right, 'r', times, spec)
+        hide_y_axis(self.__right_axes)
+        self.__set_limits(self.__right_axes, spec.max_unfiltered_freq, spec)
         times['r_limits'] = time.time()
         return times
-
-    def __make_width_ratio(self, adjusted=False):
-        a = self.__ui.maxFilteredFreq.value()
-        b = self.__ui.maxUnfilteredFreq.value()
-        if adjusted:
-            a1 = a * 0.95
-            b1 = b * 1.05
-            return [a1 / (a + b1), b / (a + b1)]
-        else:
-            return [a, b]
 
     def __render_one_only(self):
         ''' renders a single plot with the unfiltered only '''
         times = {'start': time.time()}
+        spec = self.spec()
         if self.__right_axes is None:
             self.__right_axes = self.__chart.canvas.figure.add_subplot(111)
-            self.__add_grid(self.__right_axes)
+            add_grid(self.__right_axes)
             times['r_axes_init'] = time.time()
         self.__right_scatter = self.__render_scatter(self.__right_cache, self.__right_axes, self.__right_scatter,
-                                                    self.__ui.maxUnfilteredFreq.value(), self.right, 'r', times)
-        self.__set_limits(self.__right_axes, self.__ui.minFreq, self.__ui.maxUnfilteredFreq,
-                          self.__ui.minTime, self.__ui.maxTime)
+                                                     spec.max_unfiltered_freq, self.right, 'r', times, spec)
+        self.__set_limits(self.__right_axes, spec.max_unfiltered_freq, spec)
         times['r_limits'] = time.time()
         return times
 
-    def __add_grid(self, axes):
-        ''' adds a grid to the given axes '''
-        axes.grid(linestyle='-', which='major', linewidth=1, alpha=0.3)
-
     def __clear_on_layout_change(self):
         ''' Clears the chart if the layout has fundamentally changed. '''
+        spec = self.spec()
         if not self.__layout_change:
             if self.__width_ratio is not None:
-                current_width_ratio = self.__make_width_ratio()
+                current_width_ratio = width_ratios(spec)
                 if self.__width_ratio[0] != current_width_ratio[0] or self.__width_ratio[1] != current_width_ratio[1]:
                     self.__layout_change = True
         if not self.__layout_change:
             self.__layout_change = (
                     self.__current_marker is not None
                     and
-                    self.__current_marker != self.__ui.markerType.currentText()
+                    self.__current_marker != spec.marker_type
             )
         if not self.__layout_change:
             self.__layout_change = (
                     (self.__current_ellipse_width is not None and not math.isclose(self.__current_ellipse_width,
-                                                                                   self.__ui.ellipseWidth.value()))
+                                                                                   spec.ellipse_width))
                     or
                     (self.__current_ellipse_height is not None and not math.isclose(self.__current_ellipse_height,
-                                                                                    self.__ui.ellipseHeight.value()))
+                                                                                    spec.ellipse_height))
             )
         if self.__layout_change is True:
             self.__chart.canvas.figure.clear()
@@ -675,10 +664,8 @@ class MaxSpectrumByTime:
             self.__width_ratio = None
             self.__layout_change = False
 
-    def __set_limits(self, axes, x_min, x_max, y_min, y_max):
-        axes.set_xlim(left=x_min.value(), right=x_max.value())
-        axes.set_ylim(bottom=y_min.time().msecsSinceStartOfDay() / 1000.0,
-                      top=y_max.time().msecsSinceStartOfDay() / 1000.0)
+    def __set_limits(self, axes, max_freq, spec):
+        set_limits(axes, spec, max_freq, spec.max_time)
 
     def analyse(self):
         '''
@@ -694,109 +681,33 @@ class MaxSpectrumByTime:
     def __init_mag_range(self):
         self.set_mag_range_type(self.__ui.magLimitType.currentText())
 
-    def __render_scatter(self, cache, axes, scatter, max_freq, signal, prefix, times):
+    def __render_scatter(self, cache, axes, scatter, max_freq, signal, prefix, times, spec):
         ''' renders a scatter plot showing the biggest hits '''
-        Sxx, f, resolution_shift, t, x, y, z = self.__load_from_cache(cache, signal)
-        # determine the threshold based on the mode we're in
-        if self.__ui.magLimitType.currentText() == 'Constant':
-            Pthreshold = np.array([self.__ui.magLowerLimit.value()]).repeat(f.size)
-        elif self.__ui.magLimitType.currentText() == 'Peak':
-            Pthreshold = Sxx.max(axis=-1) + self.__ui.magLowerLimit.value()
-        else:
-            _, Pthreshold = signal.avg_spectrum(resolution_shift=resolution_shift)
+        data = self.__load_from_cache(cache, signal, spec)
         times[f"{prefix}_data_loaded"] = time.time()
-
-        vmax = self.__ui.colourUpperLimit.value()
-        vmin = self.__ui.colourLowerLimit.value()
-        stack = np.column_stack((x, y, z))
-        # filter by signal level
-        above_threshold = stack[stack[:, 2] >= np.tile(Pthreshold, t.size)]
-        # filter by graph limis
-        above_threshold = above_threshold[above_threshold[:, 0] >= self.__ui.minFreq.value()]
-        above_threshold = above_threshold[above_threshold[:, 0] <= max_freq]
-        f_min = np.argmax(f >= self.__ui.minFreq.value())
-        f_max = np.argmin(f <= max_freq)
-        min_time = self.__ui.minTime.time().msecsSinceStartOfDay()
-        max_time = self.__ui.maxTime.time().msecsSinceStartOfDay()
-        t_min = 0
-        if min_time > 0:
-            above_threshold = above_threshold[above_threshold[:, 1] >= (min_time / 1000.0)]
-            t_min = np.argmax(t >= (min_time / 1000.0))
-        above_threshold = above_threshold[above_threshold[:, 1] <= (max_time / 1000.0)]
-        if max_time / 1000.0 >= t[-1]:
-            t_max = -1
-        else:
-            t_max = np.argmin(t <= (max_time / 1000.0))
-        # sort so the lowest magnitudes are plotted first (as later plots overlay earlier ones)
-        above_threshold = above_threshold[above_threshold[:, 2].argsort()]
-        # then split into the constituent columns for plotting
-        x = above_threshold[:, 0]
-        y = above_threshold[:, 1]
-        z = above_threshold[:, 2]
-        # marker size
-        s = matplotlib.rcParams['lines.markersize'] ** 2.0 * (self.__ui.markerSize.value() ** 2)
-        times[f"{prefix}_data_processed"] = time.time()
-        # now plot or update
         if scatter is None:
-            self.__current_marker = self.__ui.markerType.currentText()
-            if self.__current_marker == SPECTROGRAM_FLAT:
-                imshow_data = np.copy(Sxx)
-                pixels = imshow_data[f_min:f_max, t_min:t_max]
-                scatter = axes.pcolormesh(f[f_min:f_max], t[t_min:t_max], pixels.transpose(), vmin=vmin, vmax=vmax)
-            elif self.__current_marker == SPECTROGRAM_CONTOURED:
-                scatter = axes.tricontourf(x, y, z, np.sort(np.arange(vmax, vmin, -0.5)), vmin=vmin, vmax=vmax)
-            else:
-                marker = '.'
-                if self.__current_marker == POINT:
-                    pass
-                elif self.__current_marker == ELLIPSE:
-                    rx, ry = self.__ui.ellipseWidth.value(), self.__ui.ellipseHeight.value()
-                    area = rx * ry * np.pi
-                    theta = np.arange(0, 2 * np.pi + 0.01, 0.1)
-                    marker = np.column_stack([rx / area * np.cos(theta), ry / area * np.sin(theta)])
-                    self.__current_ellipse_width = rx
-                    self.__current_ellipse_height = ry
-                scatter = axes.scatter(x, y, c=z, s=s, vmin=vmin, vmax=vmax, marker=marker)
-            axes.yaxis.set_major_formatter(FuncFormatter(seconds_to_hhmmss))
-            axes.yaxis.set_major_locator(MaxNLocator(nbins=24, min_n_ticks=8, steps=[1, 3, 6]))
-            axes.xaxis.set_major_locator(MaxNLocator(nbins=12, steps=[1, 5, 10], min_n_ticks=8))
-        else:
-            if self.__current_marker == POINT or self.__current_marker == ELLIPSE:
-                new_data = np.c_[x, y]
-                scatter.set_offsets(new_data)
-                scatter.set_clim(vmin=vmin, vmax=vmax)
-                scatter.set_array(z)
-                scatter.set_sizes(np.full(new_data.size, s))
-            elif self.__current_marker == SPECTROGRAM_FLAT:
-                pass
-            elif self.__current_marker == SPECTROGRAM_CONTOURED:
-                pass
+            self.__current_marker = spec.marker_type
+            if spec.marker_type == ELLIPSE:
+                self.__current_ellipse_width = spec.ellipse_width
+                self.__current_ellipse_height = spec.ellipse_height
+        scatter = draw_pane(axes, data, signal, spec, max_freq, scatter)
         times[f"{prefix}_data_plotted"] = time.time()
         return scatter
 
     def __cache_xyz(self, signal, cache):
         ''' analyses the signal and caches the data '''
         if signal is not None:
-            multiplier_idx = self.__ui.analysisResolution.currentIndex()
-            resolution_shift = math.log(MULTIPLIERS[multiplier_idx], 2)
-            f, t, Sxx = signal.spectrogram(resolution_shift=resolution_shift)
-            x = f.repeat(t.size)
-            y = np.tile(t, f.size)
-            z = Sxx.flatten()
-            cache['sxx'] = Sxx
-            cache['f'] = f
-            cache['res_shift'] = resolution_shift
-            cache['t'] = t
-            cache['x'] = x
-            cache['y'] = y
-            cache['z'] = z
+            shift = resolution_shift(MULTIPLIERS[self.__ui.analysisResolution.currentIndex()])
+            data = spectrogram_data(signal, shift)
+            cache['data'] = data
+            cache['sxx'] = data.sxx
+            cache['res_shift'] = shift
 
-    def __load_from_cache(self, cache, signal):
+    def __load_from_cache(self, cache, signal, spec):
         ''' loads the signal from the cache, recalculating it if necessary. '''
-        res_idx = self.__ui.analysisResolution.currentIndex()
-        if 'res_shift' in cache and cache['res_shift'] != math.log(MULTIPLIERS[res_idx], 2):
+        if 'res_shift' in cache and cache['res_shift'] != resolution_shift(spec.resolution_multiplier):
             self.__cache_xyz(signal, cache)
-        return cache['sxx'], cache['f'], cache['res_shift'], cache['t'], cache['x'], cache['y'], cache['z']
+        return cache['data']
 
 
 class SlaveRange:
@@ -805,8 +716,3 @@ class SlaveRange:
 
     def calculate(self, y_range):
         return self.__vals
-
-
-def seconds_to_hhmmss(x, pos):
-    ''' formats a seconds value to hhmmss '''
-    return str(datetime.timedelta(seconds=x))

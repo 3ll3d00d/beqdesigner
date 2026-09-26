@@ -61,7 +61,7 @@ def test_the_title_is_drawn():
 
 def test_the_spec_follows_the_persons_analysis_preferences():
     class Prefs:
-        values = {'audio/marker_type': ELLIPSE, 'audio/marker_size': 3, 'audio/ellipse_width': 2.0,
+        values = {'audio/max_filtered_freq': 60, 'audio/max_unfiltered_freq': 200, 'audio/marker_type': ELLIPSE, 'audio/marker_size': 3, 'audio/ellipse_width': 2.0,
                   'audio/ellipse_height': 0.5, 'audio/min_freq': 2, 'audio/colour_max': -5, 'audio/colour_min': -65}
 
         def get(self, key):
@@ -69,4 +69,4 @@ def test_the_spec_follows_the_persons_analysis_preferences():
 
     spec = spec_from_preferences(Prefs())
     assert (spec.marker_type, spec.marker_size, spec.ellipse_width, spec.ellipse_height) == (ELLIPSE, 3, 2.0, 0.5)
-    assert (spec.min_freq, spec.max_freq, spec.colour_min, spec.colour_max) == (2, 40, -65, -5)
+    assert (spec.min_freq, spec.max_filtered_freq, spec.max_unfiltered_freq, spec.colour_min, spec.colour_max) == (2, 40, 40, -65, -5)

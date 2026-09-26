@@ -291,7 +291,9 @@ def test_publish_and_commit_use_the_profiles_repositories_and_the_work_lists_fun
     assert kwargs['images_repo'].local_path == images.local_path
     assert kwargs['work_dir'] is None and sorted(kwargs['ids']) == ['one', 'two']       # no project directories: from the candidates
     assert window.resultsBox.toPlainText() == ''
-    assert os.path.isfile(os.path.join(xml.local_path, 'xml', 'one.json')) and os.path.isfile(os.path.join(images.local_path, 'img', 'two.png'))
+    records = [f for f in os.listdir(os.path.join(xml.local_path, 'xml', 'movies')) if f != 'database.json']
+    assert len(records) == 2 and all(f.endswith('.json') and '(2018)' in f for f in records)   # named for the title
+    assert len(os.listdir(os.path.join(images.local_path, 'img', 'movies'))) == 2
     assert _statuses(window) == {'one': 'published', 'two': 'published'}
     assert window.statusLabel.text().startswith('Published 2 titles: written into the repositories, not committed yet.')
     assert window.commitButton.text() == 'Commit published (2)' and window.publishButton.text() == 'Publish accepted (0)'
@@ -331,7 +333,7 @@ def test_a_declined_publish_writes_nothing(qtbot, tmp_path, repos):
     answer = _Answer(False)
     window.publish_accepted()
     assert answer.seen and 'Publish cancelled' in window.statusLabel.text()
-    assert not os.path.exists(os.path.join(xml.local_path, 'xml', 'one.json'))
+    assert not os.path.exists(os.path.join(xml.local_path, 'xml', 'movies'))
     assert read_entry(_queue(tmp_path), 'one').status == 'accepted'
 
 
