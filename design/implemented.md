@@ -2,7 +2,8 @@
 
 This is the consolidated account of the features delivered by the headless
 pipeline, candidate review, and library work list. It describes the code in
-this repository as of the 2026-09-25 design sweep. The authoritative API
+this repository, including the pipeline service delivered after the 2026-09-25
+design sweep. The authoritative API
 and user instructions are in [`pipeline/README.md`](../src/main/python/pipeline/README.md)
 and [`docs/library/`](../docs/library/). The designer's external protocol
 remains in [`designer-interface.md`](designer-interface.md); its conformance
@@ -12,10 +13,10 @@ Only unfinished work is listed in [`outstanding.md`](outstanding.md).
 ## Headless pipeline
 
 `src/main/python/pipeline/` runs extraction, filter design, assessment,
-review, and publication without constructing a `QApplication`. Its own
-modules do not import `qtpy`; `Session.load()` deliberately reuses the app's
-`AutoWavLoader`, which imports Qt modules but needs no display or application
-instance. `AnalysisConfig` supplies explicit settings for scripted runs.
+review, and publication without importing Qt or constructing a
+`QApplication`. Its reused model modules have Qt-free cores and separate
+dialog/model modules. `AnalysisConfig` supplies explicit settings for
+scripted runs.
 
 `Session.extract_with_layout()` uses the existing ffmpeg `Executor` to select
 an audio stream, resolve Blu-ray/DVD inputs, decimate to the analysis sample
@@ -66,6 +67,26 @@ The configured-source fixture reaches the public `database.json` and returns
 to `CatalogueEntry` (`01d9ec5`). The producer repository presently contains only its
 licence, so this is a fixture-backed integration check, not a claim that a
 live filter has already been published.
+
+## Pipeline service
+
+`pipeline/service/` exposes the library workflow as a long-running HTTP
+service over the same profile, index and stages as the CLI. Its typed FastAPI
+interface serves OpenAPI 3.1 at `/openapi.json` and local interactive docs in
+the Docker image; `docs/schema/service.openapi.json` is checked against the
+generated document. Bearer authentication protects `/v1`, while `/health`
+and `/ready` are public. Jobs run one at a time, persist bounded history,
+stream redacted events and hold a work-directory lease while active.
+
+The optional schedule scans and runs titles still needing extract or design,
+never publish or commit, and waits from a scheduled job's finish before its
+next tick. A busy tick is skipped. An optional notifier sends completed-job
+events to explicitly configured webhook URLs. JSON carries job, designed
+title, failure and review-count details; text, Slack and Discord carry a
+summary. Redirects are refused and status shows delivery outcomes without
+URLs or headers. The Qt-free Docker image has ffmpeg, git and SSH; CI builds
+and smoke-tests it on pushes and before publishing amd64/arm64 release tags.
+The image smoke has not yet been observed in CI from this worktree.
 
 ## Design and review
 

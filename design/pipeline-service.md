@@ -424,49 +424,9 @@ the full suite (2307 tests) passed before commit `df93b2a`.
 
 ## 9. Notifications (chunk S6)
 
-Auto mode runs with no one watching, so the service tells someone when there
-is something to look at, instead of relying on polling `GET /v1/status`.
-
-```yaml
-notify:                                   # service.yaml; zero or more targets
-  - name: phone
-    url: https://ntfy.example/beq          # or a Home Assistant, Slack or Discord webhook
-    format: text                           # json | text | slack | discord
-    events: [review_waiting, failed]       # default: all but job_finished
-    origins: [schedule]                    # default: schedule only; add api for API jobs
-```
-
-- **Events**, each evaluated when a job finishes: `review_waiting` (the job
-  designed titles that now need review, including declines), `failed` (a
-  title failed, a publish was refused, git refused, or the job itself
-  failed), `job_finished` (every job, for a log or a dashboard).
-  `failed_earlier` titles are not news and never trigger `failed`, so a title
-  that fails every hour notifies once.
-- **Payload.** `json` POSTs a typed `Notification`: `{event, job: {id, kind,
-  origin, state, started_at, finished_at}, designed: [{id, title, year, kind,
-  confidence}], failed: [{id, title, message}], review_waiting: N,
-  links: {job, docs}}` where `review_waiting` is the index's count after the
-  job. It is declared in the OpenAPI document's top-level **`webhooks`**
-  section (OpenAPI 3.1; FastAPI's `app.webhooks`), so the outbound shape is
-  published and typed like the inbound one. `text` POSTs one plain-text line
-  ("3 titles waiting for review, 1 failed", ntfy's native form); `slack` and
-  `discord` wrap that line as `{"text": ...}` / `{"content": ...}`.
-- **Secrets:** a target's headers come from `BEQ_NOTIFY_HEADERS_<NAME>`
-  (JSON) and a URL containing a token may be given as
-  `BEQ_NOTIFY_URL_<NAME>`; neither is ever echoed in status, events or logs.
-- **Delivery** is on its own thread after the job is recorded: 10 s timeout,
-  three attempts with backoff, then give up. A delivery never changes a
-  job's state; the last outcome per target is in `ServiceStatus.notify`
-  (`{name, last_event, last_attempt_at, ok, message}`).
-- **`POST /v1/notify/test`** (`{target: name}` → the delivery outcome) sends
-  a sample of each configured event so a target can be checked from Swagger UI.
-
-**Tests (S6):** which events fire for each shape of `StagesReport` (designed,
-declined, failed, failed_earlier only, cancelled, job error); origin and
-event filters; each format's body against a local HTTP server; retries and
-give-up with a server that fails then succeeds, and one that hangs; secrets
-absent from status and the recorded message; the `webhooks` entry present in
-the committed OpenAPI document; the test route.
+Targets, events, payload fields and setup are in the
+[service user guide](../docs/library/service.md). The exact JSON payload is
+the `Notification` schema in [OpenAPI](../docs/schema/service.openapi.json).
 
 **As built (S6).** `pipeline/service/notify.py` validates configured targets,
 reads URL/header secrets from the environment, and delivers after a job's
