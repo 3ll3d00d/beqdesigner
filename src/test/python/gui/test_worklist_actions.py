@@ -1532,3 +1532,25 @@ def test_cancelled_row_state_is_fully_expired_across_disjoint_runs_and_index_rem
     finally:
         release_second.set()
     qtbot.waitUntil(lambda: not window.is_running, timeout=5000)
+
+
+def test_progress_from_several_titles_at_once_is_a_count_not_a_turn_taking_message(qtbot, tmp_path):
+    make_index(tmp_path / 'work', _rows(), SOURCES, generation=2, last_scan_at=NOW - 900)
+    reached, release = threading.Event(), threading.Event()
+
+    def pipeline(profile, selection, through, *, on_progress, **kwargs):
+        ids = list(selection.ids)
+        for title_id, title in ((ids[0], 'Gravity'), (ids[1], 'Tenet')):
+            on_progress(Progress(0, 2, title, 'extract', title_id))
+        on_progress(FfmpegProgress('Gravity', ids[0], 50, 100))
+        reached.set()
+        assert release.wait(5)
+        return StagesReport(through, 2, run=LibraryRunReport(designed=ids), attempted=ids)
+
+    window, _ = _window(qtbot, tmp_path, pipeline=pipeline, prefs=_prefs(tmp_path))
+    window.select_ids(['x-gravity', 'x-tenet'])
+    window.run_selected()
+    qtbot.waitUntil(reached.is_set, timeout=5000)
+    qtbot.waitUntil(lambda: '2 titles in progress' in window.runStatusLabel.text(), timeout=5000)
+    release.set()
+    qtbot.waitUntil(lambda: not window.is_running, timeout=5000)

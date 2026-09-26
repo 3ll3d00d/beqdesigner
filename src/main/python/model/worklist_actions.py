@@ -13,7 +13,7 @@ The run itself is `model.worklist_run.RunJob`; the words are in `model.worklist_
 '''
 import logging
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
 from qtpy.QtCore import Qt, QThreadPool
@@ -57,6 +57,7 @@ class _RunContext:
     skipped_text: str
     commit_ids: List[str]
     stage: str = ''   # what the pipeline last said it was starting
+    active: Dict[str, str] = field(default_factory=dict)   # title id -> what it is doing, for the titles in flight
 
 
 class WorkListActions:
@@ -454,17 +455,30 @@ class WorkListActions:
             for title_id in context.commit_ids:
                 self._model.set_run_state(title_id, active=True, queued=False, stage='commit', text='Committing')
             text = f'Committing {progress.title}'
+            text += f'  ({min(progress.done + 1, progress.total):,} of {progress.total:,})'
         else:
             word = {'extract': 'Extracting', 'design': 'Designing', 'publish': 'Publishing'}.get(progress.stage,
                                                                                                  progress.stage)
             if progress.id:
                 self._model.set_run_state(progress.id, active=True, queued=False, stage=progress.stage, text=word)
-            text = f'{word} {progress.title}'
-        text += f'  ({min(progress.done + 1, progress.total):,} of {progress.total:,})'
+                context.active[progress.id] = f'{word} {progress.title}'
+            text = self._in_flight_text(context, f'{word} {progress.title}', progress)
         if self._job is not None and self._job.cancel_requested:
             text += ' -- a commit cannot be stopped, it finishes' if progress.stage == 'commit' \
                 else ' -- cancelling after this one'
         self._say(text)
+
+    def _in_flight_text(self, context: _RunContext, single: str, progress: Progress) -> str:
+        '''
+        One line for the status: the title's own words while it is the only one in flight, else a count, so that titles
+        running side by side do not take turns to overwrite each other.
+        '''
+        finished = {title_id for title_id, outcome in self._run_outcomes.items() if outcome in ('succeeded', 'failed', 'cancelled')}
+        for title_id in finished:
+            context.active.pop(title_id, None)
+        if len(context.active) > 1:
+            return f'{len(context.active):,} titles in progress  ({len(finished):,} of {progress.total:,} done)'
+        return single + f'  ({min(progress.done + 1, progress.total):,} of {progress.total:,})'
 
     def _on_ffmpeg_progress(self, progress: FfmpegProgress) -> None:
         '''Keep ffmpeg's ``out_time_ms`` percentage in the title's own row.'''
@@ -473,6 +487,12 @@ class WorkListActions:
         percent = min(100, max(0, int(progress.out_time_micros * 100 / progress.total_micros)))
         self._model.set_run_state(progress.id, active=True, queued=False, stage='extract',
                                   text=f'Extracting {percent}%', current=percent, total=100)
+        context = self._run_context
+        if context is not None:
+            for title_id in [t for t in context.active if self._run_outcomes.get(t) in ('succeeded', 'failed', 'cancelled')]:
+                del context.active[title_id]
+        if context is not None and len(context.active) > 1:
+            return   # several titles are in flight: the count says it, and each row shows its own percentage
         self._say(f'Extracting {progress.title}  ({percent}%)')
 
     def _update_run_progress(self, context: Optional[_RunContext] = None) -> None:
