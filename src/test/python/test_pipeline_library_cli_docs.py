@@ -49,7 +49,8 @@ def test_the_top_level_options_and_commands_are_described():
 @pytest.mark.parametrize('command', ['run', 'publish', 'commit', 'sync', 'revise', 'scan', 'status', 'accept'])
 def test_every_option_is_named_in_the_readme(command):
     readme = _readme()
-    missing = [flag for a in _options(_subparsers()[command]) for flag in a.option_strings
+    # (a hidden legacy alias, `help=SUPPRESS`, is deliberately not advertised: the README names its replacement)
+    missing = [flag for a in _options(_subparsers()[command]) if a.help != argparse.SUPPRESS for flag in a.option_strings
                if flag.startswith('--') and not flag.startswith('--no-') and flag not in readme]
 
     assert missing == []

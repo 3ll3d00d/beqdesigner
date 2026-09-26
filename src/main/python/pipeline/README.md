@@ -481,7 +481,8 @@ option documented). In outline, `run` takes the library source (`--source --glob
 --force-design`), which titles (`--needs --match --id --new-since-scan --through --retry-failed`), the repositories and `--push`
 (only for `--through publish` or `commit`), metadata (`--tmdb-api-key --audio-type`) and analysis (`--target-fs --resolution --avg-window
 --peak-window`); `publish` takes what to publish (`--queue-dir --work-dir --id --republish`), the repositories (`--filter-repo --filter-dir
---images-repo --image-dir --image-owner --image-repo-name`) and the same analysis options; `commit` takes `--queue-dir`, the same
+--images-repo --image-dir --image-owner --image-repo-name`, and the folders within them: `--category-folders`/`--no-category-folders`
+`--movies-dir --tv-dir`) and the same analysis options; `commit` takes `--queue-dir`, the same
 repositories (without the image-URL options), `--id` and `--push`/`--no-push`; `sync` takes everything `publish` does plus `--push`; `revise` takes `--queue-dir --id --to --reason --work-dir` and the repositories. `publish`,
 `commit`, `sync` and `revise` read the one `sync:` section of the config file. `scan` takes `--profile --source
 --from-outputs --allow-empty`, where things are (`--work-dir --queue-dir`), the settings that decide what is up to date (`--designer
