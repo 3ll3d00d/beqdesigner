@@ -1075,7 +1075,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
             self.__signal_model.replace(signalmodel_from_json(data, self.preferences))
             self.__magnitude_model.redraw()
         self.__project_path, self.__project_signals = file_name, self.__signals_layout()
-        self.statusbar.showMessage(f"Loaded {file_name}: edit the filter, then Save Project to keep the change")
+        self.statusbar.showMessage(f"Loaded {file_name}: edit the filter, then Save Project to keep the change", 10000)
         self.show()
         self.raise_()
         self.activateWindow()

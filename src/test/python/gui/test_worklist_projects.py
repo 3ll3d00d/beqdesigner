@@ -346,6 +346,18 @@ def test_save_project_stops_offering_the_titles_file_once_the_signals_are_no_lon
     assert _offered(main, monkeypatch) == mono
 
 
+def test_the_real_main_window_says_a_project_was_loaded_only_for_a_while(qtbot, tmp_path, monkeypatch, root_logging):
+    mono, _ = write_projects(_work(tmp_path), 'r-alien')
+    main, window = _main_window(qtbot, tmp_path, monkeypatch, REVIEWABLE)
+    shown = []
+    real = main.statusbar.showMessage
+    monkeypatch.setattr(main.statusbar, 'showMessage', lambda text, timeout=0: shown.append((text, timeout)) or real(text, timeout))
+
+    assert main.open_project_file(mono) is True
+
+    assert len(shown) == 1 and shown[0][0].startswith('Loaded ') and shown[0][1] > 0   # a message with no timeout never clears
+
+
 def test_the_real_main_window_asks_before_replacing_what_is_loaded_and_declining_changes_nothing(
         qtbot, tmp_path, monkeypatch, root_logging):
     mono, _ = write_projects(_work(tmp_path), 'r-alien')
