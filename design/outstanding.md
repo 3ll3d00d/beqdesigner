@@ -18,7 +18,7 @@ item that requires evidence from a real one.
 | W2 | chunk 45b | Partial in `62270b4`: codec, channels and stream count are requested | J2 for automatic stream selection; manual override already exists |
 | O1 | D6 | Optional idea; no implementation decision | Product decision |
 | O2 | former §9 reviewer questions | Behavior exists; acceptance decision missing | Real reviewer feedback |
-| S0-S7 | -- | S0-S6 built; S5 image smoke pending CI; S7 README and user guide in `faafbba`, implemented entry remains | None (S7 next) |
+| S5 validation | -- | S0-S7 implemented; Docker image build/smoke awaits first CI run | CI on push |
 
 ## External evidence and disc behavior
 

@@ -1,6 +1,6 @@
 # Pipeline service — HTTP control plane, auto mode and Docker image
 
-**Status: S0-S6 built; S7 documentation built, implemented-design entry pending** (§11 has each chunk's state;
+**Status: S0-S7 implemented; image build/smoke awaits first CI run** (§11 has each chunk's state;
 each built chunk has an "As built" note). See the [index](library-sync-pipeline-plan.md). The Docker image and chunk S0 are in
 [`pipeline-service/docker.md`](pipeline-service/docker.md). Branch: `pipeline-service`.
 
@@ -457,7 +457,7 @@ extraction path the image depends on (§10.1 there).
 | S4 | Auto scheduler and `/v1/schedule` | S3 | Done: `df93b2a` (§8 "As built") |
 | S5 | Docker image (no Qt), compose example, CI smoke job, GHCR publish on tag | S0, S3 (S4 for the schedule in the example) | Implemented: `80cab0d`; CI image build/smoke pending ([docker.md](pipeline-service/docker.md)) |
 | S6 | Notifications: `notify` targets, events, typed payload in OpenAPI `webhooks`, test route | S4 | Done: `af261fc` (§9 "As built") |
-| S7 | README "Pipeline service" section; `implemented.md` entry once built | S5, S6 | README and user guide done: `faafbba`; `implemented.md` entry waits for S6 |
+| S7 | README "Pipeline service" section; `implemented.md` entry once built | S5, S6 | Done: `faafbba`, `73ccfde` |
 
 Each chunk follows AGENTS.md: tests in the same commit, focused suite then
 `uv run pytest src/test/python -n auto`, status here and in the index updated.
