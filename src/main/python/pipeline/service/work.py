@@ -12,6 +12,7 @@ from pipeline.library.index import LibraryIndex, ScanResult, index_path
 from pipeline.library.stages import StagesReport, run_stages
 from pipeline.service.context import JobContext, load_context
 from pipeline.service.jobs import AcceptRequest, Job, JobControl, RunRequest, ScanRequest
+from pipeline.service.lease import WorkDirLease
 
 
 @dataclass(frozen=True)
@@ -81,14 +82,15 @@ def accept(context: JobContext, request: AcceptRequest):
 
 def executor(profile_path: str, env: Optional[Mapping[str, str]] = None,
              load: Callable[..., JobContext] = load_context) -> Callable[[Job, JobControl], Any]:
-    ''' The JobManager's `execute`: reads the profile for each job, then does it. '''
+    ''' The JobManager's `execute`: reads the profile for each job, then does it holding the work directory's lease. '''
     def execute(job: Job, control: JobControl):
         context = load(profile_path, env)
-        if isinstance(job.request, ScanRequest):
-            return scan(context, job.request)
-        if isinstance(job.request, RunRequest):
-            return run(context, job.request, control)
-        if isinstance(job.request, AcceptRequest):
-            return accept(context, job.request)
-        raise TypeError(f'not a job request: {job.request!r}')
+        with WorkDirLease(_require_work_dir(context), job.id):   # the work list does not run while a job does
+            if isinstance(job.request, ScanRequest):
+                return scan(context, job.request)
+            if isinstance(job.request, RunRequest):
+                return run(context, job.request, control)
+            if isinstance(job.request, AcceptRequest):
+                return accept(context, job.request)
+            raise TypeError(f'not a job request: {job.request!r}')
     return execute

@@ -67,6 +67,7 @@ pipeline/
     service/                       # the pipeline as a long-running service (design/pipeline-service.md; HTTP is chunk S3)
         config.py, context.py        # service.yaml and the environment's secrets; a job's profile, read again per job
         jobs.py, work.py              # one job at a time, cancel, events, history; what scan/run/accept jobs do
+        lease.py                        # the work-directory lease a job holds; the work list will not run while it is fresh
 
 model/preferences.py          # GUI: durable list of configured HTTP designer endpoints + the review queue
                               #   directory default, both on the Preferences dialog's "Designers" page

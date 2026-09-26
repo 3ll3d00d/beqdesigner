@@ -31,6 +31,7 @@ from model.worklist_run_details import EventBuffer, save_run_details
 from pipeline.library.index import TitleRow
 from pipeline.library.selection import StagePlan, plan_stages
 from pipeline.library.stages import FfmpegProgress, Progress, StagesReport
+from pipeline.service.lease import read_lease
 
 logger = logging.getLogger('worklist')
 
@@ -300,6 +301,10 @@ class WorkListActions:
         '''
         self._flush_settings()   # a setting edited a moment ago is what this run must use
         if self._busy() or not self._setup.ready or self._index is None or self._setup.index_file is None:
+            return False
+        holder = read_lease(self._setup.profile.work_dir if self._setup.profile else None)
+        if holder is not None:   # the pipeline service is running a job here: two runs would both write the index
+            self._say(f'Cannot start: {holder.describe()}.', LEVEL_ERROR)
             return False
         ask = (not (ids is not None or bool(self.selected_ids()))) if confirm is None else confirm
         rows = self._rows_by_id()

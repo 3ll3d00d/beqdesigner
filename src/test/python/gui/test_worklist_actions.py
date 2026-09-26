@@ -1608,3 +1608,17 @@ def test_a_test_that_ends_with_a_run_going_is_not_held_up_by_the_close_question(
     with qtbot.waitSignal(window.run_finished, timeout=10000) as run:
         pipeline.release.set()
     assert run.args[0].cancelled
+
+
+def test_a_run_is_refused_while_the_pipeline_service_holds_the_work_directory(qtbot, tmp_path):
+    ''' design/pipeline-service.md §5.1: two runs over one index, queue and repositories are not started. '''
+    from pipeline.service.lease import WorkDirLease
+    window, pipeline = _window(qtbot, tmp_path)
+    window.select_ids(['x-gravity'])
+
+    with WorkDirLease(window._setup.profile.work_dir, 'job-12345678', host='nas', pid=1):
+        assert window.run_selected() is False and not window.is_running
+        assert 'the pipeline service on nas is running a job (job-1234)' in window.runStatusLabel.text()
+
+    with qtbot.waitSignal(window.run_finished, timeout=10000):   # once it has finished, the run goes ahead
+        assert window.run_selected() is True

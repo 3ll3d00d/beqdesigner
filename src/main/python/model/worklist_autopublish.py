@@ -16,6 +16,7 @@ from model.worklist_folder_state import split_for_publish
 from model.worklist_run import build_publish_settings, publish_problem
 from pipeline.library.stages import PublishSettings
 from pipeline.library.sync import commit_library, publish_library
+from pipeline.service.lease import read_lease
 from pipeline.review import split_publish_results, describe_publish_error
 
 logger = logging.getLogger('worklist')
@@ -128,8 +129,9 @@ class WorkListAutoPublish:
         if not ids:
             return False
         problem = publish_problem(self._setup)
-        if problem:
-            self.statusBar.showMessage(f'Accepted, not published: {problem}', 15000)
+        holder = read_lease(self._setup.settings.work_dir or None)
+        if problem or holder is not None:   # a job of the pipeline service's writes the same repositories
+            self.statusBar.showMessage(f'Accepted, not published: {problem or holder.describe()}', 15000)
             return False
         self._auto_pending.extend(i for i in ids if i not in self._auto_pending)
         self._start_auto_publish()

@@ -163,3 +163,14 @@ def test_a_failure_of_the_job_is_said_and_the_window_carries_on(qtbot, tmp_path,
     qtbot.waitUntil(lambda: not window.auto_publishing, timeout=10000)
 
     assert 'publishing failed: RuntimeError: git is not installed' in window.statusBar.currentMessage()
+
+
+def test_accepting_while_the_pipeline_service_runs_a_job_publishes_nothing_and_says_why(qtbot, tmp_path, stubbed):
+    from pipeline.service.lease import WorkDirLease
+    window = _window(qtbot, tmp_path, REVIEWABLE)
+
+    with WorkDirLease(window._setup.settings.work_dir, 'job-12345678', host='nas', pid=1):
+        assert window.auto_publish(['r-alien']) is False
+
+    assert stubbed == []
+    assert 'Accepted, not published: the pipeline service on nas is running a job' in window.statusBar.currentMessage()

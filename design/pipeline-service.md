@@ -176,6 +176,17 @@ exists. SQLite over a network share is a known hazard; the documented set-up
 is the work directory on the container host's local disk, exported to the
 reviewer read-mostly, not the other way round.
 
+**As built (S2).** `pipeline/library/setup.py` holds the CLI's profile-to-run
+resolution, shared by the service (a test holds a service run to exactly what
+`run --profile` does). `pipeline/service/`: `config.py`, `context.py`
+(environment secrets), `jobs.py`, `work.py`, `lease.py`; the work list's
+Run/Publish/Commit and its one-step accept-and-publish refuse while a lease is
+fresh. The event redaction the work list's Details use moved to
+`model/execution_events.py` and is shared. Gaps, open: the Review Folder
+window's Publish/Commit do not check the lease, and the app does not *take*
+one for its own runs, so a scheduled job can start during a work-list run
+(the service would then need to refuse a lease the app holds).
+
 **Tests (S2):** job lifecycle and FIFO order with a fake `run_stages`;
 cancel queued vs running; `failed` from a `StagesReport` with a failed title;
 restart marks `interrupted`; history trimmed and atomically rewritten; the
@@ -453,7 +464,7 @@ extraction path the image depends on (§10.1 there).
 |---|---|---|---|
 | S0 | Qt-free extraction path ([docker.md §10.1](pipeline-service/docker.md)): no `qtpy`/`PyQt6` reachable from `pipeline/` | -- | Done: `55c3425`, `5d136d3`, `579f542`, `4929e93` and the "S0 done" commit after it (see docker.md §10.1 "As built") |
 | S1 | `Selection.kind` and `Selection.year` (expression), shared `year.py`, index SQL, CLI `--kind`/`--year` | -- | Done (§3 "As built") |
-| S2 | `pipeline/service`: config, per-job profile context, `JobManager`, history, work-dir lease (+ work list honours it) | S1 | In progress: `pipeline/library/setup.py` (the CLI's profile-to-run resolution, shared with the service); `pipeline/service` config, context (secrets from the environment), `JobManager` and `work.py`, with a CLI/service parity test. Left: the work-directory lease |
+| S2 | `pipeline/service`: config, per-job profile context, `JobManager`, history, work-dir lease (+ work list honours it) | S1 | Done (§5.1 "As built") |
 | S3 | FastAPI app, models, routes, auth, SSE, committed OpenAPI doc + drift test, vendored Swagger UI, `docs/` page | S2 | Not started |
 | S4 | Auto scheduler and `/v1/schedule` | S3 | Not started |
 | S5 | Docker image (no Qt), compose example, CI smoke job, GHCR publish on tag | S0, S3 (S4 for the schedule in the example) | Not started |
