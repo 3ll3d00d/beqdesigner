@@ -363,6 +363,9 @@ containers) — no Xvfb needed. CI's pytest step already sets it
 
 ```sh
 PYTHONPATH=./src/main/python QT_QPA_PLATFORM=offscreen uv run pytest src/test/python
+
+# in parallel (about 5x faster; the gui tests are independent, each in its own process with its own QApplication)
+PYTHONPATH=./src/main/python uv run pytest src/test/python -n auto
 ```
 
 Three gotchas hit writing these, all worth knowing before adding more:

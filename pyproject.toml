@@ -37,6 +37,7 @@ Repository = "https://github.com/3ll3d00d/beqdesigner"
 dev = [
     "pytest",
     "pytest-cov",
+    "pytest-xdist",
     "distro",
     "atomicwrites",
     "scipy-stubs",
