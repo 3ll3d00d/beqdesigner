@@ -18,6 +18,7 @@ item that requires evidence from a real one.
 | W2 | chunk 45b | Partial in `62270b4`: codec, channels and stream count are requested | J2 for automatic stream selection; manual override already exists |
 | O1 | D6 | Optional idea; no implementation decision | Product decision |
 | O2 | former §9 reviewer questions | Behavior exists; acceptance decision missing | Real reviewer feedback |
+| T1 | -- | Watch; not reproduced | Recurrence with a stack dump |
 | S5 validation | -- | S0-S7 implemented; Docker image build/smoke awaits first CI run | CI on push |
 
 ## External evidence and disc behavior
@@ -148,6 +149,26 @@ single-stream multichannel regression does not establish this choice path.
 
 **Done when:** a person can see and select the correct stream without an
 ineffective rescan, and the run shows only the stages actually performed.
+
+## Test health
+
+### T1 — Intermittent hang in the parallel suite
+
+On 2026-09-26 two of three `pytest -n auto -v src/test/python` runs stopped
+at about 99% with one xdist worker idle. Both times, the last test that
+worker reported was
+`gui/test_worklist_actions.py::test_titles_in_flight_together_share_one_status_and_a_finished_one_moves_before_the_run_ends`.
+The worker never reported the next test in the file,
+`test_a_test_that_ends_with_a_run_going_is_not_held_up_by_the_close_question`,
+which closes the window while a held run is still going. The last test
+printed by the run as a whole was an unrelated `gui/test_worklist_review.py`
+test that had already passed. Could not reproduce: the file alone
+(32 runs, 8 at once) and four further full parallel runs completed.
+`faulthandler_timeout` prints nothing from an xdist worker, so if it
+recurs, capture stacks with a throwaway plugin that calls
+`faulthandler.dump_traceback_later(45, file=<per-worker file>)` around
+each test (`-p <plugin>`), and fix what the dump shows. Close this if it
+has not recurred after a few weeks of routine runs.
 
 ## Optional idea
 
