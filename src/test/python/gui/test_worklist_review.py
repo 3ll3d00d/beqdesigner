@@ -292,7 +292,7 @@ def test_publish_and_commit_use_the_profiles_repositories_and_the_work_lists_fun
     assert kwargs['work_dir'] is None and sorted(kwargs['ids']) == ['one', 'two']       # no project directories: from the candidates
     assert window.resultsBox.toPlainText() == ''
     records = [f for f in os.listdir(os.path.join(xml.local_path, 'xml', 'movies')) if f != 'database.json']
-    assert len(records) == 2 and all(f.endswith('.json') and '(2018)' in f for f in records)   # named for the title
+    assert sorted(records) == ['one.json', 'two.json']   # in the movies folder (these entries have their names chosen)
     assert len(os.listdir(os.path.join(images.local_path, 'img', 'movies'))) == 2
     assert _statuses(window) == {'one': 'published', 'two': 'published'}
     assert window.statusLabel.text().startswith('Published 2 titles: written into the repositories, not committed yet.')
