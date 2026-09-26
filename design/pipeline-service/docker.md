@@ -60,6 +60,10 @@ after the smoke run, with `latest` only for non-prerelease tags.
 `uv lock --check --offline`, the focused S5 tests (34) and the full suite
 (2310) passed. Docker is not installed in the local environment, so the
 image build and smoke run await the first CI execution.
+The identical six-channel fixture was also run through the real local service,
+ffmpeg and HTTP designer in `622d197`; its job succeeded and produced a queue
+entry. The focused test and full suite (2331 tests) passed. This verifies the
+fixture and pipeline behavior, while the image build itself still awaits CI.
 
 ### 10.1 Chunk S0: a Qt-free extraction path
 

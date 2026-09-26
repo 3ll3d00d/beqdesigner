@@ -455,7 +455,7 @@ extraction path the image depends on (§10.1 there).
 | S2 | `pipeline/service`: config, per-job profile context, `JobManager`, history, work-dir lease (+ work list honours it) | S1 | Done: `8f6ff97`, `bc7afd3`, `ca43161`, `cb9f371` (§5.1 "As built") |
 | S3 | FastAPI app, models, routes, auth, SSE, committed OpenAPI doc + drift test, vendored Swagger UI, `docs/` page | S2 | Done: `99d2071` (§6.7 "As built") |
 | S4 | Auto scheduler and `/v1/schedule` | S3 | Done: `df93b2a` (§8 "As built") |
-| S5 | Docker image (no Qt), compose example, CI smoke job, GHCR publish on tag | S0, S3 (S4 for the schedule in the example) | Implemented: `80cab0d`; CI image build/smoke pending ([docker.md](pipeline-service/docker.md)) |
+| S5 | Docker image (no Qt), compose example, CI smoke job, GHCR publish on tag | S0, S3 (S4 for the schedule in the example) | Implemented: `80cab0d`; local real smoke fixture `622d197`; CI image build/smoke pending ([docker.md](pipeline-service/docker.md)) |
 | S6 | Notifications: `notify` targets, events, typed payload in OpenAPI `webhooks`, test route | S4 | Done: `af261fc` (§9 "As built") |
 | S7 | README "Pipeline service" section; `implemented.md` entry once built | S5, S6 | Done: `faafbba`, `73ccfde` |
 
