@@ -14,8 +14,9 @@ from qtpy.QtWidgets import QDialog, QFileDialog, QStatusBar, QDialogButtonBox, Q
     QTableWidget, QTableWidgetItem, QAbstractItemView, QHeaderView
 
 from model.bdmv import is_bdmv_root, list_playlists, resolve_title
-from model.ffmpeg import Executor, ViewProbeDialog, SIGNAL_CONNECTED, SIGNAL_ERROR, SIGNAL_COMPLETE, parse_audio_stream, \
+from model.ffmpeg import Executor, SIGNAL_CONNECTED, SIGNAL_ERROR, SIGNAL_COMPLETE, parse_audio_stream, \
     get_channel_name, parse_video_stream
+from model.ffmpeg_qt import ViewProbeDialog
 from model.preferences import EXTRACTION_OUTPUT_DIR, EXTRACTION_NOTIFICATION_SOUND, ANALYSIS_TARGET_FS, \
     EXTRACTION_MIX_MONO, EXTRACTION_DECIMATE, EXTRACTION_INCLUDE_ORIGINAL, EXTRACTION_INCLUDE_SUBTITLES, \
     EXTRACTION_COMPRESS, COMPRESS_FORMAT_OPTIONS, COMPRESS_FORMAT_FLAC, COMPRESS_FORMAT_NATIVE, COMPRESS_FORMAT_EAC3, \

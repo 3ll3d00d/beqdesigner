@@ -441,7 +441,7 @@ extraction path the image depends on (§10.1 there).
 
 | Chunk | Content | Depends on | Status |
 |---|---|---|---|
-| S0 | Qt-free extraction path ([docker.md §10.1](pipeline-service/docker.md)): no `qtpy`/`PyQt6` reachable from `pipeline/` | -- | In progress: preferences and limits dialogs, `DspType` and the minidsp Qt side split out; `test_qt_free_modules.py` |
+| S0 | Qt-free extraction path ([docker.md §10.1](pipeline-service/docker.md)): no `qtpy`/`PyQt6` reachable from `pipeline/` | -- | In progress: preferences and limits dialogs, `DspType`, the minidsp and ffmpeg Qt sides split out; `test_qt_free_modules.py` |
 | S1 | `Selection.kind` and `Selection.year` (expression), shared `year.py`, index SQL, CLI `--kind`/`--year` | -- | Not started |
 | S2 | `pipeline/service`: config, per-job profile context, `JobManager`, history, work-dir lease (+ work list honours it) | S1 | Not started |
 | S3 | FastAPI app, models, routes, auth, SSE, committed OpenAPI doc + drift test, vendored Swagger UI, `docs/` page | S2 | Not started |

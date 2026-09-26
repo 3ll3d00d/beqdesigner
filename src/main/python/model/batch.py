@@ -12,8 +12,9 @@ from qtpy.QtWidgets import QDialog, QStatusBar, QFileDialog, QMessageBox
 
 from model.bdmv import is_bdmv_root, resolve_main_title
 from model.dvd import dvd_root, resolve_main_title as resolve_main_dvd_title
-from model.ffmpeg import Executor, parse_audio_stream, ViewProbeDialog, SIGNAL_CONNECTED, SIGNAL_ERROR, \
-    SIGNAL_COMPLETE, SIGNAL_CANCELLED, FFMpegDetailsDialog, describe_missing_binary
+from model.ffmpeg import Executor, parse_audio_stream, SIGNAL_CONNECTED, SIGNAL_ERROR, SIGNAL_COMPLETE, SIGNAL_CANCELLED, \
+    describe_missing_binary
+from model.ffmpeg_qt import FFMpegDetailsDialog, ViewProbeDialog
 from model.preferences import EXTRACTION_OUTPUT_DIR, EXTRACTION_BATCH_FILTER, ANALYSIS_TARGET_FS, \
     BASS_MANAGEMENT_LPF_FS, BASS_MANAGEMENT_LPF_POSITION, DESIGNER_QUEUE_DIR, DESIGNER_DEFAULT
 from model.spin import StoppableSpin, stop_spinner

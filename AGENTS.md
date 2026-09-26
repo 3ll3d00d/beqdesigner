@@ -271,7 +271,7 @@ renders the notes.
   has no Qt installed) imports some of `model/`. Those modules must not
   import `qtpy`, `PyQt6`, `qtawesome`, `pyqtgraph` or `ui.*`, even
   indirectly; their dialogs and Qt models live in a sibling module
-  (`model/preferences_dialog.py`, `model/limits_dialog.py`, `model/minidsp_qt.py`).
+  (`model/preferences_dialog.py`, `model/limits_dialog.py`, `model/minidsp_qt.py`, `model/ffmpeg_qt.py`).
   `test_qt_free_modules.py` imports each one with Qt blocked and lists them;
   add a module there when the pipeline starts to use it.
 - **Preferences** are a thin typed wrapper over `QSettings`

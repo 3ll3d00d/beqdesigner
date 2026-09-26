@@ -19,6 +19,7 @@ QT_FREE = (
     'model.limits',
     'model.dsp_type',
     'model.minidsp',
+    'model.ffmpeg',
     'pipeline.publish.xml',
 )
 
