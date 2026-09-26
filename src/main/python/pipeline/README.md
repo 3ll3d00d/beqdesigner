@@ -546,6 +546,45 @@ The commands print JSON to stdout (`status` prints text unless given `--json`).
 A typical schedule: `run` nightly from cron, review in the app, `sync` (or `publish`, a look at the clones, then `commit`)
 when the queue has accepted entries.
 
+## Pipeline service
+
+`python -m pipeline.service` keeps the library pipeline available over HTTP.
+It runs one job at a time and uses the same profile, index, extraction, design
+and review queue as the CLI and desktop work list. Its [user guide](../../../../docs/library/service.md)
+lists every route, and its [OpenAPI document](../../../../docs/schema/service.openapi.json)
+defines the request and response bodies. `/docs` serves an interactive API
+page; `/openapi.json` serves the same document for generated clients.
+
+Start it from a checkout with the service dependency group installed:
+
+```sh
+uv sync --group service
+BEQ_SERVICE_TOKEN=your-secret PYTHONPATH=src/main/python \
+  uv run python -m pipeline.service --profile /path/to/profile.yaml
+```
+
+The token protects `/v1` routes. `GET /health` and `GET /ready` are public.
+The service listens on port 8080 by default; bind it behind a TLS reverse
+proxy for access beyond a local network. `--service-config` points to a YAML
+file with listen settings, the automatic schedule and the repository-write
+guard. The profile is reloaded for each job, and the schedule saved through
+the API is kept in `<work_dir>/service/schedule.json`.
+
+`POST /v1/jobs/run` takes the CLI's title selection as `filter` (`needs`,
+`source`, `match`, `ids`, `kind`, `year`) and a `through` stage. It scans first
+by default. `POST /v1/plan` shows what the same selection would run. The
+automatic schedule can only reach `extract` or `design`, leaving every result
+for review. Publish, commit and bulk accept over HTTP require
+`allow_repository_writes: true` in the service config.
+
+The [Dockerfile](../../../../docker/Dockerfile) builds the Qt-free service
+with ffmpeg and local Swagger UI/ReDoc assets. The [compose example](../../../../docker/compose.example.yaml)
+mounts a read-only profile, the work and queue directories, and the media at
+the paths named in the profile. Set the host UID/GID for writable mounts;
+the image runs as a non-root user. A tag workflow publishes amd64 and arm64
+images to `ghcr.io/3ll3d00d/beqdesigner-pipeline:<tag>` only after a smoke
+run that extracts and designs a synthetic six-channel source.
+
 ## Design decisions (resolved)
 
 Kept here as a short historical index; delivered behavior is summarized in

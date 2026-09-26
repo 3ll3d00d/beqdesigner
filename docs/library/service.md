@@ -11,6 +11,16 @@ export BEQ_SERVICE_TOKEN=a-long-random-string
 PYTHONPATH=src/main/python uv run python -m pipeline.service --profile /path/to/library-profile.yaml
 ```
 
+For a container, copy [`docker/compose.example.yaml`](https://github.com/3ll3d00d/beqdesigner/blob/main/docker/compose.example.yaml)
+and [`docker/service.example.yaml`](https://github.com/3ll3d00d/beqdesigner/blob/main/docker/service.example.yaml).
+Put `profile.yaml`, `service.yaml` and a private `service-token` in the
+compose example's `config/` folder, and mount your media at the exact paths
+the profile names. Run `docker compose up -d`. The image is published for
+tagged releases as `ghcr.io/3ll3d00d/beqdesigner-pipeline:<tag>` for amd64
+and arm64; use a fixed tag when you need repeatable deployments. The compose
+example maps the port to loopback for a local TLS reverse proxy. Its work and
+queue mounts should be writable by the configured UID/GID.
+
 It listens on port 8080 of every address. Open `http://HOST:8080/docs`: the whole interface, with **Try it out** on every call. Press **Authorize**, paste the token, and the calls you try from the page are made for real.
 
 | Option | Meaning |
