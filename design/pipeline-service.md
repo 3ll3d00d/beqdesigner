@@ -1,7 +1,7 @@
 # Pipeline service — HTTP control plane, auto mode and Docker image
 
-**Status: design, not built.** Every chunk below is *Not started*; see the
-[index](library-sync-pipeline-plan.md). The Docker image and chunk S0 are in
+**Status: S0-S3 built, S4-S7 design, not built** (§11 has each chunk's state;
+each built chunk has an "As built" note). See the [index](library-sync-pipeline-plan.md). The Docker image and chunk S0 are in
 [`pipeline-service/docker.md`](pipeline-service/docker.md). Branch: `pipeline-service`.
 
 ## 1. Goal
@@ -471,10 +471,10 @@ extraction path the image depends on (§10.1 there).
 
 | Chunk | Content | Depends on | Status |
 |---|---|---|---|
-| S0 | Qt-free extraction path ([docker.md §10.1](pipeline-service/docker.md)): no `qtpy`/`PyQt6` reachable from `pipeline/` | -- | Done: `55c3425`, `5d136d3`, `579f542`, `4929e93` and the "S0 done" commit after it (see docker.md §10.1 "As built") |
-| S1 | `Selection.kind` and `Selection.year` (expression), shared `year.py`, index SQL, CLI `--kind`/`--year` | -- | Done (§3 "As built") |
-| S2 | `pipeline/service`: config, per-job profile context, `JobManager`, history, work-dir lease (+ work list honours it) | S1 | Done (§5.1 "As built") |
-| S3 | FastAPI app, models, routes, auth, SSE, committed OpenAPI doc + drift test, vendored Swagger UI, `docs/` page | S2 | Done (§6.7 "As built") |
+| S0 | Qt-free extraction path ([docker.md §10.1](pipeline-service/docker.md)): no `qtpy`/`PyQt6` reachable from `pipeline/` | -- | Done: `55c3425`, `5d136d3`, `579f542`, `4929e93`, `f9d66e5` (see docker.md §10.1 "As built") |
+| S1 | `Selection.kind` and `Selection.year` (expression), shared `year.py`, index SQL, CLI `--kind`/`--year` | -- | Done: `ceabb76` (§3 "As built") |
+| S2 | `pipeline/service`: config, per-job profile context, `JobManager`, history, work-dir lease (+ work list honours it) | S1 | Done: `8f6ff97`, `bc7afd3`, `ca43161`, `cb9f371` (§5.1 "As built") |
+| S3 | FastAPI app, models, routes, auth, SSE, committed OpenAPI doc + drift test, vendored Swagger UI, `docs/` page | S2 | Done: `99d2071` (§6.7 "As built") |
 | S4 | Auto scheduler and `/v1/schedule` | S3 | Not started |
 | S5 | Docker image (no Qt), compose example, CI smoke job, GHCR publish on tag | S0, S3 (S4 for the schedule in the example) | Not started |
 | S6 | Notifications: `notify` targets, events, typed payload in OpenAPI `webhooks`, test route | S4 | Not started |

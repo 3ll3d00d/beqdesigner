@@ -26,7 +26,7 @@ coefficients; the focused library/orchestration suite passed 175 tests.
 | Extraction folders | Implemented in `ffdcf1a`: readable track and stream names with stable ID lookup and legacy cache support | [Implemented design](implemented.md) |
 | Run Details persistence | Implemented in `48c2fc9`: redacted last-run details restored after restart | [Implemented design](implemented.md) |
 | Title-page progress | Implemented in `92d8881`: viewed track progress on its page, completed-title count on the list | [Implemented design](implemented.md) |
-| Pipeline service (S0-S7) | S0-S3 done (Qt-free pipeline; kind/year selection; service core; HTTP/OpenAPI); S4-S7 not started -- design, not built: HTTP control plane, auto mode, Docker image | [Pipeline service](pipeline-service.md) |
+| Pipeline service (S0-S7) | S0-S3 built (Qt-free pipeline; kind/year selection; service core; HTTP/OpenAPI); S4-S7 (auto mode, Docker image, webhooks, README) are design, not built | [Pipeline service](pipeline-service.md) |
 
 Chunk 3 became the live-fixture work in chunk 30. The remaining optional
 catalogue-as-input idea is [O1](outstanding.md#o1-catalogue-as-input);
@@ -45,7 +45,7 @@ T1, T9-T14 and T16 are delivered or accepted boundaries in `implemented.md`.
 | Library CLI and runtime use | [Pipeline README](../src/main/python/pipeline/README.md) |
 | Library user workflow | [`docs/library/`](../docs/library/) |
 | Designer request/response and HTTP wire protocol | [Designer interface](designer-interface.md) |
-| Pipeline as a Docker service with an HTTP/OpenAPI interface (design, not built) | [Pipeline service](pipeline-service.md) |
+| Pipeline service: HTTP/OpenAPI interface (built), auto mode and Docker image (design) | [Pipeline service](pipeline-service.md) |
 | Index schema | `SCHEMA` and `SCHEMA_VERSION` in `src/main/python/pipeline/library/index.py` |
 
 Older source comments cite the original section numbers. Their subjects now
