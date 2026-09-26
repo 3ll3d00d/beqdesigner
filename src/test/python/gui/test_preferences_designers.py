@@ -1,5 +1,5 @@
 '''
-Safety net for model/preferences.py's PreferencesDialog "Designers" page and DESIGNER_QUEUE_DIR default --
+Safety net for model/preferences_dialog.py's PreferencesDialog "Designers" page and DESIGNER_QUEUE_DIR default --
 folded in from the old standalone model/designers.py's DesignersDialog (Tools > Designers) and the previously
 unpersisted queue-directory fields on model/batch.py's BatchExtractDialog and the review dialog
 (model/review.py's ReviewQueueDialog, deleted at chunk 27c; the queue directory is now remembered by model/worklist_review.py's window). pipeline.designer.http_binding's own wire format is already covered by
@@ -16,9 +16,10 @@ from qtpy.QtCore import QSettings
 from qtpy.QtWidgets import QMessageBox
 
 from model.preferences import (
-    DESIGNER_DEFAULT, DESIGNER_HTTP_ENDPOINTS, DESIGNER_QUEUE_DIR, Preferences, PreferencesDialog,
+    DESIGNER_DEFAULT, DESIGNER_HTTP_ENDPOINTS, DESIGNER_QUEUE_DIR, Preferences,
     register_configured_designers, _REGISTERED_DESIGNER_PREFIX,
 )
+from model.preferences_dialog import PreferencesDialog
 from pipeline.designer.registry import register_designer, registered_designers, unregister_designer
 
 

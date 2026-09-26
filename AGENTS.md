@@ -266,11 +266,20 @@ renders the notes.
   a paired `QObject` signals class (`FileSearchSignals`, `ProbeJobSignals`,
   `JobSignals`, `VersionSignals`, …) to marshal results back. That pairing
   is the pattern — follow it rather than inventing new threading.
+- **Qt-free modules.** The headless pipeline (and its Docker image, which
+  has no Qt installed) imports some of `model/`. Those modules must not
+  import `qtpy`, `PyQt6`, `qtawesome`, `pyqtgraph` or `ui.*`, even
+  indirectly; their dialogs and Qt models live in a sibling module
+  (`model/preferences_dialog.py`, `model/limits_dialog.py`).
+  `test_qt_free_modules.py` imports each one with Qt blocked and lists them;
+  add a module there when the pipeline starts to use it.
 - **Preferences** are a thin typed wrapper over `QSettings`
   (`model/preferences.py`). Every key is a module-level `GROUP/name`
   constant; add new settings as constants there with a default, and to
-  `PreferencesDialog` if the user should see them. Window geometry is
-  persisted the same way.
+  `PreferencesDialog` (`model/preferences_dialog.py`) if the user should see
+  them. Window geometry is persisted the same way. `model/preferences.py`
+  must stay Qt-free (the headless pipeline imports it; see "Qt-free modules"
+  below).
 - **Logging** goes to an in-memory `RollingLogger` (`model/log.py`) exposed
   via *Help → Logs*. There is no log file — run from a terminal to see
   tracebacks.

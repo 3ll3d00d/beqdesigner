@@ -62,6 +62,7 @@ pipeline/
 
 model/preferences.py          # GUI: durable list of configured HTTP designer endpoints + the review queue
                               #   directory default, both on the Preferences dialog's "Designers" page
+                              #   (model/preferences_dialog.py)
 model/batch.py                # GUI: Batch Extract & Design dialog -- search/extract many files, with an
                               #   optional per-candidate design_and_queue() step; opens the Review folder window
 model/worklist_review.py      # GUI: the Review folder window (Tools > Review Folder...) -- the work list's title page

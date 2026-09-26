@@ -300,7 +300,7 @@ def test_filter_manager_dialog_picks_from_the_shared_list(qtbot, tmp_path, monke
 
 
 def test_preferences_dialog_has_a_jriver_page_managing_the_same_list(qtbot, tmp_path, monkeypatch):
-    from model.preferences import PreferencesDialog
+    from model.preferences_dialog import PreferencesDialog
     prefs = _prefs(tmp_path)
     prefs.set(JRIVER_MCWS_CONNECTIONS, {'a.local:1': (None, False)})
     monkeypatch.setattr('model.jriver.mcws.MediaServer.authenticate', MagicMock(return_value=True))  # alias refresh

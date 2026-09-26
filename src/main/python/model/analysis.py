@@ -12,7 +12,8 @@ from qtpy.QtWidgets import QDialog
 
 from model.heatmap import HeatmapSpec, MAG_CONSTANT, MAG_PEAK, MULTIPLIERS, add_colour_bar, add_grid, default_signal_min, \
     draw_pane, hide_y_axis, resolution_shift, seconds_to_hhmmss, set_limits, spectrogram_data, two_pane_axes, width_ratios
-from model.limits import Limits, LimitsDialog
+from model.limits import Limits
+from model.limits_dialog import LimitsDialog
 from model.preferences import GRAPH_X_MIN, GRAPH_X_MAX, POINT, ELLIPSE, SPECTROGRAM_CONTOURED, SPECTROGRAM_FLAT, \
     AUDIO_ANALYSIS_MARKER_SIZE, AUDIO_ANALYSIS_MARKER_TYPE, AUDIO_ANALYSIS_ELLIPSE_WIDTH, AUDIO_ANALYSIS_ELLIPSE_HEIGHT, \
     AUDIO_ANALYIS_MIN_FREQ, AUDIO_ANALYIS_MAX_UNFILTERED_FREQ, AUDIO_ANALYIS_MAX_FILTERED_FREQ, \

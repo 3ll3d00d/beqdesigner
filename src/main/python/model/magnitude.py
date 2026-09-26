@@ -5,7 +5,7 @@ from typing import Tuple, Optional
 import numpy as np
 from matplotlib.gridspec import GridSpec
 
-from model.limits import Limits, LimitsDialog, ValuesDialog, DecibelRangeCalculator, configure_freq_axis
+from model.limits import Limits, DecibelRangeCalculator, configure_freq_axis
 from model.preferences import GRAPH_X_AXIS_SCALE, GRAPH_X_MIN, GRAPH_X_MAX, GRAPH_EXPAND_Y, STYLE_IMAGE_FORMAT_DEFAULT
 
 logger = logging.getLogger('magnitude')
@@ -241,6 +241,7 @@ class MagnitudeModel:
         '''
         Shows the limits dialog.
         '''
+        from model.limits_dialog import LimitsDialog  # the pipeline renders charts with this module and no Qt
         LimitsDialog(self.limits, parent=parent).exec()
 
     def show_full_range(self):
@@ -259,6 +260,7 @@ class MagnitudeModel:
         '''
         Shows the values dialog.
         '''
+        from model.limits_dialog import ValuesDialog
         ValuesDialog(self.__primary.artists() + self.__secondary.artists()).exec()
 
     def get_curve_names(self, primary=True):
