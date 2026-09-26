@@ -485,7 +485,7 @@ extraction path the image depends on (§10.1 there).
 | S4 | Auto scheduler and `/v1/schedule` | S3 | Done: `df93b2a` (§8 "As built") |
 | S5 | Docker image (no Qt), compose example, CI smoke job, GHCR publish on tag | S0, S3 (S4 for the schedule in the example) | Implemented: `80cab0d`; CI image build/smoke pending ([docker.md](pipeline-service/docker.md)) |
 | S6 | Notifications: `notify` targets, events, typed payload in OpenAPI `webhooks`, test route | S4 | Not started |
-| S7 | README "Pipeline service" section; `implemented.md` entry once built | S5, S6 | Not started |
+| S7 | README "Pipeline service" section; `implemented.md` entry once built | S5, S6 | README and user guide done: `faafbba`; `implemented.md` entry waits for S6 |
 
 Each chunk follows AGENTS.md: tests in the same commit, focused suite then
 `uv run pytest src/test/python -n auto`, status here and in the index updated.
