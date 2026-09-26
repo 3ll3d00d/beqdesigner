@@ -15,16 +15,19 @@ Profiles use `sync.filter_repo` and `sync.filter_dir`; the legacy `sync.xml_repo
 
 ## Architecture rules
 
-1. **`pipeline/` never imports `qtpy`.** Enforced by
-   `test_pipeline_qt_boundary.py` (an AST scan of the package, plus a
-   runtime check that `QApplication.instance()` stays `None` through a full
-   pipeline run).
+1. **`pipeline/` never imports `qtpy`, directly or through `model/`.** It runs
+   where Qt is not installed (the pipeline service's Docker image).
+   `test_qt_free_modules.py` imports every `pipeline/` module, and makes a
+   whole extract-load-design-publish `Session` run, with every Qt package
+   blocked; `test_pipeline_qt_boundary.py` also AST-scans the package and
+   checks that `QApplication.instance()` stays `None` through a run.
 2. **Dependencies point inward.** The GUI (`model/`, `ui/`) calls into
-   `pipeline/`; `pipeline/` never calls back into Qt-bound code. The one
-   deliberate exception is `Session.load()` reusing
-   `model.signal.AutoWavLoader` — that module imports `qtpy` at the top for
-   dialogs `AutoWavLoader` never touches, but constructs no `QApplication`
-   and needs no display; see `orchestrate.py`'s module docstring.
+   `pipeline/`; `pipeline/` never calls back into Qt-bound code. The `model/`
+   modules it reuses (`signal`, `ffmpeg`, `preferences`, `minidsp`, `limits`,
+   `magnitude`, ...) are Qt-free, with their dialogs and Qt models in a
+   sibling module (`signal_qt.py`, `ffmpeg_qt.py`, `preferences_dialog.py`,
+   ...). Where a `model/` function would read a desktop preference and Qt is
+   absent, it uses the preference's default (`model.xy.interp()`'s smoothing).
 
 ## Package layout
 

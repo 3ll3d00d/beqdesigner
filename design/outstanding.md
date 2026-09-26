@@ -18,7 +18,7 @@ item that requires evidence from a real one.
 | W2 | chunk 45b | Partial in `62270b4`: codec, channels and stream count are requested | J2 for automatic stream selection; manual override already exists |
 | O1 | D6 | Optional idea; no implementation decision | Product decision |
 | O2 | former §9 reviewer questions | Behavior exists; acceptance decision missing | Real reviewer feedback |
-| S0-S7 | -- | Not started; design in [`pipeline-service.md`](pipeline-service.md) | None (S0 and S1 first) |
+| S0-S7 | -- | S0 done; S1-S7 not started; design in [`pipeline-service.md`](pipeline-service.md) | None (S1 next) |
 
 ## External evidence and disc behavior
 

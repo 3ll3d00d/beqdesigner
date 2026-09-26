@@ -37,18 +37,11 @@ arrays `design()`'s optional `channels` param forwards as
 supplement to `mono_mix`, not a second primary signal, so it doesn't need
 `load()`/`SingleChannelSignalData` to grow multi-channel awareness itself.
 
-Qt-boundary note: `Session.load()` reuses `model.signal.AutoWavLoader`,
-which -- unlike every module built from scratch in phases 0-4 -- imports
-qtpy.QtCore/QtWidgets and Qt-Designer dialog UI modules directly at the top
-of model/signal.py (for its interactive dialogs, none of which this class
-ever touches). This is the same kind of deliberate, disclosed reuse as
-phase 3's report.py + model/magnitude.py, one level deeper: importing this
-module still constructs no QApplication and needs no DISPLAY (verified by
-test_pipeline_orchestrate.py), which is the guarantee design/api-headless-
-pipeline.md §11's Qt-boundary test actually checks -- "pipeline/ never
-imports qtpy" is enforced by AST-scanning this package's own literal
-imports (none of which are qtpy), not the transitive closure of every
-model/ module it reuses.
+Qt-boundary note: `Session.load()` reuses `model.signal.AutoWavLoader` and
+`extract()` uses `model.ffmpeg.Executor.run_sync()`. Both modules are Qt-free
+(their dialogs and Qt models are in `model.signal_qt` / `model.ffmpeg_qt`),
+so a Session runs where Qt is not installed at all --
+test_qt_free_modules.py makes a whole run with every Qt package blocked.
 '''
 import json
 import os

@@ -5,7 +5,7 @@ import time
 import numpy as np
 from scipy.interpolate import PchipInterpolator
 
-from model.preferences import DISPLAY_SMOOTH_GRAPHS, Preferences
+from model.preferences import DEFAULT_PREFS, DISPLAY_SMOOTH_GRAPHS, Preferences
 
 SAVGOL_WINDOW_LENGTH = 101
 SAVGOL_POLYORDER = 7
@@ -20,12 +20,17 @@ def _use_smooth_interpolation():
     than at import time -- importing this module (and anything that imports it,
     e.g. model.iir) must not have the side effect of reading the desktop user's
     real QSettings. Callers that want to avoid touching QSettings entirely
-    should pass an explicit `smooth` value to interp() instead.
+    should pass an explicit `smooth` value to interp() instead. Where Qt is not
+    installed (the pipeline service's image) there are no preferences to read,
+    and the preference's default is used.
     :return: the DISPLAY_SMOOTH_GRAPHS preference.
     '''
     global __preferences
     if __preferences is None:
-        from qtpy.QtCore import QSettings
+        try:
+            from qtpy.QtCore import QSettings
+        except ImportError:
+            return DEFAULT_PREFS[DISPLAY_SMOOTH_GRAPHS]
         __preferences = Preferences(QSettings("3ll3d00d", "beqdesigner"))
     return __preferences.get(DISPLAY_SMOOTH_GRAPHS)
 

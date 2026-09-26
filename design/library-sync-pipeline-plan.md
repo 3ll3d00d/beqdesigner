@@ -26,7 +26,7 @@ coefficients; the focused library/orchestration suite passed 175 tests.
 | Extraction folders | Implemented in `ffdcf1a`: readable track and stream names with stable ID lookup and legacy cache support | [Implemented design](implemented.md) |
 | Run Details persistence | Implemented in `48c2fc9`: redacted last-run details restored after restart | [Implemented design](implemented.md) |
 | Title-page progress | Implemented in `92d8881`: viewed track progress on its page, completed-title count on the list | [Implemented design](implemented.md) |
-| Pipeline service (S0-S7) | S0 in progress; the rest not started -- design, not built: HTTP control plane, auto mode, Docker image | [Pipeline service](pipeline-service.md) |
+| Pipeline service (S0-S7) | S0 done (Qt-free pipeline); S1-S7 not started -- design, not built: HTTP control plane, auto mode, Docker image | [Pipeline service](pipeline-service.md) |
 
 Chunk 3 became the live-fixture work in chunk 30. The remaining optional
 catalogue-as-input idea is [O1](outstanding.md#o1-catalogue-as-input);

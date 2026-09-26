@@ -78,3 +78,20 @@ rules" 2, the one deliberate exception). S0 removes the exception:
   of the image's dependency set (S5 installs the `service` group plus a
   `pipeline` subset; the split of `pyproject.toml`'s runtime list into what
   the pipeline needs and what only the app needs is part of S5).
+
+**As built (S0 done).** Qt halves split out, each re-importing the Qt-free
+module: `model/preferences_dialog.py`, `model/limits_dialog.py`,
+`model/dsp_type.py` (a plain enum, re-exported by `model/merge.py`),
+`model/minidsp_qt.py`, `model/ffmpeg_qt.py` (`Executor.execute()` imports
+`AudioExtractor` there, the GUI's path; `run_sync()` needs no Qt) and
+`model/signal_qt.py` (table models, dialogs, their loaders, the smoother).
+`model.magnitude` imports its dialogs where it shows them. The whole of
+`pipeline/` imports, and a whole `Session` run completes, with Qt blocked
+(`test_qt_free_modules.py`). One behavior found by that run:
+`model.xy.interp()` reads the desktop's smooth-graphs preference when called
+without `smooth=`; with no Qt it now uses the preference's default, so a
+container run matches a desktop whose setting is the default (in the app and
+the CLI the preference is still read, as before). The dependency split in
+`pyproject.toml` is left to S5. Found and fixed on the way (own commits):
+the ffmpeg progress port counted up from 12000 in every process, so two
+processes collided (`a217bec`).
