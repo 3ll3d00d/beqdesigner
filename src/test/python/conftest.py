@@ -1,7 +1,12 @@
 import logging
+import os
 import shutil
 
 import pytest
+
+# The gui tests are written for the offscreen platform: on a real display windows take focus and events, and
+# they stall until their waits time out. An explicit QT_QPA_PLATFORM still wins.
+os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 
 
 @pytest.fixture(scope="session", autouse=True)
