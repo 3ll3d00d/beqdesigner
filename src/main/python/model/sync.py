@@ -621,7 +621,7 @@ class SyncHTP1Dialog(QDialog, Ui_syncHtp1Dialog):
         '''
         Selects a filter from the BEQ repos.
         '''
-        from model.minidsp import load_as_filter
+        from model.minidsp_qt import load_as_filter
 
         filters, file_name = load_as_filter(self, self.__preferences, HTP1_FS, unroll=True)
         self.beqFile.setText(file_name)

@@ -17,6 +17,9 @@ import pytest
 QT_FREE = (
     'model.preferences',
     'model.limits',
+    'model.dsp_type',
+    'model.minidsp',
+    'pipeline.publish.xml',
 )
 
 _BLOCKED = ('qtpy', 'PyQt6', 'PyQt5', 'PySide6', 'qtawesome', 'pyqtgraph', 'ui')

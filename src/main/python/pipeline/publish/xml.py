@@ -15,7 +15,7 @@ launched from a particular directory. Fixed properly here.
 import os
 import sys
 
-from model.merge import DspType
+from model.dsp_type import DspType
 from model.minidsp import HDXmlParser
 
 from pipeline.metadata import BeqMetadata, validate

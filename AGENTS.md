@@ -225,7 +225,7 @@ spectrogram rendering) and `Waveform`.
 | Target | Where | Format |
 |---|---|---|
 | minidsp 2x4 / 2x4HD / 10x10 / SHD / 88BM / HTx | `model/minidsp.py` (`XmlParser` subclasses) | device XML |
-| minidsp, live | `model/minidsp.py` `FilterPublisher` | shells out to `minidsp-rs` |
+| minidsp, live | `model/minidsp_qt.py` `FilterPublisher` | shells out to `minidsp-rs` |
 | Monoprice HTP-1 | `model/sync.py` (`SyncHTP1Dialog`, `HTP1Parser`) | JSON over a WebSocket to the device |
 | JRiver Media Center | `model/jriver/` | `.dsp` file or MCWS HTTP push |
 | Equalizer APO | `model/iir.py` | config text |
@@ -234,8 +234,9 @@ spectrogram rendering) and `Waveform`.
 | Report image | `model/report.py` | composed chart + filter table + artwork |
 
 `model/merge.py` batch-converts a directory of BEQ filter files into device
-configs; its `DspType` enum is the single source of truth for each device's
-sample rate, biquad slot count, channel names and fixed-point-ness.
+configs; `DspType` (`model/dsp_type.py`, re-exported by `model/merge.py`) is
+the single source of truth for each device's sample rate, biquad slot count,
+channel names and fixed-point-ness.
 
 ### BEQ catalogue (`model/catalogue.py`)
 
@@ -270,7 +271,7 @@ renders the notes.
   has no Qt installed) imports some of `model/`. Those modules must not
   import `qtpy`, `PyQt6`, `qtawesome`, `pyqtgraph` or `ui.*`, even
   indirectly; their dialogs and Qt models live in a sibling module
-  (`model/preferences_dialog.py`, `model/limits_dialog.py`).
+  (`model/preferences_dialog.py`, `model/limits_dialog.py`, `model/minidsp_qt.py`).
   `test_qt_free_modules.py` imports each one with Qt blocked and lists them;
   add a module there when the pipeline starts to use it.
 - **Preferences** are a thin typed wrapper over `QSettings`

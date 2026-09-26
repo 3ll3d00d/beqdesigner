@@ -1247,7 +1247,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         Presents a file dialog to the user so they can choose a minidsp beq filter to load.
         :return: the loaded filter, if any.
         '''
-        from model.minidsp import load_as_filter
+        from model.minidsp_qt import load_as_filter
 
         filters, filt_file = load_as_filter(self, self.preferences, self.__get_selected_signal().fs)
         if filters is not None:

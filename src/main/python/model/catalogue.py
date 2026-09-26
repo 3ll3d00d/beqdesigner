@@ -16,7 +16,7 @@ from qtpy.QtWidgets import QDialog, QMessageBox, QSizePolicy, QListWidgetItem, Q
 from sortedcontainers import SortedSet
 
 from model.iir import HighShelf, LowShelf, PeakingEQ, BiquadWithQGain
-from model.minidsp import FilterPublisher, FilterPublisherSignals
+from model.minidsp_qt import FilterPublisher, FilterPublisherSignals
 from model.preferences import BEQ_DOWNLOAD_DIR, BINARIES_MINIDSP_RS, MINIDSP_RS_OPTIONS
 from model.report import block_signals
 from ui.catalogue import Ui_catalogueDialog
