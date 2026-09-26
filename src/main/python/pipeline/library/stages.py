@@ -214,6 +214,15 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
             else:
                 on_event(event)
 
+    def _refresh_midrun():
+        ''' Lets a title that just finished show its new state (its row, its queue entry) while the rest are in flight. '''
+        if not refresh:
+            return
+        try:
+            index.refresh(profile, settings or ScanSettings.from_profile(profile))
+        except Exception as error:   # the refresh at the end of the run catches up
+            logger.warning('could not refresh the index after a title: %s', error, exc_info=True)
+
     event_context = execution_event_context(run_id, deliver_event if on_event is not None else None)
     event_context.__enter__()
     for planned in plan.planned:
@@ -332,6 +341,7 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
                         else:
                             report.attempted.append(row_id)
                             state['done'] += 1
+                            _refresh_midrun()
                             with event_scope(title_id=row_id):
                                 emit_execution_event('title_completed', message=titles.get(row_id, row_id))
                     else:
@@ -347,6 +357,7 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
                         report.attempted.append(row_id)
                         state['done'] += 1
                         if not local.failed:
+                            _refresh_midrun()
                             with event_scope(title_id=row_id):
                                 emit_execution_event('title_completed', message=titles.get(row_id, row_id))
             if cancelled():

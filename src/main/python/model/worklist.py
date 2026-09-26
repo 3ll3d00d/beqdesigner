@@ -807,6 +807,8 @@ class WorkListWindow(WorkListActions, WorkListAutoPublish, WorkListTitles, WorkL
                 state['attempt_detail'] = event.message or 'Skipped; updating result...'
                 self._run_outcomes[event.title_id] = 'failed' if 'failed' in event.message.lower() else 'succeeded'
         self._model.set_run_state(event.title_id, **state)
+        if event.kind == 'title_completed' and event.stage != 'commit':
+            self.refresh_from_index()   # the pipeline refreshed the index just before saying so: move the title now
         dialog = self._detail_dialogs.get(event.title_id)
         if dialog is not None:
             dialog.set_text(buffer.text())

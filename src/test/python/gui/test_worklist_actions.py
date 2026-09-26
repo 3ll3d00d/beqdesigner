@@ -1554,3 +1554,28 @@ def test_progress_from_several_titles_at_once_is_a_count_not_a_turn_taking_messa
     qtbot.waitUntil(lambda: '2 titles in progress' in window.runStatusLabel.text(), timeout=5000)
     release.set()
     qtbot.waitUntil(lambda: not window.is_running, timeout=5000)
+
+
+def test_titles_in_flight_together_share_one_status_and_a_finished_one_moves_before_the_run_ends(qtbot, tmp_path):
+    index_file = make_index(tmp_path / 'work', _rows(), SOURCES, generation=2, last_scan_at=NOW - 900)
+    reached, release = threading.Event(), threading.Event()
+
+    def pipeline(profile, selection, through, *, on_progress, on_event, **kwargs):
+        ids = list(selection.ids)
+        for title_id, title in ((ids[0], 'Gravity'), (ids[1], 'Tenet')):
+            on_progress(Progress(0, 2, title, 'design', title_id))
+        _update(index_file, [ids[0]], needs='review')   # the pipeline's refresh after that one title
+        on_event(ExecutionEvent('mid-run', ids[0], '', 'title_completed', NOW, ids[0]))
+        reached.set()
+        assert release.wait(5)
+        return StagesReport(through, 2, run=LibraryRunReport(designed=ids), attempted=ids)
+
+    window, _ = _window(qtbot, tmp_path, pipeline=pipeline, prefs=_prefs(tmp_path))
+    window.select_ids(['x-gravity', 'x-tenet'])
+    window.run_selected()
+    qtbot.waitUntil(reached.is_set, timeout=5000)
+    qtbot.waitUntil(lambda: window.is_running and _cell(window, 'x-gravity', COL_NEEDS) != _cell(window, 'x-tenet', COL_NEEDS),
+                    timeout=5000)
+    assert window.is_running
+    release.set()
+    qtbot.waitUntil(lambda: not window.is_running, timeout=5000)
