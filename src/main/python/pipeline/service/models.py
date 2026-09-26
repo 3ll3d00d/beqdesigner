@@ -16,7 +16,7 @@ from pipeline.library.selection import Selection
 from pipeline.library.state import FLAG_DUPLICATE, FLAG_GONE, FLAG_IGNORED, FLAG_IN_CATALOGUE, FLAG_SHADOWED
 from pipeline.library.year import YEAR_PATTERN, YearRange
 
-API_VERSION = '1.0.0'
+API_VERSION = '1.1.0'
 
 
 class Needs(str, Enum):
@@ -34,6 +34,11 @@ class Through(str, Enum):
     design = 'design'
     publish = 'publish'
     commit = 'commit'
+
+
+class AutoThrough(str, Enum):
+    extract = 'extract'
+    design = 'design'
 
 
 class Kind(str, Enum):
@@ -459,6 +464,27 @@ class ServiceStatus(BaseModel):
     index: Optional[IndexStatus] = Field(description='None until the first scan.')
     current_job: Optional[Job]
     queued: int
+    schedule: Optional['Schedule'] = None
+
+
+class ScheduleUpdate(Input):
+    enabled: bool = False
+    interval_minutes: int = Field(60, ge=5)
+    filter: TitleFilter = Field(default_factory=TitleFilter)
+    through: AutoThrough = AutoThrough.design
+    retry_failed: bool = False
+
+
+class Schedule(ScheduleUpdate):
+    next_run_at: Optional[datetime] = None
+    last_run: Optional['ScheduleLastRun'] = None
+    last_skip: Optional[str] = None
+
+
+class ScheduleLastRun(BaseModel):
+    job_id: str
+    state: JobState
+    finished_at: Optional[datetime]
 
 
 class Health(BaseModel):

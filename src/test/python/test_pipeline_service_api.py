@@ -84,6 +84,42 @@ def _scanned(client):
     return job
 
 
+def test_schedule_routes_validate_persist_and_trigger(service):
+    client, manager, calls = service
+    assert client.get('/v1/schedule', headers=AUTH).json()['enabled'] is False
+    invalid = client.put('/v1/schedule', json={'enabled': True, 'through': 'publish'}, headers=AUTH)
+    assert invalid.status_code == 422 and invalid.json()['status'] == 422
+    saved = client.put('/v1/schedule', json={'enabled': True, 'interval_minutes': 5,
+                                             'filter': {'kind': 'movie', 'needs': ['publish']}}, headers=AUTH)
+    assert saved.status_code == 200 and saved.json()['next_run_at']
+    assert client.get('/v1/status', headers=AUTH).json()['schedule']['enabled']
+    job = _finish(client, client.post('/v1/schedule/trigger', headers=AUTH))
+    assert job['origin'] == 'schedule' and job['request']['filter']['needs'] == ['extract', 'design']
+    assert calls[-1][1] == 'design'
+
+
+def test_schedule_trigger_is_409_while_a_job_runs(profile):
+    release = threading.Event()
+    running = threading.Event()
+
+    def execute(job, control):
+        running.set()
+        release.wait(5)
+
+    manager = JobManager(execute)
+    app = create_app(manager, ServiceConfig(profile_path=str(profile), token=TOKEN), env={})
+    try:
+        with TestClient(app) as client:
+            first = client.post('/v1/schedule/trigger', headers=AUTH)
+            assert first.status_code == 202
+            assert running.wait(5)
+            busy = client.post('/v1/schedule/trigger', headers=AUTH)
+            assert busy.status_code == 409 and busy.json()['title'] == 'Service busy'
+    finally:
+        release.set()
+        manager.stop(5)
+
+
 # --- the unauthenticated routes -----------------------------------------------------------------------------------------
 
 def test_health_and_readiness_need_no_token(service):

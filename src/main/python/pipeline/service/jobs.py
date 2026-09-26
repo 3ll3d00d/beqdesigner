@@ -187,7 +187,7 @@ class JobManager:
 
     # --- asking --------------------------------------------------------------------------------------------------------
 
-    def submit(self, request: Any, origin: str = 'api') -> Job:
+    def submit(self, request: Any, origin: str = 'api', *, if_idle: bool = False) -> Optional[Job]:
         '''
         Queues the job the request describes.
         :raises RepositoryWritesRefused: for publish, commit or a bulk accept when the config does not allow them.
@@ -204,6 +204,8 @@ class JobManager:
         with self.__lock:
             if self.__stopping:
                 raise RuntimeError('the service is stopping')
+            if if_idle and (self.__queue or self.current is not None):
+                return None
             job = Job(id=str(uuid.uuid4()), kind=kind, origin=origin, request=request, submitted_at=self.__clock())
             self.__jobs[job.id] = job
             self.__queue.append(job.id)

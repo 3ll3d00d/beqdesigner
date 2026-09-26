@@ -36,7 +36,9 @@ Stopping it (Ctrl-C, or `SIGTERM`) lets the title in hand finish, then stops.
 | `GET /v1/jobs/{id}/events` | follow a job as it runs (Server-Sent Events) |
 | `GET /v1/jobs/{id}/log` | what a job has reported so far, as a list |
 | `POST /v1/jobs/{id}/cancel` | cancel: a waiting job is dropped, a running one stops after the title in hand |
-| `GET /v1/status` | the counts the work list's strip shows, and the job running now |
+| `GET /v1/status` | the counts the work list's strip shows, the job running now and the schedule |
+| `GET /v1/schedule`, `PUT /v1/schedule` | read or save the automatic extract/design schedule |
+| `POST /v1/schedule/trigger` | run one scheduled tick now; returns 409 while a job is queued or running |
 | `POST /v1/jobs/accept` | bulk accept (see below) |
 | `GET /health`, `/ready` | is it up; is it able to work |
 
@@ -69,7 +71,18 @@ listen: {host: 0.0.0.0, port: 8080}
 allow_repository_writes: false   # publish, commit and bulk accept over HTTP
 history_limit: 200               # finished jobs remembered, in <work dir>/service/jobs.json
 shutdown_grace_seconds: 120
+schedule:
+  enabled: false
+  interval_minutes: 60           # at least 5; measured from a scheduled job's finish
+  through: design                # extract or design only
+  filter: {kind: movie}          # optional; needs is always extract or design
+  retry_failed: false
 ```
+
+When enabled, a tick scans the sources and works on titles still needing extract or design. It leaves designs in the
+review queue. A tick due while another job is active is skipped, so scheduled jobs never accumulate. Saving the schedule
+through `PUT /v1/schedule` writes `<work dir>/service/schedule.json`; that file takes precedence over `service.yaml` on
+restart. Set `enabled: false` to pause it without losing its other settings.
 
 Secrets come from the environment rather than a file, each also as `NAME_FILE` naming a file that holds it (a Docker secret): `BEQ_SERVICE_TOKEN`; `TMDB_API_KEY`; `JRIVER_PASSWORD` or `JRIVER_PASSWORD_<SOURCE>` (the source's name in capitals, `_` for anything else); and `BEQ_DESIGNER_HEADERS_<NAME>`, a JSON object of HTTP headers for that designer.
 

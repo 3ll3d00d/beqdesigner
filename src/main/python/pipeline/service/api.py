@@ -25,6 +25,7 @@ from pipeline.service.config import ServiceConfig
 from pipeline.service.context import JobContext, load_context
 from pipeline.service.jobs import FINISHED, AcceptRequest, JobFinished, JobManager, JobNotFound, RepositoryWritesRefused, \
     RunRequest, ScanRequest
+from pipeline.service.scheduler import AutoScheduler
 
 PROBLEM_JSON = 'application/problem+json'
 
@@ -57,7 +58,8 @@ def read_version() -> str:
 def create_app(manager: JobManager, config: ServiceConfig, *, require_token: bool = True,
                load: Callable[..., JobContext] = load_context, env: Optional[Mapping[str, str]] = None,
                static_dir: Optional[str] = None, version: Optional[str] = None,
-               checks: Optional[Callable[[], List[models.Check]]] = None) -> FastAPI:
+               checks: Optional[Callable[[], List[models.Check]]] = None,
+               scheduler: Optional[AutoScheduler] = None) -> FastAPI:
     '''
     :param require_token: False only for a service bound to loopback and started with --no-auth.
     :param static_dir: a local copy of swagger-ui-dist and redoc, served at /static (the Docker image has one); None loads
@@ -67,6 +69,7 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
     version = version or read_version()
     if require_token and not config.token:
         raise ValueError('a token is required: set BEQ_SERVICE_TOKEN (or BEQ_SERVICE_TOKEN_FILE)')
+    scheduler = scheduler or AutoScheduler(manager, config.state_dir or None, dict(config.schedule), start=False)
     app = FastAPI(title='BEQDesigner pipeline service', version=models.API_VERSION, docs_url=None, redoc_url=None,
                   summary='Scan a library, extract and design BEQ filters for titles chosen by filter, on demand or on a '
                           'schedule, and follow the jobs that do it.',
@@ -208,7 +211,26 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
                                              item_count=s.item_count) for s in summary.sources])
         current = manager.current
         return models.ServiceStatus(version=version, index=index, queued=len(manager.queued),
-                                    current_job=models.job_model(current) if current else None)
+                                    current_job=models.job_model(current) if current else None,
+                                    schedule=models.Schedule.model_validate(scheduler.snapshot()))
+
+    @v1.get('/schedule', response_model=models.Schedule, tags=['schedule'], summary='Automatic extract/design schedule')
+    def get_schedule():
+        return models.Schedule.model_validate(scheduler.snapshot())
+
+    @v1.put('/schedule', response_model=models.Schedule, tags=['schedule'], summary='Save and enable or pause the schedule',
+            responses=_responses(422, 503))
+    def put_schedule(body: models.ScheduleUpdate):
+        check_sources(context(), body.filter)
+        return models.Schedule.model_validate(scheduler.update(body))
+
+    @v1.post('/schedule/trigger', status_code=202, response_model=models.Job, tags=['schedule'],
+             summary='Run one automatic tick now', responses={202: {'description': 'Queued.'}, **_responses(409)})
+    def trigger_schedule():
+        job = scheduler.trigger()
+        if job is None:
+            raise ServiceProblem(409, 'Service busy', 'a job is queued or running')
+        return accepted(job)
 
     @v1.get('/titles', response_model=models.TitlePage, tags=['titles'], summary='List titles, filtered',
             responses=_responses(409, 422, 503))

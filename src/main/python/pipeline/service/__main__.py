@@ -22,6 +22,7 @@ from typing import Any, List, Mapping, Optional, Tuple
 from pipeline.service.config import ServiceConfig, load_service_config
 from pipeline.service.context import load_context
 from pipeline.service.jobs import JobManager
+from pipeline.service.scheduler import AutoScheduler
 from pipeline.service.work import executor, job_failed
 
 logger = logging.getLogger('pipeline_service')
@@ -83,7 +84,14 @@ def build(argv: Optional[List[str]] = None, env: Optional[Mapping[str, str]] = N
     from pipeline.service.api import create_app
     manager = JobManager(executor(args.profile, env), state_dir=config.state_dir, history_limit=config.history_limit,
                          allow_repository_writes=config.allow_repository_writes, failed=job_failed)
-    app = create_app(manager, config, require_token=not args.no_auth, env=env, static_dir=args.static_dir)
+    try:
+        scheduler = AutoScheduler(manager, config.state_dir, dict(config.schedule))
+    except (OSError, ValueError) as error:
+        manager.stop(grace_seconds=1)
+        parser.error(f'schedule: {error}')
+    app = create_app(manager, config, require_token=not args.no_auth, env=env, static_dir=args.static_dir,
+                     scheduler=scheduler)
+    app.state.scheduler = scheduler
     return app, manager, config
 
 
@@ -115,6 +123,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     try:
         server.run()
     finally:
+        app.state.scheduler.stop()
         manager.stop(grace_seconds=config.shutdown_grace_seconds)
     return 0
 

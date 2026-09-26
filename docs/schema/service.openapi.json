@@ -4,7 +4,7 @@
     "title": "BEQDesigner pipeline service",
     "summary": "Scan a library, extract and design BEQ filters for titles chosen by filter, on demand or on a schedule, and follow the jobs that do it.",
     "description": "Reviewing a design stays in the BEQDesigner app. Every /v1 route needs the bearer token (Authorize, above). `GET /health` says which release this is.",
-    "version": "1.0.0"
+    "version": "1.1.0"
   },
   "paths": {
     "/health": {
@@ -89,6 +89,171 @@
           },
           "503": {
             "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/schedule": {
+      "get": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "Automatic extract/design schedule",
+        "operationId": "get_schedule_v1_schedule_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schedule"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "Save and enable or pause the schedule",
+        "operationId": "put_schedule_v1_schedule_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScheduleUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Schedule"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/schedule/trigger": {
+      "post": {
+        "tags": [
+          "schedule"
+        ],
+        "summary": "Run one automatic tick now",
+        "operationId": "trigger_schedule_v1_schedule_trigger_post",
+        "responses": {
+          "202": {
+            "description": "Queued.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ScanJob"
+                    },
+                    {
+                      "$ref": "#/components/schemas/RunJob"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AcceptJob"
+                    }
+                  ],
+                  "title": "Response Trigger Schedule V1 Schedule Trigger Post",
+                  "discriminator": {
+                    "propertyName": "kind",
+                    "mapping": {
+                      "scan": "#/components/schemas/ScanJob",
+                      "run": "#/components/schemas/RunJob",
+                      "accept": "#/components/schemas/AcceptJob"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1372,6 +1537,14 @@
         ],
         "title": "AcceptResult"
       },
+      "AutoThrough": {
+        "type": "string",
+        "enum": [
+          "extract",
+          "design"
+        ],
+        "title": "AutoThrough"
+      },
       "CatalogueCommit": {
         "properties": {
           "xml": {
@@ -2533,6 +2706,129 @@
         ],
         "title": "ScanResult"
       },
+      "Schedule": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled",
+            "default": false
+          },
+          "interval_minutes": {
+            "type": "integer",
+            "minimum": 5.0,
+            "title": "Interval Minutes",
+            "default": 60
+          },
+          "filter": {
+            "$ref": "#/components/schemas/TitleFilter"
+          },
+          "through": {
+            "$ref": "#/components/schemas/AutoThrough",
+            "default": "design"
+          },
+          "retry_failed": {
+            "type": "boolean",
+            "title": "Retry Failed",
+            "default": false
+          },
+          "next_run_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Run At"
+          },
+          "last_run": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScheduleLastRun"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "last_skip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Skip"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Schedule"
+      },
+      "ScheduleLastRun": {
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "title": "Job Id"
+          },
+          "state": {
+            "$ref": "#/components/schemas/JobState"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "job_id",
+          "state",
+          "finished_at"
+        ],
+        "title": "ScheduleLastRun"
+      },
+      "ScheduleUpdate": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled",
+            "default": false
+          },
+          "interval_minutes": {
+            "type": "integer",
+            "minimum": 5.0,
+            "title": "Interval Minutes",
+            "default": 60
+          },
+          "filter": {
+            "$ref": "#/components/schemas/TitleFilter"
+          },
+          "through": {
+            "$ref": "#/components/schemas/AutoThrough",
+            "default": "design"
+          },
+          "retry_failed": {
+            "type": "boolean",
+            "title": "Retry Failed",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ScheduleUpdate"
+      },
       "ServiceStatus": {
         "properties": {
           "version": {
@@ -2582,6 +2878,16 @@
           "queued": {
             "type": "integer",
             "title": "Queued"
+          },
+          "schedule": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Schedule"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",
