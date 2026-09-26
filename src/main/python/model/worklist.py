@@ -978,6 +978,13 @@ class WorkListWindow(WorkListActions, WorkListAutoPublish, WorkListTitles, WorkL
             self.reload()
         super().showEvent(event)
 
+    def _ask_cancel_run(self) -> bool:
+        ''' Closing during a run: True if the person says to cancel it and close. '''
+        answer = QMessageBox.question(
+            self, 'Run in progress', 'A run is in progress. Cancel it and close?',
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
+        return answer == QMessageBox.StandardButton.Yes
+
     def closeEvent(self, event) -> None:
         '''
         A run in progress is not left going against a hidden window: the person is asked, and *Yes* cancels it (the title in
@@ -986,13 +993,9 @@ class WorkListWindow(WorkListActions, WorkListAutoPublish, WorkListTitles, WorkL
         '''
         # the question about a run comes first: an edit that cannot be saved is only put to the person (Discard / Cancel) once the
         # window is really going to close, and Cancel there keeps everything, the run included
-        if self.is_running:
-            answer = QMessageBox.question(
-                self, 'Run in progress', 'A run is in progress. Cancel it and close?',
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
-            if answer != QMessageBox.StandardButton.Yes:
-                event.ignore()
-                return
+        if self.is_running and not self._ask_cancel_run():
+            event.ignore()
+            return
         if self._title_open and not self._title_page.leave():   # an edit that could not be saved, and was not discarded
             event.ignore()
             return

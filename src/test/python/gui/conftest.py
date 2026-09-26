@@ -6,6 +6,10 @@ is left with an edit that cannot be saved -- and that includes the window closin
 episodes or another box and neither saves nor discards would then wait for a person at teardown (a hang was reproduced). So the
 default question is answered here: Discard, without a dialog. A test about the question itself takes `real_ask_discard` and puts
 it back; a test that wants a different answer sets `page.confirm_discard`, as before.
+
+The work list's own close asks "A run is in progress. Cancel it and close?" when a test ends with a run still going (pytest-qt
+closes the windows before any fixture tears down, so a fixture cannot cancel the run first; a hang was reproduced). It is answered
+Yes -- cancel and close -- without a dialog; a test about that question takes `real_ask_cancel_run`.
 '''
 import gc
 
@@ -30,6 +34,26 @@ def real_ask_discard():
     ''' The page's real question (a QMessageBox), for the test that is about it. '''
     from model.worklist_title import TitlePage
     return TitlePage._ask_discard.original
+
+
+@pytest.fixture(autouse=True)
+def _no_modal_cancel_run_question(monkeypatch):
+    import ui.beq  # noqa: F401 (AGENTS.md gotcha 3: first)
+    from model.worklist import WorkListWindow
+    original = WorkListWindow._ask_cancel_run
+
+    def cancel_and_close(self) -> bool:
+        return True
+
+    cancel_and_close.original = original
+    monkeypatch.setattr(WorkListWindow, '_ask_cancel_run', cancel_and_close)
+
+
+@pytest.fixture
+def real_ask_cancel_run(monkeypatch):
+    ''' Puts back the work list's real "Run in progress" question (a QMessageBox), for the tests that are about it. '''
+    from model.worklist import WorkListWindow
+    monkeypatch.setattr(WorkListWindow, '_ask_cancel_run', WorkListWindow._ask_cancel_run.original)
 
 
 @pytest.fixture(autouse=True)

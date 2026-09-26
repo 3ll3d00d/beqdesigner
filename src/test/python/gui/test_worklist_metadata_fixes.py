@@ -490,7 +490,7 @@ def _closing(qtbot, tmp_path, monkeypatch, run_answer, discard_answer):
     return window, page, order
 
 
-def test_answering_no_to_the_run_question_keeps_the_edit_and_never_asks_about_it(qtbot, tmp_path, monkeypatch):
+def test_answering_no_to_the_run_question_keeps_the_edit_and_never_asks_about_it(qtbot, tmp_path, monkeypatch, real_ask_cancel_run):
     window, page, order = _closing(qtbot, tmp_path, monkeypatch, run_answer=False, discard_answer=True)
 
     assert window.close() is False
@@ -499,7 +499,7 @@ def test_answering_no_to_the_run_question_keeps_the_edit_and_never_asks_about_it
     assert page.metadata.episodesField.text() == 'abc'                          # before: discarded, and the window still open
 
 
-def test_cancel_on_the_edit_question_keeps_everything_and_does_not_cancel_the_run(qtbot, tmp_path, monkeypatch):
+def test_cancel_on_the_edit_question_keeps_everything_and_does_not_cancel_the_run(qtbot, tmp_path, monkeypatch, real_ask_cancel_run):
     window, page, order = _closing(qtbot, tmp_path, monkeypatch, run_answer=True, discard_answer=False)
 
     assert window.close() is False
@@ -507,7 +507,7 @@ def test_cancel_on_the_edit_question_keeps_everything_and_does_not_cancel_the_ru
     assert order == ['run?', 'edit?'] and window.isVisible() and page.metadata.dirty
 
 
-def test_yes_then_discard_cancels_the_run_and_closes(qtbot, tmp_path, monkeypatch):
+def test_yes_then_discard_cancels_the_run_and_closes(qtbot, tmp_path, monkeypatch, real_ask_cancel_run):
     window, page, order = _closing(qtbot, tmp_path, monkeypatch, run_answer=True, discard_answer=True)
 
     window.close()

@@ -1167,7 +1167,7 @@ def _held_run(qtbot, tmp_path, ids=('x-gravity', 'x-tenet')):
     return window, pipeline
 
 
-def test_closing_during_a_run_asks_and_no_leaves_the_window_and_the_run_alone(qtbot, tmp_path):
+def test_closing_during_a_run_asks_and_no_leaves_the_window_and_the_run_alone(qtbot, tmp_path, real_ask_cancel_run):
     window, pipeline = _held_run(qtbot, tmp_path)
     seen: List[str] = []
     _answer_box(False, seen)
@@ -1182,7 +1182,8 @@ def test_closing_during_a_run_asks_and_no_leaves_the_window_and_the_run_alone(qt
     assert not run.args[0].cancelled and pipeline.cancel_seen == []
 
 
-def test_closing_during_a_run_and_saying_yes_cancels_it_hides_the_window_and_releases_the_index(qtbot, tmp_path):
+def test_closing_during_a_run_and_saying_yes_cancels_it_hides_the_window_and_releases_the_index(qtbot, tmp_path,
+                                                                                            real_ask_cancel_run):
     window, pipeline = _held_run(qtbot, tmp_path)
     _answer_box(True, [])
 
@@ -1579,3 +1580,16 @@ def test_titles_in_flight_together_share_one_status_and_a_finished_one_moves_bef
     assert window.is_running
     release.set()
     qtbot.waitUntil(lambda: not window.is_running, timeout=5000)
+
+
+def test_a_test_that_ends_with_a_run_going_is_not_held_up_by_the_close_question(qtbot, tmp_path, monkeypatch):
+    ''' gui/conftest.py answers the close question: a run still going at teardown cancels and closes, with no dialog. '''
+    window, pipeline = _held_run(qtbot, tmp_path)
+    monkeypatch.setattr(QMessageBox, 'question', lambda *a, **k: pytest.fail('a modal question at close'))
+
+    window.close()
+
+    assert not window.isVisible() and not window.has_open_index
+    with qtbot.waitSignal(window.run_finished, timeout=10000) as run:
+        pipeline.release.set()
+    assert run.args[0].cancelled
