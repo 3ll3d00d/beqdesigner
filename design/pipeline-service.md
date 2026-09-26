@@ -1,6 +1,6 @@
 # Pipeline service — HTTP control plane, auto mode and Docker image
 
-**Status: S0-S5 built, S6-S7 design, not built** (§11 has each chunk's state;
+**Status: S0-S6 built; S7 documentation built, implemented-design entry pending** (§11 has each chunk's state;
 each built chunk has an "As built" note). See the [index](library-sync-pipeline-plan.md). The Docker image and chunk S0 are in
 [`pipeline-service/docker.md`](pipeline-service/docker.md). Branch: `pipeline-service`.
 
@@ -468,6 +468,18 @@ give-up with a server that fails then succeeds, and one that hangs; secrets
 absent from status and the recorded message; the `webhooks` entry present in
 the committed OpenAPI document; the test route.
 
+**As built (S6).** `pipeline/service/notify.py` validates configured targets,
+reads URL/header secrets from the environment, and delivers after a job's
+history has been saved. The payload is typed in OpenAPI 1.2.0; JSON carries
+the planned job/title/failure fields, while text, Slack and Discord carry a
+count summary. Delivery retries up to three times on its own thread, records
+only sanitized outcomes in status, and refuses redirects to another URL.
+`POST /v1/notify/test` sends sample events. The user explicitly authorized
+the full planned payload to URLs configured in `service.yaml` or the target's
+environment override after automatic approval review first rejected the
+unspecified outbound delivery. The focused service suite (75 tests) and full
+suite (2330 tests) passed before commit `af261fc`.
+
 ## 10. Docker image (chunks S0, S5)
 
 In its own file: [`pipeline-service/docker.md`](pipeline-service/docker.md) --
@@ -484,7 +496,7 @@ extraction path the image depends on (§10.1 there).
 | S3 | FastAPI app, models, routes, auth, SSE, committed OpenAPI doc + drift test, vendored Swagger UI, `docs/` page | S2 | Done: `99d2071` (§6.7 "As built") |
 | S4 | Auto scheduler and `/v1/schedule` | S3 | Done: `df93b2a` (§8 "As built") |
 | S5 | Docker image (no Qt), compose example, CI smoke job, GHCR publish on tag | S0, S3 (S4 for the schedule in the example) | Implemented: `80cab0d`; CI image build/smoke pending ([docker.md](pipeline-service/docker.md)) |
-| S6 | Notifications: `notify` targets, events, typed payload in OpenAPI `webhooks`, test route | S4 | Not started |
+| S6 | Notifications: `notify` targets, events, typed payload in OpenAPI `webhooks`, test route | S4 | Done: `af261fc` (§9 "As built") |
 | S7 | README "Pipeline service" section; `implemented.md` entry once built | S5, S6 | README and user guide done: `faafbba`; `implemented.md` entry waits for S6 |
 
 Each chunk follows AGENTS.md: tests in the same commit, focused suite then
