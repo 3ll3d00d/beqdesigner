@@ -453,7 +453,7 @@ extraction path the image depends on (§10.1 there).
 |---|---|---|---|
 | S0 | Qt-free extraction path ([docker.md §10.1](pipeline-service/docker.md)): no `qtpy`/`PyQt6` reachable from `pipeline/` | -- | Done: `55c3425`, `5d136d3`, `579f542`, `4929e93` and the "S0 done" commit after it (see docker.md §10.1 "As built") |
 | S1 | `Selection.kind` and `Selection.year` (expression), shared `year.py`, index SQL, CLI `--kind`/`--year` | -- | Done (§3 "As built") |
-| S2 | `pipeline/service`: config, per-job profile context, `JobManager`, history, work-dir lease (+ work list honours it) | S1 | Not started |
+| S2 | `pipeline/service`: config, per-job profile context, `JobManager`, history, work-dir lease (+ work list honours it) | S1 | In progress: `pipeline/library/setup.py` (the CLI's profile-to-run resolution, shared with the service) |
 | S3 | FastAPI app, models, routes, auth, SSE, committed OpenAPI doc + drift test, vendored Swagger UI, `docs/` page | S2 | Not started |
 | S4 | Auto scheduler and `/v1/schedule` | S3 | Not started |
 | S5 | Docker image (no Qt), compose example, CI smoke job, GHCR publish on tag | S0, S3 (S4 for the schedule in the example) | Not started |

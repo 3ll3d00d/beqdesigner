@@ -12,20 +12,19 @@ from typing import Any
 
 
 from pipeline.config import AnalysisConfig
-from pipeline.designer.http_binding import register_declared_designers
-from pipeline.designer.registry import registered_designers
-from pipeline.designer.manual import MANUAL_DESIGNER
 from pipeline.library.bulk import DEFAULT_ACCEPT_THRESHOLD, accept_top_pick, plan_accept
 from pipeline.library.index import IndexFileError, LibraryIndex, index_path
 from pipeline.library.profile import Profile, SourceSpec, build_source, profile_from_config, read_config_file
 from pipeline.library.revise import REVISE_TARGETS, revise_entry
-from pipeline.library.run import LibraryRunConfig, run_library, stage_parallelism
-from pipeline.library.season import DEFAULT_TV_MODE, TV_MODES
+from pipeline.library.run import LibraryRunConfig, run_library
+from pipeline.library.season import TV_MODES
 from pipeline.publish.catalogue import category_folders_from_values
 from pipeline.library.selection import KINDS, THROUGH, Selection
-from pipeline.library.stages import PublishSettings, run_stages
+from pipeline.library.setup import configured_values, effective_profile, index_settings, required, run_config_from_values, \
+    run_profile, scan_values, stage_settings
+from pipeline.library.stages import run_stages
 from pipeline.library.state import NEEDS
-from pipeline.library.status import ScanSettings, analysis_from_values, report_spec_from_values
+from pipeline.library.status import analysis_from_values, report_spec_from_values
 from pipeline.library.sync import commit_library, publish_library, sync_library
 from pipeline.library.union import UnionLibrarySource
 from pipeline.library.year import YearRange
@@ -41,22 +40,16 @@ def _load_config(path: str | None) -> dict[str, Any]:
     return {} if path is None else read_config_file(path)
 
 
+def _flags(args: argparse.Namespace) -> dict[str, Any]:
+    ''' The options given on the command line, as overrides over the config file. '''
+    return {key: value for key, value in vars(args).items() if key not in {'command', 'config'}}
+
+
 def _configured_values(args: argparse.Namespace, config: dict[str, Any], section: str) -> dict[str, Any]:
-    values = dict(config.get(section, {}))
-    for current, old in (('filter_repo', 'xml_repo'), ('filter_dir', 'xml_dir')):
-        if values.get(current) and values.get(old) and values[current] != values[old]:
-            raise ValueError(f'{section}.{current} and legacy {section}.{old} disagree; keep one value')
-        values[old] = values.pop(current, None) or values.get(old)
-    values.update({key: value for key, value in vars(args).items()
-                   if key not in {'command', 'config'} and value is not None})
-    return values
+    return configured_values(config, section, _flags(args))
 
 
-def _required(values: dict[str, Any], name: str) -> Any:
-    value = values.get(name)
-    if value in (None, ''):
-        raise ValueError(f'{name.replace("_", "-")} is required')
-    return value
+_required = required
 
 
 def _source_settings(values: dict[str, Any], config: dict[str, Any]) -> tuple[str, dict[str, Any]]:
@@ -81,25 +74,6 @@ def _source(values: dict[str, Any], config: dict[str, Any]):
 
 def _analysis_config(values: dict[str, Any]) -> AnalysisConfig:
     return analysis_from_values(values)
-
-
-def _register_designers(values: dict[str, Any], config: dict[str, Any]) -> None:
-    '''
-    A library run needs the designer registered in this process, and unlike the GUI (which registers the endpoints
-    saved in Preferences at startup) the CLI has nothing else to do it. Designers come from the config file's
-    `designers` mapping (name -> URL, or name -> {url, timeout, headers}) and `--designer-url NAME=URL`; the flag
-    wins for a name in both. A `--designer` that is itself an http(s) URL is registered under that URL.
-    '''
-    declared: dict[str, Any] = dict(config.get('designers') or {})
-    for entry in values.get('designer_urls') or []:
-        name, separator, url = entry.partition('=')
-        if not separator or not name or not url:
-            raise ValueError(f'--designer-url {entry!r} must be NAME=URL')
-        declared[name] = url
-    designer = values.get('designer')
-    if designer and designer.lower().startswith(('http://', 'https://')) and designer not in declared:
-        declared[designer] = designer
-    register_declared_designers(declared)
 
 
 def _open_index(work_dir: str) -> LibraryIndex | None:
@@ -130,17 +104,7 @@ def _year_expression(text: str) -> str:
     return text
 
 
-_PROFILE_PATHS = ('work_dir', 'queue_dir', 'xml_repo', 'xml_dir', 'images_repo', 'image_dir')
-
-
-def _effective_profile(profile: Profile, values: dict[str, Any]) -> Profile:
-    '''
-    The profile with the directories and repositories the run is actually using -- the flags, else `run:`/`sync:` --
-    so that what reads them off the profile (the union's sticky claims come from `profile.work_dir` and `queue_dir`)
-    sees what the rest of the command sees, and does not lose a claim because a cron job gave its directories by flag.
-    '''
-    changes = {name: str(values[name]) for name in _PROFILE_PATHS if values.get(name)}
-    return replace(profile, **changes) if changes else profile
+_effective_profile = effective_profile
 
 
 def _warn_failed_earlier(failed_earlier: list) -> None:
@@ -167,19 +131,8 @@ def _run_stages(args: argparse.Namespace, config: dict[str, Any], values: dict[s
     profile = _run_profile(args, config, values)
     if not profile.sources:
         raise ValueError('the profile lists no sources')
-    everything = {**dict(config.get('sync') or {}), **values}   # publish and commit take the `sync:` options
-    for current, old in (('filter_repo', 'xml_repo'), ('filter_dir', 'xml_dir')):
-        everything.pop(current, None)  # profile_from_config already checked and resolved the file's aliases
-    for name in ('xml_repo', 'xml_dir', 'images_repo', 'image_dir'):
-        if not everything.get(name) and getattr(profile, name):
-            everything[name] = getattr(profile, name)
-    settings = ScanSettings.from_values(everything)
     through = args.through or 'design'
-    publish = None
-    if through in ('publish', 'commit'):
-        publish = PublishSettings.from_scan_settings(
-            settings, image_owner=everything.get('image_owner'), image_repo_name=everything.get('image_repo_name'),
-            push=bool(everything.get('push', True)))
+    settings, publish = stage_settings(profile, config, values, through)
     selection = _selection(args, args.source)
     with LibraryIndex(index_path(run_config.work_dir)) as index:
         if not index.generation:  # never scanned: there is nothing to select from
@@ -196,32 +149,9 @@ def _run_stages(args: argparse.Namespace, config: dict[str, Any], values: dict[s
 
 def _run(args: argparse.Namespace, config: dict[str, Any]) -> int:
     values = _configured_values(args, config, 'run')
-    profile = profile_from_config(config) if args.profile else None
-    if profile is not None:
-        if not profile.sources:
-            raise ValueError('the profile lists no sources')
-        for name in ('work_dir', 'queue_dir'):  # the profile may keep them under `sync:` instead of `run:`
-            if not values.get(name) and getattr(profile, name):
-                values[name] = getattr(profile, name)
-        profile = _effective_profile(profile, values)  # the flags' directories, not only the file's
-    _register_designers(values, config)
-    designer = _required(values, 'designer')
-    if designer != MANUAL_DESIGNER and designer not in registered_designers():
-        raise ValueError(f"designer {designer!r} is not registered; declare it under `designers` in the config "
-                         f"file or with --designer-url {designer}=URL (registered: {', '.join(registered_designers()) or 'none'})")
-    parallelism = stage_parallelism(values.get('parallelism'))
-    run_config = LibraryRunConfig(
-        work_dir=_required(values, 'work_dir'), queue_dir=_required(values, 'queue_dir'),
-        designer=designer, config=_analysis_config(values),
-        coverage=values.get('coverage', 'complete_programme'),
-        keep_multichannel=bool(values.get('keep_multichannel', False)),
-        force_extract=bool(values.get('force_extract', False)),
-        force_design=bool(values.get('force_design', False)),
-        tmdb_api_key=values.get('tmdb_api_key'),
-        audio_types=tuple(values.get('audio_types', ())),
-        tv_mode=values.get('tv_mode', DEFAULT_TV_MODE),
-        extract_parallelism=parallelism['extract'], design_parallelism=parallelism['design'],
-    )
+    # the profile may keep its directories under `sync:` instead of `run:`; the flags' directories win over the file's
+    profile = run_profile(config, values) if args.profile else None
+    run_config = run_config_from_values(values, config)
     if any(getattr(args, name) for name in _SELECTOR_FLAGS) or (profile is not None and args.source):
         return _run_stages(args, config, values, run_config)
     index = _open_index(run_config.work_dir)  # remembers what failed, for `status`
@@ -362,8 +292,7 @@ def _revise(args: argparse.Namespace, config: dict[str, Any]) -> int:
 
 
 def _scan_values(args: argparse.Namespace, config: dict[str, Any]) -> dict[str, Any]:
-    ''' `run:` over `sync:` (each with the flags on top): a scan needs the settings of both. '''
-    return {**_configured_values(args, config, 'sync'), **_configured_values(args, config, 'run')}
+    return scan_values(config, _flags(args))
 
 
 def _scan(args: argparse.Namespace, config: dict[str, Any]) -> int:
@@ -371,8 +300,7 @@ def _scan(args: argparse.Namespace, config: dict[str, Any]) -> int:
     if not profile.sources:
         raise ValueError('the profile lists no sources')
     values = _scan_values(args, config)
-    settings = ScanSettings.from_values({**values, 'work_dir': values.get('work_dir') or profile.work_dir,
-                                         'queue_dir': values.get('queue_dir') or profile.queue_dir})
+    settings = index_settings(profile, values)
     if not settings.work_dir:
         raise ValueError('work-dir is required')
     profile = _effective_profile(profile, values)
@@ -394,8 +322,7 @@ def _accept(args: argparse.Namespace, config: dict[str, Any]) -> int:
     profile = profile_from_config(config)
     if not profile.sources:
         raise ValueError('the profile lists no sources')
-    settings = ScanSettings.from_values({**values, 'work_dir': values.get('work_dir') or profile.work_dir,
-                                         'queue_dir': values.get('queue_dir') or profile.queue_dir})
+    settings = index_settings(profile, values)
     if not settings.work_dir or not settings.queue_dir:
         raise ValueError('work-dir and queue-dir are required')
     profile = _effective_profile(profile, values)
