@@ -16,7 +16,7 @@ from pipeline.library.selection import Selection
 from pipeline.library.state import FLAG_DUPLICATE, FLAG_GONE, FLAG_IGNORED, FLAG_IN_CATALOGUE, FLAG_SHADOWED
 from pipeline.library.year import YEAR_PATTERN, YearRange
 
-API_VERSION = '1.1.0'
+API_VERSION = '1.2.0'
 
 
 class Needs(str, Enum):
@@ -465,6 +465,7 @@ class ServiceStatus(BaseModel):
     current_job: Optional[Job]
     queued: int
     schedule: Optional['Schedule'] = None
+    notify: List['NotifyOutcome'] = Field(default_factory=list)
 
 
 class ScheduleUpdate(Input):
@@ -485,6 +486,61 @@ class ScheduleLastRun(BaseModel):
     job_id: str
     state: JobState
     finished_at: Optional[datetime]
+
+
+class NotifyEvent(str, Enum):
+    review_waiting = 'review_waiting'
+    failed = 'failed'
+    job_finished = 'job_finished'
+
+
+class NotifyTest(Input):
+    target: str
+
+
+class NotifyJob(BaseModel):
+    id: str
+    kind: JobKind
+    origin: JobOrigin
+    state: JobState
+    started_at: Optional[datetime]
+    finished_at: Optional[datetime]
+
+
+class NotifyTitle(BaseModel):
+    id: str
+    title: str
+    year: str
+    kind: Kind
+    confidence: Optional[float]
+
+
+class NotifyFailure(BaseModel):
+    id: str
+    title: str
+    message: str
+
+
+class NotifyLinks(BaseModel):
+    job: str
+    docs: str
+
+
+class Notification(BaseModel):
+    event: NotifyEvent
+    job: NotifyJob
+    designed: List[NotifyTitle]
+    failed: List[NotifyFailure]
+    review_waiting: int
+    links: NotifyLinks
+
+
+class NotifyOutcome(BaseModel):
+    name: str
+    last_event: Optional[NotifyEvent] = None
+    last_attempt_at: Optional[datetime] = None
+    ok: Optional[bool] = None
+    message: str = ''
 
 
 class Health(BaseModel):

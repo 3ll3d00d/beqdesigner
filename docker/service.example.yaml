@@ -8,3 +8,10 @@ schedule:
   through: design
   filter: {}
   retry_failed: false
+# Notifications are opt-in. A JSON target receives job, title and failure details.
+# notify:
+#   - name: phone
+#     url: https://ntfy.example/beq
+#     format: text
+#     events: [review_waiting, failed]
+#     origins: [schedule]

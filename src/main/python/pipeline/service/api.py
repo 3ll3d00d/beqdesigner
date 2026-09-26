@@ -26,6 +26,7 @@ from pipeline.service.context import JobContext, load_context
 from pipeline.service.jobs import FINISHED, AcceptRequest, JobFinished, JobManager, JobNotFound, RepositoryWritesRefused, \
     RunRequest, ScanRequest
 from pipeline.service.scheduler import AutoScheduler
+from pipeline.service.notify import Notifier
 
 PROBLEM_JSON = 'application/problem+json'
 
@@ -59,7 +60,7 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
                load: Callable[..., JobContext] = load_context, env: Optional[Mapping[str, str]] = None,
                static_dir: Optional[str] = None, version: Optional[str] = None,
                checks: Optional[Callable[[], List[models.Check]]] = None,
-               scheduler: Optional[AutoScheduler] = None) -> FastAPI:
+               scheduler: Optional[AutoScheduler] = None, notifier: Optional[Notifier] = None) -> FastAPI:
     '''
     :param require_token: False only for a service bound to loopback and started with --no-auth.
     :param static_dir: a local copy of swagger-ui-dist and redoc, served at /static (the Docker image has one); None loads
@@ -70,12 +71,17 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
     if require_token and not config.token:
         raise ValueError('a token is required: set BEQ_SERVICE_TOKEN (or BEQ_SERVICE_TOKEN_FILE)')
     scheduler = scheduler or AutoScheduler(manager, config.state_dir or None, dict(config.schedule), start=False)
+    notifier = notifier or Notifier(manager, config.profile_path, config.notify, env=env, start=False)
     app = FastAPI(title='BEQDesigner pipeline service', version=models.API_VERSION, docs_url=None, redoc_url=None,
                   summary='Scan a library, extract and design BEQ filters for titles chosen by filter, on demand or on a '
                           'schedule, and follow the jobs that do it.',
                   description='Reviewing a design stays in the BEQDesigner app. Every /v1 route needs the bearer token '
                               '(Authorize, above). `GET /health` says which release this is.')
     bearer = HTTPBearer(auto_error=False, description='The service token (BEQ_SERVICE_TOKEN).')
+
+    @app.webhooks.post('notification', tags=['notifications'], summary='Completed job notification delivered to a configured target')
+    def notification_webhook(body: models.Notification) -> None:
+        '''Outbound JSON shape. Text, Slack and Discord targets carry a summary of this same event.'''
 
     def authorised(credentials: Annotated[Optional[HTTPAuthorizationCredentials], Depends(bearer)]) -> None:
         if not require_token:
@@ -212,7 +218,16 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
         current = manager.current
         return models.ServiceStatus(version=version, index=index, queued=len(manager.queued),
                                     current_job=models.job_model(current) if current else None,
-                                    schedule=models.Schedule.model_validate(scheduler.snapshot()))
+                                    schedule=models.Schedule.model_validate(scheduler.snapshot()),
+                                    notify=notifier.outcomes())
+
+    @v1.post('/notify/test', response_model=models.NotifyOutcome, tags=['notifications'],
+             summary='Send samples of a target’s configured events', responses=_responses(404))
+    def test_notification(body: models.NotifyTest):
+        try:
+            return notifier.test(body.target)
+        except KeyError:
+            raise ServiceProblem(404, 'No such notification target', body.target) from None
 
     @v1.get('/schedule', response_model=models.Schedule, tags=['schedule'], summary='Automatic extract/design schedule')
     def get_schedule():
@@ -374,9 +389,9 @@ def create_app(manager: JobManager, config: ServiceConfig, *, require_token: boo
         '''
         if app.openapi_schema is None:
             schema = get_openapi(title=app.title, version=app.version, summary=app.summary, description=app.description,
-                                 routes=app.routes)
+                                 routes=app.routes, webhooks=app.webhooks.routes)
             problem = {PROBLEM_JSON: {'schema': {'$ref': '#/components/schemas/Problem'}}}
-            for operations in schema['paths'].values():
+            for operations in list(schema['paths'].values()) + list(schema.get('webhooks', {}).values()):
                 for operation in operations.values():
                     for status, response in operation.get('responses', {}).items():
                         if status == '422' or 'Problem' in str(response.get('content', {})):

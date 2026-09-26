@@ -4,7 +4,7 @@
     "title": "BEQDesigner pipeline service",
     "summary": "Scan a library, extract and design BEQ filters for titles chosen by filter, on demand or on a schedule, and follow the jobs that do it.",
     "description": "Reviewing a design stays in the BEQDesigner app. Every /v1 route needs the bearer token (Authorize, above). `GET /health` says which release this is.",
-    "version": "1.1.0"
+    "version": "1.2.0"
   },
   "paths": {
     "/health": {
@@ -89,6 +89,72 @@
           },
           "503": {
             "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/notify/test": {
+      "post": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Send samples of a target\u2019s configured events",
+        "operationId": "test_notification_v1_notify_test_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotifyTest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotifyOutcome"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1363,6 +1429,48 @@
       }
     }
   },
+  "webhooks": {
+    "notification": {
+      "post": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Completed job notification delivered to a configured target",
+        "description": "Outbound JSON shape. Text, Slack and Discord targets carry a summary of this same event.",
+        "operationId": "notification_webhooknotification_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Notification"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
   "components": {
     "schemas": {
       "AcceptJob": {
@@ -1944,6 +2052,252 @@
           "done"
         ],
         "title": "Needs"
+      },
+      "Notification": {
+        "properties": {
+          "event": {
+            "$ref": "#/components/schemas/NotifyEvent"
+          },
+          "job": {
+            "$ref": "#/components/schemas/NotifyJob"
+          },
+          "designed": {
+            "items": {
+              "$ref": "#/components/schemas/NotifyTitle"
+            },
+            "type": "array",
+            "title": "Designed"
+          },
+          "failed": {
+            "items": {
+              "$ref": "#/components/schemas/NotifyFailure"
+            },
+            "type": "array",
+            "title": "Failed"
+          },
+          "review_waiting": {
+            "type": "integer",
+            "title": "Review Waiting"
+          },
+          "links": {
+            "$ref": "#/components/schemas/NotifyLinks"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event",
+          "job",
+          "designed",
+          "failed",
+          "review_waiting",
+          "links"
+        ],
+        "title": "Notification"
+      },
+      "NotifyEvent": {
+        "type": "string",
+        "enum": [
+          "review_waiting",
+          "failed",
+          "job_finished"
+        ],
+        "title": "NotifyEvent"
+      },
+      "NotifyFailure": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "message"
+        ],
+        "title": "NotifyFailure"
+      },
+      "NotifyJob": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/JobKind"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/JobOrigin"
+          },
+          "state": {
+            "$ref": "#/components/schemas/JobState"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "origin",
+          "state",
+          "started_at",
+          "finished_at"
+        ],
+        "title": "NotifyJob"
+      },
+      "NotifyLinks": {
+        "properties": {
+          "job": {
+            "type": "string",
+            "title": "Job"
+          },
+          "docs": {
+            "type": "string",
+            "title": "Docs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "job",
+          "docs"
+        ],
+        "title": "NotifyLinks"
+      },
+      "NotifyOutcome": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "last_event": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NotifyEvent"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "last_attempt_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Attempt At"
+          },
+          "ok": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ok"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "NotifyOutcome"
+      },
+      "NotifyTest": {
+        "properties": {
+          "target": {
+            "type": "string",
+            "title": "Target"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "target"
+        ],
+        "title": "NotifyTest"
+      },
+      "NotifyTitle": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "year": {
+            "type": "string",
+            "title": "Year"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/Kind"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "year",
+          "kind",
+          "confidence"
+        ],
+        "title": "NotifyTitle"
       },
       "PlanPreview": {
         "properties": {
@@ -2888,6 +3242,13 @@
                 "type": "null"
               }
             ]
+          },
+          "notify": {
+            "items": {
+              "$ref": "#/components/schemas/NotifyOutcome"
+            },
+            "type": "array",
+            "title": "Notify"
           }
         },
         "type": "object",

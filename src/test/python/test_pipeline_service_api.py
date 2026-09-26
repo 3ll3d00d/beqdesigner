@@ -408,7 +408,9 @@ def test_the_document_is_valid_openapi_with_every_body_typed():
 
     validate(document)
     schemas = document['components']['schemas']
-    assert {'TitleFilter', 'RunJobRequest', 'RunJob', 'RunResult', 'Title', 'JobEvent', 'Problem'} <= set(schemas)
+    assert {'TitleFilter', 'RunJobRequest', 'RunJob', 'RunResult', 'Title', 'JobEvent', 'Problem',
+            'Notification', 'NotifyOutcome'} <= set(schemas)
+    assert 'notification' in document['webhooks']
     assert schemas['TitleFilter']['additionalProperties'] is False
     year = schemas['TitleFilter']['properties']['year']['anyOf'][0]
     assert year['pattern'] and '>=2020' in year['examples']

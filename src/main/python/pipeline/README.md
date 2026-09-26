@@ -577,6 +577,14 @@ automatic schedule can only reach `extract` or `design`, leaving every result
 for review. Publish, commit and bulk accept over HTTP require
 `allow_repository_writes: true` in the service config.
 
+Optional outbound webhooks notify configured targets when a scheduled job
+leaves titles for review, fails, or finishes. JSON targets receive the job,
+title and failure details; text, Slack and Discord formats send a count
+summary. Configure `notify` in `service.yaml`, then use
+`POST /v1/notify/test` to check a target. URLs and headers can be supplied
+through `BEQ_NOTIFY_URL_<NAME>` and `BEQ_NOTIFY_HEADERS_<NAME>` (or their
+`_FILE` forms); status reports only delivery outcomes.
+
 The [Dockerfile](../../../../docker/Dockerfile) builds the Qt-free service
 with ffmpeg and local Swagger UI/ReDoc assets. The [compose example](../../../../docker/compose.example.yaml)
 mounts a read-only profile, the work and queue directories, and the media at

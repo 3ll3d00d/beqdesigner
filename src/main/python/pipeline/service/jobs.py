@@ -179,6 +179,7 @@ class JobManager:
         self.__jobs: Dict[str, Job] = {}      # every job known, oldest first
         self.__queue: Deque[str] = deque()
         self.__listeners: List[Listener] = []
+        self.__completed: List[Callable[[Job], None]] = []
         self.__stopping = False
         self.__seq = 0
         self.__load_history()
@@ -278,6 +279,17 @@ class JobManager:
                     self.__listeners.remove(listener)
         return unsubscribe
 
+    def subscribe_completed(self, listener: Callable[[Job], None]) -> Callable[[], None]:
+        '''Called after a finished job has been saved; listeners should hand work to another thread.'''
+        with self.__lock:
+            self.__completed.append(listener)
+
+        def unsubscribe():
+            with self.__lock:
+                if listener in self.__completed:
+                    self.__completed.remove(listener)
+        return unsubscribe
+
     def stop(self, grace_seconds: float = 120.0) -> None:
         ''' No more jobs are taken; the running one is cancelled and waited for up to the grace; queued ones are cancelled. '''
         with self.__lock:
@@ -321,6 +333,11 @@ class JobManager:
         self.__record(job, {'type': 'state', 'state': state})
         self.__trim()
         self.__save()
+        for listener in list(self.__completed):
+            try:
+                listener(job)
+            except Exception:
+                logger.exception('a job completion listener failed')
 
     def _on_progress(self, job: Job, progress) -> None:
         with self.__lock:
