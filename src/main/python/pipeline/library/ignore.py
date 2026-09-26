@@ -17,8 +17,8 @@ A rule lists the fields it constrains, and matches when **all** of them match:
     title         a regular expression, searched (not anchored), case-insensitive, against the first 300 characters of
                   the item's title (a bound on how long a rule can take; a pattern that backtracks catastrophically,
                   such as `(a+)+$`, is the rule author's responsibility)
-    year          `1960` (equal), `<1960`, `<=1960`, `>1999`, `>=1999`, or `1990-1999` (inclusive); an item with no
-                  numeric year never matches
+    year          `1960` (equal), `<1960`, `<=1960`, `>1999`, `>=1999`, or `1990-1999` (inclusive) -- pipeline.library.year,
+                  the language `run --year` and the pipeline service share; an item with no numeric year never matches
     kind          `movie` or `tv`
     external_ids  a mapping, e.g. `{imdb: tt0113277}`; every listed id must equal the item's
     reason        optional free text, shown wherever the rule is named
@@ -31,10 +31,10 @@ from dataclasses import dataclass, field
 from typing import Any, Iterable, List, Mapping, Optional, Tuple
 
 from pipeline.library.source import LibraryItem
+from pipeline.library.year import is_year_expression, year_matches
 
 _FIELDS = ('source', 'path', 'title', 'year', 'kind', 'external_ids')
 _KINDS = ('movie', 'tv')
-_YEAR = re.compile(r'^\s*(?:(?P<op><=|>=|<|>|==|=)?\s*(?P<a>\d{4})|(?P<lo>\d{4})\s*-\s*(?P<hi>\d{4}))\s*$')
 _TITLE_LIMIT = 300  # characters of a title a rule looks at
 
 
@@ -55,7 +55,7 @@ class IgnoreRule:
             raise ValueError('an ignore rule must constrain at least one of: ' + ', '.join(_FIELDS))
         if self.kind is not None and self.kind not in _KINDS:
             raise ValueError(f"ignore rule kind must be one of {_KINDS}, got {self.kind!r}")
-        if self.year is not None and not _YEAR.match(str(self.year)):
+        if self.year is not None and not is_year_expression(str(self.year)):
             raise ValueError(f"ignore rule year {self.year!r} is not a year, a comparison (<1960, >=1999) or a range "
                              f"(1990-1999)")
         if self.title is not None:
@@ -76,7 +76,7 @@ class IgnoreRule:
         if self._title_re is not None and not self._title_re.search(
                 (item.title or item.display_name or '')[:_TITLE_LIMIT]):
             return False
-        if self.year is not None and not _year_matches(str(self.year), item.year):
+        if self.year is not None and not year_matches(str(self.year), item.year):
             return False
         if self.external_ids is not None and any(str(item.external_ids.get(k, '')) != v
                                                  for k, v in self.external_ids):
@@ -140,18 +140,6 @@ def _path_matches(compiled, path: str) -> bool:
         if not separator:
             return False
         normal = parent
-
-
-def _year_matches(expression: str, year: Optional[str]) -> bool:
-    if not year or not re.fullmatch(r'[0-9]+', str(year).strip()):  # ASCII digits: '²'.isdigit() is True
-        return False
-    value = int(str(year).strip())
-    m = _YEAR.match(expression)
-    if m.group('lo'):
-        return int(m.group('lo')) <= value <= int(m.group('hi'))
-    limit, op = int(m.group('a')), m.group('op') or '='
-    return {'<': value < limit, '<=': value <= limit, '>': value > limit, '>=': value >= limit,
-            '=': value == limit, '==': value == limit}[op]
 
 
 def rule_from_config(entry: Mapping[str, Any]) -> IgnoreRule:

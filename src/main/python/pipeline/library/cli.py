@@ -22,12 +22,13 @@ from pipeline.library.revise import REVISE_TARGETS, revise_entry
 from pipeline.library.run import LibraryRunConfig, run_library, stage_parallelism
 from pipeline.library.season import DEFAULT_TV_MODE, TV_MODES
 from pipeline.publish.catalogue import category_folders_from_values
-from pipeline.library.selection import THROUGH, Selection
+from pipeline.library.selection import KINDS, THROUGH, Selection
 from pipeline.library.stages import PublishSettings, run_stages
 from pipeline.library.state import NEEDS
 from pipeline.library.status import ScanSettings, analysis_from_values, report_spec_from_values
 from pipeline.library.sync import commit_library, publish_library, sync_library
 from pipeline.library.union import UnionLibrarySource
+from pipeline.library.year import YearRange
 from pipeline.review import describe_publish_error
 from pipeline.publish.git import RepoTarget
 from pipeline.publish.report import ReportSpec
@@ -110,14 +111,23 @@ def _open_index(work_dir: str) -> LibraryIndex | None:
         return None
 
 
-_SELECTOR_FLAGS = ('needs', 'match', 'ids', 'new_since_scan', 'through')
+_SELECTOR_FLAGS = ('needs', 'match', 'ids', 'new_since_scan', 'kind', 'year', 'through')
 
 
 def _selection(args: argparse.Namespace, source: str | None) -> Selection:
     ''' The shared selector flags as a Selection (see pipeline.library.selection). '''
     return Selection(needs=tuple(getattr(args, 'needs', None) or ()), source=source, match=args.match,
                      ids=tuple(args.ids or ()),
-                     new_since_scan=bool(args.new_since_scan))
+                     new_since_scan=bool(args.new_since_scan), kind=args.kind, year=args.year)
+
+
+def _year_expression(text: str) -> str:
+    ''' argparse type for --year: a bad expression is a usage error (exit status 2), not an empty selection. '''
+    try:
+        YearRange.parse(text, allow_empty=False)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(str(error))
+    return text
 
 
 _PROFILE_PATHS = ('work_dir', 'queue_dir', 'xml_repo', 'xml_dir', 'images_repo', 'image_dir')
@@ -465,7 +475,8 @@ instead. Repeatable flags (--glob, --path-map, --designer-url, --audio-type) rep
 list. Exit status: 0, 1 if any item failed, 2 for a bad option or config, 3 if git refused while committing (`--through
 commit`). Prints the run report as JSON.
 
-With none of the selector flags (--needs --match --id --new-since-scan --through, or --source with --profile) it lists
+With none of the selector flags (--needs --match --id --new-since-scan --kind --year --through, or --source with
+--profile) it lists
 the source and extracts and designs every title, as it always has. With any of them it works from the last `scan`
 (taking one first if there has never been one) on just the titles selected, runs every stage up to --through that each
 one still needs, and prints a report of what it did and what it skipped and why. A title whose extraction or design
@@ -620,6 +631,10 @@ def _add_selector_options(parser: argparse.ArgumentParser, *, needs: bool = True
                        help='only this title, by its catalogue id; repeatable')
     group.add_argument('--new-since-scan', action='store_true', default=None,
                        help='only titles first seen by the latest scan')
+    group.add_argument('--kind', choices=KINDS, help='only films (movie) or only TV (tv)')
+    group.add_argument('--year', type=_year_expression, metavar='EXPR',
+                       help='only titles whose year is in this: 2026, <1960, <=1960, >1999, >=1999 or 1990-1999 '
+                            '(inclusive), as an ignore rule\'s year; a title with no year never matches')
     if needs:
         group.add_argument('--through', choices=THROUGH,
                            help='run every stage up to and including this one that each title still needs (default '

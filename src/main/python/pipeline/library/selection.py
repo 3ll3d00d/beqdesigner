@@ -5,6 +5,7 @@ There is one selection vocabulary, shared by the CLI and the work list (and the 
 
     --needs {attention,extract,design,review,publish,commit,done}    a strip chip in the GUI
     --source NAME     --match TEXT     --id ID     --new-since-scan
+    --kind {movie,tv}     --year EXPR (2026, >=2020, <1960, 1990-1999: pipeline.library.year)
     --through {extract,design,publish,commit}                        the action button in the GUI
 
 A `Selection` is those filters as a value, answered by the discovery index (LibraryIndex.titles()); every field that is
@@ -19,6 +20,9 @@ from typing import Iterable, List, Optional, Sequence, Tuple
 
 from pipeline.library.index import LibraryIndex, TitleRow
 from pipeline.library.state import NEEDS
+from pipeline.library.year import YearRange
+
+KINDS = ('movie', 'tv')
 
 THROUGH = ('extract', 'design', 'publish', 'commit')   # the --through vocabulary, in pipeline order
 MACHINE_STAGES = ('extract', 'design')                 # what the run loop does (run.run_unit)
@@ -41,21 +45,36 @@ class Selection:
     :param match: case-insensitive text found in the title, display name, id or path.
     :param ids: only these titles (catalogue ids).
     :param new_since_scan: only titles first seen by the latest scan.
+    :param kind: only `movie` or only `tv` titles.
+    :param year: a year expression (pipeline.library.year): only titles with a numeric year it contains.
     '''
     needs: Tuple[str, ...] = ()
     source: Optional[str] = None
     match: Optional[str] = None
     ids: Tuple[str, ...] = ()
     new_since_scan: bool = False
+    kind: Optional[str] = None
+    year: Optional[str] = None
 
     def __post_init__(self):
         object.__setattr__(self, 'needs', _unique(self.needs))
         object.__setattr__(self, 'ids', _unique(self.ids))
         object.__setattr__(self, 'source', self.source or None)
         object.__setattr__(self, 'match', self.match or None)
+        object.__setattr__(self, 'kind', self.kind or None)
+        object.__setattr__(self, 'year', str(self.year).strip() if self.year not in (None, '') else None)
         unknown = [n for n in self.needs if n not in NEEDS]
         if unknown:
             raise ValueError(f"needs must be from {', '.join(NEEDS)}; got {', '.join(unknown)}")
+        if self.kind is not None and self.kind not in KINDS:
+            raise ValueError(f"kind must be one of {', '.join(KINDS)}; got {self.kind!r}")
+        if self.year is not None:
+            YearRange.parse(self.year, allow_empty=False)   # a malformed or reversed one is refused, not matched as nothing
+
+    @property
+    def year_range(self) -> Optional[YearRange]:
+        ''' `year` as bounds; None if not given. :raises ValueError: for a malformed or reversed expression. '''
+        return None if self.year is None else YearRange.parse(self.year, allow_empty=False)
 
     @property
     def is_empty(self) -> bool:
@@ -65,7 +84,8 @@ class Selection:
     def rows(self, index: LibraryIndex) -> List[TitleRow]:
         ''' The matching titles, in work-list order (tier, then oldest waiting first). '''
         return index.titles(needs=list(self.needs) or None, source=self.source, match=self.match,
-                            ids=list(self.ids) if self.ids else None, new_only=self.new_since_scan)
+                            ids=list(self.ids) if self.ids else None, new_only=self.new_since_scan, kind=self.kind,
+                            year=self.year_range)
 
     def describe(self) -> str:
         ''' The selection in words, for a log line or a confirmation. '''
@@ -78,6 +98,10 @@ class Selection:
             parts.append(f'{len(self.ids)} named title{"s" if len(self.ids) != 1 else ""}')
         if self.new_since_scan:
             parts.append('new since the last scan')
+        if self.kind:
+            parts.append('movies' if self.kind == 'movie' else 'TV')
+        if self.year:
+            parts.append(f'year {self.year}')
         return ', '.join(parts) or 'every title'
 
 

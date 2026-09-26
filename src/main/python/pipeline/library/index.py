@@ -33,6 +33,7 @@ from pipeline.library.state import FLAG_DUPLICATE, FLAG_GONE, FLAG_IGNORED, FLAG
 from pipeline.library.status import Evaluation, Evaluator, FailureMemory, ScanSettings, failure_applies, \
     safe_fingerprint
 from pipeline.library.union import UnionTitle, ignore_label, reconstruct_claims, union_of
+from pipeline.library.year import YearRange
 from pipeline.review import read_entry, update_entry
 
 logger = logging.getLogger('library_index')
@@ -352,10 +353,13 @@ class LibraryIndex:
 
     def titles(self, *, needs: Optional[Sequence[str] | str] = None, tier: Optional[str] = None,
                source: Optional[str] = None, match: Optional[str] = None, ids: Optional[Iterable[str]] = None,
-               new_only: bool = False, include_done: bool = True) -> List[TitleRow]:
+               new_only: bool = False, include_done: bool = True, kind: Optional[str] = None,
+               year: Optional[YearRange] = None) -> List[TitleRow]:
         '''
         The work list: attention first, then human, machine and done, each oldest `state_since` first (then by title).
         :param needs: one of state.NEEDS, or several.
+        :param kind: `movie` or `tv`.
+        :param year: only titles with a numeric year in this range (a title with none never matches).
         :param match: case-insensitive text found in the title, display name, id or path.
         :param new_only: only titles first seen by the latest scan.
         :param include_done: False leaves out `done` (ignored, shadowed, gone, skipped, rejected and pushed titles).
@@ -378,6 +382,16 @@ class LibraryIndex:
             args += [match.casefold()] * 4
         if not include_done:
             where.append("tier != 'done'")
+        if kind is not None:
+            where.append('kind = ?')
+            args.append(kind)
+        if year is not None:
+            # ASCII digits only, as year.numeric_year(): a title whose year is not a number never matches
+            where.append("(trim(year) != '' AND trim(year) NOT GLOB '*[^0-9]*')")
+            for bound, op in ((year.lo, '>='), (year.hi, '<=')):
+                if bound is not None:
+                    where.append(f'CAST(trim(year) AS INTEGER) {op} ?')
+                    args.append(bound)
         unique_ids = None if ids is None else list(dict.fromkeys(ids))
         batches = [None] if unique_ids is None else \
             [unique_ids[i:i + _ID_BATCH] for i in range(0, len(unique_ids), _ID_BATCH)] or [[]]

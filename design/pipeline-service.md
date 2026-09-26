@@ -77,6 +77,16 @@ the CLI, the work list and the API (`selection.py`'s docstring rule):
 - The work list is unchanged in S1 (its Year column filter keeps working
   through `ids`). A Kind chip or combo is a possible follow-up, not required.
 
+**As built.** `pipeline/library/year.py` has the grammar, `YearRange`,
+`year_matches()` and `YEAR_PATTERN` (the grammar as a JSON-schema pattern for
+§6.5; a test holds pattern and parser to the same answers). The grammar is now
+whole-string and ASCII: `[0-9]` and `[ \t]` rather than `\d` and `\s`, so an
+ignore rule's year written in fullwidth digits, or ending in a newline, is
+refused when the profile loads (Python's `\d` accepted any Unicode digit, which
+a JSON schema's does not). A reversed range still loads in an ignore rule and
+matches nothing; a `Selection` refuses it. The SQL test and `year_matches()`
+are checked against each other.
+
 **Tests:** `test_pipeline_library_selection.py` (every expression form, open
 ranges, reversed and malformed expressions, missing and non-numeric years, kind, AND with the existing fields, `describe()`);
 index query tests for the SQL path including a batch of `ids`; CLI parse of
@@ -442,7 +452,7 @@ extraction path the image depends on (§10.1 there).
 | Chunk | Content | Depends on | Status |
 |---|---|---|---|
 | S0 | Qt-free extraction path ([docker.md §10.1](pipeline-service/docker.md)): no `qtpy`/`PyQt6` reachable from `pipeline/` | -- | Done: `55c3425`, `5d136d3`, `579f542`, `4929e93` and the "S0 done" commit after it (see docker.md §10.1 "As built") |
-| S1 | `Selection.kind` and `Selection.year` (expression), shared `year.py`, index SQL, CLI `--kind`/`--year` | -- | Not started |
+| S1 | `Selection.kind` and `Selection.year` (expression), shared `year.py`, index SQL, CLI `--kind`/`--year` | -- | Done (§3 "As built") |
 | S2 | `pipeline/service`: config, per-job profile context, `JobManager`, history, work-dir lease (+ work list honours it) | S1 | Not started |
 | S3 | FastAPI app, models, routes, auth, SSE, committed OpenAPI doc + drift test, vendored Swagger UI, `docs/` page | S2 | Not started |
 | S4 | Auto scheduler and `/v1/schedule` | S3 | Not started |

@@ -327,6 +327,7 @@ every stage up to `--through` that each still needs:
 ```
 --needs {attention,extract,design,review,publish,commit,done}   what the title needs next (repeatable)
 --source NAME     --match TEXT     --id ID     --new-since-scan
+--kind {movie,tv}     --year EXPR                               EXPR: 2026, <1960, <=1960, >1999, >=1999, 1990-1999
 --through {extract,design,publish,commit}                       how far to go (default design)
 --retry-failed                                                   also try titles that failed before
 ```
@@ -334,7 +335,8 @@ every stage up to `--through` that each still needs:
 The same vocabulary is what the work list's strip chips (**Attention, New, Extract, Design, Review, Publish, Commit,
 Done**) and action button mean in the app; every selector given must hold. `--source NAME` is the name of one of the
 *profile's* sources (with `--profile`), unlike `run --source jriver|filesystem` without one, which says which kind of
-library to read.
+library to read. `--kind` and `--year` have no chip in the app; `--year` takes an ignore rule's year language
+(`pipeline/library/year.py`), a title with no year never matches it, and a reversed range (`1999-1990`) is refused.
 
 - **`--through extract`** extracts; **`design`** extracts first if the title has not been, then designs; the user never
   picks prerequisites. Both are machine work.
@@ -482,7 +484,7 @@ Not repeated here: `python -m pipeline.library.cli run -h` and `sync -h` are the
 option documented). In outline, `run` takes the library source (`--source --glob --host --port --browse-node-id
 --username --password --ssl --timeout --path-map`), where things go (`--work-dir --queue-dir`), design
 (`--designer --designer-url --coverage --keep-multichannel --tv-mode`), redoing work (`--force-extract
---force-design`), which titles (`--needs --match --id --new-since-scan --through --retry-failed`), the repositories and `--push`
+--force-design`), which titles (`--needs --match --id --new-since-scan --kind --year --through --retry-failed`), the repositories and `--push`
 (only for `--through publish` or `commit`), metadata (`--tmdb-api-key --audio-type`) and analysis (`--target-fs --resolution --avg-window
 --peak-window`); `publish` takes what to publish (`--queue-dir --work-dir --id --republish`), the repositories (`--filter-repo --filter-dir
 --images-repo --image-dir --image-owner --image-repo-name`, and the folders within them: `--category-folders`/`--no-category-folders`
@@ -493,7 +495,7 @@ repositories (without the image-URL options), `--id` and `--push`/`--no-push`; `
 --coverage --keep-multichannel --tv-mode`, the repositories and the analysis options: give the values `run` and `publish`
 get, including `--image-owner`/`--image-repo-name`, and `sync.report_spec` from the file: all three are in the published digest) and
 reads both `run:` and `sync:`; `status` takes `--profile --work-dir --json`; `accept` takes `--profile --source
---match --id --new-since-scan --threshold --dry-run`, where things are (`--work-dir --queue-dir`) and the same settings as `scan`. The boolean flags come in
+--match --id --new-since-scan --kind --year --threshold --dry-run`, where things are (`--work-dir --queue-dir`) and the same settings as `scan`. The boolean flags come in
 pairs (`--keep-multichannel` / `--no-keep-multichannel`) so a flag can turn something off that the file turned on.
 
 ### Output and exit status

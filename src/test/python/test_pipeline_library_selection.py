@@ -73,6 +73,53 @@ def test_new_since_scan_follows_the_generation(env):
     assert [r.id for r in Selection(new_since_scan=True).rows(env.index)] == ['fs-b']
 
 
+
+def test_a_selection_checks_kind_and_year_when_it_is_made():
+    assert Selection(kind='', year='').is_empty and Selection(year=' >=2020 ').year == '>=2020'
+    with pytest.raises(ValueError, match='kind must be one of movie, tv'):
+        Selection(kind='film')
+    with pytest.raises(ValueError, match='is not a year'):
+        Selection(year='2020s')
+    with pytest.raises(ValueError, match='reversed'):
+        Selection(year='2026-2020')   # a typo that would select nothing is refused, not run on no titles
+
+
+def test_describe_names_the_kind_and_the_year():
+    assert Selection(kind='movie', year='2026').describe() == 'movies, year 2026'
+    assert Selection(needs=('extract',), kind='tv', year='>=2020').describe() == 'needs extract, TV, year >=2020'
+
+
+def _seed_years(env):
+    _scan(env, sources={'films': FakeSource([
+        _item('old', year='1959'), _item('edge', year='1960'), _item('new', year='2026'), _item('pad', year=' 2026 '),
+        _item('blank', year=''), _item('odd', year='20xx'), _item('show', year='2026', kind='tv')])})
+
+
+def _ids(env, **fields):
+    return sorted(row.id for row in Selection(**fields).rows(env.index))
+
+
+def test_year_and_kind_narrow_the_rows_in_the_index(env):
+    _seed_years(env)
+
+    assert _ids(env, year='2026') == ['fs-new', 'fs-pad', 'fs-show']
+    assert _ids(env, year='2026', kind='movie') == ['fs-new', 'fs-pad']
+    assert _ids(env, kind='tv') == ['fs-show']
+    assert _ids(env, year='<1960') == ['fs-old']
+    assert _ids(env, year='<=1960') == ['fs-edge', 'fs-old']
+    assert _ids(env, year='1960-2025') == ['fs-edge']
+    assert _ids(env, year='>1000') == ['fs-edge', 'fs-new', 'fs-old', 'fs-pad', 'fs-show']   # no year never matches
+    assert _ids(env, year='2026', match='show') == ['fs-show']
+
+
+def test_the_index_answers_a_year_as_an_ignore_rule_would(env):
+    ''' The SQL filter and year_matches() are two implementations of one language: they must pick the same titles. '''
+    from pipeline.library.year import year_matches
+    _seed_years(env)
+    rows = env.index.titles()
+    for expression in ('2026', '<1960', '<=1960', '>1959', '>=2026', '1960-2026', '1000-1100'):
+        assert _ids(env, year=expression) == sorted(r.id for r in rows if year_matches(expression, r.year)), expression
+
 # --- what `through` does to each kind of title --------------------------------------------------------------------
 
 def _plan(env, through, *needs, retry_failed=False):
@@ -196,6 +243,20 @@ def test_a_chip_narrowed_by_the_combo_search_and_rows_is_the_same_flags_together
 def test_new_since_scan_combines_with_the_other_selectors_like_a_chip_with_the_combo_and_search():
     assert selection_from_chip('New', source='disk', match='a', ids=('x',)) == _from_cli(
         '--new-since-scan', '--source', 'disk', '--match', 'a', '--id', 'x')
+
+
+def test_kind_and_year_flags_are_the_selections_fields():
+    assert _from_cli('--kind', 'movie', '--year', '>=2020') == Selection(kind='movie', year='>=2020')
+    assert {'kind', 'year'} <= set(cli._SELECTOR_FLAGS)   # either alone makes `run` work from the index, as --match does
+    accept = cli.build_parser().parse_args(['accept', '--kind', 'tv', '--year', '1990-1999'])
+    assert cli._selection(accept, accept.source) == Selection(kind='tv', year='1990-1999')   # bulk accept narrows the same way
+
+
+@pytest.mark.parametrize('flag', [('--year', '2020s'), ('--year', '2026-2020'), ('--kind', 'film')])
+def test_a_bad_kind_or_year_is_a_usage_error(flag, capsys):
+    with pytest.raises(SystemExit) as exit_:
+        _from_cli(*flag)
+    assert exit_.value.code == 2 and flag[0] in capsys.readouterr().err
 
 
 def test_no_selector_flag_is_the_empty_selection():
