@@ -7,6 +7,9 @@ on:
       - 'src/main/python/**'
       - 'src/test/**'
       - 'uv.lock'
+      - 'pyproject.toml'
+      - 'docker/**'
+      - '.dockerignore'
       - '.github/workflows/**'
   pull_request:
     branches:
@@ -15,6 +18,9 @@ on:
       - 'src/main/python/**'
       - 'src/test/**'
       - 'uv.lock'
+      - 'pyproject.toml'
+      - 'docker/**'
+      - '.dockerignore'
       - '.github/workflows/**'
   workflow_dispatch:
     branches:
@@ -23,6 +29,15 @@ defaults:
   run:
     shell: bash
 jobs:
+  pipeline_image:
+    name: Build and smoke pipeline image
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build image
+        run: docker build -f docker/Dockerfile -t beqdesigner-pipeline:smoke .
+      - name: Extract, design and check the review queue
+        run: python3 docker/smoke.py beqdesigner-pipeline:smoke
   build:
     runs-on: ${{ matrix.os }}
     strategy:

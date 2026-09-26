@@ -1,0 +1,10 @@
+listen: {host: 0.0.0.0, port: 8080}
+allow_repository_writes: false
+history_limit: 200
+shutdown_grace_seconds: 120
+schedule:
+  enabled: false
+  interval_minutes: 60
+  through: design
+  filter: {}
+  retry_failed: false

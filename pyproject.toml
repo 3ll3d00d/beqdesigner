@@ -7,15 +7,11 @@ license = "MIT"
 readme = "readme.md"
 requires-python = ">=3.13,<4.0"
 dependencies = [
-    "pyqt6",
     "ffmpeg-python",
     "soundfile",
-    "pyqtgraph",
     "pyyaml",
     "numpy",
     "scipy",
-    "qtpy",
-    "qtawesome",
     "sortedcontainers",
     "pillow",
     "requests",
@@ -34,6 +30,12 @@ Homepage = "https://beqdesigner.readthedocs.io/"
 Repository = "https://github.com/3ll3d00d/beqdesigner"
 
 [dependency-groups]
+desktop = [
+    "pyqt6",
+    "pyqtgraph",
+    "qtpy",
+    "qtawesome",
+]
 dev = [
     "pytest",
     "pytest-cov",
@@ -54,3 +56,4 @@ service = [   # the pipeline service (python -m pipeline.service; its Docker ima
 
 [tool.uv]
 package = false
+default-groups = ["dev", "desktop"]

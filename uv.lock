@@ -173,11 +173,7 @@ dependencies = [
     { name = "numpy" },
     { name = "pillow" },
     { name = "plumbum" },
-    { name = "pyqt6" },
-    { name = "pyqtgraph" },
     { name = "pyyaml" },
-    { name = "qtawesome" },
-    { name = "qtpy" },
     { name = "requests" },
     { name = "sanitize-filename" },
     { name = "scipy" },
@@ -187,6 +183,12 @@ dependencies = [
 ]
 
 [package.dev-dependencies]
+desktop = [
+    { name = "pyqt6" },
+    { name = "pyqtgraph" },
+    { name = "qtawesome" },
+    { name = "qtpy" },
+]
 dev = [
     { name = "atomicwrites" },
     { name = "distro" },
@@ -218,11 +220,7 @@ requires-dist = [
     { name = "numpy" },
     { name = "pillow" },
     { name = "plumbum" },
-    { name = "pyqt6" },
-    { name = "pyqtgraph" },
     { name = "pyyaml" },
-    { name = "qtawesome" },
-    { name = "qtpy" },
     { name = "requests" },
     { name = "sanitize-filename" },
     { name = "scipy" },
@@ -232,6 +230,12 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
+desktop = [
+    { name = "pyqt6" },
+    { name = "pyqtgraph" },
+    { name = "qtawesome" },
+    { name = "qtpy" },
+]
 dev = [
     { name = "atomicwrites" },
     { name = "distro" },

@@ -1,0 +1,31 @@
+services:
+  pipeline:
+    image: ghcr.io/3ll3d00d/beqdesigner-pipeline:latest
+    # Use a release tag instead of latest when you need a fixed version.
+    user: "${PUID:-1000}:${PGID:-1000}"
+    environment:
+      BEQ_SERVICE_TOKEN_FILE: /run/secrets/service_token
+      # TMDB_API_KEY_FILE: /run/secrets/tmdb_api_key
+      # Git identity is needed only when allow_repository_writes is true.
+      # GIT_AUTHOR_NAME: BEQDesigner
+      # GIT_AUTHOR_EMAIL: beq@example.invalid
+      # GIT_COMMITTER_NAME: BEQDesigner
+      # GIT_COMMITTER_EMAIL: beq@example.invalid
+    secrets:
+      - service_token
+    ports:
+      - "127.0.0.1:8080:8080"  # put a TLS reverse proxy in front for remote access
+    volumes:
+      - ./config:/config:ro
+      - ./work:/work
+      - ./queue:/queue
+      - /path/to/media:/media:ro  # match the paths named in profile.yaml
+      # - /path/to/catalogue-repo:/catalogue  # only with repository writes enabled
+      # - /path/to/xml-repo:/xml                # only with repository writes enabled
+      # - ./ssh:/home/beq/.ssh:ro               # key and known_hosts, if pushing
+    stop_grace_period: 120s
+    restart: unless-stopped
+
+secrets:
+  service_token:
+    file: ./config/service-token
