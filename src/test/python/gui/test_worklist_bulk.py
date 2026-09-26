@@ -19,6 +19,8 @@ from model.worklist import WorkListWindow
 from model.worklist_confirm import ConfirmDialog, accept_text, drift_text
 from pipeline.designer.registry import register_designer, unregister_designer
 from pipeline.library.bulk import AcceptPlan, Exclusion
+from pipeline.library.run import LibraryRunReport
+from pipeline.library.stages import StagesReport
 from pipeline.review import read_entry, read_queue, update_entry, write_queue_entry
 from test_pipeline_library_index import DESIGNER, FakeSource, _entry as _real_entry, _extracted, _item
 from test_worklist_revise import _Ask
@@ -275,7 +277,11 @@ def other_designer():
 def test_the_banner_counts_the_accepted_titles_designed_under_another_designer_and_offers_redesign(
         qtbot, tmp_path, other_designer):
     ask = _Ask('design', 'new designer')
-    window = _scanned(qtbot, tmp_path, {'a': 0.9, 'b': 0.9}, status='accepted', ask_revise=ask)
+
+    def no_run(profile, selection, through, **kwargs):   # the hand-off to a design run must not start a real one
+        return StagesReport(through, len(selection.ids), run=LibraryRunReport(), attempted=list(selection.ids))
+
+    window = _scanned(qtbot, tmp_path, {'a': 0.9, 'b': 0.9}, status='accepted', ask_revise=ask, run_stages_fn=no_run)
     qtbot.wait(200)
     assert not window.driftBanner.isVisibleTo(window) and window.drift_ids == []      # nothing changed yet
 
@@ -295,6 +301,7 @@ def test_the_banner_counts_the_accepted_titles_designed_under_another_designer_a
     assert _needs(window) == {'fs-a': 'design', 'fs-b': 'design'}
     assert read_entry(_queue(tmp_path), 'fs-a').reviewer_note == 'Sent back for redesign: new designer'
     qtbot.waitUntil(lambda: not window.driftBanner.isVisibleTo(window), timeout=30000)      # nothing accepted is out of step now
+    qtbot.waitUntil(lambda: not window.is_running, timeout=30000)      # a run left going asks to be cancelled at teardown
 
 
 def test_dismissing_hides_the_banner_until_the_set_of_titles_changes(qtbot, tmp_path, other_designer):
