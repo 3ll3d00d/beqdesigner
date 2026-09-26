@@ -3,7 +3,7 @@ import logging
 import os
 import struct
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Optional
 
 logger = logging.getLogger('bdmv')
 
@@ -91,6 +91,22 @@ def is_bdmv_root(path: str) -> bool:
     :return: True if this looks like a BD disc rip (i.e. it contains BDMV/index.bdmv).
     '''
     return os.path.isfile(os.path.join(path, 'BDMV', 'index.bdmv'))
+
+
+def bdmv_root_of(path: str) -> Optional[str]:
+    '''
+    :param path: a disc root directory, or the disc's own BDMV/index.bdmv (what a media library such as JRiver may
+    report for a disc rip).
+    :return: the disc root if path names a BD disc rip either way, else None.
+    '''
+    if is_bdmv_root(path):
+        return path
+    folder, name = os.path.split(os.path.normpath(path))
+    if name.lower() == 'index.bdmv' and os.path.basename(folder).upper() == 'BDMV' and os.path.isfile(path):
+        root = os.path.dirname(folder)
+        if is_bdmv_root(root):
+            return root
+    return None
 
 
 def parse_mpls(mpls_path: str) -> Playlist:

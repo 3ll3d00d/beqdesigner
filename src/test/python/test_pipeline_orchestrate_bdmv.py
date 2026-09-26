@@ -82,6 +82,19 @@ def test_extract_auto_selects_longest_playlist_and_concatenates_clips(bdmv_disc,
     assert duration_s == pytest.approx(3.0, abs=0.1)  # 00001 (2s) + 00002 (1s), proving concat: read both clips
 
 
+def test_extract_given_the_disc_index_bdmv_extracts_the_main_feature(bdmv_disc, tmp_path):
+    ''' A media library (JRiver) may report a disc as its BDMV/index.bdmv; that is the disc, not a file to probe. '''
+    session = Session(AnalysisConfig())
+
+    output_path = session.extract(os.path.join(bdmv_disc, 'BDMV', 'index.bdmv'), str(tmp_path / 'out'),
+                                  mono_mix=False, decimate=False)
+
+    assert os.path.basename(output_path).startswith('disc_00800')
+    with wave.open(output_path, 'rb') as w:
+        duration_s = w.getnframes() / w.getframerate()
+    assert duration_s == pytest.approx(3.0, abs=0.1)
+
+
 def test_extract_honours_an_explicit_playlist_name(bdmv_disc, tmp_path):
     session = Session(AnalysisConfig())
     target_dir = str(tmp_path / 'out')

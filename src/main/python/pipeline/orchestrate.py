@@ -48,7 +48,7 @@ import os
 from dataclasses import dataclass
 from typing import Callable, List, Optional, Sequence, Union
 
-from model.bdmv import is_bdmv_root, resolve_main_title
+from model.bdmv import bdmv_root_of, resolve_main_title
 from model.dvd import dvd_root, resolve_main_title as resolve_main_dvd_title
 from model.ffmpeg import Executor
 from model.iir import CompleteFilter
@@ -226,8 +226,9 @@ class Session:
         display_name = None
         duration_override_s = None
         input_options = None
-        if is_bdmv_root(src):
-            resolved = resolve_main_title(src, playlist_name=playlist_name)
+        bdmv_root = bdmv_root_of(src)
+        if bdmv_root is not None:
+            resolved = resolve_main_title(bdmv_root, playlist_name=playlist_name)
             src = resolved.ffmpeg_input
             display_name = resolved.display_name
             duration_override_s = resolved.playlist.extraction_duration_s

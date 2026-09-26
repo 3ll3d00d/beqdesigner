@@ -376,14 +376,15 @@ def _value(row: Mapping[str, Any], field: str) -> str:
     return str(value).strip() if value is not None else ''
 
 
-_BLURAY_PSEUDO_FILE = re.compile(r'^(?P<root>.+?)[\\/]BDMV[\\/]index\.bluray(?:3d)?;\d+$', re.IGNORECASE)
+_BLURAY_PSEUDO_FILE = re.compile(r'^(?P<root>.+?)[\\/]BDMV[\\/]index\.(?:bluray(?:3d)?;\d+|bdmv)$', re.IGNORECASE)
 
 
 def _disc_root(filename: str) -> str:
     '''
     JRiver names a disc rip by a pseudo-file rather than a file: `<disc>\\BDMV\\index.bluray;1` (or `index.bluray3d`)
-    for a Blu-ray, `<disc>\\VIDEO_TS\\VIDEO_TS.dvd;1` for a DVD. The disc folder is what the pipeline can open (it
-    picks the main title itself), so report that. A `BDMV\\PLAYLIST\\index.bluray;N` entry, which names a playlist
+    for a Blu-ray, `<disc>\\VIDEO_TS\\VIDEO_TS.dvd;1` for a DVD; a Blu-ray imported as a file is its own
+    `<disc>\\BDMV\\index.bdmv`. The disc folder is what the pipeline can open (it picks the main title itself), so
+    report that. A `BDMV\\PLAYLIST\\index.bluray;N` entry, which names a playlist
     on the disc, is left as reported: which title `N` selects is unknown.
     '''
     match = _BLURAY_PSEUDO_FILE.match(filename)

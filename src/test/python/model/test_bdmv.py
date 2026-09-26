@@ -11,7 +11,7 @@ import struct
 
 import pytest
 
-from model.bdmv import is_bdmv_root, parse_mpls, list_playlists, resolve_title
+from model.bdmv import bdmv_root_of, is_bdmv_root, parse_mpls, list_playlists, resolve_title
 
 
 def _build_playitem_bytes(clip_id, in_time, out_time):
@@ -58,6 +58,23 @@ def test_is_bdmv_root_true_when_index_bdmv_present(tmp_path):
 
 def test_is_bdmv_root_false_for_plain_directory(tmp_path):
     assert not is_bdmv_root(str(tmp_path))
+
+
+def test_bdmv_root_of_a_disc_root_is_itself(tmp_path):
+    root = _make_disc(tmp_path)
+    assert bdmv_root_of(str(root)) == str(root)
+
+
+def test_bdmv_root_of_the_index_bdmv_file_is_the_disc_root(tmp_path):
+    root = _make_disc(tmp_path)
+    assert bdmv_root_of(str(root / 'BDMV' / 'index.bdmv')) == str(root)
+
+
+def test_bdmv_root_of_anything_else_is_none(tmp_path):
+    root = _make_disc(tmp_path)
+    assert bdmv_root_of(str(tmp_path)) is None
+    assert bdmv_root_of(str(root / 'BDMV' / 'STREAM' / '00001.m2ts')) is None
+    assert bdmv_root_of(str(tmp_path / 'missing' / 'BDMV' / 'index.bdmv')) is None
 
 
 def test_parse_mpls_single_play_item():

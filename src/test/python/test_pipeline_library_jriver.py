@@ -453,6 +453,8 @@ def test_listing_library_fields_rejects_a_running_event_loop():
     ('W:\\Films\\48 Hrs. (Remastered)\\BDMV\\index.bluray;2', 'W:\\Films\\48 Hrs. (Remastered)'),
     ('/mnt/films/Disc/BDMV/INDEX.BLURAY;1', '/mnt/films/Disc'),
     ('W:\\BDMV\\index.bluray;1', 'W:\\'),  # a disc at the drive's top level
+    ('W:\\The Incredible Hulk\\BDMV\\index.bdmv', 'W:\\The Incredible Hulk'),  # a disc imported as a file
+    ('/mnt/films/Disc/BDMV/INDEX.BDMV', '/mnt/films/Disc'),
 ])
 def test_a_bluray_pseudo_file_becomes_the_disc_folder(filename, root):
     assert _source()._map_row(_row(Filename=filename)).source_path == root
@@ -470,6 +472,8 @@ def test_the_disc_folder_is_then_translated_like_any_other_path(tmp_path):
     'W:\\Films\\a.mkv',
     'W:\\Disc\\BDMV\\PLAYLIST\\index.bluray;1',  # names a playlist on the disc: which title is unknown
     '\\BDMV\\index.bluray;1',  # nothing above BDMV to be the disc
+    '\\BDMV\\index.bdmv',
+    'W:\\Disc\\BDMV\\BACKUP\\index.bdmv',  # the disc's backup copy, not the disc
     'W:\\Disc\\BDMV\\STREAM\\00000.m2ts',
 ])
 def test_anything_else_is_left_as_reported(filename):

@@ -128,7 +128,10 @@ the selected track's automatic audio type, and optional TVDB lookup after direct
 and IMDb resolution. Unmapped Windows paths on non-Windows hosts produce a
 safe, actionable diagnostic. The MCWS zone picker loads on a `QRunnable` and
 discards a response that arrives after close or connection change. DVD roots
-and Blu-ray roots can be resolved for extraction; precise JRiver disc title
+and Blu-ray roots can be resolved for extraction; a JRiver disc reported as a
+pseudo-file (`index.bluray;N`, `VIDEO_TS.dvd;N`) or as the disc's own
+`BDMV\index.bdmv` is listed as its disc folder, and extraction also accepts an
+`index.bdmv` path as its disc; precise JRiver disc title
 mapping and live server evidence remain open. TV can be processed by episode
 or as a season whose mono episode tracks are joined in order.
 
