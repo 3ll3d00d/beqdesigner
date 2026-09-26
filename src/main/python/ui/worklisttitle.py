@@ -1,4 +1,4 @@
-# Form implementation generated from reading ui file 'worklisttitle.ui'
+# Form implementation generated from reading ui file 'ui/worklisttitle.ui'
 #
 # Created by: PyQt6 UI code generator 6.11.0
 #
@@ -85,15 +85,10 @@ class Ui_titlePage(object):
         self.commentaryHeading = QtWidgets.QLabel(parent=self.candidatePane)
         self.commentaryHeading.setObjectName("commentaryHeading")
         self.candidatePaneLayout.addWidget(self.commentaryHeading)
-        self.commentaryTable = QtWidgets.QTableWidget(parent=self.candidatePane)
-        self.commentaryTable.setColumnCount(2)
-        self.commentaryTable.setObjectName("commentaryTable")
-        self.commentaryTable.setRowCount(0)
-        item = QtWidgets.QTableWidgetItem()
-        self.commentaryTable.setHorizontalHeaderItem(0, item)
-        item = QtWidgets.QTableWidgetItem()
-        self.commentaryTable.setHorizontalHeaderItem(1, item)
-        self.candidatePaneLayout.addWidget(self.commentaryTable)
+        self.commentaryText = QtWidgets.QTextBrowser(parent=self.candidatePane)
+        self.commentaryText.setOpenLinks(False)
+        self.commentaryText.setObjectName("commentaryText")
+        self.candidatePaneLayout.addWidget(self.commentaryText)
         self.rightTabs = QtWidgets.QTabWidget(parent=self.titleSplitter)
         self.rightTabs.setObjectName("rightTabs")
         self.filterTab = QtWidgets.QWidget()
@@ -145,10 +140,6 @@ class Ui_titlePage(object):
         self.badgeLabel.setToolTip(_translate("titlePage", "Whether the metadata is complete enough to publish (the same test the work list applies): the title, the year and at least one audio type"))
         self.candidatesHeading.setText(_translate("titlePage", "Candidates (1-9 to pick one)"))
         self.commentaryHeading.setText(_translate("titlePage", "Commentary"))
-        item = self.commentaryTable.horizontalHeaderItem(0)
-        item.setText(_translate("titlePage", "Key"))
-        item = self.commentaryTable.horizontalHeaderItem(1)
-        item.setText(_translate("titlePage", "Value"))
         self.rightTabs.setTabText(self.rightTabs.indexOf(self.filterTab), _translate("titlePage", "Filter"))
         self.rightTabs.setTabText(self.rightTabs.indexOf(self.metadataTab), _translate("titlePage", "Metadata"))
         self.skipButton.setToolTip(_translate("titlePage", "Leave this title for later: it stays out of the catalogue until it is reviewed again (S)"))

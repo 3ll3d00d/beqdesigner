@@ -36,10 +36,8 @@
        <item><widget class="QListWidget" name="candidateList"><property name="minimumSize"><size><width>260</width><height>0</height></size></property></widget></item>
        <item><widget class="QLabel" name="commentaryHeading"><property name="text"><string>Commentary</string></property></widget></item>
        <item>
-        <widget class="QTableWidget" name="commentaryTable">
-         <property name="columnCount"><number>2</number></property>
-         <column><property name="text"><string>Key</string></property></column>
-         <column><property name="text"><string>Value</string></property></column>
+        <widget class="QTextBrowser" name="commentaryText">
+         <property name="openLinks"><bool>false</bool></property>
         </widget>
        </item>
       </layout>

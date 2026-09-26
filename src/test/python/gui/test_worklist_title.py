@@ -22,7 +22,7 @@ from model.preferences import DESIGNER_DEFAULT, DESIGNER_QUEUE_DIR, LIBRARY_FILE
     Preferences
 from model.worklist import WorkListWindow
 from model.worklist_model import ID_ROLE
-from model.worklist_title import chart_data, next_waiting_id, notice_text, position_text, state_text
+from model.worklist_title import chart_data, commentary_html, next_waiting_id, notice_text, position_text, state_text
 from pipeline.designer.registry import register_designer, unregister_designer
 from pipeline.library.index import LibraryIndex
 from pipeline.review import read_entry, update_entry
@@ -117,6 +117,15 @@ def _open(qtbot, window, title_id):
 
 
 # --- what is said, with no widgets ----------------------------------------------------------------------------------------
+
+def test_commentary_html_heads_each_key_and_lists_semicolon_separated_notes():
+    html = commentary_html({'target_notes': 'boost cap binds; support: <unavailable>', 'strategy': 'flatten'})
+
+    assert '<b>Target notes</b>' in html and '<b>Strategy</b>' in html
+    assert '<li>boost cap binds</li><li>support: &lt;unavailable&gt;</li>' in html   # escaped, one note per item
+    assert '<p style="margin-top:0">flatten</p>' in html
+    assert commentary_html(None) == '' and commentary_html({}) == ''
+
 
 def test_position_text():
     assert position_text(0, 37) == '1 of 37'
@@ -301,13 +310,12 @@ def test_the_page_lists_the_candidates_and_the_commentary_of_the_highlighted_one
 
     assert page.candidateList.count() == 2 and page.candidateList.currentRow() == 0    # the top pick
     assert page.candidateList.item(0).text().startswith('1: confidence=0.90 method=fitted')
-    assert [(page.commentaryTable.item(r, 0).text(), page.commentaryTable.item(r, 1).text())
-            for r in range(page.commentaryTable.rowCount())] == [('note', 'top pick')]
+    assert page.commentaryText.toPlainText().split('\n') == ['Note', 'top pick']
 
     qtbot.keyClick(page.candidateList, Qt.Key.Key_2)   # digits pick a candidate (1-based, as listed)
 
     assert page.picked == 1 and page.candidateList.currentRow() == 1
-    assert page.commentaryTable.rowCount() == 2 and page.commentaryTable.item(0, 1).text() == 'alternative'
+    assert 'alternative' in page.commentaryText.toPlainText() and 'top pick' not in page.commentaryText.toPlainText()
     assert page.pick_candidate(5) is False and page.picked == 1
 
 
@@ -388,11 +396,22 @@ def test_enter_elsewhere_on_the_page_decides_nothing(qtbot, tmp_path):
     window = _window(qtbot, tmp_path, REVIEWABLE)
     page = _open(qtbot, window, 'r-alien')
 
-    _focus(qtbot, page.commentaryTable)
-    qtbot.keyClick(page.commentaryTable, Qt.Key.Key_Return)
-    qtbot.keyClick(page.commentaryTable, Qt.Key.Key_Enter)
+    _focus(qtbot, page.commentaryText)
+    qtbot.keyClick(page.commentaryText, Qt.Key.Key_Return)
+    qtbot.keyClick(page.commentaryText, Qt.Key.Key_Enter)
 
     assert _status(tmp_path, 'r-alien') == 'pending' and page.current_id == 'r-alien'
+
+
+def test_the_commentary_wraps_and_the_decision_keys_still_work_from_it(qtbot, tmp_path):
+    window = _window(qtbot, tmp_path, REVIEWABLE)
+    page = _open(qtbot, window, 'r-alien')
+    assert page.commentaryText.lineWrapMode() == page.commentaryText.LineWrapMode.WidgetWidth
+
+    _focus(qtbot, page.commentaryText)
+    qtbot.keyClick(page.commentaryText, Qt.Key.Key_A)
+
+    assert _status(tmp_path, 'r-alien') == 'accepted'
 
 
 def test_skip_and_reject_decide_and_advance_like_accept(qtbot, tmp_path):

@@ -137,7 +137,7 @@ def test_selecting_a_row_shows_that_entry_with_its_candidates_and_commentary(qtb
     window.entryTable.selectRow(2)
     assert window.page.current_id == 'c-sicario' and window.page.candidateList.count() == 2
     window.page.pick_candidate(1)
-    assert window.page.commentaryTable.item(1, 1).text() == 'more'
+    assert 'more' in window.page.commentaryText.toPlainText()
 
 
 def test_a_declined_entry_shows_the_reason_and_cannot_be_accepted(qtbot, tmp_path):

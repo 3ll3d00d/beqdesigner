@@ -41,8 +41,8 @@ from typing import Callable, List, Mapping, Optional, Sequence, Set
 
 from qtpy.QtCore import Qt, Signal
 from qtpy.QtGui import QKeySequence, QShortcut
-from qtpy.QtWidgets import QAbstractItemView, QAbstractSpinBox, QApplication, QComboBox, QLineEdit, QMessageBox, \
-    QPlainTextEdit, QTableWidgetItem, QTextEdit, QWidget
+from qtpy.QtWidgets import QAbstractSpinBox, QApplication, QComboBox, QLineEdit, QMessageBox, \
+    QPlainTextEdit, QTextEdit, QWidget
 
 from model.magnitude import MagnitudeModel
 from model.worklist_metadata import MetadataPanel, badge_alarms, badge_text, ok_colour
@@ -50,7 +50,7 @@ from model.worklist_model import warning_colour
 from model.worklist_title_actions import TitleActions, TitleHooks
 from model.worklist_title_decide import DECISION_FROM, TitleDecisions
 from model.worklist_title_text import ACCEPTABLE, REJECTABLE, SKIPPABLE, candidate_text, chart_data, \
-    decision_blocked, entry_title, entry_year, next_waiting_id, notice_text, position_text, revised_note, \
+    commentary_html, decision_blocked, entry_title, entry_year, next_waiting_id, notice_text, position_text, revised_note, \
     state_text  # noqa: F401 (the pure functions are re-exported: tests and callers import them from here)
 from pipeline.library.index import TitleRow
 from pipeline.review import QueueEntry, read_entry
@@ -104,9 +104,6 @@ class TitlePage(TitleDecisions, TitleActions, QWidget, Ui_titlePage):
         font.setBold(True)
         font.setPointSize(font.pointSize() + 4)
         self.titleLabel.setFont(font)
-        self.commentaryTable.horizontalHeader().setStretchLastSection(True)
-        self.commentaryTable.verticalHeader().setVisible(False)
-        self.commentaryTable.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.titleSplitter.setStretchFactor(0, 0)
         self.titleSplitter.setStretchFactor(1, 1)
         self.titleSplitter.setSizes([440, 660])   # a candidate's line is long: give the list room to read it
@@ -158,10 +155,13 @@ class TitlePage(TitleDecisions, TitleActions, QWidget, Ui_titlePage):
                       activated=lambda index=i - 1: None if typing() else self.pick_candidate(index))
 
     def _in_text_field(self) -> bool:
-        ''' Whether the keyboard is in a box for text (a read-only one included) inside the page. '''
+        '''
+        Whether the keyboard is in a box for text (a read-only one included) inside the page. The commentary is only
+        read, so the decision keys still work from it.
+        '''
         focus = QApplication.focusWidget()
         return isinstance(focus, (QLineEdit, QTextEdit, QPlainTextEdit, QComboBox, QAbstractSpinBox)) \
-            and self.isAncestorOf(focus)
+            and focus is not self.commentaryText and self.isAncestorOf(focus)
 
     # --- what the page shows ------------------------------------------------------------------------------------------
 
@@ -320,10 +320,7 @@ class TitlePage(TitleDecisions, TitleActions, QWidget, Ui_titlePage):
         commentary = {}
         if entry is not None and 0 <= self._picked < len(entry.candidates):
             commentary = entry.candidates[self._picked].commentary or {}
-        self.commentaryTable.setRowCount(len(commentary))
-        for row, (key, value) in enumerate(commentary.items()):
-            self.commentaryTable.setItem(row, 0, QTableWidgetItem(str(key)))
-            self.commentaryTable.setItem(row, 1, QTableWidgetItem(str(value)))
+        self.commentaryText.setHtml(commentary_html(commentary))
 
     def _render_decisions(self, rows: Mapping[str, TitleRow]) -> None:
         entry, row = self._entry, rows.get(self._title_id)

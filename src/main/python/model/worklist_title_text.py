@@ -4,7 +4,8 @@ which re-exports them): the position "12 of 37", the next title waiting for a de
 and notice under the title, the chart's curves, and why a decision is not offered (`decision_blocked`, which since chunk 27b
 also holds Accept back while the metadata is incomplete).
 '''
-from typing import Callable, Optional, Sequence
+import html
+from typing import Callable, Mapping, Optional, Sequence
 
 from model.codec import filter_from_json, xydata_from_json
 from model.preferences import get_avg_colour, get_peak_colour
@@ -47,6 +48,23 @@ def candidate_text(index: int, candidate) -> str:
     gain = candidate.gain_reduction_db if candidate.gain_reduction_db is not None else 'n/a'
     return (f'{index + 1}: confidence={candidate.confidence:.2f} method={candidate.method} '
             f'mv_adjust_db={candidate.mv_adjust_db:+.1f} gain_reduction_db={gain}')
+
+
+def commentary_html(commentary: Optional[Mapping]) -> str:
+    '''
+    A candidate's commentary as wrapping text: each key a bold heading (`target_notes` reads "Target notes") over its
+    value, and a value made of `; `-separated notes a bulleted list of them, since the designer's notes run long.
+    '''
+    parts = []
+    for key, value in (commentary or {}).items():
+        heading = html.escape(str(key).replace('_', ' ').strip().capitalize())
+        notes = [n.strip() for n in str(value).split('; ') if n.strip()]
+        if len(notes) > 1:
+            body = '<ul style="margin-top:0">' + ''.join(f'<li>{html.escape(n)}</li>' for n in notes) + '</ul>'
+        else:
+            body = f'<p style="margin-top:0">{html.escape(str(value))}</p>'
+        parts.append(f'<p style="margin-bottom:2px"><b>{heading}</b></p>{body}')
+    return ''.join(parts)
 
 
 def entry_title(entry: Optional[QueueEntry], row: Optional[TitleRow], title_id: str, prefer_entry: bool = False) -> str:
