@@ -89,7 +89,7 @@ class _Executor:
     def __init__(self, src, target_dir, **kwargs):
         self.src, self.kwargs = src, kwargs
         self.output_file_name = None
-        self.channel_layout_name, self.channel_count = '5.1', 6
+        self.channel_layout_name, self.channel_count, self.mono_mix_spec = '5.1', 6, 'c0+c1'
         _Executor.instances.append(self)
 
     def probe_file(self): pass
