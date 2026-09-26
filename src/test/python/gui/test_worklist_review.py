@@ -7,6 +7,7 @@ model/worklist_review.py, chunk 27c: the Review folder window -- the title page 
 import ui.beq  # noqa: F401 (must come first)
 
 import os
+from typing import List
 
 import pytest
 from qtpy.QtCore import Qt, QTimer
@@ -238,11 +239,18 @@ def test_open_project_needs_the_main_window_and_is_offered_through_the_callable(
 # --- publish and commit: the work list's own code ---------------------------------------------------------------------------------
 
 class _Answer:
+    '''
+    Answers the next ConfirmDialog. Each one polls with its own timer until it has answered, so one left over (no dialog came)
+    would answer a later test's dialog instead of that test's own `_Answer`: `_stop_answers` stops them all when a test ends.
+    '''
+    live: List['_Answer'] = []
+
     def __init__(self, accept=True, tick=None):
         self.seen = []
         timer = QTimer()
         timer.setInterval(20)
         self._timer = timer
+        _Answer.live.append(self)
 
         def respond():
             dialog = QApplication.activeModalWidget()
@@ -256,6 +264,16 @@ class _Answer:
 
         timer.timeout.connect(respond)
         timer.start()
+
+    def stop(self) -> None:
+        self._timer.stop()
+
+
+@pytest.fixture(autouse=True)
+def _stop_answers():
+    yield
+    while _Answer.live:
+        _Answer.live.pop().stop()
 
 
 def _repo_window(qtbot, tmp_path, repos, entries=None):
@@ -318,8 +336,7 @@ def test_an_entry_with_projects_in_the_work_directory_is_published_from_them_and
     window = _repo_window(qtbot, tmp_path, repos)
     mono, _ = write_projects(tmp_path / 'work', 'one')
     edit_project(mono)
-    _Answer(True)
-    answer = _Answer(True)
+    answer = _Answer(True)     # one confirmation for the whole publish, however many halves it runs in
     with qtbot.waitSignal(window.published, timeout=60000):
         window.publish_accepted()
     assert seen == [(str(tmp_path / 'work'), ['one']), (None, ['two'])]
