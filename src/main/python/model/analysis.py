@@ -19,7 +19,8 @@ from model.preferences import GRAPH_X_MIN, GRAPH_X_MAX, POINT, ELLIPSE, SPECTROG
     AUDIO_ANALYIS_MIN_FREQ, AUDIO_ANALYIS_MAX_UNFILTERED_FREQ, AUDIO_ANALYIS_MAX_FILTERED_FREQ, \
     AUDIO_ANALYSIS_COLOUR_MAX, AUDIO_ANALYSIS_COLOUR_MIN, AUDIO_ANALYSIS_SIGNAL_MIN, AUDIO_ANALYSIS_GEOMETRY, \
     EXTRACTION_OUTPUT_DIR, STYLE_IMAGE_FORMAT_DEFAULT
-from model.signal import select_file, readWav
+from model.signal import readWav
+from model.signal_qt import select_file
 from ui.analysis import Ui_analysisDialog
 
 logger = logging.getLogger('analysis')

@@ -59,7 +59,9 @@ on), while `ui/*.py` holds only the generated form classes they inherit
 from. So `model.report.SaveReportDialog` is the report *feature*; the
 `ui.report.Ui_saveReportDialog` it mixes in is just the widget tree. The
 genuinely UI-free modules are `iir.py`, `xy.py`, `codec.py`, `minidsp.py`,
-`limits.py` (mostly), `acoustics/`, and most of `model/jriver/`.
+`limits.py`, `preferences.py`, `ffmpeg.py`, `signal.py`, `dsp_type.py`,
+`acoustics/`, and most of `model/jriver/`; the Qt halves of the ones the
+pipeline uses sit beside them (see "Qt-free modules" below).
 
 ## Core objects
 
@@ -81,7 +83,7 @@ the target hardware does.
   between them and several export targets care which one they get.
 - `as_equalizer_apo`/`from_equalizer_apo` are the Equalizer APO text format.
 
-### Signals — `model/signal.py`
+### Signals — `model/signal.py` (Qt-free) and `model/signal_qt.py`
 
 - `Signal` — the raw samples plus lazily computed `avg`, `peak`, `median`
   curves (Welch / spectrogram-max, per `docs/concepts.md`). Long signals are
@@ -90,11 +92,12 @@ the target hardware does.
   `CompleteFilter` + cached magnitude curves per smoothing level) and
   `BassManagedSignalData` (a composite of channels summed with LFE gain and
   a bass-management LPF).
-- `SignalModel` — the collection the main window binds to; also owns
+- `SignalModel` (`signal_qt.py`) — the collection the main window binds to; also owns
   **master/slave linking** (`model/link.py`), where one signal owns a filter
   and others reuse it.
-- Loaders: `AutoWavLoader`/`DialogWavLoaderBridge` (wav/flac),
-  `FrdLoader` (text frequency-response files), `PulseLoader` (synthetic).
+- Loaders: `AutoWavLoader` (wav/flac, Qt-free: the pipeline uses it) and,
+  in `signal_qt.py` with the add-signal dialog, `DialogWavLoaderBridge`,
+  `FrdLoader` (text frequency-response files) and `PulseLoader` (synthetic).
 
 ### Charts — `model/magnitude.py`, `model/limits.py`, `model/xy.py`
 
@@ -271,7 +274,8 @@ renders the notes.
   has no Qt installed) imports some of `model/`. Those modules must not
   import `qtpy`, `PyQt6`, `qtawesome`, `pyqtgraph` or `ui.*`, even
   indirectly; their dialogs and Qt models live in a sibling module
-  (`model/preferences_dialog.py`, `model/limits_dialog.py`, `model/minidsp_qt.py`, `model/ffmpeg_qt.py`).
+  (`model/preferences_dialog.py`, `model/limits_dialog.py`, `model/minidsp_qt.py`, `model/ffmpeg_qt.py`,
+  `model/signal_qt.py`).
   `test_qt_free_modules.py` imports each one with Qt blocked and lists them;
   add a module there when the pipeline starts to use it.
 - **Preferences** are a thin typed wrapper over `QSettings`

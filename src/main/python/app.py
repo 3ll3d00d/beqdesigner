@@ -381,7 +381,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         self.signalView.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.signalView.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.signalView.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
-        from model.signal import SignalModel, SignalTableModel
+        from model.signal_qt import SignalModel, SignalTableModel
         self.__signal_model = SignalModel(self.signalView, self.__default_signal, self.preferences,
                                           on_update=self.on_signal_change)
         self.__signal_table_model = SignalTableModel(self.__signal_model, parent=parent)
@@ -498,7 +498,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Adds signals via the signal dialog.
         '''
-        from model.signal import SignalDialog
+        from model.signal_qt import SignalDialog
         SignalDialog(self.preferences, self.__signal_model, parent=self).show()
 
     def linkSignals(self):
@@ -1132,7 +1132,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
         '''
         Show a user dialog to update which signals are visible.
         '''
-        from model.signal import SelectSignalsDialog
+        from model.signal_qt import SelectSignalsDialog
         SelectSignalsDialog(self, self.__signal_model, self.__magnitude_model.redraw).exec()
 
     def changeSignalFilterVisibility(self, selected):
@@ -1393,7 +1393,7 @@ class BeqDesigner(QMainWindow, Ui_MainWindow):
                 f.write(output_xml)
 
     def __open_merge_signal_dialog(self):
-        from model.signal import MergeSignalDialog
+        from model.signal_qt import MergeSignalDialog
         MergeSignalDialog(self.preferences, self.__signal_model, parent=self).exec()
 
 

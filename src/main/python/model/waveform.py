@@ -11,7 +11,8 @@ from qtpy.QtWidgets import QDialog
 
 from model.magnitude import MagnitudeModel
 from model.preferences import BM_LPF_OPTIONS, BASS_MANAGEMENT_LPF_FS, STYLE_IMAGE_FORMAT_DEFAULT
-from model.signal import SignalDialog, SIGNAL_SOURCE_FILE, SIGNAL_CHANNEL, SingleChannelSignalData
+from model.signal import SIGNAL_SOURCE_FILE, SIGNAL_CHANNEL, SingleChannelSignalData
+from model.signal_qt import SignalDialog
 from ui.stats import Ui_signalStatsDialog
 
 logger = logging.getLogger('waveform')
