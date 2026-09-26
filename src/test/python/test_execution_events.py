@@ -82,3 +82,36 @@ def test_git_command_reports_command_and_result(monkeypatch):
     assert [event.kind for event in seen] == ['command_started', 'command_finished']
     assert seen[0].command == ('git', '--literal-pathspecs', '-C', '/repo', 'branch', '--show-current')
     assert (seen[1].stdout, seen[1].stderr, seen[1].exit_code) == ('main\n', '', 0)
+
+
+# --- redaction (shared by the work list's Details and the pipeline service's job events) ---------------------------------
+
+def test_redact_text_masks_each_kind_of_credential():
+    from model.execution_events import redact_text
+    text = redact_text('GET https://me:hunter2@host/x?api_key=abc123 password=pw\n'
+                       'Authorization: Bearer tok.en\nCookie: s=1; t=2')   # a cookie header is masked to the end of its line
+
+    assert 'hunter2' not in text and 'abc123' not in text and 'tok.en' not in text and 's=1' not in text
+    assert 'password=[REDACTED]' in text and text.count('[REDACTED]') == 5
+
+
+def test_redact_argv_masks_the_value_after_a_secret_option_and_bounds_the_command():
+    from model.execution_events import MAX_COMMAND_ARGS, redact_argv
+
+    assert redact_argv(['designer', '--api-key', 'abc', '--in', 'x.wav']) == \
+        ('designer', '--api-key', '[REDACTED]', '--in', 'x.wav')
+    assert redact_argv(['a'] * (MAX_COMMAND_ARGS + 5))[-1] == '[additional arguments trimmed]'
+
+
+def test_a_redacted_event_keeps_nothing_secret_and_is_trimmed():
+    from model.execution_events import MAX_EVENT_TEXT, ExecutionEvent, event_text, redacted_event
+    event = ExecutionEvent('run', 't', 'design', 'command_finished', 0.0, 'access_token=s3cret', ('d', '--password', 'pw'),
+                           stdout='x' * (MAX_EVENT_TEXT + 10), stderr='Authorization: Basic Zm9v', exit_code=1)
+
+    safe = redacted_event(event)
+    shown = event_text(safe)
+
+    assert 's3cret' not in shown and ' pw' not in shown and 'Zm9v' not in shown
+    assert len(safe.stdout) == MAX_EVENT_TEXT and 'Exit code: 1' in shown and 'Command: d --password' in shown
+    quiet = ExecutionEvent('run', 't', 'extract', 'progress', 0.0, current=1, total=2)
+    assert redacted_event(quiet) is quiet

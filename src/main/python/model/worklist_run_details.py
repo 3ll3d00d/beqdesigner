@@ -1,12 +1,8 @@
 """The per-title Details view and run-status table delegate for the library work list."""
 from collections import deque
-from dataclasses import dataclass
 import json
 import os
-import re
-import shlex
 import tempfile
-import time
 from typing import Optional
 
 from qtpy.QtCore import QEvent, QSize, Qt
@@ -14,19 +10,11 @@ from qtpy.QtGui import QGuiApplication
 from qtpy.QtWidgets import QDialog, QDialogButtonBox, QPlainTextEdit, QPushButton, QStyle, \
     QStyleOptionButton, QStyledItemDelegate, QVBoxLayout
 
-from model.execution_events import ExecutionEvent
+from model.execution_events import ExecutionEvent, event_text, redacted_event
 
 MAX_EVENTS = 500
-MAX_EVENT_TEXT = 8192
 MAX_BUFFER_CHARS = 256 * 1024
 
-_SECRET = re.compile(r'(?i)(api[_-]?key|access[_-]?token|password|secret)([=: ]+)([^\s&]+)')
-_URL_CREDENTIALS = re.compile(r'(https?://)[^/@\s]+:[^/@\s]+@', re.IGNORECASE)
-_AUTH_HEADER = re.compile(r'(?i)(authorization\s*[:=]\s*(?:bearer|basic)\s+)[^\s,;]+')
-_COOKIE_HEADER = re.compile(r'(?i)((?:set-)?cookie\s*[:=]\s*)[^\r\n]+')
-_SECRET_ARG = re.compile(r'^--?(?:api[_-]?key|access[_-]?token|password|secret)$', re.IGNORECASE)
-MAX_COMMAND_ARGS = 256
-MAX_COMMAND_CHARS = 32 * 1024
 DETAILS_FILE = '.worklist-run-details.json'
 
 
@@ -59,52 +47,6 @@ def save_run_details(work_dir: Optional[str], details: dict[str, str]) -> None:
         raise
 
 
-def _redact(text: str) -> str:
-    text = _URL_CREDENTIALS.sub(r'\1[REDACTED]@', text)
-    text = _AUTH_HEADER.sub(r'\1[REDACTED]', text)
-    text = _COOKIE_HEADER.sub(r'\1[REDACTED]', text)
-    return _SECRET.sub(r'\1\2[REDACTED]', text)
-
-
-def _redact_argv(argv) -> tuple:
-    safe, redact_next = [], False
-    remaining = MAX_COMMAND_CHARS
-    for raw in list(argv)[:MAX_COMMAND_ARGS]:
-        arg = str(raw)
-        if redact_next:
-            safe.append('[REDACTED]')
-            redact_next = False
-            continue
-        arg = _redact(arg)[:min(MAX_EVENT_TEXT, remaining)]
-        safe.append(arg)
-        remaining -= len(arg)
-        if remaining <= 0:
-            safe[-1] += '…'
-            break
-        if _SECRET_ARG.match(arg):
-            redact_next = True
-    if len(argv) > MAX_COMMAND_ARGS:
-        safe.append('[additional arguments trimmed]')
-    return tuple(safe)
-
-
-def _event_text(event: ExecutionEvent) -> str:
-    stamp = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(event.timestamp))
-    heading = ' '.join(part for part in (stamp, event.stage, event.kind) if part)
-    lines = [f'[{heading}] {event.message}' if event.message else f'[{heading}]']
-    if event.command:
-        lines.append('Command: ' + shlex.join(_redact(arg) for arg in event.command))
-    if event.exit_code is not None:
-        lines.append(f'Exit code: {event.exit_code}')
-    if event.stdout:
-        lines.append('stdout:\n' + _redact(event.stdout))
-    if event.stderr:
-        lines.append('stderr:\n' + _redact(event.stderr))
-    if event.current is not None or event.total is not None:
-        lines.append(f'Progress: {event.current or 0} / {event.total or 0}')
-    return '\n'.join(lines)
-
-
 class EventBuffer:
     """Bounded, title-scoped event history; its redacted text is saved when a run ends."""
 
@@ -114,13 +56,8 @@ class EventBuffer:
         self.trimmed = 0
 
     def append(self, event: ExecutionEvent) -> None:
-        if event.stdout or event.stderr or event.message or event.command:
-            event = ExecutionEvent(event.run_id, event.title_id, event.stage, event.kind, event.timestamp,
-                                   _redact(event.message)[:MAX_EVENT_TEXT],
-                                   tuple(arg[:MAX_EVENT_TEXT] for arg in _redact_argv(event.command)),
-                                   _redact(event.stdout)[:MAX_EVENT_TEXT], _redact(event.stderr)[:MAX_EVENT_TEXT],
-                                   event.exit_code, event.current, event.total)
-        rendered = _event_text(event)
+        event = redacted_event(event)
+        rendered = event_text(event)
         self._events.append((event, rendered))
         self._chars += len(rendered)
         while len(self._events) > MAX_EVENTS or self._chars > MAX_BUFFER_CHARS:
