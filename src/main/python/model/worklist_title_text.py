@@ -5,6 +5,7 @@ and notice under the title, the chart's curves, and why a decision is not offere
 also holds Accept back while the metadata is incomplete).
 '''
 import html
+import re
 from typing import Callable, Mapping, Optional, Sequence
 
 from model.codec import filter_from_json, xydata_from_json
@@ -48,6 +49,37 @@ def candidate_text(index: int, candidate) -> str:
     gain = candidate.gain_reduction_db if candidate.gain_reduction_db is not None else 'n/a'
     return (f'{index + 1}: confidence={candidate.confidence:.2f} method={candidate.method} '
             f'mv_adjust_db={candidate.mv_adjust_db:+.1f} gain_reduction_db={gain}')
+
+
+def decline_commentary(reason: Optional[str], message: Optional[str]) -> dict:
+    '''
+    A decline laid out like a candidate's commentary, so the page shows it in the same detail. The contract gives only
+    `decline_reason` and a free-text `decline_message`, and the message is never machine-parsed: this only splits it for
+    reading. A designer that writes `summary | found: a; b [provenance]` (beqforge does) gets a Summary, a heading per
+    `label: ...` part and its provenance on its own; any other message is the Summary, whole.
+    '''
+    commentary = {'decline_reason': reason or ''} if reason else {}
+    text = (message or '').strip()
+    provenance = re.search(r'\s*\[([^\[\]]+)\]\s*$', text)
+    if provenance:
+        text = text[:provenance.start()].rstrip()
+    for i, part in enumerate(p.strip() for p in text.split(' | ')):
+        if not part:
+            continue
+        label, sep, rest = part.partition(': ')
+        if i and sep and re.fullmatch(r'[A-Za-z][A-Za-z _-]{0,30}', label) and label not in commentary:
+            commentary[label] = rest
+        else:
+            key = 'summary' if 'summary' not in commentary else f'detail {i}'
+            commentary[key] = part
+    if provenance:
+        commentary['provenance'] = provenance.group(1)
+    return commentary
+
+
+def decline_summary(message: Optional[str]) -> str:
+    ''' The first sentence-like part of a decline message: what the notice says, the detail being under Commentary. '''
+    return decline_commentary(None, message).get('summary', '')
 
 
 def commentary_html(commentary: Optional[Mapping]) -> str:
@@ -106,7 +138,7 @@ def notice_text(entry: Optional[QueueEntry], row: Optional[TitleRow], queue_dir:
         return f'The queue entry could not be read: {error}'
     if entry is not None:
         if entry.decline_reason:
-            return f'Declined: {entry.decline_reason} -- {entry.decline_message or ""}'.rstrip(' -')
+            return f'Declined: {entry.decline_reason} -- {decline_summary(entry.decline_message)}'.rstrip(' -')
         return '' if entry.candidates else 'The designer offered no candidates.'
     if not queue_dir:
         return 'No review queue directory is set (Settings > Locations).'
@@ -124,10 +156,11 @@ def chart_data(entry: Optional[QueueEntry], picked: int) -> list:
     '''
     The selected track's average and peak mono mix, in the main chart's measure colours and before/after line styles.
     Old queue entries
-    have only the average curve. Nothing for a title with no candidates. The legend names the source audio stream,
-    rather than exposing the pipeline's transient signal name.
+    have only the average curve. A declined title (no candidates) still shows what was measured, unfiltered: it is what the
+    decline was judged on. The legend names the source audio stream, rather than exposing the pipeline's transient signal
+    name.
     '''
-    if entry is None or not entry.candidates:
+    if entry is None or not entry.curve:
         return []
     track = 'audio track (all channels mixed)' if entry.audio_stream is None \
         else f'audio track {entry.audio_stream + 1} (all channels mixed)'

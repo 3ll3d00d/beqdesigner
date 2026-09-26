@@ -50,7 +50,7 @@ from model.worklist_model import warning_colour
 from model.worklist_title_actions import TitleActions, TitleHooks
 from model.worklist_title_decide import DECISION_FROM, TitleDecisions
 from model.worklist_title_text import ACCEPTABLE, REJECTABLE, SKIPPABLE, candidate_text, chart_data, \
-    commentary_html, decision_blocked, entry_title, entry_year, next_waiting_id, notice_text, position_text, revised_note, \
+    commentary_html, decline_commentary, decision_blocked, entry_title, entry_year, next_waiting_id, notice_text, position_text, revised_note, \
     state_text  # noqa: F401 (the pure functions are re-exported: tests and callers import them from here)
 from pipeline.library.index import TitleRow
 from pipeline.review import QueueEntry, read_entry
@@ -318,8 +318,12 @@ class TitlePage(TitleDecisions, TitleActions, QWidget, Ui_titlePage):
     def _render_commentary(self) -> None:
         entry = self._entry
         commentary = {}
-        if entry is not None and 0 <= self._picked < len(entry.candidates):
+        declined = entry is not None and bool(entry.decline_reason)
+        if declined:
+            commentary = decline_commentary(entry.decline_reason, entry.decline_message)
+        elif entry is not None and 0 <= self._picked < len(entry.candidates):
             commentary = entry.candidates[self._picked].commentary or {}
+        self.commentaryHeading.setText('Why the designer declined' if declined else 'Commentary')
         self.commentaryText.setHtml(commentary_html(commentary))
 
     def _render_decisions(self, rows: Mapping[str, TitleRow]) -> None:

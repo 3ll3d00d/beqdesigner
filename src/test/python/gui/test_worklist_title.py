@@ -22,7 +22,7 @@ from model.preferences import DESIGNER_DEFAULT, DESIGNER_QUEUE_DIR, LIBRARY_FILE
     Preferences
 from model.worklist import WorkListWindow
 from model.worklist_model import ID_ROLE
-from model.worklist_title import chart_data, commentary_html, next_waiting_id, notice_text, position_text, state_text
+from model.worklist_title import chart_data, commentary_html, decline_commentary, next_waiting_id, notice_text, position_text, state_text
 from pipeline.designer.registry import register_designer, unregister_designer
 from pipeline.library.index import LibraryIndex
 from pipeline.review import read_entry, update_entry
@@ -173,7 +173,9 @@ def test_chart_data_shows_average_and_peak_before_and_after_the_filter(tmp_path,
                                                        'Filtered average audio track (all channels mixed)']
     assert chart_data(None, 0) == []
     write_entry(str(tmp_path), 'declined', decline=True)
-    assert chart_data(read_entry(str(tmp_path), 'declined'), 0) == []
+    declined = chart_data(read_entry(str(tmp_path), 'declined'), 0)   # what the decline was judged on, unfiltered
+    assert [(c.name, c.linestyle) for c in declined] == [('Average audio track (all channels mixed)', '-'),
+                                                        ('Peak audio track (all channels mixed)', '-')]
 
 
 def test_title_chart_draws_both_curves_and_legacy_entries_still_open(qtbot, tmp_path):
@@ -188,6 +190,33 @@ def test_title_chart_draws_both_curves_and_legacy_entries_still_open(qtbot, tmp_
     page.reload()
     assert set(page._magnitude.get_curve_names()) == {
         'Average audio track (all channels mixed)', 'Filtered average audio track (all channels mixed)'}
+
+
+BEQFORGE_DECLINE = ('no usable plateau in the band the sub plays; restoration withheld | found: reference: 143-200 Hz; '
+                    'LFE is silent for 98% | note: a | b [beqforge_revision: 0c8a; build: frozen]')
+
+
+def test_a_decline_is_laid_out_like_a_candidates_commentary():
+    assert decline_commentary('no_usable_plateau', BEQFORGE_DECLINE) == {
+        'decline_reason': 'no_usable_plateau',
+        'summary': 'no usable plateau in the band the sub plays; restoration withheld',
+        'found': 'reference: 143-200 Hz; LFE is silent for 98%',
+        'note': 'a',
+        'detail 3': 'b',
+        'provenance': 'beqforge_revision: 0c8a; build: frozen'}
+    # a message in any other shape is kept whole, never lost
+    assert decline_commentary('x', 'nothing found: at all [sic] here') == {'decline_reason': 'x',
+                                                                          'summary': 'nothing found: at all [sic] here'}
+    assert decline_commentary('x', None) == {'decline_reason': 'x'}
+    html = commentary_html(decline_commentary('no_usable_plateau', BEQFORGE_DECLINE))
+    assert '<b>Found</b>' in html and '<li>LFE is silent for 98%</li>' in html and '<b>Provenance</b>' in html
+
+
+def test_a_declined_notice_gives_the_reason_and_summary_and_leaves_the_findings_to_the_commentary(tmp_path):
+    write_entry(str(tmp_path), 'declined', decline=True)
+    update_entry(str(tmp_path), 'declined', decline_reason='no_usable_plateau', decline_message=BEQFORGE_DECLINE)
+    notice = notice_text(read_entry(str(tmp_path), 'declined'), None, str(tmp_path), '')
+    assert notice == 'Declined: no_usable_plateau -- no usable plateau in the band the sub plays; restoration withheld'
 
 
 def test_the_state_and_notice_say_what_the_title_is_waiting_for(tmp_path):
@@ -339,7 +368,13 @@ def test_a_declined_title_shows_the_reason_and_can_only_be_skipped_or_rejected(q
 
     assert page.noticeLabel.text().startswith('Declined: no_rolloff_detected -- nothing found')
     assert page.candidateList.count() == 0
+    assert page.commentaryHeading.text() == 'Why the designer declined'
+    assert page.commentaryText.toPlainText().split('\n') == ['Decline reason', 'no_rolloff_detected', 'Summary', 'nothing found']
+    assert set(page._magnitude.get_curve_names()) == {'Average audio track (all channels mixed)',
+                                                      'Peak audio track (all channels mixed)'}
     assert not page.acceptButton.isEnabled() and page.skipButton.isEnabled() and page.rejectButton.isEnabled()
+    page.show_title('r-arrival')
+    assert page.commentaryHeading.text() == 'Commentary' and 'top pick' in page.commentaryText.toPlainText()
 
 
 def test_an_unreadable_entry_is_reported_and_the_rest_of_the_list_still_works(qtbot, tmp_path):
