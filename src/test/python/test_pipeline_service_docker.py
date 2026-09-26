@@ -1,10 +1,21 @@
 '''The image's installed dependency set and the fixture CI runs against it.'''
 import json
 import pathlib
+import shutil
+import threading
+import time
 import tomllib
 import wave
 
-from docker.smoke import fixture
+import pytest
+from fastapi.testclient import TestClient
+
+from docker.smoke import Designer, fixture
+from http.server import ThreadingHTTPServer
+from pipeline.service.api import create_app
+from pipeline.service.config import ServiceConfig
+from pipeline.service.jobs import JobManager
+from pipeline.service.work import executor, job_failed
 
 ROOT = pathlib.Path(__file__).parents[3]
 
@@ -38,6 +49,41 @@ def test_image_smoke_fixture_is_real_multichannel_audio_and_a_profile(tmp_path):
     assert profile['sources'][0]['globs'] == ['/media']
     assert profile['designers']['smoke'] == 'http://host.docker.internal:4321/design'
     assert profile['run']['queue_dir'] == '/queue'
+
+
+@pytest.mark.skipif(not shutil.which('ffmpeg') or not shutil.which('ffprobe'), reason='ffmpeg and ffprobe are optional')
+def test_image_smoke_fixture_extracts_and_designs_through_the_real_service(tmp_path):
+    server = ThreadingHTTPServer(('127.0.0.1', 0), Designer)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    fixture(tmp_path, server.server_port)
+    profile_path = tmp_path / 'config' / 'profile.yaml'
+    profile = json.loads(profile_path.read_text())
+    profile['sources'][0]['globs'] = [str(tmp_path / 'media')]
+    profile['designers']['smoke'] = f'http://127.0.0.1:{server.server_port}/design'
+    profile['run'].update(work_dir=str(tmp_path / 'work'), queue_dir=str(tmp_path / 'queue'))
+    profile_path.write_text(json.dumps(profile))
+    manager = JobManager(executor(str(profile_path), env={}), failed=job_failed)
+    try:
+        app = create_app(manager, ServiceConfig(profile_path=str(profile_path), token='smoke-token'), env={})
+        with TestClient(app) as client:
+            auth = {'Authorization': 'Bearer smoke-token'}
+            response = client.post('/v1/jobs/run', json={'filter': {'match': 'Smoke Movie'}, 'through': 'design'},
+                                   headers=auth)
+            assert response.status_code == 202, response.text
+            deadline = time.time() + 30
+            while True:
+                job = client.get(response.headers['Location'], headers=auth).json()
+                if job['state'] not in ('queued', 'running'):
+                    break
+                assert time.time() < deadline, job
+                time.sleep(0.02)
+            assert job['state'] == 'succeeded', job
+            assert list((tmp_path / 'queue').glob('*.json'))
+    finally:
+        manager.stop(5)
+        server.shutdown()
+        thread.join(5)
 
 
 def test_ci_smokes_before_tag_publish_and_builds_both_platforms():
