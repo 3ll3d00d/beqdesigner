@@ -1,4 +1,5 @@
 '''The image's installed dependency set and the fixture CI runs against it.'''
+import importlib.util
 import json
 import pathlib
 import shutil
@@ -10,7 +11,6 @@ import wave
 import pytest
 from fastapi.testclient import TestClient
 
-from docker.smoke import Designer, fixture
 from http.server import ThreadingHTTPServer
 from pipeline.service.api import create_app
 from pipeline.service.config import ServiceConfig
@@ -18,6 +18,18 @@ from pipeline.service.jobs import JobManager
 from pipeline.service.work import executor, job_failed
 
 ROOT = pathlib.Path(__file__).parents[3]
+
+
+def _load_smoke():
+    ''' docker/smoke.py by path: `docker/` is a folder at the repo root, not a package on the test path. '''
+    spec = importlib.util.spec_from_file_location('beq_docker_smoke', ROOT / 'docker' / 'smoke.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+_smoke = _load_smoke()
+Designer, fixture = _smoke.Designer, _smoke.fixture
 
 
 def test_service_lock_closure_has_no_qt(tmp_path):
