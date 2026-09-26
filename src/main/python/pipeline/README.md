@@ -62,6 +62,11 @@ pipeline/
         state.py, status.py, index.py, catalogue_scan.py   # discovery: what each title needs next, and the SQLite index of it
         selection.py, stages.py, bulk.py   # doing work for a selection: Selection, run_stages(--through), accept_top_pick()
         drift.py                           # accepted/published titles designed under other settings (the work list's banner)
+        setup.py                           # a profile file (and options over it) to a run: shared by the CLI and the service
+        year.py                            # the year language of ignore rules, --year and the service's filter
+    service/                       # the pipeline as a long-running service (design/pipeline-service.md; HTTP is chunk S3)
+        config.py, context.py        # service.yaml and the environment's secrets; a job's profile, read again per job
+        jobs.py, work.py              # one job at a time, cancel, events, history; what scan/run/accept jobs do
 
 model/preferences.py          # GUI: durable list of configured HTTP designer endpoints + the review queue
                               #   directory default, both on the Preferences dialog's "Designers" page
