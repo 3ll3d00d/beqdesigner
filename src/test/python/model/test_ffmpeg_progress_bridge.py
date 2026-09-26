@@ -11,3 +11,36 @@ def test_stopping_progress_bridge_releases_its_udp_port():
 
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as replacement:
         replacement.bind(('127.0.0.1', port))
+
+
+_HOLD_A_PORT = '''
+import socket, sys
+from model.ffmpeg import get_next_port
+port = get_next_port()
+with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as bridge:
+    bridge.bind(('127.0.0.1', port))
+    print(port, flush=True)
+    sys.stdin.readline()
+'''
+
+
+def test_two_processes_are_never_given_the_same_progress_port():
+    '''
+    Each process used to count up from 12000, so two at once (parallel test workers, the app beside the pipeline service) both
+    bound 12001 and one failed with "Address already in use".
+    '''
+    import os
+    import pathlib
+    import subprocess
+    import sys
+    env = dict(os.environ, PYTHONPATH=str((pathlib.Path(__file__).parents[3] / 'main' / 'python').resolve()))
+    first = subprocess.Popen([sys.executable, '-c', _HOLD_A_PORT], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE, text=True, env=env)
+    try:
+        held = int(first.stdout.readline())
+        second = subprocess.run([sys.executable, '-c', _HOLD_A_PORT], input='\n', capture_output=True, text=True,
+                                timeout=60, env=env)
+        assert second.returncode == 0, second.stderr
+        assert int(second.stdout) != held
+    finally:
+        first.communicate('\n', timeout=60)

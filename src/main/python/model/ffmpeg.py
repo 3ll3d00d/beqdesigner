@@ -5,6 +5,7 @@ import math
 import os
 import platform
 import shutil
+import socket
 import socketserver
 import subprocess
 import tempfile
@@ -28,7 +29,6 @@ SIGNAL_CONNECTED = 'signal_connected'
 SIGNAL_ERROR = 'signal_error'
 SIGNAL_COMPLETE = 'signal_complete'
 SIGNAL_CANCELLED = 'signal_cancel'
-NEXT_PORT = 12000
 
 # copied from https://trac.ffmpeg.org/wiki/AudioChannelManipulation
 
@@ -99,10 +99,14 @@ def get_channel_name(text, channel, channel_count, channel_layout_name='unknown'
 
 
 def get_next_port():
-    # v dodgy hack! wot no AtomicInt
-    global NEXT_PORT
-    NEXT_PORT += 1
-    return NEXT_PORT
+    '''
+    A UDP port on 127.0.0.1 that nothing is bound to now, for ffmpeg's progress reports. The operating system picks it, so two
+    processes on one machine (two app windows, the app and the pipeline service, parallel test workers) never both pick the same
+    one, as they did counting up from a fixed start.
+    '''
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+        probe.bind(('127.0.0.1', 0))
+        return probe.getsockname()[1]
 
 
 def find_missing_ffmpeg_tools():
