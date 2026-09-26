@@ -25,7 +25,7 @@ root is `src/main/python`, not the repo root.
 ### Tests
 
 ```sh
-PYTHONPATH=./src/main/python QT_QPA_PLATFORM=offscreen uv run pytest src/test/python --cov=./src/main/python
+PYTHONPATH=./src/main/python QT_QPA_PLATFORM=offscreen uv run pytest src/test/python -n auto --cov=./src/main/python
 ```
 
 - Pass `src/test/python` explicitly. A bare `pytest` also collects stale copies

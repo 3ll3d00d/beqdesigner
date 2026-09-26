@@ -50,7 +50,7 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
         run: |
-          PYTHONPATH=./src/main/python QT_QPA_PLATFORM=offscreen uv run pytest src/test/python --cov=./src/main/python
+          PYTHONPATH=./src/main/python QT_QPA_PLATFORM=offscreen uv run pytest src/test/python -n auto --cov=./src/main/python
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v7
         with:
