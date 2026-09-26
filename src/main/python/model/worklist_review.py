@@ -269,10 +269,10 @@ class ReviewFolderWindow(QMainWindow):
         settings = self._setup_now().settings
         if settings is None:
             return 'none'
-        entry = read_entry(self._queue_dir, title_id) if settings.category_folders else None
-        categories = {title_id: category_for_metadata(entry.meta, settings.meta_defaults, True)} if entry else None
+        entry = read_entry(self._queue_dir, title_id)
+        categories = {title_id: category_for_metadata(entry.meta, settings.meta_defaults, settings.category_folders)}
         return commit_states([title_id], settings.xml_repo or '', settings.xml_dir, settings.image_dir,
-                             categories=categories).get(title_id, 'none')
+                             categories=categories, stems={title_id: entry.published_stem}).get(title_id, 'none')
 
     @property
     def page(self) -> TitlePage:
@@ -419,11 +419,11 @@ class ReviewFolderWindow(QMainWindow):
         settings = self._setup_now(1.0).settings
         if settings is None:
             return {i: 'none' for i in published}
-        categories = ({i: category_for_metadata(e.meta, settings.meta_defaults, True)
-                       for i, e in (entries or {}).items()}
-                      if settings.category_folders else None)
+        categories = {i: category_for_metadata(e.meta, settings.meta_defaults, settings.category_folders)
+                      for i, e in (entries or {}).items()}
+        stems = {i: e.published_stem for i, e in (entries or {}).items() if e.published_stem}
         return commit_states(published, settings.xml_repo or '', settings.xml_dir, settings.image_dir,
-                             categories=categories)
+                             categories=categories, stems=stems)
 
     def _reload_entries(self, ids: List[str]) -> None:
         ''' What is on disk for these entries is their row now (one look at git for all the published ones). '''
@@ -503,7 +503,7 @@ class ReviewFolderWindow(QMainWindow):
         if problem or not ids:
             self._say(problem or 'No entry is accepted: there is nothing to publish.', True)
             return False
-        settings = build_publish_settings(self._setup)
+        settings = build_publish_settings(self._setup, preferences=self._preferences)
         heading, body = publish_text(len(ids), settings)
         dialog = ConfirmDialog(self, heading, body, f'Publish {len(ids):,} title{"" if len(ids) == 1 else "s"}')
         if dialog.exec() != ConfirmDialog.DialogCode.Accepted:
@@ -527,7 +527,8 @@ class ReviewFolderWindow(QMainWindow):
                         images_repo=settings.images_repo, image_owner=settings.image_owner,
                         image_repo_name=settings.image_repo_name, xml_dir=settings.xml_dir, image_dir=settings.image_dir,
                         category_folders=settings.category_folders,
-                        report_spec=settings.report_spec, config=config, work_dir=where, ids=chosen)
+                        report_spec=settings.report_spec, heatmap_spec=settings.heatmap_spec, config=config,
+                        work_dir=where, ids=chosen)
             return results
 
         return self._start(publish, 'Publish', f'Publishing {len(ids):,} title{"" if len(ids) == 1 else "s"}...',

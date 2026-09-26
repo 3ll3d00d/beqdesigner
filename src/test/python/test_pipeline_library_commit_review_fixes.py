@@ -54,7 +54,7 @@ def test_a_gitignored_xml_is_the_cli_s_git_failure_exit(tmp_path, repos, capsys)
     (tmp_path / 'xml' / '.gitignore').write_text('xml/one.json\n')
 
     code = cli.main(['commit', '--queue-dir', queue_dir, '--xml-repo', xml.local_path, '--xml-dir', 'xml',
-                     '--images-repo', images.local_path, '--image-dir', 'img', '--no-push'])
+                     '--images-repo', images.local_path, '--image-dir', 'img', '--no-push', '--no-category-folders'])
 
     assert code == cli.GIT_FAILED == 3
     assert 'xml/one.json' in capsys.readouterr().err
@@ -99,7 +99,7 @@ def test_the_cli_prints_that_warning_to_stderr(tmp_path, repos, capsys):
     queue_dir, _ = _publish(tmp_path, repos, ('one', 'Heat'))
 
     assert cli.main(['commit', '--queue-dir', queue_dir, '--xml-repo', xml.local_path, '--xml-dir', 'xml',
-                     '--no-push']) == 0
+                     '--no-push', '--no-category-folders']) == 0
     assert 'warning' in capsys.readouterr().err
 
 

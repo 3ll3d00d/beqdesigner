@@ -23,7 +23,7 @@ import uuid
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from contextvars import copy_context
 from dataclasses import dataclass, field, replace
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Union
 
 from pipeline.library.commit import CatalogueCommit
 from pipeline.library.index import LibraryIndex
@@ -34,7 +34,9 @@ from pipeline.library.status import ScanSettings
 from pipeline.library.season import conflicting_units
 from pipeline.library.sync import commit_library, publish_library
 from pipeline.orchestrate import Session
+from pipeline.publish.catalogue import CategoryFolders
 from pipeline.publish.git import RepoTarget
+from pipeline.publish.heatmap import HeatmapSpec
 from pipeline.publish.report import ReportSpec
 from pipeline.review import split_publish_results
 from model.execution_events import emit_execution_event, event_scope, execution_event_context
@@ -78,11 +80,13 @@ class PublishSettings:
     meta_defaults: Optional[dict] = None
     report_spec: ReportSpec = ReportSpec()
     push: bool = True    # False commits locally only
-    category_folders: bool = False
+    category_folders: Union[bool, CategoryFolders] = False
+    heatmap_spec: Optional[HeatmapSpec] = HeatmapSpec()   # None: no heatmap image
 
     @classmethod
     def from_scan_settings(cls, settings: ScanSettings, *, image_owner: Optional[str] = None,
-                           image_repo_name: Optional[str] = None, push: bool = True) -> 'PublishSettings':
+                           image_repo_name: Optional[str] = None, push: bool = True,
+                           heatmap_spec: Optional[HeatmapSpec] = HeatmapSpec()) -> 'PublishSettings':
         '''
         :raises ValueError: if settings names no filter-record repository.
         '''
@@ -92,7 +96,7 @@ class PublishSettings:
                    image_owner or settings.image_owner or None, image_repo_name or settings.image_repo_name or None,
                    settings.xml_dir, settings.image_dir, settings.meta_defaults,
                    report_spec=settings.report_spec or ReportSpec(), push=push,
-                   category_folders=settings.category_folders)
+                   category_folders=settings.category_folders, heatmap_spec=heatmap_spec)
 
 
 @dataclass
@@ -373,7 +377,7 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
                     images_repo=publish.images_repo, image_owner=publish.image_owner,
                     image_repo_name=publish.image_repo_name, xml_dir=publish.xml_dir, image_dir=publish.image_dir,
                     category_folders=publish.category_folders,
-                    report_spec=publish.report_spec, config=run_config.config, work_dir=run_config.work_dir or None,
+                    report_spec=publish.report_spec, heatmap_spec=publish.heatmap_spec, config=run_config.config, work_dir=run_config.work_dir or None,
                     ids=wanted, republish=True, on_entry=before_entry, should_cancel=stop)
             except Exception as error:  # not one entry's fault (an unreadable queue): report it, do not lose the run
                 logger.warning('publish failed: %s', error, exc_info=True)

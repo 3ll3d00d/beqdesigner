@@ -54,7 +54,13 @@ Publication can place film records and images under `movies/` and TV records
 and images under `tv/` in their respective repositories. The optional
 `sync.category_folders` setting is exposed in Library Work List Settings and
 as `--category-folders` in the CLI. Each filter directory has its own
-`database.json`; the flat layout remains the default for existing profiles.
+`database.json`, written once per publish batch. Category folders are **on by default**
+(`sync.category_folders: false` keeps the flat layout) and their names are `sync.movies_dir` / `sync.tv_dir`
+(`--movies-dir`, `--tv-dir`). Files are named `Title (Year) (Edition) Audio` (`catalogue_stem()`), recorded on the
+queue entry as `published_stem` so a metadata edit never moves them; entries published earlier stay at their id.
+Accepting a title in the work list writes and commits it locally (`model/worklist_autopublish.py`); only the push is
+a separate action. A heatmap (`pipeline/publish/heatmap.py`) is published beside the report image as the record's
+second image.
 Publish, commit, index status and revision use the same metadata classification.
 The configured-source fixture reaches the public `database.json` and returns
 to `CatalogueEntry` (`01d9ec5`). The producer repository presently contains only its

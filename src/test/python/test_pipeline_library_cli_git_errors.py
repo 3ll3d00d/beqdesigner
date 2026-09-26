@@ -15,7 +15,7 @@ from test_pipeline_library_commit import _publish, _queue_entry, _run, repos  # 
 def _args(command, queue_dir, repos, *extra):
     xml, _, images, _ = repos
     return [command, '--queue-dir', queue_dir, '--xml-repo', xml.local_path, '--xml-dir', 'xml',
-            '--images-repo', images.local_path, '--image-dir', 'img', *extra]
+            '--images-repo', images.local_path, '--image-dir', 'img', '--no-category-folders', *extra]
 
 
 def _break_remote(target, tmp_path):
@@ -76,7 +76,8 @@ def test_publish_and_sync_json_omits_the_whole_xml(tmp_path, repos, capsys):
     queue_dir = str(tmp_path / 'queue')
     _queue_entry(queue_dir, 'one', 'Heat')
 
-    assert cli.main(['publish', '--queue-dir', queue_dir, '--xml-repo', repos[0].local_path, '--xml-dir', 'xml']) == 0
+    assert cli.main(['publish', '--queue-dir', queue_dir, '--xml-repo', repos[0].local_path, '--xml-dir', 'xml',
+                     '--no-category-folders']) == 0
 
     (result,) = json.loads(capsys.readouterr().out)
     assert result['id'] == 'one' and 'xml' not in result

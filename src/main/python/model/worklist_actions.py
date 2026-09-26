@@ -312,7 +312,7 @@ class WorkListActions:
             if problem:
                 self._say(problem, LEVEL_ERROR)
                 return False
-            settings = build_publish_settings(self._setup)
+            settings = build_publish_settings(self._setup, preferences=self._preferences)
             count = len(plan.planned)
             if through == 'publish':
                 heading, body = publish_text(count, settings, sum(1 for p in plan.planned
@@ -361,7 +361,7 @@ class WorkListActions:
         setup = self._setup
         try:
             run_config = build_run_config(setup, self._preferences)
-            publish = build_publish_settings(setup, request.push) if request.through in ('publish', 'commit') else None
+            publish = build_publish_settings(setup, request.push, self._preferences) if request.through in ('publish', 'commit') else None
         except Exception as error:
             logger.exception('Could not prepare the run')
             self._say(f'Cannot start: {error}', LEVEL_ERROR)
@@ -508,6 +508,7 @@ class WorkListActions:
         self._model.clear_active_run_states()
         self.cancelButton.setVisible(False)
         self.runProgress.setVisible(False)
+        self._start_auto_publish()   # titles accepted while it went on, which had to wait for the repositories
         return context
 
     def _finish_attempts(self, context: Optional[_RunContext]) -> None:

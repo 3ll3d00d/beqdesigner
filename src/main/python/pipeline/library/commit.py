@@ -14,7 +14,7 @@ import subprocess
 from dataclasses import dataclass, field
 from typing import Collection, List, Optional, Sequence
 
-from pipeline.publish.catalogue import aggregate_path, catalogue_paths, category_for_metadata
+from pipeline.publish.catalogue import aggregate_path, catalogue_paths, category_for_metadata, heatmap_path
 from pipeline.publish.git import RepoState, RepoTarget, fs_path, commit_paths, committed_paths, push, repo_state
 from pipeline.review import QueueEntry, read_entry, read_queue
 
@@ -134,14 +134,17 @@ def commit_catalogue(queue_dir: str, xml_repo: RepoTarget, images_repo: Optional
     def category(entry: QueueEntry) -> Optional[str]:
         return category_for_metadata(entry.meta, meta_defaults, category_folders)
 
+    def paths(entry: QueueEntry):
+        return catalogue_paths(entry.id, xml_dir, image_dir, category=category(entry), stem=entry.published_stem)
+
     try:
         if images_repo is not None:
-            images = _commit_repo(images_repo, 'report image',
-                                  {catalogue_paths(e.id, xml_dir, image_dir, category=category(e))[1]: e
-                                   for e in published}, push, missing,
-                                  not_committed)
-        filter_files = {catalogue_paths(e.id, xml_dir, image_dir, category=category(e))[0]: e
-                        for e in published}
+            wanted = {paths(e)[1]: e for e in published}
+            # the heatmap is written beside the report image when the track could be drawn: a title without one has none
+            wanted.update({heatmap_path(path): e for path, e in list(wanted.items())
+                           if os.path.isfile(fs_path(images_repo, heatmap_path(path)))})
+            images = _commit_repo(images_repo, 'report image', wanted, push, missing, not_committed)
+        filter_files = {paths(e)[0]: e for e in published}
         # Every publish regenerates this derived file.  Commit it with the
         # individual records so a consumer never sees a fresh record with a
         # stale repository aggregate.

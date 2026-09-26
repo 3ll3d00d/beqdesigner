@@ -29,6 +29,7 @@ from qtpy.QtCore import QStandardPaths, QTimer, Qt, Signal
 from qtpy.QtWidgets import QCheckBox, QComboBox, QDoubleSpinBox, QFileDialog, QFormLayout, QGroupBox, QHBoxLayout, QLabel, \
     QLineEdit, QPushButton, QScrollArea, QSpinBox, QTabWidget, QVBoxLayout, QWidget
 
+from pipeline.publish.catalogue import DEFAULT_MOVIES_DIR, DEFAULT_TV_DIR
 from model.preferences import LIBRARY_PROFILE_PATH, TMDB_API_KEY, WORKLIST_ACCEPT_THRESHOLD
 from model.worklist_edit import LEVEL_ERROR, LEVEL_INFO, LEVEL_OK, PathCheck, check_directory, config_value, \
     remote_owner_and_name, repository_location, with_config
@@ -225,8 +226,14 @@ class SettingsDrawer(QWidget):
         self.imageNote = QLabel('')
         self.imageNote.setWordWrap(True)
         self.imageNote.setStyleSheet('color: palette(mid)')
-        self.categoryFolders = QCheckBox('Separate movies and TV into movies/ and tv/')
+        self.categoryFolders = QCheckBox('Separate movies and TV into their own folders')
         self.categoryFolders.setToolTip('Creates these folders beneath each repository location. Existing files stay where they are.')
+        self.moviesDir = QLineEdit()
+        self.moviesDir.setPlaceholderText(DEFAULT_MOVIES_DIR)
+        self.moviesDir.setToolTip('The folder for films, beneath each repository location (default movies)')
+        self.tvDir = QLineEdit()
+        self.tvDir.setPlaceholderText(DEFAULT_TV_DIR)
+        self.tvDir.setToolTip('The folder for TV shows, beneath each repository location (default tv)')
         self.nextSourcesButton = QPushButton('Next: add library sources')
         self.nextSourcesButton.setToolTip('Choose where titles come from before scanning the library')
         self.nextSourcesButton.clicked.connect(lambda: self.select_tab('sources'))
@@ -260,6 +267,8 @@ class SettingsDrawer(QWidget):
         form.addRow('Images location', self.imagesLocation)
         form.addRow('', self.initImagesRepoButton)
         form.addRow('', self.categoryFolders)
+        form.addRow('Movies folder', self.moviesDir)
+        form.addRow('TV folder', self.tvDir)
         form.addRow('', self.imageNote)
         form.addRow('', self.nextSourcesButton)
         options = QGroupBox('Designer and options')
@@ -306,7 +315,9 @@ class SettingsDrawer(QWidget):
             lambda text: self.__set_repo_location('xml_repo', 'xml_dir', self.filterLocation, text))
         self.imagesLocation.committed.connect(
             lambda text: self.__set_repo_location('images_repo', 'image_dir', self.imagesLocation, text))
-        self.categoryFolders.clicked.connect(lambda checked: self.__set_sync('category_folders', bool(checked)))
+        self.categoryFolders.clicked.connect(lambda checked: self.__set_sync('category_folders', bool(checked), True))
+        self.moviesDir.editingFinished.connect(lambda: self.__set_folder_name('movies_dir', self.moviesDir))
+        self.tvDir.editingFinished.connect(lambda: self.__set_folder_name('tv_dir', self.tvDir))
         self.designerCombo.activated.connect(lambda _i: self.__set_run('designer', self.__chosen_designer()))
         self.tvModeCombo.activated.connect(lambda _i: self.__set_run('tv_mode', self.tvModeCombo.currentData()))
         self.keepMultichannel.clicked.connect(lambda checked: self.__set_run('keep_multichannel', bool(checked)))
@@ -384,7 +395,11 @@ class SettingsDrawer(QWidget):
         self.queueDir.set_text(profile.queue_dir)
         self.filterLocation.set_text(os.path.join(profile.xml_repo, profile.xml_dir) if profile.xml_repo else '')
         self.imagesLocation.set_text(os.path.join(profile.images_repo, profile.image_dir) if profile.images_repo else '')
-        self.categoryFolders.setChecked(bool(config_value(profile, 'sync', 'category_folders', False)))
+        self.categoryFolders.setChecked(bool(config_value(profile, 'sync', 'category_folders', True)))
+        self.moviesDir.setText(str(config_value(profile, 'sync', 'movies_dir', '') or ''))
+        self.tvDir.setText(str(config_value(profile, 'sync', 'tv_dir', '') or ''))
+        self.moviesDir.setEnabled(self.categoryFolders.isChecked())
+        self.tvDir.setEnabled(self.categoryFolders.isChecked())
         self.workDir.show_check(check_directory(profile.work_dir) if profile.work_dir else None)
         self.queueDir.show_check(check_directory(profile.queue_dir) if profile.queue_dir else None)
         self.filterLocation.show_check(repository_location(self.filterLocation.edit.text())[2] if profile.xml_repo else None)
@@ -533,10 +548,22 @@ class SettingsDrawer(QWidget):
         else:
             self.__set_repo_location('images_repo', 'image_dir', row, location)
 
-    def __set_sync(self, key: str, value) -> None:
-        if self._loading or self._profile is None or value == config_value(self._profile, 'sync', key, False):
+    def __set_sync(self, key: str, value, default=False) -> None:
+        if self._loading or self._profile is None or value == config_value(self._profile, 'sync', key, default):
             return
         self.__edit(with_config(self._profile, 'sync', key, value))
+        self.moviesDir.setEnabled(self.categoryFolders.isChecked())
+        self.tvDir.setEnabled(self.categoryFolders.isChecked())
+
+    def __set_folder_name(self, key: str, edit: QLineEdit) -> None:
+        ''' A folder beneath the repository location: relative, and not climbing out of it. '''
+        text = edit.text().strip().replace('\\', '/').strip('/')
+        if any(part in ('.', '..') or part == '' for part in text.split('/')) and text:
+            edit.setStyleSheet(f'color: {warning_colour().name()}')
+            edit.setToolTip(f'{text!r} is not a folder within the repository location')
+            return
+        edit.setStyleSheet('')
+        self.__set_sync(key, text, '')
 
     def __set_run(self, key: str, value) -> None:
         if self._loading or self._profile is None:

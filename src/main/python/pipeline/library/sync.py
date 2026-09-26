@@ -5,6 +5,7 @@ from typing import Callable, Collection, Optional
 from pipeline.config import AnalysisConfig
 from pipeline.library.commit import CatalogueCommit, commit_catalogue
 from pipeline.publish.git import RepoTarget
+from pipeline.publish.heatmap import HeatmapSpec
 from pipeline.publish.report import ReportSpec
 from pipeline.review import publish_reviewed_queue, split_publish_results
 
@@ -13,7 +14,8 @@ def publish_library(queue_dir: str, xml_repo: RepoTarget, *, meta_defaults: Opti
                     images_repo: Optional[RepoTarget] = None, image_owner: Optional[str] = None,
                     image_repo_name: Optional[str] = None, xml_dir: str = '', image_dir: str = '',
                     category_folders: bool = False,
-                    report_spec: ReportSpec = ReportSpec(), config: AnalysisConfig = AnalysisConfig(),
+                    report_spec: ReportSpec = ReportSpec(), heatmap_spec: Optional[HeatmapSpec] = HeatmapSpec(),
+                    config: AnalysisConfig = AnalysisConfig(),
                     work_dir: Optional[str] = None, ids: Optional[Collection[str]] = None, republish: bool = False,
                     on_entry: Optional[Callable[[str], None]] = None,
                     should_cancel: Optional[Callable[[], bool]] = None) -> list[dict]:
@@ -29,7 +31,7 @@ def publish_library(queue_dir: str, xml_repo: RepoTarget, *, meta_defaults: Opti
         queue_dir, xml_repo, meta_defaults=meta_defaults, images_repo=images_repo,
         image_owner=image_owner, image_repo_name=image_repo_name, xml_dir=xml_dir, image_dir=image_dir,
         category_folders=category_folders,
-        report_spec=report_spec, config=config, work_dir=work_dir, push=False, ids=ids, republish=republish,
+        report_spec=report_spec, heatmap_spec=heatmap_spec, config=config, work_dir=work_dir, push=False, ids=ids, republish=republish,
         on_entry=on_entry, should_cancel=should_cancel,
     )
 
@@ -47,7 +49,8 @@ def sync_library(queue_dir: str, xml_repo: RepoTarget, *, meta_defaults: Optiona
                  images_repo: Optional[RepoTarget] = None, image_owner: Optional[str] = None,
                  image_repo_name: Optional[str] = None, xml_dir: str = '', image_dir: str = '',
                  category_folders: bool = False,
-                 report_spec: ReportSpec = ReportSpec(), config: AnalysisConfig = AnalysisConfig(),
+                 report_spec: ReportSpec = ReportSpec(), heatmap_spec: Optional[HeatmapSpec] = HeatmapSpec(),
+                 config: AnalysisConfig = AnalysisConfig(),
                  work_dir: Optional[str] = None, push: bool = True, ids: Optional[Collection[str]] = None,
                  republish: bool = False, on_committed: Optional[Callable[[CatalogueCommit], None]] = None
                  ) -> list[dict]:
@@ -65,7 +68,7 @@ def sync_library(queue_dir: str, xml_repo: RepoTarget, *, meta_defaults: Optiona
     results = publish_library(
         queue_dir, xml_repo, meta_defaults=meta_defaults, images_repo=images_repo, image_owner=image_owner,
         image_repo_name=image_repo_name, xml_dir=xml_dir, image_dir=image_dir, report_spec=report_spec,
-        category_folders=category_folders,
+        category_folders=category_folders, heatmap_spec=heatmap_spec,
         config=config, work_dir=work_dir, ids=ids, republish=republish)
     try:
         committed = commit_library(queue_dir, xml_repo, images_repo=images_repo, xml_dir=xml_dir,

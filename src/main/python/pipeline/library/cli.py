@@ -21,6 +21,7 @@ from pipeline.library.profile import Profile, SourceSpec, build_source, profile_
 from pipeline.library.revise import REVISE_TARGETS, revise_entry
 from pipeline.library.run import LibraryRunConfig, run_library, stage_parallelism
 from pipeline.library.season import DEFAULT_TV_MODE, TV_MODES
+from pipeline.publish.catalogue import category_folders_from_values
 from pipeline.library.selection import THROUGH, Selection
 from pipeline.library.stages import PublishSettings, run_stages
 from pipeline.library.state import NEEDS
@@ -249,7 +250,7 @@ def _publish_kwargs(values: dict[str, Any]) -> dict[str, Any]:
         meta_defaults=values.get('meta_defaults'), images_repo=_repo(values, 'images_repo'),
         image_owner=values.get('image_owner'), image_repo_name=values.get('image_repo_name'),
         xml_dir=values.get('xml_dir', ''), image_dir=values.get('image_dir', ''),
-        category_folders=bool(values.get('category_folders', False)), config=_analysis_config(values),
+        category_folders=category_folders_from_values(values), config=_analysis_config(values),
         work_dir=values.get('work_dir'), ids=values.get('ids') or None, republish=bool(values.get('republish', False)),
         report_spec=report_spec_from_values(values) or ReportSpec())
 
@@ -298,7 +299,7 @@ def _commit(args: argparse.Namespace, config: dict[str, Any]) -> int:
             _required(values, 'queue_dir'), RepoTarget(_required(values, 'xml_repo')),
             images_repo=_repo(values, 'images_repo'), xml_dir=values.get('xml_dir', ''),
             image_dir=values.get('image_dir', ''), push=bool(values.get('push', True)), ids=values.get('ids') or None,
-            category_folders=bool(values.get('category_folders', False)), meta_defaults=values.get('meta_defaults'))
+            category_folders=category_folders_from_values(values), meta_defaults=values.get('meta_defaults'))
     except (subprocess.CalledProcessError, OSError) as error:
         _say(f'error: {error}')
         partial = getattr(error, 'partial', None)   # what was committed before git refused stays committed
@@ -338,7 +339,7 @@ def _revise(args: argparse.Namespace, config: dict[str, Any]) -> int:
                 queue_dir, entry_id, to, values.get('reason') or '', work_dir=values.get('work_dir'),
                 xml_repo=_repo(values, 'xml_repo'), images_repo=_repo(values, 'images_repo'),
                 xml_dir=values.get('xml_dir', ''), image_dir=values.get('image_dir', ''),
-                category_folders=bool(values.get('category_folders', False)),
+                category_folders=category_folders_from_values(values),
                 meta_defaults=values.get('meta_defaults'))
         except (ValueError, subprocess.CalledProcessError, OSError) as error:  # one bad id must not stop the others
             results.append({'id': entry_id, 'error': str(error)})
@@ -644,7 +645,10 @@ def _add_repo_options(parser: argparse.ArgumentParser, with_image_url_options: b
                                               f"image is {'made' if with_image_url_options else 'touched'}")
     repos.add_argument('--image-dir', help='folder within the images repository to put images in (default: its root)')
     repos.add_argument('--category-folders', action=argparse.BooleanOptionalAction, default=None,
-                       help='put films in movies/ and TV in tv/ beneath each repository location')
+                       help='put films and TV in their own folders beneath each repository location (default: yes); '
+                            '--no-category-folders keeps every title in the one folder')
+    repos.add_argument('--movies-dir', help='the folder for films beneath each repository location (default: movies)')
+    repos.add_argument('--tv-dir', help='the folder for TV shows beneath each repository location (default: tv)')
     if with_image_url_options:
         repos.add_argument('--image-owner', help="GitHub owner used to build image URLs (default: read from the images "
                                                  "repository's remote)")

@@ -1,8 +1,8 @@
 '''
 A title's `.beq` projects, as the title page shows them -- design/archive/library-sync/workflow-rework/design.md §12.10, chunk 27c.
 
-Designing a title writes a **mono** project (`<work_dir>/<id>/<id>.mono.beq`) and, where the extraction was multichannel, a
-**multichannel** one (`<id>.multichannel.beq`, the designed filter linked across every channel): the same files
+Designing a title writes a **mono** project (`<work_dir>/<folder>/<folder>.mono.beq`) and, where the extraction was multichannel, a
+**multichannel** one (`<folder>.multichannel.beq`, the designed filter linked across every channel): the same files
 *File > Save Project* writes, so they open in the main window like any other project. That is where a person tunes a
 filter by ear or by eye before deciding, and **what they save there is what gets published**: `publish` reads the
 project's filter, not the designer's candidate (design.md §3.3.1).
@@ -25,7 +25,7 @@ from dataclasses import dataclass
 from typing import List, Tuple
 
 from pipeline.publish.project import read_project_filter
-from pipeline.review import project_paths
+from pipeline.review import project_name, project_paths
 
 MONO, MULTICHANNEL = 'mono', 'multichannel'
 
@@ -80,7 +80,7 @@ def project_states(work_dir: str, title_id: str) -> List[ProjectState]:
         return []
     project_dir, mono, multichannel, _ = project_paths(work_dir, title_id)
     states = [read_state(MONO, mono)]
-    on_disk = os.path.join(project_dir, f'{title_id}.multichannel.beq')
+    on_disk = os.path.join(project_dir, f'{project_name(project_dir, title_id)}.multichannel.beq')
     if multichannel or os.path.isfile(on_disk):
         states.append(read_state(MULTICHANNEL, multichannel or on_disk))
     return states

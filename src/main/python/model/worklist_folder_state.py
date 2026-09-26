@@ -11,7 +11,7 @@ from pipeline.library.index import TitleRow
 from pipeline.library.workdir import entry_directory
 from pipeline.publish.catalogue import catalogue_paths
 from pipeline.publish.git import RepoTarget, committed_paths, posix_path, repo_state
-from pipeline.review import QueueEntry, project_paths
+from pipeline.review import QueueEntry, project_name, project_paths
 
 _NEEDS = {'pending': 'review', 'accepted': 'publish', 'published': 'done', 'skipped': 'done', 'rejected': 'done'}
 
@@ -40,7 +40,8 @@ def entry_row(entry: QueueEntry, commit_state: str = 'none') -> TitleRow:
 
 
 def commit_states(ids: Iterable[str], xml_repo: str = '', xml_dir: str = '', image_dir: str = '', *,
-                  categories: Optional[Mapping[str, str]] = None) -> Dict[str, str]:
+                  categories: Optional[Mapping[str, str]] = None, stems: Optional[Mapping[str, str]] = None
+                  ) -> Dict[str, str]:
     '''
     Where each published entry's filter record stands in the filter-record repository, in the words the index uses for `commit_state` -- and, for
     the two that matter to a revise, in the terms `pipeline.library.revise` decides by: `committed` is a file HEAD holds and the
@@ -57,7 +58,8 @@ def commit_states(ids: Iterable[str], xml_repo: str = '', xml_dir: str = '', ima
         return {i: 'none' for i in ids}
     target = RepoTarget(xml_repo)
     paths = {i: posix_path(catalogue_paths(i, xml_dir, image_dir,
-                                           category=(categories or {}).get(i))[0]) for i in ids}
+                                           category=(categories or {}).get(i),
+                                           stem=(stems or {}).get(i))[0]) for i in ids}
     try:
         state = repo_state(target)
         if state.uncommitted is None:
@@ -72,8 +74,9 @@ def commit_states(ids: Iterable[str], xml_repo: str = '', xml_dir: str = '', ima
 def _project_files(work_dir: str, entry_id: str) -> List[str]:
     ''' The `.beq` projects of a title that are there (the mono one, and the multichannel one if it was written). '''
     directory = entry_directory(work_dir, entry_id)
-    return [path for path in (os.path.join(directory, f'{entry_id}.mono.beq'),
-                              os.path.join(directory, f'{entry_id}.multichannel.beq')) if os.path.isfile(path)]
+    name = project_name(directory, entry_id)
+    return [path for path in (os.path.join(directory, f'{name}.mono.beq'),
+                              os.path.join(directory, f'{name}.multichannel.beq')) if os.path.isfile(path)]
 
 
 def split_for_publish(work_dir: Optional[str], ids: Iterable[str]) -> Tuple[List[str], List[str], List[dict]]:

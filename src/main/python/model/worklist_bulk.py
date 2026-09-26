@@ -259,6 +259,7 @@ class WorkListBulk:
                              'enough, when it came to accepting it: look at it again', LEVEL_WARN) for i in dropped]
         lines += [ResultLine(i, _title(rows, i), 'Accepted', report.note) for i in report.accepted]
         self._results = lines
+        self.auto_publish(list(report.accepted))   # accepting is the whole of it: write and commit them locally
         self._refresh_results()
         self.show_last_run()
         count = len(report.accepted)

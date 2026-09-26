@@ -21,7 +21,7 @@ For each accepted title it writes:
 
 The filter is the one in the title's [`.beq` project](review.md#projects), so a hand edit is what ships, not the designer's candidate. The file name comes from the title's id, which does not change, so publishing again always writes the same file.
 
-If **Separate movies and TV** is enabled in Settings, each record and image goes under `movies/` or `tv/` beneath its repository location. Each filter subfolder gets its own `database.json`. The same choice is available to the CLI as `--category-folders` (or `sync.category_folders: true` in a profile). Without it, the existing flat paths remain in use.
+Accepting a title is the whole of publishing it: its files are written into the repositories and committed locally at once (nothing is pushed until you press *Push*). Files are named like beqcatalogue's own, `Title (Year) (Edition) Audio`, e.g. `movies/1917 (2019) Atmos.json`, and the name is kept if the metadata is edited later. A report image and a heatmap (`... heatmap.png`: Analyse Signal's compare view of the mono track, filtered beside unfiltered, drawn with your own Analyse Signal settings) go in the images repository. Films and TV go under `movies/` and `tv/` beneath each repository location unless **Separate movies and TV** is turned off in Settings; the two folder names are settings too (`sync.movies_dir`, `sync.tv_dir`; CLI `--movies-dir`, `--tv-dir`, `--no-category-folders`). Titles published earlier stay at their old paths until republished.
 
 Publishing changes nothing but files in the working trees. The title moves from *Publish* to *Commit*.
 

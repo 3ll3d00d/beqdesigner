@@ -22,9 +22,11 @@ from typing import Callable, Collection, List, Optional, Sequence, Tuple
 
 from pipeline.config import AnalysisConfig
 from pipeline.designer.contract import Coverage
-from pipeline.library.workdir import entry_directory
-from pipeline.orchestrate import Applied, Declined, DesignOutcome, Session
-from pipeline.publish.catalogue import catalogue_paths, category_for_metadata, publish_digest
+from pipeline.library.workdir import TITLE_ID_MARKER, entry_directory
+from pipeline.orchestrate import Applied, Declined, DesignOutcome, Session, write_aggregate_for
+from pipeline.publish.catalogue import catalogue_paths, catalogue_stem, category_for_metadata, heatmap_path, \
+    publish_digest, unique_stem
+from pipeline.publish.heatmap import HeatmapSpec, heatmap_for
 from pipeline.publish.git import RepoTarget, fs_path, has_changes, is_committed
 from pipeline.publish.report import ReportSpec
 from model.execution_events import emit_execution_event, event_scope
@@ -86,6 +88,9 @@ class QueueEntry:
     published_at: Optional[str] = None        # UTC ISO-8601, when status became 'published'
     revision: int = 0                         # times a title already committed to the catalogue was reopened for
                                                # revision; the same catalogue path is rewritten each time
+    published_stem: Optional[str] = None      # the readable file name (no extension) it was first published under
+                                               # (catalogue_stem()); kept so a metadata edit never moves a published
+                                               # file. None: published before names were readable, so under `id`
 
     def __post_init__(self):
         if self.status not in VALID_STATUSES:
@@ -213,8 +218,8 @@ def design_and_queue(session: Session, entry_id: str, wav_path: str, designer: s
     :param channel_layout_name: the source's ffmpeg channel layout name, forwarded to
         Session.load_channel_signals() for the multichannel project's channel labels.
     :param project_dir: if given and the outcome was Applied, writes output 1's `.beq` project file(s)
-        (design/archive/library-sync-pipeline-plan.md §3.3/Appendix B) -- `<project_dir>/<entry_id>.mono.beq`
-        always, plus `<project_dir>/<entry_id>.multichannel.beq` when multichannel_wav_path is also given.
+        (design/archive/library-sync-pipeline-plan.md §3.3/Appendix B) -- `<project_dir>/<name>.mono.beq`
+        always (see project_name()), plus `<project_dir>/<name>.multichannel.beq` when multichannel_wav_path is also given.
         A Declined outcome has no filter to write, so nothing is written for it (matches "candidates empty
         on decline"). Omitted (the default), no project files are written -- backward compatible.
     :param on_projects: called with write_title_projects_if_safe()'s result ({'mono': bool, 'multichannel':
@@ -232,8 +237,9 @@ def design_and_queue(session: Session, entry_id: str, wav_path: str, designer: s
     write_queue_entry(queue_dir, entry)
     if project_dir is not None and isinstance(outcome, Applied):
         from pipeline.publish.project import write_title_projects_if_safe
-        mono_out = os.path.join(project_dir, f"{entry_id}.mono.beq")
-        mc_out = os.path.join(project_dir, f"{entry_id}.multichannel.beq") if multichannel_wav_path else None
+        name = project_name(project_dir, entry_id)
+        mono_out = os.path.join(project_dir, f"{name}.mono.beq")
+        mc_out = os.path.join(project_dir, f"{name}.multichannel.beq") if multichannel_wav_path else None
         written = write_title_projects_if_safe(session, wav_path, outcome.filters, mono_out,
                                                multichannel_wav_path=multichannel_wav_path,
                                                channel_layout_name=channel_layout_name,
@@ -389,13 +395,27 @@ def publication_meta(entry: QueueEntry, meta_defaults: Optional[dict] = None):
     return meta
 
 
+def project_name(project_dir: str, entry_id: str) -> str:
+    '''
+    What a title's `.beq` projects are called (`<name>.mono.beq`, `<name>.multichannel.beq`): the name of its readable work
+    folder, which carries the track's name -- the entry id for a folder made before names were readable, and for a title
+    whose projects were already written under its id (renaming them would orphan a person's edit).
+    '''
+    if os.path.isfile(os.path.join(project_dir, f'{entry_id}.mono.beq')):
+        return entry_id
+    if not os.path.isfile(os.path.join(project_dir, TITLE_ID_MARKER)):   # not a readable folder made for this title
+        return entry_id
+    return os.path.basename(os.path.normpath(project_dir)) or entry_id
+
+
 def project_paths(work_dir: str, entry_id: str) -> Tuple[str, str, Optional[str], str]:
     ''':return: (project_dir, mono project path, multichannel project path or None, multichannel wav path); the
         multichannel project exists only where a multichannel extraction does.'''
     project_dir = entry_directory(work_dir, entry_id)
     mc_wav = os.path.join(project_dir, 'multichannel.wav')
-    return (project_dir, os.path.join(project_dir, f"{entry_id}.mono.beq"),
-            os.path.join(project_dir, f"{entry_id}.multichannel.beq") if os.path.isfile(mc_wav) else None, mc_wav)
+    name = project_name(project_dir, entry_id)
+    return (project_dir, os.path.join(project_dir, f"{name}.mono.beq"),
+            os.path.join(project_dir, f"{name}.multichannel.beq") if os.path.isfile(mc_wav) else None, mc_wav)
 
 
 def current_publish_digest(entry: QueueEntry, *, meta_defaults: Optional[dict] = None,
@@ -442,7 +462,8 @@ def _needs_republish(entry: QueueEntry, xml_repo: RepoTarget, xml_dir: str, imag
     '''
     from pipeline.publish.project import ProjectFilterConflict
     category = category_for_metadata(entry.meta, meta_defaults, category_folders)
-    if not os.path.isfile(fs_path(xml_repo, catalogue_paths(entry.id, xml_dir, image_dir, category=category)[0])):
+    if not os.path.isfile(fs_path(xml_repo, catalogue_paths(entry.id, xml_dir, image_dir, category=category,
+                                                       stem=entry.published_stem)[0])):
         return True
     if not entry.published_digest:
         return False
@@ -459,6 +480,7 @@ def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: 
                            image_repo_name: Optional[str] = None, xml_dir: str = '', image_dir: str = '',
                            category_folders: bool = False,
                            report_spec: ReportSpec = ReportSpec(),
+                           heatmap_spec: Optional[HeatmapSpec] = HeatmapSpec(),
                            config: AnalysisConfig = AnalysisConfig(),
                            work_dir: Optional[str] = None, push: bool = True, ids: Optional[Collection[str]] = None,
                            republish: bool = False, on_entry: Optional[Callable[[str], None]] = None,
@@ -479,8 +501,10 @@ def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: 
         defaults to the chosen candidate's mv_adjust_db (kept only for this
         catalogue-compatibility purpose -- see designer-interface.md §3).
     :param xml_dir/image_dir: relative directory prefix within each repo;
-        each entry publishes to '<xml_dir>/<entry.id>.xml' (and, if
-        images_repo is given, '<image_dir>/<entry.id>.png').
+        each entry publishes to '<xml_dir>/<name>.json' (and, if images_repo is given, '<image_dir>/<name>.png'),
+        `<name>` being catalogue_stem() -- `Title (Year) (Edition) Audio` -- chosen the first time and kept on the
+        entry (`published_stem`); a name already in use in that folder gets ` (2)` and so on. With category folders,
+        under the movies or TV folder.
     :param work_dir: if given, the published filter is read from the entry's `.beq` project file(s) under
         `<work_dir>/<entry.id>/` (design/archive/library-sync-pipeline-plan.md §3.3.1/Appendix B) rather than from
         apply_reviewed_entry()'s raw chosen candidate -- a human who opened the mono/multichannel project
@@ -506,6 +530,10 @@ def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: 
         the old one is left behind.
     :param report_spec: what the report image is drawn with; a change of it (from the default) makes the title out of
         date. So does the image's GitHub owner/repo when they are given (`image_owner`/`image_repo_name`).
+    :param heatmap_spec: how the heatmap image is drawn (what Analyse Signal's compare mode shows, filtered beside
+        unfiltered, of the title's mono track): written beside the report image, `<name> heatmap.png`, and named as the
+        record's second image. Needs `images_repo` and `work_dir` (the track is read from `<work_dir>/<id>/mono.wav`);
+        None leaves it out. A heatmap that cannot be drawn is reported ('heatmap_error') and does not stop the title.
     :param on_entry: called with an entry's id just before it is published (not for one that is skipped).
     :param should_cancel: checked before each entry; True stops the loop, leaving every entry as it is (each already
         published one is complete).
@@ -533,7 +561,24 @@ def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: 
     def metadata_result(entry: QueueEntry, problems: Sequence[str]) -> dict:
         return {'id': entry.id, 'error': 'invalid_metadata', 'problems': list(problems)}
 
+    claimed = None   # {(folder, stem)} every entry has published under: read when a name is first needed
+
+    def choose_stem(entry: QueueEntry, meta, category) -> str:
+        ''' A readable name for a title's files, unused in its folder by a file or by another title. '''
+        nonlocal claimed
+        if claimed is None:
+            claimed = {(str(category_for_metadata(e.meta, meta_defaults, category_folders)), e.published_stem)
+                       for e in read_queue(queue_dir) if e.published_stem and e.id != entry.id}
+        base = catalogue_stem(asdict(meta), fallback=entry.id)
+        chosen = unique_stem(base, lambda name: (str(category), name) in claimed or os.path.exists(
+            fs_path(xml_repo, catalogue_paths(entry.id, xml_dir, image_dir, category=category, stem=name)[0])))
+        claimed.add((str(category), chosen))
+        return chosen
+
+    aggregate_dirs = set()   # record folders whose database.json a push=False batch writes once, at its end
+
     def publish_one(entry: QueueEntry, republished: bool) -> dict:
+        heatmap_error = ''
         chosen = entry.candidates[entry.chosen_candidate_index]  # accepted and published entries always have one
         complete_filter = filter_from_json(chosen.filters)  # still drives meta.gain's default below
         try:
@@ -560,14 +605,26 @@ def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: 
             aligned = align_projects(session, published, mono_path, os.path.join(project_dir, 'mono.wav'),
                                      mc_path, mc_wav if mc_path else None, layout)
 
-        category = ('TV' if meta.season else 'film') if category_folders else None
-        xml_relative_path, image_relative_path = catalogue_paths(entry.id, xml_dir, image_dir, category=category)
+        category = category_for_metadata(entry.meta, meta_defaults, category_folders)
+        # a title published before names were readable stays where it is: its file is at its id
+        stem = entry.published_stem or (entry.id if republished else choose_stem(entry, meta, category))
+        xml_relative_path, image_relative_path = catalogue_paths(entry.id, xml_dir, image_dir, category=category,
+                                                                 stem=stem)
         image_png = None
         if images_repo is not None:
             unfiltered = xydata_from_json(entry.curve)
             filtered = unfiltered.filter(complete_filter.get_transfer_function().get_magnitude())
             image_png = session.report([unfiltered, filtered], complete_filter, meta=meta, poster_path=entry.art_path,
                                        spec=report_spec, mv_offset=chosen.mv_adjust_db)
+        heatmap_png = None
+        if images_repo is not None and work_dir is not None and heatmap_spec is not None:
+            mono_wav = os.path.join(project_dir, 'mono.wav')
+            if os.path.isfile(mono_wav):
+                try:
+                    heatmap_png = heatmap_for(session.load(mono_wav), complete_filter, heatmap_spec, title=meta.title)
+                except Exception as error:  # the report image and the record are worth publishing without it
+                    logger.warning('could not draw the heatmap for %s: %s', entry.id, error, exc_info=True)
+                    heatmap_error = f'{type(error).__name__}: {error}'
         digest = publish_digest(complete_filter.to_json(), meta, entry.art_path, images_repo is not None,
                                 chosen.mv_adjust_db, report_spec, image_owner,
                                 image_repo_name)  # before publish(), which fills the image URLs into meta
@@ -581,10 +638,15 @@ def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: 
             revision += 1
         result = session.publish(complete_filter, meta, xml_repo, xml_relative_path, images_repo=images_repo,
                                  image_relative_path=image_relative_path if images_repo is not None else None,
-                                 image_png=image_png, image_owner=image_owner, image_repo_name=image_repo_name, push=push)
+                                 image_png=image_png, image_owner=image_owner, image_repo_name=image_repo_name, push=push,
+                                 write_aggregate=False, heatmap_png=heatmap_png,
+                                 heatmap_relative_path=heatmap_path(image_relative_path) if heatmap_png else None)
+        if not push:
+            aggregate_dirs.add(os.path.dirname(xml_relative_path).replace(os.sep, '/'))
         update_entry(queue_dir, entry.id, status='published', published_digest=digest, revision=revision,
-                     published_at=datetime.now(timezone.utc).isoformat(timespec='seconds'))
+                     published_at=datetime.now(timezone.utc).isoformat(timespec='seconds'), published_stem=stem)
         return {'id': entry.id, **result, **({'republished': True} if republished else {}),
+                **({'heatmap_error': heatmap_error} if heatmap_error else {}),
                 **(_project_notes(published, aligned) if work_dir else {})}
 
     def failure(entry: QueueEntry, error: Exception) -> dict:
@@ -620,4 +682,6 @@ def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: 
                 logger.warning('could not publish %s: %s', entry.id, error, exc_info=True)
                 results.append(failure(entry, error))
                 emit_execution_event('failed', message=f'{type(error).__name__}: {error}')
+    for record_dir in sorted(aggregate_dirs):   # (also after a cancel: every title already written is in it)
+        write_aggregate_for(xml_repo, record_dir)
     return results

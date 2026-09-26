@@ -21,7 +21,7 @@ import hashlib
 import json
 import os
 from dataclasses import asdict, dataclass, field
-from typing import Any, Dict, FrozenSet, List, Mapping, Optional, Set, Tuple
+from typing import Any, Dict, FrozenSet, List, Mapping, Optional, Set, Tuple, Union
 
 from pipeline.config import AnalysisConfig
 from pipeline.designer.contract import Coverage
@@ -32,7 +32,8 @@ from pipeline.library.season import DEFAULT_TV_MODE, SeasonGroup, Unit, track_fi
 from pipeline.library.source import LibraryItem
 from pipeline.library.state import StageStates
 from pipeline.library.workdir import entry_directory, work_ids
-from pipeline.publish.catalogue import catalogue_paths, category_for_metadata
+from pipeline.publish.catalogue import CategoryFolders, catalogue_paths, category_for_metadata, \
+    category_folders_from_values
 from pipeline.publish.git import RepoState, RepoTarget, repo_state
 from pipeline.publish.report import ReportSpec
 from pipeline.review import QueueEntry, read_entry
@@ -81,7 +82,7 @@ class ScanSettings:
     xml_dir: str = ''
     images_repo: str = ''
     image_dir: str = ''
-    category_folders: bool = False
+    category_folders: Union[bool, CategoryFolders] = False   # (on, with the folders' names, unless a profile says off)
     meta_defaults: Optional[dict] = None
     # what `publish` is given besides the above, because each is in the published digest (publish_digest()). Unset --
     # the default -- keeps a digest recorded before they were counted valid, so give them exactly as `publish` gets them.
@@ -108,7 +109,7 @@ class ScanSettings:
             tv_mode=values.get('tv_mode') or DEFAULT_TV_MODE,
             xml_repo=filter_path('filter_repo', 'xml_repo'), xml_dir=filter_path('filter_dir', 'xml_dir'),
             images_repo=text('images_repo'), image_dir=text('image_dir'),
-            category_folders=bool(values.get('category_folders', False)),
+            category_folders=category_folders_from_values(values),
             meta_defaults=values.get('meta_defaults') or None, image_owner=text('image_owner'),
             image_repo_name=text('image_repo_name'), report_spec=report_spec_from_values(values))
 
@@ -219,6 +220,7 @@ class EntryFacts:
     size: int
     inode: int = 0      # with the change time, so an entry rewritten in place with a same-length value, within a
     ctime_ns: int = 0   # coarse filesystem's one mtime tick, is still noticed (write_queue_entry replaces the file)
+    published_stem: Optional[str] = None   # the file name it was published under (None: its id)
 
     @classmethod
     def of(cls, entry: QueueEntry, mtime_ns: int, size: int, inode: int = 0, ctime_ns: int = 0) -> 'EntryFacts':
@@ -226,7 +228,7 @@ class EntryFacts:
                    entry.candidates[0].confidence if entry.candidates else None, len(entry.candidates),
                    (entry.decline_message or entry.decline_reason or '') if not entry.candidates else '',
                    entry.design_fingerprint, entry.source_fingerprint, entry.published_digest, entry.art_path,
-                   dict(entry.meta), mtime_ns, size, inode, ctime_ns)
+                   dict(entry.meta), mtime_ns, size, inode, ctime_ns, entry.published_stem)
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), sort_keys=True)
@@ -369,7 +371,8 @@ class Evaluator:
             self.__repo_states[path] = repo_state(RepoTarget(path))
         return self.__repo_states[path]
 
-    def _commit_state(self, entry_id: str, category: Optional[str] = None) -> Tuple[str, str]:
+    def _commit_state(self, entry_id: str, category: Optional[str] = None,
+                      stem: Optional[str] = None) -> Tuple[str, str]:
         '''
         :return: (commit state, why, if it is not obvious) of a published title, worst of its filter record and image. With no filter record
             repository configured there is nothing to commit to: `none`, which `derive_needs` does not ask to commit.
@@ -377,7 +380,8 @@ class Evaluator:
         settings = self.settings
         if not settings.xml_repo:
             return 'none', ''   # nothing to commit to: not applicable, so a published title is not "commit" for ever
-        xml_path, image_path = catalogue_paths(entry_id, settings.xml_dir, settings.image_dir, category=category)
+        xml_path, image_path = catalogue_paths(entry_id, settings.xml_dir, settings.image_dir, category=category,
+                                               stem=stem)
         worst, detail = 'pushed', ''
         for repo, path in ((settings.xml_repo, xml_path), (settings.images_repo, image_path)):
             if not repo:
@@ -442,12 +446,12 @@ class Evaluator:
         category = category_for_metadata(facts.meta, settings.meta_defaults, settings.category_folders)
         if settings.xml_repo and not os.path.isfile(
                 os.path.join(settings.xml_repo, catalogue_paths(entry_id, settings.xml_dir, settings.image_dir,
-                                                                category=category)[0])):
+                                                                category=category, stem=facts.published_stem)[0])):
             out.update(publish='out_of_date', out_of_date='its file is missing from the repository')
         elif facts.published_digest and digest and facts.published_digest != digest:
             out.update(publish='out_of_date', out_of_date='changed since it was published')
         if out['publish'] == 'written':
-            out['commit'], out['commit_detail'] = self._commit_state(entry_id, category)
+            out['commit'], out['commit_detail'] = self._commit_state(entry_id, category, facts.published_stem)
         return out
 
     # the title --------------------------------------------------------------------------------------------------

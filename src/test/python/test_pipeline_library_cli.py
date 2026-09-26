@@ -4,6 +4,8 @@ import os
 
 import pytest
 
+from pipeline.publish.catalogue import CategoryFolders
+
 from pipeline.designer.registry import register_designer, registered_designers, unregister_designer
 from pipeline.library import cli
 from pipeline.library.design_cache import DesignCacheResult
@@ -327,11 +329,28 @@ def test_publish_only_writes_and_reads_the_shared_sync_section(tmp_path, monkeyp
     (args, kwargs), = calls
     assert (args[0], args[1].local_path, kwargs['images_repo'].local_path, kwargs['xml_dir']) == \
         ('/queue', '/xml', '/images', 'filters')
-    assert kwargs['category_folders'] is True
+    assert kwargs['category_folders'] == CategoryFolders('movies', 'tv')
     assert json.loads(capsys.readouterr().out) == [{'id': 'one'}]
 
     assert cli.main(['--config', str(config), 'publish', '--no-category-folders']) == 0
     assert calls[-1][1]['category_folders'] is False
+
+    assert cli.main(['--config', str(config), 'publish', '--movies-dir', 'Movie BEQs', '--tv-dir', 'TV BEQs']) == 0
+    assert calls[-1][1]['category_folders'] == CategoryFolders('Movie BEQs', 'TV BEQs')
+
+
+def test_category_folders_are_on_by_default_and_a_profile_can_turn_them_off(tmp_path, monkeypatch, capsys):
+    from pipeline.library import cli
+    calls = []
+    monkeypatch.setattr(cli, 'publish_library', lambda *args, **kwargs: calls.append(kwargs) or [])
+    config = tmp_path / 'c.json'
+    config.write_text(json.dumps({'sync': {'queue_dir': '/q', 'filter_repo': '/x'}}))
+
+    assert cli.main(['--config', str(config), 'publish']) == 0
+    config.write_text(json.dumps({'sync': {'queue_dir': '/q', 'filter_repo': '/x', 'category_folders': False}}))
+    assert cli.main(['--config', str(config), 'publish']) == 0
+
+    assert [c['category_folders'] for c in calls] == [CategoryFolders('movies', 'tv'), False]
 
 
 def test_filter_repo_flags_and_legacy_aliases_are_accepted(monkeypatch, capsys):

@@ -27,6 +27,7 @@ from pipeline.review import CandidateSummary, QueueEntry, apply_reviewed_entry, 
 
 DESIGNER_NAME = 'test.review'
 DECLINE_DESIGNER_NAME = 'test.review.decline'
+NAME = 'Ready Player One (2018) Atmos'   # what a title is published under (pipeline.publish.catalogue.catalogue_stem)
 
 
 def _multi_candidate_designer(request):
@@ -403,7 +404,7 @@ def test_publish_reviewed_queue_xml_only(tmp_path):
     assert results[0]['record']['title'] == 'Ready Player One'
     assert 'image_url' not in results[0]
     xml_on_remote = subprocess.run(
-        ['git', '-C', str(xml_bare), 'cat-file', '-p', f"{results[0]['filter_commit']}:xml/{entry_id}.json"],
+        ['git', '-C', str(xml_bare), 'cat-file', '-p', f"{results[0]['filter_commit']}:xml/{NAME}.json"],
         check=True, capture_output=True, text=True).stdout
     assert json.loads(xml_on_remote) == results[0]['record']
     assert read_entry(queue_dir, entry_id).status == 'published'
@@ -430,9 +431,9 @@ def test_publish_reviewed_queue_with_image(tmp_path):
     results = publish_reviewed_queue(queue_dir, xml_repo, xml_dir='xml', images_repo=images_repo, image_dir='img',
                                      image_owner='3ll3d00d', image_repo_name='beq-images')
 
-    assert results[0]['image_url'].endswith(f'img/{entry_id}.png')
+    assert results[0]['image_url'].endswith('img/Ready%20Player%20One%20%282018%29%20Atmos.png')
     pushed_png = subprocess.run(
-        ['git', '-C', str(images_bare), 'cat-file', '-p', f'HEAD:img/{entry_id}.png'],
+        ['git', '-C', str(images_bare), 'cat-file', '-p', f'HEAD:img/{NAME}.png'],
         check=True, capture_output=True).stdout
     image = Image.open(io.BytesIO(pushed_png))
     assert image.format == 'PNG'
@@ -452,7 +453,7 @@ def test_publish_reviewed_queue_passes_entry_art_path_as_poster(tmp_path):
                            image_owner='3ll3d00d', image_repo_name='beq-images')
 
     pushed_png = subprocess.run(
-        ['git', '-C', str(images_bare), 'cat-file', '-p', f'HEAD:img/{entry_id}.png'],
+        ['git', '-C', str(images_bare), 'cat-file', '-p', f'HEAD:img/{NAME}.png'],
         check=True, capture_output=True).stdout
     image = Image.open(io.BytesIO(pushed_png))
     # top-left pixel of a composed (poster-on-top) image should be the poster's fill colour, not the

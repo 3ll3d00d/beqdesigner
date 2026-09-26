@@ -8,25 +8,68 @@ know which files those were).
 import hashlib
 import json
 import os
-from dataclasses import asdict
-from typing import Mapping, Optional, Tuple
+from dataclasses import asdict, dataclass
+from typing import Callable, Mapping, Optional, Tuple, Union
 
 from pipeline.metadata import BeqMetadata
 from pipeline.publish.git import join_posix
 from pipeline.publish.report import ReportSpec
 
 
+DEFAULT_MOVIES_DIR = 'movies'
+DEFAULT_TV_DIR = 'tv'
+
+
+@dataclass(frozen=True)
+class CategoryFolders:
+    '''
+    Where movies and TV go beneath a repository location. Passed wherever a `category_folders` flag was, in its place:
+    it is truthy (folders on) and names the two folders. `True` still means the default names.
+    '''
+    movies: str = DEFAULT_MOVIES_DIR
+    tv: str = DEFAULT_TV_DIR
+
+
+class FolderName(str):
+    '''A category that is already a folder name (configured), not the legacy 'film'/'TV' marker.'''
+
+
+def category_folders_from_values(values: Mapping) -> Union[bool, CategoryFolders]:
+    '''
+    The setting from a profile's flat options (`sync:` merged with `run:`): **on unless `category_folders` is false**, with
+    `movies_dir` / `tv_dir` naming the folders. False when off.
+    '''
+    if not values.get('category_folders', True):
+        return False
+    return CategoryFolders(_folder_name(values.get('movies_dir'), DEFAULT_MOVIES_DIR),
+                           _folder_name(values.get('tv_dir'), DEFAULT_TV_DIR))
+
+
+def _folder_name(value, default: str) -> str:
+    name = str(value or '').strip().replace('\\', '/').strip('/')
+    if not name:
+        return default
+    if any(part in ('', '.', '..') for part in name.split('/')):
+        raise ValueError(f'{name!r} is not a folder within the repository')
+    return name
+
+
 def category_folder(season) -> str:
-    '''The repository subfolder for a published title with (or without) season metadata.'''
-    return 'tv' if season else 'movies'
+    '''The default repository subfolder for a published title with (or without) season metadata.'''
+    return DEFAULT_TV_DIR if season else DEFAULT_MOVIES_DIR
 
 
-def category_for_season(season, enabled: bool) -> Optional[str]:
-    '''The path category, or the existing flat layout when the setting is off.'''
-    return ('TV' if season else 'film') if enabled else None
+def category_for_season(season, enabled: Union[bool, CategoryFolders, None]) -> Optional[str]:
+    '''The path category, or the flat layout when the setting is off.'''
+    if not enabled:
+        return None
+    if isinstance(enabled, CategoryFolders):
+        return FolderName(enabled.tv if season else enabled.movies)
+    return 'TV' if season else 'film'
 
 
-def category_for_metadata(meta: Mapping, defaults: Optional[Mapping], enabled: bool) -> Optional[str]:
+def category_for_metadata(meta: Mapping, defaults: Optional[Mapping], enabled: Union[bool, CategoryFolders, None]
+                          ) -> Optional[str]:
     '''Use the same season value as publication metadata, including profile defaults.'''
     return category_for_season(meta.get('season', (defaults or {}).get('season')), enabled)
 
@@ -34,17 +77,62 @@ def category_for_metadata(meta: Mapping, defaults: Optional[Mapping], enabled: b
 def _folder(category: Optional[str]) -> str:
     if category is None:
         return ''
+    if isinstance(category, FolderName):
+        return str(category)
     if category not in ('film', 'TV'):
         raise ValueError(f'unknown catalogue content type {category!r}')
     return category_folder(category == 'TV')
 
 
-def catalogue_paths(entry_id: str, xml_dir: str = '', image_dir: str = '', *,
-                    category: Optional[str] = None) -> Tuple[str, str]:
+_AUDIO_SEPARATOR = ' + '
+_MAX_STEM = 150
+
+
+def catalogue_stem(meta: Mapping, fallback: str = '') -> str:
     '''
-    :return: (filter_relative_path, image_relative_path) of an entry within its repos: `<xml_dir>/<entry_id>.json` and
-        `<image_dir>/<entry_id>.png`. The entry id is stable across reorderings and re-runs, so a revision rewrites
-        the same path. With a category, movies and TV go under `movies/` and `tv/` beneath the configured prefix.
+    The readable file name (no extension) a title is published under, in the order beqcatalogue's own files were named:
+    `Title (Year) (Edition) S01 Audio`, e.g. `1917 (2019) (Amazon) DD+` or `The Expanse (2015) S01 DD+`. The master volume is
+    deliberately not in it (a revision changes the gain, and must rewrite the same path).
+    :param fallback: the name if there is no title (the entry id).
+    '''
+    from pipeline.library.workdir import _safe_name
+    title = str(meta.get('title') or '').strip()
+    if not title:
+        return fallback
+    parts = [title]
+    if meta.get('year'):
+        parts.append(f"({meta['year']})")
+    if meta.get('edition'):
+        parts.append(f"({meta['edition']})")
+    season = meta.get('season')
+    if season:
+        season = str(season)
+        parts.append(f'S{int(season):02d}' if season.isdigit() else season)
+    audio = meta.get('audio_types') or []
+    if isinstance(audio, str):
+        audio = [audio]
+    if audio:
+        parts.append(_AUDIO_SEPARATOR.join(str(a) for a in audio))
+    return _safe_name(' '.join(parts))[:_MAX_STEM].rstrip(' .') or fallback
+
+
+def unique_stem(stem: str, taken: Callable[[str], bool]) -> str:
+    '''`stem`, or `stem (2)`, `stem (3)` ... for the first that `taken()` does not say is in use.'''
+    candidate, number = stem, 1
+    while taken(candidate):
+        number += 1
+        candidate = f'{stem} ({number})'
+    return candidate
+
+
+def catalogue_paths(entry_id: str, xml_dir: str = '', image_dir: str = '', *,
+                    category: Optional[str] = None, stem: Optional[str] = None) -> Tuple[str, str]:
+    '''
+    :return: (filter_relative_path, image_relative_path) of an entry within its repos: `<xml_dir>/<stem>.json` and
+        `<image_dir>/<stem>.png`. The stem is what publishing recorded on the entry (`QueueEntry.published_stem`, see
+        catalogue_stem()) and is the stable entry id for a title published before names were readable; it is stable across
+        reorderings and re-runs, so a revision rewrites the same path. With a category, movies and TV go under their
+        folders (`movies/` and `tv/` unless configured, see CategoryFolders) beneath the configured prefix.
         BEQCatalogue reads individual JSON records recursively.
 
         Always `/`-separated, on Windows too, because that is how git spells a path (`git status` says `filters/one.json`);
@@ -53,7 +141,14 @@ def catalogue_paths(entry_id: str, xml_dir: str = '', image_dir: str = '', *,
         separators.
     '''
     folder = _folder(category)
-    return join_posix(xml_dir, folder, f"{entry_id}.json"), join_posix(image_dir, folder, f"{entry_id}.png")
+    name = stem or entry_id
+    return join_posix(xml_dir, folder, f"{name}.json"), join_posix(image_dir, folder, f"{name}.png")
+
+
+def heatmap_path(image_relative_path: str) -> str:
+    '''Where a title's heatmap image goes: beside its report image, `<stem> heatmap.png`.'''
+    return image_relative_path[:-len('.png')] + ' heatmap.png' if image_relative_path.endswith('.png') \
+        else image_relative_path + ' heatmap.png'
 
 
 def aggregate_path(xml_dir: str = '', *, category: Optional[str] = None) -> str:

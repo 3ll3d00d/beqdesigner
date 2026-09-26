@@ -30,6 +30,7 @@ import re
 import subprocess
 from dataclasses import dataclass
 from typing import FrozenSet, List, Mapping, Optional, Sequence, Tuple
+from urllib.parse import quote
 
 from model.execution_events import emit_execution_event
 
@@ -183,7 +184,7 @@ def image_url(target: RepoTarget, relative_path: str, owner: Optional[str] = Non
         repo_name = repo_name or parsed_repo_name
     # the URL's path is relative to the repo's root, which `local_path` may be a subdirectory of
     return RAW_CONTENT_TEMPLATE.format(owner=owner, repo=repo_name, branch=current_branch(target),
-                                       path=join_posix(_prefix(target), relative_path))
+                                       path=quote(join_posix(_prefix(target), relative_path), safe='/'))
 
 
 @dataclass(frozen=True)

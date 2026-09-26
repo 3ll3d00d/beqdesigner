@@ -270,6 +270,8 @@ class WorkListTitles:
     def _on_title_decided(self, title_id: str, status: str) -> None:
         self._index_dirty = True
         self.statusBar.showMessage(f'{title_id}: {status}')
+        if status == 'accepted':
+            self.auto_publish([title_id])   # accepting is the whole of it: write the files and commit them locally
 
     def _on_title_revised(self, title_id: str, to: str) -> None:
         ''' A title was sent back on the page: what it needs is stale until the index reads it, as after a decision. '''

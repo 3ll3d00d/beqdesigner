@@ -8,7 +8,8 @@ from typing import TYPE_CHECKING, Optional
 if TYPE_CHECKING:
     from pipeline.library.source import LibraryItem
 
-_MARKER = '.beq-title-id'
+TITLE_ID_MARKER = '.beq-title-id'
+_MARKER = TITLE_ID_MARKER
 _LOCK = threading.RLock()
 _HASHED_ID = re.compile(r'^(?:fs-[0-9a-f]{16}|jriver-[0-9a-f]{12}-.+)$')
 

@@ -27,7 +27,7 @@ from pipeline.library.index import LibraryIndex, TitleRow
 from pipeline.library.run import LibraryRunConfig, stage_parallelism
 from pipeline.library.selection import Selection, StagePlan
 from pipeline.library.stages import PublishSettings, StagesReport, run_stages
-from pipeline.publish.catalogue import catalogue_paths, category_for_metadata
+from pipeline.publish.catalogue import catalogue_paths, category_for_metadata, heatmap_path
 from pipeline.review import describe_publish_error, read_entry
 
 logger = logging.getLogger('worklist_run')
@@ -126,13 +126,17 @@ def publish_problem(setup) -> str:
     return ''
 
 
-def build_publish_settings(setup, push: bool = True) -> PublishSettings:
+def build_publish_settings(setup, push: bool = True, preferences=None) -> PublishSettings:
     '''
+    :param preferences: the person's `Preferences`; the heatmap is drawn as their Analyse Signal settings draw it (the
+        defaults without).
     :raises ValueError: if no filter-record repository is set (see publish_problem()).
     '''
+    from pipeline.publish.heatmap import HeatmapSpec, spec_from_preferences
     sync = (setup.profile.config.get('sync') or {}) if setup.profile else {}
-    return PublishSettings.from_scan_settings(setup.settings, image_owner=sync.get('image_owner'),
-                                              image_repo_name=sync.get('image_repo_name'), push=push)
+    return PublishSettings.from_scan_settings(
+        setup.settings, image_owner=sync.get('image_owner'), image_repo_name=sync.get('image_repo_name'), push=push,
+        heatmap_spec=spec_from_preferences(preferences) if preferences is not None else HeatmapSpec())
 
 
 # --- what a selection would do ----------------------------------------------------------------------------------------
@@ -283,22 +287,23 @@ def commit_effects(report: StagesReport, plan: StagePlan, settings) -> Dict[str,
     handled = set(committed.xml.paths)
     effects = {}
     for planned in plan.with_stage('commit'):
-        category = _published_category(settings, planned.row)
-        xml_path = catalogue_paths(planned.row.id, settings.xml_dir, settings.image_dir, category=category)[0]
+        category, stem = _published_location(settings, planned.row)
+        xml_path = catalogue_paths(planned.row.id, settings.xml_dir, settings.image_dir, category=category,
+                                   stem=stem)[0]
         if xml_path in handled:
             earlier = planned.row.commit_state == 'committed'   # committed, not pushed, before this run
             effects[planned.row.id] = (committed.xml.commit is not None and not earlier, committed.xml.pushed)
     return effects
 
 
-def _published_category(settings, row: TitleRow) -> Optional[str]:
-    if not settings.category_folders:
-        return None
+def _published_location(settings, row: TitleRow) -> Tuple[Optional[str], Optional[str]]:
+    ''' (folder category, file stem) of a published title: what its entry recorded, else what its row says. '''
     try:
-        meta = read_entry(settings.queue_dir, row.id).meta
+        entry = read_entry(settings.queue_dir, row.id)
+        meta, stem = entry.meta, entry.published_stem
     except (OSError, ValueError, TypeError):
-        meta = {'season': row.kind == 'tv'}
-    return category_for_metadata(meta, settings.meta_defaults, True)
+        meta, stem = {'season': row.kind == 'tv'}, None
+    return category_for_metadata(meta, settings.meta_defaults, settings.category_folders), stem
 
 
 def describe_results(report: StagesReport, plan: StagePlan, settings, rows: Optional[Mapping[str, TitleRow]] = None
@@ -367,9 +372,11 @@ def describe_results(report: StagesReport, plan: StagePlan, settings, rows: Opti
         blocked = {}   # title id -> the paths git would not take
         for title_id in commit_ids:
             row = next(p.row for p in plan.planned if p.row.id == title_id)
-            category = _published_category(settings, row)
-            xml_path, image_path = catalogue_paths(title_id, settings.xml_dir, settings.image_dir, category=category)
-            found = [path for path in (xml_path, image_path) if path in committed.not_committed]
+            category, stem = _published_location(settings, row)
+            xml_path, image_path = catalogue_paths(title_id, settings.xml_dir, settings.image_dir, category=category,
+                                                   stem=stem)
+            found = [path for path in (xml_path, image_path, heatmap_path(image_path))
+                     if path in committed.not_committed]
             if found:
                 blocked[title_id] = found
         for title_id in commit_ids:

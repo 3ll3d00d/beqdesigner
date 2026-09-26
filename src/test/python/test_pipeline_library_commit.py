@@ -52,7 +52,12 @@ def _track(target):
     _run('git', '-C', target.local_path, 'branch', f'--set-upstream-to=origin/{current_branch(target)}')
 
 
-def _queue_entry(queue_dir, entry_id, title, status='accepted', gain=-3.0):
+def _queue_entry(queue_dir, entry_id, title, status='accepted', gain=-3.0, readable=False):
+    '''
+    :param readable: let publish choose the readable file name (`Title (Year) Audio`). By default the entry is written with
+        its file name already chosen -- its id, as one published before names were readable -- so the git behaviour these
+        tests are about is not tangled with naming (test_pipeline_publish_readable.py is about that).
+    '''
     low_shelf = CompleteFilter(fs=1000, filters=[LowShelf(1000, 18, 0.7, gain)])
     x = np.linspace(1.0, 500.0, 50)
     entry = QueueEntry(
@@ -60,7 +65,8 @@ def _queue_entry(queue_dir, entry_id, title, status='accepted', gain=-3.0):
         curve=xydata_to_json(MagnitudeData('avg', '', x, np.zeros_like(x))),
         candidates=[CandidateSummary(filters=low_shelf.to_json(), confidence=0.9, method='fitted', mv_adjust_db=4.0,
                                      gain_reduction_db=-1.0, commentary={})],
-        status=status, chosen_candidate_index=0 if status in ('accepted', 'published') else None)
+        status=status, chosen_candidate_index=0 if status in ('accepted', 'published') else None,
+        published_stem=None if readable else entry_id)
     write_queue_entry(queue_dir, entry)
 
 

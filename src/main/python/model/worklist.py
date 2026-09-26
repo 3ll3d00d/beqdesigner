@@ -54,6 +54,7 @@ from qtpy.QtWidgets import QAbstractItemView, QButtonGroup, QDockWidget, QHeader
 
 from model.preferences import WORKLIST_GEOMETRY
 from model.worklist_actions import WorkListActions
+from model.worklist_autopublish import WorkListAutoPublish
 from model.worklist_bulk import WorkListBulk
 from model.worklist_model import ALL_CHIPS, CHIP_ALL, CHIP_DONE, COLUMNS, COL_DETAIL, COL_NEEDS, COL_RUN_DETAILS, \
     COL_RUN_PROGRESS, COL_SOURCE, COL_TITLE, COL_WAITING, COL_YEAR, ID_ROLE, WorkListModel, WorkListProxy, \
@@ -156,7 +157,8 @@ class _ScanJob(QRunnable):
             self.signals.errored.emit(f'{type(error).__name__}: {error}')
 
 
-class WorkListWindow(WorkListActions, WorkListTitles, WorkListBulk, QMainWindow, Ui_workListWindow):
+class WorkListWindow(WorkListActions, WorkListAutoPublish, WorkListTitles, WorkListBulk, QMainWindow,
+                     Ui_workListWindow):
     '''
     :param parent: the main window, or None.
     :param preferences: `model.preferences.Preferences`; read again by reload().
@@ -184,6 +186,7 @@ class WorkListWindow(WorkListActions, WorkListTitles, WorkListBulk, QMainWindow,
     run_finished = Signal(object)      # the StagesReport, once the list shows the result (also after a cancel)
     run_failed = Signal(str)           # the run raised
     index_synced = Signal()            # the index has read the decisions made on the title page (worklist_titles)
+    auto_published = Signal(object)    # an AutoPublishOutcome: accepted titles written and committed locally
 
     def __init__(self, parent, preferences, *, auto_scan: bool = True,
                  sources: Optional[Mapping[str, LibrarySource]] = None, clock=time.time,
@@ -193,6 +196,7 @@ class WorkListWindow(WorkListActions, WorkListTitles, WorkListBulk, QMainWindow,
                  ask_revise: Optional[Callable] = None):
         super().__init__(parent)
         self._init_bulk(ask_revise)
+        self._init_autopublish()
         self._open_project = open_project
         self._drawer: Optional[SettingsDrawer] = None
         self._dock: Optional[QDockWidget] = None

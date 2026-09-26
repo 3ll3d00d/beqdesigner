@@ -25,7 +25,7 @@ from typing import List, Optional
 from pipeline.library.extract_cache import invalidate_extract
 from pipeline.library.season import invalidate_season_track
 from pipeline.library.workdir import entry_directory
-from pipeline.publish.catalogue import catalogue_paths, category_for_metadata
+from pipeline.publish.catalogue import catalogue_paths, category_for_metadata, heatmap_path
 from pipeline.publish.git import RepoTarget, discard_changes, is_committed, is_repo
 from pipeline.review import QueueEntry, read_entry, update_entry
 
@@ -65,14 +65,16 @@ def _send_back(queue_dir: str, entry_id: str, to: str, reason: str, *, xml_repo:
         if images_repo is not None:
             _check_repo(images_repo, 'images_repo')
         category = category_for_metadata(entry.meta, meta_defaults, category_folders)
-        xml_path, image_path = catalogue_paths(entry_id, xml_dir, image_dir, category=category)
+        xml_path, image_path = catalogue_paths(entry_id, xml_dir, image_dir, category=category,
+                                               stem=entry.published_stem)
         committed = is_committed(xml_repo, xml_path)
         # The order makes a failure part-way retryable: the image goes first and the filter record -- whose state decides the
         # revision count -- last, and the entry is written after both, so until it is written it is still 'published'
         # and running this again does the rest (a discard of a file that already matches HEAD does nothing).
         # The one window left is a failure writing the entry itself after the filter record was restored: the retry then
         # finds the XML clean and counts a revision that the first attempt would not have.
-        reverted_images = discard_changes(images_repo, [image_path]) if images_repo is not None else []
+        reverted_images = discard_changes(
+            images_repo, [image_path, heatmap_path(image_path)]) if images_repo is not None else []
         reverted = discard_changes(xml_repo, [xml_path]) + reverted_images
         if committed and xml_path not in reverted:
             revision += 1  # the catalogue holds this version, and nothing was written over it: a new revision begins

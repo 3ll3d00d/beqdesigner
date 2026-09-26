@@ -161,6 +161,40 @@ class _ConfigPreferences:
         return self.__values.get(key)
 
 
+def read_records(xml_repo: RepoTarget, record_dir: str) -> dict:
+    ''':return: {relative path: record} of every individual JSON record beneath `record_dir` (not `database.json`).'''
+    records = {}
+    root = xml_repo.local_path
+    scan_root = fs_path(xml_repo, record_dir) if record_dir else root
+    if os.path.isdir(scan_root):
+        for folder, dirs, names in os.walk(scan_root):
+            dirs[:] = [name for name in dirs if name != '.git']
+            for name in names:
+                if not name.endswith('.json') or name == 'database.json':
+                    continue
+                path = os.path.join(folder, name)
+                relative = os.path.relpath(path, root).replace(os.sep, '/')
+                try:
+                    with open(path, encoding='utf-8') as handle:
+                        candidate = json.load(handle)
+                    if isinstance(candidate, dict):
+                        records[relative] = candidate
+                except (OSError, ValueError):
+                    continue
+    return records
+
+
+def write_aggregate_for(xml_repo: RepoTarget, record_dir: str) -> str:
+    '''
+    Writes `record_dir`'s derived `database.json` from the records beside it, once. A batch of publishes does this at
+    its end instead of once per title (which read every record in the directory again each time).
+    :return: the aggregate's relative path.
+    '''
+    relative = aggregate_path(record_dir)
+    write_files(xml_repo, {relative: aggregate(read_records(xml_repo, record_dir))})
+    return relative
+
+
 class Session:
     '''
     Session-scoped facade over one signal at a time -- signals are
@@ -402,7 +436,8 @@ class Session:
     def publish(self, filters, meta: BeqMetadata, xml_repo: RepoTarget, xml_relative_path: str,
                images_repo: Optional[RepoTarget] = None, image_relative_path: Optional[str] = None,
                image_png: Optional[bytes] = None, image_owner: Optional[str] = None,
-               image_repo_name: Optional[str] = None, push: bool = True) -> dict:
+               image_repo_name: Optional[str] = None, push: bool = True, write_aggregate: bool = True,
+               heatmap_png: Optional[bytes] = None, heatmap_relative_path: Optional[str] = None) -> dict:
         '''
         Sequences the image-then-record publish order pipeline.publish.git
         requires: the report image goes in first (if given) so its raw URL
@@ -412,6 +447,10 @@ class Session:
         :param push: True (the default) commits and pushes each file as it is written. False only **writes** the
             image and JSON record into the repos' working trees -- the image URL needs no push (it is built from the
             remote's owner, repo and branch) -- leaving pipeline.library.commit to commit and push a whole batch.
+        :param write_aggregate: False leaves the directory's `database.json` alone (with push=False only): a batch
+            writes it once at the end with write_aggregate_for() rather than reading every record again per title.
+        :param heatmap_png/heatmap_relative_path: the heatmap image, written beside the report image; its URL is the
+            record's second image (`spectrum_url`) where the report image is the first (`pva_url`).
         :return: {'record': the rendered object, 'filter_commit': its commit sha (push only),
             'image_url': the image's raw URL, if an image was published}.
         '''
@@ -428,6 +467,14 @@ class Session:
             meta.spectrum_url = image_url
             meta.pva_url = image_url
             result['image_url'] = image_url
+            if heatmap_png is not None and heatmap_relative_path is not None:
+                if push:
+                    meta.spectrum_url = push_image(heatmap_png, images_repo, heatmap_relative_path, owner=image_owner,
+                                                   repo_name=image_repo_name)
+                else:
+                    write_files(images_repo, {heatmap_relative_path: heatmap_png})
+                    meta.spectrum_url = git_image_url(images_repo, heatmap_relative_path, image_owner, image_repo_name)
+                result['heatmap_url'] = meta.spectrum_url
 
         existing = None
         try:
@@ -437,33 +484,14 @@ class Session:
             pass
         record = self.to_catalogue_record(filters, meta, existing)
         record_bytes = (json.dumps(record, indent=2, ensure_ascii=False) + '\n').encode('utf-8')
-        records = {}
-        root = xml_repo.local_path
         record_dir = os.path.dirname(xml_relative_path).replace(os.sep, '/')
-        scan_root = fs_path(xml_repo, record_dir) if record_dir else root
-        if os.path.isdir(scan_root):
-            for folder, dirs, names in os.walk(scan_root):
-                dirs[:] = [name for name in dirs if name != '.git']
-                for name in names:
-                    if not name.endswith('.json') or name == 'database.json':
-                        continue
-                    path = os.path.join(folder, name)
-                    relative = os.path.relpath(path, root).replace(os.sep, '/')
-                    try:
-                        with open(path, encoding='utf-8') as handle:
-                            candidate = json.load(handle)
-                        if isinstance(candidate, dict):
-                            records[relative] = candidate
-                    except (OSError, ValueError):
-                        continue
-        records[xml_relative_path] = record
-        database_relative_path = aggregate_path(record_dir)
         result['record'] = record
-        files = {xml_relative_path: record_bytes, database_relative_path: aggregate(records)}
+        files = {xml_relative_path: record_bytes}
+        if push or write_aggregate:
+            files[aggregate_path(record_dir)] = aggregate(
+                {**read_records(xml_repo, record_dir), xml_relative_path: record})
+        write_files(xml_repo, files)
         if push:
-            write_files(xml_repo, files)
             result['filter_commit'] = commit_paths(xml_repo, list(files), f'Publish BEQ filter: {meta.title}')
             push_repo(xml_repo)
-        else:
-            write_files(xml_repo, files)
         return result
