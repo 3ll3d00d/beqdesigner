@@ -334,14 +334,23 @@ refuses to start unless it is bound to `127.0.0.1` and started with
 `/openapi.json` are readable without a token (the calls made from them still
 need it). TLS is left to a reverse proxy; the compose example notes it.
 
-**Tests (S3):** `TestClient` over the app with a fixture index and a fake
-`JobManager`/`run_stages`: every route's happy path and its 4xx (unknown id,
-unknown source, extra field, bad enum, guard 403, cancel of a finished job
-409, missing/wrong token 401); query-string and body forms of the filter
-select the same rows; the SSE stream delivers backlog then live events and
-closes; the committed OpenAPI document matches the generated one; the
-document validates as OpenAPI 3.1 (`openapi-spec-validator`, dev only);
-secrets never appear in a job's events or `error`.
+**As built (S3).** `pipeline/service/models.py`, `api.py` (run as
+`python -m pipeline.service.api` it prints the document) and `__main__.py`;
+user page `docs/library/service.md`. Deviations: Swagger UI and ReDoc are not
+vendored into the repository -- `--static-dir`/`BEQ_SERVICE_STATIC` serves a
+local copy, which the image (S5) fetches pinned at build; without one they
+load from a CDN. `/v1/titles` pages after the index query, not in SQL. Added
+`GET /v1/jobs/{id}/log` (the events as a list; it also puts `JobEvent` in the
+schemas). The document is release-free (`/health` gives the release), and
+FastAPI's own 422 schema is replaced by `Problem`. uvicorn re-raises the
+signal that stopped it, which would end the process before the running job is
+stopped; the entry point handles SIGTERM itself and exits 0. A filesystem
+source records no year, so `year` selects its titles only once TMDB has named
+them. Starlette's TestClient cannot follow a stream, so the SSE test uses a
+real server. `/v1/schedule` and `/v1/notify/test` come with S4 and S6.
+
+**Tests (S3):** `test_pipeline_service_api.py` (every route, its 4xx, auth, the
+stream, the committed document and its validity) and `test_pipeline_service_main.py`.
 
 ## 7. Configuration
 
@@ -465,7 +474,7 @@ extraction path the image depends on (§10.1 there).
 | S0 | Qt-free extraction path ([docker.md §10.1](pipeline-service/docker.md)): no `qtpy`/`PyQt6` reachable from `pipeline/` | -- | Done: `55c3425`, `5d136d3`, `579f542`, `4929e93` and the "S0 done" commit after it (see docker.md §10.1 "As built") |
 | S1 | `Selection.kind` and `Selection.year` (expression), shared `year.py`, index SQL, CLI `--kind`/`--year` | -- | Done (§3 "As built") |
 | S2 | `pipeline/service`: config, per-job profile context, `JobManager`, history, work-dir lease (+ work list honours it) | S1 | Done (§5.1 "As built") |
-| S3 | FastAPI app, models, routes, auth, SSE, committed OpenAPI doc + drift test, vendored Swagger UI, `docs/` page | S2 | Not started |
+| S3 | FastAPI app, models, routes, auth, SSE, committed OpenAPI doc + drift test, vendored Swagger UI, `docs/` page | S2 | Done (§6.7 "As built") |
 | S4 | Auto scheduler and `/v1/schedule` | S3 | Not started |
 | S5 | Docker image (no Qt), compose example, CI smoke job, GHCR publish on tag | S0, S3 (S4 for the schedule in the example) | Not started |
 | S6 | Notifications: `notify` targets, events, typed payload in OpenAPI `webhooks`, test route | S4 | Not started |

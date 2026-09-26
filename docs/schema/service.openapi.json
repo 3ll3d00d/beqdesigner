@@ -1,0 +1,2997 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "BEQDesigner pipeline service",
+    "summary": "Scan a library, extract and design BEQ filters for titles chosen by filter, on demand or on a schedule, and follow the jobs that do it.",
+    "description": "Reviewing a design stays in the BEQDesigner app. Every /v1 route needs the bearer token (Authorize, above). `GET /health` says which release this is.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "service"
+        ],
+        "summary": "Liveness",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ready": {
+      "get": {
+        "tags": [
+          "service"
+        ],
+        "summary": "Readiness",
+        "operationId": "ready_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Readiness"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Readiness"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/status": {
+      "get": {
+        "tags": [
+          "service"
+        ],
+        "summary": "What the service is doing",
+        "operationId": "status_v1_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceStatus"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/titles": {
+      "get": {
+        "tags": [
+          "titles"
+        ],
+        "summary": "List titles, filtered",
+        "operationId": "titles_v1_titles_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "needs",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/Needs"
+              },
+              "description": "What the title needs next (any of these).",
+              "title": "Needs"
+            },
+            "description": "What the title needs next (any of these)."
+          },
+          {
+            "name": "new_since_scan",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Only titles first seen by the latest scan.",
+              "default": false,
+              "title": "New Since Scan"
+            },
+            "description": "Only titles first seen by the latest scan."
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only titles from this source of the profile, by its name.",
+              "title": "Source"
+            },
+            "description": "Only titles from this source of the profile, by its name."
+          },
+          {
+            "name": "match",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Case-insensitive text in the title, name, id or path.",
+              "title": "Match"
+            },
+            "description": "Case-insensitive text in the title, name, id or path."
+          },
+          {
+            "name": "ids",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Only these titles, by catalogue id.",
+              "title": "Ids"
+            },
+            "description": "Only these titles, by catalogue id."
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Kind"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "name": "year",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[ \\t]*(?:(?:<=|>=|<|>|==|=)?[ \\t]*[0-9]{4}|[0-9]{4}[ \\t]*-[ \\t]*[0-9]{4})[ \\t]*$",
+                  "description": "A year (2026), a comparison (<1960, <=1960, >1999, >=1999) or an inclusive range (1990-1999). A title with no year never matches.",
+                  "examples": [
+                    "2026",
+                    ">=2020",
+                    "<1960",
+                    "1990-1999"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Year"
+            }
+          },
+          {
+            "name": "include_done",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Include titles that need nothing (as the work list does only on Done).",
+              "default": false,
+              "title": "Include Done"
+            },
+            "description": "Include titles that need nothing (as the work list does only on Done)."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TitlePage"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/titles/{title_id}": {
+      "get": {
+        "tags": [
+          "titles"
+        ],
+        "summary": "One title",
+        "operationId": "title_v1_titles__title_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "title_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Title Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Title"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "503": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/plan": {
+      "post": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "What a run would do (changes nothing)",
+        "operationId": "plan_v1_plan_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunJobRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanPreview"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/jobs/scan": {
+      "post": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "List the sources again",
+        "operationId": "submit_scan_v1_jobs_scan_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScanJobRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Queued; `Location` names the job.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ScanJob"
+                    },
+                    {
+                      "$ref": "#/components/schemas/RunJob"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AcceptJob"
+                    }
+                  ],
+                  "title": "Response Submit Scan V1 Jobs Scan Post",
+                  "discriminator": {
+                    "propertyName": "kind",
+                    "mapping": {
+                      "scan": "#/components/schemas/ScanJob",
+                      "run": "#/components/schemas/RunJob",
+                      "accept": "#/components/schemas/AcceptJob"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/jobs/run": {
+      "post": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Extract, design (and, if allowed, publish or commit) the titles a filter selects",
+        "operationId": "submit_run_v1_jobs_run_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunJobRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Queued; `Location` names the job.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ScanJob"
+                    },
+                    {
+                      "$ref": "#/components/schemas/RunJob"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AcceptJob"
+                    }
+                  ],
+                  "title": "Response Submit Run V1 Jobs Run Post",
+                  "discriminator": {
+                    "propertyName": "kind",
+                    "mapping": {
+                      "scan": "#/components/schemas/ScanJob",
+                      "run": "#/components/schemas/RunJob",
+                      "accept": "#/components/schemas/AcceptJob"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/jobs/accept": {
+      "post": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Accept the designer's top pick for confident titles (needs allow_repository_writes, unless a dry run)",
+        "operationId": "submit_accept_v1_jobs_accept_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptJobRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Queued; `Location` names the job.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ScanJob"
+                    },
+                    {
+                      "$ref": "#/components/schemas/RunJob"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AcceptJob"
+                    }
+                  ],
+                  "title": "Response Submit Accept V1 Jobs Accept Post",
+                  "discriminator": {
+                    "propertyName": "kind",
+                    "mapping": {
+                      "scan": "#/components/schemas/ScanJob",
+                      "run": "#/components/schemas/RunJob",
+                      "accept": "#/components/schemas/AcceptJob"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/jobs": {
+      "get": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Jobs, newest first",
+        "operationId": "jobs_v1_jobs_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/JobState"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/JobKind"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobList"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/jobs/{job_id}": {
+      "get": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "One job",
+        "operationId": "job_v1_jobs__job_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ScanJob"
+                    },
+                    {
+                      "$ref": "#/components/schemas/RunJob"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AcceptJob"
+                    }
+                  ],
+                  "discriminator": {
+                    "propertyName": "kind",
+                    "mapping": {
+                      "scan": "#/components/schemas/ScanJob",
+                      "run": "#/components/schemas/RunJob",
+                      "accept": "#/components/schemas/AcceptJob"
+                    }
+                  },
+                  "title": "Response Job V1 Jobs  Job Id  Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/jobs/{job_id}/cancel": {
+      "post": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Cancel: a queued job is dropped, a running one stops before its next title",
+        "operationId": "cancel_v1_jobs__job_id__cancel_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/ScanJob"
+                    },
+                    {
+                      "$ref": "#/components/schemas/RunJob"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AcceptJob"
+                    }
+                  ],
+                  "discriminator": {
+                    "propertyName": "kind",
+                    "mapping": {
+                      "scan": "#/components/schemas/ScanJob",
+                      "run": "#/components/schemas/RunJob",
+                      "accept": "#/components/schemas/AcceptJob"
+                    }
+                  },
+                  "title": "Response Cancel V1 Jobs  Job Id  Cancel Post"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/jobs/{job_id}/log": {
+      "get": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "What the job has reported so far (the last 500 events)",
+        "operationId": "log_v1_jobs__job_id__log_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Only events after this seq.",
+              "default": 0,
+              "title": "After"
+            },
+            "description": "Only events after this seq."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/JobEvent"
+                  },
+                  "title": "Response Log V1 Jobs  Job Id  Log Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/jobs/{job_id}/events": {
+      "get": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Follow a job: its events as they happen (Server-Sent Events)",
+        "operationId": "events_v1_jobs__job_id__events_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A stream of JobEvent, one per `data:` line, until the job ends.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobEvent"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AcceptJob": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/JobOrigin"
+          },
+          "state": {
+            "$ref": "#/components/schemas/JobState"
+          },
+          "submitted_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Submitted At"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "progress": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Progress"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error",
+            "description": "Why the job itself failed (a title that failed is in the result)."
+          },
+          "kind": {
+            "type": "string",
+            "const": "accept",
+            "title": "Kind",
+            "default": "accept"
+          },
+          "request": {
+            "$ref": "#/components/schemas/AcceptJobRequest"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AcceptResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "origin",
+          "state",
+          "submitted_at",
+          "started_at",
+          "finished_at",
+          "progress",
+          "request",
+          "result"
+        ],
+        "title": "AcceptJob"
+      },
+      "AcceptJobRequest": {
+        "properties": {
+          "filter": {
+            "$ref": "#/components/schemas/TitleFilter"
+          },
+          "threshold": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Threshold",
+            "description": "Accept the designer's top pick at least this confident.",
+            "default": 0.9
+          },
+          "dry_run": {
+            "type": "boolean",
+            "title": "Dry Run",
+            "description": "Say what would be accepted and change nothing.",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "AcceptJobRequest"
+      },
+      "AcceptResult": {
+        "properties": {
+          "dry_run": {
+            "type": "boolean",
+            "title": "Dry Run"
+          },
+          "threshold": {
+            "type": "number",
+            "title": "Threshold"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note",
+            "default": ""
+          },
+          "accepted": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Accepted",
+            "description": "Accepted (or, in a dry run, that would be)."
+          },
+          "excluded": {
+            "items": {
+              "$ref": "#/components/schemas/SkippedTitle"
+            },
+            "type": "array",
+            "title": "Excluded",
+            "description": "Confident enough, but left for a person, and why."
+          },
+          "below_threshold": {
+            "type": "integer",
+            "title": "Below Threshold"
+          },
+          "not_for_review": {
+            "type": "integer",
+            "title": "Not For Review"
+          }
+        },
+        "type": "object",
+        "required": [
+          "dry_run",
+          "threshold",
+          "accepted",
+          "excluded",
+          "below_threshold",
+          "not_for_review"
+        ],
+        "title": "AcceptResult"
+      },
+      "CatalogueCommit": {
+        "properties": {
+          "xml": {
+            "$ref": "#/components/schemas/RepoCommit"
+          },
+          "images": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RepoCommit"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "missing": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Missing"
+          },
+          "not_committed": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Not Committed"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          }
+        },
+        "type": "object",
+        "required": [
+          "xml",
+          "missing",
+          "not_committed",
+          "warnings"
+        ],
+        "title": "CatalogueCommit"
+      },
+      "Check": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "ok"
+        ],
+        "title": "Check"
+      },
+      "Flag": {
+        "type": "string",
+        "enum": [
+          "Ignored",
+          "Shadowed",
+          "Gone",
+          "Possible duplicate",
+          "Already in catalogue"
+        ],
+        "title": "Flag"
+      },
+      "Health": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ok",
+            "title": "Status",
+            "default": "ok"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version"
+        ],
+        "title": "Health"
+      },
+      "IndexStatus": {
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "title": "Generation"
+          },
+          "last_scan_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Scan At"
+          },
+          "titles": {
+            "type": "integer",
+            "title": "Titles"
+          },
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Counts",
+            "description": "Titles per needs."
+          },
+          "new": {
+            "type": "integer",
+            "title": "New"
+          },
+          "flags": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Flags"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/SourceStatus"
+            },
+            "type": "array",
+            "title": "Sources"
+          }
+        },
+        "type": "object",
+        "required": [
+          "generation",
+          "last_scan_at",
+          "titles",
+          "counts",
+          "new",
+          "flags",
+          "sources"
+        ],
+        "title": "IndexStatus"
+      },
+      "JobEvent": {
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "title": "Seq"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "At"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "state",
+              "progress",
+              "ffmpeg",
+              "event"
+            ],
+            "title": "Type"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State",
+            "description": "type state: the job state it entered (or cancelling)."
+          },
+          "done": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Done"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id",
+            "description": "The title id (progress, ffmpeg)."
+          },
+          "out_time_micros": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Out Time Micros"
+          },
+          "total_micros": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Micros"
+          },
+          "title_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title Id"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind",
+            "description": "type event: what happened (stage_started, command_finished, ...)."
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text",
+            "description": "type event: the redacted text a person reads."
+          }
+        },
+        "type": "object",
+        "required": [
+          "seq",
+          "at",
+          "type"
+        ],
+        "title": "JobEvent",
+        "description": "One thing a job reported, in order (`seq`); `type` says which fields it has. "
+      },
+      "JobKind": {
+        "type": "string",
+        "enum": [
+          "scan",
+          "run",
+          "accept"
+        ],
+        "title": "JobKind"
+      },
+      "JobList": {
+        "properties": {
+          "jobs": {
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/ScanJob"
+                },
+                {
+                  "$ref": "#/components/schemas/RunJob"
+                },
+                {
+                  "$ref": "#/components/schemas/AcceptJob"
+                }
+              ],
+              "discriminator": {
+                "propertyName": "kind",
+                "mapping": {
+                  "accept": "#/components/schemas/AcceptJob",
+                  "run": "#/components/schemas/RunJob",
+                  "scan": "#/components/schemas/ScanJob"
+                }
+              }
+            },
+            "type": "array",
+            "title": "Jobs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "jobs"
+        ],
+        "title": "JobList"
+      },
+      "JobOrigin": {
+        "type": "string",
+        "enum": [
+          "api",
+          "schedule"
+        ],
+        "title": "JobOrigin"
+      },
+      "JobState": {
+        "type": "string",
+        "enum": [
+          "queued",
+          "running",
+          "succeeded",
+          "failed",
+          "cancelled",
+          "interrupted"
+        ],
+        "title": "JobState"
+      },
+      "Kind": {
+        "type": "string",
+        "enum": [
+          "movie",
+          "tv"
+        ],
+        "title": "Kind"
+      },
+      "Needs": {
+        "type": "string",
+        "enum": [
+          "attention",
+          "review",
+          "extract",
+          "design",
+          "publish",
+          "commit",
+          "done"
+        ],
+        "title": "Needs"
+      },
+      "PlanPreview": {
+        "properties": {
+          "through": {
+            "$ref": "#/components/schemas/Through"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "description": "What the work list's action button would say."
+          },
+          "planned": {
+            "items": {
+              "$ref": "#/components/schemas/PlannedTitle"
+            },
+            "type": "array",
+            "title": "Planned"
+          },
+          "skipped": {
+            "items": {
+              "$ref": "#/components/schemas/SkippedTitle"
+            },
+            "type": "array",
+            "title": "Skipped"
+          }
+        },
+        "type": "object",
+        "required": [
+          "through",
+          "label",
+          "planned",
+          "skipped"
+        ],
+        "title": "PlanPreview"
+      },
+      "PlannedTitle": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/Through"
+            },
+            "type": "array",
+            "title": "Stages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "stages"
+        ],
+        "title": "PlannedTitle"
+      },
+      "Problem": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "title": "Type",
+            "default": "about:blank"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "status": {
+            "type": "integer",
+            "title": "Status"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail",
+            "default": ""
+          },
+          "errors": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errors",
+            "description": "Field-level validation errors."
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "status"
+        ],
+        "title": "Problem",
+        "description": "An error, as RFC 9457 problem details. "
+      },
+      "Progress": {
+        "properties": {
+          "done": {
+            "type": "integer",
+            "title": "Done",
+            "description": "Title-stages finished."
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "description": "The title starting now."
+          },
+          "stage": {
+            "type": "string",
+            "title": "Stage"
+          },
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "done",
+          "total",
+          "title",
+          "stage"
+        ],
+        "title": "Progress"
+      },
+      "PublishError": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "error": {
+            "type": "string",
+            "title": "Error"
+          },
+          "problems": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Problems"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "id",
+          "error"
+        ],
+        "title": "PublishError"
+      },
+      "PublishedTitle": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Url"
+          },
+          "republished": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Republished"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "PublishedTitle"
+      },
+      "Readiness": {
+        "properties": {
+          "ready": {
+            "type": "boolean",
+            "title": "Ready"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/Check"
+            },
+            "type": "array",
+            "title": "Checks"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ready",
+          "checks"
+        ],
+        "title": "Readiness"
+      },
+      "RepoCommit": {
+        "properties": {
+          "repo": {
+            "type": "string",
+            "title": "Repo"
+          },
+          "paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Paths"
+          },
+          "commit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commit"
+          },
+          "pushed": {
+            "type": "boolean",
+            "title": "Pushed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "repo",
+          "paths",
+          "commit",
+          "pushed"
+        ],
+        "title": "RepoCommit"
+      },
+      "RunJob": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/JobOrigin"
+          },
+          "state": {
+            "$ref": "#/components/schemas/JobState"
+          },
+          "submitted_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Submitted At"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "progress": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Progress"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error",
+            "description": "Why the job itself failed (a title that failed is in the result)."
+          },
+          "kind": {
+            "type": "string",
+            "const": "run",
+            "title": "Kind",
+            "default": "run"
+          },
+          "request": {
+            "$ref": "#/components/schemas/RunJobRequest"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RunResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "origin",
+          "state",
+          "submitted_at",
+          "started_at",
+          "finished_at",
+          "progress",
+          "request",
+          "result"
+        ],
+        "title": "RunJob"
+      },
+      "RunJobRequest": {
+        "properties": {
+          "filter": {
+            "$ref": "#/components/schemas/TitleFilter"
+          },
+          "through": {
+            "$ref": "#/components/schemas/Through",
+            "description": "Run every stage up to this one that each title still needs. A title waiting for review is never taken past design.",
+            "default": "design"
+          },
+          "scan_first": {
+            "type": "boolean",
+            "title": "Scan First",
+            "description": "List the sources before selecting, so new titles are seen.",
+            "default": true
+          },
+          "retry_failed": {
+            "type": "boolean",
+            "title": "Retry Failed",
+            "description": "Also run titles whose extraction or design failed before.",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "RunJobRequest"
+      },
+      "RunResult": {
+        "properties": {
+          "scan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScanResult"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The scan taken first, if one was."
+          },
+          "through": {
+            "$ref": "#/components/schemas/Through"
+          },
+          "selected": {
+            "type": "integer",
+            "title": "Selected"
+          },
+          "extracted": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Extracted"
+          },
+          "cached": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Cached"
+          },
+          "designed": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Designed"
+          },
+          "design_cached": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Design Cached"
+          },
+          "failed": {
+            "items": {
+              "$ref": "#/components/schemas/TitleMessage"
+            },
+            "type": "array",
+            "title": "Failed"
+          },
+          "failed_earlier": {
+            "items": {
+              "$ref": "#/components/schemas/TitleMessage"
+            },
+            "type": "array",
+            "title": "Failed Earlier",
+            "description": "Not tried: failed before with the same source and settings."
+          },
+          "meta_unresolved": {
+            "items": {
+              "$ref": "#/components/schemas/TitleMessage"
+            },
+            "type": "array",
+            "title": "Meta Unresolved"
+          },
+          "project_edit_preserved": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Project Edit Preserved"
+          },
+          "seasons": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "type": "object",
+            "title": "Seasons"
+          },
+          "published": {
+            "items": {
+              "$ref": "#/components/schemas/PublishedTitle"
+            },
+            "type": "array",
+            "title": "Published"
+          },
+          "publish_errors": {
+            "items": {
+              "$ref": "#/components/schemas/PublishError"
+            },
+            "type": "array",
+            "title": "Publish Errors"
+          },
+          "committed": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CatalogueCommit"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "commit_error": {
+            "type": "string",
+            "title": "Commit Error"
+          },
+          "skipped": {
+            "items": {
+              "$ref": "#/components/schemas/SkippedTitle"
+            },
+            "type": "array",
+            "title": "Skipped"
+          },
+          "cancelled": {
+            "type": "boolean",
+            "title": "Cancelled"
+          },
+          "attempted": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Attempted"
+          },
+          "not_run": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Not Run"
+          },
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Counts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "through",
+          "selected",
+          "extracted",
+          "cached",
+          "designed",
+          "design_cached",
+          "failed",
+          "failed_earlier",
+          "meta_unresolved",
+          "project_edit_preserved",
+          "seasons",
+          "published",
+          "publish_errors",
+          "committed",
+          "commit_error",
+          "skipped",
+          "cancelled",
+          "attempted",
+          "not_run",
+          "counts"
+        ],
+        "title": "RunResult"
+      },
+      "ScanJob": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "origin": {
+            "$ref": "#/components/schemas/JobOrigin"
+          },
+          "state": {
+            "$ref": "#/components/schemas/JobState"
+          },
+          "submitted_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Submitted At"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "progress": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Progress"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error",
+            "description": "Why the job itself failed (a title that failed is in the result)."
+          },
+          "kind": {
+            "type": "string",
+            "const": "scan",
+            "title": "Kind",
+            "default": "scan"
+          },
+          "request": {
+            "$ref": "#/components/schemas/ScanJobRequest"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScanResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "origin",
+          "state",
+          "submitted_at",
+          "started_at",
+          "finished_at",
+          "progress",
+          "request",
+          "result"
+        ],
+        "title": "ScanJob"
+      },
+      "ScanJobRequest": {
+        "properties": {
+          "sources": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Sources",
+            "description": "Sources to list again, by name; none is all of them."
+          },
+          "allow_empty": {
+            "type": "boolean",
+            "title": "Allow Empty",
+            "description": "A source that now lists nothing replaces its titles (else it keeps them: an unmounted share).",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ScanJobRequest"
+      },
+      "ScanResult": {
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "title": "Generation"
+          },
+          "titles": {
+            "type": "integer",
+            "title": "Titles"
+          },
+          "new": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "New"
+          },
+          "gone": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Gone"
+          },
+          "dropped": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Dropped"
+          },
+          "errors": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Errors",
+            "description": "Source name -> why it could not be listed (its titles are kept)."
+          },
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Counts",
+            "description": "Titles per needs."
+          },
+          "superseded": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Superseded"
+          }
+        },
+        "type": "object",
+        "required": [
+          "generation",
+          "titles",
+          "new",
+          "gone",
+          "dropped",
+          "errors",
+          "counts"
+        ],
+        "title": "ScanResult"
+      },
+      "ServiceStatus": {
+        "properties": {
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "index": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IndexStatus"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "None until the first scan."
+          },
+          "current_job": {
+            "anyOf": [
+              {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/ScanJob"
+                  },
+                  {
+                    "$ref": "#/components/schemas/RunJob"
+                  },
+                  {
+                    "$ref": "#/components/schemas/AcceptJob"
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "kind",
+                  "mapping": {
+                    "accept": "#/components/schemas/AcceptJob",
+                    "run": "#/components/schemas/RunJob",
+                    "scan": "#/components/schemas/ScanJob"
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Job"
+          },
+          "queued": {
+            "type": "integer",
+            "title": "Queued"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version",
+          "index",
+          "current_job",
+          "queued"
+        ],
+        "title": "ServiceStatus"
+      },
+      "SkippedTitle": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "reason"
+        ],
+        "title": "SkippedTitle"
+      },
+      "SourceStatus": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "last_scanned": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Scanned"
+          },
+          "last_ok": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Ok"
+          },
+          "last_error": {
+            "type": "string",
+            "title": "Last Error"
+          },
+          "item_count": {
+            "type": "integer",
+            "title": "Item Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "kind",
+          "last_scanned",
+          "last_ok",
+          "last_error",
+          "item_count"
+        ],
+        "title": "SourceStatus"
+      },
+      "Through": {
+        "type": "string",
+        "enum": [
+          "extract",
+          "design",
+          "publish",
+          "commit"
+        ],
+        "title": "Through"
+      },
+      "Tier": {
+        "type": "string",
+        "enum": [
+          "attention",
+          "human",
+          "machine",
+          "done"
+        ],
+        "title": "Tier"
+      },
+      "Title": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "year": {
+            "type": "string",
+            "title": "Year"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/Kind"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "season": {
+            "type": "string",
+            "title": "Season"
+          },
+          "episodes": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Episodes"
+          },
+          "external_ids": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "External Ids"
+          },
+          "needs": {
+            "$ref": "#/components/schemas/Needs"
+          },
+          "tier": {
+            "$ref": "#/components/schemas/Tier"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          },
+          "flags": {
+            "items": {
+              "$ref": "#/components/schemas/Flag"
+            },
+            "type": "array",
+            "title": "Flags"
+          },
+          "extract_state": {
+            "type": "string",
+            "title": "Extract State"
+          },
+          "design_state": {
+            "type": "string",
+            "title": "Design State"
+          },
+          "review_state": {
+            "type": "string",
+            "title": "Review State"
+          },
+          "publish_state": {
+            "type": "string",
+            "title": "Publish State"
+          },
+          "commit_state": {
+            "type": "string",
+            "title": "Commit State"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          },
+          "candidate_count": {
+            "type": "integer",
+            "title": "Candidate Count"
+          },
+          "failure": {
+            "type": "string",
+            "title": "Failure"
+          },
+          "is_new": {
+            "type": "boolean",
+            "title": "Is New"
+          },
+          "state_since": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State Since"
+          },
+          "last_seen": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "display_name",
+          "year",
+          "kind",
+          "source",
+          "path",
+          "season",
+          "episodes",
+          "external_ids",
+          "needs",
+          "tier",
+          "detail",
+          "flags",
+          "extract_state",
+          "design_state",
+          "review_state",
+          "publish_state",
+          "commit_state",
+          "confidence",
+          "candidate_count",
+          "failure",
+          "is_new",
+          "state_since",
+          "last_seen"
+        ],
+        "title": "Title"
+      },
+      "TitleFilter": {
+        "properties": {
+          "needs": {
+            "items": {
+              "$ref": "#/components/schemas/Needs"
+            },
+            "type": "array",
+            "title": "Needs",
+            "description": "What the title needs next (any of these)."
+          },
+          "new_since_scan": {
+            "type": "boolean",
+            "title": "New Since Scan",
+            "description": "Only titles first seen by the latest scan.",
+            "default": false
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source",
+            "description": "Only titles from this source of the profile, by its name."
+          },
+          "match": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Match",
+            "description": "Case-insensitive text in the title, name, id or path."
+          },
+          "ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Ids",
+            "description": "Only these titles, by catalogue id."
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Kind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "year": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[ \\t]*(?:(?:<=|>=|<|>|==|=)?[ \\t]*[0-9]{4}|[0-9]{4}[ \\t]*-[ \\t]*[0-9]{4})[ \\t]*$",
+                "description": "A year (2026), a comparison (<1960, <=1960, >1999, >=1999) or an inclusive range (1990-1999). A title with no year never matches.",
+                "examples": [
+                  "2026",
+                  ">=2020",
+                  "<1960",
+                  "1990-1999"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "TitleFilter",
+        "description": "Which titles: the work list's filters. Every field given must hold; none is every title. "
+      },
+      "TitleMessage": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "message"
+        ],
+        "title": "TitleMessage"
+      },
+      "TitlePage": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "Titles the filter matches."
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "titles": {
+            "items": {
+              "$ref": "#/components/schemas/Title"
+            },
+            "type": "array",
+            "title": "Titles"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "offset",
+          "limit",
+          "titles"
+        ],
+        "title": "TitlePage"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "type": "http",
+        "description": "The service token (BEQ_SERVICE_TOKEN).",
+        "scheme": "bearer"
+      }
+    }
+  }
+}

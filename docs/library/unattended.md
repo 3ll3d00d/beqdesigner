@@ -2,6 +2,8 @@ The machine stages of the workflow (discovery, extract and design) can run witho
 
 This is done with a command line tool that ships with the source, `pipeline.library.cli`. It is run with Python from a checkout of BEQDesigner (see the [readme](https://github.com/3ll3d00d/beqdesigner/blob/main/readme.md) for setting one up); the release downloads do not include a command for it. It is described in full, with every option, in the [pipeline README](https://github.com/3ll3d00d/beqdesigner/blob/main/src/main/python/pipeline/README.md#library-sync-cli); `-h` after any command lists its options. This page only says how it relates to the work list.
 
+To drive the same work over HTTP instead, see [the pipeline service](service.md).
+
 ### A scheduled job
 
 A nightly job is three commands:

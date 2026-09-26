@@ -49,6 +49,7 @@ nav:
       - 'Publish and Commit': library/publish.md
       - 'Revise': library/revise.md
       - 'Unattended Runs': library/unattended.md
+      - 'The Pipeline Service': library/service.md
   - Workflow:
       - 'A Worked Example': workflow/beq.md
       - 'Remuxing': workflow/remux.md

@@ -81,11 +81,14 @@ class Selection:
         ''' True if nothing narrows it: every title. '''
         return self == Selection()
 
-    def rows(self, index: LibraryIndex) -> List[TitleRow]:
-        ''' The matching titles, in work-list order (tier, then oldest waiting first). '''
+    def rows(self, index: LibraryIndex, *, include_done: bool = True) -> List[TitleRow]:
+        '''
+        The matching titles, in work-list order (tier, then oldest waiting first).
+        :param include_done: False leaves out titles that need nothing, unless `needs` asks for them (the work list's view).
+        '''
         return index.titles(needs=list(self.needs) or None, source=self.source, match=self.match,
                             ids=list(self.ids) if self.ids else None, new_only=self.new_since_scan, kind=self.kind,
-                            year=self.year_range)
+                            year=self.year_range, include_done=include_done or 'done' in self.needs)
 
     def describe(self) -> str:
         ''' The selection in words, for a log line or a confirmation. '''

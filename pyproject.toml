@@ -42,6 +42,14 @@ dev = [
     "atomicwrites",
     "scipy-stubs",
     "pytest-qt>=4.5.0",
+    "httpx>=0.28.1",
+    "openapi-spec-validator>=0.9.0",
+    { include-group = "service" },   # the pipeline service's tests run with the rest
+]
+service = [   # the pipeline service (python -m pipeline.service; its Docker image): not in the desktop app
+    "fastapi>=0.115",
+    "pydantic>=2.7",
+    "uvicorn[standard]>=0.30",
 ]
 
 [tool.uv]
