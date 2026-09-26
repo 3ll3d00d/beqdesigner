@@ -88,7 +88,7 @@ def test_a_run_needs_titles():
 
 def test_commit_results_use_reviewed_metadata_for_category_folder(rows, monkeypatch):
     monkeypatch.setattr('model.worklist_run.read_entry', lambda queue_dir, title_id:
-                        SimpleNamespace(meta={'season': '1'}))
+                        SimpleNamespace(meta={'season': '1'}, published_stem=None))
     plan = _plan(rows, 'commit', 'c1')  # the source row is a movie; the reviewed metadata makes it TV
     settings = ScanSettings('/w', '/q', category_folders=True)
     report = StagesReport('commit', 1, committed=CatalogueCommit(RepoCommit('/filters', ['tv/c1.json'], 'abc')))
