@@ -19,6 +19,7 @@ item that requires evidence from a real one.
 | O1 | D6 | Optional idea; no implementation decision | Product decision |
 | O2 | former §9 reviewer questions | Behavior exists; acceptance decision missing | Real reviewer feedback |
 | T1 | -- | Watch; not reproduced | Recurrence with a stack dump |
+| T2 | -- | Watch; seen once | Recurrence with its failure message |
 | S5 validation | -- | S0-S7 implemented; Docker image build/smoke awaits first CI run | CI on push |
 
 ## External evidence and disc behavior
@@ -169,6 +170,18 @@ recurs, capture stacks with a throwaway plugin that calls
 `faulthandler.dump_traceback_later(45, file=<per-worker file>)` around
 each test (`-p <plugin>`), and fix what the dump shows. Close this if it
 has not recurred after a few weeks of routine runs.
+
+### T2 — Intermittent ffmpeg-progress test failure
+
+On 2026-09-26 one full `pytest -n auto` run failed
+`test_pipeline_library_extract_cache.py::test_extract_if_needed_forwards_ffmpegs_time_progress`;
+it had passed in the full runs just before, and the file passed 3 of 3 runs
+alone afterwards. The failure
+message was not captured. The suspected, unconfirmed cause: the test
+extracts a 1 s synthetic wav and needs at least one progress report with
+`out_time > 0`, which is racy under full parallel load. If it recurs, record the
+assertion that failed; if the cause is confirmed, lengthen the source or
+accept a run whose only report comes at the end, rather than retrying.
 
 ## Optional idea
 
