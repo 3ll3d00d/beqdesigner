@@ -163,7 +163,7 @@ def test_publish_then_commit_and_push_through_the_real_pipeline_one_commit_per_r
     assert sorted((l.title, l.outcome) for l in window.results) == [('Film a', 'Published'), ('Film b', 'Published')]
     assert _needs(window) == {'fs-a': 'commit', 'fs-b': 'commit'}          # moved on, without a rescan
     assert (window.publishButton.text(), window.commitButton.text()) == ('Publish 0', 'Commit 2')
-    assert os.path.isfile(os.path.join(xml.local_path, XML_DIR, 'fs-a.json'))
+    assert os.path.isfile(os.path.join(xml.local_path, XML_DIR, 'movies', 'fs-a.json'))
     assert (_commit_count(xml_bare), _commit_count(images_bare)) == before   # nothing committed or pushed yet
 
     # Commit with push ticked: one commit per repository, the remotes receive them
@@ -180,7 +180,7 @@ def test_publish_then_commit_and_push_through_the_real_pipeline_one_commit_per_r
     assert _commit_count(xml_bare) == before[0] + 1 and _commit_count(images_bare) == before[1] + 1
     assert _subjects(xml_bare)[0].startswith('Publish ') and 'BEQ filters' in _subjects(xml_bare)[0]
     assert _subjects(images_bare)[0].startswith('Publish ') and 'report images' in _subjects(images_bare)[0]
-    assert f'{XML_DIR}/fs-a.json' in _files_on_remote(xml_bare) and f'{IMAGE_DIR}/fs-b.png' in _files_on_remote(images_bare)
+    assert f'{XML_DIR}/movies/fs-a.json' in _files_on_remote(xml_bare) and f'{IMAGE_DIR}/movies/fs-b.png' in _files_on_remote(images_bare)
     assert _needs(window) == {'fs-a': 'done', 'fs-b': 'done'}
     assert window.runStatusLabel.text() == 'Commit finished: 2 committed, 2 pushed'
     assert any(not event.title_id and event.stage == 'commit' and event.kind == 'stage_started' for event in events)
@@ -242,7 +242,7 @@ def test_a_commit_that_fails_in_git_is_a_clean_per_title_failure_and_the_window_
     _answer(True, [])
     with qtbot.waitSignal(window.run_finished, timeout=60000):
         window.publish_selected()
-    assert os.path.isfile(not_git / XML_DIR / 'fs-a.json')
+    assert os.path.isfile(not_git / XML_DIR / 'movies' / 'fs-a.json')
     assert _needs(window) == {'fs-a': 'commit', 'fs-b': 'commit'}
 
     _answer(True, [], tick=True)

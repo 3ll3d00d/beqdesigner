@@ -65,9 +65,10 @@ def _published(tmp_path, repos, entry_id='p-pub', commit=False):
     xml, _, images, _ = repos
     queue_dir = str(tmp_path / 'queue')
     _queue_entry(queue_dir, entry_id, 'Pub')
-    publish_library(queue_dir, xml, images_repo=images, image_owner=OWNER, image_repo_name=IMAGES_NAME)
+    publish_library(queue_dir, xml, images_repo=images, image_owner=OWNER, image_repo_name=IMAGES_NAME,
+                    category_folders=True)   # as the work list does, by default
     if commit:
-        commit_library(queue_dir, xml, images_repo=images, push=False)
+        commit_library(queue_dir, xml, images_repo=images, push=False, category_folders=True)
         _track(xml)
         _track(images)
     return queue_dir
@@ -329,7 +330,7 @@ def test_a_published_title_is_reopened_from_the_page_with_the_repositories_of_th
     window = _window(qtbot, tmp_path, entries=[], rows=rows, repos_set=repos)
     _open(qtbot, window, 'p-pub')
     page = window.title_page
-    assert os.path.isfile(os.path.join(xml.local_path, 'p-pub.json'))
+    assert os.path.isfile(os.path.join(xml.local_path, 'movies', 'p-pub.json'))
     ask = _Ask('review', 'typo')
     page._hooks.ask_revise = ask
 
@@ -337,8 +338,8 @@ def test_a_published_title_is_reopened_from_the_page_with_the_repositories_of_th
 
     assert ask.asked[0][0].published == 1 and ask.asked[0][1].xml_repo == RepoTarget(xml.local_path)
     assert read_entry(queue, 'p-pub').status == 'pending'
-    assert not os.path.exists(os.path.join(xml.local_path, 'p-pub.json'))      # written, never committed: taken out again
-    assert not os.path.exists(os.path.join(images.local_path, 'p-pub.png'))
+    assert not os.path.exists(os.path.join(xml.local_path, 'movies', 'p-pub.json'))      # written, never committed: taken out again
+    assert not os.path.exists(os.path.join(images.local_path, 'movies', 'p-pub.png'))
 
 
 def test_a_published_title_with_no_xml_repository_set_is_not_reopened_and_says_why(qtbot, tmp_path, repos):
