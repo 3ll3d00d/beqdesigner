@@ -25,8 +25,13 @@ root is `src/main/python`, not the repo root.
 ### Tests
 
 ```sh
-PYTHONPATH=./src/main/python uv run pytest --cov=./src/main/python
+PYTHONPATH=./src/main/python QT_QPA_PLATFORM=offscreen uv run pytest src/test/python --cov=./src/main/python
 ```
+
+- Pass `src/test/python` explicitly. A bare `pytest` also collects stale copies
+  of the tests under `out/` (IDE build output) and fails with import errors.
+- `QT_QPA_PLATFORM=offscreen` lets the `gui/` tests run without a display server.
+- Run a single file or test with e.g. `... uv run pytest src/test/python/model/test_iir.py -k peaking`.
 
 Tests live in `src/test/python/` and run on every push via
 `.github/workflows/test.yaml` across Linux, macOS and Windows.
