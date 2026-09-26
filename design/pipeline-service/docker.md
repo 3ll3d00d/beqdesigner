@@ -1,6 +1,6 @@
 # Pipeline service — Docker image and the Qt-free extraction path
 
-**Status: design, not built.** Part of the [pipeline service design](../pipeline-service.md);
+**Status: S5 implemented in `80cab0d`; CI image smoke has not run yet.** Part of the [pipeline service design](../pipeline-service.md);
 section numbers continue that file's.
 
 ## 10. Docker image (chunk S5)
@@ -47,6 +47,19 @@ section numbers continue that file's.
   `src/main/python/VERSION` is written before the build, as for the app, so
   `/health` reports the release. The smoke test runs against the built image
   before it is pushed.
+
+**As built (S5).** `docker/Dockerfile` uses a pinned uv binary and pinned npm
+Swagger UI/ReDoc packages; the runtime image has ffmpeg, git, SSH and the
+service dependency group, without Qt. The desktop Qt packages moved to a
+default `desktop` group, so normal `uv sync` retains the app. The image runs
+as a non-root user; `docker/compose.example.yaml` shows the mounts and token
+secret. `docker/smoke.py` exercises a built image with a six-channel WAV,
+stub HTTP designer on the host and a review queue assertion in both push CI
+and the tag workflow. The tag workflow publishes amd64 and arm64 to GHCR
+after the smoke run, with `latest` only for non-prerelease tags.
+`uv lock --check --offline`, the focused S5 tests (34) and the full suite
+(2310) passed. Docker is not installed in the local environment, so the
+image build and smoke run await the first CI execution.
 
 ### 10.1 Chunk S0: a Qt-free extraction path
 
