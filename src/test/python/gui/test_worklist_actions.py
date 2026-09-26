@@ -150,6 +150,16 @@ def _update(index_file: str, ids, **columns) -> None:
     db.close()
 
 
+def _wait_for(qtbot, event: threading.Event, timeout: int = 5000) -> None:
+    '''
+    Waits for the fake pipeline's thread to reach `event`, then delivers what it emitted on the way. Its signals are posted to this
+    thread *before* the event is set, but waitUntil() returns without processing events when the event is already set, so an
+    assertion on the window straight after it would race the delivery.
+    '''
+    qtbot.waitUntil(event.is_set, timeout=timeout)
+    QApplication.processEvents()
+
+
 def _window(qtbot, tmp_path, pipeline=None, rows=None, prefs=None, **kwargs):
     prefs = prefs or _prefs(tmp_path)
     index_file = index_path(str(tmp_path / 'work'))
@@ -286,7 +296,7 @@ def test_a_run_happens_off_the_ui_thread_with_determinate_progress_and_a_running
 
     _click(qtbot, window.runButton)
 
-    qtbot.waitUntil(pipeline.entered.is_set, timeout=5000)
+    _wait_for(qtbot, pipeline.entered, timeout=5000)
     qtbot.waitUntil(lambda: bool(window.model.running), timeout=5000)
     # the click returned while the pipeline is mid-title: it is not on the UI thread, and the UI still turns
     assert window.is_running
@@ -408,7 +418,7 @@ def test_open_run_details_appends_events_while_the_title_runs(qtbot, tmp_path):
     window, _ = _window(qtbot, tmp_path, pipeline=pipeline, prefs=_prefs(tmp_path))
     window.select_ids(['x-gravity'])
     window.run_selected()
-    qtbot.waitUntil(reached.is_set, timeout=5000)
+    _wait_for(qtbot, reached, timeout=5000)
     active_row = next(i for i in range(window.proxy.rowCount())
                       if window.proxy.index(i, 0).data(Qt.ItemDataRole.UserRole + 2) == 'x-gravity')
     queued_state = window.proxy.index(active_row, COL_RUN_PROGRESS).data(RUN_STATE_ROLE)
@@ -449,7 +459,7 @@ def test_a_new_run_expires_previous_details_and_ignores_late_events_and_unplanne
 
     window.select_ids(['d-speed'])
     window.run_selected()
-    qtbot.waitUntil(second_entered.is_set, timeout=5000)
+    _wait_for(qtbot, second_entered, timeout=5000)
     try:
         assert (tmp_path / 'work' / '.worklist-run-details.json').read_text() == '{}'
         assert not old_dialog.isVisible()
@@ -514,12 +524,15 @@ def test_ffmpeg_progress_stays_in_each_title_row_while_shared_progress_counts_ti
     window, _ = _window(qtbot, tmp_path, pipeline=pipeline, prefs=_prefs(tmp_path))
     window.select_ids(['x-gravity', 'x-tenet'])
     window.run_selected()
-    qtbot.waitUntil(reached.is_set, timeout=5000)
-    assert window.runProgress.maximum() == 2 and window.runProgress.value() == 0
-    assert window.model.run_state('x-gravity')['current'] == 80
-    assert window.model.run_state('x-tenet')['current'] == 15
-    assert window.model.run_state('x-gravity')['total'] == window.model.run_state('x-tenet')['total'] == 100
-    release.set()
+    # the progress reaches the window as queued signals: wait for the last one, not just for the pipeline to send it
+    qtbot.waitUntil(lambda: reached.is_set() and window.model.run_state('x-tenet').get('current') == 15,
+                    timeout=5000)
+    try:
+        assert window.runProgress.maximum() == 2 and window.runProgress.value() == 0
+        assert window.model.run_state('x-gravity')['current'] == 80
+        assert window.model.run_state('x-gravity')['total'] == window.model.run_state('x-tenet')['total'] == 100
+    finally:
+        release.set()   # a failed assertion must not leave the run held into the next test
     qtbot.waitUntil(lambda: not window.is_running, timeout=5000)
     assert window.runProgress.maximum() == 2 and window.runProgress.value() == 2
 
@@ -662,7 +675,7 @@ def test_cancel_during_extraction_finishes_that_title_and_reports_ui_counts(qtbo
     window, _ = _window(qtbot, tmp_path, pipeline=pipeline, prefs=_prefs(tmp_path))
     window.select_ids(['x-gravity', 'x-tenet'])
     window.run_selected()
-    qtbot.waitUntil(entered.is_set, timeout=5000)
+    _wait_for(qtbot, entered, timeout=5000)
     window.cancel_run()
     release.set()
     qtbot.waitUntil(lambda: not window.is_running, timeout=5000)
@@ -722,7 +735,7 @@ def test_failure_details_and_cancelled_queued_rows_are_retained(qtbot, tmp_path)
     cancel_window, _ = _window(qtbot, tmp_path, pipeline=cancellable, prefs=_prefs(tmp_path))
     cancel_window.select_ids(['x-gravity', 'x-tenet'])
     cancel_window.run_selected()
-    qtbot.waitUntil(reached.is_set, timeout=5000)
+    _wait_for(qtbot, reached, timeout=5000)
     cancel_window.cancel_run()
     release.set()
     qtbot.waitUntil(lambda: not cancel_window.is_running, timeout=5000)
@@ -739,7 +752,7 @@ def test_a_single_in_flight_title_never_looks_complete(qtbot, tmp_path):
 
     window.run_selected()
 
-    qtbot.waitUntil(pipeline.entered.is_set, timeout=5000)
+    _wait_for(qtbot, pipeline.entered, timeout=5000)
     qtbot.waitUntil(lambda: bool(window.model.running), timeout=5000)
     assert window.runProgress.maximum() == 1 and window.runProgress.value() == 0
     with qtbot.waitSignal(window.run_finished, timeout=10000):
@@ -906,7 +919,7 @@ def test_retry_detail_shows_the_current_attempt_until_the_index_has_its_result(q
     title_id = 'a-failed-x'
     assert 'file not found' in _cell(window, title_id, COL_DETAIL)
     assert window.retry_failed([title_id])
-    qtbot.waitUntil(entered.is_set, timeout=5000)
+    _wait_for(qtbot, entered, timeout=5000)
     try:
         qtbot.waitUntil(lambda: _cell(window, title_id, COL_DETAIL) == 'Extracting', timeout=5000)
         assert 'file not found' not in _cell(window, title_id, COL_DETAIL, Qt.ItemDataRole.ToolTipRole)
@@ -1146,6 +1159,8 @@ def test_a_git_failure_while_committing_is_shown_as_an_error_against_the_titles(
 
 # --- review fixes: closing, ordering, prechecks, wording ---------------------------------------------------------------------
 
+
+
 def _answer_box(yes: bool, seen: List[str]) -> None:
     ''' Answers the QMessageBox a close during a run opens, as a person would (reads it, clicks Yes or No). '''
     def respond():
@@ -1163,7 +1178,7 @@ def _held_run(qtbot, tmp_path, ids=('x-gravity', 'x-tenet')):
     window, _ = _window(qtbot, tmp_path, pipeline=pipeline, prefs=_prefs(tmp_path))
     window.select_ids(list(ids))
     window.run_selected()
-    qtbot.waitUntil(pipeline.entered.is_set, timeout=5000)
+    _wait_for(qtbot, pipeline.entered, timeout=5000)
     return window, pipeline
 
 
@@ -1296,7 +1311,7 @@ def test_cancelling_during_a_commit_says_a_commit_cannot_be_stopped_and_a_late_c
     window.select_ids(['c-one', 'c-two'])
     _answer(True, [])
     window.commit_selected()
-    qtbot.waitUntil(pipeline.entered.is_set, timeout=5000)
+    _wait_for(qtbot, pipeline.entered, timeout=5000)
     qtbot.waitUntil(lambda: 'Committing' in window.runStatusLabel.text(), timeout=5000)
 
     _click(qtbot, window.cancelButton)
@@ -1508,7 +1523,7 @@ def test_cancelled_row_state_is_fully_expired_across_disjoint_runs_and_index_rem
     window, _ = _window(qtbot, tmp_path, pipeline=pipeline, prefs=_prefs(tmp_path))
     window.select_ids(['x-gravity', 'x-tenet'])
     window.run_selected()
-    qtbot.waitUntil(first_entered.is_set, timeout=5000)
+    _wait_for(qtbot, first_entered, timeout=5000)
     window.cancel_run()
     release_first.set()
     qtbot.waitUntil(lambda: not window.is_running, timeout=5000)
@@ -1521,7 +1536,7 @@ def test_cancelled_row_state_is_fully_expired_across_disjoint_runs_and_index_rem
     assert window.model.run_state('x-tenet') == {}
     window.select_ids(['d-speed'])
     window.run_selected()
-    qtbot.waitUntil(second_entered.is_set, timeout=5000)
+    _wait_for(qtbot, second_entered, timeout=5000)
     try:
         assert window.model.run_state('x-gravity') == {}
         assert window.model.run_state('x-tenet') == {}
@@ -1551,7 +1566,7 @@ def test_progress_from_several_titles_at_once_is_a_count_not_a_turn_taking_messa
     window, _ = _window(qtbot, tmp_path, pipeline=pipeline, prefs=_prefs(tmp_path))
     window.select_ids(['x-gravity', 'x-tenet'])
     window.run_selected()
-    qtbot.waitUntil(reached.is_set, timeout=5000)
+    _wait_for(qtbot, reached, timeout=5000)
     qtbot.waitUntil(lambda: '2 titles in progress' in window.runStatusLabel.text(), timeout=5000)
     release.set()
     qtbot.waitUntil(lambda: not window.is_running, timeout=5000)
@@ -1574,7 +1589,7 @@ def test_titles_in_flight_together_share_one_status_and_a_finished_one_moves_bef
     window, _ = _window(qtbot, tmp_path, pipeline=pipeline, prefs=_prefs(tmp_path))
     window.select_ids(['x-gravity', 'x-tenet'])
     window.run_selected()
-    qtbot.waitUntil(reached.is_set, timeout=5000)
+    _wait_for(qtbot, reached, timeout=5000)
     qtbot.waitUntil(lambda: window.is_running and _cell(window, 'x-gravity', COL_NEEDS) != _cell(window, 'x-tenet', COL_NEEDS),
                     timeout=5000)
     assert window.is_running
