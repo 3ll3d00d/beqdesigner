@@ -5,6 +5,7 @@ ffmpeg input -- a single clip, or a `concat:` spec for a multi-clip title -- hea
 (that's ui/extract.py's BdmvTitlePickerDialog, not available/appropriate in this unattended context).
 '''
 import os
+import shutil
 import struct
 import subprocess
 import wave
@@ -43,6 +44,8 @@ def _write_mpls(path, play_items):
 
 def _write_m2ts_clip(path, tone_hz, duration_s):
     ''' A real, ffprobe/ffmpeg-decodable BDAV-style mpegts clip -- a synthetic wav is not a valid BD clip. '''
+    if not shutil.which('ffmpeg') or not shutil.which('ffprobe'):
+        pytest.skip('ffmpeg and ffprobe are optional')
     subprocess.run(['ffmpeg', '-hide_banner', '-loglevel', 'error', '-f', 'lavfi',
                     '-i', f"sine=frequency={tone_hz}:duration={duration_s}",
                     '-c:a', 'mp2', '-f', 'mpegts', path, '-y'], check=True)

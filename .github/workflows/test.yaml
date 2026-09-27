@@ -59,7 +59,7 @@ jobs:
         run: |
           if [[ "$RUNNER_OS" == "Linux" ]]
           then
-            sudo apt install -y libegl1
+            sudo apt install -y libegl1 libpulse0 ffmpeg
           fi
       - name: pytest
         env:
