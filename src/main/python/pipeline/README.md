@@ -61,13 +61,14 @@ pipeline/
         run.py, sync.py, commit.py, revise.py, cli.py   # run_library(), publish/commit/sync_library(), revise_entry(), the command line
         state.py, status.py, index.py, catalogue_scan.py   # discovery: what each title needs next, and the SQLite index of it
         selection.py, stages.py, bulk.py   # doing work for a selection: Selection, run_stages(--through), accept_top_pick()
+        join.py, inbox.py, handoff.py      # more work for the run in progress: its JoinQueue, the work directory's inbox
         drift.py                           # accepted/published titles designed under other settings (the work list's banner)
         setup.py                           # a profile file (and options over it) to a run: shared by the CLI and the service
         year.py                            # the year language of ignore rules, --year and the service's filter
     service/                       # the pipeline as a long-running service (design/pipeline-service.md; HTTP is chunk S3)
         config.py, context.py        # service.yaml and the environment's secrets; a job's profile, read again per job
         jobs.py, work.py              # one job at a time, cancel, events, history; what scan/run/accept jobs do
-        lease.py                        # the work-directory lease a job holds; the work list will not run while it is fresh
+        lease.py                        # the work-directory lease every run holds (service job, work list, `run`)
 
 model/preferences.py          # GUI: durable list of configured HTTP designer endpoints + the review queue
                               #   directory default, both on the Preferences dialog's "Designers" page
@@ -354,6 +355,12 @@ library to read. `--kind` and `--year` have no chip in the app; `--year` takes a
   is a person's.
 - A title that needs something the chosen `--through` does not reach, or cannot be helped by a run (waiting for review, a
   project conflict, a source changed since it was accepted, done), is **skipped and reported with the reason**.
+- **One run at a time per work directory.** A `run` holds the work directory's lease while it runs, as the service's
+  jobs and the work list's runs do. If another run holds it, `run` does not run alongside it: with `--through extract`
+  or `design` it hands its titles to that run (they are queued behind the ones it has), waits for it to end, and prints
+  `{"joined": ..., "titles": {id: {needs, detail, failed}}, "skipped": [...]}` (exit 1 if any failed or was not done);
+  if that run ends without taking them, it runs them itself. With `--through publish` or `commit` it waits for the other
+  run to end, then runs.
 - A failed title is remembered against its source and the settings. A failed **design** needs attention and is skipped
   until either changes, or `--retry-failed`. A failed **extraction** stays *extract* work: a selector run tries it again,
   unless `--unattended` (for a scheduled job, and what the service's schedule does), which skips it until something

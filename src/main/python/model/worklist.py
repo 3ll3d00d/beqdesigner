@@ -217,6 +217,9 @@ class WorkListWindow(WorkListActions, WorkListAutoPublish, WorkListTitles, WorkL
         self._run_context = None   # the run in flight (worklist_actions._RunContext)
         self._queued_runs: list = []    # runs asked for while one was going, started in order when it ends (F5)
         self._offered_joins: dict = {}  # JoinRequest id -> the run it was offered as, until the run it joined ends
+        self._handed_off: list = []     # (JoinRequest id, run) posted to another process's run, until that run ends
+        self._handoff_timer = None
+        self.handoff_poll_ms = 3000     # how often the index is read again while another process's run has our titles
         self._event_buffers = {}
         self._saved_details = {}
         self._detail_dialogs = {}

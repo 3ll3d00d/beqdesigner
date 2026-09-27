@@ -81,6 +81,8 @@ def test_a_run_scans_first_then_runs_the_stages_on_the_selection(manager, monkey
     assert seen['selection'] == Selection(needs=('extract',), year='>=2000') and seen['through'] == 'extract'
     assert seen['retry_failed'] is True and seen['publish'] is None and seen['should_cancel']() is False
     assert seen['unattended'] is False    # an API run is a person's: a failed extraction is tried again
+    from pipeline.library.join import JoinQueue
+    assert isinstance(seen['join'], JoinQueue)   # worklist-feedback.md F5: other runs hand it their work
 
     _done(manager, RunRequest(scan_first=False, unattended=True))   # the schedule's
     assert seen['unattended'] is True

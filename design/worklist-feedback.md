@@ -10,7 +10,7 @@ once built, its lasting behavior moves into [`implemented.md`](implemented.md).
 | F2 | Write the `.beq` projects when a title is extracted | Built in `7420a54` |
 | F3 | A decline is a flat (empty) filter a person can publish as "does not require BEQ" | Built in `49bbf34` |
 | F4 | A failed extraction stays extractable; Revise is not offered for it | Built in `c58a4b4` |
-| F5 | New work joins the run in progress (work list, CLI and service) | In progress: F5a (the run takes joined work) built in `3d38f76`; F5b (the work list) built in `ae1a086` |
+| F5 | New work joins the run in progress (work list, CLI and service) | In progress: F5a (the run takes joined work) built in `3d38f76`; F5b (the work list) built in `ae1a086`; F5c (lease and inbox: CLI and work list across processes) built (see the commit that records it) |
 
 Decisions taken with the user on 2026-09-27: the CLI hands its titles to a run
 in progress and waits for them (F5); only runs a person starts retry a failed

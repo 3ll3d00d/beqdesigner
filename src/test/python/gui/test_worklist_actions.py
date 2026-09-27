@@ -1650,18 +1650,51 @@ def test_a_test_that_ends_with_a_run_going_is_not_held_up_by_the_close_question(
     assert run.args[0].cancelled
 
 
-def test_a_run_is_refused_while_the_pipeline_service_holds_the_work_directory(qtbot, tmp_path):
-    ''' design/pipeline-service.md §5.1: two runs over one index, queue and repositories are not started. '''
+def test_while_the_service_holds_the_work_directory_extraction_is_handed_to_it_and_publish_is_refused(qtbot, tmp_path):
+    '''
+    design/pipeline-service.md §5.1: two runs over one index, queue and repositories are not started side by side;
+    worklist-feedback.md F5: extract and design are handed to the run in progress instead of refused.
+    '''
+    from pipeline.library.inbox import WorkDirInbox
     from pipeline.service.lease import WorkDirLease
     window, pipeline = _window(qtbot, tmp_path)
+    window.handoff_poll_ms = 50
+    work_dir = window._setup.profile.work_dir
     window.select_ids(['x-gravity'])
 
-    with WorkDirLease(window._setup.profile.work_dir, 'job-12345678', host='nas', pid=1):
-        assert window.run_selected() is False and not window.is_running
+    with WorkDirLease(work_dir, 'job-12345678', host='nas', pid=1):
+        assert window.run_selected() is True and not window.is_running and pipeline.calls == []
+        assert window.handed_off == ['x-gravity'] and window.model.is_working('x-gravity')
+        assert 'Handed 1 title to the pipeline service on nas (job-1234)' in window.runStatusLabel.text()
+        (posted,) = [n for n in os.listdir(os.path.join(work_dir, 'service', 'join')) if n.endswith('.json')]
+        window.select_ids(['p-one'])
+        assert window.publish_selected() is False
         assert 'the pipeline service on nas is running a job (job-1234)' in window.runStatusLabel.text()
 
-    with qtbot.waitSignal(window.run_finished, timeout=10000):   # once it has finished, the run goes ahead
+    # it ended without taking them (nobody claimed the request): they are run here
+    with qtbot.waitSignal(window.run_finished, timeout=10000):
+        pass
+    assert pipeline.calls[0]['ids'] == ['x-gravity'] and window.handed_off == []
+    assert WorkDirInbox(work_dir).state(posted[:-len('.json')]) is None   # withdrawn, then forgotten
+
+
+def test_titles_the_other_run_took_are_followed_in_the_index_and_not_run_here(qtbot, tmp_path):
+    from pipeline.library.inbox import WorkDirInbox
+    from pipeline.service.lease import WorkDirLease
+    window, pipeline = _window(qtbot, tmp_path)
+    window.handoff_poll_ms = 50
+    work_dir = window._setup.profile.work_dir
+    window.select_ids(['x-gravity'])
+
+    with WorkDirLease(work_dir, 'cli-1', host='desk', pid=1):
         assert window.run_selected() is True
+        assert 'Handed 1 title to a command-line run on desk' in window.runStatusLabel.text()
+        (taken,) = WorkDirInbox(work_dir).claim()          # the command-line run takes them ...
+        _update(index_path(str(tmp_path / 'work')), ['x-gravity'], needs='review', extract_state='current')
+
+    qtbot.waitUntil(lambda: window.handed_off == [], timeout=5000)   # ... and ends
+    assert pipeline.calls == [] and {r.id: r.needs for r in window.model.rows}['x-gravity'] == 'review'
+    assert not window.model.is_working('x-gravity') and taken.selection.ids == ('x-gravity',)
 
 
 # --- more work while a run is going (design/worklist-feedback.md F5) ------------------------------------------------------

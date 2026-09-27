@@ -969,3 +969,85 @@ def test_run_is_silent_about_failures_when_nothing_was_skipped(tmp_path, monkeyp
     monkeypatch.setattr(cli, 'run_library', lambda source, run_config, **kw: LibraryRunReport())
     cli.main(['run', '--profile', str(config), '--designer', 'test.designer'])
     assert 'failed earlier' not in capsys.readouterr().err
+
+
+# --- a run in progress takes the work (design/worklist-feedback.md F5) ------------------------------------------------------
+
+def _set_needs(work: str, ids, needs: str) -> None:
+    import sqlite3
+    from pipeline.library.index import index_path
+    db = sqlite3.connect(index_path(work))
+    with db:
+        for title_id in ids:
+            db.execute('UPDATE titles SET needs = ?, extract_state = ? WHERE id = ?', (needs, 'current', title_id))
+    db.close()
+
+
+def test_a_run_holds_the_lease_and_takes_work_posted_to_the_inbox(workflow, capsys, monkeypatch):
+    from pipeline.library.inbox import WorkDirInbox
+    from pipeline.library.join import JoinRequest
+    from pipeline.library.selection import Selection
+    from pipeline.service.lease import read_lease
+    profile = ['--profile', str(workflow.config)]
+    assert _cli(capsys, 'scan', *profile)[0] == 0
+    posted = JoinRequest(Selection(ids=('x',)))
+    WorkDirInbox(workflow.work).post(posted)
+    seen = {}
+
+    def capture(*args, **kwargs):
+        seen.update(holder=read_lease(workflow.work), taken=kwargs['join'].take())
+        from pipeline.library.stages import StagesReport
+        return StagesReport('design', 0)
+
+    monkeypatch.setattr(cli, 'run_stages', capture)
+    assert cli.main(['run', *profile, '--through', 'design']) == 0
+
+    assert seen['holder'].who().startswith('a command-line run on') and seen['taken'] == [posted]
+    assert read_lease(workflow.work) is None   # released when it ends
+
+
+def test_a_run_while_another_run_holds_the_work_directory_hands_its_titles_over_and_reports_them(
+        workflow, capsys, monkeypatch):
+    import threading
+    from pipeline.library.inbox import WorkDirInbox
+    from pipeline.service.lease import WorkDirLease
+    profile = ['--profile', str(workflow.config)]
+    assert _cli(capsys, 'scan', *profile)[0] == 0
+    monkeypatch.setattr(cli, 'run_stages', lambda *a, **k: pytest.fail('ran alongside the run in progress'))
+    lease = WorkDirLease(workflow.work, 'job-12345678', host='nas', pid=1).__enter__()
+
+    def service_run():   # the service's run takes them, "designs" them and ends
+        inbox = WorkDirInbox(workflow.work)
+        while not (taken := inbox.claim()):
+            threading.Event().wait(0.02)
+        _set_needs(workflow.work, taken[0].selection.ids, 'review')
+        lease.__exit__(None, None, None)
+
+    thread = threading.Thread(target=service_run)
+    thread.start()
+    code, report = _cli(capsys, 'run', *profile, '--through', 'design')
+    thread.join()
+
+    assert code == 0 and report['joined'] == 'the pipeline service on nas (job-1234)'
+    assert len(report['titles']) == 3 and {t['needs'] for t in report['titles'].values()} == {'review'}
+    assert not any(t['failed'] for t in report['titles'].values())
+
+
+def test_a_run_whose_titles_the_run_in_progress_did_not_take_runs_them_itself(workflow, capsys, monkeypatch):
+    import threading
+    from pipeline.service.lease import WorkDirLease
+    profile = ['--profile', str(workflow.config)]
+    assert _cli(capsys, 'scan', *profile)[0] == 0
+    ran = []
+
+    def capture(profile_, selection, through, **kwargs):
+        from pipeline.library.stages import StagesReport
+        ran.append(through)
+        return StagesReport(through, 0)
+
+    monkeypatch.setattr(cli, 'run_stages', capture)
+    lease = WorkDirLease(workflow.work, 'worklist-1', host='desk', pid=1).__enter__()
+    threading.Timer(0.3, lambda: lease.__exit__(None, None, None)).start()   # it ends, never looking at the inbox
+
+    assert cli.main(['run', *profile, '--through', 'design']) == 0
+    assert ran == ['design'] and 'finished without taking them' in capsys.readouterr().err

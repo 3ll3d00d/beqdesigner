@@ -3,7 +3,9 @@ The work-directory lease (design/pipeline-service.md §5.1). A person reviews in
 review queue as the service; reading while a job runs is fine, but two *runs* at once -- the service's job and the work
 list's Run, Publish or Commit -- would both write the index, the queue and the repositories. So every service job holds a
 lease on the work directory, `<work_dir>/service/lease.json`: who holds it (host, process, job) and a heartbeat rewritten
-every HEARTBEAT_SECONDS. The work list refuses to start while a lease is fresh; one whose heartbeat is older than
+every HEARTBEAT_SECONDS. Since design/worklist-feedback.md F5 the work list's and the command line's runs hold it too
+(run_lease()), and extract and design work asked for while a lease is fresh is handed to the holder's run; otherwise the
+work list refuses to start while a lease is fresh; one whose heartbeat is older than
 STALE_AFTER_SECONDS (a service that died) is ignored and taken over.
 
 Two services on one work directory are refused the same way. Taking the lease is not atomic across machines (a network
@@ -16,6 +18,7 @@ import socket
 import tempfile
 import threading
 import time
+import uuid
 from dataclasses import asdict, dataclass
 from typing import Callable, Optional
 
@@ -24,6 +27,7 @@ logger = logging.getLogger('service_lease')
 LEASE_DIR = 'service'
 LEASE_FILE = 'lease.json'
 HEARTBEAT_SECONDS = 30.0
+WORKLIST, COMMAND_LINE = 'worklist', 'cli'   # run_lease()'s kinds: the service's own leases are named by their job id
 STALE_AFTER_SECONDS = 3 * HEARTBEAT_SECONDS
 
 
@@ -34,7 +38,17 @@ class LeaseHolder:
     job_id: str
     heartbeat_at: float
 
+    def who(self) -> str:
+        ''' Who is running: the service's job, the work list or a command-line run (run_lease()), and where. '''
+        if self.job_id.startswith(f'{WORKLIST}-'):
+            return f'the work list on {self.host}'
+        if self.job_id.startswith(f'{COMMAND_LINE}-'):
+            return f'a command-line run on {self.host}'
+        return f'the pipeline service on {self.host} ({self.job_id[:8]})'
+
     def describe(self) -> str:
+        if self.job_id.startswith((f'{WORKLIST}-', f'{COMMAND_LINE}-')):
+            return f'{self.who()} is running in this work directory; try again when it has finished'
         return (f'the pipeline service on {self.host} is running a job ({self.job_id[:8]}) in this work directory; '
                 f'try again when it has finished')
 
@@ -67,6 +81,15 @@ def read_lease(work_dir: Optional[str], now: Optional[float] = None) -> Optional
     if holder is None:
         return None
     return holder if (time.time() if now is None else now) - holder.heartbeat_at <= STALE_AFTER_SECONDS else None
+
+
+def run_lease(work_dir: str, kind: str) -> 'WorkDirLease':
+    '''
+    The lease a run of the work list or of the command line holds while it runs (design/worklist-feedback.md F5), as the
+    service's jobs do, so each of them knows another run is going: extract and design work is handed to that run (the join
+    inbox, pipeline.library.inbox) rather than run alongside it.
+    '''
+    return WorkDirLease(work_dir, f'{kind}-{uuid.uuid4().hex}')
 
 
 class WorkDirLease:

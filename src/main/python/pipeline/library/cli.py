@@ -6,6 +6,7 @@ import os
 import sqlite3
 import subprocess
 import sys
+import time
 from dataclasses import asdict, replace
 from datetime import datetime
 from typing import Any
@@ -13,13 +14,16 @@ from typing import Any
 
 from pipeline.config import AnalysisConfig
 from pipeline.library.bulk import DEFAULT_ACCEPT_THRESHOLD, accept_top_pick, plan_accept
+from pipeline.library.handoff import WITHDRAWN, hand_off, outcomes as title_outcomes
+from pipeline.library.inbox import WorkDirInbox
 from pipeline.library.index import IndexFileError, LibraryIndex, index_path
+from pipeline.library.join import JOINABLE, JoinQueue, JoinRequest
 from pipeline.library.profile import Profile, SourceSpec, build_source, profile_from_config, read_config_file
 from pipeline.library.revise import REVISE_TARGETS, revise_entry
 from pipeline.library.run import LibraryRunConfig, run_library
 from pipeline.library.season import TV_MODES
 from pipeline.publish.catalogue import category_folders_from_values
-from pipeline.library.selection import KINDS, THROUGH, Selection
+from pipeline.library.selection import KINDS, THROUGH, Selection, plan_stages
 from pipeline.library.setup import configured_values, effective_profile, index_settings, required, run_config_from_values, \
     run_profile, scan_values, stage_settings
 from pipeline.library.stages import run_stages
@@ -29,6 +33,7 @@ from pipeline.library.sync import commit_library, publish_library, sync_library
 from pipeline.library.union import UnionLibrarySource
 from pipeline.library.year import YearRange
 from pipeline.review import describe_publish_error
+from pipeline.service.lease import COMMAND_LINE, LeaseHeld, read_lease, run_lease
 from pipeline.publish.git import RepoTarget
 from pipeline.publish.report import ReportSpec
 
@@ -134,18 +139,90 @@ def _run_stages(args: argparse.Namespace, config: dict[str, Any], values: dict[s
     through = args.through or 'design'
     settings, publish = stage_settings(profile, config, values, through)
     selection = _selection(args, args.source)
-    with LibraryIndex(index_path(run_config.work_dir)) as index:
-        if not index.generation:  # never scanned: there is nothing to select from
-            index.scan(profile, settings)
-        report = run_stages(profile, selection, through, run_config=run_config, index=index, publish=publish,
-                            settings=settings, retry_failed=bool(args.retry_failed),
-                            unattended=bool(getattr(args, 'unattended', False)))
+    retry, unattended = bool(args.retry_failed), bool(getattr(args, 'unattended', False))
+    work_dir = run_config.work_dir
+    while True:   # design/worklist-feedback.md F5: never alongside another run of this work directory
+        holder = read_lease(work_dir)
+        if holder is not None:
+            if through in JOINABLE:
+                code = _join_run_in_progress(holder, work_dir, selection, through, retry, unattended)
+                if code is not None:
+                    return code
+                continue   # it ended without taking them: run them here
+            _wait_for_release(work_dir, holder)
+            continue
+        try:
+            lease = run_lease(work_dir, COMMAND_LINE).__enter__()
+        except LeaseHeld:   # another run took it between the look and the take
+            continue
+        try:
+            with LibraryIndex(index_path(work_dir)) as index:
+                if not index.generation:  # never scanned: there is nothing to select from
+                    index.scan(profile, settings)
+                report = run_stages(profile, selection, through, run_config=run_config, index=index, publish=publish,
+                                    settings=settings, retry_failed=retry, unattended=unattended,
+                                    join=JoinQueue(sources=[WorkDirInbox(work_dir).claim]))
+        finally:
+            lease.__exit__(None, None, None)
+        break
     print(json.dumps(asdict(report), sort_keys=True))
     _warn_failed_earlier(report.run.failed_earlier)
     if report.commit_error:
         _say(f'error: {report.commit_error}')
         return GIT_FAILED
     return 1 if report.failed else 0
+
+
+def _join_run_in_progress(holder, work_dir: str, selection: Selection, through: str, retry: bool,
+                          unattended: bool) -> int | None:
+    '''
+    Hands this run's titles to the run in progress (design/worklist-feedback.md F5) and waits for it to end, then prints
+    what became of them. :return: the exit status (1 if any failed or was not done), or None if it ended without taking
+    them.
+    '''
+    with LibraryIndex(index_path(work_dir)) as index:
+        plan = plan_stages(selection.rows(index), through, retry_failed=retry, unattended=unattended)
+    ids = [p.row.id for p in plan.planned]
+    skipped = [asdict(s) for s in plan.skipped]
+    if not ids:
+        print(json.dumps({'joined': holder.who(), 'titles': {}, 'skipped': skipped}, sort_keys=True))
+        return 0
+    _say(f'{holder.who()} is running in this work directory: handing it {len(ids)} '
+         f'title{"" if len(ids) == 1 else "s"} and waiting for it to finish')
+    outcome = hand_off(work_dir, JoinRequest(Selection(ids=tuple(ids)), through, retry),
+                       on_claimed=lambda: _say(f'{holder.who()} has taken them'))
+    if outcome == WITHDRAWN:
+        _say(f'{holder.who()} finished without taking them: running them here')
+        return None
+    with LibraryIndex(index_path(work_dir)) as index:
+        results = title_outcomes(index, ids)
+    print(json.dumps({'joined': holder.who(), 'titles': {i: asdict(o) for i, o in results.items()},
+                      'skipped': skipped}, sort_keys=True))
+    return 1 if any(o.failed for o in results.values()) else 0
+
+
+def _wait_for_release(work_dir: str, holder, poll_seconds: float = 2.0) -> None:
+    ''' Publish and commit do not join a run: they wait for it to end. '''
+    _say(f'waiting: {holder.who()} is running in this work directory')
+    while read_lease(work_dir) is not None:
+        time.sleep(poll_seconds)
+
+
+def _take_lease(work_dir: str | None):
+    ''' The work directory's lease for this run, once no other run holds it; None without a work directory. '''
+    if not work_dir:
+        return None
+    while True:
+        holder = read_lease(work_dir)
+        if holder is not None:
+            _wait_for_release(work_dir, holder)
+        try:
+            return run_lease(work_dir, COMMAND_LINE).__enter__()
+        except LeaseHeld:
+            continue
+        except OSError as error:   # a guard, not a precondition: the run itself says what is wrong with the directory
+            logging.getLogger('library_cli').warning('could not take the lease on %s: %s', work_dir, error)
+            return None
 
 
 def _run(args: argparse.Namespace, config: dict[str, Any]) -> int:
@@ -155,13 +232,16 @@ def _run(args: argparse.Namespace, config: dict[str, Any]) -> int:
     run_config = run_config_from_values(values, config)
     if any(getattr(args, name) for name in _SELECTOR_FLAGS) or (profile is not None and args.source):
         return _run_stages(args, config, values, run_config)
+    source = UnionLibrarySource(profile) if profile is not None else _source(values, config)
+    lease = _take_lease(run_config.work_dir)   # it writes the index and the queue: never alongside another run
     index = _open_index(run_config.work_dir)  # remembers what failed, for `status`
     try:
-        report = run_library(UnionLibrarySource(profile) if profile is not None else _source(values, config),
-                             run_config, index=index, retry_failed=bool(args.retry_failed))
+        report = run_library(source, run_config, index=index, retry_failed=bool(args.retry_failed))
     finally:
         if index is not None:
             index.close()
+        if lease is not None:
+            lease.__exit__(None, None, None)
     print(json.dumps(asdict(report), sort_keys=True))
     _warn_failed_earlier(report.failed_earlier)
     return 1 if report.failed else 0

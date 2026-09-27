@@ -8,7 +8,9 @@ from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Optional
 
 from pipeline.library.bulk import accept_top_pick, plan_accept
+from pipeline.library.inbox import WorkDirInbox
 from pipeline.library.index import LibraryIndex, ScanResult, index_path
+from pipeline.library.join import JoinQueue
 from pipeline.library.stages import StagesReport, run_stages
 from pipeline.service.context import JobContext, load_context
 from pipeline.service.jobs import AcceptRequest, Job, JobControl, RunRequest, ScanRequest
@@ -60,7 +62,8 @@ def run(context: JobContext, request: RunRequest, control: JobControl) -> RunOut
             scanned = index.scan(context.profile, settings)
         report = run_stages(context.profile, request.selection, request.through, run_config=run_config, index=index,
                             publish=publish, settings=settings, retry_failed=request.retry_failed,
-                            unattended=request.unattended, should_cancel=control.cancelled, on_progress=control.progress, on_event=control.event)
+                            unattended=request.unattended, join=JoinQueue(sources=[WorkDirInbox(run_config.work_dir).claim]),
+                            should_cancel=control.cancelled, on_progress=control.progress, on_event=control.event)
     return RunOutcome(scanned, report)
 
 

@@ -16,7 +16,7 @@ import time
 from dataclasses import dataclass, field, replace
 from typing import Dict, List, Optional
 
-from qtpy.QtCore import Qt, QThreadPool
+from qtpy.QtCore import QTimer, Qt, QThreadPool
 from qtpy.QtGui import QBrush
 from qtpy.QtWidgets import QAbstractItemView, QDialog, QLabel, QPushButton, QTableWidgetItem
 
@@ -28,6 +28,7 @@ from model.worklist_run import LEVEL_ERROR, LEVEL_OK, FailedTitle, ResultLine, R
     build_publish_settings, build_run_config, describe_results, plan_label, publish_problem, summarise_report, \
     summarise_skipped
 from model.worklist_run_details import EventBuffer, save_run_details
+from pipeline.library.inbox import PENDING, WorkDirInbox
 from pipeline.library.index import TitleRow
 from pipeline.library.join import JOINABLE, JoinRequest
 from pipeline.library.selection import Selection, StagePlan, plan_stages
@@ -318,7 +319,7 @@ class WorkListActions:
         if self._blocking() or not self._setup.ready or self._index is None or self._setup.index_file is None:
             return False
         holder = None if self.is_running else read_lease(self._setup.profile.work_dir if self._setup.profile else None)
-        if holder is not None:   # the pipeline service is running a job here: two runs would both write the index
+        if holder is not None and through not in JOINABLE:   # two runs would both write the index and the repositories
             self._say(f'Cannot start: {holder.describe()}.', LEVEL_ERROR)
             return False
         ask = (not (ids is not None or bool(self.selected_ids()))) if confirm is None else confirm
@@ -370,7 +371,58 @@ class WorkListActions:
         skipped = summarise_skipped(plan, rows, retry_failed)
         if self.is_running:
             return self._add_to_run(request, plan, rows, skipped)
+        if holder is not None:   # another process's run: its extract and design work takes these too
+            return self._hand_off(holder, request)
         return self._launch(request, plan, rows, skipped)
+
+    # --- work handed to another process's run (design/worklist-feedback.md F5) ---------------------------------------------
+
+    def _hand_off(self, holder, request: RunRequest) -> bool:
+        '''
+        Posts the titles to the work directory's join inbox, for the run holding the lease (the service, a command-line
+        run, another work list), and follows the index until that run ends. If it ends without taking them, they are run
+        here. :return: True.
+        '''
+        work_dir = self._setup.profile.work_dir
+        join = JoinRequest(Selection(ids=request.ids), request.through, request.retry_failed)
+        WorkDirInbox(work_dir).post(join)
+        self._handed_off.append((join.id, request))
+        for title_id in request.ids:
+            self._model.set_run_state(title_id, active=False, queued=True, stage='', text=f'Handed to {holder.who()}')
+        count = len(request.ids)
+        self._say(f'Handed {count:,} title{"" if count == 1 else "s"} to {holder.who()}; the list follows it until it ends.')
+        if self._handoff_timer is None:
+            self._handoff_timer = QTimer(self)
+            self._handoff_timer.timeout.connect(self._follow_handed_off)
+        self._handoff_timer.start(self.handoff_poll_ms)
+        self._refresh_view()
+        return True
+
+    def _follow_handed_off(self) -> None:
+        ''' Reads the index again while the other run goes on; once it ends, runs here what it did not take. '''
+        work_dir = self._setup.profile.work_dir if self._setup.profile else None
+        if work_dir is None or self._closed:
+            return
+        holder = read_lease(work_dir)
+        self.refresh_from_index()
+        if holder is not None:
+            return
+        inbox = WorkDirInbox(work_dir)
+        for join_id, request in self._handed_off:
+            if inbox.state(join_id) == PENDING and inbox.withdraw(join_id):
+                self._queued_runs.append(request)   # nobody took them: they are this window's to run
+            inbox.forget(join_id)
+            for title_id in request.ids:
+                self._model.set_run_state(title_id, active=False, queued=False, text='')
+        self._handed_off.clear()
+        self._handoff_timer.stop()
+        self._refresh_view()
+        self._start_next_queued_run()
+
+    @property
+    def handed_off(self) -> List[str]:
+        ''' The titles handed to another process's run and not yet over. '''
+        return [title_id for _, request in self._handed_off for title_id in request.ids]
 
     # --- more work while a run is going (design/worklist-feedback.md F5) ------------------------------------------------
 

@@ -121,4 +121,4 @@ receive the job and title details.
 
 ### The service and the work list together
 
-While a job of the service's runs, it holds the work directory: the work list's Run, Publish and Commit, and publishing on accept, say *the pipeline service on HOST is running a job* and do not start. Looking, reviewing and deciding go on as normal. The work list does not yet hold the work directory for its own runs, so do not start a service job while the work list is running one.
+While a job of the service's runs, it holds the work directory. **Extract & design** in the work list (and a command-line `run`) hands its titles to the job, which queues them behind its own: the work list shows them under *Working* and follows the job until it ends, and runs them itself if the job ended without taking them. Publish, Commit and publishing on accept say *the pipeline service on HOST is running a job* and do not start. Looking, reviewing and deciding go on as normal. The work list and the command line hold the work directory for their own runs too.

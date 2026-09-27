@@ -182,10 +182,18 @@ resolution, shared by the service (a test holds a service run to exactly what
 (environment secrets), `jobs.py`, `work.py`, `lease.py`; the work list's
 Run/Publish/Commit and its one-step accept-and-publish refuse while a lease is
 fresh. The event redaction the work list's Details use moved to
-`model/execution_events.py` and is shared. Gaps, open: the Review Folder
-window's Publish/Commit do not check the lease, and the app does not *take*
-one for its own runs, so a scheduled job can start during a work-list run
-(the service would then need to refuse a lease the app holds).
+`model/execution_events.py` and is shared. Gap, open: the Review Folder
+window's Publish/Commit do not check the lease.
+
+**Since worklist-feedback F5.** The work list's runs and the command line's
+`run` take the lease too (`run_lease()`, job ids `worklist-…` and `cli-…`). Extract and design work asked for while a lease
+is held is not refused: it is posted to the work directory's join inbox
+(`<work_dir>/service/join/`, `pipeline/library/inbox.py`), which every run's
+`JoinQueue` claims from while its machine phase lasts. The work list then
+follows the index until the holder's run ends; a command-line `run` waits for
+it and reports its titles. Work the holder did not take is run by whoever
+asked, once the lease is free. Publish and Commit still refuse (work list) or
+wait (command line) while another run holds the lease.
 
 **Tests (S2):** job lifecycle and FIFO order with a fake `run_stages`;
 cancel queued vs running; `failed` from a `StagesReport` with a failed title;

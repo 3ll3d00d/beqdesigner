@@ -24,7 +24,9 @@ from qtpy.QtCore import QObject, QRunnable, Signal
 from model.preferences import TMDB_API_KEY
 from pipeline.library.commit import CatalogueCommit
 from pipeline.library.index import LibraryIndex, TitleRow
+from pipeline.library.inbox import WorkDirInbox
 from pipeline.library.join import JoinQueue
+from pipeline.service.lease import WORKLIST, LeaseHeld, run_lease
 from pipeline.library.run import LibraryRunConfig, stage_parallelism
 from pipeline.library.selection import Selection, StagePlan
 from pipeline.library.stages import PublishSettings, StagesReport, run_stages
@@ -83,7 +85,8 @@ class RunJob(QRunnable):
         self.__index_file, self.__profile, self.__settings = index_file, profile, settings
         self.__run_config, self.__publish, self.__runner = run_config, publish, runner
         self.__cancel = threading.Event()
-        self.join = JoinQueue()   # more extract/design work while the run's machine phase lasts (F5)
+        # more extract/design work while the run's machine phase lasts (F5): from this window, and from other processes
+        self.join = JoinQueue(sources=[WorkDirInbox(run_config.work_dir).claim] if run_config.work_dir else [])
 
     def cancel(self) -> None:
         self.__cancel.set()
@@ -93,6 +96,23 @@ class RunJob(QRunnable):
         return self.__cancel.is_set()
 
     def run(self):
+        lease = None
+        work_dir = self.__run_config.work_dir
+        try:
+            if work_dir:   # held while it runs, as the service's jobs hold it: another run hands its work to this one
+                lease = run_lease(work_dir, WORKLIST).__enter__()
+        except LeaseHeld as error:
+            self.signals.errored.emit(f'Cannot start: {error}')
+            return
+        except OSError as error:   # a guard, not a precondition
+            logger.warning('could not take the lease on %s: %s', work_dir, error)
+        try:
+            self.__run()
+        finally:
+            if lease is not None:
+                lease.__exit__(None, None, None)
+
+    def __run(self):
         try:
             with LibraryIndex(self.__index_file) as index:
                 report = self.__runner(
