@@ -4,6 +4,7 @@ import logging
 import math
 import os
 import platform
+import select
 import shutil
 import socket
 import socketserver
@@ -1012,6 +1013,15 @@ class FfmpegProgressBridge:
             # give the thread a bit of time to start before we kick off
             time.sleep(0.25)
 
+    def __drain(self):
+        '''
+        Handles the reports already waiting on the socket: serve_forever stops without reading them, and ffmpeg's last one
+        (the final out_time, progress=end) is sent as it exits, just before the caller stops the bridge.
+        '''
+        self.__server.timeout = 0
+        while select.select([self.__server.socket], [], [], 0)[0]:
+            self.__server.handle_request()
+
     def stop(self):
         '''
         Stops the server if it is running.
@@ -1019,6 +1029,7 @@ class FfmpegProgressBridge:
         if self.__server is not None:
             logger.info(f"Stopping progress bridge on {self.__host}:{self.__port}")
             self.__server.shutdown()
+            self.__drain()
             self.__server.server_close()
             self.__server = None
             logger.info(f"Stopped progress bridge on {self.__host}:{self.__port}")

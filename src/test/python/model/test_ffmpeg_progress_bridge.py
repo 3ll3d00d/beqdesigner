@@ -13,6 +13,35 @@ def test_stopping_progress_bridge_releases_its_udp_port():
         replacement.bind(('127.0.0.1', port))
 
 
+def test_stopping_hands_over_a_report_that_arrived_before_the_stop():
+    '''
+    ffmpeg sends its last report (the final out_time, progress=end) as it exits, so run_sync can stop the bridge while that
+    report is still waiting on the socket. serve_forever stops without reading it; the bridge must read it before closing.
+    Here the first report's handler keeps the loop busy while the second arrives and stop() is asked for.
+    '''
+    import threading
+    import time
+    seen = []
+    first_handled = threading.Event()
+
+    def handler(key, value):
+        seen.append((key, value))
+        if key == 'first':
+            first_handled.set()
+            time.sleep(0.5)
+
+    bridge = FfmpegProgressBridge(handler, port=0, auto=True)
+    port = bridge._FfmpegProgressBridge__server.server_address[1]
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as ffmpeg:
+        ffmpeg.sendto(b'first=1', ('127.0.0.1', port))
+        assert first_handled.wait(10)
+        ffmpeg.sendto(b'out_time_ms=984000\nprogress=end', ('127.0.0.1', port))
+
+    bridge.stop()
+
+    assert seen == [('first', '1'), ('out_time_ms', '984000'), ('progress', 'end')]
+
+
 _HOLD_A_PORT = '''
 import socket, sys
 from model.ffmpeg import get_next_port
