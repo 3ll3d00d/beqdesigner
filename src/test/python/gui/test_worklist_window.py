@@ -91,6 +91,35 @@ def _click(qtbot, button):
 
 # --- the strip and the filters ------------------------------------------------------------------------------------------
 
+def test_every_property_can_be_read_when_setup_ui_connects_the_slots(qtbot, tmp_path, monkeypatch):
+    '''
+    Qt's connectSlotsByName, at the end of setupUi, reads every attribute of the window. A property that raised there (it read
+    state __init__ only set after setupUi) leaked coverage's data lock, so under --cov (as CI runs) the next traced call hung.
+    '''
+    import types
+    import ui.worklist
+    from qtpy import QtCore
+    raised = {}
+
+    def checking(window):
+        for klass in type(window).__mro__:
+            for name, value in vars(klass).items():
+                if isinstance(value, property) and name not in raised:
+                    try:
+                        getattr(window, name)
+                    except Exception as e:
+                        raised[name] = repr(e)
+        QtCore.QMetaObject.connectSlotsByName(window)
+
+    patched = types.SimpleNamespace(**{k: getattr(QtCore, k) for k in dir(QtCore) if not k.startswith('__')})
+    patched.QMetaObject = types.SimpleNamespace(connectSlotsByName=checking)
+    monkeypatch.setattr(ui.worklist, 'QtCore', patched)
+
+    _window(qtbot, tmp_path)
+
+    assert raised == {}
+
+
 def test_the_strip_counts_each_kind_of_work_and_hides_done(qtbot, tmp_path):
     window = _window(qtbot, tmp_path, _rows())
 

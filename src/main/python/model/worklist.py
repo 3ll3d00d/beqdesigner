@@ -207,7 +207,6 @@ class WorkListWindow(WorkListActions, WorkListAutoPublish, WorkListTitles, WorkL
         self._index_dirty = False   # a decision was made on the title page and the index has not read it yet
         self._syncing = False       # ... and it is being read now
         self._redesign_after_sync = []  # revised title-page ids that start once their index rows have been refreshed
-        self.setupUi(self)
         self._preferences = preferences
         self._auto_scan = auto_scan
         self._sources = sources
@@ -243,6 +242,9 @@ class WorkListWindow(WorkListActions, WorkListAutoPublish, WorkListTitles, WorkL
         self._model = WorkListModel(self, clock)
         self._proxy = WorkListProxy(self)
         self._proxy.setSourceModel(self._model)
+        # Qt's connectSlotsByName (the end of setupUi) reads every property, so everything a property reads must exist
+        # first: one that raises there leaks coverage's data lock and hangs the next traced call.
+        self.setupUi(self)
         self._configure_table()
         status_delegate = RunStatusDelegate(COL_RUN_PROGRESS, COL_RUN_DETAILS, self._open_run_details,
                                             self.workTable)

@@ -382,7 +382,7 @@ PYTHONPATH=./src/main/python QT_QPA_PLATFORM=offscreen uv run pytest src/test/py
 PYTHONPATH=./src/main/python uv run pytest src/test/python -n auto
 ```
 
-Three gotchas hit writing these, all worth knowing before adding more:
+Four gotchas hit writing these, all worth knowing before adding more:
 
 1. `qtbot` constructs a real, process-wide `QApplication` that then
    persists for the rest of the test process. Any test elsewhere in the
@@ -408,6 +408,12 @@ Three gotchas hit writing these, all worth knowing before adding more:
    `import app`) as the first import in any test file that transitively
    needs `model.filter` or `model.report` — see `test_filter_dialog.py`/
    `test_report_dialog.py`'s top-of-file comment.
+4. `setupUi` ends with `QMetaObject.connectSlotsByName`, which reads **every property** of the
+   widget. A property that raises there (it reads state `__init__` sets only after `setupUi`)
+   leaks coverage's data lock, and under `--cov` -- as CI runs -- the next traced call hangs
+   forever; without `--cov` nothing shows. Set what properties read *before* `setupUi` -- see
+   `WorkListWindow.__init__` and
+   `test_worklist_window.py::test_every_property_can_be_read_when_setup_ui_connects_the_slots`.
 
 CI (`.github/workflows/test.yaml`) runs the suite on Linux, macOS and
 Windows and builds the PyInstaller bundle;
