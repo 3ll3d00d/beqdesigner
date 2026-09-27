@@ -27,6 +27,7 @@ from typing import Callable, Dict, List, Optional, Union
 
 from pipeline.library.commit import CatalogueCommit
 from pipeline.library.index import LibraryIndex
+from pipeline.library.join import JoinQueue
 from pipeline.library.profile import Profile
 from pipeline.library.run import LibraryRunConfig, LibraryRunReport, design_unit_work, run_unit
 from pipeline.library.selection import Selection, Skipped, plan_stages
@@ -42,6 +43,8 @@ from pipeline.review import split_publish_results
 from model.execution_events import emit_execution_event, event_scope, execution_event_context
 
 logger = logging.getLogger('library_stages')
+
+_JOIN_POLL_SECONDS = 0.25   # how often a run with a join queue looks for new work while its titles are in hand
 
 
 @dataclass(frozen=True)
@@ -113,6 +116,8 @@ class StagesReport:
     attempted: List[str] = field(default_factory=list)     # titles whose planned work was started (and finished)
     not_run: List[str] = field(default_factory=list)       # planned but not started, because of the cancel
     counts: Dict[str, int] = field(default_factory=dict)   # titles per needs, after the run
+    joined: List[str] = field(default_factory=list)        # the JoinRequests the run took, by id
+    not_joined: List[str] = field(default_factory=list)    # offered too late (the machine phase was over), by id
 
     @property
     def failed(self) -> bool:
@@ -158,7 +163,8 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
                settings: Optional[ScanSettings] = None, retry_failed: bool = False, unattended: bool = False,
                should_cancel: Optional[Callable[[], bool]] = None,
                on_progress: Optional[Callable[[Progress], None]] = None,
-               on_event: Optional[Callable[[object], None]] = None, refresh: bool = True) -> StagesReport:
+               on_event: Optional[Callable[[object], None]] = None, refresh: bool = True,
+               join: Optional[JoinQueue] = None) -> StagesReport:
     '''
     Runs every stage up to and including `through` that each selected title still needs. Never lists a source, never
     reviews (a person's job) and, unless `through` says so, never publishes or commits.
@@ -178,6 +184,9 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
     :param should_cancel: polled between titles; True stops before the next one. Titles already done stay done.
     :param on_progress: called from the running thread with a Progress as each title-stage starts, and once at the end.
     :param on_event: structured execution events, including external process commands and responses.
+    :param join: more extract/design work for this run, taken while its machine phase lasts (JoinQueue): each request's
+        titles, minus those the run has already, are planned and queued behind the rest. The queue is closed when the
+        machine phase ends; `report.not_joined` names what it was offered and did not take.
     :param refresh: re-read every title's outputs into the index afterwards (Selection-free and cheap: no source is
         listed), so `needs` is current when this returns -- also after a cancel or a failure.
     :raises ValueError: for an unknown `through`, or publish/commit without `publish` settings.
@@ -190,13 +199,13 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
     machine = [p for p in plan.planned if any(s in p.stages for s in ('extract', 'design'))]
     to_publish = plan.with_stage('publish')
     commit_ids = [p.row.id for p in plan.planned if 'commit' in p.stages]
-    total = len(machine) + len(to_publish) + len(commit_ids)
     titles = {p.row.id: _title(p.row) for p in plan.planned}
-    state = {'done': 0}
+    state = {'done': 0, 'total': len(machine) + len(to_publish) + len(commit_ids)}
+    in_run = {p.row.id for p in plan.planned} | {s.id for s in plan.skipped}   # joined requests add only what is not
 
     def emit(stage: str, title_id: str = '', title: str = '') -> None:
         if on_progress is not None:
-            on_progress(Progress(state['done'], total, title, stage, title_id))
+            on_progress(Progress(state['done'], state['total'], title, stage, title_id))
 
     def cancelled() -> bool:
         return should_cancel is not None and bool(should_cancel())
@@ -231,6 +240,7 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
         with event_scope(title_id=planned.row.id):
             emit_execution_event('queued', message=titles.get(planned.row.id, planned.row.id))
 
+    all_planned = list(plan.planned)   # and what joins the run
     try:
         units, unit_errors = _units_by_title(index, [p.row.id for p in machine])
         machine_ids = {p.row.id for p in machine}
@@ -240,24 +250,62 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
                 if owner in machine_ids:
                     unit_errors[owner] = message
 
-        eligible = []
-        for planned in machine:
-            row = planned.row
-            if row.id in unit_errors:
-                report.run.failed.append((row.id, unit_errors[row.id]))
-                report.attempted.append(row.id)
-                with event_scope(title_id=row.id):
-                    emit_execution_event('failed', message=unit_errors[row.id])
-                state['done'] += 1
-            elif units.get(row.id) is None:
-                report.skipped.append(Skipped(row.id, _title(row), 'not in the last scan: scan again'))
-                with event_scope(title_id=row.id):
-                    emit_execution_event('skipped', message='Not in the last scan: scan again')
-                state['done'] += 1
-            else:
-                eligible.append((planned, units[row.id]))
+        def eligible_of(machine_planned, retry: bool) -> list:
+            ''' The titles that can be worked on, as (planned, unit, retry); the others are failed or skipped now. '''
+            eligible = []
+            for planned in machine_planned:
+                row = planned.row
+                if row.id in unit_errors:
+                    report.run.failed.append((row.id, unit_errors[row.id]))
+                    report.attempted.append(row.id)
+                    with event_scope(title_id=row.id):
+                        emit_execution_event('failed', message=unit_errors[row.id])
+                    state['done'] += 1
+                elif units.get(row.id) is None:
+                    report.skipped.append(Skipped(row.id, _title(row), 'not in the last scan: scan again'))
+                    with event_scope(title_id=row.id):
+                        emit_execution_event('skipped', message='Not in the last scan: scan again')
+                    state['done'] += 1
+                else:
+                    eligible.append((planned, units[row.id], retry))
+            return eligible
 
-        def extract_task(planned, unit):
+        def admit(requests) -> list:
+            ''' Joined requests: planned (never past design), queued and counted; returns what can be worked on. '''
+            admitted = []
+            for request in requests:
+                rows = [r for r in request.selection.rows(index) if r.id not in in_run]
+                extra = plan_stages(rows, request.through, retry_failed=request.retry_failed, unattended=unattended)
+                in_run.update(r.id for r in rows)
+                report.selected += len(extra.planned) + len(extra.skipped)
+                report.skipped.extend(extra.skipped)
+                report.joined.append(request.id)
+                if not extra.planned:
+                    continue
+                joined_ids = [p.row.id for p in extra.planned]
+                all_planned.extend(extra.planned)
+                state['total'] += len(extra.planned)
+                for planned in extra.planned:
+                    titles[planned.row.id] = _title(planned.row)
+                    with event_scope(title_id=planned.row.id):
+                        emit_execution_event('queued', message=titles[planned.row.id])
+                try:
+                    more_units, more_errors = _units_by_title(index, joined_ids)
+                except Exception as error:   # a title the run cannot rebuild fails on its own, as at the start
+                    more_units, more_errors = {}, {i: f'{type(error).__name__}: {error}' for i in joined_ids}
+                units.update(more_units)
+                machine_ids.update(joined_ids)
+                for resource, owners in conflicting_units([units[i] for i in units if i in machine_ids]).items():
+                    for owner in owners:
+                        if owner in joined_ids:   # the titles already in the run keep it
+                            more_errors[owner] = f'Work output {resource} is shared by selected titles: {", ".join(owners)}'
+                unit_errors.update(more_errors)
+                admitted.extend(eligible_of(extra.planned, request.retry_failed))
+            return admitted
+
+        eligible = eligible_of(machine, retry_failed)
+
+        def extract_task(planned, unit, retry):
             local = LibraryRunReport()
             title_id = planned.row.id
 
@@ -274,7 +322,7 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
 
             with event_scope(title_id=title_id, stage='extract'):
                 # plan_stages() planned a failed extraction only to try it again
-                retry = retry_failed or planned.row.extract_state == 'failed'
+                retry = retry or planned.row.extract_state == 'failed'
                 work = run_unit(Session(run_config.config), unit, run_config, local, index,
                                 retry_failed=retry, through='extract',
                                 on_stage=lambda progress_id, stage: emit(
@@ -297,12 +345,16 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
                                 thread_name_prefix='library-extract') as extract_pool, \
                 ThreadPoolExecutor(max_workers=run_config.design_parallelism,
                                    thread_name_prefix='library-design') as design_pool:
-            while pending or extracting or designing or design_pending:
+            while True:
                 cancel_requested = cancelled()
+                if join is not None and not cancel_requested:
+                    pending.extend(admit(join.take()))
+                if not (pending or extracting or designing or design_pending):
+                    break
                 if not cancel_requested:
                     while pending and len(extracting) < run_config.extract_parallelism:
-                        planned, unit = pending.pop(0)
-                        future = extract_pool.submit(copy_context().run, extract_task, planned, unit)
+                        planned, unit, retry = pending.pop(0)
+                        future = extract_pool.submit(copy_context().run, extract_task, planned, unit, retry)
                         extracting[future] = planned
                 else:
                     report.cancelled = True
@@ -311,11 +363,18 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
                     design_future = design_pool.submit(copy_context().run, design_task, planned, work)
                     designing[design_future] = planned
                 if not extracting and not designing and not design_pending and (not pending or cancelled()):
+                    if join is not None and not cancelled():   # one last look before the machine phase ends
+                        more = admit(join.take())
+                        if more:
+                            pending.extend(more)
+                            continue
                     break
                 active = set(extracting) | set(designing)
                 if not active:
                     break
-                completed, _ = wait(active, return_when=FIRST_COMPLETED)
+                # with a join queue, look for new work now and then rather than only when a title finishes
+                completed, _ = wait(active, timeout=_JOIN_POLL_SECONDS if join is not None else None,
+                                    return_when=FIRST_COMPLETED)
                 for future in completed:
                     planned = extracting.pop(future, None)
                     if planned is not None:
@@ -367,6 +426,8 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
                                 emit_execution_event('title_completed', message=titles.get(row_id, row_id))
             if cancelled():
                 report.cancelled = True
+        if join is not None:
+            report.not_joined = [r.id for r in join.close()]
 
         if to_publish and not report.cancelled and not cancelled():
             base = state['done']
@@ -447,7 +508,9 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
         elif commit_ids:
             report.cancelled = True
     finally:
-        planned_ids = {p.row.id for p in plan.planned}
+        if join is not None and not join.closed:   # an error ended the machine phase early: nothing more joins
+            report.not_joined += [r.id for r in join.close()]
+        planned_ids = {p.row.id for p in all_planned}
         report.attempted = list(dict.fromkeys(report.attempted))
         report.not_run = sorted(i for i in planned_ids if i not in report.attempted) if report.cancelled else []
         if refresh:

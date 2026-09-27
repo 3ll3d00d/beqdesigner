@@ -10,7 +10,7 @@ once built, its lasting behavior moves into [`implemented.md`](implemented.md).
 | F2 | Write the `.beq` projects when a title is extracted | Built in `7420a54` |
 | F3 | A decline is a flat (empty) filter a person can publish as "does not require BEQ" | Built in `49bbf34` |
 | F4 | A failed extraction stays extractable; Revise is not offered for it | Built in `c58a4b4` |
-| F5 | New work joins the run in progress (work list, CLI and service) | Not started |
+| F5 | New work joins the run in progress (work list, CLI and service) | In progress: F5a (the run takes joined work) built (see the commit that records it) |
 
 Decisions taken with the user on 2026-09-27: the CLI hands its titles to a run
 in progress and waits for them (F5); only runs a person starts retry a failed
@@ -64,23 +64,26 @@ something to send back: an extraction or a queue entry.
 Every run holds the work-directory lease (today only the service does), and a
 run's machine phase takes extra titles while it lasts:
 
-- `run_stages(join=...)` polls a `JoinQueue` each time it looks for work: each
-  request is a selection planned `through` extract or design (never past it),
-  minus titles already planned; its titles go to the back of the queue and the
-  total grows. When the machine phase ends the queue is closed and an offer is
-  refused.
+- `run_stages(join=...)` polls a `JoinQueue` (`pipeline/library/join.py`) each
+  time it looks for work, and every quarter second while titles are in hand:
+  each request is a selection planned `through` extract or design (never past
+  it), minus titles already in the run; its titles go to the back of the queue
+  and the total grows. When the machine phase ends the queue is closed: an offer
+  is refused, and what was offered but not taken is in `report.not_joined`.
 - The inbox is a directory, `<work_dir>/service/join/`: a request is a JSON file
-  written atomically; the runner claims it by renaming it, and writes a
-  `<id>.done.json` with the ids it took and how each ended when those titles are
-  over. This lets a run in one process take work from another.
+  written atomically; the runner claims it by renaming it to `.taken`, and the
+  poster withdraws one not yet claimed by renaming it to `.withdrawn` (whichever
+  rename wins decides). This lets a run in one process take work from another.
 - **Work list**: while its run is going, the action button and *Retry failed*
   stay enabled and add to it; Publish, Commit and a bulk accept or revise
   (which cannot join a machine phase) wait and start when it ends, in order.
-- **CLI** `run`: if a fresh lease is held, it posts its selection to the inbox,
-  waits until the runner has claimed it and finished those titles, then reports
-  them from the index and exits (0 if none failed). Its own runs take the lease
+- **CLI** `run`: if a fresh lease is held, it posts its selection to the inbox
+  and waits: once the runner claims it, until the run ends (the lease is
+  released), then it reports its titles from the index and exits (0 if none
+  failed); if the lease is released first, it withdraws the request and runs
+  itself. Its own runs take the lease
   and serve the inbox.
 - **Service**: a submitted run job whose `through` is extract or design joins
   the running run job's machine phase when there is one: the new job is
-  `running` at once and finishes when its titles do, with their part of the
-  report. Otherwise it queues as today.
+  `running` at once and finishes when the run it joined does. Otherwise, or if
+  the run has left its machine phase, it queues as today.

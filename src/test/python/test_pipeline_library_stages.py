@@ -720,3 +720,71 @@ def test_run_stages_accepts_settings_built_from_a_scan_settings(repos, env):
                                       {'source': 'Disc'}, push=False)
     with pytest.raises(ValueError, match='xml-repo'):
         PublishSettings.from_scan_settings(ScanSettings(work_dir='w', queue_dir='q'))
+
+
+# --- joining a run in progress (design/worklist-feedback.md F5) ------------------------------------------------------------
+
+def test_titles_offered_while_a_run_is_extracting_join_it_and_are_extracted_and_designed(env, work):
+    from pipeline.library.join import JoinQueue, JoinRequest
+    _scan(env, _item('a'), _item('b'), _item('c'))
+    join = JoinQueue()
+    request = JoinRequest(Selection(ids=('fs-b', 'fs-a')), 'design')   # fs-a is in the run already: not twice
+    progress = []
+
+    def on_event(event):
+        if event.kind == 'stage_started' and event.stage == 'extract' and event.title_id == 'fs-a':
+            assert join.offer(request)
+
+    report = _go(env, Selection(ids=('fs-a',)), 'design', join=join, on_event=on_event, on_progress=progress.append)
+
+    assert report.joined == [request.id] and report.not_joined == []
+    assert sorted(report.run.designed) == ['fs-a', 'fs-b'] and work.calls.count(('extract', 'fs-a')) == 1
+    assert 'fs-c' not in {c[1] for c in work.calls}
+    assert progress[-1].total == 2 and progress[-1].done == 2   # the bar grew with what joined
+    assert _needs(env, 'fs-b')[0] == 'review' and join.closed and not join.offer(JoinRequest(Selection()))
+
+
+def test_a_joined_request_goes_no_further_than_it_asked_and_reports_what_it_skipped(env, work):
+    from pipeline.library.join import JoinQueue, JoinRequest
+    _scan(env, _item('a'), _item('b'))
+    _extracted(env, _item('done'))
+    join = JoinQueue()
+    join.offer(JoinRequest(Selection(ids=('fs-b',)), 'extract'))
+
+    report = _go(env, Selection(ids=('fs-a',)), 'design', join=join)
+
+    assert ('extract', 'fs-b') in work.calls and ('design', 'fs-b') not in work.calls
+    assert _needs(env, 'fs-b')[0] == 'design' and report.selected == 2
+
+
+def test_what_a_cancelled_run_did_not_take_is_handed_back(env, work):
+    from pipeline.library.join import JoinQueue, JoinRequest
+    _scan(env, _item('a'), _item('b'))
+    join = JoinQueue()
+    request = JoinRequest(Selection(ids=('fs-b',)))
+    join.offer(request)
+
+    report = _go(env, Selection(ids=('fs-a',)), 'design', join=join, should_cancel=lambda: True)
+
+    assert report.cancelled and report.joined == [] and report.not_joined == [request.id]
+    assert work.calls == []
+
+
+def test_only_extract_and_design_can_join_a_run():
+    from pipeline.library.join import JoinRequest
+    with pytest.raises(ValueError, match='extract or design'):
+        JoinRequest(Selection(), 'publish')
+
+
+def test_a_join_queue_takes_from_its_other_sources_only_while_open():
+    from pipeline.library.join import JoinQueue, JoinRequest
+    inbox = [JoinRequest(Selection(ids=('x',)))]
+    join = JoinQueue(sources=[lambda: [inbox.pop()] if inbox else []])
+    offered = JoinRequest(Selection(ids=('y',)))
+    assert join.offer(offered)
+
+    taken = join.take()
+
+    assert [r.selection.ids for r in taken] == [('y',), ('x',)] and join.taken == [offered.id, taken[1].id]
+    late = JoinRequest(Selection(ids=('z',)))
+    assert join.offer(late) and join.close() == [late] and join.take() == [] and not join.offer(late)
