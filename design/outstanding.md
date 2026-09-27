@@ -19,7 +19,7 @@ moves to the implemented design and the item is removed from this file.
 | W1 | chunk 45a | Partially implemented: retry labels and failure/detail views missing | None |
 | W2 | chunk 45b | Partial in `62270b4`: codec, channels and stream count are requested | J2 for automatic stream selection; manual override already exists |
 | W3 | pipeline-service §5.1 gap | Not started | None |
-| C1 | chunk S5 | Built; not yet run in CI (the branch has not been pushed) | Push to GitHub |
+| C1 | chunk S5 | amd64 build and smoke verified; arm64 build and GHCR publish not yet run | The first tag push |
 | O1 | D6 | Optional idea; no implementation decision | Product decision |
 | O2 | former §9 reviewer questions | Behavior exists; acceptance decision missing | Real reviewer feedback |
 | T1 | -- | Watch; not reproduced | Recurrence with a stack dump |
@@ -167,15 +167,19 @@ held, and a stale lease does not block them.
 
 ## Delivery
 
-### C1 — Docker image in CI
+### C1 — arm64 image and GHCR publish
 
-The image, `docker/smoke.py`, the push-CI smoke job and the tag workflow
-(`create-image.yaml`) are built, and the smoke fixture passes through the real
-local service without Docker. Docker is not available locally, so the image
-build and its smoke run have never executed; they run on the first push.
+On 2026-09-27 the push-CI job's two commands were run locally at `7db992d`
+(Docker 29.8.1, linux/x86_64): `docker build -f docker/Dockerfile` succeeded,
+including its `dvdvideo` demuxer check, and `docker/smoke.py` passed (ready,
+run job through design, `succeeded`, queue entry present). The image runs as
+`beq` and reports the `VERSION` file copied into it. What has not run is the
+rest of `create-image.yaml`: the `linux/arm64` build under QEMU/buildx, the
+`latest`-tag rule, and the push to GHCR. These are left to CI: the first
+tag's `create-image.yaml` run exercises all of them (no local QEMU set-up).
 
-**Done when:** a push-CI run builds the image and the smoke job passes, and
-any defect it finds is fixed in its own commit.
+**Done when:** the first tag's workflow run builds both architectures, passes
+the smoke test and publishes them to GHCR with the expected tags.
 
 ## Test health
 

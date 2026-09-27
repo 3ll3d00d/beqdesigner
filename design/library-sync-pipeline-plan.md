@@ -27,7 +27,8 @@ not:
 | Work-list feedback F1-F5 | Built | F1 `de45afe`, F2 `7420a54`, F3 `49bbf34`, F4 `c58a4b4`, F5 `3d38f76` `ae1a086` `dc527f5` `12d875e` | [Implemented design](implemented.md); agreed design in [archive](archive/library-sync/worklist-feedback.md) |
 | Pipeline service S0-S7 | Built | per chunk in [§11](pipeline-service.md#11-status) | [Pipeline service](pipeline-service.md) |
 | Review Folder's lease check (service §5.1 gap) | Open | -- | [W3](outstanding.md#w3--review-folder-honours-the-lease) |
-| S5 image build and smoke in CI | Awaiting the first push | image `80cab0d`, local smoke `622d197` | [C1](outstanding.md#c1--docker-image-in-ci) |
+| S5 image: amd64 build and smoke | Verified | image `80cab0d`, smoke run at `7db992d` | [Docker image](pipeline-service/docker.md) |
+| S5 image: arm64 build and GHCR publish | Not yet run | -- | [C1](outstanding.md#c1--arm64-image-and-ghcr-publish) |
 | 3/30, 31 | Waiting for live JRiver and acceptance evidence | -- | [E1-E2](outstanding.md#external-evidence-and-disc-behavior) |
 | 32-33, 37 | Not started; evidence dependent | -- | [E3-E5](outstanding.md#external-evidence-and-disc-behavior) |
 | 40 | Not started beyond a first-stream stub | -- | [J2](outstanding.md#j2--resolve-jrivers-selected-audio-stream) |

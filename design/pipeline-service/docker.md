@@ -1,8 +1,9 @@
 # Pipeline service — Docker image and the Qt-free boundary
 
 Part of the [pipeline service design](../pipeline-service.md); section numbers
-continue that file's. This describes the image as built. Its first build and
-smoke run in CI is open as [C1](../outstanding.md#c1--docker-image-in-ci).
+continue that file's. This describes the image as built. The amd64 build and
+smoke run pass; the arm64 build and GHCR publish have not yet run
+([C1](../outstanding.md#c1--arm64-image-and-ghcr-publish)).
 
 ## 10. Docker image
 

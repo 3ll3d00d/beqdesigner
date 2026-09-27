@@ -403,7 +403,7 @@ depends on (§10.1).
 | S2 | Config, per-job profile context, `JobManager`, history, lease (§4, §5) | Built: `8f6ff97`, `bc7afd3`, `ca43161`, `cb9f371` |
 | S3 | FastAPI app, models, routes, auth, SSE, committed OpenAPI document, user page (§6) | Built: `99d2071` |
 | S4 | Auto scheduler and `/v1/schedule` (§8) | Built: `df93b2a` |
-| S5 | Docker image, compose example, CI smoke, GHCR publish on tag (docker.md §10) | Built: `80cab0d`, local smoke fixture `622d197`; CI run open as [C1](outstanding.md#c1--docker-image-in-ci) |
+| S5 | Docker image, compose example, CI smoke, GHCR publish on tag (docker.md §10) | Built: `80cab0d`, local smoke fixture `622d197`; image build and smoke verified locally at `7db992d`; arm64 and GHCR publish open as [C1](outstanding.md#c1--arm64-image-and-ghcr-publish) |
 | S6 | Notifications (§9) | Built: `af261fc` |
 | S7 | README and implemented-design entries | Built: `faafbba`, `73ccfde` |
 | F5 | Every run holds the lease; joining a run in progress (§5.1) | Built: `3d38f76`, `ae1a086`, `dc527f5`, `12d875e` |

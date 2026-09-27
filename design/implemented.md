@@ -87,8 +87,9 @@ JSON carries job, designed title, failure and review-count details; text,
 Slack and Discord carry a summary. Redirects are refused and status shows
 delivery outcomes without URLs or headers. The Qt-free Docker image has
 ffmpeg, git and SSH; CI builds and smoke-tests it on pushes and before
-publishing amd64/arm64 release tags (first CI run open as
-[C1](outstanding.md#c1--docker-image-in-ci)).
+publishing amd64/arm64 release tags. The amd64 image build and smoke run are
+verified; the arm64 build and GHCR publish have not yet run
+([C1](outstanding.md#c1--arm64-image-and-ghcr-publish)).
 
 ## Design and review
 
