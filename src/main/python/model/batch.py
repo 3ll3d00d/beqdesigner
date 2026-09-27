@@ -722,6 +722,8 @@ class ExtractCandidate:
             self.__on_extract_complete(self.__idx)
             self.__skip_design()
         elif key == 'out_time_ms':
+            if self.status in (ExtractStatus.COMPLETE, ExtractStatus.FAILED, ExtractStatus.CANCELLED):
+                return   # ffmpeg's last report comes through the progress bridge's thread, and can land after the result
             if self.status != ExtractStatus.IN_PROGRESS:
                 logger.debug(f"Extraction started for {self}")
                 self.status = ExtractStatus.IN_PROGRESS

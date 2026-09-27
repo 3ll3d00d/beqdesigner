@@ -175,6 +175,7 @@ def test_design_controls_start_disabled_and_toggle_with_the_checkbox(dialog):
     assert dialog.browseQueueDirButton.isEnabled() is False
 
 
+@pytest.mark.requires_ffmpeg
 def test_extract_with_design_disabled_does_not_require_a_queue_dir(qtbot, dialog, tmp_path):
     ''' Design off is the pre-existing behaviour -- extract must not be gated on a queue dir in that case. '''
     source = str(tmp_path / 'in' / 'a-movie.wav')
@@ -196,6 +197,30 @@ def test_extract_with_design_disabled_does_not_require_a_queue_dir(qtbot, dialog
     assert candidate.status.name == 'COMPLETE'
     assert os.path.isfile(candidate.executor.get_output_path())
 
+
+
+@pytest.mark.requires_ffmpeg
+def test_a_progress_report_after_the_result_leaves_the_title_complete(qtbot, dialog, tmp_path):
+    '''
+    ffmpeg's progress reaches the dialog through the progress bridge's own thread, the result through the extraction's: the
+    last out_time can land after SIGNAL_COMPLETE, and it used to put the finished title back to IN_PROGRESS (a flaky test).
+    '''
+    source = str(tmp_path / 'in' / 'a-movie.wav')
+    os.makedirs(os.path.dirname(source), exist_ok=True)
+    _write_synthetic_wav(source)
+    os.makedirs(tmp_path / 'out')
+    dialog.outputDir.setText(str(tmp_path / 'out'))
+    dialog.filter.setText(str(tmp_path / 'in' / '*.wav'))
+    dialog.search()
+    qtbot.waitUntil(lambda: dialog.extractButton.isEnabled(), timeout=15000)
+    dialog.extract()
+    qtbot.waitUntil(lambda: not dialog.resetButton.isEnabled(), timeout=15000)
+    candidate = dialog._BatchExtractDialog__candidates[0]
+    assert candidate.status.name == 'COMPLETE'
+
+    candidate._ExtractCandidate__handle_ffmpeg_process('out_time_ms', '250000')
+
+    assert candidate.status.name == 'COMPLETE'
 
 def test_extract_with_design_requires_a_queue_dir(qtbot, dialog, monkeypatch, tmp_path):
     calls = []
@@ -240,6 +265,7 @@ def test_duplicate_filename_stems_rejected_when_design_enabled(qtbot, dialog, mo
     assert 'stem' in calls[0][2]
 
 
+@pytest.mark.requires_ffmpeg
 def test_extract_with_design_writes_a_pending_queue_entry_and_opens_the_review_folder_window(qtbot, dialog, tmp_path):
     source = str(tmp_path / 'in' / 'ready-player-one.wav')
     os.makedirs(os.path.dirname(source), exist_ok=True)
@@ -284,6 +310,7 @@ def test_designer_combo_preselects_the_default_designer_preference(qtbot, tmp_pa
     assert d.designerCombo.currentText() == DESIGNER_NAME
 
 
+@pytest.mark.requires_ffmpeg
 def test_design_uses_a_mono_downmix_even_when_the_kept_file_is_multichannel(qtbot, dialog, tmp_path):
     '''
     Mix to Mono? governs only the kept extraction -- Design must not be derived from (or blocked by) it, since
@@ -319,6 +346,7 @@ def test_design_uses_a_mono_downmix_even_when_the_kept_file_is_multichannel(qtbo
     assert entries[0].candidates[0].confidence == 0.9  # designed successfully anyway, from its own mono downmix
 
 
+@pytest.mark.requires_ffmpeg
 def test_design_sends_per_channel_data_when_the_kept_file_is_multichannel(qtbot, recording_designer, tmp_path):
     '''
     A multichannel kept extraction shouldn't just get downmixed and have its per-channel detail thrown away --
@@ -359,6 +387,7 @@ def test_design_sends_per_channel_data_when_the_kept_file_is_multichannel(qtbot,
     assert all(len(samples) > 0 for samples in channels.values())
 
 
+@pytest.mark.requires_ffmpeg
 def test_design_sends_no_channels_when_the_kept_file_is_mono(qtbot, recording_designer, tmp_path):
     ''' Mix to Mono? checked -- no multichannel source was ever extracted, so there's nothing to decompose. '''
     d = BatchExtractDialog(None, _make_preferences(tmp_path))
