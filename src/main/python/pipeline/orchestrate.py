@@ -243,6 +243,10 @@ class Session:
                             duration_override_s=duration_override_s, input_options=input_options)
         if on_progress is not None:
             def report_ffmpeg_progress(key, value):
+                if key == 'progress' and value == 'end' and executor.duration_micros:
+                    # finished: older ffmpeg (6.1) reports out_time 0 throughout for a filter_complex output, even here
+                    on_progress(executor.duration_micros, executor.duration_micros)
+                    return
                 if key != 'out_time_ms' or value in (None, 'N/A'):
                     return
                 try:

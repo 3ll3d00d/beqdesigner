@@ -68,6 +68,29 @@ def test_extract_if_needed_forwards_ffmpegs_time_progress(tmp_path):
     assert max(out_time for out_time, _ in updates) > 0
 
 
+
+def test_extract_if_needed_reports_the_end_as_complete_when_ffmpeg_never_advanced_out_time(tmp_path, monkeypatch):
+    ''' ffmpeg 6.1 (Ubuntu 24.04) sends out_time_ms=0 in every report for this filter_complex output, even the last. '''
+    from model.ffmpeg import Executor
+    source = str(tmp_path / 'source.wav')
+    _write_synthetic_wav(source, duration_s=1.0)
+    real_run = Executor.run_sync
+
+    def as_ffmpeg_6_1(self, start_progress_bridge=True):
+        result = real_run(self, start_progress_bridge=False)
+        for key, value in (('out_time_ms', '0'), ('progress', 'continue'), ('out_time_ms', '0'), ('progress', 'end')):
+            self.progress_handler(key, value)
+        return result
+
+    monkeypatch.setattr(Executor, 'run_sync', as_ffmpeg_6_1)
+    updates = []
+
+    extract_if_needed(Session(AnalysisConfig()), _mono_item(source), str(tmp_path / 'work'), AnalysisConfig(),
+                      mono_mix=True, on_progress=lambda out_time, total_time: updates.append((out_time, total_time)))
+
+    assert updates[:2] == [(0, 1_000_000), (0, 1_000_000)]
+    assert updates[-1] == (1_000_000, 1_000_000)
+
 def test_extract_if_needed_skips_ffmpeg_on_a_repeat_call(tmp_path, monkeypatch):
     source = str(tmp_path / 'source.wav')
     _write_synthetic_wav(source)
