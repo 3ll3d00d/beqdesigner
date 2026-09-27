@@ -310,10 +310,11 @@ def test_a_run_happens_off_the_ui_thread_with_determinate_progress_and_a_running
     assert _cell(window, 'x-gravity', COL_NEEDS) == '▶ Designing...'
     assert _cell(window, 'x-gravity', COL_NEEDS, RUNNING_ROLE) == 'design'
     assert _cell(window, 'x-tenet', COL_NEEDS) == 'Extract'
-    # what would conflict is disabled, and Cancel is offered
-    for button in (window.runButton, window.publishButton, window.commitButton, window.retryButton,
-                   window.rescanButton):
+    # nothing new to add (the three are in the run), nothing to publish, and a scan would conflict; Retry failed would join
+    # the run (worklist-feedback.md F5); and Cancel is offered
+    for button in (window.runButton, window.publishButton, window.commitButton, window.rescanButton):
         assert not button.isEnabled(), button.objectName()
+    assert window.retryButton.isEnabled()
     assert window.cancelButton.isVisibleTo(window) and window.cancelButton.isEnabled()
     assert window.rescan() is False and window.run_selected() is False
     assert sorted(window.selected_ids()) == ['x-fury', 'x-gravity', 'x-tenet']    # never lost, however long it runs
@@ -1661,3 +1662,98 @@ def test_a_run_is_refused_while_the_pipeline_service_holds_the_work_directory(qt
 
     with qtbot.waitSignal(window.run_finished, timeout=10000):   # once it has finished, the run goes ahead
         assert window.run_selected() is True
+
+
+# --- more work while a run is going (design/worklist-feedback.md F5) ------------------------------------------------------
+
+class _JoiningPipeline:
+    ''' run_stages' F5 half: holds an extract/design run until released, then takes what joined it and reports that too. '''
+
+    def __init__(self, take=True):
+        self.calls: List[tuple] = []
+        self.entered, self.release = threading.Event(), threading.Event()
+        self.take = take
+
+    def __call__(self, profile, selection, through, *, join=None, should_cancel=None, **kwargs):
+        ids = list(selection.ids)
+        self.calls.append((through, ids))
+        if through in ('extract', 'design'):
+            self.entered.set()
+            assert self.release.wait(5), 'the test never released the pipeline'
+        taken = join.take() if join is not None and self.take else []
+        left = join.close() if join is not None else []
+        cancelled = bool(should_cancel and should_cancel())
+        done = [] if cancelled else ids + [i for r in taken for i in r.selection.ids]
+        return StagesReport(through, len(done), run=LibraryRunReport(designed=done), attempted=done, cancelled=cancelled,
+                            not_run=ids if cancelled else [], joined=[r.id for r in taken], not_joined=[r.id for r in left])
+
+
+def _running(qtbot, tmp_path, pipeline, ids=('x-gravity',)):
+    window, _ = _window(qtbot, tmp_path, pipeline=pipeline, prefs=_prefs(tmp_path))
+    window.select_ids(list(ids))
+    assert window.run_selected()
+    _wait_for(qtbot, pipeline.entered, timeout=5000)
+    return window
+
+
+def test_extracting_more_while_a_run_is_going_joins_it(qtbot, tmp_path):
+    pipeline = _JoiningPipeline()
+    window = _running(qtbot, tmp_path, pipeline)
+    window.select_ids(['x-tenet', 'x-gravity'])
+
+    assert _run_button_text(window) == 'Add 1 to the run' and window.runButton.isEnabled()   # x-gravity is in it
+    assert window.run_selected() is True
+
+    assert window.queued_runs == [] and window.model.is_working('x-tenet')
+    assert window.runStatusLabel.text() == 'Added 1 title to the run in progress.'
+    assert window.chip_counts()['Working'] == 2
+    with qtbot.waitSignal(window.run_finished, timeout=10000) as run:
+        pipeline.release.set()
+    assert pipeline.calls == [('design', ['x-gravity'])]           # one run did both
+    assert run.args[0].run.designed == ['x-gravity', 'x-tenet'] and len(run.args[0].joined) == 1
+
+
+def test_publish_asked_for_during_a_run_waits_for_it_and_then_starts(qtbot, tmp_path):
+    pipeline = _JoiningPipeline()
+    window = _running(qtbot, tmp_path, pipeline)
+    window.select_ids(['p-one'])
+    _answer(True, [])
+
+    assert window.publishButton.text() == 'Publish 1 after the run' and window.publish_selected() is True
+
+    assert [r.through for r in window.queued_runs] == ['publish']
+    assert 'starts when the run in progress ends (1 waiting)' in window.runStatusLabel.text()
+    with qtbot.waitSignal(window.run_finished, timeout=10000):
+        pipeline.release.set()                                     # the extract run ends ...
+    qtbot.waitUntil(lambda: len(pipeline.calls) == 2, timeout=5000)   # ... and the publish starts by itself
+    assert pipeline.calls[1] == ('publish', ['p-one']) and window.queued_runs == []
+
+
+def test_work_offered_after_the_run_stopped_taking_more_runs_next(qtbot, tmp_path):
+    pipeline = _JoiningPipeline(take=False)   # the machine phase ended before it looked again
+    window = _running(qtbot, tmp_path, pipeline)
+    window.select_ids(['x-tenet'])
+    assert window.run_selected() is True
+
+    with qtbot.waitSignal(window.run_finished, timeout=10000):
+        pipeline.release.set()
+    qtbot.waitUntil(lambda: len(pipeline.calls) == 2, timeout=5000)
+    assert pipeline.calls[1] == ('design', ['x-tenet'])
+    qtbot.waitUntil(lambda: not window.is_running, timeout=5000)   # (released already: it runs straight through)
+
+
+def test_cancel_also_drops_the_runs_waiting_for_it(qtbot, tmp_path):
+    pipeline = _JoiningPipeline()
+    window = _running(qtbot, tmp_path, pipeline)
+    window.select_ids(['p-one'])
+    _answer(True, [])
+    window.publish_selected()
+    window.select_ids(['x-tenet'])
+    window.run_selected()
+
+    assert window.cancel_run() is True
+    assert window.queued_runs == [] and '1 waiting run will not start' in window.runStatusLabel.text()
+    with qtbot.waitSignal(window.run_finished, timeout=10000):
+        pipeline.release.set()
+    QApplication.processEvents()
+    assert pipeline.calls == [('design', ['x-gravity'])] and not window.is_running

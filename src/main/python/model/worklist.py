@@ -215,6 +215,8 @@ class WorkListWindow(WorkListActions, WorkListAutoPublish, WorkListTitles, WorkL
         self._run_stages, self._precheck = run_stages_fn, precheck
         self._job: Optional[RunJob] = None
         self._run_context = None   # the run in flight (worklist_actions._RunContext)
+        self._queued_runs: list = []    # runs asked for while one was going, started in order when it ends (F5)
+        self._offered_joins: dict = {}  # JoinRequest id -> the run it was offered as, until the run it joined ends
         self._event_buffers = {}
         self._saved_details = {}
         self._detail_dialogs = {}

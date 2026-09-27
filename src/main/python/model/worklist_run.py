@@ -24,6 +24,7 @@ from qtpy.QtCore import QObject, QRunnable, Signal
 from model.preferences import TMDB_API_KEY
 from pipeline.library.commit import CatalogueCommit
 from pipeline.library.index import LibraryIndex, TitleRow
+from pipeline.library.join import JoinQueue
 from pipeline.library.run import LibraryRunConfig, stage_parallelism
 from pipeline.library.selection import Selection, StagePlan
 from pipeline.library.stages import PublishSettings, StagesReport, run_stages
@@ -82,6 +83,7 @@ class RunJob(QRunnable):
         self.__index_file, self.__profile, self.__settings = index_file, profile, settings
         self.__run_config, self.__publish, self.__runner = run_config, publish, runner
         self.__cancel = threading.Event()
+        self.join = JoinQueue()   # more extract/design work while the run's machine phase lasts (F5)
 
     def cancel(self) -> None:
         self.__cancel.set()
@@ -97,7 +99,7 @@ class RunJob(QRunnable):
                     self.__profile, Selection(ids=self.request.ids), self.request.through,
                     run_config=self.__run_config, index=index, publish=self.__publish, settings=self.__settings,
                     retry_failed=self.request.retry_failed, should_cancel=self.__cancel.is_set,
-                    on_progress=self.signals.progress.emit, on_event=self.signals.event.emit)
+                    on_progress=self.signals.progress.emit, on_event=self.signals.event.emit, join=self.join)
         except Exception as error:
             logger.exception('Library run failed')
             self.signals.errored.emit(f'{type(error).__name__}: {error}')

@@ -13,7 +13,7 @@ The run itself is `model.worklist_run.RunJob`; the words are in `model.worklist_
 '''
 import logging
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Dict, List, Optional
 
 from qtpy.QtCore import Qt, QThreadPool
@@ -29,7 +29,8 @@ from model.worklist_run import LEVEL_ERROR, LEVEL_OK, FailedTitle, ResultLine, R
     summarise_skipped
 from model.worklist_run_details import EventBuffer, save_run_details
 from pipeline.library.index import TitleRow
-from pipeline.library.selection import StagePlan, plan_stages
+from pipeline.library.join import JOINABLE, JoinRequest
+from pipeline.library.selection import Selection, StagePlan, plan_stages
 from pipeline.library.stages import FfmpegProgress, Progress, StagesReport
 from pipeline.service.lease import read_lease
 
@@ -139,16 +140,28 @@ class WorkListActions:
         '''
         What running `through` over these titles (default: `target_ids()`) would do -- the button's label and the run
         itself come from this. Publish and Commit are for the titles that need exactly that, so a title that still needs
-        extracting is never published by pressing Publish.
+        extracting is never published by pressing Publish. While a run is going, extract and design leave out the titles
+        already in it: what the button adds to it is only what is new.
         '''
         rows = self._rows_by_id()
         targets = [rows[i] for i in (self.target_ids() if ids is None else ids) if i in rows]
         if through in ('publish', 'commit'):
             targets = [row for row in targets if row.needs == through]
+        elif self._run_context is not None:
+            in_run = set(self._run_context.request.ids)
+            targets = [row for row in targets if row.id not in in_run]
         return plan_stages(targets, through, retry_failed=retry_failed)
 
     def _busy(self) -> bool:
-        return self.is_running or self._scanning or self._syncing or self._bulk_job is not None
+        return self.is_running or self._blocking()
+
+    def _blocking(self) -> bool:
+        '''
+        What keeps the run, Publish, Commit and Retry buttons from being used: a scan, an index sync or a bulk job. A run in
+        progress does not (design/worklist-feedback.md F5): more extract and design work joins it, anything else waits for
+        it to end and then starts.
+        '''
+        return self._scanning or self._syncing or self._bulk_job is not None
 
     def _refresh_actions(self, *_) -> None:
         ''' The selection text and the four buttons: their labels say how many titles each will work on. '''
@@ -156,9 +169,11 @@ class WorkListActions:
         selected, listed = self.selected_ids(), self._proxy.rowCount()
         self.selectionLabel.setText(f'{len(selected):,} selected of {listed:,} listed' if selected else
                                     f'None selected: the buttons work on all {listed:,} listed' if listed else '')
-        ready = self._setup.ready and self._index is not None and not self._busy()
+        ready = self._setup.ready and self._index is not None and not self._blocking()
+        running = self.is_running
         plan = self.plan_for('design')
-        self.runButton.setText(_button_text(plan_label(plan)))
+        self.runButton.setText(_button_text(f'Add {len(plan.planned):,} to the run' if running and plan.planned
+                                            else plan_label(plan)))
         self.runButton.setEnabled(ready and bool(plan.planned))
         self.runButton.setToolTip(
             'Extract the audio and design a filter for each title that needs it. A title is never taken past design '
@@ -171,7 +186,7 @@ class WorkListActions:
             text = plan_label(step)
             if through == 'commit' and step.planned and not self._uncommitted(step):
                 text = 'Push' + text[len('Commit'):]   # every one is committed already: all that is left is pushing
-            button.setText(_button_text(text))
+            button.setText(_button_text(f'{text} after the run' if running and step.planned else text))
             button.setEnabled(ready and bool(step.planned) and not problem)
             if problem:
                 button.setToolTip(problem)
@@ -300,9 +315,9 @@ class WorkListActions:
             the person selected the titles.
         '''
         self._flush_settings()   # a setting edited a moment ago is what this run must use
-        if self._busy() or not self._setup.ready or self._index is None or self._setup.index_file is None:
+        if self._blocking() or not self._setup.ready or self._index is None or self._setup.index_file is None:
             return False
-        holder = read_lease(self._setup.profile.work_dir if self._setup.profile else None)
+        holder = None if self.is_running else read_lease(self._setup.profile.work_dir if self._setup.profile else None)
         if holder is not None:   # the pipeline service is running a job here: two runs would both write the index
             self._say(f'Cannot start: {holder.describe()}.', LEVEL_ERROR)
             return False
@@ -353,7 +368,78 @@ class WorkListActions:
                     return False
         request = RunRequest(through, tuple(p.row.id for p in plan.planned), retry_failed, push)
         skipped = summarise_skipped(plan, rows, retry_failed)
+        if self.is_running:
+            return self._add_to_run(request, plan, rows, skipped)
         return self._launch(request, plan, rows, skipped)
+
+    # --- more work while a run is going (design/worklist-feedback.md F5) ------------------------------------------------
+
+    def _add_to_run(self, request: RunRequest, plan: StagePlan, rows: Dict[str, TitleRow], skipped_text: str) -> bool:
+        '''
+        Extract and design work joins the run in progress while its machine phase lasts; anything else -- Publish, Commit,
+        or work offered once that phase is over -- waits, and starts when the run ends. :return: True (either way).
+        '''
+        if request.through in JOINABLE and self._job is not None:
+            join = JoinRequest(Selection(ids=request.ids), request.through, request.retry_failed)
+            if self._job.join.offer(join):
+                self._offered_joins[join.id] = request
+                self._joined(request, plan, rows)
+                count = len(request.ids)
+                self._say(f'Added {count:,} title{"" if count == 1 else "s"} to the run in progress.')
+                self._refresh_actions()
+                self._refresh_view()
+                return True
+        self._queued_runs.append(request)
+        self._say(f'{plan_label(plan)} starts when the run in progress ends'
+                  f' ({len(self._queued_runs):,} waiting).')
+        self._refresh_actions()
+        return True
+
+    def _joined(self, request: RunRequest, plan: StagePlan, rows: Dict[str, TitleRow]) -> None:
+        ''' The run's context, progress and rows take in the titles that joined it. '''
+        context = self._run_context
+        if context is None:
+            return
+        new = [p for p in plan.planned if p.row.id not in context.request.ids]
+        context.request = replace(context.request, ids=context.request.ids + tuple(p.row.id for p in new))
+        context.plan.planned.extend(new)
+        context.rows.update(rows)
+        for planned in new:
+            self._run_outcomes[planned.row.id] = 'queued'
+            self._model.set_run_state(planned.row.id, active=False, queued=True, stage='', text='Queued', current=None,
+                                      total=None, has_details=False, attempting=True, attempt_detail='')
+        self._update_run_progress()
+        self._update_run_summary()
+
+    def _requeue_unjoined(self, not_joined: List[str], dropped: bool) -> None:
+        ''' What was offered to the run that ended and not taken goes first in line, unless the person cancelled. '''
+        unjoined = [self._offered_joins[i] for i in not_joined if i in self._offered_joins]
+        self._offered_joins.clear()
+        if dropped:
+            self._queued_runs.clear()
+        else:
+            self._queued_runs[:0] = unjoined
+
+    @property
+    def queued_runs(self) -> List[RunRequest]:
+        ''' The runs waiting for the one in progress to end, in the order they start. '''
+        return list(self._queued_runs)
+
+    def _start_next_queued_run(self) -> bool:
+        '''
+        Starts the first waiting run, planned again (the rows have moved on: a title done by the run that ended is left
+        out). A waiting run with nothing left to do is dropped, and the next one tried. :return: True if one started.
+        '''
+        while self._queued_runs and not self.is_running and not self._blocking():
+            request = self._queued_runs.pop(0)
+            rows = self._rows_by_id()
+            plan = self.plan_for(request.through, list(request.ids), request.retry_failed)
+            if not plan.planned:
+                continue
+            fresh = replace(request, ids=tuple(p.row.id for p in plan.planned))
+            if self._launch(fresh, plan, rows, summarise_skipped(plan, rows, request.retry_failed)):
+                return True
+        return False
 
     def _view_description(self) -> str:
         parts = [self._proxy.chip]
@@ -429,11 +515,15 @@ class WorkListActions:
         if self._job is None:
             return False
         self._job.cancel()
+        self._job.join.close()   # nothing more joins a run that is stopping; what was offered is dropped with it
+        dropped = len(self._queued_runs)
+        self._queued_runs.clear()
         self.cancelButton.setEnabled(False)
         if self._run_context is not None and self._run_context.stage == 'commit':
             self._say('Cancel requested, but a commit cannot be stopped part way: it finishes, and the run ends after it.')
         else:
-            self._say('Cancelling: the title being worked on finishes first...')
+            self._say('Cancelling: the title being worked on finishes first...' +
+                      (f' {dropped:,} waiting run{"" if dropped == 1 else "s"} will not start.' if dropped else ''))
         return True
 
     def _on_run_progress(self, source_job, progress: Progress) -> None:
@@ -600,8 +690,10 @@ class WorkListActions:
             self._refresh_results()
             self.show_last_run()
             self._say(text, level)
+        self._requeue_unjoined(report.not_joined, dropped=cancel_asked)
         self._refresh_view()
         self.run_finished.emit(report)
+        self._start_next_queued_run()
 
     def _on_run_failed(self, source_job, message: str) -> None:
         if self._job is None or source_job is not self._job:
@@ -613,8 +705,11 @@ class WorkListActions:
         self._sync_index_if_dirty()
         self._say(f'The run failed: {message}. Titles finished before it are kept; see Help > Logs for the details.',
                    LEVEL_ERROR)
+        # what joined it may or may not have been done: offered again, a title already done is planned out
+        self._requeue_unjoined(list(self._offered_joins), dropped=False)
         self._refresh_view()
         self.run_failed.emit(message)
+        self._start_next_queued_run()
 
     def _save_run_details(self) -> None:
         try:

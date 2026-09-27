@@ -190,7 +190,10 @@ were designed under different settings.
 The Tools menu opens the Library Work List, a top-level window over the index.
 It has pipeline counts (with a *Working* chip for the titles the window's run
 has queued or in hand, from its run state; a title moves from Extract to
-Design as soon as its extraction ends, worklist-feedback F1), searchable/sortable rows, source and tier filters,
+Design as soon as its extraction ends, worklist-feedback F1), searchable/sortable rows, source and tier filters, run actions that
+join the run in progress (extract/design through its `JoinQueue`; Publish,
+Commit and anything offered too late wait and start in order when it ends,
+and Cancel drops them; worklist-feedback F5),
 Rescan, selected/all-visible actions, settings, failures, and Last run. A
 title page replaces the table in the same window and preserves selection and
 scroll position when closed. The Metadata tab validates required fields,
