@@ -26,7 +26,7 @@ coefficients; the focused library/orchestration suite passed 175 tests.
 | Extraction folders | Implemented in `ffdcf1a`: readable track and stream names with stable ID lookup and legacy cache support | [Implemented design](implemented.md) |
 | Run Details persistence | Implemented in `48c2fc9`: redacted last-run details restored after restart | [Implemented design](implemented.md) |
 | Title-page progress | Implemented in `92d8881`: viewed track progress on its page, completed-title count on the list | [Implemented design](implemented.md) |
-| Work-list feedback (F1-F5) | F4 built in `c58a4b4`, F2 in `7420a54`, F3 in `49bbf34`, F1 in `de45afe`; F5 in progress, F5a in `3d38f76`, F5b in `ae1a086`, F5c in `dc527f5` (design agreed 2026-09-27) | [Work-list feedback](worklist-feedback.md) |
+| Work-list feedback (F1-F5) | F4 built in `c58a4b4`, F2 in `7420a54`, F3 in `49bbf34`, F1 in `de45afe`; F5 in `3d38f76`, `ae1a086`, `dc527f5` and `12d875e`: all built | [Work-list feedback](worklist-feedback.md) |
 | Pipeline service (S0-S7) | Implemented: schedule `df93b2a`, Docker image/CI `80cab0d`, local real smoke fixture `622d197`, webhooks `af261fc`, documentation `faafbba`/`73ccfde`. Image build/smoke awaits first CI run. | [Pipeline service](pipeline-service.md) |
 
 Chunk 3 became the live-fixture work in chunk 30. The remaining optional
@@ -47,7 +47,7 @@ T1, T9-T14 and T16 are delivered or accepted boundaries in `implemented.md`.
 | Library user workflow | [`docs/library/`](../docs/library/) |
 | Designer request/response and HTTP wire protocol | [Designer interface](designer-interface.md) |
 | Pipeline service: HTTP/OpenAPI interface, auto mode and Docker image (built; CI image smoke pending) | [Pipeline service](pipeline-service.md) |
-| Work-list feedback F1-F5 (design, not built) | [Work-list feedback](worklist-feedback.md) |
+| Work-list feedback F1-F5 (built; lasting behavior in the implemented design) | [Work-list feedback](worklist-feedback.md) |
 | Index schema | `SCHEMA` and `SCHEMA_VERSION` in `src/main/python/pipeline/library/index.py` |
 
 Older source comments cite the original section numbers. Their subjects now

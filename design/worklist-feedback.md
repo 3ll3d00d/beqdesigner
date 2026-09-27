@@ -1,8 +1,8 @@
 # Work-list feedback, 2026-09-27 — design
 
-Five changes asked for after using the work list on a real library. Each item is
-**design, not built** until its status below names the commit that built it;
-once built, its lasting behavior moves into [`implemented.md`](implemented.md).
+Five changes asked for after using the work list on a real library. All five
+are built (the commits are in the table); their lasting behavior is in
+[`implemented.md`](implemented.md), and this file keeps the design as agreed.
 
 | ID | Change | Status |
 |---|---|---|
@@ -10,7 +10,7 @@ once built, its lasting behavior moves into [`implemented.md`](implemented.md).
 | F2 | Write the `.beq` projects when a title is extracted | Built in `7420a54` |
 | F3 | A decline is a flat (empty) filter a person can publish as "does not require BEQ" | Built in `49bbf34` |
 | F4 | A failed extraction stays extractable; Revise is not offered for it | Built in `c58a4b4` |
-| F5 | New work joins the run in progress (work list, CLI and service) | Built: F5a `3d38f76`, F5b `ae1a086`, F5c `dc527f5`, F5d (the service) in the commit that records it |
+| F5 | New work joins the run in progress (work list, CLI and service) | Built: F5a `3d38f76`, F5b `ae1a086`, F5c `dc527f5`, F5d (the service) `12d875e` |
 
 Decisions taken with the user on 2026-09-27: the CLI hands its titles to a run
 in progress and waits for them (F5); only runs a person starts retry a failed
