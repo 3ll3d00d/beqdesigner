@@ -200,8 +200,8 @@ def test_reopening_an_accepted_title_from_the_page_makes_it_pending_and_it_can_b
     assert _status(tmp_path, 'p-fury') == 'accepted'
 
 
-@pytest.mark.parametrize('decision, status', [('skip', 'skipped'), ('reject', 'rejected')])
-def test_skip_and_reject_apply_again_to_a_reopened_title(qtbot, tmp_path, decision, status):
+@pytest.mark.parametrize('decision, status', [('reject', 'rejected')])
+def test_reject_applies_again_to_a_reopened_title(qtbot, tmp_path, decision, status):
     window = _window(qtbot, tmp_path)
     page = _open(qtbot, window, 'p-fury')
     assert page.revise('review')
@@ -293,7 +293,9 @@ def test_the_real_dialog_is_shown_says_what_will_happen_and_its_answer_is_used(q
 def test_nothing_can_be_sent_back_for_a_title_with_no_entry_or_one_a_run_is_working_on(qtbot, tmp_path):
     window = _window(qtbot, tmp_path)
     page = _open(qtbot, window, 'x-gravity')                    # no queue entry
-    assert not page.actions_bar.reviseButton.isEnabled() and 'Nothing has been designed' in page.actions_bar.reviseButton.toolTip()
+    bar = page.actions_bar
+    assert not bar.reviseAction.isEnabled() and 'Nothing has been designed' in bar.reviseAction.toolTip()
+    assert bar.reviseButton.isEnabled() and bar.audioStreamAction.isEnabled()   # another stream is how this is put right
     assert page.revise('review') is False and 'Nothing has been designed' in page.decisionLabel.text()
 
     page = _open(qtbot, window, 'r-alien') if window.close_title() else None
@@ -301,7 +303,7 @@ def test_nothing_can_be_sent_back_for_a_title_with_no_entry_or_one_a_run_is_work
     assert not page.actions_bar.reviseButton.isEnabled() and 'A run is working on this title' in page.actions_bar.reviseButton.toolTip()
     assert page.revise('review') is False and _status(tmp_path, 'r-alien') == 'pending'
     window.model.set_running({})
-    assert page.actions_bar.reviseButton.isEnabled()
+    assert page.actions_bar.reviseButton.isEnabled() and page.actions_bar.reviseAction.isEnabled()
 
 
 def test_a_publish_or_commit_run_holds_back_the_revise_of_an_accepted_title_but_not_a_pending_one(qtbot, tmp_path):
@@ -313,7 +315,7 @@ def test_a_publish_or_commit_run_holds_back_the_revise_of_an_accepted_title_but_
         assert window._revise_blocked('p-fury', 'accepted') and window._revise_blocked('p-fury', 'published')
         assert window._revise_blocked('r-alien', 'pending') == ''
         page.refresh_decisions()
-        assert not page.actions_bar.reviseButton.isEnabled()
+        assert not page.actions_bar.reviseAction.isEnabled()
         window._run_context = SimpleNamespace(request=SimpleNamespace(through='design'))
         assert window._revise_blocked('p-fury', 'accepted') == ''
     finally:

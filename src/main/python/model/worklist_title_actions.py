@@ -20,7 +20,7 @@ from dataclasses import asdict, dataclass
 from typing import Callable, Dict, List, Optional, Tuple
 
 from qtpy.QtCore import Signal
-from qtpy.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
+from qtpy.QtWidgets import QHBoxLayout, QLabel, QMenu, QPushButton, QToolButton, QVBoxLayout, QWidget
 
 from model.worklist_model import warning_colour
 from model.worklist_projects import EDITED_TOOLTIP, LEVEL_WARN, MONO, MULTICHANNEL, ProjectState, badge, \
@@ -65,7 +65,11 @@ class TitleHooks:
 
 
 class TitleActionsBar(QWidget):
-    ''' The row of buttons and the badge: no logic, it reports clicks. '''
+    '''
+    The title page's buttons, in two groups the page places (no logic, it reports clicks): `projects` (open the mono or
+    multichannel project, and the badge) goes under the chart they edit; `workflow` (Revise, with Choose audio stream in its
+    menu, and the fixes for a failed title) goes at the left of the decision bar. The bar itself is the message line.
+    '''
     open_requested = Signal(str)     # `mono` or `multichannel`
     revise_requested = Signal()
     retry_requested = Signal()
@@ -76,34 +80,40 @@ class TitleActionsBar(QWidget):
         super().__init__(parent)
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
-        row = QHBoxLayout()
-        row.setContentsMargins(0, 0, 0, 0)
+        self.projects = QWidget(parent)
+        projects = QHBoxLayout(self.projects)
+        projects.setContentsMargins(0, 0, 0, 0)
         self.projectsLabel = QLabel('Projects:')
         self.monoButton = QPushButton('Open mono project')
         self.multichannelButton = QPushButton('Open multichannel project')
         self.projectBadge = QLabel()
         self.projectBadge.setWordWrap(True)
-        self.reviseButton = QPushButton('Reopen / Revise...')
+        for widget in (self.projectsLabel, self.monoButton, self.multichannelButton):
+            projects.addWidget(widget)
+        projects.addWidget(self.projectBadge, 1)
+        self.workflow = QWidget(parent)
+        workflow = QHBoxLayout(self.workflow)
+        workflow.setContentsMargins(0, 0, 0, 0)
+        self.reviseButton = QToolButton()
+        self.reviseButton.setText('Reopen / Revise...')
+        self.reviseButton.setPopupMode(QToolButton.ToolButtonPopupMode.MenuButtonPopup)
+        menu = QMenu(self.reviseButton)
+        self.reviseAction = menu.addAction('Reopen / Revise...')
+        self.audioStreamAction = menu.addAction('Choose audio stream...')
+        self.reviseButton.setMenu(menu)
         self.retryButton = QPushButton('Retry failed extraction')
         self.jriverPreferencesButton = QPushButton('Open JRiver path mappings')
-        self.audioStreamButton = QPushButton('Choose audio stream...')
-        for button in (self.monoButton, self.multichannelButton, self.reviseButton, self.retryButton,
-                       self.jriverPreferencesButton, self.audioStreamButton):
+        for button in (self.monoButton, self.multichannelButton, self.retryButton, self.jriverPreferencesButton):
             button.setAutoDefault(False)   # Enter in a field must never press one (design.md §12.1)
         self.monoButton.clicked.connect(lambda: self.open_requested.emit(MONO))
         self.multichannelButton.clicked.connect(lambda: self.open_requested.emit(MULTICHANNEL))
         self.reviseButton.clicked.connect(lambda: self.revise_requested.emit())
+        self.reviseAction.triggered.connect(lambda: self.revise_requested.emit())
+        self.audioStreamAction.triggered.connect(lambda: self.audio_stream_requested.emit())
         self.retryButton.clicked.connect(self.retry_requested.emit)
         self.jriverPreferencesButton.clicked.connect(self.jriver_preferences_requested.emit)
-        self.audioStreamButton.clicked.connect(self.audio_stream_requested.emit)
-        for widget in (self.projectsLabel, self.monoButton, self.multichannelButton):
-            row.addWidget(widget)
-        row.addWidget(self.projectBadge, 1)
-        row.addWidget(self.reviseButton)
-        row.addWidget(self.retryButton)
-        row.addWidget(self.jriverPreferencesButton)
-        row.addWidget(self.audioStreamButton)
-        outer.addLayout(row)
+        for widget in (self.reviseButton, self.retryButton, self.jriverPreferencesButton):
+            workflow.addWidget(widget)
         self.messageLabel = QLabel()
         self.messageLabel.setWordWrap(True)
         self.messageLabel.setVisible(False)
@@ -150,6 +160,8 @@ class TitleActions:
         self._revised_stamp: Dict[str, tuple] = {}   # id -> the design as the revise left it (`_design_stamp`)
         self._bar = TitleActionsBar(self)
         self.titleRootLayout.insertWidget(self.titleRootLayout.indexOf(self.noticeLabel) + 1, self._bar)
+        self.filterTabLayout.addWidget(self._bar.projects)      # beside the chart the projects edit
+        self.decisionLayout.insertWidget(0, self._bar.workflow)  # with the other steps that change what happens to the title
         self._bar.open_requested.connect(lambda kind: self.open_project(kind))
         self._bar.revise_requested.connect(lambda: self.revise())
         self._bar.retry_requested.connect(self.retry_failed)
@@ -252,9 +264,10 @@ class TitleActions:
     def _render_revise(self) -> None:
         ''' Whether Reopen / Revise is offered now (a run may have started or ended with this title). '''
         blocked = self._revise_blocked()
-        self._bar.reviseButton.setEnabled(not blocked)
-        self._bar.reviseButton.setToolTip(blocked or 'Send this title back: reopen it for review, redesign it or extract '
-                                                       'its audio again. You are asked what will happen first.')
+        revise_tip = blocked or ('Send this title back: reopen it for review, redesign it or extract its audio again. You are '
+                                 'asked what will happen first.')
+        self._bar.reviseAction.setEnabled(not blocked)
+        self._bar.reviseAction.setToolTip(revise_tip)
         row = self._rows().get(self._title_id)
         failed = row is not None and (row.extract_state == 'failed' or row.design_state == 'failed')
         can_retry = failed and self._hooks.retry_failed is not None and self._title_id not in self._running()
@@ -266,10 +279,14 @@ class TitleActions:
         self._bar.jriverPreferencesButton.setVisible(mapping_problem)
         self._bar.jriverPreferencesButton.setEnabled(mapping_problem and self._hooks.open_jriver_preferences is not None)
         can_choose_stream = self._hooks.choose_audio_stream is not None and self._title_id not in self._running()
-        self._bar.audioStreamButton.setVisible(self._hooks.choose_audio_stream is not None)
-        self._bar.audioStreamButton.setEnabled(can_choose_stream)
-        self._bar.audioStreamButton.setToolTip('Choose the source audio stream, then re-extract and redesign this title.'
+        self._bar.audioStreamAction.setVisible(self._hooks.choose_audio_stream is not None)
+        self._bar.audioStreamAction.setEnabled(can_choose_stream)
+        self._bar.audioStreamAction.setToolTip('Choose the source audio stream, then re-extract and redesign this title.'
                                                if can_choose_stream else 'Wait for the current run to finish before changing stream.')
+        # choosing the stream is how a failed extraction is put right, which is when Revise itself may not be offered
+        self._bar.reviseButton.setEnabled(not blocked or can_choose_stream)
+        self._bar.reviseButton.setToolTip(revise_tip if not blocked or not can_choose_stream else
+                                          f'{blocked} The menu can still choose another audio stream.')
 
     def open_jriver_preferences(self) -> None:
         opener = self._hooks.open_jriver_preferences

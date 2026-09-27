@@ -9,15 +9,15 @@ allows the decision, its candidates are not the ones on screen (it was redesigne
 import logging
 from typing import Mapping
 
-from model.worklist_title_text import ACCEPTABLE, REJECTABLE, SKIPPABLE, decision_blocked, next_waiting_id, sent_back
+from model.worklist_title_text import ACCEPTABLE, REJECTABLE, decision_blocked, next_waiting_id, sent_back
 from pipeline.library.index import TitleRow
 from pipeline.library.status import metadata_problems
 from pipeline.review import read_entry, update_entry
 
 logger = logging.getLogger('worklist')
 
-DECISION_STATUS = {'accept': 'accepted', 'skip': 'skipped', 'reject': 'rejected'}
-DECISION_FROM = {'accept': ACCEPTABLE, 'skip': SKIPPABLE, 'reject': REJECTABLE}
+DECISION_STATUS = {'accept': 'accepted', 'reject': 'rejected'}
+DECISION_FROM = {'accept': ACCEPTABLE, 'reject': REJECTABLE}
 
 
 class TitleDecisions:
@@ -52,7 +52,21 @@ class TitleDecisions:
         return self._decide('accept')
 
     def skip(self) -> bool:
-        return self._decide('skip')
+        '''
+        Goes to the next title waiting for a decision, leaving this one as it is: Skip is moving on, not a decision (it used to
+        write `skipped`, which took the title off the list of those waiting).
+        :return: False, and stays, if no other title is waiting or what is being edited could not be saved.
+        '''
+        rows = self._rows()
+        following = next_waiting_id(self._ids, self._title_id, lambda i: self._waiting(i, rows))
+        if following is None:
+            self._say('No other title in this list is waiting for a decision.')
+            return False
+        return self.show_title(following)
+
+    def _can_skip(self, rows: Mapping[str, TitleRow]) -> bool:
+        ''' From the rows alone: another listed title probably waits for a decision. '''
+        return any(title_id != self._title_id and self._probably_waiting(title_id, rows) for title_id in self._ids)
 
     def reject(self) -> bool:
         return self._decide('reject')

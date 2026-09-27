@@ -238,8 +238,8 @@ def test_the_mark_on_the_missing_field_goes_when_it_is_typed_in_or_another_title
 
 # --- 4: Skip and Reject are not trapped behind an edit that cannot be saved -------------------------------------------------
 
-@pytest.mark.parametrize('decision, status', [('skip', 'skipped'), ('reject', 'rejected')])
-def test_skip_and_reject_ask_discard_or_cancel_when_the_edit_cannot_be_saved(qtbot, tmp_path, decision, status):
+@pytest.mark.parametrize('decision, status', [('reject', 'rejected')])
+def test_reject_asks_discard_or_cancel_when_the_edit_cannot_be_saved(qtbot, tmp_path, decision, status):
     window = _window(qtbot, tmp_path, REVIEWABLE)
     page = _on_metadata(qtbot, window, 'r-alien')
     before = read_entry(_queue(tmp_path), 'r-alien').meta
@@ -281,7 +281,20 @@ def test_skip_with_a_good_edit_saves_it_and_asks_nothing(qtbot, tmp_path):
     assert page.skip()
 
     entry = read_entry(_queue(tmp_path), 'r-alien')
-    assert entry.status == 'skipped' and entry.meta['note'] == 'kept'
+    assert entry.status == 'pending' and entry.meta['note'] == 'kept' and page.current_id == 'r-arrival'
+
+
+def test_skip_is_held_back_by_an_edit_that_cannot_be_saved_as_next_is(qtbot, tmp_path):
+    ''' Skip is moving on, so it waits for the edit as Next does, rather than offering to drop it as Reject does. '''
+    window = _window(qtbot, tmp_path, REVIEWABLE)
+    page = _on_metadata(qtbot, window, 'r-alien')
+    page.confirm_discard = lambda reason: pytest.fail('moving on never offers to drop the edit')
+    _type(qtbot, page.metadata.episodesField, 'abc')
+
+    assert page.skip() is False
+
+    assert page.current_id == 'r-alien' and page.decisionLabel.text().startswith('Not moved: Not saved: Episodes:')
+    page.confirm_discard = lambda reason: True      # for the window closing at the end of the test
 
 
 # --- 5: a blank field unsets its key so a default applies again ---------------------------------------------------------------

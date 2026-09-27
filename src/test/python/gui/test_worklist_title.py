@@ -215,11 +215,16 @@ def test_a_decline_is_laid_out_like_a_candidates_commentary():
     assert '<b>Found</b>' in html and '<li>LFE is silent for 98%</li>' in html and '<b>Provenance</b>' in html
 
 
-def test_a_declined_notice_gives_the_reason_and_summary_and_leaves_the_findings_to_the_commentary(tmp_path):
+def test_a_decline_is_told_once_in_the_commentary_not_again_in_the_notice_or_the_state(tmp_path):
+    ''' It was in three places: the notice and the state line repeated what the commentary gives in full. '''
     write_entry(str(tmp_path), 'declined', decline=True)
     update_entry(str(tmp_path), 'declined', decline_reason='no_usable_plateau', decline_message=BEQFORGE_DECLINE)
-    notice = notice_text(read_entry(str(tmp_path), 'declined'), None, str(tmp_path), '')
-    assert notice == 'Declined: no_usable_plateau -- no usable plateau in the band the sub plays; restoration withheld'
+    declined = read_entry(str(tmp_path), 'declined')
+    row = _index_row('review', 'designer declined: no_usable_plateau', 'pending')
+
+    assert notice_text(declined, row, str(tmp_path), '') == ''
+    assert state_text(declined, row) == 'Waiting for a decision'
+    assert 'no_usable_plateau' in commentary_html(decline_commentary(declined.decline_reason, declined.decline_message))
 
 
 def test_the_state_and_notice_say_what_the_title_is_waiting_for(tmp_path):
@@ -237,7 +242,7 @@ def test_the_state_and_notice_say_what_the_title_is_waiting_for(tmp_path):
     assert state_text(accepted, review) == 'Accepted'
     assert state_text(None, extract) == 'Extract: new' and state_text(None, None) == ''
     assert notice_text(entry, review, str(tmp_path), '') == ''
-    assert notice_text(declined, review, str(tmp_path), '').startswith('Declined: no_rolloff_detected -- nothing found')
+    assert notice_text(declined, review, str(tmp_path), '') == ''   # the commentary says why
     assert 'still has to be extracted' in notice_text(None, extract, str(tmp_path), '')
     assert notice_text(None, failed, str(tmp_path), '') == 'Nothing to review: extract failed: file not found'
     assert 'No review queue directory' in notice_text(None, extract, '', '')
@@ -358,8 +363,9 @@ def test_a_title_that_has_not_been_designed_says_why_and_offers_no_decision(qtbo
     assert page.candidateList.count() == 0
     assert 'still has to be extracted' in page.noticeLabel.text() and page.noticeLabel.isVisibleTo(page)
     assert page.stateLabel.text() == 'Extract: new'
-    assert not page.acceptButton.isEnabled() and not page.skipButton.isEnabled() and not page.rejectButton.isEnabled()
-    assert page.accept() is False and page.skip() is False and page.reject() is False
+    assert not page.acceptButton.isEnabled() and not page.rejectButton.isEnabled()
+    assert page.skipButton.isEnabled()      # Skip is moving on, which is open while another title waits
+    assert page.accept() is False and page.reject() is False
 
     window.title_page.show_title('a-dune')
     assert page.noticeLabel.text() == 'Nothing to review: extract failed: file not found'
@@ -371,7 +377,7 @@ def test_a_declined_title_shows_the_reason_and_can_be_accepted_as_not_requiring_
     window = _window(qtbot, tmp_path, [('r-alien', {'decline': True}), ('r-arrival', {})])
     page = _open(qtbot, window, 'r-alien')
 
-    assert page.noticeLabel.text().startswith('Declined: no_rolloff_detected -- nothing found')
+    assert not page.noticeLabel.isVisible() and 'no_rolloff_detected' not in page.stateLabel.text()
     assert [page.candidateList.item(0).text()] == ['1: no filter -- the designer declined (does not require BEQ)']
     assert page.commentaryHeading.text() == 'Why the designer declined'
     assert page.commentaryText.toPlainText().split('\n') == ['Decline reason', 'no_rolloff_detected', 'Summary', 'nothing found']
@@ -404,7 +410,7 @@ def test_an_accepted_title_shows_the_candidate_that_was_chosen_and_offers_no_dec
     assert page.candidateList.currentRow() == 1 and page.picked == 1
     assert page.decisionLabel.text() == 'Accepted candidate 2.'
     assert page.stateLabel.text() == 'Accepted'    # the row's detail says only that, so it is not said twice
-    assert not page.acceptButton.isEnabled() and not page.skipButton.isEnabled() and not page.rejectButton.isEnabled()
+    assert not page.acceptButton.isEnabled() and not page.rejectButton.isEnabled()
 
 
 # --- deciding ------------------------------------------------------------------------------------------------------------
@@ -459,21 +465,22 @@ def test_the_commentary_wraps_and_the_decision_keys_still_work_from_it(qtbot, tm
     assert _status(tmp_path, 'r-alien') == 'accepted'
 
 
-def test_skip_and_reject_decide_and_advance_like_accept(qtbot, tmp_path):
+def test_skip_moves_on_without_deciding_and_reject_decides_and_advances_like_accept(qtbot, tmp_path):
     window = _window(qtbot, tmp_path, REVIEWABLE)
     page = _open(qtbot, window, 'r-alien')
 
     _click(qtbot, page.skipButton)
-    assert _status(tmp_path, 'r-alien') == 'skipped' and page.current_id == 'r-arrival'
+    assert _status(tmp_path, 'r-alien') == 'pending' and page.current_id == 'r-arrival'   # nothing written
     qtbot.keyClick(page.candidateList, Qt.Key.Key_R)
     assert _status(tmp_path, 'r-arrival') == 'rejected' and page.current_id == 'r-sicario'
 
 
-def test_a_skipped_title_can_still_be_accepted_or_rejected_but_not_skipped_again(qtbot, tmp_path):
+def test_a_title_skipped_before_skip_moved_on_can_still_be_accepted_or_rejected(qtbot, tmp_path):
+    ''' Skip used to write `skipped`: an entry left that way is decided on as before. '''
     window = _window(qtbot, tmp_path, [('r-alien', {'status': 'skipped'}), ('r-arrival', {})])
     page = _open(qtbot, window, 'r-alien')
 
-    assert page.acceptButton.isEnabled() and page.rejectButton.isEnabled() and not page.skipButton.isEnabled()
+    assert page.acceptButton.isEnabled() and page.rejectButton.isEnabled() and page.skipButton.isEnabled()
     assert page.accept() and _status(tmp_path, 'r-alien') == 'accepted'
 
 
@@ -627,18 +634,6 @@ def test_no_decision_shortcut_repeats_when_a_key_is_held(qtbot, tmp_path):
     assert {k: keys[k] for k in ('A', 'S', 'R', 'Return', 'Enter')} == dict.fromkeys(('A', 'S', 'R', 'Return', 'Enter'), False)
 
 
-def test_the_failures_and_last_run_tabs_stay_hidden_while_the_page_is_open(qtbot, tmp_path):
-    window = _window(qtbot, tmp_path, REVIEWABLE)
-    _open(qtbot, window, 'r-alien')
-    window._failed = [SimpleNamespace(id='x')]     # what makes `_refresh_details` want the panel
-
-    window._refresh_details()
-    assert not window.detailsTabs.isVisibleTo(window)
-
-    window.close_title()
-    assert window.detailsTabs.isVisibleTo(window)
-
-
 def test_nothing_is_decided_on_a_title_a_run_is_working_on(qtbot, tmp_path):
     ''' A design in flight writes a new pending entry over whatever is there: an accept now would be lost. '''
     window = _window(qtbot, tmp_path, REVIEWABLE)
@@ -646,7 +641,8 @@ def test_nothing_is_decided_on_a_title_a_run_is_working_on(qtbot, tmp_path):
 
     window.model.set_running({'r-alien': 'design'})
 
-    assert not page.acceptButton.isEnabled() and not page.skipButton.isEnabled() and not page.rejectButton.isEnabled()
+    assert not page.acceptButton.isEnabled() and not page.rejectButton.isEnabled()
+    assert page.skipButton.isEnabled()      # moving on to another title is fine
     assert page.decisionLabel.text() == 'A run is working on this title now: wait for it to finish.'
     assert page.accept() is False and _status(tmp_path, 'r-alien') == 'pending'
 
@@ -654,18 +650,14 @@ def test_nothing_is_decided_on_a_title_a_run_is_working_on(qtbot, tmp_path):
     assert page.acceptButton.isEnabled() and page.accept()
 
 
-def test_skip_and_reject_are_not_applied_to_a_design_that_changed_either(qtbot, tmp_path):
+def test_reject_is_not_applied_to_a_design_that_changed_either(qtbot, tmp_path):
     window = _window(qtbot, tmp_path, REVIEWABLE)
     page = _open(qtbot, window, 'r-alien')
     write_entry(_queue(tmp_path), 'r-alien', reverse=True)
 
     assert page.reject() is False
     assert page.decisionLabel.text().startswith('Not rejected: the design of this title changed')
-    write_entry(_queue(tmp_path), 'r-alien')
-    page.reload()
-    write_entry(_queue(tmp_path), 'r-alien', reverse=True)
-    assert page.skip() is False and _status(tmp_path, 'r-alien') == 'pending'
-    assert page.decisionLabel.text().startswith('Not skipped: the design of this title changed')
+    assert _status(tmp_path, 'r-alien') == 'pending'
 
 
 def test_a_decision_made_while_the_index_is_read_and_the_window_closed_is_still_read_afterwards(qtbot, tmp_path, monkeypatch):

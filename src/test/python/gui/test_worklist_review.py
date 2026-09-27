@@ -143,8 +143,9 @@ def test_selecting_a_row_shows_that_entry_with_its_candidates_and_commentary(qtb
 def test_a_declined_entry_shows_the_reason_and_can_be_accepted_as_not_requiring_beq(qtbot, tmp_path):
     window = _folder(qtbot, tmp_path, entries=(('a', {'decline': True}),))
     page = window.page
-    assert page.candidateList.count() == 1 and 'no_rolloff_detected' in page.noticeLabel.text()
-    assert page.acceptButton.isEnabled() and page.skipButton.isEnabled() and page.rejectButton.isEnabled()
+    assert page.candidateList.count() == 1 and 'no_rolloff_detected' in page.commentaryText.toPlainText()
+    assert page.acceptButton.isEnabled() and page.rejectButton.isEnabled()
+    assert not page.skipButton.isEnabled()      # the only title here: there is nothing to move on to
 
 
 def test_a_digit_key_changes_the_pick_without_accepting_and_accept_writes_the_picked_candidate_and_advances(qtbot, tmp_path):
@@ -164,10 +165,10 @@ def test_skip_and_reject_are_distinct_and_advance_without_going_back_to_the_top(
     window = _folder(qtbot, tmp_path)
     page = window.page
     page.show_title('b-arrival')
-    assert page.skip() and read_entry(_queue(tmp_path), 'b-arrival').status == 'skipped'
+    assert page.skip() and read_entry(_queue(tmp_path), 'b-arrival').status == 'pending'   # moved on, nothing written
     assert page.current_id == 'c-sicario'                        # not a-alien
     assert page.reject() and read_entry(_queue(tmp_path), 'c-sicario').status == 'rejected'
-    assert _statuses(window) == {'a-alien': 'pending', 'b-arrival': 'skipped', 'c-sicario': 'rejected'}
+    assert _statuses(window) == {'a-alien': 'pending', 'b-arrival': 'pending', 'c-sicario': 'rejected'}
 
 
 def test_enter_on_the_list_moves_to_the_candidates_and_decides_nothing_and_enter_there_accepts(qtbot, tmp_path):

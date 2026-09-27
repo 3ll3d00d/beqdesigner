@@ -18,7 +18,6 @@ STATUS_WORDS = {'pending': 'Waiting for a decision', 'accepted': 'Accepted', 'sk
 
 # what each decision may be applied to: a title decided one way can be decided another only by reopening it
 ACCEPTABLE = ('pending', 'skipped')
-SKIPPABLE = ('pending',)
 REJECTABLE = ('pending', 'skipped')
 
 
@@ -79,10 +78,6 @@ def decline_commentary(reason: Optional[str], message: Optional[str]) -> dict:
     return commentary
 
 
-def decline_summary(message: Optional[str]) -> str:
-    ''' The first sentence-like part of a decline message: what the notice says, the detail being under Commentary. '''
-    return decline_commentary(None, message).get('summary', '')
-
 
 def commentary_html(commentary: Optional[Mapping]) -> str:
     '''
@@ -128,6 +123,8 @@ def state_text(entry: Optional[QueueEntry], row: Optional[TitleRow], stale: bool
             return ''
         return f'{row.needs.capitalize()}: {row.detail}' if row.detail else row.needs.capitalize()
     words = STATUS_WORDS.get(entry.status, entry.status)
+    if entry.decline_reason:
+        return words   # the row's detail is the decline reason, which the commentary already gives in full
     if row is not None and row.detail and not stale and row.review_state == entry.status \
             and row.detail.lower() != entry.status:
         return f'{words}. {row.detail}'
@@ -140,7 +137,7 @@ def notice_text(entry: Optional[QueueEntry], row: Optional[TitleRow], queue_dir:
         return f'The queue entry could not be read: {error}'
     if entry is not None:
         if entry.decline_reason:
-            return f'Declined: {entry.decline_reason} -- {decline_summary(entry.decline_message)}'.rstrip(' -')
+            return ''   # the commentary says why, in full: saying it here as well only repeated it
         return '' if entry.candidates else 'The designer offered no candidates.'
     if not queue_dir:
         return 'No review queue directory is set (Settings > Locations).'

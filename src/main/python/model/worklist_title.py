@@ -49,7 +49,7 @@ from model.worklist_metadata import MetadataPanel, badge_alarms, badge_text, ok_
 from model.worklist_model import warning_colour
 from model.worklist_title_actions import TitleActions, TitleHooks
 from model.worklist_title_decide import DECISION_FROM, TitleDecisions
-from model.worklist_title_text import ACCEPTABLE, REJECTABLE, SKIPPABLE, candidate_text, chart_data, \
+from model.worklist_title_text import ACCEPTABLE, REJECTABLE, candidate_text, chart_data, \
     commentary_html, decline_commentary, decision_blocked, entry_title, entry_year, next_waiting_id, notice_text, position_text, revised_note, \
     state_text  # noqa: F401 (the pure functions are re-exported: tests and callers import them from here)
 from pipeline.library.index import TitleRow
@@ -208,6 +208,8 @@ class TitlePage(TitleDecisions, TitleActions, QWidget, Ui_titlePage):
         '''
         if not self._flush_for_move():
             return False
+        if title_id != self._title_id:
+            self._bar.show_message('')   # a note about the title shown before (a project opened for it) is not about this one
         self._title_id = title_id
         self._read_entry()
         self._picked = self._default_pick()
@@ -335,7 +337,7 @@ class TitlePage(TitleDecisions, TitleActions, QWidget, Ui_titlePage):
                                        self._hooks.redo)
                    for d in DECISION_FROM}
         self.acceptButton.setEnabled(has_candidates and status in ACCEPTABLE and not blocked['accept'])
-        self.skipButton.setEnabled(status in SKIPPABLE and not blocked['skip'])
+        self.skipButton.setEnabled(self._can_skip(rows))
         self.rejectButton.setEnabled(status in REJECTABLE and not blocked['reject'])
         offered = [d for d, status_set in DECISION_FROM.items() if status in status_set]
         reason = next((blocked[d] for d in offered if blocked[d]), '')

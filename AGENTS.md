@@ -174,8 +174,8 @@ Tools > **Library Work List** (the only library entry; the old Library Sync dial
 the pipeline strip with a count per kind of work, a searchable table of every title and what it needs next, a Rescan
 that lists the sources again on a `QRunnable`, and (chunk 26b) the actions. Everything it shows is read from the index
 rows, not derived again. Files: `worklist.py` (`WorkListWindow`: widgets, filters, scan), `worklist_actions.py`
-(`WorkListActions` mixin: selection, the action/Publish/Commit/Retry buttons, following a run, the failures panel and the
-*Last run* tab), `worklist_run.py` (`RunJob`, a `QRunnable` around `pipeline.library.stages.run_stages` with its own index
+(`WorkListActions` mixin: selection, the action/Publish/Commit/Retry buttons -- Retry works on the failed titles selected in
+the table, else every failed title listed; there is no separate failures panel -- and following a run), `worklist_run.py` (`RunJob`, a `QRunnable` around `pipeline.library.stages.run_stages` with its own index
 connection and a cooperative cancel; the words a run is described in), `worklist_confirm.py` (the confirmations that name
 the repositories), `worklist_model.py` (table model/proxy; `set_running()` is the running-row marker),
 `worklist_profile.py`. The buttons work on the selected rows, or on everything the filters list if none is selected;
@@ -188,7 +188,7 @@ chunk 27c). The profile is the file named by `LIBRARY_PROFILE_PATH`
 with a live "would ignore N titles" count, per-title ignores), `worklist_edit.py` (the no-widget logic: config edits, folder
 and repository checks, the preview). Tests: `gui/test_worklist_settings.py`, `gui/test_worklist_ignore.py` (dialogs are driven
 through the `run_dialog` hook), `test_worklist_edit.py`. **Title page** (chunk 27a): double-click, Enter or *Open* on a row
-stacks `worklist_title.py`'s `TitlePage` (candidates, commentary, chart, Accept & next / Skip / Reject over the queue entry, Previous / Next)
+stacks `worklist_title.py`'s `TitlePage` (candidates, commentary, chart; Previous / Next / Skip -- movement, Skip writes nothing -- at the top, Revise / Reject / Accept & next at the bottom)
 in place of the table, via the `worklist_titles.py` mixin; the index is read again once, on a worker, when the page is left
 (`ui/worklisttitle.ui`; tests `gui/test_worklist_title.py`). **Metadata and artwork** (chunk 27b, a *Metadata* tab beside the chart): `worklist_metadata.py`
 (`MetadataPanel`: Essentials / More, TMDB Reload and an artwork download on the thread pool, autosave on focus-out and `flush()` before the page moves;

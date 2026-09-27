@@ -83,7 +83,7 @@ def has_something_to_revise(row: TitleRow) -> bool:
 class WorkListBulk:
     '''
     The mixin: it uses `_setup`, `_index`, `_model`, `_preferences`, `_busy()`, `_say()`, `_refresh_actions()`,
-    `_refresh_results()`, `show_last_run()`, `refresh_from_index()`, `target_ids()`, `selected_ids()`, `_rows_by_id()`,
+    `_refresh_results()`, `refresh_from_index()`, `target_ids()`, `selected_ids()`, `_rows_by_id()`,
     `_results`, `_closed` and the widgets `acceptButton`, `reviseButton`, `driftBanner`, `driftBannerLabel`,
     `driftBannerButton` and `driftDismissButton` of the window.
     '''
@@ -219,7 +219,6 @@ class WorkListBulk:
             if plan.excluded:
                 self._results = [ResultLine(e.id, e.title, 'Not accepted', e.reason, LEVEL_WARN) for e in plan.excluded]
                 self._refresh_results()
-                self.show_last_run()
             return
         heading, body, details = accept_text(plan)
         dialog = ConfirmDialog(self, heading, body, f'Accept {count:,} title{"" if count == 1 else "s"}', details=details)
@@ -271,7 +270,6 @@ class WorkListBulk:
         self._results = lines
         self.auto_publish(list(report.accepted))   # accepting is the whole of it: write and commit them locally
         self._refresh_results()
-        self.show_last_run()
         count = len(report.accepted)
         text = f'Accepted the top pick for {count:,} title{"" if count == 1 else "s"} (confidence {report.threshold:.2f} or more).'
         if plan.excluded:
@@ -357,7 +355,6 @@ class WorkListBulk:
         self.refresh_from_index()
         self._results = describe_outcome(outcome, titles)
         self._refresh_results()
-        self.show_last_run()
         text, level = summarise_outcome(outcome)
         if error:
             text += f' The list could not be brought up to date ({error}): Rescan.'

@@ -17,8 +17,7 @@ from dataclasses import dataclass, field, replace
 from typing import Dict, List, Optional
 
 from qtpy.QtCore import QTimer, Qt, QThreadPool
-from qtpy.QtGui import QBrush
-from qtpy.QtWidgets import QAbstractItemView, QDialog, QLabel, QPushButton, QTableWidgetItem
+from qtpy.QtWidgets import QDialog, QLabel
 
 from model.preferences import WORKLIST_PUSH
 from model.execution_events import ExecutionEvent
@@ -36,13 +35,6 @@ from pipeline.library.stages import FfmpegProgress, Progress, StagesReport
 from pipeline.service.lease import read_lease
 
 logger = logging.getLogger('worklist')
-
-
-def _result_tooltip(line: ResultLine) -> str:
-    ''' A results row's tooltip: the title, the outcome and the whole detail (a cell shows one line of it). '''
-    detail = line.full or line.detail
-    heading = line.title or line.outcome
-    return f'{heading}\n{line.outcome}: {detail}' if detail else f'{heading}\n{line.outcome}'
 
 
 def _button_text(text: str) -> str:
@@ -70,28 +62,7 @@ class WorkListActions:
     '''
 
     def _configure_actions(self) -> None:
-        for table, columns in ((self.failuresTable, ('Title', 'Source', 'Stage', 'Reason')),
-                               (self.resultsTable, ('Title', 'Result', 'Detail'))):
-            table.setColumnCount(len(columns))
-            table.setHorizontalHeaderLabels(list(columns))
-            table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-            table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-            table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
-            table.setAlternatingRowColors(True)
-            table.setShowGrid(False)
-            table.setWordWrap(False)
-            table.setTextElideMode(Qt.TextElideMode.ElideRight)
-            table.verticalHeader().setVisible(False)
-            header = table.horizontalHeader()
-            header.setStretchLastSection(True)
-            header.resizeSection(0, 260)
-        self.failuresTable.horizontalHeader().resizeSection(1, 90)
-        self.failuresTable.horizontalHeader().resizeSection(2, 70)
-        self.resultsTable.horizontalHeader().resizeSection(1, 200)
         self.workTable.selectionModel().selectionChanged.connect(self._refresh_actions)
-        self.failuresTable.itemSelectionChanged.connect(self._refresh_actions)
-        self.resultsTable.itemSelectionChanged.connect(self._refresh_result_details)
-        self.resultDetails.setVisible(False)
         self.runLayout.setStretchFactor(self.runStatusLabel, 1)
         self.runCountsLabel = QLabel(self.runPanel)
         self.runCountsLabel.setObjectName('runCountsLabel')
@@ -101,18 +72,9 @@ class WorkListActions:
         self.publishButton.clicked.connect(lambda: self.publish_selected())
         self.commitButton.clicked.connect(lambda: self.commit_selected())
         self.retryButton.clicked.connect(lambda: self.retry_failed())
-        self.retryFromResultsButton = QPushButton('Retry failed titles')
-        self.retryFromResultsButton.setToolTip('Retry titles that failed in this run.')
-        self.retryFromResultsButton.clicked.connect(lambda: self.retry_failed())
-        self.resultsLayout.addWidget(self.retryFromResultsButton)
         self.cancelButton.clicked.connect(self.cancel_run)
         self.selectAllButton.clicked.connect(self.workTable.selectAll)
         self.clearSelectionButton.clicked.connect(self.workTable.clearSelection)
-        self.detailsTabs.setTabVisible(0, False)
-        self.detailsTabs.setTabVisible(1, False)
-        self.detailsTabs.setVisible(False)
-        self.bodySplitter.setStretchFactor(0, 1)
-        self.bodySplitter.setStretchFactor(1, 0)
         self.runPanel.setVisible(False)
         self.runProgress.setTextVisible(True)
 
@@ -197,14 +159,12 @@ class WorkListActions:
             else:
                 button.setToolTip('Commit the written titles: one commit per repository, images first, then push. '
                                   'Titles committed earlier without a push are only pushed.')
-        failed = self._selected_failed_ids() or [f.id for f in self._failed]
-        self.retryButton.setText(f'Retry {len(failed):,} selected' if self._selected_failed_ids()
-                                 else f'Retry {len(failed):,} failed')
-        self.retryButton.setEnabled(ready and bool(failed))
-        self.retryButton.setToolTip('Run the titles in the failures panel again, even though nothing changed. The panel '
-                                    'lists every failed title in the library, not only those in the current view.')
-        self.retryFromResultsButton.setVisible(bool(self._failed))
-        self.retryFromResultsButton.setEnabled(ready and bool(self._failed))
+        retry = self._retry_ids()
+        self.retryButton.setText(_button_text(f'Retry {len(retry):,} failed'))
+        self.retryButton.setVisible(bool(self._failed))
+        self.retryButton.setEnabled(ready and bool(retry))
+        self.retryButton.setToolTip('Extract and design the failed titles again, even though nothing changed: the selected '
+                                    'ones, else every failed title listed. The Attention chip lists them all.')
         self.rescanButton.setEnabled(self._setup.ready and not self._busy())
         self._refresh_open_button()
         self._refresh_bulk_actions()
@@ -215,70 +175,21 @@ class WorkListActions:
         ''' How many of a commit plan's titles still have to be committed (the others only need pushing). '''
         return sum(1 for p in plan.planned if p.row.commit_state != 'committed')
 
-    def _selected_failed_ids(self) -> List[str]:
-        rows = sorted({index.row() for index in self.failuresTable.selectionModel().selectedRows()})
-        return [self._failed[row].id for row in rows if row < len(self._failed)]
+    def _retry_ids(self) -> List[str]:
+        ''' What Retry works on: the selected titles that failed, else every failed title the view lists. '''
+        failed = {f.id for f in self._failed}
+        return [title_id for title_id in (self.selected_ids() or self.listed_ids()) if title_id in failed]
 
     def _refresh_failures(self) -> None:
-        table = self.failuresTable
-        table.setRowCount(len(self._failed))
-        for row, failure in enumerate(self._failed):
-            for column, text in enumerate((failure.title, failure.source, failure.stage, failure.reason)):
-                item = QTableWidgetItem(text)
-                item.setToolTip(f'{failure.title} ({failure.id})\n{failure.reason}' if column in (0, 3) else '')
-                if column == 3:
-                    item.setForeground(QBrush(warning_colour()))
-                table.setItem(row, column, item)
-        self.detailsTabs.setTabText(0, f'Failures ({len(self._failed):,})')
-        self._refresh_details()
+        self._refresh_actions()
 
     def _refresh_results(self) -> None:
-        table = self.resultsTable
-        table.setRowCount(len(self._results))
-        for row, line in enumerate(self._results):
-            for column, text in enumerate((line.title, line.outcome, line.detail)):
-                item = QTableWidgetItem(text)
-                item.setToolTip(_result_tooltip(line))
-                if line.level != LEVEL_OK and column >= 1:
-                    item.setForeground(QBrush(warning_colour()))
-                    if line.level == LEVEL_ERROR and column == 1:
-                        font = item.font()
-                        font.setBold(True)
-                        item.setFont(font)
-                table.setItem(row, column, item)
-        self.detailsTabs.setTabText(1, f'Last run ({len(self._results):,})')
-        self._refresh_result_details()
-        self._refresh_details()
-
-    def _refresh_result_details(self) -> None:
         '''
-        The *Details* area under the results: the whole text of the selected line if it was shortened for its cell, else
-        -- with nothing selected -- the whole text of every repository-level problem, each once.
+        The last run's outcomes are on each title's row; what belongs to no title (a repository that could not be committed
+        or pushed) is summed up on the status line, and said in full in its tooltip.
         '''
-        selected = sorted({index.row() for index in self.resultsTable.selectionModel().selectedRows()})
-        lines = [self._results[r] for r in selected if r < len(self._results)]
-        if not lines:
-            lines = [line for line in self._results if not line.id and line.full]
-        text = '\n\n'.join(f'{line.title or line.outcome}: {line.full}' for line in lines if line.full)
-        self.resultDetails.setPlainText(text)
-        self.resultDetails.setVisible(bool(text))
-
-    def _refresh_details(self) -> None:
-        if self._title_open:   # the title page has the window: leaving it shows the panel again
-            return
-        self.detailsTabs.setTabVisible(0, bool(self._failed))
-        self.detailsTabs.setTabVisible(1, bool(self._results))
-        show = bool(self._failed or self._results)
-        if show and not self.detailsTabs.isVisibleTo(self):
-            self.detailsTabs.setVisible(True)
-            total = self.bodySplitter.height()
-            self.bodySplitter.setSizes([max(total - 280, 200), 280])
-        elif not show:
-            self.detailsTabs.setVisible(False)
-
-    def show_last_run(self) -> None:
-        ''' Brings the *Last run* tab (what the last run did to each title) to the front. '''
-        self.detailsTabs.setCurrentWidget(self.resultsTab)
+        text = '\n\n'.join(f'{line.title or line.outcome}: {line.full}' for line in self._results if not line.id and line.full)
+        self.runStatusLabel.setToolTip(text)
 
     # --- starting a run -------------------------------------------------------------------------------------------------
 
@@ -295,11 +206,13 @@ class WorkListActions:
         return self._begin('commit')
 
     def retry_failed(self, ids: Optional[List[str]] = None) -> bool:
-        ''' Runs the failed titles again (those selected in the failures panel, else every one) even though nothing changed. '''
-        chosen = ids if ids is not None else self._selected_failed_ids()
-        wanted = chosen or [f.id for f in self._failed]
-        # the failures panel is the whole library's: retrying all of it is as big as running a whole view, so it asks
-        return self._begin('design', retry_failed=True, ids=list(wanted), confirm=not chosen)
+        ''' Runs failed titles again even though nothing changed: these, else those Retry works on (`_retry_ids()`). '''
+        wanted = ids if ids is not None else self._retry_ids()
+        if not wanted:
+            self._say('Nothing to retry: no failed title is selected or listed.')
+            return False
+        # every failed title a view lists can be as big as running the whole view, so that asks; a choice does not
+        return self._begin('design', retry_failed=True, ids=list(wanted), confirm=ids is None and not self.selected_ids())
 
     def _say(self, text: str, level: str = LEVEL_OK) -> None:
         self.runPanel.setVisible(bool(text) or self.is_running)
@@ -740,7 +653,6 @@ class WorkListActions:
             if context.skipped_text:
                 text += f'. {context.skipped_text}'
             self._refresh_results()
-            self.show_last_run()
             self._say(text, level)
         self._requeue_unjoined(report.not_joined, dropped=cancel_asked)
         self._refresh_view()

@@ -74,8 +74,8 @@ def commit_text(count: int, settings: PublishSettings, uncommitted: Optional[int
 
 
 def retry_text(count: int) -> Tuple[str, str]:
-    lines = [f'Runs every title that failed before ({count:,}) again, <b>wherever it is in the library</b> -- not only '
-             f'in the current view. This can take a long time; you can cancel, and the title in hand finishes first.']
+    lines = [f'Nothing is selected, so this runs <b>every failed title listed</b> ({count:,}) again. This can take a long '
+             f'time; you can cancel, and the title in hand finishes first.']
     return f'Retry {_plural(count, "failed title")}?', '<br>'.join(lines)
 
 

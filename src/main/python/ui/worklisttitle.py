@@ -1,4 +1,4 @@
-# Form implementation generated from reading ui file 'ui/worklisttitle.ui'
+# Form implementation generated from reading ui file 'worklisttitle.ui'
 #
 # Created by: PyQt6 UI code generator 6.11.0
 #
@@ -37,6 +37,9 @@ class Ui_titlePage(object):
         self.nextButton = QtWidgets.QPushButton(parent=titlePage)
         self.nextButton.setObjectName("nextButton")
         self.navLayout.addWidget(self.nextButton)
+        self.skipButton = QtWidgets.QPushButton(parent=titlePage)
+        self.skipButton.setObjectName("skipButton")
+        self.navLayout.addWidget(self.skipButton)
         self.titleRootLayout.addLayout(self.navLayout)
         self.titleLabel = QtWidgets.QLabel(parent=titlePage)
         self.titleLabel.setTextFormat(QtCore.Qt.TextFormat.PlainText)
@@ -114,9 +117,6 @@ class Ui_titlePage(object):
         self.decisionLabel.setText("")
         self.decisionLabel.setObjectName("decisionLabel")
         self.decisionLayout.addWidget(self.decisionLabel)
-        self.skipButton = QtWidgets.QPushButton(parent=titlePage)
-        self.skipButton.setObjectName("skipButton")
-        self.decisionLayout.addWidget(self.skipButton)
         self.rejectButton = QtWidgets.QPushButton(parent=titlePage)
         self.rejectButton.setObjectName("rejectButton")
         self.decisionLayout.addWidget(self.rejectButton)
@@ -137,13 +137,13 @@ class Ui_titlePage(object):
         self.previousButton.setText(_translate("titlePage", "Previous"))
         self.nextButton.setToolTip(_translate("titlePage", "The next title in the list (Alt+Right)"))
         self.nextButton.setText(_translate("titlePage", "Next"))
+        self.skipButton.setToolTip(_translate("titlePage", "Go to the next title waiting for a decision, leaving this one as it is (S)"))
+        self.skipButton.setText(_translate("titlePage", "Skip"))
         self.badgeLabel.setToolTip(_translate("titlePage", "Whether the metadata is complete enough to publish (the same test the work list applies): the title, the year and at least one audio type"))
         self.candidatesHeading.setText(_translate("titlePage", "Candidates (1-9 to pick one)"))
         self.commentaryHeading.setText(_translate("titlePage", "Commentary"))
         self.rightTabs.setTabText(self.rightTabs.indexOf(self.filterTab), _translate("titlePage", "Filter"))
         self.rightTabs.setTabText(self.rightTabs.indexOf(self.metadataTab), _translate("titlePage", "Metadata"))
-        self.skipButton.setToolTip(_translate("titlePage", "Leave this title for later: it stays out of the catalogue until it is reviewed again (S)"))
-        self.skipButton.setText(_translate("titlePage", "Skip"))
         self.rejectButton.setToolTip(_translate("titlePage", "None of the candidates is right: this title is not published (R)"))
         self.rejectButton.setText(_translate("titlePage", "Reject"))
         self.acceptButton.setToolTip(_translate("titlePage", "Accept the highlighted candidate and go to the next title that needs a decision (A or Enter)"))

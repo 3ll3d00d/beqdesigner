@@ -10,7 +10,7 @@ import logging
 
 import pytest
 from qtpy.QtCore import QEvent
-from qtpy.QtWidgets import QApplication, QFileDialog, QMessageBox
+from qtpy.QtWidgets import QApplication, QFileDialog, QMessageBox, QToolButton
 
 from model.preferences import SYSTEM_CHECK_FOR_UPDATES
 from model.worklist_projects import ProjectState, badge, project_states, read_state
@@ -165,6 +165,19 @@ def test_the_mono_project_opens_through_the_callable_and_the_page_says_how_to_ke
     assert 'Save Project' in bar.messageLabel.text()
 
 
+
+def test_the_opened_note_goes_when_the_page_shows_another_title(qtbot, tmp_path):
+    ''' It was left up after moving on: "Opened the mono project" then read as if about the title now shown. '''
+    opener = _Opener()
+    write_projects(_work(tmp_path), 'r-alien')
+    _, page = _page(qtbot, tmp_path, opener)
+    assert page.open_project('mono')
+    other = next(title_id for title_id in page._ids if title_id != 'r-alien')
+
+    assert page.show_title(other)
+
+    assert page.actions_bar.messageLabel.text() == '' and not page.actions_bar.messageLabel.isVisible()
+
 def test_the_multichannel_project_is_offered_for_a_multichannel_title_and_opens_that_file(qtbot, tmp_path):
     opener = _Opener()
     mono, mc = write_projects(_work(tmp_path), 'r-alien', multichannel=True)
@@ -267,7 +280,20 @@ def test_the_project_buttons_never_take_enter_from_a_field(qtbot, tmp_path):
     ''' Every button is non-default, as on the rest of the page (design.md §12.1): Enter in a box presses none. '''
     _, page = _page(qtbot, tmp_path, _Opener())
     bar = page.actions_bar
-    assert not any(b.autoDefault() for b in (bar.monoButton, bar.multichannelButton, bar.reviseButton))
+    assert not any(b.autoDefault() for b in (bar.monoButton, bar.multichannelButton, bar.retryButton,
+                                             bar.jriverPreferencesButton))
+    assert isinstance(bar.reviseButton, QToolButton)    # a tool button is never a default button
+
+
+def test_the_buttons_are_grouped_moving_at_the_top_and_what_happens_to_the_title_at_the_bottom(qtbot, tmp_path):
+    ''' They were in four places. Moving (Previous, Next, Skip) is the top row; Revise and its menu, Reject and Accept are
+        the bottom row; the project buttons are under the chart they edit. '''
+    _, page = _page(qtbot, tmp_path, _Opener())
+    bar = page.actions_bar
+    assert all(page.navLayout.indexOf(b) >= 0 for b in (page.previousButton, page.nextButton, page.skipButton))
+    assert page.decisionLayout.indexOf(bar.workflow) == 0 and page.decisionLayout.indexOf(page.skipButton) < 0
+    assert page.filterTabLayout.indexOf(bar.projects) >= 0
+    assert bar.reviseButton.menu().actions() == [bar.reviseAction, bar.audioStreamAction]
 
 
 # --- through the real BeqDesigner ------------------------------------------------------------------------------------------------

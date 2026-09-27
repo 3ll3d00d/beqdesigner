@@ -313,7 +313,10 @@ def test_a_run_happens_off_the_ui_thread_with_determinate_progress_and_a_running
     # the run (design/archive/library-sync/worklist-feedback.md F5); and Cancel is offered
     for button in (window.runButton, window.publishButton, window.commitButton, window.rescanButton):
         assert not button.isEnabled(), button.objectName()
-    assert window.retryButton.isEnabled()
+    assert not window.retryButton.isEnabled()     # none of the selected titles failed
+    window.workTable.clearSelection()
+    assert window.retryButton.isEnabled()         # every failed title listed
+    window.select_ids(['x-gravity', 'x-tenet', 'x-fury'])
     assert window.cancelButton.isVisibleTo(window) and window.cancelButton.isEnabled()
     assert window.rescan() is False and window.run_selected() is False
     assert sorted(window.selected_ids()) == ['x-fury', 'x-gravity', 'x-tenet']    # never lost, however long it runs
@@ -866,11 +869,8 @@ def test_titles_that_fail_are_listed_in_the_failures_panel_with_the_reason_and_t
     assert set(failed) == {'a-failed-x', 'a-failed-d', 'x-fury'}
     assert failed['x-fury'].reason == 'RuntimeError: no audio stream' and failed['x-fury'].stage == 'extract'
     assert failed['x-fury'].title == 'Fury'
-    table = window.failuresTable
-    assert table.rowCount() == 3
-    row = [table.item(r, 0).text() for r in range(3)].index('Fury')
-    assert [table.item(row, c).text() for c in range(4)] == ['Fury', 'films', 'extract', 'RuntimeError: no audio stream']
-    assert window.detailsTabs.tabText(0) == 'Failures (3)' and window.detailsTabs.isVisibleTo(window)
+    window.select_ids(['x-fury', 'x-gravity'])
+    assert window.retryButton.text() == 'Retry 1 failed' and window.retryButton.isVisibleTo(window)
     # ... and what the run said about each title
     outcomes = {line.id: (line.outcome, line.detail, line.level) for line in window.results}
     assert outcomes['x-fury'] == ('Failed', 'RuntimeError: designer returned 503', 'error')
@@ -879,26 +879,24 @@ def test_titles_that_fail_are_listed_in_the_failures_panel_with_the_reason_and_t
     assert window.runStatusLabel.text() == 'Extract & design finished: 1 designed, 1 failed'
 
 
-def test_the_failures_panel_is_hidden_when_nothing_failed(qtbot, tmp_path):
+def test_retry_is_hidden_when_nothing_failed(qtbot, tmp_path):
     rows = [r for r in _rows() if not r['id'].startswith('a-failed')]
     window, _ = _window(qtbot, tmp_path, rows=rows)
 
-    assert window.failed == [] and not window.detailsTabs.isVisibleTo(window)
+    assert window.failed == [] and not window.retryButton.isVisibleTo(window)
 
 
 def test_retry_failed_runs_the_failed_titles_again_and_nothing_else(qtbot, tmp_path):
     window, pipeline = _window(qtbot, tmp_path)
     assert window.retryButton.text() == 'Retry 2 failed' and window.retryButton.isEnabled()
-    window.select_ids(['x-gravity'])
 
     # an ordinary run does not retry a failure (it is "failed before"); Retry failed does, by ids, with the flag
-    _answer(True, [])   # retrying every failure in the library is as big as a whole view: it asks first
+    _answer(True, [])   # every failed title listed is as big as a whole view: it asks first
     with qtbot.waitSignal(window.run_finished, timeout=10000):
         _click(qtbot, window.retryButton)
 
     call = pipeline.calls[0]
     assert call['ids'] == ['a-failed-x', 'a-failed-d'] and call['retry_failed'] is True and call['through'] == 'design'
-    assert window.selected_ids() == ['x-gravity']   # the selection in the table was not disturbed
 
 
 def test_retry_detail_shows_the_current_attempt_until_the_index_has_its_result(qtbot, tmp_path):
@@ -937,10 +935,14 @@ def test_retry_detail_shows_the_current_attempt_until_the_index_has_its_result(q
     assert not window.model.run_state(title_id)['attempting']
 
 
-def test_retry_failed_can_be_limited_to_the_failures_selected_in_the_panel(qtbot, tmp_path):
+def test_retry_failed_works_on_the_failed_titles_selected_in_the_list(qtbot, tmp_path):
+    ''' The list is the hospital queue: select what failed (the Attention chip lists it) and Retry it, no second panel. '''
     window, pipeline = _window(qtbot, tmp_path)
-    window.failuresTable.selectRow(1)
-    assert window.retryButton.text() == 'Retry 1 selected'
+    window.select_ids(['x-gravity'])
+    assert window.retryButton.text() == 'Retry 0 failed' and not window.retryButton.isEnabled()
+    assert window.retry_failed() is False and pipeline.calls == []
+    window.select_ids(['a-failed-d', 'x-gravity'])
+    assert window.retryButton.text() == 'Retry 1 failed'
 
     with qtbot.waitSignal(window.run_finished, timeout=10000):
         _click(qtbot, window.retryButton)
@@ -1103,11 +1105,7 @@ def test_the_results_list_shows_each_title_published_or_refused_and_why(qtbot, t
     assert lines['p-one'].outcome == 'Published' and lines['p-one'].level == 'ok'
     assert lines['p-old'].outcome == 'Republished' and lines['p-old'].detail == 'from your project edits'
     assert {line.id for line in window.results[:2]} == {'p-two', 'c-one'}     # the refusals come first
-    assert window.detailsTabs.currentWidget() is window.resultsTab and window.detailsTabs.tabText(1) == 'Last run (4)'
-    table = window.resultsTable
-    texts = [[table.item(r, c).text() for c in range(3)] for r in range(table.rowCount())]
-    assert ['Sicario', 'Published', ''] in texts
-    assert ['Collateral', 'Refused'] == next(row[:2] for row in texts if row[0] == 'Collateral')
+    assert lines['p-one'].title == 'Sicario'
     assert window.runStatusLabel.text() == 'Publish finished: 2 published, 2 refused'
 
 
@@ -1275,15 +1273,15 @@ def test_a_run_that_cannot_be_started_does_not_leave_the_window_running_for_ever
 def test_retrying_every_failure_asks_first_naming_the_whole_library_and_retrying_the_selected_ones_does_not(qtbot,
                                                                                                           tmp_path):
     window, pipeline = _window(qtbot, tmp_path)
-    assert 'every failed title in the library' in window.retryButton.toolTip()
+    assert 'every failed title listed' in window.retryButton.toolTip()
     seen: List = []
     _answer(False, seen)
 
     assert window.retry_failed() is False
 
-    assert seen[0].startswith('Retry 2 failed titles?') and 'wherever it is in the library' in seen[0]
+    assert seen[0].startswith('Retry 2 failed titles?') and 'every failed title listed' in seen[0]
     assert pipeline.calls == []
-    window.failuresTable.selectRow(0)         # a choice made in the panel is explicit: no question
+    window.select_ids(['a-failed-x'])         # a selection is explicit: no question
     with qtbot.waitSignal(window.run_finished, timeout=10000):
         assert window.retry_failed() is True
     assert pipeline.calls[0]['ids'] == ['a-failed-x']
@@ -1347,7 +1345,7 @@ def test_a_push_only_commit_says_push_in_its_button_its_confirmation_and_its_out
     assert {line.id: line.outcome for line in window.results if line.id} == {'c-one': 'Pushed', 'c-two': 'Pushed'}
 
 
-def test_a_multi_line_git_failure_is_one_line_in_the_row_whole_in_the_tooltip_and_once_in_the_details_area(qtbot,
+def test_a_multi_line_git_failure_is_one_line_in_the_results_and_whole_once_in_the_status_tooltip(qtbot,
                                                                                                          tmp_path):
     error = ("git failed: To /srv/beq-xml.git\n ! [rejected]        main -> main (fetch first)\n"
              "error: failed to push some refs to '/srv/beq-xml.git'")
@@ -1362,20 +1360,13 @@ def test_a_multi_line_git_failure_is_one_line_in_the_row_whole_in_the_tooltip_an
     with qtbot.waitSignal(window.run_finished, timeout=10000):
         window.commit_selected()
 
-    table = window.resultsTable
-    texts = [[table.item(r, c).text() for c in range(3)] for r in range(table.rowCount())]
-    assert all('\n' not in cell for row in texts for cell in row)
-    assert ['Jaws', 'Not committed', 'git failed: ! [rejected] main -> main (fetch first) ...'] in texts
-    commit_row = next(r for r in range(table.rowCount()) if table.item(r, 0).text() == 'Commit')
-    assert 'failed to push some refs' in table.item(commit_row, 2).toolTip()
-    # with nothing selected the Details area shows the failure once, whole
-    assert window.resultDetails.isVisibleTo(window)
-    assert window.resultDetails.toPlainText().count('failed to push some refs') == 1
-    assert 'main -> main (fetch first)' in window.resultDetails.toPlainText()
-    table.selectRow(0)                       # a title's own line has no more to say than its row: nothing is shown
-    assert not window.resultDetails.isVisibleTo(window)
-    table.selectRow(commit_row)
-    assert 'failed to push some refs' in window.resultDetails.toPlainText()
+    lines = {line.title: line for line in window.results}
+    assert all('\n' not in line.detail for line in window.results)          # one line on the status line and its row
+    assert lines['Jaws'].outcome == 'Not committed'
+    assert lines['Jaws'].detail == 'git failed: ! [rejected] main -> main (fetch first) ...'
+    # the repository's failure, whole, is in the status line's tooltip, once
+    assert window.runStatusLabel.toolTip().count('failed to push some refs') == 1
+    assert 'main -> main (fetch first)' in window.runStatusLabel.toolTip()
 
 
 def test_the_results_show_each_new_publish_and_commit_result_shape(qtbot, tmp_path):

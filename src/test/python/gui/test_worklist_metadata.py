@@ -328,7 +328,7 @@ def test_skip_and_reject_are_not_held_up_by_incomplete_metadata(qtbot, tmp_path)
     window = _window(qtbot, tmp_path, [('r-alien', {'meta': INCOMPLETE}), ('r-arrival', {'meta': INCOMPLETE})])
     page = _open(qtbot, window, 'r-alien')
 
-    assert page.skip() and _status(tmp_path, 'r-alien') == 'skipped'
+    assert page.skip() and _status(tmp_path, 'r-alien') == 'pending' and page.current_id == 'r-arrival'
     assert page.reject() and _status(tmp_path, 'r-arrival') == 'rejected'
 
 

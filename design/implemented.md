@@ -95,18 +95,25 @@ verified; the arm64 build and GHCR publish have not yet run
 
 `pipeline/review.py` stores one JSON `QueueEntry` per title. Rerunning a batch
 preserves decisions and reviewer edits where applicable. Candidates contain
-filters and human-readable diagnostics; Skip leaves an entry pending and Reject
-excludes it. A decline carries one flat candidate (no filters, no confidence;
+filters and human-readable diagnostics; Reject excludes an entry (the
+`skipped` status is still read: the title page's Skip used to write it). A decline carries one flat candidate (no filters, no confidence;
 entries written before are given it when read), so a person may accept it and
 publish the title as a record with no filters and the note "Does not require
 BEQ" unless the reviewer wrote one; bulk accept never takes it. The interactive title page
 shows candidates, average/peak before-and-after curves using the main chart's
 measure colours and before/after line styles, commentary (wrapping text, a
 heading per key, `;`-separated notes as a list; for a declined title, the
-decline reason and message laid out the same way, over its measured curves),
+decline reason and message laid out the same way, over its measured curves --
+the only place the decline is told; the notice and state lines do not repeat it),
 metadata,
-and artwork. It lets a reviewer Accept & next, Skip, Reject, reopen or revise,
-or open the title's project in the main app. Batch Extract & Design can queue
+and artwork. Its top row moves (Previous, Next, and Skip, which goes to the next
+title waiting for a decision and writes nothing); its bottom row changes what
+happens to the title (Revise, a split button whose menu also chooses another
+audio stream, plus Retry and the JRiver path mappings for a failed title,
+Reject, and Accept & next); the buttons that open the title's mono or
+multichannel project in the main app sit under the chart they edit, and their
+"opened" note goes when the page shows another title. In a narrow metadata
+column every label goes above its field. Batch Extract & Design can queue
 its results, and Review Folder presents the same page over a queue directory.
 
 Every extracted library title has mono and, with a kept multichannel
@@ -211,7 +218,12 @@ It has pipeline counts (with a *Working* chip for the titles the window's run
 has queued or in hand, from its run state rather than the index; a title moves
 from Extract to Design as soon as its extraction ends), searchable/sortable
 rows, source and tier filters, run actions, Rescan, selected/all-visible
-actions, settings, failures, and Last run. While its run goes, the action
+actions and settings. There is no separate failures or Last run panel: a failed
+title is a row (the *Attention* chip lists them, the row says why), *Retry N
+failed* beside the action button runs the selected failed titles again (else
+every failed title listed), each title's last outcome is on its row, and what
+belongs to no title (a repository that could not be committed or pushed) is on
+the run status line, whole in its tooltip. While its run goes, the action
 button and *Retry failed* add extract/design work to it; Publish, Commit and a
 bulk accept or revise wait and start in order when it ends, and Cancel drops
 them (see *Runs, the lease and joining* below). A

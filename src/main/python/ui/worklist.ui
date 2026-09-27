@@ -102,30 +102,6 @@
        </layout>
       </widget>
      </widget>
-      <widget class="QTabWidget" name="detailsTabs">
-      <property name="minimumSize"><size><width>0</width><height>110</height></size></property>
-      <property name="currentIndex"><number>0</number></property>
-      <widget class="QWidget" name="failuresTab">
-       <attribute name="title"><string>Failures</string></attribute>
-       <layout class="QVBoxLayout" name="failuresLayout">
-        <item><widget class="QTableWidget" name="failuresTable"/></item>
-        <item>
-         <layout class="QHBoxLayout" name="failuresButtonLayout">
-          <item><widget class="QLabel" name="failuresHintLabel"><property name="wordWrap"><bool>true</bool></property><property name="text"><string>Not tried again until its source or the settings change. Retry failed runs it anyway.</string></property></widget></item>
-          <item><spacer name="failuresSpacer"><property name="orientation"><enum>Qt::Horizontal</enum></property><property name="sizeHint" stdset="0"><size><width>40</width><height>20</height></size></property></spacer></item>
-          <item><widget class="QPushButton" name="retryButton"><property name="text"><string>Retry failed</string></property></widget></item>
-         </layout>
-        </item>
-       </layout>
-      </widget>
-      <widget class="QWidget" name="resultsTab">
-       <attribute name="title"><string>Last run</string></attribute>
-       <layout class="QVBoxLayout" name="resultsLayout">
-        <item><widget class="QTableWidget" name="resultsTable"/></item>
-        <item><widget class="QPlainTextEdit" name="resultDetails"><property name="maximumSize"><size><width>16777215</width><height>84</height></size></property><property name="readOnly"><bool>true</bool></property><property name="placeholderText"><string>Select a line to see all of its detail.</string></property></widget></item>
-       </layout>
-      </widget>
-     </widget>
      </widget>
     </item>
     <item>
@@ -158,6 +134,7 @@
       <item><widget class="QPushButton" name="ignoreButton"><property name="toolTip"><string>Ignore titles like the selected one, or just the selected titles</string></property><property name="text"><string>Ignore</string></property></widget></item>
       <item><widget class="QPushButton" name="publishButton"><property name="text"><string>Publish</string></property></widget></item>
       <item><widget class="QPushButton" name="commitButton"><property name="text"><string>Commit</string></property></widget></item>
+      <item><widget class="QPushButton" name="retryButton"><property name="text"><string>Retry failed</string></property></widget></item>
       <item><widget class="QPushButton" name="runButton"><property name="default"><bool>false</bool></property><property name="text"><string>Extract &amp; design</string></property></widget></item>
      </layout>
     </item>

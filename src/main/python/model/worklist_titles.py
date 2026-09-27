@@ -64,8 +64,8 @@ class _SyncJob(QRunnable):
 
 class WorkListTitles:
     '''
-    The mixin: it uses `contentStack`, `tablePage`, `workTable`, `listHeader`, `listFooter`, `detailsTabs`, `openButton`,
-    `_proxy`, `_setup`, `_preferences`, `_rows_by_id()`, `_busy()`, `_refresh_view()`, `_refresh_details()` and
+    The mixin: it uses `contentStack`, `tablePage`, `workTable`, `listHeader`, `listFooter`, `openButton`,
+    `_proxy`, `_setup`, `_preferences`, `_rows_by_id()`, `_busy()`, `_refresh_view()`, and
     `refresh_from_index()` of the window, and the attributes `_title_page`, `_title_open`, `_index_dirty` and `_syncing`,
     which the window sets before anything else can call in.
     '''
@@ -145,7 +145,7 @@ class WorkListTitles:
             self._title_page.notice.connect(lambda text: self.statusBar.showMessage(text, 15000))
             self.contentStack.addWidget(self._title_page)
         self._title_open = True
-        for widget in (self.listHeader, self.listFooter, self.detailsTabs):
+        for widget in (self.listHeader, self.listFooter):
             widget.setVisible(False)
         self.contentStack.setCurrentWidget(self._title_page)
         self._title_page.open(title_id, ids)
@@ -255,7 +255,6 @@ class WorkListTitles:
         self.listHeader.setVisible(True)
         self.listFooter.setVisible(True)
         self._refresh_view()        # puts the table (or the reason there is none) back on the stack
-        self._refresh_details()
         for row in range(self._proxy.rowCount()):
             index = self._proxy.index(row, 0)
             if index.data(ID_ROLE) == viewed:
