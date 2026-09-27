@@ -41,6 +41,7 @@ jobs:
   build:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [ ubuntu-22.04, ubuntu-24.04, macos-15, macos-26, windows-2022, windows-2025 ]
     steps:

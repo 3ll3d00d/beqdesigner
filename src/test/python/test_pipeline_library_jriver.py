@@ -482,13 +482,17 @@ def test_anything_else_is_left_as_reported(filename):
 
 # --- a listing never touches the media (design.md §12.5) ---------------------------------------------------------
 
-def _fail_on_disk(monkeypatch, only_under=None):
+def _fail_on_disk(monkeypatch, only_under):
+    '''
+    Fails a stat of the media: a path starting with only_under (a prefix or tuple of them), or one it accepts if callable.
+    Never every path -- that fails coverage's and xdist's own (it crashed an xdist worker on Windows).
+    '''
     import os
     real_stat, real_isfile = os.stat, os.path.isfile
 
     def guard(real):
         def checked(path, *args, **kwargs):
-            if only_under is None or str(path).startswith(only_under):
+            if (only_under(str(path)) if callable(only_under) else str(path).startswith(only_under)):
                 raise AssertionError(f'a JRiver listing touched the disk: {path!r}')
             return real(path, *args, **kwargs)
         return checked
@@ -503,7 +507,8 @@ def test_mapping_rows_performs_no_stat_or_isfile_on_media_or_artwork(monkeypatch
     rows = [_row(Key=i, Filename=f'W:\\Films\\{i}.mkv', **{'Image File': f'{i}.jpg'}) for i in range(50)]
     rows.append(_row(Key=99, Filename='W:\\Films\\x\\BDMV\\index.bluray;1', **{'Image File': 'W:\\Films\\art.jpg'}))
     source = _source(path_mappings=[PathMapping('W:\\Films', '/mnt/films')])
-    _fail_on_disk(monkeypatch)
+    _fail_on_disk(monkeypatch, only_under=lambda path: path.startswith(('W:\\Films', '/mnt/films'))
+                  or path.endswith(('.mkv', '.jpg', '.bluray;1')))
 
     items = source._map_rows(rows)
 
