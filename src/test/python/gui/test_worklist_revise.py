@@ -29,6 +29,7 @@ from test_pipeline_library_commit import IMAGES_NAME, OWNER, _queue_entry, _trac
 from test_pipeline_library_index import FakeSource, _entry as _real_entry, _extracted, _item
 from test_worklist_title import NOW, REVIEWABLE, SOURCES, _click, _designer, _open, _prefs, _queue, _row, _rows, _status  # noqa: F401
 from worklist_fixture import make_index
+from modal import when_modal
 from worklist_title_fixture import write_entry
 
 
@@ -274,15 +275,13 @@ def test_the_real_dialog_is_shown_says_what_will_happen_and_its_answer_is_used(q
     page = _open(qtbot, window, 'p-fury')
     seen = []
 
-    def answer():
-        dialog = QApplication.activeModalWidget()
-        assert isinstance(dialog, ReviseDialog)
+    def answer(dialog):
         seen.append(dialog.text)
         dialog.set_choice('design')
         dialog.reasonEdit.setText('better designer')
         dialog.ok_button.click()
 
-    QTimer.singleShot(0, answer)
+    when_modal(ReviseDialog, answer)
     _click(qtbot, page.actions_bar.reviseButton)
 
     assert 'Reopen for review: p-fury' in seen[0] and 'the accept is undone' in seen[0]
@@ -485,13 +484,11 @@ def test_the_real_dialog_asks_on_the_selected_rows_and_cancel_changes_nothing(qt
     window.select_ids(['fs-a'])
     seen = []
 
-    def cancel():
-        dialog = QApplication.activeModalWidget()
-        assert isinstance(dialog, ReviseDialog)
+    def cancel(dialog):
         seen.append(dialog.text)
         dialog.cancel_button.click()
 
-    QTimer.singleShot(0, cancel)
+    when_modal(ReviseDialog, cancel)
     assert window.revise_selected() is False
     assert 'Reopen for review: Film a?' in seen[0]
     assert _status(tmp_path, 'fs-a') == 'accepted' and 'Cancelled' in window.runStatusLabel.text()

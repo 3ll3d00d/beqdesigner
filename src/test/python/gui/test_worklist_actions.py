@@ -18,7 +18,7 @@ import pytest
 from qtpy.QtCore import QEvent, QSettings, Qt, QThreadPool, QTimer
 from qtpy.QtGui import QKeyEvent, QPainter, QImage
 from qtpy.QtWidgets import QStyleOptionViewItem
-from qtpy.QtWidgets import QApplication, QMessageBox
+from qtpy.QtWidgets import QApplication, QDialog, QMessageBox
 
 from model.preferences import DESIGNER_DEFAULT, DESIGNER_QUEUE_DIR, LIBRARY_FILESYSTEM_GLOBS, LIBRARY_IMAGES_REPO, \
     LIBRARY_WORK_DIR, LIBRARY_XML_REPO, Preferences, SYSTEM_CHECK_FOR_UPDATES, WORKLIST_PUSH
@@ -33,6 +33,7 @@ from pipeline.library.run import LibraryRunReport
 from pipeline.library.source import LibraryItem
 from pipeline.library.stages import FfmpegProgress, Progress, StagesReport
 from worklist_fixture import make_index, title_row
+from modal import when_modal
 
 NOW = 1_800_000_000.0
 DAY = 86400.0
@@ -180,13 +181,11 @@ def _click(qtbot, button):
 def _answer(accept: bool, seen: List[str], tick: Optional[bool] = None) -> None:
     '''
     Answers the modal ConfirmDialog the next action opens, as a person would: reads it, optionally (un)ticks its checkbox,
-    then clicks its OK or Cancel button. Scheduled now, it runs once the dialog's event loop is going.
+    then clicks its OK or Cancel button. Called before the action, it answers once the dialog is showing.
     '''
-    def respond():
-        dialog = QApplication.activeModalWidget()
+    def respond(dialog):
         if not isinstance(dialog, ConfirmDialog):
-            if dialog is not None:
-                dialog.reject()
+            dialog.reject()
             seen.append(f'unexpected: {dialog!r}')
             return
         seen.append(dialog.text)
@@ -195,7 +194,7 @@ def _answer(accept: bool, seen: List[str], tick: Optional[bool] = None) -> None:
             dialog.checkbox.setChecked(tick)
         (dialog.ok_button if accept else dialog.cancel_button).click()
 
-    QTimer.singleShot(0, respond)
+    when_modal(QDialog, respond)
 
 
 def _run_button_text(window) -> str:
@@ -1164,13 +1163,12 @@ def test_a_git_failure_while_committing_is_shown_as_an_error_against_the_titles(
 
 def _answer_box(yes: bool, seen: List[str]) -> None:
     ''' Answers the QMessageBox a close during a run opens, as a person would (reads it, clicks Yes or No). '''
-    def respond():
-        box = QApplication.activeModalWidget()
+    def respond(box):
         seen.append(box.text() if isinstance(box, QMessageBox) else f'unexpected: {box!r}')
         if isinstance(box, QMessageBox):
             box.button(QMessageBox.StandardButton.Yes if yes else QMessageBox.StandardButton.No).click()
 
-    QTimer.singleShot(0, respond)
+    when_modal(QDialog, respond)
 
 
 def _held_run(qtbot, tmp_path, ids=('x-gravity', 'x-tenet')):

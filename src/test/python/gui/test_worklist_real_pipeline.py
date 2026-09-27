@@ -20,6 +20,7 @@ import pytest
 from qtpy.QtCore import QSettings, Qt, QTimer
 from qtpy.QtWidgets import QApplication
 
+from modal import when_modal
 from model.preferences import DESIGNER_QUEUE_DIR, LIBRARY_FILESYSTEM_GLOBS, LIBRARY_IMAGES_REPO, LIBRARY_PROFILE_PATH, \
     LIBRARY_WORK_DIR, LIBRARY_XML_REPO, Preferences
 from model.worklist import WorkListWindow
@@ -120,15 +121,13 @@ def _record_run_counts(window):
 
 
 def _answer(accept: bool, seen: list, tick=None) -> None:
-    def respond():
-        dialog = QApplication.activeModalWidget()
-        assert isinstance(dialog, ConfirmDialog), dialog
+    def respond(dialog):
         seen.append(dialog.text)
         if tick is not None:
             dialog.checkbox.setChecked(tick)
         (dialog.ok_button if accept else dialog.cancel_button).click()
 
-    QTimer.singleShot(0, respond)
+    when_modal(ConfirmDialog, respond)
 
 
 def _click(qtbot, button):
