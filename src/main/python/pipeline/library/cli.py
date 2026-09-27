@@ -141,7 +141,8 @@ def _run_stages(args: argparse.Namespace, config: dict[str, Any], values: dict[s
     selection = _selection(args, args.source)
     retry, unattended = bool(args.retry_failed), bool(getattr(args, 'unattended', False))
     work_dir = run_config.work_dir
-    while True:   # design/worklist-feedback.md F5: never alongside another run of this work directory
+    # design/archive/library-sync/worklist-feedback.md F5: never alongside another run of this work directory
+    while True:
         holder = read_lease(work_dir)
         if holder is not None:
             if through in JOINABLE:
@@ -176,9 +177,9 @@ def _run_stages(args: argparse.Namespace, config: dict[str, Any], values: dict[s
 def _join_run_in_progress(holder, work_dir: str, selection: Selection, through: str, retry: bool,
                           unattended: bool) -> int | None:
     '''
-    Hands this run's titles to the run in progress (design/worklist-feedback.md F5) and waits for it to end, then prints
-    what became of them. :return: the exit status (1 if any failed or was not done), or None if it ended without taking
-    them.
+    Hands this run's titles to the run in progress (design/archive/library-sync/worklist-feedback.md F5) and waits for
+    it to end, then prints what became of them. :return: the exit status (1 if any failed or was not done), or None if
+    it ended without taking them.
     '''
     with LibraryIndex(index_path(work_dir)) as index:
         plan = plan_stages(selection.rows(index), through, retry_failed=retry, unattended=unattended)

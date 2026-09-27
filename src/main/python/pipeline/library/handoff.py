@@ -1,5 +1,6 @@
 '''
-Handing extract and design work to the run in progress in another process -- design/worklist-feedback.md F5.
+Handing extract and design work to the run in progress in another process --
+design/archive/library-sync/worklist-feedback.md F5.
 
 A command-line `run` that finds the work directory's lease held (by the service, the work list or another `run`) does not
 run alongside it -- both would write the index and the review queue -- nor refuse: it posts its titles to the join inbox

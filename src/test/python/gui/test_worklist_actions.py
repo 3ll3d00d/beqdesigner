@@ -311,7 +311,7 @@ def test_a_run_happens_off_the_ui_thread_with_determinate_progress_and_a_running
     assert _cell(window, 'x-gravity', COL_NEEDS, RUNNING_ROLE) == 'design'
     assert _cell(window, 'x-tenet', COL_NEEDS) == 'Extract'
     # nothing new to add (the three are in the run), nothing to publish, and a scan would conflict; Retry failed would join
-    # the run (worklist-feedback.md F5); and Cancel is offered
+    # the run (design/archive/library-sync/worklist-feedback.md F5); and Cancel is offered
     for button in (window.runButton, window.publishButton, window.commitButton, window.rescanButton):
         assert not button.isEnabled(), button.objectName()
     assert window.retryButton.isEnabled()
@@ -1435,7 +1435,8 @@ def test_the_real_pipeline_runs_off_the_ui_thread_and_a_title_that_fails_is_reme
 
     assert [i for i, _ in run.args[0].run.failed] == ['fs-missing']
     assert [f.id for f in window.failed] == ['fs-missing']       # the pipeline recorded it; the window read it back
-    # worklist-feedback.md F4: it stays under Extract, the action button tries it again, and there is nothing to revise
+    # design/archive/library-sync/worklist-feedback.md F4: it stays under Extract, the action button tries it again, and
+    # there is nothing to revise
     assert window.chip_counts()['Attention'] == 0 and window.chip_counts()['Extract'] == 1
     assert window.results[0].outcome == 'Failed'
     window.select_ids(['fs-missing'])
@@ -1604,7 +1605,8 @@ def test_titles_in_flight_together_share_one_status_and_a_finished_one_moves_bef
 
 def test_the_working_chip_lists_the_titles_the_run_has_queued_or_in_hand_and_a_title_moves_to_design_once_extracted(
         qtbot, tmp_path):
-    ''' worklist-feedback.md F1: a title no longer sits under Extract until its design ends. '''
+    ''' design/archive/library-sync/worklist-feedback.md F1: a title no longer sits under Extract until its design
+        ends. '''
     index_file = make_index(tmp_path / 'work', _rows(), SOURCES, generation=2, last_scan_at=NOW - 900)
     extracted, release = threading.Event(), threading.Event()
 
@@ -1653,7 +1655,8 @@ def test_a_test_that_ends_with_a_run_going_is_not_held_up_by_the_close_question(
 def test_while_the_service_holds_the_work_directory_extraction_is_handed_to_it_and_publish_is_refused(qtbot, tmp_path):
     '''
     design/pipeline-service.md §5.1: two runs over one index, queue and repositories are not started side by side;
-    worklist-feedback.md F5: extract and design are handed to the run in progress instead of refused.
+    design/archive/library-sync/worklist-feedback.md F5: extract and design are handed to the run in progress instead of
+    refused.
     '''
     from pipeline.library.inbox import WorkDirInbox
     from pipeline.service.lease import WorkDirLease
@@ -1697,7 +1700,7 @@ def test_titles_the_other_run_took_are_followed_in_the_index_and_not_run_here(qt
     assert not window.model.is_working('x-gravity') and taken.selection.ids == ('x-gravity',)
 
 
-# --- more work while a run is going (design/worklist-feedback.md F5) ------------------------------------------------------
+# --- more work while a run is going (design/archive/library-sync/worklist-feedback.md F5) -----------------------------
 
 class _JoiningPipeline:
     ''' run_stages' F5 half: holds an extract/design run until released, then takes what joined it and reports that too. '''

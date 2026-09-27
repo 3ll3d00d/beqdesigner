@@ -110,7 +110,8 @@ def test_a_designer_decline_is_left_out_and_reported(env):
     _entry(env, item, candidates=0, decline_reason='no_signal', decline_message='nothing below 20 Hz')
     _scan(env, item)
 
-    report = _accept(env, threshold=0.0)   # worklist-feedback.md F3: its flat candidate is a person's decision, at any threshold
+    # design/archive/library-sync/worklist-feedback.md F3: its flat candidate is a person's decision, at any threshold
+    report = _accept(env, threshold=0.0)
 
     assert report.accepted == []
     assert report.excluded[0].reason == 'designer declined: nothing below 20 Hz'

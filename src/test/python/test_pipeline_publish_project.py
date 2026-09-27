@@ -182,7 +182,8 @@ def test_app_resave_of_bass_managed_project_keeps_the_edit_and_blocks_overwrite(
 # --- write_title_projects_if_safe --------------------------------------------
 
 def test_the_projects_of_a_title_just_extracted_are_flat_and_design_then_replaces_them(tmp_path):
-    ''' worklist-feedback.md F2: openable before design; a flat project is still the pipeline's, so design overwrites it. '''
+    ''' design/archive/library-sync/worklist-feedback.md F2: openable before design; a flat project is still the
+        pipeline's, so design overwrites it. '''
     session = Session(AnalysisConfig())
     mono_wav, mc_wav = str(tmp_path / 'mono.wav'), str(tmp_path / 'multichannel.wav')
     _write_mono_wav(mono_wav)

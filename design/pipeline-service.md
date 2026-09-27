@@ -1,12 +1,18 @@
 # Pipeline service — HTTP control plane, auto mode and Docker image
 
-**Status: S0-S7 implemented; image build/smoke awaits first CI run** (§11 has each chunk's state;
-each built chunk has an "As built" note). See the [index](library-sync-pipeline-plan.md). The Docker image and chunk S0 are in
-[`pipeline-service/docker.md`](pipeline-service/docker.md). Branch: `pipeline-service`.
+This is the design of the pipeline service as it is built: `pipeline/service/`,
+the Docker image in `docker/`, and the work-directory lease the service shares
+with the work list and the CLI. The user guide is
+[`docs/library/service.md`](../docs/library/service.md); the wire interface is
+[`docs/schema/service.openapi.json`](../docs/schema/service.openapi.json). The
+image and the Qt-free boundary it depends on are in
+[`pipeline-service/docker.md`](pipeline-service/docker.md). Open work is in
+[`outstanding.md`](outstanding.md) (W3, C1). Section numbers are cited by
+source comments, so they are kept stable.
 
 ## 1. Goal
 
-Run the headless library pipeline as a long-lived Docker container that:
+The headless library pipeline runs as a long-lived Docker container that:
 
 1. **sits idle** and does work only when told to over HTTP;
 2. optionally runs an **auto mode**: every *N* minutes, scan the sources and
@@ -22,116 +28,97 @@ Run the headless library pipeline as a long-lived Docker container that:
 Out of scope: reviewing titles over HTTP (it stays in the app), editing the
 profile over HTTP, and any UI beyond the generated API page.
 
-## 2. What already exists and is reused unchanged
+## 2. Reuse of the pipeline
 
 The service adds no pipeline logic of its own. Every operation is an existing,
-Qt-free call:
+Qt-free call (`pipeline/service/work.py`):
 
-| Service operation | Existing call |
+| Service operation | Call |
 |---|---|
 | Scan | `LibraryIndex.scan(profile, settings, only=, allow_empty=)` |
 | Counts / status | `pipeline.library.status` (what `cli status --json` prints) |
 | List titles | `Selection.rows(index)` → `TitleRow` |
 | Preview a run | `plan_stages(rows, through, retry_failed=)` → `StagePlan` (the work list's button label) |
-| Run a stage | `run_stages(profile, selection, through, run_config=, index=, publish=, should_cancel=, on_progress=, on_event=)` → `StagesReport` |
+| Run a stage | `run_stages(profile, selection, through, run_config=, index=, publish=, should_cancel=, on_progress=, on_event=, join=)` → `StagesReport` |
 | Bulk accept (guarded, §6.4) | `plan_accept()` / `accept_top_pick()` |
-| Config | `pipeline.library.profile` (the same profile file the app's Settings drawer and the CLI's `--profile` read) and the CLI's option → `LibraryRunConfig`/`PublishSettings` builders |
+| Config | `pipeline.library.profile` (the profile file the app's Settings drawer and the CLI's `--profile` read) and `pipeline/library/setup.py`, the CLI's profile-to-run resolution, shared so a service run is exactly what `run --profile` does |
 
-Invariants carried over as they are: review is a person's (nothing is taken
+The pipeline's invariants hold unchanged: review is a person's (nothing is taken
 past design unless accepted); one bad title never stops a run; a failure is
 remembered against the source fingerprint and settings and not retried
 without `retry_failed`; a cancel leaves only whole titles done; publish and
 commit are serialised.
 
-## 3. Selection: year and kind (chunk S1)
+## 3. Selection: year and kind
 
-The work list's filters are the pipeline strip (a `needs` chip or *New*), the
-source combo, the search box and the per-column filters (Title, Year, Source,
-Needs, Detail). `Selection` today has `needs`, `source`, `match`, `ids` and
-`new_since_scan`; the work list turns column filters into an explicit `ids`
-list. A remote caller cannot build that list, so the two fields the example
-needs become first-class **in `Selection` itself**, keeping one vocabulary for
-the CLI, the work list and the API (`selection.py`'s docstring rule):
+`Selection` carries two fields besides `needs`, `source`, `match`, `ids` and
+`new_since_scan`, so the CLI, the work list and the API share one vocabulary:
 
 | Field | Type | Meaning |
 |---|---|---|
 | `kind` | `'movie' \| 'tv' \| None` | `TitleRow.kind` equals it |
-| `year` | year expression `\| None` | the ignore-rule syntax: `2026`, `<1960`, `<=1960`, `>1999`, `>=1999`, `1990-1999` (inclusive) |
+| `year` | year expression `\| None` | `2026`, `<1960`, `<=1960`, `>1999`, `>=1999`, `1990-1999` (inclusive) |
 
-- The year expression is **the same language as an ignore rule's `year`**
-  (decided, §11): one syntax for a person to learn across ignore rules, the
-  CLI and the API. Its grammar and matching move from `ignore.py`
-  (`_YEAR`, `_year_matches`) into one shared module, `pipeline/library/year.py`,
-  with a `YearRange` parse (`<1960` → `max 1959`, `1990-1999` → `1990..1999`;
-  a reversed range is an error) that both ignore rules and `Selection` use.
-- A title with no numeric year never matches a year expression, as for an
-  ignore rule.
-- `Selection.__post_init__` parses `year` so a malformed expression is a
-  `ValueError` at construction, not an empty match.
-- `LibraryIndex.titles()` gains `kind=` and `year=` (a `YearRange`) and
-  filters in SQL (`year GLOB '[0-9]*' AND CAST(year AS INTEGER) BETWEEN ? AND ?`,
-  an open end omitted), so paging (§6.2) stays in the database.
-- `Selection.describe()` adds "movies", "year >=2020".
-- CLI: `--kind {movie,tv}` and `--year EXPR` on `run` and `accept`; the README
-  option list and its docs test follow.
-- The work list is unchanged in S1 (its Year column filter keeps working
-  through `ids`). A Kind chip or combo is a possible follow-up, not required.
+- The year expression is the same language as an ignore rule's `year`.
+  `pipeline/library/year.py` holds the grammar, `YearRange` (`<1960` → max
+  1959, `1990-1999` → 1990..1999), `year_matches()` and `YEAR_PATTERN` (the
+  grammar as a JSON-schema pattern, held to the parser's answers by a test).
+  The grammar is whole-string ASCII (`[0-9]`, `[ \t]`), so fullwidth digits or
+  a trailing newline in an ignore rule are refused when the profile loads.
+- A title with no numeric year never matches a year expression. A filesystem
+  source records no year, so `year` selects its titles only once TMDB has
+  named them.
+- A reversed range is a `ValueError` when a `Selection` is constructed; in an
+  ignore rule it loads and matches nothing.
+- `LibraryIndex.titles()` takes `kind=` and `year=` and filters in SQL; the
+  SQL test and `year_matches()` are checked against each other.
+- `Selection.describe()` includes "movies", "year >=2020".
+- CLI: `--kind {movie,tv}` and `--year EXPR` on `run` and `accept`.
+- The work list has no Kind filter; its Year column filter works through `ids`.
 
-**As built.** `pipeline/library/year.py` has the grammar, `YearRange`,
-`year_matches()` and `YEAR_PATTERN` (the grammar as a JSON-schema pattern for
-§6.5; a test holds pattern and parser to the same answers). The grammar is now
-whole-string and ASCII: `[0-9]` and `[ \t]` rather than `\d` and `\s`, so an
-ignore rule's year written in fullwidth digits, or ending in a newline, is
-refused when the profile loads (Python's `\d` accepted any Unicode digit, which
-a JSON schema's does not). A reversed range still loads in an ignore rule and
-matches nothing; a `Selection` refuses it. The SQL test and `year_matches()`
-are checked against each other.
-
-**Tests:** `test_pipeline_library_selection.py` (every expression form, open
-ranges, reversed and malformed expressions, missing and non-numeric years, kind, AND with the existing fields, `describe()`);
-index query tests for the SQL path including a batch of `ids`; CLI parse of
-each `--year` form and its rejection of a malformed one; ignore-rule tests
-still pass against the shared helper.
-
-## 4. Architecture (chunks S2-S3)
+## 4. Architecture
 
 ```
 pipeline/service/                 # Qt-free: covered by test_pipeline_qt_boundary.py's AST scan
     __main__.py                   # python -m pipeline.service --profile ... --service-config ...
     config.py                     # ServiceConfig: listen, auth, guards, schedule defaults (§7)
-    jobs.py                       # JobManager: one worker, FIFO queue, cancel, progress, history (§5)
+    context.py                    # loads the profile per job; environment secrets
+    jobs.py                       # JobManager: one worker, FIFO queue, cancel, progress, history, joining (§5)
+    work.py                       # what each kind of job does (§2)
+    lease.py                      # the work-directory lease (§5.1)
     scheduler.py                  # AutoScheduler: interval timer that submits jobs (§8)
-    context.py                    # loads the profile per job; builds LibraryRunConfig / PublishSettings
+    notify.py                     # outbound webhooks (§9)
     models.py                     # pydantic request/response models and enums (§6.5)
-    api.py                        # FastAPI app factory: routes -> JobManager / index reads
+    api.py                        # FastAPI app factory; run as a module it prints the OpenAPI document
 ```
 
-- **HTTP stack:** FastAPI + pydantic v2 + uvicorn. FastAPI derives the
-  OpenAPI 3.1 document from the pydantic models, serves it at `/openapi.json`
-  and serves Swagger UI (`/docs`, with *Try it out* and *Authorize*) and ReDoc
-  (`/redoc`). That is the "live test mode": the same process, the same
-  routes, the same auth.
-- **Dependencies** go in a new `service` dependency group in `pyproject.toml`
-  (`fastapi`, `uvicorn[standard]`, `pydantic>=2`), not the app's runtime
-  list, so the PyInstaller desktop bundle does not grow. The dev group gains
-  them too (plus `httpx` for FastAPI's `TestClient`) so the suite and CI run
-  the service tests.
-- **Threads:** uvicorn's event loop answers requests; route handlers never do
+- **HTTP stack:** FastAPI + pydantic v2 + uvicorn. The OpenAPI 3.1 document
+  is derived from the models and served at `/openapi.json`, with Swagger UI
+  (`/docs`) and ReDoc (`/redoc`) as the "live test mode": the same process,
+  routes and auth.
+- **Dependencies** are the `service` dependency group in `pyproject.toml`; the
+  desktop's Qt packages are the default `desktop` group, so `uv sync` still
+  installs the app and the PyInstaller bundle does not carry the service.
+- **Threads:** uvicorn's event loop answers requests; handlers never do
   pipeline work. Reads (status, titles, plan) open their own read-only
-  `LibraryIndex` connection per request, as the work list's run job does.
-  Work goes to the `JobManager`'s single worker thread.
+  `LibraryIndex` connection per request. Work goes to the `JobManager`'s
+  single worker thread.
 - **Profile reloads:** the profile and service config are read again at the
-  start of each job (as the Review Folder window reads the library profile
-  at each decision), so an edit to the mounted file takes effect on the next
-  job without a restart. A profile that fails to load fails that job with
-  the loader's message; the service stays up.
+  start of each job, so an edit to the mounted file takes effect on the next
+  job without a restart. A profile that fails to load fails that job with the
+  loader's message; the service stays up.
+- **Shutdown:** uvicorn re-raises the signal that stopped it, so the entry
+  point handles SIGTERM itself: it stops accepting jobs, cancels the running
+  one cooperatively, waits up to `shutdown_grace_seconds` (default 120, matched
+  by the compose file's `stop_grace_period`) and exits 0.
 
-## 5. Jobs (chunk S2)
+## 5. Jobs
 
 A **job** is one unit of queued work: `scan`, `run` (a selection through a
-stage, optionally scanning first) or `accept`. One job runs at a time,
-because the index, the queue directory and the git working trees each have a
-single writer. Further submissions queue in FIFO order.
+stage, optionally scanning first) or `accept`. One job runs at a time, because
+the index, the queue directory and the git working trees each have a single
+writer; further submissions queue in FIFO order, except that a run job may
+join the run job in progress (§5.1).
 
 | Field | Type |
 |---|---|
@@ -142,239 +129,205 @@ single writer. Further submissions queue in FIFO order.
 | `request` | the typed request that created it |
 | `submitted_at`, `started_at`, `finished_at` | RFC 3339 |
 | `progress` | `{done, total, title, stage, id}` from `stages.Progress` |
+| `joined_to` | the job whose run it joined, if any |
 | `result` | typed per kind (§6.5), present once finished |
 | `error` | message, when the job itself failed (profile unreadable, index refused) |
 
 - `failed` means the job raised or `StagesReport.failed` is true (a title
-  failed, a publish was refused, git refused). A title-level failure is in
-  the result; the job still reports every title it did.
+  failed, a publish was refused, git refused). A title-level failure is in the
+  result; the job still reports every title it did.
 - **Cancel** of a queued job removes it; of a running job sets the flag
   `run_stages(should_cancel=)` polls between titles. The job ends `cancelled`
   with `attempted`/`not_run` from the report.
-- **Events:** `on_progress` and `on_event` feed a bounded per-job ring buffer
-  (secrets redacted the way the work list's run details are), readable
-  after the fact and streamed live (§6.2).
-- **History:** the last *K* (default 200) finished jobs are kept in memory and
-  written atomically to `<work_dir>/service/jobs.json`, so a restart shows
-  them. A job found `running` at start-up is recorded `interrupted`; nothing
-  is resumed automatically (the next scan/run redoes what is still needed,
-  since the stages are idempotent).
-- **Shutdown:** SIGTERM stops accepting jobs, cancels the running one
-  cooperatively, waits up to a grace period (config, default 120 s, matched
-  by the compose file's `stop_grace_period`), then exits.
+- **Events:** `on_progress` and `on_event` feed a bounded per-job ring buffer,
+  redacted with the work list's redaction (`model/execution_events.py`),
+  readable afterwards and streamed live (§6.1).
+- **History:** the last `history_limit` (default 200) finished jobs are kept in
+  memory and written atomically to `<work_dir>/service/jobs.json`. A job found
+  `running` at start-up is recorded `interrupted`; nothing resumes
+  automatically (the stages are idempotent, so the next scan/run redoes what is
+  still needed).
 
-### 5.1 Sharing a work directory with the desktop app
+### 5.1 The work-directory lease and joining a run
 
 A person reviews in the app, which reads the same index and queue. Reading
-while the service runs is supported (SQLite readers, queue entries re-read as
-they are written, as bulk accept already does). Two *runs* at once are not:
-the service takes a **work-directory lease** (`<work_dir>/service/lease.json`:
-host, pid, job id, heartbeat every 30 s, stale after 3 missed beats) for the
-duration of each job, and the work list's Run/Publish/Commit actions refuse
-with "the pipeline service on HOST is running a job" while a fresh lease
-exists. SQLite over a network share is a known hazard; the documented set-up
-is the work directory on the container host's local disk, exported to the
-reviewer read-mostly, not the other way round.
+while a run goes is supported (SQLite readers; queue entries re-read as they
+are written). Two *runs* at once are not: every run -- a service job, a work
+list run, a CLI `run` -- holds the **work-directory lease**
+(`<work_dir>/service/lease.json`: host, pid, job id, a heartbeat every 30 s,
+stale after three missed beats; `run_lease()` names work-list and CLI runs
+`worklist-…` and `cli-…`). A stale lease is ignored and taken over. Taking it is
+not atomic across machines; it guards against the ordinary mistake, not as a
+lock manager. The documented set-up is the work directory on the container
+host's local disk, exported to the reviewer read-mostly.
 
-**As built (S2).** `pipeline/library/setup.py` holds the CLI's profile-to-run
-resolution, shared by the service (a test holds a service run to exactly what
-`run --profile` does). `pipeline/service/`: `config.py`, `context.py`
-(environment secrets), `jobs.py`, `work.py`, `lease.py`; the work list's
-Run/Publish/Commit and its one-step accept-and-publish refuse while a lease is
-fresh. The event redaction the work list's Details use moved to
-`model/execution_events.py` and is shared. Gap, open: the Review Folder
-window's Publish/Commit do not check the lease.
+While a run is in its machine phase (extract and design), more extract/design
+work **joins it** instead of being refused:
 
-**Since worklist-feedback F5.** The work list's runs and the command line's
-`run` take the lease too (`run_lease()`, job ids `worklist-…` and `cli-…`). Extract and design work asked for while a lease
-is held is not refused: it is posted to the work directory's join inbox
-(`<work_dir>/service/join/`, `pipeline/library/inbox.py`), which every run's
-`JoinQueue` claims from while its machine phase lasts. The work list then
-follows the index until the holder's run ends; a command-line `run` waits for
-it and reports its titles. Work the holder did not take is run by whoever
-asked, once the lease is free. Publish and Commit still refuse (work list) or
-wait (command line) while another run holds the lease. A service job that finds
-the lease held by the work list or a command-line run hands its extract/design
-titles over the same way (`work.handed_off()`, its result read from the index)
-or, for anything else, waits for the lease; cancelled while it waits, it ends
-without running. A run job submitted while a run job is in its machine phase
-joins it through the `JoinQueue` the running job registers
-(`JobControl.accept_joins()`): it is `running` at once with `joined_to` set, and
-ends with its host, sharing its result, or goes back to the front of the queue
-if the host's run did not take it (`report.not_joined`) or failed.
+- `run_stages(join=...)` polls a `JoinQueue` (`pipeline/library/join.py`) each
+  time it looks for work, and every quarter second while titles are in hand.
+  Each request is a selection planned `through` extract or design (never past
+  it), minus titles already in the run; its titles go to the back of the queue
+  and the total grows. When the machine phase ends the queue closes: an offer
+  is refused, and what was offered but not taken is `report.not_joined`.
+- Across processes, the **join inbox** `<work_dir>/service/join/`
+  (`pipeline/library/inbox.py`, `handoff.py`) carries requests: a JSON file
+  written atomically; the runner claims one by renaming it to `.taken`, and the
+  poster withdraws one not yet claimed by renaming it to `.withdrawn`
+  (whichever rename wins decides). Every run's `JoinQueue` claims from it.
+- **Work list:** while its own run goes, the action button and *Retry failed*
+  add to it; Publish, Commit and a bulk accept or revise wait and start in
+  order when it ends, and Cancel drops them. While another process holds the
+  lease, its extract/design work goes to that run's inbox and the window
+  follows the index until the holder's run ends; Publish, Commit and the
+  one-step accept-and-publish refuse. Work the holder did not take is run by
+  the work list once the lease is free.
+- **CLI `run`:** with a fresh lease held, it posts its selection to the inbox;
+  once claimed it waits until the run ends (the lease is released), reports its
+  titles from the index and exits 0 if none failed. If the lease is released
+  before the request is claimed, it withdraws it and runs itself. Its own
+  runs take the lease and serve the inbox. Publish and commit wait for the
+  lease.
+- **Service:** a run job submitted while a run job is in its machine phase
+  joins it through the `JoinQueue` the running job registers
+  (`JobControl.accept_joins()`): it is `running` at once with `joined_to` set,
+  and ends with its host, sharing its result; if the host did not take it
+  (`not_joined`) or failed, it goes back to the front of the queue. A job that
+  finds the lease held by the work list or a CLI run hands its extract/design
+  titles over the same way (`work.handed_off()`, its result read from the
+  index) or, for anything else, waits for the lease; cancelled while it waits,
+  it ends without running.
 
-**Tests (S2):** job lifecycle and FIFO order with a fake `run_stages`;
-cancel queued vs running; `failed` from a `StagesReport` with a failed title;
-restart marks `interrupted`; history trimmed and atomically rewritten; the
-lease written, heart-beaten, released, taken over when stale and honoured by
-the work list's actions (a gui test).
+The Review Folder window's Publish/Commit do not check the lease
+([W3](outstanding.md#w3--review-folder-honours-the-lease)).
 
-## 6. HTTP interface (chunk S3)
+## 6. HTTP interface
 
 All routes are under `/v1` except the health probes and the documentation.
-Request and response bodies are JSON; every one is a named pydantic model, so
-each appears in `components.schemas` of the OpenAPI document.
+Every request and response body is a named pydantic model in
+`components.schemas`.
 
 ### 6.1 Routes
 
 | Method & path | Body → response | Notes |
 |---|---|---|
-| `GET /health` | → `Health` | liveness; no auth |
-| `GET /ready` | → `Readiness` | profile loads, work dir writable, ffmpeg/ffprobe found, designer named in the profile registered; 503 otherwise; no auth |
-| `GET /v1/status` | → `ServiceStatus` | index counts (the `status --json` content), current job, queue length, schedule state |
-| `GET /v1/titles` | query `TitleFilter` + `limit`/`offset` → `TitlePage` | the work list's table |
+| `GET /health` | → `Health` | liveness and release; no auth |
+| `GET /ready` | → `Readiness` | profile loads, work dir writable, ffmpeg/ffprobe found, profile's designer registered; 503 otherwise; no auth |
+| `GET /v1/status` | → `ServiceStatus` | index counts (the `status --json` content), current job, queue length, schedule state, notification outcomes |
+| `GET /v1/titles` | query `TitleFilter` + `limit`/`offset` → `TitlePage` | the work list's table; paged after the index query |
 | `GET /v1/titles/{id}` | → `Title` | 404 if unknown |
-| `POST /v1/plan` | `RunRequest` → `PlanPreview` | dry run: what would run and what would be skipped and why; changes nothing |
+| `POST /v1/plan` | `RunRequest` → `PlanPreview` | dry run: what would run and what would be skipped and why |
 | `POST /v1/jobs/scan` | `ScanRequest` → 202 `Job` | |
-| `POST /v1/jobs/run` | `RunRequest` → 202 `Job` | the filtered extract/design |
+| `POST /v1/jobs/run` | `RunRequest` → 202 `Job` | |
 | `POST /v1/jobs/accept` | `AcceptRequest` → 202 `Job` | guarded (§6.4) |
 | `GET /v1/jobs` | query `state`, `kind`, `limit` → `JobList` | newest first |
 | `GET /v1/jobs/{id}` | → `Job` | |
 | `POST /v1/jobs/{id}/cancel` | → `Job` | 409 if already finished |
-| `GET /v1/jobs/{id}/events` | → `text/event-stream` of `JobEvent` | Server-Sent Events: backlog then live, ends when the job does |
+| `GET /v1/jobs/{id}/events` | → `text/event-stream` of `JobEvent` | Server-Sent Events: backlog then live, ends with the job |
+| `GET /v1/jobs/{id}/log` | → list of `JobEvent` | the events after the fact |
 | `GET /v1/schedule` | → `Schedule` | |
 | `PUT /v1/schedule` | `ScheduleUpdate` → `Schedule` | persisted (§8) |
-| `POST /v1/schedule/trigger` | → 202 `Job` | one tick now, whatever the timer |
-| `POST /v1/notify/test` | `NotifyTest` → `NotifyOutcome` | send a sample to one target (§9) |
-| `GET /openapi.json`, `/docs`, `/redoc` | | the published interface and its try-it-out page |
+| `POST /v1/schedule/trigger` | → 202 `Job` | one tick now; 409 while busy |
+| `POST /v1/notify/test` | `NotifyTest` → `NotifyOutcome` | sample events to one target (§9) |
+| `GET /openapi.json`, `/docs`, `/redoc` | | the interface and its try-it-out page |
 
-Submitting returns `202` with the `Job` and a `Location: /v1/jobs/{id}`
-header. Errors use one model, `Problem` (RFC 9457: `type`, `title`, `status`,
-`detail`, and `errors` for field-level validation), including FastAPI's own
-422 validation responses, which are re-shaped into it.
+Submitting returns `202` with the `Job` and `Location: /v1/jobs/{id}`. Errors
+use one model, `Problem` (RFC 9457: `type`, `title`, `status`, `detail`, and
+`errors` for field-level validation); FastAPI's own 422 responses are
+re-shaped into it and its 422 schema is replaced.
 
 ### 6.2 The filter
 
 `TitleFilter` is `Selection` over the wire, field for field:
 
 ```json
-{
-  "needs": ["extract", "design"],
-  "new_since_scan": false,
-  "source": "films",
-  "match": "alien",
-  "ids": [],
-  "kind": "movie",
-  "year": "2026"
-}
+{"needs": ["extract", "design"], "new_since_scan": false, "source": "films",
+ "match": "alien", "ids": [], "kind": "movie", "year": "2026"}
 ```
 
 Every field is optional and they are ANDed; `{}` is every title. On
-`GET /v1/titles` the same fields are query parameters (`needs` repeated,
-`?kind=movie&year=%3E%3D2020`, i.e. `year=>=2020` URL-encoded); on the job routes the filter is
-the `filter` member of the body. `include_done` (default false, as the work
-list's *All* chip) applies to listing only; a run skips done titles anyway.
-An unknown `source` is a 422 naming the profile's sources, rather than an
-empty match.
+`GET /v1/titles` they are query parameters (`needs` repeated,
+`?kind=movie&year=%3E%3D2020`); on the job routes the filter is the `filter`
+member of the body. `include_done` (default false, like the work list's *All*
+chip) applies to listing only. An unknown `source` is a 422 naming the
+profile's sources.
 
 ### 6.3 Running a stage
 
 ```http
 POST /v1/jobs/run
-{
-  "filter": {"kind": "movie", "year": "2026"},
-  "through": "design",
-  "scan_first": true,
-  "retry_failed": false
-}
+{"filter": {"kind": "movie", "year": "2026"}, "through": "design",
+ "scan_first": true, "retry_failed": false}
 ```
 
 `through` is `extract | design | publish | commit`, with `plan_stages`'
-meaning: extract and design as needed, and publish/commit only titles a
-person accepted. `scan_first` lists the sources before selecting (default
-true for API jobs, so "new content" is seen). The finished job's `result` is
-a `RunResult`: the `StagesReport` fields (`selected`, `extracted`, `cached`,
-`designed`, `design_cached`, `failed[{id, message}]`, `failed_earlier`,
-`skipped[{id, title, reason}]`, `published`, `publish_errors`, `committed`,
-`commit_error`, `cancelled`, `attempted`, `not_run`, `counts`) as typed
-members rather than the CLI's tuples.
+meaning: extract and design as needed; publish/commit only titles a person
+accepted. `scan_first` (default true) lists the sources before selecting.
+The finished job's `result` is a `RunResult` carrying the `StagesReport`
+fields (`selected`, `extracted`, `cached`, `designed`, `design_cached`,
+`failed[{id, message}]`, `failed_earlier`, `skipped[{id, title, reason}]`,
+`published`, `publish_errors`, `committed`, `commit_error`, `cancelled`,
+`attempted`, `not_run`, `counts`) as typed members.
 
 ### 6.4 Guards on writing to the repositories
 
 `through: publish | commit` and `POST /v1/jobs/accept` write to, and may push,
 the catalogue repositories. They are refused with 403 unless the service
 config has `allow_repository_writes: true`, and `commit` is further refused
-unless the profile's `sync:` names the repositories. The automatic schedule
-can never go past `design` (§8). The default container therefore can extract
-and design only.
+unless the profile's `sync:` names the repositories. The schedule can never go
+past `design` (§8). The default container can therefore extract and design
+only.
 
 ### 6.5 Typing
 
 - Enums, each a named schema: `Needs`, `Through`, `AutoThrough`
   (`extract | design`), `Kind`, `JobKind`, `JobState`, `JobOrigin`, `Tier`,
   `Flag`.
-- `Job` is generic over its request and result with a **discriminated union**
-  on `kind`: `ScanJob{request: ScanRequest, result: ScanResult}`,
+- `Job` is a **discriminated union** on `kind`:
+  `ScanJob{request: ScanRequest, result: ScanResult}`,
   `RunJob{request: RunRequest, result: RunResult}`,
-  `AcceptJob{request: AcceptRequest, result: AcceptResult}`, so a generated
-  client gets a concrete result type per kind.
+  `AcceptJob{request: AcceptRequest, result: AcceptResult}`.
 - `Title` mirrors `TitleRow` (states, `needs`, `tier`, `detail`, `flags`,
-  `confidence`, `candidate_count`, `external_ids`, `is_new`), with times as
-  RFC 3339 rather than epoch floats.
-- `YearExpression` is a named string schema carrying the grammar as its
-  `pattern` (and examples), so Swagger UI and generated clients show and
-  check it; the server parses it with the shared `year.py` so pattern and
-  parser cannot disagree (a test checks the pattern against the parser over
-  a table of good and bad inputs). A reversed range passes the pattern and
-  is a 422 from the parser.
-- Models are `extra='forbid'` on input, so a misspelt field is a 422, not a
+  `confidence`, `candidate_count`, `external_ids`, `is_new`), times as RFC 3339.
+- `YearExpression` is a named string schema with `YEAR_PATTERN` and examples;
+  the server parses it with `year.py`. A reversed range passes the pattern
+  and is a 422 from the parser.
+- Input models are `extra='forbid'`, so a misspelt field is a 422, not a
   silently wider selection.
-- The models live only in `pipeline/service/models.py` and convert to and
-  from the dataclasses (`Selection`, `StagePlan`, `StagesReport`,
-  `AcceptReport`, `TitleRow`); the dataclasses do not learn about pydantic.
-  A test round-trips each conversion and fails if a dataclass gains a field
-  its model does not carry.
+- The models live only in `models.py` and convert to and from the dataclasses
+  (`Selection`, `StagePlan`, `StagesReport`, `AcceptReport`, `TitleRow`); the
+  dataclasses know nothing of pydantic. A test round-trips each conversion and
+  fails if a dataclass gains a field its model does not carry.
 
 ### 6.6 Publishing the interface
 
-- The document is generated from the app, not hand-written. It is also
-  committed as `docs/schema/service.openapi.json` beside the other published
-  schemas, and a test regenerates it and fails on any difference, so a
-  change to the interface is a visible diff. `info.version` is the API's own
-  semantic version (starting `1.0.0`), bumped by hand on a change.
-- Swagger UI and ReDoc load their scripts from a CDN by default. The image
-  vendors them (a pinned `swagger-ui-dist` copy under
-  `pipeline/service/static/`) and serves them locally, so the try-it-out page
-  works on a LAN without internet access.
-- The document declares the bearer security scheme, so *Authorize* in
-  Swagger UI takes the token and every *Try it out* call is authenticated.
-- `docs/` gains a page (on readthedocs) describing the service, linking the
-  schema and showing the curl form of §6.3.
+- The document is generated from the app and committed as
+  `docs/schema/service.openapi.json`; a test regenerates it and fails on any
+  difference. It carries no release (`/health` does); `info.version` is the
+  API's own semantic version (1.2.0), bumped by hand on a change.
+- Swagger UI and ReDoc are served from a local copy when `--static-dir` /
+  `BEQ_SERVICE_STATIC` names one -- the image fetches pinned packages at build
+  -- and otherwise load from a CDN.
+- The document declares the bearer scheme, so *Authorize* in Swagger UI
+  authenticates every *Try it out* call.
+- The user page is `docs/library/service.md`.
 
 ### 6.7 Authentication
 
 A single bearer token from `BEQ_SERVICE_TOKEN` (or `BEQ_SERVICE_TOKEN_FILE`,
 for Docker secrets), compared in constant time. Without one the service
-refuses to start unless it is bound to `127.0.0.1` and started with
-`--no-auth`. `/health` and `/ready` are unauthenticated; `/docs` and
-`/openapi.json` are readable without a token (the calls made from them still
-need it). TLS is left to a reverse proxy; the compose example notes it.
-
-**As built (S3).** `pipeline/service/models.py`, `api.py` (run as
-`python -m pipeline.service.api` it prints the document) and `__main__.py`;
-user page `docs/library/service.md`. Deviations: Swagger UI and ReDoc are not
-vendored into the repository -- `--static-dir`/`BEQ_SERVICE_STATIC` serves a
-local copy, which the image (S5) fetches pinned at build; without one they
-load from a CDN. `/v1/titles` pages after the index query, not in SQL. Added
-`GET /v1/jobs/{id}/log` (the events as a list; it also puts `JobEvent` in the
-schemas). The document is release-free (`/health` gives the release), and
-FastAPI's own 422 schema is replaced by `Problem`. uvicorn re-raises the
-signal that stopped it, which would end the process before the running job is
-stopped; the entry point handles SIGTERM itself and exits 0. A filesystem
-source records no year, so `year` selects its titles only once TMDB has named
-them. Starlette's TestClient cannot follow a stream, so the SSE test uses a
-real server. `/v1/schedule` and `/v1/notify/test` come with S4 and S6.
-
-**Tests (S3):** `test_pipeline_service_api.py` (every route, its 4xx, auth, the
-stream, the committed document and its validity) and `test_pipeline_service_main.py`.
+refuses to start unless bound to `127.0.0.1` with `--no-auth`. `/health` and
+`/ready` are unauthenticated; `/docs` and `/openapi.json` are readable without
+a token (the calls made from them still need it). TLS is left to a reverse
+proxy.
 
 ## 7. Configuration
 
 Two files, both mounted read-only at `/config`:
 
-- **`profile.yaml`** -- the existing catalogue profile, unchanged, shared
-  with the app and the CLI. Paths in it are *container* paths (JRiver's
-  `path_mappings` map the server's Windows paths to the container's mounts).
+- **`profile.yaml`** -- the catalogue profile shared with the app and the CLI.
+  Paths in it are *container* paths (JRiver's `path_mappings` map the server's
+  Windows paths to the container's mounts).
 - **`service.yaml`** -- the service's own settings, separate so the app's
   Settings drawer, which rewrites the profile, never meets them:
 
@@ -392,102 +345,86 @@ schedule:                        # the initial schedule; PUT /v1/schedule overri
 notify: []                       # webhook targets (§9)
 ```
 
-Secrets are taken from the environment or `*_FILE` variables rather than the
-YAML: `BEQ_SERVICE_TOKEN`, `TMDB_API_KEY` (overrides `run.tmdb_api_key`),
-`JRIVER_PASSWORD` (per-source: `JRIVER_PASSWORD_<SOURCE>`), and a designer's
-headers via `BEQ_DESIGNER_HEADERS_<NAME>` as JSON. Precedence is environment,
+Secrets come from the environment or `*_FILE` variables rather than the YAML:
+`BEQ_SERVICE_TOKEN`, `TMDB_API_KEY` (overrides `run.tmdb_api_key`),
+`JRIVER_PASSWORD` (per source: `JRIVER_PASSWORD_<SOURCE>`), and a designer's
+headers as JSON in `BEQ_DESIGNER_HEADERS_<NAME>`. Precedence is environment,
 then `service.yaml`, then the profile.
 
-## 8. Auto mode (chunk S4)
+## 8. Auto mode
 
-The scheduler holds `{enabled, interval_minutes, filter, through,
+`AutoScheduler` holds `{enabled, interval_minutes, filter, through,
 retry_failed, next_run_at, last_run: {job_id, state, finished_at}}`.
 
-- **A tick** submits one `run` job with `origin: schedule`, `scan_first:
-  true`, and the schedule's filter with `needs` forced to
-  `[extract, design]`. It deliberately does **not** use `new_since_scan`:
-  "new" is only the latest scan's, so a tick that failed or was cancelled
-  would lose its titles to the next scan's generation, whereas "needs
-  extract or design" is exactly what is still to do, and the stages are
-  idempotent.
-- `through` is `extract` or `design` only (the `AutoThrough` enum). Reviewing
-  stays a person's; an automatic publish is not offered.
+- **A tick** submits one `run` job with `origin: schedule`, `scan_first: true`,
+  `unattended: true` and the schedule's filter with `needs` forced to
+  `[extract, design]`. It does not use `new_since_scan`: "new" is only the
+  latest scan's, so a failed or cancelled tick would lose its titles, whereas
+  "needs extract or design" is exactly what is still to do.
+- `through` is `extract` or `design` only (`AutoThrough`). No automatic
+  publish is offered.
 - **Busy:** if any job is queued or running when a tick is due, the tick is
-  skipped and recorded (`last_skip: busy`), not queued behind it -- ticks
-  never pile up. The next is `interval_minutes` after the *finish* of the
-  last scheduled job, so a run longer than the interval does not start the
-  next straight away.
-- **Failures** are remembered per title as today, so a title that fails
-  every hour is tried once, and reported in each tick's result as
-  `failed_earlier`, until the source or settings change or `retry_failed`.
+  skipped and recorded (`last_skip: busy`) through an atomic idle-only
+  submission in `JobManager`; ticks never pile up. The next is
+  `interval_minutes` after the *finish* of the last scheduled job.
+- **Failures:** an unattended run does not retry a remembered failure
+  (including a failed extraction) until the source or settings change or
+  `retry_failed`; each tick reports them as `failed_earlier`.
 - `PUT /v1/schedule` validates and writes `<work_dir>/service/schedule.json`
-  atomically; on start-up that file, when present, wins over `service.yaml`.
-  `enabled: false` pauses without losing the settings.
-- The minimum interval is 5 minutes (a scan of a JRiver node is one request,
-  but a filesystem source costs a `stat` per file).
+  atomically; at start-up that file, when present, wins over `service.yaml`.
+  `enabled: false` pauses without losing the settings. The minimum interval is
+  5 minutes.
 
-**Tests (S4):** an injected clock drives ticks; interval measured from finish;
-busy skip; `needs` forced whatever the filter says; `through: publish`
-refused by the model; persisted schedule wins at start-up; pause/resume;
-trigger now while idle and while busy (409 `Problem`).
-
-**As built (S4).** `AutoScheduler` reads `service.yaml` defaults or the persisted
-`schedule.json`, and the service entry point starts its timer. A tick uses an
-atomic idle-only submission in `JobManager`; completion sets the next tick
-from finish time. The schedule routes and status use typed models, and the
-published OpenAPI version is 1.1.0. The focused service suite (81 tests) and
-the full suite (2307 tests) passed before commit `df93b2a`.
-
-## 9. Notifications (chunk S6)
+## 9. Notifications
 
 Targets, events, payload fields and setup are in the
-[service user guide](../docs/library/service.md). The exact JSON payload is
-the `Notification` schema in [OpenAPI](../docs/schema/service.openapi.json).
+[service user guide](../docs/library/service.md); the JSON payload is the
+`Notification` schema in the OpenAPI `webhooks`. `notify.py` validates the
+configured targets, reads URL/header secrets from the environment, and
+delivers after a job's history is saved, on its own thread with up to three
+attempts. JSON carries job, designed-title, failure and review-count details;
+text, Slack and Discord carry a count summary. Redirects are refused; status
+records only sanitised outcomes, never URLs or headers. `POST /v1/notify/test`
+sends sample events. Delivery goes only to URLs configured in `service.yaml` or
+the target's environment override.
 
-**As built (S6).** `pipeline/service/notify.py` validates configured targets,
-reads URL/header secrets from the environment, and delivers after a job's
-history has been saved. The payload is typed in OpenAPI 1.2.0; JSON carries
-the planned job/title/failure fields, while text, Slack and Discord carry a
-count summary. Delivery retries up to three times on its own thread, records
-only sanitized outcomes in status, and refuses redirects to another URL.
-`POST /v1/notify/test` sends sample events. The user explicitly authorized
-the full planned payload to URLs configured in `service.yaml` or the target's
-environment override after automatic approval review first rejected the
-unspecified outbound delivery. The focused service suite (75 tests) and full
-suite (2330 tests) passed before commit `af261fc`.
+## 10. Docker image
 
-## 10. Docker image (chunks S0, S5)
+In [`pipeline-service/docker.md`](pipeline-service/docker.md): the image, its
+CI smoke test and GHCR publishing (§10), and the Qt-free boundary the image
+depends on (§10.1).
 
-In its own file: [`pipeline-service/docker.md`](pipeline-service/docker.md) --
-the image (§10 there), GHCR publishing on tag, and chunk S0, the Qt-free
-extraction path the image depends on (§10.1 there).
+## 11. Status
 
-## 11. Chunks
+| Chunk | Content | Status |
+|---|---|---|
+| S0 | Qt-free extraction path (docker.md §10.1) | Built: `55c3425`, `5d136d3`, `579f542`, `4929e93`, `f9d66e5`; port fix `a217bec` |
+| S1 | `Selection.kind`/`year`, shared `year.py`, index SQL, CLI `--kind`/`--year` (§3) | Built: `ceabb76` |
+| S2 | Config, per-job profile context, `JobManager`, history, lease (§4, §5) | Built: `8f6ff97`, `bc7afd3`, `ca43161`, `cb9f371` |
+| S3 | FastAPI app, models, routes, auth, SSE, committed OpenAPI document, user page (§6) | Built: `99d2071` |
+| S4 | Auto scheduler and `/v1/schedule` (§8) | Built: `df93b2a` |
+| S5 | Docker image, compose example, CI smoke, GHCR publish on tag (docker.md §10) | Built: `80cab0d`, local smoke fixture `622d197`; CI run open as [C1](outstanding.md#c1--docker-image-in-ci) |
+| S6 | Notifications (§9) | Built: `af261fc` |
+| S7 | README and implemented-design entries | Built: `faafbba`, `73ccfde` |
+| F5 | Every run holds the lease; joining a run in progress (§5.1) | Built: `3d38f76`, `ae1a086`, `dc527f5`, `12d875e` |
+| -- | Review Folder's Publish/Commit honour the lease | Open: [W3](outstanding.md#w3--review-folder-honours-the-lease) |
 
-| Chunk | Content | Depends on | Status |
-|---|---|---|---|
-| S0 | Qt-free extraction path ([docker.md §10.1](pipeline-service/docker.md)): no `qtpy`/`PyQt6` reachable from `pipeline/` | -- | Done: `55c3425`, `5d136d3`, `579f542`, `4929e93`, `f9d66e5` (see docker.md §10.1 "As built") |
-| S1 | `Selection.kind` and `Selection.year` (expression), shared `year.py`, index SQL, CLI `--kind`/`--year` | -- | Done: `ceabb76` (§3 "As built") |
-| S2 | `pipeline/service`: config, per-job profile context, `JobManager`, history, work-dir lease (+ work list honours it) | S1 | Done: `8f6ff97`, `bc7afd3`, `ca43161`, `cb9f371` (§5.1 "As built") |
-| S3 | FastAPI app, models, routes, auth, SSE, committed OpenAPI doc + drift test, vendored Swagger UI, `docs/` page | S2 | Done: `99d2071` (§6.7 "As built") |
-| S4 | Auto scheduler and `/v1/schedule` | S3 | Done: `df93b2a` (§8 "As built") |
-| S5 | Docker image (no Qt), compose example, CI smoke job, GHCR publish on tag | S0, S3 (S4 for the schedule in the example) | Implemented: `80cab0d`; local real smoke fixture `622d197`; CI image build/smoke pending ([docker.md](pipeline-service/docker.md)) |
-| S6 | Notifications: `notify` targets, events, typed payload in OpenAPI `webhooks`, test route | S4 | Done: `af261fc` (§9 "As built") |
-| S7 | README "Pipeline service" section; `implemented.md` entry once built | S5, S6 | Done: `faafbba`, `73ccfde` |
-
-Each chunk follows AGENTS.md: tests in the same commit, focused suite then
-`uv run pytest src/test/python -n auto`, status here and in the index updated.
+Tests: `test_pipeline_library_selection.py`, `test_pipeline_library_year.py`,
+`test_pipeline_service_*.py`, `test_pipeline_library_inbox.py`, the joining
+tests in `test_pipeline_library_stages.py`/`test_pipeline_library_cli.py`, and
+the lease tests in `gui/test_worklist_actions.py`.
 
 ## 12. Decisions
 
-Settled on 2026-09-26:
+Settled on 2026-09-26 and 2026-09-27:
 
 | # | Question | Decision |
 |---|---|---|
 | 1 | HTTP framework | FastAPI + pydantic v2; the pipeline's dataclasses stay pydantic-free |
 | 2 | Repository writes over HTTP | Offered, off by default behind `allow_repository_writes` (§6.4); never from the schedule |
-| 3 | Year filter shape | The ignore-rule expression string (`2026`, `>=2020`, `1990-1999`), one grammar shared by ignore rules, CLI and API (§3, §6.5) |
+| 3 | Year filter shape | The ignore-rule expression string, one grammar for ignore rules, CLI and API (§3, §6.5) |
 | 4 | Auth | One static bearer token (§6.7) |
-| 5 | Notifications | In v1: outbound webhooks, chunk S6 (§9) |
-| 6 | Image distribution | Built and pushed to GHCR by GitHub Actions when a tag is pushed ([docker.md](pipeline-service/docker.md)) |
-| 7 | Qt in the image | Removed first, chunk S0 ([docker.md §10.1](pipeline-service/docker.md)) |
+| 5 | Notifications | Outbound webhooks (§9) |
+| 6 | Image distribution | Built and pushed to GHCR by GitHub Actions when a tag is pushed (docker.md §10) |
+| 7 | Qt in the image | None: the pipeline is Qt-free (docker.md §10.1) |
+| 8 | Work asked for during a run | Extract/design joins the run in progress; the CLI hands its titles over and waits (§5.1) |

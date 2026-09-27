@@ -628,7 +628,8 @@ def test_a_season_episode_failure_lapses_when_that_episodes_source_changes(works
 
 
 def test_a_title_just_extracted_has_its_flat_project_before_it_is_designed(tmp_path, monkeypatch):
-    ''' worklist-feedback.md F2: the run writes the `.beq` project at extraction, not only once a filter is designed. '''
+    ''' design/archive/library-sync/worklist-feedback.md F2: the run writes the `.beq` project at extraction, not only
+        once a filter is designed. '''
     import os
     import wave
 

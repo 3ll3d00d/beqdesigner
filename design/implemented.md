@@ -1,9 +1,8 @@
 # Implemented design
 
-This is the consolidated account of the features delivered by the headless
-pipeline, candidate review, and library work list. It describes the code in
-this repository, including the pipeline service delivered after the 2026-09-25
-design sweep. The authoritative API
+This is the account of the headless pipeline, candidate review, the library
+work list and the pipeline service as they are built: it describes the code at
+`HEAD`, not the history of how it got there. The authoritative API
 and user instructions are in [`pipeline/README.md`](../src/main/python/pipeline/README.md)
 and [`docs/library/`](../docs/library/). The designer's external protocol
 remains in [`designer-interface.md`](designer-interface.md); its conformance
@@ -46,10 +45,10 @@ load and are rewritten on save, and conflicting values fail. The CLI exposes
 `--filter-repo` and `--filter-dir` while accepting hidden old aliases. Library
 GUI copy and the user guide describe JSON records. A fixture exercises the
 BEQDesigner record through BEQCatalogue page/database generation and back
-through `CatalogueEntry` (`a72c673`, BEQCatalogue `dc56c20d7`). The internal
-`xml_*` names remain compatibility plumbing. BEQCatalogue now fetches
-`3ll3d00d/beqfilters` into `.input/3ll3d00d/beqfilters` and includes it as
-the `3ll3d00d` JSON record source (`f398ffd38`). Its image URLs point to the
+through `CatalogueEntry`. The internal `xml_*` names remain compatibility
+plumbing. BEQCatalogue fetches `3ll3d00d/beqfilters` into
+`.input/3ll3d00d/beqfilters` and includes it as the `3ll3d00d` JSON record
+source. Its image URLs point to the
 separate `3ll3d00d/beqimgs` repository; the catalogue need not clone it.
 Publication can place film records and images under `movies/` and TV records
 and images under `tv/` in their respective repositories. The optional
@@ -64,29 +63,32 @@ a separate action. A heatmap (`pipeline/publish/heatmap.py`) is published beside
 second image.
 Publish, commit, index status and revision use the same metadata classification.
 The configured-source fixture reaches the public `database.json` and returns
-to `CatalogueEntry` (`01d9ec5`). The producer repository presently contains only its
+to `CatalogueEntry`. The producer repository presently contains only its
 licence, so this is a fixture-backed integration check, not a claim that a
 live filter has already been published.
 
 ## Pipeline service
 
 `pipeline/service/` exposes the library workflow as a long-running HTTP
-service over the same profile, index and stages as the CLI. Its typed FastAPI
-interface serves OpenAPI 3.1 at `/openapi.json` and local interactive docs in
-the Docker image; `docs/schema/service.openapi.json` is checked against the
-generated document. Bearer authentication protects `/v1`, while `/health`
-and `/ready` are public. Jobs run one at a time, persist bounded history,
-stream redacted events and hold a work-directory lease while active.
+service over the same profile, index and stages as the CLI; its full design
+is [`pipeline-service.md`](pipeline-service.md). Its typed FastAPI interface
+serves OpenAPI 3.1 at `/openapi.json` and local interactive docs in the Docker
+image; `docs/schema/service.openapi.json` is checked against the generated
+document. Bearer authentication protects `/v1`, while `/health` and `/ready`
+are public. Jobs run one at a time, persist bounded history, stream redacted
+events and hold the work-directory lease while active; a run job submitted
+while a run job is extracting or designing joins it.
 
 The optional schedule scans and runs titles still needing extract or design,
-never publish or commit, and waits from a scheduled job's finish before its
-next tick. A busy tick is skipped. An optional notifier sends completed-job
-events to explicitly configured webhook URLs. JSON carries job, designed
-title, failure and review-count details; text, Slack and Discord carry a
-summary. Redirects are refused and status shows delivery outcomes without
-URLs or headers. The Qt-free Docker image has ffmpeg, git and SSH; CI builds
-and smoke-tests it on pushes and before publishing amd64/arm64 release tags.
-The image smoke has not yet been observed in CI from this worktree.
+never publish or commit, as an unattended run, and waits from a scheduled
+job's finish before its next tick. A busy tick is skipped. An optional
+notifier sends completed-job events to explicitly configured webhook URLs.
+JSON carries job, designed title, failure and review-count details; text,
+Slack and Discord carry a summary. Redirects are refused and status shows
+delivery outcomes without URLs or headers. The Qt-free Docker image has
+ffmpeg, git and SSH; CI builds and smoke-tests it on pushes and before
+publishing amd64/arm64 release tags (first CI run open as
+[C1](outstanding.md#c1--docker-image-in-ci)).
 
 ## Design and review
 
@@ -96,8 +98,7 @@ filters and human-readable diagnostics; Skip leaves an entry pending and Reject
 excludes it. A decline carries one flat candidate (no filters, no confidence;
 entries written before are given it when read), so a person may accept it and
 publish the title as a record with no filters and the note "Does not require
-BEQ" unless the reviewer wrote one; bulk accept never takes it
-(worklist-feedback F3). The interactive title page
+BEQ" unless the reviewer wrote one; bulk accept never takes it. The interactive title page
 shows candidates, average/peak before-and-after curves using the main chart's
 measure colours and before/after line styles, commentary (wrapping text, a
 heading per key, `;`-separated notes as a list; for a declined title, the
@@ -110,7 +111,8 @@ its results, and Review Folder presents the same page over a queue directory.
 Every extracted library title has mono and, with a kept multichannel
 extraction, diagnostic multichannel `.beq` project files: the run writes any
 that are missing, flat, as soon as the title is extracted, and design replaces
-them unless a person saved one in between (worklist-feedback F2). The mono signal is the designer's primary input; per-channel arrays are
+them unless a person saved one in between; an existing project is never
+replaced at extraction. The mono signal is the designer's primary input; per-channel arrays are
 diagnostics. New multichannel projects contain a `BassManagedSignalData`
 composite with the app's LPF settings; older flat projects remain readable.
 The project filter hash protects a human edit from automatic regeneration.
@@ -177,7 +179,7 @@ memory. A failed extraction of a title still in play stays `extract` work:
 a run a person starts tries it again, an unattended one (the service's
 schedule, `run --unattended`) skips it until the source or settings change,
 and Revise is not offered for it. A failed design needs attention and is
-retried only on request (worklist-feedback F4). The CLI exposes scan, status, run, revise, accept, publish, commit,
+retried only on request. The CLI exposes scan, status, run, revise, accept, publish, commit,
 and sync. Publish writes accepted output into repository working trees;
 Commit commits and pushes the named published files separately. Revision
 reopens a title or invalidates extraction/design as requested, while an edited
@@ -185,18 +187,33 @@ project remains protected. Bulk accept requires a threshold and confirmation.
 The work list shows a settings-drift banner when accepted/published entries
 were designed under different settings.
 
+## Runs, the lease and joining
+
+Every run -- a work-list run, a CLI `run`, a service job -- holds the
+work-directory lease (`<work_dir>/service/lease.json`, heart-beaten, taken over
+when stale), so two runs never write one index, queue and repositories side by
+side. A run's machine phase (extract and design) takes more titles while it
+lasts: `run_stages(join=...)` polls a `JoinQueue`, and extract/design work asked
+for from another process goes through the work directory's join inbox, which
+the run holding the lease claims from. What the run did not take in time is in
+`report.not_joined` and is run by whoever asked once the lease is free. The CLI
+hands its titles to the run in progress and waits for it, then reports them
+from the index. Publish and Commit never join: they wait for the run (in the
+same window, the CLI or the service) or refuse (the work list, while another
+process holds the lease). The mechanics are in
+[`pipeline-service.md` §5.1](pipeline-service.md#51-the-work-directory-lease-and-joining-a-run).
+
 ## Library work list and runtime behavior
 
 The Tools menu opens the Library Work List, a top-level window over the index.
 It has pipeline counts (with a *Working* chip for the titles the window's run
-has queued or in hand, from its run state; a title moves from Extract to
-Design as soon as its extraction ends, worklist-feedback F1), searchable/sortable rows, source and tier filters, run actions that
-join the run in progress (extract/design through its `JoinQueue`; Publish,
-Commit and anything offered too late wait and start in order when it ends,
-and Cancel drops them; every run holds the work-directory lease, and work asked
-for while another process's run holds it goes to that run's join inbox;
-worklist-feedback F5),
-Rescan, selected/all-visible actions, settings, failures, and Last run. A
+has queued or in hand, from its run state rather than the index; a title moves
+from Extract to Design as soon as its extraction ends), searchable/sortable
+rows, source and tier filters, run actions, Rescan, selected/all-visible
+actions, settings, failures, and Last run. While its run goes, the action
+button and *Retry failed* add extract/design work to it; Publish, Commit and a
+bulk accept or revise wait and start in order when it ends, and Cancel drops
+them (see *Runs, the lease and joining* below). A
 title page replaces the table in the same window and preserves selection and
 scroll position when closed. The Metadata tab validates required fields,
 autosaves edits, reloads TMDB data on a worker, and handles poster downloads.
@@ -231,7 +248,7 @@ failure-text, and stream-stage presentation work remains under **W1/W2**.
   edit; conflicting authoritative projects are refused.
 - Season mode joins mono episodes without level matching and does not keep a
   season-wide multichannel project. Whether this needs product work depends
-  on the evidence in **L3**.
+  on the evidence in **E5**.
 - Catalogue-as-input, which would apply an existing published BEQ without
   extracting or designing, was never part of the delivered pipeline. It is
   an optional future feature in **O1**.

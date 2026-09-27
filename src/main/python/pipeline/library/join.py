@@ -1,5 +1,5 @@
 '''
-Extra work offered to a run in progress -- design/worklist-feedback.md F5.
+Extra work offered to a run in progress -- design/archive/library-sync/worklist-feedback.md F5.
 
 A run's machine phase (extract and design) takes more titles while it lasts, so a person who starts another extraction does
 not wait for the first to finish. The run (`run_stages(join=...)`) calls `take()` whenever it looks for work; each request

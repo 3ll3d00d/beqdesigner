@@ -3,9 +3,9 @@ The work-directory lease (design/pipeline-service.md §5.1). A person reviews in
 review queue as the service; reading while a job runs is fine, but two *runs* at once -- the service's job and the work
 list's Run, Publish or Commit -- would both write the index, the queue and the repositories. So every service job holds a
 lease on the work directory, `<work_dir>/service/lease.json`: who holds it (host, process, job) and a heartbeat rewritten
-every HEARTBEAT_SECONDS. Since design/worklist-feedback.md F5 the work list's and the command line's runs hold it too
-(run_lease()), and extract and design work asked for while a lease is fresh is handed to the holder's run; otherwise the
-work list refuses to start while a lease is fresh; one whose heartbeat is older than
+every HEARTBEAT_SECONDS. Since design/archive/library-sync/worklist-feedback.md F5 the work list's and the command
+line's runs hold it too (run_lease()), and extract and design work asked for while a lease is fresh is handed to the
+holder's run; otherwise the work list refuses to start while a lease is fresh; one whose heartbeat is older than
 STALE_AFTER_SECONDS (a service that died) is ignored and taken over.
 
 Two services on one work directory are refused the same way. Taking the lease is not atomic across machines (a network
@@ -85,9 +85,10 @@ def read_lease(work_dir: Optional[str], now: Optional[float] = None) -> Optional
 
 def run_lease(work_dir: str, kind: str) -> 'WorkDirLease':
     '''
-    The lease a run of the work list or of the command line holds while it runs (design/worklist-feedback.md F5), as the
-    service's jobs do, so each of them knows another run is going: extract and design work is handed to that run (the join
-    inbox, pipeline.library.inbox) rather than run alongside it.
+    The lease a run of the work list or of the command line holds while it runs
+    (design/archive/library-sync/worklist-feedback.md F5), as the service's jobs do, so each of them knows another run
+    is going: extract and design work is handed to that run (the join inbox, pipeline.library.inbox) rather than run
+    alongside it.
     '''
     return WorkDirLease(work_dir, f'{kind}-{uuid.uuid4().hex}')
 

@@ -1,8 +1,8 @@
 # Work-list feedback, 2026-09-27 — design
 
-Five changes asked for after using the work list on a real library. All five
-are built (the commits are in the table); their lasting behavior is in
-[`implemented.md`](implemented.md), and this file keeps the design as agreed.
+> **Historical archive:** original path `design/worklist-feedback.md`. This is the design record of F1-F5, all built; it is not the current status. The maintained account is [implemented](../../implemented.md) and, for the lease and joining, [pipeline-service §5.1](../../pipeline-service.md#51-the-work-directory-lease-and-joining-a-run). Source comments cite `worklist-feedback.md` Fn by these IDs.
+
+Five changes asked for after using the work list on a real library.
 
 | ID | Change | Status |
 |---|---|---|

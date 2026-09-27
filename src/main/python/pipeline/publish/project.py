@@ -142,10 +142,11 @@ def write_missing_projects(session: Session, mono_wav_path: str, mono_out_path: 
                            multichannel_wav_path: Optional[str] = None, channel_layout_name: str = 'unknown',
                            multichannel_out_path: Optional[str] = None) -> dict:
     '''
-    The projects of a title just extracted (worklist-feedback.md F2): each one that does not exist yet is written with a
-    flat filter, so a person can open the title before it is designed. An existing project is never touched here; design
-    replaces a flat one through write_title_projects_if_safe()'s hash gate, which also keeps one a person has edited since.
-    :return: {'mono': bool, 'multichannel': bool|None} -- True=written, False=already there, None=no multichannel wav.
+    The projects of a title just extracted (design/archive/library-sync/worklist-feedback.md F2): each one that does not
+    exist yet is written with a flat filter, so a person can open the title before it is designed. An existing project
+    is never touched here; design replaces a flat one through write_title_projects_if_safe()'s hash gate, which also
+    keeps one a person has edited since. :return: {'mono': bool, 'multichannel': bool|None} -- True=written,
+    False=already there, None=no multichannel wav.
     '''
     result = {'mono': False, 'multichannel': None}
     if not os.path.isfile(mono_out_path):

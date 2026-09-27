@@ -223,8 +223,9 @@ def _run_item(session: Session, item: LibraryItem, run_config: LibraryRunConfig,
 
 def _write_projects(session: Session, work: 'UnitWork') -> None:
     '''
-    worklist-feedback.md F2: the title's `.beq` projects, flat, as soon as it is extracted (only those not written yet).
-    A project is a convenience: failing to write one is logged, and never fails the extraction.
+    design/archive/library-sync/worklist-feedback.md F2: the title's `.beq` projects, flat, as soon as it is extracted
+    (only those not written yet). A project is a convenience: failing to write one is logged, and never fails the
+    extraction.
     '''
     from pipeline.publish.project import write_missing_projects
     name = project_name(work.project_dir, work.item.id)

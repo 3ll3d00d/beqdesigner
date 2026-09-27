@@ -97,7 +97,8 @@ def test_the_badge_words(tmp_path):
 
 
 def test_a_project_with_no_filter_is_not_called_designed():
-    ''' worklist-feedback.md F2: extraction writes a flat project; so does a decline (F3). '''
+    ''' design/archive/library-sync/worklist-feedback.md F2: extraction writes a flat project; so does a decline
+        (F3). '''
     from model.worklist_projects import ProjectState
     flat = ProjectState('mono', '/w/a.mono.beq', True, flat=True)
     assert badge([flat]) == ('Projects with no filter (not designed yet, or the designer declined)', 'neutral')

@@ -99,8 +99,8 @@ def executor(profile_path: str, env: Optional[Mapping[str, str]] = None,
             try:
                 lease = WorkDirLease(work_dir, job.id).__enter__()   # one run at a time in a work directory
             except LeaseHeld:
-                # the work list or a command-line run has it (design/worklist-feedback.md F5): extract and design go to
-                # that run; anything else waits for it to end
+                # the work list or a command-line run has it (design/archive/library-sync/worklist-feedback.md F5):
+                # extract and design go to that run; anything else waits for it to end
                 holder = read_lease(work_dir)
                 if holder is not None and isinstance(job.request, RunRequest) and job.request.through in JOINABLE:
                     outcome = handed_off(context, job.request, control, holder)

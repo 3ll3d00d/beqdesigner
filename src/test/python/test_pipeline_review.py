@@ -244,7 +244,8 @@ def test_batch_design_declined_title_carries_the_reason(tmp_path):
 
     entry = read_entry(queue_dir, 'declined-title')
     assert entry.status == 'pending' and entry.declined
-    assert entry.candidates == [flat_candidate(entry.fs)]   # worklist-feedback.md F3: one flat, acceptable candidate
+    # design/archive/library-sync/worklist-feedback.md F3: one flat, acceptable candidate
+    assert entry.candidates == [flat_candidate(entry.fs)]
     assert entry.decline_reason == 'no_rolloff_detected'
     assert entry.decline_message == 'nothing to correct'
 
@@ -669,7 +670,7 @@ def test_describe_publish_error_explains_a_project_conflict_and_passes_an_unknow
     assert describe_publish_error({'id': 'x', 'error': 'something_new'}) == 'x: something_new'
 
 
-# --- a decline as "does not require BEQ" (worklist-feedback.md F3) ------------------------------------------------------------
+# --- a decline as "does not require BEQ" (design/archive/library-sync/worklist-feedback.md F3) ------------------------
 
 def _declined_entry(tmp_path, meta=None):
     source_wav = str(tmp_path / 'source.wav')

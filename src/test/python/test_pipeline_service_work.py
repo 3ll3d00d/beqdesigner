@@ -82,7 +82,8 @@ def test_a_run_scans_first_then_runs_the_stages_on_the_selection(manager, monkey
     assert seen['retry_failed'] is True and seen['publish'] is None and seen['should_cancel']() is False
     assert seen['unattended'] is False    # an API run is a person's: a failed extraction is tried again
     from pipeline.library.join import JoinQueue
-    assert isinstance(seen['join'], JoinQueue)   # worklist-feedback.md F5: other runs hand it their work
+    # design/archive/library-sync/worklist-feedback.md F5: other runs hand it their work
+    assert isinstance(seen['join'], JoinQueue)
 
     _done(manager, RunRequest(scan_first=False, unattended=True))   # the schedule's
     assert seen['unattended'] is True
@@ -150,7 +151,8 @@ def test_a_job_failed_when_a_title_failed_or_a_source_could_not_be_listed():
 
 
 def test_a_run_job_while_the_work_list_holds_the_work_directory_hands_its_titles_to_that_run(manager, tmp_path, monkeypatch):
-    ''' design/worklist-feedback.md F5: not refused, not run alongside: joined, and reported from the index. '''
+    ''' design/archive/library-sync/worklist-feedback.md F5: not refused, not run alongside: joined, and reported from
+        the index. '''
     import sqlite3
     import threading
     from pipeline.library.inbox import WorkDirInbox

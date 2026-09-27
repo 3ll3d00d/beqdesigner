@@ -30,7 +30,8 @@ def test_every_needs_value_has_a_tier_and_the_vocabularies_are_the_documented_on
 # --- attention -----------------------------------------------------------------------------------------------------
 
 def test_a_failed_extract_is_still_extraction_work_with_the_reason():
-    ''' worklist-feedback.md F4: it stays under Extract, where the action button tries it again. '''
+    ''' design/archive/library-sync/worklist-feedback.md F4: it stays under Extract, where the action button tries it
+        again. '''
     assert _needs(extract='failed', failure='ValueError: no such file') == \
            ('extract', 'extract failed: ValueError: no such file')
     assert _needs(extract='failed', review='pending', design='current', failure='x') == ('extract', 'extract failed: x')

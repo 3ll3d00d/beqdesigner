@@ -366,7 +366,8 @@ def test_a_title_that_has_not_been_designed_says_why_and_offers_no_decision(qtbo
 
 
 def test_a_declined_title_shows_the_reason_and_can_be_accepted_as_not_requiring_beq(qtbot, tmp_path):
-    ''' worklist-feedback.md F3: the decline is one flat candidate, which a person may accept. '''
+    ''' design/archive/library-sync/worklist-feedback.md F3: the decline is one flat candidate, which a person may
+        accept. '''
     window = _window(qtbot, tmp_path, [('r-alien', {'decline': True}), ('r-arrival', {})])
     page = _open(qtbot, window, 'r-alien')
 

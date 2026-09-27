@@ -159,8 +159,8 @@ class WorkListActions:
     def _blocking(self) -> bool:
         '''
         What keeps the run, Publish, Commit and Retry buttons from being used: a scan, an index sync or a bulk job. A run in
-        progress does not (design/worklist-feedback.md F5): more extract and design work joins it, anything else waits for
-        it to end and then starts.
+        progress does not (design/archive/library-sync/worklist-feedback.md F5): more extract and design work joins it,
+        anything else waits for it to end and then starts.
         '''
         return self._scanning or self._syncing or self._bulk_job is not None
 
@@ -375,7 +375,7 @@ class WorkListActions:
             return self._hand_off(holder, request)
         return self._launch(request, plan, rows, skipped)
 
-    # --- work handed to another process's run (design/worklist-feedback.md F5) ---------------------------------------------
+    # --- work handed to another process's run (design/archive/library-sync/worklist-feedback.md F5) -------------------
 
     def _hand_off(self, holder, request: RunRequest) -> bool:
         '''
@@ -424,7 +424,7 @@ class WorkListActions:
         ''' The titles handed to another process's run and not yet over. '''
         return [title_id for _, request in self._handed_off for title_id in request.ids]
 
-    # --- more work while a run is going (design/worklist-feedback.md F5) ------------------------------------------------
+    # --- more work while a run is going (design/archive/library-sync/worklist-feedback.md F5) -------------------------
 
     def _add_to_run(self, request: RunRequest, plan: StagePlan, rows: Dict[str, TitleRow], skipped_text: str) -> bool:
         '''

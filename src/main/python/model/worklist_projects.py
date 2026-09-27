@@ -3,8 +3,8 @@ A title's `.beq` projects, as the title page shows them -- design/archive/librar
 
 Extracting a title writes a **mono** project (`<work_dir>/<folder>/<folder>.mono.beq`) and, where the extraction was multichannel, a
 **multichannel** one (`<folder>.multichannel.beq`), both flat; designing it puts the designed filter in them (linked across every
-channel in the multichannel one) unless a person saved one in between (worklist-feedback.md F2): the same files
-*File > Save Project* writes, so they open in the main window like any other project. That is where a person tunes a
+channel in the multichannel one) unless a person saved one in between (design/archive/library-sync/worklist-feedback.md
+F2): the same files *File > Save Project* writes, so they open in the main window like any other project. That is where a person tunes a
 filter by ear or by eye before deciding, and **what they save there is what gets published**: `publish` reads the
 project's filter, not the designer's candidate (design.md §3.3.1).
 

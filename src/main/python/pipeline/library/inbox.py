@@ -1,6 +1,6 @@
 '''
-The work directory's join inbox -- design/worklist-feedback.md F5: how a run in one process (the work list, a command-line
-`run`, the service) takes extract and design work from another.
+The work directory's join inbox -- design/archive/library-sync/worklist-feedback.md F5: how a run in one process (the
+work list, a command-line `run`, the service) takes extract and design work from another.
 
 A request is a JSON file, `<work_dir>/service/join/<id>.json`, written atomically. The run holding the work directory's
 lease claims it (`claim()`, a source of its `JoinQueue`) by renaming it to `<id>.taken`; the poster, if it gives up waiting

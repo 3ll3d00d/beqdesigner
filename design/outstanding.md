@@ -1,10 +1,12 @@
 # Outstanding design work
 
-This is the only design backlog. Completed behavior is in
-[`implemented.md`](implemented.md); the library plan's old chunk and T numbers
-are retained here solely as traceable identifiers. Status reflects the
-2026-09-25 design sweep. A test using a fake JRiver server does not close an
-item that requires evidence from a real one.
+This is the only design backlog: every item here is unbuilt or unverified at
+`HEAD`. Built behavior is in [`implemented.md`](implemented.md) and, for the
+service, [`pipeline-service.md`](pipeline-service.md). The library plan's old
+chunk and T numbers are retained solely as traceable identifiers. Status as of
+2026-09-27. A test using a fake JRiver server does not close an item that
+requires evidence from a real one. When an item is done, its lasting behavior
+moves to the implemented design and the item is removed from this file.
 
 | ID | Previous IDs | Status | Depends on |
 |---|---|---|---|
@@ -13,14 +15,15 @@ item that requires evidence from a real one.
 | E3 | chunk 32, T7 | Not started; evidence dependent | E1; DVD fixture |
 | E4 | chunk 33, T8 | Not started; evidence dependent | E1; Blu-ray playlist fixture |
 | E5 | chunk 37, T15 | Waiting for a product decision | E2; representative season media |
-| J2 | chunk 40 | In progress; resolver is a first-stream stub | Sanitised Playback Info and ffprobe evidence |
-| W1 | chunk 45a | Partially implemented | None |
+| J2 | chunk 40 | Not started beyond the seam: the resolver returns the first audio stream | Sanitised Playback Info and ffprobe evidence |
+| W1 | chunk 45a | Partially implemented: retry labels and failure/detail views missing | None |
 | W2 | chunk 45b | Partial in `62270b4`: codec, channels and stream count are requested | J2 for automatic stream selection; manual override already exists |
+| W3 | pipeline-service §5.1 gap | Not started | None |
+| C1 | chunk S5 | Built; not yet run in CI (the branch has not been pushed) | Push to GitHub |
 | O1 | D6 | Optional idea; no implementation decision | Product decision |
 | O2 | former §9 reviewer questions | Behavior exists; acceptance decision missing | Real reviewer feedback |
 | T1 | -- | Watch; not reproduced | Recurrence with a stack dump |
 | T2 | -- | Watch; seen twice | Recurrence with its failure message |
-| S5 validation | -- | S0-S7 implemented; Docker image build/smoke awaits first CI run | CI on push |
 
 ## External evidence and disc behavior
 
@@ -103,13 +106,15 @@ that fallback. Cover malformed, missing and non-audio selections.
 one extracted. The title page's manual override and metadata update are
 already built; J2 supplies their automatic initial choice.
 
-## Work-list feedback
+## Work list
 
 ### W1 — Retry, failures and title-page details
 
-The current attempt already appears in the row while it runs; unplanned
-progress is rejected, exceptions are logged with tracebacks, and ffmpeg
-command-preparation failures emit events. Complete the visible workflow:
+The current attempt appears in the row while it runs; unplanned progress is
+rejected, exceptions are logged with tracebacks, and ffmpeg
+command-preparation failures emit events. A decline is shown as designer
+commentary on its title page. The title page shows no failure text, and the
+Failures tab has one Reason column. Complete the visible workflow:
 
 - Label Retry by the failed stage and distinguish the previous indexed
   failure from the active attempt on the row and title page. Keep the old
@@ -118,11 +123,8 @@ command-preparation failures emit events. Complete the visible workflow:
   on the Failures tab and title page. Expose the existing per-title Run
   Details dialog there, including redacted ffmpeg commands and an explicit
   cache-hit message when no command ran.
-- Show a decline's reason and message once as designer commentary, without
-  repeating the index detail in the pending state text.
 - Test extract and design retry, another failure, success, cancellation,
-  disjoint later runs, multiline copy, redaction and a decline without
-  candidates. Update `docs/library/work.md`.
+  disjoint later runs, multiline copy and redaction. Update `docs/library/work.md`.
 
 **Done when:** those user paths work in real-widget tests and the persisted
 failure remains distinct from one-run event history.
@@ -150,6 +152,30 @@ single-stream multichannel regression does not establish this choice path.
 
 **Done when:** a person can see and select the correct stream without an
 ineffective rescan, and the run shows only the stages actually performed.
+
+### W3 — Review Folder honours the lease
+
+The Review Folder window's *Publish accepted* and *Commit published* call
+`publish_library`/`commit_library` without checking the work-directory lease,
+so they can write the repositories while a service job, a CLI run or another
+work list's run holds it. Make them wait or refuse as the work list's Publish
+and Commit do ([pipeline-service.md §5.1](pipeline-service.md#51-the-work-directory-lease-and-joining-a-run)),
+naming the holder, with a real-widget test over a held lease.
+
+**Done when:** neither button writes while another process's fresh lease is
+held, and a stale lease does not block them.
+
+## Delivery
+
+### C1 — Docker image in CI
+
+The image, `docker/smoke.py`, the push-CI smoke job and the tag workflow
+(`create-image.yaml`) are built, and the smoke fixture passes through the real
+local service without Docker. Docker is not available locally, so the image
+build and its smoke run have never executed; they run on the first push.
+
+**Done when:** a push-CI run builds the image and the smoke job passes, and
+any defect it finds is fixed in its own commit.
 
 ## Test health
 

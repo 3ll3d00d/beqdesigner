@@ -75,7 +75,8 @@ def test_through_extract_only_extracts_and_leaves_the_title_needing_design(env, 
 
 
 def test_a_title_extracted_on_its_way_to_design_needs_design_while_it_waits_for_a_slot(env, work):
-    ''' worklist-feedback.md F1: the index is refreshed after the extraction, before the title is queued for design. '''
+    ''' design/archive/library-sync/worklist-feedback.md F1: the index is refreshed after the extraction, before the
+        title is queued for design. '''
     _scan(env, _item('a'))
     seen = []
 
@@ -418,7 +419,8 @@ def test_cancel_while_a_dispatched_title_waits_for_design_finishes_dispatched_ti
 # --- failures and retry --------------------------------------------------------------------------------------------
 
 def test_a_failed_extraction_is_tried_again_by_a_run_a_person_starts_but_not_by_an_unattended_one(env, work, caplog):
-    ''' worklist-feedback.md F4: it stays under Extract; only the schedule's runs leave it until something changes. '''
+    ''' design/archive/library-sync/worklist-feedback.md F4: it stays under Extract; only the schedule's runs leave it
+        until something changes. '''
     item = _item('a')
     _scan(env, item)
     work.fail[('extract', 'fs-a')] = RuntimeError('ffmpeg exploded')
@@ -722,7 +724,7 @@ def test_run_stages_accepts_settings_built_from_a_scan_settings(repos, env):
         PublishSettings.from_scan_settings(ScanSettings(work_dir='w', queue_dir='q'))
 
 
-# --- joining a run in progress (design/worklist-feedback.md F5) ------------------------------------------------------------
+# --- joining a run in progress (design/archive/library-sync/worklist-feedback.md F5) ----------------------------------
 
 def test_titles_offered_while_a_run_is_extracting_join_it_and_are_extracted_and_designed(env, work):
     from pipeline.library.join import JoinQueue, JoinRequest

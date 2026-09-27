@@ -21,8 +21,9 @@ from pipeline.library.selection import CHIP_NEW, CHIPS
 
 CHIP_ALL = 'All'
 CHIP_DONE = 'Done'
-# worklist-feedback.md F1: the titles this window's run has queued or is working on. Not a `needs` (the index says what a
-# title needs, not who is doing it), so it has no --needs twin and comes from the model's run state.
+# design/archive/library-sync/worklist-feedback.md F1: the titles this window's run has queued or is working on. Not a
+# `needs` (the index says what a title needs, not who is doing it), so it has no --needs twin and comes from the model's
+# run state.
 CHIP_WORKING = 'Working'
 ALL_CHIPS = (CHIP_ALL, CHIPS[0], CHIP_WORKING) + CHIPS[1:]   # the strip, left to right
 

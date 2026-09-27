@@ -65,7 +65,8 @@ def test_no_work_directory_or_a_damaged_lease_is_no_lease(tmp_path):
 
 
 def test_a_service_job_waits_while_another_holds_the_work_directory_and_holds_it_while_it_runs(tmp_path, monkeypatch):
-    ''' design/worklist-feedback.md F5: it no longer fails; a scan (or a publish) waits for the run in progress to end. '''
+    ''' design/archive/library-sync/worklist-feedback.md F5: it no longer fails; a scan (or a publish) waits for the run
+        in progress to end. '''
     import os
     from pipeline.service import work
     from pipeline.service.jobs import JobControl, Job, ScanRequest

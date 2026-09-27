@@ -348,7 +348,7 @@ class JobManager:
                 self.__end_joins(job, result, state)
                 self.__finish(job, state)
 
-    # --- joining a run in progress (design/worklist-feedback.md F5) ----------------------------------------------------
+    # --- joining a run in progress (design/archive/library-sync/worklist-feedback.md F5) ------------------------------
 
     def _on_join_queue(self, job: Job, join) -> None:
         with self.__lock:

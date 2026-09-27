@@ -222,7 +222,7 @@ def test_stopping_cancels_what_waits_and_refuses_new_work(managers):
         manager.submit(ScanRequest())
 
 
-# --- a run job joins the run in progress (design/worklist-feedback.md F5) -------------------------------------------------
+# --- a run job joins the run in progress (design/archive/library-sync/worklist-feedback.md F5) ------------------------
 
 class JoiningRun:
     ''' An execute whose run jobs offer a JoinQueue, hold until released, then take what joined (or not) and report it. '''

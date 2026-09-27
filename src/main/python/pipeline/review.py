@@ -35,7 +35,8 @@ logger = logging.getLogger('review_queue')
 
 VALID_STATUSES = {'pending', 'accepted', 'skipped', 'rejected', 'published'}
 
-# worklist-feedback.md F3: a decline is offered as one flat candidate, so "does not require BEQ" can be accepted and published
+# design/archive/library-sync/worklist-feedback.md F3: a decline is offered as one flat candidate, so "does not require
+# BEQ" can be accepted and published
 DECLINED_METHOD = 'declined'
 NO_BEQ_NOTE = 'Does not require BEQ'
 
@@ -118,8 +119,9 @@ class QueueEntry:
 
 def flat_candidate(fs: int) -> CandidateSummary:
     '''
-    What a decline is offered as (worklist-feedback.md F3): no filters at all, which a person may accept and publish as
-    "does not require BEQ" -- the catalogue's own convention for such a title is a record with an empty filter list.
+    What a decline is offered as (design/archive/library-sync/worklist-feedback.md F3): no filters at all, which a
+    person may accept and publish as "does not require BEQ" -- the catalogue's own convention for such a title is a
+    record with an empty filter list.
     '''
     from model.iir import CompleteFilter
     return CandidateSummary(filters=CompleteFilter(fs=fs, filters=[]).to_json(), confidence=None,

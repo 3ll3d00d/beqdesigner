@@ -971,7 +971,7 @@ def test_run_is_silent_about_failures_when_nothing_was_skipped(tmp_path, monkeyp
     assert 'failed earlier' not in capsys.readouterr().err
 
 
-# --- a run in progress takes the work (design/worklist-feedback.md F5) ------------------------------------------------------
+# --- a run in progress takes the work (design/archive/library-sync/worklist-feedback.md F5) ---------------------------
 
 def _set_needs(work: str, ids, needs: str) -> None:
     import sqlite3
