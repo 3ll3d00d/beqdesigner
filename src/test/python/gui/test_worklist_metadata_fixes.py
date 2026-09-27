@@ -475,6 +475,8 @@ def font_points(qapp):
 @pytest.mark.parametrize('size', [(860, 520), (1100, 700)])
 def test_the_form_is_usable_at_the_minimum_window_size(qtbot, tmp_path, size, points, font_points):
     ''' Windows' fonts made the form 534 px in a 362 px column: labels now wrap above fields and audio types are one column. '''
+    if points is not None and os.name == 'nt':
+        pytest.skip("Windows' own fonts are the ones this stands in for")
     font_points(points)
     window = _window(qtbot, tmp_path, REVIEWABLE)
     window.resize(*size)

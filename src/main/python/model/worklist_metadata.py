@@ -46,7 +46,7 @@ import traceback
 from typing import Any, Callable, Dict, List, Mapping, Optional, Set, Tuple
 
 import requests
-from qtpy.QtCore import QObject, QRunnable, Qt, QThreadPool, Signal
+from qtpy.QtCore import QEvent, QObject, QRunnable, Qt, QThreadPool, Signal
 from qtpy.QtGui import QPixmap
 from qtpy.QtWidgets import QCheckBox, QComboBox, QFileDialog, QFormLayout, QGridLayout, QHBoxLayout, QLineEdit, QPushButton, QWidget
 
@@ -59,6 +59,8 @@ from pipeline.review import QueueEntry, read_entry, update_entry
 from ui.worklistmetadata import Ui_metadataPanel
 
 logger = logging.getLogger('worklist')
+
+NARROW_FORM_WIDTH = 440   # px: a metadata column narrower than this puts every label above its field
 
 REMOVE = object()   # a change that unsets a key of `meta`
 
@@ -257,9 +259,25 @@ class MetadataPanel(QWidget, Ui_metadataPanel):
         self._refresh_enabled()
 
     def _wrap_narrow_rows(self) -> None:
-        ''' A label goes above its field when both do not fit side by side (the narrowest window, larger fonts). '''
+        '''
+        In a narrow column every label goes above its field, which then has the whole width; otherwise a label is beside its
+        field unless the two do not fit. Side by side, Windows' wider fonts left the title field under 200 px at the smallest
+        window.
+        '''
+        self._apply_row_wrap(self.metadataScroll.viewport().width())
+        self.metadataScroll.viewport().installEventFilter(self)
+
+    def _apply_row_wrap(self, width: int) -> None:
+        policy = QFormLayout.RowWrapPolicy.WrapAllRows if width < NARROW_FORM_WIDTH else \
+            QFormLayout.RowWrapPolicy.WrapLongRows
         for form in (self.essentialsForm, self.moreForm):
-            form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
+            if form.rowWrapPolicy() != policy:
+                form.setRowWrapPolicy(policy)
+
+    def eventFilter(self, watched, event) -> bool:
+        if event.type() == QEvent.Type.Resize and watched is self.metadataScroll.viewport():
+            self._apply_row_wrap(event.size().width())
+        return super().eventFilter(watched, event)
 
     def _build_typed_choices(self) -> None:
         '''Use the AVS Post Builder's fixed audio/source/language vocabulary while retaining unknown JRiver values.'''
