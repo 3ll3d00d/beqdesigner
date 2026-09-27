@@ -79,7 +79,7 @@ def test_run_library_composes_caches_resolves_metadata_and_threads_multichannel(
     assert design_calls[0][5]['meta']() == {'title': 'one', 'audio_types': ['Atmos'], 'season': '2'}
     assert design_calls[0][5]['channels'] == {'LFE': [1, 2]}
     assert design_calls[0][5]['multichannel_wav_path'].endswith('multichannel.wav')
-    assert design_calls[0][5]['project_dir'] == f'{tmp_path}/work/one'
+    assert design_calls[0][5]['project_dir'] == os.path.join(tmp_path, 'work', 'one')
 
 
 def test_jriver_run_extracts_selected_stream_to_readable_folder(tmp_path, monkeypatch):

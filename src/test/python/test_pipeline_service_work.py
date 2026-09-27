@@ -16,7 +16,7 @@ from pipeline.service.jobs import AcceptRequest, JobManager, RunRequest, ScanReq
 from pipeline.service.work import RunOutcome, executor, job_failed
 
 
-def _until(condition, timeout=10.0):
+def _until(condition, timeout=30.0):   # a slow Windows runner took over 10 s
     deadline = time.time() + timeout
     while not condition():
         assert time.time() < deadline, 'timed out'

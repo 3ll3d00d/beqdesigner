@@ -455,8 +455,27 @@ def test_an_unreadable_entry_is_said_to_be_unreadable_not_undesigned(qtbot, tmp_
 
 # --- 8: the form is usable at the window's minimum size -------------------------------------------------------------------------
 
+@pytest.fixture
+def font_points(qapp):
+    ''' Sets the application's font size for a test (Windows' metrics need about 17pt on Linux's offscreen fonts). '''
+    from qtpy.QtGui import QFont
+    original = QFont(qapp.font())
+
+    def set_points(points):
+        if points is not None:
+            font = QFont(original)
+            font.setPointSizeF(points)
+            qapp.setFont(font)
+
+    yield set_points
+    qapp.setFont(original)
+
+
+@pytest.mark.parametrize('points', [None, 16], ids=['default font', 'windows-sized font'])
 @pytest.mark.parametrize('size', [(860, 520), (1100, 700)])
-def test_the_form_is_usable_at_the_minimum_window_size(qtbot, tmp_path, size):
+def test_the_form_is_usable_at_the_minimum_window_size(qtbot, tmp_path, size, points, font_points):
+    ''' Windows' fonts made the form 534 px in a 362 px column: labels now wrap above fields and audio types are one column. '''
+    font_points(points)
     window = _window(qtbot, tmp_path, REVIEWABLE)
     window.resize(*size)
     page = _on_metadata(qtbot, window, 'r-alien', more=True)

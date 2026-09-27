@@ -48,7 +48,7 @@ from typing import Any, Callable, Dict, List, Mapping, Optional, Set, Tuple
 import requests
 from qtpy.QtCore import QObject, QRunnable, Qt, QThreadPool, Signal
 from qtpy.QtGui import QPixmap
-from qtpy.QtWidgets import QCheckBox, QComboBox, QFileDialog, QGridLayout, QHBoxLayout, QLineEdit, QPushButton, QWidget
+from qtpy.QtWidgets import QCheckBox, QComboBox, QFileDialog, QFormLayout, QGridLayout, QHBoxLayout, QLineEdit, QPushButton, QWidget
 
 from model.preferences import TMDB_API_KEY
 from model.worklist_artwork import ArtworkError, DownloadJob, check_local_image
@@ -234,6 +234,7 @@ class MetadataPanel(QWidget, Ui_metadataPanel):
         self._highlighted: Optional[QLineEdit] = None
         self._boxes = {key: getattr(self, attr) for key, attr in _FIELDS.items()}
         self._build_typed_choices()
+        self._wrap_narrow_rows()
         # A box that is being destroyed while it has the keyboard says `editingFinished`: by then the panel is half gone and
         # saving into it (or writing its status line) crashes the process. Once Qt has begun deleting the panel nothing is saved.
         self._going = going = [False]
@@ -255,6 +256,11 @@ class MetadataPanel(QWidget, Ui_metadataPanel):
         self.artUrlField.returnPressed.connect(lambda: self.download_art())
         self._refresh_enabled()
 
+    def _wrap_narrow_rows(self) -> None:
+        ''' A label goes above its field when both do not fit side by side (the narrowest window, larger fonts). '''
+        for form in (self.essentialsForm, self.moreForm):
+            form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
+
     def _build_typed_choices(self) -> None:
         '''Use the AVS Post Builder's fixed audio/source/language vocabulary while retaining unknown JRiver values.'''
         self.essentialsForm.removeWidget(self.audioTypesField)
@@ -270,7 +276,7 @@ class MetadataPanel(QWidget, Ui_metadataPanel):
             box = QCheckBox(name, audio_host)
             box.toggled.connect(self._audio_types_changed)
             self.audioTypeChecks.append(box)
-            audio_layout.addWidget(box, idx // 2, idx % 2)
+            audio_layout.addWidget(box, idx, 0)   # one column: two did not fit the narrowest window with Windows' fonts
         self.essentialsForm.setWidget(2, self.essentialsForm.ItemRole.FieldRole, audio_host)
         self.languagePicker = self._choice_picker(self.languageField, _LANGUAGES)
         self.sourcePicker = self._choice_picker(self.sourceField, _SOURCES)
