@@ -47,6 +47,7 @@
       <property name="spacing"><number>4</number></property>
       <item><widget class="QPushButton" name="allChip"><property name="text"><string>All</string></property><property name="checkable"><bool>true</bool></property><property name="checked"><bool>true</bool></property></widget></item>
       <item><widget class="QPushButton" name="attentionChip"><property name="text"><string>Attention</string></property><property name="checkable"><bool>true</bool></property></widget></item>
+      <item><widget class="QPushButton" name="workingChip"><property name="text"><string>Working</string></property><property name="checkable"><bool>true</bool></property></widget></item>
       <item><widget class="QPushButton" name="newChip"><property name="text"><string>New</string></property><property name="checkable"><bool>true</bool></property></widget></item>
       <item><widget class="QPushButton" name="extractChip"><property name="text"><string>Extract</string></property><property name="checkable"><bool>true</bool></property></widget></item>
       <item><widget class="QPushButton" name="designChip"><property name="text"><string>Design</string></property><property name="checkable"><bool>true</bool></property></widget></item>

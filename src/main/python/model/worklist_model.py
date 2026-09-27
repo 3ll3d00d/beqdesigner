@@ -21,7 +21,10 @@ from pipeline.library.selection import CHIP_NEW, CHIPS
 
 CHIP_ALL = 'All'
 CHIP_DONE = 'Done'
-ALL_CHIPS = (CHIP_ALL,) + CHIPS   # the strip, left to right
+# worklist-feedback.md F1: the titles this window's run has queued or is working on. Not a `needs` (the index says what a
+# title needs, not who is doing it), so it has no --needs twin and comes from the model's run state.
+CHIP_WORKING = 'Working'
+ALL_CHIPS = (CHIP_ALL, CHIPS[0], CHIP_WORKING) + CHIPS[1:]   # the strip, left to right
 
 COLUMNS = ('Title', 'Year', 'Source', 'Needs', 'Detail', 'Waiting', 'Run progress', 'Run details')
 COL_TITLE, COL_YEAR, COL_SOURCE, COL_NEEDS, COL_DETAIL, COL_WAITING, COL_RUN_PROGRESS, COL_RUN_DETAILS = \
@@ -188,6 +191,15 @@ class WorkListModel(QAbstractTableModel):
     def run_state(self, title_id: str) -> dict:
         return dict(self.__run_state.get(title_id, {}))
 
+    def is_working(self, title_id: str) -> bool:
+        ''' Whether the run has this title queued or in hand: what the Working chip lists. '''
+        state = self.__run_state.get(title_id, {})
+        return bool(state.get('active') or state.get('queued'))
+
+    @property
+    def working_ids(self) -> List[str]:
+        return [row.id for row in self.__rows if self.is_working(row.id)]
+
     def row_at(self, row: int) -> TitleRow:
         return self.__rows[row]
 
@@ -279,11 +291,14 @@ class WorkListModel(QAbstractTableModel):
         return None
 
 
-def chip_accepts(chip: str, row: TitleRow) -> bool:
+def chip_accepts(chip: str, row: TitleRow, working: bool = False) -> bool:
     '''
     Whether a strip chip lists a title. *All* is the default view: everything except Done. *New* is the titles first
-    seen by the latest scan that are not Done; every other chip is one `needs` value.
+    seen by the latest scan that are not Done; *Working* is the titles the run has queued or in hand (`working`); every
+    other chip is one `needs` value.
     '''
+    if chip == CHIP_WORKING:
+        return working
     if chip == CHIP_ALL:
         return row.needs != 'done'
     if chip == CHIP_NEW:
@@ -363,7 +378,8 @@ class WorkListProxy(QSortFilterProxyModel):
         return self.__accepts(rows[source_row], self.__chip, source_row)
 
     def __accepts(self, row: TitleRow, chip: str, source_row: int) -> bool:
-        return (chip_accepts(chip, row) and (self.__source is None or row.source == self.__source)
+        working = chip == CHIP_WORKING and self.sourceModel().is_working(row.id)
+        return (chip_accepts(chip, row, working) and (self.__source is None or row.source == self.__source)
                 and (not self.__text or matches_text(row, self.__text)) and self.__column_matches(source_row))
 
     def __column_matches(self, source_row: int) -> bool:

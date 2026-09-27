@@ -1,4 +1,4 @@
-# Form implementation generated from reading ui file 'worklist.ui'
+# Form implementation generated from reading ui file 'ui/worklist.ui'
 #
 # Created by: PyQt6 UI code generator 6.11.0
 #
@@ -80,6 +80,10 @@ class Ui_workListWindow(object):
         self.attentionChip.setCheckable(True)
         self.attentionChip.setObjectName("attentionChip")
         self.stripLayout.addWidget(self.attentionChip)
+        self.workingChip = QtWidgets.QPushButton(parent=self.listHeader)
+        self.workingChip.setCheckable(True)
+        self.workingChip.setObjectName("workingChip")
+        self.stripLayout.addWidget(self.workingChip)
         self.newChip = QtWidgets.QPushButton(parent=self.listHeader)
         self.newChip.setCheckable(True)
         self.newChip.setObjectName("newChip")
@@ -323,6 +327,7 @@ class Ui_workListWindow(object):
         self.driftDismissButton.setText(_translate("workListWindow", "Dismiss"))
         self.allChip.setText(_translate("workListWindow", "All"))
         self.attentionChip.setText(_translate("workListWindow", "Attention"))
+        self.workingChip.setText(_translate("workListWindow", "Working"))
         self.newChip.setText(_translate("workListWindow", "New"))
         self.extractChip.setText(_translate("workListWindow", "Extract"))
         self.designChip.setText(_translate("workListWindow", "Design"))

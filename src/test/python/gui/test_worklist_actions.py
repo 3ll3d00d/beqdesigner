@@ -1601,6 +1601,41 @@ def test_titles_in_flight_together_share_one_status_and_a_finished_one_moves_bef
     qtbot.waitUntil(lambda: not window.is_running, timeout=5000)
 
 
+def test_the_working_chip_lists_the_titles_the_run_has_queued_or_in_hand_and_a_title_moves_to_design_once_extracted(
+        qtbot, tmp_path):
+    ''' worklist-feedback.md F1: a title no longer sits under Extract until its design ends. '''
+    index_file = make_index(tmp_path / 'work', _rows(), SOURCES, generation=2, last_scan_at=NOW - 900)
+    extracted, release = threading.Event(), threading.Event()
+
+    def pipeline(profile, selection, through, *, on_progress, on_event, **kwargs):
+        ids = list(selection.ids)
+        for title_id in ids:
+            on_event(ExecutionEvent('run', title_id, '', 'queued', NOW, title_id))
+        on_event(ExecutionEvent('run', ids[0], 'extract', 'stage_started', NOW, 'Extracting audio'))
+        _update(index_file, [ids[0]], needs='design', extract_state='current')   # the pipeline's refresh after extracting
+        on_event(ExecutionEvent('run', ids[0], 'design', 'stage_queued', NOW, 'Waiting for design slot'))
+        extracted.set()
+        assert release.wait(5)
+        return StagesReport(through, 2, run=LibraryRunReport(designed=ids), attempted=ids)
+
+    window, _ = _window(qtbot, tmp_path, pipeline=pipeline, prefs=_prefs(tmp_path))
+    assert window.chip_counts()['Working'] == 0
+    window.select_ids(['x-gravity', 'x-tenet'])
+    window.run_selected()
+    _wait_for(qtbot, extracted, timeout=5000)
+
+    qtbot.waitUntil(lambda: window.chip_counts()['Working'] == 2, timeout=5000)
+    assert window.workingChip.text() == 'Working 2' and window.workingChip.font().bold()
+    assert {r.id: r.needs for r in window.model.rows}['x-gravity'] == 'design'   # moved while it waits for design
+    window.set_chip('Working')
+    assert set(window.listed_ids()) == {'x-gravity', 'x-tenet'}
+    assert window.current_selection().ids == tuple(window.listed_ids())
+    release.set()
+    qtbot.waitUntil(lambda: not window.is_running, timeout=5000)
+    assert window.chip_counts()['Working'] == 0 and window.listed_ids() == []
+    assert window.current_selection().ids == ('',)   # an empty Working view selects nothing, never every title
+
+
 def test_a_test_that_ends_with_a_run_going_is_not_held_up_by_the_close_question(qtbot, tmp_path, monkeypatch):
     ''' gui/conftest.py answers the close question: a run still going at teardown cancels and closes, with no dialog. '''
     window, pipeline = _held_run(qtbot, tmp_path)

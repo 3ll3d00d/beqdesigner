@@ -56,7 +56,7 @@ from model.preferences import WORKLIST_GEOMETRY
 from model.worklist_actions import WorkListActions
 from model.worklist_autopublish import WorkListAutoPublish
 from model.worklist_bulk import WorkListBulk
-from model.worklist_model import ALL_CHIPS, CHIP_ALL, CHIP_DONE, COLUMNS, COL_DETAIL, COL_NEEDS, COL_RUN_DETAILS, \
+from model.worklist_model import ALL_CHIPS, CHIP_ALL, CHIP_DONE, CHIP_WORKING, COLUMNS, COL_DETAIL, COL_NEEDS, COL_RUN_DETAILS, \
     COL_RUN_PROGRESS, COL_SOURCE, COL_TITLE, COL_WAITING, COL_YEAR, ID_ROLE, WorkListModel, WorkListProxy, \
     warning_colour
 from model.worklist_edit import discovery_changed
@@ -91,6 +91,7 @@ _CHIP_TIPS = {
     CHIP_ALL: 'Everything except Done',
     'Attention': 'A person must look: extract or design failed, the projects disagree, or the source changed since '
                  'the title was accepted',
+    CHIP_WORKING: 'Titles the current run has queued or is extracting or designing now',
     CHIP_NEW: 'Titles first seen by the latest scan',
     'Extract': 'Audio still to extract: new, or the source or the settings changed',
     'Design': 'Extracted, and a filter still to design',
@@ -327,7 +328,7 @@ class WorkListWindow(WorkListActions, WorkListAutoPublish, WorkListTitles, WorkL
 
     def _configure_chips(self):
         self._chip_buttons = {
-            CHIP_ALL: self.allChip, 'Attention': self.attentionChip, CHIP_NEW: self.newChip,
+            CHIP_ALL: self.allChip, 'Attention': self.attentionChip, CHIP_WORKING: self.workingChip, CHIP_NEW: self.newChip,
             'Extract': self.extractChip, 'Design': self.designChip, 'Review': self.reviewChip,
             'Publish': self.publishChip, 'Commit': self.commitChip, CHIP_DONE: self.doneChip}
         assert tuple(self._chip_buttons) == ALL_CHIPS
@@ -571,6 +572,8 @@ class WorkListWindow(WorkListActions, WorkListAutoPublish, WorkListTitles, WorkL
         ids = tuple(self.listed_ids()) if self._proxy.column_filters else ()
         not_done = tuple(n for n in NEEDS if n != 'done')
         chip = self._proxy.chip
+        if chip == CHIP_WORKING:   # no `needs` says "being worked on": the titles themselves (an id matching none if none)
+            return Selection(source=source, match=match, ids=tuple(self.listed_ids()) or ('',))
         if chip == CHIP_ALL:
             return Selection(needs=not_done, source=source, match=match, ids=ids)
         if chip == CHIP_NEW:
@@ -744,7 +747,7 @@ class WorkListWindow(WorkListActions, WorkListAutoPublish, WorkListTitles, WorkL
                 text += ' (hidden)'
             button.setText(text)
             font = button.font()
-            font.setBold(chip == 'Attention' and counts[chip] > 0)
+            font.setBold(chip in ('Attention', CHIP_WORKING) and counts[chip] > 0)
             button.setFont(font)
         self._refresh_scan_text()
         self._refresh_source_status()
@@ -772,6 +775,7 @@ class WorkListWindow(WorkListActions, WorkListAutoPublish, WorkListTitles, WorkL
         buffer = self._event_buffers.setdefault(event.title_id, EventBuffer())
         buffer.append(event)
         state = self._model.run_state(event.title_id)
+        was_working = self._model.is_working(event.title_id)
         state['has_details'] = True
         if event.kind == 'queued':
             state.update(active=False, queued=True, stage='', text='Queued', current=None, total=None)
@@ -809,6 +813,10 @@ class WorkListWindow(WorkListActions, WorkListAutoPublish, WorkListTitles, WorkL
         self._model.set_run_state(event.title_id, **state)
         if event.kind == 'title_completed' and event.stage != 'commit':
             self.refresh_from_index()   # the pipeline refreshed the index just before saying so: move the title now
+        elif event.kind == 'stage_queued' and event.stage == 'design':
+            self.refresh_from_index()   # extracted: the pipeline refreshed the index, so the row moves to Design
+        elif self._model.is_working(event.title_id) != was_working:
+            self._refresh_view()        # the Working chip's number
         dialog = self._detail_dialogs.get(event.title_id)
         if dialog is not None:
             dialog.set_text(buffer.text())

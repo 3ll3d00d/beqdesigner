@@ -31,7 +31,7 @@ The order is **tier first** (attention, then review, then the machine work, then
 
 To narrow the list:
 
-* the **strip** of buttons filters by need: *All*, *Attention*, *New*, *Extract*, *Design*, *Review*, *Publish*, *Commit*, *Done*. The number on each is how many titles it would show. *Done* is hidden until you press it (it reads *Done 8 (hidden)*), so finished work never crowds out what is left. See [Concepts](concepts.md#needs-and-tiers).
+* the **strip** of buttons filters by need: *All*, *Attention*, *Working*, *New*, *Extract*, *Design*, *Review*, *Publish*, *Commit*, *Done*. The number on each is how many titles it would show. *Working* is not a need: it lists the titles the run in progress has queued or is extracting or designing now, and a title extracted on its way to design moves from *Extract* to *Design* as soon as its extraction is done. *Done* is hidden until you press it (it reads *Done 8 (hidden)*), so finished work never crowds out what is left. See [Concepts](concepts.md#needs-and-tiers).
 * the **search box** (`Ctrl+F` puts the cursor in it) matches part of a title, its id or its path, ignoring case. It does not search the *Detail* column, so it cannot find titles by their flags.
 * the **source** drop-down shows only the titles that one source owns. A source that could not be listed is marked with `(!)`.
 

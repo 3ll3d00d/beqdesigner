@@ -94,8 +94,8 @@ def _click(qtbot, button):
 def test_the_strip_counts_each_kind_of_work_and_hides_done(qtbot, tmp_path):
     window = _window(qtbot, tmp_path, _rows())
 
-    assert window.chip_counts() == {'All': 9, 'Attention': 2, 'New': 3, 'Extract': 1, 'Design': 1, 'Review': 3,
-                                    'Publish': 1, 'Commit': 1, 'Done': 2}
+    assert window.chip_counts() == {'All': 9, 'Attention': 2, 'Working': 0, 'New': 3, 'Extract': 1, 'Design': 1,
+                                    'Review': 3, 'Publish': 1, 'Commit': 1, 'Done': 2}
     assert window.attentionChip.text() == 'Attention 2'
     assert window.reviewChip.text() == 'Review 3'
     assert window.allChip.text() == 'All 9'

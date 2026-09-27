@@ -74,6 +74,20 @@ def test_through_extract_only_extracts_and_leaves_the_title_needing_design(env, 
     assert _needs(env, 'fs-a')[0] == 'design' and report.counts['design'] == 1
 
 
+def test_a_title_extracted_on_its_way_to_design_needs_design_while_it_waits_for_a_slot(env, work):
+    ''' worklist-feedback.md F1: the index is refreshed after the extraction, before the title is queued for design. '''
+    _scan(env, _item('a'))
+    seen = []
+
+    def on_event(event):
+        if event.kind == 'stage_queued' and event.stage == 'design':
+            seen.append(_needs(env, 'fs-a')[0])
+
+    _go(env, Selection(), 'design', on_event=on_event)
+
+    assert seen == ['design']
+
+
 def test_through_design_extracts_first_when_the_title_has_not_been_and_then_designs(env, work):
     _scan(env, _item('a'))
 

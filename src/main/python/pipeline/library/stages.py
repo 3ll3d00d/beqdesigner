@@ -339,6 +339,7 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
                             continue
                         if planned.stages[-1] == 'design':
                             row_id = planned.row.id
+                            _refresh_midrun()   # extracted: its row says design while it waits for a slot (F1)
                             with event_scope(title_id=row_id, stage='design'):
                                 emit_execution_event('stage_queued', message='Waiting for design slot')
                             design_pending.append((planned, work))

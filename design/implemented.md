@@ -188,7 +188,9 @@ were designed under different settings.
 ## Library work list and runtime behavior
 
 The Tools menu opens the Library Work List, a top-level window over the index.
-It has pipeline counts, searchable/sortable rows, source and tier filters,
+It has pipeline counts (with a *Working* chip for the titles the window's run
+has queued or in hand, from its run state; a title moves from Extract to
+Design as soon as its extraction ends, worklist-feedback F1), searchable/sortable rows, source and tier filters,
 Rescan, selected/all-visible actions, settings, failures, and Last run. A
 title page replaces the table in the same window and preserves selection and
 scroll position when closed. The Metadata tab validates required fields,
