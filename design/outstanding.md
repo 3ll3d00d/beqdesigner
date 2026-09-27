@@ -18,7 +18,7 @@ item that requires evidence from a real one.
 | W2 | chunk 45b | Partial in `62270b4`: codec, channels and stream count are requested | J2 for automatic stream selection; manual override already exists |
 | O1 | D6 | Optional idea; no implementation decision | Product decision |
 | O2 | former §9 reviewer questions | Behavior exists; acceptance decision missing | Real reviewer feedback |
-| F1-F5 | work-list feedback 2026-09-27 | F4 built in `c58a4b4`, F2 in `7420a54`, F3 in `49bbf34`, F1 in `de45afe`; F5 not started; see [worklist-feedback.md](worklist-feedback.md) | None |
+| F1-F5 | work-list feedback 2026-09-27 | F4 built in `c58a4b4`, F2 in `7420a54`, F3 in `49bbf34`, F1 in `de45afe`; F5 in progress (F5a `3d38f76`); see [worklist-feedback.md](worklist-feedback.md) | None |
 | T1 | -- | Watch; not reproduced | Recurrence with a stack dump |
 | T2 | -- | Watch; seen twice | Recurrence with its failure message |
 | S5 validation | -- | S0-S7 implemented; Docker image build/smoke awaits first CI run | CI on push |
