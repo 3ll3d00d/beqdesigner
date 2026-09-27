@@ -191,6 +191,7 @@ def test_reading_a_pre_existing_entry_without_art_fields_defaults_them(tmp_path)
 
 # --- batch_design ------------------------------------------------------------
 
+@pytest.mark.requires_ffmpeg
 def test_batch_design_writes_one_pending_entry_per_title(tmp_path):
     source_wav = str(tmp_path / 'source.wav')
     _write_synthetic_wav(source_wav)
@@ -218,6 +219,7 @@ def test_batch_design_writes_one_pending_entry_per_title(tmp_path):
     assert entries['title-two'].meta == {}
 
 
+@pytest.mark.requires_ffmpeg
 def test_batch_design_calls_on_item_done_after_each_entry_is_written(tmp_path):
     source_wav = str(tmp_path / 'source.wav')
     _write_synthetic_wav(source_wav)
@@ -234,6 +236,7 @@ def test_batch_design_calls_on_item_done_after_each_entry_is_written(tmp_path):
     assert seen == [('title-one', 'pending'), ('title-two', 'pending')]
 
 
+@pytest.mark.requires_ffmpeg
 def test_batch_design_declined_title_carries_the_reason(tmp_path):
     source_wav = str(tmp_path / 'source.wav')
     _write_synthetic_wav(source_wav)
@@ -316,6 +319,7 @@ def test_design_and_queue_writes_a_multichannel_project_when_given_one(tmp_path)
     assert os.path.isfile(os.path.join(project_dir, 'title-one.multichannel.beq'))
 
 
+@pytest.mark.requires_ffmpeg
 def test_design_and_queue_does_not_write_projects_without_project_dir(tmp_path):
     ''' Backward compatibility: today's call shape (project_dir omitted) writes no .beq files. '''
     wav_path = str(tmp_path / 'source.wav')
@@ -365,6 +369,7 @@ def _designed_entry(tmp_path, entry_id='ready-player-one', meta=None):
     return queue_dir, entry_id
 
 
+@pytest.mark.requires_ffmpeg
 def test_apply_reviewed_entry_uses_the_chosen_candidate_not_the_top_one(tmp_path):
     queue_dir, entry_id = _designed_entry(tmp_path)
     update_entry(queue_dir, entry_id, status='accepted', chosen_candidate_index=1)
@@ -376,6 +381,7 @@ def test_apply_reviewed_entry_uses_the_chosen_candidate_not_the_top_one(tmp_path
     assert any(isinstance(f, PeakingEQ) for f in filters)     # candidates[1]'s filter
 
 
+@pytest.mark.requires_ffmpeg
 def test_apply_reviewed_entry_top_candidate(tmp_path):
     queue_dir, entry_id = _designed_entry(tmp_path)
     update_entry(queue_dir, entry_id, status='accepted', chosen_candidate_index=0)
@@ -385,6 +391,7 @@ def test_apply_reviewed_entry_top_candidate(tmp_path):
     assert any(isinstance(f, LowShelf) for f in list(complete_filter))
 
 
+@pytest.mark.requires_ffmpeg
 def test_apply_reviewed_entry_requires_accepted_status(tmp_path):
     queue_dir, entry_id = _designed_entry(tmp_path)
 
@@ -392,6 +399,7 @@ def test_apply_reviewed_entry_requires_accepted_status(tmp_path):
         apply_reviewed_entry(read_entry(queue_dir, entry_id))
 
 
+@pytest.mark.requires_ffmpeg
 def test_publish_reviewed_queue_xml_only(tmp_path):
     queue_dir, entry_id = _designed_entry(tmp_path, meta={'title': 'Ready Player One', 'year': '2018',
                                                           'audio_types': ['Atmos']})
@@ -411,6 +419,7 @@ def test_publish_reviewed_queue_xml_only(tmp_path):
     assert read_entry(queue_dir, entry_id).status == 'published'
 
 
+@pytest.mark.requires_ffmpeg
 def test_publish_reviewed_queue_defaults_gain_from_chosen_candidates_mv_adjust_db(tmp_path):
     queue_dir, entry_id = _designed_entry(tmp_path, meta={'title': 'Ready Player One', 'year': '2018',
                                                           'audio_types': ['Atmos']})
@@ -422,6 +431,7 @@ def test_publish_reviewed_queue_defaults_gain_from_chosen_candidates_mv_adjust_d
     assert results[0]['record']['mv'] == '+4'  # candidates[0].mv_adjust_db == 4.0
 
 
+@pytest.mark.requires_ffmpeg
 def test_publish_reviewed_queue_with_image(tmp_path):
     queue_dir, entry_id = _designed_entry(tmp_path, meta={'title': 'Ready Player One', 'year': '2018',
                                                           'audio_types': ['Atmos']})
@@ -440,6 +450,7 @@ def test_publish_reviewed_queue_with_image(tmp_path):
     assert image.format == 'PNG'
 
 
+@pytest.mark.requires_ffmpeg
 def test_publish_reviewed_queue_passes_entry_art_path_as_poster(tmp_path):
     queue_dir, entry_id = _designed_entry(tmp_path, meta={'title': 'Ready Player One', 'year': '2018',
                                                           'audio_types': ['Atmos']})
@@ -462,6 +473,7 @@ def test_publish_reviewed_queue_passes_entry_art_path_as_poster(tmp_path):
     assert image.convert('RGB').getpixel((0, 0)) != (255, 255, 255)
 
 
+@pytest.mark.requires_ffmpeg
 def test_publish_reviewed_queue_skips_non_accepted_entries(tmp_path):
     queue_dir, accepted_id = _designed_entry(tmp_path, entry_id='accepted-title')
     update_entry(queue_dir, accepted_id, status='accepted', chosen_candidate_index=0)
@@ -476,6 +488,7 @@ def test_publish_reviewed_queue_skips_non_accepted_entries(tmp_path):
     assert read_entry(queue_dir, 'pending-title').status == 'pending'
 
 
+@pytest.mark.requires_ffmpeg
 def test_publish_reviewed_queue_is_idempotent(tmp_path):
     queue_dir, entry_id = _designed_entry(tmp_path, meta={'title': 'Ready Player One', 'year': '2018',
                                                           'audio_types': ['Atmos']})
@@ -491,6 +504,7 @@ def test_publish_reviewed_queue_is_idempotent(tmp_path):
 
 # --- publish_reviewed_queue: reading the filter from a .beq project (work_dir) ---
 
+@pytest.mark.requires_ffmpeg
 def test_publish_reviewed_queue_without_work_dir_uses_apply_reviewed_entry_as_before(tmp_path):
     ''' Backward compatibility: omitting work_dir (today's call shape) publishes exactly what it does
     today -- protects every existing test_publish_reviewed_queue_* test in this file from regressing. '''
@@ -683,6 +697,7 @@ def _declined_entry(tmp_path, meta=None):
     return queue_dir
 
 
+@pytest.mark.requires_ffmpeg
 def test_an_accepted_decline_is_published_with_no_filters_and_says_it_does_not_require_beq(tmp_path):
     from pipeline.review import NO_BEQ_NOTE, current_publish_digest
     queue_dir = _declined_entry(tmp_path)
@@ -701,6 +716,7 @@ def test_an_accepted_decline_is_published_with_no_filters_and_says_it_does_not_r
                                   image_repo_name='beq-images') == published.published_digest
 
 
+@pytest.mark.requires_ffmpeg
 def test_a_reviewers_own_note_is_kept_on_a_title_published_with_no_filters(tmp_path):
     queue_dir = _declined_entry(tmp_path, meta={'title': 'Quiet Film', 'year': '2020', 'audio_types': ['DTS-HD MA 5.1'],
                                                 'note': 'checked by ear'})

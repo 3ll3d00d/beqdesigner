@@ -729,6 +729,7 @@ def test_through_publish_takes_the_repositories_from_the_sync_section_and_flags(
     assert seen['settings'].meta_defaults == {'source': 'Disc'}  # the index is refreshed with what publish is given
 
 
+@pytest.mark.requires_ffmpeg
 def test_a_selector_run_without_a_profile_uses_the_one_source_the_flags_describe(tmp_path, monkeypatch, capsys):
     from pipeline.library.stages import StagesReport
     seen = {}
@@ -826,6 +827,7 @@ def _cli(capsys, *argv):
         return code, out
 
 
+@pytest.mark.requires_ffmpeg
 def test_the_whole_workflow_runs_headless_scan_design_accept_publish_commit(workflow, capsys):
     from pipeline.review import read_queue
     profile = ['--profile', str(workflow.config)]

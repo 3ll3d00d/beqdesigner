@@ -9,6 +9,7 @@ permissions:
 jobs:
   image:
     runs-on: ubuntu-24.04
+    timeout-minutes: 60   # the arm64 image builds under emulation
     steps:
       - uses: actions/checkout@v7
       - name: Set image version

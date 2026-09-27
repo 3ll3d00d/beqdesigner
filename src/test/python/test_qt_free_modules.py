@@ -117,6 +117,7 @@ session.report([session.curves(sig)], outcome.filters, meta=meta)
 """
 
 
+@pytest.mark.requires_ffmpeg
 def test_a_session_extracts_loads_designs_and_publishes_without_qt():
     result = _run_without_qt(_SESSION_RUN)
     assert result.returncode == 0 and 'OK' in result.stdout, result.stderr

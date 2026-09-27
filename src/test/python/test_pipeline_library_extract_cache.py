@@ -34,6 +34,7 @@ def _mono_item(source_path, fingerprint='fp1'):
     return LibraryItem(id='title-1', source_path=source_path, display_name='Title One', fingerprint=fingerprint)
 
 
+@pytest.mark.requires_ffmpeg
 def test_extract_if_needed_runs_ffmpeg_on_first_call(tmp_path):
     source = str(tmp_path / 'source.wav')
     _write_synthetic_wav(source)
@@ -55,6 +56,7 @@ def test_extract_if_needed_runs_ffmpeg_on_first_call(tmp_path):
     assert 'mono_params_hash' in manifest
 
 
+@pytest.mark.requires_ffmpeg
 def test_extract_if_needed_forwards_ffmpegs_time_progress(tmp_path):
     source = str(tmp_path / 'source.wav')
     _write_synthetic_wav(source, duration_s=1.0)
@@ -69,6 +71,7 @@ def test_extract_if_needed_forwards_ffmpegs_time_progress(tmp_path):
 
 
 
+@pytest.mark.requires_ffmpeg
 def test_extract_if_needed_reports_the_end_as_complete_when_ffmpeg_never_advanced_out_time(tmp_path, monkeypatch):
     ''' ffmpeg 6.1 (Ubuntu 24.04) sends out_time_ms=0 in every report for this filter_complex output, even the last. '''
     from model.ffmpeg import Executor
@@ -91,6 +94,7 @@ def test_extract_if_needed_reports_the_end_as_complete_when_ffmpeg_never_advance
     assert updates[:2] == [(0, 1_000_000), (0, 1_000_000)]
     assert updates[-1] == (1_000_000, 1_000_000)
 
+@pytest.mark.requires_ffmpeg
 def test_extract_if_needed_skips_ffmpeg_on_a_repeat_call(tmp_path, monkeypatch):
     source = str(tmp_path / 'source.wav')
     _write_synthetic_wav(source)
@@ -118,6 +122,7 @@ def test_extract_if_needed_skips_ffmpeg_on_a_repeat_call(tmp_path, monkeypatch):
     assert calls == []  # ffmpeg genuinely didn't run again
 
 
+@pytest.mark.requires_ffmpeg
 def test_extract_if_needed_reextracts_when_params_hash_changes(tmp_path):
     source = str(tmp_path / 'source.wav')
     _write_synthetic_wav(source)
@@ -132,6 +137,7 @@ def test_extract_if_needed_reextracts_when_params_hash_changes(tmp_path):
     assert cached_2 is False
 
 
+@pytest.mark.requires_ffmpeg
 def test_extract_if_needed_reextracts_when_source_fingerprint_changes(tmp_path):
     source = str(tmp_path / 'source.wav')
     _write_synthetic_wav(source)
@@ -148,6 +154,7 @@ def test_extract_if_needed_reextracts_when_source_fingerprint_changes(tmp_path):
     assert cached_2 is False
 
 
+@pytest.mark.requires_ffmpeg
 def test_extract_if_needed_force_always_reextracts(tmp_path):
     source = str(tmp_path / 'source.wav')
     _write_synthetic_wav(source)
@@ -163,6 +170,7 @@ def test_extract_if_needed_force_always_reextracts(tmp_path):
     assert cached_2 is False
 
 
+@pytest.mark.requires_ffmpeg
 def test_extract_if_needed_mono_and_multichannel_are_independently_cached(tmp_path, monkeypatch):
     source = str(tmp_path / 'source.wav')
     _write_synthetic_wav(source, channel_values=(1000, 2000, 3000, 4000, 5000, 6000))
@@ -203,6 +211,7 @@ def test_extract_if_needed_mono_and_multichannel_are_independently_cached(tmp_pa
     assert manifest_after['channel_layout_name'] == manifest_before['channel_layout_name']
 
 
+@pytest.mark.requires_ffmpeg
 def test_extract_if_needed_multichannel_records_channel_layout_name(tmp_path):
     source = str(tmp_path / 'source.wav')
     _write_synthetic_wav(source, channel_values=(1000, 2000, 3000, 4000, 5000, 6000))
@@ -226,6 +235,7 @@ def test_extract_if_needed_multichannel_records_channel_layout_name(tmp_path):
     assert 'channel_layout_name' not in mono_manifest
 
 
+@pytest.mark.requires_ffmpeg
 def test_mono_and_multichannel_extractions_align_on_the_analysis_sample_grid(tmp_path):
     source = str(tmp_path / 'source.wav')
     _write_synthetic_wav(source, fs=48000, channel_values=(1000, 2000, 3000, 4000, 5000, 6000))
@@ -251,6 +261,7 @@ def test_mono_and_multichannel_extractions_align_on_the_analysis_sample_grid(tmp
     assert all(len(samples) == len(mono.signal.samples) for samples in channels.values())
 
 
+@pytest.mark.requires_ffmpeg
 def test_library_kept_extraction_builds_mono_from_one_source_decode(tmp_path, monkeypatch):
     from pipeline.library.run import LibraryRunConfig, run_library
     source_path = str(tmp_path / 'source.wav')
@@ -293,6 +304,7 @@ def test_library_kept_extraction_builds_mono_from_one_source_decode(tmp_path, mo
     np.testing.assert_allclose(mono, expected, atol=2 / 2 ** 23)
 
 
+@pytest.mark.requires_ffmpeg
 def test_older_kept_cache_without_mix_coefficients_uses_direct_mono_extraction(tmp_path, monkeypatch):
     import json
     from pipeline.library.extract_cache import mono_from_multichannel_if_needed
@@ -324,6 +336,7 @@ def test_older_kept_cache_without_mix_coefficients_uses_direct_mono_extraction(t
     assert os.path.isfile(mono_path)
 
 
+@pytest.mark.requires_ffmpeg
 def test_library_rechecks_channel_count_when_source_changes_from_mono_to_multichannel(tmp_path, monkeypatch):
     from pipeline.library.run import LibraryRunConfig, run_library
     source_path = str(tmp_path / 'source.wav')
@@ -358,6 +371,7 @@ def test_library_rechecks_channel_count_when_source_changes_from_mono_to_multich
         assert kept.getnchannels() == 6
 
 
+@pytest.mark.requires_ffmpeg
 def test_extract_with_layout_is_behaviourally_identical_to_extract(tmp_path):
     source = str(tmp_path / 'source.wav')
     _write_synthetic_wav(source, channel_values=(1000, 2000, 3000, 4000, 5000, 6000))
@@ -392,6 +406,7 @@ def test_pipeline_library_extract_cache_module_has_no_qtpy_import():
             assert node.module is None or not node.module.startswith('qtpy')
 
 
+@pytest.mark.requires_ffmpeg
 def test_extract_if_needed_records_the_source_channel_count_from_either_extraction(tmp_path):
     source = str(tmp_path / 'source.wav')
     _write_synthetic_wav(source, channel_values=(1000, 2000, 3000, 4000, 5000, 6000))
@@ -411,6 +426,7 @@ def test_read_source_channel_count_is_none_when_never_recorded(tmp_path):
     assert read_source_channel_count(str(tmp_path / 'missing')) is None
 
 
+@pytest.mark.requires_ffmpeg
 def test_a_mono_source_extracts_in_both_modes_and_records_one_channel(tmp_path):
     source = str(tmp_path / 'mono_source.wav')
     _write_synthetic_wav(source, channel_values=(1000,))
@@ -429,6 +445,7 @@ def test_a_mono_source_extracts_in_both_modes_and_records_one_channel(tmp_path):
 
 # --- extract_status(): the pure half of extract_if_needed() (design.md §12.5) --------------------------------------
 
+@pytest.mark.requires_ffmpeg
 def test_extract_status_agrees_with_extract_if_needed_through_every_state(tmp_path):
     from pipeline.library.extract_cache import extract_status
     source = str(tmp_path / 'source.wav')
@@ -453,6 +470,7 @@ def test_extract_status_agrees_with_extract_if_needed_through_every_state(tmp_pa
     check('none', item=_mono_item(source, fingerprint='fp2'), config=AnalysisConfig(target_fs=500))  # the wav is gone
 
 
+@pytest.mark.requires_ffmpeg
 def test_extract_status_changes_nothing_and_an_unknown_fingerprint_is_not_compared(tmp_path):
     from pipeline.library.extract_cache import extract_status
     source = str(tmp_path / 'source.wav')

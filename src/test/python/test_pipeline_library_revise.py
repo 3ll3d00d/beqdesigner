@@ -321,6 +321,7 @@ def test_invalidating_an_extract_forgets_the_audio_but_keeps_what_describes_the_
     assert invalidate_extract(str(tmp_path / 'never-extracted')) is False
 
 
+@pytest.mark.requires_ffmpeg
 def test_an_invalidated_extract_runs_ffmpeg_again_even_though_nothing_changed(tmp_path):
     from test_pipeline_library_extract_cache import _mono_item, _write_synthetic_wav
     source = str(tmp_path / 'source.wav')

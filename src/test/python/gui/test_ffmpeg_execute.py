@@ -12,6 +12,7 @@ import os
 import wave
 
 import numpy as np
+import pytest
 
 from model.ffmpeg import SIGNAL_COMPLETE, SIGNAL_CONNECTED, SIGNAL_ERROR, Executor
 
@@ -27,6 +28,7 @@ def _write_synthetic_5_1_wav(path, fs=48000, duration_s=1.0, channel_values=(100
         w.writeframes(data)
 
 
+@pytest.mark.requires_ffmpeg
 def test_execute_runs_ffmpeg_on_a_background_thread_and_reports_completion(qtbot, tmp_path):
     source = str(tmp_path / 'synthetic_5_1.wav')
     _write_synthetic_5_1_wav(source)

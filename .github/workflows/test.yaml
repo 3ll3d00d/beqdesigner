@@ -32,6 +32,7 @@ jobs:
   pipeline_image:
     name: Build and smoke pipeline image
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - name: Build image
@@ -40,7 +41,7 @@ jobs:
         run: python3 docker/smoke.py beqdesigner-pipeline:smoke
   build:
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 45   # a hung test must not hold a runner for hours
+    timeout-minutes: 30   # a hung test must not hold a runner for hours (GitHub's default is 6)
     strategy:
       fail-fast: false
       matrix:
@@ -62,8 +63,16 @@ jobs:
           if [[ "$RUNNER_OS" == "Linux" ]]
           then
             sudo apt install -y libegl1 libpulse0 ffmpeg
+          elif [[ "$RUNNER_OS" == "Windows" ]]
+          then
+            choco install ffmpeg -y --no-progress
+          elif [[ "$RUNNER_OS" == "macOS" ]]
+          then
+            brew install ffmpeg
           fi
+          ffmpeg -version | head -1   # the requires_ffmpeg tests skip, silently, without it
       - name: pytest
+        timeout-minutes: 20
         env:
           QT_QPA_PLATFORM: offscreen
         run: |

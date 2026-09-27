@@ -9,6 +9,20 @@ import pytest
 os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 
 
+def pytest_configure(config):
+    config.addinivalue_line('markers', 'requires_ffmpeg: runs the real ffmpeg/ffprobe; skipped where they are not on the PATH')
+
+
+def pytest_collection_modifyitems(config, items):
+    ''' ffmpeg is optional (AGENTS.md): without it these tests skip, rather than fail or wait on an "ffmpeg not found" box. '''
+    if shutil.which('ffmpeg') and shutil.which('ffprobe'):
+        return
+    skip = pytest.mark.skip(reason='ffmpeg and ffprobe are not on the PATH')
+    for item in items:
+        if 'requires_ffmpeg' in item.keywords:
+            item.add_marker(skip)
+
+
 @pytest.fixture(scope="session", autouse=True)
 def logger():
     logger = logging.getLogger()

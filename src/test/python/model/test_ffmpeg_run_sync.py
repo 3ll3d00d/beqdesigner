@@ -45,6 +45,7 @@ def synthetic_5_1_wav(tmp_path):
     return path
 
 
+@pytest.mark.requires_ffmpeg
 def test_run_sync_extracts_mono_decimated_headlessly(synthetic_5_1_wav, tmp_path):
     '''
     No QApplication anywhere in this test -- run_sync() must not need one.

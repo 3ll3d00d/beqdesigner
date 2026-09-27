@@ -88,6 +88,7 @@ def _init_repo_with_remote(tmp_path, subdir):
     return RepoTarget(local_path=str(work)), bare
 
 
+@pytest.mark.requires_ffmpeg
 def test_design_declines_produces_a_first_class_declined_outcome(tmp_path):
     '''
     §15.4: a decline is a value, not an exception -- and nothing downstream
@@ -108,6 +109,7 @@ def test_design_declines_produces_a_first_class_declined_outcome(tmp_path):
     assert sig.filter is None or len(list(sig.filter)) == 0
 
 
+@pytest.mark.requires_ffmpeg
 def test_ready_player_one_end_to_end(tmp_path):
     session = Session(AnalysisConfig())
 
@@ -189,6 +191,7 @@ def test_ready_player_one_end_to_end(tmp_path):
     assert json.loads(xml_on_remote) == result['record']
 
 
+@pytest.mark.requires_ffmpeg
 def test_session_headless_run_constructs_no_qapplication():
     '''
     Deliberately a subprocess test (see test_pipeline_qt_boundary.py's

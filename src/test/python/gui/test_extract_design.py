@@ -134,6 +134,7 @@ def test_designer_combo_lists_registered_designers(dialog):
     assert DESIGNER_NAME in names
 
 
+@pytest.mark.requires_ffmpeg
 def test_extract_with_design_enabled_writes_a_pending_queue_entry(qtbot, dialog, tmp_path):
     source = str(tmp_path / 'in' / 'ready-player-one.wav')
     os.makedirs(os.path.dirname(source), exist_ok=True)
@@ -160,6 +161,7 @@ def test_extract_with_design_enabled_writes_a_pending_queue_entry(qtbot, dialog,
     assert entries[0].candidates[0].confidence == 0.9
 
 
+@pytest.mark.requires_ffmpeg
 def test_extract_with_design_disabled_does_not_design(qtbot, dialog, tmp_path):
     source = str(tmp_path / 'in' / 'ready-player-two.wav')
     os.makedirs(os.path.dirname(source), exist_ok=True)

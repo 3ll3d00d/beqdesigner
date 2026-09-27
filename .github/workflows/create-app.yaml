@@ -10,6 +10,7 @@ jobs:
   create_release:
     name: Create Release
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
     steps:
@@ -32,6 +33,7 @@ jobs:
     name: Create Binaries
     needs: create_release
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
       matrix:
         os: [ ubuntu-22.04, ubuntu-24.04, ubuntu-26.04, macos-15, macos-26, windows-2022, windows-2025 ]
