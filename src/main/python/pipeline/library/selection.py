@@ -172,11 +172,13 @@ def _upto(stages: Iterable[str], through: str) -> Tuple[str, ...]:
     return tuple(s for s in stages if THROUGH.index(s) <= limit)
 
 
-def plan_stages(rows: Iterable[TitleRow], through: str, *, retry_failed: bool = False) -> StagePlan:
+def plan_stages(rows: Iterable[TitleRow], through: str, *, retry_failed: bool = False,
+                unattended: bool = False) -> StagePlan:
     '''
     What "run through `through`" does to each title, by what it needs next (design.md §12.7):
 
-    - **needs extract** -- extract, and design too if `through` reaches it (the user never picks prerequisites);
+    - **needs extract** -- extract, and design too if `through` reaches it (the user never picks prerequisites); a title
+      whose extraction failed is tried again, unless the run is `unattended` (the scheduler's) and not `retry_failed`;
     - **needs design** -- design;
     - **needs publish** -- publish (a first publish, or a republish of a published title that is out of date), only
       when `through` is publish or commit;
@@ -195,7 +197,10 @@ def plan_stages(rows: Iterable[TitleRow], through: str, *, retry_failed: bool = 
         stages: Tuple[str, ...] = ()
         reason = ''
         if row.needs == 'extract':
-            stages = _upto(('extract', 'design'), through)
+            if row.extract_state == 'failed' and unattended and not retry_failed:
+                reason = f'{row.detail} -- unchanged since; a run you start tries it again'
+            else:
+                stages = _upto(('extract', 'design'), through)
         elif row.needs == 'design':
             stages = _upto(('design',), through)
             reason = 'already extracted'

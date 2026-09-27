@@ -15,7 +15,9 @@ Stage states (strings, so they go into the index unchanged):
     publish  none | not_written | written | out_of_date
     commit   none | uncommitted | committed | pushed | unknown  (committed means committed but not pushed)
 
-`failed` is a *remembered* failure that still applies: the source and settings it failed against are unchanged.
+`failed` is a *remembered* failure that still applies: the source and settings it failed against are unchanged. A failed
+extraction of a title still in play needs `extract` (a run a person starts tries it again); any other failure needs
+`attention`.
 '''
 from dataclasses import dataclass
 from typing import Optional, Tuple
@@ -92,6 +94,13 @@ def derive_needs(s: StageStates) -> Needs:
     if s.gone:
         return _needs('done', 'gone from source')
 
+    in_play = s.review in ('none', 'pending')
+
+    # a failed extraction of a title still in play is still extraction work: a run a person starts tries it again (an
+    # unattended one does not, until the source or the settings change: selection.plan_stages())
+    if s.extract == 'failed' and in_play:
+        return _needs('extract', f'extract failed: {s.failure}' if s.failure else 'extract failed')
+
     # attention: something a person must look at, because the machine cannot get past it
     for stage in ('extract', 'design'):
         if getattr(s, stage) == 'failed':
@@ -101,8 +110,6 @@ def derive_needs(s: StageStates) -> Needs:
     if s.source_changed and s.review == 'accepted':
         return _needs('attention', 'source changed since accepted' if s.publish in ('none', 'not_written')
                       else 'source changed since published')
-
-    in_play = s.review in ('none', 'pending')
 
     # human
     problems = '; '.join(s.metadata_problems)

@@ -24,7 +24,7 @@ The label says what will happen. In the picture, nothing is selected in the *New
 | waiting for review | designed already; it is your turn |
 | already accepted | needs *Publish*, not design |
 | already published | needs *Commit* |
-| failed before | its extraction or design failed and nothing has changed; use [Retry failed](#failures-and-retry-failed) |
+| failed before | its design failed and nothing has changed; use [Retry failed](#failures-and-retry-failed) |
 | needs attention | something other than a failed run: for example the [projects disagree](review.md#projects), or the source file changed |
 | already done | there is nothing left to do |
 
@@ -59,9 +59,11 @@ When the run ends, the list is read again and the results are listed.
 
 ### Failures and Retry failed
 
-If extraction or design fails for a title (the file was not found because of a wrong [path mapping](../ui/preferences.md#jriver), the designer was unreachable), the run carries on with the others and the failed title becomes **Attention**. A **Failures (N)** tab appears under the list with the title, source, stage and the reason.
+If extraction or design fails for a title (the file was not found because of a wrong [path mapping](../ui/preferences.md#jriver), the designer was unreachable), the run carries on with the others. A **Failures (N)** tab appears under the list with the title, source, stage and the reason.
 
-A failed title is **not tried again** until its source file or the settings change. A transient problem, such as a NAS being offline or the designer being down, therefore stays failed until you say so. Once you have fixed it, press **Retry N failed**, which runs the titles in the panel again even though nothing changed. Select rows in the panel first and the button reads *Retry N selected*.
+A title whose **extraction** failed stays under **Extract**, with the reason in its detail, and the next **Extract & design** you press tries it again. (The service's [schedule](service.md) and a command-line `run --unattended` leave it alone until its source file or the settings change, so a nightly job does not repeat the failure.) *Revise...* is not offered for it: there is nothing to send back.
+
+A title whose **design** failed becomes **Attention** and is **not tried again** until its source file or the settings change. A transient problem, such as the designer being down, therefore stays failed until you say so. Once you have fixed it, press **Retry N failed**, which runs the titles in the panel again even though nothing changed. Select rows in the panel first and the button reads *Retry N selected*.
 
 Note that the panel lists every failed title in the library, not just those in the current view, so retrying all of them asks for confirmation (*Retry N failed titles?*).
 

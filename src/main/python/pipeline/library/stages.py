@@ -13,7 +13,7 @@ is published, and only a published one committed. `plan_stages()` (selection.py)
 
 The titles come from the discovery index, which also remembers what each one was listed as, so nothing here lists a
 source again. A title that failed before against the same source and settings is not tried again unless
-`retry_failed`. Cancel is cooperative and checked **between titles** (and between entries while publishing): the title
+`retry_failed` -- except a failed extraction, which a run a person starts (not `unattended`) tries again. Cancel is cooperative and checked **between titles** (and between entries while publishing): the title
 in hand finishes, so a cancelled run leaves only whole titles done, and its report says what was and was not.
 '''
 import logging
@@ -155,7 +155,7 @@ def _merge_run_report(target: LibraryRunReport, source: LibraryRunReport, *, inc
 
 def run_stages(profile: Profile, selection: Selection, through: str, *, run_config: LibraryRunConfig,
                index: LibraryIndex, publish: Optional[PublishSettings] = None,
-               settings: Optional[ScanSettings] = None, retry_failed: bool = False,
+               settings: Optional[ScanSettings] = None, retry_failed: bool = False, unattended: bool = False,
                should_cancel: Optional[Callable[[], bool]] = None,
                on_progress: Optional[Callable[[Progress], None]] = None,
                on_event: Optional[Callable[[object], None]] = None, refresh: bool = True) -> StagesReport:
@@ -173,6 +173,8 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
         what `run` and `publish` are given, as for a scan.
     :param retry_failed: also run titles whose remembered failure still applies (the index keeps it until the source or
         the settings change); their failures are forgotten as they succeed.
+    :param unattended: a run nobody started by hand (the service's schedule): a failed extraction is not tried again until
+        its source or the settings change. A run a person starts tries it again.
     :param should_cancel: polled between titles; True stops before the next one. Titles already done stay done.
     :param on_progress: called from the running thread with a Progress as each title-stage starts, and once at the end.
     :param on_event: structured execution events, including external process commands and responses.
@@ -180,7 +182,7 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
         listed), so `needs` is current when this returns -- also after a cancel or a failure.
     :raises ValueError: for an unknown `through`, or publish/commit without `publish` settings.
     '''
-    plan = plan_stages(selection.rows(index), through, retry_failed=retry_failed)
+    plan = plan_stages(selection.rows(index), through, retry_failed=retry_failed, unattended=unattended)
     if through in ('publish', 'commit') and publish is None and (plan.with_stage('publish') or plan.with_stage('commit')):
         raise ValueError('xml-repo is required to publish or commit')
     report = StagesReport(through, len(plan.planned) + len(plan.skipped), skipped=list(plan.skipped))
@@ -271,8 +273,10 @@ def run_stages(profile: Profile, selection: Selection, through: str, *, run_conf
                 extract_progress = report_extract_progress
 
             with event_scope(title_id=title_id, stage='extract'):
+                # plan_stages() planned a failed extraction only to try it again
+                retry = retry_failed or planned.row.extract_state == 'failed'
                 work = run_unit(Session(run_config.config), unit, run_config, local, index,
-                                retry_failed=retry_failed, through='extract',
+                                retry_failed=retry, through='extract',
                                 on_stage=lambda progress_id, stage: emit(
                                     stage, progress_id, titles.get(progress_id, progress_id)),
                                 on_extract_progress=extract_progress)

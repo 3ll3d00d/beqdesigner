@@ -9,7 +9,7 @@ once built, its lasting behavior moves into [`implemented.md`](implemented.md).
 | F1 | A *Working* chip for titles being extracted or designed | Not started |
 | F2 | Write the `.beq` projects when a title is extracted | Not started |
 | F3 | A decline is a flat (empty) filter a person can publish as "does not require BEQ" | Not started |
-| F4 | A failed extraction stays extractable; Revise is not offered for it | Not started |
+| F4 | A failed extraction stays extractable; Revise is not offered for it | Built (this commit's parent: see `git log --grep F4`) |
 | F5 | New work joins the run in progress (work list, CLI and service) | Not started |
 
 Decisions taken with the user on 2026-09-27: the CLI hands its titles to a run

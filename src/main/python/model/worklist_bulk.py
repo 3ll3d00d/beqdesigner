@@ -72,6 +72,14 @@ def _title(rows: Dict[str, TitleRow], title_id: str) -> str:
     return (row.title or row.display_name or title_id) if row is not None else title_id
 
 
+def has_something_to_revise(row: TitleRow) -> bool:
+    '''
+    Whether Revise can send this title back: it has a queue entry, or an extraction to design again. A title never
+    extracted, or whose extraction failed, has nothing to revise: running it (the action button) is what it needs.
+    '''
+    return row.review_state != 'none' or row.extract_state in ('current', 'stale')
+
+
 class WorkListBulk:
     '''
     The mixin: it uses `_setup`, `_index`, `_model`, `_preferences`, `_busy()`, `_say()`, `_refresh_actions()`,
@@ -129,10 +137,12 @@ class WorkListBulk:
             f'({len(waiting):,} waiting in {"the selection" if self.selected_ids() else "the view"}). You are shown what '
             f'will happen, and which titles are left out and why, before anything is accepted. The threshold is in Settings.')
         selected = self.selected_ids()
+        revisable = any(has_something_to_revise(rows[i]) for i in selected if i in rows)
         self.reviseButton.setText(f'Revise ({len(selected):,})...' if selected else 'Revise...')
-        self.reviseButton.setEnabled(ready and bool(selected))
+        self.reviseButton.setEnabled(ready and revisable)
         self.reviseButton.setToolTip('Send the selected titles back: reopen them for review, redesign them or extract them '
-                                     'again. Select the titles first; it is not offered for everything listed.')
+                                     'again. Select the titles first; it is not offered for everything listed, nor for '
+                                     'titles with nothing to send back (never extracted, or their extraction failed).')
         self.driftBannerButton.setEnabled(ready)
         self.driftDismissButton.setEnabled(True)
 

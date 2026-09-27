@@ -80,6 +80,10 @@ def test_a_run_scans_first_then_runs_the_stages_on_the_selection(manager, monkey
     assert seen['titles'] == 2                        # the scan came first
     assert seen['selection'] == Selection(needs=('extract',), year='>=2000') and seen['through'] == 'extract'
     assert seen['retry_failed'] is True and seen['publish'] is None and seen['should_cancel']() is False
+    assert seen['unattended'] is False    # an API run is a person's: a failed extraction is tried again
+
+    _done(manager, RunRequest(scan_first=False, unattended=True))   # the schedule's
+    assert seen['unattended'] is True
     assert seen['run_config'].designer == 'rolloff' and seen['run_config'].extract_parallelism == 2
 
 
@@ -98,7 +102,8 @@ def test_the_service_runs_what_the_command_line_runs_for_the_same_profile(manage
 
     def capture(profile_, selection, through, **kwargs):
         calls.append(dict(profile=profile_, selection=selection, through=through, run_config=kwargs['run_config'],
-                          settings=kwargs['settings'], publish=kwargs['publish'], retry_failed=kwargs['retry_failed']))
+                          settings=kwargs['settings'], publish=kwargs['publish'], retry_failed=kwargs['retry_failed'],
+                          unattended=kwargs['unattended']))
         return StagesReport(through, 0)
     monkeypatch.setattr(cli, 'run_stages', capture)
     monkeypatch.setattr(work, 'run_stages', capture)

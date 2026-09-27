@@ -336,6 +336,7 @@ every stage up to `--through` that each still needs:
 --kind {movie,tv}     --year EXPR                               EXPR: 2026, <1960, <=1960, >1999, >=1999, 1990-1999
 --through {extract,design,publish,commit}                       how far to go (default design)
 --retry-failed                                                   also try titles that failed before
+--unattended                                                     a scheduled run: leave failed extractions alone
 ```
 
 The same vocabulary is what the work list's strip chips (**Attention, New, Extract, Design, Review, Publish, Commit,
@@ -353,8 +354,10 @@ library to read. `--kind` and `--year` have no chip in the app; `--year` takes a
   is a person's.
 - A title that needs something the chosen `--through` does not reach, or cannot be helped by a run (waiting for review, a
   project conflict, a source changed since it was accepted, done), is **skipped and reported with the reason**.
-- A failed title is remembered against its source and the settings and skipped until either changes, or
-  `--retry-failed`. A TV episode that fails inside a season is remembered the same way.
+- A failed title is remembered against its source and the settings. A failed **design** needs attention and is skipped
+  until either changes, or `--retry-failed`. A failed **extraction** stays *extract* work: a selector run tries it again,
+  unless `--unattended` (for a scheduled job, and what the service's schedule does), which skips it until something
+  changes or `--retry-failed`. A TV episode that fails inside a season is remembered the same way.
 - Work is done one title at a time, so a cancelled run (from Python: `run_stages(..., should_cancel=)`) leaves only
   whole titles done; the report says what was `attempted` and what was `not_run`. The index is refreshed at the end.
 

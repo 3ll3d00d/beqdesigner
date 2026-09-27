@@ -28,7 +28,7 @@ Things to check:
 
 * The command line does not read Preferences, so **declare the designer in the profile**: add a `designers:` section (`designers: {rolloff: http://designer.local:8080/design}`) and choose that name as the designer. The window reads that section too, so the same profile works in both.
 * A JRiver source in the profile carries its own server login (see [the profile file](setup.md#the-profile-file)), so it works from cron too.
-* A title whose extraction or design **failed** is not tried again by a nightly job until its source or the settings change, so a failure does not repeat every night. `run` prints *warning: N titles skipped: failed earlier ... use --retry-failed* on stderr when that happens (the exit status is unchanged), and `--retry-failed` tries them again. This is the same as the work list's *Retry failed*.
+* A title whose extraction or design **failed** is not tried again by a nightly job until its source or the settings change, so a failure does not repeat every night. With a selector (`--needs`, `--through`, ...), give `--unattended`: a run a person starts tries a failed extraction again, an unattended one does not. `run` prints *warning: N titles skipped: failed earlier ... use --retry-failed* on stderr when that happens (the exit status is unchanged), and `--retry-failed` tries them again. This is the same as the work list's *Retry failed*.
 * **Do not run the command line and the work list against the same work directory at the same time.** They share the index and the review entries.
 * `scan` exits with status 1 if a source could not be listed, and `run` with 1 if anything failed, so a wrapper can tell.
 

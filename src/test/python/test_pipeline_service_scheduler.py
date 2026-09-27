@@ -40,6 +40,7 @@ def test_tick_forces_needs_and_waits_from_finish(tmp_path):
         job = calls[0]
         assert job.origin == 'schedule' and job.request.through == 'extract' and job.request.scan_first
         assert job.request.selection.needs == ('extract', 'design')
+        assert job.request.unattended   # worklist-feedback.md F4: a failed extraction is not repeated every tick
         assert not job.request.selection.new_since_scan and job.request.selection.kind == 'movie'
         now[0] = 1700
         scheduler.tick()

@@ -84,7 +84,7 @@ class AutoScheduler:
         data.update(needs=['extract', 'design'], new_since_scan=False)
         selection = TitleFilter.model_validate(data).to_selection()
         return RunRequest(selection, self.settings.through.value, scan_first=True,
-                          retry_failed=self.settings.retry_failed)
+                          retry_failed=self.settings.retry_failed, unattended=True)
 
     def trigger(self):
         '''Submit one scheduled run now, or return None if another job is active or queued.'''

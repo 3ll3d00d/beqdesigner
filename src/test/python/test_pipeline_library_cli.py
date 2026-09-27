@@ -644,7 +644,7 @@ def test_run_leaves_a_failure_for_status_to_report(tmp_path, capsys, monkeypatch
     capsys.readouterr()
 
     assert cli.main(['--config', str(config), 'scan']) == 0
-    assert json.loads(capsys.readouterr().out)['counts']['attention'] == 1
+    assert json.loads(capsys.readouterr().out)['counts']['extract'] == 1   # a failed extraction is still to extract
 
 
 # --- selectors, --through, --retry-failed, publish --republish, accept (chunk 25) -------------------------------------
@@ -862,7 +862,7 @@ def test_the_whole_workflow_runs_headless_scan_design_accept_publish_commit(work
     assert final['counts']['done'] == 2 and final['counts']['review'] == 1  # the unconfident title still waits
 
 
-def test_a_failed_title_is_reported_once_then_skipped_until_retry_failed(workflow, capsys, monkeypatch):
+def test_a_failed_extraction_is_tried_again_by_a_person_and_left_by_an_unattended_run(workflow, capsys, monkeypatch):
     profile = ['--profile', str(workflow.config)]
 
     def broken(session, item, *args, **kwargs):
@@ -871,13 +871,16 @@ def test_a_failed_title_is_reported_once_then_skipped_until_retry_failed(workflo
     monkeypatch.setattr('pipeline.library.run.extract_if_needed', broken)
 
     code, first = _cli(capsys, 'run', *profile, '--through', 'design')
-    assert code == 1 and len(first['run']['failed']) == 3 and first['counts']['attention'] == 3
+    assert code == 1 and len(first['run']['failed']) == 3 and first['counts']['extract'] == 3
 
-    code, second = _cli(capsys, 'run', *profile, '--through', 'design')  # the nightly job does not fail again
-    assert code == 0 and second['run']['failed'] == [] and 'retry failed' in second['skipped'][0]['reason']
+    code, nightly = _cli(capsys, 'run', *profile, '--through', 'design', '--unattended')  # does not fail again
+    assert code == 0 and nightly['run']['failed'] == [] and 'a run you start' in nightly['skipped'][0]['reason']
 
-    code, third = _cli(capsys, 'run', *profile, '--through', 'design', '--retry-failed')
-    assert code == 1 and len(third['run']['failed']) == 3
+    code, again = _cli(capsys, 'run', *profile, '--through', 'design')   # a person's run tries them again
+    assert code == 1 and len(again['run']['failed']) == 3
+
+    code, asked = _cli(capsys, 'run', *profile, '--through', 'design', '--unattended', '--retry-failed')
+    assert code == 1 and len(asked['run']['failed']) == 3
 
 
 # --- review fixes (chunk 23/24 review) -------------------------------------------------------------------------------------

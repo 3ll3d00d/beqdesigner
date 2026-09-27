@@ -167,7 +167,11 @@ restart; older ID-named folders remain usable as cached extractions.
 `pipeline/library/stages.py` runs selected titles through extract and design
 with separate bounded capacities and cooperative cancellation. A run can
 continue from a chosen stage, retry failures, and preserve per-title failure
-memory. The CLI exposes scan, status, run, revise, accept, publish, commit,
+memory. A failed extraction of a title still in play stays `extract` work:
+a run a person starts tries it again, an unattended one (the service's
+schedule, `run --unattended`) skips it until the source or settings change,
+and Revise is not offered for it. A failed design needs attention and is
+retried only on request (worklist-feedback F4). The CLI exposes scan, status, run, revise, accept, publish, commit,
 and sync. Publish writes accepted output into repository working trees;
 Commit commits and pushes the named published files separately. Revision
 reopens a title or invalidates extraction/design as requested, while an edited

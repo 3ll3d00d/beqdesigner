@@ -403,7 +403,8 @@ def test_cancel_while_a_dispatched_title_waits_for_design_finishes_dispatched_ti
 
 # --- failures and retry --------------------------------------------------------------------------------------------
 
-def test_a_failed_title_is_not_retried_until_asked_or_until_its_source_changes(env, work, caplog):
+def test_a_failed_extraction_is_tried_again_by_a_run_a_person_starts_but_not_by_an_unattended_one(env, work, caplog):
+    ''' worklist-feedback.md F4: it stays under Extract; only the schedule's runs leave it until something changes. '''
     item = _item('a')
     _scan(env, item)
     work.fail[('extract', 'fs-a')] = RuntimeError('ffmpeg exploded')
@@ -411,19 +412,22 @@ def test_a_failed_title_is_not_retried_until_asked_or_until_its_source_changes(e
     events = []
     first = _go(env, Selection(), 'design', on_event=events.append)
     assert first.run.failed == [('fs-a', 'RuntimeError: ffmpeg exploded')] and first.failed
-    assert _needs(env, 'fs-a')[0] == 'attention'
+    assert _needs(env, 'fs-a') == ('extract', 'extract failed: RuntimeError: ffmpeg exploded')
     assert any(e.title_id == 'fs-a' and e.stage == 'extract' and e.kind == 'failed' and
                e.message == 'RuntimeError: ffmpeg exploded' for e in events)
     assert any(r.name == 'library_run' and r.exc_info and 'Library extraction failed for Film a' in r.getMessage()
                for r in caplog.records)
 
     work.calls.clear()
-    again = _go(env, Selection(), 'design')  # the same source and settings: not tried again
-    assert work.calls == [] and not again.run.failed
-    assert 'retry failed' in again.skipped[0].reason and 'ffmpeg exploded' in again.skipped[0].reason
+    unattended = _go(env, Selection(), 'design', unattended=True)   # the same source and settings: left alone
+    assert work.calls == [] and not unattended.run.failed
+    assert 'ffmpeg exploded' in unattended.skipped[0].reason and 'a run you start' in unattended.skipped[0].reason
+
+    again = _go(env, Selection(needs=('extract',)), 'design')      # a person's run tries it again
+    assert work.calls and again.run.failed == [('fs-a', 'RuntimeError: ffmpeg exploded')]
 
     work.fail.clear()
-    retry = _go(env, Selection(), 'design', retry_failed=True)
+    retry = _go(env, Selection(), 'design', unattended=True, retry_failed=True)   # asked: the schedule tries it too
     assert retry.run.designed == ['fs-a'] and _needs(env, 'fs-a')[0] == 'review'
     assert env.index.failures() == {}
 

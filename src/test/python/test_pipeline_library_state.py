@@ -29,9 +29,16 @@ def test_every_needs_value_has_a_tier_and_the_vocabularies_are_the_documented_on
 
 # --- attention -----------------------------------------------------------------------------------------------------
 
-def test_a_failed_extract_needs_attention_with_the_reason():
+def test_a_failed_extract_is_still_extraction_work_with_the_reason():
+    ''' worklist-feedback.md F4: it stays under Extract, where the action button tries it again. '''
     assert _needs(extract='failed', failure='ValueError: no such file') == \
-           ('attention', 'extract failed: ValueError: no such file')
+           ('extract', 'extract failed: ValueError: no such file')
+    assert _needs(extract='failed', review='pending', design='current', failure='x') == ('extract', 'extract failed: x')
+
+
+def test_a_failed_extract_of_a_decided_title_needs_attention():
+    assert _needs(extract='failed', review='accepted', design='protected', failure='x') == \
+           ('attention', 'extract failed: x')
 
 
 def test_a_failed_design_needs_attention_with_the_reason():
@@ -52,7 +59,7 @@ def test_a_source_changed_since_accepted_needs_attention_whether_or_not_it_was_p
 
 
 def test_attention_beats_every_row_below_it():
-    assert _needs(extract='failed', review='pending', design='current')[0] == 'attention'
+    assert _needs(extract='current', design='failed', review='pending')[0] == 'attention'
 
 
 # --- human -----------------------------------------------------------------------------------------------------------

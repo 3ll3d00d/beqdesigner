@@ -1434,12 +1434,16 @@ def test_the_real_pipeline_runs_off_the_ui_thread_and_a_title_that_fails_is_reme
 
     assert [i for i, _ in run.args[0].run.failed] == ['fs-missing']
     assert [f.id for f in window.failed] == ['fs-missing']       # the pipeline recorded it; the window read it back
-    assert window.chip_counts()['Attention'] == 1 and window.chip_counts()['Extract'] == 0
+    # worklist-feedback.md F4: it stays under Extract, the action button tries it again, and there is nothing to revise
+    assert window.chip_counts()['Attention'] == 0 and window.chip_counts()['Extract'] == 1
     assert window.results[0].outcome == 'Failed'
-    # it is not tried again unasked ...
-    assert window.plan_for('design').planned == []
-    assert '1 failed before' in window.skippedLabel.text()
-    # ... but Retry failed does, and the failure is remembered against the same title again
+    window.select_ids(['fs-missing'])
+    assert [p.row.id for p in window.plan_for('design').planned] == ['fs-missing']
+    assert _run_button_text(window) == 'Extract & design 1' and not window.reviseButton.isEnabled()
+    with qtbot.waitSignal(window.run_finished, timeout=60000) as rerun:
+        window.run_selected()
+    assert [i for i, _ in rerun.args[0].run.failed] == ['fs-missing']
+    # Retry failed still does too, and the failure is remembered against the same title again
     with qtbot.waitSignal(window.run_finished, timeout=60000) as again:
         window.retry_failed()
     assert [i for i, _ in again.args[0].run.failed] == ['fs-missing']

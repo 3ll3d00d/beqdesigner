@@ -410,18 +410,18 @@ def test_a_skipped_or_rejected_title_is_done(env, status):
     assert _needs(env, 'fs-a') == ('done', status)
 
 
-def test_a_remembered_failure_needs_attention_until_the_source_or_settings_change(env):
+def test_a_remembered_extract_failure_is_remembered_until_the_source_or_settings_change(env):
     item = _item('a')
     key = failure_key('extract', item, config=CONFIG, designer=DESIGNER, coverage='complete_programme',
                       keep_multichannel=False)
     env.index.record_failure('fs-a', 'extract', 'ValueError: file not found (path mapping?)', 'fp-a-1', key)
 
     _scan(env, item)
-    assert _needs(env, 'fs-a') == ('attention', 'extract failed: ValueError: file not found (path mapping?)')
+    assert _needs(env, 'fs-a') == ('extract', 'extract failed: ValueError: file not found (path mapping?)')
     assert _row(env, 'fs-a').extract_state == 'failed' and _row(env, 'fs-a').failure
 
-    _scan(env, item)  # nothing changed: still failed, not retried
-    assert _row(env, 'fs-a').needs == 'attention'
+    _scan(env, item)  # nothing changed: still failed (a scan never retries)
+    assert _row(env, 'fs-a').extract_state == 'failed'
 
     _scan(env, _item('a', fingerprint='fp-a-2'))  # the source changed: the failure no longer applies
     assert _needs(env, 'fs-a') == ('extract', 'new')
@@ -774,7 +774,7 @@ def test_the_work_list_is_ordered_by_tier_then_oldest_first(env):
     _scan(env, review, extract, done, failing, now=200.0)  # extract moves to design at 200
 
     assert [(r.id, r.tier) for r in env.index.titles()] == [
-        ('fs-bad', 'attention'), ('fs-review', 'human'), ('fs-extract', 'machine'), ('fs-done', 'done')]
+        ('fs-review', 'human'), ('fs-bad', 'machine'), ('fs-extract', 'machine'), ('fs-done', 'done')]
 
 
 def test_queries_filter_by_needs_source_text_ids_and_done(env):
@@ -1004,7 +1004,7 @@ def test_run_library_remembers_a_failure_against_the_source_and_settings_and_for
     assert memory.key == failure_key('extract', item, config=CONFIG, designer=DESIGNER,
                                      coverage='complete_programme', keep_multichannel=False)
     _scan(env, item)
-    assert _needs(env, 'fs-a') == ('attention', "extract failed: FileNotFoundError: W:\\films\\a.mkv")
+    assert _needs(env, 'fs-a') == ('extract', "extract failed: FileNotFoundError: W:\\films\\a.mkv")
 
     monkeypatch.setattr('pipeline.library.run.extract_if_needed', lambda *a, **k: ('/w/mono.wav', True))
     monkeypatch.setattr('pipeline.library.run.design_if_needed',
@@ -1066,7 +1066,7 @@ def test_a_season_failure_is_remembered_against_the_season(env, monkeypatch):
     assert memory.stage == 'extract' and memory.fingerprint == unit_fingerprint(group)
     _scan(env, *episodes, settings=ScanSettings(work_dir=env.work, queue_dir=env.queue, designer=DESIGNER,
                                                 tv_mode='season'))
-    assert _needs(env, group.item.id)[0] == 'attention'
+    assert _needs(env, group.item.id) == ('extract', 'extract failed: ValueError: none of the 2 episodes could be extracted')
 
 
 # --- performance ---------------------------------------------------------------------------------------------------------------

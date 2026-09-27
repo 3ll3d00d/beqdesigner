@@ -60,7 +60,7 @@ def run(context: JobContext, request: RunRequest, control: JobControl) -> RunOut
             scanned = index.scan(context.profile, settings)
         report = run_stages(context.profile, request.selection, request.through, run_config=run_config, index=index,
                             publish=publish, settings=settings, retry_failed=request.retry_failed,
-                            should_cancel=control.cancelled, on_progress=control.progress, on_event=control.event)
+                            unattended=request.unattended, should_cancel=control.cancelled, on_progress=control.progress, on_event=control.event)
     return RunOutcome(scanned, report)
 
 

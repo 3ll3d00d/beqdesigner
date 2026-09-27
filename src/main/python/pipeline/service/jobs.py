@@ -52,6 +52,7 @@ class RunRequest:
     through: str = 'design'
     scan_first: bool = True      # list the sources before selecting, so new titles are seen
     retry_failed: bool = False
+    unattended: bool = False     # the schedule's: a failed extraction is not tried again until its source or settings change
 
     def __post_init__(self):
         if self.through not in THROUGH:

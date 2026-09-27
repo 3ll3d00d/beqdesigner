@@ -30,7 +30,7 @@ You do not normally think about states. The work list turns them into a single a
 
 | Tier | Needs | Meaning |
 |---|---|---|
-| attention | **Attention** | something went wrong that the machine cannot get past: extraction or design failed, the [mono and multichannel projects disagree](review.md#projects), or the source file changed after you accepted or published the title |
+| attention | **Attention** | something went wrong that the machine cannot get past: design failed (a failed extraction stays under *Extract*, to be tried again), the [mono and multichannel projects disagree](review.md#projects), or the source file changed after you accepted or published the title |
 | human | **Review** | designed, and waiting for you (this includes a title the designer declined, and an accepted title whose metadata is incomplete) |
 | machine | **Extract** | the audio has to be extracted (new, or the source or settings changed) |
 | machine | **Design** | extracted, and a filter has to be designed |

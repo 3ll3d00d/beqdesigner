@@ -138,7 +138,8 @@ def _run_stages(args: argparse.Namespace, config: dict[str, Any], values: dict[s
         if not index.generation:  # never scanned: there is nothing to select from
             index.scan(profile, settings)
         report = run_stages(profile, selection, through, run_config=run_config, index=index, publish=publish,
-                            settings=settings, retry_failed=bool(args.retry_failed))
+                            settings=settings, retry_failed=bool(args.retry_failed),
+                            unattended=bool(getattr(args, 'unattended', False)))
     print(json.dumps(asdict(report), sort_keys=True))
     _warn_failed_earlier(report.run.failed_earlier)
     if report.commit_error:
@@ -406,8 +407,9 @@ With none of the selector flags (--needs --match --id --new-since-scan --kind --
 --profile) it lists
 the source and extracts and designs every title, as it always has. With any of them it works from the last `scan`
 (taking one first if there has never been one) on just the titles selected, runs every stage up to --through that each
-one still needs, and prints a report of what it did and what it skipped and why. A title whose extraction or design
-failed is not tried again while its source and settings are unchanged; --retry-failed tries it again.
+one still needs, and prints a report of what it did and what it skipped and why. A title whose design failed is not
+tried again while its source and settings are unchanged; --retry-failed tries it again. A title whose extraction failed
+is tried again, unless --unattended (for a scheduled job, so a failure is not repeated every night).
 """
 
 _SHARED_SECTION = """\
@@ -573,6 +575,9 @@ def _add_selector_options(parser: argparse.ArgumentParser, *, needs: bool = True
                            help='also run titles whose extraction or design failed earlier and whose source and '
                                 'settings have not changed since (normally skipped, so a failure is not repeated '
                                 'every night)')
+        group.add_argument('--unattended', action='store_true', default=None,
+                           help='a scheduled run nobody is watching: a title whose extraction failed is left alone '
+                                'until its source or settings change (a run a person starts tries it again)')
 
 
 def _add_repo_options(parser: argparse.ArgumentParser, with_image_url_options: bool,

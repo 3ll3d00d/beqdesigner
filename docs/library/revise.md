@@ -5,7 +5,7 @@ You do **not** need to revise a title just to fix its metadata or to tune its fi
 ### How to revise
 
 * On the [title page](review.md#the-title-page), press **Reopen / Revise...** to send back the title you are looking at.
-* In the work list, select the titles (in any view, including *Done*) and press **Revise...** under the list. It works **only on the rows you have selected**, never on "everything listed", so that it cannot be pressed by accident over a whole library.
+* In the work list, select the titles (in any view, including *Done*) and press **Revise...** under the list. It works **only on the rows you have selected**, never on "everything listed", so that it cannot be pressed by accident over a whole library, and it is not offered when none of them has anything to send back (never extracted, or the extraction failed).
 
 ![Revise](../img/library_revise.png)
 
