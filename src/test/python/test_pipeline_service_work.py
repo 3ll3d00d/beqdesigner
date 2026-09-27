@@ -147,3 +147,39 @@ def test_a_job_failed_when_a_title_failed_or_a_source_could_not_be_listed():
     assert job_failed(ScanResult(1, 1, errors={'disk': 'gone'})) and not job_failed(ScanResult(1, 1))
     assert job_failed(RunOutcome(ScanResult(1, 1, errors={'disk': 'down'}), StagesReport('design', 0)))
     assert not job_failed(RunOutcome(None, StagesReport('design', 0))) and not job_failed('anything else')
+
+
+def test_a_run_job_while_the_work_list_holds_the_work_directory_hands_its_titles_to_that_run(manager, tmp_path, monkeypatch):
+    ''' design/worklist-feedback.md F5: not refused, not run alongside: joined, and reported from the index. '''
+    import sqlite3
+    import threading
+    from pipeline.library.inbox import WorkDirInbox
+    from pipeline.library.index import index_path
+    from pipeline.service.lease import WorkDirLease
+    work_dir = str(tmp_path / 'work')
+    assert _done(manager, ScanRequest()).state == 'succeeded'
+    monkeypatch.setattr(work, 'run_stages', lambda *a, **k: pytest.fail('ran alongside the run in progress'))
+    lease = WorkDirLease(work_dir, 'worklist-1', host='desk', pid=1).__enter__()
+
+    def worklist_run():   # the work list's run takes them, extracts one, fails the other, and ends
+        inbox = WorkDirInbox(work_dir)
+        while not (taken := inbox.claim()):
+            time.sleep(0.02)
+        ids = sorted(taken[0].selection.ids)
+        db = sqlite3.connect(index_path(work_dir))
+        with db:
+            db.execute("UPDATE titles SET needs = 'design', extract_state = 'current' WHERE id = ?", (ids[0],))
+            db.execute("UPDATE titles SET extract_state = 'failed', detail = 'extract failed: boom' WHERE id = ?",
+                       (ids[1],))
+        db.close()
+        lease.__exit__(None, None, None)
+
+    thread = threading.Thread(target=worklist_run)
+    thread.start()
+    job = _done(manager, RunRequest(Selection(needs=('extract',)), through='extract', scan_first=False))
+    thread.join()
+
+    assert job.state == 'failed' and isinstance(job.result, RunOutcome)   # one of its titles failed
+    report = job.result.report
+    assert len(report.attempted) == 2 and [message for _, message in report.run.failed] == ['extract failed: boom']
+    assert any(e.get('kind') == 'handed_off' for e in job.events)

@@ -102,3 +102,21 @@ def test_a_run_lease_is_named_for_its_kind(tmp_path):
     with run_lease(str(tmp_path), 'cli'):
         assert read_lease(str(tmp_path)).job_id.startswith('cli-')
     assert read_lease(str(tmp_path)) is None
+
+
+def test_what_became_of_handed_off_titles_depends_on_how_far_they_were_to_go():
+    from types import SimpleNamespace
+    from pipeline.library.handoff import outcomes
+
+    def row(title_id, needs, extract_state='current', design_state='none'):
+        return SimpleNamespace(id=title_id, needs=needs, detail=needs, extract_state=extract_state,
+                               design_state=design_state)
+
+    index = SimpleNamespace(titles=lambda ids: [row('a', 'design'), row('b', 'review', design_state='current'),
+                                                row('c', 'extract', extract_state='failed')])
+    ids = ['a', 'b', 'c', 'gone']
+
+    assert {i: o.failed for i, o in outcomes(index, ids, 'extract').items()} == \
+        {'a': False, 'b': False, 'c': True, 'gone': True}
+    assert {i: o.failed for i, o in outcomes(index, ids, 'design').items()} == \
+        {'a': True, 'b': False, 'c': True, 'gone': True}

@@ -193,7 +193,9 @@ has queued or in hand, from its run state; a title moves from Extract to
 Design as soon as its extraction ends, worklist-feedback F1), searchable/sortable rows, source and tier filters, run actions that
 join the run in progress (extract/design through its `JoinQueue`; Publish,
 Commit and anything offered too late wait and start in order when it ends,
-and Cancel drops them; worklist-feedback F5),
+and Cancel drops them; every run holds the work-directory lease, and work asked
+for while another process's run holds it goes to that run's join inbox;
+worklist-feedback F5),
 Rescan, selected/all-visible actions, settings, failures, and Last run. A
 title page replaces the table in the same window and preserves selection and
 scroll position when closed. The Metadata tab validates required fields,

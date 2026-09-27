@@ -193,7 +193,15 @@ is held is not refused: it is posted to the work directory's join inbox
 follows the index until the holder's run ends; a command-line `run` waits for
 it and reports its titles. Work the holder did not take is run by whoever
 asked, once the lease is free. Publish and Commit still refuse (work list) or
-wait (command line) while another run holds the lease.
+wait (command line) while another run holds the lease. A service job that finds
+the lease held by the work list or a command-line run hands its extract/design
+titles over the same way (`work.handed_off()`, its result read from the index)
+or, for anything else, waits for the lease; cancelled while it waits, it ends
+without running. A run job submitted while a run job is in its machine phase
+joins it through the `JoinQueue` the running job registers
+(`JobControl.accept_joins()`): it is `running` at once with `joined_to` set, and
+ends with its host, sharing its result, or goes back to the front of the queue
+if the host's run did not take it (`report.not_joined`) or failed.
 
 **Tests (S2):** job lifecycle and FIFO order with a fake `run_stages`;
 cancel queued vs running; `failed` from a `StagesReport` with a failed title;

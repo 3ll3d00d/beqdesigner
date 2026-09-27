@@ -363,6 +363,8 @@ class JobBase(BaseModel):
     finished_at: Optional[datetime]
     progress: Optional[Progress]
     error: Optional[str] = Field(None, description='Why the job itself failed (a title that failed is in the result).')
+    joined_to: Optional[str] = Field(None, description='The run job this one joined: its titles went into that run, '
+                                                       'and it ends when that run does, with its result.')
 
 
 class ScanJob(JobBase):
@@ -398,7 +400,8 @@ def job_model(job) -> Union[ScanJob, RunJob, AcceptJob]:
     ''' A jobs.Job (live, or read back from the history) as its typed model. '''
     common = dict(id=job.id, origin=job.origin, state=job.state, submitted_at=timestamp(job.submitted_at),
                   started_at=timestamp(job.started_at), finished_at=timestamp(job.finished_at),
-                  progress=Progress(**_data(job.progress)) if job.progress else None, error=job.error or None)
+                  progress=Progress(**_data(job.progress)) if job.progress else None, error=job.error or None,
+                  joined_to=getattr(job, 'joined_to', None))
     request = _request_data(job.request)
     finished_ok = job.result is not None
     if job.kind == 'scan':

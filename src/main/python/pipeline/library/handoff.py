@@ -16,16 +16,18 @@ from pipeline.library.index import LibraryIndex
 from pipeline.library.join import JoinRequest
 from pipeline.service.lease import LeaseHolder, read_lease
 
-JOINED, WITHDRAWN = 'joined', 'withdrawn'
+JOINED, WITHDRAWN, STOPPED = 'joined', 'withdrawn', 'stopped'
 
 
 def hand_off(work_dir: str, request: JoinRequest, *, poll_seconds: float = 1.0,
              sleep: Callable[[float], None] = time.sleep,
-             on_claimed: Optional[Callable[[], None]] = None) -> str:
+             on_claimed: Optional[Callable[[], None]] = None,
+             should_stop: Optional[Callable[[], bool]] = None) -> str:
     '''
     Posts `request` and waits. :return: `joined` once the run that claimed it has ended, or `withdrawn` if no run claimed
-    it (the lease was released with it still waiting): the caller then runs it itself. Interrupted, a request not yet
-    claimed is withdrawn before the interrupt goes on.
+    it (the lease was released with it still waiting): the caller then runs it itself; `stopped` if `should_stop` said so
+    (withdrawn if it was still waiting, else left with the run that has it). Interrupted, a request not yet claimed is
+    withdrawn before the interrupt goes on.
     '''
     inbox = WorkDirInbox(work_dir)
     inbox.post(request)
@@ -34,6 +36,10 @@ def hand_off(work_dir: str, request: JoinRequest, *, poll_seconds: float = 1.0,
         while True:
             state = inbox.state(request.id)
             holder = read_lease(work_dir)
+            if should_stop is not None and should_stop():
+                inbox.withdraw(request.id)
+                inbox.forget(request.id)
+                return STOPPED
             if state == TAKEN:
                 if not claimed:
                     claimed = True
@@ -64,8 +70,12 @@ class TitleOutcome:
     failed: bool   # it failed, or it was not done (still needs extract or design)
 
 
-def outcomes(index: LibraryIndex, ids: List[str]) -> Dict[str, TitleOutcome]:
-    ''' What the handed-off titles need now: each one still needing extract or design, or failed, counts as failed. '''
+def outcomes(index: LibraryIndex, ids: List[str], through: str = 'design') -> Dict[str, TitleOutcome]:
+    '''
+    What the handed-off titles need now: one that failed, or still needs a stage up to `through` (extract, or extract and
+    design), counts as failed.
+    '''
+    undone = ('extract',) if through == 'extract' else ('extract', 'design')
     rows = {row.id: row for row in index.titles(ids=ids)}
     result = {}
     for title_id in ids:
@@ -73,7 +83,7 @@ def outcomes(index: LibraryIndex, ids: List[str]) -> Dict[str, TitleOutcome]:
         if row is None:
             result[title_id] = TitleOutcome('', 'not in the index', True)
             continue
-        failed = row.extract_state == 'failed' or row.design_state == 'failed' or row.needs in ('extract', 'design')
+        failed = row.extract_state == 'failed' or row.design_state == 'failed' or row.needs in undone
         result[title_id] = TitleOutcome(row.needs, row.detail, failed)
     return result
 

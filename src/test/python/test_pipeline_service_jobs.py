@@ -220,3 +220,95 @@ def test_stopping_cancels_what_waits_and_refuses_new_work(managers):
     assert waiting.state == 'cancelled' and running.finished
     with pytest.raises(RuntimeError, match='stopping'):
         manager.submit(ScanRequest())
+
+
+# --- a run job joins the run in progress (design/worklist-feedback.md F5) -------------------------------------------------
+
+class JoiningRun:
+    ''' An execute whose run jobs offer a JoinQueue, hold until released, then take what joined (or not) and report it. '''
+
+    def __init__(self, take=True):
+        self.order, self.entered, self.release, self.take = [], threading.Event(), threading.Event(), take
+        self.taken = []
+
+    def __call__(self, job, control):
+        from types import SimpleNamespace
+        from pipeline.library.join import JoinQueue
+        self.order.append(job.id)
+        join = JoinQueue()
+        if job.kind == 'run':
+            control.accept_joins(join)
+        self.entered.set()
+        assert self.release.wait(5)
+        self.taken += join.take() if self.take else []
+        left = join.close()
+        return SimpleNamespace(cancelled=False, report=SimpleNamespace(not_joined=[r.id for r in left]))
+
+
+def test_a_run_job_asked_for_during_a_run_joins_it_and_ends_with_it(managers):
+    run = JoiningRun()
+    manager = managers(run)
+    host = manager.submit(RunRequest(Selection(ids=('a',))))
+    _until(run.entered.is_set)
+
+    joined = manager.submit(RunRequest(Selection(ids=('b',)), through='extract'))
+
+    assert joined.state == 'running' and joined.joined_to == host.id and manager.queued == []
+    assert manager.current is host
+    run.release.set()
+    _until(lambda: joined.finished)
+    assert run.order == [host.id] and [r.id for r in run.taken] == [joined.id]
+    assert run.taken[0].selection.ids == ('b',) and run.taken[0].through == 'extract'
+    assert (host.state, joined.state) == ('succeeded', 'succeeded') and joined.result is host.result
+
+
+def test_what_the_run_did_not_take_goes_back_to_the_queue_and_runs_next(managers):
+    run = JoiningRun(take=False)
+    manager = managers(run)
+    host = manager.submit(RunRequest(Selection(ids=('a',))))
+    _until(run.entered.is_set)
+    joined = manager.submit(RunRequest(Selection(ids=('b',))))
+
+    run.release.set()
+    _until(lambda: joined.finished)
+    assert run.order == [host.id, joined.id] and joined.joined_to is None and joined.state == 'succeeded'
+
+
+def test_publish_scans_and_accepts_do_not_join_a_run(managers):
+    run = JoiningRun()
+    manager = managers(run, allow_repository_writes=True)
+    manager.submit(RunRequest(Selection(ids=('a',))))
+    _until(run.entered.is_set)
+
+    waiting = [manager.submit(RunRequest(Selection(), through='publish')), manager.submit(ScanRequest()),
+               manager.submit(AcceptRequest())]
+
+    assert [job.state for job in waiting] == ['queued'] * 3 and manager.queued == waiting
+    run.release.set()
+    _until(lambda: all(job.finished for job in waiting))
+
+
+def test_a_joined_job_is_cancelled_with_its_run(managers):
+    run = JoiningRun()
+    manager = managers(run)
+    host = manager.submit(RunRequest(Selection(ids=('a',))))
+    _until(run.entered.is_set)
+    joined = manager.submit(RunRequest(Selection(ids=('b',))))
+
+    manager.cancel(host.id)
+    run.release.set()
+    _until(lambda: joined.finished)
+    assert (host.state, joined.state) == ('cancelled', 'cancelled')
+
+
+def test_a_joined_job_is_kept_in_the_history_with_the_run_it_joined(managers, tmp_path):
+    run = JoiningRun()
+    manager = managers(run, state_dir=str(tmp_path))
+    host = manager.submit(RunRequest(Selection(ids=('a',))))
+    _until(run.entered.is_set)
+    joined = manager.submit(RunRequest(Selection(ids=('b',))))
+    run.release.set()
+    _until(lambda: joined.finished)
+
+    saved = {job['id']: job for job in json.loads((tmp_path / 'jobs.json').read_text())}
+    assert saved[joined.id]['joined_to'] == host.id and saved[host.id]['joined_to'] is None

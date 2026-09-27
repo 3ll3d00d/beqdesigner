@@ -1536,6 +1536,18 @@
             "title": "Error",
             "description": "Why the job itself failed (a title that failed is in the result)."
           },
+          "joined_to": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Joined To",
+            "description": "The run job this one joined: its titles went into that run, and it ends when that run does, with its result."
+          },
           "kind": {
             "type": "string",
             "const": "accept",
@@ -2641,6 +2653,18 @@
             "title": "Error",
             "description": "Why the job itself failed (a title that failed is in the result)."
           },
+          "joined_to": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Joined To",
+            "description": "The run job this one joined: its titles went into that run, and it ends when that run does, with its result."
+          },
           "kind": {
             "type": "string",
             "const": "run",
@@ -2937,6 +2961,18 @@
             ],
             "title": "Error",
             "description": "Why the job itself failed (a title that failed is in the result)."
+          },
+          "joined_to": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Joined To",
+            "description": "The run job this one joined: its titles went into that run, and it ends when that run does, with its result."
           },
           "kind": {
             "type": "string",

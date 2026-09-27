@@ -109,6 +109,7 @@ class Job:
     error: str = ''
     events: Deque[dict] = field(default_factory=lambda: deque(maxlen=MAX_JOB_EVENTS), repr=False)
     cancel_requested: bool = False
+    joined_to: Optional[str] = None      # the run job whose extract/design phase this one joined (F5): it ends with it
 
     @property
     def finished(self) -> bool:
@@ -126,7 +127,8 @@ def job_to_dict(job: Job) -> Dict[str, Any]:
     ''' What the history file keeps of a job (its events are not kept). '''
     return {'id': job.id, 'kind': job.kind, 'origin': job.origin, 'state': job.state, 'submitted_at': job.submitted_at,
             'started_at': job.started_at, 'finished_at': job.finished_at, 'request': _plain(job.request),
-            'result': _plain(job.result), 'error': job.error, 'progress': _plain(job.progress)}
+            'result': _plain(job.result), 'error': job.error, 'progress': _plain(job.progress),
+            'joined_to': job.joined_to}
 
 
 def job_from_dict(data: Dict[str, Any]) -> Job:
@@ -134,7 +136,7 @@ def job_from_dict(data: Dict[str, Any]) -> Job:
     return Job(id=data['id'], kind=data['kind'], origin=data.get('origin', 'api'), request=data.get('request'),
                state=data['state'], submitted_at=data.get('submitted_at') or 0.0, started_at=data.get('started_at'),
                finished_at=data.get('finished_at'), progress=Progress(**progress) if progress else None,
-               result=data.get('result'), error=data.get('error') or '')
+               result=data.get('result'), error=data.get('error') or '', joined_to=data.get('joined_to'))
 
 
 class JobControl:
@@ -152,6 +154,10 @@ class JobControl:
 
     def event(self, event) -> None:
         self.__manager._on_event(self.__job, event)
+
+    def accept_joins(self, join) -> None:
+        ''' The run's JoinQueue: a run job submitted while it lasts joins this run instead of waiting for it (F5). '''
+        self.__manager._on_join_queue(self.__job, join)
 
 
 Execute = Callable[[Job, JobControl], Any]
@@ -183,6 +189,9 @@ class JobManager:
         self.__completed: List[Callable[[Job], None]] = []
         self.__stopping = False
         self.__seq = 0
+        self.__executing: Optional[str] = None           # the job `execute` is doing (joined jobs are running too)
+        self.__join_queues: Dict[str, Any] = {}           # executing run job id -> its JoinQueue
+        self.__joined: Dict[str, List[str]] = {}          # host run job id -> the jobs that joined it, in order
         self.__load_history()
         self.__worker = threading.Thread(target=self.__run, name='pipeline-service-jobs', daemon=True)
         self.__worker.start()
@@ -210,6 +219,9 @@ class JobManager:
                 return None
             job = Job(id=str(uuid.uuid4()), kind=kind, origin=origin, request=request, submitted_at=self.__clock())
             self.__jobs[job.id] = job
+            if self.__join(job):
+                self.__save()
+                return job
             self.__queue.append(job.id)
             self.__record(job, {'type': 'state', 'state': 'queued'})
             self.__save()
@@ -229,8 +241,9 @@ class JobManager:
 
     @property
     def current(self) -> Optional[Job]:
+        ''' The job being done (a job that joined it is running too, but is done by it). '''
         with self.__lock:
-            return next((job for job in self.__jobs.values() if job.state == 'running'), None)
+            return self.__jobs.get(self.__executing) if self.__executing else None
 
     @property
     def queued(self) -> List[Job]:
@@ -257,6 +270,8 @@ class JobManager:
             if job.state == 'queued':
                 self.__queue.remove(job_id)
                 self.__finish(job, 'cancelled')
+            elif job.joined_to:   # its titles are in the host's run now: it is recorded cancelled when that ends
+                self.__record(job, {'type': 'state', 'state': 'cancelling'})
             else:
                 self.__record(job, {'type': 'state', 'state': 'cancelling'})
             return job
@@ -314,6 +329,7 @@ class JobManager:
                     return
                 job = self.__jobs[self.__queue.popleft()]
                 job.state, job.started_at = 'running', self.__clock()
+                self.__executing = job.id
                 self.__record(job, {'type': 'state', 'state': 'running'})
                 self.__save()
             try:
@@ -322,12 +338,67 @@ class JobManager:
                 logger.exception('job %s (%s) failed', job.id, job.kind)
                 with self.__lock:
                     job.error = redact_text(f'{type(error).__name__}: {error}')
+                    self.__end_joins(job, None, 'failed')
                     self.__finish(job, 'failed')
                 continue
             with self.__lock:
                 job.result = result
                 cancelled = job.cancel_requested or bool(getattr(result, 'cancelled', False))
-                self.__finish(job, 'cancelled' if cancelled else 'failed' if self.__failed(result) else 'succeeded')
+                state = 'cancelled' if cancelled else 'failed' if self.__failed(result) else 'succeeded'
+                self.__end_joins(job, result, state)
+                self.__finish(job, state)
+
+    # --- joining a run in progress (design/worklist-feedback.md F5) ----------------------------------------------------
+
+    def _on_join_queue(self, job: Job, join) -> None:
+        with self.__lock:
+            self.__join_queues[job.id] = join
+
+    def __join(self, job: Job) -> bool:
+        '''
+        A run job through extract or design joins the executing run job's machine phase while it lasts: it is running at
+        once, and ends when that run does. :return: False if there is nothing it can join (it is then queued).
+        '''
+        from pipeline.library.join import JOINABLE, JoinRequest
+        host = self.__jobs.get(self.__executing) if self.__executing else None
+        join = self.__join_queues.get(host.id) if host is not None else None
+        if join is None or not isinstance(job.request, RunRequest) or job.request.through not in JOINABLE:
+            return False
+        request = job.request
+        if not join.offer(JoinRequest(request.selection, request.through, request.retry_failed, id=job.id)):
+            return False
+        job.state, job.started_at, job.joined_to = 'running', self.__clock(), host.id
+        self.__joined.setdefault(host.id, []).append(job.id)
+        self.__record(job, {'type': 'state', 'state': 'running', 'joined': host.id})
+        self.__record(host, {'type': 'joined', 'job': job.id})
+        return True
+
+    def __end_joins(self, host: Job, result: Any, state: str) -> None:
+        '''
+        The jobs that joined `host` end with it, sharing its result -- except one its run did not take (offered once it had
+        stopped taking more), which goes back to the front of the queue, unless the host was cancelled. After a failure
+        each goes back: a title the failed run did finish is planned out when it runs.
+        '''
+        self.__join_queues.pop(host.id, None)
+        self.__executing = None
+        joined = [self.__jobs[i] for i in self.__joined.pop(host.id, []) if i in self.__jobs]
+        report = getattr(result, 'report', None)
+        not_joined = set(getattr(report, 'not_joined', ()) or ())
+        requeue = []
+        for job in joined:
+            if job.cancel_requested or (state == 'cancelled'):
+                job.result = result
+                self.__finish(job, 'cancelled')
+            elif result is None or job.id in not_joined:
+                job.state, job.started_at, job.joined_to = 'queued', None, None
+                self.__record(job, {'type': 'state', 'state': 'queued'})
+                requeue.append(job.id)
+            else:
+                job.result = result
+                self.__finish(job, state)
+        self.__queue.extendleft(reversed(requeue))
+        if requeue:
+            self.__wake.notify_all()
 
     def __finish(self, job: Job, state: str) -> None:
         job.state, job.finished_at = state, self.__clock()

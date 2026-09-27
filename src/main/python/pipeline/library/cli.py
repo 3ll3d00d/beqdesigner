@@ -195,7 +195,7 @@ def _join_run_in_progress(holder, work_dir: str, selection: Selection, through: 
         _say(f'{holder.who()} finished without taking them: running them here')
         return None
     with LibraryIndex(index_path(work_dir)) as index:
-        results = title_outcomes(index, ids)
+        results = title_outcomes(index, ids, through)
     print(json.dumps({'joined': holder.who(), 'titles': {i: asdict(o) for i, o in results.items()},
                       'skipped': skipped}, sort_keys=True))
     return 1 if any(o.failed for o in results.values()) else 0
