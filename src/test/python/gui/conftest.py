@@ -15,6 +15,40 @@ import gc
 
 import pytest
 
+_MESSAGE_BOXES = ('critical', 'warning', 'information', 'question')
+_REAL_BOXES = {}
+
+
+def pytest_configure(config):
+    from qtpy.QtWidgets import QMessageBox
+    _REAL_BOXES.update({kind: getattr(QMessageBox, kind) for kind in _MESSAGE_BOXES})
+
+
+@pytest.fixture(autouse=True)
+def _no_unanswered_message_box(monkeypatch):
+    '''
+    **A message box no test answers fails the test, with its words, instead of waiting for a person.** QMessageBox's static
+    boxes are modal: shown in a test they block until the job's timeout, and CI says only where (a missing ffmpeg and a failed
+    design both hung macOS and Windows that way). A test that expects a box patches it, as before, and that wins.
+    '''
+    from qtpy.QtWidgets import QMessageBox
+
+    def unanswered(kind):
+        def box(parent, title, text, *args, **kwargs):
+            raise AssertionError(f'unanswered QMessageBox.{kind}: {title}: {text}')
+        return staticmethod(box)
+
+    for kind in _MESSAGE_BOXES:
+        monkeypatch.setattr(QMessageBox, kind, unanswered(kind))
+
+
+@pytest.fixture
+def real_message_boxes(monkeypatch):
+    ''' Puts back QMessageBox's real boxes, for a test that answers the one it opens (a QTimer that clicks a button). '''
+    from qtpy.QtWidgets import QMessageBox
+    for kind in _MESSAGE_BOXES:
+        monkeypatch.setattr(QMessageBox, kind, _REAL_BOXES[kind])
+
 
 @pytest.fixture(autouse=True)
 def _no_modal_discard_question(monkeypatch):
@@ -50,7 +84,7 @@ def _no_modal_cancel_run_question(monkeypatch):
 
 
 @pytest.fixture
-def real_ask_cancel_run(monkeypatch):
+def real_ask_cancel_run(monkeypatch, real_message_boxes):
     ''' Puts back the work list's real "Run in progress" question (a QMessageBox), for the tests that are about it. '''
     from model.worklist import WorkListWindow
     monkeypatch.setattr(WorkListWindow, '_ask_cancel_run', WorkListWindow._ask_cancel_run.original)
