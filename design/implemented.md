@@ -103,8 +103,10 @@ and artwork. It lets a reviewer Accept & next, Skip, Reject, reopen or revise,
 or open the title's project in the main app. Batch Extract & Design can queue
 its results, and Review Folder presents the same page over a queue directory.
 
-Every designed title can have mono and diagnostic multichannel `.beq` project
-files. The mono signal is the designer's primary input; per-channel arrays are
+Every extracted library title has mono and, with a kept multichannel
+extraction, diagnostic multichannel `.beq` project files: the run writes any
+that are missing, flat, as soon as the title is extracted, and design replaces
+them unless a person saved one in between (worklist-feedback F2). The mono signal is the designer's primary input; per-channel arrays are
 diagnostics. New multichannel projects contain a `BassManagedSignalData`
 composite with the app's LPF settings; older flat projects remain readable.
 The project filter hash protects a human edit from automatic regeneration.

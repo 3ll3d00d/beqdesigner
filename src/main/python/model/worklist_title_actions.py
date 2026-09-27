@@ -123,7 +123,7 @@ class TitleActionsBar(QWidget):
                 why_not if not can_open else
                 f'Open {state.path} in the main window' if enabled else
                 f'The {kind} project could not be read: {state.error}' if state is not None and state.error else
-                f'There is no {kind} project yet: it is written when the title is designed.' if state is not None else '')
+                f'There is no {kind} project yet: it is written when the title is extracted.' if state is not None else '')
         text, level = badge(states)
         self.projectBadge.setText(text)
         self.projectBadge.setToolTip(EDITED_TOOLTIP if level == LEVEL_WARN and 'Modified' in text else '')
@@ -215,7 +215,7 @@ class TitleActions:
             self._bar.show_message('Projects open in the main window, which is not available here.', True)
             return False
         if state is None or not state.exists:
-            self._bar.show_message(f'There is no {kind} project yet: it is written when the title is designed.', True)
+            self._bar.show_message(f'There is no {kind} project yet: it is written when the title is extracted.', True)
             return False
         if state.error:
             self._bar.show_message(f'The {kind} project could not be read: {state.error}', True)

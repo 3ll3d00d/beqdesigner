@@ -68,7 +68,7 @@ Things worth knowing:
 
 ### Projects
 
-Designing a title writes a **mono project** (and a **multichannel project**, if you [keep the multichannel extraction](setup.md#locations)) into the title's folder in the work directory, as `<id>.mono.beq` and `<id>.multichannel.beq`. They are ordinary [project files](../ui/load_save.md), the same as *File > Save Project* writes, and the filter in them is the designer's top pick.
+Extracting a title writes a **mono project** (and a **multichannel project**, if you [keep the multichannel extraction](setup.md#locations)) into the title's folder in the work directory, as `<id>.mono.beq` and `<id>.multichannel.beq`, with no filter yet, so you can open the title before it is designed. Designing it then puts the designer's top pick in them, unless you have saved a project of your own in between (that is kept). They are ordinary [project files](../ui/load_save.md), the same as *File > Save Project* writes.
 
 New multichannel projects group the linked channels in a bass-managed track, so the main window can calculate their sum. The project uses the bass-management low-pass settings in Preferences (or the app defaults for a headless library run). Older multichannel projects still open and publish.
 
@@ -82,8 +82,9 @@ The badge says what state the projects are in:
 | Badge | Meaning |
 |---|---|
 | Projects as designed | the filter is what the designer wrote |
+| Projects with no filter | the title is extracted but not designed yet, or the designer declined |
 | Modified since design: mono project | the filter in the project differs from what the designer wrote |
-| No project yet | a title with nothing designed yet |
+| No project yet | a title with nothing extracted yet |
 | The mono project could not be read | the file is damaged; the reason is shown |
 
 !!! warning

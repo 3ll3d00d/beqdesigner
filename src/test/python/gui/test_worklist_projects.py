@@ -92,7 +92,30 @@ def test_the_badge_words(tmp_path):
     import os
     os.remove(mono)
     os.remove(mc)
-    assert badge(project_states(str(work), 'a')) == ('No project yet: it is written when the title is designed.', 'neutral')
+    assert badge(project_states(str(work), 'a')) == ('No project yet: it is written when the title is extracted.', 'neutral')
+
+
+
+def test_a_project_with_no_filter_is_not_called_designed():
+    ''' worklist-feedback.md F2: extraction writes a flat project; so does a decline (F3). '''
+    from model.worklist_projects import ProjectState
+    flat = ProjectState('mono', '/w/a.mono.beq', True, flat=True)
+    assert badge([flat]) == ('Projects with no filter (not designed yet, or the designer declined)', 'neutral')
+    assert badge([flat, ProjectState('multichannel', '/w/a.multichannel.beq', True)]) == ('Projects as designed', 'ok')
+
+
+
+def test_a_real_flat_project_reads_as_flat_and_not_edited(tmp_path):
+    import os
+    from model.worklist_projects import read_state
+    from pipeline.config import AnalysisConfig
+    from pipeline.orchestrate import Session
+    from pipeline.publish.project import write_mono_project
+    mono, _ = write_projects(_work(tmp_path), 'a')
+    write_mono_project(Session(AnalysisConfig()), os.path.join(os.path.dirname(mono), 'mono.wav'), None, mono)
+
+    state = read_state('mono', mono)
+    assert state.flat and not state.edited and state.readable
 
 
 # --- the page --------------------------------------------------------------------------------------------------------------------

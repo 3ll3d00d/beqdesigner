@@ -625,3 +625,35 @@ def test_a_season_episode_failure_lapses_when_that_episodes_source_changes(works
 
     assert ('extract', 'Show-1-2') in works.calls and report.failed_earlier == []
     assert list(report.seasons.values()) == [['Show-1-1', 'Show-1-2']]
+
+
+def test_a_title_just_extracted_has_its_flat_project_before_it_is_designed(tmp_path, monkeypatch):
+    ''' worklist-feedback.md F2: the run writes the `.beq` project at extraction, not only once a filter is designed. '''
+    import os
+    import wave
+
+    import numpy as np
+
+    from pipeline.publish.project import read_project_filter
+    from pipeline.review import project_paths
+
+    def extract(session, item, item_dir, config, mono_mix, force):
+        os.makedirs(item_dir, exist_ok=True)
+        path = os.path.join(item_dir, 'mono.wav')
+        with wave.open(path, 'wb') as w:
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(1000)
+            w.writeframes((np.sin(np.linspace(0, 200, 2000)) * 8000).astype('<i2').tobytes())
+        return path, False
+
+    monkeypatch.setattr('pipeline.library.run.extract_if_needed', extract)
+    monkeypatch.setattr('pipeline.library.run.design_if_needed', lambda *a, **k: pytest.fail('through extract designs nothing'))
+    config = LibraryRunConfig(work_dir=str(tmp_path / 'work'), queue_dir=str(tmp_path / 'queue'), designer='test')
+
+    report = run_library(_Source([_item('one')]), config, through='extract')
+
+    assert report.extracted == ['one'] and report.failed == []
+    _, mono_project, multichannel_project, _ = project_paths(config.work_dir, 'one')
+    flat, pure = read_project_filter(mono_project)
+    assert pure and len(flat) == 0 and multichannel_project is None

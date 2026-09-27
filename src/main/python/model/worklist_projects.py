@@ -1,8 +1,9 @@
 '''
 A title's `.beq` projects, as the title page shows them -- design/archive/library-sync/workflow-rework/design.md §12.10, chunk 27c.
 
-Designing a title writes a **mono** project (`<work_dir>/<folder>/<folder>.mono.beq`) and, where the extraction was multichannel, a
-**multichannel** one (`<folder>.multichannel.beq`, the designed filter linked across every channel): the same files
+Extracting a title writes a **mono** project (`<work_dir>/<folder>/<folder>.mono.beq`) and, where the extraction was multichannel, a
+**multichannel** one (`<folder>.multichannel.beq`), both flat; designing it puts the designed filter in them (linked across every
+channel in the multichannel one) unless a person saved one in between (worklist-feedback.md F2): the same files
 *File > Save Project* writes, so they open in the main window like any other project. That is where a person tunes a
 filter by ear or by eye before deciding, and **what they save there is what gets published**: `publish` reads the
 project's filter, not the designer's candidate (design.md §3.3.1).
@@ -45,15 +46,17 @@ class ProjectState:
     '''
     :param kind: `mono` or `multichannel`.
     :param path: where the project is (or would be).
-    :param exists: whether the file is there (it is written when the title is designed).
+    :param exists: whether the file is there (it is written when the title is extracted).
     :param edited: the file is there, can be read, and its filter is no longer what the pipeline wrote.
     :param error: why an existing file could not be read; empty otherwise.
+    :param flat: the file is there and has no filter: written at extraction and not designed yet, or the designer declined.
     '''
     kind: str
     path: str
     exists: bool
     edited: bool = False
     error: str = ''
+    flat: bool = False
 
     @property
     def readable(self) -> bool:
@@ -65,10 +68,10 @@ def read_state(kind: str, path: str) -> ProjectState:
     if not os.path.isfile(path):
         return ProjectState(kind, path, False)
     try:
-        _, pure = read_project_filter(path)
+        filters, pure = read_project_filter(path)
     except Exception as error:   # a truncated gzip, JSON that is not a project, a missing key, a permission
         return ProjectState(kind, path, True, error=f'{type(error).__name__}: {error}')
-    return ProjectState(kind, path, True, edited=not pure)
+    return ProjectState(kind, path, True, edited=not pure, flat=len(filters) == 0)
 
 
 def project_states(work_dir: str, title_id: str) -> List[ProjectState]:
@@ -98,8 +101,10 @@ def badge(states: List[ProjectState]) -> Tuple[str, str]:
         return f'The {first.kind} project could not be read: {first.error}', LEVEL_WARN
     existing = [s for s in states if s.exists]
     if not existing:
-        return 'No project yet: it is written when the title is designed.', LEVEL_NEUTRAL
+        return 'No project yet: it is written when the title is extracted.', LEVEL_NEUTRAL
     edited = [s.kind for s in existing if s.edited]
     if edited:
         return f'Modified since design: {" and ".join(edited)} project', LEVEL_WARN
+    if all(s.flat for s in existing):
+        return 'Projects with no filter (not designed yet, or the designer declined)', LEVEL_NEUTRAL
     return 'Projects as designed', LEVEL_OK

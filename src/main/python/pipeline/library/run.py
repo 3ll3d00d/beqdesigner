@@ -23,6 +23,7 @@ from pipeline.library.union import reconstruct_claims
 from pipeline.library.workdir import item_directory
 from pipeline.metadata import redact
 from pipeline.orchestrate import Session
+from pipeline.review import project_name
 
 logger = logging.getLogger('library_run')
 
@@ -207,6 +208,7 @@ def _run_item(session: Session, item: LibraryItem, run_config: LibraryRunConfig,
     else:
         report.extracted.append(item.id)
     work = UnitWork(item, item, mono_path, item_dir, multichannel_path, channel_layout_name)
+    _write_projects(session, work)
     if through == 'extract':
         return work
 
@@ -217,6 +219,23 @@ def _run_item(session: Session, item: LibraryItem, run_config: LibraryRunConfig,
         _design_work(session, work, run_config, report)
         emit_execution_event('stage_completed', message='Design complete')
     return work
+
+
+def _write_projects(session: Session, work: 'UnitWork') -> None:
+    '''
+    worklist-feedback.md F2: the title's `.beq` projects, flat, as soon as it is extracted (only those not written yet).
+    A project is a convenience: failing to write one is logged, and never fails the extraction.
+    '''
+    from pipeline.publish.project import write_missing_projects
+    name = project_name(work.project_dir, work.item.id)
+    multichannel = work.multichannel_wav_path
+    try:
+        write_missing_projects(session, work.wav_path, os.path.join(work.project_dir, f'{name}.mono.beq'),
+                               multichannel_wav_path=multichannel, channel_layout_name=work.channel_layout_name,
+                               multichannel_out_path=os.path.join(work.project_dir, f'{name}.multichannel.beq')
+                               if multichannel else None)
+    except Exception as error:
+        logger.warning('could not write the projects of %s after extracting it: %s', work.item.id, error, exc_info=True)
 
 
 def _run_season(session: Session, group: SeasonGroup, run_config: LibraryRunConfig, report: LibraryRunReport,
@@ -240,6 +259,7 @@ def _run_season(session: Session, group: SeasonGroup, run_config: LibraryRunConf
                                                                        retry_failed, on_extract_progress)
         emit_execution_event('stage_completed', message='Season extraction complete')
     work = UnitWork(group, item, track_path, group_dir, recorded_source=season_source_fingerprint(group) or None)
+    _write_projects(session, work)
     if through == 'extract':
         return work
     if on_stage is not None:

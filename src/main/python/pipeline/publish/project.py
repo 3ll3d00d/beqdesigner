@@ -60,21 +60,25 @@ def write_project(path: str, signals: Sequence[SingleChannelSignalData | BassMan
         f.write(json.dumps(output).encode('utf-8'))
 
 
-def write_mono_project(session: Session, mono_wav_path: str, filters: CompleteFilter, out_path: str) -> None:
+def write_mono_project(session: Session, mono_wav_path: str, filters: Optional[CompleteFilter], out_path: str) -> None:
+    ''' :param filters: the filter to apply; None for a flat one (no filters), at the signal's own sample rate. '''
     sig = session.load(mono_wav_path)
+    filters = CompleteFilter(fs=sig.signal.fs, filters=[]) if filters is None else filters
     session.set_filters(sig, filters)
     write_project(out_path, [sig], filter_hash=_filter_hash(filters))
 
 
-def write_multichannel_project(session: Session, multichannel_wav_path: str, filters: CompleteFilter,
+def write_multichannel_project(session: Session, multichannel_wav_path: str, filters: Optional[CompleteFilter],
                                channel_layout_name: str, out_path: str) -> None:
     '''
     Loads every channel (Session.load_channel_signals()), applies `filters` to the first (the master),
     and enslave()s every other channel -- including LFE, which needs no special handling beyond already
     being named correctly by load_channel_signals() -- to it.
+    :param filters: None for a flat one (no filters), at the master channel's sample rate.
     '''
     channels = session.load_channel_signals(multichannel_wav_path, channel_layout_name=channel_layout_name)
     master = channels[0]
+    filters = CompleteFilter(fs=master.signal.fs, filters=[]) if filters is None else filters
     session.set_filters(master, filters)
     for slave in channels[1:]:
         master.enslave(slave)
@@ -131,6 +135,26 @@ def write_title_projects_if_safe(session: Session, mono_wav_path: str, filters: 
             result['multichannel'] = True
         else:
             result['multichannel'] = False
+    return result
+
+
+def write_missing_projects(session: Session, mono_wav_path: str, mono_out_path: str,
+                           multichannel_wav_path: Optional[str] = None, channel_layout_name: str = 'unknown',
+                           multichannel_out_path: Optional[str] = None) -> dict:
+    '''
+    The projects of a title just extracted (worklist-feedback.md F2): each one that does not exist yet is written with a
+    flat filter, so a person can open the title before it is designed. An existing project is never touched here; design
+    replaces a flat one through write_title_projects_if_safe()'s hash gate, which also keeps one a person has edited since.
+    :return: {'mono': bool, 'multichannel': bool|None} -- True=written, False=already there, None=no multichannel wav.
+    '''
+    result = {'mono': False, 'multichannel': None}
+    if not os.path.isfile(mono_out_path):
+        write_mono_project(session, mono_wav_path, None, mono_out_path)
+        result['mono'] = True
+    if multichannel_wav_path is not None and multichannel_out_path is not None:
+        result['multichannel'] = not os.path.isfile(multichannel_out_path)
+        if result['multichannel']:
+            write_multichannel_project(session, multichannel_wav_path, None, channel_layout_name, multichannel_out_path)
     return result
 
 

@@ -24,6 +24,7 @@ from pipeline.publish.project import (
     resolve_published_filter,
     resolve_published_projects,
     write_mono_project,
+    write_missing_projects,
     write_multichannel_project,
     write_title_projects_if_safe,
 )
@@ -179,6 +180,49 @@ def test_app_resave_of_bass_managed_project_keeps_the_edit_and_blocks_overwrite(
 
 
 # --- write_title_projects_if_safe --------------------------------------------
+
+def test_the_projects_of_a_title_just_extracted_are_flat_and_design_then_replaces_them(tmp_path):
+    ''' worklist-feedback.md F2: openable before design; a flat project is still the pipeline's, so design overwrites it. '''
+    session = Session(AnalysisConfig())
+    mono_wav, mc_wav = str(tmp_path / 'mono.wav'), str(tmp_path / 'multichannel.wav')
+    _write_mono_wav(mono_wav)
+    _write_multichannel_wav(mc_wav, [1000, 2000, 3000, 4000, 5000, 6000])
+    mono_out, mc_out = str(tmp_path / 'title.mono.beq'), str(tmp_path / 'title.multichannel.beq')
+
+    assert write_missing_projects(session, mono_wav, mono_out, multichannel_wav_path=mc_wav, channel_layout_name='5.1',
+                                  multichannel_out_path=mc_out) == {'mono': True, 'multichannel': True}
+    for path in (mono_out, mc_out):
+        flat, pure = read_project_filter(path)
+        assert pure and len(flat) == 0
+
+    assert write_title_projects_if_safe(session, mono_wav, _PIPELINE_FILTER, mono_out, multichannel_wav_path=mc_wav,
+                                        channel_layout_name='5.1', multichannel_out_path=mc_out) == \
+        {'mono': True, 'multichannel': True}
+    assert read_project_filter(mono_out)[0].to_json() == _PIPELINE_FILTER.to_json()
+
+
+def test_writing_the_missing_projects_never_touches_one_that_exists(tmp_path):
+    session = Session(AnalysisConfig())
+    wav_path = str(tmp_path / 'mono.wav')
+    _write_mono_wav(wav_path)
+    mono_out = str(tmp_path / 'title.mono.beq')
+    write_mono_project(session, wav_path, _PIPELINE_FILTER, mono_out)
+
+    assert write_missing_projects(session, wav_path, mono_out) == {'mono': False, 'multichannel': None}
+    assert read_project_filter(mono_out)[0].to_json() == _PIPELINE_FILTER.to_json()
+
+
+def test_a_flat_project_a_person_edited_before_design_is_kept_by_design(tmp_path):
+    session = Session(AnalysisConfig())
+    wav_path = str(tmp_path / 'mono.wav')
+    _write_mono_wav(wav_path)
+    mono_out = str(tmp_path / 'title.mono.beq')
+    write_missing_projects(session, wav_path, mono_out)
+    _hand_edit_filter(mono_out, _HUMAN_FILTER)
+
+    assert write_title_projects_if_safe(session, wav_path, _PIPELINE_FILTER, mono_out)['mono'] is False
+    assert read_project_filter(mono_out)[0].to_json() == _HUMAN_FILTER.to_json()
+
 
 def test_write_title_projects_if_safe_skips_an_edited_target(tmp_path):
     session = Session(AnalysisConfig())
