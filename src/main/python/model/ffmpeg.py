@@ -931,9 +931,11 @@ class Executor:
         except ffmpeg.Error as error:
             if command is None:
                 raise
+            stderr = (error.stderr or b'').decode('utf-8', errors='replace')
+            # ffmpeg.Error says only "see stderr output for detail": a headless run has nowhere else to show why
+            logger.error(f"ffmpeg failed: {' '.join(command)}\n{stderr}")
             emit_execution_event('command_finished', message='ffmpeg failed', command=command,
-                                 stdout=(error.stdout or b'').decode('utf-8', errors='replace'),
-                                 stderr=(error.stderr or b'').decode('utf-8', errors='replace'))
+                                 stdout=(error.stdout or b'').decode('utf-8', errors='replace'), stderr=stderr)
             raise
         except OSError as error:
             if command is None:

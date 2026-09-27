@@ -104,3 +104,25 @@ def _decode_pcm(raw, sampwidth):
         return np.frombuffer(raw, dtype='<i4')
     else:
         raise ValueError(f"Unsupported sample width {sampwidth}")
+
+
+def test_a_failing_ffmpeg_command_logs_its_stderr(tmp_path, caplog):
+    ''' ffmpeg.Error's own message is only "see stderr output for detail"; the log carries what ffmpeg said. '''
+    import ffmpeg
+    from model.ffmpeg import Executor
+    ex = Executor(str(tmp_path / 'in.wav'), str(tmp_path / 'out'))
+
+    class Failing:
+        def compile(self, **kwargs):
+            return ['ffmpeg', '-i', 'in.wav', 'out.wav']
+
+        def run(self, **kwargs):
+            raise ffmpeg.Error('ffmpeg', b'', b'Output file #0 received no packets.\nConversion failed!\n')
+
+    ex._Executor__ffmpeg_cmd = Failing()
+
+    with caplog.at_level('ERROR', logger='progress'), pytest.raises(ffmpeg.Error):
+        ex.run_sync(start_progress_bridge=False)
+
+    assert 'ffmpeg -i in.wav out.wav' in caplog.text
+    assert 'Output file #0 received no packets.' in caplog.text
