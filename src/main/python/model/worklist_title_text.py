@@ -210,8 +210,10 @@ def decision_blocked(decision: str, entry: Optional[QueueEntry], row: Optional[T
     '''
     Why a decision is not offered even though the entry's status allows it; empty if it is. **Nothing is decided on a
     title a run is working on** (a design in flight writes a new pending entry over whatever is there), and a pending
-    entry whose row says the design is out of date or failed is not accepted blind: that is what `derive_needs` keeps a
-    person from missing, and once accepted a title is never redesigned. Skip and Reject are still offered then.
+    entry whose row says the design is out of date is not accepted blind: that is what `derive_needs` keeps a person from
+    missing, and once accepted a title is never redesigned; Reject is still offered then. **Nothing is decided on a title
+    whose last extraction or design failed**: the candidates on screen (if any) are an older design's, so there is nothing
+    to accept or reject -- Retry, or another audio stream, is what it needs.
 
     **Accept is not offered while the metadata is incomplete** (`problems`, from `validate()`): the index would call the
     accepted title `review` again and publish would refuse it. Skip and Reject are not held up by metadata.
@@ -222,6 +224,10 @@ def decision_blocked(decision: str, entry: Optional[QueueEntry], row: Optional[T
     '''
     if running:
         return 'A run is working on this title now: wait for it to finish.'
+    if row is not None and 'failed' in (row.extract_state, row.design_state):
+        stage = 'extraction' if row.extract_state == 'failed' else 'design'
+        return (f'Nothing to decide: the last {stage} failed ({row.detail}). Retry it, or choose another audio stream '
+                f'from Revise.')
     if decision == 'accept' and revised in _SENT_BACK:
         return f'Not offered: this title was {_SENT_BACK[revised]}. {redo[0].upper() + redo[1:]} first.'
     if decision == 'accept' and entry is not None and entry.status == 'pending' and row is not None \

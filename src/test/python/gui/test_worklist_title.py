@@ -634,6 +634,21 @@ def test_no_decision_shortcut_repeats_when_a_key_is_held(qtbot, tmp_path):
     assert {k: keys[k] for k in ('A', 'S', 'R', 'Return', 'Enter')} == dict.fromkeys(('A', 'S', 'R', 'Return', 'Enter'), False)
 
 
+
+@pytest.mark.parametrize('stage', ['extract', 'design'])
+def test_a_title_whose_last_extraction_or_design_failed_offers_nothing_to_accept_or_reject(qtbot, tmp_path, stage):
+    ''' Its entry (if any) is an older design's: there is nothing to decide, and Retry is what it needs. '''
+    rows = _rows()
+    rows.insert(2, _row('f-failed', 'Failed', 'attention', 1, detail=f'{stage} failed: no audio stream', review_state='pending',
+                        **{f'{stage}_state': 'failed'}))
+    window = _window(qtbot, tmp_path, [('r-alien', {}), ('f-failed', {}), ('r-arrival', {})], rows=rows)
+    page = _open(qtbot, window, 'f-failed')
+
+    assert not page.acceptButton.isEnabled() and not page.rejectButton.isEnabled()
+    assert page.decisionLabel.text().startswith(f"Nothing to decide: the last {'extraction' if stage == 'extract' else 'design'} failed")
+    assert page.reject() is False and page.accept() is False and _status(tmp_path, 'f-failed') == 'pending'
+    assert page.skipButton.isEnabled()      # moving on is still fine
+
 def test_nothing_is_decided_on_a_title_a_run_is_working_on(qtbot, tmp_path):
     ''' A design in flight writes a new pending entry over whatever is there: an accept now would be lost. '''
     window = _window(qtbot, tmp_path, REVIEWABLE)

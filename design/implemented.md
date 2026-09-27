@@ -110,7 +110,8 @@ and artwork. Its top row moves (Previous, Next, and Skip, which goes to the next
 title waiting for a decision and writes nothing); its bottom row changes what
 happens to the title (Revise, a split button whose menu also chooses another
 audio stream, plus Retry and the JRiver path mappings for a failed title,
-Reject, and Accept & next); the buttons that open the title's mono or
+Reject, and Accept & next -- neither is offered for a title whose last extraction
+or design failed, where Retry is what it needs); the buttons that open the title's mono or
 multichannel project in the main app sit under the chart they edit, and their
 "opened" note goes when the page shows another title. In a narrow metadata
 column every label goes above its field. Batch Extract & Design can queue
