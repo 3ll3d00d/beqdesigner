@@ -347,6 +347,17 @@ def test_parse_github_remote_raises_on_unrecognised_url(tmp_path):
         parse_github_remote(target)
 
 
+
+def test_an_unrecognised_remote_is_quoted_as_it_is_written(tmp_path):
+    ''' The work list shows this to the person: a repr doubled every backslash of a Windows path. '''
+    work = tmp_path / 'work'
+    work.mkdir()
+    _run('git', 'init', '-q', str(work))
+    _run('git', '-C', str(work), 'remote', 'add', 'origin', 'C:\\repos\\images.git')
+    with pytest.raises(ValueError) as raised:
+        parse_github_remote(RepoTarget(local_path=str(work)))
+    assert str(raised.value) == "Unrecognised GitHub remote URL: 'C:\\repos\\images.git'"
+
 def test_pipeline_publish_git_module_has_no_qtpy_import():
     import ast
     import pathlib

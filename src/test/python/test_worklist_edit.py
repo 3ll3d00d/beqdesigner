@@ -184,3 +184,15 @@ def test_discovery_changes_when_a_source_a_rule_an_ignore_or_a_scan_setting_chan
     assert changed(replace(base, work_dir='/elsewhere'))
     assert not changed(with_config(base, 'sync', 'commit_message', 'hello'))   # nothing a scan reads
     assert discovery_changed(_setup(None), _setup(base)) and not discovery_changed(_setup(None), _setup(None))
+
+
+def test_a_repository_folder_is_shown_as_this_system_writes_a_path():
+    ''' The relative part is stored as a git path (`beq/xml`): on Windows it used to show as `C:\\r\\beq/xml`. '''
+    import ntpath
+    import posixpath
+    from model.worklist_edit import repository_display
+    assert repository_display('C:\\r', 'beq/xml', path=ntpath) == 'C:\\r\\beq\\xml'
+    assert repository_display('/r', 'beq/xml', path=posixpath) == '/r/beq/xml'
+    assert repository_display('/r', '', path=posixpath) == '/r'
+    assert repository_display('', 'beq/xml') == ''
+

@@ -130,6 +130,12 @@ def _answer(accept: bool, seen: list, tick=None) -> None:
     when_modal(ConfirmDialog, respond)
 
 
+
+def _why_not_started(window) -> str:
+    ''' What the window said, and the state that keeps a run from starting, when Publish or Commit started nothing. '''
+    return (f'nothing started: {window.runStatusLabel.text()!r} scanning={window._scanning} syncing={window._syncing} '
+            f'running={window.is_running} index={window._index is not None} needs={_needs(window)}')
+
 def _click(qtbot, button):
     qtbot.mouseClick(button, Qt.MouseButton.LeftButton)
 
@@ -205,11 +211,11 @@ def test_commit_with_push_unticked_then_a_push_only_commit_is_worded_as_a_push(q
     window = _open(qtbot, prefs, world.items)
     _answer(True, [])
     with qtbot.waitSignal(window.run_finished, timeout=60000):
-        window.publish_selected()
+        assert window.publish_selected(), _why_not_started(window)
 
     _answer(True, [], tick=False)
     with qtbot.waitSignal(window.run_finished, timeout=60000):
-        window.commit_selected()
+        assert window.commit_selected(), _why_not_started(window)
 
     assert (_commit_count(xml_bare), _commit_count(images_bare)) == before        # committed locally only
     assert window.runStatusLabel.text() == 'Commit finished: 1 committed, not pushed'
@@ -219,7 +225,7 @@ def test_commit_with_push_unticked_then_a_push_only_commit_is_worded_as_a_push(q
     seen: list = []
     _answer(True, seen, tick=True)
     with qtbot.waitSignal(window.run_finished, timeout=60000):
-        window.commit_selected()
+        assert window.commit_selected(), _why_not_started(window)
 
     assert seen[0].startswith('Push 1 title?') and 'Makes one commit' not in seen[0]
     assert (_commit_count(xml_bare), _commit_count(images_bare)) == (before[0] + 1, before[1] + 1)
@@ -240,7 +246,7 @@ def test_a_commit_that_fails_in_git_is_a_clean_per_title_failure_and_the_window_
     window = _open(qtbot, prefs, world.items, run_stages_fn=_capture_pipeline_events(events))
     _answer(True, [])
     with qtbot.waitSignal(window.run_finished, timeout=60000):
-        window.publish_selected()
+        assert window.publish_selected(), _why_not_started(window)
     assert os.path.isfile(not_git / XML_DIR / 'movies' / 'fs-a.json')
     assert _needs(window) == {'fs-a': 'commit', 'fs-b': 'commit'}
 
@@ -248,7 +254,7 @@ def test_a_commit_that_fails_in_git_is_a_clean_per_title_failure_and_the_window_
     events.clear()
     count_snapshots = _record_run_counts(window)
     with qtbot.waitSignal(window.run_finished, timeout=60000) as committed:      # nothing raised, nothing crashed
-        window.commit_selected()
+        assert window.commit_selected(), _why_not_started(window)
 
     assert committed.args[0].commit_error.startswith('git failed:')
     assert any(not event.title_id and event.stage == 'commit' and event.kind == 'failed' for event in events)
@@ -284,7 +290,7 @@ def test_publishing_with_a_remote_that_is_not_github_says_what_to_set_against_ev
 
     _answer(True, [])
     with qtbot.waitSignal(window.run_finished, timeout=60000):
-        window.publish_selected()
+        assert window.publish_selected(), _why_not_started(window)
 
     lines = {l.id: l for l in window.results if l.id}
     assert set(lines) == {'fs-a', 'fs-b'}

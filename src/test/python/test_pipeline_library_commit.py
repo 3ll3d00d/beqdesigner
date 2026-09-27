@@ -348,7 +348,7 @@ def test_a_published_entry_whose_file_is_gone_is_reported_not_fatal(tmp_path, re
 
     result = commit_catalogue(queue_dir, xml, xml_dir='xml')
 
-    assert result.missing == [os.path.join('xml', 'two.json')]
+    assert result.missing == ['xml/two.json']   # a path in the repository, as git writes it
     assert result.xml.paths == ['xml/one.json', 'xml/database.json']
 
 

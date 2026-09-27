@@ -46,11 +46,17 @@ def synthetic_5_1_wav(tmp_path):
 
 
 @pytest.mark.requires_ffmpeg
-def test_run_sync_extracts_mono_decimated_headlessly(synthetic_5_1_wav, tmp_path):
+@pytest.mark.parametrize('engine', ['soxr', 'swr'])
+def test_run_sync_extracts_mono_decimated_headlessly(synthetic_5_1_wav, tmp_path, monkeypatch, engine):
     '''
-    No QApplication anywhere in this test -- run_sync() must not need one.
+    No QApplication anywhere in this test -- run_sync() must not need one. swr is what an ffmpeg without libsoxr decimates with
+    (Homebrew's, gyan.dev's), so both engines must give the same downmix.
     '''
+    import model.ffmpeg
     from model.ffmpeg import Executor
+    if engine == 'soxr' and model.ffmpeg.ffmpeg_resampler() != 'soxr':
+        pytest.skip('this ffmpeg has no libsoxr')
+    monkeypatch.setattr(model.ffmpeg, 'ffmpeg_resampler', lambda: engine)
 
     target_dir = str(tmp_path / 'out')
     os.makedirs(target_dir, exist_ok=True)
@@ -61,6 +67,7 @@ def test_run_sync_extracts_mono_decimated_headlessly(synthetic_5_1_wav, tmp_path
     ex.update_spec(0, -1, True)
 
     assert ex.ffmpeg_cmd is not None
+    assert f'resampler={engine}' in ' '.join(ex.ffmpeg_cmd.compile())
 
     out, err = ex.run_sync()
     assert out is not None or err is not None  # ffmpeg-python returns (stdout, stderr) bytes
@@ -126,3 +133,34 @@ def test_a_failing_ffmpeg_command_logs_its_stderr(tmp_path, caplog):
 
     assert 'ffmpeg -i in.wav out.wav' in caplog.text
     assert 'Output file #0 received no packets.' in caplog.text
+
+
+@pytest.mark.parametrize('version, expected', [
+    ('ffmpeg version 8.1\nconfiguration: --enable-gpl --enable-libsoxr --enable-libx264\n', 'soxr'),
+    ('ffmpeg version 9.0.1\nconfiguration: --enable-gpl --enable-libx264\n', 'swr'),
+])
+def test_the_resampler_is_soxr_only_where_ffmpeg_was_built_with_it(monkeypatch, version, expected):
+    import subprocess
+    import model.ffmpeg
+    model.ffmpeg.ffmpeg_resampler.cache_clear()
+    monkeypatch.setattr(subprocess, 'run', lambda *a, **k: subprocess.CompletedProcess(a, 0, stdout=version, stderr=''))
+    try:
+        assert model.ffmpeg.ffmpeg_resampler() == expected
+    finally:
+        model.ffmpeg.ffmpeg_resampler.cache_clear()
+
+
+def test_the_resampler_is_soxr_when_ffmpeg_cannot_be_run(monkeypatch):
+    ''' Nothing to decide with: the extraction itself then says ffmpeg is missing. '''
+    import subprocess
+    import model.ffmpeg
+
+    def missing(*args, **kwargs):
+        raise FileNotFoundError('ffmpeg')
+
+    model.ffmpeg.ffmpeg_resampler.cache_clear()
+    monkeypatch.setattr(subprocess, 'run', missing)
+    try:
+        assert model.ffmpeg.ffmpeg_resampler() == 'soxr'
+    finally:
+        model.ffmpeg.ffmpeg_resampler.cache_clear()

@@ -5,6 +5,8 @@ and what it leaves out, what a run did to each title, the one-line outcome, and 
 '''
 import ui.beq  # noqa: F401 (must come first)
 
+import os
+
 import pytest
 from types import SimpleNamespace
 
@@ -323,7 +325,8 @@ def test_the_publish_confirmation_names_both_repositories_their_directories_and_
     heading, body = publish_text(12, _settings(), republishing=2)
 
     assert heading == 'Publish 12 titles?'
-    for text in ('/repos/beq-xml', '/repos/beq-images', 'filters', 'images', '2 titles of these are already published'):
+    for text in (os.path.normpath('/repos/beq-xml'), os.path.normpath('/repos/beq-images'), 'filters', 'images',
+                 '2 titles of these are already published'):
         assert text in body
     assert 'Nothing is committed or pushed' in body
     assert publish_text(1, _settings(images=False))[0] == 'Publish 1 title?'

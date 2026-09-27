@@ -1,4 +1,5 @@
 import datetime
+import functools
 import json
 import logging
 import math
@@ -117,6 +118,25 @@ def find_missing_ffmpeg_tools():
     '''
     exe = '.exe' if platform.system() == 'Windows' else ''
     return [t for t in ['ffmpeg', 'ffprobe'] if shutil.which(f"{t}{exe}") is None]
+
+
+@functools.lru_cache(maxsize=None)
+def ffmpeg_resampler() -> str:
+    '''
+    The aresample engine to decimate with: soxr where this ffmpeg was built with libsoxr (Debian's and Ubuntu's are), otherwise
+    swr, ffmpeg's own -- Homebrew's and gyan.dev's Windows builds have no soxr, and asking for it failed every extraction there
+    ("Requested resampling engine is unavailable").
+    '''
+    exe = '.exe' if platform.system() == 'Windows' else ''
+    try:
+        version = subprocess.run([f"ffmpeg{exe}", '-hide_banner', '-version'], capture_output=True, text=True,
+                                 timeout=30).stdout
+    except (OSError, subprocess.SubprocessError):
+        return 'soxr'   # no usable ffmpeg: the extraction reports that itself
+    if '--enable-libsoxr' in version:
+        return 'soxr'
+    logger.warning('This ffmpeg has no libsoxr: decimating with its own resampler (swr) instead')
+    return 'swr'
 
 
 def describe_missing_binary(e: FileNotFoundError):
@@ -660,7 +680,7 @@ class Executor:
             merge_filt += ''.join([f"|c{idx}=c{idx}" for idx, x in enumerate(ch_outs)])
 
         if self.decimate_audio is True:
-            merge_filt += f"[m0];[m0]aresample={self.__decimate_fs}:resampler=soxr[s0]"
+            merge_filt += f"[m0];[m0]aresample={self.__decimate_fs}:resampler={ffmpeg_resampler()}[s0]"
         else:
             merge_filt += '[s0]'
 
@@ -787,7 +807,7 @@ class Executor:
         ''' Calculates an ffmpeg-python cmd for extracting multichannel audio from an input stream. '''
         audio_filter = input_stream[f"a:{self.__selected_audio_stream_idx}"]
         if self.decimate_audio is True:
-            audio_filter = audio_filter.filter('aresample', str(self.__decimate_fs), resampler='soxr')
+            audio_filter = audio_filter.filter('aresample', str(self.__decimate_fs), resampler=ffmpeg_resampler())
         if self.__selected_video_stream_idx != -1:
             return ffmpeg.output(input_stream[f"v:{self.__selected_video_stream_idx}"], audio_filter, output_file,
                                  acodec=acodec, vcodec='copy')
@@ -799,13 +819,13 @@ class Executor:
         if self.__selected_video_stream_idx != -1:
             audio_filter = input_stream[f"a:{self.__selected_audio_stream_idx}"].filter('pan', **{'mono|c0': self.__mono_mix_spec})
             if self.decimate_audio is True:
-                audio_filter = audio_filter.filter('aresample', str(self.__decimate_fs), resampler='soxr')
+                audio_filter = audio_filter.filter('aresample', str(self.__decimate_fs), resampler=ffmpeg_resampler())
             return ffmpeg.output(input_stream[f"v:{self.__selected_video_stream_idx}"], audio_filter, output_file,
                                  acodec=acodec, vcodec='copy')
         else:
             mix = input_stream[f"a:{self.__selected_audio_stream_idx}"].filter('pan', **{'mono|c0': self.__mono_mix_spec})
             if self.decimate_audio is True:
-                mix = mix.filter('aresample', str(self.__decimate_fs), resampler='soxr')
+                mix = mix.filter('aresample', str(self.__decimate_fs), resampler=ffmpeg_resampler())
             return mix.output(output_file, acodec=acodec)
 
     def __calculate_remux_cmd(self, output_file):

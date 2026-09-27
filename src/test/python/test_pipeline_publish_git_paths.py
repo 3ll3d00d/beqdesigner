@@ -45,6 +45,7 @@ def test_backslash_paths_mean_the_same_as_slash_paths_in_every_entry_point(tmp_p
     assert is_committed(target, 'a/b/c.xml')
 
 
+@pytest.mark.skipif(os.name == 'nt', reason='* and ? cannot be in a Windows file name')
 def test_a_glob_character_in_a_name_is_literal(tmp_path):
     target, _ = _init_repo_with_remote(tmp_path)
     write_files(target, {'xml/st*r.xml': b'star', 'xml/stXr.xml': b'x', 'xml/st?r.xml': b'q'})
@@ -57,6 +58,20 @@ def test_a_glob_character_in_a_name_is_literal(tmp_path):
     assert discard_changes(target, ['xml/st?r.xml']) == ['xml/st?r.xml']
     assert (tmp_path / 'work' / 'xml' / 'stXr.xml').exists()  # `?` did not match it
 
+
+
+def test_a_bracket_glob_in_a_name_is_literal(tmp_path):
+    ''' [...] is a git pathspec glob too, and the one a Windows file name can hold: `st[a]r.xml` must not take `star.xml`. '''
+    target, _ = _init_repo_with_remote(tmp_path)
+    write_files(target, {'xml/st[a]r.xml': b'bracket', 'xml/star.xml': b'plain',
+                         'xml/b[o]x.xml': b'bracket', 'xml/box.xml': b'plain'})
+
+    commit_paths(target, ['xml/st[a]r.xml'], 'just the bracketed one')
+
+    assert is_committed(target, 'xml/st[a]r.xml')
+    assert not is_committed(target, 'xml/star.xml')
+    assert discard_changes(target, ['xml/b[o]x.xml']) == ['xml/b[o]x.xml']
+    assert (tmp_path / 'work' / 'xml' / 'box.xml').exists()   # `[o]` did not match it
 
 def test_a_subdirectory_clone_reports_paths_relative_to_itself(tmp_path):
     root, bare = _init_repo_with_remote(tmp_path)

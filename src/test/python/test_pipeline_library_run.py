@@ -75,7 +75,7 @@ def test_run_library_composes_caches_resolves_metadata_and_threads_multichannel(
     assert report.design_cached == []
     assert report.failed == []
     assert completed == ['one']
-    assert session.channel_calls == [(f'{tmp_path}/work/one/multichannel.wav', '5.1')]
+    assert session.channel_calls == [(f"{os.path.join(tmp_path, 'work', 'one')}/multichannel.wav", '5.1')]
     assert design_calls[0][5]['meta']() == {'title': 'one', 'audio_types': ['Atmos'], 'season': '2'}
     assert design_calls[0][5]['channels'] == {'LFE': [1, 2]}
     assert design_calls[0][5]['multichannel_wav_path'].endswith('multichannel.wav')

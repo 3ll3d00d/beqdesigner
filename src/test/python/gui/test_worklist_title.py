@@ -712,6 +712,8 @@ def test_closing_during_a_scan_leaves_the_read_to_when_it_ends_and_a_failed_read
     assert window._index_dirty                        # the failed read is tried again later
 
 
+@pytest.mark.skipif(os.name == 'nt', reason='Windows cannot delete a file that is open, so the index cannot vanish '
+                                             'under an open window there')
 def test_no_index_file_is_created_by_reading_after_a_decision(qtbot, tmp_path):
     from pipeline.library.index import index_path
     window = _window(qtbot, tmp_path, REVIEWABLE)

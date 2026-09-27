@@ -144,6 +144,14 @@ def repository_location(path: str) -> Tuple[Optional[str], Optional[str], PathCh
         current = parent
 
 
+def repository_display(root: Optional[str], relative: Optional[str], path=os.path) -> str:
+    '''
+    Where a repository's folder is, as this system writes a path: the relative part is stored with `/` (a git path), and
+    joined as it is to a Windows root it read `C:\\repos\\beq/xml`.
+    '''
+    return path.normpath(path.join(root, relative or '')) if root else ''
+
+
 def check_relative_dir(text: str) -> PathCheck:
     ''' A folder inside a repository, written relative to its root (`beq/xml`); empty means the root itself. '''
     text = text.strip()

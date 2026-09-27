@@ -124,7 +124,7 @@ def parse_github_remote(target: RepoTarget) -> Tuple[str, str]:
         m = pattern.match(url)
         if m:
             return m.group('owner'), m.group('repo')
-    raise ValueError(f"Unrecognised GitHub remote URL: {url!r}")
+    raise ValueError(f"Unrecognised GitHub remote URL: '{url}'")   # not !r: that doubles every backslash of a Windows path
 
 
 def write_files(target: RepoTarget, files: Mapping[str, bytes]) -> None:

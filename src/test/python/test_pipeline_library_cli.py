@@ -788,7 +788,7 @@ def workflow(tmp_path, monkeypatch):
     xml, xml_bare = _repo(tmp_path, 'xml')
     images, images_bare = _repo(tmp_path, 'images')
     for repo in (xml, images):
-        (tmp_path / repo.local_path.rsplit('/', 1)[1] / 'README').write_text('catalogue')
+        (tmp_path / os.path.basename(repo.local_path) / 'README').write_text('catalogue')
         subprocess.run(['git', '-C', repo.local_path, 'add', 'README'], check=True, capture_output=True)
         subprocess.run(['git', '-C', repo.local_path, 'commit', '-q', '-m', 'first'], check=True, capture_output=True)
         subprocess.run(['git', '-C', repo.local_path, 'push', '-q', '-u', 'origin', 'HEAD'], check=True,

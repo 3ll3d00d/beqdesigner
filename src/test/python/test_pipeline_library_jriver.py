@@ -1,6 +1,7 @@
 '''Tests for the Qt-free JRiver browse-node library source.'''
 import asyncio
 import json
+import os
 import threading
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -506,15 +507,17 @@ def _fail_on_disk(monkeypatch, only_under):
 def test_mapping_rows_performs_no_stat_or_isfile_on_media_or_artwork(monkeypatch):
     rows = [_row(Key=i, Filename=f'W:\\Films\\{i}.mkv', **{'Image File': f'{i}.jpg'}) for i in range(50)]
     rows.append(_row(Key=99, Filename='W:\\Films\\x\\BDMV\\index.bluray;1', **{'Image File': 'W:\\Films\\art.jpg'}))
-    source = _source(path_mappings=[PathMapping('W:\\Films', '/mnt/films')])
-    _fail_on_disk(monkeypatch, only_under=lambda path: path.startswith(('W:\\Films', '/mnt/films'))
+    local = 'M:\\films' if os.name == 'nt' else '/mnt/films'   # an absolute path where the pipeline runs
+    source = _source(path_mappings=[PathMapping('W:\\Films', local)])
+    _fail_on_disk(monkeypatch, only_under=lambda path: path.startswith(('W:\\Films', local))
                   or path.endswith(('.mkv', '.jpg', '.bluray;1')))
 
     items = source._map_rows(rows)
 
     assert len(items) == 51
     assert items[0].art_path is None
-    assert items[0].art_candidates == ('/mnt/films/0.jpg',)
+    assert items[0].art_candidates == (os.path.join(os.path.dirname(items[0].source_path), '0.jpg'),)
+    assert items[0].art_candidates[0].startswith(local)
 
 
 def test_listing_a_library_over_http_touches_no_media_file(monkeypatch):

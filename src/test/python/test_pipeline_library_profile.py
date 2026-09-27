@@ -1,6 +1,8 @@
 '''The catalogue profile (design/archive/library-sync/workflow-rework/design.md §12.4): the ordered sources, the old shape, round trips.'''
 import json
 
+import os
+
 import pytest
 import yaml
 
@@ -285,6 +287,7 @@ def test_a_profile_that_would_not_read_back_is_refused_before_anything_is_writte
     assert path.read_bytes() == before
 
 
+@pytest.mark.skipif(os.name == 'nt', reason='Windows has no POSIX permission bits to keep')
 def test_saving_over_a_file_keeps_its_permissions(tmp_path):
     path = tmp_path / 'p.yaml'
     save_profile(Profile(), str(path))

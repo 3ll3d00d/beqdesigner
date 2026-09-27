@@ -293,12 +293,12 @@ def test_result_flags_a_preserved_project_edit_only_when_a_project_was_skipped(t
         return entry
 
     monkeypatch.setattr('pipeline.library.design_cache.design_and_queue', fake_design)
-    for written, expected in (({'mono': True, 'multichannel': None}, False),
+    for case, (written, expected) in enumerate((({'mono': True, 'multichannel': None}, False),
                               ({'mono': True, 'multichannel': True}, False),
                               ({'mono': False, 'multichannel': None}, True),
-                              ({'mono': True, 'multichannel': False}, True)):
+                              ({'mono': True, 'multichannel': False}, True))):
         projects = [written]
-        result = design_if_needed(None, item, '/work/mono.wav', 'designer.v1', str(tmp_path / f'q{expected}{written}'),
+        result = design_if_needed(None, item, '/work/mono.wav', 'designer.v1', str(tmp_path / f'q{case}'),
                                   AnalysisConfig(), project_dir='/work/title-1')
         assert result.projects == written
         assert result.project_edit_preserved is expected

@@ -32,7 +32,7 @@ from qtpy.QtWidgets import QCheckBox, QComboBox, QDoubleSpinBox, QFileDialog, QF
 from pipeline.publish.catalogue import DEFAULT_MOVIES_DIR, DEFAULT_TV_DIR
 from model.preferences import LIBRARY_PROFILE_PATH, TMDB_API_KEY, WORKLIST_ACCEPT_THRESHOLD
 from model.worklist_edit import LEVEL_ERROR, LEVEL_INFO, LEVEL_OK, PathCheck, check_directory, config_value, \
-    remote_owner_and_name, repository_location, with_config
+    remote_owner_and_name, repository_display, repository_location, with_config
 from model.worklist_ignore import IgnoreTab
 from model.worklist_model import warning_colour
 from model.worklist_profile import WorkListSetup
@@ -393,8 +393,8 @@ class SettingsDrawer(QWidget):
         self.statusLabel.setStyleSheet('')
         self.workDir.set_text(profile.work_dir)
         self.queueDir.set_text(profile.queue_dir)
-        self.filterLocation.set_text(os.path.join(profile.xml_repo, profile.xml_dir) if profile.xml_repo else '')
-        self.imagesLocation.set_text(os.path.join(profile.images_repo, profile.image_dir) if profile.images_repo else '')
+        self.filterLocation.set_text(repository_display(profile.xml_repo, profile.xml_dir))
+        self.imagesLocation.set_text(repository_display(profile.images_repo, profile.image_dir))
         self.categoryFolders.setChecked(bool(config_value(profile, 'sync', 'category_folders', True)))
         self.moviesDir.setText(str(config_value(profile, 'sync', 'movies_dir', '') or ''))
         self.tvDir.setText(str(config_value(profile, 'sync', 'tv_dir', '') or ''))
