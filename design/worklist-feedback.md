@@ -8,7 +8,7 @@ once built, its lasting behavior moves into [`implemented.md`](implemented.md).
 |---|---|---|
 | F1 | A *Working* chip for titles being extracted or designed | Not started |
 | F2 | Write the `.beq` projects when a title is extracted | Built in `7420a54` |
-| F3 | A decline is a flat (empty) filter a person can publish as "does not require BEQ" | Built (see the commit that records it) |
+| F3 | A decline is a flat (empty) filter a person can publish as "does not require BEQ" | Built in `49bbf34` |
 | F4 | A failed extraction stays extractable; Revise is not offered for it | Built in `c58a4b4` |
 | F5 | New work joins the run in progress (work list, CLI and service) | Not started |
 
