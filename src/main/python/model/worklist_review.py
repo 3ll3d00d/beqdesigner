@@ -373,7 +373,7 @@ class ReviewFolderWindow(QMainWindow):
 
     def _fill_row(self, row: int, title_id: str) -> None:
         entry, view = self._entries[title_id], self._rows[title_id]
-        confidence = f'{entry.candidates[0].confidence:.2f}' if entry.candidates else ''
+        confidence = f'{entry.candidates[0].confidence:.2f}' if entry.candidates and not entry.declined else ''
         for column, text in enumerate((view.title, entry.status, confidence)):
             item = QTableWidgetItem(text)
             item.setData(Qt.ItemDataRole.UserRole, title_id)

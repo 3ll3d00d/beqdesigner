@@ -140,11 +140,11 @@ def test_selecting_a_row_shows_that_entry_with_its_candidates_and_commentary(qtb
     assert 'more' in window.page.commentaryText.toPlainText()
 
 
-def test_a_declined_entry_shows_the_reason_and_cannot_be_accepted(qtbot, tmp_path):
+def test_a_declined_entry_shows_the_reason_and_can_be_accepted_as_not_requiring_beq(qtbot, tmp_path):
     window = _folder(qtbot, tmp_path, entries=(('a', {'decline': True}),))
     page = window.page
-    assert page.candidateList.count() == 0 and 'no_rolloff_detected' in page.noticeLabel.text()
-    assert not page.acceptButton.isEnabled() and page.skipButton.isEnabled() and page.rejectButton.isEnabled()
+    assert page.candidateList.count() == 1 and 'no_rolloff_detected' in page.noticeLabel.text()
+    assert page.acceptButton.isEnabled() and page.skipButton.isEnabled() and page.rejectButton.isEnabled()
 
 
 def test_a_digit_key_changes_the_pick_without_accepting_and_accept_writes_the_picked_candidate_and_advances(qtbot, tmp_path):

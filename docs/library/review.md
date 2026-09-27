@@ -37,7 +37,7 @@ On the right, the **Filter** tab draws the audio track's average (solid) and pea
 * *Accept & next* goes on to the next waiting title after this one, and wraps round to the start when it gets to the end. When none are left it stays where it is and says so.
 * Accept is **switched off while the metadata is incomplete**, and the line under the candidates says what to fill in. Pressing `A` then shows the *Metadata* tab and outlines the missing box (the keyboard stays where it was).
 * Accept is also not offered for a title that has to be extracted or designed again first, or that has failed, and a title that the machine is working on right now can not be decided.
-* If the designer **declined** a title, there are no candidates, and you can skip or reject it.
+* If the designer **declined** a title, it has one candidate with **no filter**, and the commentary says why it declined. Accept it to publish the title as *does not require BEQ*: a catalogue record with no filters and the note "Does not require BEQ" (unless you wrote a note of your own). Or skip or reject it as usual. *Accept top pick* never accepts it for you.
 * Skip only applies to a waiting title. A *skipped* title can still be accepted or rejected later: open it from the *Done* view. To undo an accept, use [Reopen](revise.md).
 * Before it writes a decision, the page reads the title's entry again. If it changed since you opened it (a run redesigned it, or it was decided elsewhere) nothing is written, and the page shows what is there now.
 * The keys work anywhere on the page **except in a text box**, where they type. `Enter` does nothing outside the candidate list, so pressing it in a field never accepts a title. `Esc` in a field returns to the candidate list, and a second `Esc` goes back.

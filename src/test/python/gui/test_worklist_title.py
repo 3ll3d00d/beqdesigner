@@ -173,9 +173,12 @@ def test_chart_data_shows_average_and_peak_before_and_after_the_filter(tmp_path,
                                                        'Filtered average audio track (all channels mixed)']
     assert chart_data(None, 0) == []
     write_entry(str(tmp_path), 'declined', decline=True)
-    declined = chart_data(read_entry(str(tmp_path), 'declined'), 0)   # what the decline was judged on, unfiltered
-    assert [(c.name, c.linestyle) for c in declined] == [('Average audio track (all channels mixed)', '-'),
-                                                        ('Peak audio track (all channels mixed)', '-')]
+    declined = chart_data(read_entry(str(tmp_path), 'declined'), 0)   # what the decline was judged on: its filter is flat
+    assert [c.name for c in declined] == ['Average audio track (all channels mixed)', 'Peak audio track (all channels mixed)',
+                                          'Filtered average audio track (all channels mixed)',
+                                          'Filtered peak audio track (all channels mixed)']
+    from model.codec import filter_from_json
+    assert len(filter_from_json(read_entry(str(tmp_path), 'declined').candidates[0].filters)) == 0
 
 
 def test_title_chart_draws_both_curves_and_legacy_entries_still_open(qtbot, tmp_path):
@@ -362,19 +365,25 @@ def test_a_title_that_has_not_been_designed_says_why_and_offers_no_decision(qtbo
     assert page.noticeLabel.text() == 'Nothing to review: extract failed: file not found'
 
 
-def test_a_declined_title_shows_the_reason_and_can_only_be_skipped_or_rejected(qtbot, tmp_path):
+def test_a_declined_title_shows_the_reason_and_can_be_accepted_as_not_requiring_beq(qtbot, tmp_path):
+    ''' worklist-feedback.md F3: the decline is one flat candidate, which a person may accept. '''
     window = _window(qtbot, tmp_path, [('r-alien', {'decline': True}), ('r-arrival', {})])
     page = _open(qtbot, window, 'r-alien')
 
     assert page.noticeLabel.text().startswith('Declined: no_rolloff_detected -- nothing found')
-    assert page.candidateList.count() == 0
+    assert [page.candidateList.item(0).text()] == ['1: no filter -- the designer declined (does not require BEQ)']
     assert page.commentaryHeading.text() == 'Why the designer declined'
     assert page.commentaryText.toPlainText().split('\n') == ['Decline reason', 'no_rolloff_detected', 'Summary', 'nothing found']
-    assert set(page._magnitude.get_curve_names()) == {'Average audio track (all channels mixed)',
-                                                      'Peak audio track (all channels mixed)'}
-    assert not page.acceptButton.isEnabled() and page.skipButton.isEnabled() and page.rejectButton.isEnabled()
+    assert 'Average audio track (all channels mixed)' in page._magnitude.get_curve_names()
+    assert page.acceptButton.isEnabled() and page.skipButton.isEnabled() and page.rejectButton.isEnabled()
     page.show_title('r-arrival')
     assert page.commentaryHeading.text() == 'Commentary' and 'top pick' in page.commentaryText.toPlainText()
+    page.show_title('r-alien')
+
+    _click(qtbot, page.acceptButton)
+
+    accepted = read_entry(_queue(tmp_path), 'r-alien')
+    assert accepted.status == 'accepted' and accepted.chosen_candidate_index == 0 and accepted.declined
 
 
 def test_an_unreadable_entry_is_reported_and_the_rest_of_the_list_still_works(qtbot, tmp_path):

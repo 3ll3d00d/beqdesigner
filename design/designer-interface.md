@@ -412,9 +412,12 @@ caller treats it as a first-class, non-error outcome. Populate:
 
 Leave `candidates` as `None` on decline — not an empty list, `None`; an
 empty list is rejected the same as populating it, since "zero candidates" is
-what a decline already means. The caller runs nothing downstream of a
-decline — no filter is simulated, no XML is written, no report claims a
-correction was made.
+what a decline already means. The caller designs nothing downstream of a
+decline and never publishes one on its own. BEQDesigner offers it to a
+person as a single flat candidate (no filters); if they accept it, the title
+is published as a record with an empty filter list and the note "Does not
+require BEQ" — the catalogue's convention for a title that needs no
+correction — so no report claims a correction was made.
 
 **What's yours to decline on, versus what to report and let the caller
 decide.** §2 keeps the input surface small on purpose — no headroom,

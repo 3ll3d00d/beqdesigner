@@ -787,11 +787,11 @@ class ExtractAudioDialog(QDialog, Ui_extractAudioDialog):
 
     def design_complete(self, entry):
         '''
-        DesignJob callback -- design has completed (entry.candidates is empty on a decline). Offers to open
+        DesignJob callback -- design has completed (entry.declined on a decline). Offers to open
         the Review folder window (model/worklist_review.py) on the queue directory.
         '''
         self.__design_entry = entry
-        if entry.candidates:
+        if not entry.declined:
             top = entry.candidates[0]
             self.statusBar.showMessage(f"Designed: confidence={top.confidence:.2f} method={top.method}", 5000)
         else:

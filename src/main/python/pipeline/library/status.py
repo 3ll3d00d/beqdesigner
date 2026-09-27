@@ -226,7 +226,7 @@ class EntryFacts:
     def of(cls, entry: QueueEntry, mtime_ns: int, size: int, inode: int = 0, ctime_ns: int = 0) -> 'EntryFacts':
         return cls(entry.status, entry.chosen_candidate_index,
                    entry.candidates[0].confidence if entry.candidates else None, len(entry.candidates),
-                   (entry.decline_message or entry.decline_reason or '') if not entry.candidates else '',
+                   (entry.decline_message or entry.decline_reason or '') if entry.declined else '',
                    entry.design_fingerprint, entry.source_fingerprint, entry.published_digest, entry.art_path,
                    dict(entry.meta), mtime_ns, size, inode, ctime_ns, entry.published_stem)
 

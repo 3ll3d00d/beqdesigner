@@ -20,7 +20,7 @@ item that requires evidence from a real one.
 | O2 | former §9 reviewer questions | Behavior exists; acceptance decision missing | Real reviewer feedback |
 | F1-F5 | work-list feedback 2026-09-27 | F4 built in `c58a4b4`, F2 in `7420a54`; F1, F3, F5 not started; see [worklist-feedback.md](worklist-feedback.md) | None |
 | T1 | -- | Watch; not reproduced | Recurrence with a stack dump |
-| T2 | -- | Watch; seen once | Recurrence with its failure message |
+| T2 | -- | Watch; seen twice | Recurrence with its failure message |
 | S5 validation | -- | S0-S7 implemented; Docker image build/smoke awaits first CI run | CI on push |
 
 ## External evidence and disc behavior
@@ -177,7 +177,8 @@ has not recurred after a few weeks of routine runs.
 On 2026-09-26 one full `pytest -n auto` run failed
 `test_pipeline_library_extract_cache.py::test_extract_if_needed_forwards_ffmpegs_time_progress`;
 it had passed in the full runs just before, and the file passed 3 of 3 runs
-alone afterwards. The failure
+alone afterwards. It failed once more on 2026-09-27 (during F3's full run);
+two re-runs with `--tb=short` to capture it both passed. The failure
 message was not captured. The suspected, unconfirmed cause: the test
 extracts a 1 s synthetic wav and needs at least one progress report with
 `out_time > 0`, which is racy under full parallel load. If it recurs, record the

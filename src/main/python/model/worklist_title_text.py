@@ -11,7 +11,7 @@ from typing import Callable, Mapping, Optional, Sequence
 from model.codec import filter_from_json, xydata_from_json
 from model.preferences import get_avg_colour, get_peak_colour
 from pipeline.library.index import TitleRow
-from pipeline.review import QueueEntry
+from pipeline.review import DECLINED_METHOD, QueueEntry
 
 STATUS_WORDS = {'pending': 'Waiting for a decision', 'accepted': 'Accepted', 'skipped': 'Skipped',
                 'rejected': 'Rejected', 'published': 'Published'}
@@ -46,6 +46,8 @@ def next_waiting_id(ids: Sequence[str], current: str, waiting: Callable[[str], b
 
 
 def candidate_text(index: int, candidate) -> str:
+    if candidate.method == DECLINED_METHOD:
+        return f'{index + 1}: no filter -- the designer declined (does not require BEQ)'
     gain = candidate.gain_reduction_db if candidate.gain_reduction_db is not None else 'n/a'
     return (f'{index + 1}: confidence={candidate.confidence:.2f} method={candidate.method} '
             f'mv_adjust_db={candidate.mv_adjust_db:+.1f} gain_reduction_db={gain}')
@@ -156,9 +158,9 @@ def chart_data(entry: Optional[QueueEntry], picked: int) -> list:
     '''
     The selected track's average and peak mono mix, in the main chart's measure colours and before/after line styles.
     Old queue entries
-    have only the average curve. A declined title (no candidates) still shows what was measured, unfiltered: it is what the
-    decline was judged on. The legend names the source audio stream, rather than exposing the pipeline's transient signal
-    name.
+    have only the average curve. A declined title's one candidate is flat, so its filtered curves are what was measured: what
+    the decline was judged on. The legend names the source audio stream, rather than exposing the pipeline's transient
+    signal name.
     '''
     if entry is None or not entry.curve:
         return []

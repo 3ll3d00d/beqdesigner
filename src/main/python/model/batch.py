@@ -875,13 +875,13 @@ class ExtractCandidate:
 
     def design_complete(self, entry):
         '''
-        Updates the UI when the design job completes -- entry.candidates is empty on a decline.
+        Updates the UI when the design job completes -- a decline's one candidate is flat (entry.declined).
         :param entry: the written pipeline.review.QueueEntry.
         '''
         stop_spinner(self.__design_icon, self.designButton)
         self.__design_icon = None
         self.__design_entry = entry
-        if entry.candidates:
+        if not entry.declined:
             top = entry.candidates[0]
             self.designButton.setIcon(qta.icon('fa5s.check', color='green'))
             self.designButton.setToolTip(f"confidence={top.confidence:.2f} method={top.method}")
@@ -910,7 +910,7 @@ class ExtractCandidate:
         if self.__design_entry is None:
             return
         msg_box = QMessageBox(self.__dialog)
-        if self.__design_entry.candidates:
+        if not self.__design_entry.declined:
             top = self.__design_entry.candidates[0]
             msg_box.setWindowTitle('Design result')
             msg_box.setText(f"confidence={top.confidence:.2f}\nmethod={top.method}\n"

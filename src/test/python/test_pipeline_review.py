@@ -21,7 +21,7 @@ from pipeline.designer.contract import BiquadSpec, DesignCandidate, DesignRespon
 from pipeline.designer.registry import register_designer, unregister_designer
 from pipeline.orchestrate import Session
 from pipeline.publish.git import RepoTarget
-from pipeline.review import CandidateSummary, QueueEntry, apply_reviewed_entry, batch_design, design_and_queue, \
+from pipeline.review import CandidateSummary, QueueEntry, flat_candidate, apply_reviewed_entry, batch_design, design_and_queue, \
     describe_publish_error, publish_reviewed_queue, read_entry, read_queue, split_publish_results, update_entry, \
     write_queue_entry
 
@@ -243,8 +243,8 @@ def test_batch_design_declined_title_carries_the_reason(tmp_path):
     batch_design([('declined-title', source_wav, None)], DECLINE_DESIGNER_NAME, queue_dir, work_dir)
 
     entry = read_entry(queue_dir, 'declined-title')
-    assert entry.status == 'pending'
-    assert entry.candidates == []
+    assert entry.status == 'pending' and entry.declined
+    assert entry.candidates == [flat_candidate(entry.fs)]   # worklist-feedback.md F3: one flat, acceptable candidate
     assert entry.decline_reason == 'no_rolloff_detected'
     assert entry.decline_message == 'nothing to correct'
 
@@ -667,3 +667,70 @@ def test_split_publish_results_separates_published_from_needs_attention():
 def test_describe_publish_error_explains_a_project_conflict_and_passes_an_unknown_code_through():
     assert describe_publish_error({'id': 'b', 'error': 'project_conflict'}).startswith('b: the mono and multichannel')
     assert describe_publish_error({'id': 'x', 'error': 'something_new'}) == 'x: something_new'
+
+
+# --- a decline as "does not require BEQ" (worklist-feedback.md F3) ------------------------------------------------------------
+
+def _declined_entry(tmp_path, meta=None):
+    source_wav = str(tmp_path / 'source.wav')
+    _write_synthetic_wav(source_wav)
+    queue_dir = str(tmp_path / 'queue')
+    batch_design([('declined-title', source_wav, meta or {'title': 'Quiet Film', 'year': '2020',
+                                                          'audio_types': ['DTS-HD MA 5.1']})],
+                 DECLINE_DESIGNER_NAME, queue_dir, str(tmp_path / 'work'))
+    update_entry(queue_dir, 'declined-title', status='accepted', chosen_candidate_index=0)
+    return queue_dir
+
+
+def test_an_accepted_decline_is_published_with_no_filters_and_says_it_does_not_require_beq(tmp_path):
+    from pipeline.review import NO_BEQ_NOTE, current_publish_digest
+    queue_dir = _declined_entry(tmp_path)
+    xml_repo, _ = _init_repo_with_remote(tmp_path, 'xml_repo')
+    images_repo, _ = _init_repo_with_remote(tmp_path, 'images_repo')
+
+    results = publish_reviewed_queue(queue_dir, xml_repo, xml_dir='xml', images_repo=images_repo, image_dir='img',
+                                     image_owner='3ll3d00d', image_repo_name='beq-images')
+
+    record = results[0]['record']
+    assert record['filters'] == [] and record['note'] == NO_BEQ_NOTE and record['mv'] == '+0'
+    published = read_entry(queue_dir, 'declined-title')
+    assert published.status == 'published'
+    # discovery's digest agrees with publish's, so the title is not "out of date" straight after publishing
+    assert current_publish_digest(published, has_image=True, image_owner='3ll3d00d',
+                                  image_repo_name='beq-images') == published.published_digest
+
+
+def test_a_reviewers_own_note_is_kept_on_a_title_published_with_no_filters(tmp_path):
+    queue_dir = _declined_entry(tmp_path, meta={'title': 'Quiet Film', 'year': '2020', 'audio_types': ['DTS-HD MA 5.1'],
+                                                'note': 'checked by ear'})
+    xml_repo, _ = _init_repo_with_remote(tmp_path, 'xml_repo')
+
+    record = publish_reviewed_queue(queue_dir, xml_repo, xml_dir='xml')[0]['record']
+
+    assert record['filters'] == [] and record['note'] == 'checked by ear'
+
+
+def test_a_decline_written_before_it_had_a_candidate_is_read_with_its_flat_one(tmp_path):
+    queue_dir = str(tmp_path / 'queue')
+    os.makedirs(queue_dir)
+    with open(os.path.join(queue_dir, 'old.json'), 'w') as f:
+        json.dump({'id': 'old', 'fs': 1000, 'meta': {}, 'curve': {}, 'candidates': [], 'decline_reason': 'no_rolloff',
+                   'decline_message': 'nothing'}, f)
+
+    entry = read_entry(queue_dir, 'old')
+
+    assert entry.declined and entry.candidates == [flat_candidate(1000)] and entry.candidates[0].confidence is None
+    assert not QueueEntry(id='new', fs=1000, meta={}, curve={}).declined
+
+
+def test_designing_a_decline_writes_flat_projects(tmp_path):
+    from pipeline.publish.project import read_project_filter
+    source_wav = str(tmp_path / 'mono.wav')
+    _write_synthetic_wav(source_wav, channel_values=(1000,))
+    project_dir = str(tmp_path / 'work' / 'quiet')
+
+    design_and_queue(Session(AnalysisConfig()), 'quiet', source_wav, DECLINE_DESIGNER_NAME, str(tmp_path / 'queue'),
+                     project_dir=project_dir)
+
+    flat, pure = read_project_filter(os.path.join(project_dir, 'quiet.mono.beq'))
+    assert pure and len(flat) == 0

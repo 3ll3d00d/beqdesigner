@@ -35,6 +35,10 @@ logger = logging.getLogger('review_queue')
 
 VALID_STATUSES = {'pending', 'accepted', 'skipped', 'rejected', 'published'}
 
+# worklist-feedback.md F3: a decline is offered as one flat candidate, so "does not require BEQ" can be accepted and published
+DECLINED_METHOD = 'declined'
+NO_BEQ_NOTE = 'Does not require BEQ'
+
 
 @dataclass
 class CandidateSummary:
@@ -45,7 +49,7 @@ class CandidateSummary:
     pick -- same ordering rule as DesignResponse.candidates.
     '''
     filters: dict
-    confidence: float
+    confidence: Optional[float]   # None only for a decline's flat candidate (DECLINED_METHOD): the designer offered nothing
     method: str
     mv_adjust_db: float  # NOT a clipping-cost estimate -- see gain_reduction_db
     gain_reduction_db: Optional[float] = None
@@ -70,7 +74,7 @@ class QueueEntry:
     curve: dict                      # one MagnitudeData (avg, unfiltered) via model.codec.xydata_to_json
     peak_curve: Optional[dict] = None  # unfiltered peak; absent in older queue entries
     audio_stream: Optional[int] = None  # zero-based source audio stream; None in queue entries written before this field
-    candidates: List[CandidateSummary] = field(default_factory=list)  # empty on decline
+    candidates: List[CandidateSummary] = field(default_factory=list)  # a decline has one: flat_candidate()
     decline_reason: Optional[str] = None
     decline_message: Optional[str] = None
     status: str = 'pending'
@@ -93,6 +97,8 @@ class QueueEntry:
                                                # file. None: published before names were readable, so under `id`
 
     def __post_init__(self):
+        if self.decline_reason and not self.candidates:   # a decline, including one written before it had a candidate
+            self.candidates = [flat_candidate(self.fs)]
         if self.status not in VALID_STATUSES:
             raise ValueError(f"status must be one of {sorted(VALID_STATUSES)}, got {self.status!r}")
         if self.status == 'accepted':
@@ -102,6 +108,29 @@ class QueueEntry:
                 raise ValueError(
                     f"chosen_candidate_index {self.chosen_candidate_index} out of range "
                     f"for {len(self.candidates)} candidate(s)")
+
+
+    @property
+    def declined(self) -> bool:
+        ''' The designer declined: its one candidate is flat, "does not require BEQ", with no confidence. '''
+        return bool(self.decline_reason)
+
+
+def flat_candidate(fs: int) -> CandidateSummary:
+    '''
+    What a decline is offered as (worklist-feedback.md F3): no filters at all, which a person may accept and publish as
+    "does not require BEQ" -- the catalogue's own convention for such a title is a record with an empty filter list.
+    '''
+    from model.iir import CompleteFilter
+    return CandidateSummary(filters=CompleteFilter(fs=fs, filters=[]).to_json(), confidence=None,
+                            method=DECLINED_METHOD, mv_adjust_db=0.0, gain_reduction_db=0.0)
+
+
+def with_no_beq_note(meta, published_filter):
+    ''' A title published with no filters says why, unless someone wrote a note of their own. '''
+    if len(published_filter) == 0 and not meta.note:
+        meta.note = NO_BEQ_NOTE
+    return meta
 
 
 def _entry_path(queue_dir: str, entry_id: str) -> str:
@@ -173,7 +202,7 @@ def update_entry(queue_dir: str, entry_id: str, **fields) -> QueueEntry:
 
 def _outcome_to_entry(entry_id: str, fs: int, meta: dict, curve: dict, outcome: DesignOutcome,
                       peak_curve: Optional[dict] = None) -> QueueEntry:
-    if isinstance(outcome, Declined):
+    if isinstance(outcome, Declined):   # QueueEntry gives it its flat candidate
         return QueueEntry(id=entry_id, fs=fs, meta=meta, curve=curve, peak_curve=peak_curve, candidates=[],
                           decline_reason=outcome.reason, decline_message=outcome.message)
     assert isinstance(outcome, Applied)
@@ -217,11 +246,10 @@ def design_and_queue(session: Session, entry_id: str, wav_path: str, designer: s
         project is written alongside the mono one.
     :param channel_layout_name: the source's ffmpeg channel layout name, forwarded to
         Session.load_channel_signals() for the multichannel project's channel labels.
-    :param project_dir: if given and the outcome was Applied, writes output 1's `.beq` project file(s)
+    :param project_dir: if given, writes output 1's `.beq` project file(s)
         (design/archive/library-sync-pipeline-plan.md §3.3/Appendix B) -- `<project_dir>/<name>.mono.beq`
         always (see project_name()), plus `<project_dir>/<name>.multichannel.beq` when multichannel_wav_path is also given.
-        A Declined outcome has no filter to write, so nothing is written for it (matches "candidates empty
-        on decline"). Omitted (the default), no project files are written -- backward compatible.
+        A Declined outcome's are flat (its candidate). Omitted (the default), no project files are written.
     :param on_projects: called with write_title_projects_if_safe()'s result ({'mono': bool, 'multichannel':
         bool|None}; False = an existing human-edited project was left alone) whenever projects were attempted.
     :return: the written QueueEntry.
@@ -235,12 +263,14 @@ def design_and_queue(session: Session, entry_id: str, wav_path: str, designer: s
     entry = _outcome_to_entry(entry_id, sig.signal.fs, meta or {}, curve, outcome, peak_curve=peak_curve)
     entry.audio_stream = audio_stream
     write_queue_entry(queue_dir, entry)
-    if project_dir is not None and isinstance(outcome, Applied):
+    if project_dir is not None:
         from pipeline.publish.project import write_title_projects_if_safe
+        from model.codec import filter_from_json
         name = project_name(project_dir, entry_id)
         mono_out = os.path.join(project_dir, f"{name}.mono.beq")
         mc_out = os.path.join(project_dir, f"{name}.multichannel.beq") if multichannel_wav_path else None
-        written = write_title_projects_if_safe(session, wav_path, outcome.filters, mono_out,
+        filters = outcome.filters if isinstance(outcome, Applied) else filter_from_json(entry.candidates[0].filters)
+        written = write_title_projects_if_safe(session, wav_path, filters, mono_out,
                                                multichannel_wav_path=multichannel_wav_path,
                                                channel_layout_name=channel_layout_name,
                                                multichannel_out_path=mc_out)
@@ -446,7 +476,8 @@ def current_publish_digest(entry: QueueEntry, *, meta_defaults: Optional[dict] =
     if work_dir is not None:
         _, mono_path, mc_path, _ = project_paths(work_dir, entry.id)
         complete_filter = preview_published_projects(mono_path, mc_path, complete_filter).filter
-    return publish_digest(complete_filter.to_json(), publication_meta(entry, meta_defaults), entry.art_path,
+    meta = with_no_beq_note(publication_meta(entry, meta_defaults), complete_filter)
+    return publish_digest(complete_filter.to_json(), meta, entry.art_path,
                           has_image, chosen.mv_adjust_db, report_spec, image_owner, image_repo_name)
 
 
@@ -604,6 +635,7 @@ def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: 
             complete_filter = published.filter
             aligned = align_projects(session, published, mono_path, os.path.join(project_dir, 'mono.wav'),
                                      mc_path, mc_wav if mc_path else None, layout)
+        meta = with_no_beq_note(meta, complete_filter)
 
         category = category_for_metadata(entry.meta, meta_defaults, category_folders)
         # a title published before names were readable stays where it is: its file is at its id

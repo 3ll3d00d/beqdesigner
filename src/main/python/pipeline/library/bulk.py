@@ -71,12 +71,12 @@ def _reasons(entry: QueueEntry, meta_defaults: Optional[dict], work_dir: Optiona
     reasons = []
     if entry.status != 'pending':
         reasons.append(f'already {entry.status}')
-    if not entry.candidates:
+    if entry.declined:   # "does not require BEQ" is a person's decision, never a bulk one
         reasons.append(f"designer declined: {entry.decline_message or entry.decline_reason or 'no reason given'}")
     problems = metadata_problems(entry.meta, meta_defaults)
     if problems:
         reasons.append('metadata incomplete: ' + '; '.join(problems))
-    if work_dir and entry.candidates:
+    if work_dir and not entry.declined:
         _, mono, multichannel, _ = project_paths(work_dir, entry.id)
         try:
             edited = edited_projects(mono, multichannel)
@@ -110,7 +110,7 @@ def plan_accept(index: LibraryIndex, selection: Selection, threshold: float = DE
         except FileNotFoundError:
             excluded.append(Exclusion(row.id, title, 'it has no queue entry'))
             continue
-        if entry.candidates and entry.candidates[0].confidence < threshold:
+        if not entry.declined and entry.candidates and entry.candidates[0].confidence < threshold:
             below += 1
             continue
         reasons = _reasons(entry, meta_defaults, work_dir)

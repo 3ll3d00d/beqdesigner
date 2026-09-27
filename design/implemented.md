@@ -92,8 +92,12 @@ The image smoke has not yet been observed in CI from this worktree.
 
 `pipeline/review.py` stores one JSON `QueueEntry` per title. Rerunning a batch
 preserves decisions and reviewer edits where applicable. Candidates contain
-filters and human-readable diagnostics; Skip leaves an entry pending, Reject
-excludes it, and a decline needs no publication. The interactive title page
+filters and human-readable diagnostics; Skip leaves an entry pending and Reject
+excludes it. A decline carries one flat candidate (no filters, no confidence;
+entries written before are given it when read), so a person may accept it and
+publish the title as a record with no filters and the note "Does not require
+BEQ" unless the reviewer wrote one; bulk accept never takes it
+(worklist-feedback F3). The interactive title page
 shows candidates, average/peak before-and-after curves using the main chart's
 measure colours and before/after line styles, commentary (wrapping text, a
 heading per key, `;`-separated notes as a list; for a declined title, the
