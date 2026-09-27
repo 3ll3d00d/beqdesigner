@@ -356,3 +356,30 @@ def test_the_commit_confirmation_for_titles_that_are_only_waiting_to_be_pushed_s
     heading, body = commit_text(3, _settings(), uncommitted=1)
     assert heading == 'Commit 3 titles?' and 'Makes one commit per repository' in body
     assert '2 titles of these are already committed and only need pushing' in body
+
+
+@pytest.mark.parametrize('fails', [False, True], ids=['finished', 'errored'])
+def test_a_run_releases_its_lease_before_it_says_it_ended(qtbot, tmp_path, fails):
+    ''' The window starts the next step as soon as it hears a run ended; the lease was still held then (seen on CI). '''
+    from model.worklist_run import RunJob
+    from pipeline.library.run import LibraryRunConfig
+    from pipeline.service.lease import read_lease
+    work_dir = str(tmp_path / 'work')
+    index_file = make_index(work_dir, [title_row('a')])
+    held_at_the_end = []
+
+    def runner(profile, selection, through, **kwargs):
+        assert read_lease(work_dir) is not None       # held while it runs
+        if fails:
+            raise RuntimeError('boom')
+        return StagesReport(through, 1, run=LibraryRunReport(designed=['a']), attempted=['a'])
+
+    job = RunJob(index_file, None, None, LibraryRunConfig(work_dir, str(tmp_path / 'queue'), 'designer'), None,
+                 RunRequest('design', ('a',)), runner=runner)
+    job.signals.finished.connect(lambda report: held_at_the_end.append(read_lease(work_dir)))
+    job.signals.errored.connect(lambda message: held_at_the_end.append(read_lease(work_dir)))
+
+    job.run()
+
+    assert held_at_the_end == [None]
+

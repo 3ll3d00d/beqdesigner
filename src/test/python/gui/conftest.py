@@ -51,6 +51,14 @@ def real_message_boxes(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _no_answer_outlives_its_test():
+    ''' A `when_modal` answer whose dialog never opened (the action was refused) went on to answer the next test's. '''
+    yield
+    from modal import cancel_all
+    cancel_all()
+
+
+@pytest.fixture(autouse=True)
 def _no_modal_discard_question(monkeypatch):
     import ui.beq  # noqa: F401 (AGENTS.md gotcha 3: first)
     from model.worklist_title import TitlePage

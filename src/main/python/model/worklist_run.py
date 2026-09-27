@@ -107,12 +107,15 @@ class RunJob(QRunnable):
         except OSError as error:   # a guard, not a precondition
             logger.warning('could not take the lease on %s: %s', work_dir, error)
         try:
-            self.__run()
+            said, value = self.__run()
         finally:
             if lease is not None:
                 lease.__exit__(None, None, None)
+        # only now: the window starts a Publish or Commit as soon as it hears a run ended, and found this run's own lease
+        said.emit(value)
 
     def __run(self):
+        ''' :return: what to tell the window (`finished` with the report, or `errored`) once the lease is released. '''
         try:
             with LibraryIndex(self.__index_file) as index:
                 report = self.__runner(
@@ -122,9 +125,8 @@ class RunJob(QRunnable):
                     on_progress=self.signals.progress.emit, on_event=self.signals.event.emit, join=self.join)
         except Exception as error:
             logger.exception('Library run failed')
-            self.signals.errored.emit(f'{type(error).__name__}: {error}')
-            return
-        self.signals.finished.emit(report)
+            return self.signals.errored, f'{type(error).__name__}: {error}'
+        return self.signals.finished, report
 
 
 # --- settings ---------------------------------------------------------------------------------------------------------

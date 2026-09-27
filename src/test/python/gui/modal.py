@@ -29,3 +29,11 @@ def when_modal(kind, respond, timeout_ms: int = 10000, interval_ms: int = 10) ->
 
     timer.timeout.connect(poll)
     timer.start()
+
+
+def cancel_all() -> None:
+    ''' Drops every answer still waiting: one armed for a dialog that never opened must not answer the next test's. '''
+    for timer in list(_LIVE):
+        timer.stop()
+    _LIVE.clear()
+
