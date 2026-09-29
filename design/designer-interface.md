@@ -465,7 +465,9 @@ caller treats it as a first-class, non-error outcome. Populate:
   `unstable_fc_estimate`, `confidence_below_internal_threshold`,
   `analysis_rate_too_low` (§2's "decline rather than guessing" when `fs` is
   too low to trust — distinct from `insufficient_coherent_bandwidth`, which
-  is about the content, not the request).
+  is about the content, not the request), `no_publishable_candidate` (1.1:
+  designs were built and every one failed your own checks — list them in
+  `rejected`, §3).
 - **`decline_message`** — optional, free text, for a human reading the
   report. Not machine-parsed.
 
@@ -493,6 +495,14 @@ acceptable, are calls that depend on playback configuration or publication
 policy — the caller's decisions, not yours. Report the measurement (through
 `confidence`, `residual_db`, `commentary`) and return the candidate; let the
 caller decide what to do with it.
+
+The same line holds for `rejected` (1.1, §3). A design belongs there only
+for a reason that is internal to the evidence: it does not match its own
+target, it introduces a cliff, or it corrects too little of the extent it
+found. It does not belong there because it needs too much gain reduction or
+boosts more than some device would like. A design whose only objection is a
+matter of policy is a candidate: return it in `candidates` with the
+measurement, and let the caller decide.
 
 ---
 
