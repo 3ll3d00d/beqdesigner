@@ -45,11 +45,36 @@ def next_waiting_id(ids: Sequence[str], current: str, waiting: Callable[[str], b
 
 
 def candidate_text(index: int, candidate) -> str:
+    '''
+    One line of the candidate list. `index` counts through `QueueEntry.offered`, so a design the designer rejected keeps
+    its number after the candidates (the digit keys pick by it) and says it was rejected, and how many reasons were given.
+    '''
     if candidate.method == DECLINED_METHOD:
         return f'{index + 1}: no filter -- the designer declined (does not require BEQ)'
     gain = candidate.gain_reduction_db if candidate.gain_reduction_db is not None else 'n/a'
-    return (f'{index + 1}: confidence={candidate.confidence:.2f} method={candidate.method} '
+    line = (f'{index + 1}: confidence={candidate.confidence:.2f} method={candidate.method} '
             f'mv_adjust_db={candidate.mv_adjust_db:+.1f} gain_reduction_db={gain}')
+    if candidate.rejection_reasons:
+        count = len(candidate.rejection_reasons)
+        line = f'{index + 1}: REJECTED ({count} reason{"" if count == 1 else "s"}) {line.partition(": ")[2]}'
+    return line
+
+
+def rejected_heading(count: int) -> str:
+    ''' The line between the candidates and the designs the designer rejected. '''
+    return f'Rejected by the designer ({count:,}) -- for review; accepting one overrides the designer'
+
+
+def rejection_commentary(candidate) -> dict:
+    ''' A rejected design's reasons first (the one thing to know about it), then its own commentary. '''
+    return {'why the designer rejected it': '; '.join(candidate.rejection_reasons or []), **(candidate.commentary or {})}
+
+
+def override_question(index: int, candidate) -> str:
+    ''' What a person is asked before accepting a design the designer rejected. '''
+    reasons = ''.join(f'\n  - {reason}' for reason in candidate.rejection_reasons or [])
+    return (f'The designer rejected design {index + 1} as unfit to publish:{reasons}\n\n'
+            f'Accept it anyway? It will be published as your override of the designer.')
 
 
 def decline_commentary(reason: Optional[str], message: Optional[str]) -> dict:
@@ -123,6 +148,8 @@ def state_text(entry: Optional[QueueEntry], row: Optional[TitleRow], stale: bool
             return ''
         return f'{row.needs.capitalize()}: {row.detail}' if row.detail else row.needs.capitalize()
     words = STATUS_WORDS.get(entry.status, entry.status)
+    if entry.status in ('accepted', 'published') and entry.overrides_rejection:
+        words += f' design {entry.chosen_candidate_index + 1}, which the designer rejected (your override)'
     if entry.decline_reason:
         return words   # the row's detail is the decline reason, which the commentary already gives in full
     if row is not None and row.detail and not stale and row.review_state == entry.status \
@@ -166,7 +193,7 @@ def chart_data(entry: Optional[QueueEntry], picked: int) -> list:
     source_curves = [('Average', xydata_from_json(entry.curve), get_avg_colour(0))]
     if entry.peak_curve:
         source_curves.append(('Peak', xydata_from_json(entry.peak_curve), get_peak_colour(0)))
-    has_filter = 0 <= picked < len(entry.candidates)
+    has_filter = 0 <= picked < len(entry.offered)
     result = []
     for kind, source, colour in source_curves:
         source.override_name(f'{kind} {track}')
@@ -174,7 +201,7 @@ def chart_data(entry: Optional[QueueEntry], picked: int) -> list:
         source.linestyle = '--' if has_filter else '-'
         result.append(source)
     if has_filter:
-        complete_filter = filter_from_json(entry.candidates[picked].filters)
+        complete_filter = filter_from_json(entry.offered[picked].filters)
         response = complete_filter.get_transfer_function().get_magnitude()
         for kind, source, colour in source_curves:
             filtered = source.filter(response)

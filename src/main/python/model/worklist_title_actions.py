@@ -190,7 +190,8 @@ class TitleActions:
         '''
         if entry is None:
             return ()
-        return (entry.design_fingerprint, entry.reviewer_note, json.dumps([asdict(c) for c in entry.candidates], sort_keys=True))
+        return (entry.design_fingerprint, entry.reviewer_note,
+                json.dumps([asdict(c) for c in entry.offered], sort_keys=True))
 
     def _release_if_redesigned(self) -> None:
         '''

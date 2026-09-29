@@ -27,6 +27,11 @@ title decided here can be reversed there: Accept, Skip and Reject apply again to
 redesign is not accepted until it has been designed again. The *metadata* of an accepted, published or rejected title can be
 edited (it becomes Publish: out of date, or needs review again, on the next read of the index).
 
+Designer contract 1.1 (design/outstanding.md W4): the designs the designer **rejected** are listed after the candidates, under
+a heading that cannot be picked, numbered on from them (`QueueEntry.offered`) so the digit keys reach them too; picking one shows
+why it was rejected, its commentary and its filter on the chart like any candidate. Accepting one is a person overriding the
+designer: the button says so, `confirm_override` asks first (with the reasons), and the entry records it.
+
 The page is three files: this one (the widgets, what is shown, editing), `model.worklist_title_actions` (projects, Reopen / Revise) and
 `model.worklist_title_decide` (Accept / Skip / Reject and which title is next), mixins of `TitlePage`.
 
@@ -41,7 +46,7 @@ from typing import Callable, List, Mapping, Optional, Sequence, Set
 
 from qtpy.QtCore import Qt, Signal
 from qtpy.QtGui import QKeySequence, QShortcut
-from qtpy.QtWidgets import QAbstractSpinBox, QApplication, QComboBox, QLineEdit, QMessageBox, \
+from qtpy.QtWidgets import QAbstractSpinBox, QApplication, QComboBox, QLineEdit, QListWidgetItem, QMessageBox, \
     QPlainTextEdit, QTextEdit, QWidget
 
 from model.magnitude import MagnitudeModel
@@ -50,7 +55,8 @@ from model.worklist_model import warning_colour
 from model.worklist_title_actions import TitleActions, TitleHooks
 from model.worklist_title_decide import DECISION_FROM, TitleDecisions
 from model.worklist_title_text import ACCEPTABLE, REJECTABLE, candidate_text, chart_data, \
-    commentary_html, decline_commentary, decision_blocked, entry_title, entry_year, next_waiting_id, notice_text, position_text, revised_note, \
+    commentary_html, decline_commentary, decision_blocked, entry_title, entry_year, next_waiting_id, notice_text, \
+    override_question, position_text, rejected_heading, rejection_commentary, revised_note, \
     state_text  # noqa: F401 (the pure functions are re-exported: tests and callers import them from here)
 from pipeline.library.index import TitleRow
 from pipeline.review import QueueEntry, read_entry
@@ -72,6 +78,8 @@ class TitlePage(TitleDecisions, TitleActions, QWidget, Ui_titlePage):
         each time: the badge must agree with what the index says of the same metadata).
     :param confirm_discard: asked, with the reason, when an edit cannot be saved and the page is being left anyway; True to
         throw the edit away. A question box unless given.
+    :param confirm_override: asked, with the question (`override_question()`), before a design the designer rejected is
+        accepted; True to accept it anyway. A question box unless given.
     :param choose_file: asks for an artwork file; the file dialog unless given.
     :param hooks: what the page asks of its window: opening a project, the revise settings (`TitleHooks`).
     '''
@@ -86,12 +94,15 @@ class TitlePage(TitleDecisions, TitleActions, QWidget, Ui_titlePage):
                  running: Callable[[], Mapping[str, str]] = lambda: {},
                  meta_defaults: Callable[[], Optional[dict]] = lambda: None,
                  confirm_discard: Optional[Callable[[str], bool]] = None,
-                 choose_file: Optional[Callable[[], str]] = None, hooks: Optional[TitleHooks] = None):
+                 choose_file: Optional[Callable[[], str]] = None, hooks: Optional[TitleHooks] = None,
+                 confirm_override: Optional[Callable[[str], bool]] = None):
         super().__init__(parent)
         self.setupUi(self)
         self._configure_title_actions(hooks)
         self._queue_dir, self._rows, self._running, self._defaults = queue_dir, rows, running, meta_defaults
         self.confirm_discard = confirm_discard or self._ask_discard
+        self.confirm_override = confirm_override or self._ask_override
+        self._offered_at_row: List[Optional[int]] = []   # the candidate list's rows: an index into `offered`, None for a heading
         self._ids: List[str] = []
         self._title_id = ''
         self._entry: Optional[QueueEntry] = None
@@ -225,7 +236,7 @@ class TitlePage(TitleDecisions, TitleActions, QWidget, Ui_titlePage):
         '''
         before = self._entry
         self._read_entry()
-        same = before is not None and self._entry is not None and before.candidates == self._entry.candidates
+        same = before is not None and self._entry is not None and before.offered == self._entry.offered
         self._picked = self._picked if same else self._default_pick()
         self._render(keep_edits=True)   # what is being typed is not thrown away by a refresh
 
@@ -304,34 +315,61 @@ class TitlePage(TitleDecisions, TitleActions, QWidget, Ui_titlePage):
 
     def _render_candidates(self) -> None:
         entry = self._entry
-        candidates = entry.candidates if entry is not None else []
-        if not 0 <= self._picked < len(candidates):
+        offered = entry.offered if entry is not None else []
+        if not 0 <= self._picked < len(offered):
             self._picked = 0
         self.candidateList.blockSignals(True)
         self.candidateList.clear()
-        for i, candidate in enumerate(candidates):
-            self.candidateList.addItem(candidate_text(i, candidate))
-        if candidates:
-            self.candidateList.setCurrentRow(self._picked)
+        self._offered_at_row = []
+        for i, candidate in enumerate(offered):
+            if i == len(entry.candidates):   # the first rejected design: a heading, which cannot be picked, goes first
+                heading = QListWidgetItem(rejected_heading(len(entry.rejected)))
+                heading.setFlags(Qt.ItemFlag.NoItemFlags)
+                font = heading.font()
+                font.setBold(True)
+                heading.setFont(font)
+                self.candidateList.addItem(heading)
+                self._offered_at_row.append(None)
+            item = QListWidgetItem(candidate_text(i, candidate))
+            if candidate.rejection_reasons:
+                font = item.font()
+                font.setItalic(True)
+                item.setFont(font)
+                item.setToolTip('Rejected by the designer:\n' + '\n'.join(f'- {r}' for r in candidate.rejection_reasons))
+            self.candidateList.addItem(item)
+            self._offered_at_row.append(i)
+        if offered:
+            self.candidateList.setCurrentRow(self._offered_at_row.index(self._picked))
         self.candidateList.blockSignals(False)
         self._render_commentary()
         self._magnitude.redraw()
 
+    def _picked_rejected(self) -> bool:
+        ''' The highlighted design is one the designer rejected: accepting it is an override. '''
+        entry = self._entry
+        return entry is not None and len(entry.candidates) <= self._picked < len(entry.offered)
+
     def _render_commentary(self) -> None:
         entry = self._entry
         commentary = {}
-        declined = entry is not None and bool(entry.decline_reason)
-        if declined:
+        rejected = self._picked_rejected()
+        declined = entry is not None and bool(entry.decline_reason) and not rejected
+        if rejected:
+            commentary = rejection_commentary(entry.offered[self._picked])
+        elif declined:
             commentary = decline_commentary(entry.decline_reason, entry.decline_message)
         elif entry is not None and 0 <= self._picked < len(entry.candidates):
             commentary = entry.candidates[self._picked].commentary or {}
-        self.commentaryHeading.setText('Why the designer declined' if declined else 'Commentary')
+        self.commentaryHeading.setText('Rejected by the designer' if rejected else
+                                       'Why the designer declined' if declined else 'Commentary')
         self.commentaryText.setHtml(commentary_html(commentary))
 
     def _render_decisions(self, rows: Mapping[str, TitleRow]) -> None:
         entry, row = self._entry, rows.get(self._title_id)
         status = entry.status if entry is not None else ''
-        has_candidates = entry is not None and bool(entry.candidates)
+        has_candidates = entry is not None and bool(entry.offered)
+        # accepting a rejected design is an override of the designer: the button says so, and it asks first
+        self.acceptButton.setText('Override && accept...' if self._picked_rejected() else 'Accept && next')
         running = self._title_id in self._running()
         blocked = {d: decision_blocked(d, entry, row, running, self._problems, self._revised_here.get(self._title_id, ''),
                                        self._hooks.redo)
@@ -343,8 +381,12 @@ class TitlePage(TitleDecisions, TitleActions, QWidget, Ui_titlePage):
         reason = next((blocked[d] for d in offered if blocked[d]), '')
         if reason:
             text = reason
+        elif status == 'accepted' and entry.overrides_rejection:
+            text = f'Accepted design {entry.chosen_candidate_index + 1}, which the designer rejected: your override.'
         elif status == 'accepted' and entry.chosen_candidate_index is not None:
             text = f'Accepted candidate {entry.chosen_candidate_index + 1}.'
+        elif self._picked_rejected() and status in ACCEPTABLE:
+            text = 'The designer rejected this design: accepting it overrides the designer, and asks first.'
         else:
             waiting = sum(1 for i in self._ids if self._probably_waiting(i, rows))
             text = f'{waiting:,} in this list waiting for a decision.' if waiting else ''
@@ -398,6 +440,12 @@ class TitlePage(TitleDecisions, TitleActions, QWidget, Ui_titlePage):
         self.rightTabs.setCurrentIndex(1)
         return False
 
+    def _ask_override(self, question: str) -> bool:
+        answer = QMessageBox.question(self, 'Override the designer?', question,
+                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
+                                      QMessageBox.StandardButton.Cancel)
+        return answer == QMessageBox.StandardButton.Yes
+
     def _ask_discard(self, reason: str) -> bool:
         answer = QMessageBox.question(
             self, 'Unsaved metadata', f'{reason}\n\nLeave anyway and discard what you typed?',
@@ -426,7 +474,7 @@ class TitlePage(TitleDecisions, TitleActions, QWidget, Ui_titlePage):
         except Exception:    # gone, or damaged since: the page shows what is there now
             self.reload()
             return
-        if self._entry is not None and fresh.candidates == self._entry.candidates:
+        if self._entry is not None and fresh.offered == self._entry.offered:
             rows = self._rows()
             self._entry = fresh      # the design on screen is the one decided on, so only the parts an edit touches change
             self._render_header(rows)
@@ -449,18 +497,20 @@ class TitlePage(TitleDecisions, TitleActions, QWidget, Ui_titlePage):
         self.decisionLabel.setStyleSheet(f'color: {warning_colour().name()}' if problem else '')
 
     def _on_candidate_picked(self, row: int) -> None:
-        if row >= 0:
-            self._picked = row
+        index = self._offered_at_row[row] if 0 <= row < len(self._offered_at_row) else None
+        if index is not None:
+            self._picked = index
             self._render_commentary()
+            self._render_decisions(self._rows())   # the Accept button says whether it is an override
             self._magnitude.redraw()
 
     def _chart_data(self, reference=None) -> list:
         return chart_data(self._entry, self._picked)
 
     def pick_candidate(self, index: int) -> bool:
-        ''' Highlights candidate `index` (zero-based), as the digit keys do. '''
-        if 0 <= index < self.candidateList.count():
-            self.candidateList.setCurrentRow(index)
+        ''' Highlights design `index` (zero-based, through `offered`: a rejected design too), as the digit keys do. '''
+        if index in self._offered_at_row:
+            self.candidateList.setCurrentRow(self._offered_at_row.index(index))
             return True
         return False
 

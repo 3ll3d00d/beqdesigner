@@ -1,8 +1,7 @@
 # BEQ filter designer interface — v1.1
 
-**Status:** CONTRACT, fully implemented on this repo's side for 1.0; 1.1's
-`rejected` is validated and decoded, and its review and override are in
-progress ([W4](outstanding.md#w4--rejected-designs-designer-contract-11)) — both bindings
+**Status:** CONTRACT, fully implemented on this repo's side, 1.1's `rejected`
+included (reviewed, and overridable by a person, on the title page) — both bindings
 (in-process callable and HTTP, `§7.1`) exist; see
 [`src/main/python/pipeline/README.md`](../src/main/python/pipeline/README.md#the-designer-contract)
 for where. This document remains the thing both sides build to and stays

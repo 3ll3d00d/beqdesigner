@@ -121,6 +121,23 @@ multichannel project in the main app sit under the chart they edit, and their
 column every label goes above its field. Batch Extract & Design can queue
 its results, and Review Folder presents the same page over a queue directory.
 
+Designs the designer built and judged unfit to publish (contract 1.1's
+`rejected`, with `rejection_reasons`) are validated as candidates are and
+carried as `.rejected` on `Applied` and `Declined`, never applied. The queue
+entry keeps them (`QueueEntry.rejected`), for a decline as for a success;
+`chosen_candidate_index` counts through `offered` -- the candidates, then the
+rejected designs -- so a pick past the candidates is a person's override of the
+designer, recorded by the entry itself (`overrides_rejection`), and `chosen` is
+what apply, publish and the digest use. Nothing picks one automatically: bulk
+accept takes index 0. The title page lists them after the candidates under a
+heading that cannot be picked, numbered on from them (so the digit keys reach
+them), in italics with their reasons as a tooltip; picking one shows its
+reasons first in the commentary and its filter on the chart, and the Accept
+button reads *Override & accept...*. Accepting one asks first, with the reasons
+(`confirm_override`); Cancel writes nothing. An accepted override is said on the
+state and decision lines. A redesign that changes only the rejected designs is
+still a changed design, and is not accepted blind.
+
 Every extracted library title has mono and, with a kept multichannel
 extraction, diagnostic multichannel `.beq` project files: the run writes any
 that are missing, flat, as soon as the title is extracted, and design replaces

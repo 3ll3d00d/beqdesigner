@@ -5,11 +5,13 @@ Deciding a title on the title page -- design/archive/library-sync/workflow-rewor
 
 The queue entry is the truth for a decision: it is read again before it is written, and nothing is written if its status no longer
 allows the decision, its candidates are not the ones on screen (it was redesigned), or -- for an accept -- its metadata is incomplete.
+Accepting a design the designer rejected (contract 1.1) is an override: the page's `confirm_override` asks first, with the reasons.
 '''
 import logging
 from typing import Mapping
 
-from model.worklist_title_text import ACCEPTABLE, REJECTABLE, decision_blocked, next_waiting_id, sent_back
+from model.worklist_title_text import ACCEPTABLE, REJECTABLE, decision_blocked, next_waiting_id, override_question, \
+    sent_back
 from pipeline.library.index import TitleRow
 from pipeline.library.status import metadata_problems
 from pipeline.review import read_entry, update_entry
@@ -48,7 +50,10 @@ class TitleDecisions:
     # --- decisions --------------------------------------------------------------------------------------------------------
 
     def accept(self) -> bool:
-        ''' Accepts the highlighted candidate and goes to the next title waiting for a decision. '''
+        '''
+        Accepts the highlighted candidate and goes to the next title waiting for a decision. A design the designer rejected is
+        accepted only if `confirm_override` says so: nothing is written otherwise.
+        '''
         return self._decide('accept')
 
     def skip(self) -> bool:
@@ -87,7 +92,7 @@ class TitleDecisions:
         if not (self._flush_for_move() if decision == 'accept' else self._flushed_or_discarded()):
             return False
         shown = self._entry
-        if shown is None or shown.candidates != seen.candidates:   # saving the edit found a redesign, and showed it
+        if shown is None or shown.offered != seen.offered:   # saving the edit found a redesign, and showed it
             self._say(f'Not {word}: the design of this title changed while it was open. Look at it again.', problem=True)
             return False
         blocked = decision_blocked(decision, shown, self._rows().get(title_id), title_id in self._running(),
@@ -100,11 +105,15 @@ class TitleDecisions:
                 self.rightTabs.setCurrentIndex(1)
                 self._metadata.highlight_problem()
             return False
+        if decision == 'accept' and len(shown.candidates) <= picked < len(shown.offered) and \
+                not self.confirm_override(override_question(picked, shown.offered[picked])):
+            self._say('Not accepted: the designer rejected this design, and it was not overridden.')
+            return False
         try:
             fresh = read_entry(queue_dir, title_id)
             if fresh.status not in DECISION_FROM[decision]:
                 return self._changed(f'Not changed: this title is {fresh.status} now.')
-            if fresh.candidates != shown.candidates or (decision == 'accept' and not 0 <= picked < len(fresh.candidates)):
+            if fresh.offered != shown.offered or (decision == 'accept' and not 0 <= picked < len(fresh.offered)):
                 return self._changed(f'Not {word}: the design of this title changed while it was open. Look at it again.')
             if decision == 'accept':
                 problems = metadata_problems(fresh.meta, self._defaults())
