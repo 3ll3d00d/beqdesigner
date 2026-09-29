@@ -1,7 +1,10 @@
 # Designer requests by reference — design, not built
 
-**Status:** design, not built; waiting on beqforge's answers to §6. Answers beqforge's R2 ("a shared-filesystem mode
-with beqdesigner", beqforge `IMPROVEMENT_PLAN.md`, `3d5db14`), which asks for
+**Status:** design, not built. Agreed with beqforge (§6, their `e96129a`);
+**parked** until beqforge's R2a warm-request timings show the transfer
+matters, or the designer moves to another host. Answers beqforge's R2 ("a
+shared-filesystem mode with beqdesigner", beqforge `IMPROVEMENT_PLAN.md`,
+`3d5db14`), which asks for
 part of the change here, since [`designer-interface.md`](designer-interface.md)
 is this repo's contract. Tracked as [D1](outstanding.md#d1--designer-requests-by-reference).
 Nothing here changes the contract until a chunk below is built and
@@ -45,20 +48,20 @@ small next to a cold analysis. The caller still loads the arrays either way
 if R2a's timings show the transfer matters, or once the designer runs on
 another host and the wire becomes the bottleneck.
 
-**Two points beqforge needs if R2b goes ahead:**
+beqforge accepted the split: R2a is its priority 9, and R2b is parked
+behind R2a's timings (§6 Q1).
 
-1. `material_fingerprint` hashes `material.name`. The server uses the fixed
-   `"designer-request"`, but `material.load()` names a `.npz` after its file
-   stem. A by-path loader that followed that pattern would give a request by
-   path and the same request inline different keys. That would break R2's own
-   rule ("a request by path and one inline produce identical records") and
-   its rule that a renamed file still hits. Keep the name fixed for designer
-   requests, or leave it out of the key.
-2. There should be no shared **stage** cache across the boundary.
-   beqdesigner never reads beqforge's stage cache, and beqforge should treat
-   `manifest.json` as private to beqdesigner. What both sides share is the
-   audio, named in each request (§3). For the CLI's `tools/extract.py`
-   duplication, see §5.
+**Two points beqforge needed if R2b goes ahead (both agreed, §6):**
+
+1. `material_fingerprint` hashed `material.name`, so a by-path loader that
+   named material after its file would have keyed a request by path apart
+   from the same request inline. beqforge takes the name out of the key in
+   R2a, and the by-path loader also keeps `name="designer-request"` (Q3).
+2. There is no shared **stage** cache across the boundary. beqdesigner never
+   reads beqforge's stage cache, and beqforge never reads `manifest.json` or
+   relies on the `work_dir` layout. What both sides share is the audio,
+   named in each request (§3). R2's "one cache both sides use" is withdrawn
+   (Q2).
 
 ## 3. Wire proposal (contract 1.2, HTTP binding only)
 
@@ -76,39 +79,52 @@ for the same fields. The in-process binding ignores it.
                      "sha256": "..."}, "...": "..."}
 ```
 
-The rules:
+The rules (beqforge's amendments from §6 Q5 are folded in):
 
 - **One of `data_base64` or `file` per array, never both.** A request may mix
   them.
 - **`path` is relative to a shared root** that each side configures for
-  itself: the caller's `work_dir`, and wherever the designer mounts it. It is
-  POSIX-style, cannot be absolute, and may not contain `..`. The designer
-  refuses a path that resolves outside its root. Absolute paths would break
+  itself: the caller's `work_dir`, and wherever the designer mounts it
+  (beqforge: `--shared-root`). It is POSIX-style, cannot be absolute, and may
+  not contain `..`. The designer refuses a path whose **real path** (after
+  resolving symlinks) lies outside its root's real path, so a symlink under
+  the root that points out of it is refused too. Absolute paths would break
   between hosts and containers (the same problem `pathmap.py` solves for
   JRiver). A path outside the root would let anyone who can POST to the
   designer read files through it.
 - **The file format is WAV**, and the designer decodes it as
   `soundfile.read(path, dtype='float64', always_2d=True)[:, channel]`. That is
   exactly what `model.signal.read_wav_data` gives the caller, and `resample`
-  does nothing because the file is already at `fs`. The file's sample rate
-  must equal the request's `fs`, and `shape` its frame count.
-- **`sha256` is required with `file`.** It is the digest of the decoded
-  float64 little-endian bytes, which the caller computes from the array it
-  would otherwise have sent inline. The designer decodes, hashes and
-  compares. This is what makes a request by path identical to one sent
-  inline. It also catches a file read mid-write: ffmpeg writes
-  `multichannel.wav` in place, not by write-then-rename. It does **not**
-  give beqforge its cache key directly: `material_fingerprint` feeds the
-  name, `fs`, coverage and every array's bytes into a single SHA-256, so
-  per-array digests can't be reused as that key. The designer has to hash
-  the decoded arrays anyway to check them, so it loses nothing. Keying the
-  stage cache on these digests would need a change on beqforge's side (Q4).
+  does nothing because the file is already at `fs`. `channel` must be
+  `0 <= channel < ` the file's channel count. The file's sample rate must
+  equal the request's `fs` (a file at any other rate is refused, **never
+  resampled**), and `shape` must be `[frames]`.
+- **`sha256` is required with `file`.** It is the hex SHA-256 of exactly
+  these bytes: the selected column after decoding, as a C-contiguous
+  little-endian float64 1-D array of `shape[0]` elements (in numpy,
+  `np.ascontiguousarray(col, dtype="<f8").tobytes()`). The caller computes it
+  from the array it would otherwise have sent inline. The designer decodes,
+  hashes and compares **before using the array**. This is what makes a
+  request by path identical to one sent inline. It also catches a file read
+  mid-write: ffmpeg writes `multichannel.wav` in place, not by
+  write-then-rename. It is a check only, not the designer's cache key:
+  beqforge keeps hashing the samples in one pass (Q4), so the contract does
+  not pin its cache format.
 - **Channel labels stay as `channels`' keys**, set by the caller as today
   (`get_channel_name` over the recorded layout). The designer never works
   them out from the file.
-- **Errors**: the designer answers **422** if it cannot resolve a path, finds
-  a mismatch in format, rate or shape, or gets a different digest. The body
-  says which. That is an implementation failure (§7.1), never a decline.
+- **Errors.** **400** for a body that does not parse or fails the schema, as
+  today. **422** for a well-formed `file` the designer cannot honour: a bad
+  or escaping path, a file that is not a readable WAV, a channel out of
+  range, a rate or shape mismatch, a different digest, or **no shared root
+  configured on this server**. The JSON body names the array (`mono_mix` or
+  the channel label) and the reason. Both are implementation failures
+  (§7.1), never a decline.
+- **Capability check.** `GET /health` on the designer's origin, which today
+  is a liveness check outside the contract, becomes part of 1.2. It answers
+  `{"contract_version": "1.2", "shared_root": true|false}`. A caller with a
+  designer registered as by-reference checks it at registration, so a
+  mismatched server shows up there and not on its first title.
 - **Versioning.** Request and response carry `"1.2"`. A 1.0/1.1 designer does
   not know `file` and fails on the missing `data_base64`, so the caller sends
   by reference **only to a designer configured for it** (§4). The change is
@@ -117,15 +133,19 @@ The rules:
 ## 4. Caller implementation plan
 
 The steps are in order, and each is its own commit with its tests (AGENTS.md).
+None starts until R2b is unparked (Status).
 
 **D1.1 — contract text and schema.** Revise `designer-interface.md` to 1.2
-(§7.1, §8's size note) and add the array's `oneOf` to
-`docs/schema/http_designer_request.schema.json`. In
-`designer-conformance-tests.md`, add rows for: a mixed request, a bad digest,
-a path escaping the root, an absolute path, a rate or shape mismatch, and
-422 not being treated as a decline. Tests: the request schema accepts both
-forms and rejects `file` and `data_base64` together, a missing `sha256`, and
-an absolute path.
+(§7.1, §8's size note, `GET /health`) and add the array's `oneOf` to
+`docs/schema/http_designer_request.schema.json`, plus a small
+`http_designer_health.schema.json`. In `designer-conformance-tests.md`, add
+rows for: a mixed request; a bad digest; a path escaping the root, lexically
+and through a symlink; an absolute path; a channel out of range; a rate or
+shape mismatch; a `file` sent to a server with no shared root; 400 against
+422; the 422 body naming the array; `/health`'s answer; and 422 not being
+treated as a decline. Tests: the request schema accepts both forms and
+rejects `file` and `data_base64` together, a missing `sha256`, and an
+absolute path; the health schema.
 
 **D1.2 — the binding.** Change `http_designer(url, ..., shared_root=None)`.
 When `shared_root` is set and the caller supplies where each array came from,
@@ -135,8 +155,9 @@ gains an optional `sources: AudioSources` (mono path; multichannel path and
 the label-to-column map), and passes it on only to designers registered as
 by-reference (`pipeline/designer/registry.py` records the capability).
 In-process designers are called as today. Tests: a path under the root is
-sent relative and one outside it goes inline; the digest equals the digest
-of what would have gone inline; a 422 raises `HttpDesignerError`.
+sent relative and one outside it goes inline; the digest equals SHA-256 of
+the exact bytes §3 names, and of what would have gone inline; a 400 or 422
+raises `HttpDesignerError` carrying the body's array and reason.
 
 **D1.3 — sources from the library and batch paths.** `pipeline.review.design_and_queue`
 and the library `stages` already hold the wav paths they loaded. Thread them
@@ -151,72 +172,60 @@ request, with the same `fs` and frame count for mono and every channel.
 `by_reference: true` (the service's `BEQ_DESIGNER_*` environment variables and
 the work-list Settings follow `register_declared_designers`). The shared root
 is always the run's `work_dir`, so there is no second path to get wrong.
-Tests: parsing the profile, and that a designer without the flag never gets
-`file`.
+Registering a by-reference designer calls its `GET /health`. It refuses
+registration, with a message naming the designer, when the answer is below
+`"1.2"` or has `shared_root: false`. Tests: parsing the profile; a designer
+without the flag never gets `file`; each refused health answer.
 
-**Fallback, decided:** none. A 422 is a configuration error (wrong mount,
-stale file) and should show as a failed design with its message. Retrying
+**Fallback, decided (agreed, §6 Q5):** none. A 422 is a configuration error
+(wrong mount, stale file) and should show as a failed design with its message. Retrying
 inline would hide a mount that is always wrong, and would quietly bring back
 the cost this change removes.
 
-## 5. Optional follow-ons (not part of D1)
+## 5. Optional follow-ons (not part of D1; beqforge said yes to both, after R2b)
 
 - **A request file beside the audio.** With D1 built, the caller can write
   the by-reference request body to `<work_dir>/<id>/design-request.json` at
-  almost no cost. beqforge's `tools/replay.py` and CLI could run from it
-  instead of from their own `tools/extract.py` output. That gives R2's "the
-  CLI shares the extraction" without making `manifest.json` or the folder
-  layout a contract.
-- **Records beside the title.** beqforge's R1 `record_dir` could point into
-  the same title folder, so a queue entry and the run record behind it sit
-  together.
+  almost no cost. beqforge would read it with a new loader for
+  `design_beq.py`, next to its `.npz` loader. `replay.py` works from a record
+  and needs no audio. The CLI then stops extracting again a title
+  beqdesigner already has. `tools/extract.py` stays for use without
+  beqdesigner. `manifest.json` and the folder layout do not become a
+  contract.
+- **Records beside the title.** beqforge would rather not learn the
+  `work_dir` layout, so the request gains an optional `record_path`,
+  relative to the shared root and chosen by the caller. The server writes
+  its run record there, and otherwise falls back to its `--record-dir`.
+  This is a contract addition of its own, designed when it is wanted.
 - **Designer-side drift.** `design_fingerprint` does not cover the designer's
   build or its start-up parameters, so the "settings changed since N titles
   were designed" banner cannot see a new beqforge build. The response already
   names its build (`beqforge_revision` in commentary). Surfacing a revision
   that changed would be a separate caller item, and it matters more once a
-  redesign is cheap.
+  redesign is cheap. beqforge agrees this is the caller's to do.
 
-## 6. Questions for beqforge
+## 6. Answers from beqforge
 
-Open until beqforge answers. Each answer goes in beqforge's `IMPROVEMENT_PLAN.md`
-under R2; this section is then updated to point at it. Nothing in §3-§4 is
-built before Q1-Q3 are answered.
+Answered in beqforge's `IMPROVEMENT_PLAN.md`, Progress, "R2 split" (`e96129a`,
+2026-09-29). Its rows are R2a (priority 9, open) and R2b (parked).
 
-- **Q1 — the split.** Do you accept splitting R2 into R2a (the server uses the
-  stage cache, beqforge only, §2) and R2b (requests by reference, contract 1.2,
-  built only if R2a's warm-request timings show the transfer matters)? If yes,
-  please record R2a and R2b as separate items with their own priorities. If
-  no, what does R2a leave unsolved that a request by reference would solve?
-- **Q2 — no shared stage cache.** R2 asked for "one cache both sides use".
-  We propose sharing the audio only: beqdesigner never reads beqforge's
-  stage cache, and `manifest.json` and the `work_dir` layout stay private
-  to beqdesigner (§2.2). Do you agree? If not, what would beqforge read from a
-  shared cache that it cannot get from the audio named in the request?
-- **Q3 — the name in the fingerprint.** `material_fingerprint` hashes
-  `material.name` (`cache.py:120`), and the server fixes it to
-  `"designer-request"` (`designer.py:275`). Will a loader that reads a
-  request by path keep that fixed name, or will you take the name out of the
-  key? Either way, a request by path and the same request inline must give
-  the same key.
-- **Q4 — digests as the key.** A request by reference carries a SHA-256 for
-  each array (§3). Do you want to change `material_fingerprint` to a hash
-  over those per-array digests plus name, `fs` and coverage, so a checked
-  request supplies the key with no second hash? Or will you keep hashing the
-  samples in one pass? Either is fine for us. It only decides whether the
-  per-array digest is written into the contract as more than a check.
-- **Q5 — the wire rules in §3.** Please review the `file` + `sha256` form
-  as a whole: `soundfile` decoding with `always_2d`, then taking one column.
-  Anything you would change is easiest to change before D1.1 writes it into
-  `designer-interface.md`. The rules to check:
-  - paths are relative to a root each side configures, with absolute
-    paths and `..` refused;
-  - the rate and frame count must match;
-  - 422 is an implementation failure, never a decline;
-  - the caller sends by reference only to a designer configured for it
-    (`"1.2"`);
-  - there is no inline fallback on 422.
-- **Q6 — the follow-ons in §5 (optional, no deadline).** Would a
-  `design-request.json` written beside the audio replace `tools/extract.py`
-  as the input for `tools/replay.py` and the CLI? Should R1's `record_dir`
-  point into the same title folder?
+- **Q1, the split: accepted.** R2a removes the redesign cost with no contract
+  change. What it leaves unsolved is only the wire, which is R2b's whole
+  case, and R2a's warm timings settle it (it reports transfer and decode
+  separately).
+- **Q2, no shared stage cache: agreed.** Only the audio is shared, and R2's
+  shared cache is withdrawn. Atomic writes stay in R2a, because beqforge's
+  server and CLI may share a cache directory.
+- **Q3, the name: taken out of the key** in R2a. The by-path loader also
+  keeps `name="designer-request"`, so records stay as they are today.
+- **Q4, digests as the key: no.** beqforge keeps hashing the samples in one
+  pass, which costs about 0.25 s against a 21-100 s hit. The per-array
+  `sha256` stays a check (§3).
+- **Q5, the wire rules: accepted, with amendments**, all now in §3-§4: the
+  exact digested bytes; containment checked with `realpath`; channel range;
+  a rate mismatch refused and never resampled; 400 against 422, with "no
+  shared root" as a 422 and the body naming the array; `GET /health`
+  advertising the version and shared root.
+- **Q6, the follow-ons: yes to both, optional, after R2b.** Adjusted in §5:
+  `design_beq.py`, not `replay.py`, and `record_path` in place of pointing
+  `record_dir` at the layout.
