@@ -16,7 +16,7 @@ from typing import Dict, List, Optional
 
 import pytest
 from qtpy.QtCore import QEvent, QSettings, Qt, QThreadPool, QTimer
-from qtpy.QtGui import QKeyEvent, QPainter, QImage
+from qtpy.QtGui import QKeyEvent, QPainter, QImage, QPalette
 from qtpy.QtWidgets import QStyleOptionViewItem
 from qtpy.QtWidgets import QApplication, QDialog, QMessageBox
 
@@ -282,6 +282,48 @@ def test_the_selection_survives_a_reload_from_the_index(qtbot, tmp_path):
 
     assert sorted(window.selected_ids()) == ['p-two', 'r-alien', 'x-gravity']
     assert _cell(window, 'x-tenet', COL_NEEDS) == 'Review'   # and the list did change
+
+
+def test_titles_that_leave_the_view_after_extraction_leave_no_row_that_looks_selected(qtbot, tmp_path):
+    '''
+    Extracting two of three new titles on the Extract chip: as each moves to Design it leaves the view, and the unselected
+    title that moves up into its row is neither selected nor painted in the selection colour (its "new" and "being worked
+    on" shades are not Highlight).
+    '''
+    rows = _rows()
+    for row in rows:
+        if row['id'].startswith('x-'):
+            row['first_seen_generation'] = 2    # new in the latest scan, as a title waiting to be extracted usually is
+    index_file = make_index(tmp_path / 'work', rows, SOURCES, generation=2, last_scan_at=NOW - 900)
+    highlight = QApplication.palette().color(QPalette.ColorRole.Highlight).rgb()
+    seen_backgrounds = []
+
+    def backgrounds():
+        return {title_id: _cell(window, title_id, COL_NEEDS, Qt.ItemDataRole.BackgroundRole)
+                for title_id in window.listed_ids()}
+
+    def pipeline(profile, selection, through, *, on_event, **kwargs):
+        for title_id in selection.ids:
+            on_event(ExecutionEvent('extracting', title_id, 'extract', 'stage_started', NOW, ''))
+            _update(index_file, [title_id], needs='design')
+            on_event(ExecutionEvent('extracting', title_id, 'design', 'stage_queued', NOW, 'Waiting for design slot'))
+        return StagesReport(through, len(selection.ids), run=LibraryRunReport(), attempted=list(selection.ids))
+
+    window, _ = _window(qtbot, tmp_path, pipeline=pipeline, prefs=_prefs(tmp_path))
+    _click(qtbot, window.extractChip)
+    window.select_ids(['x-gravity', 'x-tenet'])
+    window.model.dataChanged.connect(lambda *_: seen_backgrounds.append(backgrounds()))
+    with qtbot.waitSignal(window.run_finished, timeout=10000):
+        window.run_selected()
+
+    assert window.listed_ids() == ['x-fury']
+    assert window.selected_ids() == [] and window.workTable.selectionModel().selectedIndexes() == []
+    assert window.selectionLabel.text() == 'None selected: the buttons work on all 1 listed'
+    fury = backgrounds()['x-fury']
+    assert fury is not None and fury.color().rgb() != highlight     # still shaded as new, but not as if selected
+    running = [shade for seen in seen_backgrounds for title_id, shade in seen.items()
+               if title_id in ('x-gravity', 'x-tenet') and shade is not None]
+    assert running and all(shade.color().rgb() != highlight for shade in running)
 
 
 # --- running ---------------------------------------------------------------------------------------------------------------

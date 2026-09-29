@@ -19,7 +19,7 @@ The result is a **cache**. You can delete `library-index.sqlite` from the work d
 * **When you press *Rescan*.** It scans in the background: the button reads *Scanning...*, a progress bar appears at the bottom of the window and the list stays usable. It scans every source; there is no button to rescan just one. A scan cannot be cancelled, and *Rescan*, the action buttons and the settings are disabled until it finishes.
 * **Whenever you change something that affects the answer**, a banner offers *Rescan now*. See [the settings drawer](setup.md#the-settings-drawer).
 
-After a scan that found new titles, the *New* button on the strip counts them, they are tinted in the list and their *Waiting* column reads *new · 4h* (*new*, then how long the title has been in its current state). *New* means first seen by the **most recent** scan, so a title stays new until the next scan.
+After a scan that found new titles, the *New* button on the strip counts them, they are shaded grey in the list (a title being worked on is shaded amber instead; neither is the selection colour) and their *Waiting* column reads *new · 4h* (*new*, then how long the title has been in its current state). *New* means first seen by the **most recent** scan, so a title stays new until the next scan.
 
 ### Reading the list
 

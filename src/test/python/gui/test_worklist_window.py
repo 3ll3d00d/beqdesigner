@@ -12,6 +12,7 @@ import time
 
 import pytest
 from qtpy.QtCore import QSettings, Qt
+from qtpy.QtGui import QGuiApplication, QPalette
 from qtpy.QtWidgets import QApplication
 
 from model.preferences import DESIGNER_DEFAULT, DESIGNER_QUEUE_DIR, LIBRARY_FILESYSTEM_GLOBS, LIBRARY_PROFILE_PATH, \
@@ -291,6 +292,9 @@ def test_titles_first_seen_by_the_latest_scan_are_highlighted(qtbot, tmp_path):
     assert set(new) == {'t-heat', 't-sicario', 't-gravity'}  # generation 2 == first_seen_generation
     assert all(i.data(Qt.ItemDataRole.BackgroundRole) is not None for i in new.values())
     assert all(i.data(Qt.ItemDataRole.BackgroundRole) is None for i in old.values())
+    # never the selection colour: an unselected new row must not look selected
+    highlight = QGuiApplication.palette().color(QPalette.ColorRole.Highlight)
+    assert all(i.data(Qt.ItemDataRole.BackgroundRole).color().rgb() != highlight.rgb() for i in new.values())
     assert model.index(0, COL_WAITING).data().startswith('3d')
     heat = new['t-heat']
     assert model.index(heat.row(), COL_WAITING).data() == 'new · 1d'  # and says so in words too

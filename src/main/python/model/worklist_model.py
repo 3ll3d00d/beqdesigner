@@ -60,6 +60,20 @@ def warning_colour() -> QColor:
     return QColor('#ff7b72') if is_dark_palette() else QColor('#b3261e')
 
 
+def row_tint(running: bool) -> QColor:
+    '''
+    The background of a title being worked on (amber) or new in the latest scan (a faint shade of the text colour).
+    Neither is the palette's Highlight: a tinted row that is not selected must never look selected.
+    '''
+    if running:
+        colour = QColor('#d29922') if is_dark_palette() else QColor('#f2c14e')
+        colour.setAlpha(110)
+    else:
+        colour = QGuiApplication.palette().color(QPalette.ColorRole.Text)
+        colour.setAlpha(24)
+    return colour
+
+
 def format_waiting(since: float, now: float) -> str:
     ''' How long a title has been in its current state: 5m, 3h, 9d, 4mo, 2y. '''
     seconds = max(0, now - since)
@@ -269,9 +283,7 @@ class WorkListModel(QAbstractTableModel):
         if role == SORT_ROLE:
             return self.__sort_key(row, column)
         if role == Qt.ItemDataRole.BackgroundRole and (running or row.is_new):
-            colour = QGuiApplication.palette().color(QPalette.ColorRole.Highlight)
-            colour.setAlpha(110 if running else 55)   # a title being worked on is the stronger of the two
-            return QBrush(colour)
+            return QBrush(row_tint(bool(running)))
         if role == Qt.ItemDataRole.ForegroundRole:
             if running:
                 return QBrush(QGuiApplication.palette().color(QPalette.ColorRole.Text))
