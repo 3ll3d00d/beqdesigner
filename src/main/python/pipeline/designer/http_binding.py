@@ -28,7 +28,7 @@ _ARRAY_DTYPE = 'float64'
 
 _CANDIDATE_FIELDS = (
     'filters', 'confidence', 'mv_adjust_db', 'method', 'gain_reduction_db', 'residual_db', 'residual_band_hz',
-    'commentary', 'fc_hz', 'slope', 'fc_uncertainty_hz', 'slope_uncertainty', 'channel_scope',
+    'commentary', 'fc_hz', 'slope', 'fc_uncertainty_hz', 'slope_uncertainty', 'channel_scope', 'rejection_reasons',
 )
 
 
@@ -70,12 +70,15 @@ def _request_to_json(request: DesignRequest) -> dict:
 
 def _response_from_json(body: dict) -> DesignResponse:
     try:
+        # 1.1: either shape may add `rejected`; an empty list is passed on as one, for validate_response() to refuse
+        rejected = [_candidate_from_json(c) for c in body['rejected']] if body.get('rejected') is not None else None
         if body.get('candidates') is not None:
             candidates = [_candidate_from_json(c) for c in body['candidates']]
             return DesignResponse(contract_version=body.get('contract_version', CONTRACT_VERSION),
-                                  candidates=candidates)
+                                  candidates=candidates, rejected=rejected)
         return DesignResponse(contract_version=body.get('contract_version', CONTRACT_VERSION),
-                              decline_reason=body.get('decline_reason'), decline_message=body.get('decline_message'))
+                              decline_reason=body.get('decline_reason'), decline_message=body.get('decline_message'),
+                              rejected=rejected)
     except (KeyError, TypeError, ValueError) as e:
         raise HttpDesignerError(f"response body does not match DesignResponse's shape: {e}") from e
 

@@ -1,6 +1,8 @@
-# BEQ filter designer interface — v1.0
+# BEQ filter designer interface — v1.1
 
-**Status:** CONTRACT, fully implemented on this repo's side — both bindings
+**Status:** CONTRACT, fully implemented on this repo's side for 1.0; 1.1's
+`rejected` is validated and decoded, and its review and override are in
+progress ([W4](outstanding.md#w4--rejected-designs-designer-contract-11)) — both bindings
 (in-process callable and HTTP, `§7.1`) exist; see
 [`src/main/python/pipeline/README.md`](../src/main/python/pipeline/README.md#the-designer-contract)
 for where. This document remains the thing both sides build to and stays
@@ -27,6 +29,12 @@ let a single call return several ranked candidates instead of one answer
 (`DesignResponse.candidates`, `DesignCandidate.commentary` — see §3). Still
 `contract_version = "1.0"`; nothing has been implemented against any earlier
 draft.*
+
+*v1.1, additive (§7): `DesignResponse.rejected` and
+`DesignCandidate.rejection_reasons` — designs the designer built and judged
+unfit to publish, returned for a human to review, never to act on (§3,
+"`rejected`"). Nothing in 1.0 changes meaning; a 1.0 caller ignores both
+fields and behaves exactly as before.*
 
 *The caller side of `candidates` — running design over many titles
 unattended and letting a human pick one per title before anything
@@ -174,7 +182,8 @@ states.
 ## 3. `DesignResponse` — what you must return
 
 Exactly one of two shapes. Populating fields from both, or neither, is a
-contract violation the caller will reject.
+contract violation the caller will reject. `rejected` (1.1) is not a third
+shape: it may accompany either one, and never stands in for either.
 
 ```python
 from dataclasses import dataclass
@@ -215,6 +224,10 @@ class DesignCandidate:
     slope_uncertainty: float | None = None
     channel_scope: ChannelScope | None = None    # see below; requires `channels` in the request
 
+    # 1.1: why this design was judged unfit to publish. Non-empty on every
+    # entry of `rejected`; None on every entry of `candidates` — see below
+    rejection_reasons: list[str] | None = None
+
 @dataclass(frozen=True)
 class DesignResponse:
     contract_version: str            # echo the request's value
@@ -226,6 +239,10 @@ class DesignResponse:
     # decline: these two populated, candidates left None
     decline_reason: str | None = None    # short stable code — see §4
     decline_message: str | None = None   # optional human-readable detail
+
+    # 1.1, with either shape: designs built and judged unfit to publish, for
+    # a human to review only — never applied or published. See below.
+    rejected: list[DesignCandidate] | None = None
 ```
 
 **`candidates`** replaces what earlier drafts of this document expressed as
@@ -245,6 +262,49 @@ carried through only as far as a human reviewing the report, for comparison
 for you. If you don't have a genuine second opinion worth showing, don't
 manufacture one just to populate the list — a single confident candidate is
 still a complete, valid answer.
+
+**`rejected`, added in 1.1.** Designs you built and then judged unfit to
+publish — a fit that failed your own acceptance checks, say — returned so a
+human reviewing the title can see what was tried and why it lost, and can
+load one to look at or listen to. It is the other half of "return them all
+rather than picking silently": `candidates` holds what you would publish,
+`rejected` holds what you would not. Rules:
+
+- **Review only.** The caller never applies, simulates for publication,
+  writes to XML, or publishes a `rejected` entry, and never promotes one
+  into `candidates` on its own. If a person chooses to publish one anyway,
+  that is a human override of the designer's verdict and the caller records
+  it as one — it is the caller's policy whether to allow that at all.
+- **With either shape.** Alongside a success, it lists the designs that lost
+  to `candidates`. Alongside a decline, it lists the designs whose failure
+  *is* the decline (e.g. `no_publishable_candidate`); the decline stands,
+  and `rejected` is its evidence. A decline that never built a design (an
+  excerpt, no usable reference) has nothing to put here. `None`/absent when
+  there is nothing to show; when present, a non-empty list — an empty list
+  is rejected, as for `candidates`.
+- **Every entry is a full `DesignCandidate`** and passes the same §5 checks
+  (types, budget, finite values) and the same field rules above — a person
+  may load its filters, so they must be loadable. `confidence`,
+  `mv_adjust_db` and `method` are required as usual; `gain_reduction_db` is
+  as useful here as anywhere.
+- **`rejection_reasons`** is required and non-empty on every `rejected`
+  entry: one plain-language string per failed check, e.g. `"introduces a
+  cliff of 53 dB/oct at 17 Hz"`. Human-facing, never machine-parsed, like
+  `decline_message`. It must be `None` on every entry of `candidates` — a
+  candidate with reasons against it is a rejected design in the wrong list,
+  and the caller rejects the response.
+- **No ordering rule.** `confidence` measures evidence, not whether a design
+  passed, so a rejected design can legitimately score higher than the
+  accepted one; `rejected` is exempt from the non-increasing-`confidence`
+  rule. Order it however helps a reviewer — nearest to acceptable first is
+  a good default. Its entries do not count against `candidates`' budget and
+  vice versa.
+
+Why a separate list rather than a flag on entries in `candidates`: §7 lets a
+caller ignore response fields it does not recognise, so a 1.0 caller would
+drop a flag and could publish a rejected design as `candidates[0]`. A
+separate list is invisible to such a caller, which then behaves exactly as it
+did under 1.0 — safe by construction.
 
 **`filters`** — see §5 for exactly what's allowed in a `BiquadSpec`. Order
 in the list is not meaningful (biquad sections in a cascade commute); return
@@ -412,7 +472,9 @@ caller treats it as a first-class, non-error outcome. Populate:
 
 Leave `candidates` as `None` on decline — not an empty list, `None`; an
 empty list is rejected the same as populating it, since "zero candidates" is
-what a decline already means. The caller designs nothing downstream of a
+what a decline already means. A decline may still carry `rejected` (1.1,
+§3): the designs that were tried and failed, as evidence for the decline —
+it does not make the response any less a decline. The caller designs nothing downstream of a
 decline and never publishes one on its own. BEQDesigner offers it to a
 person as a single flat candidate (no filters); if they accept it, the title
 is published as a record with an empty filter list and the note "Does not
@@ -567,13 +629,44 @@ DesignResponse(
 )
 ```
 
+**Decline with rejected designs (1.1)** — designs were built, and every one
+failed the designer's own checks:
+
+```python
+DesignResponse(
+    contract_version="1.1",
+    decline_reason="no_publishable_candidate",
+    decline_message="flatten: introduces a cliff; counterfactual: tilt outside tolerance",
+    rejected=[
+        DesignCandidate(
+            filters=[BiquadSpec(type='low_shelf', freq_hz=26.87, gain_db=16.14, q=5.797)],
+            confidence=0.95,
+            mv_adjust_db=16.14,
+            method='non_parametric',
+            residual_db=13.86, residual_band_hz=(5.0, 200.0),
+            commentary={'strategy': 'flatten'},
+            rejection_reasons=[
+                "tilts -14.4 dB/oct where -0.1 was intended",
+                "corrected only down to 24.7 Hz; content continues to 16.7 Hz",
+            ],
+        ),
+    ],
+)
+```
+
+A success response carries `rejected` the same way, beside `candidates`. The
+caller publishes nothing from `rejected` in either case.
+
 ---
 
 ## 7. Versioning and future bindings
 
-**`contract_version`** is `"1.0"` for everything in this document. Echo the
-request's version back in the response unchanged — it lets the caller notice
-a mismatch rather than silently misinterpret a field. Changes within `1.x`
+**`contract_version`** is `"1.0"` for everything in this document except
+what is marked 1.1 (`rejected`, `rejection_reasons`), which a 1.1 caller
+sends as `"1.1"`. Echo the request's version back in the response unchanged
+— it lets the caller notice a mismatch rather than silently misinterpret a
+field. A designer may return the 1.1 fields to a `"1.0"` request: a 1.0
+caller ignores them (below), which is exactly why they are a separate list. Changes within `1.x`
 will be additive-only (new optional fields, defaulting to `None`/absent);
 you can ignore fields you don't recognise on the request side, and the
 caller does the same for the response. A breaking change bumps to `2.0` and
@@ -622,6 +715,8 @@ assumed, so a future widening (e.g. float32) isn't a silent breaking change;
 `{"contract_version": "1.0", "candidates": [...]}`, each candidate's
 `filters` as `[{"type": "low_shelf", "freq_hz": ..., "gain_db": ..., "q": ...}, ...]`;
 decline: `{"contract_version": "1.0", "decline_reason": "...", "decline_message": "..."}`.
+Either may add `"rejected": [...]` (1.1), each entry a candidate object with
+`"rejection_reasons": ["...", ...]`.
 No binary encoding on this side at all — a `BiquadSpec` carries no
 sample-rate-bound data by design (§5), so nothing in a response needs it.
 
@@ -661,6 +756,7 @@ this document, which only needs to match this repo's own Python).
   for the same title — each call is independent; there is no session state
   to leak between titles.
 - A `DesignResponse` that violates §3-§5 (wrong shape, disallowed filter
-  type, budget exceeded, non-finite values) is rejected before anything
-  downstream runs, and rejection is reported back as a build/integration
+  type, budget exceeded, non-finite values — in `rejected` entries as much
+  as in `candidates`, or `rejection_reasons` in the wrong list) is rejected
+  before anything downstream runs, and rejection is reported back as a build/integration
   problem, not silently coerced into something publishable.

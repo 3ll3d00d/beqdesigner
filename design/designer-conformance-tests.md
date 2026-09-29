@@ -1,4 +1,4 @@
-# Designer conformance test spec — v1.0
+# Designer conformance test spec — v1.1
 
 **Status:** a checklist, not a contract. [`designer-interface.md`](designer-interface.md)
 is the contract; this document is a test spec extracted from two independent
@@ -106,6 +106,20 @@ failure taxonomy is richer than the contract's suggested codes, keep your
 own table and test that each of your internal failure modes lands on the
 code you intend — a decline your dashboard can't distinguish from another
 one is a decline whose `decline_reason` picked the wrong granularity.
+
+## 4a. Rejected designs (`interface §3`, "`rejected`" — 1.1)
+
+| # | Given | Then | ref |
+|---|---|---|---|
+| 4a.1 | a success with `rejected` beside `candidates`, each entry with non-empty `rejection_reasons` | accepted; only `candidates[0]` is simulated/published | §3 |
+| 4a.2 | a decline with `rejected` | accepted, and still a decline: nothing simulated or published | §3, §4 |
+| 4a.3 | `rejected = []` | rejected — omit it (`None`) instead | §3 |
+| 4a.4 | a `rejected` entry with `rejection_reasons` `None`, `[]`, or containing `''` | rejected | §3 |
+| 4a.5 | a `candidates` entry with `rejection_reasons` set | rejected — a design with reasons against it belongs in `rejected` | §3 |
+| 4a.6 | a `rejected` entry failing any §5 check (type, budget, non-finite) or a required §3 field | rejected, exactly as it would be in `candidates` | §3, §5 |
+| 4a.7 | `rejected` entries whose `confidence` exceeds `candidates[0]`'s, or rises along the list | accepted — `rejected` is exempt from the ordering rule | §3 |
+| 4a.8 | (caller) a 1.0 caller given a response with `rejected` | ignores it and behaves exactly as for the same response without it | §7 |
+| 4a.9 | (your mapping layer) an internal result where every built design failed | a decline whose `rejected` lists those designs, each with its failures as `rejection_reasons` | §3, §4 |
 
 ## 5. Biquad validity (`interface §5`)
 

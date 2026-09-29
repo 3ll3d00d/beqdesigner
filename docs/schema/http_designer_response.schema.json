@@ -6,15 +6,47 @@
   "type": "object",
   "properties": {
     "contract_version": {
-      "const": "1.0"
+      "enum": ["1.0", "1.1"]
     },
     "candidates": {
-      "description": "success: a non-empty array, best (most preferred) first -- candidates[0] is the only one the caller acts on automatically. Absent/null on decline.",
+      "description": "success: a non-empty array, best (most preferred) first -- candidates[0] is the only one the caller acts on automatically. Absent/null on decline. No entry may carry rejection_reasons.",
       "oneOf": [
         {
           "type": "array",
           "minItems": 1,
-          "items": { "$ref": "#/$defs/candidate" }
+          "items": {
+            "allOf": [
+              { "$ref": "#/$defs/candidate" },
+              {
+                "properties": { "rejection_reasons": { "type": "null" } }
+              }
+            ]
+          }
+        },
+        { "type": "null" }
+      ]
+    },
+    "rejected": {
+      "description": "1.1, with either shape: designs built and judged unfit to publish, for human review only -- never applied, simulated for publication, or published (§3, 'rejected'). Exempt from the confidence ordering rule. Absent/null when there are none.",
+      "oneOf": [
+        {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "allOf": [
+              { "$ref": "#/$defs/candidate" },
+              {
+                "properties": {
+                  "rejection_reasons": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": { "type": "string", "minLength": 1 }
+                  }
+                },
+                "required": ["rejection_reasons"]
+              }
+            ]
+          }
         },
         { "type": "null" }
       ]
@@ -97,6 +129,13 @@
         "slope_uncertainty": { "oneOf": [{ "type": "number" }, { "type": "null" }] },
         "channel_scope": {
           "oneOf": [{ "enum": ["all_channels", "lfe_only", "mixed"] }, { "type": "null" }]
+        },
+        "rejection_reasons": {
+          "description": "1.1: why this design was judged unfit to publish -- required and non-empty in rejected, null/absent in candidates; human-facing, not machine-parsed",
+          "oneOf": [
+            { "type": "array", "items": { "type": "string" } },
+            { "type": "null" }
+          ]
         }
       },
       "required": ["filters", "confidence", "mv_adjust_db", "method"],

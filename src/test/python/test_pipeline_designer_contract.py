@@ -1,6 +1,6 @@
 '''
 Phase 2 (item 12) of design/archive/pipeline-implementation-plan.md: the designer
-contract (design/designer-interface.md v1.0) exercised via a fake in-process
+contract (design/designer-interface.md v1.1) exercised via a fake in-process
 designer -- no real designer implementation is needed to validate this
 boundary, and none should be waited on to test it.
 '''
@@ -13,7 +13,7 @@ from pipeline.designer.contract import DesignCandidate, DesignRequest, DesignRes
 
 _CANDIDATE_FIELDS = {
     'filters', 'confidence', 'mv_adjust_db', 'gain_reduction_db', 'method', 'residual_db', 'residual_band_hz',
-    'commentary', 'fc_hz', 'slope', 'fc_uncertainty_hz', 'slope_uncertainty', 'channel_scope',
+    'commentary', 'fc_hz', 'slope', 'fc_uncertainty_hz', 'slope_uncertainty', 'channel_scope', 'rejection_reasons',
 }
 
 
@@ -360,6 +360,131 @@ def test_alternative_filters_of_declined_response_rejected():
     from pipeline.designer.convert import alternative_filters, ContractViolation
     with pytest.raises(ContractViolation, match='declined'):
         alternative_filters(_decline(), fs=48000)
+
+
+# --- 1.1: rejected designs ---------------------------------------------------------------------------------------------
+
+def _rejected(**overrides):
+    defaults = dict(confidence=0.95, filters=[BiquadSpec(type='low_shelf', freq_hz=26.87, gain_db=16.14, q=5.797)],
+                    mv_adjust_db=16.14, method='non_parametric',
+                    rejection_reasons=['introduces a cliff of 53 dB/oct at 17 Hz'])
+    defaults.update(overrides)
+    return _candidate(**defaults)
+
+
+def test_the_request_is_sent_as_contract_1_1():
+    assert build_request(np.zeros(10), fs=1000).contract_version == '1.1'
+
+
+def test_rejected_designs_may_accompany_a_success_and_need_not_be_ordered():
+    from pipeline.designer.convert import validate_response
+    # a rejected design may score higher than the accepted one, and they may come in any order
+    validate_response(_success(confidence=0.5, rejected=[_rejected(confidence=0.2), _rejected(confidence=0.99)]))
+
+
+def test_rejected_designs_may_accompany_a_decline_as_its_evidence():
+    from pipeline.designer.convert import validate_response
+    validate_response(_decline(decline_reason='no_publishable_candidate', rejected=[_rejected()]))
+
+
+def test_an_empty_rejected_list_is_refused():
+    from pipeline.designer.convert import ContractViolation, validate_response
+    with pytest.raises(ContractViolation, match='rejected must be a non-empty list'):
+        validate_response(_success(rejected=[]))
+    with pytest.raises(ContractViolation, match='rejected must be a non-empty list'):
+        validate_response(_decline(rejected=[]))
+
+
+@pytest.mark.parametrize('reasons', [None, [], [''], ['  '], [3], 'a cliff'])
+def test_a_rejected_design_must_say_why(reasons):
+    from pipeline.designer.convert import ContractViolation, validate_response
+    with pytest.raises(ContractViolation, match=r'rejected\[0\]\.rejection_reasons'):
+        validate_response(_success(rejected=[_rejected(rejection_reasons=reasons)]))
+
+
+def test_a_candidate_with_rejection_reasons_is_in_the_wrong_list():
+    from pipeline.designer.convert import ContractViolation, validate_response
+    with pytest.raises(ContractViolation, match=r'candidates\[0\] has rejection_reasons'):
+        validate_response(_success(rejection_reasons=['too steep']))
+
+
+@pytest.mark.parametrize('overrides, match', [
+    (dict(filters=[BiquadSpec(type='notch', freq_hz=20.0, gain_db=1.0, q=1.0)]), r'rejected\[0\]\.filters\[0\]\.type'),
+    (dict(filters=[BiquadSpec(type='low_shelf', freq_hz=20.0, gain_db=1.0, q=1.0)] * 11), r'rejected\[0\]: 11 biquad'),
+    (dict(filters=[BiquadSpec(type='low_shelf', freq_hz=20.0, gain_db=math.inf, q=1.0)]), r'rejected\[0\]\.filters\[0\]\.gain_db'),
+    (dict(confidence=None), r'rejected\[0\] has no confidence'),
+    (dict(mv_adjust_db=math.nan), r'rejected\[0\]\.mv_adjust_db'),
+    (dict(filters=[]), r'rejected\[0\] has an empty filters list'),
+])
+def test_a_rejected_design_passes_the_same_checks_as_a_candidate(overrides, match):
+    from pipeline.designer.convert import ContractViolation, validate_response
+    with pytest.raises(ContractViolation, match=match):
+        validate_response(_decline(rejected=[_rejected(**overrides)]))
+
+
+def test_rejected_filters_are_realised_in_the_designers_order_and_never_become_the_applied_filter():
+    from model.iir import LowShelf, PeakingEQ
+    from pipeline.designer.convert import rejected_filters, to_complete_filter
+    response = _success(rejected=[
+        _rejected(filters=[BiquadSpec(type='peaking_eq', freq_hz=40.0, gain_db=-3.0, q=2.0)]),
+        _rejected(filters=[BiquadSpec(type='low_shelf', freq_hz=20.0, gain_db=2.0, q=0.7)] * 2)])
+
+    first, second = rejected_filters(response, fs=48000)
+
+    assert isinstance(first.filters[0], PeakingEQ)
+    assert isinstance(second.filters[0], LowShelf) and len(second.filters) == 1 and second.filters[0].count == 2
+    assert to_complete_filter(response, fs=48000).filters[0].freq == 15.810   # still candidates[0]
+    assert rejected_filters(_success(), fs=48000) == []
+    assert len(rejected_filters(_decline(rejected=[_rejected()]), fs=48000)) == 1
+
+
+def _loaded(tmp_path):
+    from pipeline.orchestrate import Session
+    from test_pipeline_orchestrate import _write_mono_wav
+    path = str(tmp_path / 'mono.wav')
+    _write_mono_wav(path)
+    session = Session()
+    return session, session.load(path, decimate=False)
+
+
+def test_the_session_carries_rejected_designs_on_either_outcome(tmp_path):
+    from pipeline.designer.registry import register_designer, unregister_designer
+    from pipeline.orchestrate import Applied, Declined
+
+    responses = {
+        'test.rejected.success': _success(rejected=[_rejected(commentary={'strategy': 'flatten'})]),
+        'test.rejected.decline': _decline(decline_reason='no_publishable_candidate', rejected=[_rejected()]),
+    }
+    for name, response in responses.items():
+        register_designer(name, lambda request, response=response: response)
+    try:
+        session, sig = _loaded(tmp_path)
+        applied = session.design(sig, 'test.rejected.success')
+        declined = session.design(sig, 'test.rejected.decline')
+    finally:
+        for name in responses:
+            unregister_designer(name)
+
+    assert isinstance(applied, Applied) and applied.alternatives == ()
+    (design,) = applied.rejected
+    assert design.rejection_reasons == ('introduces a cliff of 53 dB/oct at 17 Hz',)
+    assert design.commentary == {'strategy': 'flatten'} and design.confidence == 0.95
+    assert applied.filters.filters[0].freq == 15.810   # the accepted design is what is applied
+    assert isinstance(declined, Declined) and declined.reason == 'no_publishable_candidate'
+    assert len(declined.rejected) == 1 and declined.rejected[0].rejection_reasons
+
+
+def test_the_session_refuses_a_decline_whose_rejected_designs_break_the_contract(tmp_path):
+    from pipeline.designer.convert import ContractViolation
+    from pipeline.designer.registry import register_designer, unregister_designer
+
+    register_designer('test.rejected.bad', lambda request: _decline(rejected=[_rejected(rejection_reasons=None)]))
+    try:
+        session, sig = _loaded(tmp_path)
+        with pytest.raises(ContractViolation):
+            session.design(sig, 'test.rejected.bad')
+    finally:
+        unregister_designer('test.rejected.bad')
 
 
 def test_pipeline_designer_modules_have_no_qtpy_import():

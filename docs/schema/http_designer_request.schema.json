@@ -6,8 +6,8 @@
   "type": "object",
   "properties": {
     "contract_version": {
-      "const": "1.0",
-      "description": "echo this back unchanged in the response"
+      "enum": ["1.0", "1.1"],
+      "description": "echo this back unchanged in the response; 1.1 adds only response fields (rejected, rejection_reasons)"
     },
     "fs": {
       "type": "integer",

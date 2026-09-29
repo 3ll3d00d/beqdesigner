@@ -165,6 +165,30 @@ naming the holder, with a real-widget test over a held lease.
 **Done when:** neither button writes while another process's fresh lease is
 held, and a stale lease does not block them.
 
+### W4 — Rejected designs (designer contract 1.1)
+
+[Designer interface 1.1](designer-interface.md) lets a response carry
+`rejected`: designs the designer built and judged unfit to publish, each with
+`rejection_reasons`, beside either a success or a decline. The caller never
+publishes one on its own; a person may, as a recorded override.
+
+- **Contract (built):** `rejected`/`rejection_reasons` in
+  `pipeline/designer/contract.py`, validated like candidates (every §5 check,
+  reasons required, not allowed on `candidates`, no ordering rule), decoded
+  by the HTTP binding, and carried as `.rejected` on `Applied` and
+  `Declined`. Requests say `"1.1"`.
+- **Queue and publish (not started):** keep the rejected designs on the queue
+  entry; an accepted pick may be one of them, recorded as an override of the
+  designer; publishing uses whichever design was picked. Bulk *Accept top
+  pick* never picks one.
+- **Title page (not started):** list the rejected designs after the
+  candidates, with their reasons, chart and commentary; accepting one asks
+  first and says it overrides the designer.
+
+**Done when:** a rejected design can be viewed on the title page and, after a
+confirmation, accepted and published, and nothing selects one without a
+person.
+
 ## Delivery
 
 ### C1 — arm64 image and GHCR publish

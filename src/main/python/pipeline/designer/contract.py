@@ -1,6 +1,6 @@
 '''
 DesignRequest / DesignResponse / BiquadSpec, transcribed field-for-field from
-design/designer-interface.md v1.0 §2/§3 -- the formal, standalone contract
+design/designer-interface.md v1.1 §2/§3 -- the formal, standalone contract
 for a pluggable filter designer. Any deviation from that document here is a
 bug in this file, not a design decision made here; design/pipeline-
 implementation-plan.md phase 2 (item 12).
@@ -13,7 +13,7 @@ from typing import Literal, Optional
 
 from numpy import ndarray
 
-CONTRACT_VERSION = '1.0'
+CONTRACT_VERSION = '1.1'
 
 BiquadType = Literal['peaking_eq', 'low_shelf', 'high_shelf']
 DesignMethod = Literal['exact', 'fitted', 'non_parametric']
@@ -73,6 +73,10 @@ class DesignCandidate:
     slope_uncertainty: Optional[float] = None
     channel_scope: Optional[ChannelScope] = None
 
+    # 1.1: why this design was judged unfit to publish -- non-empty on every entry of DesignResponse.rejected, None on
+    # every entry of candidates. Human-facing, never machine-parsed
+    rejection_reasons: Optional[list] = None  # list[str]
+
 
 @dataclass(frozen=True)
 class DesignResponse:
@@ -86,6 +90,10 @@ class DesignResponse:
     # decline: these two populated, candidates left None
     decline_reason: Optional[str] = None
     decline_message: Optional[str] = None
+
+    # 1.1, with either shape: designs built and judged unfit to publish, for a human to review only -- never applied or
+    # published by the caller on its own. None when there is nothing to show; never an empty list
+    rejected: Optional[list] = None  # list[DesignCandidate]
 
 
 def build_request(mono_mix: ndarray, fs: int, coverage: Coverage = 'complete_programme',

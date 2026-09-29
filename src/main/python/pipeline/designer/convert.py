@@ -26,7 +26,7 @@ class ContractViolation(ValueError):
 
 def validate_response(response: DesignResponse) -> None:
     '''
-    :raises ContractViolation: if response violates the contract.
+    :raises ContractViolation: if response violates the contract -- in `rejected` (1.1) as much as in `candidates`.
     '''
     is_decline = response.decline_reason is not None
     is_success = response.candidates is not None
@@ -35,6 +35,18 @@ def validate_response(response: DesignResponse) -> None:
         raise ContractViolation("DesignResponse populates both candidates and decline_reason -- exactly one is allowed")
     if not is_success and not is_decline:
         raise ContractViolation("DesignResponse populates neither candidates nor decline_reason")
+
+    # 1.1: either shape may carry the designs that were judged unfit to publish; every one a full, loadable candidate
+    # with reasons, in no particular order (confidence measures evidence, not whether a design passed)
+    if response.rejected is not None:
+        if not isinstance(response.rejected, list) or len(response.rejected) == 0:
+            raise ContractViolation("rejected must be a non-empty list, or None when there is nothing to show")
+        for i, candidate in enumerate(response.rejected):
+            _validate_candidate(candidate, i, 'rejected')
+            reasons = candidate.rejection_reasons
+            if not isinstance(reasons, list) or not reasons or \
+                    not all(isinstance(reason, str) and reason.strip() for reason in reasons):
+                raise ContractViolation(f"rejected[{i}].rejection_reasons must be a non-empty list of non-empty strings")
 
     if is_decline:
         if not isinstance(response.decline_reason, str) or len(response.decline_reason) == 0:
@@ -48,6 +60,9 @@ def validate_response(response: DesignResponse) -> None:
     previous_confidence = None
     for i, candidate in enumerate(response.candidates):
         _validate_candidate(candidate, i)
+        if candidate.rejection_reasons is not None:
+            raise ContractViolation(
+                f"candidates[{i}] has rejection_reasons -- a design with reasons against it belongs in rejected")
         if previous_confidence is not None and candidate.confidence > previous_confidence:
             raise ContractViolation(
                 f"candidates[{i}].confidence ({candidate.confidence}) exceeds candidates[{i - 1}]'s "
@@ -55,40 +70,40 @@ def validate_response(response: DesignResponse) -> None:
         previous_confidence = candidate.confidence
 
 
-def _validate_candidate(candidate: DesignCandidate, index: int) -> None:
+def _validate_candidate(candidate: DesignCandidate, index: int, where: str = 'candidates') -> None:
+    name = f"{where}[{index}]"
     if candidate.confidence is None:
-        raise ContractViolation(f"candidates[{index}] has no confidence")
+        raise ContractViolation(f"{name} has no confidence")
     if not (0.0 <= candidate.confidence <= 1.0):
-        raise ContractViolation(f"candidates[{index}].confidence must be in [0.0, 1.0], got {candidate.confidence}")
+        raise ContractViolation(f"{name}.confidence must be in [0.0, 1.0], got {candidate.confidence}")
     if candidate.mv_adjust_db is None or not math.isfinite(candidate.mv_adjust_db):
-        raise ContractViolation(f"candidates[{index}].mv_adjust_db must be a finite number, got {candidate.mv_adjust_db}")
+        raise ContractViolation(f"{name}.mv_adjust_db must be a finite number, got {candidate.mv_adjust_db}")
 
     if candidate.gain_reduction_db is not None:
         if not math.isfinite(candidate.gain_reduction_db) or candidate.gain_reduction_db > 0:
             raise ContractViolation(
-                f"candidates[{index}].gain_reduction_db must be a finite number <= 0 (0 = no reduction needed), "
+                f"{name}.gain_reduction_db must be a finite number <= 0 (0 = no reduction needed), "
                 f"got {candidate.gain_reduction_db}")
 
     if candidate.filters is None or len(candidate.filters) == 0:
-        raise ContractViolation(f"candidates[{index}] has an empty filters list -- omit the candidate instead")
+        raise ContractViolation(f"{name} has an empty filters list -- omit the candidate instead")
     if len(candidate.filters) > MAX_BIQUAD_SECTIONS:
         raise ContractViolation(
-            f"candidates[{index}]: {len(candidate.filters)} biquad sections exceeds the budget of {MAX_BIQUAD_SECTIONS}")
+            f"{name}: {len(candidate.filters)} biquad sections exceeds the budget of {MAX_BIQUAD_SECTIONS}")
 
     for i, spec in enumerate(candidate.filters):
-        _validate_biquad_spec(spec, i, candidate_index=index)
+        _validate_biquad_spec(spec, f"{name}.filters[{i}]")
 
     if candidate.commentary is not None:
         if not isinstance(candidate.commentary, dict):
-            raise ContractViolation(f"candidates[{index}].commentary must be a dict[str, str]")
+            raise ContractViolation(f"{name}.commentary must be a dict[str, str]")
         for key, value in candidate.commentary.items():
             if not isinstance(key, str) or not isinstance(value, str):
                 raise ContractViolation(
-                    f"candidates[{index}].commentary must be a dict[str, str], got key={key!r} value={value!r}")
+                    f"{name}.commentary must be a dict[str, str], got key={key!r} value={value!r}")
 
 
-def _validate_biquad_spec(spec: BiquadSpec, index: int, candidate_index: int) -> None:
-    prefix = f"candidates[{candidate_index}].filters[{index}]"
+def _validate_biquad_spec(spec: BiquadSpec, prefix: str) -> None:
     if spec.type not in ALLOWED_BIQUAD_TYPES:
         raise ContractViolation(
             f"{prefix}.type '{spec.type}' is not publishable -- must be one of {sorted(ALLOWED_BIQUAD_TYPES)}")
@@ -134,6 +149,17 @@ def alternative_filters(response: DesignResponse, fs: int) -> list:
         raise ContractViolation("cannot convert a declined response -- check decline_reason first")
 
     return [_candidate_to_complete_filter(candidate, fs) for candidate in response.candidates[1:]]
+
+
+def rejected_filters(response: DesignResponse, fs: int) -> list:
+    '''
+    Validates response, then converts every `rejected` design (1.1) into a CompleteFilter, in the designer's order -- for a
+    human to look at and, if they choose, to publish as an override of the designer's verdict; never acted on automatically.
+    Either shape may carry them; [] when there are none.
+    :raises ContractViolation: if response is invalid.
+    '''
+    validate_response(response)
+    return [_candidate_to_complete_filter(candidate, fs) for candidate in response.rejected or []]
 
 
 def _candidate_to_complete_filter(candidate: DesignCandidate, fs: int):

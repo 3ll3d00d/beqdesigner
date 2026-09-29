@@ -21,7 +21,9 @@ Beyond composition, this module owns two things nothing built so far needed:
   offer several ranked candidates (design/designer-interface.md §3); only
   the top-ranked one is reflected in `Applied`'s own fields (and the only
   one ever simulated/published), the rest travel as `Applied.alternatives`
-  for the same human-reviewing-the-report purpose.
+  for the same human-reviewing-the-report purpose. Designs the designer built
+  and judged unfit to publish (1.1's `rejected`) travel as `.rejected` on
+  either outcome, for a human to review -- never simulated or published here.
 
 Scope trim: no `Session.fit()`/`optimise_filters()` wrapper -- no phase
 built a Qt-free extraction of that GUI feature, and nothing in this plan's
@@ -58,7 +60,7 @@ from model.xy import MagnitudeData
 
 from pipeline.config import AnalysisConfig
 from pipeline.designer.contract import ChannelScope, Coverage, build_request
-from pipeline.designer.convert import alternative_filters, to_complete_filter
+from pipeline.designer.convert import alternative_filters, rejected_filters, to_complete_filter
 from pipeline.designer.registry import get_designer
 from pipeline.designer.manual import MANUAL_DESIGNER, manual_response
 from pipeline.filters import FilterSpec, create_filter
@@ -90,6 +92,18 @@ class AlternativeDesign:
     residual_db: Optional[float] = None
     residual_band_hz: Optional[tuple] = None
     channel_scope: Optional[ChannelScope] = None
+    # a rejected design (design/designer-interface.md 1.1, §3 "rejected"): why the designer judged it unfit to publish
+    rejection_reasons: tuple = ()
+
+
+def _design_of(candidate, complete_filter: CompleteFilter) -> AlternativeDesign:
+    ''' A validated DesignCandidate, realised as `complete_filter`, as the outcome carries it. '''
+    return AlternativeDesign(filters=complete_filter, confidence=candidate.confidence, method=candidate.method,
+                             mv_adjust_db=candidate.mv_adjust_db, gain_reduction_db=candidate.gain_reduction_db,
+                             commentary=candidate.commentary,
+                             residual_db=candidate.residual_db, residual_band_hz=candidate.residual_band_hz,
+                             channel_scope=candidate.channel_scope,
+                             rejection_reasons=tuple(candidate.rejection_reasons or ()))
 
 
 @dataclass(frozen=True)
@@ -109,6 +123,7 @@ class Applied:
     commentary: Optional[dict] = None
     channel_scope: Optional[ChannelScope] = None
     alternatives: tuple = ()  # tuple[AlternativeDesign, ...], lower-ranked candidates, best-first
+    rejected: tuple = ()      # tuple[AlternativeDesign, ...] with rejection_reasons: judged unfit to publish (1.1)
 
 
 @dataclass(frozen=True)
@@ -116,6 +131,7 @@ class Declined:
     ''' The designer concluded nothing should be applied -- a first-class result, not an error. '''
     reason: str
     message: Optional[str] = None
+    rejected: tuple = ()      # tuple[AlternativeDesign, ...]: the designs whose failure is the decline (1.1), as evidence
 
 
 DesignOutcome = Union[Applied, Declined]
@@ -352,7 +368,9 @@ class Session:
         ranked candidates (design/designer-interface.md §3); only the
         top-ranked one becomes Applied.filters (the only one ever simulated/
         published automatically) -- the rest travel along as
-        Applied.alternatives, for a human reviewing the report.
+        Applied.alternatives, for a human reviewing the report. Designs the
+        designer judged unfit to publish (1.1's `rejected`) travel as
+        `.rejected` on either outcome -- a decline's are its evidence.
         :param bass_management: this session's bass-management configuration
             (design/designer-interface.md §2), if any -- passed straight
             through to the designer as DesignRequest.bass_management. None
@@ -366,25 +384,22 @@ class Session:
         request = build_request(mono_mix=sig.signal.samples, fs=sig.signal.fs, coverage=coverage,
                                 channels=channels, bass_management=bass_management)
         response = manual_response() if designer == MANUAL_DESIGNER else get_designer(designer)(request)
-        if response.decline_reason is not None:
-            return Declined(reason=response.decline_reason, message=response.decline_message)
         fs = sig.signal.fs
+        rejected = tuple(_design_of(candidate, rejected_filter)
+                         for candidate, rejected_filter in zip(response.rejected or [], rejected_filters(response, fs)))
+        if response.decline_reason is not None:
+            return Declined(reason=response.decline_reason, message=response.decline_message, rejected=rejected)
         primary = response.candidates[0]
         complete_filter = to_complete_filter(response, fs=fs)
-        alternatives = tuple(
-            AlternativeDesign(filters=alt_filter, confidence=candidate.confidence, method=candidate.method,
-                              mv_adjust_db=candidate.mv_adjust_db, gain_reduction_db=candidate.gain_reduction_db,
-                              commentary=candidate.commentary,
-                              residual_db=candidate.residual_db, residual_band_hz=candidate.residual_band_hz,
-                              channel_scope=candidate.channel_scope)
-            for candidate, alt_filter in zip(response.candidates[1:], alternative_filters(response, fs=fs)))
+        alternatives = tuple(_design_of(candidate, alt_filter)
+                             for candidate, alt_filter in zip(response.candidates[1:], alternative_filters(response, fs=fs)))
         return Applied(filters=complete_filter, confidence=primary.confidence, method=primary.method,
                        mv_adjust_db=primary.mv_adjust_db, gain_reduction_db=primary.gain_reduction_db,
                        fc_hz=primary.fc_hz, slope=primary.slope,
                        fc_uncertainty_hz=primary.fc_uncertainty_hz, slope_uncertainty=primary.slope_uncertainty,
                        residual_db=primary.residual_db, residual_band_hz=primary.residual_band_hz,
                        commentary=primary.commentary, channel_scope=primary.channel_scope,
-                       alternatives=alternatives)
+                       alternatives=alternatives, rejected=rejected)
 
     def set_filters(self, sig: SingleChannelSignalData,
                     filters: Union[CompleteFilter, Sequence[FilterSpec]]) -> CompleteFilter:

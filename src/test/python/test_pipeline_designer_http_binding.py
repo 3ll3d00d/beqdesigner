@@ -162,6 +162,48 @@ def test_malformed_candidate_shape_raises_http_designer_error(monkeypatch):
         http_designer('http://example.invalid/design')(_request())
 
 
+_REJECTED_JSON = {'filters': [{'type': 'low_shelf', 'freq_hz': 26.87, 'gain_db': 16.14, 'q': 5.797}],
+                  'confidence': 0.95, 'mv_adjust_db': 16.14, 'method': 'non_parametric',
+                  'residual_band_hz': [5.0, 200.0], 'commentary': {'strategy': 'flatten'},
+                  'rejection_reasons': ['tilts -14.4 dB/oct where -0.1 was intended', 'corrected only down to 24.7 Hz']}
+
+
+@pytest.mark.parametrize('shape', [
+    {'decline_reason': 'no_publishable_candidate', 'decline_message': 'flatten: a cliff'},
+    {'candidates': [{'filters': [{'type': 'low_shelf', 'freq_hz': 18.0, 'gain_db': 4.5, 'q': 0.7}],
+                     'confidence': 0.4, 'mv_adjust_db': 4.5, 'method': 'fitted'}]},
+])
+def test_rejected_designs_are_decoded_with_either_shape(monkeypatch, shape):
+    from pipeline.designer.convert import validate_response
+    body = {'contract_version': '1.1', **shape, 'rejected': [_REJECTED_JSON]}
+    monkeypatch.setattr('pipeline.designer.http_binding.requests.post', lambda *a, **k: _FakeResponse(json_value=body))
+
+    response = http_designer('http://example.invalid/design')(_request())
+
+    (rejected,) = response.rejected
+    assert rejected.rejection_reasons == _REJECTED_JSON['rejection_reasons']
+    assert rejected.filters[0].q == 5.797 and rejected.residual_band_hz == (5.0, 200.0)
+    validate_response(response)
+
+
+def test_a_1_0_response_has_no_rejected_designs(monkeypatch):
+    body = {'contract_version': '1.0', 'decline_reason': 'no_rolloff_detected'}
+    monkeypatch.setattr('pipeline.designer.http_binding.requests.post', lambda *a, **k: _FakeResponse(json_value=body))
+
+    assert http_designer('http://example.invalid/design')(_request()).rejected is None
+
+
+def test_the_request_says_1_1(monkeypatch):
+    sent = []
+    body = {'contract_version': '1.1', 'decline_reason': 'no_rolloff_detected'}
+    monkeypatch.setattr('pipeline.designer.http_binding.requests.post',
+                        lambda url, json=None, **k: sent.append(json) or _FakeResponse(json_value=body))
+
+    http_designer('http://example.invalid/design')(build_request(np.zeros(4), fs=1000))
+
+    assert sent[0]['contract_version'] == '1.1'
+
+
 def test_unsupported_array_dtype_rejected():
     from pipeline.designer.http_binding import _ndarray_from_json
     with pytest.raises(HttpDesignerError, match='dtype'):
