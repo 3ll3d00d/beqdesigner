@@ -132,7 +132,8 @@ what apply, publish and the digest use. Nothing picks one automatically: bulk
 accept takes index 0. The title page lists them after the candidates under a
 heading that cannot be picked, numbered on from them (so the digit keys reach
 them), in italics with their reasons as a tooltip; picking one shows its
-reasons first in the commentary and its filter on the chart, and the Accept
+reasons first in the commentary (one bullet each, never split: a reason may
+itself contain `; `, as beqforge's do) and its filter on the chart, and the Accept
 button reads *Override & accept...*. Accepting one asks first, with the reasons
 (`confirm_override`); Cancel writes nothing. An accepted override is said on the
 state and decision lines. A redesign that changes only the rejected designs is

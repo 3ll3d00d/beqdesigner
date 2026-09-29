@@ -45,7 +45,7 @@ def validate_response(response: DesignResponse) -> None:
             _validate_candidate(candidate, i, 'rejected')
             reasons = candidate.rejection_reasons
             if not isinstance(reasons, list) or not reasons or \
-                    not all(isinstance(reason, str) and reason.strip() for reason in reasons):
+                    not all(isinstance(reason, str) and reason for reason in reasons):
                 raise ContractViolation(f"rejected[{i}].rejection_reasons must be a non-empty list of non-empty strings")
 
     if is_decline:

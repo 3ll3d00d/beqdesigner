@@ -186,6 +186,39 @@ def test_rejected_designs_are_decoded_with_either_shape(monkeypatch, shape):
     validate_response(response)
 
 
+def _forge_design(strategy, reasons=None):
+    ''' One design exactly as beqforge f8ca290's response_to_json() writes it: every field, nulls included; reasons only when set. '''
+    design = {'filters': [{'type': 'low_shelf', 'freq_hz': 15.81, 'gain_db': 15.918, 'q': 0.7071}], 'confidence': 0.8,
+              'mv_adjust_db': 14.857905187896467, 'method': 'fitted', 'gain_reduction_db': None, 'residual_db': 0.3,
+              'residual_band_hz': [5.0, 200.0],
+              'commentary': {'correction': f'{strategy}: 1 section(s) \u2014 low_shelf 15.81 Hz +15.9 dB Q 0.71; peak boost +14.9 dB',
+                             'clipping': 'turn the sub channel down by 1.2 dB to avoid clipping', 'strategy': strategy},
+              'fc_hz': None, 'slope': None, 'fc_uncertainty_hz': None, 'slope_uncertainty': None, 'channel_scope': None}
+    return {**design, 'rejection_reasons': reasons} if reasons is not None else design
+
+
+@pytest.mark.parametrize('body', [
+    {'contract_version': '1.1', 'candidates': [_forge_design('flatten')],
+     'rejected': [_forge_design('counterfactual/25dB', ['introduces a cliff'])]},
+    {'contract_version': '1.1', 'decline_reason': 'no_publishable_candidate',
+     'decline_message': 'flatten: tilt; cliff; extent; parametric: cliff | found: reference: no usable flat plateau '
+                        '[beqforge_revision: f8ca29093d64+src:9e6a9b5ffafc]',
+     'rejected': [_forge_design('parametric', ['cliff']),
+                  _forge_design('flatten', ['tilt', 'corrected only down to 24.7 Hz; content continues to 16.7 Hz'])]},
+], ids=['accepted', 'declined'])
+def test_beqforges_1_1_responses_decode_validate_and_keep_every_reason_whole(monkeypatch, body):
+    from pipeline.designer.convert import rejected_filters, validate_response
+    monkeypatch.setattr('pipeline.designer.http_binding.requests.post', lambda *a, **k: _FakeResponse(json_value=body))
+
+    response = http_designer('http://example.invalid/design')(_request())
+
+    validate_response(response)
+    assert [r.rejection_reasons for r in response.rejected] == [r['rejection_reasons'] for r in body['rejected']]
+    assert [r.commentary['strategy'] for r in response.rejected] == [r['commentary']['strategy'] for r in body['rejected']]
+    assert all(c.rejection_reasons is None for c in response.candidates or [])
+    assert len(rejected_filters(response, 48000)) == len(body['rejected'])
+
+
 def test_a_1_0_response_has_no_rejected_designs(monkeypatch):
     body = {'contract_version': '1.0', 'decline_reason': 'no_rolloff_detected'}
     monkeypatch.setattr('pipeline.designer.http_binding.requests.post', lambda *a, **k: _FakeResponse(json_value=body))

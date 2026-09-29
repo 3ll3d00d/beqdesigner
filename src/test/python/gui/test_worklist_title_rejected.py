@@ -37,7 +37,8 @@ def test_the_override_question_lists_the_designers_reasons():
     question = override_question(2, design)
 
     assert question.startswith('The designer rejected design 3 as unfit to publish:')
-    assert '\n  - introduces a cliff of 53 dB/oct at 17 Hz\n  - corrected only down to 24.7 Hz' in question
+    assert '\n  - introduces a cliff of 53 dB/oct at 17 Hz\n  - corrected only down to 24.7 Hz; content continues to 16.7 Hz' \
+        in question
     assert 'override' in question
 
 
@@ -71,8 +72,10 @@ def test_picking_a_rejected_design_shows_why_and_its_filter_and_the_accept_butto
 
     assert page.picked == 2 and page.candidateList.currentRow() == 3
     assert page.commentaryHeading.text() == 'Rejected by the designer'
-    assert page.commentaryText.toPlainText().split('\n')[:4] == [
-        'Why the designer rejected it', 'introduces a cliff of 53 dB/oct at 17 Hz', 'corrected only down to 24.7 Hz', 'Strategy']
+    # a reason is one bullet however it is punctuated: beqforge's own reasons contain '; ' (commentary_html would split them)
+    assert page.commentaryText.toPlainText().split('\n')[:5] == [
+        'Why the designer rejected it', 'introduces a cliff of 53 dB/oct at 17 Hz',
+        'corrected only down to 24.7 Hz; content continues to 16.7 Hz', 'Strategy', 'flatten']
     assert page.acceptButton.text() == 'Override && accept...' and page.acceptButton.isEnabled()
     assert 'accepting it overrides the designer' in page.decisionLabel.text()
     assert any(name.startswith('Filtered') for name in page._magnitude.get_curve_names())   # its filter, on the chart

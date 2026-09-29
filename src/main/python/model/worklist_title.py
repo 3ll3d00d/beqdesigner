@@ -56,7 +56,7 @@ from model.worklist_title_actions import TitleActions, TitleHooks
 from model.worklist_title_decide import DECISION_FROM, TitleDecisions
 from model.worklist_title_text import ACCEPTABLE, REJECTABLE, candidate_text, chart_data, \
     commentary_html, decline_commentary, decision_blocked, entry_title, entry_year, next_waiting_id, notice_text, \
-    override_question, position_text, rejected_heading, rejection_commentary, revised_note, \
+    override_question, position_text, rejected_heading, rejection_html, revised_note, \
     state_text  # noqa: F401 (the pure functions are re-exported: tests and callers import them from here)
 from pipeline.library.index import TitleRow
 from pipeline.review import QueueEntry, read_entry
@@ -354,15 +354,13 @@ class TitlePage(TitleDecisions, TitleActions, QWidget, Ui_titlePage):
         commentary = {}
         rejected = self._picked_rejected()
         declined = entry is not None and bool(entry.decline_reason) and not rejected
-        if rejected:
-            commentary = rejection_commentary(entry.offered[self._picked])
-        elif declined:
+        if declined:
             commentary = decline_commentary(entry.decline_reason, entry.decline_message)
         elif entry is not None and 0 <= self._picked < len(entry.candidates):
             commentary = entry.candidates[self._picked].commentary or {}
         self.commentaryHeading.setText('Rejected by the designer' if rejected else
                                        'Why the designer declined' if declined else 'Commentary')
-        self.commentaryText.setHtml(commentary_html(commentary))
+        self.commentaryText.setHtml(rejection_html(entry.offered[self._picked]) if rejected else commentary_html(commentary))
 
     def _render_decisions(self, rows: Mapping[str, TitleRow]) -> None:
         entry, row = self._entry, rows.get(self._title_id)

@@ -395,11 +395,17 @@ def test_an_empty_rejected_list_is_refused():
         validate_response(_decline(rejected=[]))
 
 
-@pytest.mark.parametrize('reasons', [None, [], [''], ['  '], [3], 'a cliff'])
+@pytest.mark.parametrize('reasons', [None, [], [''], ['a cliff', ''], [3], 'a cliff'])
 def test_a_rejected_design_must_say_why(reasons):
     from pipeline.designer.convert import ContractViolation, validate_response
     with pytest.raises(ContractViolation, match=r'rejected\[0\]\.rejection_reasons'):
         validate_response(_success(rejected=[_rejected(rejection_reasons=reasons)]))
+
+
+def test_a_reason_need_only_be_non_empty_as_the_spec_and_schema_say():
+    from pipeline.designer.convert import validate_response
+    # minLength 1, nothing more: a stricter check here would refuse a whole design a conforming designer sent
+    validate_response(_success(rejected=[_rejected(rejection_reasons=[' '])]))
 
 
 def test_a_candidate_with_rejection_reasons_is_in_the_wrong_list():

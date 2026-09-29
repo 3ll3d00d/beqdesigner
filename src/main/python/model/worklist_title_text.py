@@ -65,9 +65,15 @@ def rejected_heading(count: int) -> str:
     return f'Rejected by the designer ({count:,}) -- for review; accepting one overrides the designer'
 
 
-def rejection_commentary(candidate) -> dict:
-    ''' A rejected design's reasons first (the one thing to know about it), then its own commentary. '''
-    return {'why the designer rejected it': '; '.join(candidate.rejection_reasons or []), **(candidate.commentary or {})}
+def rejection_html(candidate) -> str:
+    '''
+    A rejected design's reasons first (the one thing to know about it), one bullet each and **never split**: a reason may
+    itself contain `; ` (beqforge's "corrected only down to 24.7 Hz; content continues to 16.7 Hz"), which
+    commentary_html() would take for two notes. Then the design's own commentary, as any candidate's.
+    '''
+    reasons = ''.join(f'<li>{html.escape(reason)}</li>' for reason in candidate.rejection_reasons or [])
+    return (f'<p style="margin-bottom:2px"><b>Why the designer rejected it</b></p><ul style="margin-top:0">{reasons}</ul>'
+            + commentary_html(candidate.commentary))
 
 
 def override_question(index: int, candidate) -> str:

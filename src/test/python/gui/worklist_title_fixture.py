@@ -33,7 +33,7 @@ def rejected_designs(count: int = 1):
                              confidence=0.95, method='non_parametric', mv_adjust_db=16.0, gain_reduction_db=-2.0,
                              commentary={'strategy': 'flatten'},
                              rejection_reasons=[f'introduces a cliff of {53 + i} dB/oct at 17 Hz',
-                                                'corrected only down to 24.7 Hz'])
+                                                'corrected only down to 24.7 Hz; content continues to 16.7 Hz'])
             for i in range(count)]
 
 
