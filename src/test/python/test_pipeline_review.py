@@ -27,7 +27,7 @@ from pipeline.review import CandidateSummary, QueueEntry, flat_candidate, apply_
 
 DESIGNER_NAME = 'test.review'
 DECLINE_DESIGNER_NAME = 'test.review.decline'
-NAME = 'Ready Player One (2018) Atmos'   # what a title is published under (pipeline.publish.catalogue.catalogue_stem)
+NAME = 'R/Ready Player One (2018) Atmos'   # what a title is published under, in its letter folder (catalogue.lettered_stem)
 
 
 def _multi_candidate_designer(request):
@@ -442,7 +442,7 @@ def test_publish_reviewed_queue_with_image(tmp_path):
     results = publish_reviewed_queue(queue_dir, xml_repo, xml_dir='xml', images_repo=images_repo, image_dir='img',
                                      image_owner='3ll3d00d', image_repo_name='beq-images')
 
-    assert results[0]['image_url'].endswith('img/Ready%20Player%20One%20%282018%29%20Atmos.png')
+    assert results[0]['image_url'].endswith('img/R/Ready%20Player%20One%20%282018%29%20Atmos.png')
     pushed_png = subprocess.run(
         ['git', '-C', str(images_bare), 'cat-file', '-p', f'HEAD:img/{NAME}.png'],
         check=True, capture_output=True).stdout

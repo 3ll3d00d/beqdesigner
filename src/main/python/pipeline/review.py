@@ -25,7 +25,7 @@ from pipeline.designer.contract import Coverage
 from pipeline.library.workdir import TITLE_ID_MARKER, entry_directory
 from pipeline.orchestrate import Applied, Declined, DesignOutcome, Session, write_aggregate_for
 from pipeline.publish.catalogue import catalogue_paths, catalogue_stem, category_for_metadata, heatmap_path, \
-    publish_digest, unique_stem
+    lettered_stem, publish_digest, record_folder, unique_stem
 from pipeline.publish.heatmap import HeatmapSpec, heatmap_for
 from pipeline.publish.git import RepoTarget, fs_path, has_changes, is_committed
 from pipeline.publish.report import ReportSpec
@@ -536,8 +536,9 @@ def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: 
     :param xml_dir/image_dir: relative directory prefix within each repo;
         each entry publishes to '<xml_dir>/<name>.json' (and, if images_repo is given, '<image_dir>/<name>.png'),
         `<name>` being catalogue_stem() -- `Title (Year) (Edition) Audio` -- chosen the first time and kept on the
-        entry (`published_stem`); a name already in use in that folder gets ` (2)` and so on. With category folders,
-        under the movies or TV folder.
+        entry (`published_stem`) inside a folder named by its first letter (`H/Heat (1995) DD+`, see lettered_stem();
+        a title published before that keeps its path); a name already in use in that folder gets ` (2)` and so on.
+        With category folders, all of that is under the movies or TV folder, where its `database.json` is.
     :param work_dir: if given, the published filter is read from the entry's `.beq` project file(s) under
         `<work_dir>/<entry.id>/` (design/archive/library-sync-pipeline-plan.md §3.3.1/Appendix B) rather than from
         apply_reviewed_entry()'s raw chosen candidate -- a human who opened the mono/multichannel project
@@ -602,7 +603,7 @@ def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: 
         if claimed is None:
             claimed = {(str(category_for_metadata(e.meta, meta_defaults, category_folders)), e.published_stem)
                        for e in read_queue(queue_dir) if e.published_stem and e.id != entry.id}
-        base = catalogue_stem(asdict(meta), fallback=entry.id)
+        base = lettered_stem(catalogue_stem(asdict(meta), fallback=entry.id))
         chosen = unique_stem(base, lambda name: (str(category), name) in claimed or os.path.exists(
             fs_path(xml_repo, catalogue_paths(entry.id, xml_dir, image_dir, category=category, stem=name)[0])))
         claimed.add((str(category), chosen))
@@ -673,10 +674,11 @@ def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: 
         result = session.publish(complete_filter, meta, xml_repo, xml_relative_path, images_repo=images_repo,
                                  image_relative_path=image_relative_path if images_repo is not None else None,
                                  image_png=image_png, image_owner=image_owner, image_repo_name=image_repo_name, push=push,
-                                 write_aggregate=False, heatmap_png=heatmap_png,
+                                 write_aggregate=False, record_dir=record_folder(xml_dir, category=category),
+                                 heatmap_png=heatmap_png,
                                  heatmap_relative_path=heatmap_path(image_relative_path) if heatmap_png else None)
         if not push:
-            aggregate_dirs.add(os.path.dirname(xml_relative_path).replace(os.sep, '/'))
+            aggregate_dirs.add(record_folder(xml_dir, category=category))
         update_entry(queue_dir, entry.id, status='published', published_digest=digest, revision=revision,
                      published_at=datetime.now(timezone.utc).isoformat(timespec='seconds'), published_stem=stem)
         return {'id': entry.id, **result, **({'republished': True} if republished else {}),

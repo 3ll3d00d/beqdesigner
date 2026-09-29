@@ -435,7 +435,8 @@ class Session:
                images_repo: Optional[RepoTarget] = None, image_relative_path: Optional[str] = None,
                image_png: Optional[bytes] = None, image_owner: Optional[str] = None,
                image_repo_name: Optional[str] = None, push: bool = True, write_aggregate: bool = True,
-               heatmap_png: Optional[bytes] = None, heatmap_relative_path: Optional[str] = None) -> dict:
+               heatmap_png: Optional[bytes] = None, heatmap_relative_path: Optional[str] = None,
+               record_dir: Optional[str] = None) -> dict:
         '''
         Sequences the image-then-record publish order pipeline.publish.git
         requires: the report image goes in first (if given) so its raw URL
@@ -449,6 +450,8 @@ class Session:
             writes it once at the end with write_aggregate_for() rather than reading every record again per title.
         :param heatmap_png/heatmap_relative_path: the heatmap image, written beside the report image; its URL is the
             record's second image (`spectrum_url`) where the report image is the first (`pva_url`).
+        :param record_dir: the folder whose `database.json` aggregates this record: by default the record's own folder;
+            a record in a letter folder names the category folder above it.
         :return: {'record': the rendered object, 'filter_commit': its commit sha (push only),
             'image_url': the image's raw URL, if an image was published}.
         '''
@@ -482,7 +485,8 @@ class Session:
             pass
         record = self.to_catalogue_record(filters, meta, existing)
         record_bytes = (json.dumps(record, indent=2, ensure_ascii=False) + '\n').encode('utf-8')
-        record_dir = os.path.dirname(xml_relative_path).replace(os.sep, '/')
+        if record_dir is None:
+            record_dir = os.path.dirname(xml_relative_path).replace(os.sep, '/')
         result['record'] = record
         files = {xml_relative_path: record_bytes}
         if push or write_aggregate:

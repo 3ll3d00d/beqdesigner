@@ -8,6 +8,7 @@ know which files those were).
 import hashlib
 import json
 import os
+import unicodedata
 from dataclasses import asdict, dataclass
 from typing import Callable, Mapping, Optional, Tuple, Union
 
@@ -116,6 +117,26 @@ def catalogue_stem(meta: Mapping, fallback: str = '') -> str:
     return _safe_name(' '.join(parts))[:_MAX_STEM].rstrip(' .') or fallback
 
 
+def letter_folder(name: str) -> str:
+    '''
+    The folder a title's files go in beneath its category, by the first character of its name: the letter, upper case
+    and without an accent (`Élite` -> `E`); `0-9` for a digit; `#` for anything else.
+    '''
+    first = unicodedata.normalize('NFKD', name.strip()[:1]).encode('ascii', 'ignore').decode('ascii')[:1]
+    if first.isalpha():
+        return first.upper()
+    return '0-9' if name.strip()[:1].isdigit() else '#'
+
+
+def lettered_stem(stem: str) -> str:
+    '''
+    `stem` inside its letter folder, e.g. `H/Heat (1995) DD+`: what a title is first published under, so its filter
+    record and its images sit in matching `<category>/<letter>/` folders. The folder is part of the recorded stem
+    (`QueueEntry.published_stem`), so a title published before letter folders keeps the path it was published at.
+    '''
+    return f'{letter_folder(stem)}/{stem}'
+
+
 def unique_stem(stem: str, taken: Callable[[str], bool]) -> str:
     '''`stem`, or `stem (2)`, `stem (3)` ... for the first that `taken()` does not say is in use.'''
     candidate, number = stem, 1
@@ -132,8 +153,9 @@ def catalogue_paths(entry_id: str, xml_dir: str = '', image_dir: str = '', *,
         `<image_dir>/<stem>.png`. The stem is what publishing recorded on the entry (`QueueEntry.published_stem`, see
         catalogue_stem()) and is the stable entry id for a title published before names were readable; it is stable across
         reorderings and re-runs, so a revision rewrites the same path. With a category, movies and TV go under their
-        folders (`movies/` and `tv/` unless configured, see CategoryFolders) beneath the configured prefix.
-        BEQCatalogue reads individual JSON records recursively.
+        folders (`movies/` and `tv/` unless configured, see CategoryFolders) beneath the configured prefix. A stem
+        recorded since letter folders carries its folder (`H/Heat (1995) DD+`, see lettered_stem()), so it lands in
+        `<category>/<letter>/`; BEQCatalogue reads individual JSON records recursively.
 
         Always `/`-separated, on Windows too, because that is how git spells a path (`git status` says `filters/one.json`);
         a path with the platform's separator would never match what git reports. The file system is reached by
@@ -151,10 +173,14 @@ def heatmap_path(image_relative_path: str) -> str:
         else image_relative_path + ' heatmap.png'
 
 
+def record_folder(xml_dir: str = '', *, category: Optional[str] = None) -> str:
+    '''The folder a category's filter records are published beneath (in letter folders), and its aggregate is in.'''
+    return join_posix(xml_dir, _folder(category))
+
+
 def aggregate_path(xml_dir: str = '', *, category: Optional[str] = None) -> str:
-    '''The filter repo's derived aggregate, beside its individual records.'''
-    folder = _folder(category)
-    return join_posix(xml_dir, folder, 'database.json')
+    '''The filter repo's derived aggregate, in the category's folder above the letter folders its records are in.'''
+    return join_posix(record_folder(xml_dir, category=category), 'database.json')
 
 
 def _file_sha256(path: Optional[str]) -> Optional[str]:

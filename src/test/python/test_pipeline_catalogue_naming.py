@@ -1,11 +1,12 @@
 '''
 Where a published title lives: a readable name (`Title (Year) (Edition) Audio`, the way beqcatalogue named its files), under
-configurable movies/tv folders, on by default -- pipeline.publish.catalogue.
+configurable movies/tv folders, on by default, then a folder per first letter -- pipeline.publish.catalogue.
 '''
 import pytest
 
-from pipeline.publish.catalogue import CategoryFolders, FolderName, catalogue_paths, catalogue_stem, \
-    category_folders_from_values, category_for_metadata, heatmap_path, unique_stem
+from pipeline.publish.catalogue import CategoryFolders, FolderName, aggregate_path, catalogue_paths, catalogue_stem, \
+    category_folders_from_values, category_for_metadata, heatmap_path, letter_folder, lettered_stem, record_folder, \
+    unique_stem
 from pipeline.publish.git import RAW_CONTENT_TEMPLATE
 
 
@@ -43,6 +44,27 @@ def test_unique_stem_numbers_a_taken_name():
     taken = {'A (2000) Atmos', 'A (2000) Atmos (2)'}
     assert unique_stem('A (2000) Atmos', taken.__contains__) == 'A (2000) Atmos (3)'
     assert unique_stem('B', taken.__contains__) == 'B'
+
+
+@pytest.mark.parametrize('name, folder', [('Heat (1995) Atmos', 'H'), ('alien', 'A'), ('Élite', 'E'), ('Ærø', '#'),
+                                          ('1917 (2019) DD+', '0-9'), ('[REC] (2007)', '#'), ('_Untitled', '#'),
+                                          ('Шрек', '#'), ('', '#')])
+def test_the_letter_folder_is_the_first_letter_upper_case_and_unaccented(name, folder):
+    assert letter_folder(name) == folder
+
+
+def test_a_lettered_stem_puts_the_files_of_both_repositories_in_the_letter_folder():
+    stem = lettered_stem('Heat (1995) Atmos')
+    assert stem == 'H/Heat (1995) Atmos'
+    assert catalogue_paths('id', 'xml', 'img', category='film', stem=stem) == \
+           ('xml/movies/H/Heat (1995) Atmos.json', 'img/movies/H/Heat (1995) Atmos.png')
+    assert unique_stem(stem, lambda name: name == stem) == 'H/Heat (1995) Atmos (2)'
+
+
+def test_the_aggregate_is_in_the_category_folder_above_the_letter_folders():
+    assert record_folder('xml', category='film') == 'xml/movies'
+    assert aggregate_path('xml', category='film') == 'xml/movies/database.json'
+    assert aggregate_path('xml') == 'xml/database.json'
 
 
 def test_paths_use_the_stem_else_the_id():

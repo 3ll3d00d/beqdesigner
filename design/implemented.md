@@ -57,7 +57,11 @@ as `--category-folders` in the CLI. Each filter directory has its own
 `database.json`, written once per publish batch. Category folders are **on by default**
 (`sync.category_folders: false` keeps the flat layout) and their names are `sync.movies_dir` / `sync.tv_dir`
 (`--movies-dir`, `--tv-dir`). Files are named `Title (Year) (Edition) Audio` (`catalogue_stem()`), recorded on the
-queue entry as `published_stem` so a metadata edit never moves them; entries published earlier stay at their id.
+queue entry as `published_stem` so a metadata edit never moves them; entries published earlier stay at their id. Since
+letter folders, the recorded stem carries a folder named by its first letter (`H/Heat (1995) Atmos`, `lettered_stem()`:
+upper case, unaccented, `0-9` for a digit, `#` otherwise), so a title's record and images sit in `<category>/<letter>/`;
+a stem recorded before then has no folder and stays where it is. `database.json` stays in the category folder
+(`record_folder()`), aggregating the letter folders beneath it.
 Accepting a title in the work list writes and commits it locally (`model/worklist_autopublish.py`); only the push is
 a separate action. A heatmap (`pipeline/publish/heatmap.py`) is published beside the report image as the record's
 second image.

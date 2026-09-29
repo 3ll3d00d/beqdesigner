@@ -1,5 +1,6 @@
 '''
-What a publish leaves in the catalogue repositories now: readable names, in configurable movies/tv folders, one heatmap per
+What a publish leaves in the catalogue repositories now: readable names, in configurable movies/tv folders and then a folder
+per first letter, one heatmap per
 title beside its report image, a `database.json` written once per batch rather than once per title, and projects named after
 the track's work folder -- publish_reviewed_queue() and commit_catalogue() over real local git repos.
 '''
@@ -46,10 +47,10 @@ def test_a_title_is_published_under_its_name_in_the_movies_folder(tmp_path, repo
     (result,) = _publish(queue_dir, repos)
 
     assert not result.get('error')
-    assert _tree(repos[0]) == ['xml/movies/Heat (2018) Atmos.json', 'xml/movies/database.json']
-    assert _tree(repos[2]) == ['img/movies/Heat (2018) Atmos.png']
-    assert read_entry(queue_dir, 'jriver-abc-123').published_stem == 'Heat (2018) Atmos'
-    assert result['image_url'].endswith('/img/movies/Heat%20%282018%29%20Atmos.png')
+    assert _tree(repos[0]) == ['xml/movies/H/Heat (2018) Atmos.json', 'xml/movies/database.json']
+    assert _tree(repos[2]) == ['img/movies/H/Heat (2018) Atmos.png']
+    assert read_entry(queue_dir, 'jriver-abc-123').published_stem == 'H/Heat (2018) Atmos'
+    assert result['image_url'].endswith('/img/movies/H/Heat%20%282018%29%20Atmos.png')
 
 
 def test_tv_goes_in_the_tv_folder_and_the_folder_names_are_configurable(tmp_path, repos):
@@ -60,8 +61,8 @@ def test_tv_goes_in_the_tv_folder_and_the_folder_names_are_configurable(tmp_path
 
     _publish(queue_dir, repos, folders=CategoryFolders('Movie BEQs', 'TV Shows BEQ'))
 
-    assert _tree(repos[0]) == ['xml/Movie BEQs/Heat (2018) Atmos.json', 'xml/Movie BEQs/database.json',
-                               'xml/TV Shows BEQ/Show (2015) S02 DD+.json', 'xml/TV Shows BEQ/database.json']
+    assert _tree(repos[0]) == ['xml/Movie BEQs/H/Heat (2018) Atmos.json', 'xml/Movie BEQs/database.json',
+                               'xml/TV Shows BEQ/S/Show (2015) S02 DD+.json', 'xml/TV Shows BEQ/database.json']
 
 
 def test_flat_when_category_folders_are_off(tmp_path, repos):
@@ -70,7 +71,7 @@ def test_flat_when_category_folders_are_off(tmp_path, repos):
 
     _publish(queue_dir, repos, folders=False)
 
-    assert 'xml/Heat (2018) Atmos.json' in _tree(repos[0])
+    assert _tree(repos[0]) == ['xml/H/Heat (2018) Atmos.json', 'xml/database.json']
 
 
 def test_two_titles_with_one_name_do_not_overwrite_each_other(tmp_path, repos):
@@ -80,21 +81,21 @@ def test_two_titles_with_one_name_do_not_overwrite_each_other(tmp_path, repos):
 
     _publish(queue_dir, repos)
 
-    assert [read_entry(queue_dir, i).published_stem for i in 'ab'] == ['Heat (2018) Atmos', 'Heat (2018) Atmos (2)']
+    assert [read_entry(queue_dir, i).published_stem for i in 'ab'] == ['H/Heat (2018) Atmos', 'H/Heat (2018) Atmos (2)']
     assert len([f for f in _tree(repos[0]) if f.endswith('.json') and 'database' not in f]) == 2
 
 
 def test_a_name_already_in_the_repository_is_not_taken(tmp_path, repos):
     queue_dir = str(tmp_path / 'queue')
     _queue_entry(queue_dir, 'a', 'Heat', readable=True)
-    folder = os.path.join(repos[0].local_path, 'xml', 'movies')
+    folder = os.path.join(repos[0].local_path, 'xml', 'movies', 'H')
     os.makedirs(folder)
     with open(os.path.join(folder, 'Heat (2018) Atmos.json'), 'w') as f:
         f.write('{"someone": "else"}')
 
     _publish(queue_dir, repos)
 
-    assert read_entry(queue_dir, 'a').published_stem == 'Heat (2018) Atmos (2)'
+    assert read_entry(queue_dir, 'a').published_stem == 'H/Heat (2018) Atmos (2)'
     with open(os.path.join(folder, 'Heat (2018) Atmos.json')) as f:
         assert json.load(f) == {'someone': 'else'}
 
@@ -108,9 +109,9 @@ def test_editing_the_title_after_publishing_does_not_move_the_file(tmp_path, rep
     (result,) = _publish(queue_dir, repos, republish=True)
 
     assert result['republished'] is True
-    assert 'xml/movies/Heat (2018) Atmos.json' in _tree(repos[0])
+    assert 'xml/movies/H/Heat (2018) Atmos.json' in _tree(repos[0])
     assert not any('Redux' in f.split('/')[-1] for f in _tree(repos[0]))
-    with open(os.path.join(repos[0].local_path, 'xml', 'movies', 'Heat (2018) Atmos.json')) as f:
+    with open(os.path.join(repos[0].local_path, 'xml', 'movies', 'H', 'Heat (2018) Atmos.json')) as f:
         assert json.load(f)['title'] == 'Heat Redux'
 
 
@@ -121,7 +122,7 @@ def test_a_title_published_before_names_were_readable_stays_at_its_id(tmp_path, 
     # as an old publish left it: its files at the id, no stem recorded
     for target, kind in ((repos[0], 'json'), (repos[2], 'png')):
         folder = os.path.join(target.local_path, 'xml' if kind == 'json' else 'img', 'movies')
-        os.replace(os.path.join(folder, f'Heat (2018) Atmos.{kind}'), os.path.join(folder, f'legacy-id.{kind}'))
+        os.replace(os.path.join(folder, 'H', f'Heat (2018) Atmos.{kind}'), os.path.join(folder, f'legacy-id.{kind}'))
     update_entry(queue_dir, 'legacy-id', published_stem=None)
     update_entry(queue_dir, 'legacy-id', meta={'title': 'Heat', 'year': '2018', 'audio_types': ['Atmos'], 'note': 'x'})
 
@@ -166,6 +167,56 @@ def test_a_cancelled_batch_still_writes_the_aggregate_for_what_it_published(tmp_
         assert len(json.load(f)) == 1
 
 
+def test_titles_in_several_letter_folders_share_one_aggregate_in_their_category_folder(tmp_path, repos):
+    queue_dir = str(tmp_path / 'queue')
+    for entry_id, title in (('a', 'Alien'), ('b', 'Heat'), ('c', '1917'), ('d', 'Élite'), ('e', '[REC]')):
+        _queue_entry(queue_dir, entry_id, title, readable=True)
+
+    results = _publish(queue_dir, repos)
+
+    assert not any(r.get('error') for r in results)
+    assert _tree(repos[0]) == ['xml/movies/#/[REC] (2018) Atmos.json',
+                               'xml/movies/0-9/1917 (2018) Atmos.json', 'xml/movies/A/Alien (2018) Atmos.json',
+                               'xml/movies/E/Élite (2018) Atmos.json', 'xml/movies/H/Heat (2018) Atmos.json',
+                               'xml/movies/database.json']
+    with open(os.path.join(repos[0].local_path, 'xml', 'movies', 'database.json')) as f:
+        assert sorted(r['title'] for r in json.load(f)) == ['1917', 'Alien', 'Heat', '[REC]', 'Élite']
+
+
+def test_a_title_published_before_letter_folders_is_republished_where_it_is(tmp_path, repos):
+    queue_dir = str(tmp_path / 'queue')
+    _queue_entry(queue_dir, 'a', 'Heat', readable=True)
+    _publish(queue_dir, repos)
+    # as a publish before letter folders left it: the file in the category folder, the stem without a letter
+    for target, kind in ((repos[0], 'json'), (repos[2], 'png')):
+        folder = os.path.join(target.local_path, 'xml' if kind == 'json' else 'img', 'movies')
+        os.replace(os.path.join(folder, 'H', f'Heat (2018) Atmos.{kind}'), os.path.join(folder, f'Heat (2018) Atmos.{kind}'))
+    update_entry(queue_dir, 'a', published_stem='Heat (2018) Atmos')
+    update_entry(queue_dir, 'a', meta={'title': 'Heat', 'year': '2018', 'audio_types': ['Atmos'], 'note': 'x'})
+
+    (result,) = _publish(queue_dir, repos, republish=True)
+
+    assert result['republished'] is True
+    assert _tree(repos[0]) == ['xml/movies/Heat (2018) Atmos.json', 'xml/movies/database.json']
+    assert _tree(repos[2]) == ['img/movies/Heat (2018) Atmos.png']
+    assert read_entry(queue_dir, 'a').published_stem == 'Heat (2018) Atmos'
+
+
+def test_a_single_publish_into_a_letter_folder_writes_the_aggregate_in_the_folder_it_names(tmp_path, repos):
+    from model.codec import filter_from_json
+    from pipeline.metadata import BeqMetadata
+    xml = repos[0]
+    queue_dir = str(tmp_path / 'queue')
+    _queue_entry(queue_dir, 'a', 'Heat', readable=True)
+    entry = read_entry(queue_dir, 'a')
+
+    Session().publish(filter_from_json(entry.candidates[0].filters),
+                      BeqMetadata(title='Heat', year='2018', audio_types=['Atmos']), xml, 'xml/movies/H/Heat.json',
+                      push=False, record_dir='xml/movies')
+
+    assert _tree(xml) == ['xml/movies/H/Heat.json', 'xml/movies/database.json']
+
+
 def test_a_single_publish_call_still_writes_the_aggregate_by_default(tmp_path, repos):
     from model.codec import filter_from_json
     from pipeline.metadata import BeqMetadata
@@ -204,10 +255,10 @@ def test_the_heatmap_is_written_beside_the_report_image_and_is_the_records_secon
 
     assert not result.get('error'), result
     assert drawn == ['Heat']
-    assert _tree(repos[2]) == ['img/movies/Heat (2018) Atmos heatmap.png', 'img/movies/Heat (2018) Atmos.png']
-    with open(os.path.join(repos[2].local_path, 'img', 'movies', 'Heat (2018) Atmos heatmap.png'), 'rb') as f:
+    assert _tree(repos[2]) == ['img/movies/H/Heat (2018) Atmos heatmap.png', 'img/movies/H/Heat (2018) Atmos.png']
+    with open(os.path.join(repos[2].local_path, 'img', 'movies', 'H', 'Heat (2018) Atmos heatmap.png'), 'rb') as f:
         assert f.read() == b'HEATMAP'
-    with open(os.path.join(repos[0].local_path, 'xml', 'movies', 'Heat (2018) Atmos.json')) as f:
+    with open(os.path.join(repos[0].local_path, 'xml', 'movies', 'H', 'Heat (2018) Atmos.json')) as f:
         images = json.load(f)['images']
     assert [u.rsplit('/', 1)[1] for u in images] == ['Heat%20%282018%29%20Atmos.png', 'Heat%20%282018%29%20Atmos%20heatmap.png']
 
@@ -229,7 +280,7 @@ def test_a_heatmap_that_cannot_be_drawn_does_not_stop_the_title(tmp_path, repos,
 
     assert 'error' not in result and result['heatmap_error'] == 'RuntimeError: no spectrogram'
     assert read_entry(queue_dir, 'a').status == 'published'
-    assert _tree(repos[2]) == ['img/movies/Heat (2018) Atmos.png']
+    assert _tree(repos[2]) == ['img/movies/H/Heat (2018) Atmos.png']
 
 
 def test_no_heatmap_without_a_track_or_without_an_images_repo(tmp_path, repos, monkeypatch):
@@ -266,9 +317,10 @@ def test_commit_takes_the_heatmap_with_the_report_image_and_names_it_in_the_comm
 
     assert result.missing == [] and result.not_committed == []
     assert _files_in(repos[2], _commits(repos[2])[0]) == [
-        'img/movies/Heat (2018) Atmos heatmap.png', 'img/movies/Heat (2018) Atmos.png', 'img/movies/Plain (2018) Atmos.png']
+        'img/movies/H/Heat (2018) Atmos heatmap.png', 'img/movies/H/Heat (2018) Atmos.png',
+        'img/movies/P/Plain (2018) Atmos.png']
     assert _files_in(repos[0], _commits(repos[0])[0]) == [
-        'xml/movies/Heat (2018) Atmos.json', 'xml/movies/Plain (2018) Atmos.json', 'xml/movies/database.json']
+        'xml/movies/H/Heat (2018) Atmos.json', 'xml/movies/P/Plain (2018) Atmos.json', 'xml/movies/database.json']
 
 
 # --- projects --------------------------------------------------------------------------------------------------

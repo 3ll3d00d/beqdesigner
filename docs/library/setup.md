@@ -126,7 +126,7 @@ Publishing writes into the local clones of up to two git repositories. You publi
 
 | Repository | What is written | Required? |
 |---|---|---|
-| Filter-record repository | `<filter-record folder>/<id>.json`, or `<filter-record folder>/movies/<id>.json` and `.../tv/<id>.json` when separated | yes, to publish |
-| Images repository | `<Images folder>/<id>.png`, or the matching `movies/` or `tv/` subfolder when separated | no |
+| Filter-record repository | `<filter-record folder>/<letter>/<name>.json`, or `<filter-record folder>/movies/<letter>/<name>.json` and `.../tv/<letter>/<name>.json` when separated | yes, to publish |
+| Images repository | `<Images folder>/<letter>/<name>.png`, or the matching `movies/` or `tv/` subfolder when separated | no |
 
 Images belong in a **separate repository** from the filter record, and the filter record refers to each image by its address on github.com, which is why the images are committed and pushed first. See [Publish and commit](publish.md) for what happens.
