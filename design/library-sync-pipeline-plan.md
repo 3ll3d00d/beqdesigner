@@ -26,7 +26,7 @@ not:
 | Title-page progress | Built | `92d8881` | [Implemented design](implemented.md#library-work-list-and-runtime-behavior) |
 | Work-list feedback F1-F5 | Built | F1 `de45afe`, F2 `7420a54`, F3 `49bbf34`, F4 `c58a4b4`, F5 `3d38f76` `ae1a086` `dc527f5` `12d875e` | [Implemented design](implemented.md); agreed design in [archive](archive/library-sync/worklist-feedback.md) |
 | Pipeline service S0-S7 | Built | per chunk in [§11](pipeline-service.md#11-status) | [Pipeline service](pipeline-service.md) |
-| Rejected designs (designer contract 1.1) | In progress: contract built | contract: this commit | [W4](outstanding.md#w4--rejected-designs-designer-contract-11) |
+| Rejected designs (designer contract 1.1) | In progress: contract, queue and publish built | contract `8818b10`, queue: this commit | [W4](outstanding.md#w4--rejected-designs-designer-contract-11) |
 | Review Folder's lease check (service §5.1 gap) | Open | -- | [W3](outstanding.md#w3--review-folder-honours-the-lease) |
 | S5 image: amd64 build and smoke | Verified | image `80cab0d`, smoke run at `7db992d` | [Docker image](pipeline-service/docker.md) |
 | S5 image: arm64 build and GHCR publish | Not yet run | -- | [C1](outstanding.md#c1--arm64-image-and-ghcr-publish) |

@@ -9,7 +9,7 @@ from pipeline.library.selection import Selection
 from pipeline.orchestrate import Session
 from pipeline.config import AnalysisConfig
 from pipeline.publish.project import write_mono_project
-from pipeline.review import read_entry, update_entry
+from pipeline.review import CandidateSummary, read_entry, update_entry
 from test_pipeline_library_index import FakeSource, _entry, _extracted, _item, _needs, _profile, _scan, env  # noqa: F401
 from test_pipeline_publish_project import _HUMAN_FILTER, _PIPELINE_FILTER, _hand_edit_filter, _write_mono_wav
 
@@ -54,6 +54,17 @@ def test_a_confident_title_is_accepted_with_its_top_pick_and_a_reviewer_note(env
     assert report.accepted == ['fs-a'] and report.excluded == []
     assert (entry.status, entry.chosen_candidate_index) == ('accepted', 0)
     assert entry.reviewer_note == 'bulk accepted, confidence >= 0.90' == report.note
+
+
+def test_the_top_pick_is_never_a_rejected_design_however_confident(env):
+    rejected = CandidateSummary(filters={'fs': 48000, 'filters': []}, confidence=0.99, method='non_parametric',
+                                mv_adjust_db=16.0, rejection_reasons=['introduces a cliff'])
+    _scan(env, _title(env, 'a', confidence=0.95, rejected=[rejected]))
+
+    assert _accept(env).accepted == ['fs-a']
+
+    entry = read_entry(env.queue, 'fs-a')
+    assert entry.chosen_candidate_index == 0 and not entry.overrides_rejection
 
 
 def test_the_note_is_added_to_a_reviewers_own(env):

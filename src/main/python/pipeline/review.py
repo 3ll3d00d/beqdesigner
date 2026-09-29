@@ -57,6 +57,7 @@ class CandidateSummary:
     residual_db: Optional[float] = None
     residual_band_hz: Optional[tuple] = None
     commentary: Optional[dict] = None
+    rejection_reasons: Optional[List[str]] = None  # a rejected design (contract 1.1): why the designer judged it unfit
 
 
 @dataclass
@@ -79,7 +80,7 @@ class QueueEntry:
     decline_reason: Optional[str] = None
     decline_message: Optional[str] = None
     status: str = 'pending'
-    chosen_candidate_index: Optional[int] = None
+    chosen_candidate_index: Optional[int] = None  # into `offered`: candidates, then rejected (an override, see below)
     reviewer_note: Optional[str] = None
     art_path: Optional[str] = None   # local image file used as this entry's report poster, if any
     art_overridden: bool = False     # True once a human has explicitly set/cleared art_path; future
@@ -96,6 +97,9 @@ class QueueEntry:
     published_stem: Optional[str] = None      # the readable file name (no extension) it was first published under
                                                # (catalogue_stem()); kept so a metadata edit never moves a published
                                                # file. None: published before names were readable, so under `id`
+    rejected: List[CandidateSummary] = field(default_factory=list)  # designs the designer judged unfit to publish
+                                               # (contract 1.1), each with rejection_reasons: for a person to review.
+                                               # Nothing picks one but a person, and picking one overrides the designer
 
     def __post_init__(self):
         if self.decline_reason and not self.candidates:   # a decline, including one written before it had a candidate
@@ -105,10 +109,30 @@ class QueueEntry:
         if self.status == 'accepted':
             if self.chosen_candidate_index is None:
                 raise ValueError("status='accepted' requires chosen_candidate_index")
-            if not (0 <= self.chosen_candidate_index < len(self.candidates)):
+            if not (0 <= self.chosen_candidate_index < len(self.offered)):
                 raise ValueError(
                     f"chosen_candidate_index {self.chosen_candidate_index} out of range "
-                    f"for {len(self.candidates)} candidate(s)")
+                    f"for {len(self.candidates)} candidate(s) and {len(self.rejected)} rejected design(s)")
+
+    @property
+    def offered(self) -> List[CandidateSummary]:
+        '''
+        Everything a person may pick from, in the order `chosen_candidate_index` counts: the candidates (best first), then the
+        designs the designer rejected. An index past the candidates is a person overriding the designer's rejection.
+        '''
+        return [*self.candidates, *self.rejected]
+
+    @property
+    def chosen(self) -> Optional[CandidateSummary]:
+        ''' The design picked, candidate or rejected; None if none has been. '''
+        index = self.chosen_candidate_index
+        return self.offered[index] if index is not None and 0 <= index < len(self.offered) else None
+
+    @property
+    def overrides_rejection(self) -> bool:
+        ''' The design picked is one the designer rejected: a person's override of its verdict, recorded as such. '''
+        index = self.chosen_candidate_index
+        return index is not None and len(self.candidates) <= index < len(self.offered)
 
 
     @property
@@ -162,6 +186,7 @@ def write_queue_entry(queue_dir: str, entry: QueueEntry) -> None:
 def _entry_from_dict(d: dict) -> QueueEntry:
     d = dict(d)
     d['candidates'] = [CandidateSummary(**c) for c in d.get('candidates', [])]
+    d['rejected'] = [CandidateSummary(**c) for c in d.get('rejected', [])]
     return QueueEntry(**d)
 
 
@@ -202,23 +227,30 @@ def update_entry(queue_dir: str, entry_id: str, **fields) -> QueueEntry:
     return updated
 
 
+def _summary_of(design) -> CandidateSummary:
+    ''' An outcome's AlternativeDesign as the queue keeps it. '''
+    return CandidateSummary(filters=design.filters.to_json(), confidence=design.confidence, method=design.method,
+                            mv_adjust_db=design.mv_adjust_db, gain_reduction_db=design.gain_reduction_db,
+                            residual_db=design.residual_db, residual_band_hz=design.residual_band_hz,
+                            commentary=design.commentary,
+                            rejection_reasons=list(design.rejection_reasons) if design.rejection_reasons else None)
+
+
 def _outcome_to_entry(entry_id: str, fs: int, meta: dict, curve: dict, outcome: DesignOutcome,
                       peak_curve: Optional[dict] = None) -> QueueEntry:
+    rejected = [_summary_of(design) for design in outcome.rejected]
     if isinstance(outcome, Declined):   # QueueEntry gives it its flat candidate
         return QueueEntry(id=entry_id, fs=fs, meta=meta, curve=curve, peak_curve=peak_curve, candidates=[],
-                          decline_reason=outcome.reason, decline_message=outcome.message)
+                          decline_reason=outcome.reason, decline_message=outcome.message, rejected=rejected)
     assert isinstance(outcome, Applied)
     candidates = [CandidateSummary(filters=outcome.filters.to_json(), confidence=outcome.confidence,
                                    method=outcome.method, mv_adjust_db=outcome.mv_adjust_db,
                                    gain_reduction_db=outcome.gain_reduction_db,
                                    residual_db=outcome.residual_db, residual_band_hz=outcome.residual_band_hz,
                                    commentary=outcome.commentary)]
-    candidates += [CandidateSummary(filters=alt.filters.to_json(), confidence=alt.confidence, method=alt.method,
-                                    mv_adjust_db=alt.mv_adjust_db, gain_reduction_db=alt.gain_reduction_db,
-                                    residual_db=alt.residual_db,
-                                    residual_band_hz=alt.residual_band_hz, commentary=alt.commentary)
-                  for alt in outcome.alternatives]
-    return QueueEntry(id=entry_id, fs=fs, meta=meta, curve=curve, peak_curve=peak_curve, candidates=candidates)
+    candidates += [_summary_of(alt) for alt in outcome.alternatives]
+    return QueueEntry(id=entry_id, fs=fs, meta=meta, curve=curve, peak_curve=peak_curve, candidates=candidates,
+                      rejected=rejected)
 
 
 def design_and_queue(session: Session, entry_id: str, wav_path: str, designer: str, queue_dir: str,
@@ -321,13 +353,13 @@ def batch_design(items: Sequence[Tuple[str, str, Optional[dict]]], designer: str
 def _chosen_candidate(entry: QueueEntry) -> CandidateSummary:
     if entry.status != 'accepted':
         raise ValueError(f"entry {entry.id!r} is not accepted (status={entry.status!r})")
-    return entry.candidates[entry.chosen_candidate_index]  # QueueEntry.__post_init__ already guarantees this is in range
+    return entry.chosen  # QueueEntry.__post_init__ already guarantees the index is in range
 
 
 def apply_reviewed_entry(entry: QueueEntry):
     '''
     entry.status must be 'accepted'. Converts
-    entry.candidates[entry.chosen_candidate_index].filters (already a
+    entry.chosen.filters -- a candidate, or a rejected design a person overrode the designer to pick -- (already a
     realised CompleteFilter.to_json() dict -- see batch_design) back into a
     CompleteFilter via model.codec.filter_from_json -- so nothing
     downstream (set_filters, to_beq_xml, report, publish) can tell a human
@@ -423,7 +455,7 @@ def publication_meta(entry: QueueEntry, meta_defaults: Optional[dict] = None):
     except (TypeError, AttributeError, ValueError) as error:
         raise InvalidMetadata([f'metadata is not valid: {error}']) from error
     if meta.gain is None:
-        meta.gain = f"{entry.candidates[entry.chosen_candidate_index].mv_adjust_db:+g}"
+        meta.gain = f"{entry.chosen.mv_adjust_db:+g}"
     return meta
 
 
@@ -473,7 +505,7 @@ def current_publish_digest(entry: QueueEntry, *, meta_defaults: Optional[dict] =
     from pipeline.publish.project import preview_published_projects
     if entry.status not in ('accepted', 'published') or entry.chosen_candidate_index is None:
         raise ValueError(f"entry {entry.id!r} is not accepted or published (status={entry.status!r})")
-    chosen = entry.candidates[entry.chosen_candidate_index]
+    chosen = entry.chosen
     complete_filter = filter_from_json(chosen.filters)
     if work_dir is not None:
         _, mono_path, mc_path, _ = project_paths(work_dir, entry.id)
@@ -613,7 +645,7 @@ def publish_reviewed_queue(queue_dir: str, xml_repo: RepoTarget, meta_defaults: 
 
     def publish_one(entry: QueueEntry, republished: bool) -> dict:
         heatmap_error = ''
-        chosen = entry.candidates[entry.chosen_candidate_index]  # accepted and published entries always have one
+        chosen = entry.chosen  # accepted and published entries always have one (a rejected design, if a person overrode)
         complete_filter = filter_from_json(chosen.filters)  # still drives meta.gain's default below
         try:
             meta = publication_meta(entry, meta_defaults)

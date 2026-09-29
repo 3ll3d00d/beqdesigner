@@ -177,10 +177,13 @@ publishes one on its own; a person may, as a recorded override.
   reasons required, not allowed on `candidates`, no ordering rule), decoded
   by the HTTP binding, and carried as `.rejected` on `Applied` and
   `Declined`. Requests say `"1.1"`.
-- **Queue and publish (not started):** keep the rejected designs on the queue
-  entry; an accepted pick may be one of them, recorded as an override of the
-  designer; publishing uses whichever design was picked. Bulk *Accept top
-  pick* never picks one.
+- **Queue and publish (built):** `QueueEntry.rejected` keeps them, each a
+  `CandidateSummary` with `rejection_reasons`, for a decline as for a success.
+  `chosen_candidate_index` counts through `offered` (the candidates, then the
+  rejected designs); an index past the candidates is a person's override,
+  which the entry itself records (`overrides_rejection`). `chosen` is what
+  apply, publish and the digest use. Bulk *Accept top pick* still takes index
+  0, never a rejected design. Entries written before 1.1 read with none.
 - **Title page (not started):** list the rejected designs after the
   candidates, with their reasons, chart and commentary; accepting one asks
   first and says it overrides the designer.
