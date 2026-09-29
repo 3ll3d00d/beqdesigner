@@ -20,7 +20,7 @@ moves to the implemented design and the item is removed from this file.
 | W2 | chunk 45b | Partial in `62270b4`: codec, channels and stream count are requested | J2 for automatic stream selection; manual override already exists |
 | W3 | pipeline-service §5.1 gap | Not started | None |
 | C1 | chunk S5 | amd64 build and smoke verified; arm64 build and GHCR publish not yet run | The first tag push |
-| D1 | beqforge R2 | Design, not built: split into beqforge's own stage cache first, then requests by reference only if measured to matter | beqforge R2a timings |
+| D1 | beqforge R2 | Design, not built: split into beqforge's own stage cache first, then requests by reference only if measured to matter | beqforge's answers (designer-by-reference.md §6), then R2a timings |
 | O1 | D6 | Optional idea; no implementation decision | Product decision |
 | O2 | former §9 reviewer questions | Behavior exists; acceptance decision missing | Real reviewer feedback |
 | T1 | -- | Watch; not reproduced | Recurrence with a stack dump |

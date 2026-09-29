@@ -1,6 +1,6 @@
 # Designer requests by reference — design, not built
 
-**Status:** design, not built. Answers beqforge's R2 ("a shared-filesystem mode
+**Status:** design, not built; waiting on beqforge's answers to §6. Answers beqforge's R2 ("a shared-filesystem mode
 with beqdesigner", beqforge `IMPROVEMENT_PLAN.md`, `3d5db14`), which asks for
 part of the change here, since [`designer-interface.md`](designer-interface.md)
 is this repo's contract. Tracked as [D1](outstanding.md#d1--designer-requests-by-reference).
@@ -32,8 +32,9 @@ Checked against both repos at `19dbae1` / beqforge `3d5db14`:
 **R2a — the server uses its stage cache (beqforge only, no contract change).**
 This alone gives (c). It needs R2's own fixes (b) (atomic write-then-rename,
 entries never changed in place) and (c) (per-stage digests baked into the
-frozen build), plus C3 (the parametric key covers too little). Ship this
-first, then measure what a warm inline request still costs.
+frozen build). C3, a correct parametric key, is also a prerequisite, and
+beqforge has already built it (`a2db373`). Ship this first, then measure what
+a warm inline request still costs.
 
 **R2b — requests by reference (contract 1.2, this doc).** This saves only the
 wire cost: base64 encoding, JSON and transfer, and decoding on the server. For
@@ -96,8 +97,12 @@ The rules:
   would otherwise have sent inline. The designer decodes, hashes and
   compares. This is what makes a request by path identical to one sent
   inline. It also catches a file read mid-write: ffmpeg writes
-  `multichannel.wav` in place, not by write-then-rename. And it hands
-  beqforge its cache key without hashing again.
+  `multichannel.wav` in place, not by write-then-rename. It does **not**
+  give beqforge its cache key directly: `material_fingerprint` feeds the
+  name, `fs`, coverage and every array's bytes into a single SHA-256, so
+  per-array digests can't be reused as that key. The designer has to hash
+  the decoded arrays anyway to check them, so it loses nothing. Keying the
+  stage cache on these digests would need a change on beqforge's side (Q4).
 - **Channel labels stay as `channels`' keys**, set by the caller as today
   (`get_channel_name` over the recorded layout). The designer never works
   them out from the file.
@@ -171,3 +176,47 @@ the cost this change removes.
   names its build (`beqforge_revision` in commentary). Surfacing a revision
   that changed would be a separate caller item, and it matters more once a
   redesign is cheap.
+
+## 6. Questions for beqforge
+
+Open until beqforge answers. Each answer goes in beqforge's `IMPROVEMENT_PLAN.md`
+under R2; this section is then updated to point at it. Nothing in §3-§4 is
+built before Q1-Q3 are answered.
+
+- **Q1 — the split.** Do you accept splitting R2 into R2a (the server uses the
+  stage cache, beqforge only, §2) and R2b (requests by reference, contract 1.2,
+  built only if R2a's warm-request timings show the transfer matters)? If yes,
+  please record R2a and R2b as separate items with their own priorities. If
+  no, what does R2a leave unsolved that a request by reference would solve?
+- **Q2 — no shared stage cache.** R2 asked for "one cache both sides use".
+  We propose sharing the audio only: beqdesigner never reads beqforge's
+  stage cache, and `manifest.json` and the `work_dir` layout stay private
+  to beqdesigner (§2.2). Do you agree? If not, what would beqforge read from a
+  shared cache that it cannot get from the audio named in the request?
+- **Q3 — the name in the fingerprint.** `material_fingerprint` hashes
+  `material.name` (`cache.py:120`), and the server fixes it to
+  `"designer-request"` (`designer.py:275`). Will a loader that reads a
+  request by path keep that fixed name, or will you take the name out of the
+  key? Either way, a request by path and the same request inline must give
+  the same key.
+- **Q4 — digests as the key.** A request by reference carries a SHA-256 for
+  each array (§3). Do you want to change `material_fingerprint` to a hash
+  over those per-array digests plus name, `fs` and coverage, so a checked
+  request supplies the key with no second hash? Or will you keep hashing the
+  samples in one pass? Either is fine for us. It only decides whether the
+  per-array digest is written into the contract as more than a check.
+- **Q5 — the wire rules in §3.** Please review the `file` + `sha256` form
+  as a whole: `soundfile` decoding with `always_2d`, then taking one column.
+  Anything you would change is easiest to change before D1.1 writes it into
+  `designer-interface.md`. The rules to check:
+  - paths are relative to a root each side configures, with absolute
+    paths and `..` refused;
+  - the rate and frame count must match;
+  - 422 is an implementation failure, never a decline;
+  - the caller sends by reference only to a designer configured for it
+    (`"1.2"`);
+  - there is no inline fallback on 422.
+- **Q6 — the follow-ons in §5 (optional, no deadline).** Would a
+  `design-request.json` written beside the audio replace `tools/extract.py`
+  as the input for `tools/replay.py` and the CLI? Should R1's `record_dir`
+  point into the same title folder?
