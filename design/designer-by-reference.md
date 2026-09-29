@@ -48,6 +48,34 @@ small next to a cold analysis. The caller still loads the arrays either way
 if R2a's timings show the transfer matters, or once the designer runs on
 another host and the wire becomes the bottleneck.
 
+**Measured, 2026-09-29 (the caller's half of R2b's evidence).** *One Battle
+After Another*: 2.70 h at 1 kHz, mono plus 8 channels, 931.6 MB of JSON
+body. This is the largest title in the local library. The caller used
+beqdesigner's real `http_binding` and posted to localhost. The server was a
+stub that runs beqforge's own `request_from_json` and then declines. Times
+are three runs, which agreed within 0.2 s:
+
+| Step | Inline (1.1) | By reference (§3) |
+|---|---|---|
+| Caller: base64 of every array | 1.42 s | -- |
+| Caller: `json.dumps` | 2.8 s | -- |
+| Caller: SHA-256 of every array | -- | 0.68 s |
+| Server: read the body | 0.45 s | -- |
+| Server: `json.loads` | 1.47 s | -- |
+| Server: base64 decode and checks | 2.2 s | -- |
+| Server: read both WAVs (`soundfile`) | -- | 0.54-0.65 s |
+| Server: SHA-256 check | -- | 0.87 s |
+| **Total per request** | **8.3-8.5 s** | **about 2.2 s** |
+
+Loading the WAVs on the caller took 0.9 s. Both forms pay that, so it is
+left out of the table. A request by reference would save about 6 s per
+request on this title, and less on shorter ones. Against a cold design
+(40-80 s) that is 8-15%, which is not worth a contract change. Against a
+warm R2a request it could be most of the time left. So R2a's warm timings
+still decide, and this table is the other half of that comparison. Peak
+memory was not measured. The inline server holds a 0.9 GB body and its
+parsed strings before the arrays exist.
+
 beqforge accepted the split: R2a is its priority 9, and R2b is parked
 behind R2a's timings (§6 Q1).
 
@@ -92,10 +120,16 @@ The rules (beqforge's amendments from §6 Q5 are folded in):
   between hosts and containers (the same problem `pathmap.py` solves for
   JRiver). A path outside the root would let anyone who can POST to the
   designer read files through it.
-- **The file format is WAV**, and the designer decodes it as
-  `soundfile.read(path, dtype='float64', always_2d=True)[:, channel]`. That is
-  exactly what `model.signal.read_wav_data` gives the caller, and `resample`
-  does nothing because the file is already at `fs`. `channel` must be
+- **The file format is WAV** (PCM s16/s24/s32 or float). The decoded array
+  is defined by its arithmetic, not by a library: an integer sample `s` of
+  `b` bits becomes `s / 2**(b-1)` as float64, and a float sample is widened
+  to float64. That is exactly what `model.signal.read_wav_data` gives the
+  caller (`soundfile.read(path, dtype='float64', always_2d=True)[:, channel]`),
+  and `resample` does nothing because the file is already at `fs`. beqforge
+  has no WAV reader today (it has no `soundfile`, and its CLI reads `.npz`).
+  `scipy.io.wavfile` returns s24 left-justified in int32, and dividing that by
+  `2**31` gives the same values exactly, because the scaling is a power of
+  two. The per-array digest catches any decoder that differs. `channel` must be
   `0 <= channel < ` the file's channel count. The file's sample rate must
   equal the request's `fs` (a file at any other rate is refused, **never
   resampled**), and `shape` must be `[frames]`.
