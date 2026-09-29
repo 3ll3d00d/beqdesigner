@@ -296,6 +296,14 @@ renders the notes.
   `graphviz` (JRiver filter pipeline rendering), `minidsp-rs` (pushing to a
   connected minidsp). All are degraded-gracefully, not hard dependencies.
 
+## Committing
+
+**Commit after every distinct feature, fix or task** -- and, within a larger
+feature, after each distinct task in it -- once its tests are written and
+pass. Don't let unrelated changes pile up in the working tree: two pieces of
+work are two commits, each with its own tests and plan/doc updates, so each
+can be reviewed and reverted on its own.
+
 ## Working from a plan
 
 Multi-commit work is tracked in a plan under `design/` (for example
