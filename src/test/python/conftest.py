@@ -38,3 +38,20 @@ def tmpdirPath(tmpdir):
     yield str(tmpdir)
     # required due to https://github.com/pytest-dev/pytest/issues/1120
     shutil.rmtree(str(tmpdir))
+
+
+@pytest.fixture(autouse=True)
+def _designer_registry_restored():
+    '''
+    **Every test leaves the designer registry as it found it.** The registry is process-wide, and a service job or a CLI
+    run registers its profile's designers there and never removes them, so under `-n auto` whichever test a worker ran
+    before decided what the next one saw (the batch dialog's "no designers are registered" test failed after a service
+    test had left 'rolloff' behind).
+    '''
+    from pipeline.designer import registry
+    designers, takes_sources = dict(registry._registry), set(registry._takes_sources)
+    yield
+    registry._registry.clear()
+    registry._registry.update(designers)
+    registry._takes_sources.clear()
+    registry._takes_sources.update(takes_sources)
