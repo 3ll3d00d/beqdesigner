@@ -5,10 +5,11 @@ import os
 from dataclasses import dataclass
 from typing import Optional
 
-from qtpy.QtCore import QObject, QRunnable, Qt, QThreadPool, Signal
+from qtpy.QtCore import QObject, QRunnable, QThreadPool, Signal
 from qtpy.QtGui import QPixmap
-from qtpy.QtWidgets import QHBoxLayout, QLabel, QPushButton, QSizePolicy, QVBoxLayout, QWidget
+from qtpy.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
+from model.worklist_image import ScaledImage
 from model.codec import filter_from_json
 from model.execution_events import redact_text
 from pipeline.config import AnalysisConfig
@@ -88,30 +89,6 @@ class _ComparisonJob(QRunnable):
             self.signals.failed.emit(self.request, redact_text(f'{type(error).__name__}: {error}'))
 
 
-class _ComparisonImage(QLabel):
-    def __init__(self, parent):
-        super().__init__(parent)
-        self._original = QPixmap()
-        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.setMinimumSize(1, 1)
-        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
-
-    def set_image(self, image):
-        self._original = image
-        self._scale()
-
-    def _scale(self):
-        if self._original.isNull():
-            self.clear()
-        else:
-            self.setPixmap(self._original.scaled(self.size(), Qt.AspectRatioMode.KeepAspectRatio,
-                                                Qt.TransformationMode.SmoothTransformation))
-
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        self._scale()
-
-
 class SpectrumPanel(QWidget):
     """One worker and one cached image; changed titles/candidates coalesce and late results are discarded."""
     refresh_requested = Signal()
@@ -131,7 +108,7 @@ class SpectrumPanel(QWidget):
         self.refreshButton.clicked.connect(self.refresh_requested.emit)
         controls.addWidget(self.refreshButton)
         layout.addLayout(controls)
-        self.image = _ComparisonImage(self)
+        self.image = ScaledImage(self)
         layout.addWidget(self.image, 1)
         self.unavailable('No design to compare yet.')
 

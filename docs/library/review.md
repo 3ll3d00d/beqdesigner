@@ -149,3 +149,23 @@ The comparison needs the extracted `mono.wav` in the library work directory.
 A title without that audio shows how to make it available. **Refresh comparison**
 reads the audio, projects and current analysis preferences again. Rendering runs
 in the background; moving to another title discards an earlier title’s result.
+
+### Published BEQs
+
+Open **Published BEQs** on the title page to see who has already published for
+this title and track. Select an author’s entry, then choose one of its charts
+or heatmaps to view it in the same pane. The details show audio format, edition,
+language, source, MV adjustment, notes and warnings. **Open catalogue page** opens
+that entry’s page in your browser.
+
+The lookup uses the saved TMDB ID, or title and year when an ID is unavailable,
+and narrows results using audio format and known edition, language and source.
+TV results also check season and episode overlap. These are metadata matches;
+check the details to confirm the same soundtrack. **Include other tracks /
+editions** shows the other publications for this title as well.
+
+The tab shares Browse Catalogue’s downloaded database. **Refresh catalogue**
+checks for updates; if that fails, a cached database remains available. Images
+are downloaded in the background and cached locally. A failed image can be
+retried by selecting it again. Browsing published entries does not change your
+selected design, projects or review decision.

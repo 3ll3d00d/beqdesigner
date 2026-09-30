@@ -229,6 +229,7 @@ class TitleActions:
         self._bar.show_projects(self.project_states() if self._title_id else [], can_open,
                                 'Opening a project needs the main window: use the Library Work List from Tools.')
         self._refresh_spectrum()
+        self._refresh_published()
 
     def open_project(self, kind: str) -> bool:
         '''

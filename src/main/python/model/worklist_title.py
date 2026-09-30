@@ -51,6 +51,8 @@ from qtpy.QtWidgets import QAbstractSpinBox, QApplication, QComboBox, QLineEdit,
 
 from model.magnitude import MagnitudeModel
 from model.worklist_spectrum import SpectrumPanel, comparison_request
+from model.worklist_catalogue import catalogue_target
+from model.worklist_published import PublishedPanel
 from model.worklist_metadata import MetadataPanel, badge_alarms, badge_text, ok_colour
 from model.worklist_model import warning_colour
 from model.worklist_title_actions import TitleActions, TitleHooks
@@ -140,8 +142,10 @@ class TitlePage(TitleDecisions, TitleActions, QWidget, Ui_titlePage):
         self.spectrumPanel = SpectrumPanel(self)
         self._spectrum_preferences = preferences
         self.rightTabs.addTab(self.spectrumPanel, 'Spectrum comparison')
+        self.publishedPanel = PublishedPanel(preferences, self)
+        self.rightTabs.addTab(self.publishedPanel, 'Published BEQs')
         self.spectrumPanel.refresh_requested.connect(lambda: self._refresh_spectrum(force=True))
-        self.rightTabs.currentChanged.connect(lambda _: self._refresh_spectrum())
+        self.rightTabs.currentChanged.connect(lambda _: (self._refresh_spectrum(), self._refresh_published()))
         self._install_shortcuts()
 
     def _install_shortcuts(self) -> None:
@@ -350,6 +354,7 @@ class TitlePage(TitleDecisions, TitleActions, QWidget, Ui_titlePage):
         self._render_commentary()
         self._magnitude.redraw()
         self._refresh_spectrum()
+        self._refresh_published()
 
     def _picked_rejected(self) -> bool:
         ''' The highlighted design is one the designer rejected: accepting it is an override. '''
@@ -404,6 +409,7 @@ class TitlePage(TitleDecisions, TitleActions, QWidget, Ui_titlePage):
         self._render_decisions(self._rows())
         self._render_revise()
         self._refresh_spectrum()
+        self._refresh_published()
 
     # --- editing: what the panel tells the page ---------------------------------------------------------------------------
 
@@ -431,6 +437,7 @@ class TitlePage(TitleDecisions, TitleActions, QWidget, Ui_titlePage):
         if self._flushed_or_discarded():
             self._metadata.leave()      # a lookup still on its way is no longer wanted
             self.spectrumPanel.unavailable('Open a title to view its spectrum comparison.')
+            self.publishedPanel.set_target(None)
             return True
         return False
 
@@ -486,6 +493,7 @@ class TitlePage(TitleDecisions, TitleActions, QWidget, Ui_titlePage):
             self._entry = fresh      # the design on screen is the one decided on, so only the parts an edit touches change
             self._render_header(rows)
             self._refresh_spectrum()
+            self._refresh_published()
             self._metadata.show_entry(title_id, fresh, self._kind(rows), keep_edits=True, error='')
             self._problems = self._metadata.problems()
             self._render_badge()
@@ -512,6 +520,11 @@ class TitlePage(TitleDecisions, TitleActions, QWidget, Ui_titlePage):
             self._render_decisions(self._rows())   # the Accept button says whether it is an override
             self._magnitude.redraw()
         self._refresh_spectrum()
+        self._refresh_published()
+
+    def _refresh_published(self) -> None:
+        if hasattr(self, 'publishedPanel'):
+            self.publishedPanel.set_target(catalogue_target(self._entry, self._rows().get(self._title_id), self._defaults()))
 
     def _refresh_spectrum(self, force=False) -> None:
         if not hasattr(self, 'spectrumPanel'):
